@@ -27,7 +27,13 @@ import {
   getJob,
   finalizeJob,
 } from "../../cli/lib/jobs/db.js";
-import { recordRunResult, startRun } from "../../cli/lib/store/runs.js";
+import {
+  finishRun,
+  finishRunAttempt,
+  recordRunResult,
+  startRun,
+  startRunAttempt,
+} from "../../cli/lib/store/runs.js";
 import { createProject, createWorkspace } from "../../cli/lib/store/scopes.js";
 import {
   endAgentSession,
@@ -186,6 +192,91 @@ describe("consumer principals", () => {
 });
 
 describe("external operation Runs", () => {
+  test("rejects REPLACE conflicts against consumer tuple and idempotency key", () => {
+    makeRoot();
+    const { accepted } = start("replace-conflicts");
+    const db = openDomainDb();
+
+    expect(() =>
+      db
+        .prepare(
+          `INSERT OR REPLACE INTO runs
+           (id, workspace_id, project_id, agent_session_id, kind, state,
+            external_system, external_run_id, external_node_id, external_attempt,
+            external_operation, idempotency_key, request_digest,
+            consumer_principal_id, created_at)
+           SELECT 'run_replacement_tuple', workspace_id, project_id,
+             agent_session_id, kind, 'pending', external_system, external_run_id,
+             external_node_id, external_attempt, external_operation,
+             'replacement-key', request_digest, consumer_principal_id, created_at
+           FROM runs WHERE id = ?`,
+        )
+        .run(accepted.run.id),
+    ).toThrow(/Run (?:identity|conflict|immutable)/i);
+    expect(() =>
+      db
+        .prepare(
+          `INSERT OR REPLACE INTO runs
+           (id, workspace_id, project_id, agent_session_id, kind, state,
+            external_system, external_run_id, external_node_id, external_attempt,
+            external_operation, idempotency_key, request_digest,
+            consumer_principal_id, created_at)
+           SELECT 'run_replacement_key', workspace_id, project_id,
+             agent_session_id, kind, 'pending', external_system,
+             'replacement-external-run', external_node_id, external_attempt,
+             external_operation, idempotency_key, request_digest,
+             consumer_principal_id, created_at
+           FROM runs WHERE id = ?`,
+        )
+        .run(accepted.run.id),
+    ).toThrow(/Run (?:identity|conflict|immutable)/i);
+    expect(
+      db
+        .query<{ id: string; state: string; count: number }, [string]>(
+          `SELECT id, state, (SELECT COUNT(*) FROM runs) AS count
+           FROM runs WHERE id = ?`,
+        )
+        .get(accepted.run.id),
+    ).toEqual({ id: accepted.run.id, state: "pending", count: 1 });
+  });
+
+  test("allows the first worker Attempt but rejects generic external retry", () => {
+    makeRoot();
+    const { accepted } = start("attempt-lifecycle");
+    const first = startRunAttempt({ runId: accepted.run.id, provider: "local" });
+    finishRunAttempt(first.id, { state: "failed", error: "fixture failure" });
+    finishRun(accepted.run.id, { state: "failed", error: "fixture failure" });
+    const db = openDomainDb();
+    const activityCount = db
+      .query<{ count: number }, []>("SELECT COUNT(*) AS count FROM activity_events")
+      .get()!.count;
+
+    expect(() => startRunAttempt({ runId: accepted.run.id })).toThrow(
+      StoreConflictError,
+    );
+    expect(() =>
+      db
+        .prepare(
+          "UPDATE runs SET state = 'running', ended_at = NULL, error = NULL WHERE id = ?",
+        )
+        .run(accepted.run.id),
+    ).toThrow(/Run lifecycle/i);
+    expect(
+      db
+        .query<{ state: string; attempts: number }, [string]>(
+          `SELECT run.state AS state, COUNT(attempt.id) AS attempts
+           FROM runs run LEFT JOIN run_attempts attempt ON attempt.run_id = run.id
+           WHERE run.id = ? GROUP BY run.id`,
+        )
+        .get(accepted.run.id),
+    ).toEqual({ state: "failed", attempts: 1 });
+    expect(
+      db
+        .query<{ count: number }, []>("SELECT COUNT(*) AS count FROM activity_events")
+        .get()!.count,
+    ).toBe(activityCount);
+  });
+
   test("creates one pending Run and replays it by tuple and by key", () => {
     makeRoot();
     const { scope, accepted } = start("replay");

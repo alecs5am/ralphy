@@ -242,6 +242,12 @@ export function startRunAttempt(input: {
     if (run.state === "running") {
       throw new StoreConflictError("Run is already running");
     }
+    if (run.state === "succeeded") {
+      throw new StoreConflictError("Succeeded Run cannot be retried");
+    }
+    if (run.state !== "pending" && isExternalRun(db, run.id)) {
+      throw new StoreConflictError("External Run retry requires a new Run");
+    }
     const attemptNo =
       db
         .query<{ attemptNo: number }, [string]>(
@@ -340,6 +346,7 @@ export function finishRun(
     if (run.state !== "pending" && run.state !== "running") {
       throw new StoreConflictError("Run is already terminal");
     }
+    assertNoRunningAttempt(db, id);
     const endedAt = Date.now();
     const result = db.prepare(
       "UPDATE runs SET state = ?, ended_at = ?, error = ? WHERE id = ? AND state IN ('pending', 'running')",
@@ -795,6 +802,7 @@ export function finishRunInTransaction(
   if (run.state !== "pending" && run.state !== "running") {
     throw new StoreConflictError("Run is already terminal");
   }
+  assertNoRunningAttempt(db, id);
   const endedAt = Date.now();
   db.prepare(
     "UPDATE runs SET state = ?, ended_at = ?, error = ? WHERE id = ? AND state IN ('pending', 'running')",
@@ -1011,6 +1019,28 @@ function requireRun(db: Database, id: string): RunRow {
   const run = getRunRow(db, id);
   if (!run) throw new Error(`Run not found: ${id}`);
   return run;
+}
+
+function isExternalRun(db: Database, id: string): boolean {
+  return (
+    db
+      .query<{ externalSystem: string | null }, [string]>(
+        "SELECT external_system AS externalSystem FROM runs WHERE id = ?",
+      )
+      .get(id)?.externalSystem != null
+  );
+}
+
+function assertNoRunningAttempt(db: Database, runId: string): void {
+  if (
+    db
+      .query<{ id: string }, [string]>(
+        "SELECT id FROM run_attempts WHERE run_id = ? AND state = 'running' LIMIT 1",
+      )
+      .get(runId)
+  ) {
+    throw new StoreConflictError("Run has a running Attempt");
+  }
 }
 
 function getRunRow(db: Database, id: string): RunRow | null {
