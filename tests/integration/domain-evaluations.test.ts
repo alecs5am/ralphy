@@ -153,6 +153,23 @@ describe("domain Evaluations", () => {
     });
     expect(evaluation.workspaceId).toBe(workspace.id);
     expect(evaluation.projectId).toBeNull();
+    const project = createProject({
+      workspaceId: workspace.id,
+      slug: "project-author",
+      name: "Project author",
+    });
+    const projectSession = startAgentSession({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      agent: "project-reviewer",
+    });
+    expect(() =>
+      createEvaluation({
+        target: { type: "artifact_revision", id: revision.id },
+        authoredBySessionId: projectSession.id,
+        kind: "review",
+      }),
+    ).toThrow(/scope/i);
     expect(verifyDomainStore().integrity).toBe("ok");
   });
 
@@ -188,8 +205,36 @@ describe("domain Evaluations", () => {
 
   test("rejects an inactive, missing, or cross-scope author Session", async () => {
     const root = makeRoot();
-    const { revision, session } = await fixture(root, "author");
+    const { workspace, revision, session } = await fixture(root, "author");
     const other = await fixture(root, "author-other");
+    const workspaceSession = startAgentSession({
+      workspaceId: workspace.id,
+      agent: "workspace-reviewer",
+    });
+    const sibling = createProject({
+      workspaceId: workspace.id,
+      slug: "author-sibling",
+      name: "Author sibling",
+    });
+    const siblingSession = startAgentSession({
+      workspaceId: workspace.id,
+      projectId: sibling.id,
+      agent: "sibling-reviewer",
+    });
+    expect(() =>
+      createEvaluation({
+        target: { type: "artifact_revision", id: revision.id },
+        authoredBySessionId: workspaceSession.id,
+        kind: "review",
+      }),
+    ).toThrow(/scope/i);
+    expect(() =>
+      createEvaluation({
+        target: { type: "artifact_revision", id: revision.id },
+        authoredBySessionId: siblingSession.id,
+        kind: "review",
+      }),
+    ).toThrow(/scope/i);
     expect(() =>
       createEvaluation({
         target: { type: "artifact_revision", id: revision.id },
@@ -284,6 +329,21 @@ describe("domain Evaluations", () => {
         )
         .run(project.workspaceId, project.id, revision.id, run.id, session.id),
     ).toThrow(/constraint/i);
+    expect(() =>
+      db
+        .prepare(
+          `INSERT INTO evaluations
+           (id, workspace_id, project_id, artifact_revision_id,
+            authored_by_session_id, kind, report_json, created_at)
+           VALUES ('eval_author_scope', ?, ?, ?, ?, 'review', '{}', 1)`,
+        )
+        .run(
+          project.workspaceId,
+          project.id,
+          revision.id,
+          workspaceSession.id,
+        ),
+    ).toThrow(/scope/i);
     expect(() =>
       db
         .prepare(

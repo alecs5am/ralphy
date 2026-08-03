@@ -86,7 +86,7 @@ export function createEvaluationInTransaction(
   const tags = checkedTags(input.tags ?? []);
   const note = checkedNote(input.note ?? null);
   const scope = deriveTargetScope(db, input.target);
-  assertActiveSessionScope(db, input.authoredBySessionId, scope);
+  assertExactEvaluationSessionScope(db, input.authoredBySessionId, scope);
   const id = newDomainId("eval");
   const createdAt = input.createdAt ?? Date.now();
   db.prepare(
@@ -123,6 +123,22 @@ export function createEvaluationInTransaction(
     createdAt,
   });
   return getEvaluationRow(db, id)!;
+}
+
+function assertExactEvaluationSessionScope(
+  db: Database,
+  sessionId: string,
+  scope: { workspaceId: string; projectId: string | null },
+): void {
+  assertActiveSessionScope(db, sessionId, scope);
+  const session = db
+    .query<{ projectId: string | null }, [string]>(
+      "SELECT project_id AS projectId FROM agent_sessions WHERE id = ?",
+    )
+    .get(sessionId)!;
+  if (session.projectId !== scope.projectId) {
+    throw new Error("Agent Session does not match the exact Evaluation scope");
+  }
 }
 
 export function getEvaluation(
