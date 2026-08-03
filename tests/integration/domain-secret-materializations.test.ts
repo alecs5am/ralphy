@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -39,6 +40,137 @@ function fixture() {
 }
 
 describe("Run secret materialization cleanup", () => {
+  test("cannot materialize after terminalization wins the database lane", async () => {
+    const { dataRoot, store, workspace } = fixture();
+    const run = startRun({ workspaceId: workspace.id, kind: "generation" });
+    await store.setSecretFile("provider/upload", FILE_SECRET);
+    const secretsDir = path.join(dataRoot, "tmp", run.id, "secrets");
+    const realMkdirSync = fs.mkdirSync;
+    let terminalized = false;
+    let deferredFinish: Promise<void> | null = null;
+    openDomainDb().exec("PRAGMA busy_timeout = 0");
+    const mkdirSpy = spyOn(fs, "mkdirSync").mockImplementation(
+      ((target: fs.PathLike, options?: fs.MakeDirectoryOptions | number | null) => {
+        if (!terminalized && path.resolve(String(target)) === secretsDir) {
+          try {
+            finishRun(run.id, { state: "failed" });
+            terminalized = true;
+          } catch {
+            deferredFinish = Promise.resolve().then(() => {
+              finishRun(run.id, { state: "failed" });
+              terminalized = true;
+            });
+          }
+        }
+        return realMkdirSync(target, options as fs.MakeDirectoryOptions);
+      }) as typeof fs.mkdirSync,
+    );
+
+    try {
+      await store.materializeSecretFile("provider/upload", run.id).catch(() => undefined);
+      await deferredFinish;
+    } finally {
+      mkdirSpy.mockRestore();
+    }
+    expect(terminalized).toBe(true);
+    expect(getRunAggregate(run.id).state).toBe("failed");
+    expect(fs.existsSync(secretsDir)).toBe(false);
+  });
+
+  test("rejects symlinks in every materialization path component", async () => {
+    const { dataRoot, store, workspace } = fixture();
+    await store.setSecretFile("provider/upload", FILE_SECRET);
+    const tmpRoot = path.join(dataRoot, "tmp");
+
+    const tmpRun = startRun({ workspaceId: workspace.id, kind: "tmp-link" });
+    const externalTmp = path.join(root!.dir, "external-tmp");
+    fs.mkdirSync(externalTmp);
+    fs.symlinkSync(externalTmp, tmpRoot);
+    await expect(
+      store.materializeSecretFile("provider/upload", tmpRun.id),
+    ).rejects.toMatchObject({ code: "E_SECRET_STORE" });
+    expect(fs.readdirSync(externalTmp)).toEqual([]);
+    fs.unlinkSync(tmpRoot);
+    fs.mkdirSync(tmpRoot);
+
+    const runLink = startRun({ workspaceId: workspace.id, kind: "run-link" });
+    const externalRun = path.join(root!.dir, "external-run");
+    fs.mkdirSync(externalRun);
+    fs.symlinkSync(externalRun, path.join(tmpRoot, runLink.id));
+    await expect(
+      store.materializeSecretFile("provider/upload", runLink.id),
+    ).rejects.toMatchObject({ code: "E_SECRET_STORE" });
+    expect(fs.readdirSync(externalRun)).toEqual([]);
+
+    const secretsLink = startRun({ workspaceId: workspace.id, kind: "secrets-link" });
+    const secretsLinkRunDir = path.join(tmpRoot, secretsLink.id);
+    const externalSecrets = path.join(root!.dir, "external-secrets");
+    fs.mkdirSync(secretsLinkRunDir);
+    fs.mkdirSync(externalSecrets);
+    fs.symlinkSync(externalSecrets, path.join(secretsLinkRunDir, "secrets"));
+    await expect(
+      store.materializeSecretFile("provider/upload", secretsLink.id),
+    ).rejects.toMatchObject({ code: "E_SECRET_STORE" });
+    expect(fs.readdirSync(externalSecrets)).toEqual([]);
+
+    const markerLink = startRun({ workspaceId: workspace.id, kind: "marker-link" });
+    const markerDir = path.join(tmpRoot, markerLink.id, "secrets");
+    const externalMarker = path.join(root!.dir, "external-marker");
+    fs.mkdirSync(markerDir, { recursive: true });
+    fs.writeFileSync(externalMarker, "marker sentinel");
+    fs.symlinkSync(
+      externalMarker,
+      path.join(markerDir, ".ralphy-secret-materialization.json"),
+    );
+    await expect(
+      store.materializeSecretFile("provider/upload", markerLink.id),
+    ).rejects.toMatchObject({ code: "E_SECRET_STORE" });
+    expect(fs.readFileSync(externalMarker, "utf8")).toBe("marker sentinel");
+
+    const fileLink = startRun({ workspaceId: workspace.id, kind: "file-link" });
+    const fileDir = path.join(tmpRoot, fileLink.id, "secrets");
+    const externalFile = path.join(root!.dir, "external-file");
+    const fileName = `${createHash("sha256")
+      .update("provider/upload")
+      .digest("hex")}.secret`;
+    fs.mkdirSync(fileDir, { recursive: true });
+    fs.writeFileSync(externalFile, "file sentinel");
+    fs.symlinkSync(externalFile, path.join(fileDir, fileName));
+    await expect(
+      store.materializeSecretFile("provider/upload", fileLink.id),
+    ).rejects.toMatchObject({ code: "E_SECRET_STORE" });
+    expect(fs.readFileSync(externalFile, "utf8")).toBe("file sentinel");
+  });
+
+  test("cleanup never follows a symlinked Run directory", () => {
+    const { dataRoot, store, workspace } = fixture();
+    const run = startRun({ workspaceId: workspace.id, kind: "cleanup-link" });
+    const storeId = openDomainDb()
+      .query<{ storeId: string }, []>(
+        "SELECT store_id AS storeId FROM store_metadata WHERE singleton = 1",
+      )
+      .get()!.storeId;
+    const externalRun = path.join(root!.dir, "external-cleanup-run");
+    const externalSecrets = path.join(externalRun, "secrets");
+    fs.mkdirSync(externalSecrets, { recursive: true });
+    fs.writeFileSync(
+      path.join(externalSecrets, ".ralphy-secret-materialization.json"),
+      JSON.stringify({ version: 1, storeId, runId: run.id }),
+    );
+    fs.writeFileSync(path.join(externalSecrets, "evidence.bin"), "keep me");
+    fs.mkdirSync(path.join(dataRoot, "tmp"), { recursive: true });
+    fs.symlinkSync(externalRun, path.join(dataRoot, "tmp", run.id));
+    openDomainDb()
+      .prepare("UPDATE runs SET state = 'failed', ended_at = ? WHERE id = ?")
+      .run(Date.now(), run.id);
+
+    store.cleanup(run.id);
+
+    expect(fs.readFileSync(path.join(externalSecrets, "evidence.bin"), "utf8")).toBe(
+      "keep me",
+    );
+  });
+
   test("materializes mode-0600 files and removes them only after commit", async () => {
     const { dataRoot, store, workspace } = fixture();
     const run = startRun({ workspaceId: workspace.id, kind: "generation" });

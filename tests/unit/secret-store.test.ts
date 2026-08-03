@@ -35,6 +35,16 @@ function fixedKeyProvider(): KeyProvider {
 }
 
 describe("root-bound encrypted secret store", () => {
+  test("rejects a relative data root even when it resolves to a valid store", () => {
+    const { dataRoot } = fixture();
+    const relativeRoot = path.relative(process.cwd(), dataRoot);
+
+    expect(path.isAbsolute(relativeRoot)).toBe(false);
+    expect(() =>
+      createSecretStore({ dataRoot: relativeRoot, keyProvider: fixedKeyProvider() }),
+    ).toThrow(expect.objectContaining({ code: "E_SECRET_STORE" }));
+  });
+
   test("encrypts text values and supports set, read, has, and delete", async () => {
     const { dataRoot, store } = fixture();
 
