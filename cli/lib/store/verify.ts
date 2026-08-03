@@ -1761,12 +1761,22 @@ function inspectConsumerPrincipals(
   appendProvenance(report, "consumer-principal", "invalid-consumer-principal", db
     .query<{ entityId: string }, []>(
       `SELECT id AS entityId FROM consumer_principals
-       WHERE length(namespace) NOT BETWEEN 1 AND 32
+       WHERE typeof(id) <> 'text'
+          OR length(id) NOT BETWEEN 1 AND 128
+          OR substr(id, 1, 1) NOT GLOB '[A-Za-z0-9]'
+          OR id GLOB '*[^A-Za-z0-9._:-]*'
+          OR length(namespace) NOT BETWEEN 1 AND 32
           OR namespace <> lower(namespace)
           OR namespace GLOB '*[^a-z0-9-]*'
+          OR typeof(identity_digest) <> 'text'
           OR length(identity_digest) <> 64
           OR identity_digest GLOB '*[^0-9a-f]*'
-          OR (disabled_at IS NOT NULL AND disabled_at < created_at)`,
+          OR typeof(created_at) <> 'integer'
+          OR created_at NOT BETWEEN 0 AND 9007199254740991
+          OR (disabled_at IS NOT NULL AND (
+                typeof(disabled_at) <> 'integer'
+                OR disabled_at NOT BETWEEN created_at AND 9007199254740991
+              ))`,
     )
     .all());
   appendProvenance(report, "agent-session", "consumer-session-ownership-mismatch", db
@@ -1774,8 +1784,21 @@ function inspectConsumerPrincipals(
       `SELECT session.id AS entityId FROM agent_sessions session
        LEFT JOIN consumer_principals principal
          ON principal.id = session.consumer_principal_id
+       LEFT JOIN workspaces workspace ON workspace.id = session.workspace_id
+       LEFT JOIN projects project ON project.id = session.project_id
        WHERE session.consumer_principal_id IS NOT NULL
-         AND (principal.id IS NULL OR principal.disabled_at IS NOT NULL)`,
+         AND (principal.id IS NULL
+              OR principal.disabled_at IS NOT NULL
+              OR workspace.id IS NULL
+              OR typeof(session.started_at) <> 'integer'
+              OR session.started_at NOT BETWEEN 0 AND 9007199254740991
+              OR (session.ended_at IS NOT NULL AND (
+                    typeof(session.ended_at) <> 'integer'
+                    OR session.ended_at NOT BETWEEN session.started_at AND 9007199254740991
+                  ))
+              OR (session.project_id IS NOT NULL
+                  AND (project.id IS NULL
+                       OR project.workspace_id IS NOT session.workspace_id)))`,
     )
     .all());
   appendProvenance(report, "agent-session", "consumer-session-auth-mismatch", db
@@ -1807,14 +1830,32 @@ function inspectConsumerPrincipals(
           OR (run.external_system IS NOT NULL
               AND (principal.id IS NULL
                    OR run.external_system <> 'ralphy-' || principal.namespace
-                   OR run.external_attempt < 1
+                   OR typeof(run.external_system) <> 'text'
+                   OR length(run.external_system) NOT BETWEEN 1 AND 128
+                   OR run.external_system GLOB '*[^!-~]*'
+                   OR typeof(run.external_run_id) <> 'text'
+                   OR length(run.external_run_id) NOT BETWEEN 1 AND 128
+                   OR run.external_run_id GLOB '*[^!-~]*'
+                   OR typeof(run.external_node_id) <> 'text'
+                   OR length(run.external_node_id) NOT BETWEEN 1 AND 128
+                   OR run.external_node_id GLOB '*[^!-~]*'
+                   OR typeof(run.external_attempt) <> 'integer'
+                   OR run.external_attempt NOT BETWEEN 1 AND 9007199254740991
+                   OR typeof(run.external_operation) <> 'text'
+                   OR length(run.external_operation) NOT BETWEEN 1 AND 128
+                   OR run.external_operation GLOB '*[^!-~]*'
+                   OR typeof(run.idempotency_key) <> 'text'
+                   OR length(run.idempotency_key) NOT BETWEEN 1 AND 128
+                   OR run.idempotency_key GLOB '*[^!-~]*'
+                   OR typeof(run.request_digest) <> 'text'
                    OR length(run.request_digest) <> 64
                    OR run.request_digest GLOB '*[^0-9a-f]*'
                    OR run.workspace_id IS NULL
                    OR session.id IS NULL
                    OR session.consumer_principal_id IS NOT run.consumer_principal_id
                    OR session.workspace_id IS NOT run.workspace_id
-                   OR session.project_id IS NOT run.project_id))
+                   OR (session.project_id IS NOT NULL
+                       AND session.project_id IS NOT run.project_id)))
           OR (run.external_system IS NULL
               AND session.consumer_principal_id IS NOT NULL)`,
     )

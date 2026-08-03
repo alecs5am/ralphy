@@ -2,12 +2,11 @@ import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
 import { requestDigest } from "../../cli/lib/store/canonical-json.js";
+import { authenticateConsumer } from "../../cli/lib/store/consumer-auth.js";
 import { startConsumerOperationRun } from "../../cli/lib/store/consumer-runs.js";
-import { bindConsumerPrincipal } from "../../cli/lib/store/consumers.js";
 import {
   closeDomainDb,
   openDomainDb,
-  withImmediateTransaction,
 } from "../../cli/lib/store/db.js";
 import {
   finishRun,
@@ -30,18 +29,9 @@ import {
   startConsumerSession,
 } from "../../cli/lib/store/sessions.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
+import { installFarmConsumer } from "../helpers/consumer-auth.js";
 
 let root: TmpRoot | null = null;
-
-function bindPrincipal(id: string, namespace: string, digit: string) {
-  return withImmediateTransaction((db) =>
-    bindConsumerPrincipal(db, {
-      id,
-      namespace,
-      identityDigest: digit.repeat(64),
-    }),
-  );
-}
 
 afterEach(() => {
   closeDomainDb();
@@ -270,7 +260,7 @@ describe("bounded Run queries", () => {
     ).toThrow("Cursor family is invalid");
   });
 
-  test("isolates external Runs by live consumer principal and exact scope", () => {
+  test("isolates external Runs by live consumer authority and exact scope", () => {
     root = makeTmpRoot("ralphy-run-query-consumer");
     const workspace = createWorkspace({ slug: "client", name: "Client" });
     const project = createProject({
@@ -278,26 +268,18 @@ describe("bounded Run queries", () => {
       slug: "campaign",
       name: "Campaign",
     });
-    const owner = bindPrincipal("consumer_owner", "farm-owner", "1");
-    const foreign = bindPrincipal("consumer_foreign", "farm-foreign", "2");
-    const ownerSession = startConsumerSession({
-      principalId: owner.id,
+    const farm = installFarmConsumer(root);
+    const ownerSession = startConsumerSession(farm.authority, {
       workspaceId: workspace.id,
       projectId: project.id,
     });
-    const reconnect = startConsumerSession({
-      principalId: owner.id,
+    const reconnectAuthority = authenticateConsumer("farm", farm.token);
+    const reconnect = startConsumerSession(reconnectAuthority, {
       workspaceId: workspace.id,
       projectId: project.id,
     });
-    const ownerWorkspaceSession = startConsumerSession({
-      principalId: owner.id,
+    const ownerWorkspaceSession = startConsumerSession(farm.authority, {
       workspaceId: workspace.id,
-    });
-    const foreignSession = startConsumerSession({
-      principalId: foreign.id,
-      workspaceId: workspace.id,
-      projectId: project.id,
     });
     const ordinarySession = startAgentSession({
       workspaceId: workspace.id,
@@ -305,7 +287,7 @@ describe("bounded Run queries", () => {
       agent: "codex",
     });
     const ordinary = startRun({ projectId: project.id, kind: "ordinary" });
-    const external = startConsumerOperationRun({
+    const external = startConsumerOperationRun(farm.authority, {
       sessionId: ownerSession.id,
       workspaceId: workspace.id,
       projectId: project.id,
@@ -319,25 +301,14 @@ describe("bounded Run queries", () => {
       },
       requestDigest: requestDigest({ path: "private/request.json" }),
     }).run;
-    const foreignExternal = startConsumerOperationRun({
-      sessionId: foreignSession.id,
-      workspaceId: workspace.id,
-      projectId: project.id,
-      kind: "generation",
-      external: {
-        runId: "foreign-run",
-        nodeId: "foreign-node",
-        attempt: 1,
-        operation: "generation",
-        idempotencyKey: "foreign-key",
-      },
-      requestDigest: requestDigest({ prompt: "foreign" }),
-    }).run;
     const attempt = startRunAttempt({
       runId: external.id,
       request: { path: "private/input.png" },
     });
-    const ownerContext = { sessionId: reconnect.id };
+    const ownerContext = {
+      sessionId: reconnect.id,
+      consumerAuthority: reconnectAuthority,
+    };
 
     const detail = getRun({ context: ownerContext, runId: external.id });
     expect(detail.id).toBe(external.id);
@@ -355,14 +326,6 @@ describe("bounded Run queries", () => {
     expect(listRuns({ context: ownerContext, limit: 10 }).items.map((item) => item.id)).not.toContain(
       ordinary.id,
     );
-    expect(() =>
-      getRun({ context: ownerContext, runId: foreignExternal.id }),
-    ).toThrow(`Run not found: ${foreignExternal.id}`);
-    expect(
-      getRun({ context: { sessionId: foreignSession.id }, runId: foreignExternal.id })
-        .id,
-    ).toBe(foreignExternal.id);
-
     for (const context of [
       { workspaceId: workspace.id, projectId: project.id },
       { sessionId: ordinarySession.id },
@@ -381,8 +344,10 @@ describe("bounded Run queries", () => {
 
     for (const context of [
       { workspaceId: workspace.id },
-      { sessionId: foreignSession.id },
-      { sessionId: ownerWorkspaceSession.id },
+      {
+        sessionId: ownerWorkspaceSession.id,
+        consumerAuthority: farm.authority,
+      },
     ]) {
       expect(() => getRun({ context, runId: external.id })).toThrow(
         `Run not found: ${external.id}`,
@@ -395,9 +360,23 @@ describe("bounded Run queries", () => {
       );
     }
 
+    for (const context of [
+      { sessionId: ownerSession.id },
+      {
+        sessionId: ownerSession.id,
+        consumerAuthority: reconnectAuthority,
+      },
+    ]) {
+      expect(() => getRun({ context, runId: external.id })).toThrow(/authority|owned/i);
+      expect(() => listRuns({ context, limit: 10 })).toThrow(/authority|owned/i);
+      expect(() => getRunAttempt({ context, attemptId: attempt.id })).toThrow(
+        /authority|owned/i,
+      );
+    }
+
     openDomainDb()
       .prepare("UPDATE consumer_principals SET disabled_at = ? WHERE id = ?")
-      .run(Date.now(), owner.id);
+      .run(Date.now(), farm.identity.consumerId);
     for (const query of [
       () => getRun({ context: ownerContext, runId: ordinary.id }),
       () => listRuns({ context: ownerContext, limit: 10 }),
@@ -405,7 +384,7 @@ describe("bounded Run queries", () => {
       () =>
         listRunAttempts({ context: ownerContext, runId: external.id, limit: 10 }),
     ]) {
-      expect(query).toThrow("Consumer principal is disabled");
+      expect(query).toThrow("Consumer authority is not live");
     }
   });
 

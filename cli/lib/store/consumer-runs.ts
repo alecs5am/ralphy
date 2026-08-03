@@ -1,6 +1,11 @@
 import type { Database } from "bun:sqlite";
 import { appendActivity } from "./activity.js";
 import { assertRequestDigest } from "./canonical-json.js";
+import {
+  requireOwnedConsumerSession,
+  type AuthorizedConsumerSession,
+  type ConsumerAuthority,
+} from "./consumer-auth.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
 import { assertLimit, buildPage, decodeCursor } from "./pagination.js";
@@ -61,13 +66,14 @@ export type StartConsumerOperationRunInput = {
  */
 export function startConsumerOperationRunInTransaction(
   db: Database,
+  authority: ConsumerAuthority,
   input: StartConsumerOperationRunInput,
 ): ConsumerOperationStart {
   const external = checkedExternal(input.external);
   const requestDigest = assertRequestDigest(input.requestDigest);
   const kind = checkedBounded(input.kind, "Run kind");
   const label = input.label === undefined ? null : checkedBounded(input.label, "Run label");
-  const session = requireConsumerSession(db, input.sessionId);
+  const session = requireConsumerSession(db, authority, input.sessionId);
   const scope = requireScope(db, input, session);
   // external_system is derived from the authenticated principal, never trusted
   // from input.
@@ -147,10 +153,11 @@ export function startConsumerOperationRunInTransaction(
 }
 
 export function startConsumerOperationRun(
+  authority: ConsumerAuthority,
   input: StartConsumerOperationRunInput,
 ): ConsumerOperationStart {
   return withImmediateTransaction((db) =>
-    startConsumerOperationRunInTransaction(db, input),
+    startConsumerOperationRunInTransaction(db, authority, input),
   );
 }
 
@@ -169,7 +176,10 @@ export type FindConsumerOperationInput = {
  * Replay lookup for a reconnected consumer. Authorization compares the
  * authenticated principal and scope, never the historical Session ID.
  */
-export function findConsumerOperation(input: FindConsumerOperationInput): {
+export function findConsumerOperation(
+  authority: ConsumerAuthority,
+  input: FindConsumerOperationInput,
+): {
   run: RunDto;
   results: Page<RunResultDto>;
   replayed: true;
@@ -177,7 +187,7 @@ export function findConsumerOperation(input: FindConsumerOperationInput): {
   const limit = input.resultsLimit ?? 100;
   assertLimit(limit);
   const db = openDomainDb();
-  const session = requireConsumerSession(db, input.sessionId);
+  const session = requireConsumerSession(db, authority, input.sessionId);
   const scope = requireScope(db, input, session);
   const externalSystem = `ralphy-${session.namespace}`;
   const row =
@@ -237,11 +247,15 @@ export function listRunResults(input: {
     if (input.context.sessionId === undefined) {
       throw new Error("External Run results require a consumer Session");
     }
-    const session = requireConsumerSession(db, input.context.sessionId);
+    const session = requireConsumerSession(
+      db,
+      input.context.consumerAuthority,
+      input.context.sessionId,
+    );
     if (
       session.principalId !== row.consumer_principal_id ||
       session.workspaceId !== row.workspace_id ||
-      session.projectId !== row.project_id
+      (session.projectId !== null && session.projectId !== row.project_id)
     ) {
       throw new Error("External Run results require its own consumer principal");
     }
@@ -303,57 +317,18 @@ function readRunResults(
 }
 
 /** @internal Authenticated consumer identity and its exact operation scope. */
-export type ConsumerSession = {
-  id: string;
-  principalId: string;
-  namespace: string;
-  workspaceId: string;
-  projectId: string | null;
-};
+export type ConsumerSession = AuthorizedConsumerSession;
 
 /** @internal Shared guard for consumer-owned store operations. */
 export function requireConsumerSession(
   db: Database,
+  authority: ConsumerAuthority | undefined,
   sessionId: string,
 ): ConsumerSession {
-  const row = db
-    .query<
-      {
-        id: string;
-        principalId: string | null;
-        namespace: string | null;
-        workspaceId: string;
-        projectId: string | null;
-        endedAt: number | null;
-        disabledAt: number | null;
-      },
-      [string]
-    >(
-      `SELECT session.id AS id, session.consumer_principal_id AS principalId,
-              principal.namespace AS namespace, session.workspace_id AS workspaceId,
-              session.project_id AS projectId, session.ended_at AS endedAt,
-              principal.disabled_at AS disabledAt
-       FROM agent_sessions session
-       LEFT JOIN consumer_principals principal
-         ON principal.id = session.consumer_principal_id
-       WHERE session.id = ?`,
-    )
-    .get(sessionId);
-  if (!row) throw new Error(`Agent Session not found: ${sessionId}`);
-  if (row.endedAt !== null) throw new Error(`Agent Session is ended: ${sessionId}`);
-  if (row.principalId === null || row.namespace === null) {
-    throw new Error("External operations require a consumer Session");
+  if (authority === undefined) {
+    throw new Error("External operations require consumer authority");
   }
-  if (row.disabledAt !== null) {
-    throw new Error("Consumer principal is disabled");
-  }
-  return {
-    id: row.id,
-    principalId: row.principalId,
-    namespace: row.namespace,
-    workspaceId: row.workspaceId,
-    projectId: row.projectId,
-  };
+  return requireOwnedConsumerSession(db, authority, sessionId);
 }
 
 function requireScope(

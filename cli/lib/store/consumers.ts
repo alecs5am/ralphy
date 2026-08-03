@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { createHash } from "node:crypto";
-import type { ConsumerPrincipalRow } from "./types.js";
+import type { ConsumerPrincipalRow } from "./internal-types.js";
 import { StoreConflictError } from "./types.js";
 
 /**
@@ -79,14 +79,19 @@ export function decodeConsumerToken(tokenBase64url: string): Buffer {
     throw new Error("Consumer token must be 43 canonical base64url characters");
   }
   const decoded = Buffer.from(tokenBase64url, "base64url");
-  if (decoded.byteLength !== 32) {
-    throw new Error("Consumer token must decode to exactly 32 bytes");
+  try {
+    if (decoded.byteLength !== 32) {
+      throw new Error("Consumer token must decode to exactly 32 bytes");
+    }
+    // Reject non-zero trailing pad bits that Buffer would otherwise tolerate.
+    if (decoded.toString("base64url") !== tokenBase64url) {
+      throw new Error("Consumer token is not canonical base64url");
+    }
+    return decoded;
+  } catch (error) {
+    decoded.fill(0);
+    throw error;
   }
-  // Reject any non-canonical alphabet or padding that Buffer would tolerate.
-  if (decoded.toString("base64url") !== tokenBase64url) {
-    throw new Error("Consumer token is not canonical base64url");
-  }
-  return decoded;
 }
 
 export function consumerCredentialDigest(tokenBase64url: string): string {

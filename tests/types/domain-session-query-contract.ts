@@ -1,10 +1,12 @@
 import {
   endAgentSession,
+  endConsumerSession,
   getAgentSession,
   listAgentSessions,
   startAgentSession,
   startConsumerSession,
 } from "../../cli/lib/store/sessions.js";
+import type { ConsumerAuthority } from "../../cli/lib/store/consumer-auth.js";
 import type {
   AgentSessionDto,
   Page,
@@ -40,6 +42,18 @@ type EndSessionReturnsSafeDto = Assert<
 type StartConsumerSessionReturnsSafeDto = Assert<
   Equal<ReturnType<typeof startConsumerSession>, AgentSessionDto>
 >;
+type StartConsumerSessionRequiresAuthority = Assert<
+  Equal<Parameters<typeof startConsumerSession>[0], ConsumerAuthority>
+>;
+type ConsumerSessionInputHasNoPrincipal = Assert<
+  Equal<
+    keyof Parameters<typeof startConsumerSession>[1],
+    "workspaceId" | "projectId" | "metadata"
+  >
+>;
+type EndConsumerSessionReturnsSafeDto = Assert<
+  Equal<ReturnType<typeof endConsumerSession>, AgentSessionDto>
+>;
 type ListSessionsReturnsSafePage = Assert<
   Equal<ReturnType<typeof listAgentSessions>, Page<AgentSessionDto>>
 >;
@@ -50,5 +64,8 @@ export type DomainSessionQueryContract = [
   GetSessionReturnsSafeDto,
   EndSessionReturnsSafeDto,
   StartConsumerSessionReturnsSafeDto,
+  StartConsumerSessionRequiresAuthority,
+  ConsumerSessionInputHasNoPrincipal,
+  EndConsumerSessionReturnsSafeDto,
   ListSessionsReturnsSafePage,
 ];

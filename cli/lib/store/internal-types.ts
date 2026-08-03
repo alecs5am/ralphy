@@ -73,6 +73,14 @@ export type ActivityEventRow = {
   createdAt: number;
 };
 
+export type ConsumerPrincipalRow = {
+  id: string;
+  namespace: string;
+  identityDigest: string;
+  createdAt: number;
+  disabledAt: number | null;
+};
+
 export type DocumentRevisionRow = {
   id: string;
   documentId: string;

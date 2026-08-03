@@ -1,4 +1,5 @@
 import type { Database } from "bun:sqlite";
+import type { ConsumerAuthority } from "./consumer-auth.js";
 
 /**
  * The read authority a bounded query runs under. A Session context derives the
@@ -6,8 +7,18 @@ import type { Database } from "bun:sqlite";
  * widen its reach by naming a Workspace it does not hold.
  */
 export type QueryContext =
-  | { sessionId: string; workspaceId?: never; projectId?: never }
-  | { sessionId?: never; workspaceId: string; projectId?: string };
+  | {
+      sessionId: string;
+      consumerAuthority?: ConsumerAuthority;
+      workspaceId?: never;
+      projectId?: never;
+    }
+  | {
+      sessionId?: never;
+      consumerAuthority?: never;
+      workspaceId: string;
+      projectId?: string;
+    };
 
 export type ResolvedScope = { workspaceId: string; projectId: string | null };
 
