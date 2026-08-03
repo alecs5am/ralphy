@@ -2,8 +2,14 @@ import type { Database } from "bun:sqlite";
 import { appendActivity } from "./activity.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
+import { assertLimit, buildPage, decodeCursor } from "./pagination.js";
 import { resolveQueryContext, type QueryContext } from "./scope-context.js";
-import type { DocumentBindingDto, DocumentContentPage, DocumentFormat } from "./types.js";
+import type {
+  DocumentBindingDto,
+  DocumentContentPage,
+  DocumentFormat,
+  Page,
+} from "./types.js";
 import { StoreConflictError } from "./types.js";
 
 const MAX_LIMIT_BYTES = 65_536;
@@ -14,6 +20,22 @@ type RevisionScope = {
   workspaceId: string;
   projectId: string | null;
   format: DocumentFormat;
+};
+
+type BindingOwner = {
+  workspaceId: string;
+  projectId: string;
+};
+
+type BindingDbRow = {
+  id: string;
+  role: string;
+  createdAt: number;
+  documentId: string;
+  boundRevisionId: string;
+  currentHeadRevisionId: string | null;
+  boundRevisionNo: number;
+  headRevisionNo: number | null;
 };
 
 /**
@@ -85,13 +107,15 @@ export function getDocumentContent(input: {
 }
 
 export function replaceProjectDocumentBinding(input: {
+  context: QueryContext;
   projectId: string;
   role: string;
   revisionId: string;
   expectedRevisionId: string | null;
 }): DocumentBindingDto {
-  return withImmediateTransaction((db) =>
-    replaceBinding(db, {
+  return withImmediateTransaction((db) => {
+    const owner = requireVisibleOwner(db, input.context, "project", input.projectId);
+    return replaceBinding(db, owner, {
       ownerType: "project",
       table: "project_document_bindings",
       ownerColumn: "project_id",
@@ -99,18 +123,20 @@ export function replaceProjectDocumentBinding(input: {
       role: input.role,
       revisionId: input.revisionId,
       expectedRevisionId: input.expectedRevisionId,
-    }),
-  );
+    });
+  });
 }
 
 export function replaceBuildDocumentBinding(input: {
+  context: QueryContext;
   buildId: string;
   role: string;
   revisionId: string;
   expectedRevisionId: string | null;
 }): DocumentBindingDto {
-  return withImmediateTransaction((db) =>
-    replaceBinding(db, {
+  return withImmediateTransaction((db) => {
+    const owner = requireVisibleOwner(db, input.context, "build", input.buildId);
+    return replaceBinding(db, owner, {
       ownerType: "build",
       table: "build_document_bindings",
       ownerColumn: "build_id",
@@ -118,8 +144,8 @@ export function replaceBuildDocumentBinding(input: {
       role: input.role,
       revisionId: input.revisionId,
       expectedRevisionId: input.expectedRevisionId,
-    }),
-  );
+    });
+  });
 }
 
 export function getProjectDocumentBinding(
@@ -127,19 +153,57 @@ export function getProjectDocumentBinding(
   input: { projectId: string; role: string },
 ): DocumentBindingDto | null {
   const db = openDomainDb();
-  const scope = resolveQueryContext(db, context);
-  if (scope.projectId !== null && scope.projectId !== input.projectId) return null;
-  const owner = db
-    .query<{ workspaceId: string }, [string]>(
-      "SELECT workspace_id AS workspaceId FROM projects WHERE id = ?",
-    )
-    .get(input.projectId);
-  if (!owner || owner.workspaceId !== scope.workspaceId) return null;
+  if (!visibleOwner(db, context, "project", input.projectId)) return null;
   return readBinding(db, "project", "project_document_bindings", "project_id", input.projectId, input.role);
+}
+
+export function getBuildDocumentBinding(
+  context: QueryContext,
+  input: { buildId: string; role: string },
+): DocumentBindingDto | null {
+  const db = openDomainDb();
+  if (!visibleOwner(db, context, "build", input.buildId)) return null;
+  return readBinding(
+    db,
+    "build",
+    "build_document_bindings",
+    "build_id",
+    input.buildId,
+    input.role,
+  );
+}
+
+export function listProjectDocumentBindings(
+  context: QueryContext,
+  input: { projectId: string; after?: string | null; limit: number },
+): Page<DocumentBindingDto> {
+  return listBindings(context, {
+    ownerType: "project",
+    table: "project_document_bindings",
+    ownerColumn: "project_id",
+    ownerId: input.projectId,
+    after: input.after,
+    limit: input.limit,
+  });
+}
+
+export function listBuildDocumentBindings(
+  context: QueryContext,
+  input: { buildId: string; after?: string | null; limit: number },
+): Page<DocumentBindingDto> {
+  return listBindings(context, {
+    ownerType: "build",
+    table: "build_document_bindings",
+    ownerColumn: "build_id",
+    ownerId: input.buildId,
+    after: input.after,
+    limit: input.limit,
+  });
 }
 
 function replaceBinding(
   db: Database,
+  owner: BindingOwner,
   input: {
     ownerType: "project" | "build";
     table: "project_document_bindings" | "build_document_bindings";
@@ -195,13 +259,12 @@ function replaceBinding(
     role,
   );
   if (!binding) throw new Error("Document binding was not persisted");
-  const owner = ownerScope(db, input.ownerType, input.ownerId);
   appendActivity(db, {
     workspaceId: owner.workspaceId,
     projectId: owner.projectId,
     entityType: `${input.ownerType}_document_binding`,
     entityId: binding.documentId,
-    action: "document.rebound",
+    action: existing ? "document.rebound" : "document.bound",
     payload: { role, revisionId: input.revisionId, replaced: existing !== undefined },
     createdAt: now,
   });
@@ -217,17 +280,59 @@ function readBinding(
   role: string,
 ): DocumentBindingDto | null {
   const row = db
-    .query<
-      {
-        documentId: string;
-        boundRevisionId: string;
-        currentHeadRevisionId: string | null;
-        boundRevisionNo: number;
-        headRevisionNo: number | null;
-      },
-      [string, string]
-    >(
-      `SELECT document.id AS documentId,
+    .query<BindingDbRow, [string, string]>(
+      `${bindingSelect(table)}
+       WHERE binding.${ownerColumn} = ? AND binding.role = ?`,
+    )
+    .get(ownerId, role);
+  return row ? toBindingDto(row, ownerType, ownerId) : null;
+}
+
+function listBindings(
+  context: QueryContext,
+  input: {
+    ownerType: "project" | "build";
+    table: "project_document_bindings" | "build_document_bindings";
+    ownerColumn: "project_id" | "build_id";
+    ownerId: string;
+    after?: string | null;
+    limit: number;
+  },
+): Page<DocumentBindingDto> {
+  assertLimit(input.limit);
+  const db = openDomainDb();
+  requireVisibleOwner(db, context, input.ownerType, input.ownerId);
+  const cursor = input.after == null ? null : decodeCursor("c1", input.after);
+  const afterCreatedAt = cursor?.ordinal ?? -1;
+  const afterId = cursor?.id ?? "";
+  const rows = db
+    .query<BindingDbRow, [string, number, number, string, number]>(
+      `${bindingSelect(input.table)}
+       WHERE binding.${input.ownerColumn} = ?
+         AND (binding.created_at > ? OR (binding.created_at = ? AND binding.id > ?))
+       ORDER BY binding.created_at ASC, binding.id ASC LIMIT ?`,
+    )
+    .all(
+      input.ownerId,
+      afterCreatedAt,
+      afterCreatedAt,
+      afterId,
+      input.limit + 1,
+    );
+  const page = buildPage(rows, input.limit, "c1", (row) => ({
+    ordinal: row.createdAt,
+    id: row.id,
+  }));
+  return {
+    items: page.items.map((row) => toBindingDto(row, input.ownerType, input.ownerId)),
+    nextCursor: page.nextCursor,
+  };
+}
+
+function bindingSelect(table: string): string {
+  return `SELECT binding.id AS id, binding.role AS role,
+              binding.created_at AS createdAt,
+              document.id AS documentId,
               binding.document_revision_id AS boundRevisionId,
               document.current_revision_id AS currentHeadRevisionId,
               bound.revision_no AS boundRevisionNo,
@@ -235,15 +340,18 @@ function readBinding(
        FROM ${table} binding
        JOIN document_revisions bound ON bound.id = binding.document_revision_id
        JOIN documents document ON document.id = bound.document_id
-       LEFT JOIN document_revisions head ON head.id = document.current_revision_id
-       WHERE binding.${ownerColumn} = ? AND binding.role = ?`,
-    )
-    .get(ownerId, role);
-  if (!row) return null;
+       LEFT JOIN document_revisions head ON head.id = document.current_revision_id`;
+}
+
+function toBindingDto(
+  row: BindingDbRow,
+  ownerType: "project" | "build",
+  ownerId: string,
+): DocumentBindingDto {
   return {
     ownerType,
     ownerId,
-    role,
+    role: row.role,
     documentId: row.documentId,
     boundRevisionId: row.boundRevisionId,
     currentHeadRevisionId: row.currentHeadRevisionId,
@@ -252,11 +360,42 @@ function readBinding(
   };
 }
 
+function requireVisibleOwner(
+  db: Database,
+  context: QueryContext,
+  ownerType: "project" | "build",
+  ownerId: string,
+): BindingOwner {
+  const owner = visibleOwner(db, context, ownerType, ownerId);
+  if (!owner) {
+    throw new Error(`${ownerType === "project" ? "Project" : "Build"} not found: ${ownerId}`);
+  }
+  return owner;
+}
+
+function visibleOwner(
+  db: Database,
+  context: QueryContext,
+  ownerType: "project" | "build",
+  ownerId: string,
+): BindingOwner | null {
+  const scope = resolveQueryContext(db, context);
+  const owner = ownerScope(db, ownerType, ownerId);
+  if (
+    !owner ||
+    owner.workspaceId !== scope.workspaceId ||
+    (scope.projectId !== null && owner.projectId !== scope.projectId)
+  ) {
+    return null;
+  }
+  return owner;
+}
+
 function ownerScope(
   db: Database,
   ownerType: "project" | "build",
   ownerId: string,
-): { workspaceId: string; projectId: string } {
+): BindingOwner | null {
   const row =
     ownerType === "project"
       ? db
@@ -275,8 +414,7 @@ function ownerScope(
              WHERE build.id = ?`,
           )
           .get(ownerId);
-  if (!row) throw new Error(`Document binding owner not found: ${ownerId}`);
-  return row;
+  return row ?? null;
 }
 
 function visible(

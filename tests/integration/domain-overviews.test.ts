@@ -10,8 +10,8 @@ import {
   reviseComposition,
 } from "../../cli/lib/store/compositions.js";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
+import { replaceProjectDocumentBinding } from "../../cli/lib/store/document-content.js";
 import {
-  bindProjectDocument,
   createDocument,
   reviseDocument,
 } from "../../cli/lib/store/documents.js";
@@ -75,10 +75,12 @@ async function fixture(root: TmpRoot) {
     format: "text",
     body: "one",
   });
-  bindProjectDocument({
+  replaceProjectDocumentBinding({
+    context: { workspaceId: workspace.id, projectId: project.id },
     projectId: project.id,
-    documentRevisionId: first.id,
+    revisionId: first.id,
     role: "brief",
+    expectedRevisionId: null,
   });
   const second = reviseDocument({
     documentId: document.id,
