@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -45,13 +45,17 @@ describe("Run secret materialization cleanup", () => {
     const run = startRun({ workspaceId: workspace.id, kind: "generation" });
     await store.setSecretFile("provider/upload", FILE_SECRET);
     const secretsDir = path.join(dataRoot, "tmp", run.id, "secrets");
-    const realMkdirSync = fs.mkdirSync;
     let terminalized = false;
     let deferredFinish: Promise<void> | null = null;
     openDomainDb().exec("PRAGMA busy_timeout = 0");
-    const mkdirSpy = spyOn(fs, "mkdirSync").mockImplementation(
-      ((target: fs.PathLike, options?: fs.MakeDirectoryOptions | number | null) => {
-        if (!terminalized && path.resolve(String(target)) === secretsDir) {
+    const racingStore = createSecretStore({
+      dataRoot,
+      keyProvider: {
+        lookupKey: async () => KEY,
+        createKey: async () => KEY,
+      },
+      afterMaterializationDirectoryOpen() {
+        if (!terminalized) {
           try {
             finishRun(run.id, { state: "failed" });
             terminalized = true;
@@ -62,16 +66,11 @@ describe("Run secret materialization cleanup", () => {
             });
           }
         }
-        return realMkdirSync(target, options as fs.MakeDirectoryOptions);
-      }) as typeof fs.mkdirSync,
-    );
+      },
+    });
 
-    try {
-      await store.materializeSecretFile("provider/upload", run.id).catch(() => undefined);
-      await deferredFinish;
-    } finally {
-      mkdirSpy.mockRestore();
-    }
+    await racingStore.materializeSecretFile("provider/upload", run.id).catch(() => undefined);
+    await deferredFinish;
     expect(terminalized).toBe(true);
     expect(getRunAggregate(run.id).state).toBe("failed");
     expect(fs.existsSync(secretsDir)).toBe(false);
@@ -171,6 +170,102 @@ describe("Run secret materialization cleanup", () => {
     );
   });
 
+  test("rejected ownership markers do not leak pinned directory descriptors", () => {
+    const { dataRoot, store, workspace } = fixture();
+    const run = startRun({ workspaceId: workspace.id, kind: "invalid-marker" });
+    const secretsDir = path.join(dataRoot, "tmp", run.id, "secrets");
+    fs.mkdirSync(secretsDir, { recursive: true });
+    fs.writeFileSync(path.join(secretsDir, ".ralphy-secret-materialization.json"), "{");
+    const descriptorCount = () => fs.readdirSync("/dev/fd").length;
+    const before = descriptorCount();
+
+    for (let attempt = 0; attempt < 20; attempt += 1) store.cleanup(run.id);
+
+    expect(descriptorCount()).toBeLessThanOrEqual(before + 2);
+  });
+
+  test("writes only through pinned directories after a Run parent swap", async () => {
+    const { dataRoot, store, workspace } = fixture();
+    const run = startRun({ workspaceId: workspace.id, kind: "write-swap" });
+    await store.setSecretFile("provider/upload", FILE_SECRET);
+    const runDirectory = path.join(dataRoot, "tmp", run.id);
+    const secretsDir = path.join(runDirectory, "secrets");
+    const parkedRun = path.join(root!.dir, "parked-write-run");
+    const externalRun = path.join(root!.dir, "external-write-run");
+    const externalSecrets = path.join(externalRun, "secrets");
+    const fileName = `${createHash("sha256")
+      .update("provider/upload")
+      .digest("hex")}.secret`;
+    fs.mkdirSync(externalSecrets, { recursive: true });
+    let swapped = false;
+    const attackingStore = createSecretStore({
+      dataRoot,
+      keyProvider: {
+        lookupKey: async () => KEY,
+        createKey: async () => KEY,
+      },
+      afterMaterializationDirectoryOpen() {
+        if (!swapped) {
+          swapped = true;
+          fs.renameSync(runDirectory, parkedRun);
+          fs.symlinkSync(externalRun, runDirectory);
+        }
+      },
+    });
+
+    await attackingStore.materializeSecretFile("provider/upload", run.id);
+    expect(swapped).toBe(true);
+    expect(fs.readdirSync(externalSecrets)).toEqual([]);
+    expect(fs.readFileSync(path.join(parkedRun, "secrets", fileName))).toEqual(
+      FILE_SECRET,
+    );
+  });
+
+  test("deletes only through pinned directories after a Run parent swap", async () => {
+    const { dataRoot, store, workspace } = fixture();
+    const run = startRun({ workspaceId: workspace.id, kind: "delete-swap" });
+    await store.setSecretFile("provider/upload", FILE_SECRET);
+    const locator = await store.materializeSecretFile("provider/upload", run.id);
+    const runDirectory = path.join(dataRoot, "tmp", run.id);
+    const secretsDir = path.join(runDirectory, "secrets");
+    const parkedRun = path.join(root!.dir, "parked-delete-run");
+    const externalRun = path.join(root!.dir, "external-delete-run");
+    const externalSecrets = path.join(externalRun, "secrets");
+    const markerName = ".ralphy-secret-materialization.json";
+    const fileName = path.basename(locator);
+    fs.mkdirSync(externalSecrets, { recursive: true });
+    fs.writeFileSync(path.join(externalSecrets, markerName), "keep marker");
+    fs.writeFileSync(path.join(externalSecrets, fileName), "keep file");
+    let swapped = false;
+    const cleanupStore = createSecretStore({
+      dataRoot,
+      keyProvider: {
+        lookupKey: async () => KEY,
+        createKey: async () => KEY,
+      },
+      afterCleanupDirectoryOpen() {
+        if (!swapped) {
+          swapped = true;
+          fs.renameSync(runDirectory, parkedRun);
+          fs.symlinkSync(externalRun, runDirectory);
+        }
+      },
+    });
+    openDomainDb()
+      .prepare("UPDATE runs SET state = 'failed', ended_at = ? WHERE id = ?")
+      .run(Date.now(), run.id);
+
+    cleanupStore.cleanup(run.id);
+    expect(swapped).toBe(true);
+    expect(fs.readFileSync(path.join(externalSecrets, markerName), "utf8")).toBe(
+      "keep marker",
+    );
+    expect(fs.readFileSync(path.join(externalSecrets, fileName), "utf8")).toBe(
+      "keep file",
+    );
+    expect(fs.existsSync(path.join(parkedRun, "secrets"))).toBe(false);
+  });
+
   test("materializes mode-0600 files and removes them only after commit", async () => {
     const { dataRoot, store, workspace } = fixture();
     const run = startRun({ workspaceId: workspace.id, kind: "generation" });
@@ -194,6 +289,44 @@ describe("Run secret materialization cleanup", () => {
 
     finishRun(run.id, { state: "failed" });
     expect(fs.existsSync(path.dirname(materialized))).toBe(false);
+  });
+
+  test("removes only the current attempt when its SQLite commit fails", async () => {
+    const { dataRoot, store, workspace } = fixture();
+    const run = startRun({ workspaceId: workspace.id, kind: "commit-failure" });
+    await store.setSecretFile("provider/existing", Buffer.from("existing bytes"));
+    await store.setSecretFile("provider/failing", Buffer.from("failing bytes"));
+    const existing = path.join(
+      dataRoot,
+      await store.materializeSecretFile("provider/existing", run.id),
+    );
+    const failing = path.join(
+      dataRoot,
+      "tmp",
+      run.id,
+      "secrets",
+      `${createHash("sha256").update("provider/failing").digest("hex")}.secret`,
+    );
+    let failedCommit = false;
+    const failingStore = createSecretStore({
+      dataRoot,
+      keyProvider: {
+        lookupKey: async () => KEY,
+        createKey: async () => KEY,
+      },
+      commitMaterialization() {
+        failedCommit = true;
+        throw new Error("forced commit failure");
+      },
+    });
+
+    await expect(
+      failingStore.materializeSecretFile("provider/failing", run.id),
+    ).rejects.toMatchObject({ code: "E_SECRET_STORE" });
+    expect(failedCommit).toBe(true);
+    expect(fs.readFileSync(existing)).toEqual(Buffer.from("existing bytes"));
+    expect(fs.existsSync(failing)).toBe(false);
+    expect(getRunAggregate(run.id).state).toBe("pending");
   });
 
   test("keeps a committed Run terminal when post-commit housekeeping fails", () => {
