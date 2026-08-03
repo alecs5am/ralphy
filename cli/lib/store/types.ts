@@ -1,4 +1,5 @@
 import type { MediaArtifactKind } from "../schemas/media-artifact.js";
+import type { QueryContext } from "./scope-context.js";
 
 export type JsonPrimitive = boolean | number | string | null;
 export type JsonValue =
@@ -579,6 +580,272 @@ export type ActivityDto = {
   entityId: string;
   action: string;
   createdAt: number;
+};
+
+export type WorkspaceSummaryDto = {
+  id: string;
+  slug: string;
+  name: string;
+  rowVersion: number;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type ProjectSummaryDto = {
+  id: string;
+  workspaceId: string;
+  slug: string;
+  name: string;
+  state: ProjectState;
+  rowVersion: number;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type DocumentBindingDto = {
+  ownerType: "project" | "build";
+  ownerId: string;
+  role: string;
+  documentId: string;
+  boundRevisionId: string;
+  currentHeadRevisionId: string | null;
+  hasNewerHead: boolean;
+};
+
+export type OverviewDocumentDto = {
+  id: string;
+  workspaceId: string;
+  projectId: string | null;
+  slug: string;
+  title: string;
+  kind: DocumentKind;
+  currentRevisionId: string | null;
+  rowVersion: number;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type OverviewProjectDocumentDto = OverviewDocumentDto & {
+  binding: DocumentBindingDto | null;
+};
+
+export type OverviewUnitDto = {
+  id: string;
+  workspaceId: string;
+  projectId: string | null;
+  slug: string;
+  format: string;
+  latestRevisionId: string | null;
+  selectedRevisionId: string | null;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type OverviewAccountDto = {
+  id: string;
+  workspaceId: string;
+  platform: string;
+  externalId: string;
+  displayName: string | null;
+  username: string | null;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type OverviewIterationDto = {
+  id: string;
+  projectId: string;
+  number: number;
+  title: string;
+  state: IterationState;
+  createdAt: number;
+  closedAt: number | null;
+};
+
+export type OverviewFeedbackDto = {
+  id: string;
+  projectId: string;
+  iterationId: string;
+  status: FeedbackStatus;
+  targetType: FeedbackTargetType | null;
+  targetId: string | null;
+  createdAt: number;
+  resolvedAt: number | null;
+};
+
+export type OverviewStageDto = {
+  id: string;
+  projectId: string;
+  stage: string;
+  state: string;
+  entityType: string | null;
+  entityId: string | null;
+  rowVersion: number;
+  updatedAt: number;
+};
+
+export type OverviewCompositionDto = {
+  id: string;
+  projectId: string;
+  slug: string;
+  kind: CompositionKind;
+  latestRevisionId: string | null;
+  selectedRevisionId: string | null;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type OverviewBuildDto = {
+  id: string;
+  compositionRevisionId: string;
+  runId: string | null;
+  state: BuildRow["state"];
+  createdAt: number;
+  finishedAt: number | null;
+};
+
+export type OverviewRunDto = {
+  id: string;
+  workspaceId: string | null;
+  projectId: string | null;
+  kind: string;
+  label: string | null;
+  state: RunState;
+  createdAt: number;
+  startedAt: number | null;
+  endedAt: number | null;
+};
+
+export type OverviewMediaCounts = {
+  artifacts: number;
+  objects: number;
+  runObjects: number;
+};
+
+export type OverviewPageRequest<C = string> = { after?: C | null; limit: number };
+export type OverviewActivityRequest = { afterSequence: number; limit: number };
+
+export type WorkspaceOverviewRequest = {
+  context: QueryContext;
+  workspaceId: string;
+  sections?: {
+    documents?: OverviewPageRequest;
+    units?: OverviewPageRequest;
+    accounts?: OverviewPageRequest;
+    projects?: OverviewPageRequest;
+    activity?: OverviewActivityRequest;
+  };
+};
+
+export type WorkspaceOverview = {
+  workspace: WorkspaceSummaryDto;
+  documents?: Page<OverviewDocumentDto>;
+  units?: Page<OverviewUnitDto>;
+  accounts?: Page<OverviewAccountDto>;
+  projects?: Page<ProjectSummaryDto>;
+  activity?: Page<ActivityDto, number>;
+};
+
+export type ProjectOverviewRequest = {
+  context: QueryContext;
+  projectId: string;
+  sections?: {
+    documents?: OverviewPageRequest;
+    iterations?: OverviewPageRequest;
+    feedback?: OverviewPageRequest;
+    stages?: OverviewPageRequest;
+    compositions?: OverviewPageRequest;
+    builds?: OverviewPageRequest;
+    units?: OverviewPageRequest;
+    runs?: OverviewPageRequest;
+    activity?: OverviewActivityRequest;
+    mediaCounts?: true;
+  };
+};
+
+export type ProjectOverview = {
+  project: ProjectSummaryDto;
+  documents?: Page<OverviewProjectDocumentDto>;
+  iterations?: Page<OverviewIterationDto>;
+  feedback?: Page<OverviewFeedbackDto>;
+  stages?: Page<OverviewStageDto>;
+  compositions?: Page<OverviewCompositionDto>;
+  builds?: Page<OverviewBuildDto>;
+  units?: Page<OverviewUnitDto>;
+  runs?: Page<OverviewRunDto>;
+  activity?: Page<ActivityDto, number>;
+  mediaCounts?: OverviewMediaCounts;
+};
+
+export type MediaRefType = "artifact" | "run-object" | "object";
+export type MediaRef = { type: MediaRefType; id: string };
+
+/** No card carries a bucket, key, hash, original name, path, or metadata. */
+export type ArtifactMediaCard = {
+  ref: { type: "artifact"; id: string };
+  workspaceId: string;
+  projectId: string | null;
+  slug: string;
+  kind: string;
+  selectedRevisionId: string | null;
+  selectedState: string | null;
+  mime: string | null;
+  bytes: number | null;
+  selectedAt: number | null;
+  revisionCount: number;
+};
+
+export type RunObjectMediaCard = {
+  ref: { type: "run-object"; id: string };
+  workspaceId: string | null;
+  projectId: string | null;
+  runId: string;
+  purpose: string;
+  state: string;
+  retention: string;
+  mime: string | null;
+  bytes: number | null;
+  createdAt: number;
+  objectId: string | null;
+};
+
+export type ObjectMediaCard = {
+  ref: { type: "object"; id: string };
+  workspaceId: string;
+  projectId: string | null;
+  storageClass: string;
+  mime: string;
+  bytes: number;
+  createdAt: number;
+  referenceCount: number;
+};
+
+export type MediaCard = ArtifactMediaCard | RunObjectMediaCard | ObjectMediaCard;
+
+export type MediaReviewVerdict =
+  | "shortlist"
+  | "approved"
+  | "rejected"
+  | "needs-work";
+
+export type ReviewMediaInput = {
+  ref: MediaRef;
+  expectedSelectedRevisionId: string;
+  verdict: MediaReviewVerdict;
+  authoredBySessionId: string;
+  iterationId?: string | null;
+  feedback?: string | null;
+  favorite?: boolean;
+  rating?: number | null;
+  tags?: string[];
+  note?: string | null;
+};
+
+export type ReviewMediaResult = {
+  card: ArtifactMediaCard;
+  revisionId: string;
+  evaluation: EvaluationDto;
+  feedbackId: string | null;
 };
 
 export class StoreConflictError extends Error {

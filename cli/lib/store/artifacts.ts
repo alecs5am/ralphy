@@ -281,7 +281,28 @@ export function setArtifactRevisionState(input: {
   if (!object) throw new Error(`Object not found: ${source.objectId}`);
   resolveObjectPath(object);
 
-  return withImmediateTransaction((db) => {
+  return withImmediateTransaction((db) =>
+    setArtifactRevisionStateInTransaction(db, input),
+  );
+}
+
+/**
+ * The same state transition inside the caller's transaction, so an atomic media
+ * review can commit the revision, its Evaluation, and its feedback together.
+ * The backing file is re-checked here rather than before the transaction.
+ *
+ * @internal
+ */
+export function setArtifactRevisionStateInTransaction(
+  db: Database,
+  input: {
+    revisionId: string;
+    state: ArtifactRevisionState;
+    authoredBySessionId?: string | null;
+  },
+): ArtifactRevisionRow {
+  assertRevisionState(input.state);
+  {
     const currentSource = getArtifactRevisionRow(db, input.revisionId);
     if (!currentSource)
       throw new Error(`Artifact Revision not found: ${input.revisionId}`);
@@ -319,7 +340,7 @@ export function setArtifactRevisionState(input: {
       createdAt: revision.createdAt,
     });
     return revision;
-  });
+  }
 }
 
 export function addArtifactRelation(
