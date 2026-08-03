@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { createHash } from "node:crypto";
-import type { ConsumerPrincipalRow } from "./internal-types.js";
+import { getConsumerPrincipal } from "./internal-consumers.js";
 import { StoreConflictError } from "./types.js";
 
 /**
@@ -134,7 +134,7 @@ function assertFarmIdentity(identity: FarmIdentityV1): void {
 export function bindConsumerPrincipal(
   db: Database,
   input: { id: string; namespace: string; identityDigest: string },
-): ConsumerPrincipalRow {
+): void {
   const id = checkedBoundedId(input.id, "Consumer principal ID");
   const namespace = checkedNamespace(input.namespace);
   const identityDigest = checkedDigest(input.identityDigest);
@@ -147,36 +147,12 @@ export function bindConsumerPrincipal(
     ) {
       throw new StoreConflictError("Consumer principal is already bound");
     }
-    return existing;
+    return;
   }
   db.prepare(
     `INSERT INTO consumer_principals (id, namespace, identity_digest, created_at)
      VALUES (?, ?, ?, ?)`,
   ).run(id, namespace, identityDigest, Date.now());
-  return getConsumerPrincipal(db, namespace)!;
-}
-
-export function getConsumerPrincipal(
-  db: Database,
-  namespace: string,
-): ConsumerPrincipalRow | null {
-  const row = db
-    .query<
-      {
-        id: string;
-        namespace: string;
-        identityDigest: string;
-        createdAt: number;
-        disabledAt: number | null;
-      },
-      [string]
-    >(
-      `SELECT id, namespace, identity_digest AS identityDigest,
-              created_at AS createdAt, disabled_at AS disabledAt
-       FROM consumer_principals WHERE namespace = ?`,
-    )
-    .get(namespace);
-  return row ?? null;
 }
 
 function checkedBoundedId(value: string, label: string): string {

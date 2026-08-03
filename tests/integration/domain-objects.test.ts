@@ -2,12 +2,13 @@ import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
+import { ingestObject } from "../../cli/lib/store/objects.js";
 import {
-  ingestObject,
+  getObjectRow,
   prepareObject,
   registerPreparedObject,
   resolveObjectPath,
-} from "../../cli/lib/store/objects.js";
+} from "../../cli/lib/store/internal-objects.js";
 import {
   createProject,
   createWorkspace,
@@ -34,21 +35,21 @@ describe("domain Object store", () => {
     const firstSource = writeSource(root, "first.bin", "first");
     const secondSource = writeSource(root, "second.bin", "second");
 
-    const shared = await ingestObject({
+    const sharedDto = await ingestObject({
       scope: { workspaceId: workspace.id },
       sourcePath: sharedSource,
       originalName: "reference.bin",
       mime: "application/octet-stream",
       storageClass: "durable",
     });
-    const first = await ingestObject({
+    const firstDto = await ingestObject({
       scope: { workspaceId: workspace.id, projectId: project.id },
       sourcePath: firstSource,
       originalName: "scene.mp4",
       mime: "video/mp4",
       storageClass: "working",
     });
-    const second = await ingestObject({
+    const secondDto = await ingestObject({
       scope: { workspaceId: workspace.id, projectId: project.id },
       sourcePath: secondSource,
       originalName: "scene.mp4",
@@ -56,6 +57,18 @@ describe("domain Object store", () => {
       storageClass: "working",
     });
 
+    expect(Object.keys(sharedDto).sort()).toEqual([
+      "bytes",
+      "createdAt",
+      "id",
+      "mime",
+      "projectId",
+      "storageClass",
+      "workspaceId",
+    ]);
+    const shared = storedObject(sharedDto.id);
+    const first = storedObject(firstDto.id);
+    const second = storedObject(secondDto.id);
     expect(shared).toMatchObject({
       workspaceId: workspace.id,
       projectId: null,
@@ -112,7 +125,7 @@ describe("domain Object store", () => {
     expect(fs.existsSync(preparedSource)).toBe(true);
 
     const moveSource = writeSource(root, "move.wav", "move-me");
-    const moved = await ingestObject({
+    const movedDto = await ingestObject({
       scope: { workspaceId: workspace.id, projectId: project.id },
       sourcePath: moveSource,
       originalName: "move.wav",
@@ -121,7 +134,7 @@ describe("domain Object store", () => {
       transfer: "move",
     });
     expect(fs.existsSync(moveSource)).toBe(false);
-    expect(fs.readFileSync(resolveObjectPath(moved), "utf8")).toBe("move-me");
+    expect(fs.readFileSync(resolveObjectPath(storedObject(movedDto.id)), "utf8")).toBe("move-me");
     expect(
       scopedActivity({ projectId: project.id }).map((event) => event.action),
     ).toEqual(["project.created", "object.registered"]);
@@ -278,7 +291,7 @@ describe("domain Object store", () => {
   test("rejects tampered Object locators and absent or invalid final bytes", async () => {
     const { root, workspace } = setupProject("resolve");
     const source = writeSource(root, "stored.bin", "stored");
-    const object = await ingestObject({
+    const objectDto = await ingestObject({
       scope: { workspaceId: workspace.id },
       sourcePath: source,
       originalName: "stored.bin",
@@ -286,6 +299,7 @@ describe("domain Object store", () => {
       storageClass: "durable",
     });
 
+    const object = storedObject(objectDto.id);
     for (const tampered of [
       { bucket: "/tmp", key: object.key },
       { bucket: "C:\\tmp", key: object.key },
@@ -314,13 +328,14 @@ describe("domain Object store", () => {
   test("rejects a symlink alias to immutable bytes before move can delete them", async () => {
     const { root, workspace } = setupProject("symlink-source");
     const source = writeSource(root, "original.bin", "immutable-original");
-    const original = await ingestObject({
+    const originalDto = await ingestObject({
       scope: { workspaceId: workspace.id },
       sourcePath: source,
       originalName: "original.bin",
       mime: "application/octet-stream",
       storageClass: "durable",
     });
+    const original = storedObject(originalDto.id);
     const originalPath = resolveObjectPath(original);
     const alias = path.join(root.dir, "bucket-alias");
     fs.symlinkSync(path.dirname(originalPath), alias, "dir");
@@ -386,6 +401,12 @@ describe("domain Object store", () => {
     ).toBe("orphan-bytes");
   });
 });
+
+function storedObject(id: string): ObjectRow {
+  const row = getObjectRow(openDomainDb(), id);
+  if (!row) throw new Error(`Object not found: ${id}`);
+  return row;
+}
 
 function setupProject(label: string) {
   const root = makeTmpRoot(`ralphy-domain-objects-${label}`);

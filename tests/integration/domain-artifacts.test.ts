@@ -18,10 +18,7 @@ import {
   setArtifactRevisionState,
 } from "../../cli/lib/store/artifacts.js";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
-import {
-  ingestObject,
-  resolveObjectPath,
-} from "../../cli/lib/store/objects.js";
+import { ingestObject } from "../../cli/lib/store/objects.js";
 import {
   addFeedback,
   createIteration,
@@ -34,9 +31,13 @@ import {
 } from "../../cli/lib/store/sessions.js";
 import { decodeCursor } from "../../cli/lib/store/pagination.js";
 import type { QueryContext } from "../../cli/lib/store/scope-context.js";
-import type { ProjectRow, WorkspaceRow } from "../../cli/lib/store/types.js";
+import type {
+  ProjectSummaryDto,
+  WorkspaceSummaryDto,
+} from "../../cli/lib/store/types.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 import { scopedActivity } from "../helpers/activity.js";
+import { storedObjectPath } from "../helpers/stored-object.js";
 
 let roots: TmpRoot[] = [];
 
@@ -562,7 +563,7 @@ describe("domain Artifact store", () => {
       ).toThrow(/Object.*scope/i);
     }
 
-    fs.rmSync(resolveObjectPath(localObject));
+    fs.rmSync(storedObjectPath(localObject.id));
     expect(() =>
       addArtifactRevision({
         artifactId: projectArtifact.id,
@@ -1576,8 +1577,8 @@ function pageArtifactIds(context: QueryContext): string[] {
 
 async function storeBytes(
   root: TmpRoot,
-  workspace: WorkspaceRow,
-  project: ProjectRow | null,
+  workspace: WorkspaceSummaryDto,
+  project: ProjectSummaryDto | null,
   name: string,
 ) {
   const sourcePath = path.join(
@@ -1598,8 +1599,8 @@ async function storeBytes(
 
 async function revisionFixture(
   root: TmpRoot,
-  workspace: WorkspaceRow,
-  project: ProjectRow | null,
+  workspace: WorkspaceSummaryDto,
+  project: ProjectSummaryDto | null,
   label: string,
 ) {
   const object = await storeBytes(root, workspace, project, `${label}.bin`);

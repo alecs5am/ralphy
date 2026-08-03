@@ -8,6 +8,7 @@ import {
   consumerCredentialDigest,
 } from "../../cli/lib/store/consumers.js";
 import { authenticateConsumer } from "../../cli/lib/store/consumer-auth.js";
+import { getConsumerPrincipal } from "../../cli/lib/store/internal-consumers.js";
 import {
   findConsumerOperation,
   listRunResults,
@@ -150,14 +151,16 @@ describe("consumer principals", () => {
   test("binds once and replays only byte-identical identity", () => {
     makeRoot();
     openDomainDb();
-    const principal = bind();
+    expect(bind()).toBeUndefined();
+    const principal = getConsumerPrincipal(openDomainDb(), "farm");
     expect(principal).toMatchObject({
       id: "consumer_farm",
       namespace: "farm",
       identityDigest: DIGEST,
       disabledAt: null,
     });
-    expect(bind()).toEqual(principal);
+    expect(bind()).toBeUndefined();
+    expect(getConsumerPrincipal(openDomainDb(), "farm")).toEqual(principal);
     expect(() => bind("farm", "consumer_other")).toThrow(StoreConflictError);
     expect(() => bind("farm", "consumer_farm", "b".repeat(64))).toThrow(
       StoreConflictError,

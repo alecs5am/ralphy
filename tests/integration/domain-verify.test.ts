@@ -24,7 +24,7 @@ import {
   createDocument,
   reviseDocument,
 } from "../../cli/lib/store/documents.js";
-import { ingestObject, resolveObjectPath } from "../../cli/lib/store/objects.js";
+import { ingestObject } from "../../cli/lib/store/objects.js";
 import {
   finishRun,
   recordRunObject,
@@ -59,6 +59,7 @@ import {
   type UnitChainReason,
 } from "../../cli/lib/store/verify.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
+import { storedObjectPath } from "../helpers/stored-object.js";
 import { getUnitAggregate as getUnit } from "../helpers/unit-aggregate.js";
 
 let roots: TmpRoot[] = [];
@@ -472,7 +473,7 @@ describe("domain store verification", () => {
       storageClass: "durable",
     });
 
-    fs.writeFileSync(resolveObjectPath(object), "tamper");
+    fs.writeFileSync(storedObjectPath(object.id), "tamper");
     const mutableFs = fs as unknown as {
       readSync: (...args: unknown[]) => number;
     };
@@ -599,7 +600,7 @@ describe("domain store verification", () => {
       promoted.id,
     );
 
-    fs.rmSync(resolveObjectPath(object));
+    fs.rmSync(storedObjectPath(object.id));
     const orphan = writeFile(
       root,
       `.ralphy/buckets/${workspace.id}/shared/objects/orphan.bin`,
@@ -708,7 +709,7 @@ describe("domain store verification", () => {
       mime: "application/octet-stream",
       storageClass: "durable",
     });
-    fs.truncateSync(resolveObjectPath(object), 0);
+    fs.truncateSync(storedObjectPath(object.id), 0);
 
     const report = verifyDomainStore({ hashObjects: true });
     expect(report.runObjectIssues.filter((issue) => issue.rowId === runObject.id)).toEqual([]);
@@ -1750,7 +1751,7 @@ describe("domain store verification", () => {
       mime: "application/octet-stream",
       storageClass: "durable",
     });
-    const objectPath = resolveObjectPath(object);
+    const objectPath = storedObjectPath(object.id);
     const writer = openDomainDb();
     const mutableFs = fs as unknown as {
       lstatSync: (...args: unknown[]) => fs.Stats;
@@ -1800,7 +1801,7 @@ describe("domain store verification", () => {
       mime: "application/octet-stream",
       storageClass: "durable",
     });
-    const objectPath = resolveObjectPath(object);
+    const objectPath = storedObjectPath(object.id);
     const run = startRun({ workspaceId: workspace.id, kind: "diagnostic" });
     const runObjectPath = writeFile(
       root,

@@ -30,10 +30,7 @@ import {
   reviseDocument,
 } from "../../cli/lib/store/documents.js";
 import { replaceBuildDocumentBinding } from "../../cli/lib/store/document-content.js";
-import {
-  ingestObject,
-  resolveObjectPath,
-} from "../../cli/lib/store/objects.js";
+import { ingestObject } from "../../cli/lib/store/objects.js";
 import {
   createIteration,
   createProject,
@@ -45,17 +42,16 @@ import {
 } from "../../cli/lib/store/sessions.js";
 import { startRun } from "../../cli/lib/store/runs.js";
 import type {
-  ProjectRow,
-  WorkspaceRow,
+  ObjectDto,
+  ProjectSummaryDto,
+  WorkspaceSummaryDto,
 } from "../../cli/lib/store/types.js";
 import { StoreConflictError } from "../../cli/lib/store/types.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 import { scopedActivity } from "../helpers/activity.js";
 import { getCompositionAggregate as getComposition } from "../helpers/composition-aggregate.js";
 import { getRunAggregate as getRun } from "../helpers/run-aggregate.js";
-import type {
-  ObjectRow,
-} from "../../cli/lib/store/internal-types.js";
+import { storedObjectPath } from "../helpers/stored-object.js";
 
 let roots: TmpRoot[] = [];
 
@@ -592,7 +588,7 @@ describe("domain Composition store", () => {
       project,
       "missing.html",
     );
-    fs.rmSync(resolveObjectPath(missingObject));
+    fs.rmSync(storedObjectPath(missingObject.id));
     expect(() =>
       putCompositionSource({
         revisionId: revision.id,
@@ -606,7 +602,7 @@ describe("domain Composition store", () => {
       replacementObject,
       "missing-input",
     );
-    fs.rmSync(resolveObjectPath(replacementObject));
+    fs.rmSync(storedObjectPath(replacementObject.id));
     expect(() =>
       bindCompositionInput({
         revisionId: revision.id,
@@ -630,7 +626,7 @@ describe("domain Composition store", () => {
     );
     const symlinkTarget = path.join(root.dir, "symlink-target.bin");
     fs.writeFileSync(symlinkTarget, "symlink-target");
-    const symlinkPath = resolveObjectPath(symlinkObject);
+    const symlinkPath = storedObjectPath(symlinkObject.id);
     fs.rmSync(symlinkPath);
     fs.symlinkSync(symlinkTarget, symlinkPath);
     expect(() =>
@@ -1279,7 +1275,7 @@ describe("domain Composition store", () => {
       missingObject,
       "missing-output",
     );
-    fs.rmSync(resolveObjectPath(missingObject));
+    fs.rmSync(storedObjectPath(missingObject.id));
     expect(() =>
       completeBuild({
         buildId: build.id,
@@ -1883,8 +1879,8 @@ describe("domain Composition store", () => {
 
 function setupProject(label: string): {
   root: TmpRoot;
-  workspace: WorkspaceRow;
-  project: ProjectRow;
+  workspace: WorkspaceSummaryDto;
+  project: ProjectSummaryDto;
 } {
   const root = makeTmpRoot(`ralphy-domain-compositions-${label}`);
   roots.push(root);
@@ -1902,10 +1898,10 @@ function setupProject(label: string): {
 
 async function storeBytes(
   root: TmpRoot,
-  workspace: WorkspaceRow,
-  project: ProjectRow | null,
+  workspace: WorkspaceSummaryDto,
+  project: ProjectSummaryDto | null,
   name: string,
-): Promise<ObjectRow> {
+): Promise<ObjectDto> {
   const sourcePath = path.join(root.dir, `${crypto.randomUUID()}-${name}`);
   fs.writeFileSync(sourcePath, `bytes:${name}`);
   return ingestObject({
@@ -1920,9 +1916,9 @@ async function storeBytes(
 }
 
 function artifactRevisionFor(
-  workspace: WorkspaceRow,
-  project: ProjectRow | null,
-  object: ObjectRow,
+  workspace: WorkspaceSummaryDto,
+  project: ProjectSummaryDto | null,
+  object: ObjectDto,
   slug: string,
 ) {
   const artifact = createArtifact({
@@ -1941,8 +1937,8 @@ function artifactRevisionFor(
 
 async function sealedCompositionFixture(
   root: TmpRoot,
-  workspace: WorkspaceRow,
-  project: ProjectRow,
+  workspace: WorkspaceSummaryDto,
+  project: ProjectSummaryDto,
   label: string,
 ) {
   const source = await storeBytes(

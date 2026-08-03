@@ -1,13 +1,11 @@
 import { openDomainDb } from "../../cli/lib/store/db.js";
 import type {
   RunAggregate,
-  RunObjectRow,
-} from "../../cli/lib/store/internal-types.js";
-import type {
-  JsonValue,
   RunAttemptRow,
+  RunObjectRow,
   RunRow,
-} from "../../cli/lib/store/types.js";
+} from "../../cli/lib/store/internal-types.js";
+import type { JsonValue } from "../../cli/lib/store/types.js";
 
 type RunDbRow = {
   id: string;

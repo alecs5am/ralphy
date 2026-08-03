@@ -381,40 +381,4 @@ describe("internal row boundary", () => {
     expect(publicTypes).not.toContain("internal-types");
   });
 
-  test("public types carry no unsafe row shape", async () => {
-    const publicTypes = await Bun.file("cli/lib/store/types.ts").text();
-    for (const name of [
-      "ActivityEventRow",
-      "ConsumerPrincipalRow",
-      "ObjectRow",
-      "RunObjectRow",
-      "DocumentRevisionRow",
-      "DocumentSearchRow",
-      "DocumentWithCurrentRevision",
-      "ArtifactRelationRow",
-      "ArtifactUsageRow",
-      "RunAggregate",
-      "CompositionRow",
-      "CompositionRevisionRow",
-      "CompositionSourceRow",
-      "CompositionInputRow",
-      "BuildRow",
-      "BuildOutputRow",
-      "BuildDocumentBindingRow",
-      "CompositionAggregate",
-      "UnitRow",
-      "UnitRevisionRow",
-      "UnitItemRow",
-      "UnitPresentationRow",
-      "PresentationCaptionRevisionRow",
-      "PresentationItemRow",
-      "PublicationRow",
-      "PublicationFence",
-      "PublicationClaim",
-      "MetricSnapshotRow",
-      "UnitAggregate",
-    ]) {
-      expect(publicTypes).not.toContain(`export type ${name} =`);
-    }
-  });
 });

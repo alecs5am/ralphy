@@ -3,7 +3,7 @@ import { MEDIA_ARTIFACT_KINDS } from "../schemas/media-artifact.js";
 import { appendActivity } from "./activity.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
-import { resolveObjectPath } from "./objects.js";
+import { resolveObjectPath } from "./internal-objects.js";
 import { assertLimit, buildPage, decodeCursor } from "./pagination.js";
 import { assertActiveSessionScope } from "./sessions.js";
 import {
