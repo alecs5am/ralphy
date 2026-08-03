@@ -126,6 +126,12 @@ describe("canonical request digest", () => {
     expect(requestDigest({ a: 1 })).toMatch(/^[0-9a-f]{64}$/);
   });
 
+  test("preserves the established request serialization for a lone-surrogate key", () => {
+    expect(canonicalRequestJson(JSON.parse('{"\\ud800":1}'))).toBe(
+      '{"\\ud800":1}',
+    );
+  });
+
   test("rejects everything whose serialization is not well defined", () => {
     const cyclic: Record<string, unknown> = {};
     cyclic.self = cyclic;
