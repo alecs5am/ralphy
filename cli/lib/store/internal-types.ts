@@ -18,8 +18,6 @@ import type {
   CompositionRow,
   CompositionSourceRow,
   DocumentFormat,
-  DocumentKind,
-  DocumentRow,
   JsonValue,
   ObjectStorageClass,
   PresentationCaptionRevisionRow,
@@ -47,29 +45,6 @@ export type ActivityEventRow = {
 export type DocumentRevisionRow = {
   id: string;
   documentId: string;
-  revisionNo: number;
-  parentRevisionId: string | null;
-  iterationId: string | null;
-  format: DocumentFormat;
-  title: string | null;
-  body: string;
-  contentSha256: string;
-  authoredBySessionId: string | null;
-  createdAt: number;
-};
-
-export type DocumentWithCurrentRevision = DocumentRow & {
-  currentRevision: DocumentRevisionRow | null;
-};
-
-export type DocumentSearchRow = {
-  documentId: string;
-  revisionId: string;
-  workspaceId: string;
-  projectId: string | null;
-  kind: DocumentKind;
-  slug: string;
-  documentTitle: string;
   revisionNo: number;
   parentRevisionId: string | null;
   iterationId: string | null;
