@@ -22,11 +22,26 @@
 
 import path from "path";
 import { existsSync, readFileSync, readdirSync, statSync } from "fs";
+import {
+  assertCommandProject,
+  clearCommandContext,
+  getCommandContext,
+} from "./context-state.js";
 
 let _root: string = process.cwd();
+let _dataRoot: string | null = null;
 
 export function setRoot(dir: string) {
   _root = path.resolve(dir);
+  _dataRoot = null;
+  clearCommandContext();
+  _modeCache = null;
+  _registryCache = null;
+}
+
+export function setDataRoot(dir: string) {
+  _dataRoot = path.resolve(dir);
+  clearCommandContext();
   _modeCache = null;
   _registryCache = null;
 }
@@ -54,6 +69,7 @@ let _modeCache: { root: string; mode: LayoutMode } | null = null;
  * `workspace/` without being an unmigrated data root.
  */
 export function layoutMode(): LayoutMode {
+  if (_dataRoot !== null) return "ralphy";
   if (_modeCache && _modeCache.root === _root) return _modeCache.mode;
   if (existsSync(path.join(_root, ".ralphy"))) {
     _modeCache = { root: _root, mode: "ralphy" };
@@ -108,6 +124,7 @@ export class LegacyLayoutError extends Error {
  * legacy root unless `setLegacyAllowed(true)` was called (migrate / doctor).
  */
 export function workspace() {
+  if (_dataRoot !== null) return _dataRoot;
   if (layoutMode() === "legacy" && !_legacyAllowed) {
     throw new LegacyLayoutError();
   }
@@ -171,11 +188,10 @@ export function workspaceManifestPath(slug: string) {
   return path.join(workspaceDir(slug), "workspace.json");
 }
 
-/**
- * The active workspace slug — the default home for new projects. Stored as
- * the `activeWorkspace` key in config.json (`ralphy workspace use <slug>`).
- */
+/** @internal Read-only staged adapter for legacy activeWorkspace config. */
 export function currentWorkspace(): string {
+  const context = getCommandContext();
+  if (context !== null) return context.workspaceId;
   try {
     const cfg = JSON.parse(readFileSync(configPath(), "utf-8"));
     const ws = cfg?.activeWorkspace;
@@ -210,27 +226,34 @@ function readRegistryProjectsSync(): Record<string, any> {
 /**
  * Which workspace a project belongs to. Resolution order:
  *   1. registry entry's `workspace` field (absent → "default")
- *   2. unknown id: an existing `workspaces/<ws>/projects/<id>/` dir, active
- *      workspace first (covers registry drift / hand-moved dirs)
- *   3. the active workspace (the creation path: dir + entry don't exist yet)
+ *   2. immutable command context when one is resolved
+ *   3. unknown id: an existing `workspaces/<ws>/projects/<id>/` directory
+ *   4. the constant default Workspace for compatibility creation
  */
 export function projectWorkspace(projectId: string): string {
+  const context = getCommandContext();
   const entry = readRegistryProjectsSync()[projectId];
   if (entry) {
     const ws = entry.workspace;
-    return typeof ws === "string" && ws.length > 0 ? ws : DEFAULT_WORKSPACE;
+    const workspaceId =
+      typeof ws === "string" && ws.length > 0 ? ws : DEFAULT_WORKSPACE;
+    assertCommandProject(projectId, workspaceId);
+    return workspaceId;
   }
-  const active = currentWorkspace();
-  if (existsSync(path.join(workspaceDir(active), "projects", projectId))) return active;
+  assertCommandProject(projectId);
+  if (context) return context.workspaceId;
+  if (existsSync(path.join(workspaceDir(DEFAULT_WORKSPACE), "projects", projectId))) {
+    return DEFAULT_WORKSPACE;
+  }
   try {
-    for (const slug of readdirSync(workspacesDir())) {
-      if (slug === active) continue;
+    for (const slug of readdirSync(workspacesDir()).sort()) {
+      if (slug === DEFAULT_WORKSPACE) continue;
       if (existsSync(path.join(workspaceDir(slug), "projects", projectId))) return slug;
     }
   } catch {
     /* no workspaces dir yet */
   }
-  return active;
+  return DEFAULT_WORKSPACE;
 }
 
 // ─── Registry entity dirs ────────────────────────────────────────────────────

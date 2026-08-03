@@ -254,6 +254,14 @@ function endSessionInTransaction(db: Database, id: string): AgentSessionDto {
   if (session.endedAt !== null) {
     throw new StoreConflictError("Agent Session is already ended");
   }
+  const activeRun = db
+    .query<{ id: string }, [string]>(
+      "SELECT id FROM runs WHERE agent_session_id = ? AND state IN ('pending', 'running') LIMIT 1",
+    )
+    .get(id);
+  if (activeRun) {
+    throw new StoreConflictError("Agent Session owns an active Run");
+  }
   const endedAt = Date.now();
   const result = db
     .prepare(

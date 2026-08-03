@@ -692,7 +692,6 @@ export async function runMigration(opts: MigrateOptions): Promise<MigrateReport>
 
   // ── Registry / config / workspace manifest updates ─────────────────────
   const registryFile = path.join(newRoot, "registry.json");
-  const configFile = path.join(newRoot, "config.json");
   const manifestFile = path.join(newRoot, "workspaces", DEFAULT_WS, "workspace.json");
   const reg = { workspace_field_set: 0, active_workspace_set: false, workspace_manifest_written: false };
 
@@ -717,27 +716,6 @@ export async function runMigration(opts: MigrateOptions): Promise<MigrateReport>
     }
   } catch {
     /* no registry → nothing to annotate */
-  }
-
-  // config.json: gains activeWorkspace: "default" (existing pointer preserved).
-  const configSource = dryRun
-    ? existsSync(configFile)
-      ? configFile
-      : path.join(ralphDir, "config.json")
-    : configFile;
-  let cfg: Record<string, unknown> = {};
-  try {
-    cfg = JSON.parse(await fs.readFile(configSource, "utf-8"));
-  } catch {
-    /* missing/malformed → fresh */
-  }
-  if (typeof cfg.activeWorkspace !== "string" || cfg.activeWorkspace.length === 0) {
-    cfg.activeWorkspace = DEFAULT_WS;
-    reg.active_workspace_set = true;
-    if (!dryRun) {
-      await fs.mkdir(newRoot, { recursive: true });
-      await fs.writeFile(configFile, JSON.stringify(cfg, null, 2) + "\n");
-    }
   }
 
   // workspaces/default/workspace.json (append-only: never overwrite).

@@ -1,5 +1,5 @@
 // Integration smoke for the #108 workspace verbs:
-//   ralphy workspace create | list | show | use
+//   ralphy workspace create | list | show | use (deprecated)
 //   ralphy project move <id> <ws>
 //
 // Round-trip on a fresh temp root (→ the new ".ralphy" layout) plus the
@@ -59,7 +59,7 @@ function stderrErrorCode(stderr: string): string | null {
 }
 
 describe("ralphy workspace create/list/show/use + project move (#108)", () => {
-  test("create → list → use → project create → move round-trip", () => {
+  test("create → list → deprecated use → project create → move round-trip", () => {
     // create
     const c = ralphy(["workspace", "create", "fogtown", "--name", "Fog Town", "--description", "horror universe"]);
     expect(c.exitCode).toBe(0);
@@ -95,22 +95,29 @@ describe("ralphy workspace create/list/show/use + project move (#108)", () => {
     const row = l.json.find((w: any) => w.slug === "fogtown");
     expect(row).toMatchObject({ slug: "fogtown", name: "Fog Town", projects: 0 });
 
-    // use
+    // use cannot write shared active-Workspace state.
     const u = ralphy(["workspace", "use", "fogtown"]);
-    expect(u.exitCode).toBe(0);
-    expect(u.json.activeWorkspace).toBe("fogtown");
+    expect(u.exitCode).toBe(2);
+    expect(stderrErrorCode(u.stderr)).toBe("E_INPUT_INVALID");
+    expect(u.stderr).toContain("--workspace");
+    expect(u.stderr).toContain("session start");
+    expect(fs.existsSync(path.join(tmpRoot, ".ralphy", "config.json"))).toBe(false);
 
-    // project create lands in the active workspace + registry carries it
+    // Compatibility project creation uses the constant default, never a pointer.
     const p = ralphy(["project", "create", "--id", "reel-001"]);
     expect(p.exitCode).toBe(0);
-    expect(p.json.workspace).toBe("fogtown");
-    expect(fs.existsSync(path.join(wsDir, "projects", "reel-001"))).toBe(true);
+    expect(p.json.workspace).toBe("default");
+    expect(
+      fs.existsSync(
+        path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "reel-001"),
+      ),
+    ).toBe(true);
 
-    // show reflects the project
+    // show does not expose a mutable active marker.
     const s = ralphy(["workspace", "show", "fogtown"]);
     expect(s.exitCode).toBe(0);
-    expect(s.json.projects).toEqual(["reel-001"]);
-    expect(s.json.active).toBe(true);
+    expect(s.json.projects).toEqual([]);
+    expect(s.json.active).toBeUndefined();
 
     // move to a second workspace
     expect(ralphy(["workspace", "create", "archive"]).exitCode).toBe(0);
@@ -138,6 +145,23 @@ describe("ralphy workspace create/list/show/use + project move (#108)", () => {
     const bad = ralphy(["workspace", "create", "Bad_Slug"]);
     expect(bad.exitCode).not.toBe(0);
     expect(stderrErrorCode(bad.stderr)).toBe("E_VALIDATION_FAILED");
+  });
+
+  test("legacy activeWorkspace config cannot choose new Project ownership", () => {
+    expect(ralphy(["workspace", "create", "fogtown"]).exitCode).toBe(0);
+    const configPath = path.join(tmpRoot, ".ralphy", "config.json");
+    const config = JSON.stringify({ activeWorkspace: "fogtown" }, null, 2);
+    fs.writeFileSync(configPath, config);
+
+    const created = ralphy(["project", "create", "--id", "explicit-owner"]);
+
+    expect(created.exitCode).toBe(0);
+    expect(created.json.workspace).toBe("default");
+    const registry = JSON.parse(
+      fs.readFileSync(path.join(tmpRoot, ".ralphy", "registry.json"), "utf8"),
+    );
+    expect(registry.projects["explicit-owner"].workspace).toBe("default");
+    expect(fs.readFileSync(configPath, "utf8")).toBe(config);
   });
 
   test("use/show refuse an unknown workspace", () => {

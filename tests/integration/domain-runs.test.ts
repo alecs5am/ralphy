@@ -605,13 +605,15 @@ describe("domain Run store", () => {
       agent: "codex",
     });
 
-    expect(
-      startRun({
-        projectId: project.id,
-        agentSessionId: workspaceSession.id,
-        kind: "generation",
-      }),
-    ).toMatchObject({ workspaceId: workspace.id, projectId: project.id });
+    const workspaceGeneration = startRun({
+      projectId: project.id,
+      agentSessionId: workspaceSession.id,
+      kind: "generation",
+    });
+    expect(workspaceGeneration).toMatchObject({
+      workspaceId: workspace.id,
+      projectId: project.id,
+    });
     expect(
       startRun({
         projectId: project.id,
@@ -619,13 +621,15 @@ describe("domain Run store", () => {
         kind: "generation",
       }),
     ).toMatchObject({ workspaceId: workspace.id, projectId: project.id });
-    expect(
-      startRun({
-        workspaceId: workspace.id,
-        agentSessionId: workspaceSession.id,
-        kind: "evaluation",
-      }),
-    ).toMatchObject({ workspaceId: workspace.id, projectId: null });
+    const workspaceEvaluation = startRun({
+      workspaceId: workspace.id,
+      agentSessionId: workspaceSession.id,
+      kind: "evaluation",
+    });
+    expect(workspaceEvaluation).toMatchObject({
+      workspaceId: workspace.id,
+      projectId: null,
+    });
     expect(startRun({ kind: "migration" })).toMatchObject({
       workspaceId: null,
       projectId: null,
@@ -661,6 +665,9 @@ describe("domain Run store", () => {
         agentSessionId: workspaceSession.id,
       }),
     ).toThrow(/migration.*Session|Session.*scope/i);
+    expect(() => endAgentSession(workspaceSession.id)).toThrow(/active Run/i);
+    finishRun(workspaceGeneration.id, { state: "cancelled" });
+    finishRun(workspaceEvaluation.id, { state: "cancelled" });
     endAgentSession(workspaceSession.id);
     expect(() =>
       startRun({

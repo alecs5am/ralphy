@@ -6,10 +6,14 @@ import {
   brandsDir,
   personasDir,
   refsDir,
-  currentWorkspace,
+  projectWorkspace,
   DEFAULT_WORKSPACE,
 } from "./paths.js";
-import { loadConfig, saveConfig } from "./config.js";
+import { loadConfig } from "./config.js";
+import {
+  assertCommandProject,
+  getCommandContext,
+} from "./context-state.js";
 
 export type RegistryData = {
   brands: Record<string, any>;
@@ -50,10 +54,14 @@ export async function addEntity(
   data: Record<string, unknown>
 ) {
   const reg = await loadRegistry();
-  // #108: project entries carry their workspace (registry maps id → workspace
-  // so projectDir(id) resolves without a workspace arg). Absent → "default".
-  if (collection === "projects" && !data.workspace) {
-    data = { ...data, workspace: currentWorkspace() };
+  if (collection === "projects") {
+    const explicit = data.workspace;
+    const workspaceId =
+      typeof explicit === "string" && explicit.length > 0
+        ? explicit
+        : projectWorkspace(id);
+    assertCommandProject(id, workspaceId);
+    data = { ...data, workspace: workspaceId };
   }
   reg[collection][id] = { id, ...data };
   await saveRegistry(reg);
@@ -78,7 +86,19 @@ export async function addEntity(
 
 export async function getEntity(collection: keyof RegistryData, id: string) {
   const reg = await loadRegistry();
-  return reg[collection][id] || null;
+  const entity = reg[collection][id] || null;
+  if (collection === "projects") {
+    const workspaceId = entity?.workspace;
+    assertCommandProject(
+      id,
+      typeof workspaceId === "string" && workspaceId.length > 0
+        ? workspaceId
+        : entity
+          ? DEFAULT_WORKSPACE
+          : undefined,
+    );
+  }
+  return entity;
 }
 
 export async function updateEntity(
@@ -88,6 +108,9 @@ export async function updateEntity(
 ) {
   const reg = await loadRegistry();
   if (!reg[collection][id]) return null;
+  if (collection === "projects") {
+    assertCommandProject(id, reg.projects[id]?.workspace ?? DEFAULT_WORKSPACE);
+  }
   reg[collection][id] = { ...reg[collection][id], ...updates, updatedAt: new Date().toISOString() };
   await saveRegistry(reg);
 
@@ -108,6 +131,9 @@ export async function updateEntity(
 export async function deleteEntity(collection: keyof RegistryData, id: string) {
   const reg = await loadRegistry();
   if (!reg[collection][id]) return false;
+  if (collection === "projects") {
+    assertCommandProject(id, reg.projects[id]?.workspace ?? DEFAULT_WORKSPACE);
+  }
   delete reg[collection][id];
   await saveRegistry(reg);
 
@@ -125,22 +151,21 @@ export async function deleteEntity(collection: keyof RegistryData, id: string) {
 
 export async function listEntities(collection: keyof RegistryData) {
   const reg = await loadRegistry();
-  return Object.values(reg[collection]);
+  const entities = Object.values(reg[collection]);
+  if (collection !== "projects") return entities;
+  const context = getCommandContext();
+  if (!context) return entities;
+  return entities.filter((entity) => {
+    if (context.projectId !== undefined && entity.id !== context.projectId) {
+      return false;
+    }
+    return (entity.workspace ?? DEFAULT_WORKSPACE) === context.workspaceId;
+  });
 }
 
-// ─── Active workspace pointer (#108) ─────────────────────────────────────────
-// Stored as the `activeWorkspace` key in config.json (the free-form settings
-// store) — registry.json stays a pure entity map. The sync read used for path
-// resolution is `currentWorkspace()` in paths.ts; these are the async CRUD.
-
+/** @internal Read-only staged compatibility adapter. */
 export async function getActiveWorkspace(): Promise<string> {
   const cfg = await loadConfig();
   const ws = cfg.activeWorkspace;
   return typeof ws === "string" && ws.length > 0 ? ws : DEFAULT_WORKSPACE;
-}
-
-export async function setActiveWorkspace(slug: string): Promise<void> {
-  const cfg = await loadConfig();
-  cfg.activeWorkspace = slug;
-  await saveConfig(cfg);
 }

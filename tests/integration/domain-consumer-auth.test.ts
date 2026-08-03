@@ -17,6 +17,7 @@ import {
   startConsumerOperationRun,
 } from "../../cli/lib/store/consumer-runs.js";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
+import { finishRun } from "../../cli/lib/store/runs.js";
 import { createProject, createWorkspace } from "../../cli/lib/store/scopes.js";
 import {
   endAgentSession,
@@ -668,6 +669,10 @@ describe("consumer connection authority", () => {
       }),
     ).toThrow("Consumer authority is not live");
 
+    expect(() => endConsumerSession(farm.authority, session.id)).toThrow(
+      /active Run/i,
+    );
+    finishRun(started.run.id, { state: "cancelled" });
     expect(endConsumerSession(farm.authority, session.id).endedAt).toBeNumber();
   });
 

@@ -28,6 +28,13 @@ export function configCmd() {
     .command("set <key> <value>")
     .description("Set a config value")
     .action(async (key: string, value: string) => {
+      if (key === "activeWorkspace" || key.startsWith("activeWorkspace.")) {
+        raiseError("E_INPUT_INVALID", {
+          field: "key",
+          detail: "activeWorkspace is retired; pass --workspace <id> or start a Session",
+          verb: "config set",
+        });
+      }
       const config = await loadConfig();
       // Try to parse as number/boolean
       let parsed: unknown = value;
