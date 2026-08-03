@@ -5,8 +5,8 @@
 // THIS IS THE ONLY SOURCE FILE PERMITTED TO READ `POSTIZ_API_KEY` /
 // `POSTIZ_API_URL` / legacy `POSTIZ_BASE_URL` (AGENTS.md invariant #1,
 // extended for #501 the same way firecrawl.ts was for #500). The agents-md
-// invariants test allowlists exactly this file. A workspace may instead keep
-// the same values in its gitignored credentials.json.
+// invariants test allowlists exactly this file. Credential values come only
+// from the scoped internal resolver.
 //
 // Deliberately NOT registered in the provider registry (registry.ts BUNDLED):
 // publishing is not a generation Capability. This module follows the
@@ -16,37 +16,15 @@
 // HTTP is injectable (`fetchImpl`) so tests run with zero network.
 
 import fs from "node:fs/promises";
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import { TerminalProviderError } from "./shared.js";
-import { workspaceDir } from "../paths.js";
+import { credentialConfigured, credentialValue } from "./credentials.js";
 
 const LABEL = "Postiz";
 
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
 type PostizConfig = { apiRoot: string; key: string };
-
-type WorkspaceCredentials = {
-  connectors?: {
-    postiz?: { apiKey?: string; apiUrl?: string };
-  };
-};
-
-function workspaceConfig(workspace?: string): { key?: string; apiUrl?: string } {
-  if (!workspace) return {};
-  try {
-    const credentials = JSON.parse(
-      readFileSync(path.join(workspaceDir(workspace), "credentials.json"), "utf8"),
-    ) as WorkspaceCredentials;
-    return {
-      key: credentials.connectors?.postiz?.apiKey,
-      apiUrl: credentials.connectors?.postiz?.apiUrl,
-    };
-  } catch {
-    return {};
-  }
-}
 
 function publicApiRoot(raw: string, legacy = false): string {
   const base = raw.replace(/\/+$/, "");
@@ -56,18 +34,19 @@ function publicApiRoot(raw: string, legacy = false): string {
 
 /** True when an env override or the requested workspace carries a Postiz key. */
 export function postizAvailable(workspace?: string): boolean {
-  return Boolean(process.env.POSTIZ_API_KEY || workspaceConfig(workspace).key);
+  void workspace;
+  return credentialConfigured("postiz");
 }
 
-/** Resolve env overrides or workspace config, defaulting to Postiz Cloud. */
+/** Resolve scoped auth and non-secret endpoint config, defaulting to Postiz Cloud. */
 function requireConfig(workspace?: string): PostizConfig {
-  const stored = workspaceConfig(workspace);
-  const key = process.env.POSTIZ_API_KEY || stored.key;
-  const apiUrl = process.env.POSTIZ_API_URL || stored.apiUrl;
+  void workspace;
+  const key = credentialValue("postiz");
+  const apiUrl = process.env.POSTIZ_API_URL;
   const legacyBase = process.env.POSTIZ_BASE_URL;
   if (!key) {
     throw new TerminalProviderError(
-      `${LABEL}: no API key configured. Save connectors.postiz.apiKey in the workspace credentials.json or set POSTIZ_API_KEY.`,
+      `${LABEL}: no API key configured. Run ralphy provider auth set postiz --stdin.`,
     );
   }
   if (legacyBase) return { apiRoot: publicApiRoot(legacyBase, true), key };

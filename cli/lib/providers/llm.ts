@@ -12,6 +12,7 @@
 //   const { text } = await callLLM({ messages: [{ role: "user", content: "Hello" }] });
 
 import { resolveConnector, callLLM } from "./registry.js";
+import { credentialValue } from "./credentials.js";
 
 export { callLLM };
 export type {
@@ -42,7 +43,7 @@ export function resolveLLMProvider(): ProviderConfig {
   return {
     provider: conn.id,
     baseURL: "https://openrouter.ai/api/v1",
-    apiKey: process.env[conn.envVar] ?? "",
+    apiKey: credentialValue(conn.id) ?? "",
     defaultModel: "google/gemini-2.5-flash",
   };
 }

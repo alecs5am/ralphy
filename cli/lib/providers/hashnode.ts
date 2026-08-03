@@ -17,6 +17,7 @@
 // and reads back id/url defensively.
 
 import { TerminalProviderError } from "./shared.js";
+import { credentialConfigured, credentialValue } from "./credentials.js";
 
 const LABEL = "Hashnode";
 const ENDPOINT = "https://gql.hashnode.com/";
@@ -25,11 +26,11 @@ export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
 /** True iff HASHNODE_TOKEN is configured. */
 export function hashnodeAvailable(): boolean {
-  return Boolean(process.env.HASHNODE_TOKEN);
+  return credentialConfigured("hashnode");
 }
 
 function requireToken(): string {
-  const token = process.env.HASHNODE_TOKEN;
+  const token = credentialValue("hashnode");
   if (!token) {
     throw new TerminalProviderError(
       `${LABEL}: HASHNODE_TOKEN must be set — create a Personal Access Token at hashnode.com → Account Settings → Developer.`,

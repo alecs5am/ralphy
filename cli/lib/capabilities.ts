@@ -11,6 +11,8 @@
 //   requireCapability("voiceover-elevenlabs");          // throws clean error if missing
 //   if (hasCapability("llm-openrouter")) { ... }        // optional path
 
+import { credentialConfigured } from "./providers/credentials.js";
+
 export type CapabilityId =
   | "voiceover-elevenlabs"
   | "llm-openrouter";
@@ -59,7 +61,9 @@ export const CAPABILITIES: Capability[] = [
 export function hasCapability(id: CapabilityId): boolean {
   const cap = CAPABILITIES.find((c) => c.id === id);
   if (!cap) return false;
-  return Boolean(process.env[cap.envVar]);
+  return credentialConfigured(
+    id === "llm-openrouter" ? "openrouter" : "elevenlabs",
+  );
 }
 
 export function requireCapability(id: CapabilityId): void {
@@ -70,7 +74,7 @@ export function requireCapability(id: CapabilityId): void {
     `Capability "${cap.label}" is not configured.\n` +
       `  Required env var: ${cap.envVar}\n` +
       `  Get a key at: ${cap.signupUrl}\n` +
-      `Run "ralphy setup" to configure interactively.`,
+      `Pipe it to "ralphy provider auth set ${id === "llm-openrouter" ? "openrouter" : "elevenlabs"} --stdin".`,
   );
 }
 

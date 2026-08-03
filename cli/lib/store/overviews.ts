@@ -238,17 +238,42 @@ function pageAccounts(
   request: SectionRequest,
   workspaceId: string,
 ): Page<OverviewAccountDto> {
-  // Credential status is deliberately absent: the entity/credential task adds
-  // it from real columns rather than guessing it here.
-  return creationPage<OverviewAccountDto>(
-    db,
-    request,
-    `id, workspace_id AS workspaceId, platform, external_id AS externalId,
-     display_name AS displayName, username,
-     created_at AS createdAt, updated_at AS updatedAt`,
-    "social_accounts",
-    { sql: "workspace_id = ?", values: [workspaceId] },
-  );
+  assertLimit(request.limit, MAX_SECTION_LIMIT);
+  const clauses = ["workspace_id = ?"];
+  const values: (string | number)[] = [workspaceId];
+  if (request.after != null) {
+    const cursor = decodeCursor("c1", request.after);
+    clauses.push("(created_at > ? OR (created_at = ? AND id > ?))");
+    values.push(cursor.ordinal, cursor.ordinal, cursor.id);
+  }
+  values.push(request.limit + 1);
+  const rows = db
+    .query<
+      Omit<OverviewAccountDto, "credentialConfigured" | "relinkRequired"> & {
+        credentialConfigured: number;
+        relinkRequired: number;
+      },
+      (string | number)[]
+    >(
+      `SELECT id, workspace_id AS workspaceId, platform,
+              external_id AS externalId, display_name AS displayName, username,
+              (credential_ref IS NOT NULL) AS credentialConfigured,
+              CASE WHEN credential_ref IS NOT NULL THEN 'encrypted' ELSE 'missing' END AS credentialSource,
+              relink_required AS relinkRequired, row_version AS rowVersion,
+              created_at AS createdAt, updated_at AS updatedAt
+       FROM social_accounts WHERE ${clauses.join(" AND ")}
+       ORDER BY created_at ASC, id ASC LIMIT ?`,
+    )
+    .all(...values)
+    .map((row) => ({
+      ...row,
+      credentialConfigured: row.credentialConfigured === 1,
+      relinkRequired: row.relinkRequired === 1,
+    }));
+  return buildPage(rows, request.limit, "c1", (row) => ({
+    ordinal: row.createdAt,
+    id: row.id,
+  }));
 }
 
 function pageProjects(

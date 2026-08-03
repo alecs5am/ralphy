@@ -1,2 +1,5 @@
+env = false
+
 [test]
 timeout = 15000
+preload = ["./tests/helpers/credential-test-source.ts"]

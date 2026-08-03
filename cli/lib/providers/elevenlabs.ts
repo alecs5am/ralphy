@@ -30,6 +30,11 @@ import type {
   GenerateSfxInput,
   GenerateResult,
 } from "./types.js";
+import {
+  credentialConfigured,
+  credentialValue,
+  ELEVENLABS_CREDENTIAL,
+} from "./credentials.js";
 
 const ID = "elevenlabs";
 const LABEL = "ElevenLabs";
@@ -39,7 +44,7 @@ const DEFAULT_BASE_URL = "https://api.elevenlabs.io/v1";
 const UA = "Mozilla/5.0 (compatible; ralphy/1.0)";
 
 function requireKey(): void {
-  requireProviderKey({ envVar: ENV_VAR, label: LABEL, signupUrl: SIGNUP_URL });
+  requireProviderKey({ providerId: ID, envVar: ENV_VAR, label: LABEL, signupUrl: SIGNUP_URL });
 }
 
 // ─── base-URL resolver (#121) ─────────────────────────────────────────────────
@@ -179,7 +184,7 @@ export function _resetVoiceExistsCache(): void {
 
 export async function ensureVoiceExists(voiceId: string, signal?: AbortSignal): Promise<void> {
   if (voiceExistsCache.get(voiceId) === true) return;
-  const apiKey = process.env.ELEVENLABS_API_KEY!;
+  const apiKey = credentialValue(ID)!;
   const baseUrl = await elevenLabsBaseUrl();
   const resp = await fetch(`${baseUrl}/voices/${encodeURIComponent(voiceId)}`, {
     method: "GET",
@@ -328,7 +333,7 @@ const DEFAULT_VOICE_SETTINGS = {
 export async function generateVoiceover(input: GenerateVoiceoverInput): Promise<GenerateResult> {
   requireKey();
   const t0 = Date.now();
-  const apiKey = process.env.ELEVENLABS_API_KEY!;
+  const apiKey = credentialValue(ID)!;
   const modelId = input.modelId ?? "eleven_multilingual_v2";
 
   // #051: voice-existence pre-flight. Fail fast with a clean error if the voice
@@ -524,7 +529,7 @@ export type CloneVoiceResult = {
 export async function cloneVoice(input: CloneVoiceInput): Promise<CloneVoiceResult> {
   requireKey();
   const t0 = Date.now();
-  const apiKey = process.env.ELEVENLABS_API_KEY!;
+  const apiKey = credentialValue(ID)!;
 
   // Validate the input file exists and is non-empty before we burn an upload.
   const stat = await fs.stat(input.fromPath).catch(() => null);
@@ -710,7 +715,7 @@ export type DesignVoiceResult = {
 export async function designVoice(input: DesignVoiceInput): Promise<DesignVoiceResult> {
   requireKey();
   const t0 = Date.now();
-  const apiKey = process.env.ELEVENLABS_API_KEY!;
+  const apiKey = credentialValue(ID)!;
   const baseUrl = await elevenLabsBaseUrl();
 
   const resp = await withConcurrency(ID, "voice-design", "voice", () =>
@@ -792,7 +797,7 @@ export async function createVoiceFromPreview(
 ): Promise<{ voiceId: string; name: string; latencyMs: number }> {
   requireKey();
   const t0 = Date.now();
-  const apiKey = process.env.ELEVENLABS_API_KEY!;
+  const apiKey = credentialValue(ID)!;
   const baseUrl = await elevenLabsBaseUrl();
 
   const resp = await withConcurrency(ID, "voice-design", "voice", () =>
@@ -840,7 +845,7 @@ export async function createVoiceFromPreview(
 export async function generateMusic(input: GenerateMusicInput): Promise<GenerateResult> {
   requireKey();
   const t0 = Date.now();
-  const apiKey = process.env.ELEVENLABS_API_KEY!;
+  const apiKey = credentialValue(ID)!;
   const modelId = "music_v1";
   const musicLengthMs = Math.max(3000, Math.min(600000, Math.round(input.durationSec * 1000)));
 
@@ -957,7 +962,7 @@ export async function generateMusic(input: GenerateMusicInput): Promise<Generate
 export async function generateSfx(input: GenerateSfxInput): Promise<GenerateResult> {
   requireKey();
   const t0 = Date.now();
-  const apiKey = process.env.ELEVENLABS_API_KEY!;
+  const apiKey = credentialValue(ID)!;
   const modelId = "sound_generation_v2";
   const duration = Math.max(0.5, Math.min(22, input.durationSec ?? 4));
 
@@ -1035,9 +1040,10 @@ export const elevenlabsConnector: RalphyConnector = {
   id: ID,
   label: LABEL,
   envVar: ENV_VAR,
+  credential: ELEVENLABS_CREDENTIAL,
   signupUrl: SIGNUP_URL,
   capabilities: ["voice", "music", "sfx", "transcribe"],
-  available: () => Boolean(process.env[ENV_VAR]),
+  available: () => credentialConfigured(ID),
   generateVoiceover,
   generateMusic,
   generateSfx,

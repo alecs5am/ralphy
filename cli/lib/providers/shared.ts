@@ -21,6 +21,7 @@ import {
 } from "../generation-destination.js";
 import { raiseError } from "../errors/index.js";
 import type { CommonInput } from "./types.js";
+import { credentialConfigured } from "./credentials.js";
 
 /**
  * Refuse cleanly when a connector's API key is absent. Replaces the old
@@ -28,11 +29,16 @@ import type { CommonInput } from "./types.js";
  * connector owns its env-var knowledge, so a third-party provider file can gate
  * on its own key without touching the central capability registry.
  */
-export function requireProviderKey(opts: { envVar: string; label: string; signupUrl: string }): void {
-  if (process.env[opts.envVar]) return;
+export function requireProviderKey(opts: {
+  providerId: string;
+  envVar: string;
+  label: string;
+  signupUrl: string;
+}): void {
+  if (credentialConfigured(opts.providerId)) return;
   raiseError("E_PROVIDER_UNAVAILABLE", {
     provider: opts.label,
-    detail: `${opts.envVar} is not set. Get a key at ${opts.signupUrl} and run "ralphy setup".`,
+    detail: `${opts.envVar} is not set. Get a key at ${opts.signupUrl}, then pipe it to "ralphy provider auth set ${opts.providerId} --stdin".`,
   });
 }
 

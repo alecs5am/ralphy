@@ -9,14 +9,10 @@
 //   ralphy setup --status                     — JSON capability status (read-only)
 //   ralphy setup --link <p> / --unlink        — manage the global project link
 //   ralphy setup --non-interactive [flags]    — agent / CI-friendly. No TUI.
-//                                               Reads keys from flags, stdin (via
-//                                               `-`), or process.env. Emits a
-//                                               structured JSON summary on stdout.
+//                                               Credential flags are refused;
+//                                               use provider auth set --stdin.
 //
 // Non-interactive examples (Claude Code in a terminal):
-//   ralphy setup -y --keys-from-env
-//   ralphy setup -y --openrouter-key sk-or-... --elevenlabs-key xi-...
-//   cat key.txt | ralphy setup -y --openrouter-key -
 //   ralphy setup -y --project-dir /path/to/ugc-cli --no-verify
 
 import { Command } from "commander";
@@ -24,9 +20,7 @@ import * as p from "@clack/prompts";
 import path from "node:path";
 import fs from "node:fs/promises";
 import {
-  CAPABILITIES,
   getCapabilityStatus,
-  type Capability,
 } from "../lib/capabilities.js";
 import {
   findProjectRootSafe,
@@ -34,6 +28,7 @@ import {
   writeGlobalConfig,
 } from "../lib/project-root.js";
 import { ok, out, err, isPretty } from "../lib/output.js";
+import { DomainError } from "../lib/errors/domain.js";
 
 type SetupOpts = {
   status?: boolean;
@@ -64,15 +59,15 @@ export function setupCmd() {
     .option("-y, --yes", "Alias for --non-interactive", false)
     .option(
       "--openrouter-key <key>",
-      "Set OPENROUTER_API_KEY (use `-` to read from stdin). Implies --non-interactive",
+      "Deprecated and refused; use provider auth set openrouter --stdin",
     )
     .option(
       "--elevenlabs-key <key>",
-      "Set ELEVENLABS_API_KEY (use `-` to read from stdin). Implies --non-interactive",
+      "Deprecated and refused; use provider auth set elevenlabs --stdin",
     )
     .option(
       "--keys-from-env",
-      "Pick up OPENROUTER_API_KEY / ELEVENLABS_API_KEY from the current process env. Implies --non-interactive",
+      "Deprecated and refused; project/inherited env is not a credential source",
       false,
     )
     .option(
@@ -122,6 +117,19 @@ export function setupCmd() {
         ok(`Linked ralphy → ${target}`);
         out({ project_dir: target, changed: true });
         return;
+      }
+
+      if (
+        opts.openrouterKey != null ||
+        opts.elevenlabsKey != null ||
+        opts.keysFromEnv
+      ) {
+        throw new DomainError("E_INPUT_INVALID", undefined, {
+          field: "credential",
+          detail:
+            "setup no longer accepts credential values; use `ralphy provider auth set <provider> --stdin`",
+          verb: "setup",
+        });
       }
 
       // Any of these flags forces non-interactive mode — the user is clearly
@@ -194,114 +202,9 @@ async function runNonInteractive(opts: SetupOpts): Promise<void> {
   }
   summary.project_dir = projectRoot;
 
-  // 2. Collect keys from flags / stdin / env.
-  const provided: Record<string, string> = {};
-  try {
-    const orKey = await resolveKeyFlag(opts.openrouterKey, "OPENROUTER_API_KEY");
-    if (orKey) provided.OPENROUTER_API_KEY = orKey;
-    const elKey = await resolveKeyFlag(opts.elevenlabsKey, "ELEVENLABS_API_KEY");
-    if (elKey) provided.ELEVENLABS_API_KEY = elKey;
-  } catch (e) {
-    summary.errors.push((e as Error).message);
-    out(summary);
-    process.exit(1);
-  }
-
-  if (opts.keysFromEnv) {
-    for (const cap of CAPABILITIES) {
-      if (provided[cap.envVar]) continue; // explicit flag wins
-      const v = process.env[cap.envVar];
-      if (v) provided[cap.envVar] = v;
-    }
-  }
-
-  // 3. Verify + persist keys.
-  const verify = opts.verify !== false; // commander --no-verify flips to false
-  const updates: Record<string, string> = {};
-  let verifyFailureFatal = false;
-
-  for (const cap of CAPABILITIES) {
-    const value = provided[cap.envVar];
-    if (!value) continue;
-
-    let verified: boolean | null = null;
-    let reason: string | undefined;
-    if (verify) {
-      verified = await verifyKey(cap.envVar, value);
-      if (!verified && !opts.allowUnverified) {
-        reason = "verification failed (provider rejected the key); pass --allow-unverified to save anyway";
-        summary.keys.push({ envVar: cap.envVar, saved: false, verified, reason });
-        verifyFailureFatal = true;
-        continue;
-      }
-      if (!verified && opts.allowUnverified) {
-        reason = "verification failed but --allow-unverified set; saving anyway";
-      }
-    } else {
-      reason = "verification skipped (--no-verify)";
-    }
-
-    updates[cap.envVar] = value;
-    summary.keys.push({ envVar: cap.envVar, saved: true, verified, reason });
-  }
-
-  if (Object.keys(updates).length > 0) {
-    await applyEnvUpdates(path.join(projectRoot, ".env"), updates);
-  }
-
-  // 4. Re-snapshot capabilities so the summary reflects the post-write state.
-  //    We have to source from the .env we just wrote, since process.env was
-  //    captured at startup and may lag what's now on disk.
-  const envOnDisk = await readDotenv(path.join(projectRoot, ".env"));
-  for (const k of Object.keys(updates)) {
-    if (envOnDisk[k]) process.env[k] = envOnDisk[k];
-  }
   summary.capabilities = getCapabilityStatus();
-
-  if (verifyFailureFatal) {
-    out(summary);
-    process.exit(1);
-  }
-
-  if (isPretty()) ok(`Setup complete (${Object.keys(updates).length} key(s) saved)`);
+  if (isPretty()) ok("Setup complete");
   out(summary);
-}
-
-async function resolveKeyFlag(flag: string | undefined, envVar: string): Promise<string | null> {
-  if (flag == null) return null;
-  if (flag === "-") {
-    const stdinValue = await readAllStdin();
-    if (!stdinValue) {
-      throw new Error(`empty stdin while reading ${envVar}`);
-    }
-    return stdinValue.trim();
-  }
-  const trimmed = flag.trim();
-  if (!trimmed) {
-    throw new Error(`empty value for ${envVar}`);
-  }
-  return trimmed;
-}
-
-let _stdinCache: Promise<string> | null = null;
-function readAllStdin(): Promise<string> {
-  // Cache so multiple `-` flags can in principle share, but we error before
-  // that in practice. Node treats stdin as a one-shot stream.
-  if (_stdinCache) return _stdinCache;
-  _stdinCache = new Promise<string>((resolve, reject) => {
-    if (process.stdin.isTTY) {
-      reject(new Error("stdin is a TTY — pipe data in, e.g. `cat key.txt | ralphy setup --openrouter-key -`"));
-      return;
-    }
-    let data = "";
-    process.stdin.setEncoding("utf-8");
-    process.stdin.on("data", (chunk: string) => {
-      data += chunk;
-    });
-    process.stdin.on("end", () => resolve(data));
-    process.stdin.on("error", reject);
-  });
-  return _stdinCache;
 }
 
 // ---------------------------------------------------------------------------
@@ -336,64 +239,10 @@ async function runWizard(): Promise<void> {
     p.note(projectRoot, "Project");
   }
 
-  const envPath = path.join(projectRoot, ".env");
-  const existing = await readDotenv(envPath);
-
-  const keyed: Capability[] = CAPABILITIES;
-  const statusLines = keyed.map((c) => {
-    const set = Boolean(existing[c.envVar]);
-    const tag = set ? "[ ✓ set    ]" : c.required ? "[ • needed ]" : "[ optional ]";
-    return `${tag}  ${c.label.padEnd(28)} ${c.envVar}`;
-  });
-  p.note(statusLines.join("\n"), "Current keys");
-
-  const preselect = keyed.filter((c) => !existing[c.envVar]).map((c) => c.id);
-  const picks = await p.multiselect({
-    message: "Which providers do you want to set up?",
-    options: keyed.map((c) => ({
-      value: c.id,
-      label: `${c.label}${existing[c.envVar] ? " (already set — pick to overwrite)" : ""}`,
-      hint: c.description,
-    })),
-    initialValues: preselect,
-    required: false,
-  });
-  if (p.isCancel(picks)) return cancelled();
-
-  const updates: Record<string, string> = {};
-  for (const id of picks as string[]) {
-    const cap = keyed.find((c) => c.id === id);
-    if (!cap) continue;
-    const value = await p.password({
-      message: `${cap.label} — enter ${cap.envVar} (Ctrl+C to skip remaining)`,
-      validate: (v) => {
-        if (!v && !existing[cap.envVar]) return "Required, or hit Esc to skip";
-        return undefined;
-      },
-    });
-    if (p.isCancel(value)) return cancelled();
-    if (!value || value === existing[cap.envVar]) continue;
-
-    const sp = p.spinner();
-    sp.start(`Verifying ${cap.label}…`);
-    const verified = await verifyKey(cap.envVar, value);
-    sp.stop(
-      verified
-        ? `✓ ${cap.label} verified`
-        : `! ${cap.label} could not be verified — saving anyway`,
-    );
-    updates[cap.envVar] = value;
-  }
-
-  if (Object.keys(updates).length > 0) {
-    const sp = p.spinner();
-    sp.start("Saving .env…");
-    await applyEnvUpdates(envPath, updates);
-    sp.stop(
-      `Saved .env (${Object.keys(updates).length} key${Object.keys(updates).length === 1 ? "" : "s"})`,
-    );
-  }
-
+  p.note(
+    "Pipe each credential to `ralphy provider auth set <provider> --stdin` after selecting an explicit Workspace or Project.",
+    "Credentials",
+  );
   p.outro("Done. Try: ralphy doctor");
 }
 
@@ -401,80 +250,3 @@ function cancelled(): void {
   p.cancel("Cancelled.");
   process.exit(0);
 }
-
-async function readDotenv(envPath: string): Promise<Record<string, string>> {
-  try {
-    const raw = await fs.readFile(envPath, "utf-8");
-    const result: Record<string, string> = {};
-    for (const line of raw.split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) continue;
-      const eq = trimmed.indexOf("=");
-      if (eq === -1) continue;
-      const k = trimmed.slice(0, eq).trim();
-      const v = trimmed
-        .slice(eq + 1)
-        .trim()
-        .replace(/^['"]|['"]$/g, "");
-      result[k] = v;
-    }
-    return result;
-  } catch {
-    return {};
-  }
-}
-
-async function applyEnvUpdates(envPath: string, updates: Record<string, string>): Promise<void> {
-  let content = "";
-  try {
-    content = await fs.readFile(envPath, "utf-8");
-  } catch {
-    /* fresh */
-  }
-  const lines = content.split("\n");
-  const seen = new Set<string>();
-
-  const newLines = lines.map((line) => {
-    const m = line.match(/^([A-Z_][A-Z0-9_]*)=/);
-    if (m && updates[m[1]] !== undefined) {
-      seen.add(m[1]);
-      return `${m[1]}=${updates[m[1]]}`;
-    }
-    return line;
-  });
-
-  for (const [k, v] of Object.entries(updates)) {
-    if (!seen.has(k)) newLines.push(`${k}=${v}`);
-  }
-
-  while (newLines.length > 0 && newLines[newLines.length - 1] === "") newLines.pop();
-  await fs.mkdir(path.dirname(envPath), { recursive: true });
-  await fs.writeFile(envPath, newLines.join("\n") + "\n");
-}
-
-async function verifyKey(envVar: string, value: string): Promise<boolean> {
-  const ctrl = AbortSignal.timeout(8000);
-  try {
-    switch (envVar) {
-      case "ELEVENLABS_API_KEY": {
-        const r = await fetch("https://api.elevenlabs.io/v1/user", {
-          headers: { "xi-api-key": value },
-          signal: ctrl,
-        });
-        return r.ok;
-      }
-      case "OPENROUTER_API_KEY": {
-        const r = await fetch("https://openrouter.ai/api/v1/auth/key", {
-          headers: { Authorization: `Bearer ${value}` },
-          signal: ctrl,
-        });
-        return r.ok;
-      }
-      default:
-        return true;
-    }
-  } catch {
-    return false;
-  }
-}
-

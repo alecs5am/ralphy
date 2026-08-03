@@ -18,22 +18,40 @@ import {
 } from "../../cli/lib/jobs/db.js";
 import {
   deriveWrappedArgv,
+  enqueueGenerate,
   parseDepsList,
   submitBatchFromFile,
 } from "../../cli/lib/jobs/enqueue.js";
+import {
+  clearCommandContext,
+  setCommandContext,
+} from "../../cli/lib/context-state.js";
+import * as generateCommand from "../../cli/commands/generate.js";
+import { resolveConnector } from "../../cli/lib/providers/registry.js";
+import { clearActiveCredentialResolver } from "../../cli/lib/providers/credentials.js";
 
 let tmp: TmpRoot;
 let originalArgv: string[];
+let originalOpenRouter: string | undefined;
+let originalFal: string | undefined;
 
 beforeEach(() => {
   tmp = makeTmpRoot("ralphy-enqueue");
   closeDb();
   openDb();
   originalArgv = process.argv;
+  originalOpenRouter = process.env.OPENROUTER_API_KEY;
+  originalFal = process.env.FAL_KEY;
 });
 
 afterEach(() => {
   process.argv = originalArgv;
+  clearCommandContext();
+  clearActiveCredentialResolver();
+  if (originalOpenRouter === undefined) delete process.env.OPENROUTER_API_KEY;
+  else process.env.OPENROUTER_API_KEY = originalOpenRouter;
+  if (originalFal === undefined) delete process.env.FAL_KEY;
+  else process.env.FAL_KEY = originalFal;
   closeDb();
   tmp.cleanup();
 });
@@ -139,6 +157,58 @@ describe("parseDepsList", () => {
 
   test("filters out non-numeric tokens", () => {
     expect(parseDepsList("1,foo,3")).toEqual([1, 3]);
+  });
+});
+
+describe("enqueueGenerate", () => {
+  test("implicit video queueing persists the same available Fal provider as sync", () => {
+    delete process.env.OPENROUTER_API_KEY;
+    process.env.FAL_KEY = "task-2b-fal-selection-secret";
+    const queuedProvider = (generateCommand as Record<string, unknown>)[
+      "credentialProviderForQueuedGeneration"
+    ];
+
+    expect(resolveConnector("video").id).toBe("fal");
+    expect(typeof queuedProvider).toBe("function");
+    if (typeof queuedProvider !== "function") return;
+    expect(queuedProvider("generate.video", undefined)).toBe("fal");
+  });
+
+  test("persists only the requested provider and immutable command scope", () => {
+    process.argv = [
+      "bun",
+      "cli/index.ts",
+      "generate",
+      "image",
+      "--queue",
+      "--provider",
+      "openrouter",
+    ];
+    setCommandContext({
+      kind: "scope",
+      workspaceId: "ws_enqueue",
+      projectId: "prj_enqueue",
+    });
+    let daemonStarts = 0;
+
+    const id = enqueueGenerate(
+      { queue: true, credentialProviderId: "openrouter" },
+      "generate.image",
+      { ensureDaemon: () => (daemonStarts += 1) },
+    );
+
+    expect(daemonStarts).toBe(1);
+    expect(getJob(id!)).toMatchObject({
+      command: {
+        argv: ["generate", "image", "--provider", "openrouter"],
+        credential: {
+          providerId: "openrouter",
+          workspaceId: "ws_enqueue",
+          projectId: "prj_enqueue",
+        },
+      },
+    });
+    expect(JSON.stringify(getJob(id!))).not.toContain("API_KEY");
   });
 });
 

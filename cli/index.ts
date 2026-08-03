@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S bun --no-env-file
 import { Command } from "commander";
 import { setPretty } from "./lib/output.js";
 import { setDataRoot, setRoot, layoutMode } from "./lib/paths.js";
@@ -8,6 +8,19 @@ import { raiseError } from "./lib/errors/index.js";
 import { DomainError } from "./lib/errors/domain.js";
 import { resolveCommandContext, resolveDataRoot } from "./lib/context.js";
 import { setCommandContext } from "./lib/context-state.js";
+import {
+  activateCredentialResolver,
+  captureStartupCredentialEnvironment,
+  credentialConfigured,
+  createCredentialResolver,
+  STATIC_CREDENTIAL_DESCRIPTORS,
+  scrubCredentialEnvironment,
+} from "./lib/providers/credentials.js";
+import { listConnectors } from "./lib/providers/registry.js";
+
+// Capture only the fixed provider allowlist before any project environment is
+// loaded, then remove those names from this long-lived process.
+const startupCredentials = captureStartupCredentialEnvironment(process.env);
 
 // Install SIGINT handler before parsing so Ctrl-C during preAction is also
 // caught. The token flips on first SIGINT; verbs read it cooperatively and
@@ -183,7 +196,7 @@ program
         (opts.workspace && !actionOwns("workspace")) ||
         (opts.project && !actionOwns("project")),
     );
-    const configureDomainContext = (required: boolean): boolean => {
+    const configureDomainContext = async (required: boolean): Promise<boolean> => {
       let identity: ReturnType<typeof resolveDataRoot>;
       try {
         identity = resolveDataRoot({ root: opts.root, cwd: opts.cwd });
@@ -224,29 +237,47 @@ program
       }
       setDataRoot(identity.dataRoot);
       setCommandContext(context);
+      const descriptors = [
+        ...STATIC_CREDENTIAL_DESCRIPTORS,
+        ...listConnectors().map((connector) => connector.credential),
+      ].filter(
+        (descriptor, index, all) =>
+          all.findIndex((entry) => entry.providerId === descriptor.providerId) ===
+          index,
+      );
+      const credentialResolver = createCredentialResolver({
+        dataRoot: identity.dataRoot,
+        context,
+        descriptors,
+        capturedEnvironment: startupCredentials,
+      });
+      await activateCredentialResolver(
+        credentialResolver,
+        descriptors.map((descriptor) => descriptor.providerId),
+      );
       return true;
     };
-    if (domainContextRequired && configureDomainContext(true)) return;
+    const detected = opts.cwd ??
+      (sub === "setup" ? null : await findProjectRootSafe());
+    if (detected) {
+      setRoot(detected);
+      await loadProjectEnv(detected);
+      scrubCredentialEnvironment(process.env);
+    }
+    if (domainContextRequired && (await configureDomainContext(true))) return;
     const guardLegacyLayout = () => {
       if (sub === "migrate" || sub === "doctor") return;
       if (layoutMode() === "legacy") raiseError("E_LEGACY_LAYOUT");
     };
     if (opts.cwd) {
-      setRoot(opts.cwd);
-      await loadProjectEnv(opts.cwd);
       guardLegacyLayout();
-      configureDomainContext(false);
+      await configureDomainContext(false);
       return;
     }
     // Skip project auto-detection for setup — it has its own logic for first-run.
     if (sub === "setup") return;
-    const detected = await findProjectRootSafe();
-    if (detected) {
-      setRoot(detected);
-      await loadProjectEnv(detected);
-    }
     guardLegacyLayout();
-    configureDomainContext(false);
+    await configureDomainContext(false);
   });
 
 program.addCommand(versionCmd());
@@ -392,8 +423,8 @@ program.action(async () => {
             signals: profile.signals,
           },
           capabilities: {
-            openrouter: Boolean(process.env.OPENROUTER_API_KEY),
-            elevenlabs: Boolean(process.env.ELEVENLABS_API_KEY),
+            openrouter: credentialConfigured("openrouter"),
+            elevenlabs: credentialConfigured("elevenlabs"),
           },
           project_root: root(),
           memory: memoryDigest,
@@ -411,8 +442,8 @@ program.action(async () => {
   const homeDir = process.env.HOME || "";
   const projectShort = root().startsWith(homeDir) ? "~" + root().slice(homeDir.length) : root();
   const caps = [
-    { label: "OpenRouter", on: Boolean(process.env.OPENROUTER_API_KEY) },
-    { label: "ElevenLabs", on: Boolean(process.env.ELEVENLABS_API_KEY) },
+    { label: "OpenRouter", on: credentialConfigured("openrouter") },
+    { label: "ElevenLabs", on: credentialConfigured("elevenlabs") },
   ];
   console.log(`${icons.arrow} ${c.bold("version")}      ${c.value("v" + VERSION)}`);
   console.log(`${icons.arrow} ${c.bold("project")}      ${c.path(projectShort)}`);

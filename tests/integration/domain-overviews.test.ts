@@ -283,10 +283,14 @@ describe("workspace overview", () => {
     ]);
     expect(Object.keys(withSections.accounts!.items[0]!).sort()).toEqual([
       "createdAt",
+      "credentialConfigured",
+      "credentialSource",
       "displayName",
       "externalId",
       "id",
       "platform",
+      "relinkRequired",
+      "rowVersion",
       "updatedAt",
       "username",
       "workspaceId",

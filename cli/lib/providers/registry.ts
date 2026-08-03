@@ -113,7 +113,7 @@ export function resolveConnector(cap: Capability, explicitId?: string): RalphyCo
     if (!c.available()) {
       raiseError("E_PROVIDER_UNAVAILABLE", {
         provider: c.label,
-        detail: `${c.envVar} is not set. Get a key at ${c.signupUrl} and run "ralphy setup".`,
+        detail: `${c.envVar} is not set. Get a key at ${c.signupUrl}, then pipe it to "ralphy provider auth set ${c.id} --stdin".`,
       });
     }
     return c;
@@ -126,7 +126,7 @@ export function resolveConnector(cap: Capability, explicitId?: string): RalphyCo
       provider: candidates.map((c) => c.label).join(" / ") || `(${cap})`,
       detail:
         `no provider for '${cap}' is configured. ` +
-        (keys ? `Set ${keys} and run "ralphy setup".` : `No connector advertises '${cap}'.`),
+        (keys ? `Configure ${keys} with "ralphy provider auth set <provider> --stdin".` : `No connector advertises '${cap}'.`),
     });
   }
   return avail;

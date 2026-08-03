@@ -161,7 +161,7 @@ export function doctorCmd() {
         report.keys[cap.envVar] = present;
         if (!present && cap.required) {
           report.blockers.push(
-            `${cap.envVar} missing — ${cap.label} required (${cap.signupUrl}). Run \`ralphy setup\`.`,
+            `${cap.envVar} missing — ${cap.label} required (${cap.signupUrl}). Use \`ralphy provider auth set ${cap.id === "llm-openrouter" ? "openrouter" : "elevenlabs"} --stdin\`.`,
           );
         }
       }

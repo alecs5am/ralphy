@@ -9,6 +9,7 @@ import {
 import fs from "node:fs";
 import path from "node:path";
 import { DomainError } from "../errors/domain.js";
+import { StoreConflictError } from "./types.js";
 import {
   openDirectoryAt,
   openExistingDirectoryAt,
@@ -40,10 +41,14 @@ type SecretEnvelope = {
 };
 
 type SecretStore = {
-  set(ref: string, value: string): Promise<void>;
+  set(
+    ref: string,
+    value: string,
+    updateDatabase?: (db: Database) => void,
+  ): Promise<void>;
   read(ref: string): Promise<string | null>;
   has(ref: string): Promise<boolean>;
-  delete(ref: string): Promise<void>;
+  delete(ref: string, updateDatabase?: (db: Database) => void): Promise<void>;
   setSecretFile(ref: string, value: Uint8Array): Promise<void>;
   materializeSecretFile(ref: string, runId: string): Promise<string>;
   cleanup(runId?: string): void;
@@ -82,6 +87,8 @@ export function createSecretStore(input: {
   afterMaterializationDirectoryOpen?: () => void;
   /** @internal Concurrency seam invoked only after cleanup directories are pinned. */
   afterCleanupDirectoryOpen?: () => void;
+  /** @internal Fault-injection seam for coordinated secret/database rollback. */
+  commitMutation?: (db: Database) => void;
 }): SecretStore {
   const dataRoot = explicitDataRoot(input.dataRoot);
   const keyProvider = input.keyProvider ?? createMacKeyProvider();
@@ -90,13 +97,19 @@ export function createSecretStore(input: {
   cleanupMaterializations(dataRoot);
 
   return {
-    async set(ref, value) {
+    async set(ref, value, updateDatabase) {
       const checkedRef = checkedSecretRef(ref);
       if (typeof value !== "string") throw secretError();
-      await mutate(dataRoot, keyProvider, (payload) => {
-        payload.entries[checkedRef] = value;
-        delete payload.files[checkedRef];
-      });
+      await mutate(
+        dataRoot,
+        keyProvider,
+        (payload) => {
+          payload.entries[checkedRef] = value;
+          delete payload.files[checkedRef];
+        },
+        updateDatabase,
+        input.commitMutation,
+      );
     },
     async read(ref) {
       const checkedRef = checkedSecretRef(ref);
@@ -108,12 +121,18 @@ export function createSecretStore(input: {
       const payload = await readPayload(dataRoot, keyProvider);
       return checkedRef in payload.entries || checkedRef in payload.files;
     },
-    async delete(ref) {
+    async delete(ref, updateDatabase) {
       const checkedRef = checkedSecretRef(ref);
-      await mutate(dataRoot, keyProvider, (payload) => {
-        delete payload.entries[checkedRef];
-        delete payload.files[checkedRef];
-      });
+      await mutate(
+        dataRoot,
+        keyProvider,
+        (payload) => {
+          delete payload.entries[checkedRef];
+          delete payload.files[checkedRef];
+        },
+        updateDatabase,
+        input.commitMutation,
+      );
     },
     async setSecretFile(ref, value) {
       const checkedRef = checkedSecretRef(ref);
@@ -246,6 +265,8 @@ async function mutate(
   dataRoot: string,
   keyProvider: KeyProvider,
   change: (payload: SecretPayload) => void,
+  updateDatabase?: (db: Database) => void,
+  commitMutation: (db: Database) => void = (db) => db.exec("COMMIT"),
 ): Promise<void> {
   await serializeMutation(dataRoot, async () => {
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -254,6 +275,8 @@ async function mutate(
       const key = await keyForState(keyProvider, storeId, existedBeforeKeyLookup);
       const db = openLockDatabase(dataRoot);
       let committed = false;
+      let envelopeAttempted = false;
+      let previousEnvelope: Buffer | null = null;
       try {
         db.exec("BEGIN IMMEDIATE");
         const existsAfterLock = fs.existsSync(envelopePath(dataRoot));
@@ -261,15 +284,28 @@ async function mutate(
           db.exec("ROLLBACK");
           continue;
         }
-        const payload = existsAfterLock
-          ? decryptEnvelope(fs.readFileSync(envelopePath(dataRoot)), key)
+        previousEnvelope = existsAfterLock
+          ? fs.readFileSync(envelopePath(dataRoot))
+          : null;
+        const payload = previousEnvelope
+          ? decryptEnvelope(previousEnvelope, key)
           : emptyPayload();
+        updateDatabase?.(db);
         change(payload);
+        envelopeAttempted = true;
         writeEnvelope(dataRoot, encryptPayload(payload, key));
-        db.exec("COMMIT");
+        commitMutation(db);
         committed = true;
         return;
       } catch (error) {
+        let restoreFailed = false;
+        if (envelopeAttempted) {
+          try {
+            restoreEnvelope(dataRoot, previousEnvelope);
+          } catch {
+            restoreFailed = true;
+          }
+        }
         if (!committed && db.inTransaction) {
           try {
             db.exec("ROLLBACK");
@@ -277,7 +313,10 @@ async function mutate(
             // The safe DomainError below owns the boundary.
           }
         }
-        if (error instanceof DomainError) throw error;
+        if (restoreFailed) throw secretError();
+        if (error instanceof DomainError || error instanceof StoreConflictError) {
+          throw error;
+        }
         throw secretError();
       } finally {
         db.close();
@@ -354,23 +393,35 @@ function decryptEnvelope(bytes: Buffer, key: Buffer): SecretPayload {
 }
 
 function writeEnvelope(dataRoot: string, envelope: SecretEnvelope): void {
+  writeEnvelopeBytes(dataRoot, Buffer.from(JSON.stringify(envelope)));
+}
+
+function restoreEnvelope(dataRoot: string, previous: Buffer | null): void {
+  if (previous !== null) {
+    writeEnvelopeBytes(dataRoot, previous);
+    return;
+  }
+  try {
+    fs.unlinkSync(envelopePath(dataRoot));
+    fsyncDirectory(dataRoot);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw secretError();
+  }
+}
+
+function writeEnvelopeBytes(dataRoot: string, bytes: Buffer): void {
   const target = envelopePath(dataRoot);
   const temporary = path.join(dataRoot, `.${ENVELOPE_NAME}.${randomUUID()}.tmp`);
   let fd: number | null = null;
   try {
     fd = fs.openSync(temporary, "wx", 0o600);
-    fs.writeFileSync(fd, JSON.stringify(envelope));
+    fs.writeFileSync(fd, bytes);
     fs.fsyncSync(fd);
     fs.closeSync(fd);
     fd = null;
     fs.renameSync(temporary, target);
     fs.chmodSync(target, 0o600);
-    const directory = fs.openSync(dataRoot, "r");
-    try {
-      fs.fsyncSync(directory);
-    } finally {
-      fs.closeSync(directory);
-    }
+    fsyncDirectory(dataRoot);
   } catch {
     if (fd !== null) fs.closeSync(fd);
     try {
@@ -379,6 +430,15 @@ function writeEnvelope(dataRoot: string, envelope: SecretEnvelope): void {
       // The sibling temporary may already have been atomically renamed.
     }
     throw secretError();
+  }
+}
+
+function fsyncDirectory(directoryPath: string): void {
+  const directory = fs.openSync(directoryPath, "r");
+  try {
+    fs.fsyncSync(directory);
+  } finally {
+    fs.closeSync(directory);
   }
 }
 

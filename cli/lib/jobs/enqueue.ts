@@ -10,6 +10,7 @@ import fs from "node:fs/promises";
 import { insertJob, insertJobsAtomic } from "./db.js";
 import type { JobInsertInput, JobKind } from "./types.js";
 import { ensureDaemonRunning } from "./daemon.js";
+import { getCommandContext } from "../context-state.js";
 
 export type QueueFlags = {
   queue?: boolean;
@@ -17,6 +18,7 @@ export type QueueFlags = {
   priority?: number;
   tag?: string;
   project?: string;
+  credentialProviderId?: string;
 };
 
 /**
@@ -66,18 +68,31 @@ export function parseDepsList(s: string | undefined): number[] {
 export function enqueueGenerate(
   flags: QueueFlags,
   kind: JobKind,
+  dependencies: { ensureDaemon?: () => void } = {},
 ): number | null {
   if (!flags.queue) return null;
   const argv = deriveWrappedArgv();
+  const context = getCommandContext();
   const id = insertJob({
     kind,
-    command: { argv },
+    command: {
+      argv,
+      ...(context && flags.credentialProviderId
+        ? {
+            credential: {
+              providerId: flags.credentialProviderId,
+              workspaceId: context.workspaceId,
+              ...(context.projectId ? { projectId: context.projectId } : {}),
+            },
+          }
+        : {}),
+    },
     depends_on: parseDepsList(flags.dependsOn),
     priority: flags.priority ?? 0,
     tag: flags.tag,
     project_id: flags.project,
   });
-  ensureDaemonRunning();
+  (dependencies.ensureDaemon ?? ensureDaemonRunning)();
   return id;
 }
 

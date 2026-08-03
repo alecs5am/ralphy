@@ -207,6 +207,27 @@ export type CallLLMResult = {
   latencyMs: number;
 };
 
+export type CredentialSource =
+  | "encrypted"
+  | "environment"
+  | "subscription"
+  | "missing";
+
+export type CredentialDescriptor =
+  | {
+      readonly providerId: string;
+      readonly kind: "none";
+      readonly environmentVariable: null;
+    }
+  | {
+      readonly providerId: string;
+      readonly kind: "api-key";
+      /** A fixed startup-only allowlist entry; custom providers use null. */
+      readonly environmentVariable: string | null;
+      readonly resolveSubscription?: () => Promise<string | null>;
+      readonly login?: () => Promise<void>;
+    };
+
 // ─── The connector contract ──────────────────────────────────────────────────
 
 export interface RalphyConnector {
@@ -216,6 +237,8 @@ export interface RalphyConnector {
   readonly label: string;
   /** Primary env var gating availability. */
   readonly envVar: string;
+  /** Explicit credential ownership and startup-capture policy. */
+  readonly credential: CredentialDescriptor;
   /** Where to obtain the key. */
   readonly signupUrl: string;
   /** Which cells of the capability matrix this connector fills. */

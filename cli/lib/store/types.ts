@@ -609,6 +609,10 @@ export type OverviewAccountDto = {
   externalId: string;
   displayName: string | null;
   username: string | null;
+  credentialConfigured: boolean;
+  credentialSource: "encrypted" | "environment" | "subscription" | "missing";
+  relinkRequired: boolean;
+  rowVersion: number;
   createdAt: number;
   updatedAt: number;
 };

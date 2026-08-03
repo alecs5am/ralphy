@@ -45,6 +45,11 @@ import type {
   GenerateVideoInput,
   GenerateResult,
 } from "./types.js";
+import {
+  credentialConfigured,
+  credentialValue,
+  FAL_CREDENTIAL,
+} from "./credentials.js";
 
 const ID = "fal";
 const LABEL = "fal.ai";
@@ -59,11 +64,11 @@ const QUEUE_BASE = "https://queue.fal.run";
 const STORAGE_INITIATE_URL = "https://rest.alpha.fal.ai/storage/upload/initiate";
 
 function requireKey(): void {
-  requireProviderKey({ envVar: ENV_VAR, label: LABEL, signupUrl: SIGNUP_URL });
+  requireProviderKey({ providerId: ID, envVar: ENV_VAR, label: LABEL, signupUrl: SIGNUP_URL });
 }
 
 function authHeader(): { Authorization: string } {
-  return { Authorization: `Key ${process.env.FAL_KEY!}` };
+  return { Authorization: `Key ${credentialValue(ID)!}` };
 }
 
 // ─── model catalog (fal-local; these models are NOT in the OR catalog) ───────
@@ -488,8 +493,9 @@ export const falConnector: RalphyConnector = {
   id: ID,
   label: LABEL,
   envVar: ENV_VAR,
+  credential: FAL_CREDENTIAL,
   signupUrl: SIGNUP_URL,
   capabilities: ["video"],
-  available: () => Boolean(process.env.FAL_KEY),
+  available: () => credentialConfigured(ID),
   generateVideo,
 };

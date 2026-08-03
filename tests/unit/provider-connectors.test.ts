@@ -25,6 +25,11 @@ import {
   resetProviderCache,
   parseModelId,
 } from "../../cli/lib/providers/registry.js";
+import {
+  activateCredentialResolver,
+  clearActiveCredentialResolver,
+  createCredentialResolver,
+} from "../../cli/lib/providers/credentials.js";
 
 const SAFE_ENV = "RALPHY_LOCAL_API_KEY";
 let tmp: string;
@@ -49,6 +54,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  clearActiveCredentialResolver();
   setRoot(prevRoot);
   resetProviderCache();
   if (savedEnv === undefined) delete process.env[SAFE_ENV];
@@ -134,7 +140,7 @@ describe("connector health (available())", () => {
     expect(conn.available()).toBe(true);
   });
 
-  test("key-gated endpoint is unavailable without the key, available with it", () => {
+  test("key-gated endpoint ignores arbitrary env mapping and uses scoped encrypted auth", async () => {
     const conn = makeOpenAiCompatibleConnector({
       id: "gated",
       kind: "openai-compatible",
@@ -145,6 +151,26 @@ describe("connector health (available())", () => {
     delete process.env[SAFE_ENV];
     expect(conn.available()).toBe(false);
     process.env[SAFE_ENV] = "secret";
+    expect(conn.available()).toBe(false);
+
+    const entries = new Map<string, string>();
+    const resolver = createCredentialResolver({
+      dataRoot: tmp,
+      context: { kind: "scope", workspaceId: "ws_test" },
+      descriptors: [conn.credential],
+      capturedEnvironment: new Map(),
+      secretStore: {
+        set: async (ref, value) => {
+          entries.set(ref, value);
+        },
+        read: async (ref) => entries.get(ref) ?? null,
+        delete: async (ref) => {
+          entries.delete(ref);
+        },
+      },
+    });
+    await resolver.set("gated", "test-only-value");
+    await activateCredentialResolver(resolver, ["gated"]);
     expect(conn.available()).toBe(true);
   });
 });

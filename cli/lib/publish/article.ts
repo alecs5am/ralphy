@@ -20,6 +20,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { safeChildEnvironment } from "../providers/credentials.js";
 import { projectDir, projectWorkspace, workspaceManifestPath } from "../paths.js";
 import { TerminalProviderError } from "../providers/shared.js";
 import { devtoPublish, type FetchLike as DevtoFetch } from "../providers/devto.js";
@@ -125,13 +126,19 @@ const LOCAL_GIT_ENV_VARS = [
 
 /** Run git in `repoDir`, throwing a TerminalProviderError on non-zero exit. */
 function git(repoDir: string, args: string[]): string {
-  const env = { ...process.env };
+  const env = articleChildEnvironment(process.env);
   for (const key of LOCAL_GIT_ENV_VARS) delete env[key];
   const r = spawnSync("git", args, { cwd: repoDir, encoding: "utf8", env });
   if (r.status !== 0) {
     throw new TerminalProviderError(`git ${args[0]} failed: ${(r.stderr || r.stdout || "").trim().slice(0, 300)}`);
   }
   return (r.stdout ?? "").trim();
+}
+
+export function articleChildEnvironment(
+  inherited: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  return safeChildEnvironment({ inherited });
 }
 
 export interface GithubPagesCommit {

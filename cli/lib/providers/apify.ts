@@ -12,6 +12,7 @@
 // (`fetchImpl`) so tests run with zero network.
 
 import { TerminalProviderError } from "./shared.js";
+import { credentialConfigured, credentialValue } from "./credentials.js";
 import type { FetchLike } from "./firecrawl.js";
 
 const LABEL = "Apify";
@@ -21,7 +22,7 @@ const API_BASE = "https://api.apify.com/v2";
 
 /** True iff the connector's token is present. */
 export function apifyAvailable(): boolean {
-  return Boolean(process.env.APIFY_TOKEN);
+  return credentialConfigured("apify");
 }
 
 function requireKey(): void {
@@ -34,7 +35,7 @@ function requireKey(): void {
 
 function authHeaders(): Record<string, string> {
   return {
-    Authorization: `Bearer ${process.env.APIFY_TOKEN!}`,
+    Authorization: `Bearer ${credentialValue("apify")!}`,
     "Content-Type": "application/json",
   };
 }
