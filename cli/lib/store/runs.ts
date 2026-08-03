@@ -24,6 +24,7 @@ import type {
   Page,
   RunAttemptDto,
   RunDto,
+  RunObjectDto,
   RunAttemptRow,
   RunResultEntityType,
   RunResultRow,
@@ -97,9 +98,24 @@ type RunObjectDbRow = {
   purpose: string;
   state: string;
   retention: string;
+  mime: string | null;
   bytes: number | null;
   sha256: string | null;
   metadata_json: string | null;
+  created_at: number;
+};
+
+type RunObjectDtoDbRow = {
+  id: string;
+  workspace_id: string | null;
+  project_id: string | null;
+  run_id: string;
+  object_id: string | null;
+  purpose: string;
+  state: string;
+  retention: string;
+  mime: string | null;
+  bytes: number | null;
   created_at: number;
 };
 
@@ -121,7 +137,9 @@ const ATTEMPT_COLUMNS =
 const ATTEMPT_DTO_COLUMNS =
   "attempt.id, attempt.run_id, attempt.attempt_no, attempt.provider, attempt.model, attempt.state, attempt.cost_usd, attempt.started_at, attempt.ended_at";
 const RUN_OBJECT_COLUMNS =
-  "id, run_id, object_id, path, purpose, state, retention, bytes, sha256, metadata_json, created_at";
+  "id, run_id, object_id, path, purpose, state, retention, mime, bytes, sha256, metadata_json, created_at";
+const RUN_OBJECT_DTO_COLUMNS =
+  "run_object.id, run.workspace_id, run.project_id, run_object.run_id, run_object.object_id, run_object.purpose, run_object.state, run_object.retention, run_object.mime, run_object.bytes, run_object.created_at";
 const RUN_RESULT_COLUMNS =
   "id, run_id, position, entity_type, entity_id, created_at";
 const RUN_RESULT_ENTITY_TYPES = new Set<RunResultEntityType>([
@@ -143,6 +161,8 @@ const TERMINAL_STATES = new Set<RunState>([
 ]);
 const DATA_URL =
   /data:(?:[a-z][a-z0-9!#$&^_.+-]*\/[a-z0-9!#$&^_.+-]+)?(?:;[a-z0-9!#$&^_.+-]+=[^;,\s]+)*(?:;base64)?,[^\s"'<>]*/i;
+const RUN_OBJECT_MIME =
+  /^[A-Za-z0-9!#$&^_.+-]+\/[A-Za-z0-9!#$&^_.+-]+$/;
 const BINARY_KEYS = new Set([
   "base64",
   "b64",
@@ -344,14 +364,16 @@ export function recordRunObject(input: {
   purpose: string;
   state: string;
   retention: string;
+  mime?: string | null;
   bytes?: number | null;
   sha256?: string | null;
   metadata?: JsonValue | null;
-}): RunObjectRow {
+}): RunObjectDto {
   const locator = checkedRunObjectPath(input.path);
   const purpose = checkedText(input.purpose, "RunObject purpose");
   const state = checkedText(input.state, "RunObject state");
   const retention = checkedText(input.retention, "RunObject retention");
+  const mime = checkedRunObjectMime(input.mime);
   const bytes = checkedBytes(input.bytes);
   const sha256 = checkedSha256(input.sha256);
   const metadata = checkedJson(input.metadata, "RunObject metadata");
@@ -361,8 +383,8 @@ export function recordRunObject(input: {
     const createdAt = Date.now();
     db.prepare(
       `INSERT INTO run_objects
-       (id, run_id, path, purpose, state, retention, bytes, sha256, metadata_json, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, run_id, path, purpose, state, retention, mime, bytes, sha256, metadata_json, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       id,
       run.id,
@@ -370,6 +392,7 @@ export function recordRunObject(input: {
       purpose,
       state,
       retention,
+      mime,
       bytes,
       sha256,
       serializeJson(metadata),
@@ -384,7 +407,7 @@ export function recordRunObject(input: {
       payload: { runId: run.id, purpose, state },
       createdAt,
     });
-    return getRunObjectRow(db, id)!;
+    return toRunObjectDto(getRunObjectRow(db, id)!, run);
   });
 }
 
@@ -394,12 +417,17 @@ export async function promoteRunObject(input: {
   storageClass: ObjectStorageClass;
   originalName?: string;
   destinationScope?: ObjectScope;
-}): Promise<RunObjectRow> {
+}): Promise<RunObjectDto> {
+  const mime = checkedRunObjectMime(input.mime);
+  if (mime === null) throw new Error("RunObject promotion MIME is required");
   const initialDb = openDomainDb();
   const runObject = getRunObjectRow(initialDb, input.runObjectId);
   if (!runObject) throw new Error(`RunObject not found: ${input.runObjectId}`);
   if (runObject.objectId !== null) {
     throw new StoreConflictError("RunObject is already promoted");
+  }
+  if (runObject.mime !== null && runObject.mime !== mime) {
+    throw new Error("RunObject promotion MIME does not match recorded evidence");
   }
   const run = requireRun(initialDb, runObject.runId);
   const scope = promotionScope(run, input.destinationScope);
@@ -415,7 +443,7 @@ export async function promoteRunObject(input: {
     scope,
     sourcePath,
     originalName: input.originalName ?? path.posix.basename(runObject.path),
-    mime: input.mime,
+    mime,
     storageClass: input.storageClass,
     metadata: runObject.metadata,
     transfer: "move",
@@ -446,8 +474,64 @@ export async function promoteRunObject(input: {
       action: "run.object_promoted",
       payload: { runId: current.runId, objectId: object.id },
     });
-    return getRunObjectRow(db, current.id)!;
+    return toRunObjectDto(getRunObjectRow(db, current.id)!, run);
   });
+}
+
+export function getRunObject(input: {
+  context: QueryContext;
+  runObjectId: string;
+}): RunObjectDto {
+  const db = openDomainDb();
+  const access = resolveRunQueryAccess(db, input.context);
+  const row = db
+    .query<RunObjectDtoDbRow, (string | number)[]>(
+      `SELECT ${RUN_OBJECT_DTO_COLUMNS}
+       FROM run_objects AS run_object
+       JOIN runs AS run ON run.id = run_object.run_id
+       WHERE run_object.id = ? AND ${access.sql}`,
+    )
+    .get(input.runObjectId, ...access.values);
+  if (!row) throw new Error(`RunObject not found: ${input.runObjectId}`);
+  return toPublicRunObjectDto(row);
+}
+
+export function listRunObjects(input: {
+  context: QueryContext;
+  runId: string;
+  after?: string | null;
+  limit: number;
+}): Page<RunObjectDto> {
+  assertLimit(input.limit);
+  const db = openDomainDb();
+  const access = resolveRunQueryAccess(db, input.context);
+  if (!getVisibleRunDtoRow(db, access, input.runId)) {
+    throw new Error(`Run not found: ${input.runId}`);
+  }
+  const clauses = ["run_object.run_id = ?", access.sql];
+  const values: (string | number)[] = [input.runId, ...access.values];
+  if (input.after != null) {
+    const cursor = decodeCursor("c1", input.after);
+    clauses.push(
+      "(run_object.created_at > ? OR (run_object.created_at = ? AND run_object.id > ?))",
+    );
+    values.push(cursor.ordinal, cursor.ordinal, cursor.id);
+  }
+  values.push(input.limit + 1);
+  const rows = db
+    .query<RunObjectDtoDbRow, (string | number)[]>(
+      `SELECT ${RUN_OBJECT_DTO_COLUMNS}
+       FROM run_objects AS run_object
+       JOIN runs AS run ON run.id = run_object.run_id
+       WHERE ${clauses.join(" AND ")}
+       ORDER BY run_object.created_at ASC, run_object.id ASC LIMIT ?`,
+    )
+    .all(...values)
+    .map(toPublicRunObjectDto);
+  return buildPage(rows, input.limit, "c1", (row) => ({
+    ordinal: row.createdAt,
+    id: row.id,
+  }));
 }
 
 export function getRun(input: {
@@ -1044,9 +1128,42 @@ function toRunObjectRow(row: RunObjectDbRow): RunObjectRow {
     purpose: row.purpose,
     state: row.state,
     retention: row.retention,
+    mime: row.mime,
     bytes: row.bytes,
     sha256: row.sha256,
     metadata: parseJson(row.metadata_json),
+    createdAt: row.created_at,
+  };
+}
+
+function toRunObjectDto(row: RunObjectRow, run: RunRow): RunObjectDto {
+  return {
+    id: row.id,
+    workspaceId: run.workspaceId,
+    projectId: run.projectId,
+    runId: row.runId,
+    objectId: row.objectId,
+    purpose: row.purpose,
+    state: row.state,
+    retention: row.retention,
+    mime: row.mime,
+    bytes: row.bytes,
+    createdAt: row.createdAt,
+  };
+}
+
+function toPublicRunObjectDto(row: RunObjectDtoDbRow): RunObjectDto {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    projectId: row.project_id,
+    runId: row.run_id,
+    objectId: row.object_id,
+    purpose: row.purpose,
+    state: row.state,
+    retention: row.retention,
+    mime: row.mime,
+    bytes: row.bytes,
     createdAt: row.created_at,
   };
 }
@@ -1100,6 +1217,21 @@ function checkedSha256(value: string | null | undefined): string | null {
     throw new Error("RunObject SHA-256 must be 64 lowercase hex characters");
   }
   return value;
+}
+
+function checkedRunObjectMime(
+  value: string | null | undefined,
+): string | null {
+  if (value == null) return null;
+  const mime = value.trim();
+  if (
+    mime.length < 3 ||
+    Buffer.byteLength(mime) > 255 ||
+    !RUN_OBJECT_MIME.test(mime)
+  ) {
+    throw new Error("RunObject MIME is invalid");
+  }
+  return mime;
 }
 
 function checkedRunObjectPath(value: string): string {
