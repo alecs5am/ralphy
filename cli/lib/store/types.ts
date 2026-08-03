@@ -848,6 +848,13 @@ export type ReviewMediaResult = {
   feedbackId: string | null;
 };
 
+export type DocumentContentPage = {
+  revisionId: string;
+  format: DocumentFormat;
+  text: string;
+  nextByte: number | null;
+};
+
 export class StoreConflictError extends Error {
   readonly code = "E_CONFLICT";
 
