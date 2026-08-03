@@ -330,7 +330,7 @@ export type BuildOutputDto = {
   createdAt: number;
 };
 
-export type UnitRow = {
+export type UnitDto = {
   id: string;
   workspaceId: string;
   projectId: string | null;
@@ -338,25 +338,23 @@ export type UnitRow = {
   format: string;
   latestRevisionId: string | null;
   selectedRevisionId: string | null;
-  rowVersion: number;
   createdAt: number;
   updatedAt: number;
 };
 
-export type UnitRevisionRow = {
+export type UnitRevisionDto = {
   id: string;
   unitId: string;
   revisionNo: number;
   parentRevisionId: string | null;
   iterationId: string | null;
   note: string | null;
-  metadata: JsonValue | null;
   authoredBySessionId: string | null;
   createdAt: number;
   sealedAt: number | null;
 };
 
-export type UnitItemRow = {
+export type UnitItemDto = {
   id: string;
   unitRevisionId: string;
   artifactRevisionId: string | null;
@@ -373,7 +371,7 @@ export type PresentationCaptionState =
   | "auto-draft-archived"
   | "final";
 
-export type PresentationCaptionRevisionRow = {
+export type PresentationCaptionRevisionDto = {
   id: string;
   presentationId: string;
   revisionNo: number;
@@ -383,7 +381,7 @@ export type PresentationCaptionRevisionRow = {
   createdAt: number;
 };
 
-export type PresentationItemRow = {
+export type PresentationItemDto = {
   id: string;
   presentationId: string;
   unitItemId: string;
@@ -392,7 +390,7 @@ export type PresentationItemRow = {
   createdAt: number;
 };
 
-export type UnitPresentationRow = {
+export type UnitPresentationDto = {
   id: string;
   unitRevisionId: string;
   platform: string;
@@ -429,14 +427,13 @@ export type PublicationClaimKind =
   | "status-lookup"
   | "cancellation";
 
-export type PublicationRow = {
+export type PublicationDto = {
   id: string;
   presentationId: string;
   effectiveCaptionRevisionId: string | null;
   effectiveOptions: JsonValue;
   socialAccountId: string | null;
   submissionRunId: string;
-  activeClaimRunId: string | null;
   revisedFromPublicationId: string | null;
   rail: PublicationRail;
   providerPublicationId: string | null;
@@ -445,27 +442,8 @@ export type PublicationRow = {
   scheduledAt: number | null;
   submittedAt: number | null;
   publishedAt: number | null;
-  error: string | null;
-  failureStage: string | null;
-  idempotencyKey: string;
-  claimKind: PublicationClaimKind | null;
-  claimEpoch: number;
-  claimExpiresAt: number | null;
   createdAt: number;
   updatedAt: number;
-};
-
-export type PublicationFence = {
-  kind: PublicationClaimKind;
-  runId: string;
-  epoch: number;
-  token: string;
-  expiresAt: number;
-};
-
-export type PublicationClaim = {
-  publication: PublicationRow;
-  fence: PublicationFence;
 };
 
 export type MetricRetentionPoint = {
@@ -474,7 +452,7 @@ export type MetricRetentionPoint = {
   [key: string]: JsonValue | undefined;
 };
 
-export type MetricSnapshotRow = {
+export type MetricSnapshotDto = {
   id: string;
   publicationId: string;
   source: string;
@@ -490,7 +468,6 @@ export type MetricSnapshotRow = {
   retentionCurve: MetricRetentionPoint[] | null;
   avgViewDurationSec: number | null;
   note: string | null;
-  raw: JsonValue | null;
   createdAt: number;
 };
 
@@ -712,17 +689,7 @@ export type OverviewProjectDocumentDto = OverviewDocumentDto & {
   binding: DocumentBindingDto | null;
 };
 
-export type OverviewUnitDto = {
-  id: string;
-  workspaceId: string;
-  projectId: string | null;
-  slug: string;
-  format: string;
-  latestRevisionId: string | null;
-  selectedRevisionId: string | null;
-  createdAt: number;
-  updatedAt: number;
-};
+export type OverviewUnitDto = UnitDto;
 
 export type OverviewAccountDto = {
   id: string;

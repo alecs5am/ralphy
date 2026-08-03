@@ -401,6 +401,16 @@ describe("internal row boundary", () => {
       "BuildOutputRow",
       "BuildDocumentBindingRow",
       "CompositionAggregate",
+      "UnitRow",
+      "UnitRevisionRow",
+      "UnitItemRow",
+      "UnitPresentationRow",
+      "PresentationCaptionRevisionRow",
+      "PresentationItemRow",
+      "PublicationRow",
+      "PublicationFence",
+      "PublicationClaim",
+      "MetricSnapshotRow",
       "UnitAggregate",
     ]) {
       expect(publicTypes).not.toContain(`export type ${name} =`);

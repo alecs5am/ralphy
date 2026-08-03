@@ -43,7 +43,6 @@ import {
   finishPublicationStatusLookup,
   getMetricTotals,
   listMetricSnapshots,
-  getUnit,
   recordPublication,
   requestPublicationReconciliation,
   reviseUnit,
@@ -51,6 +50,7 @@ import {
 } from "../../cli/lib/store/units.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 import { scopedActivity } from "../helpers/activity.js";
+import { getUnitAggregate as getUnit } from "../helpers/unit-aggregate.js";
 
 let roots: TmpRoot[] = [];
 
@@ -955,12 +955,12 @@ describe("domain Unit store", () => {
       effectiveOptions: { privacy: "public" },
       socialAccountId: account.id,
       submissionRunId: run.id,
-      activeClaimRunId: null,
       revisedFromPublicationId: null,
       rail: "postiz",
       state: "draft",
       scheduledAt,
     });
+    expect(publicationOperational(publication.id).activeClaimRunId).toBeNull();
     expect(JSON.stringify(publication)).not.toContain("claimToken");
     expect(
       recordPublication({
@@ -1011,8 +1011,8 @@ describe("domain Unit store", () => {
       state: "submitted",
       providerPublicationId: "postiz-123",
       url: "https://example.test/post/123",
-      activeClaimRunId: null,
     });
+    expect(publicationOperational(publication.id).activeClaimRunId).toBeNull();
     expect(() =>
       finishPublicationClaim(publication.id, {
         fence,
@@ -1042,7 +1042,7 @@ describe("domain Unit store", () => {
       "publication.finished",
     ]);
     expect(getUnit(unit.id).revisions[0]!.presentations[0]!.publications).toEqual([
-      finished,
+      expect.objectContaining(finished),
     ]);
   });
 
@@ -1125,6 +1125,9 @@ describe("domain Unit store", () => {
     expect(preflight).toMatchObject({
       state: "failed",
       socialAccountId: null,
+    });
+    expect(publicationOperational(preflight.id)).toMatchObject({
+      error: "No matching account",
       failureStage: "account-resolution",
     });
     expect(getRun(preflightRun.id)).toMatchObject({ state: "failed", attempts: [] });
@@ -1285,6 +1288,8 @@ describe("domain Unit store", () => {
     });
     expect(uncertain).toMatchObject({
       state: "reconciliation_required",
+    });
+    expect(publicationOperational(uncertain.id)).toMatchObject({
       activeClaimRunId: null,
       claimEpoch: 2,
     });
@@ -1379,6 +1384,8 @@ describe("domain Unit store", () => {
     expect(statusFence.kind).toBe("status-lookup");
     expect(status.publication).toMatchObject({
       state: "scheduled",
+    });
+    expect(publicationOperational(status.publication.id)).toMatchObject({
       claimKind: "status-lookup",
       activeClaimRunId: statusRun.id,
     });
@@ -1391,7 +1398,8 @@ describe("domain Unit store", () => {
       state: "scheduled",
       error: "Provider timed out",
     });
-    expect(retained).toMatchObject({ state: "scheduled", claimKind: null });
+    expect(retained).toMatchObject({ state: "scheduled" });
+    expect(publicationOperational(retained.id).claimKind).toBeNull();
     expect(getRun(statusRun.id)).toMatchObject({
       state: "failed",
       attempts: [expect.objectContaining({ state: "failed" })],
@@ -1455,6 +1463,8 @@ describe("domain Unit store", () => {
       expect(cancellation.fence.kind).toBe("cancellation");
       expect(cancellation.publication).toMatchObject({
         state: initialState,
+      });
+      expect(publicationOperational(cancellation.publication.id)).toMatchObject({
         claimKind: "cancellation",
         activeClaimRunId: cancellationRun.id,
       });
@@ -1532,7 +1542,9 @@ describe("domain Unit store", () => {
        WHERE id = '${liveScheduled.id}'`,
       /fence|transition|expiry/i,
     );
-    expect(liveClaim.publication.claimKind).toBe("status-lookup");
+    expect(publicationOperational(liveClaim.publication.id).claimKind).toBe(
+      "status-lookup",
+    );
 
     const statusFixture = await publicationFixture("publication-expired-status");
     const statusSubmit = claimPublication(statusFixture.publication.id, "draft", 60_000);
@@ -1569,6 +1581,8 @@ describe("domain Unit store", () => {
     });
     expect(recoveredStatus).toMatchObject({
       state: "scheduled",
+    });
+    expect(publicationOperational(recoveredStatus.id)).toMatchObject({
       claimKind: null,
       claimEpoch: staleStatusFence.epoch + 1,
     });
@@ -1873,6 +1887,9 @@ describe("domain Unit store", () => {
       60_000,
     );
     expect(lookup.publication).toMatchObject({
+      state: "submitted",
+    });
+    expect(publicationOperational(lookup.publication.id)).toMatchObject({
       claimKind: "status-lookup",
       activeClaimRunId: lookupRun.id,
     });
@@ -1910,7 +1927,9 @@ describe("domain Unit store", () => {
       cancellationRun.id,
       60_000,
     );
-    expect(cancellation.publication.claimKind).toBe("cancellation");
+    expect(publicationOperational(cancellation.publication.id).claimKind).toBe(
+      "cancellation",
+    );
     const mutations = [
       () => db.prepare("DELETE FROM publications WHERE id = ?").run(submitted.id),
       () =>
@@ -2006,7 +2025,10 @@ describe("domain Unit store", () => {
       ctr: null,
       retentionCurve: null,
       avgViewDurationSec: null,
-      raw: { extra: { reach: 12 }, providerViews: "unavailable" },
+    });
+    expect(metricRaw(unknown.id)).toEqual({
+      extra: { reach: 12 },
+      providerViews: "unavailable",
     });
     expect(measuredZero).toMatchObject({
       views: 0,
@@ -2020,13 +2042,14 @@ describe("domain Unit store", () => {
     });
     expect(
       listMetricSnapshots({
+        context: { workspaceId: fixture.workspace.id, projectId: fixture.project.id },
         publicationId: fixture.publication.id,
         source: "postiz",
         asOf: 150,
         windowStart: 10,
         windowEnd: 90,
         limit: 10,
-      }),
+      }).items,
     ).toEqual([unknown]);
     expect(
       openDomainDb()
@@ -2167,28 +2190,34 @@ describe("domain Unit store", () => {
     append(secondPublication.id, 3, "postiz", 150, 50, 3);
     append(secondPublication.id, 4, "postiz", 300, 999, 9, 200, 300);
     const publicationIds = [fixture.publication.id, secondPublication.id];
+    const context = {
+      workspaceId: fixture.workspace.id,
+      projectId: fixture.project.id,
+    };
 
     expect(
-      getMetricTotals({ publicationIds, windowStart: 0, windowEnd: 1_000 }),
+      getMetricTotals({ context, publicationIds, windowStart: 0, windowEnd: 1_000 }),
     ).toMatchObject({ publicationCount: 2, views: 260, likes: 3 });
-    expect(getMetricTotals({ publicationIds, source: "postiz" })).toMatchObject({
+    expect(getMetricTotals({ context, publicationIds, source: "postiz" })).toMatchObject({
       publicationCount: 2,
       views: 1_099,
       likes: 9,
     });
-    expect(getMetricTotals({ publicationIds, asOf: 125 })).toMatchObject({
+    expect(getMetricTotals({ context, publicationIds, asOf: 125 })).toMatchObject({
       publicationCount: 1,
       views: 100,
       likes: null,
     });
     expect(
       getMetricTotals({
+        context,
         publicationIds: [fixture.publication.id],
         source: "postiz",
       }),
     ).toMatchObject({ views: 100, likes: null });
     expect(
       getMetricTotals({
+        context,
         publicationIds: [fixture.publication.id],
         source: "youtube-analytics",
         asOf: 200,
@@ -2204,15 +2233,22 @@ describe("domain Unit store", () => {
     insertTie.run("metric_equal_a", fixture.publication.id, 400);
     insertTie.run("metric_equal_z", fixture.publication.id, 450);
     expect(
-      getMetricTotals({ publicationIds, windowStart: 0, windowEnd: 1_000 }),
+      getMetricTotals({ context, publicationIds, windowStart: 0, windowEnd: 1_000 }),
     ).toMatchObject({ publicationCount: 2, views: 500, likes: 3 });
 
-    expect(() => getMetricTotals({ publicationIds: [] })).toThrow(/1 through 100/i);
+    expect(() => getMetricTotals({ context, publicationIds: [] })).toThrow(/1 through 100/i);
     expect(() =>
-      getMetricTotals({ publicationIds: Array.from({ length: 101 }, (_, i) => `pub_${i}`) }),
+      getMetricTotals({
+        context,
+        publicationIds: Array.from({ length: 101 }, (_, i) => `pub_${i}`),
+      }),
     ).toThrow(/1 through 100/i);
     expect(() =>
-      listMetricSnapshots({ publicationId: fixture.publication.id, limit: 0 }),
+      listMetricSnapshots({
+        context,
+        publicationId: fixture.publication.id,
+        limit: 0,
+      }),
     ).toThrow(/1 through 100/i);
   });
 
@@ -2238,7 +2274,11 @@ describe("domain Unit store", () => {
       }),
     ).toThrow(/scope/i);
     expect(
-      listMetricSnapshots({ publicationId: fixture.publication.id }),
+      listMetricSnapshots({
+        context: { workspaceId: fixture.workspace.id, projectId: fixture.project.id },
+        publicationId: fixture.publication.id,
+        limit: 100,
+      }).items,
     ).toEqual([]);
 
     const run = startRun({ projectId: fixture.project.id, kind: "metric-refresh" });
@@ -2261,12 +2301,56 @@ describe("domain Unit store", () => {
       }),
     ).toThrow();
     expect(
-      listMetricSnapshots({ publicationId: fixture.publication.id }).map(
+      listMetricSnapshots({
+        context: { workspaceId: fixture.workspace.id, projectId: fixture.project.id },
+        publicationId: fixture.publication.id,
+        limit: 100,
+      }).items.map(
         (snapshot) => snapshot.views,
       ),
     ).toEqual([1]);
   });
 });
+
+function publicationOperational(id: string): {
+  activeClaimRunId: string | null;
+  error: string | null;
+  failureStage: string | null;
+  idempotencyKey: string;
+  claimKind: string | null;
+  claimEpoch: number;
+} {
+  const row = openDomainDb()
+    .query<
+      {
+        activeClaimRunId: string | null;
+        error: string | null;
+        failureStage: string | null;
+        idempotencyKey: string;
+        claimKind: string | null;
+        claimEpoch: number;
+      },
+      [string]
+    >(
+      `SELECT active_claim_run_id AS activeClaimRunId, error,
+              failure_stage AS failureStage, idempotency_key AS idempotencyKey,
+              claim_kind AS claimKind, claim_epoch AS claimEpoch
+       FROM publications WHERE id = ?`,
+    )
+    .get(id);
+  if (!row) throw new Error(`Publication not found in test fixture: ${id}`);
+  return row;
+}
+
+function metricRaw(id: string): unknown {
+  const row = openDomainDb()
+    .query<{ rawJson: string | null }, [string]>(
+      "SELECT raw_json AS rawJson FROM metric_snapshots WHERE id = ?",
+    )
+    .get(id);
+  if (!row) throw new Error(`Metric Snapshot not found in test fixture: ${id}`);
+  return row.rawJson === null ? null : JSON.parse(row.rawJson);
+}
 
 function setupProject(label: string) {
   const root = makeTmpRoot(`ralphy-domain-units-${label}`);

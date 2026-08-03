@@ -2,10 +2,11 @@ import type { Database } from "bun:sqlite";
 import { randomUUID } from "node:crypto";
 import { URL } from "node:url";
 import { isValidUnitSlug } from "../schemas/unit.js";
-import { appendActivity, assertLimit } from "./activity.js";
+import { appendActivity } from "./activity.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
 import { resolveObjectPath } from "./objects.js";
+import { assertLimit, buildPage, decodeCursor } from "./pagination.js";
 import {
   assertFreshPendingRun,
   finishRunAttemptInTransaction,
@@ -13,32 +14,40 @@ import {
   recordRunResult,
   startRunAttemptInTransaction,
 } from "./runs.js";
+import {
+  resolveQueryContext,
+  scopeVisibilityClause,
+  type QueryContext,
+  type ResolvedScope,
+} from "./scope-context.js";
 import { assertActiveSessionScope } from "./sessions.js";
 import type {
   JsonValue,
   MetricRetentionPoint,
-  MetricSnapshotRow,
+  MetricSnapshotDto,
   MetricTotals,
-  PresentationCaptionRevisionRow,
+  Page,
+  PresentationCaptionRevisionDto,
   PresentationCaptionState,
-  PresentationItemRow,
-  PublicationClaim,
+  PresentationItemDto,
   PublicationClaimKind,
-  PublicationFence,
+  PublicationDto,
   PublicationRail,
-  PublicationRow,
   PublicationState,
-  UnitItemRow,
-  UnitPresentationRow,
-  UnitRevisionRow,
-  UnitRow,
+  UnitDto,
+  UnitItemDto,
+  UnitPresentationDto,
+  UnitRevisionDto,
 } from "./types.js";
 import { StoreConflictError } from "./types.js";
 import type {
+  MetricSnapshotRow,
   ObjectRow,
-  UnitAggregate,
-  UnitPresentationAggregate,
-  UnitRevisionAggregate,
+  PublicationClaim,
+  PublicationFence,
+  PublicationRow,
+  UnitRevisionRow,
+  UnitRow,
 } from "./internal-types.js";
 
 type UnitScope =
@@ -143,49 +152,6 @@ type UnitRevisionDbRow = {
   sealed_at: number | null;
 };
 
-type UnitItemDbRow = {
-  id: string;
-  unit_revision_id: string;
-  artifact_revision_id: string | null;
-  document_revision_id: string | null;
-  role: string;
-  position: number;
-  config_json: string | null;
-  created_at: number;
-};
-
-type UnitPresentationDbRow = {
-  id: string;
-  unit_revision_id: string;
-  platform: string;
-  position: number;
-  effective_caption_revision_id: string | null;
-  cover_artifact_revision_id: string | null;
-  crop_json: string | null;
-  safe_area_json: string | null;
-  options_json: string;
-  created_at: number;
-};
-
-type PresentationCaptionRevisionDbRow = {
-  id: string;
-  presentation_id: string;
-  revision_no: number;
-  parent_revision_id: string | null;
-  state: PresentationCaptionState;
-  text: string;
-  created_at: number;
-};
-
-type PresentationItemDbRow = {
-  id: string;
-  presentation_id: string;
-  unit_item_id: string;
-  position: number;
-  config_json: string | null;
-  created_at: number;
-};
-
 type PublicationDbRow = {
   id: string;
   presentation_id: string;
@@ -233,22 +199,93 @@ type MetricSnapshotDbRow = {
   created_at: number;
 };
 
+type UnitItemDtoDbRow = Omit<UnitItemDto, "config"> & {
+  configJson: string | null;
+};
+type UnitPresentationDtoDbRow = Omit<
+  UnitPresentationDto,
+  "crop" | "safeArea" | "options"
+> & {
+  cropJson: string | null;
+  safeAreaJson: string | null;
+  optionsJson: string;
+};
+type PresentationItemDtoDbRow = Omit<PresentationItemDto, "config"> & {
+  configJson: string | null;
+};
+type PublicationDtoDbRow = Omit<PublicationDto, "effectiveOptions"> & {
+  effectiveOptionsJson: string;
+};
+type MetricSnapshotDtoDbRow = Omit<MetricSnapshotDto, "retentionCurve"> & {
+  retentionCurveJson: string | null;
+};
+
 const UNIT_COLUMNS =
   "id, workspace_id, project_id, slug, format, latest_revision_id, selected_revision_id, row_version, created_at, updated_at";
 const REVISION_COLUMNS =
   "id, unit_id, revision_no, parent_revision_id, iteration_id, note, metadata_json, authored_by_session_id, created_at, sealed_at";
-const ITEM_COLUMNS =
-  "id, unit_revision_id, artifact_revision_id, document_revision_id, role, position, config_json, created_at";
-const PRESENTATION_COLUMNS =
-  "id, unit_revision_id, platform, position, effective_caption_revision_id, cover_artifact_revision_id, crop_json, safe_area_json, options_json, created_at";
-const CAPTION_COLUMNS =
-  "id, presentation_id, revision_no, parent_revision_id, state, text, created_at";
-const PRESENTATION_ITEM_COLUMNS =
-  "id, presentation_id, unit_item_id, position, config_json, created_at";
 const PUBLICATION_COLUMNS =
   "id, presentation_id, effective_caption_revision_id, effective_options_json, social_account_id, submission_run_id, active_claim_run_id, revised_from_publication_id, rail, provider_publication_id, state, url, scheduled_at, submitted_at, published_at, error, failure_stage, idempotency_key, claim_kind, claim_epoch, claim_token, claim_expires_at, created_at, updated_at";
 const METRIC_SNAPSHOT_COLUMNS =
   "id, publication_id, source, as_of, window_start, window_end, views, likes, comments, shares, watch_time_ms, ctr, retention_curve_json, avg_view_duration_sec, note, raw_json, created_at";
+const UNIT_DTO_COLUMNS = `unit.id AS id, unit.workspace_id AS workspaceId,
+  unit.project_id AS projectId, unit.slug AS slug, unit.format AS format,
+  unit.latest_revision_id AS latestRevisionId,
+  unit.selected_revision_id AS selectedRevisionId,
+  unit.created_at AS createdAt, unit.updated_at AS updatedAt`;
+const REVISION_DTO_COLUMNS = `revision.id AS id, revision.unit_id AS unitId,
+  revision.revision_no AS revisionNo,
+  revision.parent_revision_id AS parentRevisionId,
+  revision.iteration_id AS iterationId, revision.note AS note,
+  revision.authored_by_session_id AS authoredBySessionId,
+  revision.created_at AS createdAt, revision.sealed_at AS sealedAt`;
+const ITEM_DTO_COLUMNS = `item.id AS id,
+  item.unit_revision_id AS unitRevisionId,
+  item.artifact_revision_id AS artifactRevisionId,
+  item.document_revision_id AS documentRevisionId, item.role AS role,
+  item.position AS position, item.config_json AS configJson,
+  item.created_at AS createdAt`;
+const PRESENTATION_DTO_COLUMNS = `presentation.id AS id,
+  presentation.unit_revision_id AS unitRevisionId,
+  presentation.platform AS platform, presentation.position AS position,
+  presentation.effective_caption_revision_id AS effectiveCaptionRevisionId,
+  presentation.cover_artifact_revision_id AS coverArtifactRevisionId,
+  presentation.crop_json AS cropJson,
+  presentation.safe_area_json AS safeAreaJson,
+  presentation.options_json AS optionsJson,
+  presentation.created_at AS createdAt`;
+const CAPTION_DTO_COLUMNS = `caption.id AS id,
+  caption.presentation_id AS presentationId,
+  caption.revision_no AS revisionNo,
+  caption.parent_revision_id AS parentRevisionId, caption.state AS state,
+  caption.text AS text, caption.created_at AS createdAt`;
+const PRESENTATION_ITEM_DTO_COLUMNS = `item.id AS id,
+  item.presentation_id AS presentationId, item.unit_item_id AS unitItemId,
+  item.position AS position, item.config_json AS configJson,
+  item.created_at AS createdAt`;
+const PUBLICATION_DTO_COLUMNS = `publication.id AS id,
+  publication.presentation_id AS presentationId,
+  publication.effective_caption_revision_id AS effectiveCaptionRevisionId,
+  publication.effective_options_json AS effectiveOptionsJson,
+  publication.social_account_id AS socialAccountId,
+  publication.submission_run_id AS submissionRunId,
+  publication.revised_from_publication_id AS revisedFromPublicationId,
+  publication.rail AS rail,
+  publication.provider_publication_id AS providerPublicationId,
+  publication.state AS state, publication.url AS url,
+  publication.scheduled_at AS scheduledAt,
+  publication.submitted_at AS submittedAt,
+  publication.published_at AS publishedAt,
+  publication.created_at AS createdAt, publication.updated_at AS updatedAt`;
+const METRIC_DTO_COLUMNS = `metric.id AS id,
+  metric.publication_id AS publicationId, metric.source AS source,
+  metric.as_of AS asOf, metric.window_start AS windowStart,
+  metric.window_end AS windowEnd, metric.views AS views,
+  metric.likes AS likes, metric.comments AS comments,
+  metric.shares AS shares, metric.watch_time_ms AS watchTimeMs,
+  metric.ctr AS ctr, metric.retention_curve_json AS retentionCurveJson,
+  metric.avg_view_duration_sec AS avgViewDurationSec, metric.note AS note,
+  metric.created_at AS createdAt`;
 const PUBLICATION_RAILS = new Set<PublicationRail>([
   "postiz",
   "github-pages",
@@ -257,7 +294,7 @@ const PUBLICATION_RAILS = new Set<PublicationRail>([
   "manual",
 ]);
 
-export function createUnit(input: CreateUnitInput): UnitRow {
+export function createUnit(input: CreateUnitInput): UnitDto {
   if (!isValidUnitSlug(input.slug)) {
     throw new Error("Unit slug must be canonical kebab-case");
   }
@@ -284,11 +321,11 @@ export function createUnit(input: CreateUnitInput): UnitRow {
       payload: { format, slug },
       createdAt: now,
     });
-    return getUnitRow(db, id)!;
+    return toUnitDto(getUnitRow(db, id)!);
   });
 }
 
-export function reviseUnit(input: ReviseUnitInput): UnitRevisionRow {
+export function reviseUnit(input: ReviseUnitInput): UnitRevisionDto {
   if (!Object.hasOwn(input, "expectedLatestRevisionId")) {
     throw new Error("Unit revision requires expectedLatestRevisionId");
   }
@@ -438,7 +475,7 @@ export function reviseUnit(input: ReviseUnitInput): UnitRevisionRow {
       payload: { unitId: unit.id, revisionNo, parentRevisionId: parentId },
       createdAt: now,
     });
-    return getRevisionRow(db, id)!;
+    return toRevisionDto(getRevisionRow(db, id)!);
   });
 }
 
@@ -446,7 +483,7 @@ export function selectUnitRevision(input: {
   unitId: string;
   revisionId: string;
   expectedSelectedRevisionId: string | null;
-}): UnitRow {
+}): UnitDto {
   if (!Object.hasOwn(input, "expectedSelectedRevisionId")) {
     throw new Error("Unit selection requires expectedSelectedRevisionId");
   }
@@ -475,7 +512,7 @@ export function selectUnitRevision(input: {
       },
       createdAt: now,
     });
-    return getUnitRow(db, unit.id)!;
+    return toUnitDto(getUnitRow(db, unit.id)!);
   });
 }
 
@@ -490,7 +527,7 @@ export function recordPublication(input: {
   state?: "draft" | "failed";
   error?: string | null;
   failureStage?: "account-resolution" | "preflight" | null;
-}): PublicationRow {
+}): PublicationDto {
   if (!PUBLICATION_RAILS.has(input.rail)) {
     throw new Error(`Unsupported Publication rail: ${input.rail}`);
   }
@@ -528,7 +565,7 @@ export function recordPublication(input: {
         action: "publication.idempotent_skip",
         payload: {},
       });
-      return existing;
+      return toPublicationDto(existing);
     }
     const scope = publicationScope(db, input.presentationId);
     if (!scope) throw new Error(`Unit Presentation not found: ${input.presentationId}`);
@@ -613,7 +650,7 @@ export function recordPublication(input: {
       payload: { rail: input.rail, state },
       createdAt: now,
     });
-    return getPublicationRow(db, id)!;
+    return toPublicationDto(getPublicationRow(db, id)!);
   });
 }
 
@@ -665,7 +702,7 @@ export function claimPublication(
       createdAt: now,
     });
     return {
-      publication: getPublicationRow(db, publication.id)!,
+      publication: toPublicationDto(getPublicationRow(db, publication.id)!),
       fence: {
         kind: "submission",
         runId: publication.submissionRunId,
@@ -702,7 +739,7 @@ type FinishPublicationInput = {
 export function finishPublicationClaim(
   id: string,
   input: FinishPublicationInput,
-): PublicationRow {
+): PublicationDto {
   if (
     input.fence.kind !== "submission" &&
     input.fence.kind !== "reconciliation"
@@ -721,7 +758,7 @@ export function finishPublicationClaim(
 export function finishPublicationStatusLookup(
   id: string,
   input: FinishPublicationInput & { operationState: PublicationOperationState },
-): PublicationRow {
+): PublicationDto {
   return finishPublicationOperation(
     id,
     input,
@@ -733,7 +770,7 @@ export function finishPublicationStatusLookup(
 export function finishPublicationCancellation(
   id: string,
   input: FinishPublicationInput & { operationState: PublicationOperationState },
-): PublicationRow {
+): PublicationDto {
   return finishPublicationOperation(
     id,
     input,
@@ -747,7 +784,7 @@ function finishPublicationOperation(
   input: FinishPublicationInput,
   expectedKind: PublicationClaimKind,
   operationState: PublicationOperationState,
-): PublicationRow {
+): PublicationDto {
   const submittedAt = checkedOptionalTimestamp(
     input.submittedAt,
     "Publication submittedAt",
@@ -854,7 +891,7 @@ function finishPublicationOperation(
       payload: { kind: expectedKind, operationState, state: input.state },
       createdAt: now,
     });
-    return getPublicationRow(db, publication.id)!;
+    return toPublicationDto(getPublicationRow(db, publication.id)!);
   });
 }
 
@@ -865,7 +902,7 @@ export function requestPublicationReconciliation(
     state: "reconciliation_required" | "unknown";
     error: string;
   },
-): PublicationRow {
+): PublicationDto {
   const error = checkedText(input.error, "Publication reconciliation error");
   return withImmediateTransaction((db) => {
     const publication = requirePublication(db, id);
@@ -922,7 +959,7 @@ export function requestPublicationReconciliation(
       payload: { state: input.state },
       createdAt: now,
     });
-    return getPublicationRow(db, publication.id)!;
+    return toPublicationDto(getPublicationRow(db, publication.id)!);
   });
 }
 
@@ -952,7 +989,7 @@ export type ExpirePublicationOperationClaimInput =
 export function expirePublicationOperationClaim(
   id: string,
   input: ExpirePublicationOperationClaimInput,
-): PublicationRow {
+): PublicationDto {
   if (!Number.isSafeInteger(input.expectedEpoch) || input.expectedEpoch < 1) {
     throw new Error("Publication claim epoch must be a positive integer");
   }
@@ -1027,7 +1064,7 @@ export function expirePublicationOperationClaim(
       },
       createdAt: now,
     });
-    return getPublicationRow(db, publication.id)!;
+    return toPublicationDto(getPublicationRow(db, publication.id)!);
   });
 }
 
@@ -1079,7 +1116,7 @@ export function claimPublicationCancellation(
 export function cancelDraftPublication(
   id: string,
   expectedState: "draft",
-): PublicationRow {
+): PublicationDto {
   return withImmediateTransaction((db) => {
     const publication = requirePublication(db, id);
     if (publication.state !== "draft" || publication.state !== expectedState) {
@@ -1109,7 +1146,7 @@ export function cancelDraftPublication(
       payload: { kind: "draft" },
       createdAt: now,
     });
-    return getPublicationRow(db, publication.id)!;
+    return toPublicationDto(getPublicationRow(db, publication.id)!);
   });
 }
 
@@ -1183,7 +1220,7 @@ function claimPublicationOperation(
       createdAt: now,
     });
     return {
-      publication: getPublicationRow(db, publication.id)!,
+      publication: toPublicationDto(getPublicationRow(db, publication.id)!),
       fence: {
         kind,
         runId,
@@ -1195,32 +1232,316 @@ function claimPublicationOperation(
   });
 }
 
-export function getUnit(id: string): UnitAggregate {
+export function getUnit(input: {
+  context: QueryContext;
+  unitId: string;
+}): UnitDto {
   const db = openDomainDb();
-  return db.transaction(() => {
-    const unit = getUnitRow(db, id);
-    if (!unit) throw new Error(`Unit not found: ${id}`);
-    const revisions = db
-      .query<UnitRevisionDbRow, [string]>(
-        `SELECT ${REVISION_COLUMNS} FROM unit_revisions
-         WHERE unit_id = ? ORDER BY revision_no ASC, id ASC`,
-      )
-      .all(id)
-      .map((row): UnitRevisionAggregate => {
-        const revision = toRevisionRow(row);
-        return {
-          ...revision,
-          items: listItems(db, revision.id),
-          presentations: listPresentations(db, revision.id),
-        };
-      });
-    return { ...unit, revisions };
-  })();
+  const scope = resolveQueryContext(db, input.context);
+  const unit = getVisibleUnitDto(db, scope, input.unitId);
+  if (!unit) throw new Error(`Unit not found: ${input.unitId}`);
+  return unit;
+}
+
+export function listUnits(input: {
+  context: QueryContext;
+  after?: string | null;
+  limit: number;
+}): Page<UnitDto> {
+  assertLimit(input.limit);
+  const cursor = input.after == null ? null : decodeCursor("c1", input.after);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const visibility = scopeVisibilityClause(
+    scope,
+    "unit.workspace_id",
+    "unit.project_id",
+  );
+  const rows = db.query<UnitDto, (string | number)[]>(
+    `SELECT ${UNIT_DTO_COLUMNS} FROM units unit
+     WHERE ${visibility.sql}
+       AND (unit.created_at > ? OR
+            (unit.created_at = ? AND unit.id > ?))
+     ORDER BY unit.created_at ASC, unit.id ASC LIMIT ?`,
+  ).all(
+    ...visibility.values,
+    cursor?.ordinal ?? -1,
+    cursor?.ordinal ?? -1,
+    cursor?.id ?? "",
+    input.limit + 1,
+  );
+  return buildPage(rows, input.limit, "c1", (row) => ({
+    ordinal: row.createdAt,
+    id: row.id,
+  }));
+}
+
+export function getUnitRevision(input: {
+  context: QueryContext;
+  revisionId: string;
+}): UnitRevisionDto {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const revision = getVisibleRevisionDto(db, scope, input.revisionId);
+  if (!revision) throw new Error(`Unit Revision not found: ${input.revisionId}`);
+  return revision;
+}
+
+export function listUnitRevisions(input: {
+  context: QueryContext;
+  unitId: string;
+  after?: string | null;
+  limit: number;
+}): Page<UnitRevisionDto> {
+  assertLimit(input.limit);
+  const cursor = input.after == null ? null : decodeCursor("v1", input.after);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  if (!getVisibleUnitDto(db, scope, input.unitId)) {
+    throw new Error(`Unit not found: ${input.unitId}`);
+  }
+  const rows = db.query<UnitRevisionDto, (string | number)[]>(
+    `SELECT ${REVISION_DTO_COLUMNS} FROM unit_revisions revision
+     WHERE revision.unit_id = ?
+       AND (revision.revision_no > ? OR
+            (revision.revision_no = ? AND revision.id > ?))
+     ORDER BY revision.revision_no ASC, revision.id ASC LIMIT ?`,
+  ).all(
+    input.unitId,
+    cursor?.ordinal ?? -1,
+    cursor?.ordinal ?? -1,
+    cursor?.id ?? "",
+    input.limit + 1,
+  );
+  return buildPage(rows, input.limit, "v1", (row) => ({
+    ordinal: row.revisionNo,
+    id: row.id,
+  }));
+}
+
+export function getUnitItem(input: {
+  context: QueryContext;
+  itemId: string;
+}): UnitItemDto {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const item = getVisibleItemDto(db, scope, input.itemId);
+  if (!item) throw new Error(`Unit Item not found: ${input.itemId}`);
+  return item;
+}
+
+export function listUnitItems(input: {
+  context: QueryContext;
+  revisionId: string;
+  after?: string | null;
+  limit: number;
+}): Page<UnitItemDto> {
+  assertLimit(input.limit);
+  const cursor = input.after == null ? null : decodeCursor("p1", input.after);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  if (!getVisibleRevisionDto(db, scope, input.revisionId)) {
+    throw new Error(`Unit Revision not found: ${input.revisionId}`);
+  }
+  const rows = db.query<UnitItemDtoDbRow, (string | number)[]>(
+    `SELECT ${ITEM_DTO_COLUMNS} FROM unit_items item
+     WHERE item.unit_revision_id = ?
+       AND (item.position > ? OR (item.position = ? AND item.id > ?))
+     ORDER BY item.position ASC, item.id ASC LIMIT ?`,
+  ).all(
+    input.revisionId,
+    cursor?.ordinal ?? -1,
+    cursor?.ordinal ?? -1,
+    cursor?.id ?? "",
+    input.limit + 1,
+  );
+  return buildPage(rows.map(toItemDto), input.limit, "p1", (row) => ({
+    ordinal: row.position,
+    id: row.id,
+  }));
+}
+
+export function getUnitPresentation(input: {
+  context: QueryContext;
+  presentationId: string;
+}): UnitPresentationDto {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const presentation = getVisiblePresentationDto(db, scope, input.presentationId);
+  if (!presentation) {
+    throw new Error(`Unit Presentation not found: ${input.presentationId}`);
+  }
+  return presentation;
+}
+
+export function listUnitPresentations(input: {
+  context: QueryContext;
+  revisionId: string;
+  after?: string | null;
+  limit: number;
+}): Page<UnitPresentationDto> {
+  assertLimit(input.limit);
+  const cursor = input.after == null ? null : decodeCursor("p1", input.after);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  if (!getVisibleRevisionDto(db, scope, input.revisionId)) {
+    throw new Error(`Unit Revision not found: ${input.revisionId}`);
+  }
+  const rows = db.query<UnitPresentationDtoDbRow, (string | number)[]>(
+    `SELECT ${PRESENTATION_DTO_COLUMNS} FROM unit_presentations presentation
+     WHERE presentation.unit_revision_id = ?
+       AND (presentation.position > ? OR
+            (presentation.position = ? AND presentation.id > ?))
+     ORDER BY presentation.position ASC, presentation.id ASC LIMIT ?`,
+  ).all(
+    input.revisionId,
+    cursor?.ordinal ?? -1,
+    cursor?.ordinal ?? -1,
+    cursor?.id ?? "",
+    input.limit + 1,
+  );
+  return buildPage(rows.map(toPresentationDto), input.limit, "p1", (row) => ({
+    ordinal: row.position,
+    id: row.id,
+  }));
+}
+
+export function getPresentationCaptionRevision(input: {
+  context: QueryContext;
+  captionRevisionId: string;
+}): PresentationCaptionRevisionDto {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const caption = getVisibleCaptionDto(db, scope, input.captionRevisionId);
+  if (!caption) {
+    throw new Error(`Presentation Caption Revision not found: ${input.captionRevisionId}`);
+  }
+  return caption;
+}
+
+export function listPresentationCaptionRevisions(input: {
+  context: QueryContext;
+  presentationId: string;
+  after?: string | null;
+  limit: number;
+}): Page<PresentationCaptionRevisionDto> {
+  assertLimit(input.limit);
+  const cursor = input.after == null ? null : decodeCursor("v1", input.after);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  if (!getVisiblePresentationDto(db, scope, input.presentationId)) {
+    throw new Error(`Unit Presentation not found: ${input.presentationId}`);
+  }
+  const rows = db.query<PresentationCaptionRevisionDto, (string | number)[]>(
+    `SELECT ${CAPTION_DTO_COLUMNS}
+     FROM presentation_caption_revisions caption
+     WHERE caption.presentation_id = ?
+       AND (caption.revision_no > ? OR
+            (caption.revision_no = ? AND caption.id > ?))
+     ORDER BY caption.revision_no ASC, caption.id ASC LIMIT ?`,
+  ).all(
+    input.presentationId,
+    cursor?.ordinal ?? -1,
+    cursor?.ordinal ?? -1,
+    cursor?.id ?? "",
+    input.limit + 1,
+  );
+  return buildPage(rows, input.limit, "v1", (row) => ({
+    ordinal: row.revisionNo,
+    id: row.id,
+  }));
+}
+
+export function getPresentationItem(input: {
+  context: QueryContext;
+  presentationItemId: string;
+}): PresentationItemDto {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const item = getVisiblePresentationItemDto(db, scope, input.presentationItemId);
+  if (!item) {
+    throw new Error(`Presentation Item not found: ${input.presentationItemId}`);
+  }
+  return item;
+}
+
+export function listPresentationItems(input: {
+  context: QueryContext;
+  presentationId: string;
+  after?: string | null;
+  limit: number;
+}): Page<PresentationItemDto> {
+  assertLimit(input.limit);
+  const cursor = input.after == null ? null : decodeCursor("p1", input.after);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  if (!getVisiblePresentationDto(db, scope, input.presentationId)) {
+    throw new Error(`Unit Presentation not found: ${input.presentationId}`);
+  }
+  const rows = db.query<PresentationItemDtoDbRow, (string | number)[]>(
+    `SELECT ${PRESENTATION_ITEM_DTO_COLUMNS} FROM presentation_items item
+     WHERE item.presentation_id = ?
+       AND (item.position > ? OR (item.position = ? AND item.id > ?))
+     ORDER BY item.position ASC, item.id ASC LIMIT ?`,
+  ).all(
+    input.presentationId,
+    cursor?.ordinal ?? -1,
+    cursor?.ordinal ?? -1,
+    cursor?.id ?? "",
+    input.limit + 1,
+  );
+  return buildPage(rows.map(toPresentationItemDto), input.limit, "p1", (row) => ({
+    ordinal: row.position,
+    id: row.id,
+  }));
+}
+
+export function getPublication(input: {
+  context: QueryContext;
+  publicationId: string;
+}): PublicationDto {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const publication = getVisiblePublicationDto(db, scope, input.publicationId);
+  if (!publication) throw new Error(`Publication not found: ${input.publicationId}`);
+  return publication;
+}
+
+export function listPublications(input: {
+  context: QueryContext;
+  presentationId: string;
+  after?: string | null;
+  limit: number;
+}): Page<PublicationDto> {
+  assertLimit(input.limit);
+  const cursor = input.after == null ? null : decodeCursor("c1", input.after);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  if (!getVisiblePresentationDto(db, scope, input.presentationId)) {
+    throw new Error(`Unit Presentation not found: ${input.presentationId}`);
+  }
+  const rows = db.query<PublicationDtoDbRow, (string | number)[]>(
+    `SELECT ${PUBLICATION_DTO_COLUMNS} FROM publications publication
+     WHERE publication.presentation_id = ?
+       AND (publication.created_at > ? OR
+            (publication.created_at = ? AND publication.id > ?))
+     ORDER BY publication.created_at ASC, publication.id ASC LIMIT ?`,
+  ).all(
+    input.presentationId,
+    cursor?.ordinal ?? -1,
+    cursor?.ordinal ?? -1,
+    cursor?.id ?? "",
+    input.limit + 1,
+  );
+  return buildPage(rows.map(toPublicationDtoDb), input.limit, "c1", (row) => ({
+    ordinal: row.createdAt,
+    id: row.id,
+  }));
 }
 
 export function appendMetricSnapshot(
   input: AppendMetricSnapshotInput,
-): MetricSnapshotRow {
+): MetricSnapshotDto {
   const source = checkedMetricSource(input.source);
   const asOf = checkedOptionalTimestamp(input.asOf, "Metric asOf")!;
   const windowStart = checkedOptionalTimestamp(
@@ -1296,46 +1617,81 @@ export function appendMetricSnapshot(
       payload: { publicationId: input.publicationId, source, asOf },
       createdAt,
     });
-    return getMetricSnapshotRow(db, id)!;
+    return toMetricSnapshotDto(getMetricSnapshotRow(db, id)!);
   });
 }
 
+export function getMetricSnapshot(input: {
+  context: QueryContext;
+  metricSnapshotId: string;
+}): MetricSnapshotDto {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const metric = getVisibleMetricDto(db, scope, input.metricSnapshotId);
+  if (!metric) {
+    throw new Error(`Metric Snapshot not found: ${input.metricSnapshotId}`);
+  }
+  return metric;
+}
+
 export function listMetricSnapshots(
-  input: MetricSnapshotFilter & { publicationId: string; limit?: number },
-): MetricSnapshotRow[] {
-  const limit = input.limit ?? 50;
-  assertLimit(limit);
-  const clauses = ["publication_id = ?"];
+  input: MetricSnapshotFilter & {
+    context: QueryContext;
+    publicationId: string;
+    after?: string | null;
+    limit: number;
+  },
+): Page<MetricSnapshotDto> {
+  assertLimit(input.limit);
+  const cursor = input.after == null ? null : decodeCursor("c1", input.after);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  if (!getVisiblePublicationDto(db, scope, input.publicationId)) {
+    throw new Error(`Publication not found: ${input.publicationId}`);
+  }
+  const clauses = ["metric.publication_id = ?"];
   const values: Array<string | number> = [input.publicationId];
   if (input.source !== undefined) {
-    clauses.push("source = ?");
+    clauses.push("metric.source = ?");
     values.push(checkedMetricSource(input.source));
   }
   if (input.asOf !== undefined) {
-    clauses.push("as_of <= ?");
+    clauses.push("metric.as_of <= ?");
     values.push(checkedOptionalTimestamp(input.asOf, "Metric asOf")!);
   }
   if (input.windowStart !== undefined) {
-    clauses.push("window_start = ?");
+    clauses.push("metric.window_start = ?");
     values.push(checkedOptionalTimestamp(input.windowStart, "Metric windowStart")!);
   }
   if (input.windowEnd !== undefined) {
-    clauses.push("window_end = ?");
+    clauses.push("metric.window_end = ?");
     values.push(checkedOptionalTimestamp(input.windowEnd, "Metric windowEnd")!);
   }
-  values.push(limit);
-  return openDomainDb()
-    .query<MetricSnapshotDbRow, Array<string | number>>(
-      `SELECT ${METRIC_SNAPSHOT_COLUMNS} FROM metric_snapshots
-       WHERE ${clauses.join(" AND ")}
-       ORDER BY as_of DESC, created_at DESC, id DESC LIMIT ?`,
-    )
-    .all(...values)
-    .map(toMetricSnapshotRow);
+  clauses.push(
+    "(metric.created_at > ? OR (metric.created_at = ? AND metric.id > ?))",
+  );
+  values.push(
+    cursor?.ordinal ?? -1,
+    cursor?.ordinal ?? -1,
+    cursor?.id ?? "",
+    input.limit + 1,
+  );
+  const rows = db.query<MetricSnapshotDtoDbRow, Array<string | number>>(
+    `SELECT ${METRIC_DTO_COLUMNS} FROM metric_snapshots metric
+     WHERE ${clauses.join(" AND ")}
+     ORDER BY metric.created_at ASC, metric.id ASC LIMIT ?`,
+  ).all(...values).map(toMetricSnapshotDtoDb);
+  return buildPage(rows, input.limit, "c1", (row) => ({
+    ordinal: row.createdAt,
+    id: row.id,
+  }));
 }
 
 export function getMetricTotals(
-  input: MetricSnapshotFilter & { publicationIds: string[] },
+  input: MetricSnapshotFilter & {
+    context: QueryContext;
+    publicationIds: string[];
+  },
 ): MetricTotals {
   if (
     !Array.isArray(input.publicationIds) ||
@@ -1347,6 +1703,16 @@ export function getMetricTotals(
   const publicationIds = input.publicationIds.map((id) =>
     checkedText(id, "Metric Publication ID"),
   );
+  if (new Set(publicationIds).size !== publicationIds.length) {
+    throw new Error("Metric publicationIds must be distinct");
+  }
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  for (const publicationId of publicationIds) {
+    if (!getVisiblePublicationDto(db, scope, publicationId)) {
+      throw new Error(`Publication not found: ${publicationId}`);
+    }
+  }
   const clauses = [
     `publication_id IN (${publicationIds.map(() => "?").join(", ")})`,
   ];
@@ -1378,7 +1744,7 @@ export function getMetricTotals(
     MetricSnapshotDbRow,
     "views" | "likes" | "comments" | "shares" | "watch_time_ms"
   >;
-  const winners = openDomainDb()
+  const winners = db
     .query<Winner, Array<string | number>>(
       `WITH ranked AS (
          SELECT views, likes, comments, shares, watch_time_ms,
@@ -1403,53 +1769,133 @@ export function getMetricTotals(
   };
 }
 
-function listItems(db: Database, revisionId: string): UnitItemRow[] {
-  return db
-    .query<UnitItemDbRow, [string]>(
-      `SELECT ${ITEM_COLUMNS} FROM unit_items
-       WHERE unit_revision_id = ? ORDER BY position ASC, id ASC`,
-    )
-    .all(revisionId)
-    .map(toItemRow);
+function unitVisibility(
+  scope: ResolvedScope,
+): { sql: string; values: string[] } {
+  return scopeVisibilityClause(scope, "unit.workspace_id", "unit.project_id");
 }
 
-function listPresentations(
+function getVisibleUnitDto(
   db: Database,
+  scope: ResolvedScope,
+  unitId: string,
+): UnitDto | null {
+  const visibility = unitVisibility(scope);
+  return db.query<UnitDto, string[]>(
+    `SELECT ${UNIT_DTO_COLUMNS} FROM units unit
+     WHERE unit.id = ? AND ${visibility.sql}`,
+  ).get(unitId, ...visibility.values);
+}
+
+function getVisibleRevisionDto(
+  db: Database,
+  scope: ResolvedScope,
   revisionId: string,
-): UnitPresentationAggregate[] {
-  return db
-    .query<UnitPresentationDbRow, [string]>(
-      `SELECT ${PRESENTATION_COLUMNS} FROM unit_presentations
-       WHERE unit_revision_id = ? ORDER BY position ASC, id ASC`,
-    )
-    .all(revisionId)
-    .map((row) => {
-      const presentation = toPresentationRow(row);
-      return {
-        ...presentation,
-        captions: db
-          .query<PresentationCaptionRevisionDbRow, [string]>(
-            `SELECT ${CAPTION_COLUMNS} FROM presentation_caption_revisions
-             WHERE presentation_id = ? ORDER BY revision_no ASC, id ASC`,
-          )
-          .all(presentation.id)
-          .map(toCaptionRow),
-        items: db
-          .query<PresentationItemDbRow, [string]>(
-            `SELECT ${PRESENTATION_ITEM_COLUMNS} FROM presentation_items
-             WHERE presentation_id = ? ORDER BY position ASC, id ASC`,
-          )
-          .all(presentation.id)
-          .map(toPresentationItemRow),
-        publications: db
-          .query<PublicationDbRow, [string]>(
-            `SELECT ${PUBLICATION_COLUMNS} FROM publications
-             WHERE presentation_id = ? ORDER BY created_at ASC, id ASC`,
-          )
-          .all(presentation.id)
-          .map(toPublicationRow),
-      };
-    });
+): UnitRevisionDto | null {
+  const visibility = unitVisibility(scope);
+  return db.query<UnitRevisionDto, string[]>(
+    `SELECT ${REVISION_DTO_COLUMNS} FROM unit_revisions revision
+     JOIN units unit ON unit.id = revision.unit_id
+     WHERE revision.id = ? AND ${visibility.sql}`,
+  ).get(revisionId, ...visibility.values);
+}
+
+function getVisibleItemDto(
+  db: Database,
+  scope: ResolvedScope,
+  itemId: string,
+): UnitItemDto | null {
+  const visibility = unitVisibility(scope);
+  const row = db.query<UnitItemDtoDbRow, string[]>(
+    `SELECT ${ITEM_DTO_COLUMNS} FROM unit_items item
+     JOIN unit_revisions revision ON revision.id = item.unit_revision_id
+     JOIN units unit ON unit.id = revision.unit_id
+     WHERE item.id = ? AND ${visibility.sql}`,
+  ).get(itemId, ...visibility.values);
+  return row ? toItemDto(row) : null;
+}
+
+function getVisiblePresentationDto(
+  db: Database,
+  scope: ResolvedScope,
+  presentationId: string,
+): UnitPresentationDto | null {
+  const visibility = unitVisibility(scope);
+  const row = db.query<UnitPresentationDtoDbRow, string[]>(
+    `SELECT ${PRESENTATION_DTO_COLUMNS} FROM unit_presentations presentation
+     JOIN unit_revisions revision ON revision.id = presentation.unit_revision_id
+     JOIN units unit ON unit.id = revision.unit_id
+     WHERE presentation.id = ? AND ${visibility.sql}`,
+  ).get(presentationId, ...visibility.values);
+  return row ? toPresentationDto(row) : null;
+}
+
+function getVisibleCaptionDto(
+  db: Database,
+  scope: ResolvedScope,
+  captionRevisionId: string,
+): PresentationCaptionRevisionDto | null {
+  const visibility = unitVisibility(scope);
+  return db.query<PresentationCaptionRevisionDto, string[]>(
+    `SELECT ${CAPTION_DTO_COLUMNS}
+     FROM presentation_caption_revisions caption
+     JOIN unit_presentations presentation
+       ON presentation.id = caption.presentation_id
+     JOIN unit_revisions revision ON revision.id = presentation.unit_revision_id
+     JOIN units unit ON unit.id = revision.unit_id
+     WHERE caption.id = ? AND ${visibility.sql}`,
+  ).get(captionRevisionId, ...visibility.values);
+}
+
+function getVisiblePresentationItemDto(
+  db: Database,
+  scope: ResolvedScope,
+  presentationItemId: string,
+): PresentationItemDto | null {
+  const visibility = unitVisibility(scope);
+  const row = db.query<PresentationItemDtoDbRow, string[]>(
+    `SELECT ${PRESENTATION_ITEM_DTO_COLUMNS} FROM presentation_items item
+     JOIN unit_presentations presentation ON presentation.id = item.presentation_id
+     JOIN unit_revisions revision ON revision.id = presentation.unit_revision_id
+     JOIN units unit ON unit.id = revision.unit_id
+     WHERE item.id = ? AND ${visibility.sql}`,
+  ).get(presentationItemId, ...visibility.values);
+  return row ? toPresentationItemDto(row) : null;
+}
+
+function getVisiblePublicationDto(
+  db: Database,
+  scope: ResolvedScope,
+  publicationId: string,
+): PublicationDto | null {
+  const visibility = unitVisibility(scope);
+  const row = db.query<PublicationDtoDbRow, string[]>(
+    `SELECT ${PUBLICATION_DTO_COLUMNS} FROM publications publication
+     JOIN unit_presentations presentation
+       ON presentation.id = publication.presentation_id
+     JOIN unit_revisions revision ON revision.id = presentation.unit_revision_id
+     JOIN units unit ON unit.id = revision.unit_id
+     WHERE publication.id = ? AND ${visibility.sql}`,
+  ).get(publicationId, ...visibility.values);
+  return row ? toPublicationDtoDb(row) : null;
+}
+
+function getVisibleMetricDto(
+  db: Database,
+  scope: ResolvedScope,
+  metricSnapshotId: string,
+): MetricSnapshotDto | null {
+  const visibility = unitVisibility(scope);
+  const row = db.query<MetricSnapshotDtoDbRow, string[]>(
+    `SELECT ${METRIC_DTO_COLUMNS} FROM metric_snapshots metric
+     JOIN publications publication ON publication.id = metric.publication_id
+     JOIN unit_presentations presentation
+       ON presentation.id = publication.presentation_id
+     JOIN unit_revisions revision ON revision.id = presentation.unit_revision_id
+     JOIN units unit ON unit.id = revision.unit_id
+     WHERE metric.id = ? AND ${visibility.sql}`,
+  ).get(metricSnapshotId, ...visibility.values);
+  return row ? toMetricSnapshotDtoDb(row) : null;
 }
 
 type PublicationScope = {
@@ -2056,6 +2502,20 @@ function toUnitRow(row: UnitDbRow): UnitRow {
   };
 }
 
+function toUnitDto(row: UnitRow): UnitDto {
+  return {
+    id: row.id,
+    workspaceId: row.workspaceId,
+    projectId: row.projectId,
+    slug: row.slug,
+    format: row.format,
+    latestRevisionId: row.latestRevisionId,
+    selectedRevisionId: row.selectedRevisionId,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
 function toRevisionRow(row: UnitRevisionDbRow): UnitRevisionRow {
   return {
     id: row.id,
@@ -2071,56 +2531,60 @@ function toRevisionRow(row: UnitRevisionDbRow): UnitRevisionRow {
   };
 }
 
-function toItemRow(row: UnitItemDbRow): UnitItemRow {
+function toRevisionDto(row: UnitRevisionRow): UnitRevisionDto {
   return {
     id: row.id,
-    unitRevisionId: row.unit_revision_id,
-    artifactRevisionId: row.artifact_revision_id,
-    documentRevisionId: row.document_revision_id,
+    unitId: row.unitId,
+    revisionNo: row.revisionNo,
+    parentRevisionId: row.parentRevisionId,
+    iterationId: row.iterationId,
+    note: row.note,
+    authoredBySessionId: row.authoredBySessionId,
+    createdAt: row.createdAt,
+    sealedAt: row.sealedAt,
+  };
+}
+
+function toItemDto(row: UnitItemDtoDbRow): UnitItemDto {
+  return {
+    id: row.id,
+    unitRevisionId: row.unitRevisionId,
+    artifactRevisionId: row.artifactRevisionId,
+    documentRevisionId: row.documentRevisionId,
     role: row.role,
     position: row.position,
-    config: parseJson(row.config_json),
-    createdAt: row.created_at,
+    config: parseJson(row.configJson),
+    createdAt: row.createdAt,
   };
 }
 
-function toPresentationRow(row: UnitPresentationDbRow): UnitPresentationRow {
+function toPresentationDto(
+  row: UnitPresentationDtoDbRow,
+): UnitPresentationDto {
   return {
     id: row.id,
-    unitRevisionId: row.unit_revision_id,
+    unitRevisionId: row.unitRevisionId,
     platform: row.platform,
     position: row.position,
-    effectiveCaptionRevisionId: row.effective_caption_revision_id,
-    coverArtifactRevisionId: row.cover_artifact_revision_id,
-    crop: parseJson(row.crop_json),
-    safeArea: parseJson(row.safe_area_json),
-    options: JSON.parse(row.options_json) as JsonValue,
-    createdAt: row.created_at,
+    effectiveCaptionRevisionId: row.effectiveCaptionRevisionId,
+    coverArtifactRevisionId: row.coverArtifactRevisionId,
+    crop: parseJson(row.cropJson),
+    safeArea: parseJson(row.safeAreaJson),
+    options: JSON.parse(row.optionsJson) as JsonValue,
+    createdAt: row.createdAt,
   };
 }
 
-function toCaptionRow(
-  row: PresentationCaptionRevisionDbRow,
-): PresentationCaptionRevisionRow {
+function toPresentationItemDto(
+  row: PresentationItemDtoDbRow,
+): PresentationItemDto {
   return {
     id: row.id,
-    presentationId: row.presentation_id,
-    revisionNo: row.revision_no,
-    parentRevisionId: row.parent_revision_id,
-    state: row.state,
-    text: row.text,
-    createdAt: row.created_at,
-  };
-}
-
-function toPresentationItemRow(row: PresentationItemDbRow): PresentationItemRow {
-  return {
-    id: row.id,
-    presentationId: row.presentation_id,
-    unitItemId: row.unit_item_id,
+    presentationId: row.presentationId,
+    unitItemId: row.unitItemId,
     position: row.position,
-    config: parseJson(row.config_json),
-    createdAt: row.created_at,
+    config: parseJson(row.configJson),
+    createdAt: row.createdAt,
   };
 }
 
@@ -2149,6 +2613,48 @@ function toPublicationRow(row: PublicationDbRow): PublicationRow {
     claimExpiresAt: row.claim_expires_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function toPublicationDto(row: PublicationRow): PublicationDto {
+  return {
+    id: row.id,
+    presentationId: row.presentationId,
+    effectiveCaptionRevisionId: row.effectiveCaptionRevisionId,
+    effectiveOptions: row.effectiveOptions,
+    socialAccountId: row.socialAccountId,
+    submissionRunId: row.submissionRunId,
+    revisedFromPublicationId: row.revisedFromPublicationId,
+    rail: row.rail,
+    providerPublicationId: row.providerPublicationId,
+    state: row.state,
+    url: row.url,
+    scheduledAt: row.scheduledAt,
+    submittedAt: row.submittedAt,
+    publishedAt: row.publishedAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+function toPublicationDtoDb(row: PublicationDtoDbRow): PublicationDto {
+  return {
+    id: row.id,
+    presentationId: row.presentationId,
+    effectiveCaptionRevisionId: row.effectiveCaptionRevisionId,
+    effectiveOptions: JSON.parse(row.effectiveOptionsJson) as JsonValue,
+    socialAccountId: row.socialAccountId,
+    submissionRunId: row.submissionRunId,
+    revisedFromPublicationId: row.revisedFromPublicationId,
+    rail: row.rail,
+    providerPublicationId: row.providerPublicationId,
+    state: row.state,
+    url: row.url,
+    scheduledAt: row.scheduledAt,
+    submittedAt: row.submittedAt,
+    publishedAt: row.publishedAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 
@@ -2186,6 +2692,38 @@ function toMetricSnapshotRow(row: MetricSnapshotDbRow): MetricSnapshotRow {
     note: row.note,
     raw: parseJson(row.raw_json),
     createdAt: row.created_at,
+  };
+}
+
+function toMetricSnapshotDto(row: MetricSnapshotRow): MetricSnapshotDto {
+  return {
+    id: row.id,
+    publicationId: row.publicationId,
+    source: row.source,
+    asOf: row.asOf,
+    windowStart: row.windowStart,
+    windowEnd: row.windowEnd,
+    views: row.views,
+    likes: row.likes,
+    comments: row.comments,
+    shares: row.shares,
+    watchTimeMs: row.watchTimeMs,
+    ctr: row.ctr,
+    retentionCurve: row.retentionCurve,
+    avgViewDurationSec: row.avgViewDurationSec,
+    note: row.note,
+    createdAt: row.createdAt,
+  };
+}
+
+function toMetricSnapshotDtoDb(row: MetricSnapshotDtoDbRow): MetricSnapshotDto {
+  const { retentionCurveJson, ...snapshot } = row;
+  return {
+    ...snapshot,
+    retentionCurve:
+      retentionCurveJson === null
+        ? null
+        : (JSON.parse(retentionCurveJson) as MetricRetentionPoint[]),
   };
 }
 

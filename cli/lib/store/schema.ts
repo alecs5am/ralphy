@@ -902,12 +902,15 @@ export const MIGRATIONS: readonly Migration[] = [
         ON units(workspace_id, slug) WHERE project_id IS NULL;
       CREATE UNIQUE INDEX idx_units_project_slug
         ON units(project_id, slug) WHERE project_id IS NOT NULL;
-      CREATE INDEX idx_units_scope ON units(workspace_id, project_id);
+      CREATE INDEX idx_units_scope
+        ON units(workspace_id, project_id, created_at, id);
       CREATE INDEX idx_unit_revisions_unit ON unit_revisions(unit_id, revision_no);
       CREATE INDEX idx_publications_presentation ON publications(presentation_id, created_at, id);
       CREATE INDEX idx_publications_state ON publications(state, updated_at, id);
       CREATE INDEX idx_metric_snapshots_publication
         ON metric_snapshots(publication_id, as_of DESC, created_at DESC, id DESC);
+      CREATE INDEX idx_metric_snapshots_created_page
+        ON metric_snapshots(publication_id, created_at, id);
       CREATE INDEX idx_runs_project ON runs(project_id, created_at);
       CREATE UNIQUE INDEX idx_runs_external_tuple
         ON runs(external_system, external_run_id, external_node_id,
