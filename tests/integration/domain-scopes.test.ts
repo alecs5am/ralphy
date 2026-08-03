@@ -5,17 +5,21 @@ import {
   createIteration,
   createProject,
   createWorkspace,
+  getProject,
+  getWorkspace,
   listProjects,
   listSocialAccounts,
   listWorkspaces,
   resolveFeedback,
   transferProjectMetadata,
   upsertSocialAccount,
+  updateProject,
   updateWorkspace,
 } from "../../cli/lib/store/scopes.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 import { scopedActivity } from "../helpers/activity.js";
 import { listActivity } from "../../cli/lib/store/activity.js";
+import { decodeCursor } from "../../cli/lib/store/pagination.js";
 
 let roots: TmpRoot[] = [];
 
@@ -32,6 +36,95 @@ afterEach(() => {
 });
 
 describe("domain scope stores", () => {
+  test("shows safe Workspace and Workspace-scoped Project summaries", () => {
+    makeRoot();
+    const workspace = createWorkspace({
+      slug: "safe",
+      name: "Safe",
+      metadata: { privateNote: "not a DTO field" },
+    });
+    const project = createProject({
+      workspaceId: workspace.id,
+      slug: "safe-project",
+      name: "Safe project",
+      metadata: { privateNote: "not a DTO field" },
+    });
+    const otherWorkspace = createWorkspace({ slug: "other", name: "Other" });
+
+    expect(getWorkspace(workspace.id)).toEqual({
+      id: workspace.id,
+      slug: workspace.slug,
+      name: workspace.name,
+      rowVersion: workspace.rowVersion,
+      createdAt: workspace.createdAt,
+      updatedAt: workspace.updatedAt,
+    });
+    expect(getProject({ workspaceId: workspace.id, projectId: project.id })).toEqual({
+      id: project.id,
+      workspaceId: workspace.id,
+      slug: project.slug,
+      name: project.name,
+      state: project.state,
+      rowVersion: project.rowVersion,
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
+    });
+    expect(() =>
+      getProject({ workspaceId: otherWorkspace.id, projectId: project.id }),
+    ).toThrow(/not found/i);
+    expect(() => getWorkspace("ws_missing")).toThrow(/not found/i);
+  });
+
+  test("updates only mutable Project fields with optimistic concurrency", () => {
+    makeRoot();
+    const workspace = createWorkspace({ slug: "project-update", name: "Project update" });
+    const project = createProject({
+      workspaceId: workspace.id,
+      slug: "draft",
+      name: "Draft",
+      metadata: { privateNote: "old" },
+    });
+
+    const updated = updateProject(
+      project.id,
+      {
+        slug: "approved",
+        name: "Approved",
+        state: "archived",
+        metadata: { privateNote: "new" },
+      },
+      project.rowVersion,
+    );
+
+    expect(updated).toEqual({
+      id: project.id,
+      workspaceId: workspace.id,
+      slug: "approved",
+      name: "Approved",
+      state: "archived",
+      rowVersion: project.rowVersion + 1,
+      createdAt: project.createdAt,
+      updatedAt: expect.any(Number),
+    });
+    expect(
+      openDomainDb()
+        .query<{ metadata: string | null }, [string]>(
+          "SELECT metadata_json AS metadata FROM projects WHERE id = ?",
+        )
+        .get(project.id)?.metadata,
+    ).toBe('{"privateNote":"new"}');
+    expect(() =>
+      updateProject(project.id, { name: "Stale" }, project.rowVersion),
+    ).toThrow(/conflict/i);
+    expect(scopedActivity({ projectId: project.id }).at(-1)).toMatchObject({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      entityType: "project",
+      entityId: project.id,
+      action: "project.updated",
+    });
+  });
+
   test("creates scoped work and records its activity atomically", () => {
     makeRoot();
     const workspace = createWorkspace({ slug: "denti-ai", name: "Denti.AI" });
@@ -70,16 +163,48 @@ describe("domain scope stores", () => {
     const workspaces = ["one", "two", "three"].map((slug) =>
       createWorkspace({ slug, name: slug }),
     );
+    const db = openDomainDb();
+    const [lowWorkspace, middleWorkspace, highWorkspace] = [...workspaces].sort(
+      (left, right) => left.id.localeCompare(right.id),
+    );
+    db.prepare("UPDATE workspaces SET created_at = ? WHERE id = ?").run(1000, highWorkspace!.id);
+    db.prepare("UPDATE workspaces SET created_at = ? WHERE id IN (?, ?)").run(
+      2000,
+      lowWorkspace!.id,
+      middleWorkspace!.id,
+    );
     const firstWorkspacePage = listWorkspaces({ limit: 2 });
-    expect(firstWorkspacePage.items).toHaveLength(2);
-    expect(firstWorkspacePage.nextCursor).toBe(firstWorkspacePage.items[1]?.id);
+    expect(firstWorkspacePage.items.map((workspace) => workspace.id)).toEqual([
+      highWorkspace!.id,
+      lowWorkspace!.id,
+    ]);
+    expect(decodeCursor("c1", firstWorkspacePage.nextCursor!)).toEqual({
+      ordinal: 2000,
+      id: lowWorkspace!.id,
+    });
+    expect(Object.keys(firstWorkspacePage.items[0]!).sort()).toEqual([
+      "createdAt",
+      "id",
+      "name",
+      "rowVersion",
+      "slug",
+      "updatedAt",
+    ]);
+    const insertedWorkspaceId = `${lowWorkspace!.id}!`;
+    db.prepare(
+      `INSERT INTO workspaces
+       (id, slug, name, created_at, updated_at)
+       VALUES (?, 'between-pages', 'Between pages', 2000, 2000)`,
+    ).run(insertedWorkspaceId);
     const secondWorkspacePage = listWorkspaces({
       cursor: firstWorkspacePage.nextCursor,
       limit: 2,
     });
-    expect([...firstWorkspacePage.items, ...secondWorkspacePage.items].map((workspace) => workspace.id).sort()).toEqual(
-      workspaces.map((workspace) => workspace.id).sort(),
-    );
+    expect(secondWorkspacePage.items.map((workspace) => workspace.id)).toEqual([
+      insertedWorkspaceId,
+      middleWorkspace!.id,
+    ]);
+    expect(secondWorkspacePage.nextCursor).toBeNull();
     expect(() => listWorkspaces({ limit: 0 })).toThrow(/1 through 100/);
 
     const projectOne = createProject({
@@ -92,15 +217,33 @@ describe("domain scope stores", () => {
       slug: "two",
       name: "Two",
     });
+    const [lowProject, highProject] = [projectOne, projectTwo].sort((left, right) =>
+      left.id.localeCompare(right.id),
+    );
+    db.prepare("UPDATE projects SET created_at = ? WHERE id = ?").run(2000, highProject!.id);
+    db.prepare("UPDATE projects SET created_at = ? WHERE id = ?").run(3000, lowProject!.id);
     const firstProjectPage = listProjects({ workspaceId: workspaces[0]!.id, limit: 1 });
+    expect(firstProjectPage.items.map((project) => project.id)).toEqual([highProject!.id]);
+    expect(decodeCursor("c1", firstProjectPage.nextCursor!)).toEqual({
+      ordinal: 2000,
+      id: highProject!.id,
+    });
+    expect(Object.keys(firstProjectPage.items[0]!).sort()).toEqual([
+      "createdAt",
+      "id",
+      "name",
+      "rowVersion",
+      "slug",
+      "state",
+      "updatedAt",
+      "workspaceId",
+    ]);
     const secondProjectPage = listProjects({
       workspaceId: workspaces[0]!.id,
       cursor: firstProjectPage.nextCursor,
       limit: 1,
     });
-    expect([...firstProjectPage.items, ...secondProjectPage.items].map((project) => project.id).sort()).toEqual(
-      [projectOne.id, projectTwo.id].sort(),
-    );
+    expect(secondProjectPage.items.map((project) => project.id)).toEqual([lowProject!.id]);
 
     const account = upsertSocialAccount({
       workspaceId: workspaces[0]!.id,
@@ -108,7 +251,55 @@ describe("domain scope stores", () => {
       externalId: "channel-1",
       config: { profile: { color: "blue" } },
     });
-    expect(listSocialAccounts(workspaces[0]!.id)).toEqual([account]);
+    const secondAccount = {
+      id: "acct_!",
+      workspaceId: workspaces[0]!.id,
+      platform: "tiktok",
+      externalId: "channel-2",
+      displayName: null,
+      username: null,
+      createdAt: account.createdAt + 1,
+      updatedAt: account.updatedAt + 1,
+    };
+    db.prepare(
+      `INSERT INTO social_accounts
+       (id, workspace_id, platform, external_id, display_name, username,
+        config_json, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+    ).run(
+      secondAccount.id,
+      secondAccount.workspaceId,
+      secondAccount.platform,
+      secondAccount.externalId,
+      secondAccount.displayName,
+      secondAccount.username,
+      secondAccount.createdAt,
+      secondAccount.updatedAt,
+    );
+    const accounts = listSocialAccounts({ workspaceId: workspaces[0]!.id, limit: 1 });
+    expect(accounts.items).toEqual([
+      {
+        id: account.id,
+        workspaceId: account.workspaceId,
+        platform: account.platform,
+        externalId: account.externalId,
+        displayName: account.displayName,
+        username: account.username,
+        createdAt: account.createdAt,
+        updatedAt: account.updatedAt,
+      },
+    ]);
+    expect(decodeCursor("c1", accounts.nextCursor!)).toEqual({
+      ordinal: account.createdAt,
+      id: account.id,
+    });
+    expect(
+      listSocialAccounts({
+        workspaceId: workspaces[0]!.id,
+        cursor: accounts.nextCursor,
+        limit: 1,
+      }).items.map((item) => item.id),
+    ).toEqual([secondAccount.id]);
     expect(() =>
       upsertSocialAccount({
         workspaceId: workspaces[0]!.id,
@@ -117,7 +308,7 @@ describe("domain scope stores", () => {
         config: { nested: { accessToken: "must-not-persist" } },
       }),
     ).toThrow(/credential/i);
-    expect(listSocialAccounts(workspaces[0]!.id)).toHaveLength(1);
+    expect(listSocialAccounts({ workspaceId: workspaces[0]!.id, limit: 100 }).items).toHaveLength(2);
     expect(JSON.stringify(scopedActivity({ workspaceId: workspaces[0]!.id,}))).not.toContain(
       "must-not-persist",
     );
