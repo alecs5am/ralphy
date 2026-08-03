@@ -128,12 +128,11 @@ export type ProjectStageDto = {
   updatedAt: number;
 };
 
-export type AgentSessionRow = {
+export type AgentSessionDto = {
   id: string;
   workspaceId: string;
   projectId: string | null;
   agent: string;
-  metadata: JsonValue | null;
   startedAt: number;
   endedAt: number | null;
 };
