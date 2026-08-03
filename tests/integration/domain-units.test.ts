@@ -161,6 +161,124 @@ describe("domain Unit store", () => {
     ).toThrow();
   });
 
+  test("rejects unsafe public JSON in every writable Unit graph cell before mutation", async () => {
+    const { root, workspace, project } = setupProject("public-json-write-gate");
+    const media = await artifactRevision(
+      root,
+      workspace.id,
+      project.id,
+      "public-json-media",
+    );
+    const poisons = [
+      { label: "credential", value: { nested: { api_key: "must-not-persist" } } },
+      { label: "locator", value: { nested: { locator: "bucket/object" } } },
+      { label: "data URL", value: { preview: "data:image/png;base64,SGVsbG8=" } },
+      { label: "binary data", value: { embeddedData: "SGVsbG8=" } },
+      { label: "digest", value: { preview: `sha256:${"a".repeat(64)}` } },
+      { label: "absolute POSIX path", value: { preview: "/tmp/object.bin" } },
+      { label: "absolute Windows path", value: { preview: "C:\\tmp\\object.bin" } },
+      { label: "UNC path", value: { preview: "\\\\server\\share\\object.bin" } },
+      { label: "URL locator", value: { preview: "https://example.test/object.bin" } },
+      { label: "metadata", value: { metadata: { raw: true } } },
+      { label: "error", value: { error: "raw provider error" } },
+      { label: "request", value: { request: { raw: true } } },
+      { label: "response", value: { response: { raw: true } } },
+      { label: "provider payload", value: { providerPayload: { raw: true } } },
+    ] as const;
+    const families = [
+      "Unit item config",
+      "Presentation item config",
+      "Presentation crop",
+      "Presentation safe area",
+      "Presentation options",
+    ] as const;
+    const unitItemPolicyPoisons = [
+      { label: "b64 alias", value: { b64: "SGVsbG8" } },
+      { label: "image data alias", value: { imageData: "SGVsbG8=" } },
+      { label: "data URL alias", value: { data_url: "SGVsbG8" } },
+      {
+        label: "own __proto__ key",
+        value: JSON.parse('{"__proto__":{"token":"must-not-persist"}}'),
+      },
+      {
+        label: "invalid Unicode key",
+        value: JSON.parse('{"\\ud800":1}'),
+      },
+    ];
+    const cases = [
+      ...families.flatMap((family) =>
+        poisons.map((poison) => ({ family, poison })),
+      ),
+      ...unitItemPolicyPoisons.map((poison) => ({
+        family: "Unit item config" as const,
+        poison,
+      })),
+    ];
+    const units = cases.map((_, index) =>
+      createUnit({
+        projectId: project.id,
+        slug: `public-json-${index}`,
+        format: "carousel",
+      }),
+    );
+    const beforeActivity = scopedActivity({ projectId: project.id });
+    const missed: string[] = [];
+
+    for (const [index, { family, poison }] of cases.entries()) {
+        const items: Parameters<typeof reviseUnit>[0]["items"] = [
+          {
+            artifactRevisionId: media.id,
+            role: "primary",
+            position: 0,
+            ...(family === "Unit item config" ? { config: poison.value } : {}),
+          },
+        ];
+        const presentations: NonNullable<
+          Parameters<typeof reviseUnit>[0]["presentations"]
+        > = [
+          {
+            platform: "instagram",
+            ...(family === "Presentation crop" ? { crop: poison.value } : {}),
+            ...(family === "Presentation safe area"
+              ? { safeArea: poison.value }
+              : {}),
+            ...(family === "Presentation options" ? { options: poison.value } : {}),
+            ...(family === "Presentation item config"
+              ? {
+                  items: [
+                    {
+                      unitItemPosition: 0,
+                      position: 0,
+                      config: poison.value,
+                    },
+                  ],
+                }
+              : {}),
+          },
+        ];
+        try {
+          reviseUnit({
+            unitId: units[index]!.id,
+            expectedLatestRevisionId: null,
+            items,
+            presentations,
+          });
+          missed.push(`${family}: ${poison.label}`);
+        } catch (error) {
+          if (!/public JSON/i.test(String(error))) throw error;
+        }
+      }
+
+    expect(missed).toEqual([]);
+
+    const db = openDomainDb();
+    expect(db.query("SELECT id FROM unit_revisions").all()).toEqual([]);
+    expect(db.query("SELECT id FROM unit_items").all()).toEqual([]);
+    expect(db.query("SELECT id FROM unit_presentations").all()).toEqual([]);
+    expect(db.query("SELECT id FROM presentation_items").all()).toEqual([]);
+    expect(scopedActivity({ projectId: project.id })).toEqual(beforeActivity);
+  });
+
   test("round-trips repeated media and ordered platform presentation graphs", async () => {
     const { root, workspace, project } = setupProject("presentation-graph");
     const shared = await artifactRevision(

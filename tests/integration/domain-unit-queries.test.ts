@@ -15,6 +15,7 @@ import {
   upsertSocialAccount,
 } from "../../cli/lib/store/scopes.js";
 import { startRun } from "../../cli/lib/store/runs.js";
+import { getProjectOverview } from "../../cli/lib/store/overviews.js";
 import {
   appendMetricSnapshot,
   claimPublication,
@@ -292,6 +293,306 @@ describe("bounded Unit graph queries", () => {
       "SELECT metadata_json AS metadata FROM unit_revisions WHERE id = ?",
     ).get(value.revision.id)).toEqual({ metadata: '{"privateRevisionFact":"stored-only"}' });
     expect("metadata" in revision).toBe(false);
+  });
+
+  test("round-trips deep benign public JSON through every projected Unit family", async () => {
+    const value = await mediaFixture("deep-safe-json");
+    const unit = createUnit({
+      projectId: value.project.id,
+      slug: "deep-safe-json-unit",
+      format: "carousel",
+    });
+    const revision = reviseUnit({
+      unitId: unit.id,
+      expectedLatestRevisionId: null,
+      items: [
+        {
+          artifactRevisionId: value.shared.id,
+          role: "sticker",
+          position: 0,
+          config: {
+            sticker: { mode: "overlay", profile: "spark" },
+            previewText: "Open https://example.test/docs and continue",
+          },
+        },
+      ],
+      presentations: [
+        {
+          platform: "instagram",
+          crop: { mode: "cover", config: { profile: "portrait" } },
+          safeArea: { bottom: 24, chrome: { mode: "compact" } },
+          options: {
+            requestId: "request-42",
+            errorStyle: "quiet",
+            profile: {
+              platformId: "a".repeat(64),
+              previewText: "Visit https://example.test/profile for details",
+            },
+          },
+          items: [
+            {
+              unitItemPosition: 0,
+              position: 0,
+              config: { crop: { mode: "square" }, sticker: "spark" },
+            },
+          ],
+        },
+      ],
+    });
+    const presentation = listUnitPresentations({
+      context: value.context,
+      revisionId: revision.id,
+      limit: 10,
+    }).items[0]!;
+    const item = listUnitItems({
+      context: value.context,
+      revisionId: revision.id,
+      limit: 10,
+    }).items[0]!;
+    const presentationItem = listPresentationItems({
+      context: value.context,
+      presentationId: presentation.id,
+      limit: 10,
+    }).items[0]!;
+    const account = upsertSocialAccount({
+      workspaceId: value.workspace.id,
+      platform: "instagram",
+      externalId: "deep-safe-json-account",
+    });
+    const publication = recordPublication({
+      presentationId: presentation.id,
+      socialAccountId: account.id,
+      submissionRunId: startRun({
+        projectId: value.project.id,
+        kind: "publication",
+      }).id,
+      rail: "postiz",
+      idempotencyKey: "deep-safe-json-publication",
+    });
+
+    expect(item.config).toEqual({
+      previewText: "Open https://example.test/docs and continue",
+      sticker: { mode: "overlay", profile: "spark" },
+    });
+    expect(presentation).toMatchObject({
+      crop: { config: { profile: "portrait" }, mode: "cover" },
+      safeArea: { bottom: 24, chrome: { mode: "compact" } },
+      options: {
+        errorStyle: "quiet",
+        profile: {
+          platformId: "a".repeat(64),
+          previewText: "Visit https://example.test/profile for details",
+        },
+        requestId: "request-42",
+      },
+    });
+    expect(presentationItem.config).toEqual({
+      crop: { mode: "square" },
+      sticker: "spark",
+    });
+    expect(publication.effectiveOptions).toEqual(presentation.options);
+    expect(
+      openDomainDb()
+        .query<{ options: string }, [string]>(
+          "SELECT options_json AS options FROM unit_presentations WHERE id = ?",
+        )
+        .get(presentation.id)?.options,
+    ).toBe(
+      `{"errorStyle":"quiet","profile":{"platformId":"${"a".repeat(64)}","previewText":"Visit https://example.test/profile for details"},"requestId":"request-42"}`,
+    );
+  });
+
+  test("fails closed on poisoned Unit JSON projections and Publication derivation", async () => {
+    const value = await mediaFixture("public-json-poison");
+    const presentation = value.presentations[0]!;
+    const item = listUnitItems({
+      context: value.context,
+      revisionId: value.revision.id,
+      limit: 1,
+    }).items[0]!;
+    const presentationItem = listPresentationItems({
+      context: value.context,
+      presentationId: presentation.id,
+      limit: 1,
+    }).items[0]!;
+    const account = upsertSocialAccount({
+      workspaceId: value.workspace.id,
+      platform: "tiktok",
+      externalId: "public-json-poison-account",
+    });
+    const publication = recordPublication({
+      presentationId: presentation.id,
+      socialAccountId: account.id,
+      submissionRunId: startRun({
+        projectId: value.project.id,
+        kind: "publication",
+      }).id,
+      rail: "postiz",
+      idempotencyKey: "public-json-poison-publication",
+    });
+    const db = openDomainDb();
+    db.exec(`
+      DROP TRIGGER unit_items_no_update;
+      DROP TRIGGER presentation_items_no_update;
+      DROP TRIGGER unit_presentations_update_guard;
+      DROP TRIGGER publications_identity_update_guard;
+    `);
+    const poison = '{"nested":{"access-token":"must-not-escape"}}';
+    const unitItemReads = [
+      () => getUnitItem({ context: value.context, itemId: item.id }),
+      () =>
+        listUnitItems({
+          context: value.context,
+          revisionId: value.revision.id,
+          limit: 100,
+        }),
+    ];
+    const cells = [
+      {
+        table: "unit_items",
+        column: "config_json",
+        id: item.id,
+        reads: unitItemReads,
+      },
+      {
+        table: "unit_items",
+        column: "config_json",
+        id: item.id,
+        poison: '{"data_url":"SGVsbG8"}',
+        reads: unitItemReads,
+      },
+      {
+        table: "unit_items",
+        column: "config_json",
+        id: item.id,
+        poison: '{"__proto__":{"token":"must-not-escape"}}',
+        reads: unitItemReads,
+      },
+      {
+        table: "presentation_items",
+        column: "config_json",
+        id: presentationItem.id,
+        reads: [
+          () =>
+            getPresentationItem({
+              context: value.context,
+              presentationItemId: presentationItem.id,
+            }),
+          () =>
+            listPresentationItems({
+              context: value.context,
+              presentationId: presentation.id,
+              limit: 100,
+            }),
+        ],
+      },
+      ...(["crop_json", "safe_area_json", "options_json"] as const).map(
+        (column) => ({
+          table: "unit_presentations",
+          column,
+          id: presentation.id,
+          reads: [
+            () =>
+              getUnitPresentation({
+                context: value.context,
+                presentationId: presentation.id,
+              }),
+            () =>
+              listUnitPresentations({
+                context: value.context,
+                revisionId: value.revision.id,
+                limit: 100,
+              }),
+          ],
+        }),
+      ),
+      {
+        table: "publications",
+        column: "effective_options_json",
+        id: publication.id,
+        reads: [
+          () =>
+            getPublication({
+              context: value.context,
+              publicationId: publication.id,
+            }),
+          () =>
+            listPublications({
+              context: value.context,
+              presentationId: presentation.id,
+              limit: 100,
+            }),
+        ],
+      },
+    ];
+    const missed: string[] = [];
+
+    for (const cell of cells) {
+      const original = db
+        .query<{ value: string | null }, [string]>(
+          `SELECT ${cell.column} AS value FROM ${cell.table} WHERE id = ?`,
+        )
+        .get(cell.id)!.value;
+      db.prepare(`UPDATE ${cell.table} SET ${cell.column} = ? WHERE id = ?`).run(
+        "poison" in cell ? cell.poison : poison,
+        cell.id,
+      );
+      for (const read of cell.reads) {
+        try {
+          read();
+          missed.push(`${cell.table}.${cell.column}`);
+        } catch (error) {
+          if (!/public JSON/i.test(String(error))) throw error;
+        }
+      }
+      expect(
+        getProjectOverview({
+          context: value.context,
+          projectId: value.project.id,
+          sections: { units: { limit: 10 } },
+        }).units?.items.map((row) => row.id),
+      ).toContain(value.unit.id);
+      db.prepare(`UPDATE ${cell.table} SET ${cell.column} = ? WHERE id = ?`).run(
+        original,
+        cell.id,
+      );
+    }
+
+    const derivationRun = startRun({
+      projectId: value.project.id,
+      kind: "publication",
+    });
+    db.prepare("UPDATE unit_presentations SET options_json = ? WHERE id = ?").run(
+      poison,
+      presentation.id,
+    );
+    const beforeCount = db
+      .query<{ count: number }, []>("SELECT COUNT(*) AS count FROM publications")
+      .get()!.count;
+    try {
+      recordPublication({
+        presentationId: presentation.id,
+        socialAccountId: account.id,
+        submissionRunId: derivationRun.id,
+        rail: "postiz",
+        idempotencyKey: "public-json-poison-derived",
+      });
+      missed.push("Publication derivation");
+    } catch (error) {
+      if (!/public JSON/i.test(String(error))) throw error;
+    }
+    expect(
+      getProjectOverview({
+        context: value.context,
+        projectId: value.project.id,
+        sections: { units: { limit: 10 } },
+      }).units?.items.map((row) => row.id),
+    ).toContain(value.unit.id);
+    expect(missed).toEqual([]);
+    expect(
+      db.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM publications").get()!
+        .count,
+    ).toBe(beforeCount);
   });
 
   test("keeps sticker packs, carousels, repeated media, and text-only Units flexible", async () => {

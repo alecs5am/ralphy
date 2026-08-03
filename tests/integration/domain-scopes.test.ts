@@ -102,6 +102,93 @@ describe("domain scope stores", () => {
     ).toBe('{"profile":{"color":"blue"}}');
   });
 
+  test("canonicalizes structurally safe social config and rejects normalized credentials", () => {
+    makeRoot();
+    const workspace = createWorkspace({
+      slug: "account-public-config",
+      name: "Account public config",
+    });
+    const account = upsertSocialAccount({
+      workspaceId: workspace.id,
+      platform: "youtube",
+      externalId: "public-config",
+      config: {
+        profile: {
+          platformUrl: "https://example.test/channel",
+          requestId: "public-request",
+          errorStyle: "inline",
+          error: "visible profile state",
+        },
+        display: { color: "blue" },
+      },
+    });
+    const db = openDomainDb();
+    const storedConfig = db
+      .query<{ config: string }, [string]>(
+        "SELECT config_json AS config FROM social_accounts WHERE id = ?",
+      )
+      .get(account.id)?.config;
+    const missed: string[] = [];
+
+    for (const [index, key] of [
+      "api_key",
+      "access-token",
+      "refresh.token",
+      "ａｐｉ＿ｋｅｙ",
+    ].entries()) {
+      try {
+        upsertSocialAccount({
+          workspaceId: workspace.id,
+          platform: "youtube",
+          externalId: `rejected-${index}`,
+          config: { nested: { [key]: "must-not-persist" } },
+        });
+        missed.push(`credential ${key}`);
+      } catch (error) {
+        if (!/credential/i.test(String(error))) throw error;
+      }
+    }
+
+    const cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
+    const sparse: unknown[] = [];
+    sparse.length = 1;
+    for (const value of [
+      { value: undefined },
+      { value: Number.NaN },
+      { value: 1n },
+      { value: new Date(0) },
+      cyclic,
+      sparse,
+      JSON.parse('{"__proto__":{"token":"must-not-persist"}}'),
+      JSON.parse('{"\\ud800":1}'),
+    ]) {
+      try {
+        upsertSocialAccount({
+          workspaceId: workspace.id,
+          platform: "youtube",
+          externalId: "structurally-invalid",
+          config: value as never,
+        });
+        missed.push("structural value");
+      } catch (error) {
+        if (!/social account config/i.test(String(error))) {
+          missed.push(`structural error: ${String(error)}`);
+        }
+      }
+    }
+    expect(storedConfig).toBe(
+      '{"display":{"color":"blue"},"profile":{"error":"visible profile state","errorStyle":"inline","platformUrl":"https://example.test/channel","requestId":"public-request"}}',
+    );
+    expect(missed).toEqual([]);
+    expect(
+      db.query("SELECT id FROM social_accounts WHERE external_id LIKE 'rejected-%'").all(),
+    ).toEqual([]);
+    expect(
+      db.query("SELECT id FROM social_accounts WHERE external_id = 'structurally-invalid'").all(),
+    ).toEqual([]);
+  });
+
   test("shows safe Workspace and Workspace-scoped Project summaries", () => {
     makeRoot();
     const workspace = createWorkspace({

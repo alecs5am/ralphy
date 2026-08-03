@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import { appendActivity } from "./activity.js";
+import { canonicalSocialAccountConfig } from "./canonical-json.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
 import { assertLimit, buildPage, decodeCursor } from "./pagination.js";
@@ -245,7 +246,8 @@ export function listWorkspaces(input: {
 export function upsertSocialAccount(
   input: UpsertSocialAccountInput,
 ): OverviewAccountDto {
-  assertPublicConfig(input.config);
+  const config =
+    input.config == null ? null : canonicalSocialAccountConfig(input.config);
   return withImmediateTransaction((db) => {
     const now = Date.now();
     const existing = db
@@ -262,7 +264,7 @@ export function upsertSocialAccount(
       ).run(
         input.displayName ?? null,
         input.username ?? null,
-        serializeJson(input.config),
+        serializeJson(config),
         now,
         existing.id,
       );
@@ -279,7 +281,7 @@ export function upsertSocialAccount(
         input.externalId,
         input.displayName ?? null,
         input.username ?? null,
-        serializeJson(input.config),
+        serializeJson(config),
         now,
         now,
       );
@@ -885,21 +887,6 @@ function normalizeReference(
 
 function serializeJson(value: JsonValue | null | undefined): string | null {
   return value === undefined || value === null ? null : JSON.stringify(value);
-}
-
-function assertPublicConfig(value: JsonValue | null | undefined): void {
-  if (value === undefined || value === null) return;
-  if (Array.isArray(value)) {
-    for (const item of value) assertPublicConfig(item);
-    return;
-  }
-  if (typeof value !== "object") return;
-  for (const [key, item] of Object.entries(value)) {
-    if (["apikey", "accesstoken", "refreshtoken", "token", "secret", "password", "credential"].includes(key.toLowerCase())) {
-      throw new Error(`Social account config must not contain credential key: ${key}`);
-    }
-    assertPublicConfig(item);
-  }
 }
 
 function toWorkspaceRow(row: WorkspaceDbRow): WorkspaceRow {

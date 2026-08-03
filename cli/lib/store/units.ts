@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { URL } from "node:url";
 import { isValidUnitSlug } from "../schemas/unit.js";
 import { appendActivity } from "./activity.js";
+import { canonicalPublicJson } from "./canonical-json.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
 import { resolveObjectPath } from "./internal-objects.js";
@@ -1949,7 +1950,7 @@ function publicationScope(
         presentationId: row.presentationId,
         platform: row.platform,
         effectiveCaptionRevisionId: row.effectiveCaptionRevisionId,
-        options: JSON.parse(row.optionsJson) as JsonValue,
+        options: parsePublicJson(row.optionsJson, "Presentation options"),
         sealedAt: row.sealedAt,
         workspaceId: row.workspaceId,
         projectId: row.projectId,
@@ -2331,7 +2332,7 @@ function checkedItems(items: UnitItemInput[]): CheckedUnitItem[] {
         documentRevisionId,
         role: checkedText(item.role, "Unit item role"),
         position: checkedPosition(item.position, "Unit item position"),
-        config: canonicalOptionalJson(item.config, "Unit item config"),
+        config: canonicalOptionalPublicJson(item.config, "Unit item config"),
       };
     })
     .sort((left, right) => left.position - right.position);
@@ -2434,7 +2435,7 @@ function checkedPresentations(
           "Presentation base item position",
         ),
         position: checkedPosition(item.position, "Presentation item position"),
-        config: canonicalOptionalJson(item.config, "Presentation item config"),
+        config: canonicalOptionalPublicJson(item.config, "Presentation item config"),
       }))
       .sort((left, right) => left.position - right.position);
     const seenBasePositions = new Set<number>();
@@ -2456,9 +2457,9 @@ function checkedPresentations(
       captions,
       effectiveCaptionRevisionNo,
       coverArtifactRevisionId,
-      crop: canonicalOptionalJson(value.crop, "Presentation crop"),
-      safeArea: canonicalOptionalJson(value.safeArea, "Presentation safe area"),
-      options: canonicalJson(value.options ?? {}, "Presentation options"),
+      crop: canonicalOptionalPublicJson(value.crop, "Presentation crop"),
+      safeArea: canonicalOptionalPublicJson(value.safeArea, "Presentation safe area"),
+      options: canonicalPublicJson(value.options ?? {}, "Presentation options"),
       items: presentationItems,
     };
   });
@@ -2553,7 +2554,7 @@ function toItemDto(row: UnitItemDtoDbRow): UnitItemDto {
     documentRevisionId: row.documentRevisionId,
     role: row.role,
     position: row.position,
-    config: parseJson(row.configJson),
+    config: parseOptionalPublicJson(row.configJson, "Unit item config"),
     createdAt: row.createdAt,
   };
 }
@@ -2568,9 +2569,9 @@ function toPresentationDto(
     position: row.position,
     effectiveCaptionRevisionId: row.effectiveCaptionRevisionId,
     coverArtifactRevisionId: row.coverArtifactRevisionId,
-    crop: parseJson(row.cropJson),
-    safeArea: parseJson(row.safeAreaJson),
-    options: JSON.parse(row.optionsJson) as JsonValue,
+    crop: parseOptionalPublicJson(row.cropJson, "Presentation crop"),
+    safeArea: parseOptionalPublicJson(row.safeAreaJson, "Presentation safe area"),
+    options: parsePublicJson(row.optionsJson, "Presentation options"),
     createdAt: row.createdAt,
   };
 }
@@ -2583,7 +2584,7 @@ function toPresentationItemDto(
     presentationId: row.presentationId,
     unitItemId: row.unitItemId,
     position: row.position,
-    config: parseJson(row.configJson),
+    config: parseOptionalPublicJson(row.configJson, "Presentation item config"),
     createdAt: row.createdAt,
   };
 }
@@ -2593,7 +2594,10 @@ function toPublicationRow(row: PublicationDbRow): PublicationRow {
     id: row.id,
     presentationId: row.presentation_id,
     effectiveCaptionRevisionId: row.effective_caption_revision_id,
-    effectiveOptions: JSON.parse(row.effective_options_json) as JsonValue,
+    effectiveOptions: parsePublicJson(
+      row.effective_options_json,
+      "Publication effective options",
+    ),
     socialAccountId: row.social_account_id,
     submissionRunId: row.submission_run_id,
     activeClaimRunId: row.active_claim_run_id,
@@ -2642,7 +2646,10 @@ function toPublicationDtoDb(row: PublicationDtoDbRow): PublicationDto {
     id: row.id,
     presentationId: row.presentationId,
     effectiveCaptionRevisionId: row.effectiveCaptionRevisionId,
-    effectiveOptions: JSON.parse(row.effectiveOptionsJson) as JsonValue,
+    effectiveOptions: parsePublicJson(
+      row.effectiveOptionsJson,
+      "Publication effective options",
+    ),
     socialAccountId: row.socialAccountId,
     submissionRunId: row.submissionRunId,
     revisedFromPublicationId: row.revisedFromPublicationId,
@@ -2871,6 +2878,23 @@ function parseJson(value: string | null): JsonValue | null {
   return value === null ? null : (JSON.parse(value) as JsonValue);
 }
 
+function parseOptionalPublicJson(
+  value: string | null,
+  label: string,
+): JsonValue | null {
+  return value === null ? null : parsePublicJson(value, label);
+}
+
+function parsePublicJson(value: string, label: string): JsonValue {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error(`${label} public JSON is invalid`);
+  }
+  return canonicalPublicJson(parsed, label);
+}
+
 function serializeJson(value: JsonValue | null): string | null {
   return value === null ? null : JSON.stringify(value);
 }
@@ -2880,6 +2904,13 @@ function canonicalOptionalJson(
   label: string,
 ): JsonValue | null {
   return value == null ? null : canonicalJson(value, label);
+}
+
+function canonicalOptionalPublicJson(
+  value: JsonValue | null | undefined,
+  label: string,
+): JsonValue | null {
+  return value == null ? null : canonicalPublicJson(value, label);
 }
 
 function canonicalJson(value: unknown, label: string): JsonValue {
