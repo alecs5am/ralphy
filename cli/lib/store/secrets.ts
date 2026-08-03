@@ -96,24 +96,14 @@ export function createSecretStore(input: {
       const encoded = payload.files[checkedRef];
       if (encoded === undefined) throw secretError();
       const storeId = readStoreId(dataRoot);
-      assertLiveRun(dataRoot, checkedRunId);
-      const secretsDir = secretDirectory(dataRoot, checkedRunId);
       const fileName = `${createHash("sha256").update(checkedRef).digest("hex")}.secret`;
-      const filePath = path.join(secretsDir, fileName);
-      try {
-        fs.mkdirSync(secretsDir, { recursive: true, mode: 0o700 });
-        fs.chmodSync(secretsDir, 0o700);
-        fs.writeFileSync(
-          path.join(secretsDir, MARKER_NAME),
-          JSON.stringify({ version: 1, storeId, runId: checkedRunId }),
-          { mode: 0o600 },
-        );
-        fs.chmodSync(path.join(secretsDir, MARKER_NAME), 0o600);
-        fs.writeFileSync(filePath, Buffer.from(encoded, "base64"), { mode: 0o600 });
-        fs.chmodSync(filePath, 0o600);
-      } catch {
-        throw secretError();
-      }
+      materializeForLiveRun(
+        dataRoot,
+        storeId,
+        checkedRunId,
+        fileName,
+        Buffer.from(encoded, "base64"),
+      );
       return path.posix.join("tmp", checkedRunId, "secrets", fileName);
     },
     cleanup(runId) {
@@ -131,14 +121,51 @@ export function cleanupRunSecretMaterialization(
   const dataRoot = explicitDataRoot(dataRootInput);
   const runId = checkedRunIdValue(runIdInput);
   const storeId = readStoreId(dataRoot);
-  const secretsDir = secretDirectory(dataRoot, runId);
-  if (!isOwnedMaterialization(secretsDir, storeId, runId)) return;
+  const secretsDir = ownedMaterializationDirectory(dataRoot, storeId, runId);
+  if (secretsDir === null) return;
   const state = readRunState(dataRoot, runId);
   if (state !== null && !TERMINAL_RUN_STATES.has(state)) return;
   try {
-    fs.rmSync(secretsDir, { recursive: true, force: true });
+    removeTreeNoFollow(dataRoot, secretsDir);
   } catch {
     throw secretError();
+  }
+}
+
+function materializeForLiveRun(
+  dataRoot: string,
+  storeId: string,
+  runId: string,
+  fileName: string,
+  value: Buffer,
+): void {
+  const db = openLockDatabase(dataRoot);
+  let committed = false;
+  try {
+    db.exec("BEGIN IMMEDIATE");
+    const state = readRunStateFromDatabase(db, runId);
+    if (state === null || TERMINAL_RUN_STATES.has(state)) throw secretError();
+    const secretsDir = createMaterializationDirectory(dataRoot, runId);
+    writeFileNoFollow(
+      dataRoot,
+      path.join(secretsDir, MARKER_NAME),
+      JSON.stringify({ version: 1, storeId, runId }),
+    );
+    writeFileNoFollow(dataRoot, path.join(secretsDir, fileName), value);
+    db.exec("COMMIT");
+    committed = true;
+  } catch (error) {
+    if (!committed && db.inTransaction) {
+      try {
+        db.exec("ROLLBACK");
+      } catch {
+        // The safe DomainError below owns the boundary.
+      }
+    }
+    if (error instanceof DomainError) throw error;
+    throw secretError();
+  } finally {
+    db.close();
   }
 }
 
@@ -282,9 +309,122 @@ function writeEnvelope(dataRoot: string, envelope: SecretEnvelope): void {
   }
 }
 
+function createMaterializationDirectory(dataRoot: string, runId: string): string {
+  if (!isSafeExistingDirectory(dataRoot, dataRoot)) throw secretError();
+  const tmpRoot = path.join(dataRoot, "tmp");
+  const runDirectory = path.join(tmpRoot, runId);
+  const secretsDir = path.join(runDirectory, "secrets");
+  for (const directory of [tmpRoot, runDirectory, secretsDir]) {
+    const stat = lstatOrNull(directory);
+    if (stat === null) fs.mkdirSync(directory, { mode: 0o700 });
+    else if (stat.isSymbolicLink() || !stat.isDirectory()) throw secretError();
+    if (!isSafeExistingDirectory(dataRoot, directory)) throw secretError();
+  }
+  chmodDirectoryNoFollow(secretsDir, 0o700);
+  return secretsDir;
+}
+
+function writeFileNoFollow(
+  dataRoot: string,
+  filePath: string,
+  value: string | Buffer,
+): void {
+  const parent = path.dirname(filePath);
+  if (!isSafeExistingDirectory(dataRoot, parent)) throw secretError();
+  const existing = lstatOrNull(filePath);
+  if (existing !== null && (existing.isSymbolicLink() || !existing.isFile())) {
+    throw secretError();
+  }
+  const flags =
+    fs.constants.O_WRONLY |
+    fs.constants.O_CREAT |
+    fs.constants.O_TRUNC |
+    fs.constants.O_NOFOLLOW;
+  const fd = fs.openSync(filePath, flags, 0o600);
+  try {
+    if (!fs.fstatSync(fd).isFile()) throw secretError();
+    fs.fchmodSync(fd, 0o600);
+    fs.writeFileSync(fd, value);
+    fs.fsyncSync(fd);
+    if (!isSafeExistingDirectory(dataRoot, parent)) throw secretError();
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function chmodDirectoryNoFollow(directory: string, mode: number): void {
+  const fd = fs.openSync(
+    directory,
+    fs.constants.O_RDONLY | fs.constants.O_DIRECTORY | fs.constants.O_NOFOLLOW,
+  );
+  try {
+    if (!fs.fstatSync(fd).isDirectory()) throw secretError();
+    fs.fchmodSync(fd, mode);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function readFileNoFollow(filePath: string, encoding: BufferEncoding): string {
+  const fd = fs.openSync(filePath, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  try {
+    if (!fs.fstatSync(fd).isFile()) throw secretError();
+    return fs.readFileSync(fd, encoding);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function isSafeExistingDirectory(dataRoot: string, directory: string): boolean {
+  const relative = path.relative(dataRoot, directory);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) return false;
+  try {
+    const rootStat = fs.lstatSync(dataRoot);
+    if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) return false;
+    const realRoot = fs.realpathSync(dataRoot);
+    let current = dataRoot;
+    for (const component of relative.split(path.sep).filter(Boolean)) {
+      current = path.join(current, component);
+      const stat = fs.lstatSync(current);
+      if (stat.isSymbolicLink() || !stat.isDirectory()) return false;
+      const realCurrent = fs.realpathSync(current);
+      const realRelative = path.relative(realRoot, realCurrent);
+      if (realRelative.startsWith("..") || path.isAbsolute(realRelative)) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function lstatOrNull(filePath: string): fs.Stats | null {
+  try {
+    return fs.lstatSync(filePath);
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") return null;
+    throw secretError();
+  }
+}
+
+function removeTreeNoFollow(dataRoot: string, directory: string): void {
+  if (!isSafeExistingDirectory(dataRoot, directory)) throw secretError();
+  for (const name of fs.readdirSync(directory)) {
+    if (!isSafeExistingDirectory(dataRoot, directory)) throw secretError();
+    const child = path.join(directory, name);
+    const stat = fs.lstatSync(child);
+    if (stat.isDirectory() && !stat.isSymbolicLink()) {
+      removeTreeNoFollow(dataRoot, child);
+    } else {
+      fs.unlinkSync(child);
+    }
+  }
+  if (!isSafeExistingDirectory(dataRoot, directory)) throw secretError();
+  fs.rmdirSync(directory);
+}
+
 function cleanupMaterializations(dataRoot: string): void {
   const tmpRoot = path.join(dataRoot, "tmp");
-  if (!fs.existsSync(tmpRoot)) return;
+  if (!isSafeExistingDirectory(dataRoot, tmpRoot)) return;
   const storeId = readStoreId(dataRoot);
   let candidates: fs.Dirent[];
   try {
@@ -294,12 +434,16 @@ function cleanupMaterializations(dataRoot: string): void {
   }
   for (const candidate of candidates) {
     if (!candidate.isDirectory() || !RUN_ID.test(candidate.name)) continue;
-    const secretsDir = secretDirectory(dataRoot, candidate.name);
-    if (!isOwnedMaterialization(secretsDir, storeId, candidate.name)) continue;
+    const secretsDir = ownedMaterializationDirectory(
+      dataRoot,
+      storeId,
+      candidate.name,
+    );
+    if (secretsDir === null) continue;
     const state = readRunState(dataRoot, candidate.name);
     if (state === null || TERMINAL_RUN_STATES.has(state)) {
       try {
-        fs.rmSync(secretsDir, { recursive: true, force: true });
+        removeTreeNoFollow(dataRoot, secretsDir);
       } catch {
         throw secretError();
       }
@@ -307,26 +451,29 @@ function cleanupMaterializations(dataRoot: string): void {
   }
 }
 
-function isOwnedMaterialization(
-  secretsDir: string,
+function ownedMaterializationDirectory(
+  dataRoot: string,
   storeId: string,
   runId: string,
-): boolean {
+): string | null {
+  const secretsDir = secretDirectory(dataRoot, runId);
   try {
-    if (!fs.lstatSync(secretsDir).isDirectory()) return false;
+    if (!isSafeExistingDirectory(dataRoot, secretsDir)) return null;
     const markerPath = path.join(secretsDir, MARKER_NAME);
     const markerStat = fs.lstatSync(markerPath);
-    if (!markerStat.isFile() || markerStat.size > 1_024) return false;
-    const marker = JSON.parse(fs.readFileSync(markerPath, "utf8")) as unknown;
-    return (
-      isRecord(marker) &&
+    if (markerStat.isSymbolicLink() || !markerStat.isFile() || markerStat.size > 1_024) {
+      return null;
+    }
+    const marker = JSON.parse(readFileNoFollow(markerPath, "utf8")) as unknown;
+    return isRecord(marker) &&
       marker.version === 1 &&
       marker.storeId === storeId &&
       marker.runId === runId &&
       Object.keys(marker).length === 3
-    );
+      ? secretsDir
+      : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -346,9 +493,12 @@ function readRunState(dataRoot: string, runId: string): string | null {
   }
 }
 
-function assertLiveRun(dataRoot: string, runId: string): void {
-  const state = readRunState(dataRoot, runId);
-  if (state === null || TERMINAL_RUN_STATES.has(state)) throw secretError();
+function readRunStateFromDatabase(db: Database, runId: string): string | null {
+  return (
+    db
+      .query<{ state: string }, [string]>("SELECT state FROM runs WHERE id = ?")
+      .get(runId)?.state ?? null
+  );
 }
 
 function readStoreId(dataRoot: string): string {
@@ -484,10 +634,19 @@ async function serializeMutation<T>(
 }
 
 function explicitDataRoot(value: string): string {
-  if (typeof value !== "string" || value.length === 0 || value.includes("\0")) {
+  if (
+    typeof value !== "string" ||
+    value.length === 0 ||
+    value.includes("\0") ||
+    !path.isAbsolute(value)
+  ) {
     throw secretError();
   }
   return path.resolve(value);
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
 }
 
 function databasePath(dataRoot: string): string {
