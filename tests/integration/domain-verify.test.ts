@@ -1033,8 +1033,10 @@ describe("domain store verification", () => {
                  ('build-without-run', 'composition-revision-a', NULL, 'running',
                   '{}', 1, 1, NULL);
         INSERT INTO evaluations
-          (id, project_id, run_id, kind, report_json, created_at)
-          VALUES ('evaluation-a', 'project-a', 'run-b', 'qa', '{}', 1);
+          (id, workspace_id, project_id, run_id, authored_by_session_id, kind,
+           report_json, created_at)
+          VALUES ('evaluation-a', 'ws-a', 'project-a', 'run-b', 'session-wrong',
+                  'qa', '{}', 1);
 
         INSERT INTO units
           (id, workspace_id, project_id, slug, format, latest_revision_id,

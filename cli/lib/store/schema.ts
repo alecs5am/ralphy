@@ -412,16 +412,27 @@ export const MIGRATIONS: readonly Migration[] = [
 
       CREATE TABLE evaluations (
         id TEXT PRIMARY KEY,
-        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
+        workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
+        project_id TEXT REFERENCES projects(id) ON DELETE RESTRICT,
         artifact_revision_id TEXT REFERENCES artifact_revisions(id) ON DELETE RESTRICT,
         composition_revision_id TEXT REFERENCES composition_revisions(id) ON DELETE RESTRICT,
         build_id TEXT REFERENCES builds(id) ON DELETE RESTRICT,
         run_id TEXT REFERENCES runs(id) ON DELETE RESTRICT,
-        kind TEXT NOT NULL,
+        authored_by_session_id TEXT NOT NULL REFERENCES agent_sessions(id) ON DELETE RESTRICT,
+        kind TEXT NOT NULL CHECK (length(trim(kind)) > 0),
         verdict TEXT,
-        score REAL,
+        favorite INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1)),
+        rating INTEGER CHECK (rating IS NULL OR rating BETWEEN 1 AND 5),
+        tags_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(tags_json)),
+        note TEXT,
         report_json TEXT NOT NULL CHECK (json_valid(report_json)),
-        created_at INTEGER NOT NULL
+        created_at INTEGER NOT NULL,
+        CHECK (
+          (artifact_revision_id IS NOT NULL)
+          + (composition_revision_id IS NOT NULL)
+          + (build_id IS NOT NULL)
+          + (run_id IS NOT NULL) = 1
+        )
       );
 
       CREATE TABLE units (
@@ -815,6 +826,8 @@ export const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX idx_compositions_project ON compositions(project_id);
       CREATE INDEX idx_composition_revisions_composition ON composition_revisions(composition_id, revision_no);
       CREATE INDEX idx_builds_revision ON builds(composition_revision_id, created_at);
+      CREATE INDEX idx_evaluations_scope
+        ON evaluations(workspace_id, project_id, created_at, id);
       CREATE UNIQUE INDEX idx_units_workspace_slug
         ON units(workspace_id, slug) WHERE project_id IS NULL;
       CREATE UNIQUE INDEX idx_units_project_slug
@@ -1035,6 +1048,83 @@ export const MIGRATIONS: readonly Migration[] = [
         )
       BEGIN
         SELECT RAISE(ABORT, 'active Agent Session does not contain entity scope');
+      END;
+
+      CREATE TRIGGER evaluations_no_conflicting_insert
+      BEFORE INSERT ON evaluations
+      WHEN EXISTS (SELECT 1 FROM evaluations WHERE id = NEW.id)
+      BEGIN
+        SELECT RAISE(ABORT, 'Evaluation identity is immutable');
+      END;
+
+      CREATE TRIGGER evaluations_scope_insert
+      BEFORE INSERT ON evaluations
+      WHEN NOT EXISTS (
+        SELECT 1
+        FROM artifact_revisions revision
+        JOIN artifacts artifact ON artifact.id = revision.artifact_id
+        WHERE revision.id = NEW.artifact_revision_id
+          AND artifact.workspace_id = NEW.workspace_id
+          AND artifact.project_id IS NEW.project_id
+        UNION ALL
+        SELECT 1
+        FROM composition_revisions revision
+        JOIN compositions composition ON composition.id = revision.composition_id
+        JOIN projects project ON project.id = composition.project_id
+        WHERE revision.id = NEW.composition_revision_id
+          AND project.workspace_id = NEW.workspace_id
+          AND project.id IS NEW.project_id
+        UNION ALL
+        SELECT 1
+        FROM builds build
+        JOIN composition_revisions revision
+          ON revision.id = build.composition_revision_id
+        JOIN compositions composition ON composition.id = revision.composition_id
+        JOIN projects project ON project.id = composition.project_id
+        WHERE build.id = NEW.build_id
+          AND project.workspace_id = NEW.workspace_id
+          AND project.id IS NEW.project_id
+        UNION ALL
+        SELECT 1
+        FROM runs run
+        WHERE run.id = NEW.run_id
+          AND run.workspace_id IS NEW.workspace_id
+          AND run.project_id IS NEW.project_id
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Evaluation scope must equal its derived target scope');
+      END;
+
+      CREATE TRIGGER evaluation_session_scope_insert
+      BEFORE INSERT ON evaluations
+      WHEN NOT EXISTS (
+        SELECT 1
+        FROM agent_sessions s
+        WHERE s.id = NEW.authored_by_session_id
+          AND s.ended_at IS NULL
+          AND s.workspace_id = NEW.workspace_id
+          AND (
+            (NEW.project_id IS NULL AND s.project_id IS NULL)
+            OR (
+              NEW.project_id IS NOT NULL
+              AND (s.project_id IS NULL OR s.project_id = NEW.project_id)
+            )
+          )
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'active Agent Session does not contain entity scope');
+      END;
+
+      CREATE TRIGGER evaluations_no_update
+      BEFORE UPDATE ON evaluations
+      BEGIN
+        SELECT RAISE(ABORT, 'Evaluations are immutable');
+      END;
+
+      CREATE TRIGGER evaluations_no_delete
+      BEFORE DELETE ON evaluations
+      BEGIN
+        SELECT RAISE(ABORT, 'Evaluations are immutable');
       END;
 
       CREATE TRIGGER artifact_revision_session_scope_insert
