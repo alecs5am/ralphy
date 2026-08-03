@@ -498,6 +498,54 @@ export type RunResultRow = {
 
 export type Page<T, C = string> = { items: T[]; nextCursor: C | null };
 
+export type ConsumerPrincipalRow = {
+  id: string;
+  namespace: string;
+  identityDigest: string;
+  createdAt: number;
+  disabledAt: number | null;
+};
+
+export type RunState =
+  | "pending"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "cancelled";
+
+/** External provenance and request digest stay internal to the store. */
+export type RunDto = {
+  id: string;
+  workspaceId: string | null;
+  projectId: string | null;
+  agentSessionId: string | null;
+  kind: string;
+  label: string | null;
+  state: RunState;
+  createdAt: number;
+  startedAt: number | null;
+  endedAt: number | null;
+};
+
+export type RunResultDto = {
+  id: string;
+  runId: string;
+  position: number;
+  entityType: string;
+  entityId: string;
+  createdAt: number;
+};
+
+export type ExternalOperation = {
+  runId: string;
+  nodeId: string;
+  attempt: number;
+  operation: string;
+  idempotencyKey: string;
+};
+
+export type ConsumerOperationStart = { run: RunDto; replayed: boolean };
+
 export type EvaluationTargetType =
   | "artifact_revision"
   | "composition_revision"

@@ -42,7 +42,8 @@ export type RunObjectIssueReason =
   | "size-mismatch"
   | "hash-mismatch"
   | "missing-hash-evidence"
-  | "missing-forensic-file";
+  | "missing-forensic-file"
+  | "invalid-mime";
 export type AbsolutePathReason =
   | "posix-absolute"
   | "drive-absolute"
@@ -188,7 +189,7 @@ type JsonTreeRow = {
 
 const TEXT_COLUMNS = {
   activity_events: "workspace_id,project_id,entity_type,entity_id,action,payload_json",
-  agent_sessions: "id,workspace_id,project_id,agent,metadata_json",
+  agent_sessions: "id,workspace_id,project_id,agent,consumer_principal_id,metadata_json",
   artifact_relations: "id,from_revision_id,to_revision_id,relation,metadata_json",
   artifact_revisions: "id,artifact_id,object_id,parent_revision_id,iteration_id,state,metadata_json,authored_by_session_id",
   artifact_usages: "id,artifact_revision_id,workspace_id,project_id,feedback_id,context_type,context_id,role,lifecycle",
@@ -200,6 +201,7 @@ const TEXT_COLUMNS = {
   composition_revision_files: "id,composition_revision_id,logical_path,object_id",
   composition_revisions: "id,composition_id,parent_revision_id,iteration_id,state,engine,engine_version,engine_config_json,manifest_sha256,authored_by_session_id",
   compositions: "id,project_id,slug,kind,selected_revision_id",
+  consumer_principals: "id,namespace,identity_digest",
   document_revisions: "id,document_id,parent_revision_id,iteration_id,format,title,body,content_sha256,authored_by_session_id",
   documents: "id,workspace_id,project_id,kind,slug,title,current_revision_id",
   evaluations: "id,workspace_id,project_id,artifact_revision_id,composition_revision_id,build_id,run_id,authored_by_session_id,kind,verdict,tags_json,note,report_json",
@@ -218,9 +220,9 @@ const TEXT_COLUMNS = {
   projects: "id,workspace_id,slug,name,state,metadata_json",
   publications: "id,presentation_id,effective_caption_revision_id,effective_options_json,social_account_id,submission_run_id,active_claim_run_id,revised_from_publication_id,rail,provider_publication_id,state,url,error,failure_stage,idempotency_key,claim_kind,claim_token",
   run_attempts: "id,run_id,provider,model,state,request_json,response_json,error",
-  run_objects: "id,run_id,object_id,path,purpose,state,retention,sha256,metadata_json",
+  run_objects: "id,run_id,object_id,path,purpose,state,retention,sha256,mime,metadata_json",
   run_results: "id,run_id,entity_type,entity_id",
-  runs: "id,workspace_id,project_id,agent_session_id,kind,label,state,metadata_json,error",
+  runs: "id,workspace_id,project_id,agent_session_id,kind,label,state,metadata_json,external_system,external_run_id,external_node_id,external_operation,idempotency_key,request_digest,consumer_principal_id,error",
   social_accounts: "id,workspace_id,platform,external_id,display_name,username,config_json",
   storage_transfer_entries: "id,transfer_id,object_id,source_key,destination_key,sha256,state,error",
   storage_transfers: "id,workspace_id,project_id,kind,state,source_bucket,destination_bucket",
@@ -260,6 +262,9 @@ const BINARY_KEYS = new Set([
 ]);
 const DATA_URL =
   /data:(?:[a-z][a-z0-9!#$&^_.+-]*\/[a-z0-9!#$&^_.+-]+)?(?:;[a-z0-9!#$&^_.+-]+=[^;,\s]+)*(?:;base64)?,[^\s"'<>]*/i;
+const RUN_OBJECT_MIME =
+  /^[A-Za-z0-9!#$&^_.+-]+\/[A-Za-z0-9!#$&^_.+-]+$/;
+
 const FTS_TABLES = new Set([
   "document_revisions_fts",
   "document_revisions_fts_config",
@@ -706,11 +711,20 @@ function inspectRunObjects(
         state: string;
         bytes: number | null;
         sha256: string | null;
+        mime: string | null;
       },
       []
-    >("SELECT id, object_id, path, state, bytes, sha256 FROM run_objects")
+    >("SELECT id, object_id, path, state, bytes, sha256, mime FROM run_objects")
     .all();
   for (const row of rows) {
+    if (row.mime !== null && !RUN_OBJECT_MIME.test(row.mime)) {
+      report.runObjectIssues.push({
+        table: "run_objects",
+        rowId: row.id,
+        column: "mime",
+        reason: "invalid-mime",
+      });
+    }
     if (row.object_id !== null) continue;
     let filePath: string;
     try {
@@ -1725,10 +1739,84 @@ function inspectSessionProvenance(
           FROM evaluations evaluation
           WHERE evaluation.authored_by_session_id IS NOT NULL`,
   });
+  inspectConsumerPrincipals(db, report);
   appendProvenance(report, "evaluation", "missing-session", db
     .query<{ entityId: string }, []>(
       `SELECT id AS entityId FROM evaluations
        WHERE authored_by_session_id IS NULL`,
+    )
+    .all());
+}
+
+/**
+ * A standalone malformed principal reports as `consumer-principal`; a consumer
+ * Session with a missing, disabled, or wrong owner, or a non-derived
+ * `consumer:<namespace>` label, reports as `agent-session` — even when no Run
+ * references either row.
+ */
+function inspectConsumerPrincipals(
+  db: Database,
+  report: DomainVerificationReport,
+): void {
+  appendProvenance(report, "consumer-principal", "invalid-consumer-principal", db
+    .query<{ entityId: string }, []>(
+      `SELECT id AS entityId FROM consumer_principals
+       WHERE length(namespace) NOT BETWEEN 1 AND 32
+          OR namespace <> lower(namespace)
+          OR namespace GLOB '*[^a-z0-9-]*'
+          OR length(identity_digest) <> 64
+          OR identity_digest GLOB '*[^0-9a-f]*'
+          OR (disabled_at IS NOT NULL AND disabled_at < created_at)`,
+    )
+    .all());
+  appendProvenance(report, "agent-session", "consumer-session-ownership-mismatch", db
+    .query<{ entityId: string }, []>(
+      `SELECT session.id AS entityId FROM agent_sessions session
+       LEFT JOIN consumer_principals principal
+         ON principal.id = session.consumer_principal_id
+       WHERE session.consumer_principal_id IS NOT NULL
+         AND (principal.id IS NULL OR principal.disabled_at IS NOT NULL)`,
+    )
+    .all());
+  appendProvenance(report, "agent-session", "consumer-session-auth-mismatch", db
+    .query<{ entityId: string }, []>(
+      `SELECT session.id AS entityId FROM agent_sessions session
+       LEFT JOIN consumer_principals principal
+         ON principal.id = session.consumer_principal_id
+       WHERE (session.consumer_principal_id IS NOT NULL
+              AND principal.id IS NOT NULL
+              AND session.agent <> 'consumer:' || principal.namespace)
+          OR (session.consumer_principal_id IS NULL
+              AND session.agent GLOB 'consumer:*')`,
+    )
+    .all());
+  appendProvenance(report, "run", "external-provenance-mismatch", db
+    .query<{ entityId: string }, []>(
+      `SELECT run.id AS entityId FROM runs run
+       LEFT JOIN agent_sessions session ON session.id = run.agent_session_id
+       LEFT JOIN consumer_principals principal
+         ON principal.id = run.consumer_principal_id
+       WHERE (run.external_system IS NULL)
+             + (run.external_run_id IS NULL)
+             + (run.external_node_id IS NULL)
+             + (run.external_attempt IS NULL)
+             + (run.external_operation IS NULL)
+             + (run.idempotency_key IS NULL)
+             + (run.request_digest IS NULL)
+             + (run.consumer_principal_id IS NULL) NOT IN (0, 8)
+          OR (run.external_system IS NOT NULL
+              AND (principal.id IS NULL
+                   OR run.external_system <> 'ralphy-' || principal.namespace
+                   OR run.external_attempt < 1
+                   OR length(run.request_digest) <> 64
+                   OR run.request_digest GLOB '*[^0-9a-f]*'
+                   OR run.workspace_id IS NULL
+                   OR session.id IS NULL
+                   OR session.consumer_principal_id IS NOT run.consumer_principal_id
+                   OR session.workspace_id IS NOT run.workspace_id
+                   OR session.project_id IS NOT run.project_id))
+          OR (run.external_system IS NULL
+              AND session.consumer_principal_id IS NOT NULL)`,
     )
     .all());
 }

@@ -111,11 +111,27 @@ export const MIGRATIONS: readonly Migration[] = [
         UNIQUE (project_id, stage)
       );
 
+      CREATE TABLE consumer_principals (
+        id TEXT PRIMARY KEY,
+        namespace TEXT NOT NULL UNIQUE CHECK (
+          length(namespace) BETWEEN 1 AND 32
+          AND namespace = lower(namespace)
+          AND namespace NOT GLOB '*[^a-z0-9-]*'
+        ),
+        identity_digest TEXT NOT NULL CHECK (
+          length(identity_digest) = 64
+          AND identity_digest NOT GLOB '*[^0-9a-f]*'
+        ),
+        created_at INTEGER NOT NULL,
+        disabled_at INTEGER CHECK (disabled_at IS NULL OR disabled_at >= created_at)
+      );
+
       CREATE TABLE agent_sessions (
         id TEXT PRIMARY KEY,
         workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE RESTRICT,
         project_id TEXT REFERENCES projects(id) ON DELETE RESTRICT,
         agent TEXT NOT NULL CHECK (length(trim(agent)) > 0),
+        consumer_principal_id TEXT REFERENCES consumer_principals(id) ON DELETE RESTRICT,
         metadata_json TEXT CHECK (metadata_json IS NULL OR json_valid(metadata_json)),
         started_at INTEGER NOT NULL,
         ended_at INTEGER CHECK (ended_at IS NULL OR ended_at >= started_at)
@@ -322,10 +338,34 @@ export const MIGRATIONS: readonly Migration[] = [
         label TEXT,
         state TEXT NOT NULL CHECK (state IN ('pending', 'running', 'succeeded', 'failed', 'cancelled')),
         metadata_json TEXT CHECK (metadata_json IS NULL OR json_valid(metadata_json)),
+        external_system TEXT,
+        external_run_id TEXT,
+        external_node_id TEXT,
+        external_attempt INTEGER CHECK (
+          external_attempt IS NULL
+          OR (external_attempt > 0 AND external_attempt = CAST(external_attempt AS INTEGER))
+        ),
+        external_operation TEXT,
+        idempotency_key TEXT,
+        request_digest TEXT CHECK (
+          request_digest IS NULL
+          OR (length(request_digest) = 64 AND request_digest NOT GLOB '*[^0-9a-f]*')
+        ),
+        consumer_principal_id TEXT REFERENCES consumer_principals(id) ON DELETE RESTRICT,
         created_at INTEGER NOT NULL,
         started_at INTEGER,
         ended_at INTEGER,
-        error TEXT
+        error TEXT,
+        CHECK (
+          (external_system IS NULL)
+            + (external_run_id IS NULL)
+            + (external_node_id IS NULL)
+            + (external_attempt IS NULL)
+            + (external_operation IS NULL)
+            + (idempotency_key IS NULL)
+            + (request_digest IS NULL)
+            + (consumer_principal_id IS NULL) IN (0, 8)
+        )
       );
 
       CREATE TABLE run_attempts (
@@ -360,6 +400,16 @@ export const MIGRATIONS: readonly Migration[] = [
         retention TEXT NOT NULL,
         bytes INTEGER CHECK (bytes IS NULL OR bytes >= 0),
         sha256 TEXT CHECK (sha256 IS NULL OR length(sha256) = 64),
+        mime TEXT CHECK (
+          mime IS NULL
+          OR (
+            length(mime) BETWEEN 3 AND 255
+            AND mime NOT GLOB '*[^A-Za-z0-9!#$&^_.+/-]*'
+            AND length(mime) - length(replace(mime, '/', '')) = 1
+            AND mime NOT GLOB '/*'
+            AND mime NOT GLOB '*/'
+          )
+        ),
         metadata_json TEXT CHECK (metadata_json IS NULL OR json_valid(metadata_json)),
         created_at INTEGER NOT NULL
       );
@@ -839,6 +889,15 @@ export const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX idx_metric_snapshots_publication
         ON metric_snapshots(publication_id, as_of DESC, created_at DESC, id DESC);
       CREATE INDEX idx_runs_project ON runs(project_id, created_at);
+      CREATE UNIQUE INDEX idx_runs_external_tuple
+        ON runs(external_system, external_run_id, external_node_id,
+                external_attempt, external_operation)
+        WHERE external_system IS NOT NULL;
+      CREATE UNIQUE INDEX idx_runs_external_key
+        ON runs(external_system, idempotency_key)
+        WHERE external_system IS NOT NULL;
+      CREATE INDEX idx_consumer_principals_namespace
+        ON consumer_principals(namespace, disabled_at);
       CREATE INDEX idx_run_attempts_run ON run_attempts(run_id, attempt_no);
       CREATE INDEX idx_run_objects_run ON run_objects(run_id, created_at);
       CREATE INDEX idx_run_results_run ON run_results(run_id, position);
@@ -1006,6 +1065,7 @@ export const MIGRATIONS: readonly Migration[] = [
         AND NEW.workspace_id IS OLD.workspace_id
         AND NEW.project_id IS OLD.project_id
         AND NEW.agent IS OLD.agent
+        AND NEW.consumer_principal_id IS OLD.consumer_principal_id
         AND NEW.metadata_json IS OLD.metadata_json
         AND NEW.started_at IS OLD.started_at
         AND OLD.ended_at IS NULL
@@ -1260,6 +1320,102 @@ export const MIGRATIONS: readonly Migration[] = [
         )
       BEGIN
         SELECT RAISE(ABORT, 'active Agent Session does not contain entity scope');
+      END;
+
+      CREATE TRIGGER consumer_principals_no_conflicting_insert
+      BEFORE INSERT ON consumer_principals
+      WHEN EXISTS (
+        SELECT 1 FROM consumer_principals
+        WHERE id = NEW.id OR namespace = NEW.namespace
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Consumer principal identity is immutable');
+      END;
+
+      CREATE TRIGGER consumer_principals_update_guard
+      BEFORE UPDATE ON consumer_principals
+      WHEN NOT (
+        NEW.id IS OLD.id
+        AND NEW.namespace IS OLD.namespace
+        AND NEW.identity_digest IS OLD.identity_digest
+        AND NEW.created_at IS OLD.created_at
+        AND OLD.disabled_at IS NULL
+        AND NEW.disabled_at IS NOT NULL
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Consumer principal identity is immutable');
+      END;
+
+      CREATE TRIGGER consumer_principals_no_delete
+      BEFORE DELETE ON consumer_principals
+      BEGIN
+        SELECT RAISE(ABORT, 'Consumer principal identity is immutable');
+      END;
+
+      CREATE TRIGGER agent_sessions_consumer_label_insert
+      BEFORE INSERT ON agent_sessions
+      WHEN NEW.consumer_principal_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM consumer_principals principal
+          WHERE principal.id = NEW.consumer_principal_id
+            AND principal.disabled_at IS NULL
+            AND NEW.agent = 'consumer:' || principal.namespace
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'consumer Session must name its live principal namespace');
+      END;
+
+      CREATE TRIGGER agent_sessions_consumer_label_reserved_insert
+      BEFORE INSERT ON agent_sessions
+      WHEN NEW.consumer_principal_id IS NULL AND NEW.agent GLOB 'consumer:*'
+      BEGIN
+        SELECT RAISE(ABORT, 'consumer Session label is reserved for a bound principal');
+      END;
+
+      CREATE TRIGGER runs_external_provenance_insert
+      BEFORE INSERT ON runs
+      WHEN NEW.external_system IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM agent_sessions session
+          JOIN consumer_principals principal
+            ON principal.id = session.consumer_principal_id
+          WHERE session.id = NEW.agent_session_id
+            AND session.ended_at IS NULL
+            AND principal.disabled_at IS NULL
+            AND principal.id = NEW.consumer_principal_id
+            AND NEW.external_system = 'ralphy-' || principal.namespace
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'external Run requires a live consumer Session for its own principal');
+      END;
+
+      CREATE TRIGGER runs_ordinary_consumer_session_insert
+      BEFORE INSERT ON runs
+      WHEN NEW.external_system IS NULL
+        AND EXISTS (
+          SELECT 1 FROM agent_sessions session
+          WHERE session.id = NEW.agent_session_id
+            AND session.consumer_principal_id IS NOT NULL
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'consumer Session cannot start an ordinary Run');
+      END;
+
+      CREATE TRIGGER runs_external_provenance_update_guard
+      BEFORE UPDATE ON runs
+      WHEN NOT (
+        NEW.external_system IS OLD.external_system
+        AND NEW.external_run_id IS OLD.external_run_id
+        AND NEW.external_node_id IS OLD.external_node_id
+        AND NEW.external_attempt IS OLD.external_attempt
+        AND NEW.external_operation IS OLD.external_operation
+        AND NEW.idempotency_key IS OLD.idempotency_key
+        AND NEW.request_digest IS OLD.request_digest
+        AND NEW.consumer_principal_id IS OLD.consumer_principal_id
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Run external provenance is immutable');
       END;
 
       CREATE TRIGGER run_session_scope_insert

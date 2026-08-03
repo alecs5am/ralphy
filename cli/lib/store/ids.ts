@@ -32,6 +32,7 @@ export const DOMAIN_ID_PREFIXES = [
   "pub",
   "metric",
   "session",
+  "consumer",
   "run",
   "attempt",
   "robj",

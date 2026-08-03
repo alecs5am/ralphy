@@ -40,6 +40,11 @@ export function startAgentSession(input: {
 }): AgentSessionRow {
   const agent = input.agent.trim();
   if (!agent) throw new Error("Agent label must not be empty");
+  // The ordinary API can never mint a consumer Session; the reserved label is
+  // also refused by a persistent trigger.
+  if (agent.startsWith("consumer:")) {
+    throw new Error("Agent label consumer: is reserved for a bound principal");
+  }
   const metadata = canonicalMetadata(input.metadata);
 
   return withImmediateTransaction((db) => {
@@ -135,6 +140,61 @@ export function endAgentSession(id: string): AgentSessionRow {
       action: "agent_session.ended",
       payload: {},
       createdAt: endedAt,
+    });
+    return getSessionRow(db, id)!;
+  });
+}
+
+/**
+ * Opens the immutable scoped Session an authenticated consumer works under. The
+ * agent label is derived from the bound principal, never taken from input.
+ *
+ * @internal
+ */
+export function startConsumerSession(input: {
+  principalId: string;
+  workspaceId: string;
+  projectId?: string | null;
+  metadata?: JsonValue | null;
+}): AgentSessionRow {
+  const metadata = canonicalMetadata(input.metadata);
+  return withImmediateTransaction((db) => {
+    const principal = db
+      .query<{ namespace: string; disabledAt: number | null }, [string]>(
+        `SELECT namespace, disabled_at AS disabledAt
+         FROM consumer_principals WHERE id = ?`,
+      )
+      .get(input.principalId);
+    if (!principal) {
+      throw new Error(`Consumer principal not found: ${input.principalId}`);
+    }
+    if (principal.disabledAt !== null) {
+      throw new Error("Consumer principal is disabled");
+    }
+    assertSessionOwner(db, input.workspaceId, input.projectId ?? null);
+    const id = newDomainId("session");
+    const startedAt = Date.now();
+    db.prepare(
+      `INSERT INTO agent_sessions
+       (id, workspace_id, project_id, agent, consumer_principal_id, metadata_json, started_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      id,
+      input.workspaceId,
+      input.projectId ?? null,
+      `consumer:${principal.namespace}`,
+      input.principalId,
+      metadata === null ? null : JSON.stringify(metadata),
+      startedAt,
+    );
+    appendActivity(db, {
+      workspaceId: input.workspaceId,
+      projectId: input.projectId ?? null,
+      entityType: "agent_session",
+      entityId: id,
+      action: "session.started",
+      payload: { consumer: true },
+      createdAt: startedAt,
     });
     return getSessionRow(db, id)!;
   });
