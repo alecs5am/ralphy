@@ -112,18 +112,32 @@ export const MIGRATIONS: readonly Migration[] = [
       );
 
       CREATE TABLE consumer_principals (
-        id TEXT PRIMARY KEY,
+        id TEXT PRIMARY KEY CHECK (
+          typeof(id) = 'text'
+          AND length(id) BETWEEN 1 AND 128
+          AND substr(id, 1, 1) GLOB '[A-Za-z0-9]'
+          AND id NOT GLOB '*[^A-Za-z0-9._:-]*'
+        ),
         namespace TEXT NOT NULL UNIQUE CHECK (
           length(namespace) BETWEEN 1 AND 32
           AND namespace = lower(namespace)
           AND namespace NOT GLOB '*[^a-z0-9-]*'
         ),
         identity_digest TEXT NOT NULL CHECK (
-          length(identity_digest) = 64
+          typeof(identity_digest) = 'text'
+          AND length(identity_digest) = 64
           AND identity_digest NOT GLOB '*[^0-9a-f]*'
         ),
-        created_at INTEGER NOT NULL,
-        disabled_at INTEGER CHECK (disabled_at IS NULL OR disabled_at >= created_at)
+        created_at INTEGER NOT NULL CHECK (
+          typeof(created_at) = 'integer'
+          AND created_at BETWEEN 0 AND 9007199254740991
+        ),
+        disabled_at INTEGER CHECK (
+          disabled_at IS NULL OR (
+            typeof(disabled_at) = 'integer'
+            AND disabled_at BETWEEN created_at AND 9007199254740991
+          )
+        )
       );
 
       CREATE TABLE agent_sessions (
@@ -133,8 +147,16 @@ export const MIGRATIONS: readonly Migration[] = [
         agent TEXT NOT NULL CHECK (length(trim(agent)) > 0),
         consumer_principal_id TEXT REFERENCES consumer_principals(id) ON DELETE RESTRICT,
         metadata_json TEXT CHECK (metadata_json IS NULL OR json_valid(metadata_json)),
-        started_at INTEGER NOT NULL,
-        ended_at INTEGER CHECK (ended_at IS NULL OR ended_at >= started_at)
+        started_at INTEGER NOT NULL CHECK (
+          typeof(started_at) = 'integer'
+          AND started_at BETWEEN 0 AND 9007199254740991
+        ),
+        ended_at INTEGER CHECK (
+          ended_at IS NULL OR (
+            typeof(ended_at) = 'integer'
+            AND ended_at BETWEEN started_at AND 9007199254740991
+          )
+        )
       );
 
       CREATE TABLE documents (
@@ -338,18 +360,54 @@ export const MIGRATIONS: readonly Migration[] = [
         label TEXT,
         state TEXT NOT NULL CHECK (state IN ('pending', 'running', 'succeeded', 'failed', 'cancelled')),
         metadata_json TEXT CHECK (metadata_json IS NULL OR json_valid(metadata_json)),
-        external_system TEXT,
-        external_run_id TEXT,
-        external_node_id TEXT,
-        external_attempt INTEGER CHECK (
-          external_attempt IS NULL
-          OR (external_attempt > 0 AND external_attempt = CAST(external_attempt AS INTEGER))
+        external_system TEXT CHECK (
+          external_system IS NULL OR (
+            typeof(external_system) = 'text'
+            AND length(external_system) BETWEEN 1 AND 128
+            AND external_system NOT GLOB '*[^!-~]*'
+          )
         ),
-        external_operation TEXT,
-        idempotency_key TEXT,
+        external_run_id TEXT CHECK (
+          external_run_id IS NULL OR (
+            typeof(external_run_id) = 'text'
+            AND length(external_run_id) BETWEEN 1 AND 128
+            AND external_run_id NOT GLOB '*[^!-~]*'
+          )
+        ),
+        external_node_id TEXT CHECK (
+          external_node_id IS NULL OR (
+            typeof(external_node_id) = 'text'
+            AND length(external_node_id) BETWEEN 1 AND 128
+            AND external_node_id NOT GLOB '*[^!-~]*'
+          )
+        ),
+        external_attempt INTEGER CHECK (
+          external_attempt IS NULL OR (
+            typeof(external_attempt) = 'integer'
+            AND external_attempt BETWEEN 1 AND 9007199254740991
+          )
+        ),
+        external_operation TEXT CHECK (
+          external_operation IS NULL OR (
+            typeof(external_operation) = 'text'
+            AND length(external_operation) BETWEEN 1 AND 128
+            AND external_operation NOT GLOB '*[^!-~]*'
+          )
+        ),
+        idempotency_key TEXT CHECK (
+          idempotency_key IS NULL OR (
+            typeof(idempotency_key) = 'text'
+            AND length(idempotency_key) BETWEEN 1 AND 128
+            AND idempotency_key NOT GLOB '*[^!-~]*'
+          )
+        ),
         request_digest TEXT CHECK (
           request_digest IS NULL
-          OR (length(request_digest) = 64 AND request_digest NOT GLOB '*[^0-9a-f]*')
+          OR (
+            typeof(request_digest) = 'text'
+            AND length(request_digest) = 64
+            AND request_digest NOT GLOB '*[^0-9a-f]*'
+          )
         ),
         consumer_principal_id TEXT REFERENCES consumer_principals(id) ON DELETE RESTRICT,
         created_at INTEGER NOT NULL,

@@ -1,9 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { bindConsumerPrincipal } from "../../cli/lib/store/consumers.js";
 import {
   closeDomainDb,
   openDomainDb,
-  withImmediateTransaction,
 } from "../../cli/lib/store/db.js";
 import {
   decodeCursor,
@@ -26,6 +24,7 @@ import {
   StoreConflictError,
 } from "../../cli/lib/store/types.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
+import { installFarmConsumer } from "../helpers/consumer-auth.js";
 import { scopedActivity } from "../helpers/activity.js";
 
 let roots: TmpRoot[] = [];
@@ -83,18 +82,12 @@ describe("domain Agent Session store", () => {
   });
 
   test("returns a metadata-free DTO when starting a consumer Session", () => {
-    roots.push(makeTmpRoot("ralphy-domain-consumer-session-safe-dto"));
+    const root = makeTmpRoot("ralphy-domain-consumer-session-safe-dto");
+    roots.push(root);
     const workspace = createWorkspace({ slug: "client", name: "Client" });
-    const principal = withImmediateTransaction((db) =>
-      bindConsumerPrincipal(db, {
-        id: "consumer_farm",
-        namespace: "farm",
-        identityDigest: "1".repeat(64),
-      }),
-    );
+    const farm = installFarmConsumer(root);
 
-    const session: AgentSessionDto = startConsumerSession({
-      principalId: principal.id,
+    const session: AgentSessionDto = startConsumerSession(farm.authority, {
       workspaceId: workspace.id,
       metadata: { mode: "private" },
     });

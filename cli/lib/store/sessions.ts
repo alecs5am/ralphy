@@ -1,5 +1,12 @@
 import { Database } from "bun:sqlite";
 import { appendActivity } from "./activity.js";
+import {
+  forgetConsumerSession,
+  registerConsumerSession,
+  requireConsumerAuthority,
+  requireOwnedConsumerSession,
+  type ConsumerAuthority,
+} from "./consumer-auth.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
 import { assertLimit, buildPage, decodeCursor } from "./pagination.js";
@@ -119,30 +126,17 @@ export function listAgentSessions(input: {
 
 export function endAgentSession(id: string): AgentSessionDto {
   return withImmediateTransaction((db) => {
-    const session = getSessionRow(db, id);
-    if (!session) throw new Error(`Agent Session not found: ${id}`);
-    if (session.endedAt !== null) {
-      throw new StoreConflictError("Agent Session is already ended");
-    }
-    const endedAt = Date.now();
-    const result = db
-      .prepare(
-        "UPDATE agent_sessions SET ended_at = ? WHERE id = ? AND ended_at IS NULL",
+    const owner = db
+      .query<{ principalId: string | null }, [string]>(
+        `SELECT consumer_principal_id AS principalId
+         FROM agent_sessions WHERE id = ?`,
       )
-      .run(endedAt, id);
-    if (!result.changes) {
-      throw new StoreConflictError("Agent Session is already ended");
+      .get(id);
+    if (!owner) throw new Error(`Agent Session not found: ${id}`);
+    if (owner.principalId !== null) {
+      throw new Error("A consumer Session requires its owning authority");
     }
-    appendActivity(db, {
-      workspaceId: session.workspaceId,
-      projectId: session.projectId,
-      entityType: "agent_session",
-      entityId: id,
-      action: "agent_session.ended",
-      payload: {},
-      createdAt: endedAt,
-    });
-    return getSessionRow(db, id)!;
+    return endSessionInTransaction(db, id);
   });
 }
 
@@ -152,53 +146,62 @@ export function endAgentSession(id: string): AgentSessionDto {
  *
  * @internal
  */
-export function startConsumerSession(input: {
-  principalId: string;
+export function startConsumerSession(authority: ConsumerAuthority, input: {
   workspaceId: string;
   projectId?: string | null;
   metadata?: JsonValue | null;
 }): AgentSessionDto {
   const metadata = canonicalMetadata(input.metadata);
-  return withImmediateTransaction((db) => {
-    const principal = db
-      .query<{ namespace: string; disabledAt: number | null }, [string]>(
-        `SELECT namespace, disabled_at AS disabledAt
-         FROM consumer_principals WHERE id = ?`,
-      )
-      .get(input.principalId);
-    if (!principal) {
-      throw new Error(`Consumer principal not found: ${input.principalId}`);
-    }
-    if (principal.disabledAt !== null) {
-      throw new Error("Consumer principal is disabled");
-    }
-    assertSessionOwner(db, input.workspaceId, input.projectId ?? null);
-    const id = newDomainId("session");
-    const startedAt = Date.now();
-    db.prepare(
-      `INSERT INTO agent_sessions
-       (id, workspace_id, project_id, agent, consumer_principal_id, metadata_json, started_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      id,
-      input.workspaceId,
-      input.projectId ?? null,
-      `consumer:${principal.namespace}`,
-      input.principalId,
-      metadata === null ? null : JSON.stringify(metadata),
-      startedAt,
-    );
-    appendActivity(db, {
-      workspaceId: input.workspaceId,
-      projectId: input.projectId ?? null,
-      entityType: "agent_session",
-      entityId: id,
-      action: "session.started",
-      payload: { consumer: true },
-      createdAt: startedAt,
+  const registration: { rollback: (() => void) | null } = { rollback: null };
+  try {
+    return withImmediateTransaction((db) => {
+      const principal = requireConsumerAuthority(db, authority);
+      assertSessionOwner(db, input.workspaceId, input.projectId ?? null);
+      const id = newDomainId("session");
+      const startedAt = Date.now();
+      db.prepare(
+        `INSERT INTO agent_sessions
+         (id, workspace_id, project_id, agent, consumer_principal_id, metadata_json, started_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        id,
+        input.workspaceId,
+        input.projectId ?? null,
+        `consumer:${principal.namespace}`,
+        principal.principalId,
+        metadata === null ? null : JSON.stringify(metadata),
+        startedAt,
+      );
+      appendActivity(db, {
+        workspaceId: input.workspaceId,
+        projectId: input.projectId ?? null,
+        entityType: "agent_session",
+        entityId: id,
+        action: "session.started",
+        payload: { consumer: true },
+        createdAt: startedAt,
+      });
+      const session = getSessionRow(db, id)!;
+      registration.rollback = registerConsumerSession(db, authority, id);
+      return session;
     });
-    return getSessionRow(db, id)!;
+  } catch (error) {
+    registration.rollback?.();
+    throw error;
+  }
+}
+
+/** Ends only a live Session minted by this exact consumer authority. */
+export function endConsumerSession(
+  authority: ConsumerAuthority,
+  id: string,
+): AgentSessionDto {
+  const session = withImmediateTransaction((db) => {
+    requireOwnedConsumerSession(db, authority, id);
+    return endSessionInTransaction(db, id);
   });
+  forgetConsumerSession(authority, id);
+  return session;
 }
 
 export function assertActiveSessionScope(
@@ -243,6 +246,33 @@ function assertSessionOwner(
   if (project.workspaceId !== workspaceId) {
     throw new Error("Project does not belong to the Agent Session Workspace");
   }
+}
+
+function endSessionInTransaction(db: Database, id: string): AgentSessionDto {
+  const session = getSessionRow(db, id);
+  if (!session) throw new Error(`Agent Session not found: ${id}`);
+  if (session.endedAt !== null) {
+    throw new StoreConflictError("Agent Session is already ended");
+  }
+  const endedAt = Date.now();
+  const result = db
+    .prepare(
+      "UPDATE agent_sessions SET ended_at = ? WHERE id = ? AND ended_at IS NULL",
+    )
+    .run(endedAt, id);
+  if (!result.changes) {
+    throw new StoreConflictError("Agent Session is already ended");
+  }
+  appendActivity(db, {
+    workspaceId: session.workspaceId,
+    projectId: session.projectId,
+    entityType: "agent_session",
+    entityId: id,
+    action: "agent_session.ended",
+    payload: {},
+    createdAt: endedAt,
+  });
+  return getSessionRow(db, id)!;
 }
 
 function getSessionRow(db: Database, id: string): AgentSessionDto | null {

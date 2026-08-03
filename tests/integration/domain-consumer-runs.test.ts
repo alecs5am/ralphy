@@ -7,6 +7,7 @@ import {
   bindConsumerPrincipal,
   consumerCredentialDigest,
 } from "../../cli/lib/store/consumers.js";
+import { authenticateConsumer } from "../../cli/lib/store/consumer-auth.js";
 import {
   findConsumerOperation,
   listRunResults,
@@ -36,7 +37,7 @@ import {
 } from "../../cli/lib/store/runs.js";
 import { createProject, createWorkspace } from "../../cli/lib/store/scopes.js";
 import {
-  endAgentSession,
+  endConsumerSession,
   startAgentSession,
   startConsumerSession,
 } from "../../cli/lib/store/sessions.js";
@@ -44,6 +45,7 @@ import { createDocument, reviseDocument } from "../../cli/lib/store/documents.js
 import { StoreConflictError } from "../../cli/lib/store/types.js";
 import { verifyDomainStore } from "../../cli/lib/store/verify.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
+import { installFarmConsumer } from "../helpers/consumer-auth.js";
 
 let roots: TmpRoot[] = [];
 
@@ -68,15 +70,22 @@ function bind(namespace = "farm", id = "consumer_farm", digest = DIGEST) {
 }
 
 function fixture(slug: string) {
+  const root = roots.at(-1)!;
   const workspace = createWorkspace({ slug, name: slug });
   const project = createProject({ workspaceId: workspace.id, slug, name: slug });
-  const principal = bind();
-  const session = startConsumerSession({
-    principalId: principal.id,
+  const farm = installFarmConsumer(root);
+  const session = startConsumerSession(farm.authority, {
     workspaceId: workspace.id,
     projectId: project.id,
   });
-  return { workspace, project, principal, session };
+  return {
+    workspace,
+    project,
+    principal: { id: farm.identity.consumerId },
+    session,
+    authority: farm.authority,
+    token: farm.token,
+  };
 }
 
 const EXTERNAL = {
@@ -89,12 +98,12 @@ const EXTERNAL = {
 
 function start(
   slug: string,
-  overrides: Partial<Parameters<typeof startConsumerOperationRun>[0]> = {},
+  overrides: Partial<Parameters<typeof startConsumerOperationRun>[1]> = {},
 ) {
   const scope = fixture(slug);
   return {
     scope,
-    accepted: startConsumerOperationRun({
+    accepted: startConsumerOperationRun(scope.authority, {
       sessionId: scope.session.id,
       workspaceId: scope.workspace.id,
       projectId: scope.project.id,
@@ -158,18 +167,14 @@ describe("consumer principals", () => {
     expect(verifyDomainStore().integrity).toBe("ok");
   });
 
-  test("only a bound principal can mint a consumer Session", () => {
-    makeRoot();
+  test("only authenticated consumer authority can mint a consumer Session", () => {
+    const root = makeRoot();
     const workspace = createWorkspace({ slug: "mint", name: "Mint" });
     expect(() =>
       startAgentSession({ workspaceId: workspace.id, agent: "consumer:farm" }),
     ).toThrow(/reserved/i);
-    expect(() =>
-      startConsumerSession({ principalId: "consumer_missing", workspaceId: workspace.id }),
-    ).toThrow(/not found/i);
-    const principal = bind();
-    const session = startConsumerSession({
-      principalId: principal.id,
+    const farm = installFarmConsumer(root);
+    const session = startConsumerSession(farm.authority, {
       workspaceId: workspace.id,
     });
     expect(session.agent).toBe("consumer:farm");
@@ -301,12 +306,12 @@ describe("external operation Runs", () => {
     ]);
 
     // A reconnected Session for the same principal recovers the same Run.
-    const reconnect = startConsumerSession({
-      principalId: scope.principal.id,
+    const reconnectAuthority = authenticateConsumer("farm", scope.token);
+    const reconnect = startConsumerSession(reconnectAuthority, {
       workspaceId: scope.workspace.id,
       projectId: scope.project.id,
     });
-    const replay = startConsumerOperationRun({
+    const replay = startConsumerOperationRun(reconnectAuthority, {
       sessionId: reconnect.id,
       workspaceId: scope.workspace.id,
       projectId: scope.project.id,
@@ -321,7 +326,7 @@ describe("external operation Runs", () => {
       { external: { runId: EXTERNAL.runId, nodeId: EXTERNAL.nodeId, attempt: 1, operation: "generation" } },
       { idempotencyKey: EXTERNAL.idempotencyKey },
     ] as const) {
-      const found = findConsumerOperation({
+      const found = findConsumerOperation(reconnectAuthority, {
         sessionId: reconnect.id,
         workspaceId: scope.workspace.id,
         projectId: scope.project.id,
@@ -345,21 +350,24 @@ describe("external operation Runs", () => {
       requestDigest: requestDigest({ prompt: "hello" }),
     };
     expect(() =>
-      startConsumerOperationRun({ ...base, requestDigest: requestDigest({ prompt: "other" }) }),
+      startConsumerOperationRun(scope.authority, {
+        ...base,
+        requestDigest: requestDigest({ prompt: "other" }),
+      }),
     ).toThrow(StoreConflictError);
     expect(() =>
-      startConsumerOperationRun({ ...base, kind: "transform" }),
+      startConsumerOperationRun(scope.authority, { ...base, kind: "transform" }),
     ).toThrow(StoreConflictError);
     // Same key, different tuple.
     expect(() =>
-      startConsumerOperationRun({
+      startConsumerOperationRun(scope.authority, {
         ...base,
         external: { ...EXTERNAL, attempt: 2 },
       }),
     ).toThrow(StoreConflictError);
     // Same tuple, different key.
     expect(() =>
-      startConsumerOperationRun({
+      startConsumerOperationRun(scope.authority, {
         ...base,
         external: { ...EXTERNAL, idempotencyKey: "key-2" },
       }),
@@ -367,7 +375,7 @@ describe("external operation Runs", () => {
     expect(verifyDomainStore().integrity).toBe("ok");
   });
 
-  test("rejects an ordinary Session, a foreign principal, and an ended Session", () => {
+  test("rejects an ordinary or ended Session", () => {
     makeRoot();
     const { scope } = start("authz");
     const ordinary = startAgentSession({
@@ -383,20 +391,23 @@ describe("external operation Runs", () => {
       requestDigest: requestDigest({ prompt: "hello" }),
     };
     expect(() =>
-      startConsumerOperationRun({ ...base, sessionId: ordinary.id }),
-    ).toThrow(/consumer Session/i);
-    endAgentSession(scope.session.id);
+      startConsumerOperationRun(scope.authority, { ...base, sessionId: ordinary.id }),
+    ).toThrow(/not owned/i);
+    endConsumerSession(scope.authority, scope.session.id);
     expect(() =>
-      startConsumerOperationRun({ ...base, sessionId: scope.session.id }),
-    ).toThrow(/ended/i);
+      startConsumerOperationRun(scope.authority, {
+        ...base,
+        sessionId: scope.session.id,
+      }),
+    ).toThrow(/not owned/i);
     expect(() =>
-      findConsumerOperation({
+      findConsumerOperation(scope.authority, {
         sessionId: ordinary.id,
         workspaceId: scope.workspace.id,
         projectId: scope.project.id,
         idempotencyKey: EXTERNAL.idempotencyKey,
       }),
-    ).toThrow(/consumer Session/i);
+    ).toThrow(/not owned/i);
   });
 
   test("rejects an operation scope the Session does not contain", () => {
@@ -408,7 +419,7 @@ describe("external operation Runs", () => {
       name: "Sibling",
     });
     expect(() =>
-      startConsumerOperationRun({
+      startConsumerOperationRun(scope.authority, {
         sessionId: scope.session.id,
         workspaceId: scope.workspace.id,
         projectId: sibling.id,
@@ -428,7 +439,7 @@ describe("external operation Runs", () => {
       .get()!.runs;
     expect(() =>
       withImmediateTransaction((tx) => {
-        const started = startConsumerOperationRunInTransaction(tx, {
+        const started = startConsumerOperationRunInTransaction(tx, scope.authority, {
           sessionId: scope.session.id,
           workspaceId: scope.workspace.id,
           projectId: scope.project.id,
@@ -452,7 +463,7 @@ describe("external operation Runs", () => {
     ).toBe(0);
 
     const committed = withImmediateTransaction((tx) => {
-      const started = startConsumerOperationRunInTransaction(tx, {
+      const started = startConsumerOperationRunInTransaction(tx, scope.authority, {
         sessionId: scope.session.id,
         workspaceId: scope.workspace.id,
         projectId: scope.project.id,
@@ -471,7 +482,7 @@ describe("external operation Runs", () => {
     expect(verifyDomainStore().integrity).toBe("ok");
   });
 
-  test("pages results by position and isolates them from a foreign reader", () => {
+  test("pages results by position and rejects non-consumer readers", () => {
     makeRoot();
     const { scope, accepted } = start("results");
     const db = openDomainDb();
@@ -506,7 +517,10 @@ describe("external operation Runs", () => {
     for (;;) {
       const page: { items: { id: string; position: number }[]; nextCursor: string | null } =
         listRunResults({
-          context: { sessionId: scope.session.id },
+          context: {
+            sessionId: scope.session.id,
+            consumerAuthority: scope.authority,
+          },
           runId: accepted.run.id,
           after,
           limit: 2,
@@ -537,6 +551,85 @@ describe("external operation Runs", () => {
         limit: 10,
       }),
     ).toThrow(/consumer Session/i);
+  });
+
+  test("pages Project Run results through its owning Workspace consumer Session", () => {
+    const root = makeRoot();
+    const workspace = createWorkspace({ slug: "workspace-results", name: "Workspace" });
+    const project = createProject({
+      workspaceId: workspace.id,
+      slug: "project-results",
+      name: "Project",
+    });
+    const farm = installFarmConsumer(root);
+    const session = startConsumerSession(farm.authority, {
+      workspaceId: workspace.id,
+    });
+    const run = startConsumerOperationRun(farm.authority, {
+      sessionId: session.id,
+      workspaceId: workspace.id,
+      projectId: project.id,
+      kind: "generation",
+      external: {
+        ...EXTERNAL,
+        runId: "workspace-results-run",
+        idempotencyKey: "workspace-results-key",
+      },
+      requestDigest: requestDigest({ prompt: "workspace" }),
+    }).run;
+    expect(
+      findConsumerOperation(farm.authority, {
+        sessionId: session.id,
+        workspaceId: workspace.id,
+        projectId: project.id,
+        idempotencyKey: "workspace-results-key",
+      }).run.id,
+    ).toBe(run.id);
+
+    const document = createDocument({
+      projectId: project.id,
+      kind: "note",
+      slug: "workspace-results",
+      title: "Workspace Results",
+    });
+    const revisions: { id: string }[] = [];
+    for (let index = 0; index < 3; index += 1) {
+      revisions.push(
+        reviseDocument({
+          documentId: document.id,
+          expectedHeadId: revisions.at(-1)?.id ?? null,
+          format: "text",
+          body: `workspace-body-${index}`,
+        }),
+      );
+      recordRunResult(openDomainDb(), {
+        runId: run.id,
+        position: index,
+        entityType: "document_revision",
+        entityId: revisions[index]!.id,
+      });
+    }
+
+    const first = listRunResults({
+      context: { sessionId: session.id, consumerAuthority: farm.authority },
+      runId: run.id,
+      limit: 2,
+    });
+    expect(first.items).toHaveLength(2);
+    expect(first.nextCursor).not.toBeNull();
+    const second = listRunResults({
+      context: { sessionId: session.id, consumerAuthority: farm.authority },
+      runId: run.id,
+      after: first.nextCursor,
+      limit: 2,
+    });
+    expect(second.items).toHaveLength(1);
+    expect(second.nextCursor).toBeNull();
+    expect([...first.items, ...second.items].map(({ position }) => position)).toEqual([
+      0,
+      1,
+      2,
+    ]);
   });
 
   test("generic queue retry rejects an externally owned Job before mutating", () => {
@@ -579,6 +672,99 @@ describe("external operation Runs", () => {
 });
 
 describe("external provenance corruption", () => {
+  test("guards bounded printable external text fields in direct SQL", () => {
+    makeRoot();
+    const { accepted } = start("external-text-guards");
+    const db = openDomainDb();
+    db.exec("DROP TRIGGER runs_external_provenance_update_guard");
+    const columns = [
+      "external_system",
+      "external_run_id",
+      "external_node_id",
+      "external_operation",
+      "idempotency_key",
+    ];
+    const rejected = columns.map((column) => {
+      try {
+        db.prepare(`UPDATE runs SET ${column} = ? WHERE id = ?`).run(
+          "not printable",
+          accepted.run.id,
+        );
+        return false;
+      } catch {
+        return true;
+      }
+    });
+    expect(rejected).toEqual([true, true, true, true, true]);
+  });
+
+  test("routes bypassed external text corruption to provenance", () => {
+    makeRoot();
+    const { accepted } = start("external-text-verifier");
+    const db = openDomainDb();
+    db.exec("DROP TRIGGER runs_external_provenance_update_guard");
+    db.exec("PRAGMA ignore_check_constraints = ON");
+    db.prepare("UPDATE runs SET external_operation = ? WHERE id = ?").run(
+      "not printable",
+      accepted.run.id,
+    );
+    db.exec("PRAGMA ignore_check_constraints = OFF");
+
+    expect(verifyDomainStore().sessionProvenanceIssues).toContainEqual({
+      entityType: "run",
+      entityId: accepted.run.id,
+      reason: "external-provenance-mismatch",
+    });
+  });
+
+  test("guards external request digest storage class", () => {
+    makeRoot();
+    const { accepted } = start("external-guards");
+    const db = openDomainDb();
+    db.exec("DROP TRIGGER runs_external_provenance_update_guard");
+    expect(() =>
+      db.exec(
+        `UPDATE runs
+         SET request_digest = CAST('${"a".repeat(64)}' AS BLOB)
+         WHERE id = '${accepted.run.id}'`,
+      ),
+    ).toThrow(/constraint/i);
+  });
+
+  test("guards external attempt safe-integer range", () => {
+    makeRoot();
+    const { accepted } = start("external-attempt-guard");
+    const db = openDomainDb();
+    db.exec("DROP TRIGGER runs_external_provenance_update_guard");
+    expect(() =>
+      db.exec(
+        `UPDATE runs SET external_attempt = 9007199254740992
+         WHERE id = '${accepted.run.id}'`,
+      ),
+    ).toThrow(/constraint/i);
+  });
+
+  test("routes bypassed external numeric and digest corruption to provenance", () => {
+    makeRoot();
+    const { accepted } = start("external-guards-verifier");
+    const db = openDomainDb();
+    db.exec("DROP TRIGGER runs_external_provenance_update_guard");
+    db.exec("PRAGMA ignore_check_constraints = ON");
+    db.exec(
+      `UPDATE runs
+       SET request_digest = CAST('${"b".repeat(64)}' AS BLOB),
+           external_attempt = 9007199254740992
+       WHERE id = '${accepted.run.id}'`,
+    );
+    db.exec("PRAGMA ignore_check_constraints = OFF");
+
+    expect(verifyDomainStore().sessionProvenanceIssues).toContainEqual({
+      entityType: "run",
+      entityId: accepted.run.id,
+      reason: "external-provenance-mismatch",
+    });
+  });
+
   test("routes principal, Session, and Run findings to provenance", () => {
     makeRoot();
     const { scope, accepted } = start("corrupt");

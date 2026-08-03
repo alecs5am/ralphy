@@ -924,7 +924,11 @@ function resolveRunQueryAccess(
       )
       .get(context.sessionId)?.principalId;
     if (principalId != null) {
-      const consumer = requireConsumerSession(db, context.sessionId);
+      const consumer = requireConsumerSession(
+        db,
+        context.consumerAuthority,
+        context.sessionId,
+      );
       return consumer.projectId === null
         ? {
             sql: "run.external_system IS NOT NULL AND run.consumer_principal_id = ? AND run.workspace_id = ? AND run.project_id IS NULL",

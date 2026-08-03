@@ -385,6 +385,7 @@ describe("internal row boundary", () => {
     const publicTypes = await Bun.file("cli/lib/store/types.ts").text();
     for (const name of [
       "ActivityEventRow",
+      "ConsumerPrincipalRow",
       "ObjectRow",
       "RunObjectRow",
       "DocumentRevisionRow",

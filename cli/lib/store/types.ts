@@ -533,14 +533,6 @@ export type RunResultRow = {
 
 export type Page<T, C = string> = { items: T[]; nextCursor: C | null };
 
-export type ConsumerPrincipalRow = {
-  id: string;
-  namespace: string;
-  identityDigest: string;
-  createdAt: number;
-  disabledAt: number | null;
-};
-
 export type RunState =
   | "pending"
   | "running"
