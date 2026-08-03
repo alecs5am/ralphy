@@ -1,22 +1,27 @@
 import { Database } from "bun:sqlite";
 import { createHash } from "node:crypto";
-import { appendActivity, assertLimit } from "./activity.js";
+import { appendActivity } from "./activity.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
+import { buildPage, decodeCursor, assertLimit } from "./pagination.js";
+import {
+  resolveQueryContext,
+  type QueryContext,
+  type ResolvedScope,
+} from "./scope-context.js";
 import { assertActiveSessionScope } from "./sessions.js";
 import {
+  type DocumentDetailDto,
+  type DocumentDto,
   type DocumentFormat,
   type DocumentKind,
-  type DocumentRow,
+  type DocumentRevisionDto,
+  type DocumentSearchDto,
   type JsonValue,
   type Page,
   StoreConflictError,
 } from "./types.js";
-import type {
-  DocumentRevisionRow,
-  DocumentSearchRow,
-  DocumentWithCurrentRevision,
-} from "./internal-types.js";
+import type { DocumentRevisionRow } from "./internal-types.js";
 
 type DocumentScope =
   | { workspaceId: string; projectId?: never }
@@ -76,6 +81,11 @@ type DocumentRevisionDbRow = {
   created_at: number;
 };
 
+type PublicDocumentRevisionDbRow = Omit<
+  DocumentRevisionDbRow,
+  "body" | "content_sha256"
+>;
+
 type SearchDbRow = {
   document_id: string;
   revision_id: string;
@@ -89,8 +99,6 @@ type SearchDbRow = {
   iteration_id: string | null;
   format: DocumentFormat;
   revision_title: string | null;
-  body: string;
-  content_sha256: string;
   authored_by_session_id: string | null;
   revision_created_at: number;
 };
@@ -99,6 +107,8 @@ const DOCUMENT_COLUMNS =
   "id, workspace_id, project_id, kind, slug, title, current_revision_id, row_version, created_at, updated_at";
 const REVISION_COLUMNS =
   "id, document_id, revision_no, parent_revision_id, iteration_id, format, title, body, content_sha256, authored_by_session_id, created_at";
+const PUBLIC_REVISION_COLUMNS =
+  "id, document_id, revision_no, parent_revision_id, iteration_id, format, title, authored_by_session_id, created_at";
 const BINARY_KEYS = new Set([
   "base64",
   "b64",
@@ -112,7 +122,7 @@ const BINARY_KEYS = new Set([
 const DATA_URL =
   /data:(?:[a-z][a-z0-9!#$&^_.+-]*\/[a-z0-9!#$&^_.+-]+)?(?:;[a-z0-9!#$&^_.+-]+=[^;,\s]+)*(?:;base64)?,[^\s"'<>]*/i;
 
-export function createDocument(input: CreateDocumentInput): DocumentRow {
+export function createDocument(input: CreateDocumentInput): DocumentDto {
   return withImmediateTransaction((db) => {
     const scope = resolveScope(db, input);
     assertNoDataUrl(input.title);
@@ -145,7 +155,7 @@ export function createDocument(input: CreateDocumentInput): DocumentRow {
 
 export function reviseDocument(
   input: ReviseDocumentInput,
-): DocumentRevisionRow {
+): DocumentRevisionDto {
   return withImmediateTransaction((db) => {
     const document = getDocumentRow(db, input.documentId);
     if (!document) throw new Error(`Document not found: ${input.documentId}`);
@@ -214,111 +224,212 @@ export function reviseDocument(
       payload: { revisionId: id, revisionNo, format: input.format },
       createdAt: now,
     });
-    return getDocumentRevision(db, id)!;
+    return toDocumentRevisionDto(getDocumentRevisionRow(db, id)!);
   });
 }
 
-export function getDocument(id: string): DocumentWithCurrentRevision {
+export function getDocument(input: {
+  context: QueryContext;
+  documentId: string;
+}): DocumentDetailDto {
   const db = openDomainDb();
-  const document = getDocumentRow(db, id);
-  if (!document) throw new Error(`Document not found: ${id}`);
-  return {
-    ...document,
-    currentRevision: document.currentRevisionId
-      ? getDocumentRevision(db, document.currentRevisionId)
-      : null,
-  };
+  const scope = resolveQueryContext(db, input.context);
+  const document = getVisibleDocument(db, scope, input.documentId);
+  if (!document) throw new Error(`Document not found: ${input.documentId}`);
+  return withCurrentRevision(db, document);
 }
 
 export function listDocuments(
-  input: DocumentScope & { cursor?: string | null; limit?: number },
-): Page<DocumentWithCurrentRevision> {
+  input: { context: QueryContext; after?: string | null; limit: number },
+): Page<DocumentDto> {
   const db = openDomainDb();
-  const limit = input.limit ?? 50;
-  assertLimit(limit);
-  const cursor = checkedCursor(input.cursor);
-  const scope = resolveScope(db, input);
+  assertLimit(input.limit);
+  const cursor =
+    input.after === undefined || input.after === null
+      ? null
+      : decodeCursor("c1", input.after);
+  const afterCreatedAt = cursor?.ordinal ?? -1;
+  const afterId = cursor?.id ?? "";
+  const scope = resolveQueryContext(db, input.context);
   const rows = scope.projectId
     ? db
-        .query<DocumentDbRow, [string, string, string, string, number]>(
+        .query<
+          DocumentDbRow,
+          [number, number, string, string, string, string, number]
+        >(
           `SELECT ${DOCUMENT_COLUMNS} FROM documents d
-           WHERE d.id > ? AND (
+           WHERE (d.created_at > ? OR (d.created_at = ? AND d.id > ?)) AND (
              d.project_id = ? OR (
                d.project_id IS NULL AND d.workspace_id = ?
                AND NOT EXISTS (SELECT 1 FROM documents p WHERE p.project_id = ? AND p.slug = d.slug)
              )
-           ) ORDER BY d.id ASC LIMIT ?`,
+           ) ORDER BY d.created_at ASC, d.id ASC LIMIT ?`,
         )
         .all(
-          cursor,
+          afterCreatedAt,
+          afterCreatedAt,
+          afterId,
           scope.projectId,
           scope.workspaceId,
           scope.projectId,
-          limit + 1,
+          input.limit + 1,
         )
     : db
-        .query<DocumentDbRow, [string, string, number]>(
+        .query<DocumentDbRow, [string, number, number, string, number]>(
           `SELECT ${DOCUMENT_COLUMNS} FROM documents
-           WHERE workspace_id = ? AND project_id IS NULL AND id > ? ORDER BY id ASC LIMIT ?`,
+           WHERE workspace_id = ? AND project_id IS NULL
+             AND (created_at > ? OR (created_at = ? AND id > ?))
+           ORDER BY created_at ASC, id ASC LIMIT ?`,
         )
-        .all(scope.workspaceId, cursor, limit + 1);
-  return page(
-    rows.map((row) => withCurrentRevision(db, toDocumentRow(row))),
-    limit,
-    (row) => row.id,
+        .all(
+          scope.workspaceId,
+          afterCreatedAt,
+          afterCreatedAt,
+          afterId,
+          input.limit + 1,
+        );
+  return buildPage(
+    rows.map(toDocumentDto),
+    input.limit,
+    "c1",
+    (document) => ({ ordinal: document.createdAt, id: document.id }),
+  );
+}
+
+export function getDocumentRevision(input: {
+  context: QueryContext;
+  revisionId: string;
+}): DocumentRevisionDto {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const revision = getPublicDocumentRevisionRow(db, input.revisionId);
+  const document = revision
+    ? getVisibleDocument(db, scope, revision.document_id)
+    : null;
+  if (!revision || !document) {
+    throw new Error(`Document Revision not found: ${input.revisionId}`);
+  }
+  return toPublicDocumentRevisionDto(revision);
+}
+
+export function listDocumentRevisions(input: {
+  context: QueryContext;
+  documentId: string;
+  after?: string | null;
+  limit: number;
+}): Page<DocumentRevisionDto> {
+  const db = openDomainDb();
+  assertLimit(input.limit);
+  const scope = resolveQueryContext(db, input.context);
+  if (!getVisibleDocument(db, scope, input.documentId)) {
+    throw new Error(`Document not found: ${input.documentId}`);
+  }
+  const cursor =
+    input.after === undefined || input.after === null
+      ? null
+      : decodeCursor("v1", input.after);
+  const afterRevisionNo = cursor?.ordinal ?? 0;
+  const afterId = cursor?.id ?? "";
+  const rows = db
+    .query<
+      PublicDocumentRevisionDbRow,
+      [string, number, number, string, number]
+    >(
+      `SELECT ${PUBLIC_REVISION_COLUMNS} FROM document_revisions
+       WHERE document_id = ?
+         AND (revision_no > ? OR (revision_no = ? AND id > ?))
+       ORDER BY revision_no ASC, id ASC LIMIT ?`,
+    )
+    .all(
+      input.documentId,
+      afterRevisionNo,
+      afterRevisionNo,
+      afterId,
+      input.limit + 1,
+    );
+  return buildPage(
+    rows.map(toPublicDocumentRevisionDto),
+    input.limit,
+    "v1",
+    (revision) => ({ ordinal: revision.revisionNo, id: revision.id }),
   );
 }
 
 export function searchDocuments(
-  input: DocumentScope & {
+  input: {
+    context: QueryContext;
     query: string;
-    cursor?: string | null;
-    limit?: number;
+    after?: string | null;
+    limit: number;
   },
-): Page<DocumentSearchRow> {
+): Page<DocumentSearchDto> {
   if (!input.query.trim())
     throw new Error("Document search query must not be empty");
   const db = openDomainDb();
-  const limit = input.limit ?? 50;
-  assertLimit(limit);
-  const cursor = checkedCursor(input.cursor);
-  const scope = resolveScope(db, input);
+  assertLimit(input.limit);
+  const cursor =
+    input.after === undefined || input.after === null
+      ? null
+      : decodeCursor("c1", input.after);
+  const afterCreatedAt = cursor?.ordinal ?? -1;
+  const afterId = cursor?.id ?? "";
+  const scope = resolveQueryContext(db, input.context);
   const select = `SELECT
       d.id AS document_id, r.id AS revision_id, d.workspace_id, d.project_id, d.kind, d.slug,
       d.title AS document_title, r.revision_no, r.parent_revision_id, r.iteration_id, r.format,
-      r.title AS revision_title, r.body, r.content_sha256, r.authored_by_session_id,
+      r.title AS revision_title, r.authored_by_session_id,
       r.created_at AS revision_created_at
     FROM document_revisions_fts
     JOIN document_revisions r ON r.id = document_revisions_fts.revision_id
     JOIN documents d ON d.id = r.document_id AND d.current_revision_id = r.id`;
   const rows = scope.projectId
     ? db
-        .query<SearchDbRow, [string, string, string, string, string, number]>(
+        .query<
+          SearchDbRow,
+          [string, number, number, string, string, string, string, number]
+        >(
           `${select}
-           WHERE document_revisions_fts MATCH ? AND r.id > ? AND (
+           WHERE document_revisions_fts MATCH ?
+             AND (r.created_at > ? OR (r.created_at = ? AND r.id > ?)) AND (
              d.project_id = ? OR (
                d.project_id IS NULL AND d.workspace_id = ?
                AND NOT EXISTS (SELECT 1 FROM documents p WHERE p.project_id = ? AND p.slug = d.slug)
              )
-           ) ORDER BY r.id ASC LIMIT ?`,
+           ) ORDER BY r.created_at ASC, r.id ASC LIMIT ?`,
         )
         .all(
           input.query,
-          cursor,
+          afterCreatedAt,
+          afterCreatedAt,
+          afterId,
           scope.projectId,
           scope.workspaceId,
           scope.projectId,
-          limit + 1,
+          input.limit + 1,
         )
     : db
-        .query<SearchDbRow, [string, string, string, number]>(
+        .query<
+          SearchDbRow,
+          [string, number, number, string, string, number]
+        >(
           `${select}
-           WHERE document_revisions_fts MATCH ? AND r.id > ?
+           WHERE document_revisions_fts MATCH ?
+             AND (r.created_at > ? OR (r.created_at = ? AND r.id > ?))
              AND d.workspace_id = ? AND d.project_id IS NULL
-           ORDER BY r.id ASC LIMIT ?`,
+           ORDER BY r.created_at ASC, r.id ASC LIMIT ?`,
         )
-        .all(input.query, cursor, scope.workspaceId, limit + 1);
-  return page(rows.map(toSearchRow), limit, (row) => row.revisionId);
+        .all(
+          input.query,
+          afterCreatedAt,
+          afterCreatedAt,
+          afterId,
+          scope.workspaceId,
+          input.limit + 1,
+        );
+  return buildPage(rows.map(toSearchDto), input.limit, "c1", (revision) => ({
+    ordinal: revision.createdAt,
+    id: revision.revisionId,
+  }));
 }
 
 export function bindProjectDocument(input: {
@@ -413,7 +524,7 @@ function resolveScope(
 
 function assertIterationScope(
   db: Database,
-  document: DocumentRow,
+  document: DocumentDto,
   iterationId: string | null,
 ): void {
   if (!iterationId) return;
@@ -621,17 +732,17 @@ function appendBindingActivity(
   });
 }
 
-function getDocumentRow(db: Database, id: string): DocumentRow | null {
+function getDocumentRow(db: Database, id: string): DocumentDto | null {
   const row = db
     .query<
       DocumentDbRow,
       [string]
     >(`SELECT ${DOCUMENT_COLUMNS} FROM documents WHERE id = ?`)
     .get(id);
-  return row ? toDocumentRow(row) : null;
+  return row ? toDocumentDto(row) : null;
 }
 
-function getDocumentRevision(
+function getDocumentRevisionRow(
   db: Database,
   id: string,
 ): DocumentRevisionRow | null {
@@ -644,19 +755,53 @@ function getDocumentRevision(
   return row ? toDocumentRevisionRow(row) : null;
 }
 
+function getPublicDocumentRevisionRow(
+  db: Database,
+  id: string,
+): PublicDocumentRevisionDbRow | null {
+  return db
+    .query<
+      PublicDocumentRevisionDbRow,
+      [string]
+    >(`SELECT ${PUBLIC_REVISION_COLUMNS} FROM document_revisions WHERE id = ?`)
+    .get(id);
+}
+
+function getVisibleDocument(
+  db: Database,
+  scope: ResolvedScope,
+  id: string,
+): DocumentDto | null {
+  const document = getDocumentRow(db, id);
+  if (!document || !isDocumentVisible(scope, document)) return null;
+  return document;
+}
+
+function isDocumentVisible(
+  scope: ResolvedScope,
+  document: Pick<DocumentDto, "workspaceId" | "projectId">,
+): boolean {
+  if (document.workspaceId !== scope.workspaceId) return false;
+  return scope.projectId === null
+    ? document.projectId === null
+    : document.projectId === null || document.projectId === scope.projectId;
+}
+
 function withCurrentRevision(
   db: Database,
-  document: DocumentRow,
-): DocumentWithCurrentRevision {
+  document: DocumentDto,
+): DocumentDetailDto {
   return {
     ...document,
     currentRevision: document.currentRevisionId
-      ? getDocumentRevision(db, document.currentRevisionId)
+      ? toPublicDocumentRevisionDto(
+          getPublicDocumentRevisionRow(db, document.currentRevisionId)!,
+        )
       : null,
   };
 }
 
-function toDocumentRow(row: DocumentDbRow): DocumentRow {
+function toDocumentDto(row: DocumentDbRow): DocumentDto {
   return {
     id: row.id,
     workspaceId: row.workspace_id,
@@ -689,7 +834,39 @@ function toDocumentRevisionRow(
   };
 }
 
-function toSearchRow(row: SearchDbRow): DocumentSearchRow {
+function toDocumentRevisionDto(
+  revision: DocumentRevisionRow,
+): DocumentRevisionDto {
+  return {
+    id: revision.id,
+    documentId: revision.documentId,
+    revisionNo: revision.revisionNo,
+    parentRevisionId: revision.parentRevisionId,
+    iterationId: revision.iterationId,
+    format: revision.format,
+    title: revision.title,
+    authoredBySessionId: revision.authoredBySessionId,
+    createdAt: revision.createdAt,
+  };
+}
+
+function toPublicDocumentRevisionDto(
+  revision: PublicDocumentRevisionDbRow,
+): DocumentRevisionDto {
+  return {
+    id: revision.id,
+    documentId: revision.document_id,
+    revisionNo: revision.revision_no,
+    parentRevisionId: revision.parent_revision_id,
+    iterationId: revision.iteration_id,
+    format: revision.format,
+    title: revision.title,
+    authoredBySessionId: revision.authored_by_session_id,
+    createdAt: revision.created_at,
+  };
+}
+
+function toSearchDto(row: SearchDbRow): DocumentSearchDto {
   return {
     documentId: row.document_id,
     revisionId: row.revision_id,
@@ -703,24 +880,7 @@ function toSearchRow(row: SearchDbRow): DocumentSearchRow {
     iterationId: row.iteration_id,
     format: row.format,
     title: row.revision_title,
-    body: row.body,
-    contentSha256: row.content_sha256,
     authoredBySessionId: row.authored_by_session_id,
     createdAt: row.revision_created_at,
-  };
-}
-
-function checkedCursor(cursor: string | null | undefined): string {
-  if (cursor !== undefined && cursor !== null && !cursor)
-    throw new Error("Cursor must be a non-empty ID");
-  return cursor ?? "";
-}
-
-function page<T>(items: T[], limit: number, id: (item: T) => string): Page<T> {
-  const hasMore = items.length > limit;
-  const pageItems = hasMore ? items.slice(0, limit) : items;
-  return {
-    items: pageItems,
-    nextCursor: hasMore ? id(pageItems.at(-1)!) : null,
   };
 }

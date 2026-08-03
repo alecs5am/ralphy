@@ -164,7 +164,7 @@ export type DocumentKind =
 
 export type DocumentFormat = "markdown" | "text" | "json";
 
-export type DocumentRow = {
+export type DocumentDto = {
   id: string;
   workspaceId: string;
   projectId: string | null;
@@ -175,6 +175,39 @@ export type DocumentRow = {
   rowVersion: number;
   createdAt: number;
   updatedAt: number;
+};
+
+export type DocumentRevisionDto = {
+  id: string;
+  documentId: string;
+  revisionNo: number;
+  parentRevisionId: string | null;
+  iterationId: string | null;
+  format: DocumentFormat;
+  title: string | null;
+  authoredBySessionId: string | null;
+  createdAt: number;
+};
+
+export type DocumentDetailDto = DocumentDto & {
+  currentRevision: DocumentRevisionDto | null;
+};
+
+export type DocumentSearchDto = {
+  documentId: string;
+  revisionId: string;
+  workspaceId: string;
+  projectId: string | null;
+  kind: DocumentKind;
+  slug: string;
+  documentTitle: string;
+  revisionNo: number;
+  parentRevisionId: string | null;
+  iterationId: string | null;
+  format: DocumentFormat;
+  title: string | null;
+  authoredBySessionId: string | null;
+  createdAt: number;
 };
 
 export type ObjectStorageClass = "durable" | "working" | "diagnostic";
