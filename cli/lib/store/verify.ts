@@ -1731,6 +1731,7 @@ function inspectSessionProvenance(
   // Project ownership stay routed to brokenRevisionChains above.
   inspectAuthorship(db, report, {
     entityType: "evaluation",
+    exactProject: true,
     sql: `SELECT evaluation.id AS entityId,
                  evaluation.authored_by_session_id AS sessionId,
                  evaluation.created_at AS createdAt,
@@ -1884,7 +1885,7 @@ type AuthorshipRow = {
 function inspectAuthorship<E extends ProvenanceEntity>(
   db: Database,
   report: DomainVerificationReport,
-  input: { entityType: E; sql: string },
+  input: { entityType: E; sql: string; exactProject?: boolean },
 ): void {
   const sessions = new Map(
     db
@@ -1918,9 +1919,11 @@ function inspectAuthorship<E extends ProvenanceEntity>(
     if (session.workspaceId !== row.workspaceId) {
       report.sessionProvenanceIssues.push({ ...base, reason: "workspace-mismatch" });
     }
-    const projectContained = row.projectId === null
-      ? session.projectId === null
-      : session.projectId === null || session.projectId === row.projectId;
+    const projectContained = input.exactProject
+      ? session.projectId === row.projectId
+      : row.projectId === null
+        ? session.projectId === null
+        : session.projectId === null || session.projectId === row.projectId;
     if (!projectContained) {
       report.sessionProvenanceIssues.push({ ...base, reason: "project-mismatch" });
     }

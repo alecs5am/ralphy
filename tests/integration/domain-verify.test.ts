@@ -952,6 +952,58 @@ describe("domain store verification", () => {
     expect(report.orphanedObjectPaths).toEqual([]);
   });
 
+  test("routes exact Evaluation author scope mismatches only to provenance", async () => {
+    const root = makeRoot();
+    const workspace = createWorkspace({ slug: "eval-scope", name: "Evaluation" });
+    const project = createProject({
+      workspaceId: workspace.id,
+      slug: "project",
+      name: "Project",
+    });
+    const object = await ingestObject({
+      scope: { workspaceId: workspace.id, projectId: project.id },
+      sourcePath: writeFile(root, "evaluation/image.png", "evaluation"),
+      originalName: "image.png",
+      mime: "image/png",
+      storageClass: "durable",
+    });
+    const artifact = createArtifact({
+      projectId: project.id,
+      slug: "artifact",
+      kind: "image",
+    });
+    const revision = addArtifactRevision({
+      artifactId: artifact.id,
+      objectId: object.id,
+      state: "approved",
+    });
+    const workspaceSession = startAgentSession({
+      workspaceId: workspace.id,
+      agent: "workspace-reviewer",
+    });
+    const db = openDomainDb();
+    db.exec("DROP TRIGGER evaluation_session_scope_insert");
+    db.prepare(
+      `INSERT INTO evaluations
+       (id, workspace_id, project_id, artifact_revision_id,
+        authored_by_session_id, kind, report_json, created_at)
+       VALUES ('eval_exact_scope', ?, ?, ?, ?, 'review', '{}', 1)`,
+    ).run(workspace.id, project.id, revision.id, workspaceSession.id);
+
+    const report = verifyDomainStore();
+    expect(
+      report.brokenRevisionChains.filter(
+        (issue) => issue.entityId === "eval_exact_scope",
+      ),
+    ).toEqual([]);
+    expect(report.sessionProvenanceIssues).toContainEqual({
+      entityType: "evaluation",
+      entityId: "eval_exact_scope",
+      reason: "project-mismatch",
+      relatedId: workspaceSession.id,
+    });
+  });
+
   test("routes revision, build, unit, run, and Session invariant failures", () => {
     makeRoot();
     const db = openDomainDb();

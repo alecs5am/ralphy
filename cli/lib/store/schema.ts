@@ -1244,13 +1244,7 @@ export const MIGRATIONS: readonly Migration[] = [
         WHERE s.id = NEW.authored_by_session_id
           AND s.ended_at IS NULL
           AND s.workspace_id = NEW.workspace_id
-          AND (
-            (NEW.project_id IS NULL AND s.project_id IS NULL)
-            OR (
-              NEW.project_id IS NOT NULL
-              AND (s.project_id IS NULL OR s.project_id = NEW.project_id)
-            )
-          )
+          AND s.project_id IS NEW.project_id
       )
       BEGIN
         SELECT RAISE(ABORT, 'active Agent Session does not contain entity scope');
