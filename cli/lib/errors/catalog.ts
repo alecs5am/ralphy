@@ -83,6 +83,13 @@ export const ERROR_CODES = {
     hint: "Pick a different id with --as <id> or delete the existing one first.",
     relatedDocs: "docs/cli-spec.md#resources",
   },
+  E_CONFLICT: {
+    class: "user",
+    httpAnalog: 409,
+    message: "{kind} changed since it was loaded: {id}",
+    hint: "Reload the exact {kind} {id}, apply the change against its current version or state, and retry.",
+    relatedDocs: "docs/superpowers/specs/2026-08-02-sqlite-domain-store-desktop-design.md#write-and-concurrency-model",
+  },
   E_FILE_UNREADABLE: {
     class: "user",
     httpAnalog: 404,
@@ -110,6 +117,13 @@ export const ERROR_CODES = {
     message: "This root still uses the legacy workspace/ tree; the .ralphy/ layout is required",
     hint: "Run `ralphy migrate` to move this root to the .ralphy/ layout in one pass (preview with `ralphy migrate --dry-run`). `ralphy doctor` still works on a legacy root.",
     relatedDocs: "notes/issues/106-migrate-projects-to-artifacts.md",
+  },
+  E_MIGRATION_INCOMPLETE: {
+    class: "user",
+    httpAnalog: 409,
+    message: "The domain-store migration is incomplete",
+    hint: "Run `ralphy migrate domain verify` and complete or recover the reported migration.",
+    relatedDocs: "docs/superpowers/specs/2026-08-02-sqlite-domain-store-desktop-design.md#system-and-migration",
   },
   E_JOBS_IN_FLIGHT: {
     class: "user",
@@ -166,6 +180,20 @@ export const ERROR_CODES = {
     message: "No project linked or auto-detected from {cwd}",
     hint: "Pass --project <id> or cd into a workspace; see `ralphy project list`.",
     relatedDocs: "docs/cli-spec.md#project-resolution",
+  },
+  E_PROTOCOL_UNSUPPORTED: {
+    class: "user",
+    httpAnalog: 426,
+    message: "Protocol version is unsupported: {version}",
+    hint: "Upgrade Ralphy Desktop and core to compatible versions, then reconnect.",
+    relatedDocs: "docs/superpowers/specs/2026-08-02-sqlite-domain-store-desktop-design.md#core-service-cli-and-desktop-bridge",
+  },
+  E_PROTOCOL_INVALID: {
+    class: "user",
+    httpAnalog: 400,
+    message: "Protocol request is invalid",
+    hint: "Upgrade Ralphy Desktop and core to compatible versions, then reconnect.",
+    relatedDocs: "docs/superpowers/specs/2026-08-02-sqlite-domain-store-desktop-design.md#core-service-cli-and-desktop-bridge",
   },
 
   // ── Provider errors (exit 3) ──────────────────────────────────────────────
@@ -243,6 +271,19 @@ export const ERROR_CODES = {
     message: "Cannot write to {path}: {detail}",
     hint: "Check directory permissions; ensure the user owns the workspace dir.",
     relatedDocs: "docs/cli-spec.md#workspace",
+  },
+  E_OBJECT_MISSING: {
+    class: "env",
+    httpAnalog: 424,
+    message: "Stored object is missing: {objectId}",
+    hint: "Run `ralphy doctor --storage` to identify missing bucket objects before retrying.",
+    relatedDocs: "docs/superpowers/specs/2026-08-02-sqlite-domain-store-desktop-design.md#storage-and-media",
+  },
+  E_SECRET_STORE: {
+    class: "env",
+    message: "The encrypted credential store is unavailable",
+    hint: "Run `ralphy provider auth status` and repair the reported credential-store issue.",
+    relatedDocs: "docs/superpowers/specs/2026-08-02-sqlite-domain-store-desktop-design.md#error-handling-and-security",
   },
 
   // ── Quality-gate refusals (exit 5) ────────────────────────────────────────
