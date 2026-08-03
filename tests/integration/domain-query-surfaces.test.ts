@@ -393,6 +393,13 @@ describe("internal row boundary", () => {
       "ArtifactRelationRow",
       "ArtifactUsageRow",
       "RunAggregate",
+      "CompositionRow",
+      "CompositionRevisionRow",
+      "CompositionSourceRow",
+      "CompositionInputRow",
+      "BuildRow",
+      "BuildOutputRow",
+      "BuildDocumentBindingRow",
       "CompositionAggregate",
       "UnitAggregate",
     ]) {

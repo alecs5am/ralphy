@@ -12,13 +12,9 @@
 import type {
   ArtifactKind,
   ArtifactRevisionState,
-  BuildDocumentBindingRow,
-  BuildOutputRow,
-  BuildRow,
-  CompositionInputRow,
-  CompositionRevisionRow,
-  CompositionRow,
-  CompositionSourceRow,
+  BuildState,
+  CompositionKind,
+  CompositionRevisionState,
   DocumentFormat,
   JsonValue,
   ObjectStorageClass,
@@ -120,6 +116,81 @@ export type RunObjectRow = {
   bytes: number | null;
   sha256: string | null;
   metadata: JsonValue | null;
+  createdAt: number;
+};
+
+export type CompositionRow = {
+  id: string;
+  projectId: string;
+  slug: string;
+  kind: CompositionKind;
+  selectedRevisionId: string | null;
+  rowVersion: number;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type CompositionRevisionRow = {
+  id: string;
+  compositionId: string;
+  revisionNo: number;
+  parentRevisionId: string | null;
+  iterationId: string | null;
+  state: CompositionRevisionState;
+  engine: string;
+  engineVersion: string | null;
+  engineConfig: JsonValue;
+  manifestSha256: string | null;
+  authoredBySessionId: string | null;
+  createdAt: number;
+  sealedAt: number | null;
+};
+
+export type CompositionSourceRow = {
+  id: string;
+  compositionRevisionId: string;
+  logicalPath: string;
+  objectId: string;
+  position: number;
+  createdAt: number;
+};
+
+export type CompositionInputRow = {
+  id: string;
+  compositionRevisionId: string;
+  artifactRevisionId: string;
+  role: string;
+  position: number;
+  config: JsonValue | null;
+  createdAt: number;
+};
+
+export type BuildRow = {
+  id: string;
+  compositionRevisionId: string;
+  runId: string | null;
+  state: BuildState;
+  profile: JsonValue;
+  error: string | null;
+  createdAt: number;
+  startedAt: number | null;
+  endedAt: number | null;
+};
+
+export type BuildOutputRow = {
+  id: string;
+  buildId: string;
+  artifactRevisionId: string;
+  role: string | null;
+  position: number;
+  createdAt: number;
+};
+
+export type BuildDocumentBindingRow = {
+  id: string;
+  buildId: string;
+  documentRevisionId: string;
+  role: string;
   createdAt: number;
 };
 
