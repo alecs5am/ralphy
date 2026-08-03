@@ -404,6 +404,7 @@ export const MIGRATIONS: readonly Migration[] = [
           mime IS NULL
           OR (
             length(mime) BETWEEN 3 AND 255
+            AND instr(mime, char(0)) = 0
             AND mime NOT GLOB '*[^A-Za-z0-9!#$&^_.+/-]*'
             AND length(mime) - length(replace(mime, '/', '')) = 1
             AND mime NOT GLOB '/*'
@@ -909,7 +910,7 @@ export const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX idx_consumer_principals_namespace
         ON consumer_principals(namespace, disabled_at);
       CREATE INDEX idx_run_attempts_run ON run_attempts(run_id, attempt_no);
-      CREATE INDEX idx_run_objects_run ON run_objects(run_id, created_at);
+      CREATE INDEX idx_run_objects_run ON run_objects(run_id, created_at, id);
       CREATE INDEX idx_run_results_run ON run_results(run_id, position);
       CREATE INDEX idx_jobs_status ON jobs(status);
       CREATE INDEX idx_jobs_tag ON jobs(tag);
@@ -1610,6 +1611,30 @@ export const MIGRATIONS: readonly Migration[] = [
       )
       BEGIN
         SELECT RAISE(ABORT, 'Run result must exist in the exact Run scope');
+      END;
+
+      CREATE TRIGGER run_objects_mime_update_guard
+      BEFORE UPDATE OF mime ON run_objects
+      WHEN NEW.mime IS NOT OLD.mime
+      BEGIN
+        SELECT RAISE(ABORT, 'RunObject MIME is immutable');
+      END;
+
+      CREATE TRIGGER run_objects_identity_update_guard
+      BEFORE UPDATE OF id, run_id ON run_objects
+      WHEN NEW.id <> OLD.id OR NEW.run_id <> OLD.run_id
+      BEGIN
+        SELECT RAISE(ABORT, 'RunObject identity and provenance are immutable');
+      END;
+
+      CREATE TRIGGER run_objects_mime_insert_guard
+      BEFORE INSERT ON run_objects
+      WHEN EXISTS (
+        SELECT 1 FROM run_objects current
+        WHERE current.id = NEW.id AND current.mime IS NOT NEW.mime
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'RunObject MIME is immutable');
       END;
 
       CREATE TRIGGER run_results_no_update

@@ -305,9 +305,8 @@ describe("domain Run store", () => {
     };
 
     expect(recordRunObject(valid)).toMatchObject({
-      path: valid.path,
       bytes: null,
-      sha256: null,
+      mime: null,
       objectId: null,
     });
     for (const locator of [

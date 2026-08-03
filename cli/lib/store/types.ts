@@ -603,6 +603,20 @@ export type RunAttemptDto = {
   endedAt: number | null;
 };
 
+export type RunObjectDto = {
+  id: string;
+  workspaceId: string | null;
+  projectId: string | null;
+  runId: string;
+  objectId: string | null;
+  purpose: string;
+  state: string;
+  retention: string;
+  mime: string | null;
+  bytes: number | null;
+  createdAt: number;
+};
+
 export type RunResultDto = {
   id: string;
   runId: string;

@@ -116,6 +116,7 @@ export type RunObjectRow = {
   purpose: string;
   state: string;
   retention: string;
+  mime: string | null;
   bytes: number | null;
   sha256: string | null;
   metadata: JsonValue | null;
