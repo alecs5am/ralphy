@@ -189,5 +189,41 @@ describe("published npm contract subpath", () => {
         ),
       ),
     ).toBe(true);
+
+    const consumer = makeTemp("ralphy-package-consumer-");
+    fs.writeFileSync(
+      path.join(consumer, "package.json"),
+      JSON.stringify({ name: "ralphy-package-consumer", private: true }),
+    );
+    const install = spawnSync(
+      "bun",
+      ["add", "--ignore-scripts", tarballPath],
+      { cwd: consumer, encoding: "utf8" },
+    );
+    expect(install.status, install.stderr).toBe(0);
+    const specifier = "@alecs5am/ralphy/contracts/farm-identity-v1.golden.json";
+    const imported = spawnSync(
+      "bun",
+      [
+        "-e",
+        `const specifier = ${JSON.stringify(specifier)}; process.stdout.write(JSON.stringify({ resolved: require.resolve(specifier), value: require(specifier) }));`,
+      ],
+      { cwd: consumer, encoding: "utf8" },
+    );
+    expect(imported.status, imported.stderr).toBe(0);
+    const resolved = JSON.parse(imported.stdout) as {
+      resolved: string;
+      value: Golden;
+    };
+    expect(resolved.resolved).toEndWith(
+      path.join(
+        "node_modules",
+        "@alecs5am",
+        "ralphy",
+        "contracts",
+        "farm-identity-v1.golden.json",
+      ),
+    );
+    expect(resolved.value).toEqual(readGolden());
   });
 });
