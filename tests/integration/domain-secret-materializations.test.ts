@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -327,6 +327,116 @@ describe("Run secret materialization cleanup", () => {
     expect(fs.readFileSync(existing)).toEqual(Buffer.from("existing bytes"));
     expect(fs.existsSync(failing)).toBe(false);
     expect(getRunAggregate(run.id).state).toBe("pending");
+  });
+
+  test("removes a new plaintext file when close fails after rename", async () => {
+    const { dataRoot, store, workspace } = fixture();
+    const run = startRun({ workspaceId: workspace.id, kind: "new-close-failure" });
+    await store.setSecretFile("provider/upload", FILE_SECRET);
+    const materialized = path.join(
+      dataRoot,
+      "tmp",
+      run.id,
+      "secrets",
+      `${createHash("sha256").update("provider/upload").digest("hex")}.secret`,
+    );
+    const realCloseSync = fs.closeSync;
+    let armed = false;
+    let closes = 0;
+    const closeSpy = spyOn(fs, "closeSync").mockImplementation((fd) => {
+      realCloseSync(fd);
+      if (armed && ++closes === 2) throw new Error("forced close failure");
+    });
+    const failingStore = createSecretStore({
+      dataRoot,
+      keyProvider: {
+        lookupKey: async () => KEY,
+        createKey: async () => KEY,
+      },
+      afterMaterializationDirectoryOpen() {
+        armed = true;
+      },
+    });
+
+    try {
+      await expect(
+        failingStore.materializeSecretFile("provider/upload", run.id),
+      ).rejects.toMatchObject({ code: "E_SECRET_STORE" });
+    } finally {
+      closeSpy.mockRestore();
+    }
+    expect(fs.existsSync(materialized)).toBe(false);
+    expect(getRunAggregate(run.id).state).toBe("pending");
+  });
+
+  test("restores a pre-existing plaintext file when close fails after rename", async () => {
+    const { dataRoot, store, workspace } = fixture();
+    const run = startRun({
+      workspaceId: workspace.id,
+      kind: "existing-close-failure",
+    });
+    await store.setSecretFile("provider/upload", Buffer.from("original bytes"));
+    const materialized = path.join(
+      dataRoot,
+      await store.materializeSecretFile("provider/upload", run.id),
+    );
+    await store.setSecretFile("provider/upload", Buffer.from("replacement bytes"));
+    const realCloseSync = fs.closeSync;
+    let armed = false;
+    let closes = 0;
+    const closeSpy = spyOn(fs, "closeSync").mockImplementation((fd) => {
+      realCloseSync(fd);
+      if (armed && ++closes === 4) throw new Error("forced close failure");
+    });
+    const failingStore = createSecretStore({
+      dataRoot,
+      keyProvider: {
+        lookupKey: async () => KEY,
+        createKey: async () => KEY,
+      },
+      afterMaterializationDirectoryOpen() {
+        armed = true;
+      },
+    });
+
+    try {
+      await expect(
+        failingStore.materializeSecretFile("provider/upload", run.id),
+      ).rejects.toMatchObject({ code: "E_SECRET_STORE" });
+    } finally {
+      closeSpy.mockRestore();
+    }
+    expect(fs.readFileSync(materialized)).toEqual(Buffer.from("original bytes"));
+    expect(getRunAggregate(run.id).state).toBe("pending");
+  });
+
+  test("closes pinned directories when the Run state read fails", async () => {
+    const { dataRoot, store, workspace } = fixture();
+    const run = startRun({ workspaceId: workspace.id, kind: "state-read-failure" });
+    await store.setSecretFile("provider/upload", FILE_SECRET);
+    await store.materializeSecretFile("provider/upload", run.id);
+    const database = path.join(dataRoot, "ralphy.db");
+    const parkedDatabase = path.join(root!.dir, "parked-ralphy.db");
+    const cleanupStore = createSecretStore({
+      dataRoot,
+      keyProvider: {
+        lookupKey: async () => KEY,
+        createKey: async () => KEY,
+      },
+      afterCleanupDirectoryOpen() {
+        fs.renameSync(database, parkedDatabase);
+      },
+    });
+    closeDomainDb();
+    const descriptorCount = () => fs.readdirSync("/dev/fd").length;
+    const before = descriptorCount();
+
+    try {
+      expect(() => cleanupStore.cleanup(run.id)).toThrow();
+    } finally {
+      fs.renameSync(parkedDatabase, database);
+    }
+    expect(descriptorCount()).toBeLessThanOrEqual(before + 2);
   });
 
   test("keeps a committed Run terminal when post-commit housekeeping fails", () => {

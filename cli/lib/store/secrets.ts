@@ -172,8 +172,8 @@ export function cleanupRunSecretMaterialization(
     afterDirectoryOpen,
   );
   if (directories === null) return;
-  const state = readRunState(dataRoot, runId);
   try {
+    const state = readRunState(dataRoot, runId);
     if (state !== null && !TERMINAL_RUN_STATES.has(state)) return;
     removeDirectoryContents(directories.secrets);
     fs.closeSync(directories.secrets);
@@ -208,14 +208,13 @@ function materializeForLiveRun(
     afterDirectoryOpen?.();
     originalDirectoryMode = fs.fstatSync(directories.secrets).mode & 0o777;
     fs.fchmodSync(directories.secrets, 0o700);
-    changes.push(
-      replaceFileForAttempt(
-        directories.secrets,
-        MARKER_NAME,
-        JSON.stringify({ version: 1, storeId, runId }),
-      ),
+    replaceFileForAttempt(
+      changes,
+      directories.secrets,
+      MARKER_NAME,
+      JSON.stringify({ version: 1, storeId, runId }),
     );
-    changes.push(replaceFileForAttempt(directories.secrets, fileName, value));
+    replaceFileForAttempt(changes, directories.secrets, fileName, value);
     commitMaterialization(db);
     committed = true;
   } catch (error) {
@@ -422,13 +421,14 @@ function openMaterializationDirectories(
 }
 
 function replaceFileForAttempt(
+  changes: FileChange[],
   directory: number,
   name: string,
   value: string | Buffer,
-): FileChange {
+): void {
   const previous = readFileAt(directory, name);
+  changes.push({ name, previous });
   writeFileAt(directory, name, value, 0o600);
-  return { name, previous };
 }
 
 function rollbackMaterializationAttempt(
