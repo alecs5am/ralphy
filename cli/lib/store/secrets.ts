@@ -9,6 +9,17 @@ import {
 import fs from "node:fs";
 import path from "node:path";
 import { DomainError } from "../errors/domain.js";
+import {
+  openDirectoryAt,
+  openExistingDirectoryAt,
+  openRootDirectory,
+  readDirectoryAt,
+  readFileAt,
+  removeDirectoryContents,
+  unlinkAt,
+  writeFileAt,
+  type DirectoryEntry,
+} from "./posix-directory.js";
 
 export type KeyProvider = {
   lookupKey(storeId: string): Promise<Buffer | null>;
@@ -38,6 +49,22 @@ type SecretStore = {
   cleanup(runId?: string): void;
 };
 
+type MaterializationDirectories = {
+  root: number;
+  tmp: number;
+  run: number;
+  secrets: number;
+  runName: string;
+  createdTmp: boolean;
+  createdRun: boolean;
+  createdSecrets: boolean;
+};
+
+type FileChange = {
+  name: string;
+  previous: DirectoryEntry | null;
+};
+
 const ENVELOPE_NAME = "secrets.enc";
 const MARKER_NAME = ".ralphy-secret-materialization.json";
 const TERMINAL_RUN_STATES = new Set(["succeeded", "failed", "cancelled"]);
@@ -49,9 +76,17 @@ const mutationQueues = new Map<string, Promise<void>>();
 export function createSecretStore(input: {
   dataRoot: string;
   keyProvider?: KeyProvider;
+  /** @internal Fault-injection seam for filesystem rollback verification. */
+  commitMaterialization?: (db: Database) => void;
+  /** @internal Concurrency seam invoked only after materialization directories are pinned. */
+  afterMaterializationDirectoryOpen?: () => void;
+  /** @internal Concurrency seam invoked only after cleanup directories are pinned. */
+  afterCleanupDirectoryOpen?: () => void;
 }): SecretStore {
   const dataRoot = explicitDataRoot(input.dataRoot);
   const keyProvider = input.keyProvider ?? createMacKeyProvider();
+  const commitMaterialization =
+    input.commitMaterialization ?? ((db: Database) => db.exec("COMMIT"));
   cleanupMaterializations(dataRoot);
 
   return {
@@ -103,12 +138,20 @@ export function createSecretStore(input: {
         checkedRunId,
         fileName,
         Buffer.from(encoded, "base64"),
+        commitMaterialization,
+        input.afterMaterializationDirectoryOpen,
       );
       return path.posix.join("tmp", checkedRunId, "secrets", fileName);
     },
     cleanup(runId) {
       if (runId === undefined) cleanupMaterializations(dataRoot);
-      else cleanupRunSecretMaterialization(dataRoot, checkedRunIdValue(runId));
+      else {
+        cleanupRunSecretMaterialization(
+          dataRoot,
+          checkedRunIdValue(runId),
+          input.afterCleanupDirectoryOpen,
+        );
+      }
     },
   };
 }
@@ -117,18 +160,29 @@ export function createSecretStore(input: {
 export function cleanupRunSecretMaterialization(
   dataRootInput: string,
   runIdInput: string,
+  afterDirectoryOpen?: () => void,
 ): void {
   const dataRoot = explicitDataRoot(dataRootInput);
   const runId = checkedRunIdValue(runIdInput);
   const storeId = readStoreId(dataRoot);
-  const secretsDir = ownedMaterializationDirectory(dataRoot, storeId, runId);
-  if (secretsDir === null) return;
+  const directories = ownedMaterializationDirectories(
+    dataRoot,
+    storeId,
+    runId,
+    afterDirectoryOpen,
+  );
+  if (directories === null) return;
   const state = readRunState(dataRoot, runId);
-  if (state !== null && !TERMINAL_RUN_STATES.has(state)) return;
   try {
-    removeTreeNoFollow(dataRoot, secretsDir);
+    if (state !== null && !TERMINAL_RUN_STATES.has(state)) return;
+    removeDirectoryContents(directories.secrets);
+    fs.closeSync(directories.secrets);
+    directories.secrets = -1;
+    unlinkAt(directories.run, "secrets", true);
   } catch {
     throw secretError();
+  } finally {
+    closeMaterializationDirectories(directories);
   }
 }
 
@@ -138,23 +192,41 @@ function materializeForLiveRun(
   runId: string,
   fileName: string,
   value: Buffer,
+  commitMaterialization: (db: Database) => void,
+  afterDirectoryOpen?: () => void,
 ): void {
   const db = openLockDatabase(dataRoot);
   let committed = false;
+  let directories: MaterializationDirectories | null = null;
+  const changes: FileChange[] = [];
+  let originalDirectoryMode: number | null = null;
   try {
     db.exec("BEGIN IMMEDIATE");
     const state = readRunStateFromDatabase(db, runId);
     if (state === null || TERMINAL_RUN_STATES.has(state)) throw secretError();
-    const secretsDir = createMaterializationDirectory(dataRoot, runId);
-    writeFileNoFollow(
-      dataRoot,
-      path.join(secretsDir, MARKER_NAME),
-      JSON.stringify({ version: 1, storeId, runId }),
+    directories = openMaterializationDirectories(dataRoot, runId);
+    afterDirectoryOpen?.();
+    originalDirectoryMode = fs.fstatSync(directories.secrets).mode & 0o777;
+    fs.fchmodSync(directories.secrets, 0o700);
+    changes.push(
+      replaceFileForAttempt(
+        directories.secrets,
+        MARKER_NAME,
+        JSON.stringify({ version: 1, storeId, runId }),
+      ),
     );
-    writeFileNoFollow(dataRoot, path.join(secretsDir, fileName), value);
-    db.exec("COMMIT");
+    changes.push(replaceFileForAttempt(directories.secrets, fileName, value));
+    commitMaterialization(db);
     committed = true;
   } catch (error) {
+    let cleanupFailed = false;
+    if (directories !== null) {
+      try {
+        rollbackMaterializationAttempt(directories, changes, originalDirectoryMode);
+      } catch {
+        cleanupFailed = true;
+      }
+    }
     if (!committed && db.inTransaction) {
       try {
         db.exec("ROLLBACK");
@@ -162,9 +234,11 @@ function materializeForLiveRun(
         // The safe DomainError below owns the boundary.
       }
     }
+    if (cleanupFailed) throw secretError();
     if (error instanceof DomainError) throw error;
     throw secretError();
   } finally {
+    if (directories !== null) closeMaterializationDirectories(directories);
     db.close();
   }
 }
@@ -309,171 +383,177 @@ function writeEnvelope(dataRoot: string, envelope: SecretEnvelope): void {
   }
 }
 
-function createMaterializationDirectory(dataRoot: string, runId: string): string {
-  if (!isSafeExistingDirectory(dataRoot, dataRoot)) throw secretError();
-  const tmpRoot = path.join(dataRoot, "tmp");
-  const runDirectory = path.join(tmpRoot, runId);
-  const secretsDir = path.join(runDirectory, "secrets");
-  for (const directory of [tmpRoot, runDirectory, secretsDir]) {
-    const stat = lstatOrNull(directory);
-    if (stat === null) fs.mkdirSync(directory, { mode: 0o700 });
-    else if (stat.isSymbolicLink() || !stat.isDirectory()) throw secretError();
-    if (!isSafeExistingDirectory(dataRoot, directory)) throw secretError();
-  }
-  chmodDirectoryNoFollow(secretsDir, 0o700);
-  return secretsDir;
-}
-
-function writeFileNoFollow(
+function openMaterializationDirectories(
   dataRoot: string,
-  filePath: string,
-  value: string | Buffer,
-): void {
-  const parent = path.dirname(filePath);
-  if (!isSafeExistingDirectory(dataRoot, parent)) throw secretError();
-  const existing = lstatOrNull(filePath);
-  if (existing !== null && (existing.isSymbolicLink() || !existing.isFile())) {
-    throw secretError();
-  }
-  const flags =
-    fs.constants.O_WRONLY |
-    fs.constants.O_CREAT |
-    fs.constants.O_TRUNC |
-    fs.constants.O_NOFOLLOW;
-  const fd = fs.openSync(filePath, flags, 0o600);
+  runId: string,
+): MaterializationDirectories {
+  const root = openRootDirectory(dataRoot);
+  let tmp: { fd: number; created: boolean } | null = null;
+  let run: { fd: number; created: boolean } | null = null;
+  let secrets: { fd: number; created: boolean } | null = null;
   try {
-    if (!fs.fstatSync(fd).isFile()) throw secretError();
-    fs.fchmodSync(fd, 0o600);
-    fs.writeFileSync(fd, value);
-    fs.fsyncSync(fd);
-    if (!isSafeExistingDirectory(dataRoot, parent)) throw secretError();
-  } finally {
-    fs.closeSync(fd);
-  }
-}
-
-function chmodDirectoryNoFollow(directory: string, mode: number): void {
-  const fd = fs.openSync(
-    directory,
-    fs.constants.O_RDONLY | fs.constants.O_DIRECTORY | fs.constants.O_NOFOLLOW,
-  );
-  try {
-    if (!fs.fstatSync(fd).isDirectory()) throw secretError();
-    fs.fchmodSync(fd, mode);
-  } finally {
-    fs.closeSync(fd);
-  }
-}
-
-function readFileNoFollow(filePath: string, encoding: BufferEncoding): string {
-  const fd = fs.openSync(filePath, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
-  try {
-    if (!fs.fstatSync(fd).isFile()) throw secretError();
-    return fs.readFileSync(fd, encoding);
-  } finally {
-    fs.closeSync(fd);
-  }
-}
-
-function isSafeExistingDirectory(dataRoot: string, directory: string): boolean {
-  const relative = path.relative(dataRoot, directory);
-  if (relative.startsWith("..") || path.isAbsolute(relative)) return false;
-  try {
-    const rootStat = fs.lstatSync(dataRoot);
-    if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) return false;
-    const realRoot = fs.realpathSync(dataRoot);
-    let current = dataRoot;
-    for (const component of relative.split(path.sep).filter(Boolean)) {
-      current = path.join(current, component);
-      const stat = fs.lstatSync(current);
-      if (stat.isSymbolicLink() || !stat.isDirectory()) return false;
-      const realCurrent = fs.realpathSync(current);
-      const realRelative = path.relative(realRoot, realCurrent);
-      if (realRelative.startsWith("..") || path.isAbsolute(realRelative)) return false;
-    }
-    return true;
+    tmp = openDirectoryAt(root, "tmp", 0o700);
+    run = openDirectoryAt(tmp.fd, runId, 0o700);
+    secrets = openDirectoryAt(run.fd, "secrets", 0o700);
+    return {
+      root,
+      tmp: tmp.fd,
+      run: run.fd,
+      secrets: secrets.fd,
+      runName: runId,
+      createdTmp: tmp.created,
+      createdRun: run.created,
+      createdSecrets: secrets.created,
+    };
   } catch {
-    return false;
-  }
-}
-
-function lstatOrNull(filePath: string): fs.Stats | null {
-  try {
-    return fs.lstatSync(filePath);
-  } catch (error) {
-    if (isNodeError(error) && error.code === "ENOENT") return null;
+    if (secrets !== null) fs.closeSync(secrets.fd);
+    if (run !== null) {
+      if (secrets?.created) unlinkAt(run.fd, "secrets", true, true);
+      fs.closeSync(run.fd);
+    }
+    if (tmp !== null) {
+      if (run?.created) unlinkAt(tmp.fd, runId, true, true);
+      fs.closeSync(tmp.fd);
+    }
+    if (tmp?.created) unlinkAt(root, "tmp", true, true);
+    fs.closeSync(root);
     throw secretError();
   }
 }
 
-function removeTreeNoFollow(dataRoot: string, directory: string): void {
-  if (!isSafeExistingDirectory(dataRoot, directory)) throw secretError();
-  for (const name of fs.readdirSync(directory)) {
-    if (!isSafeExistingDirectory(dataRoot, directory)) throw secretError();
-    const child = path.join(directory, name);
-    const stat = fs.lstatSync(child);
-    if (stat.isDirectory() && !stat.isSymbolicLink()) {
-      removeTreeNoFollow(dataRoot, child);
-    } else {
-      fs.unlinkSync(child);
+function replaceFileForAttempt(
+  directory: number,
+  name: string,
+  value: string | Buffer,
+): FileChange {
+  const previous = readFileAt(directory, name);
+  writeFileAt(directory, name, value, 0o600);
+  return { name, previous };
+}
+
+function rollbackMaterializationAttempt(
+  directories: MaterializationDirectories,
+  changes: FileChange[],
+  originalDirectoryMode: number | null,
+): void {
+  try {
+    for (const change of changes.reverse()) {
+      if (change.previous === null) unlinkAt(directories.secrets, change.name, false, true);
+      else {
+        writeFileAt(
+          directories.secrets,
+          change.name,
+          change.previous.bytes,
+          change.previous.mode,
+        );
+      }
     }
+    if (originalDirectoryMode !== null) {
+      fs.fchmodSync(directories.secrets, originalDirectoryMode);
+    }
+    if (directories.createdSecrets) {
+      fs.closeSync(directories.secrets);
+      directories.secrets = -1;
+      unlinkAt(directories.run, "secrets", true);
+    }
+    if (directories.createdRun) {
+      fs.closeSync(directories.run);
+      directories.run = -1;
+      unlinkAt(directories.tmp, directories.runName, true);
+    }
+    if (directories.createdTmp) {
+      fs.closeSync(directories.tmp);
+      directories.tmp = -1;
+      unlinkAt(directories.root, "tmp", true);
+    }
+  } catch {
+    throw secretError();
   }
-  if (!isSafeExistingDirectory(dataRoot, directory)) throw secretError();
-  fs.rmdirSync(directory);
 }
 
 function cleanupMaterializations(dataRoot: string): void {
-  const tmpRoot = path.join(dataRoot, "tmp");
-  if (!isSafeExistingDirectory(dataRoot, tmpRoot)) return;
-  const storeId = readStoreId(dataRoot);
-  let candidates: fs.Dirent[];
+  let root: number | null = null;
+  let tmp: number | null = null;
+  let candidates: string[];
   try {
-    candidates = fs.readdirSync(tmpRoot, { withFileTypes: true });
+    root = openRootDirectory(dataRoot);
+    tmp = openExistingDirectoryAt(root, "tmp");
+    if (tmp === null) return;
+    candidates = readDirectoryAt(tmp);
   } catch {
-    throw secretError();
+    return;
+  } finally {
+    if (tmp !== null) fs.closeSync(tmp);
+    if (root !== null) fs.closeSync(root);
   }
   for (const candidate of candidates) {
-    if (!candidate.isDirectory() || !RUN_ID.test(candidate.name)) continue;
-    const secretsDir = ownedMaterializationDirectory(
-      dataRoot,
-      storeId,
-      candidate.name,
-    );
-    if (secretsDir === null) continue;
-    const state = readRunState(dataRoot, candidate.name);
-    if (state === null || TERMINAL_RUN_STATES.has(state)) {
-      try {
-        removeTreeNoFollow(dataRoot, secretsDir);
-      } catch {
-        throw secretError();
-      }
+    if (!RUN_ID.test(candidate)) continue;
+    cleanupRunSecretMaterialization(dataRoot, candidate);
+  }
+}
+
+function ownedMaterializationDirectories(
+  dataRoot: string,
+  storeId: string,
+  runId: string,
+  afterDirectoryOpen?: () => void,
+): MaterializationDirectories | null {
+  let root: number | null = null;
+  let tmp: number | null = null;
+  let run: number | null = null;
+  let secrets: number | null = null;
+  let transferred = false;
+  try {
+    root = openRootDirectory(dataRoot);
+    tmp = openExistingDirectoryAt(root, "tmp");
+    if (tmp === null) return null;
+    run = openExistingDirectoryAt(tmp, runId);
+    if (run === null) return null;
+    secrets = openExistingDirectoryAt(run, "secrets");
+    if (secrets === null) return null;
+    afterDirectoryOpen?.();
+    const markerBytes = readFileAt(secrets, MARKER_NAME, 1_024)?.bytes;
+    if (markerBytes === undefined) return null;
+    const marker = JSON.parse(markerBytes.toString("utf8")) as unknown;
+    if (!isRecord(marker) ||
+      marker.version !== 1 ||
+      marker.storeId !== storeId ||
+      marker.runId !== runId ||
+      Object.keys(marker).length !== 3) {
+      return null;
+    }
+    const directories = {
+      root,
+      tmp,
+      run,
+      secrets,
+      runName: runId,
+      createdTmp: false,
+      createdRun: false,
+      createdSecrets: false,
+    };
+    transferred = true;
+    return directories;
+  } catch {
+    return null;
+  } finally {
+    if (!transferred) {
+      if (secrets !== null) fs.closeSync(secrets);
+      if (run !== null) fs.closeSync(run);
+      if (tmp !== null) fs.closeSync(tmp);
+      if (root !== null) fs.closeSync(root);
     }
   }
 }
 
-function ownedMaterializationDirectory(
-  dataRoot: string,
-  storeId: string,
-  runId: string,
-): string | null {
-  const secretsDir = secretDirectory(dataRoot, runId);
-  try {
-    if (!isSafeExistingDirectory(dataRoot, secretsDir)) return null;
-    const markerPath = path.join(secretsDir, MARKER_NAME);
-    const markerStat = fs.lstatSync(markerPath);
-    if (markerStat.isSymbolicLink() || !markerStat.isFile() || markerStat.size > 1_024) {
-      return null;
-    }
-    const marker = JSON.parse(readFileNoFollow(markerPath, "utf8")) as unknown;
-    return isRecord(marker) &&
-      marker.version === 1 &&
-      marker.storeId === storeId &&
-      marker.runId === runId &&
-      Object.keys(marker).length === 3
-      ? secretsDir
-      : null;
-  } catch {
-    return null;
+function closeMaterializationDirectories(directories: MaterializationDirectories): void {
+  for (const fd of [
+    directories.secrets,
+    directories.run,
+    directories.tmp,
+    directories.root,
+  ]) {
+    if (fd >= 0) fs.closeSync(fd);
   }
 }
 
@@ -645,20 +725,12 @@ function explicitDataRoot(value: string): string {
   return path.resolve(value);
 }
 
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && "code" in error;
-}
-
 function databasePath(dataRoot: string): string {
   return path.join(dataRoot, "ralphy.db");
 }
 
 function envelopePath(dataRoot: string): string {
   return path.join(dataRoot, ENVELOPE_NAME);
-}
-
-function secretDirectory(dataRoot: string, runId: string): string {
-  return path.join(dataRoot, "tmp", runId, "secrets");
 }
 
 function secretError(): DomainError {
