@@ -27,10 +27,10 @@ import {
   openDomainDb,
 } from "../../cli/lib/store/db.js";
 import {
-  bindBuildDocument,
   createDocument,
   reviseDocument,
 } from "../../cli/lib/store/documents.js";
+import { replaceBuildDocumentBinding } from "../../cli/lib/store/document-content.js";
 import {
   ingestObject,
   resolveObjectPath,
@@ -1048,26 +1048,33 @@ describe("domain Composition store", () => {
       format: "text",
       body: "Outside note",
     });
-    const workspaceBinding = bindBuildDocument({
+    const bindingContext = { workspaceId: workspace.id, projectId: project.id } as const;
+    const workspaceBinding = replaceBuildDocumentBinding({
+      context: bindingContext,
       buildId: build.id,
-      documentRevisionId: workspaceDocumentRevision.id,
+      revisionId: workspaceDocumentRevision.id,
       role: "style-guide",
+      expectedRevisionId: null,
     });
     await Bun.sleep(2);
-    const projectBinding = bindBuildDocument({
+    const projectBinding = replaceBuildDocumentBinding({
+      context: bindingContext,
       buildId: build.id,
-      documentRevisionId: projectDocumentRevision.id,
+      revisionId: projectDocumentRevision.id,
       role: "brief",
+      expectedRevisionId: null,
     });
     for (const documentRevisionId of [
       siblingDocumentRevision.id,
       outsideDocumentRevision.id,
     ]) {
       expect(() =>
-        bindBuildDocument({
+        replaceBuildDocumentBinding({
+          context: bindingContext,
           buildId: build.id,
-          documentRevisionId,
+          revisionId: documentRevisionId,
           role: `foreign-${documentRevisionId}`,
+          expectedRevisionId: null,
         }),
       ).toThrow(/scope/i);
     }
@@ -1126,14 +1133,25 @@ describe("domain Composition store", () => {
             position: 1,
           }),
         ],
-        documentBindings: [workspaceBinding, projectBinding],
+        documentBindings: [
+          expect.objectContaining({
+            documentRevisionId: workspaceBinding.boundRevisionId,
+            role: workspaceBinding.role,
+          }),
+          expect.objectContaining({
+            documentRevisionId: projectBinding.boundRevisionId,
+            role: projectBinding.role,
+          }),
+        ],
       }),
     ]);
     expect(() =>
-      bindBuildDocument({
+      replaceBuildDocumentBinding({
+        context: bindingContext,
         buildId: build.id,
-        documentRevisionId: projectDocumentRevision.id,
+        revisionId: projectDocumentRevision.id,
         role: "terminal",
+        expectedRevisionId: null,
       }),
     ).toThrow(/terminal|pending|running/i);
     expect(() => failBuild(build.id, { error: "late" })).toThrow(/terminal/i);
@@ -1365,12 +1383,19 @@ describe("domain Composition store", () => {
       format: "text",
       body: "Exact brief",
     });
-    const binding = bindBuildDocument({
+    replaceBuildDocumentBinding({
+      context: { workspaceId: workspace.id, projectId: project.id },
       buildId: build.id,
-      documentRevisionId: documentRevision.id,
+      revisionId: documentRevision.id,
       role: "brief",
+      expectedRevisionId: null,
     });
     const db = openDomainDb();
+    const bindingId = db
+      .query<{ id: string }, [string]>(
+        "SELECT id FROM build_document_bindings WHERE build_id = ? AND role = 'brief'",
+      )
+      .get(build.id)!.id;
     db.exec("PRAGMA recursive_triggers = OFF");
     db.prepare(
       `INSERT INTO build_outputs
@@ -1395,12 +1420,12 @@ describe("domain Composition store", () => {
       `DELETE FROM build_outputs WHERE id = 'output_guarded'`,
       `INSERT OR REPLACE INTO build_document_bindings
        (id, build_id, document_revision_id, role, created_at)
-       VALUES ('${binding.id}', '${build.id}', '${documentRevision.id}', 'changed', 2)`,
+       VALUES ('${bindingId}', '${build.id}', '${documentRevision.id}', 'changed', 2)`,
       `INSERT OR REPLACE INTO build_document_bindings
        (id, build_id, document_revision_id, role, created_at)
        VALUES ('bind_replacement', '${build.id}', '${documentRevision.id}', 'brief', 2)`,
-      `UPDATE build_document_bindings SET role = 'changed' WHERE id = '${binding.id}'`,
-      `DELETE FROM build_document_bindings WHERE id = '${binding.id}'`,
+      `UPDATE build_document_bindings SET role = 'changed' WHERE id = '${bindingId}'`,
+      `DELETE FROM build_document_bindings WHERE id = '${bindingId}'`,
     ]) {
       expectSqlRejected(db, sql, /immutable|identity|append-only/i);
     }

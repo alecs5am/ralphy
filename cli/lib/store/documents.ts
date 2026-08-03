@@ -44,16 +44,6 @@ export type ReviseDocumentInput = {
   authoredBySessionId?: string | null;
 };
 
-export type DocumentBindingRow = {
-  id: string;
-  documentRevisionId: string;
-  role: string;
-  createdAt: number;
-} & (
-  | { projectId: string; buildId?: never }
-  | { projectId?: never; buildId: string }
-);
-
 type DocumentDbRow = {
   id: string;
   workspace_id: string;
@@ -432,74 +422,6 @@ export function searchDocuments(
   }));
 }
 
-export function bindProjectDocument(input: {
-  projectId: string;
-  documentRevisionId: string;
-  role: string;
-}): DocumentBindingRow {
-  return withImmediateTransaction((db) => {
-    const project = projectScope(db, input.projectId);
-    if (!project) throw new Error(`Project not found: ${input.projectId}`);
-    const revision = revisionScope(db, input.documentRevisionId);
-    if (!revision)
-      throw new Error(
-        `Document revision not found: ${input.documentRevisionId}`,
-      );
-    assertDocumentVisibleToProject(revision, project);
-    assertBindingRoleAvailable(
-      db,
-      "project_document_bindings",
-      "project_id",
-      project.projectId,
-      input.role,
-    );
-    const binding = insertBinding(
-      db,
-      "project_document_bindings",
-      "project_id",
-      project.projectId,
-      input.documentRevisionId,
-      input.role,
-    );
-    appendBindingActivity(db, project, binding, "project");
-    return { ...binding, projectId: project.projectId };
-  });
-}
-
-export function bindBuildDocument(input: {
-  buildId: string;
-  documentRevisionId: string;
-  role: string;
-}): DocumentBindingRow {
-  return withImmediateTransaction((db) => {
-    const build = buildScope(db, input.buildId);
-    if (!build) throw new Error(`Build not found: ${input.buildId}`);
-    const revision = revisionScope(db, input.documentRevisionId);
-    if (!revision)
-      throw new Error(
-        `Document revision not found: ${input.documentRevisionId}`,
-      );
-    assertDocumentVisibleToProject(revision, build);
-    assertBindingRoleAvailable(
-      db,
-      "build_document_bindings",
-      "build_id",
-      input.buildId,
-      input.role,
-    );
-    const binding = insertBinding(
-      db,
-      "build_document_bindings",
-      "build_id",
-      input.buildId,
-      input.documentRevisionId,
-      input.role,
-    );
-    appendBindingActivity(db, build, binding, "build");
-    return { ...binding, buildId: input.buildId };
-  });
-}
-
 function resolveScope(
   db: Database,
   input: { workspaceId?: string; projectId?: string },
@@ -637,99 +559,6 @@ function projectScope(
       [string]
     >("SELECT workspace_id AS workspaceId, id AS projectId FROM projects WHERE id = ?")
     .get(projectId);
-}
-
-function buildScope(
-  db: Database,
-  buildId: string,
-): { workspaceId: string; projectId: string } | null {
-  return db
-    .query<{ workspaceId: string; projectId: string }, [string]>(
-      `SELECT p.workspace_id AS workspaceId, p.id AS projectId
-       FROM builds b
-       JOIN composition_revisions r ON r.id = b.composition_revision_id
-       JOIN compositions c ON c.id = r.composition_id
-       JOIN projects p ON p.id = c.project_id
-       WHERE b.id = ?`,
-    )
-    .get(buildId);
-}
-
-function revisionScope(
-  db: Database,
-  revisionId: string,
-): { workspaceId: string; projectId: string | null } | null {
-  return db
-    .query<{ workspaceId: string; projectId: string | null }, [string]>(
-      `SELECT d.workspace_id AS workspaceId, d.project_id AS projectId
-       FROM document_revisions r JOIN documents d ON d.id = r.document_id WHERE r.id = ?`,
-    )
-    .get(revisionId);
-}
-
-function assertDocumentVisibleToProject(
-  revision: { workspaceId: string; projectId: string | null },
-  project: { workspaceId: string; projectId: string },
-): void {
-  if (
-    revision.workspaceId !== project.workspaceId ||
-    (revision.projectId !== null && revision.projectId !== project.projectId)
-  ) {
-    throw new Error("Document revision is outside the target Project scope");
-  }
-}
-
-function assertBindingRoleAvailable(
-  db: Database,
-  table: "project_document_bindings" | "build_document_bindings",
-  ownerColumn: "project_id" | "build_id",
-  ownerId: string,
-  role: string,
-): void {
-  if (
-    db
-      .query(`SELECT id FROM ${table} WHERE ${ownerColumn} = ? AND role = ?`)
-      .get(ownerId, role)
-  ) {
-    throw new Error(`Document binding role already exists: ${role}`);
-  }
-}
-
-function insertBinding(
-  db: Database,
-  table: "project_document_bindings" | "build_document_bindings",
-  ownerColumn: "project_id" | "build_id",
-  ownerId: string,
-  revisionId: string,
-  role: string,
-): Omit<DocumentBindingRow, "projectId" | "buildId"> {
-  const id = newDomainId("bind");
-  const createdAt = Date.now();
-  db.prepare(
-    `INSERT INTO ${table} (id, ${ownerColumn}, document_revision_id, role, created_at) VALUES (?, ?, ?, ?, ?)`,
-  ).run(id, ownerId, revisionId, role, createdAt);
-  return { id, documentRevisionId: revisionId, role, createdAt };
-}
-
-function appendBindingActivity(
-  db: Database,
-  scope: { workspaceId: string; projectId: string },
-  binding: Omit<DocumentBindingRow, "projectId" | "buildId">,
-  target: "project" | "build",
-): void {
-  appendActivity(db, {
-    workspaceId: scope.workspaceId,
-    projectId: scope.projectId,
-    entityType: "document_binding",
-    entityId: binding.id,
-    action: "document.bound",
-    payload: {
-      target,
-      role: binding.role,
-      documentRevisionId: binding.documentRevisionId,
-    },
-    createdAt: binding.createdAt,
-  });
 }
 
 function getDocumentRow(db: Database, id: string): DocumentDto | null {

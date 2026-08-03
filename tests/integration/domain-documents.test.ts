@@ -2,8 +2,11 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
 import {
-  bindBuildDocument,
-  bindProjectDocument,
+  getDocumentContent,
+  replaceBuildDocumentBinding,
+  replaceProjectDocumentBinding,
+} from "../../cli/lib/store/document-content.js";
+import {
   createDocument,
   getDocument,
   getDocumentRevision,
@@ -12,7 +15,6 @@ import {
   reviseDocument,
   searchDocuments,
 } from "../../cli/lib/store/documents.js";
-import { getDocumentContent } from "../../cli/lib/store/document-content.js";
 import {
   createIteration,
   createProject,
@@ -904,6 +906,7 @@ describe("domain document store", () => {
 
   test("binds exact revisions to Projects and Builds and rejects ownership or role conflicts", () => {
     const { workspace, project } = setupProject("binding-source");
+    const context = { workspaceId: workspace.id, projectId: project.id } as const;
     const sibling = createProject({
       workspaceId: workspace.id,
       slug: "sibling",
@@ -964,84 +967,102 @@ describe("domain document store", () => {
     });
     const buildId = insertBuild(project.id, "source");
 
-    const projectBinding = bindProjectDocument({
+    const projectBinding = replaceProjectDocumentBinding({
+      context,
       projectId: project.id,
-      documentRevisionId: workspaceRevision.id,
+      revisionId: workspaceRevision.id,
       role: "style-guide",
+      expectedRevisionId: null,
     });
-    const buildBinding = bindBuildDocument({
+    const buildBinding = replaceBuildDocumentBinding({
+      context,
       buildId,
-      documentRevisionId: projectRevision.id,
+      revisionId: projectRevision.id,
       role: "brief",
+      expectedRevisionId: null,
     });
-    const buildWorkspaceBinding = bindBuildDocument({
+    const buildWorkspaceBinding = replaceBuildDocumentBinding({
+      context,
       buildId,
-      documentRevisionId: workspaceRevision.id,
+      revisionId: workspaceRevision.id,
       role: "style-guide",
+      expectedRevisionId: null,
     });
-    expect(projectBinding.documentRevisionId).toBe(workspaceRevision.id);
-    expect(buildBinding.documentRevisionId).toBe(projectRevision.id);
-    expect(buildWorkspaceBinding.documentRevisionId).toBe(workspaceRevision.id);
+    expect(projectBinding.boundRevisionId).toBe(workspaceRevision.id);
+    expect(buildBinding.boundRevisionId).toBe(projectRevision.id);
+    expect(buildWorkspaceBinding.boundRevisionId).toBe(workspaceRevision.id);
     expect(
       scopedActivity({ projectId: project.id,}).filter(
         (event) => event.action === "document.bound",
       ),
     ).toHaveLength(3);
     expect(() =>
-      bindProjectDocument({
+      replaceProjectDocumentBinding({
+        context,
         projectId: project.id,
-        documentRevisionId: projectRevision.id,
+        revisionId: projectRevision.id,
         role: "style-guide",
+        expectedRevisionId: null,
       }),
-    ).toThrow(/role/i);
+    ).toThrow(/conflict/i);
     expect(() =>
-      bindProjectDocument({
+      replaceProjectDocumentBinding({
+        context,
         projectId: project.id,
-        documentRevisionId: siblingRevision.id,
+        revisionId: siblingRevision.id,
         role: "sibling",
+        expectedRevisionId: null,
       }),
     ).toThrow(/scope/i);
     expect(() =>
-      bindProjectDocument({
+      replaceProjectDocumentBinding({
+        context,
         projectId: project.id,
-        documentRevisionId: otherRevision.id,
+        revisionId: otherRevision.id,
         role: "other",
+        expectedRevisionId: null,
       }),
     ).toThrow(/scope/i);
     expect(() =>
-      bindBuildDocument({
+      replaceBuildDocumentBinding({
+        context,
         buildId,
-        documentRevisionId: siblingRevision.id,
+        revisionId: siblingRevision.id,
         role: "sibling",
+        expectedRevisionId: null,
       }),
     ).toThrow(/scope/i);
     expect(() =>
-      bindBuildDocument({
+      replaceBuildDocumentBinding({
+        context,
         buildId,
-        documentRevisionId: otherRevision.id,
+        revisionId: otherRevision.id,
         role: "other",
+        expectedRevisionId: null,
       }),
     ).toThrow(/scope/i);
     expect(() =>
-      bindBuildDocument({
+      replaceBuildDocumentBinding({
+        context,
         buildId,
-        documentRevisionId: workspaceRevision.id,
+        revisionId: workspaceRevision.id,
         role: "brief",
+        expectedRevisionId: null,
       }),
-    ).toThrow(/role/i);
+    ).toThrow(/conflict/i);
     expect(
       openDomainDb()
         .query(
-          "SELECT document_revision_id FROM project_document_bindings WHERE id = ?",
+          "SELECT document_revision_id FROM project_document_bindings WHERE project_id = ? AND role = 'style-guide'",
         )
-        .get(projectBinding.id),
+        .get(project.id),
     ).toEqual({ document_revision_id: workspaceRevision.id });
     expect(
       openDomainDb()
         .query(
-          "SELECT document_revision_id FROM build_document_bindings WHERE id = ?",
+          "SELECT document_revision_id FROM build_document_bindings WHERE build_id = ? AND role = 'brief'",
         )
-        .get(buildBinding.id),
+        .get(buildId),
     ).toEqual({ document_revision_id: projectRevision.id });
   });
 

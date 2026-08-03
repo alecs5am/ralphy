@@ -867,6 +867,8 @@ export const MIGRATIONS: readonly Migration[] = [
         ON documents(workspace_id, slug) WHERE project_id IS NULL;
       CREATE INDEX idx_documents_scope ON documents(workspace_id, project_id, kind);
       CREATE INDEX idx_document_revisions_document ON document_revisions(document_id, revision_no);
+      CREATE INDEX idx_project_document_bindings_page
+        ON project_document_bindings(project_id, created_at, id);
       CREATE INDEX idx_objects_scope ON objects(workspace_id, project_id, storage_class);
       CREATE INDEX idx_objects_sha256 ON objects(sha256);
       CREATE UNIQUE INDEX idx_artifacts_workspace_slug
@@ -876,6 +878,8 @@ export const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX idx_compositions_project ON compositions(project_id);
       CREATE INDEX idx_composition_revisions_composition ON composition_revisions(composition_id, revision_no);
       CREATE INDEX idx_builds_revision ON builds(composition_revision_id, created_at);
+      CREATE INDEX idx_build_document_bindings_page
+        ON build_document_bindings(build_id, created_at, id);
       CREATE INDEX idx_evaluations_scope
         ON evaluations(workspace_id, project_id, created_at, id);
       CREATE UNIQUE INDEX idx_units_workspace_slug
@@ -1638,6 +1642,147 @@ export const MIGRATIONS: readonly Migration[] = [
       BEFORE DELETE ON document_revisions
       BEGIN
         SELECT RAISE(ABORT, 'document revisions are immutable');
+      END;
+
+      CREATE TRIGGER projects_document_bindings_scope_update
+      BEFORE UPDATE OF workspace_id ON projects
+      WHEN EXISTS (
+        SELECT 1
+        FROM project_document_bindings binding
+        JOIN document_revisions revision ON revision.id = binding.document_revision_id
+        JOIN documents document ON document.id = revision.document_id
+        WHERE binding.project_id = OLD.id
+          AND document.workspace_id <> NEW.workspace_id
+        UNION ALL
+        SELECT 1
+        FROM build_document_bindings binding
+        JOIN builds build ON build.id = binding.build_id
+        JOIN composition_revisions composition_revision
+          ON composition_revision.id = build.composition_revision_id
+        JOIN compositions composition
+          ON composition.id = composition_revision.composition_id
+        JOIN document_revisions document_revision
+          ON document_revision.id = binding.document_revision_id
+        JOIN documents document ON document.id = document_revision.document_id
+        WHERE composition.project_id = OLD.id
+          AND document.workspace_id <> NEW.workspace_id
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Project transfer would invalidate an immutable Document binding');
+      END;
+
+      CREATE TRIGGER documents_bindings_scope_update
+      BEFORE UPDATE OF workspace_id, project_id ON documents
+      WHEN EXISTS (
+        SELECT 1
+        FROM project_document_bindings binding
+        JOIN projects project ON project.id = binding.project_id
+        JOIN document_revisions revision ON revision.id = binding.document_revision_id
+        WHERE revision.document_id = OLD.id
+          AND (
+            NEW.workspace_id <> project.workspace_id
+            OR (NEW.project_id IS NOT NULL AND NEW.project_id <> project.id)
+          )
+        UNION ALL
+        SELECT 1
+        FROM build_document_bindings binding
+        JOIN builds build ON build.id = binding.build_id
+        JOIN composition_revisions composition_revision
+          ON composition_revision.id = build.composition_revision_id
+        JOIN compositions composition
+          ON composition.id = composition_revision.composition_id
+        JOIN projects project ON project.id = composition.project_id
+        JOIN document_revisions document_revision
+          ON document_revision.id = binding.document_revision_id
+        WHERE document_revision.document_id = OLD.id
+          AND (
+            NEW.workspace_id <> project.workspace_id
+            OR (NEW.project_id IS NOT NULL AND NEW.project_id <> project.id)
+          )
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Document scope change would invalidate an immutable binding');
+      END;
+
+      CREATE TRIGGER compositions_document_bindings_scope_update
+      BEFORE UPDATE OF project_id ON compositions
+      WHEN EXISTS (
+        SELECT 1
+        FROM composition_revisions composition_revision
+        JOIN builds build
+          ON build.composition_revision_id = composition_revision.id
+        JOIN build_document_bindings binding ON binding.build_id = build.id
+        JOIN document_revisions document_revision
+          ON document_revision.id = binding.document_revision_id
+        JOIN documents document ON document.id = document_revision.document_id
+        JOIN projects project ON project.id = NEW.project_id
+        WHERE composition_revision.composition_id = OLD.id
+          AND (
+            document.workspace_id <> project.workspace_id
+            OR (document.project_id IS NOT NULL AND document.project_id <> project.id)
+          )
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Composition Project change would invalidate an immutable Build Document binding');
+      END;
+
+      CREATE TRIGGER project_document_bindings_scope_insert
+      BEFORE INSERT ON project_document_bindings
+      WHEN NOT EXISTS (
+        SELECT 1
+        FROM projects project
+        JOIN document_revisions revision ON revision.id = NEW.document_revision_id
+        JOIN documents document ON document.id = revision.document_id
+        WHERE project.id = NEW.project_id
+          AND document.workspace_id = project.workspace_id
+          AND (document.project_id IS NULL OR document.project_id = project.id)
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Project Document binding is outside its Project scope');
+      END;
+
+      CREATE TRIGGER project_document_bindings_scope_update
+      BEFORE UPDATE OF project_id, document_revision_id ON project_document_bindings
+      WHEN NOT EXISTS (
+        SELECT 1
+        FROM projects project
+        JOIN document_revisions revision ON revision.id = NEW.document_revision_id
+        JOIN documents document ON document.id = revision.document_id
+        WHERE project.id = NEW.project_id
+          AND document.workspace_id = project.workspace_id
+          AND (document.project_id IS NULL OR document.project_id = project.id)
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Project Document binding is outside its Project scope');
+      END;
+
+      CREATE TRIGGER project_document_bindings_no_conflicting_insert
+      BEFORE INSERT ON project_document_bindings
+      WHEN EXISTS (
+        SELECT 1 FROM project_document_bindings
+        WHERE id = NEW.id
+          OR (project_id = NEW.project_id AND role = NEW.role)
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Project Document binding identity is immutable');
+      END;
+
+      CREATE TRIGGER project_document_bindings_update_guard
+      BEFORE UPDATE ON project_document_bindings
+      WHEN NOT (
+        NEW.id IS OLD.id
+        AND NEW.project_id IS OLD.project_id
+        AND NEW.role IS OLD.role
+        AND NEW.created_at IS OLD.created_at
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Project Document binding identity is immutable');
+      END;
+
+      CREATE TRIGGER project_document_bindings_no_delete
+      BEFORE DELETE ON project_document_bindings
+      BEGIN
+        SELECT RAISE(ABORT, 'Project Document bindings are immutable');
       END;
 
       CREATE TRIGGER artifact_revisions_no_update
