@@ -202,7 +202,7 @@ const TEXT_COLUMNS = {
   compositions: "id,project_id,slug,kind,selected_revision_id",
   document_revisions: "id,document_id,parent_revision_id,iteration_id,format,title,body,content_sha256,authored_by_session_id",
   documents: "id,workspace_id,project_id,kind,slug,title,current_revision_id",
-  evaluations: "id,project_id,artifact_revision_id,composition_revision_id,build_id,run_id,kind,verdict,report_json",
+  evaluations: "id,workspace_id,project_id,artifact_revision_id,composition_revision_id,build_id,run_id,authored_by_session_id,kind,verdict,tags_json,note,report_json",
   feedback_items: "id,iteration_id,target_type,target_id,body,status,resolution_note",
   feedback_resolution_links: "id,feedback_id,entity_type,entity_id",
   job_artifacts: "object_id,kind,path,sha256",
@@ -953,9 +953,10 @@ function inspectEvaluations(db: Database, report: DomainVerificationReport): voi
   appendRevisionChain(target, "evaluation", "missing-target", chainRows(db, `
     SELECT evaluation.id AS entityId, NULL AS relatedId
     FROM evaluations evaluation
-    WHERE evaluation.artifact_revision_id IS NULL
-      AND evaluation.composition_revision_id IS NULL
-      AND evaluation.build_id IS NULL AND evaluation.run_id IS NULL`));
+    WHERE (evaluation.artifact_revision_id IS NOT NULL)
+        + (evaluation.composition_revision_id IS NOT NULL)
+        + (evaluation.build_id IS NOT NULL)
+        + (evaluation.run_id IS NOT NULL) <> 1`));
   appendRevisionChain(target, "evaluation", "missing-target", chainRows(db, `
     SELECT evaluation.id, evaluation.artifact_revision_id
     FROM evaluations evaluation LEFT JOIN artifact_revisions revision
@@ -971,27 +972,41 @@ function inspectEvaluations(db: Database, report: DomainVerificationReport): voi
     UNION ALL SELECT evaluation.id, evaluation.run_id
     FROM evaluations evaluation LEFT JOIN runs run ON run.id = evaluation.run_id
     WHERE evaluation.run_id IS NOT NULL AND run.id IS NULL`));
+  // Scope is derived from the target, so a disagreeing Workspace or Project is
+  // an ownership break, not an authorship break.
   appendRevisionChain(target, "evaluation", "scope-mismatch", chainRows(db, `
-    SELECT evaluation.id AS entityId, evaluation.artifact_revision_id AS relatedId
+    SELECT evaluation.id AS entityId, evaluation.workspace_id AS relatedId
+    FROM evaluations evaluation LEFT JOIN workspaces workspace
+      ON workspace.id = evaluation.workspace_id
+    WHERE workspace.id IS NULL
+    UNION ALL SELECT evaluation.id, evaluation.project_id
+    FROM evaluations evaluation JOIN projects project
+      ON project.id = evaluation.project_id
+    WHERE project.workspace_id IS NOT evaluation.workspace_id
+    UNION ALL SELECT evaluation.id, evaluation.artifact_revision_id
     FROM evaluations evaluation
     JOIN artifact_revisions revision ON revision.id = evaluation.artifact_revision_id
     JOIN artifacts artifact ON artifact.id = revision.artifact_id
-    JOIN projects project ON project.id = evaluation.project_id
-    WHERE artifact.workspace_id <> project.workspace_id
+    WHERE artifact.workspace_id IS NOT evaluation.workspace_id
        OR artifact.project_id IS NOT evaluation.project_id
     UNION ALL SELECT evaluation.id, evaluation.composition_revision_id
     FROM evaluations evaluation
     JOIN composition_revisions revision ON revision.id = evaluation.composition_revision_id
     JOIN compositions composition ON composition.id = revision.composition_id
-    WHERE composition.project_id <> evaluation.project_id
+    JOIN projects project ON project.id = composition.project_id
+    WHERE project.workspace_id IS NOT evaluation.workspace_id
+       OR project.id IS NOT evaluation.project_id
     UNION ALL SELECT evaluation.id, evaluation.build_id
     FROM evaluations evaluation JOIN builds build ON build.id = evaluation.build_id
     JOIN composition_revisions revision ON revision.id = build.composition_revision_id
     JOIN compositions composition ON composition.id = revision.composition_id
-    WHERE composition.project_id <> evaluation.project_id
+    JOIN projects project ON project.id = composition.project_id
+    WHERE project.workspace_id IS NOT evaluation.workspace_id
+       OR project.id IS NOT evaluation.project_id
     UNION ALL SELECT evaluation.id, evaluation.run_id
     FROM evaluations evaluation JOIN runs run ON run.id = evaluation.run_id
-    WHERE run.project_id IS NOT evaluation.project_id`));
+    WHERE run.workspace_id IS NOT evaluation.workspace_id
+       OR run.project_id IS NOT evaluation.project_id`));
 }
 
 function inspectRuns(db: Database, report: DomainVerificationReport): void {
@@ -1698,6 +1713,35 @@ function inspectSessionProvenance(
                  run.project_id AS projectId
           FROM runs run WHERE run.agent_session_id IS NOT NULL`,
   });
+  // Evaluation authorship is provenance, never an ownership chain: target and
+  // Project ownership stay routed to brokenRevisionChains above.
+  inspectAuthorship(db, report, {
+    entityType: "evaluation",
+    sql: `SELECT evaluation.id AS entityId,
+                 evaluation.authored_by_session_id AS sessionId,
+                 evaluation.created_at AS createdAt,
+                 evaluation.workspace_id AS workspaceId,
+                 evaluation.project_id AS projectId
+          FROM evaluations evaluation
+          WHERE evaluation.authored_by_session_id IS NOT NULL`,
+  });
+  appendProvenance(report, "evaluation", "missing-session", db
+    .query<{ entityId: string }, []>(
+      `SELECT id AS entityId FROM evaluations
+       WHERE authored_by_session_id IS NULL`,
+    )
+    .all());
+}
+
+function appendProvenance(
+  report: DomainVerificationReport,
+  entityType: ProvenanceEntity,
+  reason: ProvenanceReason,
+  rows: { entityId: string }[],
+): void {
+  for (const row of rows) {
+    report.sessionProvenanceIssues.push({ entityType, entityId: row.entityId, reason });
+  }
 }
 
 type AuthorshipRow = {

@@ -498,6 +498,30 @@ export type RunResultRow = {
 
 export type Page<T, C = string> = { items: T[]; nextCursor: C | null };
 
+export type EvaluationTargetType =
+  | "artifact_revision"
+  | "composition_revision"
+  | "build"
+  | "run";
+
+export type EvaluationTarget = { type: EvaluationTargetType; id: string };
+
+/** Raw report, metadata, and provider payload stay internal. */
+export type EvaluationDto = {
+  id: string;
+  workspaceId: string;
+  projectId: string | null;
+  target: EvaluationTarget;
+  kind: string;
+  verdict: string | null;
+  favorite: boolean;
+  rating: number | null;
+  tags: string[];
+  note: string | null;
+  authoredBySessionId: string;
+  createdAt: number;
+};
+
 /** Activity is the one global sequence; `sequence` is `activity_events.id`. */
 export type ActivityDto = {
   sequence: number;
