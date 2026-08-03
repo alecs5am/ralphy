@@ -1,6 +1,6 @@
 // Unit tests for auto-recall embedding (#117) — memory loads itself through
-// the calls the agent already makes: bare `ralphy` (step 0) and
-// `ralphy workspace use` (mid-session switch). Spawns the real CLI against a
+// the calls the agent already makes: bare `ralphy` (step 0) and explicit
+// `ralphy memory recall --workspace`. Spawns the real CLI against a
 // tmp root (no in-process server involved, so spawnSync is fine per #072).
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
@@ -55,17 +55,18 @@ describe("auto-recall embedding (#117)", () => {
     expect(status.json.memory.note.length).toBeGreaterThan(0); // injection-hygiene note rides along
   });
 
-  test("`workspace use` returns the target workspace's digest (workspace overrides global)", () => {
+  test("explicit workspace recall overrides global without an active pointer", () => {
     ralphy(["workspace", "create", "acme"]);
     ralphy(["memory", "note", "Global truth.", "--slug", "collide", "--type", "craft"]);
     ralphy(["memory", "note", "Acme truth.", "--slug", "collide", "--type", "client", "--workspace", "acme"]);
 
-    const r = ralphy(["workspace", "use", "acme"]);
+    const r = ralphy(["memory", "recall", "--workspace", "acme"]);
     expect(r.exitCode).toBe(0);
-    expect(r.json.activeWorkspace).toBe("acme");
-    expect(r.json.memory.workspace).toBe("acme");
-    const collide = r.json.memory.entries.find((e: any) => e.slug === "collide");
+    expect(r.json.workspace).toBe("acme");
+    const collide = r.json.entries.find((e: any) => e.slug === "collide");
     expect(collide.tier).toBe("workspace");
+    expect(ralphy(["workspace", "use", "acme"]).exitCode).toBe(2);
+    expect(fs.existsSync(path.join(tmpRoot, ".ralphy", "config.json"))).toBe(false);
   });
 
   test("empty store yields a null-or-empty digest, never an error", () => {

@@ -358,6 +358,7 @@ async function makeSurfaceFixture(): Promise<{
       { artifactRevisionId: artifactRevision.id, role: "preview", position: 0 },
     ],
   });
+  finishRun(buildRun.id, { state: "succeeded" });
   const buildOutputs = listBuildOutputs({ context, buildId: build.id, limit: 10 });
   const buildOutput = buildOutputs.items[0]!;
   const stageId = "stage_surface_ready";

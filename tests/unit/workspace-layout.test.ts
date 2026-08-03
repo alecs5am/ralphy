@@ -46,7 +46,7 @@ import {
   workspaceManifestPath,
   workspacesDir,
 } from "../../cli/lib/paths.js";
-import { getActiveWorkspace, setActiveWorkspace } from "../../cli/lib/registry.js";
+import { getActiveWorkspace } from "../../cli/lib/registry.js";
 import { resolveProjectPath } from "../../cli/lib/path-resolution.js";
 
 let tmp: string;
@@ -175,16 +175,18 @@ describe("#108 new-scheme path resolution", () => {
   });
 });
 
-describe("#108 active-workspace pointer (config.json)", () => {
-  test("set/get round-trip + currentWorkspace() sync read agree", async () => {
+describe("#108 read-only active-workspace compatibility", () => {
+  test("legacy config remains readable without a production writer", async () => {
     expect(await getActiveWorkspace()).toBe(DEFAULT_WORKSPACE);
-    await setActiveWorkspace("fogtown");
+    fs.mkdirSync(ralphDir(), { recursive: true });
+    fs.writeFileSync(
+      configPath(),
+      JSON.stringify({ activeWorkspace: "fogtown" }),
+      "utf8",
+    );
     expect(await getActiveWorkspace()).toBe("fogtown");
     expect(currentWorkspace()).toBe("fogtown");
-    // The pointer landed in config.json under the .ralphy/ root.
-    const cfg = JSON.parse(fs.readFileSync(configPath(), "utf-8"));
-    expect(cfg.activeWorkspace).toBe("fogtown");
-    // Workspace-scoped dirs follow the pointer.
+    // Staged compatibility paths may still read an existing legacy pointer.
     expect(projectsDir()).toBe(path.join(workspaceDir("fogtown"), "projects"));
   });
 });

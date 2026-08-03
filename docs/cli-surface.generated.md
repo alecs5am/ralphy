@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **52**
+Verbs registered: **53**
 
 ## Top-level verbs
 
@@ -1373,6 +1373,32 @@ Commands:
   help [command]             display help for command
 ```
 
+### `ralphy session`
+
+```
+____        __      __
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
+        agent content runtime · ralphy.dev
+
+Usage: ralphy session [options] [command]
+
+Manage immutable Agent Sessions
+
+Options:
+  -h, --help       display help for command
+
+Commands:
+  start [options]  Start a new Agent Session for the explicit scope
+  show <id>        Show an Agent Session
+  list [options]   List Agent Sessions in the explicit scope
+  end <id>         End an Agent Session with no active Run
+  help [command]   display help for command
+```
+
 ### `ralphy batch`
 
 ```
@@ -1478,7 +1504,8 @@ Commands:
   list                      List account workspaces
   show <slug>               Show account profile, channels, shared assets,
                             projects, and units
-  use <slug>                Set the active account workspace
+  use <slug>                Deprecated: use explicit --workspace or start a
+                            Session
   update [options] <slug>   Update account profile and public channel handles
   eval [options] <project>  Score a project against its account workspace
                             evaluator rubric
@@ -1677,6 +1704,10 @@ Options:
   -q, --quiet                                      Suppress progress, spinners, and chatter; only emit the final result
   --no-color                                       Disable color output even on TTY
   --cwd <path>                                     Working directory (overrides project auto-detection)
+  --root <path>                                    Data directory containing ralphy.db
+  --workspace <id>                                 Workspace ID for this command
+  --project <id>                                   Project ID for this command
+  --session <id>                                   Agent Session ID for this command
   -h, --help                                       display help for command
 
 Commands:
@@ -1712,6 +1743,7 @@ Commands:
   benchmark                                        Golden benchmark sets — good/acceptable/bad examples per content mode
   memory                                           Tiered memory store — global .ralphy/memory/ + per-workspace memory/ (markdown entries, append-only)
   lessons                                          Route durable failure lessons (postmortem + eval + repair + council + gen-log) to the right knowledge surface
+  session                                          Manage immutable Agent Sessions
   batch                                            Manage batch operations
   asset                                            Manage and generate assets
   workspace                                        Manage account workspaces: profile, channels, shared brand assets, projects, and units

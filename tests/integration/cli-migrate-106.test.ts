@@ -6,7 +6,7 @@
 //   1. Fixture round-trip: dry-run (plan only, disk untouched) → run (full
 //      .ralphy tree, .vN siblings survive, manifest/log/html/unit strings
 //      rewritten, JSONL line counts identical, empty assets/refs gone,
-//      registry workspace fields + activeWorkspace + workspace.json) → run
+//      registry workspace fields + workspace.json, no active pointer) → run
 //      again ({already_migrated: true} no-op).
 //   2. Fail-fast: a normal verb on a legacy root → E_LEGACY_LAYOUT.
 //   3. --project scoping: inner artifacts/ move only, on an already-migrated
@@ -334,12 +334,13 @@ describe("ralphy migrate (#106) — fixture round-trip", () => {
     expect(unit.media[0].src).toBe("artifacts/images/a.png");
     expect(unit.ref).toBe("artifacts/refs/r.png");
 
-    // Registry + config + workspace manifest.
+    // Registry + config + workspace manifest. Migration never creates an
+    // active-Workspace pointer.
     const reg = JSON.parse(fs.readFileSync(path.join(ws, "registry.json"), "utf8"));
     expect(reg.projects.p1.workspace).toBe("default");
     expect(reg.projects.p2.workspace).toBe("default");
     const cfg = JSON.parse(fs.readFileSync(path.join(ws, "config.json"), "utf8"));
-    expect(cfg.activeWorkspace).toBe("default");
+    expect(cfg.activeWorkspace).toBeUndefined();
     const wsManifest = JSON.parse(
       fs.readFileSync(path.join(ws, "workspaces", "default", "workspace.json"), "utf8"),
     );

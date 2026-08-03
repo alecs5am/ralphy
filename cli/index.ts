@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { setPretty } from "./lib/output.js";
-import { setRoot, layoutMode } from "./lib/paths.js";
+import { setDataRoot, setRoot, layoutMode } from "./lib/paths.js";
 import { findProjectRootSafe, loadProjectEnv } from "./lib/project-root.js";
 import { installSigintHandler, CancelledError } from "./lib/cancel.js";
 import { raiseError } from "./lib/errors/index.js";
+import { DomainError } from "./lib/errors/domain.js";
+import { resolveCommandContext, resolveDataRoot } from "./lib/context.js";
+import { setCommandContext } from "./lib/context-state.js";
 
 // Install SIGINT handler before parsing so Ctrl-C during preAction is also
 // caught. The token flips on first SIGINT; verbs read it cooperatively and
@@ -22,7 +25,14 @@ function geoblockCtx(e: unknown): { provider: string; reason: string } | null {
   return { provider: g.provider ?? "ElevenLabs", reason: g.reason ?? "non-audio body" };
 }
 
+function raiseDomainError(error: unknown): void {
+  if (error instanceof DomainError) {
+    raiseError(error.code, (error.details ?? {}) as any);
+  }
+}
+
 process.on("uncaughtException", (e: unknown) => {
+  raiseDomainError(e);
   if (e instanceof CancelledError) raiseError("E_CANCELLED");
   if ((e as { code?: string } | null)?.code === "E_LEGACY_LAYOUT") raiseError("E_LEGACY_LAYOUT");
   const geo = geoblockCtx(e);
@@ -31,6 +41,7 @@ process.on("uncaughtException", (e: unknown) => {
   raiseError("E_INTERNAL", { detail });
 });
 process.on("unhandledRejection", (reason: unknown) => {
+  raiseDomainError(reason);
   if (reason instanceof CancelledError) raiseError("E_CANCELLED");
   if ((reason as { code?: string } | null)?.code === "E_LEGACY_LAYOUT") raiseError("E_LEGACY_LAYOUT");
   const geo = geoblockCtx(reason);
@@ -91,6 +102,7 @@ import { guidelineCmd } from "./commands/guideline.js";
 import { benchmarkCmd } from "./commands/benchmark.js";
 import { memoryCmd } from "./commands/memory.js";
 import { lessonsCmd } from "./commands/lessons.js";
+import { sessionCmd } from "./commands/session.js";
 import { bannerString } from "./lib/banner.js";
 import { VERSION } from "./lib/version.js";
 
@@ -107,7 +119,11 @@ program
   .option("-q, --quiet", "Suppress progress, spinners, and chatter; only emit the final result")
   .option("--no-color", "Disable color output even on TTY")
   .option("--cwd <path>", "Working directory (overrides project auto-detection)")
-  .hook("preAction", async (thisCommand) => {
+  .option("--root <path>", "Data directory containing ralphy.db")
+  .option("--workspace <id>", "Workspace ID for this command")
+  .option("--project <id>", "Project ID for this command")
+  .option("--session <id>", "Agent Session ID for this command")
+  .hook("preAction", async (thisCommand, actionCommand) => {
     const opts = thisCommand.opts();
     // ui.ts mode: auto-detect TTY unless explicit --pretty / --json
     const { setMode, setQuiet } = await import("./lib/ui.js");
@@ -157,6 +173,60 @@ program
     // lib callers, but defensive try/catch around registry/config reads would
     // otherwise swallow it into empty results.
     const sub = thisCommand.args[0];
+    const actionOwns = (key: string) =>
+      actionCommand.options.some((option) => option.attributeName() === key);
+    const positionalProject = positionalProjectId(actionCommand);
+    const domainContextRequired = Boolean(
+      sub === "session" ||
+        opts.root ||
+        opts.session ||
+        (opts.workspace && !actionOwns("workspace")) ||
+        (opts.project && !actionOwns("project")),
+    );
+    const configureDomainContext = (required: boolean): boolean => {
+      let identity: ReturnType<typeof resolveDataRoot>;
+      try {
+        identity = resolveDataRoot({ root: opts.root, cwd: opts.cwd });
+      } catch (error) {
+        if (
+          !required &&
+          error instanceof DomainError &&
+          error.code === "E_MIGRATION_INCOMPLETE"
+        ) {
+          return false;
+        }
+        throw error;
+      }
+      if (sub === "session") {
+        setDataRoot(identity.dataRoot);
+        return true;
+      }
+      let context: ReturnType<typeof resolveCommandContext>;
+      try {
+        context = resolveCommandContext({
+          dataRoot: identity.dataRoot,
+          sessionId: opts.session,
+          workspaceId: opts.workspace,
+          projectId: opts.project,
+          positionalProjectId: positionalProject,
+          cwd: process.cwd(),
+        });
+      } catch (error) {
+        if (
+          !required &&
+          error instanceof DomainError &&
+          error.code === "E_INPUT_INVALID" &&
+          error.details?.detail === "no Workspace exists"
+        ) {
+          return false;
+        }
+        throw error;
+      }
+      setDataRoot(identity.dataRoot);
+      setCommandContext(context);
+      return true;
+    };
+    if (domainContextRequired && configureDomainContext(true)) return;
     const guardLegacyLayout = () => {
       if (sub === "migrate" || sub === "doctor") return;
       if (layoutMode() === "legacy") raiseError("E_LEGACY_LAYOUT");
@@ -165,6 +235,7 @@ program
       setRoot(opts.cwd);
       await loadProjectEnv(opts.cwd);
       guardLegacyLayout();
+      configureDomainContext(false);
       return;
     }
     // Skip project auto-detection for setup — it has its own logic for first-run.
@@ -175,6 +246,7 @@ program
       await loadProjectEnv(detected);
     }
     guardLegacyLayout();
+    configureDomainContext(false);
   });
 
 program.addCommand(versionCmd());
@@ -209,6 +281,7 @@ program.addCommand(guidelineCmd());
 program.addCommand(benchmarkCmd());
 program.addCommand(memoryCmd());
 program.addCommand(lessonsCmd());
+program.addCommand(sessionCmd());
 program.addCommand(batchCmd());
 program.addCommand(assetCmd());
 program.addCommand(workspaceCmd());
@@ -379,4 +452,30 @@ program.action(async () => {
   console.log();
 });
 
+// Commander records same-named global options on the root even when they
+// appear after a subcommand. Hand them to staged command-local options before
+// required-option validation; later command-conversion tasks remove this shim.
+function preserveStagedScopeOptions(command: Command): void {
+  command.hook("preSubcommand", (_parent, child) => {
+    const rootOptions = program.opts();
+    for (const key of ["workspace", "project", "session"] as const) {
+      if (
+        rootOptions[key] !== undefined &&
+        child.options.some((option) => option.attributeName() === key)
+      ) {
+        child.setOptionValueWithSource(key, rootOptions[key], "cli");
+      }
+    }
+  });
+  for (const child of command.commands) preserveStagedScopeOptions(child);
+}
+
+function positionalProjectId(command: Command): string | undefined {
+  if (command.parent?.name() !== "project") return undefined;
+  if (command.name() === "create" || command.name() === "list") return undefined;
+  const value = command.processedArgs[0];
+  return typeof value === "string" ? value : undefined;
+}
+
+preserveStagedScopeOptions(program);
 program.parseAsync();

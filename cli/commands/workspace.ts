@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import {
   DEFAULT_WORKSPACE,
+  currentWorkspace,
   layoutMode,
   projectDir,
   workspaceDir,
@@ -12,7 +13,6 @@ import {
   workspaceUnitsDir,
   workspacesDir,
 } from "../lib/paths.js";
-import { getActiveWorkspace, setActiveWorkspace } from "../lib/registry.js";
 import { err, ok, out } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import {
@@ -23,6 +23,10 @@ import {
 } from "../lib/eval/workspace-evaluators.js";
 import { protectExistingAsset } from "../lib/providers/shared.js";
 import { buildWorkspaceRoi } from "../lib/analytics/roi.js";
+import {
+  assertCommandWorkspace,
+  getCommandContext,
+} from "../lib/context-state.js";
 import {
   parseWorkspaceManifest,
   WORKSPACE_CHANNELS,
@@ -103,6 +107,7 @@ async function workspaceSlugs(): Promise<string[]> {
 }
 
 function requireWorkspace(slug: string): void {
+  assertCommandWorkspace(slug);
   if (!existsSync(workspaceDir(slug))) {
     raiseError("E_NOT_FOUND", { kind: "Workspace", id: slug });
   }
@@ -150,16 +155,17 @@ export function workspaceCmd(): Command {
     .description("List account workspaces")
     .action(async () => {
       requireRalphyLayout("workspace list");
-      const active = await getActiveWorkspace();
-      const slugs = await workspaceSlugs();
+      const context = getCommandContext();
+      const slugs = (await workspaceSlugs()).filter(
+        (slug) => context === null || slug === context.workspaceId,
+      );
       if (slugs.length === 0) {
         out([
           {
-            slug: DEFAULT_WORKSPACE,
-            name: DEFAULT_WORKSPACE,
+            slug: context?.workspaceId ?? DEFAULT_WORKSPACE,
+            name: context?.workspaceId ?? DEFAULT_WORKSPACE,
             projects: 0,
             units: 0,
-            active: active === DEFAULT_WORKSPACE,
             implicit: true,
           },
         ]);
@@ -174,7 +180,6 @@ export function workspaceCmd(): Command {
               name: manifest?.name || slug,
               projects: await countDirs(path.join(workspaceDir(slug), "projects")),
               units: await countDirs(workspaceUnitsDir(slug)),
-              active: slug === active,
             };
           }),
         ),
@@ -198,7 +203,6 @@ export function workspaceCmd(): Command {
       out({
         ...manifest,
         path: workspaceDir(slug),
-        active: (await getActiveWorkspace()) === slug,
         projects,
         sharedAssets: await sharedAssetInventory(slug),
         workspaceUnits: await countDirs(workspaceUnitsDir(slug)),
@@ -207,28 +211,15 @@ export function workspaceCmd(): Command {
 
   cmd
     .command("use <slug>")
-    .description("Set the active account workspace")
+    .description("Deprecated: use explicit --workspace or start a Session")
     .action(async (slug: string) => {
       requireRalphyLayout("workspace use");
       if (slug !== DEFAULT_WORKSPACE) requireWorkspace(slug);
-      await setActiveWorkspace(slug);
-      let memory: unknown = null;
-      try {
-        const { recall } = await import("../lib/memory/store.js");
-        const recalled = await recall({ ws: slug });
-        memory = {
-          workspace: recalled.workspace,
-          count: recalled.count,
-          truncated: recalled.truncated,
-          entries: recalled.entries.map((entry) => ({
-            slug: entry.slug,
-            tier: entry.tier,
-            description: entry.description,
-          })),
-        };
-      } catch {}
-      ok(`Active workspace: ${slug}`);
-      out({ activeWorkspace: slug, memory });
+      raiseError("E_INPUT_INVALID", {
+        field: "workspace use",
+        detail: "deprecated; pass --workspace <id> or run `ralphy session start`",
+        verb: "workspace use",
+      });
     });
 
   cmd
@@ -344,7 +335,7 @@ export function workspaceCmd(): Command {
     .command("stats [slug]")
     .description("Show project, unit, and shared-asset counts for an account workspace")
     .action(async (slug?: string) => {
-      const target = slug ?? (await getActiveWorkspace());
+      const target = slug ?? currentWorkspace();
       requireWorkspace(target);
       out({
         workspace: target,

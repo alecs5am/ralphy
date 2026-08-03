@@ -1005,7 +1005,7 @@ describe("external operation Runs", () => {
 
   test("rejects an ordinary or ended Session", () => {
     makeRoot();
-    const { scope } = start("authz");
+    const { scope, accepted } = start("authz");
     const ordinary = startAgentSession({
       workspaceId: scope.workspace.id,
       projectId: scope.project.id,
@@ -1024,6 +1024,10 @@ describe("external operation Runs", () => {
         sessionId: ordinary.id,
       }),
     ).toThrow(/not owned/i);
+    expect(() =>
+      endConsumerSession(scope.authority, scope.session.id),
+    ).toThrow(/active Run/i);
+    finishRun(accepted.run.id, { state: "cancelled" });
     endConsumerSession(scope.authority, scope.session.id);
     expect(() =>
       startConsumerOperationRun(scope.authority, {
