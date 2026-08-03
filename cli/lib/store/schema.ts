@@ -1413,6 +1413,41 @@ export const MIGRATIONS: readonly Migration[] = [
         SELECT RAISE(ABORT, 'consumer Session cannot start an ordinary Run');
       END;
 
+      CREATE TRIGGER runs_no_conflicting_insert
+      BEFORE INSERT ON runs
+      WHEN EXISTS (
+        SELECT 1 FROM runs run
+        WHERE run.id = NEW.id
+          OR (
+            NEW.external_system IS NOT NULL
+            AND run.external_system = NEW.external_system
+            AND run.external_run_id = NEW.external_run_id
+            AND run.external_node_id = NEW.external_node_id
+            AND run.external_attempt = NEW.external_attempt
+            AND run.external_operation = NEW.external_operation
+          )
+          OR (
+            NEW.external_system IS NOT NULL
+            AND run.external_system = NEW.external_system
+            AND run.idempotency_key = NEW.idempotency_key
+          )
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Run identity or replay key conflicts with an existing Run');
+      END;
+
+      CREATE TRIGGER runs_lifecycle_insert_guard
+      BEFORE INSERT ON runs
+      WHEN typeof(NEW.created_at) <> 'integer'
+        OR NEW.created_at NOT BETWEEN 0 AND 9007199254740991
+        OR NEW.state IS NOT 'pending'
+        OR NEW.started_at IS NOT NULL
+        OR NEW.ended_at IS NOT NULL
+        OR NEW.error IS NOT NULL
+      BEGIN
+        SELECT RAISE(ABORT, 'Run lifecycle insert is invalid');
+      END;
+
       CREATE TRIGGER runs_external_provenance_update_guard
       BEFORE UPDATE ON runs
       WHEN NOT (
@@ -1427,6 +1462,81 @@ export const MIGRATIONS: readonly Migration[] = [
       )
       BEGIN
         SELECT RAISE(ABORT, 'Run external provenance is immutable');
+      END;
+
+      CREATE TRIGGER runs_identity_update_guard
+      BEFORE UPDATE OF id, created_at ON runs
+      WHEN NEW.id IS NOT OLD.id OR NEW.created_at IS NOT OLD.created_at
+      BEGIN
+        SELECT RAISE(ABORT, 'Run identity is immutable');
+      END;
+
+      CREATE TRIGGER runs_lifecycle_update_guard
+      BEFORE UPDATE OF state, started_at, ended_at, error ON runs
+      WHEN NOT (
+        (
+          NEW.state IS OLD.state
+          AND NEW.started_at IS OLD.started_at
+          AND NEW.ended_at IS OLD.ended_at
+          AND NEW.error IS OLD.error
+        )
+        OR (
+          OLD.state = 'pending'
+          AND NEW.state = 'running'
+          AND typeof(OLD.created_at) = 'integer'
+          AND OLD.created_at BETWEEN 0 AND 9007199254740991
+          AND typeof(NEW.started_at) = 'integer'
+          AND NEW.started_at BETWEEN OLD.created_at AND 9007199254740991
+          AND NEW.ended_at IS NULL
+          AND NEW.error IS NULL
+        )
+        OR (
+          OLD.state = 'pending'
+          AND NEW.state IN ('succeeded', 'failed', 'cancelled')
+          AND typeof(OLD.created_at) = 'integer'
+          AND OLD.created_at BETWEEN 0 AND 9007199254740991
+          AND NEW.started_at IS NULL
+          AND typeof(NEW.ended_at) = 'integer'
+          AND NEW.ended_at BETWEEN OLD.created_at AND 9007199254740991
+          AND (NEW.state <> 'succeeded' OR NEW.error IS NULL)
+          AND NOT EXISTS (
+            SELECT 1 FROM run_attempts attempt
+            WHERE attempt.run_id = OLD.id AND attempt.state = 'running'
+          )
+        )
+        OR (
+          OLD.state = 'running'
+          AND NEW.state IN ('succeeded', 'failed', 'cancelled')
+          AND typeof(OLD.created_at) = 'integer'
+          AND OLD.created_at BETWEEN 0 AND 9007199254740991
+          AND typeof(NEW.started_at) = 'integer'
+          AND NEW.started_at IS OLD.started_at
+          AND NEW.started_at BETWEEN OLD.created_at AND 9007199254740991
+          AND typeof(NEW.ended_at) = 'integer'
+          AND NEW.ended_at BETWEEN NEW.started_at AND 9007199254740991
+          AND (NEW.state <> 'succeeded' OR NEW.error IS NULL)
+          AND NOT EXISTS (
+            SELECT 1 FROM run_attempts attempt
+            WHERE attempt.run_id = OLD.id AND attempt.state = 'running'
+          )
+        )
+        OR (
+          OLD.state IN ('failed', 'cancelled')
+          AND OLD.external_system IS NULL
+          AND typeof(OLD.created_at) = 'integer'
+          AND OLD.created_at BETWEEN 0 AND 9007199254740991
+          AND typeof(OLD.ended_at) = 'integer'
+          AND OLD.ended_at BETWEEN OLD.created_at AND 9007199254740991
+          AND NEW.state = 'running'
+          AND typeof(NEW.started_at) = 'integer'
+          AND NEW.started_at BETWEEN OLD.created_at AND 9007199254740991
+          AND (OLD.started_at IS NULL OR NEW.started_at IS OLD.started_at)
+          AND NEW.ended_at IS NULL
+          AND NEW.error IS NULL
+        )
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Run lifecycle transition is invalid');
       END;
 
       CREATE TRIGGER run_session_scope_insert

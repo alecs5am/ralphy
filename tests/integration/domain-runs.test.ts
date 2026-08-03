@@ -5,6 +5,7 @@ import path from "node:path";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
 import {
   finishRun,
+  finishRunInTransaction,
   finishRunAttempt,
   promoteRunObject,
   recordRunObject,
@@ -33,6 +34,441 @@ afterEach(() => {
 });
 
 describe("domain Run store", () => {
+  test("keeps succeeded Runs final and preserves ordinary cancelled retries", () => {
+    root = makeTmpRoot("ralphy-domain-runs-terminal-retry");
+    const workspace = createWorkspace({ slug: "lifecycle", name: "Lifecycle" });
+    const succeeded = startRun({
+      workspaceId: workspace.id,
+      kind: "generation",
+    });
+    const succeededAttempt = startRunAttempt({ runId: succeeded.id });
+    finishRunAttempt(succeededAttempt.id, { state: "succeeded" });
+    finishRun(succeeded.id, { state: "succeeded" });
+    const activityCount = scopedActivity({ workspaceId: workspace.id }).length;
+
+    expect(() => startRunAttempt({ runId: succeeded.id })).toThrow(
+      StoreConflictError,
+    );
+    expect(getRun(succeeded.id)).toMatchObject({
+      state: "succeeded",
+      attempts: [{ id: succeededAttempt.id, attemptNo: 1 }],
+    });
+    expect(scopedActivity({ workspaceId: workspace.id })).toHaveLength(
+      activityCount,
+    );
+
+    const cancelled = startRun({
+      workspaceId: workspace.id,
+      kind: "generation",
+    });
+    const firstAttempt = startRunAttempt({ runId: cancelled.id });
+    finishRunAttempt(firstAttempt.id, { state: "cancelled" });
+    finishRun(cancelled.id, { state: "cancelled" });
+    const firstStartedAt = getRun(cancelled.id).startedAt;
+    const retry = startRunAttempt({ runId: cancelled.id });
+    expect(retry.attemptNo).toBe(2);
+    expect(getRun(cancelled.id)).toMatchObject({
+      state: "running",
+      startedAt: firstStartedAt,
+      endedAt: null,
+      error: null,
+    });
+  });
+
+  test("refuses public and in-transaction finish while an Attempt is running", () => {
+    root = makeTmpRoot("ralphy-domain-runs-running-attempt");
+    const workspace = createWorkspace({ slug: "running", name: "Running" });
+    const run = startRun({ workspaceId: workspace.id, kind: "generation" });
+    const attempt = startRunAttempt({ runId: run.id });
+    const activityCount = scopedActivity({ workspaceId: workspace.id }).length;
+
+    expect(() => finishRun(run.id, { state: "succeeded" })).toThrow(
+      StoreConflictError,
+    );
+    expect(getRun(run.id)).toMatchObject({
+      state: "running",
+      endedAt: null,
+      attempts: [{ id: attempt.id, state: "running", endedAt: null }],
+    });
+    expect(scopedActivity({ workspaceId: workspace.id })).toHaveLength(
+      activityCount,
+    );
+
+    const transactionRun = startRun({
+      workspaceId: workspace.id,
+      kind: "publication",
+    });
+    const transactionAttempt = startRunAttempt({ runId: transactionRun.id });
+    const transactionActivityCount = scopedActivity({
+      workspaceId: workspace.id,
+    }).length;
+    expect(() =>
+      finishRunInTransaction(openDomainDb(), transactionRun.id, {
+        state: "failed",
+      }),
+    ).toThrow(StoreConflictError);
+    expect(getRun(transactionRun.id)).toMatchObject({
+      state: "running",
+      endedAt: null,
+      attempts: [{ id: transactionAttempt.id, state: "running" }],
+    });
+    expect(scopedActivity({ workspaceId: workspace.id })).toHaveLength(
+      transactionActivityCount,
+    );
+  });
+
+  test("guards Run lifecycle timestamps against direct SQL", () => {
+    root = makeTmpRoot("ralphy-domain-runs-sql-timestamps");
+    const workspace = createWorkspace({ slug: "sql-time", name: "SQL Time" });
+    const run = startRun({ workspaceId: workspace.id, kind: "generation" });
+    const db = openDomainDb();
+
+    expect(() =>
+      db.prepare("UPDATE runs SET state = 'running' WHERE id = ?").run(run.id),
+    ).toThrow(/Run lifecycle/i);
+    expect(getRun(run.id)).toMatchObject({
+      state: "pending",
+      startedAt: null,
+      endedAt: null,
+    });
+
+    const startedAt = Date.now();
+    db.prepare(
+      "UPDATE runs SET state = 'running', started_at = ? WHERE id = ?",
+    ).run(startedAt, run.id);
+    db.prepare(
+      "UPDATE runs SET state = 'cancelled', ended_at = ? WHERE id = ?",
+    ).run(startedAt, run.id);
+    expect(getRun(run.id)).toMatchObject({
+      state: "cancelled",
+      startedAt,
+      endedAt: startedAt,
+    });
+  });
+
+  test("keeps Run creation identity immutable across lifecycle updates", () => {
+    root = makeTmpRoot("ralphy-domain-runs-sql-created-at");
+    const workspace = createWorkspace({ slug: "sql-created", name: "SQL Created" });
+    const run = startRun({ workspaceId: workspace.id, kind: "generation" });
+    const db = openDomainDb();
+
+    expect(() =>
+      db
+        .prepare(
+          "UPDATE runs SET created_at = ?, state = 'running', started_at = ? WHERE id = ?",
+        )
+        .run(run.createdAt + 1_000, run.createdAt, run.id),
+    ).toThrow(/Run (?:identity|lifecycle)/i);
+    expect(
+      db
+        .query<
+          { state: string; createdAt: number; startedAt: number | null },
+          [string]
+        >(
+          "SELECT state, created_at AS createdAt, started_at AS startedAt FROM runs WHERE id = ?",
+        )
+        .get(run.id),
+    ).toEqual({ state: "pending", createdAt: run.createdAt, startedAt: null });
+  });
+
+  test("rejects non-safe timestamps in every Run lifecycle transition", () => {
+    root = makeTmpRoot("ralphy-domain-runs-sql-timestamp-shape");
+    const workspace = createWorkspace({ slug: "sql-shape", name: "SQL Shape" });
+    const db = openDomainDb();
+    const invalidTimestamps = ["not-a-timestamp", -1, Number.MAX_SAFE_INTEGER + 1];
+
+    for (const [index, timestamp] of invalidTimestamps.entries()) {
+      const pending = startRun({
+        workspaceId: workspace.id,
+        kind: `pending-running-${index}`,
+      });
+      expect(() =>
+        db
+          .prepare(
+            "UPDATE runs SET state = 'running', started_at = ? WHERE id = ?",
+          )
+          .run(timestamp, pending.id),
+      ).toThrow(/Run lifecycle/i);
+      expect(
+        db.query<{ state: string }, [string]>("SELECT state FROM runs WHERE id = ?").get(
+          pending.id,
+        ),
+      ).toEqual({ state: "pending" });
+
+      const pendingTerminal = startRun({
+        workspaceId: workspace.id,
+        kind: `pending-terminal-${index}`,
+      });
+      expect(() =>
+        db
+          .prepare(
+            "UPDATE runs SET state = 'failed', ended_at = ? WHERE id = ?",
+          )
+          .run(timestamp, pendingTerminal.id),
+      ).toThrow(/Run lifecycle/i);
+      expect(
+        db.query<{ state: string }, [string]>("SELECT state FROM runs WHERE id = ?").get(
+          pendingTerminal.id,
+        ),
+      ).toEqual({ state: "pending" });
+
+      const running = startRun({
+        workspaceId: workspace.id,
+        kind: `running-terminal-${index}`,
+      });
+      const attempt = startRunAttempt({ runId: running.id });
+      finishRunAttempt(attempt.id, { state: "failed" });
+      expect(() =>
+        db
+          .prepare(
+            "UPDATE runs SET state = 'failed', ended_at = ? WHERE id = ?",
+          )
+          .run(timestamp, running.id),
+      ).toThrow(/Run lifecycle/i);
+      expect(
+        db.query<{ state: string }, [string]>("SELECT state FROM runs WHERE id = ?").get(
+          running.id,
+        ),
+      ).toEqual({ state: "running" });
+
+      const retry = startRun({
+        workspaceId: workspace.id,
+        kind: `terminal-running-${index}`,
+      });
+      finishRun(retry.id, { state: "failed" });
+      expect(() =>
+        db
+          .prepare(
+            `UPDATE runs SET state = 'running', started_at = ?,
+             ended_at = NULL, error = NULL WHERE id = ?`,
+          )
+          .run(timestamp, retry.id),
+      ).toThrow(/Run lifecycle/i);
+      expect(
+        db.query<{ state: string }, [string]>("SELECT state FROM runs WHERE id = ?").get(
+          retry.id,
+        ),
+      ).toEqual({ state: "failed" });
+    }
+  });
+
+  test("rejects non-canonical Run lifecycle facts at insert", () => {
+    root = makeTmpRoot("ralphy-domain-runs-sql-insert-lifecycle");
+    const workspace = createWorkspace({ slug: "sql-new-run", name: "SQL New Run" });
+    const db = openDomainDb();
+    const now = Date.now();
+    const invalidRows: Array<{
+      id: string;
+      state: "pending" | "running" | "succeeded";
+      createdAt: string | number;
+      startedAt: string | number | null;
+      endedAt: string | number | null;
+      error: string | null;
+    }> = [
+      {
+        id: "run_created_text",
+        state: "pending",
+        createdAt: "not-a-timestamp",
+        startedAt: null,
+        endedAt: null,
+        error: null,
+      },
+      {
+        id: "run_created_fractional",
+        state: "pending",
+        createdAt: now + 0.5,
+        startedAt: null,
+        endedAt: null,
+        error: null,
+      },
+      {
+        id: "run_created_negative",
+        state: "pending",
+        createdAt: -1,
+        startedAt: null,
+        endedAt: null,
+        error: null,
+      },
+      {
+        id: "run_created_unsafe",
+        state: "pending",
+        createdAt: Number.MAX_SAFE_INTEGER + 1,
+        startedAt: null,
+        endedAt: null,
+        error: null,
+      },
+      {
+        id: "run_initial_running",
+        state: "running",
+        createdAt: now,
+        startedAt: null,
+        endedAt: null,
+        error: null,
+      },
+      {
+        id: "run_initial_terminal",
+        state: "succeeded",
+        createdAt: now,
+        startedAt: null,
+        endedAt: null,
+        error: null,
+      },
+      {
+        id: "run_initial_started",
+        state: "pending",
+        createdAt: now,
+        startedAt: now,
+        endedAt: null,
+        error: null,
+      },
+      {
+        id: "run_initial_ended",
+        state: "pending",
+        createdAt: now,
+        startedAt: null,
+        endedAt: now,
+        error: null,
+      },
+      {
+        id: "run_initial_error",
+        state: "pending",
+        createdAt: now,
+        startedAt: null,
+        endedAt: null,
+        error: "not pending",
+      },
+    ];
+
+    for (const row of invalidRows) {
+      expect(() =>
+        db
+          .prepare(
+            `INSERT INTO runs
+             (id, workspace_id, kind, state, created_at, started_at, ended_at, error)
+             VALUES (?, ?, 'fixture', ?, ?, ?, ?, ?)`,
+          )
+          .run(
+            row.id,
+            workspace.id,
+            row.state,
+            row.createdAt,
+            row.startedAt,
+            row.endedAt,
+            row.error,
+          ),
+      ).toThrow(/Run lifecycle/i);
+      expect(
+        db.query<{ count: number }, [string]>(
+          "SELECT COUNT(*) AS count FROM runs WHERE id = ?",
+        ).get(row.id),
+      ).toEqual({ count: 0 });
+    }
+  });
+
+  test("rejects UPDATE OR REPLACE rekeying over a terminal Run", () => {
+    root = makeTmpRoot("ralphy-domain-runs-sql-update-replace");
+    const workspace = createWorkspace({ slug: "sql-update", name: "SQL Update" });
+    const terminal = startRun({ workspaceId: workspace.id, kind: "terminal" });
+    finishRun(terminal.id, { state: "succeeded" });
+    const pending = startRun({ workspaceId: workspace.id, kind: "pending" });
+    const db = openDomainDb();
+
+    expect(
+      db
+        .query<{ count: number }, [string]>(
+          "SELECT COUNT(*) AS count FROM run_attempts WHERE run_id = ?",
+        )
+        .get(terminal.id),
+    ).toEqual({ count: 0 });
+    expect(() =>
+      db
+        .prepare(
+          `UPDATE OR REPLACE runs SET id = ?, state = 'running', started_at = ?,
+           ended_at = NULL, error = NULL WHERE id = ?`,
+        )
+        .run(terminal.id, Date.now(), pending.id),
+    ).toThrow(/Run (?:identity|conflict|immutable)/i);
+    expect(
+      db
+        .query<{ id: string; kind: string; state: string }, [string, string]>(
+          "SELECT id, kind, state FROM runs WHERE id IN (?, ?) ORDER BY kind",
+        )
+        .all(pending.id, terminal.id),
+    ).toEqual([
+      { id: pending.id, kind: "pending", state: "pending" },
+      { id: terminal.id, kind: "terminal", state: "succeeded" },
+    ]);
+  });
+
+  test("rejects INSERT OR REPLACE over an existing terminal Run", () => {
+    root = makeTmpRoot("ralphy-domain-runs-sql-insert-replace");
+    const workspace = createWorkspace({ slug: "sql-insert", name: "SQL Insert" });
+    const run = startRun({ workspaceId: workspace.id, kind: "original" });
+    finishRun(run.id, { state: "succeeded" });
+    const db = openDomainDb();
+
+    expect(
+      db.query<{ recursive_triggers: number }, []>("PRAGMA recursive_triggers").get(),
+    ).toEqual({ recursive_triggers: 0 });
+    expect(
+      db
+        .query<{ count: number }, [string]>(
+          "SELECT COUNT(*) AS count FROM run_attempts WHERE run_id = ?",
+        )
+        .get(run.id),
+    ).toEqual({ count: 0 });
+    expect(() =>
+      db
+        .prepare(
+          `INSERT OR REPLACE INTO runs
+           (id, workspace_id, kind, state, created_at)
+           VALUES (?, ?, 'replacement', 'pending', ?)`,
+        )
+        .run(run.id, workspace.id, run.createdAt),
+    ).toThrow(/Run (?:identity|conflict|immutable)/i);
+    expect(
+      db
+        .query<{ kind: string; state: string; endedAt: number | null }, [string]>(
+          "SELECT kind, state, ended_at AS endedAt FROM runs WHERE id = ?",
+        )
+        .get(run.id),
+    ).toEqual({ kind: "original", state: "succeeded", endedAt: expect.any(Number) });
+  });
+
+  test("guards direct SQL terminalization while an Attempt is running", () => {
+    root = makeTmpRoot("ralphy-domain-runs-sql-attempt");
+    const workspace = createWorkspace({ slug: "sql-attempt", name: "SQL Attempt" });
+    const run = startRun({ workspaceId: workspace.id, kind: "generation" });
+    const attempt = startRunAttempt({ runId: run.id });
+
+    expect(() =>
+      openDomainDb()
+        .prepare("UPDATE runs SET state = 'succeeded', ended_at = ? WHERE id = ?")
+        .run(Date.now(), run.id),
+    ).toThrow(/Run lifecycle/i);
+    expect(getRun(run.id)).toMatchObject({
+      state: "running",
+      endedAt: null,
+      attempts: [{ id: attempt.id, state: "running" }],
+    });
+  });
+
+  test("guards succeeded Run state against direct SQL mutation", () => {
+    root = makeTmpRoot("ralphy-domain-runs-sql-succeeded");
+    const workspace = createWorkspace({ slug: "sql-done", name: "SQL Done" });
+    const run = startRun({ workspaceId: workspace.id, kind: "generation" });
+    const attempt = startRunAttempt({ runId: run.id });
+    finishRunAttempt(attempt.id, { state: "succeeded" });
+    finishRun(run.id, { state: "succeeded" });
+
+    expect(() =>
+      openDomainDb()
+        .prepare("UPDATE runs SET state = 'failed', error = 'rewritten' WHERE id = ?")
+        .run(run.id),
+    ).toThrow(/Run lifecycle/i);
+    expect(getRun(run.id)).toMatchObject({ state: "succeeded", error: null });
+  });
+
   test("keeps failed execution evidence in one ordered Run aggregate", () => {
     root = makeTmpRoot("ralphy-domain-runs-red");
     const workspace = createWorkspace({ slug: "client", name: "Client" });
