@@ -6,12 +6,12 @@ import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
 import {
   finishRun,
   finishRunAttempt,
-  getRun,
   promoteRunObject,
   recordRunObject,
   startRun,
   startRunAttempt,
 } from "../../cli/lib/store/runs.js";
+import { getRunAggregate as getRun } from "../helpers/run-aggregate.js";
 import {
   endAgentSession,
   startAgentSession,

@@ -21,10 +21,10 @@ import {
 } from "../../cli/lib/store/scopes.js";
 import {
   finishRun,
-  getRun,
   recordRunResult,
   startRun,
 } from "../../cli/lib/store/runs.js";
+import { getRunAggregate as getRun } from "../helpers/run-aggregate.js";
 import {
   endAgentSession,
   startAgentSession,

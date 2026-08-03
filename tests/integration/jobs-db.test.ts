@@ -26,10 +26,11 @@ import {
   closeDomainDb,
   domainDbPath,
 } from "../../cli/lib/store/db.js";
-import { getRun, startRun } from "../../cli/lib/store/runs.js";
+import { startRun } from "../../cli/lib/store/runs.js";
 import { createWorkspace } from "../../cli/lib/store/scopes.js";
 import fs from "node:fs";
 import path from "node:path";
+import { getRunAggregate as getRun } from "../helpers/run-aggregate.js";
 
 let tmp: TmpRoot;
 

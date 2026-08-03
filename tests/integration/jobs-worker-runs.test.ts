@@ -18,12 +18,13 @@ import {
   type JobExecutor,
 } from "../../cli/lib/jobs/worker.js";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
-import { getRun, startRun } from "../../cli/lib/store/runs.js";
+import { startRun } from "../../cli/lib/store/runs.js";
 import {
   createWorkspace,
 } from "../../cli/lib/store/scopes.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 import { scopedActivity } from "../helpers/activity.js";
+import { getRunAggregate as getRun } from "../helpers/run-aggregate.js";
 
 let root: TmpRoot;
 let executors: JobExecutor[];
