@@ -875,6 +875,12 @@ export const MIGRATIONS: readonly Migration[] = [
         ON artifacts(workspace_id, slug) WHERE project_id IS NULL;
       CREATE INDEX idx_artifacts_scope ON artifacts(workspace_id, project_id, kind);
       CREATE INDEX idx_artifact_revisions_artifact ON artifact_revisions(artifact_id, revision_no);
+      CREATE INDEX idx_artifact_relations_from_page
+        ON artifact_relations(from_revision_id, created_at, id);
+      CREATE INDEX idx_artifact_relations_to_page
+        ON artifact_relations(to_revision_id, created_at, id);
+      CREATE INDEX idx_artifact_usages_revision_page
+        ON artifact_usages(artifact_revision_id, created_at, id);
       CREATE INDEX idx_compositions_project ON compositions(project_id);
       CREATE INDEX idx_composition_revisions_composition ON composition_revisions(composition_id, revision_no);
       CREATE INDEX idx_builds_revision ON builds(composition_revision_id, created_at);

@@ -242,7 +242,7 @@ export type ArtifactRelationDto = {
   createdAt: number;
 };
 
-export type ArtifactUsageRow = {
+export type ArtifactUsageDto = {
   id: string;
   artifactRevisionId: string;
   workspaceId: string | null;

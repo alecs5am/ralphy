@@ -18,7 +18,7 @@ import {
   type ArtifactRelationDto,
   type ArtifactRevisionDto,
   type ArtifactRevisionState,
-  type ArtifactUsageRow,
+  type ArtifactUsageDto,
   type JsonValue,
   type Page,
   StoreConflictError,
@@ -127,6 +127,11 @@ type ArtifactRelationDbRow = {
   created_at: number;
 };
 
+type PublicArtifactRelationDbRow = Omit<
+  ArtifactRelationDbRow,
+  "metadata_json"
+>;
+
 type ArtifactUsageDbRow = {
   id: string;
   artifact_revision_id: string;
@@ -148,8 +153,12 @@ const OBJECT_COLUMNS =
   "id, workspace_id, project_id, backend, bucket, key, sha256, mime, bytes, storage_class, original_name, metadata_json, created_at";
 const RELATION_COLUMNS =
   "id, from_revision_id, to_revision_id, relation, metadata_json, created_at";
+const PUBLIC_RELATION_COLUMNS =
+  "rel.id, rel.from_revision_id, rel.to_revision_id, rel.relation, rel.created_at";
 const USAGE_COLUMNS =
   "id, artifact_revision_id, workspace_id, project_id, feedback_id, role, lifecycle, created_at";
+const PUBLIC_USAGE_COLUMNS =
+  "u.id, u.artifact_revision_id, u.workspace_id, u.project_id, u.feedback_id, u.role, u.lifecycle, u.created_at";
 const ARTIFACT_KINDS = new Set<ArtifactKind>(
   MEDIA_ARTIFACT_KINDS.filter((kind) => kind !== "ref") as ArtifactKind[],
 );
@@ -296,6 +305,142 @@ export function listArtifactRevisions(input: {
   }));
   return {
     items: page.items.map(toPublicArtifactRevisionDto),
+    nextCursor: page.nextCursor,
+  };
+}
+
+export function getArtifactRelation(input: {
+  context: QueryContext;
+  relationId: string;
+}): ArtifactRelationDto {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const relation = getVisibleArtifactRelation(db, scope, input.relationId);
+  if (!relation) {
+    throw new Error(`Artifact Relation not found: ${input.relationId}`);
+  }
+  return relation;
+}
+
+export function listArtifactRelations(input: {
+  context: QueryContext;
+  revisionId: string;
+  after?: string | null;
+  limit: number;
+}): Page<ArtifactRelationDto> {
+  assertLimit(input.limit);
+  const cursor = input.after == null ? null : decodeCursor("c1", input.after);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  if (!getVisibleArtifactRevision(db, scope, input.revisionId)) {
+    throw new Error(`Artifact Revision not found: ${input.revisionId}`);
+  }
+  const fromVisibility = scopeVisibilityClause(
+    scope,
+    "from_artifact.workspace_id",
+    "from_artifact.project_id",
+  );
+  const toVisibility = scopeVisibilityClause(
+    scope,
+    "to_artifact.workspace_id",
+    "to_artifact.project_id",
+  );
+  const rows = db
+    .query<PublicArtifactRelationDbRow, (string | number)[]>(
+      `SELECT ${PUBLIC_RELATION_COLUMNS}
+       FROM artifact_relations rel
+       JOIN artifact_revisions from_revision ON from_revision.id = rel.from_revision_id
+       JOIN artifacts from_artifact ON from_artifact.id = from_revision.artifact_id
+       JOIN artifact_revisions to_revision ON to_revision.id = rel.to_revision_id
+       JOIN artifacts to_artifact ON to_artifact.id = to_revision.artifact_id
+       WHERE (rel.from_revision_id = ? OR rel.to_revision_id = ?)
+         AND ${fromVisibility.sql}
+         AND ${toVisibility.sql}
+         AND (rel.created_at > ? OR (rel.created_at = ? AND rel.id > ?))
+       ORDER BY rel.created_at ASC, rel.id ASC LIMIT ?`,
+    )
+    .all(
+      input.revisionId,
+      input.revisionId,
+      ...fromVisibility.values,
+      ...toVisibility.values,
+      cursor?.ordinal ?? -1,
+      cursor?.ordinal ?? -1,
+      cursor?.id ?? "",
+      input.limit + 1,
+    );
+  const page = buildPage(rows, input.limit, "c1", (row) => ({
+    ordinal: row.created_at,
+    id: row.id,
+  }));
+  return {
+    items: page.items.map(toPublicArtifactRelationDto),
+    nextCursor: page.nextCursor,
+  };
+}
+
+export function getArtifactUsage(input: {
+  context: QueryContext;
+  usageId: string;
+}): ArtifactUsageDto {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const usage = getVisibleArtifactUsage(db, scope, input.usageId);
+  if (!usage) {
+    throw new Error(`Artifact Usage not found: ${input.usageId}`);
+  }
+  return usage;
+}
+
+export function listArtifactUsages(input: {
+  context: QueryContext;
+  revisionId: string;
+  after?: string | null;
+  limit: number;
+}): Page<ArtifactUsageDto> {
+  assertLimit(input.limit);
+  const cursor = input.after == null ? null : decodeCursor("c1", input.after);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  if (!getVisibleArtifactRevision(db, scope, input.revisionId)) {
+    throw new Error(`Artifact Revision not found: ${input.revisionId}`);
+  }
+  const revisionVisibility = scopeVisibilityClause(
+    scope,
+    "a.workspace_id",
+    "a.project_id",
+  );
+  const targetVisibility = usageTargetVisibilityClause(scope);
+  const rows = db
+    .query<ArtifactUsageDbRow, (string | number)[]>(
+      `SELECT ${PUBLIC_USAGE_COLUMNS}
+       FROM artifact_usages u
+       JOIN artifact_revisions r ON r.id = u.artifact_revision_id
+       JOIN artifacts a ON a.id = r.artifact_id
+       LEFT JOIN feedback_items f ON f.id = u.feedback_id
+       LEFT JOIN project_iterations i ON i.id = f.iteration_id
+       WHERE u.artifact_revision_id = ?
+         AND u.context_type IS NULL AND u.context_id IS NULL
+         AND ${revisionVisibility.sql}
+         AND ${targetVisibility.sql}
+         AND (u.created_at > ? OR (u.created_at = ? AND u.id > ?))
+       ORDER BY u.created_at ASC, u.id ASC LIMIT ?`,
+    )
+    .all(
+      input.revisionId,
+      ...revisionVisibility.values,
+      ...targetVisibility.values,
+      cursor?.ordinal ?? -1,
+      cursor?.ordinal ?? -1,
+      cursor?.id ?? "",
+      input.limit + 1,
+    );
+  const page = buildPage(rows, input.limit, "c1", (row) => ({
+    ordinal: row.created_at,
+    id: row.id,
+  }));
+  return {
+    items: page.items.map(toArtifactUsageDto),
     nextCursor: page.nextCursor,
   };
 }
@@ -515,7 +660,7 @@ export function addArtifactRelation(
   });
 }
 
-export function addArtifactUsage(input: ArtifactUsageInput): ArtifactUsageRow {
+export function addArtifactUsage(input: ArtifactUsageInput): ArtifactUsageDto {
   const role = checkedText(input.role, "Artifact usage role");
   const lifecycle =
     input.lifecycle === undefined || input.lifecycle === null
@@ -888,6 +1033,83 @@ function getVisibleArtifactRevision(
   return toPublicArtifactRevisionDto(row);
 }
 
+function getVisibleArtifactRelation(
+  db: Database,
+  scope: ResolvedScope,
+  id: string,
+): ArtifactRelationDto | null {
+  const fromVisibility = scopeVisibilityClause(
+    scope,
+    "from_artifact.workspace_id",
+    "from_artifact.project_id",
+  );
+  const toVisibility = scopeVisibilityClause(
+    scope,
+    "to_artifact.workspace_id",
+    "to_artifact.project_id",
+  );
+  const row = db
+    .query<PublicArtifactRelationDbRow, string[]>(
+      `SELECT ${PUBLIC_RELATION_COLUMNS}
+       FROM artifact_relations rel
+       JOIN artifact_revisions from_revision ON from_revision.id = rel.from_revision_id
+       JOIN artifacts from_artifact ON from_artifact.id = from_revision.artifact_id
+       JOIN artifact_revisions to_revision ON to_revision.id = rel.to_revision_id
+       JOIN artifacts to_artifact ON to_artifact.id = to_revision.artifact_id
+       WHERE rel.id = ? AND ${fromVisibility.sql} AND ${toVisibility.sql}`,
+    )
+    .get(id, ...fromVisibility.values, ...toVisibility.values);
+  return row ? toPublicArtifactRelationDto(row) : null;
+}
+
+function getVisibleArtifactUsage(
+  db: Database,
+  scope: ResolvedScope,
+  id: string,
+): ArtifactUsageDto | null {
+  const revisionVisibility = scopeVisibilityClause(
+    scope,
+    "a.workspace_id",
+    "a.project_id",
+  );
+  const targetVisibility = usageTargetVisibilityClause(scope);
+  const row = db
+    .query<ArtifactUsageDbRow, string[]>(
+      `SELECT ${PUBLIC_USAGE_COLUMNS}
+       FROM artifact_usages u
+       JOIN artifact_revisions r ON r.id = u.artifact_revision_id
+       JOIN artifacts a ON a.id = r.artifact_id
+       LEFT JOIN feedback_items f ON f.id = u.feedback_id
+       LEFT JOIN project_iterations i ON i.id = f.iteration_id
+       WHERE u.id = ?
+         AND u.context_type IS NULL AND u.context_id IS NULL
+         AND ${revisionVisibility.sql}
+         AND ${targetVisibility.sql}`,
+    )
+    .get(id, ...revisionVisibility.values, ...targetVisibility.values);
+  return row ? toArtifactUsageDto(row) : null;
+}
+
+function usageTargetVisibilityClause(scope: ResolvedScope): {
+  sql: string;
+  values: string[];
+} {
+  if (scope.projectId === null) {
+    return {
+      sql: "(u.workspace_id = ? AND u.project_id IS NULL AND u.feedback_id IS NULL)",
+      values: [scope.workspaceId],
+    };
+  }
+  return {
+    sql: `(
+      (u.workspace_id = ? AND u.project_id IS NULL AND u.feedback_id IS NULL)
+      OR (u.workspace_id IS NULL AND u.project_id = ? AND u.feedback_id IS NULL)
+      OR (u.workspace_id IS NULL AND u.project_id IS NULL AND i.project_id = ?)
+    )`,
+    values: [scope.workspaceId, scope.projectId, scope.projectId],
+  };
+}
+
 function getObjectRow(db: Database, id: string): ObjectRow | null {
   const row = db
     .query<
@@ -938,25 +1160,14 @@ function getArtifactRelationRow(
 function getArtifactUsageRow(
   db: Database,
   id: string,
-): ArtifactUsageRow | null {
+): ArtifactUsageDto | null {
   const row = db
     .query<
       ArtifactUsageDbRow,
       [string]
     >(`SELECT ${USAGE_COLUMNS} FROM artifact_usages WHERE id = ?`)
     .get(id);
-  return row
-    ? {
-        id: row.id,
-        artifactRevisionId: row.artifact_revision_id,
-        workspaceId: row.workspace_id,
-        projectId: row.project_id,
-        feedbackId: row.feedback_id,
-        role: row.role,
-        lifecycle: row.lifecycle,
-        createdAt: row.created_at,
-      }
-    : null;
+  return row ? toArtifactUsageDto(row) : null;
 }
 
 function toArtifactRow(row: ArtifactDbRow): ArtifactRow {
@@ -1041,6 +1252,31 @@ function toArtifactRelationDto(row: ArtifactRelationRow): ArtifactRelationDto {
     toRevisionId: row.toRevisionId,
     relation: row.relation,
     createdAt: row.createdAt,
+  };
+}
+
+function toPublicArtifactRelationDto(
+  row: PublicArtifactRelationDbRow,
+): ArtifactRelationDto {
+  return {
+    id: row.id,
+    fromRevisionId: row.from_revision_id,
+    toRevisionId: row.to_revision_id,
+    relation: row.relation,
+    createdAt: row.created_at,
+  };
+}
+
+function toArtifactUsageDto(row: ArtifactUsageDbRow): ArtifactUsageDto {
+  return {
+    id: row.id,
+    artifactRevisionId: row.artifact_revision_id,
+    workspaceId: row.workspace_id,
+    projectId: row.project_id,
+    feedbackId: row.feedback_id,
+    role: row.role,
+    lifecycle: row.lifecycle,
+    createdAt: row.created_at,
   };
 }
 
