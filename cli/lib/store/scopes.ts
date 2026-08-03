@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { appendActivity, assertLimit } from "./activity.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
+import { buildPage, decodeCursor } from "./pagination.js";
 import {
   type EntityReference,
   type FeedbackRow,
@@ -9,11 +10,14 @@ import {
   type IterationRow,
   type JsonValue,
   type Page,
+  type OverviewAccountDto,
   type ProjectRow,
+  type ProjectSummaryDto,
   StoreConflictError,
   type SocialAccountRow,
   type TargetReference,
   type WorkspaceRow,
+  type WorkspaceSummaryDto,
 } from "./types.js";
 
 export { listActivity } from "./activity.js";
@@ -43,6 +47,10 @@ export type CreateProjectInput = {
   name: string;
   metadata?: JsonValue | null;
 };
+
+export type UpdateProjectInput = Partial<
+  Pick<ProjectRow, "slug" | "name" | "state" | "metadata">
+>;
 
 export type TransferProjectMetadataInput = {
   workspaceId: string;
@@ -151,7 +159,7 @@ export function createWorkspace(input: CreateWorkspaceInput): WorkspaceRow {
       payload: { slug: input.slug },
       createdAt: now,
     });
-    return getWorkspace(db, id)!;
+    return getWorkspaceRow(db, id)!;
   });
 }
 
@@ -192,26 +200,47 @@ export function updateWorkspace(
       payload: { fields: Object.keys(input) },
       createdAt: now,
     });
-    return getWorkspace(db, id)!;
+    return getWorkspaceRow(db, id)!;
   });
+}
+
+export function getWorkspace(id: string): WorkspaceSummaryDto {
+  const workspace = openDomainDb()
+    .query<WorkspaceSummaryDto, [string]>(
+      `SELECT id, slug, name, row_version AS rowVersion,
+              created_at AS createdAt, updated_at AS updatedAt
+       FROM workspaces WHERE id = ?`,
+    )
+    .get(id);
+  if (!workspace) throw new Error(`Workspace not found: ${id}`);
+  return workspace;
 }
 
 export function listWorkspaces(input: {
   cursor?: string | null;
   limit?: number;
-} = {}): Page<WorkspaceRow> {
+} = {}): Page<WorkspaceSummaryDto> {
   const limit = input.limit ?? 50;
   assertLimit(limit);
-  const cursor = input.cursor ?? "";
-  if (input.cursor !== undefined && input.cursor !== null && !input.cursor) {
-    throw new Error("Cursor must be a non-empty ID");
+  const values: (string | number)[] = [];
+  let after = "";
+  if (input.cursor != null) {
+    const cursor = decodeCursor("c1", input.cursor);
+    after = "WHERE (created_at > ? OR (created_at = ? AND id > ?))";
+    values.push(cursor.ordinal, cursor.ordinal, cursor.id);
   }
+  values.push(limit + 1);
   const rows = openDomainDb()
-    .query<WorkspaceDbRow, [string, number]>(
-      `SELECT ${WORKSPACE_COLUMNS} FROM workspaces WHERE id > ? ORDER BY id ASC LIMIT ?`,
+    .query<WorkspaceSummaryDto, (string | number)[]>(
+      `SELECT id, slug, name, row_version AS rowVersion,
+              created_at AS createdAt, updated_at AS updatedAt
+       FROM workspaces ${after} ORDER BY created_at ASC, id ASC LIMIT ?`,
     )
-    .all(cursor, limit + 1);
-  return page(rows.map(toWorkspaceRow), limit);
+    .all(...values);
+  return buildPage(rows, limit, "c1", (row) => ({
+    ordinal: row.createdAt,
+    id: row.id,
+  }));
 }
 
 export function upsertSocialAccount(
@@ -277,13 +306,34 @@ export function upsertSocialAccount(
   });
 }
 
-export function listSocialAccounts(workspaceId: string): SocialAccountRow[] {
-  return openDomainDb()
-    .query<SocialAccountDbRow, [string]>(
-      "SELECT id, workspace_id, platform, external_id, display_name, username, config_json, created_at, updated_at FROM social_accounts WHERE workspace_id = ? ORDER BY id ASC",
+export function listSocialAccounts(input: {
+  workspaceId: string;
+  cursor?: string | null;
+  limit?: number;
+}): Page<OverviewAccountDto> {
+  const limit = input.limit ?? 50;
+  assertLimit(limit);
+  const clauses = ["workspace_id = ?"];
+  const values: (string | number)[] = [input.workspaceId];
+  if (input.cursor != null) {
+    const cursor = decodeCursor("c1", input.cursor);
+    clauses.push("(created_at > ? OR (created_at = ? AND id > ?))");
+    values.push(cursor.ordinal, cursor.ordinal, cursor.id);
+  }
+  values.push(limit + 1);
+  const rows = openDomainDb()
+    .query<OverviewAccountDto, (string | number)[]>(
+      `SELECT id, workspace_id AS workspaceId, platform,
+              external_id AS externalId, display_name AS displayName, username,
+              created_at AS createdAt, updated_at AS updatedAt
+       FROM social_accounts WHERE ${clauses.join(" AND ")}
+       ORDER BY created_at ASC, id ASC LIMIT ?`,
     )
-    .all(workspaceId)
-    .map(toSocialAccountRow);
+    .all(...values);
+  return buildPage(rows, limit, "c1", (row) => ({
+    ordinal: row.createdAt,
+    id: row.id,
+  }));
 }
 
 export function createProject(input: CreateProjectInput): ProjectRow {
@@ -310,25 +360,108 @@ export function createProject(input: CreateProjectInput): ProjectRow {
       payload: { slug: input.slug },
       createdAt: now,
     });
-    return getProject(db, id)!;
+    return getProjectRow(db, id)!;
   });
+}
+
+export function updateProject(
+  id: string,
+  input: UpdateProjectInput,
+  expectedRowVersion: number,
+): ProjectSummaryDto {
+  const fields: string[] = [];
+  const values: (string | null)[] = [];
+  if (input.slug !== undefined) {
+    fields.push("slug = ?");
+    values.push(input.slug);
+  }
+  if (input.name !== undefined) {
+    fields.push("name = ?");
+    values.push(input.name);
+  }
+  if (input.state !== undefined) {
+    fields.push("state = ?");
+    values.push(input.state);
+  }
+  if (input.metadata !== undefined) {
+    fields.push("metadata_json = ?");
+    values.push(serializeJson(input.metadata));
+  }
+  if (!fields.length) throw new Error("Project update requires a field");
+
+  return withImmediateTransaction((db) => {
+    const now = Date.now();
+    const result = db
+      .prepare(
+        `UPDATE projects SET ${fields.join(", ")}, row_version = row_version + 1, updated_at = ? WHERE id = ? AND row_version = ?`,
+      )
+      .run(...values, now, id, expectedRowVersion);
+    if (!result.changes) throw new StoreConflictError();
+    const project = getProjectRow(db, id)!;
+    appendActivity(db, {
+      workspaceId: project.workspaceId,
+      projectId: id,
+      entityType: "project",
+      entityId: id,
+      action: "project.updated",
+      payload: { fields: Object.keys(input) },
+      createdAt: now,
+    });
+    return {
+      id: project.id,
+      workspaceId: project.workspaceId,
+      slug: project.slug,
+      name: project.name,
+      state: project.state,
+      rowVersion: project.rowVersion,
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
+    };
+  });
+}
+
+export function getProject(input: {
+  workspaceId: string;
+  projectId: string;
+}): ProjectSummaryDto {
+  const project = openDomainDb()
+    .query<ProjectSummaryDto, [string, string]>(
+      `SELECT id, workspace_id AS workspaceId, slug, name, state,
+              row_version AS rowVersion, created_at AS createdAt,
+              updated_at AS updatedAt
+       FROM projects WHERE workspace_id = ? AND id = ?`,
+    )
+    .get(input.workspaceId, input.projectId);
+  if (!project) throw new Error(`Project not found: ${input.projectId}`);
+  return project;
 }
 
 export function listProjects(
   input: { workspaceId: string; cursor?: string | null; limit?: number },
-): Page<ProjectRow> {
+): Page<ProjectSummaryDto> {
   const limit = input.limit ?? 50;
   assertLimit(limit);
-  const cursor = input.cursor ?? "";
-  if (input.cursor !== undefined && input.cursor !== null && !input.cursor) {
-    throw new Error("Cursor must be a non-empty ID");
+  const clauses = ["workspace_id = ?"];
+  const values: (string | number)[] = [input.workspaceId];
+  if (input.cursor != null) {
+    const cursor = decodeCursor("c1", input.cursor);
+    clauses.push("(created_at > ? OR (created_at = ? AND id > ?))");
+    values.push(cursor.ordinal, cursor.ordinal, cursor.id);
   }
+  values.push(limit + 1);
   const rows = openDomainDb()
-    .query<ProjectDbRow, [string, string, number]>(
-      `SELECT ${PROJECT_COLUMNS} FROM projects WHERE workspace_id = ? AND id > ? ORDER BY id ASC LIMIT ?`,
+    .query<ProjectSummaryDto, (string | number)[]>(
+      `SELECT id, workspace_id AS workspaceId, slug, name, state,
+              row_version AS rowVersion, created_at AS createdAt,
+              updated_at AS updatedAt
+       FROM projects WHERE ${clauses.join(" AND ")}
+       ORDER BY created_at ASC, id ASC LIMIT ?`,
     )
-    .all(input.workspaceId, cursor, limit + 1);
-  return page(rows.map(toProjectRow), limit);
+    .all(...values);
+  return buildPage(rows, limit, "c1", (row) => ({
+    ordinal: row.createdAt,
+    id: row.id,
+  }));
 }
 
 export function transferProjectMetadata(
@@ -337,7 +470,7 @@ export function transferProjectMetadata(
   expectedRowVersion: number,
 ): ProjectRow {
   return withImmediateTransaction((db) => {
-    const before = getProject(db, projectId);
+    const before = getProjectRow(db, projectId);
     const now = Date.now();
     const result = input.slug === undefined
       ? db
@@ -351,7 +484,7 @@ export function transferProjectMetadata(
           )
           .run(input.workspaceId, input.slug, now, projectId, expectedRowVersion);
     if (!result.changes) throw new StoreConflictError();
-    const project = getProject(db, projectId)!;
+    const project = getProjectRow(db, projectId)!;
     appendActivity(db, {
       workspaceId: input.workspaceId,
       projectId,
@@ -370,7 +503,7 @@ export function transferProjectMetadata(
 
 export function createIteration(input: CreateIterationInput): IterationRow {
   return withImmediateTransaction((db) => {
-    const project = getProject(db, input.projectId);
+    const project = getProjectRow(db, input.projectId);
     if (!project) throw new Error(`Project not found: ${input.projectId}`);
     const number =
       db.query<{ number: number }, [string]>(
@@ -466,7 +599,7 @@ export function resolveFeedback(
   });
 }
 
-function getWorkspace(db: Database, id: string): WorkspaceRow | null {
+function getWorkspaceRow(db: Database, id: string): WorkspaceRow | null {
   const row = db
     .query<WorkspaceDbRow, [string]>(
       `SELECT ${WORKSPACE_COLUMNS} FROM workspaces WHERE id = ?`,
@@ -475,7 +608,7 @@ function getWorkspace(db: Database, id: string): WorkspaceRow | null {
   return row ? toWorkspaceRow(row) : null;
 }
 
-function getProject(db: Database, id: string): ProjectRow | null {
+function getProjectRow(db: Database, id: string): ProjectRow | null {
   const row = db
     .query<ProjectDbRow, [string]>(
       `SELECT ${PROJECT_COLUMNS} FROM projects WHERE id = ?`,
@@ -586,15 +719,6 @@ function assertPublicConfig(value: JsonValue | null | undefined): void {
     }
     assertPublicConfig(item);
   }
-}
-
-function page<T extends { id: string }>(items: T[], limit: number): Page<T> {
-  const hasMore = items.length > limit;
-  const pageItems = hasMore ? items.slice(0, limit) : items;
-  return {
-    items: pageItems,
-    nextCursor: hasMore ? pageItems.at(-1)?.id ?? null : null,
-  };
 }
 
 function toWorkspaceRow(row: WorkspaceDbRow): WorkspaceRow {
