@@ -17,6 +17,15 @@ import { burstCapHint } from "./error-hints.js";
 import { dispatchableKinds, type ScheduleConfig } from "./schedule.js";
 import { checkQueuedJobSpend } from "./spend-gate.js";
 import type { JobKind, JobRow } from "./types.js";
+import {
+  createCredentialResolver,
+  safeChildEnvironment,
+  STATIC_CREDENTIAL_DESCRIPTORS,
+  type CredentialDescriptor,
+} from "../providers/credentials.js";
+import { listConnectors } from "../providers/registry.js";
+import { openDomainDb } from "../store/db.js";
+import { ralphDir } from "../paths.js";
 
 const POLL_INTERVAL_MS = 1000;
 const TERMINATION_GRACE_MS = 5_000;
@@ -60,13 +69,19 @@ export function createJobExecutor(
     cwd: string;
     log?: (line: string) => void;
   },
-  dependencies: { spendGate?: SpendGate; terminationGraceMs?: number } = {},
+  dependencies: {
+    spendGate?: SpendGate;
+    terminationGraceMs?: number;
+    capturedCredentials?: ReadonlyMap<string, string>;
+  } = {},
 ): JobExecutor {
   const executions = new Map<number, Execution>();
   const dispatchedAt: Partial<Record<JobKind, number>> = {};
   const spendGate = dependencies.spendGate ?? checkQueuedJobSpend;
   const terminationGraceMs =
     dependencies.terminationGraceMs ?? TERMINATION_GRACE_MS;
+  const capturedCredentials =
+    dependencies.capturedCredentials ?? new Map<string, string>();
   const log = opts.log ?? (() => {});
   let stopping = false;
   let stopPromise: Promise<void> | null = null;
@@ -168,18 +183,35 @@ export function createJobExecutor(
     }, terminationGraceMs);
   };
 
-  const spawnJob = (execution: Execution, argv: string[]): void => {
+  const spawnJob = async (execution: Execution, argv: string[]): Promise<void> => {
     const job = execution.job;
     const { program, args } = commandFor(job, argv, opts.ralphyBin);
     const logPath = path.join(jobLogsDir(), `${job.id}.log`);
     fs.mkdirSync(path.dirname(logPath), { recursive: true });
     execution.fileStream = fs.createWriteStream(logPath, { flags: "a" });
 
+    let credential:
+      | { descriptor: CredentialDescriptor; value: string }
+      | undefined;
+    try {
+      credential = await resolveJobCredential(job, capturedCredentials);
+    } catch (error) {
+      const message = (error as Error).message;
+      appendLog(job.id, "system", `[failed] ${message}`);
+      log(`job ${job.id} credential resolution failed: ${message}`);
+      complete(execution, "failed", { errorMessage: message });
+      return;
+    }
+
     let child: ChildProcess;
     try {
       child = spawn(program, args, {
         cwd: job.command.cwd ?? opts.cwd,
-        env: { ...process.env, ...(job.command.env ?? {}) },
+        env: jobChildEnvironment({
+          inherited: process.env,
+          commandEnvironment: job.command.env,
+          credential,
+        }),
         detached: process.platform !== "win32",
         stdio: ["ignore", "pipe", "pipe"],
       });
@@ -289,7 +321,7 @@ export function createJobExecutor(
       complete(execution, "blocked", { errorMessage: message });
       return;
     }
-    spawnJob(execution, argv);
+    await spawnJob(execution, argv);
   };
 
   return {
@@ -384,12 +416,130 @@ export function createJobExecutor(
   };
 }
 
+export function jobChildEnvironment(input: {
+  inherited?: NodeJS.ProcessEnv;
+  commandEnvironment?: Record<string, string>;
+  credential?: { descriptor: CredentialDescriptor; value: string };
+}): NodeJS.ProcessEnv {
+  const inherited = input.inherited ?? process.env;
+  // Legacy arbitrary job env is intentionally not forwarded: it is persisted
+  // command data and therefore cannot be a credential transport.
+  void input.commandEnvironment;
+  return safeChildEnvironment({ inherited, credential: input.credential });
+}
+
+async function resolveJobCredential(
+  job: JobRow,
+  capturedCredentials: ReadonlyMap<string, string>,
+): Promise<{ descriptor: CredentialDescriptor; value: string } | undefined> {
+  const request = job.command.credential;
+  if (!request) return undefined;
+  const explicitProvider = requestedProvider(job.command.argv);
+  if (explicitProvider !== undefined && explicitProvider !== request.providerId) {
+    throw new Error("Job credential request does not match its command");
+  }
+  assertCredentialScope(job, request.workspaceId, request.projectId);
+  const connectors = listConnectors();
+  const capability = credentialCapability(job.kind);
+  const connector = connectors.find((entry) => entry.id === request.providerId);
+  if (!capability || !connector?.capabilities.includes(capability)) {
+    throw new Error("Job credential provider does not match its job kind");
+  }
+  const descriptors = [
+    ...STATIC_CREDENTIAL_DESCRIPTORS,
+    ...connectors.map((entry) => entry.credential),
+  ].filter(
+    (descriptor, index, all) =>
+      all.findIndex((entry) => entry.providerId === descriptor.providerId) ===
+      index,
+  );
+  const descriptor = descriptors.find(
+    (entry) => entry.providerId === request.providerId,
+  );
+  if (!descriptor) throw new Error("Job credential provider is unknown");
+  const resolver = createCredentialResolver({
+    dataRoot: ralphDir(),
+    context: {
+      kind: "scope",
+      workspaceId: request.workspaceId,
+      ...(request.projectId ? { projectId: request.projectId } : {}),
+    },
+    descriptors,
+    capturedEnvironment: capturedCredentials,
+  });
+  const resolved = await resolver.resolve(request.providerId);
+  if (descriptor.kind !== "api-key" || !descriptor.environmentVariable) {
+    return undefined;
+  }
+  return resolved.value === null
+    ? undefined
+    : { descriptor, value: resolved.value };
+}
+
+function assertCredentialScope(
+  job: JobRow,
+  workspaceId: string,
+  projectId?: string,
+): void {
+  const db = openDomainDb();
+  if (job.run_id) {
+    const run = db
+      .query<
+        { workspaceId: string; projectId: string | null },
+        [string]
+      >(
+        "SELECT workspace_id AS workspaceId, project_id AS projectId FROM runs WHERE id = ?",
+      )
+      .get(job.run_id);
+    if (
+      !run ||
+      run.workspaceId !== workspaceId ||
+      (run.projectId ?? undefined) !== projectId
+    ) {
+      throw new Error("Job credential scope does not match its Run");
+    }
+    return;
+  }
+  const workspace = db
+    .query<{ id: string }, [string]>("SELECT id FROM workspaces WHERE id = ?")
+    .get(workspaceId);
+  if (!workspace) throw new Error("Job credential Workspace does not exist");
+  if (projectId) {
+    const project = db
+      .query<{ id: string }, [string, string]>(
+        "SELECT id FROM projects WHERE id = ? AND workspace_id = ?",
+      )
+      .get(projectId, workspaceId);
+    if (!project) throw new Error("Job credential Project does not match its Workspace");
+  }
+}
+
+function requestedProvider(argv: string[]): string | null | undefined {
+  for (let index = 0; index < argv.length; index += 1) {
+    if (argv[index] === "--provider") return argv[index + 1] ?? null;
+    if (argv[index]?.startsWith("--provider=")) {
+      return argv[index]!.slice("--provider=".length);
+    }
+  }
+  return undefined;
+}
+
+function credentialCapability(jobKind: JobKind) {
+  if (jobKind === "generate.image") return "image" as const;
+  if (jobKind === "generate.video") return "video" as const;
+  if (jobKind === "generate.voiceover") return "voice" as const;
+  if (jobKind === "generate.music") return "music" as const;
+  if (jobKind === "generate.sfx") return "sfx" as const;
+  return null;
+}
+
 export function runWorkerLoop(opts: {
   concurrency: number;
   ralphyBin: string;
   cwd: string;
   pidFile: string;
   schedule?: ScheduleConfig["perKind"];
+  capturedCredentials?: ReadonlyMap<string, string>;
 }): void {
   openDb();
   fs.writeFileSync(opts.pidFile, String(process.pid));
@@ -400,11 +550,14 @@ export function runWorkerLoop(opts: {
     const timestamp = new Date().toISOString();
     process.stderr.write(`[daemon ${timestamp}] ${line}\n`);
   };
-  const executor = createJobExecutor({
-    ralphyBin: opts.ralphyBin,
-    cwd: opts.cwd,
-    log,
-  });
+  const executor = createJobExecutor(
+    {
+      ralphyBin: opts.ralphyBin,
+      cwd: opts.cwd,
+      log,
+    },
+    { capturedCredentials: opts.capturedCredentials },
+  );
   const scheduleConfig: ScheduleConfig = {
     globalConcurrency: opts.concurrency,
     perKind: opts.schedule,
@@ -494,7 +647,7 @@ function commandFor(
     ralphyBin.endsWith("cli/index.ts") ||
     ralphyBin.endsWith("cli\\index.ts")
   ) {
-    return { program: "bun", args: ["run", ralphyBin, ...argv] };
+    return { program: "bun", args: ["run", "--no-env-file", ralphyBin, ...argv] };
   }
   return { program: ralphyBin, args: argv };
 }

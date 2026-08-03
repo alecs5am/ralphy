@@ -17,6 +17,7 @@
 // process.exit) so the orchestrator surfaces structured errors.
 
 import { TerminalProviderError } from "./shared.js";
+import { credentialConfigured, credentialValue } from "./credentials.js";
 
 const LABEL = "dev.to";
 const HOST = "https://dev.to";
@@ -25,11 +26,11 @@ export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
 /** True iff DEVTO_API_KEY is configured. */
 export function devtoAvailable(): boolean {
-  return Boolean(process.env.DEVTO_API_KEY);
+  return credentialConfigured("devto");
 }
 
 function requireKey(): string {
-  const key = process.env.DEVTO_API_KEY;
+  const key = credentialValue("devto");
   if (!key) {
     throw new TerminalProviderError(
       `${LABEL}: DEVTO_API_KEY must be set — create one at dev.to → Settings → Extensions → DEV Community API Keys.`,

@@ -533,6 +533,154 @@ describe("job worker linked Run lifecycle", () => {
     expect(getJob(jobId)?.status).toBe("completed");
     expect(scopedActivity()).toEqual([]);
   });
+
+  test("injects one startup credential only for an authenticated requested job scope", async () => {
+    const workspace = createWorkspace({
+      slug: `credential-${crypto.randomUUID()}`,
+      name: "Credential workspace",
+    });
+    const run = startRun({ workspaceId: workspace.id, kind: "generation" });
+    const capturePath = path.join(root.dir, "requested-child.json");
+    const script = [
+      'const fs = require("node:fs");',
+      `fs.writeFileSync(${JSON.stringify(capturePath)}, JSON.stringify({`,
+      "openrouter: process.env.OPENROUTER_API_KEY ?? null,",
+      "elevenlabs: process.env.ELEVENLABS_API_KEY ?? null,",
+      "arbitrary: process.env.ARBITRARY_PROJECT_SECRET ?? null,",
+      "}));",
+    ].join("");
+    const request = {
+      providerId: "openrouter",
+      workspaceId: workspace.id,
+    };
+    const jobId = insertJob({
+      run_id: run.id,
+      kind: "generate.image",
+      command: {
+        argv: ["-e", script],
+        credential: request,
+      },
+    });
+    const executor = createJobExecutor(
+      { ralphyBin: process.execPath, cwd: root.dir, log: () => {} },
+      {
+        spendGate: async () => ({ allowed: true, reason: null }),
+        capturedCredentials: new Map([
+          ["openrouter", "task-2b-worker-startup-secret"],
+          ["elevenlabs", "task-2b-worker-other-secret"],
+        ]),
+      },
+    );
+    executors.push(executor);
+
+    await executor.execute(claimSpecific(jobId));
+
+    expect(JSON.parse(fs.readFileSync(capturePath, "utf8"))).toEqual({
+      openrouter: "task-2b-worker-startup-secret",
+      elevenlabs: null,
+      arbitrary: null,
+    });
+    const persisted = openDomainDb()
+      .query<{ command: string }, [number]>("SELECT command FROM jobs WHERE id = ?")
+      .get(jobId)!.command;
+    const logs = openDomainDb()
+      .query<{ line: string }, [number]>("SELECT line FROM job_logs WHERE job_id = ?")
+      .all(jobId)
+      .map((row) => row.line)
+      .join("\n");
+    expect(persisted).not.toContain("task-2b-worker-startup-secret");
+    expect(JSON.stringify(request)).not.toContain("task-2b-worker-startup-secret");
+    expect(logs).not.toContain("task-2b-worker-startup-secret");
+    expect(getJob(jobId)).toMatchObject({ status: "completed" });
+  });
+
+  test("an implicit queued video uses the persisted available Fal provider", async () => {
+    const workspace = createWorkspace({
+      slug: `fal-credential-${crypto.randomUUID()}`,
+      name: "Fal credential workspace",
+    });
+    const run = startRun({ workspaceId: workspace.id, kind: "generation" });
+    const capturePath = path.join(root.dir, "fal-child.json");
+    const script = [
+      'const fs = require("node:fs");',
+      `fs.writeFileSync(${JSON.stringify(capturePath)}, JSON.stringify({`,
+      "fal: process.env.FAL_KEY ?? null,",
+      "openrouter: process.env.OPENROUTER_API_KEY ?? null,",
+      "}));",
+    ].join("");
+    const jobId = insertJob({
+      run_id: run.id,
+      kind: "generate.video",
+      command: {
+        argv: ["-e", script],
+        credential: { providerId: "fal", workspaceId: workspace.id },
+      },
+    });
+    const executor = createJobExecutor(
+      { ralphyBin: process.execPath, cwd: root.dir, log: () => {} },
+      {
+        spendGate: async () => ({ allowed: true, reason: null }),
+        capturedCredentials: new Map([
+          ["fal", "task-2b-worker-fal-secret"],
+        ]),
+      },
+    );
+    executors.push(executor);
+
+    await executor.execute(claimSpecific(jobId));
+
+    expect(JSON.parse(fs.readFileSync(capturePath, "utf8"))).toEqual({
+      fal: "task-2b-worker-fal-secret",
+      openrouter: null,
+    });
+    expect(getJob(jobId)).toMatchObject({ status: "completed" });
+    expect(JSON.stringify(getJob(jobId))).not.toContain(
+      "task-2b-worker-fal-secret",
+    );
+  });
+
+  test("refuses a credential request whose scope does not match its linked Run", async () => {
+    const requested = createWorkspace({
+      slug: `requested-${crypto.randomUUID()}`,
+      name: "Requested",
+    });
+    const actual = createWorkspace({
+      slug: `actual-${crypto.randomUUID()}`,
+      name: "Actual",
+    });
+    const run = startRun({ workspaceId: actual.id, kind: "generation" });
+    const capturePath = path.join(root.dir, "cross-scope-child.txt");
+    const jobId = insertJob({
+      run_id: run.id,
+      kind: "generate.image",
+      command: {
+        argv: [
+          "-e",
+          `require("node:fs").writeFileSync(${JSON.stringify(capturePath)}, "spawned")`,
+        ],
+        credential: {
+          providerId: "openrouter",
+          workspaceId: requested.id,
+        },
+      },
+    });
+    const executor = createJobExecutor(
+      { ralphyBin: process.execPath, cwd: root.dir, log: () => {} },
+      {
+        spendGate: async () => ({ allowed: true, reason: null }),
+        capturedCredentials: new Map([
+          ["openrouter", "task-2b-cross-scope-secret"],
+        ]),
+      },
+    );
+    executors.push(executor);
+
+    await executor.execute(claimSpecific(jobId));
+
+    expect(fs.existsSync(capturePath)).toBe(false);
+    expect(getJob(jobId)).toMatchObject({ status: "failed" });
+    expect(JSON.stringify(getJob(jobId))).not.toContain("task-2b-cross-scope-secret");
+  });
 });
 
 function linkedJob(

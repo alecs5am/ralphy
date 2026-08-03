@@ -9,6 +9,10 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { root, ralphDir } from "../paths.js";
+import {
+  safeChildEnvironment,
+  startupCredentialTransfer,
+} from "../providers/credentials.js";
 
 const DEFAULT_CONCURRENCY = 4;
 
@@ -83,12 +87,13 @@ export function startDaemon(opts: {
   // Spawn `bun cli/worker-entry.ts` (a tiny shim that calls runWorkerLoop)
   // with the right argv. Using bun directly so we don't need a built binary.
   const workerEntry = path.join(root(), "cli", "worker-entry.ts");
-  const child = spawn("bun", ["run", workerEntry, String(concurrency), ralphyBin], {
+  const child = spawn("bun", ["run", "--no-env-file", workerEntry, String(concurrency), ralphyBin], {
     cwd: root(),
-    env: { ...process.env, RALPHY_DAEMON: "1" },
+    env: daemonChildEnvironment(process.env),
     detached: true,
-    stdio: ["ignore", out, err],
+    stdio: ["pipe", out, err],
   });
+  child.stdin?.end(startupCredentialTransfer());
   child.unref();
 
   // Wait briefly for the worker to write its pid (it writes pidFile in
@@ -104,6 +109,12 @@ export function startDaemon(opts: {
   throw new Error(
     `daemon did not write pid file within 2s — see ${daemonLogPath()} for details`,
   );
+}
+
+export function daemonChildEnvironment(
+  inherited: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  return { ...safeChildEnvironment({ inherited }), RALPHY_DAEMON: "1" };
 }
 
 export function stopDaemon(opts: { graceMs?: number } = {}): {

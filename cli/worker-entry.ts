@@ -6,13 +6,18 @@
 // linker step.
 
 import path from "node:path";
+import fs from "node:fs";
 import { setRoot } from "./lib/paths.js";
 import { runWorkerLoop } from "./lib/jobs/worker.js";
 import { pidFilePath } from "./lib/jobs/daemon.js";
+import { parseStartupCredentialTransfer } from "./lib/providers/credentials.js";
 
 const concurrency = Number(process.argv[2] ?? "4");
 const ralphyBin = process.argv[3] ?? "";
 const cwd = process.cwd();
+const capturedCredentials = parseStartupCredentialTransfer(
+  process.stdin.isTTY ? "" : fs.readFileSync(0, "utf8"),
+);
 
 setRoot(cwd);
 
@@ -26,6 +31,7 @@ runWorkerLoop({
   ralphyBin,
   cwd,
   pidFile: pidFilePath(),
+  capturedCredentials,
 });
 
 // Keep the event loop alive — runWorkerLoop schedules a setTimeout chain.

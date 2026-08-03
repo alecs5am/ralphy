@@ -1,8 +1,8 @@
 // Postiz publish path (#501) — zero-network unit tests.
 //
 // HTTP is injected (the connector's fetchImpl / ExecutorContext.fetchImpl
-// seam); POSTIZ_API_KEY + POSTIZ_BASE_URL are set per test (the connector
-// reads them inside its own sanctioned file). Covers: per-platform payload
+// seam); the explicit credential test source and POSTIZ_BASE_URL are set per
+// test. Covers: per-platform payload
 // mapping, integration-account binding, schedule passthrough (--at + the
 // calendar-slot in-port), partial-failure semantics (one fails → per-target
 // statuses, all fail → throws), the readiness gate (refusal + logged --force
@@ -259,20 +259,9 @@ describe("payload mapping per platform", () => {
 });
 
 describe("workspace Postiz config", () => {
-  test("Postiz Cloud root and secret resolve from workspace credentials", async () => {
-    delete process.env.POSTIZ_API_KEY;
+  test("Postiz Cloud root uses the explicitly resolved test credential", async () => {
     delete process.env.POSTIZ_API_URL;
     delete process.env.POSTIZ_BASE_URL;
-    fs.mkdirSync(workspaceDir(WS), { recursive: true });
-    fs.writeFileSync(
-      path.join(workspaceDir(WS), "credentials.json"),
-      JSON.stringify({
-        version: 1,
-        connectors: {
-          postiz: { apiKey: "workspace-key", apiUrl: "https://api.postiz.com/public/v1" },
-        },
-      }),
-    );
     let call: { url: string; authorization: string | null } | null = null;
     const fetchImpl = (async (url: string, init?: RequestInit) => {
       call = {
@@ -285,7 +274,7 @@ describe("workspace Postiz config", () => {
     await postizIntegrations(fetchImpl, WS);
     expect(call).toEqual({
       url: "https://api.postiz.com/public/v1/integrations",
-      authorization: "workspace-key",
+      authorization: "test-key",
     });
   });
 

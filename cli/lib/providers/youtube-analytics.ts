@@ -27,6 +27,7 @@
 // HTTP is injectable (`fetchImpl`) so tests run with zero network.
 
 import { TerminalProviderError } from "./shared.js";
+import { credentialConfigured, credentialValue } from "./credentials.js";
 
 const LABEL = "YouTube";
 const ENV_VAR = "YOUTUBE_API_KEY";
@@ -37,11 +38,11 @@ export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
 /** True iff the connector's key is present. */
 export function youtubeAnalyticsAvailable(): boolean {
-  return Boolean(process.env.YOUTUBE_API_KEY);
+  return credentialConfigured("youtube");
 }
 
 function requireKey(): string {
-  const key = process.env.YOUTUBE_API_KEY;
+  const key = credentialValue("youtube");
   if (!key) {
     throw new TerminalProviderError(
       `${LABEL}: ${ENV_VAR} is not set. Create an API key at ${SIGNUP_URL} (enable "YouTube Data API v3") and export it.`,

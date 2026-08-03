@@ -23,7 +23,7 @@ let projectDir: string;
 function ralphy(
   args: string[],
   opts: { stdin?: string; env?: Record<string, string> } = {},
-): { exitCode: number; stdout: string; stderr: string; json: any } {
+): { exitCode: number; stdout: string; stderr: string; json: any; errorJson: any } {
   const r = spawnSync("bun", ["run", CLI, ...args], {
     cwd: tmpRoot,
     encoding: "utf8",
@@ -44,7 +44,13 @@ function ralphy(
   } catch {
     /* not JSON — that's fine for some assertions */
   }
-  return { exitCode: r.status ?? -1, stdout: r.stdout, stderr: r.stderr, json };
+  let errorJson: any = null;
+  try {
+    errorJson = JSON.parse(r.stderr.trim().split("\n").at(-1) ?? "");
+  } catch {
+    /* not a structured error */
+  }
+  return { exitCode: r.status ?? -1, stdout: r.stdout, stderr: r.stderr, json, errorJson };
 }
 
 beforeEach(() => {
@@ -71,7 +77,8 @@ afterEach(() => {
 });
 
 describe("ralphy setup --non-interactive", () => {
-  test("writes both keys via flags and emits a structured JSON summary", () => {
+  test("rejects credential values in argv and writes no project env", () => {
+    const sentinel = "setup-argv-secret-sentinel";
     const r = ralphy([
       "setup",
       "-y",
@@ -79,27 +86,19 @@ describe("ralphy setup --non-interactive", () => {
       projectDir,
       "--no-verify",
       "--openrouter-key",
-      "sk-or-flag-test",
+      sentinel,
       "--elevenlabs-key",
-      "xi-flag-test",
+      sentinel,
     ]);
-    expect(r.exitCode).toBe(0);
-    expect(r.json).toBeTruthy();
-    expect(r.json.mode).toBe("non-interactive");
-    expect(r.json.project_dir).toBe(projectDir);
-    expect(r.json.project_link_changed).toBe(true);
-    const orRow = r.json.keys.find((k: any) => k.envVar === "OPENROUTER_API_KEY");
-    const elRow = r.json.keys.find((k: any) => k.envVar === "ELEVENLABS_API_KEY");
-    expect(orRow.saved).toBe(true);
-    expect(orRow.verified).toBeNull();
-    expect(elRow.saved).toBe(true);
-
-    const env = fs.readFileSync(path.join(projectDir, ".env"), "utf8");
-    expect(env).toContain("OPENROUTER_API_KEY=sk-or-flag-test");
-    expect(env).toContain("ELEVENLABS_API_KEY=xi-flag-test");
+    expect(r.exitCode).toBe(2);
+    expect(r.errorJson.error.code).toBe("E_INPUT_INVALID");
+    expect(r.stderr).toContain("provider auth set <provider> --stdin");
+    expect(`${r.stdout}\n${r.stderr}`).not.toContain(sentinel);
+    expect(fs.existsSync(path.join(projectDir, ".env"))).toBe(false);
   });
 
-  test("reads OPENROUTER_API_KEY from stdin when --openrouter-key=`-`", () => {
+  test("legacy stdin flag is refused without echoing or persisting input", () => {
+    const sentinel = "setup-stdin-secret-sentinel";
     const r = ralphy(
       [
         "setup",
@@ -110,32 +109,31 @@ describe("ralphy setup --non-interactive", () => {
         "--openrouter-key",
         "-",
       ],
-      { stdin: "sk-or-from-stdin\n" },
+      { stdin: `${sentinel}\n` },
     );
-    expect(r.exitCode).toBe(0);
-    const env = fs.readFileSync(path.join(projectDir, ".env"), "utf8");
-    expect(env).toContain("OPENROUTER_API_KEY=sk-or-from-stdin");
-    // ELEVENLABS untouched
-    expect(env).not.toContain("ELEVENLABS_API_KEY=");
+    expect(r.exitCode).toBe(2);
+    expect(`${r.stdout}\n${r.stderr}`).not.toContain(sentinel);
+    expect(fs.existsSync(path.join(projectDir, ".env"))).toBe(false);
   });
 
-  test("--keys-from-env picks up env vars and persists them", () => {
+  test("--keys-from-env is refused and captured values are redacted", () => {
+    const sentinel = "setup-env-secret-sentinel";
     const r = ralphy(
       ["setup", "-y", "--project-dir", projectDir, "--no-verify", "--keys-from-env"],
       {
         env: {
-          OPENROUTER_API_KEY: "sk-or-from-env",
-          ELEVENLABS_API_KEY: "xi-from-env",
+          OPENROUTER_API_KEY: sentinel,
+          ELEVENLABS_API_KEY: sentinel,
         },
       },
     );
-    expect(r.exitCode).toBe(0);
-    const env = fs.readFileSync(path.join(projectDir, ".env"), "utf8");
-    expect(env).toContain("OPENROUTER_API_KEY=sk-or-from-env");
-    expect(env).toContain("ELEVENLABS_API_KEY=xi-from-env");
+    expect(r.exitCode).toBe(2);
+    expect(`${r.stdout}\n${r.stderr}`).not.toContain(sentinel);
+    expect(fs.existsSync(path.join(projectDir, ".env"))).toBe(false);
   });
 
-  test("explicit flag wins over --keys-from-env collision", () => {
+  test("mixed legacy credential sources are refused without precedence", () => {
+    const sentinel = "setup-mixed-secret-sentinel";
     const r = ralphy(
       [
         "setup",
@@ -145,14 +143,13 @@ describe("ralphy setup --non-interactive", () => {
         "--no-verify",
         "--keys-from-env",
         "--openrouter-key",
-        "sk-or-from-flag",
+        sentinel,
       ],
-      { env: { OPENROUTER_API_KEY: "sk-or-from-env-LOSER" } },
+      { env: { OPENROUTER_API_KEY: sentinel } },
     );
-    expect(r.exitCode).toBe(0);
-    const env = fs.readFileSync(path.join(projectDir, ".env"), "utf8");
-    expect(env).toContain("OPENROUTER_API_KEY=sk-or-from-flag");
-    expect(env).not.toContain("LOSER");
+    expect(r.exitCode).toBe(2);
+    expect(`${r.stdout}\n${r.stderr}`).not.toContain(sentinel);
+    expect(fs.existsSync(path.join(projectDir, ".env"))).toBe(false);
   });
 
   test("rejects non-project --project-dir with a clear error and exit 1", () => {
@@ -164,8 +161,6 @@ describe("ralphy setup --non-interactive", () => {
       "--project-dir",
       bogus,
       "--no-verify",
-      "--openrouter-key",
-      "sk-x",
     ]);
     expect(r.exitCode).toBe(1);
     expect(r.json.errors[0]).toContain("not a valid project");
@@ -178,8 +173,6 @@ describe("ralphy setup --non-interactive", () => {
       "setup",
       "-y",
       "--no-verify",
-      "--openrouter-key",
-      "sk-x",
     ]);
     expect(r.exitCode).toBe(1);
     expect(r.json.errors[0]).toContain("no project root resolvable");
@@ -200,7 +193,7 @@ describe("ralphy setup --non-interactive", () => {
     expect(fs.existsSync(path.join(projectDir, ".env"))).toBe(false);
   });
 
-  test("preserves unrelated .env entries when adding a new key", () => {
+  test("credential refusal leaves an existing project env byte-for-byte unchanged", () => {
     fs.writeFileSync(
       path.join(projectDir, ".env"),
       "OTHER_VAR=keepme\nOPENROUTER_API_KEY=old-value\n",
@@ -212,13 +205,12 @@ describe("ralphy setup --non-interactive", () => {
       projectDir,
       "--no-verify",
       "--openrouter-key",
-      "sk-or-new",
+      "setup-existing-secret-sentinel",
     ]);
-    expect(r.exitCode).toBe(0);
+    expect(r.exitCode).toBe(2);
     const env = fs.readFileSync(path.join(projectDir, ".env"), "utf8");
     expect(env).toContain("OTHER_VAR=keepme");
-    expect(env).toContain("OPENROUTER_API_KEY=sk-or-new");
-    expect(env).not.toContain("old-value");
+    expect(env).toContain("OPENROUTER_API_KEY=old-value");
   });
 
   test("--status path still works and is unaffected by the new flags", () => {

@@ -31,6 +31,7 @@ import type { Caption } from "./captions/types.js";
 import { referencesDir, sharedDir, currentWorkspace, DEFAULT_WORKSPACE } from "./paths.js";
 import { transcribe, type TranscribeBackend, type TranscribeLanguage } from "./transcribe.js";
 import { callLLM } from "./providers/llm.js";
+import { credentialValue } from "./providers/credentials.js";
 import { logGeneration } from "./gen-log.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -996,8 +997,8 @@ export async function audioDescribeRef(opts: AudioDescribeOptions): Promise<Audi
       `No source.mp3 in ${paths.dir} — run \`ralphy ref pull <url> --slug ${opts.slug}\` first.`,
     );
   }
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error("OPENROUTER_API_KEY not set. Run `ralphy setup`.");
+  const apiKey = credentialValue("openrouter");
+  if (!apiKey) throw new Error("OPENROUTER_API_KEY not configured. Use `ralphy provider auth set openrouter --stdin`.");
 
   const bytes = await fs.readFile(paths.audio);
   const b64 = bytes.toString("base64");

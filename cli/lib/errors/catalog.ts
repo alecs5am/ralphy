@@ -251,13 +251,13 @@ export const ERROR_CODES = {
   E_ENV_KEY_MISSING: {
     class: "env",
     message: "Required API key not set: {key}",
-    hint: "Run `ralphy setup` and paste the key, or `export {key}=...` before retrying.",
+    hint: "Pipe the credential to `ralphy provider auth set <provider> --stdin` before retrying.",
     relatedDocs: "docs/playbooks/core.md#keys",
   },
   E_ENV_KEY_INVALID: {
     class: "env",
     message: "API key for {provider} failed verification",
-    hint: "Regenerate the key in the provider dashboard and re-run `ralphy setup`.",
+    hint: "Regenerate the key, then pipe it to `ralphy provider auth set <provider> --stdin`.",
     relatedDocs: "docs/playbooks/core.md#keys",
   },
   E_DEP_MISSING: {

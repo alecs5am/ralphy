@@ -34,7 +34,6 @@ import {
   getOrCatalogSync,
 } from "../lib/or-catalog.js";
 import { enqueueGenerate } from "../lib/jobs/enqueue.js";
-import type { JobKind } from "../lib/jobs/types.js";
 import { resolveModelAlias } from "../lib/model-aliases.js";
 import {
   preflightModelCall,
@@ -139,7 +138,40 @@ const BUDGET_FLAGS = (cmd: Command): Command =>
       "Content mode for this call (#412), used by a mode-restricted spend approval to decide if the call is permitted (#444).",
     );
 
-function maybeEnqueue(opts: any, kind: JobKind, project: string | undefined): boolean {
+type QueuedGenerationKind =
+  | "generate.image"
+  | "generate.video"
+  | "generate.voiceover"
+  | "generate.music"
+  | "generate.sfx";
+
+export function credentialProviderForQueuedGeneration(
+  kind: QueuedGenerationKind,
+  explicitProvider?: string,
+): string {
+  const capability =
+    kind === "generate.image"
+      ? "image"
+      : kind === "generate.video"
+        ? "video"
+        : kind === "generate.voiceover"
+          ? "voice"
+          : kind === "generate.music"
+            ? "music"
+            : "sfx";
+  return resolveConnector(capability, explicitProvider).id;
+}
+
+function maybeEnqueue(
+  opts: any,
+  kind: QueuedGenerationKind,
+  project: string | undefined,
+): boolean {
+  if (!opts.queue) return false;
+  const credentialProviderId = credentialProviderForQueuedGeneration(
+    kind,
+    opts.provider,
+  );
   const id = enqueueGenerate(
     {
       queue: opts.queue,
@@ -147,6 +179,7 @@ function maybeEnqueue(opts: any, kind: JobKind, project: string | undefined): bo
       tag: opts.queueTag,
       priority: opts.queuePriority,
       project,
+      credentialProviderId,
     },
     kind,
   );

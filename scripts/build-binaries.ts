@@ -52,6 +52,7 @@ async function build(target: Target, distDir: string, withBytecode: boolean): Pr
   const args = [
     "build",
     "--compile",
+    "--no-compile-autoload-dotenv",
     "--minify",
     "--sourcemap",
     `--target=${target.target}`,

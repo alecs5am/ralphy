@@ -38,6 +38,10 @@ import fs from "node:fs/promises";
 import { existsSync, statSync } from "node:fs";
 import type { Caption } from "./captions/types.js";
 import { callLLM } from "./providers/llm.js";
+import {
+  credentialConfigured,
+  credentialValue,
+} from "./providers/credentials.js";
 
 export type TranscribeBackend = "elevenlabs" | "openrouter" | "gemini";
 export type TranscribeLanguage = "ru" | "en" | "auto";
@@ -177,10 +181,10 @@ function scribeWordConfidence(w: ScribeWord): number | null {
 }
 
 function pickBackend(): TranscribeBackend {
-  if (process.env.ELEVENLABS_API_KEY) return "elevenlabs";
-  if (process.env.OPENROUTER_API_KEY) return "openrouter";
+  if (credentialConfigured("elevenlabs")) return "elevenlabs";
+  if (credentialConfigured("openrouter")) return "openrouter";
   throw new Error(
-    "Neither ELEVENLABS_API_KEY nor OPENROUTER_API_KEY is set. Run `ralphy setup`.",
+    "Neither ELEVENLABS_API_KEY nor OPENROUTER_API_KEY is configured. Use `ralphy provider auth set <provider> --stdin`.",
   );
 }
 
@@ -243,9 +247,9 @@ async function viaElevenLabs(
   language: TranscribeLanguage,
   signal?: AbortSignal,
 ): Promise<Omit<TranscribeResult, "durationMs" | "backend">> {
-  const apiKey = process.env.ELEVENLABS_API_KEY;
+  const apiKey = credentialValue("elevenlabs");
   if (!apiKey) {
-    throw new Error("ELEVENLABS_API_KEY not set. Run `ralphy setup`.");
+    throw new Error("ELEVENLABS_API_KEY not configured. Use `ralphy provider auth set elevenlabs --stdin`.");
   }
   const bytes = await fs.readFile(abs);
   const form = new FormData();
@@ -365,8 +369,8 @@ async function viaOpenRouter(
   language: TranscribeLanguage,
   signal?: AbortSignal,
 ): Promise<Omit<TranscribeResult, "durationMs" | "backend">> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error("OPENROUTER_API_KEY not set. Run `ralphy setup`.");
+  const apiKey = credentialValue("openrouter");
+  if (!apiKey) throw new Error("OPENROUTER_API_KEY not configured. Use `ralphy provider auth set openrouter --stdin`.");
 
   const bytes = await fs.readFile(abs);
   const form = new FormData();
@@ -476,8 +480,8 @@ async function viaGemini(
   // OpenRouter passes through Gemini's audio input. Format: input_audio with base64.
   // Note: not all routers fully support this body shape; fail-loud is the right
   // failure mode here — we don't want silent garbage transcripts.
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error("OPENROUTER_API_KEY not set.");
+  const apiKey = credentialValue("openrouter");
+  if (!apiKey) throw new Error("OPENROUTER_API_KEY not configured. Use `ralphy provider auth set openrouter --stdin`.");
 
   const body = {
     model: GEMINI_AUDIO_MODEL,

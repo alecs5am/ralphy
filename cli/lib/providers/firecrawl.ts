@@ -18,6 +18,7 @@
 // HTTP is injectable (`fetchImpl`) so tests run with zero network.
 
 import { TerminalProviderError } from "./shared.js";
+import { credentialConfigured, credentialValue } from "./credentials.js";
 
 const LABEL = "Firecrawl";
 const ENV_VAR = "FIRECRAWL_API_KEY";
@@ -28,7 +29,7 @@ export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
 /** True iff the connector's key is present. */
 export function firecrawlAvailable(): boolean {
-  return Boolean(process.env.FIRECRAWL_API_KEY);
+  return credentialConfigured("firecrawl");
 }
 
 function requireKey(): void {
@@ -41,7 +42,7 @@ function requireKey(): void {
 
 function authHeaders(): Record<string, string> {
   return {
-    Authorization: `Bearer ${process.env.FIRECRAWL_API_KEY!}`,
+    Authorization: `Bearer ${credentialValue("firecrawl")!}`,
     "Content-Type": "application/json",
   };
 }

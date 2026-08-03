@@ -52,6 +52,7 @@ import {
   listActivity,
 } from "../../cli/lib/store/activity.js";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
+import { credentialSecretRef } from "../../cli/lib/providers/credentials.js";
 import {
   getDocumentContent,
   getBuildDocumentBinding,
@@ -122,6 +123,7 @@ import {
   updateProject,
   updateWorkspace,
   upsertSocialAccount,
+  updateSocialAccountCredential,
 } from "../../cli/lib/store/scopes.js";
 import {
   endAgentSession,
@@ -200,12 +202,22 @@ async function makeSurfaceFixture(): Promise<{
     createdProject.rowVersion,
   );
   const context = { workspaceId: workspace.id, projectId: project.id } as const;
-  const account = upsertSocialAccount({
+  const createdAccount = upsertSocialAccount({
     workspaceId: workspace.id,
     platform: "tiktok",
     externalId: "surface-account",
     displayName: "Surface",
     config: { profile: "surface" },
+  });
+  const account = updateSocialAccountCredential({
+    workspaceId: workspace.id,
+    accountId: createdAccount.id,
+    credentialRef: credentialSecretRef("postiz", {
+      kind: "scope",
+      workspaceId: workspace.id,
+      accountId: createdAccount.id,
+    }),
+    expectedRowVersion: createdAccount.rowVersion,
   });
   const session = startAgentSession({
     workspaceId: workspace.id,
@@ -736,6 +748,22 @@ function isFeedbackBody(record: Record<string, unknown>, key: string): boolean {
   );
 }
 
+function isSafeAccountCredentialStatus(
+  record: Record<string, unknown>,
+  key: string,
+): boolean {
+  if (!("workspaceId" in record) || !("platform" in record) || !("externalId" in record)) {
+    return false;
+  }
+  if (key === "credentialConfigured") return typeof record[key] === "boolean";
+  return (
+    key === "credentialSource" &&
+    ["encrypted", "environment", "subscription", "missing"].includes(
+      String(record[key]),
+    )
+  );
+}
+
 function forbiddenOrdinaryFields(value: unknown): string[] {
   const found: string[] = [];
   const seen = new WeakSet<object>();
@@ -751,6 +779,7 @@ function forbiddenOrdinaryFields(value: unknown): string[] {
       const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, "");
       if (
         !isFeedbackBody(current, key) &&
+        !isSafeAccountCredentialStatus(current, key) &&
         (ordinaryKeyParts(key).some((part) =>
           FORBIDDEN_ORDINARY_KEY_PARTS.has(part),
         ) ||

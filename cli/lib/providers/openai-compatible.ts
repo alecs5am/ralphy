@@ -6,10 +6,8 @@
 // INVARIANT #1 (AGENTS.md). This connector is REGISTERED, so it is allowed to
 // hold a key and hit a host — but only the ones the user configured:
 //   • The host is ONLY `entry.baseUrl` — no hardcoded openai.com / fal host.
-//   • The key is read DYNAMICALLY via `process.env[entry.envVar]` — never a
-//     literal banned env-var name. The config loader already rejected a banned
-//     `envVar` (config.ts BANNED_ENV_VARS), so the only env vars this factory
-//     can ever read are safe, user-declared names.
+//   • Keyed custom endpoints use their scoped encrypted provider ref. Arbitrary
+//     config-declared environment names are never startup-captured.
 
 import { logGeneration } from "../gen-log.js";
 import { withConcurrency } from "./concurrency.js";
@@ -24,6 +22,7 @@ import type {
   CallLLMOptions,
   CallLLMResult,
 } from "./types.js";
+import { credentialConfigured, credentialValue } from "./credentials.js";
 
 const DEFAULT_LLM_MODEL = "gpt-3.5-turbo"; // overridable per call / via judge config
 
@@ -42,15 +41,27 @@ export function makeOpenAiCompatibleConnector(entry: ProviderConfigEntry): Ralph
   const envVar = entry.envVar ?? "(keyless)";
   const url = chatCompletionsUrl(entry.baseUrl);
 
-  // available(): baseUrl is always set (validated). Keyless local is allowed;
-  // when a key var is declared it must be present. Dynamic env read only.
+  const credential = entry.envVar
+    ? ({
+        providerId: entry.id,
+        kind: "api-key",
+        environmentVariable: null,
+      } as const)
+    : ({
+        providerId: entry.id,
+        kind: "none",
+        environmentVariable: null,
+      } as const);
+
+  // Custom environment names are deliberately not startup-captured. Keyed
+  // endpoints use the same scoped encrypted resolver as bundled providers.
   const available = (): boolean =>
-    Boolean(entry.baseUrl) && (!entry.envVar || Boolean(process.env[entry.envVar]));
+    Boolean(entry.baseUrl) && (!entry.envVar || credentialConfigured(id));
 
   async function callLLM(opts: CallLLMOptions): Promise<CallLLMResult> {
     const model = opts.model ?? DEFAULT_LLM_MODEL;
     const endpoint = opts.endpoint ?? `${id}/chat-completions`;
-    const apiKey = entry.envVar ? process.env[entry.envVar] : undefined;
+    const apiKey = entry.envVar ? credentialValue(id) ?? undefined : undefined;
 
     const body: Record<string, unknown> = {
       model,
@@ -113,6 +124,7 @@ export function makeOpenAiCompatibleConnector(entry: ProviderConfigEntry): Ralph
     id,
     label,
     envVar,
+    credential,
     signupUrl: entry.baseUrl,
     capabilities: entry.capabilities,
     available,

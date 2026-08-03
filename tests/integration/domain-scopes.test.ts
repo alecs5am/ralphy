@@ -13,8 +13,10 @@ import {
   resolveFeedback,
   upsertSocialAccount,
   updateProject,
+  updateSocialAccountCredential,
   updateWorkspace,
 } from "../../cli/lib/store/scopes.js";
+import { credentialSecretRef } from "../../cli/lib/providers/credentials.js";
 import { transferProjectMetadata } from "../../cli/lib/store/internal-scope-mutations.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 import { scopedActivity } from "../helpers/activity.js";
@@ -36,6 +38,77 @@ afterEach(() => {
 });
 
 describe("domain scope stores", () => {
+  test("links and clears an account credential optimistically without exposing its ref", () => {
+    makeRoot();
+    const workspace = createWorkspace({ slug: "account-auth", name: "Account auth" });
+    const outside = createWorkspace({ slug: "account-auth-outside", name: "Outside" });
+    const account = upsertSocialAccount({
+      workspaceId: workspace.id,
+      platform: "postiz",
+      externalId: "postiz-account",
+    });
+    const ref = credentialSecretRef("postiz", {
+      kind: "scope",
+      workspaceId: workspace.id,
+      accountId: account.id,
+    });
+    openDomainDb()
+      .prepare(
+        `UPDATE social_accounts
+         SET credential_ref = ?, relink_required = 1, row_version = row_version + 1
+         WHERE id = ?`,
+      )
+      .run(ref, account.id);
+
+    expect(listSocialAccounts({ workspaceId: workspace.id }).items[0]).toMatchObject({
+      credentialConfigured: true,
+      credentialSource: "encrypted",
+      relinkRequired: true,
+      rowVersion: 2,
+    });
+    const linked = updateSocialAccountCredential({
+      workspaceId: workspace.id,
+      accountId: account.id,
+      credentialRef: ref,
+      expectedRowVersion: 2,
+    });
+    expect(linked).toMatchObject({
+      credentialConfigured: true,
+      credentialSource: "encrypted",
+      relinkRequired: false,
+      rowVersion: 3,
+    });
+    expect(JSON.stringify(linked)).not.toContain(ref);
+    expect(() =>
+      updateSocialAccountCredential({
+        workspaceId: workspace.id,
+        accountId: account.id,
+        credentialRef: ref,
+        expectedRowVersion: 2,
+      }),
+    ).toThrow();
+    expect(() =>
+      updateSocialAccountCredential({
+        workspaceId: outside.id,
+        accountId: account.id,
+        credentialRef: ref,
+        expectedRowVersion: 3,
+      }),
+    ).toThrow();
+    const cleared = updateSocialAccountCredential({
+      workspaceId: workspace.id,
+      accountId: account.id,
+      credentialRef: null,
+      expectedRowVersion: 3,
+    });
+    expect(cleared).toMatchObject({
+      credentialConfigured: false,
+      credentialSource: "missing",
+      relinkRequired: false,
+      rowVersion: 4,
+    });
+    expect(JSON.stringify(cleared)).not.toContain("credentialRef");
+  });
   test("returns a safe Workspace DTO while persisting update metadata", () => {
     makeRoot();
     const workspace = createWorkspace({
@@ -85,14 +158,46 @@ describe("domain scope stores", () => {
 
     expect(Object.keys(account).sort()).toEqual([
       "createdAt",
+      "credentialConfigured",
+      "credentialSource",
       "displayName",
       "externalId",
       "id",
       "platform",
+      "relinkRequired",
+      "rowVersion",
       "updatedAt",
       "username",
       "workspaceId",
     ]);
+    expect(account).toMatchObject({
+      credentialConfigured: false,
+      credentialSource: "missing",
+      relinkRequired: false,
+      rowVersion: 1,
+    });
+    openDomainDb()
+      .prepare(
+        `UPDATE social_accounts
+         SET credential_ref = ?, relink_required = 1, row_version = row_version + 1
+         WHERE id = ?`,
+      )
+      .run(
+        `provider/postiz/workspace/${workspace.id}/account/${account.id}`,
+        account.id,
+      );
+    const configured = listSocialAccounts({
+      workspaceId: workspace.id,
+      limit: 10,
+    }).items[0]!;
+    expect(configured).toMatchObject({
+      credentialConfigured: true,
+      credentialSource: "encrypted",
+      relinkRequired: true,
+      rowVersion: 2,
+    });
+    expect(JSON.stringify(configured)).not.toContain("credential_ref");
+    expect(JSON.stringify(configured)).not.toContain("provider/postiz");
     expect(
       openDomainDb()
         .query<{ config: string | null }, [string]>(
@@ -438,6 +543,10 @@ describe("domain scope stores", () => {
         externalId: account.externalId,
         displayName: account.displayName,
         username: account.username,
+        credentialConfigured: false,
+        credentialSource: "missing",
+        relinkRequired: false,
+        rowVersion: 1,
         createdAt: account.createdAt,
         updatedAt: account.updatedAt,
       },

@@ -35,6 +35,11 @@ import type {
   GenerateVideoInput,
   GenerateResult,
 } from "./types.js";
+import {
+  credentialConfigured,
+  credentialValue,
+  OPENROUTER_CREDENTIAL,
+} from "./credentials.js";
 
 const ID = "openrouter";
 const LABEL = "OpenRouter";
@@ -128,7 +133,7 @@ export function sizeMismatchWarning(
 }
 
 function requireKey(): void {
-  requireProviderKey({ envVar: ENV_VAR, label: LABEL, signupUrl: SIGNUP_URL });
+  requireProviderKey({ providerId: ID, envVar: ENV_VAR, label: LABEL, signupUrl: SIGNUP_URL });
 }
 
 // ─── text (chat-completions) ─────────────────────────────────────────────────
@@ -137,7 +142,7 @@ const DEFAULT_LLM_MODEL = "google/gemini-2.5-flash";
 
 export async function callLLM(opts: CallLLMOptions): Promise<CallLLMResult> {
   requireKey();
-  const apiKey = process.env.OPENROUTER_API_KEY!;
+  const apiKey = credentialValue(ID)!;
   const model = opts.model ?? DEFAULT_LLM_MODEL;
   const endpoint = opts.endpoint ?? "openrouter/chat-completions";
 
@@ -272,7 +277,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
   const t0 = Date.now();
   const model = input.model ?? DEFAULT_IMAGE_MODEL;
   const size = input.size ?? "1080x1920";
-  const apiKey = process.env.OPENROUTER_API_KEY!;
+  const apiKey = credentialValue(ID)!;
 
   // OpenRouter image-generation models (gemini-3-pro-image-preview,
   // gpt-5.4-image-2, …) are exposed via /api/v1/chat/completions with
@@ -467,7 +472,7 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
   requireKey();
   const t0 = Date.now();
   const model = input.model ?? DEFAULT_VIDEO_MODEL;
-  const apiKey = process.env.OPENROUTER_API_KEY!;
+  const apiKey = credentialValue(ID)!;
   const aspectRatio = input.aspectRatio ?? "9:16";
   const resolution = input.resolution ?? "720p";
   const pollIntervalMs = input.pollIntervalMs ?? 15_000;
@@ -726,9 +731,10 @@ export const openrouterConnector: RalphyConnector = {
   id: ID,
   label: LABEL,
   envVar: ENV_VAR,
+  credential: OPENROUTER_CREDENTIAL,
   signupUrl: SIGNUP_URL,
   capabilities: ["text", "image", "video", "transcribe"],
-  available: () => Boolean(process.env[ENV_VAR]),
+  available: () => credentialConfigured(ID),
   callLLM,
   generateImage,
   generateVideo,

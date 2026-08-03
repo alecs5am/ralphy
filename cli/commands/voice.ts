@@ -10,6 +10,7 @@ import path from "node:path";
 import { out, err } from "../lib/output.js";
 import { requireCapability } from "../lib/capabilities.js";
 import { cloneVoice, designVoice, createVoiceFromPreview } from "../lib/providers/elevenlabs.js";
+import { credentialValue } from "../lib/providers/credentials.js";
 
 export function voiceCmd(): Command {
   const cmd = new Command("voice").description(
@@ -23,7 +24,7 @@ export function voiceCmd(): Command {
     )
     .action(async (voiceId: string) => {
       requireCapability("voiceover-elevenlabs");
-      const apiKey = process.env.ELEVENLABS_API_KEY!;
+      const apiKey = credentialValue("elevenlabs")!;
       const resp = await fetch(`https://api.elevenlabs.io/v1/voices/${encodeURIComponent(voiceId)}`, {
         headers: { "xi-api-key": apiKey },
       });
@@ -170,7 +171,7 @@ Examples:
     .description("List voices available on the user's ElevenLabs account (custom clones + favorites).")
     .action(async () => {
       requireCapability("voiceover-elevenlabs");
-      const apiKey = process.env.ELEVENLABS_API_KEY!;
+      const apiKey = credentialValue("elevenlabs")!;
       const resp = await fetch("https://api.elevenlabs.io/v1/voices", {
         headers: { "xi-api-key": apiKey },
       });

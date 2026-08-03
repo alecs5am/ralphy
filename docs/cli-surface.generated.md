@@ -155,13 +155,12 @@ Options:
   --non-interactive       Agent / CI mode: never prompt, never open a TUI, emit
                           a JSON summary (default: false)
   -y, --yes               Alias for --non-interactive (default: false)
-  --openrouter-key <key>  Set OPENROUTER_API_KEY (use `-` to read from stdin).
-                          Implies --non-interactive
-  --elevenlabs-key <key>  Set ELEVENLABS_API_KEY (use `-` to read from stdin).
-                          Implies --non-interactive
-  --keys-from-env         Pick up OPENROUTER_API_KEY / ELEVENLABS_API_KEY from
-                          the current process env. Implies --non-interactive
-                          (default: false)
+  --openrouter-key <key>  Deprecated and refused; use provider auth set
+                          openrouter --stdin
+  --elevenlabs-key <key>  Deprecated and refused; use provider auth set
+                          elevenlabs --stdin
+  --keys-from-env         Deprecated and refused; project/inherited env is not a
+                          credential source (default: false)
   --project-dir <path>    Link ralphy to this project directory before
                           configuring keys. Implies --non-interactive
   --no-verify             Skip API ping verification when saving keys
@@ -273,6 +272,7 @@ Options:
 Commands:
   list [options]       List registered provider connectors, their capabilities,
                        and whether each is configured (key present).
+  auth                 Manage scoped provider credentials
   test [options] [id]  Report each connector's availability + config validity.
                        Offline by default (no network); --ping hits the
                        endpoint.
@@ -1675,8 +1675,7 @@ Options:
   -h, --help         display help for command
 
 Commands:
-  connect [options]  Save a workspace-local Postiz key and verify it with a
-                     read-only integrations request
+  connect [options]  Import a scoped Postiz key from stdin and verify it
   status [options]   Verify the saved workspace connection and list public
                      account metadata (read-only)
   help [command]     display help for command

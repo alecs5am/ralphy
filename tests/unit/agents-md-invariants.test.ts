@@ -15,14 +15,9 @@
 // Coverage map (see AGENTS.md `Tested by:` annotations for the inverse view):
 //
 //   #1  only registered connectors hold keys      — TESTED (this file;
-//       (FAL_KEY sanctioned in cli/lib/providers/fal.ts only; FIRECRAWL_API_KEY
-//        in cli/lib/providers/firecrawl.ts only + APIFY_TOKEN in
-//        cli/lib/providers/apify.ts only — #500 ingestion connectors;
-//        POSTIZ_API_KEY + POSTIZ_API_URL + legacy POSTIZ_BASE_URL in
-//        cli/lib/providers/postiz.ts only — #501 publish connector;
-//        YOUTUBE_API_KEY + googleapis.com
-//        in cli/lib/providers/youtube-analytics.ts only — #507 analytics
-//        connector; hosted Vercel / OpenAI-direct forbidden everywhere)
+//       credential names live in the central descriptor allowlist, connector
+//       modules never read credential env vars directly, provider hosts remain
+//       connector-file scoped, and hosted Vercel / OpenAI-direct are forbidden)
 //   #2  ralphy is the only entry-point            — partially TESTED
 //                                                   (this file + tests/integration/cli-render-from-clip.test.ts)
 //   #3  reference-required gate                   — TESTED (tests/unit/eval-refs.test.ts)
@@ -91,8 +86,20 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
   // that merely imports the connector is NOT allowlisted. Hosted Vercel +
   // OpenAI-direct stay forbidden everywhere with no allowlist.
   const FAL_CONNECTOR = path.join("cli", "lib", "providers", "fal.ts");
-  // Files permitted to read FAL_KEY / hit fal hosts (the sanctioned connector only).
+  const CREDENTIAL_DESCRIPTORS = path.join("cli", "lib", "providers", "credentials.ts");
+  // Files permitted to hit fal hosts (the sanctioned connector only).
   const falAllowlist = new Set<string>([FAL_CONNECTOR]);
+
+  function expectCredentialDescriptor(providerId: string, environmentVariable: string): void {
+    const src = fs.readFileSync(path.join(REPO, CREDENTIAL_DESCRIPTORS), "utf8");
+    const escapedProvider = providerId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const escapedVariable = environmentVariable.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    expect(src).toMatch(
+      new RegExp(
+        `providerId:\\s*["']${escapedProvider}["'][\\s\\S]{0,200}environmentVariable:\\s*["']${escapedVariable}["']`,
+      ),
+    );
+  }
 
   // Hosted Vercel + OpenAI-direct: forbidden everywhere, no allowlist.
   const forbiddenEverywhere = ["VERCEL_KEY", "VERCEL_API_KEY", "OPENAI_API_KEY"];
@@ -109,11 +116,10 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
     expect(offenders).toEqual([]);
   });
 
-  test("FAL_KEY is read ONLY by the sanctioned fal connector file", () => {
+  test("FAL_KEY is never read directly from process.env", () => {
     const offenders: string[] = [];
     for (const f of sourceFiles()) {
       const rel = path.relative(REPO, f);
-      if (falAllowlist.has(rel)) continue; // sanctioned connector — allowed
       const src = fs.readFileSync(f, "utf8");
       // Match `process.env.FAL_KEY` and `process.env["FAL_KEY"]`.
       if (/process\.env(?:\.FAL_KEY\b|\[["']FAL_KEY["']\])/.test(src)) {
@@ -123,12 +129,8 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
     expect(offenders).toEqual([]);
   });
 
-  test("the sanctioned fal connector DOES read FAL_KEY (allowlist is not vacuous)", () => {
-    // Guards against the allowlist drifting onto a file that no longer reads the
-    // key — if fal.ts stops reading FAL_KEY this should fail so the allowlist is
-    // re-pointed rather than left granting an unused exemption.
-    const src = fs.readFileSync(path.join(REPO, FAL_CONNECTOR), "utf8");
-    expect(/process\.env(?:\.FAL_KEY\b|\[["']FAL_KEY["']\])/.test(src)).toBe(true);
+  test("the credential descriptor allowlist owns FAL_KEY", () => {
+    expectCredentialDescriptor("fal", "FAL_KEY");
   });
 
   test("fal.ai / fal.run hosts appear ONLY in the sanctioned fal connector file", () => {
@@ -165,14 +167,22 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
   // #500 ingestion connectors — the same file-scoped discipline as fal:
   // each connector's env var + host are sanctioned ONLY inside its own file,
   // and the allowlist must not be vacuous.
-  const INGESTION_CONNECTORS: Array<{ file: string; envVar: string; hostRe: RegExp; hostLabel: string }> = [
+  const INGESTION_CONNECTORS: Array<{
+    providerId: string;
+    file: string;
+    envVar: string;
+    hostRe: RegExp;
+    hostLabel: string;
+  }> = [
     {
+      providerId: "firecrawl",
       file: path.join("cli", "lib", "providers", "firecrawl.ts"),
       envVar: "FIRECRAWL_API_KEY",
       hostRe: /https?:\/\/[a-z0-9.-]*firecrawl\.dev\b/i,
       hostLabel: "firecrawl.dev",
     },
     {
+      providerId: "apify",
       file: path.join("cli", "lib", "providers", "apify.ts"),
       envVar: "APIFY_TOKEN",
       hostRe: /https?:\/\/[a-z0-9.-]*apify\.com\b/i,
@@ -183,6 +193,7 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
     // future Google API), so the named OAuth follow-up cannot land a Google
     // host outside this file either.
     {
+      providerId: "youtube",
       file: path.join("cli", "lib", "providers", "youtube-analytics.ts"),
       envVar: "YOUTUBE_API_KEY",
       hostRe: /https?:\/\/[a-z0-9.-]*googleapis\.com\b/i,
@@ -193,49 +204,57 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
   // #501 publish connector — same file-scoped env-var discipline. Cloud and
   // self-hosted API roots are configurable, so the env-var allowlist is the
   // enforceable half of the invariant, hence hostRe: null.
-  const PUBLISH_CONNECTORS: Array<{ file: string; envVar: string; hostRe: null }> = [
-    { file: path.join("cli", "lib", "providers", "postiz.ts"), envVar: "POSTIZ_API_KEY", hostRe: null },
-    { file: path.join("cli", "lib", "providers", "postiz.ts"), envVar: "POSTIZ_API_URL", hostRe: null },
-    { file: path.join("cli", "lib", "providers", "postiz.ts"), envVar: "POSTIZ_BASE_URL", hostRe: null },
+  const PUBLISH_CONNECTORS: Array<{
+    providerId: string | null;
+    file: string;
+    envVar: string;
+    hostRe: null;
+  }> = [
+    { providerId: "postiz", file: path.join("cli", "lib", "providers", "postiz.ts"), envVar: "POSTIZ_API_KEY", hostRe: null },
+    { providerId: null, file: path.join("cli", "lib", "providers", "postiz.ts"), envVar: "POSTIZ_API_URL", hostRe: null },
+    { providerId: null, file: path.join("cli", "lib", "providers", "postiz.ts"), envVar: "POSTIZ_BASE_URL", hostRe: null },
     // #527 article connectors — same file-scoped env-var discipline. dev.to +
     // Hashnode have FIXED hosts (dev.to / gql.hashnode.com), asserted below.
-    { file: path.join("cli", "lib", "providers", "devto.ts"), envVar: "DEVTO_API_KEY", hostRe: null },
-    { file: path.join("cli", "lib", "providers", "hashnode.ts"), envVar: "HASHNODE_TOKEN", hostRe: null },
+    { providerId: "devto", file: path.join("cli", "lib", "providers", "devto.ts"), envVar: "DEVTO_API_KEY", hostRe: null },
+    { providerId: "hashnode", file: path.join("cli", "lib", "providers", "hashnode.ts"), envVar: "HASHNODE_TOKEN", hostRe: null },
   ];
 
-  for (const { file, envVar } of PUBLISH_CONNECTORS) {
+  for (const { providerId, file, envVar } of PUBLISH_CONNECTORS) {
     const keyRe = new RegExp(`process\\.env(?:\\.${envVar}\\b|\\[["']${envVar}["']\\])`);
 
-    test(`${envVar} is read ONLY by the sanctioned connector file (${file})`, () => {
+    test(`${envVar} is only read at its sanctioned boundary (${file})`, () => {
       const offenders: string[] = [];
       for (const f of sourceFiles()) {
         const rel = path.relative(REPO, f);
-        if (rel === file) continue; // sanctioned connector — allowed
+        if (providerId === null && rel === file) continue;
         if (keyRe.test(fs.readFileSync(f, "utf8"))) offenders.push(`${rel} → ${envVar}`);
       }
       expect(offenders).toEqual([]);
     });
 
-    test(`the sanctioned connector DOES read ${envVar} (allowlist is not vacuous)`, () => {
-      expect(keyRe.test(fs.readFileSync(path.join(REPO, file), "utf8"))).toBe(true);
+    test(`${envVar} has a non-vacuous sanctioned owner`, () => {
+      if (providerId === null) {
+        expect(keyRe.test(fs.readFileSync(path.join(REPO, file), "utf8"))).toBe(true);
+      } else {
+        expectCredentialDescriptor(providerId, envVar);
+      }
     });
   }
 
-  for (const { file, envVar, hostRe, hostLabel } of INGESTION_CONNECTORS) {
+  for (const { providerId, file, envVar, hostRe, hostLabel } of INGESTION_CONNECTORS) {
     const keyRe = new RegExp(`process\\.env(?:\\.${envVar}\\b|\\[["']${envVar}["']\\])`);
 
-    test(`${envVar} is read ONLY by the sanctioned connector file (${file})`, () => {
+    test(`${envVar} is never read directly from process.env`, () => {
       const offenders: string[] = [];
       for (const f of sourceFiles()) {
         const rel = path.relative(REPO, f);
-        if (rel === file) continue; // sanctioned connector — allowed
         if (keyRe.test(fs.readFileSync(f, "utf8"))) offenders.push(`${rel} → ${envVar}`);
       }
       expect(offenders).toEqual([]);
     });
 
-    test(`the sanctioned connector DOES read ${envVar} (allowlist is not vacuous)`, () => {
-      expect(keyRe.test(fs.readFileSync(path.join(REPO, file), "utf8"))).toBe(true);
+    test(`the credential descriptor allowlist owns ${envVar}`, () => {
+      expectCredentialDescriptor(providerId, envVar);
     });
 
     test(`${hostLabel} hosts appear ONLY in the sanctioned connector file`, () => {

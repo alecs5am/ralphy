@@ -52,6 +52,20 @@ export type UpsertSocialAccountInput = {
   config?: JsonValue | null;
 };
 
+export type UpdateSocialAccountCredentialInput = {
+  workspaceId: string;
+  accountId: string;
+  credentialRef: string | null;
+  expectedRowVersion: number;
+};
+
+/** @internal Includes the private secret reference for credential coordination. */
+export type SocialAccountCredentialState = {
+  credentialRef: string | null;
+  relinkRequired: boolean;
+  rowVersion: number;
+};
+
 export type CreateProjectInput = {
   workspaceId: string;
   slug: string;
@@ -116,6 +130,14 @@ type IterationDbRow = {
   closed_at: number | null;
 };
 
+type AccountDbDto = Omit<
+  OverviewAccountDto,
+  "credentialConfigured" | "relinkRequired"
+> & {
+  credentialConfigured: number;
+  relinkRequired: number;
+};
+
 const WORKSPACE_COLUMNS =
   "id, slug, name, metadata_json, row_version, created_at, updated_at";
 const PROJECT_COLUMNS =
@@ -124,6 +146,12 @@ const ITERATION_COLUMNS =
   "id, project_id, number, title, reason, state, created_at, closed_at";
 const FEEDBACK_COLUMNS =
   "id, iteration_id, target_type, target_id, timecode_ms, body, status, resolution_note, created_at, resolved_at";
+const ACCOUNT_DTO_COLUMNS = `id, workspace_id AS workspaceId, platform,
+  external_id AS externalId, display_name AS displayName, username,
+  (credential_ref IS NOT NULL) AS credentialConfigured,
+  CASE WHEN credential_ref IS NOT NULL THEN 'encrypted' ELSE 'missing' END AS credentialSource,
+  relink_required AS relinkRequired, row_version AS rowVersion,
+  created_at AS createdAt, updated_at AS updatedAt`;
 const FEEDBACK_DTO_SELECT = `SELECT feedback.id AS id,
        iteration.project_id AS projectId, feedback.iteration_id AS iterationId,
        feedback.target_type AS targetType, feedback.target_id AS targetId,
@@ -259,7 +287,8 @@ export function upsertSocialAccount(
     if (existing) {
       db.prepare(
         `UPDATE social_accounts
-         SET display_name = ?, username = ?, config_json = ?, updated_at = ?
+         SET display_name = ?, username = ?, config_json = ?,
+             row_version = row_version + 1, updated_at = ?
          WHERE id = ?`,
       ).run(
         input.displayName ?? null,
@@ -287,10 +316,8 @@ export function upsertSocialAccount(
       );
     }
     const account = db
-      .query<OverviewAccountDto, [string, string, string]>(
-        `SELECT id, workspace_id AS workspaceId, platform,
-                external_id AS externalId, display_name AS displayName, username,
-                created_at AS createdAt, updated_at AS updatedAt
+      .query<AccountDbDto, [string, string, string]>(
+        `SELECT ${ACCOUNT_DTO_COLUMNS}
          FROM social_accounts
          WHERE workspace_id = ? AND platform = ? AND external_id = ?`,
       )
@@ -307,7 +334,7 @@ export function upsertSocialAccount(
       },
       createdAt: now,
     });
-    return account;
+    return toOverviewAccountDto(account);
   });
 }
 
@@ -327,18 +354,119 @@ export function listSocialAccounts(input: {
   }
   values.push(limit + 1);
   const rows = openDomainDb()
-    .query<OverviewAccountDto, (string | number)[]>(
-      `SELECT id, workspace_id AS workspaceId, platform,
-              external_id AS externalId, display_name AS displayName, username,
-              created_at AS createdAt, updated_at AS updatedAt
+    .query<AccountDbDto, (string | number)[]>(
+      `SELECT ${ACCOUNT_DTO_COLUMNS}
        FROM social_accounts WHERE ${clauses.join(" AND ")}
        ORDER BY created_at ASC, id ASC LIMIT ?`,
     )
     .all(...values);
-  return buildPage(rows, limit, "c1", (row) => ({
+  return buildPage(rows.map(toOverviewAccountDto), limit, "c1", (row) => ({
     ordinal: row.createdAt,
     id: row.id,
   }));
+}
+
+/** @internal Used only while coordinating the encrypted secret and account row. */
+export function getSocialAccountCredentialState(input: {
+  workspaceId: string;
+  accountId: string;
+}): SocialAccountCredentialState {
+  const row = openDomainDb()
+    .query<
+      {
+        credentialRef: string | null;
+        relinkRequired: number;
+        rowVersion: number;
+      },
+      [string, string]
+    >(
+      `SELECT credential_ref AS credentialRef,
+              relink_required AS relinkRequired,
+              row_version AS rowVersion
+       FROM social_accounts WHERE workspace_id = ? AND id = ?`,
+    )
+    .get(input.workspaceId, input.accountId);
+  if (!row) throw new StoreConflictError("Social account scope conflict");
+  return {
+    credentialRef: row.credentialRef,
+    relinkRequired: row.relinkRequired === 1,
+    rowVersion: row.rowVersion,
+  };
+}
+
+export function updateSocialAccountCredential(
+  input: UpdateSocialAccountCredentialInput,
+): OverviewAccountDto {
+  return withImmediateTransaction((db) =>
+    updateSocialAccountCredentialInTransaction(db, input),
+  );
+}
+
+/** @internal Caller must own an immediate transaction. */
+export function updateSocialAccountCredentialInTransaction(
+  db: Database,
+  input: UpdateSocialAccountCredentialInput,
+): OverviewAccountDto {
+  if (
+    input.credentialRef !== null &&
+    !isAccountCredentialRef(input.credentialRef, input.workspaceId, input.accountId)
+  ) {
+    throw new StoreConflictError("Social account credential reference mismatch");
+  }
+  const now = Date.now();
+  const result = db
+    .prepare(
+      `UPDATE social_accounts
+       SET credential_ref = ?, relink_required = 0,
+           row_version = row_version + 1, updated_at = ?
+       WHERE workspace_id = ? AND id = ? AND row_version = ?`,
+    )
+    .run(
+      input.credentialRef,
+      now,
+      input.workspaceId,
+      input.accountId,
+      input.expectedRowVersion,
+    );
+  if (!result.changes) throw new StoreConflictError();
+  appendActivity(db, {
+    workspaceId: input.workspaceId,
+    entityType: "social_account",
+    entityId: input.accountId,
+    action: "social_account.auth_updated",
+    payload: { linked: input.credentialRef !== null },
+    createdAt: now,
+  });
+  const account = db
+    .query<AccountDbDto, [string, string]>(
+      `SELECT ${ACCOUNT_DTO_COLUMNS}
+       FROM social_accounts WHERE workspace_id = ? AND id = ?`,
+    )
+    .get(input.workspaceId, input.accountId);
+  if (!account) throw new StoreConflictError();
+  return toOverviewAccountDto(account);
+}
+
+function isAccountCredentialRef(
+  ref: string,
+  workspaceId: string,
+  accountId: string,
+): boolean {
+  return (
+    ref.length <= 512 &&
+    /^provider\/[a-z][a-z0-9-]*\/workspace\/[A-Za-z0-9._:-]+\/account\/[A-Za-z0-9._:-]+$/u.test(
+      ref,
+    ) &&
+    ref.endsWith(`/workspace/${workspaceId}/account/${accountId}`)
+  );
+}
+
+function toOverviewAccountDto(row: AccountDbDto): OverviewAccountDto {
+  return {
+    ...row,
+    credentialConfigured: row.credentialConfigured === 1,
+    relinkRequired: row.relinkRequired === 1,
+  };
 }
 
 export function createProject(input: CreateProjectInput): ProjectSummaryDto {

@@ -31,6 +31,11 @@ export type JobCommand = {
   argv: string[];
   cwd?: string;
   env?: Record<string, string>;
+  credential?: {
+    providerId: string;
+    workspaceId: string;
+    projectId?: string;
+  };
 };
 
 export type JobRow = {

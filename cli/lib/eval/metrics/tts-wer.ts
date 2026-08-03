@@ -121,7 +121,7 @@ export const ttsWerAdapter: MetricAdapter = {
     if (!transcribeAvailable()) {
       return {
         ok: false,
-        hint: "no transcribe-capable provider configured — set ELEVENLABS_API_KEY (or OPENROUTER_API_KEY) and run `ralphy setup`.",
+        hint: "no transcribe-capable provider configured — use `ralphy provider auth set elevenlabs --stdin` or `ralphy provider auth set openrouter --stdin`.",
       };
     }
     if (!findVoiceover(input.projectId)) {
