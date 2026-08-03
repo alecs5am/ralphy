@@ -13,5 +13,5 @@
     "allowImportingTsExtensions": true,
     "types": ["bun"]
   },
-  "include": ["cli/**/*.ts"]
+  "include": ["cli/**/*.ts", "tests/types/**/*.ts"]
 }

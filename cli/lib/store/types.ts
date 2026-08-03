@@ -17,18 +17,6 @@ export type WorkspaceRow = {
   updatedAt: number;
 };
 
-export type SocialAccountRow = {
-  id: string;
-  workspaceId: string;
-  platform: string;
-  externalId: string;
-  displayName: string | null;
-  username: string | null;
-  config: JsonValue | null;
-  createdAt: number;
-  updatedAt: number;
-};
-
 export type ProjectState = "active" | "archived";
 
 export type ProjectRow = {
