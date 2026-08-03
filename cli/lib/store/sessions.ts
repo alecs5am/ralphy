@@ -1,9 +1,10 @@
 import { Database } from "bun:sqlite";
-import { appendActivity, assertLimit } from "./activity.js";
+import { appendActivity } from "./activity.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
+import { assertLimit, buildPage, decodeCursor } from "./pagination.js";
 import {
-  type AgentSessionRow,
+  type AgentSessionDto,
   type JsonValue,
   type Page,
   StoreConflictError,
@@ -37,7 +38,7 @@ export function startAgentSession(input: {
   projectId?: string | null;
   agent: string;
   metadata?: JsonValue | null;
-}): AgentSessionRow {
+}): AgentSessionDto {
   const agent = input.agent.trim();
   if (!agent) throw new Error("Agent label must not be empty");
   // The ordinary API can never mint a consumer Session; the reserved label is
@@ -74,7 +75,7 @@ export function startAgentSession(input: {
   });
 }
 
-export function getAgentSession(id: string): AgentSessionRow {
+export function getAgentSession(id: string): AgentSessionDto {
   const session = getSessionRow(openDomainDb(), id);
   if (!session) throw new Error(`Agent Session not found: ${id}`);
   return session;
@@ -85,38 +86,38 @@ export function listAgentSessions(input: {
   projectId?: string;
   cursor?: string | null;
   limit?: number;
-}): Page<AgentSessionRow> {
+}): Page<AgentSessionDto> {
   const db = openDomainDb();
   assertSessionOwner(db, input.workspaceId, input.projectId ?? null);
   const limit = input.limit ?? 50;
   assertLimit(limit);
-  if (input.cursor !== undefined && input.cursor !== null && !input.cursor) {
-    throw new Error("Cursor must be a non-empty ID");
+  const clauses = ["workspace_id = ?"];
+  const values: (string | number)[] = [input.workspaceId];
+  if (input.projectId !== undefined) {
+    clauses.push("project_id = ?");
+    values.push(input.projectId);
   }
-  const cursor = input.cursor ?? "";
-  const rows = input.projectId
-    ? db
-        .query<SessionDbRow, [string, string, string, number]>(
-          `SELECT ${SESSION_COLUMNS} FROM agent_sessions
-           WHERE workspace_id = ? AND project_id = ? AND id > ?
-           ORDER BY id ASC LIMIT ?`,
-        )
-        .all(input.workspaceId, input.projectId, cursor, limit + 1)
-    : db
-        .query<SessionDbRow, [string, string, number]>(
-          `SELECT ${SESSION_COLUMNS} FROM agent_sessions
-           WHERE workspace_id = ? AND id > ? ORDER BY id ASC LIMIT ?`,
-        )
-        .all(input.workspaceId, cursor, limit + 1);
-  const hasMore = rows.length > limit;
-  const items = rows.slice(0, limit).map(toSessionRow);
-  return {
-    items,
-    nextCursor: hasMore ? items.at(-1)?.id ?? null : null,
-  };
+  if (input.cursor != null) {
+    const cursor = decodeCursor("c1", input.cursor);
+    clauses.push("(started_at > ? OR (started_at = ? AND id > ?))");
+    values.push(cursor.ordinal, cursor.ordinal, cursor.id);
+  }
+  values.push(limit + 1);
+  const rows = db
+    .query<SessionDbRow, (string | number)[]>(
+      `SELECT ${SESSION_COLUMNS} FROM agent_sessions
+       WHERE ${clauses.join(" AND ")}
+       ORDER BY started_at ASC, id ASC LIMIT ?`,
+    )
+    .all(...values)
+    .map(toSessionRow);
+  return buildPage(rows, limit, "c1", (row) => ({
+    ordinal: row.startedAt,
+    id: row.id,
+  }));
 }
 
-export function endAgentSession(id: string): AgentSessionRow {
+export function endAgentSession(id: string): AgentSessionDto {
   return withImmediateTransaction((db) => {
     const session = getSessionRow(db, id);
     if (!session) throw new Error(`Agent Session not found: ${id}`);
@@ -156,7 +157,7 @@ export function startConsumerSession(input: {
   workspaceId: string;
   projectId?: string | null;
   metadata?: JsonValue | null;
-}): AgentSessionRow {
+}): AgentSessionDto {
   const metadata = canonicalMetadata(input.metadata);
   return withImmediateTransaction((db) => {
     const principal = db
@@ -244,7 +245,7 @@ function assertSessionOwner(
   }
 }
 
-function getSessionRow(db: Database, id: string): AgentSessionRow | null {
+function getSessionRow(db: Database, id: string): AgentSessionDto | null {
   const row = db
     .query<SessionDbRow, [string]>(
       `SELECT ${SESSION_COLUMNS} FROM agent_sessions WHERE id = ?`,
@@ -253,16 +254,12 @@ function getSessionRow(db: Database, id: string): AgentSessionRow | null {
   return row ? toSessionRow(row) : null;
 }
 
-function toSessionRow(row: SessionDbRow): AgentSessionRow {
+function toSessionRow(row: SessionDbRow): AgentSessionDto {
   return {
     id: row.id,
     workspaceId: row.workspace_id,
     projectId: row.project_id,
     agent: row.agent,
-    metadata:
-      row.metadata_json === null
-        ? null
-        : (JSON.parse(row.metadata_json) as JsonValue),
     startedAt: row.started_at,
     endedAt: row.ended_at,
   };

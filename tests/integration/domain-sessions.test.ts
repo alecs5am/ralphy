@@ -1,17 +1,30 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
+import { bindConsumerPrincipal } from "../../cli/lib/store/consumers.js";
+import {
+  closeDomainDb,
+  openDomainDb,
+  withImmediateTransaction,
+} from "../../cli/lib/store/db.js";
+import {
+  decodeCursor,
+  encodeCursor,
+} from "../../cli/lib/store/pagination.js";
 import {
   endAgentSession,
   getAgentSession,
   getStoreIdentity,
   listAgentSessions,
   startAgentSession,
+  startConsumerSession,
 } from "../../cli/lib/store/sessions.js";
 import {
   createProject,
   createWorkspace,
 } from "../../cli/lib/store/scopes.js";
-import { StoreConflictError } from "../../cli/lib/store/types.js";
+import {
+  type AgentSessionDto,
+  StoreConflictError,
+} from "../../cli/lib/store/types.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 import { scopedActivity } from "../helpers/activity.js";
 
@@ -35,6 +48,185 @@ describe("domain Agent Session store", () => {
     expect(() =>
       openDomainDb().exec("UPDATE store_metadata SET store_id = 'changed'"),
     ).toThrow(/identity.*immutable/i);
+  });
+
+  test("returns metadata-free Session DTOs while retaining canonical metadata", () => {
+    roots.push(makeTmpRoot("ralphy-domain-sessions-safe-dto"));
+    const workspace = createWorkspace({ slug: "client", name: "Client" });
+    const started = startAgentSession({
+      workspaceId: workspace.id,
+      agent: "codex",
+      metadata: { secret: "private", order: { z: 2, a: 1 } },
+    });
+
+    expect(Object.keys(started).sort()).toEqual([
+      "agent",
+      "endedAt",
+      "id",
+      "projectId",
+      "startedAt",
+      "workspaceId",
+    ]);
+    expect(getAgentSession(started.id)).toEqual(started);
+    expect(
+      openDomainDb()
+        .query<{ metadata: string }, [string]>(
+          "SELECT metadata_json AS metadata FROM agent_sessions WHERE id = ?",
+        )
+        .get(started.id),
+    ).toEqual({ metadata: '{"order":{"a":1,"z":2},"secret":"private"}' });
+
+    const ended = endAgentSession(started.id);
+    expect(Object.keys(ended).sort()).toEqual(Object.keys(started).sort());
+    expect(ended.endedAt).toBeNumber();
+    expect(JSON.stringify(ended)).not.toContain("private");
+  });
+
+  test("returns a metadata-free DTO when starting a consumer Session", () => {
+    roots.push(makeTmpRoot("ralphy-domain-consumer-session-safe-dto"));
+    const workspace = createWorkspace({ slug: "client", name: "Client" });
+    const principal = withImmediateTransaction((db) =>
+      bindConsumerPrincipal(db, {
+        id: "consumer_farm",
+        namespace: "farm",
+        identityDigest: "1".repeat(64),
+      }),
+    );
+
+    const session: AgentSessionDto = startConsumerSession({
+      principalId: principal.id,
+      workspaceId: workspace.id,
+      metadata: { mode: "private" },
+    });
+
+    expect(Object.keys(session).sort()).toEqual([
+      "agent",
+      "endedAt",
+      "id",
+      "projectId",
+      "startedAt",
+      "workspaceId",
+    ]);
+    expect(session.agent).toBe("consumer:farm");
+    expect(
+      openDomainDb()
+        .query<{ metadata: string }, [string]>(
+          "SELECT metadata_json AS metadata FROM agent_sessions WHERE id = ?",
+        )
+        .get(session.id),
+    ).toEqual({ metadata: '{"mode":"private"}' });
+  });
+
+  test("pages Sessions by chronological c1 order with exact safe list DTOs", () => {
+    roots.push(makeTmpRoot("ralphy-domain-sessions-c1"));
+    const workspace = createWorkspace({ slug: "client", name: "Client" });
+    const project = createProject({
+      workspaceId: workspace.id,
+      slug: "campaign",
+      name: "Campaign",
+    });
+    const sibling = createProject({
+      workspaceId: workspace.id,
+      slug: "sibling",
+      name: "Sibling",
+    });
+    const outside = createWorkspace({ slug: "outside", name: "Outside" });
+    const db = openDomainDb();
+    const insert = db.prepare(
+      `INSERT INTO agent_sessions
+       (id, workspace_id, project_id, agent, metadata_json, started_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    );
+    insert.run(
+      "session_z_old",
+      workspace.id,
+      null,
+      "shared",
+      '{"secret":"chronology-private"}',
+      100,
+    );
+    insert.run(
+      "session_a_new",
+      workspace.id,
+      project.id,
+      "project",
+      '{"secret":"project-private"}',
+      200,
+    );
+    insert.run("session_b_new", workspace.id, sibling.id, "sibling", null, 200);
+    insert.run("session_0_other", outside.id, null, "outside", null, 50);
+
+    const first = listAgentSessions({ workspaceId: workspace.id, limit: 1 });
+    const second = listAgentSessions({
+      workspaceId: workspace.id,
+      cursor: first.nextCursor,
+      limit: 1,
+    });
+    const third = listAgentSessions({
+      workspaceId: workspace.id,
+      cursor: second.nextCursor,
+      limit: 1,
+    });
+    expect(first.items).toEqual([
+      {
+        id: "session_z_old",
+        workspaceId: workspace.id,
+        projectId: null,
+        agent: "shared",
+        startedAt: 100,
+        endedAt: null,
+      },
+    ]);
+    expect(Object.keys(first.items[0]!).sort()).toEqual([
+      "agent",
+      "endedAt",
+      "id",
+      "projectId",
+      "startedAt",
+      "workspaceId",
+    ]);
+    expect(JSON.stringify(first.items)).not.toContain("chronology-private");
+    expect(
+      db
+        .query<{ metadata: string }, [string]>(
+          "SELECT metadata_json AS metadata FROM agent_sessions WHERE id = ?",
+        )
+        .get("session_z_old"),
+    ).toEqual({ metadata: '{"secret":"chronology-private"}' });
+    expect(decodeCursor("c1", first.nextCursor!)).toEqual({
+      ordinal: 100,
+      id: "session_z_old",
+    });
+    expect(second.items.map((item) => item.id)).toEqual(["session_a_new"]);
+    expect(decodeCursor("c1", second.nextCursor!)).toEqual({
+      ordinal: 200,
+      id: "session_a_new",
+    });
+    expect(third.items.map((item) => item.id)).toEqual(["session_b_new"]);
+    expect(third.nextCursor).toBeNull();
+    expect(
+      listAgentSessions({
+        workspaceId: workspace.id,
+        projectId: project.id,
+      }).items.map((item) => item.id),
+    ).toEqual(["session_a_new"]);
+  });
+
+  test("rejects Session cursor families and limits outside 1 through 100", () => {
+    roots.push(makeTmpRoot("ralphy-domain-sessions-c1-bounds"));
+    const workspace = createWorkspace({ slug: "client", name: "Client" });
+    for (const limit of [0, 101, 1.5]) {
+      expect(() => listAgentSessions({ workspaceId: workspace.id, limit })).toThrow(
+        "Limit must be an integer from 1 through 100",
+      );
+    }
+    expect(() =>
+      listAgentSessions({
+        workspaceId: workspace.id,
+        cursor: encodeCursor("v1", { ordinal: 100, id: "session_a" }),
+        limit: 1,
+      }),
+    ).toThrow("Cursor family is invalid");
   });
 
   test("starts, pages, reads, and ends immutable scoped sessions", () => {
@@ -96,7 +288,6 @@ describe("domain Agent Session store", () => {
       workspaceId: workspace.id,
       projectId: null,
       agent: "codex",
-      metadata: { a: 1, z: 2 },
       endedAt: null,
     });
     expect(getAgentSession(projectSession.id)).toEqual(projectSession);
@@ -115,7 +306,7 @@ describe("domain Agent Session store", () => {
       limit: 1,
     });
     expect(first.items).toHaveLength(1);
-    expect(first.nextCursor).toBe(first.items[0]?.id);
+    expect(first.nextCursor).toStartWith("c1.");
     expect(second.items).toHaveLength(1);
     expect(new Set([...first.items, ...second.items].map((row) => row.id))).toEqual(
       new Set([workspaceSession.id, projectSession.id]),
