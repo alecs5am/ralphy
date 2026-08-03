@@ -390,6 +390,7 @@ describe("internal row boundary", () => {
       "DocumentRevisionRow",
       "DocumentSearchRow",
       "DocumentWithCurrentRevision",
+      "ArtifactRelationRow",
       "RunAggregate",
       "CompositionAggregate",
       "UnitAggregate",

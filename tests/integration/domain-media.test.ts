@@ -17,6 +17,7 @@ import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
 import { listEvaluations } from "../../cli/lib/store/evaluations.js";
 import {
   OBJECT_REFERENCE_SOURCES,
+  getMediaCard,
   getMediaCards,
   listMedia,
   reviewMedia,
@@ -133,6 +134,114 @@ async function fixture(root: TmpRoot) {
 }
 
 describe("media cards", () => {
+  test("returns one safe detail card without filesystem discovery", async () => {
+    const root = makeRoot();
+    const f = await fixture(root);
+    const context = { workspaceId: f.workspace.id, projectId: f.project.id };
+    const expectedKeys = {
+      artifact: [
+        "bytes",
+        "kind",
+        "mime",
+        "projectId",
+        "ref",
+        "revisionCount",
+        "selectedAt",
+        "selectedRevisionId",
+        "selectedState",
+        "slug",
+        "workspaceId",
+      ],
+      object: [
+        "bytes",
+        "createdAt",
+        "mime",
+        "projectId",
+        "ref",
+        "referenceCount",
+        "storageClass",
+        "workspaceId",
+      ],
+      "run-object": [
+        "bytes",
+        "createdAt",
+        "mime",
+        "objectId",
+        "projectId",
+        "purpose",
+        "ref",
+        "retention",
+        "runId",
+        "state",
+        "workspaceId",
+      ],
+    } as const;
+    for (const ref of [
+      { type: "artifact" as const, id: f.artifact.id },
+      { type: "object" as const, id: f.projectObject.id },
+      { type: "run-object" as const, id: f.runObject.id },
+    ]) {
+      const card = getMediaCard({ context, ref });
+      expect(card).toEqual(getMediaCards({ context, refs: [ref] })[0]);
+      expect(Object.keys(card).sort()).toEqual([...expectedKeys[ref.type]].sort());
+      expect(recursiveKeys(card)).not.toContainAnyValues([
+        "body",
+        "bucket",
+        "error",
+        "key",
+        "locator",
+        "logPath",
+        "metadata",
+        "originalName",
+        "path",
+        "secret",
+        "sha256",
+        "tag",
+      ]);
+    }
+
+    const siblingArtifact = createArtifact({
+      projectId: f.sibling.id,
+      slug: "invisible",
+      kind: "image",
+    });
+    for (const ref of [
+      { type: "artifact" as const, id: siblingArtifact.id },
+      { type: "object" as const, id: f.siblingObject.id },
+      { type: "object" as const, id: "obj_missing" },
+    ]) {
+      expect(errorMessage(() => getMediaCard({ context, ref }))).toBe(
+        "Media request contains an unresolvable ref",
+      );
+    }
+
+    const farm = path.join(root.dir, ".ralphy", "farm");
+    fs.mkdirSync(path.join(farm, "buckets", "poison"), { recursive: true });
+    fs.writeFileSync(path.join(farm, "buckets", "poison", "object.bin"), "x");
+    const touched: string[] = [];
+    const mutableFs = fs as unknown as Record<string, (...args: unknown[]) => unknown>;
+    const names = ["lstatSync", "openSync", "readFileSync", "readdirSync", "realpathSync"];
+    const originals = Object.fromEntries(names.map((name) => [name, mutableFs[name]]));
+    try {
+      for (const name of names) {
+        mutableFs[name] = (...args: unknown[]) => {
+          const target = String(args[0]);
+          if (target.includes(`${path.sep}farm${path.sep}`)) touched.push(target);
+          return originals[name]!(...args);
+        };
+      }
+      expect(
+        getMediaCard({
+          context,
+          ref: { type: "artifact", id: f.artifact.id },
+        }).ref.id,
+      ).toBe(f.artifact.id);
+    } finally {
+      for (const name of names) mutableFs[name] = originals[name]!;
+    }
+    expect(touched).toEqual([]);
+  });
+
   test("returns the mixed union in the caller's exact order", async () => {
     const root = makeRoot();
     const f = await fixture(root);
@@ -338,6 +447,21 @@ describe("media cards", () => {
   });
 });
 
+function recursiveKeys(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(recursiveKeys);
+  if (value === null || typeof value !== "object") return [];
+  return Object.entries(value).flatMap(([key, child]) => [key, ...recursiveKeys(child)]);
+}
+
+function errorMessage(fn: () => unknown): string {
+  try {
+    fn();
+    return "";
+  } catch (error) {
+    return (error as Error).message;
+  }
+}
+
 describe("media review", () => {
   test("creates the state revision, selection, Evaluation, and feedback atomically", async () => {
     const root = makeRoot();
@@ -357,7 +481,12 @@ describe("media review", () => {
     expect(result.revisionId).not.toBe(f.revision.id);
     expect(result.card.selectedRevisionId).toBe(result.revisionId);
     expect(result.card.selectedState).toBe("candidate");
-    expect(getArtifact(f.artifact.id).selectedRevisionId).toBe(result.revisionId);
+    expect(
+      getArtifact({
+        context: { workspaceId: f.workspace.id, projectId: f.project.id },
+        artifactId: f.artifact.id,
+      }).selectedRevisionId,
+    ).toBe(result.revisionId);
     expect(result.evaluation).toMatchObject({
       target: { type: "artifact_revision", id: result.revisionId },
       kind: "media-review",
@@ -422,7 +551,12 @@ describe("media review", () => {
         limit: 100,
       }).items.length,
     ).toBe(before);
-    expect(getArtifact(f.artifact.id).selectedRevisionId).toBe(second.revisionId);
+    expect(
+      getArtifact({
+        context: { workspaceId: f.workspace.id, projectId: f.project.id },
+        artifactId: f.artifact.id,
+      }).selectedRevisionId,
+    ).toBe(second.revisionId);
     expect(verifyDomainStore().brokenRevisionChains).toEqual([]);
   });
 
@@ -468,7 +602,12 @@ describe("media review", () => {
       ).toThrow();
     }
     expect(counts()).toEqual(before);
-    expect(getArtifact(f.artifact.id).selectedRevisionId).toBe(f.revision.id);
+    expect(
+      getArtifact({
+        context: { workspaceId: f.workspace.id, projectId: f.project.id },
+        artifactId: f.artifact.id,
+      }).selectedRevisionId,
+    ).toBe(f.revision.id);
   });
 
   test("requires an Iteration and feedback for needs-work on a Project Artifact", async () => {

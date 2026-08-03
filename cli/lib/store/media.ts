@@ -48,6 +48,13 @@ const REVIEW_VERDICTS = {
 const MAX_REFS = 100;
 const MAX_FEEDBACK_BYTES = 4_096;
 
+export function getMediaCard(input: {
+  context: QueryContext;
+  ref: MediaRef;
+}): MediaCard {
+  return getMediaCards({ context: input.context, refs: [input.ref] })[0]!;
+}
+
 /**
  * Resolves a caller-ordered batch of mixed refs. Every ref is authorized before
  * any card is built, and a single invisible or unknown ref rejects the whole

@@ -8,6 +8,8 @@ import {
   createArtifact,
   getArtifact,
   getArtifactRevision,
+  listArtifactRevisions,
+  listArtifacts,
   selectArtifactRevision,
   setArtifactRevisionState,
 } from "../../cli/lib/store/artifacts.js";
@@ -26,6 +28,7 @@ import {
   endAgentSession,
   startAgentSession,
 } from "../../cli/lib/store/sessions.js";
+import type { QueryContext } from "../../cli/lib/store/scope-context.js";
 import type { ProjectRow, WorkspaceRow } from "../../cli/lib/store/types.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 import { scopedActivity } from "../helpers/activity.js";
@@ -41,6 +44,7 @@ afterEach(() => {
 describe("domain Artifact store", () => {
   test("creates Workspace and Project identities and rejects invalid kinds or scopes", () => {
     const { workspace, project } = setupProject("identity");
+    const context = { workspaceId: workspace.id };
     const shared = createArtifact({
       workspaceId: workspace.id,
       slug: "brand-logo",
@@ -52,14 +56,16 @@ describe("domain Artifact store", () => {
       kind: "video",
     });
 
-    expect(getArtifact(shared.id)).toEqual(shared);
+    expect(getArtifact({ context, artifactId: shared.id })).toEqual(shared);
     expect(local).toMatchObject({
       workspaceId: workspace.id,
       projectId: project.id,
       selectedRevisionId: null,
       rowVersion: 1,
     });
-    expect(() => getArtifact("art_missing")).toThrow(/Artifact not found/);
+    expect(() =>
+      getArtifact({ context, artifactId: "art_missing" }),
+    ).toThrow(/Artifact not found/);
     expect(() =>
       createArtifact({
         workspaceId: workspace.id,
@@ -97,6 +103,342 @@ describe("domain Artifact store", () => {
         .filter((event) => event.entityType === "artifact")
         .map((event) => event.action),
     ).toEqual(["artifact.created", "artifact.created"]);
+  });
+
+  test("reads only safe Artifact identity and revision fields inside the query scope", async () => {
+    const { root, workspace, project } = setupProject("safe-read");
+    const sibling = createProject({
+      workspaceId: workspace.id,
+      slug: "sibling",
+      name: "Sibling",
+    });
+    const outsideWorkspace = createWorkspace({
+      slug: "safe-read-outside",
+      name: "Outside",
+    });
+    const outsideProject = createProject({
+      workspaceId: outsideWorkspace.id,
+      slug: "outside",
+      name: "Outside",
+    });
+    const shared = createArtifact({
+      workspaceId: workspace.id,
+      slug: "shared",
+      kind: "image",
+    });
+    const local = createArtifact({
+      projectId: project.id,
+      slug: "local",
+      kind: "image",
+    });
+    const siblingArtifact = createArtifact({
+      projectId: sibling.id,
+      slug: "sibling",
+      kind: "image",
+    });
+    const outsideArtifact = createArtifact({
+      projectId: outsideProject.id,
+      slug: "outside",
+      kind: "image",
+    });
+    const object = await storeBytes(root, workspace, project, "private.bin");
+    const revision = addArtifactRevision({
+      artifactId: local.id,
+      objectId: object.id,
+      state: "working",
+      metadata: {
+        sourceLocator: "/private/poison.mov",
+        providerResponse: "private response",
+      },
+    });
+    const siblingObject = await storeBytes(
+      root,
+      workspace,
+      sibling,
+      "sibling-private.bin",
+    );
+    const siblingRevision = addArtifactRevision({
+      artifactId: siblingArtifact.id,
+      objectId: siblingObject.id,
+      state: "working",
+    });
+    const workspaceSession = startAgentSession({
+      workspaceId: workspace.id,
+      agent: "workspace-reader",
+    });
+    const projectSession = startAgentSession({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      agent: "project-reader",
+    });
+    const endedSession = startAgentSession({
+      workspaceId: workspace.id,
+      agent: "ended-reader",
+    });
+    endAgentSession(endedSession.id);
+
+    const artifactKeys = [
+      "createdAt",
+      "id",
+      "kind",
+      "projectId",
+      "rowVersion",
+      "selectedRevisionId",
+      "slug",
+      "updatedAt",
+      "workspaceId",
+    ];
+    const revisionKeys = [
+      "artifactId",
+      "authoredBySessionId",
+      "createdAt",
+      "id",
+      "iterationId",
+      "objectId",
+      "parentRevisionId",
+      "revisionNo",
+      "state",
+    ];
+    const projectContext = {
+      workspaceId: workspace.id,
+      projectId: project.id,
+    };
+    expect(
+      Object.keys(getArtifact({ context: projectContext, artifactId: local.id })).sort(),
+    ).toEqual(artifactKeys);
+    expect(Object.keys(revision).sort()).toEqual(revisionKeys);
+    expect(
+      Object.keys(
+        getArtifactRevision({ context: projectContext, revisionId: revision.id }),
+      ).sort(),
+    ).toEqual(revisionKeys);
+    expect(
+      JSON.stringify(
+        getArtifactRevision({ context: projectContext, revisionId: revision.id }),
+      ),
+    ).not.toMatch(/metadata|poison|private response|sourceLocator/);
+
+    expect(
+      getArtifact({
+        context: { workspaceId: workspace.id },
+        artifactId: shared.id,
+      }).id,
+    ).toBe(shared.id);
+    expect(
+      getArtifact({
+        context: { sessionId: workspaceSession.id },
+        artifactId: shared.id,
+      }).id,
+    ).toBe(shared.id);
+    expect(
+      getArtifact({
+        context: { sessionId: projectSession.id },
+        artifactId: shared.id,
+      }).id,
+    ).toBe(shared.id);
+    expect(
+      getArtifact({
+        context: { sessionId: projectSession.id },
+        artifactId: local.id,
+      }).id,
+    ).toBe(local.id);
+
+    for (const context of [
+      { workspaceId: workspace.id },
+      { sessionId: workspaceSession.id },
+    ] as const) {
+      expect(() => getArtifact({ context, artifactId: local.id })).toThrow(
+        `Artifact not found: ${local.id}`,
+      );
+      expect(() => getArtifact({ context, artifactId: "art_missing" })).toThrow(
+        "Artifact not found: art_missing",
+      );
+      expect(() =>
+        getArtifactRevision({ context, revisionId: revision.id }),
+      ).toThrow(`Artifact Revision not found: ${revision.id}`);
+      expect(() =>
+        listArtifactRevisions({
+          context,
+          artifactId: local.id,
+          limit: 10,
+        }),
+      ).toThrow(`Artifact not found: ${local.id}`);
+    }
+    for (const context of [
+      projectContext,
+      { sessionId: projectSession.id },
+    ] as const) {
+      expect(() =>
+        getArtifact({ context, artifactId: siblingArtifact.id }),
+      ).toThrow(`Artifact not found: ${siblingArtifact.id}`);
+      expect(() =>
+        getArtifactRevision({ context, revisionId: siblingRevision.id }),
+      ).toThrow(`Artifact Revision not found: ${siblingRevision.id}`);
+      expect(() =>
+        listArtifactRevisions({
+          context,
+          artifactId: siblingArtifact.id,
+          limit: 10,
+        }),
+      ).toThrow(`Artifact not found: ${siblingArtifact.id}`);
+    }
+    expect(() =>
+      listArtifactRevisions({
+        context: projectContext,
+        artifactId: "art_missing",
+        limit: 10,
+      }),
+    ).toThrow("Artifact not found: art_missing");
+    expect(() =>
+      getArtifact({ context: projectContext, artifactId: outsideArtifact.id }),
+    ).toThrow(`Artifact not found: ${outsideArtifact.id}`);
+    expect(() =>
+      getArtifactRevision({
+        context: projectContext,
+        revisionId: "arev_missing",
+      }),
+    ).toThrow("Artifact Revision not found: arev_missing");
+    expect(() =>
+      getArtifact({
+        context: { sessionId: endedSession.id },
+        artifactId: local.id,
+      }),
+    ).toThrow(/ended/i);
+  });
+
+  test("pages visible Artifact identities and revision history with typed cursors", async () => {
+    const { root, workspace, project } = setupProject("safe-pages");
+    const sibling = createProject({
+      workspaceId: workspace.id,
+      slug: "sibling",
+      name: "Sibling",
+    });
+    const outsideWorkspace = createWorkspace({
+      slug: "safe-pages-outside",
+      name: "Outside",
+    });
+    const outsideProject = createProject({
+      workspaceId: outsideWorkspace.id,
+      slug: "outside",
+      name: "Outside",
+    });
+    const shared = createArtifact({
+      workspaceId: workspace.id,
+      slug: "shared",
+      kind: "image",
+    });
+    const own = ["a", "b", "c"].map((slug) =>
+      createArtifact({ projectId: project.id, slug, kind: "image" }),
+    );
+    const siblingArtifact = createArtifact({
+      projectId: sibling.id,
+      slug: "sibling",
+      kind: "image",
+    });
+    createArtifact({
+      projectId: outsideProject.id,
+      slug: "outside",
+      kind: "image",
+    });
+    openDomainDb()
+      .prepare("UPDATE artifacts SET created_at = ? WHERE workspace_id = ?")
+      .run(1234, workspace.id);
+
+    const workspaceContext = { workspaceId: workspace.id };
+    const projectContext = {
+      workspaceId: workspace.id,
+      projectId: project.id,
+    };
+    const workspaceSession = startAgentSession({
+      workspaceId: workspace.id,
+      agent: "workspace-list-reader",
+    });
+    const projectSession = startAgentSession({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      agent: "project-list-reader",
+    });
+    const expectedWorkspaceIds = [shared.id];
+    const expectedProjectIds = [shared, ...own]
+      .map((artifact) => artifact.id)
+      .sort();
+    expect(pageArtifactIds(workspaceContext)).toEqual(expectedWorkspaceIds);
+    expect(pageArtifactIds({ sessionId: workspaceSession.id })).toEqual(
+      expectedWorkspaceIds,
+    );
+    expect(pageArtifactIds(projectContext)).toEqual(expectedProjectIds);
+    expect(pageArtifactIds({ sessionId: projectSession.id })).toEqual(
+      expectedProjectIds,
+    );
+
+    const object = await storeBytes(root, workspace, project, "history.bin");
+    const revisions = ["working", "candidate", "approved"].map((state) =>
+      addArtifactRevision({
+        artifactId: own[0]!.id,
+        objectId: object.id,
+        state: state as "working" | "candidate" | "approved",
+        metadata: { sourceLocator: `/private/${state}.bin` },
+      }),
+    );
+    const firstArtifacts = listArtifacts({ context: projectContext, limit: 1 });
+    const firstRevisions = listArtifactRevisions({
+      context: projectContext,
+      artifactId: own[0]!.id,
+      limit: 1,
+    });
+    expect(firstArtifacts.nextCursor).toStartWith("c1.");
+    expect(firstRevisions.nextCursor).toStartWith("v1.");
+    expect(() =>
+      listArtifacts({
+        context: projectContext,
+        after: firstRevisions.nextCursor,
+        limit: 1,
+      }),
+    ).toThrow(/family/i);
+    expect(() =>
+      listArtifactRevisions({
+        context: projectContext,
+        artifactId: own[0]!.id,
+        after: firstArtifacts.nextCursor,
+        limit: 1,
+      }),
+    ).toThrow(/family/i);
+
+    const revisionIds: string[] = [];
+    let after: string | null | undefined;
+    do {
+      const page = listArtifactRevisions({
+        context: projectContext,
+        artifactId: own[0]!.id,
+        after,
+        limit: 1,
+      });
+      revisionIds.push(...page.items.map((revision) => revision.id));
+      expect(JSON.stringify(page.items)).not.toMatch(/metadata|private/);
+      after = page.nextCursor;
+    } while (after);
+    expect(revisionIds).toEqual(revisions.map((revision) => revision.id));
+
+    expect(() =>
+      listArtifactRevisions({
+        context: projectContext,
+        artifactId: siblingArtifact.id,
+        limit: 10,
+      }),
+    ).toThrow(`Artifact not found: ${siblingArtifact.id}`);
+    expect(() => listArtifacts({ context: projectContext, limit: 0 })).toThrow(
+      /1 through 100/,
+    );
+    expect(() => listArtifacts({ context: projectContext, limit: 101 })).toThrow(
+      /1 through 100/,
+    );
+    expect(() =>
+      listArtifactRevisions({
+        context: projectContext,
+        artifactId: own[0]!.id,
+        limit: 0,
+      }),
+    ).toThrow(/1 through 100/);
   });
 
   test("binds revisions only to visible, present Object bytes", async () => {
@@ -179,8 +521,14 @@ describe("domain Artifact store", () => {
     });
     expect(sharedRevision).toMatchObject({
       revisionNo: 1,
-      metadata: { source: "shared" },
     });
+    expect(
+      openDomainDb()
+        .query<{ metadata: string | null }, [string]>(
+          "SELECT metadata_json AS metadata FROM artifact_revisions WHERE id = ?",
+        )
+        .get(sharedRevision.id),
+    ).toEqual({ metadata: '{"source":"shared"}' });
     expect(localRevision).toMatchObject({
       revisionNo: 2,
       parentRevisionId: sharedRevision.id,
@@ -330,7 +678,12 @@ describe("domain Artifact store", () => {
         .prepare("DELETE FROM artifact_revisions WHERE id = ?")
         .run(firstRevision.id),
     ).toThrow(/immutable/i);
-    expect(getArtifactRevision(firstRevision.id)?.state).toBe("working");
+    expect(
+      getArtifactRevision({
+        context: { workspaceId: workspace.id, projectId: project.id },
+        revisionId: firstRevision.id,
+      }).state,
+    ).toBe("working");
   });
 
   test("selects with an exact expected revision and rolls back stale or aborted writes", async () => {
@@ -394,7 +747,12 @@ describe("domain Artifact store", () => {
         expectedRevisionId: null,
       }),
     ).toThrow(/conflict/i);
-    expect(getArtifact(artifact.id).selectedRevisionId).toBe(r2.id);
+    expect(
+      getArtifact({
+        context: { workspaceId: workspace.id, projectId: project.id },
+        artifactId: artifact.id,
+      }).selectedRevisionId,
+    ).toBe(r2.id);
     expect(scopedActivity({ projectId: project.id })).toHaveLength(activityCount);
 
     openDomainDb().exec(`
@@ -412,7 +770,12 @@ describe("domain Artifact store", () => {
         expectedRevisionId: r2.id,
       }),
     ).toThrow(/forced selection activity failure/);
-    expect(getArtifact(artifact.id).selectedRevisionId).toBe(r2.id);
+    expect(
+      getArtifact({
+        context: { workspaceId: workspace.id, projectId: project.id },
+        artifactId: artifact.id,
+      }).selectedRevisionId,
+    ).toBe(r2.id);
   });
 
   test("represents state transitions as new revisions and advances selection only from the selected source", async () => {
@@ -445,10 +808,26 @@ describe("domain Artifact store", () => {
       revisionNo: 2,
       parentRevisionId: r1.id,
       state: "approved",
-      metadata: { keep: true },
     });
-    expect(getArtifactRevision(r1.id)?.state).toBe("working");
-    expect(getArtifact(artifact.id).selectedRevisionId).toBe(r2.id);
+    expect(
+      openDomainDb()
+        .query<{ metadata: string | null }, [string]>(
+          "SELECT metadata_json AS metadata FROM artifact_revisions WHERE id = ?",
+        )
+        .get(r2.id),
+    ).toEqual({ metadata: '{"keep":true}' });
+    expect(
+      getArtifactRevision({
+        context: { workspaceId: workspace.id, projectId: project.id },
+        revisionId: r1.id,
+      }).state,
+    ).toBe("working");
+    expect(
+      getArtifact({
+        context: { workspaceId: workspace.id, projectId: project.id },
+        artifactId: artifact.id,
+      }).selectedRevisionId,
+    ).toBe(r2.id);
 
     const r3 = setArtifactRevisionState({
       revisionId: r1.id,
@@ -459,7 +838,12 @@ describe("domain Artifact store", () => {
       parentRevisionId: r1.id,
       state: "rejected",
     });
-    expect(getArtifact(artifact.id).selectedRevisionId).toBe(r2.id);
+    expect(
+      getArtifact({
+        context: { workspaceId: workspace.id, projectId: project.id },
+        artifactId: artifact.id,
+      }).selectedRevisionId,
+    ).toBe(r2.id);
     // Activity is a safe public projection: it names the Artifact, not the
     // revision transition detail, which the store getters above already prove.
     expect(
@@ -667,8 +1051,21 @@ describe("domain Artifact store", () => {
       fromRevisionId: first.id,
       toRevisionId: siblingRevision.id,
       relation: "derived-from",
-      metadata: { method: "fixture" },
     });
+    expect(Object.keys(relation).sort()).toEqual([
+      "createdAt",
+      "fromRevisionId",
+      "id",
+      "relation",
+      "toRevisionId",
+    ]);
+    expect(
+      openDomainDb()
+        .query<{ metadata: string | null }, [string]>(
+          "SELECT metadata_json AS metadata FROM artifact_relations WHERE id = ?",
+        )
+        .get(relation.id),
+    ).toEqual({ metadata: '{"method":"fixture"}' });
     expect(() =>
       addArtifactRelation({
         fromRevisionId: first.id,
@@ -839,6 +1236,17 @@ function setupProject(label: string) {
     name: label,
   });
   return { root, workspace, project };
+}
+
+function pageArtifactIds(context: QueryContext): string[] {
+  const ids: string[] = [];
+  let after: string | null | undefined;
+  do {
+    const page = listArtifacts({ context, after, limit: 1 });
+    ids.push(...page.items.map((artifact) => artifact.id));
+    after = page.nextCursor;
+  } while (after);
+  return ids;
 }
 
 async function storeBytes(

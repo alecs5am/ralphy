@@ -10,6 +10,8 @@
 // other way around.
 
 import type {
+  ArtifactKind,
+  ArtifactRevisionState,
   BuildDocumentBindingRow,
   BuildOutputRow,
   BuildRow,
@@ -30,6 +32,40 @@ import type {
   UnitRevisionRow,
   UnitRow,
 } from "./types.js";
+
+export type ArtifactRow = {
+  id: string;
+  workspaceId: string;
+  projectId: string | null;
+  slug: string;
+  kind: ArtifactKind;
+  selectedRevisionId: string | null;
+  rowVersion: number;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type ArtifactRevisionRow = {
+  id: string;
+  artifactId: string;
+  objectId: string;
+  revisionNo: number;
+  parentRevisionId: string | null;
+  iterationId: string | null;
+  state: ArtifactRevisionState;
+  metadata: JsonValue | null;
+  authoredBySessionId: string | null;
+  createdAt: number;
+};
+
+export type ArtifactRelationRow = {
+  id: string;
+  fromRevisionId: string;
+  toRevisionId: string;
+  relation: string;
+  metadata: JsonValue | null;
+  createdAt: number;
+};
 
 export type ActivityEventRow = {
   id: number;
