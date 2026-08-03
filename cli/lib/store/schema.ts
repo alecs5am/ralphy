@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import fs from "node:fs";
 import path from "node:path";
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export type Migration = {
   version: number;
@@ -3449,6 +3449,14 @@ export const MIGRATIONS: readonly Migration[] = [
       END;
     `,
   },
+  {
+    version: 2,
+    sql: `
+      ALTER TABLE social_accounts ADD COLUMN credential_ref TEXT;
+      ALTER TABLE social_accounts ADD COLUMN relink_required INTEGER NOT NULL DEFAULT 0 CHECK (relink_required IN (0,1));
+      ALTER TABLE social_accounts ADD COLUMN row_version INTEGER NOT NULL DEFAULT 1 CHECK (row_version > 0);
+    `,
+  },
 ];
 
 export function applyMigrations(
@@ -3462,9 +3470,6 @@ export function applyMigrations(
     );
   }
   if (optimisticVersion === SCHEMA_VERSION) return;
-  if (optimisticVersion < SCHEMA_VERSION && databaseHasUserTables(db)) {
-    backupDatabase(db, optimisticVersion);
-  }
 
   db.exec("BEGIN EXCLUSIVE");
   try {
@@ -3473,6 +3478,9 @@ export function applyMigrations(
       throw new Error(
         `Database schema version ${current} is newer than supported version ${SCHEMA_VERSION}`,
       );
+    }
+    if (current < SCHEMA_VERSION && databaseHasUserTables(db)) {
+      backupDatabase(db.filename, current);
     }
 
     const pending = MIGRATIONS.filter(
@@ -3531,12 +3539,11 @@ function databaseHasUserTables(db: Database): boolean {
   return (row?.count ?? 0) > 0;
 }
 
-function backupDatabase(db: Database, version: number): void {
-  if (!db.filename || db.filename === ":memory:") return;
+function backupDatabase(databasePath: string, version: number): void {
+  if (!databasePath || databasePath === ":memory:") return;
 
-  db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
   const backupDir = path.join(
-    path.dirname(path.resolve(db.filename)),
+    path.dirname(path.resolve(databasePath)),
     "backups",
   );
   fs.mkdirSync(backupDir, { recursive: true });
@@ -3552,7 +3559,12 @@ function backupDatabase(db: Database, version: number): void {
     );
   }
 
-  db.prepare("VACUUM INTO ?").run(backupPath);
+  const source = new Database(databasePath, { readonly: true });
+  try {
+    source.prepare("VACUUM INTO ?").run(backupPath);
+  } finally {
+    source.close();
+  }
   const backup = new Database(backupPath, { readonly: true });
   try {
     const result = backup

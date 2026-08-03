@@ -856,6 +856,21 @@ describe("domain store verification", () => {
     expect(() => verifyDomainStore()).toThrow(/TEXT descriptor/i);
   });
 
+  test("accepts Social Account credential references in the TEXT descriptor", () => {
+    makeRoot();
+    const workspace = createWorkspace({ slug: "credential-ref", name: "Credential" });
+    const account = upsertSocialAccount({
+      workspaceId: workspace.id,
+      platform: "instagram",
+      externalId: "credential-account",
+    });
+    openDomainDb()
+      .prepare("UPDATE social_accounts SET credential_ref = ? WHERE id = ?")
+      .run("secret-store:instagram/main", account.id);
+
+    expect(verifyDomainStore().integrity).toBe("ok");
+  });
+
   test("does not exempt application tables that merely share the FTS prefix", () => {
     makeRoot();
     const db = openDomainDb();
