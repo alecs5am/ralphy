@@ -882,9 +882,18 @@ export const MIGRATIONS: readonly Migration[] = [
         ON artifact_relations(to_revision_id, created_at, id);
       CREATE INDEX idx_artifact_usages_revision_page
         ON artifact_usages(artifact_revision_id, created_at, id);
-      CREATE INDEX idx_compositions_project ON compositions(project_id);
-      CREATE INDEX idx_composition_revisions_composition ON composition_revisions(composition_id, revision_no);
-      CREATE INDEX idx_builds_revision ON builds(composition_revision_id, created_at);
+      CREATE INDEX idx_compositions_project
+        ON compositions(project_id, created_at, id);
+      CREATE INDEX idx_composition_revisions_composition
+        ON composition_revisions(composition_id, revision_no, id);
+      CREATE INDEX idx_composition_revision_files_page
+        ON composition_revision_files(composition_revision_id, position, id);
+      CREATE INDEX idx_composition_inputs_page
+        ON composition_inputs(composition_revision_id, position, id);
+      CREATE INDEX idx_builds_revision
+        ON builds(composition_revision_id, created_at, id);
+      CREATE INDEX idx_build_outputs_page
+        ON build_outputs(build_id, position, id);
       CREATE INDEX idx_build_document_bindings_page
         ON build_document_bindings(build_id, created_at, id);
       CREATE INDEX idx_evaluations_scope

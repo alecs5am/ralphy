@@ -4,23 +4,31 @@ import { appendActivity } from "./activity.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
 import { resolveObjectPath } from "./objects.js";
+import { assertLimit, buildPage, decodeCursor } from "./pagination.js";
+import {
+  resolveQueryContext,
+  type QueryContext,
+  type ResolvedScope,
+} from "./scope-context.js";
 import { assertActiveSessionScope } from "./sessions.js";
 import type {
-  BuildDocumentBindingRow,
-  BuildOutputRow,
-  BuildRow,
-  CompositionInputRow,
+  BuildDto,
+  BuildOutputDto,
   CompositionKind,
-  CompositionRevisionRow,
-  CompositionRow,
-  CompositionSourceRow,
+  CompositionDto,
+  CompositionInputDto,
+  CompositionRevisionDto,
+  CompositionSourceDto,
   JsonValue,
+  Page,
 } from "./types.js";
 import { StoreConflictError } from "./types.js";
 import type {
-  BuildAggregate,
-  CompositionAggregate,
-  CompositionRevisionAggregate,
+  BuildRow,
+  CompositionInputRow,
+  CompositionRevisionRow,
+  CompositionRow,
+  CompositionSourceRow,
   ObjectRow,
 } from "./internal-types.js";
 
@@ -98,23 +106,6 @@ type BuildDbRow = {
   ended_at: number | null;
 };
 
-type BuildOutputDbRow = {
-  id: string;
-  build_id: string;
-  artifact_revision_id: string;
-  role: string | null;
-  position: number;
-  created_at: number;
-};
-
-type BuildDocumentBindingDbRow = {
-  id: string;
-  build_id: string;
-  document_revision_id: string;
-  role: string;
-  created_at: number;
-};
-
 type RevisionScope = {
   revision: CompositionRevisionRow;
   composition: CompositionRow;
@@ -133,10 +124,36 @@ const OBJECT_COLUMNS =
   "id, workspace_id, project_id, backend, bucket, key, sha256, mime, bytes, storage_class, original_name, metadata_json, created_at";
 const BUILD_COLUMNS =
   "id, composition_revision_id, run_id, state, profile_json, error, created_at, started_at, ended_at";
-const OUTPUT_COLUMNS =
-  "id, build_id, artifact_revision_id, role, position, created_at";
-const BUILD_BINDING_COLUMNS =
-  "id, build_id, document_revision_id, role, created_at";
+const COMPOSITION_DTO_COLUMNS = `composition.id AS id,
+  composition.project_id AS projectId, composition.slug AS slug,
+  composition.kind AS kind,
+  (SELECT revision.id FROM composition_revisions revision
+   WHERE revision.composition_id = composition.id
+   ORDER BY revision.revision_no DESC, revision.id DESC LIMIT 1) AS latestRevisionId,
+  composition.selected_revision_id AS selectedRevisionId,
+  composition.created_at AS createdAt, composition.updated_at AS updatedAt`;
+const REVISION_DTO_COLUMNS = `revision.id AS id,
+  revision.composition_id AS compositionId, revision.revision_no AS revisionNo,
+  revision.parent_revision_id AS parentRevisionId,
+  revision.iteration_id AS iterationId, revision.state AS state,
+  revision.engine AS engine, revision.engine_version AS engineVersion,
+  revision.authored_by_session_id AS authoredBySessionId,
+  revision.created_at AS createdAt, revision.sealed_at AS sealedAt`;
+const SOURCE_DTO_COLUMNS = `source.id AS id,
+  source.composition_revision_id AS compositionRevisionId,
+  source.object_id AS objectId, source.position AS position,
+  source.created_at AS createdAt`;
+const INPUT_DTO_COLUMNS = `input.id AS id,
+  input.composition_revision_id AS compositionRevisionId,
+  input.artifact_revision_id AS artifactRevisionId, input.role AS role,
+  input.position AS position, input.created_at AS createdAt`;
+const BUILD_DTO_COLUMNS = `build.id AS id,
+  build.composition_revision_id AS compositionRevisionId,
+  build.run_id AS runId, build.state AS state,
+  build.created_at AS createdAt, build.ended_at AS finishedAt`;
+const OUTPUT_DTO_COLUMNS = `output.id AS id, output.build_id AS buildId,
+  output.artifact_revision_id AS artifactRevisionId, output.role AS role,
+  output.position AS position, output.created_at AS createdAt`;
 const COMPOSITION_KINDS = new Set<CompositionKind>([
   "video",
   "carousel",
@@ -164,7 +181,7 @@ export function createComposition(input: {
   projectId: string;
   slug: string;
   kind: CompositionKind;
-}): CompositionRow {
+}): CompositionDto {
   const slug = checkedText(input.slug, "Composition slug");
   if (!COMPOSITION_KINDS.has(input.kind)) {
     throw new Error(`Invalid Composition kind: ${input.kind}`);
@@ -186,7 +203,7 @@ export function createComposition(input: {
       payload: { kind: input.kind, slug },
       createdAt: now,
     });
-    return getCompositionRow(db, id)!;
+    return toCompositionDto(db, getCompositionRow(db, id)!);
   });
 }
 
@@ -199,7 +216,7 @@ export function reviseComposition(input: {
   engineVersion?: string | null;
   engineConfig?: JsonValue;
   authoredBySessionId?: string | null;
-}): CompositionRevisionRow {
+}): CompositionRevisionDto {
   if (!Object.hasOwn(input, "expectedLatestRevisionId")) {
     throw new Error("Composition revision requires expectedLatestRevisionId");
   }
@@ -283,7 +300,7 @@ export function reviseComposition(input: {
       },
       createdAt,
     });
-    return getRevisionRow(db, id)!;
+    return toRevisionDto(getRevisionRow(db, id)!);
   });
 }
 
@@ -292,7 +309,7 @@ export function putCompositionSource(input: {
   logicalPath: string;
   objectId: string;
   position?: number;
-}): CompositionSourceRow {
+}): CompositionSourceDto {
   const logicalPath = checkedLogicalPath(input.logicalPath);
   const position =
     input.position === undefined
@@ -347,14 +364,14 @@ export function putCompositionSource(input: {
       objectId: object.id,
       position: nextPosition,
     });
-    return getSourceRow(db, id)!;
+    return toSourceDto(getSourceRow(db, id)!);
   });
 }
 
 export function removeCompositionSource(input: {
   revisionId: string;
   logicalPath: string;
-}): CompositionSourceRow {
+}): CompositionSourceDto {
   const logicalPath = checkedLogicalPath(input.logicalPath);
   return withImmediateTransaction((db) => {
     const scope = requireDraftRevision(db, input.revisionId);
@@ -375,7 +392,7 @@ export function removeCompositionSource(input: {
       "composition.source_removed",
       { position: source.position },
     );
-    return toSourceRow(source);
+    return toSourceDto(toSourceRow(source));
   });
 }
 
@@ -385,7 +402,7 @@ export function bindCompositionInput(input: {
   role: string;
   position: number;
   config?: JsonValue | null;
-}): CompositionInputRow {
+}): CompositionInputDto {
   const role = checkedText(input.role, "Composition input role");
   const position = checkedPosition(
     input.position,
@@ -443,14 +460,14 @@ export function bindCompositionInput(input: {
       role,
       position,
     });
-    return getInputRow(db, id)!;
+    return toInputDto(getInputRow(db, id)!);
   });
 }
 
 export function removeCompositionInput(input: {
   revisionId: string;
   position: number;
-}): CompositionInputRow {
+}): CompositionInputDto {
   const position = checkedPosition(
     input.position,
     "Composition input position",
@@ -472,13 +489,13 @@ export function removeCompositionInput(input: {
       "composition.input_removed",
       { position },
     );
-    return toInputRow(row);
+    return toInputDto(toInputRow(row));
   });
 }
 
 export function sealCompositionRevision(input: {
   revisionId: string;
-}): CompositionRevisionRow {
+}): CompositionRevisionDto {
   const before = manifestForRevision(openDomainDb(), input.revisionId, true);
   if (!before.sources.length && !before.inputs.length) {
     throw new Error("Cannot seal an empty Composition revision");
@@ -509,7 +526,7 @@ export function sealCompositionRevision(input: {
       { revisionNo: scope.revision.revisionNo },
       sealedAt,
     );
-    return getRevisionRow(db, scope.revision.id)!;
+    return toRevisionDto(getRevisionRow(db, scope.revision.id)!);
   });
 }
 
@@ -517,7 +534,7 @@ export function selectCompositionRevision(input: {
   compositionId: string;
   revisionId: string;
   expectedSelectedRevisionId: string | null;
-}): CompositionRow {
+}): CompositionDto {
   if (
     !Object.hasOwn(input, "expectedSelectedRevisionId") ||
     input.expectedSelectedRevisionId === undefined
@@ -567,7 +584,7 @@ export function selectCompositionRevision(input: {
       },
       createdAt: now,
     });
-    return getCompositionRow(db, composition.id)!;
+    return toCompositionDto(db, getCompositionRow(db, composition.id)!);
   });
 }
 
@@ -575,7 +592,7 @@ export function startBuild(input: {
   compositionRevisionId: string;
   runId: string;
   profile: JsonValue;
-}): BuildRow {
+}): BuildDto {
   const runId = checkedText(input.runId, "Build Run ID");
   const profile = canonicalJsonInput(input.profile, "Build profile");
   return withImmediateTransaction((db) => {
@@ -607,7 +624,7 @@ export function startBuild(input: {
       compositionRevisionId: scope.revision.id,
       runId,
     }, startedAt);
-    return getBuildRow(db, id)!;
+    return toBuildDto(getBuildRow(db, id)!);
   });
 }
 
@@ -618,7 +635,7 @@ export function completeBuild(input: {
     role?: string | null;
     position: number;
   }>;
-}): BuildRow {
+}): BuildDto {
   const outputs = checkedBuildOutputs(input.outputs);
   const initial = getBuildScope(openDomainDb(), input.buildId);
   if (!initial) throw new Error(`Build not found: ${input.buildId}`);
@@ -681,21 +698,21 @@ export function completeBuild(input: {
     appendBuildActivity(db, scope.revisionScope, scope.build.id, "build.completed", {
       outputCount: outputs.length,
     }, createdAt);
-    return getBuildRow(db, scope.build.id)!;
+    return toBuildDto(getBuildRow(db, scope.build.id)!);
   });
 }
 
 export function failBuild(
   buildId: string,
   input: { error?: string | null } = {},
-): BuildRow {
+): BuildDto {
   return finishBuild(buildId, "failed", input.error ?? null);
 }
 
 export function cancelBuild(
   buildId: string,
   input: { error?: string | null } = {},
-): BuildRow {
+): BuildDto {
   return finishBuild(buildId, "cancelled", input.error ?? null);
 }
 
@@ -703,7 +720,7 @@ function finishBuild(
   buildId: string,
   state: "failed" | "cancelled",
   error: string | null,
-): BuildRow {
+): BuildDto {
   return withImmediateTransaction((db) => {
     const scope = getBuildScope(db, buildId);
     if (!scope) throw new Error(`Build not found: ${buildId}`);
@@ -727,77 +744,418 @@ function finishBuild(
       { state, failed: error !== null },
       endedAt,
     );
-    return getBuildRow(db, scope.build.id)!;
+    return toBuildDto(getBuildRow(db, scope.build.id)!);
   });
 }
 
-export function getComposition(id: string): CompositionAggregate {
+export function getComposition(input: {
+  context: QueryContext;
+  compositionId: string;
+}): CompositionDto {
   const db = openDomainDb();
-  return db.transaction(() => {
-    const composition = getCompositionRow(db, id);
-    if (!composition) throw new Error(`Composition not found: ${id}`);
-    const revisions = db
-      .query<CompositionRevisionDbRow, [string]>(
-        `SELECT ${REVISION_COLUMNS} FROM composition_revisions
-         WHERE composition_id = ? ORDER BY revision_no ASC, id ASC`,
-      )
-      .all(id)
-      .map((row): CompositionRevisionAggregate => {
-        const revision = toRevisionRow(row);
-        return {
-          ...revision,
-          sources: db
-            .query<CompositionSourceDbRow, [string]>(
-              `SELECT ${SOURCE_COLUMNS} FROM composition_revision_files
-               WHERE composition_revision_id = ?
-               ORDER BY position ASC, logical_path ASC, id ASC`,
-            )
-            .all(revision.id)
-            .map(toSourceRow),
-          inputs: db
-            .query<CompositionInputDbRow, [string]>(
-              `SELECT ${INPUT_COLUMNS} FROM composition_inputs
-               WHERE composition_revision_id = ? ORDER BY position ASC, id ASC`,
-            )
-            .all(revision.id)
-            .map(toInputRow),
-          builds: listBuildAggregates(db, revision.id),
-        };
-      });
-    return { ...composition, revisions };
-  })();
+  const scope = resolveQueryContext(db, input.context);
+  const composition = getVisibleCompositionDto(db, scope, input.compositionId);
+  if (!composition) {
+    throw new Error(`Composition not found: ${input.compositionId}`);
+  }
+  return composition;
 }
 
-function listBuildAggregates(
-  db: Database,
-  revisionId: string,
-): BuildAggregate[] {
-  return db
-    .query<BuildDbRow, [string]>(
-      `SELECT ${BUILD_COLUMNS} FROM builds
-       WHERE composition_revision_id = ? ORDER BY created_at ASC, id ASC`,
+export function listCompositions(input: {
+  context: QueryContext;
+  projectId: string;
+  after?: string | null;
+  limit: number;
+}): Page<CompositionDto> {
+  assertLimit(input.limit);
+  const cursor = input.after == null ? null : decodeCursor("c1", input.after);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  assertVisibleProject(db, scope, input.projectId);
+  const rows = db
+    .query<CompositionDto, (string | number)[]>(
+      `SELECT ${COMPOSITION_DTO_COLUMNS} FROM compositions composition
+       WHERE composition.project_id = ?
+         AND (composition.created_at > ? OR
+              (composition.created_at = ? AND composition.id > ?))
+       ORDER BY composition.created_at ASC, composition.id ASC LIMIT ?`,
     )
-    .all(revisionId)
-    .map((row) => {
-      const build = toBuildRow(row);
-      return {
-        ...build,
-        outputs: db
-          .query<BuildOutputDbRow, [string]>(
-            `SELECT ${OUTPUT_COLUMNS} FROM build_outputs
-             WHERE build_id = ? ORDER BY position ASC, id ASC`,
-          )
-          .all(build.id)
-          .map(toBuildOutputRow),
-        documentBindings: db
-          .query<BuildDocumentBindingDbRow, [string]>(
-            `SELECT ${BUILD_BINDING_COLUMNS} FROM build_document_bindings
-             WHERE build_id = ? ORDER BY created_at ASC, id ASC`,
-          )
-          .all(build.id)
-          .map(toBuildDocumentBindingRow),
+    .all(
+      input.projectId,
+      cursor?.ordinal ?? -1,
+      cursor?.ordinal ?? -1,
+      cursor?.id ?? "",
+      input.limit + 1,
+    );
+  return buildPage(rows, input.limit, "c1", (row) => ({
+    ordinal: row.createdAt,
+    id: row.id,
+  }));
+}
+
+export function getCompositionRevision(input: {
+  context: QueryContext;
+  revisionId: string;
+}): CompositionRevisionDto {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const revision = getVisibleRevisionDto(db, scope, input.revisionId);
+  if (!revision) {
+    throw new Error(`Composition Revision not found: ${input.revisionId}`);
+  }
+  return revision;
+}
+
+export function listCompositionRevisions(input: {
+  context: QueryContext;
+  compositionId: string;
+  after?: string | null;
+  limit: number;
+}): Page<CompositionRevisionDto> {
+  assertLimit(input.limit);
+  const cursor = input.after == null ? null : decodeCursor("v1", input.after);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  if (!getVisibleCompositionDto(db, scope, input.compositionId)) {
+    throw new Error(`Composition not found: ${input.compositionId}`);
+  }
+  const rows = db
+    .query<CompositionRevisionDto, (string | number)[]>(
+      `SELECT ${REVISION_DTO_COLUMNS} FROM composition_revisions revision
+       WHERE revision.composition_id = ?
+         AND (revision.revision_no > ? OR
+              (revision.revision_no = ? AND revision.id > ?))
+       ORDER BY revision.revision_no ASC, revision.id ASC LIMIT ?`,
+    )
+    .all(
+      input.compositionId,
+      cursor?.ordinal ?? -1,
+      cursor?.ordinal ?? -1,
+      cursor?.id ?? "",
+      input.limit + 1,
+    );
+  return buildPage(rows, input.limit, "v1", (row) => ({
+    ordinal: row.revisionNo,
+    id: row.id,
+  }));
+}
+
+export function getCompositionSource(input: {
+  context: QueryContext;
+  sourceId: string;
+}): CompositionSourceDto {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const source = getVisibleSourceDto(db, scope, input.sourceId);
+  if (!source) throw new Error(`Composition Source not found: ${input.sourceId}`);
+  return source;
+}
+
+export function listCompositionSources(input: {
+  context: QueryContext;
+  revisionId: string;
+  after?: string | null;
+  limit: number;
+}): Page<CompositionSourceDto> {
+  assertLimit(input.limit);
+  const cursor = input.after == null ? null : decodeCursor("p1", input.after);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  if (!getVisibleRevisionDto(db, scope, input.revisionId)) {
+    throw new Error(`Composition Revision not found: ${input.revisionId}`);
+  }
+  const rows = db
+    .query<CompositionSourceDto, (string | number)[]>(
+      `SELECT ${SOURCE_DTO_COLUMNS} FROM composition_revision_files source
+       WHERE source.composition_revision_id = ?
+         AND (source.position > ? OR
+              (source.position = ? AND source.id > ?))
+       ORDER BY source.position ASC, source.id ASC LIMIT ?`,
+    )
+    .all(
+      input.revisionId,
+      cursor?.ordinal ?? -1,
+      cursor?.ordinal ?? -1,
+      cursor?.id ?? "",
+      input.limit + 1,
+    );
+  return buildPage(rows, input.limit, "p1", (row) => ({
+    ordinal: row.position,
+    id: row.id,
+  }));
+}
+
+export function getCompositionInput(input: {
+  context: QueryContext;
+  inputId: string;
+}): CompositionInputDto {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const compositionInput = getVisibleInputDto(db, scope, input.inputId);
+  if (!compositionInput) {
+    throw new Error(`Composition Input not found: ${input.inputId}`);
+  }
+  return compositionInput;
+}
+
+export function listCompositionInputs(input: {
+  context: QueryContext;
+  revisionId: string;
+  after?: string | null;
+  limit: number;
+}): Page<CompositionInputDto> {
+  assertLimit(input.limit);
+  const cursor = input.after == null ? null : decodeCursor("p1", input.after);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  if (!getVisibleRevisionDto(db, scope, input.revisionId)) {
+    throw new Error(`Composition Revision not found: ${input.revisionId}`);
+  }
+  const rows = db
+    .query<CompositionInputDto, (string | number)[]>(
+      `SELECT ${INPUT_DTO_COLUMNS} FROM composition_inputs input
+       WHERE input.composition_revision_id = ?
+         AND (input.position > ? OR (input.position = ? AND input.id > ?))
+       ORDER BY input.position ASC, input.id ASC LIMIT ?`,
+    )
+    .all(
+      input.revisionId,
+      cursor?.ordinal ?? -1,
+      cursor?.ordinal ?? -1,
+      cursor?.id ?? "",
+      input.limit + 1,
+    );
+  return buildPage(rows, input.limit, "p1", (row) => ({
+    ordinal: row.position,
+    id: row.id,
+  }));
+}
+
+export function getBuild(input: {
+  context: QueryContext;
+  buildId: string;
+}): BuildDto {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const build = getVisibleBuildDto(db, scope, input.buildId);
+  if (!build) throw new Error(`Build not found: ${input.buildId}`);
+  return build;
+}
+
+export function listBuilds(input: {
+  context: QueryContext;
+  compositionRevisionId: string;
+  after?: string | null;
+  limit: number;
+}): Page<BuildDto> {
+  assertLimit(input.limit);
+  const cursor = input.after == null ? null : decodeCursor("c1", input.after);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  if (!getVisibleRevisionDto(db, scope, input.compositionRevisionId)) {
+    throw new Error(
+      `Composition Revision not found: ${input.compositionRevisionId}`,
+    );
+  }
+  const rows = db
+    .query<BuildDto, (string | number)[]>(
+      `SELECT ${BUILD_DTO_COLUMNS} FROM builds build
+       WHERE build.composition_revision_id = ?
+         AND (build.created_at > ? OR
+              (build.created_at = ? AND build.id > ?))
+       ORDER BY build.created_at ASC, build.id ASC LIMIT ?`,
+    )
+    .all(
+      input.compositionRevisionId,
+      cursor?.ordinal ?? -1,
+      cursor?.ordinal ?? -1,
+      cursor?.id ?? "",
+      input.limit + 1,
+    );
+  return buildPage(rows, input.limit, "c1", (row) => ({
+    ordinal: row.createdAt,
+    id: row.id,
+  }));
+}
+
+export function getBuildOutput(input: {
+  context: QueryContext;
+  outputId: string;
+}): BuildOutputDto {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const output = getVisibleOutputDto(db, scope, input.outputId);
+  if (!output) throw new Error(`Build Output not found: ${input.outputId}`);
+  return output;
+}
+
+export function listBuildOutputs(input: {
+  context: QueryContext;
+  buildId: string;
+  after?: string | null;
+  limit: number;
+}): Page<BuildOutputDto> {
+  assertLimit(input.limit);
+  const cursor = input.after == null ? null : decodeCursor("p1", input.after);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  if (!getVisibleBuildDto(db, scope, input.buildId)) {
+    throw new Error(`Build not found: ${input.buildId}`);
+  }
+  const rows = db
+    .query<BuildOutputDto, (string | number)[]>(
+      `SELECT ${OUTPUT_DTO_COLUMNS} FROM build_outputs output
+       WHERE output.build_id = ?
+         AND (output.position > ? OR (output.position = ? AND output.id > ?))
+       ORDER BY output.position ASC, output.id ASC LIMIT ?`,
+    )
+    .all(
+      input.buildId,
+      cursor?.ordinal ?? -1,
+      cursor?.ordinal ?? -1,
+      cursor?.id ?? "",
+      input.limit + 1,
+    );
+  return buildPage(rows, input.limit, "p1", (row) => ({
+    ordinal: row.position,
+    id: row.id,
+  }));
+}
+
+function projectVisibility(
+  scope: ResolvedScope,
+): { sql: string; values: string[] } {
+  return scope.projectId === null
+    ? { sql: "project.workspace_id = ?", values: [scope.workspaceId] }
+    : {
+        sql: "project.id = ? AND project.workspace_id = ?",
+        values: [scope.projectId, scope.workspaceId],
       };
-    });
+}
+
+function assertVisibleProject(
+  db: Database,
+  scope: ResolvedScope,
+  projectId: string,
+): void {
+  const visibility = projectVisibility(scope);
+  const visible = db
+    .query<{ id: string }, string[]>(
+      `SELECT project.id FROM projects project
+       WHERE project.id = ? AND ${visibility.sql}`,
+    )
+    .get(projectId, ...visibility.values);
+  if (!visible) throw new Error(`Project not found: ${projectId}`);
+}
+
+function getVisibleCompositionDto(
+  db: Database,
+  scope: ResolvedScope,
+  compositionId: string,
+): CompositionDto | null {
+  const visibility = projectVisibility(scope);
+  return db
+    .query<CompositionDto, string[]>(
+      `SELECT ${COMPOSITION_DTO_COLUMNS}
+       FROM compositions composition
+       JOIN projects project ON project.id = composition.project_id
+       WHERE composition.id = ? AND ${visibility.sql}`,
+    )
+    .get(compositionId, ...visibility.values);
+}
+
+function getVisibleRevisionDto(
+  db: Database,
+  scope: ResolvedScope,
+  revisionId: string,
+): CompositionRevisionDto | null {
+  const visibility = projectVisibility(scope);
+  return db
+    .query<CompositionRevisionDto, string[]>(
+      `SELECT ${REVISION_DTO_COLUMNS}
+       FROM composition_revisions revision
+       JOIN compositions composition ON composition.id = revision.composition_id
+       JOIN projects project ON project.id = composition.project_id
+       WHERE revision.id = ? AND ${visibility.sql}`,
+    )
+    .get(revisionId, ...visibility.values);
+}
+
+function getVisibleSourceDto(
+  db: Database,
+  scope: ResolvedScope,
+  sourceId: string,
+): CompositionSourceDto | null {
+  const visibility = projectVisibility(scope);
+  return db
+    .query<CompositionSourceDto, string[]>(
+      `SELECT ${SOURCE_DTO_COLUMNS}
+       FROM composition_revision_files source
+       JOIN composition_revisions revision
+         ON revision.id = source.composition_revision_id
+       JOIN compositions composition ON composition.id = revision.composition_id
+       JOIN projects project ON project.id = composition.project_id
+       WHERE source.id = ? AND ${visibility.sql}`,
+    )
+    .get(sourceId, ...visibility.values);
+}
+
+function getVisibleInputDto(
+  db: Database,
+  scope: ResolvedScope,
+  inputId: string,
+): CompositionInputDto | null {
+  const visibility = projectVisibility(scope);
+  return db
+    .query<CompositionInputDto, string[]>(
+      `SELECT ${INPUT_DTO_COLUMNS}
+       FROM composition_inputs input
+       JOIN composition_revisions revision
+         ON revision.id = input.composition_revision_id
+       JOIN compositions composition ON composition.id = revision.composition_id
+       JOIN projects project ON project.id = composition.project_id
+       WHERE input.id = ? AND ${visibility.sql}`,
+    )
+    .get(inputId, ...visibility.values);
+}
+
+function getVisibleBuildDto(
+  db: Database,
+  scope: ResolvedScope,
+  buildId: string,
+): BuildDto | null {
+  const visibility = projectVisibility(scope);
+  return db
+    .query<BuildDto, string[]>(
+      `SELECT ${BUILD_DTO_COLUMNS}
+       FROM builds build
+       JOIN composition_revisions revision
+         ON revision.id = build.composition_revision_id
+       JOIN compositions composition ON composition.id = revision.composition_id
+       JOIN projects project ON project.id = composition.project_id
+       WHERE build.id = ? AND ${visibility.sql}`,
+    )
+    .get(buildId, ...visibility.values);
+}
+
+function getVisibleOutputDto(
+  db: Database,
+  scope: ResolvedScope,
+  outputId: string,
+): BuildOutputDto | null {
+  const visibility = projectVisibility(scope);
+  return db
+    .query<BuildOutputDto, string[]>(
+      `SELECT ${OUTPUT_DTO_COLUMNS}
+       FROM build_outputs output
+       JOIN builds build ON build.id = output.build_id
+       JOIN composition_revisions revision
+         ON revision.id = build.composition_revision_id
+       JOIN compositions composition ON composition.id = revision.composition_id
+       JOIN projects project ON project.id = composition.project_id
+       WHERE output.id = ? AND ${visibility.sql}`,
+    )
+    .get(outputId, ...visibility.values);
 }
 
 function getBuildScope(
@@ -1332,26 +1690,64 @@ function toBuildRow(row: BuildDbRow): BuildRow {
   };
 }
 
-function toBuildOutputRow(row: BuildOutputDbRow): BuildOutputRow {
+function toCompositionDto(db: Database, row: CompositionRow): CompositionDto {
   return {
     id: row.id,
-    buildId: row.build_id,
-    artifactRevisionId: row.artifact_revision_id,
-    role: row.role,
-    position: row.position,
-    createdAt: row.created_at,
+    projectId: row.projectId,
+    slug: row.slug,
+    kind: row.kind,
+    latestRevisionId: latestRevision(db, row.id)?.id ?? null,
+    selectedRevisionId: row.selectedRevisionId,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 
-function toBuildDocumentBindingRow(
-  row: BuildDocumentBindingDbRow,
-): BuildDocumentBindingRow {
+function toRevisionDto(row: CompositionRevisionRow): CompositionRevisionDto {
   return {
     id: row.id,
-    buildId: row.build_id,
-    documentRevisionId: row.document_revision_id,
+    compositionId: row.compositionId,
+    revisionNo: row.revisionNo,
+    parentRevisionId: row.parentRevisionId,
+    iterationId: row.iterationId,
+    state: row.state,
+    engine: row.engine,
+    engineVersion: row.engineVersion,
+    authoredBySessionId: row.authoredBySessionId,
+    createdAt: row.createdAt,
+    sealedAt: row.sealedAt,
+  };
+}
+
+function toSourceDto(row: CompositionSourceRow): CompositionSourceDto {
+  return {
+    id: row.id,
+    compositionRevisionId: row.compositionRevisionId,
+    objectId: row.objectId,
+    position: row.position,
+    createdAt: row.createdAt,
+  };
+}
+
+function toInputDto(row: CompositionInputRow): CompositionInputDto {
+  return {
+    id: row.id,
+    compositionRevisionId: row.compositionRevisionId,
+    artifactRevisionId: row.artifactRevisionId,
     role: row.role,
-    createdAt: row.created_at,
+    position: row.position,
+    createdAt: row.createdAt,
+  };
+}
+
+function toBuildDto(row: BuildRow): BuildDto {
+  return {
+    id: row.id,
+    compositionRevisionId: row.compositionRevisionId,
+    runId: row.runId,
+    state: row.state,
+    createdAt: row.createdAt,
+    finishedAt: row.endedAt,
   };
 }
 

@@ -12,7 +12,6 @@ import {
   completeBuild,
   createComposition,
   failBuild,
-  getComposition,
   putCompositionSource,
   removeCompositionInput,
   removeCompositionSource,
@@ -52,6 +51,7 @@ import type {
 import { StoreConflictError } from "../../cli/lib/store/types.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 import { scopedActivity } from "../helpers/activity.js";
+import { getCompositionAggregate as getComposition } from "../helpers/composition-aggregate.js";
 import { getRunAggregate as getRun } from "../helpers/run-aggregate.js";
 import type {
   ObjectRow,
@@ -240,7 +240,11 @@ describe("domain Composition store", () => {
       sources: [expect.objectContaining({ logicalPath: "index.html" })],
       inputs: [expect.objectContaining({ artifactRevisionId: scene.id })],
     });
-    expect(sealedV1.manifestSha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(
+      getComposition(composition.id).revisions.find(
+        (revision) => revision.id === sealedV1.id,
+      )?.manifestSha256,
+    ).toMatch(/^[0-9a-f]{64}$/);
   });
 
   test("validates latest, parent, Iteration, Session, engine, and JSON before revision insertion", () => {
@@ -699,7 +703,8 @@ describe("domain Composition store", () => {
         position: 0,
         config: inputConfig as never,
       });
-      return sealCompositionRevision({ revisionId: revision.id });
+      sealCompositionRevision({ revisionId: revision.id });
+      return getComposition(composition.id).revisions[0]!;
     };
 
     const first = seal(
@@ -1003,8 +1008,10 @@ describe("domain Composition store", () => {
       compositionRevisionId: revision.id,
       runId: exactRun.id,
       state: "running",
-      profile: { crf: 24, name: "social" },
     });
+    expect(
+      getComposition(composition.id).revisions[0]?.builds[0]?.profile,
+    ).toEqual({ crf: 24, name: "social" });
     const workspaceDocument = createDocument({
       workspaceId: workspace.id,
       kind: "style-guide",
@@ -1333,11 +1340,13 @@ describe("domain Composition store", () => {
 
     expect(failBuild(failed.id, { error: "renderer failed" })).toMatchObject({
       state: "failed",
-      error: "renderer failed",
     });
-    expect(cancelBuild(cancelled.id, { error: "user cancelled" })).toMatchObject(
-      { state: "cancelled", error: "user cancelled" },
-    );
+    expect(cancelBuild(cancelled.id, { error: "user cancelled" })).toMatchObject({
+      state: "cancelled",
+    });
+    expect(
+      getComposition(composition.id).revisions[0]?.builds.map((build) => build.error),
+    ).toEqual(["renderer failed", "user cancelled"]);
     expect(getRun(failedRun.id).state).toBe("pending");
     expect(getRun(cancelledRun.id).state).toBe("pending");
     expect(
