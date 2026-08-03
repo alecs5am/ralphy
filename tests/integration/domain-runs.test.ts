@@ -507,8 +507,13 @@ describe("domain Run store", () => {
     finishRun(run.id, { state: "failed", error: "fixture failure" });
 
     expect(failedAttempt).toMatchObject({
-      response: { a: 1, z: 2 },
       costUsd: 1.25,
+      state: "failed",
+    });
+    expect(failedAttempt).not.toHaveProperty("response");
+    expect(failedAttempt).not.toHaveProperty("error");
+    expect(getRun(run.id).attempts[0]).toMatchObject({
+      response: { a: 1, z: 2 },
       error: "fixture failure",
     });
     const firstStartedAt = getRun(run.id).startedAt;

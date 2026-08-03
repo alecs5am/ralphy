@@ -50,6 +50,7 @@ import {
 } from "../../cli/lib/store/units.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 import { scopedActivity } from "../helpers/activity.js";
+import { storedObjectPath } from "../helpers/stored-object.js";
 import { getUnitAggregate as getUnit } from "../helpers/unit-aggregate.js";
 
 let roots: TmpRoot[] = [];
@@ -492,12 +493,7 @@ describe("domain Unit store", () => {
         project.id,
         fixtureCase.name,
       );
-      const objectPath = path.join(
-        root.dir,
-        ".ralphy",
-        fixture.object.bucket,
-        fixture.object.key,
-      );
+      const objectPath = storedObjectPath(fixture.object.id);
       fixtureCase.mutate(objectPath);
       const unit = createUnit({
         projectId: project.id,

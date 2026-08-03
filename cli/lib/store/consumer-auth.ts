@@ -7,10 +7,10 @@ import { ralphDir } from "../paths.js";
 import {
   decodeConsumerToken,
   farmIdentityDigest,
-  getConsumerPrincipal,
   parseFarmIdentity,
   type FarmIdentityV1,
 } from "./consumers.js";
+import { getConsumerPrincipal } from "./internal-consumers.js";
 import { openDomainDb } from "./db.js";
 
 const IDENTITY_ERROR = "Consumer identity is unavailable";

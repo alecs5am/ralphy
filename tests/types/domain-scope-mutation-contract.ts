@@ -1,6 +1,9 @@
 import * as publicScopes from "../../cli/lib/store/scopes.js";
 import type {
+  FeedbackDto,
+  IterationDto,
   OverviewAccountDto,
+  ProjectSummaryDto,
   WorkspaceSummaryDto,
 } from "../../cli/lib/store/types.js";
 
@@ -17,6 +20,24 @@ type UpdateWorkspaceReturnsSafeDto = Assert<
     WorkspaceSummaryDto
   >
 >;
+type CreateScopeMutationsReturnSafeDtos = Assert<
+  Equal<
+    [
+      ReturnType<typeof publicScopes.createWorkspace>,
+      ReturnType<typeof publicScopes.createProject>,
+      ReturnType<typeof publicScopes.createIteration>,
+      ReturnType<typeof publicScopes.addFeedback>,
+      ReturnType<typeof publicScopes.resolveFeedback>,
+    ],
+    [
+      WorkspaceSummaryDto,
+      ProjectSummaryDto,
+      IterationDto,
+      FeedbackDto,
+      FeedbackDto,
+    ]
+  >
+>;
 type UpsertSocialAccountReturnsSafeDto = Assert<
   Equal<
     ReturnType<typeof publicScopes.upsertSocialAccount>,
@@ -31,6 +52,7 @@ type PublicScopesDoNotExportRawTransfer = Assert<
 >;
 
 export type DomainScopeMutationContract = [
+  CreateScopeMutationsReturnSafeDtos,
   UpdateWorkspaceReturnsSafeDto,
   UpsertSocialAccountReturnsSafeDto,
   PublicScopesDoNotExportRawTransfer,

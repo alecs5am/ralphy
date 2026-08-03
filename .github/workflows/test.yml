@@ -87,6 +87,9 @@ jobs:
       - name: Lint pretty-mode out() coverage (#001)
         run: bun run lint:out-coverage
 
+      - name: Lint store boundary
+        run: bun run lint:store-boundary
+
       # English-only-on-disk gate (#465): fails on any Cyrillic in a tracked
       # text file outside the documented translation-debt allowlist.
       - name: Lint no-Cyrillic (#465)

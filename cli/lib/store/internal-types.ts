@@ -16,6 +16,9 @@ import type {
   CompositionKind,
   CompositionRevisionState,
   DocumentFormat,
+  FeedbackStatus,
+  FeedbackTargetType,
+  IterationState,
   JsonValue,
   MetricRetentionPoint,
   ObjectStorageClass,
@@ -24,9 +27,95 @@ import type {
   PublicationDto,
   PublicationRail,
   PublicationState,
-  RunAttemptRow,
-  RunRow,
+  ProjectState,
+  RunResultEntityType,
+  RunState,
 } from "./types.js";
+
+export type WorkspaceRow = {
+  id: string;
+  slug: string;
+  name: string;
+  metadata: JsonValue | null;
+  rowVersion: number;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type ProjectRow = {
+  id: string;
+  workspaceId: string;
+  slug: string;
+  name: string;
+  state: ProjectState;
+  metadata: JsonValue | null;
+  rowVersion: number;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type IterationRow = {
+  id: string;
+  projectId: string;
+  number: number;
+  title: string;
+  reason: string | null;
+  state: IterationState;
+  createdAt: number;
+  closedAt: number | null;
+};
+
+export type FeedbackRow = {
+  id: string;
+  iterationId: string;
+  targetType: FeedbackTargetType | null;
+  targetId: string | null;
+  timecodeMs: number | null;
+  body: string;
+  status: FeedbackStatus;
+  resolutionNote: string | null;
+  createdAt: number;
+  resolvedAt: number | null;
+};
+
+export type RunRow = {
+  id: string;
+  workspaceId: string | null;
+  projectId: string | null;
+  agentSessionId: string | null;
+  kind: string;
+  label: string | null;
+  state: RunState;
+  metadata: JsonValue | null;
+  createdAt: number;
+  startedAt: number | null;
+  endedAt: number | null;
+  error: string | null;
+};
+
+export type RunAttemptRow = {
+  id: string;
+  runId: string;
+  attemptNo: number;
+  provider: string | null;
+  model: string | null;
+  state: RunState;
+  request: JsonValue | null;
+  response: JsonValue | null;
+  costUsd: number | null;
+  error: string | null;
+  startedAt: number;
+  endedAt: number | null;
+};
+
+export type RunResultRow = {
+  id: string;
+  runId: string;
+  position: number;
+  entityType: RunResultEntityType;
+  entityId: string;
+  createdAt: number;
+};
 
 export type ArtifactRow = {
   id: string;

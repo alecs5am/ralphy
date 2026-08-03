@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ralphDir } from "../paths.js";
 import { domainDbPath } from "./db.js";
-import { resolveObjectLocator } from "./objects.js";
+import { resolveObjectLocator } from "./internal-objects.js";
 import { SCHEMA_VERSION } from "./schema.js";
 import type {
   ObjectRow,

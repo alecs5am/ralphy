@@ -388,7 +388,7 @@ function getRunDbRow(db: Database, id: string): RunDbRow | null {
   );
 }
 
-export function toRunDto(row: RunDbRow): RunDto {
+function toRunDto(row: RunDbRow): RunDto {
   return {
     id: row.id,
     workspaceId: row.workspace_id,

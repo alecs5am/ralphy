@@ -7,10 +7,8 @@ import { appendActivity } from "./activity.js";
 import { requireConsumerSession } from "./consumer-runs.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
-import {
-  ingestObject,
-  type ObjectScope,
-} from "./objects.js";
+import { ingestObjectRow } from "./internal-objects.js";
+import type { ObjectScope } from "./objects.js";
 import { assertActiveSessionScope } from "./sessions.js";
 import { assertLimit, buildPage, decodeCursor } from "./pagination.js";
 import {
@@ -19,19 +17,22 @@ import {
   type QueryContext,
 } from "./scope-context.js";
 import type {
+  RunAttemptRow,
+  RunObjectRow,
+  RunResultRow,
+  RunRow,
+} from "./internal-types.js";
+import type {
   JsonValue,
   ObjectStorageClass,
   Page,
   RunAttemptDto,
   RunDto,
   RunObjectDto,
-  RunAttemptRow,
   RunResultEntityType,
-  RunResultRow,
-  RunRow,
+  RunResultDto,
 } from "./types.js";
 import { StoreConflictError } from "./types.js";
-import type { RunObjectRow } from "./internal-types.js";
 
 type RunState = RunRow["state"];
 
@@ -181,7 +182,7 @@ export function startRun(input: {
   kind: string;
   label?: string | null;
   metadata?: JsonValue | null;
-}): RunRow {
+}): RunDto {
   const kind = checkedText(input.kind, "Run kind");
   const label =
     input.label === undefined || input.label === null
@@ -224,7 +225,7 @@ export function startRun(input: {
       payload: { kind },
       createdAt,
     });
-    return getRunRow(db, id)!;
+    return toRunDtoFromRow(getRunRow(db, id)!);
   });
 }
 
@@ -233,7 +234,7 @@ export function startRunAttempt(input: {
   provider?: string | null;
   model?: string | null;
   request?: JsonValue | null;
-}): RunAttemptRow {
+}): RunAttemptDto {
   const provider = optionalText(input.provider, "Run Attempt provider");
   const model = optionalText(input.model, "Run Attempt model");
   const request = checkedJson(input.request, "Run Attempt request");
@@ -282,7 +283,7 @@ export function startRunAttempt(input: {
       payload: { runId: run.id, attemptNo },
       createdAt: startedAt,
     });
-    return getRunAttemptRow(db, id)!;
+    return toRunAttemptDtoFromRow(getRunAttemptRow(db, id)!);
   });
 }
 
@@ -294,7 +295,7 @@ export function finishRunAttempt(
     costUsd?: number | null;
     error?: string | null;
   },
-): RunAttemptRow {
+): RunAttemptDto {
   assertTerminalState(input.state, "Run Attempt");
   const response = checkedJson(input.response, "Run Attempt response");
   const costUsd = checkedCost(input.costUsd);
@@ -329,7 +330,7 @@ export function finishRunAttempt(
       payload: { runId: run.id, state: input.state },
       createdAt: endedAt,
     });
-    return getRunAttemptRow(db, id)!;
+    return toRunAttemptDtoFromRow(getRunAttemptRow(db, id)!);
   });
 }
 
@@ -339,7 +340,7 @@ export function finishRun(
     state: "succeeded" | "failed" | "cancelled";
     error?: string | null;
   },
-): RunRow {
+): RunDto {
   assertTerminalState(input.state, "Run");
   return withImmediateTransaction((db) => {
     const run = requireRun(db, id);
@@ -361,7 +362,7 @@ export function finishRun(
       payload: { state: input.state },
       createdAt: endedAt,
     });
-    return getRunRow(db, id)!;
+    return toRunDtoFromRow(getRunRow(db, id)!);
   });
 }
 
@@ -446,7 +447,7 @@ export async function promoteRunObject(input: {
   if (runObject.sha256 !== null && runObject.sha256 !== facts.sha256) {
     throw new Error("RunObject SHA-256 does not match recorded evidence");
   }
-  const object = await ingestObject({
+  const object = await ingestObjectRow({
     scope,
     sourcePath,
     originalName: input.originalName ?? path.posix.basename(runObject.path),
@@ -645,7 +646,7 @@ export function recordRunResult(
     entityType: RunResultEntityType;
     entityId: string;
   },
-): RunResultRow {
+): RunResultDto {
   if (!RUN_RESULT_ENTITY_TYPES.has(input.entityType)) {
     throw new Error(`Unsupported Run result entity type: ${input.entityType}`);
   }
@@ -673,7 +674,7 @@ export function recordRunResult(
      (id, run_id, position, entity_type, entity_id, created_at)
      VALUES (?, ?, ?, ?, ?, ?)`,
   ).run(id, run.id, input.position, input.entityType, entityId, createdAt);
-  return getRunResultRow(db, id)!;
+  return toRunResultDto(getRunResultRow(db, id)!);
 }
 
 /** @internal Validates a dedicated operation Run before its only attempt. */
@@ -681,7 +682,7 @@ export function assertFreshPendingRun(
   db: Database,
   runId: string,
   scope: { workspaceId: string; projectId: string | null },
-): RunRow {
+): void {
   const run = getRunRow(db, runId);
   if (!run) throw new Error(`Run not found: ${runId}`);
   if (run.workspaceId !== scope.workspaceId || run.projectId !== scope.projectId) {
@@ -697,7 +698,6 @@ export function assertFreshPendingRun(
   if (run.state !== "pending" || used !== 0) {
     throw new StoreConflictError("Operation Run must be fresh and pending");
   }
-  return run;
 }
 
 /** @internal Starts the only attempt inside an existing transaction. */
@@ -709,7 +709,7 @@ export function startRunAttemptInTransaction(
     model?: string | null;
     request?: JsonValue | null;
   },
-): RunAttemptRow {
+): RunAttemptDto {
   const run = getRunRow(db, input.runId);
   if (!run) throw new Error(`Run not found: ${input.runId}`);
   if (run.state !== "pending") {
@@ -747,7 +747,7 @@ export function startRunAttemptInTransaction(
     payload: { runId: run.id, attemptNo: 1 },
     createdAt: startedAt,
   });
-  return getRunAttemptRow(db, id)!;
+  return toRunAttemptDtoFromRow(getRunAttemptRow(db, id)!);
 }
 
 /** @internal Finishes the dedicated attempt inside an existing transaction. */
@@ -759,7 +759,7 @@ export function finishRunAttemptInTransaction(
     response?: JsonValue | null;
     error?: string | null;
   },
-): RunAttemptRow {
+): RunAttemptDto {
   const attempt = getRunAttemptRow(db, id);
   if (!attempt) throw new Error(`Run Attempt not found: ${id}`);
   if (attempt.state !== "running") {
@@ -786,7 +786,7 @@ export function finishRunAttemptInTransaction(
     payload: { runId: run.id, state: input.state },
     createdAt: endedAt,
   });
-  return getRunAttemptRow(db, id)!;
+  return toRunAttemptDtoFromRow(getRunAttemptRow(db, id)!);
 }
 
 /** @internal Finishes the dedicated Run inside an existing transaction. */
@@ -797,7 +797,7 @@ export function finishRunInTransaction(
     state: "succeeded" | "failed" | "cancelled";
     error?: string | null;
   },
-): RunRow {
+): RunDto {
   const run = requireRun(db, id);
   if (run.state !== "pending" && run.state !== "running") {
     throw new StoreConflictError("Run is already terminal");
@@ -816,7 +816,7 @@ export function finishRunInTransaction(
     payload: { state: input.state },
     createdAt: endedAt,
   });
-  return getRunRow(db, id)!;
+  return toRunDtoFromRow(getRunRow(db, id)!);
 }
 
 function resolveRunResultScope(
@@ -1122,6 +1122,21 @@ function toRunDto(row: RunDtoDbRow): RunDto {
   };
 }
 
+function toRunDtoFromRow(row: RunRow): RunDto {
+  return {
+    id: row.id,
+    workspaceId: row.workspaceId,
+    projectId: row.projectId,
+    agentSessionId: row.agentSessionId,
+    kind: row.kind,
+    label: row.label,
+    state: row.state,
+    createdAt: row.createdAt,
+    startedAt: row.startedAt,
+    endedAt: row.endedAt,
+  };
+}
+
 function toRunAttemptDto(row: RunAttemptDtoDbRow): RunAttemptDto {
   return {
     id: row.id,
@@ -1133,6 +1148,31 @@ function toRunAttemptDto(row: RunAttemptDtoDbRow): RunAttemptDto {
     costUsd: row.cost_usd,
     startedAt: row.started_at,
     endedAt: row.ended_at,
+  };
+}
+
+function toRunAttemptDtoFromRow(row: RunAttemptRow): RunAttemptDto {
+  return {
+    id: row.id,
+    runId: row.runId,
+    attemptNo: row.attemptNo,
+    provider: row.provider,
+    model: row.model,
+    state: row.state,
+    costUsd: row.costUsd,
+    startedAt: row.startedAt,
+    endedAt: row.endedAt,
+  };
+}
+
+function toRunResultDto(row: RunResultRow): RunResultDto {
+  return {
+    id: row.id,
+    runId: row.runId,
+    position: row.position,
+    entityType: row.entityType,
+    entityId: row.entityId,
+    createdAt: row.createdAt,
   };
 }
 

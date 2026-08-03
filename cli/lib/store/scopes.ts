@@ -9,22 +9,24 @@ import {
   type ResolvedScope,
 } from "./scope-context.js";
 import {
+  type IterationRow,
+  type ProjectRow,
+  type WorkspaceRow,
+} from "./internal-types.js";
+import {
   type EntityReference,
   type FeedbackDto,
   type FeedbackResolutionLinkDto,
-  type FeedbackRow,
   type FeedbackTargetType,
   type IterationDto,
-  type IterationRow,
   type JsonValue,
   type Page,
   type OverviewAccountDto,
+  type ProjectState,
   type ProjectStageDto,
-  type ProjectRow,
   type ProjectSummaryDto,
   StoreConflictError,
   type TargetReference,
-  type WorkspaceRow,
   type WorkspaceSummaryDto,
 } from "./types.js";
 
@@ -57,8 +59,8 @@ export type CreateProjectInput = {
 };
 
 export type UpdateProjectInput = Partial<
-  Pick<ProjectRow, "slug" | "name" | "state" | "metadata">
->;
+  Pick<CreateProjectInput, "slug" | "name" | "metadata">
+> & { state?: ProjectState };
 
 export type CreateIterationInput = {
   projectId: string;
@@ -113,19 +115,6 @@ type IterationDbRow = {
   closed_at: number | null;
 };
 
-type FeedbackDbRow = {
-  id: string;
-  iteration_id: string;
-  target_type: FeedbackTargetType | null;
-  target_id: string | null;
-  timecode_ms: number | null;
-  body: string;
-  status: FeedbackRow["status"];
-  resolution_note: string | null;
-  created_at: number;
-  resolved_at: number | null;
-};
-
 const WORKSPACE_COLUMNS =
   "id, slug, name, metadata_json, row_version, created_at, updated_at";
 const PROJECT_COLUMNS =
@@ -154,7 +143,7 @@ const PROJECT_STAGE_DTO_SELECT = `SELECT id, project_id AS projectId, stage, sta
        row_version AS rowVersion, updated_at AS updatedAt
   FROM project_stages`;
 
-export function createWorkspace(input: CreateWorkspaceInput): WorkspaceRow {
+export function createWorkspace(input: CreateWorkspaceInput): WorkspaceSummaryDto {
   return withImmediateTransaction((db) => {
     const id = newDomainId("ws");
     const now = Date.now();
@@ -169,7 +158,7 @@ export function createWorkspace(input: CreateWorkspaceInput): WorkspaceRow {
       payload: { slug: input.slug },
       createdAt: now,
     });
-    return getWorkspaceRow(db, id)!;
+    return toWorkspaceSummaryDto(getWorkspaceRow(db, id)!);
   });
 }
 
@@ -350,7 +339,7 @@ export function listSocialAccounts(input: {
   }));
 }
 
-export function createProject(input: CreateProjectInput): ProjectRow {
+export function createProject(input: CreateProjectInput): ProjectSummaryDto {
   return withImmediateTransaction((db) => {
     const id = newDomainId("prj");
     const now = Date.now();
@@ -374,7 +363,7 @@ export function createProject(input: CreateProjectInput): ProjectRow {
       payload: { slug: input.slug },
       createdAt: now,
     });
-    return getProjectRow(db, id)!;
+    return toProjectSummaryDto(getProjectRow(db, id)!);
   });
 }
 
@@ -421,16 +410,7 @@ export function updateProject(
       payload: { fields: Object.keys(input) },
       createdAt: now,
     });
-    return {
-      id: project.id,
-      workspaceId: project.workspaceId,
-      slug: project.slug,
-      name: project.name,
-      state: project.state,
-      rowVersion: project.rowVersion,
-      createdAt: project.createdAt,
-      updatedAt: project.updatedAt,
-    };
+    return toProjectSummaryDto(project);
   });
 }
 
@@ -478,7 +458,7 @@ export function listProjects(
   }));
 }
 
-export function createIteration(input: CreateIterationInput): IterationRow {
+export function createIteration(input: CreateIterationInput): IterationDto {
   return withImmediateTransaction((db) => {
     const project = getProjectRow(db, input.projectId);
     if (!project) throw new Error(`Project not found: ${input.projectId}`);
@@ -500,11 +480,11 @@ export function createIteration(input: CreateIterationInput): IterationRow {
       payload: { number },
       createdAt: now,
     });
-    return getIterationRow(db, id)!;
+    return toIterationDto(getIterationRow(db, id)!);
   });
 }
 
-export function addFeedback(input: AddFeedbackInput): FeedbackRow {
+export function addFeedback(input: AddFeedbackInput): FeedbackDto {
   const target = targetFromInput(input);
   if (input.timecodeMs !== undefined && input.timecodeMs !== null && input.timecodeMs < 0) {
     throw new Error("Feedback timecode must not be negative");
@@ -537,14 +517,14 @@ export function addFeedback(input: AddFeedbackInput): FeedbackRow {
       payload: target ?? {},
       createdAt: now,
     });
-    return getFeedbackRow(db, id)!;
+    return getFeedbackDto(db, id)!;
   });
 }
 
 export function resolveFeedback(
   feedbackId: string,
   input: ResolveFeedbackInput = {},
-): FeedbackRow {
+): FeedbackDto {
   const links = (input.links ?? []).map(normalizeReference);
   return withImmediateTransaction((db) => {
     const scope = feedbackScope(db, feedbackId);
@@ -572,7 +552,7 @@ export function resolveFeedback(
       payload: { linkCount: links.length },
       createdAt: now,
     });
-    return getFeedbackRow(db, feedbackId)!;
+    return getFeedbackDto(db, feedbackId)!;
   });
 }
 
@@ -830,13 +810,10 @@ function getIterationRow(db: Database, id: string): IterationRow | null {
   return row ? toIterationRow(row) : null;
 }
 
-function getFeedbackRow(db: Database, id: string): FeedbackRow | null {
-  const row = db
-    .query<FeedbackDbRow, [string]>(
-      `SELECT ${FEEDBACK_COLUMNS} FROM feedback_items WHERE id = ?`,
-    )
+function getFeedbackDto(db: Database, id: string): FeedbackDto | null {
+  return db
+    .query<FeedbackDto, [string]>(`${FEEDBACK_DTO_SELECT} WHERE feedback.id = ?`)
     .get(id);
-  return row ? toFeedbackRow(row) : null;
 }
 
 function iterationScope(
@@ -937,6 +914,17 @@ function toWorkspaceRow(row: WorkspaceDbRow): WorkspaceRow {
   };
 }
 
+function toWorkspaceSummaryDto(row: WorkspaceRow): WorkspaceSummaryDto {
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    rowVersion: row.rowVersion,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
 function toProjectRow(row: ProjectDbRow): ProjectRow {
   return {
     id: row.id,
@@ -948,6 +936,19 @@ function toProjectRow(row: ProjectDbRow): ProjectRow {
     rowVersion: row.row_version,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function toProjectSummaryDto(row: ProjectRow): ProjectSummaryDto {
+  return {
+    id: row.id,
+    workspaceId: row.workspaceId,
+    slug: row.slug,
+    name: row.name,
+    state: row.state,
+    rowVersion: row.rowVersion,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 
@@ -964,18 +965,16 @@ function toIterationRow(row: IterationDbRow): IterationRow {
   };
 }
 
-function toFeedbackRow(row: FeedbackDbRow): FeedbackRow {
+function toIterationDto(row: IterationRow): IterationDto {
   return {
     id: row.id,
-    iterationId: row.iteration_id,
-    targetType: row.target_type,
-    targetId: row.target_id,
-    timecodeMs: row.timecode_ms,
-    body: row.body,
-    status: row.status,
-    resolutionNote: row.resolution_note,
-    createdAt: row.created_at,
-    resolvedAt: row.resolved_at,
+    projectId: row.projectId,
+    number: row.number,
+    title: row.title,
+    reason: row.reason,
+    state: row.state,
+    createdAt: row.createdAt,
+    closedAt: row.closedAt,
   };
 }
 

@@ -25,7 +25,10 @@ import {
   startAgentSession,
 } from "../../cli/lib/store/sessions.js";
 import type { QueryContext } from "../../cli/lib/store/scope-context.js";
-import type { ProjectRow, WorkspaceRow } from "../../cli/lib/store/types.js";
+import type {
+  ProjectSummaryDto,
+  WorkspaceSummaryDto,
+} from "../../cli/lib/store/types.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 import { scopedActivity } from "../helpers/activity.js";
 
@@ -1272,8 +1275,8 @@ function revisionHash(revisionId: string): string {
 }
 
 function setupProject(prefix: string): {
-  workspace: WorkspaceRow;
-  project: ProjectRow;
+  workspace: WorkspaceSummaryDto;
+  project: ProjectSummaryDto;
 } {
   roots.push(makeTmpRoot(`ralphy-domain-documents-${prefix}`));
   const workspace = createWorkspace({

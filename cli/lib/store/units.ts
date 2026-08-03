@@ -5,7 +5,7 @@ import { isValidUnitSlug } from "../schemas/unit.js";
 import { appendActivity } from "./activity.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
-import { resolveObjectPath } from "./objects.js";
+import { resolveObjectPath } from "./internal-objects.js";
 import { assertLimit, buildPage, decodeCursor } from "./pagination.js";
 import {
   assertFreshPendingRun,
