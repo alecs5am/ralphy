@@ -53,25 +53,53 @@ export function openDb(): Database {
 // Inserts / queries
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Enqueues one Job inside the caller's transaction so an operation controller
+ * can commit its Run, initial domain row, and Job all-or-none.
+ */
+export function insertJobInTransaction(
+  db: Database,
+  input: JobInsertInput,
+): number {
+  const result = db
+    .prepare(
+      `INSERT INTO jobs (run_id, kind, status, command, depends_on, priority, created_at, tag, project_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      input.run_id ?? null,
+      input.kind,
+      "pending",
+      JSON.stringify(input.command),
+      JSON.stringify(input.depends_on ?? []),
+      input.priority ?? 0,
+      Date.now(),
+      input.tag ?? null,
+      input.project_id ?? null,
+    );
+  return Number(result.lastInsertRowid);
+}
+
 export function insertJob(input: JobInsertInput): number {
   const db = openDb();
-  const now = Date.now();
-  const stmt = db.prepare(`
-    INSERT INTO jobs (run_id, kind, status, command, depends_on, priority, created_at, tag, project_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  const result = stmt.run(
-    input.run_id ?? null,
-    input.kind,
-    "pending",
-    JSON.stringify(input.command),
-    JSON.stringify(input.depends_on ?? []),
-    input.priority ?? 0,
-    now,
-    input.tag ?? null,
-    input.project_id ?? null,
-  );
-  return Number(result.lastInsertRowid);
+  return db.transaction(() => insertJobInTransaction(db, input)).immediate();
+}
+
+/**
+ * A consumer retry must go through its operation controller and mint a new
+ * external Run, so generic queue retry never reuses or mutates one.
+ */
+function externallyOwnedJobIds(db: Database, ids: number[]): number[] {
+  if (ids.length === 0) return [];
+  return db
+    .query<{ id: number }, number[]>(
+      `SELECT job.id AS id FROM jobs job
+       JOIN runs run ON run.id = job.run_id
+       WHERE job.id IN (${ids.map(() => "?").join(",")})
+         AND run.external_system IS NOT NULL`,
+    )
+    .all(...ids)
+    .map((row) => row.id);
 }
 
 export function insertJobsAtomic(inputs: JobInsertInput[]): number[] {
@@ -301,6 +329,11 @@ export function cancelJob(id: number): boolean {
 
 export function retryJob(id: number): boolean {
   const db = openDb();
+  if (externallyOwnedJobIds(db, [id]).length > 0) {
+    throw new Error(
+      "Job is linked to an external operation Run; retry through its consumer controller",
+    );
+  }
   const r = db
     .prepare(
       `UPDATE jobs SET status='pending', started_at=NULL, ended_at=NULL, exit_code=NULL,
@@ -418,6 +451,17 @@ export function retryJobsByFilter(filter: {
       status: JobStatus;
       ended_at: number | null;
     }>;
+  // Resolve and check the complete target set first: one externally owned Job
+  // rejects the whole bulk request and changes zero rows.
+  const externallyOwned = externallyOwnedJobIds(
+    db,
+    matches.map((match) => match.id),
+  );
+  if (externallyOwned.length > 0) {
+    throw new Error(
+      `Bulk retry matched ${externallyOwned.length} Job(s) linked to an external operation Run; no rows changed`,
+    );
+  }
   const RETRYABLE = new Set<JobStatus>(["failed", "cancelled", "blocked"]);
   const retried: number[] = [];
   let matchedButNotRetryable = 0;
@@ -440,7 +484,7 @@ export function retryJobsByFilter(filter: {
       if ((r.changes ?? 0) > 0) retried.push(m.id);
     }
   });
-  txn();
+  txn.immediate();
   return { retried, matchedButNotRetryable };
 }
 
