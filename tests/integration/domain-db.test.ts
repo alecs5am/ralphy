@@ -69,6 +69,31 @@ function makeRoot(prefix = "ralphy-domain-db"): TmpRoot {
   return tmp;
 }
 
+function createV1Database(databasePath: string): void {
+  const db = new Database(databasePath, { create: true });
+  db.exec("PRAGMA journal_mode = WAL");
+  db.exec("PRAGMA foreign_keys = ON");
+  db.exec("BEGIN EXCLUSIVE");
+  db.exec(MIGRATIONS[0]!.sql);
+  db.prepare(
+    "INSERT INTO schema_migrations (version, applied_at) VALUES (1, ?)",
+  ).run(1);
+  db.exec("PRAGMA user_version = 1");
+  db.exec("COMMIT");
+  db.prepare(
+    `INSERT INTO workspaces (id, slug, name, created_at, updated_at)
+     VALUES ('ws_legacy', 'legacy', 'Legacy Workspace', 1, 1)`,
+  ).run();
+  db.prepare(
+    `INSERT INTO social_accounts
+     (id, workspace_id, platform, external_id, display_name, username,
+      config_json, created_at, updated_at)
+     VALUES ('acct_legacy', 'ws_legacy', 'instagram', 'external-legacy',
+             'Legacy Account', 'legacy-user', '{"enabled":true}', 1, 1)`,
+  ).run();
+  db.close();
+}
+
 afterEach(() => {
   closeDomainDb();
   for (const tmp of roots) tmp.cleanup();
@@ -76,7 +101,7 @@ afterEach(() => {
 });
 
 describe("domain database bootstrap", () => {
-  test("opens the authoritative database with enforced pragmas and schema v1", () => {
+  test("opens the authoritative database with enforced pragmas and schema v2", () => {
     const tmp = makeRoot();
     const db = openDomainDb();
 
@@ -86,7 +111,7 @@ describe("domain database bootstrap", () => {
       journal_mode: "wal",
     });
     expect(db.query("PRAGMA busy_timeout").get()).toEqual({ timeout: 5000 });
-    expect(db.query("PRAGMA user_version").get()).toEqual({ user_version: 1 });
+    expect(db.query("PRAGMA user_version").get()).toEqual({ user_version: 2 });
     expect(
       db
         .query<{ name: string }, []>(
@@ -97,16 +122,55 @@ describe("domain database bootstrap", () => {
     ).toEqual(expect.arrayContaining([...REQUIRED_TABLES]));
     expect(db.query("SELECT version FROM schema_migrations").all()).toEqual([
       { version: 1 },
+      { version: 2 },
     ]);
-    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1]);
-    expect(SCHEMA_VERSION).toBe(1);
+    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2]);
+    expect(SCHEMA_VERSION).toBe(2);
+
+    const socialAccountColumns = db
+      .query<{ name: string }, []>("PRAGMA table_info('social_accounts')")
+      .all()
+      .map((column) => column.name);
+    expect(socialAccountColumns.slice(-3)).toEqual([
+      "credential_ref",
+      "relink_required",
+      "row_version",
+    ]);
+
+    db.prepare(
+      `INSERT INTO workspaces (id, slug, name, created_at, updated_at)
+       VALUES ('ws_schema_v2', 'schema-v2', 'Schema v2', 1, 1)`,
+    ).run();
+    db.prepare(
+      `INSERT INTO social_accounts
+       (id, workspace_id, platform, external_id, created_at, updated_at)
+       VALUES ('acct_schema_v2', 'ws_schema_v2', 'instagram', 'legacy-id', 1, 1)`,
+    ).run();
+    expect(
+      db
+        .query(
+          `SELECT credential_ref, relink_required, row_version
+           FROM social_accounts WHERE id = 'acct_schema_v2'`,
+        )
+        .get(),
+    ).toEqual({ credential_ref: null, relink_required: 0, row_version: 1 });
+    expect(() =>
+      db.exec(
+        "UPDATE social_accounts SET relink_required = 2 WHERE id = 'acct_schema_v2'",
+      ),
+    ).toThrow(/constraint/i);
+    expect(() =>
+      db.exec(
+        "UPDATE social_accounts SET row_version = 0 WHERE id = 'acct_schema_v2'",
+      ),
+    ).toThrow(/constraint/i);
 
     closeDomainDb();
     const reopened = openDomainDb();
     expect(
       reopened.query("SELECT COUNT(*) AS count FROM schema_migrations").get(),
     ).toEqual({
-      count: 1,
+      count: 2,
     });
   });
 
@@ -233,23 +297,38 @@ describe("schema migration safety", () => {
     }
   });
 
-  test("checkpoints and verifies a bound read-only backup before upgrading existing data", () => {
+  test("preserves a v1 Social Account and one verified v1 backup during the ordinary upgrade", () => {
     const tmp = makeRoot("ralphy-domain-db'backup");
     const databasePath = domainDbPath();
-    const existing = new Database(databasePath, { create: true });
-    existing.exec("PRAGMA journal_mode = WAL");
-    existing.exec("CREATE TABLE legacy_marker (value TEXT NOT NULL)");
-    existing
-      .prepare("INSERT INTO legacy_marker (value) VALUES (?)")
-      .run("preserved");
-    existing.close();
+    createV1Database(databasePath);
 
-    openDomainDb();
+    const live = openDomainDb();
+    expect(live.query("PRAGMA user_version").get()).toEqual({ user_version: 2 });
+    expect(
+      live.query("SELECT version FROM schema_migrations ORDER BY version").all(),
+    ).toEqual([{ version: 1 }, { version: 2 }]);
+    expect(
+      live
+        .query(
+          `SELECT id, workspace_id, platform, external_id, credential_ref,
+                  relink_required, row_version
+           FROM social_accounts WHERE id = 'acct_legacy'`,
+        )
+        .get(),
+    ).toEqual({
+      id: "acct_legacy",
+      workspace_id: "ws_legacy",
+      platform: "instagram",
+      external_id: "external-legacy",
+      credential_ref: null,
+      relink_required: 0,
+      row_version: 1,
+    });
 
     const backupDir = path.join(tmp.dir, ".ralphy", "backups");
     const backups = fs.readdirSync(backupDir);
     expect(backups).toHaveLength(1);
-    expect(backups[0]).toMatch(/^ralphy-schema-0-\d+\.db$/);
+    expect(backups[0]).toMatch(/^ralphy-schema-1-\d+\.db$/);
 
     const backup = new Database(path.join(backupDir, backups[0]), {
       readonly: true,
@@ -257,8 +336,22 @@ describe("schema migration safety", () => {
     expect(backup.query("PRAGMA integrity_check").get()).toEqual({
       integrity_check: "ok",
     });
-    expect(backup.query("SELECT value FROM legacy_marker").get()).toEqual({
-      value: "preserved",
+    expect(backup.query("PRAGMA user_version").get()).toEqual({ user_version: 1 });
+    expect(backup.query("SELECT version FROM schema_migrations").all()).toEqual([
+      { version: 1 },
+    ]);
+    expect(
+      backup
+        .query(
+          `SELECT id, workspace_id, platform, external_id
+           FROM social_accounts WHERE id = 'acct_legacy'`,
+        )
+        .get(),
+    ).toEqual({
+      id: "acct_legacy",
+      workspace_id: "ws_legacy",
+      platform: "instagram",
+      external_id: "external-legacy",
     });
     backup.close();
   });
@@ -266,8 +359,8 @@ describe("schema migration safety", () => {
   test("serializes concurrent migration decisions under the exclusive lock", async () => {
     const tmp = makeRoot("ralphy-domain-db-concurrent");
     const databasePath = domainDbPath();
+    createV1Database(databasePath);
     const blocker = new Database(databasePath, { create: true });
-    blocker.exec("PRAGMA journal_mode = WAL");
     blocker.exec("BEGIN EXCLUSIVE");
 
     const workerSource = `
@@ -282,7 +375,6 @@ describe("schema migration safety", () => {
       if (!databasePath || !readyPath) throw new Error("missing test worker paths");
 
       const db = new Database(databasePath, { create: true });
-      db.exec("PRAGMA journal_mode = WAL");
       db.exec("PRAGMA busy_timeout = 5000");
       const observed = new Proxy(db, {
         get(target, property) {
@@ -357,6 +449,41 @@ describe("schema migration safety", () => {
       }
       await Promise.all(workers.map((worker) => worker.exited));
     }
+
+    const live = new Database(databasePath, { readonly: true });
+    expect(live.query("PRAGMA user_version").get()).toEqual({ user_version: 2 });
+    expect(
+      live
+        .query(
+          `SELECT id, credential_ref, relink_required, row_version
+           FROM social_accounts WHERE id = 'acct_legacy'`,
+        )
+        .get(),
+    ).toEqual({
+      id: "acct_legacy",
+      credential_ref: null,
+      relink_required: 0,
+      row_version: 1,
+    });
+    live.close();
+
+    const backupDir = path.join(tmp.dir, ".ralphy", "backups");
+    const backups = fs.readdirSync(backupDir);
+    expect(backups).toHaveLength(1);
+    expect(backups[0]).toMatch(/^ralphy-schema-1-\d+\.db$/);
+    const backup = new Database(path.join(backupDir, backups[0]), {
+      readonly: true,
+    });
+    expect(backup.query("PRAGMA integrity_check").get()).toEqual({
+      integrity_check: "ok",
+    });
+    expect(backup.query("PRAGMA user_version").get()).toEqual({ user_version: 1 });
+    expect(
+      backup
+        .query("SELECT id FROM social_accounts WHERE id = 'acct_legacy'")
+        .get(),
+    ).toEqual({ id: "acct_legacy" });
+    backup.close();
   });
 });
 

@@ -223,7 +223,7 @@ const TEXT_COLUMNS = {
   run_objects: "id,run_id,object_id,path,purpose,state,retention,sha256,mime,metadata_json",
   run_results: "id,run_id,entity_type,entity_id",
   runs: "id,workspace_id,project_id,agent_session_id,kind,label,state,metadata_json,external_system,external_run_id,external_node_id,external_operation,idempotency_key,request_digest,consumer_principal_id,error",
-  social_accounts: "id,workspace_id,platform,external_id,display_name,username,config_json",
+  social_accounts: "id,workspace_id,platform,external_id,display_name,username,config_json,credential_ref",
   storage_transfer_entries: "id,transfer_id,object_id,source_key,destination_key,sha256,state,error",
   storage_transfers: "id,workspace_id,project_id,kind,state,source_bucket,destination_bucket",
   store_metadata: "store_id",
