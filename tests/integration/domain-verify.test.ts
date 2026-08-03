@@ -44,7 +44,6 @@ import {
   createUnit,
   finishPublicationClaim,
   finishPublicationStatusLookup,
-  getUnit,
   recordPublication,
   reviseUnit,
   selectUnitRevision,
@@ -60,6 +59,7 @@ import {
   type UnitChainReason,
 } from "../../cli/lib/store/verify.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
+import { getUnitAggregate as getUnit } from "../helpers/unit-aggregate.js";
 
 let roots: TmpRoot[] = [];
 
