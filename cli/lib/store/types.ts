@@ -95,6 +95,51 @@ export type FeedbackResolutionLinkRow = EntityReference & {
   createdAt: number;
 };
 
+export type IterationDto = {
+  id: string;
+  projectId: string;
+  number: number;
+  title: string;
+  reason: string | null;
+  state: IterationState;
+  createdAt: number;
+  closedAt: number | null;
+};
+
+export type FeedbackDto = {
+  id: string;
+  projectId: string;
+  iterationId: string;
+  targetType: FeedbackTargetType | null;
+  targetId: string | null;
+  timecodeMs: number | null;
+  body: string;
+  status: FeedbackStatus;
+  resolutionNote: string | null;
+  createdAt: number;
+  resolvedAt: number | null;
+};
+
+export type FeedbackResolutionLinkDto = {
+  id: string;
+  projectId: string;
+  feedbackId: string;
+  entityType: FeedbackTargetType;
+  entityId: string;
+  createdAt: number;
+};
+
+export type ProjectStageDto = {
+  id: string;
+  projectId: string;
+  stage: string;
+  state: string;
+  entityType: string | null;
+  entityId: string | null;
+  rowVersion: number;
+  updatedAt: number;
+};
+
 export type AgentSessionRow = {
   id: string;
   workspaceId: string;

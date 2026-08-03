@@ -1,16 +1,25 @@
 import { Database } from "bun:sqlite";
-import { appendActivity, assertLimit } from "./activity.js";
+import { appendActivity } from "./activity.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
-import { buildPage, decodeCursor } from "./pagination.js";
+import { assertLimit, buildPage, decodeCursor } from "./pagination.js";
+import {
+  resolveQueryContext,
+  type QueryContext,
+  type ResolvedScope,
+} from "./scope-context.js";
 import {
   type EntityReference,
+  type FeedbackDto,
+  type FeedbackResolutionLinkDto,
   type FeedbackRow,
   type FeedbackTargetType,
+  type IterationDto,
   type IterationRow,
   type JsonValue,
   type Page,
   type OverviewAccountDto,
+  type ProjectStageDto,
   type ProjectRow,
   type ProjectSummaryDto,
   StoreConflictError,
@@ -143,6 +152,25 @@ const ITERATION_COLUMNS =
   "id, project_id, number, title, reason, state, created_at, closed_at";
 const FEEDBACK_COLUMNS =
   "id, iteration_id, target_type, target_id, timecode_ms, body, status, resolution_note, created_at, resolved_at";
+const FEEDBACK_DTO_SELECT = `SELECT feedback.id AS id,
+       iteration.project_id AS projectId, feedback.iteration_id AS iterationId,
+       feedback.target_type AS targetType, feedback.target_id AS targetId,
+       feedback.timecode_ms AS timecodeMs, feedback.body AS body,
+       feedback.status AS status, feedback.resolution_note AS resolutionNote,
+       feedback.created_at AS createdAt, feedback.resolved_at AS resolvedAt
+  FROM feedback_items feedback
+  JOIN project_iterations iteration ON iteration.id = feedback.iteration_id`;
+const FEEDBACK_RESOLUTION_LINK_SELECT = `SELECT link.id AS id,
+       iteration.project_id AS projectId, link.feedback_id AS feedbackId,
+       link.entity_type AS entityType, link.entity_id AS entityId,
+       link.created_at AS createdAt
+  FROM feedback_resolution_links link
+  JOIN feedback_items feedback ON feedback.id = link.feedback_id
+  JOIN project_iterations iteration ON iteration.id = feedback.iteration_id`;
+const PROJECT_STAGE_DTO_SELECT = `SELECT id, project_id AS projectId, stage, state,
+       entity_type AS entityType, entity_id AS entityId,
+       row_version AS rowVersion, updated_at AS updatedAt
+  FROM project_stages`;
 
 export function createWorkspace(input: CreateWorkspaceInput): WorkspaceRow {
   return withImmediateTransaction((db) => {
@@ -523,7 +551,7 @@ export function createIteration(input: CreateIterationInput): IterationRow {
       payload: { number },
       createdAt: now,
     });
-    return getIteration(db, id)!;
+    return getIterationRow(db, id)!;
   });
 }
 
@@ -560,7 +588,7 @@ export function addFeedback(input: AddFeedbackInput): FeedbackRow {
       payload: target ?? {},
       createdAt: now,
     });
-    return getFeedback(db, id)!;
+    return getFeedbackRow(db, id)!;
   });
 }
 
@@ -595,8 +623,235 @@ export function resolveFeedback(
       payload: { linkCount: links.length },
       createdAt: now,
     });
-    return getFeedback(db, feedbackId)!;
+    return getFeedbackRow(db, feedbackId)!;
   });
+}
+
+export function getIteration(input: {
+  context: QueryContext;
+  iterationId: string;
+}): IterationDto {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const row = db
+    .query<IterationDto, [string]>(
+      `SELECT id, project_id AS projectId, number, title, reason, state,
+              created_at AS createdAt, closed_at AS closedAt
+       FROM project_iterations WHERE id = ?`,
+    )
+    .get(input.iterationId);
+  if (!row || !canReadProject(db, scope, row.projectId)) {
+    throw new Error(`Iteration not found: ${input.iterationId}`);
+  }
+  return row;
+}
+
+export function listIterations(input: {
+  context: QueryContext;
+  projectId: string;
+  after?: string | null;
+  limit: number;
+}): Page<IterationDto> {
+  assertLimit(input.limit);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  if (!canReadProject(db, scope, input.projectId)) {
+    throw new Error(`Project not found: ${input.projectId}`);
+  }
+  const clauses = ["project_id = ?"];
+  const values: (string | number)[] = [input.projectId];
+  appendCreationCursor(clauses, values, input.after);
+  values.push(input.limit + 1);
+  const rows = db
+    .query<IterationDto, (string | number)[]>(
+      `SELECT id, project_id AS projectId, number, title, reason, state,
+              created_at AS createdAt, closed_at AS closedAt
+       FROM project_iterations WHERE ${clauses.join(" AND ")}
+       ORDER BY created_at ASC, id ASC LIMIT ?`,
+    )
+    .all(...values);
+  return buildPage(rows, input.limit, "c1", (row) => ({
+    ordinal: row.createdAt,
+    id: row.id,
+  }));
+}
+
+export function getFeedback(input: {
+  context: QueryContext;
+  feedbackId: string;
+}): FeedbackDto {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const row = db
+    .query<FeedbackDto, [string]>(
+      `${FEEDBACK_DTO_SELECT}
+       WHERE feedback.id = ?`,
+    )
+    .get(input.feedbackId);
+  if (!row || !canReadProject(db, scope, row.projectId)) {
+    throw new Error(`Feedback not found: ${input.feedbackId}`);
+  }
+  return row;
+}
+
+export function listFeedback(input: {
+  context: QueryContext;
+  projectId: string;
+  after?: string | null;
+  limit: number;
+}): Page<FeedbackDto> {
+  assertLimit(input.limit);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  if (!canReadProject(db, scope, input.projectId)) {
+    throw new Error(`Project not found: ${input.projectId}`);
+  }
+  const clauses = ["iteration.project_id = ?"];
+  const values: (string | number)[] = [input.projectId];
+  appendCreationCursor(clauses, values, input.after, "feedback");
+  values.push(input.limit + 1);
+  const rows = db
+    .query<FeedbackDto, (string | number)[]>(
+      `${FEEDBACK_DTO_SELECT}
+       WHERE ${clauses.join(" AND ")}
+       ORDER BY feedback.created_at ASC, feedback.id ASC LIMIT ?`,
+    )
+    .all(...values);
+  return buildPage(rows, input.limit, "c1", (row) => ({
+    ordinal: row.createdAt,
+    id: row.id,
+  }));
+}
+
+export function getFeedbackResolutionLink(input: {
+  context: QueryContext;
+  linkId: string;
+}): FeedbackResolutionLinkDto {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const row = db
+    .query<FeedbackResolutionLinkDto, [string]>(
+      `${FEEDBACK_RESOLUTION_LINK_SELECT}
+       WHERE link.id = ?`,
+    )
+    .get(input.linkId);
+  if (!row || !canReadProject(db, scope, row.projectId)) {
+    throw new Error(`Feedback resolution link not found: ${input.linkId}`);
+  }
+  return row;
+}
+
+export function listFeedbackResolutionLinks(input: {
+  context: QueryContext;
+  feedbackId: string;
+  after?: string | null;
+  limit: number;
+}): Page<FeedbackResolutionLinkDto> {
+  assertLimit(input.limit);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const feedback = db
+    .query<{ projectId: string }, [string]>(
+      `SELECT iteration.project_id AS projectId FROM feedback_items feedback
+       JOIN project_iterations iteration ON iteration.id = feedback.iteration_id
+       WHERE feedback.id = ?`,
+    )
+    .get(input.feedbackId);
+  if (!feedback || !canReadProject(db, scope, feedback.projectId)) {
+    throw new Error(`Feedback not found: ${input.feedbackId}`);
+  }
+  const clauses = ["link.feedback_id = ?"];
+  const values: (string | number)[] = [input.feedbackId];
+  appendCreationCursor(clauses, values, input.after, "link");
+  values.push(input.limit + 1);
+  const rows = db
+    .query<FeedbackResolutionLinkDto, (string | number)[]>(
+      `${FEEDBACK_RESOLUTION_LINK_SELECT}
+       WHERE ${clauses.join(" AND ")}
+       ORDER BY link.created_at ASC, link.id ASC LIMIT ?`,
+    )
+    .all(...values);
+  return buildPage(rows, input.limit, "c1", (row) => ({
+    ordinal: row.createdAt,
+    id: row.id,
+  }));
+}
+
+export function getProjectStage(input: {
+  context: QueryContext;
+  stageId: string;
+}): ProjectStageDto {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const row = db
+    .query<ProjectStageDto, [string]>(
+      `${PROJECT_STAGE_DTO_SELECT} WHERE id = ?`,
+    )
+    .get(input.stageId);
+  if (!row || !canReadProject(db, scope, row.projectId)) {
+    throw new Error(`Project stage not found: ${input.stageId}`);
+  }
+  return row;
+}
+
+export function listProjectStages(input: {
+  context: QueryContext;
+  projectId: string;
+  after?: string | null;
+  limit: number;
+}): Page<ProjectStageDto> {
+  assertLimit(input.limit);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  if (!canReadProject(db, scope, input.projectId)) {
+    throw new Error(`Project not found: ${input.projectId}`);
+  }
+  const clauses = ["project_id = ?"];
+  const values: (string | number)[] = [input.projectId];
+  if (input.after != null) {
+    const cursor = decodeCursor("c1", input.after);
+    clauses.push("(updated_at > ? OR (updated_at = ? AND id > ?))");
+    values.push(cursor.ordinal, cursor.ordinal, cursor.id);
+  }
+  values.push(input.limit + 1);
+  const rows = db
+    .query<ProjectStageDto, (string | number)[]>(
+      `${PROJECT_STAGE_DTO_SELECT} WHERE ${clauses.join(" AND ")}
+       ORDER BY updated_at ASC, id ASC LIMIT ?`,
+    )
+    .all(...values);
+  return buildPage(rows, input.limit, "c1", (row) => ({
+    ordinal: row.updatedAt,
+    id: row.id,
+  }));
+}
+
+function canReadProject(
+  db: Database,
+  scope: ResolvedScope,
+  projectId: string,
+): boolean {
+  if (scope.projectId !== null) return scope.projectId === projectId;
+  return db
+    .query<{ id: string }, [string, string]>(
+      "SELECT id FROM projects WHERE id = ? AND workspace_id = ?",
+    )
+    .get(projectId, scope.workspaceId) !== null;
+}
+
+function appendCreationCursor(
+  clauses: string[],
+  values: (string | number)[],
+  after: string | null | undefined,
+  table?: "feedback" | "link",
+): void {
+  if (after == null) return;
+  const cursor = decodeCursor("c1", after);
+  const prefix = table === undefined ? "" : `${table}.`;
+  clauses.push(
+    `(${prefix}created_at > ? OR (${prefix}created_at = ? AND ${prefix}id > ?))`,
+  );
+  values.push(cursor.ordinal, cursor.ordinal, cursor.id);
 }
 
 function getWorkspaceRow(db: Database, id: string): WorkspaceRow | null {
@@ -617,7 +872,7 @@ function getProjectRow(db: Database, id: string): ProjectRow | null {
   return row ? toProjectRow(row) : null;
 }
 
-function getIteration(db: Database, id: string): IterationRow | null {
+function getIterationRow(db: Database, id: string): IterationRow | null {
   const row = db
     .query<IterationDbRow, [string]>(
       `SELECT ${ITERATION_COLUMNS} FROM project_iterations WHERE id = ?`,
@@ -626,7 +881,7 @@ function getIteration(db: Database, id: string): IterationRow | null {
   return row ? toIterationRow(row) : null;
 }
 
-function getFeedback(db: Database, id: string): FeedbackRow | null {
+function getFeedbackRow(db: Database, id: string): FeedbackRow | null {
   const row = db
     .query<FeedbackDbRow, [string]>(
       `SELECT ${FEEDBACK_COLUMNS} FROM feedback_items WHERE id = ?`,
