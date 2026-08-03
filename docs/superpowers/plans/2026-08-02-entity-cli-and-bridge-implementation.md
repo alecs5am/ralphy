@@ -48,6 +48,26 @@ record, principal binding, or namespace installation may skip this order.
 
 ### Task 1: Add stable domain errors and the encrypted core secret store
 
+> **Execution amendment (2026-08-03):** Deliver this task as three reviewed
+> commits: **1A** stable domain errors (complete at `96c26980`), **1B** an
+> append-only schema-v2 migration for Social Account credential metadata, and
+> **1C** the root-bound encrypted secret primitive plus Run cleanup. Do not edit
+> migration v1. `dataRoot` means the directory that directly contains
+> `ralphy.db`, `buckets/`, and `tmp/`; secret primitives receive it explicitly
+> and never discover it from cwd or a checkout. `KeyProvider` has separate
+> `lookupKey(storeId)` and `createKey(storeId)` operations so existing
+> ciphertext can never get a replacement key. Secret mutations serialize both
+> in-process and across processes with a `BEGIN IMMEDIATE` lane in the same
+> data-root database, re-reading the envelope only after the lock is held.
+>
+> Execute the existing Task 2 context work as **2A** before scoped auth. Move
+> provider/account resolution, credential DTOs, `provider auth`, and child-env
+> wiring to **2B** after context exists. That slice must also convert direct
+> credential readers in `cli/index.ts`, `capabilities.ts`, `transcribe.ts`, and
+> `research.ts`, plus worker/daemon/article child boundaries and their invariant
+> tests. `provider auth login` is unsupported unless a provider supplies a real
+> owned login callback; it never emulates login by accepting an API key.
+
 **Files:**
 - Modify: `cli/lib/errors/catalog.ts`
 - Create: `cli/lib/errors/domain.ts`
@@ -84,7 +104,7 @@ record, principal binding, or namespace installation may skip this order.
 - Consumes: immutable `getStoreIdentity()`, `.ralphy/`, Node AES-256-GCM, and `/usr/bin/security` on macOS
 - Produces: throwable `DomainError`, `setSecret(ref, value)`, internal-only `readSecret(ref)`, `deleteSecret(ref)`, `hasSecret(ref)`, encrypted file-secret primitives used by migration, an explicit provider credential resolver, `provider auth set|clear|status|login`, and errors `E_CONFLICT`, `E_OBJECT_MISSING`, `E_MIGRATION_INCOMPLETE`, `E_PROTOCOL_UNSUPPORTED`, `E_PROTOCOL_INVALID`, `E_SECRET_STORE`
 
-- [ ] **Step 1: Extend the append-only error catalog test first**
+- [x] **Step 1: Extend the append-only error catalog test first**
 
 Raise the catalog budget from `< 40` to `< 48` and assert the six exact new codes exist with classes and HTTP analogs:
 
@@ -101,7 +121,7 @@ Run: `bun test tests/unit/errors-catalog.test.ts`
 
 Expected: FAIL because the codes are absent.
 
-- [ ] **Step 2: Add actionable catalog entries and a throwable domain boundary**
+- [x] **Step 2: Add actionable catalog entries and a throwable domain boundary**
 
 Use conflict hints that tell the agent to reload the exact entity, missing-object hints that name `ralphy doctor --storage`, migration hints that name `ralphy migrate domain verify`, protocol hints that require upgrading Desktop/core, and secret hints that name `ralphy provider auth status`.
 
@@ -112,18 +132,24 @@ Use conflict hints that tell the agent to reload the exact entity, missing-objec
 Inject a `KeyProvider` in tests so no real Keychain is touched:
 
 ```ts
-const store = createSecretStore({ root: tmp.dir, keyProvider: { getOrCreateKey: () => fixedKey } });
+const store = createSecretStore({
+  dataRoot: tmp.dir,
+  keyProvider: {
+    lookupKey: async () => fixedKey,
+    createKey: async () => fixedKey,
+  },
+});
 store.set("provider/openrouter", "secret-value");
 expect(store.has("provider/openrouter")).toBe(true);
 expect(store.read("provider/openrouter")).toBe("secret-value");
-expect(await Bun.file(`${tmp.dir}/.ralphy/secrets.enc`).text()).not.toContain("secret-value");
+expect(await Bun.file(`${tmp.dir}/secrets.enc`).text()).not.toContain("secret-value");
 store.delete("provider/openrouter");
 expect(store.has("provider/openrouter")).toBe(false);
 ```
 
 - [ ] **Step 4: Implement one encrypted file with a Keychain-backed key**
 
-Store `{ version: 1, entries: Record<string, string>, files: Record<string, string> }` as one AES-256-GCM envelope `{ version, iv, tag, ciphertext }` in `.ralphy/secrets.enc`; file values are base64 inside the encrypted plaintext only. Write through a mode-0600 sibling temp file, file/directory fsync, and atomic rename while all secret mutations are serialized. Expose internal `setSecretFile` and `materializeSecretFile(ref, runId)`: materialization writes only below a mode-0700 owned `tmp/<run-id>/secrets/` directory at mode 0600, returns an internal locator, and is removed on Run terminalization. Mark the directory with its Run/store IDs; startup removes only marked orphan materializations for terminal/missing Runs before accepting work and never scans or deletes ordinary Run evidence. Materialized secrets never become Objects or protocol DTOs. On macOS, obtain a random 32-byte key from a generic-password item whose service is `ralphy-domain-store-key:<store_id>` and account is `ralphy`; the identity comes from `getStoreIdentity()`, never from a mutable root path. If ciphertext exists but its Keychain item is absent, return `E_SECRET_STORE` and never generate a replacement key over unreadable data.
+Store `{ version: 1, entries: Record<string, string>, files: Record<string, string> }` as one AES-256-GCM envelope `{ version, iv, tag, ciphertext }` in `<dataRoot>/secrets.enc`; file values are base64 inside the encrypted plaintext only. Write through a mode-0600 sibling temp file, file/directory fsync, and atomic rename while all secret mutations are serialized. Expose internal `setSecretFile` and `materializeSecretFile(ref, runId)`: materialization writes only below a mode-0700 owned `<dataRoot>/tmp/<run-id>/secrets/` directory at mode 0600, returns an internal locator, and is removed on Run terminalization. Mark the directory with its Run/store IDs; startup removes only marked orphan materializations for terminal/missing Runs before accepting work and never scans or deletes ordinary Run evidence. Materialized secrets never become Objects or protocol DTOs. On macOS, obtain a random 32-byte key from a generic-password item whose service is `ralphy-domain-store-key:<store_id>` and account is `ralphy`; the identity comes from the database opened for that explicit data root, never from a mutable root path. If ciphertext exists but its Keychain item is absent, return `E_SECRET_STORE` and never generate a replacement key over unreadable data.
 
 Invoke `/usr/bin/security` without a shell. For creation, put `-w` last and write the key only to child stdin; never put it in argv or env. Capture lookup output internally and never forward it. Validate typed secret refs and keep only refs in SQLite/activity.
 
@@ -566,13 +592,13 @@ git commit -m "refactor(delivery): persist units publications and metrics"
 
 **Interfaces:**
 - Consumes: domain DB, Documents, Artifacts, Runs, Units, Publications, and Project stages
-- Produces: schema migration 2, typed SQL stores for existing non-media stateful verbs, and bounded `listCampaigns`, `getCampaign`, `updateCampaign`, `listCalendarEntries`, and `updateCalendarEntry`
+- Produces: schema migration 3, typed SQL stores for existing non-media stateful verbs, and bounded `listCampaigns`, `getCampaign`, `updateCampaign`, `listCalendarEntries`, and `updateCalendarEntry`
 
 - [ ] **Step 1: Write a failing round-trip matrix test**
 
 The test creates and reads one row through each existing feature surface: non-secret setting, brand profile, persona, Workspace template metadata, memory revision, campaign/cell, calendar entry, evaluator result, and research Run/Document binding. It asserts no `.json`, `.jsonl`, or `.md` control file appears below `.ralphy`.
 
-- [ ] **Step 2: Add schema migration 2**
+- [ ] **Step 2: Add schema migration 3**
 
 Create these exact tables with Workspace foreign keys and activity coverage: `settings`, `brands`, `personas`, `workspace_templates`, `memory_entries`, `memory_revisions`, `campaigns`, `campaign_cells`, and `calendar_entries`. `campaigns` and `calendar_entries` carry optimistic `row_version`; their stable IDs never change. Reuse `evaluations`, Documents, Runs, Artifacts, and Publications for evaluator/research/template bodies instead of duplicating them.
 
@@ -598,7 +624,7 @@ only source for the later `campaign.list|show|update` and
 
 Run: `bun test tests/integration/domain-operations.test.ts tests/unit/campaign.test.ts tests/unit/calendar.test.ts tests/unit/workspace-evaluators.test.ts tests/unit/memory-*.test.ts`
 
-Expected: PASS and schema version 2, including cursor/limit boundaries,
+Expected: PASS and schema version 3, including cursor/limit boundaries,
 Workspace isolation, stale row-version conflicts, and cross-Workspace reference
 rejection for campaign and calendar mutations.
 
