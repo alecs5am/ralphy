@@ -31,8 +31,8 @@ import { startRun } from "../../cli/lib/store/runs.js";
 import {
   createProject,
   createWorkspace,
-  transferProjectMetadata,
 } from "../../cli/lib/store/scopes.js";
+import { transferProjectMetadata } from "../../cli/lib/store/internal-scope-mutations.js";
 import { endAgentSession, startAgentSession } from "../../cli/lib/store/sessions.js";
 import { StoreConflictError } from "../../cli/lib/store/types.js";
 import { verifyDomainStore } from "../../cli/lib/store/verify.js";

@@ -23,7 +23,6 @@ import {
   type ProjectRow,
   type ProjectSummaryDto,
   StoreConflictError,
-  type SocialAccountRow,
   type TargetReference,
   type WorkspaceRow,
   type WorkspaceSummaryDto,
@@ -61,11 +60,6 @@ export type UpdateProjectInput = Partial<
   Pick<ProjectRow, "slug" | "name" | "state" | "metadata">
 >;
 
-export type TransferProjectMetadataInput = {
-  workspaceId: string;
-  slug?: string;
-};
-
 export type CreateIterationInput = {
   projectId: string;
   title: string;
@@ -92,18 +86,6 @@ type WorkspaceDbRow = {
   name: string;
   metadata_json: string | null;
   row_version: number;
-  created_at: number;
-  updated_at: number;
-};
-
-type SocialAccountDbRow = {
-  id: string;
-  workspace_id: string;
-  platform: string;
-  external_id: string;
-  display_name: string | null;
-  username: string | null;
-  config_json: string | null;
   created_at: number;
   updated_at: number;
 };
@@ -195,7 +177,7 @@ export function updateWorkspace(
   id: string,
   input: UpdateWorkspaceInput,
   expectedRowVersion: number,
-): WorkspaceRow {
+): WorkspaceSummaryDto {
   const fields: string[] = [];
   const values: (string | null)[] = [];
   if (input.slug !== undefined) {
@@ -228,7 +210,7 @@ export function updateWorkspace(
       payload: { fields: Object.keys(input) },
       createdAt: now,
     });
-    return getWorkspaceRow(db, id)!;
+    return getWorkspace(id);
   });
 }
 
@@ -273,7 +255,7 @@ export function listWorkspaces(input: {
 
 export function upsertSocialAccount(
   input: UpsertSocialAccountInput,
-): SocialAccountRow {
+): OverviewAccountDto {
   assertPublicConfig(input.config);
   return withImmediateTransaction((db) => {
     const now = Date.now();
@@ -314,8 +296,12 @@ export function upsertSocialAccount(
       );
     }
     const account = db
-      .query<SocialAccountDbRow, [string, string, string]>(
-        "SELECT id, workspace_id, platform, external_id, display_name, username, config_json, created_at, updated_at FROM social_accounts WHERE workspace_id = ? AND platform = ? AND external_id = ?",
+      .query<OverviewAccountDto, [string, string, string]>(
+        `SELECT id, workspace_id AS workspaceId, platform,
+                external_id AS externalId, display_name AS displayName, username,
+                created_at AS createdAt, updated_at AS updatedAt
+         FROM social_accounts
+         WHERE workspace_id = ? AND platform = ? AND external_id = ?`,
       )
       .get(input.workspaceId, input.platform, input.externalId);
     if (!account) throw new Error("Social account was not created");
@@ -330,7 +316,7 @@ export function upsertSocialAccount(
       },
       createdAt: now,
     });
-    return toSocialAccountRow(account);
+    return account;
   });
 }
 
@@ -490,43 +476,6 @@ export function listProjects(
     ordinal: row.createdAt,
     id: row.id,
   }));
-}
-
-export function transferProjectMetadata(
-  projectId: string,
-  input: TransferProjectMetadataInput,
-  expectedRowVersion: number,
-): ProjectRow {
-  return withImmediateTransaction((db) => {
-    const before = getProjectRow(db, projectId);
-    const now = Date.now();
-    const result = input.slug === undefined
-      ? db
-          .prepare(
-            "UPDATE projects SET workspace_id = ?, row_version = row_version + 1, updated_at = ? WHERE id = ? AND row_version = ?",
-          )
-          .run(input.workspaceId, now, projectId, expectedRowVersion)
-      : db
-          .prepare(
-            "UPDATE projects SET workspace_id = ?, slug = ?, row_version = row_version + 1, updated_at = ? WHERE id = ? AND row_version = ?",
-          )
-          .run(input.workspaceId, input.slug, now, projectId, expectedRowVersion);
-    if (!result.changes) throw new StoreConflictError();
-    const project = getProjectRow(db, projectId)!;
-    appendActivity(db, {
-      workspaceId: input.workspaceId,
-      projectId,
-      entityType: "project",
-      entityId: projectId,
-      action: "project.transferred",
-      payload: {
-        fromWorkspaceId: before?.workspaceId ?? null,
-        toWorkspaceId: input.workspaceId,
-      },
-      createdAt: now,
-    });
-    return project;
-  });
 }
 
 export function createIteration(input: CreateIterationInput): IterationRow {
@@ -983,20 +932,6 @@ function toWorkspaceRow(row: WorkspaceDbRow): WorkspaceRow {
     name: row.name,
     metadata: parseJson(row.metadata_json),
     rowVersion: row.row_version,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-function toSocialAccountRow(row: SocialAccountDbRow): SocialAccountRow {
-  return {
-    id: row.id,
-    workspaceId: row.workspace_id,
-    platform: row.platform,
-    externalId: row.external_id,
-    displayName: row.display_name,
-    username: row.username,
-    config: parseJson(row.config_json),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

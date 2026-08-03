@@ -11,11 +11,11 @@ import {
   listSocialAccounts,
   listWorkspaces,
   resolveFeedback,
-  transferProjectMetadata,
   upsertSocialAccount,
   updateProject,
   updateWorkspace,
 } from "../../cli/lib/store/scopes.js";
+import { transferProjectMetadata } from "../../cli/lib/store/internal-scope-mutations.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 import { scopedActivity } from "../helpers/activity.js";
 import { listActivity } from "../../cli/lib/store/activity.js";
@@ -36,6 +36,72 @@ afterEach(() => {
 });
 
 describe("domain scope stores", () => {
+  test("returns a safe Workspace DTO while persisting update metadata", () => {
+    makeRoot();
+    const workspace = createWorkspace({
+      slug: "workspace-mutation",
+      name: "Workspace mutation",
+      metadata: { privateNote: "old" },
+    });
+
+    const updated = updateWorkspace(
+      workspace.id,
+      { name: "Updated workspace", metadata: { privateNote: "new" } },
+      workspace.rowVersion,
+    );
+
+    expect(Object.keys(updated).sort()).toEqual([
+      "createdAt",
+      "id",
+      "name",
+      "rowVersion",
+      "slug",
+      "updatedAt",
+    ]);
+    expect(
+      openDomainDb()
+        .query<{ metadata: string | null }, [string]>(
+          "SELECT metadata_json AS metadata FROM workspaces WHERE id = ?",
+        )
+        .get(workspace.id)?.metadata,
+    ).toBe('{"privateNote":"new"}');
+  });
+
+  test("returns a safe Social Account DTO while persisting public config", () => {
+    makeRoot();
+    const workspace = createWorkspace({
+      slug: "account-mutation",
+      name: "Account mutation",
+    });
+
+    const account = upsertSocialAccount({
+      workspaceId: workspace.id,
+      platform: "youtube",
+      externalId: "channel-safe",
+      displayName: "Safe channel",
+      username: "safe-channel",
+      config: { profile: { color: "blue" } },
+    });
+
+    expect(Object.keys(account).sort()).toEqual([
+      "createdAt",
+      "displayName",
+      "externalId",
+      "id",
+      "platform",
+      "updatedAt",
+      "username",
+      "workspaceId",
+    ]);
+    expect(
+      openDomainDb()
+        .query<{ config: string | null }, [string]>(
+          "SELECT config_json AS config FROM social_accounts WHERE id = ?",
+        )
+        .get(account.id)?.config,
+    ).toBe('{"profile":{"color":"blue"}}');
+  });
+
   test("shows safe Workspace and Workspace-scoped Project summaries", () => {
     makeRoot();
     const workspace = createWorkspace({
@@ -337,10 +403,15 @@ describe("domain scope stores", () => {
       { workspaceId: destination.id, slug: "moved-pitch" },
       project.rowVersion,
     );
-    expect(transferred).toMatchObject({
+    expect(transferred).toEqual({
+      id: project.id,
       workspaceId: destination.id,
       slug: "moved-pitch",
+      name: project.name,
+      state: project.state,
       rowVersion: project.rowVersion + 1,
+      createdAt: project.createdAt,
+      updatedAt: expect.any(Number),
     });
     expect(scopedActivity({ projectId: project.id }).at(-1)).toMatchObject({
       action: "project.transferred",
