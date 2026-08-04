@@ -253,12 +253,13 @@ function walkInventory(
       `INSERT INTO migration_entries
        (id, migration_run_id, migration_source_id, source_path, source_locator_hash,
         entry_kind, source_kind, disposition, source_device, source_inode, source_mode,
-        bytes, mtime_ms, sha256, state, error_code, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        bytes, mtime_ms, sha256, state, error_code, terminal_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       entryId, ctx.runId, sourceId, relative, locator, kind, source.kind,
       disposition, String(stat.dev), String(stat.ino), stat.mode, bytes, Math.max(0, Math.trunc(stat.mtimeMs)), sha,
-      state, disposition === "issue" ? "MIGRATION_UNKNOWN_ENTRY" : null, now, now,
+      state, disposition === "issue" ? "MIGRATION_UNKNOWN_ENTRY" : null,
+      disposition === "issue" ? now : null, now, now,
     );
     if (disposition === "issue") {
       ctx.db.prepare(

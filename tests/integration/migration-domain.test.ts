@@ -54,6 +54,11 @@ describe("domain migration primitives", () => {
     openDomainDb().prepare(
       "UPDATE migration_issues SET resolved_at = ? WHERE migration_run_id = ?",
     ).run(Date.now(), started.runId);
+    openDomainDb().prepare(
+      `UPDATE migration_entries
+       SET disposition = 'recovery-only', state = 'excluded', terminal_at = ?, updated_at = ?
+       WHERE migration_run_id = ? AND state = 'issue'`,
+    ).run(Date.now(), Date.now(), started.runId);
     const ctx = {
       db: openDomainDb(),
       storeRoot: path.join(root.dir, ".ralphy"),

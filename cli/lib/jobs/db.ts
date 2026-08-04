@@ -592,7 +592,14 @@ export function resumeHeldJob(id: number, expectedMigrationRunId: string): boole
   openDb();
   const result = withImmediateTransaction((db) =>
     db.prepare(
-      "UPDATE jobs SET migration_hold_run_id = NULL WHERE id = ? AND migration_hold_run_id = ? AND status = 'pending'",
+      `UPDATE jobs SET migration_hold_run_id = NULL
+       WHERE id = ? AND migration_hold_run_id = ? AND status = 'pending'
+         AND EXISTS (
+           SELECT 1 FROM migration_runs migration
+           WHERE migration.id = jobs.migration_hold_run_id
+             AND migration.phase = 'cutover'
+             AND migration.cutover_at IS NOT NULL
+         )`,
     ).run(id, expectedMigrationRunId),
   );
   return (result.changes ?? 0) > 0;

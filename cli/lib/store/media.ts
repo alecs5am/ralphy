@@ -36,6 +36,7 @@ export const OBJECT_REFERENCE_SOURCES = [
   { table: "run_objects", column: "object_id" },
   { table: "job_artifacts", column: "object_id" },
   { table: "storage_transfer_entries", column: "object_id" },
+  { table: "migration_entries", column: "raw_evidence_object_id" },
 ] as const;
 
 const REVIEW_VERDICTS = {

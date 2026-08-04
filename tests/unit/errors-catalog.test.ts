@@ -20,11 +20,11 @@ describe("ERROR_CODES catalog", () => {
     expect(codes.length).toBeGreaterThan(0);
   });
 
-  test("has fewer than 48 entries (v1.0 budget per 01.06.01)", () => {
+  test("stays below the migration-era budget of 56 entries", () => {
     // Original budget was <30; raised as new stable domain boundaries landed.
     // If this trips, audit the catalog before raising — every code is a
     // public surface, append-only after v1.0.
-    expect(codes.length).toBeLessThanOrEqual(48);
+    expect(codes.length).toBeLessThan(56);
   });
 
   test("includes the six stable domain boundary codes", () => {
@@ -34,6 +34,22 @@ describe("ERROR_CODES catalog", () => {
     expect(ERROR_CODES.E_PROTOCOL_UNSUPPORTED.httpAnalog).toBe(426);
     expect(ERROR_CODES.E_PROTOCOL_INVALID.httpAnalog).toBe(400);
     expect(ERROR_CODES.E_SECRET_STORE.class).toBe("env");
+  });
+
+  test("includes the five stable migration refusal codes", () => {
+    expect({
+      E_MIGRATION_LOCKED: ERROR_CODES.E_MIGRATION_LOCKED.class,
+      E_MIGRATION_SPACE: ERROR_CODES.E_MIGRATION_SPACE.class,
+      E_MIGRATION_COVERAGE: ERROR_CODES.E_MIGRATION_COVERAGE.class,
+      E_MIGRATION_VERIFY: ERROR_CODES.E_MIGRATION_VERIFY.class,
+      E_MIGRATION_CUTOVER: ERROR_CODES.E_MIGRATION_CUTOVER.class,
+    }).toEqual({
+      E_MIGRATION_LOCKED: "user",
+      E_MIGRATION_SPACE: "user",
+      E_MIGRATION_COVERAGE: "gate",
+      E_MIGRATION_VERIFY: "gate",
+      E_MIGRATION_CUTOVER: "gate",
+    });
   });
 
   test("gives each domain boundary its exact class and actionable hint", () => {
