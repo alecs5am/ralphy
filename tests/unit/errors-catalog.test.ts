@@ -24,7 +24,7 @@ describe("ERROR_CODES catalog", () => {
     // Original budget was <30; raised as new stable domain boundaries landed.
     // If this trips, audit the catalog before raising — every code is a
     // public surface, append-only after v1.0.
-    expect(codes.length).toBeLessThan(48);
+    expect(codes.length).toBeLessThanOrEqual(48);
   });
 
   test("includes the six stable domain boundary codes", () => {

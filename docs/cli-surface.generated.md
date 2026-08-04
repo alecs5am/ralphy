@@ -393,6 +393,8 @@ Commands:
   retry [options] [id]     Re-queue a failed/cancelled/blocked job by id, OR
                            bulk-retry by --tag and/or --state. Resets status to
                            'pending' and bumps retry_count (logs are preserved).
+  resume [options] <id>    Release one migration-held pending job after the
+                           matching migration Run is ready
   logs [options] <id>      Print all captured stdout+stderr lines for one job
   watch [options] [id]     Live monitor: with <id>, tails one job's logs in real
                            time; without, renders an ANSI dashboard of all
@@ -1853,7 +1855,7 @@ ____        __      __
              /_/          /____/
         agent content runtime · ralphy.dev
 
-Usage: ralphy migrate [options]
+Usage: ralphy migrate [options] [command]
 
 One-pass migration of this root to the final layout: workspace/ tree → .ralphy/
 root + workspaces (#108), per-project assets/ + refs/ → artifacts/ (#105).
@@ -1866,6 +1868,9 @@ Options:
   --project <id>  Scope to one project's inner artifacts/ move only (requires
                   the root move to be done already)
   -h, --help      display help for command
+
+Commands:
+  domain          Audit and resume the SQLite domain-store migration
 ```
 
 ### `ralphy assets`

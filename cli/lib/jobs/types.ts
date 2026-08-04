@@ -62,6 +62,8 @@ export type JobRow = {
   tag: string | null;
   /** Optional project association for cost rollups. */
   project_id: string | null;
+  /** Migration hold prevents ordinary queue claims/retries until explicit release. */
+  migration_hold_run_id: string | null;
 };
 
 export type JobLogRow = {
@@ -89,4 +91,5 @@ export type JobInsertInput = {
   priority?: number;
   tag?: string;
   project_id?: string;
+  migration_hold_run_id?: string | null;
 };

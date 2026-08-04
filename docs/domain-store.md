@@ -70,3 +70,22 @@ key and package is idempotent; later cursors do not create duplicate rows.
 Legacy registry/current-Workspace pointers and control files are not
 authoritative state. Use explicit Workspace scope, immutable Sessions, and the
 portable package contract for cross-installation transfer.
+
+## Migration safety
+
+The domain migration is resumable and journaled:
+
+```bash
+ralphy migrate domain audit --source /path/to/source/.ralphy
+ralphy migrate domain run --source /path/to/source/.ralphy
+ralphy migrate domain verify --run-id <run> --store-root /path/to/stage/.ralphy --verification-dir /path/to/reports
+ralphy migrate domain cutover --run-id <run> --confirm <run> \
+  --verification-id <verification> --verification-record /path/to/reports/verification.json \
+  --source /path/to/source/.ralphy --stage /path/to/stage/.ralphy
+```
+
+Cutover moves the exact source to a retained recovery root, installs the exact
+staged root, and records every transition in a mode-0600 external journal.
+`domain recover` resumes an interrupted journal; `domain rollback` restores the
+previous generation. Queue jobs linked to a migration remain held until an
+operator explicitly runs `ralphy queue resume <id> --migration-run <run>`.

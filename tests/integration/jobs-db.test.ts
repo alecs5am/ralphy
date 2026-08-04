@@ -21,6 +21,7 @@ import {
   listJobs,
   listArtifacts,
   recordArtifact,
+  resumeHeldJob,
 } from "../../cli/lib/jobs/db.js";
 import {
   closeDomainDb,
@@ -434,6 +435,22 @@ describe("jobs DB · logs", () => {
 });
 
 describe("jobs DB · bulk insert + list + counts", () => {
+  test("migration-held pending jobs cannot claim or retry until explicit release", () => {
+    const migrationId = "mig_hold_test";
+    openDb().prepare(
+      "INSERT INTO migration_runs (id, phase, created_at, updated_at) VALUES (?, 'audited', ?, ?)",
+    ).run(migrationId, Date.now(), Date.now());
+    const id = insertJob({
+      kind: "shell",
+      command: { argv: ["held"] },
+      migration_hold_run_id: migrationId,
+    });
+    expect(claimNextPending()).toBeNull();
+    expect(resumeHeldJob(id, "wrong-run")).toBe(false);
+    expect(resumeHeldJob(id, migrationId)).toBe(true);
+    expect(claimNextPending()?.id).toBe(id);
+  });
+
   test("insertJobsAtomic inserts all-or-nothing", () => {
     const ids = insertJobsAtomic([
       { kind: "shell", command: { argv: ["a"] } },

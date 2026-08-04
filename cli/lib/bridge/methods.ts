@@ -23,6 +23,7 @@ import {
 } from "../store/documents.js";
 import { latestActivitySequence, listActivity } from "../store/activity.js";
 import { openDomainDb } from "../store/db.js";
+import { SCHEMA_VERSION } from "../store/schema.js";
 import { getMediaCard, listMedia, reviewMedia } from "../store/media.js";
 import { listArtifactRevisions, selectArtifactRevision } from "../store/artifacts.js";
 import { createEvaluation, getEvaluation, listEvaluations } from "../store/evaluations.js";
@@ -1012,7 +1013,7 @@ function systemHello(dataRoot: string, capabilities: string[]): Record<string, u
   return {
     protocolVersion: BRIDGE_PROTOCOL_VERSION,
     coreVersion: "1",
-    schemaVersion: 4,
+    schemaVersion: SCHEMA_VERSION,
     storeId: getStoreIdentity(),
     rootId,
     capabilities: [...new Set([...capabilities, "workspace.export", "workspace.import", "migration.consumer.map"])].sort(),

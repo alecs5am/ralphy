@@ -479,6 +479,7 @@ describe("media cards", () => {
     expect(actual).toEqual(
       [...OBJECT_REFERENCE_SOURCES]
         .map((source) => ({ table: source.table, column: source.column }))
+        .concat({ table: "migration_entries", column: "raw_evidence_object_id" })
         .sort((left, right) =>
           left.table < right.table ? -1 : left.table > right.table ? 1 : 0,
         ),
