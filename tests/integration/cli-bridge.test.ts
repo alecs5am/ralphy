@@ -1,8 +1,11 @@
 import { PassThrough } from "node:stream";
+import fs from "node:fs";
+import path from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
 import { runBridge } from "../../cli/lib/bridge/server.js";
-import { closeDomainDb } from "../../cli/lib/store/db.js";
+import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
 import { createWorkspace } from "../../cli/lib/store/scopes.js";
+import { startRun } from "../../cli/lib/store/runs.js";
 import { createProject } from "../../cli/lib/store/scopes.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 
@@ -85,5 +88,38 @@ describe("stdio bridge", () => {
     expect(events[1]?.id).toBe("sub");
     expect(events[2]?.event).toBe("activity");
     expect(events[2]?.sequence).toBeGreaterThan(1);
+  });
+
+  test("imports secrets without returning their values", async () => {
+    root = makeTmpRoot("ralphy-bridge-secret-import");
+    const workspace = createWorkspace({ slug: "primary", name: "Primary" });
+    const migration = startRun({ workspaceId: workspace.id, kind: "migration.secret.import" });
+    const secret = "bridge-secret-value";
+    const output = await run([
+      '{"v":1,"id":"hello","method":"system.hello"}',
+      JSON.stringify({
+        v: 1,
+        id: "import",
+        method: "migration.secret.import",
+        params: {
+          runId: migration.id,
+          sourceEntryId: "source-1",
+          ref: "provider/test/workspace/primary",
+          kind: "text",
+          value: secret,
+        },
+      }),
+    ].join("\n") + "\n");
+    expect(output).not.toContain(secret);
+    expect(fs.readFileSync(path.join(root.dir, ".ralphy", "secrets.enc"), "utf8")).not.toContain(secret);
+    const metadata = openDomainDb().query<{ metadataJson: string }, [string]>(
+      "SELECT metadata_json AS metadataJson FROM runs WHERE id = ?",
+    ).get(migration.id);
+    expect(metadata && JSON.parse(metadata.metadataJson).secretImports).toEqual([{
+      sourceEntryId: "source-1",
+      ref: "provider/test/workspace/primary",
+      kind: "text",
+      imported: true,
+    }]);
   });
 });
