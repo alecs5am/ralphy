@@ -117,19 +117,12 @@ describe("ralphy hyperframes render --require-snapshot-review", () => {
 });
 
 describe("ralphy hyperframes save-version", () => {
-  test("writes v1.html on first call, then v2.html (no overwrite)", () => {
+  test("deprecates path snapshots without writing compositions/vN.html", () => {
     fs.writeFileSync(path.join(projectDir, "index.html"), "<!doctype html>v1");
-    const r1 = run(["hyperframes", "save-version", "hf-001"]);
-    expect(r1.exitCode).toBe(0);
-    expect(fs.existsSync(path.join(projectDir, "compositions", "v1.html"))).toBe(true);
-
-    fs.writeFileSync(path.join(projectDir, "index.html"), "<!doctype html>v2");
-    const r2 = run(["hyperframes", "save-version", "hf-001"]);
-    expect(r2.exitCode).toBe(0);
-    expect(fs.existsSync(path.join(projectDir, "compositions", "v2.html"))).toBe(true);
-    // v1 untouched.
-    expect(
-      fs.readFileSync(path.join(projectDir, "compositions", "v1.html"), "utf8"),
-    ).toBe("<!doctype html>v1");
+    const result = run(["hyperframes", "save-version", "hf-001"]);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain("Deprecated: use `ralphy composition revise");
+    expect(fs.existsSync(path.join(projectDir, "compositions", "v1.html"))).toBe(false);
+    expect(fs.existsSync(path.join(projectDir, "compositions", "v2.html"))).toBe(false);
   });
 });

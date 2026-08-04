@@ -817,6 +817,7 @@ const EXPECTED_ACTIVITY_WRITERS = [
 const UNEXERCISED_LITERAL_ACTIVITY_ACTIONS = [
   "build.cancelled",
   "build.failed",
+  "composition.build",
   "composition.input_removed",
   "composition.source_removed",
   "document.rebound",

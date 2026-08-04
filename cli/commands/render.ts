@@ -29,6 +29,8 @@ import {
   qualityPresetToCrf,
   type ColorGradePreset,
 } from "../lib/ffmpeg-recipes.js";
+import { getCommandContext } from "../lib/context-state.js";
+import { runCompositionBuild, videoCompositionForProject } from "../lib/composition-build.js";
 
 const GRADE_PRESETS: readonly ColorGradePreset[] = [
   "tv-commercial-soft",
@@ -228,10 +230,81 @@ render/final.mp4 (append-only).
     )
     .option("--dry-run", "Print the resolved render plan; no engine run", false)
     .option("--summary", "Collapse the dry-run plan to a per-stage rollup", false)
-    .action(async (projectId: string, opts) => {
+    .action(async (projectId: string, opts, command: Command) => {
       const t0 = Date.now();
       const engine = "hyperframes" as const;
       const engineEndpoint = "hyperframes-render";
+
+      const domainContext = getCommandContext();
+      if (domainContext !== null) {
+        if (opts.fromClip) {
+          raiseError("E_INPUT_INVALID", {
+            field: "fromClip",
+            detail: "--from-clip is not supported by Composition builds",
+            verb: "render",
+          });
+        }
+        const unsupported = [
+          ["output", "output"], ["loudnorm", "loudnorm"], ["grade", "grade"],
+          ["musicVariants", "music-variants"], ["musicVolume", "music-volume"],
+          ["compress", "no-compress"], ["socialCrf", "social-crf"],
+          ["forceOverwrite", "force-overwrite"], ["fixLetterbox", "no-fix-letterbox"],
+          ["summary", "summary"],
+        ].find(([key]) => command.getOptionValueSource(key) === "cli");
+        if (unsupported) {
+          raiseError("E_INPUT_INVALID", {
+            field: unsupported[0],
+            detail: `--${unsupported[1]} is not supported by Composition builds`,
+            verb: "render",
+          });
+        }
+        const format = opts.format ?? "mp4";
+        if (format !== "mp4") {
+          raiseError("E_INPUT_INVALID", { field: "format", detail: "Composition builds support only mp4 output", verb: "render" });
+        }
+        if (opts.quality && !["draft", "standard", "high"].includes(opts.quality)) {
+          raiseError("E_INPUT_INVALID", { field: "quality", detail: `unsupported Composition quality: ${opts.quality}`, verb: "render" });
+        }
+        if (opts.workers && opts.workers !== "auto" && (!/^\d+$/.test(opts.workers) || Number(opts.workers) < 1)) {
+          raiseError("E_INPUT_INVALID", { field: "workers", detail: "expected a positive integer or auto", verb: "render" });
+        }
+        const profile = {
+          name: "render",
+          fps: opts.fps === undefined ? null : Number(opts.fps),
+          quality: opts.quality ?? null,
+          format,
+          resolution: opts.resolution ?? null,
+          workers: opts.workers ?? null,
+        };
+        const query = domainContext.kind === "session" ? { sessionId: domainContext.sessionId } : {
+          workspaceId: domainContext.workspaceId,
+          ...(domainContext.projectId ? { projectId: domainContext.projectId } : {}),
+        };
+        const composition = opts.composition
+          ? { id: opts.composition, latestRevisionId: null as string | null }
+          : videoCompositionForProject(query, projectId);
+        const latestRevisionId = composition.latestRevisionId ??
+          (await import("../lib/store/compositions.js")).getComposition({ context: query, compositionId: composition.id }).latestRevisionId;
+        if (!latestRevisionId) throw new Error(`Composition has no revision: ${composition.id}`);
+        if (opts.dryRun) {
+          out({
+            dryRun: true,
+            engine: "composition",
+            projectId,
+            compositionId: composition.id,
+            revisionId: latestRevisionId,
+            profile,
+          });
+          return;
+        }
+        out(await runCompositionBuild({
+          compositionId: composition.id,
+          revisionId: latestRevisionId,
+          profile,
+          ...(domainContext.kind === "session" ? { authoredBySessionId: domainContext.sessionId } : {}),
+        }));
+        return;
+      }
 
       // Validate --grade up front; reject unknown values with a concrete ask.
       const gradePreset: ColorGradePreset | undefined = (() => {

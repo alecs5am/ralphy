@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **57**
+Verbs registered: **58**
 
 ## Top-level verbs
 
@@ -521,10 +521,7 @@ Commands:
                                       wrapper over `ralphy render` that adds the
                                       --require-snapshot-review staleness gate
                                       and a hyperframes.render gen-log row.
-  save-version <project>              Copy current index.html →
-                                      compositions/v<N>.html (numeric increment,
-                                      never overwrites). Closes invariant #14
-                                      gap for HTML (issue #004).
+  save-version <project>              Deprecated alias for composition revise
   extract-frames [options] <project>  Extract still frames from a
                                       rendered/source video for QA via ffmpeg.
                                       Standalone helper — issue #012 may later
@@ -540,7 +537,7 @@ Examples:
   ralphy hyperframes validate spring-001
   ralphy hyperframes snapshot spring-001                # auto --at from STORYBOARD
   ralphy hyperframes snapshot spring-001 --at 0.5 1.8 3.2
-  ralphy hyperframes save-version spring-001            # → compositions/v1.html
+  ralphy hyperframes save-version spring-001            # deprecated: composition revise
   ralphy hyperframes render spring-001 --require-snapshot-review
   ralphy hyperframes extract-frames spring-001 --in render/final.mp4 --at 1.0 5.0
   ralphy hyperframes watch spring-001
@@ -598,22 +595,16 @@ ____        __      __
 
 Usage: ralphy compose [options] <projectId>
 
-Timeline-aware composer. Reads artifacts/ + scenario.json + scribe captions,
-builds a Timeline, optionally re-flows after structural edits, and renders a
-single mp4. Replaces the hand-rolled concat+VO+music+loudnorm ffmpeg cycle
-(#013).
+Deprecated alias for composition build
 
 Arguments:
-  projectId                Project id (resolved via the registry to
-                           .ralphy/workspaces/<ws>/projects/<id>/)
+  projectId                Project ID
 
 Options:
-  --remove-segment <slot>  Drop the segment with this slot id and re-flow VO +
-                           captions + music. Repeatable.
-  --out <path>             Output path (default: <project>/render/compose.mp4).
-                           Collisions auto-bump to -v2, -v3, ...
-  --dry-run                Print the resolved timeline + filter graph; do not
-                           spawn ffmpeg.
+  --profile <name>         Build profile (default: "default")
+  --remove-segment <slot>  Legacy segment removal (default: [])
+  --out <path>             Legacy output path
+  --dry-run                Print the legacy render plan
   -h, --help               display help for command
 ```
 
@@ -1505,6 +1496,34 @@ Commands:
   help [command]          display help for command
 ```
 
+### `ralphy composition`
+
+```
+____        __      __
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
+        agent content runtime · ralphy.dev
+
+Usage: ralphy composition [options] [command]
+
+Manage versioned Compositions and reproducible Builds
+
+Options:
+  -h, --help             display help for command
+
+Commands:
+  show <id>              Show revision history with nested Builds and outputs
+  list [options]         List Compositions in a Project
+  revise [options] <id>  Create a draft child and materialize its editable
+                         checkout
+  build [options] <id>   Snapshot, seal, and build one exact draft revision
+  select [options] <id>  Select a sealed Composition revision
+  help [command]         display help for command
+```
+
 ### `ralphy batch`
 
 ```
@@ -1833,7 +1852,7 @@ Commands:
   render [options] <project>                       Render a project to MP4. Engine: HyperFrames (HTML + GSAP). Writes <project>/render/final.mp4. Adds EBU R128 loudnorm with --loudnorm. Also auto-emits a compressed social sibling render/final-social.mp4 (CRF 20 default, x264 faststart) so 'render → upload' is one command; pass --no-compress to skip it.
   hyperframes|hf                                   HyperFrames inner-loop verbs (lint / validate / snapshot / render / save-version / extract-frames / watch). Wraps `bunx hyperframes` so iterations log to generations.jsonl. Issue #028.
   editor                                           Editor-stage observability — preflight clip checks, trim-analysis, composition QA.
-  compose [options] <projectId>                    Timeline-aware composer. Reads artifacts/ + scenario.json + scribe captions, builds a Timeline, optionally re-flows after structural edits, and renders a single mp4. Replaces the hand-rolled concat+VO+music+loudnorm ffmpeg cycle (#013).
+  compose [options] <projectId>                    Deprecated alias for composition build
   voice                                            ElevenLabs voice library inspection — pre-flight checks before VO batches.
   whoami [options]                                 Show the per-user profile (skill score 0-10, developer badge, signals, recommendation for adaptive intake). On first call, auto-backfills from on-disk projects.
   init [options]                                   Initialize workspace and config
@@ -1855,6 +1874,7 @@ Commands:
   activity                                         Read the monotonic activity feed
   artifact                                         Manage immutable Artifacts
   feedback                                         Manage Iteration feedback
+  composition                                      Manage versioned Compositions and reproducible Builds
   batch                                            Manage batch operations
   asset                                            Alias for `ralphy artifact`
   workspace                                        Manage account workspaces: profile, channels, shared brand assets, projects, and units

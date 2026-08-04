@@ -1,9 +1,16 @@
 import type { Database } from "bun:sqlite";
 import { createHash } from "node:crypto";
+import { DomainError } from "../errors/domain.js";
 import { appendActivity } from "./activity.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
-import { resolveObjectPath } from "./internal-objects.js";
+import { registerPreparedObject, resolveObjectPath, type PreparedObject } from "./internal-objects.js";
+import {
+  finishRunAttemptInTransaction,
+  finishRunInTransaction,
+  startRunAttemptInTransaction,
+  startRunInTransaction,
+} from "./runs.js";
 import { assertLimit, buildPage, decodeCursor } from "./pagination.js";
 import {
   resolveQueryContext,
@@ -210,6 +217,13 @@ export function createComposition(input: {
 export function reviseComposition(input: {
   compositionId: string;
   expectedLatestRevisionId: string | null;
+  /** @internal Preallocated by descriptor-first checkout materialization. */
+  preallocatedRevisionId?: string;
+  /** @internal Exact parent children captured for descriptor-first checkout materialization. */
+  expectedParentSnapshot?: {
+    sources: readonly { logicalPath: string; objectId: string; position: number }[];
+    inputs: readonly { artifactRevisionId: string; role: string; position: number; config: JsonValue | null }[];
+  };
   parentRevisionId?: string | null;
   iterationId?: string | null;
   engine: string;
@@ -265,7 +279,7 @@ export function reviseComposition(input: {
       });
     }
 
-    const id = newDomainId("crev");
+    const id = input.preallocatedRevisionId ?? newDomainId("crev");
     const revisionNo = (latest?.revisionNo ?? 0) + 1;
     const createdAt = Date.now();
     db.prepare(
@@ -285,7 +299,7 @@ export function reviseComposition(input: {
       input.authoredBySessionId ?? null,
       createdAt,
     );
-    if (parentId !== null) cloneRevisionChildren(db, parentId, id, createdAt);
+    if (parentId !== null) cloneRevisionChildren(db, parentId, id, createdAt, input.expectedParentSnapshot);
     appendActivity(db, {
       workspaceId: scope.workspaceId,
       projectId: composition.projectId,
@@ -527,6 +541,153 @@ export function sealCompositionRevision(input: {
       sealedAt,
     );
     return toRevisionDto(getRevisionRow(db, scope.revision.id)!);
+  });
+}
+
+/** Atomically snapshots, seals, and starts the Composition Build lifecycle. */
+export function snapshotAndStartCompositionBuild(input: {
+  revisionId: string;
+  expectedLatestRevisionId: string;
+  sources: readonly { logicalPath: string; prepared: unknown; position: number }[];
+  expectedInputs: readonly {
+    position: number;
+    artifactRevisionId: string;
+    role: string;
+    config: JsonValue | null;
+  }[];
+  profile: JsonValue;
+  authoredBySessionId?: string | null;
+  testHooks?: { beforeCommit?: () => void };
+}) {
+  const sources = input.sources.map((source) => ({
+    ...source,
+    prepared: source.prepared as PreparedObject,
+    logicalPath: checkedLogicalPath(source.logicalPath),
+    position: checkedPosition(source.position, "Composition source position"),
+  }));
+  if (sources.some((source, index) => source.position !== index)) {
+    throw new Error("Composition source positions must be contiguous");
+  }
+  return withImmediateTransaction((db) => {
+    const scope = requireDraftRevision(db, input.revisionId);
+    const latest = latestRevision(db, scope.composition.id);
+    if (!latest || latest.id !== input.expectedLatestRevisionId || latest.id !== scope.revision.id) {
+      throw new StoreConflictError("Composition latest revision conflict");
+    }
+    const inputs = db.query<CompositionInputDbRow, [string]>(
+      `SELECT ${INPUT_COLUMNS} FROM composition_inputs
+       WHERE composition_revision_id = ? ORDER BY position, id`,
+    ).all(scope.revision.id).map(toInputRow);
+    if (
+      inputs.length !== input.expectedInputs.length ||
+      inputs.some((row, index) => {
+        const expected = input.expectedInputs[index];
+        return !expected || row.position !== expected.position ||
+          row.artifactRevisionId !== expected.artifactRevisionId || row.role !== expected.role ||
+          serializeJson(row.config) !== serializeJson(canonicalJsonInput(expected.config, "Composition input config"));
+      })
+    ) {
+      throw new StoreConflictError("Composition inputs changed while snapshotting");
+    }
+    for (const compositionInput of inputs) {
+      const artifact = artifactRevisionScope(db, compositionInput.artifactRevisionId);
+      if (!artifact) throw new Error(`Artifact Revision not found: ${compositionInput.artifactRevisionId}`);
+      assertArtifactVisibleToProject(artifact, scope);
+      resolveObjectPath(artifact.object);
+    }
+    db.prepare("DELETE FROM composition_revision_files WHERE composition_revision_id = ?").run(scope.revision.id);
+    const insert = db.prepare(
+      `INSERT INTO composition_revision_files
+       (id, composition_revision_id, logical_path, object_id, position, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    );
+    const now = Date.now();
+    for (const source of sources) {
+      const object = registerPreparedObject(db, source.prepared);
+      assertObjectVisibleToProject(object, scope);
+      appendActivity(db, {
+        workspaceId: object.workspaceId,
+        projectId: object.projectId,
+        entityType: "object",
+        entityId: object.id,
+        action: "object.registered",
+        payload: { bytes: object.bytes, mime: object.mime, storageClass: object.storageClass },
+        createdAt: object.createdAt,
+      });
+      insert.run(newDomainId("cfile"), scope.revision.id, source.logicalPath, object.id, source.position, now);
+    }
+    const current = manifestForRevision(db, scope.revision.id, true);
+    if (!current.sources.length && !current.inputs.length) throw new Error("Cannot seal an empty Composition revision");
+    const manifestSha256 = digestManifest(current.manifest);
+    db.prepare(
+      `UPDATE composition_revisions SET state = 'sealed', manifest_sha256 = ?, sealed_at = ?
+       WHERE id = ? AND state = 'draft'`,
+    ).run(manifestSha256, now, scope.revision.id);
+    appendRevisionActivity(db, scope, scope.revision.id, "composition.sealed", { revisionNo: scope.revision.revisionNo }, now);
+    const run = startRunInTransaction(db, {
+      workspaceId: scope.workspaceId,
+      projectId: scope.composition.projectId,
+      agentSessionId: input.authoredBySessionId,
+      kind: "composition.build",
+      label: scope.composition.slug,
+    });
+    const attempt = startRunAttemptInTransaction(db, {
+      runId: run.id,
+      provider: scope.revision.engine,
+      model: scope.revision.engine,
+    });
+    const buildId = newDomainId("build");
+    const profile = canonicalJsonInput(input.profile, "Build profile");
+    db.prepare(
+      `INSERT INTO builds
+       (id, composition_revision_id, run_id, state, profile_json, created_at, started_at)
+       VALUES (?, ?, ?, 'running', ?, ?, ?)`,
+    ).run(buildId, scope.revision.id, run.id, JSON.stringify(profile), now, now);
+    appendBuildActivity(db, scope, buildId, "build.started", {
+      compositionRevisionId: scope.revision.id,
+      runId: run.id,
+    }, now);
+    input.testHooks?.beforeCommit?.();
+    return {
+      revision: toRevisionDto(getRevisionRow(db, scope.revision.id)!),
+      run,
+      attempt,
+      build: toBuildDto(getBuildRow(db, buildId)!),
+    };
+  });
+}
+
+export function validateBuildProfile(profile: JsonValue): JsonValue {
+  const value = canonicalJsonInput(profile, "Build profile");
+  const format = value && typeof value === "object" && !Array.isArray(value) ? value.format : undefined;
+  if (format !== undefined && format !== null && format !== "mp4") {
+    throw new DomainError("E_INPUT_INVALID", undefined, {
+      field: "format",
+      detail: "Composition builds support only mp4 output",
+    });
+  }
+  return value;
+}
+
+/** Terminalizes a failed Build, its Attempt, and its Run in one transaction. */
+export function failCompositionBuildRun(input: {
+  buildId: string;
+  attemptId: string;
+  error: Error;
+}): BuildDto {
+  return withImmediateTransaction((db) => {
+    const scope = getBuildScope(db, input.buildId);
+    if (!scope) throw new Error(`Build not found: ${input.buildId}`);
+    if (scope.build.state !== "running" || !scope.build.runId) {
+      throw new StoreConflictError("Build is terminal or not running");
+    }
+    const endedAt = Date.now();
+    db.prepare("UPDATE builds SET state = 'failed', error = ?, ended_at = ? WHERE id = ? AND state = 'running'")
+      .run(input.error.message.slice(0, 500), endedAt, scope.build.id);
+    finishRunAttemptInTransaction(db, input.attemptId, { state: "failed", error: input.error });
+    finishRunInTransaction(db, scope.build.runId, { state: "failed", error: input.error });
+    appendBuildActivity(db, scope.revisionScope, scope.build.id, "build.failed", { state: "failed", failed: true }, endedAt);
+    return toBuildDto(getBuildRow(db, scope.build.id)!);
   });
 }
 
@@ -1272,6 +1433,10 @@ function cloneRevisionChildren(
   parentId: string,
   revisionId: string,
   createdAt: number,
+  expected?: {
+    sources: readonly { logicalPath: string; objectId: string; position: number }[];
+    inputs: readonly { artifactRevisionId: string; role: string; position: number; config: JsonValue | null }[];
+  },
 ): void {
   const sources = db
     .query<CompositionSourceDbRow, [string]>(
@@ -1280,6 +1445,28 @@ function cloneRevisionChildren(
        ORDER BY position ASC, logical_path ASC, id ASC`,
     )
     .all(parentId);
+  const inputs = db
+    .query<CompositionInputDbRow, [string]>(
+      `SELECT ${INPUT_COLUMNS} FROM composition_inputs
+       WHERE composition_revision_id = ? ORDER BY position ASC, id ASC`,
+    )
+    .all(parentId);
+  const sourceMismatch = expected && (
+    sources.length !== expected.sources.length || sources.some((source, index) => {
+      const captured = expected.sources[index];
+      return !captured || source.logical_path !== captured.logicalPath || source.object_id !== captured.objectId || source.position !== captured.position;
+    })
+  );
+  const inputMismatch = expected && (
+    inputs.length !== expected.inputs.length || inputs.some((item, index) => {
+      const captured = expected.inputs[index];
+      return !captured || item.artifact_revision_id !== captured.artifactRevisionId || item.role !== captured.role ||
+        item.position !== captured.position || item.config_json !== serializeJson(canonicalOptionalJson(captured.config, "Composition input config"));
+    })
+  );
+  if (sourceMismatch || inputMismatch) {
+    throw new StoreConflictError("Composition parent children changed during checkout materialization");
+  }
   const insertSource = db.prepare(
     `INSERT INTO composition_revision_files
      (id, composition_revision_id, logical_path, object_id, position, created_at)
@@ -1295,12 +1482,6 @@ function cloneRevisionChildren(
       createdAt,
     );
   }
-  const inputs = db
-    .query<CompositionInputDbRow, [string]>(
-      `SELECT ${INPUT_COLUMNS} FROM composition_inputs
-       WHERE composition_revision_id = ? ORDER BY position ASC, id ASC`,
-    )
-    .all(parentId);
   const insertInput = db.prepare(
     `INSERT INTO composition_inputs
      (id, composition_revision_id, artifact_revision_id, role, position, config_json, created_at)

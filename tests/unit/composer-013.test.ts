@@ -7,14 +7,25 @@
 //     label collisions, no single-letter labels per #011).
 //   - normalizeCaptions tolerates the Remotion / snake_case / seconds shapes.
 
-import { describe, test, expect } from "bun:test";
+import { afterEach, describe, test, expect } from "bun:test";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import {
+  buildTimelineFromInputs,
   buildFilterGraph,
   checkFilterGraph,
   mutateTimelineRemoveSegment,
   normalizeCaptions,
+  renderTimeline,
   type Timeline,
 } from "../../cli/lib/composer.js";
+import { spawnSyncInDirectory } from "../../cli/lib/render/descriptor-launch.js";
+
+const temporaryDirectories: string[] = [];
+afterEach(() => {
+  for (const directory of temporaryDirectories.splice(0)) fs.rmSync(directory, { recursive: true, force: true });
+});
 
 // Helper: a 3-segment timeline with VO + captions + music. Numbers are
 // intentionally simple so the re-flow assertions read as plain arithmetic.
@@ -261,5 +272,51 @@ describe("normalizeCaptions (#013)", () => {
     expect(normalizeCaptions(null)).toEqual([]);
     expect(normalizeCaptions(42)).toEqual([]);
     expect(normalizeCaptions("string")).toEqual([]);
+  });
+});
+
+describe("descriptor-pinned composition rendering", () => {
+  test("probes, reads captions, and renders in the opened directory after its path is replaced", async () => {
+    const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-composer-pinned-"));
+    temporaryDirectories.push(temporary);
+    const project = path.join(temporary, "project");
+    const external = path.join(temporary, "external");
+    const bin = path.join(temporary, "bin");
+    fs.mkdirSync(project);
+    fs.mkdirSync(external);
+    fs.mkdirSync(bin);
+    fs.writeFileSync(path.join(project, "clip.mp4"), "pinned");
+    fs.writeFileSync(path.join(project, "captions.json"), JSON.stringify([{ text: "pinned caption", startMs: 0, endMs: 100 }]));
+    fs.writeFileSync(path.join(external, "clip.mp4"), "external");
+    fs.writeFileSync(path.join(external, "captions.json"), JSON.stringify([{ text: "external caption", startMs: 0, endMs: 100 }]));
+    fs.writeFileSync(path.join(external, "out.mp4"), "external sentinel");
+    fs.writeFileSync(path.join(bin, "ffprobe"), "#!/bin/sh\nprintf probed > .ffprobe-cwd\nprintf '4\\n'\n", { mode: 0o755 });
+    fs.writeFileSync(path.join(bin, "ffmpeg"), "#!/bin/sh\n[ \"$1\" = -version ] && exit 0\nfor last; do :; done\nprintf pinned-render > \"$last\"\n", { mode: 0o755 });
+
+    const directoryFd = fs.openSync(project, fs.constants.O_RDONLY | fs.constants.O_DIRECTORY);
+    const captionFd = fs.openSync(path.join(project, "captions.json"), fs.constants.O_RDONLY);
+    const oldPath = process.env.PATH;
+    try {
+      fs.renameSync(project, `${project}.original`);
+      fs.symlinkSync(external, project);
+      process.env.PATH = `${bin}:${oldPath ?? ""}`;
+      const probe = spawnSyncInDirectory(directoryFd, [path.join(bin, "ffprobe")]);
+      expect({ status: probe.status, stdout: probe.stdout, stderr: probe.stderr }).toEqual({ status: 0, stdout: "4\n", stderr: "" });
+      const timeline = await buildTimelineFromInputs([
+        { path: "clip.mp4", role: "scene" },
+        { path: "captions.json", role: "captions", fd: captionFd },
+      ], { directoryFd });
+      expect(timeline.total_duration_s).toBe(4);
+      expect(timeline.captions_track[0]?.phrase).toBe("pinned caption");
+      expect(fs.readFileSync(path.join(`${project}.original`, ".ffprobe-cwd"), "utf8")).toBe("probed");
+      expect(fs.existsSync(path.join(external, ".ffprobe-cwd"))).toBe(false);
+      await renderTimeline(timeline, "out.mp4", { directoryFd });
+      expect(fs.readFileSync(path.join(`${project}.original`, "out.mp4"), "utf8")).toBe("pinned-render");
+      expect(fs.readFileSync(path.join(external, "out.mp4"), "utf8")).toBe("external sentinel");
+    } finally {
+      process.env.PATH = oldPath;
+      fs.closeSync(captionFd);
+      fs.closeSync(directoryFd);
+    }
   });
 });
