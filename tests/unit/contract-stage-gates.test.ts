@@ -23,8 +23,14 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root";
+import {
+  ensureDomainContractProject,
+  setDomainContractDocumentStage,
+  setDomainContractStage,
+} from "../helpers/domain-contract";
 import { evaluateContract } from "../../cli/lib/contract";
 import { workspaceDir } from "../../cli/lib/paths";
+import { saveWorkspaceEvaluators } from "../../cli/lib/workspace-evaluators";
 
 const WS = "fog";
 const PROJECT = "fog-472";
@@ -40,10 +46,11 @@ function projDir(): string {
 function seedRenderStageProject(opts: { evaluators?: Record<string, unknown> } = {}) {
   const wsDir = workspaceDir(WS);
   const dir = projDir();
+  ensureDomainContractProject(tmp.dir, PROJECT, "video", WS);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(wsDir, "workspace.json"), JSON.stringify({ slug: WS }));
   if (opts.evaluators) {
-    fs.writeFileSync(path.join(wsDir, "evaluators.json"), JSON.stringify(opts.evaluators));
+    saveWorkspaceEvaluators(WS, opts.evaluators);
   }
   // A full required artifact set so the contract reaches eval-territory and the
   // pre-existing stops (user-approval / native-gate) are deterministic.
@@ -58,21 +65,26 @@ function seedRenderStageProject(opts: { evaluators?: Record<string, unknown> } =
   }
   fs.mkdirSync(path.join(dir, "render"), { recursive: true });
   fs.writeFileSync(path.join(dir, "render", "final.mp4"), "fakevideo");
+  for (const stage of ["intake", "production-plan", "scenario", "prompts", "assets", "render"]) {
+    setDomainContractStage(tmp.dir, PROJECT, stage, "complete", WS);
+  }
   return dir;
 }
 
 /** Write the latest workspace-eval scorecard with the given criterion verdicts. */
 function writeWorkspaceEval(criteria: Array<{ id: string; verdict: string }>) {
+  const body = {
+    schemaVersion: "1.0",
+    workspace: WS,
+    projectId: PROJECT,
+    criteria: criteria.map((c) => ({ ...c, score: null, findings: [] })),
+    overall: { verdict: "repair", score: null, summary: "x" },
+  };
   fs.writeFileSync(
     path.join(projDir(), "workspace-eval.json"),
-    JSON.stringify({
-      schemaVersion: "1.0",
-      workspace: WS,
-      projectId: PROJECT,
-      criteria: criteria.map((c) => ({ ...c, score: null, findings: [] })),
-      overall: { verdict: "repair", score: null, summary: "x" },
-    }),
+    JSON.stringify(body),
   );
+  setDomainContractDocumentStage(tmp.dir, PROJECT, "workspace-eval", body, "complete", "video", WS);
 }
 
 /** A generic two-gate rubric (no universe literals): scenario + montage stages. */

@@ -2,7 +2,7 @@
 // skip-if-filled), lifecycle transitions, no-free-slot queueing, fill
 // idempotence, the calendar-slot executor, and the append-only event log.
 
-import { describe, test, expect, beforeEach } from "bun:test";
+import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -17,6 +17,11 @@ import {
   calendarEventsPath,
 } from "../../cli/lib/calendar/store.js";
 import { parseCalendar, canTransition, ENTRY_STATUSES, PLATFORMS } from "../../cli/lib/schemas/calendar.js";
+import { setRoot, root as currentRoot } from "../../cli/lib/paths.js";
+import { clearCommandContext, setCommandContext } from "../../cli/lib/context-state.js";
+import { closeDomainDb } from "../../cli/lib/store/db.js";
+import { createWorkspace } from "../../cli/lib/store/scopes.js";
+import { listGlobalActivity } from "../../cli/lib/store/activity.js";
 
 // 2026 anchors (verified): Jan 12 / Mar 9 are Mondays; US DST starts Mar 8.
 const NY_SLOT = {
@@ -29,17 +34,28 @@ const NY_SLOT = {
 };
 
 let dir: string;
+let savedRoot: string;
 
 beforeEach(() => {
+  savedRoot = currentRoot();
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "calendar-"));
+  setRoot(dir);
+  closeDomainDb();
+  const workspace = createWorkspace({ slug: "default", name: "Default" });
+  setCommandContext({ kind: "scope", workspaceId: workspace.id });
+});
+
+afterEach(() => {
+  clearCommandContext();
+  closeDomainDb();
+  setRoot(savedRoot);
+  fs.rmSync(dir, { recursive: true, force: true });
 });
 
 const eventLines = () =>
-  fs
-    .readFileSync(calendarEventsPath(dir), "utf8")
-    .split("\n")
-    .filter((l) => l.trim())
-    .map((l) => JSON.parse(l));
+  listGlobalActivity({ afterSequence: 0, limit: 100 }).items
+    .filter((event) => event.entityType === "calendar_entry" || event.entityType === "calendar_slot")
+    .map((event) => ({ id: event.entityId, type: event.action }));
 
 // ─── Schema + lifecycle ──────────────────────────────────────────────────────
 
@@ -82,8 +98,7 @@ describe("lifecycle transitions (store)", () => {
     expect(() => transitionEntry(dir, "e1", "idea")).toThrow(/illegal transition/);
     expect(readCalendar(dir).entries[0]!.status).toBe("produced");
     const events = eventLines();
-    expect(events.map((e) => e.type)).toEqual(["entry-created", "entry-transition"]);
-    expect(events[1]).toMatchObject({ id: "e1", from: "idea", to: "produced" });
+    expect(events.map((e) => e.type)).toEqual(["calendar.entry.created", "calendar.entry.transitioned"]);
   });
 
   test("upsert cannot smuggle a status change past the transition gate", () => {
@@ -180,29 +195,27 @@ describe("fillCalendar", () => {
 
 // ─── Event log (append-only) ─────────────────────────────────────────────────
 
-describe("calendar-events.jsonl", () => {
-  test("every mutation appends; prior lines are never rewritten", () => {
+describe("calendar activity and filesystem hygiene", () => {
+  test("every mutation appends Activity without a control log", () => {
     addSlot(dir, NY_SLOT);
     upsertEntry(dir, { id: "e1", unitType: "short" });
-    const snapshot = fs.readFileSync(calendarEventsPath(dir), "utf8");
-    expect(eventLines().map((e) => e.type)).toEqual(["slot-added", "entry-created"]);
+    expect(eventLines().map((e) => e.type)).toEqual(["calendar.slot.created", "calendar.entry.created"]);
 
     upsertEntry(dir, { id: "e1", projectId: "p-001" });
     transitionEntry(dir, "e1", "queued");
-    const after = fs.readFileSync(calendarEventsPath(dir), "utf8");
-    expect(after.startsWith(snapshot)).toBe(true); // strictly appended
     expect(eventLines().map((e) => e.type)).toEqual([
-      "slot-added",
-      "entry-created",
-      "entry-updated",
-      "entry-transition",
+      "calendar.slot.created",
+      "calendar.entry.created",
+      "calendar.entry.updated",
+      "calendar.entry.transitioned",
     ]);
+    expect(fs.existsSync(calendarEventsPath(dir))).toBe(false);
   });
 
-  test("calendar.json is engine state beside the log", () => {
+  test("calendar state is SQL-backed, with no JSON control file", () => {
     addSlot(dir, NY_SLOT);
     expect(calendarPath(dir)).toBe(path.join(dir, "calendar.json"));
-    expect(fs.existsSync(calendarPath(dir))).toBe(true);
-    expect(fs.existsSync(calendarEventsPath(dir))).toBe(true);
+    expect(fs.existsSync(calendarPath(dir))).toBe(false);
+    expect(fs.existsSync(calendarEventsPath(dir))).toBe(false);
   });
 });

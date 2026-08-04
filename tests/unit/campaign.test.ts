@@ -40,20 +40,108 @@ import {
 } from "../../cli/lib/campaign/crosslink.js";
 import { computeCoverage } from "../../cli/lib/campaign/report.js";
 import type { CallLLMResult } from "../../cli/lib/providers/types.js";
+import { clearCommandContext, setCommandContext } from "../../cli/lib/context-state.js";
+import { closeDomainDb } from "../../cli/lib/store/db.js";
+import { createProject, createWorkspace } from "../../cli/lib/store/scopes.js";
+import {
+  appendMetricSnapshot,
+  createUnitWithRevision,
+  finishPublicationClaim,
+  listUnitPresentations,
+  startPublicationSubmission,
+} from "../../cli/lib/store/units.js";
+import { finishRun, startRun } from "../../cli/lib/store/runs.js";
+import { createDocument, reviseDocument } from "../../cli/lib/store/documents.js";
 
 let rootDir: string;
 let wsDir: string;
 let savedRoot: string;
+let workspaceId: string;
+let projects = new Map<string, string>();
 
 beforeEach(() => {
   savedRoot = currentRoot();
   rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "campaign-"));
   setRoot(rootDir);
+  closeDomainDb();
+  const workspace = createWorkspace({ slug: "default", name: "Default" });
+  workspaceId = workspace.id;
+  projects = new Map();
+  setCommandContext({ kind: "scope", workspaceId: workspace.id });
   wsDir = path.join(rootDir, ".ralphy", "workspaces", "default");
-  fs.mkdirSync(path.join(wsDir, "campaigns"), { recursive: true });
 });
 
+function projectIdFor(slug: string): string {
+  const existing = projects.get(slug);
+  if (existing) return existing;
+  const project = createProject({ workspaceId, slug, name: slug });
+  projects.set(slug, project.id);
+  return project.id;
+}
+
+function writeUnit(
+  projectSlug: string,
+  slug: string,
+  publishUrl: string | null,
+  opts: { views?: number } = {},
+): string {
+  const projectId = projectIdFor(projectSlug);
+  const document = createDocument({
+    projectId,
+    kind: "custom",
+    slug: `${projectSlug}-${slug}`,
+    title: slug,
+  });
+  const documentRevision = reviseDocument({
+    documentId: document.id,
+    expectedHeadId: null,
+    format: "markdown",
+    body: `# ${slug}`,
+  });
+  const revision = createUnitWithRevision({
+    projectId,
+    slug,
+    format: "video",
+    items: [{ documentRevisionId: documentRevision.id, role: "body", position: 0 }],
+    presentations: [{ platform: "youtube" }],
+  });
+  if (publishUrl) {
+    const presentation = listUnitPresentations({
+      context: { workspaceId, projectId },
+      revisionId: revision.id,
+      limit: 1,
+    }).items[0]!;
+    const started = startPublicationSubmission({
+      presentationId: presentation.id,
+      rail: "manual",
+      idempotencyKey: `publish-${revision.id}`,
+      leaseMs: 60_000,
+    });
+    const publication = finishPublicationClaim(started.publication.id, {
+      fence: started.claim!.fence,
+      state: "published",
+      url: publishUrl,
+      publishedAt: Date.now(),
+    });
+    if (opts.views !== undefined) {
+      const run = startRun({ projectId, kind: "analytics" });
+      appendMetricSnapshot({
+        publicationId: publication.id,
+        runId: run.id,
+        position: 0,
+        source: "test",
+        asOf: Date.now(),
+        views: opts.views,
+      });
+      finishRun(run.id, { state: "succeeded" });
+    }
+  }
+  return revision.id;
+}
+
 afterEach(() => {
+  clearCommandContext();
+  closeDomainDb();
   setRoot(savedRoot);
   fs.rmSync(rootDir, { recursive: true, force: true });
 });
@@ -207,16 +295,22 @@ describe("cell lifecycle", () => {
 
   test("planned → produced stamps linkedUnitId + producedAt", () => {
     planned();
-    const after = stampCellProduced(wsDir, "agent-video", "cell-01", "agent-video-001/hero");
+    const revisionId = writeUnit("agent-video-001", "hero", null);
+    const after = stampCellProduced(wsDir, "agent-video", "cell-01", revisionId);
     const cell = after.inventory.find((c) => c.id === "cell-01")!;
     expect(cell.status).toBe("produced");
-    expect(cell.linkedUnitId).toBe("agent-video-001/hero");
+    expect(cell.linkedUnitId).toBe(revisionId);
     expect(typeof cell.producedAt).toBe("string");
   });
 
   test("produced → published stamp", () => {
     planned();
-    stampCellProduced(wsDir, "agent-video", "cell-01", "agent-video-001/hero");
+    stampCellProduced(
+      wsDir,
+      "agent-video",
+      "cell-01",
+      writeUnit("agent-video-001", "hero", null),
+    );
     const after = markCellPublished(wsDir, "agent-video", "cell-01");
     expect(after.inventory.find((c) => c.id === "cell-01")!.status).toBe("published");
   });
@@ -249,42 +343,22 @@ describe("next-cell selection", () => {
 
   test("skips produced cells", () => {
     planned();
-    const c = stampCellProduced(wsDir, "agent-video", "high", "p/u");
+    const c = stampCellProduced(wsDir, "agent-video", "high", writeUnit("p", "u", null));
     expect(nextUnproducedCell(c)!.id).toBe("mid");
     expect(unproducedCells(c).map((x) => x.id)).toEqual(["mid", "low"]);
   });
 
   test("exhausted plan → null / empty", () => {
     let c = planned();
-    for (const id of ["high", "mid", "low"]) c = stampCellProduced(wsDir, "agent-video", id, `p/${id}`);
+    for (const id of ["high", "mid", "low"]) {
+      c = stampCellProduced(wsDir, "agent-video", id, writeUnit("p", id, null));
+    }
     expect(nextUnproducedCell(c)).toBeNull();
     expect(unproducedCells(c)).toEqual([]);
   });
 });
 
 // ─── cross-linking ───────────────────────────────────────────────────────────
-
-/** Write a minimal published unit under the project's units/<slug>/. */
-function writeUnit(projectId: string, slug: string, publishUrl: string | null, opts: { views?: number } = {}) {
-  const unitDir = path.join(wsDir, "projects", projectId, "units", slug);
-  fs.mkdirSync(unitDir, { recursive: true });
-  const manifest: Record<string, unknown> = {
-    slug,
-    format: "video",
-    media: ["a.mp4"],
-    created: "2026-07-06T00:00:00.000Z",
-    publish: publishUrl
-      ? [{ target: "github-pages", integrationId: null, postId: "p1", url: publishUrl, status: "published", scheduleAt: null, at: "2026-07-06T00:00:00.000Z", backend: "postiz" }]
-      : [],
-  };
-  fs.writeFileSync(path.join(unitDir, "unit.json"), JSON.stringify(manifest, null, 2));
-  if (opts.views !== undefined) {
-    fs.writeFileSync(
-      path.join(unitDir, "analytics.jsonl"),
-      JSON.stringify({ at: "2026-07-07T00:00:00.000Z", unitSlug: slug, target: "youtube", postId: "p1", source: "youtube-analytics", metrics: { views: opts.views } }) + "\n",
-    );
-  }
-}
 
 describe("cross-link injection", () => {
   test("resolvePublishedUrl prefers a record url, else postId", () => {
@@ -297,12 +371,16 @@ describe("cross-link injection", () => {
   test("resolves sibling URLs from published linked units + injects into description", async () => {
     seedCampaign();
     const cells = [
-      { id: "the-video", thesisId: "studio", format: "video" as const, angle: "v", keyword: "k", channel: "youtube" as const, priority: 5, status: "produced" as const, linkedUnitId: "vid-001/hero" },
-      { id: "the-article", thesisId: "studio", format: "article" as const, angle: "a", keyword: "k", channel: "github-pages" as const, priority: 9, status: "published" as const, linkedUnitId: "art-001/post" },
+      { id: "the-video", thesisId: "studio", format: "video" as const, angle: "v", keyword: "k", channel: "youtube" as const, priority: 5, status: "planned" as const },
+      { id: "the-article", thesisId: "studio", format: "article" as const, angle: "a", keyword: "k", channel: "github-pages" as const, priority: 9, status: "planned" as const },
     ];
-    const c = commitPlan(wsDir, "agent-video", { keywords: { head: ["k"], longTail: [], questions: [] }, inventory: cells });
-    writeUnit("art-001", "post", "https://blog/post"); // the article is published
-    writeUnit("vid-001", "hero", null); // the video is not published yet
+    commitPlan(wsDir, "agent-video", { keywords: { head: ["k"], longTail: [], questions: [] }, inventory: cells });
+    const articleRevisionId = writeUnit("art-001", "post", "https://blog/post");
+    const videoRevisionId = writeUnit("vid-001", "hero", null);
+    stampCellProduced(wsDir, "agent-video", "the-article", articleRevisionId);
+    markCellPublished(wsDir, "agent-video", "the-article");
+    stampCellProduced(wsDir, "agent-video", "the-video", videoRevisionId);
+    const c = readCampaign(wsDir, "agent-video")!;
 
     // From the video cell's POV, the article sibling has a URL.
     const links = await resolveSiblingLinks(c, c.inventory.find((x) => x.id === "the-video")!);
@@ -333,19 +411,20 @@ describe("cross-link injection", () => {
   test("linkFormats policy filters which siblings link", async () => {
     seedCampaign();
     const cells = [
-      { id: "target", thesisId: "studio", format: "video" as const, angle: "v", keyword: "k", channel: "youtube" as const, priority: 5, status: "produced" as const, linkedUnitId: "vid/u" },
-      { id: "art", thesisId: "studio", format: "article" as const, angle: "a", keyword: "k", channel: "github-pages" as const, priority: 9, status: "published" as const, linkedUnitId: "art/u" },
+      { id: "target", thesisId: "studio", format: "video" as const, angle: "v", keyword: "k", channel: "youtube" as const, priority: 5, status: "planned" as const },
+      { id: "art", thesisId: "studio", format: "article" as const, angle: "a", keyword: "k", channel: "github-pages" as const, priority: 9, status: "planned" as const },
     ];
-    // Policy: only link to `video` siblings — so the article sibling is excluded.
-    fs.mkdirSync(path.join(wsDir, "campaigns", "agent-video"), { recursive: true });
-    const c0 = readCampaign(wsDir, "agent-video")!;
-    fs.writeFileSync(
-      path.join(wsDir, "campaigns", "agent-video", "campaign.json"),
-      JSON.stringify({ ...c0, crossLink: { enabled: true, linkFormats: ["video"], maxLinks: 5 } }, null, 2),
-    );
     commitPlan(wsDir, "agent-video", { keywords: { head: ["k"], longTail: [], questions: [] }, inventory: cells });
-    writeUnit("art", "u", "https://blog/x");
-    const c = readCampaign(wsDir, "agent-video")!;
+    const articleRevisionId = writeUnit("art", "u", "https://blog/x");
+    const targetRevisionId = writeUnit("target", "u", null);
+    stampCellProduced(wsDir, "agent-video", "art", articleRevisionId);
+    markCellPublished(wsDir, "agent-video", "art");
+    stampCellProduced(wsDir, "agent-video", "target", targetRevisionId);
+    const c0 = readCampaign(wsDir, "agent-video")!;
+    const c = parseCampaign({
+      ...c0,
+      crossLink: { enabled: true, linkFormats: ["video"], maxLinks: 5 },
+    });
     const links = await resolveSiblingLinks(c, c.inventory.find((x) => x.id === "target")!);
     expect(links.length).toBe(0); // article excluded by policy
   });
@@ -380,15 +459,18 @@ describe("coverage report", () => {
     seedCampaign();
     const cells = [
       { id: "c1", thesisId: "studio", format: "article" as const, angle: "a", keyword: "ai video", channel: "github-pages" as const, priority: 9, status: "planned" as const },
-      { id: "c2", thesisId: "studio", format: "video" as const, angle: "b", keyword: "ai video", channel: "youtube" as const, priority: 5, status: "produced" as const, linkedUnitId: "p/produced" },
-      { id: "c3", thesisId: "earns", format: "video" as const, angle: "c", keyword: "ai agent video studio", channel: "tiktok" as const, priority: 3, status: "produced" as const, linkedUnitId: "p/published" },
+      { id: "c2", thesisId: "studio", format: "video" as const, angle: "b", keyword: "ai video", channel: "youtube" as const, priority: 5, status: "planned" as const },
+      { id: "c3", thesisId: "earns", format: "video" as const, angle: "c", keyword: "ai agent video studio", channel: "tiktok" as const, priority: 3, status: "planned" as const },
     ];
     commitPlan(wsDir, "agent-video", {
       keywords: { head: ["ai video"], longTail: ["ai agent video studio"], questions: ["q?"] },
       inventory: cells,
     });
-    writeUnit("p", "produced", null); // produced, not published
-    writeUnit("p", "published", "https://x/pub", { views: 4200 }); // published + analytics views > 0
+    const producedRevisionId = writeUnit("p", "produced", null); // produced, not published
+    const publishedRevisionId = writeUnit("p", "published", "https://x/pub", { views: 4200 }); // published + analytics views > 0
+    stampCellProduced(wsDir, "agent-video", "c2", producedRevisionId);
+    stampCellProduced(wsDir, "agent-video", "c3", publishedRevisionId);
+    markCellPublished(wsDir, "agent-video", "c3");
 
     const cov = await computeCoverage(readCampaign(wsDir, "agent-video")!);
     expect(cov.counts.planned).toBe(3);
@@ -405,10 +487,11 @@ describe("coverage report", () => {
   test("never claims coverage without a real publish record", async () => {
     seedCampaign();
     const cells = [
-      { id: "c1", thesisId: "studio", format: "video" as const, angle: "a", keyword: "k", channel: "youtube" as const, priority: 1, status: "produced" as const, linkedUnitId: "p/u" },
+      { id: "c1", thesisId: "studio", format: "video" as const, angle: "a", keyword: "k", channel: "youtube" as const, priority: 1, status: "planned" as const },
     ];
     commitPlan(wsDir, "agent-video", { keywords: { head: ["k"], longTail: [], questions: [] }, inventory: cells });
-    writeUnit("p", "u", null); // produced but never published, no analytics
+    const revisionId = writeUnit("p", "u", null); // produced but never published, no analytics
+    stampCellProduced(wsDir, "agent-video", "c1", revisionId);
     const cov = await computeCoverage(readCampaign(wsDir, "agent-video")!);
     expect(cov.counts.produced).toBe(1);
     expect(cov.counts.published).toBe(0);

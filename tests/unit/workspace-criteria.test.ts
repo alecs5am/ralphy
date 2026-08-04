@@ -19,6 +19,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root";
+import { ensureDomainContractProject } from "../helpers/domain-contract";
 import {
   hasWorkspaceValidator,
   hasWorkspaceVisionRubric,
@@ -31,6 +32,7 @@ import {
   __testHooks,
 } from "../../cli/lib/eval/workspace-criteria";
 import { workspaceDir } from "../../cli/lib/paths";
+import { saveWorkspaceEvaluators } from "../../cli/lib/workspace-evaluators";
 import type { WorkspaceCriterion } from "../../cli/lib/schemas/workspace-evaluators";
 import type { Finding } from "../../cli/lib/eval/types";
 
@@ -96,11 +98,12 @@ function seedProject(opts: {
   indexHtml?: string;
   metrics?: Record<string, unknown>;
 }) {
+  ensureDomainContractProject(tmp.dir, opts.projectId, "video", opts.workspace);
+  saveWorkspaceEvaluators(opts.workspace, opts.evaluators);
   const wsDir = workspaceDir(opts.workspace);
   const projDir = path.join(wsDir, "projects", opts.projectId);
   fs.mkdirSync(path.join(projDir, "artifacts"), { recursive: true });
   fs.writeFileSync(path.join(wsDir, "workspace.json"), JSON.stringify({ slug: opts.workspace }));
-  fs.writeFileSync(path.join(wsDir, "evaluators.json"), JSON.stringify(opts.evaluators));
   fs.writeFileSync(path.join(projDir, "BRIEF.md"), "# brief\n");
   if (opts.indexHtml !== undefined) {
     fs.writeFileSync(path.join(projDir, "index.html"), opts.indexHtml);
@@ -423,4 +426,3 @@ describe("runWorkspaceEval — deterministic criteria produce real results", () 
     expect(result.overall.verdict).toBe("ship");
   });
 });
-

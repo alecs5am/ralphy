@@ -11,7 +11,6 @@
 // The CLI verbs in cli/commands/calendar.ts write through this module.
 
 import path from "node:path";
-import fs from "node:fs";
 import crypto from "node:crypto";
 import {
   parseCalendar,
@@ -25,6 +24,10 @@ import {
   type Weekday,
   type Platform,
 } from "../schemas/calendar.js";
+import { getCommandContext } from "../context-state.js";
+import { appendActivity } from "../store/activity.js";
+import { openDomainDb, withImmediateTransaction } from "../store/db.js";
+import { newDomainId } from "../store/ids.js";
 
 export function calendarPath(workspaceDir: string): string {
   return path.join(workspaceDir, "calendar.json");
@@ -38,16 +41,22 @@ export function calendarEventsPath(workspaceDir: string): string {
 // ─── Document I/O ────────────────────────────────────────────────────────────
 
 export function readCalendar(workspaceDir: string): Calendar {
-  try {
-    return parseCalendar(JSON.parse(fs.readFileSync(calendarPath(workspaceDir), "utf8")));
-  } catch {
-    return parseCalendar({});
-  }
-}
-
-function writeCalendar(workspaceDir: string, cal: Calendar): void {
-  fs.mkdirSync(workspaceDir, { recursive: true });
-  fs.writeFileSync(calendarPath(workspaceDir), JSON.stringify(cal, null, 2) + "\n");
+  const rows = openDomainDb()
+    .query<CalendarRow, [string]>(
+      "SELECT * FROM calendar_entries WHERE workspace_id = ? ORDER BY created_at, id",
+    )
+    .all(calendarWorkspaceId(workspaceDir));
+  const slotIds = new Map(
+    rows
+      .filter((row) => row.kind === "slot")
+      .map((row) => [row.id, calendarMetadata(row).legacyId ?? row.id]),
+  );
+  return parseCalendar({
+    slots: rows.filter((row) => row.kind === "slot").map(slotFromRow),
+    entries: rows
+      .filter((row) => row.kind === "entry")
+      .map((row) => entryFromRow(row, slotIds)),
+  });
 }
 
 export interface CalendarEvent {
@@ -59,13 +68,6 @@ export interface CalendarEvent {
   data?: unknown;
 }
 
-function appendEvent(workspaceDir: string, event: CalendarEvent): void {
-  fs.mkdirSync(workspaceDir, { recursive: true });
-  fs.appendFileSync(calendarEventsPath(workspaceDir), JSON.stringify(event) + "\n");
-}
-
-const nowIso = () => new Date().toISOString();
-
 // ─── Slots ───────────────────────────────────────────────────────────────────
 
 /** Add a recurring slot. Duplicate id throws (slots are hand-curated, not versioned). */
@@ -75,9 +77,36 @@ export function addSlot(workspaceDir: string, slot: unknown): CalendarSlot {
   if (cal.slots.some((s) => s.id === parsed.id)) {
     throw new Error(`calendar slot "${parsed.id}" already exists — pass a distinct --id`);
   }
-  cal.slots.push(parsed);
-  writeCalendar(workspaceDir, cal);
-  appendEvent(workspaceDir, { ts: nowIso(), type: "slot-added", id: parsed.id, data: parsed });
+  const workspaceId = calendarWorkspaceId(workspaceDir);
+  withImmediateTransaction((db) => {
+    const id = newDomainId("calendar");
+    const now = Date.now();
+    db.prepare(
+      `INSERT INTO calendar_entries
+       (id, workspace_id, kind, weekday, local_time, timezone, unit_type,
+        platforms_json, state, metadata_json, created_at, updated_at)
+       VALUES (?, ?, 'slot', ?, ?, ?, ?, ?, 'idea', ?, ?, ?)`,
+    ).run(
+      id,
+      workspaceId,
+      parsed.weekday,
+      parsed.time,
+      parsed.timezone,
+      parsed.unitType,
+      JSON.stringify(parsed.targetPlatforms),
+      JSON.stringify({ legacyId: parsed.id }),
+      now,
+      now,
+    );
+    appendActivity(db, {
+      workspaceId,
+      entityType: "calendar_entry",
+      entityId: id,
+      action: "calendar.slot.created",
+      payload: { slot: parsed.id },
+      createdAt: now,
+    });
+  });
   return parsed;
 }
 
@@ -105,17 +134,68 @@ export function upsertEntry(
     );
   }
   const merged = parseCalendar({ entries: [{ ...existing, ...entry, id }] }).entries[0]!;
-  if (existing) {
-    cal.entries[cal.entries.indexOf(existing)] = merged;
-  } else {
-    cal.entries.push(merged);
-  }
-  writeCalendar(workspaceDir, cal);
-  appendEvent(workspaceDir, {
-    ts: nowIso(),
-    type: existing ? "entry-updated" : "entry-created",
-    id,
-    data: merged,
+  const workspaceId = calendarWorkspaceId(workspaceDir);
+  withImmediateTransaction((db) => {
+    const row = existing ? requireCalendarRow(db, workspaceId, id, "entry") : null;
+    const slotRow = merged.slotId
+      ? requireCalendarRow(db, workspaceId, merged.slotId, "slot")
+      : null;
+    const metadata = {
+      legacyId: id,
+      ...(merged.runId ? { runId: merged.runId } : {}),
+      ...(merged.projectId ? { projectId: merged.projectId } : {}),
+      ...(merged.unitSlug ? { unitSlug: merged.unitSlug } : {}),
+      ...(merged.sampled !== undefined ? { sampled: merged.sampled } : {}),
+      ...(merged.cadenceBasis ? { cadenceBasis: merged.cadenceBasis } : {}),
+      ...(merged.cadenceOffsetMinutes !== undefined
+        ? { cadenceOffsetMinutes: merged.cadenceOffsetMinutes }
+        : {}),
+    };
+    const now = Date.now();
+    const domainId = row?.id ?? newDomainId("calendar");
+    if (row) {
+      db.prepare(
+        `UPDATE calendar_entries
+         SET slot_id = ?, scheduled_at = ?, unit_type = ?, platforms_json = ?,
+             metadata_json = ?, row_version = row_version + 1, updated_at = ?
+         WHERE id = ? AND workspace_id = ?`,
+      ).run(
+        slotRow?.id ?? null,
+        merged.at ? Date.parse(merged.at) : null,
+        merged.unitType,
+        JSON.stringify(merged.platforms),
+        JSON.stringify(metadata),
+        now,
+        domainId,
+        workspaceId,
+      );
+    } else {
+      db.prepare(
+        `INSERT INTO calendar_entries
+         (id, workspace_id, kind, slot_id, scheduled_at, unit_type,
+          platforms_json, state, metadata_json, created_at, updated_at)
+         VALUES (?, ?, 'entry', ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        domainId,
+        workspaceId,
+        slotRow?.id ?? null,
+        merged.at ? Date.parse(merged.at) : null,
+        merged.unitType,
+        JSON.stringify(merged.platforms),
+        merged.status,
+        JSON.stringify(metadata),
+        now,
+        now,
+      );
+    }
+    appendActivity(db, {
+      workspaceId,
+      entityType: "calendar_entry",
+      entityId: domainId,
+      action: existing ? "calendar.entry.updated" : "calendar.entry.created",
+      payload: { state: merged.status },
+      createdAt: now,
+    });
   });
   return { entry: merged, created: !existing };
 }
@@ -138,10 +218,117 @@ export function transitionEntry(
     );
   }
   const from = entry.status;
-  entry.status = to;
-  writeCalendar(workspaceDir, cal);
-  appendEvent(workspaceDir, { ts: nowIso(), type: "entry-transition", id: entryId, from, to });
-  return entry;
+  const workspaceId = calendarWorkspaceId(workspaceDir);
+  withImmediateTransaction((db) => {
+    const row = requireCalendarRow(db, workspaceId, entryId, "entry");
+    const now = Date.now();
+    const result = db.prepare(
+      `UPDATE calendar_entries
+       SET state = ?, row_version = row_version + 1, updated_at = ?
+       WHERE id = ? AND workspace_id = ? AND row_version = ?`,
+    ).run(to, now, row.id, workspaceId, row.row_version);
+    if (!result.changes) throw new Error("Calendar Entry row-version conflict");
+    appendActivity(db, {
+      workspaceId,
+      entityType: "calendar_entry",
+      entityId: row.id,
+      action: "calendar.entry.transitioned",
+      payload: { from, to },
+      createdAt: now,
+    });
+  });
+  return readCalendar(workspaceDir).entries.find((candidate) => candidate.id === entryId)!;
+}
+
+type CalendarRow = {
+  id: string;
+  workspace_id: string;
+  kind: "slot" | "entry";
+  slot_id: string | null;
+  scheduled_at: number | null;
+  weekday: Weekday | null;
+  local_time: string | null;
+  timezone: string | null;
+  unit_type: string;
+  platforms_json: string;
+  state: EntryStatus;
+  row_version: number;
+  metadata_json: string | null;
+  created_at: number;
+  updated_at: number;
+};
+
+type CalendarMetadata = {
+  legacyId?: string;
+  runId?: string;
+  projectId?: string;
+  unitSlug?: string;
+  sampled?: boolean;
+  cadenceBasis?: string;
+  cadenceOffsetMinutes?: number;
+};
+
+function calendarWorkspaceId(_workspaceDir: string): string {
+  const workspaceId = getCommandContext()?.workspaceId;
+  if (!workspaceId) throw new Error("Calendar operations require an explicit Workspace scope");
+  return workspaceId;
+}
+
+function calendarMetadata(row: CalendarRow): CalendarMetadata {
+  return JSON.parse(row.metadata_json ?? "{}") as CalendarMetadata;
+}
+
+function slotFromRow(row: CalendarRow): CalendarSlot {
+  const metadata = calendarMetadata(row);
+  return {
+    id: metadata.legacyId ?? row.id,
+    weekday: row.weekday!,
+    time: row.local_time!,
+    timezone: row.timezone!,
+    unitType: row.unit_type,
+    targetPlatforms: JSON.parse(row.platforms_json) as Platform[],
+  };
+}
+
+function entryFromRow(
+  row: CalendarRow,
+  slotIds: Map<string, string>,
+): CalendarEntry {
+  const metadata = calendarMetadata(row);
+  return {
+    id: metadata.legacyId ?? row.id,
+    ...(row.scheduled_at !== null
+      ? { at: new Date(row.scheduled_at).toISOString() }
+      : {}),
+    ...(row.slot_id ? { slotId: slotIds.get(row.slot_id) ?? row.slot_id } : {}),
+    unitType: row.unit_type,
+    platforms: JSON.parse(row.platforms_json) as Platform[],
+    status: row.state,
+    ...(metadata.runId ? { runId: metadata.runId } : {}),
+    ...(metadata.projectId ? { projectId: metadata.projectId } : {}),
+    ...(metadata.unitSlug ? { unitSlug: metadata.unitSlug } : {}),
+    ...(metadata.sampled !== undefined ? { sampled: metadata.sampled } : {}),
+    ...(metadata.cadenceBasis ? { cadenceBasis: metadata.cadenceBasis } : {}),
+    ...(metadata.cadenceOffsetMinutes !== undefined
+      ? { cadenceOffsetMinutes: metadata.cadenceOffsetMinutes }
+      : {}),
+  };
+}
+
+function requireCalendarRow(
+  db: import("bun:sqlite").Database,
+  workspaceId: string,
+  idOrLegacyId: string,
+  kind: CalendarRow["kind"],
+): CalendarRow {
+  const rows = db.query<CalendarRow, [string, string]>(
+    "SELECT * FROM calendar_entries WHERE workspace_id = ? AND kind = ?",
+  ).all(workspaceId, kind);
+  const row = rows.find((candidate) =>
+    candidate.id === idOrLegacyId || calendarMetadata(candidate).legacyId === idOrLegacyId,
+  );
+  if (!row) throw new Error(`calendar ${kind} "${idOrLegacyId}" not found`);
+  return row;
 }
 
 // ─── Timezone math (built-in Intl only — no deps) ────────────────────────────

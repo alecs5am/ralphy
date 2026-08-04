@@ -8,9 +8,9 @@
 // broad — the four-role AI-Q split (intent → clarifier → shallow → deep)
 // lands in Stage 2 alongside the async job manager.
 
-import { mkdir, writeFile, appendFile } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
-import { researchJobsDir } from "../paths.js";
+import { ralphDir } from "../paths.js";
 import { planResearch, type ResearchPlan } from "./planner.js";
 import { searchDuckDuckGo, type SearchHit } from "./retrievers/ddg-search.js";
 import { fetchPage } from "./retrievers/web-fetch.js";
@@ -22,12 +22,18 @@ import {
   type VideoMeta,
 } from "./retrievers/video.js";
 import { ytSearchShortsBias, type YtdlpHit } from "./retrievers/ytdlp-search.js";
-import { appendSource, loadRegistry } from "./source-registry.js";
+import { findSource, type RegistryRecord } from "./source-registry.js";
 import { summarizeSource, type SourceSummary } from "./summarizer.js";
 import { summarizeVideo, type VideoSummary } from "./video-summarizer.js";
 import { synthesizeReport } from "./synthesizer.js";
 import { extractUrls } from "./url-extractor.js";
 import { verifyCitations, type VerifyResult } from "./citation-verifier.js";
+import { getCommandContext } from "../context-state.js";
+import { createDocument, reviseDocument } from "../store/documents.js";
+import { withImmediateTransaction } from "../store/db.js";
+import { finishRun, recordRunResult, startRun } from "../store/runs.js";
+import { endAgentSession, startAgentSession } from "../store/sessions.js";
+import { updateProjectStage } from "../store/scopes.js";
 
 export type RunOptions = {
   query: string;
@@ -85,7 +91,7 @@ export type ProgressEvent =
 
 export type RunResult = {
   jobId: string;
-  jobDir: string;
+  runId: string;
   query: string;
   plan: ResearchPlan;
   sourcesAttempted: number;
@@ -95,11 +101,132 @@ export type RunResult = {
   videosMetaProbed: number;
   videosAnalyzed: number;
   report: string;
-  reportPath: string;
-  registryPath: string;
+  reportDocumentId: string;
+  reportRevisionId: string;
+  sourcesDocumentId: string;
   verify: VerifyResult;
   citationRate: number;
 };
+
+export type RecordResearchResultInput = {
+  query: string;
+  plan: unknown;
+  sources: unknown[];
+  report: string;
+  verify: unknown;
+};
+
+export type RecordedResearchResult = {
+  runId: string;
+  planDocumentId: string;
+  sourcesDocumentId: string;
+  reportDocumentId: string;
+  reportRevisionId: string;
+};
+
+export function recordResearchResult(
+  input: RecordResearchResultInput,
+): RecordedResearchResult {
+  const context = getCommandContext();
+  if (!context) throw new Error("Research requires an explicit Workspace context");
+  const ownsSession = context.kind !== "session";
+  const sessionId = ownsSession
+    ? startAgentSession({
+        workspaceId: context.workspaceId,
+        projectId: context.projectId ?? null,
+        agent: "research",
+      }).id
+    : context.sessionId;
+  try {
+    const scope = context.projectId
+      ? { projectId: context.projectId }
+      : { workspaceId: context.workspaceId };
+    const run = startRun({
+      ...scope,
+      agentSessionId: sessionId,
+      kind: "research",
+      label: input.query.slice(0, 256),
+    });
+    const planDocument = createDocument({
+      ...scope,
+      kind: "research",
+      slug: `research-plan-${run.id}`,
+      title: `Research plan: ${input.query}`,
+    });
+    const planRevision = reviseDocument({
+      documentId: planDocument.id,
+      expectedHeadId: null,
+      format: "json",
+      body: JSON.stringify({ query: input.query, plan: input.plan }),
+      authoredBySessionId: sessionId,
+    });
+    const sourcesDocument = createDocument({
+      ...scope,
+      kind: "research",
+      slug: `research-sources-${run.id}`,
+      title: `Research sources: ${input.query}`,
+    });
+    const sourcesRevision = reviseDocument({
+      documentId: sourcesDocument.id,
+      expectedHeadId: null,
+      format: "json",
+      body: JSON.stringify({ sources: input.sources, verify: input.verify }),
+      authoredBySessionId: sessionId,
+    });
+    const reportDocument = createDocument({
+      ...scope,
+      kind: "research",
+      slug: `research-report-${run.id}`,
+      title: `Research report: ${input.query}`,
+    });
+    const reportRevision = reviseDocument({
+      documentId: reportDocument.id,
+      expectedHeadId: null,
+      format: "markdown",
+      body: input.report,
+      authoredBySessionId: sessionId,
+    });
+    withImmediateTransaction((db) => {
+      for (const [position, revisionId] of [
+        planRevision.id,
+        sourcesRevision.id,
+        reportRevision.id,
+      ].entries()) {
+        recordRunResult(db, {
+          runId: run.id,
+          position,
+          entityType: "document_revision",
+          entityId: revisionId,
+        });
+      }
+    });
+    finishRun(run.id, { state: "succeeded" });
+    if (context.projectId) {
+      const row = withImmediateTransaction((db) => db
+        .query<{ rowVersion: number }, [string, string]>(
+          "SELECT row_version AS rowVersion FROM project_stages WHERE project_id = ? AND stage = ?",
+        )
+        .get(context.projectId!, "research"));
+      updateProjectStage({
+        projectId: context.projectId,
+        stage: "research",
+        state: "complete",
+        entityType: "document_revision",
+        entityId: reportRevision.id,
+        expectedRowVersion: row?.rowVersion ?? null,
+      });
+    }
+    return {
+      runId: run.id,
+      planDocumentId: planDocument.id,
+      sourcesDocumentId: sourcesDocument.id,
+      reportDocumentId: reportDocument.id,
+      reportRevisionId: reportRevision.id,
+    };
+  } finally {
+    if (ownsSession) endAgentSession(sessionId);
+  }
+}
 
 function nowJobId(): string {
   const d = new Date();
@@ -118,15 +245,10 @@ function nowJobId(): string {
 }
 
 export function jobDirFor(jobId: string): string {
-  return path.join(researchJobsDir(), jobId);
-}
-
-async function appendEvent(jobDir: string, event: unknown): Promise<void> {
-  const p = path.join(jobDir, "events.jsonl");
-  await appendFile(
-    p,
-    JSON.stringify({ ts: new Date().toISOString(), ...(event as object) }) + "\n",
-  );
+  if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(jobId)) {
+    throw new Error("Research job id must be an opaque alphanumeric identifier");
+  }
+  return path.join(ralphDir(), "tmp", "research", jobId);
 }
 
 async function runConcurrent<T, U>(
@@ -177,10 +299,15 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
     ? Date.now() + opts.budgetSeconds * 1000
     : null;
 
-  const emit = (e: ProgressEvent) => {
-    opts.onEvent?.(e);
-    void appendEvent(jobDir, e);
+  const emit = (e: ProgressEvent) => opts.onEvent?.(e);
+  const sourceRegistry: RegistryRecord[] = [];
+  const appendSource = async (_workingDir: string, entry: RegistryRecord) => {
+    const found = findSource(sourceRegistry, entry.url);
+    if (found) return { added: false, entry: found };
+    sourceRegistry.push(entry);
+    return { added: true, entry };
   };
+  const loadRegistry = async (_workingDir: string) => sourceRegistry.slice();
 
   // ── Phase 1: Plan ──────────────────────────────────────────────────────
   emit({ kind: "plan_start", query: opts.query });
@@ -190,11 +317,6 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
     model: opts.plannerModel,
     projectId: jobId,
   });
-  await writeFile(
-    path.join(jobDir, "plan.json"),
-    JSON.stringify(plan, null, 2),
-    "utf8",
-  );
   emit({
     kind: "plan_done",
     subqueries: plan.subqueries.length,
@@ -228,11 +350,6 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
   ];
   const filtered = candidates.filter((c) => !blocklist.some((r) => r.test(c.url)));
   const targets = filtered.slice(0, maxSources);
-  await writeFile(
-    path.join(jobDir, "search-results.json"),
-    JSON.stringify({ total: candidates.length, kept: targets.length, targets }, null, 2),
-    "utf8",
-  );
   emit({ kind: "search_done", uniqueUrls: targets.length });
 
   if (deadline && Date.now() > deadline) {
@@ -323,11 +440,6 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
     (s) => s.source_quality !== "low" && s.summary && !s.summary.startsWith("summarize error"),
   );
 
-  await writeFile(
-    path.join(jobDir, "summaries.json"),
-    JSON.stringify(summaries, null, 2),
-    "utf8",
-  );
 
   if (deadline && Date.now() > deadline) {
     throw new Error("budget exceeded after summarize phase");
@@ -400,12 +512,6 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
     videosDiscoveredCount = videoCandidates.length;
     emit({ kind: "video_discovery_done", candidates: videoCandidates.length });
 
-    await writeFile(
-      path.join(jobDir, "video-candidates.json"),
-      JSON.stringify(videoCandidates, null, 2),
-      "utf8",
-    );
-
     // Pre-rank YouTube candidates by their flat-playlist view_count so we
     // can spend the meta-probe budget where it matters. Non-YouTube
     // candidates (TikTok, IG, etc.) keep their original order.
@@ -449,16 +555,6 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
 
     const top = withScore.slice(0, maxVideos);
     emit({ kind: "video_filter_done", kept: top.length, dropped: withScore.length - top.length });
-
-    await writeFile(
-      path.join(jobDir, "video-meta.json"),
-      JSON.stringify(
-        metas.map((m) => ({ url: m.hit.url, meta: m.meta })),
-        null,
-        2,
-      ),
-      "utf8",
-    );
 
     // Full pull: download mp4 + frames + subs. Each video gets its own
     // subdir under <jobDir>/videos/<sanitized-id>/.
@@ -537,25 +633,12 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
           },
         );
 
-        // Persist EVERY raw summary (including off-topic) for debugging /
-        // post-hoc analysis. Synthesis only consumes the kept subset.
         const nonNullRaw = rawSummaries.filter(
           (s): s is VideoSummary => s !== null,
-        );
-        await writeFile(
-          path.join(jobDir, "video-summaries-raw.json"),
-          JSON.stringify(nonNullRaw, null, 2),
-          "utf8",
         );
 
         videoSummaries = nonNullRaw.filter((s) => s.niche_fit !== "off-topic");
         videosAnalyzedCount = videoSummaries.length;
-
-        await writeFile(
-          path.join(jobDir, "video-summaries.json"),
-          JSON.stringify(videoSummaries, null, 2),
-          "utf8",
-        );
 
         // Append every analyzed video's URL to the citation source registry
         // so the synthesizer can cite them and the verifier resolves.
@@ -592,8 +675,6 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
     model: opts.synthModel,
     projectId: jobId,
   });
-  const reportPath = path.join(jobDir, "report.md");
-  await writeFile(reportPath, report, "utf8");
   const words = report.split(/\s+/).filter(Boolean).length;
   emit({ kind: "synthesize_done", words });
 
@@ -603,7 +684,6 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
   const verify = verifyCitations(citedUrls, finalRegistry);
   const rate = citedUrls.length === 0 ? 0 : verify.matched.length / citedUrls.length;
 
-  // Append verification footer to report.md so the user sees the gate result.
   const verifyFooter = [
     "",
     "---",
@@ -618,18 +698,21 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
       ? `\nUnmatched URLs (verifier flagged — likely fabricated or stale):\n${verify.unmatched.map((u) => `- ${u}`).join("\n")}`
       : "",
   ].filter((s) => s !== "").join("\n");
-  await appendFile(reportPath, "\n" + verifyFooter + "\n");
   emit({ kind: "verify_done", matched: verify.matched.length, unmatched: verify.unmatched.length, rate });
 
-  await writeFile(
-    path.join(jobDir, "verify.json"),
-    JSON.stringify({ rate, ...verify }, null, 2),
-    "utf8",
-  );
+  const fullReport = `${report}\n${verifyFooter}\n`;
+  const recorded = recordResearchResult({
+    query: opts.query,
+    plan,
+    sources: finalRegistry,
+    report: fullReport,
+    verify: { rate, ...verify },
+  });
+  await rm(jobDir, { recursive: true, force: true });
 
   return {
     jobId,
-    jobDir,
+    runId: recorded.runId,
     query: opts.query,
     plan,
     sourcesAttempted: targets.length,
@@ -638,9 +721,10 @@ export async function runDeepResearch(opts: RunOptions): Promise<RunResult> {
     videosDiscovered: videosDiscoveredCount,
     videosMetaProbed: videosMetaProbedCount,
     videosAnalyzed: videosAnalyzedCount,
-    report,
-    reportPath,
-    registryPath: path.join(jobDir, "sources.jsonl"),
+    report: fullReport,
+    reportDocumentId: recorded.reportDocumentId,
+    reportRevisionId: recorded.reportRevisionId,
+    sourcesDocumentId: recorded.sourcesDocumentId,
     verify,
     citationRate: rate,
   };

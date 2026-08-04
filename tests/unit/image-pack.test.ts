@@ -13,6 +13,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root";
+import { ensureDomainContractProject } from "../helpers/domain-contract";
 import {
   defaultSpecForKind,
   parseImagePackSpec,
@@ -29,6 +30,7 @@ let tmp: TmpRoot;
 
 beforeEach(() => {
   tmp = makeTmpRoot("ralphy-image-pack-429");
+  ensureDomainContractProject(tmp.dir, PROJECT, "image-pack");
 });
 
 afterEach(() => {

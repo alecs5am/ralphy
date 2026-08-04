@@ -81,10 +81,26 @@ function entryRow(e: MemoryEntry) {
     type: e.type,
     name: e.name,
     description: e.description,
-    file: e.file,
+    ...(e.tier === "workspace"
+      ? { id: e.id, revisionId: e.revisionId }
+      : { file: e.file }),
     version: e.version,
     status: e.status,
   };
+}
+
+function entryHandle(entry: MemoryEntry): string {
+  return entry.tier === "workspace" ? entry.revisionId! : entry.file!;
+}
+
+function entryLocation(entry: MemoryEntry): Record<string, string> {
+  return entry.tier === "workspace"
+    ? { id: entry.id!, revisionId: entry.revisionId! }
+    : { path: entry.path! };
+}
+
+function moveDestination(move: NonNullable<Awaited<ReturnType<typeof approveEntry>>>): string {
+  return move.entryId ?? move.to!;
 }
 
 export function memoryCmd() {
@@ -118,10 +134,10 @@ export function memoryCmd() {
       }).catch(raiseIfCapError);
       ok(
         r.versioned
-          ? `Memory noted (existing slug — new version): ${r.entry.file}`
-          : `Memory noted: ${r.entry.file}`,
+          ? `Memory noted (existing slug — new version): ${entryHandle(r.entry)}`
+          : `Memory noted: ${entryHandle(r.entry)}`,
       );
-      out({ ...entryRow(r.entry), path: r.entry.path, versioned: r.versioned, overwritten: r.overwritten });
+      out({ ...entryRow(r.entry), ...entryLocation(r.entry), versioned: r.versioned, overwritten: r.overwritten });
     })
     .addHelpText(
       "after",
@@ -155,8 +171,8 @@ Examples:
         description: opts.description,
         source: opts.source ?? "ralphy memory propose",
       });
-      ok(`Memory proposed: ${r.entry.file} (approve with \`ralphy memory approve ${r.entry.slug}\`)`);
-      out({ ...entryRow(r.entry), path: r.entry.path, versioned: r.versioned });
+      ok(`Memory proposed: ${entryHandle(r.entry)} (approve with \`ralphy memory approve ${r.entry.slug}\`)`);
+      out({ ...entryRow(r.entry), ...entryLocation(r.entry), versioned: r.versioned });
     })
     .addHelpText(
       "after",
@@ -221,13 +237,13 @@ Examples:
         const ui = await import("../lib/ui.js");
         const { c, section } = ui;
         section(`${entry!.name}  ${c.muted(`(${entry!.tier}${entry!.workspace ? ":" + entry!.workspace : ""} · ${entry!.type} · v${entry!.version})`)}`);
-        console.log(`  ${c.muted(entry!.path)}`);
+        console.log(`  ${c.muted(entryHandle(entry!))}`);
         console.log();
         console.log(entry!.body);
         console.log();
         return;
       }
-      out({ ...entryRow(entry!), path: entry!.path, filed: entry!.filed, source: entry!.source, body: entry!.body });
+      out({ ...entryRow(entry!), ...entryLocation(entry!), filed: entry!.filed, source: entry!.source, body: entry!.body });
     })
     .addHelpText(
       "after",
@@ -273,7 +289,7 @@ Examples:
       if (!slug) raiseError("E_FLAG_MISSING", { flag: "all", verb: "memory approve" });
       const r = await approveEntry(slug!, ref).catch(raiseIfCapError);
       if (!r) raiseError("E_MEMORY_NOT_FOUND", { slug: slug! });
-      ok(r!.versioned ? `Approved (existing active slug — new version): ${r!.to}` : `Approved: ${r!.to}`);
+      ok(r!.versioned ? `Approved (existing active slug — new version): ${moveDestination(r!)}` : `Approved: ${moveDestination(r!)}`);
       out(r);
     })
     .addHelpText(
@@ -294,7 +310,7 @@ Examples:
       const ref = tierFromOpts(opts);
       const r = await rejectEntry(slug, ref);
       if (!r) raiseError("E_MEMORY_NOT_FOUND", { slug });
-      ok(`Rejected: ${r!.to}`);
+      ok(`Rejected: ${moveDestination(r!)}`);
       out(r);
     })
     .addHelpText(

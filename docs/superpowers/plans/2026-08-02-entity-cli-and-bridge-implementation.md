@@ -1,5 +1,11 @@
 # Entity CLI and Desktop Bridge Implementation Plan
 
+> **2026-08-04 scope amendment:** `ralphy-farm` and every Farm-specific
+> namespace, identity, authentication, migration-map, readiness, release, and
+> coordinated-cutover requirement are removed from this program. Any stale
+> Farm wording below is superseded and must not be implemented. The bridge and
+> replay contracts serve Core and Desktop only.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Convert every stateful Ralphy workflow to the domain store and expose the same versioned operations to chat agents and Desktop through a long-lived stdio bridge.
@@ -14,7 +20,6 @@
 - Desktop and sibling repositories may invoke the installed CLI contract but may not import core source or open SQLite.
 - `--root` is the canonical data directory that directly contains `ralphy.db`, `buckets/`, and `tmp/`; `--cwd` is only a discovery starting point for the nearest ancestor `.ralphy/ralphy.db`. Never treat repository cwd and data root as the same concept.
 - Every command accepts either explicit Workspace/Project scope or one Agent Session ID as a discriminated union; no hidden Session or mutable active-Workspace pointer exists.
-- Farm mutations use an authenticated `consumer:farm` Agent Session and an external operation tuple whose derived external system is `ralphy-farm`; core stores its own canonical request digest and principal with the Run. Replay follows the same authenticated principal across reconnect Sessions, never the historical Session ID; explicit Workspace/Project context remains read-only until that consumer Session is supplied.
 - Preserve existing public command names where their semantics remain valid; deprecated path-shaped commands become entity adapters, not parallel stores.
 - Machine stdout contains JSON or JSONL only; diagnostics go to stderr.
 - Bridge mutations use expected revision/head IDs and return `E_CONFLICT` instead of overwriting newer work.
@@ -25,24 +30,16 @@
 - All ordinary CLI/bridge DTOs are explicit ID-based safe projections. They never expose Activity payload, RunObject path/metadata/error, Object bucket/key/hash/original-name/metadata, or Document body. Only bounded scoped `document.content` may return body text and only trusted-main `locator.resolve` may return a local path; structured agent tool events omit raw argv/args/output while text deltas remain opaque user-visible content.
 - New compatibility readers live only under `cli/lib/migration/`; ordinary commands gain no legacy JSON/JSONL/Markdown fallback. Existing read-only registry/current-Workspace adapters may remain only for the measured staged callers removed by Task 9.
 - Keep read-only legacy registry/current-Workspace adapters during staged command conversion, then require zero normal callers and delete them in Task 9. No compatibility writer survives Task 2.
-- A separately planned Farm consumer milestone must remove every direct legacy-file/SQLite read and pass its own tests before end-to-end program completion or live migration cutover; this plan does not edit the sibling repository.
-- Reserve `.ralphy/farm/` for the installed Farm consumer. Core reports the namespace and may validate only the bounded `farm/identity.json` startup handshake; it never writes, inventories, verifies, or otherwise reads/classifies consumer contents as domain Objects, buckets, tmp, or cache.
 - Portable Workspace packages cross installations only through `workspace.export` and `workspace.import`; import persists a complete old-to-new mapping and returns it through bounded `entityMapPage` cursors, while secrets, operational Runs, Publications, Metrics, and consumer-owned state stay out of the package.
-- `migration.consumer.map` is a pre-cutover maintenance-only handoff surface for the exact migration Run and lock owner while `consumers.farm === null`. It exposes hashed legacy locators plus stable target entity references without returning raw source paths; `pending` is reserved for the installed core awaiting Farm namespace installation.
 - Keep files and commit messages English-only and regenerate `docs/cli-surface.generated.md` after command changes.
 
 ## Cross-Plan Release Checkpoint
 
-Execution order is fixed. First complete the core domain plan, this plan, and
-Full Library Migration Tasks 1-8 in the core repository. Publish that exact
-commit as the stable `@alecs5am/ralphy` npm package/CLI, including its exported
-Farm identity golden, and record the package version, integrity, and commit.
-Only then execute Farm Tasks 0-8 against that installed published release;
-Farm must reject prerelease, local, sibling-checkout, workspace/link, or file-
-path substitutes, with no compatibility bypass. Jointly run Full Library Task
-9 with Farm Task 9 Steps 1-2 for rehearsal, then Full Library Task 10 with Farm
-Task 9 Steps 3-5 for the live freeze/cutover/install lifecycle. No Farm ready
-record, principal binding, or namespace installation may skip this order.
+Execution order is fixed. Complete the core domain plan, this plan, and Full
+Library Migration Tasks 1-8 in the core repository. Publish that exact commit
+as the stable `@alecs5am/ralphy` package/CLI, record its version, integrity, and
+commit, then run the core-only rehearsal and live cutover before Desktop
+integration and release validation.
 
 ---
 
@@ -757,7 +754,7 @@ authority. Local draft cancellation
 is one short atomic store/controller call with `expectedState: "draft"`, no
 provider Job, no external Run/context, and no tuple/key replay. Generic queue retry
 checks the linked Run before mutation and rejects every externally owned Job;
-Farm retry must re-enter the matching controller with a new tuple/key.
+An external retry must re-enter the matching controller with a new tuple/key.
 
 The controller input is validated JSON and stable IDs only. Generation accepts
 the already-supported media kinds and exact Artifact identity/input revision
@@ -795,7 +792,7 @@ Commander exposes the same input as `publication recover <publication-id>
 --claim-run <run-id> --claim-epoch <positive-int>`; there is no token, lease,
 time, retry, or external-provenance flag.
 
-- [ ] **Step 4: Verify the exact Farm-facing operation set**
+- [ ] **Step 4: Verify the exact replay-safe operation set**
 
 Run:
 
@@ -820,7 +817,6 @@ git commit -m "feat(core): add replayable operation controllers"
 - Modify: `cli/lib/store/schema.ts`
 - Modify: `cli/lib/store/types.ts`
 - Create: `cli/lib/store/portable.ts`
-- Create: `cli/lib/store/migration-consumers.ts`
 - Create: `cli/lib/bridge/protocol.ts`
 - Create: `cli/lib/bridge/methods.ts`
 - Create: `cli/lib/bridge/server.ts`
@@ -837,7 +833,7 @@ git commit -m "feat(core): add replayable operation controllers"
 - Test: `tests/integration/cli-bridge.test.ts`
 
 **Interfaces:**
-- Consumes: all converted domain operations, strict `CommandContext`, global activity sequence, object resolver, secret store, existing agent/provider execution code, and the installed `@alecs5am/ralphy/contracts/farm-identity-v1.golden.json` package export
+- Consumes: all converted domain operations, strict `CommandContext`, global activity sequence, object resolver, secret store, and existing agent/provider execution code
 - Produces: data-root-bound bridge envelopes, safe DTOs, durable Agent turns, and methods consumed by Desktop
 
 - [ ] **Step 1: Define and test exact envelopes**
@@ -904,7 +900,6 @@ agent.providers, agent.credential.status, agent.credential.set, agent.credential
 agent.auth.status, agent.auth.login
 agent.turn.start, agent.turn.resume, agent.turn.status, agent.turn.stop
 migration.secret.import, migration.desktop.import
-migration.consumer.map
 ```
 
 Every scoped method accepts exactly one branch, `{ sessionId }` or explicit
@@ -1279,12 +1274,6 @@ bun run cli:surface:check
 ```
 
 Expected: all commands exit 0.
-
-Record the separately owned Farm consumer milestone as still required unless
-its audited implementation has already landed: no Farm module may directly read
-legacy control files or SQLite, and its tests/Studio/deployment gates must pass
-against the released CLI/bridge contract before live migration. Do not add Farm
-code or a speculative Farm plan in this task.
 
 - [ ] **Step 5: Commit CLI cutover**
 

@@ -6,7 +6,7 @@ import {
   resolveCommandContext,
   resolveDataRoot,
 } from "../../cli/lib/context.js";
-import { closeDomainDb } from "../../cli/lib/store/db.js";
+import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
 import { finishRun, startRun } from "../../cli/lib/store/runs.js";
 import {
   startAgentSession,
@@ -447,30 +447,17 @@ describe("explicit CLI data root and command context", () => {
     expect(stats.exitCode, stats.stderr).toBe(0);
     expect(stats.json.workspace).toBe(fixture.firstWorkspace.id);
     expect(brand.exitCode, brand.stderr).toBe(0);
+    const db = openDomainDb();
     expect(
-      fs.existsSync(
-        path.join(
-          fixture.dataRoot,
-          "workspaces",
-          fixture.firstWorkspace.id,
-          "shared",
-          "brands",
-          "scoped-brand.json",
-        ),
-      ),
-    ).toBe(true);
+      db.query<{ count: number }, [string, string]>(
+        "SELECT COUNT(*) AS count FROM brands WHERE workspace_id = ? AND slug = ?",
+      ).get(fixture.firstWorkspace.id, "scoped-brand")?.count,
+    ).toBe(1);
     expect(
-      fs.existsSync(
-        path.join(
-          fixture.dataRoot,
-          "workspaces",
-          fixture.secondWorkspace.id,
-          "shared",
-          "brands",
-          "scoped-brand.json",
-        ),
-      ),
-    ).toBe(false);
+      db.query<{ count: number }, [string, string]>(
+        "SELECT COUNT(*) AS count FROM brands WHERE workspace_id = ? AND slug = ?",
+      ).get(fixture.secondWorkspace.id, "scoped-brand")?.count,
+    ).toBe(0);
   });
 
   test("creates a new Workspace while an existing Workspace supplies implicit context", async () => {

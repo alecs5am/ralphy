@@ -21,9 +21,15 @@ import {
   parseWorkspaceEvaluators,
   WorkspaceEvaluatorsConfigSchema,
 } from "../../cli/lib/schemas/workspace-evaluators";
-import { loadWorkspaceEvaluators } from "../../cli/lib/workspace-evaluators";
+import {
+  loadWorkspaceEvaluators,
+  saveWorkspaceEvaluators,
+} from "../../cli/lib/workspace-evaluators";
 import { discoverStyleLock } from "../../cli/lib/style-lock";
 import { workspaceDir } from "../../cli/lib/paths";
+import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db";
+import { createDocument, reviseDocument } from "../../cli/lib/store/documents";
+import { createWorkspace } from "../../cli/lib/store/scopes";
 
 let tmp: TmpRoot;
 
@@ -32,6 +38,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  closeDomainDb();
   tmp.cleanup();
 });
 
@@ -186,11 +193,8 @@ describe("parseWorkspaceEvaluators — schema", () => {
 // ─── (b) loader ─────────────────────────────────────────────────────────────
 
 describe("loadWorkspaceEvaluators — resolution", () => {
-  function seedWorkspace(slug: string, manifest: Record<string, unknown> = { slug }) {
-    const dir = workspaceDir(slug);
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, "workspace.json"), JSON.stringify(manifest));
-    return dir;
+  function seedWorkspace(slug: string) {
+    return createWorkspace({ slug, name: slug });
   }
 
   test("returns null when neither file exists", async () => {
@@ -202,52 +206,52 @@ describe("loadWorkspaceEvaluators — resolution", () => {
     expect(await loadWorkspaceEvaluators("plain")).toBeNull();
   });
 
-  test("parses a sibling evaluators.json", async () => {
-    const dir = seedWorkspace("ws1");
-    fs.writeFileSync(
-      path.join(dir, "evaluators.json"),
-      JSON.stringify({
-        criteria: [{ id: "c1", label: "C1", category: "pacing", check: "deterministic" }],
-      }),
-    );
+  test("loads a typed JSON Document revision", async () => {
+    seedWorkspace("ws1");
+    saveWorkspaceEvaluators("ws1", {
+      criteria: [{ id: "c1", label: "C1", category: "pacing", check: "deterministic" }],
+    });
     const cfg = await loadWorkspaceEvaluators("ws1");
     expect(cfg).not.toBeNull();
     expect(cfg!.criteria[0].id).toBe("c1");
     expect(cfg!.version).toBe("1.0");
   });
 
-  test("falls back to the workspace.json.evaluators key", async () => {
-    seedWorkspace("ws2", {
-      slug: "ws2",
-      evaluators: {
-        version: "1.0",
-        criteria: [{ id: "embedded", label: "E", category: "style", check: "vision" }],
-      },
+  test("appends immutable revisions to one stable Document", async () => {
+    const workspace = seedWorkspace("ws2");
+    const first = saveWorkspaceEvaluators(workspace.id, {
+      criteria: [{ id: "first", label: "First", category: "style", check: "vision" }],
     });
-    const cfg = await loadWorkspaceEvaluators("ws2");
-    expect(cfg).not.toBeNull();
-    expect(cfg!.criteria[0].id).toBe("embedded");
-  });
-
-  test("the sibling evaluators.json wins over the workspace.json key", async () => {
-    const dir = seedWorkspace("ws3", {
-      slug: "ws3",
-      evaluators: { criteria: [{ id: "embedded", label: "E", category: "x", check: "vision" }] },
+    const second = saveWorkspaceEvaluators("ws2", {
+      criteria: [{ id: "second", label: "Second", category: "x", check: "deterministic" }],
     });
-    fs.writeFileSync(
-      path.join(dir, "evaluators.json"),
-      JSON.stringify({ criteria: [{ id: "sibling", label: "S", category: "x", check: "deterministic" }] }),
-    );
-    const cfg = await loadWorkspaceEvaluators("ws3");
-    expect(cfg!.criteria[0].id).toBe("sibling");
+    expect(first.documentId).toBe(second.documentId);
+    expect(second.revisionNo).toBe(2);
+    expect((await loadWorkspaceEvaluators(workspace.id))?.criteria[0]?.id).toBe("second");
+    expect(
+      openDomainDb()
+        .query<{ count: number }, [string]>(
+          "SELECT COUNT(*) AS count FROM document_revisions WHERE document_id = ?",
+        )
+        .get(first.documentId)?.count,
+    ).toBe(2);
+    expect(fs.existsSync(path.join(workspaceDir("ws2"), "evaluators.json"))).toBe(false);
   });
 
   test("a malformed config returns null (does not throw / crash)", async () => {
-    const dir = seedWorkspace("ws4");
-    fs.writeFileSync(
-      path.join(dir, "evaluators.json"),
-      JSON.stringify({ criteria: [{ id: "bad", label: "B", category: "x", check: "not-a-mode" }] }),
-    );
+    const workspace = seedWorkspace("ws4");
+    const document = createDocument({
+      workspaceId: workspace.id,
+      kind: "custom",
+      slug: "workspace-evaluators",
+      title: "Workspace evaluators",
+    });
+    reviseDocument({
+      documentId: document.id,
+      expectedHeadId: null,
+      format: "json",
+      body: { criteria: [{ id: "bad", label: "B", category: "x", check: "not-a-mode" }] },
+    });
     expect(await loadWorkspaceEvaluators("ws4")).toBeNull();
   });
 });

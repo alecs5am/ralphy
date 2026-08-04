@@ -11,10 +11,12 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root";
+import { ensureDomainContractProject } from "../helpers/domain-contract";
 import { runStageRepairLoop, type StageEvalResult } from "../../cli/lib/eval/stage-loop";
 import type { Finding } from "../../cli/lib/eval/types";
 import type { RepairItem } from "../../cli/lib/schemas/repair-plan";
 import { workspaceDir } from "../../cli/lib/paths";
+import { saveWorkspaceEvaluators } from "../../cli/lib/workspace-evaluators";
 
 const WS = "fog";
 const PROJECT = "fog-473";
@@ -42,11 +44,12 @@ const RUBRIC = {
 
 /** Seed a workspace with the given evaluator config + register the project. */
 function seedProject(evaluators: Record<string, unknown> = RUBRIC) {
+  ensureDomainContractProject(tmp.dir, PROJECT, "video", WS);
+  saveWorkspaceEvaluators(WS, evaluators);
   const wsDir = workspaceDir(WS);
   const projDir = path.join(wsDir, "projects", PROJECT);
   fs.mkdirSync(path.join(projDir, "artifacts"), { recursive: true });
   fs.writeFileSync(path.join(wsDir, "workspace.json"), JSON.stringify({ slug: WS }));
-  fs.writeFileSync(path.join(wsDir, "evaluators.json"), JSON.stringify(evaluators));
   fs.writeFileSync(path.join(projDir, "BRIEF.md"), "# brief\n");
   fs.mkdirSync(path.join(tmp.dir, ".ralphy"), { recursive: true });
   fs.writeFileSync(

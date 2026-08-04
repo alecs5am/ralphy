@@ -6,7 +6,6 @@ import {
   DEFAULT_WORKSPACE,
   currentWorkspace,
   layoutMode,
-  projectDir,
   workspaceDir,
   workspaceSharedAssetKindDir,
   workspaceUnitsDir,
@@ -14,12 +13,9 @@ import {
 import { err, out } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import {
-  renderWorkspaceEvalMarkdown,
+  recordWorkspaceEvalResult,
   runWorkspaceEval,
-  WORKSPACE_EVAL_ARTIFACT,
-  WORKSPACE_EVAL_REPORT,
 } from "../lib/eval/workspace-evaluators.js";
-import { protectExistingAsset } from "../lib/providers/shared.js";
 import { buildWorkspaceRoi } from "../lib/analytics/roi.js";
 import {
   assertCommandWorkspace,
@@ -235,12 +231,7 @@ export function workspaceCmd(): Command {
           video: opts.video,
           criteria: criteria.length ? criteria : undefined,
         });
-        const jsonPath = path.join(projectDir(project), WORKSPACE_EVAL_ARTIFACT);
-        const reportPath = path.join(projectDir(project), WORKSPACE_EVAL_REPORT);
-        await protectExistingAsset(jsonPath, false);
-        await protectExistingAsset(reportPath, false);
-        await fs.writeFile(jsonPath, JSON.stringify(result, null, 2));
-        await fs.writeFile(reportPath, renderWorkspaceEvalMarkdown(result));
+        const recorded = recordWorkspaceEvalResult(result);
         out({
           verdict: result.overall.verdict,
           score: result.overall.score,
@@ -248,8 +239,8 @@ export function workspaceCmd(): Command {
           projectId: result.projectId,
           criteria: result.criteria.length,
           summary: result.overall.summary,
-          jsonPath,
-          mdPath: reportPath,
+          runId: recorded.runId,
+          evaluationId: recorded.evaluationId,
         });
       } catch (error) {
         err(`workspace eval failed: ${(error as Error).message}`);

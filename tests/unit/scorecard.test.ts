@@ -16,14 +16,26 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root";
+import {
+  ensureDomainContractProject,
+  setDomainContractDocumentStage,
+  setDomainContractStage,
+} from "../helpers/domain-contract";
 import { projectDir } from "../../cli/lib/paths";
+import { root } from "../../cli/lib/paths";
 import { buildScorecard } from "../../cli/lib/scorecard";
 import { parseScorecard, type ScorecardDimension } from "../../cli/lib/schemas/scorecard";
 
 function seed(project: string, rel: string, body: string) {
+  ensureDomainContractProject(root(), project);
   const abs = path.join(projectDir(project), rel);
   fs.mkdirSync(path.dirname(abs), { recursive: true });
   fs.writeFileSync(abs, body);
+  if (rel === "eval.json" || rel === "production-plan.json") {
+    setDomainContractDocumentStage(root(), project, rel === "eval.json" ? "eval" : "production-plan", JSON.parse(body));
+  } else if (rel === "render/final.mp4") {
+    setDomainContractStage(root(), project, "render");
+  }
 }
 
 function seedJson(project: string, rel: string, obj: unknown) {
@@ -195,6 +207,7 @@ describe("buildScorecard — BLOCKED unit → blocked (#427)", () => {
 describe("buildScorecard — na / missing artifacts + mode-awareness (#427)", () => {
   test("an empty project → all dimensions na, verdict needs-user-decision", () => {
     const id = "empty-001";
+    ensureDomainContractProject(root(), id);
     fs.mkdirSync(projectDir(id), { recursive: true });
 
     const card = buildScorecard({ projectId: id });

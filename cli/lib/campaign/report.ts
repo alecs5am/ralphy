@@ -12,9 +12,8 @@
 //                  with views > 0 (#507). This is a HINT ("discoverable"), NOT
 //                  a claim of search indexing — we never assert indexing.
 
-import { readSnapshots } from "../analytics/pull.js";
-import { unitDirFor, readUnitManifest } from "../publish/publish.js";
-import { resolvePublishedUrl, splitUnitId } from "./crosslink.js";
+import { openDomainDb } from "../store/db.js";
+import { publishedUrlForUnitRevision } from "./crosslink.js";
 import type { Campaign } from "../schemas/campaign.js";
 
 export interface CampaignCoverageRow {
@@ -64,16 +63,18 @@ export async function computeCoverage(campaign: Campaign): Promise<CampaignCover
     if (cell.status === "produced" || cell.status === "published") produced += 1;
 
     if (cell.linkedUnitId) {
-      const [projectId, slug] = splitUnitId(cell.linkedUnitId);
-      if (projectId && slug) {
-        const manifest = await readUnitManifest(unitDirFor(projectId, slug));
-        if (manifest) {
-          publishedUrl = resolvePublishedUrl(manifest);
-          // Discoverability hint: a real snapshot with measured views > 0.
-          const snapshots = readSnapshots(unitDirFor(projectId, slug));
-          hint = snapshots.some((s) => typeof s.metrics.views === "number" && s.metrics.views > 0);
-        }
-      }
+      publishedUrl = publishedUrlForUnitRevision(cell.linkedUnitId);
+      hint = Boolean(openDomainDb()
+        .query<{ measured: number }, [string]>(
+          `SELECT 1 AS measured
+           FROM unit_revisions revision
+           JOIN unit_presentations presentation ON presentation.unit_revision_id = revision.id
+           JOIN publications publication ON publication.presentation_id = presentation.id
+           JOIN metric_snapshots metric ON metric.publication_id = publication.id
+           WHERE revision.id = ? AND metric.views > 0
+           LIMIT 1`,
+        )
+        .get(cell.linkedUnitId));
     }
 
     // Published = the cell is marked published OR a real publish URL exists.

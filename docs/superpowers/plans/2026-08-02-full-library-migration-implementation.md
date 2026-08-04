@@ -1,5 +1,11 @@
 # Full Library Migration Implementation Plan
 
+> **2026-08-04 scope amendment:** `ralphy-farm` and all Farm-owned migration,
+> mapping, identity, readiness, namespace-installation, and coordinated-cutover
+> work are removed. Any stale Farm wording below is superseded and must not be
+> implemented. Inventory Farm-shaped legacy files only as ordinary covered raw
+> legacy evidence; there is no consumer handoff milestone.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Import, physically relocate, verify, and cut over the user's complete legacy `.ralphy` library and Desktop-owned state into the SQLite domain store with 100% source-path coverage and a recoverable rollback point.
@@ -18,9 +24,6 @@
 - The packaged Desktop and a source watcher were running during audit. Apply one shared redacted quiescence gate before and after every mutating phase for Desktop/Electron helpers, daemon/workers/watchers, generation/render/ffmpeg/HyperFrames/Remotion, publishing, and other source-targeting agents.
 - Never follow symlinks during inventory. Every file, directory, empty entry, symlink, socket, and unknown entry receives exactly one ledger row and disposition.
 - Never mutate or delete the source before verified cutover.
-- Reserve `.ralphy/farm/` in the v2 root for Farm-owned automation state. Core migration inventories legacy Farm paths for coverage, raw evidence, recovery, and stable-ID handoff, but never installs consumer state there or later scans that namespace as domain buckets, tmp, or cache.
-- Before retiring legacy paths, produce a complete stable legacy-locator-to-entity mapping for every Farm-relevant Workspace, Project, control, and media source. If inventory declares Farm required, Farm migration consumes only the maintenance bridge mapping and must write its canonical ready record before the first core freeze/verification; that first verification binds it for later cutover. With no Farm candidates, no ready record is required and the frozen consumer slot stays null.
-- When Farm is required, it receives mapping authority only through an external mode-0600 consumer maintenance grant bound to the exact migration Run, lock nonce, source identities/inventory digests, mapping digest, store ID, and core contract. Neither hello nor a normal bridge method exposes the nonce; no-candidate migrations issue no grant.
 - For the live library require `COPYFILE_FICLONE_FORCE`. Unsupported clone, `EXDEV`, or any clone failure stops with the source untouched and performs no ordinary-copy/delete fallback. Copy mode is a separately selected mode only when space already covers all remaining logical bytes, derived bytes/DB overhead, and `max(2 GiB, 10%)` reserve.
 - Malformed JSONL creates an issue plus a raw diagnostic Object containing the exact bytes, byte offset, length, and hash; valid sibling lines remain importable. Preserve CRLF, missing final newline, and invalid UTF-8 evidence.
 - Import every ambiguous revision candidate but do not choose a head without manifest/index evidence.
@@ -34,16 +37,11 @@
 
 ## Cross-Plan Release Checkpoint
 
-Execution order is fixed. First complete the core domain and entity CLI/bridge
-plans plus this plan's Tasks 1-8 in the core repository. Publish that exact
-commit as the stable `@alecs5am/ralphy` npm package/CLI, including its exported
-Farm identity golden, and record the package version, integrity, and commit.
-Only then execute Farm Tasks 0-8 against that installed published release;
-Farm must reject prerelease, local, sibling-checkout, workspace/link, or file-
-path substitutes, with no compatibility bypass. Jointly run this plan's Task 9
-with Farm Task 9 Steps 1-2 for rehearsal, then this plan's Task 10 with Farm
-Task 9 Steps 3-5 for the live freeze/cutover/install lifecycle. No Farm ready
-record, principal binding, or namespace installation may skip this order.
+Execution order is fixed. Complete the core domain and entity CLI/bridge plans
+plus this plan's Tasks 1-8. Publish that exact commit as the stable
+`@alecs5am/ralphy` package/CLI, record its version, integrity, and commit, then
+run this plan's core-only rehearsal and live cutover before Desktop integration
+and release validation.
 
 ---
 

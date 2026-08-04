@@ -14,6 +14,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root";
+import { ensureDomainContractProject } from "../helpers/domain-contract";
 import { projectDir, workspaceUnitsDir } from "../../cli/lib/paths";
 import {
   AnalyticsSnapshotSchema,
@@ -82,6 +83,7 @@ function seedUnit(
   publish: Array<Record<string, unknown>>,
   extra: Record<string, unknown> = {},
 ): string {
+  ensureDomainContractProject(tmp.dir, PROJECT);
   fs.writeFileSync(
     path.join(tmp.dir, ".ralphy", "registry.json"),
     JSON.stringify({ projects: { [PROJECT]: { id: PROJECT, name: "A", workspace: "default" } } }),

@@ -21,6 +21,7 @@
 // via `setLegacyAllowed(true)` (only `migrate` and `doctor` do).
 
 import path from "path";
+import { Database } from "bun:sqlite";
 import { existsSync, readFileSync, readdirSync, statSync } from "fs";
 import {
   assertCommandProject,
@@ -155,7 +156,24 @@ export function workspacesDir() {
 
 /** `.ralphy/workspaces/<slug>/` */
 export function workspaceDir(slug: string) {
-  return path.join(workspacesDir(), slug);
+  return path.join(workspacesDir(), workspacePathSlug(slug));
+}
+
+function workspacePathSlug(value: string): string {
+  if (value === DEFAULT_WORKSPACE) return value;
+  const dbPath = path.join(ralphDir(), "ralphy.db");
+  if (!existsSync(dbPath)) return value;
+  let db: Database | null = null;
+  try {
+    db = new Database(dbPath, { readonly: true });
+    const slug = db.query<{ slug: string }, [string]>("SELECT slug FROM workspaces WHERE id = ?")
+      .get(value)?.slug;
+    return slug && !existsSync(path.join(workspacesDir(), value)) ? slug : value;
+  } catch {
+    return value;
+  } finally {
+    db?.close();
+  }
 }
 
 /** `.ralphy/workspaces/<slug>/shared/` — assets reused across the workspace's projects. */
@@ -193,11 +211,12 @@ export function currentWorkspace(): string {
   const context = getCommandContext();
   if (context !== null) return context.workspaceId;
   try {
-    const cfg = JSON.parse(readFileSync(configPath(), "utf-8"));
-    const ws = cfg?.activeWorkspace;
-    if (typeof ws === "string" && ws.length > 0) return ws;
+    const config = JSON.parse(readFileSync(configPath(), "utf8")) as { activeWorkspace?: unknown };
+    if (typeof config.activeWorkspace === "string" && config.activeWorkspace.length > 0) {
+      return config.activeWorkspace;
+    }
   } catch {
-    /* missing / malformed config → default */
+    // Missing or malformed legacy config falls back to the SQL-compatible default.
   }
   return DEFAULT_WORKSPACE;
 }
@@ -237,10 +256,10 @@ export function projectWorkspace(projectId: string): string {
     const ws = entry.workspace;
     const workspaceId =
       typeof ws === "string" && ws.length > 0 ? ws : DEFAULT_WORKSPACE;
-    assertCommandProject(projectId, workspaceId);
+    assertProjectReference(projectId, workspaceId);
     return workspaceId;
   }
-  assertCommandProject(projectId);
+  assertProjectReference(projectId);
   if (context) return context.workspaceId;
   if (existsSync(path.join(workspaceDir(DEFAULT_WORKSPACE), "projects", projectId))) {
     return DEFAULT_WORKSPACE;
@@ -254,6 +273,39 @@ export function projectWorkspace(projectId: string): string {
     /* no workspaces dir yet */
   }
   return DEFAULT_WORKSPACE;
+}
+
+function assertProjectReference(projectId: string, workspace?: string): void {
+  const context = getCommandContext();
+  if (context?.projectId !== undefined && context.projectId !== projectId) {
+    const dbPath = path.join(ralphDir(), "ralphy.db");
+    if (existsSync(dbPath)) {
+      let db: Database | null = null;
+      try {
+        db = new Database(dbPath, { readonly: true });
+        const row = db
+          .query<{ id: string; workspaceId: string; workspaceSlug: string }, [string, string]>(
+            `SELECT project.id, project.workspace_id AS workspaceId, workspace.slug AS workspaceSlug
+             FROM projects project
+             JOIN workspaces workspace ON workspace.id = project.workspace_id
+             WHERE project.id = ? OR project.slug = ?`,
+          )
+          .get(projectId, projectId);
+        if (
+          row?.id === context.projectId &&
+          row.workspaceId === context.workspaceId &&
+          (workspace === undefined || workspace === row.workspaceId || workspace === row.workspaceSlug)
+        ) {
+          return;
+        }
+      } catch {
+        // Fall through to the immutable context guard below.
+      } finally {
+        db?.close();
+      }
+    }
+  }
+  assertCommandProject(projectId, workspace);
 }
 
 // ─── Registry entity dirs ────────────────────────────────────────────────────

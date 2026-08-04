@@ -13,7 +13,7 @@
 // yet — it becomes a PENDING link (applied on the target's NEXT publish, never
 // a retroactive edit of a live post). No URL is ever assumed or fabricated.
 
-import { unitDirFor, readUnitManifest } from "../publish/publish.js";
+import { openDomainDb } from "../store/db.js";
 import type { Campaign, CampaignCell } from "../schemas/campaign.js";
 import type { UnitManifest } from "../schemas/unit.js";
 
@@ -70,16 +70,30 @@ export async function resolveSiblingLinks(
     if (sibling.id === targetCell.id) continue;
     if (!sibling.linkedUnitId) continue;
     if (!policyAdmitsFormat(campaign, sibling.format)) continue;
-    const [projectId, slug] = splitUnitId(sibling.linkedUnitId);
-    if (!projectId || !slug) continue;
-    const manifest = await readUnitManifest(unitDirFor(projectId, slug));
-    if (!manifest) continue;
-    const url = resolvePublishedUrl(manifest);
+    const url = publishedUrlForUnitRevision(sibling.linkedUnitId);
     if (!url) continue;
     links.push({ cellId: sibling.id, format: sibling.format, url });
     if (links.length >= campaign.crossLink.maxLinks) break;
   }
   return links;
+}
+
+export function publishedUrlForUnitRevision(revisionId: string): string | null {
+  const row = openDomainDb()
+    .query<{ url: string | null }, [string]>(
+      `SELECT publication.url
+       FROM unit_revisions revision
+       JOIN unit_presentations presentation ON presentation.unit_revision_id = revision.id
+       JOIN publications publication ON publication.presentation_id = presentation.id
+       WHERE revision.id = ?
+         AND publication.state IN ('scheduled', 'submitted', 'published')
+         AND publication.url IS NOT NULL
+       ORDER BY CASE publication.state WHEN 'published' THEN 0 ELSE 1 END,
+                publication.updated_at DESC, publication.id DESC
+       LIMIT 1`,
+    )
+    .get(revisionId);
+  return row?.url ?? null;
 }
 
 /** Split a "project/slug" linkedUnitId. */

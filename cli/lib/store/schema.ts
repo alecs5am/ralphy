@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import fs from "node:fs";
 import path from "node:path";
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export type Migration = {
   version: number;
@@ -3455,6 +3455,239 @@ export const MIGRATIONS: readonly Migration[] = [
       ALTER TABLE social_accounts ADD COLUMN credential_ref TEXT;
       ALTER TABLE social_accounts ADD COLUMN relink_required INTEGER NOT NULL DEFAULT 0 CHECK (relink_required IN (0,1));
       ALTER TABLE social_accounts ADD COLUMN row_version INTEGER NOT NULL DEFAULT 1 CHECK (row_version > 0);
+    `,
+  },
+  {
+    version: 3,
+    sql: `
+      CREATE TABLE settings (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        key TEXT NOT NULL CHECK (length(key) BETWEEN 1 AND 128),
+        value_json TEXT NOT NULL CHECK (json_valid(value_json)),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE (workspace_id, key)
+      );
+
+      CREATE TABLE brands (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        slug TEXT NOT NULL CHECK (length(slug) BETWEEN 1 AND 128),
+        name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 256),
+        url TEXT,
+        metadata_json TEXT CHECK (metadata_json IS NULL OR json_valid(metadata_json)),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE (workspace_id, slug),
+        UNIQUE (id, workspace_id)
+      );
+
+      CREATE TABLE personas (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        slug TEXT NOT NULL CHECK (length(slug) BETWEEN 1 AND 128),
+        name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 256),
+        language TEXT,
+        archetype TEXT,
+        tone TEXT,
+        metadata_json TEXT CHECK (metadata_json IS NULL OR json_valid(metadata_json)),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE (workspace_id, slug),
+        UNIQUE (id, workspace_id)
+      );
+
+      CREATE TABLE workspace_templates (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        slug TEXT NOT NULL CHECK (length(slug) BETWEEN 1 AND 128),
+        name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 256),
+        description TEXT,
+        kind TEXT NOT NULL,
+        format TEXT,
+        category TEXT,
+        document_revision_id TEXT NOT NULL REFERENCES document_revisions(id) ON DELETE RESTRICT,
+        artifact_revision_id TEXT REFERENCES artifact_revisions(id) ON DELETE RESTRICT,
+        metadata_json TEXT CHECK (metadata_json IS NULL OR json_valid(metadata_json)),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE (workspace_id, slug),
+        UNIQUE (id, workspace_id)
+      );
+
+      CREATE TABLE memory_entries (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        slug TEXT NOT NULL CHECK (length(slug) BETWEEN 1 AND 128),
+        name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 256),
+        description TEXT NOT NULL,
+        type TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('proposed', 'active', 'rejected', 'archived')),
+        current_revision_id TEXT REFERENCES memory_revisions(id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE (workspace_id, slug),
+        UNIQUE (id, workspace_id)
+      );
+
+      CREATE TABLE memory_revisions (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        memory_entry_id TEXT NOT NULL REFERENCES memory_entries(id) ON DELETE CASCADE,
+        revision_no INTEGER NOT NULL CHECK (revision_no > 0),
+        parent_revision_id TEXT REFERENCES memory_revisions(id) ON DELETE RESTRICT,
+        document_revision_id TEXT NOT NULL UNIQUE REFERENCES document_revisions(id) ON DELETE RESTRICT,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL,
+        type TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('proposed', 'active', 'rejected', 'archived')),
+        filed_at TEXT NOT NULL,
+        source TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        UNIQUE (memory_entry_id, revision_no),
+        UNIQUE (id, workspace_id)
+      );
+
+      CREATE TABLE campaigns (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        slug TEXT NOT NULL CHECK (length(slug) BETWEEN 1 AND 128),
+        title TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 256),
+        state TEXT NOT NULL CHECK (state IN ('draft', 'planned', 'active', 'completed', 'archived')),
+        row_version INTEGER NOT NULL DEFAULT 1 CHECK (row_version > 0),
+        metadata_json TEXT CHECK (metadata_json IS NULL OR json_valid(metadata_json)),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE (workspace_id, slug),
+        UNIQUE (id, workspace_id)
+      );
+
+      CREATE TABLE campaign_cells (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        campaign_id TEXT NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+        thesis_id TEXT NOT NULL,
+        format TEXT NOT NULL,
+        angle TEXT NOT NULL,
+        keyword TEXT NOT NULL,
+        channel TEXT NOT NULL,
+        priority INTEGER NOT NULL CHECK (priority >= 0),
+        state TEXT NOT NULL CHECK (state IN ('planned', 'produced', 'published')),
+        unit_revision_id TEXT REFERENCES unit_revisions(id) ON DELETE RESTRICT,
+        presentation_id TEXT REFERENCES unit_presentations(id) ON DELETE RESTRICT,
+        social_account_id TEXT REFERENCES social_accounts(id) ON DELETE RESTRICT,
+        publication_id TEXT REFERENCES publications(id) ON DELETE RESTRICT,
+        produced_at INTEGER,
+        metadata_json TEXT CHECK (metadata_json IS NULL OR json_valid(metadata_json)),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE (campaign_id, id),
+        UNIQUE (id, workspace_id)
+      );
+
+      CREATE TABLE calendar_entries (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        kind TEXT NOT NULL CHECK (kind IN ('slot', 'entry')),
+        slot_id TEXT REFERENCES calendar_entries(id) ON DELETE RESTRICT,
+        scheduled_at INTEGER,
+        weekday TEXT CHECK (weekday IS NULL OR weekday IN ('mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun')),
+        local_time TEXT,
+        timezone TEXT,
+        unit_type TEXT NOT NULL,
+        platforms_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(platforms_json) AND json_type(platforms_json) = 'array'),
+        state TEXT NOT NULL CHECK (state IN ('idea', 'queued', 'produced', 'gated', 'scheduled', 'published')),
+        campaign_id TEXT REFERENCES campaigns(id) ON DELETE RESTRICT,
+        campaign_cell_id TEXT REFERENCES campaign_cells(id) ON DELETE RESTRICT,
+        unit_revision_id TEXT REFERENCES unit_revisions(id) ON DELETE RESTRICT,
+        presentation_id TEXT REFERENCES unit_presentations(id) ON DELETE RESTRICT,
+        social_account_id TEXT REFERENCES social_accounts(id) ON DELETE RESTRICT,
+        publication_id TEXT REFERENCES publications(id) ON DELETE RESTRICT,
+        row_version INTEGER NOT NULL DEFAULT 1 CHECK (row_version > 0),
+        metadata_json TEXT CHECK (metadata_json IS NULL OR json_valid(metadata_json)),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE (id, workspace_id),
+        CHECK (
+          (kind = 'slot' AND slot_id IS NULL AND scheduled_at IS NULL
+            AND weekday IS NOT NULL AND local_time IS NOT NULL AND timezone IS NOT NULL)
+          OR
+          (kind = 'entry' AND weekday IS NULL AND local_time IS NULL AND timezone IS NULL)
+        )
+      );
+
+      CREATE INDEX settings_workspace_key_idx
+        ON settings (workspace_id, key);
+      CREATE INDEX memory_revisions_entry_order_idx
+        ON memory_revisions (memory_entry_id, revision_no, id);
+      CREATE UNIQUE INDEX memory_revisions_one_active_idx
+        ON memory_revisions (memory_entry_id) WHERE status = 'active';
+      CREATE INDEX campaigns_workspace_state_created_idx
+        ON campaigns (workspace_id, state, created_at, id);
+      CREATE INDEX campaign_cells_campaign_priority_idx
+        ON campaign_cells (campaign_id, priority DESC, created_at, id);
+      CREATE INDEX calendar_entries_workspace_created_idx
+        ON calendar_entries (workspace_id, created_at, id);
+      CREATE INDEX calendar_entries_workspace_scheduled_idx
+        ON calendar_entries (workspace_id, scheduled_at, created_at, id);
+
+      CREATE TRIGGER task7_entity_identity_guard_brands
+      BEFORE UPDATE OF id, workspace_id ON brands
+      WHEN NEW.id <> OLD.id OR NEW.workspace_id <> OLD.workspace_id
+      BEGIN
+        SELECT RAISE(ABORT, 'Brand identity is immutable');
+      END;
+
+      CREATE TRIGGER task7_entity_identity_guard_personas
+      BEFORE UPDATE OF id, workspace_id ON personas
+      WHEN NEW.id <> OLD.id OR NEW.workspace_id <> OLD.workspace_id
+      BEGIN
+        SELECT RAISE(ABORT, 'Persona identity is immutable');
+      END;
+
+      CREATE TRIGGER task7_entity_identity_guard_workspace_templates
+      BEFORE UPDATE OF id, workspace_id ON workspace_templates
+      WHEN NEW.id <> OLD.id OR NEW.workspace_id <> OLD.workspace_id
+      BEGIN
+        SELECT RAISE(ABORT, 'Workspace Template identity is immutable');
+      END;
+
+      CREATE TRIGGER task7_entity_identity_guard_memory_entries
+      BEFORE UPDATE OF id, workspace_id ON memory_entries
+      WHEN NEW.id <> OLD.id OR NEW.workspace_id <> OLD.workspace_id
+      BEGIN
+        SELECT RAISE(ABORT, 'Memory Entry identity is immutable');
+      END;
+
+      CREATE TRIGGER task7_entity_identity_guard_memory_revisions
+      BEFORE UPDATE OF id, workspace_id, memory_entry_id, revision_no,
+        parent_revision_id, document_revision_id, name, description, type,
+        filed_at, source, created_at ON memory_revisions
+      BEGIN
+        SELECT RAISE(ABORT, 'Memory Revisions are immutable');
+      END;
+
+      CREATE TRIGGER task7_entity_identity_guard_campaigns
+      BEFORE UPDATE OF id, workspace_id ON campaigns
+      WHEN NEW.id <> OLD.id OR NEW.workspace_id <> OLD.workspace_id
+      BEGIN
+        SELECT RAISE(ABORT, 'Campaign identity is immutable');
+      END;
+
+      CREATE TRIGGER task7_entity_identity_guard_campaign_cells
+      BEFORE UPDATE OF id, workspace_id, campaign_id ON campaign_cells
+      WHEN NEW.id <> OLD.id OR NEW.workspace_id <> OLD.workspace_id OR NEW.campaign_id <> OLD.campaign_id
+      BEGIN
+        SELECT RAISE(ABORT, 'Campaign Cell identity is immutable');
+      END;
+
+      CREATE TRIGGER task7_entity_identity_guard_calendar_entries
+      BEFORE UPDATE OF id, workspace_id, kind ON calendar_entries
+      WHEN NEW.id <> OLD.id OR NEW.workspace_id <> OLD.workspace_id OR NEW.kind <> OLD.kind
+      BEGIN
+        SELECT RAISE(ABORT, 'Calendar Entry identity is immutable');
+      END;
     `,
   },
 ];

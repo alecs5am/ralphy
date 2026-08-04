@@ -26,14 +26,17 @@
 //
 // English-only-on-disk.
 
-import fs from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { projectDir, workspaceDir } from "../paths.js";
-import { getEntity } from "../registry.js";
-import { getActiveWorkspace } from "../registry.js";
+import { getCommandContext } from "../context-state.js";
 import { loadWorkspaceEvaluators } from "../workspace-evaluators.js";
+import { openDomainDb } from "../store/db.js";
+import { createEvaluation } from "../store/evaluations.js";
+import { finishRun, startRun } from "../store/runs.js";
+import { endAgentSession, startAgentSession } from "../store/sessions.js";
+import { updateProjectStage } from "../store/scopes.js";
 import { callLLM } from "../providers/llm.js";
 import { buildVideoContentBlock, DEEP_VISION_MAX_MP4_BYTES } from "./deep-vision.js";
 import { score } from "./findings.js";
@@ -143,12 +146,87 @@ export interface RunWorkspaceEvalOptions {
   video?: string;
   /**
    * Run ONLY the criteria whose `id` is in this list (#477). When set AND a
-   * prior `<project>/workspace-eval.json` exists, the fresh subset results are
-   * MERGED over the prior scorecard (untouched criteria kept, overall verdict +
+   * prior Workspace Evaluation exists, the fresh subset results are MERGED over
+   * the prior scorecard (untouched criteria kept, overall verdict +
    * mean score recomputed over the full merged set). Unknown ids are ignored +
    * noted in the summary. Omitted / empty → a full run (today's behavior).
    */
   criteria?: string[];
+}
+
+export type RecordedWorkspaceEval = {
+  runId: string;
+  evaluationId: string;
+  stageId: string;
+  stageRowVersion: number;
+};
+
+export function recordWorkspaceEvalResult(
+  result: WorkspaceEvalResult,
+): RecordedWorkspaceEval {
+  const db = openDomainDb();
+  const project = db
+    .query<{ id: string; workspaceId: string }, [string, string, string, string]>(
+      `SELECT project.id, project.workspace_id AS workspaceId
+       FROM projects project
+       JOIN workspaces workspace ON workspace.id = project.workspace_id
+       WHERE (project.id = ? OR project.slug = ?)
+         AND (workspace.id = ? OR workspace.slug = ?)`,
+    )
+    .get(result.projectId, result.projectId, result.workspace, result.workspace);
+  if (!project) throw new Error(`Project not found: ${result.projectId}`);
+
+  const context = getCommandContext();
+  const ownsSession = context?.kind !== "session" ||
+    context.workspaceId !== project.workspaceId ||
+    context.projectId !== project.id;
+  const sessionId = ownsSession
+    ? startAgentSession({
+        workspaceId: project.workspaceId,
+        projectId: project.id,
+        agent: "workspace-evaluator",
+      }).id
+    : context.sessionId;
+  try {
+    const run = startRun({
+      projectId: project.id,
+      agentSessionId: sessionId,
+      kind: "workspace-evaluation",
+    });
+    const { video: _video, ...safeResult } = result;
+    const evaluation = createEvaluation({
+      target: { type: "run", id: run.id },
+      authoredBySessionId: sessionId,
+      kind: "workspace",
+      verdict: result.overall.verdict,
+      report: JSON.parse(JSON.stringify({
+        ...safeResult,
+        videoEvaluated: result.video !== null,
+      })),
+    });
+    finishRun(run.id, { state: "succeeded" });
+    const current = db
+      .query<{ rowVersion: number }, [string, string]>(
+        "SELECT row_version AS rowVersion FROM project_stages WHERE project_id = ? AND stage = ?",
+      )
+      .get(project.id, "workspace-eval");
+    const stage = updateProjectStage({
+      projectId: project.id,
+      stage: "workspace-eval",
+      state: "complete",
+      entityType: "evaluation",
+      entityId: evaluation.id,
+      expectedRowVersion: current?.rowVersion ?? null,
+    });
+    return {
+      runId: run.id,
+      evaluationId: evaluation.id,
+      stageId: stage.id,
+      stageRowVersion: stage.rowVersion,
+    };
+  } finally {
+    if (ownsSession) endAgentSession(sessionId);
+  }
 }
 
 /** The project-relative artifact names. */
@@ -185,18 +263,30 @@ function defaultVideoPath(projectId: string): string {
  * Resolve which workspace's rubric to score against: an explicit override wins,
  * else the registry's `id → workspace` map, else the active workspace.
  */
-async function resolveWorkspace(
+function resolveEvalScope(
   projectId: string,
   override?: string,
-): Promise<string> {
-  if (override) return override;
-  const entry = (await getEntity("projects", projectId)) as
-    | { workspace?: unknown }
-    | null;
-  if (entry && typeof entry.workspace === "string" && entry.workspace.length > 0) {
-    return entry.workspace;
+): { projectId: string; workspaceId: string; workspaceSlug: string } {
+  const context = getCommandContext();
+  const workspace = override ?? context?.workspaceId;
+  const clauses = ["(project.id = ? OR project.slug = ?)"];
+  const values: string[] = [projectId, projectId];
+  if (workspace !== undefined) {
+    clauses.push("(workspace.id = ? OR workspace.slug = ?)");
+    values.push(workspace, workspace);
   }
-  return getActiveWorkspace();
+  const row = openDomainDb()
+    .query<{ projectId: string; workspaceId: string; workspaceSlug: string }, string[]>(
+      `SELECT project.id AS projectId, project.workspace_id AS workspaceId,
+              workspace.slug AS workspaceSlug
+       FROM projects project
+       JOIN workspaces workspace ON workspace.id = project.workspace_id
+       WHERE ${clauses.join(" AND ")}
+       ORDER BY CASE WHEN project.id = ? THEN 0 ELSE 1 END LIMIT 1`,
+    )
+    .get(...values, projectId);
+  if (!row) throw new Error(`Project not found: ${projectId}`);
+  return row;
 }
 
 let _findingId = 0;
@@ -216,7 +306,9 @@ export async function runWorkspaceEval(
   registerBuiltinWorkspaceValidators();
 
   const dir = projectDir(projectId);
-  const workspace = await resolveWorkspace(projectId, opts.workspace);
+  const scope = resolveEvalScope(projectId, opts.workspace);
+  const workspace = scope.workspaceId;
+  const workspaceSlug = scope.workspaceSlug;
   const evaluatedAt = new Date().toISOString();
 
   const config = await loadWorkspaceEvaluators(workspace);
@@ -255,7 +347,7 @@ export async function runWorkspaceEval(
           await runCriterionVisionPass({
             videoBlock,
             criterion: c,
-            workspace,
+            workspace: workspaceSlug,
             benchmarks: config?.benchmarks,
             model: opts.model,
             projectId,
@@ -306,7 +398,7 @@ export async function runWorkspaceEval(
   // — #477 merge: a subset run overlays its fresh results over the prior
   //   scorecard (others kept), then recomputes overall over the FULL set. No
   //   prior scorecard → the subset stands alone (others simply not run).
-  const prior = subset ? await readPriorResults(projectId) : null;
+  const prior = subset ? await readPriorResults(scope.projectId) : null;
   const results = prior
     ? mergeResults(prior, freshResults)
     : freshResults;
@@ -329,7 +421,7 @@ export async function runWorkspaceEval(
 
   return {
     schemaVersion: "1.0",
-    workspace,
+    workspace: workspaceSlug,
     projectId,
     evaluatedAt,
     video: videoPath,
@@ -337,7 +429,7 @@ export async function runWorkspaceEval(
     overall: {
       verdict: overallVerdict,
       score: meanScore,
-      summary: buildSummary(workspace, allCriteria.length, results, overallVerdict, runVision, videoPath, {
+      summary: buildSummary(workspaceSlug, allCriteria.length, results, overallVerdict, runVision, videoPath, {
         subset,
         unknownIds,
         merged: prior !== null,
@@ -347,14 +439,20 @@ export async function runWorkspaceEval(
 }
 
 /**
- * Read the prior `<project>/workspace-eval.json` results for a merge (#477).
- * Returns null when there is no readable prior scorecard.
+ * Read the latest SQL Workspace Evaluation report for a merge (#477).
+ * Returns null when there is no prior scorecard.
  */
 async function readPriorResults(projectId: string): Promise<WorkspaceCriterionResult[] | null> {
-  const p = path.join(projectDir(projectId), WORKSPACE_EVAL_ARTIFACT);
-  if (!existsSync(p)) return null;
   try {
-    const parsed = JSON.parse(await fs.readFile(p, "utf8")) as Partial<WorkspaceEvalResult>;
+    const row = openDomainDb()
+      .query<{ report: string }, [string]>(
+        `SELECT report_json AS report FROM evaluations
+         WHERE project_id = ? AND kind = 'workspace'
+         ORDER BY created_at DESC, id DESC LIMIT 1`,
+      )
+      .get(projectId);
+    if (!row) return null;
+    const parsed = JSON.parse(row.report) as Partial<WorkspaceEvalResult>;
     return Array.isArray(parsed.criteria) ? parsed.criteria : null;
   } catch {
     return null;

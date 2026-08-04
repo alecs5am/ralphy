@@ -1172,8 +1172,8 @@ Commands:
                                     template create.
   create [options]                  Create a template (flat JSON) from a project
                                     or file
-  register <id>                     Register an existing workspace dir template
-                                    in the local registry
+  register <id>                     Import an existing legacy workspace template
+                                    into the domain store
   list [options]                    List all templates (public library templates
                                     + the active workspace's templates/)
   show [options] <id>               Show template — prints TEMPLATE.md (the
@@ -2342,7 +2342,7 @@ Commands:
   show <topic>                            Print the topic state (sources, question, last synthesis)
   list                                    List all research topics under workspace/research/
   run [options] <query...>                Deep research: plan → fan-out search → fetch → summarize → cited report
-  scrape-profile [options] <profile-url>  Distill one creator's style: yt-dlp lists N recent videos, vision-analyzes each, writes a style-sheet.md
+  scrape-profile [options] <profile-url>  Distill one creator's style into a persisted Research Run and report Document
   help [command]                          display help for command
 ```
 

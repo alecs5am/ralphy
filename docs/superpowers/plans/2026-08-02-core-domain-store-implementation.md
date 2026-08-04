@@ -1,5 +1,10 @@
 # Core Domain Store Implementation Plan
 
+> **2026-08-04 scope amendment:** `ralphy-farm` is removed from the program.
+> Every Farm-specific namespace, identity, consumer-readiness, release, or
+> coordinated-cutover requirement below is superseded and must not be
+> implemented. Core, full-library migration, Desktop, and release remain.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the mandatory SQLite source of truth and immutable local bucket primitives for every Ralphy domain entity.
@@ -22,21 +27,15 @@
 - Never insert a row that references bytes until the bytes have been validated, hashed, and atomically placed in their final bucket key.
 - Never hold a SQLite transaction open during a provider call, render, hash, file copy, or media probe.
 - Working, rejected, and superseded Objects remain durable and discoverable while a project is active.
-- `.ralphy/farm/` is a reserved consumer-owned namespace, not core domain state. Startup may validate only its bounded `identity.json` handshake; no core store, verifier, query, overview, media controller, or garbage collector reads or classifies other children.
 - Keep files and commit messages English-only and use Bun for every check.
 
 ## Cross-Plan Release Checkpoint
 
-Execution order is fixed. First complete this plan, the entity CLI/bridge plan,
-and Full Library Migration Tasks 1-8 in the core repository. Publish that exact
-commit as the stable `@alecs5am/ralphy` npm package/CLI, including its exported
-Farm identity golden, and record the package version, integrity, and commit.
-Only then execute Farm Tasks 0-8 against that installed published release;
-Farm must reject prerelease, local, sibling-checkout, workspace/link, or file-
-path substitutes, with no compatibility bypass. Jointly run Full Library Task
-9 with Farm Task 9 Steps 1-2 for rehearsal, then Full Library Task 10 with Farm
-Task 9 Steps 3-5 for the live freeze/cutover/install lifecycle. No Farm ready
-record, principal binding, or namespace installation may skip this order.
+Execution order is fixed. Complete this plan, the entity CLI/bridge plan, and
+Full Library Migration Tasks 1-8 in the core repository. Publish that exact
+commit as the stable `@alecs5am/ralphy` package/CLI, record the version,
+integrity, and commit, then run the core-only rehearsal and live cutover before
+Desktop integration and release validation.
 
 ---
 
