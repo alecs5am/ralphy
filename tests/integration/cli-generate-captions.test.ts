@@ -15,6 +15,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { seedLegacyProject } from "../helpers/legacy-project.js";
+import { setRoot } from "../../cli/lib/paths.js";
+import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
+import { createProject, createWorkspace } from "../../cli/lib/store/scopes.js";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
 const CLI = path.join(REPO, "cli", "index.ts");
@@ -23,7 +26,7 @@ let tmpHome: string;
 let projectDir: string;
 let audioPath: string;
 let fakeRespPath: string;
-const PROJECT_ID = "captions-test-001";
+let PROJECT_ID: string;
 
 type RalphyResult = { exitCode: number; stdout: string; stderr: string; json: any };
 
@@ -51,6 +54,17 @@ beforeAll(() => {
   // realpath: on macOS /var → /private/var symlink; the CLI normalizes paths,
   // so the test must too or the toBe() comparisons mismatch.
   tmpHome = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-captions-it-")));
+  setRoot(tmpHome);
+  fs.mkdirSync(path.join(tmpHome, ".ralphy"), { recursive: true });
+  openDomainDb();
+  const workspace = createWorkspace({ slug: "default", name: "Default" });
+  PROJECT_ID = createProject({
+    workspaceId: workspace.id,
+    slug: "captions-test-001",
+    name: "captions test",
+  }).id;
+  closeDomainDb();
+  setRoot(REPO);
   seedLegacyProject(tmpHome, PROJECT_ID, { name: "captions test" });
   projectDir = path.join(tmpHome, ".ralphy", "workspaces", "default", "projects", PROJECT_ID);
 
@@ -79,8 +93,8 @@ afterAll(() => {
   fs.rmSync(tmpHome, { recursive: true, force: true });
 });
 
-describe("`ralphy generate captions` per-slot output (#010)", () => {
-  test("--slot scene-01 writes to artifacts/captions/scene-01.json, NOT shared captions.json", () => {
+describe("`ralphy generate captions` domain output", () => {
+  test("--slot scene-01 creates an Artifact revision without legacy files", () => {
     const r = ralphy(
       [
         "generate", "captions",
@@ -92,22 +106,67 @@ describe("`ralphy generate captions` per-slot output (#010)", () => {
       { RALPHY_FAKE_TRANSCRIBE_JSON: fakeRespPath },
     );
     expect(r.exitCode).toBe(0);
-    const expected = path.join(projectDir, "artifacts", "captions", "scene-01.json");
-    expect(fs.existsSync(expected)).toBe(true);
-    expect(r.json?.path).toBe(expected);
-    // Shared legacy file must NOT exist on the default per-slot path.
+    expect(r.json?.artifactId).toMatch(/^art_/);
+    expect(r.json?.revisionId).toMatch(/^arev_/);
+    expect(r.json?.runId).toMatch(/^run_/);
+    expect(r.json?.artifacts).toEqual([
+      expect.objectContaining({ kind: "captions", mime: "application/json" }),
+      expect.objectContaining({ kind: "captions", mime: "application/x-subrip" }),
+      expect.objectContaining({ kind: "data", mime: "text/plain" }),
+    ]);
+    expect(JSON.stringify(r.json)).not.toContain(tmpHome);
+
+    setRoot(tmpHome);
+    const db = openDomainDb();
+    const results = db.query<{
+      position: number;
+      slug: string;
+      kind: string;
+      mime: string;
+    }, [string]>(`
+      SELECT result.position, artifact.slug, artifact.kind, object.mime
+      FROM run_results result
+      JOIN artifact_revisions revision ON revision.id = result.entity_id
+      JOIN artifacts artifact ON artifact.id = revision.artifact_id
+      JOIN objects object ON object.id = revision.object_id
+      WHERE result.run_id = ? ORDER BY result.position
+    `).all(r.json.runId);
+    const scratchFiles = fs.existsSync(path.join(tmpHome, ".ralphy", "tmp", r.json.runId))
+      ? fs.readdirSync(path.join(tmpHome, ".ralphy", "tmp", r.json.runId))
+      : [];
+    const persisted = db.query<{ value: string | null }, []>(`
+      SELECT metadata_json AS value FROM artifact_revisions
+      UNION ALL SELECT metadata_json FROM objects
+      UNION ALL SELECT request_json FROM run_attempts
+      UNION ALL SELECT response_json FROM run_attempts
+      UNION ALL SELECT metadata_json FROM run_objects
+      UNION ALL SELECT payload_json FROM activity_events
+    `).all().map((row) => row.value ?? "").join("\n");
+    closeDomainDb();
+    setRoot(REPO);
+
+    expect(results).toEqual([
+      { position: 0, slug: "scene-01", kind: "captions", mime: "application/json" },
+      { position: 1, slug: "scene-01-srt", kind: "captions", mime: "application/x-subrip" },
+      { position: 2, slug: "scene-01-drawtext", kind: "data", mime: "text/plain" },
+    ]);
+    expect(scratchFiles).toEqual([]);
+    expect(persisted).not.toContain(audioPath);
+    expect(fs.existsSync(path.join(projectDir, "artifacts", "captions", "scene-01.json"))).toBe(false);
     expect(fs.existsSync(path.join(projectDir, "captions.json"))).toBe(false);
   });
 
-  test("SRT + drawtext.filter sidecars emitted next to JSON", () => {
-    const jsonPath = path.join(projectDir, "artifacts", "captions", "scene-01.json");
-    const srtPath = jsonPath.replace(/\.json$/, ".srt");
-    const filterPath = jsonPath.replace(/\.json$/, ".drawtext.filter");
-    expect(fs.existsSync(srtPath)).toBe(true);
-    expect(fs.existsSync(filterPath)).toBe(true);
-    const srt = fs.readFileSync(srtPath, "utf8");
+  test("--legacy-output is the explicit compatibility path for JSON and sidecars", () => {
+    const r = ralphy(
+      ["generate", "captions", "--project", PROJECT_ID, "--audio", audioPath,
+        "--slot", "legacy", "--backend", "elevenlabs", "--legacy-output"],
+      { RALPHY_FAKE_TRANSCRIBE_JSON: fakeRespPath },
+    );
+    expect(r.exitCode).toBe(0);
+    const jsonPath = path.join(projectDir, "captions.json");
+    const srt = fs.readFileSync(jsonPath.replace(/\.json$/, ".srt"), "utf8");
     expect(srt).toContain("-->");
-    const filter = fs.readFileSync(filterPath, "utf8");
+    const filter = fs.readFileSync(jsonPath.replace(/\.json$/, ".drawtext.filter"), "utf8");
     expect(filter).toContain("drawtext=");
     expect(filter).toContain("between(t,");
   });
@@ -127,10 +186,7 @@ describe("`ralphy generate captions` per-slot output (#010)", () => {
     );
     expect(r.exitCode).toBe(0);
     expect(r.json?.captions).toBe(0);
-    const jsonPath = path.join(projectDir, "artifacts", "captions", "scene-silent.json");
-    const parsed = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
-    expect(parsed.captions).toEqual([]);
-    expect(parsed.low_confidence_words).toEqual([]);
+    expect(r.json?.artifactId).toMatch(/^art_/);
   });
 
   test("brand-spelling.json overrides built-in dict", () => {
@@ -145,11 +201,12 @@ describe("`ralphy generate captions` per-slot output (#010)", () => {
         "--audio", audioPath,
         "--slot", "scene-02-brand",
         "--backend", "elevenlabs",
+        "--legacy-output",
       ],
       { RALPHY_FAKE_TRANSCRIBE_JSON: fakeRespPath },
     );
     expect(r.exitCode).toBe(0);
-    const jsonPath = path.join(projectDir, "artifacts", "captions", "scene-02-brand.json");
+    const jsonPath = path.join(projectDir, "captions.json");
     const parsed = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
     const tokens = parsed.captions.map((c: { text: string }) => c.text);
     // "Ralfy" → "Ralphy" via built-in.
@@ -190,9 +247,8 @@ describe("`ralphy generate captions` per-slot output (#010)", () => {
     const [a, b] = await Promise.all([callOne, callTwo]);
     expect(a.exitCode).toBe(0);
     expect(b.exitCode).toBe(0);
-    expect(fs.existsSync(path.join(projectDir, "artifacts", "captions", "parallel-a.json"))).toBe(true);
-    expect(fs.existsSync(path.join(projectDir, "artifacts", "captions", "parallel-b.json"))).toBe(true);
-    // No shared captions.json clobber.
-    expect(fs.existsSync(path.join(projectDir, "captions.json"))).toBe(false);
+    expect(a.json?.revisionId).toMatch(/^arev_/);
+    expect(b.json?.revisionId).toMatch(/^arev_/);
+    expect(a.json?.revisionId).not.toBe(b.json?.revisionId);
   });
 });

@@ -514,7 +514,7 @@ describe("domain Run store", () => {
     expect(failedAttempt).not.toHaveProperty("error");
     expect(getRun(run.id).attempts[0]).toMatchObject({
       response: { a: 1, z: 2 },
-      error: "fixture failure",
+      error: "Provider request failed",
     });
     const firstStartedAt = getRun(run.id).startedAt;
     const retry = startRunAttempt({

@@ -12,8 +12,8 @@ import { logGeneration } from "../gen-log.js";
 import { generationDestination } from "../generation-destination.js";
 import { loadConfig, getNestedValue } from "../config.js";
 import {
-  assetPath,
-  protectExistingAsset,
+  providerOutputPath,
+  providerHttpError,
   logFailure,
   requireProviderKey,
   retryTransient,
@@ -192,13 +192,14 @@ export async function ensureVoiceExists(voiceId: string, signal?: AbortSignal): 
     signal,
   });
   if (resp.status === 404) {
-    throw new Error(
+    throw providerHttpError(
       `ElevenLabs voice not in library: ${voiceId}. Run \`ralphy voice list\` for your voices, or \`ralphy voice exists ${voiceId}\` for a one-shot probe.`,
+      resp.status,
     );
   }
   if (!resp.ok) {
     const body = await resp.text().catch(() => "");
-    throw new Error(`ElevenLabs voices ${resp.status}: ${body.slice(0, 400)}`);
+    throw providerHttpError(`ElevenLabs voices ${resp.status}: ${body.slice(0, 400)}`, resp.status);
   }
   voiceExistsCache.set(voiceId, true);
 }
@@ -348,14 +349,14 @@ export async function generateVoiceover(input: GenerateVoiceoverInput): Promise<
   };
 
   const baseUrl = await elevenLabsBaseUrl();
-  const localPath = assetPath(input, "voiceover", `${input.slot}.mp3`);
+  const localPath = providerOutputPath(input);
 
   // #039: per-slot file lock — two parallel calls targeting the same dest path
   // serialize their write+verify pass. The lock wraps the ENTIRE retryTransient
   // loop because a partial write from caller A would otherwise be observed by
   // caller B's verify pass mid-flight. The #007 concurrency semaphore inside
   // retryTransient handles cross-slot fan-out independently.
-  const tts = await withSlotLock(localPath, () =>
+  await withSlotLock(localPath, () =>
     // #005: wrap the TTS POST in transient-error retry. 4xx → terminal, 5xx /
     // TLS / ECONNRESET → 2-retry exponential backoff. Voice-existence preflight
     // is OUTSIDE this loop on purpose — a 404 voice id is a terminal config
@@ -368,7 +369,6 @@ export async function generateVoiceover(input: GenerateVoiceoverInput): Promise<
     // every attempt.
     (async () => {
       await fs.mkdir(path.dirname(localPath), { recursive: true });
-      await protectExistingAsset(localPath, input.overwrite);
       return retryTransient<{ buf: Buffer; attempt: number }>(
         async (attempt) => {
           let resp: Response;
@@ -396,10 +396,7 @@ export async function generateVoiceover(input: GenerateVoiceoverInput): Promise<
           if (!resp.ok) {
             const text = await resp.text().catch(() => "");
             const message = `ElevenLabs TTS ${resp.status}: ${text.slice(0, 500)}`;
-            if (resp.status >= 400 && resp.status < 500) {
-              throw new TerminalProviderError(message);
-            }
-            throw new Error(message);
+            throw providerHttpError(message, resp.status);
           }
           const buf = Buffer.from(await resp.arrayBuffer());
 
@@ -431,8 +428,6 @@ export async function generateVoiceover(input: GenerateVoiceoverInput): Promise<
       );
     })(),
   );
-  const buf = tts.buf;
-
   // #030: best-effort per-call cost estimate. ElevenLabs bills via subscription
   // pool, NOT per-call invoice — this is the $/1k-chars-tier rate applied to
   // this call so VO rows are directly comparable to image/video rows in the
@@ -445,27 +440,6 @@ export async function generateVoiceover(input: GenerateVoiceoverInput): Promise<
     latencyMs: Date.now() - t0,
     model: modelId,
   };
-  await logGeneration(generationDestination(input), {
-    slot: input.slot,
-    provider: ID,
-    model: modelId,
-    endpoint: `tts/${modelId}`,
-    kind: "voiceover",
-    input: {
-      slot: input.slot,
-      project: input.projectId,
-      voice_id: input.voiceId,
-      text_chars: input.text.length,
-      model_id: modelId,
-      voice_settings: body.voice_settings,
-    },
-    output: { local: localPath, bytes: buf.length },
-    status: "ok",
-    latency_ms: result.latencyMs,
-    cost_usd: costUsd,
-    attempt: tts.attempt,
-    note: input.note ?? input.slot,
-  });
   return result;
 }
 
@@ -514,6 +488,8 @@ export type CloneVoiceInput = {
    * to preserve roomtone characteristics in the voiceprint.
    */
   denoise?: boolean;
+  /** Run-owned directory for derived isolation/compression intermediates. */
+  workDir?: string;
   signal?: AbortSignal;
 };
 
@@ -567,14 +543,18 @@ export async function cloneVoice(input: CloneVoiceInput): Promise<CloneVoiceResu
     );
     if (!isoResp.ok) {
       const text = await isoResp.text().catch(() => "");
-      throw new Error(`ElevenLabs audio-isolation ${isoResp.status}: ${text.slice(0, 400)}`);
+      throw providerHttpError(
+        `ElevenLabs audio-isolation ${isoResp.status}: ${text.slice(0, 400)}`,
+        isoResp.status,
+      );
     }
     const isoBuf = Buffer.from(await isoResp.arrayBuffer());
     // #121: guard the isolated audio body before writing it to disk.
     await assertAudioResponse(isoResp, isoBuf);
     const ext = path.extname(input.fromPath) || ".mp3";
     const base = path.basename(input.fromPath, ext);
-    isolatedPath = path.join(path.dirname(input.fromPath), `${base}.isolated${ext}`);
+    isolatedPath = path.join(input.workDir ?? path.dirname(input.fromPath), `${base}.isolated${ext}`);
+    await fs.mkdir(path.dirname(isolatedPath), { recursive: true });
     await fs.writeFile(isolatedPath, isoBuf);
     uploadPath = isolatedPath;
   }
@@ -588,7 +568,7 @@ export async function cloneVoice(input: CloneVoiceInput): Promise<CloneVoiceResu
   if (uploadStat && uploadStat.size > VOICE_ADD_MAX_BYTES) {
     const ext = path.extname(uploadPath);
     const base = path.basename(uploadPath, ext);
-    compressedPath = path.join(path.dirname(uploadPath), `${base}.clone-sample.mp3`);
+    compressedPath = path.join(input.workDir ?? path.dirname(uploadPath), `${base}.clone-sample.mp3`);
     await compressVoiceSample({
       src: uploadPath,
       dst: compressedPath,
@@ -626,7 +606,7 @@ export async function cloneVoice(input: CloneVoiceInput): Promise<CloneVoiceResu
   );
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    throw new Error(`ElevenLabs voices/add ${resp.status}: ${text.slice(0, 400)}`);
+    throw providerHttpError(`ElevenLabs voices/add ${resp.status}: ${text.slice(0, 400)}`, resp.status);
   }
   const json = (await resp.json()) as { voice_id?: string; requires_verification?: boolean };
   if (!json.voice_id) {
@@ -732,7 +712,10 @@ export async function designVoice(input: DesignVoiceInput): Promise<DesignVoiceR
   );
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    throw new Error(`ElevenLabs text-to-voice/design ${resp.status}: ${text.slice(0, 400)}`);
+    throw providerHttpError(
+      `ElevenLabs text-to-voice/design ${resp.status}: ${text.slice(0, 400)}`,
+      resp.status,
+    );
   }
   const json = (await resp.json()) as {
     previews?: Array<{ audio_base_64?: string; generated_voice_id?: string; duration_secs?: number }>;
@@ -814,7 +797,10 @@ export async function createVoiceFromPreview(
   );
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    throw new Error(`ElevenLabs text-to-voice (create from preview) ${resp.status}: ${text.slice(0, 400)}`);
+    throw providerHttpError(
+      `ElevenLabs text-to-voice (create from preview) ${resp.status}: ${text.slice(0, 400)}`,
+      resp.status,
+    );
   }
   const json = (await resp.json()) as { voice_id?: string };
   if (!json.voice_id) {
@@ -907,14 +893,7 @@ export async function generateMusic(input: GenerateMusicInput): Promise<Generate
         const message =
           `ElevenLabs Music ${resp.status}: ${text.slice(0, 500)}` +
           (promptSuggestion ? `\n  prompt_suggestion: ${promptSuggestion}` : "");
-        if (resp.status >= 400 && resp.status < 500) {
-          throw new TerminalProviderError(message, { promptSuggestion });
-        }
-        const err = new Error(message);
-        if (promptSuggestion) {
-          (err as Error & { promptSuggestion?: string }).promptSuggestion = promptSuggestion;
-        }
-        throw err;
+        throw providerHttpError(message, resp.status, { promptSuggestion });
       }
       const buf = Buffer.from(await resp.arrayBuffer());
       // #121: geo-block guard before the buffer escapes the response context.
@@ -929,9 +908,8 @@ export async function generateMusic(input: GenerateMusicInput): Promise<Generate
     },
   );
   const buf = music.buf;
-  const localPath = assetPath(input, "music", `${input.slot}.mp3`);
+  const localPath = providerOutputPath(input);
   await fs.mkdir(path.dirname(localPath), { recursive: true });
-  await protectExistingAsset(localPath, input.overwrite);
   await fs.writeFile(localPath, buf);
 
   const result: GenerateResult = {
@@ -940,20 +918,6 @@ export async function generateMusic(input: GenerateMusicInput): Promise<Generate
     latencyMs: Date.now() - t0,
     model: modelId,
   };
-  await logGeneration(generationDestination(input), {
-    slot: input.slot,
-    provider: ID,
-    model: modelId,
-    endpoint: "music",
-    kind: "music",
-    input: { slot: input.slot, project: input.projectId, prompt: input.prompt, music_length_ms: musicLengthMs, force_instrumental: body.force_instrumental },
-    output: { local: localPath, bytes: buf.length },
-    status: "ok",
-    latency_ms: result.latencyMs,
-    cost_usd: 0,
-    attempt: music.attempt,
-    note: input.note ?? input.slot,
-  });
   return result;
 }
 
@@ -993,7 +957,10 @@ export async function generateSfx(input: GenerateSfxInput): Promise<GenerateResu
 
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    const err = new Error(`ElevenLabs Sound-Gen ${resp.status}: ${text.slice(0, 500)}`);
+    const err = providerHttpError(
+      `ElevenLabs Sound-Gen ${resp.status}: ${text.slice(0, 500)}`,
+      resp.status,
+    );
     await logFailure(input, ID, modelId, "sfx", body, err, t0);
     throw err;
   }
@@ -1007,9 +974,8 @@ export async function generateSfx(input: GenerateSfxInput): Promise<GenerateResu
     await logFailure(input, ID, modelId, "sfx", body, err, t0);
     throw err;
   }
-  const localPath = assetPath(input, "sfx", `${input.slot}.mp3`);
+  const localPath = providerOutputPath(input);
   await fs.mkdir(path.dirname(localPath), { recursive: true });
-  await protectExistingAsset(localPath, input.overwrite);
   await fs.writeFile(localPath, buf);
 
   const result: GenerateResult = {
@@ -1018,19 +984,6 @@ export async function generateSfx(input: GenerateSfxInput): Promise<GenerateResu
     latencyMs: Date.now() - t0,
     model: modelId,
   };
-  await logGeneration(generationDestination(input), {
-    slot: input.slot,
-    provider: ID,
-    model: modelId,
-    endpoint: "sound-generation",
-    kind: "sfx",
-    input: { slot: input.slot, project: input.projectId, prompt: input.prompt, duration_seconds: duration, prompt_influence: body.prompt_influence },
-    output: { local: localPath, bytes: buf.length },
-    status: "ok",
-    latency_ms: result.latencyMs,
-    cost_usd: 0,
-    note: input.note ?? input.slot,
-  });
   return result;
 }
 

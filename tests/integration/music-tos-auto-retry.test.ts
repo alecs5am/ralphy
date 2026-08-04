@@ -91,6 +91,7 @@ describe("submitMusicWithToSAutoRetry — end-to-end against mocked EL", () => {
       submit: (p) =>
         generateMusic({
           projectId,
+          ...providerOutput("tos-1", "bed-01.mp3"),
           slot: "bed-01",
           prompt: p,
           durationSec: 8,
@@ -128,15 +129,8 @@ describe("submitMusicWithToSAutoRetry — end-to-end against mocked EL", () => {
     expect((resubmit!.input as Record<string, unknown>).original_prompt).toBe("Drake type beat");
     expect((resubmit!.input as Record<string, unknown>).resubmit_prompt).toBe(suggestion);
 
-    // ── row 2: the connector's success row (separate from row 3) ────────────
-    const connectorOk = rows.find(
-      (r) =>
-        r.status === "ok" &&
-        r.kind === "music" &&
-        (r.input as Record<string, unknown>).prompt_suggestion_used !== true,
-    );
-    expect(connectorOk).toBeDefined();
-    expect((connectorOk!.input as Record<string, unknown>).prompt).toBe(suggestion);
+    // Run-backed providers no longer append their own legacy success row.
+    expect(rows).toHaveLength(2);
   }, 30_000);
 
   test("400 ToS WITHOUT prompt_suggestion → rethrows, no resubmit attempted", async () => {
@@ -159,6 +153,7 @@ describe("submitMusicWithToSAutoRetry — end-to-end against mocked EL", () => {
         submit: (p) =>
           generateMusic({
             projectId,
+            ...providerOutput("tos-2", "bed-02.mp3"),
             slot: "bed-02",
             prompt: p,
             durationSec: 8,
@@ -188,6 +183,7 @@ describe("submitMusicWithToSAutoRetry — end-to-end against mocked EL", () => {
       submit: (p) =>
         generateMusic({
           projectId,
+          ...providerOutput("tos-3", "bed-03.mp3"),
           slot: "bed-03",
           prompt: p,
           durationSec: 6,
@@ -200,3 +196,8 @@ describe("submitMusicWithToSAutoRetry — end-to-end against mocked EL", () => {
     expect(rows.find((r) => /tos_rejected/.test(r.error ?? ""))).toBeUndefined();
   }, 30_000);
 });
+
+function providerOutput(id: string, filename: string): { runId: string; outputPath: string } {
+  const runId = `run_${id}`;
+  return { runId, outputPath: path.join(tmpRoot, ".ralphy", "tmp", runId, filename) };
+}

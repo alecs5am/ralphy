@@ -126,12 +126,14 @@ describe("generateVoiceover — per-slot file lock (#039)", () => {
     const [a, b] = await Promise.all([
       generateVoiceover({
         projectId,
+        ...providerOutput("parallel-a", "scene-01-vo.mp3"),
         slot: "scene-01-vo",
         text: "first call",
         voiceId: "v1",
       }),
       generateVoiceover({
         projectId,
+        ...providerOutput("parallel-b", "scene-01-vo.mp3"),
         slot: "scene-01-vo",
         text: "second call",
         voiceId: "v1",
@@ -142,29 +144,16 @@ describe("generateVoiceover — per-slot file lock (#039)", () => {
     expect(a.localPath).toContain("scene-01-vo");
     expect(b.localPath).toContain("scene-01-vo");
 
-    // Lock invariant: at most one in-flight network write per dest path.
-    expect(maxActive).toBe(1);
+    // Distinct Run temp paths are safe to produce concurrently.
+    expect(maxActive).toBe(2);
     // The lock guarantees mutual exclusion, NOT FIFO acquisition order — under
     // scheduler jitter the two promises can acquire in either order. Assert the
     // SET (both writes happened), not the sequence, so a green run can't flip
     // red on order alone (#463).
     expect([...writeOrder].sort()).toEqual(["first call", "second call"]);
 
-    // The second write archives the first to scene-01-vo.v1.mp3 (the
-    // protectExistingAsset pass — that path stays load-bearing).
-    const voDir = path.join(
-      tmpRoot,
-      ".ralphy",
-      "workspaces",
-      "default",
-      "projects",
-      projectId,
-      "artifacts",
-      "voiceover",
-    );
-    const onDisk = fs.readdirSync(voDir).sort();
-    expect(onDisk).toContain("scene-01-vo.mp3");
-    expect(onDisk).toContain("scene-01-vo.v1.mp3");
+    expect(fs.existsSync(a.localPath)).toBe(true);
+    expect(fs.existsSync(b.localPath)).toBe(true);
 
     // The active file is valid audio (ffprobe-verifiable when ffprobe is on
     // PATH; if missing, the verify pass is a no-op so we skip the check).
@@ -178,7 +167,7 @@ describe("generateVoiceover — per-slot file lock (#039)", () => {
           "format=duration",
           "-of",
           "csv=p=0",
-          path.join(voDir, "scene-01-vo.mp3"),
+          a.localPath,
         ],
         { encoding: "utf8" },
       );
@@ -218,6 +207,7 @@ describe("generateVoiceover — ffprobe verify after write (#039)", () => {
     try {
       await generateVoiceover({
         projectId,
+        ...providerOutput("corrupt", "scene-02-vo.mp3"),
         slot: "scene-02-vo",
         text: "should fail verify",
         voiceId: "v1",
@@ -253,6 +243,7 @@ describe("generateVoiceover — ffprobe verify after write (#039)", () => {
 
     const result = await generateVoiceover({
       projectId,
+      ...providerOutput("retry", "scene-03-vo.mp3"),
       slot: "scene-03-vo",
       text: "retry should succeed",
       voiceId: "v1",
@@ -262,3 +253,8 @@ describe("generateVoiceover — ffprobe verify after write (#039)", () => {
     expect(ttsCalls).toBe(2);
   }, 30_000);
 });
+
+function providerOutput(id: string, filename: string): { runId: string; outputPath: string } {
+  const runId = `run_${id}`;
+  return { runId, outputPath: path.join(tmpRoot, ".ralphy", "tmp", runId, filename) };
+}

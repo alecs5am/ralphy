@@ -15,6 +15,13 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { setRoot } from "../../cli/lib/paths.js";
+import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
+import {
+  artifactRevisionObjectPath,
+  seedDomainProject,
+  type DomainProjectFixture,
+} from "../helpers/domain-media.js";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
 const CLI = path.join(REPO, "cli", "index.ts");
@@ -29,9 +36,11 @@ const HAS_FFMPEG = hasFfmpeg();
 
 let tmpRoot: string;
 let videoPath: string;
+let domain: DomainProjectFixture;
 
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-012-"));
+  domain = seedDomainProject(tmpRoot, "frame-extend");
   videoPath = path.join(tmpRoot, "scene-01.mp4");
   if (!HAS_FFMPEG) return;
   // 2-second 128x128 testsrc — enough frames for both --at 1.5 and --at last.
@@ -86,14 +95,29 @@ describe("ralphy video frame (#012)", () => {
         "video", "frame", videoPath,
         "--at", "1.5",
         "--out", outPng,
+        "--project", domain.projectId,
       ],
-      { encoding: "utf8", env: { ...process.env, NO_COLOR: "1" } },
+      { cwd: tmpRoot, encoding: "utf8", env: { ...process.env, RALPHY_HOME: tmpRoot, NO_COLOR: "1" } },
     );
     expect(r.status).toBe(0);
-    expect(fs.existsSync(outPng)).toBe(true);
-    const { width, height } = probePngSize(outPng);
+    const result = JSON.parse(r.stdout);
+    const stored = artifactRevisionObjectPath(tmpRoot, domain, result.revisionId);
+    expect(fs.existsSync(outPng)).toBe(false);
+    const { width, height } = probePngSize(stored);
     expect(width).toBeGreaterThanOrEqual(1);
     expect(height).toBeGreaterThanOrEqual(1);
+    setRoot(tmpRoot);
+    const persisted = openDomainDb().query<{ value: string | null }, []>(`
+      SELECT metadata_json AS value FROM artifact_revisions
+      UNION ALL SELECT metadata_json FROM objects
+      UNION ALL SELECT request_json FROM run_attempts
+      UNION ALL SELECT response_json FROM run_attempts
+      UNION ALL SELECT metadata_json FROM run_objects
+      UNION ALL SELECT payload_json FROM activity_events
+    `).all().map((row) => row.value ?? "").join("\n");
+    closeDomainDb();
+    setRoot(REPO);
+    expect(persisted).not.toContain(videoPath);
   }, 30_000);
 
   test("--at last writes a decoded PNG via the `-sseof -1` path", () => {
@@ -109,12 +133,15 @@ describe("ralphy video frame (#012)", () => {
         "video", "frame", videoPath,
         "--at", "last",
         "--out", outPng,
+        "--project", domain.projectId,
       ],
-      { encoding: "utf8", env: { ...process.env, NO_COLOR: "1" } },
+      { cwd: tmpRoot, encoding: "utf8", env: { ...process.env, RALPHY_HOME: tmpRoot, NO_COLOR: "1" } },
     );
     expect(r.status).toBe(0);
-    expect(fs.existsSync(outPng)).toBe(true);
-    const { width, height } = probePngSize(outPng);
+    const result = JSON.parse(r.stdout);
+    const stored = artifactRevisionObjectPath(tmpRoot, domain, result.revisionId);
+    expect(fs.existsSync(outPng)).toBe(false);
+    const { width, height } = probePngSize(stored);
     expect(width).toBeGreaterThanOrEqual(1);
     expect(height).toBeGreaterThanOrEqual(1);
   }, 30_000);
@@ -144,14 +171,7 @@ describe("ralphy video extend --dry-run (#012)", () => {
       console.warn("ffmpeg missing — skipping `video extend --dry-run` test");
       return;
     }
-    // Scaffold a project under <tmpRoot>/workspace/projects/<id>/ to match the
-    // `--cwd <tmpRoot>` env scoping used by the rest of the integration suite.
-    const projectId = "extend-012-test";
-    const projectDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", projectId);
-    fs.mkdirSync(path.join(projectDir, "refs"), { recursive: true });
-
-    // Move the fixture into the project so the resolution is unambiguous.
-    const projClip = path.join(projectDir, "scene-01.mp4");
+    const projClip = path.join(tmpRoot, "scene-01-copy.mp4");
     fs.copyFileSync(videoPath, projClip);
 
     const r = spawnSync(
@@ -159,7 +179,7 @@ describe("ralphy video extend --dry-run (#012)", () => {
       [
         "run", CLI, "--cwd", tmpRoot,
         "video", "extend", projClip,
-        "--project", projectId,
+        "--project", domain.projectId,
         "--slot", "scene-02",
         "--prompt", "continue the motion",
         "--duration", "5",
@@ -177,15 +197,15 @@ describe("ralphy video extend --dry-run (#012)", () => {
       },
     );
     expect(r.status).toBe(0);
+    const result = JSON.parse(r.stdout);
+    const stored = artifactRevisionObjectPath(tmpRoot, domain, result.revisionId);
+    expect(probePngSize(stored).width).toBeGreaterThanOrEqual(1);
 
-    // Anchor PNG landed under the project's artifacts/refs/.
-    const anchor = path.join(projectDir, "artifacts", "refs", "scene-01-last-frame.png");
-    expect(fs.existsSync(anchor)).toBe(true);
-
-    // dry-run output announces the extends lineage + tags itself.
+    // Dry-run output identifies the domain result without leaking intake/temp paths.
     const stdout = r.stdout ?? "";
     expect(stdout).toContain("\"dryRun\": true");
-    expect(stdout).toContain("\"extends\"");
-    expect(stdout).toContain("scene-01.mp4");
+    expect(stdout).not.toContain(tmpRoot);
+    expect(stdout).not.toContain("scene-01-copy.mp4");
+    expect(result).not.toHaveProperty("chain.extends");
   }, 60_000);
 });

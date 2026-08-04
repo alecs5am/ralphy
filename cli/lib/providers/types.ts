@@ -7,6 +7,8 @@
 //
 // First slice of notes/ideas/005 (pluggable provider spec).
 
+import type { JsonValue } from "../store/types.js";
+
 // ─── Capability matrix axis ──────────────────────────────────────────────────
 
 /** The generation-verb axis of the provider matrix. */
@@ -41,9 +43,15 @@ export type GenerateResult = {
   latencyMs: number;
   /** Model id actually used (provider may resolve aliases). */
   model: string;
+  /** Safe provider-side preprocessing facts captured by the Run Attempt. */
+  preprocess?: JsonValue;
 };
 
 export type CommonInput = {
+  /** Domain Run that owns this provider attempt. */
+  runId?: string;
+  /** Provider-only destination beneath `<data-root>/tmp/<run-id>/`. */
+  outputPath?: string;
   /** Existing project artifact destination. Exactly one scope is required. */
   projectId?: string;
   /** Workspace shared-asset destination. Exactly one scope is required. */

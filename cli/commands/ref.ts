@@ -7,7 +7,7 @@ import { slugify, generateId } from "../lib/ids.js";
 import { out, ok, err } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { scoreTikTok } from "../lib/score.js";
-import { root, projectDir, referencesDir } from "../lib/paths.js";
+import { ralphDir, root, projectDir, referencesDir } from "../lib/paths.js";
 import {
   pullReference,
   sampleFrames,
@@ -27,6 +27,18 @@ import { bulkFetch, readUrlList } from "../lib/bulk-fetch.js";
 import { logGeneration } from "../lib/gen-log.js";
 import { projectRefsDir } from "../lib/paths.js";
 import { extractSite } from "../lib/playwright/site-extract.js";
+import { addArtifactUsage, resolveLatestArtifactObject } from "../lib/store/artifacts.js";
+import {
+  completeArtifactRun,
+  completeArtifactRunSet,
+  finishRun,
+  finishRunAttempt,
+  projectRunFailure,
+  startRun,
+  startRunAttempt,
+} from "../lib/store/runs.js";
+import { generationRunScope } from "../lib/generation-scope.js";
+import { produceArtifactRevision } from "../lib/artifact-production.js";
 
 export function refCmd() {
   const cmd = new Command("ref").description("Manage references (websites, social media)");
@@ -131,6 +143,7 @@ export function refCmd() {
     // Bulk-image-pull flags (#048):
     .option("--kind <kind>", "Bulk mode: 'reference-image' triggers bulk-fetch into <project>/artifacts/refs/")
     .option("--project <id>", "Bulk mode: target project id (artifacts/refs/ lives under <project>/ = .ralphy/workspaces/<ws>/projects/<id>/)")
+    .option("--workspace <id>", "Bulk mode: target Workspace ID or slug for a shared reference Artifact")
     .option("--from-file <path>", "Bulk mode: read URLs from a file (one per line, # comments OK)")
     .option("--concurrency <n>", "Bulk mode: parallel downloads (default 4)", (v) => parseInt(v, 10), 4)
     .option("--timeout <ms>", "Bulk mode: per-URL timeout in ms (default 30000)", (v) => parseInt(v, 10), 30_000)
@@ -143,7 +156,7 @@ export function refCmd() {
         return;
       }
 
-      // Legacy: single-URL yt-dlp video pull.
+      // Single-reference video pull.
       if (urls.length === 0) {
         raiseError("E_INPUT_INVALID", {
           field: "url",
@@ -161,6 +174,34 @@ export function refCmd() {
         return;
       }
       const url = urls[0] as string;
+      if (Boolean(opts.project) === Boolean(opts.workspace)) {
+        raiseError("E_INPUT_INVALID", {
+          field: "destination",
+          detail: "video pull requires exactly one of --project <id> or --workspace <id>",
+          verb: "ref pull",
+        });
+        return;
+      }
+      if (opts.global) {
+        raiseError("E_INPUT_INVALID", {
+          field: "global",
+          detail: "domain-backed video pull does not write the legacy global references tree",
+          verb: "ref pull",
+        });
+        return;
+      }
+      const destination = opts.project
+        ? { kind: "project" as const, id: opts.project as string }
+        : { kind: "workspace" as const, id: opts.workspace as string };
+      const scope = generationRunScope(destination);
+      const workspaceId = "workspaceId" in scope ? scope.workspaceId : undefined;
+      const run = startRun({ ...scope, kind: "ref.pull", label: opts.slug ?? slugFromUrl(url) });
+      const attempt = startRunAttempt({
+        runId: run.id,
+        provider: opts.local ? "local" : "yt-dlp",
+        model: opts.local ? "local-reference" : "yt-dlp",
+        request: { mode: opts.local ? "local" : "remote" },
+      });
       try {
         const result = await pullReference({
           url,
@@ -168,47 +209,101 @@ export function refCmd() {
           localPath: opts.local,
           audioOnly: opts.audioOnly,
           metaOnly: opts.metaOnly,
-          noAudioExtract: !opts.audioExtract && opts.noAudioExtract === true,
-          global: opts.global === true,
+          noAudioExtract: opts.audioExtract === false,
+          outputDir: path.join(ralphDir(), "tmp", run.id, "pull"),
         });
+        const summary = referenceSummary(result.meta);
+        const outputs = [
+          {
+            finishedPath: result.metaPath,
+            originalName: `${result.slug}-metadata.json`,
+            mime: "application/json",
+            artifact: { slug: `${result.slug}-metadata`, kind: "data" as const, state: "candidate" as const,
+              metadata: summary },
+            objectMetadata: { source: "reference", media: "metadata" },
+          },
+          ...(result.videoPath ? [{
+            finishedPath: result.videoPath,
+            originalName: `${result.slug}.mp4`,
+            mime: "video/mp4",
+            artifact: { slug: `${result.slug}-video`, kind: "video" as const, state: "candidate" as const,
+              metadata: summary },
+            objectMetadata: { source: "reference", media: "video" },
+          }] : []),
+          ...(result.audioPath ? [{
+            finishedPath: result.audioPath,
+            originalName: `${result.slug}.mp3`,
+            mime: "audio/mpeg",
+            artifact: { slug: `${result.slug}-audio`, kind: "audio" as const, state: "candidate" as const,
+              metadata: summary },
+            objectMetadata: { source: "reference", media: "audio" },
+          }] : []),
+        ];
+        const completed = await completeArtifactRunSet({
+          runId: run.id,
+          attemptId: attempt.id,
+          outputs,
+          response: { outputCount: outputs.length },
+          costUsd: 0,
+        });
+        for (const item of completed.outputs) {
+          addArtifactUsage({
+            artifactRevisionId: item.revision.id,
+            ...(opts.project ? { projectId: opts.project as string } : { workspaceId: workspaceId! }),
+            role: "reference",
+          });
+        }
         if (opts.register) {
           await addAction(url, { type: "social", name: result.slug });
         }
-        ok(`Pulled ${result.slug} → ${result.dir}`);
+        ok(`Pulled ${result.slug} → ${completed.outputs.length} Artifact Revisions`);
         out({
           slug: result.slug,
-          dir: result.dir,
-          videoPath: result.videoPath ?? null,
-          audioPath: result.audioPath ?? null,
-          metaPath: result.metaPath,
-          title: (result.meta.title as string | undefined) ?? null,
-          uploader: (result.meta.uploader as string | undefined) ?? null,
-          duration: (result.meta.duration as number | undefined) ?? null,
+          runId: completed.run.id,
+          artifacts: completed.outputs.map((item) => ({
+            kind: item.artifact.kind,
+            artifactId: item.artifact.id,
+            revisionId: item.revision.id,
+          })),
+          ...summary,
         });
       } catch (e: any) {
-        raiseError("E_PROVIDER_HTTP", { provider: "yt-dlp", status: 0, detail: e?.message ?? String(e) });
+        const projected = projectRunFailure(e, { provider: opts.local ? "local" : "yt-dlp" });
+        try {
+          finishRunAttempt(attempt.id, { state: "failed", error: projected });
+        } catch {
+          // Completion may already have terminalized the Attempt.
+        }
+        try {
+          finishRun(run.id, { state: "failed", error: projected });
+        } catch {
+          // Completion may already have terminalized the Run.
+        }
+        raiseError("E_PROVIDER_HTTP", { provider: "yt-dlp", status: 0, detail: projected.message });
       }
     });
 
   // ── bulk-image-pull worker (#048) ──────────────────────────────────────
   async function runBulkImagePull(positional: string[], opts: any): Promise<void> {
     const projectId: string | undefined = opts.project;
-    if (!projectId) {
+    const workspace: string | undefined = opts.workspace;
+    if (Boolean(projectId) === Boolean(workspace)) {
       raiseError("E_INPUT_INVALID", {
-        field: "--project",
-        detail: "bulk image pull requires --project <id> (target for artifacts/refs/)",
+        field: "destination",
+        detail: "bulk image pull requires exactly one of --project <id> or --workspace <id>",
         verb: "ref pull",
       });
       return;
     }
-    const project = await getEntity("projects", projectId);
-    if (!project) {
-      raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
-      return;
-    }
+    const scope = generationRunScope(projectId
+      ? { kind: "project", id: projectId }
+      : { kind: "workspace", id: workspace! });
+    const workspaceId = "workspaceId" in scope ? scope.workspaceId : undefined;
     // Collect URLs: positional + --from-file (deduped, order-preserving).
     const fromFile: string[] = opts.fromFile
-      ? await readUrlList(intakePath(opts.fromFile, projectId, "from-file"))
+      ? await readUrlList(projectId
+        ? intakePath(opts.fromFile, projectId, "from-file")
+        : path.resolve(opts.fromFile))
       : [];
     const urls = dedupeOrdered([...positional, ...fromFile]);
     if (urls.length === 0) {
@@ -219,60 +314,74 @@ export function refCmd() {
       });
       return;
     }
-    const projDir = projectDir(projectId);
-    const refsLocalDir = projectRefsDir(projectId);
-    const results = await bulkFetch({
-      urls,
-      destDir: refsLocalDir,
-      concurrency: opts.concurrency ?? 4,
-      timeoutMs: opts.timeout ?? 30_000,
-      onProgress: (r) => {
-        // Stream breadcrumbs on stderr so they don't pollute JSON on stdout.
-        if (r.status === "downloaded") process.stderr.write(`  ↓ ${r.url} → ${r.filename}\n`);
-        else if (r.status === "skipped-existing") process.stderr.write(`  ◦ ${r.url} → ${r.filename} (existing sha match)\n`);
-        else if (r.status === "skipped-duplicate") process.stderr.write(`  ◦ ${r.url} → ${r.filename} (duplicate sha)\n`);
-        else if (r.status === "error") process.stderr.write(`  ✗ ${r.url} — ${r.error}\n`);
-      },
-    });
-    // Log each download row (skip pure errors — they have no bytes).
-    for (const r of results) {
-      if (r.status === "error") {
-        await logGeneration(projectId, {
-          provider: "http",
-          model: "http-bulk-fetch",
-          endpoint: "ref-pull-bulk",
-          kind: "other",
-          input: { project: projectId, url: r.url, kind_hint: "reference-image" },
-          status: "error",
-          error: r.error,
-          cost_usd: 0,
-        });
-      } else {
-        await logGeneration(projectId, {
-          provider: "http",
-          model: "http-bulk-fetch",
-          endpoint: "ref-pull-bulk",
-          kind: "other",
-          input: { project: projectId, url: r.url, kind_hint: "reference-image" },
-          output: {
-            local: r.dest ? path.relative(projDir, r.dest) : undefined,
-            bytes: r.bytes,
-          },
-          status: "ok",
-          cost_usd: 0,
-          note: r.status === "downloaded"
-            ? `bulk-fetch: ${r.filename}`
-            : `bulk-fetch: ${r.filename} (${r.status})`,
-        });
+    const seen = new Set<string>();
+    const results = [] as Awaited<ReturnType<typeof bulkFetch>>;
+    const domainResults: Array<{ artifactId: string; revisionId: string; runId: string }> = [];
+    for (const url of urls) {
+      const run = startRun({ ...scope, kind: "ref.pull", label: url });
+      const attempt = startRunAttempt({ runId: run.id, provider: "http", model: "http-bulk-fetch", request: { url } });
+      let fetched: Awaited<ReturnType<typeof bulkFetch>>[number];
+      try {
+        fetched = (await bulkFetch({
+          urls: [url],
+          destDir: path.join(ralphDir(), "tmp", run.id),
+          concurrency: 1,
+          timeoutMs: opts.timeout ?? 30_000,
+        }))[0]!;
+      } catch (error) {
+        const projected = projectRunFailure(error, { provider: "http" });
+        finishRunAttempt(attempt.id, { state: "failed", error: projected });
+        finishRun(run.id, { state: "failed", error: projected });
+        throw projected;
       }
+      if (fetched.status === "error" || !fetched.dest || !fetched.filename || !fetched.sha256) {
+        const projected = projectRunFailure(fetched.error, { provider: "http" });
+        finishRunAttempt(attempt.id, { state: "failed", error: projected });
+        finishRun(run.id, { state: "failed", error: projected });
+        results.push({ ...fetched, error: projected.message });
+        continue;
+      }
+      if (seen.has(fetched.sha256)) {
+        await fs.rm(fetched.dest, { force: true });
+        finishRunAttempt(attempt.id, { state: "succeeded", response: { duplicate: true }, costUsd: 0 });
+        finishRun(run.id, { state: "succeeded" });
+        results.push({ ...fetched, status: "skipped-duplicate" });
+        continue;
+      }
+      seen.add(fetched.sha256);
+      const extension = path.extname(fetched.filename).toLowerCase();
+      const slug = path.basename(fetched.filename, extension);
+      const completed = await completeArtifactRun({
+        runId: run.id,
+        attemptId: attempt.id,
+        finishedPath: fetched.dest,
+        originalName: fetched.filename,
+        mime: referenceImageMime(extension),
+        artifact: { slug, kind: "image", state: "candidate", metadata: { sourceUrl: url } },
+        objectMetadata: { sourceUrl: url },
+        response: { bytes: fetched.bytes ?? null, sha256: fetched.sha256 },
+        costUsd: 0,
+      });
+      addArtifactUsage({
+        artifactRevisionId: completed.revision.id,
+        ...(projectId ? { projectId } : { workspaceId: workspaceId! }),
+        role: "reference",
+      });
+      results.push(fetched);
+      domainResults.push({
+        artifactId: completed.artifact.id,
+        revisionId: completed.revision.id,
+        runId: completed.run.id,
+      });
+      process.stderr.write(`  ↓ ${url} → Artifact Revision ${completed.revision.id}\n`);
     }
     const downloaded = results.filter((r) => r.status === "downloaded").length;
     const skipped = results.filter((r) => r.status.startsWith("skipped")).length;
     const errored = results.filter((r) => r.status === "error").length;
     ok(`Bulk pull: ${downloaded} downloaded · ${skipped} skipped · ${errored} errored`);
     out({
-      project: projectId,
-      destDir: path.relative(projDir, refsLocalDir),
+      ...(projectId ? { project: projectId } : { workspace: workspaceId! }),
+      artifacts: domainResults,
       total: results.length,
       downloaded,
       skipped,
@@ -395,46 +504,105 @@ export function refCmd() {
   // ── frames (ffmpeg sampler) ────────────────────────────────────────────
   cmd
     .command("frames <slug>")
-    .description("Sample JPEG frames from <slug>/source.mp4 → <slug>/frames/")
+    .description("Sample JPEG frame Artifacts from a pulled video reference Artifact")
     .option("--fps <n>", "Frames-per-second (default 1/6 ≈ one every 6s)", (v) => Number(v))
     .option("--max <n>", "Max frames", (v) => parseInt(v, 10), 24)
     .option("--width <px>", "Scale width (default 540)", (v) => parseInt(v, 10), 540)
-    .option("--global", "Resolve the slug in the global .ralphy/references/ tree only (#401)", false)
+    .option("--project <id>", "Project containing the pulled reference Artifact")
+    .option("--workspace <id>", "Workspace containing a shared pulled reference Artifact")
     .action(async (slug: string, opts: any) => {
+      let run: ReturnType<typeof startRun> | undefined;
+      let attempt: ReturnType<typeof startRunAttempt> | undefined;
       try {
+        const source = resolveReferenceArtifact(slug, "video", opts);
+        run = startRun({ ...source.scope, kind: "ref.frames", label: slug });
+        attempt = startRunAttempt({ runId: run.id, provider: "ffmpeg", model: "ffmpeg/frames" });
         const r = await sampleFrames({
           slug,
+          sourcePath: source.objectPath,
+          outputDir: path.join(ralphDir(), "tmp", run.id, "frames"),
           fps: opts.fps,
           max: opts.max,
           width: opts.width,
-          global: opts.global === true,
         });
-        ok(`Sampled ${r.count} frames → ${r.dir}`);
-        out({ slug: r.slug, dir: r.dir, count: r.count });
+        const completed = await completeArtifactRunSet({
+          runId: run.id,
+          attemptId: attempt.id,
+          outputs: r.paths.map((framePath, index) => ({
+            finishedPath: framePath,
+            originalName: `${slug}-frame-${index + 1}.jpg`,
+            mime: "image/jpeg",
+            artifact: { slug: `${slug}-frame-${index + 1}`, kind: "image", state: "candidate" },
+            objectMetadata: { provider: "ffmpeg", model: "ffmpeg/frames" },
+          })),
+          response: { frameCount: r.count },
+          costUsd: 0,
+        });
+        for (const item of completed.outputs) addReferenceUsage(item.revision.id, opts, source.scope);
+        ok(`Sampled ${r.count} frames from Artifact Revision ${source.revision.id}`);
+        out({ slug: r.slug, count: r.count, sourceArtifactId: source.artifact.id,
+          sourceRevisionId: source.revision.id, runId: completed.run.id,
+          artifacts: completed.outputs.map((item) => ({ artifactId: item.artifact.id,
+            revisionId: item.revision.id })) });
       } catch (e: any) {
-        raiseError("E_INTERNAL", { detail: `frames: ` });
+        const projected = projectRunFailure(e);
+        if (attempt) {
+          try { finishRunAttempt(attempt.id, { state: "failed", error: projected }); } catch { /* already terminal */ }
+        }
+        if (run) {
+          try { finishRun(run.id, { state: "failed", error: projected }); } catch { /* already terminal */ }
+        }
+        raiseError("E_INTERNAL", { detail: `frames: ${projected.message}` });
       }
     });
 
   // ── transcribe (research-context, no project ID) ───────────────────────
   cmd
     .command("transcribe <slug>")
-    .description("Transcribe <slug>/source.mp3 → <slug>/transcript.json (Caption[]). Default backend: ElevenLabs Scribe v1.")
+    .description("Transcribe a pulled audio reference Artifact into a data Artifact")
     .option("--language <lang>", "ru | en | auto", "ru")
     .option("--backend <backend>", "elevenlabs | openrouter | gemini", "elevenlabs")
-    .option("--global", "Resolve the slug in the global .ralphy/references/ tree only (#401)", false)
+    .option("--project <id>", "Project containing the pulled reference Artifact")
+    .option("--workspace <id>", "Workspace containing a shared pulled reference Artifact")
     .action(async (slug: string, opts: any) => {
       try {
-        const r = await transcribeRef({
-          slug,
-          language: opts.language as TranscribeLanguage,
-          backend: opts.backend as TranscribeBackend,
-          global: opts.global === true,
+        const source = resolveReferenceArtifact(slug, "audio", opts);
+        let transcript: Awaited<ReturnType<typeof transcribeRef>> | undefined;
+        const completed = await produceArtifactRevision({
+          scope: source.scope,
+          runKind: "ref.transcribe",
+          requestedOutput: `${slug}-transcript.json`,
+          artifactKind: "data",
+          mime: "application/json",
+          provider: opts.backend === "elevenlabs" ? "elevenlabs" : "openrouter",
+          model: `transcribe/${opts.backend}`,
+          produce: async (outputPath) => {
+            transcript = await transcribeRef({
+              slug,
+              sourcePath: source.objectPath,
+              outputPath,
+              language: opts.language as TranscribeLanguage,
+              backend: opts.backend as TranscribeBackend,
+            });
+            return {
+              localPath: outputPath,
+              provider: transcript.provider,
+              model: transcript.model,
+              latencyMs: transcript.latencyMs,
+              costUsd: transcript.costUsd,
+            };
+          },
         });
-        ok(`Transcribed ${r.count} captions → ${r.path}`);
+        addReferenceUsage(completed.revision.id, opts, source.scope);
+        const r = transcript!;
+        ok(`Transcribed ${r.count} captions from Artifact Revision ${source.revision.id}`);
         out({
           slug: r.slug,
-          path: r.path,
+          artifactId: completed.artifact.id,
+          revisionId: completed.revision.id,
+          runId: completed.run.id,
+          sourceArtifactId: source.artifact.id,
+          sourceRevisionId: source.revision.id,
           captions: r.count,
           language: r.language,
           backend: r.backend,
@@ -442,7 +610,8 @@ export function refCmd() {
           costUsd: r.costUsd,
         });
       } catch (e: any) {
-        raiseError("E_PROVIDER_HTTP", { provider: "ElevenLabs/OpenRouter", status: 0, detail: e?.message ?? String(e) });
+        raiseError("E_PROVIDER_HTTP", { provider: "ElevenLabs/OpenRouter", status: 0,
+          detail: projectRunFailure(e).message });
       }
     });
 
@@ -1079,4 +1248,50 @@ Examples:
   );
 
   return cmd;
+}
+
+function referenceSummary(meta: Record<string, unknown>): {
+  title: string | null;
+  uploader: string | null;
+  duration: number | null;
+} {
+  return {
+    title: typeof meta.title === "string" ? meta.title : null,
+    uploader: typeof meta.uploader === "string" ? meta.uploader : null,
+    duration: typeof meta.duration === "number" && Number.isFinite(meta.duration) ? meta.duration : null,
+  };
+}
+
+function resolveReferenceArtifact(slug: string, kind: "video" | "audio", opts: any) {
+  if (Boolean(opts.project) === Boolean(opts.workspace)) {
+    raiseError("E_INPUT_INVALID", {
+      field: "destination",
+      detail: `ref ${kind === "video" ? "frames" : "transcribe"} requires exactly one of --project <id> or --workspace <id>`,
+      verb: kind === "video" ? "ref frames" : "ref transcribe",
+    });
+  }
+  const context = generationRunScope(opts.project
+    ? { kind: "project", id: opts.project }
+    : { kind: "workspace", id: opts.workspace });
+  return { ...resolveLatestArtifactObject({ context, slug: `${slug}-${kind}`, kind }), scope: context };
+}
+
+function addReferenceUsage(
+  revisionId: string,
+  opts: any,
+  scope: { projectId: string } | { workspaceId: string },
+): void {
+  addArtifactUsage({
+    artifactRevisionId: revisionId,
+    ...(opts.project ? { projectId: opts.project as string } : { workspaceId: (scope as { workspaceId: string }).workspaceId }),
+    role: "reference",
+  });
+}
+
+function referenceImageMime(extension: string): string {
+  if (extension === ".png") return "image/png";
+  if (extension === ".jpg" || extension === ".jpeg") return "image/jpeg";
+  if (extension === ".webp") return "image/webp";
+  if (extension === ".gif") return "image/gif";
+  throw new Error(`unsupported reference image extension: ${extension || "<none>"}`);
 }

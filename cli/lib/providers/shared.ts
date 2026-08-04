@@ -22,6 +22,7 @@ import {
 import { raiseError } from "../errors/index.js";
 import type { CommonInput } from "./types.js";
 import { credentialConfigured } from "./credentials.js";
+import { ralphDir } from "../paths.js";
 
 /**
  * Refuse cleanly when a connector's API key is absent. Replaces the old
@@ -96,6 +97,20 @@ export function assetPath(
       ? { kind: "project" as const, id: scope }
       : generationDestination(scope);
   return destinationAssetPath(destination, kind, filename);
+}
+
+/** Resolve the only write destination accepted by domain-backed media providers. */
+export function providerOutputPath(input: Pick<CommonInput, "runId" | "outputPath">): string {
+  if (!input.runId || !input.outputPath || !path.isAbsolute(input.outputPath)) {
+    throw new Error("Provider requires an absolute Run temp output path");
+  }
+  const runRoot = path.resolve(ralphDir(), "tmp", input.runId);
+  const outputPath = path.resolve(input.outputPath);
+  const relative = path.relative(runRoot, outputPath);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error("Provider output path must be inside its Run temp directory");
+  }
+  return outputPath;
 }
 
 /**
@@ -489,6 +504,7 @@ export async function logFailure(
   t0: number,
   attempt = 1,
 ): Promise<void> {
+  if (input.runId) return;
   const destination = generationDestination(input);
   await logGeneration(destination, {
     slot: input.slot,
@@ -557,6 +573,28 @@ export class TerminalProviderError extends Error {
   }
 }
 
+const RETRYABLE_HTTP_STATUS = new Set([408, 425, 429]);
+
+/** Attach allowlisted HTTP facts at the adapter boundary, before projection. */
+export function providerHttpError(
+  message: string,
+  status: number,
+  extras?: TerminalProviderErrorExtras,
+): Error {
+  const retryable = RETRYABLE_HTTP_STATUS.has(status) || status >= 500;
+  const error = status >= 400 && status < 500 && !retryable
+    ? new TerminalProviderError(message, extras)
+    : new Error(message);
+  if (Number.isSafeInteger(status) && status >= 400 && status <= 599) {
+    (error as Error & { status: number }).status = status;
+    (error as Error & { code: string }).code = `HTTP_${status}`;
+  }
+  if (extras?.promptSuggestion) {
+    (error as Error & { promptSuggestion?: string }).promptSuggestion = extras.promptSuggestion;
+  }
+  return error;
+}
+
 /**
  * Mark a 200-OK-but-empty-payload (gemini skeleton-null, gpt-image empty
  * images[], `MALFORMED_FUNCTION_CALL` on chat-completions) as transient.
@@ -613,6 +651,15 @@ const TRANSIENT_MESSAGE_HINTS = [
  *  - everything else
  */
 export function classifyError(err: unknown): "transient" | "terminal" {
+  const status = err && typeof err === "object"
+    ? (err as { status?: unknown }).status
+    : undefined;
+  if (typeof status === "number" && Number.isSafeInteger(status)) {
+    if (RETRYABLE_HTTP_STATUS.has(status) || (status >= 500 && status <= 599)) {
+      return "transient";
+    }
+    if (status >= 400 && status <= 499) return "terminal";
+  }
   if (err instanceof TerminalProviderError) return "terminal";
   if (err instanceof TransientPayloadError) return "transient";
   if (!(err instanceof Error)) return "terminal";

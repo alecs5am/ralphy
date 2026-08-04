@@ -1,4 +1,4 @@
-// Integration tests for `ralphy asset chromakey`, `ralphy ref rasterize`, and
+// Integration tests for `ralphy ref rasterize` and domain-backed
 // `ralphy image cutout/fit` (#037). Spawns real ffmpeg + headless Chromium
 // against synthetic fixtures.
 //
@@ -11,6 +11,11 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import {
+  artifactRevisionObjectPath,
+  seedDomainProject,
+  type DomainProjectFixture,
+} from "../helpers/domain-media.js";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
 const CLI = path.join(REPO, "cli", "index.ts");
@@ -26,9 +31,11 @@ const HAS_FFMPEG = hasFfmpeg();
 let tmpRoot: string;
 let greenPng: string;
 let logoSvg: string;
+let domain: DomainProjectFixture;
 
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-037-"));
+  domain = seedDomainProject(tmpRoot, "image-recipes");
   greenPng = path.join(tmpRoot, "green-bg.png");
   logoSvg = path.join(tmpRoot, "logo.svg");
 
@@ -103,29 +110,6 @@ function readAlphaPixel(file: string, x: number, y: number): number {
   return buf[3] ?? 255;
 }
 
-describe("`ralphy asset chromakey` (#037)", () => {
-  test("keys out greenscreen → transparent PNG with alpha channel", () => {
-    if (!HAS_FFMPEG) {
-      console.warn("ffmpeg missing — skipping chromakey integration test");
-      return;
-    }
-    const outPng = path.join(tmpRoot, "out-chromakey.png");
-    const r = spawnSync(
-      "bun",
-      [CLI, "asset", "chromakey", greenPng, "--out", outPng, "--color", "0x00b140"],
-      { encoding: "utf8" },
-    );
-    expect(r.status).toBe(0);
-    expect(fs.existsSync(outPng)).toBe(true);
-    // Corner pixel was green → should be transparent now.
-    const cornerAlpha = readAlphaPixel(outPng, 0, 0);
-    expect(cornerAlpha).toBe(0);
-    // Centre pixel was red → should be opaque.
-    const centreAlpha = readAlphaPixel(outPng, 32, 32);
-    expect(centreAlpha).toBeGreaterThan(200);
-  });
-});
-
 describe("`ralphy ref rasterize` (#037)", () => {
   test("SVG → PNG at requested long-edge size, preserving aspect", async () => {
     const outPng = path.join(tmpRoot, "out-logo.png");
@@ -168,12 +152,14 @@ describe("`ralphy image cutout --bg chroma` (#037)", () => {
     const outPng = path.join(tmpRoot, "out-cutout.png");
     const r = spawnSync(
       "bun",
-      [CLI, "image", "cutout", "--in", greenPng, "--out", outPng, "--bg", "chroma", "--color", "0x00b140"],
-      { encoding: "utf8" },
+      [CLI, "image", "cutout", "--in", greenPng, "--out", outPng, "--bg", "chroma",
+        "--color", "0x00b140", "--project", domain.projectId],
+      { cwd: tmpRoot, encoding: "utf8", env: { ...process.env, RALPHY_HOME: tmpRoot } },
     );
     expect(r.status).toBe(0);
-    expect(fs.existsSync(outPng)).toBe(true);
-    expect(readAlphaPixel(outPng, 0, 0)).toBe(0);
+    const stored = artifactRevisionObjectPath(tmpRoot, domain, JSON.parse(r.stdout).revisionId);
+    expect(fs.existsSync(outPng)).toBe(false);
+    expect(readAlphaPixel(stored, 0, 0)).toBe(0);
   });
 });
 
@@ -186,18 +172,20 @@ describe("`ralphy image cutout --bg flood` (#037)", () => {
     const outPng = path.join(tmpRoot, "out-flood.png");
     const r = spawnSync(
       "bun",
-      [CLI, "image", "cutout", "--in", greenPng, "--out", outPng, "--bg", "flood", "--tolerance", "16"],
-      { encoding: "utf8" },
+      [CLI, "image", "cutout", "--in", greenPng, "--out", outPng, "--bg", "flood",
+        "--tolerance", "16", "--project", domain.projectId],
+      { cwd: tmpRoot, encoding: "utf8", env: { ...process.env, RALPHY_HOME: tmpRoot } },
     );
     if (r.status !== 0) {
       console.error("flood-fill stderr:", r.stderr);
     }
     expect(r.status).toBe(0);
-    expect(fs.existsSync(outPng)).toBe(true);
+    const stored = artifactRevisionObjectPath(tmpRoot, domain, JSON.parse(r.stdout).revisionId);
+    expect(fs.existsSync(outPng)).toBe(false);
     // Corner pixel started green → flood-fill from (0,0) should clear it.
-    expect(readAlphaPixel(outPng, 0, 0)).toBe(0);
+    expect(readAlphaPixel(stored, 0, 0)).toBe(0);
     // Centre pixel is red → preserved.
-    expect(readAlphaPixel(outPng, 32, 32)).toBeGreaterThan(200);
+    expect(readAlphaPixel(stored, 32, 32)).toBeGreaterThan(200);
   });
 });
 
@@ -224,11 +212,14 @@ describe("`ralphy image fit --telegram` (#037)", () => {
     const outPng = path.join(tmpRoot, "out-tg.png");
     const r = spawnSync(
       "bun",
-      [CLI, "image", "fit", "--in", bigPng, "--out", outPng, "--telegram"],
-      { encoding: "utf8" },
+      [CLI, "image", "fit", "--in", bigPng, "--out", outPng, "--telegram",
+        "--project", domain.projectId],
+      { cwd: tmpRoot, encoding: "utf8", env: { ...process.env, RALPHY_HOME: tmpRoot } },
     );
     expect(r.status).toBe(0);
-    const { w, h } = probePngDims(outPng);
+    const stored = artifactRevisionObjectPath(tmpRoot, domain, JSON.parse(r.stdout).revisionId);
+    expect(fs.existsSync(outPng)).toBe(false);
+    const { w, h } = probePngDims(stored);
     expect(Math.max(w, h)).toBeLessThanOrEqual(512);
     // 1024:768 = 4:3 → long edge 512, short edge 384. Allow ±2px.
     expect(w).toBeGreaterThanOrEqual(510);

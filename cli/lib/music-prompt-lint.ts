@@ -187,6 +187,7 @@ import { logGeneration } from "./gen-log.js";
  */
 export type ToSAutoRetryDeps = {
   projectId: string;
+  runId?: string;
   slot: string;
   prompt: string;
   durationSec: number;
@@ -236,7 +237,8 @@ export async function submitMusicWithToSAutoRetry(
       throw err;
     }
     const musicLengthMs = Math.max(3000, Math.min(600000, Math.round(deps.durationSec * 1000)));
-    await logGeneration(deps.projectId, {
+    if (!deps.runId) {
+      await logGeneration(deps.projectId, {
       slot: deps.slot,
       provider: "elevenlabs",
       model: "music_v1",
@@ -254,9 +256,11 @@ export async function submitMusicWithToSAutoRetry(
       error: `tos_rejected: ${(err as Error).message.slice(0, 300)}`,
       attempt: 1,
       note: `tos_rejected (#006) — auto-resubmit with provider rewrite`,
-    });
+      });
+    }
     const result = await deps.submit(suggestion);
-    await logGeneration(deps.projectId, {
+    if (!deps.runId) {
+      await logGeneration(deps.projectId, {
       slot: deps.slot,
       provider: "elevenlabs",
       model: "music_v1",
@@ -274,7 +278,8 @@ export async function submitMusicWithToSAutoRetry(
       attempt: 2,
       cost_usd: 0,
       note: `tos_rejected_resubmit (#006)`,
-    });
+      });
+    }
     return { result, resubmitted: true, promptSuggestion: suggestion };
   }
 }

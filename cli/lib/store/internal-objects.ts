@@ -475,7 +475,8 @@ function assertNoSymlinkAncestorsSync(root: string, target: string): void {
   }
 }
 
-async function removePreparedMoveSource(
+/** @internal Removes the provider temp file only if it is still the prepared source. */
+export async function removePreparedMoveSource(
   prepared: PreparedObject,
 ): Promise<void> {
   const claimDir = await fs.promises.mkdtemp(

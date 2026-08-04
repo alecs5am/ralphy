@@ -814,8 +814,8 @@ Commands:
   attach [options] <refId>                       Attach reference to a project
   pull [options] [urls...]                       Pull a video via yt-dlp (single URL, default), OR bulk-download images when --kind reference-image / --from-file is set (#048). Bulk mode dedupes by sha256 and writes into <project>/artifacts/refs/.
   pull-site [options] <url>                      Fan-out Playwright crawl of a brand site → screenshots + tokens.json + apis.md (AGENTS invariant #15). Run BEFORE drafting brand-DNA or any code-on-screen creative.
-  frames [options] <slug>                        Sample JPEG frames from <slug>/source.mp4 → <slug>/frames/
-  transcribe [options] <slug>                    Transcribe <slug>/source.mp3 → <slug>/transcript.json (Caption[]). Default backend: ElevenLabs Scribe v1.
+  frames [options] <slug>                        Sample JPEG frame Artifacts from a pulled video reference Artifact
+  transcribe [options] <slug>                    Transcribe a pulled audio reference Artifact into a data Artifact
   analyze [options] <slug>                       Run vision LLM over <slug>/frames/* → <slug>/analysis.json. Default prompt = UGC blueprint extractor.
   analyze-video [options] <slug-or-path-or-url>  Send the full mp4 to Gemini for precise shot-cut detection (better than `analyze` for fast-cut commercials). Arg can be a ref slug, a local file path, or an http(s) URL.
   audio-describe [options] <slug>                Send <slug>/source.mp3 to Gemini-audio → <slug>/audio-analysis.json (tone, music, VO style)
@@ -1569,20 +1569,22 @@ ____        __      __
 
 Usage: ralphy asset [options] [command]
 
-Manage and generate assets
+Alias for `ralphy artifact`
 
 Options:
-  -h, --help                 display help for command
+  -h, --help                     display help for command
 
 Commands:
-  list [options]             List assets in a project
-  clean [options]            Remove assets from a project
-  chromakey [options] <img>  Key out a background colour from a single image →
-                             transparent PNG. Uses ffmpeg `colorkey`. Default
-                             colour is 0x00b140 (greenscreen green); pass
-                             `--despill` for a `colorhold` cleanup pass that
-                             kills the green halo on anti-aliased edges.
-  help [command]             display help for command
+  create [options]               Create a workspace- or Project-scoped Artifact
+  list [options]                 List Artifacts in the explicit scope
+  show [options] <id>            Show safe Artifact metadata
+  revisions [options] <id>       List immutable Artifact Revisions
+  revise [options] <id>          Append an Artifact Revision using an existing
+                                 Object
+  promote [options] <id>         Select an Artifact Revision
+  state [options] <revision-id>  Append a state-changing Artifact Revision
+  usage [options] <revision-id>  List or add a safe Artifact usage
+  help [command]                 display help for command
 ```
 
 ### `ralphy workspace`
@@ -1854,7 +1856,7 @@ Commands:
   artifact                                         Manage immutable Artifacts
   feedback                                         Manage Iteration feedback
   batch                                            Manage batch operations
-  asset                                            Manage and generate assets
+  asset                                            Alias for `ralphy artifact`
   workspace                                        Manage account workspaces: profile, channels, shared brand assets, projects, and units
   calendar                                         Workspace content calendar (#504): recurring posting slots (weekday/time/timezone, unit type, platforms) + dated entries with an idea → queued → produced → gated → scheduled → published lifecycle. Stored at <workspace>/calendar.json with an append-only calendar-events.jsonl history.
   campaign                                         Workspace-scoped topic campaign (#528): theses + a keyword/topic matrix mapped to a planned unit inventory across formats + channels, with cross-linking + a coverage ledger. Stored at <workspace>/campaigns/<id>/campaign.json.

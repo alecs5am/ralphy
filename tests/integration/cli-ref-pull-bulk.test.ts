@@ -8,6 +8,11 @@ import path from "node:path";
 import { createServer, type Server } from "node:http";
 import { createHash } from "node:crypto";
 import { spawnCli, type CliResult } from "../helpers/spawn-cli.js";
+import {
+  artifactRevisionObjectPath,
+  seedDomainProject,
+  type DomainProjectFixture,
+} from "../helpers/domain-media.js";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
 const CLI = path.join(REPO, "cli", "index.ts");
@@ -15,6 +20,8 @@ const CLI = path.join(REPO, "cli", "index.ts");
 let server: Server;
 let port = 0;
 let tmpRoot: string;
+let domain: DomainProjectFixture;
+const RAW_FETCH_ERROR = "TASK4_BULK_FETCH_ERROR file:///private/raw.png";
 
 // Tiny synthetic PNGs (1×1 px each, distinct content per route).
 function tinyPng(seed: number): Buffer {
@@ -49,6 +56,12 @@ beforeAll(() => {
       res.end(tinyPng(3));
       return;
     }
+    if (url === "/error.png") {
+      res.statusCode = 500;
+      res.statusMessage = RAW_FETCH_ERROR;
+      res.end("ignored body");
+      return;
+    }
     res.writeHead(404);
     res.end("not found");
   });
@@ -73,28 +86,7 @@ function ralphy(args: string[]): Promise<CliResult> {
 
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-bulk-pull-"));
-  // Minimal workspace + project registry.
-  fs.mkdirSync(path.join(tmpRoot, ".ralphy"), { recursive: true });
-  fs.mkdirSync(path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "test-bulk-001"), { recursive: true });
-  const registry = {
-    projects: {
-      "test-bulk-001": {
-        id: "test-bulk-001",
-        name: "Bulk pull fixture",
-        brief: "test",
-        refs: [],
-      },
-    },
-    refs: {},
-    brands: {},
-    personas: {},
-    templates: {},
-    batches: {},
-  };
-  fs.writeFileSync(
-    path.join(tmpRoot, ".ralphy", "registry.json"),
-    JSON.stringify(registry, null, 2),
-  );
+  domain = seedDomainProject(tmpRoot, "bulk-pull");
 });
 
 afterEach(() => {
@@ -126,7 +118,7 @@ describe("`ralphy ref pull --from-file --kind reference-image` (#048)", () => {
       "--kind",
       "reference-image",
       "--project",
-      "test-bulk-001",
+      domain.projectId,
     ]);
     if (r.exitCode !== 0) {
       console.error("stderr:", r.stderr);
@@ -138,10 +130,10 @@ describe("`ralphy ref pull --from-file --kind reference-image` (#048)", () => {
     expect(r.json.downloaded).toBe(2);
     expect(r.json.errored).toBe(0);
 
-    const refsDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "test-bulk-001", "artifacts", "refs");
-    const files = fs.readdirSync(refsDir).sort();
-    expect(files).toContain("127.0.0.1-foo.png");
-    expect(files).toContain("127.0.0.1-bar.jpg");
+    expect(r.json.artifacts).toHaveLength(2);
+    for (const artifact of r.json.artifacts) {
+      expect(fs.existsSync(artifactRevisionObjectPath(tmpRoot, domain, artifact.revisionId))).toBe(true);
+    }
   });
 
   test("dedupes by sha256 within a single batch", async () => {
@@ -153,16 +145,14 @@ describe("`ralphy ref pull --from-file --kind reference-image` (#048)", () => {
       "--kind",
       "reference-image",
       "--project",
-      "test-bulk-001",
+      domain.projectId,
     ]);
     expect(r.exitCode).toBe(0);
     expect(r.json.total).toBe(2);
     // One downloaded, the duplicate sha256 → skipped.
     expect(r.json.downloaded).toBe(1);
     expect(r.json.skipped).toBe(1);
-    const refsDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "test-bulk-001", "artifacts", "refs");
-    const files = fs.readdirSync(refsDir);
-    expect(files.length).toBe(1);
+    expect(r.json.artifacts).toHaveLength(1);
   });
 
   // Idempotency (re-run = skipped-existing no-op) is asserted OFFLINE in
@@ -170,35 +160,20 @@ describe("`ralphy ref pull --from-file --kind reference-image` (#048)", () => {
   // past the 45s timeout under full-suite load (#464), and the contract needs
   // no live network to prove.
 
-  test("appends gen-log rows with provider='http' + cost_usd=0", async () => {
-    await ralphy([
+  test("returns domain Run evidence without a legacy gen-log", async () => {
+    const r = await ralphy([
       "ref",
       "pull",
       `http://127.0.0.1:${port}/a/b/foo.png`,
       "--kind",
       "reference-image",
       "--project",
-      "test-bulk-001",
+      domain.projectId,
     ]);
-    const log = path.join(
-      tmpRoot,
-      ".ralphy",
-      "workspaces",
-      "default",
-      "projects",
-      "test-bulk-001",
-      "logs",
-      "generations.jsonl",
-    );
-    expect(fs.existsSync(log)).toBe(true);
-    const rows = fs.readFileSync(log, "utf8").trim().split("\n").map((l) => JSON.parse(l));
-    expect(rows.length).toBeGreaterThanOrEqual(1);
-    const last = rows[rows.length - 1];
-    expect(last.provider).toBe("http");
-    expect(last.endpoint).toBe("ref-pull-bulk");
-    expect(last.cost_usd).toBe(0);
-    expect(last.input.url).toBe(`http://127.0.0.1:${port}/a/b/foo.png`);
-    expect(last.input.project).toBe("test-bulk-001");
+    expect(r.exitCode).toBe(0);
+    expect(r.json.artifacts[0].runId).toMatch(/^run_/);
+    expect(fs.existsSync(path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects",
+      domain.projectId, "logs", "generations.jsonl"))).toBe(false);
   });
 
   test("infers extension from content-type when URL has no extension", async () => {
@@ -209,12 +184,31 @@ describe("`ralphy ref pull --from-file --kind reference-image` (#048)", () => {
       "--kind",
       "reference-image",
       "--project",
-      "test-bulk-001",
+      domain.projectId,
     ]);
     expect(r.exitCode).toBe(0);
-    const refsDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "test-bulk-001", "artifacts", "refs");
-    const files = fs.readdirSync(refsDir);
-    expect(files.some((f) => f.endsWith(".png"))).toBe(true);
+    const stored = artifactRevisionObjectPath(tmpRoot, domain, r.json.artifacts[0].revisionId);
+    expect(path.extname(stored)).toBe(".png");
+  });
+
+  test("projects a fetched error before returning bulk results", async () => {
+    const r = await ralphy([
+      "ref",
+      "pull",
+      `http://127.0.0.1:${port}/error.png`,
+      "--kind",
+      "reference-image",
+      "--project",
+      domain.projectId,
+    ]);
+
+    expect(r.exitCode).toBe(0);
+    expect(r.json.results[0]).toMatchObject({
+      status: "error",
+      error: "http request failed",
+    });
+    expect(r.stdout + r.stderr).not.toContain(RAW_FETCH_ERROR);
+    expect(r.stdout + r.stderr).not.toContain("file:///private/raw.png");
   });
 
   test("missing --project raises E_INPUT_INVALID", async () => {

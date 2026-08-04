@@ -14,7 +14,6 @@ import os from "node:os";
 import { spawnSync } from "node:child_process";
 
 import { setRoot } from "../../cli/lib/paths.js";
-import { readGenerations } from "../../cli/lib/gen-log.js";
 import { generateVideo } from "../../cli/lib/providers/openrouter.js";
 
 const originalFetch = globalThis.fetch;
@@ -102,6 +101,8 @@ desc("generateVideo logs input.preprocess for i2v anchors (#021)", () => {
     try {
       const result = await generateVideo({
         projectId,
+        runId: "run_fixture",
+        outputPath: path.join(tmpRoot, ".ralphy", "tmp", "run_fixture", "scene-01-vid.mp4"),
         slot: "scene-01-vid",
         prompt: "a duck waddles across a pond",
         durationSec: 5,
@@ -112,14 +113,7 @@ desc("generateVideo logs input.preprocess for i2v anchors (#021)", () => {
 
       expect(result.localPath).toContain("scene-01-vid.mp4");
 
-      // Read the generations.jsonl and confirm preprocess telemetry is on the
-      // success row (the only `status: ok` video row).
-      const rows = await readGenerations(projectId);
-      const okVideoRow = rows.find((r) => r.kind === "video" && r.status === "ok");
-      expect(okVideoRow).toBeDefined();
-      const pp = (okVideoRow!.input as Record<string, unknown>).preprocess as
-        | Record<string, unknown>
-        | undefined;
+      const pp = result.preprocess as Record<string, unknown> | undefined;
       expect(pp).toBeDefined();
       const firstFrameInfo = pp!.first_frame as
         | { c2pa_stripped: boolean; resized: boolean; out_mime: string; out_bytes: number }
@@ -132,6 +126,8 @@ desc("generateVideo logs input.preprocess for i2v anchors (#021)", () => {
 
       // last_frame must NOT be present — we only sent first.
       expect(pp!.last_frame).toBeUndefined();
+      expect(fs.existsSync(path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects",
+        projectId, "logs", "generations.jsonl"))).toBe(false);
 
       // Original PNG on disk is untouched (AGENTS invariant #14).
       expect(fs.existsSync(bigPng)).toBe(true);

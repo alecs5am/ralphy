@@ -203,8 +203,8 @@ describe("fal connector — cost computation (#402 pricing)", () => {
   });
 });
 
-describe("fal connector — generateVideo request shape + result + gen-log", () => {
-  test("seedance r2v: video_urls present, generate_audio default false, GenerateResult + gen-log row", async () => {
+describe("fal connector — generateVideo request shape + Run temp result", () => {
+  test("seedance r2v: video_urls present, generate_audio default false, Run temp GenerateResult", async () => {
     const captured: Captured = { submitBody: null, initiateBodies: [], putCount: 0 };
     installFalStub(captured);
 
@@ -214,6 +214,7 @@ describe("fal connector — generateVideo request shape + result + gen-log", () 
     // only probes LOCAL paths; remote refs pass through uploadLocalRef verbatim.
     const result = await generateVideo({
       projectId,
+      ...providerOutput("fal-1", "scene-01-vid.mp4"),
       slot: "scene-01-vid",
       prompt: "@Video1 restyled into a neon arcade",
       durationSec: 6,
@@ -240,13 +241,7 @@ describe("fal connector — generateVideo request shape + result + gen-log", () 
     // No local refs → no CDN upload.
     expect(captured.putCount).toBe(0);
 
-    // Gen-log row with cost_usd.
-    const rows = await readGenerations(projectId);
-    const ok = rows.filter((r) => r.status === "ok" && r.kind === "video");
-    expect(ok.length).toBe(1);
-    expect(ok[0]!.provider).toBe("fal");
-    expect(ok[0]!.cost_usd).toBeCloseTo(0.3034 * 6, 4);
-    expect(ok[0]!.request_id).toBe("req-123");
+    expect(await readGenerations(projectId)).toHaveLength(0);
   });
 
   test("seedance r2v with a remote video ref: video_urls carries the URL, ×0.6 cost", async () => {
@@ -259,6 +254,7 @@ describe("fal connector — generateVideo request shape + result + gen-log", () 
     // the ×0.6 video-input cost branch end-to-end.
     const result = await generateVideo({
       projectId,
+      ...providerOutput("fal-2", "scene-02-vid.mp4"),
       slot: "scene-02-vid",
       prompt: "@Video1 in a claymation world",
       durationSec: 5,
@@ -280,6 +276,7 @@ describe("fal connector — generateVideo request shape + result + gen-log", () 
     // Happy path: image refs only.
     const result = await generateVideo({
       projectId,
+      ...providerOutput("fal-3", "scene-03-vid.mp4"),
       slot: "scene-03-vid",
       prompt: "@Image1 walks through a market",
       durationSec: 5,
@@ -298,6 +295,7 @@ describe("fal connector — generateVideo request shape + result + gen-log", () 
     try {
       await generateVideo({
         projectId,
+        ...providerOutput("fal-4", "scene-04-vid.mp4"),
         slot: "scene-04-vid",
         prompt: "x",
         durationSec: 5,
@@ -331,3 +329,8 @@ describe("fal connector — generateVideo request shape + result + gen-log", () 
     expect(captured.submitBody).toBeNull();
   });
 });
+
+function providerOutput(id: string, filename: string): { runId: string; outputPath: string } {
+  const runId = `run_${id}`;
+  return { runId, outputPath: path.join(tmpRoot, ".ralphy", "tmp", runId, filename) };
+}

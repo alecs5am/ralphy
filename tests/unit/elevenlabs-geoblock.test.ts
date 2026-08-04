@@ -52,6 +52,11 @@ function projectDir(): string {
   return path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", projectId);
 }
 
+function providerOutput(id: string, filename: string): { runId: string; outputPath: string } {
+  const runId = `run_${id}`;
+  return { runId, outputPath: path.join(tmpRoot, ".ralphy", "tmp", runId, filename) };
+}
+
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-geoblock-"));
   setRoot(tmpRoot);
@@ -100,6 +105,7 @@ describe("geo-block guard — non-audio body (#121)", () => {
     try {
       await generateVoiceover({
         projectId,
+        ...providerOutput("geo-voice", "scene-01-vo.mp3"),
         slot: "scene-01-vo",
         text: "hello",
         voiceId: "v1",
@@ -125,7 +131,7 @@ describe("geo-block guard — non-audio body (#121)", () => {
 
     let caught: unknown = null;
     try {
-      await generateMusic({ projectId, slot: "bed-01", prompt: "lofi", durationSec: 5 });
+      await generateMusic({ projectId, ...providerOutput("geo-music-1", "bed-01.mp3"), slot: "bed-01", prompt: "lofi", durationSec: 5 });
     } catch (e) {
       caught = e;
     }
@@ -145,7 +151,7 @@ describe("geo-block guard — non-audio body (#121)", () => {
 
     let caught: unknown = null;
     try {
-      await generateSfx({ projectId, slot: "whoosh-01", prompt: "whoosh", durationSec: 2 });
+      await generateSfx({ projectId, ...providerOutput("geo-sfx-1", "whoosh-01.mp3"), slot: "whoosh-01", prompt: "whoosh", durationSec: 2 });
     } catch (e) {
       caught = e;
     }
@@ -167,6 +173,7 @@ describe("geo-block guard — legit audio passes (#121)", () => {
 
     const result = await generateMusic({
       projectId,
+      ...providerOutput("geo-music-2", "bed-02.mp3"),
       slot: "bed-02",
       prompt: "ambient pad",
       durationSec: 4,
@@ -182,6 +189,7 @@ describe("geo-block guard — legit audio passes (#121)", () => {
 
     const result = await generateSfx({
       projectId,
+      ...providerOutput("geo-sfx-2", "pop-01.mp3"),
       slot: "pop-01",
       prompt: "pop",
       durationSec: 1,
@@ -214,7 +222,7 @@ describe("base-URL resolver — proxy swap (#121)", () => {
       });
     }) as typeof fetch;
 
-    await generateMusic({ projectId, slot: "bed-03", prompt: "synth", durationSec: 4 });
+    await generateMusic({ projectId, ...providerOutput("geo-music-3", "bed-03.mp3"), slot: "bed-03", prompt: "synth", durationSec: 4 });
 
     expect(hitUrls.length).toBeGreaterThan(0);
     for (const u of hitUrls) {
@@ -236,7 +244,7 @@ describe("geo-block error message (#121)", () => {
 
     let caught: GeoblockError | null = null;
     try {
-      await generateMusic({ projectId, slot: "bed-04", prompt: "x", durationSec: 4 });
+      await generateMusic({ projectId, ...providerOutput("geo-music-4", "bed-04.mp3"), slot: "bed-04", prompt: "x", durationSec: 4 });
     } catch (e) {
       caught = e as GeoblockError;
     }
@@ -255,7 +263,7 @@ describe("geo-block error message (#121)", () => {
 
     let caught: GeoblockError | null = null;
     try {
-      await generateMusic({ projectId, slot: "bed-05", prompt: "x", durationSec: 4 });
+      await generateMusic({ projectId, ...providerOutput("geo-music-5", "bed-05.mp3"), slot: "bed-05", prompt: "x", durationSec: 4 });
     } catch (e) {
       caught = e as GeoblockError;
     }

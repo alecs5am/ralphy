@@ -1,18 +1,15 @@
 // Auto-version invariant (#004). AGENTS.md invariant #14 promises that
-// regenerating a slot writes `.<slot>.v2.<ext>` (then v3, v4…) and NEVER
-// destroys the prior file unless `--force-overwrite` is passed. This test
-// locks that contract on two layers:
+// Legacy filesystem producers archive old bytes unless `--force-overwrite`
+// is passed. Domain generation preserves every output as an immutable
+// Artifact revision instead of inventing filename suffixes.
 //
 //  1. Behavioral: `protectExistingAsset()` correctly archives sequential
 //     writes across every file extension the generators emit
 //     (image=png, video=mp4, voiceover=mp3, music=mp3, sfx=mp3, captions=json,
 //     hyperframes index=html). Same helper, six kinds, six asserts.
 //
-//  2. Audit (static): every concrete generator entry-point in
-//     `cli/lib/providers/{openrouter,elevenlabs}.ts` AND the captions writer in
-//     `cli/commands/generate.ts` calls `protectExistingAsset(<dest>, …)`
-//     *before* its `fs.writeFile(<dest>, …)`. Static source-level check so a
-//     future refactor that loses the call fails this test, not a postmortem.
+//  2. Behavioral: regenerating a domain slot appends Artifact revisions and
+//     retains distinct immutable Objects.
 //
 //  3. Force-overwrite escape hatch: passing `overwrite=true` skips archiving
 //     and replaces the file in place — confirmed for every extension.
@@ -31,6 +28,11 @@ import { promises as fsp } from "node:fs";
 
 import { protectExistingAsset } from "../../cli/lib/providers/shared.js";
 import { archiveExistingMaster } from "../../cli/commands/render.js";
+import { setRoot } from "../../cli/lib/paths.js";
+import { listArtifactRevisions, listArtifacts } from "../../cli/lib/store/artifacts.js";
+import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
+import { completeArtifactRun, startRun, startRunAttempt } from "../../cli/lib/store/runs.js";
+import { createProject, createWorkspace } from "../../cli/lib/store/scopes.js";
 
 // ─── 1. Behavioral: per-kind extension matrix ─────────────────────────────────
 
@@ -210,150 +212,53 @@ describe("auto-version invariant (#118): render master archive", () => {
   });
 });
 
-// ─── 2. Static audit: every generator function routes through the helper ────
+describe("generation revision invariant (#004)", () => {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  let fixtureRoot: string;
 
-/**
- * Brace-balanced extraction of an exported async function body. Returns the
- * substring between (and including) the `export async function <name>` header
- * and the matching closing brace. Used to scope the static audit to a single
- * generator at a time so unrelated writers (audio-isolation upload, ffmpeg
- * concat list-file, etc.) don't bleed in.
- */
-function extractFunctionBody(source: string, fnName: string): string {
-  const headerRx = new RegExp(`export\\s+async\\s+function\\s+${fnName}\\b`);
-  const headerMatch = headerRx.exec(source);
-  if (!headerMatch) throw new Error(`extractFunctionBody: ${fnName} not found`);
-  const startIdx = headerMatch.index;
-  // Find the first `{` after the header.
-  const openIdx = source.indexOf("{", startIdx);
-  if (openIdx === -1) throw new Error(`extractFunctionBody: no { for ${fnName}`);
-  let depth = 1;
-  let i = openIdx + 1;
-  while (i < source.length && depth > 0) {
-    const ch = source[i]!;
-    if (ch === "{") depth++;
-    else if (ch === "}") depth--;
-    i++;
-  }
-  if (depth !== 0) throw new Error(`extractFunctionBody: unbalanced braces in ${fnName}`);
-  return source.slice(startIdx, i);
-}
+  beforeEach(() => {
+    fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-artifact-revision-"));
+    setRoot(fixtureRoot);
+    fs.mkdirSync(path.join(fixtureRoot, ".ralphy"), { recursive: true });
+    openDomainDb();
+  });
 
-/**
- * Within a single function body, assert that for every `fs.writeFile(<var>, …)`
- * targeting a slot-asset destination variable, there is a matching
- * `protectExistingAsset(<var>, …)` call somewhere in the same body (the
- * function-scope guarantee — the helper does not have to be on the line above,
- * just somewhere upstream in the same call frame, since retry loops legitimately
- * separate the two).
- *
- * Returns `{ writes, unprotected }` so the test can both assert at-least-one
- * write exists AND assert none are unprotected.
- */
-function auditFunctionBody(
-  body: string,
-  destVarsRx: RegExp,
-): { writes: string[]; unprotected: string[] } {
-  const writes: string[] = [];
-  const unprotected: string[] = [];
-  const writeRx = new RegExp(
-    `\\bfs\\.writeFile\\(\\s*(${destVarsRx.source})\\b`,
-    "g",
-  );
-  let m: RegExpExecArray | null;
-  while ((m = writeRx.exec(body)) !== null) {
-    const destVar = m[1]!;
-    writes.push(destVar);
-    const escaped = destVar.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const protectRx = new RegExp(`protectExistingAsset\\(\\s*${escaped}\\b`);
-    if (!protectRx.test(body)) unprotected.push(destVar);
-  }
-  return { writes, unprotected };
-}
+  afterEach(() => {
+    closeDomainDb();
+    setRoot(repoRoot);
+    fs.rmSync(fixtureRoot, { recursive: true, force: true });
+  });
 
-describe("auto-version invariant (#004): static audit per generator function", () => {
-  const REPO_ROOT = path.resolve(__dirname, "..", "..");
-  const OPENROUTER = fs.readFileSync(
-    path.join(REPO_ROOT, "cli/lib/providers/openrouter.ts"),
-    "utf8",
-  );
-  const ELEVENLABS = fs.readFileSync(
-    path.join(REPO_ROOT, "cli/lib/providers/elevenlabs.ts"),
-    "utf8",
-  );
-  const GENERATE_CMD = fs.readFileSync(
-    path.join(REPO_ROOT, "cli/commands/generate.ts"),
-    "utf8",
-  );
+  test("regenerating one slot appends immutable Artifact revisions instead of filename archives", async () => {
+    const workspace = createWorkspace({ slug: "default", name: "Default" });
+    const project = createProject({ workspaceId: workspace.id, slug: "fixture", name: "Fixture" });
 
-  test("generateImage: every fs.writeFile/writeImageFromUrlOrDataUri slot write routes through protectExistingAsset", () => {
-    const body = extractFunctionBody(OPENROUTER, "generateImage");
-    // Image writes go through the shared.ts helper, not fs.writeFile directly.
-    // Audit both forms — the slot dest var is `imgDest` here.
-    const writes: string[] = [];
-    const unprotected: string[] = [];
-    const writeRx = /(?:fs\.writeFile|writeImageFromUrlOrDataUri)\(\s*(?:[^,]+,\s*)?(imgDest|dest|localPath)\b/g;
-    let m: RegExpExecArray | null;
-    while ((m = writeRx.exec(body)) !== null) {
-      const destVar = m[1]!;
-      writes.push(destVar);
-      const protectRx = new RegExp(`protectExistingAsset\\(\\s*${destVar}\\b`);
-      if (!protectRx.test(body)) unprotected.push(destVar);
+    for (const contents of ["first-image", "second-image"]) {
+      const run = startRun({ projectId: project.id, kind: "generate.image", label: "hero" });
+      const attempt = startRunAttempt({ runId: run.id, provider: "fixture", model: "fixture/image" });
+      const outputPath = path.join(fixtureRoot, ".ralphy", "tmp", run.id, "hero.png");
+      fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+      fs.writeFileSync(outputPath, contents);
+      await completeArtifactRun({
+        runId: run.id,
+        attemptId: attempt.id,
+        finishedPath: outputPath,
+        originalName: "hero.png",
+        mime: "image/png",
+        artifact: { slug: "hero", kind: "image", state: "candidate" },
+      });
     }
-    expect(writes.length).toBeGreaterThanOrEqual(1);
-    expect(unprotected).toEqual([]);
-  });
 
-  test("generateVideo: every fs.writeFile of a slot var routes through protectExistingAsset", () => {
-    const body = extractFunctionBody(OPENROUTER, "generateVideo");
-    const { writes, unprotected } = auditFunctionBody(body, /imgDest|dest|localPath/);
-    expect(writes.length).toBeGreaterThanOrEqual(1);
-    expect(unprotected).toEqual([]);
-  });
-
-  test("generateVoiceover: every fs.writeFile of a slot var routes through protectExistingAsset", () => {
-    const body = extractFunctionBody(ELEVENLABS, "generateVoiceover");
-    const { writes, unprotected } = auditFunctionBody(body, /localPath|dest/);
-    expect(writes.length).toBeGreaterThanOrEqual(1);
-    expect(unprotected).toEqual([]);
-  });
-
-  test("generateMusic: every fs.writeFile of a slot var routes through protectExistingAsset", () => {
-    const body = extractFunctionBody(ELEVENLABS, "generateMusic");
-    const { writes, unprotected } = auditFunctionBody(body, /localPath|dest/);
-    expect(writes.length).toBeGreaterThanOrEqual(1);
-    expect(unprotected).toEqual([]);
-  });
-
-  test("generateSfx: every fs.writeFile of a slot var routes through protectExistingAsset", () => {
-    const body = extractFunctionBody(ELEVENLABS, "generateSfx");
-    const { writes, unprotected } = auditFunctionBody(body, /localPath|dest/);
-    expect(writes.length).toBeGreaterThanOrEqual(1);
-    expect(unprotected).toEqual([]);
-  });
-
-  test("captions writer in generate.ts: outPath/srtPath/drawtextPath share a protectExistingAsset(outPath)", () => {
-    // Captions handler writes the slot JSON at outPath, plus sibling files
-    // (srtPath, drawtextPath) derived from the same base. The protect-pass on
-    // outPath versions the SLOT (the JSON); the sibling .srt / .drawtext.filter
-    // are rebuilt from it. So we audit the JSON-write specifically.
-    const handlerStart = GENERATE_CMD.indexOf('.command("captions")');
-    expect(handlerStart).toBeGreaterThan(0);
-    // Cap the slice at the next .command( so we don't pick up the next handler.
-    const nextCmd = GENERATE_CMD.indexOf(".command(", handlerStart + 1);
-    const handler = GENERATE_CMD.slice(handlerStart, nextCmd === -1 ? undefined : nextCmd);
-    const { writes, unprotected } = auditFunctionBody(handler, /outPath/);
-    expect(writes.length).toBeGreaterThanOrEqual(1);
-    expect(unprotected).toEqual([]);
-  });
-
-  test("generate.ts captions handler uses --force-overwrite as the explicit bypass", () => {
-    // Mirrors the image/video/voiceover/music/sfx command surface. Lint catches
-    // an accidental rename of the flag (e.g. → --overwrite) so the AGENTS.md
-    // invariant #14 wording stays accurate.
-    expect(GENERATE_CMD).toMatch(/--force-overwrite/);
-    // All 6 generate sub-commands wire the flag through to the connector.
-    const occurrences = (GENERATE_CMD.match(/--force-overwrite/g) ?? []).length;
-    expect(occurrences).toBeGreaterThanOrEqual(6);
+    const context = { workspaceId: workspace.id, projectId: project.id };
+    const artifacts = listArtifacts({ context, limit: 10 }).items;
+    expect(artifacts).toHaveLength(1);
+    const revisions = listArtifactRevisions({
+      context,
+      artifactId: artifacts[0]!.id,
+      limit: 10,
+    }).items;
+    expect(revisions.map((revision) => revision.revisionNo)).toEqual([1, 2]);
+    expect(new Set(revisions.map((revision) => revision.objectId)).size).toBe(2);
+    expect(fs.existsSync(path.join(fixtureRoot, "hero.v1.png"))).toBe(false);
   });
 });

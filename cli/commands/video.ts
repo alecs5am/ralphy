@@ -23,13 +23,13 @@ import {
   type ColorGradePreset,
 } from "../lib/ffmpeg-recipes.js";
 import { detectFaces } from "../lib/face-bbox.js";
-import { out, ok } from "../lib/output.js";
+import { ok } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { projectRefsDir, projectDir } from "../lib/paths.js";
-import { logGeneration } from "../lib/gen-log.js";
 import { resolveConnector } from "../lib/providers/registry.js";
 import { resolveModelAlias } from "../lib/model-aliases.js";
 import { estimateVideoCostUsd } from "../lib/or-catalog.js";
+import { artifactOut as out, mimeForOutput, produceArtifactRevision } from "../lib/artifact-production.js";
 
 export function videoCmd() {
   const cmd = new Command("video").description(
@@ -45,21 +45,29 @@ export function videoCmd() {
     .requiredOption("--start <sec>", "Start in seconds", (v) => Number(v))
     .requiredOption("--end <sec>", "End in seconds", (v) => Number(v))
     .option("--no-reencode", "Stream-copy instead (faster, key-frame aligned)")
-    .option("--project <id>", "Project ID for log line")
+    .requiredOption("--project <id>", "Project ID")
     .option("--note <note>", "Free-form note")
     .action(async (opts: any) => {
       try {
-        const dst = await extractSegment({
+        const completed = await produceArtifactRevision({
+          scope: { projectId: opts.project },
+          runKind: "video.extract-segment",
+          requestedOutput: opts.out,
+          artifactKind: "video",
+          mime: mimeForOutput(opts.out),
+          provider: "ffmpeg",
+          model: "ffmpeg/extract-segment",
+          produce: (dst) => extractSegment({
           src: path.resolve(opts.in),
-          dst: path.resolve(opts.out),
+          dst,
           startSec: opts.start,
           endSec: opts.end,
           reencode: opts.reencode !== false,
-          projectId: opts.project,
-          note: opts.note,
+        }),
         });
-        ok(`Extracted → ${dst}`);
-        out({ src: opts.in, dst, startSec: opts.start, endSec: opts.end });
+        ok(`Extracted → Artifact Revision ${completed.revision.id}`);
+        out({ src: opts.in, artifactId: completed.artifact.id, revisionId: completed.revision.id,
+          runId: completed.run.id, startSec: opts.start, endSec: opts.end });
       } catch (e: any) {
         raiseError("E_INTERNAL", { detail: `extract-segment: ` });
       }
@@ -96,7 +104,7 @@ export function videoCmd() {
       "--out <path>",
       "Output PNG. Optional when `--project` is set — defaults to <project>/artifacts/refs/<clip>-frame-<t>.png.",
     )
-    .option("--project <id>", "Project ID — logs the extract to gen-log and resolves default --out.")
+    .requiredOption("--project <id>", "Project ID")
     .option(
       "--slot <slot>",
       "Optional asset slot id (e.g. `scene-02-first-frame`). Recorded in the gen-log row.",
@@ -142,49 +150,25 @@ export function videoCmd() {
       }
 
       try {
-        if (isLast) {
-          await extractLastFrame({
-            src,
-            dst,
-            projectId: opts.project,
-            note: opts.note,
-          });
-        } else {
-          await extractFrame({
-            src,
-            atSec: atSec!,
-            dst,
-            projectId: opts.project,
-            note: opts.note,
-          });
-        }
-
-        // Additional gen-log row with the canonical `input.source_clip` +
-        // `input.frame_at` shape the issue prescribes (recipes log a generic
-        // ffmpeg row; this adds the slot-aware lineage row).
-        if (opts.project) {
-          await logGeneration(opts.project, {
-            provider: "ffmpeg",
-            model: "ffmpeg/video-frame",
-            endpoint: isLast ? "ffmpeg/extract-last-frame" : "ffmpeg/extract-frame",
-            kind: "image",
-            input: {
-              project: opts.project,
-              slot: opts.slot,
-              source_clip: src,
-              frame_at: isLast ? "last" : atSec,
-            },
-            output: { local: dst },
-            status: "ok",
-            cost_usd: 0,
-            note: opts.note ?? "video.frame",
-          });
-        }
-
-        ok(`Frame extracted → ${dst}`);
+        const completed = await produceArtifactRevision({
+          scope: { projectId: opts.project },
+          runKind: "video.frame",
+          requestedOutput: dst,
+          artifactKind: "image",
+          mime: "image/png",
+          provider: "ffmpeg",
+          model: isLast ? "ffmpeg/extract-last-frame" : "ffmpeg/extract-frame",
+          metadata: { frameAt: isLast ? "last" : atSec, slot: opts.slot ?? null },
+          produce: (outputPath) => isLast
+            ? extractLastFrame({ src, dst: outputPath })
+            : extractFrame({ src, atSec: atSec!, dst: outputPath }),
+        });
+        ok(`Frame extracted → Artifact Revision ${completed.revision.id}`);
         out({
           src,
-          dst,
+          artifactId: completed.artifact.id,
+          revisionId: completed.revision.id,
+          runId: completed.run.id,
           at: isLast ? "last" : atSec,
           project: opts.project ?? null,
           slot: opts.slot ?? null,
@@ -234,46 +218,27 @@ export function videoCmd() {
         raiseError("E_FILE_UNREADABLE", { path: src });
         return;
       }
-      const projDir = projectDir(opts.project);
-      if (!existsSync(projDir)) {
-        raiseError("E_NOT_FOUND", { kind: "Project", id: opts.project });
-        return;
-      }
-
-      // Step 1: extract the last frame into the project's artifacts/refs/ so the i2v
-      // call has a stable anchor file under the project tree (manifest can
-      // point at it).
       const base = path.basename(src, path.extname(src));
-      const anchorPath = path.join(projectRefsDir(opts.project), `${base}-last-frame.png`);
-      try {
-        await extractLastFrame({
-          src,
-          dst: anchorPath,
-          projectId: opts.project,
-          note: `video.extend anchor for ${opts.slot}`,
-        });
-      } catch (e: any) {
-        raiseError("E_INTERNAL", { detail: `video extend last-frame: ${e?.message || e}` });
-        return;
-      }
-
       const resolvedModel = resolveModelAlias(opts.model) ?? opts.model;
 
       if (opts.dryRun) {
-        ok(`Anchor frame ready → ${anchorPath}`);
-        out({
-          dryRun: true,
-          chain: { extends: src, anchor: anchorPath, into: opts.slot },
-          model: resolvedModel,
-          project: opts.project,
-          slot: opts.slot,
-          durationSec: opts.duration,
-          prompt: opts.prompt,
-          aspectRatio: opts.aspectRatio,
-          resolution: opts.resolution,
-          generateAudio: !!opts.audio,
-          estimatedCostUsd: estimateVideoCostUsd(resolvedModel, opts.duration),
-        });
+        try {
+          const completed = await produceArtifactRevision({
+            scope: { projectId: opts.project }, runKind: "video.extend-anchor",
+            requestedOutput: `${base}-last-frame.png`, artifactKind: "image", mime: "image/png",
+            provider: "ffmpeg", model: "ffmpeg/extract-last-frame",
+            metadata: { operation: "extend-anchor", into: opts.slot },
+            produce: (outputPath) => extractLastFrame({ src, dst: outputPath }),
+          });
+          ok(`Anchor frame ready → Artifact Revision ${completed.revision.id}`);
+          out({ dryRun: true, artifactId: completed.artifact.id, revisionId: completed.revision.id,
+            runId: completed.run.id, into: opts.slot, model: resolvedModel,
+            project: opts.project, slot: opts.slot, durationSec: opts.duration, prompt: opts.prompt,
+            aspectRatio: opts.aspectRatio, resolution: opts.resolution, generateAudio: !!opts.audio,
+            estimatedCostUsd: estimateVideoCostUsd(resolvedModel, opts.duration) });
+        } catch (e: any) {
+          raiseError("E_INTERNAL", { detail: `video extend last-frame: ${e?.message || e}` });
+        }
         return;
       }
 
@@ -285,52 +250,31 @@ export function videoCmd() {
       }
 
       try {
-        const result = await connV.generateVideo({
-          projectId: opts.project,
-          slot: opts.slot,
-          prompt: opts.prompt,
-          durationSec: opts.duration,
-          model: resolvedModel,
-          firstFrame: anchorPath,
-          aspectRatio: opts.aspectRatio,
-          resolution: opts.resolution,
-          generateAudio: !!opts.audio,
-          note: opts.note,
-        });
-
-        // Lineage row — `kind: "i2v-extend"` per issue #012 plus the canonical
-        // `input.extends: <clip>` pointer so postmortems can walk the chain.
-        await logGeneration(opts.project, {
-          provider: "openrouter",
-          model: resolvedModel,
-          endpoint: "openrouter/video-extend",
-          kind: "video",
-          input: {
-            project: opts.project,
-            slot: opts.slot,
-            extends: src,
-            anchor: anchorPath,
-            prompt: opts.prompt,
-            duration: opts.duration,
-            extend_chain: true,
+        let anchorPath = "";
+        const completed = await produceArtifactRevision({
+          scope: { projectId: opts.project }, runKind: "video.extend", requestedOutput: `${opts.slot}.mp4`,
+          artifactKind: "video", mime: "video/mp4", provider: connV.id, model: resolvedModel,
+          metadata: { operation: "extend", slot: opts.slot },
+          produce: async (outputPath, runId) => {
+            anchorPath = path.join(path.dirname(outputPath), `${base}-last-frame.png`);
+            await extractLastFrame({ src, dst: anchorPath });
+            return connV.generateVideo!({
+              projectId: opts.project, runId, outputPath, slot: opts.slot, prompt: opts.prompt,
+              durationSec: opts.duration, model: resolvedModel, firstFrame: anchorPath,
+              aspectRatio: opts.aspectRatio, resolution: opts.resolution,
+              generateAudio: !!opts.audio, note: opts.note,
+            });
           },
-          output: { local: result.localPath, url: result.url },
-          status: "ok",
-          cost_usd: result.costUsd,
-          latency_ms: result.latencyMs,
-          note: opts.note ?? "video.extend",
         });
-
-        ok(`Extended → ${result.localPath}`);
+        ok(`Extended → Artifact Revision ${completed.revision.id}`);
         out({
           project: opts.project,
           slot: opts.slot,
           model: resolvedModel,
-          path: result.localPath,
-          extends: src,
-          anchor: anchorPath,
-          costUsd: result.costUsd,
-          latencyMs: result.latencyMs,
+          artifactId: completed.artifact.id,
+          revisionId: completed.revision.id,
+          runId: completed.run.id,
+          costUsd: completed.attempt.costUsd,
         });
       } catch (e: any) {
         raiseError("E_INTERNAL", { detail: `video extend i2v: ${e?.message || e}` });
@@ -351,28 +295,36 @@ export function videoCmd() {
     .option("--audio-bitrate <rate>", "AAC bitrate", "128k")
     .option("--fps <n>", "Output frame rate (use 30 with --gop 30 for HyperFrames-safe seeking)", (v) => parseInt(v, 10))
     .option("--gop <n>", "Keyframe interval / GOP size (e.g. 30 = one keyframe per second at 30fps)", (v) => parseInt(v, 10))
-    .option("--project <id>", "Project ID for log line")
+    .requiredOption("--project <id>", "Project ID")
     .option("--note <note>", "Free-form note")
     .action(async (opts: any) => {
       try {
-        const dst = await optimizeReencode({
+        let before = 0;
+        let after = 0;
+        const completed = await produceArtifactRevision({
+          scope: { projectId: opts.project }, runKind: "video.optimize", requestedOutput: opts.out,
+          artifactKind: "video", mime: mimeForOutput(opts.out), provider: "ffmpeg", model: "ffmpeg/optimize",
+          produce: async (dst) => {
+            before = (await fs.stat(path.resolve(opts.in))).size;
+            await optimizeReencode({
           src: path.resolve(opts.in),
-          dst: path.resolve(opts.out),
+          dst,
           crf: opts.crf,
           preset: opts.preset,
           tune: opts.tune,
           audioBitrate: opts.audioBitrate,
           fps: opts.fps,
           gop: opts.gop,
-          projectId: opts.project,
-          note: opts.note,
+            });
+            after = (await fs.stat(dst)).size;
+          },
         });
-        const before = (await fs.stat(path.resolve(opts.in))).size;
-        const after = (await fs.stat(dst)).size;
-        ok(`Optimized → ${dst}`);
+        ok(`Optimized → Artifact Revision ${completed.revision.id}`);
         out({
           src: opts.in,
-          dst,
+          artifactId: completed.artifact.id,
+          revisionId: completed.revision.id,
+          runId: completed.run.id,
           crf: opts.crf,
           preset: opts.preset,
           tune: opts.tune,
@@ -397,22 +349,25 @@ export function videoCmd() {
     .option("--margin-v <px>", "Vertical bottom margin", (v) => parseInt(v, 10), 90)
     .option("--font-size <px>", "Font size", (v) => parseInt(v, 10), 36)
     .option("--font-name <name>", "System-installed font name", "Inter")
-    .option("--project <id>", "Project ID for log line")
+    .requiredOption("--project <id>", "Project ID")
     .option("--note <note>", "Free-form note")
     .action(async (opts: any) => {
       try {
-        const dst = await burnSubtitles({
+        const completed = await produceArtifactRevision({
+          scope: { projectId: opts.project }, runKind: "video.burn-subs", requestedOutput: opts.out,
+          artifactKind: "video", mime: mimeForOutput(opts.out), provider: "ffmpeg", model: "ffmpeg/burn-subs",
+          produce: (dst) => burnSubtitles({
           src: path.resolve(opts.in),
           srt: path.resolve(opts.srt),
-          dst: path.resolve(opts.out),
+          dst,
           marginV: opts.marginV,
           fontSize: opts.fontSize,
           fontName: opts.fontName,
-          projectId: opts.project,
-          note: opts.note,
+          }),
         });
-        ok(`Subs burned → ${dst}`);
-        out({ src: opts.in, srt: opts.srt, dst });
+        ok(`Subs burned → Artifact Revision ${completed.revision.id}`);
+        out({ src: opts.in, srt: opts.srt, artifactId: completed.artifact.id,
+          revisionId: completed.revision.id, runId: completed.run.id });
       } catch (e: any) {
         raiseError("E_INTERNAL", { detail: `burn-subs: ` });
       }
@@ -425,19 +380,22 @@ export function videoCmd() {
     .requiredOption("--in <path>", "Input video (HDR)")
     .requiredOption("--out <path>", "Output video (SDR)")
     .option("--algorithm <algo>", "hable | reinhard | mobius | clip", "hable")
-    .option("--project <id>", "Project ID for log line")
+    .requiredOption("--project <id>", "Project ID")
     .option("--note <note>", "Free-form note")
     .action(async (opts: any) => {
       try {
-        const dst = await tonemapHDR({
+        const completed = await produceArtifactRevision({
+          scope: { projectId: opts.project }, runKind: "video.tonemap-hdr", requestedOutput: opts.out,
+          artifactKind: "video", mime: mimeForOutput(opts.out), provider: "ffmpeg", model: "ffmpeg/tonemap-hdr",
+          produce: (dst) => tonemapHDR({
           src: path.resolve(opts.in),
-          dst: path.resolve(opts.out),
+          dst,
           algorithm: opts.algorithm,
-          projectId: opts.project,
-          note: opts.note,
+          }),
         });
-        ok(`Tonemapped → ${dst}`);
-        out({ src: opts.in, dst, algorithm: opts.algorithm });
+        ok(`Tonemapped → Artifact Revision ${completed.revision.id}`);
+        out({ src: opts.in, artifactId: completed.artifact.id, revisionId: completed.revision.id,
+          runId: completed.run.id, algorithm: opts.algorithm });
       } catch (e: any) {
         raiseError("E_INTERNAL", { detail: `tonemap-hdr: ` });
       }
@@ -452,22 +410,26 @@ export function videoCmd() {
     .requiredOption("--in <path>", "Source video (typically 16:9 podcast cut)")
     .requiredOption("--out <path>", "Output face-bboxes.json")
     .option("--fps <n>", "Sample FPS (default 1 — one bbox set per second)", (v) => Number(v), 1)
-    .option("--project <id>", "Project ID — logs to generations.jsonl when present")
+    .requiredOption("--project <id>", "Project ID")
     .action(async (opts: any) => {
       try {
-        const result = await detectFaces({
-          videoPath: path.resolve(opts.in),
-          fps: opts.fps,
-          cachePath: path.resolve(opts.out),
-          projectId: opts.project,
+        let result: Awaited<ReturnType<typeof detectFaces>> | undefined;
+        const completed = await produceArtifactRevision({
+          scope: { projectId: opts.project }, runKind: "video.smart-crop", requestedOutput: opts.out,
+          artifactKind: "data", mime: mimeForOutput(opts.out), provider: "opencv", model: "opencv/face-detection",
+          produce: async (dst) => {
+            result = await detectFaces({ videoPath: path.resolve(opts.in), fps: opts.fps, cachePath: dst });
+          },
         });
-        const totalFaces = result.frames.reduce((acc, f) => acc + f.bboxes.length, 0);
-        ok(`Detected ${totalFaces} face(s) across ${result.frames.length} sampled frame(s) → ${opts.out}`);
+        const totalFaces = result!.frames.reduce((acc, f) => acc + f.bboxes.length, 0);
+        ok(`Detected ${totalFaces} face(s) across ${result!.frames.length} sampled frame(s) → Artifact Revision ${completed.revision.id}`);
         out({
           src: opts.in,
-          dst: opts.out,
-          source: result.source,
-          frames: result.frames.length,
+          artifactId: completed.artifact.id,
+          revisionId: completed.revision.id,
+          runId: completed.run.id,
+          source: result!.source,
+          frames: result!.frames.length,
           totalFaces,
         });
       } catch (e: any) {
@@ -491,14 +453,17 @@ export function videoCmd() {
     .option("--duck", "Sidechain duck music under SFX (music breathes when SFX hits)", false)
     .option("--duck-threshold <n>", "Sidechain threshold (default 0.05)", (v) => Number(v), 0.05)
     .option("--duck-ratio <n>", "Sidechain ratio (default 8 = heavy duck)", (v) => Number(v), 8)
-    .option("--project <id>", "Project ID for log line")
+    .requiredOption("--project <id>", "Project ID")
     .option("--note <note>", "Free-form note")
     .action(async (opts: any) => {
       try {
-        const dst = await addMusicBed({
+        const completed = await produceArtifactRevision({
+          scope: { projectId: opts.project }, runKind: "video.add-music", requestedOutput: opts.out,
+          artifactKind: "video", mime: mimeForOutput(opts.out), provider: "ffmpeg", model: "ffmpeg/add-music",
+          produce: (dst) => addMusicBed({
           src: path.resolve(opts.in),
           music: path.resolve(opts.music),
-          dst: path.resolve(opts.out),
+          dst,
           musicVol: opts.musicVol,
           sfxVol: opts.sfxVol,
           fadeOutSec: opts.fadeOut,
@@ -506,11 +471,12 @@ export function videoCmd() {
           duck: opts.duck,
           duckThreshold: opts.duckThreshold,
           duckRatio: opts.duckRatio,
-          projectId: opts.project,
-          note: opts.note,
+          }),
         });
-        ok(`Music mixed → ${dst}`);
-        out({ src: opts.in, music: opts.music, dst, musicVol: opts.musicVol, sfxVol: opts.sfxVol, duck: opts.duck });
+        ok(`Music mixed → Artifact Revision ${completed.revision.id}`);
+        out({ src: opts.in, music: opts.music, artifactId: completed.artifact.id,
+          revisionId: completed.revision.id, runId: completed.run.id,
+          musicVol: opts.musicVol, sfxVol: opts.sfxVol, duck: opts.duck });
       } catch (e: any) {
         raiseError("E_INTERNAL", { detail: `add-music: ` });
       }
@@ -528,22 +494,25 @@ export function videoCmd() {
     .option("--grain <n>", "Grain strength 0..100 (0 = off)", (v) => Number(v), 8)
     .option("--chroma <px>", "Chroma R/B horizontal shift in px (0 = off)", (v) => Number(v), 3)
     .option("--force-overwrite", "Skip the .v2 collision archive", false)
-    .option("--project <id>", "Project ID for log line")
+    .requiredOption("--project <id>", "Project ID")
     .option("--note <note>", "Free-form note")
     .action(async (opts: any) => {
       try {
-        const dst = await applyVhs({
+        const completed = await produceArtifactRevision({
+          scope: { projectId: opts.project }, runKind: "video.vhs", requestedOutput: opts.out,
+          artifactKind: "video", mime: mimeForOutput(opts.out), provider: "ffmpeg", model: "ffmpeg/vhs",
+          produce: (dst) => applyVhs({
           src: path.resolve(opts.in),
-          dst: path.resolve(opts.out),
+          dst,
           drift: opts.drift,
           grain: opts.grain,
           chroma: opts.chroma,
-          forceOverwrite: opts.forceOverwrite,
-          projectId: opts.project,
-          note: opts.note,
+          forceOverwrite: true,
+          }),
         });
-        ok(`VHS chain applied → ${dst}`);
-        out({ src: opts.in, dst, drift: opts.drift, grain: opts.grain, chroma: opts.chroma });
+        ok(`VHS chain applied → Artifact Revision ${completed.revision.id}`);
+        out({ src: opts.in, artifactId: completed.artifact.id, revisionId: completed.revision.id,
+          runId: completed.run.id, drift: opts.drift, grain: opts.grain, chroma: opts.chroma });
       } catch (e: any) {
         raiseError("E_INTERNAL", { detail: `vhs: ${e?.message || e}` });
       }
@@ -560,24 +529,32 @@ export function videoCmd() {
     .option("--crf <n>", "x264 CRF (23 web, 18 print, 12 archive)", (v) => parseInt(v, 10), 23)
     .option("--social", "Alias for the CRF 23 + faststart default (kept for discoverability)", false)
     .option("--force-overwrite", "Skip the .v2 collision archive", false)
-    .option("--project <id>", "Project ID for log line")
+    .requiredOption("--project <id>", "Project ID")
     .option("--note <note>", "Free-form note")
     .action(async (opts: any) => {
       try {
-        const dst = await compressForSocial({
+        let before = 0;
+        let after = 0;
+        const completed = await produceArtifactRevision({
+          scope: { projectId: opts.project }, runKind: "video.compress", requestedOutput: opts.out,
+          artifactKind: "video", mime: mimeForOutput(opts.out), provider: "ffmpeg", model: "ffmpeg/compress",
+          produce: async (dst) => {
+            before = (await fs.stat(path.resolve(opts.in))).size;
+            await compressForSocial({
           src: path.resolve(opts.in),
-          dst: path.resolve(opts.out),
+          dst,
           crf: opts.crf,
-          forceOverwrite: opts.forceOverwrite,
-          projectId: opts.project,
-          note: opts.note,
+          forceOverwrite: true,
+            });
+            after = (await fs.stat(dst)).size;
+          },
         });
-        const before = (await fs.stat(path.resolve(opts.in))).size;
-        const after = (await fs.stat(dst)).size;
-        ok(`Compressed → ${dst}`);
+        ok(`Compressed → Artifact Revision ${completed.revision.id}`);
         out({
           src: opts.in,
-          dst,
+          artifactId: completed.artifact.id,
+          revisionId: completed.revision.id,
+          runId: completed.run.id,
           crf: opts.crf,
           bytesBefore: before,
           bytesAfter: after,
@@ -601,7 +578,7 @@ export function videoCmd() {
       "tv-commercial-soft | tv-commercial-strong | cinematic-teal-orange | analog-horror",
     )
     .option("--force-overwrite", "Skip the .v2 collision archive", false)
-    .option("--project <id>", "Project ID for log line")
+    .requiredOption("--project <id>", "Project ID")
     .option("--note <note>", "Free-form note")
     .action(async (opts: any) => {
       try {
@@ -617,16 +594,19 @@ export function videoCmd() {
           });
           return;
         }
-        const dst = await colorGrade({
+        const completed = await produceArtifactRevision({
+          scope: { projectId: opts.project }, runKind: "video.grade", requestedOutput: opts.out,
+          artifactKind: "video", mime: mimeForOutput(opts.out), provider: "ffmpeg", model: `ffmpeg/grade/${opts.preset}`,
+          produce: (dst) => colorGrade({
           src: path.resolve(opts.in),
-          dst: path.resolve(opts.out),
+          dst,
           preset: opts.preset,
-          forceOverwrite: opts.forceOverwrite,
-          projectId: opts.project,
-          note: opts.note,
+          forceOverwrite: true,
+          }),
         });
-        ok(`Graded (${opts.preset}) → ${dst}`);
-        out({ src: opts.in, dst, preset: opts.preset });
+        ok(`Graded (${opts.preset}) → Artifact Revision ${completed.revision.id}`);
+        out({ src: opts.in, artifactId: completed.artifact.id, revisionId: completed.revision.id,
+          runId: completed.run.id, preset: opts.preset });
       } catch (e: any) {
         raiseError("E_INTERNAL", { detail: `grade: ${e?.message || e}` });
       }
@@ -638,7 +618,7 @@ export function videoCmd() {
     .description("Lossless concat of video segments (must share codec/resolution)")
     .requiredOption("--files <list>", "Comma-separated input paths (in order)")
     .requiredOption("--out <path>", "Output file")
-    .option("--project <id>", "Project ID for log line")
+    .requiredOption("--project <id>", "Project ID")
     .option("--note <note>", "Free-form note")
     .action(async (opts: any) => {
       try {
@@ -646,14 +626,17 @@ export function videoCmd() {
           .split(",")
           .map((f) => path.resolve(f.trim()))
           .filter(Boolean);
-        const dst = await concatLossless({
+        const completed = await produceArtifactRevision({
+          scope: { projectId: opts.project }, runKind: "video.concat", requestedOutput: opts.out,
+          artifactKind: "video", mime: mimeForOutput(opts.out), provider: "ffmpeg", model: "ffmpeg/concat",
+          produce: (dst) => concatLossless({
           srcs,
-          dst: path.resolve(opts.out),
-          projectId: opts.project,
-          note: opts.note,
+          dst,
+          }),
         });
-        ok(`Concatenated → ${dst}`);
-        out({ srcs, dst });
+        ok(`Concatenated → Artifact Revision ${completed.revision.id}`);
+        out({ srcs, artifactId: completed.artifact.id, revisionId: completed.revision.id,
+          runId: completed.run.id });
       } catch (e: any) {
         raiseError("E_INTERNAL", { detail: `concat: ` });
       }
@@ -669,20 +652,23 @@ export function videoCmd() {
     .requiredOption("--out <path>", "Output video")
     .option("--passes <n>", "Number of passes (2 = fwd+rev default, 3 = fwd+rev+fwd, …)", (v) => parseInt(v, 10), 2)
     .option("--seconds <n>", "Trim source to first N seconds per pass (total ≈ passes × seconds)", (v) => Number(v))
-    .option("--project <id>", "Project ID for log line")
+    .requiredOption("--project <id>", "Project ID")
     .option("--note <note>", "Free-form note")
     .action(async (opts: any) => {
       try {
-        const dst = await boomerang({
+        const completed = await produceArtifactRevision({
+          scope: { projectId: opts.project }, runKind: "video.boomerang", requestedOutput: opts.out,
+          artifactKind: "video", mime: mimeForOutput(opts.out), provider: "ffmpeg", model: "ffmpeg/boomerang",
+          produce: (dst) => boomerang({
           src: path.resolve(opts.in),
-          dst: path.resolve(opts.out),
+          dst,
           passes: opts.passes,
           seconds: opts.seconds,
-          projectId: opts.project,
-          note: opts.note,
+          }),
         });
-        ok(`Boomerang → ${dst}`);
-        out({ src: opts.in, dst, passes: opts.passes, seconds: opts.seconds ?? null });
+        ok(`Boomerang → Artifact Revision ${completed.revision.id}`);
+        out({ src: opts.in, artifactId: completed.artifact.id, revisionId: completed.revision.id,
+          runId: completed.run.id, passes: opts.passes, seconds: opts.seconds ?? null });
       } catch (e: any) {
         raiseError("E_INTERNAL", { detail: `boomerang: ${e?.message ?? e}` });
       }

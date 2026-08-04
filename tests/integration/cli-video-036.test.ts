@@ -16,6 +16,11 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import {
+  artifactRevisionObjectPath,
+  seedDomainProject,
+  type DomainProjectFixture,
+} from "../helpers/domain-media.js";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
 const CLI = path.join(REPO, "cli", "index.ts");
@@ -31,9 +36,11 @@ const HAS_FFMPEG = hasFfmpeg();
 let tmpRoot: string;
 let videoPath: string;
 let musicPath: string;
+let domain: DomainProjectFixture;
 
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-036-"));
+  domain = seedDomainProject(tmpRoot, "media-036");
   videoPath = path.join(tmpRoot, "in.mp4");
   musicPath = path.join(tmpRoot, "music.wav");
   if (!HAS_FFMPEG) return;
@@ -137,14 +144,18 @@ describe("ralphy video compress (#036)", () => {
         "video", "compress",
         "--in", videoPath,
         "--out", out,
+        "--project", domain.projectId,
       ],
-      { encoding: "utf8" },
+      { cwd: tmpRoot, encoding: "utf8", env: { ...process.env, RALPHY_HOME: tmpRoot } },
     );
     expect(r.status).toBe(0);
-    expect(fs.existsSync(out)).toBe(true);
-    expect(probeVideoCodec(out)).toBe("h264");
-    expect(probeDurationSec(out)).toBeGreaterThan(0);
-    expect(hasFaststartHead(out)).toBe(true);
+    const result = JSON.parse(r.stdout);
+    expect(JSON.stringify(result)).not.toContain(tmpRoot);
+    const stored = artifactRevisionObjectPath(tmpRoot, domain, result.revisionId);
+    expect(fs.existsSync(out)).toBe(false);
+    expect(probeVideoCodec(stored)).toBe("h264");
+    expect(probeDurationSec(stored)).toBeGreaterThan(0);
+    expect(hasFaststartHead(stored)).toBe(true);
   }, 30_000);
 });
 
@@ -165,13 +176,16 @@ describe("ralphy audio mix-music (#036)", () => {
         "--music", musicPath,
         "--volume", "0.18",
         "--out", out,
+        "--project", domain.projectId,
       ],
-      { encoding: "utf8" },
+      { cwd: tmpRoot, encoding: "utf8", env: { ...process.env, RALPHY_HOME: tmpRoot } },
     );
     expect(r.status).toBe(0);
-    expect(fs.existsSync(out)).toBe(true);
-    const stat = fs.statSync(out);
+    const result = JSON.parse(r.stdout);
+    const stored = artifactRevisionObjectPath(tmpRoot, domain, result.revisionId);
+    expect(fs.existsSync(out)).toBe(false);
+    const stat = fs.statSync(stored);
     expect(stat.size).toBeGreaterThan(0);
-    expect(probeDurationSec(out)).toBeGreaterThan(0);
+    expect(probeDurationSec(stored)).toBeGreaterThan(0);
   }, 30_000);
 });

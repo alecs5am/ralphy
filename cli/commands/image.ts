@@ -18,8 +18,18 @@ import {
   ps1Crunch,
 } from "../lib/image/cutout.js";
 import { convertImage, type MaxBox } from "../lib/image/convert.js";
-import { out, ok } from "../lib/output.js";
+import { ok } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
+import { ralphDir } from "../lib/paths.js";
+import {
+  completeArtifactRun,
+  finishRun,
+  finishRunAttempt,
+  projectRunFailure,
+  startRun,
+  startRunAttempt,
+} from "../lib/store/runs.js";
+import { artifactOut as out, mimeForOutput, produceArtifactRevision } from "../lib/artifact-production.js";
 
 export function imageCmd() {
   const cmd = new Command("image").description(
@@ -40,33 +50,12 @@ export function imageCmd() {
     .option("--similarity <n>", "Chroma similarity 0..1 (default 0.3)", (v) => Number(v), 0.3)
     .option("--feather <n>", "Chroma blend feather 0..1 (default 0.1)", (v) => Number(v), 0.1)
     .option("--despill", "Apply colorhold despill pass after chroma key", false)
-    .option("--project <id>", "Project ID for log line")
+    .requiredOption("--project <id>", "Project ID")
     .option("--note <note>", "Free-form note")
     .action(async (opts: any) => {
       try {
         const mode = String(opts.bg ?? "flood").toLowerCase();
-        let dst: string;
-        if (mode === "chroma" || mode === "chromakey") {
-          dst = await chromakey({
-            src: path.resolve(opts.in),
-            dst: path.resolve(opts.out),
-            color: opts.color,
-            similarity: opts.similarity,
-            feather: opts.feather,
-            despill: Boolean(opts.despill),
-            projectId: opts.project,
-            note: opts.note,
-          });
-        } else if (mode === "flood") {
-          dst = await floodFillCutout({
-            src: path.resolve(opts.in),
-            dst: path.resolve(opts.out),
-            color: opts.color,
-            tolerance: opts.tolerance,
-            projectId: opts.project,
-            note: opts.note,
-          });
-        } else {
+        if (mode !== "chroma" && mode !== "chromakey" && mode !== "flood") {
           raiseError("E_INPUT_INVALID", {
             field: "bg",
             detail: `unknown --bg mode "${opts.bg}" — expected flood | chroma`,
@@ -74,8 +63,21 @@ export function imageCmd() {
           });
           return;
         }
-        ok(`Cutout → ${dst}`);
-        out({ src: opts.in, dst, mode });
+        const completed = await produceArtifactRevision({
+          scope: { projectId: opts.project }, runKind: "image.cutout",
+          requestedOutput: opts.out, artifactKind: "image", mime: mimeForOutput(opts.out),
+          provider: "local", model: `image/cutout-${mode}`,
+          produce: async (dst) => {
+            if (mode === "chroma" || mode === "chromakey") {
+              await chromakey({ src: path.resolve(opts.in), dst, color: opts.color,
+                similarity: opts.similarity, feather: opts.feather, despill: Boolean(opts.despill) });
+            } else {
+              await floodFillCutout({ src: path.resolve(opts.in), dst, color: opts.color, tolerance: opts.tolerance });
+            }
+          },
+        });
+        ok(`Cutout → Artifact Revision ${completed.revision.id}`);
+        out({ src: opts.in, artifactId: completed.artifact.id, revisionId: completed.revision.id, runId: completed.run.id, mode });
       } catch (e: any) {
         raiseError("E_INTERNAL", { detail: `image cutout: ${e?.message ?? e}` });
       }
@@ -92,21 +94,19 @@ export function imageCmd() {
     .option("--long <n>", "Long-edge size in pixels", (v) => parseInt(v, 10))
     .option("--trim-alpha", "Trim transparent margins before scaling", false)
     .option("--telegram", "Telegram sticker preset (trim-alpha + 512 long-edge)", false)
-    .option("--project <id>", "Project ID for log line")
+    .requiredOption("--project <id>", "Project ID")
     .option("--note <note>", "Free-form note")
     .action(async (opts: any) => {
       try {
-        const dst = await fitImage({
-          src: path.resolve(opts.in),
-          dst: path.resolve(opts.out),
-          long: opts.long,
-          trimAlpha: Boolean(opts.trimAlpha),
-          telegram: Boolean(opts.telegram),
-          projectId: opts.project,
-          note: opts.note,
+        const completed = await produceArtifactRevision({
+          scope: { projectId: opts.project }, runKind: "image.fit", requestedOutput: opts.out,
+          artifactKind: "image", mime: mimeForOutput(opts.out), provider: "local", model: "image/fit",
+          produce: (dst) => fitImage({ src: path.resolve(opts.in), dst, long: opts.long,
+            trimAlpha: Boolean(opts.trimAlpha), telegram: Boolean(opts.telegram) }),
         });
-        ok(`Fit → ${dst}`);
-        out({ src: opts.in, dst, long: opts.telegram ? 512 : opts.long, trimAlpha: Boolean(opts.trimAlpha || opts.telegram) });
+        ok(`Fit → Artifact Revision ${completed.revision.id}`);
+        out({ src: opts.in, artifactId: completed.artifact.id, revisionId: completed.revision.id, runId: completed.run.id,
+          long: opts.telegram ? 512 : opts.long, trimAlpha: Boolean(opts.trimAlpha || opts.telegram) });
       } catch (e: any) {
         raiseError("E_INTERNAL", { detail: `image fit: ${e?.message ?? e}` });
       }
@@ -122,20 +122,18 @@ export function imageCmd() {
     .requiredOption("--out <path>", "Output PNG")
     .option("--scale <n>", "Internal-resolution downscale factor (default 4; try 3-6)", (v) => parseInt(v, 10), 4)
     .option("--noise <n>", "Add static film grain 0..100 (default 0 = off)", (v) => parseInt(v, 10), 0)
-    .option("--project <id>", "Project ID for log line")
+    .requiredOption("--project <id>", "Project ID")
     .option("--note <note>", "Free-form note")
     .action(async (opts: any) => {
       try {
-        const dst = await ps1Crunch({
-          src: path.resolve(opts.in),
-          dst: path.resolve(opts.out),
-          scale: opts.scale,
-          noise: opts.noise,
-          projectId: opts.project,
-          note: opts.note,
+        const completed = await produceArtifactRevision({
+          scope: { projectId: opts.project }, runKind: "image.crunch", requestedOutput: opts.out,
+          artifactKind: "image", mime: mimeForOutput(opts.out), provider: "local", model: "image/crunch",
+          produce: (dst) => ps1Crunch({ src: path.resolve(opts.in), dst, scale: opts.scale, noise: opts.noise }),
         });
-        ok(`PS1 crunch → ${dst}`);
-        out({ src: opts.in, dst, scale: opts.scale, noise: opts.noise });
+        ok(`PS1 crunch → Artifact Revision ${completed.revision.id}`);
+        out({ src: opts.in, artifactId: completed.artifact.id, revisionId: completed.revision.id, runId: completed.run.id,
+          scale: opts.scale, noise: opts.noise });
       } catch (e: any) {
         raiseError("E_INTERNAL", { detail: `image crunch: ${e?.message ?? e}` });
       }
@@ -152,7 +150,7 @@ export function imageCmd() {
     .option("--max <WxH>", "Downscale to fit inside WxH preserving aspect; never upscale (e.g. 720x1280)")
     .option("--quality <n>", "JPG/WebP quality 1-100 (default 85)", (v) => parseInt(v, 10), 85)
     .option("--strip", "Drop EXIF / C2PA / colour-profile metadata", false)
-    .option("--project <id>", "Project ID for log line")
+    .requiredOption("--project <id>", "Project ID")
     .option("--note <note>", "Free-form note")
     .addHelpText(
       "after",
@@ -186,21 +184,65 @@ Examples:
           });
           return;
         }
-        const dst = await convertImage({
-          src: path.resolve(opts.in),
-          dst: path.resolve(opts.out),
-          max,
+        const requestedOutput = path.resolve(opts.out);
+        const extension = path.extname(requestedOutput).toLowerCase();
+        const mime = imageMime(extension);
+        const slug = path.basename(requestedOutput, extension);
+        const run = startRun({ projectId: opts.project, kind: "image.convert", label: slug });
+        const attempt = startRunAttempt({
+          runId: run.id,
+          provider: "local",
+          model: "image/convert",
+          request: { max: max ? `${max.w}x${max.h}` : null },
+        });
+        const tempOutput = path.join(ralphDir(), "tmp", run.id, `${slug}${extension}`);
+        try {
+          await convertImage({
+            src: path.resolve(opts.in),
+            dst: tempOutput,
+            max,
+            quality: opts.quality,
+            strip: Boolean(opts.strip),
+          });
+        } catch (error) {
+          const projected = projectRunFailure(error, { provider: "local" });
+          finishRunAttempt(attempt.id, { state: "failed", error: projected });
+          finishRun(run.id, { state: "failed", error: projected });
+          throw projected;
+        }
+        const completed = await completeArtifactRun({
+          runId: run.id,
+          attemptId: attempt.id,
+          finishedPath: tempOutput,
+          originalName: `${slug}${extension}`,
+          mime,
+          artifact: { slug, kind: "image", state: "candidate" },
+          objectMetadata: { operation: "convert" },
+          response: { operation: "convert" },
+          costUsd: 0,
+        });
+        ok(`Converted → Artifact Revision ${completed.revision.id}`);
+        out({
+          src: opts.in,
+          artifactId: completed.artifact.id,
+          revisionId: completed.revision.id,
+          objectId: completed.revision.objectId,
+          runId: completed.run.id,
+          max: max ? `${max.w}x${max.h}` : null,
           quality: opts.quality,
           strip: Boolean(opts.strip),
-          projectId: opts.project,
-          note: opts.note,
         });
-        ok(`Convert → ${dst}`);
-        out({ src: opts.in, dst, max: max ? `${max.w}x${max.h}` : null, quality: opts.quality, strip: Boolean(opts.strip) });
       } catch (e: any) {
         raiseError("E_INTERNAL", { detail: `image convert: ${e?.message ?? e}` });
       }
     });
 
   return cmd;
+}
+
+function imageMime(extension: string): string {
+  if (extension === ".png") return "image/png";
+  if (extension === ".jpg" || extension === ".jpeg") return "image/jpeg";
+  if (extension === ".webp") return "image/webp";
+  throw new Error(`unsupported image output extension: ${extension || "<none>"}`);
 }
