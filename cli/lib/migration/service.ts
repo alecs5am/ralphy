@@ -68,8 +68,8 @@ export function startMigration(input: StartMigrationInput): StartMigrationResult
       ).run(runId, paths.stageRootRel, paths.recoveryRootRel, now, now);
       const status = readMigrationStatus(db, runId);
       if (!status) throw new Error("Migration Run was not created");
-      assertMigrationQuiescent([...roots.map((root) => root.path), paths.storeRoot]);
       db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+      assertMigrationQuiescent([...roots.map((root) => root.path), paths.storeRoot]);
       return { runId, storeRoot: paths.storeRoot, lock, cloneSupport, audit, status };
     } finally {
       db.close();
@@ -119,10 +119,10 @@ export async function resumeMigration(input: {
     const inventory = row.phase === "audited" || row.phase === "inventory"
       ? await inventoryLegacySource(context)
       : null;
-    assertMigrationQuiescent([...roots.map((root) => root.path), expectedStoreRoot]);
     const status = readMigrationStatus(db, input.runId);
     if (!status) throw new Error("Migration Run status is unavailable");
     db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+    assertMigrationQuiescent([...roots.map((root) => root.path), expectedStoreRoot]);
     return { status, inventory };
   } finally {
     db.close();
