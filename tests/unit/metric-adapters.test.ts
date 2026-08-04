@@ -11,7 +11,13 @@ import path from "node:path";
 import os from "node:os";
 import { spawnSync } from "node:child_process";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root";
+import {
+  ensureDomainContractProject,
+  setDomainContractDocumentStage,
+  setDomainContractStage,
+} from "../helpers/domain-contract";
 import { projectDir } from "../../cli/lib/paths";
+import { root } from "../../cli/lib/paths";
 import { buildScorecard } from "../../cli/lib/scorecard";
 import { computeWer, statusForWer } from "../../cli/lib/eval/metrics/tts-wer";
 import { statusForAesthetic } from "../../cli/lib/eval/metrics/image-aesthetic";
@@ -234,15 +240,19 @@ function evalReport(opts: { findings?: Array<{ category: string; severity: "info
 }
 
 function seedJson(project: string, rel: string, obj: unknown) {
-  const abs = path.join(projectDir(project), rel);
-  fs.mkdirSync(path.dirname(abs), { recursive: true });
-  fs.writeFileSync(abs, JSON.stringify(obj, null, 2));
+  seed(project, rel, JSON.stringify(obj, null, 2));
 }
 
 function seed(project: string, rel: string, body: string) {
+  ensureDomainContractProject(root(), project);
   const abs = path.join(projectDir(project), rel);
   fs.mkdirSync(path.dirname(abs), { recursive: true });
   fs.writeFileSync(abs, body);
+  if (rel === "eval.json") {
+    setDomainContractDocumentStage(root(), project, "eval", JSON.parse(body));
+  } else if (rel === "render/final.mp4") {
+    setDomainContractStage(root(), project, "render");
+  }
 }
 
 describe("enrichEvalWithMetrics + scorecard no-regression (#485)", () => {
@@ -312,6 +322,7 @@ describe("enrichEvalWithMetrics + scorecard no-regression (#485)", () => {
 
   test("no eval.json to enrich → enriched=false, nothing written, no crash", async () => {
     const id = "no-eval-001";
+    ensureDomainContractProject(root(), id);
     fs.mkdirSync(projectDir(id), { recursive: true });
     const metrics = await runMetrics({
       projectId: id,

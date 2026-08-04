@@ -16,11 +16,16 @@ import fs from "node:fs";
 import path from "node:path";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root";
 import {
+  ensureDomainContractProject,
+  setDomainContractDocumentStage,
+  setDomainContractStage,
+} from "../helpers/domain-contract";
+import {
   evaluateContract,
   lifecycleStatus,
   CONTRACT_PHASES,
 } from "../../cli/lib/contract";
-import { projectDir } from "../../cli/lib/paths";
+import { projectDir, root } from "../../cli/lib/paths";
 
 const PROJECT = "lifecycle-fixture-414";
 
@@ -28,14 +33,45 @@ let tmp: TmpRoot;
 
 /** Write a project-relative file (mkdir -p the parent). */
 function writeArtifact(rel: string, contents = "x") {
+  ensureDomainContractProject(root(), PROJECT);
   const abs = path.join(projectDir(PROJECT), rel);
   fs.mkdirSync(path.dirname(abs), { recursive: true });
   fs.writeFileSync(abs, contents);
+  const stage = {
+    "BRIEF.md": "intake",
+    "PRODUCTION_PLAN.md": "production-plan",
+    "scenario.json": "scenario",
+    "prompts.json": "prompts",
+    "asset-manifest.json": "assets",
+    "render/final.mp4": "render",
+    "eval.json": "eval",
+    "artifacts/refs/research-facts.json": "research",
+    "STYLE_LOCK.md": "style-lock",
+    "council-preflight.json": "council-preflight",
+    "repair-plan.json": "repair",
+    "council-polish.json": "council-polish",
+    "units/main/unit.json": "unit",
+    "postmortem/lessons.md": "postmortem",
+  }[rel];
+  if (stage === "eval") {
+    setDomainContractDocumentStage(root(), PROJECT, stage, JSON.parse(contents));
+  } else if (stage !== undefined) {
+    setDomainContractStage(root(), PROJECT, stage);
+  }
 }
 
 /** Write a production-plan.json with the given fields. */
 function writePlan(fields: Record<string, unknown>) {
   writeArtifact("production-plan.json", JSON.stringify(fields));
+  setDomainContractDocumentStage(
+    root(),
+    PROJECT,
+    "production-plan",
+    fields,
+    Array.isArray(fields.bypasses) && fields.bypasses.some((value) => String(value).startsWith("skip:production-plan"))
+      ? "complete"
+      : "awaiting-approval",
+  );
 }
 
 /** Write an eval.json with a gate + scoring shape (the EvalReport subset we read). */
@@ -60,6 +96,7 @@ function writeEval(opts: {
 
 beforeEach(() => {
   tmp = makeTmpRoot("ralphy-lifecycle-414");
+  ensureDomainContractProject(root(), PROJECT);
   fs.mkdirSync(projectDir(PROJECT), { recursive: true });
 });
 

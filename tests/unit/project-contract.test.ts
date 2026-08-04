@@ -13,8 +13,14 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root";
+import {
+  ensureDomainContractProject,
+  setDomainContractDocumentStage,
+  setDomainContractProjectKind,
+  setDomainContractStage,
+} from "../helpers/domain-contract";
 import { evaluateContract, CONTRACT_PHASES } from "../../cli/lib/contract";
-import { projectDir } from "../../cli/lib/paths";
+import { projectDir, root } from "../../cli/lib/paths";
 
 const PROJECT = "contract-fixture-406";
 
@@ -22,13 +28,36 @@ let tmp: TmpRoot;
 
 /** Write a project-relative file (mkdir -p the parent). */
 function writeArtifact(rel: string, contents = "x") {
+  ensureDomainContractProject(root(), PROJECT);
   const abs = path.join(projectDir(PROJECT), rel);
   fs.mkdirSync(path.dirname(abs), { recursive: true });
   fs.writeFileSync(abs, contents);
+  const stage = {
+    "BRIEF.md": "intake",
+    "PRODUCTION_PLAN.md": "production-plan",
+    "scenario.json": "scenario",
+    "prompts.json": "prompts",
+    "asset-manifest.json": "assets",
+    "render/final.mp4": "render",
+    "eval.json": "eval",
+    "STYLE_LOCK.md": "style-lock",
+    "council-preflight.json": "council-preflight",
+    "repair-plan.json": "repair",
+    "council-polish.json": "council-polish",
+    "units/main/unit.json": "unit",
+    "postmortem/lessons.md": "postmortem",
+    "artifacts/refs/research-facts.json": "research",
+  }[rel];
+  if (stage === "eval") {
+    setDomainContractDocumentStage(root(), PROJECT, stage, JSON.parse(contents));
+  } else if (stage !== undefined) {
+    setDomainContractStage(root(), PROJECT, stage);
+  }
 }
 
 beforeEach(() => {
   tmp = makeTmpRoot("ralphy-contract-406");
+  ensureDomainContractProject(root(), PROJECT);
   // Bare project dir — no artifacts yet (the "draft" pre-intake state).
   fs.mkdirSync(projectDir(PROJECT), { recursive: true });
 });
@@ -147,6 +176,7 @@ describe("evaluateContract — phase ledger", () => {
     // image-pack probe: a selected/ dir and NO render/ dir.
     writeArtifact("BRIEF.md");
     writeArtifact("PRODUCTION_PLAN.md");
+    setDomainContractProjectKind(root(), PROJECT, "image-pack");
     fs.mkdirSync(path.join(projectDir(PROJECT), "selected"), { recursive: true });
     const r = evaluateContract(PROJECT);
     expect(r.kind).toBe("image-pack");
@@ -158,9 +188,7 @@ describe("evaluateContract — phase ledger", () => {
   });
 
   test("non-existent project dir is safe (all artifact phases missing)", () => {
-    const r = evaluateContract("does-not-exist-999");
-    expect(r.complete).toBe(false);
-    expect(r.missingRequired).toContain("BRIEF.md");
+    expect(() => evaluateContract("does-not-exist-999")).toThrow("Project not found");
   });
 });
 

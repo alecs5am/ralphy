@@ -20,7 +20,14 @@ import path from "node:path";
 import { projectDir, projectWorkspace, root } from "../paths.js";
 import { callLLM } from "../providers/llm.js";
 import { readGenerations } from "../gen-log.js";
-import { writeEntry, searchEntries, SLUG_RE, autoSlug, type MemoryEntry } from "../memory/store.js";
+import {
+  writeEntry,
+  searchEntries,
+  SLUG_RE,
+  autoSlug,
+  memoryEntryReference,
+  type MemoryEntryReference,
+} from "../memory/store.js";
 import { DISTILL_MODEL, DISTILL_SOURCES } from "../memory/distill.js";
 
 /** The 8 destinations a routed lesson can land in (issue #425). */
@@ -63,7 +70,7 @@ export interface RouteResult {
   dryRun: boolean;
   proposals: LessonProposal[];
   /** Memory proposals actually staged into proposed/ (empty on --dry-run). */
-  staged: Array<Pick<MemoryEntry, "slug" | "tier" | "file" | "path">>;
+  staged: MemoryEntryReference[];
 }
 
 /** Thrown when the project has no readable failure-lesson sources at all. */
@@ -284,7 +291,7 @@ export async function routeFailureLessons(opts: {
         description: p.title,
         source: `lessons:${opts.projectId} (${sections.map((s) => s.label).join(", ")})`,
       });
-      staged.push({ slug: w.entry.slug, tier: w.entry.tier, file: w.entry.file, path: w.entry.path });
+      staged.push(memoryEntryReference(w.entry));
     }
   }
 

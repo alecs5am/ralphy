@@ -40,6 +40,7 @@ export const DOMAIN_ID_PREFIXES = [
   "mig",
   "mentry",
   "miss",
+  "setting",
   "brand",
   "persona",
   "tmpl",

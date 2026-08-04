@@ -25,10 +25,9 @@
 //    `nextRecommendedAction` — the gate for those lives in the agent loop, not
 //    the filesystem.
 
-import path from "node:path";
-import { existsSync, readFileSync } from "node:fs";
-import { projectDir } from "./paths.js";
+import { getCommandContext } from "./context-state.js";
 import { isModeSupported } from "./content-modes.js";
+import { openDomainDb } from "./store/db.js";
 import { loadWorkspaceEvaluatorsSync } from "./workspace-evaluators.js";
 
 /** A single phase of the production contract. */
@@ -338,27 +337,110 @@ const NEXT_STEP: Record<string, string> = {
   postmortem: "Run /postmortem and `ralphy memory distill` to capture durable lessons.",
 };
 
-function safeExists(p: string): boolean {
-  try {
-    return existsSync(p);
-  } catch {
-    return false;
-  }
+type ContractProjectRow = {
+  id: string;
+  workspaceId: string;
+  workspaceSlug: string;
+  metadataJson: string | null;
+};
+
+type ContractStageRow = {
+  stage: string;
+  state: string;
+  entityType: string | null;
+  entityId: string | null;
+};
+
+const SATISFIED_STAGE_STATES = new Set([
+  "complete",
+  "completed",
+  "succeeded",
+  "skipped",
+  "awaiting-approval",
+]);
+
+function stageBindingBelongsToProject(
+  projectId: string,
+  stage: ContractStageRow | undefined,
+): boolean {
+  if (!stage?.entityType || !stage.entityId) return false;
+  const queries: Record<string, string> = {
+    document_revision: `SELECT document.project_id AS projectId
+      FROM document_revisions revision
+      JOIN documents document ON document.id = revision.document_id
+      WHERE revision.id = ?`,
+    evaluation: "SELECT project_id AS projectId FROM evaluations WHERE id = ?",
+    artifact_revision: `SELECT artifact.project_id AS projectId
+      FROM artifact_revisions revision
+      JOIN artifacts artifact ON artifact.id = revision.artifact_id
+      WHERE revision.id = ?`,
+    composition_revision: `SELECT composition.project_id AS projectId
+      FROM composition_revisions revision
+      JOIN compositions composition ON composition.id = revision.composition_id
+      WHERE revision.id = ?`,
+    build: `SELECT composition.project_id AS projectId
+      FROM builds build
+      JOIN composition_revisions revision ON revision.id = build.composition_revision_id
+      JOIN compositions composition ON composition.id = revision.composition_id
+      WHERE build.id = ?`,
+    run: "SELECT project_id AS projectId FROM runs WHERE id = ?",
+    unit_revision: `SELECT unit.project_id AS projectId
+      FROM unit_revisions revision
+      JOIN units unit ON unit.id = revision.unit_id
+      WHERE revision.id = ?`,
+    unit_presentation: `SELECT unit.project_id AS projectId
+      FROM unit_presentations presentation
+      JOIN unit_revisions revision ON revision.id = presentation.unit_revision_id
+      JOIN units unit ON unit.id = revision.unit_id
+      WHERE presentation.id = ?`,
+    publication: `SELECT unit.project_id AS projectId
+      FROM publications publication
+      JOIN unit_presentations presentation ON presentation.id = publication.presentation_id
+      JOIN unit_revisions revision ON revision.id = presentation.unit_revision_id
+      JOIN units unit ON unit.id = revision.unit_id
+      WHERE publication.id = ?`,
+  };
+  const query = queries[stage.entityType];
+  if (!query) return false;
+  return openDomainDb().query<{ projectId: string | null }, [string]>(query)
+    .get(stage.entityId)?.projectId === projectId;
 }
 
-/**
- * Cheap project-kind probe without touching the registry (keeps the function
- * pure-ish + testable on bare fixture dirs): a `render/` sibling means a video
- * project, a `selected/` sibling means an image-pack, otherwise "unknown".
- * Used to relax the `scenario.json` requirement for image-pack projects, which
- * legitimately never have a scenario.
- */
-function probeKind(dir: string): string {
-  if (safeExists(path.join(dir, "selected")) && !safeExists(path.join(dir, "render"))) {
-    return "image-pack";
+function resolveContractProject(projectId: string): ContractProjectRow {
+  const db = openDomainDb();
+  const context = getCommandContext();
+  const row = context
+    ? db.query<ContractProjectRow, [string, string, string, string]>(
+        `SELECT project.id, project.workspace_id AS workspaceId,
+                workspace.slug AS workspaceSlug,
+                project.metadata_json AS metadataJson
+         FROM projects project
+         JOIN workspaces workspace ON workspace.id = project.workspace_id
+         WHERE project.workspace_id = ? AND (project.id = ? OR project.slug = ?)
+         ORDER BY CASE WHEN project.id = ? THEN 0 ELSE 1 END LIMIT 1`,
+      ).get(context.workspaceId, projectId, projectId, projectId)
+    : db.query<ContractProjectRow, [string, string, string]>(
+        `SELECT project.id, project.workspace_id AS workspaceId,
+                workspace.slug AS workspaceSlug,
+                project.metadata_json AS metadataJson
+         FROM projects project
+         JOIN workspaces workspace ON workspace.id = project.workspace_id
+         WHERE project.id = ? OR project.slug = ?
+         ORDER BY CASE WHEN project.id = ? THEN 0 ELSE 1 END LIMIT 1`,
+      ).get(projectId, projectId, projectId);
+  if (!row) throw new Error(`Project not found: ${projectId}`);
+  return row;
+}
+
+function projectKind(project: ContractProjectRow): string {
+  try {
+    const metadata = project.metadataJson === null
+      ? null
+      : JSON.parse(project.metadataJson) as { kind?: unknown };
+    return typeof metadata?.kind === "string" ? metadata.kind : "unknown";
+  } catch {
+    return "unknown";
   }
-  if (safeExists(path.join(dir, "render"))) return "video";
-  return "unknown";
 }
 
 /**
@@ -369,35 +451,31 @@ function probeKind(dir: string): string {
  * @param projectId  the project id (resolved through `projectDir`).
  */
 export function evaluateContract(projectId: string): ContractEvaluation {
-  const dir = projectDir(projectId);
-  const kind = probeKind(dir);
+  const project = resolveContractProject(projectId);
+  const kind = projectKind(project);
+  const stageRows = openDomainDb()
+    .query<ContractStageRow, [string]>(
+      "SELECT stage, state, entity_type AS entityType, entity_id AS entityId FROM project_stages WHERE project_id = ?",
+    )
+    .all(project.id);
+  const stages = new Map(stageRows.map((stage) => [stage.stage, stage]));
 
   const phases: ContractPhaseResult[] = CONTRACT_PHASES.map((phase) => {
     // image-pack projects never produce a scenario — don't require it of them.
     const requiredForKind =
       phase.id === "scenario" && kind === "image-pack" ? false : phase.required;
 
-    if (phase.artifact === null) {
-      // Agent-driven phase — no on-disk artifact, gate lives in the agent loop.
-      return {
-        id: phase.id,
-        label: phase.label,
-        artifact: null,
-        required: false,
-        present: true,
-        satisfied: true,
-        rationale: phase.rationale,
-      };
-    }
-
-    const present = safeExists(path.join(dir, phase.artifact));
+    const stage = stages.get(phase.id);
+    const bound = phase.artifact === null || stageBindingBelongsToProject(project.id, stage);
+    const present = phase.artifact === null || (stage !== undefined && bound);
     return {
       id: phase.id,
       label: phase.label,
       artifact: phase.artifact,
       required: requiredForKind,
       present,
-      satisfied: present,
+      satisfied: phase.artifact === null ||
+        (stage !== undefined && bound && SATISFIED_STAGE_STATES.has(stage.state)),
       rationale: phase.rationale,
     };
   });
@@ -446,10 +524,10 @@ export function evaluateContract(projectId: string): ContractEvaluation {
 
   // ── Polished determination (#411 native-gate gated) ─────────────────────────
   const renderPresent = phases.find((p) => p.id === "render")?.present === true;
-  const polished = derivePolished(dir, renderPresent);
+  const polished = derivePolished(project.id, stages, renderPresent);
 
   // ── Stop conditions derived from project state (#414) ───────────────────────
-  const stopConditions = deriveStopConditions(dir, phases, polished);
+  const stopConditions = deriveStopConditions(project, stages, phases, polished);
 
   return {
     project: projectId,
@@ -478,11 +556,33 @@ export function lifecycleStatus(projectId: string): ContractEvaluation {
 
 // ─── Resume-model helpers (#414) ───────────────────────────────────────────────
 
-/** Read + JSON.parse a project-relative file, or null on any failure. */
-function safeReadJson(abs: string): unknown {
+function boundStageJson(
+  projectId: string,
+  stage: ContractStageRow | undefined,
+): Record<string, unknown> | null {
+  if (!stage?.entityType || !stage.entityId) return null;
+  let body: string | null = null;
+  if (stage.entityType === "document_revision") {
+    body = openDomainDb()
+      .query<{ body: string }, [string, string]>(
+        `SELECT revision.body FROM document_revisions revision
+         JOIN documents document ON document.id = revision.document_id
+         WHERE revision.id = ? AND document.project_id = ?`,
+      )
+      .get(stage.entityId, projectId)?.body ?? null;
+  } else if (stage.entityType === "evaluation") {
+    body = openDomainDb()
+      .query<{ body: string }, [string, string]>(
+        "SELECT report_json AS body FROM evaluations WHERE id = ? AND project_id = ?",
+      )
+      .get(stage.entityId, projectId)?.body ?? null;
+  }
+  if (body === null) return null;
   try {
-    if (!existsSync(abs)) return null;
-    return JSON.parse(readFileSync(abs, "utf8"));
+    const value = JSON.parse(body) as unknown;
+    return value !== null && typeof value === "object" && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : null;
   } catch {
     return null;
   }
@@ -501,12 +601,16 @@ function safeReadJson(abs: string): unknown {
  *     — the agent needs the false to know the native gate still blocks.
  *   • no render and no bypass yet → `null` (the question is N/A; nothing to ship).
  */
-function derivePolished(dir: string, renderPresent: boolean): boolean | null {
-  const planBypasses = readPlanBypasses(dir);
+function derivePolished(
+  projectId: string,
+  stages: Map<string, ContractStageRow>,
+  renderPresent: boolean,
+): boolean | null {
+  const planBypasses = readPlanBypasses(projectId, stages);
   const userBypass = planBypasses.some((b) => /^gate-bypass[:\s]/i.test(b));
   if (userBypass) return true;
 
-  const evalRaw = safeReadJson(path.join(dir, "eval.json")) as
+  const evalRaw = boundStageJson(projectId, stages.get("eval")) as
     | { gate?: { shipReady?: unknown } }
     | null;
   if (evalRaw) {
@@ -518,8 +622,11 @@ function derivePolished(dir: string, renderPresent: boolean): boolean | null {
 }
 
 /** Read the production plan's `bypasses[]` (the logged phase-skip ledger), or []. */
-function readPlanBypasses(dir: string): string[] {
-  const planRaw = safeReadJson(path.join(dir, "production-plan.json")) as
+function readPlanBypasses(
+  projectId: string,
+  stages: Map<string, ContractStageRow>,
+): string[] {
+  const planRaw = boundStageJson(projectId, stages.get("production-plan")) as
     | { bypasses?: unknown }
     | null;
   const b = planRaw?.bypasses;
@@ -540,12 +647,13 @@ const OVER_TARGET_FACTOR = 1.5;
  * pure read of an artifact already on disk — no model call, no chat memory.
  */
 function deriveStopConditions(
-  dir: string,
+  project: ContractProjectRow,
+  stages: Map<string, ContractStageRow>,
   phases: ContractPhaseResult[],
   polished: boolean | null,
 ): StopCondition[] {
   const stops: StopCondition[] = [];
-  const planRaw = safeReadJson(path.join(dir, "production-plan.json")) as
+  const planRaw = boundStageJson(project.id, stages.get("production-plan")) as
     | {
         contentMode?: { mode?: unknown };
         estimate?: { wallClockMin?: unknown };
@@ -553,8 +661,8 @@ function deriveStopConditions(
         bypasses?: unknown;
       }
     | null;
-  const bypasses = readPlanBypasses(dir);
-  const evalRaw = safeReadJson(path.join(dir, "eval.json")) as
+  const bypasses = readPlanBypasses(project.id, stages);
+  const evalRaw = boundStageJson(project.id, stages.get("eval")) as
     | { gate?: { shipReady?: unknown; nativeVideo?: unknown }; scoring?: { verdict?: unknown } }
     | null;
 
@@ -575,7 +683,8 @@ function deriveStopConditions(
   // The plan declares requiredRefs; if it does and no ref landed in
   // artifacts/refs/ and no --no-ref-consent bypass was logged, the gate blocks.
   const requiredRefs = Array.isArray(planRaw?.requiredRefs) ? planRaw!.requiredRefs : [];
-  const hasRefs = safeExists(path.join(dir, "artifacts", "refs"));
+  const hasRefs = stages.get("reference-gate") !== undefined &&
+    SATISFIED_STAGE_STATES.has(stages.get("reference-gate")!.state);
   const refConsent = bypasses.some((b) => /^no-ref-consent[:\s]/i.test(b));
   if (requiredRefs.length > 0 && !hasRefs && !refConsent) {
     stops.push({
@@ -606,7 +715,12 @@ function deriveStopConditions(
   const planPresent = present("production-plan");
   const assetsStarted = present("assets") || present("render");
   const goWaived = bypasses.some((b) => /^skip:production-plan[:\s]/i.test(b));
-  if (planPresent && !assetsStarted && !goWaived) {
+  if (
+    planPresent &&
+    stages.get("production-plan")?.state === "awaiting-approval" &&
+    !assetsStarted &&
+    !goWaived
+  ) {
     stops.push({
       id: "user-approval-needed",
       phase: "production-plan",
@@ -643,7 +757,7 @@ function deriveStopConditions(
   }
 
   // ── stage-gate-unmet (#472 — workspace-rubric stage gates) ──
-  stops.push(...deriveStageGateStops(dir));
+  stops.push(...deriveStageGateStops(project, stages));
 
   return stops;
 }
@@ -655,9 +769,9 @@ function deriveStopConditions(
  * null config or an empty/absent `stageGates` returns `[]` immediately (the early
  * returns below). This keeps every existing contract test green.
  *
- * The gate reads the latest `<dir>/workspace-eval.json` (#469). When that eval has
- * not run yet (file absent) we emit NO stop — you cannot gate on an eval that does
- * not exist, and fabricating a block would be wrong.
+ * The gate reads the latest Workspace Evaluation bound to the Project stage
+ * (#469). When that eval has not run yet we emit NO stop — you cannot gate on
+ * an evaluation that does not exist, and fabricating a block would be wrong.
  *
  * Verdict → severity rule (per owned criterion in a gate):
  *   • `fail` → a stop at `stageGate.severity` (default `block`).
@@ -666,14 +780,16 @@ function deriveStopConditions(
  * A single gate emits at most ONE stop: a `fail` on any owned criterion wins
  * (block at the gate's severity); else a `warn` on any owned criterion (advisory).
  */
-function deriveStageGateStops(dir: string): StopCondition[] {
-  const slug = resolveWorkspaceSlug(dir);
-  const config = loadWorkspaceEvaluatorsSync(slug);
+function deriveStageGateStops(
+  project: ContractProjectRow,
+  stages: Map<string, ContractStageRow>,
+): StopCondition[] {
+  const config = loadWorkspaceEvaluatorsSync(project.workspaceId);
   const gates = config?.stageGates;
   if (!config || !gates || gates.length === 0) return []; // no rubric → no stop.
 
   // The latest workspace-eval scorecard — absent ⇒ cannot gate, emit nothing.
-  const evalRaw = safeReadJson(path.join(dir, "workspace-eval.json")) as
+  const evalRaw = boundStageJson(project.id, stages.get("workspace-eval")) as
     | { criteria?: Array<{ id?: unknown; verdict?: unknown }> }
     | null;
   if (!evalRaw || !Array.isArray(evalRaw.criteria)) return [];
@@ -701,20 +817,8 @@ function deriveStageGateStops(dir: string): StopCondition[] {
       severity,
       detail: `stage "${gate.stage}" (phase ${gate.phase}) cannot advance: criterion(s) ${offenders
         .map((id) => `"${id}"`)
-        .join(", ")} ${blocked ? "FAILED" : "WARNED"} in the latest workspace-eval.json. Clear the eval (\`ralphy workspace eval <id>\`) and run the repair loop before advancing this stage.`,
+        .join(", ")} ${blocked ? "FAILED" : "WARNED"} in the latest Workspace Evaluation. Clear the eval (\`ralphy workspace eval <id>\`) and run the repair loop before advancing this stage.`,
     });
   }
   return stops;
-}
-
-/**
- * Resolve a project's workspace slug from its dir layout
- * (`.ralphy/workspaces/<ws>/projects/<id>`). Mirrors
- * `cli/lib/eval/workspace-criteria.ts → resolveWorkspaceSlug`. Falls back to
- * "default".
- */
-function resolveWorkspaceSlug(dir: string): string {
-  const parts = dir.split(path.sep);
-  const wi = parts.lastIndexOf("workspaces");
-  return wi >= 0 && parts[wi + 1] ? parts[wi + 1] : "default";
 }

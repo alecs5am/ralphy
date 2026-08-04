@@ -13,6 +13,8 @@ import {
   writeEntry,
   SLUG_RE,
   type MemoryEntry,
+  type MemoryEntryReference,
+  memoryEntryReference,
   type TierRef,
 } from "./store.js";
 
@@ -46,7 +48,7 @@ export interface CurateResult {
   merges: CurateMerge[];
   flags: CurateFlag[];
   /** Proposed merge entries actually staged (empty on --dry-run). */
-  staged: Array<Pick<MemoryEntry, "slug" | "tier" | "file" | "path">>;
+  staged: MemoryEntryReference[];
 }
 
 const SYSTEM_PROMPT = `You are auditing an agent's curated memory store (markdown rules). Return STRICT JSON: {"merges": [...], "flags": [...]}.
@@ -159,7 +161,7 @@ export async function curateMemory(opts: { ws: string; dryRun?: boolean }): Prom
         description: m.description || undefined,
         source: `curate:merge of [${[m.survivor_slug, ...m.retire_after_approve].join(", ")}]`,
       });
-      staged.push({ slug: w.entry.slug, tier: w.entry.tier, file: w.entry.file, path: w.entry.path });
+      staged.push(memoryEntryReference(w.entry));
     }
   }
 

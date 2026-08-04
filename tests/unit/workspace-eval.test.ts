@@ -14,6 +14,7 @@
 // No live LLM / network anywhere. English-only-on-disk.
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { Database } from "bun:sqlite";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -27,7 +28,11 @@ import {
   type WorkspaceValidator,
 } from "../../cli/lib/eval/workspace-evaluators";
 import { registerBuiltinWorkspaceValidators } from "../../cli/lib/eval/workspace-criteria";
-import { workspaceDir } from "../../cli/lib/paths";
+import { root, setRoot, workspaceDir } from "../../cli/lib/paths";
+import { closeDomainDb } from "../../cli/lib/store/db";
+import { createProject, createWorkspace } from "../../cli/lib/store/scopes";
+import { saveWorkspaceEvaluators } from "../../cli/lib/workspace-evaluators";
+import { recordWorkspaceEvalResult } from "../../cli/lib/eval/workspace-evaluators";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
 const CLI = path.join(REPO, "cli", "index.ts");
@@ -39,6 +44,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  closeDomainDb();
   tmp.cleanup();
 });
 
@@ -48,6 +54,8 @@ function seedProject(opts: {
   projectId: string;
   evaluators: Record<string, unknown>;
 }) {
+  const workspaceRow = createWorkspace({ slug: opts.workspace, name: opts.workspace });
+  createProject({ workspaceId: workspaceRow.id, slug: opts.projectId, name: opts.projectId });
   const wsDir = workspaceDir(opts.workspace);
   const projDir = path.join(wsDir, "projects", opts.projectId);
   fs.mkdirSync(path.join(projDir, "artifacts"), { recursive: true });
@@ -55,12 +63,9 @@ function seedProject(opts: {
     path.join(wsDir, "workspace.json"),
     JSON.stringify({ slug: opts.workspace }),
   );
-  fs.writeFileSync(
-    path.join(wsDir, "evaluators.json"),
-    JSON.stringify(opts.evaluators),
-  );
+  saveWorkspaceEvaluators(workspaceRow.id, opts.evaluators);
   fs.writeFileSync(path.join(projDir, "BRIEF.md"), "# brief\n");
-  // Register the project so id → workspace resolves.
+  // Keep the old registry fixture for path-resolution compatibility tests.
   const reg = {
     brands: {},
     personas: {},
@@ -77,6 +82,41 @@ function seedProject(opts: {
     JSON.stringify(reg),
   );
   return { wsDir, projDir };
+}
+
+function seedChildDomain(
+  childRoot: string,
+  workspace: string,
+  projectId: string,
+  evaluators: Record<string, unknown>,
+): void {
+  const previousRoot = root();
+  closeDomainDb();
+  setRoot(childRoot);
+  const workspaceRow = createWorkspace({ slug: workspace, name: workspace });
+  createProject({ workspaceId: workspaceRow.id, slug: projectId, name: projectId });
+  saveWorkspaceEvaluators(workspaceRow.id, evaluators);
+  closeDomainDb();
+  setRoot(previousRoot);
+}
+
+function readChildScorecard(childRoot: string, projectSlug: string): Record<string, any> {
+  const db = new Database(path.join(childRoot, ".ralphy", "ralphy.db"), { readonly: true });
+  try {
+    const row = db
+      .query<{ report: string }, [string]>(
+        `SELECT evaluation.report_json AS report
+         FROM evaluations evaluation
+         JOIN projects project ON project.id = evaluation.project_id
+         WHERE project.slug = ? AND evaluation.kind = 'workspace'
+         ORDER BY evaluation.created_at DESC, evaluation.id DESC LIMIT 1`,
+      )
+      .get(projectSlug);
+    if (!row) throw new Error(`No workspace evaluation for ${projectSlug}`);
+    return JSON.parse(row.report) as Record<string, any>;
+  } finally {
+    db.close();
+  }
 }
 
 // ─── (a) deriveOverallVerdict — #427 vocab mapping ──────────────────────────────
@@ -350,12 +390,12 @@ describe("runWorkspaceEval — criteria subset filter + merge (#477)", () => {
     expect(full.criteria.map((c) => c.id).sort()).toEqual(["a", "b"]);
     expect(full.overall.verdict).toBe("blocked");
     // Persist it as the prior scorecard (the CLI normally does this).
-    fs.writeFileSync(path.join(projDir, "workspace-eval.json"), JSON.stringify(full));
+    recordWorkspaceEvalResult(full);
 
     // Now swap "a" to passing and re-run ONLY "a". The merge must keep "b" and
     // recompute overall over both → ship (both now pass).
     registerWorkspaceValidator("ws477-failing", passing);
-    const merged = await runWorkspaceEval("sub3-001", { criteria: ["a"] });
+      const merged = await runWorkspaceEval("sub3-001", { criteria: ["a"] });
     expect(merged.criteria.map((c) => c.id).sort()).toEqual(["a", "b"]);
     expect(merged.criteria.find((c) => c.id === "a")!.verdict).not.toBe("fail");
     expect(merged.overall.verdict).toBe("ship");
@@ -402,6 +442,18 @@ describe("ralphy workspace eval <project> — CLI smoke", () => {
           projects: { "fog-cli-001": { id: "fog-cli-001", workspace: "fog" } },
         }),
       );
+      seedChildDomain(childRoot, "fog", "fog-cli-001", {
+        criteria: [
+          {
+            id: "freeze-on-fork",
+            label: "Decision freeze present",
+            category: "pacing",
+            check: "deterministic",
+            severity: "warn",
+            validatorId: "not-registered-yet",
+          },
+        ],
+      });
 
       const r = spawnSync(
         "bun",
@@ -416,15 +468,13 @@ describe("ralphy workspace eval <project> — CLI smoke", () => {
       expect(json.criteria).toBe(1);
       expect(["ship", "repair", "needs-user-decision", "blocked"]).toContain(json.verdict);
 
-      // The scorecard landed on disk with the mirrored v1.0 envelope.
-      const scorecardPath = path.join(wsDir, "workspace-eval.json");
-      expect(fs.existsSync(scorecardPath)).toBe(true);
-      const scorecard = JSON.parse(fs.readFileSync(scorecardPath, "utf8"));
+      // The scorecard is persisted as a SQL Evaluation report.
+      const scorecard = readChildScorecard(childRoot, "fog-cli-001");
       expect(scorecard.schemaVersion).toBe("1.0");
       expect(scorecard.criteria[0].id).toBe("freeze-on-fork");
       expect(scorecard.criteria[0].verdict).toBe("na");
       expect(scorecard.overall.verdict).toBe(json.verdict);
-      expect(fs.existsSync(path.join(wsDir, "workspace-eval-report.md"))).toBe(true);
+      expect(fs.existsSync(path.join(wsDir, "workspace-eval-report.md"))).toBe(false);
     } finally {
       fs.rmSync(childRoot, { recursive: true, force: true });
     }
@@ -457,6 +507,12 @@ describe("ralphy workspace eval <project> — CLI smoke", () => {
           projects: { "fog-crit-001": { id: "fog-crit-001", workspace: "fog" } },
         }),
       );
+      seedChildDomain(childRoot, "fog", "fog-crit-001", {
+        criteria: [
+          { id: "md", label: "Material density", category: "density", check: "deterministic", severity: "warn", validatorId: "material-density" },
+          { id: "ec", label: "Edit correctness", category: "edit", check: "deterministic", severity: "warn", validatorId: "edit-correctness" },
+        ],
+      });
 
       const run = (extra: string[]) =>
         spawnSync(
@@ -478,7 +534,7 @@ describe("ralphy workspace eval <project> — CLI smoke", () => {
       expect(json.summary).toContain("ec");
       expect(json.summary).toContain("merged");
 
-      const scorecard = JSON.parse(fs.readFileSync(path.join(projDir, "workspace-eval.json"), "utf8"));
+      const scorecard = readChildScorecard(childRoot, "fog-crit-001");
       expect(scorecard.criteria.map((c: { id: string }) => c.id).sort()).toEqual(["ec", "md"]);
     } finally {
       fs.rmSync(childRoot, { recursive: true, force: true });

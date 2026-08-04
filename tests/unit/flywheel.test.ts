@@ -10,15 +10,27 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root";
+import {
+  ensureDomainContractProject,
+  setDomainContractDocumentStage,
+  setDomainContractStage,
+} from "../helpers/domain-contract";
 import { projectDir } from "../../cli/lib/paths";
+import { root } from "../../cli/lib/paths";
 import { runQualityFlywheel } from "../../cli/lib/eval/flywheel";
 import { gatesForContext } from "../../cli/lib/eval/gate";
 import { getContentMode } from "../../cli/lib/content-modes";
 
 function seed(project: string, rel: string, body: string) {
+  ensureDomainContractProject(root(), project);
   const abs = path.join(projectDir(project), rel);
   fs.mkdirSync(path.dirname(abs), { recursive: true });
   fs.writeFileSync(abs, body);
+  if (rel === "eval.json" || rel === "production-plan.json") {
+    setDomainContractDocumentStage(root(), project, rel === "eval.json" ? "eval" : "production-plan", JSON.parse(body));
+  } else if (rel === "render/final.mp4") {
+    setDomainContractStage(root(), project, "render");
+  }
 }
 function seedJson(project: string, rel: string, obj: unknown) {
   seed(project, rel, JSON.stringify(obj, null, 2));

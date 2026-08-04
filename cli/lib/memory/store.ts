@@ -28,6 +28,11 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { workspace as dataRoot, workspaceDir, currentWorkspace } from "../paths.js";
 import { slugify } from "../ids.js";
+import { appendActivity } from "../store/activity.js";
+import { openDomainDb, withImmediateTransaction } from "../store/db.js";
+import { createDocument, reviseDocument } from "../store/documents.js";
+import { newDomainId } from "../store/ids.js";
+import { StoreConflictError } from "../store/types.js";
 
 export const MEMORY_TYPES = ["model", "craft", "tooling", "client", "style", "user"] as const;
 export type MemoryType = (typeof MEMORY_TYPES)[number];
@@ -48,15 +53,41 @@ export interface MemoryEntry extends MemoryFrontmatter {
   slug: string;
   /** 1 = the base `<slug>.md` file; 2+ = `<slug>.vN.md`. */
   version: number;
-  /** Filename of this (newest) version, e.g. `kling-no-music.v2.md`. */
-  file: string;
-  /** Absolute path of this version's file. */
-  path: string;
+  /** Stable domain identity for a workspace entry. Never a filesystem locator. */
+  id?: string;
+  /** Stable identity of the selected immutable workspace revision. */
+  revisionId?: string;
+  /** Global-tier compatibility filename; absent for workspace entries. */
+  file?: string;
+  /** Global-tier compatibility path; absent for workspace entries. */
+  path?: string;
   tier: MemoryTier;
   /** Workspace slug when tier === "workspace". */
   workspace?: string;
   status: MemoryStatus;
   body: string;
+}
+
+export type MemoryEntryReference =
+  | { slug: string; tier: "global"; file: string; path: string }
+  | { slug: string; tier: "workspace"; workspace: string; id: string; revisionId: string };
+
+export function memoryEntryReference(entry: MemoryEntry): MemoryEntryReference {
+  if (entry.tier === "workspace") {
+    return {
+      slug: entry.slug,
+      tier: "workspace",
+      workspace: entry.workspace!,
+      id: entry.id!,
+      revisionId: entry.revisionId!,
+    };
+  }
+  return {
+    slug: entry.slug,
+    tier: "global",
+    file: entry.file!,
+    path: entry.path!,
+  };
 }
 
 export interface TierRef {
@@ -303,6 +334,7 @@ export function renderIndex(entries: MemoryEntry[]): string {
  * rewrite in place.
  */
 export async function rebuildIndex(ref: TierRef): Promise<string> {
+  if (ref.tier === "workspace") return ref.ws ?? currentWorkspace();
   const entries = await listEntries(ref, "active");
   const file = indexPath(ref);
   await fs.mkdir(memoryDir(ref), { recursive: true });
@@ -339,6 +371,7 @@ export interface WriteResult {
  * the newest version file in place instead (explicit destructive opt-in).
  */
 export async function writeEntry(opts: WriteOptions): Promise<WriteResult> {
+  if (opts.ref.tier === "workspace") return writeWorkspaceEntry(opts);
   const slug = opts.slug ?? autoSlug(opts.text);
   if (!SLUG_RE.test(slug)) {
     throw new Error(`invalid memory slug: '${slug}' (lowercase kebab-case required)`);
@@ -383,8 +416,7 @@ export async function writeEntry(opts: WriteOptions): Promise<WriteResult> {
       version,
       file,
       path: abs,
-      tier: opts.ref.tier,
-      workspace: opts.ref.tier === "workspace" ? (opts.ref.ws ?? currentWorkspace()) : undefined,
+      tier: "global",
       status: opts.status,
       ...fm,
       body: scaffoldBody(opts.text),
@@ -394,8 +426,172 @@ export async function writeEntry(opts: WriteOptions): Promise<WriteResult> {
   };
 }
 
+type WorkspaceMemoryRow = {
+  id: string;
+  entryStatus: MemoryStatus;
+  currentRevisionId: string;
+  latestRevisionId: string;
+  latestRevisionNo: number;
+  documentId: string;
+  latestDocumentRevisionId: string;
+};
+
+async function writeWorkspaceEntry(opts: WriteOptions): Promise<WriteResult> {
+  const workspaceValue = opts.ref.ws ?? currentWorkspace();
+  const workspaceId = resolveWorkspaceId(workspaceValue)!;
+  const slug = opts.slug ?? autoSlug(opts.text);
+  if (!SLUG_RE.test(slug)) {
+    throw new Error(`invalid memory slug: '${slug}' (lowercase kebab-case required)`);
+  }
+  const db = openDomainDb();
+  const existing = db
+    .query<WorkspaceMemoryRow, [string, string]>(
+      `SELECT entry.id, entry.status AS entryStatus,
+              entry.current_revision_id AS currentRevisionId,
+              latest_revision.id AS latestRevisionId,
+              latest_revision.revision_no AS latestRevisionNo,
+              document_revision.document_id AS documentId,
+              latest_revision.document_revision_id AS latestDocumentRevisionId
+       FROM memory_entries entry
+       JOIN memory_revisions latest_revision
+         ON latest_revision.memory_entry_id = entry.id
+        AND latest_revision.revision_no = (
+          SELECT MAX(candidate.revision_no)
+          FROM memory_revisions candidate
+          WHERE candidate.memory_entry_id = entry.id
+        )
+       JOIN document_revisions document_revision
+         ON document_revision.id = latest_revision.document_revision_id
+       WHERE entry.workspace_id = ? AND entry.slug = ?`,
+    )
+    .get(workspaceId, slug);
+  if (!existing && opts.status === "active") {
+    const count = db
+      .query<{ count: number }, [string]>(
+        "SELECT COUNT(*) AS count FROM memory_entries WHERE workspace_id = ? AND status = 'active'",
+      )
+      .get(workspaceId)?.count ?? 0;
+    if (count >= ACTIVE_ENTRY_CAP) throw new MemoryCapError(count);
+  }
+
+  const body = scaffoldBody(opts.text);
+  const fm: MemoryFrontmatter = {
+    name: autoName(opts.text),
+    description: opts.description ?? firstSentence(opts.text),
+    type: opts.type ?? "user",
+    filed: new Date().toISOString().slice(0, 10),
+    source: opts.source ?? "ralphy memory",
+  };
+  const entryId = existing?.id ?? newDomainId("mentry");
+  const document = existing
+    ? { id: existing.documentId }
+    : createDocument({
+        workspaceId,
+        kind: "memory",
+        slug: `memory-${entryId}`,
+        title: fm.name,
+      });
+  const documentRevision = reviseDocument({
+    documentId: document.id,
+    expectedHeadId: existing?.latestDocumentRevisionId ?? null,
+    format: "markdown",
+    title: fm.name,
+    body,
+  });
+  const memoryRevisionId = newDomainId("mrev");
+  const now = Date.now();
+  const version = (existing?.latestRevisionNo ?? 0) + 1;
+
+  withImmediateTransaction((transaction) => {
+    if (!existing) {
+      transaction.prepare(
+        `INSERT INTO memory_entries
+         (id, workspace_id, slug, name, description, type, status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        entryId,
+        workspaceId,
+        slug,
+        fm.name,
+        fm.description,
+        fm.type,
+        opts.status,
+        now,
+        now,
+      );
+    }
+    if (opts.status === "active" && existing) {
+      transaction.prepare(
+        "UPDATE memory_revisions SET status = 'archived' WHERE memory_entry_id = ? AND status = 'active'",
+      ).run(entryId);
+    }
+    transaction.prepare(
+      `INSERT INTO memory_revisions
+       (id, workspace_id, memory_entry_id, revision_no, parent_revision_id,
+        document_revision_id, name, description, type, status, filed_at, source, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      memoryRevisionId,
+      workspaceId,
+      entryId,
+      version,
+      existing?.latestRevisionId ?? null,
+      documentRevision.id,
+      fm.name,
+      fm.description,
+      fm.type,
+      opts.status,
+      fm.filed,
+      fm.source,
+      now,
+    );
+    if (opts.status === "active" || !existing || existing.entryStatus !== "active") {
+      transaction.prepare(
+        `UPDATE memory_entries
+         SET name = ?, description = ?, type = ?, status = ?,
+             current_revision_id = ?, updated_at = ?
+         WHERE id = ? AND workspace_id = ?`,
+      ).run(
+        fm.name,
+        fm.description,
+        fm.type,
+        opts.status,
+        memoryRevisionId,
+        now,
+        entryId,
+        workspaceId,
+      );
+    }
+    appendActivity(transaction, {
+      workspaceId,
+      entityType: "memory_entry",
+      entityId: entryId,
+      action: existing ? "memory_entry.revised" : "memory_entry.created",
+      payload: { slug, revision: version },
+      createdAt: now,
+    });
+  });
+
+  return {
+    entry: {
+      slug,
+      version,
+      id: entryId,
+      revisionId: memoryRevisionId,
+      tier: "workspace",
+      workspace: workspaceId,
+      status: opts.status,
+      ...fm,
+      body,
+    },
+    versioned: existing !== null,
+    overwritten: Boolean(existing && opts.forceOverwrite),
+  };
+}
+
 /** Active / proposed / rejected entries of one tier — newest version per slug, sorted. */
 export async function listEntries(ref: TierRef, status: MemoryStatus = "active"): Promise<MemoryEntry[]> {
+  if (ref.tier === "workspace") return listWorkspaceEntries(ref, status);
   const dir = statusDir(ref, status);
   const newest = await newestPerSlug(dir);
   const out: MemoryEntry[] = [];
@@ -409,6 +605,9 @@ export async function getEntry(
   ref: TierRef,
   status: MemoryStatus = "active",
 ): Promise<MemoryEntry | null> {
+  if (ref.tier === "workspace") {
+    return getWorkspaceEntry(slug, ref.ws ?? currentWorkspace(), status);
+  }
   const dir = statusDir(ref, status);
   const vf = (await newestPerSlug(dir)).get(slug);
   if (!vf) return null;
@@ -467,8 +666,14 @@ export async function searchEntries(query: string, ws?: string): Promise<SearchM
 
 export interface MoveResult {
   slug: string;
-  from: string;
-  to: string;
+  /** Global-tier compatibility source path. */
+  from?: string;
+  /** Global-tier compatibility destination path. */
+  to?: string;
+  /** Workspace entry identity; absent for global filesystem moves. */
+  entryId?: string;
+  /** Workspace revision whose lifecycle changed. */
+  revisionId?: string;
   /** True when the destination slug already existed and the move versioned up. */
   versioned: boolean;
 }
@@ -486,6 +691,7 @@ async function nextVersionPath(dir: string, slug: string): Promise<{ file: strin
  * version — the prior active file is untouched.
  */
 export async function approveEntry(slug: string, ref: TierRef): Promise<MoveResult | null> {
+  if (ref.tier === "workspace") return moveWorkspaceEntry(slug, ref, "proposed", "active");
   const proposedDir = statusDir(ref, "proposed");
   const vf = (await newestPerSlug(proposedDir)).get(slug);
   if (!vf) return null;
@@ -516,6 +722,7 @@ export async function approveAll(ref: TierRef): Promise<MoveResult[]> {
  * present in rejected/ versions up (append-only there too).
  */
 export async function rejectEntry(slug: string, ref: TierRef): Promise<MoveResult | null> {
+  if (ref.tier === "workspace") return moveWorkspaceEntry(slug, ref, "proposed", "rejected");
   const proposedDir = statusDir(ref, "proposed");
   const vf = (await newestPerSlug(proposedDir)).get(slug);
   if (!vf) return null;
@@ -536,6 +743,10 @@ export async function rejectEntry(slug: string, ref: TierRef): Promise<MoveResul
  * retires.
  */
 export async function retireEntry(slug: string, ref: TierRef): Promise<MoveResult[] | null> {
+  if (ref.tier === "workspace") {
+    const moved = await moveWorkspaceEntry(slug, ref, "active", "archived");
+    return moved ? [moved] : null;
+  }
   const activeDir = statusDir(ref, "active");
   const versions = (await scanDir(activeDir)).filter((vf) => vf.slug === slug);
   if (versions.length === 0) return null;
@@ -605,5 +816,207 @@ export function isMemoryType(t: string): t is MemoryType {
 }
 
 export function workspaceExists(ws: string): boolean {
-  return existsSync(workspaceDir(ws));
+  try {
+    return openDomainDb()
+      .query<{ id: string }, [string, string]>("SELECT id FROM workspaces WHERE id = ? OR slug = ?")
+      .get(ws, ws) !== null;
+  } catch {
+    return existsSync(workspaceDir(ws));
+  }
+}
+
+function resolveWorkspaceId(value: string, required = true): string | null {
+  const row = openDomainDb()
+    .query<{ id: string }, [string, string, string]>(
+      `SELECT id FROM workspaces
+       WHERE id = ? OR slug = ?
+       ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END
+       LIMIT 1`,
+    )
+    .get(value, value, value);
+  if (!row && required) throw new Error(`Workspace not found: ${value}`);
+  return row?.id ?? null;
+}
+
+type WorkspaceMemoryEntryRow = {
+  id: string;
+  workspace_id: string;
+  slug: string;
+  name: string;
+  description: string;
+  type: string;
+  status: MemoryStatus;
+  revision_id: string;
+  revision_no: number;
+  document_revision_id: string;
+  filed_at: string;
+  source: string;
+  body: string;
+};
+
+const WORKSPACE_MEMORY_SELECT = `
+  SELECT entry.id, entry.workspace_id, entry.slug,
+         memory_revision.name, memory_revision.description,
+         memory_revision.type, memory_revision.status,
+         memory_revision.id AS revision_id,
+         memory_revision.revision_no,
+         memory_revision.document_revision_id,
+         memory_revision.filed_at, memory_revision.source,
+         document_revision.body
+  FROM memory_entries entry
+  JOIN memory_revisions memory_revision
+    ON memory_revision.id = (
+      SELECT candidate.id FROM memory_revisions candidate
+      WHERE candidate.memory_entry_id = entry.id AND candidate.status = ?
+      ORDER BY candidate.revision_no DESC, candidate.id DESC LIMIT 1
+    )
+  JOIN document_revisions document_revision
+    ON document_revision.id = memory_revision.document_revision_id`;
+
+function listWorkspaceEntries(
+  ref: TierRef,
+  status: MemoryStatus,
+): MemoryEntry[] {
+  const workspaceId = resolveWorkspaceId(ref.ws ?? currentWorkspace(), false);
+  if (workspaceId === null) return [];
+  return openDomainDb()
+    .query<WorkspaceMemoryEntryRow, [MemoryStatus, string]>(
+      `${WORKSPACE_MEMORY_SELECT}
+       WHERE entry.workspace_id = ?
+       ORDER BY entry.slug`,
+    )
+    .all(status, workspaceId)
+    .map(workspaceMemoryEntry);
+}
+
+function getWorkspaceEntry(
+  slug: string,
+  workspaceId: string,
+  status: MemoryStatus,
+): MemoryEntry | null {
+  const resolvedWorkspaceId = resolveWorkspaceId(workspaceId, false);
+  if (resolvedWorkspaceId === null) return null;
+  const row = openDomainDb()
+    .query<WorkspaceMemoryEntryRow, [MemoryStatus, string, string]>(
+      `${WORKSPACE_MEMORY_SELECT}
+       WHERE entry.workspace_id = ? AND entry.slug = ?`,
+    )
+    .get(status, resolvedWorkspaceId, slug);
+  return row ? workspaceMemoryEntry(row) : null;
+}
+
+function workspaceMemoryEntry(row: WorkspaceMemoryEntryRow): MemoryEntry {
+  return {
+    slug: row.slug,
+    version: row.revision_no,
+    id: row.id,
+    revisionId: row.revision_id,
+    tier: "workspace",
+    workspace: row.workspace_id,
+    status: row.status,
+    name: row.name,
+    description: row.description,
+    type: row.type,
+    filed: row.filed_at,
+    source: row.source,
+    body: row.body,
+  };
+}
+
+async function moveWorkspaceEntry(
+  slug: string,
+  ref: TierRef,
+  from: MemoryStatus,
+  to: MemoryStatus,
+): Promise<MoveResult | null> {
+  const workspaceId = resolveWorkspaceId(ref.ws ?? currentWorkspace(), false);
+  if (workspaceId === null) return null;
+  return withImmediateTransaction((db) => {
+    const row = db
+      .query<{
+        id: string;
+        entryStatus: MemoryStatus;
+        currentRevisionId: string;
+        revisionId: string;
+        name: string;
+        description: string;
+        type: string;
+      }, [MemoryStatus, string, string]>(
+        `SELECT entry.id, entry.status AS entryStatus,
+                entry.current_revision_id AS currentRevisionId,
+                revision.id AS revisionId, revision.name,
+                revision.description, revision.type
+         FROM memory_entries entry
+         JOIN memory_revisions revision ON revision.id = (
+           SELECT candidate.id FROM memory_revisions candidate
+           WHERE candidate.memory_entry_id = entry.id AND candidate.status = ?
+           ORDER BY candidate.revision_no DESC, candidate.id DESC LIMIT 1
+         )
+         WHERE entry.workspace_id = ? AND entry.slug = ?`,
+      )
+      .get(from, workspaceId, slug);
+    if (!row) return null;
+    if (to === "active") {
+      const latest = db
+        .query<{ id: string }, [string]>(
+          "SELECT id FROM memory_revisions WHERE memory_entry_id = ? ORDER BY revision_no DESC, id DESC LIMIT 1",
+        )
+        .get(row.id);
+      if (latest?.id !== row.revisionId) {
+        throw new StoreConflictError("Memory proposal is stale relative to the latest head");
+      }
+      const count = db
+        .query<{ count: number }, [string]>(
+          "SELECT COUNT(*) AS count FROM memory_entries WHERE workspace_id = ? AND status = 'active'",
+        )
+        .get(workspaceId)?.count ?? 0;
+      if (row.entryStatus !== "active" && count >= ACTIVE_ENTRY_CAP) {
+        throw new MemoryCapError(count);
+      }
+    }
+    const now = Date.now();
+    if (to === "active") {
+      db.prepare(
+        "UPDATE memory_revisions SET status = 'archived' WHERE memory_entry_id = ? AND status = 'active' AND id <> ?",
+      ).run(row.id, row.revisionId);
+      db.prepare("UPDATE memory_revisions SET status = 'active' WHERE id = ?")
+        .run(row.revisionId);
+      db.prepare(
+        `UPDATE memory_entries
+         SET name = ?, description = ?, type = ?, status = 'active',
+             current_revision_id = ?, updated_at = ?
+         WHERE id = ? AND workspace_id = ?`,
+      ).run(
+        row.name,
+        row.description,
+        row.type,
+        row.revisionId,
+        now,
+        row.id,
+        workspaceId,
+      );
+    } else {
+      db.prepare("UPDATE memory_revisions SET status = ? WHERE id = ?")
+        .run(to, row.revisionId);
+      if (row.entryStatus === from && row.currentRevisionId === row.revisionId) {
+        db.prepare(
+          "UPDATE memory_entries SET status = ?, updated_at = ? WHERE id = ? AND workspace_id = ?",
+        ).run(to, now, row.id, workspaceId);
+      }
+    }
+    appendActivity(db, {
+      workspaceId,
+      entityType: "memory_entry",
+      entityId: row.id,
+      action: `memory_entry.${to}`,
+      payload: { from, to },
+      createdAt: now,
+    });
+    return {
+      slug,
+      entryId: row.id,
+      revisionId: row.revisionId,
+      versioned: false,
+    };
+  });
 }

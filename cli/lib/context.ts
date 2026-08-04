@@ -130,16 +130,16 @@ function resolveContext(
   }
   if (projectId !== undefined) {
     const project = db
-      .query<{ workspaceId: string }, [string]>(
-        "SELECT workspace_id AS workspaceId FROM projects WHERE id = ?",
+      .query<{ id: string; workspaceId: string }, [string, string]>(
+        "SELECT id, workspace_id AS workspaceId FROM projects WHERE id = ? OR slug = ?",
       )
-      .get(projectId);
+      .get(projectId, projectId);
     if (!project) throw inputError("--project", `Project not found: ${projectId}`);
     assertMatch("--workspace", input.workspaceId, project.workspaceId);
     return Object.freeze({
       kind: "scope",
       workspaceId: project.workspaceId,
-      projectId,
+      projectId: project.id,
     });
   }
 

@@ -183,10 +183,10 @@ export function researchCmd() {
           videoSummaryModel: opts.videoSummaryModel,
           onEvent,
         });
-        ok(`Research complete → ${result.reportPath}`);
+        ok(`Research complete → ${result.reportDocumentId}`);
         out({
           jobId: result.jobId,
-          jobDir: result.jobDir,
+          runId: result.runId,
           query: result.query,
           subqueries: result.plan.subqueries.length,
           videoQueries: result.plan.video_discovery_queries.length,
@@ -196,8 +196,9 @@ export function researchCmd() {
           videosDiscovered: result.videosDiscovered,
           videosMetaProbed: result.videosMetaProbed,
           videosAnalyzed: result.videosAnalyzed,
-          reportPath: result.reportPath,
-          registryPath: result.registryPath,
+          reportDocumentId: result.reportDocumentId,
+          reportRevisionId: result.reportRevisionId,
+          sourcesDocumentId: result.sourcesDocumentId,
           citationRate: Number(result.citationRate.toFixed(3)),
           citations: {
             total: result.verify.matched.length + result.verify.unmatched.length,
@@ -213,10 +214,10 @@ export function researchCmd() {
 
   cmd
     .command("scrape-profile <profile-url>")
-    .description("Distill one creator's style: yt-dlp lists N recent videos, vision-analyzes each, writes a style-sheet.md")
+    .description("Distill one creator's style into a persisted Research Run and report Document")
     .option("--max <n>", "Number of recent videos to analyze (default 50)", (v) => parseInt(v, 10))
     .option("--niche <text>", "Optional niche context to ground the style sheet")
-    .option("--reanalyze-from <existing-job-id>", "Skip list+pull; reuse video dirs from an existing job and re-run summarize+stylesheet with the current prompts")
+    .option("--reanalyze-from <run-id>", "Reuse analyzed summaries from an existing profile Research Run and re-run the style sheet")
     .option("--pull-concurrency <n>", "Parallel video downloads", (v) => parseInt(v, 10))
     .option("--summary-concurrency <n>", "Parallel vision summarize calls", (v) => parseInt(v, 10))
     .option("--summary-model <id>", "OpenRouter model for per-video vision analysis")
@@ -255,16 +256,18 @@ export function researchCmd() {
           budgetSeconds: opts.budgetSeconds,
           onEvent,
         });
-        ok(`Style sheet → ${result.reportPath}`);
+        ok(`Style sheet recorded in Run ${result.runId}`);
         out({
           jobId: result.jobId,
-          jobDir: result.jobDir,
+          runId: result.runId,
           profileUrl: result.profileUrl,
           creatorHandle: result.creatorHandle,
           videosListed: result.videosListed,
           videosPulled: result.videosPulled,
           videosAnalyzed: result.videosAnalyzed,
-          reportPath: result.reportPath,
+          reportDocumentId: result.reportDocumentId,
+          reportRevisionId: result.reportRevisionId,
+          sourcesDocumentId: result.sourcesDocumentId,
           citationRate: Number(result.citationRate.toFixed(3)),
         });
       } catch (e) {

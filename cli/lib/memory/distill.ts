@@ -14,7 +14,14 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { projectDir, projectWorkspace } from "../paths.js";
 import { callLLM } from "../providers/llm.js";
-import { writeEntry, MEMORY_TYPES, SLUG_RE, autoSlug, type MemoryEntry } from "./store.js";
+import {
+  writeEntry,
+  MEMORY_TYPES,
+  SLUG_RE,
+  autoSlug,
+  memoryEntryReference,
+  type MemoryEntryReference,
+} from "./store.js";
 
 /** Per MODELS.md "LLM" table: feedback parsing / nuance register. */
 export const DISTILL_MODEL = "anthropic/claude-sonnet-4.6";
@@ -45,7 +52,7 @@ export interface DistillResult {
   /** Candidates routed away from memory (guideline/skill material) — never staged. */
   routedToGuideline: DistillCandidate[];
   /** Proposed entries actually written (empty on --dry-run). */
-  staged: Array<Pick<MemoryEntry, "slug" | "tier" | "file" | "path">>;
+  staged: MemoryEntryReference[];
 }
 
 const SYSTEM_PROMPT = `You distill a video-production project postmortem into durable memory rules for an autonomous agent. Return STRICT JSON: {"candidates": [...]} where each candidate is {"slug", "tier", "type", "description", "rule", "why", "how_to_apply", "does_not_apply_to", "route"}.
@@ -176,7 +183,7 @@ export async function distillPostmortem(opts: {
         description: c.description || undefined,
         source: `distill:${opts.projectId}/postmortem (${sources.map((s) => s.file).join(", ")})`,
       });
-      staged.push({ slug: w.entry.slug, tier: w.entry.tier, file: w.entry.file, path: w.entry.path });
+      staged.push(memoryEntryReference(w.entry));
     }
   }
 

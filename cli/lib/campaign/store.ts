@@ -11,7 +11,6 @@
 //   • pendingLinks is append-only.
 
 import path from "node:path";
-import fs from "node:fs";
 import {
   parseCampaign,
   type Campaign,
@@ -20,13 +19,10 @@ import {
   type PendingLink,
 } from "../schemas/campaign.js";
 import { assignVarianceProfile, type VarianceBias } from "../eval/variance-pools.js";
-import {
-  buildLookup,
-  parseWeightsFile,
-  parseSelectionFlagsFile,
-  type WeightsSnapshot,
-} from "../selection.js";
-import { makePrng } from "../prng.js";
+import { getCommandContext } from "../context-state.js";
+import { appendActivity } from "../store/activity.js";
+import { openDomainDb, withImmediateTransaction } from "../store/db.js";
+import { newDomainId } from "../store/ids.js";
 
 /**
  * Stamp a batch-variance profile (#529) onto every cell that lacks one, drawn
@@ -61,48 +57,35 @@ export function stampVariance(inventory: CampaignCell[], salt: string, bias?: Va
  * prng is seeded from the campaign id + the weights timestamp → deterministic
  * and reproducible across a re-commit against the same weights.
  */
-function varianceBiasFor(workspaceDir: string, salt: string): VarianceBias | undefined {
-  const weights: WeightsSnapshot | null = parseWeightsFile(path.join(workspaceDir, "selection-weights.jsonl"));
-  if (!weights || weights.coldStart) return undefined;
-  const flags = parseSelectionFlagsFile(path.join(workspaceDir, "lifecycle.jsonl"));
-  return { lookup: buildLookup(weights, flags), prng: makePrng(`variance:${salt}:${weights.computedAt}`) };
-}
-
 /** `<workspace>/campaigns/<id>/campaign.json` */
 export function campaignPath(workspaceDir: string, id: string): string {
   return path.join(workspaceDir, "campaigns", id, "campaign.json");
 }
 
 export function campaignExists(workspaceDir: string, id: string): boolean {
-  return fs.existsSync(campaignPath(workspaceDir, id));
+  return readCampaign(workspaceDir, id) !== null;
 }
 
 /** Read a campaign by id, or null when it does not exist. */
 export function readCampaign(workspaceDir: string, id: string): Campaign | null {
-  try {
-    return parseCampaign(JSON.parse(fs.readFileSync(campaignPath(workspaceDir, id), "utf8")));
-  } catch {
-    return null;
-  }
-}
-
-function writeCampaign(workspaceDir: string, campaign: Campaign): void {
-  const dir = path.join(workspaceDir, "campaigns", campaign.id);
-  fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, "campaign.json"), JSON.stringify(campaign, null, 2) + "\n");
+  const workspaceId = campaignWorkspaceId(workspaceDir);
+  const db = openDomainDb();
+  const row = db
+    .query<CampaignRow, [string, string, string]>(
+      "SELECT * FROM campaigns WHERE workspace_id = ? AND (id = ? OR slug = ?)",
+    )
+    .get(workspaceId, id, id);
+  return row ? campaignFromRow(db, row) : null;
 }
 
 /** List campaign ids in a workspace (dir basenames under campaigns/). */
 export function listCampaigns(workspaceDir: string): string[] {
-  try {
-    return fs
-      .readdirSync(path.join(workspaceDir, "campaigns"), { withFileTypes: true })
-      .filter((e) => e.isDirectory() && fs.existsSync(path.join(workspaceDir, "campaigns", e.name, "campaign.json")))
-      .map((e) => e.name)
-      .sort();
-  } catch {
-    return [];
-  }
+  return openDomainDb()
+    .query<{ slug: string }, [string]>(
+      "SELECT slug FROM campaigns WHERE workspace_id = ? ORDER BY slug",
+    )
+    .all(campaignWorkspaceId(workspaceDir))
+    .map((row) => row.slug);
 }
 
 /**
@@ -128,7 +111,32 @@ export function createCampaign(
     keywords: init.keywords ?? {},
     createdAt: new Date().toISOString(),
   });
-  writeCampaign(workspaceDir, campaign);
+  const workspaceId = campaignWorkspaceId(workspaceDir);
+  const now = Date.parse(campaign.createdAt);
+  withImmediateTransaction((db) => {
+    const domainId = newDomainId("campaign");
+    db.prepare(
+      `INSERT INTO campaigns
+       (id, workspace_id, slug, title, state, metadata_json, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'draft', ?, ?, ?)`,
+    ).run(
+      domainId,
+      workspaceId,
+      campaign.id,
+      campaign.title,
+      campaignMetadataJson(campaign),
+      now,
+      now,
+    );
+    appendActivity(db, {
+      workspaceId,
+      entityType: "campaign",
+      entityId: domainId,
+      action: "campaign.created",
+      payload: { slug: campaign.id, state: "draft" },
+      createdAt: now,
+    });
+  });
   return campaign;
 }
 
@@ -154,10 +162,50 @@ export function commitPlan(
     // #529: stamp a per-format variance profile onto every cell at commit time.
     // #532: bias the hook/length picks toward measured winners when the
     // workspace has selection weights; undefined at cold-start (uniform).
-    inventory: stampVariance(plan.inventory, id, varianceBiasFor(workspaceDir, id)),
+    inventory: stampVariance(plan.inventory, id),
     planned: true,
   });
-  writeCampaign(workspaceDir, next);
+  const workspaceId = campaignWorkspaceId(workspaceDir);
+  withImmediateTransaction((db) => {
+    const row = requireCampaignRow(db, workspaceId, id);
+    db.prepare("DELETE FROM campaign_cells WHERE campaign_id = ?").run(row.id);
+    const now = Date.now();
+    next.inventory.forEach((cell, position) => {
+      db.prepare(
+        `INSERT INTO campaign_cells
+         (id, workspace_id, campaign_id, thesis_id, format, angle, keyword,
+          channel, priority, state, metadata_json, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        newDomainId("cell"),
+        workspaceId,
+        row.id,
+        cell.thesisId,
+        cell.format,
+        cell.angle,
+        cell.keyword,
+        cell.channel,
+        cell.priority,
+        cell.status,
+        JSON.stringify({ legacyId: cell.id, position, ...(cell.variance ? { variance: cell.variance } : {}) }),
+        now + position,
+        now,
+      );
+    });
+    db.prepare(
+      `UPDATE campaigns
+       SET state = 'planned', metadata_json = ?, row_version = row_version + 1, updated_at = ?
+       WHERE id = ? AND workspace_id = ?`,
+    ).run(campaignMetadataJson(next), now, row.id, workspaceId);
+    appendActivity(db, {
+      workspaceId,
+      entityType: "campaign",
+      entityId: row.id,
+      action: "campaign.planned",
+      payload: { cells: next.inventory.length },
+      createdAt: now,
+    });
+  });
   return next;
 }
 
@@ -202,12 +250,27 @@ export function stampCellProduced(
   if (!campaign) throw new Error(`campaign "${id}" not found`);
   const cell = campaign.inventory.find((c) => c.id === cellId);
   if (!cell) throw new Error(`campaign "${id}" has no cell "${cellId}"`);
-  cell.status = "produced";
-  cell.linkedUnitId = linkedUnitId;
-  cell.producedAt = new Date().toISOString();
-  const next = parseCampaign(campaign);
-  writeCampaign(workspaceDir, next);
-  return next;
+  const workspaceId = campaignWorkspaceId(workspaceDir);
+  withImmediateTransaction((db) => {
+    assertUnitRevisionWorkspace(db, linkedUnitId, workspaceId);
+    const row = requireCampaignRow(db, workspaceId, id);
+    const cellRow = requireCampaignCellRow(db, row.id, cellId);
+    const now = Date.now();
+    db.prepare(
+      `UPDATE campaign_cells
+       SET state = 'produced', unit_revision_id = ?, produced_at = ?, updated_at = ?
+       WHERE id = ?`,
+    ).run(linkedUnitId, now, now, cellRow.id);
+    appendActivity(db, {
+      workspaceId,
+      entityType: "campaign_cell",
+      entityId: cellRow.id,
+      action: "campaign_cell.produced",
+      payload: { campaignId: row.id },
+      createdAt: now,
+    });
+  });
+  return readCampaign(workspaceDir, id)!;
 }
 
 /** Mark a produced cell published (the coverage ledger's published tier). */
@@ -219,10 +282,23 @@ export function markCellPublished(workspaceDir: string, id: string, cellId: stri
   if (cell.status === "planned") {
     throw new Error(`cell "${cellId}" is still planned — stamp it produced before publishing`);
   }
-  cell.status = "published";
-  const next = parseCampaign(campaign);
-  writeCampaign(workspaceDir, next);
-  return next;
+  const workspaceId = campaignWorkspaceId(workspaceDir);
+  withImmediateTransaction((db) => {
+    const row = requireCampaignRow(db, workspaceId, id);
+    const cellRow = requireCampaignCellRow(db, row.id, cellId);
+    const now = Date.now();
+    db.prepare("UPDATE campaign_cells SET state = 'published', updated_at = ? WHERE id = ?")
+      .run(now, cellRow.id);
+    appendActivity(db, {
+      workspaceId,
+      entityType: "campaign_cell",
+      entityId: cellRow.id,
+      action: "campaign_cell.published",
+      payload: { campaignId: row.id },
+      createdAt: now,
+    });
+  });
+  return readCampaign(workspaceDir, id)!;
 }
 
 /** Append a pending cross-link (a sibling published after this unit). */
@@ -230,9 +306,8 @@ export function appendPendingLink(workspaceDir: string, id: string, link: Omit<P
   const campaign = readCampaign(workspaceDir, id);
   if (!campaign) throw new Error(`campaign "${id}" not found`);
   campaign.pendingLinks.push({ ...link, recordedAt: new Date().toISOString() });
-  const next = parseCampaign(campaign);
-  writeCampaign(workspaceDir, next);
-  return next;
+  updateCampaignMetadata(workspaceDir, campaign, "campaign.pending_link.appended");
+  return readCampaign(workspaceDir, id)!;
 }
 
 /** Drop pending links for a target cell (applied on its next publish). */
@@ -240,7 +315,157 @@ export function clearPendingLinksFor(workspaceDir: string, id: string, targetCel
   const campaign = readCampaign(workspaceDir, id);
   if (!campaign) throw new Error(`campaign "${id}" not found`);
   campaign.pendingLinks = campaign.pendingLinks.filter((l) => l.targetCellId !== targetCellId);
-  const next = parseCampaign(campaign);
-  writeCampaign(workspaceDir, next);
-  return next;
+  updateCampaignMetadata(workspaceDir, campaign, "campaign.pending_links.cleared");
+  return readCampaign(workspaceDir, id)!;
+}
+
+type CampaignRow = {
+  id: string;
+  workspace_id: string;
+  slug: string;
+  title: string;
+  state: string;
+  metadata_json: string | null;
+  row_version: number;
+  created_at: number;
+  updated_at: number;
+};
+
+type CampaignCellRow = {
+  id: string;
+  thesis_id: string;
+  format: CampaignCell["format"];
+  angle: string;
+  keyword: string;
+  channel: CampaignCell["channel"];
+  priority: number;
+  state: CampaignCell["status"];
+  unit_revision_id: string | null;
+  produced_at: number | null;
+  metadata_json: string | null;
+};
+
+type CampaignMetadata = Pick<Campaign, "theses" | "keywords" | "crossLink" | "pendingLinks">;
+
+function campaignWorkspaceId(_workspaceDir: string): string {
+  const workspaceId = getCommandContext()?.workspaceId;
+  if (!workspaceId) throw new Error("Campaign operations require an explicit Workspace scope");
+  return workspaceId;
+}
+
+function campaignMetadataJson(campaign: Campaign): string {
+  return JSON.stringify({
+    theses: campaign.theses,
+    keywords: campaign.keywords,
+    crossLink: campaign.crossLink,
+    pendingLinks: campaign.pendingLinks,
+  } satisfies CampaignMetadata);
+}
+
+function campaignFromRow(db: import("bun:sqlite").Database, row: CampaignRow): Campaign {
+  const metadata = JSON.parse(row.metadata_json ?? "{}") as CampaignMetadata;
+  const inventory = db
+    .query<CampaignCellRow, [string]>(
+      `SELECT id, thesis_id, format, angle, keyword, channel, priority, state,
+              unit_revision_id, produced_at, metadata_json
+       FROM campaign_cells WHERE campaign_id = ? ORDER BY created_at, id`,
+    )
+    .all(row.id)
+    .map((cell) => {
+      const extra = JSON.parse(cell.metadata_json ?? "{}") as {
+        legacyId?: string;
+        variance?: CampaignCell["variance"];
+      };
+      return {
+        id: extra.legacyId ?? cell.id,
+        thesisId: cell.thesis_id,
+        format: cell.format,
+        angle: cell.angle,
+        keyword: cell.keyword,
+        channel: cell.channel,
+        priority: cell.priority,
+        status: cell.state,
+        ...(extra.variance ? { variance: extra.variance } : {}),
+        ...(cell.unit_revision_id ? { linkedUnitId: cell.unit_revision_id } : {}),
+        ...(cell.produced_at ? { producedAt: new Date(cell.produced_at).toISOString() } : {}),
+      } satisfies CampaignCell;
+    });
+  return parseCampaign({
+    version: "1.0",
+    id: row.slug,
+    title: row.title,
+    theses: metadata.theses ?? [],
+    keywords: metadata.keywords ?? {},
+    inventory,
+    crossLink: metadata.crossLink ?? {},
+    pendingLinks: metadata.pendingLinks ?? [],
+    createdAt: new Date(row.created_at).toISOString(),
+    planned: row.state !== "draft",
+  });
+}
+
+function requireCampaignRow(
+  db: import("bun:sqlite").Database,
+  workspaceId: string,
+  idOrSlug: string,
+): CampaignRow {
+  const row = db.query<CampaignRow, [string, string, string]>(
+    "SELECT * FROM campaigns WHERE workspace_id = ? AND (id = ? OR slug = ?)",
+  ).get(workspaceId, idOrSlug, idOrSlug);
+  if (!row) throw new Error(`campaign "${idOrSlug}" not found`);
+  return row;
+}
+
+function requireCampaignCellRow(
+  db: import("bun:sqlite").Database,
+  campaignId: string,
+  cellId: string,
+): { id: string } {
+  const rows = db.query<{ id: string; metadataJson: string | null }, [string]>(
+    "SELECT id, metadata_json AS metadataJson FROM campaign_cells WHERE campaign_id = ?",
+  ).all(campaignId);
+  const row = rows.find((candidate) => {
+    const metadata = JSON.parse(candidate.metadataJson ?? "{}") as { legacyId?: string };
+    return candidate.id === cellId || metadata.legacyId === cellId;
+  });
+  if (!row) throw new Error(`campaign has no cell "${cellId}"`);
+  return row;
+}
+
+function assertUnitRevisionWorkspace(
+  db: import("bun:sqlite").Database,
+  revisionId: string,
+  workspaceId: string,
+): void {
+  const row = db.query<{ workspaceId: string }, [string]>(
+    `SELECT unit.workspace_id AS workspaceId
+     FROM unit_revisions revision JOIN units unit ON unit.id = revision.unit_id
+     WHERE revision.id = ?`,
+  ).get(revisionId);
+  if (!row || row.workspaceId !== workspaceId) {
+    throw new Error("Unit Revision is outside the Campaign Workspace");
+  }
+}
+
+function updateCampaignMetadata(
+  workspaceDir: string,
+  campaign: Campaign,
+  action: string,
+): void {
+  const workspaceId = campaignWorkspaceId(workspaceDir);
+  withImmediateTransaction((db) => {
+    const row = requireCampaignRow(db, workspaceId, campaign.id);
+    const now = Date.now();
+    db.prepare(
+      "UPDATE campaigns SET metadata_json = ?, row_version = row_version + 1, updated_at = ? WHERE id = ?",
+    ).run(campaignMetadataJson(campaign), now, row.id);
+    appendActivity(db, {
+      workspaceId,
+      entityType: "campaign",
+      entityId: row.id,
+      action,
+      payload: {},
+      createdAt: now,
+    });
+  });
 }

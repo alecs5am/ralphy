@@ -529,6 +529,7 @@ function preserveStagedScopeOptions(command: Command): void {
 function positionalProjectId(command: Command): string | undefined {
   if (
     command.name() === "render" || command.name() === "compose" ||
+    (command.parent?.name() === "workspace" && command.name() === "eval") ||
     (command.parent?.name() === "hyperframes" && command.name() === "save-version")
   ) {
     const value = command.processedArgs[0];

@@ -15,6 +15,7 @@ import {
 import { getBlocks, getBlock } from "../lib/library/client.js";
 import type { Block } from "../lib/library/types.js";
 import { templateCloneCmd } from "./clone.js";
+import { getCommandContext } from "../lib/context-state.js";
 
 // Templates source from two tiers (both readable transparently):
 //   - public                      → Supabase content library (template blocks),
@@ -38,6 +39,7 @@ import { templateCloneCmd } from "./clone.js";
 type TemplateSource = "workspace" | "public";
 
 type ResolvedTemplate =
+  | { kind: "domain"; source: "workspace"; record: Record<string, unknown>; body: Record<string, unknown> }
   | { kind: "dir"; source: TemplateSource; dir: string; metaPath: string; docPath: string }
   | { kind: "flat"; source: TemplateSource; file: string }
   | { kind: "public"; source: "public"; block: Block };
@@ -72,7 +74,12 @@ function publicBlockToCandidate(block: Block): Candidate {
   };
 }
 
-function dirRef(base: string, id: string, source: TemplateSource, parent?: string): ResolvedTemplate {
+function dirRef(
+  base: string,
+  id: string,
+  source: TemplateSource,
+  parent?: string,
+): Extract<ResolvedTemplate, { kind: "dir" }> {
   const dir = parent ? path.join(base, parent, id) : path.join(base, id);
   return {
     kind: "dir",
@@ -100,62 +107,54 @@ async function hasTemplateManifest(dir: string): Promise<boolean> {
   );
 }
 
-// Walk one root and yield { id, ref } for every template found, supporting
-// both layouts simultaneously:
-//   - templates/<id>/template.json                   (flat — legacy + workspace)
-//   - templates/<category>/<id>/template.json        (categorized — repo)
-// A top-level dirent is treated as a category folder when it does NOT contain
-// its own template.json. Flat *.json files at the root are still supported for
-// user-authored workspace templates created via `ralphy template create`.
 async function* walkTemplateRoot(
   base: string,
   source: TemplateSource,
 ): AsyncGenerator<{ id: string; ref: ResolvedTemplate }> {
-  let topLevel: Array<{ name: string; isDir: boolean }> = [];
+  let entries: import("node:fs").Dirent[];
   try {
-    const dirents = await fs.readdir(base, { withFileTypes: true });
-    topLevel = dirents.map((d) => ({ name: d.name, isDir: d.isDirectory() }));
-  } catch { return; }
-
-  for (const e of topLevel) {
-    if (e.isDir) {
-      // Self-template at top level? (template.yaml or legacy template.json)
-      if (await hasTemplateManifest(path.join(base, e.name))) {
-        yield { id: e.name, ref: dirRef(base, e.name, source) };
+    entries = await fs.readdir(base, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      const direct = path.join(base, entry.name);
+      if (await hasTemplateManifest(direct)) {
+        yield { id: entry.name, ref: dirRef(base, entry.name, source) };
         continue;
       }
-      // Otherwise treat as category folder, descend one level.
-      let children: Array<{ name: string; isDir: boolean }> = [];
+      let children: import("node:fs").Dirent[];
       try {
-        const inner = await fs.readdir(path.join(base, e.name), { withFileTypes: true });
-        children = inner.map((d) => ({ name: d.name, isDir: d.isDirectory() }));
-      } catch { continue; }
-      for (const c of children) {
-        if (!c.isDir) continue;
-        if (await hasTemplateManifest(path.join(base, e.name, c.name))) {
-          yield { id: c.name, ref: dirRef(base, c.name, source, e.name) };
+        children = await fs.readdir(direct, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const child of children) {
+        if (!child.isDirectory()) continue;
+        const nested = path.join(direct, child.name);
+        if (await hasTemplateManifest(nested)) {
+          yield { id: child.name, ref: dirRef(base, child.name, source, entry.name) };
         }
       }
-    } else if (e.name.endsWith(".json")) {
-      const id = e.name.replace(/\.json$/, "");
-      yield { id, ref: { kind: "flat", source, file: path.join(base, e.name) } };
+    } else if (entry.name.endsWith(".json")) {
+      yield {
+        id: entry.name.slice(0, -5),
+        ref: { kind: "flat", source, file: path.join(base, entry.name) },
+      };
     }
   }
 }
 
-async function resolveInDir(id: string, baseDir: string, source: TemplateSource): Promise<ResolvedTemplate | null> {
-  // Fast path: flat layout (workspace) — <base>/<id>/ or <base>/<id>.json.
-  // A dir is a template when it carries EITHER manifest (template.yaml or the
-  // legacy template.json) — #062.
-  const flatDir = path.join(baseDir, id);
-  if (await hasTemplateManifest(flatDir)) {
-    return dirRef(baseDir, id, source);
-  }
-  const flatFile = path.join(baseDir, `${id}.json`);
-  if (await pathExists(flatFile)) {
-    return { kind: "flat", source, file: flatFile };
-  }
-  // Categorized layout: scan one-deep for a matching id.
+async function resolveInDir(
+  id: string,
+  baseDir: string,
+  source: TemplateSource,
+): Promise<ResolvedTemplate | null> {
+  const direct = path.join(baseDir, id);
+  if (await hasTemplateManifest(direct)) return dirRef(baseDir, id, source);
+  const flat = path.join(baseDir, `${id}.json`);
+  if (await pathExists(flat)) return { kind: "flat", source, file: flat };
   for await (const entry of walkTemplateRoot(baseDir, source)) {
     if (entry.id === id) return entry.ref;
   }
@@ -169,8 +168,14 @@ async function resolveTemplate(
   id: string,
   onWarn?: (msg: string) => void,
 ): Promise<ResolvedTemplate | null> {
-  const local = await resolveInDir(id, templatesDir(), "workspace");
-  if (local) return local;
+  const legacy = await resolveInDir(id, templatesDir(), "workspace");
+  if (legacy) return legacy;
+  const { loadWorkspaceTemplate } = await import("../lib/templater/extract.js");
+  const local = await loadWorkspaceTemplate(id);
+  if (local) {
+    const { body, ...record } = local;
+    return { kind: "domain", source: "workspace", record, body };
+  }
   let block: Block | null = null;
   try {
     block = await getBlock("template", id);
@@ -191,6 +196,12 @@ async function readTemplateMeta(ref: ResolvedTemplate) {
       description: ref.block.blurb || "",
       tags: Array.isArray(ref.block.tags) ? (ref.block.tags as unknown[]).map(String) : [],
     };
+  }
+  if (ref.kind === "domain") {
+    const manifest = ref.body.manifest;
+    return manifest && typeof manifest === "object"
+      ? manifest as Record<string, unknown>
+      : ref.record;
   }
   if (ref.kind === "dir") {
     try {
@@ -248,6 +259,13 @@ async function readMetaFromYaml(dir: string): Promise<Record<string, unknown> | 
 async function readTemplateTaxonomy(
   ref: ResolvedTemplate,
 ): Promise<{ format: string | null; style_of: string | null }> {
+  if (ref.kind === "domain") {
+    const manifest = ref.body.manifest as Record<string, unknown> | undefined;
+    return {
+      format: typeof manifest?.format === "string" ? manifest.format : null,
+      style_of: typeof manifest?.style_of === "string" ? manifest.style_of : null,
+    };
+  }
   if (ref.kind !== "dir") return { format: null, style_of: null };
   const yamlPath = path.join(ref.dir, "template.yaml");
   try {
@@ -276,6 +294,15 @@ async function readTemplateTaxonomy(
 async function readTemplateFacets(
   ref: ResolvedTemplate,
 ): Promise<Record<string, unknown>> {
+  if (ref.kind === "domain") {
+    const manifest = ref.body.manifest as Record<string, unknown> | undefined;
+    if (!manifest) return {};
+    return Object.fromEntries(
+      ["requires", "scenes", "estimated_cost_usd", "estimated_duration_s", "references"]
+        .filter((key) => manifest[key] !== undefined)
+        .map((key) => [key, manifest[key]]),
+    );
+  }
   if (ref.kind !== "dir") return {};
   const yamlPath = path.join(ref.dir, "template.yaml");
   try {
@@ -294,6 +321,111 @@ async function readTemplateFacets(
   } catch {
     return {};
   }
+}
+
+async function extractLegacyTemplate(projectId: string, opts: any): Promise<void> {
+  const ex = await import("../lib/templater/extract.js");
+  const { logGeneration } = await import("../lib/gen-log.js");
+  const projDir = projectDir(projectId);
+  try { await fs.access(projDir); } catch {
+    raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
+  }
+  const targetDir = path.join(templatesDir(), opts.slug);
+  if (await pathExists(targetDir) && !opts.force) {
+    raiseError("E_ALREADY_EXISTS", { kind: "Template", id: `${opts.category}/${opts.slug}` });
+  }
+  const scenarioPath = path.join(projDir, "scenario.json");
+  let scenario: unknown = null;
+  let hasScenario = false;
+  const rawScenario = await fs.readFile(scenarioPath, "utf8").catch(() => null);
+  if (rawScenario !== null) {
+    try { scenario = JSON.parse(rawScenario); hasScenario = true; } catch {
+      raiseError("E_FILE_MALFORMED", { format: "JSON", path: scenarioPath, detail: "scenario.json is present but not valid JSON" });
+    }
+  }
+  const postmortem = await fs.readFile(path.join(projDir, "postmortem", "02-lessons.md"), "utf8")
+    .catch(() => fs.readFile(path.join(projDir, "POSTMORTEM.md"), "utf8").catch(() => ""));
+  const compositionVars = await fs.readFile(path.join(projDir, "index.html"), "utf8")
+    .then((html) => ex.extractCompositionVariables(html)).catch(() => null);
+  const { scenario: patchedScenario, slots } = ex.extractSlotsFromScenario(scenario);
+  let manifest;
+  try {
+    manifest = ex.buildTemplateManifest({
+      slug: opts.slug,
+      category: opts.category,
+      kind: opts.kind,
+      format: opts.format,
+      name: opts.name,
+      description: opts.description,
+      tags: typeof opts.tags === "string" ? opts.tags.split(",").map((tag: string) => tag.trim()).filter(Boolean) : [],
+      scenario: patchedScenario,
+    });
+  } catch (error) {
+    raiseError("E_INPUT_INVALID", { field: "--slug/--category/--kind", detail: (error as Error).message, verb: "template extract" });
+  }
+  await fs.mkdir(path.join(targetDir, "prompts"), { recursive: true });
+  await fs.mkdir(path.join(targetDir, "refs"), { recursive: true });
+  const promptsCopied: string[] = [];
+  try {
+    for (const entry of await fs.readdir(path.join(projDir, "prompts"), { withFileTypes: true })) {
+      if (!entry.isFile() || !/\.(txt|md|json)$/iu.test(entry.name)) continue;
+      await fs.copyFile(path.join(projDir, "prompts", entry.name), path.join(targetDir, "prompts", entry.name));
+      promptsCopied.push(entry.name);
+    }
+  } catch { /* optional source prompts */ }
+  const refsCopied: Array<{ name: string; dest: string; sizeBytes: number }> = [];
+  const refsLifted: Array<{ name: string; pooledTo: string; sizeBytes: number }> = [];
+  let assetsRoot = opts.assetsRepo as string | undefined;
+  if (opts.liftHeavy && !assetsRoot) {
+    const candidate = path.join(process.env.HOME || "", "github", "ralphy-assets");
+    if (await pathExists(path.join(candidate, "manifest.json"))) assetsRoot = candidate;
+    else raiseError("E_INPUT_INVALID", { field: "--assets-repo", detail: "--lift-heavy requires --assets-repo pointing at a checkout of the ralphy-assets companion repo", verb: "template extract" });
+  }
+  const seenRefs = new Set<string>();
+  for (const sourceDir of resolveArtifactKindDirs(projectId, "refs")) {
+    try {
+      for (const entry of await fs.readdir(sourceDir, { withFileTypes: true })) {
+        if (!entry.isFile() || seenRefs.has(entry.name)) continue;
+        seenRefs.add(entry.name);
+        const source = path.join(sourceDir, entry.name);
+        const sizeBytes = (await fs.stat(source)).size;
+        if (opts.liftHeavy && assetsRoot && ex.isHeavyRef(sizeBytes)) {
+          const pooledTo = ex.poolDestForSlug(assetsRoot, opts.slug, entry.name);
+          await fs.mkdir(path.dirname(pooledTo), { recursive: true });
+          await fs.copyFile(source, pooledTo);
+          refsLifted.push({ name: entry.name, pooledTo: path.relative(process.cwd(), pooledTo), sizeBytes });
+        } else {
+          const dest = path.join(targetDir, "refs", entry.name);
+          await fs.copyFile(source, dest);
+          refsCopied.push({ name: entry.name, dest: path.relative(process.cwd(), dest), sizeBytes });
+        }
+      }
+    } catch { /* optional refs */ }
+  }
+  if (compositionVars?.length) await fs.writeFile(path.join(targetDir, "composition-variables.json"), JSON.stringify(compositionVars, null, 2) + "\n");
+  await fs.writeFile(path.join(targetDir, "template.json"), ex.manifestToJson(manifest!));
+  let assetSlots: string[] = [];
+  try {
+    const value = JSON.parse(await fs.readFile(path.join(projDir, "asset-manifest.json"), "utf8"));
+    if (value?.slots && typeof value.slots === "object") assetSlots = Object.keys(value.slots);
+  } catch { /* optional asset manifest */ }
+  if (hasScenario) await fs.writeFile(path.join(targetDir, "scenario-template.json"), JSON.stringify({ scenario: patchedScenario, slots }, null, 2) + "\n");
+  await fs.writeFile(path.join(targetDir, "README.md"), ex.readmeFromPostmortem({ slug: opts.slug, category: opts.category, postmortem, projectId }));
+  await fs.writeFile(path.join(targetDir, "TEMPLATE.md"), [
+    `# ${manifest!.name}`, "", manifest!.description, "",
+    `> Extracted from project \`${projectId}\` on ${new Date().toISOString().slice(0, 10)}.`, "",
+    hasScenario ? "See `README.md` for usage + lessons; `prompts/` for the original prompts; `scenario-template.json` for the slot-substituted scenario." : "See `README.md` for usage + lessons; `prompts/` for the original prompts. This template was extracted from a scenario-less project (asset-based still-set / HyperFrames ad), so there is no scene table or `scenario-template.json`.", "",
+  ].join("\n"));
+  await fs.writeFile(path.join(targetDir, "sample-remix.md"), ex.sampleRemixDoc({ slug: opts.slug, category: opts.category }));
+  try {
+    await logGeneration(projectId, {
+      provider: "other", model: "template.extract", endpoint: "template.extract", kind: "other",
+      input: { slot: "template.extract", category: opts.category, slug: opts.slug, target_dir: path.relative(process.cwd(), targetDir), lift_heavy: !!opts.liftHeavy, has_scenario: hasScenario, prompts_copied: promptsCopied.length, refs_copied: refsCopied.length, refs_lifted: refsLifted.length, asset_slots: assetSlots.length },
+      status: "ok", note: `templatized as ${opts.category}/${opts.slug}`,
+    });
+  } catch { /* logging is best-effort */ }
+  ok(`Extracted ${projectId} → ${path.relative(process.cwd(), targetDir)}/`);
+  out({ project_id: projectId, template_dir: path.relative(process.cwd(), targetDir), slug: opts.slug, category: opts.category, kind: manifest!.kind, has_scenario: hasScenario, prompts_copied: promptsCopied, refs_copied: refsCopied, refs_lifted: refsLifted, slots: Object.keys(slots), asset_slots: assetSlots, composition_variables: compositionVars?.length ?? 0 });
 }
 
 export function templateCmd() {
@@ -329,45 +461,55 @@ export function templateCmd() {
         }
       }
 
-      data.createdAt = new Date().toISOString();
-
-      await fs.mkdir(templatesDir(), { recursive: true });
-      await fs.writeFile(path.join(templatesDir(), `${id}.json`), JSON.stringify(data, null, 2) + "\n");
-      await addEntity("templates", id, { name: opts.name, createdAt: data.createdAt, kind: "flat", source: "workspace" });
+      const ex = await import("../lib/templater/extract.js");
+      const saved = await ex.saveWorkspaceTemplate({
+        manifest: ex.buildTemplateManifest({
+          slug: id,
+          category: "b2b-saas",
+          name: opts.name,
+          scenario: data.scenario,
+        }),
+        body: { imported: data },
+      });
       ok(`Template created: ${id}`);
-      out({ id, name: opts.name, path: path.join(templatesDir(), `${id}.json`) });
+      out({ id: saved.id, slug: id, name: opts.name, documentRevisionId: saved.documentRevisionId });
     });
 
   cmd
     .command("register <id>")
-    .description("Register an existing workspace dir template in the local registry")
+    .description("Import an existing legacy workspace template into the domain store")
     .action(async (id: string) => {
-      const ref = await resolveTemplate(id);
-      if (!ref) raiseError("E_NOT_FOUND", { kind: "Template", id });
-      if (ref!.kind === "public") raiseError("E_INPUT_INVALID", { field: "template-source", detail: `'${id}' is a public library template; register only applies to workspace dir templates`, verb: "template" });
-      if (ref!.kind !== "dir") raiseError("E_INPUT_INVALID", { field: "template-kind", detail: `'${id}' is flat; use 'template create' for that layout`, verb: "template" });
-      const meta = await readTemplateMeta(ref!);
+      const ref = dirRef(templatesDir(), id, "workspace");
+      if (!(await hasTemplateManifest(ref.dir))) {
+        raiseError("E_NOT_FOUND", { kind: "Legacy workspace Template", id });
+      }
+      const meta = await readTemplateMeta(ref);
       if (!meta) raiseError("E_FILE_MALFORMED", { format: "JSON", path: `${(ref as { dir: string }).dir}/template.json`, detail: "missing or invalid" });
-      // 02.05.02 — validate the typed YAML manifest before registering
-      // (if the template ships one). Unsupported versions raise.
+      let manifest;
       try {
-        await loadTemplateManifest((ref as { dir: string }).dir, id);
+        manifest = await loadTemplateManifest(ref.dir, id);
       } catch (e) {
         if (e instanceof Error && !e.message.startsWith("E_")) {
-          raiseError("E_FILE_MALFORMED", { format: "YAML", path: `${(ref as { dir: string }).dir}/template.yaml`, detail: e.message });
+          raiseError("E_FILE_MALFORMED", { format: "YAML", path: `${ref.dir}/template.yaml`, detail: e.message });
         }
         throw e;
       }
-      await addEntity("templates", id, {
-        name: meta.name || id,
-        createdAt: meta.createdAt || new Date().toISOString(),
-        kind: "dir",
-        source: ref.source,
-        description: meta.description,
-        tags: meta.tags,
+      if (!manifest) {
+        raiseError("E_FILE_MALFORMED", { format: "YAML", path: `${ref.dir}/template.yaml`, detail: "missing or invalid" });
+      }
+      const readText = (name: string) => fs.readFile(path.join(ref.dir, name), "utf-8").catch(() => undefined);
+      const ex = await import("../lib/templater/extract.js");
+      const saved = await ex.saveWorkspaceTemplate({
+        manifest,
+        body: {
+          templateMarkdown: await readText("TEMPLATE.md"),
+          readme: await readText("README.md"),
+          scenarioTemplate: await readText("scenario-template.json"),
+          importedFromLegacy: true,
+        },
       });
-      ok(`Registered: ${id} (${ref.source})`);
-      out({ id, name: meta.name, dir: ref.dir, source: ref.source });
+      ok(`Registered: ${id}`);
+      out({ id: saved.id, slug: saved.slug, documentRevisionId: saved.documentRevisionId });
     });
 
   cmd
@@ -389,6 +531,22 @@ export function templateCmd() {
       const rows = new Map<string, Row>();
 
       // Workspace first so it overrides public on id collision (matches resolveTemplate).
+      for (const entity of await listEntities("templates")) {
+        const id = String(entity.slug ?? entity.id);
+        const format = typeof entity.format === "string" ? entity.format : undefined;
+        if (opts.format && format !== opts.format) continue;
+        rows.set(id, {
+          id,
+          name: String(entity.name ?? id),
+          kind: "dir",
+          source: "workspace",
+          format,
+          description: typeof entity.description === "string" ? entity.description : undefined,
+          tags: Array.isArray(entity.tags) ? entity.tags.map(String) : undefined,
+        });
+      }
+
+      // Read-only compatibility for templates created before the SQL store.
       for await (const { id, ref } of walkTemplateRoot(templatesDir(), "workspace")) {
         if (rows.has(id)) continue;
         const meta = await readTemplateMeta(ref);
@@ -397,13 +555,13 @@ export function templateCmd() {
         if (opts.format && tax.format !== opts.format) continue;
         rows.set(id, {
           id,
-          name: meta.name || id,
-          kind: ref.kind,
+          name: typeof meta.name === "string" ? meta.name : id,
+          kind: ref.kind === "dir" ? "dir" : "flat",
           source: "workspace",
           format: tax.format ?? undefined,
           style_of: tax.style_of ?? undefined,
-          description: meta.description,
-          tags: meta.tags,
+          description: typeof meta.description === "string" ? meta.description : undefined,
+          tags: Array.isArray(meta.tags) ? meta.tags.map(String) : undefined,
         });
       }
 
@@ -425,13 +583,6 @@ export function templateCmd() {
           description: block.blurb || undefined,
           tags: Array.isArray(block.tags) ? (block.tags as unknown[]).map(String) : undefined,
         });
-      }
-
-      // Mark unregistered (only meaningful for workspace — public templates are
-      // always discoverable; registry tracking is opt-in via `template register`).
-      const registered = new Set((await listEntities("templates")).map((t: any) => t.id));
-      for (const row of rows.values()) {
-        if (row.source === "workspace" && !registered.has(row.id)) row.unregistered = true;
       }
 
       const data = Array.from(rows.values()).sort((a, b) => a.id.localeCompare(b.id));
@@ -517,6 +668,14 @@ export function templateCmd() {
       }
 
       if (opts.path) {
+        if (ref!.kind === "domain") {
+          out({
+            id: ref!.record.id,
+            documentRevisionId: ref!.record.documentRevisionId,
+            artifactRevisionId: ref!.record.artifactRevisionId ?? null,
+          });
+          return;
+        }
         const p = ref!.kind === "dir" ? ref!.dir : ref!.file;
         if (isPretty()) console.log(p);
         else out({ path: p });
@@ -529,6 +688,17 @@ export function templateCmd() {
         } catch {
           err(`Cannot read: ${ref.file}`);
         }
+        return;
+      }
+
+      if (ref.kind === "domain") {
+        if (opts.meta) {
+          out({ ...ref.record, ...ref.body.manifest as object });
+          return;
+        }
+        const markdown = ref.body.templateMarkdown;
+        if (typeof markdown === "string") process.stdout.write(markdown);
+        else out(ref.body);
         return;
       }
 
@@ -790,261 +960,63 @@ export function templateCmd() {
     )
     .option("--force", "Overwrite the target template directory if it already exists.")
     .action(async (projectId: string, opts: any) => {
-      const ex = await import("../lib/templater/extract.js");
-      const { logGeneration } = await import("../lib/gen-log.js");
-
-      const projDir = projectDir(projectId);
-      try { await fs.access(projDir); } catch {
-        raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
-      }
-
-      // Category + slug validation upfront — surface structured errors before
-      // any disk work (avoids partial template dirs on failure).
-      const allowedCats = ["b2b-saas", "dtc-commerce", "creator-lifestyle", "entertainment-viral", "cinematic-narrative"];
+      const allowedCats = [
+        "b2b-saas",
+        "dtc-commerce",
+        "creator-lifestyle",
+        "entertainment-viral",
+        "cinematic-narrative",
+      ];
       if (!allowedCats.includes(opts.category)) {
-        raiseError("E_INPUT_INVALID", { field: "--category", detail: `expected one of ${allowedCats.join("|")}, got '${opts.category}'`, verb: "template extract" });
+        raiseError("E_INPUT_INVALID", {
+          field: "--category",
+          detail: `expected one of ${allowedCats.join("|")}, got '${opts.category}'`,
+          verb: "template extract",
+        });
+      }
+      if (!getCommandContext()) {
+        await extractLegacyTemplate(projectId, opts);
+        return;
       }
 
-      // Write to the user-local workspace tier (.ralphy/workspaces/<ws>/templates/<slug>/).
-      // `--category` is retained for the manifest (it still records the segment
-      // persona), but no longer determines the on-disk path now that the
-      // repo-public templates/ folder is retired.
-      const targetDir = path.join(templatesDir(), opts.slug);
-      if (await pathExists(targetDir)) {
-        if (!opts.force) {
-          raiseError("E_ALREADY_EXISTS", { kind: "Template", id: `${opts.category}/${opts.slug}` });
-        }
-      }
-
-      // Read scenario.json if present. #062: scenario.json is NO LONGER
-      // required — asset-based still-sets (e.g. free-air-vpn-stickerpack) and
-      // HyperFrames ad projects (e.g. odindoma-fb-ad-001) carry no scenario.
-      // When it's absent we derive what we can from asset-manifest.json +
-      // index.html and skip the scene-derived fields (the manifest ships an
-      // empty scenes[]). When it IS present, behavior is unchanged.
-      const scenarioPath = path.join(projDir, "scenario.json");
-      let scenario: unknown = null;
-      let hasScenario = false;
-      const rawScenario = await fs.readFile(scenarioPath, "utf-8").catch(() => null);
-      if (rawScenario !== null) {
-        try {
-          scenario = JSON.parse(rawScenario);
-          hasScenario = true;
-        } catch {
-          // The file exists but isn't valid JSON — that's a real error the
-          // user should fix, not a scenario-less project. Keep the old gate.
-          raiseError("E_FILE_MALFORMED", { format: "JSON", path: scenarioPath, detail: "scenario.json is present but not valid JSON" });
-        }
-      }
-
-      // Read POSTMORTEM (preferring postmortem/02-lessons.md, then POSTMORTEM.md).
-      let postmortem = "";
-      const lessonsPath = path.join(projDir, "postmortem", "02-lessons.md");
-      const flatPostmortem = path.join(projDir, "POSTMORTEM.md");
-      try { postmortem = await fs.readFile(lessonsPath, "utf-8"); } catch {
-        try { postmortem = await fs.readFile(flatPostmortem, "utf-8"); } catch { /* none */ }
-      }
-
-      // Read index.html if present, extract data-composition-variables.
-      let compositionVars: Array<Record<string, unknown>> | null = null;
       try {
-        const html = await fs.readFile(path.join(projDir, "index.html"), "utf-8");
-        compositionVars = ex.extractCompositionVariables(html);
-      } catch { /* not a HyperFrames project */ }
-
-      // Slot substitution on the scenario.
-      const { scenario: patchedScenario, slots } = ex.extractSlotsFromScenario(scenario);
-
-      // Build manifest.
-      let manifest;
-      try {
-        manifest = ex.buildTemplateManifest({
+        const ex = await import("../lib/templater/extract.js");
+        const extracted = await ex.extractWorkspaceTemplateFromProject({
+          projectId,
           slug: opts.slug,
           category: opts.category,
           kind: opts.kind,
           format: opts.format,
           name: opts.name,
           description: opts.description,
-          tags: typeof opts.tags === "string" ? opts.tags.split(",").map((t: string) => t.trim()).filter(Boolean) : [],
-          scenario: patchedScenario,
+          tags: typeof opts.tags === "string"
+            ? opts.tags.split(",").map((tag: string) => tag.trim()).filter(Boolean)
+            : [],
+          force: Boolean(opts.force),
         });
-      } catch (e) {
-        raiseError("E_INPUT_INVALID", { field: "--slug/--category/--kind", detail: (e as Error).message, verb: "template extract" });
-      }
 
-      // Now write everything atomically — create the target dir, copy prompts,
-      // copy/lift refs, write generated files.
-      await fs.mkdir(targetDir, { recursive: true });
-      await fs.mkdir(path.join(targetDir, "prompts"), { recursive: true });
-      await fs.mkdir(path.join(targetDir, "refs"), { recursive: true });
-
-      // Copy prompts/<scene>.txt
-      const promptsCopied: string[] = [];
-      const srcPrompts = path.join(projDir, "prompts");
-      try {
-        const entries = await fs.readdir(srcPrompts, { withFileTypes: true });
-        for (const e of entries) {
-          if (!e.isFile()) continue;
-          if (!/\.(txt|md|json)$/iu.test(e.name)) continue;
-          await fs.copyFile(path.join(srcPrompts, e.name), path.join(targetDir, "prompts", e.name));
-          promptsCopied.push(e.name);
-        }
-      } catch { /* no prompts/ dir in source */ }
-
-      // Refs: by default COPY; --lift-heavy MOVES files ≥1MB to ralphy-assets/pool/<slug>/.
-      const refsCopied: Array<{ name: string; dest: string; sizeBytes: number }> = [];
-      const refsLifted: Array<{ name: string; pooledTo: string; sizeBytes: number }> = [];
-      const srcRefsDirs = resolveArtifactKindDirs(projectId, "refs");
-      let assetsRoot = opts.assetsRepo as string | undefined;
-      if (opts.liftHeavy && !assetsRoot) {
-        // Best-effort default: ~/github/ralphy-assets if it looks like a repo,
-        // otherwise refuse with a concrete ask.
-        const candidate = path.join(process.env.HOME || "", "github", "ralphy-assets");
-        if (await pathExists(path.join(candidate, "manifest.json"))) {
-          assetsRoot = candidate;
-        } else {
-          raiseError("E_INPUT_INVALID", {
-            field: "--assets-repo",
-            detail: "--lift-heavy requires --assets-repo pointing at a checkout of the ralphy-assets companion repo",
-            verb: "template extract",
-          });
-        }
-      }
-      const refNamesSeen = new Set<string>();
-      for (const srcRefs of srcRefsDirs) {
-        try {
-          const entries = await fs.readdir(srcRefs, { withFileTypes: true });
-          for (const e of entries) {
-            if (!e.isFile()) continue;
-            // artifacts/refs/ wins on basename collision with legacy refs/.
-            if (refNamesSeen.has(e.name)) continue;
-            refNamesSeen.add(e.name);
-            const srcPath = path.join(srcRefs, e.name);
-            const stat = await fs.stat(srcPath);
-            if (opts.liftHeavy && ex.isHeavyRef(stat.size) && assetsRoot) {
-              const destPath = ex.poolDestForSlug(assetsRoot, opts.slug, e.name);
-              await fs.mkdir(path.dirname(destPath), { recursive: true });
-              await fs.copyFile(srcPath, destPath);
-              refsLifted.push({ name: e.name, pooledTo: path.relative(process.cwd(), destPath), sizeBytes: stat.size });
-            } else {
-              const destPath = path.join(targetDir, "refs", e.name);
-              await fs.copyFile(srcPath, destPath);
-              refsCopied.push({ name: e.name, dest: path.relative(process.cwd(), destPath), sizeBytes: stat.size });
-            }
-          }
-        } catch { /* no refs/ dir */ }
-      }
-
-      // Composition variables — captured as a sidecar JSON when present so the
-      // consumer of the template can wire them into a new HyperFrames composition.
-      if (compositionVars && compositionVars.length > 0) {
-        await fs.writeFile(
-          path.join(targetDir, "composition-variables.json"),
-          JSON.stringify(compositionVars, null, 2) + "\n",
-        );
-      }
-
-      // template.json (the manifest the loader reads).
-      await fs.writeFile(path.join(targetDir, "template.json"), ex.manifestToJson(manifest!));
-
-      // #062: derive an asset-slot summary from asset-manifest.json for
-      // scenario-less projects (still-sets, HyperFrames ads). The manifest's
-      // `slots` map records every generated asset slot; we surface its keys so
-      // the extracted template still documents what assets the project used,
-      // even with no scene table. Best-effort — a missing/unreadable manifest
-      // just yields an empty list.
-      let assetSlots: string[] = [];
-      try {
-        const am = JSON.parse(await fs.readFile(path.join(projDir, "asset-manifest.json"), "utf-8"));
-        if (am && typeof am === "object" && am.slots && typeof am.slots === "object") {
-          assetSlots = Object.keys(am.slots as Record<string, unknown>);
-        }
-      } catch { /* no asset-manifest.json — scenario-derived or sparse project */ }
-
-      // scenario-template.json: the patched scenario with {{slots}}. Distinct
-      // from template.json (the manifest) to keep the loader's expected shape.
-      // #062: only written when the source project actually has a scenario.json
-      // — a scenario-less still-set / HyperFrames ad has nothing to slot-fill,
-      // so writing `{ scenario: null }` would be misleading.
-      if (hasScenario) {
-        await fs.writeFile(
-          path.join(targetDir, "scenario-template.json"),
-          JSON.stringify({ scenario: patchedScenario, slots }, null, 2) + "\n",
-        );
-      }
-
-      // README.md from POSTMORTEM lessons (or stub).
-      const readme = ex.readmeFromPostmortem({
-        slug: opts.slug,
-        category: opts.category,
-        postmortem,
-        projectId,
-      });
-      await fs.writeFile(path.join(targetDir, "README.md"), readme);
-
-      // Minimal TEMPLATE.md so `ralphy template show <slug>` doesn't 404 for
-      // LLM consumers. Real templates ship a longer TEMPLATE.md — extract
-      // bootstraps it from the README header.
-      const templateMd = [
-        `# ${manifest!.name}`,
-        ``,
-        manifest!.description,
-        ``,
-        `> Extracted from project \`${projectId}\` on ${new Date().toISOString().slice(0, 10)}.`,
-        ``,
-        hasScenario
-          ? `See \`README.md\` for usage + lessons; \`prompts/\` for the original prompts; \`scenario-template.json\` for the slot-substituted scenario.`
-          : `See \`README.md\` for usage + lessons; \`prompts/\` for the original prompts. This template was extracted from a scenario-less project (asset-based still-set / HyperFrames ad), so there is no scene table or \`scenario-template.json\`.`,
-        ``,
-      ].join("\n");
-      await fs.writeFile(path.join(targetDir, "TEMPLATE.md"), templateMd);
-
-      // sample-remix.md
-      await fs.writeFile(
-        path.join(targetDir, "sample-remix.md"),
-        ex.sampleRemixDoc({ slug: opts.slug, category: opts.category }),
-      );
-
-      // Log the extraction back to the source project's gen-log so postmortems
-      // can see when the project was templatized (canonical schema, kind=other).
-      try {
-        await logGeneration(projectId, {
-          provider: "other",
-          model: "template.extract",
-          endpoint: "template.extract",
-          kind: "other",
-          input: {
-            slot: "template.extract",
-            category: opts.category,
-            slug: opts.slug,
-            target_dir: path.relative(process.cwd(), targetDir),
-            lift_heavy: !!opts.liftHeavy,
-            has_scenario: hasScenario,
-            prompts_copied: promptsCopied.length,
-            refs_copied: refsCopied.length,
-            refs_lifted: refsLifted.length,
-            asset_slots: assetSlots.length,
-          },
-          status: "ok",
-          note: `templatized as ${opts.category}/${opts.slug}`,
+        ok(`Extracted ${projectId} → ${String(extracted.id)}`);
+        out({
+          projectId: extracted.sourceProjectId,
+          templateId: extracted.id,
+          slug: extracted.slug,
+          documentRevisionId: extracted.documentRevisionId,
+          artifactRevisionId: extracted.artifactRevisionId ?? null,
+          hasScenario: extracted.hasScenario,
+          slots: extracted.slots,
+          sourceDocumentRevisionIds: extracted.sourceDocumentRevisionIds,
+          sourceArtifactRevisionIds: extracted.sourceArtifactRevisionIds,
         });
-      } catch { /* logging is best-effort */ }
-
-      ok(`Extracted ${projectId} → ${path.relative(process.cwd(), targetDir)}/`);
-      out({
-        project_id: projectId,
-        template_dir: path.relative(process.cwd(), targetDir),
-        slug: opts.slug,
-        category: opts.category,
-        kind: manifest!.kind,
-        has_scenario: hasScenario,
-        prompts_copied: promptsCopied,
-        refs_copied: refsCopied,
-        refs_lifted: refsLifted,
-        slots: Object.keys(slots),
-        asset_slots: assetSlots,
-        composition_variables: compositionVars?.length ?? 0,
-      });
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        if (detail.includes("already exists")) {
+          raiseError("E_ALREADY_EXISTS", { kind: "Template", id: opts.slug });
+        }
+        if (detail.includes("Project not found")) {
+          raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
+        }
+        raiseError("E_INPUT_INVALID", { field: "project/template", detail, verb: "template extract" });
+      }
     });
 
   cmd
@@ -1059,7 +1031,7 @@ export function templateCmd() {
       }
       if (ref.kind === "dir") {
         await fs.rm(ref.dir, { recursive: true, force: true });
-      } else {
+      } else if (ref.kind === "flat") {
         await fs.rm(ref.file, { force: true });
       }
       await deleteEntity("templates", id);
@@ -1087,34 +1059,62 @@ export function templateCmd() {
       // ranker still runs over the workspace tier alone.
       const warnings: string[] = [];
 
-      // Workspace tier.
-      const wsRefs: ResolvedTemplate[] = [];
-      for await (const { ref } of walkTemplateRoot(templatesDir(), "workspace")) {
-        wsRefs.push(ref);
-      }
+      // Workspace tier is persisted as typed JSON Document revisions.
+      const { loadWorkspaceTemplate } = await import("../lib/templater/extract.js");
       const built = await Promise.all(
-        wsRefs.map(async (ref) => {
-          const id = ref.kind === "dir" ? path.basename(ref.dir) : path.basename((ref as { file: string }).file).replace(/\.json$/, "");
-          const meta = await readTemplateMeta(ref);
-          const tax = await readTemplateTaxonomy(ref);
-          let docText = "";
-          if (ref.kind === "dir") {
-            docText = await fs.readFile(ref.docPath, "utf-8").catch(() => "");
-          }
+        (await listEntities("templates")).map(async (entity) => {
+          const id = String(entity.slug ?? entity.id);
+          const loaded = await loadWorkspaceTemplate(id);
+          const body = loaded?.body ?? {};
+          const manifest = body.manifest && typeof body.manifest === "object"
+            ? body.manifest as Record<string, unknown>
+            : {};
+          const format = typeof entity.format === "string"
+            ? entity.format
+            : typeof manifest.format === "string" ? manifest.format : undefined;
           return {
             candidate: {
               slug: id,
-              name: typeof meta?.name === "string" ? meta.name : id,
-              description: typeof meta?.description === "string" ? meta.description : "",
-              tags: Array.isArray(meta?.tags) ? meta.tags : [],
-              doc: docText,
-              meta: { source: ref.source, kind: (meta as any)?.kind, format: tax.format ?? undefined, style_of: tax.style_of ?? undefined },
+              name: String(entity.name ?? manifest.name ?? id),
+              description: String(entity.description ?? manifest.description ?? ""),
+              tags: Array.isArray(entity.tags)
+                ? entity.tags.map(String)
+                : Array.isArray(manifest.tags) ? manifest.tags.map(String) : [],
+              doc: typeof body.templateMarkdown === "string" ? body.templateMarkdown : "",
+              meta: {
+                source: "workspace",
+                kind: entity.kind ?? manifest.kind,
+                format,
+                style_of: typeof manifest.style_of === "string" ? manifest.style_of : undefined,
+              },
             } satisfies Candidate,
-            format: tax.format ?? undefined,
+            format,
           };
         }),
       );
       const seen = new Set(built.map((b) => b.candidate.slug));
+      const legacyBuilt: Array<{ candidate: Candidate; format?: string }> = [];
+      for await (const { id, ref } of walkTemplateRoot(templatesDir(), "workspace")) {
+        if (seen.has(id)) continue;
+        const meta = await readTemplateMeta(ref);
+        if (!meta) continue;
+        const tax = await readTemplateTaxonomy(ref);
+        const doc = ref.kind === "dir"
+          ? await fs.readFile(ref.docPath, "utf8").catch(() => "")
+          : "";
+        legacyBuilt.push({
+          candidate: {
+            slug: id,
+            name: typeof meta.name === "string" ? meta.name : id,
+            description: typeof meta.description === "string" ? meta.description : "",
+            tags: Array.isArray(meta.tags) ? meta.tags.map(String) : [],
+            doc,
+            meta: { source: "workspace", kind: meta.kind ?? "dir", format: tax.format ?? undefined },
+          },
+          format: tax.format ?? undefined,
+        });
+        seen.add(id);
+      }
 
       // Public tier — Supabase library template blocks.
       const publicBlocks = await fetchPublicTemplates((m) => warnings.push(m));
@@ -1125,7 +1125,7 @@ export function templateCmd() {
           format: typeof block.format === "string" ? block.format : undefined,
         }));
 
-      const candidates: Candidate[] = [...built, ...publicBuilt]
+      const candidates: Candidate[] = [...built, ...legacyBuilt, ...publicBuilt]
         .filter((b) => !opts.format || b.format === opts.format)
         .map((b) => b.candidate);
 

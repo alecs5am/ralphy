@@ -197,6 +197,10 @@ const TEXT_COLUMNS = {
   build_document_bindings: "id,build_id,document_revision_id,role",
   build_outputs: "id,build_id,artifact_revision_id,role",
   builds: "id,composition_revision_id,run_id,state,profile_json,error",
+  brands: "id,workspace_id,slug,name,url,metadata_json",
+  calendar_entries: "id,workspace_id,kind,slot_id,weekday,local_time,timezone,unit_type,platforms_json,state,campaign_id,campaign_cell_id,unit_revision_id,presentation_id,social_account_id,publication_id,metadata_json",
+  campaign_cells: "id,workspace_id,campaign_id,thesis_id,format,angle,keyword,channel,state,unit_revision_id,presentation_id,social_account_id,publication_id,metadata_json",
+  campaigns: "id,workspace_id,slug,title,state,metadata_json",
   composition_inputs: "id,composition_revision_id,artifact_revision_id,role,config_json",
   composition_revision_files: "id,composition_revision_id,logical_path,object_id",
   composition_revisions: "id,composition_id,parent_revision_id,iteration_id,state,engine,engine_version,engine_config_json,manifest_sha256,authored_by_session_id",
@@ -211,6 +215,8 @@ const TEXT_COLUMNS = {
   job_logs: "stream,line",
   jobs: "run_id,kind,status,command,depends_on,error_message,log_path,tag,project_id",
   metric_snapshots: "id,publication_id,source,retention_curve_json,note,raw_json",
+  memory_entries: "id,workspace_id,slug,name,description,type,status,current_revision_id",
+  memory_revisions: "id,workspace_id,memory_entry_id,parent_revision_id,document_revision_id,name,description,type,status,filed_at,source",
   objects: "id,workspace_id,project_id,backend,bucket,key,sha256,mime,storage_class,original_name,metadata_json",
   presentation_caption_revisions: "id,presentation_id,parent_revision_id,state,text",
   presentation_items: "id,presentation_id,unit_item_id,config_json",
@@ -224,6 +230,7 @@ const TEXT_COLUMNS = {
   run_results: "id,run_id,entity_type,entity_id",
   runs: "id,workspace_id,project_id,agent_session_id,kind,label,state,metadata_json,external_system,external_run_id,external_node_id,external_operation,idempotency_key,request_digest,consumer_principal_id,error",
   social_accounts: "id,workspace_id,platform,external_id,display_name,username,config_json,credential_ref",
+  settings: "id,workspace_id,key,value_json",
   storage_transfer_entries: "id,transfer_id,object_id,source_key,destination_key,sha256,state,error",
   storage_transfers: "id,workspace_id,project_id,kind,state,source_bucket,destination_bucket",
   store_metadata: "store_id",
@@ -231,6 +238,8 @@ const TEXT_COLUMNS = {
   unit_presentations: "id,unit_revision_id,platform,effective_caption_revision_id,cover_artifact_revision_id,crop_json,safe_area_json,options_json",
   unit_revisions: "id,unit_id,parent_revision_id,iteration_id,note,metadata_json,authored_by_session_id",
   units: "id,workspace_id,project_id,slug,format,latest_revision_id,selected_revision_id",
+  personas: "id,workspace_id,slug,name,language,archetype,tone,metadata_json",
+  workspace_templates: "id,workspace_id,slug,name,description,kind,format,category,document_revision_id,artifact_revision_id,metadata_json",
   workspaces: "id,slug,name,metadata_json",
 } as const;
 
@@ -402,10 +411,9 @@ function validateTextDescriptors(db: Database): void {
     if (columns.length > 0) actual.set(name, columns);
   }
   const expected = new Map(
-    Object.entries(TEXT_COLUMNS).map(([table, columns]) => [
-      table,
-      columns.split(","),
-    ]),
+    Object.entries(TEXT_COLUMNS)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([table, columns]) => [table, columns.split(",")]),
   );
   if (JSON.stringify([...actual]) !== JSON.stringify([...expected])) {
     throw new VerifierSchemaError(

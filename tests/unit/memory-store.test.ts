@@ -36,9 +36,12 @@ import {
   MemoryCapError,
   type TierRef,
 } from "../../cli/lib/memory/store.js";
+import { clearCommandContext, setCommandContext } from "../../cli/lib/context-state.js";
+import { closeDomainDb } from "../../cli/lib/store/db.js";
+import { createWorkspace } from "../../cli/lib/store/scopes.js";
 
 const GLOBAL: TierRef = { tier: "global" };
-const WS: TierRef = { tier: "workspace", ws: "default" };
+let WS: TierRef;
 
 let tmpRoot: string;
 const originalCwd = process.cwd();
@@ -46,10 +49,16 @@ const originalCwd = process.cwd();
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-memory-"));
   setRoot(tmpRoot);
+  closeDomainDb();
   fs.mkdirSync(path.join(tmpRoot, ".ralphy"), { recursive: true });
+  const workspace = createWorkspace({ slug: "default", name: "Default" });
+  WS = { tier: "workspace", ws: workspace.id };
+  setCommandContext({ kind: "scope", workspaceId: workspace.id });
 });
 
 afterEach(() => {
+  clearCommandContext();
+  closeDomainDb();
   setRoot(originalCwd);
   fs.rmSync(tmpRoot, { recursive: true, force: true });
 });
@@ -60,7 +69,10 @@ describe("memory store tiers (#112)", () => {
     const w = await writeEntry({ text: "Client rejects neon grades.", ref: WS, status: "active", type: "client", slug: "no-neon" });
 
     expect(g.entry.path).toBe(path.join(tmpRoot, ".ralphy", "memory", "kling-no-music.md"));
-    expect(w.entry.path).toBe(path.join(tmpRoot, ".ralphy", "workspaces", "default", "memory", "no-neon.md"));
+    expect(w.entry).not.toHaveProperty("file");
+    expect(w.entry).not.toHaveProperty("path");
+    expect(w.entry.id).toStartWith("mentry_");
+    expect(w.entry.revisionId).toStartWith("mrev_");
 
     const idx = fs.readFileSync(indexPath(GLOBAL), "utf-8");
     expect(idx).toContain("(kling-no-music.md)");
@@ -70,7 +82,7 @@ describe("memory store tiers (#112)", () => {
   test("show search order: workspace tier wins, then global", async () => {
     await writeEntry({ text: "global variant", ref: GLOBAL, status: "active", slug: "shared-slug" });
     await writeEntry({ text: "workspace variant", ref: WS, status: "active", slug: "shared-slug" });
-    const found = await findEntry("shared-slug", "default");
+    const found = await findEntry("shared-slug", WS.ws);
     expect(found?.tier).toBe("workspace");
     expect(found?.body).toContain("workspace variant");
   });
@@ -131,9 +143,14 @@ describe("approve / reject move semantics", () => {
   test("reject MOVES proposed → rejected/, never unlinks", async () => {
     const p = await writeEntry({ text: "Bad idea.", ref: WS, status: "proposed", slug: "bad-idea" });
     const r = await rejectEntry("bad-idea", WS);
-    expect(fs.existsSync(p.entry.path)).toBe(false);
-    expect(r!.to).toBe(path.join(memoryDir(WS), "rejected", "bad-idea.md"));
-    expect(fs.existsSync(r!.to)).toBe(true);
+    expect(p.entry).not.toHaveProperty("path");
+    expect(r).toMatchObject({
+      slug: "bad-idea",
+      entryId: p.entry.id,
+      revisionId: p.entry.revisionId,
+      versioned: false,
+    });
+    expect((await getEntry("bad-idea", WS, "rejected"))?.status).toBe("rejected");
   });
 
   test("approve --all drains proposed/", async () => {
@@ -152,7 +169,7 @@ describe("recall merge", () => {
     await writeEntry({ text: "Workspace truth.", ref: WS, status: "active", slug: "collide" });
     await writeEntry({ text: "Global only.", ref: GLOBAL, status: "active", slug: "global-only" });
 
-    const r = await recall({ ws: "default" });
+    const r = await recall({ ws: WS.ws });
     expect(r.note).toBe(RECALL_NOTE);
     expect(r.count).toBe(2);
     const collide = r.entries.find((e) => e.slug === "collide");
@@ -221,10 +238,10 @@ describe("entry body discipline", () => {
   test("search hits frontmatter and body across both tiers", async () => {
     await writeEntry({ text: "Seedance rejects photoreal human anchors.", ref: GLOBAL, status: "active", slug: "seedance-filter", type: "model" });
     await writeEntry({ text: "Cast masters live in shared/cast.", ref: WS, status: "active", slug: "cast-masters", type: "client" });
-    const byBody = await searchEntries("photoreal", "default");
+    const byBody = await searchEntries("photoreal", WS.ws);
     expect(byBody.length).toBe(1);
     expect(byBody[0]!.slug).toBe("seedance-filter");
-    const byTier = await searchEntries("cast", "default");
+    const byTier = await searchEntries("cast", WS.ws);
     expect(byTier.some((m) => m.tier === "workspace")).toBe(true);
   });
 });

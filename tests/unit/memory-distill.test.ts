@@ -13,16 +13,19 @@ import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
 
-import { setRoot } from "../../cli/lib/paths.js";
+import { setRoot, workspaceDir } from "../../cli/lib/paths.js";
 import { distillPostmortem, NoPostmortemError } from "../../cli/lib/memory/distill.js";
 import { listEntries } from "../../cli/lib/memory/store.js";
+import { clearCommandContext, setCommandContext } from "../../cli/lib/context-state.js";
+import { closeDomainDb } from "../../cli/lib/store/db.js";
+import { createProject, createWorkspace } from "../../cli/lib/store/scopes.js";
 
 const originalFetch = globalThis.fetch;
 const originalKey = process.env.OPENROUTER_API_KEY;
 const originalCwd = process.cwd();
 let tmpRoot: string;
-
-const PROJECT = "pm-distill-001";
+let projectId: string;
+let workspaceId: string;
 
 function llmResponse(candidates: unknown[]): Response {
   return new Response(
@@ -46,8 +49,14 @@ function stubLLM(candidates: unknown[]): void {
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-distill-"));
   setRoot(tmpRoot);
+  closeDomainDb();
+  const workspace = createWorkspace({ slug: "default", name: "Default" });
+  const project = createProject({ workspaceId: workspace.id, slug: "pm-distill-001", name: "PM Distill" });
+  projectId = project.id;
+  workspaceId = workspace.id;
+  setCommandContext({ kind: "scope", workspaceId, projectId });
   process.env.OPENROUTER_API_KEY = "test-or-key";
-  const pmDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", PROJECT, "postmortem");
+  const pmDir = path.join(workspaceDir(workspaceId), "projects", projectId, "postmortem");
   fs.mkdirSync(pmDir, { recursive: true });
   fs.writeFileSync(path.join(pmDir, "02-lessons.md"), "# Lessons\n\nKling needs an explicit no-music clause.\n");
   fs.writeFileSync(path.join(pmDir, "05-workflow-fixes.md"), "# Workflow fixes\n\nSite-grounding before brand DNA.\n");
@@ -57,6 +66,8 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
   if (originalKey === undefined) delete process.env.OPENROUTER_API_KEY;
   else process.env.OPENROUTER_API_KEY = originalKey;
+  clearCommandContext();
+  closeDomainDb();
   setRoot(originalCwd);
   fs.rmSync(tmpRoot, { recursive: true, force: true });
 });
@@ -99,7 +110,7 @@ describe("memory distill (#113)", () => {
       },
     ]);
 
-    const r = await distillPostmortem({ projectId: PROJECT });
+    const r = await distillPostmortem({ projectId });
     expect(r.sources).toEqual(["02-lessons.md", "05-workflow-fixes.md"]);
     expect(r.candidates.map((c) => c.slug)).toEqual(["kling-no-music", "client-rejects-neon"]);
     expect(r.routedToGuideline.map((c) => c.slug)).toEqual(["vhs-noise-stack"]);
@@ -108,13 +119,13 @@ describe("memory distill (#113)", () => {
     // Right tiers, proposed/ only — nothing active.
     const globalProposed = await listEntries({ tier: "global" }, "proposed");
     expect(globalProposed.map((e) => e.slug)).toEqual(["kling-no-music"]);
-    const wsProposed = await listEntries({ tier: "workspace", ws: "default" }, "proposed");
+    const wsProposed = await listEntries({ tier: "workspace", ws: workspaceId }, "proposed");
     expect(wsProposed.map((e) => e.slug)).toEqual(["client-rejects-neon"]);
     expect(await listEntries({ tier: "global" }, "active")).toHaveLength(0);
 
     // Body carries the negative-scope discipline + provenance.
     expect(globalProposed[0]!.body).toContain("**Does NOT apply to:** Models without native audio.");
-    expect(globalProposed[0]!.source).toContain(`distill:${PROJECT}/postmortem`);
+    expect(globalProposed[0]!.source).toContain(`distill:${projectId}/postmortem`);
   });
 
   test("--dry-run prints candidates and stages nothing", async () => {
@@ -131,7 +142,7 @@ describe("memory distill (#113)", () => {
         route: "memory",
       },
     ]);
-    const r = await distillPostmortem({ projectId: PROJECT, dryRun: true });
+    const r = await distillPostmortem({ projectId, dryRun: true });
     expect(r.dryRun).toBe(true);
     expect(r.candidates).toHaveLength(1);
     expect(r.staged).toHaveLength(0);
@@ -151,9 +162,9 @@ describe("memory distill (#113)", () => {
       route: "memory",
     };
     stubLLM([candidate]);
-    const r1 = await distillPostmortem({ projectId: PROJECT });
+    const r1 = await distillPostmortem({ projectId });
     stubLLM([candidate]);
-    const r2 = await distillPostmortem({ projectId: PROJECT });
+    const r2 = await distillPostmortem({ projectId });
     expect(r1.staged[0]!.file).toBe("same-lesson.md");
     expect(r2.staged[0]!.file).toBe("same-lesson.v2.md");
     expect(fs.existsSync(r1.staged[0]!.path)).toBe(true); // v1 untouched
@@ -161,7 +172,9 @@ describe("memory distill (#113)", () => {
 
   test("missing postmortem dir raises the coded not-found error", async () => {
     stubLLM([]);
-    expect(distillPostmortem({ projectId: "no-such-project" })).rejects.toThrow(NoPostmortemError);
+    const missing = createProject({ workspaceId, slug: "no-postmortem", name: "No postmortem" });
+    setCommandContext({ kind: "scope", workspaceId, projectId: missing.id });
+    expect(distillPostmortem({ projectId: missing.id })).rejects.toThrow(NoPostmortemError);
   });
 
   test("malformed candidates are dropped, invalid slugs auto-derived", async () => {
@@ -169,7 +182,7 @@ describe("memory distill (#113)", () => {
       { slug: "NOT a slug!!", tier: "global", type: "weird-type", rule: "Rule with bad slug and type." },
       { tier: "global", type: "craft" }, // no rule → dropped
     ]);
-    const r = await distillPostmortem({ projectId: PROJECT, dryRun: true });
+    const r = await distillPostmortem({ projectId, dryRun: true });
     expect(r.candidates).toHaveLength(1);
     expect(r.candidates[0]!.slug).toMatch(/^[a-z0-9][a-z0-9-]*$/);
     expect(r.candidates[0]!.type).toBe("craft"); // unknown type falls back

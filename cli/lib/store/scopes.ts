@@ -97,6 +97,16 @@ export type ResolveFeedbackInput = {
   links?: Array<TargetReference | EntityReference>;
 };
 
+export type UpdateProjectStageInput = {
+  projectId: string;
+  stage: string;
+  state: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  /** Null creates the stage; a positive version conditionally updates it. */
+  expectedRowVersion: number | null;
+};
+
 type WorkspaceDbRow = {
   id: string;
   slug: string;
@@ -885,6 +895,104 @@ export function listProjectStages(input: {
   }));
 }
 
+export function updateProjectStage(
+  input: UpdateProjectStageInput,
+): ProjectStageDto {
+  const stage = input.stage.trim();
+  const state = input.state.trim();
+  if (!stage || !state) throw new Error("Project stage and state must not be empty");
+  const hasEntityType = input.entityType != null;
+  const hasEntityId = input.entityId != null;
+  if (hasEntityType !== hasEntityId) {
+    throw new Error("Project stage binding requires entityType and entityId together");
+  }
+  if (
+    input.expectedRowVersion !== null &&
+    (!Number.isSafeInteger(input.expectedRowVersion) || input.expectedRowVersion <= 0)
+  ) {
+    throw new Error("Project stage expected row version must be positive or null");
+  }
+
+  return withImmediateTransaction((db) => {
+    const project = getProjectRow(db, input.projectId);
+    if (!project) throw new Error(`Project not found: ${input.projectId}`);
+    if (hasEntityType) {
+      const bindingProjectId = resolveStageBindingProjectId(
+        db,
+        input.entityType!,
+        input.entityId!,
+      );
+      if (bindingProjectId !== project.id) {
+        throw new Error("Project stage binding does not belong to the exact Project");
+      }
+    }
+    const now = Date.now();
+    let id: string;
+    if (input.expectedRowVersion === null) {
+      id = newDomainId("stage");
+      try {
+        db.prepare(
+          `INSERT INTO project_stages
+           (id, project_id, stage, state, entity_type, entity_id, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        ).run(
+          id,
+          project.id,
+          stage,
+          state,
+          input.entityType ?? null,
+          input.entityId ?? null,
+          now,
+        );
+      } catch (error) {
+        if (String(error).includes("UNIQUE constraint failed")) {
+          throw new StoreConflictError("Project stage already exists");
+        }
+        throw error;
+      }
+    } else {
+      const row = db
+        .query<{ id: string }, [string, string]>(
+          "SELECT id FROM project_stages WHERE project_id = ? AND stage = ?",
+        )
+        .get(project.id, stage);
+      if (!row) throw new StoreConflictError("Project stage conflict");
+      id = row.id;
+      const result = db.prepare(
+        `UPDATE project_stages
+         SET state = ?, entity_type = ?, entity_id = ?,
+             row_version = row_version + 1, updated_at = ?
+         WHERE id = ? AND project_id = ? AND row_version = ?`,
+      ).run(
+        state,
+        input.entityType ?? null,
+        input.entityId ?? null,
+        now,
+        id,
+        project.id,
+        input.expectedRowVersion,
+      );
+      if (!result.changes) throw new StoreConflictError("Project stage conflict");
+    }
+    appendActivity(db, {
+      workspaceId: project.workspaceId,
+      projectId: project.id,
+      entityType: "project_stage",
+      entityId: id,
+      action: input.expectedRowVersion === null
+        ? "project_stage.created"
+        : "project_stage.updated",
+      payload: { stage, state },
+      createdAt: now,
+    });
+    return db
+      .query<ProjectStageDto, [string]>(
+        `${PROJECT_STAGE_DTO_SELECT} WHERE id = ?`,
+      )
+      .get(id)!;
+  });
+}
+
 function canReadProject(
   db: Database,
   scope: ResolvedScope,
@@ -896,6 +1004,57 @@ function canReadProject(
       "SELECT id FROM projects WHERE id = ? AND workspace_id = ?",
     )
     .get(projectId, scope.workspaceId) !== null;
+}
+
+function resolveStageBindingProjectId(
+  db: Database,
+  entityType: string,
+  entityId: string,
+): string {
+  const queries: Record<string, string> = {
+    document_revision: `SELECT document.project_id AS projectId
+      FROM document_revisions revision
+      JOIN documents document ON document.id = revision.document_id
+      WHERE revision.id = ?`,
+    artifact_revision: `SELECT artifact.project_id AS projectId
+      FROM artifact_revisions revision
+      JOIN artifacts artifact ON artifact.id = revision.artifact_id
+      WHERE revision.id = ?`,
+    composition_revision: `SELECT composition.project_id AS projectId
+      FROM composition_revisions revision
+      JOIN compositions composition ON composition.id = revision.composition_id
+      WHERE revision.id = ?`,
+    build: `SELECT composition.project_id AS projectId
+      FROM builds build
+      JOIN composition_revisions revision ON revision.id = build.composition_revision_id
+      JOIN compositions composition ON composition.id = revision.composition_id
+      WHERE build.id = ?`,
+    run: "SELECT project_id AS projectId FROM runs WHERE id = ?",
+    evaluation: "SELECT project_id AS projectId FROM evaluations WHERE id = ?",
+    unit_revision: `SELECT unit.project_id AS projectId
+      FROM unit_revisions revision
+      JOIN units unit ON unit.id = revision.unit_id
+      WHERE revision.id = ?`,
+    unit_presentation: `SELECT unit.project_id AS projectId
+      FROM unit_presentations presentation
+      JOIN unit_revisions revision ON revision.id = presentation.unit_revision_id
+      JOIN units unit ON unit.id = revision.unit_id
+      WHERE presentation.id = ?`,
+    publication: `SELECT unit.project_id AS projectId
+      FROM publications publication
+      JOIN unit_presentations presentation ON presentation.id = publication.presentation_id
+      JOIN unit_revisions revision ON revision.id = presentation.unit_revision_id
+      JOIN units unit ON unit.id = revision.unit_id
+      WHERE publication.id = ?`,
+  };
+  const query = queries[entityType];
+  if (!query) throw new Error(`Unsupported Project stage binding: ${entityType}`);
+  const row = db.query<{ projectId: string | null }, [string]>(query).get(entityId);
+  if (!row) throw new Error(`Project stage binding not found: ${entityType}:${entityId}`);
+  if (row.projectId === null) {
+    throw new Error("Project stage binding must belong to an exact Project");
+  }
+  return row.projectId;
 }
 
 function appendCreationCursor(

@@ -28,7 +28,14 @@ import path from "node:path";
 import { projectDir, projectWorkspace } from "../paths.js";
 import { callLLM } from "../providers/llm.js";
 import type { CallLLMOptions, CallLLMResult } from "../providers/llm.js";
-import { writeEntry, MEMORY_TYPES, SLUG_RE, autoSlug, type MemoryEntry } from "../memory/store.js";
+import {
+  writeEntry,
+  MEMORY_TYPES,
+  SLUG_RE,
+  autoSlug,
+  memoryEntryReference,
+  type MemoryEntryReference,
+} from "../memory/store.js";
 import type { AnalyticsSnapshot } from "../schemas/analytics.js";
 import { readSnapshots, listUnitSlugs } from "./pull.js";
 import { unitDirFor } from "../publish/publish.js";
@@ -201,7 +208,7 @@ export interface AnalyticsPostmortemResult {
   dropped: number;
   findingsPath: string | null;
   /** Workspace-tier proposed/ entries staged (empty on --dry-run). */
-  staged: Array<Pick<MemoryEntry, "slug" | "tier" | "file" | "path">>;
+  staged: MemoryEntryReference[];
   dryRun: boolean;
 }
 
@@ -275,7 +282,7 @@ export async function runAnalyticsPostmortem(opts: {
         description: f.finding.slice(0, 140),
         source: `analytics-postmortem:${opts.projectId} (${knownSlugs.join(", ")})`,
       });
-      staged.push({ slug: w.entry.slug, tier: w.entry.tier, file: w.entry.file, path: w.entry.path });
+      staged.push(memoryEntryReference(w.entry));
     }
   }
 

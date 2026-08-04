@@ -17,6 +17,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root";
+import { ensureDomainContractProject, setDomainContractDocumentStage } from "../helpers/domain-contract";
 import { buildProductionPlan } from "../../cli/lib/plan/build";
 import {
   parseProductionPlan,
@@ -217,26 +218,31 @@ function runPlan(rootDir: string, libUrl: string, args: string[]) {
 
 describe("ralphy project plan (CLI smoke, --no-llm deterministic)", () => {
   const PROJECT = "plan-cli-407";
+  let projectId: string;
+  let workspaceId: string;
 
   function seedProject(rootDir: string) {
+    const project = ensureDomainContractProject(rootDir, PROJECT);
+    projectId = project.projectId;
+    workspaceId = project.workspaceId;
     const regPath = path.join(rootDir, ".ralphy", "registry.json");
     fs.writeFileSync(
       regPath,
-      JSON.stringify({ projects: { [PROJECT]: { id: PROJECT, name: "Plan CLI", workspace: "default" } } }),
+      JSON.stringify({ projects: { [projectId]: { id: projectId, name: "Plan CLI", workspace: workspaceId } } }),
     );
-    fs.mkdirSync(projectDir(PROJECT), { recursive: true });
+    fs.mkdirSync(projectDir(projectId), { recursive: true });
   }
 
   test("writes PRODUCTION_PLAN.md + production-plan.json (schema-valid)", () => {
     seedProject(tmp.dir);
     const libUrl = writeEmptyLibrary(tmp.dir);
-    const r = runPlan(tmp.dir, libUrl, [PROJECT, "--brief", "an unboxing video for my product", "--no-llm"]);
-    expect(r.status).toBe(0);
+    const r = runPlan(tmp.dir, libUrl, [projectId, "--brief", "an unboxing video for my product", "--no-llm"]);
+    expect(r.status, r.stderr).toBe(0);
     const json = JSON.parse(r.stdout);
-    expect(json.project).toBe(PROJECT);
+    expect(json.project).toBe(projectId);
     // Both artifacts on disk.
-    const mdPath = path.join(projectDir(PROJECT), "PRODUCTION_PLAN.md");
-    const jsonPath = path.join(projectDir(PROJECT), "production-plan.json");
+    const mdPath = path.join(projectDir(projectId), "PRODUCTION_PLAN.md");
+    const jsonPath = path.join(projectDir(projectId), "production-plan.json");
     expect(fs.existsSync(mdPath)).toBe(true);
     expect(fs.existsSync(jsonPath)).toBe(true);
     // The written JSON is schema-valid.
@@ -254,11 +260,18 @@ describe("ralphy project plan (CLI smoke, --no-llm deterministic)", () => {
     seedProject(tmp.dir);
     const libUrl = writeEmptyLibrary(tmp.dir);
     // Seed the prior required artifact so phase-7 is the next gap.
-    fs.writeFileSync(path.join(projectDir(PROJECT), "BRIEF.md"), "# brief\n");
-    runPlan(tmp.dir, libUrl, [PROJECT, "--brief", "a clean product shot", "--no-llm"]);
+    fs.writeFileSync(path.join(projectDir(projectId), "BRIEF.md"), "# brief\n");
+    runPlan(tmp.dir, libUrl, [projectId, "--brief", "a clean product shot", "--no-llm"]);
+    setDomainContractDocumentStage(
+      tmp.dir,
+      projectId,
+      "production-plan",
+      JSON.parse(fs.readFileSync(path.join(projectDir(projectId), "production-plan.json"), "utf8")),
+      "awaiting-approval",
+    );
     // Query the filesystem contract directly; entity `project status` owns a
     // separate database-derived surface.
-    const ledger = evaluateContract(PROJECT);
+    const ledger = evaluateContract(projectId);
     const plan = ledger.phases.find((p: any) => p.id === "production-plan");
     expect(plan.present).toBe(true);
     expect(plan.satisfied).toBe(true);
@@ -268,21 +281,21 @@ describe("ralphy project plan (CLI smoke, --no-llm deterministic)", () => {
   test("second plan auto-versions (preserves the first as .v1) and never overwrites", () => {
     seedProject(tmp.dir);
     const libUrl = writeEmptyLibrary(tmp.dir);
-    const mdPath = path.join(projectDir(PROJECT), "PRODUCTION_PLAN.md");
-    const jsonPath = path.join(projectDir(PROJECT), "production-plan.json");
+    const mdPath = path.join(projectDir(projectId), "PRODUCTION_PLAN.md");
+    const jsonPath = path.join(projectDir(projectId), "production-plan.json");
 
-    const r1 = runPlan(tmp.dir, libUrl, [PROJECT, "--brief", "an unboxing video for my product", "--no-llm"]);
+    const r1 = runPlan(tmp.dir, libUrl, [projectId, "--brief", "an unboxing video for my product", "--no-llm"]);
     expect(r1.status).toBe(0);
     const firstMd = fs.readFileSync(mdPath, "utf8");
     const firstJson = fs.readFileSync(jsonPath, "utf8");
 
-    const r2 = runPlan(tmp.dir, libUrl, [PROJECT, "--brief", "a clean studio product shot on white", "--no-llm"]);
+    const r2 = runPlan(tmp.dir, libUrl, [projectId, "--brief", "a clean studio product shot on white", "--no-llm"]);
     expect(r2.status).toBe(0);
 
     // protectExistingAsset archives the EXISTING file to .v1 (then .v2, …) on
     // the first regen — so the first plan now lives at .v1, untouched.
-    const archivedMd = path.join(projectDir(PROJECT), "PRODUCTION_PLAN.v1.md");
-    const archivedJson = path.join(projectDir(PROJECT), "production-plan.v1.json");
+    const archivedMd = path.join(projectDir(projectId), "PRODUCTION_PLAN.v1.md");
+    const archivedJson = path.join(projectDir(projectId), "production-plan.v1.json");
     expect(fs.existsSync(archivedMd)).toBe(true);
     expect(fs.existsSync(archivedJson)).toBe(true);
     expect(fs.readFileSync(archivedMd, "utf8")).toBe(firstMd);

@@ -17,6 +17,10 @@
 //    endpoint: "template.extract").
 
 import path from "node:path";
+import { getCommandContext } from "../context-state.js";
+import { addEntity, getEntity, updateEntity } from "../registry.js";
+import { createDocument, reviseDocument } from "../store/documents.js";
+import { openDomainDb } from "../store/db.js";
 import {
   TEMPLATE_KINDS,
   TEMPLATE_CATEGORIES,
@@ -35,6 +39,183 @@ export const HEAVY_REF_BYTES = 1024 * 1024;
 export const SCENARIO_FILENAMES = ["scenario.json"];
 
 export type SlotMap = Record<string, string>;
+
+export type WorkspaceTemplateBody = Record<string, unknown>;
+
+export async function saveWorkspaceTemplate(input: {
+  manifest: TemplateYaml;
+  body: WorkspaceTemplateBody;
+  artifactRevisionId?: string | null;
+}): Promise<Record<string, unknown>> {
+  const workspaceId = getCommandContext()?.workspaceId;
+  if (!workspaceId) throw new Error("Workspace Template requires an explicit Workspace scope");
+  const existing = await getEntity("templates", input.manifest.id);
+  let documentId: string;
+  let expectedHeadId: string | null;
+  if (existing) {
+    const revisionId = String(existing.documentRevisionId);
+    const row = openDomainDb()
+      .query<{ documentId: string }, [string]>(
+        "SELECT document_id AS documentId FROM document_revisions WHERE id = ?",
+      )
+      .get(revisionId);
+    if (!row) throw new Error(`Template Document Revision not found: ${revisionId}`);
+    documentId = row.documentId;
+    expectedHeadId = revisionId;
+  } else {
+    const document = createDocument({
+      workspaceId,
+      kind: "custom",
+      slug: `workspace-template-${input.manifest.id}`,
+      title: input.manifest.name,
+    });
+    documentId = document.id;
+    expectedHeadId = null;
+  }
+  const revision = reviseDocument({
+    documentId,
+    expectedHeadId,
+    format: "json",
+    title: input.manifest.name,
+    body: JSON.stringify({ manifest: input.manifest, ...input.body }),
+  });
+  const record = {
+    name: input.manifest.name,
+    description: input.manifest.description,
+    kind: input.manifest.kind,
+    format: input.manifest.format,
+    category: input.manifest.category,
+    tags: input.manifest.tags,
+    documentRevisionId: revision.id,
+    ...(input.artifactRevisionId
+      ? { artifactRevisionId: input.artifactRevisionId }
+      : {}),
+  };
+  return existing
+    ? (await updateEntity("templates", input.manifest.id, record))!
+    : addEntity("templates", input.manifest.id, record);
+}
+
+export async function loadWorkspaceTemplate(
+  idOrSlug: string,
+): Promise<(Record<string, unknown> & { body: WorkspaceTemplateBody }) | null> {
+  const record = await getEntity("templates", idOrSlug);
+  if (!record) return null;
+  const row = openDomainDb()
+    .query<{ body: string }, [string]>(
+      "SELECT body FROM document_revisions WHERE id = ? AND format = 'json'",
+    )
+    .get(String(record.documentRevisionId));
+  if (!row) throw new Error(`Template Document Revision not found: ${record.documentRevisionId}`);
+  return { ...record, body: JSON.parse(row.body) as WorkspaceTemplateBody };
+}
+
+export async function extractWorkspaceTemplateFromProject(input: {
+  projectId: string;
+  slug: string;
+  category: TemplateCategory;
+  kind?: TemplateKind;
+  format?: TemplateFormat;
+  name?: string;
+  description?: string;
+  tags?: string[];
+  force?: boolean;
+}): Promise<Record<string, unknown>> {
+  const workspaceId = getCommandContext()?.workspaceId;
+  if (!workspaceId) throw new Error("Template extraction requires an explicit Workspace scope");
+  const db = openDomainDb();
+  const project = db
+    .query<{ id: string }, [string, string, string, string]>(
+      `SELECT id FROM projects
+       WHERE workspace_id = ? AND (id = ? OR slug = ?)
+       ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END LIMIT 1`,
+    )
+    .get(workspaceId, input.projectId, input.projectId, input.projectId);
+  if (!project) throw new Error(`Project not found: ${input.projectId}`);
+  const existing = await getEntity("templates", input.slug);
+  if (existing && !input.force) throw new Error(`Template already exists: ${input.slug}`);
+
+  const documents = db
+    .query<{
+      id: string;
+      kind: string;
+      slug: string;
+      revisionId: string;
+      format: string;
+      body: string;
+    }, [string]>(
+      `SELECT document.id, document.kind, document.slug,
+              revision.id AS revisionId, revision.format, revision.body
+       FROM documents document
+       JOIN document_revisions revision ON revision.id = document.current_revision_id
+       WHERE document.project_id = ?
+       ORDER BY document.created_at, document.id`,
+    )
+    .all(project.id);
+  const scenarioDocument = documents.find((document) => document.kind === "scenario");
+  let scenario: unknown = null;
+  if (scenarioDocument) {
+    try { scenario = JSON.parse(scenarioDocument.body); } catch { scenario = null; }
+  }
+  const { scenario: patchedScenario, slots } = extractSlotsFromScenario(scenario);
+  const manifest = buildTemplateManifest({
+    slug: input.slug,
+    category: input.category,
+    kind: input.kind,
+    format: input.format,
+    name: input.name,
+    description: input.description,
+    tags: input.tags,
+    scenario: patchedScenario,
+  });
+  const postmortem = documents.find((document) => document.kind === "postmortem")?.body;
+  const readme = readmeFromPostmortem({
+    slug: input.slug,
+    category: input.category,
+    postmortem,
+    projectId: project.id,
+  });
+  const templateMarkdown = [
+    `# ${manifest.name}`,
+    "",
+    manifest.description,
+    "",
+    `> Extracted from Project \`${project.id}\`.`,
+    "",
+  ].join("\n");
+  const artifactRevisionIds = db
+    .query<{ id: string }, [string]>(
+      `SELECT artifact.selected_revision_id AS id FROM artifacts artifact
+       WHERE artifact.project_id = ? AND artifact.selected_revision_id IS NOT NULL
+       ORDER BY artifact.created_at, artifact.id`,
+    )
+    .all(project.id)
+    .map((row) => row.id);
+  const saved = await saveWorkspaceTemplate({
+    manifest,
+    artifactRevisionId: artifactRevisionIds[0] ?? null,
+    body: {
+      sourceProjectId: project.id,
+      sourceDocumentRevisionIds: documents.map((document) => document.revisionId),
+      sourceArtifactRevisionIds: artifactRevisionIds,
+      scenario: scenarioDocument ? { value: patchedScenario, slots } : null,
+      prompts: documents
+        .filter((document) => document.slug.startsWith("prompt-"))
+        .map((document) => ({ slug: document.slug, documentRevisionId: document.revisionId })),
+      readme,
+      templateMarkdown,
+      sampleRemixMarkdown: sampleRemixDoc({ slug: input.slug, category: input.category }),
+    },
+  });
+  return {
+    ...saved,
+    sourceProjectId: project.id,
+    hasScenario: scenarioDocument !== undefined,
+    slots: Object.keys(slots),
+    sourceDocumentRevisionIds: documents.map((document) => document.revisionId),
+    sourceArtifactRevisionIds: artifactRevisionIds,
+  };
+}
 
 /**
  * Inspect a scenario object and propose `{{slot}}` substitutions for the
