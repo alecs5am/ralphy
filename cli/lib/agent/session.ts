@@ -9,6 +9,7 @@ export function startAgentTurn(input: {
   agentSessionId: string;
   provider: string;
   chatId?: string | null;
+  resumedFromTurnId?: string | null;
 }): AgentTurnDto {
   return withImmediateTransaction((db) => {
     const run = startRunInTransaction(db, {
@@ -23,6 +24,7 @@ export function startAgentTurn(input: {
       agentSessionId: input.agentSessionId,
       provider: input.provider,
       chatId: input.chatId,
+      resumedFromTurnId: input.resumedFromTurnId,
     });
     appendAgentTurnEventInTransaction(db, { turnId: turn.turnId, kind: "started" });
     return turn;

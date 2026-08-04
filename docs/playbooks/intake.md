@@ -4,6 +4,11 @@
 
 > **Positioning.** Chat is the user interface; the Ralphy CLI is the agent runtime. The user describes what they want in plain language — YOU run the `ralphy` verbs. Intake is a conversation, never a command the user types.
 
+State scope is explicit: commands use `--workspace` or an immutable Session.
+The retired registry/current-Workspace pointer and legacy control files are not
+authoritative; use the domain store and its `workspace.export` /
+`workspace.import` seams for cross-installation transfer.
+
 > **Adaptive verbosity.** The intake's depth scales with the user's skill score (0-10) and developer badge from `ralphy whoami` (read on session start per AGENTS.md step 0). The same protocol runs at every level, but novice gets explanations after each step, expert gets one-line confirmations. See the band table below.
 
 ## Per-band branching (read this BEFORE step 1)

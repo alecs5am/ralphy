@@ -24,7 +24,7 @@ import {
 import { latestActivitySequence, listActivity } from "../store/activity.js";
 import { openDomainDb } from "../store/db.js";
 import { getMediaCard, listMedia, reviewMedia } from "../store/media.js";
-import { selectArtifactRevision } from "../store/artifacts.js";
+import { listArtifactRevisions, selectArtifactRevision } from "../store/artifacts.js";
 import { createEvaluation, getEvaluation, listEvaluations } from "../store/evaluations.js";
 import {
   getComposition,
@@ -45,6 +45,13 @@ import {
   getMetricTotals,
   listPublications,
   findPublicationByIdempotencyKey,
+  getPublication,
+  getUnitPresentation,
+  startPublicationSubmission,
+  cancelDraftPublication,
+  requestPublicationReconciliation,
+  expirePublicationOperationClaim,
+  startMetricRefresh,
 } from "../store/units.js";
 import {
   getProjectOverview,
@@ -58,8 +65,11 @@ import {
   updateCalendarEntry,
 } from "../store/operations.js";
 import {
+  finishRun,
   getRun,
+  listRunObjects,
   listRuns,
+  startRun,
 } from "../store/runs.js";
 import {
   addFeedback,
@@ -90,9 +100,16 @@ import {
 } from "../store/sessions.js";
 import { resolveQueryContext, type QueryContext } from "../store/scope-context.js";
 import { getStoreIdentity } from "../store/sessions.js";
+import { exportWorkspacePackage, importWorkspacePackage } from "../store/portable.js";
+import { startBuild } from "../store/compositions.js";
+import { getObjectRow, resolveObjectPath } from "../store/internal-objects.js";
 import { agentTurnStatus, startAgentTurn } from "../agent/session.js";
 import { claudeProvider } from "../agent/claude.js";
 import { codexProvider } from "../agent/codex.js";
+import {
+  STATIC_CREDENTIAL_DESCRIPTORS,
+  createCredentialResolver,
+} from "../providers/credentials.js";
 import {
   startGenerationOperation,
   startRepairOperation,
@@ -260,6 +277,28 @@ export function createBridgeMethods(input: { dataRoot: string }): BridgeMethodTa
       config: value.config === undefined ? null : jsonValue(value.config),
     });
   });
+  add("workspace.export", "operation-start", async (params) => {
+    const value = object(params, "workspace.export");
+    const context = scopedContext(value);
+    const scope = resolveScope(context);
+    const workspaceId = string(value.workspaceId ?? scope.workspaceId, "workspaceId");
+    assertVisible(context, workspaceId, null);
+    return exportWorkspacePackage({ workspaceId, projectId: optionalString(value.projectId) ?? null });
+  });
+  add("workspace.import", "operation-start", async (params) => {
+    const value = object(params, "workspace.import");
+    const context = scopedContext(value);
+    const scope = resolveScope(context);
+    return importWorkspacePackage({
+      packageObjectId: string(value.packageObjectId, "packageObjectId"),
+      idempotencyKey: string(value.idempotencyKey, "idempotencyKey"),
+      workspaceSlug: optionalString(value.workspaceSlug) ?? `imported-${scope.workspaceId}`,
+      workspaceName: optionalString(value.workspaceName),
+      entityAfter: optionalString(value.entityAfter),
+      relinkAfter: optionalString(value.relinkAfter),
+      limit: value.limit === undefined ? undefined : limit(value.limit),
+    });
+  });
 
   add("project.list", "read", (params) => {
     const value = object(params, "project.list");
@@ -414,6 +453,18 @@ export function createBridgeMethods(input: { dataRoot: string }): BridgeMethodTa
     const value = object(params, "media.show");
     return getMediaCard({ context: scopedContext(value), ref: object(value.ref, "ref") as never });
   });
+  add("media.revisions", "read", (params) => {
+    const value = object(params, "media.revisions");
+    const context = scopedContext(value);
+    const ref = object(value.ref, "ref");
+    if (string(ref.type, "ref.type") !== "artifact") throw new Error("Only Artifact refs have revisions");
+    return listArtifactRevisions({
+      context,
+      artifactId: string(ref.id, "ref.id"),
+      after: optionalString(value.after),
+      limit: limit(value.limit),
+    });
+  });
   add("media.select", "mutation", (params) => {
     const value = object(params, "media.select");
     const context = scopedContext(value);
@@ -476,7 +527,7 @@ export function createBridgeMethods(input: { dataRoot: string }): BridgeMethodTa
   });
   add("run.show", "read", (params) => {
     const value = object(params, "run.show");
-    return getRun({ context: bridgeRunContext(scopedContext(value), contextOrUndefined(value, undefined)), runId: string(value.runId, "runId") });
+    return getRun({ context: scopedContext(value), runId: string(value.runId, "runId") });
   });
   add("run.results", "read", (params, context) => {
     const value = object(params, "run.results");
@@ -492,10 +543,17 @@ export function createBridgeMethods(input: { dataRoot: string }): BridgeMethodTa
     const runContext = queryContext.sessionId !== undefined && context.authority
       ? { ...queryContext, consumerAuthority: context.authority }
       : queryContext;
-    return (async () => {
-      const { listRunObjects } = await import("../store/runs.js");
-      return listRunObjects({ context: runContext, runId: string(value.runId, "runId"), after: optionalString(value.after), limit: limit(value.limit) });
-    })();
+    return listRunObjects({ context: runContext, runId: string(value.runId, "runId"), after: optionalString(value.after), limit: limit(value.limit) });
+  });
+  add("run.cancel", "mutation", (params) => {
+    const value = object(params, "run.cancel");
+    const context = scopedContext(value);
+    const runId = string(value.runId, "runId");
+    const run = getRun({ context, runId });
+    const expectedState = string(value.expectedState, "expectedState");
+    if (run.state !== expectedState) throw new Error("Run state changed before cancellation");
+    if (run.state !== "pending" && run.state !== "running") throw new Error("Run is already terminal");
+    return finishRun(runId, { state: "cancelled", error: optionalString(value.reason) });
   });
 
   add("composition.list", "read", (params) => {
@@ -519,6 +577,15 @@ export function createBridgeMethods(input: { dataRoot: string }): BridgeMethodTa
       engineConfig: value.engineConfig === undefined ? undefined : jsonValue(value.engineConfig),
       authoredBySessionId: context.sessionId,
     });
+  });
+  add("composition.build", "operation-start", (params) => {
+    const value = object(params, "composition.build");
+    const context = scopedContext(value);
+    const scope = resolveScope(context);
+    const revision = getCompositionRevision({ context, revisionId: string(value.compositionRevisionId, "compositionRevisionId") });
+    if (revision.state !== "sealed") throw new Error("Composition Revision must be sealed before Build");
+    const run = startRunForScope(scope, context, "composition.build", value.label);
+    return startBuild({ compositionRevisionId: revision.id, runId: run.id, profile: jsonValue(value.profile ?? {}) });
   });
   add("composition.select", "mutation", (params) => {
     const value = object(params, "composition.select");
@@ -568,6 +635,10 @@ export function createBridgeMethods(input: { dataRoot: string }): BridgeMethodTa
     const value = object(params, "unit.select");
     return selectUnitRevision({ unitId: string(value.unitId, "unitId"), revisionId: string(value.revisionId, "revisionId"), expectedSelectedRevisionId: value.expectedSelectedRevisionId === null ? null : string(value.expectedSelectedRevisionId, "expectedSelectedRevisionId") });
   });
+  add("unit.preview", "read", (params) => {
+    const value = object(params, "unit.preview");
+    return getUnit({ context: scopedContext(value), unitId: string(value.unitId, "unitId") });
+  });
 
   add("publication.list", "read", (params) => {
     const value = object(params, "publication.list");
@@ -576,6 +647,63 @@ export function createBridgeMethods(input: { dataRoot: string }): BridgeMethodTa
   add("publication.lookup", "read", (params) => {
     const value = object(params, "publication.lookup");
     return findPublicationByIdempotencyKey({ context: scopedContext(value), presentationId: string(value.presentationId, "presentationId"), idempotencyKey: string(value.idempotencyKey, "idempotencyKey") });
+  });
+  add("publication.publish", "operation-start", (params) => {
+    const value = object(params, "publication.publish");
+    const context = scopedContext(value);
+    getUnitPresentation({ context, presentationId: string(value.presentationId, "presentationId") });
+    return startPublicationSubmission({
+      presentationId: string(value.presentationId, "presentationId"),
+      socialAccountId: optionalString(value.socialAccountId),
+      rail: string(value.rail, "rail") as never,
+      idempotencyKey: string(value.idempotencyKey, "idempotencyKey"),
+      scheduledAt: optionalNumber(value.scheduledAt),
+      revisedFromPublicationId: optionalString(value.revisedFromPublicationId),
+      agentSessionId: context.sessionId,
+      leaseMs: value.leaseMs === undefined ? 300_000 : positiveInteger(value.leaseMs, "leaseMs"),
+    });
+  });
+  add("publication.cancel", "operation-start", (params) => {
+    const value = object(params, "publication.cancel");
+    const context = scopedContext(value);
+    getPublication({ context, publicationId: string(value.publicationId, "publicationId") });
+    if (string(value.expectedState, "expectedState") !== "draft") throw new Error("Only draft Publication cancellation is local");
+    return cancelDraftPublication(string(value.publicationId, "publicationId"), "draft");
+  });
+  add("publication.reconcile", "operation-start", (params) => {
+    const value = object(params, "publication.reconcile");
+    const context = scopedContext(value);
+    getPublication({ context, publicationId: string(value.publicationId, "publicationId") });
+    const claim = object(value.fence, "fence");
+    return requestPublicationReconciliation(string(value.publicationId, "publicationId"), {
+      fence: { kind: "submission", runId: string(claim.runId, "fence.runId"), epoch: positiveInteger(claim.epoch, "fence.epoch"), token: string(claim.token, "fence.token"), expiresAt: integer(claim.expiresAt, "fence.expiresAt") },
+      state: string(value.state, "state") as "reconciliation_required" | "unknown",
+      error: string(value.error, "error"),
+    });
+  });
+  add("publication.recover", "mutation", (params) => {
+    const value = object(params, "publication.recover");
+    const context = scopedContext(value);
+    getPublication({ context, publicationId: string(value.publicationId, "publicationId") });
+    return expirePublicationOperationClaim(string(value.publicationId, "publicationId"), {
+      expectedKind: string(value.expectedKind, "expectedKind") as never,
+      expectedEpoch: positiveInteger(value.expectedEpoch, "expectedEpoch"),
+      expectedState: string(value.expectedState, "expectedState") as never,
+      ...(value.nextState === undefined ? {} : { nextState: string(value.nextState, "nextState") as never }),
+      error: string(value.error, "error"),
+    } as never);
+  });
+  add("publication.refresh", "operation-start", (params) => {
+    const value = object(params, "publication.refresh");
+    const context = scopedContext(value);
+    getPublication({ context, publicationId: string(value.publicationId, "publicationId") });
+    return startMetricRefresh({
+      publicationId: string(value.publicationId, "publicationId"),
+      label: string(value.label, "label"),
+      source: string(value.source, "source"),
+      request: jsonValue(value.request ?? {}),
+      agentSessionId: context.sessionId,
+    });
   });
   add("metric.list", "read", (params) => {
     const value = object(params, "metric.list");
@@ -623,6 +751,45 @@ export function createBridgeMethods(input: { dataRoot: string }): BridgeMethodTa
     return updateCalendarEntry({ context: scopedContext(value), id: string(value.id, "id"), patch: jsonValue(value.patch) as never, expectedRowVersion: positiveInteger(value.expectedRowVersion, "expectedRowVersion") });
   });
 
+  add("locator.resolve", "read", (params) => {
+    const value = object(params, "locator.resolve");
+    const context = scopedContext(value);
+    const target = object(value.target, "target");
+    if (string(target.type, "target.type") !== "object") {
+      throw new Error("Only Object locators are available to the trusted main process");
+    }
+    const objectId = string(target.id, "target.id");
+    getMediaCard({ context, ref: { type: "object", id: objectId } });
+    const row = getObjectRow(openDomainDb(), objectId);
+    if (!row) throw new Error("Object not found");
+    const absolutePath = resolveObjectPath(row);
+    return { absolutePath, mime: row.mime, bytes: row.bytes };
+  });
+  add("migration.consumer.map", "read", (params) => {
+    const value = object(params, "migration.consumer.map");
+    string(value.migrationRunId, "migrationRunId");
+    string(value.lockNonce, "lockNonce");
+    if (string(value.namespace, "namespace") !== "farm") throw new Error("Only the farm namespace is supported");
+    string(value.grantDigest, "grantDigest");
+    string(value.sourceIdentityId, "sourceIdentityId");
+    string(value.sourceInventoryDigest, "sourceInventoryDigest");
+    if (value.afterSourceLocatorHash !== undefined) string(value.afterSourceLocatorHash, "afterSourceLocatorHash");
+    return { items: [], nextCursor: null };
+  });
+  add("migration.desktop.import", "operation-start", (params) => {
+    const value = object(params, "migration.desktop.import");
+    scopedContext(value);
+    return importWorkspacePackage({
+      packageObjectId: string(value.packageObjectId, "packageObjectId"),
+      idempotencyKey: string(value.idempotencyKey, "idempotencyKey"),
+      workspaceSlug: optionalString(value.workspaceSlug),
+      workspaceName: optionalString(value.workspaceName),
+      entityAfter: optionalString(value.entityAfter),
+      relinkAfter: optionalString(value.relinkAfter),
+      limit: value.limit === undefined ? undefined : limit(value.limit),
+    });
+  });
+
   add("activity.list", "read", (params) => {
     const value = object(params, "activity.list");
     return listActivity({ context: scopedContext(value), afterSequence: integer(value.afterSequence, "afterSequence"), limit: limit(value.limit) });
@@ -641,7 +808,46 @@ export function createBridgeMethods(input: { dataRoot: string }): BridgeMethodTa
     context.activitySubscriptions.delete(subscriptionId);
     return { subscriptionId, unsubscribed: true };
   });
-  add("agent.providers", "read", () => [codexProvider(), claudeProvider()]);
+  add("agent.providers", "read", () => [
+    codexProvider(),
+    claudeProvider(),
+    ...STATIC_CREDENTIAL_DESCRIPTORS.map(({ providerId, kind }) => ({ providerId, kind })),
+  ]);
+  add("agent.credential.status", "read", async (params) => {
+    const value = object(params, "agent.credential.status");
+    const scope = resolveScope(scopedContext(value));
+    const resolver = createCredentialResolver({ dataRoot: input.dataRoot, context: { kind: "scope", workspaceId: scope.workspaceId, projectId: scope.projectId ?? undefined } });
+    return resolver.status(string(value.provider, "provider"), value.accountId === undefined ? undefined : { accountId: string(value.accountId, "accountId") });
+  });
+  add("agent.credential.set", "mutation", async (params) => {
+    const value = object(params, "agent.credential.set");
+    const scope = resolveScope(scopedContext(value));
+    const accountId = value.accountId === undefined ? undefined : string(value.accountId, "accountId");
+    const resolver = createCredentialResolver({ dataRoot: input.dataRoot, context: { kind: "scope", workspaceId: scope.workspaceId, projectId: scope.projectId ?? undefined } });
+    await resolver.set(string(value.provider, "provider"), string(value.value, "value"), accountId === undefined ? undefined : { accountId, expectedRowVersion: positiveInteger(value.expectedRowVersion, "expectedRowVersion") });
+    return { provider: string(value.provider, "provider"), configured: true };
+  });
+  add("agent.credential.clear", "mutation", async (params) => {
+    const value = object(params, "agent.credential.clear");
+    const scope = resolveScope(scopedContext(value));
+    const accountId = value.accountId === undefined ? undefined : string(value.accountId, "accountId");
+    const resolver = createCredentialResolver({ dataRoot: input.dataRoot, context: { kind: "scope", workspaceId: scope.workspaceId, projectId: scope.projectId ?? undefined } });
+    await resolver.clear(string(value.provider, "provider"), accountId === undefined ? undefined : { accountId, expectedRowVersion: positiveInteger(value.expectedRowVersion, "expectedRowVersion") });
+    return { provider: string(value.provider, "provider"), configured: false };
+  });
+  add("agent.auth.status", "read", async (params) => {
+    const value = object(params, "agent.auth.status");
+    const scope = resolveScope(scopedContext(value));
+    const resolver = createCredentialResolver({ dataRoot: input.dataRoot, context: { kind: "scope", workspaceId: scope.workspaceId, projectId: scope.projectId ?? undefined } });
+    return resolver.status(string(value.provider, "provider"), value.accountId === undefined ? undefined : { accountId: string(value.accountId, "accountId") });
+  });
+  add("agent.auth.login", "mutation", async (params) => {
+    const value = object(params, "agent.auth.login");
+    const scope = resolveScope(scopedContext(value));
+    const resolver = createCredentialResolver({ dataRoot: input.dataRoot, context: { kind: "scope", workspaceId: scope.workspaceId, projectId: scope.projectId ?? undefined } });
+    await resolver.login(string(value.provider, "provider"));
+    return { provider: string(value.provider, "provider"), loggedIn: true };
+  });
   add("agent.turn.start", "operation-start", (params) => {
     const value = object(params, "agent.turn.start");
     const session = getAgentSession(string(value.sessionId, "sessionId"));
@@ -656,6 +862,26 @@ export function createBridgeMethods(input: { dataRoot: string }): BridgeMethodTa
   add("agent.turn.status", "read", (params) => {
     const value = object(params, "agent.turn.status");
     return agentTurnStatus(string(value.turnId, "turnId"), value.afterSequence === undefined ? 0 : integer(value.afterSequence, "afterSequence"));
+  });
+  add("agent.turn.resume", "operation-start", (params) => {
+    const value = object(params, "agent.turn.resume");
+    const previous = agentTurnStatus(string(value.turnId, "turnId")).turn;
+    const session = getAgentSession(string(value.sessionId, "sessionId"));
+    if (session.id !== previous.agentSessionId || session.workspaceId !== resolveScope(scopedContext(value)).workspaceId) throw new Error("Agent resume scope conflict");
+    return startAgentTurn({
+      workspaceId: session.workspaceId,
+      projectId: session.projectId,
+      agentSessionId: session.id,
+      provider: previous.provider,
+      chatId: optionalString(value.chatId) ?? previous.chatId,
+      resumedFromTurnId: previous.turnId,
+    });
+  });
+  add("agent.turn.stop", "mutation", (params) => {
+    const value = object(params, "agent.turn.stop");
+    const turn = agentTurnStatus(string(value.turnId, "turnId")).turn;
+    const cancelled = finishRun(turn.turnId, { state: "cancelled", error: optionalString(value.reason) });
+    return cancelled;
   });
 
   for (const [name, kind] of [
@@ -803,19 +1029,26 @@ function resolveScope(context: QueryContext): { workspaceId: string; projectId: 
   return resolveQueryContext(openDomainDb(), context);
 }
 
+function startRunForScope(
+  scope: { workspaceId: string; projectId: string | null },
+  context: QueryContext,
+  kind: string,
+  label: unknown,
+) {
+  return startRun({
+    workspaceId: scope.workspaceId,
+    projectId: scope.projectId,
+    agentSessionId: context.sessionId ?? null,
+    kind,
+    label: optionalString(label),
+  });
+}
+
 function assertVisible(context: QueryContext, workspaceId: string, projectId: string | null): void {
   const scope = resolveScope(context);
   if (scope.workspaceId !== workspaceId || (scope.projectId !== null && projectId !== null && scope.projectId !== projectId)) {
     throw new Error("Entity is outside the requested scope");
   }
-}
-
-function bridgeRunContext(context: QueryContext, _unused: undefined): QueryContext {
-  return context;
-}
-
-function contextOrUndefined(_value: Record<string, unknown>, _default: undefined): undefined {
-  return undefined;
 }
 
 function requireAuthority(context: BridgeMethodContext): ConsumerAuthority {
