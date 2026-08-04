@@ -1,8 +1,14 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { normalizeRelativePath } from "./inventory.js";
 import type { MigrationIssue } from "./types.js";
+
+const LEGACY_CONTROL_NAMES = new Set([
+  "asset-manifest.json", "config.json", "generations.jsonl", "jobs.db",
+  "jobs.db-wal", "jobs.db-shm", "project.json", "publish-ledger.jsonl",
+  "registry.json", "scenario.json", "unit.json", "user-assets.jsonl",
+  "user-prompts.jsonl", "workspace.json",
+]);
 
 export type LegacyPathKind =
   | "workspace"
@@ -23,6 +29,25 @@ export type LegacyJsonlRecord = {
   value: unknown | null;
   issue: MigrationIssue | null;
 };
+
+export function normalizeRelativePath(value: string): string {
+  if (typeof value !== "string" || value.length === 0 || value.includes("\\") || path.posix.isAbsolute(value)) {
+    throw new Error("Migration source path is not a relative POSIX path");
+  }
+  const parts = value.split("/");
+  if (parts.some((part) => part.length === 0 || part === "." || part === "..")) {
+    throw new Error("Migration source path contains an unsafe segment");
+  }
+  return parts.join("/");
+}
+
+export function isLegacyControlName(value: string): boolean {
+  return LEGACY_CONTROL_NAMES.has(value.toLowerCase());
+}
+
+export function legacyRegistryPaths(root: string): string[] {
+  return [path.join(root, "registry.json"), path.join(root, "config.json")];
+}
 
 export function classifyLegacyPath(relativePath: string): LegacyPathKind {
   const normalized = normalizeRelativePath(relativePath).toLowerCase();

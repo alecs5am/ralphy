@@ -2,6 +2,11 @@ import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { newDomainId } from "../store/ids.js";
+import {
+  isLegacyControlName,
+  legacyRegistryPaths,
+  normalizeRelativePath,
+} from "./legacy.js";
 import type {
   MigrationAudit,
   MigrationAuditInput,
@@ -21,26 +26,9 @@ const MEDIA_EXTENSIONS = new Set([
   ".aac", ".avi", ".gif", ".jpeg", ".jpg", ".m4a", ".mkv", ".mov",
   ".mp3", ".mp4", ".ogg", ".png", ".svg", ".wav", ".webm", ".webp", ".zip",
 ]);
-const CONTROL_NAMES = new Set([
-  "asset-manifest.json", "config.json", "generations.jsonl", "jobs.db",
-  "jobs.db-wal", "jobs.db-shm", "project.json", "registry.json", "scenario.json",
-  "unit.json", "workspace.json",
-]);
-
 export function sourceLocatorHash(sourceKind: MigrationSourceKind, relativePath: string): string {
   const normalized = normalizeRelativePath(relativePath);
   return createHash("sha256").update(`${sourceKind}\0${normalized}`, "utf8").digest("hex");
-}
-
-export function normalizeRelativePath(value: string): string {
-  if (typeof value !== "string" || value.length === 0 || value.includes("\\") || path.posix.isAbsolute(value)) {
-    throw new Error("Migration source path is not a relative POSIX path");
-  }
-  const parts = value.split("/");
-  if (parts.some((part) => part.length === 0 || part === "." || part === "..")) {
-    throw new Error("Migration source path contains an unsafe segment");
-  }
-  return parts.join("/");
 }
 
 export function auditMigration(input: MigrationAuditInput): MigrationAudit {
@@ -312,7 +300,7 @@ function discoverProjects(root: string, kind: MigrationSourceKind, blockers: Mig
     // A source without projects is a valid empty source.
   }
   const registryProjects = new Set<string>();
-  for (const candidate of [path.join(root, "registry.json"), path.join(root, "config.json")]) {
+  for (const candidate of legacyRegistryPaths(root)) {
     try {
       const parsed = JSON.parse(fs.readFileSync(candidate, "utf8")) as Record<string, unknown>;
       const projects = Array.isArray(parsed.projects) ? parsed.projects : [];
@@ -333,7 +321,7 @@ function classifyDisposition(relative: string, kind: MigrationEntryKind): Migrat
   if (basename === ".ds_store") return "system";
   if (relative.split("/").some((part) => part === "secrets" || part.includes("cookie"))) return "secret-recovery-only";
   if (relative.split("/").some((part) => part === "cache" || part === "tmp")) return "cache";
-  if (CONTROL_NAMES.has(basename) || [".json", ".jsonl", ".md", ".markdown", ".txt", ".yaml", ".yml"].some((suffix) => basename.endsWith(suffix))) return "domain";
+  if (isLegacyControlName(basename) || [".json", ".jsonl", ".md", ".markdown", ".txt", ".yaml", ".yml"].some((suffix) => basename.endsWith(suffix))) return "domain";
   if (MEDIA_EXTENSIONS.has(path.posix.extname(basename))) return "object";
   return "issue";
 }

@@ -77,7 +77,9 @@ The domain migration is resumable and journaled:
 
 ```bash
 ralphy migrate domain audit --source /path/to/source/.ralphy
-ralphy migrate domain run --source /path/to/source/.ralphy
+ralphy migrate domain run --source /path/to/source/.ralphy --store-root /path/to/stage/.ralphy
+ralphy migrate domain resume --run-id <run> --source /path/to/source/.ralphy --store-root /path/to/stage/.ralphy
+ralphy migrate domain status --run-id <run> --store-root /path/to/stage/.ralphy
 ralphy migrate domain verify --run-id <run> --store-root /path/to/stage/.ralphy --verification-dir /path/to/reports
 ralphy migrate domain cutover --run-id <run> --confirm <run> \
   --verification-id <verification> --verification-record /path/to/reports/verification.json \

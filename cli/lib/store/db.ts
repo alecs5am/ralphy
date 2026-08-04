@@ -16,6 +16,17 @@ export function openDomainDb(): Database {
   if (cached?.path === databasePath) return cached.db;
   closeDomainDb();
 
+  const db = openDatabaseAt(databasePath);
+  cached = { path: databasePath, db };
+  return db;
+}
+
+/** Open an explicit data root without changing the ambient cached connection. */
+export function openDomainDbAt(dataRoot: string): Database {
+  return openDatabaseAt(path.resolve(dataRoot, "ralphy.db"));
+}
+
+function openDatabaseAt(databasePath: string): Database {
   fs.mkdirSync(path.dirname(databasePath), { recursive: true });
   const db = new Database(databasePath, { create: true });
   try {
@@ -26,7 +37,6 @@ export function openDomainDb(): Database {
     if (journalMode?.toLowerCase() !== "wal") db.exec("PRAGMA journal_mode = WAL");
     db.exec("PRAGMA foreign_keys = ON");
     applyMigrations(db);
-    cached = { path: databasePath, db };
     return db;
   } catch (error) {
     db.close();

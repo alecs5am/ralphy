@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { newDomainId } from "../store/ids.js";
 import type { MigrationContext } from "./types.js";
-import { normalizeRelativePath } from "./inventory.js";
+import { normalizeRelativePath } from "./legacy.js";
 
 export type StageSummary = {
   staged: number;
@@ -43,7 +43,8 @@ export function stageInventoryObjects(ctx: MigrationContext): StageSummary {
     if (!new Set(["object", "run-object", "decoded-object"]).has(row.disposition)) continue;
     if (row.state === "verified") continue;
     if (row.state !== "inventoried" && row.state !== "staged") continue;
-    const source = ctx.sourceRoots.find((candidate) => candidate.id === row.sourceLabel || candidate.kind === row.sourceKind);
+    const source = ctx.sourceRoots.find((candidate) => candidate.id === row.sourceLabel)
+      ?? ctx.sourceRoots.find((candidate) => candidate.kind === row.sourceKind);
     if (!source) {
       issues += 1;
       recordIssue(ctx, row.id, "MIGRATION_SOURCE_MISSING", { sourceKind: row.sourceKind });

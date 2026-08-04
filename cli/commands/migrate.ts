@@ -88,16 +88,17 @@ function domainMigrationCmd(): Command {
     }));
   domain.addCommand(new Command("run")
     .requiredOption("--source <path>", "Exact source root to migrate")
+    .option("--store-root <path>", "Explicit staged .ralphy data root")
     .option("--legacy-source <path>", "Additional legacy workspace source root")
     .option("--desktop-source <path>", "Additional Desktop export source root")
-    .action((opts: { source: string; legacySource?: string; desktopSource?: string }) => {
+    .action((opts: { source: string; storeRoot?: string; legacySource?: string; desktopSource?: string }) => {
       const started = startMigration({
-        storeRoot: path.join(root(), ".ralphy"),
+        storeRoot: opts.storeRoot ?? path.join(root(), ".ralphy"),
         sourceRoots: sourceRoots(opts),
       });
       const resumed = resumeMigration({
         runId: started.runId,
-        storeRoot: path.join(root(), ".ralphy"),
+        storeRoot: opts.storeRoot ?? path.join(root(), ".ralphy"),
         sourceRoots: sourceRoots(opts),
       });
       out({ runId: started.runId, audit: started.audit, status: resumed.status, inventory: resumed.inventory });
@@ -105,18 +106,23 @@ function domainMigrationCmd(): Command {
   domain.addCommand(new Command("resume")
     .requiredOption("--run-id <id>", "Migration Run ID")
     .requiredOption("--source <path>", "Exact source root to resume")
+    .option("--store-root <path>", "Explicit staged .ralphy data root")
     .option("--legacy-source <path>", "Additional legacy workspace source root")
     .option("--desktop-source <path>", "Additional Desktop export source root")
-    .action((opts: { runId: string; source: string; legacySource?: string; desktopSource?: string }) => {
+    .action((opts: { runId: string; source: string; storeRoot?: string; legacySource?: string; desktopSource?: string }) => {
       out(resumeMigration({
         runId: opts.runId,
-        storeRoot: path.join(root(), ".ralphy"),
+        storeRoot: opts.storeRoot ?? path.join(root(), ".ralphy"),
         sourceRoots: sourceRoots(opts),
       }));
     }));
   domain.addCommand(new Command("status")
     .requiredOption("--run-id <id>", "Migration Run ID")
-    .action((opts: { runId: string }) => out(migrationStatus(opts.runId))));
+    .option("--store-root <path>", "Explicit staged .ralphy data root")
+    .action((opts: { runId: string; storeRoot?: string }) => out(migrationStatus({
+      runId: opts.runId,
+      storeRoot: opts.storeRoot ?? path.join(root(), ".ralphy"),
+    }))));
   domain.addCommand(new Command("verify")
     .requiredOption("--run-id <id>", "Migration Run ID")
     .option("--store-root <path>", "Staged .ralphy root; defaults to the current root")
