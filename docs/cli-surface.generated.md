@@ -1050,38 +1050,25 @@ ____        __      __
 
 Usage: ralphy unit [options] [command]
 
-Manage project or workspace deliverables, including social posts, threads, and
-articles
+Manage immutable publishable Units and platform presentations
 
 Options:
-  -h, --help                          display help for command
+  -h, --help              display help for command
 
 Commands:
-  create [options] [project]          Form a project unit or an account-level
-                                      unit with --workspace
-  list [options] [project]            List units in a project or account
-                                      workspace
-  show [options] [project] [slug]     Show a project or account-level unit
-  add [options] <project> <slug>      Copy more media into an existing unit
-                                      (appends to media, never drops existing)
-  caption [options] <project> [slug]  Draft platform-shaped social copy
-                                      (TikTok/Reels/Shorts) + a trending-hashtag
-                                      set into unit.json. Append-only: --force
-                                      to re-draft (prior caption archived).
-                                      --bulk captions every unit.
-  package [options] <project> <slug>  Package a unit for publication:
-                                      per-platform captions/titles/hashtags +
-                                      Meta ad text + thumbnail pick +
-                                      per-channel spec/safe-area validation
-                                      (#443) + a copied deliverables bundle
-                                      ZIPPED for handoff (#458). Gated on the
-                                      readiness scorecard (#427). Reuses the
-                                      unit's caption (#403) when present, else
-                                      drafts one. Append-only: re-package
-                                      archives the prior (--force).
-  delete [options] [project] [slug]   Delete a project or account-level unit
-                                      directory (explicitly destructive)
-  help [command]                      display help for command
+  create [options]        Create a Unit identity and its first sealed revision
+  list [options]          List Units in the explicit scope
+  show [options] <id>     Show a Unit and one exact sealed revision graph
+  revise [options] <id>   Append a sealed Unit revision
+  select [options] <id>   Select one sealed Unit revision independently of
+                          latest
+  add [options] <id>      Append one exact item by creating a new sealed
+                          revision
+  caption [options] <id>  Append immutable platform caption history in a new
+                          Unit revision
+  preview [options] <id>  Resolve one platform preview from an exact Unit
+                          revision
+  help [command]          display help for command
 ```
 
 ### `ralphy blueprint`
@@ -1757,30 +1744,49 @@ ____        __      __
              /_/          /____/
         agent content runtime · ralphy.dev
 
-Usage: ralphy publish [options] <owner-or-unit> [unit-slug]
+Usage: ralphy publish [options] <presentation-id>
 
-Submit or schedule a formed unit to social platforms via Postiz (#501): binds
-accounts, uploads the unit's media, creates one post per target, and appends the
-results to the unit's publish provenance. Gated on the readiness scorecard
-(`ship` verdict) unless --force. Example: ralphy publish spring-2026-001
-hero-cut --targets tiktok,youtube --at 2026-07-13T09:00:00Z
+Submit one immutable Unit Presentation through Postiz
 
 Arguments:
-  owner-or-unit       Project id, or the workspace Unit slug when --workspace is
-                      set
-  unit-slug           Unit slug under <project>/units/
+  presentation-id      Unit Presentation ID
 
 Options:
-  --workspace <slug>  Publish a Unit owned directly by this workspace
-  --targets <list>    Comma-separated targets (youtube | tiktok | instagram | x
-                      | telegram)
-  --at <iso>          Schedule datetime (ISO). Omit to post immediately
-  --now               Submit immediately (the default when --at is absent)
-  --account <map>     Explicit account bindings, e.g.
-                      "youtube=<integration-id>,x=<id>"
-  --force <reason>    Bypass the readiness gate with an explicit reason (logged
-                      to user-prompts.jsonl)
-  -h, --help          display help for command
+  --account <id>       Social Account ID
+  --key <key>          Stable idempotency key
+  --at <iso>           Scheduled UTC instant
+  --revised-from <id>  Earlier Publication lineage ID
+  -h, --help           display help for command
+```
+
+### `ralphy publication`
+
+```
+____        __      __
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
+        agent content runtime · ralphy.dev
+
+Usage: ralphy publication [options] [command]
+
+Publish and reconcile immutable Unit presentations through fenced provider
+operations
+
+Options:
+  -h, --help                            display help for command
+
+Commands:
+  list [options]
+  publish [options] <presentation-id>
+  lookup [options] <publication-id>
+  cancel [options] <publication-id>
+  reconcile [options] <publication-id>
+  show <publication-id>
+  refresh [options] <publication-id>
+  help [command]                        display help for command
 ```
 
 ### `ralphy postiz`
@@ -1808,96 +1814,6 @@ Commands:
   help [command]     display help for command
 ```
 
-### `ralphy articlePublish`
-
-```
-____        __      __
-   / __ \____ _/ /___  / /_  __  __
-  / /_/ / __ `/ / __ \/ __ \/ / / /
- / _, _/ /_/ / / /_/ / / / / /_/ /
-/_/ |_|\__,_/_/ .___/_/ /_/\__, /
-             /_/          /____/
-        agent content runtime · ralphy.dev
-
-Usage: ralphy [options] [command]
-
-Agent-facing content production runtime
-
-Options:
-  -v, --version                                    Print the ralphy version
-  -p, --pretty                                     Force pretty output (rich UI with colors, tables, icons)
-  --json                                           Force JSON output (overrides TTY auto-detection — use for shell piping / scripts)
-  -q, --quiet                                      Suppress progress, spinners, and chatter; only emit the final result
-  --no-color                                       Disable color output even on TTY
-  --cwd <path>                                     Working directory (overrides project auto-detection)
-  --root <path>                                    Data directory containing ralphy.db
-  --workspace <id>                                 Workspace ID for this command
-  --project <id>                                   Project ID for this command
-  --session <id>                                   Agent Session ID for this command
-  -h, --help                                       display help for command
-
-Commands:
-  version                                          Print the ralphy version (same as -v / --version)
-  new [options] [brief...]                         Create a new project under <workspace>/projects/<id>/ with a canonical layout. Lightweight on-ramp — pass a brief to seed BRIEF.md or just --id <slug> for an empty shell. Equivalent to `ralphy project create` but with positional brief + auto-defaulted --name (issue #031).
-  clone [options] <url-or-ref>                     Lift the style of a public clip into a reusable vibe-style template. Chains ref pull → frames → analyze → blueprint → template create.
-  skill                                            Manage Ralphy skill installs across AI agents
-  setup [options]                                  Setup wizard — API keys, dev services
-  status                                           Show enabled capabilities + linked project
-  doctor                                           Env health check — keys, dependencies, project link. JSON for scripts; -p for human view.
-  generate|gen                                     Generate a single asset (image / video / voiceover / music / captions). Logs cost + path automatically.
-  provider                                         Inspect provider connectors and their capability matrix (image / video / voice / music / sfx / text / transcribe).
-  models                                           Inspect available OpenRouter video models and their per-model parameter constraints
-  daemon                                           Manage the local job worker (background process that executes queued ralphy jobs)
-  queue [options]                                  Manage the local job queue (add work, watch progress, cancel, retry)
-  render [options] <project>                       Render a project to MP4. Engine: HyperFrames (HTML + GSAP). Writes <project>/render/final.mp4. Adds EBU R128 loudnorm with --loudnorm. Also auto-emits a compressed social sibling render/final-social.mp4 (CRF 20 default, x264 faststart) so 'render → upload' is one command; pass --no-compress to skip it.
-  hyperframes|hf                                   HyperFrames inner-loop verbs (lint / validate / snapshot / render / save-version / extract-frames / watch). Wraps `bunx hyperframes` so iterations log to generations.jsonl. Issue #028.
-  editor                                           Editor-stage observability — preflight clip checks, trim-analysis, composition QA.
-  compose [options] <projectId>                    Deprecated alias for composition build
-  voice                                            ElevenLabs voice library inspection — pre-flight checks before VO batches.
-  whoami [options]                                 Show the per-user profile (skill score 0-10, developer badge, signals, recommendation for adaptive intake). On first call, auto-backfills from on-disk projects.
-  init [options]                                   Initialize workspace and config
-  config                                           Manage configuration
-  brand                                            Manage brands (design systems)
-  persona                                          Manage personas (voice + style)
-  ref                                              Manage references (websites, social media)
-  project                                          Manage video projects
-  unit                                             Manage project or workspace deliverables, including social posts, threads, and articles
-  blueprint                                        Assemble / inspect a reproduction-grade Blueprint for a project's unit (#074/#076)
-  library                                          Read the public content library (units, blocks, blueprints, formats) from the static library.json on Bunny CDN (read-only)
-  template                                         Manage scenario/video templates
-  guideline                                        Prompt-library guidelines — LLM rules for writing model-specific prompts
-  benchmark                                        Golden benchmark sets — good/acceptable/bad examples per content mode
-  memory                                           Tiered memory store — global .ralphy/memory/ + per-workspace memory/ (markdown entries, append-only)
-  lessons                                          Route durable failure lessons (postmortem + eval + repair + council + gen-log) to the right knowledge surface
-  session                                          Manage immutable Agent Sessions
-  document                                         Manage immutable Documents
-  activity                                         Read the monotonic activity feed
-  artifact                                         Manage immutable Artifacts
-  feedback                                         Manage Iteration feedback
-  composition                                      Manage versioned Compositions and reproducible Builds
-  batch                                            Manage batch operations
-  asset                                            Alias for `ralphy artifact`
-  workspace                                        Manage account workspaces: profile, channels, shared brand assets, projects, and units
-  calendar                                         Workspace content calendar (#504): recurring posting slots (weekday/time/timezone, unit type, platforms) + dated entries with an idea → queued → produced → gated → scheduled → published lifecycle. Stored at <workspace>/calendar.json with an append-only calendar-events.jsonl history.
-  campaign                                         Workspace-scoped topic campaign (#528): theses + a keyword/topic matrix mapped to a planned unit inventory across formats + channels, with cross-linking + a coverage ledger. Stored at <workspace>/campaigns/<id>/campaign.json.
-  publish [options] <owner-or-unit> [unit-slug]    Submit or schedule a formed unit to social platforms via Postiz (#501): binds accounts, uploads the unit's media, creates one post per target, and appends the results to the unit's publish provenance. Gated on the readiness scorecard (`ship` verdict) unless --force. Example: ralphy publish spring-2026-001 hero-cut --targets tiktok,youtube --at 2026-07-13T09:00:00Z
-  postiz                                           Connect and inspect the active workspace's Postiz publishing account
-  article-publish [options] <project> <unit-slug>  Publish an article unit (#526) to article rails (#527): github-pages (git-backed static site, commit-only), devto/hashnode (dev-blog APIs, draft by default), medium (park-for-human export pack). Per-target failure isolates. Canonical URL is enforced when the workspace declares a canonical site. Example: ralphy article-publish ralphy-seo-001 agent-video-earns --targets github-pages,devto --gh-repo ../ralphy-site --gh-content-dir _posts
-  analytics                                        Per-post performance metrics for published units (#507): append-only analytics.jsonl snapshots + an evidence-grounded performance postmortem. Example: ralphy analytics pull spring-2026-001
-  migrate [options]                                One-pass migration of this root to the final layout: workspace/ tree → .ralphy/ root + workspaces (#108), per-project assets/ + refs/ → artifacts/ (#105). Idempotent; refuses while generation jobs are in flight. Structural relocation: path strings in manifests/logs/HTML follow their files (NOT a log edit — invariant #14).
-  assets                                           Pull / list / clean assets from the ralphy-assets companion repo
-  example                                          Pull / list complete reference projects from the companion repo
-  audio                                            FFmpeg audio recipes (loudnorm, sidechain duck, concat). All wrap cli/lib/ffmpeg-recipes.ts.
-  video                                            FFmpeg video recipes (extract-segment, burn-subs, tonemap-hdr, concat). Wraps cli/lib/ffmpeg-recipes.ts.
-  clip [options] <source>                          Cut a [from, to) window out of a long-form video and (optionally) centre-crop it to 9:16 vertical. The clip-cut primitive for the personal-clipper mode. Highlight selection is the agent's job (read the `ralphy ref transcribe` transcript, pick the windows); this verb only executes the cut.
-  image                                            Image post-processing recipes (cutout, fit, …). Wraps cli/lib/image/cutout.ts.
-  banner                                           Print the Ralphy ASCII banner
-  eval                                             Evaluate the quality of a rendered video
-  research                                         Topic-level research: aggregate multiple sources into a single report
-  prompts                                          Prompt cookbook + library lookup (02.03 / 02.0L)
-  help [command...]                                Show help for a command (e.g. `ralphy help generate image`)
-```
-
 ### `ralphy analytics`
 
 ```
@@ -1911,17 +1827,19 @@ ____        __      __
 
 Usage: ralphy analytics [options] [command]
 
-Per-post performance metrics for published units (#507): append-only
-analytics.jsonl snapshots + an evidence-grounded performance postmortem.
-Example: ralphy analytics pull spring-2026-001
+Query immutable Publication metric snapshots
 
 Options:
-  -h, --help                                  display help for command
+  -h, --help                       display help for command
 
 Commands:
-  pull [options] <owner-or-unit> [unit-slug]  Fetch per-post metrics for the project's published units and append snapshots to each unit's analytics.jsonl (append-only; every run adds a new timestamped snapshot). Example: ralphy analytics pull spring-2026-001 hero-cut --target youtube
-  postmortem [options] <project>              Distill the project's analytics snapshots + unit metadata into evidence-grounded findings (bounded LLM pass): writes postmortem/analytics-findings.json (.vN versioned) and stages workspace-tier memory proposals. Example: ralphy analytics postmortem spring-2026-001 --dry-run
-  help [command]                              display help for command
+  list [options] <publication-id>
+  totals [options]
+  roi [options]                    Return filter-first newest-per-Publication
+                                   performance facts
+  postmortem [options]             Return an evidence digest without scanning
+                                   Unit files
+  help [command]                   display help for command
 ```
 
 ### `ralphy migrate`

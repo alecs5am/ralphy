@@ -1,161 +1,55 @@
-// `ralphy publish` (#501) — push a formed Unit's distribution pack through
-// Postiz across youtube/tiktok/instagram/x/telegram. The agent-facing publish
-// door. All mechanics run through cli/lib/publish/publish.ts.
-//
-// Gated: refuses unless the project's #427
-// readiness scorecard says `ship`, or the user passes an explicit
-// `--force "<reason>"` — the bypass is logged to user-prompts.jsonl
-// (stage "publish-force"), mirroring --no-ref-consent.
-
 import { Command } from "commander";
-import { out, ok } from "../lib/output.js";
+import { resolveCommandContext } from "../lib/context.js";
 import { raiseError } from "../lib/errors/index.js";
-import { logUserPrompt } from "../lib/gen-log.js";
-import { postizAvailable } from "../lib/providers/postiz.js";
-import { projectWorkspace } from "../lib/paths.js";
-import { parseTargets, type PublishTarget } from "../lib/publish/mapping.js";
-import {
-  checkPublishReadiness,
-  publishUnit,
-  unitDirFor,
-  workspaceUnitDirFor,
-  readUnitManifest,
-} from "../lib/publish/publish.js";
+import { out } from "../lib/output.js";
+import { ralphDir } from "../lib/paths.js";
+import { publishPresentation } from "../lib/publication.js";
+import type { QueryContext } from "../lib/store/scope-context.js";
 
-/** Parse `--account "youtube=abc,tiktok=def"` into a target → id map. */
-function parseAccounts(raw: string | undefined): Partial<Record<PublishTarget, string>> {
-  if (!raw) return {};
-  const map: Partial<Record<PublishTarget, string>> = {};
-  for (const pair of raw.split(",").map((p) => p.trim()).filter(Boolean)) {
-    const eq = pair.indexOf("=");
-    if (eq <= 0 || eq === pair.length - 1) {
-      raiseError("E_VALIDATION_FAILED", {
-        target: "account",
-        detail: `'${pair}' is not <target>=<integration-id>`,
-      });
-    }
-    map[pair.slice(0, eq).trim() as PublishTarget] = pair.slice(eq + 1).trim();
-  }
-  return map;
+/** Compatibility spelling for `publication publish`, using stable entity IDs. */
+export function publishCmd(): Command {
+  return new Command("publish")
+    .description("Submit one immutable Unit Presentation through Postiz")
+    .argument("<presentation-id>", "Unit Presentation ID")
+    .requiredOption("--account <id>", "Social Account ID")
+    .requiredOption("--key <key>", "Stable idempotency key")
+    .option("--at <iso>", "Scheduled UTC instant")
+    .option("--revised-from <id>", "Earlier Publication lineage ID")
+    .action(async (presentationId: string, opts, command: Command) => {
+      const context = resolve(command);
+      out(await publishPresentation({
+        context,
+        presentationId,
+        socialAccountId: opts.account,
+        idempotencyKey: opts.key,
+        rail: "postiz",
+        scheduledAt: opts.at ? timestamp(opts.at) : null,
+        revisedFromPublicationId: opts.revisedFrom,
+      }));
+    });
 }
 
-export function publishCmd() {
-  const cmd = new Command("publish")
-    .description(
-      "Submit or schedule a formed unit to social platforms via Postiz (#501): binds accounts, uploads the unit's media, creates one post per target, and appends the results to the unit's publish provenance. Gated on the readiness scorecard (`ship` verdict) unless --force. Example: ralphy publish spring-2026-001 hero-cut --targets tiktok,youtube --at 2026-07-13T09:00:00Z",
-    )
-    .argument("<owner-or-unit>", "Project id, or the workspace Unit slug when --workspace is set")
-    .argument("[unit-slug]", "Unit slug under <project>/units/")
-    .option("--workspace <slug>", "Publish a Unit owned directly by this workspace")
-    .requiredOption("--targets <list>", "Comma-separated targets (youtube | tiktok | instagram | x | telegram)")
-    .option("--at <iso>", "Schedule datetime (ISO). Omit to post immediately")
-    .option("--now", "Submit immediately (the default when --at is absent)")
-    .option("--account <map>", 'Explicit account bindings, e.g. "youtube=<integration-id>,x=<id>"')
-    .option(
-      "--force <reason>",
-      "Bypass the readiness gate with an explicit reason (logged to user-prompts.jsonl)",
-    )
-    .action(async (ownerOrUnit: string, unitSlug: string | undefined, opts) => {
-      const workspace = typeof opts.workspace === "string" ? opts.workspace.trim() : "";
-      const project = workspace ? null : ownerOrUnit;
-      const slug = workspace ? ownerOrUnit : unitSlug;
-      if (!slug || (workspace && unitSlug)) {
-        raiseError("E_INPUT_INVALID", {
-          field: "unit",
-          detail: workspace
-            ? "use `ralphy publish <unit-slug> --workspace <slug>`"
-            : "use `ralphy publish <project> <unit-slug>`",
-          verb: "publish",
-        });
-      }
-      if (opts.at && opts.now) {
-        raiseError("E_INPUT_INVALID", {
-          field: "schedule",
-          detail: "pass either --at or --now, not both",
-          verb: "publish",
-        });
-      }
-      const targets = (() => {
-        try {
-          return parseTargets(String(opts.targets));
-        } catch (e) {
-          return raiseError("E_VALIDATION_FAILED", { target: "targets", detail: (e as Error).message });
-        }
-      })();
-      const accounts = parseAccounts(opts.account);
+function resolve(command: Command): QueryContext {
+  const opts = command.optsWithGlobals();
+  const context = resolveCommandContext({
+    dataRoot: ralphDir(),
+    sessionId: opts.session,
+    workspaceId: opts.workspace,
+    projectId: opts.project,
+    cwd: process.cwd(),
+  });
+  return context.kind === "session"
+    ? { sessionId: context.sessionId }
+    : {
+        workspaceId: context.workspaceId,
+        ...(context.projectId ? { projectId: context.projectId } : {}),
+      };
+}
 
-      const unitDir = workspace
-        ? workspaceUnitDirFor(workspace, slug)
-        : unitDirFor(project!, slug);
-      if (!(await readUnitManifest(unitDir))) {
-        raiseError("E_NOT_FOUND", {
-          kind: "Unit",
-          id: workspace ? `${workspace}/units/${slug}` : `${project}/${slug}`,
-        });
-      }
-
-      // ── readiness gate (L0 trust floor, #505) ──
-      const readiness = project
-        ? checkPublishReadiness(project)
-        : { pass: true, verdict: "workspace-unit", reason: "explicit workspace Unit publish" };
-      if (!readiness.pass) {
-        const reason = typeof opts.force === "string" ? opts.force.trim() : "";
-        if (!reason) {
-          raiseError("E_PUBLISH_NOT_READY", {
-            project: project!,
-            slug,
-            verdict: readiness.verdict,
-            reason: readiness.reason,
-          });
-        }
-        await logUserPrompt(project!, {
-          stage: "publish-force",
-          text: reason,
-          note: `unit=${slug} verdict=${readiness.verdict}`,
-        });
-      }
-
-      const credentialWorkspace = workspace || projectWorkspace(project!);
-      if (!postizAvailable(credentialWorkspace)) {
-        raiseError("E_ENV_KEY_MISSING", {
-          key: `Postiz credentials for workspace ${credentialWorkspace}`,
-        });
-      }
-
-      try {
-        const result = await publishUnit({
-          ...(project ? { projectId: project } : { workspaceId: workspace }),
-          slug,
-          targets,
-          accounts,
-          scheduleAt: opts.at ? new Date(opts.at).toISOString() : null,
-        });
-        if (result.allFailed) {
-          raiseError("E_PROVIDER_HTTP", {
-            provider: "Postiz",
-            status: "n/a",
-            detail: result.results.map((r) => `${r.target}: ${r.error}`).join("; "),
-          });
-        }
-        const done = result.results.filter((r) => r.status !== "failed").length;
-        const action = result.type === "schedule" ? "Scheduled" : "Submitted";
-        ok(
-          `${action} ${done}/${result.results.length} target(s)${result.scheduleAt ? ` for ${result.scheduleAt}` : ""}`,
-        );
-        out({
-          project,
-          workspace: result.workspace,
-          slug,
-          type: result.type,
-          scheduleAt: result.scheduleAt,
-          results: result.results,
-          unitDir: result.unitDir,
-          readiness: { verdict: readiness.verdict, bypassed: !readiness.pass },
-        });
-      } catch (e) {
-        raiseError("E_PROVIDER_HTTP", { provider: "Postiz", status: "n/a", detail: (e as Error).message });
-      }
-    });
-
-  return cmd;
+function timestamp(value: string): number {
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    raiseError("E_INPUT_INVALID", { field: "at", detail: "expected an ISO datetime" });
+  }
+  return parsed;
 }

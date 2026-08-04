@@ -1,17 +1,13 @@
 // `ralphy unit package` + the distribution-pack lib (#423).
 //
-// Two layers, mirroring unit-caption.test.ts (#403):
-//   1. In-process `buildDistributionPack` with an INJECTED caption draft fn —
+// In-process `buildDistributionPack` tests with an INJECTED caption draft fn —
 //      no live LLM, no paid gen. Asserts per-platform sections match the unit
 //      format, the existing caption is REUSED (not re-drafted), the draft
-//      fallback fires only when absent, and the thumbnail pick + override work.
-//   2. CLI smoke of `ralphy unit package` — proves the deliverables are COPIED
-//      (originals survive) and re-package auto-versions (append-only).
+// fallback fires only when absent, and the thumbnail pick + override work.
 //
 // English-only-on-disk: every fixture string is plain English.
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root";
@@ -22,8 +18,6 @@ import {
   platformsForFormat,
 } from "../../cli/lib/schemas/distribution-pack";
 
-const REPO = path.resolve(import.meta.dir, "..", "..");
-const CLI = path.join(REPO, "cli", "index.ts");
 const PROJECT = "dist-fixture-423";
 
 const CANNED_COPY = {
@@ -48,7 +42,6 @@ beforeEach(() => {
 afterEach(() => {
   tmp.cleanup();
 });
-
 /** Seed a project registry + a unit dir with the given manifest + media files. */
 function seedUnit(rootDir: string, slug: string, manifest: Record<string, unknown>): string {
   const regPath = path.join(rootDir, ".ralphy", "registry.json");
@@ -155,66 +148,5 @@ describe("buildDistributionPack (in-process)", () => {
     await expect(
       buildDistributionPack({ projectId: PROJECT, slug: "ghost", draftFn }),
     ).rejects.toThrow();
-  });
-});
-
-// ─── CLI smoke — COPY + append-only ──────────────────────────────────────────
-
-describe("ralphy unit package (CLI smoke)", () => {
-  function run(rootDir: string, args: string[]) {
-    return spawnSync("bun", ["run", CLI, "--cwd", rootDir, "--json", "unit", "package", ...args], {
-      cwd: rootDir,
-      encoding: "utf8",
-      env: { ...process.env },
-    });
-  }
-
-  test("COPIES selected media into distribution/ (originals survive) + writes pack + handoff", () => {
-    const slug = "ship";
-    // Caption pre-set so the CLI smoke needs no LLM / env hook.
-    const unitDir = seedUnit(
-      tmp.dir,
-      slug,
-      baseManifest(slug, "video", ["clip.mp4", "cover.png"], { caption: EXISTING_CAPTION }),
-    );
-    const r = run(tmp.dir, [PROJECT, slug]);
-    expect(r.status).toBe(0);
-    const json = JSON.parse(r.stdout);
-    expect(json.drafted_caption).toBe(false);
-    expect(json.platforms.sort()).toEqual(["reels", "shorts", "tiktok"]);
-
-    // Originals untouched.
-    expect(fs.readFileSync(path.join(unitDir, "clip.mp4"), "utf8")).toBe("bytes-of-clip.mp4");
-    // Copies present in distribution/.
-    const copyDir = path.join(unitDir, "distribution");
-    expect(fs.readFileSync(path.join(copyDir, "clip.mp4"), "utf8")).toBe("bytes-of-clip.mp4");
-    expect(fs.readFileSync(path.join(copyDir, "cover.png"), "utf8")).toBe("bytes-of-cover.png");
-    // Pack JSON + handoff written + schema-valid.
-    const pack = JSON.parse(fs.readFileSync(path.join(unitDir, "distribution-pack.json"), "utf8"));
-    expect(() => DistributionPackSchema.parse(pack)).not.toThrow();
-    expect(fs.existsSync(path.join(unitDir, "DISTRIBUTION.md"))).toBe(true);
-  });
-
-  test("re-package without --force is skipped; --force auto-versions the prior", () => {
-    const slug = "again";
-    const unitDir = seedUnit(
-      tmp.dir,
-      slug,
-      baseManifest(slug, "video", ["clip.mp4"], { caption: EXISTING_CAPTION }),
-    );
-    expect(run(tmp.dir, [PROJECT, slug]).status).toBe(0);
-
-    // Second run, no --force → skipped, no second pack.
-    const r2 = run(tmp.dir, [PROJECT, slug]);
-    expect(r2.status).toBe(0);
-    expect(JSON.parse(r2.stdout).skipped).toBeTruthy();
-    expect(fs.existsSync(path.join(unitDir, "distribution-pack.v2.json"))).toBe(false);
-
-    // Third run with --force → prior auto-versioned, original survives.
-    const r3 = run(tmp.dir, [PROJECT, slug, "--force"]);
-    expect(r3.status).toBe(0);
-    expect(JSON.parse(r3.stdout).versioned).toBe(true);
-    expect(fs.existsSync(path.join(unitDir, "distribution-pack.json"))).toBe(true);
-    expect(fs.existsSync(path.join(unitDir, "distribution-pack.v2.json"))).toBe(true);
   });
 });

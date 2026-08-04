@@ -819,6 +819,86 @@ export async function completeArtifactRunSet(
   }
 }
 
+/** Atomically registers one prepared Object, links it to a pending Run, and succeeds the Run. */
+export async function completeRunObject(input: {
+  runId: string;
+  sourcePath: string;
+  originalName: string;
+  purpose: string;
+  state: string;
+  retention: string;
+  mime: string;
+  storageClass: ObjectStorageClass;
+  metadata?: JsonValue | null;
+}): Promise<RunObjectDto> {
+  const initialRun = requireRun(openDomainDb(), input.runId);
+  if (initialRun.workspaceId === null) {
+    throw new Error("Run Object completion requires a Workspace-scoped Run");
+  }
+  if (initialRun.state !== "pending") {
+    throw new StoreConflictError("Run Object completion requires a pending Run");
+  }
+  const scope: ObjectScope = initialRun.projectId
+    ? { workspaceId: initialRun.workspaceId, projectId: initialRun.projectId }
+    : { workspaceId: initialRun.workspaceId };
+  const prepared = await prepareObject({
+    scope,
+    sourcePath: input.sourcePath,
+    originalName: input.originalName,
+    mime: input.mime,
+    storageClass: input.storageClass,
+    metadata: input.metadata,
+    transfer: "copy",
+  });
+  try {
+    return withImmediateTransaction((db) => {
+      const run = requireRun(db, input.runId);
+      if (run.state !== "pending") {
+        throw new StoreConflictError("Run Object completion requires a pending Run");
+      }
+      const object = registerPreparedObject(db, prepared);
+      appendActivity(db, {
+        workspaceId: object.workspaceId,
+        projectId: object.projectId,
+        entityType: "object",
+        entityId: object.id,
+        action: "object.registered",
+        payload: {
+          bytes: object.bytes,
+          mime: object.mime,
+          storageClass: object.storageClass,
+        },
+        createdAt: object.createdAt,
+      });
+      const runObject = recordRunObjectInTransaction(db, run, {
+        objectId: object.id,
+        path: path.posix.join(prepared.bucket, prepared.key),
+        purpose: input.purpose,
+        state: input.state,
+        retention: input.retention,
+        mime: object.mime,
+        bytes: object.bytes,
+        sha256: object.sha256,
+        metadata: prepared.metadata,
+      });
+      finishRunInTransaction(db, run.id, { state: "succeeded" });
+      return runObject;
+    });
+  } catch (error) {
+    try {
+      await fs.promises.rm(prepared.finalPath, { force: true });
+    } catch {
+      // Preserve the completion failure; the integrity verifier reports orphan bytes.
+    }
+    try {
+      finishRun(input.runId, { state: "failed", error: projectRunFailure(error) });
+    } catch {
+      // Preserve the completion failure.
+    }
+    throw error;
+  }
+}
+
 /** Sum every recorded provider-attempt charge for a Project. */
 export function projectRunAttemptSpendUsd(projectId: string): number {
   const row = openDomainDb()
@@ -1046,6 +1126,47 @@ export function listRunAttempts(input: {
     .all(...values);
   return buildPage(rows.map(toRunAttemptDto), input.limit, "p1", (row) => ({
     ordinal: row.attemptNo,
+    id: row.id,
+  }));
+}
+
+export function listRunResults(input: {
+  context: QueryContext;
+  runId: string;
+  after?: string | null;
+  limit: number;
+}): Page<RunResultDto> {
+  assertLimit(input.limit);
+  const db = openDomainDb();
+  const access = resolveRunQueryAccess(db, input.context);
+  if (!getVisibleRunDtoRow(db, access, input.runId)) {
+    throw new Error(`Run not found: ${input.runId}`);
+  }
+  const cursor = input.after == null ? null : decodeCursor("p1", input.after);
+  const rows = db.query<RunResultDbRow, (string | number)[]>(
+    `SELECT result.id, result.run_id, result.position, result.entity_type,
+            result.entity_id, result.created_at
+     FROM run_results result
+     WHERE result.run_id = ?
+       AND (result.position > ? OR
+            (result.position = ? AND result.id > ?))
+     ORDER BY result.position ASC, result.id ASC LIMIT ?`,
+  ).all(
+    input.runId,
+    cursor?.ordinal ?? -1,
+    cursor?.ordinal ?? -1,
+    cursor?.id ?? "",
+    input.limit + 1,
+  );
+  return buildPage(rows.map((row) => toRunResultDto({
+    id: row.id,
+    runId: row.run_id,
+    position: row.position,
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    createdAt: row.created_at,
+  })), input.limit, "p1", (row) => ({
+    ordinal: row.position,
     id: row.id,
   }));
 }

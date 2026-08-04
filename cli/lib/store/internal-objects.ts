@@ -74,7 +74,10 @@ const DATA_URL =
   /data:(?:[a-z][a-z0-9!#$&^_.+-]*\/[a-z0-9!#$&^_.+-]+)?(?:;[a-z0-9!#$&^_.+-]+=[^;,\s]+)*(?:;base64)?,[^\s"'<>]*/i;
 
 export async function prepareObject(
-  input: ObjectIngestInput & { transfer: "copy" | "move" },
+  input: ObjectIngestInput & {
+    transfer: "copy" | "move";
+    testHooks?: { afterPromotion?: () => void };
+  },
 ): Promise<PreparedObject> {
   const scope = resolveScope(openDomainDb(), input.scope);
   const sourcePath = checkedSourcePath(input.sourcePath);
@@ -128,6 +131,7 @@ export async function prepareObject(
     await assertNoSymlinkAncestors(root, path.dirname(finalPath));
     await fs.promises.rename(stagedPath, finalPath);
     promoted = true;
+    input.testHooks?.afterPromotion?.();
     await syncFile(finalPath);
     await fs.promises.rm(stageDir, { recursive: true, force: true });
     const prepared: PreparedObject = {
@@ -153,9 +157,8 @@ export async function prepareObject(
     PREPARED_OBJECTS.add(prepared);
     return prepared;
   } catch (error) {
-    if (!promoted) {
-      await fs.promises.rm(stageDir, { recursive: true, force: true });
-    }
+    if (promoted) await fs.promises.rm(finalPath, { force: true });
+    await fs.promises.rm(stageDir, { recursive: true, force: true });
     throw error;
   }
 }

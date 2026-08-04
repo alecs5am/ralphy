@@ -255,6 +255,23 @@ export function getArtifactRevision(input: {
   return revision;
 }
 
+/** Resolve the bytes for one exact immutable Artifact revision. */
+export function resolveArtifactRevisionObject(input: {
+  context: QueryContext;
+  revisionId: string;
+}): { revision: ArtifactRevisionDto; objectPath: string } {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const revision = getVisibleArtifactRevision(db, scope, input.revisionId);
+  if (!revision) {
+    throw new Error(`Artifact Revision not found: ${input.revisionId}`);
+  }
+  const row = getArtifactRevisionRow(db, input.revisionId)!;
+  const object = getObjectRow(db, row.objectId);
+  if (!object) throw new Error(`Object not found: ${row.objectId}`);
+  return { revision, objectPath: resolveObjectPath(object) };
+}
+
 /** Resolve the newest Object bytes for one exact Artifact slot and scope. */
 export function resolveLatestArtifactObject(input: {
   context: ArtifactScope;
