@@ -14,6 +14,7 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { spawnInDirectory } from "./descriptor-launch.js";
 
 export type HyperframesRenderArgs = {
   /** Absolute path to the HyperFrames project dir (has `index.html`). */
@@ -36,6 +37,8 @@ export type HyperframesRenderArgs = {
   quiet?: boolean;
   /** Parallel capture workers (number or 'auto'). Lower to 1 for heavy compositions. */
   workers?: string | number;
+  /** Pre-opened immutable project directory for domain builds. */
+  projectFd?: number;
 };
 
 export type HyperframesRenderResult = {
@@ -78,6 +81,7 @@ export async function runHyperframesRender(
     argv.push("--workers", String(args.workers));
   }
 
+  if (args.projectFd !== undefined) return spawnInDirectory(args.projectFd, ["bunx", ...argv]);
   return new Promise((resolve) => {
     const proc = spawn("bunx", argv, {
       stdio: ["ignore", "inherit", "pipe"],

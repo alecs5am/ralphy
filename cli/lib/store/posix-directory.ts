@@ -1,4 +1,5 @@
 import { dlopen, read, toBuffer, type Pointer } from "bun:ffi";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 
 export type DirectoryEntry = {
@@ -10,6 +11,7 @@ export type DirectoryEntry = {
 };
 
 const ENOENT = 2;
+const ENOTDIR = 20;
 const EEXIST = 17;
 const RENAME_EXCLUSIVE = process.platform === "darwin" ? 0x4 : 0x1;
 const AT_REMOVEDIR = process.platform === "darwin" ? 0x80 : 0x200;
@@ -102,7 +104,8 @@ export function openDirectoryAt(
 export function openExistingDirectoryAt(parent: number, name: string): number | null {
   const fd = openAt(parent, component(name), directoryFlags(), 0);
   if (fd >= 0) return fd;
-  if (errno() === ENOENT) return null;
+  const code = errno();
+  if (code === ENOENT || code === ENOTDIR) return null;
   throw new PosixDirectoryError();
 }
 
@@ -114,7 +117,7 @@ export function readFileAt(
   const fd = openAt(
     directory,
     component(name),
-    fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW,
+    fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK,
     0,
   );
   if (fd < 0) {
@@ -142,7 +145,7 @@ export function openRegularFileAt(directory: number, name: string): number | nul
   const fd = openAt(
     directory,
     component(name),
-    fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW,
+    fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK,
     0,
   );
   if (fd < 0) {
@@ -176,6 +179,58 @@ export function createExclusiveRegularFileAt(
   }
   fs.fchmodSync(fd, mode);
   return fd;
+}
+
+export function copyRegularFileDescriptors(
+  source: number,
+  destination: number,
+): { bytes: number; sha256: string; dev: number; ino: number } {
+  const before = fs.fstatSync(source);
+  if (!before.isFile() || before.nlink !== 1 || before.size <= 0) {
+    throw new PosixDirectoryError();
+  }
+  const hash = createHash("sha256");
+  const chunk = Buffer.allocUnsafe(1024 * 1024);
+  let bytes = 0;
+  for (;;) {
+    const count = fs.readSync(source, chunk, 0, chunk.length, bytes);
+    if (count === 0) break;
+    hash.update(chunk.subarray(0, count));
+    let written = 0;
+    while (written < count) {
+      written += fs.writeSync(destination, chunk, written, count - written);
+    }
+    bytes += count;
+  }
+  const after = fs.fstatSync(source);
+  if (
+    after.dev !== before.dev || after.ino !== before.ino ||
+    after.size !== before.size || after.mtimeMs !== before.mtimeMs ||
+    after.ctimeMs !== before.ctimeMs || bytes !== before.size
+  ) {
+    throw new PosixDirectoryError();
+  }
+  fs.fsyncSync(destination);
+  return { bytes, sha256: hash.digest("hex"), dev: before.dev, ino: before.ino };
+}
+
+export function copyRegularFileAt(
+  source: number,
+  destinationDirectory: number,
+  destinationName: string,
+  mode: number,
+): { bytes: number; sha256: string; dev: number; ino: number } {
+  const destination = createExclusiveRegularFileAt(destinationDirectory, destinationName, mode);
+  if (destination === null) throw new PosixDirectoryError();
+  let complete = false;
+  try {
+    const facts = copyRegularFileDescriptors(source, destination);
+    complete = true;
+    return facts;
+  } finally {
+    fs.closeSync(destination);
+    if (!complete) unlinkAt(destinationDirectory, destinationName, false, true);
+  }
 }
 
 export function renameExclusiveAt(

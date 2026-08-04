@@ -120,6 +120,7 @@ import { documentCmd } from "./commands/document.js";
 import { activityCmd } from "./commands/activity.js";
 import { artifactCmd } from "./commands/artifact.js";
 import { feedbackCmd } from "./commands/feedback.js";
+import { compositionCmd } from "./commands/composition.js";
 import { bannerString } from "./lib/banner.js";
 import { VERSION } from "./lib/version.js";
 
@@ -289,7 +290,7 @@ program
   });
 
 function taskThreeAdapterOwnsContext(root: unknown, action: string): boolean {
-  if (root === "document" || root === "artifact" || root === "feedback" || root === "activity") {
+  if (root === "document" || root === "artifact" || root === "feedback" || root === "activity" || root === "composition") {
     return true;
   }
   if (root === "workspace") {
@@ -336,6 +337,7 @@ program.addCommand(documentCmd());
 program.addCommand(activityCmd());
 program.addCommand(artifactCmd());
 program.addCommand(feedbackCmd());
+program.addCommand(compositionCmd());
 program.addCommand(batchCmd());
 program.addCommand(assetCmd());
 program.addCommand(workspaceCmd());
@@ -525,6 +527,13 @@ function preserveStagedScopeOptions(command: Command): void {
 }
 
 function positionalProjectId(command: Command): string | undefined {
+  if (
+    command.name() === "render" || command.name() === "compose" ||
+    (command.parent?.name() === "hyperframes" && command.name() === "save-version")
+  ) {
+    const value = command.processedArgs[0];
+    return typeof value === "string" ? value : undefined;
+  }
   if (command.parent?.name() !== "project") return undefined;
   if (command.name() === "create" || command.name() === "list") return undefined;
   const value = command.processedArgs[0];

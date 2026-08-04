@@ -27,11 +27,13 @@
 // next free `compose-vN.mp4` filename when the user-supplied path collides.
 
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { ensureFfmpeg } from "./ffmpeg-recipes.js";
 import { logGeneration } from "./gen-log.js";
 import { resolveArtifactKindDirs, projectDir } from "./paths.js";
+import { spawnInDirectory, spawnSyncInDirectory } from "./render/descriptor-launch.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -109,6 +111,72 @@ export const BOUNDARY_FADE_MS = 50;
 /** Default music volume when not specified. */
 const DEFAULT_MUSIC_VOLUME = 0.6;
 
+export type TimelineInput = {
+  path: string;
+  role: string;
+  config?: unknown;
+  fd?: number;
+};
+
+/** Build a timeline from the exact ordered Composition input revisions. */
+export async function buildTimelineFromInputs(
+  inputs: readonly TimelineInput[],
+  opts: { directoryFd?: number } = {},
+): Promise<Timeline> {
+  const segments: Segment[] = [];
+  const voClips: VoClip[] = [];
+  const captions: CaptionTrack[] = [];
+  let music: MusicTrack = { volume: DEFAULT_MUSIC_VOLUME };
+  let cursor = 0;
+  for (const [position, input] of inputs.entries()) {
+    const config = input.config && typeof input.config === "object" && !Array.isArray(input.config)
+      ? input.config as Record<string, unknown>
+      : {};
+    if (["scene", "video", "segment"].includes(input.role)) {
+      const fullDuration = ffprobeDurationSec(input.path, opts.directoryFd);
+      const trimIn = typeof config.trimInSec === "number" ? config.trimInSec : 0;
+      const trimOut = typeof config.trimOutSec === "number" ? config.trimOutSec : fullDuration;
+      segments.push({
+        slot: typeof config.slot === "string" ? config.slot : `input-${position}`,
+        clip_path: input.path,
+        trim_in_s: trimIn,
+        trim_out_s: trimOut,
+        duration_s: Math.max(0, trimOut - trimIn),
+        transition: "hard-cut",
+      });
+      cursor += Math.max(0, trimOut - trimIn);
+    } else if (["voiceover", "vo"].includes(input.role)) {
+      voClips.push({ path: input.path, start_at_s: typeof config.startAtSec === "number" ? config.startAtSec : 0 });
+    } else if (input.role === "music") {
+      music = { path: input.path, volume: typeof config.volume === "number" ? config.volume : DEFAULT_MUSIC_VOLUME };
+    } else if (input.role === "captions") {
+      captions.push(...normalizeCaptions(input.fd === undefined ? await readJsonSafe(input.path) : readJsonDescriptor(input.fd)));
+    }
+  }
+  return { segments, vo_track: { clips: voClips }, captions_track: captions, music_track: music, total_duration_s: Math.round(cursor * 1000) / 1000 };
+}
+
+function readJsonDescriptor<T = unknown>(descriptor: number): T | null {
+  try {
+    const stat = fsSync.fstatSync(descriptor);
+    if (!stat.isFile() || stat.size > 16 * 1024 * 1024) return null;
+    const decoder = new TextDecoder();
+    const buffer = Buffer.allocUnsafe(64 * 1024);
+    let raw = "";
+    let position = 0;
+    for (;;) {
+      const count = fsSync.readSync(descriptor, buffer, 0, buffer.length, position);
+      if (count === 0) break;
+      position += count;
+      raw += decoder.decode(buffer.subarray(0, count), { stream: true });
+    }
+    raw += decoder.decode();
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Build ──────────────────────────────────────────────────────────────
 
 /**
@@ -124,12 +192,11 @@ async function readJsonSafe<T = unknown>(p: string): Promise<T | null> {
   }
 }
 
-function ffprobeDurationSec(src: string): number {
-  const r = spawnSync(
-    "ffprobe",
-    ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", src],
-    { encoding: "utf8" },
-  );
+function ffprobeDurationSec(src: string, directoryFd?: number): number {
+  const argv = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", src];
+  const r = directoryFd === undefined
+    ? spawnSync(argv[0]!, argv.slice(1), { encoding: "utf8" })
+    : spawnSyncInDirectory(directoryFd, argv);
   const v = parseFloat((r.stdout || "").trim());
   return Number.isFinite(v) ? v : 0;
 }
@@ -644,6 +711,8 @@ export type RenderTimelineOpts = {
   projectId?: string;
   /** Free-form note attached to the log row. */
   note?: string;
+  /** Open project directory used as the process cwd for descriptor-pinned builds. */
+  directoryFd?: number;
 };
 
 /**
@@ -658,14 +727,18 @@ export async function renderTimeline(
   if (timeline.segments.length === 0) {
     throw new Error("renderTimeline: timeline has no segments");
   }
-  ensureFfmpeg();
+  if (opts.directoryFd === undefined) {
+    ensureFfmpeg();
+  } else if (spawnSyncInDirectory(opts.directoryFd, ["ffmpeg", "-version"]).status !== 0) {
+    throw new Error("ffmpeg not found in PATH (install via `brew install ffmpeg`)");
+  }
   const graph = buildFilterGraph(timeline);
   const check = checkFilterGraph(graph.filter);
   if (!check.ok) {
     throw new Error(`renderTimeline: filter graph invalid:\n${check.issues.join("\n")}`);
   }
 
-  await fs.mkdir(path.dirname(outPath), { recursive: true });
+  if (opts.directoryFd === undefined) await fs.mkdir(path.dirname(outPath), { recursive: true });
 
   const args: string[] = ["-y", "-loglevel", "error"];
   for (const input of graph.inputOrder) {
@@ -682,15 +755,20 @@ export async function renderTimeline(
   );
 
   const t0 = Date.now();
-  const stderr = await new Promise<string>((resolve, reject) => {
-    const proc = spawn("ffmpeg", args);
-    let buf = "";
-    proc.stderr.on("data", (d) => (buf += d.toString()));
-    proc.on("close", (code) => {
-      if (code === 0) resolve(buf);
-      else reject(new Error(`ffmpeg exit ${code}: ${buf.slice(-1000)}`));
+  const stderr = opts.directoryFd === undefined
+    ? await new Promise<string>((resolve, reject) => {
+      const proc = spawn("ffmpeg", args);
+      let buf = "";
+      proc.stderr.on("data", (d) => (buf += d.toString()));
+      proc.on("close", (code) => {
+        if (code === 0) resolve(buf);
+        else reject(new Error(`ffmpeg exit ${code}: ${buf.slice(-1000)}`));
+      });
+    })
+    : await spawnInDirectory(opts.directoryFd, ["ffmpeg", ...args]).then((result) => {
+      if (result.exitCode !== 0) throw new Error(`ffmpeg exit ${result.exitCode}: ${result.stderr.slice(-1000)}`);
+      return result.stderr;
     });
-  });
   const durationMs = Date.now() - t0;
 
   if (opts.projectId) {

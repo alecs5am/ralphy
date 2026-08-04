@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { ralphDir } from "../paths.js";
 import { appendActivity } from "./activity.js";
@@ -21,6 +22,12 @@ import {
 import type { ObjectScope } from "./objects.js";
 import { assertActiveSessionScope } from "./sessions.js";
 import { assertLimit, buildPage, decodeCursor } from "./pagination.js";
+import {
+  copyRegularFileDescriptors,
+  openExistingDirectoryAt,
+  openRegularFileAt,
+  openRootDirectory,
+} from "./posix-directory.js";
 import { cleanupRunSecretMaterialization } from "./secrets.js";
 import {
   resolveQueryContext,
@@ -198,14 +205,25 @@ export function startRun(input: {
   label?: string | null;
   metadata?: JsonValue | null;
 }): RunDto {
+  return withImmediateTransaction((db) => startRunInTransaction(db, input));
+}
+
+/** @internal Creates a pending Run inside an existing transaction. */
+export function startRunInTransaction(db: Database, input: {
+  workspaceId?: string | null;
+  projectId?: string | null;
+  agentSessionId?: string | null;
+  kind: string;
+  label?: string | null;
+  metadata?: JsonValue | null;
+}): RunDto {
   const kind = checkedText(input.kind, "Run kind");
   const label =
     input.label === undefined || input.label === null
       ? null
       : checkedText(input.label, "Run label");
   const metadata = checkedJson(input.metadata, "Run metadata");
-  return withImmediateTransaction((db) => {
-    const scope = resolveRunScope(db, input);
+  const scope = resolveRunScope(db, input);
     if (input.agentSessionId != null) {
       if (scope.workspaceId === null) {
         throw new Error("Unscoped migration Run does not accept an Agent Session");
@@ -240,8 +258,7 @@ export function startRun(input: {
       payload: { kind },
       createdAt,
     });
-    return toRunDtoFromRow(getRunRow(db, id)!);
-  });
+  return toRunDtoFromRow(getRunRow(db, id)!);
 }
 
 export function startRunAttempt(input: {
@@ -531,6 +548,11 @@ export type CompleteArtifactRunSetInput = {
   costUsd?: number | null;
   /** @internal Fault injection for post-commit cleanup tests. */
   testHooks?: CompleteArtifactRunTestHooks;
+  /** @internal Atomically complete one Composition Build with these ordered outputs. */
+  compositionBuild?: {
+    buildId: string;
+    roles: readonly (string | null)[];
+  };
 };
 
 export type CompleteArtifactRunSetResult = {
@@ -545,6 +567,7 @@ export type CompleteArtifactRunSetResult = {
 
 type CompleteArtifactRunTestHooks = {
   beforeSourceCleanup?: (outputIndex: number) => void | Promise<void>;
+  beforeTransactionCommit?: () => void;
 };
 
 /** Atomically turns one validated provider temp file into durable generation evidence. */
@@ -605,17 +628,22 @@ export async function completeArtifactRunSet(
     for (const output of input.outputs) {
       const mime = checkedRunObjectMime(output.mime);
       if (mime === null) throw trustedRunFailure("Artifact completion MIME is required");
-      const locator = await validatedRunTempLocator(run.id, output.finishedPath);
-      const prepared = await prepareObject({
-        scope,
-        sourcePath: output.finishedPath,
-        originalName: output.originalName,
-        mime,
-        storageClass: output.storageClass ?? "durable",
-        metadata: output.objectMetadata,
-        transfer: "move",
+      const pinned = await withPinnedRunTempFile(run.id, output.finishedPath, async (source) => {
+        const prepared = await preparePinnedRunOutput({
+          scope,
+          sourceFd: source.fd,
+          sourcePath: output.finishedPath,
+          sourceRealPath: source.sourceRealPath,
+          sourceDevice: source.device,
+          sourceInode: source.inode,
+          originalName: output.originalName,
+          mime,
+          storageClass: output.storageClass ?? "durable",
+          metadata: output.objectMetadata,
+        });
+        return { locator: source.locator, prepared };
       });
-      preparedOutputs.push({ input: output, mime, locator, prepared });
+      preparedOutputs.push({ input: output, mime, locator: pinned.locator, prepared: pinned.prepared });
     }
     const completed = withImmediateTransaction((db) => {
       const currentRun = requireRun(db, run.id);
@@ -672,6 +700,50 @@ export async function completeArtifactRunSet(
         });
         return { ...artifactResult, runObject };
       });
+      if (input.compositionBuild) {
+        if (input.compositionBuild.roles.length !== outputs.length) {
+          throw new Error("Composition Build roles must match output count");
+        }
+        const build = db.query<{
+          id: string;
+          runId: string | null;
+          state: string;
+          compositionRevisionId: string;
+        }, [string]>(
+          `SELECT id, run_id AS runId, state, composition_revision_id AS compositionRevisionId
+           FROM builds WHERE id = ?`,
+        ).get(input.compositionBuild.buildId);
+        if (!build || build.runId !== currentRun.id || build.state !== "running") {
+          throw new StoreConflictError("Composition Build is terminal or does not belong to the Run");
+        }
+        const insertOutput = db.prepare(
+          `INSERT INTO build_outputs
+           (id, build_id, artifact_revision_id, role, position, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+        );
+        const completedAt = Date.now();
+        outputs.forEach((output, position) => insertOutput.run(
+          newDomainId("output"),
+          build.id,
+          output.revision.id,
+          input.compositionBuild!.roles[position],
+          position,
+          completedAt,
+        ));
+        const updated = db.prepare(
+          "UPDATE builds SET state = 'succeeded', ended_at = ?, error = NULL WHERE id = ? AND state = 'running'",
+        ).run(completedAt, build.id);
+        if (!updated.changes) throw new StoreConflictError("Composition Build is terminal");
+        appendActivity(db, {
+          workspaceId: currentRun.workspaceId,
+          projectId: currentRun.projectId,
+          entityType: "build",
+          entityId: build.id,
+          action: "build.completed",
+          payload: { outputCount: outputs.length },
+          createdAt: completedAt,
+        });
+      }
       const completedProvider = input.provider === undefined
         ? currentAttempt.provider
         : optionalText(input.provider, "Run Attempt provider");
@@ -688,6 +760,7 @@ export async function completeArtifactRunSet(
       const finishedRun = finishRunInTransaction(db, currentRun.id, {
         state: "succeeded",
       });
+      input.testHooks?.beforeTransactionCommit?.();
       return {
         outputs,
         run: finishedRun,
@@ -713,32 +786,34 @@ export async function completeArtifactRunSet(
       }
     }
     const projected = projectRunFailure(error);
-    for (const item of preparedOutputs) {
-      try {
-        recordRunObject({
-          runId: run.id,
-          path: item.locator,
-          purpose: "artifact",
-          state: "failed",
-          retention: "diagnostic",
-          mime: item.mime,
-          bytes: item.prepared.bytes,
-          sha256: item.prepared.sha256,
-          metadata: item.prepared.metadata,
-        });
-      } catch {
-        // The original valid temp file still holds the diagnostic bytes.
+    if (!input.compositionBuild) {
+      for (const item of preparedOutputs) {
+        try {
+          recordRunObject({
+            runId: run.id,
+            path: item.locator,
+            purpose: "artifact",
+            state: "failed",
+            retention: "diagnostic",
+            mime: item.mime,
+            bytes: item.prepared.bytes,
+            sha256: item.prepared.sha256,
+            metadata: item.prepared.metadata,
+          });
+        } catch {
+          // The original valid temp file still holds the diagnostic bytes.
+        }
       }
-    }
-    try {
-      finishRunAttempt(attempt.id, { state: "failed", costUsd, error: projected });
-    } catch {
-      // Preserve the primary completion failure.
-    }
-    try {
-      finishRun(run.id, { state: "failed", error: projected });
-    } catch {
-      // Preserve the primary completion failure.
+      try {
+        finishRunAttempt(attempt.id, { state: "failed", costUsd, error: projected });
+      } catch {
+        // Preserve the primary completion failure.
+      }
+      try {
+        finishRun(run.id, { state: "failed", error: projected });
+      } catch {
+        // Preserve the primary completion failure.
+      }
     }
     throw projected;
   }
@@ -1372,36 +1447,100 @@ function recordRunObjectInTransaction(
   return toRunObjectDto(getRunObjectRow(db, id)!, run);
 }
 
-async function validatedRunTempLocator(
+async function withPinnedRunTempFile<T>(
   runId: string,
   finishedPath: string,
-): Promise<string> {
+  consume: (source: { fd: number; locator: string; sourceRealPath: string; device: number; inode: number }) => Promise<T>,
+): Promise<T> {
   if (!path.isAbsolute(finishedPath)) {
     throw trustedRunFailure("Artifact completion path must be absolute");
   }
   const dataRoot = path.resolve(ralphDir());
-  const runRoot = path.join(dataRoot, "tmp", runId);
+  const canonicalDataRoot = await fs.promises.realpath(dataRoot);
   const resolved = path.resolve(finishedPath);
-  if (!isWithin(runRoot, resolved)) {
+  const relative = [dataRoot, canonicalDataRoot]
+    .map((root) => path.relative(root, resolved))
+    .find((candidate) => candidate !== "" && !candidate.startsWith(`..${path.sep}`) && !path.isAbsolute(candidate));
+  const parts = relative?.split(path.sep).filter(Boolean) ?? [];
+  if (parts.length < 3 || parts[0] !== "tmp" || parts[1] !== runId) {
     throw trustedRunFailure("Artifact completion path must be inside the Run temp directory");
   }
-  const stat = await fs.promises.lstat(resolved);
-  if (!stat.isFile() || stat.isSymbolicLink()) {
-    throw trustedRunFailure("Artifact completion path must be a regular file");
+  const descriptors: number[] = [];
+  try {
+    let directory = openRootDirectory(dataRoot);
+    descriptors.push(directory);
+    for (const component of parts.slice(0, -1)) {
+      const next = openExistingDirectoryAt(directory, component);
+      if (next === null) throw trustedRunFailure("Artifact completion path changed before promotion");
+      descriptors.push(next);
+      directory = next;
+    }
+    let file: number | null;
+    try {
+      file = openRegularFileAt(directory, parts.at(-1)!);
+    } catch {
+      throw trustedRunFailure("Artifact completion path must be a regular file");
+    }
+    if (file === null) throw trustedRunFailure("Artifact completion path changed before promotion");
+    descriptors.push(file);
+    const stat = fs.fstatSync(file);
+    if (!stat.isFile() || stat.nlink !== 1) {
+      throw trustedRunFailure("Artifact completion path must be an unlinked regular file");
+    }
+    if (stat.size <= 0) throw trustedRunFailure("Artifact completion file must not be empty");
+    return await consume({
+      fd: file,
+      locator: checkedRunObjectPath(parts.join("/")),
+      sourceRealPath: path.join(canonicalDataRoot, ...parts),
+      device: stat.dev,
+      inode: stat.ino,
+    });
+  } finally {
+    for (const descriptor of descriptors.reverse()) {
+      try { fs.closeSync(descriptor); } catch { /* already closed */ }
+    }
   }
-  if (stat.size <= 0) throw trustedRunFailure("Artifact completion file must not be empty");
-  const canonicalDataRoot = await fs.promises.realpath(dataRoot);
-  const canonicalRunRoot = await fs.promises.realpath(runRoot);
-  const canonicalFinished = await fs.promises.realpath(resolved);
-  if (
-    !isWithin(canonicalDataRoot, canonicalRunRoot) ||
-    !isWithin(canonicalRunRoot, canonicalFinished)
-  ) {
-    throw trustedRunFailure("Artifact completion path escapes the Run temp directory");
+}
+
+async function preparePinnedRunOutput(input: {
+  scope: ObjectScope;
+  sourceFd: number;
+  sourcePath: string;
+  sourceRealPath: string;
+  sourceDevice: number;
+  sourceInode: number;
+  originalName: string;
+  mime: string;
+  storageClass: ObjectStorageClass;
+  metadata?: JsonValue | null;
+}) {
+  const privateDirectory = await fs.promises.mkdtemp(path.join(os.tmpdir(), "ralphy-run-output-"));
+  const sourcePath = path.join(privateDirectory, "source");
+  try {
+    const destination = fs.openSync(
+      sourcePath,
+      fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL,
+      0o600,
+    );
+    try { copyRegularFileDescriptors(input.sourceFd, destination); } finally { fs.closeSync(destination); }
+    const prepared = await prepareObject({
+      scope: input.scope,
+      sourcePath,
+      originalName: input.originalName,
+      mime: input.mime,
+      storageClass: input.storageClass,
+      metadata: input.metadata,
+      transfer: "copy",
+    });
+    prepared.sourcePath = input.sourcePath;
+    prepared.sourceRealPath = input.sourceRealPath;
+    prepared.sourceDevice = input.sourceDevice;
+    prepared.sourceInode = input.sourceInode;
+    prepared.transfer = "move";
+    return prepared;
+  } finally {
+    await fs.promises.rm(privateDirectory, { recursive: true, force: true });
   }
-  return checkedRunObjectPath(
-    path.relative(dataRoot, resolved).split(path.sep).join("/"),
-  );
 }
 
 function resolveRunObjectSource(locator: string): string {

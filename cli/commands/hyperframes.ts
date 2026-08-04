@@ -10,7 +10,7 @@
 //                  `--at` selection from STORYBOARD beats / scenario.json
 //   render         delegates to `ralphy render` underneath; adds the
 //                  `--require-snapshot-review` staleness gate (issue #016)
-//   save-version   copies index.html → compositions/v<N>.html (issue #004)
+//   save-version   deprecated alias for a Composition revision
 //   extract-frames frame-extract via ffmpeg for QA (defers to ralphy video
 //                  when that verb lands per issue #012)
 //   watch          passthrough to `bunx hyperframes watch` (live preview)
@@ -29,8 +29,9 @@ import {
   lintHyperframesProject,
   formatHyperframesLintReport,
 } from "../lib/render/hyperframes-lint.js";
-import { saveCompositionVersion } from "../lib/render/save-version.js";
 import { resolveSnapshotTimestamps } from "../lib/render/storyboard-beats.js";
+import { getCommandContext } from "../lib/context-state.js";
+import { reviseCompositionCheckout, runCompositionBuild, videoCompositionForProject } from "../lib/composition-build.js";
 
 // ──────────────────────────────────────────────────────────────────────────
 // helpers
@@ -125,7 +126,7 @@ Examples:
   ralphy hyperframes validate spring-001
   ralphy hyperframes snapshot spring-001                # auto --at from STORYBOARD
   ralphy hyperframes snapshot spring-001 --at 0.5 1.8 3.2
-  ralphy hyperframes save-version spring-001            # → compositions/v1.html
+  ralphy hyperframes save-version spring-001            # deprecated: composition revise
   ralphy hyperframes render spring-001 --require-snapshot-review
   ralphy hyperframes extract-frames spring-001 --in render/final.mp4 --at 1.0 5.0
   ralphy hyperframes watch spring-001
@@ -324,6 +325,55 @@ Examples:
     )
     .action(async (projectId: string, opts: Record<string, unknown>) => {
       const t0 = Date.now();
+      const context = getCommandContext();
+      if (context !== null) {
+        if (opts.composition) {
+          raiseError("E_INPUT_INVALID", {
+            field: "composition",
+            detail: "--composition paths are not supported by Composition builds",
+            verb: "hyperframes render",
+          });
+        }
+        if (typeof opts.quality === "string" && !["draft", "standard", "high"].includes(opts.quality)) {
+          raiseError("E_INPUT_INVALID", {
+            field: "quality",
+            detail: `unsupported Composition quality: ${opts.quality}`,
+            verb: "hyperframes render",
+          });
+        }
+        if (typeof opts.format === "string" && opts.format !== "mp4") {
+          raiseError("E_INPUT_INVALID", {
+            field: "format",
+            detail: "Composition builds support only mp4 output",
+            verb: "hyperframes render",
+          });
+        }
+        if (opts.requireSnapshotReview || opts.output || opts.loudnorm || opts.grade) {
+          raiseError("E_INPUT_INVALID", {
+            field: opts.requireSnapshotReview ? "requireSnapshotReview" : opts.output ? "output" : opts.loudnorm ? "loudnorm" : "grade",
+            detail: "legacy HyperFrames filesystem post-processing is not supported by Composition builds",
+            verb: "hyperframes render",
+          });
+        }
+        const query = context.kind === "session" ? { sessionId: context.sessionId } : {
+          workspaceId: context.workspaceId, ...(context.projectId ? { projectId: context.projectId } : {}),
+        };
+        const composition = videoCompositionForProject(query, projectId);
+        if (!composition.latestRevisionId) throw new Error(`Composition has no revision: ${composition.id}`);
+        out(await runCompositionBuild({
+          compositionId: composition.id,
+          revisionId: composition.latestRevisionId,
+          profile: {
+            name: "hyperframes-render",
+            fps: typeof opts.fps === "string" ? Number(opts.fps) : null,
+            quality: typeof opts.quality === "string" ? opts.quality : null,
+            format: typeof opts.format === "string" ? opts.format : null,
+            resolution: typeof opts.resolution === "string" ? opts.resolution : null,
+          },
+          ...(context.kind === "session" ? { authoredBySessionId: context.sessionId } : {}),
+        }));
+        return;
+      }
       const projectDir = await projectDirOrThrow(projectId);
 
       // Optional staleness gate: refuse if any snapshot is older than index.html.
@@ -410,46 +460,22 @@ Examples:
   cmd
     .command("save-version")
     .argument("<project>", "Project ID")
-    .description(
-      "Copy current index.html → compositions/v<N>.html (numeric increment, never overwrites). " +
-        "Closes invariant #14 gap for HTML (issue #004).",
-    )
+    .description("Deprecated alias for composition revise")
     .action(async (projectId: string) => {
-      const t0 = Date.now();
-      const projectDir = await projectDirOrThrow(projectId);
-      let result;
-      try {
-        result = await saveCompositionVersion(projectDir);
-      } catch (err) {
-        const msg = (err as Error).message ?? String(err);
-        await logGeneration(projectId, {
-          provider: "other",
-          model: "hyperframes-save-version",
-          endpoint: "hyperframes-save-version",
-          kind: "other",
-          input: { project: projectId, projectDir },
-          status: "error",
-          error: msg,
-          latency_ms: Date.now() - t0,
-          cost_usd: 0,
-          note: "hyperframes.save-version",
-        });
-        raiseError("E_FILE_UNREADABLE", { path: path.join(projectDir, "index.html") });
-      }
-      await logGeneration(projectId, {
-        provider: "other",
-        model: "hyperframes-save-version",
-        endpoint: "hyperframes-save-version",
-        kind: "other",
-        input: { project: projectId, projectDir, source: result.source },
-        output: { local: result.dest },
-        status: "ok",
-        latency_ms: Date.now() - t0,
-        cost_usd: 0,
-        note: `hyperframes.save-version → ${result.slot}`,
-      });
-      ok(`Saved → ${result.dest}`);
-      out({ project: projectId, slot: result.slot, source: result.source, dest: result.dest });
+      process.stderr.write("Deprecated: use `ralphy composition revise <id> --engine hyperframes`.\n");
+      const context = getCommandContext();
+      if (context === null) throw new Error("hyperframes save-version requires a migrated domain-store context");
+      const query = context.kind === "session" ? { sessionId: context.sessionId } : {
+        workspaceId: context.workspaceId, ...(context.projectId ? { projectId: context.projectId } : {}),
+      };
+      const composition = videoCompositionForProject(query, projectId);
+      out(await reviseCompositionCheckout({
+        compositionId: composition.id,
+        expectedLatestRevisionId: composition.latestRevisionId,
+        engine: "hyperframes",
+        engineConfig: {},
+        ...(context.kind === "session" ? { authoredBySessionId: context.sessionId } : {}),
+      }));
     });
 
   // ── extract-frames ─────────────────────────────────────────────────────
