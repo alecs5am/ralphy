@@ -103,6 +103,7 @@ import { getStoreIdentity } from "../store/sessions.js";
 import { exportWorkspacePackage, importWorkspacePackage } from "../store/portable.js";
 import { startBuild } from "../store/compositions.js";
 import { getObjectRow, resolveObjectPath } from "../store/internal-objects.js";
+import { createSecretStore } from "../store/secrets.js";
 import { agentTurnStatus, startAgentTurn } from "../agent/session.js";
 import { claudeProvider } from "../agent/claude.js";
 import { codexProvider } from "../agent/codex.js";
@@ -789,6 +790,26 @@ export function createBridgeMethods(input: { dataRoot: string }): BridgeMethodTa
       limit: value.limit === undefined ? undefined : limit(value.limit),
     });
   });
+  add("migration.secret.import", "mutation", async (params) => {
+    const value = object(params, "migration.secret.import");
+    const runId = string(value.runId, "runId");
+    const sourceEntryId = string(value.sourceEntryId, "sourceEntryId");
+    const ref = string(value.ref, "ref");
+    const kind = string(value.kind, "kind");
+    const store = createSecretStore({ dataRoot: input.dataRoot });
+    if (kind === "text") {
+      await store.set(ref, string(value.value, "value"), (db) => {
+        recordSecretImport(db, { runId, sourceEntryId, ref, kind });
+      });
+    } else if (kind === "file") {
+      const bytes = decodeBase64(string(value.base64, "base64"));
+      await store.setSecretFile(ref, bytes);
+      recordSecretImport(openDomainDb(), { runId, sourceEntryId, ref, kind });
+    } else {
+      throw new Error("migration.secret.import kind must be text or file");
+    }
+    return { runId, sourceEntryId, ref, kind, imported: true };
+  });
 
   add("activity.list", "read", (params) => {
     const value = object(params, "activity.list");
@@ -1054,6 +1075,33 @@ function assertVisible(context: QueryContext, workspaceId: string, projectId: st
 function requireAuthority(context: BridgeMethodContext): ConsumerAuthority {
   if (!context.authority) throw new Error("Consumer authentication is required");
   return context.authority;
+}
+
+function recordSecretImport(
+  db: ReturnType<typeof openDomainDb>,
+  input: { runId: string; sourceEntryId: string; ref: string; kind: string },
+): void {
+  const row = db.query<{ metadataJson: string | null; state: string }, [string]>(
+    "SELECT metadata_json AS metadataJson, state FROM runs WHERE id = ?",
+  ).get(input.runId);
+  if (!row) throw new Error("Migration Run not found");
+  if (row.state !== "pending" && row.state !== "running") throw new Error("Migration Run is not active");
+  const metadata = row.metadataJson ? JSON.parse(row.metadataJson) as Record<string, unknown> : {};
+  const imports = Array.isArray(metadata.secretImports)
+    ? metadata.secretImports.filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === "object" && !Array.isArray(entry)))
+    : [];
+  const existing = imports.find((entry) => entry.sourceEntryId === input.sourceEntryId && entry.ref === input.ref);
+  if (existing && existing.kind !== input.kind) throw new Error("Secret import kind conflict");
+  if (!existing) imports.push({ sourceEntryId: input.sourceEntryId, ref: input.ref, kind: input.kind, imported: true });
+  metadata.secretImports = imports;
+  db.prepare("UPDATE runs SET metadata_json = ? WHERE id = ?").run(JSON.stringify(metadata), input.runId);
+}
+
+function decodeBase64(value: string): Uint8Array {
+  if (value.length % 4 !== 0 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value)) {
+    throw new Error("base64 is invalid");
+  }
+  return Buffer.from(value, "base64");
 }
 
 function object(value: unknown, label: string): Record<string, unknown> {
