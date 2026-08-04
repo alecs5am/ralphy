@@ -1015,7 +1015,7 @@ function systemHello(dataRoot: string, capabilities: string[]): Record<string, u
     schemaVersion: 4,
     storeId: getStoreIdentity(),
     rootId,
-    capabilities: [...capabilities, "workspace.export", "workspace.import", "migration.consumer.map"].sort(),
+    capabilities: [...new Set([...capabilities, "workspace.export", "workspace.import", "migration.consumer.map"])].sort(),
     activitySequence: latestActivitySequence(),
     startup: { state: "ready", migration: "complete" },
     limits: {
