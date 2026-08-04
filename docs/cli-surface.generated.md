@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **53**
+Verbs registered: **57**
 
 ## Top-level verbs
 
@@ -866,16 +866,11 @@ Options:
   -h, --help                    display help for command
 
 Commands:
-  create [options]              Create a new project
-  list [options]                List all projects
-  show [options] <id>           Show project details
-  status [options] <id>         Machine-readable pipeline status. Bare: coarse
-                                stage + per-step booleans. --contract (alias
-                                --lifecycle): full Unit-lifecycle ledger
-                                (per-phase satisfied/missing +
-                                currentPhase/nextPhase/nextStep + stopConditions
-                                + polished). See
-                                docs/playbooks/unit-lifecycle.md.
+  create [options] [name]       Create a Project
+  list [options]                List Projects in a Workspace
+  show <id>                     Show a Project
+  status <id>                   Show database-derived Project stages, bindings,
+                                Iteration, and feedback
   repair-plan [options] <id>    Build a deterministic eval-to-repair plan
                                 (#409). Reads eval.json (+
                                 eval-deep-vision.json's what_to_redo when
@@ -928,7 +923,10 @@ Commands:
                                 --check [--mode <m>] to gate: exits non-zero
                                 when the lock is missing for a covered content
                                 mode. JSON output.
-  update [options] <id>         Update project
+  update [options] <id>         Update Project metadata with optimistic
+                                concurrency
+  iterate [options] <id>        Start the next Project Iteration
+  transfer [options] [id]       Journal and verify a Project bucket transfer
   delete [options] <id>         Delete a project
   log [options] <id>            Tail project logs (generations / user-prompts /
                                 user-assets)
@@ -1399,6 +1397,114 @@ Commands:
   help [command]   display help for command
 ```
 
+### `ralphy document`
+
+```
+____        __      __
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
+        agent content runtime · ralphy.dev
+
+Usage: ralphy document [options] [command]
+
+Manage immutable Documents
+
+Options:
+  -h, --help                    display help for command
+
+Commands:
+  create [options]              Create a workspace- or Project-scoped Document
+  list [options]                List Documents in the explicit scope
+  show [options] <id>           Show safe Document metadata without its body
+  revisions [options] <id>      List immutable Document Revisions
+  revise [options] <id>         Append a Document Revision
+  search [options] <query>      Search current text Document heads
+  bind [options] <revision-id>  Bind a Document Revision to a Project role
+  help [command]                display help for command
+```
+
+### `ralphy activity`
+
+```
+____        __      __
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
+        agent content runtime · ralphy.dev
+
+Usage: ralphy activity [options] [command]
+
+Read the monotonic activity feed
+
+Options:
+  -h, --help      display help for command
+
+Commands:
+  list [options]  List activity after an exclusive sequence
+  help [command]  display help for command
+```
+
+### `ralphy artifact`
+
+```
+____        __      __
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
+        agent content runtime · ralphy.dev
+
+Usage: ralphy artifact [options] [command]
+
+Manage immutable Artifacts
+
+Options:
+  -h, --help                     display help for command
+
+Commands:
+  create [options]               Create a workspace- or Project-scoped Artifact
+  list [options]                 List Artifacts in the explicit scope
+  show [options] <id>            Show safe Artifact metadata
+  revisions [options] <id>       List immutable Artifact Revisions
+  revise [options] <id>          Append an Artifact Revision using an existing
+                                 Object
+  promote [options] <id>         Select an Artifact Revision
+  state [options] <revision-id>  Append a state-changing Artifact Revision
+  usage [options] <revision-id>  List or add a safe Artifact usage
+  help [command]                 display help for command
+```
+
+### `ralphy feedback`
+
+```
+____        __      __
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
+        agent content runtime · ralphy.dev
+
+Usage: ralphy feedback [options] [command]
+
+Manage Iteration feedback
+
+Options:
+  -h, --help              display help for command
+
+Commands:
+  add [options]           Add feedback to an Iteration
+  list [options]          List Project feedback
+  resolve [options] <id>  Resolve feedback
+  help [command]          display help for command
+```
+
 ### `ralphy batch`
 
 ```
@@ -1496,24 +1602,24 @@ Manage account workspaces: profile, channels, shared brand assets, projects, and
 units
 
 Options:
-  -h, --help                display help for command
+  -h, --help                     display help for command
 
 Commands:
-  create [options] <slug>   Create an account workspace with shared assets,
-                            projects, and content units
-  list                      List account workspaces
-  show <slug>               Show account profile, channels, shared assets,
-                            projects, and units
-  use <slug>                Deprecated: use explicit --workspace or start a
-                            Session
-  update [options] <slug>   Update account profile and public channel handles
-  eval [options] <project>  Score a project against its account workspace
-                            evaluator rubric
-  roi <slug>                Show realized generation spend and measured account
-                            performance
-  stats [slug]              Show project, unit, and shared-asset counts for an
-                            account workspace
-  help [command]            display help for command
+  create [options] <name>        Create a Workspace
+  list [options]                 List Workspaces
+  show <id>                      Show a Workspace
+  use <slug>                     Deprecated: use explicit --workspace or start a
+                                 Session
+  update [options] <id>          Update Workspace metadata with optimistic
+                                 concurrency
+  account [options] <workspace>  List or upsert public social-account metadata
+  eval [options] <project>       Score a project against its account workspace
+                                 evaluator rubric
+  roi <slug>                     Show realized generation spend and measured
+                                 account performance
+  stats [slug]                   Show project, unit, and shared-asset counts for
+                                 an account workspace
+  help [command]                 display help for command
 ```
 
 ### `ralphy calendar`
@@ -1743,6 +1849,10 @@ Commands:
   memory                                           Tiered memory store — global .ralphy/memory/ + per-workspace memory/ (markdown entries, append-only)
   lessons                                          Route durable failure lessons (postmortem + eval + repair + council + gen-log) to the right knowledge surface
   session                                          Manage immutable Agent Sessions
+  document                                         Manage immutable Documents
+  activity                                         Read the monotonic activity feed
+  artifact                                         Manage immutable Artifacts
+  feedback                                         Manage Iteration feedback
   batch                                            Manage batch operations
   asset                                            Manage and generate assets
   workspace                                        Manage account workspaces: profile, channels, shared brand assets, projects, and units

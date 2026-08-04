@@ -17,6 +17,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { seedLegacyProject } from "../helpers/legacy-project.js";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
 const CLI = path.join(REPO, "cli", "index.ts");
@@ -44,8 +45,7 @@ function ralphy(args: string[]): {
 }
 
 function createProject(id: string): void {
-  const r = ralphy(["project", "create", "--name", id, "--id", id]);
-  expect(r.exitCode).toBe(0);
+  seedLegacyProject(tmpRoot, id);
 }
 
 function readAssetLog(id: string): any[] {

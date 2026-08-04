@@ -14,6 +14,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { seedLegacyProject } from "../helpers/legacy-project.js";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
 const CLI = path.join(REPO, "cli", "index.ts");
@@ -50,9 +51,7 @@ beforeAll(() => {
   // realpath: on macOS /var → /private/var symlink; the CLI normalizes paths,
   // so the test must too or the toBe() comparisons mismatch.
   tmpHome = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-captions-it-")));
-  // Create the project via the CLI so it lands in the registry properly.
-  const r = ralphy(["project", "create", "--name", "captions test", "--id", PROJECT_ID]);
-  if (r.exitCode !== 0) throw new Error(`project create failed: ${r.stderr}\n${r.stdout}`);
+  seedLegacyProject(tmpHome, PROJECT_ID, { name: "captions test" });
   projectDir = path.join(tmpHome, ".ralphy", "workspaces", "default", "projects", PROJECT_ID);
 
   // Stub audio file (4 bytes — transcribe() only checks existence + ≤25MB).

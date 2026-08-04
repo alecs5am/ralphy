@@ -49,7 +49,7 @@ import {
   appendActivity,
   assertSafeActivityPayload,
   latestActivitySequence,
-  listActivity,
+  listGlobalActivity,
 } from "../../cli/lib/store/activity.js";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
 import { credentialSecretRef } from "../../cli/lib/providers/credentials.js";
@@ -664,7 +664,7 @@ async function makeSurfaceFixture(): Promise<{
       ],
     }),
     listMedia({ context, limit: 10 }),
-    listActivity({ afterSequence: 0, limit: 100 }),
+    listGlobalActivity({ afterSequence: 0, limit: 100 }),
     latestActivitySequence(),
   ];
 
@@ -811,6 +811,7 @@ const EXPECTED_ACTIVITY_WRITERS = [
   "cli/lib/store/runs.ts",
   "cli/lib/store/scopes.ts",
   "cli/lib/store/sessions.ts",
+  "cli/lib/store/transfers.ts",
   "cli/lib/store/units.ts",
 ] as const;
 const UNEXERCISED_LITERAL_ACTIVITY_ACTIONS = [
@@ -1040,7 +1041,7 @@ describe("global activity sequence", () => {
     makeRoot();
     openDomainDb();
     expect(latestActivitySequence()).toBe(0);
-    expect(listActivity({ afterSequence: 0, limit: 10 })).toEqual({
+    expect(listGlobalActivity({ afterSequence: 0, limit: 10 })).toEqual({
       items: [],
       nextCursor: null,
     });
@@ -1064,7 +1065,7 @@ describe("global activity sequence", () => {
     const seen: number[] = [];
     let afterSequence = baseline;
     for (;;) {
-      const page = listActivity({ afterSequence, limit: 100 });
+      const page = listGlobalActivity({ afterSequence, limit: 100 });
       for (const item of page.items) seen.push(item.sequence);
       if (page.nextCursor === null) break;
       expect(page.nextCursor).toBe(page.items.at(-1)!.sequence);
@@ -1096,7 +1097,7 @@ describe("global activity sequence", () => {
       payload: { kind: "generation" },
       createdAt: 5,
     });
-    const page = listActivity({ afterSequence: 0, limit: 100 });
+    const page = listGlobalActivity({ afterSequence: 0, limit: 100 });
     const event = page.items.at(-1)!;
     expect(Object.keys(event).sort()).toEqual([
       "action",
@@ -1123,12 +1124,12 @@ describe("global activity sequence", () => {
     makeRoot();
     openDomainDb();
     for (const afterSequence of [-1, 1.5, Number.NaN]) {
-      expect(() => listActivity({ afterSequence, limit: 10 })).toThrow(
+      expect(() => listGlobalActivity({ afterSequence, limit: 10 })).toThrow(
         /sequence/i,
       );
     }
     for (const limit of [0, 101, 2.5]) {
-      expect(() => listActivity({ afterSequence: 0, limit })).toThrow(/limit/i);
+      expect(() => listGlobalActivity({ afterSequence: 0, limit })).toThrow(/limit/i);
     }
   });
 });

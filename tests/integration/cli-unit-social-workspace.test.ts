@@ -3,10 +3,12 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { seedLegacyWorkspace } from "../helpers/legacy-project.js";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
 const CLI = path.join(REPO, "cli", "index.ts");
 let tmpRoot: string;
+let workspaceId: string;
 
 function ralphy(args: string[]) {
   const result = spawnSync("bun", ["run", CLI, "--cwd", tmpRoot, "--json", ...args], {
@@ -23,7 +25,11 @@ function ralphy(args: string[]) {
 
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-social-unit-"));
-  expect(ralphy(["workspace", "create", "acme", "--name", "Acme"]).exitCode).toBe(0);
+  const created = ralphy(["workspace", "create", "acme", "--name", "Acme"]);
+  expect(created.exitCode).toBe(0);
+  expect(created.json).toMatchObject({ slug: "acme", name: "Acme" });
+  workspaceId = created.json.id;
+  seedLegacyWorkspace(tmpRoot, workspaceId);
 });
 
 afterEach(() => fs.rmSync(tmpRoot, { recursive: true, force: true }));
@@ -34,7 +40,7 @@ describe("workspace-owned social units", () => {
       "unit",
       "create",
       "--workspace",
-      "acme",
+      workspaceId,
       "--slug",
       "launch-note",
       "--format",
@@ -53,17 +59,17 @@ describe("workspace-owned social units", () => {
       tmpRoot,
       ".ralphy",
       "workspaces",
-      "acme",
+      workspaceId,
       "units",
       "launch-note",
     );
     expect(fs.existsSync(path.join(unitDir, "unit.json"))).toBe(true);
 
-    const listed = ralphy(["unit", "list", "--workspace", "acme"]);
+    const listed = ralphy(["unit", "list", "--workspace", workspaceId]);
     expect(listed.json[0]).toMatchObject({ slug: "launch-note", format: "post" });
-    const shown = ralphy(["unit", "show", "--workspace", "acme", "launch-note"]);
+    const shown = ralphy(["unit", "show", "--workspace", workspaceId, "launch-note"]);
     expect(shown.json.text.body).toContain("account assets");
-    expect(ralphy(["unit", "delete", "--workspace", "acme", "launch-note"]).exitCode).toBe(0);
+    expect(ralphy(["unit", "delete", "--workspace", workspaceId, "launch-note"]).exitCode).toBe(0);
     expect(fs.existsSync(unitDir)).toBe(false);
   });
 
@@ -72,7 +78,7 @@ describe("workspace-owned social units", () => {
       "unit",
       "create",
       "--workspace",
-      "acme",
+      workspaceId,
       "--slug",
       "workspace-guide",
       "--format",

@@ -348,10 +348,10 @@ describe("ralphy migrate (#106) — fixture round-trip", () => {
     expect(typeof wsManifest.created).toBe("string");
     expect(wsManifest.description).toContain("#106");
 
-    // The migrated root works end-to-end with a normal verb.
-    const ps = ralphy(["project", "show", "p1"]);
-    expect(ps.exitCode).toBe(0);
-    expect(ps.json.id).toBe("p1");
+    // Migration owns the compatibility registry and project layout. Entity
+    // commands intentionally do not infer database rows from those files.
+    expect(reg.projects.p1).toMatchObject({ id: "p1", workspace: "default" });
+    expect(fs.existsSync(path.join(ws, "workspaces", "default", "projects", "p1"))).toBe(true);
 
     // ── re-run: idempotent no-op ─────────────────────────────────────────
     const again = ralphy(["migrate"]);

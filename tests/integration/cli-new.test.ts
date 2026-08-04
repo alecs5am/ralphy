@@ -11,6 +11,10 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import {
+  seedDomainWorkspace,
+  seedLegacyProject,
+} from "../helpers/legacy-project.js";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
 const CLI = path.join(REPO, "cli", "index.ts");
@@ -108,13 +112,13 @@ describe("ralphy new (unified with project create, #031)", () => {
     expect(payload.error.code).toBe("E_ALREADY_EXISTS");
   });
 
-  test("project created via `new` is visible to subsequent project lookups (the #031 unification)", () => {
+  test("project created via `new` stays a legacy fixture until domain import", () => {
     // Create via `new` …
     const r1 = ralphyNew(["new", "--id", "unified-001"]);
     expect(r1.exitCode).toBe(0);
 
-    // … and `project show <id>` (which goes through the registry that the
-    // generate / render path walks) finds it.
+    seedDomainWorkspace(tmpRoot);
+    // Entity-first Project lookup does not treat a registry row as domain state.
     const r2 = spawnSync(
       "bun",
       ["run", CLI, "--cwd", tmpRoot, "--json", "project", "show", "unified-001"],
@@ -124,10 +128,7 @@ describe("ralphy new (unified with project create, #031)", () => {
         env: { ...process.env, RALPHY_SKIP_LEGACY_HINT: "1", NO_COLOR: "1" },
       },
     );
-    expect(r2.status).toBe(0);
-    const j = JSON.parse(r2.stdout);
-    expect(j.id).toBe("unified-001");
-    expect(j.name).toBe("Unified 001");
+    expect(r2.status).toBe(2);
   });
 });
 
@@ -148,14 +149,17 @@ describe("ralphy project create — --name now optional (#031)", () => {
   }
 
   test("--id without --name title-cases the id into the name", () => {
+    seedDomainWorkspace(tmpRoot);
     const r = ralphy(["project", "create", "--id", "kbo-broadcast-001"]);
     expect(r.exitCode).toBe(0);
     const j = r.json as { id: string; name: string };
-    expect(j.id).toBe("kbo-broadcast-001");
+    expect(j.id).toStartWith("prj_");
+    expect((j as { slug: string }).slug).toBe("kbo-broadcast-001");
     expect(j.name).toBe("Kbo Broadcast 001");
   });
 
   test("neither --name nor --id → validation failure", () => {
+    seedDomainWorkspace(tmpRoot);
     const r = ralphy(["project", "create"]);
     expect(r.exitCode).not.toBe(0);
     const lastJsonLine = r.stderr
@@ -169,11 +173,13 @@ describe("ralphy project create — --name now optional (#031)", () => {
   });
 
   test("--name still works on its own (back-compat)", () => {
+    seedDomainWorkspace(tmpRoot);
     const r = ralphy(["project", "create", "--name", "Old Style Project"]);
     expect(r.exitCode).toBe(0);
     const j = r.json as { id: string; name: string };
     expect(j.name).toBe("Old Style Project");
-    expect(j.id).toBe("old-style-project");
+    expect(j.id).toStartWith("prj_");
+    expect((j as { slug: string }).slug).toBe("old-style-project");
   });
 });
 
@@ -194,8 +200,7 @@ describe("`ralphy project log-*` accept --project alias (#031)", () => {
   }
 
   test("log-prompt --project <id>", () => {
-    const cr = ralphy(["project", "create", "--id", "p-alias-001"]);
-    expect(cr.exitCode).toBe(0);
+    seedLegacyProject(tmpRoot, "p-alias-001");
     const r = ralphy(["project", "log-prompt", "--project", "p-alias-001", "--text", "hello"]);
     expect(r.exitCode).toBe(0);
     const logFile = path.join(
@@ -214,8 +219,7 @@ describe("`ralphy project log-*` accept --project alias (#031)", () => {
   });
 
   test("log-asset --project <id>", () => {
-    const cr = ralphy(["project", "create", "--id", "p-alias-002"]);
-    expect(cr.exitCode).toBe(0);
+    seedLegacyProject(tmpRoot, "p-alias-002");
     const r = ralphy([
       "project",
       "log-asset",

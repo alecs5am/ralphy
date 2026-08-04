@@ -9,6 +9,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { seedLegacyProject } from "../helpers/legacy-project.js";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
 const CLI = path.join(REPO, "cli", "index.ts");
@@ -73,8 +74,7 @@ beforeAll(() => {
   tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-editor-034-"));
   if (!ffmpegPresent || !ffprobePresent) return;
 
-  const r = ralphy(["project", "create", "--name", "editor 034", "--id", PROJECT_ID]);
-  if (r.exitCode !== 0) throw new Error(`project create failed: ${r.stderr}\n${r.stdout}`);
+  seedLegacyProject(tmpHome, PROJECT_ID, { name: "editor 034" });
   projectDir = path.join(tmpHome, ".ralphy", "workspaces", "default", "projects", PROJECT_ID);
   if (!fs.existsSync(projectDir)) throw new Error(`project dir not found at ${projectDir}`);
 

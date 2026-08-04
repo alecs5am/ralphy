@@ -20,7 +20,7 @@ import { credentialSecretRef } from "../../cli/lib/providers/credentials.js";
 import { transferProjectMetadata } from "../../cli/lib/store/internal-scope-mutations.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 import { scopedActivity } from "../helpers/activity.js";
-import { listActivity } from "../../cli/lib/store/activity.js";
+import { listGlobalActivity } from "../../cli/lib/store/activity.js";
 import { decodeCursor } from "../../cli/lib/store/pagination.js";
 
 let roots: TmpRoot[] = [];
@@ -577,7 +577,7 @@ describe("domain scope stores", () => {
 
     const events = scopedActivity({ workspaceId: workspaces[0]!.id });
     expect(
-      listActivity({ afterSequence: events[0]!.sequence, limit: 100 }).items.filter(
+      listGlobalActivity({ afterSequence: events[0]!.sequence, limit: 100 }).items.filter(
         (event) => event.workspaceId === workspaces[0]!.id,
       ),
     ).toEqual(events.slice(1));

@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
 import { openDomainDb } from "./db.js";
 import { assertLimit } from "./pagination.js";
+import { resolveQueryContext, type QueryContext } from "./scope-context.js";
 import type { ActivityDto, JsonValue, Page } from "./types.js";
 
 export { assertLimit };
@@ -43,11 +44,47 @@ export function appendActivity(db: Database, input: ActivityInput): number {
   return Number(result.lastInsertRowid);
 }
 
-/**
- * Activity is the one global sequence: an exclusive integer cursor, never an
- * opaque creation cursor, and never scoped by Workspace or Project.
- */
 export function listActivity(input: {
+  context: QueryContext;
+  afterSequence: number;
+  limit: number;
+}): Page<ActivityDto, number> {
+  if (!Number.isSafeInteger(input.afterSequence) || input.afterSequence < 0) {
+    throw new Error("Activity afterSequence must be a non-negative integer");
+  }
+  assertLimit(input.limit);
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  const rows = scope.projectId === null
+    ? db
+      .query<ActivityDbRow, [string, number, number]>(
+      `SELECT id, workspace_id, project_id, entity_type, entity_id, action, created_at
+       FROM activity_events WHERE workspace_id = ? AND id > ?
+       ORDER BY id ASC LIMIT ?`,
+    )
+      .all(scope.workspaceId, input.afterSequence, input.limit + 1)
+    : db
+      .query<ActivityDbRow, [string, string, number, number]>(
+        `SELECT id, workspace_id, project_id, entity_type, entity_id, action, created_at
+         FROM activity_events
+         WHERE workspace_id = ? AND (project_id IS NULL OR project_id = ?) AND id > ?
+         ORDER BY id ASC LIMIT ?`,
+      )
+      .all(
+        scope.workspaceId,
+        scope.projectId,
+        input.afterSequence,
+        input.limit + 1,
+      );
+  const items = rows.slice(0, input.limit).map(toActivityDto);
+  return {
+    items,
+    nextCursor: rows.length > input.limit ? items.at(-1)!.sequence : null,
+  };
+}
+
+/** @internal Verifier and test drainage of the one global sequence. */
+export function listGlobalActivity(input: {
   afterSequence: number;
   limit: number;
 }): Page<ActivityDto, number> {

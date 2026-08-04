@@ -1,4 +1,4 @@
-// `evaluateContract` + `ralphy project status <id> --contract` tests (#406).
+// `evaluateContract` tests (#406).
 //
 // The pure `evaluateContract(projectId)` is the readable half of the agent
 // production contract (`docs/playbooks/agent-production-contract.md`). It
@@ -10,15 +10,12 @@
 // English; no Cyrillic, no real-creator tokens.
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root";
 import { evaluateContract, CONTRACT_PHASES } from "../../cli/lib/contract";
 import { projectDir } from "../../cli/lib/paths";
 
-const REPO = path.resolve(import.meta.dir, "..", "..");
-const CLI = path.join(REPO, "cli", "index.ts");
 const PROJECT = "contract-fixture-406";
 
 let tmp: TmpRoot;
@@ -167,30 +164,18 @@ describe("evaluateContract — phase ledger", () => {
   });
 });
 
-describe("ralphy project status <id> --contract (CLI smoke)", () => {
-  test("emits the contract ledger JSON for a fixture project", () => {
-    // Seed a registry entry so `getEntity('projects', id)` resolves, then a
-    // scenario-stage artifact set.
-    const regPath = path.join(tmp.dir, ".ralphy", "registry.json");
-    fs.writeFileSync(
-      regPath,
-      JSON.stringify({ projects: { [PROJECT]: { id: PROJECT, name: "Contract Fixture", workspace: "default" } } }),
-    );
+describe("filesystem production contract boundary", () => {
+  test("emits the contract ledger for a fixture project", () => {
     writeArtifact("BRIEF.md");
     writeArtifact("PRODUCTION_PLAN.md");
     writeArtifact("scenario.json", "{}");
 
-    const r = spawnSync("bun", ["run", CLI, "--cwd", tmp.dir, "--json", "project", "status", PROJECT, "--contract"], {
-      cwd: tmp.dir,
-      encoding: "utf8",
-      env: { ...process.env },
-    });
-    expect(r.status).toBe(0);
-    const json = JSON.parse(r.stdout);
-    expect(json.project).toBe(PROJECT);
-    expect(Array.isArray(json.phases)).toBe(true);
-    expect(json.phases.map((p: any) => p.id)).toEqual(CONTRACT_PHASES.map((p) => p.id));
-    expect(json.missingRequired[0]).toBe("prompts.json");
-    expect(json.nextRecommendedAction).toContain("prompts.json");
+    const ledger = evaluateContract(PROJECT);
+    expect(ledger.project).toBe(PROJECT);
+    expect(ledger.phases.map((phase) => phase.id)).toEqual(
+      CONTRACT_PHASES.map((phase) => phase.id),
+    );
+    expect(ledger.missingRequired[0]).toBe("prompts.json");
+    expect(ledger.nextRecommendedAction).toContain("prompts.json");
   });
 });

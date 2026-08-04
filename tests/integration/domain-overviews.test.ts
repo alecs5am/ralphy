@@ -525,7 +525,9 @@ describe("project overview", () => {
       "updatedAt",
     ]);
     expect(
-      overview.activity!.items.every((event) => event.projectId === project.id),
+      overview.activity!.items.every(
+        (event) => event.projectId === null || event.projectId === project.id,
+      ),
     ).toBe(true);
     for (const event of overview.activity!.items) {
       expectKeys(event, ACTIVITY_KEYS);

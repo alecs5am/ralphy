@@ -14,7 +14,40 @@ for key in $(git rev-parse --local-env-vars); do
   unset "$key"
 done
 bun test --timeout 45000 tests/unit/
-bun test --timeout 45000 tests/integration/
+# Keep each Bun process bounded: one process for the full integration tree can
+# accumulate enough memory to be killed before the final files run.
+integration_unsorted=$(mktemp)
+integration_manifest=$(mktemp)
+integration_batch=$(mktemp)
+trap 'rm -f "$integration_unsorted" "$integration_manifest" "$integration_batch"' EXIT
+fd -e test.ts . tests/integration > "$integration_unsorted"
+LC_ALL=C sort "$integration_unsorted" > "$integration_manifest"
+[ -s "$integration_manifest" ]
+integration_expected=$(wc -l < "$integration_manifest" | tr -d ' ')
+integration_executed=0
+integration_batch_count=0
+: > "$integration_batch"
+
+run_integration_batch() {
+  [ "$integration_batch_count" -gt 0 ] || return 0
+  xargs -0 bun test --timeout 45000 < "$integration_batch"
+  integration_executed=$((integration_executed + integration_batch_count))
+  integration_batch_count=0
+  : > "$integration_batch"
+}
+
+while IFS= read -r integration_test; do
+  [ -f "$integration_test" ]
+  printf '%s\0' "$integration_test" >> "$integration_batch"
+  integration_batch_count=$((integration_batch_count + 1))
+  if [ "$integration_batch_count" -eq 10 ]; then
+    run_integration_batch
+  fi
+done < "$integration_manifest"
+run_integration_batch
+[ "$integration_executed" -eq "$integration_expected" ]
+rm -f "$integration_unsorted" "$integration_manifest" "$integration_batch"
+trap - EXIT
 if [ -d studio/test ]; then
   bun test --timeout 45000 studio/test/
 fi

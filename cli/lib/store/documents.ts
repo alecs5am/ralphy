@@ -44,6 +44,29 @@ export type ReviseDocumentInput = {
   authoredBySessionId?: string | null;
 };
 
+/** Narrows broad Workspace authority to the stable Document's immutable scope. */
+export function documentMutationContext(
+  context: QueryContext,
+  documentId: string,
+): QueryContext {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, context);
+  const row = db
+    .query<{ workspaceId: string; projectId: string | null }, [string]>(
+      "SELECT workspace_id AS workspaceId, project_id AS projectId FROM documents WHERE id = ?",
+    )
+    .get(documentId);
+  if (
+    !row ||
+    row.workspaceId !== scope.workspaceId ||
+    (scope.projectId !== null && row.projectId !== null && row.projectId !== scope.projectId)
+  ) {
+    throw new Error(`Document not found: ${documentId}`);
+  }
+  if (context.sessionId !== undefined || row.projectId === null) return context;
+  return { workspaceId: row.workspaceId, projectId: row.projectId };
+}
+
 type DocumentDbRow = {
   id: string;
   workspace_id: string;
