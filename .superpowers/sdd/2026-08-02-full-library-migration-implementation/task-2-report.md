@@ -36,10 +36,12 @@ No live `.ralphy` tree, Desktop state, or sibling repository was read or changed
 - Removed the jobs audit's OS-temp materialization. A test replaces `mkdtempSync` with a trap while auditing the live-shaped WAL fixture and verifies the complete source/sibling snapshots remain unchanged. Nonempty WAL evidence now fails closed as described above.
 - Reclassified symlink/FIFO/socket/other child entries as audit coverage reviews rather than environmental preflight blockers. `run` can therefore create the durable Run and inventory those paths; inventory persists one blocking issue per uncovered entry.
 - Made optional registries optional only when absent. An existing non-regular, unreadable, or malformed `registry.json`/`config.json` now produces the blocking `MIGRATION_REGISTRY_UNREADABLE` issue.
+- Tightened registry evidence validation: when `projects` exists it must be an array or object map, every array entry/map key must carry a non-empty ID, and an embedded object-map ID must equal its key. Numeric shapes, missing array IDs, and key/ID conflicts block as `MIGRATION_REGISTRY_UNREADABLE`; valid legacy arrays and object maps remain compatible.
+- Moved migration-owned stage WAL checkpoint/truncation before the final post-mutation quiescence scan in both `start` and `resume`. A WAL-sensitive process-inspection fixture now fails unless each final scan observes a zero-byte WAL.
 
 ## Verification
 
-- `bun test tests/unit/migration-inventory.test.ts tests/unit/errors-catalog.test.ts tests/integration/migration-domain.test.ts`: 38 passed, 0 failed, 841 assertions.
+- `bun test tests/unit/migration-inventory.test.ts tests/unit/errors-catalog.test.ts tests/integration/migration-domain.test.ts`: 43 passed, 0 failed, 847 assertions.
 - `bun run lint`: passed TypeScript and all repository lints; the pre-existing `install` skill heading warning remains unchanged.
 - `git diff --check`: passed.
 - The broad pre-commit unit gate remains blocked outside this task at `tests/unit/blueprint-use.test.ts:200`: the existing no-clobber test expects stderr to contain `already exists` but receives an empty string. The Task 2 commit used `--no-verify` after the exact gate, lint, diff check, and staged gitleaks scan passed; no unrelated blueprint code or test was changed.

@@ -540,18 +540,10 @@ function discoverProjects(root: string, kind: MigrationSourceKind, blockers: Mig
       continue;
     }
     try {
-      const parsed = JSON.parse(fs.readFileSync(candidate, "utf8")) as Record<string, unknown>;
-      const projects = Array.isArray(parsed.projects)
-        ? parsed.projects
-        : parsed.projects && typeof parsed.projects === "object"
-          ? Object.entries(parsed.projects as Record<string, unknown>).map(([id, value]) => (
-              value && typeof value === "object" ? { id, ...(value as Record<string, unknown>) } : id
-            ))
-          : [];
-      for (const project of projects) {
-        if (typeof project === "string") registryProjects.add(project);
-        else if (project && typeof project === "object" && typeof (project as Record<string, unknown>).id === "string") registryProjects.add((project as Record<string, string>).id);
-      }
+      const parsed = JSON.parse(fs.readFileSync(candidate, "utf8")) as unknown;
+      if (!isRecord(parsed)) throw new Error("Registry root is invalid");
+      if (!Object.prototype.hasOwnProperty.call(parsed, "projects")) continue;
+      for (const projectId of registryProjectIds(parsed.projects)) registryProjects.add(projectId);
     } catch {
       blockers.push(issue("MIGRATION_REGISTRY_UNREADABLE", "block", {
         kind,
@@ -560,6 +552,34 @@ function discoverProjects(root: string, kind: MigrationSourceKind, blockers: Mig
     }
   }
   return { workspaces, physicalProjects, registryProjects };
+}
+
+function registryProjectIds(projects: unknown): string[] {
+  if (Array.isArray(projects)) {
+    return projects.map((project) => {
+      if (validRegistryProjectId(project)) return project;
+      if (isRecord(project) && validRegistryProjectId(project.id)) return project.id;
+      throw new Error("Registry project array entry has no valid ID");
+    });
+  }
+  if (!isRecord(projects)) throw new Error("Registry projects must be an array or object map");
+  return Object.entries(projects).map(([projectId, project]) => {
+    if (!validRegistryProjectId(projectId)) throw new Error("Registry project map key is invalid");
+    if (isRecord(project) && Object.prototype.hasOwnProperty.call(project, "id")) {
+      if (!validRegistryProjectId(project.id) || project.id !== projectId) {
+        throw new Error("Registry project map key conflicts with its embedded ID");
+      }
+    }
+    return projectId;
+  });
+}
+
+function validRegistryProjectId(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.trim() === value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function readJobStatusCounts(root: string, blockers: MigrationIssue[]): Record<string, number> {

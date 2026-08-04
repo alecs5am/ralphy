@@ -84,6 +84,46 @@ describe("migration audit", () => {
     expect(absent.blockers.some((issue) => issue.code === "MIGRATION_REGISTRY_UNREADABLE")).toBe(false);
   });
 
+  test("blocks a registry whose projects value is not an array or object map", () => {
+    const audit = auditRegistryProjects(42);
+
+    expect(audit.blockers.some((issue) => (
+      issue.code === "MIGRATION_REGISTRY_UNREADABLE" && issue.severity === "block"
+    ))).toBe(true);
+  });
+
+  test("blocks malformed project entries in a registry array", () => {
+    const audit = auditRegistryProjects(["valid-project", { workspace: "default" }]);
+
+    expect(audit.blockers.some((issue) => issue.code === "MIGRATION_REGISTRY_UNREADABLE")).toBe(true);
+  });
+
+  test("blocks an object-map project whose embedded ID conflicts with its key", () => {
+    const audit = auditRegistryProjects({ canonical: { id: "different" } });
+
+    expect(audit.blockers.some((issue) => issue.code === "MIGRATION_REGISTRY_UNREADABLE")).toBe(true);
+  });
+
+  test("accepts valid array and object-map project registries", () => {
+    fixtureRoot = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "rm-registry-valid-")));
+    const source = path.join(fixtureRoot, ".ralphy");
+    fs.mkdirSync(source);
+    fs.writeFileSync(path.join(source, "registry.json"), JSON.stringify({
+      projects: ["array-string", { id: "array-object" }],
+    }));
+    fs.writeFileSync(path.join(source, "config.json"), JSON.stringify({
+      projects: {
+        "map-key": { workspace: "default" },
+        "map-embedded": { id: "map-embedded", workspace: "default" },
+      },
+    }));
+
+    const audit = auditMigration({ sourceRoots: [{ kind: "ralphy", path: source }] });
+
+    expect(audit.registryProjects).toBe(4);
+    expect(audit.blockers.some((issue) => issue.code === "MIGRATION_REGISTRY_UNREADABLE")).toBe(false);
+  });
+
   test("reports complete live-shaped evidence without changing any source or sibling state", () => {
     fixtureRoot = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "rma-")));
     fixture = buildLegacyLibrary(fixtureRoot);
@@ -378,6 +418,25 @@ describe("migration maintenance lock", () => {
 });
 
 describe("migration service", () => {
+  test("checkpoints the stage WAL before each final quiescence scan", async () => {
+    fixtureRoot = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "rm-wal-order-")));
+    const source = path.join(fixtureRoot, ".ralphy");
+    fs.mkdirSync(source);
+
+    await withWalSensitiveProcessTools(fixtureRoot, async () => {
+      const started = startMigration({
+        sourceRoots: [{ id: "ralphy", kind: "ralphy", path: source }],
+      });
+      const resumed = await resumeMigration({
+        runId: started.runId,
+        sourceRoots: [{ id: "ralphy", kind: "ralphy", path: source }],
+        lock: started.lock,
+      });
+      expect(resumed.status.phase).toBe("inventory");
+      releaseMaintenanceLock(started.lock);
+    });
+  });
+
   test("status and invalid resume require an existing exact Run store without mutation", async () => {
     fixtureRoot = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "rm-readonly-")));
     const source = path.join(fixtureRoot, ".ralphy");
@@ -574,6 +633,31 @@ function processTools(
   fs.chmodSync(psPath, 0o700);
   fs.chmodSync(lsofPath, 0o700);
   return { psPath, lsofPath };
+}
+
+function auditRegistryProjects(projects: unknown): ReturnType<typeof auditMigration> {
+  fixtureRoot = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "rm-registry-shape-")));
+  const source = path.join(fixtureRoot, ".ralphy");
+  fs.mkdirSync(source);
+  fs.writeFileSync(path.join(source, "registry.json"), JSON.stringify({ projects }));
+  return auditMigration({ sourceRoots: [{ kind: "ralphy", path: source }] });
+}
+
+async function withWalSensitiveProcessTools<T>(root: string, action: () => Promise<T>): Promise<T> {
+  const tools = processTools(root, {
+    ps: "printf ' 1 launchd launchd\\n'",
+    lsof: `for wal in "${root}"/.ralphy-staging/*/.ralphy/ralphy.db-wal; do
+  [ -e "$wal" ] || continue
+  [ ! -s "$wal" ] || exit 23
+done
+printf 'p1\\nclaunchd\\nfcwd\\nn/\\n'`,
+  });
+  const restore = setMigrationProcessToolsForTesting(tools);
+  try {
+    return await action();
+  } finally {
+    restore();
+  }
 }
 
 function snapshotTree(root: string): Snapshot {
