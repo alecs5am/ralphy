@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import fs from "node:fs";
 import path from "node:path";
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export type Migration = {
   version: number;
@@ -3687,6 +3687,69 @@ export const MIGRATIONS: readonly Migration[] = [
       WHEN NEW.id <> OLD.id OR NEW.workspace_id <> OLD.workspace_id OR NEW.kind <> OLD.kind
       BEGIN
         SELECT RAISE(ABORT, 'Calendar Entry identity is immutable');
+      END;
+    `,
+  },
+  {
+    version: 4,
+    sql: `
+      CREATE TABLE agent_turns (
+        run_id TEXT PRIMARY KEY REFERENCES runs(id) ON DELETE RESTRICT,
+        agent_session_id TEXT NOT NULL REFERENCES agent_sessions(id) ON DELETE RESTRICT,
+        chat_id TEXT,
+        provider TEXT NOT NULL CHECK (length(trim(provider)) > 0),
+        provider_resume_id TEXT,
+        resumed_from_run_id TEXT REFERENCES runs(id) ON DELETE RESTRICT,
+        created_at INTEGER NOT NULL
+      );
+
+      CREATE TABLE agent_turn_events (
+        run_id TEXT NOT NULL REFERENCES agent_turns(run_id) ON DELETE RESTRICT,
+        sequence INTEGER NOT NULL CHECK (sequence > 0),
+        kind TEXT NOT NULL CHECK (kind IN (
+          'started', 'text-delta', 'tool-start', 'tool-end',
+          'completed', 'failed', 'cancelled'
+        )),
+        data_json TEXT NOT NULL CHECK (json_valid(data_json)),
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (run_id, sequence)
+      );
+
+      CREATE INDEX agent_turn_events_order_idx
+        ON agent_turn_events (run_id, sequence);
+
+      CREATE TRIGGER agent_turns_resume_guard
+      BEFORE UPDATE ON agent_turns
+      WHEN NOT (
+        NEW.run_id IS OLD.run_id
+        AND NEW.agent_session_id IS OLD.agent_session_id
+        AND NEW.chat_id IS OLD.chat_id
+        AND NEW.provider IS OLD.provider
+        AND OLD.provider_resume_id IS NULL
+        AND NEW.provider_resume_id IS NOT NULL
+        AND NEW.resumed_from_run_id IS OLD.resumed_from_run_id
+        AND NEW.created_at IS OLD.created_at
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Agent turn identity is immutable');
+      END;
+
+      CREATE TRIGGER agent_turns_no_delete
+      BEFORE DELETE ON agent_turns
+      BEGIN
+        SELECT RAISE(ABORT, 'Agent turns are immutable');
+      END;
+
+      CREATE TRIGGER agent_turn_events_no_update
+      BEFORE UPDATE ON agent_turn_events
+      BEGIN
+        SELECT RAISE(ABORT, 'Agent turn events are append-only');
+      END;
+
+      CREATE TRIGGER agent_turn_events_no_delete
+      BEFORE DELETE ON agent_turn_events
+      BEGIN
+        SELECT RAISE(ABORT, 'Agent turn events are append-only');
       END;
     `,
   },
