@@ -14,6 +14,7 @@ import {
   finalizeJob,
   cancelJob,
   retryJob,
+  retryJobsByFilter,
   appendLog,
   tailLogs,
   countByStatus,
@@ -22,6 +23,7 @@ import {
   listArtifacts,
   recordArtifact,
   resumeHeldJob,
+  pendingKinds,
 } from "../../cli/lib/jobs/db.js";
 import {
   closeDomainDb,
@@ -435,20 +437,52 @@ describe("jobs DB · logs", () => {
 });
 
 describe("jobs DB · bulk insert + list + counts", () => {
-  test("migration-held pending jobs cannot claim or retry until explicit release", () => {
+  test("migration-held jobs stay outside every claim and retry path until post-cutover release", () => {
     const migrationId = "mig_hold_test";
     openDb().prepare(
       "INSERT INTO migration_runs (id, phase, created_at, updated_at) VALUES (?, 'audited', ?, ?)",
     ).run(migrationId, Date.now(), Date.now());
-    const id = insertJob({
-      kind: "shell",
-      command: { argv: ["held"] },
-      migration_hold_run_id: migrationId,
+    const [held, release] = insertJobsAtomic([
+      {
+        kind: "generate.video",
+        command: { argv: ["held"] },
+        tag: "migration-held",
+        migration_hold_run_id: migrationId,
+      },
+      {
+        kind: "generate.image",
+        command: { argv: ["release"] },
+        migration_hold_run_id: migrationId,
+      },
+    ]);
+    const dependent = insertJob({
+      kind: "render",
+      command: { argv: ["dependent"] },
+      depends_on: [held!],
     });
-    expect(claimNextPending()).toBeNull();
-    expect(resumeHeldJob(id, "wrong-run")).toBe(false);
-    expect(resumeHeldJob(id, migrationId)).toBe(true);
-    expect(claimNextPending()?.id).toBe(id);
+    expect(claimNextPending(["generate.video"])).toBeNull();
+    expect(claimNextPending(["render"])).toBeNull();
+    expect(pendingKinds()).not.toContain("generate.video");
+    expect(resumeHeldJob(release!, migrationId)).toBe(false);
+
+    expect(cancelJob(held!)).toBe(true);
+    expect(getJob(held!)?.migration_hold_run_id).toBe(migrationId);
+    expect(retryJob(held!)).toBe(false);
+    expect(retryJobsByFilter({ tag: "migration-held" })).toEqual({
+      retried: [],
+      matchedButNotRetryable: 0,
+    });
+    expect(getJob(held!)?.status).toBe("cancelled");
+    expect(getJob(dependent)?.status).toBe("pending");
+
+    const now = Date.now();
+    openDb().prepare(
+      `UPDATE migration_runs
+       SET phase = 'cutover', cutover_at = ?, updated_at = ? WHERE id = ?`,
+    ).run(now, now, migrationId);
+    expect(resumeHeldJob(release!, "wrong-run")).toBe(false);
+    expect(resumeHeldJob(release!, migrationId)).toBe(true);
+    expect(claimNextPending(["generate.image"])?.id).toBe(release!);
   });
 
   test("insertJobsAtomic inserts all-or-nothing", () => {

@@ -451,12 +451,33 @@ describe("media cards", () => {
        VALUES ('transfer_entry_reference_audit', 'transfer_reference_audit', ?,
                'source/project.png', 'destination/project.png', 'completed', ?, ?)`,
     ).run(f.projectObject.id, now, now);
+    db.prepare(
+      `INSERT INTO migration_runs (id, phase, created_at, updated_at)
+       VALUES ('mig_reference_audit', 'audited', ?, ?)`,
+    ).run(now, now);
+    db.prepare(
+      `INSERT INTO migration_sources
+       (id, migration_run_id, source_kind, source_label, canonical_path_hash,
+        source_device, source_inode, source_mode, created_at)
+       VALUES ('migration_source_reference_audit', 'mig_reference_audit',
+               'ralphy', 'fixture', ?, '1', '2', 448, ?)`,
+    ).run("a".repeat(64), now);
+    db.prepare(
+      `INSERT INTO migration_entries
+       (id, migration_run_id, migration_source_id, source_path,
+        source_locator_hash, entry_kind, source_kind, disposition,
+        source_device, source_inode, source_mode, bytes, mtime_ms,
+        raw_evidence_object_id, state, created_at, updated_at)
+       VALUES ('migration_entry_reference_audit', 'mig_reference_audit',
+               'migration_source_reference_audit', 'raw.json', ?, 'file',
+               'ralphy', 'domain', '1', '3', 420, 1, ?, ?, 'inventoried', ?, ?)`,
+    ).run("b".repeat(64), now, f.projectObject.id, now, now);
     const [card] = getMediaCards({
       context: { workspaceId: f.workspace.id, projectId: f.project.id },
       refs: [{ type: "object", id: f.projectObject.id }],
     });
     // One row in every registered Object reference source.
-    expect(card).toMatchObject({ referenceCount: 5 });
+    expect(card).toMatchObject({ referenceCount: 6 });
     expect(
       OBJECT_REFERENCE_SOURCES.map(({ table, column }) =>
         db
@@ -465,7 +486,7 @@ describe("media cards", () => {
           )
           .get(f.projectObject.id)!.total,
       ),
-    ).toEqual([1, 1, 1, 1, 1]);
+    ).toEqual([1, 1, 1, 1, 1, 1]);
 
     const actual = db
       .query<{ table: string; column: string }, []>(
@@ -479,7 +500,6 @@ describe("media cards", () => {
     expect(actual).toEqual(
       [...OBJECT_REFERENCE_SOURCES]
         .map((source) => ({ table: source.table, column: source.column }))
-        .concat({ table: "migration_entries", column: "raw_evidence_object_id" })
         .sort((left, right) =>
           left.table < right.table ? -1 : left.table > right.table ? 1 : 0,
         ),

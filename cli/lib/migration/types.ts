@@ -57,29 +57,6 @@ export type MigrationContext = {
   runId: string;
 };
 
-export type MigrationConsumerGrant = {
-  version: 1;
-  namespace: "farm";
-  coreMigrationRunId: string;
-  storeId: string;
-  lockNonce: string;
-  coreVersion: string;
-  schemaVersion: number;
-  contractVersion: number;
-  sourceInventoryDigest: string;
-  mappingDigest: string;
-  sourceIdentities: Array<{
-    id: string;
-    kind: MigrationSourceKind;
-    canonicalPathHash: string;
-    device: string;
-    inode: string;
-    mode: number;
-    inventoryDigest: string;
-  }>;
-  issuedAt: number;
-};
-
 export type MigrationIssueSeverity = "info" | "review" | "block";
 
 export type MigrationIssue = {
@@ -126,6 +103,24 @@ export type MigrationSourceRow = {
   createdAt: number;
 };
 
+export type MigrationRunRow = {
+  id: string;
+  stageRootRel: string | null;
+  recoveryRootRel: string | null;
+  phase: MigrationPhase;
+  sourceEntryCount: number;
+  sourceFileCount: number;
+  sourceBytes: number;
+  inventoryCompletedAt: number | null;
+  frozenAt: number | null;
+  cutoverAt: number | null;
+  cutoverActivityId: number | null;
+  lastErrorCode: string | null;
+  lastErrorDetail: string | null;
+  createdAt: number;
+  updatedAt: number;
+};
+
 export type MigrationEntryRow = {
   id: string;
   migrationRunId: string;
@@ -149,6 +144,18 @@ export type MigrationEntryRow = {
   terminalAt: number | null;
   createdAt: number;
   updatedAt: number;
+};
+
+export type MigrationIssueRow = {
+  id: string;
+  migrationRunId: string;
+  migrationEntryId: string | null;
+  code: string;
+  severity: MigrationIssueSeverity;
+  lineNo: number | null;
+  detail: Record<string, unknown>;
+  resolvedAt: number | null;
+  createdAt: number;
 };
 
 export type MigrationStatus = {

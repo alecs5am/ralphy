@@ -31,7 +31,15 @@ export type LegacyJsonlRecord = {
 };
 
 export function normalizeRelativePath(value: string): string {
-  if (typeof value !== "string" || value.length === 0 || value.includes("\\") || path.posix.isAbsolute(value)) {
+  if (
+    typeof value !== "string" ||
+    value.length === 0 ||
+    value.includes("\0") ||
+    value.includes("\\") ||
+    path.posix.isAbsolute(value) ||
+    /^[A-Za-z][A-Za-z0-9+.-]*:/.test(value) ||
+    value.normalize("NFC") !== value
+  ) {
     throw new Error("Migration source path is not a relative POSIX path");
   }
   const parts = value.split("/");

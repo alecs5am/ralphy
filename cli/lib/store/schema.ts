@@ -3788,7 +3788,9 @@ export const MIGRATIONS: readonly Migration[] = [
         source_mode INTEGER NOT NULL CHECK (source_mode >= 0),
         inventory_digest TEXT CHECK (inventory_digest IS NULL OR length(inventory_digest) = 64),
         created_at INTEGER NOT NULL,
-        UNIQUE (migration_run_id, source_kind, source_device, source_inode)
+        UNIQUE (migration_run_id, source_kind, source_device, source_inode),
+        UNIQUE (migration_run_id, id),
+        UNIQUE (id, source_kind)
       );
 
       CREATE TABLE migration_entries (
@@ -3819,8 +3821,58 @@ export const MIGRATIONS: readonly Migration[] = [
         updated_at INTEGER NOT NULL,
         UNIQUE (migration_run_id, migration_source_id, source_path),
         UNIQUE (migration_run_id, migration_source_id, source_locator_hash),
-        CHECK (source_path NOT GLOB '/*' AND source_path NOT GLOB '*..*' AND source_path NOT GLOB '*\\*'),
-        CHECK (target_path IS NULL OR (target_path NOT GLOB '/*' AND target_path NOT GLOB '*..*' AND target_path NOT GLOB '*\\*'))
+        UNIQUE (migration_run_id, id),
+        FOREIGN KEY (migration_run_id, migration_source_id)
+          REFERENCES migration_sources(migration_run_id, id) ON DELETE RESTRICT,
+        FOREIGN KEY (migration_source_id, source_kind)
+          REFERENCES migration_sources(id, source_kind) ON DELETE RESTRICT,
+        CHECK (
+          length(source_path) > 0
+          AND source_path <> '.'
+          AND source_path NOT GLOB '/*'
+          AND source_path NOT GLOB '[A-Za-z]:*'
+          AND source_path NOT LIKE '%://%'
+          AND source_path NOT LIKE 'data:%'
+          AND source_path NOT LIKE '../%'
+          AND source_path NOT LIKE '%/../%'
+          AND source_path NOT LIKE '%/..'
+          AND source_path NOT LIKE './%'
+          AND source_path NOT LIKE '%/./%'
+          AND source_path NOT LIKE '%/.'
+          AND source_path NOT LIKE '%//%'
+          AND source_path NOT GLOB '*\\*'
+        ),
+        CHECK (
+          target_path IS NULL OR (
+            length(target_path) > 0
+            AND target_path <> '.'
+            AND target_path NOT GLOB '/*'
+            AND target_path NOT GLOB '[A-Za-z]:*'
+            AND target_path NOT LIKE '%://%'
+            AND target_path NOT LIKE 'data:%'
+            AND target_path NOT LIKE '../%'
+            AND target_path NOT LIKE '%/../%'
+            AND target_path NOT LIKE '%/..'
+            AND target_path NOT LIKE './%'
+            AND target_path NOT LIKE '%/./%'
+            AND target_path NOT LIKE '%/.'
+            AND target_path NOT LIKE '%//%'
+            AND target_path NOT GLOB '*\\*'
+          )
+        ),
+        CHECK (
+          (state IN ('inventoried', 'staged') AND terminal_at IS NULL
+            AND disposition <> 'issue')
+          OR (state = 'imported' AND disposition = 'domain' AND terminal_at IS NOT NULL)
+          OR (state = 'verified' AND disposition IN ('object', 'run-object', 'decoded-object')
+            AND terminal_at IS NOT NULL)
+          OR (state = 'excluded' AND disposition IN (
+            'cache', 'system', 'recovery-only', 'secret-imported',
+            'secret-recovery-only'
+          ) AND terminal_at IS NOT NULL)
+          OR (state = 'issue' AND disposition = 'issue' AND terminal_at IS NOT NULL)
+        ),
+        CHECK (state <> 'staged' OR disposition IN ('object', 'run-object', 'decoded-object'))
       );
 
       CREATE TABLE migration_issues (
@@ -3832,7 +3884,9 @@ export const MIGRATIONS: readonly Migration[] = [
         line_no INTEGER,
         detail_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(detail_json)),
         resolved_at INTEGER,
-        created_at INTEGER NOT NULL
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (migration_run_id, migration_entry_id)
+          REFERENCES migration_entries(migration_run_id, id) ON DELETE RESTRICT
       );
 
       ALTER TABLE jobs ADD COLUMN migration_hold_run_id TEXT REFERENCES migration_runs(id) ON DELETE RESTRICT;
@@ -3848,10 +3902,77 @@ export const MIGRATIONS: readonly Migration[] = [
         SELECT RAISE(ABORT, 'Migration Runs are append-only');
       END;
 
+      CREATE TRIGGER migration_runs_no_replace
+      BEFORE INSERT ON migration_runs
+      WHEN EXISTS (SELECT 1 FROM migration_runs WHERE id = NEW.id)
+      BEGIN
+        SELECT RAISE(ABORT, 'Migration Runs are append-only');
+      END;
+
+      CREATE TRIGGER migration_runs_identity_guard
+      BEFORE UPDATE ON migration_runs
+      WHEN NEW.id <> OLD.id
+        OR COALESCE(NEW.stage_root_rel, '') <> COALESCE(OLD.stage_root_rel, '')
+        OR COALESCE(NEW.recovery_root_rel, '') <> COALESCE(OLD.recovery_root_rel, '')
+        OR NEW.created_at <> OLD.created_at
+        OR NEW.updated_at < OLD.updated_at
+      BEGIN
+        SELECT RAISE(ABORT, 'Migration Run identity is immutable');
+      END;
+
+      CREATE TRIGGER migration_runs_phase_guard
+      BEFORE UPDATE OF phase ON migration_runs
+      WHEN (OLD.phase IN ('rolled-back', 'failed') AND NEW.phase <> OLD.phase)
+        OR CASE NEW.phase
+          WHEN 'audited' THEN 0 WHEN 'inventory' THEN 1 WHEN 'import' THEN 2
+          WHEN 'objects' THEN 3 WHEN 'relations' THEN 4 WHEN 'verify' THEN 5
+          WHEN 'ready' THEN 6 WHEN 'cutover' THEN 7 WHEN 'rolled-back' THEN 8
+          WHEN 'failed' THEN 9 END
+          < CASE OLD.phase
+          WHEN 'audited' THEN 0 WHEN 'inventory' THEN 1 WHEN 'import' THEN 2
+          WHEN 'objects' THEN 3 WHEN 'relations' THEN 4 WHEN 'verify' THEN 5
+          WHEN 'ready' THEN 6 WHEN 'cutover' THEN 7 WHEN 'rolled-back' THEN 8
+          WHEN 'failed' THEN 9 END
+      BEGIN
+        SELECT RAISE(ABORT, 'Migration phase transition is backward or terminal');
+      END;
+
+      CREATE TRIGGER migration_runs_issue_gate
+      BEFORE UPDATE OF phase ON migration_runs
+      WHEN NEW.phase NOT IN ('audited', 'inventory', 'failed')
+        AND EXISTS (
+          SELECT 1 FROM migration_entries entry
+          WHERE entry.migration_run_id = OLD.id
+            AND entry.state = 'issue'
+            AND NOT EXISTS (
+              SELECT 1 FROM migration_issues issue
+              WHERE issue.migration_entry_id = entry.id
+                AND issue.migration_run_id = entry.migration_run_id
+                AND issue.resolved_at IS NULL
+            )
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'Migration issue entry lacks an unresolved decision');
+      END;
+
       CREATE TRIGGER migration_sources_no_delete
       BEFORE DELETE ON migration_sources
       BEGIN
         SELECT RAISE(ABORT, 'Migration sources are immutable');
+      END;
+
+      CREATE TRIGGER migration_sources_no_replace
+      BEFORE INSERT ON migration_sources
+      WHEN EXISTS (
+        SELECT 1 FROM migration_sources source
+        WHERE source.id = NEW.id
+          OR (source.migration_run_id = NEW.migration_run_id
+            AND source.source_kind = NEW.source_kind
+            AND source.source_device = NEW.source_device
+            AND source.source_inode = NEW.source_inode)
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Migration sources are append-only');
       END;
 
       CREATE TRIGGER migration_sources_identity_guard
@@ -3869,10 +3990,132 @@ export const MIGRATIONS: readonly Migration[] = [
         SELECT RAISE(ABORT, 'Migration source identity is immutable');
       END;
 
+      CREATE TRIGGER migration_sources_inventory_digest_guard
+      BEFORE UPDATE OF inventory_digest ON migration_sources
+      WHEN OLD.inventory_digest IS NOT NULL
+        AND COALESCE(NEW.inventory_digest, '') <> OLD.inventory_digest
+      BEGIN
+        SELECT RAISE(ABORT, 'Migration source fingerprint is immutable');
+      END;
+
       CREATE TRIGGER migration_entries_no_delete
       BEFORE DELETE ON migration_entries
       BEGIN
         SELECT RAISE(ABORT, 'Migration entries are append-only');
+      END;
+
+      CREATE TRIGGER migration_entries_no_replace
+      BEFORE INSERT ON migration_entries
+      WHEN EXISTS (
+        SELECT 1 FROM migration_entries entry
+        WHERE entry.id = NEW.id
+          OR (entry.migration_run_id = NEW.migration_run_id
+            AND entry.migration_source_id = NEW.migration_source_id
+            AND (entry.source_path = NEW.source_path
+              OR entry.source_locator_hash = NEW.source_locator_hash))
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Migration entries are append-only');
+      END;
+
+      CREATE TRIGGER migration_entries_target_refs_insert_guard
+      BEFORE INSERT ON migration_entries
+      WHEN NEW.target_refs_json IS NOT NULL AND (
+        json_type(NEW.target_refs_json) <> 'array'
+        OR json(NEW.target_refs_json) <> NEW.target_refs_json
+        OR EXISTS (
+          SELECT 1 FROM json_each(NEW.target_refs_json) ref
+          WHERE ref.type <> 'text' OR NOT (
+            (
+              instr(ref.value, '_') > 1
+              AND substr(ref.value, 1, instr(ref.value, '_') - 1) IN (
+                'ws', 'acct', 'prj', 'iter', 'fb', 'fblink', 'stage', 'doc',
+                'drev', 'bind', 'obj', 'art', 'arev', 'rel', 'usage', 'comp',
+                'crev', 'cfile', 'input', 'build', 'output', 'eval', 'unit',
+                'urev', 'item', 'pres', 'caption', 'pitem', 'pub', 'metric',
+                'session', 'consumer', 'run', 'attempt', 'robj', 'result',
+                'mig', 'mentry', 'miss', 'setting', 'brand', 'persona',
+                'tmpl', 'memory', 'mrev', 'campaign', 'cell', 'calendar'
+              )
+              AND length(substr(ref.value, instr(ref.value, '_') + 1)) = 36
+              AND substr(ref.value, instr(ref.value, '_') + 1) NOT GLOB '*[^0-9a-f-]*'
+              AND substr(ref.value, instr(ref.value, '_') + 9, 1) = '-'
+              AND substr(ref.value, instr(ref.value, '_') + 14, 1) = '-'
+              AND substr(ref.value, instr(ref.value, '_') + 19, 1) = '-'
+              AND substr(ref.value, instr(ref.value, '_') + 24, 1) = '-'
+            )
+            OR (
+              ref.value LIKE 'provider/%'
+              AND length(ref.value) BETWEEN 10 AND 512
+              AND ref.value NOT GLOB '*[^A-Za-z0-9._:/-]*'
+              AND ref.value NOT LIKE '%//%'
+              AND ref.value NOT LIKE '%/../%'
+              AND ref.value NOT LIKE '%/..'
+              AND ref.value NOT LIKE '%/./%'
+              AND ref.value NOT LIKE '%/.'
+            )
+          )
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM json_each(NEW.target_refs_json) left_ref
+          JOIN json_each(NEW.target_refs_json) right_ref
+            ON CAST(left_ref.key AS INTEGER) < CAST(right_ref.key AS INTEGER)
+          WHERE left_ref.value >= right_ref.value
+        )
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Migration target refs must be canonical sorted unique IDs');
+      END;
+
+      CREATE TRIGGER migration_entries_target_refs_update_guard
+      BEFORE UPDATE OF target_refs_json ON migration_entries
+      WHEN NEW.target_refs_json IS NOT NULL AND (
+        json_type(NEW.target_refs_json) <> 'array'
+        OR json(NEW.target_refs_json) <> NEW.target_refs_json
+        OR EXISTS (
+          SELECT 1 FROM json_each(NEW.target_refs_json) ref
+          WHERE ref.type <> 'text' OR NOT (
+            (
+              instr(ref.value, '_') > 1
+              AND substr(ref.value, 1, instr(ref.value, '_') - 1) IN (
+                'ws', 'acct', 'prj', 'iter', 'fb', 'fblink', 'stage', 'doc',
+                'drev', 'bind', 'obj', 'art', 'arev', 'rel', 'usage', 'comp',
+                'crev', 'cfile', 'input', 'build', 'output', 'eval', 'unit',
+                'urev', 'item', 'pres', 'caption', 'pitem', 'pub', 'metric',
+                'session', 'consumer', 'run', 'attempt', 'robj', 'result',
+                'mig', 'mentry', 'miss', 'setting', 'brand', 'persona',
+                'tmpl', 'memory', 'mrev', 'campaign', 'cell', 'calendar'
+              )
+              AND length(substr(ref.value, instr(ref.value, '_') + 1)) = 36
+              AND substr(ref.value, instr(ref.value, '_') + 1) NOT GLOB '*[^0-9a-f-]*'
+              AND substr(ref.value, instr(ref.value, '_') + 9, 1) = '-'
+              AND substr(ref.value, instr(ref.value, '_') + 14, 1) = '-'
+              AND substr(ref.value, instr(ref.value, '_') + 19, 1) = '-'
+              AND substr(ref.value, instr(ref.value, '_') + 24, 1) = '-'
+            )
+            OR (
+              ref.value LIKE 'provider/%'
+              AND length(ref.value) BETWEEN 10 AND 512
+              AND ref.value NOT GLOB '*[^A-Za-z0-9._:/-]*'
+              AND ref.value NOT LIKE '%//%'
+              AND ref.value NOT LIKE '%/../%'
+              AND ref.value NOT LIKE '%/..'
+              AND ref.value NOT LIKE '%/./%'
+              AND ref.value NOT LIKE '%/.'
+            )
+          )
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM json_each(NEW.target_refs_json) left_ref
+          JOIN json_each(NEW.target_refs_json) right_ref
+            ON CAST(left_ref.key AS INTEGER) < CAST(right_ref.key AS INTEGER)
+          WHERE left_ref.value >= right_ref.value
+        )
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Migration target refs must be canonical sorted unique IDs');
       END;
 
       CREATE TRIGGER migration_entries_identity_guard
@@ -3890,8 +4133,47 @@ export const MIGRATIONS: readonly Migration[] = [
         OR NEW.bytes <> OLD.bytes
         OR NEW.mtime_ms <> OLD.mtime_ms
         OR NEW.created_at <> OLD.created_at
+        OR (OLD.sha256 IS NOT NULL AND COALESCE(NEW.sha256, '') <> OLD.sha256)
       BEGIN
         SELECT RAISE(ABORT, 'Migration entry identity is immutable');
+      END;
+
+      CREATE TRIGGER migration_entries_state_guard
+      BEFORE UPDATE ON migration_entries
+      WHEN NEW.state <> OLD.state AND NOT (
+        (OLD.state = 'inventoried' AND NEW.state IN (
+          'imported', 'staged', 'verified', 'excluded', 'issue'
+        ))
+        OR (OLD.state = 'staged' AND NEW.state IN ('verified', 'issue'))
+        OR (
+          OLD.state = 'issue'
+          AND NEW.state IN ('imported', 'verified', 'excluded')
+          AND OLD.disposition = 'issue'
+          AND NEW.disposition <> 'issue'
+          AND NOT EXISTS (
+            SELECT 1 FROM migration_issues issue
+            WHERE issue.migration_run_id = OLD.migration_run_id
+              AND issue.migration_entry_id = OLD.id
+              AND issue.severity = 'block'
+              AND issue.resolved_at IS NULL
+          )
+        )
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Migration entry state transition is backward or terminal');
+      END;
+
+      CREATE TRIGGER migration_entries_issue_block_guard
+      BEFORE UPDATE ON migration_entries
+      WHEN OLD.state = 'issue' AND NEW.state <> OLD.state AND EXISTS (
+        SELECT 1 FROM migration_issues issue
+        WHERE issue.migration_run_id = OLD.migration_run_id
+          AND issue.migration_entry_id = OLD.id
+          AND issue.severity = 'block'
+          AND issue.resolved_at IS NULL
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Migration issue has unresolved blockers');
       END;
 
       CREATE TRIGGER migration_entries_terminal_guard
@@ -3902,6 +4184,8 @@ export const MIGRATIONS: readonly Migration[] = [
           OR COALESCE(NEW.target_path, '') <> COALESCE(OLD.target_path, '')
           OR COALESCE(NEW.target_refs_json, '') <> COALESCE(OLD.target_refs_json, '')
           OR COALESCE(NEW.raw_evidence_object_id, '') <> COALESCE(OLD.raw_evidence_object_id, '')
+          OR COALESCE(NEW.sha256, '') <> COALESCE(OLD.sha256, '')
+          OR COALESCE(NEW.error_code, '') <> COALESCE(OLD.error_code, '')
           OR COALESCE(NEW.terminal_at, 0) <> COALESCE(OLD.terminal_at, 0)
           OR NEW.state <> OLD.state
         )
@@ -3913,6 +4197,49 @@ export const MIGRATIONS: readonly Migration[] = [
       BEFORE DELETE ON migration_issues
       BEGIN
         SELECT RAISE(ABORT, 'Migration issues are append-only');
+      END;
+
+      CREATE TRIGGER migration_issues_no_replace
+      BEFORE INSERT ON migration_issues
+      WHEN EXISTS (SELECT 1 FROM migration_issues WHERE id = NEW.id)
+      BEGIN
+        SELECT RAISE(ABORT, 'Migration issues are append-only');
+      END;
+
+      CREATE TRIGGER migration_issues_link_guard
+      BEFORE INSERT ON migration_issues
+      WHEN NEW.migration_entry_id IS NOT NULL AND (
+        NOT EXISTS (
+          SELECT 1 FROM migration_entries entry
+          WHERE entry.id = NEW.migration_entry_id
+            AND entry.migration_run_id = NEW.migration_run_id
+            AND entry.disposition = 'issue'
+            AND entry.state = 'issue'
+        )
+        OR EXISTS (
+          SELECT 1 FROM migration_issues issue
+          WHERE issue.migration_entry_id = NEW.migration_entry_id
+            AND issue.migration_run_id = NEW.migration_run_id
+            AND issue.resolved_at IS NULL
+        )
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Migration issue must be the sole unresolved decision for an issue entry in the same Run');
+      END;
+
+      CREATE TRIGGER migration_issues_identity_guard
+      BEFORE UPDATE ON migration_issues
+      WHEN NEW.id <> OLD.id
+        OR NEW.migration_run_id <> OLD.migration_run_id
+        OR COALESCE(NEW.migration_entry_id, '') <> COALESCE(OLD.migration_entry_id, '')
+        OR NEW.code <> OLD.code
+        OR NEW.severity <> OLD.severity
+        OR COALESCE(NEW.line_no, -1) <> COALESCE(OLD.line_no, -1)
+        OR NEW.detail_json <> OLD.detail_json
+        OR NEW.created_at <> OLD.created_at
+        OR (OLD.resolved_at IS NOT NULL AND COALESCE(NEW.resolved_at, -1) <> OLD.resolved_at)
+      BEGIN
+        SELECT RAISE(ABORT, 'Migration issue identity is immutable');
       END;
     `,
   },
@@ -3965,6 +4292,7 @@ export function applyMigrations(
     throw error;
   }
 }
+
 
 function readUserVersion(db: Database): number {
   return (
