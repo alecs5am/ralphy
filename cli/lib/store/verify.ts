@@ -189,6 +189,8 @@ type JsonTreeRow = {
 
 const TEXT_COLUMNS = {
   activity_events: "workspace_id,project_id,entity_type,entity_id,action,payload_json",
+  agent_turn_events: "run_id,kind,data_json",
+  agent_turns: "run_id,agent_session_id,chat_id,provider,provider_resume_id,resumed_from_run_id",
   agent_sessions: "id,workspace_id,project_id,agent,consumer_principal_id,metadata_json",
   artifact_relations: "id,from_revision_id,to_revision_id,relation,metadata_json",
   artifact_revisions: "id,artifact_id,object_id,parent_revision_id,iteration_id,state,metadata_json,authored_by_session_id",

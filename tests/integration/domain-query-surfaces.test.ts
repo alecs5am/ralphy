@@ -798,6 +798,7 @@ function forbiddenOrdinaryFields(value: unknown): string[] {
 }
 
 const EXPECTED_ACTIVITY_WRITERS = [
+  "cli/lib/agent/store.ts",
   "cli/lib/calendar/store.ts",
   "cli/lib/campaign/store.ts",
   "cli/lib/config.ts",
@@ -821,6 +822,7 @@ const EXPECTED_ACTIVITY_WRITERS = [
   "cli/lib/store/units.ts",
 ] as const;
 const UNEXERCISED_LITERAL_ACTIVITY_ACTIONS = [
+  "agent_turn.started",
   "build.cancelled",
   "build.failed",
   "calendar.entry.created",

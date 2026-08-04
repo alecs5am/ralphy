@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **58**
+Verbs registered: **59**
 
 ## Top-level verbs
 
@@ -2368,4 +2368,25 @@ Commands:
   library          Library by goal/situation
   modes [options]  List cookbook mode files for video / voice / music
   help [command]   display help for command
+```
+
+### `ralphy bridge`
+
+```
+____        __      __
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
+        agent content runtime · ralphy.dev
+
+Usage: ralphy bridge [options]
+
+Run the versioned desktop stdio bridge
+
+Options:
+  --stdio        serve newline-delimited JSON on stdin/stdout
+  --root <path>  data root containing ralphy.db
+  -h, --help     display help for command
 ```
