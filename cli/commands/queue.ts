@@ -15,6 +15,7 @@ import {
   retryJob,
   cancelJobsByFilter,
   retryJobsByFilter,
+  resumeHeldJob,
   tailLogs,
   countByStatus,
 } from "../lib/jobs/db.js";
@@ -276,6 +277,17 @@ export function queueCmd() {
         retried_count: r.retried.length,
         matched_but_not_retryable: r.matchedButNotRetryable,
       });
+    });
+
+  cmd
+    .command("resume <id>")
+    .description("Release one migration-held pending job after the matching migration Run is ready")
+    .requiredOption("--migration-run <id>", "Migration Run ID holding this job")
+    .action((id, opts) => {
+      const jobId = Number(id);
+      if (!Number.isSafeInteger(jobId) || jobId <= 0) err("queue resume requires a positive numeric job id");
+      const resumed = resumeHeldJob(jobId, opts.migrationRun);
+      out({ id: jobId, migration_run_id: opts.migrationRun, resumed });
     });
 
   // ── logs ───────────────────────────────────────────────────────────────

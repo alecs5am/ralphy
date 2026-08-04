@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import fs from "node:fs";
 import path from "node:path";
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export type Migration = {
   version: number;
@@ -3750,6 +3750,169 @@ export const MIGRATIONS: readonly Migration[] = [
       BEFORE DELETE ON agent_turn_events
       BEGIN
         SELECT RAISE(ABORT, 'Agent turn events are append-only');
+      END;
+    `,
+  },
+  {
+    version: 5,
+    sql: `
+      CREATE TABLE migration_runs (
+        id TEXT PRIMARY KEY,
+        stage_root_rel TEXT,
+        recovery_root_rel TEXT,
+        phase TEXT NOT NULL CHECK (phase IN (
+          'audited', 'inventory', 'import', 'objects', 'relations',
+          'verify', 'ready', 'cutover', 'rolled-back', 'failed'
+        )),
+        source_entry_count INTEGER NOT NULL DEFAULT 0 CHECK (source_entry_count >= 0),
+        source_file_count INTEGER NOT NULL DEFAULT 0 CHECK (source_file_count >= 0),
+        source_bytes INTEGER NOT NULL DEFAULT 0 CHECK (source_bytes >= 0),
+        inventory_completed_at INTEGER,
+        frozen_at INTEGER,
+        cutover_at INTEGER,
+        cutover_activity_id INTEGER REFERENCES activity_events(id) ON DELETE RESTRICT,
+        last_error_code TEXT,
+        last_error_detail TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      CREATE TABLE migration_sources (
+        id TEXT PRIMARY KEY,
+        migration_run_id TEXT NOT NULL REFERENCES migration_runs(id) ON DELETE RESTRICT,
+        source_kind TEXT NOT NULL CHECK (source_kind IN ('ralphy', 'legacy-workspace', 'desktop')),
+        source_label TEXT NOT NULL,
+        canonical_path_hash TEXT NOT NULL CHECK (length(canonical_path_hash) = 64),
+        source_device TEXT NOT NULL,
+        source_inode TEXT NOT NULL,
+        source_mode INTEGER NOT NULL CHECK (source_mode >= 0),
+        inventory_digest TEXT CHECK (inventory_digest IS NULL OR length(inventory_digest) = 64),
+        created_at INTEGER NOT NULL,
+        UNIQUE (migration_run_id, source_kind, source_device, source_inode)
+      );
+
+      CREATE TABLE migration_entries (
+        id TEXT PRIMARY KEY,
+        migration_run_id TEXT NOT NULL REFERENCES migration_runs(id) ON DELETE RESTRICT,
+        migration_source_id TEXT NOT NULL REFERENCES migration_sources(id) ON DELETE RESTRICT,
+        source_path TEXT NOT NULL,
+        source_locator_hash TEXT NOT NULL CHECK (length(source_locator_hash) = 64),
+        entry_kind TEXT NOT NULL CHECK (entry_kind IN ('directory', 'file', 'symlink', 'socket', 'fifo', 'other')),
+        source_kind TEXT NOT NULL CHECK (source_kind IN ('ralphy', 'legacy-workspace', 'desktop')),
+        disposition TEXT NOT NULL CHECK (disposition IN (
+          'domain', 'object', 'run-object', 'decoded-object', 'cache', 'system',
+          'recovery-only', 'secret-imported', 'secret-recovery-only', 'issue'
+        )),
+        source_device TEXT NOT NULL,
+        source_inode TEXT NOT NULL,
+        source_mode INTEGER NOT NULL CHECK (source_mode >= 0),
+        bytes INTEGER NOT NULL CHECK (bytes >= 0),
+        mtime_ms INTEGER NOT NULL CHECK (mtime_ms >= 0),
+        sha256 TEXT CHECK (sha256 IS NULL OR length(sha256) = 64),
+        target_path TEXT,
+        target_refs_json TEXT CHECK (target_refs_json IS NULL OR json_valid(target_refs_json)),
+        raw_evidence_object_id TEXT REFERENCES objects(id) ON DELETE RESTRICT,
+        state TEXT NOT NULL CHECK (state IN ('inventoried', 'imported', 'staged', 'verified', 'excluded', 'issue')),
+        error_code TEXT,
+        terminal_at INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE (migration_run_id, migration_source_id, source_path),
+        UNIQUE (migration_run_id, migration_source_id, source_locator_hash),
+        CHECK (source_path NOT GLOB '/*' AND source_path NOT GLOB '*..*' AND source_path NOT GLOB '*\\*'),
+        CHECK (target_path IS NULL OR (target_path NOT GLOB '/*' AND target_path NOT GLOB '*..*' AND target_path NOT GLOB '*\\*'))
+      );
+
+      CREATE TABLE migration_issues (
+        id TEXT PRIMARY KEY,
+        migration_run_id TEXT NOT NULL REFERENCES migration_runs(id) ON DELETE RESTRICT,
+        migration_entry_id TEXT REFERENCES migration_entries(id) ON DELETE RESTRICT,
+        code TEXT NOT NULL,
+        severity TEXT NOT NULL CHECK (severity IN ('info', 'review', 'block')),
+        line_no INTEGER,
+        detail_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(detail_json)),
+        resolved_at INTEGER,
+        created_at INTEGER NOT NULL
+      );
+
+      ALTER TABLE jobs ADD COLUMN migration_hold_run_id TEXT REFERENCES migration_runs(id) ON DELETE RESTRICT;
+
+      CREATE INDEX migration_entries_order_idx
+        ON migration_entries (migration_run_id, migration_source_id, source_path);
+      CREATE INDEX migration_issues_run_idx
+        ON migration_issues (migration_run_id, severity, id);
+
+      CREATE TRIGGER migration_runs_no_delete
+      BEFORE DELETE ON migration_runs
+      BEGIN
+        SELECT RAISE(ABORT, 'Migration Runs are append-only');
+      END;
+
+      CREATE TRIGGER migration_sources_no_delete
+      BEFORE DELETE ON migration_sources
+      BEGIN
+        SELECT RAISE(ABORT, 'Migration sources are immutable');
+      END;
+
+      CREATE TRIGGER migration_sources_identity_guard
+      BEFORE UPDATE ON migration_sources
+      WHEN NEW.id <> OLD.id
+        OR NEW.migration_run_id <> OLD.migration_run_id
+        OR NEW.source_kind <> OLD.source_kind
+        OR NEW.source_label <> OLD.source_label
+        OR NEW.canonical_path_hash <> OLD.canonical_path_hash
+        OR NEW.source_device <> OLD.source_device
+        OR NEW.source_inode <> OLD.source_inode
+        OR NEW.source_mode <> OLD.source_mode
+        OR NEW.created_at <> OLD.created_at
+      BEGIN
+        SELECT RAISE(ABORT, 'Migration source identity is immutable');
+      END;
+
+      CREATE TRIGGER migration_entries_no_delete
+      BEFORE DELETE ON migration_entries
+      BEGIN
+        SELECT RAISE(ABORT, 'Migration entries are append-only');
+      END;
+
+      CREATE TRIGGER migration_entries_identity_guard
+      BEFORE UPDATE ON migration_entries
+      WHEN NEW.id <> OLD.id
+        OR NEW.migration_run_id <> OLD.migration_run_id
+        OR NEW.migration_source_id <> OLD.migration_source_id
+        OR NEW.source_path <> OLD.source_path
+        OR NEW.source_locator_hash <> OLD.source_locator_hash
+        OR NEW.entry_kind <> OLD.entry_kind
+        OR NEW.source_kind <> OLD.source_kind
+        OR NEW.source_device <> OLD.source_device
+        OR NEW.source_inode <> OLD.source_inode
+        OR NEW.source_mode <> OLD.source_mode
+        OR NEW.bytes <> OLD.bytes
+        OR NEW.mtime_ms <> OLD.mtime_ms
+        OR NEW.created_at <> OLD.created_at
+      BEGIN
+        SELECT RAISE(ABORT, 'Migration entry identity is immutable');
+      END;
+
+      CREATE TRIGGER migration_entries_terminal_guard
+      BEFORE UPDATE ON migration_entries
+      WHEN OLD.state IN ('imported', 'verified', 'excluded')
+        AND (
+          NEW.disposition <> OLD.disposition
+          OR COALESCE(NEW.target_path, '') <> COALESCE(OLD.target_path, '')
+          OR COALESCE(NEW.target_refs_json, '') <> COALESCE(OLD.target_refs_json, '')
+          OR COALESCE(NEW.raw_evidence_object_id, '') <> COALESCE(OLD.raw_evidence_object_id, '')
+          OR COALESCE(NEW.terminal_at, 0) <> COALESCE(OLD.terminal_at, 0)
+          OR NEW.state <> OLD.state
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'Terminal migration entry is immutable');
+      END;
+
+      CREATE TRIGGER migration_issues_no_delete
+      BEFORE DELETE ON migration_issues
+      BEGIN
+        SELECT RAISE(ABORT, 'Migration issues are append-only');
       END;
     `,
   },

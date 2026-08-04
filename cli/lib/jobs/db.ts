@@ -63,8 +63,8 @@ export function insertJobInTransaction(
 ): number {
   const result = db
     .prepare(
-      `INSERT INTO jobs (run_id, kind, status, command, depends_on, priority, created_at, tag, project_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO jobs (run_id, kind, status, command, depends_on, priority, created_at, tag, project_id, migration_hold_run_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       input.run_id ?? null,
@@ -76,6 +76,7 @@ export function insertJobInTransaction(
       Date.now(),
       input.tag ?? null,
       input.project_id ?? null,
+      input.migration_hold_run_id ?? null,
     );
   return Number(result.lastInsertRowid);
 }
@@ -106,8 +107,8 @@ export function insertJobsAtomic(inputs: JobInsertInput[]): number[] {
   const db = openDb();
   const ids: number[] = [];
   const stmt = db.prepare(`
-    INSERT INTO jobs (run_id, kind, status, command, depends_on, priority, created_at, tag, project_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO jobs (run_id, kind, status, command, depends_on, priority, created_at, tag, project_id, migration_hold_run_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const now = Date.now();
   const txn = db.transaction((items: JobInsertInput[]) => {
@@ -122,6 +123,7 @@ export function insertJobsAtomic(inputs: JobInsertInput[]): number[] {
         now,
         i.tag ?? null,
         i.project_id ?? null,
+        i.migration_hold_run_id ?? null,
       );
       ids.push(Number(r.lastInsertRowid));
     }
@@ -148,6 +150,7 @@ function rowToJob(r: any): JobRow {
     log_path: r.log_path,
     tag: r.tag,
     project_id: r.project_id,
+    migration_hold_run_id: r.migration_hold_run_id ?? null,
   };
 }
 
@@ -203,7 +206,7 @@ export function claimNextPending(kinds?: JobKind[]): JobRow | null {
     kinds && kinds.length > 0 ? ` AND kind IN (${kinds.map(() => "?").join(",")})` : "";
   const candidates = db
     .query(
-      `SELECT * FROM jobs WHERE status = 'pending'${kindFilter} ORDER BY priority DESC, id ASC`,
+      `SELECT * FROM jobs WHERE status = 'pending' AND migration_hold_run_id IS NULL${kindFilter} ORDER BY priority DESC, id ASC`,
     )
     .all(...(kinds && kinds.length > 0 ? kinds : [])) as any[];
   for (const r of candidates) {
@@ -240,7 +243,7 @@ function markRunning(id: number): boolean {
   // Race-safe claim: only flip if still pending.
   const r = db
     .prepare(
-      "UPDATE jobs SET status='running', started_at=?, log_path=? WHERE id=? AND status='pending'"
+      "UPDATE jobs SET status='running', started_at=?, log_path=? WHERE id=? AND status='pending' AND migration_hold_run_id IS NULL"
     )
     .run(now, logPath, id);
   return (r.changes ?? 0) > 0;
@@ -339,6 +342,7 @@ export function retryJob(id: number): boolean {
       `UPDATE jobs SET status='pending', started_at=NULL, ended_at=NULL, exit_code=NULL,
        error_message=NULL, retry_count=retry_count+1
        WHERE id=? AND status IN ('failed','cancelled','blocked')
+       AND migration_hold_run_id IS NULL
        AND (status <> 'cancelled' OR ended_at IS NOT NULL)`,
     )
     .run(id);
@@ -469,6 +473,7 @@ export function retryJobsByFilter(filter: {
     `UPDATE jobs SET status='pending', started_at=NULL, ended_at=NULL, exit_code=NULL,
      error_message=NULL, retry_count=retry_count+1
      WHERE id=? AND status IN ('failed','cancelled','blocked')
+     AND migration_hold_run_id IS NULL
      AND (status <> 'cancelled' OR ended_at IS NOT NULL)`,
   );
   const txn = db.transaction(() => {
@@ -559,7 +564,7 @@ export function countByStatus(): Record<JobStatus, number> {
 export function pendingKinds(): JobKind[] {
   const db = openDb();
   const rows = db
-    .query("SELECT DISTINCT kind FROM jobs WHERE status = 'pending'")
+    .query("SELECT DISTINCT kind FROM jobs WHERE status = 'pending' AND migration_hold_run_id IS NULL")
     .all() as Array<{ kind: JobKind }>;
   return rows.map((r) => r.kind);
 }
@@ -580,6 +585,17 @@ export function countRunning(): number {
   const db = openDb();
   const r = db.query("SELECT COUNT(*) as n FROM jobs WHERE status = 'running'").get() as { n: number };
   return r?.n ?? 0;
+}
+
+/** Explicit post-cutover release for one migration-held pending job. */
+export function resumeHeldJob(id: number, expectedMigrationRunId: string): boolean {
+  openDb();
+  const result = withImmediateTransaction((db) =>
+    db.prepare(
+      "UPDATE jobs SET migration_hold_run_id = NULL WHERE id = ? AND migration_hold_run_id = ? AND status = 'pending'",
+    ).run(id, expectedMigrationRunId),
+  );
+  return (result.changes ?? 0) > 0;
 }
 
 function cancelUnstartedRun(
