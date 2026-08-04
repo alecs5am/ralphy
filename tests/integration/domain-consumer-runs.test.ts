@@ -75,7 +75,7 @@ import {
 import { StoreConflictError } from "../../cli/lib/store/types.js";
 import { verifyDomainStore } from "../../cli/lib/store/verify.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
-import { installFarmConsumer } from "../helpers/consumer-auth.js";
+import { installConsumer } from "../helpers/consumer-auth.js";
 
 let roots: TmpRoot[] = [];
 
@@ -95,7 +95,7 @@ const DIGEST = consumerCredentialDigest(
   Buffer.alloc(32, 3).toString("base64url"),
 );
 
-function bind(namespace = "farm", id = "consumer_farm", digest = DIGEST) {
+function bind(namespace = "test", id = "consumer_test", digest = DIGEST) {
   return withImmediateTransaction((db) =>
     bindConsumerPrincipal(db, { id, namespace, identityDigest: digest }),
   );
@@ -109,23 +109,23 @@ function fixture(slug: string) {
     slug,
     name: slug,
   });
-  const farm = installFarmConsumer(root);
-  const session = startConsumerSession(farm.authority, {
+  const consumer = installConsumer(root);
+  const session = startConsumerSession(consumer.authority, {
     workspaceId: workspace.id,
     projectId: project.id,
   });
   return {
     workspace,
     project,
-    principal: { id: farm.identity.consumerId },
+    principal: { id: consumer.id },
     session,
-    authority: farm.authority,
-    token: farm.token,
+    authority: consumer.authority,
+    token: consumer.token,
   };
 }
 
 const EXTERNAL = {
-  runId: "farm-run-1",
+  runId: "consumer-run-1",
   nodeId: "node-1",
   attempt: 1,
   operation: "generation",
@@ -171,7 +171,7 @@ type ConsumerFixture = ReturnType<typeof fixture>;
 
 function externalOperation(operation: ConsumerOperation, attempt = 1) {
   return {
-    runId: `farm-${operation}`,
+    runId: `consumer-${operation}`,
     nodeId: `${operation}-node`,
     attempt,
     operation,
@@ -399,7 +399,7 @@ async function writeOperationResults(
         publicationId: publication.id,
         runId,
         position: 0,
-        source: "farm",
+        source: "test",
         asOf: 100,
         views: 10,
       }),
@@ -407,7 +407,7 @@ async function writeOperationResults(
         publicationId: publication.id,
         runId,
         position: 1,
-        source: "farm",
+        source: "test",
         asOf: 200,
         views: 20,
       }),
@@ -688,17 +688,17 @@ describe("consumer principals", () => {
     makeRoot();
     openDomainDb();
     expect(bind()).toBeUndefined();
-    const principal = getConsumerPrincipal(openDomainDb(), "farm");
+    const principal = getConsumerPrincipal(openDomainDb(), "test");
     expect(principal).toMatchObject({
-      id: "consumer_farm",
-      namespace: "farm",
+      id: "consumer_test",
+      namespace: "test",
       identityDigest: DIGEST,
       disabledAt: null,
     });
     expect(bind()).toBeUndefined();
-    expect(getConsumerPrincipal(openDomainDb(), "farm")).toEqual(principal);
-    expect(() => bind("farm", "consumer_other")).toThrow(StoreConflictError);
-    expect(() => bind("farm", "consumer_farm", "b".repeat(64))).toThrow(
+    expect(getConsumerPrincipal(openDomainDb(), "test")).toEqual(principal);
+    expect(() => bind("test", "consumer_other")).toThrow(StoreConflictError);
+    expect(() => bind("test", "consumer_test", "b".repeat(64))).toThrow(
       StoreConflictError,
     );
     expect(() => bind("Farm")).toThrow(/namespace/i);
@@ -710,13 +710,13 @@ describe("consumer principals", () => {
     const root = makeRoot();
     const workspace = createWorkspace({ slug: "mint", name: "Mint" });
     expect(() =>
-      startAgentSession({ workspaceId: workspace.id, agent: "consumer:farm" }),
+      startAgentSession({ workspaceId: workspace.id, agent: "consumer:test" }),
     ).toThrow(/reserved/i);
-    const farm = installFarmConsumer(root);
-    const session = startConsumerSession(farm.authority, {
+    const consumer = installConsumer(root);
+    const session = startConsumerSession(consumer.authority, {
       workspaceId: workspace.id,
     });
-    expect(session.agent).toBe("consumer:farm");
+    expect(session.agent).toBe("consumer:test");
     expect(verifyDomainStore().integrity).toBe("ok");
   });
 
@@ -869,7 +869,7 @@ describe("external operation Runs", () => {
       ]);
 
       revokeConsumerAuthority(scope.authority);
-      const reconnectAuthority = authenticateConsumer("farm", scope.token);
+      const reconnectAuthority = authenticateConsumer("test", scope.token);
       const reconnect = startConsumerSession(reconnectAuthority, {
         workspaceId: scope.workspace.id,
         projectId: scope.project.id,
@@ -1280,11 +1280,11 @@ describe("external operation Runs", () => {
       slug: "project-results",
       name: "Project",
     });
-    const farm = installFarmConsumer(root);
-    const session = startConsumerSession(farm.authority, {
+    const consumer = installConsumer(root);
+    const session = startConsumerSession(consumer.authority, {
       workspaceId: workspace.id,
     });
-    const run = startConsumerOperationRun(farm.authority, {
+    const run = startConsumerOperationRun(consumer.authority, {
       sessionId: session.id,
       workspaceId: workspace.id,
       projectId: project.id,
@@ -1297,7 +1297,7 @@ describe("external operation Runs", () => {
       requestDigest: requestDigest({ prompt: "workspace" }),
     }).run;
     expect(
-      findConsumerOperation(farm.authority, {
+      findConsumerOperation(consumer.authority, {
         sessionId: session.id,
         workspaceId: workspace.id,
         projectId: project.id,
@@ -1330,14 +1330,14 @@ describe("external operation Runs", () => {
     }
 
     const first = listRunResults({
-      context: { sessionId: session.id, consumerAuthority: farm.authority },
+      context: { sessionId: session.id, consumerAuthority: consumer.authority },
       runId: run.id,
       limit: 2,
     });
     expect(first.items).toHaveLength(2);
     expect(first.nextCursor).not.toBeNull();
     const second = listRunResults({
-      context: { sessionId: session.id, consumerAuthority: farm.authority },
+      context: { sessionId: session.id, consumerAuthority: consumer.authority },
       runId: run.id,
       after: first.nextCursor,
       limit: 2,
@@ -1661,7 +1661,7 @@ describe("external provenance corruption", () => {
     ).run();
     db.prepare(
       `INSERT INTO agent_sessions (id, workspace_id, agent, consumer_principal_id, started_at)
-       VALUES ('session_orphan', ?, 'consumer:farm', 'consumer_gone', 1)`,
+       VALUES ('session_orphan', ?, 'consumer:test', 'consumer_gone', 1)`,
     ).run(scope.workspace.id);
     db.prepare(
       `INSERT INTO agent_sessions (id, workspace_id, agent, consumer_principal_id, started_at)

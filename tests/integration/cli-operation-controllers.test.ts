@@ -4,7 +4,7 @@ import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
 import { createProject, createWorkspace } from "../../cli/lib/store/scopes.js";
 import { startConsumerSession } from "../../cli/lib/store/sessions.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
-import { installFarmConsumer } from "../helpers/consumer-auth.js";
+import { installConsumer } from "../helpers/consumer-auth.js";
 
 let root: TmpRoot;
 
@@ -22,13 +22,13 @@ describe("replayable operation controllers", () => {
       slug: "controller-project",
       name: "Controller Project",
     });
-    const consumer = installFarmConsumer(root);
+    const consumer = installConsumer(root);
     const firstSession = startConsumerSession(consumer.authority, {
       workspaceId: workspace.id,
       projectId: project.id,
     });
     const external = {
-      runId: "farm-generation-1",
+      runId: "consumer-generation-1",
       nodeId: "node-1",
       attempt: 1,
       operation: "generation",
@@ -85,7 +85,7 @@ describe("replayable operation controllers", () => {
     root = makeTmpRoot("ralphy-operation-rollback");
     const workspace = createWorkspace({ slug: "primary", name: "Primary" });
     const project = createProject({ workspaceId: workspace.id, slug: "rollback", name: "Rollback" });
-    const consumer = installFarmConsumer(root);
+    const consumer = installConsumer(root);
     const session = startConsumerSession(consumer.authority, {
       workspaceId: workspace.id,
       projectId: project.id,
@@ -98,7 +98,7 @@ describe("replayable operation controllers", () => {
       context: {
         sessionId: session.id,
         external: {
-          runId: "farm-rollback-1",
+          runId: "consumer-rollback-1",
           nodeId: "node-rollback",
           attempt: 1,
           operation: "generation",
