@@ -122,7 +122,7 @@ export const ERROR_CODES = {
     class: "user",
     httpAnalog: 409,
     message: "The domain-store migration is incomplete",
-    hint: "Run `ralphy migrate domain verify` and complete or recover the reported migration.",
+    hint: "Run `ralphy migrate verify` and complete or recover the reported migration.",
     relatedDocs: "docs/superpowers/specs/2026-08-02-sqlite-domain-store-desktop-design.md#system-and-migration",
   },
   E_MIGRATION_LOCKED: {
@@ -150,7 +150,7 @@ export const ERROR_CODES = {
     class: "gate",
     httpAnalog: 422,
     message: "Migration verification failed: {detail}",
-    hint: "Run `ralphy migrate domain verify` and inspect the redacted report before cutover.",
+    hint: "Run `ralphy migrate verify` and inspect the redacted report before cutover.",
     relatedDocs: "docs/superpowers/plans/2026-08-02-full-library-migration-implementation.md#task-7",
   },
   E_MIGRATION_CUTOVER: {
