@@ -2,22 +2,24 @@ import { afterEach, describe, expect, test } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
 import { closeDomainDb, openDomainDb, openDomainDbAt } from "../../cli/lib/store/db.js";
-import { auditMigration } from "../../cli/lib/migration/inventory.js";
-import { createMigrationSourceRoot } from "../../cli/lib/migration/inventory.js";
+import {
+  auditMigration,
+  createMigrationSourceRoot,
+  releaseMaintenanceLock,
+  setMigrationProcessToolsForTesting,
+} from "../../cli/lib/migration/inventory.js";
 import { importScopesAndDocuments } from "../../cli/lib/migration/import.js";
 import { cutoverMigration, migrationStatus, resumeMigration, rollbackCutover, startMigration } from "../../cli/lib/migration/service.js";
 import { stageInventoryObjects } from "../../cli/lib/migration/staging.js";
-import { freezeMigration, verifyMigration } from "../../cli/lib/migration/verify.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 
 let root: TmpRoot | null = null;
-let previousPath: string | undefined;
+let restoreProcessTools: (() => void) | null = null;
 
 afterEach(() => {
   closeDomainDb();
-  if (previousPath === undefined) delete process.env.PATH;
-  else process.env.PATH = previousPath;
-  previousPath = undefined;
+  restoreProcessTools?.();
+  restoreProcessTools = null;
   root?.cleanup();
   root = null;
 });
@@ -27,7 +29,6 @@ describe("domain migration primitives", () => {
     root = makeTmpRoot("ralphy-migration");
     quietProcessTools(root.dir);
     const source = path.join(fs.realpathSync(root.dir), "source", ".ralphy");
-    const verification = path.join(root.dir, "verification");
     fs.mkdirSync(path.join(source, "projects", "alpha", "docs"), { recursive: true });
     fs.mkdirSync(path.join(source, "media"), { recursive: true });
     fs.writeFileSync(path.join(source, "projects", "alpha", "docs", "BRIEF.md"), "# Brief\n");
@@ -74,17 +75,11 @@ describe("domain migration primitives", () => {
     expect(imported.documents).toBe(1);
     const staged = stageInventoryObjects(ctx);
     expect(staged.staged).toBe(1);
-    const frozen = freezeMigration(ctx, { verificationDir: verification });
-    expect(frozen.entryCount).toBeGreaterThan(0);
-    const verified = verifyMigration({ storeRoot: started.storeRoot, runId: started.runId, verificationDir: verification });
-    expect(verified.ok).toBe(true);
-    expect(verified.verificationId).toHaveLength(32);
-    expect(fs.statSync(verified.recordPath).mode & 0o777).toBe(0o600);
-    expect(fs.statSync(frozen.recordPath).mode & 0o777).toBe(0o600);
     stageDb.close();
+    releaseMaintenanceLock(started.lock);
   });
 
-  test("cutover is journaled and rollback restores the original generation", () => {
+  test("cutover and rollback stay disabled without changing either generation", () => {
     root = makeTmpRoot("ralphy-cutover");
     const live = path.join(root.dir, "live", ".ralphy");
     const stage = path.join(root.dir, "stage", ".ralphy");
@@ -95,22 +90,16 @@ describe("domain migration primitives", () => {
     fs.writeFileSync(path.join(stage, "generation.txt"), "sqlite");
     fs.writeFileSync(verification, JSON.stringify({ runId: "mig_cutover", verificationId: "verify_cutover", ok: true }), { mode: 0o600 });
 
-    const journal = cutoverMigration({
+    expect(() => cutoverMigration({
       runId: "mig_cutover",
       verificationId: "verify_cutover",
       verificationPath: verification,
       sourcePath: live,
       stagePath: stage,
-    });
-    expect(journal.state).toBe("installed");
-    expect(fs.readFileSync(path.join(live, "generation.txt"), "utf8")).toBe("sqlite");
-    expect(fs.readFileSync(path.join(journal.recoveryPath, "generation.txt"), "utf8")).toBe("legacy");
-    expect(fs.statSync(journal.journalPath).mode & 0o777).toBe(0o600);
-
-    const rolledBack = rollbackCutover({ journalPath: journal.journalPath, runId: "mig_cutover" });
-    expect(rolledBack.state).toBe("rolled-back");
+    })).toThrow(/unavailable|disabled/i);
+    expect(() => rollbackCutover({ journalPath: path.join(root.dir, "missing-journal"), runId: "mig_cutover" })).toThrow(/unavailable|disabled/i);
     expect(fs.readFileSync(path.join(live, "generation.txt"), "utf8")).toBe("legacy");
-    expect(fs.readFileSync(path.join(journal.rollbackPath, "generation.txt"), "utf8")).toBe("sqlite");
+    expect(fs.readFileSync(path.join(stage, "generation.txt"), "utf8")).toBe("sqlite");
   });
 
   test("migration service writes only to its derived store root", async () => {
@@ -131,7 +120,8 @@ describe("domain migration primitives", () => {
 
     expect(fs.existsSync(path.join(started.storeRoot, "ralphy.db"))).toBe(true);
     expect(fs.existsSync(path.join(root.dir, ".ralphy", "ralphy.db"))).toBe(false);
-    expect(migrationStatus({ runId: started.runId, storeRoot: started.storeRoot })?.phase).toBe("inventory");
+    expect(migrationStatus({ runId: started.runId, sourcePath: source }).phase).toBe("inventory");
+    releaseMaintenanceLock(started.lock);
   });
 
   test("imports same-kind sources by immutable source identity", async () => {
@@ -166,6 +156,7 @@ describe("domain migration primitives", () => {
       expect(importedBodies.map((row) => row.body)).toEqual(["first-source\n", "second-source\n"]);
     } finally {
       db.close();
+      releaseMaintenanceLock(started.lock);
     }
   });
 });
@@ -173,10 +164,12 @@ describe("domain migration primitives", () => {
 function quietProcessTools(directory: string): void {
   const bin = path.join(directory, "quiet-bin");
   fs.mkdirSync(bin, { recursive: true });
-  fs.writeFileSync(path.join(bin, "ps"), `#!/bin/sh\nif [ "$1" = "-o" ] && [ "$2" = "lstart=" ]; then exec /bin/ps "$@"; fi\nexit 0\n`);
-  fs.writeFileSync(path.join(bin, "lsof"), "#!/bin/sh\nexit 0\n");
+  fs.writeFileSync(path.join(bin, "ps"), `#!/bin/sh\nif [ "$1" = "-o" ] && [ "$2" = "lstart=" ]; then exec /bin/ps "$@"; fi\nprintf ' 1 launchd launchd\\n'\n`);
+  fs.writeFileSync(path.join(bin, "lsof"), "#!/bin/sh\nprintf 'p1\\nclaunchd\\nfcwd\\nn/\\n'\n");
   fs.chmodSync(path.join(bin, "ps"), 0o700);
   fs.chmodSync(path.join(bin, "lsof"), 0o700);
-  previousPath = process.env.PATH;
-  process.env.PATH = `${bin}:${previousPath ?? ""}`;
+  restoreProcessTools = setMigrationProcessToolsForTesting({
+    psPath: path.join(bin, "ps"),
+    lsofPath: path.join(bin, "lsof"),
+  });
 }

@@ -2,7 +2,6 @@ import { Database } from "bun:sqlite";
 import { createHash, randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { newDomainId } from "../store/ids.js";
 import {
@@ -77,7 +76,11 @@ export function auditMigration(input: MigrationAuditInput): MigrationAudit {
       requiredCopyBytes,
     }));
   }
-  const processes = scanMigrationProcesses(roots.map((root) => root.path));
+  const processScan = scanMigrationProcesses(roots.map((root) => root.path));
+  const processes = processScan.status === "ok" ? processScan.processes : [];
+  if (processScan.status === "unknown") {
+    blockers.push(issue("MIGRATION_PROCESS_SCAN_UNKNOWN", "block", { reason: processScan.reason }));
+  }
   for (const process of processes) {
     blockers.push(issue("MIGRATION_WRITER_ACTIVE", "block", process));
   }
@@ -204,22 +207,6 @@ export function acquireMaintenanceLock(input: {
   const sourceStat = lstatRequired(sourcePath);
   if (!sourceStat.isDirectory() || sourceStat.isSymbolicLink()) throw new Error("Migration source must be a real directory");
   const lockPath = path.join(path.dirname(sourcePath), ".ralphy-migration.lock");
-  if (fs.existsSync(lockPath)) {
-    const existing = readLock(lockPath);
-    if (
-      !input.reclaim
-      || !existing
-      || existing.runId !== input.runId
-      || existing.sourcePath !== sourcePath
-      || existing.sourceDevice !== String(sourceStat.dev)
-      || existing.sourceInode !== String(sourceStat.ino)
-      || existing.uid !== (typeof process.getuid === "function" ? process.getuid() : 0)
-      || lockOwnerIsLive(existing)
-    ) {
-      throw new Error("Migration maintenance lock is already held");
-    }
-    fs.unlinkSync(lockPath);
-  }
   const lock: MigrationLock = {
     path: lockPath,
     runId: input.runId,
@@ -232,25 +219,53 @@ export function acquireMaintenanceLock(input: {
     uid: typeof process.getuid === "function" ? process.getuid() : 0,
     createdAt: Date.now(),
   };
-  const fd = fs.openSync(lockPath, "wx", 0o600);
+  const guard = acquireLockMutationGuard(lockPath);
   try {
-    fs.fchmodSync(fd, 0o600);
-    fs.writeFileSync(fd, `${JSON.stringify(lock)}\n`, { encoding: "utf8" });
-    fs.fsyncSync(fd);
+    const snapshot = readLockSnapshot(lockPath);
+    if (!snapshot) {
+      if (fs.existsSync(lockPath)) throw new Error("Migration maintenance lock is invalid");
+      writeLockFile(lock);
+      return lock;
+    }
+    const existing = snapshot.lock;
+    if (
+      !input.reclaim
+      || existing.runId !== input.runId
+      || existing.sourcePath !== sourcePath
+      || existing.sourceDevice !== String(sourceStat.dev)
+      || existing.sourceInode !== String(sourceStat.ino)
+      || existing.uid !== (typeof process.getuid === "function" ? process.getuid() : 0)
+      || !["absent", "different"].includes(lockOwnerState(existing))
+    ) {
+      throw new Error("Migration maintenance lock is already held");
+    }
+    const current = readLockSnapshot(lockPath);
+    if (
+      !current
+      || current.device !== snapshot.device
+      || current.inode !== snapshot.inode
+      || !sameLockIdentity(current.lock, snapshot.lock)
+    ) throw new Error("Migration maintenance lock changed during reclaim");
+    fs.unlinkSync(lockPath);
+    writeLockFile(lock);
+    return lock;
   } finally {
-    fs.closeSync(fd);
+    releaseLockMutationGuard(guard);
   }
-  fsyncDirectory(path.dirname(lockPath));
-  return lock;
 }
 
 export function releaseMaintenanceLock(lock: MigrationLock): void {
-  const current = readLock(lock.path);
-  if (!current || !sameLockIdentity(current, lock)) {
-    throw new Error("Migration lock identity does not match");
+  const guard = acquireLockMutationGuard(lock.path);
+  try {
+    const current = readLock(lock.path);
+    if (!current || !sameLockIdentity(current, lock)) {
+      throw new Error("Migration lock identity does not match");
+    }
+    fs.unlinkSync(lock.path);
+    fsyncDirectory(path.dirname(lock.path));
+  } finally {
+    releaseLockMutationGuard(guard);
   }
-  fs.unlinkSync(lock.path);
-  fsyncDirectory(path.dirname(lock.path));
 }
 
 export function readMigrationStatus(db: MigrationContext["db"], runId: string): MigrationStatus | null {
@@ -309,7 +324,7 @@ function walkReadOnly(root: string, kind: MigrationSourceKind, blockers: Migrati
     }
     for (const child of children.sort((left, right) => left.name.localeCompare(right.name))) {
       const absolute = path.join(current, child.name);
-      const stat = lstatSafe(absolute, blockers, kind);
+      const stat = lstatSafe(absolute, blockers, kind, true);
       if (!stat) continue;
       entries += 1;
       if (stat.isDirectory()) visit(absolute);
@@ -506,6 +521,24 @@ function discoverProjects(root: string, kind: MigrationSourceKind, blockers: Mig
   }
   const registryProjects = new Set<string>();
   for (const candidate of legacyRegistryPaths(root)) {
+    let stat: fs.Stats;
+    try {
+      stat = fs.lstatSync(candidate);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+      blockers.push(issue("MIGRATION_REGISTRY_UNREADABLE", "block", {
+        kind,
+        registry: path.basename(candidate),
+      }));
+      continue;
+    }
+    if (!stat.isFile() || stat.isSymbolicLink()) {
+      blockers.push(issue("MIGRATION_REGISTRY_UNREADABLE", "block", {
+        kind,
+        registry: path.basename(candidate),
+      }));
+      continue;
+    }
     try {
       const parsed = JSON.parse(fs.readFileSync(candidate, "utf8")) as Record<string, unknown>;
       const projects = Array.isArray(parsed.projects)
@@ -520,7 +553,10 @@ function discoverProjects(root: string, kind: MigrationSourceKind, blockers: Mig
         else if (project && typeof project === "object" && typeof (project as Record<string, unknown>).id === "string") registryProjects.add((project as Record<string, string>).id);
       }
     } catch {
-      // Registry is optional; malformed registry is reported by semantic import.
+      blockers.push(issue("MIGRATION_REGISTRY_UNREADABLE", "block", {
+        kind,
+        registry: path.basename(candidate),
+      }));
     }
   }
   return { workspaces, physicalProjects, registryProjects };
@@ -531,11 +567,19 @@ function readJobStatusCounts(root: string, blockers: MigrationIssue[]): Record<s
   if (!fs.existsSync(file)) return {};
   const sources = [file, `${file}-wal`, `${file}-shm`].filter((candidate) => fs.existsSync(candidate));
   const before = Object.fromEntries(sources.map((candidate) => [candidate, fileFingerprint(candidate)]));
-  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-jobs-audit-"));
   let db: Database | null = null;
   try {
-    for (const source of sources) fs.copyFileSync(source, path.join(temporary, path.basename(source)));
-    db = new Database(path.join(temporary, "jobs.db"), { readonly: true });
+    const wal = `${file}-wal`;
+    if (fs.existsSync(wal) && fs.lstatSync(wal).size > 0) {
+      for (const source of sources) {
+        if (fileFingerprint(source) !== before[source]) throw new Error("Legacy jobs source changed during audit");
+      }
+      blockers.push(issue("MIGRATION_JOBS_WAL_UNMATERIALIZED", "block", { database: "jobs" }));
+      return {};
+    }
+    const image = fs.readFileSync(file);
+    normalizeSerializedJournalMode(image);
+    db = Database.deserialize(image, { readonly: true });
     db.exec("PRAGMA query_only = ON");
     const rows = db.query<{ status: string; count: number }, []>(
       "SELECT status, COUNT(*) AS count FROM jobs GROUP BY status ORDER BY status",
@@ -549,13 +593,20 @@ function readJobStatusCounts(root: string, blockers: MigrationIssue[]): Record<s
     return {};
   } finally {
     db?.close();
-    fs.rmSync(temporary, { recursive: true, force: true });
   }
 }
 
 function fileFingerprint(file: string): string {
   const stat = fs.lstatSync(file);
   return `${stat.dev}\0${stat.ino}\0${stat.mode}\0${stat.size}\0${stat.mtimeMs}\0${sha256(fs.readFileSync(file))}`;
+}
+
+function normalizeSerializedJournalMode(image: Buffer): void {
+  if (image.subarray(0, 16).toString("binary") !== "SQLite format 3\0") return;
+  if (image[18] === 2 && image[19] === 2) {
+    image[18] = 1;
+    image[19] = 1;
+  }
 }
 
 function countDesktopCandidates(
@@ -584,9 +635,33 @@ function mergeCounts(target: Record<string, number>, source: Record<string, numb
   for (const [key, value] of Object.entries(source)) target[key] = (target[key] ?? 0) + value;
 }
 
-export function scanMigrationProcesses(roots: readonly string[]): Array<{ category: string; pid: number; count: number }> {
+export type MigrationProcess = { category: string; pid: number; count: number };
+export type MigrationProcessScan =
+  | { status: "ok"; processes: MigrationProcess[] }
+  | { status: "unknown"; processes: []; reason: string };
+export type MigrationProcessTools = {
+  psPath?: string;
+  lsofPath?: string;
+  maxBuffer?: number;
+};
+let testProcessTools: MigrationProcessTools | null = null;
+
+export function setMigrationProcessToolsForTesting(tools: MigrationProcessTools): () => void {
+  if (process.env.NODE_ENV !== "test") throw new Error("Migration process test tools require the test runtime");
+  const previous = testProcessTools;
+  testProcessTools = tools;
+  return () => {
+    testProcessTools = previous;
+  };
+}
+
+export function scanMigrationProcesses(
+  roots: readonly string[],
+  tools: MigrationProcessTools = {},
+): MigrationProcessScan {
+  tools = Object.keys(tools).length === 0 && testProcessTools ? testProcessTools : tools;
   const canonicalRoots = roots.map((root) => fs.realpathSync(root));
-  const found = new Map<string, { category: string; pid: number; count: number }>();
+  const found = new Map<string, MigrationProcess>();
   const record = (category: string, pid: number): void => {
     if (pid === process.pid) return;
     const key = `${category}:${pid}`;
@@ -594,52 +669,81 @@ export function scanMigrationProcesses(roots: readonly string[]): Array<{ catego
     if (current) current.count += 1;
     else found.set(key, { category, pid, count: 1 });
   };
-  const processes = spawnSync("ps", ["-axo", "pid=,comm=,args="], {
-    encoding: "utf8",
-    env: process.env,
-  });
-  if (processes.status === 0) {
-    for (const line of processes.stdout.split("\n")) {
-      const match = line.match(/^\s*(\d+)\s+(\S+)\s+(.*)$/);
-      if (!match) continue;
-      const pid = Number(match[1]);
-      const command = `${match[2]} ${match[3]}`.toLowerCase();
-      const targetsRoot = canonicalRoots.some((root) => command.includes(root.toLowerCase()));
-      const category = /ralphy\.app|ralphy-desktop|electron[^\n]*ralphy/.test(command) ? "desktop"
-        : /ralphy[^\n]*(daemon|worker)/.test(command) ? "watcher"
-          : targetsRoot && /(^|\s)(watchexec|entr)(\s|$)|chokidar|--watch/.test(command) ? "watcher"
-            : targetsRoot && /ffmpeg|hyperframes|remotion|ralphy[^\n]*(generate|render)/.test(command) ? "generation"
-              : targetsRoot && /ralphy[^\n]*publish|postiz/.test(command) ? "publishing"
-              : null;
-      if (category) record(category, pid);
-    }
+  const psPath = trustedProcessTool(tools.psPath, "/bin/ps");
+  const lsofPath = trustedProcessTool(tools.lsofPath, "/usr/sbin/lsof");
+  if (!psPath || !lsofPath) {
+    return { status: "unknown", processes: [], reason: "process inspection tool unavailable" };
   }
-  const openFiles = spawnSync("lsof", ["-n", "-P", "-F", "pcfn"], {
+  const maxBuffer = tools.maxBuffer ?? 64 * 1024 ** 2;
+  const processes = spawnSync(psPath, ["-axo", "pid=,comm=,args="], {
     encoding: "utf8",
     env: process.env,
-    maxBuffer: 64 * 1024 ** 2,
+    maxBuffer,
   });
-  if (openFiles.status === 0 || openFiles.status === 1) {
-    let pid = 0;
-    let descriptor = "";
-    for (const line of openFiles.stdout.split("\n")) {
-      if (line.startsWith("p")) pid = Number(line.slice(1));
-      else if (line.startsWith("f")) descriptor = line.slice(1);
-      else if (line.startsWith("n") && pid !== process.pid) {
-        const target = line.slice(1);
-        if (canonicalRoots.some((root) => target === root || target.startsWith(`${root}${path.sep}`))) {
-          record(descriptor === "cwd" ? "source-cwd" : "source-open-file", pid);
-        }
+  if (processes.error || processes.signal || processes.status !== 0) {
+    return { status: "unknown", processes: [], reason: "process listing failed" };
+  }
+  let parsedProcesses = 0;
+  for (const line of processes.stdout.split("\n")) {
+    const match = line.match(/^\s*(\d+)\s+(\S+)\s+(.*)$/);
+    if (!match) continue;
+    parsedProcesses += 1;
+    const pid = Number(match[1]);
+    const command = `${match[2]} ${match[3]}`.toLowerCase();
+    const targetsRoot = canonicalRoots.some((root) => command.includes(root.toLowerCase()));
+    const category = /ralphy\.app|ralphy-desktop|electron[^\n]*ralphy/.test(command) ? "desktop"
+      : /ralphy[^\n]*(daemon|worker)/.test(command) ? "watcher"
+        : targetsRoot && /(^|\s)(watchexec|entr)(\s|$)|chokidar|--watch/.test(command) ? "watcher"
+          : targetsRoot && /ffmpeg|hyperframes|remotion|ralphy[^\n]*(generate|render)/.test(command) ? "generation"
+            : targetsRoot && /ralphy[^\n]*publish|postiz/.test(command) ? "publishing"
+            : null;
+    if (category) record(category, pid);
+  }
+  if (parsedProcesses === 0) {
+    return { status: "unknown", processes: [], reason: "process listing was invalid" };
+  }
+  const openFiles = spawnSync(lsofPath, ["-n", "-P", "-F", "pcfn"], {
+    encoding: "utf8",
+    env: process.env,
+    maxBuffer,
+  });
+  if (openFiles.error || openFiles.signal || openFiles.status !== 0) {
+    return { status: "unknown", processes: [], reason: "open-file inspection failed" };
+  }
+  let pid = 0;
+  let descriptor = "";
+  let parsedOwners = 0;
+  for (const line of openFiles.stdout.split("\n")) {
+    if (line.startsWith("p") && /^p\d+$/.test(line)) {
+      pid = Number(line.slice(1));
+      parsedOwners += 1;
+    } else if (line.startsWith("f")) descriptor = line.slice(1);
+    else if (line.startsWith("n") && pid !== process.pid) {
+      const target = line.slice(1);
+      if (canonicalRoots.some((root) => target === root || target.startsWith(`${root}${path.sep}`))) {
+        record(descriptor === "cwd" ? "source-cwd" : "source-open-file", pid);
       }
     }
   }
-  return [...found.values()].sort((left, right) => left.category.localeCompare(right.category) || left.pid - right.pid);
+  if (parsedOwners === 0) {
+    return { status: "unknown", processes: [], reason: "open-file inspection was invalid" };
+  }
+  return {
+    status: "ok",
+    processes: [...found.values()].sort((left, right) => left.category.localeCompare(right.category) || left.pid - right.pid),
+  };
 }
 
-export function assertMigrationQuiescent(_roots: readonly string[]): void {
-  const processes = scanMigrationProcesses(_roots);
-  if (processes.length > 0) {
-    throw new Error(`Migration source is not quiescent: ${JSON.stringify(processes)}`);
+export function assertMigrationQuiescent(
+  roots: readonly string[],
+  tools: MigrationProcessTools = {},
+): void {
+  const scan = scanMigrationProcesses(roots, tools);
+  if (scan.status === "unknown") {
+    throw new Error(`Migration quiescence is unknown: ${scan.reason}`);
+  }
+  if (scan.processes.length > 0) {
+    throw new Error(`Migration source is not quiescent: ${JSON.stringify(scan.processes)}`);
   }
 }
 
@@ -659,20 +763,63 @@ function requireCurrentMaintenanceLock(sources: readonly MigrationSourceRoot[], 
 }
 
 function processStartIdentity(pid: number): string {
-  const result = spawnSync("ps", ["-o", "lstart=", "-p", String(pid)], {
+  const inspection = inspectProcessStart(pid);
+  if (inspection.status !== "present") throw new Error("Migration process-start identity is unavailable");
+  return inspection.identity;
+}
+
+export type ProcessStartInspection =
+  | { status: "present"; identity: string }
+  | { status: "absent" }
+  | { status: "unknown"; reason: string };
+
+export function inspectProcessStart(pid: number, requestedPsPath?: string): ProcessStartInspection {
+  const alive = processPresence(pid);
+  if (alive !== "present") return alive === "absent"
+    ? { status: "absent" }
+    : { status: "unknown", reason: "process presence is unknown" };
+  const psPath = trustedProcessTool(requestedPsPath ?? testProcessTools?.psPath, "/bin/ps");
+  if (!psPath) return { status: "unknown", reason: "process-start tool unavailable" };
+  const result = spawnSync(psPath, ["-o", "lstart=", "-p", String(pid)], {
     encoding: "utf8",
     env: process.env,
   });
-  const value = result.status === 0 ? result.stdout.trim() : "";
-  if (!value) throw new Error("Migration process-start identity is unavailable");
-  return value;
+  const value = !result.error && !result.signal && result.status === 0 ? result.stdout.trim() : "";
+  if (value) return { status: "present", identity: value };
+  if (processPresence(pid) === "absent") return { status: "absent" };
+  return { status: "unknown", reason: "process-start inspection failed" };
 }
 
-function lockOwnerIsLive(lock: MigrationLock): boolean {
+function lockOwnerState(lock: MigrationLock): "same" | "different" | "absent" | "unknown" {
+  const inspection = inspectProcessStart(lock.pid);
+  if (inspection.status === "absent") return "absent";
+  if (inspection.status === "unknown") return "unknown";
+  return inspection.identity === lock.processStartIdentity ? "same" : "different";
+}
+
+function processPresence(pid: number): "present" | "absent" | "unknown" {
+  if (!Number.isSafeInteger(pid) || pid <= 0) return "unknown";
   try {
-    return processStartIdentity(lock.pid) === lock.processStartIdentity;
+    process.kill(pid, 0);
+    return "present";
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ESRCH") return "absent";
+    if (code === "EPERM") return "present";
+    return "unknown";
+  }
+}
+
+function trustedProcessTool(requested: string | undefined, fallback: string): string | null {
+  const candidate = requested ?? fallback;
+  if (!path.isAbsolute(candidate)) return null;
+  try {
+    const stat = fs.lstatSync(candidate);
+    if (!stat.isFile() || stat.isSymbolicLink()) return null;
+    fs.accessSync(candidate, fs.constants.X_OK);
+    return candidate;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -733,11 +880,20 @@ function lstatRequired(value: string): fs.Stats {
   return stat;
 }
 
-function lstatSafe(value: string, blockers: MigrationIssue[], kind: MigrationSourceKind): fs.Stats | null {
+function lstatSafe(
+  value: string,
+  blockers: MigrationIssue[],
+  kind: MigrationSourceKind,
+  coverageEntry = false,
+): fs.Stats | null {
   try {
     const stat = fs.lstatSync(value);
     if (stat.isSymbolicLink() || (!stat.isDirectory() && !stat.isFile())) {
-      blockers.push(issue("MIGRATION_UNSAFE_ENTRY", "block", { kind, entryKind: entryKind(stat) }));
+      blockers.push(issue(
+        coverageEntry ? "MIGRATION_COVERAGE_ENTRY" : "MIGRATION_UNSAFE_ENTRY",
+        coverageEntry ? "review" : "block",
+        { kind, entryKind: entryKind(stat) },
+      ));
     }
     return stat;
   } catch {
@@ -746,12 +902,20 @@ function lstatSafe(value: string, blockers: MigrationIssue[], kind: MigrationSou
   }
 }
 
+type LockSnapshot = { lock: MigrationLock; device: string; inode: string };
+
 function readLock(lockPath: string): MigrationLock | null {
+  return readLockSnapshot(lockPath)?.lock ?? null;
+}
+
+function readLockSnapshot(lockPath: string): LockSnapshot | null {
+  let fd: number | null = null;
   try {
-    const stat = fs.lstatSync(lockPath);
-    if (!stat.isFile() || stat.isSymbolicLink() || (stat.mode & 0o777) !== 0o600) return null;
-    const parsed = JSON.parse(fs.readFileSync(lockPath, "utf8")) as MigrationLock;
-    return parsed
+    fd = fs.openSync(lockPath, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    const stat = fs.fstatSync(fd);
+    if (!stat.isFile() || (stat.mode & 0o777) !== 0o600) return null;
+    const parsed = JSON.parse(fs.readFileSync(fd, "utf8")) as MigrationLock;
+    const lock = parsed
       && parsed.path === lockPath
       && typeof parsed.runId === "string"
       && typeof parsed.nonce === "string"
@@ -765,9 +929,79 @@ function readLock(lockPath: string): MigrationLock | null {
       && Number.isFinite(parsed.createdAt)
       ? parsed
       : null;
+    return lock ? { lock, device: String(stat.dev), inode: String(stat.ino) } : null;
   } catch {
     return null;
+  } finally {
+    if (fd !== null) fs.closeSync(fd);
   }
+}
+
+type LockMutationGuard = { path: string; fd: number; device: string; inode: string };
+
+function acquireLockMutationGuard(lockPath: string): LockMutationGuard {
+  const guardPath = `${lockPath}.reclaim`;
+  let fd: number;
+  try {
+    fd = fs.openSync(guardPath, "wx", 0o600);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+      throw new Error("Migration maintenance lock reclaim guard is already held");
+    }
+    throw error;
+  }
+  try {
+    fs.fchmodSync(fd, 0o600);
+    fs.writeFileSync(fd, `${JSON.stringify({ pid: process.pid, nonce: randomUUID() })}\n`, "utf8");
+    fs.fsyncSync(fd);
+    const stat = fs.fstatSync(fd);
+    fsyncDirectory(path.dirname(guardPath));
+    return { path: guardPath, fd, device: String(stat.dev), inode: String(stat.ino) };
+  } catch (error) {
+    try {
+      const opened = fs.fstatSync(fd);
+      const current = fs.lstatSync(guardPath);
+      if (
+        current.isFile()
+        && !current.isSymbolicLink()
+        && current.dev === opened.dev
+        && current.ino === opened.ino
+      ) fs.unlinkSync(guardPath);
+    } catch {
+      // Preserve the original guard-creation failure; a leftover guard fails closed.
+    } finally {
+      fs.closeSync(fd);
+    }
+    throw error;
+  }
+}
+
+function releaseLockMutationGuard(guard: LockMutationGuard): void {
+  try {
+    const stat = fs.lstatSync(guard.path);
+    if (
+      !stat.isFile()
+      || stat.isSymbolicLink()
+      || String(stat.dev) !== guard.device
+      || String(stat.ino) !== guard.inode
+    ) throw new Error("Migration maintenance lock reclaim guard identity changed");
+    fs.unlinkSync(guard.path);
+    fsyncDirectory(path.dirname(guard.path));
+  } finally {
+    fs.closeSync(guard.fd);
+  }
+}
+
+function writeLockFile(lock: MigrationLock): void {
+  const fd = fs.openSync(lock.path, "wx", 0o600);
+  try {
+    fs.fchmodSync(fd, 0o600);
+    fs.writeFileSync(fd, `${JSON.stringify(lock)}\n`, { encoding: "utf8" });
+    fs.fsyncSync(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
+  fsyncDirectory(path.dirname(lock.path));
 }
 
 function assertNoSymlinkComponents(value: string): void {

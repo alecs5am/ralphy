@@ -1,6 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
-import { closeDomainDb, openDomainDbAt } from "../store/db.js";
+import { Database } from "bun:sqlite";
+import { openDomainDbAt } from "../store/db.js";
 import { newDomainId } from "../store/ids.js";
 import {
   acquireMaintenanceLock,
@@ -19,13 +20,6 @@ import type {
   MigrationSourceRoot,
   MigrationStatus,
 } from "./types.js";
-import {
-  createCutoverJournal,
-  executeCutover,
-  readCutoverJournal,
-  recoverCutover as recoverCutoverJournal,
-  rollbackCutover as rollbackCutoverJournal,
-} from "./cutover-journal.js";
 
 export type StartMigrationInput = {
   sourceRoots: readonly { id?: string; kind: MigrationSourceRoot["kind"]; path: string }[];
@@ -75,6 +69,7 @@ export function startMigration(input: StartMigrationInput): StartMigrationResult
       const status = readMigrationStatus(db, runId);
       if (!status) throw new Error("Migration Run was not created");
       assertMigrationQuiescent([...roots.map((root) => root.path), paths.storeRoot]);
+      db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
       return { runId, storeRoot: paths.storeRoot, lock, cloneSupport, audit, status };
     } finally {
       db.close();
@@ -98,6 +93,10 @@ export async function resumeMigration(input: {
   if (input.storeRoot !== undefined && path.resolve(input.storeRoot) !== expectedStoreRoot) {
     throw new Error("Migration store target does not match the derived Run stage");
   }
+  const validated = readValidatedRun(source.path, input.runId, expectedStoreRoot);
+  if (validated.phase === "failed" || validated.phase === "cutover" || validated.phase === "rolled-back") {
+    throw new Error("Migration Run is terminal");
+  }
   if (!input.lock) {
     acquireMaintenanceLock({
       sourcePath: source.path,
@@ -108,10 +107,13 @@ export async function resumeMigration(input: {
   assertMigrationQuiescent([...roots.map((root) => root.path), expectedStoreRoot]);
   const db = openDomainDbAt(expectedStoreRoot);
   try {
-    const row = db.query<{ phase: MigrationPhase }, [string]>(
-      "SELECT phase FROM migration_runs WHERE id = ?",
+    const row = db.query<{ phase: MigrationPhase; stageRootRel: string | null }, [string]>(
+      "SELECT phase, stage_root_rel AS stageRootRel FROM migration_runs WHERE id = ?",
     ).get(input.runId);
     if (!row) throw new Error("Migration Run not found");
+    if (row.stageRootRel !== migrationPaths(source.path, input.runId).stageRootRel) {
+      throw new Error("Migration Run stage does not match its derived store");
+    }
     if (row.phase === "failed" || row.phase === "cutover" || row.phase === "rolled-back") throw new Error("Migration Run is terminal");
     const context: MigrationContext = { db, storeRoot: expectedStoreRoot, sourceRoots: roots, runId: input.runId };
     const inventory = row.phase === "audited" || row.phase === "inventory"
@@ -120,19 +122,29 @@ export async function resumeMigration(input: {
     assertMigrationQuiescent([...roots.map((root) => root.path), expectedStoreRoot]);
     const status = readMigrationStatus(db, input.runId);
     if (!status) throw new Error("Migration Run status is unavailable");
+    db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
     return { status, inventory };
   } finally {
     db.close();
   }
 }
 
-export function migrationStatus(input: { runId: string; storeRoot: string }): MigrationStatus | null {
-  const db = openDomainDbAt(input.storeRoot);
-  try {
-    return readMigrationStatus(db, input.runId);
-  } finally {
-    db.close();
+export function migrationStatus(input: {
+  runId: string;
+  sourcePath: string;
+  storeRoot?: string;
+}): MigrationStatus {
+  const source = createMigrationSourceRoot({ id: "ralphy", kind: "ralphy", path: input.sourcePath });
+  if (path.basename(source.path) !== ".ralphy") throw new Error("Migration status requires the exact .ralphy source");
+  const expectedStoreRoot = migrationPaths(source.path, input.runId).storeRoot;
+  if (input.storeRoot !== undefined && path.resolve(input.storeRoot) !== expectedStoreRoot) {
+    throw new Error("Migration status store does not match the derived Run stage");
   }
+  return withValidatedRun(source.path, input.runId, expectedStoreRoot, (db) => {
+    const status = readMigrationStatus(db, input.runId);
+    if (!status) throw new Error("Migration Run status is unavailable");
+    return status;
+  });
 }
 
 export function markMigrationPhase(input: { runId: string; storeRoot: string; phase: MigrationPhase; error?: { code: string; detail: string } }): void {
@@ -160,25 +172,18 @@ export function cutoverMigration(input: {
   recoveryPath?: string;
   rollbackPath?: string;
 }) {
-  const verification = readVerification(input.verificationPath);
-  if (verification.runId !== input.runId || verification.verificationId !== input.verificationId || verification.ok !== true) {
-    throw new Error("Migration verification does not match the requested cutover");
-  }
-  closeDomainDb();
-  const journal = createCutoverJournal(input);
-  return executeCutover(journal);
+  void input;
+  throw new Error("Migration cutover is unavailable until the Task 7 activation gates are implemented");
 }
 
 export function recoverCutover(input: { journalPath: string; runId: string }) {
-  const journal = readCutoverJournal(input.journalPath);
-  if (journal.runId !== input.runId) throw new Error("Cutover journal Run ID does not match");
-  return recoverCutoverJournal(journal);
+  void input;
+  throw new Error("Migration recovery is unavailable until the Task 8 recovery gates are implemented");
 }
 
 export function rollbackCutover(input: { journalPath: string; runId: string }) {
-  const journal = readCutoverJournal(input.journalPath);
-  if (journal.runId !== input.runId) throw new Error("Cutover journal Run ID does not match");
-  return rollbackCutoverJournal(journal);
+  void input;
+  throw new Error("Migration rollback is unavailable until the Task 8 recovery gates are implemented");
 }
 
 function safeRelative(value: string): string {
@@ -244,6 +249,60 @@ function migrationPaths(source: string, runId: string) {
   };
 }
 
+function readValidatedRun(
+  sourcePath: string,
+  runId: string,
+  storeRoot: string,
+): { phase: MigrationPhase } {
+  return withValidatedRun(sourcePath, runId, storeRoot, (_db, run) => ({ phase: run.phase }));
+}
+
+function withValidatedRun<T>(
+  sourcePath: string,
+  runId: string,
+  storeRoot: string,
+  action: (db: Database, run: { phase: MigrationPhase; stageRootRel: string | null }) => T,
+): T {
+  const paths = migrationPaths(sourcePath, runId);
+  if (path.resolve(storeRoot) !== paths.storeRoot) throw new Error("Migration store does not match the derived Run stage");
+  const databasePath = path.join(paths.storeRoot, "ralphy.db");
+  assertExistingDatabase(databasePath);
+  const walPath = `${databasePath}-wal`;
+  if (fs.existsSync(walPath) && fs.lstatSync(walPath).size > 0) {
+    throw new Error("Migration Run database has an unmaterialized WAL");
+  }
+  const image = fs.readFileSync(databasePath);
+  if (image.subarray(0, 16).toString("binary") === "SQLite format 3\0" && image[18] === 2 && image[19] === 2) {
+    image[18] = 1;
+    image[19] = 1;
+  }
+  const db = Database.deserialize(image, { readonly: true });
+  try {
+    db.exec("PRAGMA query_only = ON");
+    const run = db.query<{ phase: MigrationPhase; stageRootRel: string | null }, [string]>(
+      "SELECT phase, stage_root_rel AS stageRootRel FROM migration_runs WHERE id = ?",
+    ).get(runId);
+    if (!run) throw new Error("Migration Run not found");
+    if (run.stageRootRel !== paths.stageRootRel) throw new Error("Migration Run stage does not match its derived store");
+    return action(db, run);
+  } finally {
+    db.close();
+  }
+}
+
+function assertExistingDatabase(databasePath: string): void {
+  assertExistingAncestorsAreReal(databasePath);
+  let stat: fs.Stats;
+  try {
+    stat = fs.lstatSync(databasePath);
+  } catch {
+    throw new Error("Migration Run database does not exist");
+  }
+  if (!stat.isFile() || stat.isSymbolicLink()) {
+    throw new Error("Migration Run database must be an existing regular file");
+  }
+}
+
 function assertMigrationPathsAvailable(paths: ReturnType<typeof migrationPaths>): void {
   for (const candidate of [paths.runRoot, paths.recoveryRoot, paths.rollbackRoot, paths.journalPath]) {
     assertExistingAncestorsAreReal(candidate);
@@ -281,15 +340,4 @@ function probeCloneSupport(
     fs.rmSync(source, { force: true });
     fs.rmSync(target, { force: true });
   }
-}
-
-function readVerification(file: string): { runId: string; verificationId: string; ok: boolean } {
-  const resolved = path.resolve(file);
-  const stat = fs.statSync(resolved);
-  if (!stat.isFile() || (stat.mode & 0o777) !== 0o600) throw new Error("Migration verification record must be a mode-0600 regular file");
-  const value = JSON.parse(fs.readFileSync(resolved, "utf8")) as Partial<{ runId: string; verificationId: string; ok: boolean }>;
-  if (typeof value.runId !== "string" || typeof value.verificationId !== "string" || typeof value.ok !== "boolean") {
-    throw new Error("Migration verification record is invalid");
-  }
-  return value as { runId: string; verificationId: string; ok: boolean };
 }

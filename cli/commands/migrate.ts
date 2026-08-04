@@ -55,10 +55,10 @@ export function migrateCmd() {
     }));
   command.addCommand(new Command("status")
     .requiredOption("--run-id <id>", "Migration Run ID")
-    .requiredOption("--store-root <path>", "Exact staged .ralphy root")
-    .action((opts: { runId: string; storeRoot: string }) => out(migrationStatus({
+    .requiredOption("--source <path>", "Exact source root used to derive the staged Run")
+    .action((opts: { runId: string; source: string }) => out(migrationStatus({
       runId: opts.runId,
-      storeRoot: opts.storeRoot,
+      sourcePath: opts.source,
     }))));
   command.addCommand(new Command("verify")
     .requiredOption("--run-id <id>", "Migration Run ID")
