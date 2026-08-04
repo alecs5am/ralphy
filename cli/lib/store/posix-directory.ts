@@ -4,10 +4,14 @@ import fs from "node:fs";
 export type DirectoryEntry = {
   bytes: Buffer;
   mode: number;
+  uid: number;
+  dev: number;
+  ino: number;
 };
 
 const ENOENT = 2;
 const EEXIST = 17;
+const RENAME_EXCLUSIVE = process.platform === "darwin" ? 0x4 : 0x1;
 const AT_REMOVEDIR = process.platform === "darwin" ? 0x80 : 0x200;
 const libraryName =
   process.platform === "darwin" ? "/usr/lib/libSystem.B.dylib" : "libc.so.6";
@@ -47,6 +51,10 @@ const native = dlopen(libraryName, {
   },
   ...(process.platform === "darwin"
     ? {
+        renameatx_np: {
+          args: ["i32", "cstring", "i32", "cstring", "u32"],
+          returns: "i32",
+        },
         __getdirentries64: {
           args: ["i32", "buffer", "u64", "ptr"],
           returns: "i64",
@@ -57,6 +65,10 @@ const native = dlopen(libraryName, {
         },
       }
     : {
+        renameat2: {
+          args: ["i32", "cstring", "i32", "cstring", "u32"],
+          returns: "i32",
+        },
         __errno_location: {
           args: [],
           returns: "ptr",
@@ -114,10 +126,98 @@ export function readFileAt(
     if (!stat.isFile() || (maximumBytes !== undefined && stat.size > maximumBytes)) {
       throw new PosixDirectoryError();
     }
-    return { bytes: fs.readFileSync(fd), mode: stat.mode & 0o777 };
+    return {
+      bytes: fs.readFileSync(fd),
+      mode: stat.mode & 0o777,
+      uid: stat.uid,
+      dev: stat.dev,
+      ino: stat.ino,
+    };
   } finally {
     fs.closeSync(fd);
   }
+}
+
+export function openRegularFileAt(directory: number, name: string): number | null {
+  const fd = openAt(
+    directory,
+    component(name),
+    fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW,
+    0,
+  );
+  if (fd < 0) {
+    if (errno() === ENOENT) return null;
+    throw new PosixDirectoryError();
+  }
+  if (!fs.fstatSync(fd).isFile()) {
+    fs.closeSync(fd);
+    throw new PosixDirectoryError();
+  }
+  return fd;
+}
+
+export function createExclusiveRegularFileAt(
+  directory: number,
+  name: string,
+  mode: number,
+): number | null {
+  const fd = openAt(
+    directory,
+    component(name),
+    fs.constants.O_WRONLY |
+      fs.constants.O_CREAT |
+      fs.constants.O_EXCL |
+      fs.constants.O_NOFOLLOW,
+    mode,
+  );
+  if (fd < 0) {
+    if (errno() === EEXIST) return null;
+    throw new PosixDirectoryError();
+  }
+  fs.fchmodSync(fd, mode);
+  return fd;
+}
+
+export function renameExclusiveAt(
+  sourceDirectory: number,
+  sourceName: string,
+  destinationDirectory: number,
+  destinationName: string,
+): boolean {
+  const symbols = native.symbols as unknown as {
+    renameatx_np?: (
+      sourceDirectory: number,
+      sourceName: Buffer,
+      destinationDirectory: number,
+      destinationName: Buffer,
+      flags: number,
+    ) => number;
+    renameat2?: (
+      sourceDirectory: number,
+      sourceName: Buffer,
+      destinationDirectory: number,
+      destinationName: Buffer,
+      flags: number,
+    ) => number;
+  };
+  const result = process.platform === "darwin"
+    ? symbols.renameatx_np!(
+        sourceDirectory,
+        component(sourceName),
+        destinationDirectory,
+        component(destinationName),
+        RENAME_EXCLUSIVE,
+      )
+    : symbols.renameat2!(
+        sourceDirectory,
+        component(sourceName),
+        destinationDirectory,
+        component(destinationName),
+        RENAME_EXCLUSIVE,
+      );
+  if (result === 0) return true;
+  if (errno() === EEXIST) return false;
+  throw new PosixDirectoryError();
 }
 
 export function writeFileAt(

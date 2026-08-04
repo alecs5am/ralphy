@@ -1,7 +1,7 @@
 // Test helper: activity is one store-wide sequence, so scoped views are a
 // local client-side filter over the drained feed, never a store query.
 
-import { listActivity } from "../../cli/lib/store/activity.js";
+import { listGlobalActivity } from "../../cli/lib/store/activity.js";
 import type { ActivityDto } from "../../cli/lib/store/types.js";
 
 export function scopedActivity(
@@ -10,7 +10,7 @@ export function scopedActivity(
   const items: ActivityDto[] = [];
   let afterSequence = 0;
   for (;;) {
-    const page = listActivity({ afterSequence, limit: 100 });
+    const page = listGlobalActivity({ afterSequence, limit: 100 });
     items.push(...page.items);
     if (page.nextCursor === null) break;
     afterSequence = page.nextCursor;

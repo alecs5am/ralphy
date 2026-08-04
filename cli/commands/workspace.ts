@@ -8,12 +8,10 @@ import {
   layoutMode,
   projectDir,
   workspaceDir,
-  workspaceManifestPath,
   workspaceSharedAssetKindDir,
   workspaceUnitsDir,
-  workspacesDir,
 } from "../lib/paths.js";
-import { err, ok, out } from "../lib/output.js";
+import { err, out } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import {
   renderWorkspaceEvalMarkdown,
@@ -25,44 +23,24 @@ import { protectExistingAsset } from "../lib/providers/shared.js";
 import { buildWorkspaceRoi } from "../lib/analytics/roi.js";
 import {
   assertCommandWorkspace,
-  getCommandContext,
 } from "../lib/context-state.js";
 import {
-  parseWorkspaceManifest,
-  WORKSPACE_CHANNELS,
-  type WorkspaceManifest,
-} from "../lib/schemas/workspace.js";
+  createWorkspace,
+  getWorkspace,
+  listSocialAccounts,
+  listWorkspaces,
+  updateWorkspace,
+  upsertSocialAccount,
+} from "../lib/store/scopes.js";
+import { StoreConflictError } from "../lib/store/types.js";
+import { resolveCommandContext } from "../lib/context.js";
+import { ralphDir } from "../lib/paths.js";
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 const SHARED_ASSET_KINDS = ["images", "videos", "voiceover", "music", "sfx", "fonts"];
-const WORKSPACE_DIRS = [
-  ...SHARED_ASSET_KINDS.map((kind) => `shared/assets/${kind}`),
-  "projects",
-  "templates",
-  "batches",
-  "logs",
-  "units",
-];
 
 function requireRalphyLayout(verb: string): void {
   if (layoutMode() === "legacy") raiseError("E_LEGACY_LAYOUT", { verb });
-}
-
-async function readWorkspaceManifest(slug: string): Promise<WorkspaceManifest | null> {
-  try {
-    return parseWorkspaceManifest(
-      JSON.parse(await fs.readFile(workspaceManifestPath(slug), "utf8")),
-    );
-  } catch {
-    return null;
-  }
-}
-
-async function writeWorkspaceManifest(manifest: WorkspaceManifest): Promise<void> {
-  await fs.writeFile(
-    workspaceManifestPath(manifest.slug),
-    JSON.stringify(manifest, null, 2) + "\n",
-  );
 }
 
 async function countDirs(dir: string): Promise<number> {
@@ -95,17 +73,6 @@ async function sharedAssetInventory(slug: string): Promise<Record<string, number
   );
 }
 
-async function workspaceSlugs(): Promise<string[]> {
-  try {
-    return (await fs.readdir(workspacesDir(), { withFileTypes: true }))
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
-      .sort();
-  } catch {
-    return [];
-  }
-}
-
 function requireWorkspace(slug: string): void {
   assertCommandWorkspace(slug);
   if (!existsSync(workspaceDir(slug))) {
@@ -119,94 +86,57 @@ export function workspaceCmd(): Command {
   );
 
   cmd
-    .command("create <slug>")
-    .description("Create an account workspace with shared assets, projects, and content units")
-    .option("--name <name>", "Display name (default: slug)")
-    .option("--description <text>", "Account, studio, or client description")
-    .action(async (slug: string, opts) => {
-      requireRalphyLayout("workspace create");
+    .command("create <name>")
+    .description("Create a Workspace")
+    .option("--as <slug>", "Stable Workspace slug")
+    .option("--name <name>", "Compatibility alias for the display name")
+    .option("--description <text>", "Public Workspace description metadata")
+    .action((positionalName: string, opts) => {
+      const slug = String(opts.as ?? positionalName);
+      const name = String(opts.name ?? positionalName);
       if (!SLUG_RE.test(slug)) {
         raiseError("E_VALIDATION_FAILED", {
           target: "slug",
           detail: `'${slug}' is not a valid workspace slug (lowercase kebab-case)`,
         });
       }
-      if (existsSync(workspaceDir(slug))) {
-        raiseError("E_ALREADY_EXISTS", { kind: "Workspace", id: slug });
+      try {
+        out(
+          createWorkspace({
+            slug,
+            name,
+            ...(opts.description ? { metadata: { description: opts.description } } : {}),
+          }),
+        );
+      } catch (error) {
+        if (String(error).includes("UNIQUE")) {
+          raiseError("E_ALREADY_EXISTS", { kind: "Workspace", id: slug });
+        }
+        throw error;
       }
-      await Promise.all(
-        WORKSPACE_DIRS.map((relative) =>
-          fs.mkdir(path.join(workspaceDir(slug), relative), { recursive: true }),
-        ),
-      );
-      const manifest = parseWorkspaceManifest({
-        slug,
-        name: opts.name || slug,
-        description: opts.description || "",
-        created: new Date().toISOString(),
-      });
-      await writeWorkspaceManifest(manifest);
-      ok(`Workspace created: ${slug}`);
-      out({ ...manifest, path: workspaceDir(slug) });
     });
 
   cmd
     .command("list")
-    .description("List account workspaces")
-    .action(async () => {
-      requireRalphyLayout("workspace list");
-      const context = getCommandContext();
-      const slugs = (await workspaceSlugs()).filter(
-        (slug) => context === null || slug === context.workspaceId,
-      );
-      if (slugs.length === 0) {
-        out([
-          {
-            slug: context?.workspaceId ?? DEFAULT_WORKSPACE,
-            name: context?.workspaceId ?? DEFAULT_WORKSPACE,
-            projects: 0,
-            units: 0,
-            implicit: true,
-          },
-        ]);
-        return;
-      }
+    .description("List Workspaces")
+    .option("--cursor <cursor>", "Continue from an opaque cursor")
+    .option("--limit <count>", "Maximum rows", parseCount)
+    .action((opts, command: Command) => {
+      const context = explicitContext(command);
       out(
-        await Promise.all(
-          slugs.map(async (slug) => {
-            const manifest = await readWorkspaceManifest(slug);
-            return {
-              slug,
-              name: manifest?.name || slug,
-              projects: await countDirs(path.join(workspaceDir(slug), "projects")),
-              units: await countDirs(workspaceUnitsDir(slug)),
-            };
-          }),
-        ),
+        context
+          ? { items: [getWorkspace(context.workspaceId)], nextCursor: null }
+          : listWorkspaces({ cursor: opts.cursor, limit: opts.limit }),
       );
     });
 
   cmd
-    .command("show <slug>")
-    .description("Show account profile, channels, shared assets, projects, and units")
-    .action(async (slug: string) => {
-      requireRalphyLayout("workspace show");
-      requireWorkspace(slug);
-      const manifest = (await readWorkspaceManifest(slug)) ||
-        parseWorkspaceManifest({ slug, name: slug });
-      const projects = (await fs.readdir(path.join(workspaceDir(slug), "projects"), {
-        withFileTypes: true,
-      }).catch(() => []))
-        .filter((entry) => entry.isDirectory())
-        .map((entry) => entry.name)
-        .sort();
-      out({
-        ...manifest,
-        path: workspaceDir(slug),
-        projects,
-        sharedAssets: await sharedAssetInventory(slug),
-        workspaceUnits: await countDirs(workspaceUnitsDir(slug)),
-      });
+    .command("show <id>")
+    .description("Show a Workspace")
+    .action((id: string, _opts, command: Command) => {
+      const workspace = findWorkspace(id);
+      assertWorkspaceContext(command, workspace.id);
+      out(workspace);
     });
 
   cmd
@@ -223,63 +153,67 @@ export function workspaceCmd(): Command {
     });
 
   cmd
-    .command("update <slug>")
-    .description("Update account profile and public channel handles")
+    .command("update <id>")
+    .description("Update Workspace metadata with optimistic concurrency")
     .option("--name <name>", "Workspace name")
-    .option("--description <text>", "Workspace description")
-    .option("--display-name <name>", "Public account display name")
-    .option("--bio <text>", "Public account bio")
-    .option("--language <language>", "Default content language")
-    .option("--timezone <timezone>", "Account timezone")
-    .option("--telegram <handle>", "Telegram channel handle")
-    .option("--x <handle>", "X account handle")
-    .option("--threads <handle>", "Threads account handle")
-    .option("--devto <handle>", "dev.to account handle")
-    .option("--medium <handle>", "Medium account handle")
-    .action(async (slug: string, opts) => {
-      requireRalphyLayout("workspace update");
-      requireWorkspace(slug);
-      const current = await readWorkspaceManifest(slug);
-      if (!current) {
+    .option("--slug <slug>", "Workspace slug")
+    .option("--expected <version>", "Expected row version", parseCount)
+    .action((id: string, opts, command: Command) => {
+      const workspace = findWorkspace(id);
+      assertWorkspaceContext(command, workspace.id);
+      if (opts.expected === undefined) {
         raiseError("E_INPUT_INVALID", {
-          field: "workspace.json",
-          detail: "workspace manifest is missing or invalid",
-          verb: "workspace update",
+          field: "--expected",
+          detail: "an expected row version is required",
         });
       }
-      const profileFields = ["displayName", "bio", "language", "timezone"] as const;
-      const hasPatch =
-        opts.name !== undefined ||
-        opts.description !== undefined ||
-        profileFields.some((key) => opts[key] !== undefined) ||
-        WORKSPACE_CHANNELS.some((channel) => opts[channel] !== undefined);
-      if (!hasPatch) {
-        raiseError("E_INPUT_INVALID", {
-          field: "flags",
-          detail: "nothing to update — pass a profile field or channel handle",
-          verb: "workspace update",
-        });
+      try {
+        out(
+          updateWorkspace(
+            workspace.id,
+            { name: opts.name, slug: opts.slug },
+            opts.expected,
+          ),
+        );
+      } catch (error) {
+        if (error instanceof StoreConflictError) {
+          raiseError("E_CONFLICT", { kind: "Workspace", id: workspace.id });
+        }
+        throw error;
       }
-      const profile = { ...current.profile };
-      for (const key of profileFields) {
-        if (opts[key] !== undefined) profile[key] = String(opts[key]);
+    });
+
+  cmd
+    .command("account <workspace>")
+    .description("List or upsert public social-account metadata")
+    .option("--platform <platform>", "Provider platform")
+    .option("--external-id <id>", "Provider-owned public account ID")
+    .option("--display-name <name>", "Public display name")
+    .option("--username <username>", "Public handle")
+    .option("--cursor <cursor>", "Continue from an opaque cursor")
+    .option("--limit <count>", "Maximum rows", parseCount)
+    .action((workspace: string, opts, command: Command) => {
+      const workspaceId = findWorkspace(workspace).id;
+      assertWorkspaceContext(command, workspaceId);
+      if (opts.platform !== undefined || opts.externalId !== undefined) {
+        if (!opts.platform || !opts.externalId) {
+          raiseError("E_INPUT_INVALID", {
+            field: "workspace account",
+            detail: "--platform and --external-id are required together",
+          });
+        }
+        out(
+          upsertSocialAccount({
+            workspaceId,
+            platform: opts.platform,
+            externalId: opts.externalId,
+            displayName: opts.displayName,
+            username: opts.username,
+          }),
+        );
+        return;
       }
-      const channels: Record<string, { handle?: string } | undefined> = {
-        ...current.channels,
-      };
-      for (const channel of WORKSPACE_CHANNELS) {
-        if (opts[channel] !== undefined) channels[channel] = { handle: String(opts[channel]) };
-      }
-      const updated = parseWorkspaceManifest({
-        ...current,
-        name: opts.name ?? current.name,
-        description: opts.description ?? current.description,
-        profile,
-        channels,
-      });
-      await writeWorkspaceManifest(updated);
-      ok(`Workspace updated: ${slug}`);
-      out(updated);
+      out(listSocialAccounts({ workspaceId, cursor: opts.cursor, limit: opts.limit }));
     });
 
   cmd
@@ -351,4 +285,51 @@ export function workspaceCmd(): Command {
 
 function collect(value: string, previous: string[]): string[] {
   return [...previous, value];
+}
+
+function findWorkspace(idOrSlug: string) {
+  try {
+    return getWorkspace(idOrSlug);
+  } catch {
+    let cursor: string | null = null;
+    do {
+      const page = listWorkspaces({ cursor, limit: 100 });
+      const workspace = page.items.find((item) => item.slug === idOrSlug);
+      if (workspace) return workspace;
+      cursor = page.nextCursor;
+    } while (cursor !== null);
+    raiseError("E_NOT_FOUND", { kind: "Workspace", id: idOrSlug });
+  }
+}
+
+function parseCount(value: string): number {
+  const count = Number(value);
+  if (!Number.isSafeInteger(count) || count <= 0) {
+    throw new Error("Expected a positive integer");
+  }
+  return count;
+}
+
+function explicitContext(command: Command) {
+  const opts = command.optsWithGlobals();
+  if (!opts.session && !opts.workspace && !opts.project) return null;
+  return resolveCommandContext({
+    dataRoot: ralphDir(),
+    sessionId: opts.session,
+    workspaceId: opts.workspace,
+    projectId: opts.project,
+    cwd: process.cwd(),
+  });
+}
+
+function assertWorkspaceContext(command: Command, workspaceId: string): void {
+  const opts = command.optsWithGlobals();
+  if (!opts.session && !opts.workspace && !opts.project) return;
+  resolveCommandContext({
+    dataRoot: ralphDir(),
+    sessionId: opts.session,
+    workspaceId,
+    projectId: opts.project,
+    cwd: process.cwd(),
+  });
 }

@@ -34,6 +34,29 @@ type ArtifactScope =
   | { workspaceId: string; projectId?: never }
   | { workspaceId?: never; projectId: string };
 
+/** Narrows broad Workspace authority to the stable Artifact's immutable scope. */
+export function artifactMutationContext(
+  context: QueryContext,
+  artifactId: string,
+): QueryContext {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, context);
+  const row = db
+    .query<{ workspaceId: string; projectId: string | null }, [string]>(
+      "SELECT workspace_id AS workspaceId, project_id AS projectId FROM artifacts WHERE id = ?",
+    )
+    .get(artifactId);
+  if (
+    !row ||
+    row.workspaceId !== scope.workspaceId ||
+    (scope.projectId !== null && row.projectId !== null && row.projectId !== scope.projectId)
+  ) {
+    throw new Error(`Artifact not found: ${artifactId}`);
+  }
+  if (context.sessionId !== undefined || row.projectId === null) return context;
+  return { workspaceId: row.workspaceId, projectId: row.projectId };
+}
+
 export type CreateArtifactInput = ArtifactScope & {
   slug: string;
   kind: ArtifactKind;

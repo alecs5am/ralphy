@@ -8,6 +8,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
+import { seedLegacyWorkspace } from "../helpers/legacy-project.js";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
 const CLI = path.join(REPO, "cli", "index.ts");
@@ -56,13 +57,15 @@ describe("auto-recall embedding (#117)", () => {
   });
 
   test("explicit workspace recall overrides global without an active pointer", () => {
-    ralphy(["workspace", "create", "acme"]);
+    const workspace = ralphy(["workspace", "create", "acme"]);
+    expect(workspace.exitCode).toBe(0);
+    seedLegacyWorkspace(tmpRoot, workspace.json.id);
     ralphy(["memory", "note", "Global truth.", "--slug", "collide", "--type", "craft"]);
-    ralphy(["memory", "note", "Acme truth.", "--slug", "collide", "--type", "client", "--workspace", "acme"]);
+    ralphy(["memory", "note", "Acme truth.", "--slug", "collide", "--type", "client", "--workspace", workspace.json.id]);
 
-    const r = ralphy(["memory", "recall", "--workspace", "acme"]);
+    const r = ralphy(["memory", "recall", "--workspace", workspace.json.id]);
     expect(r.exitCode).toBe(0);
-    expect(r.json.workspace).toBe("acme");
+    expect(r.json.workspace).toBe(workspace.json.id);
     const collide = r.json.entries.find((e: any) => e.slug === "collide");
     expect(collide.tier).toBe("workspace");
     expect(ralphy(["workspace", "use", "acme"]).exitCode).toBe(2);

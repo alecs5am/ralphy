@@ -12,6 +12,10 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import {
+  seedDomainWorkspace,
+  seedLegacyProject,
+} from "../helpers/legacy-project.js";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
 const CLI = path.join(REPO, "cli", "index.ts");
@@ -52,10 +56,8 @@ function ralphy(args: string[]): { exitCode: number; stdout: string; stderr: str
 }
 
 describe("ralphy project create --kind image-pack (#049)", () => {
-  test("scaffolds images + selected + refs; no scenes / scenario", () => {
-    const r = ralphy(["project", "create", "--id", "ip-001", "--kind", "image-pack"]);
-    expect(r.exitCode).toBe(0);
-    const dir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "ip-001");
+  test("the legacy image-pack fixture still covers selected media operations", () => {
+    const dir = seedLegacyProject(tmpRoot, "ip-001", { kind: "image-pack" });
     expect(fs.existsSync(dir)).toBe(true);
     expect(fs.existsSync(path.join(dir, "artifacts", "images"))).toBe(true);
     expect(fs.existsSync(path.join(dir, "selected"))).toBe(true);
@@ -65,23 +67,21 @@ describe("ralphy project create --kind image-pack (#049)", () => {
     expect(fs.existsSync(path.join(dir, "artifacts", "videos"))).toBe(true);
     expect(fs.existsSync(path.join(dir, "artifacts", "voiceover"))).toBe(true);
     expect(fs.existsSync(path.join(dir, "render"))).toBe(false);
-    // The kind field is persisted on the registry entry.
-    const j = r.json as { kind?: string };
-    expect(j.kind).toBe("image-pack");
+    const registry = JSON.parse(
+      fs.readFileSync(path.join(tmpRoot, ".ralphy", "registry.json"), "utf8"),
+    );
+    expect(registry.projects["ip-001"].kind).toBe("image-pack");
   });
 
-  test("default --kind=video keeps the existing scaffold", () => {
-    const r = ralphy(["project", "create", "--id", "v-001"]);
-    expect(r.exitCode).toBe(0);
-    const dir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "v-001");
+  test("the legacy video fixture keeps its operational scaffold", () => {
+    const dir = seedLegacyProject(tmpRoot, "v-001");
     expect(fs.existsSync(path.join(dir, "artifacts", "videos"))).toBe(true);
     expect(fs.existsSync(path.join(dir, "artifacts", "voiceover"))).toBe(true);
     expect(fs.existsSync(path.join(dir, "render"))).toBe(true);
-    const j = r.json as { kind?: string };
-    expect(j.kind).toBe("video");
   });
 
   test("unknown --kind → E_VALIDATION_FAILED", () => {
+    seedDomainWorkspace(tmpRoot);
     const r = ralphy(["project", "create", "--id", "bad-001", "--kind", "garbage"]);
     expect(r.exitCode).not.toBe(0);
     const last = r.stderr.trim().split("\n").filter((l) => l.startsWith("{")).pop();
@@ -93,7 +93,7 @@ describe("ralphy project create --kind image-pack (#049)", () => {
 
 describe("ralphy project thumbnail (#049)", () => {
   test("E_VALIDATION_FAILED on a non-numeric --at", () => {
-    ralphy(["project", "create", "--id", "thumb-001"]);
+    seedLegacyProject(tmpRoot, "thumb-001");
     const r = ralphy(["project", "thumbnail", "thumb-001", "--at", "not-a-number"]);
     expect(r.exitCode).not.toBe(0);
     const last = r.stderr.trim().split("\n").filter((l) => l.startsWith("{")).pop();
@@ -111,8 +111,7 @@ describe("ralphy project thumbnail (#049)", () => {
 
 describe("ralphy project zip --selected (#049)", () => {
   test("zips the <project>/selected/ dir into <cwd>/<id>.zip", () => {
-    const cr = ralphy(["project", "create", "--id", "zip-001", "--kind", "image-pack"]);
-    expect(cr.exitCode).toBe(0);
+    seedLegacyProject(tmpRoot, "zip-001", { kind: "image-pack" });
     const selDir = path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "zip-001", "selected");
     fs.writeFileSync(path.join(selDir, "a.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
     fs.writeFileSync(path.join(selDir, "b.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
@@ -127,7 +126,7 @@ describe("ralphy project zip --selected (#049)", () => {
   });
 
   test("refuses without --selected or --all", () => {
-    ralphy(["project", "create", "--id", "zip-002"]);
+    seedLegacyProject(tmpRoot, "zip-002");
     const r = ralphy(["project", "zip", "zip-002"]);
     expect(r.exitCode).not.toBe(0);
     const last = r.stderr.trim().split("\n").filter((l) => l.startsWith("{")).pop();

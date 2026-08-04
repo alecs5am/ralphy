@@ -1,8 +1,8 @@
 import type { Database } from "bun:sqlite";
-import { latestActivitySequence, listActivity } from "./activity.js";
+import { listActivity } from "./activity.js";
 import { openDomainDb } from "./db.js";
 import { assertLimit, buildPage, decodeCursor } from "./pagination.js";
-import { resolveQueryContext } from "./scope-context.js";
+import { resolveQueryContext, type QueryContext } from "./scope-context.js";
 import type {
   ActivityDto,
   DocumentBindingDto,
@@ -75,9 +75,7 @@ export function getWorkspaceOverview(
       overview.projects = pageProjects(db, sections.projects, request.workspaceId);
     }
     if (sections.activity) {
-      overview.activity = pageActivity(sections.activity, (event) =>
-        event.workspaceId === request.workspaceId,
-      );
+      overview.activity = pageActivity(sections.activity, request.context);
     }
     return overview;
   })();
@@ -158,8 +156,11 @@ export function getProjectOverview(
       overview.runs = pageRuns(db, sections.runs, request.projectId);
     }
     if (sections.activity) {
-      overview.activity = pageActivity(sections.activity, (event) =>
-        event.projectId === request.projectId,
+      overview.activity = pageActivity(
+        sections.activity,
+        request.context.sessionId !== undefined
+          ? request.context
+          : { workspaceId: project.workspaceId, projectId: project.id },
       );
     }
     if (sections.mediaCounts) {
@@ -465,34 +466,17 @@ function pageRuns(
 
 function pageActivity(
   request: { afterSequence: number; limit: number },
-  visible: (event: ActivityDto) => boolean,
+  context: QueryContext,
 ): Page<ActivityDto, number> {
   if (!Number.isSafeInteger(request.afterSequence) || request.afterSequence < 0) {
     throw new Error("Activity afterSequence must be a non-negative integer");
   }
   assertLimit(request.limit, MAX_SECTION_LIMIT);
-  // Activity is one global sequence; a scoped view is a local filter over it,
-  // so the cursor stays the store-wide sequence the caller can resume from.
-  const items: ActivityDto[] = [];
-  let afterSequence = request.afterSequence;
-  const ceiling = latestActivitySequence();
-  while (items.length < request.limit && afterSequence < ceiling) {
-    const page = listActivity({ afterSequence, limit: 100 });
-    if (page.items.length === 0) break;
-    for (const event of page.items) {
-      if (items.length >= request.limit) break;
-      afterSequence = event.sequence;
-      if (visible(event)) items.push(event);
-    }
-    if (page.nextCursor === null && items.length < request.limit) {
-      afterSequence = ceiling;
-      break;
-    }
-  }
-  return {
-    items,
-    nextCursor: afterSequence < ceiling ? afterSequence : null,
-  };
+  return listActivity({
+    context,
+    afterSequence: request.afterSequence,
+    limit: request.limit,
+  });
 }
 
 function readProjectBinding(

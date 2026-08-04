@@ -1,10 +1,5 @@
-// Integration smoke for the #108 workspace verbs:
-//   ralphy workspace create | list | show | use (deprecated)
-//   ralphy project move <id> <ws>
-//
-// Round-trip on a fresh temp root (→ the new ".ralphy" layout) plus the
-// #106 fail-fast contract: EVERY workspace verb (and project move) refuses a
-// legacy workspace/ root with E_LEGACY_LAYOUT until `ralphy migrate` runs.
+// Integration smoke for the entity-backed Workspace and Project ownership
+// surfaces, plus the deprecated `workspace use` and legacy-layout gates.
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -58,83 +53,69 @@ function stderrErrorCode(stderr: string): string | null {
   }
 }
 
-describe("ralphy workspace create/list/show/use + project move (#108)", () => {
-  test("create → list → deprecated use → project create → move round-trip", () => {
-    // create
+describe("ralphy workspace entities and Project ownership (#108)", () => {
+  test("create → page → deprecated use → Project create → transfer round-trip", () => {
     const c = ralphy(["workspace", "create", "fogtown", "--name", "Fog Town", "--description", "horror universe"]);
     expect(c.exitCode).toBe(0);
     expect(c.json.slug).toBe("fogtown");
     expect(c.json.name).toBe("Fog Town");
-    const wsDir = path.join(tmpRoot, ".ralphy", "workspaces", "fogtown");
-    expect(fs.existsSync(path.join(wsDir, "workspace.json"))).toBe(true);
-    for (const sub of [
-      "shared",
-      "shared/assets/images",
-      "shared/assets/videos",
-      "shared/assets/voiceover",
-      "shared/assets/music",
-      "shared/assets/sfx",
-      "shared/assets/fonts",
-      "projects",
-      "templates",
-      "batches",
-      "logs",
-      "units",
-    ]) {
-      expect(fs.existsSync(path.join(wsDir, sub))).toBe(true);
-    }
-    const manifest = JSON.parse(fs.readFileSync(path.join(wsDir, "workspace.json"), "utf8"));
-    expect(manifest).toMatchObject({ name: "Fog Town", slug: "fogtown", description: "horror universe" });
-    expect(typeof manifest.created).toBe("string");
-    expect(manifest.profile.displayName).toBe("Fog Town");
+    expect(c.json.id).toStartWith("ws_");
+    expect(c.json.rowVersion).toBe(1);
 
-    // list
     const l = ralphy(["workspace", "list"]);
     expect(l.exitCode).toBe(0);
-    expect(Array.isArray(l.json)).toBe(true);
-    const row = l.json.find((w: any) => w.slug === "fogtown");
-    expect(row).toMatchObject({ slug: "fogtown", name: "Fog Town", projects: 0 });
+    expect(Object.keys(l.json).sort()).toEqual(["items", "nextCursor"]);
+    expect(l.json.items).toEqual([c.json]);
+    expect(l.json.nextCursor).toBeNull();
 
-    // use cannot write shared active-Workspace state.
-    const u = ralphy(["workspace", "use", "fogtown"]);
+    const u = ralphy(["workspace", "use", "default"]);
     expect(u.exitCode).toBe(2);
     expect(stderrErrorCode(u.stderr)).toBe("E_INPUT_INVALID");
     expect(u.stderr).toContain("--workspace");
     expect(u.stderr).toContain("session start");
     expect(fs.existsSync(path.join(tmpRoot, ".ralphy", "config.json"))).toBe(false);
 
-    // Compatibility project creation uses the constant default, never a pointer.
-    const p = ralphy(["project", "create", "--id", "reel-001"]);
+    const p = ralphy([
+      "project",
+      "create",
+      "Reel 001",
+      "--as",
+      "reel-001",
+      "--workspace",
+      c.json.id,
+    ]);
     expect(p.exitCode).toBe(0);
-    expect(p.json.workspace).toBe("default");
-    expect(
-      fs.existsSync(
-        path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", "reel-001"),
-      ),
-    ).toBe(true);
+    expect(p.json.id).toStartWith("prj_");
+    expect(p.json.slug).toBe("reel-001");
+    expect(p.json.workspaceId).toBe(c.json.id);
 
-    // show does not expose a mutable active marker.
-    const s = ralphy(["workspace", "show", "fogtown"]);
+    const s = ralphy(["workspace", "show", c.json.id]);
     expect(s.exitCode).toBe(0);
-    expect(s.json.projects).toEqual([]);
-    expect(s.json.active).toBeUndefined();
+    expect(s.json).toEqual(c.json);
 
-    // move to a second workspace
-    expect(ralphy(["workspace", "create", "archive"]).exitCode).toBe(0);
-    const m = ralphy(["project", "move", "reel-001", "archive"]);
-    expect(m.exitCode).toBe(0);
-    expect(m.json.moved).toBe(true);
-    expect(fs.existsSync(path.join(wsDir, "projects", "reel-001"))).toBe(false);
-    expect(
-      fs.existsSync(path.join(tmpRoot, ".ralphy", "workspaces", "archive", "projects", "reel-001")),
-    ).toBe(true);
-    const reg = JSON.parse(fs.readFileSync(path.join(tmpRoot, ".ralphy", "registry.json"), "utf8"));
-    expect(reg.projects["reel-001"].workspace).toBe("archive");
+    const archive = ralphy(["workspace", "create", "archive"]);
+    expect(archive.exitCode).toBe(0);
+    const transferred = ralphy([
+      "project",
+      "transfer",
+      p.json.id,
+      "--to",
+      archive.json.id,
+      "--expected",
+      String(p.json.rowVersion),
+    ]);
+    expect(transferred.exitCode).toBe(0);
+    expect(transferred.json).toMatchObject({
+      state: "completed",
+      destinationWorkspaceId: archive.json.id,
+    });
+    expect(transferred.json).not.toHaveProperty("sourceBucket");
+    expect(transferred.json).not.toHaveProperty("destinationBucket");
 
-    // project show still resolves the moved project by bare id
-    const ps = ralphy(["project", "show", "reel-001"]);
+    const ps = ralphy(["project", "show", p.json.id]);
     expect(ps.exitCode).toBe(0);
-    expect(ps.json.id).toBe("reel-001");
+    expect(ps.json.id).toBe(p.json.id);
+    expect(ps.json.workspaceId).toBe(archive.json.id);
   });
 
   test("create refuses a duplicate slug and an invalid slug", () => {
@@ -147,20 +128,18 @@ describe("ralphy workspace create/list/show/use + project move (#108)", () => {
     expect(stderrErrorCode(bad.stderr)).toBe("E_VALIDATION_FAILED");
   });
 
-  test("legacy activeWorkspace config cannot choose new Project ownership", () => {
-    expect(ralphy(["workspace", "create", "fogtown"]).exitCode).toBe(0);
+  test("legacy activeWorkspace config cannot override entity Workspace ownership", () => {
+    const workspace = ralphy(["workspace", "create", "fogtown"]);
+    expect(workspace.exitCode).toBe(0);
     const configPath = path.join(tmpRoot, ".ralphy", "config.json");
-    const config = JSON.stringify({ activeWorkspace: "fogtown" }, null, 2);
+    const config = JSON.stringify({ activeWorkspace: "bogus-legacy-pointer" }, null, 2);
     fs.writeFileSync(configPath, config);
 
     const created = ralphy(["project", "create", "--id", "explicit-owner"]);
 
     expect(created.exitCode).toBe(0);
-    expect(created.json.workspace).toBe("default");
-    const registry = JSON.parse(
-      fs.readFileSync(path.join(tmpRoot, ".ralphy", "registry.json"), "utf8"),
-    );
-    expect(registry.projects["explicit-owner"].workspace).toBe("default");
+    expect(created.json.workspaceId).toBe(workspace.json.id);
+    expect(created.json.slug).toBe("explicit-owner");
     expect(fs.readFileSync(configPath, "utf8")).toBe(config);
   });
 
@@ -173,44 +152,78 @@ describe("ralphy workspace create/list/show/use + project move (#108)", () => {
     expect(stderrErrorCode(s.stderr)).toBe("E_NOT_FOUND");
   });
 
-  test("updates account profile and public channel identities", () => {
-    expect(ralphy(["workspace", "create", "acme", "--name", "Acme"]).exitCode).toBe(0);
+  test("updates Workspace rows optimistically and owns public account identities", () => {
+    const created = ralphy(["workspace", "create", "acme", "--name", "Acme"]);
+    expect(created.exitCode).toBe(0);
     const updated = ralphy([
       "workspace",
       "update",
-      "acme",
-      "--display-name",
+      created.json.id,
+      "--name",
       "Acme Media",
-      "--bio",
-      "Practical engineering notes",
-      "--language",
-      "English",
-      "--timezone",
-      "Europe/London",
-      "--telegram",
-      "@acme",
-      "--x",
-      "@acme_dev",
-      "--devto",
-      "acme",
+      "--slug",
+      "acme-media",
+      "--expected",
+      String(created.json.rowVersion),
     ]);
     expect(updated.exitCode).toBe(0);
-    expect(updated.json.profile).toMatchObject({
-      displayName: "Acme Media",
-      bio: "Practical engineering notes",
-      language: "English",
-      timezone: "Europe/London",
+    expect(updated.json).toMatchObject({
+      id: created.json.id,
+      name: "Acme Media",
+      slug: "acme-media",
+      rowVersion: created.json.rowVersion + 1,
     });
-    expect(updated.json.channels).toMatchObject({
-      telegram: { handle: "@acme" },
-      x: { handle: "@acme_dev" },
-      devto: { handle: "acme" },
+
+    const stale = ralphy([
+      "workspace",
+      "update",
+      created.json.id,
+      "--name",
+      "Stale",
+      "--expected",
+      String(created.json.rowVersion),
+    ]);
+    expect(stale.exitCode).toBe(2);
+    expect(stderrErrorCode(stale.stderr)).toBe("E_CONFLICT");
+
+    const account = ralphy([
+      "workspace",
+      "account",
+      created.json.id,
+      "--platform",
+      "telegram",
+      "--external-id",
+      "channel-1",
+      "--display-name",
+      "Acme Media",
+      "--username",
+      "acme",
+    ]);
+    expect(account.exitCode).toBe(0);
+    expect(account.json).toMatchObject({
+      workspaceId: created.json.id,
+      platform: "telegram",
+      externalId: "channel-1",
+      username: "acme",
+      credentialConfigured: false,
     });
+    expect(JSON.stringify(account.json)).not.toContain("credentialRef");
   });
 
-  test("move refuses an unknown target workspace", () => {
-    expect(ralphy(["project", "create", "--id", "p-001"]).exitCode).toBe(0);
-    const m = ralphy(["project", "move", "p-001", "nope"]);
+  test("transfer refuses an unknown target Workspace", () => {
+    const workspace = ralphy(["workspace", "create", "source"]);
+    const project = ralphy(["project", "create", "--id", "p-001"]);
+    expect(workspace.exitCode).toBe(0);
+    expect(project.exitCode).toBe(0);
+    const m = ralphy([
+      "project",
+      "transfer",
+      project.json.id,
+      "--to",
+      "nope",
+      "--expected",
+      String(project.json.rowVersion),
+    ]);
     expect(m.exitCode).not.toBe(0);
     expect(stderrErrorCode(m.stderr)).toBe("E_NOT_FOUND");
   });
@@ -222,7 +235,7 @@ describe("workspace verbs on a legacy root fail fast (#106)", () => {
     fs.mkdirSync(path.join(tmpRoot, "workspace", "projects", "legacy-001"), { recursive: true });
   });
 
-  test("every workspace verb (and project move) refuses with E_LEGACY_LAYOUT", () => {
+  test("every workspace verb (and legacy project move) refuses with E_LEGACY_LAYOUT", () => {
     for (const args of [
       ["workspace", "list"],
       ["workspace", "show", "default"],

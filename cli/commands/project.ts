@@ -3,16 +3,15 @@ import fs from "fs/promises";
 import path from "path";
 import crypto from "node:crypto";
 import { spawn } from "node:child_process";
-import { addEntity, getEntity, updateEntity, deleteEntity, listEntities } from "../lib/registry.js";
+import { addEntity, getEntity, updateEntity, deleteEntity } from "../lib/registry.js";
 import { slugify, generateId } from "../lib/ids.js";
-import { ARTIFACT_KINDS, artifactKindDir, artifactsDir, projectRefsDir, resolveArtifactKindDirs, projectDir, layoutMode, workspaceDir } from "../lib/paths.js";
+import { artifactsDir, projectRefsDir, resolveArtifactKindDirs, projectDir, layoutMode, workspaceDir } from "../lib/paths.js";
 import { existsSync } from "node:fs";
 import { out, ok, err } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { readLog, readGenerations, logUserPrompt, logUserAsset, logGeneration, type UserPromptEntry, type UserAssetEntry } from "../lib/gen-log.js";
 import { transcribe, DEFAULT_MODEL, WHISPER_MODEL, type TranscribeLanguage, type TranscribeBackend } from "../lib/transcribe.js";
 import { scoreScenario, type Scenario } from "../lib/score.js";
-import { evaluateContract } from "../lib/contract.js";
 import { buildScorecard } from "../lib/scorecard.js";
 import { SCORECARD_ARTIFACT } from "../lib/schemas/scorecard.js";
 import { gradeProductionPlan, renderPlanGradeMarkdown } from "../lib/plan/grade.js";
@@ -47,241 +46,91 @@ import { isImagePackKind, IMAGE_PACK_KINDS } from "../lib/schemas/image-pack.js"
 import { protectExistingAsset } from "../lib/providers/shared.js";
 import { probeFile, walkMediaFiles, classifyFile, diffManifestVsProbe, ensureFfprobe } from "../lib/ffprobe.js";
 import { extractFrame, audioStats, contactSheet } from "../lib/ffmpeg-recipes.js";
+import { resolveCommandContext } from "../lib/context.js";
+import { ralphDir } from "../lib/paths.js";
+import {
+  createIteration,
+  createProject,
+  getProject,
+  getWorkspace,
+  listFeedback,
+  listIterations,
+  listProjectStages,
+  listProjects,
+  updateProject,
+} from "../lib/store/scopes.js";
+import { listProjectDocumentBindings } from "../lib/store/document-content.js";
+import {
+  projectTransferContext,
+  resumeProjectTransfer,
+  transferProject,
+} from "../lib/store/transfers.js";
+import { StoreConflictError } from "../lib/store/types.js";
 
 async function safeJson(fp: string) {
   try { return JSON.parse(await fs.readFile(fp, "utf-8")); } catch { return null; }
-}
-
-// "kbo-broadcast-001" → "Kbo Broadcast 001". Used to default --name from --id
-// on `project create` (#031). Keeps `ralphy project create --id foo-001` viable
-// without forcing the user to redundantly retype `--name "Foo 001"`.
-function titleCaseFromId(id: string): string {
-  return id
-    .split(/[-_]+/)
-    .filter(Boolean)
-    .map((part) => (part.length === 0 ? part : part[0].toUpperCase() + part.slice(1)))
-    .join(" ");
-}
-
-async function getProjectStatus(id: string) {
-  const dir = projectDir(id);
-  const hasScenario = !!(await safeJson(path.join(dir, "scenario.json")));
-  const hasPrompts = !!(await safeJson(path.join(dir, "prompts.json")));
-  const hasManifest = !!(await safeJson(path.join(dir, "asset-manifest.json")));
-  const hasRender = await fs.access(path.join(dir, "render", "final.mp4")).then(() => true).catch(() => false);
-  if (hasRender) return "done";
-  if (hasManifest) return "assets";
-  if (hasPrompts) return "prompts";
-  if (hasScenario) return "scenario";
-  return "draft";
 }
 
 export function projectCmd() {
   const cmd = new Command("project").description("Manage video projects");
 
   cmd
-    .command("create")
-    .description("Create a new project")
-    .option("--name <name>", "Project name (default: title-cased --id)")
-    .option("--brand <id>", "Brand ID")
-    .option("--persona <id>", "Persona ID")
-    .option("--template <id>", "Template ID")
-    .option("--brief <text>", "Project brief")
-    .option("--platform <platform>", "Target platform", "tiktok")
-    .option("--aspect-ratio <ratio>", "Aspect ratio", "9:16")
-    .option("--duration <seconds>", "Target duration in seconds", parseInt)
-    .option("--id <id>", "Custom project ID")
-    .option(
-      "--kind <kind>",
-      "Project shape: video (default — scenes + scenario) | image-pack (just artifacts/images + selected + artifacts/refs, no scenario.json)",
-      "video",
-    )
-    .action(async (opts) => {
-      // #031: --name is now optional. Default to title-cased --id, or to a
-      // generated id slug if neither is provided. Either --name or --id must
-      // disambiguate the project, but no longer both.
-      if (!opts.name && !opts.id) {
+    .command("create [name]")
+    .description("Create a Project")
+    .option("--as <slug>", "Stable Project slug")
+    .option("--name <name>", "Compatibility alias for the Project name")
+    .option("--id <slug>", "Compatibility alias for --as")
+    .option("--kind <kind>", "Compatibility metadata: video | image-pack", "video")
+    .option("--workspace <id>", "Owning Workspace ID")
+    .action((positionalName: string | undefined, opts, command: Command) => {
+      if (!positionalName && !opts.name && !opts.id) {
         raiseError("E_VALIDATION_FAILED", {
-          target: "--name | --id",
-          detail: "at least one of --name or --id is required",
+          target: "name | --name | --id",
+          detail: "a Project name or slug is required",
         });
       }
-      const kind = String(opts.kind || "video");
-      if (kind !== "video" && kind !== "image-pack") {
+      if (opts.kind !== "video" && opts.kind !== "image-pack") {
         raiseError("E_VALIDATION_FAILED", {
           target: "--kind",
-          detail: `unknown --kind '${kind}'. Allowed: video | image-pack`,
+          detail: `unknown --kind '${opts.kind}'. Allowed: video | image-pack`,
         });
       }
-      const id = opts.id || slugify(opts.name) || generateId("proj");
-      const name: string = opts.name || titleCaseFromId(id);
-      const dir = projectDir(id);
-      await fs.mkdir(dir, { recursive: true });
-      // #105: one artifacts/<kind>/ tree per project (refs is a kind).
-      for (const k of ARTIFACT_KINDS) {
-        await fs.mkdir(artifactKindDir(id, k), { recursive: true });
-      }
-      if (kind === "image-pack") {
-        // #049: image-pack shape — no scenes / scenario scaffold. `selected/`
-        // (the cherry-picked subset for handoff) stays a project-root sibling.
-        await fs.mkdir(path.join(dir, "selected"), { recursive: true });
-      } else {
-        await fs.mkdir(path.join(dir, "render"), { recursive: true });
-      }
-
-      const data: Record<string, unknown> = {
-        name,
-        kind,
-        platform: opts.platform,
-        aspectRatio: opts.aspectRatio,
-        status: "draft",
-        createdAt: new Date().toISOString(),
-      };
-      if (opts.brand) data.brand = opts.brand;
-      if (opts.persona) data.persona = opts.persona;
-      if (opts.template) data.template = opts.template;
-      if (opts.brief) data.brief = opts.brief;
-      if (opts.duration) data.duration = opts.duration;
-
-      const project = await addEntity("projects", id, data);
-      ok(`Project created: ${id}`);
-      out(project);
+      const name = positionalName ?? opts.name ?? titleCase(opts.id);
+      const context = resolveDomainContext(command);
+      const workspaceId = opts.workspace ?? context.workspaceId;
+      out(
+        createProject({
+          workspaceId,
+          name,
+          slug: opts.as ?? opts.id ?? slugify(name),
+          metadata: { kind: opts.kind },
+        }),
+      );
     });
 
   cmd
     .command("list")
-    .description("List all projects")
-    .option("--status <status>", "Filter by status")
-    .option("--brand <id>", "Filter by brand")
-    .action(async (opts: any) => {
-      let projects = await listEntities("projects");
-
-      // Enrich with actual status from filesystem
-      projects = await Promise.all(
-        projects.map(async (p: any) => ({
-          ...p,
-          status: await getProjectStatus(p.id),
-        }))
+    .description("List Projects in a Workspace")
+    .option("--workspace <id>", "Workspace ID")
+    .option("--cursor <cursor>", "Continue from an opaque cursor")
+    .option("--limit <count>", "Maximum rows", parseCount)
+    .action((opts, command: Command) => {
+      const context = resolveDomainContext(command);
+      out(
+        listProjects({
+          workspaceId: opts.workspace ?? context.workspaceId,
+          cursor: opts.cursor,
+          limit: opts.limit,
+        }),
       );
-
-      if (opts.status) projects = projects.filter((p: any) => p.status === opts.status);
-      if (opts.brand) projects = projects.filter((p: any) => p.brand === opts.brand);
-
-      const rows = projects.map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        status: p.status,
-        brand: p.brand || "—",
-        persona: p.persona || "—",
-        platform: p.platform || "—",
-      }));
-
-      const ui = await import("../lib/ui.js");
-      if (!ui.isPrettyMode()) {
-        out(rows);
-        return;
-      }
-      const { c, icons, section, table } = ui;
-      const statusColor = (s: string): string => {
-        if (s === "done") return c.ok(s);
-        if (s === "render" || s === "assets") return c.warn(s);
-        if (s === "prompts" || s === "scenario") return c.info(s);
-        return c.muted(s);
-      };
-      section(`Projects  ${c.muted(`(${rows.length} total)`)}`);
-      table(rows, [
-        { key: "id", header: "id", format: (v) => c.cmd(String(v)) },
-        { key: "name", header: "name", format: (v) => c.bold(String(v ?? "")) },
-        { key: "status", header: "status", format: (v) => statusColor(String(v ?? "draft")) },
-        { key: "platform", header: "platform" },
-        { key: "brand", header: "brand", format: (v) => (v === "—" ? c.muted("—") : c.value(String(v))) },
-        { key: "persona", header: "persona", format: (v) => (v === "—" ? c.muted("—") : c.value(String(v))) },
-      ]);
-      console.log();
-      console.log(`  ${icons.bullet} ${c.cmd("ralphy project show <id>")}              full details`);
-      console.log(`  ${icons.bullet} ${c.cmd("ralphy project show <id> --tree")}       directory tree`);
-      console.log(`  ${icons.bullet} ${c.cmd("ralphy project verify <id>")}            ffprobe + manifest sanity`);
-      console.log();
     });
 
   cmd
     .command("show <id>")
-    .description("Show project details")
-    .option("--scenario", "Show scenario JSON")
-    .option("--assets", "Show asset manifest")
-    .option("--prompts", "Show prompts")
-    .option("--status", "Show pipeline status only")
-    .option("--tree", "Print the project directory tree (file paths + sizes, max depth 4). appstore postmortem asked for this.")
-    .action(async (id: string, opts: any) => {
-      const project = await getEntity("projects", id);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
-
-      const dir = projectDir(id);
-
-      if (opts.tree) {
-        // Walk the project tree up to depth 4, emit { path, size_bytes } per file.
-        async function walk(d: string, depth: number): Promise<Array<{ path: string; bytes?: number }>> {
-          if (depth > 4) return [];
-          const entries: Array<{ path: string; bytes?: number }> = [];
-          let items: import("fs").Dirent[] = [];
-          try {
-            items = await fs.readdir(d, { withFileTypes: true });
-          } catch {
-            return [];
-          }
-          for (const it of items) {
-            const full = path.join(d, it.name);
-            const rel = path.relative(dir, full);
-            if (it.isDirectory()) {
-              entries.push({ path: rel + "/" });
-              entries.push(...(await walk(full, depth + 1)));
-            } else if (it.isFile()) {
-              try {
-                const st = await fs.stat(full);
-                entries.push({ path: rel, bytes: st.size });
-              } catch {
-                entries.push({ path: rel });
-              }
-            }
-          }
-          return entries;
-        }
-        const tree = await walk(dir, 1);
-        const totalBytes = tree.reduce((s, e) => s + (e.bytes ?? 0), 0);
-        out({ project: id, root: dir, fileCount: tree.filter((e) => !e.path.endsWith("/")).length, totalBytes, tree });
-        return;
-      }
-
-      if (opts.scenario) {
-        const scenario = await safeJson(path.join(dir, "scenario.json"));
-        if (!scenario) raiseError("E_FILE_UNREADABLE", { path: "scenario.json" });
-        out(scenario);
-        return;
-      }
-      if (opts.prompts) {
-        const prompts = await safeJson(path.join(dir, "prompts.json"));
-        if (!prompts) raiseError("E_FILE_UNREADABLE", { path: "prompts.json" });
-        out(prompts);
-        return;
-      }
-      if (opts.assets) {
-        const manifest = await safeJson(path.join(dir, "asset-manifest.json"));
-        if (!manifest) raiseError("E_FILE_UNREADABLE", { path: "asset-manifest.json" });
-        out(manifest);
-        return;
-      }
-
-      const status = await getProjectStatus(id);
-      if (opts.status) {
-        const scenario = !!(await safeJson(path.join(dir, "scenario.json")));
-        const prompts = !!(await safeJson(path.join(dir, "prompts.json")));
-        const manifest = !!(await safeJson(path.join(dir, "asset-manifest.json")));
-        const render = await fs.access(path.join(dir, "render", "final.mp4")).then(() => true).catch(() => false);
-        out({ id, status, steps: { scenario, prompts, assets: manifest, render } });
-        return;
-      }
-
-      out({ ...project, status });
+    .description("Show a Project")
+    .action((id: string, _opts, command: Command) => {
+      const context = resolveDomainContext(command, id);
+      out(getProject({ workspaceId: context.workspaceId, projectId: id }));
     });
 
   // ── status (#406) ────────────────────────────────────────────────────────
@@ -293,30 +142,10 @@ export function projectCmd() {
   // human wizard — JSON guidance only.
   cmd
     .command("status <id>")
-    .description(
-      "Machine-readable pipeline status. Bare: coarse stage + per-step booleans. --contract (alias --lifecycle): full Unit-lifecycle ledger (per-phase satisfied/missing + currentPhase/nextPhase/nextStep + stopConditions + polished). See docs/playbooks/unit-lifecycle.md.",
-    )
-    .option("--contract", "Emit the Unit-lifecycle phase ledger (#406/#414)")
-    .option("--lifecycle", "Alias of --contract — emit the full Unit-lifecycle ledger (#414)")
-    .action(async (id: string, opts: any) => {
-      const project = await getEntity("projects", id);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
-
-      if (opts.contract || opts.lifecycle) {
-        out(evaluateContract(id));
-        return;
-      }
-
-      const dir = projectDir(id);
-      const status = await getProjectStatus(id);
-      const scenario = !!(await safeJson(path.join(dir, "scenario.json")));
-      const prompts = !!(await safeJson(path.join(dir, "prompts.json")));
-      const manifest = !!(await safeJson(path.join(dir, "asset-manifest.json")));
-      const render = await fs
-        .access(path.join(dir, "render", "final.mp4"))
-        .then(() => true)
-        .catch(() => false);
-      out({ id, status, steps: { scenario, prompts, assets: manifest, render } });
+    .description("Show database-derived Project stages, bindings, Iteration, and feedback")
+    .action((id: string, _opts, command: Command) => {
+      const context = resolveDomainContext(command, id);
+      out(projectStatus(context.workspaceId, id));
     });
 
   // ── repair-plan (#409) ─────────────────────────────────────────────────────
@@ -663,21 +492,98 @@ export function projectCmd() {
 
   cmd
     .command("update <id>")
-    .description("Update project")
+    .description("Update Project metadata with optimistic concurrency")
     .option("--name <name>")
-    .option("--brand <id>")
-    .option("--persona <id>")
-    .option("--brief <text>")
-    .action(async (id: string, opts: any) => {
-      const updates: Record<string, unknown> = {};
-      if (opts.name) updates.name = opts.name;
-      if (opts.brand) updates.brand = opts.brand;
-      if (opts.persona) updates.persona = opts.persona;
-      if (opts.brief) updates.brief = opts.brief;
-      const project = await updateEntity("projects", id, updates);
-      if (!project) raiseError("E_NOT_FOUND", { kind: "Project", id });
-      ok(`Project updated: ${id}`);
-      out(project);
+    .option("--slug <slug>")
+    .option("--state <state>", "active | archived")
+    .requiredOption("--expected <version>", "Expected row version", parseCount)
+    .action((id: string, opts, command: Command) => {
+      const context = resolveDomainContext(command, id);
+      getProject({ workspaceId: context.workspaceId, projectId: id });
+      if (opts.state !== undefined && opts.state !== "active" && opts.state !== "archived") {
+        raiseError("E_INPUT_INVALID", {
+          field: "--state",
+          detail: "expected active or archived",
+        });
+      }
+      try {
+        out(
+          updateProject(
+            id,
+            { name: opts.name, slug: opts.slug, state: opts.state },
+            opts.expected,
+          ),
+        );
+      } catch (error) {
+        if (error instanceof StoreConflictError) {
+          raiseError("E_CONFLICT", { kind: "Project", id });
+        }
+        throw error;
+      }
+    });
+
+  cmd
+    .command("iterate <id>")
+    .description("Start the next Project Iteration")
+    .requiredOption("--title <title>", "Iteration title")
+    .option("--reason <reason>", "Iteration reason")
+    .action((id: string, opts, command: Command) => {
+      const context = resolveDomainContext(command, id);
+      getProject({ workspaceId: context.workspaceId, projectId: id });
+      out(createIteration({ projectId: id, title: opts.title, reason: opts.reason }));
+    });
+
+  cmd
+    .command("transfer [id]")
+    .description("Journal and verify a Project bucket transfer")
+    .option("--to <workspace-id>", "Destination Workspace ID")
+    .option("--resume <transfer-id>", "Resume a transfer journal")
+    .option("--expected <version>", "Expected Project row version", parseCount)
+    .action(async (id: string | undefined, opts, command: Command) => {
+      try {
+        if (opts.resume) {
+          let context;
+          try {
+            context = domainQueryContext(resolveDomainContext(command));
+          } catch (error) {
+            const globals = command.optsWithGlobals();
+            if (globals.session || globals.workspace || globals.project) throw error;
+            context = projectTransferContext(opts.resume);
+          }
+          out(
+            await resumeProjectTransfer(opts.resume, {
+              context,
+            }),
+          );
+          return;
+        }
+        if (!id || !opts.to || opts.expected === undefined) {
+          raiseError("E_INPUT_INVALID", {
+            field: "project transfer",
+            detail: "--to and --expected are required unless --resume is used",
+          });
+        }
+        const context = resolveDomainContext(command, id);
+        getProject({ workspaceId: context.workspaceId, projectId: id });
+        try {
+          getWorkspace(opts.to);
+        } catch {
+          raiseError("E_NOT_FOUND", { kind: "Workspace", id: opts.to });
+        }
+        out(
+          await transferProject({
+            context: domainQueryContext(context),
+            projectId: id,
+            destinationWorkspaceId: opts.to,
+            expectedRowVersion: opts.expected,
+          }),
+        );
+      } catch (error) {
+        if (error instanceof StoreConflictError) {
+          raiseError("E_CONFLICT", { kind: "Project", id: id ?? opts.resume });
+        }
+        throw error;
+      }
     });
 
   cmd
@@ -1841,4 +1747,55 @@ export function projectCmd() {
     });
 
   return cmd;
+}
+
+function resolveDomainContext(command: Command, positionalProjectId?: string) {
+  const opts = command.optsWithGlobals();
+  return resolveCommandContext({
+    dataRoot: ralphDir(),
+    sessionId: opts.session,
+    workspaceId: opts.workspace,
+    projectId: opts.project,
+    positionalProjectId,
+    cwd: process.cwd(),
+  });
+}
+
+function domainQueryContext(context: ReturnType<typeof resolveCommandContext>) {
+  return context.kind === "session"
+    ? { sessionId: context.sessionId }
+    : {
+        workspaceId: context.workspaceId,
+        ...(context.projectId ? { projectId: context.projectId } : {}),
+      };
+}
+
+function projectStatus(workspaceId: string, projectId: string) {
+  const context = { workspaceId, projectId } as const;
+  const iterations = listIterations({ context, projectId, limit: 100 }).items;
+  const feedback = listFeedback({ context, projectId, limit: 100 }).items;
+  return {
+    project: getProject({ workspaceId, projectId }),
+    stages: listProjectStages({ context, projectId, limit: 100 }).items,
+    bindings: listProjectDocumentBindings(context, { projectId, limit: 100 }).items,
+    currentIteration:
+      iterations.filter((iteration) => iteration.state === "active").at(-1) ?? null,
+    openFeedback: feedback.filter((item) => item.status === "open"),
+  };
+}
+
+function parseCount(value: string): number {
+  const count = Number(value);
+  if (!Number.isSafeInteger(count) || count <= 0) {
+    throw new Error("Expected a positive integer");
+  }
+  return count;
+}
+
+function titleCase(value: string): string {
+  return value
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => part[0]!.toUpperCase() + part.slice(1))
+    .join(" ");
 }

@@ -24,6 +24,7 @@ import {
 } from "../../cli/lib/schemas/production-plan";
 import type { Candidate } from "../../cli/lib/templater/suggest";
 import { projectDir } from "../../cli/lib/paths";
+import { evaluateContract } from "../../cli/lib/contract";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
 const CLI = path.join(REPO, "cli", "index.ts");
@@ -255,14 +256,9 @@ describe("ralphy project plan (CLI smoke, --no-llm deterministic)", () => {
     // Seed the prior required artifact so phase-7 is the next gap.
     fs.writeFileSync(path.join(projectDir(PROJECT), "BRIEF.md"), "# brief\n");
     runPlan(tmp.dir, libUrl, [PROJECT, "--brief", "a clean product shot", "--no-llm"]);
-    // Now query the contract ledger; PRODUCTION_PLAN.md must be present.
-    const r = spawnSync("bun", ["run", CLI, "--cwd", tmp.dir, "--json", "project", "status", PROJECT, "--contract"], {
-      cwd: tmp.dir,
-      encoding: "utf8",
-      env: { ...process.env, RALPHY_LIBRARY_URL: libUrl },
-    });
-    expect(r.status).toBe(0);
-    const ledger = JSON.parse(r.stdout);
+    // Query the filesystem contract directly; entity `project status` owns a
+    // separate database-derived surface.
+    const ledger = evaluateContract(PROJECT);
     const plan = ledger.phases.find((p: any) => p.id === "production-plan");
     expect(plan.present).toBe(true);
     expect(plan.satisfied).toBe(true);

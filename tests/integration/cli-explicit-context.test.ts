@@ -491,11 +491,19 @@ describe("explicit CLI data root and command context", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     expect(result.json.slug).toBe("new-workspace");
-    expect(
-      fs.existsSync(
-        path.join(dataRoot, "workspaces", "new-workspace", "workspace.json"),
-      ),
-    ).toBe(true);
+    const shown = await runCli([
+      "--root",
+      dataRoot,
+      "workspace",
+      "show",
+      result.json.id,
+    ]);
+    expect(shown.exitCode, shown.stderr).toBe(0);
+    expect(shown.json).toMatchObject({
+      id: result.json.id,
+      slug: "new-workspace",
+      name: "new-workspace",
+    });
   });
 
   test("lists only the resolved Workspace without rejecting other directories", async () => {
@@ -522,8 +530,8 @@ describe("explicit CLI data root and command context", () => {
     ]);
 
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(result.json.map((item: { slug: string }) => item.slug)).toEqual([
-      fixture.firstWorkspace.id,
+    expect(result.json.items.map((item: { slug: string }) => item.slug)).toEqual([
+      fixture.firstWorkspace.slug,
     ]);
   });
 

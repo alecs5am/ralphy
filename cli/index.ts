@@ -116,6 +116,10 @@ import { benchmarkCmd } from "./commands/benchmark.js";
 import { memoryCmd } from "./commands/memory.js";
 import { lessonsCmd } from "./commands/lessons.js";
 import { sessionCmd } from "./commands/session.js";
+import { documentCmd } from "./commands/document.js";
+import { activityCmd } from "./commands/activity.js";
+import { artifactCmd } from "./commands/artifact.js";
+import { feedbackCmd } from "./commands/feedback.js";
 import { bannerString } from "./lib/banner.js";
 import { VERSION } from "./lib/version.js";
 
@@ -210,6 +214,10 @@ program
         }
         throw error;
       }
+      if (taskThreeAdapterOwnsContext(sub, actionCommand.name())) {
+        setDataRoot(identity.dataRoot);
+        return true;
+      }
       if (sub === "session") {
         setDataRoot(identity.dataRoot);
         return true;
@@ -280,6 +288,17 @@ program
     await configureDomainContext(false);
   });
 
+function taskThreeAdapterOwnsContext(root: unknown, action: string): boolean {
+  if (root === "document" || root === "artifact" || root === "feedback" || root === "activity") {
+    return true;
+  }
+  if (root === "workspace") {
+    return ["create", "list", "show", "update", "account"].includes(action);
+  }
+  return root === "project" &&
+    ["create", "list", "show", "update", "iterate", "status", "transfer"].includes(action);
+}
+
 program.addCommand(versionCmd());
 program.addCommand(newCmd());
 program.addCommand(cloneCmd());
@@ -313,6 +332,10 @@ program.addCommand(benchmarkCmd());
 program.addCommand(memoryCmd());
 program.addCommand(lessonsCmd());
 program.addCommand(sessionCmd());
+program.addCommand(documentCmd());
+program.addCommand(activityCmd());
+program.addCommand(artifactCmd());
+program.addCommand(feedbackCmd());
 program.addCommand(batchCmd());
 program.addCommand(assetCmd());
 program.addCommand(workspaceCmd());

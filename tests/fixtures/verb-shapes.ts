@@ -84,6 +84,20 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
     { label: "assets.empty", shape: { template: "noski", pulled: [] } },
     { label: "assets.cacheInfo", shape: { key: "trend-music/phonk-01", cachedPath: ".ralphy/cache/assets/phonk-01.mp3", sizeBytes: 1048576 } },
   ],
+  activity: [
+    {
+      label: "activity.list",
+      shape: {
+        items: [{ sequence: 42, workspaceId: "ws_1", projectId: "prj_1", entityType: "document", entityId: "doc_1", action: "document.revised", createdAt: 1785792000000 }],
+        nextCursor: 42,
+      },
+    },
+  ],
+  artifact: [
+    { label: "artifact.show", shape: { id: "art_1", workspaceId: "ws_1", projectId: "prj_1", slug: "hero", kind: "image", selectedRevisionId: "arev_1", rowVersion: 2, createdAt: 1785792000000, updatedAt: 1785792001000 } },
+    { label: "artifact.list", shape: { items: [{ id: "art_1", workspaceId: "ws_1", projectId: "prj_1", slug: "hero", kind: "image", selectedRevisionId: null, rowVersion: 1, createdAt: 1785792000000, updatedAt: 1785792000000 }], nextCursor: null } },
+    { label: "artifact.conflict", shape: { error: { code: "E_CONFLICT", message: "Artifact selection conflict" } } },
+  ],
   audio: [
     { label: "audio.normalize", shape: { src: "vo.mp3", dst: "vo.norm.mp3", target: -16, truePeak: -1.5, lra: 11 } },
     { label: "audio.concat", shape: { srcs: ["a.mp3", "b.mp3"], dst: "stitched.mp3" } },
@@ -271,6 +285,11 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
   config: [
     { label: "config.list", shape: { defaultModel: "google/gemini-3-pro-image-preview", workspace: "default", quiet: false } },
     { label: "config.set", shape: { defaultModel: "openai/gpt-5.4-image-2" } },
+  ],
+  document: [
+    { label: "document.show", shape: { id: "doc_1", workspaceId: "ws_1", projectId: "prj_1", kind: "brief", slug: "brief", title: "Brief", currentRevisionId: "drev_1", rowVersion: 2, createdAt: 1785792000000, updatedAt: 1785792001000, currentRevision: { id: "drev_1", documentId: "doc_1", revisionNo: 1, parentRevisionId: null, iterationId: "iter_1", format: "text", title: null, authoredBySessionId: null, createdAt: 1785792001000 } } },
+    { label: "document.list", shape: { items: [{ id: "doc_1", workspaceId: "ws_1", projectId: "prj_1", kind: "brief", slug: "brief", title: "Brief", currentRevisionId: "drev_1", rowVersion: 2, createdAt: 1785792000000, updatedAt: 1785792001000 }], nextCursor: "c1.opaque" } },
+    { label: "document.conflict", shape: { error: { code: "E_CONFLICT", message: "Document head conflict" } } },
   ],
   daemon: [
     { label: "daemon.started", shape: { daemon: "started", pid: 40321, pidFile: ".ralphy/daemon.pid", logFile: ".ralphy/daemon.log" } },
@@ -488,6 +507,9 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       },
     },
   ],
+  feedback: [
+    { label: "feedback.list", shape: { items: [{ id: "fb_1", projectId: "prj_1", iterationId: "iter_1", targetType: "document_revision", targetId: "drev_1", timecodeMs: null, body: "Tighten the hook", status: "open", resolutionNote: null, createdAt: 1785792000000, resolvedAt: null }], nextCursor: null } },
+  ],
   example: [
     { label: "example.list", shape: { manifestUpdated: "2026-06-01", examples: ["choose-silenthill-001", "noski-people-001"] } },
     { label: "example.pull", shape: { exampleId: "choose-silenthill-001", localId: "choose-silenthill-001", projDir: ".ralphy/workspaces/default/projects/choose-silenthill-001", source: "https://github.com/alecs5am/ralphy-assets" } },
@@ -689,12 +711,10 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
   project: [
     {
       label: "project.list",
-      shape: [
-        { id: "spring-2026-001", status: "render", brand: "ellycoffee", cost_usd: 2.41 },
-        { id: "spring-2026-002", status: "assets", brand: "ellycoffee", cost_usd: 0.85 },
-      ],
+      shape: { items: [{ id: "prj_1", workspaceId: "ws_1", slug: "spring-2026", name: "Spring 2026", state: "active", rowVersion: 1, createdAt: 1785792000000, updatedAt: 1785792000000 }], nextCursor: null },
     },
-    { label: "project.status", shape: { id: "demo-001", status: "assets", steps: { scenario: true, prompts: true, assets: false, render: false } } },
+    { label: "project.status", shape: { project: { id: "prj_1", workspaceId: "ws_1", slug: "spring-2026", name: "Spring 2026", state: "active", rowVersion: 1, createdAt: 1785792000000, updatedAt: 1785792000000 }, stages: [], bindings: [], currentIteration: null, openFeedback: [] } },
+    { label: "project.transfer", shape: { id: "transfer_1", projectId: "prj_1", destinationWorkspaceId: "ws_2", state: "completed", objectCount: 1, verifiedCount: 1, createdAt: 1785792000000, updatedAt: 1785792001000 } },
     { label: "project.deleted", shape: { deleted: "demo-001" } },
     {
       label: "project.image-pack.scaffold",
@@ -1069,12 +1089,10 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
   workspace: [
     {
       label: "workspace.list",
-      shape: [
-        { slug: "default", projects: 4, active: true },
-        { slug: "ellycoffee", projects: 2, active: false },
-      ],
+      shape: { items: [{ id: "ws_1", slug: "ellycoffee", name: "Elly Coffee", rowVersion: 1, createdAt: 1785792000000, updatedAt: 1785792000000 }], nextCursor: null },
     },
-    { label: "workspace.show", shape: { slug: "ellycoffee", projects: 2, shared: { refs: 5, music: 3 }, memory: { entries: 8 } } },
+    { label: "workspace.show", shape: { id: "ws_1", slug: "ellycoffee", name: "Elly Coffee", rowVersion: 1, createdAt: 1785792000000, updatedAt: 1785792000000 } },
+    { label: "workspace.account", shape: { items: [{ id: "acct_1", workspaceId: "ws_1", platform: "youtube", externalId: "channel_1", displayName: "Elly Coffee", username: "ellycoffee", credentialConfigured: false, credentialSource: "missing", relinkRequired: false, rowVersion: 1, createdAt: 1785792000000, updatedAt: 1785792000000 }], nextCursor: null } },
     {
       label: "workspace.roi",
       shape: {
