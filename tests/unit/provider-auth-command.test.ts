@@ -5,6 +5,7 @@ import { DomainError } from "../../cli/lib/errors/domain.js";
 import type { CredentialResolver } from "../../cli/lib/providers/credentials.js";
 import { setPretty } from "../../cli/lib/output.js";
 import { StoreConflictError } from "../../cli/lib/store/types.js";
+import { setMode } from "../../cli/lib/ui.js";
 
 const SECRET_SENTINEL = "task-2b-auth-secret-sentinel";
 
@@ -18,11 +19,13 @@ beforeEach(() => {
     output.push(values.map(String).join(" "));
   };
   setPretty(false);
+  setMode("json");
 });
 
 afterEach(() => {
   console.log = originalLog;
   setPretty(false);
+  setMode("auto");
 });
 
 function fakeResolver(calls: string[]): CredentialResolver {

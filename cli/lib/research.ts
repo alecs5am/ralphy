@@ -227,6 +227,8 @@ export type PullOptions = {
   localPath?: string;
   /** Force the global `.ralphy/references/<slug>/` tree, bypassing the active workspace (#401). */
   global?: boolean;
+  /** Explicit transient destination used by the domain-backed CLI path. */
+  outputDir?: string;
 };
 
 export type PullResult = {
@@ -247,7 +249,7 @@ export async function pullReference(opts: PullOptions): Promise<PullResult> {
   ensureBin("yt-dlp", "brew install yt-dlp");
   const slug = opts.slug ?? slugFromUrl(opts.url);
   const dirOpts: RefDirOptions = { write: true, global: opts.global };
-  const paths = refPaths(slug, dirOpts);
+  const paths = pullPaths(slug, opts, dirOpts);
   await fs.mkdir(paths.dir, { recursive: true });
 
   // 1. metadata (cheap, always)
@@ -325,10 +327,12 @@ export async function pullReference(opts: PullOptions): Promise<PullResult> {
     }
   }
 
-  await writeState(slug, {
-    url: opts.url,
-    pulledAt: new Date().toISOString(),
-  }, dirOpts);
+  if (!opts.outputDir) {
+    await writeState(slug, {
+      url: opts.url,
+      pulledAt: new Date().toISOString(),
+    }, dirOpts);
+  }
 
   return {
     slug,
@@ -348,7 +352,7 @@ async function pullReferenceLocal(opts: PullOptions): Promise<PullResult> {
   const baseName = path.basename(src).replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const slug = opts.slug ?? baseName ?? `local-${Date.now().toString(36)}`;
   const dirOpts: RefDirOptions = { write: true, global: opts.global };
-  const paths = refPaths(slug, dirOpts);
+  const paths = pullPaths(slug, opts, dirOpts);
   await fs.mkdir(paths.dir, { recursive: true });
 
   // Probe metadata via ffprobe — analog of yt-dlp's --dump-single-json for local files.
@@ -369,14 +373,14 @@ async function pullReferenceLocal(opts: PullOptions): Promise<PullResult> {
   const duration = format.duration != null ? Number(format.duration) : undefined;
 
   const meta: Record<string, unknown> = {
-    title: path.basename(src),
+    title: opts.outputDir ? opts.url : path.basename(src),
     uploader: "local",
     duration,
     width: vstream?.width,
     height: vstream?.height,
     filesize: format.size != null ? Number(format.size) : undefined,
     source: "local",
-    originalPath: src,
+    ...(!opts.outputDir ? { originalPath: src } : {}),
     label: opts.url,  // caller-provided label/identifier
     pulledAt: new Date().toISOString(),
   };
@@ -404,10 +408,12 @@ async function pullReferenceLocal(opts: PullOptions): Promise<PullResult> {
     audioPath = paths.audio;
   }
 
-  await writeState(slug, {
-    url: opts.url || src,
-    pulledAt: new Date().toISOString(),
-  }, dirOpts);
+  if (!opts.outputDir) {
+    await writeState(slug, {
+      url: opts.url || src,
+      pulledAt: new Date().toISOString(),
+    }, dirOpts);
+  }
 
   return {
     slug,
@@ -419,12 +425,28 @@ async function pullReferenceLocal(opts: PullOptions): Promise<PullResult> {
   };
 }
 
+function pullPaths(slug: string, opts: PullOptions, dirOpts: RefDirOptions) {
+  if (!opts.outputDir) return refPaths(slug, dirOpts);
+  const dir = path.resolve(opts.outputDir);
+  return {
+    ...refPaths(slug, dirOpts),
+    dir,
+    sourceMp4: path.join(dir, "source.mp4"),
+    meta: path.join(dir, "meta.info.json"),
+    audio: path.join(dir, "source.mp3"),
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // sampleFrames — ffmpeg keyframe sampler
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type FramesOptions = {
   slug: string;
+  /** Domain Object source path resolved by the command boundary. */
+  sourcePath?: string;
+  /** Explicit Run-temp destination for domain-backed derived frames. */
+  outputDir?: string;
   /** Frames per second to sample. Default 1 frame every 6s (1/6). */
   fps?: number;
   /** Max frames to emit. Default 24 (covers a 144s clip @ fps=1/6). */
@@ -446,12 +468,14 @@ export async function sampleFrames(opts: FramesOptions): Promise<FramesResult> {
   ensureBin("ffmpeg", "brew install ffmpeg");
   const dirOpts: RefDirOptions = { global: opts.global };
   const paths = refPaths(opts.slug, dirOpts);
-  if (!existsSync(paths.sourceMp4)) {
+  const framesDir = opts.outputDir ?? paths.framesDir;
+  const sourcePath = opts.sourcePath ?? paths.sourceMp4;
+  if (!existsSync(sourcePath)) {
     throw new Error(
       `No source.mp4 in ${paths.dir} — run \`ralphy ref pull <url> --slug ${opts.slug}\` first.`,
     );
   }
-  await fs.mkdir(paths.framesDir, { recursive: true });
+  await fs.mkdir(framesDir, { recursive: true });
   const fps = opts.fps ?? 1 / 6;
   const max = opts.max ?? 24;
   const width = opts.width ?? 540;
@@ -461,29 +485,33 @@ export async function sampleFrames(opts: FramesOptions): Promise<FramesResult> {
     "-loglevel",
     "error",
     "-i",
-    paths.sourceMp4,
+    sourcePath,
     "-vf",
     `fps=${fps},scale=${width}:-2`,
     "-frames:v",
     String(max),
     "-q:v",
     "4",
-    path.join(paths.framesDir, "frame-%02d.jpg"),
+    "-pix_fmt",
+    "yuvj420p",
+    path.join(framesDir, "frame-%02d.jpg"),
   ]);
   if (r.code !== 0) {
     throw new Error(`ffmpeg frames failed: ${r.stderr.slice(0, 500)}`);
   }
-  const files = (await fs.readdir(paths.framesDir))
+  const files = (await fs.readdir(framesDir))
     .filter((f) => f.endsWith(".jpg"))
     .sort()
-    .map((f) => path.join(paths.framesDir, f));
+    .map((f) => path.join(framesDir, f));
 
-  await writeState(opts.slug, {
-    framesAt: new Date().toISOString(),
-    framesCount: files.length,
-  }, dirOpts);
+  if (!opts.outputDir) {
+    await writeState(opts.slug, {
+      framesAt: new Date().toISOString(),
+      framesCount: files.length,
+    }, dirOpts);
+  }
 
-  return { slug: opts.slug, dir: paths.framesDir, count: files.length, paths: files };
+  return { slug: opts.slug, dir: framesDir, count: files.length, paths: files };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -492,6 +520,10 @@ export async function sampleFrames(opts: FramesOptions): Promise<FramesResult> {
 
 export type TranscribeRefOptions = {
   slug: string;
+  /** Domain Object source path resolved by the command boundary. */
+  sourcePath?: string;
+  /** Explicit Run-temp transcript path for domain-backed callers. */
+  outputPath?: string;
   language?: TranscribeLanguage;
   backend?: TranscribeBackend;
   /** Force the global ref tree, bypassing workspace-local resolution (#401). */
@@ -504,6 +536,9 @@ export type TranscribeRefResult = {
   count: number;
   language: string;
   backend: TranscribeBackend;
+  provider: "elevenlabs" | "openrouter";
+  model: string;
+  latencyMs: number;
   audioDurationSec: number;
   costUsd: number;
 };
@@ -511,43 +546,50 @@ export type TranscribeRefResult = {
 export async function transcribeRef(opts: TranscribeRefOptions): Promise<TranscribeRefResult> {
   const dirOpts: RefDirOptions = { global: opts.global };
   const paths = refPaths(opts.slug, dirOpts);
-  if (!existsSync(paths.audio)) {
+  const sourcePath = opts.sourcePath ?? paths.audio;
+  if (!existsSync(sourcePath)) {
     throw new Error(
       `No source.mp3 in ${paths.dir} — run \`ralphy ref pull <url> --slug ${opts.slug}\` first.`,
     );
   }
   const result = await transcribe({
-    audioPath: paths.audio,
+    audioPath: sourcePath,
     language: opts.language ?? "ru",
     backend: opts.backend,
   });
+  const transcriptPath = opts.outputPath ?? paths.transcript;
+  await fs.mkdir(path.dirname(transcriptPath), { recursive: true });
   await fs.writeFile(
-    paths.transcript,
+    transcriptPath,
     JSON.stringify(result.captions, null, 2) + "\n",
   );
 
-  // log to a synthetic project so `ralphy project log` can show research too
-  await logGeneration("_research", {
-    provider: result.backend === "elevenlabs" ? "elevenlabs" : "openrouter",
-    model: result.model,
-    endpoint: result.model,
-    kind: "text",
-    input: { slot: `ref-${opts.slug}-transcript`, project: "_research", audio: paths.audio, language: opts.language ?? "ru", backend: result.backend },
-    output: { local: paths.transcript },
-    status: "ok",
-    latency_ms: result.durationMs,
-    cost_usd: result.costUsd,
-    note: `ref:${opts.slug}`,
-  });
-
-  await writeState(opts.slug, { transcribedAt: new Date().toISOString() }, dirOpts);
+  if (!opts.outputPath) {
+    // log to a synthetic project so `ralphy project log` can show research too
+    await logGeneration("_research", {
+      provider: result.backend === "elevenlabs" ? "elevenlabs" : "openrouter",
+      model: result.model,
+      endpoint: result.model,
+      kind: "text",
+      input: { slot: `ref-${opts.slug}-transcript`, project: "_research", language: opts.language ?? "ru", backend: result.backend },
+      output: { local: paths.transcript },
+      status: "ok",
+      latency_ms: result.durationMs,
+      cost_usd: result.costUsd,
+      note: `ref:${opts.slug}`,
+    });
+    await writeState(opts.slug, { transcribedAt: new Date().toISOString() }, dirOpts);
+  }
 
   return {
     slug: opts.slug,
-    path: paths.transcript,
+    path: transcriptPath,
     count: result.captions.length,
     language: result.language,
     backend: result.backend,
+    provider: result.provider,
+    model: result.model,
+    latencyMs: result.durationMs,
     audioDurationSec: result.audioDurationSec,
     costUsd: result.costUsd,
   };

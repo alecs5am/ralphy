@@ -25,7 +25,6 @@ import {
   _resetSlotWriteLocks,
 } from "../../cli/lib/providers/elevenlabs.js";
 import { voiceoverCostUsd } from "../../cli/lib/providers/voice-pricing.js";
-import { readGenerations } from "../../cli/lib/gen-log.js";
 
 // Same silent-mp3 fixture as elevenlabs-voiceover-lock-verify.test.ts.
 const SILENT_MP3_B64 =
@@ -80,6 +79,7 @@ describe("generateVoiceover — cost_usd is no longer 0 (#030)", () => {
     const expected = voiceoverCostUsd(text.length, "eleven_multilingual_v2");
     const result = await generateVoiceover({
       projectId,
+      ...providerOutput("cost", "scene-01-vo.mp3"),
       slot: "scene-01-vo",
       text,
       voiceId: "v1",
@@ -89,12 +89,6 @@ describe("generateVoiceover — cost_usd is no longer 0 (#030)", () => {
     expect(result.costUsd).toBeCloseTo(expected, 6);
     expect(expected).toBeCloseTo(0.4, 6);
 
-    // Canonical gen-log row carries the cost.
-    const rows = await readGenerations(projectId);
-    expect(rows).toHaveLength(1);
-    expect(rows[0]!.cost_usd).toBeCloseTo(expected, 6);
-    expect(rows[0]!.kind).toBe("voiceover");
-    expect(rows[0]!.model).toBe("eleven_multilingual_v2");
   }, 15_000);
 });
 
@@ -112,6 +106,7 @@ describe("generateVoiceover — voice_settings pass-through (#030)", () => {
 
     await generateVoiceover({
       projectId,
+      ...providerOutput("settings", "scene-02-vo.mp3"),
       slot: "scene-02-vo",
       text: "hello world",
       voiceId: "v1",
@@ -130,11 +125,6 @@ describe("generateVoiceover — voice_settings pass-through (#030)", () => {
     expect(vs.style).toBeCloseTo(0.07, 6);
     expect(vs.speed).toBeCloseTo(0.85, 6);
 
-    // Caller-supplied voice_settings also surface in the gen-log row's input.
-    const rows = await readGenerations(projectId);
-    const settingsInLog = (rows[0]!.input as { voice_settings?: Record<string, number> })
-      .voice_settings;
-    expect(settingsInLog?.speed).toBeCloseTo(0.85, 6);
   }, 15_000);
 
   test("omitted voice_settings → defaults apply (stability 0.55 etc.)", async () => {
@@ -150,6 +140,7 @@ describe("generateVoiceover — voice_settings pass-through (#030)", () => {
 
     await generateVoiceover({
       projectId,
+      ...providerOutput("defaults", "scene-03-vo.mp3"),
       slot: "scene-03-vo",
       text: "hello",
       voiceId: "v1",
@@ -163,3 +154,8 @@ describe("generateVoiceover — voice_settings pass-through (#030)", () => {
     expect(vs.speed).toBeUndefined();
   }, 15_000);
 });
+
+function providerOutput(id: string, filename: string): { runId: string; outputPath: string } {
+  const runId = `run_${id}`;
+  return { runId, outputPath: path.join(tmpRoot, ".ralphy", "tmp", runId, filename) };
+}

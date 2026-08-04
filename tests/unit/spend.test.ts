@@ -28,6 +28,9 @@ import {
   readLedger,
   SPEND_LEDGER_ARTIFACT,
 } from "../../cli/lib/spend.js";
+import { closeDomainDb } from "../../cli/lib/store/db.js";
+import { finishRun, finishRunAttempt, startRun, startRunAttempt } from "../../cli/lib/store/runs.js";
+import { createProject, createWorkspace } from "../../cli/lib/store/scopes.js";
 
 let tmpRoot: string;
 let origRoot: string;
@@ -63,6 +66,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  closeDomainDb();
   setRoot(origRoot);
   fs.rmSync(tmpRoot, { recursive: true, force: true });
 });
@@ -93,6 +97,18 @@ describe("spend governor (#444): actualSpendUsd sums gen-log cost_usd", () => {
     const id = "sum-001";
     seedGenLog(id, [0.15, 0.2, 0.05, 0.6]);
     expect(await actualSpendUsd(id)).toBeCloseTo(1.0, 6);
+  });
+
+  test("includes domain Run Attempt costs while retaining legacy compatibility rows", async () => {
+    const workspace = createWorkspace({ slug: "default", name: "Default" });
+    const project = createProject({ workspaceId: workspace.id, slug: "domain-spend", name: "Domain spend" });
+    seedGenLog(project.id, [0.25]);
+    const run = startRun({ projectId: project.id, kind: "generate.image", label: "hero" });
+    const attempt = startRunAttempt({ runId: run.id, provider: "fixture", model: "fixture/image" });
+    finishRunAttempt(attempt.id, { state: "succeeded", costUsd: 0.75 });
+    finishRun(run.id, { state: "succeeded" });
+
+    expect(await actualSpendUsd(project.id)).toBeCloseTo(1, 6);
   });
 });
 

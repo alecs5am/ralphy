@@ -1,18 +1,13 @@
-// Integration test for #401 — `ralphy ref pull` stores the slug dir inside the
-// ACTIVE workspace's shared tier (`.ralphy/workspaces/<ws>/shared/refs/<slug>/`)
-// when a non-default workspace is active, in the global tree otherwise, and the
-// `--global` flag forces global regardless. Read verbs (here `ref paths`)
-// resolve workspace-local before a same-slug global entry.
-//
-// No live network — every pull uses `--local <mp4>` against a tiny ffmpeg-built
-// fixture so the import copies a real (sub-3KB) mp4 and the audio-extract step
-// succeeds offline.
+// Domain-backed integration coverage for ordinary `ralphy ref pull`.
 
-import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { setRoot } from "../../cli/lib/paths.js";
+import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
+import { artifactRevisionObjectPath, seedDomainProject, type DomainProjectFixture } from "../helpers/domain-media.js";
 import { spawnCli, type CliResult } from "../helpers/spawn-cli.js";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
@@ -21,175 +16,173 @@ const CLI = path.join(REPO, "cli", "index.ts");
 let tmpRoot: string;
 let fixtureMp4: string;
 let fixtureDir: string;
+let domain: DomainProjectFixture;
 
-// A single tiny mp4 fixture shared by every test (silent black 64x64, ~0.5s).
 beforeAll(() => {
   fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-ref-ws-fixture-"));
   fixtureMp4 = path.join(fixtureDir, "tiny.mp4");
-  const r = spawnSync(
-    "ffmpeg",
-    [
-      "-y", "-loglevel", "error",
-      "-f", "lavfi", "-i", "color=c=black:s=64x64:d=0.5",
-      "-f", "lavfi", "-i", "anullsrc=r=8000:cl=mono",
-      "-shortest", "-t", "0.5", "-pix_fmt", "yuv420p",
-      fixtureMp4,
-    ],
-    { stdio: "ignore" },
-  );
-  if (r.status !== 0 || !fs.existsSync(fixtureMp4)) {
-    throw new Error("failed to build tiny mp4 fixture (ffmpeg required)");
-  }
+  const result = spawnSync("ffmpeg", [
+    "-y", "-loglevel", "error",
+    "-f", "lavfi", "-i", "color=c=black:s=64x64:d=0.5",
+    "-f", "lavfi", "-i", "anullsrc=r=8000:cl=mono",
+    "-shortest", "-t", "0.5", "-pix_fmt", "yuv420p", fixtureMp4,
+  ], { stdio: "ignore" });
+  if (result.status !== 0) throw new Error("failed to build tiny mp4 fixture (ffmpeg required)");
 });
 
-afterAll(() => {
-  try {
-    fs.rmSync(fixtureDir, { recursive: true, force: true });
-  } catch {
-    /* noop */
-  }
+afterAll(() => fs.rmSync(fixtureDir, { recursive: true, force: true }));
+
+beforeEach(() => {
+  tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-ref-ws-"));
+  domain = seedDomainProject(tmpRoot, "ordinary-pull");
 });
+
+afterEach(() => fs.rmSync(tmpRoot, { recursive: true, force: true }));
 
 function ralphy(args: string[]): Promise<CliResult> {
   return spawnCli([CLI, "--cwd", tmpRoot, ...args], { cwd: tmpRoot, timeoutMs: 30_000 });
 }
 
-/** Seed a `.ralphy/` root. When `activeWorkspace` is given, also create that
- * workspace dir and point config.json at it. */
-function seedRoot(activeWorkspace?: string) {
-  tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-ref-ws-"));
-  fs.mkdirSync(path.join(tmpRoot, ".ralphy"), { recursive: true });
-  const registry = {
-    projects: {}, refs: {}, brands: {}, personas: {}, templates: {}, batches: {},
-  };
-  fs.writeFileSync(
-    path.join(tmpRoot, ".ralphy", "registry.json"),
-    JSON.stringify(registry, null, 2),
-  );
-  if (activeWorkspace) {
-    fs.mkdirSync(
-      path.join(tmpRoot, ".ralphy", "workspaces", activeWorkspace, "shared"),
-      { recursive: true },
-    );
-    fs.writeFileSync(
-      path.join(tmpRoot, ".ralphy", "config.json"),
-      JSON.stringify({ activeWorkspace }, null, 2),
-    );
-  }
+function ralphyWithEnv(args: string[], env: NodeJS.ProcessEnv): Promise<CliResult> {
+  return spawnCli([CLI, "--cwd", tmpRoot, ...args], {
+    cwd: tmpRoot,
+    timeoutMs: 30_000,
+    env: { ...process.env, ...env },
+  });
 }
 
-afterEach(() => {
-  try {
-    fs.rmSync(tmpRoot, { recursive: true, force: true });
-  } catch {
-    /* noop */
-  }
-});
-
-describe("`ralphy ref pull` workspace-local storage (#401)", () => {
-  test("non-default active workspace → slug lands in shared/refs/, NOT global", async () => {
-    seedRoot("trafalgar");
-    const r = await ralphy([
-      "ref", "pull", "https://example.com/clip", "--local", fixtureMp4, "--slug", "reel-001",
+describe("`ralphy ref pull` domain storage", () => {
+  test("Project destination returns three durable Artifact revisions and no legacy paths", async () => {
+    const result = await ralphy([
+      "ref", "pull", "fixture-label", "--local", fixtureMp4, "--slug", "reel-001",
+      "--project", domain.projectId,
     ]);
-    if (r.exitCode !== 0) {
-      console.error("stderr:", r.stderr);
-      console.error("stdout:", r.stdout);
+    expect(result.exitCode).toBe(0);
+    expect(result.json.runId).toMatch(/^run_/);
+    expect(result.json.artifacts).toHaveLength(3);
+    for (const artifact of result.json.artifacts as Array<{ revisionId: string }>) {
+      expect(fs.existsSync(artifactRevisionObjectPath(tmpRoot, domain, artifact.revisionId))).toBe(true);
     }
-    expect(r.exitCode).toBe(0);
-
-    const wsDir = path.join(tmpRoot, ".ralphy", "workspaces", "trafalgar", "shared", "refs", "reel-001");
-    const globalDir = path.join(tmpRoot, ".ralphy", "references", "reel-001");
-    expect(fs.existsSync(path.join(wsDir, "source.mp4"))).toBe(true);
-    expect(fs.existsSync(globalDir)).toBe(false);
-    // The CLI reports the workspace-local dir.
-    expect(r.json.dir).toBe(wsDir);
+    expect(JSON.stringify(result.json)).not.toContain(tmpRoot);
+    expect(fs.existsSync(path.join(tmpRoot, ".ralphy", "references", "reel-001"))).toBe(false);
   });
 
-  test("--global forces the global tree even with a non-default workspace active", async () => {
-    seedRoot("trafalgar");
-    const r = await ralphy([
-      "ref", "pull", "https://example.com/clip", "--local", fixtureMp4, "--slug", "reel-002", "--global",
+  test("Workspace destination creates shared Artifact revisions without a legacy shared/refs tree", async () => {
+    const result = await ralphy([
+      "ref", "pull", "fixture-label", "--local", fixtureMp4, "--slug", "reel-002",
+      "--workspace", domain.workspaceId,
     ]);
-    expect(r.exitCode).toBe(0);
-
-    const wsDir = path.join(tmpRoot, ".ralphy", "workspaces", "trafalgar", "shared", "refs", "reel-002");
-    const globalDir = path.join(tmpRoot, ".ralphy", "references", "reel-002");
-    expect(fs.existsSync(path.join(globalDir, "source.mp4"))).toBe(true);
-    expect(fs.existsSync(wsDir)).toBe(false);
-    expect(r.json.dir).toBe(globalDir);
+    expect(result.exitCode).toBe(0);
+    expect(result.json.artifacts).toHaveLength(3);
+    expect(JSON.stringify(result.json)).not.toContain(tmpRoot);
+    expect(fs.existsSync(path.join(tmpRoot, ".ralphy", "workspaces", "default", "shared", "refs")))
+      .toBe(false);
   });
 
-  test("DEFAULT workspace (no explicit active) → slug stays global (back-compat)", async () => {
-    seedRoot(); // no config.json → currentWorkspace() === "default"
-    const r = await ralphy([
-      "ref", "pull", "https://example.com/clip", "--local", fixtureMp4, "--slug", "reel-003",
+  test("requires an explicit domain destination", async () => {
+    const result = await ralphy([
+      "ref", "pull", "fixture-label", "--local", fixtureMp4, "--slug", "reel-003",
     ]);
-    expect(r.exitCode).toBe(0);
-
-    const globalDir = path.join(tmpRoot, ".ralphy", "references", "reel-003");
-    expect(fs.existsSync(path.join(globalDir, "source.mp4"))).toBe(true);
-    expect(r.json.dir).toBe(globalDir);
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain("requires exactly one of --project <id> or --workspace <id>");
   });
 
-  test("read resolution: workspace-local shadows a same-slug global entry", async () => {
-    // First, write a GLOBAL ref of slug `shared-slug` (default workspace).
-    seedRoot();
-    const g = await ralphy([
-      "ref", "pull", "https://example.com/clip", "--local", fixtureMp4, "--slug", "shared-slug",
+  test("rejects the legacy --global write mode", async () => {
+    const result = await ralphy([
+      "ref", "pull", "fixture-label", "--local", fixtureMp4, "--slug", "reel-004",
+      "--project", domain.projectId, "--global",
     ]);
-    expect(g.exitCode).toBe(0);
-    const globalDir = path.join(tmpRoot, ".ralphy", "references", "shared-slug");
-    expect(fs.existsSync(path.join(globalDir, "source.mp4"))).toBe(true);
-
-    // Now switch the SAME root to a non-default workspace and pull the same slug.
-    fs.mkdirSync(
-      path.join(tmpRoot, ".ralphy", "workspaces", "trafalgar", "shared"),
-      { recursive: true },
-    );
-    fs.writeFileSync(
-      path.join(tmpRoot, ".ralphy", "config.json"),
-      JSON.stringify({ activeWorkspace: "trafalgar" }, null, 2),
-    );
-    const w = await ralphy([
-      "ref", "pull", "https://example.com/clip", "--local", fixtureMp4, "--slug", "shared-slug",
-    ]);
-    expect(w.exitCode).toBe(0);
-    const wsDir = path.join(tmpRoot, ".ralphy", "workspaces", "trafalgar", "shared", "refs", "shared-slug");
-    expect(fs.existsSync(path.join(wsDir, "source.mp4"))).toBe(true);
-
-    // Read verb (`ref paths`) with the non-default workspace active resolves to
-    // the workspace-local dir, shadowing the global one.
-    const p = await ralphy(["ref", "paths", "shared-slug"]);
-    expect(p.exitCode).toBe(0);
-    expect(p.json.dir).toBe(wsDir);
-
-    // `--global` on the read verb forces the global entry.
-    const pg = await ralphy(["ref", "paths", "shared-slug", "--global"]);
-    expect(pg.exitCode).toBe(0);
-    expect(pg.json.dir).toBe(globalDir);
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain("does not write the legacy global references tree");
   });
 
-  test("read resolution: a global-only slug still resolves under a non-default workspace", async () => {
-    seedRoot();
-    const g = await ralphy([
-      "ref", "pull", "https://example.com/clip", "--local", fixtureMp4, "--slug", "global-only",
+  test("pull then frames resolves the latest domain video without restoring source.mp4", async () => {
+    const pulled = await ralphy([
+      "ref", "pull", "fixture-label", "--local", fixtureMp4, "--slug", "frames-domain",
+      "--project", domain.projectId,
     ]);
-    expect(g.exitCode).toBe(0);
-    const globalDir = path.join(tmpRoot, ".ralphy", "references", "global-only");
+    expect(pulled.exitCode).toBe(0);
 
-    // Switch to a non-default workspace that has NO local copy of this slug.
-    fs.mkdirSync(
-      path.join(tmpRoot, ".ralphy", "workspaces", "trafalgar", "shared"),
-      { recursive: true },
-    );
-    fs.writeFileSync(
-      path.join(tmpRoot, ".ralphy", "config.json"),
-      JSON.stringify({ activeWorkspace: "trafalgar" }, null, 2),
-    );
-    // Read resolution falls back to global since no workspace-local exists.
-    const p = await ralphy(["ref", "paths", "global-only"]);
-    expect(p.exitCode).toBe(0);
-    expect(p.json.dir).toBe(globalDir);
+    const framed = await ralphy([
+      "ref", "frames", "frames-domain", "--project", domain.projectId,
+      "--fps", "10", "--max", "1", "--width", "32",
+    ]);
+    expect({ exitCode: framed.exitCode, stderr: framed.stderr }).toMatchObject({ exitCode: 0 });
+    expect(framed.json.count).toBe(1);
+    expect(framed.json.sourceRevisionId).toMatch(/^arev_/);
+    expect(JSON.stringify(framed.json)).not.toContain(tmpRoot);
+    expect(fs.existsSync(path.join(tmpRoot, ".ralphy", "references", "frames-domain", "source.mp4")))
+      .toBe(false);
+    expect(fs.existsSync(path.join(tmpRoot, ".ralphy", "references", "frames-domain"))).toBe(false);
+  });
+
+  test("pull then transcribe resolves the latest domain audio without restoring source.mp3", async () => {
+    const pulled = await ralphy([
+      "ref", "pull", "fixture-label", "--local", fixtureMp4, "--slug", "transcribe-domain",
+      "--project", domain.projectId,
+    ]);
+    expect(pulled.exitCode).toBe(0);
+    const fakeTranscript = path.join(tmpRoot, "fake-transcript.json");
+    fs.writeFileSync(fakeTranscript, JSON.stringify({
+      captions: [{ text: "hello", startMs: 0, endMs: 100 }],
+      audioDurationSec: 0.5,
+      language: "eng",
+      backend: "gemini",
+      model: "google/gemini-2.5-flash",
+      durationMs: 321,
+      usage: { prompt_tokens: 120, completion_tokens: 2, cost: 0.123 },
+    }));
+
+    const transcribed = await ralphyWithEnv([
+      "ref", "transcribe", "transcribe-domain", "--project", domain.projectId,
+      "--backend", "gemini", "--language", "en",
+    ], { RALPHY_FAKE_TRANSCRIBE_JSON: fakeTranscript });
+    expect({ exitCode: transcribed.exitCode, stderr: transcribed.stderr }).toMatchObject({ exitCode: 0 });
+    expect(transcribed.json.captions).toBe(1);
+    expect(transcribed.json.sourceRevisionId).toMatch(/^arev_/);
+    expect(JSON.stringify(transcribed.json)).not.toContain(tmpRoot);
+    expect(fs.existsSync(path.join(tmpRoot, ".ralphy", "references", "transcribe-domain", "source.mp3")))
+      .toBe(false);
+    expect(fs.existsSync(path.join(tmpRoot, ".ralphy", "references", "transcribe-domain"))).toBe(false);
+
+    setRoot(tmpRoot);
+    const db = openDomainDb();
+    const attempt = db.query<{
+      id: string;
+      provider: string | null;
+      model: string | null;
+      costUsd: number | null;
+      response: string | null;
+    }, [string]>(`
+      SELECT id, provider, model, cost_usd AS costUsd, response_json AS response
+      FROM run_attempts WHERE run_id = ? ORDER BY attempt_no DESC LIMIT 1
+    `).get(transcribed.json.runId)!;
+    const activity = db.query<{ payload: string }, [string]>(`
+      SELECT payload_json AS payload FROM activity_events
+      WHERE entity_id = ? AND action = 'run.attempt_finished'
+      ORDER BY id DESC LIMIT 1
+    `).get(attempt.id)!;
+    const objectMetadata = db.query<{ metadata: string | null }, [string]>(`
+      SELECT object.metadata_json AS metadata
+      FROM run_results result
+      JOIN artifact_revisions revision ON revision.id = result.entity_id
+      JOIN objects object ON object.id = revision.object_id
+      WHERE result.run_id = ? ORDER BY result.position LIMIT 1
+    `).get(transcribed.json.runId)!;
+    closeDomainDb();
+    setRoot(REPO);
+
+    expect(attempt.provider).toBe("openrouter");
+    expect(attempt.model).toBe("google/gemini-2.5-flash");
+    expect(attempt.costUsd).toBe(0.123);
+    expect(JSON.parse(attempt.response ?? "null")).toMatchObject({
+      model: "google/gemini-2.5-flash",
+      latencyMs: 321,
+    });
+    expect(JSON.parse(objectMetadata.metadata ?? "null")).toMatchObject({
+      provider: "openrouter",
+      model: "google/gemini-2.5-flash",
+    });
+    expect(JSON.parse(activity.payload)).toMatchObject({ costUsd: 0.123 });
   });
 });

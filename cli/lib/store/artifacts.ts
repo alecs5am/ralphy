@@ -255,6 +255,34 @@ export function getArtifactRevision(input: {
   return revision;
 }
 
+/** Resolve the newest Object bytes for one exact Artifact slot and scope. */
+export function resolveLatestArtifactObject(input: {
+  context: ArtifactScope;
+  slug: string;
+  kind: ArtifactKind;
+}): { artifact: ArtifactDto; revision: ArtifactRevisionDto; objectPath: string } {
+  const db = openDomainDb();
+  const scope = resolveScope(db, input.context);
+  const artifact = db.query<ArtifactDbRow, [string, string | null, string, ArtifactKind]>(
+    `SELECT ${ARTIFACT_COLUMNS} FROM artifacts
+     WHERE workspace_id = ? AND project_id IS ? AND slug = ? AND kind = ?`,
+  ).get(scope.workspaceId, scope.projectId, input.slug, input.kind);
+  if (!artifact) throw new Error(`Artifact not found: ${input.slug}`);
+  const revision = db.query<ArtifactRevisionDbRow, [string]>(
+    `SELECT ${REVISION_COLUMNS} FROM artifact_revisions
+     WHERE artifact_id = ? ORDER BY revision_no DESC LIMIT 1`,
+  ).get(artifact.id);
+  if (!revision) throw new Error(`Artifact has no revisions: ${input.slug}`);
+  const revisionRow = toArtifactRevisionRow(revision);
+  const object = getObjectRow(db, revisionRow.objectId);
+  if (!object) throw new Error(`Object not found: ${revisionRow.objectId}`);
+  return {
+    artifact: toArtifactDto(toArtifactRow(artifact)),
+    revision: toArtifactRevisionDto(revisionRow),
+    objectPath: resolveObjectPath(object),
+  };
+}
+
 export function listArtifacts(input: {
   context: QueryContext;
   after?: string | null;
@@ -513,6 +541,99 @@ export function addArtifactRevision(
     });
     return toArtifactRevisionDto(revision);
   });
+}
+
+/** @internal Creates/reuses a slot Artifact and appends one revision in the caller's transaction. */
+export function addArtifactRevisionInTransaction(
+  db: Database,
+  input: {
+    workspaceId: string;
+    projectId: string | null;
+    slug: string;
+    kind: ArtifactKind;
+    objectId: string;
+    state: ArtifactRevisionState;
+    metadata?: JsonValue | null;
+    authoredBySessionId?: string | null;
+  },
+): { artifact: ArtifactDto; revision: ArtifactRevisionDto } {
+  assertArtifactKind(input.kind);
+  assertRevisionState(input.state);
+  const slug = checkedText(input.slug, "Artifact slug");
+  const metadata = checkedJson(input.metadata);
+  const scope = resolveScope(
+    db,
+    input.projectId === null
+      ? { workspaceId: input.workspaceId }
+      : { projectId: input.projectId },
+  );
+  if (scope.workspaceId !== input.workspaceId) {
+    throw new Error("Artifact scope does not match the Run Workspace");
+  }
+  let artifact = db
+    .query<ArtifactDbRow, [string, string | null, string]>(
+      `SELECT ${ARTIFACT_COLUMNS} FROM artifacts
+       WHERE workspace_id = ? AND project_id IS ? AND slug = ?`,
+    )
+    .get(scope.workspaceId, scope.projectId, slug);
+  if (!artifact) {
+    const id = newDomainId("art");
+    const now = Date.now();
+    db.prepare(
+      "INSERT INTO artifacts (id, workspace_id, project_id, slug, kind, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    ).run(id, scope.workspaceId, scope.projectId, slug, input.kind, now, now);
+    artifact = db
+      .query<ArtifactDbRow, [string]>(
+        `SELECT ${ARTIFACT_COLUMNS} FROM artifacts WHERE id = ?`,
+      )
+      .get(id);
+    appendActivity(db, {
+      workspaceId: scope.workspaceId,
+      projectId: scope.projectId,
+      entityType: "artifact",
+      entityId: id,
+      action: "artifact.created",
+      payload: { kind: input.kind },
+      createdAt: now,
+    });
+  }
+  if (!artifact) throw new Error(`Artifact was not created: ${slug}`);
+  const artifactRow = toArtifactRow(artifact);
+  if (artifactRow.kind !== input.kind) {
+    throw new Error(`Artifact slot already exists with kind ${artifactRow.kind}: ${slug}`);
+  }
+  const object = getObjectRow(db, input.objectId);
+  if (!object) throw new Error(`Object not found: ${input.objectId}`);
+  assertObjectVisibleToArtifact(object, artifactRow);
+  if (input.authoredBySessionId != null) {
+    assertActiveSessionScope(db, input.authoredBySessionId, artifactRow);
+  }
+  const revision = insertRevision(db, artifactRow, {
+    objectId: object.id,
+    parentRevisionId: null,
+    iterationId: null,
+    state: input.state,
+    metadata,
+    authoredBySessionId: input.authoredBySessionId ?? null,
+  });
+  appendActivity(db, {
+    workspaceId: artifactRow.workspaceId,
+    projectId: artifactRow.projectId,
+    entityType: "artifact",
+    entityId: artifactRow.id,
+    action: "artifact.revised",
+    payload: {
+      revisionId: revision.id,
+      revisionNo: revision.revisionNo,
+      objectId: revision.objectId,
+      state: revision.state,
+    },
+    createdAt: revision.createdAt,
+  });
+  return {
+    artifact: toArtifactDto(artifactRow),
+    revision: toArtifactRevisionDto(revision),
+  };
 }
 
 export function selectArtifactRevision(input: {

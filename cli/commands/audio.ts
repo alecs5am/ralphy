@@ -13,7 +13,8 @@ import {
   concatLossless,
   mixMusic,
 } from "../lib/ffmpeg-recipes.js";
-import { out, ok, err } from "../lib/output.js";
+import { ok, err } from "../lib/output.js";
+import { artifactOut as out, mimeForOutput, produceArtifactRevision } from "../lib/artifact-production.js";
 
 export function audioCmd() {
   const cmd = new Command("audio").description(
@@ -29,21 +30,21 @@ export function audioCmd() {
     .option("--target <lufs>", "Target integrated loudness", (v) => Number(v), -16)
     .option("--true-peak <dbtp>", "True-peak ceiling", (v) => Number(v), -1.5)
     .option("--lra <lu>", "Loudness range", (v) => Number(v), 11)
-    .option("--project <id>", "Project ID for log line")
+    .requiredOption("--project <id>", "Project ID")
     .option("--note <note>", "Free-form note")
     .action(async (opts: any) => {
       try {
-        const dst = await loudnorm({
-          src: path.resolve(opts.in),
-          dst: path.resolve(opts.out),
+        const completed = await produceArtifactRevision({ scope: { projectId: opts.project }, runKind: "audio.loudnorm",
+          requestedOutput: opts.out, artifactKind: "audio", mime: mimeForOutput(opts.out), provider: "ffmpeg", model: "ffmpeg/loudnorm",
+          produce: (dst) => loudnorm({
+          src: path.resolve(opts.in), dst,
           target: opts.target,
           truePeak: opts.truePeak,
           loudnessRange: opts.lra,
-          projectId: opts.project,
-          note: opts.note,
-        });
-        ok(`Loudness-normalized → ${dst}`);
-        out({ src: opts.in, dst, target: opts.target, truePeak: opts.truePeak, lra: opts.lra });
+        }) });
+        ok(`Loudness-normalized → Artifact Revision ${completed.revision.id}`);
+        out({ src: opts.in, artifactId: completed.artifact.id, revisionId: completed.revision.id, runId: completed.run.id,
+          target: opts.target, truePeak: opts.truePeak, lra: opts.lra });
       } catch (e: any) {
         err(`loudnorm failed: ${e?.message || e}`);
       }
@@ -68,14 +69,16 @@ export function audioCmd() {
         return Number.isFinite(n) ? n : -16;
       },
     )
-    .option("--project <id>", "Project ID for log line")
+    .requiredOption("--project <id>", "Project ID")
     .option("--note <note>", "Free-form note")
     .action(async (opts: any) => {
       try {
-        const dst = await sidechainCompress({
+        const completed = await produceArtifactRevision({ scope: { projectId: opts.project }, runKind: "audio.sidechain",
+          requestedOutput: opts.out, artifactKind: "audio", mime: mimeForOutput(opts.out), provider: "ffmpeg", model: "ffmpeg/sidechain",
+          produce: (dst) => sidechainCompress({
           voice: path.resolve(opts.voice),
           music: path.resolve(opts.music),
-          dst: path.resolve(opts.out),
+          dst,
           threshold: opts.threshold,
           ratio: opts.ratio,
           mix: [opts.voiceVol, opts.musicVol],
@@ -90,11 +93,10 @@ export function audioCmd() {
             const n = Number(v);
             return Number.isFinite(n) ? n : -16;
           })(),
-          projectId: opts.project,
-          note: opts.note,
-        });
-        ok(`Mixed (ducked) → ${dst}`);
-        out({ voice: opts.voice, music: opts.music, dst });
+        }) });
+        ok(`Mixed (ducked) → Artifact Revision ${completed.revision.id}`);
+        out({ voice: opts.voice, music: opts.music, artifactId: completed.artifact.id,
+          revisionId: completed.revision.id, runId: completed.run.id });
       } catch (e: any) {
         err(`sidechain failed: ${e?.message || e}`);
       }
@@ -111,21 +113,22 @@ export function audioCmd() {
     .requiredOption("--out <path>", "Output video")
     .option("--volume <n>", "Music gain (default 0.18 = background bed)", (v) => Number(v), 0.18)
     .option("--force-overwrite", "Skip the .v2 collision archive", false)
-    .option("--project <id>", "Project ID for log line")
+    .requiredOption("--project <id>", "Project ID")
     .option("--note <note>", "Free-form note")
     .action(async (opts: any) => {
       try {
-        const dst = await mixMusic({
+        const completed = await produceArtifactRevision({ scope: { projectId: opts.project }, runKind: "audio.mix-music",
+          requestedOutput: opts.out, artifactKind: "video", mime: mimeForOutput(opts.out), provider: "ffmpeg", model: "ffmpeg/mix-music",
+          produce: (dst) => mixMusic({
           src: path.resolve(opts.in),
           music: path.resolve(opts.music),
-          dst: path.resolve(opts.out),
+          dst,
           volume: opts.volume,
-          forceOverwrite: opts.forceOverwrite,
-          projectId: opts.project,
-          note: opts.note,
-        });
-        ok(`Music bed mixed → ${dst}`);
-        out({ src: opts.in, music: opts.music, dst, volume: opts.volume });
+          forceOverwrite: true,
+        }) });
+        ok(`Music bed mixed → Artifact Revision ${completed.revision.id}`);
+        out({ src: opts.in, music: opts.music, artifactId: completed.artifact.id,
+          revisionId: completed.revision.id, runId: completed.run.id, volume: opts.volume });
       } catch (e: any) {
         err(`mix-music failed: ${e?.message || e}`);
       }
@@ -137,7 +140,7 @@ export function audioCmd() {
     .description("Lossless concat of audio segments via the concat demuxer")
     .requiredOption("--files <list>", "Comma-separated input paths (in order)")
     .requiredOption("--out <path>", "Output file")
-    .option("--project <id>", "Project ID for log line")
+    .requiredOption("--project <id>", "Project ID")
     .option("--note <note>", "Free-form note")
     .action(async (opts: any) => {
       try {
@@ -145,14 +148,14 @@ export function audioCmd() {
           .split(",")
           .map((f) => path.resolve(f.trim()))
           .filter(Boolean);
-        const dst = await concatLossless({
+        const completed = await produceArtifactRevision({ scope: { projectId: opts.project }, runKind: "audio.concat",
+          requestedOutput: opts.out, artifactKind: "audio", mime: mimeForOutput(opts.out), provider: "ffmpeg", model: "ffmpeg/concat",
+          produce: (dst) => concatLossless({
           srcs,
-          dst: path.resolve(opts.out),
-          projectId: opts.project,
-          note: opts.note,
-        });
-        ok(`Concatenated → ${dst}`);
-        out({ srcs, dst });
+          dst,
+        }) });
+        ok(`Concatenated → Artifact Revision ${completed.revision.id}`);
+        out({ srcs, artifactId: completed.artifact.id, revisionId: completed.revision.id, runId: completed.run.id });
       } catch (e: any) {
         err(`concat failed: ${e?.message || e}`);
       }

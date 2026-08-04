@@ -12,10 +12,9 @@
 import path from "node:path";
 import fs from "node:fs/promises";
 import { logGeneration } from "../gen-log.js";
-import { generationDestination } from "../generation-destination.js";
 import {
-  assetPath,
-  protectExistingAsset,
+  providerOutputPath,
+  providerHttpError,
   writeImageFromUrlOrDataUri,
   resolveImageRef,
   resolveImageRefForVideo,
@@ -180,11 +179,7 @@ export async function callLLM(opts: CallLLMOptions): Promise<CallLLMResult> {
       if (!resp.ok) {
         const errText = await resp.text().catch(() => "");
         const message = `${ID} ${resp.status}: ${errText.slice(0, 500)}`;
-        if (resp.status >= 400 && resp.status < 500) {
-          throw new TerminalProviderError(message);
-        }
-        // 5xx → plain Error so classifier sees the status + body and decides.
-        throw new Error(message);
+        throw providerHttpError(message, resp.status);
       }
 
       const json = (await resp.json()) as {
@@ -364,10 +359,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
         const text = await resp.text().catch(() => "");
         const rewritten = rewriteUpstreamError(model, resp.status, text);
         const message = `OpenRouter images ${rewritten}`;
-        if (resp.status >= 400 && resp.status < 500) {
-          throw new TerminalProviderError(message);
-        }
-        throw new Error(message);
+        throw providerHttpError(message, resp.status);
       }
 
       const json = (await resp.json()) as {
@@ -402,8 +394,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     },
   );
 
-  const imgDest = assetPath(input, "images", `${input.slot}.png`);
-  await protectExistingAsset(imgDest, input.overwrite);
+  const imgDest = providerOutputPath(input);
   const localPath = await writeImageFromUrlOrDataUri(net.url, imgDest);
 
   const result: GenerateResult = {
@@ -413,20 +404,6 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
     latencyMs: Date.now() - t0,
     model,
   };
-  await logGeneration(generationDestination(input), {
-    slot: input.slot,
-    provider: ID,
-    model,
-    endpoint: model,
-    kind: "image",
-    input: { slot: input.slot, project: input.projectId, prompt: input.prompt, size, refs: input.refs ?? [] },
-    output: { url: net.url, local: localPath },
-    status: "ok",
-    latency_ms: result.latencyMs,
-    cost_usd: result.costUsd,
-    attempt: net._attempt,
-    note: input.note ?? input.slot,
-  });
   return result;
 }
 
@@ -602,10 +579,7 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
         const text = await resp.text().catch(() => "");
         const rewritten = rewriteUpstreamError(model, resp.status, text);
         const message = `OpenRouter videos submit ${rewritten}`;
-        if (resp.status >= 400 && resp.status < 500) {
-          throw new TerminalProviderError(message);
-        }
-        throw new Error(message);
+        throw providerHttpError(message, resp.status);
       }
 
       const submitted = (await resp.json()) as VideoJob & Record<string, unknown>;
@@ -630,7 +604,6 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     },
   );
   let job = submitResult.job;
-  const submitAttempt = submitResult.attempt;
 
   const terminalErr = new Set(["failed", "cancelled", "expired"]);
   for (let attempt = 1; attempt <= pollMaxAttempts; attempt += 1) {
@@ -654,7 +627,10 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     });
     if (!pollResp.ok) {
       const text = await pollResp.text().catch(() => "");
-      const err = new Error(`OpenRouter video poll ${pollResp.status}: ${text.slice(0, 500)}`);
+      const err = providerHttpError(
+        `OpenRouter video poll ${pollResp.status}: ${text.slice(0, 500)}`,
+        pollResp.status,
+      );
       await logFailure(input, ID, model, "video", body, err, t0);
       throw err;
     }
@@ -669,7 +645,7 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     throw err;
   }
 
-  const dest = assetPath(input, "videos", `${input.slot}.mp4`);
+  const dest = providerOutputPath(input);
   await fs.mkdir(path.dirname(dest), { recursive: true });
   const downloadUrl =
     job.unsigned_urls?.[0] ??
@@ -682,12 +658,14 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
   });
   if (!dl.ok) {
     const text = await dl.text().catch(() => "");
-    const err = new Error(`OpenRouter video download ${dl.status}: ${text.slice(0, 200)}`);
+    const err = providerHttpError(
+      `OpenRouter video download ${dl.status}: ${text.slice(0, 200)}`,
+      dl.status,
+    );
     await logFailure(input, ID, model, "video", body, err, t0);
     throw err;
   }
   const buf = Buffer.from(await dl.arrayBuffer());
-  await protectExistingAsset(dest, input.overwrite);
   await fs.writeFile(dest, buf);
 
   const pricePerSec = VIDEO_PRICE_PER_SEC[model] ?? 0.14;
@@ -697,31 +675,8 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     costUsd: pricePerSec * input.durationSec,
     latencyMs: Date.now() - t0,
     model,
+    preprocess: preprocess as GenerateResult["preprocess"],
   };
-  await logGeneration(generationDestination(input), {
-    slot: input.slot,
-    provider: ID,
-    model,
-    endpoint: model,
-    kind: "video",
-    input: {
-      slot: input.slot,
-      project: input.projectId,
-      prompt: input.prompt,
-      duration_sec: input.durationSec,
-      aspect_ratio: aspectRatio,
-      resolution,
-      image: input.image ? "[ref-supplied]" : undefined,
-      refs: input.refs && input.refs.length > 0 ? input.refs : undefined,
-      preprocess: Object.keys(preprocess).length > 0 ? preprocess : undefined,
-    },
-    output: { url: downloadUrl, local: dest, job_id: job.id },
-    status: "ok",
-    latency_ms: result.latencyMs,
-    cost_usd: result.costUsd,
-    attempt: submitAttempt,
-    note: input.note ?? input.slot,
-  });
   return result;
 }
 

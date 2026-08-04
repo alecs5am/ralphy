@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ralphDir } from "../paths.js";
 import { appendActivity } from "./activity.js";
+import { addArtifactRevisionInTransaction } from "./artifacts.js";
 import { requireConsumerSession } from "./consumer-runs.js";
 import {
   afterDomainCommit,
@@ -11,7 +12,12 @@ import {
   withImmediateTransaction,
 } from "./db.js";
 import { newDomainId } from "./ids.js";
-import { ingestObjectRow } from "./internal-objects.js";
+import {
+  ingestObjectRow,
+  prepareObject,
+  registerPreparedObject,
+  removePreparedMoveSource,
+} from "./internal-objects.js";
 import type { ObjectScope } from "./objects.js";
 import { assertActiveSessionScope } from "./sessions.js";
 import { assertLimit, buildPage, decodeCursor } from "./pagination.js";
@@ -28,6 +34,10 @@ import type {
   RunRow,
 } from "./internal-types.js";
 import type {
+  ArtifactDto,
+  ArtifactKind,
+  ArtifactRevisionDto,
+  ArtifactRevisionState,
   JsonValue,
   ObjectStorageClass,
   Page,
@@ -298,7 +308,7 @@ export function finishRunAttempt(
     state: "succeeded" | "failed" | "cancelled";
     response?: JsonValue | null;
     costUsd?: number | null;
-    error?: string | null;
+    error?: unknown;
   },
 ): RunAttemptDto {
   assertTerminalState(input.state, "Run Attempt");
@@ -318,7 +328,7 @@ export function finishRunAttempt(
       input.state,
       serializeJson(response),
       costUsd,
-      input.error ?? null,
+      safeRunError(input.error),
       endedAt,
       id,
     );
@@ -332,7 +342,7 @@ export function finishRunAttempt(
       entityType: "run_attempt",
       entityId: id,
       action: "run.attempt_finished",
-      payload: { runId: run.id, state: input.state },
+      payload: { runId: run.id, state: input.state, ...(costUsd !== null ? { costUsd } : {}) },
       createdAt: endedAt,
     });
     return toRunAttemptDtoFromRow(getRunAttemptRow(db, id)!);
@@ -343,11 +353,85 @@ export function finishRun(
   id: string,
   input: {
     state: "succeeded" | "failed" | "cancelled";
-    error?: string | null;
+    error?: unknown;
   },
 ): RunDto {
   assertTerminalState(input.state, "Run");
   return withImmediateTransaction((db) => finishRunInTransaction(db, id, input));
+}
+
+const TRUSTED_RUN_FAILURE = Symbol("trustedRunFailure");
+const PROJECTED_RUN_FAILURE = Symbol("projectedRunFailure");
+const SAFE_FAILURE_NAME = /^[A-Za-z][A-Za-z0-9]{0,63}$/;
+const SAFE_FAILURE_CODE = /^[A-Z][A-Z0-9_]{1,63}$/;
+const SAFE_FAILURE_PROVIDER = /^[a-z][a-z0-9.-]{0,63}$/;
+const SAFE_FAILURE_MESSAGE = /^[\x20-\x7e]{1,160}$/;
+
+type RunFailureFacts = {
+  code?: unknown;
+  status?: unknown;
+  provider?: unknown;
+};
+
+/** Mark a constant, adapter-authored diagnostic as safe for public Run evidence. */
+export function trustedRunFailure(message: string, facts: RunFailureFacts = {}): Error {
+  if (!SAFE_FAILURE_MESSAGE.test(message)) throw new Error("Trusted Run failure message is invalid");
+  const error = new Error(message);
+  Object.defineProperty(error, TRUSTED_RUN_FAILURE, { value: true });
+  return assignFailureFacts(error, facts);
+}
+
+/** Project untrusted failures with a default-deny message and allowlisted facts. */
+export function projectRunFailure(error: unknown, facts: RunFailureFacts = {}): Error {
+  const source = error && typeof error === "object" ? error as Record<PropertyKey, unknown> : {};
+  if (source[PROJECTED_RUN_FAILURE] === true && error instanceof Error) return error;
+  const code = safeFailureCode(facts.code) ?? safeFailureCode(source.code);
+  const status = safeFailureStatus(facts.status) ?? safeFailureStatus(source.status);
+  const provider = safeFailureProvider(facts.provider) ?? safeFailureProvider(source.provider);
+  const trusted = source[TRUSTED_RUN_FAILURE] === true && error instanceof Error &&
+    SAFE_FAILURE_MESSAGE.test(error.message);
+  const details = [
+    status === undefined ? null : `status ${status}`,
+    code === undefined ? null : `code ${code}`,
+  ].filter((value): value is string => value !== null);
+  const base = trusted ? (error as Error).message : `${provider ?? "Provider"} request failed`;
+  const projected = new Error(details.length > 0 ? `${base} (${details.join("; ")})` : base);
+  if (typeof source.name === "string" && SAFE_FAILURE_NAME.test(source.name)) projected.name = source.name;
+  return markProjectedFailure(projected, { code, status, provider });
+}
+
+function markProjectedFailure(error: Error, facts: RunFailureFacts): Error {
+  Object.defineProperty(error, TRUSTED_RUN_FAILURE, { value: true });
+  Object.defineProperty(error, PROJECTED_RUN_FAILURE, { value: true });
+  return assignFailureFacts(error, facts);
+}
+
+function assignFailureFacts(error: Error, facts: RunFailureFacts): Error {
+  const code = safeFailureCode(facts.code);
+  const status = safeFailureStatus(facts.status);
+  const provider = safeFailureProvider(facts.provider);
+  if (code !== undefined) (error as Error & { code?: string }).code = code;
+  if (status !== undefined) (error as Error & { status?: number }).status = status;
+  if (provider !== undefined) (error as Error & { provider?: string }).provider = provider;
+  return error;
+}
+
+function safeFailureCode(value: unknown): string | undefined {
+  return typeof value === "string" && SAFE_FAILURE_CODE.test(value) ? value : undefined;
+}
+
+function safeFailureStatus(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 400 && value <= 599
+    ? value
+    : undefined;
+}
+
+function safeFailureProvider(value: unknown): string | undefined {
+  return typeof value === "string" && SAFE_FAILURE_PROVIDER.test(value) ? value : undefined;
+}
+
+function safeRunError(value: unknown): string | null {
+  return value == null ? null : projectRunFailure(value).message;
 }
 
 export function recordRunObject(input: {
@@ -401,6 +485,276 @@ export function recordRunObject(input: {
     });
     return toRunObjectDto(getRunObjectRow(db, id)!, run);
   });
+}
+
+export type CompleteArtifactOutputInput = {
+  finishedPath: string;
+  originalName: string;
+  mime: string;
+  storageClass?: ObjectStorageClass;
+  artifact: {
+    slug: string;
+    kind: ArtifactKind;
+    state?: ArtifactRevisionState;
+    metadata?: JsonValue | null;
+  };
+  objectMetadata?: JsonValue | null;
+  authoredBySessionId?: string | null;
+};
+
+export type CompleteArtifactRunInput = CompleteArtifactOutputInput & {
+  runId: string;
+  attemptId: string;
+  provider?: string | null;
+  model?: string | null;
+  response?: JsonValue | null;
+  costUsd?: number | null;
+  /** @internal Fault injection for post-commit cleanup tests. */
+  testHooks?: CompleteArtifactRunTestHooks;
+};
+
+export type CompleteArtifactRunResult = {
+  artifact: ArtifactDto;
+  revision: ArtifactRevisionDto;
+  run: RunDto;
+  attempt: RunAttemptDto;
+  runObject: RunObjectDto;
+};
+
+export type CompleteArtifactRunSetInput = {
+  runId: string;
+  attemptId: string;
+  outputs: readonly CompleteArtifactOutputInput[];
+  provider?: string | null;
+  model?: string | null;
+  response?: JsonValue | null;
+  costUsd?: number | null;
+  /** @internal Fault injection for post-commit cleanup tests. */
+  testHooks?: CompleteArtifactRunTestHooks;
+};
+
+export type CompleteArtifactRunSetResult = {
+  outputs: Array<{
+    artifact: ArtifactDto;
+    revision: ArtifactRevisionDto;
+    runObject: RunObjectDto;
+  }>;
+  run: RunDto;
+  attempt: RunAttemptDto;
+};
+
+type CompleteArtifactRunTestHooks = {
+  beforeSourceCleanup?: (outputIndex: number) => void | Promise<void>;
+};
+
+/** Atomically turns one validated provider temp file into durable generation evidence. */
+export async function completeArtifactRun(
+  input: CompleteArtifactRunInput,
+): Promise<CompleteArtifactRunResult> {
+  const completed = await completeArtifactRunSet({
+    runId: input.runId,
+    attemptId: input.attemptId,
+    outputs: [{
+      finishedPath: input.finishedPath,
+      originalName: input.originalName,
+      mime: input.mime,
+      storageClass: input.storageClass,
+      artifact: input.artifact,
+      objectMetadata: input.objectMetadata,
+      authoredBySessionId: input.authoredBySessionId,
+    }],
+    provider: input.provider,
+    model: input.model,
+    response: input.response,
+    costUsd: input.costUsd,
+    testHooks: input.testHooks,
+  });
+  return { ...completed.outputs[0]!, run: completed.run, attempt: completed.attempt };
+}
+
+/** Atomically turns an ordered set of Run temp files into durable Artifact revisions. */
+export async function completeArtifactRunSet(
+  input: CompleteArtifactRunSetInput,
+): Promise<CompleteArtifactRunSetResult> {
+  const initialDb = openDomainDb();
+  const run = requireRun(initialDb, input.runId);
+  if (run.workspaceId === null) {
+    throw new Error("Artifact completion requires a Workspace-scoped Run");
+  }
+  const attempt = getRunAttemptRow(initialDb, input.attemptId);
+  if (!attempt || attempt.runId !== run.id) {
+    throw new Error("Run Attempt does not belong to the Run");
+  }
+  if (run.state !== "running" || attempt.state !== "running") {
+    throw new StoreConflictError("Artifact completion requires a running Run Attempt");
+  }
+  const scope: ObjectScope = run.projectId
+    ? { workspaceId: run.workspaceId, projectId: run.projectId }
+    : { workspaceId: run.workspaceId };
+  const preparedOutputs: Array<{
+    input: CompleteArtifactOutputInput;
+    mime: string;
+    locator: string;
+    prepared: Awaited<ReturnType<typeof prepareObject>>;
+  }> = [];
+  let costUsd: number | null = null;
+
+  try {
+    if (input.outputs.length === 0) throw trustedRunFailure("Artifact completion requires an output");
+    costUsd = checkedCost(input.costUsd);
+    for (const output of input.outputs) {
+      const mime = checkedRunObjectMime(output.mime);
+      if (mime === null) throw trustedRunFailure("Artifact completion MIME is required");
+      const locator = await validatedRunTempLocator(run.id, output.finishedPath);
+      const prepared = await prepareObject({
+        scope,
+        sourcePath: output.finishedPath,
+        originalName: output.originalName,
+        mime,
+        storageClass: output.storageClass ?? "durable",
+        metadata: output.objectMetadata,
+        transfer: "move",
+      });
+      preparedOutputs.push({ input: output, mime, locator, prepared });
+    }
+    const completed = withImmediateTransaction((db) => {
+      const currentRun = requireRun(db, run.id);
+      const currentAttempt = getRunAttemptRow(db, attempt.id);
+      if (
+        currentRun.state !== "running" ||
+        !currentAttempt ||
+        currentAttempt.runId !== currentRun.id ||
+        currentAttempt.state !== "running"
+      ) {
+        throw new StoreConflictError("Artifact completion requires a running Run Attempt");
+      }
+      const outputs = preparedOutputs.map((item, position) => {
+        const object = registerPreparedObject(db, item.prepared);
+        appendActivity(db, {
+          workspaceId: object.workspaceId,
+          projectId: object.projectId,
+          entityType: "object",
+          entityId: object.id,
+          action: "object.registered",
+          payload: {
+            bytes: object.bytes,
+            mime: object.mime,
+            storageClass: object.storageClass,
+          },
+          createdAt: object.createdAt,
+        });
+        const runObject = recordRunObjectInTransaction(db, currentRun, {
+          objectId: object.id,
+          path: item.locator,
+          purpose: "artifact",
+          state: "promoted",
+          retention: "durable",
+          mime: item.mime,
+          bytes: object.bytes,
+          sha256: object.sha256,
+          metadata: item.prepared.metadata,
+        });
+        const artifactResult = addArtifactRevisionInTransaction(db, {
+          workspaceId: currentRun.workspaceId!,
+          projectId: currentRun.projectId,
+          slug: item.input.artifact.slug,
+          kind: item.input.artifact.kind,
+          objectId: object.id,
+          state: item.input.artifact.state ?? "candidate",
+          metadata: item.input.artifact.metadata,
+          authoredBySessionId: item.input.authoredBySessionId,
+        });
+        recordRunResult(db, {
+          runId: currentRun.id,
+          position,
+          entityType: "artifact_revision",
+          entityId: artifactResult.revision.id,
+        });
+        return { ...artifactResult, runObject };
+      });
+      const completedProvider = input.provider === undefined
+        ? currentAttempt.provider
+        : optionalText(input.provider, "Run Attempt provider");
+      const completedModel = input.model === undefined
+        ? currentAttempt.model
+        : optionalText(input.model, "Run Attempt model");
+      db.prepare("UPDATE run_attempts SET provider = ?, model = ? WHERE id = ?")
+        .run(completedProvider, completedModel, currentAttempt.id);
+      const finishedAttempt = finishRunAttemptInTransaction(db, attempt.id, {
+        state: "succeeded",
+        response: input.response,
+        costUsd,
+      });
+      const finishedRun = finishRunInTransaction(db, currentRun.id, {
+        state: "succeeded",
+      });
+      return {
+        outputs,
+        run: finishedRun,
+        attempt: finishedAttempt,
+      };
+    });
+    for (const [index, item] of preparedOutputs.entries()) {
+      try {
+        await input.testHooks?.beforeSourceCleanup?.(index);
+        await removePreparedMoveSource(item.prepared);
+      } catch {
+        // The transaction already committed. Preserve durable bytes and the
+        // succeeded Run; the Run temp source remains recoverable cleanup work.
+      }
+    }
+    return completed;
+  } catch (error) {
+    for (const item of preparedOutputs) {
+      try {
+        await fs.promises.rm(item.prepared.finalPath, { force: true });
+      } catch {
+        // Preserve the primary completion failure; verifier reports orphan bytes.
+      }
+    }
+    const projected = projectRunFailure(error);
+    for (const item of preparedOutputs) {
+      try {
+        recordRunObject({
+          runId: run.id,
+          path: item.locator,
+          purpose: "artifact",
+          state: "failed",
+          retention: "diagnostic",
+          mime: item.mime,
+          bytes: item.prepared.bytes,
+          sha256: item.prepared.sha256,
+          metadata: item.prepared.metadata,
+        });
+      } catch {
+        // The original valid temp file still holds the diagnostic bytes.
+      }
+    }
+    try {
+      finishRunAttempt(attempt.id, { state: "failed", costUsd, error: projected });
+    } catch {
+      // Preserve the primary completion failure.
+    }
+    try {
+      finishRun(run.id, { state: "failed", error: projected });
+    } catch {
+      // Preserve the primary completion failure.
+    }
+    throw projected;
+  }
+}
+
+/** Sum every recorded provider-attempt charge for a Project. */
+export function projectRunAttemptSpendUsd(projectId: string): number {
+  const row = openDomainDb()
+    .query<{ total: number }, [string]>(
+      `SELECT COALESCE(SUM(a.cost_usd), 0) AS total
+       FROM run_attempts a
+       JOIN runs r ON r.id = a.run_id
+       WHERE r.project_id = ?`,
+    )
+    .get(projectId);
+  return Number((row?.total ?? 0).toFixed(6));
 }
 
 export async function promoteRunObject(input: {
@@ -741,7 +1095,8 @@ export function finishRunAttemptInTransaction(
   input: {
     state: "succeeded" | "failed" | "cancelled";
     response?: JsonValue | null;
-    error?: string | null;
+    costUsd?: number | null;
+    error?: unknown;
   },
 ): RunAttemptDto {
   const attempt = getRunAttemptRow(db, id);
@@ -750,13 +1105,15 @@ export function finishRunAttemptInTransaction(
     throw new StoreConflictError("Run Attempt is not running");
   }
   const endedAt = Date.now();
+  const costUsd = checkedCost(input.costUsd);
   db.prepare(
-    `UPDATE run_attempts SET state = ?, response_json = ?, error = ?, ended_at = ?
+    `UPDATE run_attempts SET state = ?, response_json = ?, cost_usd = ?, error = ?, ended_at = ?
      WHERE id = ? AND state = 'running'`,
   ).run(
     input.state,
     serializeJson(checkedJson(input.response, "Run Attempt response")),
-    input.error ?? null,
+    costUsd,
+    safeRunError(input.error),
     endedAt,
     id,
   );
@@ -767,7 +1124,7 @@ export function finishRunAttemptInTransaction(
     entityType: "run_attempt",
     entityId: id,
     action: "run.attempt_finished",
-    payload: { runId: run.id, state: input.state },
+    payload: { runId: run.id, state: input.state, ...(costUsd !== null ? { costUsd } : {}) },
     createdAt: endedAt,
   });
   return toRunAttemptDtoFromRow(getRunAttemptRow(db, id)!);
@@ -779,7 +1136,7 @@ export function finishRunInTransaction(
   id: string,
   input: {
     state: "succeeded" | "failed" | "cancelled";
-    error?: string | null;
+    error?: unknown;
   },
 ): RunDto {
   const run = requireRun(db, id);
@@ -792,7 +1149,7 @@ export function finishRunInTransaction(
   const endedAt = Date.now();
   db.prepare(
     "UPDATE runs SET state = ?, ended_at = ?, error = ? WHERE id = ? AND state IN ('pending', 'running')",
-  ).run(input.state, endedAt, input.error ?? null, id);
+  ).run(input.state, endedAt, safeRunError(input.error), id);
   appendActivity(db, {
     workspaceId: run.workspaceId,
     projectId: run.projectId,
@@ -966,6 +1323,85 @@ function promotionScope(run: RunRow, explicit?: ObjectScope): ObjectScope {
     workspaceId: run.workspaceId,
     ...(run.projectId ? { projectId: run.projectId } : {}),
   };
+}
+
+function recordRunObjectInTransaction(
+  db: Database,
+  run: RunRow,
+  input: {
+    objectId: string | null;
+    path: string;
+    purpose: string;
+    state: string;
+    retention: string;
+    mime: string | null;
+    bytes: number | null;
+    sha256: string | null;
+    metadata: JsonValue | null;
+  },
+): RunObjectDto {
+  const id = newDomainId("robj");
+  const createdAt = Date.now();
+  db.prepare(
+    `INSERT INTO run_objects
+     (id, run_id, object_id, path, purpose, state, retention, mime, bytes, sha256, metadata_json, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    run.id,
+    input.objectId,
+    checkedRunObjectPath(input.path),
+    checkedText(input.purpose, "RunObject purpose"),
+    checkedText(input.state, "RunObject state"),
+    checkedText(input.retention, "RunObject retention"),
+    checkedRunObjectMime(input.mime),
+    checkedBytes(input.bytes),
+    checkedSha256(input.sha256),
+    serializeJson(checkedJson(input.metadata, "RunObject metadata")),
+    createdAt,
+  );
+  appendActivity(db, {
+    workspaceId: run.workspaceId,
+    projectId: run.projectId,
+    entityType: "run_object",
+    entityId: id,
+    action: "run.object_recorded",
+    payload: { runId: run.id, purpose: input.purpose, state: input.state },
+    createdAt,
+  });
+  return toRunObjectDto(getRunObjectRow(db, id)!, run);
+}
+
+async function validatedRunTempLocator(
+  runId: string,
+  finishedPath: string,
+): Promise<string> {
+  if (!path.isAbsolute(finishedPath)) {
+    throw trustedRunFailure("Artifact completion path must be absolute");
+  }
+  const dataRoot = path.resolve(ralphDir());
+  const runRoot = path.join(dataRoot, "tmp", runId);
+  const resolved = path.resolve(finishedPath);
+  if (!isWithin(runRoot, resolved)) {
+    throw trustedRunFailure("Artifact completion path must be inside the Run temp directory");
+  }
+  const stat = await fs.promises.lstat(resolved);
+  if (!stat.isFile() || stat.isSymbolicLink()) {
+    throw trustedRunFailure("Artifact completion path must be a regular file");
+  }
+  if (stat.size <= 0) throw trustedRunFailure("Artifact completion file must not be empty");
+  const canonicalDataRoot = await fs.promises.realpath(dataRoot);
+  const canonicalRunRoot = await fs.promises.realpath(runRoot);
+  const canonicalFinished = await fs.promises.realpath(resolved);
+  if (
+    !isWithin(canonicalDataRoot, canonicalRunRoot) ||
+    !isWithin(canonicalRunRoot, canonicalFinished)
+  ) {
+    throw trustedRunFailure("Artifact completion path escapes the Run temp directory");
+  }
+  return checkedRunObjectPath(
+    path.relative(dataRoot, resolved).split(path.sep).join("/"),
+  );
 }
 
 function resolveRunObjectSource(locator: string): string {

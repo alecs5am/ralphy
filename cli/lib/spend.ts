@@ -34,6 +34,7 @@ import { projectDir } from "./paths.js";
 import { readGenerations } from "./gen-log.js";
 import { estimateVideoCostUsd } from "./or-catalog.js";
 import { imageCostUsd } from "./generate-batch.js";
+import { projectRunAttemptSpendUsd } from "./store/runs.js";
 
 /** Project-relative location the spend ledger is persisted to. */
 export const SPEND_LEDGER_ARTIFACT = "spend-ledger.json" as const;
@@ -158,10 +159,10 @@ export async function recordApproval(
   return recordApprovalAt(ledgerPath(projectId), projectId, approval);
 }
 
-/** Sum of `cost_usd` over the project's generations.jsonl (actual spend). */
+/** Domain Run Attempt spend plus exact legacy gen-log compatibility rows. */
 export async function actualSpendUsd(projectId: string): Promise<number> {
   const rows = await readGenerations(projectId);
-  let total = 0;
+  let total = projectRunAttemptSpendUsd(projectId);
   for (const r of rows) total += r.cost_usd ?? 0;
   return Number(total.toFixed(6));
 }

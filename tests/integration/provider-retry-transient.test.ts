@@ -15,7 +15,9 @@ import os from "node:os";
 
 import { setRoot } from "../../cli/lib/paths.js";
 import { readGenerations } from "../../cli/lib/gen-log.js";
+import { projectRunFailure } from "../../cli/lib/store/runs.js";
 import { generateImage } from "../../cli/lib/providers/openrouter.js";
+import { classifyError } from "../../cli/lib/providers/shared.js";
 import {
   generateVoiceover,
   _resetVoiceExistsCache,
@@ -118,7 +120,7 @@ function makeTlsFetchError(): never {
 }
 
 describe("retry loop — openrouter.generateImage", () => {
-  test("TLS twice then success → attempt: 3 in generations.jsonl", async () => {
+  test("TLS twice then success writes only the assigned Run temp output", async () => {
     let calls = 0;
     globalThis.fetch = (async () => {
       calls += 1;
@@ -128,6 +130,7 @@ describe("retry loop — openrouter.generateImage", () => {
 
     const result = await generateImage({
       projectId,
+      ...runOutput("run_retry-image-1", "scene-01-bg.png"),
       slot: "scene-01-bg",
       prompt: "a still pond at dawn",
       // Zero out the real-life backoff schedule so the test finishes instantly.
@@ -135,17 +138,9 @@ describe("retry loop — openrouter.generateImage", () => {
       noRetry: false,
     } as Parameters<typeof generateImage>[0] & { noRetry?: boolean });
 
-    expect(result.localPath).toContain("scene-01-bg.png");
+    expect(result.localPath).toBe(runOutput("run_retry-image-1", "scene-01-bg.png").outputPath);
     expect(calls).toBe(3);
-
-    const rows = await readGenerations(projectId);
-    const successRows = rows.filter((r) => r.status === "ok");
-    const errorRows = rows.filter((r) => r.status === "error");
-    expect(successRows.length).toBe(1);
-    expect(successRows[0]!.attempt).toBe(3);
-    // Two transient failures should be logged with attempt 1 and 2.
-    expect(errorRows.length).toBe(2);
-    expect(errorRows.map((r) => r.attempt).sort()).toEqual([1, 2]);
+    expect(await readGenerations(projectId)).toHaveLength(0);
   }, 60_000);
 
   test("gemini skeleton-null is treated as transient", async () => {
@@ -158,21 +153,14 @@ describe("retry loop — openrouter.generateImage", () => {
 
     const result = await generateImage({
       projectId,
+      ...runOutput("run_retry-image-2", "scene-02-bg.png"),
       slot: "scene-02-bg",
       prompt: "a sleeping fox",
     });
 
-    expect(result.localPath).toContain("scene-02-bg.png");
+    expect(result.localPath).toBe(runOutput("run_retry-image-2", "scene-02-bg.png").outputPath);
     expect(calls).toBe(2);
-
-    const rows = await readGenerations(projectId);
-    const successRows = rows.filter((r) => r.status === "ok");
-    expect(successRows.length).toBe(1);
-    expect(successRows[0]!.attempt).toBe(2);
-    const errorRows = rows.filter((r) => r.status === "error");
-    expect(errorRows.length).toBe(1);
-    expect(errorRows[0]!.attempt).toBe(1);
-    expect(errorRows[0]!.error).toMatch(/no images\[0\]|skeleton-null/i);
+    expect(await readGenerations(projectId)).toHaveLength(0);
   }, 60_000);
 
   test("--no-retry: single attempt even on transient blip", async () => {
@@ -185,6 +173,7 @@ describe("retry loop — openrouter.generateImage", () => {
     await expect(
       generateImage({
         projectId,
+        ...runOutput("run_retry-image-3", "scene-03-bg.png"),
         slot: "scene-03-bg",
         prompt: "a quiet road",
         noRetry: true,
@@ -217,6 +206,7 @@ describe("retry loop — openrouter.generateImage", () => {
     await expect(
       generateImage({
         projectId,
+        ...runOutput("run_retry-image-4", "scene-04-bg.png"),
         slot: "scene-04-bg",
         prompt: "invalid",
       }),
@@ -225,7 +215,50 @@ describe("retry loop — openrouter.generateImage", () => {
   }, 30_000);
 });
 
+function runOutput(runId: string, filename: string): { runId: string; outputPath: string } {
+  return {
+    runId,
+    outputPath: path.join(tmpRoot, ".ralphy", "tmp", runId, filename),
+  };
+}
+
 describe("retry loop — elevenlabs.generateVoiceover", () => {
+  test("HTTP failures carry structured status/code without exposing response text", async () => {
+    for (const status of [401, 429, 500]) {
+      const raw = `TASK4_EL_${status} file:///private/provider-${status}.json`;
+      globalThis.fetch = (async (url: RequestInfo | URL) => {
+        const u = String(url);
+        if (u.includes("/v1/voices/") && !u.includes("text-to-speech")) {
+          return new Response(JSON.stringify({ voice_id: "v1" }), { status: 200 });
+        }
+        return new Response(raw, { status });
+      }) as typeof fetch;
+
+      let caught: unknown;
+      try {
+        await generateVoiceover({
+          projectId,
+          ...runOutput(`run_http-${status}`, `http-${status}.mp3`),
+          slot: `http-${status}`,
+          text: "Hello world",
+          voiceId: "v1",
+          noRetry: true,
+        });
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toMatchObject({ status, code: `HTTP_${status}` });
+      expect(classifyError(caught)).toBe(status === 401 ? "terminal" : "transient");
+      const projected = projectRunFailure(caught, { provider: "elevenlabs" });
+      expect(projected).toMatchObject({ status, code: `HTTP_${status}`, provider: "elevenlabs" });
+      expect(projected.message).toContain(`status ${status}`);
+      expect(projected.message).toContain(`code HTTP_${status}`);
+      expect(projected.message).not.toContain(raw);
+      expect(projected.message).not.toContain("file:///private/");
+    }
+  }, 30_000);
+
   test("ECONNRESET twice then success → attempt: 3", async () => {
     let calls = 0;
     globalThis.fetch = (async (url: RequestInfo | URL) => {
@@ -251,6 +284,7 @@ describe("retry loop — elevenlabs.generateVoiceover", () => {
 
     const result = await generateVoiceover({
       projectId,
+      ...runOutput("run_retry-voice-1", "scene-01-vo.mp3"),
       slot: "scene-01-vo",
       text: "Hello world",
       voiceId: "v1",
@@ -259,15 +293,6 @@ describe("retry loop — elevenlabs.generateVoiceover", () => {
     expect(result.localPath).toContain("scene-01-vo.mp3");
     expect(calls).toBe(3);
 
-    const rows = await readGenerations(projectId);
-    const successRows = rows.filter(
-      (r) => r.status === "ok" && r.kind === "voiceover",
-    );
-    expect(successRows.length).toBe(1);
-    expect(successRows[0]!.attempt).toBe(3);
-    const errorRows = rows.filter(
-      (r) => r.status === "error" && r.kind === "voiceover",
-    );
-    expect(errorRows.length).toBe(2);
+    expect(await readGenerations(projectId)).toHaveLength(0);
   }, 60_000);
 });

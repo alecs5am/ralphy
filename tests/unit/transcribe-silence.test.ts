@@ -7,7 +7,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { transcribe } from "../../cli/lib/transcribe.js";
+import { openRouterUsageCost, transcribe } from "../../cli/lib/transcribe.js";
 
 const originalFetch = globalThis.fetch;
 const originalElevenKey = process.env.ELEVENLABS_API_KEY;
@@ -90,5 +90,54 @@ describe("transcribe: empty transcript → []", () => {
       backend: "gemini",
     });
     expect(r.captions).toEqual([]);
+  });
+
+  test("Gemini audio: OpenRouter usage cost is returned", async () => {
+    mockFetch(() =>
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "hello" } }],
+          usage: { prompt_tokens: 120, completion_tokens: 2, cost: 0.004321 },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const r = await transcribe({
+      audioPath: tmpAudio,
+      language: "en",
+      backend: "gemini",
+    });
+
+    expect(r.provider).toBe("openrouter");
+    expect(r.model).toBe("google/gemini-2.5-flash");
+    expect(r.costUsd).toBe(0.004321);
+  });
+
+  test("Gemini audio: zero usage cost falls through to a positive response header", async () => {
+    mockFetch(() =>
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "hello" } }],
+          usage: { cost: 0 },
+        }),
+        { status: 200, headers: { "x-openrouter-cost": " 0.006789 " } },
+      ),
+    );
+
+    const r = await transcribe({
+      audioPath: tmpAudio,
+      language: "en",
+      backend: "gemini",
+    });
+
+    expect(r.costUsd).toBe(0.006789);
+  });
+
+  test("OpenRouter cost rejects a blank response header", () => {
+    expect(openRouterUsageCost(
+      { usage: { cost: 0 } },
+      new Headers({ "x-openrouter-cost": "   " }),
+    )).toBeUndefined();
   });
 });

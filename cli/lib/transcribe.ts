@@ -42,6 +42,7 @@ import {
   credentialConfigured,
   credentialValue,
 } from "./providers/credentials.js";
+import { providerHttpError } from "./providers/shared.js";
 
 export type TranscribeBackend = "elevenlabs" | "openrouter" | "gemini";
 export type TranscribeLanguage = "ru" | "en" | "auto";
@@ -59,7 +60,6 @@ const MAX_FILE_BYTES = 25 * 1024 * 1024;
 // Cost rates (best-effort; refine when providers return billed cost).
 const COST_PER_MIN_WHISPER = 0.006;       // OpenAI list price
 const COST_PER_MIN_SCRIBE = 0.004;        // ElevenLabs Scribe list price
-const COST_PER_MIN_GEMINI = 0.0;          // counted by callLLM via token billing
 
 export type TranscribeOptions = {
   audioPath: string;
@@ -82,6 +82,7 @@ export type TranscribeResult = {
   language: string;
   model: string;
   backend: TranscribeBackend;
+  provider: "elevenlabs" | "openrouter";
   durationMs: number;
   audioDurationSec: number;
   costUsd: number;
@@ -119,17 +120,21 @@ export async function transcribe(opts: TranscribeOptions): Promise<TranscribeRes
   const fakeJsonPath = process.env.RALPHY_FAKE_TRANSCRIBE_JSON;
   if (fakeJsonPath) {
     const raw = await fs.readFile(fakeJsonPath, "utf8");
-    const fake = JSON.parse(raw) as Partial<TranscribeResult> & { captions?: Caption[] };
+    const fake = JSON.parse(raw) as Partial<TranscribeResult> & {
+      captions?: Caption[];
+      usage?: { cost?: unknown };
+    };
     return {
       captions: fake.captions ?? [],
       language: fake.language ?? "eng",
       languageProbability: fake.languageProbability ?? 0.99,
       lowConfidenceWords: fake.lowConfidenceWords ?? [],
-      model: SCRIBE_MODEL,
+      model: fake.model ?? SCRIBE_MODEL,
       backend,
-      durationMs: Date.now() - t0,
+      provider: fake.provider ?? transcribeProvider(backend),
+      durationMs: fake.durationMs ?? Date.now() - t0,
       audioDurationSec: fake.audioDurationSec ?? 0,
-      costUsd: 0,
+      costUsd: fake.costUsd ?? openRouterUsageCost(fake) ?? 0,
     };
   }
 
@@ -159,13 +164,18 @@ export async function transcribe(opts: TranscribeOptions): Promise<TranscribeRes
 function wrap(
   t0: number,
   backend: TranscribeBackend,
-  partial: Omit<TranscribeResult, "durationMs" | "backend">,
+  partial: Omit<TranscribeResult, "durationMs" | "backend" | "provider">,
 ): TranscribeResult {
   return {
     ...partial,
     backend,
+    provider: transcribeProvider(backend),
     durationMs: Date.now() - t0,
   };
+}
+
+function transcribeProvider(backend: TranscribeBackend): "elevenlabs" | "openrouter" {
+  return backend === "elevenlabs" ? "elevenlabs" : "openrouter";
 }
 
 /** Extract a confidence in [0, 1] from a Scribe word entry, when possible. */
@@ -246,7 +256,7 @@ async function viaElevenLabs(
   abs: string,
   language: TranscribeLanguage,
   signal?: AbortSignal,
-): Promise<Omit<TranscribeResult, "durationMs" | "backend">> {
+): Promise<Omit<TranscribeResult, "durationMs" | "backend" | "provider">> {
   const apiKey = credentialValue("elevenlabs");
   if (!apiKey) {
     throw new Error("ELEVENLABS_API_KEY not configured. Use `ralphy provider auth set elevenlabs --stdin`.");
@@ -279,7 +289,7 @@ async function viaElevenLabs(
 
   if (!resp.ok) {
     const body = await resp.text().catch(() => "");
-    throw new Error(`ElevenLabs Scribe ${resp.status}: ${body.slice(0, 500)}`);
+    throw providerHttpError(`ElevenLabs Scribe ${resp.status}: ${body.slice(0, 500)}`, resp.status);
   }
   const json = (await resp.json()) as ScribeResponse;
 
@@ -368,7 +378,7 @@ async function viaOpenRouter(
   abs: string,
   language: TranscribeLanguage,
   signal?: AbortSignal,
-): Promise<Omit<TranscribeResult, "durationMs" | "backend">> {
+): Promise<Omit<TranscribeResult, "durationMs" | "backend" | "provider">> {
   const apiKey = credentialValue("openrouter");
   if (!apiKey) throw new Error("OPENROUTER_API_KEY not configured. Use `ralphy provider auth set openrouter --stdin`.");
 
@@ -397,7 +407,7 @@ async function viaOpenRouter(
 
   if (!resp.ok) {
     const body = await resp.text().catch(() => "");
-    throw new Error(`OpenRouter whisper-1 ${resp.status}: ${body.slice(0, 500)}`);
+    throw providerHttpError(`OpenRouter whisper-1 ${resp.status}: ${body.slice(0, 500)}`, resp.status);
   }
   const json = (await resp.json()) as WhisperResponse;
 
@@ -470,7 +480,7 @@ async function viaGemini(
   abs: string,
   language: TranscribeLanguage,
   signal?: AbortSignal,
-): Promise<Omit<TranscribeResult, "durationMs" | "backend">> {
+): Promise<Omit<TranscribeResult, "durationMs" | "backend" | "provider">> {
   const bytes = await fs.readFile(abs);
   const b64 = bytes.toString("base64");
   const ext = path.extname(abs).slice(1).toLowerCase() || "mp3";
@@ -502,6 +512,7 @@ async function viaGemini(
     ],
     max_tokens: 4096,
     temperature: 0,
+    usage: { include: true },
   };
 
   const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -516,10 +527,11 @@ async function viaGemini(
 
   if (!resp.ok) {
     const errText = await resp.text().catch(() => "");
-    throw new Error(`Gemini audio ${resp.status}: ${errText.slice(0, 500)}`);
+    throw providerHttpError(`Gemini audio ${resp.status}: ${errText.slice(0, 500)}`, resp.status);
   }
   const json = (await resp.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
+    usage?: { cost?: unknown };
   };
   const text = (json.choices?.[0]?.message?.content ?? "").trim();
   // Issue #010: empty transcript used to throw here. Return [] so silent /
@@ -535,8 +547,24 @@ async function viaGemini(
     lowConfidenceWords: [],
     model: GEMINI_AUDIO_MODEL,
     audioDurationSec: 0,
-    costUsd: COST_PER_MIN_GEMINI,
+    costUsd: openRouterUsageCost(json, resp.headers) ?? 0,
   };
+}
+
+export function openRouterUsageCost(
+  response: { usage?: { cost?: unknown } },
+  headers?: Headers,
+): number | undefined {
+  const usageCost = response.usage?.cost;
+  if (typeof usageCost === "number" && Number.isFinite(usageCost) && usageCost > 0) {
+    return usageCost;
+  }
+  const headerValue = headers?.get("x-openrouter-cost");
+  if (headerValue === undefined || headerValue === null) return undefined;
+  const trimmed = headerValue.trim();
+  if (!trimmed) return undefined;
+  const headerCost = Number(trimmed);
+  return Number.isFinite(headerCost) && headerCost > 0 ? headerCost : undefined;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

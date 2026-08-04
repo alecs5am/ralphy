@@ -9,7 +9,7 @@ import { Command } from "commander";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { artifactKindDir, projectDir, root, workspaceDir } from "../lib/paths.js";
+import { projectDir, ralphDir, root, workspaceDir } from "../lib/paths.js";
 import { out } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { transcribe, type TranscribeBackend } from "../lib/transcribe.js";
@@ -23,8 +23,6 @@ import {
   captionsToSrt,
   captionsToDrawtextFilter,
 } from "../lib/captions/helpers.js";
-import { protectExistingAsset } from "../lib/providers/shared.js";
-import { logGeneration } from "../lib/gen-log.js";
 import { logUserPrompt } from "../lib/gen-log.js";
 import { checkSpend, estimatedCallCostUsd } from "../lib/spend.js";
 import {
@@ -68,6 +66,22 @@ import {
   generationDestination,
   type GenerationDestination,
 } from "../lib/generation-destination.js";
+import {
+  completeArtifactRun,
+  completeArtifactRunSet,
+  finishRun,
+  finishRunAttempt,
+  projectRunFailure,
+  startRun,
+  startRunAttempt,
+} from "../lib/store/runs.js";
+import {
+  generationProjectCompatibilityDir,
+  generationRunScope,
+} from "../lib/generation-scope.js";
+import type { GenerateResult } from "../lib/providers/types.js";
+import type { ArtifactKind } from "../lib/store/types.js";
+import { providerCompletionFacts } from "../lib/artifact-production.js";
 
 // Re-export for unit tests (single import target).
 export { buildVariantItems } from "../lib/generate-batch.js";
@@ -235,45 +249,11 @@ function runPreflight(kind: GenerateKind, input: Omit<ModelPreflightInput, "kind
 const SLOT_REGEX_RELAXED = /^[a-zA-Z0-9_-]+$/;
 const SLOT_REGEX_CANONICAL = /^[a-z0-9-]+$/;
 
-type Manifest = {
-  slots: Record<
-    string,
-    {
-      kind: "image" | "video" | "voiceover" | "music" | "captions" | "sfx";
-      path: string;
-      model?: string;
-      costUsd?: number;
-      url?: string;
-      generatedAt: string;
-    }
-  >;
-};
-
-async function readManifest(projectId: string): Promise<Manifest> {
-  const manifestPath = path.join(projectDir(projectId), "asset-manifest.json");
-  if (!existsSync(manifestPath)) return { slots: {} };
-  const raw = await fs.readFile(manifestPath, "utf8").catch(() => "");
-  if (!raw) return { slots: {} };
-  try {
-    const j = JSON.parse(raw) as Manifest;
-    if (!j.slots) j.slots = {};
-    return j;
-  } catch {
-    return { slots: {} };
-  }
-}
-
-async function writeManifest(projectId: string, m: Manifest): Promise<void> {
-  const dir = projectDir(projectId);
-  await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(
-    path.join(dir, "asset-manifest.json"),
-    JSON.stringify(m, null, 2) + "\n",
-    "utf8",
-  );
-}
-
 async function ensureProject(projectId: string): Promise<void> {
+  if (existsSync(path.join(ralphDir(), "ralphy.db"))) {
+    generationProjectCompatibilityDir(projectId);
+    return;
+  }
   const dir = projectDir(projectId);
   if (!existsSync(dir)) {
     raiseError("E_NOT_FOUND", { kind: "Project", id: projectId });
@@ -297,6 +277,10 @@ export function resolveGenerateDestination(opts: {
 
 async function ensureGenerateDestination(destination: GenerationDestination): Promise<void> {
   if (destination.kind === "project") return ensureProject(destination.id);
+  if (existsSync(path.join(ralphDir(), "ralphy.db"))) {
+    generationRunScope(destination);
+    return;
+  }
   if (!existsSync(workspaceDir(destination.id))) {
     raiseError("E_NOT_FOUND", { kind: "Workspace", id: destination.id });
   }
@@ -310,6 +294,52 @@ function providerDestination(destination: GenerationDestination):
     : { workspaceId: destination.id };
 }
 
+async function executeGeneratedArtifact(input: {
+  destination: GenerationDestination;
+  slot: string;
+  runKind: string;
+  artifactKind: ArtifactKind;
+  extension: string;
+  mime: string;
+  provider: string;
+  model: string;
+  invoke: (runId: string, outputPath: string) => Promise<GenerateResult>;
+}): Promise<{ result: GenerateResult; completed: Awaited<ReturnType<typeof completeArtifactRun>> }> {
+  const run = startRun({
+    ...generationRunScope(input.destination),
+    kind: input.runKind,
+    label: input.slot,
+  });
+  const attempt = startRunAttempt({
+    runId: run.id,
+    provider: input.provider,
+    model: input.model,
+    request: { slot: input.slot },
+  });
+  const outputPath = path.join(ralphDir(), "tmp", run.id, `${input.slot}${input.extension}`);
+  let result: GenerateResult;
+  try {
+    result = await input.invoke(run.id, outputPath);
+  } catch (error) {
+    const projected = projectRunFailure(error, { provider: input.provider });
+    finishRunAttempt(attempt.id, { state: "failed", error: projected });
+    finishRun(run.id, { state: "failed", error: projected });
+    throw projected;
+  }
+  const completed = await completeArtifactRun({
+    runId: run.id,
+    attemptId: attempt.id,
+    finishedPath: result.localPath,
+    originalName: `${input.slot}${input.extension}`,
+    mime: input.mime,
+    artifact: { slug: input.slot, kind: input.artifactKind, state: "candidate" },
+    objectMetadata: { provider: input.provider, model: result.model },
+    response: providerCompletionFacts(result, input.model, input.mime),
+    costUsd: result.costUsd,
+  });
+  return { result, completed };
+}
+
 function intakeDestinationPath(
   value: string,
   destination: GenerationDestination,
@@ -321,17 +351,6 @@ function intakeDestinationPath(
     label,
     destination.kind === "workspace" ? destination.id : undefined,
   );
-}
-
-async function updateProjectManifest(
-  destination: GenerationDestination,
-  slot: string,
-  value: Manifest["slots"][string],
-): Promise<void> {
-  if (destination.kind !== "project") return;
-  const manifest = await readManifest(destination.id);
-  manifest.slots[slot] = value;
-  await writeManifest(destination.id, manifest);
 }
 
 function rejectProjectOnlyMode(destination: GenerationDestination, mode: string): void {
@@ -521,9 +540,7 @@ export function normalizeSlot(slot: string): string {
  * (#007) inside the connector throttles in-flight calls — we just fire
  * everything in parallel and let the semaphore line them up.
  *
- * Logs per-line progress to stderr ("[N/M] slot ... ok ($cost, Ts)") and
- * returns the aggregate result. The connector handles its own gen-log
- * writes; this helper updates the asset manifest on each success.
+ * Logs per-line progress to stderr and returns one immutable revision per item.
  */
 async function runImageBatch(args: {
   projectId: string;
@@ -539,37 +556,45 @@ async function runImageBatch(args: {
 }): Promise<{
   count: number;
   totalCostUsd: number;
-  slots: Array<{ slot: string; path: string; model: string; costUsd: number; latencyMs: number }>;
+  slots: Array<{ slot: string; artifactId: string; revisionId: string; runId: string;
+    model: string; costUsd: number; latencyMs: number }>;
   failures: Array<{ slot: string; error: string }>;
 }> {
   const conn = resolveConnector("image", args.provider);
   const total = args.items.length;
-  const results: Array<{ slot: string; path: string; model: string; costUsd: number; latencyMs: number }> = [];
+  const results: Array<{ slot: string; artifactId: string; revisionId: string; runId: string;
+    model: string; costUsd: number; latencyMs: number }> = [];
   const failures: Array<{ slot: string; error: string }> = [];
   let done = 0;
 
   const runOne = async (item: BatchItem): Promise<void> => {
     const slot = normalizeSlot(item.slot);
-    const model = resolveModelAlias(item.model ?? args.defaultModel);
+    const model = resolveModelAlias(item.model ?? args.defaultModel) ?? args.defaultModel;
     const refs = item.refs ?? args.defaultRefs;
     const negative = item.negative ?? args.defaultNegative;
     try {
-      const r = await conn.generateImage!({
-        projectId: args.projectId,
+      const { result, completed } = await executeGeneratedArtifact({
+        destination: { kind: "project", id: args.projectId },
         slot,
-        prompt: item.prompt,
+        runKind: "generate.image",
+        artifactKind: "image",
+        extension: ".png",
+        mime: "image/png",
+        provider: conn.id,
         model,
-        refs,
-        size: args.resolvedSize,
-        negativePrompt: negative,
-        note: args.note ? `${args.note} (batch)` : "batch",
-        overwrite: args.forceOverwrite,
-        noRetry: args.noRetry,
+        invoke: (runId, outputPath) => conn.generateImage!({
+          projectId: args.projectId, runId, outputPath, slot, prompt: item.prompt,
+          model, refs, size: args.resolvedSize, negativePrompt: negative,
+          note: args.note ? `${args.note} (batch)` : "batch",
+          overwrite: args.forceOverwrite, noRetry: args.noRetry,
+        }),
       });
       done += 1;
-      results.push({ slot, path: r.localPath, model: r.model, costUsd: r.costUsd, latencyMs: r.latencyMs });
+      results.push({ slot, artifactId: completed.artifact.id, revisionId: completed.revision.id,
+        runId: completed.run.id, model: result.model, costUsd: result.costUsd,
+        latencyMs: result.latencyMs });
       process.stderr.write(
-        `[${done}/${total}] ${slot} → ok ($${r.costUsd.toFixed(3)}, ${(r.latencyMs / 1000).toFixed(1)}s)\n`,
+        `[${done}/${total}] ${slot} → ok ($${result.costUsd.toFixed(3)}, ${(result.latencyMs / 1000).toFixed(1)}s)\n`,
       );
     } catch (err) {
       done += 1;
@@ -587,18 +612,6 @@ async function runImageBatch(args: {
   // failure doesn't abort the whole batch.
   await Promise.all(args.items.map((it) => runOne(it)));
 
-  // Update the manifest after the dust settles.
-  const manifest = await readManifest(args.projectId);
-  for (const r of results) {
-    manifest.slots[r.slot] = {
-      kind: "image",
-      path: r.path,
-      model: r.model,
-      costUsd: r.costUsd,
-      generatedAt: new Date().toISOString(),
-    };
-  }
-  await writeManifest(args.projectId, manifest);
   const totalCostUsd = results.reduce((s, r) => s + r.costUsd, 0);
   return { count: results.length, totalCostUsd, slots: results, failures };
 }
@@ -706,7 +719,14 @@ export function generateCmd() {
           mode: "batch",
           count: result.count,
           totalCostUsd: Number(result.totalCostUsd.toFixed(4)),
-          slots: result.slots.map((r) => ({ slot: r.slot, path: r.path, model: r.model, costUsd: r.costUsd })),
+          slots: result.slots.map((r) => ({
+            slot: r.slot,
+            artifactId: r.artifactId,
+            revisionId: r.revisionId,
+            runId: r.runId,
+            model: r.model,
+            costUsd: r.costUsd,
+          })),
           failures: result.failures,
         });
         return;
@@ -778,7 +798,14 @@ export function generateCmd() {
           mode: "variants",
           variants: result.count,
           totalCostUsd: Number(result.totalCostUsd.toFixed(4)),
-          slots: result.slots.map((r) => ({ slot: r.slot, path: r.path, model: r.model, costUsd: r.costUsd })),
+          slots: result.slots.map((r) => ({
+            slot: r.slot,
+            artifactId: r.artifactId,
+            revisionId: r.revisionId,
+            runId: r.runId,
+            model: r.model,
+            costUsd: r.costUsd,
+          })),
           failures: result.failures,
         });
         return;
@@ -831,37 +858,44 @@ export function generateCmd() {
       });
 
       const ui = await import("../lib/ui.js");
-      const result = await ui.withSpinner(
-        `image (${resolvedDefaultModel}) → ${opts.slot}`,
-        () =>
-          conn.generateImage!({
-            ...providerDestination(destination),
-            slot: opts.slot,
-            prompt: opts.prompt,
-            model: resolvedDefaultModel,
-            refs: opts.ref,
-            size: resolvedSize,
-            negativePrompt: opts.negative,
-            note: opts.note,
-            overwrite: opts.forceOverwrite,
-            noRetry: opts.retry === false,
-          }),
-        {
-          successText: (r) => `image ${ui.c.cmd(opts.slot)} → ${ui.c.path(r.localPath)} ${ui.c.muted(`($${r.costUsd.toFixed(3)}, ${(r.latencyMs / 1000).toFixed(1)}s)`)}`,
-          failText: (e) => `image ${ui.c.cmd(opts.slot)} failed: ${(e as Error).message?.slice(0, 200)}`,
-        },
-      );
-      await updateProjectManifest(destination, opts.slot, {
-        kind: "image",
-        path: result.localPath,
-        model: result.model,
-        costUsd: result.costUsd,
-        url: result.url,
-        generatedAt: new Date().toISOString(),
+      const { result, completed } = await executeGeneratedArtifact({
+        destination,
+        slot: opts.slot,
+        runKind: "generate.image",
+        artifactKind: "image",
+        extension: ".png",
+        mime: "image/png",
+        provider: conn.id,
+        model: resolvedDefaultModel,
+        invoke: (runId, outputPath) => ui.withSpinner(
+          `image (${resolvedDefaultModel}) → ${opts.slot}`,
+          () =>
+            conn.generateImage!({
+              ...providerDestination(destination),
+              runId,
+              outputPath,
+              slot: opts.slot,
+              prompt: opts.prompt,
+              model: resolvedDefaultModel,
+              refs: opts.ref,
+              size: resolvedSize,
+              negativePrompt: opts.negative,
+              note: opts.note,
+              overwrite: opts.forceOverwrite,
+              noRetry: opts.retry === false,
+            }),
+          {
+            successText: (r) => `image ${ui.c.cmd(opts.slot)} ready ${ui.c.muted(`($${r.costUsd.toFixed(3)}, ${(r.latencyMs / 1000).toFixed(1)}s)`)}`,
+            failText: (e) => `image ${ui.c.cmd(opts.slot)} failed: ${projectRunFailure(e, { provider: conn.id }).message}`,
+          },
+        ),
       });
       out({
         slot: opts.slot,
-        path: result.localPath,
+        artifactId: completed.artifact.id,
+        revisionId: completed.revision.id,
+        objectId: completed.revision.objectId,
+        runId: completed.run.id,
         model: result.model,
         costUsd: result.costUsd,
         latencyMs: result.latencyMs,
@@ -960,7 +994,14 @@ export function generateCmd() {
         mode: "image-batch",
         count: result.count,
         totalCostUsd: Number(result.totalCostUsd.toFixed(4)),
-        slots: result.slots.map((r) => ({ slot: r.slot, path: r.path, model: r.model, costUsd: r.costUsd })),
+        slots: result.slots.map((r) => ({
+          slot: r.slot,
+          artifactId: r.artifactId,
+          revisionId: r.revisionId,
+          runId: r.runId,
+          model: r.model,
+          costUsd: r.costUsd,
+        })),
         failures: result.failures,
       });
     });
@@ -1163,54 +1204,46 @@ export function generateCmd() {
       const resolvedVideoModel = resolveModelAlias(opts.model);
       cs.event("generate-video-started", {
         slot: opts.slot,
-        model: resolvedVideoModel,
+        model: resolvedVideoModel ?? "default",
         durationSec: opts.duration,
         aspectRatio: opts.aspectRatio,
       });
-      const result = await uiv.withSpinner(
-        `video (${resolvedVideoModel}, ${opts.duration}s, ${opts.aspectRatio || "9:16"}) → ${opts.slot}`,
-        () =>
-          connV.generateVideo!({
-            ...providerDestination(destination),
-            slot: opts.slot,
-            prompt: opts.prompt,
-            durationSec: opts.duration,
-            model: resolvedVideoModel,
-            firstFrame: opts.firstFrame,
-            lastFrame: opts.lastFrame,
-            image: opts.image,
-            refs: opts.ref,
-            refVideos: opts.refVideo,
-            aspectRatio: opts.aspectRatio,
-            resolution: opts.resolution,
-            generateAudio: opts.audio,
-            pollIntervalMs: opts.pollIntervalMs,
-            pollMaxAttempts: opts.pollMaxAttempts,
-            note: opts.note,
-            overwrite: opts.forceOverwrite,
-            noRetry: opts.retry === false,
+      const { result, completed } = await executeGeneratedArtifact({
+        destination,
+        slot: opts.slot,
+        runKind: "generate.video",
+        artifactKind: "video",
+        extension: ".mp4",
+        mime: "video/mp4",
+        provider: connV.id,
+        model: resolvedVideoModel ?? "default",
+        invoke: (runId, outputPath) => uiv.withSpinner(
+          `video (${resolvedVideoModel}, ${opts.duration}s, ${opts.aspectRatio || "9:16"}) → ${opts.slot}`,
+          () => connV.generateVideo!({
+            ...providerDestination(destination), runId, outputPath, slot: opts.slot,
+            prompt: opts.prompt, durationSec: opts.duration, model: resolvedVideoModel,
+            firstFrame: opts.firstFrame, lastFrame: opts.lastFrame, image: opts.image,
+            refs: opts.ref, refVideos: opts.refVideo, aspectRatio: opts.aspectRatio,
+            resolution: opts.resolution, generateAudio: opts.audio,
+            pollIntervalMs: opts.pollIntervalMs, pollMaxAttempts: opts.pollMaxAttempts,
+            note: opts.note, noRetry: opts.retry === false,
           }),
-        {
-          successText: (r) => `video ${uiv.c.cmd(opts.slot)} → ${uiv.c.path(r.localPath)} ${uiv.c.muted(`($${r.costUsd.toFixed(2)}, ${(r.latencyMs / 1000).toFixed(0)}s)`)}`,
-          failText: (e) => `video ${uiv.c.cmd(opts.slot)} failed: ${(e as Error).message?.slice(0, 200)}`,
-        },
-      );
-      await updateProjectManifest(destination, opts.slot, {
-        kind: "video",
-        path: result.localPath,
-        model: result.model,
-        costUsd: result.costUsd,
-        url: result.url,
-        generatedAt: new Date().toISOString(),
+          {
+            successText: (r) => `video ${uiv.c.cmd(opts.slot)} ready ${uiv.c.muted(`($${r.costUsd.toFixed(2)}, ${(r.latencyMs / 1000).toFixed(0)}s)`)}`,
+            failText: (e) => `video ${uiv.c.cmd(opts.slot)} failed: ${projectRunFailure(e, { provider: connV.id }).message}`,
+          },
+        ),
       });
       cs.event("generate-video-finished", {
         slot: opts.slot,
-        path: result.localPath,
+        revisionId: completed.revision.id,
         costUsd: result.costUsd,
       });
       cs.summary({
         slot: opts.slot,
-        path: result.localPath,
+        artifactId: completed.artifact.id,
+        revisionId: completed.revision.id,
+        runId: completed.run.id,
         model: result.model,
         durationSec: opts.duration,
         costUsd: result.costUsd,
@@ -1345,35 +1378,28 @@ export function generateCmd() {
       await maybeCheckSpend(opts, { kind: "voiceover", model: opts.model, mode: opts.mode });
       const connVo = resolveConnector("voice", opts.provider);
       const uivo = await import("../lib/ui.js");
-      const result = await uivo.withSpinner(
-        `voiceover (${opts.model}, voice ${opts.voice}) → ${opts.slot}`,
-        () =>
-          connVo.generateVoiceover!({
-            ...providerDestination(destination),
-            slot: opts.slot,
-            voiceId: opts.voice,
-            text: opts.text,
-            modelId: opts.model,
+      const { result, completed } = await executeGeneratedArtifact({
+        destination, slot: opts.slot, runKind: "generate.voiceover", artifactKind: "audio",
+        extension: ".mp3", mime: "audio/mpeg", provider: connVo.id, model: opts.model,
+        invoke: (runId, outputPath) => uivo.withSpinner(
+          `voiceover (${opts.model}, voice ${opts.voice}) → ${opts.slot}`,
+          () => connVo.generateVoiceover!({
+            ...providerDestination(destination), runId, outputPath, slot: opts.slot,
+            voiceId: opts.voice, text: opts.text, modelId: opts.model,
             voiceSettings: Object.keys(voiceSettings).length > 0 ? (voiceSettings as any) : undefined,
-            note: opts.note,
-            overwrite: opts.forceOverwrite,
-            noRetry: opts.retry === false,
+            note: opts.note, noRetry: opts.retry === false,
           }),
-        {
-          successText: (r) => `voiceover ${uivo.c.cmd(opts.slot)} → ${uivo.c.path(r.localPath)} ${uivo.c.muted(`(${(r.latencyMs / 1000).toFixed(1)}s)`)}`,
-          failText: (e) => `voiceover ${uivo.c.cmd(opts.slot)} failed: ${(e as Error).message?.slice(0, 200)}`,
-        },
-      );
-      await updateProjectManifest(destination, opts.slot, {
-        kind: "voiceover",
-        path: result.localPath,
-        model: result.model,
-        costUsd: result.costUsd,
-        generatedAt: new Date().toISOString(),
+          {
+            successText: (r) => `voiceover ${uivo.c.cmd(opts.slot)} ready ${uivo.c.muted(`(${(r.latencyMs / 1000).toFixed(1)}s)`)}`,
+            failText: (e) => `voiceover ${uivo.c.cmd(opts.slot)} failed: ${projectRunFailure(e, { provider: connVo.id }).message}`,
+          },
+        ),
       });
       out({
         slot: opts.slot,
-        path: result.localPath,
+        artifactId: completed.artifact.id,
+        revisionId: completed.revision.id,
+        runId: completed.run.id,
         model: result.model,
         latencyMs: result.latencyMs,
       });
@@ -1472,31 +1498,26 @@ export function generateCmd() {
       // factored out into `submitMusicWithToSAutoRetry` (see
       // `cli/lib/music-prompt-lint.ts`) so unit tests can exercise it without
       // commander.
-      const submit = async (prompt: string) =>
-        connM.generateMusic!({
-          ...providerDestination(destination),
-          slot: opts.slot,
-          prompt,
-          durationSec: opts.duration,
-          forceInstrumental: !opts.withVocals,
-          note: opts.note,
-          overwrite: opts.forceOverwrite,
-          noRetry: opts.retry === false,
-        });
-
-      let result;
-      const runSpinner = (prompt: string, label: string) =>
-        uim.withSpinner(
+      const { result, completed } = await executeGeneratedArtifact({
+        destination, slot: opts.slot, runKind: "generate.music", artifactKind: "audio",
+        extension: ".mp3", mime: "audio/mpeg", provider: connM.id, model: "music_v1",
+        invoke: async (runId, outputPath) => {
+          const submit = async (prompt: string) => connM.generateMusic!({
+            ...providerDestination(destination), runId, outputPath, slot: opts.slot,
+            prompt, durationSec: opts.duration, forceInstrumental: !opts.withVocals,
+            note: opts.note, noRetry: opts.retry === false,
+          });
+          const runSpinner = (prompt: string, label: string) => uim.withSpinner(
           `music (${label}${opts.duration}s${opts.withVocals ? "" : ", instrumental"}) → ${opts.slot}`,
           () => submit(prompt),
           {
-            successText: (r) => `music ${uim.c.cmd(opts.slot)} → ${uim.c.path(r.localPath)} ${uim.c.muted(`(${(r.latencyMs / 1000).toFixed(1)}s)`)}`,
-            failText: (e) => `music ${uim.c.cmd(opts.slot)} failed: ${(e as Error).message?.slice(0, 200)}`,
+            successText: (r) => `music ${uim.c.cmd(opts.slot)} ready ${uim.c.muted(`(${(r.latencyMs / 1000).toFixed(1)}s)`)}`,
+            failText: (e) => `music ${uim.c.cmd(opts.slot)} failed: ${projectRunFailure(e, { provider: connM.id }).message}`,
           },
-        );
-
-      if (opts.autoRetryOnTosRejection) {
-        const retried = await submitMusicWithToSAutoRetry({
+          );
+          if (opts.autoRetryOnTosRejection) {
+            const retried = await submitMusicWithToSAutoRetry({
+          runId,
           projectId: opts.project,
           slot: opts.slot,
           prompt: opts.prompt,
@@ -1504,37 +1525,33 @@ export function generateCmd() {
           forceInstrumental: !opts.withVocals,
           submit: (p) => runSpinner(p, p === opts.prompt ? "" : "resubmit "),
         });
-        result = retried.result;
-        if (retried.resubmitted) {
+            if (retried.resubmitted) {
           // eslint-disable-next-line no-console
           console.error(
             `ralphy: ToS rejection on music prompt — auto-resubmitted with provider rewrite:\n  ${retried.promptSuggestion}`,
           );
-        }
-      } else {
-        try {
-          result = await runSpinner(opts.prompt, "");
-        } catch (err) {
-          if (err instanceof TerminalProviderError && err.promptSuggestion) {
+            }
+            return retried.result;
+          }
+          try {
+            return await runSpinner(opts.prompt, "");
+          } catch (err) {
+            if (err instanceof TerminalProviderError && err.promptSuggestion) {
             // eslint-disable-next-line no-console
             console.error(
               `ralphy: ToS rejection. Provider sanitized rewrite available — re-run with --auto-retry-on-tos-rejection, or paste:\n  ${err.promptSuggestion}`,
             );
+            }
+            throw err;
           }
-          throw err;
-        }
-      }
-      await updateProjectManifest(destination, opts.slot, {
-        kind: "music",
-        path: result.localPath,
-        model: result.model,
-        costUsd: result.costUsd,
-        generatedAt: new Date().toISOString(),
+        },
       });
-      cs.event("generate-music-finished", { slot: opts.slot, path: result.localPath });
+      cs.event("generate-music-finished", { slot: opts.slot, revisionId: completed.revision.id });
       cs.summary({
         slot: opts.slot,
-        path: result.localPath,
+        artifactId: completed.artifact.id,
+        revisionId: completed.revision.id,
+        runId: completed.run.id,
         model: result.model,
         durationSec: opts.duration,
         latencyMs: result.latencyMs,
@@ -1594,34 +1611,29 @@ export function generateCmd() {
       await maybeCheckSpend(opts, { kind: "sfx", model: "elevenlabs-sfx", durationSec: opts.duration, mode: opts.mode });
       const connSfx = resolveConnector("sfx", opts.provider);
       const uisfx = await import("../lib/ui.js");
-      const result = await uisfx.withSpinner(
-        `sfx (${opts.duration}s) → ${opts.slot}`,
-        () =>
-          connSfx.generateSfx!({
-            ...providerDestination(destination),
-            slot: opts.slot,
-            prompt: opts.prompt,
-            durationSec: opts.duration,
-            promptInfluence: opts.promptInfluence,
-            note: opts.note,
-            overwrite: opts.forceOverwrite,
+      const { result, completed } = await executeGeneratedArtifact({
+        destination, slot: opts.slot, runKind: "generate.sfx", artifactKind: "audio",
+        extension: ".mp3", mime: "audio/mpeg", provider: connSfx.id,
+        model: "sound_generation_v2",
+        invoke: (runId, outputPath) => uisfx.withSpinner(
+          `sfx (${opts.duration}s) → ${opts.slot}`,
+          () => connSfx.generateSfx!({
+            ...providerDestination(destination), runId, outputPath, slot: opts.slot,
+            prompt: opts.prompt, durationSec: opts.duration,
+            promptInfluence: opts.promptInfluence, note: opts.note,
             noRetry: opts.retry === false,
           }),
-        {
-          successText: (r) => `sfx ${uisfx.c.cmd(opts.slot)} → ${uisfx.c.path(r.localPath)} ${uisfx.c.muted(`(${(r.latencyMs / 1000).toFixed(1)}s)`)}`,
-          failText: (e) => `sfx ${uisfx.c.cmd(opts.slot)} failed: ${(e as Error).message?.slice(0, 200)}`,
-        },
-      );
-      await updateProjectManifest(destination, opts.slot, {
-        kind: "sfx",
-        path: result.localPath,
-        model: result.model,
-        costUsd: result.costUsd,
-        generatedAt: new Date().toISOString(),
+          {
+            successText: (r) => `sfx ${uisfx.c.cmd(opts.slot)} ready ${uisfx.c.muted(`(${(r.latencyMs / 1000).toFixed(1)}s)`)}`,
+            failText: (e) => `sfx ${uisfx.c.cmd(opts.slot)} failed: ${projectRunFailure(e, { provider: connSfx.id }).message}`,
+          },
+        ),
       });
       out({
         slot: opts.slot,
-        path: result.localPath,
+        artifactId: completed.artifact.id,
+        revisionId: completed.revision.id,
+        runId: completed.run.id,
         model: result.model,
         durationSec: opts.duration,
         latencyMs: result.latencyMs,
@@ -1686,13 +1698,10 @@ export function generateCmd() {
     .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.json (+ .srt, .drawtext.filter).")
     .option("--note <note>", "Free-form note")
     .action(async (opts) => {
-      await ensureProject(opts.project);
       // #025: NBSP-normalize + project-relative fallback for the --audio path.
       const audioPath = intakePath(opts.audio, opts.project, "audio");
       const slot = normalizeSlot(opts.slot ?? `captions-${path.basename(audioPath, path.extname(audioPath))}`);
       const backend = opts.backend as TranscribeBackend;
-      const t0 = Date.now();
-      const result = await transcribe({ audioPath, language: opts.language, backend });
 
       // ── output path resolution ──────────────────────────────────────────
       // #010: shared captions.json clobber → per-slot output as default.
@@ -1708,25 +1717,45 @@ export function generateCmd() {
           "ralphy: --legacy-output is deprecated. Shared captions.json clobbers on concurrent / batch calls; use the per-slot default (artifacts/captions/<slot>.json) or --output. #010",
         );
       }
-      const outPath = explicitOut
+      const requestedOutPath = explicitOut
         ? path.resolve(explicitOut)
         : opts.legacyOutput
-          ? path.join(projectDir(opts.project), "captions.json")
-          : path.join(artifactKindDir(opts.project, "captions"), `${slot}.json`);
-      await fs.mkdir(path.dirname(outPath), { recursive: true });
-
-      // AGENTS invariant #14: never overwrite an existing per-slot caption
-      // file. Archive to <slot>.v{N}.json (mirrors what image/video/voiceover
-      // already do via protectExistingAsset). --force-overwrite skips this.
-      await protectExistingAsset(outPath, opts.forceOverwrite);
+          ? path.join(generationProjectCompatibilityDir(opts.project), "captions.json")
+          : `${slot}.json`;
+      const run = startRun({ projectId: opts.project, kind: "generate.captions", label: slot });
+      const attempt = startRunAttempt({
+        runId: run.id,
+        provider: backend === "elevenlabs" ? "elevenlabs" : "openrouter",
+        model: `transcribe/${backend}`,
+        request: { slot, language: opts.language, backend },
+      });
+      const outPath = path.join(ralphDir(), "tmp", run.id, `${slot}.json`);
+      let completed: Awaited<ReturnType<typeof completeArtifactRunSet>>;
+      let result: Awaited<ReturnType<typeof transcribe>>;
+      const t0 = Date.now();
+      const brandSpellingPath =
+        (opts.brandSpelling as string | undefined) ??
+        path.join(generationProjectCompatibilityDir(opts.project), "brand-spelling.json");
+      const safeZone = (opts.safeZone as SafeZone) ?? "none";
+      const spec = resolveSafeZone(safeZone, opts.maxWidthPct as number | undefined);
+      const fontSizePx = (opts.fontSize as number | undefined) ?? 64;
+      const frameWidth = (opts.frameWidth as number | undefined) ?? 1080;
+      const threshold = (opts.lowConfidenceThreshold as number | undefined) ?? 0.6;
+      const srtPath = outPath.replace(/\.json$/, ".srt");
+      const drawtextPath = outPath.replace(/\.json$/, ".drawtext.filter");
+      let wrapped: Awaited<ReturnType<typeof transcribe>>["captions"] = [];
+      let lowConfidenceWords: NonNullable<Awaited<ReturnType<typeof transcribe>>["lowConfidenceWords"]> = [];
+      let jsonPayload: Record<string, unknown> = {};
+      let srtPayload = "";
+      let drawtextPayload = "";
+      try {
+        await fs.mkdir(path.dirname(outPath), { recursive: true });
+        result = await transcribe({ audioPath, language: opts.language, backend });
 
       // ── brand-spelling substitution ─────────────────────────────────────
       // #010: caption-wrap / safe-zone / brand-spelling all lived in user-
       // land Python before this. Pull the project's dict (if any) and merge
       // on top of the built-in floor.
-      const brandSpellingPath =
-        (opts.brandSpelling as string | undefined) ??
-        path.join(projectDir(opts.project), "brand-spelling.json");
       let projectDict: BrandSpellingDict | null = null;
       try {
         const raw = await fs.readFile(brandSpellingPath, "utf8");
@@ -1738,11 +1767,7 @@ export function generateCmd() {
       const captions = applyBrandSpellingToCaptions(result.captions, dict);
 
       // ── wrap captions to the safe zone ──────────────────────────────────
-      const safeZone = (opts.safeZone as SafeZone) ?? "none";
-      const spec = resolveSafeZone(safeZone, opts.maxWidthPct as number | undefined);
-      const fontSizePx = (opts.fontSize as number | undefined) ?? 64;
-      const frameWidth = (opts.frameWidth as number | undefined) ?? 1080;
-      const wrapped = captions.map((c) => ({
+      wrapped = captions.map((c) => ({
         ...c,
         text: wrapCaptionText(c.text, {
           frameWidth,
@@ -1756,13 +1781,12 @@ export function generateCmd() {
       // metadata. #010 adds `low_confidence_words: []` even on empty
       // transcripts for shape consistency, so consumers don't need to
       // null-check.
-      const threshold = (opts.lowConfidenceThreshold as number | undefined) ?? 0.6;
-      const lowConfidenceWords = (result.lowConfidenceWords ?? []).filter(
+      lowConfidenceWords = (result.lowConfidenceWords ?? []).filter(
         (w) => w.confidence < threshold,
       );
 
       // ── persist sidecar files ───────────────────────────────────────────
-      const jsonPayload = {
+      jsonPayload = {
         captions: wrapped,
         // Keep these top-level so downstream `cli/lib/components/captions/*`
         // consumers (which type against the bare Caption[] shape) can still
@@ -1783,57 +1807,68 @@ export function generateCmd() {
 
       // SRT + drawtext-per-line filter snippet next to the JSON (#010: editors
       // can grab the ffmpeg filter directly instead of hand-rolling one).
-      const srtPath = outPath.replace(/\.json$/, ".srt");
-      const drawtextPath = outPath.replace(/\.json$/, ".drawtext.filter");
-      await fs.writeFile(srtPath, captionsToSrt(wrapped), "utf8");
-      await fs.writeFile(
-        drawtextPath,
-        captionsToDrawtextFilter(wrapped, {
+      srtPayload = captionsToSrt(wrapped) || "\n";
+      await fs.writeFile(srtPath, srtPayload, "utf8");
+      drawtextPayload = captionsToDrawtextFilter(wrapped, {
           fontFile: opts.fontFile as string | undefined,
           fontSizePx,
           fontColor: "white",
           boxColor: "black@0.5",
           yCenter: spec.yCenter,
-        }),
-        "utf8",
-      );
+        }) || "\n";
+      await fs.writeFile(drawtextPath, drawtextPayload, "utf8");
 
-      await logGeneration(opts.project, {
-        provider: result.backend === "elevenlabs" ? "elevenlabs" : "openrouter",
-        model: result.model,
-        endpoint: result.model,
-        kind: "text",
-        slot,
-        input: {
-          slot,
-          project: opts.project,
-          audio: audioPath,
-          language: opts.language,
-          backend: result.backend,
-          safeZone,
-          maxWidthPct: spec.maxWidthPct,
-          fontSizePx,
-          frameWidth,
-        },
-        output: {
-          local: outPath,
-          bytes: wrapped.length,
-        },
-        status: "ok",
-        latency_ms: Date.now() - t0,
-        cost_usd: result.costUsd,
-        note: opts.note ?? slot,
-      });
+        completed = await completeArtifactRunSet({
+          runId: run.id,
+          attemptId: attempt.id,
+          provider: result.provider,
+          model: result.model,
+          outputs: [
+            {
+              finishedPath: outPath,
+              originalName: `${slot}.json`,
+              mime: "application/json",
+              artifact: {
+                slug: slot,
+                kind: "captions",
+                state: "candidate",
+                metadata: { safeZone, maxWidthPct: spec.maxWidthPct, fontSizePx, frameWidth },
+              },
+              objectMetadata: { provider: result.provider, model: result.model },
+            },
+            {
+              finishedPath: srtPath,
+              originalName: `${slot}.srt`,
+              mime: "application/x-subrip",
+              artifact: { slug: `${slot}-srt`, kind: "captions", state: "candidate" },
+              objectMetadata: { provider: result.provider, model: result.model },
+            },
+            {
+              finishedPath: drawtextPath,
+              originalName: `${slot}.drawtext.filter`,
+              mime: "text/plain",
+              artifact: { slug: `${slot}-drawtext`, kind: "data", state: "candidate" },
+              objectMetadata: { provider: result.provider, model: result.model },
+            },
+          ],
+          response: { model: result.model, latencyMs: result.durationMs },
+          costUsd: result.costUsd,
+        });
+      } catch (error) {
+        const projected = projectRunFailure(error, {
+          provider: backend === "elevenlabs" ? "elevenlabs" : "openrouter",
+        });
+        try { finishRunAttempt(attempt.id, { state: "failed", error: projected }); } catch { /* already terminal */ }
+        try { finishRun(run.id, { state: "failed", error: projected }); } catch { /* already terminal */ }
+        throw projected;
+      }
 
-      const manifest = await readManifest(opts.project);
-      manifest.slots[slot] = {
-        kind: "captions",
-        path: outPath,
-        model: result.model,
-        costUsd: result.costUsd,
-        generatedAt: new Date().toISOString(),
-      };
-      await writeManifest(opts.project, manifest);
+      if (opts.legacyOutput) {
+        await fs.mkdir(path.dirname(requestedOutPath), { recursive: true });
+        await fs.writeFile(requestedOutPath, JSON.stringify(jsonPayload, null, 2), "utf8");
+        await fs.writeFile(requestedOutPath.replace(/\.json$/, ".srt"), srtPayload, "utf8");
+        await fs.writeFile(requestedOutPath.replace(/\.json$/, ".drawtext.filter"), drawtextPayload, "utf8");
+      }
 
       const languageWarning =
         result.languageProbability !== null && result.languageProbability < 0.85
@@ -1842,9 +1877,16 @@ export function generateCmd() {
 
       out({
         slot,
-        path: outPath,
-        srtPath,
-        drawtextPath,
+        artifactId: completed.outputs[0]!.artifact.id,
+        revisionId: completed.outputs[0]!.revision.id,
+        runId: completed.run.id,
+        artifacts: completed.outputs.map((item) => ({
+          artifactId: item.artifact.id,
+          revisionId: item.revision.id,
+          kind: item.artifact.kind,
+          mime: item.runObject.mime,
+        })),
+        legacyPath: opts.legacyOutput ? requestedOutPath : undefined,
         captions: wrapped.length,
         durationSec: result.audioDurationSec,
         language: result.language,
@@ -1856,7 +1898,7 @@ export function generateCmd() {
         maxWidthPct: spec.maxWidthPct,
         fontSizePx,
         frameWidth,
-        costUsd: result.costUsd,
+        costUsd: completed.attempt.costUsd,
         latencyMs: Date.now() - t0,
       });
     });

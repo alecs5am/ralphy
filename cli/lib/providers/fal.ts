@@ -18,17 +18,15 @@
 //
 // Flow: upload any local refs to the fal CDN → submit to the queue
 // (https://queue.fal.run/<endpoint>) → poll the status URL → fetch the response
-// URL → download the mp4 to the slot path (auto-versioned via protectExistingAsset).
-// Every call lands a `generations.jsonl` row with `cost_usd` via the shared
-// gen-log path — the whole point of #402 (restore invariant #2's guarantee).
+// URL → download the mp4 to the caller's Run-owned temporary path. The command
+// layer promotes those bytes into an immutable Object and Artifact revision and
+// records provider cost on the Run Attempt.
 
 import path from "node:path";
 import fs from "node:fs/promises";
-import { logGeneration } from "../gen-log.js";
-import { generationDestination } from "../generation-destination.js";
 import {
-  assetPath,
-  protectExistingAsset,
+  providerOutputPath,
+  providerHttpError,
   logFailure,
   requireProviderKey,
   retryTransient,
@@ -194,8 +192,7 @@ export async function uploadLocalRef(filePath: string): Promise<string> {
   if (!initResp.ok) {
     const text = await initResp.text().catch(() => "");
     const message = `fal storage initiate ${initResp.status}: ${text.slice(0, 300)}`;
-    if (initResp.status >= 400 && initResp.status < 500) throw new TerminalProviderError(message);
-    throw new Error(message);
+    throw providerHttpError(message, initResp.status);
   }
   const init = (await initResp.json()) as { upload_url?: string; file_url?: string };
   if (!init.upload_url || !init.file_url) {
@@ -212,8 +209,7 @@ export async function uploadLocalRef(filePath: string): Promise<string> {
   if (!putResp.ok) {
     const text = await putResp.text().catch(() => "");
     const message = `fal storage PUT ${putResp.status}: ${text.slice(0, 300)}`;
-    if (putResp.status >= 400 && putResp.status < 500) throw new TerminalProviderError(message);
-    throw new Error(message);
+    throw providerHttpError(message, putResp.status);
   }
   return init.file_url;
 }
@@ -346,8 +342,7 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
       if (!resp.ok) {
         const text = await resp.text().catch(() => "");
         const message = `fal queue submit ${resp.status}: ${text.slice(0, 400)}`;
-        if (resp.status >= 400 && resp.status < 500) throw new TerminalProviderError(message);
-        throw new Error(message);
+        throw providerHttpError(message, resp.status);
       }
       const submitted = (await resp.json()) as FalSubmit;
       if (!submitted.request_id) {
@@ -365,7 +360,6 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     },
   );
   const submit = submitResult.submit;
-  const submitAttempt = submitResult.attempt;
 
   const statusUrl =
     submit.status_url ?? `${QUEUE_BASE}/${spec.endpoint}/requests/${submit.request_id}/status`;
@@ -391,7 +385,10 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     const pollResp = await fetch(statusUrl, { headers: authHeader(), signal: input.signal });
     if (!pollResp.ok) {
       const text = await pollResp.text().catch(() => "");
-      const err = new Error(`fal video poll ${pollResp.status}: ${text.slice(0, 300)}`);
+      const err = providerHttpError(
+        `fal video poll ${pollResp.status}: ${text.slice(0, 300)}`,
+        pollResp.status,
+      );
       await logFailure(input, ID, model, "video", body, err, t0);
       throw err;
     }
@@ -411,7 +408,10 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
   const resultResp = await fetch(responseUrl, { headers: authHeader(), signal: input.signal });
   if (!resultResp.ok) {
     const text = await resultResp.text().catch(() => "");
-    const err = new Error(`fal video result ${resultResp.status}: ${text.slice(0, 300)}`);
+    const err = providerHttpError(
+      `fal video result ${resultResp.status}: ${text.slice(0, 300)}`,
+      resultResp.status,
+    );
     await logFailure(input, ID, model, "video", body, err, t0);
     throw err;
   }
@@ -430,17 +430,19 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
   }
 
   // ── Download the mp4 to the slot path (auto-versioned) ─────────────────────
-  const dest = assetPath(input, "videos", `${input.slot}.mp4`);
+  const dest = providerOutputPath(input);
   await fs.mkdir(path.dirname(dest), { recursive: true });
   const dl = await fetch(videoUrl, { signal: input.signal });
   if (!dl.ok) {
     const text = await dl.text().catch(() => "");
-    const err = new Error(`fal video download ${dl.status}: ${text.slice(0, 200)}`);
+    const err = providerHttpError(
+      `fal video download ${dl.status}: ${text.slice(0, 200)}`,
+      dl.status,
+    );
     await logFailure(input, ID, model, "video", body, err, t0);
     throw err;
   }
   const out = Buffer.from(await dl.arrayBuffer());
-  await protectExistingAsset(dest, input.overwrite);
   await fs.writeFile(dest, out);
 
   const pricePerSec = falVideoPricePerSec({
@@ -456,34 +458,6 @@ export async function generateVideo(input: GenerateVideoInput): Promise<Generate
     latencyMs: Date.now() - t0,
     model,
   };
-  await logGeneration(generationDestination(input), {
-    slot: input.slot,
-    provider: ID,
-    model,
-    endpoint: spec.endpoint,
-    kind: "video",
-    input: {
-      slot: input.slot,
-      project: input.projectId,
-      prompt: input.prompt,
-      duration_sec: durationSec,
-      aspect_ratio: aspectRatio,
-      resolution,
-      generate_audio: generateAudio,
-      video_urls: videoUrls.length > 0 ? videoUrls : undefined,
-      image_urls: imageUrls.length > 0 ? imageUrls : undefined,
-      start_image_url: startImageUrl ? "[ref-supplied]" : undefined,
-      end_image_url: endImageUrl ? "[ref-supplied]" : undefined,
-      preprocess: Object.keys(preprocess).length > 0 ? preprocess : undefined,
-    },
-    output: { url: videoUrl, local: dest, job_id: submit.request_id },
-    status: "ok",
-    latency_ms: result.latencyMs,
-    cost_usd: result.costUsd,
-    attempt: submitAttempt,
-    request_id: submit.request_id,
-    note: input.note ?? input.slot,
-  });
   return result;
 }
 
