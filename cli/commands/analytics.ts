@@ -1,145 +1,140 @@
-// `ralphy analytics` (#507) — the performance feedback loop's agent-facing
-// door. Two verbs:
-//   • `pull <project> [unit-slug]` — fetch per-post metrics for the project's
-//     published units (youtube target → the youtube-analytics connector;
-//     everything else → the Postiz analytics passthrough) and APPEND a
-//     timestamped snapshot line to each unit's `analytics.jsonl`. Every run
-//     appends a new snapshot — that is the design (deltas between snapshots
-//     feed the postmortem); nothing is ever rewritten.
-//   • `postmortem <project>` — one bounded callLLM() pass over the batch's
-//     snapshots + unit metadata → evidence-grounded findings written to
-//     `<project>/postmortem/analytics-findings.json` (.vN versioned) and
-//     staged as WORKSPACE-tier memory proposals (promote via
-//     `ralphy memory approve`).
-// Both commands run through cli/lib/analytics/.
-
 import { Command } from "commander";
-import { out, ok } from "../lib/output.js";
+import {
+  queryPublicationPerformance,
+  queryPublicationPostmortem,
+} from "../lib/analytics/query.js";
+import { resolveCommandContext } from "../lib/context.js";
 import { raiseError } from "../lib/errors/index.js";
-import { postizAvailable } from "../lib/providers/postiz.js";
-import { youtubeAnalyticsAvailable } from "../lib/providers/youtube-analytics.js";
-import {
-  pullProjectAnalytics,
-  pullWorkspaceAnalytics,
-  listUnitSlugs,
-  listWorkspaceUnitSlugs,
-} from "../lib/analytics/pull.js";
-import { runAnalyticsPostmortem, NoAnalyticsError } from "../lib/analytics/postmortem.js";
-import {
-  readUnitManifest,
-  unitDirFor,
-  workspaceUnitDirFor,
-} from "../lib/publish/publish.js";
-import { projectWorkspace } from "../lib/paths.js";
+import { out } from "../lib/output.js";
+import { ralphDir } from "../lib/paths.js";
+import type { QueryContext } from "../lib/store/scope-context.js";
+import { getMetricTotals, listMetricSnapshots } from "../lib/store/units.js";
 
-export function analyticsCmd() {
-  const cmd = new Command("analytics").description(
-    "Per-post performance metrics for published units (#507): append-only analytics.jsonl snapshots + an evidence-grounded performance postmortem. Example: ralphy analytics pull spring-2026-001",
+export function analyticsCmd(): Command {
+  const command = new Command("analytics").description(
+    "Query immutable Publication metric snapshots",
   );
 
-  cmd
-    .command("pull")
-    .description(
-      "Fetch per-post metrics for the project's published units and append snapshots to each unit's analytics.jsonl (append-only; every run adds a new timestamped snapshot). Example: ralphy analytics pull spring-2026-001 hero-cut --target youtube",
-    )
-    .argument("<owner-or-unit>", "Project id, or one workspace Unit slug with --workspace")
-    .argument("[unit-slug]", "One unit under <project>/units/ (default: every unit)")
-    .option("--workspace <slug>", "Pull analytics for Units owned directly by this workspace")
-    .option("--target <t>", "Restrict to one target platform (youtube | tiktok | instagram | x)")
-    .option("--days <n>", "Postiz analytics lookback window in days", "7")
-    .action(async (ownerOrUnit: string, unitSlug: string | undefined, opts) => {
-      const workspace = typeof opts.workspace === "string" ? opts.workspace.trim() : "";
-      const project = workspace ? null : ownerOrUnit;
-      const slug = workspace ? ownerOrUnit : unitSlug;
-      if (workspace && unitSlug) {
-        raiseError("E_INPUT_INVALID", {
-          field: "unit",
-          detail: "use `ralphy analytics pull <unit-slug> --workspace <slug>`",
-          verb: "analytics pull",
-        });
-      }
-      const credentialWorkspace = workspace || projectWorkspace(project!);
-      if (!youtubeAnalyticsAvailable() && !postizAvailable(credentialWorkspace)) {
-        raiseError("E_ENV_KEY_MISSING", {
-          key: `YOUTUBE_API_KEY or Postiz credentials for workspace ${credentialWorkspace}`,
-        });
-      }
-      const scopedUnitDir = slug
-        ? workspace
-          ? workspaceUnitDirFor(workspace, slug)
-          : unitDirFor(project!, slug)
-        : null;
-      if (scopedUnitDir && !(await readUnitManifest(scopedUnitDir))) {
-        raiseError("E_NOT_FOUND", {
-          kind: "Unit",
-          id: workspace ? `${workspace}/units/${slug}` : `${project}/${slug}`,
-        });
-      }
-      const slugs = workspace ? listWorkspaceUnitSlugs(workspace) : listUnitSlugs(project!);
-      if (!slug && slugs.length === 0) {
-        raiseError("E_NOT_FOUND", { kind: "Units", id: workspace || project! });
-      }
-
-      const days = Number(opts.days);
-      const common = {
-        slug,
-        target: opts.target,
-        days: Number.isFinite(days) && days > 0 ? days : 7,
-      };
-      const result = workspace
-        ? await pullWorkspaceAnalytics({ workspaceId: workspace, ...common })
-        : await pullProjectAnalytics({ projectId: project!, ...common });
-      ok(
-        `Pulled ${result.fetched} snapshot(s) across ${result.units.length} unit(s)` +
-          (result.skipped ? ` (${result.skipped} skipped)` : ""),
-      );
-      out({
-        project,
-        workspace: workspace || projectWorkspace(project!),
-        fetched: result.fetched,
-        skipped: result.skipped,
-        units: result.units.map((u) => ({
-          slug: u.slug,
-          appended: u.appended,
-          analyticsPath: u.analyticsPath,
-          records: u.records,
-        })),
-      });
+  command
+    .command("list <publication-id>")
+    .option("--source <source>", "Restrict provider source")
+    .option("--as-of <iso>", "Include observations at or before this instant")
+    .option("--window-start <iso>", "Exact window start")
+    .option("--window-end <iso>", "Exact window end")
+    .option("--cursor <cursor>", "Continue from an opaque cursor")
+    .option("--limit <count>", "Maximum rows", Number, 50)
+    .action((publicationId: string, opts, child: Command) => {
+      out(listMetricSnapshots({
+        context: context(child),
+        publicationId,
+        ...filters(opts),
+        after: opts.cursor,
+        limit: opts.limit,
+      }));
     });
 
-  cmd
-    .command("postmortem")
-    .description(
-      "Distill the project's analytics snapshots + unit metadata into evidence-grounded findings (bounded LLM pass): writes postmortem/analytics-findings.json (.vN versioned) and stages workspace-tier memory proposals. Example: ralphy analytics postmortem spring-2026-001 --dry-run",
-    )
-    .argument("<project>", "Project id")
-    .option("--dry-run", "Print findings without writing the file or staging memory proposals")
-    .action(async (project: string, opts) => {
-      try {
-        const r = await runAnalyticsPostmortem({ projectId: project, dryRun: Boolean(opts.dryRun) });
-        ok(
-          r.dryRun
-            ? `Distilled ${r.findings.length} finding(s) (dry-run — nothing written)`
-            : `Distilled ${r.findings.length} finding(s) → ${r.findingsPath}; staged ${r.staged.length} workspace memory proposal(s) — review with \`ralphy memory list --workspace ${r.workspace} --proposed\` then \`ralphy memory approve <slug>\``,
-        );
+  command
+    .command("totals")
+    .requiredOption("--publications <json>", "One to 100 distinct Publication IDs")
+    .option("--source <source>", "Restrict provider source")
+    .option("--as-of <iso>", "Include observations at or before this instant")
+    .option("--window-start <iso>", "Exact window start")
+    .option("--window-end <iso>", "Exact window end")
+    .action((opts, child: Command) => {
+      out(getMetricTotals({
+        context: context(child),
+        publicationIds: publicationIds(opts.publications),
+        ...filters(opts),
+      }));
+    });
+
+  for (const name of ["roi", "postmortem"] as const) {
+    command
+      .command(name)
+      .description(
+        name === "roi"
+          ? "Return filter-first newest-per-Publication performance facts"
+          : "Return an evidence digest without scanning Unit files",
+      )
+      .requiredOption("--publications <json>", "One to 100 distinct Publication IDs")
+      .option("--source <source>", "Restrict provider source")
+      .option("--as-of <iso>", "Include observations at or before this instant")
+      .option("--window-start <iso>", "Exact window start")
+      .option("--window-end <iso>", "Exact window end")
+      .action((opts, child: Command) => {
+        const query = {
+            context: context(child),
+            publicationIds: publicationIds(opts.publications),
+            ...filters(opts),
+        };
         out({
-          project: r.project,
-          workspace: r.workspace,
-          model: r.model,
-          units: r.units,
-          findings: r.findings,
-          dropped: r.dropped,
-          findingsPath: r.findingsPath,
-          staged: r.staged,
-          dryRun: r.dryRun,
+          kind: name,
+          ...(name === "roi"
+            ? queryPublicationPerformance(query)
+            : queryPublicationPostmortem(query)),
         });
-      } catch (e) {
-        if (e instanceof NoAnalyticsError) {
-          raiseError("E_NOT_FOUND", { kind: "Analytics snapshots", id: project });
-        }
-        throw e;
-      }
-    });
+      });
+  }
 
-  return cmd;
+  return command;
+}
+
+function context(command: Command): QueryContext {
+  const opts = command.optsWithGlobals();
+  const resolved = resolveCommandContext({
+    dataRoot: ralphDir(),
+    sessionId: opts.session,
+    workspaceId: opts.workspace,
+    projectId: opts.project,
+    cwd: process.cwd(),
+  });
+  return resolved.kind === "session"
+    ? { sessionId: resolved.sessionId }
+    : {
+        workspaceId: resolved.workspaceId,
+        ...(resolved.projectId ? { projectId: resolved.projectId } : {}),
+      };
+}
+
+function publicationIds(raw: string): string[] {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (
+      !Array.isArray(parsed) ||
+      parsed.some((id) => typeof id !== "string")
+    ) throw new Error();
+    return parsed;
+  } catch {
+    raiseError("E_INPUT_INVALID", {
+      field: "publications",
+      detail: "expected a JSON array of Publication IDs",
+    });
+  }
+}
+
+function filters(opts: Record<string, unknown>) {
+  if (Boolean(opts.windowStart) !== Boolean(opts.windowEnd)) {
+    raiseError("E_INPUT_INVALID", {
+      field: "window",
+      detail: "window-start and window-end must be provided together",
+    });
+  }
+  return {
+    ...(typeof opts.source === "string" ? { source: opts.source } : {}),
+    ...(typeof opts.asOf === "string" ? { asOf: timestamp(opts.asOf, "as-of") } : {}),
+    ...(typeof opts.windowStart === "string" && typeof opts.windowEnd === "string"
+      ? {
+          windowStart: timestamp(opts.windowStart, "window-start"),
+          windowEnd: timestamp(opts.windowEnd, "window-end"),
+        }
+      : {}),
+  };
+}
+
+function timestamp(value: string, field: string): number {
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    raiseError("E_INPUT_INVALID", { field, detail: "expected an ISO datetime" });
+  }
+  return parsed;
 }

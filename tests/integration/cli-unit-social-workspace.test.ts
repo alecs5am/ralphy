@@ -3,7 +3,6 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { seedLegacyWorkspace } from "../helpers/legacy-project.js";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
 const CLI = path.join(REPO, "cli", "index.ts");
@@ -29,13 +28,21 @@ beforeEach(() => {
   expect(created.exitCode).toBe(0);
   expect(created.json).toMatchObject({ slug: "acme", name: "Acme" });
   workspaceId = created.json.id;
-  seedLegacyWorkspace(tmpRoot, workspaceId);
 });
 
 afterEach(() => fs.rmSync(tmpRoot, { recursive: true, force: true }));
 
 describe("workspace-owned social units", () => {
   test("creates, lists, and shows one post for several social rails", () => {
+    const document = ralphy([
+      "document", "create", "--workspace", workspaceId,
+      "--kind", "note", "--slug", "launch-body", "--title", "Launch body",
+    ]).json;
+    const body = ralphy([
+      "--workspace", workspaceId, "document", "revise", document.id,
+      "--expected", "none", "--format", "text", "--body",
+      "Ralphy now keeps account assets in one workspace.",
+    ]).json;
     const created = ralphy([
       "unit",
       "create",
@@ -45,35 +52,37 @@ describe("workspace-owned social units", () => {
       "launch-note",
       "--format",
       "post",
-      "--text",
-      "Ralphy now keeps account assets in one workspace.",
-      "--destination",
-      "telegram",
-      "--destination",
-      "x",
+      "--items",
+      JSON.stringify([{ documentRevisionId: body.id, role: "body", position: 0 }]),
+      "--presentations",
+      JSON.stringify([
+        { platform: "telegram", caption: "Telegram launch" },
+        { platform: "x", caption: "X launch" },
+      ]),
     ]);
     expect(created.exitCode).toBe(0);
-    expect(created.json.manifest.text.destinations).toEqual(["telegram", "x"]);
-
-    const unitDir = path.join(
-      tmpRoot,
-      ".ralphy",
-      "workspaces",
-      workspaceId,
-      "units",
-      "launch-note",
-    );
-    expect(fs.existsSync(path.join(unitDir, "unit.json"))).toBe(true);
+    expect(created.json.presentations.map((item: { platform: string }) => item.platform)).toEqual([
+      "telegram",
+      "x",
+    ]);
 
     const listed = ralphy(["unit", "list", "--workspace", workspaceId]);
-    expect(listed.json[0]).toMatchObject({ slug: "launch-note", format: "post" });
-    const shown = ralphy(["unit", "show", "--workspace", workspaceId, "launch-note"]);
-    expect(shown.json.text.body).toContain("account assets");
-    expect(ralphy(["unit", "delete", "--workspace", workspaceId, "launch-note"]).exitCode).toBe(0);
-    expect(fs.existsSync(unitDir)).toBe(false);
+    expect(listed.json.items[0]).toMatchObject({ slug: "launch-note", format: "post" });
+    const shown = ralphy(["unit", "show", "--workspace", workspaceId, created.json.unit.id]);
+    expect(shown.json.items[0].documentRevisionId).toBe(body.id);
+    expect(findNamed(tmpRoot, "unit.json")).toEqual([]);
   });
 
   test("creates a Medium/dev.to/X Article body without a project", () => {
+    const document = ralphy([
+      "document", "create", "--workspace", workspaceId,
+      "--kind", "note", "--slug", "workspace-guide-body", "--title", "Workspace guide",
+    ]).json;
+    const body = ralphy([
+      "--workspace", workspaceId, "document", "revise", document.id,
+      "--expected", "none", "--format", "markdown", "--body",
+      "# Workspace guide\n\nShared assets belong to the account.",
+    ]).json;
     const created = ralphy([
       "unit",
       "create",
@@ -83,19 +92,27 @@ describe("workspace-owned social units", () => {
       "workspace-guide",
       "--format",
       "article",
-      "--title",
-      "Workspace guide",
-      "--text",
-      "# Workspace guide\n\nShared assets belong to the account.",
-      "--destination",
-      "devto",
-      "--destination",
-      "medium",
-      "--destination",
-      "x-article",
+      "--items",
+      JSON.stringify([{ documentRevisionId: body.id, role: "body", position: 0 }]),
+      "--presentations",
+      JSON.stringify([
+        { platform: "devto", caption: "Dev.to guide" },
+        { platform: "medium", caption: "Medium guide" },
+        { platform: "x-article", caption: "X Article guide" },
+      ]),
     ]);
     expect(created.exitCode).toBe(0);
-    expect(created.json.manifest.article.body).toBe("body.md");
-    expect(created.json.manifest.text.destinations).toEqual(["devto", "medium", "x-article"]);
+    expect(created.json.items[0].documentRevisionId).toBe(body.id);
+    expect(created.json.presentations.map((item: { platform: string }) => item.platform)).toEqual([
+      "devto",
+      "medium",
+      "x-article",
+    ]);
   });
 });
+
+function findNamed(root: string, name: string): string[] {
+  return fs.readdirSync(root, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name === name)
+    .map((entry) => path.join(entry.parentPath, entry.name));
+}

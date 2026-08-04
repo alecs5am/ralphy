@@ -4,28 +4,22 @@
 //
 // Mirrors the #423 harness (distribution-pack.test.ts): in-process
 // `buildDistributionPack` with an INJECTED media probe + caption draft fn — no
-// live LLM, no ffprobe, no paid gen. Plus a CLI smoke that proves the ZIP is
-// written (and re-package auto-versions it, append-only).
+// live LLM, no ffprobe, and no paid generation.
 //
 // English-only-on-disk: every fixture string is plain English.
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import AdmZip from "adm-zip";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root";
 import { projectDir } from "../../cli/lib/paths";
 import { buildDistributionPack } from "../../cli/lib/distribution";
 import {
   DistributionPackSchema,
-  distributionZipName,
   profileKeyFor,
 } from "../../cli/lib/schemas/distribution-pack";
 import type { MediaFacts } from "../../cli/lib/eval/platform";
 
-const REPO = path.resolve(import.meta.dir, "..", "..");
-const CLI = path.join(REPO, "cli", "index.ts");
 const PROJECT = "dist-fixture-458";
 
 const draftFn = async () => ({
@@ -33,7 +27,6 @@ const draftFn = async () => ({
   reels: "One render, every platform — the factory zips it for you.",
   shorts: "Pack once, post everywhere",
 });
-
 const EXISTING_CAPTION = {
   platform: { tiktok: "tiktok hook", reels: "reels caption", shorts: "title" },
   hashtags: ["#fyp", "#demo"],
@@ -176,63 +169,5 @@ describe("buildDistributionPack — readiness gate (#458 #5)", () => {
     expect(pack.shippable).toBe(true);
     expect(pack.readiness!.bypassed).toBe(true);
     expect(pack.readiness!.bypassReason).toBe("client signed off manually");
-  });
-});
-
-// ─── #3 the ZIP — CLI smoke (append-only) ────────────────────────────────────
-
-describe("ralphy unit package — bundle ZIP (#458 #3)", () => {
-  function run(rootDir: string, args: string[]) {
-    return spawnSync("bun", ["run", CLI, "--cwd", rootDir, "--json", "unit", "package", ...args], {
-      cwd: rootDir,
-      encoding: "utf8",
-      env: { ...process.env },
-    });
-  }
-
-  test("writes <slug>-distribution.zip containing the copied media + pack JSON + handoff", () => {
-    const slug = "zipme";
-    const unitDir = seedUnit(tmp.dir, slug, baseManifest(slug, "video", ["clip.mp4", "cover.png"]));
-    const r = run(tmp.dir, [PROJECT, slug]);
-    expect(r.status).toBe(0);
-    const json = JSON.parse(r.stdout);
-    expect(json.zip_file).toBe(distributionZipName(slug));
-
-    const zipPath = path.join(unitDir, distributionZipName(slug));
-    expect(fs.existsSync(zipPath)).toBe(true);
-    // Originals untouched (append-only).
-    expect(fs.readFileSync(path.join(unitDir, "clip.mp4"), "utf8")).toBe("bytes-of-clip.mp4");
-
-    // The zip is a real archive carrying the bundle + metadata.
-    const names = new AdmZip(zipPath)
-      .getEntries()
-      .map((e) => e.entryName)
-      .sort();
-    expect(names).toContain("distribution/clip.mp4");
-    expect(names).toContain("distribution/cover.png");
-    expect(names).toContain("distribution-pack.json");
-    expect(names).toContain("DISTRIBUTION.md");
-  });
-
-  test("re-package with --force auto-versions the ZIP (never overwrites)", () => {
-    const slug = "again";
-    const unitDir = seedUnit(tmp.dir, slug, baseManifest(slug, "video", ["clip.mp4"]));
-    expect(run(tmp.dir, [PROJECT, slug]).status).toBe(0);
-    const r3 = run(tmp.dir, [PROJECT, slug, "--force"]);
-    expect(r3.status).toBe(0);
-    expect(JSON.parse(r3.stdout).versioned).toBe(true);
-    // Both the original zip and the versioned zip survive.
-    expect(fs.existsSync(path.join(unitDir, distributionZipName(slug)))).toBe(true);
-    const stem = distributionZipName(slug).replace(/\.zip$/, "");
-    expect(fs.existsSync(path.join(unitDir, `${stem}.v2.zip`))).toBe(true);
-  });
-
-  test("--bypass-readiness surfaces shippable=true on the CLI", () => {
-    const slug = "bypass";
-    seedUnit(tmp.dir, slug, baseManifest(slug, "video", ["clip.mp4"]));
-    const r = run(tmp.dir, [PROJECT, slug, "--bypass-readiness", "manual sign-off"]);
-    expect(r.status).toBe(0);
-    const json = JSON.parse(r.stdout);
-    expect(json.shippable).toBe(true);
   });
 });

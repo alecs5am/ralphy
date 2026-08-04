@@ -13,6 +13,7 @@ import {
   finishRunAttemptInTransaction,
   finishRunInTransaction,
   recordRunResult,
+  startRunInTransaction,
   startRunAttemptInTransaction,
 } from "./runs.js";
 import {
@@ -99,6 +100,9 @@ export type ReviseUnitInput = {
   items: UnitItemInput[];
   presentations?: UnitPresentationInput[];
 };
+
+export type CreateUnitWithRevisionInput = CreateUnitInput &
+  Omit<ReviseUnitInput, "unitId" | "expectedLatestRevisionId" | "parentRevisionId">;
 
 export type AppendMetricSnapshotInput = {
   publicationId: string;
@@ -296,33 +300,25 @@ const PUBLICATION_RAILS = new Set<PublicationRail>([
 ]);
 
 export function createUnit(input: CreateUnitInput): UnitDto {
-  if (!isValidUnitSlug(input.slug)) {
-    throw new Error("Unit slug must be canonical kebab-case");
-  }
-  if (!isValidUnitSlug(input.format)) {
-    throw new Error("Unit format must be canonical kebab-case");
-  }
-  const slug = input.slug;
-  const format = input.format;
+  const { slug, format } = checkedUnitIdentity(input);
   return withImmediateTransaction((db) => {
-    const scope = resolveScope(db, input);
-    const id = newDomainId("unit");
-    const now = Date.now();
-    db.prepare(
-      `INSERT INTO units
-       (id, workspace_id, project_id, slug, format, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    ).run(id, scope.workspaceId, scope.projectId, slug, format, now, now);
-    appendActivity(db, {
-      workspaceId: scope.workspaceId,
-      projectId: scope.projectId,
-      entityType: "unit",
-      entityId: id,
-      action: "unit.created",
-      payload: { format, slug },
-      createdAt: now,
-    });
-    return toUnitDto(getUnitRow(db, id)!);
+    return createUnitInTransaction(db, input, slug, format);
+  });
+}
+
+/** Creates one Unit identity and its required first sealed revision atomically. */
+export function createUnitWithRevision(
+  input: CreateUnitWithRevisionInput,
+): UnitRevisionDto {
+  const { slug, format } = checkedUnitIdentity(input);
+  const prepared = prepareUnitRevision(input);
+  return withImmediateTransaction((db) => {
+    const unit = createUnitInTransaction(db, input, slug, format);
+    return reviseUnitInTransaction(db, {
+      ...input,
+      unitId: unit.id,
+      expectedLatestRevisionId: null,
+    }, prepared);
   });
 }
 
@@ -330,11 +326,18 @@ export function reviseUnit(input: ReviseUnitInput): UnitRevisionDto {
   if (!Object.hasOwn(input, "expectedLatestRevisionId")) {
     throw new Error("Unit revision requires expectedLatestRevisionId");
   }
-  const items = checkedItems(input.items);
-  const presentations = checkedPresentations(input.presentations ?? [], items);
-  const note = optionalText(input.note, "Unit revision note");
-  const metadata = canonicalOptionalJson(input.metadata, "Unit revision metadata");
-  return withImmediateTransaction((db) => {
+  const prepared = prepareUnitRevision(input);
+  return withImmediateTransaction((db) =>
+    reviseUnitInTransaction(db, input, prepared),
+  );
+}
+
+function reviseUnitInTransaction(
+  db: Database,
+  input: ReviseUnitInput,
+  prepared: ReturnType<typeof prepareUnitRevision>,
+): UnitRevisionDto {
+    const { items, presentations, note, metadata } = prepared;
     const unit = getUnitRow(db, input.unitId);
     if (!unit) throw new Error(`Unit not found: ${input.unitId}`);
     const latest = latestRevision(db, unit.id);
@@ -477,7 +480,58 @@ export function reviseUnit(input: ReviseUnitInput): UnitRevisionDto {
       createdAt: now,
     });
     return toRevisionDto(getRevisionRow(db, id)!);
+}
+
+function checkedUnitIdentity(input: CreateUnitInput): {
+  slug: string;
+  format: string;
+} {
+  if (!isValidUnitSlug(input.slug)) {
+    throw new Error("Unit slug must be canonical kebab-case");
+  }
+  if (!isValidUnitSlug(input.format)) {
+    throw new Error("Unit format must be canonical kebab-case");
+  }
+  return { slug: input.slug, format: input.format };
+}
+
+function prepareUnitRevision(input: Pick<
+  ReviseUnitInput,
+  "items" | "presentations" | "note" | "metadata"
+>) {
+  const items = checkedItems(input.items);
+  return {
+    items,
+    presentations: checkedPresentations(input.presentations ?? [], items),
+    note: optionalText(input.note, "Unit revision note"),
+    metadata: canonicalOptionalJson(input.metadata, "Unit revision metadata"),
+  };
+}
+
+function createUnitInTransaction(
+  db: Database,
+  input: CreateUnitInput,
+  slug: string,
+  format: string,
+): UnitDto {
+  const scope = resolveScope(db, input);
+  const id = newDomainId("unit");
+  const now = Date.now();
+  db.prepare(
+    `INSERT INTO units
+     (id, workspace_id, project_id, slug, format, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(id, scope.workspaceId, scope.projectId, slug, format, now, now);
+  appendActivity(db, {
+    workspaceId: scope.workspaceId,
+    projectId: scope.projectId,
+    entityType: "unit",
+    entityId: id,
+    action: "unit.created",
+    payload: { format, slug },
+    createdAt: now,
   });
+  return toUnitDto(getUnitRow(db, id)!);
 }
 
 export function selectUnitRevision(input: {
@@ -517,7 +571,7 @@ export function selectUnitRevision(input: {
   });
 }
 
-export function recordPublication(input: {
+export type RecordPublicationInput = {
   presentationId: string;
   socialAccountId?: string | null;
   submissionRunId: string;
@@ -528,7 +582,16 @@ export function recordPublication(input: {
   state?: "draft" | "failed";
   error?: string | null;
   failureStage?: "account-resolution" | "preflight" | null;
-}): PublicationDto {
+};
+
+export function recordPublication(input: RecordPublicationInput): PublicationDto {
+  const prepared = preparePublicationRecord(input);
+  return withImmediateTransaction((db) =>
+    recordPublicationInTransaction(db, input, prepared),
+  );
+}
+
+function preparePublicationRecord(input: RecordPublicationInput) {
   if (!PUBLICATION_RAILS.has(input.rail)) {
     throw new Error(`Unsupported Publication rail: ${input.rail}`);
   }
@@ -544,7 +607,15 @@ export function recordPublication(input: {
   if (state !== "draft" && state !== "failed") {
     throw new Error("Publication may be recorded only as draft or failed preflight");
   }
-  return withImmediateTransaction((db) => {
+  return { idempotencyKey, scheduledAt, state };
+}
+
+function recordPublicationInTransaction(
+  db: Database,
+  input: RecordPublicationInput,
+  prepared: ReturnType<typeof preparePublicationRecord>,
+): PublicationDto {
+    const { idempotencyKey, scheduledAt, state } = prepared;
     const existing = getPublicationByKey(db, idempotencyKey);
     if (existing) {
       if (
@@ -652,7 +723,6 @@ export function recordPublication(input: {
       createdAt: now,
     });
     return toPublicationDto(getPublicationRow(db, id)!);
-  });
 }
 
 export function claimPublication(
@@ -661,7 +731,17 @@ export function claimPublication(
   leaseMs: number,
 ): PublicationClaim {
   const lease = checkedLease(leaseMs);
-  return withImmediateTransaction((db) => {
+  return withImmediateTransaction((db) =>
+    claimPublicationInTransaction(db, id, expectedState, lease),
+  );
+}
+
+function claimPublicationInTransaction(
+  db: Database,
+  id: string,
+  expectedState: "draft",
+  lease: number,
+): PublicationClaim {
     const publication = requirePublication(db, id);
     if (publication.state !== expectedState || publication.state !== "draft") {
       throw new StoreConflictError("Publication state conflict");
@@ -712,6 +792,159 @@ export function claimPublication(
         expiresAt,
       },
     };
+}
+
+export function startPublicationSubmission(input: {
+  presentationId: string;
+  socialAccountId?: string | null;
+  rail: PublicationRail;
+  idempotencyKey: string;
+  scheduledAt?: number | null;
+  revisedFromPublicationId?: string | null;
+  agentSessionId?: string | null;
+  leaseMs: number;
+  failedPreflight?: { error: string; failureStage: "account-resolution" | "preflight" };
+}): {
+  publication: PublicationDto;
+  claim: PublicationClaim | null;
+  replayed: boolean;
+} {
+  const lease = checkedLease(input.leaseMs);
+  const prepared = preparePublicationRecord({
+    ...input,
+    submissionRunId: "pending-allocation",
+  });
+  return withImmediateTransaction((db) => {
+    const existing = getPublicationByKey(db, prepared.idempotencyKey);
+    if (existing) {
+      if (
+        existing.presentationId !== input.presentationId ||
+        existing.socialAccountId !== (input.socialAccountId ?? null) ||
+        existing.rail !== input.rail ||
+        existing.scheduledAt !== prepared.scheduledAt ||
+        existing.revisedFromPublicationId !== (input.revisedFromPublicationId ?? null)
+      ) {
+        throw new StoreConflictError(
+          "Publication idempotency key belongs to another attempt",
+        );
+      }
+      if (existing.state === "draft") {
+        if (input.failedPreflight) {
+          const now = Date.now();
+          const epoch = existing.claimEpoch + 1;
+          const token = randomUUID();
+          const expiresAt = now + lease;
+          const fenced = db.prepare(
+            `UPDATE publications
+             SET state = 'submitting', active_claim_run_id = submission_run_id,
+                 claim_kind = 'submission', claim_epoch = ?, claim_token = ?,
+                 claim_expires_at = ?, updated_at = ?
+             WHERE id = ? AND state = 'draft' AND claim_token IS NULL`,
+          ).run(epoch, token, expiresAt, now, existing.id);
+          if (!fenced.changes) {
+            throw new StoreConflictError("Publication preflight conflict");
+          }
+          const changed = db.prepare(
+            `UPDATE publications
+             SET state = 'failed', active_claim_run_id = NULL,
+                 claim_kind = NULL, claim_token = NULL, claim_expires_at = NULL,
+                 error = ?, failure_stage = ?, updated_at = ?
+             WHERE id = ? AND state = 'submitting' AND claim_kind = 'submission'
+               AND claim_epoch = ? AND claim_token = ?`,
+          ).run(
+            input.failedPreflight.error,
+            input.failedPreflight.failureStage,
+            now,
+            existing.id,
+            epoch,
+            token,
+          );
+          if (!changed.changes) {
+            throw new StoreConflictError("Publication preflight conflict");
+          }
+          recordRunResult(db, {
+            runId: existing.submissionRunId,
+            position: 0,
+            entityType: "publication",
+            entityId: existing.id,
+          });
+          finishRunInTransaction(db, existing.submissionRunId, {
+            state: "failed",
+            error: input.failedPreflight.error,
+          });
+          const scope = publicationScope(db, existing.presentationId)!;
+          appendActivity(db, {
+            workspaceId: scope.workspaceId,
+            projectId: scope.projectId,
+            entityType: "publication",
+            entityId: existing.id,
+            action: "publication.finished",
+            payload: { kind: "submission", state: "failed" },
+            createdAt: now,
+          });
+          return {
+            publication: toPublicationDto(getPublicationRow(db, existing.id)!),
+            claim: null,
+            replayed: false,
+          };
+        }
+        const claim = claimPublicationInTransaction(db, existing.id, "draft", lease);
+        return { publication: claim.publication, claim, replayed: false };
+      }
+      const scope = publicationScope(db, existing.presentationId)!;
+      appendActivity(db, {
+        workspaceId: scope.workspaceId,
+        projectId: scope.projectId,
+        entityType: "publication",
+        entityId: existing.id,
+        action: "publication.idempotent_skip",
+        payload: {},
+      });
+      return { publication: toPublicationDto(existing), claim: null, replayed: true };
+    }
+
+    const scope = publicationScope(db, input.presentationId);
+    if (!scope) throw new Error(`Unit Presentation not found: ${input.presentationId}`);
+    if (scope.sealedAt === null) {
+      throw new Error("Publication requires a sealed Unit Presentation");
+    }
+    const run = startRunInTransaction(db, {
+      ...(scope.projectId === null
+        ? { workspaceId: scope.workspaceId }
+        : { projectId: scope.projectId }),
+      agentSessionId: input.agentSessionId,
+      kind: "publication-submit",
+      label: scope.platform,
+    });
+    const missingAccount = publicationRailRequiresAccount(input.rail) &&
+      input.socialAccountId == null;
+    const failedPreflight = input.failedPreflight ?? (missingAccount
+      ? {
+          error: `${input.rail} Publication requires a social account`,
+          failureStage: "account-resolution" as const,
+        }
+      : null);
+    const recordInput: RecordPublicationInput = {
+      ...input,
+      submissionRunId: run.id,
+      ...(failedPreflight
+        ? {
+            state: "failed" as const,
+            error: failedPreflight.error,
+            failureStage: failedPreflight.failureStage,
+          }
+        : {}),
+    };
+    const publication = recordPublicationInTransaction(
+      db,
+      recordInput,
+      preparePublicationRecord(recordInput),
+    );
+    if (failedPreflight) {
+      return { publication, claim: null, replayed: false };
+    }
+    const claim = claimPublicationInTransaction(db, publication.id, "draft", lease);
+    return { publication: claim.publication, claim, replayed: false };
   });
 }
 
@@ -735,6 +968,7 @@ type FinishPublicationInput = {
   error?: string | null;
   failureStage?: string | null;
   response?: JsonValue | null;
+  costUsd?: number | null;
 };
 
 export function finishPublicationClaim(
@@ -845,6 +1079,7 @@ function finishPublicationOperation(
     finishRunAttemptInTransaction(db, attempt.id, {
       state: operationState,
       response: input.response,
+      costUsd: input.costUsd,
       error: operationError,
     });
     const now = Date.now();
@@ -1158,7 +1393,26 @@ function claimPublicationOperation(
   leaseMs: number,
   kind: Exclude<PublicationClaimKind, "submission">,
 ): PublicationClaim {
-  return withImmediateTransaction((db) => {
+  return withImmediateTransaction((db) =>
+    claimPublicationOperationInTransaction(
+      db,
+      id,
+      expectedState,
+      runId,
+      leaseMs,
+      kind,
+    ),
+  );
+}
+
+function claimPublicationOperationInTransaction(
+  db: Database,
+  id: string,
+  expectedState: "scheduled" | "submitted" | "unknown" | "reconciliation_required",
+  runId: string,
+  leaseMs: number,
+  kind: Exclude<PublicationClaimKind, "submission">,
+): PublicationClaim {
     const publication = requirePublication(db, id);
     if (publication.state !== expectedState || publication.claimKind !== null) {
       throw new StoreConflictError("Publication state or claim conflict");
@@ -1230,6 +1484,35 @@ function claimPublicationOperation(
         expiresAt,
       },
     };
+}
+
+export function startPublicationFollowUp(input: {
+  publicationId: string;
+  expectedState: "scheduled" | "submitted" | "unknown" | "reconciliation_required";
+  kind: Exclude<PublicationClaimKind, "submission">;
+  agentSessionId?: string | null;
+  leaseMs: number;
+}): PublicationClaim {
+  const lease = checkedLease(input.leaseMs);
+  return withImmediateTransaction((db) => {
+    const publication = requirePublication(db, input.publicationId);
+    const scope = publicationScope(db, publication.presentationId)!;
+    const run = startRunInTransaction(db, {
+      ...(scope.projectId === null
+        ? { workspaceId: scope.workspaceId }
+        : { projectId: scope.projectId }),
+      agentSessionId: input.agentSessionId,
+      kind: `publication-${input.kind}`,
+      label: scope.platform,
+    });
+    return claimPublicationOperationInTransaction(
+      db,
+      publication.id,
+      input.expectedState,
+      run.id,
+      lease,
+      input.kind,
+    );
   });
 }
 
@@ -1508,6 +1791,30 @@ export function getPublication(input: {
   return publication;
 }
 
+/** Resolve an idempotent publication attempt without exposing its stored key. */
+export function findPublicationByIdempotencyKey(input: {
+  context: QueryContext;
+  presentationId: string;
+  idempotencyKey: string;
+}): PublicationDto | null {
+  const db = openDomainDb();
+  const scope = resolveQueryContext(db, input.context);
+  if (!getVisiblePresentationDto(db, scope, input.presentationId)) {
+    throw new Error(`Unit Presentation not found: ${input.presentationId}`);
+  }
+  const row = getPublicationByKey(
+    db,
+    checkedText(input.idempotencyKey, "Publication idempotency key"),
+  );
+  if (!row) return null;
+  if (row.presentationId !== input.presentationId) {
+    throw new StoreConflictError(
+      "Publication idempotency key belongs to another attempt",
+    );
+  }
+  return toPublicationDto(row);
+}
+
 export function listPublications(input: {
   context: QueryContext;
   presentationId: string;
@@ -1543,6 +1850,13 @@ export function listPublications(input: {
 export function appendMetricSnapshot(
   input: AppendMetricSnapshotInput,
 ): MetricSnapshotDto {
+  const prepared = prepareMetricSnapshot(input);
+  return withImmediateTransaction((db) =>
+    appendMetricSnapshotInTransaction(db, input, prepared),
+  );
+}
+
+function prepareMetricSnapshot(input: AppendMetricSnapshotInput) {
   const source = checkedMetricSource(input.source);
   const asOf = checkedOptionalTimestamp(input.asOf, "Metric asOf")!;
   const windowStart = checkedOptionalTimestamp(
@@ -1575,7 +1889,47 @@ export function appendMetricSnapshot(
   );
   const raw = canonicalOptionalJson(input.raw, "Metric raw provider JSON");
   const note = input.note == null ? null : checkedText(input.note, "Metric note");
-  return withImmediateTransaction((db) => {
+  return {
+    source,
+    asOf,
+    windowStart,
+    windowEnd,
+    position,
+    views,
+    likes,
+    comments,
+    shares,
+    watchTimeMs,
+    ctr,
+    avgViewDurationSec,
+    retentionCurve,
+    raw,
+    note,
+  };
+}
+
+function appendMetricSnapshotInTransaction(
+  db: Database,
+  input: AppendMetricSnapshotInput,
+  prepared: ReturnType<typeof prepareMetricSnapshot>,
+): MetricSnapshotDto {
+    const {
+      source,
+      asOf,
+      windowStart,
+      windowEnd,
+      position,
+      views,
+      likes,
+      comments,
+      shares,
+      watchTimeMs,
+      ctr,
+      avgViewDurationSec,
+      retentionCurve,
+      raw,
+      note,
+    } = prepared;
     const scope = publicationScopeById(db, input.publicationId);
     if (!scope) throw new Error(`Publication not found: ${input.publicationId}`);
     const id = newDomainId("metric");
@@ -1619,6 +1973,70 @@ export function appendMetricSnapshot(
       createdAt,
     });
     return toMetricSnapshotDto(getMetricSnapshotRow(db, id)!);
+}
+
+export function startMetricRefresh(input: {
+  publicationId: string;
+  label: string;
+  source: string;
+  request: JsonValue;
+  agentSessionId?: string | null;
+}): { runId: string; claimed: boolean } {
+  const label = checkedText(input.label, "Metric refresh label");
+  const source = checkedMetricSource(input.source);
+  return withImmediateTransaction((db) => {
+    const scope = publicationScopeById(db, input.publicationId);
+    if (!scope) throw new Error(`Publication not found: ${input.publicationId}`);
+    const existing = db
+      .query<{ id: string }, [string, string, string | null]>(
+        `SELECT id FROM runs
+         WHERE kind = 'metric-refresh' AND label = ?
+           AND workspace_id = ? AND project_id IS ?
+         ORDER BY created_at ASC, id ASC LIMIT 1`,
+      )
+      .get(label, scope.workspaceId, scope.projectId);
+    if (existing) return { runId: existing.id, claimed: false };
+    const run = startRunInTransaction(db, {
+      ...(scope.projectId === null
+        ? { workspaceId: scope.workspaceId }
+        : { projectId: scope.projectId }),
+      agentSessionId: input.agentSessionId,
+      kind: "metric-refresh",
+      label,
+    });
+    startRunAttemptInTransaction(db, {
+      runId: run.id,
+      provider: source,
+      request: input.request,
+    });
+    return { runId: run.id, claimed: true };
+  });
+}
+
+export function finishMetricRefresh(input: {
+  runId: string;
+  snapshots: AppendMetricSnapshotInput[];
+}): MetricSnapshotDto[] {
+  const prepared = input.snapshots.map(prepareMetricSnapshot);
+  return withImmediateTransaction((db) => {
+    const attempt = runningAttempt(db, input.runId);
+    const snapshots = input.snapshots.map((snapshot, index) =>
+      appendMetricSnapshotInTransaction(db, snapshot, prepared[index]!),
+    );
+    finishRunAttemptInTransaction(db, attempt.id, {
+      state: "succeeded",
+      response: { snapshotIds: snapshots.map((snapshot) => snapshot.id) },
+    });
+    finishRunInTransaction(db, input.runId, { state: "succeeded" });
+    return snapshots;
+  });
+}
+
+export function failMetricRefresh(runId: string, error: unknown): void {
+  withImmediateTransaction((db) => {
+    const attempt = runningAttempt(db, runId);
+    finishRunAttemptInTransaction(db, attempt.id, { state: "failed", error });
+    finishRunInTransaction(db, runId, { state: "failed", error });
   });
 }
 
@@ -1967,8 +2385,7 @@ function assertPublicationAccount(
     failedPreflight: boolean;
   },
 ): void {
-  const requiresAccount =
-    input.rail === "postiz" || input.rail === "devto" || input.rail === "hashnode";
+  const requiresAccount = publicationRailRequiresAccount(input.rail);
   if (!requiresAccount) {
     if (input.socialAccountId !== null) {
       throw new Error(`${input.rail} Publication does not accept a social account`);
@@ -1991,6 +2408,10 @@ function assertPublicationAccount(
   ) {
     throw new Error("Publication Social Account is outside its platform scope");
   }
+}
+
+function publicationRailRequiresAccount(rail: PublicationRail): boolean {
+  return rail === "postiz" || rail === "devto" || rail === "hashnode";
 }
 
 function requirePublication(db: Database, id: string): PublicationRow {

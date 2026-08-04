@@ -29,6 +29,27 @@ afterEach(() => {
 });
 
 describe("domain Object store", () => {
+  test("removes promoted bytes when preparation fails after rename", async () => {
+    const { root, project } = setupProject("prepare-cleanup");
+    const sourcePath = writeSource(root, "prepare-cleanup.bin", "prepared bytes");
+
+    await expect(prepareObject({
+      scope: { workspaceId: project.workspaceId, projectId: project.id },
+      sourcePath,
+      originalName: "prepared.bin",
+      mime: "application/octet-stream",
+      storageClass: "durable",
+      transfer: "copy",
+      testHooks: { afterPromotion: () => { throw new Error("injected post-rename failure"); } },
+    })).rejects.toThrow("injected post-rename failure");
+
+    const bucketRoot = path.join(root.dir, "buckets");
+    const entries = fs.existsSync(bucketRoot)
+      ? fs.readdirSync(bucketRoot, { recursive: true }).map(String)
+      : [];
+    expect(entries.filter((entry) => entry.endsWith(".bin"))).toEqual([]);
+  });
+
   test("ingests shared and Project bytes without overwriting equal names", async () => {
     const { root, workspace, project } = setupProject("paths");
     const sharedSource = writeSource(root, "shared.bin", "object-bytes");

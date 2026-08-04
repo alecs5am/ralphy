@@ -5,11 +5,10 @@
 // test. Covers: per-platform payload
 // mapping, integration-account binding, schedule passthrough (--at + the
 // calendar-slot in-port), partial-failure semantics (one fails → per-target
-// statuses, all fail → throws), the readiness gate (refusal + logged --force
-// bypass), and the APPEND-only unit.json publish provenance.
+// statuses, all fail → throws), the in-process readiness gate, and the
+// APPEND-only unit.json publish provenance.
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root";
@@ -33,8 +32,6 @@ import { postizIntegrations } from "../../cli/lib/providers/postiz";
 import * as postizProvider from "../../cli/lib/providers/postiz";
 import type { UnitManifest } from "../../cli/lib/schemas/unit";
 
-const REPO = path.resolve(import.meta.dir, "..", "..");
-const CLI = path.join(REPO, "cli", "index.ts");
 const PROJECT = "publish-fixture-501";
 const SLUG = "hero-cut";
 const WS = "default";
@@ -457,48 +454,10 @@ describe("unit.json publish provenance", () => {
 // ─── readiness gate ──────────────────────────────────────────────────────────
 
 describe("readiness gate (L0 trust floor)", () => {
-  test("CLI calls immediate Postiz acceptance submitted, not published", () => {
-    const source = fs.readFileSync(path.join(REPO, "cli", "commands", "publish.ts"), "utf8");
-    expect(source).toContain('result.type === "schedule" ? "Scheduled" : "Submitted"');
-  });
-
   test("a project with no eval state does not pass", () => {
     seedUnit();
     const r = checkPublishReadiness(PROJECT);
     expect(r.pass).toBe(false);
     expect(r.verdict).not.toBe("ship");
-  });
-
-  test("CLI refuses with E_PUBLISH_NOT_READY (exit 5) without --force", () => {
-    seedUnit();
-    const out = spawnSync(
-      "bun",
-      ["run", CLI, "--cwd", tmp.dir, "--json", "publish", PROJECT, SLUG, "--targets", "tiktok"],
-      { encoding: "utf8", env: { ...process.env, POSTIZ_API_KEY: "", POSTIZ_BASE_URL: "" } },
-    );
-    expect(out.status).toBe(5);
-    expect(out.stderr).toContain("E_PUBLISH_NOT_READY");
-  });
-
-  test("CLI --force logs the bypass to user-prompts.jsonl", () => {
-    seedUnit();
-    // Postiz env unset → the run stops at E_ENV_KEY_MISSING, but only AFTER
-    // the gate bypass was logged — which is exactly what we assert.
-    const out = spawnSync(
-      "bun",
-      [
-        "run", CLI, "--cwd", tmp.dir, "--json",
-        "publish", PROJECT, SLUG, "--targets", "tiktok",
-        "--force", "user accepted the risk for the demo",
-      ],
-      { encoding: "utf8", env: { ...process.env, POSTIZ_API_KEY: "", POSTIZ_BASE_URL: "" } },
-    );
-    expect(out.status).not.toBe(5); // the gate no longer refuses
-    const log = fs.readFileSync(path.join(projectDir(PROJECT), "logs", "user-prompts.jsonl"), "utf8");
-    const rows = log.trim().split("\n").map((l) => JSON.parse(l));
-    const bypass = rows.find((r) => r.stage === "publish-force");
-    expect(bypass).toBeDefined();
-    expect(bypass.text).toBe("user accepted the risk for the demo");
-    expect(bypass.note).toContain(`unit=${SLUG}`);
   });
 });

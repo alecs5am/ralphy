@@ -1,29 +1,19 @@
 // Unit provenance graph (#420).
 //
-// Two layers:
-//   1. `buildProvenanceGraph()` in-process against a fixture project seeded with
+// `buildProvenanceGraph()` is tested in-process against a fixture project seeded with
 //      multiple variants (a manifest slot whose promoted `.v3` won over rejected
 //      `.v1`/`.v2`) and a repair pass (eval.json + repair-plan.json). Asserts
 //      every chain node lands, the selected/rejected variant split is correct,
-//      model/provider/cost/timestamp are captured, and the cost rolls up.
-//   2. CLI end-to-end (`bun run cli/index.ts unit create`) writes the sibling
-//      provenance.json + the `provenance_graph` pointer, and a legacy unit.json
-//      WITHOUT the graph still validates (additive guarantee).
+// model/provider/cost/timestamp are captured, and the cost rolls up.
 //
 // English-only-on-disk: every fixture slug / filename / string is plain English.
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import os from "node:os";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root";
 import { buildProvenanceGraph } from "../../cli/lib/provenance";
-import {
-  ProvenanceGraphSchema,
-  PROVENANCE_GRAPH_FILENAME,
-} from "../../cli/lib/schemas/provenance-graph";
-import { UnitManifestSchema } from "../../cli/lib/schemas/unit";
+import { ProvenanceGraphSchema } from "../../cli/lib/schemas/provenance-graph";
 import { projectDir } from "../../cli/lib/paths";
 
 const PROJECT = "provenance-fixture-420";
@@ -192,88 +182,5 @@ describe("buildProvenanceGraph (#420)", () => {
     const graph = await buildProvenanceGraph(BARE, "empty");
     expect(graph.nodes).toEqual([]);
     expect(graph.totalCostUsd).toBe(0);
-  });
-});
-
-// ─── Layer 2: CLI end-to-end + legacy validation ────────────────────────────────
-
-describe("ralphy unit create — provenance graph sibling (#420)", () => {
-  const REPO = path.resolve(import.meta.dir, "..", "..");
-  const CLI = path.join(REPO, "cli", "index.ts");
-  let tmpRoot: string;
-
-  function ralphy(args: string[]): { exitCode: number; stdout: string; json: any } {
-    const r = spawnSync("bun", ["run", CLI, "--cwd", tmpRoot, "--json", ...args], {
-      cwd: tmpRoot,
-      encoding: "utf8",
-      env: { ...process.env },
-    });
-    let json: any = null;
-    try {
-      json = JSON.parse(r.stdout);
-    } catch {
-      /* not JSON */
-    }
-    return { exitCode: r.status ?? -1, stdout: r.stdout, json };
-  }
-
-  function projDir(project: string): string {
-    return path.join(tmpRoot, ".ralphy", "workspaces", "default", "projects", project);
-  }
-
-  beforeEach(() => {
-    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-prov-cli-420-"));
-    const project = "cli-prov-420";
-    const imagesDir = path.join(projDir(project), "artifacts", "images");
-    fs.mkdirSync(imagesDir, { recursive: true });
-    fs.writeFileSync(path.join(imagesDir, "hero.png"), "hero-bytes");
-    // Seed a brief + manifest so the graph has nodes to capture.
-    fs.writeFileSync(path.join(projDir(project), "BRIEF.md"), "# Brief");
-    fs.writeFileSync(
-      path.join(projDir(project), "asset-manifest.json"),
-      JSON.stringify({
-        slots: { "hero-image": { kind: "image", path: "artifacts/images/hero.png", costUsd: 0.05 } },
-      }),
-    );
-  });
-
-  afterEach(() => {
-    try {
-      fs.rmSync(tmpRoot, { recursive: true, force: true });
-    } catch {
-      /* best effort */
-    }
-  });
-
-  test("create writes provenance.json + the provenance_graph pointer", () => {
-    const r = ralphy([
-      "unit", "create", "cli-prov-420",
-      "--slug", "hero", "--format", "image",
-      "--from", "artifacts/images/hero.png",
-    ]);
-    expect(r.exitCode).toBe(0);
-    expect(r.json?.provenance_graph).toBe(PROVENANCE_GRAPH_FILENAME);
-    expect(r.json?.manifest.provenance_graph).toBe(PROVENANCE_GRAPH_FILENAME);
-
-    const unitDir = path.join(projDir("cli-prov-420"), "units", "hero");
-    const graphPath = path.join(unitDir, PROVENANCE_GRAPH_FILENAME);
-    expect(fs.existsSync(graphPath)).toBe(true);
-    const graph = ProvenanceGraphSchema.parse(JSON.parse(fs.readFileSync(graphPath, "utf8")));
-    expect(graph.slug).toBe("hero");
-    expect(graph.nodes.some((n) => n.kind === "brief")).toBe(true);
-    expect(graph.nodes.some((n) => n.id === "asset:hero-image")).toBe(true);
-  });
-
-  test("a legacy unit.json with no provenance_graph still validates (additive)", () => {
-    const legacy = {
-      slug: "old-unit",
-      format: "image",
-      media: ["a.png"],
-      created: "2026-01-01T00:00:00.000Z",
-    };
-    expect(UnitManifestSchema.safeParse(legacy).success).toBe(true);
-    // And the new optional field is simply absent — not defaulted to anything.
-    const parsed = UnitManifestSchema.parse(legacy);
-    expect(parsed.provenance_graph).toBeUndefined();
   });
 });
