@@ -254,6 +254,18 @@ export function getWorkspace(id: string): WorkspaceSummaryDto {
   return workspace;
 }
 
+export function getWorkspaceByReference(reference: string): WorkspaceSummaryDto | null {
+  const workspace = openDomainDb()
+    .query<WorkspaceSummaryDto, [string, string, string]>(
+      `SELECT id, slug, name, row_version AS rowVersion,
+              created_at AS createdAt, updated_at AS updatedAt
+       FROM workspaces WHERE id = ? OR slug = ?
+       ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END LIMIT 1`,
+    )
+    .get(reference, reference, reference);
+  return workspace ?? null;
+}
+
 export function listWorkspaces(input: {
   cursor?: string | null;
   limit?: number;
@@ -559,13 +571,14 @@ export function getProject(input: {
   projectId: string;
 }): ProjectSummaryDto {
   const project = openDomainDb()
-    .query<ProjectSummaryDto, [string, string]>(
+    .query<ProjectSummaryDto, [string, string, string, string]>(
       `SELECT id, workspace_id AS workspaceId, slug, name, state,
               row_version AS rowVersion, created_at AS createdAt,
               updated_at AS updatedAt
-       FROM projects WHERE workspace_id = ? AND id = ?`,
+       FROM projects WHERE workspace_id = ? AND (id = ? OR slug = ?)
+       ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END LIMIT 1`,
     )
-    .get(input.workspaceId, input.projectId);
+    .get(input.workspaceId, input.projectId, input.projectId, input.projectId);
   if (!project) throw new Error(`Project not found: ${input.projectId}`);
   return project;
 }

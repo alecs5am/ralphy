@@ -354,7 +354,7 @@ function updateStructuredEntity(
   const now = Date.now();
   return withImmediateTransaction((db) => {
     const merged = { ...current, ...updates };
-    const id = String(current.id);
+    const id = String(current.entityId ?? current.id);
     const slug = String(current.slug);
     if (collection === "brands") {
       const record = brandRecord(id, slug, merged, Date.parse(String(current.createdAt)), now);
@@ -425,7 +425,7 @@ function deleteStructuredEntity(
   const workspaceId = structuredWorkspaceId();
   const table = collection === "templates" ? "workspace_templates" : collection;
   return withImmediateTransaction((db) => {
-    const id = String(current.id);
+    const id = String(current.entityId ?? current.id);
     db.prepare(`DELETE FROM ${table} WHERE id = ? AND workspace_id = ?`).run(
       id,
       workspaceId,
@@ -459,7 +459,8 @@ function brandRecord(
     "Brand",
   ) as Record<string, unknown>;
   return {
-    id,
+    id: slug,
+    entityId: id,
     slug,
     name,
     ...(url ? { url } : {}),
@@ -477,7 +478,8 @@ function personaRecord(
   updatedAt: number,
 ): Record<string, unknown> {
   const record: Record<string, unknown> = {
-    id,
+    id: slug,
+    entityId: id,
     slug,
     name: requiredText(data.name, "Persona name"),
     createdAt: new Date(createdAt).toISOString(),

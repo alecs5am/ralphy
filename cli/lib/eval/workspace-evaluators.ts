@@ -30,7 +30,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { projectDir, workspaceDir } from "../paths.js";
-import { getCommandContext } from "../context-state.js";
+import { assertCommandProject, getCommandContext } from "../context-state.js";
 import { loadWorkspaceEvaluators } from "../workspace-evaluators.js";
 import { openDomainDb } from "../store/db.js";
 import { createEvaluation } from "../store/evaluations.js";
@@ -286,6 +286,7 @@ function resolveEvalScope(
     )
     .get(...values, projectId);
   if (!row) throw new Error(`Project not found: ${projectId}`);
+  assertCommandProject(row.projectId, row.workspaceId);
   return row;
 }
 

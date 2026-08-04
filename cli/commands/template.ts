@@ -168,13 +168,21 @@ async function resolveTemplate(
   id: string,
   onWarn?: (msg: string) => void,
 ): Promise<ResolvedTemplate | null> {
-  const legacy = await resolveInDir(id, templatesDir(), "workspace");
-  if (legacy) return legacy;
   const { loadWorkspaceTemplate } = await import("../lib/templater/extract.js");
-  const local = await loadWorkspaceTemplate(id);
+  let local: Awaited<ReturnType<typeof loadWorkspaceTemplate>> = null;
+  try {
+    local = await loadWorkspaceTemplate(id);
+  } catch {
+    // No command scope means the SQL store cannot resolve a workspace; the
+    // legacy directory is the explicit compatibility read model in that case.
+  }
   if (local) {
     const { body, ...record } = local;
     return { kind: "domain", source: "workspace", record, body };
+  }
+  if (!getCommandContext()) {
+    const legacy = await resolveInDir(id, templatesDir(), "workspace");
+    if (legacy) return legacy;
   }
   let block: Block | null = null;
   try {

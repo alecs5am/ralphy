@@ -20,8 +20,10 @@ import path from "node:path";
 import { out } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { c, isPrettyMode } from "../lib/ui.js";
-import { addEntity } from "../lib/registry.js";
-import { ARTIFACT_KINDS, artifactKindDir, projectDir } from "../lib/paths.js";
+import { ARTIFACT_KINDS, artifactKindDir, DEFAULT_WORKSPACE, projectDir } from "../lib/paths.js";
+import { getCommandContext } from "../lib/context-state.js";
+import { createProject, createWorkspace, getWorkspaceByReference } from "../lib/store/scopes.js";
+import type { JsonValue } from "../lib/store/types.js";
 
 function legacyRalphyHome(): string {
   return process.env.RALPHY_HOME || path.join(os.homedir(), ".ralphy");
@@ -135,15 +137,24 @@ export function newCmd(): Command {
       if (brief) data.brief = brief;
       if (opts.duration) data.duration = opts.duration;
 
-      const project = await addEntity("projects", id, data);
+      const workspaceReference = getCommandContext()?.workspaceId ?? DEFAULT_WORKSPACE;
+      const workspace =
+        getWorkspaceByReference(workspaceReference) ??
+        createWorkspace({ slug: workspaceReference, name: workspaceReference });
+      const project = createProject({
+        workspaceId: workspace.id,
+        slug: id,
+        name,
+        metadata: data as JsonValue,
+      });
 
       legacyOrphanHint();
 
       const payload = {
         project_id: id,
         path: projDir,
-        name,
         ...(brief ? { brief } : {}),
+        ...data,
         ...project,
       };
       out(payload);

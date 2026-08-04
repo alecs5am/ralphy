@@ -1,13 +1,22 @@
 import type { GenerationDestination } from "./generation-destination.js";
 import path from "node:path";
 import { workspaceDir } from "./paths.js";
+import { openDomainDb } from "./store/db.js";
 import { getProject, getWorkspace, listWorkspaces } from "./store/scopes.js";
 
 /** Resolve a legacy CLI Workspace ID-or-slug to the stable domain ID without active fallback. */
 export function generationRunScope(
   destination: GenerationDestination,
 ): { projectId: string } | { workspaceId: string } {
-  if (destination.kind === "project") return { projectId: destination.id };
+  if (destination.kind === "project") {
+    const project = openDomainDb()
+      .query<{ id: string }, [string, string, string]>(
+        "SELECT id FROM projects WHERE id = ? OR slug = ? ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END LIMIT 1",
+      )
+      .get(destination.id, destination.id, destination.id);
+    if (!project) throw new Error(`Project not found: ${destination.id}`);
+    return { projectId: project.id };
+  }
   try {
     return { workspaceId: getWorkspace(destination.id).id };
   } catch {

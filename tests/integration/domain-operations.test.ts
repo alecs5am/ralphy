@@ -36,7 +36,10 @@ import {
 import { startAgentSession } from "../../cli/lib/store/sessions.js";
 import { SCHEMA_VERSION } from "../../cli/lib/store/schema.js";
 import { evaluateContract } from "../../cli/lib/contract.js";
-import { recordWorkspaceEvalResult } from "../../cli/lib/eval/workspace-evaluators.js";
+import {
+  recordWorkspaceEvalResult,
+  runWorkspaceEval,
+} from "../../cli/lib/eval/workspace-evaluators.js";
 import { recordResearchResult } from "../../cli/lib/research/orchestrator.js";
 import { recordProfileScrapeResult } from "../../cli/lib/research/scrape-profile-orchestrator.js";
 import {
@@ -97,19 +100,23 @@ describe("structured feature round trips", () => {
       activeWorkspace: workspace.id,
       defaults: { template: "launch-short" },
     });
-    await addEntity("brands", "acme", {
+    const brand = await addEntity("brands", "acme", {
       name: "Acme",
       url: "https://example.test",
       colors: ["#112233"],
       font: "Inter",
     });
-    await addEntity("personas", "maker", {
+    const persona = await addEntity("personas", "maker", {
       name: "Maker",
       language: "en",
       archetype: "builder",
       tone: "direct",
       voice: { pace: "fast" },
     });
+    expect(brand.id).toBe("acme");
+    expect(String(brand.entityId)).toStartWith("brand_");
+    expect(persona.id).toBe("maker");
+    expect(String(persona.entityId)).toStartWith("persona_");
 
     const templateDocument = createDocument({
       workspaceId: workspace.id,
@@ -380,6 +387,7 @@ describe("structured feature round trips", () => {
     );
     expect(active.entry).not.toHaveProperty("file");
     expect(active.entry).not.toHaveProperty("path");
+    expect(active.entry.workspace).toBe("primary");
     expect(active.entry.id).toBe(proposed.entry.id);
     expect(active.entry.revisionId).not.toBe(proposed.entry.revisionId);
     expect(rejected.entry.id).toBe(newerActive.entry.id);
@@ -472,6 +480,15 @@ describe("structured feature round trips", () => {
       .get(recorded.evaluationId)?.report ?? "";
     expect(report).not.toContain("/private/tmp");
     expect(controlFiles(path.join(tmp.dir, ".ralphy"))).toEqual([]);
+  });
+
+  test("rejects cross-Project evaluation under an immutable Project scope", async () => {
+    const first = createProject({ workspaceId: workspace.id, slug: "scope-first", name: "First" });
+    const second = createProject({ workspaceId: workspace.id, slug: "scope-second", name: "Second" });
+    setCommandContext({ kind: "scope", workspaceId: workspace.id, projectId: first.id });
+
+    expect(() => evaluateContract(second.id)).toThrow();
+    await expect(runWorkspaceEval(second.id, { noVision: true })).rejects.toThrow();
   });
 
   test("binds research Documents to a Run without job control files", () => {

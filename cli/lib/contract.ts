@@ -25,7 +25,7 @@
 //    `nextRecommendedAction` — the gate for those lives in the agent loop, not
 //    the filesystem.
 
-import { getCommandContext } from "./context-state.js";
+import { assertCommandProject, getCommandContext } from "./context-state.js";
 import { isModeSupported } from "./content-modes.js";
 import { openDomainDb } from "./store/db.js";
 import { loadWorkspaceEvaluatorsSync } from "./workspace-evaluators.js";
@@ -429,6 +429,7 @@ function resolveContractProject(projectId: string): ContractProjectRow {
          ORDER BY CASE WHEN project.id = ? THEN 0 ELSE 1 END LIMIT 1`,
       ).get(projectId, projectId, projectId);
   if (!row) throw new Error(`Project not found: ${projectId}`);
+  assertCommandProject(row.id, row.workspaceId);
   return row;
 }
 
