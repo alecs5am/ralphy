@@ -1,7 +1,0 @@
-{
-  "version": 1,
-  "tokenHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
-  "identity": "{\"version\":1,\"namespace\":\"farm\",\"storeId\":\"store_golden_v1\",\"consumerId\":\"consumer_golden_v1\",\"migrationId\":\"migration_golden_v1\",\"stageDigest\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"credentialDigest\":\"630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd\"}",
-  "credentialDigest": "630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd",
-  "identityDigest": "d19f851bbd34bd9219e8bf8ebe43a629ddd7b5f881356ae40934e9a272853232"
-}

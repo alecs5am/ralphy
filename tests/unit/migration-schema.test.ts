@@ -322,6 +322,24 @@ describe("migration journal schema", () => {
     ).run(RUN_ID);
     expect(() =>
       db.prepare(
+        "UPDATE migration_entries SET updated_at = 3 WHERE id = 'issue-entry'",
+      ).run(),
+    ).toThrow(/terminal|immutable/i);
+    expect(() =>
+      db.prepare(
+        `UPDATE migration_entries
+         SET target_path = 'staged/unknown.bin', updated_at = 3
+         WHERE id = 'issue-entry'`,
+      ).run(),
+    ).toThrow(/terminal|immutable/i);
+    expect(() =>
+      db.prepare(
+        `UPDATE migration_entries
+         SET terminal_at = 3, updated_at = 3 WHERE id = 'issue-entry'`,
+      ).run(),
+    ).toThrow(/terminal|immutable/i);
+    expect(() =>
+      db.prepare(
         `INSERT INTO migration_issues
          (id, migration_run_id, migration_entry_id, code, severity,
           detail_json, created_at)
@@ -402,6 +420,47 @@ describe("legacy migration fixture", () => {
       expect(repeatedPack.media).toHaveLength(40);
       expect(new Set(repeatedPack.media).size).toBe(10);
       expect(fs.statSync(fixture.paths.instagramCookies).size).toBe(667_395);
+
+      for (const projectRoot of [
+        fixture.paths.registeredProject,
+        path.join(fixture.paths.legacyRoot, "projects", "legacy-registered"),
+      ]) {
+        const productionManifest = JSON.parse(
+          fs.readFileSync(path.join(projectRoot, "production.json"), "utf8"),
+        );
+        const productionRecord = JSON.parse(
+          fs.readFileSync(path.join(projectRoot, "production", "records.jsonl"), "utf8").trim(),
+        );
+        expect(productionManifest.productions[0].id).toBe(productionRecord.id);
+        expect(productionManifest.productions[0].sourceRevision).not.toBe(
+          productionRecord.sourceRevision,
+        );
+        expect(fs.existsSync(path.join(projectRoot, productionManifest.productions[0].output))).toBe(true);
+        expect(fs.existsSync(path.join(projectRoot, productionRecord.output))).toBe(true);
+
+        const deliveryManifest = JSON.parse(
+          fs.readFileSync(path.join(projectRoot, "delivery.json"), "utf8"),
+        );
+        const deliveryRecord = JSON.parse(
+          fs.readFileSync(path.join(projectRoot, "delivery", "records.jsonl"), "utf8").trim(),
+        );
+        expect(deliveryManifest.attempts[0].id).toBe(deliveryRecord.id);
+        expect(deliveryManifest.attempts[0].providerPublicationId).not.toBe(
+          deliveryRecord.providerPublicationId,
+        );
+
+        for (const candidate of [
+          "composition/offer.v2.html",
+          "composition/offer-v2.html",
+          "composition/offer.r2.html",
+          "composition/offer-final.html",
+          "composition/offer-final2.html",
+          "composition/offer.v3.html",
+        ]) {
+          expect(fs.existsSync(path.join(projectRoot, candidate))).toBe(true);
+        }
+        expect(fs.statSync(path.join(projectRoot, "composition/offer.v3.html")).size).toBe(0);
+      }
 
       const jobs = new Database(fixture.paths.jobsDb, { readonly: true });
       expect(jobs.query("SELECT status FROM jobs").get()).toEqual({ status: "pending" });

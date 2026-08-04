@@ -1,17 +1,41 @@
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import type { ConsumerAuthority } from "../../cli/lib/store/consumer-auth.js";
 import { authenticateConsumer } from "../../cli/lib/store/consumer-auth.js";
 import {
   bindConsumerPrincipal,
   consumerCredentialDigest,
-  farmIdentityDigest,
-  serializeFarmIdentity,
-  type FarmIdentityV1,
 } from "../../cli/lib/store/consumers.js";
 import { withImmediateTransaction } from "../../cli/lib/store/db.js";
 import { getStoreIdentity } from "../../cli/lib/store/sessions.js";
 import type { TmpRoot } from "./tmp-root.js";
+
+export type FarmIdentityV1 = {
+  version: 1;
+  namespace: "farm";
+  storeId: string;
+  consumerId: string;
+  migrationId: string;
+  stageDigest: string;
+  credentialDigest: string;
+};
+
+export function serializeFarmIdentity(identity: FarmIdentityV1): string {
+  return JSON.stringify({
+    version: identity.version,
+    namespace: identity.namespace,
+    storeId: identity.storeId,
+    consumerId: identity.consumerId,
+    migrationId: identity.migrationId,
+    stageDigest: identity.stageDigest,
+    credentialDigest: identity.credentialDigest,
+  });
+}
+
+function farmIdentityDigest(canonical: string): string {
+  return createHash("sha256").update(canonical).digest("hex");
+}
 
 export type PreparedFarmConsumer = {
   authority: ConsumerAuthority;

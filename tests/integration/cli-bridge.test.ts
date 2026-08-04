@@ -36,12 +36,42 @@ describe("stdio bridge", () => {
     root = makeTmpRoot("ralphy-bridge");
     createWorkspace({ slug: "primary", name: "Primary" });
     const output = await run('{"v":1,"id":"hello","method":"system.hello"}\n');
-    const response = JSON.parse(output) as { id: string; ok: boolean; result: { limits: { maxFrameBytes: number }; consumerNamespaces: string[] } };
+    const response = JSON.parse(output) as {
+      id: string;
+      ok: boolean;
+      result: {
+        limits: { maxFrameBytes: number };
+        capabilities: string[];
+        consumerNamespaces?: unknown;
+        consumers?: unknown;
+      };
+    };
     expect(response.id).toBe("hello");
     expect(response.ok).toBe(true);
     expect(response.result.limits.maxFrameBytes).toBe(1_048_576);
-    expect(response.result.consumerNamespaces).toEqual(["farm"]);
+    expect(response.result.consumerNamespaces).toBeUndefined();
+    expect(response.result.consumers).toBeUndefined();
+    expect(response.result.capabilities).not.toContain("migration.consumer.map");
     expect(output.trim().split("\n")).toHaveLength(1);
+  });
+
+  test("does not expose the superseded Farm migration map", async () => {
+    root = makeTmpRoot("ralphy-bridge-no-farm-map");
+    createWorkspace({ slug: "primary", name: "Primary" });
+    const output = await run([
+      '{"v":1,"id":"hello","method":"system.hello"}',
+      '{"v":1,"id":"map","method":"migration.consumer.map","params":{}}',
+    ].join("\n") + "\n");
+    const responses = output.trim().split("\n").map((line) => JSON.parse(line) as {
+      id: string;
+      ok: boolean;
+      error?: { code: string };
+    });
+    expect(responses.find((response) => response.id === "map")).toMatchObject({
+      id: "map",
+      ok: false,
+      error: { code: "E_PROTOCOL_INVALID" },
+    });
   });
 
   test("rejects duplicate live ids fatally", async () => {

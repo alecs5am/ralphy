@@ -3891,6 +3891,20 @@ export const MIGRATIONS: readonly Migration[] = [
 
       ALTER TABLE jobs ADD COLUMN migration_hold_run_id TEXT REFERENCES migration_runs(id) ON DELETE RESTRICT;
 
+      CREATE TRIGGER jobs_migration_hold_release_guard
+      BEFORE UPDATE OF migration_hold_run_id ON jobs
+      WHEN OLD.migration_hold_run_id IS NOT NULL
+        AND NEW.migration_hold_run_id IS NOT OLD.migration_hold_run_id
+        AND NOT EXISTS (
+          SELECT 1 FROM migration_runs migration
+          WHERE migration.id = OLD.migration_hold_run_id
+            AND migration.phase = 'cutover'
+            AND migration.cutover_at IS NOT NULL
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'Migration hold requires durable cutover before release or reassignment');
+      END;
+
       CREATE INDEX migration_entries_order_idx
         ON migration_entries (migration_run_id, migration_source_id, source_path);
       CREATE INDEX migration_issues_run_idx
@@ -4178,7 +4192,8 @@ export const MIGRATIONS: readonly Migration[] = [
 
       CREATE TRIGGER migration_entries_terminal_guard
       BEFORE UPDATE ON migration_entries
-      WHEN OLD.state IN ('imported', 'verified', 'excluded')
+      WHEN (
+        OLD.state IN ('imported', 'verified', 'excluded')
         AND (
           NEW.disposition <> OLD.disposition
           OR COALESCE(NEW.target_path, '') <> COALESCE(OLD.target_path, '')
@@ -4189,6 +4204,20 @@ export const MIGRATIONS: readonly Migration[] = [
           OR COALESCE(NEW.terminal_at, 0) <> COALESCE(OLD.terminal_at, 0)
           OR NEW.state <> OLD.state
         )
+      ) OR (
+        OLD.state = 'issue'
+        AND NEW.state = 'issue'
+        AND (
+          NEW.disposition IS NOT OLD.disposition
+          OR NEW.sha256 IS NOT OLD.sha256
+          OR NEW.target_path IS NOT OLD.target_path
+          OR NEW.target_refs_json IS NOT OLD.target_refs_json
+          OR NEW.raw_evidence_object_id IS NOT OLD.raw_evidence_object_id
+          OR NEW.error_code IS NOT OLD.error_code
+          OR NEW.terminal_at IS NOT OLD.terminal_at
+          OR NEW.updated_at IS NOT OLD.updated_at
+        )
+      )
       BEGIN
         SELECT RAISE(ABORT, 'Terminal migration entry is immutable');
       END;
