@@ -1,5 +1,11 @@
 # AGENTS.md — playbook router
 
+The authoritative domain state is SQLite under the explicit `.ralphy` data
+root. Normal commands and bridge handlers use explicit `--workspace` scope or
+an immutable Session; registry/current-Workspace pointers and legacy control
+files are not authoritative. Portable transfer uses `workspace.export` and
+`workspace.import`.
+
 > This file is `@`-imported by `CLAUDE.md`, so it's always in the system prompt. It is the routing contract for every user request.
 
 <!-- ralphy-version-line: do not edit by hand. The `/release` skill bumps this line. -->

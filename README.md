@@ -89,6 +89,11 @@ ralphy render espresso-001
 
 That's it. Full CLI surface in [`docs/cli-surface.generated.md`](docs/cli-surface.generated.md).
 
+The standalone domain-store and Desktop bridge contract is documented in
+[`docs/domain-store.md`](docs/domain-store.md). It covers explicit scope,
+immutable revisions, bounded content, safe DTOs, and portable Workspace
+transfer.
+
 ## Why Ralphy
 
 What you actually get vs other ways to do this. The operator is your agent; you stay in chat.

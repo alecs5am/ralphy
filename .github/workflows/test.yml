@@ -90,6 +90,10 @@ jobs:
       - name: Lint store boundary
         run: bun run lint:store-boundary
 
+      # Domain/bridge code must not regain the retired filesystem state seam.
+      - name: Lint domain legacy-state boundary
+        run: bun run lint:no-legacy-state
+
       # English-only-on-disk gate (#465): fails on any Cyrillic in a tracked
       # text file outside the documented translation-debt allowlist.
       - name: Lint no-Cyrillic (#465)
