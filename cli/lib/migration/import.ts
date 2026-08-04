@@ -3,10 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Database } from "bun:sqlite";
 import { appendActivity } from "../store/activity.js";
-import { withImmediateTransaction } from "../store/db.js";
 import { newDomainId } from "../store/ids.js";
-import { normalizeRelativePath } from "./inventory.js";
-import { classifyLegacyPath, normalizeLegacyDocumentBody, parseLegacyJsonl } from "./legacy.js";
+import { classifyLegacyPath, normalizeLegacyDocumentBody, normalizeRelativePath, parseLegacyJsonl } from "./legacy.js";
 import type { MigrationContext } from "./types.js";
 
 export type MigrationImportSummary = {
@@ -20,12 +18,13 @@ export type MigrationImportSummary = {
 export function importScopesAndDocuments(ctx: MigrationContext): MigrationImportSummary {
   const summary = { workspaces: 0, projects: 0, documents: 0, revisions: 0, issues: 0 };
   const now = Date.now();
-  withImmediateTransaction((db) => {
+  ctx.db.transaction(() => {
+    const db = ctx.db;
     const workspaceBySource = new Map<string, string>();
     const projectByKey = new Map<string, string>();
     for (const source of ctx.sourceRoots) {
       const workspaceId = newDomainId("ws");
-      const slug = `migration-${source.kind}-${ctx.runId.slice(-8)}`;
+      const slug = `migration-${source.kind}-${safeSlug(source.id)}-${ctx.runId.slice(-8)}`;
       db.prepare(
         `INSERT INTO workspaces (id, slug, name, metadata_json, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?)`,
@@ -38,17 +37,22 @@ export function importScopesAndDocuments(ctx: MigrationContext): MigrationImport
       id: string;
       migrationSourceId: string;
       sourceKind: string;
+      sourceLabel: string;
       sourcePath: string;
       disposition: string;
       state: string;
     }, [string]>(
-      `SELECT id, migration_source_id AS migrationSourceId, source_kind AS sourceKind,
+      `SELECT entry.id, entry.migration_source_id AS migrationSourceId, entry.source_kind AS sourceKind,
+              source.source_label AS sourceLabel,
               source_path AS sourcePath, disposition, state
-       FROM migration_entries WHERE migration_run_id = ? ORDER BY migration_source_id, source_path`,
+       FROM migration_entries entry
+       JOIN migration_sources source ON source.id = entry.migration_source_id
+       WHERE entry.migration_run_id = ? ORDER BY entry.migration_source_id, entry.source_path`,
     ).all(ctx.runId);
     for (const entry of entries) {
       if (entry.state !== "inventoried" || entry.disposition !== "domain") continue;
-      const source = ctx.sourceRoots.find((candidate) => candidate.kind === entry.sourceKind || candidate.id === entry.sourceKind);
+      const source = ctx.sourceRoots.find((candidate) => candidate.id === entry.sourceLabel)
+        ?? ctx.sourceRoots.find((candidate) => candidate.kind === entry.sourceKind);
       if (!source) continue;
       const absolute = safeSourceFile(source.path, entry.sourcePath);
       const stat = fs.lstatSync(absolute);
@@ -109,7 +113,7 @@ export function importScopesAndDocuments(ctx: MigrationContext): MigrationImport
       summary.revisions += 1;
     }
     db.prepare("UPDATE migration_runs SET phase = 'import', updated_at = ? WHERE id = ?").run(now, ctx.runId);
-  });
+  }).immediate();
   return summary;
 }
 
@@ -118,18 +122,21 @@ export function importExecutionAndOperations(ctx: MigrationContext): { records: 
   let issues = 0;
   const db = ctx.db;
   for (const source of ctx.sourceRoots) {
-    const entries = db.query<{ id: string; sourcePath: string }, [string, string]>(
-      `SELECT id, source_path AS sourcePath FROM migration_entries
-       WHERE migration_run_id = ? AND source_kind = ? AND state = 'inventoried' AND disposition = 'domain'`,
+    const entries = db.query<{ id: string; sourcePath: string; sourceLabel: string }, [string, string]>(
+      `SELECT entry.id, entry.source_path AS sourcePath, source.source_label AS sourceLabel
+       FROM migration_entries entry
+       JOIN migration_sources source ON source.id = entry.migration_source_id
+       WHERE entry.migration_run_id = ? AND entry.source_kind = ? AND entry.state = 'inventoried' AND entry.disposition = 'domain'`,
     ).all(ctx.runId, source.kind);
     for (const entry of entries) {
+      if (entry.sourceLabel !== source.id) continue;
       if (classifyLegacyPath(entry.sourcePath) !== "jsonl") continue;
       const raw = fs.readFileSync(safeSourceFile(source.path, entry.sourcePath));
       for (const record of parseLegacyJsonl(raw, entry.sourcePath)) {
         records += 1;
         if (!record.issue) continue;
         issues += 1;
-        withImmediateTransaction((tx) => insertIssue(tx, ctx.runId, entry.id, record.issue!.code, record.issue!.severity, record.issue!.detail));
+        db.transaction(() => insertIssue(db, ctx.runId, entry.id, record.issue!.code, record.issue!.severity, record.issue!.detail)).immediate();
       }
     }
   }

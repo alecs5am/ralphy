@@ -1,6 +1,6 @@
 import path from "node:path";
 import fs from "node:fs";
-import { closeDomainDb, openDomainDb } from "../store/db.js";
+import { closeDomainDb, openDomainDbAt } from "../store/db.js";
 import { newDomainId } from "../store/ids.js";
 import {
   acquireMaintenanceLock,
@@ -40,18 +40,22 @@ export type StartMigrationResult = {
 };
 
 export function startMigration(input: StartMigrationInput): StartMigrationResult {
-  const db = openDomainDb();
   const audit = auditMigration(input);
   const runId = newDomainId("mig");
   const now = Date.now();
-  db.prepare(
-    `INSERT INTO migration_runs
-     (id, stage_root_rel, recovery_root_rel, phase, created_at, updated_at)
-     VALUES (?, ?, ?, 'audited', ?, ?)`,
-  ).run(runId, safeRelative(input.stageRootRel ?? `.ralphy-stage-${runId}`), safeRelative(input.recoveryRootRel ?? `.ralphy-recovery-${runId}`), now, now);
-  const status = readMigrationStatus(db, runId);
-  if (!status) throw new Error("Migration Run was not created");
-  return { runId, audit, status };
+  const db = openDomainDbAt(input.storeRoot);
+  try {
+    db.prepare(
+      `INSERT INTO migration_runs
+       (id, stage_root_rel, recovery_root_rel, phase, created_at, updated_at)
+       VALUES (?, ?, ?, 'audited', ?, ?)`,
+    ).run(runId, safeRelative(input.stageRootRel ?? `.ralphy-stage-${runId}`), safeRelative(input.recoveryRootRel ?? `.ralphy-recovery-${runId}`), now, now);
+    const status = readMigrationStatus(db, runId);
+    if (!status) throw new Error("Migration Run was not created");
+    return { runId, audit, status };
+  } finally {
+    db.close();
+  }
 }
 
 export function resumeMigration(input: {
@@ -60,43 +64,54 @@ export function resumeMigration(input: {
   sourceRoots: readonly { id?: string; kind: MigrationSourceRoot["kind"]; path: string }[];
   lock?: MigrationLock;
 }): { status: MigrationStatus; inventory: ReturnType<typeof inventoryLegacySource> | null } {
-  const db = openDomainDb();
-  const row = db.query<{ phase: MigrationPhase }, [string]>(
-    "SELECT phase FROM migration_runs WHERE id = ?",
-  ).get(input.runId);
-  if (!row) throw new Error("Migration Run not found");
-  if (row.phase === "failed" || row.phase === "cutover" || row.phase === "rolled-back") throw new Error("Migration Run is terminal");
-  const roots = input.sourceRoots.map((root) => createMigrationSourceRoot({
-    id: root.id ?? root.kind,
-    kind: root.kind,
-    path: root.path,
-  }));
-  const lock = input.lock ?? acquireMaintenanceLock({ sourcePath: roots[0]!.path, runId: input.runId });
+  const db = openDomainDbAt(input.storeRoot);
+  let lock: MigrationLock | undefined;
   try {
+    const row = db.query<{ phase: MigrationPhase }, [string]>(
+      "SELECT phase FROM migration_runs WHERE id = ?",
+    ).get(input.runId);
+    if (!row) throw new Error("Migration Run not found");
+    if (row.phase === "failed" || row.phase === "cutover" || row.phase === "rolled-back") throw new Error("Migration Run is terminal");
+    const roots = input.sourceRoots.map((root) => createMigrationSourceRoot({
+      id: root.id ?? root.kind,
+      kind: root.kind,
+      path: root.path,
+    }));
+    lock = input.lock ?? acquireMaintenanceLock({ sourcePath: roots[0]!.path, runId: input.runId });
     const context: MigrationContext = { db, storeRoot: path.resolve(input.storeRoot), sourceRoots: roots, runId: input.runId };
     const inventory = row.phase === "audited" || row.phase === "inventory" ? inventoryLegacySource(context) : null;
     const status = readMigrationStatus(db, input.runId);
     if (!status) throw new Error("Migration Run status is unavailable");
     return { status, inventory };
   } finally {
-    if (!input.lock) releaseMaintenanceLock(lock);
+    db.close();
+    if (!input.lock && lock) releaseMaintenanceLock(lock);
   }
 }
 
-export function migrationStatus(runId: string): MigrationStatus | null {
-  return readMigrationStatus(openDomainDb(), runId);
+export function migrationStatus(input: { runId: string; storeRoot: string }): MigrationStatus | null {
+  const db = openDomainDbAt(input.storeRoot);
+  try {
+    return readMigrationStatus(db, input.runId);
+  } finally {
+    db.close();
+  }
 }
 
-export function markMigrationPhase(runId: string, phase: MigrationPhase, error?: { code: string; detail: string }): void {
-  const db = openDomainDb();
-  const current = db.query<{ phase: MigrationPhase }, [string]>("SELECT phase FROM migration_runs WHERE id = ?").get(runId);
-  if (!current) throw new Error("Migration Run not found");
-  if (phase === "failed" && !error) throw new Error("Failed Migration Run requires a redacted error");
-  db.prepare(
-    `UPDATE migration_runs
-     SET phase = ?, last_error_code = ?, last_error_detail = ?, updated_at = ?
-     WHERE id = ?`,
-  ).run(phase, error?.code ?? null, error?.detail ?? null, Date.now(), runId);
+export function markMigrationPhase(input: { runId: string; storeRoot: string; phase: MigrationPhase; error?: { code: string; detail: string } }): void {
+  const db = openDomainDbAt(input.storeRoot);
+  try {
+    const current = db.query<{ phase: MigrationPhase }, [string]>("SELECT phase FROM migration_runs WHERE id = ?").get(input.runId);
+    if (!current) throw new Error("Migration Run not found");
+    if (input.phase === "failed" && !input.error) throw new Error("Failed Migration Run requires a redacted error");
+    db.prepare(
+      `UPDATE migration_runs
+       SET phase = ?, last_error_code = ?, last_error_detail = ?, updated_at = ?
+       WHERE id = ?`,
+    ).run(input.phase, input.error?.code ?? null, input.error?.detail ?? null, Date.now(), input.runId);
+  } finally {
+    db.close();
+  }
 }
 
 export function cutoverMigration(input: {

@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
-import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
+import { closeDomainDb, openDomainDb, openDomainDbAt } from "../../cli/lib/store/db.js";
 import { auditMigration } from "../../cli/lib/migration/inventory.js";
+import { createMigrationSourceRoot } from "../../cli/lib/migration/inventory.js";
 import { importScopesAndDocuments } from "../../cli/lib/migration/import.js";
-import { cutoverMigration, resumeMigration, rollbackCutover, startMigration } from "../../cli/lib/migration/service.js";
+import { cutoverMigration, migrationStatus, resumeMigration, rollbackCutover, startMigration } from "../../cli/lib/migration/service.js";
 import { stageInventoryObjects } from "../../cli/lib/migration/staging.js";
 import { freezeMigration, verifyMigration } from "../../cli/lib/migration/verify.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
@@ -99,5 +100,62 @@ describe("domain migration primitives", () => {
     expect(rolledBack.state).toBe("rolled-back");
     expect(fs.readFileSync(path.join(live, "generation.txt"), "utf8")).toBe("legacy");
     expect(fs.readFileSync(path.join(journal.rollbackPath, "generation.txt"), "utf8")).toBe("sqlite");
+  });
+
+  test("migration service writes only to its explicit store root", () => {
+    root = makeTmpRoot("ralphy-migration-explicit-root");
+    const source = path.join(root.dir, "source");
+    const storeRoot = path.join(root.dir, "isolated-stage", ".ralphy");
+    fs.mkdirSync(source, { recursive: true });
+    fs.writeFileSync(path.join(source, "BRIEF.md"), "# Explicit\n");
+
+    const started = startMigration({
+      storeRoot,
+      sourceRoots: [{ id: "source", kind: "ralphy", path: source }],
+    });
+    resumeMigration({
+      runId: started.runId,
+      storeRoot,
+      sourceRoots: [{ id: "source", kind: "ralphy", path: source }],
+    });
+
+    expect(fs.existsSync(path.join(storeRoot, "ralphy.db"))).toBe(true);
+    expect(fs.existsSync(path.join(root.dir, ".ralphy", "ralphy.db"))).toBe(false);
+    expect(migrationStatus({ runId: started.runId, storeRoot })?.phase).toBe("inventory");
+  });
+
+  test("imports same-kind sources by immutable source identity", () => {
+    root = makeTmpRoot("ralphy-migration-source-identity");
+    const first = path.join(root.dir, "first");
+    const second = path.join(root.dir, "second");
+    const storeRoot = path.join(root.dir, "stage", ".ralphy");
+    fs.mkdirSync(first, { recursive: true });
+    fs.mkdirSync(second, { recursive: true });
+    fs.writeFileSync(path.join(first, "BRIEF.md"), "first-source\n");
+    fs.writeFileSync(path.join(second, "BRIEF.md"), "second-source\n");
+
+    const sourceRoots = [
+      { id: "first", kind: "ralphy" as const, path: first },
+      { id: "second", kind: "ralphy" as const, path: second },
+    ];
+    const started = startMigration({ storeRoot, sourceRoots });
+    resumeMigration({ runId: started.runId, storeRoot, sourceRoots });
+    const db = openDomainDbAt(storeRoot);
+    try {
+      importScopesAndDocuments({
+        db,
+        storeRoot,
+        sourceRoots: sourceRoots.map(createMigrationSourceRoot),
+        runId: started.runId,
+      });
+      const importedBodies = db.query<{ body: string }, [string]>(
+        `SELECT revision.body FROM document_revisions revision
+         JOIN documents document ON document.current_revision_id = revision.id
+         WHERE document.slug LIKE 'brief-%' ORDER BY revision.body`,
+      ).all();
+      expect(importedBodies.map((row) => row.body)).toEqual(["first-source\n", "second-source\n"]);
+    } finally {
+      db.close();
+    }
   });
 });

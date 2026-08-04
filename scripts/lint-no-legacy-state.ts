@@ -27,6 +27,7 @@ export function findLegacyStateViolations(root: string): string[] {
     ...walk(path.join(root, "cli", "lib", "bridge")),
     ...walk(path.join(root, "cli", "lib", "agent")),
     ...walk(path.join(root, "cli", "lib", "store")),
+    ...walk(path.join(root, "cli", "lib", "migration")).filter((file) => path.basename(file) !== "legacy.ts"),
     path.join(root, "cli", "commands", "bridge.ts"),
   ].filter((file) => fs.existsSync(file) && file.endsWith(".ts"));
   const violations: string[] = [];
