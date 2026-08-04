@@ -72,7 +72,7 @@ describe("ralphy new (unified with project create, #031)", () => {
     expect(j.name).toBe("Spring Test 001");
   });
 
-  test("with --id only (no brief) — still creates the project dir AND registers it", () => {
+  test("with --id only (no brief) — creates the project dir AND SQL Project", () => {
     const r = ralphyNew(["new", "--id", "no-brief-test"]);
     expect(r.exitCode).toBe(0);
     const j = r.json as { project_id: string; path: string; name: string };
@@ -81,13 +81,10 @@ describe("ralphy new (unified with project create, #031)", () => {
     expect(fs.existsSync(j.path)).toBe(true);
     expect(j.name).toBe("No Brief Test");
 
-    // Registry pointer landed at .ralphy/registry.json (#108) — that's
-    // what `ralphy generate` / `ralphy render` walk to find the project.
-    const registryPath = path.join(tmpRoot, ".ralphy", "registry.json");
-    expect(fs.existsSync(registryPath)).toBe(true);
-    const reg = JSON.parse(fs.readFileSync(registryPath, "utf8"));
-    expect(reg.projects["no-brief-test"]).toBeTruthy();
-    expect(reg.projects["no-brief-test"].name).toBe("No Brief Test");
+    const shown = ralphyNew(["project", "show", "no-brief-test"]);
+    expect(shown.exitCode).toBe(0);
+    expect((shown.json as { slug: string; name: string }).slug).toBe("no-brief-test");
+    expect((shown.json as { name: string }).name).toBe("No Brief Test");
   });
 
   test("auto-generates an id when neither brief nor --id is passed", () => {
@@ -112,23 +109,13 @@ describe("ralphy new (unified with project create, #031)", () => {
     expect(payload.error.code).toBe("E_ALREADY_EXISTS");
   });
 
-  test("project created via `new` stays a legacy fixture until domain import", () => {
-    // Create via `new` …
+  test("project created via `new` is immediately visible to domain evaluation", () => {
     const r1 = ralphyNew(["new", "--id", "unified-001"]);
     expect(r1.exitCode).toBe(0);
 
-    seedDomainWorkspace(tmpRoot);
-    // Entity-first Project lookup does not treat a registry row as domain state.
-    const r2 = spawnSync(
-      "bun",
-      ["run", CLI, "--cwd", tmpRoot, "--json", "project", "show", "unified-001"],
-      {
-        cwd: tmpRoot,
-        encoding: "utf8",
-        env: { ...process.env, RALPHY_SKIP_LEGACY_HINT: "1", NO_COLOR: "1" },
-      },
-    );
-    expect(r2.status).toBe(2);
+    const r2 = ralphyNew(["workspace", "eval", "unified-001", "--no-vision"]);
+    expect(r2.exitCode).toBe(0);
+    expect((r2.json as { projectId: string }).projectId).toBe("unified-001");
   });
 });
 

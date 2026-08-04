@@ -130,7 +130,7 @@ export function projectCmd() {
     .description("Show a Project")
     .action((id: string, _opts, command: Command) => {
       const context = resolveDomainContext(command, id);
-      out(getProject({ workspaceId: context.workspaceId, projectId: id }));
+      out(getProject({ workspaceId: context.workspaceId, projectId: context.projectId ?? id }));
     });
 
   // ── status (#406) ────────────────────────────────────────────────────────

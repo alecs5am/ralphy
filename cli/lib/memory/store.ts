@@ -439,6 +439,9 @@ type WorkspaceMemoryRow = {
 async function writeWorkspaceEntry(opts: WriteOptions): Promise<WriteResult> {
   const workspaceValue = opts.ref.ws ?? currentWorkspace();
   const workspaceId = resolveWorkspaceId(workspaceValue)!;
+  const workspaceSlug = openDomainDb()
+    .query<{ slug: string }, [string]>("SELECT slug FROM workspaces WHERE id = ?")
+    .get(workspaceId)?.slug ?? workspaceValue;
   const slug = opts.slug ?? autoSlug(opts.text);
   if (!SLUG_RE.test(slug)) {
     throw new Error(`invalid memory slug: '${slug}' (lowercase kebab-case required)`);
@@ -579,7 +582,7 @@ async function writeWorkspaceEntry(opts: WriteOptions): Promise<WriteResult> {
       id: entryId,
       revisionId: memoryRevisionId,
       tier: "workspace",
-      workspace: workspaceId,
+      workspace: workspaceSlug,
       status: opts.status,
       ...fm,
       body,
@@ -841,6 +844,7 @@ function resolveWorkspaceId(value: string, required = true): string | null {
 type WorkspaceMemoryEntryRow = {
   id: string;
   workspace_id: string;
+  workspace_slug: string;
   slug: string;
   name: string;
   description: string;
@@ -855,7 +859,7 @@ type WorkspaceMemoryEntryRow = {
 };
 
 const WORKSPACE_MEMORY_SELECT = `
-  SELECT entry.id, entry.workspace_id, entry.slug,
+  SELECT entry.id, entry.workspace_id, workspace.slug AS workspace_slug, entry.slug,
          memory_revision.name, memory_revision.description,
          memory_revision.type, memory_revision.status,
          memory_revision.id AS revision_id,
@@ -871,7 +875,8 @@ const WORKSPACE_MEMORY_SELECT = `
       ORDER BY candidate.revision_no DESC, candidate.id DESC LIMIT 1
     )
   JOIN document_revisions document_revision
-    ON document_revision.id = memory_revision.document_revision_id`;
+    ON document_revision.id = memory_revision.document_revision_id
+  JOIN workspaces workspace ON workspace.id = entry.workspace_id`;
 
 function listWorkspaceEntries(
   ref: TierRef,
@@ -912,7 +917,7 @@ function workspaceMemoryEntry(row: WorkspaceMemoryEntryRow): MemoryEntry {
     id: row.id,
     revisionId: row.revision_id,
     tier: "workspace",
-    workspace: row.workspace_id,
+    workspace: row.workspace_slug,
     status: row.status,
     name: row.name,
     description: row.description,
