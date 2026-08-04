@@ -24,7 +24,7 @@ import {
   StoreConflictError,
 } from "../../cli/lib/store/types.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
-import { installFarmConsumer } from "../helpers/consumer-auth.js";
+import { installConsumer } from "../helpers/consumer-auth.js";
 import { scopedActivity } from "../helpers/activity.js";
 
 let roots: TmpRoot[] = [];
@@ -85,9 +85,9 @@ describe("domain Agent Session store", () => {
     const root = makeTmpRoot("ralphy-domain-consumer-session-safe-dto");
     roots.push(root);
     const workspace = createWorkspace({ slug: "client", name: "Client" });
-    const farm = installFarmConsumer(root);
+    const consumer = installConsumer(root);
 
-    const session: AgentSessionDto = startConsumerSession(farm.authority, {
+    const session: AgentSessionDto = startConsumerSession(consumer.authority, {
       workspaceId: workspace.id,
       metadata: { mode: "private" },
     });
@@ -100,7 +100,7 @@ describe("domain Agent Session store", () => {
       "startedAt",
       "workspaceId",
     ]);
-    expect(session.agent).toBe("consumer:farm");
+    expect(session.agent).toBe("consumer:test");
     expect(
       openDomainDb()
         .query<{ metadata: string }, [string]>(

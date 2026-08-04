@@ -29,7 +29,7 @@ import {
 } from "../../cli/lib/store/sessions.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 import { withPoisonFarmReadTrap } from "../helpers/poison-farm.js";
-import { installFarmConsumer } from "../helpers/consumer-auth.js";
+import { installConsumer } from "../helpers/consumer-auth.js";
 
 let root: TmpRoot | null = null;
 
@@ -268,17 +268,17 @@ describe("bounded Run queries", () => {
       slug: "campaign",
       name: "Campaign",
     });
-    const farm = installFarmConsumer(root);
-    const ownerSession = startConsumerSession(farm.authority, {
+    const consumer = installConsumer(root);
+    const ownerSession = startConsumerSession(consumer.authority, {
       workspaceId: workspace.id,
       projectId: project.id,
     });
-    const reconnectAuthority = authenticateConsumer("farm", farm.token);
+    const reconnectAuthority = authenticateConsumer(consumer.namespace, consumer.token);
     const reconnect = startConsumerSession(reconnectAuthority, {
       workspaceId: workspace.id,
       projectId: project.id,
     });
-    const ownerWorkspaceSession = startConsumerSession(farm.authority, {
+    const ownerWorkspaceSession = startConsumerSession(consumer.authority, {
       workspaceId: workspace.id,
     });
     const ordinarySession = startAgentSession({
@@ -287,13 +287,13 @@ describe("bounded Run queries", () => {
       agent: "codex",
     });
     const ordinary = startRun({ projectId: project.id, kind: "ordinary" });
-    const external = startConsumerOperationRun(farm.authority, {
+    const external = startConsumerOperationRun(consumer.authority, {
       sessionId: ownerSession.id,
       workspaceId: workspace.id,
       projectId: project.id,
       kind: "generation",
       external: {
-        runId: "farm-private-run",
+        runId: "consumer-private-run",
         nodeId: "private-node",
         attempt: 1,
         operation: "private-operation",
@@ -312,7 +312,7 @@ describe("bounded Run queries", () => {
 
     const detail = getRun({ context: ownerContext, runId: external.id });
     expect(detail.id).toBe(external.id);
-    expect(JSON.stringify(detail)).not.toContain("farm-private-run");
+    expect(JSON.stringify(detail)).not.toContain("consumer-private-run");
     expect(JSON.stringify(detail)).not.toContain("private-key");
     expect(listRuns({ context: ownerContext, limit: 10 }).items).toContainEqual(
       detail,
@@ -346,7 +346,7 @@ describe("bounded Run queries", () => {
       { workspaceId: workspace.id },
       {
         sessionId: ownerWorkspaceSession.id,
-        consumerAuthority: farm.authority,
+        consumerAuthority: consumer.authority,
       },
     ]) {
       expect(() => getRun({ context, runId: external.id })).toThrow(
@@ -376,7 +376,7 @@ describe("bounded Run queries", () => {
 
     openDomainDb()
       .prepare("UPDATE consumer_principals SET disabled_at = ? WHERE id = ?")
-      .run(Date.now(), farm.identity.consumerId);
+      .run(Date.now(), consumer.id);
     for (const query of [
       () => getRun({ context: ownerContext, runId: ordinary.id }),
       () => listRuns({ context: ownerContext, limit: 10 }),
