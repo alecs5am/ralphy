@@ -9,9 +9,6 @@ import {
 } from "../../cli/lib/store/consumer-auth.js";
 import { requestDigest } from "../../cli/lib/store/canonical-json.js";
 import {
-  serializeFarmIdentity,
-} from "../../cli/lib/store/consumers.js";
-import {
   findConsumerOperation,
   listRunResults,
   startConsumerOperationRun,
@@ -28,6 +25,7 @@ import { verifyDomainStore } from "../../cli/lib/store/verify.js";
 import {
   installFarmConsumer,
   prepareFarmConsumer,
+  serializeFarmIdentity,
 } from "../helpers/consumer-auth.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 

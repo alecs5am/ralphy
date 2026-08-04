@@ -3,7 +3,6 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   authenticateConsumer,
-  readFarmIdentity,
   type ConsumerAuthority,
 } from "../store/consumer-auth.js";
 import { findConsumerOperation, listRunResults } from "../store/consumer-runs.js";
@@ -130,11 +129,6 @@ import {
   MAX_SEEN_IDS,
   BRIDGE_PROTOCOL_VERSION,
 } from "./protocol.js";
-import {
-  farmIdentityDigest,
-  parseFarmIdentity,
-  serializeFarmIdentity,
-} from "../store/consumers.js";
 
 export type BridgeMethodKind = "read" | "mutation" | "operation-start";
 
@@ -767,17 +761,6 @@ export function createBridgeMethods(input: { dataRoot: string }): BridgeMethodTa
     const absolutePath = resolveObjectPath(row);
     return { absolutePath, mime: row.mime, bytes: row.bytes };
   });
-  add("migration.consumer.map", "read", (params) => {
-    const value = object(params, "migration.consumer.map");
-    string(value.migrationRunId, "migrationRunId");
-    string(value.lockNonce, "lockNonce");
-    if (string(value.namespace, "namespace") !== "farm") throw new Error("Only the farm namespace is supported");
-    string(value.grantDigest, "grantDigest");
-    string(value.sourceIdentityId, "sourceIdentityId");
-    string(value.sourceInventoryDigest, "sourceInventoryDigest");
-    if (value.afterSourceLocatorHash !== undefined) string(value.afterSourceLocatorHash, "afterSourceLocatorHash");
-    return { items: [], nextCursor: null };
-  });
   add("migration.desktop.import", "operation-start", (params) => {
     const value = object(params, "migration.desktop.import");
     scopedContext(value);
@@ -926,7 +909,6 @@ export function createBridgeMethods(input: { dataRoot: string }): BridgeMethodTa
     ["agent.turn.start", "operation-start"], ["agent.turn.resume", "operation-start"],
     ["agent.turn.status", "read"], ["agent.turn.stop", "mutation"],
     ["migration.secret.import", "mutation"], ["migration.desktop.import", "operation-start"],
-    ["migration.consumer.map", "read"],
   ] as const) {
     if (!methods.has(name)) addStub(methods, name, kind);
   }
@@ -993,30 +975,13 @@ function addOperation(
 function systemHello(dataRoot: string, capabilities: string[]): Record<string, unknown> {
   const stat = fs.statSync(dataRoot);
   const rootId = createHash("sha256").update(`${path.resolve(dataRoot)}\0${stat.dev}\0${stat.ino}`).digest("hex");
-  let farm: Record<string, unknown> | null = null;
-  try {
-    const identity = parseFarmIdentity(serializeFarmIdentity(readFarmIdentity()));
-    const identityDigest = farmIdentityDigest(serializeFarmIdentity(identity));
-    farm = {
-      namespace: "farm",
-      state: "ready",
-      coreMigrationRunId: identity.migrationId,
-      migrationId: identity.migrationId,
-      stageDigest: identity.stageDigest,
-      readyRecordDigest: identityDigest,
-      identityDigest,
-    };
-  } catch {
-    // No installed consumer is a valid pre-cutover state.
-  }
-  const consumers = { farm };
   return {
     protocolVersion: BRIDGE_PROTOCOL_VERSION,
     coreVersion: "1",
     schemaVersion: SCHEMA_VERSION,
     storeId: getStoreIdentity(),
     rootId,
-    capabilities: [...new Set([...capabilities, "workspace.export", "workspace.import", "migration.consumer.map"])].sort(),
+    capabilities: [...new Set([...capabilities, "workspace.export", "workspace.import"])].sort(),
     activitySequence: latestActivitySequence(),
     startup: { state: "ready", migration: "complete" },
     limits: {
@@ -1027,8 +992,6 @@ function systemHello(dataRoot: string, capabilities: string[]): Record<string, u
       maxOutboundBytes: MAX_OUTBOUND_BYTES,
       maxAgentDeltaBytes: MAX_AGENT_DELTA_BYTES,
     },
-    consumerNamespaces: ["farm"],
-    consumers,
   };
 }
 

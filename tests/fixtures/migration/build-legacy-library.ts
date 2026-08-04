@@ -253,6 +253,9 @@ function buildLegacyLayout(legacyRoot: string): void {
   write(path.join(legacyRoot, "generations.jsonl"), '{"id":"legacy-generation","status":"completed"}\n');
   fs.mkdirSync(path.join(legacyRoot, "empty-directory"), { recursive: true });
   write(path.join(legacyRoot, "unknown.empty"), "");
+  buildConflictingProductionAndDelivery(
+    path.join(legacyRoot, "projects", "legacy-registered"),
+  );
 }
 
 function buildProject(project: string, root: string): void {
@@ -299,6 +302,7 @@ function buildProject(project: string, root: string): void {
   write(path.join(project, "render", "work-crashed", "stderr.log"), "injected crash\n");
   write(path.join(project, "notes", "loose.md"), "Loose project note.\n");
   write(path.join(project, "exports", "loose.zip"), Buffer.from("504b0304", "hex"));
+  buildConflictingProductionAndDelivery(project);
 
   const anchor = path.join(project, "artifacts", "images", "anchor.png");
   write(anchor, "anchor-image");
@@ -442,6 +446,65 @@ function buildProject(project: string, root: string): void {
   write(path.join(project, ".DS_Store"), "fixture-system-file");
   fs.mkdirSync(path.join(project, "unknown-empty-directory"), { recursive: true });
   write(path.join(project, "unknown-empty-file"), "");
+}
+
+function buildConflictingProductionAndDelivery(project: string): void {
+  for (const [relative, body] of [
+    ["composition/production-source.html", "<html>production source</html>\n"],
+    ["composition/production-source.v2.html", "<html>production source v2</html>\n"],
+    ["render/production-master.mp4", "production-master"],
+    ["render/production-master.v2.mp4", "production-master-v2"],
+    ["composition/offer.v2.html", "<html>offer dot v2</html>\n"],
+    ["composition/offer-v2.html", "<html>offer dash v2</html>\n"],
+    ["composition/offer.r2.html", "<html>offer r2</html>\n"],
+    ["composition/offer-final.html", "<html>offer final</html>\n"],
+    ["composition/offer-final2.html", "<html>offer final2</html>\n"],
+    ["composition/offer.v3.html", ""],
+  ] as const) {
+    write(path.join(project, relative), body);
+  }
+  writeJson(path.join(project, "production.json"), {
+    productions: [{
+      id: "production-conflict",
+      compositionId: "offer",
+      sourceRevision: "composition/production-source.html",
+      output: "render/production-master.mp4",
+      profile: "master",
+      selected: true,
+      completedAt: "2026-07-01T10:00:00.000Z",
+    }],
+  });
+  writeJsonl(path.join(project, "production", "records.jsonl"), [{
+    id: "production-conflict",
+    compositionId: "offer",
+    sourceRevision: "composition/production-source.v2.html",
+    output: "render/production-master.v2.mp4",
+    profile: "master",
+    selected: false,
+    completedAt: "2026-07-01T10:00:00.000Z",
+  }]);
+  writeJson(path.join(project, "delivery.json"), {
+    attempts: [{
+      id: "delivery-conflict",
+      unitId: "campaign",
+      presentation: "instagram",
+      provider: "postiz",
+      providerPublicationId: "postiz-flat-101",
+      url: "https://social.example/flat-101",
+      status: "published",
+      publishedAt: "2026-07-02T09:00:00.000Z",
+    }],
+  });
+  writeJsonl(path.join(project, "delivery", "records.jsonl"), [{
+    id: "delivery-conflict",
+    unitId: "campaign",
+    presentation: "instagram",
+    provider: "postiz",
+    providerPublicationId: "postiz-tree-202",
+    url: "https://social.example/tree-202",
+    status: "published",
+    publishedAt: "2026-07-02T09:00:00.000Z",
+  }]);
 }
 
 function buildOperationalEvidence(currentRoot: string): void {

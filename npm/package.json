@@ -28,11 +28,9 @@
   "files": [
     "bin/",
     "scripts/",
-    "README.md",
-    "contracts/"
+    "README.md"
   ],
   "exports": {
-    "./contracts/farm-identity-v1.golden.json": "./contracts/farm-identity-v1.golden.json",
     "./package.json": "./package.json"
   },
   "engines": {

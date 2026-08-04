@@ -442,7 +442,7 @@ describe("jobs DB · bulk insert + list + counts", () => {
     openDb().prepare(
       "INSERT INTO migration_runs (id, phase, created_at, updated_at) VALUES (?, 'audited', ?, ?)",
     ).run(migrationId, Date.now(), Date.now());
-    const [held, release] = insertJobsAtomic([
+    const [held, release, directRelease] = insertJobsAtomic([
       {
         kind: "generate.video",
         command: { argv: ["held"] },
@@ -454,7 +454,25 @@ describe("jobs DB · bulk insert + list + counts", () => {
         command: { argv: ["release"] },
         migration_hold_run_id: migrationId,
       },
+      {
+        kind: "generate.image",
+        command: { argv: ["direct-release"] },
+        migration_hold_run_id: migrationId,
+      },
     ]);
+    openDb().prepare(
+      "INSERT INTO migration_runs (id, phase, created_at, updated_at) VALUES ('mig_other', 'audited', ?, ?)",
+    ).run(Date.now(), Date.now());
+    expect(() =>
+      openDb().prepare(
+        "UPDATE jobs SET migration_hold_run_id = NULL WHERE id = ?",
+      ).run(directRelease!),
+    ).toThrow(/cutover|hold/i);
+    expect(() =>
+      openDb().prepare(
+        "UPDATE jobs SET migration_hold_run_id = 'mig_other' WHERE id = ?",
+      ).run(directRelease!),
+    ).toThrow(/cutover|hold/i);
     const dependent = insertJob({
       kind: "render",
       command: { argv: ["dependent"] },
@@ -480,6 +498,10 @@ describe("jobs DB · bulk insert + list + counts", () => {
       `UPDATE migration_runs
        SET phase = 'cutover', cutover_at = ?, updated_at = ? WHERE id = ?`,
     ).run(now, now, migrationId);
+    openDb().prepare(
+      "UPDATE jobs SET migration_hold_run_id = NULL WHERE id = ?",
+    ).run(directRelease!);
+    expect(getJob(directRelease!)?.migration_hold_run_id).toBeNull();
     expect(resumeHeldJob(release!, "wrong-run")).toBe(false);
     expect(resumeHeldJob(release!, migrationId)).toBe(true);
     expect(claimNextPending(["generate.image"])?.id).toBe(release!);

@@ -6,9 +6,6 @@ import path from "node:path";
 import { ralphDir } from "../paths.js";
 import {
   decodeConsumerToken,
-  farmIdentityDigest,
-  parseFarmIdentity,
-  type FarmIdentityV1,
 } from "./consumers.js";
 import { getConsumerPrincipal } from "./internal-consumers.js";
 import { openDomainDb } from "./db.js";
@@ -19,6 +16,22 @@ const AUTHORITY_ERROR = "Consumer authority is not live";
 const SESSION_ERROR = "Consumer Session is not owned by this authority";
 const FARM_IDENTITY_BYTES_MAX = 4096;
 const DARWIN_O_NOFOLLOW_ANY = 0x20000000;
+const FARM_IDENTITY_FIELDS = [
+  "version", "namespace", "storeId", "consumerId", "migrationId",
+  "stageDigest", "credentialDigest",
+] as const;
+const BOUNDED_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const LOWER_HEX_64 = /^[0-9a-f]{64}$/;
+
+type FarmIdentityV1 = {
+  version: 1;
+  namespace: "farm";
+  storeId: string;
+  consumerId: string;
+  migrationId: string;
+  stageDigest: string;
+  credentialDigest: string;
+};
 
 declare const consumerAuthorityBrand: unique symbol;
 
@@ -233,6 +246,34 @@ function authorityState(authority: ConsumerAuthority): AuthorityState {
   const state = authorityStates.get(authority as object);
   if (!state || state.revoked) throw new Error(AUTHORITY_ERROR);
   return state;
+}
+
+function parseFarmIdentity(canonical: string): FarmIdentityV1 {
+  const identity = JSON.parse(canonical) as FarmIdentityV1;
+  if (
+    typeof identity !== "object" ||
+    identity === null ||
+    Array.isArray(identity) ||
+    Object.keys(identity).length !== FARM_IDENTITY_FIELDS.length ||
+    identity.version !== 1 ||
+    identity.namespace !== "farm" ||
+    ![identity.storeId, identity.consumerId, identity.migrationId].every(
+      (value) => typeof value === "string" && BOUNDED_ID.test(value),
+    ) ||
+    ![identity.stageDigest, identity.credentialDigest].every(
+      (value) => typeof value === "string" && LOWER_HEX_64.test(value),
+    ) ||
+    JSON.stringify(Object.fromEntries(
+      FARM_IDENTITY_FIELDS.map((key) => [key, identity[key]]),
+    )) !== canonical
+  ) {
+    throw new Error(IDENTITY_ERROR);
+  }
+  return identity;
+}
+
+function farmIdentityDigest(canonical: string): string {
+  return createHash("sha256").update(Buffer.from(canonical, "utf8")).digest("hex");
 }
 
 function readFarmIdentityRecord(): {
