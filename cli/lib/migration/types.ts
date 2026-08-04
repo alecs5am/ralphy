@@ -87,6 +87,18 @@ export type MigrationAudit = {
   registryOnlyProjects: string[];
   cloneSupport: "not-probed";
   freeBytes: number;
+  requiredCopyBytes: number;
+  jobStatusCounts: Record<string, number>;
+  desktopCandidates: {
+    reviews: number;
+    secrets: number;
+    settings: number;
+  };
+  processes: Array<{
+    category: string;
+    pid: number;
+    count: number;
+  }>;
   blockers: MigrationIssue[];
 };
 
@@ -176,6 +188,7 @@ export type MigrationLock = {
   sourceDevice: string;
   sourceInode: string;
   pid: number;
+  processStartIdentity: string;
   uid: number;
   createdAt: number;
 };

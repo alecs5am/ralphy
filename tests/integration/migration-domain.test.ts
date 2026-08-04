@@ -11,17 +11,22 @@ import { freezeMigration, verifyMigration } from "../../cli/lib/migration/verify
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 
 let root: TmpRoot | null = null;
+let previousPath: string | undefined;
 
 afterEach(() => {
   closeDomainDb();
+  if (previousPath === undefined) delete process.env.PATH;
+  else process.env.PATH = previousPath;
+  previousPath = undefined;
   root?.cleanup();
   root = null;
 });
 
 describe("domain migration primitives", () => {
-  test("audits without creating the journal, then inventories and stages deterministically", () => {
+  test("audits without creating the journal, then inventories and stages deterministically", async () => {
     root = makeTmpRoot("ralphy-migration");
-    const source = path.join(root.dir, "source");
+    quietProcessTools(root.dir);
+    const source = path.join(fs.realpathSync(root.dir), "source", ".ralphy");
     const verification = path.join(root.dir, "verification");
     fs.mkdirSync(path.join(source, "projects", "alpha", "docs"), { recursive: true });
     fs.mkdirSync(path.join(source, "media"), { recursive: true });
@@ -34,34 +39,34 @@ describe("domain migration primitives", () => {
     expect(fs.existsSync(path.join(root.dir, ".ralphy", "ralphy.db"))).toBe(false);
 
     const started = startMigration({
-      storeRoot: path.join(root.dir, ".ralphy"),
       sourceRoots: [{ id: "source", kind: "ralphy", path: source }],
     });
-    const resumed = resumeMigration({
+    const resumed = await resumeMigration({
       runId: started.runId,
-      storeRoot: path.join(root.dir, ".ralphy"),
       sourceRoots: [{ id: "source", kind: "ralphy", path: source }],
+      lock: started.lock,
     });
     expect(resumed.inventory?.sourceFiles).toBe(3);
-    expect(openDomainDb().query<{ count: number }, [string]>(
+    const stageDb = openDomainDbAt(started.storeRoot);
+    expect(stageDb.query<{ count: number }, [string]>(
       "SELECT COUNT(*) AS count FROM migration_entries WHERE migration_run_id = ?",
     ).get(started.runId)?.count).toBeGreaterThan(3);
-    expect(openDomainDb().query<{ count: number }, [string]>(
+    expect(stageDb.query<{ count: number }, [string]>(
       "SELECT COUNT(*) AS count FROM migration_issues WHERE migration_run_id = ?",
     ).get(started.runId)?.count).toBe(1);
 
     fs.rmSync(path.join(source, "unknown.bin"));
-    openDomainDb().prepare(
+    stageDb.prepare(
       "UPDATE migration_issues SET resolved_at = ? WHERE migration_run_id = ?",
     ).run(Date.now(), started.runId);
-    openDomainDb().prepare(
+    stageDb.prepare(
       `UPDATE migration_entries
        SET disposition = 'recovery-only', state = 'excluded', terminal_at = ?, updated_at = ?
        WHERE migration_run_id = ? AND state = 'issue'`,
     ).run(Date.now(), Date.now(), started.runId);
     const ctx = {
-      db: openDomainDb(),
-      storeRoot: path.join(root.dir, ".ralphy"),
+      db: stageDb,
+      storeRoot: started.storeRoot,
       sourceRoots: [{ id: "source", kind: "ralphy" as const, path: fs.realpathSync(source), device: BigInt(fs.statSync(source).dev), inode: BigInt(fs.statSync(source).ino) }],
       runId: started.runId,
     };
@@ -71,11 +76,12 @@ describe("domain migration primitives", () => {
     expect(staged.staged).toBe(1);
     const frozen = freezeMigration(ctx, { verificationDir: verification });
     expect(frozen.entryCount).toBeGreaterThan(0);
-    const verified = verifyMigration({ storeRoot: path.join(root.dir, ".ralphy"), runId: started.runId, verificationDir: verification });
+    const verified = verifyMigration({ storeRoot: started.storeRoot, runId: started.runId, verificationDir: verification });
     expect(verified.ok).toBe(true);
     expect(verified.verificationId).toHaveLength(32);
     expect(fs.statSync(verified.recordPath).mode & 0o777).toBe(0o600);
     expect(fs.statSync(frozen.recordPath).mode & 0o777).toBe(0o600);
+    stageDb.close();
   });
 
   test("cutover is journaled and rollback restores the original generation", () => {
@@ -107,33 +113,32 @@ describe("domain migration primitives", () => {
     expect(fs.readFileSync(path.join(journal.rollbackPath, "generation.txt"), "utf8")).toBe("sqlite");
   });
 
-  test("migration service writes only to its explicit store root", () => {
+  test("migration service writes only to its derived store root", async () => {
     root = makeTmpRoot("ralphy-migration-explicit-root");
-    const source = path.join(root.dir, "source");
-    const storeRoot = path.join(root.dir, "isolated-stage", ".ralphy");
+    quietProcessTools(root.dir);
+    const source = path.join(fs.realpathSync(root.dir), "source", ".ralphy");
     fs.mkdirSync(source, { recursive: true });
     fs.writeFileSync(path.join(source, "BRIEF.md"), "# Explicit\n");
 
     const started = startMigration({
-      storeRoot,
       sourceRoots: [{ id: "source", kind: "ralphy", path: source }],
     });
-    resumeMigration({
+    await resumeMigration({
       runId: started.runId,
-      storeRoot,
       sourceRoots: [{ id: "source", kind: "ralphy", path: source }],
+      lock: started.lock,
     });
 
-    expect(fs.existsSync(path.join(storeRoot, "ralphy.db"))).toBe(true);
+    expect(fs.existsSync(path.join(started.storeRoot, "ralphy.db"))).toBe(true);
     expect(fs.existsSync(path.join(root.dir, ".ralphy", "ralphy.db"))).toBe(false);
-    expect(migrationStatus({ runId: started.runId, storeRoot })?.phase).toBe("inventory");
+    expect(migrationStatus({ runId: started.runId, storeRoot: started.storeRoot })?.phase).toBe("inventory");
   });
 
-  test("imports same-kind sources by immutable source identity", () => {
+  test("imports same-kind sources by immutable source identity", async () => {
     root = makeTmpRoot("ralphy-migration-source-identity");
-    const first = path.join(root.dir, "first");
-    const second = path.join(root.dir, "second");
-    const storeRoot = path.join(root.dir, "stage", ".ralphy");
+    quietProcessTools(root.dir);
+    const first = path.join(fs.realpathSync(root.dir), "first", ".ralphy");
+    const second = path.join(fs.realpathSync(root.dir), "second");
     fs.mkdirSync(first, { recursive: true });
     fs.mkdirSync(second, { recursive: true });
     fs.writeFileSync(path.join(first, "BRIEF.md"), "first-source\n");
@@ -143,13 +148,13 @@ describe("domain migration primitives", () => {
       { id: "first", kind: "ralphy" as const, path: first },
       { id: "second", kind: "ralphy" as const, path: second },
     ];
-    const started = startMigration({ storeRoot, sourceRoots });
-    resumeMigration({ runId: started.runId, storeRoot, sourceRoots });
-    const db = openDomainDbAt(storeRoot);
+    const started = startMigration({ sourceRoots });
+    await resumeMigration({ runId: started.runId, sourceRoots, lock: started.lock });
+    const db = openDomainDbAt(started.storeRoot);
     try {
       importScopesAndDocuments({
         db,
-        storeRoot,
+        storeRoot: started.storeRoot,
         sourceRoots: sourceRoots.map(createMigrationSourceRoot),
         runId: started.runId,
       });
@@ -164,3 +169,14 @@ describe("domain migration primitives", () => {
     }
   });
 });
+
+function quietProcessTools(directory: string): void {
+  const bin = path.join(directory, "quiet-bin");
+  fs.mkdirSync(bin, { recursive: true });
+  fs.writeFileSync(path.join(bin, "ps"), `#!/bin/sh\nif [ "$1" = "-o" ] && [ "$2" = "lstart=" ]; then exec /bin/ps "$@"; fi\nexit 0\n`);
+  fs.writeFileSync(path.join(bin, "lsof"), "#!/bin/sh\nexit 0\n");
+  fs.chmodSync(path.join(bin, "ps"), 0o700);
+  fs.chmodSync(path.join(bin, "lsof"), 0o700);
+  previousPath = process.env.PATH;
+  process.env.PATH = `${bin}:${previousPath ?? ""}`;
+}

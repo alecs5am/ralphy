@@ -1,28 +1,5 @@
-// `ralphy migrate` — one-pass migration of the current root to the final
-// layout: `.ralphy/` root + workspaces grouping (#108) + per-project
-// `artifacts/` media tree (#105). Idempotent, dry-runnable, top-level (it
-// migrates the whole root, not one workspace). Issue #106.
-//
-// Append-only rationale (AGENTS.md invariant #14): the migration rewrites
-// path strings inside `asset-manifest.json`, `logs/generations.jsonl`,
-// `logs/user-assets.jsonl`, `units/*/unit.json`, `index.html` and
-// `compositions/*.html` — this is a STRUCTURAL RELOCATION, the path strings
-// follow the files they point at; it is NOT a log edit. JSONL logs are
-// rewritten strictly line-by-line: no line is ever dropped, filtered, or
-// reordered. Failed/rejected generations, `.vN` version siblings, and `old/`
-// archives all move byte-identically. POSTMORTEM.md and `postmortem/`
-// (historical citations) are left untouched.
-//
-// Refuses while generation jobs are in flight (invariant #17: a background
-// `ralphy generate` reads its prompt/ref files lazily — moving them mid-run
-// fails silently). Never auto-run this from another command.
-
 import { Command } from "commander";
-import { root, setLegacyAllowed } from "../lib/paths.js";
-import { runMigration, MigrateRefusal } from "../lib/migrate.js";
-import { out, ok } from "../lib/output.js";
-import { raiseError } from "../lib/errors/index.js";
-import path from "node:path";
+import { out } from "../lib/output.js";
 import {
   cutoverMigration,
   migrationStatus,
@@ -36,105 +13,65 @@ import { verifyMigration } from "../lib/migration/verify.js";
 
 export function migrateCmd() {
   const command = new Command("migrate")
-    .description(
-      "One-pass migration of this root to the final layout: workspace/ tree → .ralphy/ root + workspaces (#108), per-project assets/ + refs/ → artifacts/ (#105). Idempotent; refuses while generation jobs are in flight. Structural relocation: path strings in manifests/logs/HTML follow their files (NOT a log edit — invariant #14).",
-    )
-    .option("--dry-run", "Print the full move + rewrite plan without touching disk")
-    .option(
-      "--project <id>",
-      "Scope to one project's inner artifacts/ move only (requires the root move to be done already)",
-    )
-    .action(async (opts: { dryRun?: boolean; project?: string }) => {
-      // The migration must READ the legacy tree — opt out of the #106
-      // fail-fast guard (this and `doctor` are the only verbs that do).
-      setLegacyAllowed(true);
-      try {
-        const report = await runMigration({
-          rootDir: root(),
-          dryRun: Boolean(opts.dryRun),
-          projectId: opts.project,
-        });
-        if (report.already_migrated) {
-          ok("Already migrated — nothing to do.");
-        } else if (report.mode === "dry-run") {
-          ok(
-            `Dry-run plan: ${report.root_moves.length} root move(s), ${report.projects.length} project(s). Nothing was written.`,
-          );
-        } else {
-          ok(
-            `Migrated: ${report.root_moves.length} root move(s), ${report.projects.length} project(s).`,
-          );
-        }
-        out(report);
-      } catch (e) {
-        if (e instanceof MigrateRefusal) {
-          raiseError(e.errorCode, e.ctx);
-        }
-        throw e;
-      }
-    });
-  command.addCommand(domainMigrationCmd());
-  return command;
-}
-
-function domainMigrationCmd(): Command {
-  const domain = new Command("domain").description("Audit and resume the SQLite domain-store migration");
-  domain.addCommand(new Command("audit")
+    .description("Audit, stage, verify, and recover the SQLite domain-store migration");
+  command.addCommand(new Command("audit")
     .requiredOption("--source <path>", "Exact source root to audit")
     .option("--legacy-source <path>", "Additional legacy workspace source root")
     .option("--desktop-source <path>", "Additional Desktop export source root")
     .action((opts: { source: string; legacySource?: string; desktopSource?: string }) => {
       out(startMigrationAudit(opts));
     }));
-  domain.addCommand(new Command("run")
+  command.addCommand(new Command("run")
     .requiredOption("--source <path>", "Exact source root to migrate")
-    .option("--store-root <path>", "Explicit staged .ralphy data root")
     .option("--legacy-source <path>", "Additional legacy workspace source root")
     .option("--desktop-source <path>", "Additional Desktop export source root")
-    .action((opts: { source: string; storeRoot?: string; legacySource?: string; desktopSource?: string }) => {
+    .action(async (opts: { source: string; legacySource?: string; desktopSource?: string }) => {
       const started = startMigration({
-        storeRoot: opts.storeRoot ?? path.join(root(), ".ralphy"),
         sourceRoots: sourceRoots(opts),
       });
-      const resumed = resumeMigration({
+      const resumed = await resumeMigration({
         runId: started.runId,
-        storeRoot: opts.storeRoot ?? path.join(root(), ".ralphy"),
         sourceRoots: sourceRoots(opts),
+        lock: started.lock,
       });
-      out({ runId: started.runId, audit: started.audit, status: resumed.status, inventory: resumed.inventory });
+      out({
+        runId: started.runId,
+        audit: started.audit,
+        cloneSupport: started.cloneSupport,
+        status: resumed.status,
+        inventory: resumed.inventory,
+      });
     }));
-  domain.addCommand(new Command("resume")
+  command.addCommand(new Command("resume")
     .requiredOption("--run-id <id>", "Migration Run ID")
     .requiredOption("--source <path>", "Exact source root to resume")
-    .option("--store-root <path>", "Explicit staged .ralphy data root")
     .option("--legacy-source <path>", "Additional legacy workspace source root")
     .option("--desktop-source <path>", "Additional Desktop export source root")
-    .action((opts: { runId: string; source: string; storeRoot?: string; legacySource?: string; desktopSource?: string }) => {
-      out(resumeMigration({
+    .action(async (opts: { runId: string; source: string; legacySource?: string; desktopSource?: string }) => {
+      out(await resumeMigration({
         runId: opts.runId,
-        storeRoot: opts.storeRoot ?? path.join(root(), ".ralphy"),
         sourceRoots: sourceRoots(opts),
       }));
     }));
-  domain.addCommand(new Command("status")
+  command.addCommand(new Command("status")
     .requiredOption("--run-id <id>", "Migration Run ID")
-    .option("--store-root <path>", "Explicit staged .ralphy data root")
-    .action((opts: { runId: string; storeRoot?: string }) => out(migrationStatus({
+    .requiredOption("--store-root <path>", "Exact staged .ralphy root")
+    .action((opts: { runId: string; storeRoot: string }) => out(migrationStatus({
       runId: opts.runId,
-      storeRoot: opts.storeRoot ?? path.join(root(), ".ralphy"),
+      storeRoot: opts.storeRoot,
     }))));
-  domain.addCommand(new Command("verify")
+  command.addCommand(new Command("verify")
     .requiredOption("--run-id <id>", "Migration Run ID")
-    .option("--store-root <path>", "Staged .ralphy root; defaults to the current root")
+    .requiredOption("--store-root <path>", "Exact staged .ralphy root")
     .requiredOption("--verification-dir <path>", "Directory outside source/stage roots for the report")
-    .action((opts: { runId: string; storeRoot?: string; verificationDir: string }) => {
+    .action((opts: { runId: string; storeRoot: string; verificationDir: string }) => {
       out(verifyMigration({
         runId: opts.runId,
-        storeRoot: opts.storeRoot ?? path.join(root(), ".ralphy"),
+        storeRoot: opts.storeRoot,
         verificationDir: opts.verificationDir,
       }));
       }));
-  domain.addCommand(new Command("cutover")
+  command.addCommand(new Command("cutover")
     .requiredOption("--run-id <id>", "Migration Run ID")
     .requiredOption("--confirm <id>", "Repeat the Migration Run ID as an explicit destructive-action confirmation")
     .requiredOption("--verification-id <id>", "Read-only verification ID")
@@ -152,7 +89,7 @@ function domainMigrationCmd(): Command {
       }));
     }));
   for (const name of ["recover", "rollback"] as const) {
-    domain.addCommand(new Command(name)
+    command.addCommand(new Command(name)
       .requiredOption("--run-id <id>", "Migration Run ID")
       .requiredOption("--confirm <id>", "Repeat the Migration Run ID as an explicit confirmation")
       .requiredOption("--journal <path>", "External mode-0600 cutover journal")
@@ -163,7 +100,7 @@ function domainMigrationCmd(): Command {
           : rollbackCutover({ runId: opts.runId, journalPath: opts.journal }));
       }));
   }
-  return domain;
+  return command;
 }
 
 function sourceRoots(opts: { source: string; legacySource?: string; desktopSource?: string }): Array<{ id: string; kind: "ralphy" | "legacy-workspace" | "desktop"; path: string }> {

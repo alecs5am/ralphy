@@ -72,7 +72,7 @@ describe("ERROR_CODES catalog", () => {
       hint: ERROR_CODES.E_MIGRATION_INCOMPLETE.hint,
     }).toEqual({
       class: "user",
-      hint: "Run `ralphy migrate domain verify` and complete or recover the reported migration.",
+      hint: "Run `ralphy migrate verify` and complete or recover the reported migration.",
     });
     expect({
       class: ERROR_CODES.E_PROTOCOL_UNSUPPORTED.class,

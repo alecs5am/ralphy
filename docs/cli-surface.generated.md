@@ -1857,20 +1857,21 @@ ____        __      __
 
 Usage: ralphy migrate [options] [command]
 
-One-pass migration of this root to the final layout: workspace/ tree → .ralphy/
-root + workspaces (#108), per-project assets/ + refs/ → artifacts/ (#105).
-Idempotent; refuses while generation jobs are in flight. Structural relocation:
-path strings in manifests/logs/HTML follow their files (NOT a log edit —
-invariant #14).
+Audit, stage, verify, and recover the SQLite domain-store migration
 
 Options:
-  --dry-run       Print the full move + rewrite plan without touching disk
-  --project <id>  Scope to one project's inner artifacts/ move only (requires
-                  the root move to be done already)
-  -h, --help      display help for command
+  -h, --help          display help for command
 
 Commands:
-  domain          Audit and resume the SQLite domain-store migration
+  audit [options]
+  run [options]
+  resume [options]
+  status [options]
+  verify [options]
+  cutover [options]
+  recover [options]
+  rollback [options]
+  help [command]      display help for command
 ```
 
 ### `ralphy assets`
