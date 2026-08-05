@@ -438,24 +438,89 @@ async function estimateRemainingCopy(ctx: MigrationContext, rows: readonly Entry
       row.state !== "inventoried" || isSecret(row) || isSystem(row)
       || row.entryKind !== "file" || row.bytes === 0 || row.disposition === "issue"
     ) continue;
+    const disposition = row.disposition === "cache" && isWorkingEvidence(row.sourcePath)
+      ? "run-object"
+      : row.disposition;
     if (
-      row.disposition === "cache" || row.disposition === "object"
-      || row.disposition === "run-object" || row.disposition === "decoded-object"
-      || (row.disposition === "domain" && row.targetPath)
+      disposition === "cache" || disposition === "object"
+      || disposition === "run-object" || disposition === "decoded-object"
+      || (disposition === "domain" && row.targetPath)
     ) {
-      rawBytes += row.bytes;
       ledgerEntries += 1;
     }
-    if (row.disposition === "cache") continue;
+    if (disposition === "cache") {
+      const source = sourceFile(ctx, row);
+      const before = sourceFacts(source, row);
+      const sourceDigest = await hashFile(source);
+      assertInventoryDigest(row, sourceDigest, "cache source");
+      rawBytes += await remainingPromotedBytes(
+        ctx,
+        cacheTarget(ctx, row),
+        sourceDigest,
+        "cache",
+      );
+      assertSourceUnchanged(source, before);
+      continue;
+    }
+    if (!new Set(["object", "run-object", "decoded-object", "domain"]).has(disposition)) continue;
     objectRows += 1;
-    if (row.disposition !== "domain" || !row.targetPath) continue;
+    const scope = scopeForEntry(ctx, row);
+    if (disposition !== "domain" || !row.targetPath) {
+      const source = sourceFile(ctx, row);
+      const before = sourceFacts(source, row);
+      const sourceDigest = await hashFile(source);
+      assertInventoryDigest(row, sourceDigest, "Object source");
+      const objectId = allocatedObjectId(row, "primary", ctx.runId);
+      rawBytes += await remainingPromotedBytes(
+        ctx,
+        path.join(ctx.storeRoot, ...objectLocator(scope, objectId, path.posix.basename(row.sourcePath)).split("/")),
+        sourceDigest,
+        "Object",
+      );
+      assertSourceUnchanged(source, before);
+      continue;
+    }
     const source = sourceFile(ctx, row);
     const before = sourceFacts(source, row);
     const raw = fs.readFileSync(source);
     const decoded = decodedDataUrls(raw);
     const diagnostics = malformedDiagnostics(ctx, row, raw);
-    decodedBytes += decoded.reduce((sum, value) => sum + value.bytes.length, 0);
-    diagnosticBytes += diagnostics.reduce((sum, value) => sum + value.bytes.length, 0);
+    const rawId = allocatedObjectId(row, "raw", ctx.runId);
+    rawBytes += await remainingPromotedBytes(
+      ctx,
+      path.join(ctx.storeRoot, ...objectLocator(
+        scope,
+        rawId,
+        `${path.posix.basename(row.sourcePath)}.raw`,
+      ).split("/")),
+      digestBytes(raw),
+      "raw evidence",
+    );
+    for (const [index, value] of decoded.entries()) {
+      const id = allocatedObjectId(row, `data-url:${index}`, ctx.runId);
+      decodedBytes += await remainingPromotedBytes(
+        ctx,
+        path.join(ctx.storeRoot, ...objectLocator(
+          scope,
+          id,
+          `decoded-${index + 1}${extensionForMime(value.mime)}`,
+        ).split("/")),
+        digestBytes(value.bytes),
+        "decoded Object",
+      );
+    }
+    for (const diagnostic of diagnostics) {
+      diagnosticBytes += await remainingPromotedBytes(
+        ctx,
+        path.join(ctx.storeRoot, ...objectLocator(
+          scope,
+          diagnostic.id,
+          `malformed-line-${diagnostic.lineNo}.raw`,
+        ).split("/")),
+        { bytes: diagnostic.bytes.length, sha256: diagnostic.sha256 },
+        "diagnostic Object",
+      );
+    }
     objectRows += decoded.length + diagnostics.length;
     assertSourceUnchanged(source, before);
   }
@@ -471,14 +536,63 @@ async function estimateRemainingCopy(ctx: MigrationContext, rows: readonly Entry
   };
 }
 
+async function remainingPromotedBytes(
+  ctx: MigrationContext,
+  target: string,
+  expected: { bytes: number; sha256: string },
+  label: string,
+): Promise<number> {
+  if (!fs.existsSync(target)) return expected.bytes;
+  const actual = await hashSafeStoreFile(ctx.storeRoot, target);
+  if (actual.bytes !== expected.bytes || actual.sha256 !== expected.sha256) {
+    throw new Error(`Existing promoted migration ${label} conflicts with its immutable source`);
+  }
+  return 0;
+}
+
+function assertInventoryDigest(
+  row: Entry,
+  actual: { bytes: number; sha256: string },
+  label: string,
+): void {
+  if (actual.bytes !== row.bytes || (row.sha256 && actual.sha256 !== row.sha256)) {
+    throw new Error(`Migration ${label} digest does not match its inventory`);
+  }
+}
+
+function digestBytes(bytes: Uint8Array): { bytes: number; sha256: string } {
+  return {
+    bytes: bytes.length,
+    sha256: createHash("sha256").update(bytes).digest("hex"),
+  };
+}
+
+function cacheTarget(ctx: MigrationContext, row: Entry): string {
+  return path.join(
+    ctx.storeRoot,
+    "cache",
+    "migration",
+    row.sourceLocatorHash,
+    path.posix.basename(row.sourcePath),
+  );
+}
+
 function persistCopyEstimate(ctx: MigrationContext, estimate: CopyEstimate): void {
   const detail = JSON.stringify({ version: 1, ...estimate });
+  const digest = createHash("sha256").update(detail).digest("hex");
+  const id = stableId("miss", ctx.runId, `copy-space-estimate:${digest}`);
+  const existing = ctx.db.query<{ detail: string }, [string]>(
+    "SELECT detail_json AS detail FROM migration_issues WHERE id = ?",
+  ).get(id);
+  if (existing) {
+    if (existing.detail !== detail) throw new Error("Migration copy estimate identity conflict");
+    return;
+  }
   ctx.db.prepare(
     `INSERT INTO migration_issues
      (id, migration_run_id, migration_entry_id, code, severity, detail_json, created_at)
-     VALUES (?, ?, NULL, 'MIGRATION_COPY_SPACE_ESTIMATE', 'info', ?, ?)
-     ON CONFLICT(id) DO UPDATE SET detail_json = excluded.detail_json`,
-  ).run(stableId("miss", ctx.runId, "copy-space-estimate"), ctx.runId, detail, Date.now());
+     VALUES (?, ?, NULL, 'MIGRATION_COPY_SPACE_ESTIMATE', 'info', ?, ?)`,
+  ).run(id, ctx.runId, detail, Date.now());
 }
 
 function assertCopySpace(ctx: MigrationContext, requiredCopyBytes: number, freeOverride?: number): void {
