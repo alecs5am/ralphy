@@ -251,13 +251,14 @@ describe("migration inventory", () => {
       ).get(runId)?.count).toBe(3);
 
       const rows = db.query<{
+        sourceKind: string;
         sourcePath: string;
         entryKind: string;
         disposition: string;
         bytes: number;
         sha256: string | null;
       }, [string]>(
-        `SELECT source_path AS sourcePath, entry_kind AS entryKind, disposition, bytes, sha256
+        `SELECT source_kind AS sourceKind, source_path AS sourcePath, entry_kind AS entryKind, disposition, bytes, sha256
          FROM migration_entries WHERE migration_run_id = ?`,
       ).all(runId);
       expect(rows.find((row) => row.sourcePath.endsWith("semantic-empty-directory"))).toMatchObject({
@@ -272,6 +273,10 @@ describe("migration inventory", () => {
         disposition: "issue",
         bytes: 0,
       });
+      expect(rows.find((row) => row.sourceKind === "desktop" && row.sourcePath === "foo-api-key.bin"))
+        .toMatchObject({ disposition: "issue" });
+      expect(rows.find((row) => row.sourceKind === "desktop" && row.sourcePath === "logs/desktop.log"))
+        .toMatchObject({ disposition: "system" });
       expect(rows.find((row) => row.sourcePath === "config.json")?.sha256).toBe(
         fixture.expected.sha256["ralphy:config.json"],
       );

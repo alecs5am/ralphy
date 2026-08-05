@@ -34,6 +34,20 @@ const MEDIA_EXTENSIONS = new Set([
   ".aac", ".avi", ".gif", ".jpeg", ".jpg", ".m4a", ".mkv", ".mov",
   ".mp3", ".mp4", ".ogg", ".png", ".svg", ".wav", ".webm", ".webp", ".zip",
 ]);
+const OPAQUE_OBJECT_EXTENSIONS = new Set([
+  ".aiff", ".bak", ".broken", ".css", ".cursorrules", ".filter", ".gid",
+  ".html", ".ico", ".image", ".js", ".log", ".mjs", ".orig", ".pdf",
+  ".py", ".pyc", ".sh", ".srt", ".ts", ".tsv", ".ttc", ".ttf", ".vtt", ".woff2",
+]);
+const DESKTOP_SYSTEM_ROOTS = new Set([
+  "cache", "code cache", "dawngraphitecache", "dawnwebgpucache", "gpucache",
+  "local storage", "logs", "session storage", "shared dictionary", "shared_proto_db",
+  "sharedstorage", "videodecodestats",
+]);
+const DESKTOP_SYSTEM_FILES = new Set([
+  "dips", "devtoolsactiveport", "local state", "network persistent state",
+  "preferences", "trust tokens", "trust tokens-journal",
+]);
 export function sourceLocatorHash(sourceKind: MigrationSourceKind, relativePath: string): string {
   const normalized = normalizeRelativePath(relativePath);
   return createHash("sha256").update(`${sourceKind}\0${normalized}`, "utf8").digest("hex");
@@ -408,8 +422,8 @@ async function scanInventorySource(source: MigrationSourceRoot): Promise<Invento
       }
       const stat = await fs.promises.lstat(absolute);
       const kind = entryKind(stat);
-      const disposition = classifyDisposition(relative, kind);
       const bytes = stat.isFile() ? stat.size : 0;
+      const disposition = classifyDisposition(relative, kind, source.kind, bytes);
       const sha = stat.isFile() && disposition === "domain" && bytes <= MAX_CONTROL_HASH_BYTES
         ? sha256(await fs.promises.readFile(absolute))
         : null;
@@ -894,12 +908,20 @@ function fsyncDirectory(directory: string): void {
   }
 }
 
-function classifyDisposition(relative: string, kind: MigrationEntryKind): MigrationDisposition {
+function classifyDisposition(
+  relative: string,
+  kind: MigrationEntryKind,
+  sourceKind: MigrationSourceKind,
+  bytes: number,
+): MigrationDisposition {
   if (kind !== "file") return kind === "directory" ? "system" : "issue";
   const basename = path.posix.basename(relative).toLowerCase();
+  const extension = path.posix.extname(basename) || basename;
   if (basename === ".ds_store") return "system";
   if (isLegacySecretCandidate(relative)) return "secret-recovery-only";
   if (relative.split("/").some((part) => part === "cache" || part === "tmp")) return "cache";
+  if (sourceKind === "desktop" && isDesktopSystemPath(relative)) return "system";
+  if (bytes === 0 && (basename === "jobs.db-wal" || basename === "jobs.db-shm")) return "system";
   if (/^(?:workspaces\/[^/]+\/projects\/[^/]+|projects\/[^/]+)\/render\/work-[^/]+\//iu.test(relative)) {
     return "run-object";
   }
@@ -907,8 +929,17 @@ function classifyDisposition(relative: string, kind: MigrationEntryKind): Migrat
     return "object";
   }
   if (isLegacyControlName(basename) || [".json", ".jsonl", ".md", ".markdown", ".txt", ".yaml", ".yml"].some((suffix) => basename.endsWith(suffix))) return "domain";
-  if (MEDIA_EXTENSIONS.has(path.posix.extname(basename))) return "object";
+  if (MEDIA_EXTENSIONS.has(extension)) return "object";
+  if (OPAQUE_OBJECT_EXTENSIONS.has(extension)) return bytes === 0 ? "system" : "object";
   return "issue";
+}
+
+function isDesktopSystemPath(relative: string): boolean {
+  const normalized = relative.toLowerCase();
+  const root = normalized.split("/", 1)[0] ?? "";
+  return DESKTOP_SYSTEM_ROOTS.has(root)
+    || DESKTOP_SYSTEM_FILES.has(normalized)
+    || /^\.window-state\.json\.[^.]+\.tmp$/u.test(normalized);
 }
 
 function entryKind(stat: fs.Stats): MigrationEntryKind {
