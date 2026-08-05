@@ -16,6 +16,7 @@ import {
   isLegacyRootConfigPath,
   isLegacySecretCandidate,
   isLegacyUnitManifestName,
+  iterateLegacyJsonl,
   LegacySanitizationCollisionError,
   normalizeLegacyDocumentBody,
   normalizeLegacyValue,
@@ -251,105 +252,15 @@ export function importScopesAndDocuments(ctx: MigrationContext): MigrationImport
   const sourceById = new Map(ctx.sourceRoots.map((source) => [source.id, source]));
   const prepared = prepareEntries(entries, sourceById);
   const scopes = buildScopeModel(ctx, entries, prepared);
-  const documents: PreparedDocument[] = [];
+  const bindingDocuments: PreparedDocument[] = [];
   const refs = new Map<string, Set<string>>();
   const evidence = new Map<string, { targetPath: string; sha256: string }>();
   const secrets = new Set<string>();
   const issues: PreparedIssue[] = [];
 
-  for (const item of prepared) {
-    const { entry, source, raw } = item;
-    if (entry.sourceKind === "desktop") continue;
-    const kind = classifyLegacyPath(entry.sourcePath);
-    if (kind === "job-database") continue;
-    if (isLegacySecretCandidate(entry.sourcePath, raw)) {
-      secrets.add(entry.id);
-      continue;
-    }
-    if (entry.bytes > 0) {
-      evidence.set(entry.id, {
-        targetPath: evidencePath(entry),
-        sha256: sha256(raw),
-      });
-    }
-    if (kind === "raw-evidence") continue;
-    const scope = scopeForPath(scopes, entry, source);
-    if (!scope) continue;
-    if (kind === "jsonl") {
-      for (const record of parseLegacyJsonl(raw, entry.sourcePath)) {
-        if (record.issue) {
-          issues.push({
-            entryId: null,
-            issueKey: `jsonl:${entry.sourceLabel}:${entry.sourceLocatorHash}:${record.lineNo}`,
-            code: record.issue.code,
-            severity: record.issue.severity,
-            lineNo: record.lineNo,
-            detail: {
-              ...record.issue.detail,
-              evidenceTargetPath: `migration-evidence/diagnostics/${stableKey(entry.sourceLabel)}/${entry.sourceLocatorHash}-${record.lineNo}.raw`,
-            },
-          });
-          continue;
-        }
-        if (record.value === null) continue;
-        try {
-          documents.push(preparedJsonDocument(
-            ctx,
-            entry,
-            scope,
-            record.value,
-            `line-${record.lineNo}`,
-            entry.mtimeMs,
-            source.path,
-          ));
-        } catch (error) {
-          if (!(error instanceof LegacySanitizationCollisionError)) throw error;
-          issues.push({
-            entryId: null,
-            issueKey: `document-key-collision:${entry.sourceLabel}:${entry.sourceLocatorHash}:${record.lineNo}`,
-            code: "MIGRATION_DOCUMENT_KEY_COLLISION",
-            severity: "review",
-            lineNo: record.lineNo,
-            detail: { sourceLocatorHash: entry.sourceLocatorHash },
-          });
-        }
-      }
-      continue;
-    }
-    if (!["workspace", "project", "document"].includes(kind)) continue;
-    let body: ReturnType<typeof normalizeLegacyDocumentBody>;
-    try {
-      body = normalizeLegacyDocumentBody(raw, source.path);
-    } catch (error) {
-      if (!(error instanceof LegacySanitizationCollisionError)) throw error;
-      issues.push({
-        entryId: null,
-        issueKey: `document-key-collision:${entry.sourceLabel}:${entry.sourceLocatorHash}`,
-        code: "MIGRATION_DOCUMENT_KEY_COLLISION",
-        severity: "review",
-        lineNo: null,
-        detail: { sourceLocatorHash: entry.sourceLocatorHash },
-      });
-      continue;
-    }
-    if (!body) {
-      issues.push({
-        entryId: null,
-        issueKey: `document:${entry.sourceLabel}:${entry.sourceLocatorHash}`,
-        code: "MIGRATION_DOCUMENT_UNREADABLE",
-        severity: "review",
-        lineNo: null,
-        detail: { sourceLocatorHash: entry.sourceLocatorHash },
-      });
-      continue;
-    }
-    documents.push(preparedDocument(ctx, entry, scope, body, entry.mtimeMs));
-  }
-  selectProjectDocumentBindings(ctx, documents, issues);
-
   ctx.db.transaction(() => {
     insertScopes(ctx, scopes, refs);
-    for (const document of documents) {
+    const insert = (document: PreparedDocument): void => {
       insertDocument(ctx, document);
       addRefs(
         refs,
@@ -359,7 +270,97 @@ export function importScopesAndDocuments(ctx: MigrationContext): MigrationImport
         ...(document.bindingId ? [document.bindingId] : []),
       );
       importDocumentSemantics(ctx, document, refs);
+    };
+    for (const item of prepared) {
+      const { entry, source } = item;
+      if (entry.sourceKind === "desktop") continue;
+      const kind = classifyLegacyPath(entry.sourcePath);
+      if (kind === "job-database") continue;
+      const raw = readCheckedSourceFile(source, entry);
+      if (isLegacySecretCandidate(entry.sourcePath, raw)) {
+        secrets.add(entry.id);
+        continue;
+      }
+      if (entry.bytes > 0) {
+        evidence.set(entry.id, { targetPath: evidencePath(entry), sha256: sha256(raw) });
+      }
+      if (kind === "raw-evidence") continue;
+      const scope = scopeForPath(scopes, entry, source);
+      if (!scope) continue;
+      if (kind === "jsonl") {
+        for (const record of iterateLegacyJsonl(raw, entry.sourcePath)) {
+          if (record.issue) {
+            issues.push({
+              entryId: null,
+              issueKey: `jsonl:${entry.sourceLabel}:${entry.sourceLocatorHash}:${record.lineNo}`,
+              code: record.issue.code,
+              severity: record.issue.severity,
+              lineNo: record.lineNo,
+              detail: {
+                ...record.issue.detail,
+                evidenceTargetPath: `migration-evidence/diagnostics/${stableKey(entry.sourceLabel)}/${entry.sourceLocatorHash}-${record.lineNo}.raw`,
+              },
+            });
+            continue;
+          }
+          if (record.value === null) continue;
+          try {
+            insert(preparedJsonDocument(
+              ctx,
+              entry,
+              scope,
+              record.value,
+              `line-${record.lineNo}`,
+              entry.mtimeMs,
+              source.path,
+            ));
+          } catch (error) {
+            if (!(error instanceof LegacySanitizationCollisionError)) throw error;
+            issues.push({
+              entryId: null,
+              issueKey: `document-key-collision:${entry.sourceLabel}:${entry.sourceLocatorHash}:${record.lineNo}`,
+              code: "MIGRATION_DOCUMENT_KEY_COLLISION",
+              severity: "review",
+              lineNo: record.lineNo,
+              detail: { sourceLocatorHash: entry.sourceLocatorHash },
+            });
+          }
+        }
+        continue;
+      }
+      if (!["workspace", "project", "document"].includes(kind)) continue;
+      let body: ReturnType<typeof normalizeLegacyDocumentBody>;
+      try {
+        body = normalizeLegacyDocumentBody(raw, source.path);
+      } catch (error) {
+        if (!(error instanceof LegacySanitizationCollisionError)) throw error;
+        issues.push({
+          entryId: null,
+          issueKey: `document-key-collision:${entry.sourceLabel}:${entry.sourceLocatorHash}`,
+          code: "MIGRATION_DOCUMENT_KEY_COLLISION",
+          severity: "review",
+          lineNo: null,
+          detail: { sourceLocatorHash: entry.sourceLocatorHash },
+        });
+        continue;
+      }
+      if (!body) {
+        issues.push({
+          entryId: null,
+          issueKey: `document:${entry.sourceLabel}:${entry.sourceLocatorHash}`,
+          code: "MIGRATION_DOCUMENT_UNREADABLE",
+          severity: "review",
+          lineNo: null,
+          detail: { sourceLocatorHash: entry.sourceLocatorHash },
+        });
+        continue;
+      }
+      const document = preparedDocument(ctx, entry, scope, body, entry.mtimeMs);
+      if (document.bindingRole) bindingDocuments.push(document);
+      else insert(document);
     }
+    selectProjectDocumentBindings(ctx, bindingDocuments, issues);
+    for (const document of bindingDocuments) insert(document);
     for (const entryId of secrets) {
       updateSecretEntry(ctx, entryId);
     }
@@ -5016,7 +5017,7 @@ function desktopImportSummary(ctx: MigrationContext): DesktopStateImportSummary 
   return { reviews, feedback, secrets, documents, issues };
 }
 
-type PreparedEntry = { entry: Entry; source: MigrationSourceRoot; raw: Buffer };
+type PreparedEntry = { entry: Entry; source: MigrationSourceRoot };
 
 function prepareEntries(
   entries: readonly Entry[],
@@ -5027,8 +5028,7 @@ function prepareEntries(
     if (entry.state !== "inventoried" || entry.entryKind !== "file" || entry.disposition !== "domain") continue;
     const source = sourceById.get(entry.sourceLabel);
     if (!source) throw new Error("Migration source identity is missing");
-    const absolute = checkedSourceFile(source, entry);
-    prepared.push({ entry, source, raw: fs.readFileSync(absolute) });
+    prepared.push({ entry, source });
   }
   return prepared;
 }
@@ -5063,8 +5063,9 @@ function buildScopeModel(
   const registries = new Map<string, ReturnType<typeof parseLegacyRegistry>>();
   for (const item of prepared) {
     if (item.entry.sourceKind === "desktop" || !isLegacyRegistryPath(item.entry.sourcePath)) continue;
-    if (isLegacySecretCandidate(item.entry.sourcePath, item.raw)) continue;
-    registries.set(item.source.id, parseLegacyRegistry(item.raw));
+    const raw = readCheckedSourceFile(item.source, item.entry);
+    if (isLegacySecretCandidate(item.entry.sourcePath, raw)) continue;
+    registries.set(item.source.id, parseLegacyRegistry(raw));
   }
 
   for (const source of ctx.sourceRoots) {
@@ -5973,6 +5974,23 @@ function reconcileIds(db: Database, table: string, ids: readonly number[]): void
 }
 
 function checkedSourceFile(source: MigrationSourceRoot, entry: Entry): string {
+  const canonical = checkedSourcePath(source, entry);
+  if (entry.sha256 !== null && sha256(fs.readFileSync(canonical)) !== entry.sha256) {
+    throw new Error(`Migration source changed after inventory: ${entry.sourceLocatorHash}`);
+  }
+  return canonical;
+}
+
+function readCheckedSourceFile(source: MigrationSourceRoot, entry: Entry): Buffer {
+  const canonical = checkedSourcePath(source, entry);
+  const raw = fs.readFileSync(canonical);
+  if (entry.sha256 !== null && sha256(raw) !== entry.sha256) {
+    throw new Error(`Migration source changed after inventory: ${entry.sourceLocatorHash}`);
+  }
+  return raw;
+}
+
+function checkedSourcePath(source: MigrationSourceRoot, entry: Entry): string {
   const relative = normalizeRelativePath(entry.sourcePath);
   const root = fs.realpathSync(source.path);
   const absolute = path.resolve(root, ...relative.split("/"));
@@ -5987,9 +6005,6 @@ function checkedSourceFile(source: MigrationSourceRoot, entry: Entry): string {
     || stat.size !== entry.bytes
     || Math.trunc(stat.mtimeMs) !== entry.mtimeMs
   ) throw new Error(`Migration source changed after inventory: ${entry.sourceLocatorHash}`);
-  if (entry.sha256 !== null && sha256(fs.readFileSync(canonical)) !== entry.sha256) {
-    throw new Error(`Migration source changed after inventory: ${entry.sourceLocatorHash}`);
-  }
   return canonical;
 }
 

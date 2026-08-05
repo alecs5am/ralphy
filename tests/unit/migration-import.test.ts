@@ -16,6 +16,7 @@ import {
 import {
   classifyLegacyPath,
   isLegacySecretCandidate,
+  iterateLegacyJsonl,
   parseLegacyJsonl,
 } from "../../cli/lib/migration/legacy.js";
 import type { MigrationContext, MigrationLock } from "../../cli/lib/migration/types.js";
@@ -54,6 +55,8 @@ describe("legacy semantic migration", () => {
 
     const records = parseLegacyJsonl(raw, "events.jsonl");
 
+    expect([...iterateLegacyJsonl(raw, "events.jsonl")]).toEqual(records);
+
     expect(records.map((record) => [record.byteOffset, record.byteLength])).toEqual([
       [0, 17],
       [17, 3],
@@ -86,6 +89,8 @@ describe("legacy semantic migration", () => {
       expect(isLegacySecretCandidate("settings.txt", Buffer.from(value))).toBe(true);
     }
     expect(isLegacySecretCandidate("README.md", Buffer.from("Authorization: Bearer opaque\n"))).toBe(true);
+    expect(isLegacySecretCandidate("events.jsonl", Buffer.from("bearer\nopaque\n"))).toBe(true);
+    expect(isLegacySecretCandidate("events.jsonl", Buffer.from('{"tokenBudget":1024}\n'))).toBe(false);
     expect(isLegacySecretCandidate("certificate.txt", Buffer.from("-----BEGIN PRIVATE KEY-----\n"))).toBe(true);
     expect(isLegacySecretCandidate("state.json", Buffer.from('{"token":"opaque"}', "utf16le"))).toBe(true);
     expect(isLegacySecretCandidate("state.json", Buffer.from([0, 255, 0, 1]))).toBe(true);

@@ -182,13 +182,13 @@ export function isLegacySecretCandidate(relativePath: string, raw?: Buffer): boo
   const normalized = normalizeRelativePath(relativePath);
   if (SECRET_PATH.test(normalized) || DESKTOP_PROVIDER_SECRET_PATHS.has(normalized.toLowerCase())) return true;
   if (!raw || raw.length === 0) return false;
+  if (normalized.toLowerCase().endsWith(".jsonl")) return hasLegacyJsonlSecret(raw);
   const decoded = decodeLegacyControl(raw);
   if (decoded === null) return true;
-  return redactLegacyOperationalText(decoded).redacted || hasLegacyCredentialKey(decoded);
+  return hasLegacyCredentialText(decoded) || hasLegacyCredentialKey(decoded);
 }
 
-export function parseLegacyJsonl(raw: Buffer, sourcePath: string): LegacyJsonlRecord[] {
-  const records: LegacyJsonlRecord[] = [];
+export function* iterateLegacyJsonl(raw: Buffer, sourcePath: string): Generator<LegacyJsonlRecord> {
   let offset = 0;
   let lineNo = 1;
   while (offset < raw.length) {
@@ -221,7 +221,7 @@ export function parseLegacyJsonl(raw: Buffer, sourcePath: string): LegacyJsonlRe
         };
       }
     }
-    records.push({
+    yield {
       lineNo,
       byteOffset: offset,
       byteLength: physical.length,
@@ -229,12 +229,15 @@ export function parseLegacyJsonl(raw: Buffer, sourcePath: string): LegacyJsonlRe
       delimiter,
       value,
       issue,
-    });
+    };
     if (lf === -1) break;
     offset = end;
     lineNo += 1;
   }
-  return records;
+}
+
+export function parseLegacyJsonl(raw: Buffer, sourcePath: string): LegacyJsonlRecord[] {
+  return [...iterateLegacyJsonl(raw, sourcePath)];
 }
 
 export function readLegacyJsonl(sourceRoot: string, relativePath: string): LegacyJsonlRecord[] {
@@ -458,6 +461,34 @@ function hasLegacyCredentialKey(value: string): boolean {
     if (isLegacyCredentialName(match[1] || "")) return true;
   }
   return false;
+}
+
+function hasLegacyCredentialText(value: string): boolean {
+  return /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/iu.test(value)
+    || /(?:authorization|proxy-authorization)\s*:\s*(?:bearer|basic)\s+[^\s"'<>]+/iu.test(value)
+    || /(^|\s)bearer\s+[^\s"'<>]+/imu.test(value)
+    || /[A-Za-z][A-Za-z0-9+.-]*:\/\/[^/\s:@]+:[^/@\s]+@/u.test(value);
+}
+
+function hasLegacyJsonlSecret(raw: Buffer): boolean {
+  let offset = 0;
+  while (offset < raw.length) {
+    const lf = raw.indexOf(0x0a, offset);
+    const end = lf === -1 ? raw.length : lf + 1;
+    const decoded = decodeLegacyControl(raw.subarray(offset, end));
+    if (decoded === null) return true;
+    if (hasLegacyLineSecret(decoded)) return true;
+    if (lf === -1) break;
+    offset = end;
+  }
+  return false;
+}
+
+function hasLegacyLineSecret(value: string): boolean {
+  return hasLegacyCredentialText(value)
+    || hasLegacyCredentialKey(value)
+    || /(?:authorization|proxy-authorization)\s*:\s*(?:bearer|basic)\s*$/iu.test(value)
+    || /(^|\s)bearer\s*$/imu.test(value);
 }
 
 function isLegacyCredentialName(value: string): boolean {

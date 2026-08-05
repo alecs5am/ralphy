@@ -29,10 +29,14 @@ describe("domain migration primitives", () => {
     fs.mkdirSync(path.join(source, "media"), { recursive: true });
     fs.writeFileSync(path.join(source, "projects", "alpha", "docs", "BRIEF.md"), "# Brief\n");
     fs.writeFileSync(path.join(source, "media", "hero.png"), Buffer.from([1, 2, 3]));
+    fs.writeFileSync(path.join(source, "notes.mjs"), "export const note = true;\n");
+    fs.writeFileSync(path.join(source, ".cursorrules"), "Keep it simple.\n");
+    fs.writeFileSync(path.join(source, ".mp4"), Buffer.from([6, 7]));
+    fs.writeFileSync(path.join(source, "jobs.db-wal"), "");
     fs.writeFileSync(path.join(source, "unknown.bin"), Buffer.from([4, 5]));
 
     const audit = auditMigration({ sourceRoots: [{ kind: "ralphy", path: source }] });
-    expect(audit.sourceFiles).toBe(3);
+    expect(audit.sourceFiles).toBe(7);
     expect(fs.existsSync(path.join(root.dir, ".ralphy", "ralphy.db"))).toBe(false);
 
     const started = startMigration({
@@ -43,7 +47,7 @@ describe("domain migration primitives", () => {
       sourceRoots: [{ id: "source", kind: "ralphy", path: source }],
       lock: started.lock,
     });
-    expect(resumed.inventory?.sourceFiles).toBe(3);
+    expect(resumed.inventory?.sourceFiles).toBe(7);
     const stageDb = openDomainDbAt(started.storeRoot);
     try {
       expect(stageDb.query<{ count: number }, [string]>(
@@ -54,6 +58,18 @@ describe("domain migration primitives", () => {
       ).all(started.runId).map((row) => row.code);
       expect(issueCodes).toContain("MIGRATION_UNKNOWN_ENTRY");
       expect(resumed.status.blockingIssues).toBe(1);
+      expect(stageDb.query<{ disposition: string; state: string }, []>(
+        "SELECT disposition, state FROM migration_entries WHERE source_path = 'notes.mjs'",
+      ).get()).toEqual({ disposition: "object", state: "verified" });
+      expect(stageDb.query<{ disposition: string; state: string }, []>(
+        "SELECT disposition, state FROM migration_entries WHERE source_path = '.cursorrules'",
+      ).get()).toEqual({ disposition: "object", state: "verified" });
+      expect(stageDb.query<{ disposition: string; state: string }, []>(
+        "SELECT disposition, state FROM migration_entries WHERE source_path = '.mp4'",
+      ).get()).toEqual({ disposition: "object", state: "verified" });
+      expect(stageDb.query<{ disposition: string; state: string }, []>(
+        "SELECT disposition, state FROM migration_entries WHERE source_path = 'jobs.db-wal'",
+      ).get()).toEqual({ disposition: "system", state: "excluded" });
       expect(stageDb.query<{ count: number }, []>(
         "SELECT COUNT(*) AS count FROM documents WHERE kind = 'brief'",
       ).get()?.count).toBe(1);
