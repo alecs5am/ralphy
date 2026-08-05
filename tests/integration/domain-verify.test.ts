@@ -19,6 +19,7 @@ import {
   closeDomainDb,
   domainDbPath,
   openDomainDb,
+  openDomainDbAt,
 } from "../../cli/lib/store/db.js";
 import {
   createDocument,
@@ -360,6 +361,24 @@ describe("domain store verification", () => {
     expect(fs.readdirSync(path.join(root.dir, ".ralphy"))).toEqual(before);
   });
 
+  test("verifies an explicit closed store without touching its database sidecars", () => {
+    const root = makeRoot();
+    const storeRoot = path.join(root.dir, "stage", ".ralphy");
+    const staged = openDomainDbAt(storeRoot);
+    staged.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+    staged.close();
+    const database = path.join(storeRoot, "ralphy.db");
+    const files = [database, `${database}-wal`, `${database}-shm`];
+    const snapshot = () => files.map((file) => fs.existsSync(file)
+      ? { file: path.basename(file), bytes: fs.statSync(file).size, mtimeMs: fs.statSync(file).mtimeMs, sha256: sha256(fs.readFileSync(file, "binary")) }
+      : { file: path.basename(file), missing: true });
+    const before = snapshot();
+
+    expect(verifyDomainStore({ dataRoot: storeRoot }).integrity).toBe("ok");
+    expect(snapshot()).toEqual(before);
+    expect(fs.existsSync(domainDbPath())).toBe(false);
+  });
+
   test("redacts SQLite diagnostics for an unreadable store", () => {
     const root = makeRoot();
     closeDomainDb();
@@ -612,6 +631,73 @@ describe("domain store verification", () => {
       path.relative(path.join(root.dir, ".ralphy"), orphan).split(path.sep).join("/"),
     );
     expect(missingReport.unreferencedObjects).toContain(object.id);
+  });
+
+  test("counts migration raw evidence and staged transfer Objects as references", async () => {
+    const root = makeRoot();
+    const workspace = createWorkspace({ slug: "migration-evidence", name: "Migration" });
+    const raw = await ingestObject({
+      scope: { workspaceId: workspace.id },
+      sourcePath: writeFile(root, "source/control.json", "{}"),
+      originalName: "control.json",
+      mime: "application/json",
+      storageClass: "durable",
+    });
+    const staged = await ingestObject({
+      scope: { workspaceId: workspace.id },
+      sourcePath: writeFile(root, "source/staged.bin", "staged"),
+      originalName: "staged.bin",
+      mime: "application/octet-stream",
+      storageClass: "durable",
+    });
+    const db = openDomainDb();
+    const runId = "mig_00000000-0000-4000-8000-000000000007";
+    const sourceId = "mig_00000000-0000-4000-8000-000000000008";
+    db.prepare(
+      `INSERT INTO migration_runs (id, phase, created_at, updated_at)
+       VALUES (?, 'inventory', 1, 1)`,
+    ).run(runId);
+    db.prepare(
+      `INSERT INTO migration_sources
+       (id, migration_run_id, source_kind, source_label, canonical_path_hash,
+        source_device, source_inode, source_mode, inventory_digest, created_at)
+       VALUES (?, ?, 'ralphy', 'fixture', ?, '1', '1', 16877, ?, 1)`,
+    ).run(sourceId, runId, "a".repeat(64), "b".repeat(64));
+    db.prepare(
+      `INSERT INTO migration_entries
+       (id, migration_run_id, migration_source_id, source_path, source_locator_hash,
+        entry_kind, source_kind, disposition, source_device, source_inode, source_mode,
+        bytes, mtime_ms, sha256, raw_evidence_object_id, state, terminal_at, created_at, updated_at)
+       VALUES (?, ?, ?, 'control.json', ?, 'file', 'ralphy', 'domain', '1', '2', 33188,
+        2, 1, ?, ?, 'imported', 1, 1, 1)`,
+    ).run(
+      "mentry_00000000-0000-4000-8000-000000000009",
+      runId,
+      sourceId,
+      "c".repeat(64),
+      raw.sha256,
+      raw.id,
+    );
+    db.prepare(
+      `INSERT INTO migration_entries
+       (id, migration_run_id, migration_source_id, source_path, source_locator_hash,
+        entry_kind, source_kind, disposition, source_device, source_inode, source_mode,
+        bytes, mtime_ms, sha256, target_path, target_refs_json, state, created_at, updated_at)
+       VALUES (?, ?, ?, 'staged.bin', ?, 'file', 'ralphy', 'object', '1', '3', 33188,
+        6, 1, ?, ?, ?, 'staged', 1, 1)`,
+    ).run(
+      "mentry_00000000-0000-4000-8000-000000000010",
+      runId,
+      sourceId,
+      "d".repeat(64),
+      staged.sha256,
+      `${staged.bucket}/${staged.key}`,
+      JSON.stringify([staged.id]),
+    );
+
+    const report = verifyDomainStore({ hashObjects: true });
+    expect(report.unreferencedObjects).not.toContain(raw.id);
+    expect(report.unreferencedObjects).not.toContain(staged.id);
   });
 
   test("treats farm as one reserved lstat-only boundary", () => {

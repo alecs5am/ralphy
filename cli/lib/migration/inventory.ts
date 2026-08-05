@@ -768,6 +768,11 @@ export function assertMigrationQuiescent(
   }
 }
 
+export function assertMigrationMaintenanceLock(ctx: MigrationContext): void {
+  const sources = validateContextRoots(ctx.sourceRoots);
+  requireCurrentMaintenanceLock(sources, ctx.runId);
+}
+
 function requireCurrentMaintenanceLock(sources: readonly MigrationSourceRoot[], runId: string): void {
   const source = sources.find((candidate) => candidate.kind === "ralphy") ?? sources[0]!;
   const lock = readLock(path.join(path.dirname(source.path), ".ralphy-migration.lock"));
