@@ -126,6 +126,9 @@ describe("stdio bridge", () => {
     const sourceEntryId = "mentry_00000000-0000-4000-8000-000000000031";
     const db = openDomainDb();
     const now = Date.now();
+    const ref = `provider/test/workspace/${workspace.id}/workspace/${workspace.id}`;
+    db.prepare("UPDATE workspaces SET metadata_json = ? WHERE id = ?")
+      .run(JSON.stringify({ migrationRunId: migrationId, migrationSourceLabel: "desktop-source" }), workspace.id);
     db.prepare(
       `INSERT INTO migration_runs (id, phase, created_at, updated_at)
        VALUES (?, 'relations', ?, ?)`,
@@ -140,12 +143,17 @@ describe("stdio bridge", () => {
       `INSERT INTO migration_entries
        (id, migration_run_id, migration_source_id, source_path, source_locator_hash,
         entry_kind, source_kind, disposition, source_device, source_inode, source_mode,
-        bytes, mtime_ms, state, created_at, updated_at)
+        bytes, mtime_ms, target_refs_json, state, created_at, updated_at)
        VALUES (?, ?, 'desktop-source', 'safeStorage/key.bin', ?, 'file', 'desktop',
-        'secret-recovery-only', '1', '3', 33152, 4, ?, 'inventoried', ?, ?)`,
-    ).run(sourceEntryId, migrationId, "b".repeat(64), now, now, now);
+        'secret-recovery-only', '1', '3', 33152, 4, ?, ?, 'inventoried', ?, ?)`,
+    ).run(sourceEntryId, migrationId, "b".repeat(64), now, JSON.stringify([ref]), now, now);
+    db.prepare(
+      `INSERT INTO migration_issues
+       (id, migration_run_id, code, severity, detail_json, created_at)
+       VALUES ('miss_00000000-0000-4000-8000-000000000031', ?,
+        'MIGRATION_DESKTOP_SECRET_HANDOFF_PLANNED', 'info', ?, ?)`,
+    ).run(migrationId, JSON.stringify({ kind: "text", refs: [ref], sourceLocatorHash: "b".repeat(64) }), now);
     const secret = "bridge-secret-value";
-    const ref = `provider/test/workspace/${workspace.id}/workspace/${workspace.id}`;
     const output = await run([
       '{"v":1,"id":"hello","method":"system.hello"}',
       JSON.stringify({
@@ -173,5 +181,48 @@ describe("stdio bridge", () => {
     });
     const response = JSON.parse(output.trim().split("\n").at(-1)!) as { result: unknown };
     expect(response.result).toEqual({ ref, kind: "text", completed: true });
+
+    const accountEntryId = "mentry_00000000-0000-4000-8000-000000000032";
+    const accountHash = "c".repeat(64);
+    const accountRef = `provider/test/workspace/${workspace.id}/account/missing-account`;
+    db.prepare(
+      `INSERT INTO migration_entries
+       (id, migration_run_id, migration_source_id, source_path, source_locator_hash,
+        entry_kind, source_kind, disposition, source_device, source_inode, source_mode,
+        bytes, mtime_ms, target_refs_json, state, created_at, updated_at)
+       VALUES (?, ?, 'desktop-source', 'safeStorage/account.bin', ?, 'file', 'desktop',
+        'secret-recovery-only', '1', '4', 33152, 4, ?, ?, 'inventoried', ?, ?)`,
+    ).run(accountEntryId, migrationId, accountHash, now, JSON.stringify([accountRef]), now, now);
+    db.prepare(
+      `INSERT INTO migration_issues
+       (id, migration_run_id, code, severity, detail_json, created_at)
+       VALUES ('miss_00000000-0000-4000-8000-000000000032', ?,
+        'MIGRATION_DESKTOP_SECRET_HANDOFF_PLANNED', 'info', ?, ?)`,
+    ).run(migrationId, JSON.stringify({ kind: "text", refs: [accountRef], sourceLocatorHash: accountHash }), now);
+    const encryptedBefore = fs.readFileSync(path.join(root.dir, ".ralphy", "secrets.enc"));
+    const rejectedOutput = await run([
+      '{"v":1,"id":"hello","method":"system.hello"}',
+      JSON.stringify({
+        v: 1,
+        id: "invalid-account",
+        method: "migration.secret.import",
+        params: {
+          runId: migrationId,
+          sourceEntryId: accountEntryId,
+          ref: accountRef,
+          kind: "text",
+          value: "must-not-be-written",
+        },
+      }),
+    ].join("\n") + "\n");
+    const rejected = JSON.parse(rejectedOutput.trim().split("\n").at(-1)!) as {
+      ok: boolean;
+      error?: { code: string };
+    };
+    expect(rejected).toMatchObject({ ok: false, error: { code: "E_INTERNAL" } });
+    expect(fs.readFileSync(path.join(root.dir, ".ralphy", "secrets.enc"))).toEqual(encryptedBefore);
+    expect(db.query<{ state: string }, [string]>(
+      "SELECT state FROM migration_entries WHERE id = ?",
+    ).get(accountEntryId)?.state).toBe("inventoried");
   });
 });

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { Readable, PassThrough } from "node:stream";
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   acquireMaintenanceLock,
   inventoryLegacySource,
@@ -20,7 +20,6 @@ import {
 import { stageInventoryObjects } from "../../cli/lib/migration/staging.js";
 import type { MigrationContext, MigrationLock } from "../../cli/lib/migration/types.js";
 import { createBridgeMethods } from "../../cli/lib/bridge/methods.js";
-import { runBridge } from "../../cli/lib/bridge/server.js";
 import { openDomainDbAt } from "../../cli/lib/store/db.js";
 import { createSecretStore, type KeyProvider } from "../../cli/lib/store/secrets.js";
 import { newDomainId } from "../../cli/lib/store/ids.js";
@@ -75,13 +74,81 @@ describe("Desktop state and credential migration", () => {
     expect(isLegacyDesktopDocumentPath("ordinary.json")).toBe(false);
   });
 
+  test("binds root credentials and cookies to the registry primary among thirty Workspaces", async () => {
+    await setupFixture({ extraWorkspaces: 29 });
+
+    expect(await importDesktopStateAndSecrets(ctx!, { keyProvider })).toBeDefined();
+    const primary = workspace("studio");
+    expect(JSON.parse(ledger("config.json").refs)).toEqual([
+      `provider/postiz/workspace/${primary}/workspace/${primary}`,
+      expect.stringMatching(new RegExp(`^provider/x/workspace/${primary}/account/`, "u")),
+    ]);
+    expect(JSON.parse(ledger("tmp/ig-cookies.txt").refs)).toEqual([
+      `provider/instagram/workspace/${primary}/cookies`,
+    ]);
+  });
+
+  test("rejects non-versioned Desktop document fields, missing Projects, and opaque secret shapes", async () => {
+    await setupFixture({ invalidDesktopDocuments: true });
+
+    const summary = await importDesktopStateAndSecrets(ctx!, { keyProvider });
+    expect(summary.documents).toBe(2);
+    expect(issueCount("MIGRATION_DESKTOP_DOCUMENT_INVALID")).toBe(3);
+  });
+
+  test("retains missing and ambiguous Project reviews as sanitized orphan needsReview evidence", async () => {
+    await setupFixture({ orphanReviews: true });
+
+    await expect(importDesktopStateAndSecrets(ctx!, { keyProvider })).resolves.toBeDefined();
+    const details = ctx!.db.query<{ detail: string }, [string]>(
+      `SELECT detail_json AS detail FROM migration_issues
+       WHERE migration_run_id = ? AND code = 'MIGRATION_DESKTOP_REVIEW_ORPHANED'
+       ORDER BY id`,
+    ).all(ctx!.runId).map((row) => JSON.parse(row.detail) as Record<string, unknown>);
+    expect(details).toHaveLength(2);
+    expect(details).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        needsReview: true,
+        state: "Needs Work",
+        note: "Missing Project note",
+        tags: ["orphan"],
+        rating: 2,
+        favorite: true,
+      }),
+      expect.objectContaining({
+        needsReview: true,
+        state: "Shortlist",
+        note: "Ambiguous Project note",
+        tags: ["ambiguous"],
+        rating: 4,
+        favorite: false,
+      }),
+    ]));
+    expect(JSON.stringify(details)).not.toContain("missing/orphan.mp4");
+  });
+
+  test("refuses a direct credential ref already owned by another migration entry before writing", async () => {
+    await setupFixture();
+    const workspaceId = workspace("studio");
+    const ref = `provider/postiz/workspace/${workspaceId}/workspace/${workspaceId}`;
+    const owner = ledger("secrets/unknown.bin", "desktop");
+    ctx!.db.prepare("UPDATE migration_entries SET target_refs_json = ?, updated_at = ? WHERE id = ?")
+      .run(JSON.stringify([ref]), Date.now(), owner.id);
+    const store = createSecretStore({ dataRoot: ctx!.storeRoot, keyProvider });
+    await store.set(ref, "preexisting-secret");
+
+    await expect(importDesktopStateAndSecrets(ctx!, { keyProvider })).rejects.toThrow(/owned/u);
+    expect(await store.read(ref)).toBe("preexisting-secret");
+    expect(ledger("config.json").state).toBe("inventoried");
+  });
+
   test("imports typed reviews, documents, and known credentials without plaintext persistence", async () => {
     await setupFixture();
 
     const first = await importDesktopStateAndSecrets(ctx!, { keyProvider });
     const replay = await importDesktopStateAndSecrets(ctx!, { keyProvider });
     expect(replay).toEqual(first);
-    expect(first).toMatchObject({ reviews: 4, feedback: 3, secrets: 4, documents: 2 });
+    expect(first).toMatchObject({ reviews: 5, feedback: 2, secrets: 4, documents: 2 });
 
     const evaluations = ctx!.db.query<{
       verdict: string;
@@ -96,6 +163,7 @@ describe("Desktop state and credential migration", () => {
        FROM evaluations WHERE kind = 'desktop-review' ORDER BY verdict`,
     ).all();
     expect(evaluations.map((row) => row.verdict)).toEqual([
+      "approved",
       "approved",
       "candidate",
       "open",
@@ -118,7 +186,7 @@ describe("Desktop state and credential migration", () => {
       `SELECT body, target_type AS targetType, target_id AS targetId, status
        FROM feedback_items WHERE body LIKE 'Desktop review:%' ORDER BY body`,
     ).all();
-    expect(feedback).toHaveLength(3);
+    expect(feedback).toHaveLength(2);
     expect(feedback.find((row) => row.body.includes("Tighten pacing"))).toMatchObject({
       targetType: "artifact_revision",
       status: "open",
@@ -129,7 +197,7 @@ describe("Desktop state and credential migration", () => {
       status: "open",
     });
 
-    expect(issueCount("MIGRATION_DESKTOP_REVIEW_PATH_COLLISION")).toBe(1);
+    expect(issueCount("MIGRATION_DESKTOP_REVIEW_PATH_COLLISION")).toBe(0);
     expect(issueCount("MIGRATION_DESKTOP_REVIEW_UNMATCHED")).toBe(1);
     expect(issueCount("MIGRATION_DESKTOP_SECRET_HANDOFF_REQUIRED")).toBe(2);
     expect(issueCount("MIGRATION_SECRET_UNKNOWN")).toBe(1);
@@ -208,7 +276,56 @@ describe("Desktop state and credential migration", () => {
     await importDesktopStateAndSecrets(ctx!, { keyProvider });
     const safeEntry = ledger("safeStorage/credentials.bin", "desktop");
     const workspaceId = workspace("studio");
-    const ref = `provider/x/workspace/${workspaceId}/workspace/${workspaceId}`;
+    const ref = `provider/desktop/workspace/${workspaceId}/workspace/${workspaceId}`;
+    expect(JSON.parse(safeEntry.refs)).toEqual([ref]);
+    expect(secretPlan(safeEntry.id)).toEqual({ kind: "text", refs: [ref] });
+    const methods = createBridgeMethods({ dataRoot: ctx!.storeRoot, keyProvider });
+    const method = methods.get("migration.secret.import")!;
+    const fileEntry = ledger("safeStorage/cookies.bin", "desktop");
+    const fileRef = `provider/instagram/workspace/${workspaceId}/workspace/${workspaceId}`;
+    expect(JSON.parse(fileEntry.refs)).toEqual([fileRef]);
+    expect(secretPlan(fileEntry.id)).toEqual({ kind: "file", refs: [fileRef] });
+    await expect(method.handle({
+      runId: ctx!.runId,
+      sourceEntryId: safeEntry.id,
+      ref: fileRef,
+      kind: "file",
+      base64: "YQ==",
+    }, bridgeContext())).rejects.toThrow();
+    await expect(method.handle({
+      runId: ctx!.runId,
+      sourceEntryId: fileEntry.id,
+      ref,
+      kind: "text",
+      value: "cross-entry-secret",
+    }, bridgeContext())).rejects.toThrow();
+    await expect(method.handle({
+      runId: ctx!.runId,
+      sourceEntryId: fileEntry.id,
+      ref: fileRef,
+      kind: "file",
+      base64: "YR==",
+    }, bridgeContext())).rejects.toThrow();
+    expect(ledger("safeStorage/cookies.bin", "desktop").state).toBe("inventoried");
+    await expect(method.handle({
+      runId: ctx!.runId,
+      sourceEntryId: fileEntry.id,
+      ref: fileRef,
+      kind: "file",
+      base64: Buffer.alloc(1024 * 1024 + 1).toString("base64"),
+    }, bridgeContext())).rejects.toThrow();
+    expect(ledger("safeStorage/cookies.bin", "desktop").state).toBe("inventoried");
+    const redirectedRef = `provider/postiz/workspace/${workspaceId}/workspace/${workspaceId}`;
+    const secretStore = createSecretStore({ dataRoot: ctx!.storeRoot, keyProvider });
+    const redirectedBefore = await secretStore.read(redirectedRef);
+    await expect(method.handle({
+      runId: ctx!.runId,
+      sourceEntryId: safeEntry.id,
+      ref: redirectedRef,
+      kind: "text",
+      value: "redirected-secret",
+    }, bridgeContext())).rejects.toThrow();
+    expect(await secretStore.read(redirectedRef)).toBe(redirectedBefore);
     const secret = "fixture-safeStorage-decrypted-token";
     const request = JSON.stringify({
       v: 1,
@@ -223,36 +340,65 @@ describe("Desktop state and credential migration", () => {
       },
     });
 
+    const bridgeServerUrl = pathToFileURL(path.join(import.meta.dir, "../../cli/lib/bridge/server.ts")).href;
+    const bridgeMethodsUrl = pathToFileURL(path.join(import.meta.dir, "../../cli/lib/bridge/methods.ts")).href;
+    const bridgeSource = `
+      import { runBridge } from ${JSON.stringify(bridgeServerUrl)};
+      import { createBridgeMethods } from ${JSON.stringify(bridgeMethodsUrl)};
+      const keyProvider = {
+        lookupKey: async () => Buffer.alloc(32, 19),
+        createKey: async () => Buffer.alloc(32, 19),
+      };
+      await runBridge({
+        dataRoot: ${JSON.stringify(ctx!.storeRoot)},
+        methods: createBridgeMethods({ dataRoot: ${JSON.stringify(ctx!.storeRoot)}, keyProvider }),
+      });
+    `;
     const helperSource = `
       import fs from "node:fs";
       fs.watch = () => { throw new Error("watcher forbidden"); };
       globalThis.setInterval = () => { throw new Error("timer forbidden"); };
       const request = await Bun.stdin.text();
-      process.stdout.write(request);
+      let children = 0;
+      const bridge = Bun.spawn({
+        cmd: ["bun", "-e", ${JSON.stringify(bridgeSource)}],
+        stdin: "pipe",
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      children += 1;
+      bridge.stdin.write('{"v":1,"id":"hello","method":"system.hello"}\\n');
+      bridge.stdin.write(request.endsWith("\\n") ? request : request + "\\n");
+      bridge.stdin.end();
+      const [output, errorOutput, exitCode] = await Promise.all([
+        new Response(bridge.stdout).text(),
+        new Response(bridge.stderr).text(),
+        bridge.exited,
+      ]);
+      if (children !== 1 || exitCode !== 0 || errorOutput !== "") throw new Error("bridge helper lifecycle failed");
+      const expected = JSON.parse(request).params;
+      const response = JSON.parse(output.trim().split("\\n").at(-1));
+      const result = response.result;
+      if (!response.ok || result.ref !== expected.ref || result.kind !== expected.kind
+        || result.completed !== true || Object.keys(result).sort().join(",") !== "completed,kind,ref") {
+        throw new Error("bridge helper response contract failed");
+      }
     `;
     const helper = Bun.spawn({
       cmd: ["bun", "-e", helperSource],
-      stdin: new Blob(['{"v":1,"id":"hello","method":"system.hello"}\n' + request + "\n"]),
+      stdin: new Blob([request]),
       stdout: "pipe",
       stderr: "pipe",
     });
-    const bridgeInput = Readable.fromWeb(helper.stdout as never);
-    const bridgeOutput = new PassThrough();
-    const chunks: Buffer[] = [];
-    bridgeOutput.on("data", (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
-    const methods = createBridgeMethods({ dataRoot: ctx!.storeRoot, keyProvider });
-    await runBridge({ dataRoot: ctx!.storeRoot, input: bridgeInput, output: bridgeOutput, methods });
-    expect(await helper.exited).toBe(0);
-    expect(await new Response(helper.stderr).text()).toBe("");
-
-    const output = Buffer.concat(chunks).toString("utf8");
-    expect(output).not.toContain(secret);
-    const response = output.trim().split("\n").map((line) => JSON.parse(line)).at(-1);
-    expect(response).toMatchObject({
-      ok: true,
-      result: { ref, kind: "text", completed: true },
-    });
-    expect(response.result).toEqual({ ref, kind: "text", completed: true });
+    const [helperOutput, helperError, helperExit] = await Promise.all([
+      new Response(helper.stdout).text(),
+      new Response(helper.stderr).text(),
+      helper.exited,
+    ]);
+    expect(helperError).toBe("");
+    expect(helperExit).toBe(0);
+    expect(helperOutput).toBe("");
+    expect(`${helperOutput}${helperError}`).not.toContain(secret);
     expect(ledger("safeStorage/credentials.bin", "desktop")).toMatchObject({
       disposition: "secret-imported",
       state: "excluded",
@@ -261,9 +407,15 @@ describe("Desktop state and credential migration", () => {
     expect(resolvedIssueCount("MIGRATION_DESKTOP_SECRET_HANDOFF_REQUIRED")).toBe(1);
     expect(await createSecretStore({ dataRoot: ctx!.storeRoot, keyProvider }).read(ref)).toBe(secret);
 
-    const method = methods.get("migration.secret.import")!;
-    const fileEntry = ledger("safeStorage/cookies.bin", "desktop");
-    const fileRef = `provider/instagram/workspace/${workspaceId}/workspace/${workspaceId}`;
+    await expect(method.handle({
+      runId: ctx!.runId,
+      sourceEntryId: safeEntry.id,
+      ref,
+      kind: "text",
+      value: "different-replay-secret",
+    }, bridgeContext())).resolves.toEqual({ ref, kind: "text", completed: true });
+    expect(await createSecretStore({ dataRoot: ctx!.storeRoot, keyProvider }).read(ref)).toBe(secret);
+
     const fileSecret = Buffer.from("fixture-safeStorage-file-secret");
     await expect(method.handle({
       runId: ctx!.runId,
@@ -300,7 +452,11 @@ describe("Desktop state and credential migration", () => {
   });
 });
 
-async function setupFixture(): Promise<void> {
+async function setupFixture(options: {
+  extraWorkspaces?: number;
+  invalidDesktopDocuments?: boolean;
+  orphanReviews?: boolean;
+} = {}): Promise<void> {
   root = makeTmpRoot("ralphy-migration-desktop");
   fixtureDir = fs.realpathSync(fs.mkdtempSync("/tmp/ralphy-md-"));
   fixture = buildLegacyLibrary(fixtureDir);
@@ -313,6 +469,10 @@ async function setupFixture(): Promise<void> {
     },
     postiz: { apiKey: "fixture-postiz-plaintext-key" },
   });
+  for (let index = 0; index < (options.extraWorkspaces ?? 0); index += 1) {
+    const slug = `extra-${String(index + 1).padStart(2, "0")}`;
+    writeJson(path.join(fixture.paths.currentRoot, "workspaces", slug, "workspace.json"), { slug });
+  }
   const projectPrefix = "workspaces/studio/projects/registered-project";
   const project = fixture.paths.registeredProject;
   const digest = (relative: string) => Bun.SHA256.hash(fs.readFileSync(path.join(fixture!.paths.currentRoot, relative)), "hex");
@@ -371,6 +531,38 @@ async function setupFixture(): Promise<void> {
       },
     ],
   });
+  if (options.orphanReviews) {
+    writeJson(path.join(fixture.paths.legacyRoot, "projects", "registered-project", "project.json"), {
+      id: "registered-project",
+    });
+    writeJson(path.join(fixture.paths.desktopRoot, "reviews", "missing-project.json"), {
+      version: 1,
+      source: "source-ralphy",
+      project: "missing-project",
+      reviews: [{
+        id: "missing-project-review",
+        sourcePath: "missing/orphan.mp4",
+        state: "Needs Work",
+        note: "Missing Project note",
+        tags: ["orphan"],
+        rating: 2,
+        favorite: true,
+      }],
+    });
+    writeJson(path.join(fixture.paths.desktopRoot, "reviews", "ambiguous-project.json"), {
+      version: 1,
+      project: "registered-project",
+      reviews: [{
+        id: "ambiguous-project-review",
+        sourcePath: "missing/ambiguous.mp4",
+        state: "Shortlist",
+        note: "Ambiguous Project note",
+        tags: ["ambiguous"],
+        rating: 4,
+        favorite: false,
+      }],
+    });
+  }
   writeJson(path.join(fixture.paths.desktopRoot, "state.json"), {
     version: 1,
     kind: "agent-session-preferences",
@@ -384,6 +576,28 @@ async function setupFixture(): Promise<void> {
     project: "registered-project",
     sessions: [{ agent: "codex", turns: [{ role: "user", text: "Keep the stronger hook" }] }],
   });
+  if (options.invalidDesktopDocuments) {
+    writeJson(path.join(fixture.paths.desktopRoot, "settings.json"), {
+      version: 1,
+      kind: "agent-session-preferences",
+      workspace: "studio",
+      preferences: { theme: "dark", density: "compact", label: "sk-opaque-secret-value" },
+    });
+    writeJson(path.join(fixture.paths.desktopRoot, "chats.json"), {
+      version: 1,
+      kind: "agent-session-history",
+      workspace: "studio",
+      project: "missing-project",
+      sessions: [{ agent: "codex", turns: [{ role: "user", text: "Hello" }] }],
+    });
+    writeJson(path.join(fixture.paths.desktopRoot, "localStorage-export.json"), {
+      version: 1,
+      kind: "agent-session-history",
+      workspace: "studio",
+      project: "registered-project",
+      sessions: [{ agent: "codex", turns: [{ role: "user", text: "data:text/plain,opaque" }] }],
+    });
+  }
   const unknown = path.join(fixture.paths.desktopRoot, "secrets", "unknown.bin");
   fs.mkdirSync(path.dirname(unknown), { recursive: true });
   fs.writeFileSync(unknown, "unknown-secret-must-not-be-read");
@@ -475,6 +689,20 @@ function resolvedIssueCount(code: string): number {
     `SELECT COUNT(*) AS count FROM migration_issues
      WHERE migration_run_id = ? AND code = ? AND resolved_at IS NOT NULL`,
   ).get(ctx!.runId, code)?.count ?? 0;
+}
+
+function secretPlan(entryId: string): { kind: string; refs: string[] } {
+  const detail = ctx!.db.query<{ detail: string }, [string, string]>(
+    `SELECT issue.detail_json AS detail
+     FROM migration_issues issue JOIN migration_entries entry
+       ON entry.migration_run_id = issue.migration_run_id
+      AND entry.source_locator_hash = json_extract(issue.detail_json, '$.sourceLocatorHash')
+     WHERE issue.migration_run_id = ? AND entry.id = ?
+       AND issue.code = 'MIGRATION_DESKTOP_SECRET_HANDOFF_PLANNED'`,
+  ).get(ctx!.runId, entryId)?.detail;
+  if (!detail) throw new Error("Missing Desktop secret handoff plan");
+  const parsed = JSON.parse(detail) as { kind: string; refs: string[] };
+  return { kind: parsed.kind, refs: parsed.refs };
 }
 
 function assertNoPlaintext(storeRoot: string, needles: string[]): void {

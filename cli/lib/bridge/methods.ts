@@ -793,22 +793,24 @@ export function createBridgeMethods(input: { dataRoot: string; keyProvider?: Key
       throw new Error("migration.secret.import kind must be text or file");
     }
     const validationDb = openDomainDbAt(input.dataRoot);
+    let entryState: string;
     try {
-      assertMigrationSecretRef(validationDb, ref);
-      assertMigrationSecretImportable(validationDb, {
+      assertMigrationSecretRef(validationDb, runId, ref);
+      entryState = assertMigrationSecretImportable(validationDb, {
         runId,
         sourceEntryId,
         refs: [ref],
         kind,
         requiredSourceKind: "desktop",
-      });
+      }).state;
     } finally {
       validationDb.close();
     }
+    if (entryState === "excluded") return { ref, kind, completed: true };
     const store = createSecretStore({ dataRoot: input.dataRoot, keyProvider: input.keyProvider });
     if (kind === "text") {
       await store.set(ref, string(value.value, "value"), (db) => {
-        assertMigrationSecretRef(db, ref);
+        assertMigrationSecretRef(db, runId, ref);
         completeMigrationSecretImport(db, {
           runId,
           sourceEntryId,
@@ -822,7 +824,7 @@ export function createBridgeMethods(input: { dataRoot: string; keyProvider?: Key
       await store.setSecretFile(ref, bytes);
       const db = openDomainDbAt(input.dataRoot);
       try {
-        assertMigrationSecretRef(db, ref);
+        assertMigrationSecretRef(db, runId, ref);
         completeMigrationSecretImport(db, {
           runId,
           sourceEntryId,
@@ -1085,20 +1087,39 @@ function requireAuthority(context: BridgeMethodContext): ConsumerAuthority {
   return context.authority;
 }
 
-function assertMigrationSecretRef(db: ReturnType<typeof openDomainDb>, ref: string): void {
-  const match = ref.match(/^provider\/[a-z][a-z0-9-]*\/workspace\/([A-Za-z0-9._:-]+)\/(?:workspace\/\1|account\/[A-Za-z0-9._:-]+)$/u);
+function assertMigrationSecretRef(db: ReturnType<typeof openDomainDb>, runId: string, ref: string): void {
+  const match = ref.match(/^provider\/([a-z][a-z0-9-]*)\/workspace\/([A-Za-z0-9._:-]+)\/(?:workspace\/([A-Za-z0-9._:-]+)|account\/([A-Za-z0-9._:-]+))$/u);
   if (!match) throw new Error("Migration secret ref is not store-scoped");
-  const workspace = db.query<{ id: string }, [string]>(
-    "SELECT id FROM workspaces WHERE id = ?",
-  ).get(match[1]!);
+  const workspace = db.query<{ id: string }, [string, string]>(
+    `SELECT id FROM workspaces WHERE id = ?
+       AND json_extract(metadata_json, '$.migrationRunId') = ?`,
+  ).get(match[2]!, runId);
   if (!workspace) throw new Error("Migration secret ref Workspace is missing");
+  if (match[3] && match[3] !== match[2]) throw new Error("Migration secret ref Workspace scope conflicts");
+  if (match[4]) {
+    const account = db.query<{ id: string }, [string, string, string]>(
+      "SELECT id FROM social_accounts WHERE id = ? AND workspace_id = ? AND platform = ?",
+    ).get(match[4], match[2]!, match[1]!);
+    if (!account) throw new Error("Migration secret ref Account membership is invalid");
+  }
 }
 
 function decodeBase64(value: string): Uint8Array {
-  if (value.length % 4 !== 0 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value)) {
-    throw new Error("base64 is invalid");
+  const maxBytes = 1024 * 1024;
+  const maxEncodedBytes = Math.ceil(maxBytes / 3) * 4;
+  if (
+    value.length === 0
+    || Buffer.byteLength(value, "ascii") > maxEncodedBytes
+    || value.length % 4 !== 0
+    || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value)
+  ) {
+    throw new Error("base64 must be canonical padded base64");
   }
-  return Buffer.from(value, "base64");
+  const bytes = Buffer.from(value, "base64");
+  if (bytes.length > maxBytes || bytes.toString("base64") !== value) {
+    throw new Error("base64 must be canonical padded base64");
+  }
+  return bytes;
 }
 
 function exactKeys(value: Record<string, unknown>, expected: readonly string[]): void {
