@@ -33,6 +33,12 @@ type SecretPayload = {
   files: Record<string, string>;
 };
 
+export type SecretInventoryEntry = {
+  ref: string;
+  kind: "text" | "file";
+  value: Buffer;
+};
+
 type SecretEnvelope = {
   version: 1;
   iv: string;
@@ -173,6 +179,27 @@ export function createSecretStore(input: {
       }
     },
   };
+}
+
+/** @internal Migration freeze-only authenticated inventory. Callers must zero values. */
+export async function readSecretInventory(input: {
+  dataRoot: string;
+  keyProvider?: KeyProvider;
+}): Promise<SecretInventoryEntry[]> {
+  const dataRoot = explicitDataRoot(input.dataRoot);
+  const payload = await readPayload(dataRoot, input.keyProvider ?? createMacKeyProvider());
+  return [
+    ...Object.entries(payload.entries).map(([ref, value]) => ({
+      ref,
+      kind: "text" as const,
+      value: Buffer.from(value, "utf8"),
+    })),
+    ...Object.entries(payload.files).map(([ref, value]) => ({
+      ref,
+      kind: "file" as const,
+      value: Buffer.from(value, "base64"),
+    })),
+  ].sort((left, right) => left.ref.localeCompare(right.ref));
 }
 
 /** @internal Called only after a Run transaction commits. */

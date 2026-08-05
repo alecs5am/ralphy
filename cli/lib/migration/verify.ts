@@ -5,8 +5,22 @@ import { Database } from "bun:sqlite";
 import { BRIDGE_PROTOCOL_VERSION } from "../bridge/protocol.js";
 import { SCHEMA_VERSION } from "../store/schema.js";
 import { verifyDomainStore, type DomainVerificationReport } from "../store/verify.js";
+import {
+  readSecretInventory,
+  type KeyProvider,
+  type SecretInventoryEntry,
+} from "../store/secrets.js";
+import {
+  createExclusiveRegularFileAt,
+  linkExclusiveAt,
+  openDirectoryAt,
+  openExistingDirectoryAt,
+  openRootDirectory,
+  readFileAt,
+  unlinkAt,
+} from "../store/posix-directory.js";
 import { VERSION } from "../version.js";
-import { assertMigrationMaintenanceLock } from "./inventory.js";
+import { assertMigrationMaintenanceLock, assertMigrationQuiescent } from "./inventory.js";
 import type { MigrationContext, MigrationIssue } from "./types.js";
 
 export type FrozenFileFingerprint = {
@@ -16,7 +30,15 @@ export type FrozenFileFingerprint = {
   sha256: string | null;
 };
 
-export type FreezeMigrationInput = { verificationDir: string };
+export type FreezeMigrationInput = {
+  verificationDir: string;
+  /** @internal Explicit key provider for authenticated secret verification. */
+  keyProvider?: KeyProvider;
+  /** @internal Deterministic race seam for closed-snapshot tests. */
+  afterClosedSnapshot?: (index: number) => void;
+  /** @internal Deterministic race seam for verification-directory pin tests. */
+  afterVerificationDirectoryOpen?: () => void;
+};
 
 export type FrozenMigration = {
   id: string;
@@ -113,57 +135,74 @@ export async function freezeMigration(
   input: FreezeMigrationInput,
 ): Promise<FrozenMigration> {
   assertContext(ctx);
-  assertMigrationMaintenanceLock(ctx);
-  const verificationDir = externalDirectory(input.verificationDir, [ctx.storeRoot, ...ctx.sourceRoots.map((source) => source.path)]);
-  const recordPath = path.join(verificationDir, `migration-${ctx.runId}.freeze.json`);
-  if (fs.existsSync(recordPath)) throw new Error("Migration is already frozen");
-  const run = ctx.db.query<{ phase: string; frozenAt: number | null }, [string]>(
-    "SELECT phase, frozen_at AS frozenAt FROM migration_runs WHERE id = ?",
-  ).get(ctx.runId);
-  if (!run || !new Set(["relations", "verify"]).has(run.phase) || run.frozenAt !== null) {
-    throw new Error("Migration is not ready to freeze");
-  }
-
-  checkpoint(ctx.db, false);
-  const activation = inspectActivation(ctx);
-  appendDomainBlockers(activation.blockers, verifyDomainStore({ dataRoot: ctx.storeRoot, hashObjects: true }));
-  if (activation.blockers.length > 0) throw activationError(activation.blockers);
-  const beforeContent = contentDigest(ctx.db, ctx.storeRoot);
-  const frozenAt = Date.now();
-  ctx.db.transaction(() => {
-    ctx.db.prepare("UPDATE migration_runs SET phase = 'verify', updated_at = ? WHERE id = ? AND phase = 'relations'")
-      .run(frozenAt, ctx.runId);
-    const updated = ctx.db.prepare(
-      `UPDATE migration_runs SET phase = 'ready', frozen_at = ?, updated_at = ?
-       WHERE id = ? AND phase = 'verify' AND frozen_at IS NULL RETURNING id`,
-    ).get(frozenAt, frozenAt, ctx.runId) as { id: string } | null;
-    if (updated?.id !== ctx.runId) throw new Error("Migration freeze did not transition exactly once");
-  }).immediate();
-  checkpoint(ctx.db, true);
-  ctx.db.close();
-
-  const databaseFiles = frozenDatabaseFiles(ctx.storeRoot);
-  const db = openSnapshot(path.join(ctx.storeRoot, "ralphy.db"));
-  let afterContent: string;
+  freezeGate(ctx);
+  const verificationDir = pinExternalDirectory(
+    input.verificationDir,
+    [ctx.storeRoot, ...ctx.sourceRoots.map((source) => source.path)],
+    true,
+  );
+  let secrets: SecretInventoryEntry[] = [];
   try {
-    afterContent = contentDigest(db, ctx.storeRoot);
+    input.afterVerificationDirectoryOpen?.();
+    assertPinnedDirectory(verificationDir);
+    freezeGate(ctx);
+    const recordName = `migration-${ctx.runId}.freeze.json`;
+    const recordPath = path.join(verificationDir.path, recordName);
+    if (readPinnedFile(verificationDir, recordName) !== null) throw new Error("Migration is already frozen");
+    const run = ctx.db.query<{ phase: string; frozenAt: number | null }, [string]>(
+      "SELECT phase, frozen_at AS frozenAt FROM migration_runs WHERE id = ?",
+    ).get(ctx.runId);
+    if (!run || !new Set(["relations", "verify"]).has(run.phase) || run.frozenAt !== null) {
+      throw new Error("Migration is not ready to freeze");
+    }
+    secrets = await readSecretInventory({ dataRoot: ctx.storeRoot, keyProvider: input.keyProvider });
+    freezeGate(ctx);
+    checkpoint(ctx.db, false);
+    freezeGate(ctx);
+    const activation = inspectActivation(ctx, secrets);
+    appendDomainBlockers(activation.blockers, verifyDomainStore({ dataRoot: ctx.storeRoot, hashObjects: true }));
+    if (activation.blockers.length > 0) throw activationError(activation.blockers);
+    const frozenAt = Date.now();
+    freezeGate(ctx);
+    ctx.db.transaction(() => {
+      ctx.db.prepare("UPDATE migration_runs SET phase = 'verify', updated_at = ? WHERE id = ? AND phase = 'relations'")
+        .run(frozenAt, ctx.runId);
+      const updated = ctx.db.prepare(
+        `UPDATE migration_runs SET phase = 'ready', frozen_at = ?, updated_at = ?
+         WHERE id = ? AND phase = 'verify' AND frozen_at IS NULL RETURNING id`,
+      ).get(frozenAt, frozenAt, ctx.runId) as { id: string } | null;
+      if (updated?.id !== ctx.runId) throw new Error("Migration freeze did not transition exactly once");
+    }).immediate();
+    freezeGate(ctx);
+    checkpoint(ctx.db, true);
+    freezeGate(ctx);
+    ctx.db.close();
+
+    const first = inspectClosedSnapshot(ctx, frozenAt, secrets);
+    input.afterClosedSnapshot?.(1);
+    const second = inspectClosedSnapshot(ctx, frozenAt, secrets);
+    input.afterClosedSnapshot?.(2);
+    if (second.activation.blockers.length > 0) throw activationError(second.activation.blockers);
+    if (canonical(first) !== canonical(second)) throw new Error("Migration closed snapshots are not stable");
+    const body = {
+      runId: ctx.runId,
+      frozenAt,
+      database: second.files.database,
+      wal: second.files.wal,
+      shm: second.files.shm,
+      inventoryDigests: second.activation.inventoryDigests,
+      contentDigest: second.contentDigest,
+      consumers: { farm: null } as const,
+    };
+    const record = { id: sha256(canonical(body)), ...body };
+    freezeGate(ctx);
+    writePrivateJson(verificationDir, recordName, record);
+    freezeGate(ctx);
+    return { ...record, recordPath };
   } finally {
-    db.close();
+    for (const secret of secrets) secret.value.fill(0);
+    closePinnedDirectory(verificationDir);
   }
-  if (afterContent !== beforeContent) throw new Error("Migration content changed during freeze");
-  const body = {
-    runId: ctx.runId,
-    frozenAt,
-    database: databaseFiles.database,
-    wal: databaseFiles.wal,
-    shm: databaseFiles.shm,
-    inventoryDigests: activation.inventoryDigests,
-    contentDigest: afterContent,
-    consumers: { farm: null } as const,
-  };
-  const record = { id: sha256(canonical(body)), ...body };
-  writePrivateJson(recordPath, record);
-  return { ...record, recordPath };
 }
 
 export function verifyMigration(input: {
@@ -173,9 +212,21 @@ export function verifyMigration(input: {
 }): MigrationVerification {
   const storeRoot = canonicalDirectory(input.storeRoot);
   if (!fs.existsSync(input.verificationDir)) throw new Error("Migration verification is unavailable until the stage is frozen");
-  const verificationDir = existingExternalDirectory(input.verificationDir, [storeRoot]);
-  const freezePath = path.join(verificationDir, `migration-${input.runId}.freeze.json`);
-  const frozen = readFreezeRecord(freezePath, input.runId);
+  const verificationDir = pinExternalDirectory(input.verificationDir, [storeRoot], false);
+  try {
+    return verifyPinnedMigration(input, storeRoot, verificationDir);
+  } finally {
+    closePinnedDirectory(verificationDir);
+  }
+}
+
+function verifyPinnedMigration(
+  input: { storeRoot: string; runId: string; verificationDir: string },
+  storeRoot: string,
+  verificationDir: PinnedDirectory,
+): MigrationVerification {
+  const freezeName = `migration-${input.runId}.freeze.json`;
+  const frozen = readFreezeRecord(verificationDir, freezeName, input.runId);
   const before = frozenDatabaseFiles(storeRoot);
   assertFrozenFiles(frozen, before);
   const db = openSnapshot(path.join(storeRoot, "ralphy.db"));
@@ -234,18 +285,24 @@ export function verifyMigration(input: {
     freezeId: frozen.id,
   };
   const id = sha256(canonical(body));
-  const recordPath = path.join(verificationDir, `migration-${input.runId}.verification-${id}.json`);
-  writePrivateJson(recordPath, { id, ...body });
+  const recordName = `migration-${input.runId}.verification-${id}.json`;
+  const recordPath = path.join(verificationDir.path, recordName);
+  writePrivateJson(verificationDir, recordName, { id, ...body });
   return { id, ...body, recordPath };
 }
 
-function inspectActivation(ctx: MigrationContext): Activation {
-  const activation = inspectFrozenActivation(ctx.db, ctx.runId, ctx.storeRoot);
+function inspectActivation(ctx: MigrationContext, secrets: readonly SecretInventoryEntry[]): Activation {
+  const activation = inspectFrozenActivation(ctx.db, ctx.runId, ctx.storeRoot, secrets);
   inspectSources(ctx, activation);
   return activation;
 }
 
-function inspectFrozenActivation(db: Database, runId: string, storeRoot: string): Activation {
+function inspectFrozenActivation(
+  db: Database,
+  runId: string,
+  storeRoot: string,
+  secrets: readonly SecretInventoryEntry[] = [],
+): Activation {
   const run = db.query<{ entries: number; files: number; bytes: number }, [string]>(
     `SELECT source_entry_count AS entries, source_file_count AS files, source_bytes AS bytes
      FROM migration_runs WHERE id = ?`,
@@ -268,8 +325,12 @@ function inspectFrozenActivation(db: Database, runId: string, storeRoot: string)
   inspectIssues(db, runId, blockers);
   inspectJobs(db, runId, blockers);
   inspectEntityAccounting(db, blockers);
+  inspectProductionAccountingFacts(db, runId, blockers);
+  inspectFarmState(db, blockers);
   inspectSecretMaterializations(db, storeRoot, runId, blockers);
+  inspectSecretInventory(db, runId, secrets, blockers);
   inspectPlaintextRows(db, blockers);
+  inspectStagePlaintext(storeRoot, secrets, blockers);
   return {
     sourceEntries: entries.length,
     coveredEntries: entries.filter((entry) => TERMINAL_STATES.has(entry.state)).length,
@@ -278,6 +339,17 @@ function inspectFrozenActivation(db: Database, runId: string, storeRoot: string)
     inventoryDigests,
     blockers: uniqueIssues(blockers),
   };
+}
+
+function inspectFarmState(db: Database, blockers: MigrationIssue[]): void {
+  for (const row of db.query<{ id: string }, []>(
+    `SELECT id FROM consumer_principals WHERE namespace = 'farm'
+     UNION SELECT id FROM agent_sessions WHERE agent = 'consumer:farm'
+        OR consumer_principal_id IN (SELECT id FROM consumer_principals WHERE namespace = 'farm')
+     UNION SELECT id FROM runs WHERE external_system = 'ralphy-farm'
+        OR consumer_principal_id IN (SELECT id FROM consumer_principals WHERE namespace = 'farm')
+     ORDER BY id`,
+  ).all()) blockers.push(issue("MIGRATION_FARM_STATE_FORBIDDEN", row.id));
 }
 
 function inspectEntry(db: Database, entry: Entry, blockers: MigrationIssue[]): void {
@@ -321,8 +393,8 @@ function inspectEntry(db: Database, entry: Entry, blockers: MigrationIssue[]): v
        WHERE migration_run_id = (SELECT migration_run_id FROM migration_entries WHERE id = ?)
          AND code = 'MIGRATION_SECRET_IMPORTED'
          AND resolved_at IS NOT NULL
-         AND json_extract(detail_json, '$.sourceLocatorHash') = ?`,
-    ).get(entry.id, entry.sourceLocatorHash)?.count ?? 0;
+         AND json_extract(detail_json, '$.sourceEntryId') = ?`,
+    ).get(entry.id, entry.id)?.count ?? 0;
     if (completion !== 1) blockers.push(issue("MIGRATION_SECRET_STATUS_MISSING", entry.id));
   }
 }
@@ -384,6 +456,74 @@ function inspectJobs(db: Database, runId: string, blockers: MigrationIssue[]): v
           AND json_extract(metadata_json, '$.migrationRunId') = ?) AS runs`,
   ).get(runId, runId, runId, runId)!;
   if (counts.pendingRuns !== counts.heldJobs || counts.orphanJobs !== 0 || counts.jobs !== counts.runs) blockers.push(issue("MIGRATION_JOB_RECONCILIATION", runId));
+  inspectJobAccountingFacts(db, runId, blockers);
+}
+
+function inspectJobAccountingFacts(db: Database, runId: string, blockers: MigrationIssue[]): void {
+  type FactRow = { id: number; jobId?: number; runId?: string; status?: string; hold?: string | null; digest: string; runDigest?: string };
+  const expectedJobs = new Set<number>();
+  const expectedLogs = new Set<number>();
+  const expectedArtifacts = new Set<number>();
+  const digest = (table: string, id: number | string): string | null => {
+    const row = db.query<Record<string, unknown>, [number | string]>(`SELECT * FROM ${table} WHERE id = ?`).get(id);
+    return row ? sha256(canonicalRow(row)) : null;
+  };
+  for (const fact of db.query<{ detail: string }, [string]>(
+    `SELECT detail_json AS detail FROM migration_issues
+     WHERE migration_run_id = ? AND code = 'MIGRATION_JOB_ACCOUNTING_FACT' ORDER BY id`,
+  ).all(runId)) {
+    let value: { entryIds?: unknown; jobs?: FactRow[]; logs?: FactRow[]; artifacts?: FactRow[] };
+    try { value = JSON.parse(fact.detail) as typeof value; }
+    catch { blockers.push(issue("MIGRATION_JOB_ACCOUNTING", runId)); continue; }
+    const entryId = Array.isArray(value.entryIds) && typeof value.entryIds[0] === "string" ? value.entryIds[0] : runId;
+    if (!Array.isArray(value.jobs) || !Array.isArray(value.logs) || !Array.isArray(value.artifacts)) {
+      blockers.push(issue("MIGRATION_JOB_ACCOUNTING", entryId));
+      continue;
+    }
+    for (const job of value.jobs) {
+      const current = db.query<{ status: string; hold: string | null; runId: string }, [number]>(
+        "SELECT status, migration_hold_run_id AS hold, run_id AS runId FROM jobs WHERE id = ?",
+      ).get(job.id);
+      if (
+        expectedJobs.has(job.id) || !current || current.runId !== job.runId
+        || current.status !== job.status || current.hold !== job.hold
+        || digest("jobs", job.id) !== job.digest || digest("runs", job.runId!) !== job.runDigest
+        || (job.status === "pending" && job.hold !== runId)
+      ) blockers.push(issue("MIGRATION_JOB_ACCOUNTING", entryId));
+      expectedJobs.add(job.id);
+    }
+    for (const [table, rows, expected] of [
+      ["job_logs", value.logs, expectedLogs],
+      ["job_artifacts", value.artifacts, expectedArtifacts],
+    ] as const) {
+      for (const row of rows) {
+        const current = db.query<{ jobId: number }, [number]>(
+          `SELECT job_id AS jobId FROM ${table} WHERE id = ?`,
+        ).get(row.id);
+        if (expected.has(row.id) || !current || current.jobId !== row.jobId || digest(table, row.id) !== row.digest) {
+          blockers.push(issue("MIGRATION_JOB_ACCOUNTING", entryId));
+        }
+        expected.add(row.id);
+      }
+    }
+  }
+  const actualJobs = db.query<{ id: number }, [string]>(
+    `SELECT job.id FROM jobs job JOIN runs run ON run.id = job.run_id
+     WHERE job.kind = 'legacy' AND json_extract(run.metadata_json, '$.migrationRunId') = ? ORDER BY job.id`,
+  ).all(runId).map((row) => row.id);
+  const actualLogs = db.query<{ id: number }, [string]>(
+    `SELECT log.id FROM job_logs log JOIN jobs job ON job.id = log.job_id JOIN runs run ON run.id = job.run_id
+     WHERE job.kind = 'legacy' AND json_extract(run.metadata_json, '$.migrationRunId') = ? ORDER BY log.id`,
+  ).all(runId).map((row) => row.id);
+  const actualArtifacts = db.query<{ id: number }, [string]>(
+    `SELECT artifact.id FROM job_artifacts artifact JOIN jobs job ON job.id = artifact.job_id JOIN runs run ON run.id = job.run_id
+     WHERE job.kind = 'legacy' AND json_extract(run.metadata_json, '$.migrationRunId') = ? ORDER BY artifact.id`,
+  ).all(runId).map((row) => row.id);
+  if (canonical(actualJobs) !== canonical([...expectedJobs].sort((a, b) => a - b))
+    || canonical(actualLogs) !== canonical([...expectedLogs].sort((a, b) => a - b))
+    || canonical(actualArtifacts) !== canonical([...expectedArtifacts].sort((a, b) => a - b))) {
+    blockers.push(issue("MIGRATION_JOB_ACCOUNTING", runId));
+  }
 }
 
 function inspectEntityAccounting(db: Database, blockers: MigrationIssue[]): void {
@@ -394,6 +534,67 @@ function inspectEntityAccounting(db: Database, blockers: MigrationIssue[]): void
          SELECT 1 FROM migration_entries entry, json_each(COALESCE(entry.target_refs_json, '[]')) ref
          WHERE ref.value = entity.id) ORDER BY entity.id`,
     ).all()) blockers.push(issue(code, row.id));
+  }
+}
+
+function inspectProductionAccountingFacts(db: Database, runId: string, blockers: MigrationIssue[]): void {
+  const indexes = db.query<{ detail: string }, [string]>(
+    `SELECT detail_json AS detail FROM migration_issues
+     WHERE migration_run_id = ? AND code = 'MIGRATION_PRODUCTION_ACCOUNTING_INDEX' ORDER BY id`,
+  ).all(runId);
+  const facts = db.query<{ detail: string }, [string]>(
+    `SELECT detail_json AS detail FROM migration_issues
+     WHERE migration_run_id = ? AND code = 'MIGRATION_PRODUCTION_ACCOUNTING_FACT' ORDER BY id`,
+  ).all(runId);
+  if (indexes.length === 0 && facts.length === 0) return;
+  if (indexes.length !== 1) {
+    blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", runId));
+    return;
+  }
+  let index: { entryIds?: unknown };
+  try { index = JSON.parse(indexes[0]!.detail) as typeof index; }
+  catch { blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", runId)); return; }
+  if (!Array.isArray(index.entryIds) || index.entryIds.some((id) => typeof id !== "string")) {
+    blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", runId));
+    return;
+  }
+  const seen = new Set<string>();
+  for (const row of facts) {
+    let fact: { entryId?: unknown; refs?: unknown; facts?: unknown };
+    try { fact = JSON.parse(row.detail) as typeof fact; }
+    catch { blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", runId)); continue; }
+    const entryId = typeof fact.entryId === "string" ? fact.entryId : runId;
+    if (seen.has(entryId) || !Array.isArray(fact.refs) || !Array.isArray(fact.facts)) {
+      blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", entryId));
+      continue;
+    }
+    seen.add(entryId);
+    const entry = db.query<{ refs: string }, [string, string]>(
+      `SELECT COALESCE(target_refs_json, '[]') AS refs FROM migration_entries
+       WHERE migration_run_id = ? AND id = ? AND state IN ('imported', 'verified')`,
+    ).get(runId, entryId);
+    if (!entry || canonical(JSON.parse(entry.refs) as unknown) !== canonical(fact.refs)) {
+      blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", entryId));
+      continue;
+    }
+    const expectedFacts = new Map((fact.facts as Array<{ ref?: unknown; digest?: unknown }>).map((value) => [value.ref, value.digest]));
+    if (expectedFacts.size !== fact.refs.length) blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", entryId));
+    for (const ref of fact.refs as string[]) {
+      if (typeof ref !== "string") { blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", entryId)); continue; }
+      if (ref.startsWith("provider/")) {
+        if (expectedFacts.get(ref) !== null) blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", entryId));
+        continue;
+      }
+      const split = ref.indexOf("_");
+      const table = REF_TABLES[ref.slice(0, split)];
+      const target = table ? db.query<Record<string, unknown>, [string]>(`SELECT * FROM ${table} WHERE id = ?`).get(ref) : null;
+      if (!target || expectedFacts.get(ref) !== sha256(canonicalRow(target))) {
+        blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", entryId));
+      }
+    }
+  }
+  if (canonical([...seen].sort()) !== canonical([...(index.entryIds as string[])].sort())) {
+    blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", runId));
   }
 }
 
@@ -414,6 +615,66 @@ function inspectSecretMaterializations(db: Database, storeRoot: string, runId: s
   }
 }
 
+function inspectSecretInventory(
+  db: Database,
+  runId: string,
+  inventory: readonly SecretInventoryEntry[],
+  blockers: MigrationIssue[],
+): void {
+  const expected = new Map<string, { entryId: string; kind: "text" | "file" }>();
+  for (const entry of db.query<{ id: string; sourceLocatorHash: string; refs: string }, [string]>(
+    `SELECT id, source_locator_hash AS sourceLocatorHash,
+            COALESCE(target_refs_json, '[]') AS refs
+     FROM migration_entries
+     WHERE migration_run_id = ? AND disposition = 'secret-imported' ORDER BY id`,
+  ).all(runId)) {
+    const rows = db.query<{ code: string; detail: string }, [string, string]>(
+      `SELECT code, detail_json AS detail FROM migration_issues
+       WHERE migration_run_id = ? AND code IN (
+         'MIGRATION_DESKTOP_SECRET_HANDOFF_PLANNED', 'MIGRATION_SECRET_IMPORT_PLANNED',
+         'MIGRATION_SECRET_IMPORTED')
+         AND json_extract(detail_json, '$.sourceEntryId') = ? ORDER BY code, id`,
+    ).all(runId, entry.id);
+    const plans = rows.filter((row) => row.code !== "MIGRATION_SECRET_IMPORTED");
+    const completions = rows.filter((row) => row.code === "MIGRATION_SECRET_IMPORTED");
+    if (plans.length !== 1 || completions.length !== 1) {
+      blockers.push(issue("MIGRATION_SECRET_ACCOUNTING", entry.id));
+      continue;
+    }
+    let plan: { kind?: unknown; refs?: unknown };
+    let completion: { completed?: unknown; kind?: unknown; refs?: unknown };
+    try {
+      plan = JSON.parse(plans[0]!.detail) as typeof plan;
+      completion = JSON.parse(completions[0]!.detail) as typeof completion;
+    } catch {
+      blockers.push(issue("MIGRATION_SECRET_ACCOUNTING", entry.id));
+      continue;
+    }
+    if (
+      (plan.kind !== "text" && plan.kind !== "file")
+      || completion.completed !== true
+      || completion.kind !== plan.kind
+      || canonical(completion.refs) !== canonical(plan.refs)
+      || canonical(plan.refs) !== canonical(JSON.parse(entry.refs) as unknown)
+    ) {
+      blockers.push(issue("MIGRATION_SECRET_ACCOUNTING", entry.id));
+      continue;
+    }
+    for (const ref of plan.refs as string[]) {
+      if (typeof ref !== "string" || expected.has(ref)) {
+        blockers.push(issue("MIGRATION_SECRET_ACCOUNTING", entry.id));
+      } else expected.set(ref, { entryId: entry.id, kind: plan.kind });
+    }
+  }
+  const actual = new Map(inventory.map((entry) => [entry.ref, entry]));
+  for (const [ref, value] of expected) {
+    if (actual.get(ref)?.kind !== value.kind) blockers.push(issue("MIGRATION_SECRET_INVENTORY_MISMATCH", value.entryId));
+  }
+  for (const entry of inventory) {
+    if (!expected.has(entry.ref)) blockers.push(issue("MIGRATION_SECRET_INVENTORY_EXTRA", sha256(entry.ref)));
+  }
+}
+
 function inspectPlaintextRows(db: Database, blockers: MigrationIssue[]): void {
   const pattern = /(?:-----BEGIN [A-Z ]+PRIVATE KEY-----|authorization["']?\s*:\s*["']?(?:bearer|basic)\s+\S+|["']?(?:api[_-]?key|token|password|secret)["']?\s*[:=]\s*["']?[^\s"'}]{4,}|\bsk-[A-Za-z0-9_-]{8,})/iu;
   for (const { name } of db.query<{ name: string }, []>(
@@ -431,6 +692,44 @@ function inspectPlaintextRows(db: Database, blockers: MigrationIssue[]): void {
         }
       }
     }
+  }
+}
+
+function inspectStagePlaintext(
+  storeRoot: string,
+  secrets: readonly SecretInventoryEntry[],
+  blockers: MigrationIssue[],
+): void {
+  const pattern = /(?:-----BEGIN [A-Z ]+PRIVATE KEY-----|authorization["']?\s*:\s*["']?(?:bearer|basic)\s+\S+|["']?(?:api[_-]?key|token|password|secret)["']?\s*[:=]\s*["']?[^\s"'}]{4,}|\bsk-[A-Za-z0-9_-]{8,})/iu;
+  for (const relative of walkStageFiles(storeRoot)) {
+    if (relative === "secrets.enc") continue;
+    let leaked: boolean;
+    try { leaked = fileContainsPlaintext(containedPath(storeRoot, relative), secrets, pattern); }
+    catch { blockers.push(issue("MIGRATION_STAGE_FILE_UNREADABLE", sha256(relative))); continue; }
+    if (leaked) blockers.push(issue("MIGRATION_PLAINTEXT_SECRET", sha256(relative)));
+  }
+}
+
+function fileContainsPlaintext(
+  file: string,
+  secrets: readonly SecretInventoryEntry[],
+  pattern: RegExp,
+): boolean {
+  const needles = secrets.map((secret) => secret.value).filter((value) => value.length > 0);
+  const overlap = Math.max(64 * 1024, ...needles.map((value) => value.length - 1));
+  const chunk = Buffer.allocUnsafe(1024 * 1024);
+  let carry = Buffer.alloc(0);
+  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  try {
+    for (;;) {
+      const count = fs.readSync(fd, chunk, 0, chunk.length, null);
+      if (count === 0) return false;
+      const bytes = Buffer.concat([carry, chunk.subarray(0, count)]);
+      if (needles.some((needle) => bytes.indexOf(needle) !== -1) || pattern.test(bytes.toString("utf8"))) return true;
+      carry = bytes.subarray(Math.max(0, bytes.length - overlap));
+    }
+  } finally {
+    fs.closeSync(fd);
   }
 }
 
@@ -458,13 +757,15 @@ function appendDomainBlockers(blockers: MigrationIssue[], report: DomainVerifica
 
 function contentDigest(db: Database, storeRoot: string): string {
   const lines: string[] = [];
+  const objects = new Map<string, ReturnType<typeof inspectFile>>();
   for (const row of db.query<{ id: string; bucket: string; key: string; bytes: number; sha256: string }, []>(
     "SELECT id, bucket, key, bytes, sha256 FROM objects ORDER BY id",
   ).all()) {
     const file = containedPath(storeRoot, `${row.bucket}/${row.key}`);
-    const actual = fingerprint(file);
-    if (!actual.exists || actual.bytes !== row.bytes || actual.sha256 !== row.sha256) throw new Error(`Object content changed: ${row.id}`);
-    lines.push(`object\0${row.id}\0${row.sha256}\0${row.bytes}`);
+    const actual = inspectFile(file);
+    if (!actual.fingerprint.exists || actual.fingerprint.bytes !== row.bytes || actual.fingerprint.sha256 !== row.sha256) throw new Error(`Object content changed: ${row.id}`);
+    objects.set(row.id, actual);
+    lines.push(`object\0${row.id}\0${row.sha256}\0${row.bytes}\0${actual.mode}`);
   }
   for (const row of db.query<{ id: string; objectId: string | null; path: string; bytes: number | null; sha256: string | null; objectBytes: number | null; objectSha256: string | null }, []>(
     `SELECT run_object.id, run_object.object_id AS objectId, run_object.path,
@@ -474,17 +775,61 @@ function contentDigest(db: Database, storeRoot: string): string {
      ORDER BY run_object.id`,
   ).all()) {
     if (row.objectId === null) {
-      const actual = fingerprint(containedPath(storeRoot, row.path));
-      if (!actual.exists || actual.bytes !== row.bytes || actual.sha256 !== row.sha256) throw new Error(`RunObject content changed: ${row.id}`);
+      const actual = inspectFile(containedPath(storeRoot, row.path));
+      if (!actual.fingerprint.exists || actual.fingerprint.bytes !== row.bytes || actual.fingerprint.sha256 !== row.sha256) throw new Error(`RunObject content changed: ${row.id}`);
+      lines.push(`run-object\0${row.id}\0\0${row.sha256 ?? ""}\0${row.bytes ?? ""}\0${actual.mode}`);
+      continue;
     }
-    lines.push(`run-object\0${row.id}\0${row.objectId ?? ""}\0${row.objectSha256 ?? row.sha256 ?? ""}\0${row.objectBytes ?? row.bytes ?? ""}`);
+    const actual = objects.get(row.objectId);
+    if (!actual) throw new Error(`RunObject Object changed: ${row.id}`);
+    lines.push(`run-object\0${row.id}\0${row.objectId}\0${row.objectSha256 ?? ""}\0${row.objectBytes ?? ""}\0${actual.mode}`);
   }
   const secrets = path.join(storeRoot, "secrets.enc");
   if (fs.existsSync(secrets)) {
-    const actual = fingerprint(secrets);
-    lines.push(`secrets\0${actual.sha256}\0${actual.bytes}\0${fs.lstatSync(secrets).mode & 0o777}`);
+    const actual = inspectFile(secrets);
+    lines.push(`secrets\0${actual.fingerprint.sha256}\0${actual.fingerprint.bytes}\0${actual.mode}`);
+  }
+  for (const relative of walkStageFiles(storeRoot)) {
+    const actual = inspectFile(containedPath(storeRoot, relative));
+    lines.push(`stage\0${relative}\0${actual.fingerprint.sha256}\0${actual.fingerprint.bytes}\0${actual.mode}`);
   }
   return sha256(lines.join("\n"));
+}
+
+function inspectClosedSnapshot(
+  ctx: MigrationContext,
+  frozenAt: number,
+  secrets: readonly SecretInventoryEntry[],
+): { files: ReturnType<typeof frozenDatabaseFiles>; activation: Activation; contentDigest: string } {
+  freezeGate(ctx);
+  const before = frozenDatabaseFiles(ctx.storeRoot);
+  const db = openSnapshot(path.join(ctx.storeRoot, "ralphy.db"));
+  let activation: Activation;
+  let digest: string;
+  try {
+    activation = inspectFrozenActivation(db, ctx.runId, ctx.storeRoot, secrets);
+    inspectSources({ ...ctx, db }, activation);
+    const run = db.query<{ phase: string; frozenAt: number | null }, [string]>(
+      "SELECT phase, frozen_at AS frozenAt FROM migration_runs WHERE id = ?",
+    ).get(ctx.runId);
+    if (!run || run.phase !== "ready" || run.frozenAt !== frozenAt) {
+      activation.blockers.push(issue("MIGRATION_FREEZE_STATE", ctx.runId));
+    }
+    digest = contentDigest(db, ctx.storeRoot);
+  } finally {
+    db.close();
+  }
+  appendDomainBlockers(activation.blockers, verifyDomainStore({ dataRoot: ctx.storeRoot, hashObjects: true }));
+  activation.blockers = uniqueIssues(activation.blockers);
+  const after = frozenDatabaseFiles(ctx.storeRoot);
+  if (canonical(before) !== canonical(after)) throw new Error("Migration database changed during closed verification");
+  freezeGate(ctx);
+  return { files: after, activation, contentDigest: digest };
+}
+
+function freezeGate(ctx: MigrationContext): void {
+  assertMigrationMaintenanceLock(ctx);
+  assertMigrationQuiescent([...ctx.sourceRoots.map((source) => source.path), ctx.storeRoot]);
 }
 
 function migrationEntries(db: Database, runId: string): Entry[] {
@@ -517,6 +862,10 @@ function frozenDatabaseFiles(storeRoot: string) {
 }
 
 function fingerprint(file: string): FrozenFileFingerprint {
+  return inspectFile(file).fingerprint;
+}
+
+function inspectFile(file: string): { fingerprint: FrozenFileFingerprint; mode: number | null } {
   try {
     const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
     try {
@@ -533,16 +882,25 @@ function fingerprint(file: string): FrozenFileFingerprint {
       }
       const after = fs.fstatSync(fd);
       if (before.dev !== after.dev || before.ino !== after.ino || before.size !== after.size || before.mtimeMs !== after.mtimeMs) throw new Error();
-      return { exists: true, bytes, mtimeMs: before.mtimeMs, sha256: hash.digest("hex") };
+      return {
+        fingerprint: { exists: true, bytes, mtimeMs: before.mtimeMs, sha256: hash.digest("hex") },
+        mode: before.mode & 0o777,
+      };
     } finally { fs.closeSync(fd); }
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { exists: false, bytes: 0, mtimeMs: 0, sha256: null };
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return { fingerprint: { exists: false, bytes: 0, mtimeMs: 0, sha256: null }, mode: null };
+    }
     throw new Error("Migration fingerprint failed");
   }
 }
 
-function readFreezeRecord(file: string, runId: string): FrozenMigration {
-  const raw = readPrivateFile(file);
+function readFreezeRecord(
+  directory: PinnedDirectory,
+  name: string,
+  runId: string,
+): FrozenMigration {
+  const raw = readPrivateFile(directory, name);
   let value: FrozenMigration;
   try { value = JSON.parse(raw) as FrozenMigration; } catch { throw new Error("Migration freeze record is invalid"); }
   const body = {
@@ -553,7 +911,7 @@ function readFreezeRecord(file: string, runId: string): FrozenMigration {
   if (value.runId !== runId || value.consumers?.farm !== null || value.id !== sha256(canonical(body)) || raw !== `${canonical({ id: value.id, ...body })}\n`) {
     throw new Error("Migration freeze record is invalid");
   }
-  return { ...value, recordPath: file };
+  return { ...value, recordPath: path.join(directory.path, name) };
 }
 
 function assertFrozenFiles(frozen: FrozenMigration, actual: ReturnType<typeof frozenDatabaseFiles>): void {
@@ -600,6 +958,23 @@ function walkNames(root: string): string[] {
   return names;
 }
 
+function walkStageFiles(root: string): string[] {
+  const files: string[] = [];
+  const visit = (directory: string, prefix: string): void => {
+    for (const name of fs.readdirSync(directory).sort()) {
+      const absolute = path.join(directory, name);
+      const relative = prefix ? `${prefix}/${name}` : name;
+      const stat = fs.lstatSync(absolute);
+      if (stat.isSymbolicLink()) throw new Error(`Migration stage contains a symlink: ${sha256(relative)}`);
+      if (stat.isDirectory()) visit(absolute, relative);
+      else if (stat.isFile()) files.push(relative);
+      else throw new Error(`Migration stage contains a special file: ${sha256(relative)}`);
+    }
+  };
+  visit(root, "");
+  return files;
+}
+
 function entryKind(stat: fs.Stats): string {
   if (stat.isDirectory()) return "directory";
   if (stat.isFile()) return "file";
@@ -629,16 +1004,53 @@ function assertContext(ctx: MigrationContext): void {
   if (path.resolve(ctx.db.filename) !== path.join(path.resolve(ctx.storeRoot), "ralphy.db")) throw new Error("Migration database does not belong to its store root");
 }
 
-function externalDirectory(input: string, excluded: readonly string[]): string {
-  assertExternalPath(prospectiveCanonicalPath(input), excluded);
-  fs.mkdirSync(input, { recursive: true, mode: 0o700 });
-  return existingExternalDirectory(input, excluded);
+type PinnedDirectory = {
+  fd: number;
+  path: string;
+  dev: number;
+  ino: number;
+  uid: number;
+};
+
+function pinExternalDirectory(
+  input: string,
+  excluded: readonly string[],
+  create: boolean,
+): PinnedDirectory {
+  const directory = canonicalDarwinPath(path.resolve(input));
+  assertExternalPath(directory, excluded);
+  const root = path.parse(directory).root;
+  let fd = openRootDirectory(root);
+  try {
+    for (const name of directory.slice(root.length).split(path.sep).filter(Boolean)) {
+      const child = create
+        ? openDirectoryAt(fd, name, 0o700).fd
+        : openExistingDirectoryAt(fd, name);
+      if (child === null) throw new Error("Migration verification is unavailable until the stage is frozen");
+      fs.closeSync(fd);
+      fd = child;
+    }
+    const stat = fs.fstatSync(fd);
+    const uid = typeof process.getuid === "function" ? process.getuid() : 0;
+    if (!stat.isDirectory() || stat.uid !== uid || (stat.mode & 0o777) !== 0o700) {
+      throw new Error("Migration verification directory must be private and owned by the current user");
+    }
+    const pinned = { fd, path: directory, dev: stat.dev, ino: stat.ino, uid: stat.uid };
+    assertPinnedDirectory(pinned);
+    return pinned;
+  } catch (error) {
+    fs.closeSync(fd);
+    throw error instanceof Error && error.message
+      ? error
+      : new Error("Migration directory is unsafe");
+  }
 }
 
-function existingExternalDirectory(input: string, excluded: readonly string[]): string {
-  const directory = canonicalDirectory(input);
-  assertExternalPath(directory, excluded);
-  return directory;
+function canonicalDarwinPath(value: string): string {
+  if (process.platform !== "darwin") return value;
+  if (value === "/var" || value.startsWith("/var/")) return `/private${value}`;
+  if (value === "/tmp" || value.startsWith("/tmp/")) return `/private${value}`;
+  return value;
 }
 
 function assertExternalPath(directory: string, excluded: readonly string[]): void {
@@ -650,16 +1062,42 @@ function assertExternalPath(directory: string, excluded: readonly string[]): voi
   }
 }
 
-function prospectiveCanonicalPath(value: string): string {
-  let existing = path.resolve(value);
-  const missing: string[] = [];
-  while (!fs.existsSync(existing)) {
-    const parent = path.dirname(existing);
-    if (parent === existing) throw new Error("Migration directory is unsafe");
-    missing.unshift(path.basename(existing));
-    existing = parent;
+function assertPinnedDirectory(directory: PinnedDirectory): void {
+  const stat = fs.fstatSync(directory.fd);
+  if (!stat.isDirectory() || stat.dev !== directory.dev || stat.ino !== directory.ino
+    || stat.uid !== directory.uid || (stat.mode & 0o777) !== 0o700) {
+    throw new Error("Migration verification directory identity changed");
   }
-  return path.resolve(fs.realpathSync(existing), ...missing);
+  const current = pinDirectoryPath(directory.path);
+  try {
+    const reopened = fs.fstatSync(current);
+    if (reopened.dev !== directory.dev || reopened.ino !== directory.ino) {
+      throw new Error("Migration verification directory identity changed");
+    }
+  } finally {
+    fs.closeSync(current);
+  }
+}
+
+function pinDirectoryPath(directory: string): number {
+  const root = path.parse(directory).root;
+  let fd = openRootDirectory(root);
+  try {
+    for (const name of directory.slice(root.length).split(path.sep).filter(Boolean)) {
+      const child = openExistingDirectoryAt(fd, name);
+      if (child === null) throw new Error("Migration directory is unsafe");
+      fs.closeSync(fd);
+      fd = child;
+    }
+    return fd;
+  } catch (error) {
+    fs.closeSync(fd);
+    throw error;
+  }
+}
+
+function closePinnedDirectory(directory: PinnedDirectory): void {
+  fs.closeSync(directory.fd);
 }
 
 function canonicalDirectory(value: string): string {
@@ -669,33 +1107,44 @@ function canonicalDirectory(value: string): string {
   return resolved;
 }
 
-function writePrivateJson(file: string, value: unknown): void {
-  const directory = path.dirname(file);
-  const temporary = path.join(directory, `.migration-record-${randomUUID()}.tmp`);
-  const fd = fs.openSync(temporary, "wx", 0o600);
+function writePrivateJson(directory: PinnedDirectory, name: string, value: unknown): void {
+  const temporary = `.migration-record-${randomUUID()}.tmp`;
+  assertPinnedDirectory(directory);
+  const fd = createExclusiveRegularFileAt(directory.fd, temporary, 0o600);
+  if (fd === null) throw new Error("Migration external record collision");
   try {
     fs.writeFileSync(fd, `${canonical(value)}\n`, "utf8");
     fs.fsyncSync(fd);
   } finally { fs.closeSync(fd); }
   try {
-    fs.linkSync(temporary, file);
-    fs.unlinkSync(temporary);
-    const directoryFd = fs.openSync(directory, "r");
-    try { fs.fsyncSync(directoryFd); } finally { fs.closeSync(directoryFd); }
+    assertPinnedDirectory(directory);
+    if (!linkExclusiveAt(directory.fd, temporary, directory.fd, name)) {
+      throw new Error("Migration external record already exists");
+    }
+    assertPinnedDirectory(directory);
+    unlinkAt(directory.fd, temporary, false);
+    assertPinnedDirectory(directory);
+    fs.fsyncSync(directory.fd);
   } catch (error) {
-    fs.rmSync(temporary, { force: true });
+    try { unlinkAt(directory.fd, temporary, false, true); } catch { /* Original error owns the boundary. */ }
     throw error;
   }
 }
 
-function readPrivateFile(file: string): string {
-  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
-  try {
-    const stat = fs.fstatSync(fd);
-    if (!stat.isFile() || (stat.mode & 0o777) !== 0o600) throw new Error();
-    return fs.readFileSync(fd, "utf8");
-  } catch { throw new Error("Migration external record is invalid"); }
-  finally { fs.closeSync(fd); }
+function readPinnedFile(directory: PinnedDirectory, name: string): Buffer | null {
+  assertPinnedDirectory(directory);
+  const entry = readFileAt(directory.fd, name);
+  assertPinnedDirectory(directory);
+  return entry?.bytes ?? null;
+}
+
+function readPrivateFile(directory: PinnedDirectory, name: string): string {
+  const entry = readFileAt(directory.fd, name);
+  if (!entry || entry.mode !== 0o600 || entry.uid !== directory.uid) {
+    throw new Error("Migration external record is invalid");
+  }
+  assertPinnedDirectory(directory);
+  return entry.bytes.toString("utf8");
 }
 
 function issue(code: string, entityId: string, detail: Record<string, unknown> = {}): MigrationIssue {
@@ -713,4 +1162,13 @@ function activationError(blockers: MigrationIssue[]): Error {
 }
 
 function canonical(value: unknown): string { return JSON.stringify(value); }
+
+function canonicalRow(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalRow).join(",")}]`;
+  if (value !== null && typeof value === "object") {
+    const row = value as Record<string, unknown>;
+    return `{${Object.keys(row).sort().map((key) => `${JSON.stringify(key)}:${canonicalRow(row[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
 function sha256(value: string | Uint8Array): string { return createHash("sha256").update(value).digest("hex"); }

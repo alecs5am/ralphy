@@ -53,6 +53,14 @@ describe("legacy production and delivery migration", () => {
 
     expect(replay).toEqual(first);
     expect(first).toMatchObject({ units: 10, publications: 13, metrics: 4 });
+    const accounting = ctx!.db.query<{ facts: number; indexes: number }, []>(
+      `SELECT
+         SUM(code = 'MIGRATION_PRODUCTION_ACCOUNTING_FACT') AS facts,
+         SUM(code = 'MIGRATION_PRODUCTION_ACCOUNTING_INDEX') AS indexes
+       FROM migration_issues`,
+    ).get()!;
+    expect(accounting.facts).toBeGreaterThan(0);
+    expect(accounting.indexes).toBe(1);
 
     const units = ctx!.db.query<{
       slug: string;

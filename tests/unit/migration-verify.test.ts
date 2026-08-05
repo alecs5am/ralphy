@@ -3,9 +3,12 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { openDomainDbAt } from "../../cli/lib/store/db.js";
+import { createSecretStore, type KeyProvider } from "../../cli/lib/store/secrets.js";
+import { completeMigrationSecretImport } from "../../cli/lib/migration/import.js";
 import {
   acquireMaintenanceLock,
   releaseMaintenanceLock,
+  setMigrationProcessToolsForTesting,
   sourceLocatorHash,
 } from "../../cli/lib/migration/inventory.js";
 import {
@@ -24,7 +27,15 @@ const OBJECT_ID = "obj_00000000-0000-4000-8000-000000000076";
 const PROJECT_ID = "prj_00000000-0000-4000-8000-000000000077";
 const BUILD_ID = "build_00000000-0000-4000-8000-000000000078";
 const UNIT_ID = "unit_00000000-0000-4000-8000-000000000079";
+const LEGACY_RUN_ID = "run_00000000-0000-4000-8000-00000000007a";
 const EMPTY_SHA256 = sha256("");
+const SECRET_REF = `provider/test/workspace/${WORKSPACE_ID}/token`;
+const SECRET_VALUE = "fixture-authenticated-secret-value";
+const secretKey = Buffer.alloc(32, 71);
+const keyProvider: KeyProvider = {
+  async lookupKey() { return secretKey; },
+  async createKey() { return secretKey; },
+};
 
 type Fixture = {
   root: TmpRoot;
@@ -34,14 +45,16 @@ type Fixture = {
   storeRoot: string;
   verificationDir: string;
   objectPath: string;
+  restoreProcessTools: () => void;
 };
 
 let fixtures: Fixture[] = [];
 
 afterEach(() => {
-  for (const fixture of fixtures) {
+  for (const fixture of [...fixtures].reverse()) {
     try { fixture.ctx.db.close(); } catch { /* Freeze owns the final close. */ }
     if (fs.existsSync(fixture.lock.path)) releaseMaintenanceLock(fixture.lock);
+    fixture.restoreProcessTools();
     fixture.root.cleanup();
   }
   fixtures = [];
@@ -84,6 +97,87 @@ describe("migration freeze and read-only verification", () => {
     expect(fs.existsSync(internal)).toBe(false);
   });
 
+  test("rejects another process whose cwd is inside the stage", async () => {
+    const fixture = setup();
+    const child = Bun.spawn(["/bin/sleep", "30"], {
+      cwd: fixture.storeRoot,
+      stdout: "ignore",
+      stderr: "ignore",
+    });
+    const restore = installProcessTools(
+      fixture.root.dir,
+      fixture.lock.processStartIdentity,
+      child.pid,
+      fixture.storeRoot,
+    );
+    try {
+      await Bun.sleep(100);
+      await expect(freezeMigration(fixture.ctx, { verificationDir: fixture.verificationDir }))
+        .rejects.toThrow(/quiescent/u);
+    } finally {
+      restore();
+      child.kill();
+      await child.exited;
+    }
+  });
+
+  test("abandons freeze when a source changes between closed snapshots", async () => {
+    const fixture = setup();
+    const input = {
+      verificationDir: fixture.verificationDir,
+      afterClosedSnapshot(index: number) {
+        if (index === 1) fs.writeFileSync(path.join(fixture.sourceRoot, "control.json"), "[]");
+      },
+    } as Parameters<typeof freezeMigration>[1];
+
+    await expect(freezeMigration(fixture.ctx, input)).rejects.toThrow(ENTRY_ID);
+    expect(fs.existsSync(path.join(fixture.verificationDir, `migration-${RUN_ID}.freeze.json`))).toBe(false);
+  });
+
+  test("blocks Farm namespace consumer state", async () => {
+    const fixture = setup();
+    fixture.ctx.db.prepare(
+      `INSERT INTO consumer_principals (id, namespace, identity_digest, created_at)
+       VALUES ('farm-principal', 'farm', ?, 1)`,
+    ).run("a".repeat(64));
+
+    await expect(freezeMigration(fixture.ctx, { verificationDir: fixture.verificationDir }))
+      .rejects.toThrow("farm-principal");
+  });
+
+  test("rejects a symlinked or non-private verification directory", async () => {
+    const symlinkFixture = setup();
+    const target = path.join(symlinkFixture.root.dir, "records-target");
+    const symlink = path.join(symlinkFixture.root.dir, "records-link");
+    fs.mkdirSync(target, { mode: 0o700 });
+    fs.symlinkSync(target, symlink);
+    await expect(freezeMigration(symlinkFixture.ctx, { verificationDir: symlink }))
+      .rejects.toThrow(/unsafe|private/u);
+
+    const modeFixture = setup();
+    fs.mkdirSync(modeFixture.verificationDir, { mode: 0o755 });
+    await expect(freezeMigration(modeFixture.ctx, { verificationDir: modeFixture.verificationDir }))
+      .rejects.toThrow(/private/u);
+  });
+
+  test("rejects a verification-directory ancestor swap after pinning", async () => {
+    const fixture = setup();
+    const parent = path.join(fixture.root.dir, "external-parent");
+    const moved = `${parent}-moved`;
+    const verificationDir = path.join(parent, "verification");
+    fs.mkdirSync(parent, { mode: 0o700 });
+
+    await expect(freezeMigration(fixture.ctx, {
+      verificationDir,
+      afterVerificationDirectoryOpen() {
+        fs.renameSync(parent, moved);
+        fs.mkdirSync(parent, { mode: 0o700 });
+        fs.mkdirSync(verificationDir, { mode: 0o700 });
+      },
+    })).rejects.toThrow(/changed|unsafe/u);
+    expect(fs.existsSync(path.join(moved, "verification", `migration-${RUN_ID}.freeze.json`))).toBe(false);
+  });
+
   test("freezes once and produces repeatable byte-neutral content verification", async () => {
     const fixture = setup();
     const frozen = await freezeMigration(fixture.ctx, { verificationDir: fixture.verificationDir });
@@ -114,6 +208,74 @@ describe("migration freeze and read-only verification", () => {
     expect(first).toMatchObject({ sourceEntries: 1, coveredEntries: 1, sourceBytes: 2, accountedBytes: 2 });
     expect(fs.statSync(first.recordPath).mode & 0o777).toBe(0o600);
     expect(fs.statSync(second.recordPath).mode & 0o777).toBe(0o600);
+  });
+
+  test("verification detects Object mode drift", async () => {
+    const fixture = setup();
+    await freezeMigration(fixture.ctx, { verificationDir: fixture.verificationDir });
+    fs.chmodSync(fixture.objectPath, 0o600);
+
+    expect(() => verifyMigration({
+      storeRoot: fixture.storeRoot,
+      runId: RUN_ID,
+      verificationDir: fixture.verificationDir,
+    })).toThrow(/MIGRATION_CONTENT_DRIFT/u);
+  });
+
+  test("authenticates exact secret plans and rejects plaintext on any staged surface", async () => {
+    const fixture = setup({ pendingSecret: true });
+    await importFixtureSecret(fixture);
+    const leak = "reports/verification.log";
+    fs.mkdirSync(path.join(fixture.storeRoot, "reports"));
+    fs.writeFileSync(path.join(fixture.storeRoot, leak), SECRET_VALUE);
+
+    await expect(freezeMigration(fixture.ctx, {
+      verificationDir: fixture.verificationDir,
+      keyProvider,
+    })).rejects.toThrow(sha256(leak));
+    expect(fs.existsSync(path.join(fixture.verificationDir, `migration-${RUN_ID}.freeze.json`))).toBe(false);
+  });
+
+  test("authenticates the encrypted envelope without scanning its ciphertext as plaintext", async () => {
+    const fixture = setup({ pendingSecret: true });
+    await importFixtureSecret(fixture);
+
+    const frozen = await freezeMigration(fixture.ctx, {
+      verificationDir: fixture.verificationDir,
+      keyProvider,
+    });
+    expect(frozen.contentDigest).toMatch(/^[0-9a-f]{64}$/u);
+    expect(fs.statSync(path.join(fixture.storeRoot, "secrets.enc")).mode & 0o777).toBe(0o600);
+  });
+
+  test("rejects an authenticated secret ref absent from immutable migration plans", async () => {
+    const fixture = setup({ pendingSecret: true });
+    await importFixtureSecret(fixture);
+    const extraRef = `provider/test/workspace/${WORKSPACE_ID}/extra`;
+    await createSecretStore({ dataRoot: fixture.storeRoot, keyProvider }).set(extraRef, "extra-value");
+
+    await expect(freezeMigration(fixture.ctx, {
+      verificationDir: fixture.verificationDir,
+      keyProvider,
+    })).rejects.toThrow(sha256(extraRef));
+  });
+
+  test("rejects a valid mutable Job substituted after its immutable accounting fact", async () => {
+    const fixture = setup();
+    installJobAccountingFact(fixture);
+    fixture.ctx.db.prepare("UPDATE jobs SET status = 'running', started_at = 3 WHERE id = 71071").run();
+
+    await expect(freezeMigration(fixture.ctx, { verificationDir: fixture.verificationDir }))
+      .rejects.toThrow(ENTRY_ID);
+  });
+
+  test("rejects a valid production entity substituted after its immutable accounting fact", async () => {
+    const fixture = setup();
+    installProductionAccountingFact(fixture);
+    fixture.ctx.db.prepare("UPDATE objects SET original_name = 'substituted.json' WHERE id = ?").run(OBJECT_ID);
+
+    await expect(freezeMigration(fixture.ctx, { verificationDir: fixture.verificationDir }))
+      .rejects.toThrow(ENTRY_ID);
   });
 });
 
@@ -235,13 +397,121 @@ function setup(options: { unclassifiedEmpty?: boolean; pendingSecret?: boolean }
     storeRoot,
     verificationDir,
     objectPath,
+    restoreProcessTools: installProcessTools(root.dir, lock.processStartIdentity),
   };
   fixtures.push(fixture);
   return fixture;
 }
 
+async function importFixtureSecret(fixture: Fixture): Promise<void> {
+  const sourceLocator = sourceLocatorHash("ralphy", "claude-api-key.bin");
+  fixture.ctx.db.prepare(
+    `UPDATE migration_entries SET target_refs_json = ?, updated_at = 2
+     WHERE id = ? AND state = 'inventoried'`,
+  ).run(JSON.stringify([SECRET_REF]), EXTRA_ID);
+  fixture.ctx.db.prepare(
+    `INSERT INTO migration_issues
+     (id, migration_run_id, code, severity, detail_json, created_at)
+     VALUES ('miss_fixture-secret-plan', ?, 'MIGRATION_SECRET_IMPORT_PLANNED', 'info', ?, 2)`,
+  ).run(RUN_ID, JSON.stringify({
+    kind: "text",
+    refs: [SECRET_REF],
+    sourceEntryId: EXTRA_ID,
+    sourceLocatorHash: sourceLocator,
+  }));
+  await createSecretStore({ dataRoot: fixture.storeRoot, keyProvider }).set(SECRET_REF, SECRET_VALUE);
+  completeMigrationSecretImport(fixture.ctx.db, {
+    runId: RUN_ID,
+    sourceEntryId: EXTRA_ID,
+    refs: [SECRET_REF],
+    kind: "text",
+  });
+}
+
+function installJobAccountingFact(fixture: Fixture): void {
+  fixture.ctx.db.prepare(
+    `INSERT INTO runs (id, workspace_id, kind, label, state, metadata_json, created_at)
+     VALUES (?, ?, 'legacy-job', 'Fixture legacy job', 'pending', ?, 2)`,
+  ).run(LEGACY_RUN_ID, WORKSPACE_ID, JSON.stringify({ migrationRunId: RUN_ID, legacyJobId: 71071 }));
+  fixture.ctx.db.prepare(
+    `INSERT INTO jobs
+     (id, run_id, kind, status, command, created_at, migration_hold_run_id)
+     VALUES (71071, ?, 'legacy', 'pending', '["fixture"]', 2, ?)`,
+  ).run(LEGACY_RUN_ID, RUN_ID);
+  const job = fixture.ctx.db.query<Record<string, unknown>, []>("SELECT * FROM jobs WHERE id = 71071").get()!;
+  const run = fixture.ctx.db.query<Record<string, unknown>, [string]>("SELECT * FROM runs WHERE id = ?").get(LEGACY_RUN_ID)!;
+  fixture.ctx.db.prepare(
+    `INSERT INTO migration_issues
+     (id, migration_run_id, code, severity, detail_json, created_at)
+     VALUES ('miss_fixture-job-fact', ?, 'MIGRATION_JOB_ACCOUNTING_FACT', 'info', ?, 2)`,
+  ).run(RUN_ID, JSON.stringify({
+    sourceId: "source-ralphy",
+    entryIds: [ENTRY_ID],
+    jobs: [{
+      id: 71071,
+      runId: LEGACY_RUN_ID,
+      status: "pending",
+      hold: RUN_ID,
+      digest: sha256(canonicalRow(job)),
+      runDigest: sha256(canonicalRow(run)),
+    }],
+    logs: [],
+    artifacts: [],
+  }));
+}
+
+function installProductionAccountingFact(fixture: Fixture): void {
+  const object = fixture.ctx.db.query<Record<string, unknown>, [string]>(
+    "SELECT * FROM objects WHERE id = ?",
+  ).get(OBJECT_ID)!;
+  const detail = {
+    entryId: ENTRY_ID,
+    sourceLocatorHash: sourceLocatorHash("ralphy", "control.json"),
+    refs: [OBJECT_ID],
+    facts: [{ ref: OBJECT_ID, digest: sha256(canonicalRow(object)) }],
+  };
+  fixture.ctx.db.prepare(
+    `INSERT INTO migration_issues
+     (id, migration_run_id, code, severity, detail_json, created_at)
+     VALUES ('miss_fixture-production-fact', ?, 'MIGRATION_PRODUCTION_ACCOUNTING_FACT', 'info', ?, 2)`,
+  ).run(RUN_ID, JSON.stringify(detail));
+  fixture.ctx.db.prepare(
+    `INSERT INTO migration_issues
+     (id, migration_run_id, code, severity, detail_json, created_at)
+     VALUES ('miss_fixture-production-index', ?, 'MIGRATION_PRODUCTION_ACCOUNTING_INDEX', 'info', ?, 2)`,
+  ).run(RUN_ID, JSON.stringify({ entryIds: [ENTRY_ID] }));
+}
+
+function installProcessTools(
+  root: string,
+  processStartIdentity: string,
+  pid?: number,
+  cwd?: string,
+): () => void {
+  const bin = path.join(root, `process-tools-${pid ?? "quiet"}`);
+  fs.mkdirSync(bin, { mode: 0o700 });
+  const ps = path.join(bin, "ps");
+  const lsof = path.join(bin, "lsof");
+  fs.writeFileSync(ps, `#!/bin/sh\nif [ "$1" = "-o" ]; then\n  printf '%s\\n' '${processStartIdentity}'\nelse\n  printf '  1 launchd launchd\\n'\nfi\n`);
+  fs.writeFileSync(lsof, pid && cwd
+    ? `#!/bin/sh\nprintf 'p${pid}\\ncsleep\\nfcwd\\nn${cwd}\\n'\n`
+    : "#!/bin/sh\nprintf 'p1\\nclaunchd\\nfcwd\\nn/\\n'\n");
+  fs.chmodSync(ps, 0o700);
+  fs.chmodSync(lsof, 0o700);
+  return setMigrationProcessToolsForTesting({ psPath: ps, lsofPath: lsof });
+}
+
 function sha256(value: string | Uint8Array): string {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function canonicalRow(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalRow).join(",")}]`;
+  if (value !== null && typeof value === "object") {
+    const row = value as Record<string, unknown>;
+    return `{${Object.keys(row).sort().map((key) => `${JSON.stringify(key)}:${canonicalRow(row[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
 }
 
 function databaseFiles(storeRoot: string): unknown[] {
