@@ -10,6 +10,7 @@ import {
 import {
   importProductionAndDelivery,
   importScopesAndDocuments,
+  type ProductionImportSummary,
 } from "../../cli/lib/migration/import.js";
 import { stageInventoryObjects } from "../../cli/lib/migration/staging.js";
 import type { MigrationContext, MigrationLock } from "../../cli/lib/migration/types.js";
@@ -42,6 +43,23 @@ afterEach(() => {
 });
 
 describe("legacy production and delivery migration", () => {
+  test("blocks a 40-to-39 Unit occurrence omission against source-derived accounting", async () => {
+    await setupFixture();
+    const sourcePath = "workspaces/studio/projects/registered-project/units/repeated-pack/unit.json";
+    const entryId = ctx!.db.query<{ id: string }, [string, string]>(
+      "SELECT id FROM migration_entries WHERE migration_run_id = ? AND source_path = ?",
+    ).get(ctx!.runId, sourcePath)?.id;
+    expect(entryId).toBeString();
+
+    const importWithSeam = importProductionAndDelivery as unknown as (
+      input: MigrationContext,
+      options: { omitLastRepeatedUnitItemForTesting: boolean },
+    ) => ProductionImportSummary;
+    expect(() => importWithSeam(ctx!, { omitLastRepeatedUnitItemForTesting: true }))
+      .toThrow(entryId!);
+    expect(ctx!.db.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM units").get()?.count).toBe(0);
+  });
+
   test("reconstructs immutable production history from explicit provenance", async () => {
     await setupFixture();
 

@@ -185,9 +185,15 @@ export function createSecretStore(input: {
 export async function readSecretInventory(input: {
   dataRoot: string;
   keyProvider?: KeyProvider;
+  /** @internal Test seam observing decrypted buffers after zeroization. */
+  afterPlaintextBufferReleased?: (buffer: Buffer) => void;
 }): Promise<SecretInventoryEntry[]> {
   const dataRoot = explicitDataRoot(input.dataRoot);
-  const payload = await readPayload(dataRoot, input.keyProvider ?? createMacKeyProvider());
+  const payload = await readPayload(
+    dataRoot,
+    input.keyProvider ?? createMacKeyProvider(),
+    input.afterPlaintextBufferReleased,
+  );
   return [
     ...Object.entries(payload.entries).map(([ref, value]) => ({
       ref,
@@ -356,12 +362,13 @@ async function mutate(
 async function readPayload(
   dataRoot: string,
   keyProvider: KeyProvider,
+  afterPlaintextBufferReleased?: (buffer: Buffer) => void,
 ): Promise<SecretPayload> {
   const file = envelopePath(dataRoot);
   if (!fs.existsSync(file)) return emptyPayload();
   try {
     const key = await keyForState(keyProvider, readStoreId(dataRoot), true);
-    return decryptEnvelope(fs.readFileSync(file), key);
+    return decryptEnvelope(fs.readFileSync(file), key, afterPlaintextBufferReleased);
   } catch (error) {
     if (error instanceof DomainError) throw error;
     throw secretError();
@@ -399,7 +406,12 @@ function encryptPayload(payload: SecretPayload, key: Buffer): SecretEnvelope {
   };
 }
 
-function decryptEnvelope(bytes: Buffer, key: Buffer): SecretPayload {
+function decryptEnvelope(
+  bytes: Buffer,
+  key: Buffer,
+  afterPlaintextBufferReleased?: (buffer: Buffer) => void,
+): SecretPayload {
+  const plaintextBuffers: Buffer[] = [];
   try {
     const envelope = JSON.parse(bytes.toString("utf8")) as unknown;
     if (!isEnvelope(envelope)) throw secretError();
@@ -408,14 +420,20 @@ function decryptEnvelope(bytes: Buffer, key: Buffer): SecretPayload {
     const ciphertext = decodeBase64(envelope.ciphertext);
     const decipher = createDecipheriv("aes-256-gcm", key, iv);
     decipher.setAuthTag(tag);
-    const plaintext = Buffer.concat([
-      decipher.update(ciphertext),
-      decipher.final(),
-    ]).toString("utf8");
-    return checkedPayload(JSON.parse(plaintext));
+    plaintextBuffers.push(decipher.update(ciphertext), decipher.final());
+    const plaintext = Buffer.concat(plaintextBuffers);
+    plaintextBuffers.push(plaintext);
+    // JSON.parse necessarily creates an un-wipeable JavaScript string; retained
+    // byte buffers are still cleared at the native boundary below.
+    return checkedPayload(JSON.parse(plaintext.toString("utf8")));
   } catch (error) {
     if (error instanceof DomainError) throw error;
     throw secretError();
+  } finally {
+    for (const buffer of plaintextBuffers) {
+      buffer.fill(0);
+      afterPlaintextBufferReleased?.(buffer);
+    }
   }
 }
 

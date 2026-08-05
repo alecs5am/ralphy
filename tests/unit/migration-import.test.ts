@@ -217,6 +217,23 @@ describe("legacy semantic migration", () => {
 
   });
 
+  test("blocks an initially completed no-hold Job against source-derived pending facts", async () => {
+    await setupFixture();
+    importScopesAndDocuments(ctx!);
+    const jobsEntryId = entry("jobs.db").id;
+    const importWithSeam = importExecutionAndOperations as unknown as (
+      context: MigrationContext,
+      options: { jobTargetForTesting: (row: Record<string, unknown>) => Record<string, unknown> },
+    ) => unknown;
+
+    expect(() => importWithSeam(ctx!, {
+      jobTargetForTesting(row) {
+        return { ...row, status: "completed", ended_at: row.created_at, migration_hold_run_id: null };
+      },
+    })).toThrow(jobsEntryId);
+    expect(ctx!.db.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM jobs").get()?.count).toBe(0);
+  });
+
   test("uses one recursive fail-closed sanitizer for every imported text sink", async () => {
     await setupFixture({
       adversarialJobs: true,
