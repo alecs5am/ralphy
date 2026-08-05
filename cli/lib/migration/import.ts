@@ -61,7 +61,8 @@ type LegacyRecord = {
   entry: Entry;
   source: MigrationSourceRoot;
   scope: ProductionScope;
-  ordinal: number;
+  rowOrdinal: number;
+  targetSlot: number | null;
   value: Record<string, unknown>;
   unitKeyHint: string | null;
   unitRevisionHint: number | null;
@@ -80,7 +81,7 @@ type PublicationCandidate = {
   options: string;
   platform: string;
   rail: "postiz" | "github-pages" | "devto" | "hashnode" | "manual";
-  accountId: string | null;
+  account: { id: string; externalId: string } | null;
   providerId: string | null;
   state: "scheduled" | "submitted" | "published" | "failed";
   providerExecuted: boolean;
@@ -470,7 +471,8 @@ function prepareProduction(ctx: MigrationContext): ProductionPrepared {
     if (!isLegacyUnitManifestName(path.posix.basename(file.entry.sourcePath).toLowerCase())) continue;
     const value = parseJsonObject(file.raw);
     if (!value) {
-      issues.push(productionIssue(file.entry, "unit-json", "MIGRATION_UNIT_RECORD_INVALID", "review"));
+      pendingEntryIds.add(file.entry.id);
+      issues.push(productionIssue(file.entry, "unit-manifest", "MIGRATION_UNIT_MANIFEST_INVALID", "block"));
       continue;
     }
     const legacyId = typeof value.id === "string" && value.id.trim() ? value.id.trim() : path.posix.basename(path.posix.dirname(file.entry.sourcePath));
@@ -492,7 +494,19 @@ function prepareProduction(ctx: MigrationContext): ProductionPrepared {
   for (const file of files.values()) {
     const relative = file.entry.sourcePath.toLowerCase();
     const name = path.posix.basename(relative);
-    if (name === "production.json") {
+    if (isLegacyAssetManifestName(name)) {
+      const root = parseJsonObject(file.raw);
+      if (!root || !Array.isArray(root.assets)) {
+        pendingEntryIds.add(file.entry.id);
+        issues.push(productionIssue(file.entry, "asset-manifest", "MIGRATION_ASSET_MANIFEST_INVALID", "block"));
+      }
+    } else if (name === "captions.json") {
+      const root = parseJsonObject(file.raw);
+      if (!root || !Array.isArray(root.caption_versions)) {
+        pendingEntryIds.add(file.entry.id);
+        issues.push(productionIssue(file.entry, "captions-manifest", "MIGRATION_CAPTIONS_MANIFEST_INVALID", "block"));
+      }
+    } else if (name === "production.json") {
       const root = parseJsonObject(file.raw);
       if (!root || !Array.isArray(root.productions)) {
         pendingEntryIds.add(file.entry.id);
@@ -522,7 +536,8 @@ function prepareProduction(ctx: MigrationContext): ProductionPrepared {
         entry: unit.entry,
         source: unit.source,
         scope: unit.scope,
-        ordinal: 1,
+        rowOrdinal: 1,
+        targetSlot: null,
         value: unit.value.manifestOnlyAttempt,
         unitKeyHint: unit.unitKey,
         unitRevisionHint: unit.revisionNo,
@@ -545,7 +560,7 @@ function collectObjectRecords(
       issues.push(productionIssue(file.entry, `${code}:${index + 1}`, code, "review", index + 1));
       return;
     }
-    output.push({ ...file, ordinal: index + 1, value, unitKeyHint, unitRevisionHint: null });
+    output.push({ ...file, rowOrdinal: index + 1, targetSlot: null, value, unitKeyHint, unitRevisionHint: null });
   });
 }
 
@@ -561,7 +576,7 @@ function collectJsonlRecords(
       issues.push(productionIssue(file.entry, `${code}:${record.lineNo}`, code, "review", record.lineNo));
       continue;
     }
-    output.push({ ...file, ordinal: record.lineNo, value: record.value, unitKeyHint, unitRevisionHint: null });
+    output.push({ ...file, rowOrdinal: record.lineNo, targetSlot: null, value: record.value, unitKeyHint, unitRevisionHint: null });
   }
 }
 
@@ -590,7 +605,6 @@ function importLegacyArtifacts(
   const usedSlugs = new Set<string>();
   for (const [familyKey, family] of [...families].sort(([left], [right]) => left.localeCompare(right))) {
     family.sort((left, right) => left.revisionNo - right.revisionNo || left.file.entry.sourcePath.localeCompare(right.file.entry.sourcePath));
-    if (family[0]!.revisionNo !== 1) family.forEach((item, index) => { item.revisionNo = index + 1; });
     const first = family[0]!;
     let slug = safeSlug(first.familyPath.replaceAll("/", "-"));
     const slugKey = `${first.file.scope.workspaceId}\0${first.file.scope.projectId ?? ""}\0${slug}`;
@@ -682,7 +696,6 @@ function importLegacyCompositions(
   const usedSlugs = new Set<string>();
   for (const [familyKey, family] of [...families].sort(([left], [right]) => left.localeCompare(right))) {
     family.sort((left, right) => left.revisionNo - right.revisionNo || left.file.entry.sourcePath.localeCompare(right.file.entry.sourcePath));
-    if (family[0]!.revisionNo !== 1) family.forEach((item, index) => { item.revisionNo = index + 1; });
     const first = family[0]!;
     if (!first.file.scope.projectId) continue;
     let slug = safeSlug(path.posix.basename(first.familyPath));
@@ -773,10 +786,10 @@ function importLegacyBuilds(
     const revisionId = sourcePath ? compositionBySourcePath.get(sourcePath) : null;
     const artifactRevisionId = outputPath ? artifactBySourcePath.get(outputPath) : null;
     if (!revisionId || !artifactRevisionId) {
-      issues.push(productionIssue(record.entry, `build-binding:${record.ordinal}`, "MIGRATION_BUILD_BINDING_AMBIGUOUS", "review", record.ordinal));
+      issues.push(productionIssue(record.entry, `build-binding:${record.rowOrdinal}`, "MIGRATION_BUILD_BINDING_AMBIGUOUS", "review", record.rowOrdinal));
       continue;
     }
-    const key = `${record.entry.sourceId}:${record.entry.sourceLocatorHash}:${record.ordinal}`;
+    const key = `${record.entry.sourceId}:${record.entry.sourceLocatorHash}:${record.rowOrdinal}`;
     const runId = stableId("run", ctx, `legacy-build:${key}`);
     const buildId = stableId("build", ctx, `legacy-build:${key}`);
     const outputId = stableId("output", ctx, `legacy-build-output:${key}`);
@@ -1212,6 +1225,9 @@ function captionEvidence(
   const key = sourcePathKey(unit.entry.sourceLabel, path.posix.join(path.posix.dirname(unit.entry.sourcePath), "captions.json"));
   const file = prepared.files.get(key);
   if (!file) return { entry: null, effectiveRevision: null, values: [] };
+  if (prepared.pendingEntryIds.has(file.entry.id)) {
+    return { entry: file.entry, effectiveRevision: null, values: [] };
+  }
   const value = parseJsonObject(file.raw);
   if (!value || !Array.isArray(value.caption_versions)) {
     issues.push(productionIssue(file.entry, "captions-json", "MIGRATION_CAPTION_RECORD_INVALID", "review"));
@@ -1238,7 +1254,6 @@ function preparePublicationCandidate(
   record: LegacyRecord,
   unitIds: ReadonlyMap<string, string>,
   presentations: ReadonlyMap<string, string>,
-  refs: Map<string, Set<string>>,
   issues: PreparedIssue[],
 ): PublicationCandidate | null {
   const legacyUnitId = typeof record.value.unitId === "string" ? record.value.unitId : null;
@@ -1247,7 +1262,7 @@ function preparePublicationCandidate(
   const unitId = unitKey ? unitIds.get(unitKey) : null;
   const platform = typeof record.value.platform === "string" ? canonicalPlatform(record.value.platform) : null;
   if (!unitKey || !unitId || !platform) {
-    issues.push(productionIssue(record.entry, `publication-binding:${record.ordinal}`, "MIGRATION_PUBLICATION_BINDING_AMBIGUOUS", "block", record.ordinal));
+    issues.push(productionIssue(record.entry, `publication-binding:${recordPosition(record)}`, "MIGRATION_PUBLICATION_BINDING_AMBIGUOUS", "block", record.rowOrdinal));
     return null;
   }
   const revisions = ctx.db.query<{ revisionNo: number }, [string]>(
@@ -1258,33 +1273,33 @@ function preparePublicationCandidate(
     ? null
     : presentations.get(`${unitKey}\0${revisionNo}\0${platform}`) ?? null;
   if (!presentationId) {
-    issues.push(productionIssue(record.entry, `publication-presentation:${record.ordinal}`, "MIGRATION_PUBLICATION_BINDING_AMBIGUOUS", "block", record.ordinal));
+    issues.push(productionIssue(record.entry, `publication-presentation:${recordPosition(record)}`, "MIGRATION_PUBLICATION_BINDING_AMBIGUOUS", "block", record.rowOrdinal));
     return null;
   }
   const provider = typeof record.value.provider === "string" ? record.value.provider.toLowerCase() : "";
   const rail = canonicalRail(provider);
   if (!rail) {
-    issues.push(productionIssue(record.entry, `publication-rail:${record.ordinal}`, "MIGRATION_PUBLICATION_RAIL_AMBIGUOUS", "block", record.ordinal));
+    issues.push(productionIssue(record.entry, `publication-rail:${recordPosition(record)}`, "MIGRATION_PUBLICATION_RAIL_AMBIGUOUS", "block", record.rowOrdinal));
     return null;
   }
   const createdAt = legacyTime(record.value.createdAt, record.entry.mtimeMs);
   const suppliedTimes = [record.value.scheduledAt, record.value.submittedAt, record.value.publishedAt];
   if (suppliedTimes.some((value) => value !== null && value !== undefined && optionalLegacyTime(value) === null)) {
-    issues.push(productionIssue(record.entry, `publication-timeline:${record.ordinal}`, "MIGRATION_PUBLICATION_TIMELINE_INVALID", "block", record.ordinal));
+    issues.push(productionIssue(record.entry, `publication-timeline:${recordPosition(record)}`, "MIGRATION_PUBLICATION_TIMELINE_INVALID", "block", record.rowOrdinal));
     return null;
   }
   const scheduledAt = optionalLegacyTime(record.value.scheduledAt);
   const submittedAt = optionalLegacyTime(record.value.submittedAt);
   const publishedAt = optionalLegacyTime(record.value.publishedAt);
   if (!validTimeline(createdAt, scheduledAt, submittedAt, publishedAt)) {
-    issues.push(productionIssue(record.entry, `publication-timeline:${record.ordinal}`, "MIGRATION_PUBLICATION_TIMELINE_INVALID", "block", record.ordinal));
+    issues.push(productionIssue(record.entry, `publication-timeline:${recordPosition(record)}`, "MIGRATION_PUBLICATION_TIMELINE_INVALID", "block", record.rowOrdinal));
     return null;
   }
   let url: string | null = null;
   if (record.value.url !== undefined && record.value.url !== null) {
     url = canonicalHttpsUrl(record.value.url);
     if (!url) {
-      issues.push(productionIssue(record.entry, `publication-url:${record.ordinal}`, "MIGRATION_PUBLICATION_URL_INVALID", "block", record.ordinal));
+      issues.push(productionIssue(record.entry, `publication-url:${recordPosition(record)}`, "MIGRATION_PUBLICATION_URL_INVALID", "block", record.rowOrdinal));
       return null;
     }
   }
@@ -1294,18 +1309,14 @@ function preparePublicationCandidate(
       ? boundedProviderValue(record.value.providerPublicationId)
       : null;
     if (!providerId) {
-      issues.push(productionIssue(record.entry, `publication-provider-id:${record.ordinal}`, "MIGRATION_PUBLICATION_PROVIDER_ID_INVALID", "block", record.ordinal));
+      issues.push(productionIssue(record.entry, `publication-provider-id:${recordPosition(record)}`, "MIGRATION_PUBLICATION_PROVIDER_ID_INVALID", "block", record.rowOrdinal));
       return null;
     }
   }
   const status = typeof record.value.status === "string" ? record.value.status.toLowerCase() : "unknown";
   const failureStage = typeof record.value.failureStage === "string"
     ? safeToken(record.value.failureStage, "provider")
-    : status === "failed" && record.value.accountId == null
-      ? "account-resolution"
-      : status === "failed"
-        ? "provider"
-        : null;
+    : null;
   const error = status === "failed"
     ? redactLegacyOperationalText(
       typeof record.value.error === "string" ? record.value.error : "Legacy publication failed",
@@ -1322,9 +1333,10 @@ function preparePublicationCandidate(
     url,
     error,
     failureStage,
+    accountValue: record.value.accountId,
   });
   if (!state) {
-    issues.push(productionIssue(record.entry, `publication-status:${record.ordinal}`, "MIGRATION_PUBLICATION_STATUS_INVALID", "block", record.ordinal));
+    issues.push(productionIssue(record.entry, `publication-status:${recordPosition(record)}`, "MIGRATION_PUBLICATION_STATUS_INVALID", "block", record.rowOrdinal));
     return null;
   }
   const presentation = ctx.db.query<{ captionId: string | null; options: string }, [string]>(
@@ -1335,7 +1347,7 @@ function preparePublicationCandidate(
   if (record.value.options !== undefined) {
     const supplied = sanitizeJson(record.value.options, record.source.path);
     if (canonicalJsonText(supplied) !== canonicalJsonText(JSON.parse(presentation.options))) {
-      issues.push(productionIssue(record.entry, `publication-options:${record.ordinal}`, "MIGRATION_PUBLICATION_OPTIONS_INVALID", "block", record.ordinal));
+      issues.push(productionIssue(record.entry, `publication-options:${recordPosition(record)}`, "MIGRATION_PUBLICATION_OPTIONS_INVALID", "block", record.rowOrdinal));
       return null;
     }
   }
@@ -1344,7 +1356,7 @@ function preparePublicationCandidate(
     : positiveInteger(record.value.captionVersion);
   if ((record.value.captionVersion !== undefined || record.value.effectiveCaptionVersion !== undefined)
     && captionVersion === null) {
-    issues.push(productionIssue(record.entry, `publication-caption:${record.ordinal}`, "MIGRATION_PUBLICATION_CAPTION_INVALID", "block", record.ordinal));
+    issues.push(productionIssue(record.entry, `publication-caption:${recordPosition(record)}`, "MIGRATION_PUBLICATION_CAPTION_INVALID", "block", record.rowOrdinal));
     return null;
   }
   if (captionVersion !== null) {
@@ -1353,12 +1365,12 @@ function preparePublicationCandidate(
        WHERE presentation_id = ? AND revision_no = ?`,
     ).get(presentationId, captionVersion)?.id ?? null;
     if (!captionId || captionId !== presentation.captionId) {
-      issues.push(productionIssue(record.entry, `publication-caption:${record.ordinal}`, "MIGRATION_PUBLICATION_CAPTION_INVALID", "block", record.ordinal));
+      issues.push(productionIssue(record.entry, `publication-caption:${recordPosition(record)}`, "MIGRATION_PUBLICATION_CAPTION_INVALID", "block", record.rowOrdinal));
       return null;
     }
   }
-  const accountId = accountForPublication(ctx, record, platform, rail, failureStage, refs, issues);
-  if (accountId === undefined) return null;
+  const account = publicationAccount(ctx, record, platform, rail, failureStage, issues);
+  if (account === undefined) return null;
   const key = deliveryRecordKey(record);
   const legacyId = legacyRecordId(record);
   return {
@@ -1374,7 +1386,7 @@ function preparePublicationCandidate(
     options: presentation.options,
     platform,
     rail,
-    accountId,
+    account,
     providerId,
     state: state.state,
     providerExecuted: state.providerExecuted,
@@ -1418,7 +1430,6 @@ function importLegacyPublications(
       record,
       unitIds,
       presentations,
-      refs,
       issues,
     );
     if (candidate) candidates.push(candidate);
@@ -1433,12 +1444,16 @@ function importLegacyPublications(
   const invalid = new Set<string>();
   for (const candidate of candidates) {
     if (typeof candidate.record.value.revisedFrom !== "string") continue;
-    const reference = publicationReferenceKey(candidate.record, candidate.record.value.revisedFrom);
-    const matches = byReference.get(reference) ?? [];
-    const target = matches.length === 1 ? matches[0]! : null;
-    if (!target || target.publicationId === candidate.publicationId || target.createdAt > candidate.createdAt) {
+    const target = resolvePublicationReference(
+      candidate.record,
+      candidate.record.value.revisedFrom,
+      byReference,
+      "revisedFrom",
+    );
+    if (!target || target.record.scope.workspaceId !== candidate.record.scope.workspaceId
+      || target.publicationId === candidate.publicationId || target.createdAt >= candidate.createdAt) {
       invalid.add(candidate.publicationId);
-      issues.push(productionIssue(candidate.record.entry, `publication-revised:${candidate.record.ordinal}`, "MIGRATION_PUBLICATION_REVISED_FROM_INVALID", "block", candidate.record.ordinal));
+      issues.push(productionIssue(candidate.record.entry, `publication-revised:${recordPosition(candidate.record)}`, "MIGRATION_PUBLICATION_REVISED_FROM_INVALID", "block", candidate.record.rowOrdinal));
       continue;
     }
     candidate.revisedFromId = target.publicationId;
@@ -1452,10 +1467,11 @@ function importLegacyPublications(
   const inserted = new Set<string>();
   for (const candidate of ordered) {
     if (candidate.revisedFromId && !inserted.has(candidate.revisedFromId)) {
-      issues.push(productionIssue(candidate.record.entry, `publication-revised-order:${candidate.record.ordinal}`, "MIGRATION_PUBLICATION_REVISED_FROM_INVALID", "block", candidate.record.ordinal));
+      issues.push(productionIssue(candidate.record.entry, `publication-revised-order:${recordPosition(candidate.record)}`, "MIGRATION_PUBLICATION_REVISED_FROM_INVALID", "block", candidate.record.rowOrdinal));
       continue;
     }
     const { record } = candidate;
+    const accountId = materializePublicationAccount(ctx, candidate, refs);
     const existing = ctx.db.query<Record<string, unknown>, [string]>("SELECT * FROM publications WHERE id = ?").get(candidate.publicationId);
     if (!existing) {
       insertPendingRun(ctx, candidate.runId, record.scope, "legacy-publication", `Legacy publication ${stableKey(deliveryRecordKey(record))}`, candidate.createdAt, {
@@ -1463,8 +1479,11 @@ function importLegacyPublications(
         legacyPublicationId: candidate.legacyId,
         sourceLocatorHash: record.entry.sourceLocatorHash,
       });
-      const preAccountFailure = candidate.state === "failed" && candidate.accountId === null
-        && candidate.failureStage === "account-resolution";
+      const preAccountFailure = candidate.state === "failed" && accountId === null
+        && candidate.failureStage === "account-resolution" && !candidate.providerExecuted;
+      if (!candidate.providerExecuted && !preAccountFailure) {
+        throw new Error("Migration Publication has no proven terminal path");
+      }
       ctx.db.prepare(
         `INSERT INTO publications
          (id, presentation_id, effective_caption_revision_id, effective_options_json,
@@ -1479,7 +1498,7 @@ function importLegacyPublications(
         candidate.presentationId,
         candidate.captionId,
         candidate.options,
-        candidate.accountId,
+        accountId,
         candidate.runId,
         candidate.revisedFromId,
         candidate.rail,
@@ -1579,15 +1598,16 @@ function importLegacyPublications(
 
   for (const record of skips) {
     const original = typeof record.value.originalPublicationId === "string"
-      ? publicationIds.get(publicationReferenceKey(record, record.value.originalPublicationId)) ?? []
-      : [];
-    const publicationId = original.length === 1 ? original[0]! : null;
+      ? resolvePublicationReference(record, record.value.originalPublicationId, byReference, "original")
+      : null;
+    const publicationId = original?.publicationId ?? null;
     const createdAt = legacyTime(record.value.createdAt, record.entry.mtimeMs);
     const originalCreatedAt = publicationId === null ? null : ctx.db.query<{ createdAt: number }, [string]>(
       "SELECT created_at AS createdAt FROM publications WHERE id = ?",
     ).get(publicationId)?.createdAt ?? null;
-    if (!publicationId || originalCreatedAt === null || originalCreatedAt > createdAt) {
-      issues.push(productionIssue(record.entry, `idempotent-skip:${record.ordinal}`, "MIGRATION_PUBLICATION_ORIGINAL_MISSING", "block", record.ordinal));
+    if (!publicationId || original?.record.scope.workspaceId !== record.scope.workspaceId
+      || originalCreatedAt === null || originalCreatedAt >= createdAt) {
+      issues.push(productionIssue(record.entry, `idempotent-skip:${recordPosition(record)}`, "MIGRATION_PUBLICATION_ORIGINAL_MISSING", "block", record.rowOrdinal));
       continue;
     }
     insertIdempotentSkipActivity(ctx, record, publicationId);
@@ -1609,12 +1629,12 @@ function importLegacyMetrics(
   ]);
   for (const record of prepared.metrics) {
     if (typeof record.value.publicationId !== "string") {
-      issues.push(productionIssue(record.entry, `metric-publication:${record.ordinal}`, "MIGRATION_METRIC_PUBLICATION_MISSING", "review", record.ordinal));
+      issues.push(productionIssue(record.entry, `metric-publication:${record.rowOrdinal}`, "MIGRATION_METRIC_PUBLICATION_MISSING", "review", record.rowOrdinal));
       continue;
     }
     const matches = publicationIds.get(publicationReferenceKey(record, record.value.publicationId)) ?? [];
     if (matches.length !== 1) {
-      issues.push(productionIssue(record.entry, `metric-publication:${record.ordinal}`, "MIGRATION_METRIC_PUBLICATION_MISSING", "review", record.ordinal));
+      issues.push(productionIssue(record.entry, `metric-publication:${record.rowOrdinal}`, "MIGRATION_METRIC_PUBLICATION_MISSING", "review", record.rowOrdinal));
       continue;
     }
     const publicationId = matches[0]!;
@@ -1624,7 +1644,7 @@ function importLegacyMetrics(
     const windowStart = optionalLegacyTime(record.value.windowStart);
     const windowEnd = optionalLegacyTime(record.value.windowEnd);
     if ((windowStart === null) !== (windowEnd === null) || (windowStart !== null && windowEnd! < windowStart)) {
-      issues.push(productionIssue(record.entry, `metric-window:${record.ordinal}`, "MIGRATION_METRIC_RECORD_INVALID", "review", record.ordinal));
+      issues.push(productionIssue(record.entry, `metric-window:${record.rowOrdinal}`, "MIGRATION_METRIC_RECORD_INVALID", "review", record.rowOrdinal));
       continue;
     }
     const unknown = Object.fromEntries(Object.entries(record.value).filter(([key]) => !known.has(key)));
@@ -1636,7 +1656,7 @@ function importLegacyMetrics(
     const retention = Array.isArray(record.value.retentionCurve)
       ? JSON.stringify(sanitizeJson(record.value.retentionCurve, record.source.path))
       : null;
-    const metricId = stableId("metric", ctx, `legacy-metric:${record.entry.sourceId}:${record.entry.sourceLocatorHash}:${record.ordinal}`);
+    const metricId = stableId("metric", ctx, `legacy-metric:${record.entry.sourceId}:${record.entry.sourceLocatorHash}:${record.rowOrdinal}`);
     insertExact(
       ctx.db,
       "metric_snapshots",
@@ -1806,16 +1826,17 @@ function provenRevisionPath(
 ): { familyPath: string; revisionNo: number } {
   const extension = path.posix.extname(entry.sourcePath);
   const stem = pathWithoutExtension(entry.sourcePath);
-  const match = stem.match(/^(.*?)(?:[.-]v(\d+))$/iu);
+  const match = stem.match(/^(.*?)([.-])v(\d+)$/iu);
   if (!match) return { familyPath: stem, revisionNo: 1 };
-  const revisionNo = Number(match[2]);
+  const revisionNo = Number(match[3]);
   const base = `${match[1]}${extension}`;
   const siblings = [...candidates].filter((candidate) => {
     const prefix = `${entry.sourceLabel}\0`;
     if (!candidate.startsWith(prefix)) return false;
     const candidatePath = candidate.slice(prefix.length);
     if (path.posix.extname(candidatePath).toLowerCase() !== extension.toLowerCase()) return false;
-    return pathWithoutExtension(candidatePath).match(/^(.*?)(?:[.-]v(\d+))$/iu)?.[1] === match[1];
+    const sibling = pathWithoutExtension(candidatePath).match(/^(.*?)([.-])v(\d+)$/iu);
+    return sibling?.[1] === match[1] && sibling[2] === match[2];
   });
   return Number.isSafeInteger(revisionNo) && revisionNo > 1
       && (candidates.has(sourcePathKey(entry.sourceLabel, base)) || siblings.length > 1)
@@ -2154,11 +2175,11 @@ function expandedDeliveryRecords(records: readonly LegacyRecord[]): LegacyRecord
       const platform = typeof target.platform === "string" ? canonicalPlatform(target.platform) : `target-${index + 1}`;
       expanded.push({
         ...record,
-        ordinal: record.ordinal * 1000 + index + 1,
+        targetSlot: index,
         value: {
           ...record.value,
           ...target,
-          id: `${typeof record.value.id === "string" ? record.value.id : `row-${record.ordinal}`}:${platform}`,
+          id: `${typeof record.value.id === "string" ? record.value.id : `row-${record.rowOrdinal}`}:${platform}`,
           targets: undefined,
         },
       });
@@ -2168,22 +2189,52 @@ function expandedDeliveryRecords(records: readonly LegacyRecord[]): LegacyRecord
 }
 
 function deliveryRecordKey(record: LegacyRecord): string {
-  return `${record.entry.sourceId}:${record.entry.sourceLocatorHash}:${record.ordinal}:${safeToken(record.value.platform, "unknown")}`;
+  return `${record.entry.sourceId}:${record.entry.sourceLocatorHash}:${record.rowOrdinal}:${record.targetSlot ?? "single"}:${safeToken(record.value.platform, "unknown")}`;
+}
+
+function recordPosition(record: LegacyRecord): string {
+  return record.targetSlot === null ? String(record.rowOrdinal) : `${record.rowOrdinal}:${record.targetSlot}`;
 }
 
 function legacyRecordId(record: LegacyRecord): string {
-  const fallback = `row-${record.entry.sourceLocatorHash.slice(0, 12)}-${record.ordinal}`;
+  const fallback = `row-${record.entry.sourceLocatorHash.slice(0, 12)}-${record.rowOrdinal}-${record.targetSlot ?? "single"}`;
   return typeof record.value.id === "string" && record.value.id.trim()
     ? canonicalLegacyIdentifier(record.value.id, fallback)
     : fallback;
 }
 
 function publicationIdentityKey(record: LegacyRecord, legacyId: string): string {
-  return `${record.entry.sourceLabel}\0${record.scope.workspaceId}\0${record.scope.projectId ?? ""}\0${legacyId}`;
+  return `${record.entry.sourceId}\0${record.scope.workspaceId}\0${legacyId}`;
 }
 
 function publicationReferenceKey(record: LegacyRecord, legacyId: string): string {
   return publicationIdentityKey(record, canonicalLegacyIdentifier(legacyId, `invalid-${stableKey(legacyId)}`));
+}
+
+function resolvePublicationReference(
+  record: LegacyRecord,
+  legacyId: string,
+  index: ReadonlyMap<string, PublicationCandidate[]>,
+  prefix: "revisedFrom" | "original",
+): PublicationCandidate | null {
+  let matches = index.get(publicationReferenceKey(record, legacyId)) ?? [];
+  const locator = record.value[`${prefix}SourceLocatorHash`];
+  if (locator !== undefined) {
+    if (typeof locator !== "string" || !/^[0-9a-f]{64}$/u.test(locator)) return null;
+    matches = matches.filter((candidate) => candidate.record.entry.sourceLocatorHash === locator);
+  }
+  const providerId = record.value[`${prefix}ProviderPublicationId`];
+  if (providerId !== undefined) {
+    if (typeof providerId !== "string" || boundedProviderValue(providerId) !== providerId.trim()) return null;
+    matches = matches.filter((candidate) => candidate.providerId === providerId.trim());
+  }
+  const createdAt = record.value[`${prefix}CreatedAt`];
+  if (createdAt !== undefined) {
+    const timestamp = optionalLegacyTime(createdAt);
+    if (timestamp === null) return null;
+    matches = matches.filter((candidate) => candidate.createdAt === timestamp);
+  }
+  return matches.length === 1 ? matches[0]! : null;
 }
 
 function recordUnitRevision(record: LegacyRecord): number | null {
@@ -2239,12 +2290,17 @@ function validatedPublicationState(value: {
   url: string | null;
   error: string | null;
   failureStage: string | null;
+  accountValue: unknown;
 }): { state: "scheduled" | "submitted" | "published" | "failed"; providerExecuted: boolean } | null {
   const local = value.rail === "github-pages" || value.rail === "manual";
   if (value.status === "failed") {
     if (!value.error || !value.failureStage || value.publishedAt !== null
       || value.providerId !== null || value.url !== null) return null;
-    return { state: "failed", providerExecuted: value.failureStage !== "account-resolution" };
+    if (value.failureStage === "account-resolution") {
+      if (local || value.accountValue != null || value.scheduledAt !== null || value.submittedAt !== null) return null;
+      return { state: "failed", providerExecuted: false };
+    }
+    return { state: "failed", providerExecuted: true };
   }
   if (value.error !== null || value.failureStage !== null) return null;
   if (value.status === "scheduled") {
@@ -2280,39 +2336,56 @@ function canonicalJsonText(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function accountForPublication(
+function publicationAccount(
   ctx: MigrationContext,
   record: LegacyRecord,
   platform: string,
   rail: "postiz" | "github-pages" | "devto" | "hashnode" | "manual",
   failureStage: string | null,
-  refs: Map<string, Set<string>>,
   issues: PreparedIssue[],
-): string | null | undefined {
+): { id: string; externalId: string } | null | undefined {
   if (rail === "github-pages" || rail === "manual") return null;
   if (record.value.accountId == null) {
     if (failureStage === "account-resolution") return null;
-    issues.push(productionIssue(record.entry, `publication-account:${record.ordinal}`, "MIGRATION_PUBLICATION_ACCOUNT_MISSING", "block", record.ordinal));
+    issues.push(productionIssue(record.entry, `publication-account:${recordPosition(record)}`, "MIGRATION_PUBLICATION_ACCOUNT_MISSING", "block", record.rowOrdinal));
     return undefined;
   }
   if (typeof record.value.accountId !== "string" || !record.value.accountId.trim()) {
-    issues.push(productionIssue(record.entry, `publication-account:${record.ordinal}`, "MIGRATION_PUBLICATION_ACCOUNT_MISSING", "block", record.ordinal));
+    issues.push(productionIssue(record.entry, `publication-account:${recordPosition(record)}`, "MIGRATION_PUBLICATION_ACCOUNT_MISSING", "block", record.rowOrdinal));
     return undefined;
   }
   const externalId = canonicalLegacyIdentifier(record.value.accountId, `account-${record.entry.sourceLocatorHash}`);
-  const accountId = stableId("acct", ctx, `social-account:${record.scope.workspaceId}:${platform}:${externalId}`);
+  return {
+    id: stableId("acct", ctx, `social-account:${record.scope.workspaceId}:${platform}:${externalId}`),
+    externalId,
+  };
+}
+
+function materializePublicationAccount(
+  ctx: MigrationContext,
+  candidate: PublicationCandidate,
+  refs: Map<string, Set<string>>,
+): string | null {
+  if (!candidate.account) return null;
   insertExact(
     ctx.db,
     "social_accounts",
-    accountId,
+    candidate.account.id,
     `INSERT INTO social_accounts
      (id, workspace_id, platform, external_id, display_name, username,
       config_json, created_at, updated_at)
      VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, ?)`,
-    [accountId, record.scope.workspaceId, platform, externalId, record.entry.mtimeMs, record.entry.mtimeMs],
+    [
+      candidate.account.id,
+      candidate.record.scope.workspaceId,
+      candidate.platform,
+      candidate.account.externalId,
+      candidate.record.entry.mtimeMs,
+      candidate.record.entry.mtimeMs,
+    ],
   );
-  addRefs(refs, record.entry.id, accountId);
-  return accountId;
+  addRefs(refs, candidate.record.entry.id, candidate.account.id);
+  return candidate.account.id;
 }
 
 function assertPublicationReplay(
