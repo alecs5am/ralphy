@@ -30,6 +30,18 @@ const LEGACY_CONTROL_NAMES = new Set([
   "workspace.json",
 ]);
 
+export function isLegacyUnitManifestName(name: string): boolean {
+  return name === "unit.json";
+}
+
+export function isLegacyAssetManifestName(name: string): boolean {
+  return name === "asset-manifest.json";
+}
+
+export function isLegacyPublishLedgerName(name: string): boolean {
+  return name === "publish-ledger.jsonl";
+}
+
 const SECRET_PATH = /(^|\/)(?:\.env(?:\.|$)|secrets?(?:\/|$)|safestorage(?:\/|$))|cookie|credential/i;
 const CREDENTIAL_NAMES = new Set([
   "access_key", "access_key_id", "access_token", "api_key", "api_secret",
