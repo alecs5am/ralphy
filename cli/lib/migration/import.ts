@@ -167,6 +167,7 @@ type ScopeModel = {
   workspaces: Map<string, WorkspaceModel>;
   projects: Map<string, ProjectModel>;
   primaryWorkspaceBySource: Map<string, string>;
+  authoritativePrimaryWorkspaceBySource: Map<string, string>;
   issues: PreparedIssue[];
 };
 
@@ -498,7 +499,15 @@ export async function importDesktopStateAndSecrets(
     if (!source) throw new Error("Migration source identity is missing");
     const known = knownSecretShape(entry);
     if (known === "desktop-handoff") {
-      insertIssue(ctx, secretIssue(entry, "MIGRATION_DESKTOP_SECRET_HANDOFF_REQUIRED"));
+      const plan = desktopSecretHandoffPlan(ctx, entry);
+      if (!plan) {
+        insertIssue(ctx, secretIssue(entry, "MIGRATION_SECRET_UNKNOWN"));
+        continue;
+      }
+      ctx.db.transaction(() => {
+        recordDesktopSecretHandoffPlan(ctx, entry, plan);
+        insertIssue(ctx, secretIssue(entry, "MIGRATION_DESKTOP_SECRET_HANDOFF_REQUIRED"));
+      }).immediate();
       continue;
     }
     if (known === null) {
@@ -513,6 +522,12 @@ export async function importDesktopStateAndSecrets(
       }
       const workspaceId = workspaceForSource(ctx, entry.sourceLabel, null);
       const ref = `provider/instagram/workspace/${workspaceId}/cookies`;
+      assertMigrationSecretImportable(ctx.db, {
+        runId: ctx.runId,
+        sourceEntryId: entry.id,
+        refs: [ref],
+        kind: "file",
+      });
       await store.setSecretFile(ref, fs.readFileSync(absolute));
       completeMigrationSecretImport(ctx.db, {
         runId: ctx.runId,
@@ -527,6 +542,12 @@ export async function importDesktopStateAndSecrets(
       insertIssue(ctx, secretIssue(entry, "MIGRATION_SECRET_UNKNOWN"));
       continue;
     }
+    assertMigrationSecretImportable(ctx.db, {
+      runId: ctx.runId,
+      sourceEntryId: entry.id,
+      refs: parsed.map((secret) => secret.ref),
+      kind: "text",
+    });
     for (const secret of parsed) await store.set(secret.ref, secret.value);
     ctx.db.transaction(() => {
       for (const secret of parsed) if (secret.account) insertSecretAccount(ctx, secret.account, secret.ref, entry.mtimeMs);
@@ -3043,6 +3064,11 @@ function addRedactedJobField(
 
 type KnownSecretShape = "config" | "workspace" | "instagram-cookie" | "desktop-handoff";
 
+type DesktopSecretHandoffPlan = {
+  ref: string;
+  kind: "text" | "file";
+};
+
 type PreparedSecret = {
   ref: string;
   value: string;
@@ -3104,6 +3130,76 @@ function secretIssue(entry: Entry, code: string): PreparedIssue {
     lineNo: null,
     detail: { sourceLocatorHash: entry.sourceLocatorHash },
   };
+}
+
+function desktopSecretHandoffPlan(
+  ctx: MigrationContext,
+  entry: Entry,
+): DesktopSecretHandoffPlan | null {
+  const workspaceId = currentPrimaryWorkspace(ctx);
+  if (/^safestorage\/credentials\.bin$/iu.test(entry.sourcePath)) {
+    return {
+      ref: credentialSecretRef("desktop", { kind: "scope", workspaceId }),
+      kind: "text",
+    };
+  }
+  if (/^safestorage\/cookies\.bin$/iu.test(entry.sourcePath)) {
+    return {
+      ref: credentialSecretRef("instagram", { kind: "scope", workspaceId }),
+      kind: "file",
+    };
+  }
+  return null;
+}
+
+function currentPrimaryWorkspace(ctx: MigrationContext): string {
+  const rows = ctx.db.query<{ id: string }, [string]>(
+    `SELECT workspace.id
+     FROM workspaces workspace JOIN migration_sources source
+       ON source.source_label = json_extract(workspace.metadata_json, '$.migrationSourceLabel')
+      AND source.migration_run_id = ?
+     WHERE source.source_kind = 'ralphy'
+       AND json_extract(workspace.metadata_json, '$.migrationPrimary') = 1
+     ORDER BY workspace.id`,
+  ).all(ctx.runId);
+  if (rows.length !== 1) throw new Error("Desktop secret primary Workspace is ambiguous");
+  return rows[0]!.id;
+}
+
+function recordDesktopSecretHandoffPlan(
+  ctx: MigrationContext,
+  entry: Entry,
+  plan: DesktopSecretHandoffPlan,
+): void {
+  const refs = JSON.stringify([plan.ref]);
+  const owner = ctx.db.query<{ id: string }, [string, string, string]>(
+    `SELECT entry.id FROM migration_entries entry, json_each(entry.target_refs_json)
+     WHERE entry.migration_run_id = ? AND entry.id <> ? AND value = ? LIMIT 1`,
+  ).get(ctx.runId, entry.id, plan.ref);
+  if (owner) throw new Error("Desktop secret ref is owned by another migration entry");
+  const current = ctx.db.query<{ refs: string | null }, [string, string]>(
+    `SELECT target_refs_json AS refs FROM migration_entries
+     WHERE migration_run_id = ? AND id = ? AND state = 'inventoried'
+       AND disposition = 'secret-recovery-only'`,
+  ).get(ctx.runId, entry.id);
+  if (!current) throw new Error("Desktop secret handoff entry is not plannable");
+  if (current.refs !== refs) {
+    if ((current.refs ?? "[]") !== "[]") throw new Error("Desktop secret handoff plan conflicts with ledger refs");
+    const result = ctx.db.prepare(
+      `UPDATE migration_entries SET target_refs_json = ?, updated_at = ?
+       WHERE migration_run_id = ? AND id = ? AND state = 'inventoried'
+         AND disposition = 'secret-recovery-only' AND COALESCE(target_refs_json, '[]') = '[]'`,
+    ).run(refs, Date.now(), ctx.runId, entry.id);
+    if (result.changes !== 1) throw new Error("Desktop secret handoff plan affected no entry");
+  }
+  insertIssue(ctx, {
+    entryId: null,
+    issueKey: `desktop-secret-plan:${entry.sourceLocatorHash}`,
+    code: "MIGRATION_DESKTOP_SECRET_HANDOFF_PLANNED",
+    severity: "info",
+    lineNo: null,
+    detail: { kind: plan.kind, refs: [plan.ref], sourceLocatorHash: entry.sourceLocatorHash },
+  });
 }
 
 function parseKnownCredentialFile(
@@ -3188,13 +3284,15 @@ function safeAccountLabel(...values: unknown[]): string | null {
 }
 
 function workspaceForSource(ctx: MigrationContext, sourceLabel: string, requestedSlug: string | null): string {
-  const rows = ctx.db.query<{ id: string; slug: string }, [string]>(
-    `SELECT id, slug FROM workspaces
+  const rows = ctx.db.query<{ id: string; slug: string; isPrimary: number }, [string]>(
+    `SELECT id, slug, COALESCE(json_extract(metadata_json, '$.migrationPrimary'), 0) AS isPrimary
+     FROM workspaces
      WHERE json_extract(metadata_json, '$.migrationSourceLabel') = ? ORDER BY slug`,
   ).all(sourceLabel);
   const exact = requestedSlug ? rows.find((row) => row.slug === requestedSlug) : null;
   if (exact) return exact.id;
-  if (rows.length === 1) return rows[0]!.id;
+  const primary = rows.filter((row) => row.isPrimary === 1);
+  if (requestedSlug === null && primary.length === 1) return primary[0]!.id;
   throw new Error("Migration secret Workspace scope is ambiguous");
 }
 
@@ -3314,6 +3412,26 @@ export function assertMigrationSecretImportable(
     throw new Error("Migration secret import phase is closed");
   }
   const refs = JSON.stringify([...new Set(input.refs)].sort());
+  if (input.requiredSourceKind === "desktop") {
+    const plans = db.query<{ detail: string }, [string, string]>(
+      `SELECT detail_json AS detail FROM migration_issues
+       WHERE migration_run_id = ? AND code = 'MIGRATION_DESKTOP_SECRET_HANDOFF_PLANNED'
+         AND json_extract(detail_json, '$.sourceLocatorHash') = ?
+       ORDER BY id`,
+    ).all(input.runId, row.sourceLocatorHash);
+    if (plans.length !== 1) throw new Error("Desktop secret handoff plan is missing or ambiguous");
+    const plan = JSON.parse(plans[0]!.detail) as { kind?: unknown; refs?: unknown };
+    if (plan.kind !== input.kind || JSON.stringify(plan.refs) !== refs || row.refs !== refs) {
+      throw new Error("Desktop secret handoff does not match its immutable plan");
+    }
+  }
+  for (const ref of input.refs) {
+    const conflictingOwner = db.query<{ id: string }, [string, string, string]>(
+      `SELECT entry.id FROM migration_entries entry, json_each(entry.target_refs_json)
+       WHERE entry.migration_run_id = ? AND entry.id <> ? AND value = ? LIMIT 1`,
+    ).get(input.runId, input.sourceEntryId, ref);
+    if (conflictingOwner) throw new Error("Migration secret ref is owned by another migration entry");
+  }
   if (row.state === "excluded" && row.disposition === "secret-imported") {
     if ((row.refs ?? "[]") !== refs) throw new Error("Migration secret import replay conflict");
   } else if (row.state !== "inventoried" || row.disposition !== "secret-recovery-only") {
@@ -3360,6 +3478,7 @@ function importDesktopReviewFile(ctx: MigrationContext, entry: Entry, source: Mi
   for (const unsafeReview of parsed.reviews) {
     const review = {
       ...unsafeReview,
+      source: unsafeReview.source ?? parsed.source,
       note: unsafeReview.note === null
         ? null
         : String(normalizeLegacyValue(unsafeReview.note, source.path)),
@@ -3367,15 +3486,19 @@ function importDesktopReviewFile(ctx: MigrationContext, entry: Entry, source: Mi
     const match = matchDesktopReview(ctx, review);
     if (match.kind === "collision") {
       insertIssue(ctx, desktopReviewIssue(entry, review, match.code));
-      const projectId = resolveDesktopProject(ctx, parsed.workspace, parsed.project, parsed.source);
-      const feedbackId = insertDesktopFeedback(ctx, entry, review, projectId, null);
+      const projectId = resolveDesktopProject(ctx, parsed.workspace, parsed.project, review.source);
+      const feedbackId = projectId
+        ? insertDesktopFeedback(ctx, entry, review, projectId, null)
+        : insertDesktopOrphanReview(ctx, entry, review);
       refs.add(feedbackId);
       continue;
     }
     if (match.kind === "unmatched") {
       insertIssue(ctx, desktopReviewIssue(entry, review, "MIGRATION_DESKTOP_REVIEW_UNMATCHED"));
-      const projectId = resolveDesktopProject(ctx, parsed.workspace, parsed.project, parsed.source);
-      const feedbackId = insertDesktopFeedback(ctx, entry, review, projectId, null);
+      const projectId = resolveDesktopProject(ctx, parsed.workspace, parsed.project, review.source);
+      const feedbackId = projectId
+        ? insertDesktopFeedback(ctx, entry, review, projectId, null)
+        : insertDesktopOrphanReview(ctx, entry, review);
       refs.add(feedbackId);
       continue;
     }
@@ -3555,7 +3678,7 @@ function resolveDesktopProject(
   workspaceSlug: string | null,
   projectSlug: string,
   sourceLabel: string | null,
-): string {
+): string | null {
   const clauses = ["project.slug = ?"];
   const values: string[] = [projectSlug];
   if (workspaceSlug) {
@@ -3570,8 +3693,7 @@ function resolveDesktopProject(
     `SELECT project.id FROM projects project JOIN workspaces workspace ON workspace.id = project.workspace_id
      WHERE ${clauses.join(" AND ")} ORDER BY project.id`,
   ).all(...values);
-  if (rows.length !== 1) throw new Error("Desktop review Project scope is ambiguous");
-  return rows[0]!.id;
+  return rows.length === 1 ? rows[0]!.id : null;
 }
 
 function ensureDesktopSession(
@@ -3641,6 +3763,33 @@ function insertDesktopFeedback(
   return id;
 }
 
+function insertDesktopOrphanReview(
+  ctx: MigrationContext,
+  entry: Entry,
+  review: DesktopReview,
+): string {
+  const issueKey = `desktop-review-orphan:${entry.sourceLocatorHash}:${review.id}`;
+  insertIssue(ctx, {
+    entryId: null,
+    issueKey,
+    code: "MIGRATION_DESKTOP_REVIEW_ORPHANED",
+    severity: "review",
+    lineNo: null,
+    detail: {
+      needsReview: true,
+      feedbackStatus: "open",
+      state: review.state,
+      note: review.note,
+      tags: review.tags,
+      rating: review.rating,
+      favorite: review.favorite,
+      reviewIdHash: stableKey(review.id),
+      sourceLocatorHash: entry.sourceLocatorHash,
+    },
+  });
+  return stableId("miss", ctx, `issue:${issueKey}:MIGRATION_DESKTOP_REVIEW_ORPHANED`);
+}
+
 function importDesktopDocumentFile(ctx: MigrationContext, entry: Entry, source: MigrationSourceRoot): void {
   const raw = fs.readFileSync(checkedSourceFile(source, entry));
   if (isLegacySecretCandidate(entry.sourcePath, raw)) {
@@ -3652,29 +3801,32 @@ function importDesktopDocumentFile(ctx: MigrationContext, entry: Entry, source: 
     insertDesktopDocumentIssue(ctx, entry);
     return;
   }
-  if (!isRecord(value) || value.version !== 1
-    || !["agent-session-preferences", "agent-session-history"].includes(String(value.kind))
-    || typeof value.workspace !== "string") {
+  const parsed = parseDesktopDocumentExport(value, source.path);
+  if (!parsed) {
     insertDesktopDocumentIssue(ctx, entry);
     return;
   }
   const workspace = ctx.db.query<{ id: string }, [string]>(
     "SELECT id FROM workspaces WHERE slug = ?",
-  ).get(value.workspace);
+  ).get(parsed.workspace);
   if (!workspace) {
     insertDesktopDocumentIssue(ctx, entry);
     return;
   }
-  const projectId = typeof value.project === "string"
+  const projectId = parsed.project !== null
     ? ctx.db.query<{ id: string }, [string, string]>(
       "SELECT id FROM projects WHERE workspace_id = ? AND slug = ?",
-    ).get(workspace.id, value.project)?.id ?? null
+    ).get(workspace.id, parsed.project)?.id ?? null
     : null;
-  const kind = value.kind as "agent-session-preferences" | "agent-session-history";
+  if (parsed.project !== null && projectId === null) {
+    insertDesktopDocumentIssue(ctx, entry);
+    return;
+  }
+  const kind = parsed.kind;
   const suffix = entry.sourceLocatorHash.slice(0, 12);
   const documentId = stableId("doc", ctx, `desktop-document:${entry.id}`);
   const revisionId = stableId("drev", ctx, `desktop-document-revision:${entry.id}`);
-  const body = canonicalJsonText(normalizeLegacyValue(value, source.path));
+  const body = canonicalJsonText(parsed);
   insertExact(
     ctx.db,
     "documents",
@@ -3707,6 +3859,89 @@ function importDesktopDocumentFile(ctx: MigrationContext, entry: Entry, source: 
   if (current === null) ctx.db.prepare("UPDATE documents SET current_revision_id = ?, row_version = 2 WHERE id = ?").run(revisionId, documentId);
   else if (current !== revisionId) throw new Error("Desktop Document replay conflict");
   completeDesktopDomainEntry(ctx, entry, new Set([documentId, revisionId]));
+}
+
+type DesktopDocumentExport = {
+  version: 1;
+  kind: "agent-session-preferences" | "agent-session-history";
+  workspace: string;
+  project: string | null;
+  preferences?: { theme: "light" | "dark" | "system"; density: "compact" | "comfortable" };
+  sessions?: Array<{ agent: string; turns: Array<{ role: "user" | "assistant" | "system"; text: string }> }>;
+};
+
+function parseDesktopDocumentExport(value: unknown, sourceRoot: string): DesktopDocumentExport | null {
+  if (!isRecord(value) || value.version !== 1 || !safeDesktopScopeName(value.workspace)) return null;
+  if (value.kind === "agent-session-preferences") {
+    if (!exactObjectKeys(value, ["version", "kind", "workspace", "project", "preferences"], ["project"])) return null;
+    if (value.project !== undefined && !safeDesktopScopeName(value.project)) return null;
+    if (!isRecord(value.preferences)
+      || !exactObjectKeys(value.preferences, ["theme", "density"])
+      || !["light", "dark", "system"].includes(String(value.preferences.theme))
+      || !["compact", "comfortable"].includes(String(value.preferences.density))) return null;
+    return {
+      version: 1,
+      kind: value.kind,
+      workspace: value.workspace,
+      project: typeof value.project === "string" ? value.project : null,
+      preferences: {
+        theme: value.preferences.theme as "light" | "dark" | "system",
+        density: value.preferences.density as "compact" | "comfortable",
+      },
+    };
+  }
+  if (value.kind !== "agent-session-history"
+    || !exactObjectKeys(value, ["version", "kind", "workspace", "project", "sessions"])
+    || !safeDesktopScopeName(value.project)
+    || !Array.isArray(value.sessions) || value.sessions.length === 0 || value.sessions.length > 100) return null;
+  const sessions: NonNullable<DesktopDocumentExport["sessions"]> = [];
+  let turnCount = 0;
+  for (const session of value.sessions) {
+    if (!isRecord(session) || !exactObjectKeys(session, ["agent", "turns"])
+      || typeof session.agent !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/u.test(session.agent)
+      || !Array.isArray(session.turns) || session.turns.length === 0) return null;
+    const turns: NonNullable<DesktopDocumentExport["sessions"]>[number]["turns"] = [];
+    for (const turn of session.turns) {
+      turnCount += 1;
+      if (turnCount > 1_000 || !isRecord(turn) || !exactObjectKeys(turn, ["role", "text"])
+        || !["user", "assistant", "system"].includes(String(turn.role))
+        || typeof turn.text !== "string" || !safeDesktopDocumentText(turn.text, sourceRoot)) return null;
+      turns.push({
+        role: turn.role as "user" | "assistant" | "system",
+        text: turn.text,
+      });
+    }
+    sessions.push({ agent: session.agent, turns });
+  }
+  return {
+    version: 1,
+    kind: value.kind,
+    workspace: value.workspace,
+    project: value.project,
+    sessions,
+  };
+}
+
+function exactObjectKeys(
+  value: Record<string, unknown>,
+  allowed: readonly string[],
+  optional: readonly string[] = [],
+): boolean {
+  const keys = Object.keys(value);
+  return keys.every((key) => allowed.includes(key))
+    && allowed.every((key) => optional.includes(key) || Object.hasOwn(value, key));
+}
+
+function safeDesktopScopeName(value: unknown): value is string {
+  return typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u.test(value);
+}
+
+function safeDesktopDocumentText(value: string, sourceRoot: string): boolean {
+  if (!value || Buffer.byteLength(value) > 16_384 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value)) return false;
+  const sanitized = sanitizeLegacyPayload(value, sourceRoot, true);
+  return !sanitized.redacted
+    && sanitized.value === value
+    && !/(?:^|\W)(?:sk|pk|rk)-[A-Za-z0-9_-]{8,}|[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}/u.test(value);
 }
 
 function insertDesktopDocumentIssue(ctx: MigrationContext, entry: Entry): void {
@@ -3804,6 +4039,7 @@ function buildScopeModel(
   const workspaces = new Map<string, WorkspaceModel>();
   const projects = new Map<string, ProjectModel>();
   const primaryWorkspaceBySource = new Map<string, string>();
+  const authoritativePrimaryWorkspaceBySource = new Map<string, string>();
   const issues: PreparedIssue[] = [];
   const registries = new Map<string, ReturnType<typeof parseLegacyRegistry>>();
   for (const item of prepared) {
@@ -3815,10 +4051,12 @@ function buildScopeModel(
   for (const source of ctx.sourceRoots) {
     if (source.kind === "desktop") continue;
     const workspaceSlugs = new Set<string>();
+    let hasPhysicalDefault = source.kind === "legacy-workspace";
     for (const entry of entries) {
       if (entry.sourceLabel !== source.id) continue;
       const match = entry.sourcePath.match(/^workspaces\/([^/]+)(?:\/|$)/u);
       if (match) workspaceSlugs.add(match[1]!);
+      if (/^projects\/[^/]+(?:\/|$)/u.test(entry.sourcePath)) hasPhysicalDefault = true;
     }
     const registry = registries.get(source.id);
     for (const workspace of registry?.projects.values() ?? []) workspaceSlugs.add(workspace);
@@ -3833,10 +4071,19 @@ function buildScopeModel(
         name: titleCase(slug),
       });
     }
-    const primarySlug = registry?.activeWorkspace && workspaceSlugs.has(registry.activeWorkspace)
+    const authoritativePrimarySlug = registry?.activeWorkspace && workspaceSlugs.has(registry.activeWorkspace)
       ? registry.activeWorkspace
-      : [...workspaceSlugs].sort()[0]!;
+      : hasPhysicalDefault && workspaceSlugs.has("default")
+        ? "default"
+        : null;
+    const primarySlug = authoritativePrimarySlug ?? [...workspaceSlugs].sort()[0]!;
     primaryWorkspaceBySource.set(source.id, workspaces.get(`${source.id}\0${primarySlug}`)!.id);
+    if (authoritativePrimarySlug) {
+      authoritativePrimaryWorkspaceBySource.set(
+        source.id,
+        workspaces.get(`${source.id}\0${authoritativePrimarySlug}`)!.id,
+      );
+    }
   }
 
   for (const source of ctx.sourceRoots) {
@@ -3903,7 +4150,7 @@ function buildScopeModel(
       }
     }
   }
-  return { workspaces, projects, primaryWorkspaceBySource, issues };
+  return { workspaces, projects, primaryWorkspaceBySource, authoritativePrimaryWorkspaceBySource, issues };
 }
 
 function insertScopes(ctx: MigrationContext, scopes: ScopeModel, refs: Map<string, Set<string>>): void {
@@ -3922,7 +4169,13 @@ function insertScopes(ctx: MigrationContext, scopes: ScopeModel, refs: Map<strin
         workspace.id,
         workspace.slug,
         workspace.name,
-        JSON.stringify({ migrationRunId: ctx.runId, migrationSourceLabel: workspace.sourceId }),
+        JSON.stringify({
+          migrationRunId: ctx.runId,
+          migrationSourceLabel: workspace.sourceId,
+          ...(scopes.authoritativePrimaryWorkspaceBySource.get(workspace.sourceId) === workspace.id
+            ? { migrationPrimary: true }
+            : {}),
+        }),
         now,
         now,
       ],
