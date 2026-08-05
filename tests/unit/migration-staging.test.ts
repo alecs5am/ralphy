@@ -88,7 +88,7 @@ describe("migration Object staging", () => {
     const summary = await stageInventoryObjects(fixture.ctx);
     expect(summary.staged).toBe(1);
     expect(fixture.db.query<{ id: string }, []>("SELECT id FROM objects").all()).toEqual([{ id: objectId! }]);
-    expect(entry(fixture.ctx, entryId)).toMatchObject({ state: "verified", rawEvidenceObjectId: null });
+    expect(entry(fixture.ctx, entryId)).toMatchObject({ state: "staged", rawEvidenceObjectId: null });
     expect((await stageInventoryObjects(fixture.ctx)).staged).toBe(0);
     expect(fixture.db.query("SELECT id FROM objects").all()).toHaveLength(1);
     expect(fileFacts(source)).toEqual(before);
@@ -150,7 +150,7 @@ describe("migration Object staging", () => {
     const summary = await stageInventoryObjects(fixture.ctx);
     expect(summary.staged).toBe(2);
     const row = entry(fixture.ctx, entryId);
-    expect(row.state).toBe("imported");
+    expect(row.state).toBe("inventoried");
     expect(row.rawEvidenceObjectId).toMatch(/^obj_/);
     const objects = fixture.db.query<{ id: string; sha256: string }, []>(
       "SELECT id, sha256 FROM objects ORDER BY id",

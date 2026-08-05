@@ -13,7 +13,12 @@ import {
   type PreparedObject,
   writeExclusiveStoreTemp,
 } from "../store/internal-objects.js";
-import { normalizeRelativePath } from "./legacy.js";
+import {
+  isLegacyAssetManifestName,
+  isLegacyPublishLedgerName,
+  isLegacyUnitManifestName,
+  normalizeRelativePath,
+} from "./legacy.js";
 import type { MigrationContext } from "./types.js";
 
 export type StageSummary = {
@@ -74,6 +79,7 @@ export async function stageInventoryObjects(
   for (const initial of rows) {
     if (isSecret(initial)) continue;
     if (initial.state === "verified" || initial.state === "imported" || initial.state === "excluded") continue;
+    if (initial.state === "staged" && isTaskFiveEvidence(initial)) continue;
     if (initial.entryKind === "directory") {
       terminalizeExcluded(ctx, initial, "system", null, EMPTY_SHA256);
       continue;
@@ -102,10 +108,11 @@ export async function stageInventoryObjects(
       const refs = canonicalRefs(row.targetRefs);
       verifyTargetRefs(ctx, refs);
       const now = Date.now();
+      const deferred = isTaskFiveEvidence(row);
       ctx.db.prepare(
-        `UPDATE migration_entries SET sha256 = ?, state = 'imported', terminal_at = ?, updated_at = ?
+        `UPDATE migration_entries SET sha256 = ?, state = ?, terminal_at = ?, updated_at = ?
          WHERE id = ? AND state = 'inventoried'`,
-      ).run(EMPTY_SHA256, now, now, row.id);
+      ).run(EMPTY_SHA256, deferred ? "inventoried" : "imported", deferred ? null : now, now, row.id);
       continue;
     }
     if (row.bytes === 0) {
@@ -184,11 +191,13 @@ async function stageFileObject(
   if (verified.sha256 !== digest.sha256 || verified.bytes !== digest.bytes) {
     throw new Error("Staged Object changed before verification");
   }
-  const now = Date.now();
-  ctx.db.prepare(
-    `UPDATE migration_entries SET state = 'verified', terminal_at = ?, updated_at = ?
-     WHERE id = ? AND state = 'staged'`,
-  ).run(now, now, row.id);
+  if (!isTaskFiveEvidence(row)) {
+    const now = Date.now();
+    ctx.db.prepare(
+      `UPDATE migration_entries SET state = 'verified', terminal_at = ?, updated_at = ?
+       WHERE id = ? AND state = 'staged'`,
+    ).run(now, now, row.id);
+  }
   return {
     staged: getObjectRow(ctx.db, objectId) ? 1 : 0,
     bytes: prepared.bytes,
@@ -274,18 +283,45 @@ async function stageControlEvidence(
       return migrationRunObjectRefs(ctx, row, object);
     });
     finalRefs = canonicalRefs(JSON.stringify(refs), ...diagnosticRefs);
+    const deferred = isTaskFiveEvidence(row);
     ctx.db.prepare(
       `UPDATE migration_entries
        SET raw_evidence_object_id = ?, target_path = ?, target_refs_json = ?,
-           sha256 = ?, state = 'imported', terminal_at = ?, updated_at = ?
+           sha256 = ?, state = ?, terminal_at = ?, updated_at = ?
        WHERE id = ? AND state = 'inventoried'`,
-    ).run(rawId, rawLocator, JSON.stringify(finalRefs), prepared[0]!.sha256, now, now, row.id);
+    ).run(
+      rawId,
+      rawLocator,
+      JSON.stringify(finalRefs),
+      prepared[0]!.sha256,
+      deferred ? "inventoried" : "imported",
+      deferred ? null : now,
+      now,
+      row.id,
+    );
   }).immediate();
   return {
     staged: prepared.length,
     bytes: prepared.reduce((sum, object) => sum + object.bytes, 0),
     digests: prepared.map((object) => `${object.id}\0${object.sha256}\0${object.bytes}`),
   };
+}
+
+// Task 5 adds the final semantic refs. Terminal rows cannot be enriched later.
+function isTaskFiveEvidence(row: Pick<Entry, "disposition" | "sourcePath">): boolean {
+  if (row.disposition === "object") return true;
+  if (row.disposition !== "domain") return false;
+  const relative = row.sourcePath.toLowerCase();
+  const name = path.posix.basename(relative);
+  return isLegacyUnitManifestName(name)
+    || name === "captions.json"
+    || isLegacyAssetManifestName(name)
+    || name === "production.json"
+    || name === "delivery.json"
+    || isLegacyPublishLedgerName(name)
+    || name === "analytics.jsonl"
+    || /(?:^|\/)production\/[^/]+\.jsonl$/u.test(relative)
+    || /(?:^|\/)delivery\/[^/]+\.jsonl$/u.test(relative);
 }
 
 async function prepareOrResume(ctx: MigrationContext, input: {
@@ -463,6 +499,7 @@ async function estimateRemainingCopy(ctx: MigrationContext, rows: readonly Entry
       continue;
     }
     if (!new Set(["object", "run-object", "decoded-object", "domain"]).has(disposition)) continue;
+    if (disposition === "domain" && !row.targetPath) continue;
     objectRows += 1;
     const scope = scopeForEntry(ctx, row);
     if (disposition !== "domain" || !row.targetPath) {
