@@ -496,7 +496,7 @@ async function preparePinnedBytes(revision: RevisionRow, file: { logicalPath: st
   try {
     const destination = fsSync.openSync(sourcePath, fsSync.constants.O_WRONLY | fsSync.constants.O_CREAT | fsSync.constants.O_EXCL, 0o600);
     try { copyRegularFileDescriptors(file.fd, destination); } finally { fsSync.closeSync(destination); }
-    return await prepareObject({
+    return await prepareObject(openDomainDb(), ralphDir(), {
       scope: { workspaceId: revision.workspaceId, projectId: revision.projectId },
       sourcePath,
       originalName: path.basename(file.logicalPath),

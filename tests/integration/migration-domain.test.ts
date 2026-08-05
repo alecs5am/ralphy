@@ -73,8 +73,8 @@ describe("domain migration primitives", () => {
     };
     const imported = importScopesAndDocuments(ctx);
     expect(imported.documents).toBe(1);
-    const staged = stageInventoryObjects(ctx);
-    expect(staged.staged).toBe(1);
+    const staged = await stageInventoryObjects(ctx);
+    expect(staged.staged).toBe(2);
     stageDb.close();
     releaseMaintenanceLock(started.lock);
   });

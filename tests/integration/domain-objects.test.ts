@@ -33,7 +33,7 @@ describe("domain Object store", () => {
     const { root, project } = setupProject("prepare-cleanup");
     const sourcePath = writeSource(root, "prepare-cleanup.bin", "prepared bytes");
 
-    await expect(prepareObject({
+    await expect(prepareObject(openDomainDb(), path.join(root.dir, ".ralphy"), {
       scope: { workspaceId: project.workspaceId, projectId: project.id },
       sourcePath,
       originalName: "prepared.bin",
@@ -43,7 +43,7 @@ describe("domain Object store", () => {
       testHooks: { afterPromotion: () => { throw new Error("injected post-rename failure"); } },
     })).rejects.toThrow("injected post-rename failure");
 
-    const bucketRoot = path.join(root.dir, "buckets");
+    const bucketRoot = path.join(root.dir, ".ralphy", "buckets");
     const entries = fs.existsSync(bucketRoot)
       ? fs.readdirSync(bucketRoot, { recursive: true }).map(String)
       : [];
@@ -118,7 +118,7 @@ describe("domain Object store", () => {
   test("moves the source only after registration and keeps prepare separate", async () => {
     const { root, workspace, project } = setupProject("transfer");
     const preparedSource = writeSource(root, "prepared.txt", "prepared");
-    const prepared = await prepareObject({
+    const prepared = await prepareObject(openDomainDb(), path.join(root.dir, ".ralphy"), {
       scope: { workspaceId: workspace.id },
       sourcePath: preparedSource,
       originalName: "prepared.txt",
@@ -258,10 +258,10 @@ describe("domain Object store", () => {
     };
 
     await expect(
-      prepareObject({ ...valid, scope: { workspaceId: "ws_missing" } }),
+      prepareObject(openDomainDb(), path.join(root.dir, ".ralphy"), { ...valid, scope: { workspaceId: "ws_missing" } }),
     ).rejects.toThrow(/Workspace not found/);
     await expect(
-      prepareObject({
+      prepareObject(openDomainDb(), path.join(root.dir, ".ralphy"), {
         ...valid,
         scope: { workspaceId: otherWorkspace.id, projectId: project.id },
       }),
@@ -276,30 +276,30 @@ describe("domain Object store", () => {
       `${root.dir}/source-directory/../valid.bin`,
       "C:\\fixture\\valid.bin",
     ]) {
-      await expect(prepareObject({ ...valid, sourcePath })).rejects.toThrow();
+      await expect(prepareObject(openDomainDb(), path.join(root.dir, ".ralphy"), { ...valid, sourcePath })).rejects.toThrow();
     }
     for (const originalName of ["", ".", "..", "a/b.bin", "a\\b.bin"]) {
-      await expect(prepareObject({ ...valid, originalName })).rejects.toThrow(
+      await expect(prepareObject(openDomainDb(), path.join(root.dir, ".ralphy"), { ...valid, originalName })).rejects.toThrow(
         /originalName/i,
       );
     }
-    await expect(prepareObject({ ...valid, mime: "   " })).rejects.toThrow(
+    await expect(prepareObject(openDomainDb(), path.join(root.dir, ".ralphy"), { ...valid, mime: "   " })).rejects.toThrow(
       /MIME/i,
     );
     await expect(
-      prepareObject({ ...valid, storageClass: "cache" as never }),
+      prepareObject(openDomainDb(), path.join(root.dir, ".ralphy"), { ...valid, storageClass: "cache" as never }),
     ).rejects.toThrow(/storageClass/i);
     await expect(
-      prepareObject({
+      prepareObject(openDomainDb(), path.join(root.dir, ".ralphy"), {
         ...valid,
         metadata: { preview: "prefix data:image/png;base64,dmFsaWQ= suffix" },
       }),
     ).rejects.toThrow(/data URL/i);
     await expect(
-      prepareObject({ ...valid, metadata: { imageData: "dmFsaWQ=" } }),
+      prepareObject(openDomainDb(), path.join(root.dir, ".ralphy"), { ...valid, metadata: { imageData: "dmFsaWQ=" } }),
     ).rejects.toThrow(/base64/i);
     await expect(
-      prepareObject({
+      prepareObject(openDomainDb(), path.join(root.dir, ".ralphy"), {
         ...valid,
         metadata: { score: Number.POSITIVE_INFINITY } as never,
       }),
