@@ -871,6 +871,9 @@ function classifyDisposition(relative: string, kind: MigrationEntryKind): Migrat
   if (basename === ".ds_store") return "system";
   if (relative.split("/").some((part) => part === "secrets" || part.includes("cookie"))) return "secret-recovery-only";
   if (relative.split("/").some((part) => part === "cache" || part === "tmp")) return "cache";
+  if (/^(?:workspaces\/[^/]+\/projects\/[^/]+|projects\/[^/]+)\/render\/work-[^/]+\//iu.test(relative)) {
+    return "run-object";
+  }
   if (/^(?:workspaces\/[^/]+\/projects\/[^/]+|projects\/[^/]+)\/composition\/[^/]+\.html$/iu.test(relative)) {
     return "object";
   }
