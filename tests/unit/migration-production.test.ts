@@ -5,6 +5,7 @@ import {
   acquireMaintenanceLock,
   inventoryLegacySource,
   releaseMaintenanceLock,
+  sourceLocatorHash,
 } from "../../cli/lib/migration/inventory.js";
 import {
   importProductionAndDelivery,
@@ -450,7 +451,266 @@ describe("legacy production and delivery migration", () => {
        WHERE json_extract(run.metadata_json, '$.legacyPublicationId') = 'same-kind-pub'`,
     ).get()?.count).toBe(2);
   });
+
+  test("resolves publication references across one Workspace without leaking invalid accounts", async () => {
+    await setupFixture(({ project, fixture: built }) => {
+      addPublicationProject(built.paths.currentRoot, "studio", "source-project-a", [
+        publicationRow("cross-project-original", "https://site.example/cross-project", 100),
+        publicationRow("duplicate-target", "https://site.example/duplicate-a", 200, "duplicate-a"),
+      ]);
+      addPublicationProject(built.paths.currentRoot, "studio", "source-project-b", [
+        publicationRow("duplicate-target", "https://site.example/duplicate-b", 210, "duplicate-b"),
+      ]);
+      addPublicationProject(built.paths.currentRoot, "other", "source-project-c", [
+        publicationRow("other-workspace-only", "https://site.example/other", 300),
+      ]);
+      const delivery = path.join(project, "delivery");
+      fs.mkdirSync(delivery, { recursive: true });
+      writeJsonl(path.join(delivery, "cross-project.jsonl"), [{
+        id: "cross-project-child", unitId: "article", unitRevision: 1,
+        platform: "web", provider: "postiz", accountId: "cross-project-account",
+        status: "published", providerPublicationId: "cross-project-child-provider",
+        url: "https://social.example/cross-project-child", revisedFrom: "cross-project-original",
+        createdAt: 500, submittedAt: 510, publishedAt: 520,
+      }]);
+      writeJsonl(path.join(delivery, "cross-project-skip.jsonl"), [{
+        id: "cross-project-skip", unitId: "article", unitRevision: 1,
+        platform: "web", provider: "manual", status: "idempotent-skip",
+        originalPublicationId: "cross-project-original", createdAt: 550,
+      }]);
+      writeJsonl(path.join(delivery, "disambiguated.jsonl"), [{
+        id: "disambiguated-child", unitId: "article", unitRevision: 1,
+        platform: "web", provider: "manual", status: "published",
+        url: "https://site.example/disambiguated", revisedFrom: "duplicate-target",
+        revisedFromSourceLocatorHash: sourceLocatorHash(
+          "ralphy",
+          "workspaces/studio/projects/source-project-b/publish-ledger.jsonl",
+        ),
+        revisedFromProviderPublicationId: "duplicate-b",
+        revisedFromCreatedAt: 210,
+        createdAt: 600, publishedAt: 610,
+      }]);
+      writeJsonl(path.join(delivery, "missing.jsonl"), [{
+        id: "missing-child", unitId: "article", unitRevision: 1,
+        platform: "web", provider: "postiz", accountId: "missing-ref-account",
+        status: "published", providerPublicationId: "missing-child-provider",
+        url: "https://social.example/missing", revisedFrom: "does-not-exist",
+        createdAt: 700, submittedAt: 710, publishedAt: 720,
+      }]);
+      writeJsonl(path.join(delivery, "ambiguous.jsonl"), [{
+        id: "ambiguous-child", unitId: "article", unitRevision: 1,
+        platform: "web", provider: "postiz", accountId: "ambiguous-ref-account",
+        status: "published", providerPublicationId: "ambiguous-child-provider",
+        url: "https://social.example/ambiguous", revisedFrom: "duplicate-target",
+        createdAt: 800, submittedAt: 810, publishedAt: 820,
+      }]);
+      writeJsonl(path.join(delivery, "cross-workspace.jsonl"), [{
+        id: "cross-workspace-child", unitId: "article", unitRevision: 1,
+        platform: "web", provider: "postiz", accountId: "cross-workspace-account",
+        status: "published", providerPublicationId: "cross-workspace-child-provider",
+        url: "https://social.example/cross-workspace", revisedFrom: "other-workspace-only",
+        createdAt: 900, submittedAt: 910, publishedAt: 920,
+      }]);
+    });
+
+    importProductionAndDelivery(ctx!);
+
+    expect(revisedProviderId("cross-project-child")).toBeNull();
+    expect(revisedProviderId("disambiguated-child")).toBe("duplicate-b");
+    expect(ctx!.db.query<{ count: number }, []>(
+      "SELECT COUNT(*) AS count FROM activity_events WHERE action = 'publication.idempotent_skip'",
+    ).get()?.count).toBe(2);
+    for (const externalId of ["missing-ref-account", "ambiguous-ref-account", "cross-workspace-account"]) {
+      expect(ctx!.db.query<{ count: number }, [string]>(
+        "SELECT COUNT(*) AS count FROM social_accounts WHERE external_id = ?",
+      ).get(externalId)?.count).toBe(0);
+    }
+    for (const relative of ["missing.jsonl", "ambiguous.jsonl", "cross-workspace.jsonl"]) {
+      expect(ledgerEntry(`workspaces/studio/projects/registered-project/delivery/${relative}`).refs
+        .some((ref) => ref.startsWith("acct_"))).toBe(false);
+    }
+    expect(issueCount("MIGRATION_PUBLICATION_REVISED_FROM_INVALID")).toBeGreaterThanOrEqual(3);
+  });
+
+  test("imports only the exact account-resolution failure shape", async () => {
+    await setupFixture(({ project }) => {
+      const delivery = path.join(project, "delivery", "account-resolution.jsonl");
+      fs.mkdirSync(path.dirname(delivery), { recursive: true });
+      writeJsonl(delivery, [
+        { id: "pre-account-valid", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", status: "failed", error: "account missing", failureStage: "account-resolution", createdAt: 1500 },
+        { id: "pre-account-with-account", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", accountId: "contradictory-account", status: "failed", error: "account missing", failureStage: "account-resolution", createdAt: 1510 },
+        { id: "pre-account-scheduled", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", status: "failed", error: "account missing", failureStage: "account-resolution", createdAt: 1520, scheduledAt: 1521 },
+        { id: "pre-account-submitted", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", status: "failed", error: "account missing", failureStage: "account-resolution", createdAt: 1530, submittedAt: 1531 },
+        { id: "pre-account-provider", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", status: "failed", error: "account missing", failureStage: "account-resolution", providerPublicationId: "contradictory-provider", createdAt: 1540 },
+      ]);
+    });
+
+    expect(() => importProductionAndDelivery(ctx!)).not.toThrow();
+    expect(publicationStates("pre-account-valid")).toEqual([{ publication: "failed", run: "failed", attempts: 0 }]);
+    for (const legacyId of [
+      "pre-account-with-account", "pre-account-scheduled", "pre-account-submitted", "pre-account-provider",
+    ]) {
+      expect(publicationStates(legacyId)).toEqual([]);
+    }
+    expect(ctx!.db.query<{ count: number }, []>(
+      "SELECT COUNT(*) AS count FROM social_accounts WHERE external_id = 'contradictory-account'",
+    ).get()?.count).toBe(0);
+    expect(ctx!.db.query<{ count: number }, []>(
+      `SELECT COUNT(*) AS count FROM publications publication
+       JOIN runs run ON run.id = publication.submission_run_id
+       WHERE publication.state = 'draft' AND run.state IN ('succeeded', 'failed', 'cancelled')`,
+    ).get()?.count).toBe(0);
+  });
+
+  test("keeps malformed Task 5 manifests pending and preserves observed revision numbers", async () => {
+    await setupFixture(({ project, fixture: built }) => {
+      const brokenUnit = path.join(project, "units", "broken", "unit.json");
+      fs.mkdirSync(path.dirname(brokenUnit), { recursive: true });
+      fs.writeFileSync(brokenUnit, "[]\n");
+      const badCaptionsUnit = path.join(project, "units", "bad-captions");
+      fs.mkdirSync(badCaptionsUnit, { recursive: true });
+      fs.writeFileSync(path.join(badCaptionsUnit, "unit.json"), '{"id":"valid-sibling","format":"post","media":[]}\n');
+      fs.writeFileSync(path.join(badCaptionsUnit, "captions.json"), '{"wrong":[]}\n');
+      fs.writeFileSync(path.join(built.paths.physicalOnlyProject, "asset-manifest.json"), '[]\n');
+      for (const relative of [
+        "composition/observed.v2.html",
+        "composition/observed.v3.html",
+        "artifacts/images/observed.v2.png",
+        "artifacts/images/observed.v3.png",
+      ]) {
+        const file = path.join(project, relative);
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, `fixture:${relative}`);
+      }
+    });
+
+    importProductionAndDelivery(ctx!);
+
+    for (const relative of [
+      "workspaces/studio/projects/registered-project/units/broken/unit.json",
+      "workspaces/studio/projects/registered-project/units/bad-captions/captions.json",
+      "workspaces/studio/projects/physical-only-project/asset-manifest.json",
+    ]) {
+      expect(entryState(relative)).toBe("inventoried");
+      expect(ledgerEntry(relative).refs.some((ref) => ref.startsWith("obj_"))).toBe(true);
+    }
+    expect(issueCount("MIGRATION_UNIT_MANIFEST_INVALID")).toBe(1);
+    expect(issueCount("MIGRATION_CAPTIONS_MANIFEST_INVALID")).toBe(1);
+    expect(issueCount("MIGRATION_ASSET_MANIFEST_INVALID")).toBe(1);
+    expect(ctx!.db.query<{ count: number }, []>(
+      "SELECT COUNT(*) AS count FROM units WHERE slug = 'valid-sibling'",
+    ).get()?.count).toBe(1);
+    expect(revisionNumbers("artifact", "artifacts-images-observed")).toEqual([2, 3]);
+    expect(revisionNumbers("composition", "observed")).toEqual([2, 3]);
+  });
+
+  test("keeps row ordinals and target slots collision-free at legacy boundaries", async () => {
+    await setupFixture(({ project }) => {
+      const targets = Array.from({ length: 1001 }, () => null) as Array<Record<string, unknown> | null>;
+      targets[0] = { platform: "web", status: "published", url: "https://site.example/boundary-slot-0", publishedAt: 110 };
+      targets[1000] = { platform: "web", status: "published", url: "https://site.example/boundary-slot-1000", createdAt: 120, publishedAt: 130 };
+      const rows = [JSON.stringify({
+        id: "boundary-target", unitId: "article", unitRevision: 1,
+        provider: "manual", status: "partial", createdAt: 100, targets,
+      })];
+      rows.push(...Array.from({ length: 999 }, () => "null"));
+      rows.push(JSON.stringify({
+        id: "boundary-row-1001", unitId: "article", unitRevision: 1,
+        platform: "web", provider: "manual", status: "published",
+        url: "https://site.example/boundary-row-1001", createdAt: 200, publishedAt: 210,
+      }));
+      fs.writeFileSync(path.join(project, "publish-ledger.jsonl"), `${rows.join("\n")}\n`);
+    });
+
+    const first = importProductionAndDelivery(ctx!);
+    expect(importProductionAndDelivery(ctx!)).toEqual(first);
+    expect(ctx!.db.query<{ url: string }, []>(
+      "SELECT url FROM publications WHERE url LIKE 'https://site.example/boundary-%' ORDER BY url",
+    ).all()).toEqual([
+      { url: "https://site.example/boundary-row-1001" },
+      { url: "https://site.example/boundary-slot-0" },
+      { url: "https://site.example/boundary-slot-1000" },
+    ]);
+  });
 });
+
+function publicationRow(
+  id: string,
+  url: string,
+  createdAt: number,
+  providerPublicationId?: string,
+): Record<string, unknown> {
+  return {
+    id,
+    unitId: "article",
+    unitRevision: 1,
+    platform: "web",
+    provider: "manual",
+    status: "published",
+    url,
+    ...(providerPublicationId ? { providerPublicationId } : {}),
+    createdAt,
+    publishedAt: createdAt + 10,
+  };
+}
+
+function addPublicationProject(
+  dataRoot: string,
+  workspace: string,
+  projectSlug: string,
+  rows: readonly Record<string, unknown>[],
+): void {
+  const workspaceRoot = path.join(dataRoot, "workspaces", workspace);
+  const project = path.join(workspaceRoot, "projects", projectSlug);
+  fs.mkdirSync(project, { recursive: true });
+  const workspaceManifest = path.join(workspaceRoot, "workspace.json");
+  if (!fs.existsSync(workspaceManifest)) {
+    fs.writeFileSync(workspaceManifest, `${JSON.stringify({ slug: workspace, name: workspace }, null, 2)}\n`);
+  }
+  fs.writeFileSync(path.join(project, "project.json"), `${JSON.stringify({ id: projectSlug, workspace }, null, 2)}\n`);
+  const unit = path.join(project, "units", "article");
+  fs.mkdirSync(unit, { recursive: true });
+  fs.writeFileSync(path.join(unit, "unit.json"), '{"id":"article","revision":1,"format":"article","media":[],"body":"Reference"}\n');
+  writeJsonl(path.join(project, "publish-ledger.jsonl"), rows);
+}
+
+function writeJsonl(file: string, rows: readonly Record<string, unknown>[]): void {
+  fs.writeFileSync(file, `${rows.map((row) => JSON.stringify(row)).join("\n")}\n`);
+}
+
+function revisedProviderId(legacyId: string): string | null | undefined {
+  return ctx!.db.query<{ providerId: string | null }, [string]>(
+    `SELECT original.provider_publication_id AS providerId
+     FROM publications publication
+     JOIN runs run ON run.id = publication.submission_run_id
+     JOIN publications original ON original.id = publication.revised_from_publication_id
+     WHERE json_extract(run.metadata_json, '$.legacyPublicationId') = ?`,
+  ).get(legacyId)?.providerId;
+}
+
+function publicationStates(legacyId: string): Array<{ publication: string; run: string; attempts: number }> {
+  return ctx!.db.query<{ publication: string; run: string; attempts: number }, [string]>(
+    `SELECT publication.state AS publication, run.state AS run,
+            (SELECT COUNT(*) FROM run_attempts attempt WHERE attempt.run_id = run.id) AS attempts
+     FROM publications publication JOIN runs run ON run.id = publication.submission_run_id
+     WHERE json_extract(run.metadata_json, '$.legacyPublicationId') = ?`,
+  ).all(legacyId);
+}
+
+function revisionNumbers(kind: "artifact" | "composition", slug: string): number[] {
+  if (kind === "artifact") {
+    return ctx!.db.query<{ revisionNo: number }, [string]>(
+      `SELECT revision.revision_no AS revisionNo
+       FROM artifact_revisions revision JOIN artifacts artifact ON artifact.id = revision.artifact_id
+       WHERE artifact.slug LIKE '%' || ? ORDER BY revision.revision_no`,
+    ).all(slug).map((row) => row.revisionNo);
+  }
+  return ctx!.db.query<{ revisionNo: number }, [string]>(
+    `SELECT revision.revision_no AS revisionNo
+     FROM composition_revisions revision JOIN compositions composition ON composition.id = revision.composition_id
+     WHERE composition.slug = ? ORDER BY revision.revision_no`,
+  ).all(slug).map((row) => row.revisionNo);
+}
 
 function addSameKindProduction(rootPath: string, url: string, createRoot = false): void {
   const project = path.join(rootPath, "projects", "legacy-registered");
