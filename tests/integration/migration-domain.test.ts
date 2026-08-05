@@ -4,13 +4,9 @@ import path from "node:path";
 import { closeDomainDb, openDomainDb, openDomainDbAt } from "../../cli/lib/store/db.js";
 import {
   auditMigration,
-  createMigrationSourceRoot,
-  releaseMaintenanceLock,
   setMigrationProcessToolsForTesting,
 } from "../../cli/lib/migration/inventory.js";
-import { importScopesAndDocuments } from "../../cli/lib/migration/import.js";
 import { cutoverMigration, migrationStatus, resumeMigration, rollbackCutover, startMigration } from "../../cli/lib/migration/service.js";
-import { stageInventoryObjects } from "../../cli/lib/migration/staging.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 
 let root: TmpRoot | null = null;
@@ -49,41 +45,32 @@ describe("domain migration primitives", () => {
     });
     expect(resumed.inventory?.sourceFiles).toBe(3);
     const stageDb = openDomainDbAt(started.storeRoot);
-    expect(stageDb.query<{ count: number }, [string]>(
-      "SELECT COUNT(*) AS count FROM migration_entries WHERE migration_run_id = ?",
-    ).get(started.runId)?.count).toBeGreaterThan(3);
-    expect(stageDb.query<{ count: number }, [string]>(
-      "SELECT COUNT(*) AS count FROM migration_issues WHERE migration_run_id = ?",
-    ).get(started.runId)?.count).toBe(1);
-
-    fs.rmSync(path.join(source, "unknown.bin"));
-    stageDb.prepare(
-      "UPDATE migration_issues SET resolved_at = ? WHERE migration_run_id = ?",
-    ).run(Date.now(), started.runId);
-    stageDb.prepare(
-      `UPDATE migration_entries
-       SET disposition = 'recovery-only', state = 'excluded', terminal_at = ?, updated_at = ?
-       WHERE migration_run_id = ? AND state = 'issue'`,
-    ).run(Date.now(), Date.now(), started.runId);
-    const ctx = {
-      db: stageDb,
-      storeRoot: started.storeRoot,
-      sourceRoots: [{ id: "source", kind: "ralphy" as const, path: fs.realpathSync(source), device: BigInt(fs.statSync(source).dev), inode: BigInt(fs.statSync(source).ino) }],
-      runId: started.runId,
-    };
-    const imported = importScopesAndDocuments(ctx);
-    expect(imported.documents).toBe(1);
-    const staged = await stageInventoryObjects(ctx);
-    expect(staged.staged).toBe(2);
-    stageDb.close();
-    releaseMaintenanceLock(started.lock);
+    try {
+      expect(stageDb.query<{ count: number }, [string]>(
+        "SELECT COUNT(*) AS count FROM migration_entries WHERE migration_run_id = ?",
+      ).get(started.runId)?.count).toBeGreaterThan(3);
+      const issueCodes = stageDb.query<{ code: string }, [string]>(
+        "SELECT code FROM migration_issues WHERE migration_run_id = ? ORDER BY code",
+      ).all(started.runId).map((row) => row.code);
+      expect(issueCodes).toContain("MIGRATION_UNKNOWN_ENTRY");
+      expect(resumed.status.blockingIssues).toBe(1);
+      expect(stageDb.query<{ count: number }, []>(
+        "SELECT COUNT(*) AS count FROM documents WHERE kind = 'brief'",
+      ).get()?.count).toBe(1);
+      expect(stageDb.query<{ count: number }, []>(
+        "SELECT COUNT(*) AS count FROM objects",
+      ).get()?.count).toBeGreaterThanOrEqual(2);
+    } finally {
+      stageDb.close();
+    }
   });
 
-  test("cutover and rollback stay disabled without changing either generation", () => {
+  test("cutover and rollback reject incomplete derived state without changing either generation", () => {
     root = makeTmpRoot("ralphy-cutover");
-    const live = path.join(root.dir, "live", ".ralphy");
-    const stage = path.join(root.dir, "stage", ".ralphy");
-    const verification = path.join(root.dir, "verification.json");
+    const exactRoot = fs.realpathSync(root.dir);
+    const live = path.join(exactRoot, "live", ".ralphy");
+    const stage = path.join(exactRoot, "stage", ".ralphy");
+    const verification = path.join(exactRoot, "verification.json");
     fs.mkdirSync(live, { recursive: true });
     fs.mkdirSync(stage, { recursive: true });
     fs.writeFileSync(path.join(live, "generation.txt"), "legacy");
@@ -92,12 +79,11 @@ describe("domain migration primitives", () => {
 
     expect(() => cutoverMigration({
       runId: "mig_cutover",
-      verificationId: "verify_cutover",
-      verificationPath: verification,
+      verificationId: "f".repeat(64),
+      verificationDir: exactRoot,
       sourcePath: live,
-      stagePath: stage,
-    })).toThrow(/unavailable|disabled/i);
-    expect(() => rollbackCutover({ journalPath: path.join(root.dir, "missing-journal"), runId: "mig_cutover" })).toThrow(/unavailable|disabled/i);
+    })).toThrow(/manifest|source|stage|run|verification|ENOENT/i);
+    expect(() => rollbackCutover({ sourcePath: live, runId: "mig_cutover" })).toThrow(/journal|unavailable|symlink/i);
     expect(fs.readFileSync(path.join(live, "generation.txt"), "utf8")).toBe("legacy");
     expect(fs.readFileSync(path.join(stage, "generation.txt"), "utf8")).toBe("sqlite");
   });
@@ -120,8 +106,7 @@ describe("domain migration primitives", () => {
 
     expect(fs.existsSync(path.join(started.storeRoot, "ralphy.db"))).toBe(true);
     expect(fs.existsSync(path.join(root.dir, ".ralphy", "ralphy.db"))).toBe(false);
-    expect(migrationStatus({ runId: started.runId, sourcePath: source }).phase).toBe("inventory");
-    releaseMaintenanceLock(started.lock);
+    expect(migrationStatus({ runId: started.runId, sourcePath: source }).phase).toBe("relations");
   });
 
   test("imports same-kind sources by immutable source identity", async () => {
@@ -142,12 +127,6 @@ describe("domain migration primitives", () => {
     await resumeMigration({ runId: started.runId, sourceRoots, lock: started.lock });
     const db = openDomainDbAt(started.storeRoot);
     try {
-      importScopesAndDocuments({
-        db,
-        storeRoot: started.storeRoot,
-        sourceRoots: sourceRoots.map(createMigrationSourceRoot),
-        runId: started.runId,
-      });
       const importedBodies = db.query<{ body: string }, [string]>(
         `SELECT revision.body FROM document_revisions revision
          JOIN documents document ON document.current_revision_id = revision.id
@@ -156,7 +135,6 @@ describe("domain migration primitives", () => {
       expect(importedBodies.map((row) => row.body)).toEqual(["first-source\n", "second-source\n"]);
     } finally {
       db.close();
-      releaseMaintenanceLock(started.lock);
     }
   });
 });

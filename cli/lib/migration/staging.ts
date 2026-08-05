@@ -78,7 +78,11 @@ export async function stageInventoryObjects(
 
   for (const initial of rows) {
     if (isSecret(initial)) continue;
-    if (initial.state === "verified" || initial.state === "imported" || initial.state === "excluded") continue;
+    const needsControlEvidence = initial.disposition === "domain"
+      && initial.state === "inventoried"
+      && initial.targetPath !== null
+      && initial.rawEvidenceObjectId === null;
+    if ((initial.state === "verified" || initial.state === "imported" || initial.state === "excluded") && !needsControlEvidence) continue;
     if (initial.state === "staged" && isTaskFiveEvidence(initial)) continue;
     if (initial.entryKind === "directory") {
       terminalizeExcluded(ctx, initial, "system", null, EMPTY_SHA256);
@@ -102,6 +106,13 @@ export async function stageInventoryObjects(
     }
     if (row.disposition === "cache") {
       await stageCache(ctx, row, options.copyMode ?? "clone");
+      continue;
+    }
+    if (needsControlEvidence) {
+      const result = await stageControlEvidence(ctx, row, options.copyMode ?? "clone");
+      staged += result.staged;
+      bytes += result.bytes;
+      digests.push(...result.digests);
       continue;
     }
     if (row.disposition === "domain" && row.bytes === 0 && canonicalRefs(row.targetRefs).length > 0) {
@@ -138,7 +149,10 @@ export async function stageInventoryObjects(
      WHERE migration_run_id = ? AND severity = 'block' AND resolved_at IS NULL`,
   ).get(ctx.runId)?.count ?? 0;
   if (blockers === 0) {
-    ctx.db.prepare("UPDATE migration_runs SET phase = 'objects', updated_at = ? WHERE id = ?")
+    ctx.db.prepare(
+      `UPDATE migration_runs SET phase = 'objects', updated_at = ?
+       WHERE id = ? AND phase IN ('inventory', 'import')`,
+    )
       .run(Date.now(), ctx.runId);
   }
   return {
@@ -642,6 +656,28 @@ function assertCopySpace(ctx: MigrationContext, requiredCopyBytes: number, freeO
 }
 
 function scopeForEntry(ctx: MigrationContext, row: Entry): Scope {
+  for (const ref of canonicalRefs(row.targetRefs)) {
+    if (ref.startsWith("doc_")) {
+      const document = ctx.db.query<{ workspaceId: string; projectId: string | null }, [string]>(
+        "SELECT workspace_id AS workspaceId, project_id AS projectId FROM documents WHERE id = ?",
+      ).get(ref);
+      if (document) return { workspaceId: document.workspaceId, ...(document.projectId ? { projectId: document.projectId } : {}) };
+    }
+    if (ref.startsWith("drev_")) {
+      const document = ctx.db.query<{ workspaceId: string; projectId: string | null }, [string]>(
+        `SELECT document.workspace_id AS workspaceId, document.project_id AS projectId
+         FROM document_revisions revision JOIN documents document ON document.id = revision.document_id
+         WHERE revision.id = ?`,
+      ).get(ref);
+      if (document) return { workspaceId: document.workspaceId, ...(document.projectId ? { projectId: document.projectId } : {}) };
+    }
+    if (ref.startsWith("eval_")) {
+      const evaluation = ctx.db.query<{ workspaceId: string; projectId: string | null }, [string]>(
+        "SELECT workspace_id AS workspaceId, project_id AS projectId FROM evaluations WHERE id = ?",
+      ).get(ref);
+      if (evaluation) return { workspaceId: evaluation.workspaceId, ...(evaluation.projectId ? { projectId: evaluation.projectId } : {}) };
+    }
+  }
   const currentProject = row.sourcePath.match(/^workspaces\/([^/]+)\/projects\/([^/]+)(?:\/|$)/u);
   const legacyProject = row.sourcePath.match(/^projects\/([^/]+)(?:\/|$)/u);
   const projectScope = currentProject

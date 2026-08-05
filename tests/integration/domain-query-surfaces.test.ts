@@ -804,6 +804,7 @@ const EXPECTED_ACTIVITY_WRITERS = [
   "cli/lib/config.ts",
   "cli/lib/jobs/db.ts",
   "cli/lib/memory/store.ts",
+  "cli/lib/migration/cutover-journal.ts",
   "cli/lib/migration/import.ts",
   "cli/lib/registry.ts",
   "cli/lib/store/artifacts.ts",

@@ -38,6 +38,12 @@ run_integration_batch() {
 
 while IFS= read -r integration_test; do
   [ -f "$integration_test" ]
+  if [ "$integration_test" = "tests/integration/cli-migrate-sqlite.test.ts" ]; then
+    run_integration_batch
+    bun test --timeout 45000 "$integration_test"
+    integration_executed=$((integration_executed + 1))
+    continue
+  fi
   printf '%s\0' "$integration_test" >> "$integration_batch"
   integration_batch_count=$((integration_batch_count + 1))
   if [ "$integration_batch_count" -eq 10 ]; then

@@ -11,6 +11,17 @@ out
 workspace/
 # #108: the new data root (.ralphy/ replaces workspace/ after the #106 migration)
 .ralphy/
+/.ralphy-staging/
+/.ralphy-migration-private/
+/.ralphy-migration.lock
+/.ralphy-migration.lock.quarantine
+/.ralphy-migration.lock.delete-*
+/.ralphy-migration.lock.quarantine.delete-*
+/.ralphy-migration.lock.tmp-*
+/.ralphy-recovery-mig_*/
+/.ralphy-rollback-new-mig_*/
+/.ralphy-migration-mig_*.journal.json
+/.ralphy-migration-mig_*.journal.json.tmp-*
 
 # Local research / QA scratch outputs
 .firecrawl/

@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import {
   acquireMaintenanceLock,
   inventoryLegacySource,
@@ -304,7 +303,7 @@ describe("Desktop state and credential migration", () => {
     expect(fs.statSync(materialized).size).toBe(667_395);
   });
 
-  test("the Desktop provider handoff is exact-shape, write-only, and completes only its entry", async () => {
+  test("the actual bridge rejects Desktop secret import before authorization or secret mutation", async () => {
     await setupFixture();
     await importDesktopStateAndSecrets(ctx!, { keyProvider });
     const claudeEntry = ledger("claude-api-key.bin", "desktop");
@@ -318,6 +317,37 @@ describe("Desktop state and credential migration", () => {
     const openrouterRef = `provider/openrouter/workspace/${workspaceId}/workspace/${workspaceId}`;
     expect(JSON.parse(openrouterEntry.refs)).toEqual([openrouterRef]);
     expect(secretPlan(openrouterEntry.id)).toEqual({ kind: "text", refs: [openrouterRef] });
+    const secretBeforeAuthorization = createSecretStore({ dataRoot: ctx!.storeRoot, keyProvider });
+    for (const kind of ["text", "file"] as const) {
+      let secretReads = 0;
+      const params: Record<string, unknown> = {
+        sourcePath: fixture!.paths.currentRoot,
+        encryptedSourcePath: path.join(fixture!.paths.desktopRoot, "claude-api-key.bin"),
+        authorizationNonce: "missing-authorization",
+        runId: ctx!.runId,
+        sourceEntryId: claudeEntry.id,
+        ref: claudeRef,
+        kind,
+      };
+      Object.defineProperty(params, kind === "text" ? "value" : "base64", {
+        enumerable: true,
+        get() {
+          secretReads += 1;
+          throw new Error("secret material getter must not be read");
+        },
+      });
+      await expect(method.handle(params, bridgeContext())).rejects.toThrow(/authoriz/i);
+      expect(secretReads).toBe(0);
+    }
+    await expect(method.handle({
+      runId: ctx!.runId,
+      sourceEntryId: claudeEntry.id,
+      ref: claudeRef,
+      kind: "text",
+      value: "unauthorized-secret",
+    }, bridgeContext())).rejects.toThrow(/authoriz/i);
+    expect(await secretBeforeAuthorization.has(claudeRef)).toBe(false);
+    expect(ledger("claude-api-key.bin", "desktop")).toMatchObject({ state: "inventoried" });
     await expect(method.handle({
       runId: ctx!.runId,
       sourceEntryId: claudeEntry.id,
@@ -343,95 +373,13 @@ describe("Desktop state and credential migration", () => {
       value: "redirected-secret",
     }, bridgeContext())).rejects.toThrow();
     expect(await secretStore.read(redirectedRef)).toBe(redirectedBefore);
-    const secret = "fixture-claude-decrypted-token";
-    const request = JSON.stringify({
-      v: 1,
-      id: "secret-import",
-      method: "migration.secret.import",
-      params: {
-        runId: ctx!.runId,
-        sourceEntryId: claudeEntry.id,
-        ref: claudeRef,
-        kind: "text",
-        value: secret,
-      },
-    });
-
-    const bridgeServerUrl = pathToFileURL(path.join(import.meta.dir, "../../cli/lib/bridge/server.ts")).href;
-    const bridgeMethodsUrl = pathToFileURL(path.join(import.meta.dir, "../../cli/lib/bridge/methods.ts")).href;
-    const bridgeSource = `
-      import { runBridge } from ${JSON.stringify(bridgeServerUrl)};
-      import { createBridgeMethods } from ${JSON.stringify(bridgeMethodsUrl)};
-      const keyProvider = {
-        lookupKey: async () => Buffer.alloc(32, 19),
-        createKey: async () => Buffer.alloc(32, 19),
-      };
-      await runBridge({
-        dataRoot: ${JSON.stringify(ctx!.storeRoot)},
-        methods: createBridgeMethods({ dataRoot: ${JSON.stringify(ctx!.storeRoot)}, keyProvider }),
-      });
-    `;
-    const helperSource = `
-      import fs from "node:fs";
-      fs.watch = () => { throw new Error("watcher forbidden"); };
-      globalThis.setInterval = () => { throw new Error("timer forbidden"); };
-      const request = await Bun.stdin.text();
-      let children = 0;
-      const bridge = Bun.spawn({
-        cmd: ["bun", "-e", ${JSON.stringify(bridgeSource)}],
-        stdin: "pipe",
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-      children += 1;
-      bridge.stdin.write('{"v":1,"id":"hello","method":"system.hello"}\\n');
-      bridge.stdin.write(request.endsWith("\\n") ? request : request + "\\n");
-      bridge.stdin.end();
-      const [output, errorOutput, exitCode] = await Promise.all([
-        new Response(bridge.stdout).text(),
-        new Response(bridge.stderr).text(),
-        bridge.exited,
-      ]);
-      if (children !== 1 || exitCode !== 0 || errorOutput !== "") throw new Error("bridge helper lifecycle failed");
-      const expected = JSON.parse(request).params;
-      const response = JSON.parse(output.trim().split("\\n").at(-1));
-      const result = response.result;
-      if (!response.ok || result.ref !== expected.ref || result.kind !== expected.kind
-        || result.completed !== true || Object.keys(result).sort().join(",") !== "completed,kind,ref") {
-        throw new Error("bridge helper response contract failed");
-      }
-    `;
-    const helper = Bun.spawn({
-      cmd: ["bun", "-e", helperSource],
-      stdin: new Blob([request]),
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const [helperOutput, helperError, helperExit] = await Promise.all([
-      new Response(helper.stdout).text(),
-      new Response(helper.stderr).text(),
-      helper.exited,
-    ]);
-    expect(helperError).toBe("");
-    expect(helperExit).toBe(0);
-    expect(helperOutput).toBe("");
-    expect(`${helperOutput}${helperError}`).not.toContain(secret);
-    expect(ledger("claude-api-key.bin", "desktop")).toMatchObject({
-      disposition: "secret-imported",
-      state: "excluded",
-      refs: JSON.stringify([claudeRef]),
-    });
-    expect(resolvedIssueCount("MIGRATION_DESKTOP_SECRET_HANDOFF_REQUIRED")).toBe(1);
-    expect(await createSecretStore({ dataRoot: ctx!.storeRoot, keyProvider }).read(claudeRef)).toBe(secret);
-
     await expect(method.handle({
       runId: ctx!.runId,
       sourceEntryId: claudeEntry.id,
       ref: claudeRef,
       kind: "text",
       value: "different-replay-secret",
-    }, bridgeContext())).resolves.toEqual({ ref: claudeRef, kind: "text", completed: true });
-    expect(await createSecretStore({ dataRoot: ctx!.storeRoot, keyProvider }).read(claudeRef)).toBe(secret);
+    }, bridgeContext())).rejects.toThrow(/authoriz/i);
 
     const openrouterSecret = "fixture-openrouter-decrypted-token";
     await expect(method.handle({
@@ -440,32 +388,15 @@ describe("Desktop state and credential migration", () => {
       ref: openrouterRef,
       kind: "text",
       value: openrouterSecret,
-    }, bridgeContext())).resolves.toEqual({ ref: openrouterRef, kind: "text", completed: true });
-    expect(await createSecretStore({ dataRoot: ctx!.storeRoot, keyProvider }).read(openrouterRef)).toBe(openrouterSecret);
+    }, bridgeContext())).rejects.toThrow(/authoriz/i);
+    expect(await createSecretStore({ dataRoot: ctx!.storeRoot, keyProvider }).read(openrouterRef)).toBeNull();
     expect(ledger("openrouter-api-key.bin", "desktop")).toMatchObject({
-      disposition: "secret-imported",
-      state: "excluded",
+      disposition: "secret-recovery-only",
+      state: "inventoried",
       refs: JSON.stringify([openrouterRef]),
     });
-    expect(resolvedIssueCount("MIGRATION_DESKTOP_SECRET_HANDOFF_REQUIRED")).toBe(2);
-    assertNoPlaintext(ctx!.storeRoot, [secret, openrouterSecret]);
-
-    const base = {
-      runId: ctx!.runId,
-      sourceEntryId: claudeEntry.id,
-      ref: claudeRef,
-    };
-    for (const params of [
-      { ...base, kind: "unknown", value: secret },
-      { ...base, kind: "text", value: secret, base64: "YQ==" },
-      { ...base, kind: "file", base64: "%%%" },
-      { ...base, kind: "file", base64: "YQ==" },
-      { ...base, kind: "file", base64: "YQ==", value: secret },
-      { ...base, kind: "text", value: secret, ref: "provider/../escape" },
-      { ...base, kind: "text", value: secret, sourceEntryId: "mentry_missing" },
-    ]) {
-      await expect(method.handle(params, bridgeContext())).rejects.toThrow();
-    }
+    expect(resolvedIssueCount("MIGRATION_DESKTOP_SECRET_HANDOFF_REQUIRED")).toBe(0);
+    assertNoPlaintext(ctx!.storeRoot, ["unauthorized-secret", "different-replay-secret", openrouterSecret]);
   });
 });
 

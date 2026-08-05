@@ -383,7 +383,10 @@ export function importScopesAndDocuments(ctx: MigrationContext): MigrationImport
        WHERE migration_run_id = ? AND severity = 'block' AND resolved_at IS NULL`,
     ).get(ctx.runId)?.count ?? 0;
     if (blockers === 0) {
-      ctx.db.prepare("UPDATE migration_runs SET phase = 'import', updated_at = ? WHERE id = ?")
+      ctx.db.prepare(
+        `UPDATE migration_runs SET phase = 'import', updated_at = ?
+         WHERE id = ? AND phase IN ('inventory', 'import')`,
+      )
         .run(Date.now(), ctx.runId);
     }
   }).immediate();
@@ -414,9 +417,9 @@ export function importExecutionAndOperations(
     const source = sourceById.get(entry.sourceLabel);
     if (!source) throw new Error("Migration source identity is missing");
     const absolute = checkedSourceFile(source, entry);
-    const group = triplets.get(source.id) ?? [];
+    const group = triplets.get(entry.sourceId) ?? [];
     group.push({ entry, source, absolute });
-    triplets.set(source.id, group);
+    triplets.set(entry.sourceId, group);
   }
   const prepared = [...triplets.entries()]
     .sort(([left], [right]) => left < right ? -1 : left === right ? 0 : 1)
@@ -3765,6 +3768,7 @@ function insertOrValidateLegacyRun(ctx: MigrationContext, sourceId: string, row:
 type JobSourceFile = { entry: Entry; source: MigrationSourceRoot; absolute: string };
 type PreparedJobSource = {
   sourceId: string;
+  sourceLabel: string;
   files: Array<{ entry: Entry; sha256: string }>;
   jobs: LegacyJob[];
   logs: LegacyLog[];
@@ -3845,7 +3849,7 @@ type PreparedJobAccounting = {
 function prepareJobAccounting(ctx: MigrationContext, source: PreparedJobSource): PreparedJobAccounting {
   const projects = new Map(source.jobs.map((row) => [
     row.id,
-    resolveLegacyJobProject(ctx.db, source.sourceId, row.projectId),
+    resolveLegacyJobProject(ctx.db, source.sourceLabel, row.projectId),
   ]));
   return {
     sourceId: source.sourceId,
@@ -3960,6 +3964,7 @@ function assertJobAccountingTarget(db: Database, expected: PreparedJobAccounting
 }
 
 function recordJobAccountingIndex(ctx: MigrationContext, sources: readonly PreparedJobSource[]): void {
+  if (sources.length === 0) return;
   insertIssue(ctx, {
     entryId: null,
     issueKey: "job-accounting-index",
@@ -4013,6 +4018,7 @@ function prepareJobSource(
       for (const row of artifacts) addRedactedJobField(redactedJobs, row.jobId, "artifact", row.redacted);
       return {
         sourceId,
+        sourceLabel: files[0]!.entry.sourceLabel,
         files: files.map((file) => ({ entry: file.entry, sha256: sha256(fs.readFileSync(file.absolute)) })),
         jobs,
         logs,
@@ -4971,20 +4977,19 @@ function insertDesktopDocumentIssue(ctx: MigrationContext, entry: Entry): void {
 
 function completeDesktopDomainEntry(ctx: MigrationContext, entry: Entry, refs: ReadonlySet<string>): void {
   const serialized = JSON.stringify([...refs].sort());
-  const current = ctx.db.query<{ state: string; refs: string | null }, [string]>(
-    "SELECT state, target_refs_json AS refs FROM migration_entries WHERE id = ?",
+  const targetPath = evidencePath(entry);
+  const current = ctx.db.query<{ state: string; refs: string | null; targetPath: string | null }, [string]>(
+    "SELECT state, target_refs_json AS refs, target_path AS targetPath FROM migration_entries WHERE id = ?",
   ).get(entry.id);
   if (!current) throw new Error("Desktop migration entry disappeared");
-  if (current.state === "imported") {
-    if ((current.refs ?? "[]") !== serialized) throw new Error("Desktop migration entry replay conflict");
+  if (current.state === "inventoried" && current.targetPath === targetPath && (current.refs ?? "[]") === serialized) {
     return;
   }
-  const now = Date.now();
   const result = ctx.db.prepare(
     `UPDATE migration_entries
-     SET disposition = 'domain', target_refs_json = ?, state = 'imported', terminal_at = ?, updated_at = ?
+     SET disposition = 'domain', target_path = ?, target_refs_json = ?, updated_at = ?
      WHERE id = ? AND state = 'inventoried'`,
-  ).run(serialized, now, now, entry.id);
+  ).run(targetPath, serialized, Date.now(), entry.id);
   if (result.changes !== 1) throw new Error("Desktop migration ledger update affected no entry");
 }
 
@@ -5656,14 +5661,36 @@ function updatePreparedEntry(
 ): void {
   const current = ctx.db.query<{
     disposition: string;
+    state: string;
     targetPath: string | null;
     sha256: string | null;
     targetRefs: string | null;
+    rawEvidenceObjectId: string | null;
+    bytes: number;
   }, [string]>(
-    `SELECT disposition, target_path AS targetPath, sha256,
-            target_refs_json AS targetRefs FROM migration_entries WHERE id = ?`,
+    `SELECT disposition, state, target_path AS targetPath, sha256,
+            target_refs_json AS targetRefs, raw_evidence_object_id AS rawEvidenceObjectId,
+            bytes FROM migration_entries WHERE id = ?`,
   ).get(entryId);
   if (!current) throw new Error("Migration entry disappeared");
+  if (current.state !== "inventoried") {
+    const refs = current.targetRefs ? JSON.parse(current.targetRefs) as string[] : [];
+    const object = current.rawEvidenceObjectId
+      ? ctx.db.query<{ bucket: string; key: string; sha256: string; bytes: number }, [string]>(
+        "SELECT bucket, key, sha256, bytes FROM objects WHERE id = ?",
+      ).get(current.rawEvidenceObjectId)
+      : null;
+    if (current.state === "imported" && current.rawEvidenceObjectId && object
+      && current.disposition === (disposition ?? current.disposition)
+      && (digest === null || current.sha256 === digest)
+      && targetRefs.every((ref) => refs.includes(ref))
+      && refs.includes(current.rawEvidenceObjectId)
+      && current.targetPath === `${object.bucket}/${object.key}`
+      && current.sha256 === object.sha256 && current.bytes === object.bytes) {
+      return;
+    }
+    throw new Error("Migration ledger update conflicts with terminal evidence binding during import replay");
+  }
   const nextDisposition = disposition ?? current.disposition;
   const nextTargetPath = targetPath ?? current.targetPath;
   const nextDigest = digest ?? current.sha256;
