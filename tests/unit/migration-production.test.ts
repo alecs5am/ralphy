@@ -25,6 +25,8 @@ let lock: MigrationLock | null = null;
 let ctx: MigrationContext | null = null;
 let fixtureDir: string | null = null;
 
+type FixtureMutation = (value: { project: string; fixture: LegacyFixture }) => void;
+
 afterEach(() => {
   ctx?.db.close();
   ctx = null;
@@ -186,7 +188,7 @@ describe("legacy production and delivery migration", () => {
     expect(malformed).toBe(2);
     expect(ctx!.db.query<{ count: number }, []>(
       "SELECT COUNT(*) AS count FROM migration_issues WHERE code = 'MIGRATION_DELIVERY_AMBIGUOUS'",
-    ).get()?.count).toBeGreaterThan(0);
+    ).get()?.count).toBe(0);
 
     const productionEntry = ledgerEntry("workspaces/studio/projects/registered-project/production.json");
     expect(productionEntry.refs.length).toBeGreaterThan(4);
@@ -218,9 +220,288 @@ describe("legacy production and delivery migration", () => {
     expect(migratedMetadata).not.toContain("data:");
     expect(migratedMetadata).not.toContain("fixture-postiz-plaintext-key");
   });
+
+  test("keeps publication attempts distinct and binds exact immutable delivery provenance", async () => {
+    await setupFixture(({ project }) => {
+      const campaignV2 = path.join(project, "units", "campaign.v2", "unit.json");
+      const manifest = JSON.parse(fs.readFileSync(campaignV2, "utf8")) as Record<string, unknown>;
+      manifest.presentations = [{
+        platform: "instagram",
+        options: { campaign: "B" },
+        effectiveCaptionVersion: 2,
+      }];
+      fs.writeFileSync(campaignV2, `${JSON.stringify(manifest, null, 2)}\n`);
+      fs.writeFileSync(path.join(project, "publish-ledger.jsonl"), [
+        { id: "shared-attempt", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", accountId: "postiz-main", status: "failed", error: "provider rejected", failureStage: "provider", createdAt: 100 },
+        { id: "shared-attempt", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", accountId: "postiz-main", status: "published", providerPublicationId: "shared-ok", url: "https://social.example/shared", createdAt: 200, submittedAt: 210, publishedAt: 220, options: { campaign: "B" }, captionVersion: 2 },
+        { id: "revision-first", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", accountId: "postiz-main", status: "published", providerPublicationId: "revision-ok", url: "https://social.example/revision", revisedFrom: "original-later", createdAt: 400, submittedAt: 410, publishedAt: 420 },
+        { id: "skip-first", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", status: "idempotent-skip", originalPublicationId: "original-later", createdAt: 500 },
+        { id: "original-later", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", accountId: "postiz-main", status: "published", providerPublicationId: "original-ok", url: "https://social.example/original", createdAt: 300, submittedAt: 310, publishedAt: 320 },
+        { id: "ambiguous-revision", unitId: "campaign", platform: "instagram", provider: "postiz", accountId: "postiz-main", status: "published", providerPublicationId: "ambiguous", url: "https://social.example/ambiguous", createdAt: 600, submittedAt: 610, publishedAt: 620 },
+        { id: "options-mismatch", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", accountId: "options-invalid-only", status: "published", providerPublicationId: "bad-options", url: "https://social.example/options", createdAt: 700, submittedAt: 710, publishedAt: 720, options: { campaign: "wrong" } },
+        { id: "timeline-invalid", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", accountId: "postiz-main", status: "published", providerPublicationId: "bad-time", url: "https://social.example/time", createdAt: 800, scheduledAt: 840, submittedAt: 830, publishedAt: 850 },
+        { id: "failed-success-facts", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", accountId: "postiz-main", status: "failed", error: "failed", failureStage: "provider", publishedAt: 910, createdAt: 900 },
+        { id: "provider-id-invalid", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", accountId: "postiz-main", status: "submitted", providerPublicationId: `bad-${"x".repeat(600)}`, createdAt: 1000, submittedAt: 1010 },
+        { id: "submitted-unproven", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", accountId: "postiz-main", status: "submitted", createdAt: 1100 },
+        { id: "draft-terminal-run", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", accountId: "postiz-main", status: "draft", createdAt: 1200 },
+        { id: "data:text/plain,publication-secret", unitId: "article", unitRevision: 1, platform: "web", provider: "manual", status: "published", url: "https://site.example/safe-id", createdAt: 1300, publishedAt: 1310 },
+        { id: "unsafe-account", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", accountId: "api_key=plaintext-secret", status: "published", providerPublicationId: "unsafe-account-ok", url: "https://social.example/account", createdAt: 1400, submittedAt: 1410, publishedAt: 1420 },
+      ].map((row) => JSON.stringify(row)).join("\n") + "\n");
+    });
+
+    const first = importProductionAndDelivery(ctx!);
+    expect(importProductionAndDelivery(ctx!)).toEqual(first);
+
+    const shared = ctx!.db.query<{ state: string }, []>(
+      `SELECT publication.state FROM publications publication
+       JOIN runs run ON run.id = publication.submission_run_id
+       WHERE json_extract(run.metadata_json, '$.legacyPublicationId') = 'shared-attempt'
+       ORDER BY publication.created_at`,
+    ).all();
+    expect(shared).toEqual([{ state: "failed" }, { state: "published" }]);
+    const revision = ctx!.db.query<{ revisedFrom: string | null }, []>(
+      `SELECT publication.revised_from_publication_id AS revisedFrom
+       FROM publications publication JOIN runs run ON run.id = publication.submission_run_id
+       WHERE json_extract(run.metadata_json, '$.legacyPublicationId') = 'revision-first'`,
+    ).get();
+    expect(revision?.revisedFrom).toMatch(/^pub_/u);
+    expect(ctx!.db.query<{ count: number }, []>(
+      "SELECT COUNT(*) AS count FROM activity_events WHERE action = 'publication.idempotent_skip'",
+    ).get()?.count).toBe(1);
+    const exact = ctx!.db.query<{ revisionNo: number; captionNo: number | null; options: string }, []>(
+      `SELECT revision.revision_no AS revisionNo, caption.revision_no AS captionNo,
+              publication.effective_options_json AS options
+       FROM publications publication
+       JOIN runs run ON run.id = publication.submission_run_id
+       JOIN unit_presentations presentation ON presentation.id = publication.presentation_id
+       JOIN unit_revisions revision ON revision.id = presentation.unit_revision_id
+       LEFT JOIN presentation_caption_revisions caption
+         ON caption.id = publication.effective_caption_revision_id
+       WHERE json_extract(run.metadata_json, '$.legacyPublicationId') = 'shared-attempt'
+         AND publication.state = 'published'`,
+    ).get();
+    expect(exact).toEqual({ revisionNo: 2, captionNo: 2, options: '{"campaign":"B"}' });
+    expect(issueCount("MIGRATION_PUBLICATION_BINDING_AMBIGUOUS")).toBeGreaterThan(0);
+    expect(issueCount("MIGRATION_PUBLICATION_OPTIONS_INVALID")).toBe(1);
+    expect(issueCount("MIGRATION_PUBLICATION_TIMELINE_INVALID")).toBeGreaterThan(0);
+    expect(issueCount("MIGRATION_PUBLICATION_STATUS_INVALID")).toBeGreaterThanOrEqual(2);
+    expect(issueCount("MIGRATION_PUBLICATION_PROVIDER_ID_INVALID")).toBe(1);
+    expect(ctx!.db.query<{ count: number }, []>(
+      "SELECT COUNT(*) AS count FROM social_accounts WHERE external_id = 'options-invalid-only'",
+    ).get()?.count).toBe(0);
+    const stored = JSON.stringify({
+      runs: ctx!.db.query("SELECT metadata_json FROM runs").all(),
+      accounts: ctx!.db.query("SELECT external_id FROM social_accounts").all(),
+    });
+    expect(stored).not.toContain("data:text/plain,publication-secret");
+    expect(stored).not.toContain("api_key=plaintext-secret");
+    expect(stored).toMatch(/legacy-[0-9a-f]{16}/u);
+  });
+
+  test("keeps malformed controls pending and preserves lineage, hash aliases, and work evidence", async () => {
+    await setupFixture(({ project, fixture: built }) => {
+      fs.writeFileSync(path.join(project, "production.json"), '{"wrong":[]}\n');
+      fs.writeFileSync(path.join(project, "delivery.json"), '[]\n');
+      for (const relative of [
+        "composition/solo.v2.html",
+        "composition/solo.v3.html",
+        "artifacts/images/family.v2.png",
+        "artifacts/images/family.v3.png",
+        "artifacts/images/chosen.v2.png",
+        "artifacts/images/chosen.v3.png",
+      ]) {
+        const file = path.join(project, relative);
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, `fixture:${relative}`);
+      }
+      const aliasBytes = "scope-aware-alias";
+      const aliasSource = path.join(project, "artifacts", "images", "alias-source.png");
+      const aliasCopy = path.join(project, "units", "hash-alias", "media-copy.png");
+      fs.mkdirSync(path.dirname(aliasSource), { recursive: true });
+      fs.mkdirSync(path.dirname(aliasCopy), { recursive: true });
+      fs.writeFileSync(aliasSource, aliasBytes);
+      fs.writeFileSync(aliasCopy, aliasBytes);
+      const crossScope = path.join(built.paths.physicalOnlyProject, "artifacts", "images", "alias-source.png");
+      fs.mkdirSync(path.dirname(crossScope), { recursive: true });
+      fs.writeFileSync(crossScope, aliasBytes);
+      fs.writeFileSync(path.join(project, "units", "hash-alias", "unit.json"), `${JSON.stringify({
+        id: "hash-alias",
+        revision: 1,
+        format: "post",
+        media: ["units/hash-alias/media-copy.png"],
+      }, null, 2)}\n`);
+      const ambiguousBytes = "ambiguous-scope-alias";
+      for (const relative of [
+        "artifacts/images/ambiguous-a.png",
+        "artifacts/images/ambiguous-b.png",
+        "units/ambiguous-alias/media-copy.png",
+      ]) {
+        const file = path.join(project, relative);
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, ambiguousBytes);
+      }
+      fs.writeFileSync(path.join(project, "units", "ambiguous-alias", "unit.json"), `${JSON.stringify({
+        id: "ambiguous-alias",
+        revision: 1,
+        format: "post",
+        media: ["units/ambiguous-alias/media-copy.png"],
+      }, null, 2)}\n`);
+      const manifestPath = path.join(project, "asset-manifest.json");
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as { assets: unknown[] };
+      manifest.assets.push(
+        { path: "artifacts/images/family.v2.png" },
+        { path: "artifacts/images/family.v3.png" },
+        { path: "artifacts/images/chosen.v2.png" },
+        { path: "artifacts/images/chosen.v3.png", selected: true },
+        { path: "artifacts/images/alias-source.png" },
+        { path: "artifacts/images/ambiguous-a.png" },
+        { path: "artifacts/images/ambiguous-b.png" },
+      );
+      fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    });
+
+    expect(workEntry("workspaces/studio/projects/registered-project/render/work-001/frames.txt"))
+      .toMatchObject({ disposition: "run-object", state: "verified" });
+    expect(workEntry("workspaces/studio/projects/registered-project/render/work-crashed/stderr.log"))
+      .toMatchObject({ disposition: "run-object", state: "verified" });
+
+    importProductionAndDelivery(ctx!);
+
+    expect(entryState("workspaces/studio/projects/registered-project/production.json")).toBe("inventoried");
+    expect(entryState("workspaces/studio/projects/registered-project/delivery.json")).toBe("inventoried");
+    expect(issueCount("MIGRATION_PRODUCTION_MANIFEST_INVALID")).toBe(1);
+    expect(issueCount("MIGRATION_DELIVERY_MANIFEST_INVALID")).toBe(1);
+
+    const soloV2 = ledgerEntry("workspaces/studio/projects/registered-project/composition/solo.v2.html").refs;
+    const soloV3 = ledgerEntry("workspaces/studio/projects/registered-project/composition/solo.v3.html").refs;
+    expect(soloV2.find((ref) => ref.startsWith("comp_")))
+      .toBe(soloV3.find((ref) => ref.startsWith("comp_")));
+    const familyV2 = ledgerEntry("workspaces/studio/projects/registered-project/artifacts/images/family.v2.png").refs;
+    const familyV3 = ledgerEntry("workspaces/studio/projects/registered-project/artifacts/images/family.v3.png").refs;
+    const familyId = familyV2.find((ref) => ref.startsWith("art_"));
+    expect(familyId).toBe(familyV3.find((ref) => ref.startsWith("art_")));
+    expect(ctx!.db.query<{ selected: string | null }, [string]>(
+      "SELECT selected_revision_id AS selected FROM artifacts WHERE id = ?",
+    ).get(familyId!)?.selected).toBeNull();
+    const chosenV2 = ledgerEntry("workspaces/studio/projects/registered-project/artifacts/images/chosen.v2.png").refs;
+    const chosenV3 = ledgerEntry("workspaces/studio/projects/registered-project/artifacts/images/chosen.v3.png").refs;
+    const chosenId = chosenV2.find((ref) => ref.startsWith("art_"));
+    expect(chosenId).toBe(chosenV3.find((ref) => ref.startsWith("art_")));
+    expect(ctx!.db.query<{ selected: string | null }, [string]>(
+      "SELECT selected_revision_id AS selected FROM artifacts WHERE id = ?",
+    ).get(chosenId!)?.selected).toBe(chosenV3.find((ref) => ref.startsWith("arev_"))!);
+
+    const aliasRevision = ledgerEntry("workspaces/studio/projects/registered-project/artifacts/images/alias-source.png")
+      .refs.find((ref) => ref.startsWith("arev_"));
+    const unitRevision = ctx!.db.query<{ artifactRevisionId: string }, []>(
+      `SELECT item.artifact_revision_id AS artifactRevisionId
+       FROM unit_items item
+       JOIN unit_revisions revision ON revision.id = item.unit_revision_id
+       JOIN units unit ON unit.id = revision.unit_id
+       WHERE unit.slug = 'hash-alias' AND item.artifact_revision_id IS NOT NULL`,
+    ).get()?.artifactRevisionId;
+    expect(unitRevision).toBe(aliasRevision);
+    expect(ctx!.db.query<{ count: number }, []>(
+      `SELECT COUNT(*) AS count FROM unit_items item
+       JOIN unit_revisions revision ON revision.id = item.unit_revision_id
+       JOIN units unit ON unit.id = revision.unit_id
+       WHERE unit.slug = 'ambiguous-alias' AND item.artifact_revision_id IS NOT NULL`,
+    ).get()?.count).toBe(0);
+    expect(issueCount("MIGRATION_UNIT_ITEM_AMBIGUOUS")).toBeGreaterThan(0);
+    const workRefs = workEntry("workspaces/studio/projects/registered-project/render/work-001/frames.txt").refs;
+    expect(workRefs.some((ref) => ref.startsWith("robj_"))).toBe(true);
+    expect(workRefs.some((ref) => ref.startsWith("art_"))).toBe(false);
+  });
+
+  test("uses migration source identity for same-kind Build and Metric IDs", async () => {
+    await setupFixture(({ fixture: built }) => {
+      const original = built.paths.legacyRoot;
+      addSameKindProduction(original, "https://site.example/legacy-one");
+      const sibling = path.join(built.root, "same-kind", ".ralph");
+      addSameKindProduction(sibling, "https://site.example/legacy-two", true);
+      const stat = fs.lstatSync(sibling, { bigint: true });
+      built.sourceRoots.push({
+        id: "source-legacy-two",
+        kind: "legacy-workspace",
+        path: sibling,
+        device: stat.dev,
+        inode: stat.ino,
+      });
+    });
+
+    expect(() => importProductionAndDelivery(ctx!)).not.toThrow();
+    const refs = ctx!.db.query<{ sourceLabel: string; refs: string }, []>(
+      `SELECT source.source_label AS sourceLabel, entry.target_refs_json AS refs
+       FROM migration_entries entry
+       JOIN migration_sources source ON source.id = entry.migration_source_id
+       WHERE entry.source_kind = 'legacy-workspace'
+         AND entry.source_path = 'projects/legacy-registered/production.json'
+       ORDER BY source.source_label`,
+    ).all().map((row) => ({
+      sourceLabel: row.sourceLabel,
+      buildId: (JSON.parse(row.refs) as string[]).find((ref) => ref.startsWith("build_")),
+    }));
+    expect(refs).toHaveLength(2);
+    expect(new Set(refs.map((row) => row.buildId)).size).toBe(2);
+    expect(ctx!.db.query<{ count: number }, []>(
+      `SELECT COUNT(*) AS count FROM metric_snapshots metric
+       JOIN publications publication ON publication.id = metric.publication_id
+       JOIN runs run ON run.id = publication.submission_run_id
+       WHERE json_extract(run.metadata_json, '$.legacyPublicationId') = 'same-kind-pub'`,
+    ).get()?.count).toBe(2);
+  });
 });
 
-async function setupFixture(): Promise<void> {
+function addSameKindProduction(rootPath: string, url: string, createRoot = false): void {
+  const project = path.join(rootPath, "projects", "legacy-registered");
+  if (createRoot) {
+    fs.mkdirSync(rootPath, { recursive: true });
+    fs.writeFileSync(path.join(rootPath, "registry.json"), `${JSON.stringify({
+      projects: { "legacy-registered": { path: "projects/legacy-registered" } },
+    }, null, 2)}\n`);
+    fs.mkdirSync(project, { recursive: true });
+    fs.writeFileSync(path.join(project, "project.json"), '{"id":"legacy-registered","workspace":"default"}\n');
+    fs.mkdirSync(path.join(project, "composition"), { recursive: true });
+    fs.mkdirSync(path.join(project, "render"), { recursive: true });
+    fs.writeFileSync(path.join(project, "composition", "production-source.html"), "<html>sibling</html>\n");
+    fs.writeFileSync(path.join(project, "render", "production-master.mp4"), "sibling-output");
+    fs.writeFileSync(path.join(project, "production.json"), `${JSON.stringify({ productions: [{
+      sourceRevision: "composition/production-source.html",
+      output: "render/production-master.mp4",
+      profile: "master",
+      completedAt: 100,
+    }] }, null, 2)}\n`);
+  }
+  const unit = path.join(project, "units", "article");
+  fs.mkdirSync(unit, { recursive: true });
+  fs.writeFileSync(path.join(unit, "unit.json"), `${JSON.stringify({
+    id: "article",
+    revision: 1,
+    format: "article",
+    media: [],
+    body: "Same-kind source",
+  }, null, 2)}\n`);
+  fs.writeFileSync(path.join(project, "publish-ledger.jsonl"), `${JSON.stringify({
+    id: "same-kind-pub",
+    unitId: "article",
+    unitRevision: 1,
+    platform: "web",
+    provider: "manual",
+    status: "published",
+    url,
+    createdAt: 200,
+    publishedAt: 210,
+  })}\n`);
+  fs.writeFileSync(path.join(project, "analytics.jsonl"), `${JSON.stringify({
+    publicationId: "same-kind-pub",
+    source: "manual",
+    asOf: 300,
+    createdAt: 301,
+    views: 1,
+  })}\n`);
+}
+
+async function setupFixture(mutate?: FixtureMutation): Promise<void> {
   root = makeTmpRoot("ralphy-migration-production");
   fixtureDir = fs.realpathSync(fs.mkdtempSync("/tmp/ralphy-mp-"));
   fixture = buildLegacyLibrary(fixtureDir);
@@ -238,22 +519,22 @@ async function setupFixture(): Promise<void> {
   };
   fs.writeFileSync(articleManifest, `${JSON.stringify(article, null, 2)}\n`);
   fs.writeFileSync(path.join(project, "publish-ledger.jsonl"), [
-    JSON.stringify({ id: "accountless-failure", unitId: "campaign", platform: "instagram", provider: "postiz", status: "failed", error: "account missing", failureStage: "account-resolution", createdAt: 100 }),
-    JSON.stringify({ id: "slot-failed", unitId: "campaign", platform: "instagram", provider: "postiz", accountId: "postiz-main", status: "failed", error: "provider rejected", failureStage: "provider", createdAt: 150 }),
-    JSON.stringify({ id: "slot-success", unitId: "campaign", platform: "instagram", provider: "postiz", accountId: "postiz-main", status: "published", providerPublicationId: "postiz-101", url: "https://social.example/101", createdAt: 200, submittedAt: 210, publishedAt: 220 }),
-    JSON.stringify({ id: "partial-targets", unitId: "campaign", provider: "postiz", status: "partial", createdAt: 230, targets: [
+    JSON.stringify({ id: "accountless-failure", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", status: "failed", error: "account missing", failureStage: "account-resolution", createdAt: 100 }),
+    JSON.stringify({ id: "slot-failed", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", accountId: "postiz-main", status: "failed", error: "provider rejected", failureStage: "provider", createdAt: 150 }),
+    JSON.stringify({ id: "slot-success", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", accountId: "postiz-main", status: "published", providerPublicationId: "postiz-101", url: "https://social.example/101", createdAt: 200, submittedAt: 210, publishedAt: 220 }),
+    JSON.stringify({ id: "partial-targets", unitId: "campaign", unitRevision: 2, provider: "postiz", status: "partial", createdAt: 230, targets: [
       { platform: "x", accountId: "postiz-x", status: "published", providerPublicationId: "postiz-x-1", url: "https://x.example/post/1", submittedAt: 240, publishedAt: 250 },
       { platform: "telegram", accountId: "postiz-telegram", status: "failed", error: "provider rejected", failureStage: "provider" },
     ] }),
-    JSON.stringify({ id: "ledger-only", unitId: "campaign", platform: "instagram", provider: "postiz", accountId: "postiz-main", status: "submitted", providerPublicationId: "postiz-104", createdAt: 260, submittedAt: 270 }),
+    JSON.stringify({ id: "ledger-only", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", accountId: "postiz-main", status: "submitted", providerPublicationId: "postiz-104", createdAt: 260, submittedAt: 270 }),
     JSON.stringify({ id: "github-pages", unitId: "article", platform: "web", provider: "github-pages", status: "published", url: "https://site.example/article", createdAt: 300, publishedAt: 320 }),
     JSON.stringify({ id: "devto", unitId: "article", platform: "devto", provider: "dev.to", accountId: "devto-main", status: "published", providerPublicationId: "devto-1", url: "https://dev.to/example/post", createdAt: 330, submittedAt: 340, publishedAt: 350 }),
     JSON.stringify({ id: "hashnode", unitId: "article", platform: "hashnode", provider: "hashnode", accountId: "hashnode-main", status: "published", providerPublicationId: "hashnode-1", url: "https://blog.example/post", createdAt: 360, submittedAt: 370, publishedAt: 380 }),
     JSON.stringify({ id: "medium", unitId: "article", platform: "medium", provider: "medium", status: "approval-exported", createdAt: 400 }),
     JSON.stringify({ id: "manual", unitId: "article", platform: "web", provider: "manual", status: "published", url: "https://site.example/manual", createdAt: 500, publishedAt: 520 }),
-    JSON.stringify({ id: "revision", unitId: "campaign", platform: "instagram", provider: "postiz", accountId: "postiz-main", status: "published", providerPublicationId: "postiz-102", url: "https://social.example/102", revisedFrom: "slot-success", createdAt: 600, submittedAt: 610, publishedAt: 620 }),
-    JSON.stringify({ id: "tiktok-path", unitId: "campaign", platform: "tiktok", provider: "postiz", accountId: "postiz-tiktok", status: "submitted", providerPublicationId: "postiz-103", url: "https://www.tiktok.com/@creator/video/42", createdAt: 700, submittedAt: 710 }),
-    JSON.stringify({ id: "skip", unitId: "campaign", platform: "instagram", provider: "postiz", status: "idempotent-skip", originalPublicationId: "slot-success", createdAt: 800 }),
+    JSON.stringify({ id: "revision", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", accountId: "postiz-main", status: "published", providerPublicationId: "postiz-102", url: "https://social.example/102", revisedFrom: "slot-success", createdAt: 600, submittedAt: 610, publishedAt: 620 }),
+    JSON.stringify({ id: "tiktok-path", unitId: "campaign", unitRevision: 2, platform: "tiktok", provider: "postiz", accountId: "postiz-tiktok", status: "submitted", providerPublicationId: "postiz-103", url: "https://www.tiktok.com/@creator/video/42", createdAt: 700, submittedAt: 710 }),
+    JSON.stringify({ id: "skip", unitId: "campaign", unitRevision: 2, platform: "instagram", provider: "postiz", status: "idempotent-skip", originalPublicationId: "slot-success", createdAt: 800 }),
     "{malformed",
   ].join("\n") + "\n");
   fs.writeFileSync(path.join(project, "analytics.jsonl"), [
@@ -263,6 +544,7 @@ async function setupFixture(): Promise<void> {
     JSON.stringify({ publicationId: "slot-success", source: "manual", asOf: 1000, createdAt: 1003, views: 50 }),
     "not-json",
   ].join("\n") + "\n");
+  mutate?.({ project, fixture });
 
   const runId = "mig_00000000-0000-4000-8000-000000000005";
   const storeRoot = path.join(fixtureDir, "stage", ".ralphy");
@@ -281,6 +563,12 @@ async function setupFixture(): Promise<void> {
   await stageInventoryObjects(ctx, { copyMode: "copy", freeBytes: 4 * 1024 ** 3 });
 }
 
+function issueCount(code: string): number {
+  return ctx!.db.query<{ count: number }, [string, string]>(
+    "SELECT COUNT(*) AS count FROM migration_issues WHERE migration_run_id = ? AND code = ?",
+  ).get(ctx!.runId, code)?.count ?? 0;
+}
+
 function ledgerEntry(sourcePath: string): { refs: string[] } {
   const row = ctx!.db.query<{ refs: string }, [string, string]>(
     `SELECT target_refs_json AS refs FROM migration_entries
@@ -297,6 +585,15 @@ function entryState(sourcePath: string): string {
   ).get(ctx!.runId, sourcePath);
   if (!row) throw new Error(`Missing migration entry: ${sourcePath}`);
   return row.state;
+}
+
+function workEntry(sourcePath: string): { disposition: string; state: string; refs: string[] } {
+  const row = ctx!.db.query<{ disposition: string; state: string; refs: string }, [string, string]>(
+    `SELECT disposition, state, target_refs_json AS refs FROM migration_entries
+     WHERE migration_run_id = ? AND source_path = ?`,
+  ).get(ctx!.runId, sourcePath);
+  if (!row) throw new Error(`Missing migration entry: ${sourcePath}`);
+  return { disposition: row.disposition, state: row.state, refs: JSON.parse(row.refs) as string[] };
 }
 
 function domainRowExists(id: string): boolean {
