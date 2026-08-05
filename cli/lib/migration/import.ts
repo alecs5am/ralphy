@@ -508,30 +508,31 @@ function prepareProduction(ctx: MigrationContext): ProductionPrepared {
       }
     } else if (name === "production.json") {
       const root = parseJsonObject(file.raw);
-      if (!root || !Array.isArray(root.productions) || !root.productions.every(isRecord)) {
+      if (!root || !Array.isArray(root.productions) || !root.productions.every(validLegacyProductionRecord)) {
         pendingEntryIds.add(file.entry.id);
         issues.push(productionIssue(file.entry, "production-manifest", "MIGRATION_PRODUCTION_MANIFEST_INVALID", "block"));
       } else {
-        collectObjectRecords(productions, file, root.productions, null, issues, "MIGRATION_PRODUCTION_RECORD_INVALID");
+        collectObjectRecords(productions, file, root.productions, null, issues, "MIGRATION_PRODUCTION_RECORD_INVALID", validLegacyProductionRecord);
       }
     } else if (/(?:^|\/)production\/[^/]+\.jsonl$/u.test(relative)) {
-      collectJsonlRecords(productions, file, null, issues, "MIGRATION_PRODUCTION_RECORD_INVALID");
+      collectJsonlRecords(productions, file, null, issues, "MIGRATION_PRODUCTION_RECORD_INVALID", validLegacyProductionRecord);
     } else if (name === "delivery.json") {
       const root = parseJsonObject(file.raw);
-      if (!root || !Array.isArray(root.attempts) || !root.attempts.every(isRecord)) {
+      if (!root || !Array.isArray(root.attempts) || !root.attempts.every((value) => validLegacyDeliveryRecord(value, false))) {
         pendingEntryIds.add(file.entry.id);
         issues.push(productionIssue(file.entry, "delivery-manifest", "MIGRATION_DELIVERY_MANIFEST_INVALID", "block"));
       } else {
-        collectObjectRecords(deliveries, file, root.attempts, null, issues, "MIGRATION_DELIVERY_RECORD_INVALID");
+        collectObjectRecords(deliveries, file, root.attempts, null, issues, "MIGRATION_DELIVERY_RECORD_INVALID", validLegacyDeliveryRecord);
       }
     } else if (/(?:^|\/)delivery\/[^/]+\.jsonl$/u.test(relative) || isLegacyPublishLedgerName(name)) {
-      collectJsonlRecords(deliveries, file, null, issues, "MIGRATION_PUBLISH_RECORD_INVALID");
+      collectJsonlRecords(deliveries, file, null, issues, "MIGRATION_PUBLISH_RECORD_INVALID", validLegacyDeliveryRecord);
     } else if (name === "analytics.jsonl") {
-      collectJsonlRecords(metrics, file, null, issues, "MIGRATION_METRIC_RECORD_INVALID");
+      collectJsonlRecords(metrics, file, null, issues, "MIGRATION_METRIC_RECORD_INVALID", isLegacyObjectRecord);
     }
   }
   for (const unit of units) {
-    if (isRecord(unit.value.manifestOnlyAttempt)) {
+    if (isRecord(unit.value.manifestOnlyAttempt)
+      && validLegacyDeliveryRecord(unit.value.manifestOnlyAttempt, true)) {
       deliveries.push({
         entry: unit.entry,
         source: unit.source,
@@ -554,9 +555,10 @@ function collectObjectRecords(
   unitKeyHint: string | null,
   issues: PreparedIssue[],
   code: string,
+  valid: (value: unknown, hasUnitHint: boolean) => boolean,
 ): void {
   values.forEach((value, index) => {
-    if (!isRecord(value)) {
+    if (!isRecord(value) || !valid(value, unitKeyHint !== null)) {
       issues.push(productionIssue(file.entry, `${code}:${index + 1}`, code, "review", index + 1));
       return;
     }
@@ -570,9 +572,10 @@ function collectJsonlRecords(
   unitKeyHint: string | null,
   issues: PreparedIssue[],
   code: string,
+  valid: (value: unknown, hasUnitHint: boolean) => boolean,
 ): void {
   for (const record of parseLegacyJsonl(file.raw, file.entry.sourcePath)) {
-    if (record.issue || !isRecord(record.value)) {
+    if (record.issue || !isRecord(record.value) || !valid(record.value, unitKeyHint !== null)) {
       issues.push(productionIssue(file.entry, `${code}:${record.lineNo}`, code, "review", record.lineNo));
       continue;
     }
@@ -779,6 +782,10 @@ function importLegacyBuilds(
   issues: PreparedIssue[],
 ): void {
   for (const record of prepared.productions) {
+    if (!validLegacyProductionRecord(record.value)) {
+      issues.push(productionIssue(record.entry, `build-record:${record.rowOrdinal}`, "MIGRATION_PRODUCTION_RECORD_INVALID", "review", record.rowOrdinal));
+      continue;
+    }
     const sourceValue = typeof record.value.sourceRevision === "string" ? record.value.sourceRevision : null;
     const outputValue = typeof record.value.output === "string" ? record.value.output : null;
     const sourcePath = sourceValue ? resolveEvidencePath(prepared, record, sourceValue, "project") : null;
@@ -1235,13 +1242,14 @@ function captionEvidence(
   }
   const values: Array<{ revisionNo: number; state: string; text: string }> = [];
   for (const [index, candidate] of value.caption_versions.entries()) {
-    if (!isRecord(candidate) || typeof candidate.text !== "string") {
+    const state = isRecord(candidate) ? canonicalCaptionState(candidate.state) : null;
+    if (!isRecord(candidate) || typeof candidate.text !== "string" || state === null) {
       issues.push(productionIssue(file.entry, `caption:${index + 1}`, "MIGRATION_CAPTION_RECORD_INVALID", "review", index + 1));
-      continue;
+      return { entry: file.entry, effectiveRevision: null, values: [] };
     }
     values.push({
       revisionNo: positiveInteger(candidate.version) ?? index + 1,
-      state: canonicalCaptionState(candidate.state),
+      state,
       text: candidate.text,
     });
   }
@@ -1411,7 +1419,15 @@ function importLegacyPublications(
   publicationIds: Map<string, string[]>,
   issues: PreparedIssue[],
 ): void {
-  const records = expandedDeliveryRecords(prepared.deliveries);
+  const validRecords: LegacyRecord[] = [];
+  for (const record of prepared.deliveries) {
+    if (!validLegacyDeliveryRecord(record.value, record.unitKeyHint !== null)) {
+      issues.push(productionIssue(record.entry, `publication-record:${record.rowOrdinal}`, "MIGRATION_PUBLISH_RECORD_INVALID", "review", record.rowOrdinal));
+      continue;
+    }
+    validRecords.push(record);
+  }
+  const records = expandedDeliveryRecords(validRecords);
   const candidates: PublicationCandidate[] = [];
   const skips: LegacyRecord[] = [];
   for (const record of records) {
@@ -1811,6 +1827,71 @@ function parseJsonObject(raw: Buffer): Record<string, unknown> | null {
   }
 }
 
+function isLegacyObjectRecord(value: unknown): boolean {
+  return isRecord(value);
+}
+
+function validLegacyProductionRecord(value: unknown): boolean {
+  if (!isRecord(value)
+    || !nonEmptyString(value.sourceRevision)
+    || !nonEmptyString(value.output)) return false;
+  return [value.id, value.compositionId, value.profile]
+    .every(validOptionalNonEmptyString)
+    && (value.selected === undefined || typeof value.selected === "boolean")
+    && validOptionalLegacyTime(value.completedAt);
+}
+
+function validLegacyDeliveryRecord(value: unknown, hasUnitHint = false): boolean {
+  if (!isRecord(value)
+    || (!hasUnitHint && !nonEmptyString(value.unitId))
+    || (value.unitId !== undefined && !nonEmptyString(value.unitId))
+    || !nonEmptyString(value.provider)
+    || !nonEmptyString(value.status)) return false;
+  if (![value.id, value.platform, value.presentation, value.slot, value.revisedFrom, value.originalPublicationId]
+    .every(validOptionalNonEmptyString)) return false;
+  if (![value.accountId, value.providerPublicationId, value.url]
+    .every(validOptionalNullableString)) return false;
+  if (![value.error, value.failureStage]
+    .every((candidate) => candidate === undefined || typeof candidate === "string")) return false;
+  if (![value.unitRevision, value.unitRevisionNo, value.revision, value.captionVersion, value.effectiveCaptionVersion]
+    .every((candidate) => candidate === undefined || positiveInteger(candidate) !== null)) return false;
+  if (![value.createdAt, value.scheduledAt, value.submittedAt, value.publishedAt,
+    value.revisedFromCreatedAt, value.originalCreatedAt]
+    .every(validOptionalLegacyTime)) return false;
+  if (![value.revisedFromSourceLocatorHash, value.originalSourceLocatorHash]
+    .every((candidate) => candidate === undefined
+      || (typeof candidate === "string" && /^[0-9a-f]{64}$/u.test(candidate)))) return false;
+  if (![value.revisedFromProviderPublicationId, value.originalProviderPublicationId]
+    .every(validOptionalNonEmptyString)) return false;
+
+  if (value.targets === undefined) {
+    return value.status !== "partial"
+      && [value.platform, value.presentation, value.slot].some(nonEmptyString);
+  }
+  if (value.status !== "partial" || !Array.isArray(value.targets)) return false;
+  const targets = value.targets.filter((target) => target !== null);
+  return targets.length > 0 && targets.every((target) => {
+    if (!isRecord(target) || !nonEmptyString(target.platform) || target.targets !== undefined) return false;
+    return validLegacyDeliveryRecord({ ...value, ...target, targets: undefined }, hasUnitHint);
+  });
+}
+
+function nonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && !!value.trim();
+}
+
+function validOptionalNonEmptyString(value: unknown): boolean {
+  return value === undefined || nonEmptyString(value);
+}
+
+function validOptionalNullableString(value: unknown): boolean {
+  return value === undefined || value === null || typeof value === "string";
+}
+
+function validOptionalLegacyTime(value: unknown): boolean {
+  return value === undefined || value === null || optionalLegacyTime(value) !== null;
+}
+
 function validLegacyUnitManifest(value: Record<string, unknown>): boolean {
   if ((value.id !== undefined && (typeof value.id !== "string" || !value.id.trim()))
     || (value.slug !== undefined && (typeof value.slug !== "string" || !value.slug.trim()))
@@ -1821,7 +1902,7 @@ function validLegacyUnitManifest(value: Record<string, unknown>): boolean {
     || (value.body !== undefined && typeof value.body !== "string")
     || (value.bodyPath !== undefined && (typeof value.bodyPath !== "string" || !value.bodyPath.trim()))
     || (value.selected !== undefined && typeof value.selected !== "boolean")
-    || (value.manifestOnlyAttempt !== undefined && !isRecord(value.manifestOnlyAttempt))) return false;
+    || (value.manifestOnlyAttempt !== undefined && !validLegacyDeliveryRecord(value.manifestOnlyAttempt, true))) return false;
   if (value.presentations === undefined) return true;
   return Array.isArray(value.presentations) && value.presentations.every((presentation) =>
     isRecord(presentation)
@@ -1848,7 +1929,7 @@ function validLegacyCaptionsManifest(value: Record<string, unknown>): boolean {
   let previous = 0;
   for (const caption of value.caption_versions) {
     if (!isRecord(caption) || positiveInteger(caption.version) === null
-      || typeof caption.state !== "string" || !caption.state.trim()
+      || canonicalCaptionState(caption.state) === null
       || typeof caption.text !== "string" || (caption.version as number) <= previous) return false;
     previous = caption.version as number;
   }
@@ -2237,11 +2318,12 @@ function canonicalPlatform(value: string): string {
   return platform;
 }
 
-function canonicalCaptionState(value: unknown): string {
+function canonicalCaptionState(value: unknown): "draft" | "humanized" | "auto-draft-archived" | "final" | null {
+  if (value === "draft") return "draft";
   if (value === "humanized") return "humanized";
   if (value === "auto_draft_archived" || value === "auto-draft-archived") return "auto-draft-archived";
   if (value === "final") return "final";
-  return "draft";
+  return null;
 }
 
 function expandedDeliveryRecords(records: readonly LegacyRecord[]): LegacyRecord[] {
