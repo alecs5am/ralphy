@@ -61,6 +61,7 @@ describe("provider credential descriptors", () => {
       STATIC_CREDENTIAL_DESCRIPTORS.map((descriptor) => descriptor.providerId),
     ).toEqual([
       "openrouter",
+      "anthropic",
       "elevenlabs",
       "fal",
       "firecrawl",
@@ -157,6 +158,25 @@ describe("provider credential descriptors", () => {
 });
 
 describe("scoped credential resolver", () => {
+  test("resolves the canonical Anthropic Workspace credential", async () => {
+    const { dataRoot, secretStore } = fixture();
+    const context = Object.freeze({ kind: "scope" as const, workspaceId: "ws_anthropic" });
+    const resolver = createCredentialResolver({
+      dataRoot,
+      context,
+      secretStore,
+      capturedEnvironment: new Map(),
+    });
+
+    await resolver.set("anthropic", SECRET_SENTINEL);
+    expect(await resolver.resolve("anthropic")).toEqual({
+      configured: true,
+      providerId: "anthropic",
+      source: "encrypted",
+      value: SECRET_SENTINEL,
+    });
+  });
+
   test("uses encrypted, captured environment, subscription, then missing precedence", async () => {
     const { dataRoot, secretStore } = fixture();
     const context = Object.freeze({

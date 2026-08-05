@@ -90,6 +90,10 @@ describe("legacy semantic migration", () => {
     expect(isLegacySecretCandidate("state.json", Buffer.from('{"token":"opaque"}', "utf16le"))).toBe(true);
     expect(isLegacySecretCandidate("state.json", Buffer.from([0, 255, 0, 1]))).toBe(true);
     expect(isLegacySecretCandidate("state.json", Buffer.from([1, 2, 3]))).toBe(true);
+    expect(isLegacySecretCandidate("claude-api-key.bin")).toBe(true);
+    expect(isLegacySecretCandidate("openrouter-api-key.bin")).toBe(true);
+    expect(isLegacySecretCandidate("foo-api-key.bin")).toBe(false);
+    expect(isLegacySecretCandidate("nested/claude-api-key.bin")).toBe(false);
     expect(isLegacySecretCandidate("README.md", Buffer.from("Keep the token budget small.\n"))).toBe(false);
     expect(classifyLegacyPath("farm/events/lifecycle.json")).toBe("raw-evidence");
   });

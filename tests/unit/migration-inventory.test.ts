@@ -174,7 +174,7 @@ describe("migration audit", () => {
     expect(audit.blockers.some((issue) => (
       issue.code === "MIGRATION_JOBS_WAL_UNMATERIALIZED" && issue.severity === "block"
     ))).toBe(true);
-    expect(audit.desktopCandidates).toEqual({ reviews: 1, secrets: 1, settings: 1 });
+    expect(audit.desktopCandidates).toEqual({ reviews: 1, secrets: 2, settings: 1 });
     expect(audit.processes.every((process) => (
       Object.keys(process).every((key) => ["category", "pid", "count"].includes(key))
     ))).toBe(true);

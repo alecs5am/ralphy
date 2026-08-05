@@ -644,7 +644,7 @@ function countDesktopCandidates(
         const parts = childRelative.toLowerCase().split("/");
         const basename = parts.at(-1)!;
         if (parts.some((part) => part === "reviews" || part === "review")) counts.reviews += 1;
-        if (parts.some((part) => part === "safestorage" || part === "secrets") || /credential|cookie|token/.test(basename)) counts.secrets += 1;
+        if (isLegacySecretCandidate(childRelative)) counts.secrets += 1;
         if (/^(state|settings|preferences|config)\.(json|jsonl)$/.test(basename)) counts.settings += 1;
       }
     }
