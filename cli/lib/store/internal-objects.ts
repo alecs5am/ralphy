@@ -17,23 +17,24 @@ import type {
 
 export type PreparedObject = {
   id: string;
-  workspaceId: string;
-  projectId: string | null;
+  scope: { workspaceId: string; projectId?: string };
   bucket: string;
   key: string;
+  finalPath: string;
   sha256: string;
-  mime: string;
+  mime: string | null;
   bytes: number;
   storageClass: ObjectStorageClass;
   originalName: string;
+};
+
+type PreparedObjectDetails = {
   metadata: JsonValue | null;
   createdAt: number;
   sourcePath: string;
   sourceRealPath: string;
   sourceDevice: number;
   sourceInode: number;
-  finalPath: string;
-  transfer: "copy" | "move";
 };
 
 type ObjectDbRow = {
@@ -59,7 +60,7 @@ const STORAGE_CLASSES = new Set<ObjectStorageClass>([
   "working",
   "diagnostic",
 ]);
-const PREPARED_OBJECTS = new WeakSet<PreparedObject>();
+const PREPARED_DETAILS = new WeakMap<PreparedObject, PreparedObjectDetails>();
 const BINARY_KEYS = new Set([
   "base64",
   "b64",
@@ -74,12 +75,17 @@ const DATA_URL =
   /data:(?:[a-z][a-z0-9!#$&^_.+-]*\/[a-z0-9!#$&^_.+-]+)?(?:;[a-z0-9!#$&^_.+-]+=[^;,\s]+)*(?:;base64)?,[^\s"'<>]*/i;
 
 export async function prepareObject(
+  db: Database,
+  storeRoot: string,
   input: ObjectIngestInput & {
     transfer: "copy" | "move";
+    clonePolicy?: "allow-copy" | "require";
+    objectId?: string;
     testHooks?: { afterPromotion?: () => void };
   },
 ): Promise<PreparedObject> {
-  const scope = resolveScope(openDomainDb(), input.scope);
+  const root = checkedStoreRoot(db, storeRoot);
+  const scope = resolveScope(db, input.scope);
   const sourcePath = checkedSourcePath(input.sourcePath);
   const originalName = checkedOriginalName(input.originalName);
   const mime = checkedMime(input.mime);
@@ -95,7 +101,6 @@ export async function prepareObject(
   if (sourceStat.size <= 0) throw new Error("Object source must not be empty");
   await fs.promises.access(sourcePath, fs.constants.R_OK);
 
-  const root = path.resolve(ralphDir());
   const bucketsRoot = await canonicalPath(path.join(root, "buckets"));
   if (isWithin(bucketsRoot, sourceRealPath)) {
     throw new Error(
@@ -103,7 +108,8 @@ export async function prepareObject(
     );
   }
 
-  const id = newDomainId("obj");
+  const id = input.objectId ?? newDomainId("obj");
+  if (!/^obj_[0-9a-f-]{36}$/i.test(id)) throw new Error("Object ID is invalid");
   const extension = safeExtension(originalName);
   const bucket = scope.projectId
     ? `buckets/${scope.workspaceId}/projects/${scope.projectId}`
@@ -118,11 +124,9 @@ export async function prepareObject(
     await assertNoSymlinkAncestors(root, stageDir);
     await fs.promises.mkdir(stageDir, { recursive: true });
     await assertNoSymlinkAncestors(root, stageDir);
-    await fs.promises.copyFile(
-      sourcePath,
-      stagedPath,
-      fs.constants.COPYFILE_FICLONE,
-    );
+    await fs.promises.copyFile(sourcePath, stagedPath, input.clonePolicy === "require"
+      ? fs.constants.COPYFILE_FICLONE_FORCE
+      : fs.constants.COPYFILE_FICLONE);
     const { bytes, sha256 } = await hashFile(stagedPath);
     if (bytes <= 0) throw new Error("Object source must not be empty");
     await syncFile(stagedPath);
@@ -133,11 +137,14 @@ export async function prepareObject(
     promoted = true;
     input.testHooks?.afterPromotion?.();
     await syncFile(finalPath);
+    await syncDirectory(path.dirname(finalPath));
     await fs.promises.rm(stageDir, { recursive: true, force: true });
     const prepared: PreparedObject = {
       id,
-      workspaceId: scope.workspaceId,
-      projectId: scope.projectId,
+      scope: {
+        workspaceId: scope.workspaceId,
+        ...(scope.projectId ? { projectId: scope.projectId } : {}),
+      },
       bucket,
       key,
       sha256,
@@ -145,16 +152,16 @@ export async function prepareObject(
       bytes,
       storageClass,
       originalName,
+      finalPath,
+    };
+    PREPARED_DETAILS.set(prepared, {
       metadata,
       createdAt: Date.now(),
       sourcePath,
       sourceRealPath,
       sourceDevice: sourceStat.dev,
       sourceInode: sourceStat.ino,
-      finalPath,
-      transfer: input.transfer,
-    };
-    PREPARED_OBJECTS.add(prepared);
+    });
     return prepared;
   } catch (error) {
     if (promoted) await fs.promises.rm(finalPath, { force: true });
@@ -168,14 +175,17 @@ export function registerPreparedObject(
   prepared: PreparedObject,
 ): ObjectRow {
   assertPreparedObject(db, prepared);
+  const details = PREPARED_DETAILS.get(prepared);
+  const createdAt = details?.createdAt ?? Date.now();
+  const metadata = details?.metadata ?? null;
   db.prepare(
     `INSERT INTO objects
      (id, workspace_id, project_id, backend, bucket, key, sha256, mime, bytes, storage_class, original_name, metadata_json, created_at)
      VALUES (?, ?, ?, 'local', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     prepared.id,
-    prepared.workspaceId,
-    prepared.projectId,
+    prepared.scope.workspaceId,
+    prepared.scope.projectId ?? null,
     prepared.bucket,
     prepared.key,
     prepared.sha256,
@@ -183,24 +193,37 @@ export function registerPreparedObject(
     prepared.bytes,
     prepared.storageClass,
     prepared.originalName,
-    serializeJson(prepared.metadata),
-    prepared.createdAt,
+    serializeJson(metadata),
+    createdAt,
   );
-  const row = getObjectRow(db, prepared.id);
-  if (!row) throw new Error(`Object was not registered: ${prepared.id}`);
-  return row;
+  return {
+    id: prepared.id,
+    workspaceId: prepared.scope.workspaceId,
+    projectId: prepared.scope.projectId ?? null,
+    backend: "local",
+    bucket: prepared.bucket,
+    key: prepared.key,
+    sha256: prepared.sha256,
+    mime: prepared.mime!,
+    bytes: prepared.bytes,
+    storageClass: prepared.storageClass,
+    originalName: prepared.originalName,
+    metadata,
+    createdAt,
+  };
 }
 
 export async function ingestObjectRow(
   input: ObjectIngestInput & { transfer?: "copy" | "move" },
 ): Promise<ObjectRow> {
-  const prepared = await prepareObject({
+  const db = openDomainDb();
+  const prepared = await prepareObject(db, ralphDir(), {
     ...input,
     transfer: input.transfer ?? "copy",
   });
-  const object = withImmediateTransaction((db) => {
-    const registered = registerPreparedObject(db, prepared);
-    appendActivity(db, {
+  const object = withImmediateTransaction((transactionDb) => {
+    const registered = registerPreparedObject(transactionDb, prepared);
+    appendActivity(transactionDb, {
       workspaceId: registered.workspaceId,
       projectId: registered.projectId,
       entityType: "object",
@@ -215,7 +238,7 @@ export async function ingestObjectRow(
     });
     return registered;
   });
-  if (prepared.transfer === "move") {
+  if (input.transfer === "move") {
     await removePreparedMoveSource(prepared);
   }
   return object;
@@ -309,7 +332,8 @@ function checkedOriginalName(value: string): string {
   return value;
 }
 
-function checkedMime(value: string): string {
+function checkedMime(value: string | null): string {
+  if (value === null) throw new Error("Object MIME must not be empty");
   const mime = value.trim();
   if (!mime) throw new Error("Object MIME must not be empty");
   return mime;
@@ -391,13 +415,19 @@ async function syncFile(filePath: string): Promise<void> {
   }
 }
 
-function assertPreparedObject(db: Database, prepared: PreparedObject): void {
-  if (!PREPARED_OBJECTS.has(prepared)) {
-    throw new Error("Prepared Object must come from prepareObject");
+async function syncDirectory(directory: string): Promise<void> {
+  const handle = await fs.promises.open(directory, "r");
+  try {
+    await handle.sync();
+  } finally {
+    await handle.close();
   }
+}
+
+function assertPreparedObject(db: Database, prepared: PreparedObject): void {
   const scope = resolveScope(db, {
-    workspaceId: prepared.workspaceId,
-    ...(prepared.projectId ? { projectId: prepared.projectId } : {}),
+    workspaceId: prepared.scope.workspaceId,
+    ...(prepared.scope.projectId ? { projectId: prepared.scope.projectId } : {}),
   });
   const expectedBucket = scope.projectId
     ? `buckets/${scope.workspaceId}/projects/${scope.projectId}`
@@ -418,14 +448,17 @@ function assertPreparedObject(db: Database, prepared: PreparedObject): void {
   checkedMime(prepared.mime);
   checkedStorageClass(prepared.storageClass);
   checkedOriginalName(prepared.originalName);
-  checkedMetadata(prepared.metadata);
-  const expectedPath = resolveLocator(
-    path.resolve(ralphDir()),
-    prepared.bucket,
-    prepared.key,
-  );
+  const expectedPath = resolveLocator(path.dirname(db.filename), prepared.bucket, prepared.key);
   if (prepared.finalPath !== expectedPath)
     throw new Error("Prepared Object final path is invalid");
+}
+
+function checkedStoreRoot(db: Database, storeRoot: string): string {
+  const root = path.resolve(storeRoot);
+  if (path.resolve(db.filename) !== path.join(root, "ralphy.db")) {
+    throw new Error("Object database does not belong to the explicit store root");
+  }
+  return root;
 }
 
 async function canonicalPath(candidate: string): Promise<string> {
@@ -482,20 +515,22 @@ function assertNoSymlinkAncestorsSync(root: string, target: string): void {
 export async function removePreparedMoveSource(
   prepared: PreparedObject,
 ): Promise<void> {
+  const details = PREPARED_DETAILS.get(prepared);
+  if (!details) throw new Error("Prepared Object has no move source");
   const claimDir = await fs.promises.mkdtemp(
-    path.join(path.dirname(prepared.sourceRealPath), ".ralphy-move-"),
+    path.join(path.dirname(details.sourceRealPath), ".ralphy-move-"),
   );
-  const claimedPath = path.join(claimDir, path.basename(prepared.sourceRealPath));
+  const claimedPath = path.join(claimDir, path.basename(details.sourceRealPath));
   let claimed = false;
   try {
-    await fs.promises.rename(prepared.sourceRealPath, claimedPath);
+    await fs.promises.rename(details.sourceRealPath, claimedPath);
     claimed = true;
     const stat = await fs.promises.lstat(claimedPath);
     const facts = stat.isFile() ? await hashFile(claimedPath) : null;
     if (
       !facts ||
-      stat.dev !== prepared.sourceDevice ||
-      stat.ino !== prepared.sourceInode ||
+      stat.dev !== details.sourceDevice ||
+      stat.ino !== details.sourceInode ||
       facts.bytes !== prepared.bytes ||
       facts.sha256 !== prepared.sha256
     ) {
@@ -504,7 +539,7 @@ export async function removePreparedMoveSource(
     await fs.promises.unlink(claimedPath);
     claimed = false;
   } catch (error) {
-    if (claimed) await restoreClaimedSource(claimedPath, prepared.sourceRealPath);
+    if (claimed) await restoreClaimedSource(claimedPath, details.sourceRealPath);
     throw error;
   } finally {
     try {
@@ -513,6 +548,21 @@ export async function removePreparedMoveSource(
       // A preserved claim or concurrent entry keeps the private directory.
     }
   }
+}
+
+export function retargetPreparedMoveSource(
+  prepared: PreparedObject,
+  source: { path: string; realPath: string; device: number; inode: number },
+): void {
+  const details = PREPARED_DETAILS.get(prepared);
+  if (!details) throw new Error("Prepared Object has no move source");
+  PREPARED_DETAILS.set(prepared, {
+    ...details,
+    sourcePath: source.path,
+    sourceRealPath: source.realPath,
+    sourceDevice: source.device,
+    sourceInode: source.inode,
+  });
 }
 
 async function restoreClaimedSource(

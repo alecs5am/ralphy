@@ -18,6 +18,7 @@ import {
   prepareObject,
   registerPreparedObject,
   removePreparedMoveSource,
+  retargetPreparedMoveSource,
 } from "./internal-objects.js";
 import type { ObjectScope } from "./objects.js";
 import { assertActiveSessionScope } from "./sessions.js";
@@ -680,7 +681,7 @@ export async function completeArtifactRunSet(
           mime: item.mime,
           bytes: object.bytes,
           sha256: object.sha256,
-          metadata: item.prepared.metadata,
+          metadata: item.input.objectMetadata ?? null,
         });
         const artifactResult = addArtifactRevisionInTransaction(db, {
           workspaceId: currentRun.workspaceId!,
@@ -798,7 +799,7 @@ export async function completeArtifactRunSet(
             mime: item.mime,
             bytes: item.prepared.bytes,
             sha256: item.prepared.sha256,
-            metadata: item.prepared.metadata,
+            metadata: item.input.objectMetadata,
           });
         } catch {
           // The original valid temp file still holds the diagnostic bytes.
@@ -841,17 +842,17 @@ export async function completeRunObject(input: {
   const scope: ObjectScope = initialRun.projectId
     ? { workspaceId: initialRun.workspaceId, projectId: initialRun.projectId }
     : { workspaceId: initialRun.workspaceId };
-  const prepared = await prepareObject({
+  const prepared = await prepareObject(openDomainDb(), ralphDir(), {
     scope,
     sourcePath: input.sourcePath,
     originalName: input.originalName,
     mime: input.mime,
     storageClass: input.storageClass,
     metadata: input.metadata,
-    transfer: "copy",
+    transfer: "move",
   });
   try {
-    return withImmediateTransaction((db) => {
+    const completed = withImmediateTransaction((db) => {
       const run = requireRun(db, input.runId);
       if (run.state !== "pending") {
         throw new StoreConflictError("Run Object completion requires a pending Run");
@@ -879,11 +880,17 @@ export async function completeRunObject(input: {
         mime: object.mime,
         bytes: object.bytes,
         sha256: object.sha256,
-        metadata: prepared.metadata,
+        metadata: input.metadata ?? null,
       });
       finishRunInTransaction(db, run.id, { state: "succeeded" });
       return runObject;
     });
+    try {
+      await removePreparedMoveSource(prepared);
+    } catch {
+      // The Object and succeeded Run are durable; preserve changed source bytes.
+    }
+    return completed;
   } catch (error) {
     try {
       await fs.promises.rm(prepared.finalPath, { force: true });
@@ -1644,20 +1651,21 @@ async function preparePinnedRunOutput(input: {
       0o600,
     );
     try { copyRegularFileDescriptors(input.sourceFd, destination); } finally { fs.closeSync(destination); }
-    const prepared = await prepareObject({
+    const prepared = await prepareObject(openDomainDb(), ralphDir(), {
       scope: input.scope,
       sourcePath,
       originalName: input.originalName,
       mime: input.mime,
       storageClass: input.storageClass,
       metadata: input.metadata,
-      transfer: "copy",
+      transfer: "move",
     });
-    prepared.sourcePath = input.sourcePath;
-    prepared.sourceRealPath = input.sourceRealPath;
-    prepared.sourceDevice = input.sourceDevice;
-    prepared.sourceInode = input.sourceInode;
-    prepared.transfer = "move";
+    retargetPreparedMoveSource(prepared, {
+      path: input.sourcePath,
+      realPath: input.sourceRealPath,
+      device: input.sourceDevice,
+      inode: input.sourceInode,
+    });
     return prepared;
   } finally {
     await fs.promises.rm(privateDirectory, { recursive: true, force: true });
