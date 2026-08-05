@@ -30,6 +30,12 @@ export type FrozenFileFingerprint = {
   sha256: string | null;
 };
 
+type FrozenDirectoryIdentity = {
+  path: string;
+  device: string;
+  inode: string;
+};
+
 export type FreezeMigrationInput = {
   verificationDir: string;
   /** @internal Explicit key provider for authenticated secret verification. */
@@ -38,6 +44,8 @@ export type FreezeMigrationInput = {
   afterClosedSnapshot?: (index: number) => void;
   /** @internal Deterministic race seam for verification-directory pin tests. */
   afterVerificationDirectoryOpen?: () => void;
+  /** @internal Test seam observing plaintext buffers after zeroization. */
+  afterPlaintextBufferReleased?: (buffer: Buffer) => void;
 };
 
 export type FrozenMigration = {
@@ -48,6 +56,10 @@ export type FrozenMigration = {
   wal: FrozenFileFingerprint;
   shm: FrozenFileFingerprint;
   inventoryDigests: Record<string, string>;
+  secretInventory: SecretInventoryFact[];
+  secretInventoryDigest: string;
+  verificationDirectory: FrozenDirectoryIdentity;
+  excludedRoots: FrozenDirectoryIdentity[];
   contentDigest: string;
   consumers: { farm: null };
   recordPath: string;
@@ -102,6 +114,8 @@ type Activation = {
   blockers: MigrationIssue[];
 };
 
+type SecretInventoryFact = Pick<SecretInventoryEntry, "ref" | "kind">;
+
 const TERMINAL_STATES = new Set(["imported", "verified", "excluded", "issue"]);
 const EMPTY_SHA256 = sha256("");
 const FTS_TABLES = new Set([
@@ -155,11 +169,15 @@ export async function freezeMigration(
     if (!run || !new Set(["relations", "verify"]).has(run.phase) || run.frozenAt !== null) {
       throw new Error("Migration is not ready to freeze");
     }
-    secrets = await readSecretInventory({ dataRoot: ctx.storeRoot, keyProvider: input.keyProvider });
+    secrets = await readSecretInventory({
+      dataRoot: ctx.storeRoot,
+      keyProvider: input.keyProvider,
+      afterPlaintextBufferReleased: input.afterPlaintextBufferReleased,
+    });
     freezeGate(ctx);
     checkpoint(ctx.db, false);
     freezeGate(ctx);
-    const activation = inspectActivation(ctx, secrets);
+    const activation = inspectActivation(ctx, secrets, input.afterPlaintextBufferReleased);
     appendDomainBlockers(activation.blockers, verifyDomainStore({ dataRoot: ctx.storeRoot, hashObjects: true }));
     if (activation.blockers.length > 0) throw activationError(activation.blockers);
     const frozenAt = Date.now();
@@ -178,20 +196,33 @@ export async function freezeMigration(
     freezeGate(ctx);
     ctx.db.close();
 
-    const first = inspectClosedSnapshot(ctx, frozenAt, secrets);
+    const first = inspectClosedSnapshot(ctx, frozenAt, secrets, input.afterPlaintextBufferReleased);
     input.afterClosedSnapshot?.(1);
-    const second = inspectClosedSnapshot(ctx, frozenAt, secrets);
+    const second = inspectClosedSnapshot(ctx, frozenAt, secrets, input.afterPlaintextBufferReleased);
     input.afterClosedSnapshot?.(2);
-    if (second.activation.blockers.length > 0) throw activationError(second.activation.blockers);
-    if (canonical(first) !== canonical(second)) throw new Error("Migration closed snapshots are not stable");
+    const third = inspectClosedSnapshot(ctx, frozenAt, secrets, input.afterPlaintextBufferReleased);
+    if (third.activation.blockers.length > 0) throw activationError(third.activation.blockers);
+    if (canonical(first) !== canonical(second) || canonical(second) !== canonical(third)) {
+      throw new Error("Migration closed snapshots are not stable");
+    }
+    const secretInventory = secretInventoryFacts(secrets);
+    const secretInventoryDigest = sha256(canonical(secretInventory));
+    const verificationDirectory = pinnedDirectoryIdentity(verificationDir);
+    const excludedRoots = [ctx.storeRoot, ...ctx.sourceRoots.map((source) => source.path)]
+      .map(directoryIdentity)
+      .sort((left, right) => left.path.localeCompare(right.path));
     const body = {
       runId: ctx.runId,
       frozenAt,
-      database: second.files.database,
-      wal: second.files.wal,
-      shm: second.files.shm,
-      inventoryDigests: second.activation.inventoryDigests,
-      contentDigest: second.contentDigest,
+      database: third.files.database,
+      wal: third.files.wal,
+      shm: third.files.shm,
+      inventoryDigests: third.activation.inventoryDigests,
+      secretInventory,
+      secretInventoryDigest,
+      verificationDirectory,
+      excludedRoots,
+      contentDigest: third.contentDigest,
       consumers: { farm: null } as const,
     };
     const record = { id: sha256(canonical(body)), ...body };
@@ -233,7 +264,7 @@ function verifyPinnedMigration(
   let activation: Activation;
   let stageContentDigest: string;
   try {
-    activation = inspectFrozenActivation(db, input.runId, storeRoot);
+    activation = inspectFrozenActivation(db, input.runId, storeRoot, frozen.secretInventory);
     const run = db.query<{ phase: string; frozenAt: number | null }, [string]>(
       "SELECT phase, frozen_at AS frozenAt FROM migration_runs WHERE id = ?",
     ).get(input.runId);
@@ -291,8 +322,19 @@ function verifyPinnedMigration(
   return { id, ...body, recordPath };
 }
 
-function inspectActivation(ctx: MigrationContext, secrets: readonly SecretInventoryEntry[]): Activation {
-  const activation = inspectFrozenActivation(ctx.db, ctx.runId, ctx.storeRoot, secrets);
+function inspectActivation(
+  ctx: MigrationContext,
+  secrets: readonly SecretInventoryEntry[],
+  afterPlaintextBufferReleased?: (buffer: Buffer) => void,
+): Activation {
+  const activation = inspectFrozenActivation(
+    ctx.db,
+    ctx.runId,
+    ctx.storeRoot,
+    secretInventoryFacts(secrets),
+    secrets,
+    afterPlaintextBufferReleased,
+  );
   inspectSources(ctx, activation);
   return activation;
 }
@@ -301,7 +343,9 @@ function inspectFrozenActivation(
   db: Database,
   runId: string,
   storeRoot: string,
-  secrets: readonly SecretInventoryEntry[] = [],
+  secretInventory: readonly SecretInventoryFact[] = [],
+  plaintextSecrets: readonly SecretInventoryEntry[] = [],
+  afterPlaintextBufferReleased?: (buffer: Buffer) => void,
 ): Activation {
   const run = db.query<{ entries: number; files: number; bytes: number }, [string]>(
     `SELECT source_entry_count AS entries, source_file_count AS files, source_bytes AS bytes
@@ -328,9 +372,9 @@ function inspectFrozenActivation(
   inspectProductionAccountingFacts(db, runId, blockers);
   inspectFarmState(db, blockers);
   inspectSecretMaterializations(db, storeRoot, runId, blockers);
-  inspectSecretInventory(db, runId, secrets, blockers);
+  inspectSecretInventory(db, runId, secretInventory, blockers);
   inspectPlaintextRows(db, blockers);
-  inspectStagePlaintext(storeRoot, secrets, blockers);
+  inspectStagePlaintext(storeRoot, plaintextSecrets, blockers, afterPlaintextBufferReleased);
   return {
     sourceEntries: entries.length,
     coveredEntries: entries.filter((entry) => TERMINAL_STATES.has(entry.state)).length,
@@ -464,6 +508,40 @@ function inspectJobAccountingFacts(db: Database, runId: string, blockers: Migrat
   const expectedJobs = new Set<number>();
   const expectedLogs = new Set<number>();
   const expectedArtifacts = new Set<number>();
+  const tripletEntries = db.query<{ sourceId: string; entryId: string }, [string]>(
+    `SELECT migration_source_id AS sourceId, id AS entryId FROM migration_entries
+     WHERE migration_run_id = ? AND (
+       source_path = 'jobs.db' OR source_path LIKE '%/jobs.db'
+       OR source_path = 'jobs.db-wal' OR source_path LIKE '%/jobs.db-wal'
+       OR source_path = 'jobs.db-shm' OR source_path LIKE '%/jobs.db-shm')
+     ORDER BY migration_source_id, source_path`,
+  ).all(runId);
+  const groupedTriplets = new Map<string, string[]>();
+  for (const entry of tripletEntries) {
+    const entries = groupedTriplets.get(entry.sourceId) ?? [];
+    entries.push(entry.entryId);
+    groupedTriplets.set(entry.sourceId, entries);
+  }
+  const expectedTriplets = [...groupedTriplets.entries()]
+    .map(([sourceId, entryIds]) => ({ sourceId, entryIds: entryIds.sort() }))
+    .sort((left, right) => left.sourceId.localeCompare(right.sourceId));
+  const indexes = db.query<{ detail: string }, [string]>(
+    `SELECT detail_json AS detail FROM migration_issues
+     WHERE migration_run_id = ? AND code = 'MIGRATION_JOB_ACCOUNTING_INDEX' ORDER BY id`,
+  ).all(runId);
+  let indexedTriplets: Array<{ sourceId: string; entryIds: string[] }> = [];
+  if (indexes.length !== (expectedTriplets.length > 0 ? 1 : 0)) {
+    blockers.push(issue("MIGRATION_JOB_ACCOUNTING", runId));
+  } else if (indexes.length === 1) {
+    try {
+      const value = JSON.parse(indexes[0]!.detail) as { triplets?: unknown };
+      if (!Array.isArray(value.triplets)) throw new Error();
+      indexedTriplets = value.triplets as typeof indexedTriplets;
+      if (canonical(indexedTriplets) !== canonical(expectedTriplets)) throw new Error();
+    } catch { blockers.push(issue("MIGRATION_JOB_ACCOUNTING", runId)); }
+  }
+  const indexed = new Map(indexedTriplets.map((triplet) => [triplet.sourceId, triplet.entryIds]));
+  const factSources = new Set<string>();
   const digest = (table: string, id: number | string): string | null => {
     const row = db.query<Record<string, unknown>, [number | string]>(`SELECT * FROM ${table} WHERE id = ?`).get(id);
     return row ? sha256(canonicalRow(row)) : null;
@@ -472,14 +550,17 @@ function inspectJobAccountingFacts(db: Database, runId: string, blockers: Migrat
     `SELECT detail_json AS detail FROM migration_issues
      WHERE migration_run_id = ? AND code = 'MIGRATION_JOB_ACCOUNTING_FACT' ORDER BY id`,
   ).all(runId)) {
-    let value: { entryIds?: unknown; jobs?: FactRow[]; logs?: FactRow[]; artifacts?: FactRow[] };
+    let value: { sourceId?: unknown; entryIds?: unknown; jobs?: FactRow[]; logs?: FactRow[]; artifacts?: FactRow[] };
     try { value = JSON.parse(fact.detail) as typeof value; }
     catch { blockers.push(issue("MIGRATION_JOB_ACCOUNTING", runId)); continue; }
     const entryId = Array.isArray(value.entryIds) && typeof value.entryIds[0] === "string" ? value.entryIds[0] : runId;
-    if (!Array.isArray(value.jobs) || !Array.isArray(value.logs) || !Array.isArray(value.artifacts)) {
+    if (typeof value.sourceId !== "string" || factSources.has(value.sourceId)
+      || canonical(value.entryIds) !== canonical(indexed.get(value.sourceId))
+      || !Array.isArray(value.jobs) || !Array.isArray(value.logs) || !Array.isArray(value.artifacts)) {
       blockers.push(issue("MIGRATION_JOB_ACCOUNTING", entryId));
       continue;
     }
+    factSources.add(value.sourceId);
     for (const job of value.jobs) {
       const current = db.query<{ status: string; hold: string | null; runId: string }, [number]>(
         "SELECT status, migration_hold_run_id AS hold, run_id AS runId FROM jobs WHERE id = ?",
@@ -506,6 +587,9 @@ function inspectJobAccountingFacts(db: Database, runId: string, blockers: Migrat
         expected.add(row.id);
       }
     }
+  }
+  if (canonical([...factSources].sort()) !== canonical([...indexed.keys()].sort())) {
+    blockers.push(issue("MIGRATION_JOB_ACCOUNTING", runId));
   }
   const actualJobs = db.query<{ id: number }, [string]>(
     `SELECT job.id FROM jobs job JOIN runs run ON run.id = job.run_id
@@ -551,16 +635,24 @@ function inspectProductionAccountingFacts(db: Database, runId: string, blockers:
     blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", runId));
     return;
   }
-  let index: { entryIds?: unknown };
+  let index: {
+    entryIds?: unknown;
+    sourceFingerprint?: unknown;
+    sourceFingerprintDigest?: unknown;
+  };
   try { index = JSON.parse(indexes[0]!.detail) as typeof index; }
   catch { blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", runId)); return; }
-  if (!Array.isArray(index.entryIds) || index.entryIds.some((id) => typeof id !== "string")) {
+  if (!Array.isArray(index.entryIds) || index.entryIds.some((id) => typeof id !== "string")
+    || !isProductionSourceFingerprint(index.sourceFingerprint)
+    || typeof index.sourceFingerprintDigest !== "string"
+    || index.sourceFingerprintDigest !== sha256(canonicalRow(index.sourceFingerprint))) {
     blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", runId));
     return;
   }
   const seen = new Set<string>();
+  const accountedRefs = new Map<string, string[]>();
   for (const row of facts) {
-    let fact: { entryId?: unknown; refs?: unknown; facts?: unknown };
+    let fact: { entryId?: unknown; sourceLocatorHash?: unknown; refs?: unknown; facts?: unknown };
     try { fact = JSON.parse(row.detail) as typeof fact; }
     catch { blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", runId)); continue; }
     const entryId = typeof fact.entryId === "string" ? fact.entryId : runId;
@@ -569,14 +661,17 @@ function inspectProductionAccountingFacts(db: Database, runId: string, blockers:
       continue;
     }
     seen.add(entryId);
-    const entry = db.query<{ refs: string }, [string, string]>(
-      `SELECT COALESCE(target_refs_json, '[]') AS refs FROM migration_entries
+    const entry = db.query<{ refs: string; sourceLocatorHash: string }, [string, string]>(
+      `SELECT COALESCE(target_refs_json, '[]') AS refs,
+              source_locator_hash AS sourceLocatorHash FROM migration_entries
        WHERE migration_run_id = ? AND id = ? AND state IN ('imported', 'verified')`,
     ).get(runId, entryId);
-    if (!entry || canonical(JSON.parse(entry.refs) as unknown) !== canonical(fact.refs)) {
+    if (!entry || fact.sourceLocatorHash !== entry.sourceLocatorHash
+      || canonical(JSON.parse(entry.refs) as unknown) !== canonical(fact.refs)) {
       blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", entryId));
       continue;
     }
+    accountedRefs.set(entryId, fact.refs as string[]);
     const expectedFacts = new Map((fact.facts as Array<{ ref?: unknown; digest?: unknown }>).map((value) => [value.ref, value.digest]));
     if (expectedFacts.size !== fact.refs.length) blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", entryId));
     for (const ref of fact.refs as string[]) {
@@ -596,6 +691,94 @@ function inspectProductionAccountingFacts(db: Database, runId: string, blockers:
   if (canonical([...seen].sort()) !== canonical([...(index.entryIds as string[])].sort())) {
     blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", runId));
   }
+  const fingerprint = index.sourceFingerprint;
+  const ambiguousLocators = new Set(db.query<{ sourceLocatorHash: string }, [string]>(
+    `SELECT DISTINCT json_extract(detail_json, '$.sourceLocatorHash') AS sourceLocatorHash
+     FROM migration_issues
+     WHERE migration_run_id = ?
+       AND code IN ('MIGRATION_UNIT_ITEM_AMBIGUOUS', 'MIGRATION_UNIT_DOCUMENT_AMBIGUOUS')
+       AND json_type(detail_json, '$.sourceLocatorHash') = 'text'`,
+  ).all(runId).map((row) => row.sourceLocatorHash));
+  for (const unit of fingerprint.unitRecords) {
+    const refs = accountedRefs.get(unit.entryId) ?? [];
+    const sourceLocatorHash = db.query<{ sourceLocatorHash: string }, [string]>(
+      "SELECT source_locator_hash AS sourceLocatorHash FROM migration_entries WHERE id = ?",
+    ).get(unit.entryId)?.sourceLocatorHash;
+    if (refs.filter((ref) => ref.startsWith("item_")).length !== unit.itemOccurrences
+      && (!sourceLocatorHash || !ambiguousLocators.has(sourceLocatorHash))) {
+      blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", unit.entryId));
+    }
+  }
+  const importedMetrics = new Set([...accountedRefs.values()].flat().filter((ref) => ref.startsWith("metric_")));
+  const expectedWinners = productionMetricWinnerIds(
+    fingerprint.metricRecords.filter((record) => importedMetrics.has(record.metricId)),
+  );
+  const actualWinners = db.query<{ id: string }, []>(
+    `WITH ranked AS (
+       SELECT id, ROW_NUMBER() OVER (
+         PARTITION BY publication_id ORDER BY as_of DESC, created_at DESC, id DESC
+       ) AS winner
+       FROM metric_snapshots
+     ) SELECT id FROM ranked WHERE winner = 1 ORDER BY id`,
+  ).all().map((row) => row.id);
+  if (canonical(actualWinners) !== canonical(expectedWinners)) {
+    blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", runId));
+  }
+}
+
+type ProductionSourceFingerprintFact = {
+  unitRecords: Array<{ entryId: string; revisionNo: number; itemOccurrences: number; digest: string }>;
+  productionRecords: Array<{ entryId: string; rowOrdinal: number; digest: string }>;
+  deliveryRecords: Array<{ entryId: string; rowOrdinal: number; digest: string }>;
+  metricRecords: Array<{
+    entryId: string;
+    rowOrdinal: number;
+    metricId: string;
+    winnerKey: string;
+    asOf: number;
+    createdAt: number;
+    digest: string;
+  }>;
+  metricWinnerIds: string[];
+};
+
+function isProductionSourceFingerprint(value: unknown): value is ProductionSourceFingerprintFact {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<ProductionSourceFingerprintFact>;
+  const records = (items: unknown, extra: (row: Record<string, unknown>) => boolean): boolean =>
+    Array.isArray(items) && items.every((item) => {
+      if (!item || typeof item !== "object") return false;
+      const row = item as Record<string, unknown>;
+      return typeof row.entryId === "string" && typeof row.digest === "string" && extra(row);
+    });
+  return records(candidate.unitRecords, (row) =>
+    Number.isSafeInteger(row.revisionNo) && Number.isSafeInteger(row.itemOccurrences)
+      && (row.itemOccurrences as number) > 0
+  )
+    && records(candidate.productionRecords, (row) => Number.isSafeInteger(row.rowOrdinal))
+    && records(candidate.deliveryRecords, (row) => Number.isSafeInteger(row.rowOrdinal))
+    && records(candidate.metricRecords, (row) =>
+      Number.isSafeInteger(row.rowOrdinal) && typeof row.metricId === "string"
+        && typeof row.winnerKey === "string" && Number.isSafeInteger(row.asOf)
+        && Number.isSafeInteger(row.createdAt)
+    )
+    && Array.isArray(candidate.metricWinnerIds)
+    && candidate.metricWinnerIds.every((id) => typeof id === "string")
+    && new Set(candidate.metricWinnerIds).size === candidate.metricWinnerIds.length;
+}
+
+function productionMetricWinnerIds(
+  records: readonly ProductionSourceFingerprintFact["metricRecords"][number][],
+): string[] {
+  const winners = new Map<string, ProductionSourceFingerprintFact["metricRecords"][number]>();
+  for (const record of records) {
+    const current = winners.get(record.winnerKey);
+    if (!current || record.asOf > current.asOf
+      || (record.asOf === current.asOf && record.createdAt > current.createdAt)
+      || (record.asOf === current.asOf && record.createdAt === current.createdAt
+        && record.metricId > current.metricId)) winners.set(record.winnerKey, record);
+  }
+  return [...winners.values()].map((record) => record.metricId).sort();
 }
 
 function inspectSecretMaterializations(db: Database, storeRoot: string, runId: string, blockers: MigrationIssue[]): void {
@@ -618,7 +801,7 @@ function inspectSecretMaterializations(db: Database, storeRoot: string, runId: s
 function inspectSecretInventory(
   db: Database,
   runId: string,
-  inventory: readonly SecretInventoryEntry[],
+  inventory: readonly SecretInventoryFact[],
   blockers: MigrationIssue[],
 ): void {
   const expected = new Map<string, { entryId: string; kind: "text" | "file" }>();
@@ -699,12 +882,20 @@ function inspectStagePlaintext(
   storeRoot: string,
   secrets: readonly SecretInventoryEntry[],
   blockers: MigrationIssue[],
+  afterPlaintextBufferReleased?: (buffer: Buffer) => void,
 ): void {
   const pattern = /(?:-----BEGIN [A-Z ]+PRIVATE KEY-----|authorization["']?\s*:\s*["']?(?:bearer|basic)\s+\S+|["']?(?:api[_-]?key|token|password|secret)["']?\s*[:=]\s*["']?[^\s"'}]{4,}|\bsk-[A-Za-z0-9_-]{8,})/iu;
   for (const relative of walkStageFiles(storeRoot)) {
     if (relative === "secrets.enc") continue;
     let leaked: boolean;
-    try { leaked = fileContainsPlaintext(containedPath(storeRoot, relative), secrets, pattern); }
+    try {
+      leaked = fileContainsPlaintext(
+        containedPath(storeRoot, relative),
+        secrets,
+        pattern,
+        afterPlaintextBufferReleased,
+      );
+    }
     catch { blockers.push(issue("MIGRATION_STAGE_FILE_UNREADABLE", sha256(relative))); continue; }
     if (leaked) blockers.push(issue("MIGRATION_PLAINTEXT_SECRET", sha256(relative)));
   }
@@ -714,22 +905,36 @@ function fileContainsPlaintext(
   file: string,
   secrets: readonly SecretInventoryEntry[],
   pattern: RegExp,
+  afterPlaintextBufferReleased?: (buffer: Buffer) => void,
 ): boolean {
   const needles = secrets.map((secret) => secret.value).filter((value) => value.length > 0);
   const overlap = Math.max(64 * 1024, ...needles.map((value) => value.length - 1));
   const chunk = Buffer.allocUnsafe(1024 * 1024);
   let carry = Buffer.alloc(0);
+  let bytes: Buffer | null = null;
   const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  const release = (buffer: Buffer): void => {
+    buffer.fill(0);
+    afterPlaintextBufferReleased?.(buffer);
+  };
   try {
     for (;;) {
       const count = fs.readSync(fd, chunk, 0, chunk.length, null);
       if (count === 0) return false;
-      const bytes = Buffer.concat([carry, chunk.subarray(0, count)]);
-      if (needles.some((needle) => bytes.indexOf(needle) !== -1) || pattern.test(bytes.toString("utf8"))) return true;
-      carry = bytes.subarray(Math.max(0, bytes.length - overlap));
+      const combined = Buffer.concat([carry, chunk.subarray(0, count)]);
+      bytes = combined;
+      if (needles.some((needle) => combined.indexOf(needle) !== -1) || pattern.test(combined.toString("utf8"))) return true;
+      const nextCarry = Buffer.from(combined.subarray(Math.max(0, combined.length - overlap)));
+      release(combined);
+      bytes = null;
+      release(carry);
+      carry = nextCarry;
     }
   } finally {
     fs.closeSync(fd);
+    if (bytes) release(bytes);
+    release(carry);
+    release(chunk);
   }
 }
 
@@ -758,31 +963,47 @@ function appendDomainBlockers(blockers: MigrationIssue[], report: DomainVerifica
 function contentDigest(db: Database, storeRoot: string): string {
   const lines: string[] = [];
   const objects = new Map<string, ReturnType<typeof inspectFile>>();
-  for (const row of db.query<{ id: string; bucket: string; key: string; bytes: number; sha256: string }, []>(
-    "SELECT id, bucket, key, bytes, sha256 FROM objects ORDER BY id",
+  for (const row of db.query<{ id: string; bucket: string; key: string; bytes: number; sha256: string; mime: string }, []>(
+    "SELECT id, bucket, key, bytes, sha256, mime FROM objects ORDER BY id",
   ).all()) {
     const file = containedPath(storeRoot, `${row.bucket}/${row.key}`);
     const actual = inspectFile(file);
     if (!actual.fingerprint.exists || actual.fingerprint.bytes !== row.bytes || actual.fingerprint.sha256 !== row.sha256) throw new Error(`Object content changed: ${row.id}`);
     objects.set(row.id, actual);
-    lines.push(`object\0${row.id}\0${row.sha256}\0${row.bytes}\0${actual.mode}`);
+    lines.push(`object\0${row.id}\0${row.bucket}/${row.key}\0${row.sha256}\0${row.bytes}\0${row.mime}\0${actual.mode}`);
   }
-  for (const row of db.query<{ id: string; objectId: string | null; path: string; bytes: number | null; sha256: string | null; objectBytes: number | null; objectSha256: string | null }, []>(
+  for (const row of db.query<{
+    id: string;
+    objectId: string | null;
+    path: string;
+    bytes: number | null;
+    sha256: string | null;
+    mime: string | null;
+    objectPath: string | null;
+    objectBytes: number | null;
+    objectSha256: string | null;
+    objectMime: string | null;
+  }, []>(
     `SELECT run_object.id, run_object.object_id AS objectId, run_object.path,
-            run_object.bytes, run_object.sha256, object.bytes AS objectBytes,
-            object.sha256 AS objectSha256
+            run_object.bytes, run_object.sha256, run_object.mime,
+            CASE WHEN object.id IS NULL THEN NULL ELSE object.bucket || '/' || object.key END AS objectPath,
+            object.bytes AS objectBytes, object.sha256 AS objectSha256,
+            object.mime AS objectMime
      FROM run_objects run_object LEFT JOIN objects object ON object.id = run_object.object_id
      ORDER BY run_object.id`,
   ).all()) {
     if (row.objectId === null) {
       const actual = inspectFile(containedPath(storeRoot, row.path));
       if (!actual.fingerprint.exists || actual.fingerprint.bytes !== row.bytes || actual.fingerprint.sha256 !== row.sha256) throw new Error(`RunObject content changed: ${row.id}`);
-      lines.push(`run-object\0${row.id}\0\0${row.sha256 ?? ""}\0${row.bytes ?? ""}\0${actual.mode}`);
+      lines.push(`run-object\0${row.id}\0\0${row.path}\0${row.sha256 ?? ""}\0${row.bytes ?? ""}\0${row.mime ?? ""}\0${actual.mode}`);
       continue;
     }
     const actual = objects.get(row.objectId);
-    if (!actual) throw new Error(`RunObject Object changed: ${row.id}`);
-    lines.push(`run-object\0${row.id}\0${row.objectId}\0${row.objectSha256 ?? ""}\0${row.objectBytes ?? ""}\0${actual.mode}`);
+    if (!actual || row.path !== row.objectPath || row.bytes !== row.objectBytes
+      || row.sha256 !== row.objectSha256 || row.mime !== row.objectMime) {
+      throw new Error(`RunObject Object changed: ${row.id}`);
+    }
+    lines.push(`run-object\0${row.id}\0${row.objectId}\0${row.path}\0${row.sha256}\0${row.bytes}\0${row.mime}\0${actual.mode}`);
   }
   const secrets = path.join(storeRoot, "secrets.enc");
   if (fs.existsSync(secrets)) {
@@ -800,6 +1021,7 @@ function inspectClosedSnapshot(
   ctx: MigrationContext,
   frozenAt: number,
   secrets: readonly SecretInventoryEntry[],
+  afterPlaintextBufferReleased?: (buffer: Buffer) => void,
 ): { files: ReturnType<typeof frozenDatabaseFiles>; activation: Activation; contentDigest: string } {
   freezeGate(ctx);
   const before = frozenDatabaseFiles(ctx.storeRoot);
@@ -807,7 +1029,14 @@ function inspectClosedSnapshot(
   let activation: Activation;
   let digest: string;
   try {
-    activation = inspectFrozenActivation(db, ctx.runId, ctx.storeRoot, secrets);
+    activation = inspectFrozenActivation(
+      db,
+      ctx.runId,
+      ctx.storeRoot,
+      secretInventoryFacts(secrets),
+      secrets,
+      afterPlaintextBufferReleased,
+    );
     inspectSources({ ...ctx, db }, activation);
     const run = db.query<{ phase: string; frozenAt: number | null }, [string]>(
       "SELECT phase, frozen_at AS frozenAt FROM migration_runs WHERE id = ?",
@@ -905,10 +1134,28 @@ function readFreezeRecord(
   try { value = JSON.parse(raw) as FrozenMigration; } catch { throw new Error("Migration freeze record is invalid"); }
   const body = {
     runId: value.runId, frozenAt: value.frozenAt, database: value.database, wal: value.wal,
-    shm: value.shm, inventoryDigests: value.inventoryDigests, contentDigest: value.contentDigest,
+    shm: value.shm, inventoryDigests: value.inventoryDigests,
+    secretInventory: value.secretInventory, secretInventoryDigest: value.secretInventoryDigest,
+    verificationDirectory: value.verificationDirectory, excludedRoots: value.excludedRoots,
+    contentDigest: value.contentDigest,
     consumers: value.consumers,
   };
-  if (value.runId !== runId || value.consumers?.farm !== null || value.id !== sha256(canonical(body)) || raw !== `${canonical({ id: value.id, ...body })}\n`) {
+  const currentDirectory = pinnedDirectoryIdentity(directory);
+  if (!isDirectoryIdentity(value.verificationDirectory)
+    || canonical(value.verificationDirectory) !== canonical(currentDirectory)) {
+    throw new Error("Migration verification directory identity does not match freeze record");
+  }
+  if (
+    value.runId !== runId
+    || value.consumers?.farm !== null
+    || !isSecretInventoryFacts(value.secretInventory)
+    || value.secretInventoryDigest !== sha256(canonical(value.secretInventory))
+    || !Array.isArray(value.excludedRoots)
+    || !value.excludedRoots.every(isDirectoryIdentity)
+    || canonical(value.excludedRoots) !== canonical([...value.excludedRoots].sort((left, right) => left.path.localeCompare(right.path)))
+    || value.id !== sha256(canonical(body))
+    || raw !== `${canonical({ id: value.id, ...body })}\n`
+  ) {
     throw new Error("Migration freeze record is invalid");
   }
   return { ...value, recordPath: path.join(directory.path, name) };
@@ -1011,6 +1258,25 @@ type PinnedDirectory = {
   ino: number;
   uid: number;
 };
+
+function pinnedDirectoryIdentity(directory: PinnedDirectory): FrozenDirectoryIdentity {
+  assertPinnedDirectory(directory);
+  return { path: directory.path, device: String(directory.dev), inode: String(directory.ino) };
+}
+
+function directoryIdentity(directory: string): FrozenDirectoryIdentity {
+  const current = canonicalDirectory(directory);
+  const stat = fs.statSync(current);
+  return { path: current, device: String(stat.dev), inode: String(stat.ino) };
+}
+
+function isDirectoryIdentity(value: unknown): value is FrozenDirectoryIdentity {
+  if (!value || typeof value !== "object") return false;
+  const identity = value as Partial<FrozenDirectoryIdentity>;
+  return typeof identity.path === "string" && path.isAbsolute(identity.path)
+    && typeof identity.device === "string" && /^\d+$/u.test(identity.device)
+    && typeof identity.inode === "string" && /^\d+$/u.test(identity.inode);
+}
 
 function pinExternalDirectory(
   input: string,
@@ -1162,6 +1428,21 @@ function activationError(blockers: MigrationIssue[]): Error {
 }
 
 function canonical(value: unknown): string { return JSON.stringify(value); }
+
+function secretInventoryFacts(values: readonly SecretInventoryEntry[]): SecretInventoryFact[] {
+  return values.map(({ ref, kind }) => ({ ref, kind }))
+    .sort((left, right) => left.ref.localeCompare(right.ref) || left.kind.localeCompare(right.kind));
+}
+
+function isSecretInventoryFacts(value: unknown): value is SecretInventoryFact[] {
+  return Array.isArray(value)
+    && value.every((entry) => entry !== null && typeof entry === "object"
+      && Object.keys(entry).sort().join(",") === "kind,ref"
+      && typeof (entry as { ref?: unknown }).ref === "string"
+      && new Set(["text", "file"]).has(String((entry as { kind?: unknown }).kind)))
+    && canonical(value) === canonical([...value].sort((left, right) =>
+      left.ref.localeCompare(right.ref) || left.kind.localeCompare(right.kind)));
+}
 
 function canonicalRow(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalRow).join(",")}]`;

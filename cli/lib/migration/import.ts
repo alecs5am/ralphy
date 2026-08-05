@@ -143,6 +143,44 @@ type ProductionPrepared = {
   pendingEntryIds: Set<string>;
 };
 
+type ProductionImportOptions = {
+  omitLastRepeatedUnitItemForTesting?: boolean;
+};
+
+type ProductionSourceFingerprint = {
+  unitRecords: Array<{
+    entryId: string;
+    revisionNo: number;
+    itemOccurrences: number;
+    digest: string;
+  }>;
+  productionRecords: Array<{ entryId: string; rowOrdinal: number; digest: string }>;
+  deliveryRecords: Array<{ entryId: string; rowOrdinal: number; digest: string }>;
+  metricRecords: Array<{
+    entryId: string;
+    rowOrdinal: number;
+    metricId: string;
+    winnerKey: string;
+    asOf: number;
+    createdAt: number;
+    digest: string;
+  }>;
+  metricWinnerIds: string[];
+};
+
+type ProductionAccountingFact = {
+  entryId: string;
+  sourceLocatorHash: string;
+  refs: string[];
+  facts: Array<{ ref: string; digest: string | null }>;
+};
+
+type PreparedProductionAccounting = {
+  entries: ProductionAccountingFact[];
+  sourceFingerprint: ProductionSourceFingerprint;
+  sourceFingerprintDigest: string;
+};
+
 type Entry = {
   id: string;
   sourceId: string;
@@ -374,6 +412,10 @@ export function importScopesAndDocuments(ctx: MigrationContext): MigrationImport
 
 export function importExecutionAndOperations(
   ctx: MigrationContext,
+  options: {
+    /** @internal Adversarial seam proving target rows cannot self-attest. */
+    jobTargetForTesting?: (row: MigrationJobTargetRow) => MigrationJobTargetRow;
+  } = {},
 ): { jobs: number; logs: number; artifacts: number; issues: number } {
   const entries = migrationEntries(ctx);
   const sourceById = new Map(ctx.sourceRoots.map((source) => [source.id, source]));
@@ -394,10 +436,10 @@ export function importExecutionAndOperations(
   let issues = 0;
   ctx.db.transaction(() => {
     for (const source of prepared) {
+      const accounting = prepareJobAccounting(ctx, source);
       for (const row of source.jobs) {
-        const runId = stableId("run", ctx, `job:${source.sourceId}:${row.id}`);
-        const resolvedProject = resolveLegacyJobProject(ctx.db, source.sourceId, row.projectId);
-        const projectId = resolvedProject.projectId;
+        const expected = accounting.jobs.find((candidate) => candidate.id === row.id)!;
+        const resolvedProject = accounting.projects.get(row.id)!;
         if (resolvedProject.issueCode) {
           issues += 1;
           insertIssue(ctx, {
@@ -409,8 +451,8 @@ export function importExecutionAndOperations(
             detail: { legacyJobId: row.id, sourceLabelHash: stableKey(source.sourceId) },
           });
         }
-        insertOrValidateLegacyRun(ctx, source.sourceId, row, runId, projectId);
-        insertOrValidateJob(ctx, row, runId, projectId);
+        insertOrValidateLegacyRun(ctx, source.sourceId, expected.run);
+        insertOrValidateJob(ctx.db, options.jobTargetForTesting?.(expected.job) ?? expected.job);
       }
       for (const row of source.logs) insertOrValidateLog(ctx.db, row);
       for (const row of source.artifacts) insertOrValidateArtifact(ctx.db, row);
@@ -432,8 +474,10 @@ export function importExecutionAndOperations(
       reconcileIds(ctx.db, "jobs", source.jobs.map((row) => row.id));
       reconcileIds(ctx.db, "job_logs", source.logs.map((row) => row.id));
       reconcileIds(ctx.db, "job_artifacts", source.artifacts.map((row) => row.id));
-      recordJobAccountingFact(ctx, source);
+      assertJobAccountingTarget(ctx.db, accounting, source.files[0]!.entry.id);
+      recordJobAccountingFact(ctx, accounting);
     }
+    recordJobAccountingIndex(ctx, prepared);
   }).immediate();
   return {
     jobs: prepared.reduce((total, source) => total + source.jobs.length, 0),
@@ -443,26 +487,19 @@ export function importExecutionAndOperations(
   };
 }
 
-export function importProductionAndDelivery(ctx: MigrationContext): ProductionImportSummary {
+export function importProductionAndDelivery(
+  ctx: MigrationContext,
+  options: ProductionImportOptions = {},
+): ProductionImportSummary {
   const prepared = prepareProduction(ctx);
-  const refs = new Map<string, Set<string>>();
-  const issues = [...prepared.issues];
-  const artifactBySourcePath = new Map<string, string>();
-  const compositionBySourcePath = new Map<string, string>();
-  const unitIds = new Map<string, string>();
-  const presentations = new Map<string, string>();
-  const publicationIds = new Map<string, string[]>();
+  const expected = deriveProductionAccounting(ctx, prepared);
 
   ctx.db.transaction(() => {
-    importLegacyArtifacts(ctx, prepared, refs, artifactBySourcePath, issues);
-    importLegacyCompositions(ctx, prepared, refs, compositionBySourcePath, issues);
-    importLegacyBuilds(ctx, prepared, refs, artifactBySourcePath, compositionBySourcePath, issues);
-    importLegacyUnits(ctx, prepared, refs, artifactBySourcePath, unitIds, presentations, issues);
-    importLegacyPublications(ctx, prepared, refs, unitIds, presentations, publicationIds, issues);
-    importLegacyMetrics(ctx, prepared, refs, publicationIds, issues);
-    for (const issue of issues) insertIssue(ctx, issue);
-    finalizeTaskFiveEntries(ctx, prepared.entries, refs, prepared.pendingEntryIds);
-    recordProductionAccountingFacts(ctx, prepared.entries, prepared.pendingEntryIds);
+    const materialized = materializeProduction(ctx, prepared, options);
+    for (const issue of materialized.issues) insertIssue(ctx, issue);
+    finalizeTaskFiveEntries(ctx, prepared.entries, materialized.refs, prepared.pendingEntryIds);
+    assertProductionAccountingTarget(ctx.db, expected);
+    recordProductionAccountingFacts(ctx, expected);
     const blockers = ctx.db.query<{ count: number }, [string]>(
       `SELECT COUNT(*) AS count FROM migration_issues
        WHERE migration_run_id = ? AND severity = 'block' AND resolved_at IS NULL`,
@@ -484,6 +521,55 @@ export function importProductionAndDelivery(ctx: MigrationContext): ProductionIm
       "SELECT COUNT(*) AS count FROM migration_issues WHERE migration_run_id = ? AND code LIKE 'MIGRATION_%'",
     ).get(ctx.runId)?.count ?? 0,
   };
+}
+
+function materializeProduction(
+  ctx: MigrationContext,
+  prepared: ProductionPrepared,
+  options: ProductionImportOptions = {},
+): { refs: Map<string, Set<string>>; issues: PreparedIssue[] } {
+  const refs = new Map<string, Set<string>>();
+  const issues = [...prepared.issues];
+  const artifactBySourcePath = new Map<string, string>();
+  const compositionBySourcePath = new Map<string, string>();
+  const unitIds = new Map<string, string>();
+  const presentations = new Map<string, string>();
+  const publicationIds = new Map<string, string[]>();
+  importLegacyArtifacts(ctx, prepared, refs, artifactBySourcePath, issues);
+  importLegacyCompositions(ctx, prepared, refs, compositionBySourcePath, issues);
+  importLegacyBuilds(ctx, prepared, refs, artifactBySourcePath, compositionBySourcePath, issues);
+  importLegacyUnits(
+    ctx,
+    prepared,
+    refs,
+    artifactBySourcePath,
+    unitIds,
+    presentations,
+    issues,
+    options,
+  );
+  importLegacyPublications(ctx, prepared, refs, unitIds, presentations, publicationIds, issues);
+  importLegacyMetrics(ctx, prepared, refs, publicationIds, issues);
+  return { refs, issues };
+}
+
+function deriveProductionAccounting(
+  ctx: MigrationContext,
+  prepared: ProductionPrepared,
+): PreparedProductionAccounting {
+  const sourceFingerprint = productionSourceFingerprint(ctx, prepared);
+  ctx.db.exec("SAVEPOINT migration_expected_production");
+  try {
+    const materialized = materializeProduction(ctx, prepared);
+    for (const issue of materialized.issues) insertIssue(ctx, issue);
+    finalizeTaskFiveEntries(ctx, prepared.entries, materialized.refs, prepared.pendingEntryIds);
+    const expected = captureProductionAccounting(ctx, prepared, sourceFingerprint);
+    assertProductionSourceCoverage(ctx.db, expected, sourceFingerprint, materialized.issues);
+    return expected;
+  } finally {
+    ctx.db.exec("ROLLBACK TO migration_expected_production");
+    ctx.db.exec("RELEASE migration_expected_production");
+  }
 }
 
 export async function importDesktopStateAndSecrets(
@@ -978,6 +1064,7 @@ function importLegacyUnits(
   unitIds: Map<string, string>,
   presentations: Map<string, string>,
   issues: PreparedIssue[],
+  options: ProductionImportOptions = {},
 ): void {
   const grouped = new Map<string, UnitEvidence[]>();
   for (const unit of prepared.units) {
@@ -1029,7 +1116,16 @@ function importLegacyUnits(
           }),
           revision.entry.mtimeMs,
         );
-        const itemIds = insertLegacyUnitItems(ctx, prepared, revision, revisionId, artifactBySourcePath, refs, issues);
+        const itemIds = insertLegacyUnitItems(
+          ctx,
+          prepared,
+          revision,
+          revisionId,
+          artifactBySourcePath,
+          refs,
+          issues,
+          options,
+        );
         insertLegacyPresentations(
           ctx,
           prepared,
@@ -1076,10 +1172,13 @@ function insertLegacyUnitItems(
   artifactBySourcePath: ReadonlyMap<string, string>,
   refs: Map<string, Set<string>>,
   issues: PreparedIssue[],
+  options: ProductionImportOptions = {},
 ): string[] {
   const itemIds: string[] = [];
   const media = Array.isArray(unit.value.media) ? unit.value.media : [];
   for (const [position, value] of media.entries()) {
+    if (options.omitLastRepeatedUnitItemForTesting === true
+      && unit.slug === "repeated-pack" && position === media.length - 1) continue;
     if (typeof value !== "string") {
       issues.push(productionIssue(unit.entry, `unit-media:${unit.unitKey}:${unit.revisionNo}:${position}`, "MIGRATION_UNIT_ITEM_AMBIGUOUS", "review"));
       continue;
@@ -2923,38 +3022,180 @@ const PRODUCTION_REF_TABLES: Readonly<Record<string, string>> = {
   calendar: "calendar_entries",
 };
 
-function recordProductionAccountingFacts(
+function productionSourceFingerprint(
   ctx: MigrationContext,
-  entries: readonly Entry[],
-  pendingEntryIds: ReadonlySet<string>,
-): void {
-  const accounted: string[] = [];
-  for (const entry of entries) {
-    if (!isTaskFiveSource(entry.sourcePath, entry.disposition) || pendingEntryIds.has(entry.id)) continue;
+  prepared: ProductionPrepared,
+): ProductionSourceFingerprint {
+  const unitRecords = prepared.units.map((unit) => {
+    const media = Array.isArray(unit.value.media) ? unit.value.media : [];
+    const documentOccurrences = typeof unit.value.body === "string"
+        || Array.isArray(unit.value.items)
+        || typeof unit.value.bodyPath === "string"
+      ? 1
+      : 0;
+    const itemOccurrences = Math.max(1, media.length + documentOccurrences);
+    return {
+      entryId: unit.entry.id,
+      revisionNo: unit.revisionNo,
+      itemOccurrences,
+      digest: sha256(canonicalJsonText({
+        sourceLocatorHash: unit.entry.sourceLocatorHash,
+        revisionNo: unit.revisionNo,
+        value: unit.value,
+      })),
+    };
+  }).sort((left, right) => left.entryId.localeCompare(right.entryId) || left.revisionNo - right.revisionNo);
+  const sourceRecords = (records: readonly LegacyRecord[]) => records.map((record) => ({
+    entryId: record.entry.id,
+    rowOrdinal: record.rowOrdinal,
+    digest: sha256(canonicalJsonText(record.value)),
+  })).sort((left, right) => left.entryId.localeCompare(right.entryId) || left.rowOrdinal - right.rowOrdinal);
+  const metricRecords = prepared.metrics.map((record) => {
+    const metricId = stableId("metric", ctx, `legacy-metric:${record.entry.sourceId}:${record.entry.sourceLocatorHash}:${record.rowOrdinal}`);
+    const publicationId = typeof record.value.publicationId === "string" ? record.value.publicationId : "";
+    return {
+      entryId: record.entry.id,
+      rowOrdinal: record.rowOrdinal,
+      metricId,
+      winnerKey: publicationId ? publicationReferenceKey(record, publicationId) : `invalid:${record.entry.id}:${record.rowOrdinal}`,
+      asOf: legacyTime(record.value.asOf, legacyTime(record.value.createdAt, record.entry.mtimeMs)),
+      createdAt: legacyTime(record.value.createdAt, record.entry.mtimeMs),
+      digest: sha256(canonicalJsonText(record.value)),
+    };
+  }).sort((left, right) => left.entryId.localeCompare(right.entryId) || left.rowOrdinal - right.rowOrdinal);
+  return {
+    unitRecords,
+    productionRecords: sourceRecords(prepared.productions),
+    deliveryRecords: sourceRecords(expandedDeliveryRecords(prepared.deliveries)),
+    metricRecords,
+    metricWinnerIds: productionMetricWinnerIds(metricRecords),
+  };
+}
+
+function productionMetricWinnerIds(
+  records: readonly ProductionSourceFingerprint["metricRecords"][number][],
+): string[] {
+  const winners = new Map<string, ProductionSourceFingerprint["metricRecords"][number]>();
+  for (const record of records) {
+    const current = winners.get(record.winnerKey);
+    if (!current || record.asOf > current.asOf
+      || (record.asOf === current.asOf && record.createdAt > current.createdAt)
+      || (record.asOf === current.asOf && record.createdAt === current.createdAt
+        && record.metricId > current.metricId)) winners.set(record.winnerKey, record);
+  }
+  return [...winners.values()].map((record) => record.metricId).sort();
+}
+
+function captureProductionAccounting(
+  ctx: MigrationContext,
+  prepared: ProductionPrepared,
+  sourceFingerprint: ProductionSourceFingerprint,
+): PreparedProductionAccounting {
+  const entries: ProductionAccountingFact[] = [];
+  for (const entry of prepared.entries) {
+    if (!isTaskFiveSource(entry.sourcePath, entry.disposition) || prepared.pendingEntryIds.has(entry.id)) continue;
     const row = ctx.db.query<{ refs: string; state: string }, [string]>(
       "SELECT COALESCE(target_refs_json, '[]') AS refs, state FROM migration_entries WHERE id = ?",
     ).get(entry.id);
     if (!row || !["imported", "verified"].includes(row.state)) continue;
     const refs = JSON.parse(row.refs) as string[];
-    const facts = refs.map((ref) => {
-      if (ref.startsWith("provider/")) return { ref, digest: null };
-      const split = ref.indexOf("_");
-      const table = PRODUCTION_REF_TABLES[ref.slice(0, split)];
-      const target = table
-        ? ctx.db.query<Record<string, unknown>, [string]>(`SELECT * FROM ${table} WHERE id = ?`).get(ref)
-        : null;
-      if (!target) throw new Error("Migration production accounting target is missing");
-      return { ref, digest: sha256(canonicalJsonText(target)) };
-    });
+    const facts = refs.map((ref) => productionTargetFact(ctx.db, ref));
+    entries.push({ entryId: entry.id, sourceLocatorHash: entry.sourceLocatorHash, refs, facts });
+  }
+  entries.sort((left, right) => left.entryId.localeCompare(right.entryId));
+  return {
+    entries,
+    sourceFingerprint,
+    sourceFingerprintDigest: sha256(canonicalJsonText(sourceFingerprint)),
+  };
+}
+
+function productionTargetFact(db: Database, ref: string): { ref: string; digest: string | null } {
+  if (ref.startsWith("provider/")) return { ref, digest: null };
+  const split = ref.indexOf("_");
+  const table = PRODUCTION_REF_TABLES[ref.slice(0, split)];
+  const target = table
+    ? db.query<Record<string, unknown>, [string]>(`SELECT * FROM ${table} WHERE id = ?`).get(ref)
+    : null;
+  if (!target) throw new Error("Migration production accounting target is missing");
+  return { ref, digest: sha256(canonicalJsonText(target)) };
+}
+
+function assertProductionSourceCoverage(
+  db: Database,
+  expected: PreparedProductionAccounting,
+  source: ProductionSourceFingerprint,
+  issues: readonly PreparedIssue[],
+): void {
+  const byEntry = new Map(expected.entries.map((entry) => [entry.entryId, entry]));
+  const ambiguousLocators = new Set(issues.filter((issue) =>
+    ["MIGRATION_UNIT_ITEM_AMBIGUOUS", "MIGRATION_UNIT_DOCUMENT_AMBIGUOUS"].includes(issue.code)
+  ).map((issue) => issue.detail.sourceLocatorHash).filter((value): value is string => typeof value === "string"));
+  for (const unit of source.unitRecords) {
+    const entry = byEntry.get(unit.entryId);
+    if (!entry) throw new Error(`Migration production source accounting is missing: ${unit.entryId}`);
+    const actual = entry.refs.filter((ref) => ref.startsWith("item_")).length;
+    if (actual !== unit.itemOccurrences && !ambiguousLocators.has(entry.sourceLocatorHash)) {
+      throw new Error(`Migration production source occurrence mismatch: ${unit.entryId}`);
+    }
+  }
+  const importedMetrics = new Set(expected.entries.flatMap((entry) =>
+    entry.refs.filter((ref) => ref.startsWith("metric_"))
+  ));
+  const expectedWinners = productionMetricWinnerIds(
+    source.metricRecords.filter((record) => importedMetrics.has(record.metricId)),
+  );
+  const actualWinners = db.query<{ id: string }, []>(
+    `WITH ranked AS (
+       SELECT id, ROW_NUMBER() OVER (
+         PARTITION BY publication_id ORDER BY as_of DESC, created_at DESC, id DESC
+       ) AS winner
+       FROM metric_snapshots
+     ) SELECT id FROM ranked WHERE winner = 1 ORDER BY id`,
+  ).all().map((row) => row.id);
+  if (canonicalJsonText(actualWinners) !== canonicalJsonText(expectedWinners)) {
+    const entryId = source.metricRecords.find((record) => expectedWinners.includes(record.metricId))?.entryId
+      ?? source.metricRecords[0]?.entryId ?? "unknown";
+    throw new Error(`Migration production metric winner mismatch: ${entryId}`);
+  }
+}
+
+function assertProductionAccountingTarget(
+  db: Database,
+  expected: PreparedProductionAccounting,
+): void {
+  for (const entry of expected.entries) {
+    const row = db.query<{ refs: string; sourceLocatorHash: string }, [string]>(
+      `SELECT COALESCE(target_refs_json, '[]') AS refs,
+              source_locator_hash AS sourceLocatorHash
+       FROM migration_entries WHERE id = ?`,
+    ).get(entry.entryId);
+    if (!row || row.sourceLocatorHash !== entry.sourceLocatorHash
+      || row.refs !== JSON.stringify(entry.refs)) {
+      throw new Error(`Migration production accounting mismatch: ${entry.entryId}`);
+    }
+    for (const fact of entry.facts) {
+      const actual = productionTargetFact(db, fact.ref);
+      if (actual.digest !== fact.digest) {
+        throw new Error(`Migration production accounting mismatch: ${entry.entryId}`);
+      }
+    }
+  }
+}
+
+function recordProductionAccountingFacts(
+  ctx: MigrationContext,
+  expected: PreparedProductionAccounting,
+): void {
+  for (const entry of expected.entries) {
     insertIssue(ctx, {
       entryId: null,
-      issueKey: `production-accounting:${entry.id}`,
+      issueKey: `production-accounting:${entry.entryId}`,
       code: "MIGRATION_PRODUCTION_ACCOUNTING_FACT",
       severity: "info",
       lineNo: null,
-      detail: { entryId: entry.id, sourceLocatorHash: entry.sourceLocatorHash, refs, facts },
+      detail: entry,
     });
-    accounted.push(entry.id);
   }
   insertIssue(ctx, {
     entryId: null,
@@ -2962,7 +3203,11 @@ function recordProductionAccountingFacts(
     code: "MIGRATION_PRODUCTION_ACCOUNTING_INDEX",
     severity: "info",
     lineNo: null,
-    detail: { entryIds: accounted.sort() },
+    detail: {
+      entryIds: expected.entries.map((entry) => entry.entryId),
+      sourceFingerprint: expected.sourceFingerprint,
+      sourceFingerprintDigest: expected.sourceFingerprintDigest,
+    },
   });
 }
 
@@ -2977,40 +3222,24 @@ function verifyProductionTargetRefs(db: Database, refs: readonly string[]): void
   }
 }
 
-function insertOrValidateLegacyRun(
-  ctx: MigrationContext,
-  sourceId: string,
-  row: LegacyJob,
-  runId: string,
-  projectId: string | null,
-): void {
-  const state = runState(row.status);
-  const startedAt = state === "running" || (state !== "pending" && row.startedAt !== null)
-    ? Math.max(row.startedAt ?? row.createdAt, row.createdAt)
-    : null;
-  const endedAt = ["succeeded", "failed", "cancelled"].includes(state)
-    ? Math.max(row.endedAt ?? startedAt ?? row.createdAt, startedAt ?? row.createdAt)
-    : null;
-  const error = state === "failed" ? row.error : null;
-  const metadata = JSON.stringify({ migrationRunId: ctx.runId, legacyJobId: row.id });
-  const workspaceId = projectId ? workspaceForProject(ctx.db, projectId) : null;
+function insertOrValidateLegacyRun(ctx: MigrationContext, sourceId: string, row: MigrationRunTargetRow): void {
   const sql = `INSERT INTO runs
     (id, workspace_id, project_id, kind, label, state, metadata_json,
      created_at, started_at, ended_at, error)
     VALUES (?, ?, ?, 'legacy-job', ?, ?, ?, ?, ?, ?, ?)`;
   const values: SqlValue[] = [
-    runId,
-    workspaceId,
-    projectId,
-    `Legacy job ${row.id}`,
-    state,
-    metadata,
-    row.createdAt,
-    startedAt,
-    endedAt,
-    error,
+    row.id,
+    row.workspace_id,
+    row.project_id,
+    row.label,
+    row.state,
+    row.metadata_json,
+    row.created_at,
+    row.started_at,
+    row.ended_at,
+    row.error,
   ];
-  const existing = ctx.db.query<Record<string, unknown>, [string]>("SELECT * FROM runs WHERE id = ?").get(runId);
+  const existing = ctx.db.query<Record<string, unknown>, [string]>("SELECT * FROM runs WHERE id = ?").get(row.id);
   if (existing) {
     if (!matchesInsert(existing, sql, values)) throw new Error("Migration runs replay conflict");
     return;
@@ -3020,17 +3249,17 @@ function insertOrValidateLegacyRun(
      (id, workspace_id, project_id, kind, label, state, metadata_json,
       created_at, started_at, ended_at, error)
      VALUES (?, ?, ?, 'legacy-job', ?, 'pending', ?, ?, NULL, NULL, NULL)`,
-  ).run(runId, workspaceId, projectId, `Legacy job ${row.id}`, metadata, row.createdAt);
-  if (state === "running" || (state !== "pending" && startedAt !== null)) {
+  ).run(row.id, row.workspace_id, row.project_id, row.label, row.metadata_json, row.created_at);
+  if (row.state === "running" || (row.state !== "pending" && row.started_at !== null)) {
     ctx.db.prepare("UPDATE runs SET state = 'running', started_at = ? WHERE id = ? AND state = 'pending'")
-      .run(startedAt, runId);
+      .run(row.started_at, row.id);
   }
-  if (["succeeded", "failed", "cancelled"].includes(state)) {
-    const expectedState = startedAt === null ? "pending" : "running";
+  if (["succeeded", "failed", "cancelled"].includes(row.state)) {
+    const expectedState = row.started_at === null ? "pending" : "running";
     const updated = ctx.db.prepare(
       "UPDATE runs SET state = ?, ended_at = ?, error = ? WHERE id = ? AND state = ? RETURNING id",
-    ).get(state, endedAt, error, runId, expectedState) as { id: string } | null;
-    if (updated?.id !== runId) throw new Error(`Migration Run transition failed for ${sourceId}`);
+    ).get(row.state, row.ended_at, row.error, row.id, expectedState) as { id: string } | null;
+    if (updated?.id !== row.id) throw new Error(`Migration Run transition failed for ${sourceId}`);
   }
 }
 
@@ -3044,14 +3273,155 @@ type PreparedJobSource = {
   redactedJobs: Map<number, Set<string>>;
 };
 
-function recordJobAccountingFact(ctx: MigrationContext, source: PreparedJobSource): void {
-  const digest = (table: string, id: number | string): string => {
-    const row = ctx.db.query<Record<string, unknown>, [number | string]>(
-      `SELECT * FROM ${table} WHERE id = ?`,
-    ).get(id);
-    if (!row) throw new Error(`Migration ${table} accounting row is missing`);
-    return sha256(canonicalJsonText(row));
+type MigrationRunTargetRow = {
+  id: string;
+  workspace_id: string | null;
+  project_id: string | null;
+  agent_session_id: null;
+  kind: "legacy-job";
+  label: string;
+  state: "pending" | "running" | "succeeded" | "failed" | "cancelled";
+  metadata_json: string;
+  external_system: null;
+  external_run_id: null;
+  external_node_id: null;
+  external_attempt: null;
+  external_operation: null;
+  idempotency_key: null;
+  request_digest: null;
+  consumer_principal_id: null;
+  created_at: number;
+  started_at: number | null;
+  ended_at: number | null;
+  error: string | null;
+};
+
+export type MigrationJobTargetRow = {
+  id: number;
+  run_id: string;
+  kind: "legacy";
+  status: "pending" | "blocked" | "running" | "completed" | "failed" | "cancelled";
+  command: string;
+  depends_on: string;
+  priority: number;
+  created_at: number;
+  started_at: number | null;
+  ended_at: number | null;
+  exit_code: number | null;
+  error_message: string | null;
+  retry_count: number;
+  log_path: string | null;
+  tag: string | null;
+  project_id: string | null;
+  migration_hold_run_id: string | null;
+};
+
+type MigrationLogTargetRow = {
+  id: number;
+  job_id: number;
+  ts: number;
+  stream: string;
+  line: string;
+};
+
+type MigrationArtifactTargetRow = {
+  id: number;
+  job_id: number;
+  object_id: null;
+  kind: string;
+  path: string;
+  bytes: number | null;
+  sha256: string | null;
+};
+
+type PreparedJobAccounting = {
+  sourceId: string;
+  entryIds: string[];
+  projects: Map<number, ReturnType<typeof resolveLegacyJobProject>>;
+  jobs: Array<{ id: number; run: MigrationRunTargetRow; job: MigrationJobTargetRow }>;
+  logs: MigrationLogTargetRow[];
+  artifacts: MigrationArtifactTargetRow[];
+};
+
+function prepareJobAccounting(ctx: MigrationContext, source: PreparedJobSource): PreparedJobAccounting {
+  const projects = new Map(source.jobs.map((row) => [
+    row.id,
+    resolveLegacyJobProject(ctx.db, source.sourceId, row.projectId),
+  ]));
+  return {
+    sourceId: source.sourceId,
+    entryIds: source.files.map((file) => file.entry.id).sort(),
+    projects,
+    jobs: source.jobs.map((row) => {
+      const projectId = projects.get(row.id)!.projectId;
+      const runId = stableId("run", ctx, `job:${source.sourceId}:${row.id}`);
+      const state = runState(row.status);
+      const startedAt = state === "running" || (state !== "pending" && row.startedAt !== null)
+        ? Math.max(row.startedAt ?? row.createdAt, row.createdAt)
+        : null;
+      const endedAt = ["succeeded", "failed", "cancelled"].includes(state)
+        ? Math.max(row.endedAt ?? startedAt ?? row.createdAt, startedAt ?? row.createdAt)
+        : null;
+      const status = jobStatus(row.status);
+      return {
+        id: row.id,
+        run: {
+          id: runId,
+          workspace_id: projectId ? workspaceForProject(ctx.db, projectId) : null,
+          project_id: projectId,
+          agent_session_id: null,
+          kind: "legacy-job",
+          label: `Legacy job ${row.id}`,
+          state,
+          metadata_json: JSON.stringify({ migrationRunId: ctx.runId, legacyJobId: row.id }),
+          external_system: null,
+          external_run_id: null,
+          external_node_id: null,
+          external_attempt: null,
+          external_operation: null,
+          idempotency_key: null,
+          request_digest: null,
+          consumer_principal_id: null,
+          created_at: row.createdAt,
+          started_at: startedAt,
+          ended_at: endedAt,
+          error: state === "failed" ? row.error : null,
+        },
+        job: {
+          id: row.id,
+          run_id: runId,
+          kind: "legacy",
+          status,
+          command: row.command,
+          depends_on: row.dependsOn,
+          priority: row.priority,
+          created_at: row.createdAt,
+          started_at: row.startedAt,
+          ended_at: row.endedAt,
+          exit_code: row.exitCode,
+          error_message: row.error,
+          retry_count: row.retryCount,
+          log_path: row.logPath,
+          tag: row.tag,
+          project_id: projectId,
+          migration_hold_run_id: status === "pending" ? ctx.runId : null,
+        },
+      };
+    }),
+    logs: source.logs.map((row) => ({ id: row.id, job_id: row.jobId, ts: row.ts, stream: row.stream, line: row.line })),
+    artifacts: source.artifacts.map((row) => ({
+      id: row.id,
+      job_id: row.jobId,
+      object_id: null,
+      kind: row.kind,
+      path: row.path,
+      bytes: row.bytes,
+      sha256: row.sha256,
+    })),
   };
+}
+
+function recordJobAccountingFact(ctx: MigrationContext, source: PreparedJobAccounting): void {
   insertIssue(ctx, {
     entryId: null,
     issueKey: `job-accounting:${source.sourceId}`,
@@ -3060,25 +3430,48 @@ function recordJobAccountingFact(ctx: MigrationContext, source: PreparedJobSourc
     lineNo: null,
     detail: {
       sourceId: source.sourceId,
-      entryIds: source.files.map((file) => file.entry.id).sort(),
-      jobs: source.jobs.map((row) => {
-        const runId = stableId("run", ctx, `job:${source.sourceId}:${row.id}`);
-        const job = ctx.db.query<{ status: string; hold: string | null }, [number]>(
-          "SELECT status, migration_hold_run_id AS hold FROM jobs WHERE id = ?",
-        ).get(row.id)!;
-        return {
-          id: row.id,
-          runId,
-          status: job.status,
-          hold: job.hold,
-          digest: digest("jobs", row.id),
-          runDigest: digest("runs", runId),
-        };
-      }).sort((left, right) => left.id - right.id),
-      logs: source.logs.map((row) => ({ id: row.id, jobId: row.jobId, digest: digest("job_logs", row.id) }))
+      entryIds: source.entryIds,
+      jobs: source.jobs.map((row) => ({
+        id: row.id,
+        runId: row.run.id,
+        status: row.job.status,
+        hold: row.job.migration_hold_run_id,
+        digest: sha256(canonicalJsonText(row.job)),
+        runDigest: sha256(canonicalJsonText(row.run)),
+      })).sort((left, right) => left.id - right.id),
+      logs: source.logs.map((row) => ({ id: row.id, jobId: row.job_id, digest: sha256(canonicalJsonText(row)) }))
         .sort((left, right) => left.id - right.id),
-      artifacts: source.artifacts.map((row) => ({ id: row.id, jobId: row.jobId, digest: digest("job_artifacts", row.id) }))
+      artifacts: source.artifacts.map((row) => ({ id: row.id, jobId: row.job_id, digest: sha256(canonicalJsonText(row)) }))
         .sort((left, right) => left.id - right.id),
+    },
+  });
+}
+
+function assertJobAccountingTarget(db: Database, expected: PreparedJobAccounting, entryId: string): void {
+  const matches = (table: string, id: number | string, row: unknown): boolean => {
+    const actual = db.query<Record<string, unknown>, [number | string]>(`SELECT * FROM ${table} WHERE id = ?`).get(id);
+    return actual !== null && actual !== undefined
+      && sha256(canonicalJsonText(actual)) === sha256(canonicalJsonText(row));
+  };
+  if (expected.jobs.some((row) => !matches("jobs", row.id, row.job) || !matches("runs", row.run.id, row.run))
+    || expected.logs.some((row) => !matches("job_logs", row.id, row))
+    || expected.artifacts.some((row) => !matches("job_artifacts", row.id, row))) {
+    throw new Error(`Migration Job accounting mismatch: ${entryId}`);
+  }
+}
+
+function recordJobAccountingIndex(ctx: MigrationContext, sources: readonly PreparedJobSource[]): void {
+  insertIssue(ctx, {
+    entryId: null,
+    issueKey: "job-accounting-index",
+    code: "MIGRATION_JOB_ACCOUNTING_INDEX",
+    severity: "info",
+    lineNo: null,
+    detail: {
+      triplets: sources.map((source) => ({
+        sourceId: source.sourceId,
+        entryIds: source.files.map((file) => file.entry.id).sort(),
+      })).sort((left, right) => left.sourceId.localeCompare(right.sourceId)),
     },
   });
 }
@@ -4989,11 +5382,9 @@ function readLegacyJobArtifacts(db: Database, sourceRoot: string): LegacyJobArti
   });
 }
 
-function insertOrValidateJob(ctx: MigrationContext, row: LegacyJob, runId: string, projectId: string | null): void {
-  const status = jobStatus(row.status);
-  const hold = status === "pending" ? ctx.runId : null;
+function insertOrValidateJob(db: Database, row: MigrationJobTargetRow): void {
   insertExact(
-    ctx.db,
+    db,
     "jobs",
     row.id,
     `INSERT INTO jobs
@@ -5003,21 +5394,21 @@ function insertOrValidateJob(ctx: MigrationContext, row: LegacyJob, runId: strin
      VALUES (?, ?, 'legacy', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       row.id,
-      runId,
-      status,
+      row.run_id,
+      row.status,
       row.command,
-      row.dependsOn,
+      row.depends_on,
       row.priority,
-      row.createdAt,
-      row.startedAt,
-      row.endedAt,
-      row.exitCode,
-      row.error,
-      row.retryCount,
-      row.logPath,
+      row.created_at,
+      row.started_at,
+      row.ended_at,
+      row.exit_code,
+      row.error_message,
+      row.retry_count,
+      row.log_path,
       row.tag,
-      projectId,
-      hold,
+      row.project_id,
+      row.migration_hold_run_id,
     ],
   );
 }
