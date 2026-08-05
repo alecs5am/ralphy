@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import path from "node:path";
 import { out } from "../lib/output.js";
 import {
   cutoverMigration,
@@ -7,13 +8,19 @@ import {
   rollbackCutover,
   resumeMigration,
   startMigration,
+  verifyOrFreezeMigration,
 } from "../lib/migration/service.js";
 import { auditMigration as auditMigrationReadOnly } from "../lib/migration/inventory.js";
-import { verifyMigration } from "../lib/migration/verify.js";
+import { assertStartupJournalReady } from "../lib/migration/cutover-journal.js";
 
 export function migrateCmd() {
   const command = new Command("migrate")
-    .description("Audit, stage, verify, and recover the SQLite domain-store migration");
+    .description("Audit, stage, verify, and recover the SQLite domain-store migration")
+    .hook("preAction", (_migration, action) => {
+      if (action.name() === "recover" || action.name() === "rollback") return;
+      const source = (action.opts() as { source?: string }).source;
+      if (source) assertStartupJournalReady(path.resolve(source));
+    });
   command.addCommand(new Command("audit")
     .requiredOption("--source <path>", "Exact source root to audit")
     .option("--legacy-source <path>", "Additional legacy workspace source root")
@@ -25,7 +32,11 @@ export function migrateCmd() {
     .requiredOption("--source <path>", "Exact source root to migrate")
     .option("--legacy-source <path>", "Additional legacy workspace source root")
     .option("--desktop-source <path>", "Additional Desktop export source root")
-    .action(async (opts: { source: string; legacySource?: string; desktopSource?: string }) => {
+    .option("--desktop-executable <path>", "Exact packaged Desktop safeStorage executable")
+    .action(async (opts: { source: string; legacySource?: string; desktopSource?: string; desktopExecutable?: string }) => {
+      if (opts.desktopSource && !opts.desktopExecutable) {
+        throw new Error("migrate run with --desktop-source requires --desktop-executable before creating a recoverable Run");
+      }
       const started = startMigration({
         sourceRoots: sourceRoots(opts),
       });
@@ -33,6 +44,7 @@ export function migrateCmd() {
         runId: started.runId,
         sourceRoots: sourceRoots(opts),
         lock: started.lock,
+        desktopExecutable: opts.desktopExecutable,
       });
       out({
         runId: started.runId,
@@ -47,10 +59,12 @@ export function migrateCmd() {
     .requiredOption("--source <path>", "Exact source root to resume")
     .option("--legacy-source <path>", "Additional legacy workspace source root")
     .option("--desktop-source <path>", "Additional Desktop export source root")
-    .action(async (opts: { runId: string; source: string; legacySource?: string; desktopSource?: string }) => {
+    .option("--desktop-executable <path>", "Exact packaged Desktop safeStorage executable")
+    .action(async (opts: { runId: string; source: string; legacySource?: string; desktopSource?: string; desktopExecutable?: string }) => {
       out(await resumeMigration({
         runId: opts.runId,
         sourceRoots: sourceRoots(opts),
+        desktopExecutable: opts.desktopExecutable,
       }));
     }));
   command.addCommand(new Command("status")
@@ -62,12 +76,12 @@ export function migrateCmd() {
     }))));
   command.addCommand(new Command("verify")
     .requiredOption("--run-id <id>", "Migration Run ID")
-    .requiredOption("--store-root <path>", "Exact staged .ralphy root")
+    .requiredOption("--source <path>", "Exact source root used to derive the staged Run")
     .requiredOption("--verification-dir <path>", "Directory outside source/stage roots for the report")
-    .action((opts: { runId: string; storeRoot: string; verificationDir: string }) => {
-      out(verifyMigration({
+    .action(async (opts: { runId: string; source: string; verificationDir: string }) => {
+      out(await verifyOrFreezeMigration({
         runId: opts.runId,
-        storeRoot: opts.storeRoot,
+        sourcePath: opts.source,
         verificationDir: opts.verificationDir,
       }));
       }));
@@ -75,29 +89,27 @@ export function migrateCmd() {
     .requiredOption("--run-id <id>", "Migration Run ID")
     .requiredOption("--confirm <id>", "Repeat the Migration Run ID as an explicit destructive-action confirmation")
     .requiredOption("--verification-id <id>", "Read-only verification ID")
-    .requiredOption("--verification-record <path>", "Mode-0600 verification record")
+    .requiredOption("--verification-dir <path>", "Directory containing the bound verification and freeze records")
     .requiredOption("--source <path>", "Exact existing .ralphy source root")
-    .requiredOption("--stage <path>", "Exact staged .ralphy root")
-    .action((opts: { runId: string; confirm: string; verificationId: string; verificationRecord: string; source: string; stage: string }) => {
+    .action((opts: { runId: string; confirm: string; verificationId: string; verificationDir: string; source: string }) => {
       if (opts.confirm !== opts.runId) throw new Error("Cutover confirmation does not match the Migration Run ID");
       out(cutoverMigration({
         runId: opts.runId,
         verificationId: opts.verificationId,
-        verificationPath: opts.verificationRecord,
+        verificationDir: opts.verificationDir,
         sourcePath: opts.source,
-        stagePath: opts.stage,
       }));
     }));
   for (const name of ["recover", "rollback"] as const) {
     command.addCommand(new Command(name)
       .requiredOption("--run-id <id>", "Migration Run ID")
       .requiredOption("--confirm <id>", "Repeat the Migration Run ID as an explicit confirmation")
-      .requiredOption("--journal <path>", "External mode-0600 cutover journal")
-      .action((opts: { runId: string; confirm: string; journal: string }) => {
+      .requiredOption("--source <path>", "Exact .ralphy source path used to derive the cutover journal")
+      .action((opts: { runId: string; confirm: string; source: string }) => {
         if (opts.confirm !== opts.runId) throw new Error(`${name} confirmation does not match the Migration Run ID`);
         out(name === "recover"
-          ? recoverCutover({ runId: opts.runId, journalPath: opts.journal })
-          : rollbackCutover({ runId: opts.runId, journalPath: opts.journal }));
+          ? recoverCutover({ runId: opts.runId, sourcePath: opts.source })
+          : rollbackCutover({ runId: opts.runId, sourcePath: opts.source }));
       }));
   }
   return command;

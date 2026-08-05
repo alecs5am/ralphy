@@ -125,7 +125,7 @@ describe("stdio bridge", () => {
     expect(events[2]?.sequence).toBeGreaterThan(1);
   });
 
-  test("imports secrets without returning their values", async () => {
+  test("rejects migration secrets without Desktop authorization and never returns their values", async () => {
     root = makeTmpRoot("ralphy-bridge-secret-import");
     const workspace = createWorkspace({ slug: "primary", name: "Primary" });
     const migrationId = "mig_00000000-0000-4000-8000-000000000031";
@@ -181,17 +181,19 @@ describe("stdio bridge", () => {
       }),
     ].join("\n") + "\n");
     expect(output).not.toContain(secret);
-    expect(fs.readFileSync(path.join(root.dir, ".ralphy", "secrets.enc"), "utf8")).not.toContain(secret);
+    const encryptedPath = path.join(root.dir, ".ralphy", "secrets.enc");
+    expect(fs.existsSync(encryptedPath)).toBe(false);
     expect(db.query<{ disposition: string; state: string; refs: string }, [string]>(
       `SELECT disposition, state, target_refs_json AS refs
        FROM migration_entries WHERE id = ?`,
     ).get(sourceEntryId)).toEqual({
-      disposition: "secret-imported",
-      state: "excluded",
+      disposition: "secret-recovery-only",
+      state: "inventoried",
       refs: JSON.stringify([ref]),
     });
-    const response = JSON.parse(output.trim().split("\n").at(-1)!) as { result: unknown };
-    expect(response.result).toEqual({ ref, kind: "text", completed: true });
+    const response = JSON.parse(output.trim().split("\n").at(-1)!) as { ok: boolean; error?: { code: string } };
+    expect(response).toMatchObject({ ok: false, error: { code: "E_INTERNAL" } });
+    fs.writeFileSync(encryptedPath, "");
 
     const accountEntryId = "mentry_00000000-0000-4000-8000-000000000032";
     const accountHash = "c".repeat(64);
@@ -335,6 +337,6 @@ describe("stdio bridge", () => {
       ref: fileRef,
       kind: "file",
       base64: "YQ==",
-    }, context)).resolves.toEqual({ ref: fileRef, kind: "file", completed: true });
+    }, context)).rejects.toThrow(/authorization/i);
   });
 });

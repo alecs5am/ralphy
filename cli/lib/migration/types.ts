@@ -1,4 +1,5 @@
 import type { Database } from "bun:sqlite";
+import type { MigrationProcessIdentity } from "./process-identity.js";
 
 export type MigrationSourceKind = "ralphy" | "legacy-workspace" | "desktop";
 
@@ -184,11 +185,10 @@ export type MigrationLock = {
   path: string;
   runId: string;
   nonce: string;
+  previousNonce: string | null;
   sourcePath: string;
   sourceDevice: string;
   sourceInode: string;
-  pid: number;
-  processStartIdentity: string;
-  uid: number;
+  processIdentity: MigrationProcessIdentity;
   createdAt: number;
 };

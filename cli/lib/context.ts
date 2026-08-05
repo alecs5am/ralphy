@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { DomainError } from "./errors/domain.js";
+import { assertStartupJournalReady } from "./migration/cutover-journal.js";
 
 export type DataRootIdentity = {
   dataRoot: string;
@@ -19,7 +20,10 @@ export function resolveDataRoot(input: {
   cwd?: string;
 } = {}): DataRootIdentity {
   if (input.root !== undefined) {
+    const requested = path.resolve(input.root);
+    if (path.basename(requested) === ".ralphy") assertStartupJournalReady(requested);
     const explicit = canonicalDirectory(input.root, "--root");
+    if (path.basename(explicit) === ".ralphy") assertStartupJournalReady(explicit);
     if (!fs.existsSync(path.join(explicit, "ralphy.db"))) {
       if (fs.existsSync(path.join(explicit, ".ralphy"))) {
         throw inputError(
@@ -35,6 +39,7 @@ export function resolveDataRoot(input: {
   let current = canonicalDirectory(input.cwd ?? process.cwd(), "--cwd");
   while (true) {
     const candidate = path.join(current, ".ralphy");
+    assertStartupJournalReady(candidate);
     if (fs.existsSync(candidate)) {
       if (!fs.existsSync(path.join(candidate, "ralphy.db"))) {
         throw new DomainError("E_MIGRATION_INCOMPLETE");

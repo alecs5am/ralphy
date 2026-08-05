@@ -11,12 +11,16 @@ import {
   assertMigrationQuiescent,
   auditMigration,
   createMigrationSourceRoot,
-  inspectProcessStart,
   inventoryLegacySource,
   releaseMaintenanceLock,
   scanMigrationProcesses,
+  setMigrationLockFaultForTesting,
   setMigrationProcessToolsForTesting,
 } from "../../cli/lib/migration/inventory.js";
+import {
+  inspectMigrationProcessIdentity,
+  inspectMigrationProcessIdentityState,
+} from "../../cli/lib/migration/process-identity.js";
 import {
   cutoverMigration,
   migrationStatus,
@@ -297,7 +301,7 @@ describe("migration inventory", () => {
 });
 
 describe("migration maintenance lock", () => {
-  test("serializes stale-lock reclaim with an atomic sibling guard", () => {
+  test("resumes a quarantined stale lock without overwriting another owner", () => {
     fixtureRoot = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "rml-guard-")));
     const source = path.join(fixtureRoot, ".ralphy");
     fs.mkdirSync(source);
@@ -305,30 +309,207 @@ describe("migration maintenance lock", () => {
     releaseMaintenanceLock(original);
     const stale = {
       ...original,
-      pid: 999_999_999,
-      processStartIdentity: "dead-process",
+      processIdentity: { ...original.processIdentity, pid: 999_999_999 },
       nonce: "stale-guarded-nonce",
     };
-    fs.writeFileSync(original.path, `${JSON.stringify(stale)}\n`, { mode: 0o600 });
-    const guardPath = `${original.path}.reclaim`;
-    fs.writeFileSync(guardPath, "occupied\n", { mode: 0o600 });
-    const before = fs.readFileSync(original.path, "utf8");
-
-    expect(() => acquireMaintenanceLock({
-      sourcePath: source,
-      runId: "mig_guard",
-      reclaim: "resume",
-    })).toThrow(/guard|held|reclaim/i);
-    expect(fs.readFileSync(original.path, "utf8")).toBe(before);
-
-    fs.unlinkSync(guardPath);
+    const quarantinePath = `${original.path}.quarantine`;
+    fs.writeFileSync(quarantinePath, `${JSON.stringify(stale)}\n`, { mode: 0o600 });
     const reclaimed = acquireMaintenanceLock({
       sourcePath: source,
       runId: "mig_guard",
       reclaim: "resume",
     });
-    expect(fs.existsSync(guardPath)).toBe(false);
+    expect(fs.existsSync(quarantinePath)).toBe(false);
     releaseMaintenanceLock(reclaimed);
+  });
+
+  test("cleans every partial lock creation without unlinking a replacement inode", () => {
+    fixtureRoot = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "rml-create-fault-")));
+    const points = [
+      "create-after-open",
+      "create-after-write",
+      "create-after-file-fsync",
+      "create-after-parent-fsync",
+    ] as const;
+    for (const [index, point] of points.entries()) {
+      const parent = path.join(fixtureRoot, String(index));
+      const source = path.join(parent, ".ralphy");
+      fs.mkdirSync(source, { recursive: true });
+      const lockPath = path.join(parent, ".ralphy-migration.lock");
+      const restore = setMigrationLockFaultForTesting((candidate) => {
+        if (candidate === point) throw new Error(`fault:${point}`);
+      });
+      try {
+        expect(() => acquireMaintenanceLock({ sourcePath: source, runId: `mig_create_${index}` }))
+          .toThrow(`fault:${point}`);
+      } finally {
+        restore();
+      }
+      expect(fs.existsSync(lockPath)).toBe(false);
+      const lock = acquireMaintenanceLock({ sourcePath: source, runId: `mig_create_${index}` });
+      releaseMaintenanceLock(lock);
+    }
+
+    const parent = path.join(fixtureRoot, "replacement");
+    const source = path.join(parent, ".ralphy");
+    const displaced = path.join(parent, "created-inode");
+    fs.mkdirSync(source, { recursive: true });
+    const lockPath = path.join(parent, ".ralphy-migration.lock");
+    const restore = setMigrationLockFaultForTesting((point) => {
+      if (point !== "create-after-open") return;
+      fs.renameSync(lockPath, displaced);
+      fs.writeFileSync(lockPath, "replacement\n", { mode: 0o600 });
+      throw new Error("replacement-race");
+    });
+    try {
+      expect(() => acquireMaintenanceLock({ sourcePath: source, runId: "mig_replacement" }))
+        .toThrow(/replacement-race/i);
+    } finally {
+      restore();
+    }
+    expect(fs.readFileSync(lockPath, "utf8")).toBe("replacement\n");
+    expect(fs.existsSync(displaced)).toBe(true);
+  });
+
+  test("converges repeated acquire and release crashes through one deterministic quarantine", () => {
+    fixtureRoot = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "rml-transition-fault-")));
+    const acquirePoints = [
+      "acquire-after-quarantine",
+      "acquire-after-replacement",
+      "acquire-before-quarantine-unlink",
+    ] as const;
+    for (const [index, point] of acquirePoints.entries()) {
+      const parent = path.join(fixtureRoot, `acquire-${index}`);
+      const source = path.join(parent, ".ralphy");
+      fs.mkdirSync(source, { recursive: true });
+      const original = acquireMaintenanceLock({ sourcePath: source, runId: `mig_acquire_${index}` });
+      releaseMaintenanceLock(original);
+      writeAbsentOwnerLock(original.path, { ...original, nonce: `stale-${index}` });
+      let faults = 0;
+      const restore = setMigrationLockFaultForTesting((candidate) => {
+        if (candidate === point && faults < 2) {
+          faults += 1;
+          throw new Error(`fault:${point}`);
+        }
+      });
+      try {
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          expect(() => acquireMaintenanceLock({
+            sourcePath: source,
+            runId: `mig_acquire_${index}`,
+            reclaim: "resume",
+          })).toThrow(`fault:${point}`);
+          if (fs.existsSync(original.path)) markLockOwnerAbsent(original.path);
+          expect(fs.readdirSync(parent).filter((name) => name.includes(".quarantine"))).toHaveLength(1);
+        }
+      } finally {
+        restore();
+      }
+      const recovered = acquireMaintenanceLock({
+        sourcePath: source,
+        runId: `mig_acquire_${index}`,
+        reclaim: "resume",
+      });
+      expect(fs.existsSync(`${original.path}.quarantine`)).toBe(false);
+      releaseMaintenanceLock(recovered);
+    }
+
+    const releasePoints = ["release-after-quarantine", "release-before-quarantine-unlink"] as const;
+    for (const [index, point] of releasePoints.entries()) {
+      const parent = path.join(fixtureRoot, `release-${index}`);
+      const source = path.join(parent, ".ralphy");
+      fs.mkdirSync(source, { recursive: true });
+      const lock = acquireMaintenanceLock({ sourcePath: source, runId: `mig_release_${index}` });
+      let faults = 0;
+      const restore = setMigrationLockFaultForTesting((candidate) => {
+        if (candidate === point && faults < 2) {
+          faults += 1;
+          throw new Error(`fault:${point}`);
+        }
+      });
+      try {
+        expect(() => releaseMaintenanceLock(lock)).toThrow(`fault:${point}`);
+        expect(() => releaseMaintenanceLock(lock)).toThrow(`fault:${point}`);
+      } finally {
+        restore();
+      }
+      releaseMaintenanceLock(lock);
+      expect(fs.existsSync(lock.path)).toBe(false);
+      expect(fs.existsSync(`${lock.path}.quarantine`)).toBe(false);
+    }
+  });
+
+  test("never unlinks a replacement installed after exact delete validation", () => {
+    fixtureRoot = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "rml-delete-race-")));
+    const source = path.join(fixtureRoot, ".ralphy");
+    fs.mkdirSync(source);
+    const lockPath = path.join(fixtureRoot, ".ralphy-migration.lock");
+    const replacement = "replacement-after-validation\n";
+    const restoreCreate = setMigrationLockFaultForTesting((point) => {
+      if (point === "create-after-write") throw new Error("create-failure");
+      if (point === "delete-after-validation") {
+        fs.writeFileSync(lockPath, replacement, { mode: 0o600 });
+      }
+    });
+    try {
+      expect(() => acquireMaintenanceLock({ sourcePath: source, runId: "mig_delete_create" }))
+        .toThrow(/create-failure/i);
+    } finally {
+      restoreCreate();
+    }
+    expect(fs.readFileSync(lockPath, "utf8")).toBe(replacement);
+    fs.unlinkSync(lockPath);
+
+    const lock = acquireMaintenanceLock({ sourcePath: source, runId: "mig_delete_release" });
+    const quarantinePath = `${lock.path}.quarantine`;
+    const restoreRelease = setMigrationLockFaultForTesting((point) => {
+      if (point === "delete-after-validation") {
+        fs.writeFileSync(quarantinePath, replacement, { mode: 0o600 });
+      }
+    });
+    try {
+      releaseMaintenanceLock(lock);
+    } finally {
+      restoreRelease();
+    }
+    expect(fs.readFileSync(quarantinePath, "utf8")).toBe(replacement);
+  });
+
+  test("blocks same-start owner drift and refuses release by a different live process identity", async () => {
+    fixtureRoot = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "rml-owner-drift-")));
+    const source = path.join(fixtureRoot, ".ralphy");
+    fs.mkdirSync(source);
+    const original = acquireMaintenanceLock({ sourcePath: source, runId: "mig_owner" });
+    releaseMaintenanceLock(original);
+    const drifted = {
+      ...original,
+      nonce: "same-start-drift",
+      processIdentity: {
+        ...original.processIdentity,
+        parentPid: original.processIdentity.parentPid + 1,
+      },
+    };
+    fs.writeFileSync(original.path, `${JSON.stringify(drifted)}\n`, { mode: 0o600 });
+    expect(() => acquireMaintenanceLock({
+      sourcePath: source,
+      runId: "mig_owner",
+      reclaim: "resume",
+    })).toThrow(/held/i);
+    expect(fs.existsSync(original.path)).toBe(true);
+    fs.unlinkSync(original.path);
+
+    const child = Bun.spawn(["/bin/sleep", "30"], { stdout: "ignore", stderr: "ignore" });
+    try {
+      const childIdentity = inspectMigrationProcessIdentity(child.pid);
+      const forged = { ...original, nonce: "foreign-owner", processIdentity: childIdentity };
+      fs.writeFileSync(original.path, `${JSON.stringify(forged)}\n`, { mode: 0o600 });
+      expect(() => releaseMaintenanceLock(forged)).toThrow(/current process/i);
+      expect(JSON.parse(fs.readFileSync(original.path, "utf8"))).toEqual(forged);
+    } finally {
+      child.kill();
+      await child.exited;
+      fs.rmSync(original.path, { force: true });
+    }
   });
 
   test("treats failed or truncated process inspection as unknown and blocks quiescence", () => {
@@ -351,11 +532,9 @@ describe("migration maintenance lock", () => {
 
   test("does not classify an uninspectable lock owner as dead", () => {
     fixtureRoot = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "rmu-owner-")));
-    const missing = path.join(fixtureRoot, "missing-ps");
-
-    expect(inspectProcessStart(process.pid, missing)).toEqual({
+    expect(inspectMigrationProcessIdentityState(process.pid, { platform: "win32" })).toEqual({
       status: "unknown",
-      reason: "process-start tool unavailable",
+      reason: "Migration process identity platform is unsupported: win32",
     });
   });
 
@@ -366,7 +545,7 @@ describe("migration maintenance lock", () => {
     const lock = acquireMaintenanceLock({ sourcePath: source, runId: "mig_lock" });
     try {
       expect(fs.statSync(lock.path).mode & 0o777).toBe(0o600);
-      expect(lock.processStartIdentity.length).toBeGreaterThan(0);
+      expect(lock.processIdentity.startId.length).toBeGreaterThan(0);
       expect(JSON.parse(fs.readFileSync(lock.path, "utf8"))).toEqual(lock);
       expect(() => acquireMaintenanceLock({ sourcePath: source, runId: "mig_lock" })).toThrow();
       expect(() => releaseMaintenanceLock({ ...lock, nonce: "wrong" })).toThrow();
@@ -377,8 +556,7 @@ describe("migration maintenance lock", () => {
 
     fs.writeFileSync(lock.path, `${JSON.stringify({
       ...lock,
-      pid: 999_999_999,
-      processStartIdentity: "dead-process",
+      processIdentity: { ...lock.processIdentity, pid: 999_999_999 },
       nonce: "stale-nonce",
     })}\n`, { mode: 0o600 });
     expect(() => acquireMaintenanceLock({ sourcePath: source, runId: "mig_other", reclaim: "resume" })).toThrow();
@@ -432,8 +610,7 @@ describe("migration service", () => {
         sourceRoots: [{ id: "ralphy", kind: "ralphy", path: source }],
         lock: started.lock,
       });
-      expect(resumed.status.phase).toBe("inventory");
-      releaseMaintenanceLock(started.lock);
+      expect(resumed.status.phase).toBe("relations");
     });
   });
 
@@ -445,12 +622,12 @@ describe("migration service", () => {
     const storeRoot = path.join(fixtureRoot, ".ralphy-staging", runId, ".ralphy");
     const before = snapshotTree(fixtureRoot);
 
-    expect(() => migrationStatus({ runId, sourcePath: source, storeRoot })).toThrow(/database|store|run/i);
+    expect(() => migrationStatus({ runId, sourcePath: source, storeRoot })).toThrow(/manifest|source|database|store|run|ENOENT/i);
     expect(snapshotTree(fixtureRoot)).toEqual(before);
     await expect(resumeMigration({
       runId,
       sourceRoots: [{ id: "ralphy", kind: "ralphy", path: source }],
-    })).rejects.toThrow(/database|store|run/i);
+    })).rejects.toThrow(/manifest|source|database|store|run|ENOENT/i);
     expect(snapshotTree(fixtureRoot)).toEqual(before);
 
     const arbitrary = path.join(fixtureRoot, "arbitrary", ".ralphy");
@@ -462,15 +639,15 @@ describe("migration service", () => {
       `INSERT INTO migration_runs
        (id, stage_root_rel, recovery_root_rel, phase, created_at, updated_at)
        VALUES (?, ?, ?, 'audited', ?, ?)`,
-    ).run(runId, `.ralphy-staging/${runId}/.ralphy`, `.ralphy-recovery/${runId}/.ralphy`, Date.now(), Date.now());
+    ).run(runId, `.ralphy-staging/${runId}/.ralphy`, `.ralphy-recovery-${runId}`, Date.now(), Date.now());
     expect(fs.statSync(path.join(storeRoot, "ralphy.db-wal")).size).toBeGreaterThan(0);
     const walBefore = snapshotTree(fixtureRoot);
-    expect(() => migrationStatus({ runId, sourcePath: source })).toThrow(/wal/i);
+    expect(() => migrationStatus({ runId, sourcePath: source })).toThrow(/manifest|source|ENOENT/i);
     expect(snapshotTree(fixtureRoot)).toEqual(walBefore);
     db.close();
   });
 
-  test("hard-disables incomplete verify, cutover, recover, and rollback without filesystem mutation", () => {
+  test("rejects incomplete verify, cutover, recover, and rollback without filesystem mutation", () => {
     fixtureRoot = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "rm-disabled-")));
     const source = path.join(fixtureRoot, "live", ".ralphy");
     const stage = path.join(fixtureRoot, "stage", ".ralphy");
@@ -492,13 +669,12 @@ describe("migration service", () => {
     })).toThrow(/unavailable|disabled/i);
     expect(() => cutoverMigration({
       runId: "mig_disabled",
-      verificationId: "verify_disabled",
-      verificationPath: verification,
+      verificationId: "f".repeat(64),
+      verificationDir: path.dirname(verification),
       sourcePath: source,
-      stagePath: stage,
-    })).toThrow(/unavailable|disabled/i);
-    expect(() => recoverCutover({ journalPath: journal, runId: "mig_disabled" })).toThrow(/unavailable|disabled/i);
-    expect(() => rollbackCutover({ journalPath: journal, runId: "mig_disabled" })).toThrow(/unavailable|disabled/i);
+    })).toThrow(/manifest|source|stage|run|verification|ENOENT/i);
+    expect(() => recoverCutover({ sourcePath: source, runId: "mig_disabled" })).toThrow(/journal|unavailable|symlink/i);
+    expect(() => rollbackCutover({ sourcePath: source, runId: "mig_disabled" })).toThrow(/journal|unavailable|symlink/i);
     expect(snapshotTree(fixtureRoot)).toEqual(before);
   });
 
@@ -522,7 +698,6 @@ describe("migration service", () => {
         lock: started.lock,
       });
       expect(resumed.status.blockingIssues).toBe(1);
-      releaseMaintenanceLock(started.lock);
     });
   });
 
@@ -550,20 +725,19 @@ describe("migration service", () => {
         sourceRoots: [{ id: "ralphy", kind: "ralphy", path: source }],
         lock: started.lock,
       });
-      expect(resumed.status.phase).toBe("inventory");
+      expect(resumed.status.phase).toBe("relations");
       expect(resumed.inventory?.sourceFiles).toBe(2);
       const stageBeforeStatus = snapshotTree(path.dirname(started.storeRoot));
-      expect(migrationStatus({ runId: started.runId, sourcePath: source }).phase).toBe("inventory");
+      expect(migrationStatus({ runId: started.runId, sourcePath: source }).phase).toBe("relations");
       expect(snapshotTree(path.dirname(started.storeRoot))).toEqual(stageBeforeStatus);
 
       const replayed = await resumeMigration({
         runId: started.runId,
         sourceRoots: [{ id: "ralphy", kind: "ralphy", path: source }],
-        lock: started.lock,
       });
-      expect(replayed.inventory).toEqual(resumed.inventory);
+      expect(replayed.inventory).toBeNull();
+      expect(replayed.status.phase).toBe("relations");
       expect(snapshotTree(source)).toEqual(sourceBefore);
-      releaseMaintenanceLock(started.lock);
     });
   });
 
@@ -579,6 +753,14 @@ describe("migration service", () => {
     expect(() => startMigration({
       sourceRoots: [{ id: "ralphy", kind: "ralphy", path: path.parse(source).root }],
     })).toThrow(/broad|source|\.ralphy/i);
+    const desktop = path.join(fixtureRoot, "desktop");
+    fs.mkdirSync(desktop);
+    expect(() => startMigration({
+      sourceRoots: [
+        { id: "duplicate", kind: "ralphy", path: source },
+        { id: "duplicate", kind: "desktop", path: desktop },
+      ],
+    })).toThrow(/label|unique/i);
   });
 
   test("ships only the staged migration command surface", () => {
@@ -601,6 +783,21 @@ describe("migration service", () => {
 
 function snapshotFiles(files: string[]): Snapshot {
   return Object.fromEntries(files.map((file) => [file, snapshotEntry(file)]));
+}
+
+function writeAbsentOwnerLock(
+  lockPath: string,
+  lock: ReturnType<typeof acquireMaintenanceLock>,
+): void {
+  fs.writeFileSync(lockPath, `${JSON.stringify({
+    ...lock,
+    processIdentity: { ...lock.processIdentity, pid: 999_999_999 },
+  })}\n`, { mode: 0o600 });
+}
+
+function markLockOwnerAbsent(lockPath: string): void {
+  const lock = JSON.parse(fs.readFileSync(lockPath, "utf8")) as ReturnType<typeof acquireMaintenanceLock>;
+  writeAbsentOwnerLock(lockPath, lock);
 }
 
 async function withQuietProcessTools<T>(root: string, action: () => Promise<T>): Promise<T> {

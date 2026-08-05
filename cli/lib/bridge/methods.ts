@@ -108,6 +108,10 @@ import {
   assertMigrationSecretImportable,
   completeMigrationSecretImport,
 } from "../migration/import.js";
+import {
+  claimDesktopHandoffAuthorization,
+  completeDesktopHandoffAuthorization,
+} from "../migration/desktop-authorization.js";
 import { agentTurnStatus, startAgentTurn } from "../agent/session.js";
 import { claudeProvider } from "../agent/claude.js";
 import { codexProvider } from "../agent/codex.js";
@@ -123,6 +127,7 @@ import {
   type ReplayableOperationInput,
 } from "../controllers/operations.js";
 import type { JsonValue } from "../store/types.js";
+import { assertStartupJournalReady } from "../migration/cutover-journal.js";
 import {
   BridgeProtocolError,
   MAX_AGENT_DELTA_BYTES,
@@ -152,7 +157,16 @@ export type BridgeMethod = {
 
 export type BridgeMethodTable = ReadonlyMap<string, BridgeMethod>;
 
-export function createBridgeMethods(input: { dataRoot: string; keyProvider?: KeyProvider }): BridgeMethodTable {
+export function createBridgeMethods(input: {
+  dataRoot: string;
+  keyProvider?: KeyProvider;
+  /** @internal Secret-buffer release seam. */
+  afterMigrationSecretFileBytesReleasedForTesting?: (bytes: Uint8Array) => void;
+}): BridgeMethodTable {
+  const dataRoot = path.resolve(input.dataRoot);
+  let startupRoot = dataRoot;
+  try { startupRoot = fs.realpathSync.native(dataRoot); } catch { /* The normal store open reports absence. */ }
+  if (path.basename(startupRoot) === ".ralphy") assertStartupJournalReady(startupRoot);
   const methods = new Map<string, BridgeMethod>();
   const add = (
     name: string,
@@ -780,14 +794,33 @@ export function createBridgeMethods(input: { dataRoot: string; keyProvider?: Key
   });
   add("migration.secret.import", "mutation", async (params) => {
     const value = object(params, "migration.secret.import");
+    const authorizationNonce = authorizationString(value.authorizationNonce);
+    const sourcePath = authorizationString(value.sourcePath);
+    const encryptedSourcePath = authorizationString(value.encryptedSourcePath);
+    const runId = authorizationString(value.runId);
+    const sourceEntryId = authorizationString(value.sourceEntryId);
+    const ref = authorizationString(value.ref);
+    const requestedKind = authorizationString(value.kind);
+    if (requestedKind !== "text" && requestedKind !== "file") {
+      throw new Error("Desktop migration authorization envelope is invalid");
+    }
+    const claim = await claimDesktopHandoffAuthorization({
+      sourcePath,
+      runId,
+      nonce: authorizationNonce,
+      stagedRoot: input.dataRoot,
+      encryptedSourcePath,
+      sourceEntryId,
+      ref,
+      kind: requestedKind,
+    }).catch((error: unknown) => {
+      throw new Error("Desktop migration authorization was rejected", { cause: error });
+    });
     exactKeys(value, value.kind === "text"
-      ? ["runId", "sourceEntryId", "ref", "kind", "value"]
+      ? ["sourcePath", "encryptedSourcePath", "authorizationNonce", "runId", "sourceEntryId", "ref", "kind", "value"]
       : value.kind === "file"
-        ? ["runId", "sourceEntryId", "ref", "kind", "base64"]
-        : ["runId", "sourceEntryId", "ref", "kind"]);
-    const runId = string(value.runId, "runId");
-    const sourceEntryId = string(value.sourceEntryId, "sourceEntryId");
-    const ref = string(value.ref, "ref");
+        ? ["sourcePath", "encryptedSourcePath", "authorizationNonce", "runId", "sourceEntryId", "ref", "kind", "base64"]
+        : ["sourcePath", "encryptedSourcePath", "authorizationNonce", "runId", "sourceEntryId", "ref", "kind"]);
     const kind = string(value.kind, "kind");
     if (kind !== "text" && kind !== "file") {
       throw new Error("migration.secret.import kind must be text or file");
@@ -806,7 +839,15 @@ export function createBridgeMethods(input: { dataRoot: string; keyProvider?: Key
     } finally {
       validationDb.close();
     }
-    if (entryState === "excluded") return { ref, kind, completed: true };
+    if (entryState === "excluded") {
+      completeDesktopHandoffAuthorization({
+        sourcePath,
+        runId,
+        nonce: authorizationNonce,
+        claimNonce: claim.claimNonce,
+      });
+      return { ref, kind, completed: true };
+    }
     const store = createSecretStore({ dataRoot: input.dataRoot, keyProvider: input.keyProvider });
     if (kind === "text") {
       await store.set(ref, string(value.value, "value"), (db) => {
@@ -821,23 +862,34 @@ export function createBridgeMethods(input: { dataRoot: string; keyProvider?: Key
       });
     } else if (kind === "file") {
       const bytes = decodeBase64(string(value.base64, "base64"));
-      await store.setSecretFile(ref, bytes);
-      const db = openDomainDbAt(input.dataRoot);
       try {
-        assertMigrationSecretRef(db, runId, ref);
-        completeMigrationSecretImport(db, {
-          runId,
-          sourceEntryId,
-          refs: [ref],
-          kind: "file",
-          requiredSourceKind: "desktop",
-        });
+        await store.setSecretFile(ref, bytes);
+        const db = openDomainDbAt(input.dataRoot);
+        try {
+          assertMigrationSecretRef(db, runId, ref);
+          completeMigrationSecretImport(db, {
+            runId,
+            sourceEntryId,
+            refs: [ref],
+            kind: "file",
+            requiredSourceKind: "desktop",
+          });
+        } finally {
+          db.close();
+        }
       } finally {
-        db.close();
+        bytes.fill(0);
+        input.afterMigrationSecretFileBytesReleasedForTesting?.(bytes);
       }
     } else {
       throw new Error("migration.secret.import kind must be text or file");
     }
+    completeDesktopHandoffAuthorization({
+      sourcePath,
+      runId,
+      nonce: authorizationNonce,
+      claimNonce: claim.claimNonce,
+    });
     return { ref, kind, completed: true };
   });
 
@@ -1140,6 +1192,13 @@ function object(value: unknown, label: string): Record<string, unknown> {
 
 function objectOrEmpty(value: unknown, label: string): Record<string, unknown> {
   return value === undefined ? {} : object(value, label);
+}
+
+function authorizationString(value: unknown): string {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error("Desktop migration authorization envelope is invalid");
+  }
+  return value;
 }
 
 function string(value: unknown, label: string): string {

@@ -120,7 +120,6 @@ describe("migration freeze and read-only verification", () => {
     });
     const restore = installProcessTools(
       fixture.root.dir,
-      fixture.lock.processStartIdentity,
       child.pid,
       fixture.storeRoot,
     );
@@ -517,7 +516,7 @@ function setup(options: { unclassifiedEmpty?: boolean; pendingSecret?: boolean }
     storeRoot,
     verificationDir,
     objectPath,
-    restoreProcessTools: installProcessTools(root.dir, lock.processStartIdentity),
+    restoreProcessTools: installProcessTools(root.dir),
   };
   fixtures.push(fixture);
   return fixture;
@@ -735,7 +734,6 @@ function installIssueExpectationIndex(fixture: Fixture, issueId: string): void {
 
 function installProcessTools(
   root: string,
-  processStartIdentity: string,
   pid?: number,
   cwd?: string,
 ): () => void {
@@ -743,7 +741,7 @@ function installProcessTools(
   fs.mkdirSync(bin, { mode: 0o700 });
   const ps = path.join(bin, "ps");
   const lsof = path.join(bin, "lsof");
-  fs.writeFileSync(ps, `#!/bin/sh\nif [ "$1" = "-o" ]; then\n  printf '%s\\n' '${processStartIdentity}'\nelse\n  printf '  1 launchd launchd\\n'\nfi\n`);
+  fs.writeFileSync(ps, "#!/bin/sh\nprintf '  1 launchd launchd\\n'\n");
   fs.writeFileSync(lsof, pid && cwd
     ? `#!/bin/sh\nprintf 'p${pid}\\ncsleep\\nfcwd\\nn${cwd}\\n'\n`
     : "#!/bin/sh\nprintf 'p1\\nclaunchd\\nfcwd\\nn/\\n'\n");

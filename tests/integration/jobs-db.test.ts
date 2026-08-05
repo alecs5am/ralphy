@@ -248,6 +248,31 @@ describe("jobs DB · cancel + retry", () => {
     expect(retryJob(id)).toBe(false);
   });
 
+  test("rejects a single externally owned Job retry without mutation", () => {
+    const runId = insertExternalRun("single-retry");
+    const id = insertJob({ run_id: runId, kind: "shell", command: { argv: ["external"] } });
+    expect(claimNextPending()?.id).toBe(id);
+    finalizeJob(id, "failed", { exitCode: 1, errorMessage: "failed" });
+    const before = getJob(id);
+
+    expect(() => retryJob(id)).toThrow(/external operation Run|consumer controller/i);
+    expect(getJob(id)).toEqual(before);
+  });
+
+  test("rejects a mixed bulk retry before mutating any ordinary Job", () => {
+    const runId = insertExternalRun("bulk-retry");
+    const ordinary = insertJob({ kind: "shell", command: { argv: ["ordinary"] }, tag: "mixed-retry" });
+    const external = insertJob({ run_id: runId, kind: "shell", command: { argv: ["external"] }, tag: "mixed-retry" });
+    for (const id of [ordinary, external]) {
+      expect(claimNextPending()?.id).toBe(id);
+      finalizeJob(id, "failed", { exitCode: 1, errorMessage: "failed" });
+    }
+    const before = [getJob(ordinary), getJob(external)];
+
+    expect(() => retryJobsByFilter({ tag: "mixed-retry" })).toThrow(/external operation Run.*no rows changed/i);
+    expect([getJob(ordinary), getJob(external)]).toEqual(before);
+  });
+
   test("pending linked cancellation terminalizes only an unstarted Run", () => {
     const workspace = createWorkspace({ slug: "linked", name: "Linked" });
     const pendingRun = startRun({
@@ -282,6 +307,43 @@ describe("jobs DB · cancel + retry", () => {
     });
   });
 });
+
+function insertExternalRun(label: string): string {
+  const db = openDb();
+  const workspace = createWorkspace({ slug: `external-${label}`, name: `External ${label}` });
+  const principalId = `consumer_${label}`;
+  const namespace = label.replace(/[^a-z0-9-]/gu, "-").slice(0, 32);
+  const sessionId = `session_${label}`;
+  const runId = `run_external_${label}`;
+  const now = Date.now();
+  db.prepare(
+    `INSERT INTO consumer_principals (id, namespace, identity_digest, created_at)
+     VALUES (?, ?, ?, ?)`,
+  ).run(principalId, namespace, "a".repeat(64), now);
+  db.prepare(
+    `INSERT INTO agent_sessions
+     (id, workspace_id, agent, consumer_principal_id, started_at)
+     VALUES (?, ?, ?, ?, ?)`,
+  ).run(sessionId, workspace.id, `consumer:${namespace}`, principalId, now);
+  db.prepare(
+    `INSERT INTO runs
+     (id, workspace_id, agent_session_id, kind, state, external_system,
+      external_run_id, external_node_id, external_attempt, external_operation,
+      idempotency_key, request_digest, consumer_principal_id, created_at)
+     VALUES (?, ?, ?, 'generation', 'pending', ?, ?, 'node', 1, 'generate', ?, ?, ?, ?)`,
+  ).run(
+    runId,
+    workspace.id,
+    sessionId,
+    `ralphy-${namespace}`,
+    `external-${label}`,
+    `retry-${label}`,
+    "b".repeat(64),
+    principalId,
+    now,
+  );
+  return runId;
+}
 
 describe("jobs DB · logs", () => {
   test("append + tail returns rows in id order", () => {
@@ -507,6 +569,36 @@ describe("jobs DB · bulk insert + list + counts", () => {
     expect(claimNextPending(["generate.image"])?.id).toBe(release!);
   });
 
+  test("queue resume CLI releases only one exact held pending Job for its cutover Run", () => {
+    const migrationId = "mig_cli_resume";
+    openDb().prepare(
+      "INSERT INTO migration_runs (id, phase, created_at, updated_at) VALUES (?, 'audited', ?, ?)",
+    ).run(migrationId, Date.now(), Date.now());
+    const [held, other] = insertJobsAtomic([
+      { kind: "generate.image", command: { argv: ["held"] }, migration_hold_run_id: migrationId },
+      { kind: "generate.image", command: { argv: ["other"] }, migration_hold_run_id: migrationId },
+    ]);
+    closeDb();
+    closeDomainDb();
+
+    const wrong = runQueueCli(["resume", String(held), "--migration-run", "mig_wrong"]);
+    expect(wrong.exitCode).toBe(0);
+    expect(JSON.parse(wrong.stdout)).toMatchObject({ id: held, migration_run_id: "mig_wrong", resumed: false });
+    expect(getJob(held!)?.migration_hold_run_id).toBe(migrationId);
+
+    const now = Date.now();
+    openDb().prepare(
+      "UPDATE migration_runs SET phase = 'cutover', cutover_at = ?, updated_at = ? WHERE id = ?",
+    ).run(now, now, migrationId);
+    closeDb();
+    closeDomainDb();
+    const exact = runQueueCli(["resume", String(held), "--migration-run", migrationId]);
+    expect(exact.exitCode).toBe(0);
+    expect(JSON.parse(exact.stdout)).toMatchObject({ id: held, migration_run_id: migrationId, resumed: true });
+    expect(getJob(held!)?.migration_hold_run_id).toBeNull();
+    expect(getJob(other!)?.migration_hold_run_id).toBe(migrationId);
+  });
+
   test("insertJobsAtomic inserts all-or-nothing", () => {
     const ids = insertJobsAtomic([
       { kind: "shell", command: { argv: ["a"] } },
@@ -555,3 +647,18 @@ describe("jobs DB · bulk insert + list + counts", () => {
     expect(listJobs({ projectId: "spring-001" }).length).toBe(1);
   });
 });
+
+function runQueueCli(args: string[]): { exitCode: number; stdout: string; stderr: string } {
+  const cli = path.resolve(import.meta.dir, "../../cli/index.ts");
+  const result = Bun.spawnSync(["bun", "run", cli, "--json", "queue", ...args], {
+    cwd: tmp.dir,
+    stdout: "pipe",
+    stderr: "pipe",
+    env: process.env,
+  });
+  return {
+    exitCode: result.exitCode,
+    stdout: result.stdout.toString("utf8"),
+    stderr: result.stderr.toString("utf8"),
+  };
+}

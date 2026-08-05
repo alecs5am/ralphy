@@ -477,7 +477,7 @@ function inspectSources(ctx: MigrationContext, activation: Activation): void {
     if (actual.size !== expected.length) activation.blockers.push(issue("MIGRATION_SOURCE_ENTRY_DRIFT", source.id));
     for (const entry of expected) {
       const stat = actual.get(entry.sourcePath);
-      if (!stat || entryKind(stat) !== entry.entryKind || String(stat.dev) !== entry.device || String(stat.ino) !== entry.inode || stat.mode !== entry.mode || stat.size !== entry.bytes || Math.trunc(stat.mtimeMs) !== entry.mtimeMs) {
+      if (!stat || entryKind(stat) !== entry.entryKind || String(stat.dev) !== entry.device || String(stat.ino) !== entry.inode || stat.mode !== entry.mode || (stat.isFile() && stat.size !== entry.bytes) || Math.trunc(stat.mtimeMs) !== entry.mtimeMs) {
         activation.blockers.push(issue("MIGRATION_SOURCE_FINGERPRINT_DRIFT", entry.id));
         continue;
       }

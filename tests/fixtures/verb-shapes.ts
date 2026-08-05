@@ -619,16 +619,29 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
   ],
   migrate: [
     {
-      label: "migrate.report",
+      label: "migrate.audit",
       shape: {
-        dryRun: true,
-        from: "workspace/",
-        to: ".ralphy/",
-        moves: [
-          { src: "workspace/projects/demo-001", dst: ".ralphy/workspaces/default/projects/demo-001" },
-        ],
+        sourceEntries: 42,
+        sourceFiles: 31,
+        sourceBytes: 1048576,
+        workspaces: 1,
+        physicalProjects: 2,
+        registryProjects: 2,
+        physicalOnlyProjects: [],
+        registryOnlyProjects: [],
+        cloneSupport: "not-probed",
+        freeBytes: 10737418240,
+        requiredCopyBytes: 2148532224,
+        jobStatusCounts: { pending: 1 },
+        desktopCandidates: { reviews: 0, secrets: 1, settings: 1 },
+        processes: [],
+        blockers: [],
       },
     },
+    { label: "migrate.run", shape: { runId: "mig_01", cloneSupport: "supported", status: { runId: "mig_01", phase: "relations", blockingIssues: 0 } } },
+    { label: "migrate.verify", shape: { id: "a".repeat(64), runId: "mig_01", databaseDigest: "b".repeat(64), contentDigest: "c".repeat(64), consumers: { farm: null } } },
+    { label: "migrate.cutover", shape: { runId: "mig_01", state: "installed", transition: 5, consumers: { farm: null } } },
+    { label: "migrate.rollback", shape: { runId: "mig_01", state: "rolled-back", transition: 7, consumers: { farm: null } } },
   ],
   models: [
     {
@@ -904,6 +917,7 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
   ],
   queue: [
     { label: "queue.add", shape: { id: 42, kind: "shell", argv: ["ralphy", "render", "demo-001"], depends_on: [41] } },
+    { label: "queue.resume", shape: { id: 42, migration_run_id: "mig_01", resumed: true } },
     { label: "queue.list", shape: { counts: { pending: 2, running: 1, done: 5 }, jobs: [{ id: 42, status: "failed", kind: "generate.image", priority: 0, deps: "-", argv: "generate image --slot …", slot: "scene-01-image-hero", model: "openai/gpt-5.4-image-2", refCount: 2, promptPreview: "a hero shot", attempts: 1, runtimeMs: 4200, exit: 1, lastError: "OpenRouter 403: Key limit exceeded (total limit)", hint: "OpenRouter burst-cap hit (per-key concurrent-call limit, NOT a $ balance issue).", errorClass: "provider-transient", retryPolicy: "retry-with-backoff", nextAction: "OpenRouter burst-cap hit (per-key concurrent-call limit, NOT a $ balance issue).", tag: "batch-1", project: "demo-001" }] } },
   ],
   ref: [
