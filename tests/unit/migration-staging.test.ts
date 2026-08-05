@@ -95,6 +95,44 @@ describe("migration Object staging", () => {
     expect(fs.existsSync(path.join(fixture.poisonRoot, ".ralphy", "buckets"))).toBe(false);
   });
 
+  test("appends stable copy estimates and subtracts verified promoted bytes on resume", async () => {
+    const fixture = setup("copy-estimate-replay");
+    const sourcePath = "workspaces/acme/projects/demo/artifacts/images/hero.png";
+    fixture.writeSource(sourcePath, Buffer.from([1, 2, 3, 4]));
+    fixture.addEntry({ sourcePath, disposition: "object", bytes: 4 });
+    fixture.db.exec(`
+      CREATE TRIGGER abort_copy_ledger
+      BEFORE UPDATE OF state ON migration_entries
+      WHEN NEW.state = 'staged'
+      BEGIN SELECT RAISE(ABORT, 'injected copy ledger abort'); END;
+    `);
+
+    await expect(stageInventoryObjects(fixture.ctx, {
+      copyMode: "copy",
+      freeBytes: 3 * 1024 ** 3,
+    })).rejects.toThrow(/copy ledger abort/i);
+    const first = copyEstimates(fixture.ctx);
+    expect(first).toHaveLength(1);
+    expect(first[0]).toMatchObject({ rawBytes: 4 });
+
+    fixture.db.exec("DROP TRIGGER abort_copy_ledger");
+    const resumed = await stageInventoryObjects(fixture.ctx, {
+      copyMode: "copy",
+      freeBytes: 2 * 1024 ** 3 + first[0]!.dbOverheadBytes,
+    });
+    expect(resumed.staged).toBe(1);
+    const second = copyEstimates(fixture.ctx);
+    expect(second).toHaveLength(2);
+    expect(second).toContainEqual(first[0]!);
+    expect(second.some((estimate) => estimate.rawBytes === 0)).toBe(true);
+
+    await stageInventoryObjects(fixture.ctx, { copyMode: "copy", freeBytes: 3 * 1024 ** 3 });
+    const completed = copyEstimates(fixture.ctx);
+    expect(completed).toHaveLength(3);
+    await stageInventoryObjects(fixture.ctx, { copyMode: "copy", freeBytes: 3 * 1024 ** 3 });
+    expect(copyEstimates(fixture.ctx)).toEqual(completed);
+  });
+
   test("registers raw evidence and decoded data URLs without storing base64 in SQLite", async () => {
     const fixture = setup("decoded");
     const sourcePath = "workspaces/acme/projects/demo/asset-manifest.json";
@@ -450,6 +488,19 @@ function entry(ctx: MigrationContext, id: string) {
 function fileFacts(file: string) {
   const stat = fs.statSync(file);
   return { bytes: fs.readFileSync(file), mtimeMs: stat.mtimeMs, mode: stat.mode };
+}
+
+function copyEstimates(ctx: MigrationContext): Array<{
+  rawBytes: number;
+  decodedBytes: number;
+  diagnosticBytes: number;
+  dbOverheadBytes: number;
+  requiredCopyBytes: number;
+}> {
+  return ctx.db.query<{ detail: string }, []>(
+    `SELECT detail_json AS detail FROM migration_issues
+     WHERE code = 'MIGRATION_COPY_SPACE_ESTIMATE' ORDER BY id`,
+  ).all().map((row) => JSON.parse(row.detail));
 }
 
 function stableTestId(runId: string, key: string): string {
