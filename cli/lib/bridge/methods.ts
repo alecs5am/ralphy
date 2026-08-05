@@ -1090,6 +1090,9 @@ function requireAuthority(context: BridgeMethodContext): ConsumerAuthority {
 function assertMigrationSecretRef(db: ReturnType<typeof openDomainDb>, runId: string, ref: string): void {
   const match = ref.match(/^provider\/([a-z][a-z0-9-]*)\/workspace\/([A-Za-z0-9._:-]+)\/(?:workspace\/([A-Za-z0-9._:-]+)|account\/([A-Za-z0-9._:-]+))$/u);
   if (!match) throw new Error("Migration secret ref is not store-scoped");
+  if (!STATIC_CREDENTIAL_DESCRIPTORS.some((descriptor) => descriptor.providerId === match[1])) {
+    throw new Error("Migration secret ref Provider is unsupported");
+  }
   const workspace = db.query<{ id: string }, [string, string]>(
     `SELECT id FROM workspaces WHERE id = ?
        AND json_extract(metadata_json, '$.migrationRunId') = ?`,

@@ -77,6 +77,16 @@ describe("Desktop state and credential migration", () => {
   test("binds root credentials and cookies to the registry primary among thirty Workspaces", async () => {
     await setupFixture({ extraWorkspaces: 29 });
 
+    expect([
+      ledger("claude-api-key.bin", "desktop"),
+      ledger("foo-api-key.bin", "desktop"),
+      ledger("openrouter-api-key.bin", "desktop"),
+    ].map(({ disposition, state, refs }) => ({ disposition, state, refs }))).toEqual([
+      { disposition: "secret-recovery-only", state: "inventoried", refs: "[]" },
+      { disposition: "issue", state: "issue", refs: "[]" },
+      { disposition: "secret-recovery-only", state: "inventoried", refs: "[]" },
+    ]);
+
     expect(await importDesktopStateAndSecrets(ctx!, { keyProvider })).toBeDefined();
     const primary = workspace("studio");
     expect(JSON.parse(ledger("config.json").refs)).toEqual([
@@ -86,6 +96,17 @@ describe("Desktop state and credential migration", () => {
     expect(JSON.parse(ledger("tmp/ig-cookies.txt").refs)).toEqual([
       `provider/instagram/workspace/${primary}/cookies`,
     ]);
+    expect(JSON.parse(ledger("claude-api-key.bin", "desktop").refs)).toEqual([
+      `provider/anthropic/workspace/${primary}/workspace/${primary}`,
+    ]);
+    expect(JSON.parse(ledger("openrouter-api-key.bin", "desktop").refs)).toEqual([
+      `provider/openrouter/workspace/${primary}/workspace/${primary}`,
+    ]);
+    expect(ledger("foo-api-key.bin", "desktop")).toMatchObject({
+      disposition: "issue",
+      state: "issue",
+      refs: "[]",
+    });
   });
 
   test("rejects non-versioned Desktop document fields, missing Projects, and opaque secret shapes", async () => {
@@ -271,70 +292,54 @@ describe("Desktop state and credential migration", () => {
     expect(fs.statSync(materialized).size).toBe(667_395);
   });
 
-  test("the safeStorage handoff is exact-shape, write-only, and completes only its Desktop entry", async () => {
+  test("the Desktop provider handoff is exact-shape, write-only, and completes only its entry", async () => {
     await setupFixture();
     await importDesktopStateAndSecrets(ctx!, { keyProvider });
-    const safeEntry = ledger("safeStorage/credentials.bin", "desktop");
+    const claudeEntry = ledger("claude-api-key.bin", "desktop");
     const workspaceId = workspace("studio");
-    const ref = `provider/desktop/workspace/${workspaceId}/workspace/${workspaceId}`;
-    expect(JSON.parse(safeEntry.refs)).toEqual([ref]);
-    expect(secretPlan(safeEntry.id)).toEqual({ kind: "text", refs: [ref] });
+    const claudeRef = `provider/anthropic/workspace/${workspaceId}/workspace/${workspaceId}`;
+    expect(JSON.parse(claudeEntry.refs)).toEqual([claudeRef]);
+    expect(secretPlan(claudeEntry.id)).toEqual({ kind: "text", refs: [claudeRef] });
     const methods = createBridgeMethods({ dataRoot: ctx!.storeRoot, keyProvider });
     const method = methods.get("migration.secret.import")!;
-    const fileEntry = ledger("safeStorage/cookies.bin", "desktop");
-    const fileRef = `provider/instagram/workspace/${workspaceId}/workspace/${workspaceId}`;
-    expect(JSON.parse(fileEntry.refs)).toEqual([fileRef]);
-    expect(secretPlan(fileEntry.id)).toEqual({ kind: "file", refs: [fileRef] });
+    const openrouterEntry = ledger("openrouter-api-key.bin", "desktop");
+    const openrouterRef = `provider/openrouter/workspace/${workspaceId}/workspace/${workspaceId}`;
+    expect(JSON.parse(openrouterEntry.refs)).toEqual([openrouterRef]);
+    expect(secretPlan(openrouterEntry.id)).toEqual({ kind: "text", refs: [openrouterRef] });
     await expect(method.handle({
       runId: ctx!.runId,
-      sourceEntryId: safeEntry.id,
-      ref: fileRef,
-      kind: "file",
-      base64: "YQ==",
-    }, bridgeContext())).rejects.toThrow();
-    await expect(method.handle({
-      runId: ctx!.runId,
-      sourceEntryId: fileEntry.id,
-      ref,
+      sourceEntryId: claudeEntry.id,
+      ref: openrouterRef,
       kind: "text",
       value: "cross-entry-secret",
     }, bridgeContext())).rejects.toThrow();
     await expect(method.handle({
       runId: ctx!.runId,
-      sourceEntryId: fileEntry.id,
-      ref: fileRef,
+      sourceEntryId: openrouterEntry.id,
+      ref: claudeRef,
       kind: "file",
-      base64: "YR==",
+      base64: "YQ==",
     }, bridgeContext())).rejects.toThrow();
-    expect(ledger("safeStorage/cookies.bin", "desktop").state).toBe("inventoried");
-    await expect(method.handle({
-      runId: ctx!.runId,
-      sourceEntryId: fileEntry.id,
-      ref: fileRef,
-      kind: "file",
-      base64: Buffer.alloc(1024 * 1024 + 1).toString("base64"),
-    }, bridgeContext())).rejects.toThrow();
-    expect(ledger("safeStorage/cookies.bin", "desktop").state).toBe("inventoried");
     const redirectedRef = `provider/postiz/workspace/${workspaceId}/workspace/${workspaceId}`;
     const secretStore = createSecretStore({ dataRoot: ctx!.storeRoot, keyProvider });
     const redirectedBefore = await secretStore.read(redirectedRef);
     await expect(method.handle({
       runId: ctx!.runId,
-      sourceEntryId: safeEntry.id,
+      sourceEntryId: claudeEntry.id,
       ref: redirectedRef,
       kind: "text",
       value: "redirected-secret",
     }, bridgeContext())).rejects.toThrow();
     expect(await secretStore.read(redirectedRef)).toBe(redirectedBefore);
-    const secret = "fixture-safeStorage-decrypted-token";
+    const secret = "fixture-claude-decrypted-token";
     const request = JSON.stringify({
       v: 1,
       id: "secret-import",
       method: "migration.secret.import",
       params: {
         runId: ctx!.runId,
-        sourceEntryId: safeEntry.id,
-        ref,
+        sourceEntryId: claudeEntry.id,
+        ref: claudeRef,
         kind: "text",
         value: secret,
       },
@@ -399,44 +404,44 @@ describe("Desktop state and credential migration", () => {
     expect(helperExit).toBe(0);
     expect(helperOutput).toBe("");
     expect(`${helperOutput}${helperError}`).not.toContain(secret);
-    expect(ledger("safeStorage/credentials.bin", "desktop")).toMatchObject({
+    expect(ledger("claude-api-key.bin", "desktop")).toMatchObject({
       disposition: "secret-imported",
       state: "excluded",
-      refs: JSON.stringify([ref]),
+      refs: JSON.stringify([claudeRef]),
     });
     expect(resolvedIssueCount("MIGRATION_DESKTOP_SECRET_HANDOFF_REQUIRED")).toBe(1);
-    expect(await createSecretStore({ dataRoot: ctx!.storeRoot, keyProvider }).read(ref)).toBe(secret);
+    expect(await createSecretStore({ dataRoot: ctx!.storeRoot, keyProvider }).read(claudeRef)).toBe(secret);
 
     await expect(method.handle({
       runId: ctx!.runId,
-      sourceEntryId: safeEntry.id,
-      ref,
+      sourceEntryId: claudeEntry.id,
+      ref: claudeRef,
       kind: "text",
       value: "different-replay-secret",
-    }, bridgeContext())).resolves.toEqual({ ref, kind: "text", completed: true });
-    expect(await createSecretStore({ dataRoot: ctx!.storeRoot, keyProvider }).read(ref)).toBe(secret);
+    }, bridgeContext())).resolves.toEqual({ ref: claudeRef, kind: "text", completed: true });
+    expect(await createSecretStore({ dataRoot: ctx!.storeRoot, keyProvider }).read(claudeRef)).toBe(secret);
 
-    const fileSecret = Buffer.from("fixture-safeStorage-file-secret");
+    const openrouterSecret = "fixture-openrouter-decrypted-token";
     await expect(method.handle({
       runId: ctx!.runId,
-      sourceEntryId: fileEntry.id,
-      ref: fileRef,
-      kind: "file",
-      base64: fileSecret.toString("base64"),
-    }, bridgeContext())).resolves.toEqual({ ref: fileRef, kind: "file", completed: true });
-    expect(await createSecretStore({ dataRoot: ctx!.storeRoot, keyProvider }).has(fileRef)).toBe(true);
-    expect(ledger("safeStorage/cookies.bin", "desktop")).toMatchObject({
+      sourceEntryId: openrouterEntry.id,
+      ref: openrouterRef,
+      kind: "text",
+      value: openrouterSecret,
+    }, bridgeContext())).resolves.toEqual({ ref: openrouterRef, kind: "text", completed: true });
+    expect(await createSecretStore({ dataRoot: ctx!.storeRoot, keyProvider }).read(openrouterRef)).toBe(openrouterSecret);
+    expect(ledger("openrouter-api-key.bin", "desktop")).toMatchObject({
       disposition: "secret-imported",
       state: "excluded",
-      refs: JSON.stringify([fileRef]),
+      refs: JSON.stringify([openrouterRef]),
     });
     expect(resolvedIssueCount("MIGRATION_DESKTOP_SECRET_HANDOFF_REQUIRED")).toBe(2);
-    assertNoPlaintext(ctx!.storeRoot, [secret, fileSecret.toString("utf8")]);
+    assertNoPlaintext(ctx!.storeRoot, [secret, openrouterSecret]);
 
     const base = {
       runId: ctx!.runId,
-      sourceEntryId: safeEntry.id,
-      ref,
+      sourceEntryId: claudeEntry.id,
+      ref: claudeRef,
     };
     for (const params of [
       { ...base, kind: "unknown", value: secret },
@@ -602,7 +607,6 @@ async function setupFixture(options: {
   fs.mkdirSync(path.dirname(unknown), { recursive: true });
   fs.writeFileSync(unknown, "unknown-secret-must-not-be-read");
   fs.chmodSync(unknown, 0o000);
-  fs.writeFileSync(path.join(fixture.paths.desktopRoot, "safeStorage", "cookies.bin"), Buffer.from([6, 7, 8]));
 
   const runId = "mig_00000000-0000-4000-8000-000000000006";
   const storeRoot = path.join(fixtureDir, "stage", ".ralphy");

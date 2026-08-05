@@ -91,6 +91,11 @@ export const OPENROUTER_CREDENTIAL: CredentialDescriptor = Object.freeze({
   kind: "api-key",
   environmentVariable: "OPENROUTER_API_KEY",
 });
+export const ANTHROPIC_CREDENTIAL: CredentialDescriptor = Object.freeze({
+  providerId: "anthropic",
+  kind: "api-key",
+  environmentVariable: "ANTHROPIC_API_KEY",
+});
 export const ELEVENLABS_CREDENTIAL: CredentialDescriptor = Object.freeze({
   providerId: "elevenlabs",
   kind: "api-key",
@@ -135,6 +140,7 @@ export const HASHNODE_CREDENTIAL: CredentialDescriptor = Object.freeze({
 export const STATIC_CREDENTIAL_DESCRIPTORS: readonly CredentialDescriptor[] =
   Object.freeze([
     OPENROUTER_CREDENTIAL,
+    ANTHROPIC_CREDENTIAL,
     ELEVENLABS_CREDENTIAL,
     FAL_CREDENTIAL,
     FIRECRAWL_CREDENTIAL,

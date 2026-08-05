@@ -3063,6 +3063,10 @@ function addRedactedJobField(
 }
 
 type KnownSecretShape = "config" | "workspace" | "instagram-cookie" | "desktop-handoff";
+const DESKTOP_PROVIDER_BY_SECRET_PATH: Readonly<Record<string, "anthropic" | "openrouter">> = {
+  "claude-api-key.bin": "anthropic",
+  "openrouter-api-key.bin": "openrouter",
+};
 
 type DesktopSecretHandoffPlan = {
   ref: string;
@@ -3110,7 +3114,7 @@ function isPotentialSecretEntry(entry: Entry): boolean {
 }
 
 function knownSecretShape(entry: Entry): KnownSecretShape | null {
-  if (entry.sourceKind === "desktop" && /(?:^|\/)safestorage(?:\/|$)/iu.test(entry.sourcePath)) {
+  if (entry.sourceKind === "desktop" && DESKTOP_PROVIDER_BY_SECRET_PATH[entry.sourcePath.toLowerCase()]) {
     return "desktop-handoff";
   }
   if (entry.sourceKind === "ralphy" && entry.sourcePath === "tmp/ig-cookies.txt") {
@@ -3137,19 +3141,10 @@ function desktopSecretHandoffPlan(
   entry: Entry,
 ): DesktopSecretHandoffPlan | null {
   const workspaceId = currentPrimaryWorkspace(ctx);
-  if (/^safestorage\/credentials\.bin$/iu.test(entry.sourcePath)) {
-    return {
-      ref: credentialSecretRef("desktop", { kind: "scope", workspaceId }),
-      kind: "text",
-    };
-  }
-  if (/^safestorage\/cookies\.bin$/iu.test(entry.sourcePath)) {
-    return {
-      ref: credentialSecretRef("instagram", { kind: "scope", workspaceId }),
-      kind: "file",
-    };
-  }
-  return null;
+  const provider = DESKTOP_PROVIDER_BY_SECRET_PATH[entry.sourcePath.toLowerCase()];
+  return provider
+    ? { ref: credentialSecretRef(provider, { kind: "scope", workspaceId }), kind: "text" }
+    : null;
 }
 
 function currentPrimaryWorkspace(ctx: MigrationContext): string {

@@ -67,6 +67,10 @@ export function isLegacyDesktopDocumentPath(relativePath: string): boolean {
 }
 
 const SECRET_PATH = /(^|\/)(?:\.env(?:\.|$)|secrets?(?:\/|$)|safestorage(?:\/|$))|cookie|credential/i;
+const DESKTOP_PROVIDER_SECRET_PATHS = new Set([
+  "claude-api-key.bin",
+  "openrouter-api-key.bin",
+]);
 const CREDENTIAL_NAMES = new Set([
   "access_key", "access_key_id", "access_token", "api_key", "api_secret",
   "auth_token", "bot_token", "client_secret", "credential", "credentials",
@@ -163,7 +167,7 @@ export function classifyLegacyPath(relativePath: string): LegacyPathKind {
   const basename = path.posix.basename(normalized);
   if (normalized === "farm" || normalized.startsWith("farm/")) return "raw-evidence";
   if (basename === "jobs.db" || basename === "jobs.db-wal" || basename === "jobs.db-shm") return "job-database";
-  if (SECRET_PATH.test(normalized)) return "secret-candidate";
+  if (SECRET_PATH.test(normalized) || DESKTOP_PROVIDER_SECRET_PATHS.has(normalized)) return "secret-candidate";
   if (normalized === "workspace.json" || normalized.endsWith("/workspace.json")) return "workspace";
   if (normalized.includes("/projects/") && (basename === "project.json" || basename === "brief.md")) return "project";
   if (basename.endsWith(".jsonl")) return "jsonl";
@@ -176,7 +180,7 @@ export function classifyLegacyPath(relativePath: string): LegacyPathKind {
 /** Runs before JSON parsing or evidence allocation. It deliberately prefers recovery to leakage. */
 export function isLegacySecretCandidate(relativePath: string, raw?: Buffer): boolean {
   const normalized = normalizeRelativePath(relativePath);
-  if (SECRET_PATH.test(normalized)) return true;
+  if (SECRET_PATH.test(normalized) || DESKTOP_PROVIDER_SECRET_PATHS.has(normalized.toLowerCase())) return true;
   if (!raw || raw.length === 0) return false;
   const decoded = decodeLegacyControl(raw);
   if (decoded === null) return true;

@@ -574,7 +574,9 @@ function buildDesktopEvidence(desktopRoot: string): void {
     selectedComposition: "index.branch-a.v2.html",
     rounds: [{ id: "R2", state: "resolved" }, { id: "R3", state: "approved" }],
   });
-  write(path.join(desktopRoot, "safeStorage", "credentials.bin"), Buffer.from([1, 2, 3, 4, 5]));
+  write(path.join(desktopRoot, "claude-api-key.bin"), Buffer.from([1, 2, 3, 4, 5]));
+  write(path.join(desktopRoot, "openrouter-api-key.bin"), Buffer.from([6, 7, 8, 9, 10]));
+  write(path.join(desktopRoot, "foo-api-key.bin"), Buffer.from([11, 12, 13]));
   writeJson(path.join(desktopRoot, "state.json"), {
     recentProjects: ["registered-project"],
     window: { width: 1440, height: 900 },

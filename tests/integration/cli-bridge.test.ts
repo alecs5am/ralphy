@@ -2,6 +2,7 @@ import { PassThrough } from "node:stream";
 import fs from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
+import { createBridgeMethods } from "../../cli/lib/bridge/methods.js";
 import { runBridge } from "../../cli/lib/bridge/server.js";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
 import { createWorkspace } from "../../cli/lib/store/scopes.js";
@@ -9,6 +10,10 @@ import { createProject } from "../../cli/lib/store/scopes.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 
 let root: TmpRoot;
+const bridgeKeyProvider = {
+  lookupKey: async () => Buffer.alloc(32, 19),
+  createKey: async () => Buffer.alloc(32, 19),
+};
 
 afterEach(() => {
   closeDomainDb();
@@ -24,6 +29,7 @@ async function run(input: string): Promise<string> {
     dataRoot: `${root.dir}/.ralphy`,
     input: stdin,
     output: stdout,
+    methods: createBridgeMethods({ dataRoot: `${root.dir}/.ralphy`, keyProvider: bridgeKeyProvider }),
   });
   stdin.end(input);
   await server;
@@ -126,7 +132,7 @@ describe("stdio bridge", () => {
     const sourceEntryId = "mentry_00000000-0000-4000-8000-000000000031";
     const db = openDomainDb();
     const now = Date.now();
-    const ref = `provider/test/workspace/${workspace.id}/workspace/${workspace.id}`;
+    const ref = `provider/openrouter/workspace/${workspace.id}/workspace/${workspace.id}`;
     db.prepare("UPDATE workspaces SET metadata_json = ? WHERE id = ?")
       .run(JSON.stringify({ migrationRunId: migrationId, migrationSourceLabel: "desktop-source" }), workspace.id);
     db.prepare(
@@ -144,7 +150,7 @@ describe("stdio bridge", () => {
        (id, migration_run_id, migration_source_id, source_path, source_locator_hash,
         entry_kind, source_kind, disposition, source_device, source_inode, source_mode,
         bytes, mtime_ms, target_refs_json, state, created_at, updated_at)
-       VALUES (?, ?, 'desktop-source', 'safeStorage/key.bin', ?, 'file', 'desktop',
+       VALUES (?, ?, 'desktop-source', 'openrouter-api-key.bin', ?, 'file', 'desktop',
         'secret-recovery-only', '1', '3', 33152, 4, ?, ?, 'inventoried', ?, ?)`,
     ).run(sourceEntryId, migrationId, "b".repeat(64), now, JSON.stringify([ref]), now, now);
     db.prepare(
@@ -184,13 +190,13 @@ describe("stdio bridge", () => {
 
     const accountEntryId = "mentry_00000000-0000-4000-8000-000000000032";
     const accountHash = "c".repeat(64);
-    const accountRef = `provider/test/workspace/${workspace.id}/account/missing-account`;
+    const accountRef = `provider/openrouter/workspace/${workspace.id}/account/missing-account`;
     db.prepare(
       `INSERT INTO migration_entries
        (id, migration_run_id, migration_source_id, source_path, source_locator_hash,
         entry_kind, source_kind, disposition, source_device, source_inode, source_mode,
         bytes, mtime_ms, target_refs_json, state, created_at, updated_at)
-       VALUES (?, ?, 'desktop-source', 'safeStorage/account.bin', ?, 'file', 'desktop',
+       VALUES (?, ?, 'desktop-source', 'account-ref.bin', ?, 'file', 'desktop',
         'secret-recovery-only', '1', '4', 33152, 4, ?, ?, 'inventoried', ?, ?)`,
     ).run(accountEntryId, migrationId, accountHash, now, JSON.stringify([accountRef]), now, now);
     db.prepare(
@@ -224,5 +230,100 @@ describe("stdio bridge", () => {
     expect(db.query<{ state: string }, [string]>(
       "SELECT state FROM migration_entries WHERE id = ?",
     ).get(accountEntryId)?.state).toBe("inventoried");
+
+    const providerEntryId = "mentry_00000000-0000-4000-8000-000000000033";
+    const providerHash = "d".repeat(64);
+    const providerRef = `provider/not-runtime/workspace/${workspace.id}/workspace/${workspace.id}`;
+    db.prepare(
+      `INSERT INTO migration_entries
+       (id, migration_run_id, migration_source_id, source_path, source_locator_hash,
+        entry_kind, source_kind, disposition, source_device, source_inode, source_mode,
+        bytes, mtime_ms, target_refs_json, state, created_at, updated_at)
+       VALUES (?, ?, 'desktop-source', 'not-runtime-api-key.bin', ?, 'file', 'desktop',
+        'secret-recovery-only', '1', '5', 33152, 4, ?, ?, 'inventoried', ?, ?)`,
+    ).run(providerEntryId, migrationId, providerHash, now, JSON.stringify([providerRef]), now, now);
+    db.prepare(
+      `INSERT INTO migration_issues
+       (id, migration_run_id, code, severity, detail_json, created_at)
+       VALUES ('miss_00000000-0000-4000-8000-000000000033', ?,
+        'MIGRATION_DESKTOP_SECRET_HANDOFF_PLANNED', 'info', ?, ?)`,
+    ).run(migrationId, JSON.stringify({ kind: "text", refs: [providerRef], sourceLocatorHash: providerHash }), now);
+    const providerOutput = await run([
+      '{"v":1,"id":"hello","method":"system.hello"}',
+      JSON.stringify({
+        v: 1,
+        id: "invalid-provider",
+        method: "migration.secret.import",
+        params: {
+          runId: migrationId,
+          sourceEntryId: providerEntryId,
+          ref: providerRef,
+          kind: "text",
+          value: "must-not-be-written",
+        },
+      }),
+    ].join("\n") + "\n");
+    expect(JSON.parse(providerOutput.trim().split("\n").at(-1)!)).toMatchObject({
+      ok: false,
+      error: { code: "E_INTERNAL" },
+    });
+    expect(fs.readFileSync(path.join(root.dir, ".ralphy", "secrets.enc"))).toEqual(encryptedBefore);
+    expect(db.query<{ state: string }, [string]>(
+      "SELECT state FROM migration_entries WHERE id = ?",
+    ).get(providerEntryId)?.state).toBe("inventoried");
+
+    const fileEntryId = "mentry_00000000-0000-4000-8000-000000000034";
+    const fileHash = "e".repeat(64);
+    const fileRef = `provider/elevenlabs/workspace/${workspace.id}/workspace/${workspace.id}`;
+    db.prepare(
+      `INSERT INTO migration_entries
+       (id, migration_run_id, migration_source_id, source_path, source_locator_hash,
+        entry_kind, source_kind, disposition, source_device, source_inode, source_mode,
+        bytes, mtime_ms, target_refs_json, state, created_at, updated_at)
+       VALUES (?, ?, 'desktop-source', 'protocol-file.bin', ?, 'file', 'desktop',
+        'secret-recovery-only', '1', '6', 33152, 4, ?, ?, 'inventoried', ?, ?)`,
+    ).run(fileEntryId, migrationId, fileHash, now, JSON.stringify([fileRef]), now, now);
+    db.prepare(
+      `INSERT INTO migration_issues
+       (id, migration_run_id, code, severity, detail_json, created_at)
+       VALUES ('miss_00000000-0000-4000-8000-000000000034', ?,
+        'MIGRATION_DESKTOP_SECRET_HANDOFF_PLANNED', 'info', ?, ?)`,
+    ).run(migrationId, JSON.stringify({ kind: "file", refs: [fileRef], sourceLocatorHash: fileHash }), now);
+    const importSecret = createBridgeMethods({
+      dataRoot: path.join(root.dir, ".ralphy"),
+      keyProvider: bridgeKeyProvider,
+    })
+      .get("migration.secret.import")!;
+    const context = {
+      consumerSessions: new Set<string>(),
+      activitySubscriptions: new Map<string, { sequence: number; ready: boolean }>(),
+      helloComplete: true,
+      markHello() {},
+      close() {},
+    };
+    await expect(importSecret.handle({
+      runId: migrationId,
+      sourceEntryId: fileEntryId,
+      ref: fileRef,
+      kind: "file",
+      base64: "YR==",
+    }, context)).rejects.toThrow();
+    await expect(importSecret.handle({
+      runId: migrationId,
+      sourceEntryId: fileEntryId,
+      ref: fileRef,
+      kind: "file",
+      base64: Buffer.alloc(1024 * 1024 + 1).toString("base64"),
+    }, context)).rejects.toThrow();
+    expect(db.query<{ state: string }, [string]>(
+      "SELECT state FROM migration_entries WHERE id = ?",
+    ).get(fileEntryId)?.state).toBe("inventoried");
+    await expect(importSecret.handle({
+      runId: migrationId,
+      sourceEntryId: fileEntryId,
+      ref: fileRef,
+      kind: "file",
+      base64: "YQ==",
+    }, context)).resolves.toEqual({ ref: fileRef, kind: "file", completed: true });
   });
 });
