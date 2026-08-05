@@ -294,9 +294,10 @@ const FTS_TABLES = new Set([
 class VerifierSchemaError extends Error {}
 
 export function verifyDomainStore(
-  options: { hashObjects?: boolean } = {},
+  options: { hashObjects?: boolean; dataRoot?: string } = {},
 ): DomainVerificationReport {
-  const databasePath = domainDbPath();
+  const dataRoot = path.resolve(options.dataRoot ?? ralphDir());
+  const databasePath = options.dataRoot ? path.join(dataRoot, "ralphy.db") : domainDbPath();
   let databaseStat: fs.Stats;
   try {
     databaseStat = fs.lstatSync(databasePath);
@@ -308,7 +309,16 @@ export function verifyDomainStore(
   }
   let db: Database;
   try {
-    db = new Database(databasePath, { readonly: true });
+    if (options.dataRoot) {
+      const image = fs.readFileSync(databasePath);
+      if (image.subarray(0, 16).toString("binary") === "SQLite format 3\0" && image[18] === 2 && image[19] === 2) {
+        image[18] = 1;
+        image[19] = 1;
+      }
+      db = Database.deserialize(image, { readonly: true });
+    } else {
+      db = new Database(databasePath, { readonly: true });
+    }
   } catch {
     throw new Error("Domain store is unavailable");
   }
@@ -366,14 +376,14 @@ export function verifyDomainStore(
     };
     validateTextDescriptors(db);
     scanTextPayloads(db, report);
-    const expectedObjectPaths = inspectObjects(db, report);
-    inspectRunObjects(db, report);
+    const expectedObjectPaths = inspectObjects(db, report, dataRoot);
+    inspectRunObjects(db, report, dataRoot);
     inspectObjectReferences(db, report);
     inspectRevisionChains(db, report);
     inspectBuildChains(db, report);
     inspectUnitChains(db, report);
     inspectSessionProvenance(db, report);
-    inspectFilesystem(report, expectedObjectPaths);
+    inspectFilesystem(report, expectedObjectPaths, dataRoot);
     finalizeReport(report);
     db.exec("COMMIT");
     return report;
@@ -627,6 +637,7 @@ function isStrictBase64(value: string): boolean {
 function inspectObjects(
   db: Database,
   report: DomainVerificationReport,
+  dataRoot: string,
 ): Set<string> {
   const expectedPaths = new Set<string>();
   const rows = db
@@ -681,8 +692,8 @@ function inspectObjects(
       ) {
         throw new Error("scope");
       }
-      filePath = resolveObjectLocator(row);
-      expectedPaths.add(toPosix(path.relative(path.resolve(ralphDir()), filePath)));
+      filePath = resolveObjectLocator(row, dataRoot);
+      expectedPaths.add(toPosix(path.relative(dataRoot, filePath)));
     } catch (error) {
       report.objectFileIssues.push({
         objectId: row.id,
@@ -690,7 +701,7 @@ function inspectObjects(
       });
       continue;
     }
-    const checked = inspectRegularFile(filePath, report.hashObjects, false);
+    const checked = inspectRegularFile(filePath, report.hashObjects, false, dataRoot);
     if (checked.kind === "missing") {
       report.missingObjects.push(row.id);
       continue;
@@ -717,6 +728,7 @@ function inspectObjects(
 function inspectRunObjects(
   db: Database,
   report: DomainVerificationReport,
+  dataRoot: string,
 ): void {
   const rows = db
     .query<
@@ -744,7 +756,7 @@ function inspectRunObjects(
     if (row.object_id !== null) continue;
     let filePath: string;
     try {
-      filePath = runObjectPath(row.path);
+      filePath = runObjectPath(row.path, dataRoot);
     } catch (error) {
       report.runObjectIssues.push({
         table: "run_objects",
@@ -754,7 +766,7 @@ function inspectRunObjects(
       });
       continue;
     }
-    const checked = inspectRegularFile(filePath, true, true);
+    const checked = inspectRegularFile(filePath, true, true, dataRoot);
     if (checked.kind === "missing") {
       if (row.state === "forensic" || row.state === "diagnostic") {
         report.runObjectIssues.push({
@@ -806,6 +818,15 @@ function inspectObjectReferences(
   db: Database,
   report: DomainVerificationReport,
 ): void {
+  const migrationReferences = tableExists(db, "migration_entries")
+    ? `AND NOT EXISTS (
+         SELECT 1 FROM migration_entries entry
+         WHERE entry.raw_evidence_object_id = object.id
+            OR (entry.state = 'staged' AND EXISTS (
+              SELECT 1 FROM json_each(COALESCE(entry.target_refs_json, '[]')) ref
+              WHERE ref.value = object.id
+            )))`
+    : "";
   report.unreferencedObjects.push(
     ...db
       .query<{ id: string }, []>(
@@ -814,11 +835,18 @@ function inspectObjectReferences(
            AND NOT EXISTS (SELECT 1 FROM composition_revision_files WHERE object_id = object.id)
            AND NOT EXISTS (SELECT 1 FROM run_objects WHERE object_id = object.id)
            AND NOT EXISTS (SELECT 1 FROM job_artifacts WHERE object_id = object.id)
-           AND NOT EXISTS (SELECT 1 FROM storage_transfer_entries WHERE object_id = object.id)`,
+           AND NOT EXISTS (SELECT 1 FROM storage_transfer_entries WHERE object_id = object.id)
+           ${migrationReferences}`,
       )
       .all()
       .map((row) => row.id),
   );
+}
+
+function tableExists(db: Database, table: string): boolean {
+  return db.query<{ found: number }, [string]>(
+    "SELECT 1 AS found FROM sqlite_master WHERE type = 'table' AND name = ?",
+  ).get(table)?.found === 1;
 }
 
 type ChainDbRow = { entityId: string; relatedId: string | null };
@@ -1949,8 +1977,9 @@ function inspectAuthorship<E extends ProvenanceEntity>(
 function inspectFilesystem(
   report: DomainVerificationReport,
   expectedObjectPaths: Set<string>,
+  dataRoot: string,
 ): void {
-  const root = path.resolve(ralphDir());
+  const root = dataRoot;
   inspectFarmRoot(root, report);
   const buckets = path.join(root, "buckets");
   walkBuckets(buckets, root, null, expectedObjectPaths, report);
@@ -2049,12 +2078,12 @@ function walkBuckets(
 
 class OutsideRootError extends Error {}
 
-function runObjectPath(locator: string): string {
+function runObjectPath(locator: string, dataRoot: string): string {
   if (locator.split("/", 1)[0] === "farm") throw new Error("invalid");
-  return relativeStorePath(locator);
+  return relativeStorePath(dataRoot, locator);
 }
 
-function relativeStorePath(...parts: string[]): string {
+function relativeStorePath(dataRoot: string, ...parts: string[]): string {
   for (const value of parts) {
     const normalized = value.replaceAll("\\", "/");
     const segments = normalized.split("/");
@@ -2075,7 +2104,7 @@ function relativeStorePath(...parts: string[]): string {
       throw new Error("invalid");
     }
   }
-  const root = path.resolve(ralphDir());
+  const root = dataRoot;
   const resolved = path.resolve(root, ...parts.flatMap((part) => part.split("/")));
   if (!isWithin(root, resolved)) throw new OutsideRootError();
   return resolved;
@@ -2089,8 +2118,9 @@ function inspectRegularFile(
   filePath: string,
   hashContents: boolean,
   allowEmpty: boolean,
+  dataRoot: string,
 ): InspectedFile {
-  const openedFile = openContainedFile(filePath);
+  const openedFile = openContainedFile(filePath, dataRoot);
   if (openedFile.kind !== "ok") return openedFile;
   const descriptor = openedFile.descriptor;
   try {
@@ -2123,8 +2153,8 @@ type OpenedFile =
   | { kind: "ok"; descriptor: number }
   | { kind: "missing" | "symlink" | "unreadable" };
 
-function openContainedFile(filePath: string): OpenedFile {
-  const root = path.resolve(ralphDir());
+function openContainedFile(filePath: string, dataRoot: string): OpenedFile {
+  const root = dataRoot;
   const relative = path.relative(root, path.resolve(filePath));
   if (
     relative === "" ||

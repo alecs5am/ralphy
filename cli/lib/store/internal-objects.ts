@@ -345,7 +345,7 @@ export function resolveObjectPath(row: ObjectRow): string {
   return resolved;
 }
 
-export function resolveObjectLocator(row: ObjectRow): string {
+export function resolveObjectLocator(row: ObjectRow, dataRoot = ralphDir()): string {
   if (row.backend !== "local") throw new Error("Object backend must be local");
   const expectedBucket = row.projectId
     ? `buckets/${row.workspaceId}/projects/${row.projectId}`
@@ -354,7 +354,7 @@ export function resolveObjectLocator(row: ObjectRow): string {
     throw new Error("Object bucket is invalid");
   const expectedKey = `objects/${row.id}${safeExtension(row.originalName ?? row.id)}`;
   if (row.key !== expectedKey) throw new Error("Object key is invalid");
-  const root = path.resolve(ralphDir());
+  const root = path.resolve(dataRoot);
   return resolveLocator(root, row.bucket, row.key);
 }
 
