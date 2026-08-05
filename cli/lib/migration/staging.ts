@@ -3,10 +3,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { newDomainId } from "../store/ids.js";
 import {
+  assertSafeStorePath,
+  ensureSafeStoreDirectory,
   getObjectRow,
+  hashSafeStoreFile,
   prepareObject,
+  promoteStagedFile,
   registerPreparedObject,
   type PreparedObject,
+  writeExclusiveStoreTemp,
 } from "../store/internal-objects.js";
 import { normalizeRelativePath } from "./legacy.js";
 import type { MigrationContext } from "./types.js";
@@ -49,15 +54,18 @@ export async function stageInventoryObjects(
   options: StageOptions = {},
 ): Promise<StageSummary> {
   assertContext(ctx);
-  const run = ctx.db.query<{ phase: string; sourceBytes: number }, [string]>(
-    "SELECT phase, source_bytes AS sourceBytes FROM migration_runs WHERE id = ?",
+  const run = ctx.db.query<{ phase: string }, [string]>(
+    "SELECT phase FROM migration_runs WHERE id = ?",
   ).get(ctx.runId);
   if (!run || !new Set(["inventory", "import", "objects", "relations"]).has(run.phase)) {
     throw new Error("Migration Run is not ready for Object staging");
   }
-  if (options.copyMode === "copy") assertCopySpace(ctx, run.sourceBytes, options.freeBytes);
-
   const rows = entries(ctx);
+  if (options.copyMode === "copy") {
+    const estimate = await estimateRemainingCopy(ctx, rows);
+    persistCopyEstimate(ctx, estimate);
+    assertCopySpace(ctx, estimate.requiredCopyBytes, options.freeBytes);
+  }
   const digests: string[] = [];
   let staged = 0;
   let bytes = 0;
@@ -158,7 +166,7 @@ async function stageFileObject(
     clonePolicy: copyMode === "clone" ? "require" : "allow-copy",
   });
   assertSourceUnchanged(source, before);
-  const digest = await verifyPrepared(prepared, row.bytes, row.sha256);
+  const digest = await verifyPrepared(ctx, prepared, row.bytes, row.sha256);
   let finalRefs = refs;
   ctx.db.transaction(() => {
     registerOrValidate(ctx, prepared);
@@ -172,7 +180,7 @@ async function stageFileObject(
        WHERE id = ? AND state = 'inventoried'`,
     ).run(locator, JSON.stringify(finalRefs), digest.sha256, Date.now(), row.id);
   }).immediate();
-  const verified = await hashFile(prepared.finalPath);
+  const verified = await hashSafeStoreFile(ctx.storeRoot, prepared.finalPath);
   if (verified.sha256 !== digest.sha256 || verified.bytes !== digest.bytes) {
     throw new Error("Staged Object changed before verification");
   }
@@ -226,8 +234,7 @@ async function stageControlEvidence(
   })];
   for (const value of decoded) {
     const decodedSource = path.join(ctx.storeRoot, "tmp", value.id, "decoded");
-    fs.mkdirSync(path.dirname(decodedSource), { recursive: true, mode: 0o700 });
-    fs.writeFileSync(decodedSource, value.bytes, { mode: 0o600 });
+    await writeExclusiveStoreTemp(ctx.storeRoot, decodedSource, value.bytes);
     prepared.push(await prepareOrResume(ctx, {
       row: { ...row, bytes: value.bytes.length, sha256: null },
       scope,
@@ -242,8 +249,7 @@ async function stageControlEvidence(
   }
   for (const value of diagnostics) {
     const diagnosticSource = path.join(ctx.storeRoot, "tmp", value.id, "diagnostic");
-    fs.mkdirSync(path.dirname(diagnosticSource), { recursive: true, mode: 0o700 });
-    fs.writeFileSync(diagnosticSource, value.bytes, { mode: 0o600 });
+    await writeExclusiveStoreTemp(ctx.storeRoot, diagnosticSource, value.bytes);
     prepared.push(await prepareOrResume(ctx, {
       row: { ...row, bytes: value.bytes.length, sha256: value.sha256 },
       scope,
@@ -257,7 +263,7 @@ async function stageControlEvidence(
     fs.rmSync(path.dirname(diagnosticSource), { recursive: true, force: true });
   }
   assertSourceUnchanged(source, before);
-  for (const object of prepared) await verifyPrepared(object, object.bytes, object.sha256);
+  for (const object of prepared) await verifyPrepared(ctx, object, object.bytes, object.sha256);
   verifyTargetRefs(ctx, refs.filter((id) => !id.startsWith("obj_")));
   const now = Date.now();
   let finalRefs = refs;
@@ -306,7 +312,7 @@ async function prepareOrResume(ctx: MigrationContext, input: {
       objectId: input.objectId,
     });
   }
-  const facts = await hashFile(finalPath);
+  const facts = await hashSafeStoreFile(ctx.storeRoot, finalPath);
   const sourceFacts = await hashFile(input.sourcePath);
   if (facts.bytes !== sourceFacts.bytes || facts.sha256 !== sourceFacts.sha256) {
     throw new Error("Existing staged Object conflicts with its immutable source");
@@ -413,13 +419,75 @@ function assertContext(ctx: MigrationContext): void {
   if (!database.isFile() || database.isSymbolicLink()) throw new Error("Migration database is unsafe");
 }
 
-function assertCopySpace(ctx: MigrationContext, sourceBytes: number, freeOverride?: number): void {
+type CopyEstimate = {
+  rawBytes: number;
+  decodedBytes: number;
+  diagnosticBytes: number;
+  dbOverheadBytes: number;
+  requiredCopyBytes: number;
+};
+
+async function estimateRemainingCopy(ctx: MigrationContext, rows: readonly Entry[]): Promise<CopyEstimate> {
+  let rawBytes = 0;
+  let decodedBytes = 0;
+  let diagnosticBytes = 0;
+  let ledgerEntries = 0;
+  let objectRows = 0;
+  for (const row of rows) {
+    if (
+      row.state !== "inventoried" || isSecret(row) || isSystem(row)
+      || row.entryKind !== "file" || row.bytes === 0 || row.disposition === "issue"
+    ) continue;
+    if (
+      row.disposition === "cache" || row.disposition === "object"
+      || row.disposition === "run-object" || row.disposition === "decoded-object"
+      || (row.disposition === "domain" && row.targetPath)
+    ) {
+      rawBytes += row.bytes;
+      ledgerEntries += 1;
+    }
+    if (row.disposition === "cache") continue;
+    objectRows += 1;
+    if (row.disposition !== "domain" || !row.targetPath) continue;
+    const source = sourceFile(ctx, row);
+    const before = sourceFacts(source, row);
+    const raw = fs.readFileSync(source);
+    const decoded = decodedDataUrls(raw);
+    const diagnostics = malformedDiagnostics(ctx, row, raw);
+    decodedBytes += decoded.reduce((sum, value) => sum + value.bytes.length, 0);
+    diagnosticBytes += diagnostics.reduce((sum, value) => sum + value.bytes.length, 0);
+    objectRows += decoded.length + diagnostics.length;
+    assertSourceUnchanged(source, before);
+  }
+  const dbOverheadBytes = COPY_DB_BASE_BYTES
+    + ledgerEntries * COPY_DB_ENTRY_BYTES
+    + objectRows * COPY_DB_OBJECT_BYTES;
+  return {
+    rawBytes,
+    decodedBytes,
+    diagnosticBytes,
+    dbOverheadBytes,
+    requiredCopyBytes: rawBytes + decodedBytes + diagnosticBytes + dbOverheadBytes,
+  };
+}
+
+function persistCopyEstimate(ctx: MigrationContext, estimate: CopyEstimate): void {
+  const detail = JSON.stringify({ version: 1, ...estimate });
+  ctx.db.prepare(
+    `INSERT INTO migration_issues
+     (id, migration_run_id, migration_entry_id, code, severity, detail_json, created_at)
+     VALUES (?, ?, NULL, 'MIGRATION_COPY_SPACE_ESTIMATE', 'info', ?, ?)
+     ON CONFLICT(id) DO UPDATE SET detail_json = excluded.detail_json`,
+  ).run(stableId("miss", ctx.runId, "copy-space-estimate"), ctx.runId, detail, Date.now());
+}
+
+function assertCopySpace(ctx: MigrationContext, requiredCopyBytes: number, freeOverride?: number): void {
   const free = freeOverride ?? (() => {
     const stats = fs.statfsSync(ctx.storeRoot);
     return stats.bavail * stats.bsize;
   })();
-  const reserve = Math.max(2 * 1024 ** 3, Math.ceil(sourceBytes * 0.1));
-  if (free < sourceBytes + reserve) throw new Error("Migration copy mode has insufficient free space");
+  const reserve = Math.max(2 * 1024 ** 3, Math.ceil(requiredCopyBytes * 0.1));
+  if (free < requiredCopyBytes + reserve) throw new Error("Migration copy mode has insufficient free space");
 }
 
 function scopeForEntry(ctx: MigrationContext, row: Entry): Scope {
@@ -484,8 +552,8 @@ function assertSourceUnchanged(file: string, before: ReturnType<typeof sourceFac
   ) throw new Error("Migration source changed during Object staging");
 }
 
-async function verifyPrepared(prepared: PreparedObject, bytes: number, digest: string | null) {
-  const actual = await hashFile(prepared.finalPath);
+async function verifyPrepared(ctx: MigrationContext, prepared: PreparedObject, bytes: number, digest: string | null) {
+  const actual = await hashSafeStoreFile(ctx.storeRoot, prepared.finalPath);
   if (actual.bytes !== bytes || actual.sha256 !== prepared.sha256 || (digest && digest !== actual.sha256)) {
     throw new Error("Migration Object digest does not match its inventory");
   }
@@ -511,7 +579,7 @@ function allocatedObjectId(row: Entry, role: string, runId: string): string {
   return stableId("obj", runId, `${row.id}:${role}`);
 }
 
-function stableId(prefix: "obj" | "run" | "robj", runId: string, key: string): string {
+function stableId(prefix: "obj" | "run" | "robj" | "miss", runId: string, key: string): string {
   const hex = createHash("sha256").update(`${runId}\0${key}`).digest("hex").slice(0, 32).split("");
   hex[12] = "4";
   hex[16] = "8";
@@ -572,20 +640,34 @@ function terminalizeExcluded(
 async function stageCache(ctx: MigrationContext, row: Entry, copyMode: "clone" | "copy"): Promise<void> {
   const source = sourceFile(ctx, row);
   const before = sourceFacts(source, row);
+  const sourceDigest = await hashFile(source);
+  if (sourceDigest.bytes !== row.bytes || (row.sha256 && row.sha256 !== sourceDigest.sha256)) {
+    throw new Error("Migration cache source digest does not match its inventory");
+  }
+  assertSourceUnchanged(source, before);
   const targetRel = `cache/migration/${row.sourceLocatorHash}/${path.posix.basename(row.sourcePath)}`;
   const target = path.join(ctx.storeRoot, ...targetRel.split("/"));
-  const temporary = `${target}.staged`;
-  fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
+  const temporary = `${target}.staged-${newDomainId("obj")}`;
+  await ensureSafeStoreDirectory(ctx.storeRoot, path.dirname(target));
   if (!fs.existsSync(target)) {
-    await fs.promises.copyFile(source, temporary, copyMode === "clone"
+    await assertSafeStorePath(ctx.storeRoot, temporary);
+    await fs.promises.copyFile(source, temporary, (copyMode === "clone"
       ? fs.constants.COPYFILE_FICLONE_FORCE
-      : fs.constants.COPYFILE_FICLONE);
-    const handle = await fs.promises.open(temporary, "r");
-    try { await handle.sync(); } finally { await handle.close(); }
-    await fs.promises.rename(temporary, target);
+      : fs.constants.COPYFILE_FICLONE) | fs.constants.COPYFILE_EXCL);
+    try {
+      const staged = await hashFile(temporary);
+      if (staged.bytes !== sourceDigest.bytes || staged.sha256 !== sourceDigest.sha256) {
+        throw new Error("Migration cache staged digest conflict");
+      }
+      const handle = await fs.promises.open(temporary, "r");
+      try { await handle.sync(); } finally { await handle.close(); }
+      await promoteStagedFile(ctx.storeRoot, temporary, target, sourceDigest);
+    } finally {
+      await fs.promises.rm(temporary, { force: true });
+    }
   }
-  const actual = await hashFile(target);
-  if (actual.bytes !== row.bytes || (row.sha256 && row.sha256 !== actual.sha256)) {
+  const actual = await hashSafeStoreFile(ctx.storeRoot, target);
+  if (actual.bytes !== sourceDigest.bytes || actual.sha256 !== sourceDigest.sha256) {
     throw new Error("Migration cache digest mismatch");
   }
   assertSourceUnchanged(source, before);
@@ -718,3 +800,6 @@ function recordBlockingIssue(ctx: MigrationContext, row: Entry, code: string): n
 }
 
 const EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+const COPY_DB_BASE_BYTES = 1024 ** 2;
+const COPY_DB_ENTRY_BYTES = 64 * 1024;
+const COPY_DB_OBJECT_BYTES = 64 * 1024;
