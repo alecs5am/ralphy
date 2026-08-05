@@ -22,6 +22,11 @@ import {
 import { VERSION } from "../version.js";
 import { assertMigrationMaintenanceLock, assertMigrationQuiescent } from "./inventory.js";
 import type { MigrationContext, MigrationIssue } from "./types.js";
+import {
+  isProductionSourceFingerprint,
+  productionSourceGraphMismatches,
+  type ProductionSourceFingerprintFact,
+} from "./production-accounting.js";
 
 export type FrozenFileFingerprint = {
   exists: boolean;
@@ -59,6 +64,7 @@ export type FrozenMigration = {
   secretInventory: SecretInventoryFact[];
   secretInventoryDigest: string;
   verificationDirectory: FrozenDirectoryIdentity;
+  stagedRoot: FrozenDirectoryIdentity;
   excludedRoots: FrozenDirectoryIdentity[];
   contentDigest: string;
   consumers: { farm: null };
@@ -208,6 +214,7 @@ export async function freezeMigration(
     const secretInventory = secretInventoryFacts(secrets);
     const secretInventoryDigest = sha256(canonical(secretInventory));
     const verificationDirectory = pinnedDirectoryIdentity(verificationDir);
+    const stagedRoot = directoryIdentity(ctx.storeRoot);
     const excludedRoots = [ctx.storeRoot, ...ctx.sourceRoots.map((source) => source.path)]
       .map(directoryIdentity)
       .sort((left, right) => left.path.localeCompare(right.path));
@@ -221,6 +228,7 @@ export async function freezeMigration(
       secretInventory,
       secretInventoryDigest,
       verificationDirectory,
+      stagedRoot,
       excludedRoots,
       contentDigest: third.contentDigest,
       consumers: { farm: null } as const,
@@ -258,6 +266,7 @@ function verifyPinnedMigration(
 ): MigrationVerification {
   const freezeName = `migration-${input.runId}.freeze.json`;
   const frozen = readFreezeRecord(verificationDir, freezeName, input.runId);
+  assertFrozenStoreRoot(frozen, storeRoot);
   const before = frozenDatabaseFiles(storeRoot);
   assertFrozenFiles(frozen, before);
   const db = openSnapshot(path.join(storeRoot, "ralphy.db"));
@@ -709,6 +718,9 @@ function inspectProductionAccountingFacts(db: Database, runId: string, blockers:
       blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", unit.entryId));
     }
   }
+  for (const entryId of productionSourceGraphMismatches(db, fingerprint)) {
+    blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", entryId));
+  }
   const importedMetrics = new Set([...accountedRefs.values()].flat().filter((ref) => ref.startsWith("metric_")));
   const expectedWinners = productionMetricWinnerIds(
     fingerprint.metricRecords.filter((record) => importedMetrics.has(record.metricId)),
@@ -724,47 +736,6 @@ function inspectProductionAccountingFacts(db: Database, runId: string, blockers:
   if (canonical(actualWinners) !== canonical(expectedWinners)) {
     blockers.push(issue("MIGRATION_PRODUCTION_ACCOUNTING", runId));
   }
-}
-
-type ProductionSourceFingerprintFact = {
-  unitRecords: Array<{ entryId: string; revisionNo: number; itemOccurrences: number; digest: string }>;
-  productionRecords: Array<{ entryId: string; rowOrdinal: number; digest: string }>;
-  deliveryRecords: Array<{ entryId: string; rowOrdinal: number; digest: string }>;
-  metricRecords: Array<{
-    entryId: string;
-    rowOrdinal: number;
-    metricId: string;
-    winnerKey: string;
-    asOf: number;
-    createdAt: number;
-    digest: string;
-  }>;
-  metricWinnerIds: string[];
-};
-
-function isProductionSourceFingerprint(value: unknown): value is ProductionSourceFingerprintFact {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<ProductionSourceFingerprintFact>;
-  const records = (items: unknown, extra: (row: Record<string, unknown>) => boolean): boolean =>
-    Array.isArray(items) && items.every((item) => {
-      if (!item || typeof item !== "object") return false;
-      const row = item as Record<string, unknown>;
-      return typeof row.entryId === "string" && typeof row.digest === "string" && extra(row);
-    });
-  return records(candidate.unitRecords, (row) =>
-    Number.isSafeInteger(row.revisionNo) && Number.isSafeInteger(row.itemOccurrences)
-      && (row.itemOccurrences as number) > 0
-  )
-    && records(candidate.productionRecords, (row) => Number.isSafeInteger(row.rowOrdinal))
-    && records(candidate.deliveryRecords, (row) => Number.isSafeInteger(row.rowOrdinal))
-    && records(candidate.metricRecords, (row) =>
-      Number.isSafeInteger(row.rowOrdinal) && typeof row.metricId === "string"
-        && typeof row.winnerKey === "string" && Number.isSafeInteger(row.asOf)
-        && Number.isSafeInteger(row.createdAt)
-    )
-    && Array.isArray(candidate.metricWinnerIds)
-    && candidate.metricWinnerIds.every((id) => typeof id === "string")
-    && new Set(candidate.metricWinnerIds).size === candidate.metricWinnerIds.length;
 }
 
 function productionMetricWinnerIds(
@@ -1136,7 +1107,8 @@ function readFreezeRecord(
     runId: value.runId, frozenAt: value.frozenAt, database: value.database, wal: value.wal,
     shm: value.shm, inventoryDigests: value.inventoryDigests,
     secretInventory: value.secretInventory, secretInventoryDigest: value.secretInventoryDigest,
-    verificationDirectory: value.verificationDirectory, excludedRoots: value.excludedRoots,
+    verificationDirectory: value.verificationDirectory, stagedRoot: value.stagedRoot,
+    excludedRoots: value.excludedRoots,
     contentDigest: value.contentDigest,
     consumers: value.consumers,
   };
@@ -1153,12 +1125,21 @@ function readFreezeRecord(
     || !Array.isArray(value.excludedRoots)
     || !value.excludedRoots.every(isDirectoryIdentity)
     || canonical(value.excludedRoots) !== canonical([...value.excludedRoots].sort((left, right) => left.path.localeCompare(right.path)))
+    || !isDirectoryIdentity(value.stagedRoot)
+    || !value.excludedRoots.some((identity) => canonical(identity) === canonical(value.stagedRoot))
     || value.id !== sha256(canonical(body))
     || raw !== `${canonical({ id: value.id, ...body })}\n`
   ) {
     throw new Error("Migration freeze record is invalid");
   }
   return { ...value, recordPath: path.join(directory.path, name) };
+}
+
+function assertFrozenStoreRoot(frozen: FrozenMigration, storeRoot: string): void {
+  const current = directoryIdentity(storeRoot);
+  if (current.device !== frozen.stagedRoot.device || current.inode !== frozen.stagedRoot.inode) {
+    throw new Error("Migration store root identity does not match freeze record");
+  }
 }
 
 function assertFrozenFiles(frozen: FrozenMigration, actual: ReturnType<typeof frozenDatabaseFiles>): void {

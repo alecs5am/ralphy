@@ -221,6 +221,33 @@ describe("migration freeze and read-only verification", () => {
     })).toThrow(/directory identity/u);
   });
 
+  test("rejects a byte-identical staged store copied to a new inode", async () => {
+    const fixture = setup();
+    await freezeMigration(fixture.ctx, { verificationDir: fixture.verificationDir });
+    const copiedStore = path.join(fixture.root.dir, "copied-stage", ".ralphy");
+    fs.cpSync(fixture.storeRoot, copiedStore, { recursive: true, preserveTimestamps: true });
+
+    expect(() => verifyMigration({
+      storeRoot: copiedStore,
+      runId: RUN_ID,
+      verificationDir: fixture.verificationDir,
+    })).toThrow(/store root identity/u);
+  });
+
+  test("accepts the frozen staged store after a same-inode rename", async () => {
+    const fixture = setup();
+    await freezeMigration(fixture.ctx, { verificationDir: fixture.verificationDir });
+    const renamedStore = path.join(fixture.root.dir, "renamed-stage", ".ralphy");
+    fs.mkdirSync(path.dirname(renamedStore));
+    fs.renameSync(fixture.storeRoot, renamedStore);
+
+    expect(() => verifyMigration({
+      storeRoot: renamedStore,
+      runId: RUN_ID,
+      verificationDir: fixture.verificationDir,
+    })).not.toThrow();
+  });
+
   test("freezes once and produces repeatable byte-neutral content verification", async () => {
     const fixture = setup();
     const frozen = await freezeMigration(fixture.ctx, { verificationDir: fixture.verificationDir });
@@ -337,6 +364,35 @@ describe("migration freeze and read-only verification", () => {
     const fixture = setup();
     installProductionAccountingFact(fixture);
     fixture.ctx.db.prepare("UPDATE objects SET original_name = 'substituted.json' WHERE id = ?").run(OBJECT_ID);
+
+    await expect(freezeMigration(fixture.ctx, { verificationDir: fixture.verificationDir }))
+      .rejects.toThrow(ENTRY_ID);
+  });
+
+  test("rejects a non-Unit graph omitted from both its accounting fact and index", async () => {
+    const fixture = setup();
+    installOmittedBuildAccountingIndex(fixture);
+
+    await expect(freezeMigration(fixture.ctx, { verificationDir: fixture.verificationDir }))
+      .rejects.toThrow(ENTRY_ID);
+  });
+
+  test("does not satisfy source coverage with another migration run's issue", async () => {
+    const fixture = setup();
+    installCrossRunProductionIssue(fixture);
+
+    await expect(freezeMigration(fixture.ctx, { verificationDir: fixture.verificationDir }))
+      .rejects.toThrow(ENTRY_ID);
+  });
+
+  test("does not satisfy record coverage with a file-level issue", async () => {
+    const fixture = setup();
+    fixture.ctx.db.prepare(
+      `INSERT INTO migration_issues
+       (id, migration_run_id, code, severity, line_no, detail_json, created_at)
+       VALUES ('miss_file-level-build-issue', ?, 'MIGRATION_BUILD_BINDING_AMBIGUOUS', 'review', NULL, ?, 2)`,
+    ).run(RUN_ID, JSON.stringify({ sourceLocatorHash: sourceLocatorHash("ralphy", "control.json") }));
+    installIssueExpectationIndex(fixture, "miss_file-level-build-issue");
 
     await expect(freezeMigration(fixture.ctx, { verificationDir: fixture.verificationDir }))
       .rejects.toThrow(ENTRY_ID);
@@ -581,6 +637,7 @@ function installProductionAccountingFact(fixture: Fixture): void {
       unitRecords: [],
       productionRecords: [],
       deliveryRecords: [],
+      deliveryOccurrences: [],
       metricRecords: [],
       metricWinnerIds: [],
     },
@@ -588,9 +645,91 @@ function installProductionAccountingFact(fixture: Fixture): void {
       unitRecords: [],
       productionRecords: [],
       deliveryRecords: [],
+      deliveryOccurrences: [],
       metricRecords: [],
       metricWinnerIds: [],
     })),
+  }));
+}
+
+function installOmittedBuildAccountingIndex(fixture: Fixture): void {
+  const sourceFingerprint = {
+    unitRecords: [],
+    productionRecords: [{
+      entryId: ENTRY_ID,
+      rowOrdinal: 1,
+      targetSlot: null,
+      digest: "a".repeat(64),
+      expected: {
+        kind: "build",
+        workspaceId: WORKSPACE_ID,
+        projectId: PROJECT_ID,
+        buildId: BUILD_ID,
+        compositionRevisionId: "crev_00000000-0000-4000-8000-000000000081",
+        artifactRevisionId: "arev_00000000-0000-4000-8000-000000000082",
+        runId: "run_00000000-0000-4000-8000-000000000083",
+        attemptId: "attempt_00000000-0000-4000-8000-000000000084",
+        outputId: "output_00000000-0000-4000-8000-000000000085",
+        resultId: "result_00000000-0000-4000-8000-000000000086",
+        profile: "legacy",
+        outputRole: "output",
+        createdAt: 1,
+      },
+    }],
+    deliveryRecords: [],
+    deliveryOccurrences: [],
+    metricRecords: [],
+    metricWinnerIds: [],
+  };
+  fixture.ctx.db.prepare(
+    `INSERT INTO migration_issues
+     (id, migration_run_id, code, severity, detail_json, created_at)
+     VALUES ('miss_fixture-production-index', ?, 'MIGRATION_PRODUCTION_ACCOUNTING_INDEX', 'info', ?, 2)`,
+  ).run(RUN_ID, JSON.stringify({
+    entryIds: [],
+    sourceFingerprint,
+    sourceFingerprintDigest: sha256(canonicalRow(sourceFingerprint)),
+  }));
+}
+
+function installCrossRunProductionIssue(fixture: Fixture): void {
+  const otherRunId = "mig_00000000-0000-4000-8000-000000000087";
+  fixture.ctx.db.prepare(
+    `INSERT INTO migration_runs
+     (id, stage_root_rel, recovery_root_rel, phase, created_at, updated_at)
+     VALUES (?, 'other-stage', 'other-recovery', 'audited', 1, 1)`,
+  ).run(otherRunId);
+  fixture.ctx.db.prepare(
+    `INSERT INTO migration_issues
+     (id, migration_run_id, code, severity, line_no, detail_json, created_at)
+     VALUES ('miss_other-run-build-issue', ?, 'MIGRATION_BUILD_BINDING_AMBIGUOUS', 'review', 1, ?, 2)`,
+  ).run(otherRunId, JSON.stringify({ sourceLocatorHash: sourceLocatorHash("ralphy", "control.json"), lineNo: 1 }));
+  installIssueExpectationIndex(fixture, "miss_other-run-build-issue");
+}
+
+function installIssueExpectationIndex(fixture: Fixture, issueId: string): void {
+  const sourceFingerprint = {
+    unitRecords: [],
+    productionRecords: [{
+      entryId: ENTRY_ID,
+      rowOrdinal: 1,
+      targetSlot: null,
+      digest: "a".repeat(64),
+      expected: { kind: "issue", issueId, code: "MIGRATION_BUILD_BINDING_AMBIGUOUS" },
+    }],
+    deliveryRecords: [],
+    deliveryOccurrences: [],
+    metricRecords: [],
+    metricWinnerIds: [],
+  };
+  fixture.ctx.db.prepare(
+    `INSERT INTO migration_issues
+     (id, migration_run_id, code, severity, detail_json, created_at)
+     VALUES ('miss_fixture-production-index', ?, 'MIGRATION_PRODUCTION_ACCOUNTING_INDEX', 'info', ?, 2)`,
+  ).run(RUN_ID, JSON.stringify({
+    entryIds: [],
+    sourceFingerprint,
+    sourceFingerprintDigest: sha256(canonicalRow(sourceFingerprint)),
   }));
 }
 

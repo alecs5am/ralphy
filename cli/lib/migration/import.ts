@@ -26,6 +26,12 @@ import {
   sanitizeLegacyPayload,
 } from "./legacy.js";
 import type { MigrationContext, MigrationSourceRoot } from "./types.js";
+import {
+  productionSourceGraphMismatches,
+  type ProductionGraphExpectation,
+  type ProductionSourceFingerprintFact,
+  type ProductionSourceRecord,
+} from "./production-accounting.js";
 
 export type MigrationImportSummary = {
   workspaces: number;
@@ -145,28 +151,11 @@ type ProductionPrepared = {
 
 type ProductionImportOptions = {
   omitLastRepeatedUnitItemForTesting?: boolean;
+  omitBuildEntryIdForTesting?: string;
+  omitLastDeliveryTargetForTesting?: boolean;
 };
 
-type ProductionSourceFingerprint = {
-  unitRecords: Array<{
-    entryId: string;
-    revisionNo: number;
-    itemOccurrences: number;
-    digest: string;
-  }>;
-  productionRecords: Array<{ entryId: string; rowOrdinal: number; digest: string }>;
-  deliveryRecords: Array<{ entryId: string; rowOrdinal: number; digest: string }>;
-  metricRecords: Array<{
-    entryId: string;
-    rowOrdinal: number;
-    metricId: string;
-    winnerKey: string;
-    asOf: number;
-    createdAt: number;
-    digest: string;
-  }>;
-  metricWinnerIds: string[];
-};
+type ProductionSourceFingerprint = ProductionSourceFingerprintFact;
 
 type ProductionAccountingFact = {
   entryId: string;
@@ -492,7 +481,7 @@ export function importProductionAndDelivery(
   options: ProductionImportOptions = {},
 ): ProductionImportSummary {
   const prepared = prepareProduction(ctx);
-  const expected = deriveProductionAccounting(ctx, prepared);
+  const expected = deriveProductionAccounting(ctx, prepared, options);
 
   ctx.db.transaction(() => {
     const materialized = materializeProduction(ctx, prepared, options);
@@ -537,7 +526,7 @@ function materializeProduction(
   const publicationIds = new Map<string, string[]>();
   importLegacyArtifacts(ctx, prepared, refs, artifactBySourcePath, issues);
   importLegacyCompositions(ctx, prepared, refs, compositionBySourcePath, issues);
-  importLegacyBuilds(ctx, prepared, refs, artifactBySourcePath, compositionBySourcePath, issues);
+  importLegacyBuilds(ctx, prepared, refs, artifactBySourcePath, compositionBySourcePath, issues, options);
   importLegacyUnits(
     ctx,
     prepared,
@@ -548,7 +537,7 @@ function materializeProduction(
     issues,
     options,
   );
-  importLegacyPublications(ctx, prepared, refs, unitIds, presentations, publicationIds, issues);
+  importLegacyPublications(ctx, prepared, refs, unitIds, presentations, publicationIds, issues, options);
   importLegacyMetrics(ctx, prepared, refs, publicationIds, issues);
   return { refs, issues };
 }
@@ -556,11 +545,12 @@ function materializeProduction(
 function deriveProductionAccounting(
   ctx: MigrationContext,
   prepared: ProductionPrepared,
+  options: ProductionImportOptions,
 ): PreparedProductionAccounting {
-  const sourceFingerprint = productionSourceFingerprint(ctx, prepared);
+  const sourceFingerprint = productionSourceFingerprint(ctx, prepared, options);
   ctx.db.exec("SAVEPOINT migration_expected_production");
   try {
-    const materialized = materializeProduction(ctx, prepared);
+    const materialized = materializeProduction(ctx, prepared, options);
     for (const issue of materialized.issues) insertIssue(ctx, issue);
     finalizeTaskFiveEntries(ctx, prepared.entries, materialized.refs, prepared.pendingEntryIds);
     const expected = captureProductionAccounting(ctx, prepared, sourceFingerprint);
@@ -998,6 +988,7 @@ function importLegacyBuilds(
   artifactBySourcePath: ReadonlyMap<string, string>,
   compositionBySourcePath: ReadonlyMap<string, string>,
   issues: PreparedIssue[],
+  options: ProductionImportOptions = {},
 ): void {
   for (const record of prepared.productions) {
     if (!validLegacyProductionRecord(record.value)) {
@@ -1014,6 +1005,7 @@ function importLegacyBuilds(
       issues.push(productionIssue(record.entry, `build-binding:${record.rowOrdinal}`, "MIGRATION_BUILD_BINDING_AMBIGUOUS", "review", record.rowOrdinal));
       continue;
     }
+    if (options.omitBuildEntryIdForTesting === record.entry.id) continue;
     const key = `${record.entry.sourceId}:${record.entry.sourceLocatorHash}:${record.rowOrdinal}`;
     const runId = stableId("run", ctx, `legacy-build:${key}`);
     const buildId = stableId("build", ctx, `legacy-build:${key}`);
@@ -1135,6 +1127,7 @@ function importLegacyUnits(
           presentations,
           refs,
           issues,
+          options,
         );
         ctx.db.prepare("UPDATE unit_revisions SET sealed_at = ? WHERE id = ? AND sealed_at IS NULL")
           .run(revision.entry.mtimeMs, revisionId);
@@ -1350,6 +1343,7 @@ function insertLegacyPresentations(
   presentations: Map<string, string>,
   refs: Map<string, Set<string>>,
   issues: PreparedIssue[],
+  options: ProductionImportOptions = {},
 ): void {
   const manifestPresentations = Array.isArray(unit.value.presentations)
     ? unit.value.presentations.filter(isRecord)
@@ -1359,7 +1353,7 @@ function insertLegacyPresentations(
     if (typeof value.platform !== "string") continue;
     byPlatform.set(canonicalPlatform(value.platform), value);
   }
-  for (const record of expandedDeliveryRecords(prepared.deliveries)) {
+  for (const record of expandedDeliveryRecords(prepared.deliveries, options)) {
     const legacyUnit = typeof record.value.unitId === "string" ? record.value.unitId : null;
     const key = record.unitKeyHint ?? (legacyUnit ? unitIdentityKey(record.entry.sourceLabel, record.scope, legacyUnit) : null);
     if (key !== unit.unitKey || typeof record.value.platform !== "string") continue;
@@ -1595,6 +1589,7 @@ function importLegacyPublications(
   presentations: ReadonlyMap<string, string>,
   publicationIds: Map<string, string[]>,
   issues: PreparedIssue[],
+  options: ProductionImportOptions = {},
 ): void {
   const validatedRecords: Array<{ record: LegacyRecord; semantics: LegacyDeliverySemantics }> = [];
   for (const record of prepared.deliveries) {
@@ -1611,7 +1606,7 @@ function importLegacyPublications(
       validatedRecords.push({ record, semantics: validation.value });
       continue;
     }
-    for (const expanded of expandedDeliveryRecords([record])) {
+    for (const expanded of expandedDeliveryRecords([record], options)) {
       const targetValidation = validateLegacyDeliverySemantics(
         expanded.value,
         expanded.unitKeyHint !== null,
@@ -2645,15 +2640,23 @@ function canonicalCaptionState(value: unknown): "draft" | "humanized" | "auto-dr
   return null;
 }
 
-function expandedDeliveryRecords(records: readonly LegacyRecord[]): LegacyRecord[] {
+function expandedDeliveryRecords(
+  records: readonly LegacyRecord[],
+  options: ProductionImportOptions = {},
+): LegacyRecord[] {
   const expanded: LegacyRecord[] = [];
   for (const record of records) {
     if (!Array.isArray(record.value.targets)) {
       expanded.push(record);
       continue;
     }
+    let lastTarget = -1;
+    for (let index = record.value.targets.length - 1; index >= 0; index -= 1) {
+      if (isRecord(record.value.targets[index])) { lastTarget = index; break; }
+    }
     for (const [index, target] of record.value.targets.entries()) {
       if (!isRecord(target)) continue;
+      if (options.omitLastDeliveryTargetForTesting === true && index === lastTarget) continue;
       const platform = typeof target.platform === "string" ? canonicalPlatform(target.platform) : `target-${index + 1}`;
       expanded.push({
         ...record,
@@ -3025,6 +3028,7 @@ const PRODUCTION_REF_TABLES: Readonly<Record<string, string>> = {
 function productionSourceFingerprint(
   ctx: MigrationContext,
   prepared: ProductionPrepared,
+  options: ProductionImportOptions,
 ): ProductionSourceFingerprint {
   const unitRecords = prepared.units.map((unit) => {
     const media = Array.isArray(unit.value.media) ? unit.value.media : [];
@@ -3045,11 +3049,39 @@ function productionSourceFingerprint(
       })),
     };
   }).sort((left, right) => left.entryId.localeCompare(right.entryId) || left.revisionNo - right.revisionNo);
-  const sourceRecords = (records: readonly LegacyRecord[]) => records.map((record) => ({
-    entryId: record.entry.id,
-    rowOrdinal: record.rowOrdinal,
-    digest: sha256(canonicalJsonText(record.value)),
-  })).sort((left, right) => left.entryId.localeCompare(right.entryId) || left.rowOrdinal - right.rowOrdinal);
+  const artifactRevisions = sourceArtifactRevisions(ctx, prepared);
+  const compositionRevisions = sourceCompositionRevisions(ctx, prepared);
+  const productionRecords = prepared.productions.map((record): ProductionSourceRecord => {
+    const sourcePath = typeof record.value.sourceRevision === "string"
+      ? resolveEvidencePath(prepared, record, record.value.sourceRevision, "project")
+      : null;
+    const outputPath = typeof record.value.output === "string"
+      ? resolveEvidencePath(prepared, record, record.value.output, "project")
+      : null;
+    const compositionRevisionId = sourcePath ? compositionRevisions.get(sourcePath) ?? null : null;
+    const artifactRevisionId = outputPath ? artifactRevisions.get(outputPath) ?? null : null;
+    const key = `${record.entry.sourceId}:${record.entry.sourceLocatorHash}:${record.rowOrdinal}`;
+    const expected: ProductionGraphExpectation = compositionRevisionId && artifactRevisionId
+      ? {
+        kind: "build",
+        workspaceId: record.scope.workspaceId,
+        projectId: record.scope.projectId,
+        buildId: stableId("build", ctx, `legacy-build:${key}`),
+        compositionRevisionId,
+        artifactRevisionId,
+        runId: stableId("run", ctx, `legacy-build:${key}`),
+        attemptId: stableId("attempt", ctx, `legacy-build-attempt:${key}`),
+        outputId: stableId("output", ctx, `legacy-build-output:${key}`),
+        resultId: stableId("result", ctx, `legacy-build-result:${key}`),
+        profile: safeToken(record.value.profile, "legacy"),
+        outputRole: safeToken(record.value.profile, "output"),
+        createdAt: legacyTime(record.value.completedAt, record.entry.mtimeMs),
+      }
+      : sourceIssue(ctx, record.entry, `build-binding:${record.rowOrdinal}`, "MIGRATION_BUILD_BINDING_AMBIGUOUS");
+    return sourceRecord(record, expected);
+  });
+  const deliveryRecords = sourceDeliveryRecords(ctx, prepared, options);
+  const deliveryOccurrences = sourceDeliveryOccurrences(prepared.deliveries);
   const metricRecords = prepared.metrics.map((record) => {
     const metricId = stableId("metric", ctx, `legacy-metric:${record.entry.sourceId}:${record.entry.sourceLocatorHash}:${record.rowOrdinal}`);
     const publicationId = typeof record.value.publicationId === "string" ? record.value.publicationId : "";
@@ -3065,11 +3097,474 @@ function productionSourceFingerprint(
   }).sort((left, right) => left.entryId.localeCompare(right.entryId) || left.rowOrdinal - right.rowOrdinal);
   return {
     unitRecords,
-    productionRecords: sourceRecords(prepared.productions),
-    deliveryRecords: sourceRecords(expandedDeliveryRecords(prepared.deliveries)),
+    productionRecords: productionRecords.sort(compareSourceRecords),
+    deliveryRecords: deliveryRecords.sort(compareSourceRecords),
+    deliveryOccurrences,
     metricRecords,
     metricWinnerIds: productionMetricWinnerIds(metricRecords),
   };
+}
+
+function sourceRecord(record: LegacyRecord, expected: ProductionGraphExpectation): ProductionSourceRecord {
+  return {
+    entryId: record.entry.id,
+    rowOrdinal: record.rowOrdinal,
+    targetSlot: record.targetSlot,
+    digest: sha256(canonicalJsonText(record.value)),
+    expected,
+  };
+}
+
+function sourceIssue(
+  ctx: MigrationContext,
+  entry: Entry,
+  key: string,
+  code: string,
+): Extract<ProductionGraphExpectation, { kind: "issue" }> {
+  const issueKey = `production:${entry.sourceId}:${entry.sourceLocatorHash}:${key}`;
+  return { kind: "issue", issueId: stableId("miss", ctx, `issue:${issueKey}:${code}`), code };
+}
+
+function compareSourceRecords(left: ProductionSourceRecord, right: ProductionSourceRecord): number {
+  return left.entryId.localeCompare(right.entryId)
+    || left.rowOrdinal - right.rowOrdinal
+    || (left.targetSlot ?? -1) - (right.targetSlot ?? -1);
+}
+
+function sourceDeliveryOccurrences(
+  records: readonly LegacyRecord[],
+): ProductionSourceFingerprint["deliveryOccurrences"] {
+  return records.map((record) => {
+    if (!Array.isArray(record.value.targets)) {
+      const digest = sha256(canonicalJsonText(record.value));
+      return {
+        entryId: record.entry.id,
+        rowOrdinal: record.rowOrdinal,
+        nonNullTargetCount: 1,
+        targets: [{ targetSlot: null, sourceDigest: digest, expandedDigest: digest }],
+      };
+    }
+    const targets = record.value.targets.flatMap((target, targetSlot) => {
+      if (!isRecord(target)) return [];
+      const platform = typeof target.platform === "string"
+        ? canonicalPlatform(target.platform)
+        : `target-${targetSlot + 1}`;
+      const expanded = {
+        ...record.value,
+        ...target,
+        id: `${typeof record.value.id === "string" ? record.value.id : `row-${record.rowOrdinal}`}:${platform}`,
+        targets: undefined,
+      };
+      return [{
+        targetSlot,
+        sourceDigest: sha256(canonicalJsonText(target)),
+        expandedDigest: sha256(canonicalJsonText(expanded)),
+      }];
+    });
+    return {
+      entryId: record.entry.id,
+      rowOrdinal: record.rowOrdinal,
+      nonNullTargetCount: targets.length,
+      targets,
+    };
+  }).sort((left, right) => left.entryId.localeCompare(right.entryId) || left.rowOrdinal - right.rowOrdinal);
+}
+
+function sourceArtifactRevisions(
+  ctx: MigrationContext,
+  prepared: ProductionPrepared,
+): Map<string, string> {
+  const candidates = [...prepared.files.values()].filter((file) =>
+    file.entry.disposition === "object"
+    && !isCompositionSource(file.entry.sourcePath)
+    && file.entry.bytes > 0
+  );
+  const candidatePaths = new Set(candidates.map((file) => sourcePathKey(file.entry.sourceLabel, file.entry.sourcePath)));
+  const revisions = new Map<string, string>();
+  for (const file of candidates) {
+    const proven = provenRevisionPath(file.entry, candidatePaths);
+    const familyKey = `${file.entry.sourceLabel}\0${file.scope.workspaceId}\0${file.scope.projectId ?? ""}\0${proven.familyPath}\0${proven.revisionStyle}`;
+    revisions.set(
+      sourcePathKey(file.entry.sourceLabel, file.entry.sourcePath),
+      stableId("arev", ctx, `artifact-revision:${familyKey}:${proven.revisionNo}:${file.entry.sourceLocatorHash}`),
+    );
+  }
+  return revisions;
+}
+
+function sourceCompositionRevisions(
+  ctx: MigrationContext,
+  prepared: ProductionPrepared,
+): Map<string, string> {
+  const candidates = [...prepared.files.values()].filter((file) =>
+    isCompositionSource(file.entry.sourcePath) && file.entry.bytes > 0 && file.entry.disposition === "object"
+  );
+  const candidatePaths = new Set(candidates.map((file) => sourcePathKey(file.entry.sourceLabel, file.entry.sourcePath)));
+  const revisions = new Map<string, string>();
+  for (const file of candidates) {
+    if (!file.scope.projectId) continue;
+    const proven = provenRevisionPath(file.entry, candidatePaths);
+    const familyKey = `${file.entry.sourceLabel}\0${file.scope.projectId}\0${proven.familyPath}\0${proven.revisionStyle}`;
+    revisions.set(
+      sourcePathKey(file.entry.sourceLabel, file.entry.sourcePath),
+      stableId("crev", ctx, `composition-revision:${familyKey}:${proven.revisionNo}:${file.entry.sourceLocatorHash}`),
+    );
+  }
+  return revisions;
+}
+
+type SourcePresentation = {
+  id: string;
+  captionId: string | null;
+  effectiveCaptionVersion: number | null;
+  options: string;
+};
+
+function sourcePresentations(
+  ctx: MigrationContext,
+  prepared: ProductionPrepared,
+  options: ProductionImportOptions,
+): { unitIds: Map<string, string>; presentations: Map<string, SourcePresentation> } {
+  const unitIds = new Map<string, string>();
+  const presentations = new Map<string, SourcePresentation>();
+  const groups = new Map<string, UnitEvidence[]>();
+  for (const unit of prepared.units) {
+    const group = groups.get(unit.unitKey) ?? [];
+    group.push(unit);
+    groups.set(unit.unitKey, group);
+  }
+  for (const [unitKey, revisions] of groups) {
+    revisions.sort((left, right) => left.revisionNo - right.revisionNo || left.entry.sourcePath.localeCompare(right.entry.sourcePath));
+    if (revisions.some((revision, index) => revisions[index - 1]?.revisionNo === revision.revisionNo)) continue;
+    unitIds.set(unitKey, stableId("unit", ctx, `unit:${unitKey}`));
+    for (const unit of revisions) {
+      const revisionId = stableId("urev", ctx, `unit-revision:${unitKey}:${unit.revisionNo}:${unit.entry.sourceLocatorHash}`);
+      const byPlatform = new Map<string, Record<string, unknown>>();
+      for (const value of Array.isArray(unit.value.presentations) ? unit.value.presentations.filter(isRecord) : []) {
+        if (typeof value.platform === "string") byPlatform.set(canonicalPlatform(value.platform), value);
+      }
+      for (const record of expandedDeliveryRecords(prepared.deliveries, options)) {
+        const legacyUnit = typeof record.value.unitId === "string" ? record.value.unitId : null;
+        const key = record.unitKeyHint
+          ?? (legacyUnit ? unitIdentityKey(record.entry.sourceLabel, record.scope, legacyUnit) : null);
+        if (key !== unitKey || typeof record.value.platform !== "string") continue;
+        const matching = prepared.units.filter((candidate) => candidate.unitKey === unitKey);
+        const targetRevision = recordUnitRevision(record) ?? (matching.length === 1 ? matching[0]!.revisionNo : null);
+        if (targetRevision !== unit.revisionNo) continue;
+        const platform = canonicalPlatform(record.value.platform);
+        if (!byPlatform.has(platform)) byPlatform.set(platform, { platform });
+      }
+      const captionPath = sourcePathKey(
+        unit.entry.sourceLabel,
+        path.posix.join(path.posix.dirname(unit.entry.sourcePath), "captions.json"),
+      );
+      const captionFile = prepared.files.get(captionPath);
+      const captionRoot = captionFile ? parseJsonObject(captionFile.raw) : null;
+      const captionVersions = new Set(
+        Array.isArray(captionRoot?.caption_versions)
+          ? captionRoot.caption_versions.filter(isRecord).map((value) => positiveInteger(value.version)).filter((value): value is number => value !== null)
+          : [],
+      );
+      for (const [platform, value] of byPlatform) {
+        const id = stableId("pres", ctx, `presentation:${revisionId}:${platform}`);
+        const requestedCaption = positiveInteger(value.effectiveCaptionVersion)
+          ?? positiveInteger(captionRoot?.effective_version);
+        const effectiveCaptionVersion = requestedCaption !== null && captionVersions.has(requestedCaption)
+          ? requestedCaption
+          : null;
+        presentations.set(`${unitKey}\0${unit.revisionNo}\0${platform}`, {
+          id,
+          captionId: effectiveCaptionVersion === null
+            ? null
+            : stableId("caption", ctx, `caption:${id}:${effectiveCaptionVersion}`),
+          effectiveCaptionVersion,
+          options: JSON.stringify(sanitizeJson(value.options ?? {}, unit.source.path)),
+        });
+      }
+    }
+  }
+  return { unitIds, presentations };
+}
+
+function sourceDeliveryRecords(
+  ctx: MigrationContext,
+  prepared: ProductionPrepared,
+  options: ProductionImportOptions,
+): ProductionSourceRecord[] {
+  const records = expandedDeliveryRecords(prepared.deliveries, options);
+  const { unitIds, presentations } = sourcePresentations(ctx, prepared, options);
+  const outcomes = new Map<string, ProductionGraphExpectation>();
+  const candidates: PublicationCandidate[] = [];
+  const skips: Array<{ record: LegacyRecord; semantics: LegacyDeliverySemantics }> = [];
+  for (const record of records) {
+    const validation = validateLegacyDeliverySemantics(record.value, record.unitKeyHint !== null, record.entry.mtimeMs);
+    if (!validation.ok) {
+      outcomes.set(sourceDeliveryKey(record), sourceIssue(
+        ctx,
+        record.entry,
+        `publication-record:${record.rowOrdinal}`,
+        validation.issueCode,
+      ));
+      continue;
+    }
+    const semantics = validation.value;
+    if (semantics.kind === "approval") {
+      const key = deliveryRecordKey(record);
+      outcomes.set(sourceDeliveryKey(record), record.entry.rawEvidenceObjectId
+        ? {
+          kind: "approval",
+          workspaceId: record.scope.workspaceId,
+          projectId: record.scope.projectId,
+          artifactId: stableId("art", ctx, `medium-approval:${key}`),
+          revisionId: stableId("arev", ctx, `medium-approval:${key}`),
+          runId: stableId("run", ctx, `medium-approval:${key}`),
+          runObjectId: stableId("robj", ctx, `medium-approval:${key}`),
+          objectId: record.entry.rawEvidenceObjectId,
+          createdAt: semantics.createdAt,
+        }
+        : sourceIssue(ctx, record.entry, `medium-approval-object:${recordPosition(record)}`, "MIGRATION_PRODUCTION_ACCOUNTING"));
+      continue;
+    }
+    if (semantics.kind === "idempotent-skip") {
+      skips.push({ record, semantics });
+      continue;
+    }
+    if (semantics.kind !== "publication" || semantics.rail === null || semantics.state === null) {
+      outcomes.set(sourceDeliveryKey(record), sourceIssue(
+        ctx,
+        record.entry,
+        `publication-record:${record.rowOrdinal}`,
+        "MIGRATION_PUBLICATION_STATUS_INVALID",
+      ));
+      continue;
+    }
+    const preparedCandidate = sourcePublicationCandidate(ctx, prepared, record, semantics, unitIds, presentations);
+    if (preparedCandidate.candidate) candidates.push(preparedCandidate.candidate);
+    else outcomes.set(sourceDeliveryKey(record), sourceIssue(
+      ctx,
+      record.entry,
+      preparedCandidate.issueKey,
+      preparedCandidate.issueCode,
+    ));
+  }
+
+  const byReference = new Map<string, PublicationCandidate[]>();
+  for (const candidate of candidates) {
+    const matches = byReference.get(candidate.referenceKey) ?? [];
+    matches.push(candidate);
+    byReference.set(candidate.referenceKey, matches);
+  }
+  const invalid = new Set<string>();
+  for (const candidate of candidates) {
+    if (typeof candidate.record.value.revisedFrom !== "string") continue;
+    const target = resolvePublicationReference(candidate.record, candidate.record.value.revisedFrom, byReference, "revisedFrom");
+    if (!target || target.record.scope.workspaceId !== candidate.record.scope.workspaceId
+      || target.publicationId === candidate.publicationId || target.createdAt > candidate.createdAt) {
+      invalid.add(candidate.publicationId);
+      outcomes.set(sourceDeliveryKey(candidate.record), sourceIssue(
+        ctx,
+        candidate.record.entry,
+        `publication-revised:${recordPosition(candidate.record)}`,
+        "MIGRATION_PUBLICATION_REVISED_FROM_INVALID",
+      ));
+    } else candidate.revisedFromId = target.publicationId;
+  }
+  let propagated = true;
+  while (propagated) {
+    propagated = false;
+    for (const candidate of candidates) {
+      if (!invalid.has(candidate.publicationId) && candidate.revisedFromId && invalid.has(candidate.revisedFromId)) {
+        invalid.add(candidate.publicationId);
+        outcomes.set(sourceDeliveryKey(candidate.record), sourceIssue(
+          ctx,
+          candidate.record.entry,
+          `publication-revised-dependency:${recordPosition(candidate.record)}`,
+          "MIGRATION_PUBLICATION_REVISED_FROM_INVALID",
+        ));
+        propagated = true;
+      }
+    }
+  }
+  const remaining = candidates.filter((candidate) => !invalid.has(candidate.publicationId)).sort((left, right) =>
+    left.createdAt - right.createdAt || left.publicationId.localeCompare(right.publicationId)
+  );
+  const accepted = new Set<string>();
+  while (remaining.length > 0) {
+    const next = remaining.findIndex((candidate) => candidate.revisedFromId === null || accepted.has(candidate.revisedFromId));
+    if (next === -1) {
+      for (const candidate of remaining) {
+        outcomes.set(sourceDeliveryKey(candidate.record), sourceIssue(
+          ctx,
+          candidate.record.entry,
+          `publication-revised-cycle:${recordPosition(candidate.record)}`,
+          "MIGRATION_PUBLICATION_REVISED_FROM_INVALID",
+        ));
+      }
+      break;
+    }
+    const candidate = remaining.splice(next, 1)[0]!;
+    accepted.add(candidate.publicationId);
+    outcomes.set(sourceDeliveryKey(candidate.record), publicationExpectation(candidate));
+  }
+  for (const { record, semantics } of skips) {
+    const original = typeof record.value.originalPublicationId === "string"
+      ? resolvePublicationReference(record, record.value.originalPublicationId, byReference, "original")
+      : null;
+    outcomes.set(sourceDeliveryKey(record), original && accepted.has(original.publicationId)
+      && original.record.scope.workspaceId === record.scope.workspaceId && original.createdAt <= semantics.createdAt
+      ? {
+        kind: "idempotent-skip",
+        workspaceId: record.scope.workspaceId,
+        projectId: record.scope.projectId,
+        publicationId: original.publicationId,
+        sourceRef: stableKey(deliveryRecordKey(record)),
+        createdAt: semantics.createdAt,
+      }
+      : sourceIssue(
+        ctx,
+        record.entry,
+        `idempotent-skip:${recordPosition(record)}`,
+        "MIGRATION_PUBLICATION_ORIGINAL_MISSING",
+      ));
+  }
+  return records.map((record) => sourceRecord(
+    record,
+    outcomes.get(sourceDeliveryKey(record)) ?? sourceIssue(
+      ctx,
+      record.entry,
+      `accounting:${recordPosition(record)}`,
+      "MIGRATION_PRODUCTION_ACCOUNTING",
+    ),
+  ));
+}
+
+function sourcePublicationCandidate(
+  ctx: MigrationContext,
+  prepared: ProductionPrepared,
+  record: LegacyRecord,
+  semantics: LegacyDeliverySemantics,
+  unitIds: ReadonlyMap<string, string>,
+  presentations: ReadonlyMap<string, SourcePresentation>,
+): { candidate: PublicationCandidate | null; issueKey: string; issueCode: string } {
+  const legacyUnitId = typeof record.value.unitId === "string" ? record.value.unitId : null;
+  const unitKey = record.unitKeyHint
+    ?? (legacyUnitId ? unitIdentityKey(record.entry.sourceLabel, record.scope, legacyUnitId) : null);
+  const unitId = unitKey ? unitIds.get(unitKey) : null;
+  const platform = typeof record.value.platform === "string" ? canonicalPlatform(record.value.platform) : null;
+  const matching = unitKey ? prepared.units.filter((candidate) => candidate.unitKey === unitKey) : [];
+  const revisionNo = recordUnitRevision(record) ?? (matching.length === 1 ? matching[0]!.revisionNo : null);
+  const presentation = unitKey && revisionNo !== null && platform
+    ? presentations.get(`${unitKey}\0${revisionNo}\0${platform}`) ?? null
+    : null;
+  if (!unitKey || !unitId || !platform) {
+    return {
+      candidate: null,
+      issueKey: `publication-binding:${recordPosition(record)}`,
+      issueCode: "MIGRATION_PUBLICATION_BINDING_AMBIGUOUS",
+    };
+  }
+  if (!presentation) {
+    return {
+      candidate: null,
+      issueKey: `publication-presentation:${recordPosition(record)}`,
+      issueCode: "MIGRATION_PUBLICATION_BINDING_AMBIGUOUS",
+    };
+  }
+  if (record.value.options !== undefined
+    && canonicalJsonText(sanitizeJson(record.value.options, record.source.path)) !== canonicalJsonText(JSON.parse(presentation.options))) {
+    return {
+      candidate: null,
+      issueKey: `publication-options:${recordPosition(record)}`,
+      issueCode: "MIGRATION_PUBLICATION_OPTIONS_INVALID",
+    };
+  }
+  const captionVersion = record.value.captionVersion === undefined
+    ? record.value.effectiveCaptionVersion === undefined ? null : positiveInteger(record.value.effectiveCaptionVersion)
+    : positiveInteger(record.value.captionVersion);
+  if ((record.value.captionVersion !== undefined || record.value.effectiveCaptionVersion !== undefined)
+    && (captionVersion === null || captionVersion !== presentation.effectiveCaptionVersion)) {
+    return {
+      candidate: null,
+      issueKey: `publication-caption:${recordPosition(record)}`,
+      issueCode: "MIGRATION_PUBLICATION_CAPTION_INVALID",
+    };
+  }
+  const key = deliveryRecordKey(record);
+  const legacyId = legacyRecordId(record);
+  return {
+    issueCode: "MIGRATION_PRODUCTION_ACCOUNTING",
+    issueKey: `accounting:${recordPosition(record)}`,
+    candidate: {
+      record,
+      legacyId,
+      referenceKey: publicationIdentityKey(record, legacyId),
+      publicationId: stableId("pub", ctx, `legacy-publication:${key}`),
+      runId: stableId("run", ctx, `legacy-publication:${key}`),
+      attemptId: stableId("attempt", ctx, `legacy-publication:${key}`),
+      resultId: stableId("result", ctx, `legacy-publication:${key}`),
+      presentationId: presentation.id,
+      captionId: presentation.captionId,
+      options: presentation.options,
+      platform,
+      rail: semantics.rail!,
+      account: semantics.accountExternalId === null ? null : {
+        id: stableId("acct", ctx, `social-account:${record.scope.workspaceId}:${platform}:${semantics.accountExternalId}`),
+        externalId: semantics.accountExternalId,
+      },
+      providerId: semantics.providerId,
+      state: semantics.state!,
+      providerExecuted: semantics.providerExecuted,
+      createdAt: semantics.createdAt,
+      scheduledAt: semantics.scheduledAt,
+      submittedAt: semantics.submittedAt,
+      publishedAt: semantics.publishedAt,
+      url: semantics.url,
+      error: semantics.error === null ? null : redactLegacyOperationalText(semantics.error, record.source.path).value,
+      failureStage: semantics.failureStage,
+      idempotencyKey: `migration-${stableKey(key)}`,
+      revisedFromId: null,
+    },
+  };
+}
+
+function publicationExpectation(candidate: PublicationCandidate): ProductionGraphExpectation {
+  const endedAt = candidate.publishedAt ?? candidate.submittedAt ?? candidate.scheduledAt ?? candidate.createdAt;
+  return {
+    kind: "publication",
+    workspaceId: candidate.record.scope.workspaceId,
+    projectId: candidate.record.scope.projectId,
+    publicationId: candidate.publicationId,
+    presentationId: candidate.presentationId,
+    captionId: candidate.captionId,
+    options: candidate.options,
+    account: candidate.account === null ? null : {
+      ...candidate.account,
+      platform: candidate.platform,
+      createdAt: candidate.record.entry.mtimeMs,
+    },
+    runId: candidate.runId,
+    attemptId: candidate.providerExecuted ? candidate.attemptId : null,
+    resultId: candidate.resultId,
+    revisedFromId: candidate.revisedFromId,
+    rail: candidate.rail,
+    providerId: candidate.providerId,
+    state: candidate.state,
+    url: candidate.url,
+    scheduledAt: candidate.scheduledAt,
+    submittedAt: candidate.submittedAt,
+    publishedAt: candidate.publishedAt,
+    error: candidate.error,
+    failureStage: candidate.failureStage,
+    idempotencyKey: candidate.idempotencyKey,
+    createdAt: candidate.createdAt,
+    startedAt: candidate.providerExecuted ? candidate.createdAt : null,
+    endedAt,
+    runState: candidate.state === "failed" ? "failed" : "succeeded",
+  };
+}
+
+function sourceDeliveryKey(record: LegacyRecord): string {
+  return `${record.entry.id}\0${record.rowOrdinal}\0${record.targetSlot ?? "single"}`;
 }
 
 function productionMetricWinnerIds(
@@ -3127,6 +3622,8 @@ function assertProductionSourceCoverage(
   source: ProductionSourceFingerprint,
   issues: readonly PreparedIssue[],
 ): void {
+  const graphMismatch = productionSourceGraphMismatches(db, source)[0];
+  if (graphMismatch) throw new Error(`Migration production source graph mismatch: ${graphMismatch}`);
   const byEntry = new Map(expected.entries.map((entry) => [entry.entryId, entry]));
   const ambiguousLocators = new Set(issues.filter((issue) =>
     ["MIGRATION_UNIT_ITEM_AMBIGUOUS", "MIGRATION_UNIT_DOCUMENT_AMBIGUOUS"].includes(issue.code)
@@ -3164,6 +3661,8 @@ function assertProductionAccountingTarget(
   db: Database,
   expected: PreparedProductionAccounting,
 ): void {
+  const graphMismatch = productionSourceGraphMismatches(db, expected.sourceFingerprint)[0];
+  if (graphMismatch) throw new Error(`Migration production source graph mismatch: ${graphMismatch}`);
   for (const entry of expected.entries) {
     const row = db.query<{ refs: string; sourceLocatorHash: string }, [string]>(
       `SELECT COALESCE(target_refs_json, '[]') AS refs,

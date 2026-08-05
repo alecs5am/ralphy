@@ -60,6 +60,40 @@ describe("legacy production and delivery migration", () => {
     expect(ctx!.db.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM units").get()?.count).toBe(0);
   });
 
+  test("blocks a Build omission shared by dry and live materialization", async () => {
+    await setupFixture();
+    const sourcePath = "workspaces/studio/projects/registered-project/production.json";
+    const entryId = ctx!.db.query<{ id: string }, [string, string]>(
+      "SELECT id FROM migration_entries WHERE migration_run_id = ? AND source_path = ?",
+    ).get(ctx!.runId, sourcePath)?.id;
+    expect(entryId).toBeString();
+
+    const importWithSeam = importProductionAndDelivery as unknown as (
+      input: MigrationContext,
+      options: { omitBuildEntryIdForTesting: string },
+    ) => ProductionImportSummary;
+    expect(() => importWithSeam(ctx!, { omitBuildEntryIdForTesting: entryId! }))
+      .toThrow(entryId!);
+    expect(ctx!.db.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM builds").get()?.count).toBe(0);
+  });
+
+  test("blocks a partial Delivery target omitted by every shared expander", async () => {
+    await setupFixture();
+    const sourcePath = "workspaces/studio/projects/registered-project/publish-ledger.jsonl";
+    const entryId = ctx!.db.query<{ id: string }, [string, string]>(
+      "SELECT id FROM migration_entries WHERE migration_run_id = ? AND source_path = ?",
+    ).get(ctx!.runId, sourcePath)?.id;
+    expect(entryId).toBeString();
+
+    const importWithSeam = importProductionAndDelivery as unknown as (
+      input: MigrationContext,
+      options: { omitLastDeliveryTargetForTesting: boolean },
+    ) => ProductionImportSummary;
+    expect(() => importWithSeam(ctx!, { omitLastDeliveryTargetForTesting: true }))
+      .toThrow(entryId!);
+    expect(ctx!.db.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM publications").get()?.count).toBe(0);
+  });
+
   test("reconstructs immutable production history from explicit provenance", async () => {
     await setupFixture();
 
