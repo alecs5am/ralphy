@@ -5,7 +5,6 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { runBridge } from "../../cli/lib/bridge/server.js";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
 import { createWorkspace } from "../../cli/lib/store/scopes.js";
-import { startRun } from "../../cli/lib/store/runs.js";
 import { createProject } from "../../cli/lib/store/scopes.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 
@@ -123,8 +122,30 @@ describe("stdio bridge", () => {
   test("imports secrets without returning their values", async () => {
     root = makeTmpRoot("ralphy-bridge-secret-import");
     const workspace = createWorkspace({ slug: "primary", name: "Primary" });
-    const migration = startRun({ workspaceId: workspace.id, kind: "migration.secret.import" });
+    const migrationId = "mig_00000000-0000-4000-8000-000000000031";
+    const sourceEntryId = "mentry_00000000-0000-4000-8000-000000000031";
+    const db = openDomainDb();
+    const now = Date.now();
+    db.prepare(
+      `INSERT INTO migration_runs (id, phase, created_at, updated_at)
+       VALUES (?, 'relations', ?, ?)`,
+    ).run(migrationId, now, now);
+    db.prepare(
+      `INSERT INTO migration_sources
+       (id, migration_run_id, source_kind, source_label, canonical_path_hash,
+        source_device, source_inode, source_mode, created_at)
+       VALUES ('desktop-source', ?, 'desktop', 'desktop-source', ?, '1', '2', 16877, ?)`,
+    ).run(migrationId, "a".repeat(64), now);
+    db.prepare(
+      `INSERT INTO migration_entries
+       (id, migration_run_id, migration_source_id, source_path, source_locator_hash,
+        entry_kind, source_kind, disposition, source_device, source_inode, source_mode,
+        bytes, mtime_ms, state, created_at, updated_at)
+       VALUES (?, ?, 'desktop-source', 'safeStorage/key.bin', ?, 'file', 'desktop',
+        'secret-recovery-only', '1', '3', 33152, 4, ?, 'inventoried', ?, ?)`,
+    ).run(sourceEntryId, migrationId, "b".repeat(64), now, now, now);
     const secret = "bridge-secret-value";
+    const ref = `provider/test/workspace/${workspace.id}/workspace/${workspace.id}`;
     const output = await run([
       '{"v":1,"id":"hello","method":"system.hello"}',
       JSON.stringify({
@@ -132,9 +153,9 @@ describe("stdio bridge", () => {
         id: "import",
         method: "migration.secret.import",
         params: {
-          runId: migration.id,
-          sourceEntryId: "source-1",
-          ref: "provider/test/workspace/primary",
+          runId: migrationId,
+          sourceEntryId,
+          ref,
           kind: "text",
           value: secret,
         },
@@ -142,14 +163,15 @@ describe("stdio bridge", () => {
     ].join("\n") + "\n");
     expect(output).not.toContain(secret);
     expect(fs.readFileSync(path.join(root.dir, ".ralphy", "secrets.enc"), "utf8")).not.toContain(secret);
-    const metadata = openDomainDb().query<{ metadataJson: string }, [string]>(
-      "SELECT metadata_json AS metadataJson FROM runs WHERE id = ?",
-    ).get(migration.id);
-    expect(metadata && JSON.parse(metadata.metadataJson).secretImports).toEqual([{
-      sourceEntryId: "source-1",
-      ref: "provider/test/workspace/primary",
-      kind: "text",
-      imported: true,
-    }]);
+    expect(db.query<{ disposition: string; state: string; refs: string }, [string]>(
+      `SELECT disposition, state, target_refs_json AS refs
+       FROM migration_entries WHERE id = ?`,
+    ).get(sourceEntryId)).toEqual({
+      disposition: "secret-imported",
+      state: "excluded",
+      refs: JSON.stringify([ref]),
+    });
+    const response = JSON.parse(output.trim().split("\n").at(-1)!) as { result: unknown };
+    expect(response.result).toEqual({ ref, kind: "text", completed: true });
   });
 });

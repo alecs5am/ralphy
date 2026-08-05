@@ -30,6 +30,15 @@ const LEGACY_CONTROL_NAMES = new Set([
   "workspace.json",
 ]);
 
+const LEGACY_DESKTOP_DOCUMENT_NAMES = new Set([
+  "state.json",
+  "settings.json",
+  "chat.json",
+  "chats.json",
+  "localstorage.json",
+  "localstorage-export.json",
+]);
+
 export function isLegacyUnitManifestName(name: string): boolean {
   return name === "unit.json";
 }
@@ -40,6 +49,21 @@ export function isLegacyAssetManifestName(name: string): boolean {
 
 export function isLegacyPublishLedgerName(name: string): boolean {
   return name === "publish-ledger.jsonl";
+}
+
+export function isLegacyRootConfigPath(relativePath: string): boolean {
+  return normalizeRelativePath(relativePath).toLowerCase() === "config.json";
+}
+
+export function isLegacyDesktopReviewPath(relativePath: string): boolean {
+  const normalized = normalizeRelativePath(relativePath).toLowerCase();
+  const parts = normalized.split("/");
+  return (parts.includes("review") || parts.includes("reviews")) && normalized.endsWith(".json");
+}
+
+export function isLegacyDesktopDocumentPath(relativePath: string): boolean {
+  const normalized = normalizeRelativePath(relativePath).toLowerCase();
+  return LEGACY_DESKTOP_DOCUMENT_NAMES.has(path.posix.basename(normalized));
 }
 
 const SECRET_PATH = /(^|\/)(?:\.env(?:\.|$)|secrets?(?:\/|$)|safestorage(?:\/|$))|cookie|credential/i;
