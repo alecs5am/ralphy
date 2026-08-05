@@ -68,6 +68,28 @@ type LegacyRecord = {
   unitRevisionHint: number | null;
 };
 
+type PublicationRail = "postiz" | "github-pages" | "devto" | "hashnode" | "manual";
+
+type LegacyDeliverySemantics = {
+  kind: "approval" | "idempotent-skip" | "partial" | "publication";
+  rail: PublicationRail | null;
+  state: "scheduled" | "submitted" | "published" | "failed" | null;
+  providerExecuted: boolean;
+  createdAt: number;
+  scheduledAt: number | null;
+  submittedAt: number | null;
+  publishedAt: number | null;
+  providerId: string | null;
+  accountExternalId: string | null;
+  url: string | null;
+  error: string | null;
+  failureStage: string | null;
+};
+
+type LegacyDeliveryValidation =
+  | { ok: true; value: LegacyDeliverySemantics }
+  | { ok: false; issueCode: string };
+
 type PublicationCandidate = {
   record: LegacyRecord;
   legacyId: string;
@@ -80,7 +102,7 @@ type PublicationCandidate = {
   captionId: string | null;
   options: string;
   platform: string;
-  rail: "postiz" | "github-pages" | "devto" | "hashnode" | "manual";
+  rail: PublicationRail;
   account: { id: string; externalId: string } | null;
   providerId: string | null;
   state: "scheduled" | "submitted" | "published" | "failed";
@@ -470,7 +492,7 @@ function prepareProduction(ctx: MigrationContext): ProductionPrepared {
   for (const file of files.values()) {
     if (!isLegacyUnitManifestName(path.posix.basename(file.entry.sourcePath).toLowerCase())) continue;
     const value = parseJsonObject(file.raw);
-    if (!value || !validLegacyUnitManifest(value)) {
+    if (!value || !validLegacyUnitManifest(value, file.entry.mtimeMs)) {
       pendingEntryIds.add(file.entry.id);
       issues.push(productionIssue(file.entry, "unit-manifest", "MIGRATION_UNIT_MANIFEST_INVALID", "block"));
       continue;
@@ -518,21 +540,22 @@ function prepareProduction(ctx: MigrationContext): ProductionPrepared {
       collectJsonlRecords(productions, file, null, issues, "MIGRATION_PRODUCTION_RECORD_INVALID", validLegacyProductionRecord);
     } else if (name === "delivery.json") {
       const root = parseJsonObject(file.raw);
-      if (!root || !Array.isArray(root.attempts) || !root.attempts.every((value) => validLegacyDeliveryRecord(value, false))) {
+      if (!root || !Array.isArray(root.attempts)
+        || !root.attempts.every((value) => validateLegacyDeliverySemantics(value, false, file.entry.mtimeMs).ok)) {
         pendingEntryIds.add(file.entry.id);
         issues.push(productionIssue(file.entry, "delivery-manifest", "MIGRATION_DELIVERY_MANIFEST_INVALID", "block"));
       } else {
-        collectObjectRecords(deliveries, file, root.attempts, null, issues, "MIGRATION_DELIVERY_RECORD_INVALID", validLegacyDeliveryRecord);
+        collectObjectRecords(deliveries, file, root.attempts, null, issues, "MIGRATION_DELIVERY_RECORD_INVALID", validLegacyDeliveryShape);
       }
     } else if (/(?:^|\/)delivery\/[^/]+\.jsonl$/u.test(relative) || isLegacyPublishLedgerName(name)) {
-      collectJsonlRecords(deliveries, file, null, issues, "MIGRATION_PUBLISH_RECORD_INVALID", validLegacyDeliveryRecord);
+      collectJsonlRecords(deliveries, file, null, issues, "MIGRATION_PUBLISH_RECORD_INVALID", validLegacyDeliveryShape);
     } else if (name === "analytics.jsonl") {
       collectJsonlRecords(metrics, file, null, issues, "MIGRATION_METRIC_RECORD_INVALID", isLegacyObjectRecord);
     }
   }
   for (const unit of units) {
     if (isRecord(unit.value.manifestOnlyAttempt)
-      && validLegacyDeliveryRecord(unit.value.manifestOnlyAttempt, true)) {
+      && validateLegacyDeliverySemantics(unit.value.manifestOnlyAttempt, true, unit.entry.mtimeMs).ok) {
       deliveries.push({
         entry: unit.entry,
         source: unit.source,
@@ -1260,6 +1283,7 @@ function captionEvidence(
 function preparePublicationCandidate(
   ctx: MigrationContext,
   record: LegacyRecord,
+  semantics: LegacyDeliverySemantics,
   unitIds: ReadonlyMap<string, string>,
   presentations: ReadonlyMap<string, string>,
   issues: PreparedIssue[],
@@ -1284,69 +1308,12 @@ function preparePublicationCandidate(
     issues.push(productionIssue(record.entry, `publication-presentation:${recordPosition(record)}`, "MIGRATION_PUBLICATION_BINDING_AMBIGUOUS", "block", record.rowOrdinal));
     return null;
   }
-  const provider = typeof record.value.provider === "string" ? record.value.provider.toLowerCase() : "";
-  const rail = canonicalRail(provider);
-  if (!rail) {
-    issues.push(productionIssue(record.entry, `publication-rail:${recordPosition(record)}`, "MIGRATION_PUBLICATION_RAIL_AMBIGUOUS", "block", record.rowOrdinal));
-    return null;
+  if (semantics.kind !== "publication" || semantics.rail === null || semantics.state === null) {
+    throw new Error("Migration Publication semantic preflight mismatch");
   }
-  const createdAt = legacyTime(record.value.createdAt, record.entry.mtimeMs);
-  const suppliedTimes = [record.value.scheduledAt, record.value.submittedAt, record.value.publishedAt];
-  if (suppliedTimes.some((value) => value !== null && value !== undefined && optionalLegacyTime(value) === null)) {
-    issues.push(productionIssue(record.entry, `publication-timeline:${recordPosition(record)}`, "MIGRATION_PUBLICATION_TIMELINE_INVALID", "block", record.rowOrdinal));
-    return null;
-  }
-  const scheduledAt = optionalLegacyTime(record.value.scheduledAt);
-  const submittedAt = optionalLegacyTime(record.value.submittedAt);
-  const publishedAt = optionalLegacyTime(record.value.publishedAt);
-  if (!validTimeline(createdAt, scheduledAt, submittedAt, publishedAt)) {
-    issues.push(productionIssue(record.entry, `publication-timeline:${recordPosition(record)}`, "MIGRATION_PUBLICATION_TIMELINE_INVALID", "block", record.rowOrdinal));
-    return null;
-  }
-  let url: string | null = null;
-  if (record.value.url !== undefined && record.value.url !== null) {
-    url = canonicalHttpsUrl(record.value.url);
-    if (!url) {
-      issues.push(productionIssue(record.entry, `publication-url:${recordPosition(record)}`, "MIGRATION_PUBLICATION_URL_INVALID", "block", record.rowOrdinal));
-      return null;
-    }
-  }
-  let providerId: string | null = null;
-  if (record.value.providerPublicationId !== undefined && record.value.providerPublicationId !== null) {
-    providerId = typeof record.value.providerPublicationId === "string"
-      ? boundedProviderValue(record.value.providerPublicationId)
-      : null;
-    if (!providerId) {
-      issues.push(productionIssue(record.entry, `publication-provider-id:${recordPosition(record)}`, "MIGRATION_PUBLICATION_PROVIDER_ID_INVALID", "block", record.rowOrdinal));
-      return null;
-    }
-  }
-  const status = typeof record.value.status === "string" ? record.value.status.toLowerCase() : "unknown";
-  const failureStage = typeof record.value.failureStage === "string"
-    ? safeToken(record.value.failureStage, "provider")
-    : null;
-  const error = status === "failed"
-    ? redactLegacyOperationalText(
-      typeof record.value.error === "string" ? record.value.error : "Legacy publication failed",
-      record.source.path,
-    ).value
-    : null;
-  const state = validatedPublicationState({
-    status,
-    rail,
-    scheduledAt,
-    submittedAt,
-    publishedAt,
-    providerId,
-    url,
-    error,
-    failureStage,
-    accountValue: record.value.accountId,
-  });
-  if (!state) {
-    issues.push(productionIssue(record.entry, `publication-status:${recordPosition(record)}`, "MIGRATION_PUBLICATION_STATUS_INVALID", "block", record.rowOrdinal));
-    return null;
-  }
+  const error = semantics.error === null
+    ? null
+    : redactLegacyOperationalText(semantics.error, record.source.path).value;
   const presentation = ctx.db.query<{ captionId: string | null; options: string }, [string]>(
     `SELECT effective_caption_revision_id AS captionId, options_json AS options
      FROM unit_presentations WHERE id = ?`,
@@ -1377,8 +1344,10 @@ function preparePublicationCandidate(
       return null;
     }
   }
-  const account = publicationAccount(ctx, record, platform, rail, failureStage, issues);
-  if (account === undefined) return null;
+  const account = semantics.accountExternalId === null ? null : {
+    id: stableId("acct", ctx, `social-account:${record.scope.workspaceId}:${platform}:${semantics.accountExternalId}`),
+    externalId: semantics.accountExternalId,
+  };
   const key = deliveryRecordKey(record);
   const legacyId = legacyRecordId(record);
   return {
@@ -1393,18 +1362,18 @@ function preparePublicationCandidate(
     captionId: presentation.captionId,
     options: presentation.options,
     platform,
-    rail,
+    rail: semantics.rail,
     account,
-    providerId,
-    state: state.state,
-    providerExecuted: state.providerExecuted,
-    createdAt,
-    scheduledAt,
-    submittedAt,
-    publishedAt,
-    url,
+    providerId: semantics.providerId,
+    state: semantics.state,
+    providerExecuted: semantics.providerExecuted,
+    createdAt: semantics.createdAt,
+    scheduledAt: semantics.scheduledAt,
+    submittedAt: semantics.submittedAt,
+    publishedAt: semantics.publishedAt,
+    url: semantics.url,
     error,
-    failureStage,
+    failureStage: semantics.failureStage,
     idempotencyKey: `migration-${stableKey(key)}`,
     revisedFromId: null,
   };
@@ -1419,31 +1388,48 @@ function importLegacyPublications(
   publicationIds: Map<string, string[]>,
   issues: PreparedIssue[],
 ): void {
-  const validRecords: LegacyRecord[] = [];
+  const validatedRecords: Array<{ record: LegacyRecord; semantics: LegacyDeliverySemantics }> = [];
   for (const record of prepared.deliveries) {
-    if (!validLegacyDeliveryRecord(record.value, record.unitKeyHint !== null)) {
-      issues.push(productionIssue(record.entry, `publication-record:${record.rowOrdinal}`, "MIGRATION_PUBLISH_RECORD_INVALID", "review", record.rowOrdinal));
+    const validation = validateLegacyDeliverySemantics(
+      record.value,
+      record.unitKeyHint !== null,
+      record.entry.mtimeMs,
+    );
+    if (!validation.ok) {
+      issues.push(productionIssue(record.entry, `publication-record:${record.rowOrdinal}`, validation.issueCode, "block", record.rowOrdinal));
       continue;
     }
-    validRecords.push(record);
+    if (validation.value.kind !== "partial") {
+      validatedRecords.push({ record, semantics: validation.value });
+      continue;
+    }
+    for (const expanded of expandedDeliveryRecords([record])) {
+      const targetValidation = validateLegacyDeliverySemantics(
+        expanded.value,
+        expanded.unitKeyHint !== null,
+        expanded.entry.mtimeMs,
+      );
+      if (!targetValidation.ok || targetValidation.value.kind !== "publication") {
+        throw new Error("Migration Delivery target semantic preflight mismatch");
+      }
+      validatedRecords.push({ record: expanded, semantics: targetValidation.value });
+    }
   }
-  const records = expandedDeliveryRecords(validRecords);
   const candidates: PublicationCandidate[] = [];
-  const skips: LegacyRecord[] = [];
-  for (const record of records) {
-    const provider = typeof record.value.provider === "string" ? record.value.provider.toLowerCase() : "";
-    const status = typeof record.value.status === "string" ? record.value.status.toLowerCase() : "unknown";
-    if (provider === "medium") {
-      importMediumApprovalEvidence(ctx, record, refs);
+  const skips: Array<{ record: LegacyRecord; semantics: LegacyDeliverySemantics }> = [];
+  for (const { record, semantics } of validatedRecords) {
+    if (semantics.kind === "approval") {
+      importMediumApprovalEvidence(ctx, record, refs, semantics.createdAt);
       continue;
     }
-    if (status === "idempotent-skip") {
-      skips.push(record);
+    if (semantics.kind === "idempotent-skip") {
+      skips.push({ record, semantics });
       continue;
     }
     const candidate = preparePublicationCandidate(
       ctx,
       record,
+      semantics,
       unitIds,
       presentations,
       issues,
@@ -1637,12 +1623,12 @@ function importLegacyPublications(
     );
   }
 
-  for (const record of skips) {
+  for (const { record, semantics } of skips) {
     const original = typeof record.value.originalPublicationId === "string"
       ? resolvePublicationReference(record, record.value.originalPublicationId, byReference, "original")
       : null;
     const publicationId = original?.publicationId ?? null;
-    const createdAt = legacyTime(record.value.createdAt, record.entry.mtimeMs);
+    const createdAt = semantics.createdAt;
     const originalCreatedAt = publicationId === null ? null : ctx.db.query<{ createdAt: number }, [string]>(
       "SELECT created_at AS createdAt FROM publications WHERE id = ?",
     ).get(publicationId)?.createdAt ?? null;
@@ -1651,7 +1637,7 @@ function importLegacyPublications(
       issues.push(productionIssue(record.entry, `idempotent-skip:${recordPosition(record)}`, "MIGRATION_PUBLICATION_ORIGINAL_MISSING", "block", record.rowOrdinal));
       continue;
     }
-    insertIdempotentSkipActivity(ctx, record, publicationId);
+    insertIdempotentSkipActivity(ctx, record, publicationId, createdAt);
     addRefs(refs, record.entry.id, publicationId);
   }
 }
@@ -1841,7 +1827,7 @@ function validLegacyProductionRecord(value: unknown): boolean {
     && validOptionalLegacyTime(value.completedAt);
 }
 
-function validLegacyDeliveryRecord(value: unknown, hasUnitHint = false): boolean {
+function validLegacyDeliveryShape(value: unknown, hasUnitHint = false): boolean {
   if (!isRecord(value)
     || (!hasUnitHint && !nonEmptyString(value.unitId))
     || (value.unitId !== undefined && !nonEmptyString(value.unitId))
@@ -1865,15 +1851,139 @@ function validLegacyDeliveryRecord(value: unknown, hasUnitHint = false): boolean
     .every(validOptionalNonEmptyString)) return false;
 
   if (value.targets === undefined) {
-    return value.status !== "partial"
+    return value.status.toLowerCase() !== "partial"
       && [value.platform, value.presentation, value.slot].some(nonEmptyString);
   }
-  if (value.status !== "partial" || !Array.isArray(value.targets)) return false;
+  if (value.status.toLowerCase() !== "partial" || !Array.isArray(value.targets)) return false;
   const targets = value.targets.filter((target) => target !== null);
   return targets.length > 0 && targets.every((target) => {
     if (!isRecord(target) || !nonEmptyString(target.platform) || target.targets !== undefined) return false;
-    return validLegacyDeliveryRecord({ ...value, ...target, targets: undefined }, hasUnitHint);
+    return validLegacyDeliveryShape({ ...value, ...target, targets: undefined }, hasUnitHint);
   });
+}
+
+function validateLegacyDeliverySemantics(
+  value: unknown,
+  hasUnitHint: boolean,
+  fallbackCreatedAt: number,
+): LegacyDeliveryValidation {
+  if (!validLegacyDeliveryShape(value, hasUnitHint) || !isRecord(value)) {
+    return { ok: false, issueCode: "MIGRATION_PUBLISH_RECORD_INVALID" };
+  }
+  const createdAt = value.createdAt === undefined || value.createdAt === null
+    ? Math.max(0, Math.trunc(fallbackCreatedAt))
+    : optionalLegacyTime(value.createdAt);
+  const scheduledAt = optionalLegacyTime(value.scheduledAt);
+  const submittedAt = optionalLegacyTime(value.submittedAt);
+  const publishedAt = optionalLegacyTime(value.publishedAt);
+  if (createdAt === null || !validTimeline(createdAt, scheduledAt, submittedAt, publishedAt)) {
+    return { ok: false, issueCode: "MIGRATION_PUBLICATION_TIMELINE_INVALID" };
+  }
+  const url = value.url === undefined || value.url === null ? null : canonicalHttpsUrl(value.url);
+  if (value.url !== undefined && value.url !== null && url === null) {
+    return { ok: false, issueCode: "MIGRATION_PUBLICATION_URL_INVALID" };
+  }
+  const providerId = value.providerPublicationId === undefined || value.providerPublicationId === null
+    ? null
+    : typeof value.providerPublicationId === "string"
+      ? boundedProviderValue(value.providerPublicationId)
+      : null;
+  if (value.providerPublicationId !== undefined && value.providerPublicationId !== null && providerId === null) {
+    return { ok: false, issueCode: "MIGRATION_PUBLICATION_PROVIDER_ID_INVALID" };
+  }
+  let accountExternalId: string | null = null;
+  if (value.accountId !== undefined && value.accountId !== null) {
+    if (typeof value.accountId !== "string" || boundedProviderValue(value.accountId) === null) {
+      return { ok: false, issueCode: "MIGRATION_PUBLICATION_ACCOUNT_MISSING" };
+    }
+    accountExternalId = canonicalLegacyIdentifier(value.accountId, "legacy-account");
+  }
+  const provider = (value.provider as string).toLowerCase();
+  const status = (value.status as string).toLowerCase();
+  const failureStage = nonEmptyString(value.failureStage) ? safeToken(value.failureStage, "provider") : null;
+  const error = nonEmptyString(value.error) ? value.error : null;
+  const base = {
+    createdAt,
+    scheduledAt,
+    submittedAt,
+    publishedAt,
+    providerId,
+    accountExternalId,
+    url,
+    error,
+    failureStage,
+  };
+
+  if (provider === "medium") {
+    if (status !== "approval-exported" || scheduledAt !== null || submittedAt !== null
+      || publishedAt !== null || providerId !== null || accountExternalId !== null
+      || url !== null || error !== null || failureStage !== null) {
+      return { ok: false, issueCode: "MIGRATION_PUBLICATION_STATUS_INVALID" };
+    }
+    return { ok: true, value: { kind: "approval", rail: null, state: null, providerExecuted: false, ...base } };
+  }
+  const rail = canonicalRail(provider);
+  if (rail === null) return { ok: false, issueCode: "MIGRATION_PUBLICATION_RAIL_AMBIGUOUS" };
+
+  if (status === "partial") {
+    if (!Array.isArray(value.targets) || providerId !== null || url !== null
+      || error !== null || failureStage !== null) {
+      return { ok: false, issueCode: "MIGRATION_PUBLICATION_STATUS_INVALID" };
+    }
+    for (const target of value.targets) {
+      if (target === null) continue;
+      const targetResult = validateLegacyDeliverySemantics(
+        { ...value, ...(target as Record<string, unknown>), targets: undefined },
+        hasUnitHint,
+        fallbackCreatedAt,
+      );
+      if (!targetResult.ok) return targetResult;
+      if (targetResult.value.kind !== "publication") {
+        return { ok: false, issueCode: "MIGRATION_PUBLICATION_STATUS_INVALID" };
+      }
+    }
+    return { ok: true, value: { kind: "partial", rail, state: null, providerExecuted: false, ...base } };
+  }
+
+  if (status === "idempotent-skip") {
+    if (!nonEmptyString(value.originalPublicationId) || scheduledAt !== null || submittedAt !== null
+      || publishedAt !== null || providerId !== null || accountExternalId !== null
+      || url !== null || error !== null || failureStage !== null) {
+      return { ok: false, issueCode: "MIGRATION_PUBLICATION_STATUS_INVALID" };
+    }
+    return { ok: true, value: { kind: "idempotent-skip", rail, state: null, providerExecuted: false, ...base } };
+  }
+
+  const state = validatedPublicationState({
+    status,
+    rail,
+    scheduledAt,
+    submittedAt,
+    publishedAt,
+    providerId,
+    url,
+    error,
+    failureStage,
+    accountValue: accountExternalId,
+  });
+  const local = rail === "github-pages" || rail === "manual";
+  const preAccountFailure = status === "failed" && failureStage === "account-resolution";
+  if (!state || (!local && !preAccountFailure && accountExternalId === null)) {
+    return { ok: false, issueCode: accountExternalId === null && !local && !preAccountFailure
+      ? "MIGRATION_PUBLICATION_ACCOUNT_MISSING"
+      : "MIGRATION_PUBLICATION_STATUS_INVALID" };
+  }
+  return {
+    ok: true,
+    value: {
+      kind: "publication",
+      rail,
+      state: state.state,
+      providerExecuted: state.providerExecuted,
+      ...base,
+      accountExternalId: local ? null : accountExternalId,
+    },
+  };
 }
 
 function nonEmptyString(value: unknown): value is string {
@@ -1892,7 +2002,7 @@ function validOptionalLegacyTime(value: unknown): boolean {
   return value === undefined || value === null || optionalLegacyTime(value) !== null;
 }
 
-function validLegacyUnitManifest(value: Record<string, unknown>): boolean {
+function validLegacyUnitManifest(value: Record<string, unknown>, fallbackCreatedAt: number): boolean {
   if ((value.id !== undefined && (typeof value.id !== "string" || !value.id.trim()))
     || (value.slug !== undefined && (typeof value.slug !== "string" || !value.slug.trim()))
     || (value.format !== undefined && (typeof value.format !== "string" || !value.format.trim()))
@@ -1902,7 +2012,8 @@ function validLegacyUnitManifest(value: Record<string, unknown>): boolean {
     || (value.body !== undefined && typeof value.body !== "string")
     || (value.bodyPath !== undefined && (typeof value.bodyPath !== "string" || !value.bodyPath.trim()))
     || (value.selected !== undefined && typeof value.selected !== "boolean")
-    || (value.manifestOnlyAttempt !== undefined && !validLegacyDeliveryRecord(value.manifestOnlyAttempt, true))) return false;
+    || (value.manifestOnlyAttempt !== undefined
+      && !validateLegacyDeliverySemantics(value.manifestOnlyAttempt, true, fallbackCreatedAt).ok)) return false;
   if (value.presentations === undefined) return true;
   return Array.isArray(value.presentations) && value.presentations.every((presentation) =>
     isRecord(presentation)
@@ -2407,10 +2518,10 @@ function recordUnitRevision(record: LegacyRecord): number | null {
     ?? positiveInteger(record.value.revision);
 }
 
-function canonicalRail(value: string): "postiz" | "github-pages" | "devto" | "hashnode" | "manual" | null {
+function canonicalRail(value: string): PublicationRail | null {
   if (value === "dev.to" || value === "devto") return "devto";
   if (["postiz", "github-pages", "hashnode", "manual"].includes(value)) {
-    return value as "postiz" | "github-pages" | "hashnode" | "manual";
+    return value as PublicationRail;
   }
   return null;
 }
@@ -2445,7 +2556,7 @@ function boundedProviderValue(value: string): string | null {
 
 function validatedPublicationState(value: {
   status: string;
-  rail: "postiz" | "github-pages" | "devto" | "hashnode" | "manual";
+  rail: PublicationRail;
   scheduledAt: number | null;
   submittedAt: number | null;
   publishedAt: number | null;
@@ -2497,31 +2608,6 @@ function canonicalJsonText(value: unknown): string {
     return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJsonText(value[key])}`).join(",")}}`;
   }
   return JSON.stringify(value);
-}
-
-function publicationAccount(
-  ctx: MigrationContext,
-  record: LegacyRecord,
-  platform: string,
-  rail: "postiz" | "github-pages" | "devto" | "hashnode" | "manual",
-  failureStage: string | null,
-  issues: PreparedIssue[],
-): { id: string; externalId: string } | null | undefined {
-  if (rail === "github-pages" || rail === "manual") return null;
-  if (record.value.accountId == null) {
-    if (failureStage === "account-resolution") return null;
-    issues.push(productionIssue(record.entry, `publication-account:${recordPosition(record)}`, "MIGRATION_PUBLICATION_ACCOUNT_MISSING", "block", record.rowOrdinal));
-    return undefined;
-  }
-  if (typeof record.value.accountId !== "string" || !record.value.accountId.trim()) {
-    issues.push(productionIssue(record.entry, `publication-account:${recordPosition(record)}`, "MIGRATION_PUBLICATION_ACCOUNT_MISSING", "block", record.rowOrdinal));
-    return undefined;
-  }
-  const externalId = canonicalLegacyIdentifier(record.value.accountId, `account-${record.entry.sourceLocatorHash}`);
-  return {
-    id: stableId("acct", ctx, `social-account:${record.scope.workspaceId}:${platform}:${externalId}`),
-    externalId,
-  };
 }
 
 function materializePublicationAccount(
@@ -2587,6 +2673,7 @@ function insertIdempotentSkipActivity(
   ctx: MigrationContext,
   record: LegacyRecord,
   publicationId: string,
+  createdAt: number,
 ): void {
   const existing = ctx.db.query<{ count: number }, [string, string]>(
     `SELECT COUNT(*) AS count FROM activity_events
@@ -2602,7 +2689,7 @@ function insertIdempotentSkipActivity(
     entityId: publicationId,
     action: "publication.idempotent_skip",
     payload: { sourceRef: stableKey(deliveryRecordKey(record)) },
-    createdAt: legacyTime(record.value.createdAt, record.entry.mtimeMs),
+    createdAt,
   });
 }
 
@@ -2610,6 +2697,7 @@ function importMediumApprovalEvidence(
   ctx: MigrationContext,
   record: LegacyRecord,
   refs: Map<string, Set<string>>,
+  createdAt: number,
 ): void {
   if (!record.entry.rawEvidenceObjectId) return;
   const key = deliveryRecordKey(record);
@@ -2617,7 +2705,6 @@ function importMediumApprovalEvidence(
   const revisionId = stableId("arev", ctx, `medium-approval:${key}`);
   const runId = stableId("run", ctx, `medium-approval:${key}`);
   const runObjectId = stableId("robj", ctx, `medium-approval:${key}`);
-  const createdAt = legacyTime(record.value.createdAt, record.entry.mtimeMs);
   insertArtifactIdentity(ctx.db, {
     id: artifactId,
     workspaceId: record.scope.workspaceId,
