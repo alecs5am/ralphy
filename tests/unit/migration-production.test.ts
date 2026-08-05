@@ -371,7 +371,7 @@ describe("legacy production and delivery migration", () => {
     expect(entryState("workspaces/studio/projects/registered-project/production.json")).toBe("inventoried");
     expect(entryState("workspaces/studio/projects/registered-project/delivery.json")).toBe("inventoried");
     expect(issueCount("MIGRATION_PRODUCTION_MANIFEST_INVALID")).toBe(1);
-    expect(issueCount("MIGRATION_DELIVERY_MANIFEST_INVALID")).toBe(1);
+    expect(issueCount("MIGRATION_DELIVERY_MANIFEST_INVALID")).toBe(2);
 
     const soloV2 = ledgerEntry("workspaces/studio/projects/registered-project/composition/solo.v2.html").refs;
     const soloV3 = ledgerEntry("workspaces/studio/projects/registered-project/composition/solo.v3.html").refs;
@@ -703,9 +703,10 @@ describe("legacy production and delivery migration", () => {
         media: [],
         manifestOnlyAttempt: {
           provider: "manual",
-          status: "partial",
+          platform: "web",
+          status: "future-state",
           createdAt: 1_500,
-          targets: [{ platform: 42, status: "published", publishedAt: 1_510 }],
+          url: "https://site.example/future-manifest-attempt",
         },
       }) + "\n");
 
@@ -743,12 +744,69 @@ describe("legacy production and delivery migration", () => {
             publishedAt: 1_710,
           },
           {
-            id: "invalid-field-types",
+            id: "invalid-future-status",
             unitId: "article",
-            provider: 42,
-            status: "partial",
+            platform: "web",
+            provider: "manual",
+            status: "future-state",
             createdAt: 1_720,
-            targets: [{ platform: 42, status: "published", publishedAt: 1_710 }],
+          },
+          {
+            id: "invalid-timeline",
+            unitId: "article",
+            platform: "web",
+            provider: "manual",
+            status: "submitted",
+            url: "https://site.example/invalid-timeline",
+            createdAt: 1_730,
+            submittedAt: 1_720,
+          },
+          {
+            id: "invalid-url",
+            unitId: "article",
+            platform: "web",
+            provider: "manual",
+            status: "published",
+            url: "https://user@site.example/invalid-url",
+            createdAt: 1_740,
+            publishedAt: 1_750,
+          },
+          {
+            id: "invalid-provider-id",
+            unitId: "campaign",
+            unitRevision: 2,
+            platform: "instagram",
+            provider: "postiz",
+            accountId: "valid-account",
+            status: "published",
+            providerPublicationId: "x".repeat(513),
+            createdAt: 1_760,
+            publishedAt: 1_770,
+          },
+          {
+            id: "invalid-account-id",
+            unitId: "campaign",
+            unitRevision: 2,
+            platform: "instagram",
+            provider: "postiz",
+            accountId: "",
+            status: "published",
+            providerPublicationId: "valid-provider-id",
+            createdAt: 1_780,
+            publishedAt: 1_790,
+          },
+          {
+            id: "invalid-status-facts",
+            unitId: "campaign",
+            unitRevision: 2,
+            platform: "instagram",
+            provider: "postiz",
+            accountId: "valid-account",
+            status: "failed",
+            error: "failed",
+            failureStage: "provider",
+            createdAt: 1_800,
+            publishedAt: 1_810,
           },
         ],
       }) + "\n");
@@ -794,7 +852,7 @@ describe("legacy production and delivery migration", () => {
     expect(issueCount("MIGRATION_CAPTIONS_MANIFEST_INVALID")).toBe(3);
     expect(issueCount("MIGRATION_ASSET_MANIFEST_INVALID")).toBe(1);
     expect(issueCount("MIGRATION_PRODUCTION_MANIFEST_INVALID")).toBe(1);
-    expect(issueCount("MIGRATION_DELIVERY_MANIFEST_INVALID")).toBe(1);
+    expect(issueCount("MIGRATION_DELIVERY_MANIFEST_INVALID")).toBe(2);
     expect(ctx!.db.query<{ count: number }, []>(
       "SELECT COUNT(*) AS count FROM units WHERE slug = 'bad-field'",
     ).get()?.count).toBe(0);
