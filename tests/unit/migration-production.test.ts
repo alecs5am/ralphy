@@ -680,6 +680,35 @@ describe("legacy production and delivery migration", () => {
         ],
       }) + "\n");
 
+      const badCaptionState = path.join(project, "units", "bad-caption-state");
+      fs.mkdirSync(badCaptionState, { recursive: true });
+      fs.writeFileSync(path.join(badCaptionState, "unit.json"), JSON.stringify({
+        id: "bad-caption-state",
+        format: "post",
+        media: [],
+        presentations: [{ platform: "x" }],
+      }) + "\n");
+      fs.writeFileSync(path.join(badCaptionState, "captions.json"), JSON.stringify({
+        caption_versions: [
+          { version: 1, state: "humanized", text: "Valid sibling must not import" },
+          { version: 2, state: "future-state", text: "Unknown state" },
+        ],
+      }) + "\n");
+
+      const badManifestAttempt = path.join(project, "units", "bad-manifest-attempt");
+      fs.mkdirSync(badManifestAttempt, { recursive: true });
+      fs.writeFileSync(path.join(badManifestAttempt, "unit.json"), JSON.stringify({
+        id: "bad-manifest-attempt",
+        format: "post",
+        media: [],
+        manifestOnlyAttempt: {
+          provider: "manual",
+          status: "partial",
+          createdAt: 1_500,
+          targets: [{ platform: 42, status: "published", publishedAt: 1_510 }],
+        },
+      }) + "\n");
+
       fs.writeFileSync(
         path.join(built.paths.physicalOnlyProject, "asset-manifest.json"),
         '{"assets":[42]}\n',
@@ -692,7 +721,12 @@ describe("legacy production and delivery migration", () => {
             profile: "deep-invalid-control",
             completedAt: 1_600,
           },
-          42,
+          {
+            sourceRevision: 42,
+            output: "render/master.mp4",
+            profile: "invalid-field-types",
+            completedAt: "not-a-time",
+          },
         ],
       }) + "\n");
       fs.writeFileSync(path.join(project, "delivery.json"), JSON.stringify({
@@ -708,9 +742,24 @@ describe("legacy production and delivery migration", () => {
             createdAt: 1_700,
             publishedAt: 1_710,
           },
-          42,
+          {
+            id: "invalid-field-types",
+            unitId: "article",
+            provider: 42,
+            status: "partial",
+            createdAt: 1_720,
+            targets: [{ platform: 42, status: "published", publishedAt: 1_710 }],
+          },
         ],
       }) + "\n");
+      const productionDir = path.join(project, "production");
+      fs.mkdirSync(productionDir, { recursive: true });
+      writeJsonl(path.join(productionDir, "deep-valid-sibling.jsonl"), [{
+        sourceRevision: "composition/index.html",
+        output: "render/master.mp4",
+        profile: "deep-valid-sibling",
+        completedAt: 1_750,
+      }]);
       const deliveryDir = path.join(project, "delivery");
       fs.mkdirSync(deliveryDir, { recursive: true });
       writeJsonl(path.join(deliveryDir, "deep-valid-sibling.jsonl"), [{
@@ -732,6 +781,8 @@ describe("legacy production and delivery migration", () => {
       "workspaces/studio/projects/registered-project/units/bad-field/unit.json",
       "workspaces/studio/projects/registered-project/units/bad-caption-element/captions.json",
       "workspaces/studio/projects/registered-project/units/bad-caption-order/captions.json",
+      "workspaces/studio/projects/registered-project/units/bad-caption-state/captions.json",
+      "workspaces/studio/projects/registered-project/units/bad-manifest-attempt/unit.json",
       "workspaces/studio/projects/physical-only-project/asset-manifest.json",
       "workspaces/studio/projects/registered-project/production.json",
       "workspaces/studio/projects/registered-project/delivery.json",
@@ -739,8 +790,8 @@ describe("legacy production and delivery migration", () => {
       expect(entryState(relative)).toBe("inventoried");
       expect(ledgerEntry(relative).refs.some((ref) => ref.startsWith("obj_"))).toBe(true);
     }
-    expect(issueCount("MIGRATION_UNIT_MANIFEST_INVALID")).toBe(1);
-    expect(issueCount("MIGRATION_CAPTIONS_MANIFEST_INVALID")).toBe(2);
+    expect(issueCount("MIGRATION_UNIT_MANIFEST_INVALID")).toBe(2);
+    expect(issueCount("MIGRATION_CAPTIONS_MANIFEST_INVALID")).toBe(3);
     expect(issueCount("MIGRATION_ASSET_MANIFEST_INVALID")).toBe(1);
     expect(issueCount("MIGRATION_PRODUCTION_MANIFEST_INVALID")).toBe(1);
     expect(issueCount("MIGRATION_DELIVERY_MANIFEST_INVALID")).toBe(1);
@@ -752,11 +803,17 @@ describe("legacy production and delivery migration", () => {
        JOIN unit_presentations presentation ON presentation.id = caption.presentation_id
        JOIN unit_revisions revision ON revision.id = presentation.unit_revision_id
        JOIN units unit ON unit.id = revision.unit_id
-       WHERE unit.slug IN ('bad-caption-element', 'bad-caption-order')`,
+       WHERE unit.slug IN ('bad-caption-element', 'bad-caption-order', 'bad-caption-state')`,
+    ).get()?.count).toBe(0);
+    expect(ctx!.db.query<{ count: number }, []>(
+      "SELECT COUNT(*) AS count FROM units WHERE slug = 'bad-manifest-attempt'",
     ).get()?.count).toBe(0);
     expect(ctx!.db.query<{ count: number }, []>(
       "SELECT COUNT(*) AS count FROM builds WHERE profile_json LIKE '%deep-invalid-control%'",
     ).get()?.count).toBe(0);
+    expect(ctx!.db.query<{ count: number }, []>(
+      "SELECT COUNT(*) AS count FROM builds WHERE profile_json LIKE '%deep-valid-sibling%'",
+    ).get()?.count).toBe(1);
     expect(ctx!.db.query<{ count: number }, []>(
       "SELECT COUNT(*) AS count FROM publications WHERE url = 'https://site.example/deep-invalid-attempt'",
     ).get()?.count).toBe(0);
