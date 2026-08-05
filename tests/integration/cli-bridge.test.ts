@@ -158,7 +158,12 @@ describe("stdio bridge", () => {
        (id, migration_run_id, code, severity, detail_json, created_at)
        VALUES ('miss_00000000-0000-4000-8000-000000000031', ?,
         'MIGRATION_DESKTOP_SECRET_HANDOFF_PLANNED', 'info', ?, ?)`,
-    ).run(migrationId, JSON.stringify({ kind: "text", refs: [ref], sourceLocatorHash: "b".repeat(64) }), now);
+    ).run(migrationId, JSON.stringify({
+      kind: "text",
+      refs: [ref],
+      sourceEntryId,
+      sourceLocatorHash: "b".repeat(64),
+    }), now);
     const secret = "bridge-secret-value";
     const output = await run([
       '{"v":1,"id":"hello","method":"system.hello"}',
@@ -204,7 +209,9 @@ describe("stdio bridge", () => {
        (id, migration_run_id, code, severity, detail_json, created_at)
        VALUES ('miss_00000000-0000-4000-8000-000000000032', ?,
         'MIGRATION_DESKTOP_SECRET_HANDOFF_PLANNED', 'info', ?, ?)`,
-    ).run(migrationId, JSON.stringify({ kind: "text", refs: [accountRef], sourceLocatorHash: accountHash }), now);
+    ).run(migrationId, JSON.stringify({
+      kind: "text", refs: [accountRef], sourceEntryId: accountEntryId, sourceLocatorHash: accountHash,
+    }), now);
     const encryptedBefore = fs.readFileSync(path.join(root.dir, ".ralphy", "secrets.enc"));
     const rejectedOutput = await run([
       '{"v":1,"id":"hello","method":"system.hello"}',
@@ -247,7 +254,9 @@ describe("stdio bridge", () => {
        (id, migration_run_id, code, severity, detail_json, created_at)
        VALUES ('miss_00000000-0000-4000-8000-000000000033', ?,
         'MIGRATION_DESKTOP_SECRET_HANDOFF_PLANNED', 'info', ?, ?)`,
-    ).run(migrationId, JSON.stringify({ kind: "text", refs: [providerRef], sourceLocatorHash: providerHash }), now);
+    ).run(migrationId, JSON.stringify({
+      kind: "text", refs: [providerRef], sourceEntryId: providerEntryId, sourceLocatorHash: providerHash,
+    }), now);
     const providerOutput = await run([
       '{"v":1,"id":"hello","method":"system.hello"}',
       JSON.stringify({
@@ -288,7 +297,9 @@ describe("stdio bridge", () => {
        (id, migration_run_id, code, severity, detail_json, created_at)
        VALUES ('miss_00000000-0000-4000-8000-000000000034', ?,
         'MIGRATION_DESKTOP_SECRET_HANDOFF_PLANNED', 'info', ?, ?)`,
-    ).run(migrationId, JSON.stringify({ kind: "file", refs: [fileRef], sourceLocatorHash: fileHash }), now);
+    ).run(migrationId, JSON.stringify({
+      kind: "file", refs: [fileRef], sourceEntryId: fileEntryId, sourceLocatorHash: fileHash,
+    }), now);
     const importSecret = createBridgeMethods({
       dataRoot: path.join(root.dir, ".ralphy"),
       keyProvider: bridgeKeyProvider,

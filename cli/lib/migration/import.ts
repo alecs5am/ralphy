@@ -432,6 +432,7 @@ export function importExecutionAndOperations(
       reconcileIds(ctx.db, "jobs", source.jobs.map((row) => row.id));
       reconcileIds(ctx.db, "job_logs", source.logs.map((row) => row.id));
       reconcileIds(ctx.db, "job_artifacts", source.artifacts.map((row) => row.id));
+      recordJobAccountingFact(ctx, source);
     }
   }).immediate();
   return {
@@ -461,6 +462,7 @@ export function importProductionAndDelivery(ctx: MigrationContext): ProductionIm
     importLegacyMetrics(ctx, prepared, refs, publicationIds, issues);
     for (const issue of issues) insertIssue(ctx, issue);
     finalizeTaskFiveEntries(ctx, prepared.entries, refs, prepared.pendingEntryIds);
+    recordProductionAccountingFacts(ctx, prepared.entries, prepared.pendingEntryIds);
     const blockers = ctx.db.query<{ count: number }, [string]>(
       `SELECT COUNT(*) AS count FROM migration_issues
        WHERE migration_run_id = ? AND severity = 'block' AND resolved_at IS NULL`,
@@ -522,6 +524,7 @@ export async function importDesktopStateAndSecrets(
       }
       const workspaceId = workspaceForSource(ctx, entry.sourceLabel, null);
       const ref = `provider/instagram/workspace/${workspaceId}/cookies`;
+      recordMigrationSecretImportPlan(ctx, entry, [ref], "file");
       assertMigrationSecretImportable(ctx.db, {
         runId: ctx.runId,
         sourceEntryId: entry.id,
@@ -542,6 +545,7 @@ export async function importDesktopStateAndSecrets(
       insertIssue(ctx, secretIssue(entry, "MIGRATION_SECRET_UNKNOWN"));
       continue;
     }
+    recordMigrationSecretImportPlan(ctx, entry, parsed.map((secret) => secret.ref), "text");
     assertMigrationSecretImportable(ctx.db, {
       runId: ctx.runId,
       sourceEntryId: entry.id,
@@ -2901,7 +2905,6 @@ const PRODUCTION_REF_TABLES: Readonly<Record<string, string>> = {
   pub: "publications",
   metric: "metric_snapshots",
   session: "agent_sessions",
-  consumer: "consumer_principals",
   run: "runs",
   attempt: "run_attempts",
   robj: "run_objects",
@@ -2919,6 +2922,49 @@ const PRODUCTION_REF_TABLES: Readonly<Record<string, string>> = {
   cell: "campaign_cells",
   calendar: "calendar_entries",
 };
+
+function recordProductionAccountingFacts(
+  ctx: MigrationContext,
+  entries: readonly Entry[],
+  pendingEntryIds: ReadonlySet<string>,
+): void {
+  const accounted: string[] = [];
+  for (const entry of entries) {
+    if (!isTaskFiveSource(entry.sourcePath, entry.disposition) || pendingEntryIds.has(entry.id)) continue;
+    const row = ctx.db.query<{ refs: string; state: string }, [string]>(
+      "SELECT COALESCE(target_refs_json, '[]') AS refs, state FROM migration_entries WHERE id = ?",
+    ).get(entry.id);
+    if (!row || !["imported", "verified"].includes(row.state)) continue;
+    const refs = JSON.parse(row.refs) as string[];
+    const facts = refs.map((ref) => {
+      if (ref.startsWith("provider/")) return { ref, digest: null };
+      const split = ref.indexOf("_");
+      const table = PRODUCTION_REF_TABLES[ref.slice(0, split)];
+      const target = table
+        ? ctx.db.query<Record<string, unknown>, [string]>(`SELECT * FROM ${table} WHERE id = ?`).get(ref)
+        : null;
+      if (!target) throw new Error("Migration production accounting target is missing");
+      return { ref, digest: sha256(canonicalJsonText(target)) };
+    });
+    insertIssue(ctx, {
+      entryId: null,
+      issueKey: `production-accounting:${entry.id}`,
+      code: "MIGRATION_PRODUCTION_ACCOUNTING_FACT",
+      severity: "info",
+      lineNo: null,
+      detail: { entryId: entry.id, sourceLocatorHash: entry.sourceLocatorHash, refs, facts },
+    });
+    accounted.push(entry.id);
+  }
+  insertIssue(ctx, {
+    entryId: null,
+    issueKey: "production-accounting-index",
+    code: "MIGRATION_PRODUCTION_ACCOUNTING_INDEX",
+    severity: "info",
+    lineNo: null,
+    detail: { entryIds: accounted.sort() },
+  });
+}
 
 function verifyProductionTargetRefs(db: Database, refs: readonly string[]): void {
   for (const ref of refs) {
@@ -2997,6 +3043,45 @@ type PreparedJobSource = {
   artifacts: LegacyJobArtifact[];
   redactedJobs: Map<number, Set<string>>;
 };
+
+function recordJobAccountingFact(ctx: MigrationContext, source: PreparedJobSource): void {
+  const digest = (table: string, id: number | string): string => {
+    const row = ctx.db.query<Record<string, unknown>, [number | string]>(
+      `SELECT * FROM ${table} WHERE id = ?`,
+    ).get(id);
+    if (!row) throw new Error(`Migration ${table} accounting row is missing`);
+    return sha256(canonicalJsonText(row));
+  };
+  insertIssue(ctx, {
+    entryId: null,
+    issueKey: `job-accounting:${source.sourceId}`,
+    code: "MIGRATION_JOB_ACCOUNTING_FACT",
+    severity: "info",
+    lineNo: null,
+    detail: {
+      sourceId: source.sourceId,
+      entryIds: source.files.map((file) => file.entry.id).sort(),
+      jobs: source.jobs.map((row) => {
+        const runId = stableId("run", ctx, `job:${source.sourceId}:${row.id}`);
+        const job = ctx.db.query<{ status: string; hold: string | null }, [number]>(
+          "SELECT status, migration_hold_run_id AS hold FROM jobs WHERE id = ?",
+        ).get(row.id)!;
+        return {
+          id: row.id,
+          runId,
+          status: job.status,
+          hold: job.hold,
+          digest: digest("jobs", row.id),
+          runDigest: digest("runs", runId),
+        };
+      }).sort((left, right) => left.id - right.id),
+      logs: source.logs.map((row) => ({ id: row.id, jobId: row.jobId, digest: digest("job_logs", row.id) }))
+        .sort((left, right) => left.id - right.id),
+      artifacts: source.artifacts.map((row) => ({ id: row.id, jobId: row.jobId, digest: digest("job_artifacts", row.id) }))
+        .sort((left, right) => left.id - right.id),
+    },
+  });
+}
 
 function prepareJobSource(
   ctx: MigrationContext,
@@ -3132,7 +3217,7 @@ function secretIssue(entry: Entry, code: string): PreparedIssue {
     code,
     severity: "block",
     lineNo: null,
-    detail: { sourceLocatorHash: entry.sourceLocatorHash },
+    detail: { sourceEntryId: entry.id, sourceLocatorHash: entry.sourceLocatorHash },
   };
 }
 
@@ -3193,7 +3278,47 @@ function recordDesktopSecretHandoffPlan(
     code: "MIGRATION_DESKTOP_SECRET_HANDOFF_PLANNED",
     severity: "info",
     lineNo: null,
-    detail: { kind: plan.kind, refs: [plan.ref], sourceLocatorHash: entry.sourceLocatorHash },
+    detail: { kind: plan.kind, refs: [plan.ref], sourceEntryId: entry.id, sourceLocatorHash: entry.sourceLocatorHash },
+  });
+}
+
+function recordMigrationSecretImportPlan(
+  ctx: MigrationContext,
+  entry: Entry,
+  inputRefs: readonly string[],
+  kind: "text" | "file",
+): void {
+  const values = [...new Set(inputRefs)].sort();
+  const refs = JSON.stringify(values);
+  const owner = ctx.db.query<{ id: string }, [string, string, string]>(
+    `SELECT entry.id FROM migration_entries entry, json_each(entry.target_refs_json)
+     WHERE entry.migration_run_id = ? AND entry.id <> ? AND value = ? LIMIT 1`,
+  );
+  for (const ref of values) {
+    if (owner.get(ctx.runId, entry.id, ref)) throw new Error("Migration secret ref is owned by another migration entry");
+  }
+  const current = ctx.db.query<{ refs: string | null }, [string, string]>(
+    `SELECT target_refs_json AS refs FROM migration_entries
+     WHERE migration_run_id = ? AND id = ? AND state = 'inventoried'
+       AND disposition = 'secret-recovery-only'`,
+  ).get(ctx.runId, entry.id);
+  if (!current) throw new Error("Migration secret import entry is not plannable");
+  if (current.refs !== refs) {
+    if ((current.refs ?? "[]") !== "[]") throw new Error("Migration secret import plan conflicts with ledger refs");
+    const result = ctx.db.prepare(
+      `UPDATE migration_entries SET target_refs_json = ?, updated_at = ?
+       WHERE migration_run_id = ? AND id = ? AND state = 'inventoried'
+         AND disposition = 'secret-recovery-only' AND COALESCE(target_refs_json, '[]') = '[]'`,
+    ).run(refs, Date.now(), ctx.runId, entry.id);
+    if (result.changes !== 1) throw new Error("Migration secret import plan affected no entry");
+  }
+  insertIssue(ctx, {
+    entryId: null,
+    issueKey: `secret-plan:${entry.sourceLocatorHash}`,
+    code: "MIGRATION_SECRET_IMPORT_PLANNED",
+    severity: "info",
+    lineNo: null,
+    detail: { kind, refs: values, sourceEntryId: entry.id, sourceLocatorHash: entry.sourceLocatorHash },
   });
 }
 
@@ -3345,6 +3470,7 @@ export function completeMigrationSecretImport(
     completed: true,
     kind: input.kind,
     refs: JSON.parse(refs) as string[],
+    sourceEntryId: input.sourceEntryId,
     sourceLocatorHash: row.sourceLocatorHash,
   });
   const recordId = stableId("miss", {
@@ -3352,7 +3478,7 @@ export function completeMigrationSecretImport(
     storeRoot: "",
     sourceRoots: [],
     runId: input.runId,
-  }, `secret-import:${row.sourceLocatorHash}`);
+  }, `secret-import:${input.sourceEntryId}`);
   const existing = db.query<{ detail: string }, [string]>(
     "SELECT detail_json AS detail FROM migration_issues WHERE id = ?",
   ).get(recordId);
@@ -3369,8 +3495,8 @@ export function completeMigrationSecretImport(
     `UPDATE migration_issues SET resolved_at = ?
      WHERE migration_run_id = ? AND migration_entry_id IS NULL
        AND code = 'MIGRATION_DESKTOP_SECRET_HANDOFF_REQUIRED'
-       AND json_extract(detail_json, '$.sourceLocatorHash') = ? AND resolved_at IS NULL`,
-  ).run(Date.now(), input.runId, row.sourceLocatorHash);
+       AND json_extract(detail_json, '$.sourceEntryId') = ? AND resolved_at IS NULL`,
+  ).run(Date.now(), input.runId, input.sourceEntryId);
 }
 
 export function assertMigrationSecretImportable(
@@ -3407,17 +3533,18 @@ export function assertMigrationSecretImportable(
     throw new Error("Migration secret import phase is closed");
   }
   const refs = JSON.stringify([...new Set(input.refs)].sort());
-  if (input.requiredSourceKind === "desktop") {
-    const plans = db.query<{ detail: string }, [string, string]>(
+  {
+    const plans = db.query<{ code: string; detail: string }, [string, string]>(
       `SELECT detail_json AS detail FROM migration_issues
-       WHERE migration_run_id = ? AND code = 'MIGRATION_DESKTOP_SECRET_HANDOFF_PLANNED'
-         AND json_extract(detail_json, '$.sourceLocatorHash') = ?
+       WHERE migration_run_id = ? AND code IN (
+         'MIGRATION_DESKTOP_SECRET_HANDOFF_PLANNED', 'MIGRATION_SECRET_IMPORT_PLANNED')
+         AND json_extract(detail_json, '$.sourceEntryId') = ?
        ORDER BY id`,
-    ).all(input.runId, row.sourceLocatorHash);
-    if (plans.length !== 1) throw new Error("Desktop secret handoff plan is missing or ambiguous");
+    ).all(input.runId, input.sourceEntryId);
+    if (plans.length !== 1) throw new Error("Migration secret import plan is missing or ambiguous");
     const plan = JSON.parse(plans[0]!.detail) as { kind?: unknown; refs?: unknown };
     if (plan.kind !== input.kind || JSON.stringify(plan.refs) !== refs || row.refs !== refs) {
-      throw new Error("Desktop secret handoff does not match its immutable plan");
+      throw new Error("Migration secret import does not match its immutable plan");
     }
   }
   for (const ref of input.refs) {
@@ -3437,7 +3564,7 @@ export function assertMigrationSecretImportable(
     storeRoot: "",
     sourceRoots: [],
     runId: input.runId,
-  }, `secret-import:${row.sourceLocatorHash}`);
+  }, `secret-import:${input.sourceEntryId}`);
   const existing = db.query<{ detail: string }, [string]>(
     "SELECT detail_json AS detail FROM migration_issues WHERE id = ?",
   ).get(recordId);

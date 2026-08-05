@@ -31,6 +31,10 @@ const native = dlopen(libraryName, {
     args: ["i32", "cstring", "i32", "cstring"],
     returns: "i32",
   },
+  linkat: {
+    args: ["i32", "cstring", "i32", "cstring", "i32"],
+    returns: "i32",
+  },
   unlinkat: {
     args: ["i32", "cstring", "i32"],
     returns: "i32",
@@ -270,6 +274,24 @@ export function renameExclusiveAt(
         component(destinationName),
         RENAME_EXCLUSIVE,
       );
+  if (result === 0) return true;
+  if (errno() === EEXIST) return false;
+  throw new PosixDirectoryError();
+}
+
+export function linkExclusiveAt(
+  sourceDirectory: number,
+  sourceName: string,
+  destinationDirectory: number,
+  destinationName: string,
+): boolean {
+  const result = native.symbols.linkat(
+    sourceDirectory,
+    component(sourceName),
+    destinationDirectory,
+    component(destinationName),
+    0,
+  );
   if (result === 0) return true;
   if (errno() === EEXIST) return false;
   throw new PosixDirectoryError();

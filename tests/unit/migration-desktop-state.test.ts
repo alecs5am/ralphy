@@ -258,6 +258,18 @@ describe("Desktop state and credential migration", () => {
       expect(ledger(sourcePath)).toMatchObject({ disposition: "secret-imported", state: "excluded" });
     }
     expect(JSON.parse(ledger("config.json").refs)).toEqual([refs.postiz, refs.x].sort());
+    expect(importSecretPlan(ledger("config.json").id)).toEqual({
+      kind: "text",
+      refs: [refs.postiz, refs.x].sort(),
+    });
+    expect(importSecretPlan(ledger("workspaces/studio/workspace.json").id)).toEqual({
+      kind: "text",
+      refs: [refs.telegram],
+    });
+    expect(importSecretPlan(ledger("tmp/ig-cookies.txt").id)).toEqual({
+      kind: "file",
+      refs: [refs.instagram],
+    });
 
     assertNoPlaintext(ctx!.storeRoot, [
       "fixture-x-plaintext-token",
@@ -707,6 +719,20 @@ function secretPlan(entryId: string): { kind: string; refs: string[] } {
   if (!detail) throw new Error("Missing Desktop secret handoff plan");
   const parsed = JSON.parse(detail) as { kind: string; refs: string[] };
   return { kind: parsed.kind, refs: parsed.refs };
+}
+
+function importSecretPlan(entryId: string): { kind: string; refs: string[] } {
+  const entry = ctx!.db.query<{ sourceLocatorHash: string }, [string]>(
+    "SELECT source_locator_hash AS sourceLocatorHash FROM migration_entries WHERE id = ?",
+  ).get(entryId)!;
+  const detail = ctx!.db.query<{ detail: string }, [string, string]>(
+    `SELECT detail_json AS detail FROM migration_issues
+     WHERE migration_run_id = ? AND code = 'MIGRATION_SECRET_IMPORT_PLANNED'
+       AND json_extract(detail_json, '$.sourceLocatorHash') = ?`,
+  ).get(ctx!.runId, entry.sourceLocatorHash)?.detail;
+  if (!detail) throw new Error("Missing automatic secret import plan");
+  const value = JSON.parse(detail) as { kind: string; refs: string[] };
+  return { kind: value.kind, refs: value.refs };
 }
 
 function assertNoPlaintext(storeRoot: string, needles: string[]): void {

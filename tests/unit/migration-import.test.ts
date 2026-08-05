@@ -200,6 +200,15 @@ describe("legacy semantic migration", () => {
     expect(ctx!.db.query<{ count: number }, [string]>(
       "SELECT COUNT(*) AS count FROM migration_issues WHERE code = ?",
     ).get("MIGRATION_JOB_SECRET_REDACTED")?.count).toBe(1);
+    const accounting = ctx!.db.query<{ detail: string }, []>(
+      "SELECT detail_json AS detail FROM migration_issues WHERE code = 'MIGRATION_JOB_ACCOUNTING_FACT'",
+    ).get();
+    expect(accounting).toBeDefined();
+    expect(JSON.parse(accounting!.detail)).toMatchObject({
+      jobs: [{ id: 1, status: "pending", hold: ctx!.runId }],
+      logs: [{ id: 1, jobId: 1 }],
+      artifacts: [{ id: 1, jobId: 1 }],
+    });
     expect(entry("jobs.db")).toMatchObject({
       disposition: "secret-recovery-only",
       targetPath: null,
