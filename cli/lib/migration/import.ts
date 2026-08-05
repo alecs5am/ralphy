@@ -2,13 +2,18 @@ import { Database } from "bun:sqlite";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { credentialSecretRef } from "../providers/credentials.js";
 import { appendActivity } from "../store/activity.js";
 import type { DomainIdPrefix } from "../store/ids.js";
+import { createSecretStore, type KeyProvider } from "../store/secrets.js";
 import {
   classifyLegacyPath,
   isLegacyAssetManifestName,
+  isLegacyDesktopDocumentPath,
+  isLegacyDesktopReviewPath,
   isLegacyPublishLedgerName,
   isLegacyRegistryPath,
+  isLegacyRootConfigPath,
   isLegacySecretCandidate,
   isLegacyUnitManifestName,
   LegacySanitizationCollisionError,
@@ -37,6 +42,14 @@ export type ProductionImportSummary = {
   units: number;
   publications: number;
   metrics: number;
+  issues: number;
+};
+
+export type DesktopStateImportSummary = {
+  reviews: number;
+  feedback: number;
+  secrets: number;
+  documents: number;
   issues: number;
 };
 
@@ -468,6 +481,77 @@ export function importProductionAndDelivery(ctx: MigrationContext): ProductionIm
       "SELECT COUNT(*) AS count FROM migration_issues WHERE migration_run_id = ? AND code LIKE 'MIGRATION_%'",
     ).get(ctx.runId)?.count ?? 0,
   };
+}
+
+export async function importDesktopStateAndSecrets(
+  ctx: MigrationContext,
+  options: { keyProvider?: KeyProvider } = {},
+): Promise<DesktopStateImportSummary> {
+  const entries = migrationEntries(ctx);
+  const sources = new Map(ctx.sourceRoots.map((source) => [source.id, source]));
+  const store = createSecretStore({ dataRoot: ctx.storeRoot, keyProvider: options.keyProvider });
+
+  for (const entry of entries) {
+    if (entry.state !== "inventoried" || entry.entryKind !== "file") continue;
+    if (!isPotentialSecretEntry(entry)) continue;
+    const source = sources.get(entry.sourceLabel);
+    if (!source) throw new Error("Migration source identity is missing");
+    const known = knownSecretShape(entry);
+    if (known === "desktop-handoff") {
+      insertIssue(ctx, secretIssue(entry, "MIGRATION_DESKTOP_SECRET_HANDOFF_REQUIRED"));
+      continue;
+    }
+    if (known === null) {
+      insertIssue(ctx, secretIssue(entry, "MIGRATION_SECRET_UNKNOWN"));
+      continue;
+    }
+    const absolute = checkedSourceFile(source, entry);
+    if (known === "instagram-cookie") {
+      if (entry.bytes !== 667_395) {
+        insertIssue(ctx, secretIssue(entry, "MIGRATION_SECRET_UNKNOWN"));
+        continue;
+      }
+      const workspaceId = workspaceForSource(ctx, entry.sourceLabel, null);
+      const ref = `provider/instagram/workspace/${workspaceId}/cookies`;
+      await store.setSecretFile(ref, fs.readFileSync(absolute));
+      completeMigrationSecretImport(ctx.db, {
+        runId: ctx.runId,
+        sourceEntryId: entry.id,
+        refs: [ref],
+        kind: "file",
+      });
+      continue;
+    }
+    const parsed = parseKnownCredentialFile(ctx, entry, source, fs.readFileSync(absolute), known);
+    if (parsed === null) {
+      insertIssue(ctx, secretIssue(entry, "MIGRATION_SECRET_UNKNOWN"));
+      continue;
+    }
+    for (const secret of parsed) await store.set(secret.ref, secret.value);
+    ctx.db.transaction(() => {
+      for (const secret of parsed) if (secret.account) insertSecretAccount(ctx, secret.account, secret.ref, entry.mtimeMs);
+      completeMigrationSecretImport(ctx.db, {
+        runId: ctx.runId,
+        sourceEntryId: entry.id,
+        refs: parsed.map((secret) => secret.ref),
+        kind: "text",
+      });
+    }).immediate();
+  }
+
+  for (const entry of entries) {
+    if (entry.sourceKind !== "desktop" || entry.state !== "inventoried" || entry.entryKind !== "file") continue;
+    if (entry.disposition.startsWith("secret-") || isLegacySecretCandidate(entry.sourcePath)) continue;
+    const source = sources.get(entry.sourceLabel);
+    if (!source) throw new Error("Migration source identity is missing");
+    if (isLegacyDesktopReviewPath(entry.sourcePath)) {
+      ctx.db.transaction(() => importDesktopReviewFile(ctx, entry, source)).immediate();
+    } else if (isLegacyDesktopDocumentPath(entry.sourcePath)) {
+      ctx.db.transaction(() => importDesktopDocumentFile(ctx, entry, source)).immediate();
+    }
+  }
+
+  return desktopImportSummary(ctx);
 }
 
 function prepareProduction(ctx: MigrationContext): ProductionPrepared {
@@ -2955,6 +3039,727 @@ function addRedactedJobField(
   const fields = jobs.get(jobId) ?? new Set<string>();
   fields.add(field);
   jobs.set(jobId, fields);
+}
+
+type KnownSecretShape = "config" | "workspace" | "instagram-cookie" | "desktop-handoff";
+
+type PreparedSecret = {
+  ref: string;
+  value: string;
+  account: {
+    id: string;
+    workspaceId: string;
+    platform: string;
+    externalId: string;
+    displayName: string | null;
+    username: string | null;
+  } | null;
+};
+
+type DesktopReview = {
+  id: string;
+  source: string | null;
+  sourcePath: string;
+  sha256: string | null;
+  state: "Approved" | "Shortlist" | "Reject" | "Needs Work";
+  note: string | null;
+  tags: string[];
+  rating: number | null;
+  favorite: boolean;
+};
+
+type DesktopReviewTarget = {
+  type: "artifact_revision" | "composition_revision";
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  match: "path" | "hash";
+};
+
+function isPotentialSecretEntry(entry: Entry): boolean {
+  return entry.disposition === "secret-recovery-only"
+    || entry.disposition === "secret-imported"
+    || isLegacyRootConfigPath(entry.sourcePath)
+    || /(?:^|\/)workspace\.json$/iu.test(entry.sourcePath);
+}
+
+function knownSecretShape(entry: Entry): KnownSecretShape | null {
+  if (entry.sourceKind === "desktop" && /(?:^|\/)safestorage(?:\/|$)/iu.test(entry.sourcePath)) {
+    return "desktop-handoff";
+  }
+  if (entry.sourceKind === "ralphy" && entry.sourcePath === "tmp/ig-cookies.txt") {
+    return "instagram-cookie";
+  }
+  if (entry.sourceKind !== "desktop" && isLegacyRootConfigPath(entry.sourcePath)) return "config";
+  if (entry.sourceKind !== "desktop" && /(?:^|\/)workspace\.json$/iu.test(entry.sourcePath)) return "workspace";
+  return null;
+}
+
+function secretIssue(entry: Entry, code: string): PreparedIssue {
+  return {
+    entryId: null,
+    issueKey: `secret:${entry.sourceLabel}:${entry.sourceLocatorHash}:${code}`,
+    code,
+    severity: "block",
+    lineNo: null,
+    detail: { sourceLocatorHash: entry.sourceLocatorHash },
+  };
+}
+
+function parseKnownCredentialFile(
+  ctx: MigrationContext,
+  entry: Entry,
+  source: MigrationSourceRoot,
+  raw: Buffer,
+  shape: "config" | "workspace",
+): PreparedSecret[] | null {
+  const text = raw.toString("utf8");
+  if (Buffer.from(text, "utf8").compare(raw) !== 0) return null;
+  let value: unknown;
+  try { value = JSON.parse(text) as unknown; } catch { return null; }
+  if (!isRecord(value)) return null;
+  const workspaceSlug = shape === "workspace"
+    ? entry.sourcePath.match(/(?:^|\/)workspaces\/([^/]+)\/workspace\.json$/u)?.[1] ?? null
+    : null;
+  const workspaceId = workspaceForSource(ctx, entry.sourceLabel, workspaceSlug);
+  const providers = shape === "config"
+    ? [["x", "accessToken"], ["postiz", "apiKey"]] as const
+    : [["telegram", "botToken"]] as const;
+  const secrets: PreparedSecret[] = [];
+  const remainder: Record<string, unknown> = { ...value };
+  for (const [provider, field] of providers) {
+    const candidate = value[provider];
+    if (candidate === undefined) continue;
+    if (!isRecord(candidate) || typeof candidate[field] !== "string" || !(candidate[field] as string).trim()) return null;
+    const metadata = { ...candidate };
+    const secretValue = metadata[field] as string;
+    delete metadata[field];
+    if (sanitizeLegacyPayload(metadata, source.path, true).redacted) return null;
+    const accountExternal = safeAccountIdentifier(metadata.accountId, metadata.chatId, metadata.username);
+    if (accountExternal === undefined) return null;
+    const accountId = accountExternal
+      ? stableId("acct", ctx, `secret-account:${entry.sourceLabel}:${workspaceId}:${provider}:${accountExternal}`)
+      : null;
+    const ref = credentialSecretRef(provider, {
+      kind: "scope",
+      workspaceId,
+      ...(accountId ? { accountId } : {}),
+    });
+    secrets.push({
+      ref,
+      value: secretValue,
+      account: accountId && accountExternal ? {
+        id: accountId,
+        workspaceId,
+        platform: provider,
+        externalId: accountExternal,
+        displayName: safeAccountLabel(metadata.displayName, metadata.name),
+        username: safeAccountIdentifier(metadata.username) ?? null,
+      } : null,
+    });
+    remainder[provider] = metadata;
+  }
+  if (secrets.length === 0 || sanitizeLegacyPayload(remainder, source.path, true).redacted) return null;
+  return secrets;
+}
+
+function firstNonEmptyString(...values: unknown[]): string | null {
+  for (const value of values) if (typeof value === "string" && value.trim()) return value.trim();
+  return null;
+}
+
+function safeAccountIdentifier(...values: unknown[]): string | null | undefined {
+  const value = firstNonEmptyString(...values);
+  if (value === null) return null;
+  return /^[A-Za-z0-9][A-Za-z0-9._@:-]{0,127}$/u.test(value)
+    && !/(?:secret|token|password|credential|authorization|bearer)/iu.test(value)
+    ? value
+    : undefined;
+}
+
+function safeAccountLabel(...values: unknown[]): string | null {
+  const value = firstNonEmptyString(...values);
+  return value !== null
+      && Buffer.byteLength(value) <= 256
+      && !/[\u0000-\u001f\u007f]/u.test(value)
+      && !/(?:secret|token|password|credential|authorization|bearer|data:|file:\/\/|[\\/])/iu.test(value)
+    ? value
+    : null;
+}
+
+function workspaceForSource(ctx: MigrationContext, sourceLabel: string, requestedSlug: string | null): string {
+  const rows = ctx.db.query<{ id: string; slug: string }, [string]>(
+    `SELECT id, slug FROM workspaces
+     WHERE json_extract(metadata_json, '$.migrationSourceLabel') = ? ORDER BY slug`,
+  ).all(sourceLabel);
+  const exact = requestedSlug ? rows.find((row) => row.slug === requestedSlug) : null;
+  if (exact) return exact.id;
+  if (rows.length === 1) return rows[0]!.id;
+  throw new Error("Migration secret Workspace scope is ambiguous");
+}
+
+function insertSecretAccount(
+  ctx: MigrationContext,
+  account: NonNullable<PreparedSecret["account"]>,
+  ref: string,
+  createdAt: number,
+): void {
+  insertExact(
+    ctx.db,
+    "social_accounts",
+    account.id,
+    `INSERT INTO social_accounts
+     (id, workspace_id, platform, external_id, display_name, username,
+      config_json, created_at, updated_at, credential_ref)
+     VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`,
+    [
+      account.id,
+      account.workspaceId,
+      account.platform,
+      account.externalId,
+      account.displayName,
+      account.username,
+      createdAt,
+      createdAt,
+      ref,
+    ],
+  );
+}
+
+export function completeMigrationSecretImport(
+  db: Database,
+  input: {
+    runId: string;
+    sourceEntryId: string;
+    refs: readonly string[];
+    kind: "text" | "file";
+    requiredSourceKind?: "desktop";
+  },
+): void {
+  const row = assertMigrationSecretImportable(db, input);
+  const refs = JSON.stringify([...new Set(input.refs)].sort());
+  if (row.state !== "excluded") {
+    const now = Date.now();
+    const result = db.prepare(
+      `UPDATE migration_entries
+       SET disposition = 'secret-imported', target_refs_json = ?, state = 'excluded',
+           terminal_at = ?, updated_at = ?
+       WHERE migration_run_id = ? AND id = ? AND state = 'inventoried'`,
+    ).run(refs, now, now, input.runId, input.sourceEntryId);
+    if (result.changes !== 1) throw new Error("Migration secret completion affected no entry");
+  }
+  const detail = JSON.stringify({
+    completed: true,
+    kind: input.kind,
+    refs: JSON.parse(refs) as string[],
+    sourceLocatorHash: row.sourceLocatorHash,
+  });
+  const recordId = stableId("miss", {
+    db,
+    storeRoot: "",
+    sourceRoots: [],
+    runId: input.runId,
+  }, `secret-import:${row.sourceLocatorHash}`);
+  const existing = db.query<{ detail: string }, [string]>(
+    "SELECT detail_json AS detail FROM migration_issues WHERE id = ?",
+  ).get(recordId);
+  if (existing && existing.detail !== detail) throw new Error("Migration secret import kind conflict");
+  if (!existing) {
+    const now = Date.now();
+    db.prepare(
+      `INSERT INTO migration_issues
+       (id, migration_run_id, code, severity, detail_json, resolved_at, created_at)
+       VALUES (?, ?, 'MIGRATION_SECRET_IMPORTED', 'info', ?, ?, ?)`,
+    ).run(recordId, input.runId, detail, now, now);
+  }
+  db.prepare(
+    `UPDATE migration_issues SET resolved_at = ?
+     WHERE migration_run_id = ? AND migration_entry_id IS NULL
+       AND code = 'MIGRATION_DESKTOP_SECRET_HANDOFF_REQUIRED'
+       AND json_extract(detail_json, '$.sourceLocatorHash') = ? AND resolved_at IS NULL`,
+  ).run(Date.now(), input.runId, row.sourceLocatorHash);
+}
+
+export function assertMigrationSecretImportable(
+  db: Database,
+  input: {
+    runId: string;
+    sourceEntryId: string;
+    refs: readonly string[];
+    kind: "text" | "file";
+    requiredSourceKind?: "desktop";
+  },
+): { sourceLocatorHash: string; state: string } {
+  const row = db.query<{
+    sourceKind: string;
+    sourceLocatorHash: string;
+    disposition: string;
+    state: string;
+    refs: string | null;
+    phase: string;
+  }, [string, string]>(
+    `SELECT entry.source_kind AS sourceKind,
+            entry.source_locator_hash AS sourceLocatorHash,
+            entry.disposition, entry.state,
+            entry.target_refs_json AS refs, migration.phase
+     FROM migration_entries entry JOIN migration_runs migration
+       ON migration.id = entry.migration_run_id
+     WHERE entry.migration_run_id = ? AND entry.id = ?`,
+  ).get(input.runId, input.sourceEntryId);
+  if (!row) throw new Error("Migration secret entry not found");
+  if (input.requiredSourceKind && row.sourceKind !== input.requiredSourceKind) {
+    throw new Error("Migration secret source kind is invalid");
+  }
+  if (!["inventory", "import", "objects", "relations"].includes(row.phase)) {
+    throw new Error("Migration secret import phase is closed");
+  }
+  const refs = JSON.stringify([...new Set(input.refs)].sort());
+  if (row.state === "excluded" && row.disposition === "secret-imported") {
+    if ((row.refs ?? "[]") !== refs) throw new Error("Migration secret import replay conflict");
+  } else if (row.state !== "inventoried" || row.disposition !== "secret-recovery-only") {
+    throw new Error("Migration secret entry is not importable");
+  }
+  const recordId = stableId("miss", {
+    db,
+    storeRoot: "",
+    sourceRoots: [],
+    runId: input.runId,
+  }, `secret-import:${row.sourceLocatorHash}`);
+  const existing = db.query<{ detail: string }, [string]>(
+    "SELECT detail_json AS detail FROM migration_issues WHERE id = ?",
+  ).get(recordId);
+  if (existing) {
+    const detail = JSON.parse(existing.detail) as { kind?: unknown; refs?: unknown };
+    if (detail.kind !== input.kind || JSON.stringify(detail.refs) !== refs) {
+      throw new Error("Migration secret import kind conflict");
+    }
+  }
+  return { sourceLocatorHash: row.sourceLocatorHash, state: row.state };
+}
+
+function importDesktopReviewFile(ctx: MigrationContext, entry: Entry, source: MigrationSourceRoot): void {
+  const raw = fs.readFileSync(checkedSourceFile(source, entry));
+  if (isLegacySecretCandidate(entry.sourcePath, raw)) {
+    insertIssue(ctx, secretIssue(entry, "MIGRATION_SECRET_UNKNOWN"));
+    return;
+  }
+  const parsed = parseDesktopReviewExport(raw);
+  if (parsed === null) {
+    insertIssue(ctx, {
+      entryId: entry.id,
+      issueKey: `desktop-review-invalid:${entry.sourceLocatorHash}`,
+      code: "MIGRATION_DESKTOP_REVIEW_INVALID",
+      severity: "review",
+      lineNo: null,
+      detail: { sourceLocatorHash: entry.sourceLocatorHash },
+    });
+    return;
+  }
+  const refs = new Set<string>();
+  const sessions = new Set<string>();
+  for (const unsafeReview of parsed.reviews) {
+    const review = {
+      ...unsafeReview,
+      note: unsafeReview.note === null
+        ? null
+        : String(normalizeLegacyValue(unsafeReview.note, source.path)),
+    };
+    const match = matchDesktopReview(ctx, review);
+    if (match.kind === "collision") {
+      insertIssue(ctx, desktopReviewIssue(entry, review, match.code));
+      const projectId = resolveDesktopProject(ctx, parsed.workspace, parsed.project, parsed.source);
+      const feedbackId = insertDesktopFeedback(ctx, entry, review, projectId, null);
+      refs.add(feedbackId);
+      continue;
+    }
+    if (match.kind === "unmatched") {
+      insertIssue(ctx, desktopReviewIssue(entry, review, "MIGRATION_DESKTOP_REVIEW_UNMATCHED"));
+      const projectId = resolveDesktopProject(ctx, parsed.workspace, parsed.project, parsed.source);
+      const feedbackId = insertDesktopFeedback(ctx, entry, review, projectId, null);
+      refs.add(feedbackId);
+      continue;
+    }
+    const target = match.target;
+    const sessionId = ensureDesktopSession(ctx, target.workspaceId, target.projectId, entry.mtimeMs);
+    sessions.add(sessionId);
+    const evaluationId = stableId("eval", ctx, `desktop-review:${entry.id}:${review.id}`);
+    const verdict = ({
+      Approved: "approved",
+      Shortlist: "candidate",
+      Reject: "rejected",
+      "Needs Work": "open",
+    } as const)[review.state];
+    insertExact(
+      ctx.db,
+      "evaluations",
+      evaluationId,
+      `INSERT INTO evaluations
+       (id, workspace_id, project_id, artifact_revision_id, composition_revision_id,
+        build_id, run_id, authored_by_session_id, kind, verdict, favorite, rating,
+        tags_json, note, report_json, created_at)
+       VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, 'desktop-review', ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        evaluationId,
+        target.workspaceId,
+        target.projectId,
+        target.type === "artifact_revision" ? target.id : null,
+        target.type === "composition_revision" ? target.id : null,
+        sessionId,
+        verdict,
+        review.favorite ? 1 : 0,
+        review.rating,
+        JSON.stringify(review.tags),
+        review.note,
+        JSON.stringify({ match: target.match, reviewIdHash: stableKey(review.id), sourceLocatorHash: entry.sourceLocatorHash }),
+        entry.mtimeMs,
+      ],
+    );
+    refs.add(evaluationId);
+    if (review.state === "Needs Work") {
+      refs.add(insertDesktopFeedback(ctx, entry, review, target.projectId, target));
+    }
+  }
+  for (const sessionId of sessions) {
+    ctx.db.prepare("UPDATE agent_sessions SET ended_at = ? WHERE id = ? AND ended_at IS NULL")
+      .run(entry.mtimeMs, sessionId);
+  }
+  completeDesktopDomainEntry(ctx, entry, refs);
+}
+
+function parseDesktopReviewExport(raw: Buffer): {
+  workspace: string | null;
+  project: string;
+  source: string | null;
+  reviews: DesktopReview[];
+} | null {
+  let value: unknown;
+  try { value = JSON.parse(raw.toString("utf8")) as unknown; } catch { return null; }
+  if (!isRecord(value) || value.version !== 1 || typeof value.project !== "string" || !Array.isArray(value.reviews)) return null;
+  const reviews: DesktopReview[] = [];
+  for (const item of value.reviews) {
+    if (!isRecord(item)
+      || typeof item.id !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u.test(item.id)
+      || typeof item.sourcePath !== "string"
+      || !["Approved", "Shortlist", "Reject", "Needs Work"].includes(String(item.state))) return null;
+    let sourcePath: string;
+    try { sourcePath = normalizeRelativePath(item.sourcePath); } catch { return null; }
+    const sha = item.sha256 === undefined ? null : item.sha256;
+    if (sha !== null && (typeof sha !== "string" || !/^[0-9a-f]{64}$/u.test(sha))) return null;
+    const tags = item.tags === undefined ? [] : item.tags;
+    if (!Array.isArray(tags) || tags.length > 16
+      || tags.some((tag) => typeof tag !== "string" || !/^[a-z0-9][a-z0-9._-]{0,63}$/u.test(tag))) return null;
+    if (new Set(tags).size !== tags.length) return null;
+    const note = item.note === undefined ? null : item.note;
+    if (note !== null && (typeof note !== "string" || !note || Buffer.byteLength(note) > 2_048)) return null;
+    const rating = item.rating === undefined ? null : item.rating;
+    if (rating !== null && (!Number.isInteger(rating) || Number(rating) < 1 || Number(rating) > 5)) return null;
+    if (item.favorite !== undefined && typeof item.favorite !== "boolean") return null;
+    if (item.source !== undefined && (typeof item.source !== "string" || !item.source)) return null;
+    reviews.push({
+      id: item.id,
+      source: typeof item.source === "string" ? item.source : null,
+      sourcePath,
+      sha256: sha,
+      state: item.state as DesktopReview["state"],
+      note,
+      tags: tags as string[],
+      rating: rating as number | null,
+      favorite: item.favorite === true,
+    });
+  }
+  return {
+    workspace: typeof value.workspace === "string" && value.workspace ? value.workspace : null,
+    project: value.project,
+    source: typeof value.source === "string" && value.source ? value.source : null,
+    reviews,
+  };
+}
+
+function matchDesktopReview(
+  ctx: MigrationContext,
+  review: DesktopReview,
+): { kind: "matched"; target: DesktopReviewTarget }
+  | { kind: "collision"; code: string }
+  | { kind: "unmatched" } {
+  const entries = migrationEntries(ctx).filter((entry) =>
+    entry.sourceKind !== "desktop"
+    && (!review.source || entry.sourceLabel === review.source)
+    && reviewableEntryRefs(entry).length > 0,
+  );
+  const pathTargets = reviewTargets(ctx, entries.filter((entry) => entry.sourcePath === review.sourcePath), "path");
+  if (pathTargets.length === 1) return { kind: "matched", target: pathTargets[0]! };
+  if (pathTargets.length > 1) return { kind: "collision", code: "MIGRATION_DESKTOP_REVIEW_PATH_COLLISION" };
+  if (review.sha256) {
+    const hashTargets = reviewTargets(ctx, entries.filter((entry) =>
+      entry.sha256 === review.sha256
+      && ["staged", "verified", "imported"].includes(entry.state),
+    ), "hash");
+    if (hashTargets.length === 1) return { kind: "matched", target: hashTargets[0]! };
+    if (hashTargets.length > 1) return { kind: "collision", code: "MIGRATION_DESKTOP_REVIEW_HASH_COLLISION" };
+  }
+  return { kind: "unmatched" };
+}
+
+function reviewableEntryRefs(entry: Entry): Array<{ type: DesktopReviewTarget["type"]; id: string }> {
+  const refs = entry.targetRefs ? JSON.parse(entry.targetRefs) as unknown : [];
+  if (!Array.isArray(refs)) return [];
+  const reviewable: Array<{ type: DesktopReviewTarget["type"]; id: string }> = [];
+  for (const ref of refs) {
+    if (typeof ref !== "string") continue;
+    if (ref.startsWith("arev_")) reviewable.push({ type: "artifact_revision", id: ref });
+    else if (ref.startsWith("crev_")) reviewable.push({ type: "composition_revision", id: ref });
+  }
+  return reviewable;
+}
+
+function reviewTargets(
+  ctx: MigrationContext,
+  entries: Entry[],
+  match: "path" | "hash",
+): DesktopReviewTarget[] {
+  const targets = new Map<string, DesktopReviewTarget>();
+  for (const entry of entries) {
+    for (const ref of reviewableEntryRefs(entry)) {
+      const scope = ref.type === "artifact_revision"
+        ? ctx.db.query<{ workspaceId: string; projectId: string | null }, [string]>(
+          `SELECT artifact.workspace_id AS workspaceId, artifact.project_id AS projectId
+           FROM artifact_revisions revision JOIN artifacts artifact ON artifact.id = revision.artifact_id
+           WHERE revision.id = ?`,
+        ).get(ref.id)
+        : ctx.db.query<{ workspaceId: string; projectId: string }, [string]>(
+          `SELECT project.workspace_id AS workspaceId, project.id AS projectId
+           FROM composition_revisions revision
+           JOIN compositions composition ON composition.id = revision.composition_id
+           JOIN projects project ON project.id = composition.project_id WHERE revision.id = ?`,
+        ).get(ref.id);
+      if (!scope?.projectId) continue;
+      targets.set(ref.id, { ...ref, workspaceId: scope.workspaceId, projectId: scope.projectId, match });
+    }
+  }
+  return [...targets.values()].sort((left, right) => left.id.localeCompare(right.id));
+}
+
+function desktopReviewIssue(entry: Entry, review: DesktopReview, code: string): PreparedIssue {
+  return {
+    entryId: null,
+    issueKey: `desktop-review:${entry.sourceLocatorHash}:${review.id}:${code}`,
+    code,
+    severity: "review",
+    lineNo: null,
+    detail: { reviewIdHash: stableKey(review.id), sourceLocatorHash: entry.sourceLocatorHash },
+  };
+}
+
+function resolveDesktopProject(
+  ctx: MigrationContext,
+  workspaceSlug: string | null,
+  projectSlug: string,
+  sourceLabel: string | null,
+): string {
+  const clauses = ["project.slug = ?"];
+  const values: string[] = [projectSlug];
+  if (workspaceSlug) {
+    clauses.push("workspace.slug = ?");
+    values.push(workspaceSlug);
+  }
+  if (sourceLabel) {
+    clauses.push("json_extract(project.metadata_json, '$.migrationSourceLabel') = ?");
+    values.push(sourceLabel);
+  }
+  const rows = ctx.db.query<{ id: string }, string[]>(
+    `SELECT project.id FROM projects project JOIN workspaces workspace ON workspace.id = project.workspace_id
+     WHERE ${clauses.join(" AND ")} ORDER BY project.id`,
+  ).all(...values);
+  if (rows.length !== 1) throw new Error("Desktop review Project scope is ambiguous");
+  return rows[0]!.id;
+}
+
+function ensureDesktopSession(
+  ctx: MigrationContext,
+  workspaceId: string,
+  projectId: string,
+  createdAt: number,
+): string {
+  const id = stableId("session", ctx, `desktop-review-session:${workspaceId}:${projectId}`);
+  const existing = ctx.db.query<{ workspaceId: string; projectId: string | null }, [string]>(
+    "SELECT workspace_id AS workspaceId, project_id AS projectId FROM agent_sessions WHERE id = ?",
+  ).get(id);
+  if (existing) {
+    if (existing.workspaceId !== workspaceId || existing.projectId !== projectId) throw new Error("Desktop review Session replay conflict");
+    return id;
+  }
+  ctx.db.prepare(
+    `INSERT INTO agent_sessions
+     (id, workspace_id, project_id, agent, metadata_json, started_at)
+     VALUES (?, ?, ?, 'ralphy-desktop-migration', ?, ?)`,
+  ).run(id, workspaceId, projectId, JSON.stringify({ migrationRunId: ctx.runId }), createdAt);
+  return id;
+}
+
+function insertDesktopFeedback(
+  ctx: MigrationContext,
+  entry: Entry,
+  review: DesktopReview,
+  projectId: string,
+  target: DesktopReviewTarget | null,
+): string {
+  const iterationId = stableId("iter", ctx, `desktop-review-iteration:${projectId}`);
+  const existing = ctx.db.query<{ number: number }, [string]>(
+    "SELECT number FROM project_iterations WHERE id = ?",
+  ).get(iterationId);
+  if (!existing) {
+    const number = (ctx.db.query<{ value: number }, [string]>(
+      "SELECT COALESCE(MAX(number), 0) + 1 AS value FROM project_iterations WHERE project_id = ?",
+    ).get(projectId)?.value ?? 1);
+    insertExact(
+      ctx.db,
+      "project_iterations",
+      iterationId,
+      `INSERT INTO project_iterations
+       (id, project_id, number, title, reason, state, created_at)
+       VALUES (?, ?, ?, 'Desktop migration review', 'Imported Desktop annotation', 'active', ?)`,
+      [iterationId, projectId, number, entry.mtimeMs],
+    );
+  }
+  const id = stableId("fb", ctx, `desktop-review-feedback:${entry.id}:${review.id}`);
+  insertExact(
+    ctx.db,
+    "feedback_items",
+    id,
+    `INSERT INTO feedback_items
+     (id, iteration_id, target_type, target_id, body, status, created_at)
+     VALUES (?, ?, ?, ?, ?, 'open', ?)`,
+    [
+      id,
+      iterationId,
+      target?.type ?? null,
+      target?.id ?? null,
+      `Desktop review: ${review.note ?? review.state}`,
+      entry.mtimeMs,
+    ],
+  );
+  return id;
+}
+
+function importDesktopDocumentFile(ctx: MigrationContext, entry: Entry, source: MigrationSourceRoot): void {
+  const raw = fs.readFileSync(checkedSourceFile(source, entry));
+  if (isLegacySecretCandidate(entry.sourcePath, raw)) {
+    insertIssue(ctx, secretIssue(entry, "MIGRATION_SECRET_UNKNOWN"));
+    return;
+  }
+  let value: unknown;
+  try { value = JSON.parse(raw.toString("utf8")) as unknown; } catch {
+    insertDesktopDocumentIssue(ctx, entry);
+    return;
+  }
+  if (!isRecord(value) || value.version !== 1
+    || !["agent-session-preferences", "agent-session-history"].includes(String(value.kind))
+    || typeof value.workspace !== "string") {
+    insertDesktopDocumentIssue(ctx, entry);
+    return;
+  }
+  const workspace = ctx.db.query<{ id: string }, [string]>(
+    "SELECT id FROM workspaces WHERE slug = ?",
+  ).get(value.workspace);
+  if (!workspace) {
+    insertDesktopDocumentIssue(ctx, entry);
+    return;
+  }
+  const projectId = typeof value.project === "string"
+    ? ctx.db.query<{ id: string }, [string, string]>(
+      "SELECT id FROM projects WHERE workspace_id = ? AND slug = ?",
+    ).get(workspace.id, value.project)?.id ?? null
+    : null;
+  const kind = value.kind as "agent-session-preferences" | "agent-session-history";
+  const suffix = entry.sourceLocatorHash.slice(0, 12);
+  const documentId = stableId("doc", ctx, `desktop-document:${entry.id}`);
+  const revisionId = stableId("drev", ctx, `desktop-document-revision:${entry.id}`);
+  const body = canonicalJsonText(normalizeLegacyValue(value, source.path));
+  insertExact(
+    ctx.db,
+    "documents",
+    documentId,
+    `INSERT INTO documents
+     (id, workspace_id, project_id, kind, slug, title, created_at, updated_at)
+     VALUES (?, ?, ?, 'custom', ?, ?, ?, ?)`,
+    [
+      documentId,
+      workspace.id,
+      projectId,
+      `desktop-${kind}-${suffix}`,
+      kind === "agent-session-history" ? "Desktop Agent Session history" : "Desktop Agent Session preferences",
+      entry.mtimeMs,
+      entry.mtimeMs,
+    ],
+  );
+  insertExact(
+    ctx.db,
+    "document_revisions",
+    revisionId,
+    `INSERT INTO document_revisions
+     (id, document_id, revision_no, format, body, content_sha256, created_at)
+     VALUES (?, ?, 1, 'json', ?, ?, ?)`,
+    [revisionId, documentId, body, sha256(JSON.stringify({ format: "json", title: null, body })), entry.mtimeMs],
+  );
+  const current = ctx.db.query<{ id: string | null }, [string]>(
+    "SELECT current_revision_id AS id FROM documents WHERE id = ?",
+  ).get(documentId)?.id ?? null;
+  if (current === null) ctx.db.prepare("UPDATE documents SET current_revision_id = ?, row_version = 2 WHERE id = ?").run(revisionId, documentId);
+  else if (current !== revisionId) throw new Error("Desktop Document replay conflict");
+  completeDesktopDomainEntry(ctx, entry, new Set([documentId, revisionId]));
+}
+
+function insertDesktopDocumentIssue(ctx: MigrationContext, entry: Entry): void {
+  insertIssue(ctx, {
+    entryId: null,
+    issueKey: `desktop-document:${entry.sourceLocatorHash}`,
+    code: "MIGRATION_DESKTOP_DOCUMENT_INVALID",
+    severity: "review",
+    lineNo: null,
+    detail: { sourceLocatorHash: entry.sourceLocatorHash },
+  });
+}
+
+function completeDesktopDomainEntry(ctx: MigrationContext, entry: Entry, refs: ReadonlySet<string>): void {
+  const serialized = JSON.stringify([...refs].sort());
+  const current = ctx.db.query<{ state: string; refs: string | null }, [string]>(
+    "SELECT state, target_refs_json AS refs FROM migration_entries WHERE id = ?",
+  ).get(entry.id);
+  if (!current) throw new Error("Desktop migration entry disappeared");
+  if (current.state === "imported") {
+    if ((current.refs ?? "[]") !== serialized) throw new Error("Desktop migration entry replay conflict");
+    return;
+  }
+  const now = Date.now();
+  const result = ctx.db.prepare(
+    `UPDATE migration_entries
+     SET disposition = 'domain', target_refs_json = ?, state = 'imported', terminal_at = ?, updated_at = ?
+     WHERE id = ? AND state = 'inventoried'`,
+  ).run(serialized, now, now, entry.id);
+  if (result.changes !== 1) throw new Error("Desktop migration ledger update affected no entry");
+}
+
+function desktopImportSummary(ctx: MigrationContext): DesktopStateImportSummary {
+  const reviews = ctx.db.query<{ count: number }, []>(
+    "SELECT COUNT(*) AS count FROM evaluations WHERE kind = 'desktop-review'",
+  ).get()?.count ?? 0;
+  const feedback = ctx.db.query<{ count: number }, []>(
+    "SELECT COUNT(*) AS count FROM feedback_items WHERE body LIKE 'Desktop review:%'",
+  ).get()?.count ?? 0;
+  const secretRows = ctx.db.query<{ refs: string }, [string]>(
+    `SELECT COALESCE(target_refs_json, '[]') AS refs FROM migration_entries
+     WHERE migration_run_id = ? AND disposition = 'secret-imported'`,
+  ).all(ctx.runId);
+  const secrets = secretRows.reduce((count, row) => count + (JSON.parse(row.refs) as unknown[]).length, 0);
+  const documents = ctx.db.query<{ count: number }, []>(
+    "SELECT COUNT(*) AS count FROM documents WHERE title LIKE 'Desktop Agent Session %'",
+  ).get()?.count ?? 0;
+  const issues = ctx.db.query<{ count: number }, [string]>(
+    `SELECT COUNT(*) AS count FROM migration_issues
+     WHERE migration_run_id = ?
+       AND (code LIKE 'MIGRATION_DESKTOP_%' OR code = 'MIGRATION_SECRET_UNKNOWN')`,
+  ).get(ctx.runId)?.count ?? 0;
+  return { reviews, feedback, secrets, documents, issues };
 }
 
 type PreparedEntry = { entry: Entry; source: MigrationSourceRoot; raw: Buffer };

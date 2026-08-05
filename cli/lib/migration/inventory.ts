@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { newDomainId } from "../store/ids.js";
 import {
+  isLegacySecretCandidate,
   isLegacyControlName,
   legacyRegistryPaths,
   normalizeRelativePath,
@@ -869,7 +870,7 @@ function classifyDisposition(relative: string, kind: MigrationEntryKind): Migrat
   if (kind !== "file") return kind === "directory" ? "system" : "issue";
   const basename = path.posix.basename(relative).toLowerCase();
   if (basename === ".ds_store") return "system";
-  if (relative.split("/").some((part) => part === "secrets" || part.includes("cookie"))) return "secret-recovery-only";
+  if (isLegacySecretCandidate(relative)) return "secret-recovery-only";
   if (relative.split("/").some((part) => part === "cache" || part === "tmp")) return "cache";
   if (/^(?:workspaces\/[^/]+\/projects\/[^/]+|projects\/[^/]+)\/render\/work-[^/]+\//iu.test(relative)) {
     return "run-object";

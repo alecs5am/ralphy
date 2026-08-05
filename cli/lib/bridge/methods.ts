@@ -21,7 +21,7 @@ import {
   searchDocuments,
 } from "../store/documents.js";
 import { latestActivitySequence, listActivity } from "../store/activity.js";
-import { openDomainDb } from "../store/db.js";
+import { openDomainDb, openDomainDbAt } from "../store/db.js";
 import { SCHEMA_VERSION } from "../store/schema.js";
 import { getMediaCard, listMedia, reviewMedia } from "../store/media.js";
 import { listArtifactRevisions, selectArtifactRevision } from "../store/artifacts.js";
@@ -103,7 +103,11 @@ import { getStoreIdentity } from "../store/sessions.js";
 import { exportWorkspacePackage, importWorkspacePackage } from "../store/portable.js";
 import { startBuild } from "../store/compositions.js";
 import { getObjectRow, resolveObjectPath } from "../store/internal-objects.js";
-import { createSecretStore } from "../store/secrets.js";
+import { createSecretStore, type KeyProvider } from "../store/secrets.js";
+import {
+  assertMigrationSecretImportable,
+  completeMigrationSecretImport,
+} from "../migration/import.js";
 import { agentTurnStatus, startAgentTurn } from "../agent/session.js";
 import { claudeProvider } from "../agent/claude.js";
 import { codexProvider } from "../agent/codex.js";
@@ -148,7 +152,7 @@ export type BridgeMethod = {
 
 export type BridgeMethodTable = ReadonlyMap<string, BridgeMethod>;
 
-export function createBridgeMethods(input: { dataRoot: string }): BridgeMethodTable {
+export function createBridgeMethods(input: { dataRoot: string; keyProvider?: KeyProvider }): BridgeMethodTable {
   const methods = new Map<string, BridgeMethod>();
   const add = (
     name: string,
@@ -776,23 +780,63 @@ export function createBridgeMethods(input: { dataRoot: string }): BridgeMethodTa
   });
   add("migration.secret.import", "mutation", async (params) => {
     const value = object(params, "migration.secret.import");
+    exactKeys(value, value.kind === "text"
+      ? ["runId", "sourceEntryId", "ref", "kind", "value"]
+      : value.kind === "file"
+        ? ["runId", "sourceEntryId", "ref", "kind", "base64"]
+        : ["runId", "sourceEntryId", "ref", "kind"]);
     const runId = string(value.runId, "runId");
     const sourceEntryId = string(value.sourceEntryId, "sourceEntryId");
     const ref = string(value.ref, "ref");
     const kind = string(value.kind, "kind");
-    const store = createSecretStore({ dataRoot: input.dataRoot });
+    if (kind !== "text" && kind !== "file") {
+      throw new Error("migration.secret.import kind must be text or file");
+    }
+    const validationDb = openDomainDbAt(input.dataRoot);
+    try {
+      assertMigrationSecretRef(validationDb, ref);
+      assertMigrationSecretImportable(validationDb, {
+        runId,
+        sourceEntryId,
+        refs: [ref],
+        kind,
+        requiredSourceKind: "desktop",
+      });
+    } finally {
+      validationDb.close();
+    }
+    const store = createSecretStore({ dataRoot: input.dataRoot, keyProvider: input.keyProvider });
     if (kind === "text") {
       await store.set(ref, string(value.value, "value"), (db) => {
-        recordSecretImport(db, { runId, sourceEntryId, ref, kind });
+        assertMigrationSecretRef(db, ref);
+        completeMigrationSecretImport(db, {
+          runId,
+          sourceEntryId,
+          refs: [ref],
+          kind: "text",
+          requiredSourceKind: "desktop",
+        });
       });
     } else if (kind === "file") {
       const bytes = decodeBase64(string(value.base64, "base64"));
       await store.setSecretFile(ref, bytes);
-      recordSecretImport(openDomainDb(), { runId, sourceEntryId, ref, kind });
+      const db = openDomainDbAt(input.dataRoot);
+      try {
+        assertMigrationSecretRef(db, ref);
+        completeMigrationSecretImport(db, {
+          runId,
+          sourceEntryId,
+          refs: [ref],
+          kind: "file",
+          requiredSourceKind: "desktop",
+        });
+      } finally {
+        db.close();
+      }
     } else {
       throw new Error("migration.secret.import kind must be text or file");
     }
-    return { runId, sourceEntryId, ref, kind, imported: true };
+    return { ref, kind, completed: true };
   });
 
   add("activity.list", "read", (params) => {
@@ -1041,24 +1085,13 @@ function requireAuthority(context: BridgeMethodContext): ConsumerAuthority {
   return context.authority;
 }
 
-function recordSecretImport(
-  db: ReturnType<typeof openDomainDb>,
-  input: { runId: string; sourceEntryId: string; ref: string; kind: string },
-): void {
-  const row = db.query<{ metadataJson: string | null; state: string }, [string]>(
-    "SELECT metadata_json AS metadataJson, state FROM runs WHERE id = ?",
-  ).get(input.runId);
-  if (!row) throw new Error("Migration Run not found");
-  if (row.state !== "pending" && row.state !== "running") throw new Error("Migration Run is not active");
-  const metadata = row.metadataJson ? JSON.parse(row.metadataJson) as Record<string, unknown> : {};
-  const imports = Array.isArray(metadata.secretImports)
-    ? metadata.secretImports.filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === "object" && !Array.isArray(entry)))
-    : [];
-  const existing = imports.find((entry) => entry.sourceEntryId === input.sourceEntryId && entry.ref === input.ref);
-  if (existing && existing.kind !== input.kind) throw new Error("Secret import kind conflict");
-  if (!existing) imports.push({ sourceEntryId: input.sourceEntryId, ref: input.ref, kind: input.kind, imported: true });
-  metadata.secretImports = imports;
-  db.prepare("UPDATE runs SET metadata_json = ? WHERE id = ?").run(JSON.stringify(metadata), input.runId);
+function assertMigrationSecretRef(db: ReturnType<typeof openDomainDb>, ref: string): void {
+  const match = ref.match(/^provider\/[a-z][a-z0-9-]*\/workspace\/([A-Za-z0-9._:-]+)\/(?:workspace\/\1|account\/[A-Za-z0-9._:-]+)$/u);
+  if (!match) throw new Error("Migration secret ref is not store-scoped");
+  const workspace = db.query<{ id: string }, [string]>(
+    "SELECT id FROM workspaces WHERE id = ?",
+  ).get(match[1]!);
+  if (!workspace) throw new Error("Migration secret ref Workspace is missing");
 }
 
 function decodeBase64(value: string): Uint8Array {
@@ -1066,6 +1099,14 @@ function decodeBase64(value: string): Uint8Array {
     throw new Error("base64 is invalid");
   }
   return Buffer.from(value, "base64");
+}
+
+function exactKeys(value: Record<string, unknown>, expected: readonly string[]): void {
+  const actual = Object.keys(value).sort();
+  const wanted = [...expected].sort();
+  if (actual.length !== wanted.length || actual.some((key, index) => key !== wanted[index])) {
+    throw new Error("migration.secret.import has unsupported fields");
+  }
 }
 
 function object(value: unknown, label: string): Record<string, unknown> {
