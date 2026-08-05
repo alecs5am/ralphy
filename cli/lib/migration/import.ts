@@ -470,7 +470,7 @@ function prepareProduction(ctx: MigrationContext): ProductionPrepared {
   for (const file of files.values()) {
     if (!isLegacyUnitManifestName(path.posix.basename(file.entry.sourcePath).toLowerCase())) continue;
     const value = parseJsonObject(file.raw);
-    if (!value) {
+    if (!value || !validLegacyUnitManifest(value)) {
       pendingEntryIds.add(file.entry.id);
       issues.push(productionIssue(file.entry, "unit-manifest", "MIGRATION_UNIT_MANIFEST_INVALID", "block"));
       continue;
@@ -496,19 +496,19 @@ function prepareProduction(ctx: MigrationContext): ProductionPrepared {
     const name = path.posix.basename(relative);
     if (isLegacyAssetManifestName(name)) {
       const root = parseJsonObject(file.raw);
-      if (!root || !Array.isArray(root.assets)) {
+      if (!root || !validLegacyAssetManifest(root)) {
         pendingEntryIds.add(file.entry.id);
         issues.push(productionIssue(file.entry, "asset-manifest", "MIGRATION_ASSET_MANIFEST_INVALID", "block"));
       }
     } else if (name === "captions.json") {
       const root = parseJsonObject(file.raw);
-      if (!root || !Array.isArray(root.caption_versions)) {
+      if (!root || !validLegacyCaptionsManifest(root)) {
         pendingEntryIds.add(file.entry.id);
         issues.push(productionIssue(file.entry, "captions-manifest", "MIGRATION_CAPTIONS_MANIFEST_INVALID", "block"));
       }
     } else if (name === "production.json") {
       const root = parseJsonObject(file.raw);
-      if (!root || !Array.isArray(root.productions)) {
+      if (!root || !Array.isArray(root.productions) || !root.productions.every(isRecord)) {
         pendingEntryIds.add(file.entry.id);
         issues.push(productionIssue(file.entry, "production-manifest", "MIGRATION_PRODUCTION_MANIFEST_INVALID", "block"));
       } else {
@@ -518,7 +518,7 @@ function prepareProduction(ctx: MigrationContext): ProductionPrepared {
       collectJsonlRecords(productions, file, null, issues, "MIGRATION_PRODUCTION_RECORD_INVALID");
     } else if (name === "delivery.json") {
       const root = parseJsonObject(file.raw);
-      if (!root || !Array.isArray(root.attempts)) {
+      if (!root || !Array.isArray(root.attempts) || !root.attempts.every(isRecord)) {
         pendingEntryIds.add(file.entry.id);
         issues.push(productionIssue(file.entry, "delivery-manifest", "MIGRATION_DELIVERY_MANIFEST_INVALID", "block"));
       } else {
@@ -597,7 +597,7 @@ function importLegacyArtifacts(
   const families = new Map<string, Array<{ file: typeof candidates[number]; revisionNo: number; familyPath: string }>>();
   for (const file of candidates) {
     const proven = provenRevisionPath(file.entry, candidatePaths);
-    const familyKey = `${file.entry.sourceLabel}\0${file.scope.workspaceId}\0${file.scope.projectId ?? ""}\0${proven.familyPath}`;
+    const familyKey = `${file.entry.sourceLabel}\0${file.scope.workspaceId}\0${file.scope.projectId ?? ""}\0${proven.familyPath}\0${proven.revisionStyle}`;
     const family = families.get(familyKey) ?? [];
     family.push({ file, revisionNo: proven.revisionNo, familyPath: proven.familyPath });
     families.set(familyKey, family);
@@ -688,7 +688,7 @@ function importLegacyCompositions(
   const families = new Map<string, Array<{ file: typeof candidates[number]; revisionNo: number; familyPath: string }>>();
   for (const file of candidates) {
     const proven = provenRevisionPath(file.entry, candidatePaths);
-    const familyKey = `${file.entry.sourceLabel}\0${file.scope.projectId ?? ""}\0${proven.familyPath}`;
+    const familyKey = `${file.entry.sourceLabel}\0${file.scope.projectId ?? ""}\0${proven.familyPath}\0${proven.revisionStyle}`;
     const family = families.get(familyKey) ?? [];
     family.push({ file, revisionNo: proven.revisionNo, familyPath: proven.familyPath });
     families.set(familyKey, family);
@@ -1451,19 +1451,44 @@ function importLegacyPublications(
       "revisedFrom",
     );
     if (!target || target.record.scope.workspaceId !== candidate.record.scope.workspaceId
-      || target.publicationId === candidate.publicationId || target.createdAt >= candidate.createdAt) {
+      || target.publicationId === candidate.publicationId || target.createdAt > candidate.createdAt) {
       invalid.add(candidate.publicationId);
       issues.push(productionIssue(candidate.record.entry, `publication-revised:${recordPosition(candidate.record)}`, "MIGRATION_PUBLICATION_REVISED_FROM_INVALID", "block", candidate.record.rowOrdinal));
       continue;
     }
     candidate.revisedFromId = target.publicationId;
   }
-  for (const candidate of candidates) {
-    if (candidate.revisedFromId && invalid.has(candidate.revisedFromId)) invalid.add(candidate.publicationId);
+  let propagated = true;
+  while (propagated) {
+    propagated = false;
+    for (const candidate of candidates) {
+      if (!invalid.has(candidate.publicationId) && candidate.revisedFromId
+        && invalid.has(candidate.revisedFromId)) {
+        invalid.add(candidate.publicationId);
+        issues.push(productionIssue(candidate.record.entry, `publication-revised-dependency:${recordPosition(candidate.record)}`, "MIGRATION_PUBLICATION_REVISED_FROM_INVALID", "block", candidate.record.rowOrdinal));
+        propagated = true;
+      }
+    }
   }
-  const ordered = candidates.filter((candidate) => !invalid.has(candidate.publicationId)).sort((left, right) =>
+  const remaining = candidates.filter((candidate) => !invalid.has(candidate.publicationId)).sort((left, right) =>
     left.createdAt - right.createdAt || left.publicationId.localeCompare(right.publicationId)
   );
+  const ordered: PublicationCandidate[] = [];
+  const orderedIds = new Set<string>();
+  while (remaining.length > 0) {
+    const next = remaining.findIndex((candidate) =>
+      candidate.revisedFromId === null || orderedIds.has(candidate.revisedFromId)
+    );
+    if (next === -1) {
+      for (const candidate of remaining) {
+        issues.push(productionIssue(candidate.record.entry, `publication-revised-cycle:${recordPosition(candidate.record)}`, "MIGRATION_PUBLICATION_REVISED_FROM_INVALID", "block", candidate.record.rowOrdinal));
+      }
+      break;
+    }
+    const candidate = remaining.splice(next, 1)[0]!;
+    ordered.push(candidate);
+    orderedIds.add(candidate.publicationId);
+  }
   const inserted = new Set<string>();
   for (const candidate of ordered) {
     if (candidate.revisedFromId && !inserted.has(candidate.revisedFromId)) {
@@ -1606,7 +1631,7 @@ function importLegacyPublications(
       "SELECT created_at AS createdAt FROM publications WHERE id = ?",
     ).get(publicationId)?.createdAt ?? null;
     if (!publicationId || original?.record.scope.workspaceId !== record.scope.workspaceId
-      || originalCreatedAt === null || originalCreatedAt >= createdAt) {
+      || originalCreatedAt === null || originalCreatedAt > createdAt) {
       issues.push(productionIssue(record.entry, `idempotent-skip:${recordPosition(record)}`, "MIGRATION_PUBLICATION_ORIGINAL_MISSING", "block", record.rowOrdinal));
       continue;
     }
@@ -1786,6 +1811,53 @@ function parseJsonObject(raw: Buffer): Record<string, unknown> | null {
   }
 }
 
+function validLegacyUnitManifest(value: Record<string, unknown>): boolean {
+  if ((value.id !== undefined && (typeof value.id !== "string" || !value.id.trim()))
+    || (value.slug !== undefined && (typeof value.slug !== "string" || !value.slug.trim()))
+    || (value.format !== undefined && (typeof value.format !== "string" || !value.format.trim()))
+    || (value.revision !== undefined && positiveInteger(value.revision) === null)
+    || !Array.isArray(value.media) || !value.media.every((item) => typeof item === "string")
+    || (value.items !== undefined && (!Array.isArray(value.items) || !value.items.every((item) => typeof item === "string")))
+    || (value.body !== undefined && typeof value.body !== "string")
+    || (value.bodyPath !== undefined && (typeof value.bodyPath !== "string" || !value.bodyPath.trim()))
+    || (value.selected !== undefined && typeof value.selected !== "boolean")
+    || (value.manifestOnlyAttempt !== undefined && !isRecord(value.manifestOnlyAttempt))) return false;
+  if (value.presentations === undefined) return true;
+  return Array.isArray(value.presentations) && value.presentations.every((presentation) =>
+    isRecord(presentation)
+      && typeof presentation.platform === "string" && !!presentation.platform.trim()
+      && (presentation.media === undefined
+        || (Array.isArray(presentation.media) && presentation.media.every((item) => typeof item === "string")))
+      && (presentation.effectiveCaptionVersion === undefined
+        || positiveInteger(presentation.effectiveCaptionVersion) !== null)
+  );
+}
+
+function validLegacyAssetManifest(value: Record<string, unknown>): boolean {
+  return Array.isArray(value.assets) && value.assets.every((asset) => {
+    if (!isRecord(asset)) return false;
+    const refs = [asset.path, asset.file, asset.dataUrl].filter((candidate) => candidate !== undefined);
+    return refs.length > 0 && refs.every((candidate) => typeof candidate === "string" && !!candidate.trim())
+      && [asset.selected, asset.current, asset.head]
+        .every((candidate) => candidate === undefined || typeof candidate === "boolean");
+  });
+}
+
+function validLegacyCaptionsManifest(value: Record<string, unknown>): boolean {
+  if (!Array.isArray(value.caption_versions)) return false;
+  let previous = 0;
+  for (const caption of value.caption_versions) {
+    if (!isRecord(caption) || positiveInteger(caption.version) === null
+      || typeof caption.state !== "string" || !caption.state.trim()
+      || typeof caption.text !== "string" || (caption.version as number) <= previous) return false;
+    previous = caption.version as number;
+  }
+  if (value.effective_version === undefined) return true;
+  const effective = positiveInteger(value.effective_version);
+  return effective !== null
+    && value.caption_versions.some((caption) => isRecord(caption) && caption.version === effective);
+}
+
 function productionIssue(
   entry: Entry,
   key: string,
@@ -1823,25 +1895,32 @@ function pathWithoutExtension(value: string): string {
 function provenRevisionPath(
   entry: Entry,
   candidates: ReadonlySet<string>,
-): { familyPath: string; revisionNo: number } {
+): { familyPath: string; revisionNo: number; revisionStyle: "" | "." | "-" } {
   const extension = path.posix.extname(entry.sourcePath);
   const stem = pathWithoutExtension(entry.sourcePath);
   const match = stem.match(/^(.*?)([.-])v(\d+)$/iu);
-  if (!match) return { familyPath: stem, revisionNo: 1 };
+  if (!match) return { familyPath: stem, revisionNo: 1, revisionStyle: "" };
   const revisionNo = Number(match[3]);
   const base = `${match[1]}${extension}`;
+  const styles = new Set<"." | "-">();
   const siblings = [...candidates].filter((candidate) => {
     const prefix = `${entry.sourceLabel}\0`;
     if (!candidate.startsWith(prefix)) return false;
     const candidatePath = candidate.slice(prefix.length);
     if (path.posix.extname(candidatePath).toLowerCase() !== extension.toLowerCase()) return false;
     const sibling = pathWithoutExtension(candidatePath).match(/^(.*?)([.-])v(\d+)$/iu);
+    if (sibling?.[1] === match[1]) styles.add(sibling[2] as "." | "-");
     return sibling?.[1] === match[1] && sibling[2] === match[2];
   });
+  const hasBase = candidates.has(sourcePathKey(entry.sourceLabel, base));
   return Number.isSafeInteger(revisionNo) && revisionNo > 1
-      && (candidates.has(sourcePathKey(entry.sourceLabel, base)) || siblings.length > 1)
-    ? { familyPath: match[1]!, revisionNo }
-    : { familyPath: stem, revisionNo: 1 };
+      && (hasBase || siblings.length > 1)
+    ? {
+      familyPath: match[1]!,
+      revisionNo,
+      revisionStyle: hasBase && styles.size === 1 ? "" : match[2] as "." | "-",
+    }
+    : { familyPath: stem, revisionNo: 1, revisionStyle: "" };
 }
 
 function artifactKind(relative: string): string {
@@ -1872,6 +1951,7 @@ function explicitArtifactPaths(prepared: ProductionPrepared): Set<string> {
   const selected = new Set<string>();
   for (const file of prepared.files.values()) {
     if (!isLegacyAssetManifestName(path.posix.basename(file.entry.sourcePath).toLowerCase())) continue;
+    if (prepared.pendingEntryIds.has(file.entry.id)) continue;
     const root = parseJsonObject(file.raw);
     for (const asset of Array.isArray(root?.assets) ? root.assets : []) {
       if (!isRecord(asset) || typeof asset.path !== "string"
@@ -1892,6 +1972,7 @@ function provenArtifactPaths(prepared: ProductionPrepared): Set<string> {
   const proven = new Set<string>();
   for (const file of prepared.files.values()) {
     if (!isLegacyAssetManifestName(path.posix.basename(file.entry.sourcePath).toLowerCase())) continue;
+    if (prepared.pendingEntryIds.has(file.entry.id)) continue;
     const root = parseJsonObject(file.raw);
     for (const asset of Array.isArray(root?.assets) ? root.assets : []) {
       if (!isRecord(asset) || typeof asset.path !== "string") continue;

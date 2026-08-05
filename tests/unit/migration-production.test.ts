@@ -604,6 +604,220 @@ describe("legacy production and delivery migration", () => {
     expect(revisionNumbers("composition", "observed")).toEqual([2, 3]);
   });
 
+  test("keeps dot and dash version families distinct with observed revision numbers", async () => {
+    await setupFixture(({ project }) => {
+      for (const relative of [
+        "composition/mixed.v2.html",
+        "composition/mixed.v3.html",
+        "composition/mixed-v2.html",
+        "composition/mixed-v3.html",
+        "artifacts/images/mixed.v2.png",
+        "artifacts/images/mixed.v3.png",
+        "artifacts/images/mixed-v2.png",
+        "artifacts/images/mixed-v3.png",
+      ]) {
+        const file = path.join(project, relative);
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, `fixture:${relative}`);
+      }
+    });
+
+    const first = importProductionAndDelivery(ctx!);
+    expect(importProductionAndDelivery(ctx!)).toEqual(first);
+
+    for (const kind of ["artifact", "composition"] as const) {
+      const prefix = kind === "artifact" ? "artifacts/images/" : "composition/";
+      const extension = kind === "artifact" ? ".png" : ".html";
+      const dot = [2, 3].map((revision) => revisionBinding(
+        `workspaces/studio/projects/registered-project/${prefix}mixed.v${revision}${extension}`,
+        kind,
+      ));
+      const dash = [2, 3].map((revision) => revisionBinding(
+        `workspaces/studio/projects/registered-project/${prefix}mixed-v${revision}${extension}`,
+        kind,
+      ));
+      expect(dot.map((value) => value.revisionNo)).toEqual([2, 3]);
+      expect(dash.map((value) => value.revisionNo)).toEqual([2, 3]);
+      expect(new Set(dot.map((value) => value.identityId)).size).toBe(1);
+      expect(new Set(dash.map((value) => value.identityId)).size).toBe(1);
+      expect(dot[0]!.identityId).not.toBe(dash[0]!.identityId);
+    }
+  });
+
+  test("blocks whole malformed Task 5 manifests without partial semantic rows", async () => {
+    await setupFixture(({ project, fixture: built }) => {
+      const badUnit = path.join(project, "units", "bad-field", "unit.json");
+      fs.mkdirSync(path.dirname(badUnit), { recursive: true });
+      fs.writeFileSync(badUnit, '{"id":42,"format":"post","media":[]}\n');
+
+      const badCaptions = path.join(project, "units", "bad-caption-element");
+      fs.mkdirSync(badCaptions, { recursive: true });
+      fs.writeFileSync(path.join(badCaptions, "unit.json"), JSON.stringify({
+        id: "bad-caption-element",
+        format: "post",
+        media: [],
+        presentations: [{ platform: "x", effectiveCaptionVersion: 1 }],
+      }) + "\n");
+      fs.writeFileSync(path.join(badCaptions, "captions.json"), JSON.stringify({
+        caption_versions: [
+          { version: 1, state: "humanized", text: "Valid prefix must not import" },
+          { version: 2, state: "humanized", text: 42 },
+        ],
+      }) + "\n");
+
+      const badCaptionOrder = path.join(project, "units", "bad-caption-order");
+      fs.mkdirSync(badCaptionOrder, { recursive: true });
+      fs.writeFileSync(path.join(badCaptionOrder, "unit.json"), JSON.stringify({
+        id: "bad-caption-order",
+        format: "post",
+        media: [],
+        presentations: [{ platform: "x" }],
+      }) + "\n");
+      fs.writeFileSync(path.join(badCaptionOrder, "captions.json"), JSON.stringify({
+        caption_versions: [
+          { version: 2, state: "humanized", text: "Second" },
+          { version: 1, state: "auto_draft_archived", text: "First" },
+        ],
+      }) + "\n");
+
+      fs.writeFileSync(
+        path.join(built.paths.physicalOnlyProject, "asset-manifest.json"),
+        '{"assets":[42]}\n',
+      );
+      fs.writeFileSync(path.join(project, "production.json"), JSON.stringify({
+        productions: [
+          {
+            sourceRevision: "composition/index.html",
+            output: "render/master.mp4",
+            profile: "deep-invalid-control",
+            completedAt: 1_600,
+          },
+          42,
+        ],
+      }) + "\n");
+      fs.writeFileSync(path.join(project, "delivery.json"), JSON.stringify({
+        attempts: [
+          {
+            id: "deep-invalid-attempt",
+            unitId: "article",
+            unitRevision: 1,
+            platform: "web",
+            provider: "manual",
+            status: "published",
+            url: "https://site.example/deep-invalid-attempt",
+            createdAt: 1_700,
+            publishedAt: 1_710,
+          },
+          42,
+        ],
+      }) + "\n");
+      const deliveryDir = path.join(project, "delivery");
+      fs.mkdirSync(deliveryDir, { recursive: true });
+      writeJsonl(path.join(deliveryDir, "deep-valid-sibling.jsonl"), [{
+        id: "deep-valid-sibling",
+        unitId: "article",
+        unitRevision: 1,
+        platform: "web",
+        provider: "manual",
+        status: "published",
+        url: "https://site.example/deep-valid-sibling",
+        createdAt: 1_800,
+        publishedAt: 1_810,
+      }]);
+    });
+
+    importProductionAndDelivery(ctx!);
+
+    for (const relative of [
+      "workspaces/studio/projects/registered-project/units/bad-field/unit.json",
+      "workspaces/studio/projects/registered-project/units/bad-caption-element/captions.json",
+      "workspaces/studio/projects/registered-project/units/bad-caption-order/captions.json",
+      "workspaces/studio/projects/physical-only-project/asset-manifest.json",
+      "workspaces/studio/projects/registered-project/production.json",
+      "workspaces/studio/projects/registered-project/delivery.json",
+    ]) {
+      expect(entryState(relative)).toBe("inventoried");
+      expect(ledgerEntry(relative).refs.some((ref) => ref.startsWith("obj_"))).toBe(true);
+    }
+    expect(issueCount("MIGRATION_UNIT_MANIFEST_INVALID")).toBe(1);
+    expect(issueCount("MIGRATION_CAPTIONS_MANIFEST_INVALID")).toBe(2);
+    expect(issueCount("MIGRATION_ASSET_MANIFEST_INVALID")).toBe(1);
+    expect(issueCount("MIGRATION_PRODUCTION_MANIFEST_INVALID")).toBe(1);
+    expect(issueCount("MIGRATION_DELIVERY_MANIFEST_INVALID")).toBe(1);
+    expect(ctx!.db.query<{ count: number }, []>(
+      "SELECT COUNT(*) AS count FROM units WHERE slug = 'bad-field'",
+    ).get()?.count).toBe(0);
+    expect(ctx!.db.query<{ count: number }, []>(
+      `SELECT COUNT(*) AS count FROM presentation_caption_revisions caption
+       JOIN unit_presentations presentation ON presentation.id = caption.presentation_id
+       JOIN unit_revisions revision ON revision.id = presentation.unit_revision_id
+       JOIN units unit ON unit.id = revision.unit_id
+       WHERE unit.slug IN ('bad-caption-element', 'bad-caption-order')`,
+    ).get()?.count).toBe(0);
+    expect(ctx!.db.query<{ count: number }, []>(
+      "SELECT COUNT(*) AS count FROM builds WHERE profile_json LIKE '%deep-invalid-control%'",
+    ).get()?.count).toBe(0);
+    expect(ctx!.db.query<{ count: number }, []>(
+      "SELECT COUNT(*) AS count FROM publications WHERE url = 'https://site.example/deep-invalid-attempt'",
+    ).get()?.count).toBe(0);
+    expect(publicationStates("deep-valid-sibling"))
+      .toEqual([{ publication: "published", run: "succeeded", attempts: 1 }]);
+  });
+
+  test("orders equal-time publication edges and blocks equal-time cycles", async () => {
+    await setupFixture(({ project }) => {
+      const deliveryDir = path.join(project, "delivery");
+      fs.mkdirSync(deliveryDir, { recursive: true });
+      writeJsonl(path.join(deliveryDir, "equal-time.jsonl"), [
+        {
+          id: "equal-child", unitId: "campaign", unitRevision: 2,
+          platform: "instagram", provider: "postiz", accountId: "equal-child-account",
+          status: "published", providerPublicationId: "equal-child-provider",
+          revisedFrom: "equal-parent", createdAt: 2_000, submittedAt: 2_000, publishedAt: 2_000,
+        },
+        {
+          id: "equal-skip", unitId: "campaign", unitRevision: 2,
+          platform: "instagram", provider: "postiz", status: "idempotent-skip",
+          originalPublicationId: "equal-parent", createdAt: 2_000,
+        },
+        {
+          id: "equal-parent", unitId: "campaign", unitRevision: 2,
+          platform: "instagram", provider: "postiz", accountId: "equal-parent-account",
+          status: "published", providerPublicationId: "equal-parent-provider",
+          createdAt: 2_000, submittedAt: 2_000, publishedAt: 2_000,
+        },
+        {
+          id: "equal-cycle-a", unitId: "campaign", unitRevision: 2,
+          platform: "instagram", provider: "postiz", accountId: "equal-cycle-a-account",
+          status: "published", providerPublicationId: "equal-cycle-a-provider",
+          revisedFrom: "equal-cycle-b", createdAt: 2_100, submittedAt: 2_100, publishedAt: 2_100,
+        },
+        {
+          id: "equal-cycle-b", unitId: "campaign", unitRevision: 2,
+          platform: "instagram", provider: "postiz", accountId: "equal-cycle-b-account",
+          status: "published", providerPublicationId: "equal-cycle-b-provider",
+          revisedFrom: "equal-cycle-a", createdAt: 2_100, submittedAt: 2_100, publishedAt: 2_100,
+        },
+      ]);
+    });
+
+    const first = importProductionAndDelivery(ctx!);
+    expect(importProductionAndDelivery(ctx!)).toEqual(first);
+    expect(revisedProviderId("equal-child")).toBe("equal-parent-provider");
+    expect(ctx!.db.query<{ count: number }, []>(
+      "SELECT COUNT(*) AS count FROM activity_events WHERE action = 'publication.idempotent_skip'",
+    ).get()?.count).toBe(2);
+    for (const legacyId of ["equal-cycle-a", "equal-cycle-b"]) {
+      expect(publicationStates(legacyId)).toEqual([]);
+    }
+    for (const externalId of ["equal-cycle-a-account", "equal-cycle-b-account"]) {
+      expect(ctx!.db.query<{ count: number }, [string]>(
+        "SELECT COUNT(*) AS count FROM social_accounts WHERE external_id = ?",
+      ).get(externalId)?.count).toBe(0);
+    }
+    expect(issueCount("MIGRATION_PUBLICATION_REVISED_FROM_INVALID")).toBeGreaterThanOrEqual(2);
+  });
+
   test("keeps row ordinals and target slots collision-free at legacy boundaries", async () => {
     await setupFixture(({ project }) => {
       const targets = Array.from({ length: 1001 }, () => null) as Array<Record<string, unknown> | null>;
@@ -710,6 +924,27 @@ function revisionNumbers(kind: "artifact" | "composition", slug: string): number
      FROM composition_revisions revision JOIN compositions composition ON composition.id = revision.composition_id
      WHERE composition.slug = ? ORDER BY revision.revision_no`,
   ).all(slug).map((row) => row.revisionNo);
+}
+
+function revisionBinding(
+  sourcePath: string,
+  kind: "artifact" | "composition",
+): { identityId: string; revisionNo: number } {
+  const refs = ledgerEntry(sourcePath).refs;
+  const revisionId = refs.find((ref) => ref.startsWith(kind === "artifact" ? "arev_" : "crev_"));
+  if (!revisionId) throw new Error(`Missing ${kind} revision ref for ${sourcePath}`);
+  if (kind === "artifact") {
+    const row = ctx!.db.query<{ identityId: string; revisionNo: number }, [string]>(
+      "SELECT artifact_id AS identityId, revision_no AS revisionNo FROM artifact_revisions WHERE id = ?",
+    ).get(revisionId);
+    if (!row) throw new Error(`Missing Artifact revision ${revisionId}`);
+    return row;
+  }
+  const row = ctx!.db.query<{ identityId: string; revisionNo: number }, [string]>(
+    "SELECT composition_id AS identityId, revision_no AS revisionNo FROM composition_revisions WHERE id = ?",
+  ).get(revisionId);
+  if (!row) throw new Error(`Missing Composition revision ${revisionId}`);
+  return row;
 }
 
 function addSameKindProduction(rootPath: string, url: string, createRoot = false): void {
