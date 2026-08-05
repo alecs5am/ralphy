@@ -27,7 +27,7 @@ describe("migration Object staging", () => {
     const copyFile = fs.promises.copyFile.bind(fs.promises);
     const copySpy = spyOn(fs.promises, "copyFile").mockImplementation(async (from, to, mode) => {
       modes.push(Number(mode));
-      if (mode === fs.constants.COPYFILE_FICLONE_FORCE) {
+      if (mode === (fs.constants.COPYFILE_FICLONE_FORCE | fs.constants.COPYFILE_EXCL)) {
         const error = new Error("forced clone unavailable") as NodeJS.ErrnoException;
         error.code = failures[failure++]!;
         throw error;
@@ -51,7 +51,9 @@ describe("migration Object staging", () => {
       copySpy.mockRestore();
       unlinkSpy.mockRestore();
     }
-    expect(modes).toEqual(failures.map(() => fs.constants.COPYFILE_FICLONE_FORCE));
+    expect(modes).toEqual(failures.map(
+      () => fs.constants.COPYFILE_FICLONE_FORCE | fs.constants.COPYFILE_EXCL,
+    ));
     expect(unlinkSpy).not.toHaveBeenCalled();
     expect(fileFacts(source)).toEqual(before);
     expect(fs.existsSync(path.join(fixture.poisonRoot, ".ralphy", "buckets"))).toBe(false);
@@ -124,6 +126,40 @@ describe("migration Object staging", () => {
     expect(JSON.stringify(fixture.db.query("SELECT * FROM migration_entries").all())).not.toContain("aGVsbG8=");
   });
 
+  test("refuses poisoned decoded-temp and cache ancestors without writing outside the stage", async () => {
+    const decodedFixture = setup("decoded-symlink");
+    const controlPath = "workspaces/acme/projects/demo/asset-manifest.json";
+    const control = decodedFixture.writeSource(controlPath, JSON.stringify({
+      preview: "data:text/plain;base64,aGVsbG8=",
+    }));
+    const controlEntry = decodedFixture.addEntry({
+      sourcePath: controlPath,
+      disposition: "domain",
+      bytes: fs.statSync(control).size,
+      targetPath: `migration-evidence/source/${"a".repeat(64)}.raw`,
+      targetRefs: [decodedFixture.projectId],
+    });
+    const decodedId = stableTestId(decodedFixture.ctx.runId, `${controlEntry}:data-url:0`);
+    const outsideTmp = path.join(decodedFixture.poisonRoot, "outside-tmp");
+    fs.mkdirSync(outsideTmp);
+    fs.mkdirSync(path.join(decodedFixture.storeRoot, "tmp"), { recursive: true });
+    fs.symlinkSync(outsideTmp, path.join(decodedFixture.storeRoot, "tmp", decodedId));
+
+    await expect(stageInventoryObjects(decodedFixture.ctx)).rejects.toThrow(/symlink|unsafe/i);
+    expect(fs.readdirSync(outsideTmp)).toEqual([]);
+
+    const cacheFixture = setup("cache-symlink");
+    const cachePath = "cache/library/catalog.bin";
+    cacheFixture.writeSource(cachePath, "cache");
+    cacheFixture.addEntry({ sourcePath: cachePath, disposition: "cache", bytes: 5 });
+    const outsideCache = path.join(cacheFixture.poisonRoot, "outside-cache");
+    fs.mkdirSync(outsideCache);
+    fs.symlinkSync(outsideCache, path.join(cacheFixture.storeRoot, "cache"));
+
+    await expect(stageInventoryObjects(cacheFixture.ctx)).rejects.toThrow(/symlink|unsafe/i);
+    expect(fs.readdirSync(outsideCache)).toEqual([]);
+  });
+
   test("stages exact malformed JSONL record bytes as a diagnostic RunObject", async () => {
     const fixture = setup("jsonl-diagnostic");
     const sourcePath = "workspaces/acme/projects/demo/logs/events.jsonl";
@@ -182,6 +218,80 @@ describe("migration Object staging", () => {
     } finally {
       copySpy.mockRestore();
     }
+  });
+
+  test("preflights decoded and database overhead before writing any staged byte", async () => {
+    const fixture = setup("derived-space");
+    const sourcePath = "workspaces/acme/projects/demo/asset-manifest.json";
+    const source = fixture.writeSource(sourcePath, JSON.stringify({
+      preview: "data:text/plain;base64,aGVsbG8=",
+    }));
+    const rawBytes = fs.statSync(source).size;
+    fixture.addEntry({
+      sourcePath,
+      disposition: "domain",
+      bytes: rawBytes,
+      targetPath: `migration-evidence/source/${"f".repeat(64)}.raw`,
+      targetRefs: [fixture.projectId],
+    });
+    const copySpy = spyOn(fs.promises, "copyFile");
+    try {
+      await expect(stageInventoryObjects(fixture.ctx, {
+        copyMode: "copy",
+        freeBytes: 2 * 1024 ** 3 + rawBytes,
+      })).rejects.toThrow(/insufficient free space/i);
+      expect(copySpy).not.toHaveBeenCalled();
+    } finally {
+      copySpy.mockRestore();
+    }
+    expect(fs.existsSync(path.join(fixture.storeRoot, "tmp"))).toBe(false);
+    expect(fs.existsSync(path.join(fixture.storeRoot, "cache"))).toBe(false);
+    const estimate = fixture.db.query<{ detail: string }, []>(
+      "SELECT detail_json AS detail FROM migration_issues WHERE code = 'MIGRATION_COPY_SPACE_ESTIMATE'",
+    ).get();
+    expect(JSON.parse(estimate!.detail)).toMatchObject({ rawBytes, decodedBytes: 5 });
+  });
+
+  test("rejects a same-size divergent cache resume when inventory has no digest", async () => {
+    const fixture = setup("cache-divergence");
+    const sourcePath = "cache/library/catalog.bin";
+    const source = fixture.writeSource(sourcePath, "cache");
+    const before = fileFacts(source);
+    const entryId = fixture.addEntry({ sourcePath, disposition: "cache", bytes: 5 });
+    const locator = fixture.db.query<{ hash: string }, [string]>(
+      "SELECT source_locator_hash AS hash FROM migration_entries WHERE id = ?",
+    ).get(entryId)!.hash;
+    const target = path.join(fixture.storeRoot, "cache", "migration", locator, "catalog.bin");
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, "evil!");
+
+    await expect(stageInventoryObjects(fixture.ctx)).rejects.toThrow(/cache.*digest|conflict/i);
+    expect(fs.readFileSync(target, "utf8")).toBe("evil!");
+    expect(fileFacts(source)).toEqual(before);
+  });
+
+  test("does not clobber a cache target created during promotion", async () => {
+    const fixture = setup("cache-race");
+    const sourcePath = "cache/library/catalog.bin";
+    const source = fixture.writeSource(sourcePath, "cache");
+    const before = fileFacts(source);
+    const entryId = fixture.addEntry({ sourcePath, disposition: "cache", bytes: 5 });
+    const locator = fixture.db.query<{ hash: string }, [string]>(
+      "SELECT source_locator_hash AS hash FROM migration_entries WHERE id = ?",
+    ).get(entryId)!.hash;
+    const target = path.join(fixture.storeRoot, "cache", "migration", locator, "catalog.bin");
+    const copyFile = fs.promises.copyFile.bind(fs.promises);
+    const copySpy = spyOn(fs.promises, "copyFile").mockImplementation(async (from, to, mode) => {
+      await copyFile(from, to, mode);
+      if (String(to).startsWith(`${target}.staged-`)) fs.writeFileSync(target, "racer");
+    });
+    try {
+      await expect(stageInventoryObjects(fixture.ctx)).rejects.toThrow(/conflict/i);
+    } finally {
+      copySpy.mockRestore();
+    }
+    expect(fs.readFileSync(target, "utf8")).toBe("racer");
+    expect(fileFacts(source)).toEqual(before);
   });
 
   test("keeps legacy work as RunObjects, clones reproducible cache, and never opens secrets", async () => {
@@ -340,4 +450,12 @@ function entry(ctx: MigrationContext, id: string) {
 function fileFacts(file: string) {
   const stat = fs.statSync(file);
   return { bytes: fs.readFileSync(file), mtimeMs: stat.mtimeMs, mode: stat.mode };
+}
+
+function stableTestId(runId: string, key: string): string {
+  const hex = new Bun.CryptoHasher("sha256").update(`${runId}\0${key}`).digest("hex").slice(0, 32).split("");
+  hex[12] = "4";
+  hex[16] = "8";
+  const value = hex.join("");
+  return `obj_${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`;
 }

@@ -81,7 +81,7 @@ export async function prepareObject(
     transfer: "copy" | "move";
     clonePolicy?: "allow-copy" | "require";
     objectId?: string;
-    testHooks?: { afterPromotion?: () => void };
+    testHooks?: { beforePromotion?: () => void; afterPromotion?: () => void };
   },
 ): Promise<PreparedObject> {
   const root = checkedStoreRoot(db, storeRoot);
@@ -121,24 +121,18 @@ export async function prepareObject(
   let promoted = false;
 
   try {
-    await assertNoSymlinkAncestors(root, stageDir);
-    await fs.promises.mkdir(stageDir, { recursive: true });
-    await assertNoSymlinkAncestors(root, stageDir);
+    await ensureSafeStoreDirectory(root, stageDir);
     await fs.promises.copyFile(sourcePath, stagedPath, input.clonePolicy === "require"
-      ? fs.constants.COPYFILE_FICLONE_FORCE
-      : fs.constants.COPYFILE_FICLONE);
+      ? fs.constants.COPYFILE_FICLONE_FORCE | fs.constants.COPYFILE_EXCL
+      : fs.constants.COPYFILE_FICLONE | fs.constants.COPYFILE_EXCL);
     const { bytes, sha256 } = await hashFile(stagedPath);
     if (bytes <= 0) throw new Error("Object source must not be empty");
     await syncFile(stagedPath);
-    await assertNoSymlinkAncestors(root, path.dirname(finalPath));
-    await fs.promises.mkdir(path.dirname(finalPath), { recursive: true });
-    await assertNoSymlinkAncestors(root, path.dirname(finalPath));
-    await fs.promises.rename(stagedPath, finalPath);
-    promoted = true;
+    await ensureSafeStoreDirectory(root, path.dirname(finalPath));
+    input.testHooks?.beforePromotion?.();
+    promoted = await promoteStagedFile(root, stagedPath, finalPath, { bytes, sha256 });
     input.testHooks?.afterPromotion?.();
-    await syncFile(finalPath);
-    await syncDirectory(path.dirname(finalPath));
-    await fs.promises.rm(stageDir, { recursive: true, force: true });
+    await removeSafeStoreDirectory(root, stageDir);
     const prepared: PreparedObject = {
       id,
       scope: {
@@ -165,7 +159,84 @@ export async function prepareObject(
     return prepared;
   } catch (error) {
     if (promoted) await fs.promises.rm(finalPath, { force: true });
-    await fs.promises.rm(stageDir, { recursive: true, force: true });
+    await removeSafeStoreDirectory(root, stageDir);
+    throw error;
+  }
+}
+
+export async function ensureSafeStoreDirectory(rootPath: string, directory: string): Promise<void> {
+  const root = path.resolve(rootPath);
+  const target = path.resolve(directory);
+  await assertSafeStorePath(root, target);
+  await fs.promises.mkdir(target, { recursive: true, mode: 0o700 });
+  await assertSafeStorePath(root, target);
+}
+
+export async function writeExclusiveStoreTemp(
+  rootPath: string,
+  filePath: string,
+  contents: Uint8Array,
+): Promise<void> {
+  const root = path.resolve(rootPath);
+  const target = path.resolve(filePath);
+  await ensureSafeStoreDirectory(root, path.dirname(target));
+  await assertSafeStorePath(root, target);
+  const handle = await fs.promises.open(
+    target,
+    fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW,
+    0o600,
+  );
+  try {
+    await handle.writeFile(contents);
+    await handle.sync();
+  } catch (error) {
+    await handle.close();
+    await fs.promises.rm(target, { force: true });
+    throw error;
+  } finally {
+    try { await handle.close(); } catch { /* The error path already closed it. */ }
+  }
+}
+
+export async function hashSafeStoreFile(
+  rootPath: string,
+  filePath: string,
+): Promise<{ bytes: number; sha256: string }> {
+  const root = path.resolve(rootPath);
+  const target = path.resolve(filePath);
+  await assertSafeStorePath(root, target);
+  return hashRegularFileNoFollow(target);
+}
+
+export async function promoteStagedFile(
+  rootPath: string,
+  stagedPath: string,
+  finalPath: string,
+  expected: { bytes: number; sha256: string },
+): Promise<boolean> {
+  const root = path.resolve(rootPath);
+  const staged = path.resolve(stagedPath);
+  const final = path.resolve(finalPath);
+  await assertSafeStorePath(root, staged);
+  await ensureSafeStoreDirectory(root, path.dirname(final));
+  let created = false;
+  try {
+    try {
+      await fs.promises.link(staged, final);
+      created = true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      const existing = await hashRegularFileNoFollow(final);
+      if (existing.bytes !== expected.bytes || existing.sha256 !== expected.sha256) {
+        throw new Error("Immutable Object promotion conflict");
+      }
+    }
+    await fs.promises.unlink(staged);
+    await syncFile(final);
+    await syncDirectory(path.dirname(final));
+    return created;
+  } catch (error) {
+    if (created) await fs.promises.rm(final, { force: true });
     throw error;
   }
 }
@@ -406,6 +477,26 @@ async function hashFile(
   return { bytes, sha256: hash.digest("hex") };
 }
 
+async function hashRegularFileNoFollow(filePath: string): Promise<{ bytes: number; sha256: string }> {
+  const handle = await fs.promises.open(filePath, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  try {
+    const stat = await handle.stat();
+    if (!stat.isFile()) throw new Error("Immutable Object target is not a regular file");
+    const hash = createHash("sha256");
+    const buffer = Buffer.allocUnsafe(64 * 1024);
+    let bytes = 0;
+    while (true) {
+      const { bytesRead } = await handle.read(buffer, 0, buffer.length, bytes);
+      if (bytesRead === 0) break;
+      bytes += bytesRead;
+      hash.update(buffer.subarray(0, bytesRead));
+    }
+    return { bytes, sha256: hash.digest("hex") };
+  } finally {
+    await handle.close();
+  }
+}
+
 async function syncFile(filePath: string): Promise<void> {
   const handle = await fs.promises.open(filePath, "r");
   try {
@@ -470,13 +561,17 @@ async function canonicalPath(candidate: string): Promise<string> {
   }
 }
 
-async function assertNoSymlinkAncestors(
+export async function assertSafeStorePath(
   root: string,
   target: string,
 ): Promise<void> {
   const relative = path.relative(root, target);
   if (relative.startsWith("..") || path.isAbsolute(relative)) {
     throw new Error("Object path escapes .ralphy");
+  }
+  const rootStat = await fs.promises.lstat(root);
+  if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) {
+    throw new Error("Object store root is unsafe");
   }
   let current = root;
   for (const part of relative.split(path.sep).filter(Boolean)) {
@@ -489,6 +584,17 @@ async function assertNoSymlinkAncestors(
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
       throw error;
     }
+  }
+}
+
+async function removeSafeStoreDirectory(root: string, directory: string): Promise<void> {
+  try {
+    await assertSafeStorePath(root, directory);
+    const stat = await fs.promises.lstat(directory);
+    if (!stat.isDirectory() || stat.isSymbolicLink()) return;
+    await fs.promises.rm(directory, { recursive: true, force: true });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
 }
 

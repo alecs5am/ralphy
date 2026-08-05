@@ -2,6 +2,7 @@ import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
+import { newDomainId } from "../../cli/lib/store/ids.js";
 import { ingestObject } from "../../cli/lib/store/objects.js";
 import {
   getObjectRow,
@@ -159,6 +160,45 @@ describe("domain Object store", () => {
     expect(
       scopedActivity({ projectId: project.id }).map((event) => event.action),
     ).toEqual(["project.created", "object.registered"]);
+  });
+
+  test("never clobbers an immutable Object created during promotion", async () => {
+    const { root, workspace } = setupProject("promotion-race");
+    const source = writeSource(root, "race.bin", "prepared-bytes");
+    const matchingId = newDomainId("obj");
+    const matchingPath = sharedObjectPath(root, workspace.id, matchingId, ".bin");
+    const matching = await prepareObject(openDomainDb(), path.join(root.dir, ".ralphy"), {
+      scope: { workspaceId: workspace.id },
+      sourcePath: source,
+      originalName: "race.bin",
+      mime: "application/octet-stream",
+      storageClass: "durable",
+      transfer: "copy",
+      objectId: matchingId,
+      testHooks: { beforePromotion: () => {
+        fs.mkdirSync(path.dirname(matchingPath), { recursive: true });
+        fs.writeFileSync(matchingPath, "prepared-bytes");
+      } },
+    });
+    expect(matching.finalPath).toBe(matchingPath);
+    expect(fs.readFileSync(matchingPath, "utf8")).toBe("prepared-bytes");
+
+    const conflictId = newDomainId("obj");
+    const conflictPath = sharedObjectPath(root, workspace.id, conflictId, ".bin");
+    await expect(prepareObject(openDomainDb(), path.join(root.dir, ".ralphy"), {
+      scope: { workspaceId: workspace.id },
+      sourcePath: source,
+      originalName: "race.bin",
+      mime: "application/octet-stream",
+      storageClass: "durable",
+      transfer: "copy",
+      objectId: conflictId,
+      testHooks: { beforePromotion: () => {
+        fs.mkdirSync(path.dirname(conflictPath), { recursive: true });
+        fs.writeFileSync(conflictPath, "competing-byte");
+      } },
+    })).rejects.toThrow(/conflict/i);
+    expect(fs.readFileSync(conflictPath, "utf8")).toBe("competing-byte");
   });
 
   test("preserves changed move bytes and a concurrent replacement", async () => {
@@ -448,4 +488,8 @@ function writeSource(root: TmpRoot, name: string, contents: string): string {
   const sourcePath = path.join(root.dir, name);
   fs.writeFileSync(sourcePath, contents);
   return sourcePath;
+}
+
+function sharedObjectPath(root: TmpRoot, workspaceId: string, objectId: string, extension: string): string {
+  return path.join(root.dir, ".ralphy", "buckets", workspaceId, "shared", "objects", `${objectId}${extension}`);
 }
