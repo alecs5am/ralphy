@@ -37,7 +37,10 @@ export function generationParameter(
   value: unknown,
 ): GenerationInputDto["parameters"][number] | null {
   if (!PARAMETER_NAMES.has(name)) return null;
-  if (name === "size") return validString(value, /^[1-9]\d{1,4}x[1-9]\d{1,4}$/) ? { name, value } : null;
+  if (name === "size") {
+    const size = normalizeSize(value);
+    return size ? { name, value: size } : null;
+  }
   if (name === "aspectRatio") return validString(value, /^[1-9]\d?:[1-9]\d?$/) ? { name, value } : null;
   if (name === "resolution") return validString(value, /^(?:[1-9]\d{2,3}p|[248]K)$/) ? { name, value } : null;
   if (name === "language") return value === "ru" || value === "en" || value === "auto" ? { name, value } : null;
@@ -99,4 +102,11 @@ function hasOnlyKeys(value: Record<string, unknown>, keys: string[]): boolean {
 
 function validString(value: unknown, pattern: RegExp): value is string {
   return typeof value === "string" && value.length <= 32 && pattern.test(value);
+}
+
+function normalizeSize(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > 32) return null;
+  const match = value.match(/^(\d+)\s*x\s*(\d+)$/i);
+  if (!match || Number(match[1]) <= 0 || Number(match[2]) <= 0) return null;
+  return `${Number(match[1])}x${Number(match[2])}`;
 }

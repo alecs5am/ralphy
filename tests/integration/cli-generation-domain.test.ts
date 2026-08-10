@@ -313,6 +313,22 @@ describe("generation domain persistence", () => {
     expect(fs.existsSync(path.join(legacyProjectDir, "logs", "generations.jsonl"))).toBe(false);
   });
 
+  test("image records a connector-supported noncanonical size canonically", async () => {
+    const workspace = createWorkspace({ slug: "default", name: "Default" });
+    const project = createProject({ workspaceId: workspace.id, slug: "size", name: "Size" });
+    seedLegacyProject(fixtureRoot, project.id);
+    await generateCmd().parseAsync(["image", "--project", project.id, "--slot", "hero", "--prompt", "size", "--size", "1024 X 1024", "--provider", "openrouter", "--no-ref-consent", "fixture"], { from: "user" });
+    const run = listRuns({ context: { workspaceId: workspace.id, projectId: project.id }, limit: 1 }).items[0]!;
+    expect(generationAttemptInput(run.id)).toMatchObject({ parameters: [{ name: "size", value: "1024x1024" }, { name: "referenceCount", value: 0 }] });
+    await generateCmd().parseAsync(["image", "--project", project.id, "--slot", "unsafe-size", "--prompt", "size", "--size", "file:///TASK2_SIZE_PATH", "--provider", "openrouter", "--no-ref-consent", "fixture"], { from: "user" });
+    const unsafeRun = listRuns({ context: { workspaceId: workspace.id, projectId: project.id }, limit: 2 }).items
+      .find((item) => item.label === "unsafe-size")!;
+    expect(generationAttemptInput(unsafeRun.id)).toEqual({
+      version: 1, texts: [{ role: "prompt", value: "size", truncated: false }],
+      parameters: [{ name: "referenceCount", value: 0 }],
+    });
+  });
+
   test("video, voiceover, music, and SFX retain only their approved inputs", async () => {
     const workspace = createWorkspace({ slug: "default", name: "Default" });
     const project = createProject({ workspaceId: workspace.id, slug: "safe-inputs", name: "Safe inputs" });
@@ -336,7 +352,7 @@ describe("generation domain persistence", () => {
     elevenlabsConnector.available = () => true;
     try {
       await generateCmd().parseAsync(["video", "--project", project.id, "--slot", "clip", "--prompt", "move", "--duration", "5", "--model", "fixture/video", "--no-validate", "--first-frame", frame, "--ref", frame, "--audio", "--aspect-ratio", "16:9", "--resolution", "720p", "--provider", "openrouter", "--no-ref-consent", "fixture"], { from: "user" });
-      await generateCmd().parseAsync(["voiceover", "--project", project.id, "--slot", "voice", "--voice", "TASK2_EXTERNAL_VOICE_ID", "--text", "speak", "--stability", "0.5", "--no-speaker-boost", "--provider", "elevenlabs", "--no-ref-consent", "fixture"], { from: "user" });
+      await generateCmd().parseAsync(["voiceover", "--project", project.id, "--slot", "voice", "--voice", "TASK2_EXTERNAL_VOICE_ID", "--text", "speak", "--stability", "0.5", "--similarity-boost", "0.6", "--style", "0.7", "--speed", "1.2", "--no-speaker-boost", "--provider", "elevenlabs", "--no-ref-consent", "fixture"], { from: "user" });
       await generateCmd().parseAsync(["music", "--project", project.id, "--slot", "music", "--prompt", "original music prompt", "--duration", "5", "--provider", "elevenlabs", "--no-ref-consent", "fixture"], { from: "user" });
       await generateCmd().parseAsync(["sfx", "--project", project.id, "--slot", "sfx", "--prompt", "click", "--duration", "2", "--prompt-influence", "0.7", "--provider", "elevenlabs", "--no-ref-consent", "fixture"], { from: "user" });
     } finally {
@@ -348,10 +364,11 @@ describe("generation domain persistence", () => {
     }
     const context = { workspaceId: workspace.id, projectId: project.id };
     const inputs = listRuns({ context, limit: 10 }).items.map((run) => generationAttemptInput(run.id));
-    expect(inputs).toContainEqual(expect.objectContaining({ texts: [{ role: "prompt", value: "move", truncated: false }], parameters: expect.arrayContaining([{ name: "referenceCount", value: 1 }, { name: "hasFirstFrame", value: true }, { name: "generateAudio", value: true }, { name: "aspectRatio", value: "16:9" }, { name: "resolution", value: "720p" }]) }));
-    expect(inputs).toContainEqual(expect.objectContaining({ texts: [{ role: "text", value: "speak", truncated: false }], parameters: expect.arrayContaining([{ name: "voiceSpecified", value: true }, { name: "stability", value: 0.5 }, { name: "speakerBoost", value: false }]) }));
-    expect(inputs).toContainEqual(expect.objectContaining({ texts: [{ role: "prompt", value: "original music prompt", truncated: false }], parameters: [{ name: "durationSec", value: 5 }, { name: "forceInstrumental", value: true }] }));
-    expect(inputs).toContainEqual(expect.objectContaining({ texts: [{ role: "prompt", value: "click", truncated: false }], parameters: [{ name: "durationSec", value: 2 }, { name: "promptInfluence", value: 0.7 }] }));
+    const inputFor = (value: string) => inputs.find((input) => input!.texts[0]?.value === value);
+    expect(inputFor("move")).toEqual({ version: 1, texts: [{ role: "prompt", value: "move", truncated: false }], parameters: [{ name: "durationSec", value: 5 }, { name: "aspectRatio", value: "16:9" }, { name: "resolution", value: "720p" }, { name: "generateAudio", value: true }, { name: "referenceCount", value: 1 }, { name: "referenceVideoCount", value: 0 }, { name: "hasFirstFrame", value: true }, { name: "hasLastFrame", value: false }, { name: "hasImage", value: false }] });
+    expect(inputFor("speak")).toEqual({ version: 1, texts: [{ role: "text", value: "speak", truncated: false }], parameters: [{ name: "voiceSpecified", value: true }, { name: "stability", value: 0.5 }, { name: "similarityBoost", value: 0.6 }, { name: "style", value: 0.7 }, { name: "speed", value: 1.2 }, { name: "speakerBoost", value: false }] });
+    expect(inputFor("original music prompt")).toEqual({ version: 1, texts: [{ role: "prompt", value: "original music prompt", truncated: false }], parameters: [{ name: "durationSec", value: 5 }, { name: "forceInstrumental", value: true }] });
+    expect(inputFor("click")).toEqual({ version: 1, texts: [{ role: "prompt", value: "click", truncated: false }], parameters: [{ name: "durationSec", value: 2 }, { name: "promptInfluence", value: 0.7 }] });
     const requests = JSON.stringify(inputs);
     for (const sentinel of [fixtureRoot, frame, "TASK2_EXTERNAL_VOICE_ID", "data:image", "outputPath", "fixture-elevenlabs-key", "note", "provider-error"]) expect(requests).not.toContain(sentinel);
   });
