@@ -98,7 +98,8 @@ function projectRelativeLocator(value: unknown, projectLocator: string): string 
 
 function validProjectLocator(value: string): boolean {
   return /^(?:workspaces\/[^/]+\/projects\/[^/]+|projects\/[^/]+)$/u.test(value)
-    && !value.includes("\\") && !value.includes("//");
+    && !value.includes("\\") && !value.includes("//")
+    && !value.split("/").some((part) => part === "." || part === "..");
 }
 
 function scopeAgrees(

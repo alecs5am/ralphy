@@ -514,11 +514,11 @@ export function sealCompositionRevision(input: {
   if (!before.sources.length && !before.inputs.length) {
     throw new Error("Cannot seal an empty Composition revision");
   }
-  const manifestSha256 = digestManifest(before.manifest);
+  const manifestSha256 = before.manifestSha256;
   return withImmediateTransaction((db) => {
     const scope = requireDraftRevision(db, input.revisionId);
     const current = manifestForRevision(db, scope.revision.id, true);
-    if (digestManifest(current.manifest) !== manifestSha256) {
+    if (current.manifestSha256 !== manifestSha256) {
       throw new StoreConflictError("Composition revision changed while sealing");
     }
     const sealedAt = Date.now();
@@ -618,7 +618,7 @@ export function snapshotAndStartCompositionBuild(input: {
     }
     const current = manifestForRevision(db, scope.revision.id, true);
     if (!current.sources.length && !current.inputs.length) throw new Error("Cannot seal an empty Composition revision");
-    const manifestSha256 = digestManifest(current.manifest);
+    const manifestSha256 = current.manifestSha256;
     db.prepare(
       `UPDATE composition_revisions SET state = 'sealed', manifest_sha256 = ?, sealed_at = ?
        WHERE id = ? AND state = 'draft'`,
@@ -1580,7 +1580,7 @@ function manifestForRevision(
 ): {
   sources: CompositionSourceRow[];
   inputs: CompositionInputRow[];
-  manifest: JsonValue;
+  manifestSha256: string;
 } {
   const scope = getRevisionScope(db, revisionId);
   if (!scope) {
@@ -1633,23 +1633,41 @@ function manifestForRevision(
   return {
     sources,
     inputs,
-    manifest: canonicalJsonValue(
-      {
-        kind: scope.composition.kind,
-        engine: scope.revision.engine,
-        engineVersion: scope.revision.engineVersion,
-        engineConfig: scope.revision.engineConfig,
-        sources: sourceManifest,
-        inputs: inputManifest,
-      },
-      false,
-      new Set<object>(),
-      "Composition manifest",
-    ),
+    manifestSha256: compositionManifestSha256({
+      kind: scope.composition.kind,
+      engine: scope.revision.engine,
+      engineVersion: scope.revision.engineVersion,
+      engineConfig: scope.revision.engineConfig,
+      sources: sourceManifest,
+      inputs: inputManifest,
+    }),
   };
 }
 
-function digestManifest(manifest: JsonValue): string {
+export function compositionManifestSha256(input: {
+  kind: CompositionKind;
+  engine: string;
+  engineVersion: string | null;
+  engineConfig: JsonValue;
+  sources: readonly {
+    logicalPath: string;
+    position: number;
+    objectId: string;
+    sha256: string;
+  }[];
+  inputs: readonly {
+    position: number;
+    artifactRevisionId: string;
+    role: string;
+    config: JsonValue | null;
+  }[];
+}): string {
+  const manifest = canonicalJsonValue(
+    input,
+    false,
+    new Set<object>(),
+    "Composition manifest",
+  );
   return createHash("sha256").update(JSON.stringify(manifest)).digest("hex");
 }
 

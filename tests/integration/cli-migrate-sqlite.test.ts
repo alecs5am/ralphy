@@ -35,6 +35,7 @@ type CompleteMigrationService = typeof migrationService & {
 
 let root: TmpRoot | null = null;
 let restoreProcessTools: (() => void) | null = null;
+const PROCESS_TOOLS_PRELOAD = "migration-process-tools-preload.ts";
 
 afterEach(() => {
   restoreProcessTools?.();
@@ -349,7 +350,9 @@ describe("resumable SQLite migration controller", () => {
       verificationId: verified.id,
       verificationDir: fixture.verificationDir,
     });
-    expect(publicationCrash.exitCode).toBe(86);
+    if (publicationCrash.exitCode !== 86) {
+      throw new Error(`prepared cutover crash exited ${publicationCrash.exitCode}:\n${publicationCrash.stderr}`);
+    }
     const journal = readCutoverJournal(migrationCutoverPaths(fixture.source, started.runId).journalPath);
     expect(journal.state).toBe("prepared");
 
@@ -362,7 +365,9 @@ describe("resumable SQLite migration controller", () => {
     const nonMigration = runCli(fixture.parent, [
       "--root", fixture.source, "queue", "list",
     ]);
-    expect(nonMigration.exitCode).not.toBe(0);
+    if (nonMigration.exitCode === 0) {
+      throw new Error(`unsafe-journal CLI unexpectedly succeeded:\n${nonMigration.stdout}\n${nonMigration.stderr}`);
+    }
     expect(nonMigration.stderr).toMatch(/cutover|interrupt|prepared/i);
     const ordinary = runCli(fixture.parent, [
       "migrate", "status", "--run-id", started.runId, "--source", fixture.source,
@@ -875,13 +880,12 @@ function fileSnapshot(file: string): { mode: number; bytes: number; sha256: stri
 }
 
 function runCli(cwd: string, args: string[]): { exitCode: number; stdout: string; stderr: string } {
-  const result = Bun.spawnSync([
-    "bun",
+  const result = Bun.spawnSync(bunWithProcessTools([
     "run",
     path.resolve(import.meta.dir, "../../cli/index.ts"),
     "--json",
     ...args,
-  ], { cwd, stdout: "pipe", stderr: "pipe", env: process.env });
+  ]), { cwd, stdout: "pipe", stderr: "pipe", env: process.env });
   return {
     exitCode: result.exitCode,
     stdout: result.stdout.toString("utf8"),
@@ -911,7 +915,7 @@ function runHardCrashMigration(
     process.stderr.write("hard-crash seam was not reached\\n");
     process.exit(2);
   `;
-  const result = Bun.spawnSync(["bun", "-e", program], {
+  const result = Bun.spawnSync(bunWithProcessTools(["-e", program]), {
     cwd: fixture.parent,
     stdout: "pipe",
     stderr: "pipe",
@@ -942,7 +946,7 @@ function createHardCrashPreparedCutover(input: {
       afterJournalPublishedForTesting: () => process.exit(86),
     });
   `;
-  const result = Bun.spawnSync(["bun", "-e", program], {
+  const result = Bun.spawnSync(bunWithProcessTools(["-e", program]), {
     cwd: path.dirname(input.sourcePath),
     stdout: "pipe",
     stderr: "pipe",
@@ -970,7 +974,22 @@ function setProcessTools(source: string, blocked: boolean): void {
     : "#!/bin/sh\nprintf 'p1\\nclaunchd\\nfcwd\\nn/\\n'\n");
   fs.chmodSync(ps, 0o700);
   fs.chmodSync(lsof, 0o700);
+  const inventoryUrl = new URL("../../cli/lib/migration/inventory.ts", import.meta.url).href;
+  fs.writeFileSync(path.join(root!.dir, PROCESS_TOOLS_PRELOAD), `
+    import { setMigrationProcessToolsForTesting } from ${JSON.stringify(inventoryUrl)};
+    setMigrationProcessToolsForTesting({
+      psPath: ${JSON.stringify(ps)},
+      lsofPath: ${JSON.stringify(lsof)},
+    });
+  `);
   restoreProcessTools = setMigrationProcessToolsForTesting({ psPath: ps, lsofPath: lsof });
+}
+
+function bunWithProcessTools(args: string[]): string[] {
+  const preload = root && path.join(root.dir, PROCESS_TOOLS_PRELOAD);
+  return preload && fs.existsSync(preload)
+    ? ["bun", `--preload=${preload}`, ...args]
+    : ["bun", ...args];
 }
 
 function controllableWriterProcessTools(source: string, marker: string): void {

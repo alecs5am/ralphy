@@ -219,6 +219,7 @@ const TEXT_COLUMNS = {
   metric_snapshots: "id,publication_id,source,retention_curve_json,note,raw_json",
   memory_entries: "id,workspace_id,slug,name,description,type,status,current_revision_id",
   memory_revisions: "id,workspace_id,memory_entry_id,parent_revision_id,document_revision_id,name,description,type,status,filed_at,source",
+  migration_entry_supplemental_refs: "migration_entry_id,target_ref,repair_key",
   migration_entries: "id,migration_run_id,migration_source_id,source_path,source_locator_hash,entry_kind,source_kind,disposition,source_device,source_inode,sha256,target_path,target_refs_json,raw_evidence_object_id,state,error_code",
   migration_issues: "id,migration_run_id,migration_entry_id,code,severity,detail_json",
   migration_runs: "id,stage_root_rel,recovery_root_rel,phase,last_error_code,last_error_detail",

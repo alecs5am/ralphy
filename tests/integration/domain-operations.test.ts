@@ -88,8 +88,8 @@ describe("migration 3 structured domain schema", () => {
         .map((row) => row.name),
     );
 
-    expect(SCHEMA_VERSION).toBe(5);
-    expect(db.query("PRAGMA user_version").get()).toEqual({ user_version: 5 });
+    expect(SCHEMA_VERSION).toBe(6);
+    expect(db.query("PRAGMA user_version").get()).toEqual({ user_version: 6 });
     expect([...TASK_7_TABLES].filter((table) => !tables.has(table))).toEqual([]);
   });
 });
