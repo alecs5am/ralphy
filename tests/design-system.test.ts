@@ -52,18 +52,12 @@ describe("design system contract", () => {
     );
   });
 
-  test("uses headless selectors, panel shortcuts, and a stable shared-layout dialog", () => {
+  test("uses headless selectors and panel shortcuts", () => {
     const app = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
-    const tile = readFileSync(
-      join(process.cwd(), "src/components/AssetTile.tsx"),
-      "utf8",
-    );
     expect(renderer).not.toMatch(/<select(?:\s|>)/);
     expect(renderer).toContain("@radix-ui/react-select");
-    expect(renderer).toContain("@radix-ui/react-dialog");
     expect(renderer).toContain('role="listbox"');
     expect(renderer).toContain('role="slider"');
-    expect(renderer).toContain("layoutId");
     expect(renderer).toContain('aria-label="Toggle sidebar"');
     expect(renderer).toContain('aria-label="Toggle right panel"');
     expect(renderer).toContain('aria-label="Toggle bottom panel"');
@@ -71,63 +65,6 @@ describe("design system contract", () => {
     expect(app).toContain('command && key === "b"');
     expect(app).toContain('command && key === "j"');
     expect(app).not.toContain('commandOption && key === "b"');
-    expect(tile).toContain("layoutId={selected ? `asset-${item.id}` : undefined}");
-  });
-
-  test("keeps the project grid mounted while the modal viewer is open", () => {
-    const app = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
-    const viewer = readFileSync(
-      join(process.cwd(), "src/screens/AssetViewer.tsx"),
-      "utf8",
-    );
-    expect(app).not.toContain('hidden={viewerItem !== null}');
-    expect(app).toContain("<AnimatePresence");
-    expect(app).not.toMatch(/<AnimatePresence[^>]*>\s*\{viewerItem/);
-    expect(app).toContain('" viewer-open"');
-    expect(viewer).not.toContain('mode="wait"');
-    expect(viewer).not.toContain("viewer-${item.kind}");
-    expect(viewer).toContain("asset-modal-kind-${item.kind}");
-    expect(viewer).toContain("surfaceRef.current?.focus");
-    expect(viewer).toContain("tabIndex={-1}");
-    expect(styles).toContain(".workbench.viewer-open .asset-grid-scroll");
-    expect(styles).toMatch(/\.viewer-document\s*\{[^}]*overscroll-behavior:\s*contain/s);
-  });
-
-  test("uses custom seekable media controls and an interactive image viewport", () => {
-    const audio = readFileSync(
-      join(process.cwd(), "src/components/media/AudioWaveform.tsx"),
-      "utf8",
-    );
-    const tile = readFileSync(
-      join(process.cwd(), "src/components/AssetTile.tsx"),
-      "utf8",
-    );
-    const video = readFileSync(
-      join(process.cwd(), "src/components/media/VideoPlayer.tsx"),
-      "utf8",
-    );
-    expect(renderer).not.toMatch(/<video[^>]*\scontrols(?:\s|=|>)/);
-    expect(renderer).not.toMatch(/<audio[^>]*\scontrols(?:\s|=|>)/);
-    expect(renderer).not.toMatch(/type=["']range["']/);
-    expect(renderer).toContain("WaveSurfer.create");
-    expect(renderer).toContain("shouldDecodeWaveform");
-    expect(renderer).toContain("purpose=waveform");
-    expect(renderer).toContain("bridge.getMediaUrl(path)");
-    expect(renderer).toContain('ariaLabel="Audio position"');
-    expect(renderer).toContain('aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}');
-    expect(renderer).toContain('playing ? "Pause video" : "Play video"');
-    expect(renderer).toContain("This video cannot be played.");
-    expect(renderer).toContain('aria-label="Zoom in"');
-    expect(renderer).toContain("onWheel");
-    expect(renderer).toContain("event.button !== 0");
-    expect(audio).toContain("requestAnimationFrame");
-    expect(audio).toContain("cancelAnimationFrame");
-    expect(tile).toContain("decodeAudioData");
-    expect(tile).toContain("summarizeWaveform");
-    expect(tile).toContain("asset-audio-waveform");
-    expect(tile).toContain("type-${item.kind}");
-    expect(video).toContain("requestAnimationFrame");
-    expect(video).toContain("cancelAnimationFrame");
   });
 
   test("provides searchable workspace navigation and resizable utility panels", () => {
@@ -137,7 +74,6 @@ describe("design system contract", () => {
     expect(renderer).toContain('ariaLabel="Resize sidebar"');
     expect(renderer).toContain('ariaLabel="Resize right panel"');
     expect(renderer).toContain('ariaLabel="Resize bottom panel"');
-    expect(renderer).toContain("asset-modal-inspector");
     expect(renderer).toContain("onLostPointerCapture");
     expect(renderer).toContain("breadcrumb-button");
     expect(renderer).toContain("createPortal");
@@ -151,11 +87,6 @@ describe("design system contract", () => {
       /\.breadcrumbs\s*\{[^}]*-webkit-app-region:\s*no-drag/s,
     );
     expect(styles).toMatch(/button:not\(:disabled\)[^{]*\{[^}]*cursor:\s*pointer/s);
-    expect(styles).toMatch(
-      /\.asset-tile:not\(:disabled\)\s*\{[^}]*cursor:\s*grab/s,
-    );
-    expect(styles).toMatch(/\.image-viewport\s*\{[^}]*cursor:\s*grab/s);
-    expect(styles).toMatch(/\.image-viewport\.is-panning\s*\{[^}]*cursor:\s*grabbing/s);
   });
 
   test("transfers the approved dither workspace hero and project identity system", () => {
@@ -244,16 +175,12 @@ describe("design system contract", () => {
     expect(styles).toContain(".welcome-screen.is-exiting");
   });
 
-  test("opens a global multi-provider chat with Cmd+R and keeps details in the viewer", () => {
+  test("opens a global multi-provider chat with Cmd+R", () => {
     const app = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
     const main = readFileSync(join(process.cwd(), "electron/main.ts"), "utf8");
     const preload = readFileSync(join(process.cwd(), "electron/preload.ts"), "utf8");
     const panels = readFileSync(
       join(process.cwd(), "src/components/UtilityPanels.tsx"),
-      "utf8",
-    );
-    const viewer = readFileSync(
-      join(process.cwd(), "src/screens/AssetViewer.tsx"),
       "utf8",
     );
 
@@ -266,7 +193,6 @@ describe("design system contract", () => {
     expect(app).toContain("useAgentChat");
     expect(app).toContain("<AgentChatPanel");
     expect(app).not.toContain("<RightPanelSummary");
-    expect(app).not.toContain("<Inspector\n");
     expect(panels).toContain("AgentChatPanel");
     expect(panels).toContain("AgentChatMenu");
     expect(panels).toContain("AgentProviderMenu");
@@ -282,47 +208,6 @@ describe("design system contract", () => {
     expect(styles).toMatch(
       /\.agent-composer textarea\s*\{[^}]*border:\s*0[^}]*background:\s*transparent/s,
     );
-    expect(viewer).toContain("asset-modal-inspector");
-    expect(viewer).toContain("<Inspector");
-  });
-
-  test("offers a custom actionable context menu on every asset card", () => {
-    const tile = readFileSync(
-      join(process.cwd(), "src/components/AssetTile.tsx"),
-      "utf8",
-    );
-    const menuPath = join(process.cwd(), "src/components/AssetContextMenu.tsx");
-    expect(existsSync(menuPath)).toBe(true);
-    const menu = existsSync(menuPath) ? readFileSync(menuPath, "utf8") : "";
-
-    expect(tile).toContain("onContextMenu");
-    expect(tile).toContain("<AssetContextMenu");
-    expect(menu).toContain("createPortal");
-    expect(menu).toContain('role="menu"');
-    expect(menu).toContain("Open preview");
-    expect(menu).toContain("Shortlist");
-    expect(menu).toContain("Reveal in Finder");
-    expect(menu).toContain("Move to Bin");
-  });
-
-  test("supports native drag-out for every asset card", () => {
-    const main = readFileSync(join(process.cwd(), "electron/main.ts"), "utf8");
-    const preload = readFileSync(join(process.cwd(), "electron/preload.ts"), "utf8");
-    const packageMac = readFileSync(
-      join(process.cwd(), "scripts/package-mac.mjs"),
-      "utf8",
-    );
-    const tile = readFileSync(
-      join(process.cwd(), "src/components/AssetTile.tsx"),
-      "utf8",
-    );
-    expect(preload).toContain("startFileDrag");
-    expect(main).toContain("event.sender.startDrag");
-    expect(main).toContain("resolveFileForDrag");
-    expect(main).toContain("RalphyMedia-drag.png");
-    expect(packageMac).toContain("RalphyMedia-drag.png");
-    expect(tile).toContain("draggable");
-    expect(tile).toContain("bridge.startFileDrag(item.absolutePath)");
   });
 
   test("exposes bounded terminal IPC and packages the native PTY runtime", () => {
@@ -470,17 +355,12 @@ describe("design system contract", () => {
       join(process.cwd(), "src/components/terminal/TerminalWorkspace.tsx"),
       "utf8",
     );
-    const viewportRule = styles.match(/\.image-viewport\s*\{([^}]*)\}/s)?.[1] ?? "";
 
     expect(mascot).toContain('mask id="eyes"');
     expect(sidebar).not.toContain("<RalphyMascot");
     expect(settings).toContain("<RalphyMascot");
     expect(terminal).toContain("<RalphyMascot");
     expect(welcome).toContain("<RalphyMascot");
-    expect(viewportRule).toContain("radial-gradient");
-    expect(viewportRule).not.toContain("linear-gradient");
-    expect(viewportRule).toContain("20px 20px");
-    expect(viewportRule).toContain("100px 100px");
   });
 
   test("keeps library switching in the profile and panel toggles in requested order", () => {

@@ -5,7 +5,6 @@ import { isAbsolute, join, relative, sep } from "node:path";
 import { resolveContainedPath, validateLibraryRoot } from "./catalog";
 import type {
   MediaKind,
-  ProjectScanResult,
   TrashResult,
 } from "./types";
 
@@ -78,14 +77,6 @@ export class MediaProtocolAccess {
     this.#tokensByPath.clear();
   }
 
-  replace(result: ProjectScanResult): void {
-    this.clear();
-    this.#rootPath = result.rootPath;
-    for (const item of result.items) {
-      this.#allowedPaths.set(item.absolutePath, item.kind);
-    }
-  }
-
   async mint(
     rootPath: string,
     requestedPath: string,
@@ -109,6 +100,40 @@ export class MediaProtocolAccess {
       this.#tokensByPath.delete(oldest[1]);
     }
     return { token, sizeBytes };
+  }
+
+  async mintTrustedLocator(
+    rootPath: string,
+    requestedPath: string,
+    mime: string | null,
+    expectedBytes: number,
+    assertCurrent: () => void = () => undefined,
+  ): Promise<MintedMedia> {
+    assertCurrent();
+    const root = await validateLibraryRoot(rootPath);
+    assertCurrent();
+    if (this.#rootPath !== root) this.clear();
+    this.#rootPath = root;
+    const path = await resolveContainedPath(rootPath, requestedPath).catch(() => {
+      throw new Error("Locator is outside the active library");
+    });
+    assertCurrent();
+    const kind = mime?.startsWith("image/") ? "image"
+      : mime?.startsWith("video/") ? "video"
+      : mime?.startsWith("audio/") ? "audio"
+      : mime === "application/pdf" ? "pdf"
+      : null;
+    if (!kind) throw new Error("Unsupported preview locator");
+    const info = await lstat(path);
+    assertCurrent();
+    if (!info.isFile() || info.isSymbolicLink()) throw new Error("Locator is not a regular file");
+    if (!Number.isSafeInteger(expectedBytes) || expectedBytes < 0 || info.size !== expectedBytes) {
+      throw new Error("Locator size changed");
+    }
+    this.#allowedPaths.set(path, kind);
+    const minted = await this.mint(rootPath, path, assertCurrent);
+    assertCurrent();
+    return minted;
   }
 
   async resolve(

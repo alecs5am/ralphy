@@ -179,72 +179,6 @@ describe("media session epochs", () => {
     expect(() => state.assertActive(current)).not.toThrow();
   });
 
-  test("cancel wins over a project still in asynchronous path validation", async () => {
-    const state = new MediaSessionState();
-    const root = "/tmp/current/.ralphy";
-    state.activateRoot(root);
-    const validation = deferred<void>();
-    const operation = state.beginProjectSelection();
-    const delayedSelection = validation.promise.then(() => state.beginProject(
-      operation,
-      { workspaceId: "studio", projectId: "alpha-001" },
-      { includeIntermediate: true },
-    ));
-
-    state.cancelProject();
-    validation.resolve();
-
-    await expect(delayedSelection).rejects.toThrow(StaleMediaSessionError);
-    expect(state.watcherSelection(root)).toBeNull();
-  });
-
-  test("a newer project selection wins over older delayed validation", () => {
-    const state = new MediaSessionState();
-    const root = "/tmp/current/.ralphy";
-    state.activateRoot(root);
-    const older = state.beginProjectSelection();
-    const newer = state.beginProjectSelection();
-    state.beginProject(newer, { workspaceId: "studio", projectId: "beta-001" });
-
-    expect(newer.epoch).toBeGreaterThan(older.epoch);
-    expect(() => state.beginProject(
-      older,
-      { workspaceId: "studio", projectId: "alpha-001" },
-    )).toThrow(StaleMediaSessionError);
-    expect(state.watcherSelection(root)?.project.projectId).toBe("beta-001");
-  });
-
-  test("a pending open cannot be displaced by stale project or cancel IPC", () => {
-    const state = new MediaSessionState();
-    state.activateRoot("/tmp/first/.ralphy");
-    const opening = state.beginOpen();
-
-    expect(() => state.beginProjectSelection()).toThrow(StaleMediaSessionError);
-    state.cancelProject();
-    expect(() => state.completeOpen(opening, "/tmp/second/.ralphy")).not.toThrow();
-    expect(state.requireRoot()).toBe("/tmp/second/.ralphy");
-  });
-
-  test("preserves the selected scan policy for watcher refreshes", () => {
-    const state = new MediaSessionState();
-    const root = "/tmp/current/.ralphy";
-    state.activateRoot(root);
-    const operation = state.beginProjectSelection();
-    state.beginProject(
-      operation,
-      { workspaceId: "studio", projectId: "alpha-001" },
-      { includeIntermediate: true },
-    );
-
-    expect(state.watcherSelection(root)).toEqual({
-      operation,
-      project: { workspaceId: "studio", projectId: "alpha-001" },
-      options: { includeIntermediate: true },
-    });
-    state.cancelProject();
-    expect(state.watcherSelection(root)).toBeNull();
-  });
-
   test("rejects a delayed result after switching to another root", async () => {
     const state = new MediaSessionState();
     state.activateRoot("/tmp/first/.ralphy");
@@ -339,28 +273,19 @@ describe("transactional active resources", () => {
 });
 
 describe("media runtime teardown", () => {
-  test("deselects before abort and prevents watchers from reviving the project", () => {
+  test("closes root resources and invalidates file access", () => {
     const state = new MediaSessionState();
     const root = "/tmp/current/.ralphy";
     state.activateRoot(root);
-    const operation = state.beginProjectSelection();
-    state.beginProject(operation, { workspaceId: "studio", projectId: "alpha-001" });
     const clearFileAccess = vi.spyOn(state.fileAccess, "clear");
     const watcher = { close: vi.fn() };
-    const worker = {
-      cancelProject: vi.fn(() => {
-        expect(state.watcherSelection(root)).toBeNull();
-      }),
-      close: vi.fn(),
-    };
+    const worker = { close: vi.fn() };
 
     stopMediaRuntime(state, { watcher, worker });
 
     expect(watcher.close).toHaveBeenCalledOnce();
-    expect(worker.cancelProject).toHaveBeenCalledOnce();
     expect(worker.close).toHaveBeenCalledOnce();
     expect(clearFileAccess).toHaveBeenCalledOnce();
-    expect(state.watcherSelection(root)).toBeNull();
     expect(() => state.requireRoot()).toThrow(/active/i);
   });
 

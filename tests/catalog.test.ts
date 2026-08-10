@@ -1,7 +1,8 @@
-import { mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
+  buildDomainCatalog,
   buildShallowCatalog,
   readBoundedText,
   resolveContainedPath,
@@ -18,6 +19,83 @@ afterEach(async () => {
 });
 
 describe("shallow library catalog", () => {
+  test("catalogs a DB-only domain Project without a Project bucket", async () => {
+    fixture = await makeLibraryFixture();
+    await rm(join(fixture.rootPath, "workspaces"), { recursive: true });
+    await writeFile(join(fixture.rootPath, "ralphy.db"), "SQLite format 3\0");
+    await mkdir(join(fixture.rootPath, "buckets"), { recursive: true });
+    const client = {
+      request: vi.fn(async (method: string) => {
+        if (method === "workspace.list") return {
+          items: [{ id: "ws_one", slug: "studio", name: "Studio", rowVersion: 1, createdAt: 10, updatedAt: 20 }],
+          nextCursor: null,
+        };
+        if (method === "project.list") return {
+          items: [{ id: "prj_one", workspaceId: "ws_one", slug: "launch", name: "Launch", state: "active", rowVersion: 1, createdAt: 30, updatedAt: 40 }],
+          nextCursor: null,
+        };
+        throw new Error(`Unexpected method: ${method}`);
+      }),
+    };
+
+    const result = await buildDomainCatalog(fixture.rootPath, client as never, 9);
+
+    expect(result).toMatchObject({
+      generation: 9,
+      workspaces: [{ id: "ws_one", name: "Studio", projectCount: 1 }],
+      projects: [{ workspaceId: "ws_one", projectId: "prj_one", name: "Launch", status: "active" }],
+    });
+    await expect(realpath(join(fixture.rootPath, "buckets", "ws_one", "projects", "prj_one"))).rejects.toThrow();
+  });
+
+  test("filters only exact legacy ghost shapes at the Core catalog boundary", async () => {
+    fixture = await makeLibraryFixture();
+    await rm(join(fixture.rootPath, "workspaces"), { recursive: true });
+    await writeFile(join(fixture.rootPath, "ralphy.db"), "SQLite format 3\0");
+    await mkdir(join(fixture.rootPath, "buckets"));
+    const workspaces = [
+      { id: "ws_normal", slug: "studio", name: "Studio" },
+      { id: "ws_ghost", slug: "ds-store", name: ".DS Store" },
+      { id: "ws_same_slug", slug: "ds-store", name: "Data Store" },
+      { id: "ws_same_name", slug: "ds-store-archive", name: ".DS Store" },
+      { id: "ws_case", slug: "DS-store", name: ".DS Store" },
+    ].map((workspace) => ({ ...workspace, rowVersion: 1, createdAt: 1, updatedAt: 2 }));
+    const projects = [
+      { id: "prj_normal", slug: "launch", name: "Launch" },
+      { id: "prj_ghost", slug: ".DS_Store", name: ".DS Store" },
+      { id: "prj_same_slug", slug: ".DS_Store", name: ".DS Store Archive" },
+      { id: "prj_same_name", slug: ".DS_Store-copy", name: ".DS Store" },
+      { id: "prj_case", slug: ".ds_store", name: ".DS Store" },
+    ].map((project) => ({
+      ...project,
+      workspaceId: "ws_normal",
+      state: "active",
+      rowVersion: 1,
+      createdAt: 1,
+      updatedAt: 2,
+    }));
+    const client = {
+      request: vi.fn(async (method: string, input: { workspaceId?: string }) => {
+        if (method === "workspace.list") return { items: workspaces, nextCursor: null };
+        if (method === "project.list") return {
+          items: input.workspaceId === "ws_normal" ? projects : [],
+          nextCursor: null,
+        };
+        throw new Error(`Unexpected method: ${method}`);
+      }),
+    };
+
+    const result = await buildDomainCatalog(fixture.rootPath, client as never);
+
+    expect(result.workspaces.map(({ id }) => id)).toEqual([
+      "ws_normal", "ws_same_slug", "ws_same_name", "ws_case",
+    ]);
+    expect(result.projects.map(({ projectId }) => projectId)).toEqual([
+      "prj_normal", "prj_same_slug", "prj_same_name", "prj_case",
+    ]);
+    expect(result.workspaces[0]?.projectCount).toBe(4);
+  });
+
   test("opens only direct workspace and project entries without following media", async () => {
     fixture = await makeLibraryFixture();
 
@@ -134,6 +212,15 @@ describe("library trust boundary", () => {
     const fakeRoot = join(fixture.parentPath, "fake", ".ralphy");
     await mkdir(fakeRoot, { recursive: true });
     await expect(validateLibraryRoot(fakeRoot)).rejects.toThrow(/workspaces/);
+  });
+
+  test("accepts a real SQLite domain root with a buckets directory", async () => {
+    fixture = await makeLibraryFixture();
+    await rm(join(fixture.rootPath, "workspaces"), { recursive: true });
+    await writeFile(join(fixture.rootPath, "ralphy.db"), "SQLite format 3\0");
+    await mkdir(join(fixture.rootPath, "buckets"));
+
+    await expect(validateLibraryRoot(fixture.rootPath)).resolves.toBe(await realpath(fixture.rootPath));
   });
 
   test("rejects traversal and symlinks even when the target exists", async () => {

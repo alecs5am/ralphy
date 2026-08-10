@@ -5,7 +5,6 @@ import { LibraryWatcher, routeLibraryChange } from "../electron/media/watcher";
 import { makeLibraryFixture, type LibraryFixture } from "./fixtures";
 
 const root = "/tmp/example/.ralphy";
-const selected = { workspaceId: "studio", projectId: "alpha-001" };
 let fixture: LibraryFixture | undefined;
 
 afterEach(async () => {
@@ -20,76 +19,40 @@ describe("watcher path routing", () => {
     ["project structure", join(root, "workspaces", "studio", "projects", "new-001")],
     ["selected production plan", join(root, "workspaces", "studio", "projects", "alpha-001", "production-plan.json")],
   ])("refreshes the shallow catalog for %s changes", (_label, path) => {
-    expect(routeLibraryChange(root, path, selected).catalog).toBe(true);
+    expect(routeLibraryChange(root, path).catalog).toBe(true);
   });
 
-  test("rescans only media inside the selected project", () => {
+  test("does not refresh the catalog for project media bytes", () => {
     const selectedMedia = join(root, "workspaces", "studio", "projects", "alpha-001", "artifacts", "hero.png");
     const inactiveMedia = join(root, "workspaces", "studio", "projects", "beta-001", "artifacts", "hero.png");
 
-    expect(routeLibraryChange(root, selectedMedia, selected)).toEqual({
-      catalog: false,
-      selectedProject: true,
-    });
-    expect(routeLibraryChange(root, inactiveMedia, selected)).toEqual({
-      catalog: false,
-      selectedProject: false,
-    });
+    expect(routeLibraryChange(root, selectedMedia)).toEqual({ catalog: false });
+    expect(routeLibraryChange(root, inactiveMedia)).toEqual({ catalog: false });
+  });
+
+  test("routes SQLite and bucket changes for a domain library", () => {
+    expect(routeLibraryChange(root, join(root, "ralphy.db-wal"))).toEqual({ catalog: true });
+    expect(routeLibraryChange(
+      root,
+      join(root, "buckets", "studio", "projects", "alpha-001", "objects", "obj_one.mp4"),
+    )).toEqual({ catalog: false });
   });
 
   test("ignores annotation writes and paths outside the active root", () => {
     expect(
-      routeLibraryChange(root, join(root, "media-library", "library.json"), selected),
-    ).toEqual({ catalog: false, selectedProject: false });
-    expect(routeLibraryChange(root, "/tmp/other/.ralphy/registry.json", selected)).toEqual({
-      catalog: false,
-      selectedProject: false,
-    });
+      routeLibraryChange(root, join(root, "media-library", "library.json")),
+    ).toEqual({ catalog: false });
+    expect(routeLibraryChange(root, "/tmp/other/.ralphy/registry.json")).toEqual({ catalog: false });
   });
 });
 
 describe("watcher lifecycle", () => {
-  test("observes media generated inside the selected project", async () => {
-    fixture = await makeLibraryFixture();
-    let resolveChange: (() => void) | undefined;
-    const changed = new Promise<void>((resolve) => {
-      resolveChange = resolve;
-    });
-    const onSelectedProjectChange = vi.fn(() => resolveChange?.());
-    const watcher = new LibraryWatcher({
-      rootPath: fixture.rootPath,
-      selectedProject: () => selected,
-      onCatalogChange: () => undefined,
-      onSelectedProjectChange,
-      debounceMs: 10,
-    });
-
-    try {
-      await expect(watcher.start()).resolves.toBe(true);
-      await writeFile(
-        join(fixture.alphaPath, "artifacts", "images", "live-generated.png"),
-        "png",
-      );
-      await Promise.race([
-        changed,
-        new Promise((_, reject) => {
-          setTimeout(() => reject(new Error("watcher did not report generated media")), 2_000);
-        }),
-      ]);
-      expect(onSelectedProjectChange).toHaveBeenCalled();
-    } finally {
-      watcher.close();
-    }
-  });
-
   test("does not attach watchers after close wins a start race", async () => {
     fixture = await makeLibraryFixture();
     const onCatalogChange = vi.fn();
     const watcher = new LibraryWatcher({
       rootPath: fixture.rootPath,
-      selectedProject: () => null,
       onCatalogChange,
-      onSelectedProjectChange: () => undefined,
       debounceMs: 1,
     });
 
@@ -127,9 +90,7 @@ describe("watcher lifecycle", () => {
       });
     const watcher = new LibraryWatcher({
       rootPath: fixture.rootPath,
-      selectedProject: () => null,
       onCatalogChange: () => undefined,
-      onSelectedProjectChange: () => undefined,
       watchFileSystem: watchFileSystem as unknown as typeof import("node:fs").watch,
     });
 
@@ -156,9 +117,7 @@ describe("watcher lifecycle", () => {
       });
     const watcher = new LibraryWatcher({
       rootPath: fixture.rootPath,
-      selectedProject: () => null,
       onCatalogChange: () => undefined,
-      onSelectedProjectChange: () => undefined,
       watchFileSystem: watchFileSystem as unknown as typeof import("node:fs").watch,
     });
 

@@ -12,8 +12,12 @@ export interface RalphySessionOptions {
 export interface RalphySessionOpenHooks {
   preparePreviousClose?(
     previousRoot: string | null,
+    candidateClient: RalphyBridgeClient,
   ): void | RalphyPreparationRollback | Promise<void | RalphyPreparationRollback>;
-  beforePreviousClose?(previousRoot: string | null): void;
+  beforePreviousClose?(
+    previousRoot: string | null,
+    previousClient: RalphyBridgeClient | null,
+  ): void | Promise<void>;
   afterPreviousClose?(previousRoot: string | null): void | Promise<void>;
 }
 
@@ -107,7 +111,7 @@ export class RalphySession {
       const previous = this.#active;
       let rollback: RalphyPreparationRollback | void;
       try {
-        rollback = await hooks.preparePreviousClose?.(previous?.root ?? null);
+        rollback = await hooks.preparePreviousClose?.(previous?.root ?? null, candidate);
       } catch (error) {
         await candidate.close();
         throw error;
@@ -121,7 +125,7 @@ export class RalphySession {
         throw this.#supersededError();
       }
       try {
-        hooks.beforePreviousClose?.(previous?.root ?? null);
+        await hooks.beforePreviousClose?.(previous?.root ?? null, previous?.client ?? null);
       } catch (error) {
         try {
           await rollback?.();

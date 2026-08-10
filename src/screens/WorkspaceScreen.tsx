@@ -1,207 +1,179 @@
+import { AlertCircle, RefreshCw } from "lucide-react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import type {
+  ActivityDto,
+  MediaCardDto,
+  OverviewAccountDto,
+  OverviewPublicationDto,
+  Page,
+  ProjectDto,
+  UnitDto,
+  WorkspaceOverviewDto,
+} from "../../electron/ralphy/types";
+import { bridge, type ProjectSummary } from "../lib/ipc";
 import {
-  ArrowRight,
-  Boxes,
-  CircleDollarSign,
-  Film,
-  FolderOpen,
-  LayoutGrid,
-  List,
-} from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
-import type { ProjectSummary, WorkspaceSummary } from "../lib/ipc";
-import { sortProjects, type WorkspaceView } from "../state/workbench";
+  createWorkspaceScreenController,
+  type WorkspaceScreenApi,
+  type WorkspaceScreenController,
+  type WorkspaceScreenSnapshot,
+} from "../state/workspace-screen-controller";
 
-interface WorkspaceScreenProps {
-  workspace: WorkspaceSummary;
-  projects: ProjectSummary[];
-  pinnedProjectIds: string[];
-  view: WorkspaceView;
-  onViewChange(view: WorkspaceView): void;
-  onOpenProject(project: ProjectSummary): void;
+export { createWorkspaceScreenController } from "../state/workspace-screen-controller";
+
+export function startWorkspaceScreenController(
+  api: WorkspaceScreenApi,
+  workspaceId: string,
+  activitySequence: number,
+  setController: (controller: WorkspaceScreenController) => void,
+): () => void {
+  const controller = createWorkspaceScreenController(api, workspaceId, activitySequence);
+  setController(controller);
+  void controller.start();
+  return () => controller.dispose();
 }
 
-function relativeActivity(value: string): string {
-  const elapsed = Date.now() - Date.parse(value);
-  if (!Number.isFinite(elapsed) || elapsed < 0) return "now";
-  const hours = Math.floor(elapsed / 3_600_000);
-  if (hours < 24) return `${Math.max(1, hours)}h`;
-  const days = Math.floor(hours / 24);
-  return days < 30 ? `${days}d` : new Date(value).toLocaleDateString();
+function formatTime(value: number): string {
+  return new Date(value < 1_000_000_000_000 ? value * 1000 : value).toLocaleString();
+}
+
+export function catalogProjectForOverview(
+  projects: ProjectSummary[],
+  project: ProjectDto,
+): ProjectSummary | null {
+  return projects.find((candidate) => (
+    candidate.workspaceId === project.workspaceId && candidate.projectId === project.id
+  )) ?? null;
+}
+
+function BoundedSection<Item>({
+  title,
+  page,
+  empty,
+  children,
+}: {
+  title: string;
+  page: Page<Item, string | number> | undefined;
+  empty: string;
+  children(item: Item): React.ReactNode;
+}) {
+  return <section className="project-domain-card workspace-domain-section">
+    <div className="section-heading"><h3>{title}</h3><span>Bounded records{page?.nextCursor !== null && page ? " · More available" : ""}</span></div>
+    {!page || page.items.length === 0
+      ? <div className="empty-section">{empty}</div>
+      : <div className="project-domain-list">{page.items.map(children)}</div>}
+  </section>;
+}
+
+function mediaName(item: MediaCardDto): string {
+  if ("slug" in item) return item.slug;
+  if ("purpose" in item) return item.purpose;
+  return item.ref.id;
+}
+
+function WorkspaceOverview({
+  value,
+  catalogProjects,
+  onOpenProject,
+}: {
+  value: WorkspaceOverviewDto;
+  catalogProjects: ProjectSummary[];
+  onOpenProject(project: ProjectSummary): void;
+}) {
+  const metrics = value.metrics;
+  return <>
+    <div className="screen-header workspace-header">
+      <div><div className="screen-kicker">Workspace</div><h2>{value.workspace.name}</h2><p>{value.workspace.slug}</p></div>
+      <span className="activity-stamp">Updated {formatTime(value.workspace.updatedAt)}</span>
+    </div>
+    <section className="metrics-band" aria-label="Workspace metrics">
+      <div className="metric"><span className="metric-value">{metrics?.publicationCount ?? "—"}</span><span className="metric-label">Publications</span></div>
+      <div className="metric"><span className="metric-value">{metrics?.views ?? "—"}</span><span className="metric-label">Views</span></div>
+      <div className="metric"><span className="metric-value">{metrics?.likes ?? "—"}</span><span className="metric-label">Likes</span></div>
+      <div className="metric"><span className="metric-value">{metrics?.watchTimeMs ?? "—"}</span><span className="metric-label">Watch time (ms)</span></div>
+      <div className="metric"><span className="metric-value">{metrics?.comments ?? "—"}</span><span className="metric-label">Comments</span></div>
+      <div className="metric"><span className="metric-value">{metrics?.shares ?? "—"}</span><span className="metric-label">Shares</span></div>
+    </section>
+    <div className="workspace-domain-body">
+      <BoundedSection<OverviewAccountDto> title="Accounts" page={value.accounts} empty="No accounts returned.">
+        {(account) => <article key={account.id}><strong>{account.displayName ?? account.username ?? account.externalId}</strong><span>{account.username ? `@${account.username} · ` : ""}{account.platform}</span><small>{account.credentialConfigured ? "Configured" : "Not configured"}{account.relinkRequired ? " · Relink required" : " · Linked"}</small></article>}
+      </BoundedSection>
+      <BoundedSection title="Documents" page={value.documents} empty="No documents returned.">
+        {(document) => <article key={document.id}><strong>{document.title}</strong><span>{document.kind}</span><small>Updated {formatTime(document.updatedAt)}</small></article>}
+      </BoundedSection>
+      <BoundedSection title="Shared Media" page={value.sharedMedia} empty="No shared Media returned.">
+        {(item) => <article key={`${item.ref.type}:${item.ref.id}`}><strong>{mediaName(item)}</strong><span>{item.mime ?? "Unknown media type"}</span><small>{"usageRoles" in item && item.usageRoles.length > 0 ? item.usageRoles.join(" · ") : "No reference evidence"}</small></article>}
+      </BoundedSection>
+      <BoundedSection title="Projects" page={value.projects} empty="No projects returned.">
+        {(project) => {
+          const catalogProject = catalogProjectForOverview(catalogProjects, project);
+          const content = <><strong>{project.name}</strong><span>{project.slug} · {project.state}</span><small>Updated {formatTime(project.updatedAt)}</small></>;
+          return catalogProject
+            ? <button type="button" key={project.id} onClick={() => onOpenProject(catalogProject)}>{content}</button>
+            : <article key={project.id}>{content}</article>;
+        }}
+      </BoundedSection>
+      <BoundedSection<UnitDto> title="Units" page={value.units} empty="No units returned.">
+        {(unit) => <article key={unit.id}><strong>{unit.slug}</strong><span>{unit.format}</span><small>Selected {unit.selectedRevisionId ?? "None"} · Latest {unit.latestRevisionId ?? "None"}</small></article>}
+      </BoundedSection>
+      <BoundedSection<OverviewPublicationDto> title="Publications" page={value.publications} empty="No publications returned.">
+        {(publication) => <article key={publication.id}><strong>{publication.platform} · {publication.state}</strong><span>{publication.rail}</span><small>{publication.url ?? "No URL returned"}</small></article>}
+      </BoundedSection>
+      <BoundedSection<ActivityDto> title="Activity" page={value.activity} empty="No activity returned.">
+        {(event) => <article key={event.sequence}><strong>#{event.sequence} · {event.action}</strong><span>{event.entityType} · {event.entityId}</span><time dateTime={new Date(event.createdAt).toISOString()}>{formatTime(event.createdAt)}</time></article>}
+      </BoundedSection>
+    </div>
+  </>;
+}
+
+export function WorkspaceScreenView({
+  controller,
+  snapshot,
+  catalogProjects,
+  onOpenProject,
+}: {
+  controller: WorkspaceScreenController;
+  snapshot: WorkspaceScreenSnapshot;
+  catalogProjects: ProjectSummary[];
+  onOpenProject(project: ProjectSummary): void;
+}) {
+  if (snapshot.status === "loading" || snapshot.status === "idle") return <main className="main-region"><div className="project-skeleton" role="status">Loading workspace overview…</div></main>;
+  if (snapshot.status === "error") return <main className="main-region"><div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.error ?? "Workspace overview could not be loaded."}</span><button type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div></main>;
+  return <main className="main-region">{snapshot.value && <WorkspaceOverview value={snapshot.value} catalogProjects={catalogProjects} onOpenProject={onOpenProject} />}</main>;
+}
+
+function ConnectedWorkspaceScreen({
+  controller,
+  catalogProjects,
+  onOpenProject,
+}: {
+  controller: WorkspaceScreenController;
+  catalogProjects: ProjectSummary[];
+  onOpenProject(project: ProjectSummary): void;
+}) {
+  const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
+  return <WorkspaceScreenView controller={controller} snapshot={snapshot} catalogProjects={catalogProjects} onOpenProject={onOpenProject} />;
 }
 
 export function WorkspaceScreen({
-  workspace,
-  projects,
-  pinnedProjectIds,
-  view,
-  onViewChange,
+  workspaceId,
+  rootEpoch,
+  activitySequence,
+  catalogProjects,
   onOpenProject,
-}: WorkspaceScreenProps) {
-  const ordered = sortProjects(projects, pinnedProjectIds);
-  const projectsWithSpend = projects.filter((project) => project.spendUsd !== null);
-  const spend = projectsWithSpend.reduce(
-    (total, project) => total + (project.spendUsd ?? 0),
-    0,
+}: {
+  workspaceId: string;
+  rootEpoch: number;
+  activitySequence: number;
+  catalogProjects: ProjectSummary[];
+  onOpenProject(project: ProjectSummary): void;
+}) {
+  const [controller, setController] = useState<WorkspaceScreenController | null>(null);
+  useEffect(
+    () => startWorkspaceScreenController(bridge, workspaceId, activitySequence, setController),
+    [rootEpoch, workspaceId],
   );
-  const finals = projects.reduce((total, project) => total + project.finalCount, 0);
-  const active = projects.filter((project) => project.status !== "done").length;
-
-  return (
-    <main className="main-region">
-      <div className="screen-header workspace-header">
-        <div>
-          <div className="screen-kicker">Workspace</div>
-          <h2>{workspace.name}</h2>
-          <p>{workspace.description || "Ralphy production workspace"}</p>
-        </div>
-        <div className="workspace-header-actions">
-          <span className="activity-stamp">
-            Updated {new Date(workspace.recentActivity).toLocaleDateString()}
-          </span>
-          <div className="view-segments" role="group" aria-label="Project view">
-            <button
-              className={view === "grid" ? "is-active" : ""}
-              type="button"
-              title="Grid view"
-              aria-label="Grid view"
-              aria-pressed={view === "grid"}
-              onClick={() => onViewChange("grid")}
-            >
-              <LayoutGrid size={15} strokeWidth={1.5} />
-            </button>
-            <button
-              className={view === "list" ? "is-active" : ""}
-              type="button"
-              title="List view"
-              aria-label="List view"
-              aria-pressed={view === "list"}
-              onClick={() => onViewChange("list")}
-            >
-              <List size={15} strokeWidth={1.5} />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <section className="metrics-band" aria-label="Workspace summary">
-        <div className="metric">
-          <span className="metric-icon"><FolderOpen size={15} /></span>
-          <span className="metric-value">{projects.length}</span>
-          <span className="metric-label">Projects</span>
-        </div>
-        <div className="metric">
-          <span className="metric-icon"><Film size={15} /></span>
-          <span className="metric-value">{finals}</span>
-          <span className="metric-label">Final renders</span>
-        </div>
-        <div className="metric">
-          <span className="metric-icon"><Boxes size={15} /></span>
-          <span className="metric-value">{active}</span>
-          <span className="metric-label">In production</span>
-        </div>
-        <div className="metric">
-          <span className="metric-icon"><CircleDollarSign size={15} /></span>
-          <span className="metric-value">
-            {projectsWithSpend.length === 0 ? "—" : `$${spend.toFixed(2)}`}
-          </span>
-          <span className="metric-label">Indexed project spend</span>
-        </div>
-      </section>
-
-      <section className="content-section workspace-projects">
-        <div className="section-heading">
-          <h3>Recent projects</h3>
-          <span>Sorted by activity</span>
-        </div>
-        <AnimatePresence mode="wait" initial={false}>
-          {view === "grid" ? (
-            <motion.div
-              className="workspace-project-grid"
-              key="grid"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.14 }}
-            >
-              {ordered.map((project) => (
-                <motion.button
-                  className="workspace-project-card"
-                  type="button"
-                  layout="position"
-                  whileHover={{ y: -2 }}
-                  whileTap={{ scale: 0.99 }}
-                  key={project.id}
-                  onClick={() => onOpenProject(project)}
-                >
-                  <span className="workspace-project-card-head">
-                    <span className="workspace-project-icon">
-                      <FolderOpen size={16} strokeWidth={1.5} />
-                    </span>
-                    <span className="workspace-project-phase">
-                      <i className={`phase-indicator phase-${project.phase ?? "unknown"}`} />
-                      {project.phase ?? project.status}
-                    </span>
-                  </span>
-                  <span className="workspace-project-card-copy">
-                    <strong>{project.name}</strong>
-                    <small>{project.brief || project.projectId}</small>
-                  </span>
-                  <span className="workspace-project-card-footer">
-                    <span>{project.finalState}</span>
-                    <span className="mono-number">
-                      {project.spendUsd === null ? "—" : `$${project.spendUsd.toFixed(2)}`}
-                    </span>
-                    <span>{relativeActivity(project.recentActivity)}</span>
-                    <ArrowRight size={14} />
-                  </span>
-                </motion.button>
-              ))}
-            </motion.div>
-          ) : (
-            <motion.div
-              className="project-table"
-              role="table"
-              aria-label="Projects"
-              key="list"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.14 }}
-            >
-              <div className="project-table-head" role="row">
-                <span>Name</span>
-                <span>Phase</span>
-                <span>Final</span>
-                <span>Spend</span>
-                <span />
-              </div>
-              {ordered.map((project) => (
-                <button
-                  className="project-table-row"
-                  type="button"
-                  role="row"
-                  key={project.id}
-                  onClick={() => onOpenProject(project)}
-                >
-                  <span className="project-name-cell">
-                    <strong>{project.name}</strong>
-                    <small>{project.brief || project.projectId}</small>
-                  </span>
-                  <span><i className={`phase-indicator phase-${project.phase ?? "unknown"}`} />{project.phase ?? project.status}</span>
-                  <span>{project.finalState}</span>
-                  <span className="mono-number">
-                    {project.spendUsd === null ? "—" : `$${project.spendUsd.toFixed(2)}`}
-                  </span>
-                  <ArrowRight size={14} />
-                </button>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-        {ordered.length === 0 && (
-          <div className="empty-section">No projects in this workspace.</div>
-        )}
-      </section>
-    </main>
-  );
+  useEffect(() => { void controller?.refresh(activitySequence); }, [activitySequence, controller]);
+  return controller
+    ? <ConnectedWorkspaceScreen controller={controller} catalogProjects={catalogProjects} onOpenProject={onOpenProject} />
+    : <main className="main-region"><div className="project-skeleton" role="status">Loading workspace overview…</div></main>;
 }

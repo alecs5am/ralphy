@@ -144,6 +144,37 @@ describe("RalphySession", () => {
     await session.close();
   });
 
+  test("awaits async previous cleanup with the previous client before committing replacement", async () => {
+    const session = new RalphySession({ bin: fixtureBin });
+    await session.open("/libraries/current");
+    const previous = session.client;
+    let release!: () => void;
+    const blocked = new Promise<void>((resolve) => { release = resolve; });
+    let entered!: () => void;
+    const cleanupEntered = new Promise<void>((resolve) => { entered = resolve; });
+
+    const replacement = session.open("/libraries/next", {
+      async beforePreviousClose(previousRoot, previousClient) {
+        expect(previousRoot).toBe("/libraries/current");
+        expect(previousClient).toBe(previous);
+        entered();
+        await blocked;
+      },
+    });
+    await cleanupEntered;
+
+    expect(session.root).toBe("/libraries/current");
+    expect(session.client).toBe(previous);
+    await expect(previous.request("workspace.list", {})).resolves.toMatchObject({
+      rootId: fixtureRootId("/libraries/current"),
+    });
+    release();
+    await replacement;
+
+    expect(session.root).toBe("/libraries/next");
+    await session.close();
+  });
+
   test("prevents a slower earlier open from replacing a newer root", async () => {
     const session = new RalphySession({ bin: fixtureBin });
     await session.open("/libraries/current");

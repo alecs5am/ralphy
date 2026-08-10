@@ -18,8 +18,7 @@ import { ResizeHandle } from "./components/ui/ResizeHandle";
 import { useAgentChat } from "./chat/useAgentChat";
 import {
   bridge,
-  type MediaAnnotation,
-  type MediaItem,
+  type ActivityRefreshEvent,
   type MigrationRecovery,
   type ProjectSummary,
   type RootIdentity,
@@ -36,13 +35,7 @@ import {
   writeWorkbenchPreferences,
   type WorkspaceView,
 } from "./state/workbench";
-import { adjacentMediaItem } from "./lib/review";
 
-const loadAssetViewer = () =>
-  import("./screens/AssetViewer").then(({ AssetViewer }) => ({
-    default: AssetViewer,
-  }));
-const AssetViewer = lazy(loadAssetViewer);
 const loadProjectScreen = () =>
   import("./screens/ProjectScreen").then(({ ProjectScreen }) => ({
     default: ProjectScreen,
@@ -56,6 +49,19 @@ const SettingsScreen = lazy(loadSettingsScreen);
 const WELCOME_MINIMUM_MS = 1_200;
 const WELCOME_EXIT_MS = 300;
 
+export function applyActivityRefresh(
+  identity: RootIdentity | null,
+  event: ActivityRefreshEvent,
+): RootIdentity | null {
+  if (
+    !identity
+    || event.storeId !== identity.storeId
+    || event.rootEpoch !== identity.rootEpoch
+    || event.sequence <= identity.activitySequence
+  ) return identity;
+  return { ...identity, activitySequence: event.sequence };
+}
+
 export function App() {
   const initialPreferences = useRef(readWorkbenchPreferences(localStorage));
   const [state, dispatch] = useReducer(
@@ -68,7 +74,6 @@ export function App() {
   const [migrationRecovery, setMigrationRecovery] = useState<MigrationRecovery | null>(null);
   const [welcomeVisible, setWelcomeVisible] = useState(true);
   const [welcomeExiting, setWelcomeExiting] = useState(false);
-  const [projectLoading, setProjectLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sidebarVisible, setSidebarVisible] = useState(
     initialPreferences.current.sidebarVisible,
@@ -80,7 +85,7 @@ export function App() {
     initialPreferences.current.bottomPanelVisible,
   );
   const [settingsVisible, setSettingsVisible] = useState(false);
-  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>(
+  const [workspaceView] = useState<WorkspaceView>(
     initialPreferences.current.workspaceView,
   );
   const [sidebarWidth, setSidebarWidth] = useState(
@@ -98,11 +103,6 @@ export function App() {
   }));
   const [isResizing, setIsResizing] = useState(false);
   const [sidebarSearchRequest, setSidebarSearchRequest] = useState(0);
-  const [includeIntermediate, setIncludeIntermediate] = useState(false);
-  const [annotations, setAnnotations] = useState<Record<string, MediaAnnotation>>({});
-  const [viewer, setViewer] = useState<{ itemId: string; items: MediaItem[] } | null>(null);
-  const projectRequest = useRef(0);
-  const annotationRequests = useRef(new Map<string, number>());
   const restorationStarted = useRef(false);
   const welcomeStartedAt = useRef(Date.now());
 
@@ -152,12 +152,12 @@ export function App() {
       if (event.type === "root-ready") {
         setRootIdentity(event.identity);
         setMigrationRecovery(null);
+      } else if (event.type === "activity-refresh") {
+        setRootIdentity((identity) => applyActivityRefresh(identity, event));
       } else if (event.type === "migration-recovery") {
         setMigrationRecovery(event.recovery);
       } else if (event.type === "catalog-result") {
         dispatch({ type: "catalog-received", catalog: event.result });
-      } else if (event.type === "project-result") {
-        dispatch({ type: "project-received", project: event.result });
       } else if (event.type === "error") {
         setError(event.message);
       }
@@ -185,7 +185,6 @@ export function App() {
             catalog: result.catalog,
             workspaceId,
           });
-          void bridge.loadAnnotations().then((store) => setAnnotations(store.items));
           if (
             workspaceId &&
             saved.rootPath === result.identity.storeId &&
@@ -241,53 +240,8 @@ export function App() {
   );
 
   useEffect(() => {
-    if (state.route.kind !== "project") {
-      projectRequest.current += 1;
-      setProjectLoading(false);
-      void bridge.cancelProjectScan();
-      return;
-    }
-    const token = ++projectRequest.current;
-    setProjectLoading(true);
-    setError(null);
-    void bridge
-      .scanProject({
-        workspaceId: state.route.workspaceId,
-        projectId: state.route.projectId,
-      }, { includeIntermediate })
-      .then((project) => {
-        if (projectRequest.current === token) {
-          dispatch({ type: "project-received", project });
-        }
-      })
-      .catch((cause: unknown) => {
-        if (projectRequest.current === token) {
-          setError(cause instanceof Error ? cause.message : String(cause));
-        }
-      })
-      .finally(() => {
-        if (projectRequest.current === token) setProjectLoading(false);
-      });
-  }, [includeIntermediate, state.route]);
-
-  useEffect(() => {
-    setViewer(null);
-  }, [
-    state.route.kind === "project" ? state.route.projectId : null,
-    state.route.kind === "project" ? state.route.workspaceId : null,
-  ]);
-
-  useEffect(() => {
-    if (state.route.kind !== "project") return;
-    const timer = window.setTimeout(() => void loadAssetViewer(), 0);
-    return () => window.clearTimeout(timer);
-  }, [state.route.kind]);
-
-  useEffect(() => {
     if (state.route.kind !== "workspace") return;
-    const timer = window.setTimeout(() => {
-      void Promise.all([loadProjectScreen(), loadAssetViewer()]);
-    }, 700);
+    const timer = window.setTimeout(() => void loadProjectScreen(), 700);
     return () => window.clearTimeout(timer);
   }, [state.route.kind]);
 
@@ -349,9 +303,6 @@ export function App() {
           catalog: result.catalog,
           workspaceId: mostRecentWorkspaceId(result.catalog.workspaces),
         });
-        const store = await bridge.loadAnnotations();
-        setAnnotations(store.items);
-        setIncludeIntermediate(false);
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -359,9 +310,8 @@ export function App() {
   }, []);
 
   const navigateBack = useCallback(() => {
-    if (viewer) setViewer(null);
-    else dispatch({ type: "back" });
-  }, [viewer]);
+    dispatch({ type: "back" });
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -414,8 +364,6 @@ export function App() {
     });
   };
 
-  const viewerItem = viewer?.items.find((item) => item.id === viewer.itemId) ?? null;
-  const viewerItems = viewer?.items ?? [];
   const breadcrumbs = selectedProject
     ? [
         {
@@ -430,39 +378,6 @@ export function App() {
     : selectedWorkspace
       ? [{ label: selectedWorkspace.name }]
       : [{ label: "Workspaces" }];
-
-  const updateAnnotation = async (item: MediaItem, input: Parameters<typeof bridge.updateAnnotations>[0][string]) => {
-    const request = (annotationRequests.current.get(item.id) ?? 0) + 1;
-    annotationRequests.current.set(item.id, request);
-    setAnnotations((current) => ({
-      ...current,
-      [item.id]: { ...input, updatedAt: new Date().toISOString() },
-    }));
-    try {
-      const store = await bridge.updateAnnotations({ [item.id]: input });
-      if (annotationRequests.current.get(item.id) === request) {
-        const saved = store.items[item.id];
-        if (saved) {
-          setAnnotations((current) => ({ ...current, [item.id]: saved }));
-        }
-      }
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    }
-  };
-
-  const trashItem = async (item: MediaItem) => {
-    try {
-      const result = await bridge.trashItems([item.absolutePath]);
-      if (result.failed.length > 0) {
-        setError(result.failed[0].error);
-        return;
-      }
-      setViewer((current) => current?.itemId === item.id ? null : current);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    }
-  };
 
   if (migrationRecovery) {
     return (
@@ -494,11 +409,11 @@ export function App() {
   if (state.route.kind === "workspace" && selectedWorkspace) {
     content = (
       <WorkspaceScreen
-        workspace={selectedWorkspace}
-        projects={projects.filter((project) => project.workspaceId === selectedWorkspace.id)}
-        pinnedProjectIds={state.pinnedProjectIds}
-        view={workspaceView}
-        onViewChange={setWorkspaceView}
+        key={`workspace:${rootIdentity?.rootEpoch ?? 0}:${selectedWorkspace.id}`}
+        workspaceId={selectedWorkspace.id}
+        rootEpoch={rootIdentity?.rootEpoch ?? 0}
+        activitySequence={rootIdentity?.activitySequence ?? 0}
+        catalogProjects={projects.filter((project) => project.workspaceId === selectedWorkspace.id)}
         onOpenProject={openProject}
       />
     );
@@ -515,23 +430,16 @@ export function App() {
         }
       >
         <ProjectScreen
+          key={`project:${rootIdentity?.rootEpoch ?? 0}:${selectedProject.workspaceId}:${selectedProject.projectId}`}
           project={selectedProject}
-          scan={state.project}
-          annotations={annotations}
-          loading={projectLoading}
-          includeIntermediate={includeIntermediate}
-          onIncludeIntermediateChange={setIncludeIntermediate}
-          onOpenAsset={(item, visibleItems) => {
-            setViewer({ itemId: item.id, items: visibleItems });
-          }}
-          onChangeAsset={(item, input) => void updateAnnotation(item, input)}
-          onTrashAsset={(item) => void trashItem(item)}
+          rootEpoch={rootIdentity?.rootEpoch ?? 0}
+          activitySequence={rootIdentity?.activitySequence ?? 0}
         />
       </Suspense>
     );
   }
 
-  const canGoBack = viewerItem !== null || state.historyIndex > 0;
+  const canGoBack = state.historyIndex > 0;
   const canGoForward = state.historyIndex < state.history.length - 1;
 
   return (
@@ -543,7 +451,6 @@ export function App() {
             !sidebarVisible ? " sidebar-collapsed" : "",
             showRightPanel ? " has-right-panel" : "",
             bottomPanelVisible ? " has-bottom-panel" : "",
-            viewerItem ? " viewer-open" : "",
             isResizing ? " is-resizing" : "",
           ].join("")}
           style={{
@@ -660,33 +567,6 @@ export function App() {
               />
             ) : null}
           </AnimatePresence>
-          <Suspense fallback={null}>
-            {viewerItem && viewer && selectedProject && (
-              <AssetViewer
-                key="asset-modal"
-                item={viewerItem}
-                project={selectedProject}
-                annotation={annotations[viewerItem.id]}
-                canPrevious={adjacentMediaItem(viewerItems, viewerItem.id, -1) !== null}
-                canNext={adjacentMediaItem(viewerItems, viewerItem.id, 1) !== null}
-                onBack={() => setViewer(null)}
-                onPrevious={() => {
-                  const item = adjacentMediaItem(viewerItems, viewerItem.id, -1);
-                  if (item) {
-                    setViewer({ itemId: item.id, items: viewerItems });
-                  }
-                }}
-                onNext={() => {
-                  const item = adjacentMediaItem(viewerItems, viewerItem.id, 1);
-                  if (item) {
-                    setViewer({ itemId: item.id, items: viewerItems });
-                  }
-                }}
-                onChange={(input) => void updateAnnotation(viewerItem, input)}
-                onTrash={() => void trashItem(viewerItem)}
-              />
-            )}
-          </Suspense>
           {error && (
             <div className="error-banner" role="alert">
               <span>{error}</span>

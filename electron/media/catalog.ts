@@ -23,6 +23,8 @@ import type {
   TrashResult,
   WorkspaceSummary,
 } from "./types";
+import type { RalphyBridgeClient } from "../ralphy/client";
+import type { Page, ProjectDto, WorkspaceDto } from "../ralphy/types";
 
 const JSON_LIMIT_BYTES = 1024 * 1024;
 const TEXT_LIMIT_BYTES = 2 * 1024 * 1024;
@@ -113,8 +115,24 @@ async function hasFile(path: string): Promise<boolean> {
   return info?.isFile() ?? false;
 }
 
+async function hasDomainStore(root: string): Promise<boolean> {
+  const [database, buckets] = await Promise.all([
+    safeStat(join(root, "ralphy.db")),
+    safeStat(join(root, "buckets")),
+  ]);
+  return Boolean(database?.isFile() && buckets?.isDirectory());
+}
+
 function projectIdentity(workspaceId: string, projectId: string): string {
   return `${workspaceId}/${projectId}`;
+}
+
+export function isLegacyCatalogGhost(
+  kind: "workspace" | "project",
+  value: { slug: string; name: string },
+): boolean {
+  return value.name === ".DS Store"
+    && value.slug === (kind === "workspace" ? "ds-store" : ".DS_Store");
 }
 
 function registryProjects(registry: unknown): Record<string, JsonObject> {
@@ -158,12 +176,18 @@ export async function validateLibraryRoot(rootPath: string): Promise<string> {
   const canonicalRoot = await realpath(resolvedRoot);
   const workspacesPath = join(canonicalRoot, "workspaces");
   const workspacesInfo = await lstat(workspacesPath).catch(() => null);
-  if (!workspacesInfo?.isDirectory() || workspacesInfo.isSymbolicLink()) {
+  const legacy = Boolean(workspacesInfo?.isDirectory() && !workspacesInfo.isSymbolicLink());
+  if (!legacy && !await hasDomainStore(canonicalRoot)) {
     throw new InvalidLibraryRootError(
-      "Library root must contain a real workspaces directory",
+      "Library root must contain a real workspaces directory or SQLite domain store",
     );
   }
   return canonicalRoot;
+}
+
+export async function isDomainLibraryRoot(rootPath: string): Promise<boolean> {
+  const root = await validateLibraryRoot(rootPath);
+  return hasDomainStore(root);
 }
 
 export async function resolveContainedPath(
@@ -215,13 +239,91 @@ export async function resolveProjectPath(
 ): Promise<string> {
   validateIdentifier(workspaceId, "workspace id");
   validateIdentifier(projectId, "project id");
+  const domain = await isDomainLibraryRoot(rootPath);
   const path = await resolveContainedPath(
     rootPath,
-    join("workspaces", workspaceId, "projects", projectId),
+    join(domain ? "buckets" : "workspaces", workspaceId, "projects", projectId),
   );
   const info = await lstat(path);
   if (!info.isDirectory()) throw new Error(`Project is not a directory: ${projectId}`);
   return path;
+}
+
+export async function buildDomainCatalog(
+  rootPath: string,
+  client: Pick<RalphyBridgeClient, "request">,
+  generation = 0,
+  onProgress?: (progress: CatalogProgress) => void,
+): Promise<CatalogResult> {
+  const root = await validateLibraryRoot(rootPath);
+  if (!await hasDomainStore(root)) throw new InvalidLibraryRootError("Library is not a SQLite domain store");
+  const workspaceRows: WorkspaceDto[] = [];
+  let after: string | null = null;
+  do {
+    const page: Page<WorkspaceDto> = await client.request("workspace.list", { after, limit: 100 });
+    workspaceRows.push(...page.items);
+    after = page.nextCursor;
+  } while (after !== null);
+
+  const workspaces: WorkspaceSummary[] = [];
+  const projects: ProjectSummary[] = [];
+  for (const workspace of workspaceRows) {
+    if (isLegacyCatalogGhost("workspace", workspace)) continue;
+    const projectRows: ProjectDto[] = [];
+    after = null;
+    do {
+      const page: Page<ProjectDto> = await client.request("project.list", {
+        context: { workspaceId: workspace.id },
+        workspaceId: workspace.id,
+        after,
+        limit: 100,
+      });
+      projectRows.push(...page.items);
+      after = page.nextCursor;
+    } while (after !== null);
+
+    const visibleProjects = projectRows.filter((project) => !isLegacyCatalogGhost("project", project));
+    for (const project of visibleProjects) {
+      projects.push({
+        workspaceId: workspace.id,
+        projectId: project.id,
+        id: projectIdentity(workspace.id, project.id),
+        name: project.name,
+        brief: "",
+        status: project.state,
+        phase: null,
+        finalState: project.state,
+        platform: null,
+        aspectRatio: null,
+        spendUsd: null,
+        finalCount: 0,
+        sharedCount: 0,
+        unitCount: 0,
+        recentActivity: isoTime(project.updatedAt),
+      });
+      onProgress?.({ generation, workspacesRead: workspaces.length, projectsRead: projects.length });
+    }
+    workspaces.push({
+      id: workspace.id,
+      name: workspace.name,
+      description: "",
+      absolutePath: join(root, "buckets", workspace.id),
+      projectCount: visibleProjects.length,
+      sharedCount: 0,
+      unitCount: 0,
+      finalCount: 0,
+      recentActivity: isoTime(workspace.updatedAt),
+    });
+  }
+
+  return {
+    rootPath: root,
+    generation,
+    workspaces,
+    projects,
+    mediaItemCount: 0,
+    completedAt: new Date().toISOString(),
+  };
 }
 
 export async function readBoundedJson(
@@ -294,7 +396,6 @@ export async function buildShallowCatalog(
         id: projectIdentity(workspaceId, projectId),
         name: stringValue(registryData.name, plan.name) ?? projectId,
         brief: stringValue(registryData.brief, plan.brief) ?? "",
-        absolutePath: projectPath,
         status: projectStatus(registryData, files),
         phase: stringValue(plan.phase, plan.currentPhase, registryData.phase),
         finalState: stringValue(registryData.finalState) ?? (files.render ? "ready" : "missing"),

@@ -26,6 +26,7 @@ const PASSTHROUGH_ENV_KEYS = ["HOME", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE"] as
 const SHA256_HEX = /^[a-f0-9]{64}$/;
 const CLOSE_GRACE_MS = 1_000;
 const CLOSE_TERM_MS = 1_000;
+const SUPPORTED_CORE_CONTRACT_VERSION = 2;
 
 interface PendingRequest {
   resolve(value: unknown): void;
@@ -99,6 +100,13 @@ function parseError(value: unknown): BridgeErrorPayload | null {
 
 function nonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
+}
+
+function coreContractVersion(value: string): number | null {
+  const match = /^(\d+)(?:\.|$)/.exec(value);
+  if (!match) return null;
+  const version = Number(match[1]);
+  return Number.isSafeInteger(version) ? version : null;
 }
 
 function sequence(value: unknown): value is number {
@@ -194,6 +202,13 @@ function parseHello(value: unknown): BridgeHello {
     throw new RalphyBridgeError(
       "E_BRIDGE_PROTOCOL",
       "Ralphy bridge returned an invalid system.hello response",
+    );
+  }
+  const coreVersion = coreContractVersion(hello.coreVersion);
+  if (coreVersion !== SUPPORTED_CORE_CONTRACT_VERSION) {
+    throw new RalphyBridgeError(
+      "E_BRIDGE_VERSION",
+      "Ralphy CLI is incompatible with this Desktop version. Update Ralphy CLI or Desktop before continuing.",
     );
   }
   if (

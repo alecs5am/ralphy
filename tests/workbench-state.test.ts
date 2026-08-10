@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type {
   CatalogResult,
-  ProjectScanResult,
   ProjectSummary,
   WorkspaceSummary,
 } from "../electron/media/types";
@@ -45,7 +44,6 @@ function project(
     projectId,
     name: projectId,
     brief: "",
-    absolutePath: `${rootPath}/workspaces/${workspaceId}/projects/${projectId}`,
     status: "assets",
     phase: "production",
     finalState: "review",
@@ -77,7 +75,7 @@ const catalog: CatalogResult = {
 };
 
 describe("workbench navigation", () => {
-  test("opening another library resets route history and project data", () => {
+  test("opening another library resets route history", () => {
     let state = createInitialWorkbenchState();
     state = workbenchReducer(state, { type: "catalog-received", catalog });
     state = workbenchReducer(state, { type: "open-workspace", workspaceId: "newer" });
@@ -94,7 +92,6 @@ describe("workbench navigation", () => {
 
     expect(state.route).toEqual({ kind: "workspace", workspaceId: "newer" });
     expect(state.history).toEqual([{ kind: "workspace", workspaceId: "newer" }]);
-    expect(state.project).toBeNull();
   });
 
   test("moves Workspace -> Project and back without losing workspace context", () => {
@@ -123,7 +120,7 @@ describe("workbench navigation", () => {
     });
   });
 
-  test("rejects stale catalog and project results", () => {
+  test("rejects stale catalog results", () => {
     let state = createInitialWorkbenchState();
     state = workbenchReducer(state, { type: "catalog-received", catalog });
     state = workbenchReducer(state, {
@@ -132,35 +129,6 @@ describe("workbench navigation", () => {
     });
     expect(state.catalog?.workspaces).toHaveLength(2);
 
-    state = workbenchReducer(state, {
-      type: "open-workspace",
-      workspaceId: "newer",
-    });
-    state = workbenchReducer(state, {
-      type: "open-project",
-      project: { workspaceId: "newer", projectId: "newer-project" },
-    });
-    state = workbenchReducer(state, {
-      type: "project-scan-started",
-      generation: 9,
-    });
-    const stale: ProjectScanResult = {
-      rootPath,
-      workspaceId: "newer",
-      projectId: "newer-project",
-      generation: 8,
-      items: [],
-      ledger: {
-        entries: [],
-        totalCostUsd: 0,
-        malformedLineCount: 0,
-        oversizedLineCount: 0,
-        truncated: false,
-      },
-      completedAt: "2026-07-30T00:00:01.000Z",
-    };
-    state = workbenchReducer(state, { type: "project-received", project: stale });
-    expect(state.project).toBeNull();
   });
 
   test("keeps catalog refreshes on the nearest valid workspace route", () => {
@@ -209,45 +177,6 @@ describe("workbench navigation", () => {
     expect(state.route).toEqual({ kind: "library" });
   });
 
-  test("promotes scanned spend into workspace and library summaries", () => {
-    let state = createInitialWorkbenchState();
-    state = workbenchReducer(state, { type: "catalog-received", catalog });
-    state = workbenchReducer(state, { type: "open-workspace", workspaceId: "newer" });
-    state = workbenchReducer(state, {
-      type: "open-project",
-      project: { workspaceId: "newer", projectId: "newer-project" },
-    });
-    state = workbenchReducer(state, {
-      type: "project-received",
-      project: {
-        rootPath,
-        workspaceId: "newer",
-        projectId: "newer-project",
-        generation: 5,
-        items: [],
-        ledger: {
-          entries: [],
-          totalCostUsd: 12.34,
-          malformedLineCount: 0,
-          oversizedLineCount: 0,
-          truncated: false,
-        },
-        completedAt: "2026-07-30T00:00:01.000Z",
-      },
-    });
-
-    expect(
-      state.catalog?.projects.find((item) => item.projectId === "newer-project")?.spendUsd,
-    ).toBe(12.34);
-
-    state = workbenchReducer(state, {
-      type: "catalog-received",
-      catalog: { ...catalog, generation: 6 },
-    });
-    expect(
-      state.catalog?.projects.find((item) => item.projectId === "newer-project")?.spendUsd,
-    ).toBe(12.34);
-  });
 });
 
 describe("workbench ordering and preferences", () => {

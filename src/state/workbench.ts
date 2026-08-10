@@ -1,7 +1,6 @@
 import type {
   CatalogResult,
   ProjectReference,
-  ProjectScanResult,
   ProjectSummary,
   WorkspaceSummary,
 } from "../../electron/media/types";
@@ -34,8 +33,6 @@ export interface WorkbenchState {
   historyIndex: number;
   catalog: CatalogResult | null;
   catalogGeneration: number;
-  project: ProjectScanResult | null;
-  projectGeneration: number;
   pinnedWorkspaceIds: string[];
   pinnedProjectIds: string[];
 }
@@ -48,8 +45,6 @@ export type WorkbenchAction =
   | { type: "open-project"; project: ProjectReference }
   | { type: "back" }
   | { type: "forward" }
-  | { type: "project-scan-started"; generation: number }
-  | { type: "project-received"; project: ProjectScanResult }
   | { type: "toggle-workspace-pin"; workspaceId: string }
   | { type: "toggle-project-pin"; projectId: string };
 
@@ -70,8 +65,6 @@ export function createInitialWorkbenchState(
     historyIndex: 0,
     catalog: null,
     catalogGeneration: -1,
-    project: null,
-    projectGeneration: -1,
     pinnedWorkspaceIds: preferences?.pinnedWorkspaceIds ?? [],
     pinnedProjectIds: preferences?.pinnedProjectIds ?? [],
   };
@@ -86,7 +79,6 @@ function navigate(state: WorkbenchState, route: WorkbenchRoute): WorkbenchState 
     route,
     history,
     historyIndex: history.length - 1,
-    project: route.kind === "project" ? state.project : null,
   };
 }
 
@@ -134,25 +126,12 @@ export function workbenchReducer(
         historyIndex: 0,
         catalog: action.catalog,
         catalogGeneration: action.catalog.generation,
-        project: null,
-        projectGeneration: -1,
       };
     }
     case "catalog-received":
       if (action.catalog.generation < state.catalogGeneration) return state;
       {
-        const scannedSpend = new Map(
-          state.catalog?.projects.flatMap((project) => (
-            project.spendUsd === null ? [] : [[project.id, project.spendUsd] as const]
-          )),
-        );
-        const catalog = {
-          ...action.catalog,
-          projects: action.catalog.projects.map((project) => ({
-            ...project,
-            spendUsd: project.spendUsd ?? scannedSpend.get(project.id) ?? null,
-          })),
-        };
+        const catalog = action.catalog;
         const route = validRouteForCatalog(state.route, catalog);
         const routeChanged = JSON.stringify(route) !== JSON.stringify(state.route);
         return {
@@ -163,9 +142,6 @@ export function workbenchReducer(
             : state.history,
           catalog,
           catalogGeneration: action.catalog.generation,
-          project: route.kind === "project" ? state.project : null,
-          projectGeneration:
-            route.kind === "project" ? state.projectGeneration : -1,
         };
       }
     case "open-library":
@@ -173,7 +149,6 @@ export function workbenchReducer(
         ...state,
         route: { kind: "library" },
         historyIndex: 0,
-        project: null,
       };
     case "open-workspace":
       return navigate(state, { kind: "workspace", workspaceId: action.workspaceId });
@@ -186,7 +161,6 @@ export function workbenchReducer(
         ...state,
         route: state.history[historyIndex],
         historyIndex,
-        project: null,
       };
     }
     case "forward": {
@@ -196,40 +170,8 @@ export function workbenchReducer(
         ...state,
         route: state.history[historyIndex],
         historyIndex,
-        project: null,
       };
     }
-    case "project-scan-started":
-      return {
-        ...state,
-        project: null,
-        projectGeneration: action.generation,
-      };
-    case "project-received":
-      if (
-        action.project.generation < state.projectGeneration ||
-        state.route.kind !== "project" ||
-        action.project.workspaceId !== state.route.workspaceId ||
-        action.project.projectId !== state.route.projectId
-      ) {
-        return state;
-      }
-      return {
-        ...state,
-        catalog: state.catalog
-          ? {
-            ...state.catalog,
-            projects: state.catalog.projects.map((project) => (
-              project.workspaceId === action.project.workspaceId
-                && project.projectId === action.project.projectId
-                ? { ...project, spendUsd: action.project.ledger.totalCostUsd }
-                : project
-            )),
-          }
-          : null,
-        project: action.project,
-        projectGeneration: action.project.generation,
-      };
     case "toggle-workspace-pin":
       return {
         ...state,

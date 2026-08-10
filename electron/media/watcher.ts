@@ -1,18 +1,14 @@
 import { watch, type FSWatcher } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
-import { validateLibraryRoot } from "./catalog";
-import type { ProjectReference } from "./types";
+import { isDomainLibraryRoot, validateLibraryRoot } from "./catalog";
 
 export interface WatchRoute {
   catalog: boolean;
-  selectedProject: boolean;
 }
 
 export interface LibraryWatcherOptions {
   rootPath: string;
-  selectedProject: () => ProjectReference | null;
   onCatalogChange: () => void;
-  onSelectedProjectChange: () => void;
   onError?: (error: Error) => void;
   debounceMs?: number;
   watchFileSystem?: typeof watch;
@@ -26,13 +22,12 @@ const CATALOG_PROJECT_FILES = new Set([
 ]);
 
 function noRoute(): WatchRoute {
-  return { catalog: false, selectedProject: false };
+  return { catalog: false };
 }
 
 export function routeLibraryChange(
   rootPath: string,
   changedPath: string,
-  selectedProject: ProjectReference | null,
 ): WatchRoute {
   const root = resolve(rootPath);
   const changed = resolve(changedPath);
@@ -42,32 +37,35 @@ export function routeLibraryChange(
   }
   const parts = rel.split(sep);
   if (parts[0] === "media-library") return noRoute();
+  if (parts[0]?.startsWith("ralphy.db")) {
+    return { catalog: true };
+  }
   if (parts[0] === "registry.json") {
-    return { catalog: true, selectedProject: false };
+    return { catalog: true };
+  }
+  if (parts[0] === "buckets") {
+    if (parts.length <= 2) return { catalog: true };
+    if (parts[2] === "shared") return { catalog: true };
+    if (parts[2] !== "projects") return noRoute();
+    return { catalog: parts.length <= 4 };
   }
   if (parts[0] !== "workspaces") return noRoute();
-  if (parts.length <= 2) return { catalog: true, selectedProject: false };
+  if (parts.length <= 2) return { catalog: true };
   if (parts[2] === "workspace.json" || parts[2] === "shared") {
-    return { catalog: true, selectedProject: false };
+    return { catalog: true };
   }
   if (parts[2] !== "projects") return noRoute();
-  if (parts.length <= 4) return { catalog: true, selectedProject: false };
-
-  const workspaceId = parts[1];
-  const projectId = parts[3];
-  const isSelected = selectedProject?.workspaceId === workspaceId
-    && selectedProject.projectId === projectId;
+  if (parts.length <= 4) return { catalog: true };
   const projectRelativePath = parts.slice(4).join("/").toLowerCase();
   const catalog = !projectRelativePath.includes("/")
     && CATALOG_PROJECT_FILES.has(projectRelativePath);
-  return { catalog, selectedProject: isSelected };
+  return { catalog };
 }
 
 export class LibraryWatcher {
   readonly #options: LibraryWatcherOptions;
   #watchers: FSWatcher[] = [];
   #catalogTimer: ReturnType<typeof setTimeout> | null = null;
-  #projectTimer: ReturnType<typeof setTimeout> | null = null;
   #rootPath = "";
   #lifecycleGeneration = 0;
 
@@ -83,13 +81,8 @@ export class LibraryWatcher {
     const handle = (basePath: string, filename: string | Buffer | null): void => {
       if (lifecycleGeneration !== this.#lifecycleGeneration) return;
       const changedPath = filename ? join(basePath, filename.toString()) : basePath;
-      const route = routeLibraryChange(
-        this.#rootPath,
-        changedPath,
-        this.#options.selectedProject(),
-      );
+      const route = routeLibraryChange(this.#rootPath, changedPath);
       if (route.catalog) this.#debounceCatalog();
-      if (route.selectedProject) this.#debounceProject();
     };
     const onError = (error: Error): void => this.#options.onError?.(error);
     const watchFileSystem = this.#options.watchFileSystem ?? watch;
@@ -100,7 +93,10 @@ export class LibraryWatcher {
       });
       this.#watchers.push(rootWatcher);
       rootWatcher.on("error", onError);
-      const workspacesPath = join(this.#rootPath, "workspaces");
+      const workspacesPath = join(
+        this.#rootPath,
+        await isDomainLibraryRoot(this.#rootPath) ? "buckets" : "workspaces",
+      );
       const workspaceWatcher = watchFileSystem(
         workspacesPath,
         { recursive: true },
@@ -131,9 +127,7 @@ export class LibraryWatcher {
     }
     this.#watchers = [];
     if (this.#catalogTimer) clearTimeout(this.#catalogTimer);
-    if (this.#projectTimer) clearTimeout(this.#projectTimer);
     this.#catalogTimer = null;
-    this.#projectTimer = null;
   }
 
   #debounceCatalog(): void {
@@ -141,14 +135,6 @@ export class LibraryWatcher {
     this.#catalogTimer = setTimeout(() => {
       this.#catalogTimer = null;
       this.#options.onCatalogChange();
-    }, this.#options.debounceMs ?? 100);
-  }
-
-  #debounceProject(): void {
-    if (this.#projectTimer) clearTimeout(this.#projectTimer);
-    this.#projectTimer = setTimeout(() => {
-      this.#projectTimer = null;
-      this.#options.onSelectedProjectChange();
     }, this.#options.debounceMs ?? 100);
   }
 }

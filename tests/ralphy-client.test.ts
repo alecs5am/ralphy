@@ -38,7 +38,7 @@ function injectedBridge(mode: "success" | "error" | "backpressure-close") {
         callback();
         setImmediate(() => send({ v: 1, id: request.id, ok: true, result: {
           protocolVersion: 1,
-          coreVersion: "1",
+          coreVersion: "2",
           schemaVersion: 9,
           storeId: "store-injected",
           rootId: "a".repeat(64),
@@ -140,7 +140,7 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
     const result = {
       protocolVersion: root.includes("protocol-2") ? 2 : 1,
       schemaVersion: 9,
-      coreVersion: "2.0.0-test",
+      coreVersion: root.includes("core-1") ? "1" : root.includes("core-3") ? "3" : "2.0.0-test",
       storeId: "store-test",
       rootId: root.includes("bad-root-id") ? "root-test" : "a".repeat(64),
       capabilities: root.includes("missing-method")
@@ -400,8 +400,8 @@ describe("RalphyBridgeClient", () => {
         id: "evaluation-1",
         workspaceId: "workspace-1",
         projectId: "project-1",
-        targetType: "artifact-revision",
-        targetId: "revision-2",
+        target: { type: "artifact_revision", id: "revision-2" },
+        kind: "review",
         verdict: "approved",
         favorite: false,
         rating: 5,
@@ -448,6 +448,45 @@ describe("RalphyBridgeClient", () => {
     expect(invalid).toBeDefined();
   });
 
+  test("types the exact overview, filtered Media, Run Object, and activity contracts", () => {
+    const workspace: ParamsFor<"workspace.overview"> = {
+      context: { workspaceId: "ws_1" }, workspaceId: "ws_1",
+      sections: {
+        documents: { limit: 5 }, units: { limit: 5 }, accounts: { limit: 5 }, projects: { limit: 5 },
+        activity: { afterSequence: 0, limit: 10 }, sharedMedia: { limit: 5 }, publications: { limit: 5 }, metrics: true,
+      },
+    };
+    const project: ParamsFor<"project.overview"> = {
+      context: { workspaceId: "ws_1", projectId: "prj_1" }, projectId: "prj_1",
+      sections: {
+        documents: { limit: 5 }, iterations: { limit: 5 }, feedback: { limit: 5 }, stages: { limit: 5 },
+        compositions: { limit: 5 }, builds: { limit: 5 }, units: { limit: 5 }, runs: { limit: 5 },
+        activity: { afterSequence: 0, limit: 10 }, mediaCounts: true, publications: { limit: 5 }, metrics: true,
+      },
+    };
+    const media: ParamsFor<"media.list"> = {
+      context: project.context, after: "media_1", limit: 1, filter: "references", types: ["artifact"],
+    };
+    const runObjects: ResultFor<"run.objects"> = {
+      items: [{
+        id: "robj_1", workspaceId: "ws_1", projectId: "prj_1", runId: "run_1", purpose: "output", state: "ready",
+        retention: "durable", mime: "video/mp4", bytes: 12, createdAt: 1, objectId: "obj_1",
+        logicalPath: "outputs/final.mp4", locationClass: "other", attemptId: null, attemptNo: null,
+      }],
+      nextCursor: null,
+    };
+    const overviewRun: NonNullable<ResultFor<"project.overview">["runs"]>["items"][number] = {
+      id: "run_1", workspaceId: "ws_1", projectId: "prj_1", kind: "generation", label: "Launch",
+      state: "succeeded", createdAt: 1, startedAt: 2, endedAt: 3,
+    };
+    const activity: ParamsFor<"activity.list"> = { afterSequence: 7, limit: 10 };
+    const subscribe: ParamsFor<"activity.subscribe"> = { subscriptionId: "sub_1", afterSequence: 7 };
+    const subscribed: ResultFor<"activity.subscribe"> = { subscriptionId: "sub_1", sequence: 7 };
+    const unsubscribed: ResultFor<"activity.unsubscribe"> = { subscriptionId: "sub_1", unsubscribed: true };
+
+    expect([workspace, project, media, runObjects, overviewRun, activity, subscribe, subscribed, unsubscribed]).toHaveLength(9);
+  });
+
   test("matches the exact operation, recovery, activity, and binding contracts", () => {
     const context = { sessionId: "session-1" } as const;
     const external = {
@@ -458,21 +497,14 @@ describe("RalphyBridgeClient", () => {
       idempotencyKey: "key-1",
     } as const;
 
-    const operation: ResultFor<"composition.build"> = {
+    const build: ResultFor<"composition.build"> = {
+      id: "build-1",
+      compositionRevisionId: "composition-revision-1",
       runId: "run-1",
-      state: "pending",
-      results: {
-        items: [{
-          id: "result-1",
-          runId: "run-1",
-          position: 0,
-          entityType: "artifact_revision",
-          entityId: "revision-1",
-          createdAt: 1,
-        }],
-        nextCursor: null,
-      },
-      replayed: false,
+      state: "succeeded",
+      createdAt: 1,
+      finishedAt: 2,
+      outputs: [{ artifactRevisionId: "artifact-revision-1", objectId: "object-1", role: "master", position: 0 }],
     };
 
     const operationStarts: [
@@ -485,7 +517,7 @@ describe("RalphyBridgeClient", () => {
       ParamsFor<"agent.turn.start">,
       ParamsFor<"agent.turn.resume">,
     ] = [
-      { context, external, compositionRevisionId: "composition-revision-1" },
+      { context, compositionRevisionId: "composition-revision-1", profile: { quality: "preview" } },
       { context, external, unitId: "unit-1", expectedLatestRevisionId: "unit-revision-1", input: {} },
       { context, external, unitRevisionId: "unit-revision-1", platform: "tiktok" },
       { context, external, publicationId: "publication-1" },
@@ -523,7 +555,7 @@ describe("RalphyBridgeClient", () => {
         startedAt: null,
         endedAt: null,
       },
-      results: operation.results,
+      results: { items: [], nextCursor: null },
       replayed: true,
     };
 
@@ -534,9 +566,9 @@ describe("RalphyBridgeClient", () => {
     acceptsFind({ context, external: { runId: external.runId, nodeId: external.nodeId, attempt: 1 } });
 
     const acceptsBuild = (_params: ParamsFor<"composition.build">) => true;
-    // @ts-expect-error operation idempotency belongs to the exact external object.
+    // @ts-expect-error Composition builds are terminal Core operations, not external replay requests.
     acceptsBuild({ context, idempotencyKey: "top-level-key", compositionRevisionId: "composition-revision-1" });
-    // @ts-expect-error callers cannot provide storage-shaped external field names.
+    // @ts-expect-error Composition builds do not accept an external operation tuple.
     acceptsBuild({ context, external: { externalSystem: "farm", externalRunId: "run-1", externalNodeId: "node-1", externalAttempt: 1 }, compositionRevisionId: "composition-revision-1" });
 
     const projectBinding: ParamsFor<"document.bind"> = {
@@ -604,16 +636,13 @@ describe("RalphyBridgeClient", () => {
     acceptsRecovery({ ...recovery, claimToken: "secret" });
 
     const activityParams: ParamsFor<"activity.list"> = { afterSequence: 7, limit: 100 };
+    const scopedActivityParams: ParamsFor<"activity.list"> = { context, afterSequence: 7, limit: 100 };
     const activityPage: ResultFor<"activity.list"> = {
       items: [],
       nextCursor: 9,
     };
-    const acceptsActivity = (_params: ParamsFor<"activity.list">) => true;
-    // @ts-expect-error activity.list is store-wide and has no scope context.
-    acceptsActivity({ ...activityParams, context });
-
     expect([
-      operation,
+      build,
       operationStarts,
       findByTuple,
       findByKey,
@@ -624,7 +653,8 @@ describe("RalphyBridgeClient", () => {
       providerCancel,
       recovered,
       activityPage,
-    ]).toHaveLength(11);
+      scopedActivityParams,
+    ]).toHaveLength(12);
   });
 
   test("correlates out-of-order responses and keeps events separate from stderr", async () => {
@@ -704,6 +734,16 @@ describe("RalphyBridgeClient", () => {
 
   test("rejects an incompatible protocol with an actionable upgrade error", async () => {
     const client = new RalphyBridgeClient({ bin: fixtureBin, root: "/protocol-2" });
+
+    await expect(client.start()).rejects.toMatchObject({
+      code: "E_BRIDGE_VERSION",
+      message: expect.stringMatching(/update|upgrade/i),
+    });
+    await client.close();
+  });
+
+  test.each(["core-1", "core-3"])("rejects unsupported %s before enabling Task-5 Composition mutations", async (root) => {
+    const client = new RalphyBridgeClient({ bin: fixtureBin, root: `/${root}` });
 
     await expect(client.start()).rejects.toMatchObject({
       code: "E_BRIDGE_VERSION",
