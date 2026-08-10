@@ -106,7 +106,7 @@ import {
   createActivitySynchronizer,
   type ActivitySynchronizer,
 } from "./ralphy/activity-sync";
-import { createProjectReader } from "./ralphy/project-reader";
+import { createProjectReader, registerProjectMediaIpc } from "./ralphy/project-reader";
 import { registerWorkspaceOverviewIpc } from "./ralphy/workspace-reader";
 import type { BridgeMethod, JsonValue, ParamsFor, ResultFor } from "./ralphy/types";
 import { resolveRalphyExecutable } from "./ralphy/executable";
@@ -1115,25 +1115,19 @@ function parseProjectMediaRef(value: unknown): { type: "artifact" | "run-object"
   return { type: ref.type as "artifact" | "run-object" | "object", id: parseString(ref.id, "Media identifier", 256) };
 }
 
-function parseMediaGenerationTarget(value: unknown): { type: "artifact-revision" | "run-object"; id: string } {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid generation target");
-  const target = value as Record<string, unknown>;
-  if (Reflect.ownKeys(target).length !== 2 || !Object.hasOwn(target, "type") || !Object.hasOwn(target, "id")) {
-    throw new Error("Invalid generation target");
-  }
-  if (target.type !== "artifact-revision" && target.type !== "run-object") throw new Error("Invalid generation target");
-  return { type: target.type, id: parseString(target.id, "generation target id", 128) };
-}
-
-function parseOptionalCursor(value: unknown): string | undefined {
-  if (value === undefined || value === null) return undefined;
-  return parseString(value, "page cursor", 4096);
-}
-
 function registerProjectDomainIpc(): void {
   registerWorkspaceOverviewIpc({
     handle: (channel, listener) => {
       ipcMain.handle(channel, (event, workspaceId) => listener(event, workspaceId));
+    },
+    getWindow: () => win,
+    captureRoot: captureBridgeRoot,
+    assertRoot: assertBridgeRoot,
+    session: ralphySession,
+  });
+  registerProjectMediaIpc({
+    handle: (channel, listener) => {
+      ipcMain.handle(channel, (event, ...args) => listener(event, ...args));
     },
     getWindow: () => win,
     captureRoot: captureBridgeRoot,
@@ -1146,45 +1140,6 @@ function registerProjectDomainIpc(): void {
   securedHandle(MEDIA_CHANNELS.loadProjectPage, (_event, rawInput: unknown) => (
     projectReaderForCurrentRoot().loadPage(parseProjectDomainPage(rawInput))
   ));
-  securedHandle(
-    MEDIA_CHANNELS.loadProjectGeneration,
-    (_event, rawProject: unknown, rawTarget: unknown, rawAfter: unknown) => (
-      projectReaderForCurrentRoot().loadGeneration(
-        parseProjectReference(rawProject),
-        parseMediaGenerationTarget(rawTarget),
-        parseOptionalCursor(rawAfter),
-      )
-    ),
-  );
-  securedHandle(
-    MEDIA_CHANNELS.loadProjectMediaRevisions,
-    (_event, rawProject: unknown, rawArtifactId: unknown, rawAfter: unknown) => (
-      projectReaderForCurrentRoot().loadMediaRevisions(
-        parseProjectReference(rawProject),
-        parseString(rawArtifactId, "artifact id", 128),
-        parseOptionalCursor(rawAfter),
-      )
-    ),
-  );
-  securedHandle(
-    MEDIA_CHANNELS.selectProjectMediaRevision,
-    (
-      _event,
-      rawProject: unknown,
-      rawArtifactId: unknown,
-      rawRevisionId: unknown,
-      rawExpectedSelectedRevisionId: unknown,
-    ) => (
-      projectReaderForCurrentRoot().selectMediaRevision(
-        parseProjectReference(rawProject),
-        parseString(rawArtifactId, "artifact id", 128),
-        parseString(rawRevisionId, "artifact revision id", 128),
-        rawExpectedSelectedRevisionId === null
-          ? null
-          : parseString(rawExpectedSelectedRevisionId, "expected selected revision id", 128),
-      )
-    ),
-  );
   securedHandle(
     MEDIA_CHANNELS.loadDocumentPreview,
     (_event, rawProject: unknown, rawRevisionId: unknown) => (

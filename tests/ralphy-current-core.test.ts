@@ -132,7 +132,7 @@ const currentCoreFixtures = [
   {
     method: "media.revisions",
     params: { context: { workspaceId: "ws_1", projectId: "prj_1" }, ref: { type: "artifact", id: "art_prj_1" }, limit: 50 },
-    result: { items: [{ id: "arev_prj_1", artifactId: "art_prj_1", revisionNo: 1, state: "approved", objectId: "obj_prj_1", createdAt: 4 }], nextCursor: null },
+    result: { items: [{ id: "arev_prj_1", artifactId: "art_prj_1", objectId: "obj_prj_1", revisionNo: 1, parentRevisionId: null, iterationId: "iter_1", state: "approved", authoredBySessionId: "session_1", createdAt: 4 }], nextCursor: null },
   },
   {
     method: "media.select",
@@ -590,6 +590,10 @@ describe("current Core bridge contract", () => {
       await expect(client.request("media.revisions", {
         context, ref: { type: "artifact", id: "art_prj_1" }, limit: 50,
       })).resolves.toEqual(fixturesFor("media.revisions")[0]!.result);
+      expect(Object.keys(fixturesFor("media.revisions")[0]!.result.items[0]!)).toEqual([
+        "id", "artifactId", "objectId", "revisionNo", "parentRevisionId", "iterationId",
+        "state", "authoredBySessionId", "createdAt",
+      ]);
       await expect(client.request("media.select", {
         context,
         ref: { type: "artifact", id: "art_prj_1" },

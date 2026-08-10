@@ -102,6 +102,17 @@ type ExpectedMediaSelectionParams = Context & {
   revisionId: string;
   expectedSelectedRevisionId: string | null;
 };
+type ExpectedArtifactRevision = {
+  id: string;
+  artifactId: string;
+  objectId: string;
+  revisionNo: number;
+  parentRevisionId: string | null;
+  iterationId: string | null;
+  state: "working" | "candidate" | "approved" | "rejected" | "superseded" | "archived";
+  authoredBySessionId: string | null;
+  createdAt: number;
+};
 
 export type ReviseContractIsCurrent = Assert<Equal<ParamsFor<"composition.revise">, ExpectedRevise>>;
 export type BuildParamsAreCurrent = Assert<Equal<ParamsFor<"composition.build">, ExpectedBuildParams>>;
@@ -110,6 +121,10 @@ export type EvaluationDtoIsCurrent = Assert<Equal<ResultFor<"evaluation.list">["
 export type GenerationParamsAreCurrent = Assert<Equal<ParamsFor<"media.generation.show">, ExpectedGenerationParams>>;
 export type GenerationDetailIsCurrent = Assert<Equal<ResultFor<"media.generation.show">, ExpectedGenerationDetail>>;
 export type MediaSelectionParamsAreNullAware = Assert<Equal<ParamsFor<"media.select">, ExpectedMediaSelectionParams>>;
+export type MediaRevisionResultIsCurrent = Assert<Equal<ResultFor<"media.revisions">, {
+  items: ExpectedArtifactRevision[];
+  nextCursor: string | null;
+}>>;
 export type EvaluationFiltersAreExclusive = Assert<Equal<{
   context: BridgeContext;
   target: { type: "build"; id: string };

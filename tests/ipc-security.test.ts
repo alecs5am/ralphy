@@ -301,6 +301,71 @@ describe("Electron IPC security", () => {
     expect(secondRequest).toHaveBeenCalledOnce();
   });
 
+  test("registered Project media IPC enforces sender, input, and root fences", async () => {
+    const projectReader = await import("../electron/ralphy/project-reader") as Record<string, unknown>;
+    expect(projectReader.registerProjectMediaIpc).toBeTypeOf("function");
+    const register = projectReader.registerProjectMediaIpc as (input: Record<string, unknown>) => void;
+    const handlers = new Map<string, (event: unknown, ...args: unknown[]) => Promise<unknown>>();
+    const mainFrame = {};
+    const webContents = { mainFrame };
+    const window = { isDestroyed: () => false, webContents };
+    let epoch = 1;
+    let resolve!: (value: unknown) => void;
+    const response = new Promise((yes) => { resolve = yes; });
+    const request = vi.fn(() => response);
+    const session = { client: { request } };
+
+    register({
+      handle(channel: string, listener: (event: unknown, ...args: unknown[]) => Promise<unknown>) {
+        handlers.set(channel, listener);
+      },
+      getWindow: () => window,
+      captureRoot: () => ({ epoch }),
+      assertRoot: (binding: { epoch: number }) => {
+        if (binding.epoch !== epoch) throw new Error("stale root");
+      },
+      session,
+    });
+
+    expect([...handlers.keys()]).toEqual([
+      "project:media:generation", "project:media:revisions", "project:media:select",
+    ]);
+    const generation = handlers.get("project:media:generation")!;
+    const revisions = handlers.get("project:media:revisions")!;
+    const select = handlers.get("project:media:select")!;
+    const trusted = { sender: webContents, senderFrame: mainFrame };
+
+    await expect(generation(
+      { sender: webContents, senderFrame: {} },
+      { workspaceId: "workspace-1", projectId: "project-1" },
+      { type: "artifact-revision", id: "revision-1" },
+      undefined,
+    )).resolves.toMatchObject({ ok: false });
+    for (const call of [
+      () => generation(trusted, { workspaceId: "", projectId: "project-1" }, { type: "artifact-revision", id: "revision-1" }, undefined),
+      () => generation(trusted, { workspaceId: "workspace-1", projectId: "project-1" }, { type: "object", id: "object-1" }, undefined),
+      () => generation(trusted, { workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact-revision", id: "revision-1" }, 1),
+      () => revisions(trusted, { workspaceId: "workspace-1", projectId: "project-1" }, "", undefined),
+      () => select(trusted, { workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-1", undefined),
+    ]) await expect(call()).resolves.toMatchObject({ ok: false });
+    expect(request).not.toHaveBeenCalled();
+
+    const pending = generation(
+      trusted,
+      { workspaceId: "workspace-1", projectId: "project-1" },
+      { type: "artifact-revision", id: "revision-1" },
+      undefined,
+    );
+    await vi.waitFor(() => expect(request).toHaveBeenCalledOnce());
+    epoch = 2;
+    resolve({
+      status: "unknown",
+      target: { type: "artifact-revision", id: "revision-1" },
+      reason: "not-recorded",
+    });
+    await expect(pending).resolves.toMatchObject({ ok: false });
+  });
+
   test("never enables renderer mocks in production without an explicit flag", async () => {
     const ipc = await import("../src/lib/ipc");
     expect(ipc).toHaveProperty("mockBridgeAllowed");

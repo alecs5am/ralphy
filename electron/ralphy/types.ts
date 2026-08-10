@@ -340,11 +340,24 @@ export type ObjectMediaCardDto = {
   target: { type: "object"; id: string };
 };
 export type MediaCardDto = ArtifactMediaCardDto | RunObjectMediaCardDto | ObjectMediaCardDto;
-export interface ArtifactRevisionDto extends RevisionDto {
+export type ArtifactRevisionState =
+  | "working"
+  | "candidate"
+  | "approved"
+  | "rejected"
+  | "superseded"
+  | "archived";
+export type ArtifactRevisionDto = {
+  id: string;
   artifactId: string;
-  state: string;
   objectId: string;
-}
+  revisionNo: number;
+  parentRevisionId: string | null;
+  iterationId: string | null;
+  state: ArtifactRevisionState;
+  authoredBySessionId: string | null;
+  createdAt: number;
+};
 export interface RunAttemptDto extends EntityDto {
   runId: string;
   attemptNo: number;

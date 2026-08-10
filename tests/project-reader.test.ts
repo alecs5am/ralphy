@@ -163,7 +163,11 @@ describe("Project domain reader", () => {
   });
 
   test("pages Artifact revisions and selects one with a null-aware guard", async () => {
-    const revision = { id: "arev_1", artifactId: "art_1", revisionNo: 1, state: "approved", objectId: "obj_1", createdAt: 2 };
+    const revision = {
+      id: "arev_1", artifactId: "art_1", objectId: "obj_1", revisionNo: 1,
+      parentRevisionId: null, iterationId: "iteration-1", state: "approved",
+      authoredBySessionId: "session-1", createdAt: 2,
+    };
     const request = vi.fn(async (method: string) => method === "media.revisions" ? page([revision], "next") : artifactCard);
     const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
 
@@ -182,7 +186,11 @@ describe("Project domain reader", () => {
 
   test("rejects invalid revision pages and mismatched selection responses", async () => {
     const invalidPageReader = createProjectReader({
-      request: vi.fn(async () => page([{ id: "arev_1", artifactId: "other", revisionNo: 1, state: "approved", objectId: "obj_1", createdAt: 1 }])) as unknown as RalphyBridgeClient["request"],
+      request: vi.fn(async () => page([{
+        id: "arev_1", artifactId: "other", objectId: "obj_1", revisionNo: 1,
+        parentRevisionId: null, iterationId: null, state: "approved",
+        authoredBySessionId: null, createdAt: 1,
+      }])) as unknown as RalphyBridgeClient["request"],
     });
     await expect(invalidPageReader.loadMediaRevisions(project, "art_1")).rejects.toThrow("Invalid Artifact revision page");
 
@@ -194,6 +202,38 @@ describe("Project domain reader", () => {
     ]) {
       const reader = createProjectReader({ request: vi.fn(async () => response) as unknown as RalphyBridgeClient["request"] });
       await expect(reader.selectMediaRevision(project, "art_1", "arev_1", null)).rejects.toThrow("Invalid selected Artifact");
+    }
+  });
+
+  test("rejects generation details outside the requested Project scope or fixed attempt page", async () => {
+    const siblingScope = [
+      { ...generationDetail, run: { ...generationDetail.run, workspaceId: "workspace-2" } },
+      { ...generationDetail, run: { ...generationDetail.run, projectId: "project-2" } },
+      {
+        status: "not-generation",
+        target: generationDetail.target,
+        producer: { ...generationDetail.run, workspaceId: "workspace-2" },
+      },
+      {
+        ...generationDetail,
+        attempts: {
+          items: Array.from({ length: 21 }, (_, index) => ({
+            ...generationDetail.attempts.items[0]!,
+            id: `attempt_${index + 1}`,
+            attemptNo: index + 1,
+          })),
+          nextCursor: null,
+        },
+      },
+    ];
+
+    for (const result of siblingScope) {
+      const reader = createProjectReader({
+        request: vi.fn(async () => result) as unknown as RalphyBridgeClient["request"],
+      });
+      await expect(reader.loadGeneration(project, {
+        type: "artifact-revision", id: "arev_1",
+      })).rejects.toThrow("Invalid generation detail");
     }
   });
 
@@ -295,7 +335,10 @@ describe("Project domain reader", () => {
 
   test("previews one exact Build output revision without returning its locator", async () => {
     const request = vi.fn(async (method: string) => {
-      if (method === "media.revision.show") return { id: "artifact-revision-1", artifactId: "artifact-1", revisionNo: 1, state: "candidate", objectId: "object-1", createdAt: 1 };
+      if (method === "media.revision.show") return {
+        id: "artifact-revision-1", artifactId: "artifact-1", objectId: "object-1", revisionNo: 1,
+        parentRevisionId: null, iterationId: null, state: "candidate", authoredBySessionId: null, createdAt: 1,
+      };
       if (method === "locator.resolve") return { absolutePath: "/private/output.mp4", mime: "video/mp4", bytes: 12 };
       throw new Error(`Unexpected ${method}`);
     });

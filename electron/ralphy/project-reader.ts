@@ -1,8 +1,10 @@
 import type { RalphyBridgeClient } from "./client";
+import { assertTrustedSender, toIpcResult } from "../ipc-security";
 import type {
   ActivityDto,
   ArtifactMediaCardDto,
   ArtifactRevisionDto,
+  BridgeMethod,
   BuildDto,
   BuildOutputDto,
   CompositionBuildCompletion,
@@ -19,12 +21,16 @@ import type {
   MediaGenerationDetailDto,
   MediaGenerationTarget,
   Page,
+  ParamsFor,
   ProjectOverviewDto,
+  ResultFor,
   RunDto,
 } from "./types";
 import {
+  MEDIA_CHANNELS,
   PROJECT_MEDIA_FILTERS,
 } from "../media/types";
+import type { RalphySession } from "./session";
 import type {
   ProjectMediaFilter,
   ProjectPage,
@@ -168,14 +174,14 @@ function generationParameter(name: string, value: unknown): boolean {
   return BOOLEAN_PARAMETERS.has(name) && typeof value === "boolean";
 }
 
-function runDto(value: unknown): value is RunDto {
+function runDto(value: unknown, project: ProjectRef): value is RunDto {
   const run = record(value);
   return !!run && exactKeys(run, [
     "id", "workspaceId", "projectId", "agentSessionId", "kind", "label", "state",
     "createdAt", "startedAt", "endedAt",
   ]) && validGenerationId(run.id)
-    && (run.workspaceId === null || validGenerationId(run.workspaceId))
-    && (run.projectId === null || validGenerationId(run.projectId))
+    && run.workspaceId === project.workspaceId
+    && (run.projectId === null || run.projectId === project.projectId)
     && (run.agentSessionId === null || validGenerationId(run.agentSessionId))
     && typeof run.kind === "string" && run.kind.length > 0 && run.kind.length <= 256
     && (run.label === null || (typeof run.label === "string" && run.label.length <= 4096))
@@ -200,7 +206,11 @@ function generationAttempt(value: unknown, runId: string): boolean {
     && (attempt.input === null || generationInput(attempt.input));
 }
 
-function validateGenerationDetail(value: unknown, expectedTarget: MediaGenerationTarget): MediaGenerationDetailDto {
+function validateGenerationDetail(
+  value: unknown,
+  expectedTarget: MediaGenerationTarget,
+  project: ProjectRef,
+): MediaGenerationDetailDto {
   const detail = record(value);
   if (!detail || typeof detail.status !== "string") throw new Error("Invalid generation detail");
   let target: MediaGenerationTarget;
@@ -214,13 +224,13 @@ function validateGenerationDetail(value: unknown, expectedTarget: MediaGeneratio
     if (!exactKeys(detail, ["status", "target", "reason"])
       || (detail.reason !== "not-recorded" && detail.reason !== "ambiguous")) throw new Error("Invalid generation detail");
   } else if (detail.status === "not-generation") {
-    if (!exactKeys(detail, ["status", "target", "producer"]) || !runDto(detail.producer)) throw new Error("Invalid generation detail");
+    if (!exactKeys(detail, ["status", "target", "producer"]) || !runDto(detail.producer, project)) throw new Error("Invalid generation detail");
   } else if (detail.status === "generation") {
     const attempts = record(detail.attempts);
     const cost = record(detail.cost);
     if (!exactKeys(detail, ["status", "target", "run", "attempts", "cost"])
-      || !runDto(detail.run) || !attempts || !exactKeys(attempts, ["items", "nextCursor"])
-      || !Array.isArray(attempts.items)
+      || !runDto(detail.run, project) || !attempts || !exactKeys(attempts, ["items", "nextCursor"])
+      || !Array.isArray(attempts.items) || attempts.items.length > GENERATION_ATTEMPT_LIMIT
       || !attempts.items.every((attempt) => generationAttempt(attempt, (detail.run as RunDto).id))
       || (attempts.nextCursor !== null && (typeof attempts.nextCursor !== "string" || !attempts.nextCursor || attempts.nextCursor.length > 4096))
       || !cost || !exactKeys(cost, ["knownUsd", "complete"])
@@ -234,11 +244,18 @@ function validateGenerationDetail(value: unknown, expectedTarget: MediaGeneratio
 
 function artifactRevision(value: unknown, artifactId: string): value is ArtifactRevisionDto {
   const revision = record(value);
-  return !!revision && exactKeys(revision, ["id", "artifactId", "revisionNo", "state", "objectId", "createdAt"])
+  return !!revision && exactKeys(revision, [
+    "id", "artifactId", "objectId", "revisionNo", "parentRevisionId", "iterationId",
+    "state", "authoredBySessionId", "createdAt",
+  ])
     && validGenerationId(revision.id) && revision.artifactId === artifactId
+    && validGenerationId(revision.objectId)
     && sequence(revision.revisionNo, true)
+    && (revision.parentRevisionId === null || validGenerationId(revision.parentRevisionId))
+    && (revision.iterationId === null || validGenerationId(revision.iterationId))
     && typeof revision.state === "string" && ["working", "candidate", "approved", "rejected", "superseded", "archived"].includes(revision.state)
-    && validGenerationId(revision.objectId) && sequence(revision.createdAt);
+    && (revision.authoredBySessionId === null || validGenerationId(revision.authoredBySessionId))
+    && sequence(revision.createdAt);
 }
 
 function validateArtifactCard(value: unknown, project: ProjectRef, artifactId: string, revisionId: string): ArtifactMediaCardDto {
@@ -319,6 +336,96 @@ async function drain<Item>(load: (after?: string) => Promise<Page<Item>>): Promi
     if (!page.nextCursor || page.nextCursor === after) throw new Error("Invalid Composition page cursor");
     after = page.nextCursor;
   }
+}
+
+interface ProjectMediaIpcEvent {
+  sender: unknown;
+  senderFrame: unknown;
+}
+
+interface ProjectMediaIpcWindow {
+  isDestroyed(): boolean;
+  webContents: { mainFrame: unknown };
+}
+
+function parseProjectMediaIpcProject(value: unknown): ProjectRef {
+  const project = record(value);
+  if (!project || !exactKeys(project, ["workspaceId", "projectId"])
+    || !validId(project.workspaceId) || !validId(project.projectId)) {
+    throw new Error("Invalid project reference");
+  }
+  return { workspaceId: project.workspaceId, projectId: project.projectId };
+}
+
+export function registerProjectMediaIpc<Root>({
+  handle,
+  getWindow,
+  captureRoot,
+  assertRoot,
+  session,
+}: {
+  handle(
+    channel: string,
+    listener: (event: ProjectMediaIpcEvent, ...args: unknown[]) => Promise<unknown>,
+  ): void;
+  getWindow(): ProjectMediaIpcWindow | null;
+  captureRoot(): Root;
+  assertRoot(root: Root): void;
+  session: Pick<RalphySession, "client">;
+}): void {
+  type Reader = ReturnType<typeof createProjectReader>;
+  const secured = (
+    listener: (reader: Reader, ...args: unknown[]) => unknown,
+  ): ((event: ProjectMediaIpcEvent, ...args: unknown[]) => Promise<unknown>) => (
+    (event, ...args) => toIpcResult(async () => {
+      assertTrustedSender(event, getWindow());
+      const root = captureRoot();
+      const request: Request = async <Method extends BridgeMethod>(
+        method: Method,
+        params: ParamsFor<Method>,
+      ): Promise<ResultFor<Method>> => {
+        assertRoot(root);
+        const result = await session.client.request(method, params);
+        assertRoot(root);
+        return result;
+      };
+      return listener(createProjectReader({ request }), ...args);
+    })
+  );
+
+  handle(MEDIA_CHANNELS.loadProjectGeneration, secured((reader, rawProject, rawTarget, rawAfter) => (
+    reader.loadGeneration(
+      parseProjectMediaIpcProject(rawProject),
+      generationTarget(rawTarget),
+      pageCursor(rawAfter),
+    )
+  )));
+  handle(MEDIA_CHANNELS.loadProjectMediaRevisions, secured((reader, rawProject, rawArtifactId, rawAfter) => {
+    if (!validGenerationId(rawArtifactId)) throw new Error("Invalid Artifact identifier");
+    return reader.loadMediaRevisions(
+      parseProjectMediaIpcProject(rawProject),
+      rawArtifactId,
+      pageCursor(rawAfter),
+    );
+  }));
+  handle(MEDIA_CHANNELS.selectProjectMediaRevision, secured((
+    reader,
+    rawProject,
+    rawArtifactId,
+    rawRevisionId,
+    rawExpectedSelectedRevisionId,
+  ) => {
+    if (!validGenerationId(rawArtifactId) || !validGenerationId(rawRevisionId)
+      || (rawExpectedSelectedRevisionId !== null && !validGenerationId(rawExpectedSelectedRevisionId))) {
+      throw new Error("Invalid Artifact selection");
+    }
+    return reader.selectMediaRevision(
+      parseProjectMediaIpcProject(rawProject),
+      rawArtifactId,
+      rawRevisionId,
+      rawExpectedSelectedRevisionId,
+    );
+  }));
 }
 
 export function createProjectReader({ request, mint }: { request: Request; mint?: Mint }) {
@@ -404,7 +511,7 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
         ...(cursor ? { after: cursor } : {}),
         limit: GENERATION_ATTEMPT_LIMIT,
       });
-      return validateGenerationDetail(detail, target);
+      return validateGenerationDetail(detail, target, context);
     },
 
     async loadMediaRevisions(
