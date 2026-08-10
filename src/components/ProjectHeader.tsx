@@ -6,7 +6,7 @@ export function ProjectHeader({ project }: { project: ProjectSummary }) {
     <header className="project-header">
       <div className="project-header-top">
         <div className="project-heading">
-          <h2><FolderKanban size={20} aria-hidden="true" />{project.name}</h2>
+          <h2><FolderKanban className="project-header-icon" size={20} aria-hidden="true" />{project.name}</h2>
           <p>{project.brief || "Ralphy production project"}</p>
         </div>
       </div>

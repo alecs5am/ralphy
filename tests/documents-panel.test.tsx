@@ -1,9 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { isValidElement, type ReactElement, type ReactNode } from "react";
+import { act, isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, test, vi } from "vitest";
 import type { DocumentSearchDto } from "../electron/ralphy/types";
 import type { ProjectSummary } from "../src/lib/ipc";
 import * as screen from "../src/screens/ProjectScreen";
+import { createReactHost } from "./react-host";
 
 const project: ProjectSummary = {
   id: "project-1", workspaceId: "workspace-1", projectId: "project-1", name: "Launch", brief: "Brief",
@@ -100,6 +101,30 @@ describe("Documents panel", () => {
     const output = markup(controller);
     expect(output).toContain("&quot;stage&quot;: &quot;ready&quot;");
     expect(output).toContain("textarea");
+  });
+
+  test("renders the active search, editor, and save action with established controls", async () => {
+    const controller = createController(createApi());
+    await controller.selectTab("documents");
+    await controller.openDocument(document);
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    const View = (screen as typeof screen & { ProjectScreenView: React.ComponentType<any> }).ProjectScreenView;
+
+    try {
+      await act(async () => {
+        root.render(<View project={project} controller={controller} snapshot={controller.getSnapshot()} />);
+      });
+      expect(host.container.querySelector(".document-search")).not.toBeNull();
+      expect(host.container.querySelector(".document-editor")).not.toBeNull();
+      expect(host.container.querySelector(".project-heading h2")?.textContent).toContain("Launch");
+      const commands = host.container.findAll((node) => node.matches(".command-button"));
+      expect(commands.map((node) => node.textContent)).toEqual(expect.arrayContaining(["Search", "Save revision"]));
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
   });
 
   test("keeps the local draft and reloads the current head after E_CONFLICT without retrying", async () => {

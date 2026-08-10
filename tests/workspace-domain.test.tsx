@@ -18,7 +18,7 @@ import {
   WorkspaceScreen,
   WorkspaceScreenView,
 } from "../src/screens/WorkspaceScreen";
-import { createReactHost, reactHostGlobalKeys } from "./react-host";
+import { createReactHost, reactHostGlobalKeys, type HostNode } from "./react-host";
 
 const overview: WorkspaceOverviewDto = {
   workspace: { id: "workspace-1", slug: "launch", name: "Launch", rowVersion: 1, createdAt: 1, updatedAt: 2 },
@@ -131,6 +131,8 @@ function renderWorkspace(value: WorkspaceOverviewDto, projects: ProjectSummary[]
       controller={controller}
       snapshot={controller.getSnapshot()}
       catalogProjects={projects}
+      view="grid"
+      onViewChange={() => undefined}
       onOpenProject={() => undefined}
     />,
   ));
@@ -200,6 +202,43 @@ describe("Workspace screen", () => {
     expect(catalogProjectForOverview([catalogProject], coreProject)).toBe(catalogProject);
     expect(catalogProjectForOverview([{ ...catalogProject, workspaceId: "other" }], coreProject)).toBeNull();
     expect(catalogProjectForOverview([{ ...catalogProject, projectId: "other" }], coreProject)).toBeNull();
+  });
+
+  test("mounts the Core-backed project grid/list toggle and changes only presentation", async () => {
+    const controller = createWorkspaceScreenController(
+      { loadWorkspaceOverview: vi.fn(async () => populatedOverview) },
+      "workspace-1",
+    );
+    await controller.start();
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    const onViewChange = vi.fn();
+
+    try {
+      await act(async () => {
+        root.render(<WorkspaceScreenView
+          controller={controller}
+          snapshot={controller.getSnapshot()}
+          catalogProjects={[catalogProject]}
+          view="grid"
+          onViewChange={onViewChange}
+          onOpenProject={() => undefined}
+        />);
+      });
+
+      expect(host.container.querySelector(".workspace-project-grid")).not.toBeNull();
+      expect(host.container.textContent).toContain("Core Project");
+      expect(host.container.textContent).toContain("launch-video");
+      expect(host.container.textContent).not.toContain("Catalog-only description");
+      const listToggle = host.container.findAll((node) => node.getAttribute("aria-label") === "List view")[0] as HostNode | undefined;
+      expect(listToggle).toBeDefined();
+      listToggle!.dispatchEvent(new Event("click", { bubbles: true }));
+      expect(onViewChange).toHaveBeenCalledWith("list");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
   });
 
   test("ignores a late completion after disposal", async () => {

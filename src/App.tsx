@@ -85,7 +85,7 @@ export function App() {
     initialPreferences.current.bottomPanelVisible,
   );
   const [settingsVisible, setSettingsVisible] = useState(false);
-  const [workspaceView] = useState<WorkspaceView>(
+  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>(
     initialPreferences.current.workspaceView,
   );
   const [sidebarWidth, setSidebarWidth] = useState(
@@ -414,6 +414,8 @@ export function App() {
         rootEpoch={rootIdentity?.rootEpoch ?? 0}
         activitySequence={rootIdentity?.activitySequence ?? 0}
         catalogProjects={projects.filter((project) => project.workspaceId === selectedWorkspace.id)}
+        view={workspaceView}
+        onViewChange={setWorkspaceView}
         onOpenProject={openProject}
       />
     );

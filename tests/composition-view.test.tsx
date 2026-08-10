@@ -111,6 +111,17 @@ describe("Composition view", () => {
     expect(api.resolveCompositionOutputPreview).toHaveBeenCalledWith({ workspaceId: "workspace-1", projectId: "project-1" }, "artifact-output");
   });
 
+  test("renders current Composition actions with established command controls", async () => {
+    const controller = createProjectScreenController(createApi(), project);
+    await controller.selectTab("compositions");
+    controller.inspectCompositionRevision("revision-1");
+
+    const output = markup(controller);
+    for (const label of ["New draft", "Make selected", "Preview"]) {
+      expect(output).toMatch(new RegExp(`<button[^>]*class="command-button"[^>]*>${label}</button>`));
+    }
+  });
+
   test("selects only a sealed inspected revision with the independent selected-pointer guard", async () => {
     const api = createApi();
     const controller = createProjectScreenController(api, project);

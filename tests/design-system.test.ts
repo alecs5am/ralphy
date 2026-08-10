@@ -5,6 +5,49 @@ import { describe, expect, test } from "vitest";
 const styles = ["reset.css", "tokens.css", "app.css", "workbench.css"]
   .map((file) => readFileSync(join(process.cwd(), "src/styles", file), "utf8"))
   .join("\n");
+const workbenchStyles = readFileSync(
+  join(process.cwd(), "src/styles/workbench.css"),
+  "utf8",
+);
+
+function computedDeclarations(source: string, selector: string): Record<string, string> {
+  const declarations: Record<string, string> = {};
+  const clean = source.replace(/\/\*[\s\S]*?\*\//g, "");
+  for (const rule of clean.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (!rule[1]!.split(",").some((candidate) => candidate.trim() === selector)) continue;
+    for (const declaration of rule[2]!.split(";")) {
+      const separator = declaration.indexOf(":");
+      if (separator < 0) continue;
+      declarations[declaration.slice(0, separator).trim()] = declaration.slice(separator + 1).trim();
+    }
+  }
+  return declarations;
+}
+
+function declaredValues(source: string, selector: string, property: string): string[] {
+  const values: string[] = [];
+  const clean = source.replace(/\/\*[\s\S]*?\*\//g, "");
+  for (const rule of clean.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (!rule[1]!.split(",").some((candidate) => candidate.trim() === selector)) continue;
+    for (const declaration of rule[2]!.split(";")) {
+      const separator = declaration.indexOf(":");
+      if (separator >= 0 && declaration.slice(0, separator).trim() === property) {
+        values.push(declaration.slice(separator + 1).trim());
+      }
+    }
+  }
+  return values;
+}
+
+function activeSurfaceViolations(source: string): string[] {
+  const violations: string[] = [];
+  const list = computedDeclarations(source, ".project-domain-list");
+  const rows = computedDeclarations(source, ".project-domain-list > article");
+  if (source.includes("var(--surface)")) violations.push("undefined surface token");
+  if (list.border !== "0") violations.push("project list border");
+  if (rows["border-bottom"] !== "0") violations.push("project row border");
+  return violations;
+}
 const renderer = readdirSync(join(process.cwd(), "src"), {
   recursive: true,
   withFileTypes: true,
@@ -33,6 +76,63 @@ describe("design system contract", () => {
     expect(styles).toMatch(/--radius-md:\s*10px/);
     expect(styles).toMatch(/\.main-header\s*\{[^}]*border-bottom:\s*0/s);
     expect(styles).toMatch(/\.asset-modal-surface,[\s\S]*corner-shape:\s*squircle/);
+  });
+
+  test("computes the active screen surfaces, scroll ownership, and responsive split from current selectors", () => {
+    expect(activeSurfaceViolations(workbenchStyles)).toEqual([]);
+    expect(styles).not.toContain("var(--surface)");
+
+    expect(computedDeclarations(workbenchStyles, ".project-domain-card")).toMatchObject({
+      border: "0",
+      background: "transparent",
+    });
+    expect(computedDeclarations(workbenchStyles, ".project-preview")).toMatchObject({
+      border: "0",
+      background: "var(--raised)",
+    });
+    expect(computedDeclarations(workbenchStyles, ".main-region")).toMatchObject({
+      "overflow-x": "hidden",
+      "overflow-y": "auto",
+    });
+    expect(computedDeclarations(workbenchStyles, ".project-region").overflow).toBe("hidden");
+    expect(computedDeclarations(workbenchStyles, ".project-domain-body")).toMatchObject({
+      "overflow-x": "hidden",
+      "overflow-y": "auto",
+    });
+    expect(computedDeclarations(workbenchStyles, ".workbench")["grid-template-columns"])
+      .toBe("var(--sidebar-column) minmax(0, 1fr) var(--right-column)");
+    expect(computedDeclarations(workbenchStyles, ".main-shell")["min-width"]).toBe("0");
+    expect(computedDeclarations(workbenchStyles, ".main-content-stage > *")["min-width"]).toBe("0");
+    expect(declaredValues(workbenchStyles, ".project-split-view", "grid-template-columns"))
+      .toEqual(expect.arrayContaining(["minmax(220px, 0.8fr) minmax(0, 1.2fr)", "minmax(0, 1fr)"]));
+    expect(computedDeclarations(workbenchStyles, ".project-heading h2")).toMatchObject({
+      display: "flex",
+      "align-items": "center",
+    });
+    expect(computedDeclarations(workbenchStyles, ".document-search input:focus-visible")["box-shadow"])
+      .toBe("inset 0 0 0 1px var(--line-strong)");
+    expect(computedDeclarations(workbenchStyles, ".command-button:focus-visible")["box-shadow"])
+      .toBe("inset 0 0 0 1px var(--line-strong)");
+
+    const panelWidths = [
+      { viewport: 1360, sidebar: 288, right: 336 },
+      { viewport: 1100, sidebar: 288, right: 336 },
+      { viewport: 1100, sidebar: 288, right: 0 },
+    ].map(({ viewport, sidebar, right }) => viewport - sidebar - right);
+    expect(panelWidths).toEqual([736, 476, 812]);
+    expect(workbenchStyles).toMatch(
+      /@container project-domain \(max-width:\s*700px\)[\s\S]*\.project-split-view\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/,
+    );
+    expect(workbenchStyles).toMatch(/@container workspace-domain \(max-width:\s*600px\)/);
+    expect(styles).toMatch(/\.project-preview,[\s\S]*corner-shape:\s*squircle/);
+  });
+
+  test("rejects mutations that restore recursive list borders or the undefined surface token", () => {
+    const borderMutation = `${workbenchStyles}\n.project-domain-list { border: 1px solid var(--line); }`;
+    const surfaceMutation = `${workbenchStyles}\n.project-preview { background: var(--surface); }`;
+
+    expect(activeSurfaceViolations(borderMutation)).toContain("project list border");
+    expect(activeSurfaceViolations(surfaceMutation)).toContain("undefined surface token");
   });
 
   test("resets browser chrome without applying a global accent focus ring", () => {

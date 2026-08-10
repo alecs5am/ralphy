@@ -1,4 +1,4 @@
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, ArrowRight, FolderKanban, LayoutGrid, List, RefreshCw } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type {
   ActivityDto,
@@ -17,6 +17,7 @@ import {
   type WorkspaceScreenController,
   type WorkspaceScreenSnapshot,
 } from "../state/workspace-screen-controller";
+import type { WorkspaceView } from "../state/workbench";
 
 export { createWorkspaceScreenController } from "../state/workspace-screen-controller";
 
@@ -73,17 +74,27 @@ function mediaName(item: MediaCardDto): string {
 function WorkspaceOverview({
   value,
   catalogProjects,
+  view,
+  onViewChange,
   onOpenProject,
 }: {
   value: WorkspaceOverviewDto;
   catalogProjects: ProjectSummary[];
+  view: WorkspaceView;
+  onViewChange(view: WorkspaceView): void;
   onOpenProject(project: ProjectSummary): void;
 }) {
   const metrics = value.metrics;
   return <>
     <div className="screen-header workspace-header">
       <div><div className="screen-kicker">Workspace</div><h2>{value.workspace.name}</h2><p>{value.workspace.slug}</p></div>
-      <span className="activity-stamp">Updated {formatTime(value.workspace.updatedAt)}</span>
+      <div className="workspace-header-actions">
+        <span className="activity-stamp">Updated {formatTime(value.workspace.updatedAt)}</span>
+        <div className="view-segments" role="group" aria-label="Project view">
+          <button className={view === "grid" ? "is-active" : ""} type="button" aria-label="Grid view" aria-pressed={view === "grid"} onClick={() => onViewChange("grid")}><LayoutGrid size={15} aria-hidden="true" /></button>
+          <button className={view === "list" ? "is-active" : ""} type="button" aria-label="List view" aria-pressed={view === "list"} onClick={() => onViewChange("list")}><List size={15} aria-hidden="true" /></button>
+        </div>
+      </div>
     </div>
     <section className="metrics-band" aria-label="Workspace metrics">
       <div className="metric"><span className="metric-value">{metrics?.publicationCount ?? "—"}</span><span className="metric-label">Publications</span></div>
@@ -103,15 +114,25 @@ function WorkspaceOverview({
       <BoundedSection title="Shared Media" page={value.sharedMedia} empty="No shared Media returned.">
         {(item) => <article key={`${item.ref.type}:${item.ref.id}`}><strong>{mediaName(item)}</strong><span>{item.mime ?? "Unknown media type"}</span><small>{"usageRoles" in item && item.usageRoles.length > 0 ? item.usageRoles.join(" · ") : "No reference evidence"}</small></article>}
       </BoundedSection>
-      <BoundedSection title="Projects" page={value.projects} empty="No projects returned.">
-        {(project) => {
-          const catalogProject = catalogProjectForOverview(catalogProjects, project);
-          const content = <><strong>{project.name}</strong><span>{project.slug} · {project.state}</span><small>Updated {formatTime(project.updatedAt)}</small></>;
-          return catalogProject
-            ? <button type="button" key={project.id} onClick={() => onOpenProject(catalogProject)}>{content}</button>
-            : <article key={project.id}>{content}</article>;
-        }}
-      </BoundedSection>
+      <section className="content-section workspace-projects">
+        <div className="section-heading"><h3>Projects</h3><span>Bounded records{value.projects && value.projects.nextCursor !== null ? " · More available" : ""}</span></div>
+        {!value.projects || value.projects.items.length === 0 ? <div className="empty-section">No projects returned.</div> : view === "grid" ? (
+          <div className="workspace-project-grid">{value.projects.items.map((project) => {
+            const catalogProject = catalogProjectForOverview(catalogProjects, project);
+            const content = <><span className="workspace-project-card-head"><span className="workspace-project-icon"><FolderKanban size={16} aria-hidden="true" /></span><span className="workspace-project-phase"><i className="status-dot" />{project.state}</span></span><span className="workspace-project-card-copy"><strong>{project.name}</strong><small>{project.slug}</small></span><span className="workspace-project-card-footer"><span>{project.state}</span><span>Updated {formatTime(project.updatedAt)}</span>{catalogProject && <ArrowRight size={14} aria-hidden="true" />}</span></>;
+            return catalogProject ? <button className="workspace-project-card" type="button" key={project.id} onClick={() => onOpenProject(catalogProject)}>{content}</button> : <article className="workspace-project-card" key={project.id}>{content}</article>;
+          })}</div>
+        ) : (
+          <div className="project-table" role="table" aria-label="Projects">
+            <div className="project-table-head" role="row"><span>Name</span><span>State</span><span>Updated</span><span /></div>
+            {value.projects.items.map((project) => {
+              const catalogProject = catalogProjectForOverview(catalogProjects, project);
+              const content = <><span className="project-name-cell"><strong>{project.name}</strong><small>{project.slug}</small></span><span><i className="status-dot" />{project.state}</span><span>{formatTime(project.updatedAt)}</span>{catalogProject && <ArrowRight size={14} aria-hidden="true" />}</>;
+              return catalogProject ? <button className="project-table-row" type="button" role="row" key={project.id} onClick={() => onOpenProject(catalogProject)}>{content}</button> : <div className="project-table-row" role="row" key={project.id}>{content}</div>;
+            })}
+          </div>
+        )}
+      </section>
       <BoundedSection<UnitDto> title="Units" page={value.units} empty="No units returned.">
         {(unit) => <article key={unit.id}><strong>{unit.slug}</strong><span>{unit.format}</span><small>Selected {unit.selectedRevisionId ?? "None"} · Latest {unit.latestRevisionId ?? "None"}</small></article>}
       </BoundedSection>
@@ -129,29 +150,37 @@ export function WorkspaceScreenView({
   controller,
   snapshot,
   catalogProjects,
+  view,
+  onViewChange,
   onOpenProject,
 }: {
   controller: WorkspaceScreenController;
   snapshot: WorkspaceScreenSnapshot;
   catalogProjects: ProjectSummary[];
+  view: WorkspaceView;
+  onViewChange(view: WorkspaceView): void;
   onOpenProject(project: ProjectSummary): void;
 }) {
   if (snapshot.status === "loading" || snapshot.status === "idle") return <main className="main-region"><div className="project-skeleton" role="status">Loading workspace overview…</div></main>;
   if (snapshot.status === "error") return <main className="main-region"><div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.error ?? "Workspace overview could not be loaded."}</span><button type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div></main>;
-  return <main className="main-region">{snapshot.value && <WorkspaceOverview value={snapshot.value} catalogProjects={catalogProjects} onOpenProject={onOpenProject} />}</main>;
+  return <main className="main-region">{snapshot.value && <WorkspaceOverview value={snapshot.value} catalogProjects={catalogProjects} view={view} onViewChange={onViewChange} onOpenProject={onOpenProject} />}</main>;
 }
 
 function ConnectedWorkspaceScreen({
   controller,
   catalogProjects,
+  view,
+  onViewChange,
   onOpenProject,
 }: {
   controller: WorkspaceScreenController;
   catalogProjects: ProjectSummary[];
+  view: WorkspaceView;
+  onViewChange(view: WorkspaceView): void;
   onOpenProject(project: ProjectSummary): void;
 }) {
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
-  return <WorkspaceScreenView controller={controller} snapshot={snapshot} catalogProjects={catalogProjects} onOpenProject={onOpenProject} />;
+  return <WorkspaceScreenView controller={controller} snapshot={snapshot} catalogProjects={catalogProjects} view={view} onViewChange={onViewChange} onOpenProject={onOpenProject} />;
 }
 
 export function WorkspaceScreen({
@@ -159,12 +188,16 @@ export function WorkspaceScreen({
   rootEpoch,
   activitySequence,
   catalogProjects,
+  view,
+  onViewChange,
   onOpenProject,
 }: {
   workspaceId: string;
   rootEpoch: number;
   activitySequence: number;
   catalogProjects: ProjectSummary[];
+  view: WorkspaceView;
+  onViewChange(view: WorkspaceView): void;
   onOpenProject(project: ProjectSummary): void;
 }) {
   const [controller, setController] = useState<WorkspaceScreenController | null>(null);
@@ -174,6 +207,6 @@ export function WorkspaceScreen({
   );
   useEffect(() => { void controller?.refresh(activitySequence); }, [activitySequence, controller]);
   return controller
-    ? <ConnectedWorkspaceScreen controller={controller} catalogProjects={catalogProjects} onOpenProject={onOpenProject} />
+    ? <ConnectedWorkspaceScreen controller={controller} catalogProjects={catalogProjects} view={view} onViewChange={onViewChange} onOpenProject={onOpenProject} />
     : <main className="main-region"><div className="project-skeleton" role="status">Loading workspace overview…</div></main>;
 }
