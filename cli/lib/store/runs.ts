@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { readGenerationInput } from "../generation-input.js";
 import { ralphDir } from "../paths.js";
 import { appendActivity } from "./activity.js";
 import { addArtifactRevisionInTransaction } from "./artifacts.js";
@@ -46,7 +47,10 @@ import type {
   ArtifactKind,
   ArtifactRevisionDto,
   ArtifactRevisionState,
+  GenerationAttemptDetailDto,
   JsonValue,
+  MediaGenerationDetailDto,
+  MediaGenerationTarget,
   ObjectStorageClass,
   Page,
   RunAttemptDto,
@@ -113,6 +117,10 @@ type RunAttemptDtoDbRow = {
   cost_usd: number | null;
   started_at: number;
   ended_at: number | null;
+};
+
+type GenerationAttemptDetailDbRow = RunAttemptDtoDbRow & {
+  request_json: string | null;
 };
 
 type RunObjectDbRow = {
@@ -1164,6 +1172,75 @@ export function listRunAttempts(input: {
   }));
 }
 
+export function getMediaGenerationDetail(input: {
+  context: QueryContext;
+  target: MediaGenerationTarget;
+  after?: string | null;
+  limit: number;
+}): MediaGenerationDetailDto {
+  assertLimit(input.limit);
+  const target = checkedMediaGenerationTarget(input.target);
+  const db = openDomainDb();
+  return db.transaction((): MediaGenerationDetailDto => {
+    const producerIds = resolveMediaProducerIds(db, input.context, target);
+    if (producerIds.length === 0) {
+      return { status: "unknown", target, reason: "not-recorded" };
+    }
+    if (producerIds.length > 1) {
+      return { status: "unknown", target, reason: "ambiguous" };
+    }
+
+    const access = resolveRunQueryAccess(db, input.context);
+    const runRow = getVisibleRunDtoRow(db, access, producerIds[0]!);
+    if (!runRow) throw mediaTargetNotFound(target);
+    const run = toRunDto(runRow);
+    if (run.kind !== "generation" && !run.kind.startsWith("generate.")) {
+      return { status: "not-generation", target, producer: run };
+    }
+
+    const cursor = input.after == null ? null : decodeCursor("p1", input.after);
+    const rows = db.query<GenerationAttemptDetailDbRow, (string | number)[]>(
+      `SELECT ${ATTEMPT_DTO_COLUMNS}, attempt.request_json
+       FROM run_attempts AS attempt
+       WHERE attempt.run_id = ?
+         AND (attempt.attempt_no > ? OR
+              (attempt.attempt_no = ? AND attempt.id > ?))
+       ORDER BY attempt.attempt_no ASC, attempt.id ASC LIMIT ?`,
+    ).all(
+      run.id,
+      cursor?.ordinal ?? -1,
+      cursor?.ordinal ?? -1,
+      cursor?.id ?? "",
+      input.limit + 1,
+    );
+    const attempts = buildPage(
+      rows.map(toGenerationAttemptDetailDto),
+      input.limit,
+      "p1",
+      (attempt) => ({ ordinal: attempt.attemptNo, id: attempt.id }),
+    );
+    const aggregate = db.query<{
+      knownUsd: number | null;
+      total: number;
+      known: number;
+    }, [string]>(
+      `SELECT SUM(cost_usd) AS knownUsd, COUNT(*) AS total,
+              COUNT(cost_usd) AS known
+       FROM run_attempts WHERE run_id = ?`,
+    ).get(run.id)!;
+    return {
+      status: "generation",
+      target,
+      run,
+      attempts,
+      cost: {
+        knownUsd: aggregate.knownUsd,
+        complete: aggregate.total > 0 && aggregate.known === aggregate.total,
+      },
+    };
+  })();
+}
+
 export function listRunResults(input: {
   context: QueryContext;
   runId: string;
@@ -1521,6 +1598,72 @@ function resolveRunQueryAccess(
     scope,
     "run.workspace_id",
     "run.project_id",
+  );
+}
+
+function checkedMediaGenerationTarget(
+  value: MediaGenerationTarget,
+): MediaGenerationTarget {
+  if (
+    value === null ||
+    typeof value !== "object" ||
+    Reflect.ownKeys(value).length !== 2 ||
+    !Object.hasOwn(value, "type") ||
+    !Object.hasOwn(value, "id") ||
+    (value.type !== "artifact-revision" && value.type !== "run-object") ||
+    typeof value.id !== "string" ||
+    value.id.length === 0
+  ) {
+    throw new Error("Media generation target is invalid");
+  }
+  return { type: value.type, id: value.id };
+}
+
+function resolveMediaProducerIds(
+  db: Database,
+  context: QueryContext,
+  target: MediaGenerationTarget,
+): string[] {
+  if (target.type === "artifact-revision") {
+    const scope = resolveQueryContext(db, context);
+    const visibility = scopeVisibilityClause(
+      scope,
+      "artifact.workspace_id",
+      "artifact.project_id",
+    );
+    const revision = db.query<{ id: string }, (string | number)[]>(
+      `SELECT revision.id
+       FROM artifact_revisions AS revision
+       JOIN artifacts AS artifact ON artifact.id = revision.artifact_id
+       WHERE revision.id = ? AND ${visibility.sql}`,
+    ).get(target.id, ...visibility.values);
+    if (!revision) throw mediaTargetNotFound(target);
+
+    const access = resolveRunQueryAccess(db, context);
+    return db.query<{ runId: string }, (string | number)[]>(
+      `SELECT DISTINCT result.run_id AS runId
+       FROM run_results AS result
+       JOIN runs AS run ON run.id = result.run_id
+       WHERE result.entity_type = 'artifact_revision'
+         AND result.entity_id = ? AND ${access.sql}
+       ORDER BY result.run_id ASC LIMIT 2`,
+    ).all(target.id, ...access.values).map((row) => row.runId);
+  }
+
+  const access = resolveRunQueryAccess(db, context);
+  const row = db.query<{ runId: string }, (string | number)[]>(
+    `SELECT run_object.run_id AS runId
+     FROM run_objects AS run_object
+     JOIN runs AS run ON run.id = run_object.run_id
+     WHERE run_object.id = ? AND ${access.sql}`,
+  ).get(target.id, ...access.values);
+  if (!row) throw mediaTargetNotFound(target);
+  return [row.runId];
+}
+
+function mediaTargetNotFound(target: MediaGenerationTarget): Error {
+  return new Error(
+    `${target.type === "artifact-revision" ? "Artifact Revision" : "RunObject"} not found: ${target.id}`,
   );
 }
 
@@ -1903,6 +2046,15 @@ function toRunAttemptDto(row: RunAttemptDtoDbRow): RunAttemptDto {
     costUsd: row.cost_usd,
     startedAt: row.started_at,
     endedAt: row.ended_at,
+  };
+}
+
+function toGenerationAttemptDetailDto(
+  row: GenerationAttemptDetailDbRow,
+): GenerationAttemptDetailDto {
+  return {
+    ...toRunAttemptDto(row),
+    input: readGenerationInput(parseJson(row.request_json)),
   };
 }
 

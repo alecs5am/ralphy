@@ -90,6 +90,7 @@ import {
 import {
   finishRun,
   finishRunAttempt,
+  getMediaGenerationDetail,
   getRun,
   getRunAttempt,
   getRunObject,
@@ -587,6 +588,11 @@ async function makeSurfaceFixture(): Promise<{
     listRunAttempts({ context, runId: run.id, limit: 10 }),
     getRunObject({ context, runObjectId: runObject.id }),
     listRunObjects({ context, runId: run.id, limit: 10 }),
+    getMediaGenerationDetail({
+      context,
+      target: { type: "run-object", id: runObject.id },
+      limit: 10,
+    }),
     getComposition({ context, compositionId: composition.id }),
     listCompositions({ context, projectId: project.id, limit: 10 }),
     getCompositionRevision({ context, revisionId: compositionRevision.id }),
