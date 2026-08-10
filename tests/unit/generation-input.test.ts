@@ -65,6 +65,27 @@ describe("generation input projection", () => {
     }
   });
 
+  test("rejects hidden string and symbol keys at every projection boundary", () => {
+    const valid = {
+      type: "generation-input/v1",
+      texts: [{ role: "text", value: "approved", truncated: false }],
+      parameters: [{ name: "backend", value: "elevenlabs" }],
+    };
+    const envelope = { ...valid };
+    Object.defineProperty(envelope, "voiceId", { value: "secret" });
+    Object.defineProperty(envelope, Symbol("unknown"), { value: "secret" });
+    const text = { ...valid.texts[0] };
+    Object.defineProperty(text, "request", { value: "secret" });
+    Object.defineProperty(text, Symbol("unknown"), { value: "secret" });
+    const parameter = { ...valid.parameters[0] };
+    Object.defineProperty(parameter, "path", { value: "secret" });
+    Object.defineProperty(parameter, Symbol("unknown"), { value: "secret" });
+
+    expect(readGenerationInput(envelope)).toBeNull();
+    expect(readGenerationInput({ ...valid, texts: [text] })).toBeNull();
+    expect(readGenerationInput({ ...valid, parameters: [parameter] })).toBeNull();
+  });
+
   test("returns fresh DTO arrays", () => {
     const stored = generationInput([{ role: "prompt", value: "approved" }], [{ name: "size", value: "1024x1024" }]);
     const first = readGenerationInput(stored)!;
