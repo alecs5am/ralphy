@@ -82,6 +82,7 @@ import {
 import type { GenerateResult } from "../lib/providers/types.js";
 import type { ArtifactKind } from "../lib/store/types.js";
 import { providerCompletionFacts } from "../lib/artifact-production.js";
+import { generationInput } from "../lib/generation-input.js";
 
 // Re-export for unit tests (single import target).
 export { buildVariantItems } from "../lib/generate-batch.js";
@@ -303,6 +304,7 @@ async function executeGeneratedArtifact(input: {
   mime: string;
   provider: string;
   model: string;
+  generationInput: ReturnType<typeof generationInput>;
   invoke: (runId: string, outputPath: string) => Promise<GenerateResult>;
 }): Promise<{ result: GenerateResult; completed: Awaited<ReturnType<typeof completeArtifactRun>> }> {
   const run = startRun({
@@ -314,7 +316,7 @@ async function executeGeneratedArtifact(input: {
     runId: run.id,
     provider: input.provider,
     model: input.model,
-    request: { slot: input.slot },
+    request: input.generationInput,
   });
   const outputPath = path.join(ralphDir(), "tmp", run.id, `${input.slot}${input.extension}`);
   let result: GenerateResult;
@@ -582,6 +584,16 @@ async function runImageBatch(args: {
         mime: "image/png",
         provider: conn.id,
         model,
+        generationInput: generationInput(
+          [
+            { role: "prompt", value: item.prompt },
+            ...(negative ? [{ role: "negative-prompt" as const, value: negative }] : []),
+          ],
+          [
+            { name: "size", value: args.resolvedSize },
+            { name: "referenceCount", value: refs?.length ?? 0 },
+          ],
+        ),
         invoke: (runId, outputPath) => conn.generateImage!({
           projectId: args.projectId, runId, outputPath, slot, prompt: item.prompt,
           model, refs, size: args.resolvedSize, negativePrompt: negative,
@@ -867,6 +879,16 @@ export function generateCmd() {
         mime: "image/png",
         provider: conn.id,
         model: resolvedDefaultModel,
+        generationInput: generationInput(
+          [
+            { role: "prompt", value: opts.prompt },
+            ...(opts.negative ? [{ role: "negative-prompt" as const, value: opts.negative }] : []),
+          ],
+          [
+            { name: "size", value: resolvedSize },
+            { name: "referenceCount", value: opts.ref?.length ?? 0 },
+          ],
+        ),
         invoke: (runId, outputPath) => ui.withSpinner(
           `image (${resolvedDefaultModel}) → ${opts.slot}`,
           () =>
@@ -1217,6 +1239,20 @@ export function generateCmd() {
         mime: "video/mp4",
         provider: connV.id,
         model: resolvedVideoModel ?? "default",
+        generationInput: generationInput(
+          [{ role: "prompt", value: opts.prompt }],
+          [
+            { name: "durationSec", value: opts.duration },
+            { name: "aspectRatio", value: opts.aspectRatio },
+            { name: "resolution", value: opts.resolution },
+            { name: "generateAudio", value: Boolean(opts.audio) },
+            { name: "referenceCount", value: opts.ref?.length ?? 0 },
+            { name: "referenceVideoCount", value: opts.refVideo?.length ?? 0 },
+            { name: "hasFirstFrame", value: Boolean(opts.firstFrame) },
+            { name: "hasLastFrame", value: Boolean(opts.lastFrame) },
+            { name: "hasImage", value: Boolean(opts.image) },
+          ],
+        ),
         invoke: (runId, outputPath) => uiv.withSpinner(
           `video (${resolvedVideoModel}, ${opts.duration}s, ${opts.aspectRatio || "9:16"}) → ${opts.slot}`,
           () => connV.generateVideo!({
@@ -1381,6 +1417,17 @@ export function generateCmd() {
       const { result, completed } = await executeGeneratedArtifact({
         destination, slot: opts.slot, runKind: "generate.voiceover", artifactKind: "audio",
         extension: ".mp3", mime: "audio/mpeg", provider: connVo.id, model: opts.model,
+        generationInput: generationInput(
+          [{ role: "text", value: opts.text }],
+          [
+            { name: "voiceSpecified", value: Boolean(opts.voice) },
+            ...(opts.stability === undefined ? [] : [{ name: "stability" as const, value: opts.stability }]),
+            ...(opts.similarityBoost === undefined ? [] : [{ name: "similarityBoost" as const, value: opts.similarityBoost }]),
+            ...(opts.style === undefined ? [] : [{ name: "style" as const, value: opts.style }]),
+            ...(opts.speed === undefined ? [] : [{ name: "speed" as const, value: opts.speed }]),
+            { name: "speakerBoost", value: opts.speakerBoost !== false },
+          ],
+        ),
         invoke: (runId, outputPath) => uivo.withSpinner(
           `voiceover (${opts.model}, voice ${opts.voice}) → ${opts.slot}`,
           () => connVo.generateVoiceover!({
@@ -1501,6 +1548,13 @@ export function generateCmd() {
       const { result, completed } = await executeGeneratedArtifact({
         destination, slot: opts.slot, runKind: "generate.music", artifactKind: "audio",
         extension: ".mp3", mime: "audio/mpeg", provider: connM.id, model: "music_v1",
+        generationInput: generationInput(
+          [{ role: "prompt", value: opts.prompt }],
+          [
+            { name: "durationSec", value: opts.duration },
+            { name: "forceInstrumental", value: !opts.withVocals },
+          ],
+        ),
         invoke: async (runId, outputPath) => {
           const submit = async (prompt: string) => connM.generateMusic!({
             ...providerDestination(destination), runId, outputPath, slot: opts.slot,
@@ -1615,6 +1669,13 @@ export function generateCmd() {
         destination, slot: opts.slot, runKind: "generate.sfx", artifactKind: "audio",
         extension: ".mp3", mime: "audio/mpeg", provider: connSfx.id,
         model: "sound_generation_v2",
+        generationInput: generationInput(
+          [{ role: "prompt", value: opts.prompt }],
+          [
+            { name: "durationSec", value: opts.duration },
+            { name: "promptInfluence", value: opts.promptInfluence },
+          ],
+        ),
         invoke: (runId, outputPath) => uisfx.withSpinner(
           `sfx (${opts.duration}s) → ${opts.slot}`,
           () => connSfx.generateSfx!({
@@ -1727,7 +1788,10 @@ export function generateCmd() {
         runId: run.id,
         provider: backend === "elevenlabs" ? "elevenlabs" : "openrouter",
         model: `transcribe/${backend}`,
-        request: { slot, language: opts.language, backend },
+        request: generationInput([], [
+          { name: "language", value: opts.language },
+          { name: "backend", value: backend },
+        ]),
       });
       const outPath = path.join(ralphDir(), "tmp", run.id, `${slot}.json`);
       let completed: Awaited<ReturnType<typeof completeArtifactRunSet>>;

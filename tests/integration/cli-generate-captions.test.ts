@@ -18,6 +18,7 @@ import { seedLegacyProject } from "../helpers/legacy-project.js";
 import { setRoot } from "../../cli/lib/paths.js";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
 import { createProject, createWorkspace } from "../../cli/lib/store/scopes.js";
+import { readGenerationInput } from "../../cli/lib/generation-input.js";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
 const CLI = path.join(REPO, "cli", "index.ts");
@@ -142,6 +143,9 @@ describe("`ralphy generate captions` domain output", () => {
       UNION ALL SELECT metadata_json FROM run_objects
       UNION ALL SELECT payload_json FROM activity_events
     `).all().map((row) => row.value ?? "").join("\n");
+    const attempt = db.query<{ request: string | null }, [string]>(
+      "SELECT request_json AS request FROM run_attempts WHERE run_id = ?",
+    ).get(r.json.runId);
     closeDomainDb();
     setRoot(REPO);
 
@@ -151,6 +155,14 @@ describe("`ralphy generate captions` domain output", () => {
       { position: 2, slug: "scene-01-drawtext", kind: "data", mime: "text/plain" },
     ]);
     expect(scratchFiles).toEqual([]);
+    expect(readGenerationInput(JSON.parse(attempt?.request ?? "null"))).toEqual({
+      version: 1,
+      texts: [],
+      parameters: [
+        { name: "language", value: "auto" },
+        { name: "backend", value: "elevenlabs" },
+      ],
+    });
     expect(persisted).not.toContain(audioPath);
     expect(fs.existsSync(path.join(projectDir, "artifacts", "captions", "scene-01.json"))).toBe(false);
     expect(fs.existsSync(path.join(projectDir, "captions.json"))).toBe(false);
