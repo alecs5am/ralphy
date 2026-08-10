@@ -73,6 +73,7 @@ const REQUIRED_TABLES = [
   "migration_runs",
   "migration_sources",
   "migration_entries",
+  "migration_entry_supplemental_refs",
   "migration_issues",
 ] as const;
 
@@ -126,7 +127,7 @@ describe("domain database bootstrap", () => {
       journal_mode: "wal",
     });
     expect(db.query("PRAGMA busy_timeout").get()).toEqual({ timeout: 5000 });
-    expect(db.query("PRAGMA user_version").get()).toEqual({ user_version: 5 });
+    expect(db.query("PRAGMA user_version").get()).toEqual({ user_version: 6 });
     expect(
       db
         .query<{ name: string }, []>(
@@ -141,9 +142,10 @@ describe("domain database bootstrap", () => {
       { version: 3 },
       { version: 4 },
       { version: 5 },
+      { version: 6 },
     ]);
-    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5]);
-    expect(SCHEMA_VERSION).toBe(5);
+    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(SCHEMA_VERSION).toBe(6);
 
     const socialAccountColumns = db
       .query<{ name: string }, []>("PRAGMA table_info('social_accounts')")
@@ -188,7 +190,7 @@ describe("domain database bootstrap", () => {
     expect(
       reopened.query("SELECT COUNT(*) AS count FROM schema_migrations").get(),
     ).toEqual({
-      count: 5,
+      count: 6,
     });
   });
 
@@ -321,10 +323,10 @@ describe("schema migration safety", () => {
     createV1Database(databasePath);
 
     const live = openDomainDb();
-    expect(live.query("PRAGMA user_version").get()).toEqual({ user_version: 5 });
+    expect(live.query("PRAGMA user_version").get()).toEqual({ user_version: 6 });
     expect(
       live.query("SELECT version FROM schema_migrations ORDER BY version").all(),
-    ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }]);
+    ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }]);
     expect(
       live
         .query(
@@ -469,7 +471,7 @@ describe("schema migration safety", () => {
     }
 
     const live = new Database(databasePath, { readonly: true });
-    expect(live.query("PRAGMA user_version").get()).toEqual({ user_version: 5 });
+    expect(live.query("PRAGMA user_version").get()).toEqual({ user_version: 6 });
     expect(
       live
         .query(

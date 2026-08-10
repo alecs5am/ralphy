@@ -384,6 +384,7 @@ function inspectFrozenActivation(
   inspectIssues(db, runId, blockers);
   inspectJobs(db, runId, blockers);
   inspectEntityAccounting(db, blockers);
+  blockers.push(...task2d2SupplementalAccountingIssues(db, runId));
   inspectProductionAccountingFacts(db, runId, blockers);
   inspectFarmState(db, blockers);
   inspectSecretMaterializations(db, storeRoot, runId, blockers);
@@ -441,7 +442,11 @@ function inspectEntry(db: Database, entry: Entry, blockers: MigrationIssue[]): v
   }
   let refs: string[];
   try { refs = JSON.parse(entry.targetRefs) as string[]; } catch { refs = []; blockers.push(issue("MIGRATION_TARGET_REFS_INVALID", entry.id)); }
-  for (const ref of refs) {
+  const supplementalRefs = db.query<{ targetRef: string }, [string]>(
+    `SELECT target_ref AS targetRef FROM migration_entry_supplemental_refs
+     WHERE migration_entry_id = ? ORDER BY target_ref`,
+  ).all(entry.id).map((row) => row.targetRef);
+  for (const ref of new Set([...refs, ...supplementalRefs])) {
     if (ref.startsWith("provider/")) continue;
     const split = ref.indexOf("_");
     const table = REF_TABLES[ref.slice(0, split)];
@@ -641,6 +646,61 @@ function inspectEntityAccounting(db: Database, blockers: MigrationIssue[]): void
          WHERE ref.value = entity.id) ORDER BY entity.id`,
     ).all()) blockers.push(issue(code, row.id));
   }
+}
+
+function task2d2SupplementalAccountingIssues(
+  db: Database,
+  runId: string,
+): MigrationIssue[] {
+  const blockers = db.query<{ targetRef: string }, [string]>(
+    `WITH expected_run(id) AS (VALUES (?)),
+       repair_revisions(id, composition_id) AS (
+         SELECT revision.id, revision.composition_id
+         FROM composition_revisions revision
+         JOIN migration_entries entry
+           ON entry.id = json_extract(revision.engine_config_json, '$.recovery.migrationEntryId')
+          AND entry.migration_run_id = (SELECT id FROM expected_run)
+         WHERE json_extract(revision.engine_config_json, '$.recovery.version') = 'task-2d2-v1'
+       ),
+       repair_runs(id) AS (
+         SELECT run.id FROM runs run
+         WHERE json_extract(run.metadata_json, '$.repairKey') = 'task-2d2-v1'
+           AND json_extract(run.metadata_json, '$.migrationRunId') = (SELECT id FROM expected_run)
+       ),
+       repair_targets(target_ref) AS (
+         SELECT composition_id FROM repair_revisions
+         UNION SELECT id FROM repair_revisions
+         UNION SELECT file.id FROM composition_revision_files file
+           JOIN repair_revisions revision ON revision.id = file.composition_revision_id
+         UNION SELECT id FROM repair_runs
+         UNION SELECT attempt.id FROM run_attempts attempt
+           JOIN repair_runs run ON run.id = attempt.run_id
+         UNION SELECT build.id FROM builds build
+           JOIN repair_runs run ON run.id = build.run_id
+         UNION SELECT output.id FROM build_outputs output
+           JOIN builds build ON build.id = output.build_id
+           JOIN repair_runs run ON run.id = build.run_id
+         UNION SELECT result.id FROM run_results result
+           JOIN repair_runs run ON run.id = result.run_id
+       )
+       SELECT target.target_ref AS targetRef
+       FROM repair_targets target
+       WHERE NOT EXISTS (
+         SELECT 1
+         FROM migration_entries entry, json_each(COALESCE(entry.target_refs_json, '[]')) ref
+         WHERE entry.migration_run_id = (SELECT id FROM expected_run)
+           AND ref.value = target.target_ref
+       )
+       AND NOT EXISTS (
+         SELECT 1
+         FROM migration_entry_supplemental_refs supplemental
+         JOIN migration_entries entry ON entry.id = supplemental.migration_entry_id
+         WHERE entry.migration_run_id = (SELECT id FROM expected_run)
+           AND supplemental.target_ref = target.target_ref
+       )
+       ORDER BY target.target_ref`,
+  ).all(runId).map((row) => issue("MIGRATION_REPAIR_TARGET_UNACCOUNTED", row.targetRef));
+  return blockers;
 }
 
 function inspectProductionAccountingFacts(db: Database, runId: string, blockers: MigrationIssue[]): void {

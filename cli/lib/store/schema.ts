@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import fs from "node:fs";
 import path from "node:path";
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export type Migration = {
   version: number;
@@ -4270,6 +4270,50 @@ export const MIGRATIONS: readonly Migration[] = [
       BEGIN
         SELECT RAISE(ABORT, 'Migration issue identity is immutable');
       END;
+    `,
+  },
+  {
+    version: 6,
+    sql: `
+      CREATE TABLE migration_entry_supplemental_refs (
+        migration_entry_id TEXT NOT NULL REFERENCES migration_entries(id) ON DELETE RESTRICT,
+        target_ref TEXT NOT NULL CHECK (
+          substr(target_ref, 1, instr(target_ref, '_') - 1) IN
+            ('comp', 'crev', 'cfile', 'run', 'attempt', 'build', 'output', 'result')
+          AND length(substr(target_ref, instr(target_ref, '_') + 1)) = 36
+          AND substr(substr(target_ref, instr(target_ref, '_') + 1), 9, 1) = '-'
+          AND substr(substr(target_ref, instr(target_ref, '_') + 1), 14, 1) = '-'
+          AND substr(substr(target_ref, instr(target_ref, '_') + 1), 15, 1) = '4'
+          AND substr(substr(target_ref, instr(target_ref, '_') + 1), 19, 1) = '-'
+          AND substr(substr(target_ref, instr(target_ref, '_') + 1), 20, 1) IN ('8', '9', 'a', 'b')
+          AND substr(substr(target_ref, instr(target_ref, '_') + 1), 24, 1) = '-'
+          AND length(replace(substr(target_ref, instr(target_ref, '_') + 1), '-', '')) = 32
+          AND replace(substr(target_ref, instr(target_ref, '_') + 1), '-', '') NOT GLOB '*[^0-9a-f]*'
+        ),
+        repair_key TEXT NOT NULL CHECK (repair_key = 'task-2d2-v1'),
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (migration_entry_id, target_ref)
+      );
+
+      CREATE INDEX idx_migration_entry_supplemental_refs_repair
+        ON migration_entry_supplemental_refs(repair_key, migration_entry_id);
+
+      CREATE TRIGGER migration_supplemental_refs_no_update
+      BEFORE UPDATE ON migration_entry_supplemental_refs
+      BEGIN SELECT RAISE(ABORT, 'supplemental migration refs are append-only'); END;
+
+      CREATE TRIGGER migration_supplemental_refs_no_delete
+      BEFORE DELETE ON migration_entry_supplemental_refs
+      BEGIN SELECT RAISE(ABORT, 'supplemental migration refs are append-only'); END;
+
+      CREATE TRIGGER migration_supplemental_refs_conflicting_insert
+      BEFORE INSERT ON migration_entry_supplemental_refs
+      WHEN EXISTS (
+        SELECT 1 FROM migration_entry_supplemental_refs
+        WHERE migration_entry_id = NEW.migration_entry_id
+          AND target_ref = NEW.target_ref
+      )
+      BEGIN SELECT RAISE(ABORT, 'supplemental migration ref already exists'); END;
     `,
   },
 ];

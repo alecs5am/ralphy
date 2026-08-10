@@ -29,6 +29,13 @@ const BUILD_ID = "build_00000000-0000-4000-8000-000000000078";
 const UNIT_ID = "unit_00000000-0000-4000-8000-000000000079";
 const LEGACY_RUN_ID = "run_00000000-0000-4000-8000-00000000007a";
 const RUN_OBJECT_ID = "robj_00000000-0000-4000-8000-00000000007b";
+const SUPPLEMENTAL_PROJECT_ID = "prj_00000000-0000-4000-8000-00000000007c";
+const SUPPLEMENTAL_COMPOSITION_ID = "comp_00000000-0000-4000-8000-00000000007d";
+const MISSING_SUPPLEMENTAL_COMPOSITION_ID = "comp_00000000-0000-4000-8000-00000000007e";
+const SUPPLEMENTAL_REVISION_ID = "crev_00000000-0000-4000-8000-00000000007f";
+const ORDINARY_COMPOSITION_ID = "comp_00000000-0000-4000-8000-000000000080";
+const ORDINARY_REVISION_ID = "crev_00000000-0000-4000-8000-000000000081";
+const ORDINARY_RUN_ID = "run_00000000-0000-4000-8000-000000000082";
 const GENERATION_ENTRY_ID = "mentry_00000000-0000-4000-8000-000000000091";
 const SOURCE_ENTRY_ID = "mentry_00000000-0000-4000-8000-000000000092";
 const RENDER_ENTRY_ID = "mentry_00000000-0000-4000-8000-000000000093";
@@ -398,6 +405,70 @@ describe("migration freeze and read-only verification", () => {
     })).rejects.toThrow(sha256(extraRef));
   });
 
+  test("rejects a supplemental migration ref whose target is missing", async () => {
+    const fixture = setup();
+    fixture.ctx.db.prepare(
+      `INSERT INTO migration_entry_supplemental_refs
+       (migration_entry_id, target_ref, repair_key, created_at)
+       VALUES (?, ?, 'task-2d2-v1', 2)`,
+    ).run(ENTRY_ID, MISSING_SUPPLEMENTAL_COMPOSITION_ID);
+
+    await expect(freezeMigration(fixture.ctx, { verificationDir: fixture.verificationDir }))
+      .rejects.toThrow(ENTRY_ID);
+  });
+
+  test("uses supplemental refs semantically without changing frozen JSON accounting", async () => {
+    const fixture = setup();
+    insertTask2d2Composition(fixture);
+    insertOrdinaryCompositionAndRun(fixture);
+    fixture.ctx.db.prepare(
+      `INSERT INTO migration_entry_supplemental_refs
+       (migration_entry_id, target_ref, repair_key, created_at)
+       VALUES (?, ?, 'task-2d2-v1', 2), (?, ?, 'task-2d2-v1', 2)`,
+    ).run(
+      ENTRY_ID,
+      SUPPLEMENTAL_COMPOSITION_ID,
+      ENTRY_ID,
+      SUPPLEMENTAL_REVISION_ID,
+    );
+    installProductionAccountingFact(fixture);
+
+    await freezeMigration(fixture.ctx, { verificationDir: fixture.verificationDir });
+  });
+
+  test("deduplicates a semantic ref present in original and supplemental accounting", async () => {
+    const fixture = setup({
+      additionalRefs: [SUPPLEMENTAL_COMPOSITION_ID, SUPPLEMENTAL_REVISION_ID],
+    });
+    insertTask2d2Composition(fixture);
+    fixture.ctx.db.prepare(
+      `INSERT INTO migration_entry_supplemental_refs
+       (migration_entry_id, target_ref, repair_key, created_at)
+       VALUES (?, ?, 'task-2d2-v1', 2), (?, ?, 'task-2d2-v1', 2)`,
+    ).run(
+      ENTRY_ID,
+      SUPPLEMENTAL_COMPOSITION_ID,
+      ENTRY_ID,
+      SUPPLEMENTAL_REVISION_ID,
+    );
+
+    await expect(freezeMigration(fixture.ctx, { verificationDir: fixture.verificationDir }))
+      .resolves.toBeDefined();
+  });
+
+  test("rejects a Task 2D2 repair target missing its required supplemental association", async () => {
+    const fixture = setup();
+    insertTask2d2Composition(fixture);
+    fixture.ctx.db.prepare(
+      `INSERT INTO migration_entry_supplemental_refs
+       (migration_entry_id, target_ref, repair_key, created_at)
+       VALUES (?, ?, 'task-2d2-v1', 2)`,
+    ).run(ENTRY_ID, SUPPLEMENTAL_REVISION_ID);
+
+    await expect(freezeMigration(fixture.ctx, { verificationDir: fixture.verificationDir }))
+      .rejects.toThrow(SUPPLEMENTAL_COMPOSITION_ID);
+  });
+
   test("rejects a valid mutable Job substituted after its immutable accounting fact", async () => {
     const fixture = setup();
     installJobAccountingFact(fixture);
@@ -478,6 +549,7 @@ function setup(options: {
   unhashedSecret?: boolean;
   recognizedEmpty?: boolean;
   artifactOnlyGeneration?: boolean;
+  additionalRefs?: readonly string[];
 } = {}): Fixture {
   const root = makeTmpRoot("ralphy-migration-verify");
   let sourceRoot = path.join(root.dir, "source", ".ralphy");
@@ -658,7 +730,7 @@ function setup(options: {
     sha: sha256("{}"),
     stat: controlStat,
     raw: OBJECT_ID,
-    refs: [OBJECT_ID],
+    refs: [OBJECT_ID, ...(options.additionalRefs ?? [])],
   }, ...incidentEntries];
   if (options.unclassifiedEmpty) {
     entries.push({
@@ -896,6 +968,40 @@ function installProductionAccountingFact(fixture: Fixture): void {
       metricWinnerIds: [],
     })),
   }));
+}
+
+function insertTask2d2Composition(fixture: Fixture): void {
+  fixture.ctx.db.prepare(
+    `INSERT INTO projects (id, workspace_id, slug, name, created_at, updated_at)
+     VALUES (?, ?, 'supplemental', 'Supplemental', 1, 1)`,
+  ).run(SUPPLEMENTAL_PROJECT_ID, WORKSPACE_ID);
+  fixture.ctx.db.prepare(
+    `INSERT INTO compositions (id, project_id, slug, kind, created_at, updated_at)
+     VALUES (?, ?, 'recovered-video', 'video', 1, 1)`,
+  ).run(SUPPLEMENTAL_COMPOSITION_ID, SUPPLEMENTAL_PROJECT_ID);
+  fixture.ctx.db.prepare(
+    `INSERT INTO composition_revisions
+     (id, composition_id, revision_no, engine, engine_config_json, created_at)
+     VALUES (?, ?, 1, 'hyperframes', ?, 1)`,
+  ).run(SUPPLEMENTAL_REVISION_ID, SUPPLEMENTAL_COMPOSITION_ID, JSON.stringify({
+    recovery: { version: "task-2d2-v1", migrationEntryId: ENTRY_ID },
+  }));
+}
+
+function insertOrdinaryCompositionAndRun(fixture: Fixture): void {
+  fixture.ctx.db.prepare(
+    `INSERT INTO compositions (id, project_id, slug, kind, created_at, updated_at)
+     VALUES (?, ?, 'ordinary', 'video', 1, 1)`,
+  ).run(ORDINARY_COMPOSITION_ID, SUPPLEMENTAL_PROJECT_ID);
+  fixture.ctx.db.prepare(
+    `INSERT INTO composition_revisions
+     (id, composition_id, revision_no, engine, created_at)
+     VALUES (?, ?, 1, 'ordinary', 1)`,
+  ).run(ORDINARY_REVISION_ID, ORDINARY_COMPOSITION_ID);
+  fixture.ctx.db.prepare(
+    `INSERT INTO runs (id, workspace_id, project_id, kind, state, created_at)
+     VALUES (?, ?, ?, 'ordinary', 'pending', 1)`,
+  ).run(ORDINARY_RUN_ID, WORKSPACE_ID, SUPPLEMENTAL_PROJECT_ID);
 }
 
 function installArtifactOnlyGenerationAccounting(fixture: Fixture): void {
