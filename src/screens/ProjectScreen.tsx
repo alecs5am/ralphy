@@ -1,225 +1,179 @@
-import {
-  ArrowRight,
-  Boxes,
-  FileText,
-  Film,
-  Image,
-  UsersRound,
-} from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { AlertCircle, FileText, ImageOff, RefreshCw } from "lucide-react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import type { ActivityDto, DocumentDto, MediaCardDto, ProjectOverviewDto, RunObjectMediaCardDto, UnitDto } from "../../electron/ralphy/types";
+import { VirtualAssetGrid, mediaCardName } from "../components/VirtualAssetGrid";
+import { MarkdownView } from "../components/MarkdownView";
 import { ProjectControls } from "../components/ProjectControls";
 import { ProjectHeader } from "../components/ProjectHeader";
-import { VirtualAssetGrid } from "../components/VirtualAssetGrid";
-import type {
-  AnnotationInput,
-  MediaAnnotation,
-  MediaItem,
-  MediaKind,
-  MediaQueryOptions,
-  ProjectMode,
-  ProjectScanResult,
-  ProjectSummary,
-} from "../lib/ipc";
-import { bridge } from "../lib/ipc";
-import { formatAgentFeedback } from "../lib/agent-feedback";
-import {
-  defaultMediaQuery,
-  groupMediaItems,
-  queryMediaItems,
-} from "../lib/media";
+import { AudioWaveform } from "../components/media/AudioWaveform";
+import { ImageViewport } from "../components/media/ImageViewport";
+import { VideoPlayer } from "../components/media/VideoPlayer";
+import { CompositionsPanel } from "./project/CompositionsPanel";
+import { bridge, type ProjectMediaFilter, type ProjectSummary } from "../lib/ipc";
+import type { DomainPage } from "../state/project-domain";
+import { createProjectScreenController, type ProjectScreenApi, type ProjectScreenController, type ProjectScreenSnapshot } from "../state/project-screen-controller";
 
-interface ProjectScreenProps {
-  project: ProjectSummary;
-  scan: ProjectScanResult | null;
-  annotations: Record<string, MediaAnnotation>;
-  loading: boolean;
-  includeIntermediate: boolean;
-  onIncludeIntermediateChange(value: boolean): void;
-  onOpenAsset(item: MediaItem, visibleItems: MediaItem[]): void;
-  onChangeAsset(item: MediaItem, annotation: AnnotationInput): void;
-  onTrashAsset(item: MediaItem): void;
+export { createProjectScreenController } from "../state/project-screen-controller";
+
+function formatTime(value: number): string {
+  return new Date(value < 1_000_000_000_000 ? value * 1000 : value).toLocaleString();
 }
 
-const overviewSections: Array<{
-  mode: ProjectMode;
-  label: string;
-  entity: MediaItem["entity"];
-  icon: React.ReactNode;
-}> = [
-  { mode: "finals", label: "Final renders", entity: "final-render", icon: <Film size={16} /> },
-  { mode: "assets", label: "Generated artifacts", entity: "generated-artifact", icon: <Boxes size={16} /> },
-  { mode: "refs", label: "References", entity: "reference", icon: <Image size={16} /> },
-  { mode: "units", label: "Unit assets", entity: "unit-asset", icon: <UsersRound size={16} /> },
-  { mode: "files", label: "Production files", entity: "lifecycle-document", icon: <FileText size={16} /> },
-];
+function PageState({ page, empty, onRetry, children }: { page: DomainPage; empty: string; onRetry(): void; children: React.ReactNode }) {
+  if (page.status === "loading" && page.items.length === 0) return <div className="project-skeleton" role="status">Loading…</div>;
+  if (page.status === "error" && page.items.length === 0) return <ProjectError error={page.error} onRetry={onRetry} />;
+  if (page.status === "ready" && page.items.length === 0) return <div className="empty-section">{empty}</div>;
+  return <>{children}</>;
+}
+
+function ProjectError({ error, onRetry }: { error: string | null; onRetry(): void }) {
+  return <div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{error ?? "This section could not be loaded."}</span><button type="button" onClick={onRetry}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>;
+}
+
+function Pagination({ page, onLoad }: { page: DomainPage; onLoad(): void }) {
+  if (page.status === "error") return <ProjectError error={page.error} onRetry={onLoad} />;
+  if (page.nextCursor === null) return null;
+  return <button className="load-more" type="button" disabled={page.status === "loading"} onClick={onLoad}>{page.status === "loading" ? "Loading…" : "Load more"}</button>;
+}
+
+function RecentSection({ title, children, empty }: { title: string; children: React.ReactNode; empty: boolean }) {
+  return <section className="project-domain-card"><div className="section-heading"><h3>{title}</h3><span>Recent records (bounded)</span></div>{empty ? <div className="empty-section">None returned.</div> : <div className="project-domain-list overview-records">{children}</div>}</section>;
+}
+
+function Overview({ value }: { value: ProjectOverviewDto }) {
+  const documents = value.documents?.items ?? [];
+  const iterations = value.iterations?.items ?? [];
+  const feedback = value.feedback?.items ?? [];
+  const stages = value.stages?.items ?? [];
+  const compositions = value.compositions?.items ?? [];
+  const builds = value.builds?.items ?? [];
+  const units = value.units?.items ?? [];
+  const runs = value.runs?.items ?? [];
+  const activity = value.activity?.items ?? [];
+  const publications = value.publications?.items ?? [];
+  const metrics = value.metrics;
+  return <div className="project-overview">
+    <section className="project-domain-card"><div className="section-heading"><h3>Current state</h3><span>{value.project.state}</span></div><dl className="overview-facts"><div><dt>Project ID</dt><dd>{value.project.id}</dd></div><div><dt>Purpose</dt><dd>{value.project.purpose ?? "Purpose not provided"}</dd></div><div><dt>Updated</dt><dd>{formatTime(value.project.updatedAt)}</dd></div><div><dt>Current iteration</dt><dd>{iterations.find((item) => item.state === "active")?.title ?? "None returned"}</dd></div></dl></section>
+    <section className="project-domain-card"><div className="section-heading"><h3>Media totals</h3><span>Complete domain counts</span></div><div className="overview-counts"><div><strong>{value.mediaCounts?.artifacts ?? 0}</strong><span>Artifacts</span></div><div><strong>{value.mediaCounts?.runObjects ?? 0}</strong><span>Run objects</span></div><div><strong>{value.mediaCounts?.objects ?? 0}</strong><span>Objects</span></div></div></section>
+    <section className="project-domain-card"><div className="section-heading"><h3>Publication metrics</h3><span>Complete domain totals</span></div><div className="metrics-band project-metrics" aria-label="Project metrics"><div className="metric"><span className="metric-value">{metrics?.publicationCount ?? "—"}</span><span className="metric-label">Publications</span></div><div className="metric"><span className="metric-value">{metrics?.views ?? "—"}</span><span className="metric-label">Views</span></div><div className="metric"><span className="metric-value">{metrics?.likes ?? "—"}</span><span className="metric-label">Likes</span></div><div className="metric"><span className="metric-value">{metrics?.comments ?? "—"}</span><span className="metric-label">Comments</span></div><div className="metric"><span className="metric-value">{metrics?.shares ?? "—"}</span><span className="metric-label">Shares</span></div><div className="metric"><span className="metric-value">{metrics?.watchTimeMs ?? "—"}</span><span className="metric-label">Watch time (ms)</span></div></div></section>
+    <RecentSection title="Iterations and feedback" empty={iterations.length + feedback.length === 0}>
+      {iterations.map((item) => <article key={item.id}><strong>Iteration {item.number} · {item.title}</strong><span>{item.state}</span><small>{item.priorIterationChanges ?? "No prior iteration changes"}</small><small>Created {formatTime(item.createdAt)}{item.closedAt ? ` · Closed ${formatTime(item.closedAt)}` : ""}</small></article>)}
+      {feedback.map((item) => <article key={item.id}><strong>Feedback · {item.status}</strong><span>{item.targetType && item.targetId ? `${item.targetType} · ${item.targetId}` : "Project feedback"}</span><small>Iteration {item.iterationId} · {formatTime(item.createdAt)}</small></article>)}
+    </RecentSection>
+    <RecentSection title="Stages" empty={stages.length === 0}>{stages.map((item) => <article key={item.id}><strong>{item.stage} · {item.state}</strong><span>{item.entityType && item.entityId ? `${item.entityType} · ${item.entityId}` : "No bound entity"}</span><small>Updated {formatTime(item.updatedAt)} · revision {item.rowVersion}</small></article>)}</RecentSection>
+    <RecentSection title="Documents" empty={documents.length === 0}>{documents.map((item) => <article key={item.id}><strong>{item.title}</strong><span>{item.kind} · Current {item.currentRevisionId ?? "None"}</span><small>{item.binding ? `Bound ${item.binding.boundRevisionId} · Current ${item.binding.currentHeadRevisionId ?? "None"}${item.binding.hasNewerHead ? " · Newer head available" : ""}` : "Not bound"}</small></article>)}</RecentSection>
+    <RecentSection title="Compositions and builds" empty={compositions.length + builds.length === 0}>
+      {compositions.map((item) => <article key={item.id}><strong>{item.slug}</strong><span>{item.kind}</span><small>Selected {item.selectedRevisionId ?? "None"} · Latest {item.latestRevisionId ?? "None"}</small></article>)}
+      {builds.map((item) => <article key={item.id}><strong>Build {item.id}</strong><span>{item.state}</span><small>Composition {item.compositionRevisionId} · Run {item.runId ?? "None"}</small></article>)}
+    </RecentSection>
+    <RecentSection title="Units" empty={units.length === 0}>{units.map((item) => <article key={item.id}><strong>{item.slug}</strong><span>{item.format}</span><small>Selected {item.selectedRevisionId ?? "None"} · Latest {item.latestRevisionId ?? "None"}</small></article>)}</RecentSection>
+    <RecentSection title="Working runs" empty={runs.length === 0}>{runs.map((item) => <article key={item.id}><strong>{item.label ?? item.id} · {item.kind} · {item.state}</strong><span>Run {item.id}</span><small>Created {formatTime(item.createdAt)}{item.startedAt ? ` · Started ${formatTime(item.startedAt)}` : ""}</small></article>)}</RecentSection>
+    <section className="project-domain-card"><div className="section-heading"><h3>Publications</h3><span>Recent publications (bounded)</span></div>{publications.length === 0 ? <div className="empty-section">No publications returned.</div> : <div className="project-domain-list overview-records">{publications.map((item) => <article key={item.id}><strong>{item.platform} · {item.state}</strong><span>{item.rail}</span><small>{item.url ?? "No URL returned"}</small><small>Created {formatTime(item.createdAt)} · Updated {formatTime(item.updatedAt)}{item.scheduledAt ? ` · Scheduled ${formatTime(item.scheduledAt)}` : ""}{item.submittedAt ? ` · Submitted ${formatTime(item.submittedAt)}` : ""}{item.publishedAt ? ` · Published ${formatTime(item.publishedAt)}` : ""}</small></article>)}</div>}</section>
+    <RecentSection title="Activity" empty={activity.length === 0}>{activity.map((item) => <article key={item.sequence}><strong>#{item.sequence} · {item.action}</strong><span>{item.entityType} · {item.entityId}</span><time dateTime={new Date(item.createdAt).toISOString()}>{formatTime(item.createdAt)}</time></article>)}</RecentSection>
+  </div>;
+}
+
+function RunObjectEvidence({ card }: { card: RunObjectMediaCardDto }) {
+  return <section className="run-object-evidence" aria-label="RunObject evidence"><h3>RunObject evidence</h3><dl><div><dt>Run ID</dt><dd>{card.runId}</dd></div><div><dt>Attempt</dt><dd>Unlinked</dd></div><div><dt>Purpose</dt><dd>{card.purpose}</dd></div><div><dt>State</dt><dd>{card.state}</dd></div><div><dt>Retention</dt><dd>{card.retention}</dd></div><div><dt>Logical path</dt><dd>{card.logicalPath}</dd></div><div><dt>Location class</dt><dd>{card.locationClass}</dd></div><div><dt>Object ID</dt><dd>{card.objectId ?? "Not promoted"}</dd></div></dl></section>;
+}
+
+function isRunObjectMediaCard(card: MediaCardDto): card is RunObjectMediaCardDto {
+  return card.ref.type === "run-object";
+}
+
+function MediaPreview({ snapshot }: { snapshot: ProjectScreenSnapshot }) {
+  const { selectedMedia } = snapshot;
+  const preview = snapshot.domain.preview;
+  if (!selectedMedia) return <div className="empty-section">Select media to preview it.</div>;
+  const evidence = isRunObjectMediaCard(selectedMedia) ? <RunObjectEvidence card={selectedMedia} /> : null;
+  let content: React.ReactNode = null;
+  if (preview.status === "loading") content = <div className="project-skeleton" role="status">Loading preview…</div>;
+  else if (preview.status === "error") content = <div className="preview-unavailable" role="alert"><ImageOff size={24} aria-hidden="true" /><strong>Preview unavailable</strong><span>{preview.error}</span></div>;
+  else if (preview.status === "ready" && preview.value === null) content = <div className="preview-unavailable"><ImageOff size={24} aria-hidden="true" /><strong>Preview needs review</strong><span>{selectedMedia.ref.type === "artifact" ? "Select an Artifact revision before previewing it." : "No preview target is available for this record."}</span></div>;
+  else if (preview.status === "ready" && preview.value) {
+    const name = mediaCardName(selectedMedia);
+    if (selectedMedia.mime?.startsWith("image/")) content = <ImageViewport src={preview.value.url} name={name} />;
+    else if (selectedMedia.mime?.startsWith("video/")) content = <VideoPlayer src={preview.value.url} name={name} />;
+    else if (selectedMedia.mime?.startsWith("audio/")) content = <AudioWaveform src={preview.value.url} name={name} sizeBytes={preview.value.sizeBytes} />;
+    else content = <a href={preview.value.url} aria-label={`Open ${name}`}>Open preview</a>;
+  }
+  return <>{evidence}{content}</>;
+}
+
+function documentText(format: string, text: string): string {
+  if (format !== "json") return text;
+  try { return JSON.stringify(JSON.parse(text), null, 2); } catch { return text; }
+}
+
+function DocumentPreview({ controller, snapshot }: { controller: ProjectScreenController; snapshot: ProjectScreenSnapshot }) {
+  const { selectedDocument, documentPreview, documentDraft } = snapshot;
+  const revision = selectedDocument?.currentRevision;
+  return <section className="project-preview" aria-label="Document content">
+    {!selectedDocument && <div className="empty-section">Select a document to open it.</div>}
+    {revision && <p className="document-revision-meta">Revision {revision.revisionNo} · Parent {revision.parentRevisionId ?? "None"}{revision.iterationId ? ` · Iteration ${revision.iterationId}` : ""}</p>}
+    {documentPreview.status === "loading" && <div className="project-skeleton" role="status">Loading document…</div>}
+    {documentPreview.status === "error" && <ProjectError error={documentPreview.error} onRetry={() => { if (selectedDocument) void controller.openDocument(selectedDocument); }} />}
+    {documentPreview.status === "ready" && documentPreview.value && <>{documentPreview.value.format === "markdown" ? <MarkdownView markdown={documentPreview.value.text} /> : <pre>{documentText(documentPreview.value.format, documentPreview.value.text)}</pre>}{documentPreview.value.truncated && <p>Preview truncated.</p>}</>}
+    {documentDraft && <><label htmlFor="document-draft">Draft</label><textarea id="document-draft" value={documentDraft.body} onChange={(event) => controller.setDocumentDraft(event.target.value)} /><button type="button" onClick={() => { void controller.saveDocument(); }}>Save revision</button></>}
+    {snapshot.documentConflict && <p className="project-local-error" role="alert">{snapshot.documentConflict}</p>}
+  </section>;
+}
+
+export function ProjectScreenView({ project, rootEpoch = 0, controller, snapshot }: { project: ProjectSummary; rootEpoch?: number; controller: ProjectScreenController; snapshot: ProjectScreenSnapshot }) {
+  const state = snapshot.domain;
+  const activeTab = snapshot.activeTab;
+  const page = activeTab === "overview" ? null : state.pages[activeTab];
+  const media = state.pages.media.items as MediaCardDto[];
+  const mediaFilters: Array<[ProjectMediaFilter, string]> = [["all", "All"], ["references", "References"], ["working", "Working"], ["candidate", "Candidate"], ["approved", "Approved"], ["rejected", "Rejected"], ["superseded", "Superseded"], ["run-diagnostics", "Run diagnostics"], ["run-cache-temp", "Cache/temp RunObjects"], ["advanced-objects", "Advanced Objects"]];
+  const retry = () => { void controller.retry(); };
+  const loadMore = () => { void controller.loadMore(); };
+  return <main className="main-region project-region">
+    <ProjectHeader project={project} />
+    <ProjectControls activeTab={activeTab} onSelect={(tab) => { void controller.selectTab(tab); }} />
+    <div className="project-domain-body" role="tabpanel" id={`project-panel-${activeTab}`} aria-labelledby={`project-tab-${activeTab}`}>
+      {activeTab === "overview" && (state.overview.status === "loading" ? <div className="project-skeleton" role="status">Loading project overview…</div> : state.overview.status === "error" ? <ProjectError error={state.overview.error} onRetry={retry} /> : state.overview.value ? <Overview value={state.overview.value as ProjectOverviewDto} /> : null)}
+      {activeTab === "documents" && page && <PageState page={page} empty="No documents yet." onRetry={retry}><div className="project-split-view"><div className="project-domain-list"><form onSubmit={(event) => { event.preventDefault(); const query = new FormData(event.currentTarget).get("query"); if (typeof query === "string") void controller.searchDocuments(query); }}><label htmlFor="document-search">Search documents</label><input id="document-search" name="query" type="search" defaultValue={snapshot.documentSearch.query} /><button type="submit">Search</button></form>{snapshot.documentSearch.status === "error" && <ProjectError error={snapshot.documentSearch.error} onRetry={() => { void controller.searchDocuments(snapshot.documentSearch.query); }} />}{snapshot.documentSearch.results.map((result) => <button type="button" className={snapshot.selectedDocument?.id === result.documentId ? "is-selected" : ""} key={result.revisionId} onClick={() => { void controller.openSearchResult(result); }}><FileText size={16} aria-hidden="true" /><span><strong>{result.documentTitle}</strong><small>{result.kind} · Revision {result.revisionNo}</small></span></button>)}{(page.items as DocumentDto[]).map((document) => <button type="button" className={snapshot.selectedDocument?.id === document.id ? "is-selected" : ""} key={document.id} onClick={() => { void controller.openDocument(document); }}><FileText size={16} aria-hidden="true" /><span><strong>{document.title}</strong><small>{document.kind} · {document.currentRevisionId ?? "No revision"}</small></span></button>)}<Pagination page={page} onLoad={loadMore} /></div><DocumentPreview controller={controller} snapshot={snapshot} /></div></PageState>}
+      {activeTab === "media" && page && <><div className="media-domain-toolbar" aria-label="Media filters">{mediaFilters.map(([value, label]) => <button type="button" aria-pressed={state.media.filter === value} key={value} onClick={() => { void controller.setMediaFilter(value); }}>{label}</button>)}</div><PageState page={page} empty="No media yet." onRetry={retry}><div className="project-split-view"><div className="project-media-grid"><VirtualAssetGrid items={media} project={state.project} rootEpoch={rootEpoch} selectedRef={snapshot.selectedMedia?.ref ?? null} resolvePreview={bridge.resolveProjectPreview} onSelect={(card) => { void controller.openMedia(card); }} onOpen={(card) => { void controller.openMedia(card); }} /><Pagination page={page} onLoad={loadMore} /></div><section className="project-preview" aria-label="Media preview"><MediaPreview snapshot={snapshot} /></section></div></PageState></>}
+      {activeTab === "compositions" && page && <PageState page={page} empty="No compositions yet." onRetry={retry}><CompositionsPanel page={page} controller={controller} snapshot={snapshot} pagination={<Pagination page={page} onLoad={loadMore} />} /></PageState>}
+      {activeTab === "units" && page && <PageState page={page} empty="No units yet." onRetry={retry}><div className="project-domain-list">{(page.items as UnitDto[]).map((item) => <article key={item.id}><strong>{item.slug}</strong><span>{item.format}</span><small>ID {item.id} · Selected {item.selectedRevisionId ?? "None"} · Latest {item.latestRevisionId ?? "None"}</small></article>)}<Pagination page={page} onLoad={loadMore} /></div></PageState>}
+      {activeTab === "activity" && page && <PageState page={page} empty="No activity yet." onRetry={retry}><div className="project-domain-list">{(page.items as ActivityDto[]).map((event) => <article key={event.sequence}><strong>#{event.sequence} · {event.action}</strong><span>{event.entityType} · {event.entityId}</span><time dateTime={new Date(event.createdAt).toISOString()}>{formatTime(event.createdAt)}</time></article>)}<Pagination page={page} onLoad={loadMore} /></div></PageState>}
+    </div>
+  </main>;
+}
+
+export function startProjectScreenController(
+  api: ProjectScreenApi,
+  project: ProjectSummary,
+  activitySequence: number,
+  setController: (controller: ProjectScreenController) => void,
+): () => void {
+  const controller = createProjectScreenController(api, project, activitySequence);
+  setController(controller);
+  void controller.start();
+  return () => controller.dispose();
+}
+
+function ConnectedProjectScreen({ project, rootEpoch, controller }: { project: ProjectSummary; rootEpoch: number; controller: ProjectScreenController }) {
+  const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
+  return <ProjectScreenView project={project} rootEpoch={rootEpoch} controller={controller} snapshot={snapshot} />;
+}
 
 export function ProjectScreen({
   project,
-  scan,
-  annotations,
-  loading,
-  includeIntermediate,
-  onIncludeIntermediateChange,
-  onOpenAsset,
-  onChangeAsset,
-  onTrashAsset,
-}: ProjectScreenProps) {
-  const [query, setQuery] = useState<MediaQueryOptions>({
-    ...defaultMediaQuery,
-    includeIntermediate,
-  });
-  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
-  const [gridSize, setGridSize] = useState(230);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const items = scan?.items ?? [];
-
-  useEffect(() => {
-    setQuery({ ...defaultMediaQuery, includeIntermediate });
-    setSelectedId(null);
-  }, [project.projectId]);
-
-  const visibleItems = useMemo(
-    () => queryMediaItems(items, query, annotations),
-    [annotations, items, query],
+  rootEpoch,
+  activitySequence,
+}: {
+  project: ProjectSummary;
+  rootEpoch: number;
+  activitySequence: number;
+}) {
+  const [controller, setController] = useState<ProjectScreenController | null>(null);
+  useEffect(
+    () => startProjectScreenController(bridge, project, activitySequence, setController),
+    [project.projectId, project.workspaceId, rootEpoch],
   );
-  const groups = useMemo(
-    () => groupMediaItems(visibleItems, query.groupBy, annotations),
-    [annotations, query.groupBy, visibleItems],
-  );
-  const kindCounts = useMemo(() => {
-    const counts: Record<MediaKind, number> = {
-      image: 0,
-      video: 0,
-      audio: 0,
-      text: 0,
-      pdf: 0,
-      other: 0,
-    };
-    const modeItems = queryMediaItems(
-      items,
-      { ...defaultMediaQuery, mode: query.mode },
-      {},
-    );
-    for (const item of modeItems) counts[item.kind] += 1;
-    return counts;
-  }, [items, query.mode]);
-
-  const updateQuery = (next: MediaQueryOptions) => {
-    if (next.includeIntermediate !== query.includeIntermediate) {
-      onIncludeIntermediateChange(next.includeIntermediate);
-    }
-    setQuery(next);
-    setSelectedId(null);
-  };
-
-  const selectAsset = (item: MediaItem) => {
-    setSelectedId(item.id);
-  };
-
-  const copyForAgent = async () => {
-    const reviewedItems = items.filter((item) => {
-      const annotation = annotations[item.id];
-      return Boolean(
-        annotation &&
-          (annotation.reviewStatus !== "Unreviewed" ||
-            annotation.favorite ||
-            annotation.rating > 0 ||
-            annotation.tags.length > 0 ||
-            annotation.notes.trim()),
-      );
-    });
-    try {
-      await bridge.copyText(formatAgentFeedback(project, reviewedItems, annotations));
-      setCopyState("copied");
-    } catch {
-      setCopyState("failed");
-    }
-    window.setTimeout(() => setCopyState("idle"), 1600);
-  };
-
-  return (
-    <main className="main-region project-region">
-      <ProjectHeader
-        project={project}
-        scan={scan}
-        loading={loading}
-        copyState={copyState}
-        onCopyForAgent={() => void copyForAgent()}
-      />
-      <ProjectControls
-        query={query}
-        itemCount={query.mode === "overview" ? items.length : visibleItems.length}
-        kindCounts={kindCounts}
-        gridSize={gridSize}
-        onChange={updateQuery}
-        onGridSizeChange={setGridSize}
-      />
-
-      {query.mode === "overview" ? (
-        <div className="project-overview">
-          <section className="production-structure">
-            <div className="section-heading">
-              <h3>Production structure</h3>
-              <span>Ralphy entities</span>
-            </div>
-            {overviewSections.map((section) => {
-              const count =
-                section.mode === "files"
-                  ? items.filter((item) =>
-                      ["lifecycle-document", "production-file", "other-project-file"].includes(item.entity),
-                    ).length
-                  : items.filter((item) => item.entity === section.entity).length;
-              return (
-                <button
-                  className="structure-row"
-                  type="button"
-                  key={section.mode}
-                  onClick={() => updateQuery({ ...query, mode: section.mode })}
-                >
-                  <span className="structure-icon">{section.icon}</span>
-                  <span><strong>{section.label}</strong><small>{count} items</small></span>
-                  <ArrowRight size={14} />
-                </button>
-              );
-            })}
-          </section>
-          <section className="generation-ledger">
-            <div className="section-heading">
-              <h3>Generation ledger</h3>
-              <span>{scan?.ledger.entries.length ?? 0} operations</span>
-            </div>
-            {(scan?.ledger.entries ?? []).slice(0, 8).map((entry, index) => (
-              <div className="ledger-row" key={`${entry.timestamp}-${entry.operation}-${index}`}>
-                <span className="status-dot" />
-                <span>
-                  <strong>{entry.operation}</strong>
-                  <small>{entry.provider} · {entry.model}</small>
-                </span>
-                <span>{entry.costUsd === null ? "—" : `$${entry.costUsd.toFixed(2)}`}</span>
-              </div>
-            ))}
-            {!loading && (scan?.ledger.entries.length ?? 0) === 0 && (
-              <div className="empty-section">No attributed generations in this project.</div>
-            )}
-          </section>
-        </div>
-      ) : loading && !scan ? (
-        <div className="project-indexing">
-          <span className="loading-line" />
-          <span>Indexing selected project…</span>
-        </div>
-      ) : (
-        <VirtualAssetGrid
-          groups={groups}
-          annotations={annotations}
-          targetTileWidth={gridSize}
-          selectedId={selectedId}
-          onSelect={selectAsset}
-          onOpen={(item) => onOpenAsset(item, visibleItems)}
-          onChange={onChangeAsset}
-          onTrash={onTrashAsset}
-        />
-      )}
-    </main>
-  );
+  useEffect(() => { void controller?.refresh(activitySequence); }, [activitySequence, controller]);
+  return controller
+    ? <ConnectedProjectScreen project={project} rootEpoch={rootEpoch} controller={controller} />
+    : <main className="main-region project-region"><div className="project-skeleton" role="status">Loading project overview…</div></main>;
 }
