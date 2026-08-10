@@ -75,6 +75,7 @@ import {
 } from "../store/operations.js";
 import {
   finishRun,
+  getMediaGenerationDetail,
   getRun,
   getRunObject,
   listRunAttempts,
@@ -482,6 +483,33 @@ export function createBridgeMethods(input: {
     const value = object(params, "media.show");
     return getMediaCard({ context: scopedContext(value), ref: object(value.ref, "ref") as never });
   });
+  add("media.generation.show", "read", (params) => {
+    const value = object(params, "media.generation.show");
+    exactKeys(value, [
+      "context",
+      "target",
+      ...(Object.hasOwn(value, "after") ? ["after"] : []),
+      ...(Object.hasOwn(value, "limit") ? ["limit"] : []),
+    ], "media.generation.show");
+    const target = object(value.target, "target");
+    exactKeys(target, ["type", "id"], "media.generation.show target");
+    const type = string(target.type, "target.type");
+    if (type !== "artifact-revision" && type !== "run-object") {
+      throw new Error("Media generation target type is invalid");
+    }
+    const id = string(target.id, "target.id");
+    if (id.length > 128) throw new Error("Media generation target ID must be 1..128 characters");
+    const pageLimit = value.limit === undefined ? 20 : limit(value.limit);
+    if (value.limit !== undefined && pageLimit !== value.limit) {
+      throw new Error("limit must be at most 100");
+    }
+    return getMediaGenerationDetail({
+      context: scopedContext(value),
+      target: { type, id },
+      after: optionalString(value.after),
+      limit: pageLimit,
+    });
+  });
   add("media.revisions", "read", (params) => {
     const value = object(params, "media.revisions");
     const context = scopedContext(value);
@@ -504,11 +532,12 @@ export function createBridgeMethods(input: {
     const ref = object(value.ref, "ref");
     if (string(ref.type, "ref.type") !== "artifact") throw new Error("Only Artifact refs may be selected");
     getMediaCard({ context, ref: ref as never });
-    return selectArtifactRevision({
+    selectArtifactRevision({
       artifactId: string(ref.id, "ref.id"),
       revisionId: string(value.revisionId, "revisionId"),
       expectedRevisionId: value.expectedSelectedRevisionId === null ? null : string(value.expectedSelectedRevisionId, "expectedSelectedRevisionId"),
     });
+    return getMediaCard({ context, ref: ref as never });
   });
   add("media.review", "mutation", (params) => {
     const value = object(params, "media.review");
@@ -1069,7 +1098,7 @@ export function createBridgeMethods(input: {
 
   for (const [name, kind] of [
     ["workspace.export", "operation-start"], ["workspace.import", "operation-start"],
-    ["document.bind", "mutation"], ["media.list", "read"], ["media.show", "read"],
+    ["document.bind", "mutation"], ["media.list", "read"], ["media.show", "read"], ["media.generation.show", "read"],
     ["media.revisions", "read"], ["media.revision.show", "read"], ["media.select", "mutation"], ["media.review", "mutation"],
     ["evaluation.list", "read"], ["evaluation.show", "read"], ["evaluation.create", "mutation"],
     ["run.objects", "read"], ["run.cancel", "mutation"],
@@ -1257,11 +1286,15 @@ function decodeBase64(value: string): Uint8Array {
   return bytes;
 }
 
-function exactKeys(value: Record<string, unknown>, expected: readonly string[]): void {
+function exactKeys(
+  value: Record<string, unknown>,
+  expected: readonly string[],
+  label = "migration.secret.import",
+): void {
   const actual = Object.keys(value).sort();
   const wanted = [...expected].sort();
   if (actual.length !== wanted.length || actual.some((key, index) => key !== wanted[index])) {
-    throw new Error("migration.secret.import has unsupported fields");
+    throw new Error(`${label} has unsupported fields`);
   }
 }
 

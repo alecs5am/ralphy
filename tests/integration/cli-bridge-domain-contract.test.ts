@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
+import { generationInput } from "../../cli/lib/generation-input.js";
 import {
   addArtifactRevision,
   addArtifactUsage,
@@ -25,6 +26,7 @@ import {
   recordRunObject,
   finishRun,
   finishRunAttempt,
+  recordRunResult,
   startRun,
   startRunAttempt,
 } from "../../cli/lib/store/runs.js";
@@ -73,6 +75,12 @@ async function storedObject(
   });
 }
 
+function nestedKeys(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(nestedKeys);
+  if (value === null || typeof value !== "object") return [];
+  return Object.entries(value).flatMap(([key, item]) => [key, ...nestedKeys(item)]);
+}
+
 describe("Desktop bridge domain contract", () => {
   test("advertises and resolves a scoped Artifact revision", async () => {
     root = makeTmpRoot("ralphy-bridge-domain-reads");
@@ -91,6 +99,203 @@ describe("Desktop bridge domain contract", () => {
 
     expect(await call("media.revision.show", { context, revisionId: artifactRevision.id }))
       .toMatchObject({ id: artifactRevision.id, objectId: object.id });
+  });
+
+  test("media.select returns the refreshed public card from a null selection", async () => {
+    root = makeTmpRoot("ralphy-bridge-media-select-card");
+    const workspace = createWorkspace({ slug: "selection", name: "Selection" });
+    const project = createProject({ workspaceId: workspace.id, slug: "project", name: "Project" });
+    const object = await storedObject(workspace.id, project.id, "selected.bin");
+    const artifact = createArtifact({ projectId: project.id, slug: "hero", kind: "image" });
+    const revision = addArtifactRevision({
+      artifactId: artifact.id,
+      objectId: object.id,
+      state: "approved",
+    });
+
+    expect(await call("media.select", {
+      context: { workspaceId: workspace.id, projectId: project.id },
+      ref: { type: "artifact", id: artifact.id },
+      revisionId: revision.id,
+      expectedSelectedRevisionId: null,
+    })).toEqual({
+      ref: { type: "artifact", id: artifact.id },
+      workspaceId: workspace.id,
+      projectId: project.id,
+      slug: "hero",
+      kind: "image",
+      selectedRevisionId: revision.id,
+      selectedState: "approved",
+      mime: "application/octet-stream",
+      bytes: Buffer.byteLength("bytes:selected.bin"),
+      selectedAt: revision.createdAt,
+      revisionCount: 1,
+      selectedObjectId: object.id,
+      storageClass: "working",
+      usageRoles: [],
+      target: { type: "object", id: object.id },
+    });
+  });
+
+  test("advertises bounded media generation details without widening media.list", async () => {
+    root = makeTmpRoot("ralphy-bridge-media-generation");
+    const workspace = createWorkspace({ slug: "generation", name: "Generation" });
+    const project = createProject({ workspaceId: workspace.id, slug: "project", name: "Project" });
+    const context = { workspaceId: workspace.id, projectId: project.id };
+    const object = await storedObject(workspace.id, project.id, "generated.png", "durable");
+    const artifact = createArtifact({
+      projectId: project.id,
+      slug: "hero",
+      kind: "image",
+      metadata: { note: "private", voiceId: "private", url: "private", externalId: "private", credential: "private" },
+    });
+    const revision = addArtifactRevision({
+      artifactId: artifact.id,
+      objectId: object.id,
+      state: "candidate",
+      metadata: { path: "private", bucket: "private", key: "private", sha: "private" },
+    });
+    const run = startRun({
+      projectId: project.id,
+      kind: "generate.image",
+      metadata: { request: "private", response: "private", error: "private" },
+    });
+    recordRunResult(openDomainDb(), {
+      runId: run.id,
+      position: 0,
+      entityType: "artifact_revision",
+      entityId: revision.id,
+    });
+    const runObject = recordRunObject({
+      runId: run.id,
+      path: "tmp/private-generated.png",
+      purpose: "result",
+      state: "ready",
+      retention: "keep",
+      mime: "image/png",
+      bytes: 123,
+      sha256: "a".repeat(64),
+      metadata: { logicalPath: "private", absolutePath: "private" },
+    });
+    const input = generationInput(
+      [{ role: "prompt", value: "A safe prompt" }],
+      [{ name: "aspectRatio", value: "9:16" }],
+    );
+    const attempt = startRunAttempt({
+      runId: run.id,
+      provider: "fixture",
+      model: "fixture-image",
+      request: input,
+    });
+    const finishedAttempt = finishRunAttempt(attempt.id, {
+      state: "succeeded",
+      response: { url: "private", externalId: "private" },
+      costUsd: 0.75,
+    });
+    const finishedRun = finishRun(run.id, { state: "succeeded" });
+    const expectedInput = {
+      version: 1,
+      texts: [{ role: "prompt", value: "A safe prompt", truncated: false }],
+      parameters: [{ name: "aspectRatio", value: "9:16" }],
+    };
+
+    const hello = await call("system.hello", {}) as { capabilities: string[] };
+    expect(hello.capabilities).toContain("media.generation.show");
+    for (const target of [
+      { type: "artifact-revision", id: revision.id },
+      { type: "run-object", id: runObject.id },
+    ] as const) {
+      const detail = await call("media.generation.show", { context, target });
+      expect(detail).toEqual({
+        status: "generation",
+        target,
+        run: finishedRun,
+        attempts: {
+          items: [{ ...finishedAttempt, input: expectedInput }],
+          nextCursor: null,
+        },
+        cost: { knownUsd: 0.75, complete: true },
+      });
+      const keys = new Set(nestedKeys(detail));
+      for (const hidden of [
+        "absolutePath", "logicalPath", "path", "bucket", "key", "sha", "sha256",
+        "metadata", "request", "response", "error", "note", "voiceId", "url",
+        "externalId", "credential",
+      ]) expect(keys.has(hidden)).toBe(false);
+    }
+
+    const list = await call("media.list", { context, types: ["artifact"], limit: 20 });
+    expect(JSON.stringify(list)).toBe(JSON.stringify({
+      items: [{
+        ref: { type: "artifact", id: artifact.id },
+        workspaceId: workspace.id,
+        projectId: project.id,
+        slug: "hero",
+        kind: "image",
+        selectedRevisionId: null,
+        selectedState: null,
+        mime: null,
+        bytes: null,
+        selectedAt: null,
+        revisionCount: 1,
+        selectedObjectId: null,
+        storageClass: null,
+        usageRoles: [],
+        target: null,
+      }],
+      nextCursor: null,
+    }));
+
+    const pagedRun = startRun({ projectId: project.id, kind: "generation" });
+    const pagedRunObject = recordRunObject({
+      runId: pagedRun.id,
+      path: "tmp/paged.png",
+      purpose: "result",
+      state: "ready",
+      retention: "keep",
+    });
+    for (let index = 0; index < 21; index += 1) {
+      const pagedAttempt = startRunAttempt({ runId: pagedRun.id, request: input });
+      finishRunAttempt(pagedAttempt.id, { state: index === 20 ? "succeeded" : "failed", costUsd: 0 });
+      finishRun(pagedRun.id, { state: index === 20 ? "succeeded" : "failed" });
+    }
+    const defaultPage = await call("media.generation.show", {
+      context,
+      target: { type: "run-object", id: pagedRunObject.id },
+    }) as { attempts: { items: unknown[]; nextCursor: string | null } };
+    expect(defaultPage.attempts.items).toHaveLength(20);
+    expect(defaultPage.attempts.nextCursor).not.toBeNull();
+    const maxPage = await call("media.generation.show", {
+      context,
+      target: { type: "run-object", id: pagedRunObject.id },
+      limit: 100,
+    }) as { attempts: { items: unknown[]; nextCursor: string | null } };
+    expect(maxPage.attempts.items).toHaveLength(21);
+    expect(maxPage.attempts.nextCursor).toBeNull();
+
+    const validTarget = { type: "artifact-revision", id: revision.id };
+    for (const params of [
+      [],
+      { context },
+      { context, target: [] },
+      { context, target: {} },
+      { context, target: { type: "artifact-revision" } },
+      { context, target: { id: revision.id } },
+      { context, target: { ...validTarget, extra: true } },
+      { context, target: { type: "object", id: object.id } },
+      { context, target: { type: "artifact", id: artifact.id } },
+      { context, target: { type: "artifact-revision", id: "" } },
+      { context, target: { type: "artifact-revision", id: "x".repeat(129) } },
+      { context, target: validTarget, after: "not-a-cursor" },
+      { context, target: validTarget, limit: 0 },
+      { context, target: validTarget, limit: 101 },
+      { context, target: validTarget, extra: true },
+    ]) {
+      await expect(call(
+        "media.generation.show",
+        params as Record<string, unknown>,
+      )).rejects.toThrow();
+    }
   });
 
   test("traverses nested scoped production reads without exposing stored internals", async () => {
