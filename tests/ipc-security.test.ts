@@ -1,6 +1,48 @@
 import { describe, expect, test, vi } from "vitest";
+import type { RalphyBridgeClient } from "../electron/ralphy/client";
 
 describe("Electron IPC security", () => {
+  test("keeps root identity and activity refresh payloads numeric and private", async () => {
+    const { applyActivityRefresh } = await import("../src/App") as {
+      applyActivityRefresh(identity: unknown, event: unknown): unknown;
+    };
+    const identity = {
+      storeId: "store-1",
+      label: "Library",
+      rootEpoch: 4,
+      activitySequence: 10,
+    };
+    const refresh = {
+      type: "activity-refresh",
+      storeId: "store-1",
+      rootEpoch: 4,
+      sequence: 11,
+    };
+
+    expect(Object.keys(identity)).toEqual(["storeId", "label", "rootEpoch", "activitySequence"]);
+    expect(Object.keys(refresh)).toEqual(["type", "storeId", "rootEpoch", "sequence"]);
+    expect(JSON.stringify(refresh)).not.toMatch(/subscription|workspaceId|projectId|entity|action|payload|data|createdAt/i);
+    expect(applyActivityRefresh(identity, refresh)).toEqual({ ...identity, activitySequence: 11 });
+  });
+
+  test("accepts only a strictly newer refresh from the active root binding", async () => {
+    const { applyActivityRefresh } = await import("../src/App") as {
+      applyActivityRefresh(identity: unknown, event: unknown): unknown;
+    };
+    const identity = {
+      storeId: "store-1",
+      label: "Library",
+      rootEpoch: 4,
+      activitySequence: 10,
+    };
+
+    expect(applyActivityRefresh(identity, { type: "activity-refresh", storeId: "store-1", rootEpoch: 4, sequence: 10 })).toBe(identity);
+    expect(applyActivityRefresh(identity, { type: "activity-refresh", storeId: "store-1", rootEpoch: 4, sequence: 9 })).toBe(identity);
+    expect(applyActivityRefresh(identity, { type: "activity-refresh", storeId: "store-old", rootEpoch: 4, sequence: 12 })).toBe(identity);
+    expect(applyActivityRefresh(identity, { type: "activity-refresh", storeId: "store-1", rootEpoch: 3, sequence: 12 })).toBe(identity);
+    expect(applyActivityRefresh(null, { type: "activity-refresh", storeId: "store-1", rootEpoch: 4, sequence: 12 })).toBeNull();
+  });
+
   test("maps bridge codes without exposing unknown error messages", async () => {
     const security = await import("../electron/ipc-security").catch(() => ({}));
 
@@ -138,24 +180,125 @@ describe("Electron IPC security", () => {
     expect(Object.keys(exposed as object)).toEqual(expect.arrayContaining([
       "restoreLibrary",
       "chooseLibrary",
+      "loadWorkspaceOverview",
+      "loadProjectOverview",
+      "loadProjectPage",
+      "loadProjectGeneration",
+      "loadProjectMediaRevisions",
+      "selectProjectMediaRevision",
+      "loadDocumentPreview",
+      "resolveProjectPreview",
+      "loadProjectComposition",
+      "reviseProjectComposition",
+      "selectProjectCompositionRevision",
+      "buildProjectComposition",
+      "resolveCompositionOutputPreview",
       "copyMigrationRecoveryCommand",
       "sendAgentMessage",
       "createTerminal",
     ]));
     const bridge = exposed as {
       startFileDrag(path: string): Promise<void>;
+      loadWorkspaceOverview(workspaceId: string): Promise<void>;
+      loadProjectOverview(project: { workspaceId: string; projectId: string }): Promise<void>;
+      loadProjectGeneration(project: { workspaceId: string; projectId: string }, target: { type: "artifact-revision"; id: string }, after?: string): Promise<void>;
+      loadProjectMediaRevisions(project: { workspaceId: string; projectId: string }, artifactId: string, after?: string): Promise<void>;
+      selectProjectMediaRevision(project: { workspaceId: string; projectId: string }, artifactId: string, revisionId: string, expectedSelectedRevisionId: string | null): Promise<void>;
+      loadProjectComposition(project: { workspaceId: string; projectId: string }, compositionId: string): Promise<void>;
+      buildProjectComposition(project: { workspaceId: string; projectId: string }, revisionId: string): Promise<void>;
+      resolveCompositionOutputPreview(project: { workspaceId: string; projectId: string }, revisionId: string): Promise<void>;
       writeTerminal(sessionId: string, data: string): Promise<void>;
       resizeTerminal(sessionId: string, dimensions: { cols: number; rows: number }): Promise<void>;
     };
     await bridge.startFileDrag("/library/video.mp4");
+    await bridge.loadWorkspaceOverview("workspace-1");
+    await bridge.loadProjectOverview({ workspaceId: "workspace-1", projectId: "project-1" });
+    await bridge.loadProjectGeneration({ workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact-revision", id: "revision-1" }, "generation-next");
+    await bridge.loadProjectMediaRevisions({ workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-next");
+    await bridge.selectProjectMediaRevision({ workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-1", null);
+    await bridge.loadProjectComposition({ workspaceId: "workspace-1", projectId: "project-1" }, "composition-1");
+    await bridge.buildProjectComposition({ workspaceId: "workspace-1", projectId: "project-1" }, "revision-1");
+    await bridge.resolveCompositionOutputPreview({ workspaceId: "workspace-1", projectId: "project-1" }, "artifact-revision-1");
     await bridge.writeTerminal("terminal-1", "ls\n");
     await bridge.resizeTerminal("terminal-1", { cols: 80, rows: 24 });
     expect(invoke.mock.calls).toEqual(expect.arrayContaining([
       ["media:files:drag", "/library/video.mp4"],
+      ["workspace:overview", "workspace-1"],
+      ["project:overview", { workspaceId: "workspace-1", projectId: "project-1" }],
+      ["project:media:generation", { workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact-revision", id: "revision-1" }, "generation-next"],
+      ["project:media:revisions", { workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-next"],
+      ["project:media:select", { workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-1", null],
+      ["project:composition:show", { workspaceId: "workspace-1", projectId: "project-1" }, "composition-1"],
+      ["project:composition:build", { workspaceId: "workspace-1", projectId: "project-1" }, "revision-1", undefined],
+      ["project:composition:output-preview", { workspaceId: "workspace-1", projectId: "project-1" }, "artifact-revision-1"],
       ["terminal:write", "terminal-1", "ls\n"],
       ["terminal:resize", "terminal-1", { cols: 80, rows: 24 }],
     ]));
     expect(send).not.toHaveBeenCalled();
+  });
+
+  test("registered Workspace overview IPC validates, trusts, and rejects stale roots", async () => {
+    const workspaceReader = await import("../electron/ralphy/workspace-reader") as Record<string, unknown>;
+    expect(workspaceReader.registerWorkspaceOverviewIpc).toBeTypeOf("function");
+    const register = workspaceReader.registerWorkspaceOverviewIpc as (input: Record<string, unknown>) => void;
+    let handler!: (event: unknown, workspaceId: unknown) => Promise<unknown>;
+    const mainFrame = {};
+    const webContents = { mainFrame };
+    const window = { isDestroyed: () => false, webContents };
+    let epoch = 1;
+    let resolve!: (value: unknown) => void;
+    const response = new Promise((yes) => { resolve = yes; });
+    const firstRequest = vi.fn(() => response);
+    const nextOverview = {
+      workspace: {
+        id: "workspace-1", slug: "launch", name: "Launch", rowVersion: 1,
+        createdAt: 1, updatedAt: 2,
+      },
+    };
+    const secondRequest = vi.fn(async () => nextOverview);
+    let activeRequest: RalphyBridgeClient["request"] | null = null;
+    const session = {
+      get client() {
+        if (!activeRequest) throw new Error("No active Ralphy root");
+        return { request: activeRequest };
+      },
+    };
+
+    expect(() => register({
+      handle(channel: string, listener: typeof handler) {
+        expect(channel).toBe("workspace:overview");
+        handler = listener;
+      },
+      getWindow: () => window,
+      captureRoot: () => ({ epoch }),
+      assertRoot: (binding: { epoch: number }) => {
+        if (binding.epoch !== epoch) throw new Error("stale root");
+      },
+      session,
+    })).not.toThrow();
+
+    await expect(handler({ sender: webContents, senderFrame: {} }, "workspace-1")).resolves.toEqual({
+      ok: false, error: { code: "E_INTERNAL", message: "The operation could not be completed" },
+    });
+    await expect(handler({ sender: webContents, senderFrame: mainFrame }, "")).resolves.toEqual({
+      ok: false, error: { code: "E_INTERNAL", message: "The operation could not be completed" },
+    });
+    expect(firstRequest).not.toHaveBeenCalled();
+
+    activeRequest = firstRequest as unknown as RalphyBridgeClient["request"];
+    const pending = handler({ sender: webContents, senderFrame: mainFrame }, "workspace-1");
+    await vi.waitFor(() => expect(firstRequest).toHaveBeenCalledOnce());
+    epoch = 2;
+    activeRequest = secondRequest as unknown as RalphyBridgeClient["request"];
+    resolve({ workspace: { id: "workspace-1", slug: "launch", name: "Launch", rowVersion: 1, createdAt: 1, updatedAt: 2 } });
+    await expect(pending).resolves.toEqual({
+      ok: false, error: { code: "E_INTERNAL", message: "The operation could not be completed" },
+    });
+    await expect(handler(
+      { sender: webContents, senderFrame: mainFrame },
+      "workspace-1",
+    )).resolves.toEqual({ ok: true, value: nextOverview });
+    expect(secondRequest).toHaveBeenCalledOnce();
   });
 
   test("never enables renderer mocks in production without an explicit flag", async () => {

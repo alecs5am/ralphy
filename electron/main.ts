@@ -14,6 +14,7 @@ import {
 } from "electron";
 import { readFileSync, statSync } from "node:fs";
 import { mkdir, readFile, realpath, stat } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import { Worker } from "node:worker_threads";
 import { basename, dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -45,7 +46,9 @@ import {
 } from "./claude/session";
 import { loadAnnotations, updateAnnotations } from "./media/annotations";
 import {
+  buildDomainCatalog,
   InvalidLibraryRootError,
+  isDomainLibraryRoot,
   readBoundedText,
   resolveProjectPath,
   validateLibraryRoot,
@@ -55,6 +58,7 @@ import {
   APP_CHANNELS,
   MEDIA_CHANNELS,
   MAX_WAVEFORM_DECODE_BYTES,
+  PROJECT_MEDIA_FILTERS,
   TERMINAL_CHANNELS,
   type CatalogResult,
   type AgentChatEnvelope,
@@ -65,15 +69,12 @@ import {
   type MediaEvent,
   type MediaPreviewSource,
   type ProjectReference,
-  type ProjectScanQuery,
-  type ProjectScanRequest,
-  type ProjectScanResult,
+  type ProjectMediaFilter,
   type TerminalDimensions,
   type WorkerRequest,
   type WorkerResponse,
 } from "./media/types";
 import { LibraryWatcher } from "./media/watcher";
-import { ScanRequestCancelledError } from "./media/worker";
 import {
   resolveMediaByteRange,
   trashAuthorizedItems,
@@ -101,9 +102,21 @@ import {
   secretProviderFromRef,
 } from "./migration/secret-handoff";
 import { RalphyBridgeClient } from "./ralphy/client";
+import {
+  createActivitySynchronizer,
+  type ActivitySynchronizer,
+} from "./ralphy/activity-sync";
+import { createProjectReader } from "./ralphy/project-reader";
+import { registerWorkspaceOverviewIpc } from "./ralphy/workspace-reader";
+import type { BridgeMethod, JsonValue, ParamsFor, ResultFor } from "./ralphy/types";
 import { resolveRalphyExecutable } from "./ralphy/executable";
 import { RalphySession } from "./ralphy/session";
-import { openRootSession, type RootIdentity } from "./root-session";
+import {
+  createQuitCoordinator,
+  createRootShutdown,
+  openRootSession,
+  type RootIdentity,
+} from "./root-session";
 import {
   findMigrationRecovery,
   migrationRecoveryFromError,
@@ -122,6 +135,7 @@ import {
   parseWindowBounds,
   type WindowBounds,
 } from "./window-state";
+import { parseBoundedJsonValue as parseJsonValue } from "./json-value";
 
 const RENDERER = join(__dirname, "..", "dist", "index.html");
 const WORKER_ENTRY = join(__dirname, "media", "worker.cjs");
@@ -144,6 +158,10 @@ const ralphyBin = resolveRalphyExecutable({
   env: process.env,
 });
 let ralphySession: RalphySession;
+let activitySynchronizer: ActivitySynchronizer;
+let shutdownRoot: (() => Promise<void>) | null = null;
+let backgroundShutdown: Promise<void> | null = null;
+let quitCoordinator: ReturnType<typeof createQuitCoordinator>;
 let migrationRecovery: MainMigrationRecovery | null = null;
 
 function fileDragIcon(): Electron.NativeImage {
@@ -163,7 +181,7 @@ function fileDragIcon(): Electron.NativeImage {
 }
 
 interface PendingWorkerRequest {
-  resolve: (value: CatalogResult | ProjectScanResult) => void;
+  resolve: (value: CatalogResult) => void;
   reject: (error: Error) => void;
 }
 
@@ -196,24 +214,12 @@ class MediaWorkerClient {
     }));
   }
 
-  scanProject(request: ProjectScanRequest): Promise<ProjectScanResult> {
-    return this.#request<ProjectScanResult>((requestId) => ({
-      type: "scan-project",
-      requestId,
-      request,
-    }));
-  }
-
-  cancelProject(): void {
-    this.#worker.postMessage({ type: "cancel-project" } satisfies WorkerRequest);
-  }
-
   close(): void {
     this.#failAll(new Error("Media worker closed"));
     void this.#worker.terminate();
   }
 
-  #request<Result extends CatalogResult | ProjectScanResult>(
+  #request<Result extends CatalogResult>(
     message: (requestId: number) => WorkerRequest,
   ): Promise<Result> {
     const requestId = this.#nextRequestId;
@@ -228,17 +234,15 @@ class MediaWorkerClient {
   }
 
   #handle(message: WorkerResponse): void {
-    if (message.type === "catalog-progress" || message.type === "project-progress") {
+    if (message.type === "catalog-progress") {
       this.#onMessage(message);
       return;
     }
     const pending = this.#pending.get(message.requestId);
     if (!pending) return;
     this.#pending.delete(message.requestId);
-    if (message.type === "catalog-result" || message.type === "project-result") {
+    if (message.type === "catalog-result") {
       pending.resolve(message.result);
-    } else if (message.type === "project-cancelled") {
-      pending.reject(new ScanRequestCancelledError());
     } else {
       pending.reject(new Error(message.message));
     }
@@ -408,11 +412,6 @@ function mediaWorker(): MediaWorkerClient {
         && mediaState.isCurrentCatalogProgress(message.progress)
       ) {
         emitMedia({ type: "catalog-progress", progress: message.progress });
-      } else if (
-        message.type === "project-progress"
-        && mediaState.isCurrentProject(message.progress)
-      ) {
-        emitMedia({ type: "project-progress", progress: message.progress });
       }
     });
   }
@@ -502,16 +501,75 @@ function parseProjectReference(value: unknown): ProjectReference {
   };
 }
 
-function parseProjectScanQuery(value: unknown): ProjectScanQuery {
-  if (value === undefined) return {};
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("Invalid project scan options");
-  }
-  const includeIntermediate = (value as Record<string, unknown>).includeIntermediate;
-  if (includeIntermediate !== undefined && typeof includeIntermediate !== "boolean") {
-    throw new Error("Invalid intermediate scan option");
-  }
-  return { includeIntermediate };
+function parseDocumentRevision(input: unknown): {
+  documentId: string;
+  expectedHeadId?: string | null;
+  iterationId?: string | null;
+  format: "markdown" | "text" | "json";
+  title?: string | null;
+  body: JsonValue;
+} {
+  if (input === null || typeof input !== "object" || Array.isArray(input)) throw new Error("Invalid document revision");
+  const value = input as Record<string, unknown>;
+  if (!["markdown", "text", "json"].includes(value.format as string)) throw new Error("Invalid document format");
+  const optionalId = (item: unknown, label: string): string | null | undefined => (
+    item === undefined ? undefined : item === null ? null : parseString(item, label, 256)
+  );
+  const title = value.title === undefined ? undefined : value.title === null ? null : parseString(value.title, "document title", 4096);
+  return {
+    documentId: parseString(value.documentId, "document id", 256),
+    ...(optionalId(value.expectedHeadId, "expected document head") === undefined ? {} : { expectedHeadId: optionalId(value.expectedHeadId, "expected document head") }),
+    ...(optionalId(value.iterationId, "iteration id") === undefined ? {} : { iterationId: optionalId(value.iterationId, "iteration id") }),
+    format: value.format as "markdown" | "text" | "json",
+    ...(title === undefined ? {} : { title }),
+    body: parseJsonValue(value.body),
+  };
+}
+
+function parseCompositionRevision(input: unknown): {
+  compositionId: string;
+  expectedLatestRevisionId: string | null;
+  parentRevisionId?: string | null;
+  iterationId?: string | null;
+  engine: string;
+  engineVersion?: string | null;
+  engineConfig?: JsonValue;
+} {
+  if (input === null || typeof input !== "object" || Array.isArray(input)) throw new Error("Invalid composition revision");
+  const value = input as Record<string, unknown>;
+  const optionalId = (item: unknown, label: string): string | null | undefined => (
+    item === undefined ? undefined : item === null ? null : parseString(item, label, 256)
+  );
+  const expectedLatestRevisionId = optionalId(value.expectedLatestRevisionId, "expected latest revision");
+  if (expectedLatestRevisionId === undefined) throw new Error("Invalid composition revision");
+  const parentRevisionId = optionalId(value.parentRevisionId, "parent revision");
+  const iterationId = optionalId(value.iterationId, "iteration id");
+  const engineVersion = optionalId(value.engineVersion, "engine version");
+  return {
+    compositionId: parseString(value.compositionId, "composition id", 256),
+    expectedLatestRevisionId,
+    ...(parentRevisionId === undefined ? {} : { parentRevisionId }),
+    ...(iterationId === undefined ? {} : { iterationId }),
+    engine: parseString(value.engine, "composition engine", 256),
+    ...(engineVersion === undefined ? {} : { engineVersion }),
+    ...(value.engineConfig === undefined ? {} : { engineConfig: parseJsonValue(value.engineConfig) }),
+  };
+}
+
+function parseCompositionSelection(input: unknown): {
+  compositionId: string;
+  revisionId: string;
+  expectedSelectedRevisionId: string | null;
+} {
+  if (input === null || typeof input !== "object" || Array.isArray(input)) throw new Error("Invalid composition selection");
+  const value = input as Record<string, unknown>;
+  return {
+    compositionId: parseString(value.compositionId, "composition id", 256),
+    revisionId: parseString(value.revisionId, "composition revision id", 256),
+    expectedSelectedRevisionId: value.expectedSelectedRevisionId === null
+      ? null
+      : parseString(value.expectedSelectedRevisionId, "expected selected revision", 256),
+  };
 }
 
 function parseTerminalDimensions(value: unknown): TerminalDimensions {
@@ -560,45 +618,28 @@ async function refreshCatalog(
   operation: MediaSessionEpoch | ActiveMediaSession,
   rootPath: string,
   emitResult = true,
+  client?: Pick<RalphyBridgeClient, "request">,
 ): Promise<CatalogResult> {
   const generation = mediaState.beginCatalog(operation, rootPath);
-  const result = await mediaWorker().catalog(rootPath, generation);
+  const domain = await isDomainLibraryRoot(rootPath);
+  const result = domain
+    ? await buildDomainCatalog(rootPath, client ?? ralphySession.client, generation, (progress) => {
+        if (mediaState.isCurrentCatalogProgress(progress)) {
+          emitMedia({ type: "catalog-progress", progress });
+        }
+      })
+    : await mediaWorker().catalog(rootPath, generation);
   mediaState.acceptCatalog(operation, rootPath, generation);
   if (emitResult) emitMedia({ type: "catalog-result", result });
   return result;
 }
 
-async function scanSelectedProject(
-  operation: ActiveMediaSession,
-  project: ProjectReference,
-  options: ProjectScanQuery = {},
-): Promise<ProjectScanResult> {
-  mediaState.assertActive(operation);
-  const rootPath = operation.rootPath;
-  await resolveProjectPath(rootPath, project.workspaceId, project.projectId);
-  mediaState.assertActive(operation);
-  const request = mediaState.beginProject(operation, project, options);
-  try {
-    const result = await mediaWorker().scanProject(request);
-    mediaState.acceptProject(operation, request, result);
-    emitMedia({ type: "project-result", result });
-    mediaState.assertActive(operation);
-    return result;
-  } catch (error) {
-    if (
-      error instanceof ScanRequestCancelledError
-      && mediaState.isCurrentProject(request)
-    ) {
-      emitMedia({ type: "project-cancelled", request });
-    }
-    throw error;
-  }
-}
-
-function createWatcher(rootPath: string): LibraryWatcher {
+function createWatcher(
+  rootPath: string,
+  client?: Pick<RalphyBridgeClient, "request">,
+): LibraryWatcher {
   return new LibraryWatcher({
     rootPath,
-    selectedProject: () => mediaState.watcherSelection(rootPath)?.project ?? null,
     onCatalogChange() {
       let operation: ActiveMediaSession;
       try {
@@ -606,31 +647,11 @@ function createWatcher(rootPath: string): LibraryWatcher {
       } catch {
         return;
       }
-      void refreshCatalog(operation, rootPath).catch((error: unknown) => {
+      void refreshCatalog(operation, rootPath, true, client).catch((error: unknown) => {
         if (!(error instanceof StaleMediaSessionError)) {
           emitMedia({
             type: "error",
             operation: "catalog-refresh",
-            message: error instanceof Error ? error.message : String(error),
-          });
-        }
-      });
-    },
-    onSelectedProjectChange() {
-      const selection = mediaState.watcherSelection(rootPath);
-      if (!selection) return;
-      void scanSelectedProject(
-        selection.operation,
-        selection.project,
-        selection.options,
-      ).catch((error: unknown) => {
-        if (
-          !(error instanceof StaleMediaSessionError)
-          && !(error instanceof ScanRequestCancelledError)
-        ) {
-          emitMedia({
-            type: "error",
-            operation: "project-refresh",
             message: error instanceof Error ? error.message : String(error),
           });
         }
@@ -644,15 +665,17 @@ function createWatcher(rootPath: string): LibraryWatcher {
   });
 }
 
-async function prepareMediaRoot(root: string): Promise<CatalogResult> {
+async function prepareMediaRoot(
+  root: string,
+  client?: Pick<RalphyBridgeClient, "request">,
+): Promise<CatalogResult> {
   const operation = mediaState.beginOpen();
-  worker?.cancelProject();
   try {
-    const catalog = await refreshCatalog(operation, root, false);
+    const catalog = await refreshCatalog(operation, root, false, client);
     mediaState.assertOpen(operation);
     const active = await watcher.replace({
       assertCurrent: () => mediaState.assertOpen(operation),
-      create: () => createWatcher(root),
+      create: () => createWatcher(root, client),
       prepare: () => writeSettings(
         { lastLibrary: root },
         () => mediaState.assertOpen(operation),
@@ -681,8 +704,8 @@ async function openLibrary(
       session: ralphySession,
       root,
       label: basename(dirname(root)) || ".ralphy",
-      prepare: async (previousRoot) => {
-        catalog = await prepareMediaRoot(root);
+      prepare: async (previousRoot, candidateClient) => {
+        catalog = await prepareMediaRoot(root, candidateClient as RalphyBridgeClient);
         return async () => {
           if (previousRoot) {
             await prepareMediaRoot(previousRoot);
@@ -690,22 +713,18 @@ async function openLibrary(
           }
           mediaState.close();
           watcher.close();
-          worker?.cancelProject();
           await writeSettings({ lastLibrary: null }, () => undefined);
         };
       },
       invalidateFileTokens: () => mediaState.fileAccess.clear(),
       stopAgentTurns: () => activeAgentSession?.stop(),
       terminateTerminals: (previousRoot) => terminalManager.terminateRoot(previousRoot),
-      subscribeActivity: async (_client, afterSequence) => {
-        await ralphySession.client.request("activity.subscribe", { afterSequence }).catch(() => {
-          emitMedia({
-            type: "error",
-            operation: "activity-subscribe",
-            message: "Live activity updates are unavailable",
-          });
-        });
-      },
+      unsubscribeActivity: async () => activitySynchronizer.stop(),
+      subscribeActivity: async (client, binding) => activitySynchronizer.start({
+        client: client as RalphyBridgeClient,
+        binding,
+        afterSequence: binding.afterSequence,
+      }),
     });
   } catch (error) {
     const recovery = migrationRecoveryFromError(error);
@@ -715,6 +734,7 @@ async function openLibrary(
   if (!catalog) throw new Error("Library startup did not produce a catalog");
   migrationRecovery = null;
   emitMedia({ type: "root-ready", identity });
+  activitySynchronizer.publish();
   emitMedia({ type: "catalog-result", result: catalog });
   return { identity, catalog };
 }
@@ -933,19 +953,6 @@ function registerMediaIpc(): void {
       }
     });
   });
-  securedHandle(MEDIA_CHANNELS.scanProject, (_event, project: unknown, options: unknown) => {
-    const operation = mediaState.beginProjectSelection();
-    worker?.cancelProject();
-    return scanSelectedProject(
-      operation,
-      parseProjectReference(project),
-      parseProjectScanQuery(options),
-    );
-  });
-  securedHandle(MEDIA_CHANNELS.cancelProjectScan, () => {
-    mediaState.cancelProject();
-    worker?.cancelProject();
-  });
   securedHandle(MEDIA_CHANNELS.loadAnnotations, () => {
     const operation = mediaState.captureActive();
     const assertCurrent = (): void => mediaState.assertActive(operation);
@@ -1048,6 +1055,229 @@ function registerMediaIpc(): void {
   });
 }
 
+function projectReaderForCurrentRoot() {
+  const operation = captureBridgeRoot();
+  return createProjectReader({
+    request: async <Method extends BridgeMethod>(method: Method, params: ParamsFor<Method>): Promise<ResultFor<Method>> => {
+      assertBridgeRoot(operation);
+      const result = await ralphySession.client.request(method, params);
+      assertBridgeRoot(operation);
+      return result;
+    },
+    mint: async (absolutePath, mime, expectedBytes) => {
+      const minted = await mediaState.fileAccess.mintTrustedLocator(
+        operation.rootPath,
+        absolutePath,
+        mime,
+        expectedBytes,
+        () => assertBridgeRoot(operation),
+      );
+      assertBridgeRoot(operation);
+      return { url: `ralphy-media://asset/${minted.token}`, sizeBytes: minted.sizeBytes };
+    },
+  });
+}
+
+function parseProjectDomainPage(value: unknown): {
+  tab: "documents" | "media" | "compositions" | "units" | "activity";
+  project: ProjectReference;
+  cursor?: string | number | null;
+  mediaFilter?: ProjectMediaFilter;
+} {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Invalid Project page request");
+  }
+  const input = value as Record<string, unknown>;
+  if (![
+    "documents", "media", "compositions", "units", "activity",
+  ].includes(input.tab as string)) throw new Error("Invalid Project tab");
+  if (
+    input.cursor !== undefined
+    && input.cursor !== null
+    && typeof input.cursor !== "string"
+    && (!Number.isSafeInteger(input.cursor) || (input.cursor as number) < 0)
+  ) throw new Error("Invalid Project cursor");
+  if (input.mediaFilter !== undefined && !PROJECT_MEDIA_FILTERS.includes(input.mediaFilter as ProjectMediaFilter)) {
+    throw new Error("Invalid Media filter");
+  }
+  return {
+    tab: input.tab as "documents" | "media" | "compositions" | "units" | "activity",
+    project: parseProjectReference(input.project),
+    ...(input.cursor === undefined ? {} : { cursor: input.cursor as string | number | null }),
+    ...(input.mediaFilter === undefined ? {} : { mediaFilter: input.mediaFilter as ProjectMediaFilter }),
+  };
+}
+
+function parseProjectMediaRef(value: unknown): { type: "artifact" | "run-object" | "object"; id: string } {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid Media reference");
+  const ref = value as Record<string, unknown>;
+  if (!["artifact", "run-object", "object"].includes(ref.type as string)) throw new Error("Invalid Media reference");
+  return { type: ref.type as "artifact" | "run-object" | "object", id: parseString(ref.id, "Media identifier", 256) };
+}
+
+function parseMediaGenerationTarget(value: unknown): { type: "artifact-revision" | "run-object"; id: string } {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid generation target");
+  const target = value as Record<string, unknown>;
+  if (Reflect.ownKeys(target).length !== 2 || !Object.hasOwn(target, "type") || !Object.hasOwn(target, "id")) {
+    throw new Error("Invalid generation target");
+  }
+  if (target.type !== "artifact-revision" && target.type !== "run-object") throw new Error("Invalid generation target");
+  return { type: target.type, id: parseString(target.id, "generation target id", 128) };
+}
+
+function parseOptionalCursor(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  return parseString(value, "page cursor", 4096);
+}
+
+function registerProjectDomainIpc(): void {
+  registerWorkspaceOverviewIpc({
+    handle: (channel, listener) => {
+      ipcMain.handle(channel, (event, workspaceId) => listener(event, workspaceId));
+    },
+    getWindow: () => win,
+    captureRoot: captureBridgeRoot,
+    assertRoot: assertBridgeRoot,
+    session: ralphySession,
+  });
+  securedHandle(MEDIA_CHANNELS.loadProjectOverview, (_event, rawProject: unknown) => (
+    projectReaderForCurrentRoot().loadOverview(parseProjectReference(rawProject))
+  ));
+  securedHandle(MEDIA_CHANNELS.loadProjectPage, (_event, rawInput: unknown) => (
+    projectReaderForCurrentRoot().loadPage(parseProjectDomainPage(rawInput))
+  ));
+  securedHandle(
+    MEDIA_CHANNELS.loadProjectGeneration,
+    (_event, rawProject: unknown, rawTarget: unknown, rawAfter: unknown) => (
+      projectReaderForCurrentRoot().loadGeneration(
+        parseProjectReference(rawProject),
+        parseMediaGenerationTarget(rawTarget),
+        parseOptionalCursor(rawAfter),
+      )
+    ),
+  );
+  securedHandle(
+    MEDIA_CHANNELS.loadProjectMediaRevisions,
+    (_event, rawProject: unknown, rawArtifactId: unknown, rawAfter: unknown) => (
+      projectReaderForCurrentRoot().loadMediaRevisions(
+        parseProjectReference(rawProject),
+        parseString(rawArtifactId, "artifact id", 128),
+        parseOptionalCursor(rawAfter),
+      )
+    ),
+  );
+  securedHandle(
+    MEDIA_CHANNELS.selectProjectMediaRevision,
+    (
+      _event,
+      rawProject: unknown,
+      rawArtifactId: unknown,
+      rawRevisionId: unknown,
+      rawExpectedSelectedRevisionId: unknown,
+    ) => (
+      projectReaderForCurrentRoot().selectMediaRevision(
+        parseProjectReference(rawProject),
+        parseString(rawArtifactId, "artifact id", 128),
+        parseString(rawRevisionId, "artifact revision id", 128),
+        rawExpectedSelectedRevisionId === null
+          ? null
+          : parseString(rawExpectedSelectedRevisionId, "expected selected revision id", 128),
+      )
+    ),
+  );
+  securedHandle(
+    MEDIA_CHANNELS.loadDocumentPreview,
+    (_event, rawProject: unknown, rawRevisionId: unknown) => (
+      projectReaderForCurrentRoot().loadDocumentPreview(
+        parseProjectReference(rawProject),
+        parseString(rawRevisionId, "Document revision identifier", 256),
+      )
+    ),
+  );
+  securedHandle(
+    MEDIA_CHANNELS.searchProjectDocuments,
+    (_event, rawProject: unknown, rawQuery: unknown) => (
+      projectReaderForCurrentRoot().searchDocuments(
+        parseProjectReference(rawProject),
+        parseString(rawQuery, "document search query", 1024),
+      )
+    ),
+  );
+  securedHandle(
+    MEDIA_CHANNELS.showProjectDocument,
+    (_event, rawProject: unknown, rawDocumentId: unknown) => (
+      projectReaderForCurrentRoot().showDocument(
+        parseProjectReference(rawProject),
+        parseString(rawDocumentId, "document id", 256),
+      )
+    ),
+  );
+  securedHandle(
+    MEDIA_CHANNELS.reviseProjectDocument,
+    (_event, rawProject: unknown, rawInput: unknown) => (
+      projectReaderForCurrentRoot().reviseDocument(
+        parseProjectReference(rawProject),
+        parseDocumentRevision(rawInput),
+      )
+    ),
+  );
+  securedHandle(
+    MEDIA_CHANNELS.resolveProjectPreview,
+    (_event, rawProject: unknown, rawRef: unknown) => (
+      projectReaderForCurrentRoot().resolvePreview(
+        parseProjectReference(rawProject),
+        parseProjectMediaRef(rawRef),
+      )
+    ),
+  );
+  securedHandle(
+    MEDIA_CHANNELS.loadProjectComposition,
+    (_event, rawProject: unknown, rawCompositionId: unknown) => (
+      projectReaderForCurrentRoot().loadComposition(
+        parseProjectReference(rawProject),
+        parseString(rawCompositionId, "composition id", 256),
+      )
+    ),
+  );
+  securedHandle(
+    MEDIA_CHANNELS.reviseProjectComposition,
+    (_event, rawProject: unknown, rawInput: unknown) => (
+      projectReaderForCurrentRoot().reviseComposition(
+        parseProjectReference(rawProject),
+        parseCompositionRevision(rawInput),
+      )
+    ),
+  );
+  securedHandle(
+    MEDIA_CHANNELS.selectProjectCompositionRevision,
+    (_event, rawProject: unknown, rawInput: unknown) => (
+      projectReaderForCurrentRoot().selectCompositionRevision(
+        parseProjectReference(rawProject),
+        parseCompositionSelection(rawInput),
+      )
+    ),
+  );
+  securedHandle(
+    MEDIA_CHANNELS.buildProjectComposition,
+    (_event, rawProject: unknown, rawRevisionId: unknown, rawProfile: unknown) => (
+      projectReaderForCurrentRoot().buildComposition(
+        parseProjectReference(rawProject),
+        parseString(rawRevisionId, "composition revision id", 256),
+        rawProfile === undefined ? undefined : parseJsonValue(rawProfile),
+      )
+    ),
+  );
+  securedHandle(
+    MEDIA_CHANNELS.resolveCompositionOutputPreview,
+    (_event, rawProject: unknown, rawRevisionId: unknown) => (
+      projectReaderForCurrentRoot().resolveCompositionOutputPreview(
+        parseProjectReference(rawProject),
+        parseString(rawRevisionId, "artifact revision id", 256),
+      )
+    ),
+  );
+}
+
 function registerTerminalIpc(): void {
   securedHandle(TERMINAL_CHANNELS.create, async (event, rawDimensions: unknown) => {
     assertTrustedSender(event);
@@ -1116,7 +1346,10 @@ function createWindow(): void {
   };
   createdWindow.on("resized", persistBounds);
   createdWindow.on("moved", persistBounds);
-  createdWindow.on("close", persistBounds);
+  createdWindow.on("close", (event) => {
+    persistBounds();
+    void quitCoordinator.request(event);
+  });
   createdWindow.webContents.setWindowOpenHandler(({ url }) => {
     try {
       const target = new URL(url);
@@ -1142,10 +1375,7 @@ function createWindow(): void {
   });
   win = createdWindow;
   createdWindow.on("closed", () => {
-    if (win === createdWindow) {
-      win = null;
-      stopBackgroundResources();
-    }
+    if (win === createdWindow) win = null;
   });
   if (devUrl) void createdWindow.loadURL(devUrl);
   else void createdWindow.loadFile(RENDERER);
@@ -1201,12 +1431,14 @@ function createWindow(): void {
   }
 }
 
-function stopBackgroundResources(): void {
+function stopBackgroundResources(): Promise<void> {
+  if (backgroundShutdown) return backgroundShutdown;
   activeAgentSession?.stop();
-  void ralphySession.close();
   stopMediaRuntime(mediaState, { watcher, worker });
   terminalManager.dispose();
   worker = null;
+  backgroundShutdown = shutdownRoot?.() ?? Promise.resolve();
+  return backgroundShutdown;
 }
 
 function startSecretHandoff(): void {
@@ -1250,6 +1482,24 @@ function startSecretHandoff(): void {
 
 function startNormalDesktop(): void {
   ralphySession = new RalphySession(ralphyBin ? { bin: ralphyBin } : {});
+  activitySynchronizer = createActivitySynchronizer({
+    createSubscriptionId: randomUUID,
+    onRefresh: (event) => emitMedia({ type: "activity-refresh", ...event }),
+    onError: () => emitMedia({
+      type: "error",
+      operation: "activity-subscribe",
+      message: "Live activity updates are unavailable",
+    }),
+  });
+  shutdownRoot = createRootShutdown(
+    () => activitySynchronizer.stop(),
+    () => ralphySession.close(),
+  );
+  backgroundShutdown = null;
+  quitCoordinator = createQuitCoordinator(
+    stopBackgroundResources,
+    () => app.quit(),
+  );
   watcher = new ActiveRootResource<LibraryWatcher>();
   terminalManager = new TerminalManager({
     spawn: (file, args, options) => nodePty.spawn(file, args, options),
@@ -1266,6 +1516,7 @@ function startNormalDesktop(): void {
     },
   }]);
   registerMediaIpc();
+  registerProjectDomainIpc();
   registerTerminalIpc();
   registerAgentIpc();
 
@@ -1335,15 +1586,11 @@ function startNormalDesktop(): void {
     createWindow();
   });
 
-  app.on("window-all-closed", () => {
-    stopBackgroundResources();
-    if (process.platform !== "darwin") app.quit();
-  });
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
-  app.on("before-quit", () => {
-    stopBackgroundResources();
+  app.on("before-quit", (event) => {
+    void quitCoordinator.request(event);
   });
 }
 

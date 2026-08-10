@@ -10,8 +10,6 @@ import {
   type AgentChatRequest,
   type MediaEvent,
   type MediaWorkbenchBridge,
-  type ProjectReference,
-  type ProjectScanQuery,
   type TerminalEvent,
 } from "./media/types";
 
@@ -24,10 +22,54 @@ async function invoke<Value>(channel: string, ...args: unknown[]): Promise<Value
 const mediaBridge: MediaWorkbenchBridge = {
   chooseLibrary: () => invoke(MEDIA_CHANNELS.chooseLibrary),
   restoreLibrary: () => invoke(MEDIA_CHANNELS.restoreLibrary),
-  scanProject: (project: ProjectReference, options?: ProjectScanQuery) => (
-    invoke(MEDIA_CHANNELS.scanProject, project, options)
+  loadWorkspaceOverview: (workspaceId) => invoke(MEDIA_CHANNELS.loadWorkspaceOverview, workspaceId),
+  loadProjectOverview: (project) => invoke(MEDIA_CHANNELS.loadProjectOverview, project),
+  loadProjectPage: (input) => invoke(MEDIA_CHANNELS.loadProjectPage, input),
+  loadProjectGeneration: (project, target, after) => (
+    invoke(MEDIA_CHANNELS.loadProjectGeneration, project, target, after)
   ),
-  cancelProjectScan: () => invoke(MEDIA_CHANNELS.cancelProjectScan),
+  loadProjectMediaRevisions: (project, artifactId, after) => (
+    invoke(MEDIA_CHANNELS.loadProjectMediaRevisions, project, artifactId, after)
+  ),
+  selectProjectMediaRevision: (project, artifactId, revisionId, expectedSelectedRevisionId) => (
+    invoke(
+      MEDIA_CHANNELS.selectProjectMediaRevision,
+      project,
+      artifactId,
+      revisionId,
+      expectedSelectedRevisionId,
+    )
+  ),
+  loadDocumentPreview: (project, revisionId) => (
+    invoke(MEDIA_CHANNELS.loadDocumentPreview, project, revisionId)
+  ),
+  searchProjectDocuments: (project, query) => (
+    invoke(MEDIA_CHANNELS.searchProjectDocuments, project, query)
+  ),
+  showProjectDocument: (project, documentId) => (
+    invoke(MEDIA_CHANNELS.showProjectDocument, project, documentId)
+  ),
+  reviseProjectDocument: (project, input) => (
+    invoke(MEDIA_CHANNELS.reviseProjectDocument, project, input)
+  ),
+  resolveProjectPreview: (project, ref) => (
+    invoke(MEDIA_CHANNELS.resolveProjectPreview, project, ref)
+  ),
+  loadProjectComposition: (project, compositionId) => (
+    invoke(MEDIA_CHANNELS.loadProjectComposition, project, compositionId)
+  ),
+  reviseProjectComposition: (project, input) => (
+    invoke(MEDIA_CHANNELS.reviseProjectComposition, project, input)
+  ),
+  selectProjectCompositionRevision: (project, input) => (
+    invoke(MEDIA_CHANNELS.selectProjectCompositionRevision, project, input)
+  ),
+  buildProjectComposition: (project, compositionRevisionId, profile) => (
+    invoke(MEDIA_CHANNELS.buildProjectComposition, project, compositionRevisionId, profile)
+  ),
+  resolveCompositionOutputPreview: (project, artifactRevisionId) => (
+    invoke(MEDIA_CHANNELS.resolveCompositionOutputPreview, project, artifactRevisionId)
+  ),
   onMediaEvent(callback: (event: MediaEvent) => void) {
     const listener = (_event: Electron.IpcRendererEvent, payload: MediaEvent): void => {
       callback(payload);

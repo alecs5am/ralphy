@@ -5,16 +5,9 @@ import type {
   AgentChatRequest,
   CatalogResult,
   ClaudeAuthState,
-  GenerationAttribution,
   LibraryOpenResult,
-  MediaEntity,
   MediaEvent,
-  MediaItem,
-  MediaKind,
   MediaWorkbenchBridge,
-  ProjectReference,
-  ProjectScanQuery,
-  ProjectScanResult,
   ProjectSummary,
   TerminalDimensions,
   TerminalEvent,
@@ -24,6 +17,7 @@ import type {
 
 export type {
   AgentChatEnvelope,
+  ActivityRefreshEvent,
   AgentChatEvent,
   AgentChatRequest,
   AgentModelOption,
@@ -36,24 +30,17 @@ export type {
   ClaudeAuthMethod,
   ClaudeAuthState,
   ClaudePermissionMode,
-  GenerationAttribution,
   LibraryOpenResult,
   MediaAnnotation,
-  MediaEntity,
   MediaEvent,
-  MediaGroup,
-  MediaItem,
-  MediaKind,
-  MediaQueryOptions,
   MediaWorkbenchBridge,
   MigrationRecovery,
   ProjectReference,
-  ProjectMode,
-  ProjectScanQuery,
-  ProjectScanProgress,
-  ProjectScanResult,
+  ProjectTab,
+  ProjectMediaFilter,
+  ProjectPage,
+  ProjectPreview,
   ProjectSummary,
-  ReviewStatus,
   RootIdentity,
   TextReadResult,
   TerminalDimensions,
@@ -73,7 +60,6 @@ declare global {
 
 const MOCK_ROOT = "/Users/demo/ralphy-project/.ralphy";
 const MOCK_WORKSPACE = `${MOCK_ROOT}/workspaces/launch-studio`;
-const MOCK_PROJECT = `${MOCK_WORKSPACE}/projects/coffee-grinder-001`;
 
 const mockWorkspaces: WorkspaceSummary[] = [
   {
@@ -118,7 +104,6 @@ const mockProjects: ProjectSummary[] = [
     projectId: "coffee-grinder-001",
     name: "Arc Grinder Launch",
     brief: "A tactile 15-second creator review focused on grind consistency.",
-    absolutePath: MOCK_PROJECT,
     status: "assets",
     phase: "production",
     finalState: "review",
@@ -136,7 +121,6 @@ const mockProjects: ProjectSummary[] = [
     projectId: "skin-set-004",
     name: "Night Set Unboxing",
     brief: "Warm bathroom-counter unboxing with three product details.",
-    absolutePath: `${MOCK_WORKSPACE}/projects/skin-set-004`,
     status: "done",
     phase: "delivery",
     finalState: "ready",
@@ -154,7 +138,6 @@ const mockProjects: ProjectSummary[] = [
     projectId: "trail-shoe-002",
     name: "Trail Shoe Macro",
     brief: "Mud, tread, and lace detail cuts for a concise paid social spot.",
-    absolutePath: `${MOCK_WORKSPACE}/projects/trail-shoe-002`,
     status: "prompts",
     phase: "preflight",
     finalState: "missing",
@@ -166,85 +149,6 @@ const mockProjects: ProjectSummary[] = [
     unitCount: 2,
     recentActivity: "2026-07-28T11:05:00.000Z",
   },
-];
-
-function mockGeneration(
-  operation: string,
-  costUsd: number,
-  model: string,
-): GenerationAttribution {
-  return {
-    provider: "openrouter",
-    model,
-    operation,
-    timestamp: "2026-07-30T09:35:00.000Z",
-    costUsd,
-    slot: operation,
-  };
-}
-
-function mockItem(
-  relativePath: string,
-  entity: MediaEntity,
-  kind: MediaKind,
-  sizeBytes: number,
-  generation: GenerationAttribution | null = null,
-): MediaItem {
-  const name = relativePath.split("/").at(-1) ?? relativePath;
-  const dot = name.lastIndexOf(".");
-  return {
-    id: `mock-${relativePath.replaceAll("/", "-")}`,
-    workspaceId: "launch-studio",
-    projectId: "coffee-grinder-001",
-    name,
-    absolutePath: `${MOCK_PROJECT}/${relativePath}`,
-    projectRelativePath: relativePath,
-    entity,
-    kind,
-    extension: dot >= 0 ? name.slice(dot).toLowerCase() : "",
-    sizeBytes,
-    modifiedAt: "2026-07-30T09:42:00.000Z",
-    generation,
-  };
-}
-
-const mockItems: MediaItem[] = [
-  mockItem("render/final.mp4", "final-render", "video", 18_420_000, mockGeneration("render", 0, "ffmpeg")),
-  mockItem(
-    "artifacts/images/scene-01-hook.png",
-    "generated-artifact",
-    "image",
-    2_840_000,
-    mockGeneration("image", 0.18, "openai/gpt-5.4-image-2"),
-  ),
-  mockItem(
-    "artifacts/videos/scene-01-hook.mp4",
-    "generated-artifact",
-    "video",
-    8_610_000,
-    mockGeneration("video", 1.2, "kwaivgi/kling-v3.0-pro"),
-  ),
-  mockItem(
-    "artifacts/images/scene-02-detail.png",
-    "generated-artifact",
-    "image",
-    3_120_000,
-    mockGeneration("image", 0.18, "openai/gpt-5.4-image-2"),
-  ),
-  mockItem(
-    "artifacts/videos/scene-02-detail.mp4",
-    "generated-artifact",
-    "video",
-    7_940_000,
-    mockGeneration("video", 1.2, "kwaivgi/kling-v3.0-pro"),
-  ),
-  mockItem("artifacts/refs/grinder-front.jpg", "reference", "image", 1_240_000),
-  mockItem("artifacts/refs/counter-lighting.jpg", "reference", "image", 980_000),
-  mockItem("units/hero/cut.mp4", "unit-asset", "video", 16_800_000),
-  mockItem("BRIEF.md", "lifecycle-document", "text", 2_140),
-  mockItem("production-plan.json", "lifecycle-document", "text", 12_480),
-  mockItem("STORYBOARD.md", "lifecycle-document", "text", 8_320),
-  mockItem("index.html", "production-file", "text", 18_940),
 ];
 
 function mockCatalog(generation = 1): CatalogResult {
@@ -288,43 +192,78 @@ function createMockBridge(): RalphyBridge {
     for (const callback of mediaCallbacks) callback(event);
   };
   const openResult = (): LibraryOpenResult => ({
-    identity: { storeId: "mock-store", label: "ralphy-project" },
+    identity: { storeId: "mock-store", label: "ralphy-project", rootEpoch: 1, activitySequence: 0 },
     catalog: mockCatalog(),
   });
 
   return {
     async chooseLibrary() {
       const result = openResult();
-      emitMedia({ type: "root-ready", identity: { storeId: "mock-store", label: "ralphy-project" } });
+      emitMedia({ type: "root-ready", identity: result.identity });
       emitMedia({ type: "catalog-result", result: result.catalog });
       return result;
     },
     async restoreLibrary() {
-      emitMedia({ type: "root-ready", identity: { storeId: "mock-store", label: "ralphy-project" } });
+      emitMedia({ type: "root-ready", identity: openResult().identity });
       return openResult();
     },
-    async scanProject(
-      project: ProjectReference,
-      _options?: ProjectScanQuery,
-    ): Promise<ProjectScanResult> {
-      const result: ProjectScanResult = {
-        rootPath: MOCK_ROOT,
-        ...project,
-        generation: 1,
-        items: project.projectId === "coffee-grinder-001" ? mockItems : [],
-        ledger: {
-          entries: mockItems.flatMap((item) => item.generation ? [item.generation] : []),
-          totalCostUsd: 3.84,
-          malformedLineCount: 0,
-          oversizedLineCount: 0,
-          truncated: false,
+    async loadWorkspaceOverview(workspaceId) {
+      return {
+        workspace: {
+          id: workspaceId,
+          slug: workspaceId,
+          name: mockWorkspaces.find(({ id }) => id === workspaceId)?.name ?? workspaceId,
+          rowVersion: 1,
+          createdAt: 1,
+          updatedAt: 1,
         },
-        completedAt: "2026-07-30T09:43:00.000Z",
       };
-      emitMedia({ type: "project-result", result });
-      return result;
     },
-    async cancelProjectScan() {},
+    async loadProjectOverview() {
+      throw new Error("Project domain reader is unavailable in mock mode");
+    },
+    async loadProjectPage() {
+      throw new Error("Project domain reader is unavailable in mock mode");
+    },
+    async loadProjectGeneration() {
+      throw new Error("Project domain reader is unavailable in mock mode");
+    },
+    async loadProjectMediaRevisions() {
+      throw new Error("Project domain reader is unavailable in mock mode");
+    },
+    async selectProjectMediaRevision() {
+      throw new Error("Project domain reader is unavailable in mock mode");
+    },
+    async loadDocumentPreview() {
+      throw new Error("Project domain reader is unavailable in mock mode");
+    },
+    async searchProjectDocuments() {
+      throw new Error("Project domain reader is unavailable in mock mode");
+    },
+    async showProjectDocument() {
+      throw new Error("Project domain reader is unavailable in mock mode");
+    },
+    async reviseProjectDocument() {
+      throw new Error("Project domain reader is unavailable in mock mode");
+    },
+    async resolveProjectPreview() {
+      throw new Error("Project domain reader is unavailable in mock mode");
+    },
+    async loadProjectComposition() {
+      throw new Error("Composition reader is unavailable in mock mode");
+    },
+    async reviseProjectComposition() {
+      throw new Error("Composition mutations are unavailable in mock mode");
+    },
+    async selectProjectCompositionRevision() {
+      throw new Error("Composition mutations are unavailable in mock mode");
+    },
+    async buildProjectComposition() {
+      throw new Error("Composition builds are unavailable in mock mode");
+    },
+    async resolveCompositionOutputPreview() {
+      throw new Error("Composition previews are unavailable in mock mode");
+    },
     onMediaEvent(callback) {
       mediaCallbacks.add(callback);
       return () => mediaCallbacks.delete(callback);

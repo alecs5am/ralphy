@@ -1,0 +1,447 @@
+import { describe, expect, test, vi } from "vitest";
+import { createProjectReader } from "../electron/ralphy/project-reader";
+import type { RalphyBridgeClient } from "../electron/ralphy/client";
+import type {
+  ArtifactMediaCardDto,
+  CompositionRevisionDto,
+  DocumentRevisionDto,
+  MediaGenerationDetailDto,
+  MediaFilter,
+  ProjectOverviewDto,
+} from "../electron/ralphy/types";
+
+const project = { workspaceId: "workspace-1", projectId: "project-1" };
+
+function page(items: unknown[] = [], nextCursor: string | null = null) {
+  return { items, nextCursor };
+}
+
+const generationDetail: MediaGenerationDetailDto = {
+  status: "generation",
+  target: { type: "artifact-revision", id: "arev_1" },
+  run: { id: "run_1", workspaceId: "workspace-1", projectId: "project-1", agentSessionId: null, kind: "generation", label: null, state: "succeeded", createdAt: 1, startedAt: 2, endedAt: 3 },
+  attempts: {
+    items: [{ id: "attempt_1", runId: "run_1", attemptNo: 1, provider: "openrouter", model: "fixture", state: "succeeded", costUsd: 0.5, startedAt: 2, endedAt: 3, input: { version: 1, texts: [{ role: "prompt", value: "Safe prompt", truncated: false }], parameters: [{ name: "aspectRatio", value: "9:16" }] } }],
+    nextCursor: null,
+  },
+  cost: { knownUsd: 0.5, complete: true },
+};
+
+const artifactCard: ArtifactMediaCardDto = {
+  ref: { type: "artifact", id: "art_1" }, workspaceId: "workspace-1", projectId: "project-1",
+  slug: "hero", kind: "image", selectedRevisionId: "arev_1", selectedState: "approved",
+  mime: "image/png", bytes: 12, selectedAt: 3, revisionCount: 1, selectedObjectId: "obj_1",
+  storageClass: "bucket", usageRoles: [], target: { type: "object", id: "obj_1" },
+};
+
+describe("Project domain reader", () => {
+  test("preserves populated Core overview and revision DTO fields", async () => {
+    const overview: ProjectOverviewDto = {
+      project: { id: "project-1", workspaceId: "workspace-1", slug: "launch", name: "Launch", state: "active", rowVersion: 1, createdAt: 1, updatedAt: 2 },
+      documents: {
+        items: [{
+          id: "document-1", workspaceId: "workspace-1", projectId: "project-1", slug: "brief", title: "Brief", kind: "brief",
+          currentRevisionId: "document-revision-1", rowVersion: 2, createdAt: 3, updatedAt: 4,
+          binding: { ownerType: "project", ownerId: "project-1", role: "brief", documentId: "document-1", boundRevisionId: "document-revision-1", currentHeadRevisionId: "document-revision-2", hasNewerHead: true },
+        }],
+        nextCursor: null,
+      },
+      iterations: { items: [{ id: "iteration-1", projectId: "project-1", number: 2, title: "Polish", state: "closed", priorIterationChanges: "Tightened the opening hook.", createdAt: 5, closedAt: 6 }], nextCursor: null },
+      feedback: { items: [{ id: "feedback-1", projectId: "project-1", iterationId: "iteration-1", status: "resolved", targetType: "artifact_revision", targetId: "artifact-revision-1", createdAt: 7, resolvedAt: 8 }], nextCursor: null },
+    };
+    const documentRevision: DocumentRevisionDto = {
+      id: "document-revision-1", documentId: "document-1", revisionNo: 1, parentRevisionId: null,
+      iterationId: "iteration-1", format: "markdown", title: "Brief v1", authoredBySessionId: "session-1", createdAt: 9,
+    };
+    const compositionRevision: CompositionRevisionDto = {
+      id: "composition-revision-1", compositionId: "composition-1", revisionNo: 1, parentRevisionId: null,
+      iterationId: "iteration-1", state: "sealed", engine: "hyperframes", engineVersion: "1", authoredBySessionId: "session-1", createdAt: 10, sealedAt: 11,
+    };
+    const request = vi.fn(async () => overview);
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+
+    await expect(reader.loadOverview(project)).resolves.toEqual(overview);
+    expect(documentRevision).toMatchObject({ parentRevisionId: null, authoredBySessionId: "session-1" });
+    expect(compositionRevision).toMatchObject({ engine: "hyperframes", sealedAt: 11 });
+  });
+
+  test("reads the Core state and bounded overview sections without a scanner", async () => {
+    const request = vi.fn(async () => ({
+      project: { id: "project-1", workspaceId: "workspace-1", slug: "launch", name: "Launch", purpose: "Launch the summer campaign.", state: "active", rowVersion: 1, createdAt: 1, updatedAt: 1 },
+      mediaCounts: { artifacts: 1, objects: 2, runObjects: 3 },
+    }));
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+
+    await expect(reader.loadOverview(project)).resolves.toMatchObject({
+      project: { state: "active" },
+      mediaCounts: { artifacts: 1, objects: 2, runObjects: 3 },
+    });
+    expect(request).toHaveBeenCalledOnce();
+    expect(request).toHaveBeenCalledWith("project.overview", {
+      context: project,
+      projectId: "project-1",
+      sections: {
+        documents: { limit: 5 },
+        iterations: { limit: 5 },
+        feedback: { limit: 5 },
+        stages: { limit: 5 },
+        compositions: { limit: 5 },
+        builds: { limit: 5 },
+        units: { limit: 5 },
+        runs: { limit: 5 },
+        activity: { afterSequence: 0, limit: 10 },
+        mediaCounts: true,
+        publications: { limit: 5 },
+        metrics: true,
+      },
+    });
+  });
+
+  test("loads one bounded Documents page without a scanner follow-up", async () => {
+    const request = vi.fn(async () => page([{ id: "document-1" }], "next"));
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+
+    await expect(reader.loadPage({ tab: "documents", project })).resolves.toEqual(
+      page([{ id: "document-1" }], "next"),
+    );
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).toHaveBeenCalledWith("document.list", {
+      context: project,
+      limit: 50,
+    });
+  });
+
+  test("loads one exact generation-detail request and maps selected Artifact cards locally", async () => {
+    const request = vi.fn(async () => generationDetail);
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+
+    await expect(reader.loadGeneration(project, { type: "artifact-revision", id: "arev_1" })).resolves.toEqual(generationDetail);
+    expect(request).toHaveBeenCalledOnce();
+    expect(request).toHaveBeenCalledWith("media.generation.show", {
+      context: project,
+      target: { type: "artifact-revision", id: "arev_1" },
+      limit: 20,
+    });
+
+    request.mockClear();
+    await expect(reader.loadGeneration(project, { ...artifactCard, selectedRevisionId: null })).resolves.toEqual({
+      status: "unknown",
+      target: { type: "artifact-revision", id: "art_1" },
+      reason: "not-recorded",
+    });
+    expect(request).not.toHaveBeenCalled();
+    await expect(reader.loadGeneration(project, {
+      ref: { type: "object", id: "obj_1" }, workspaceId: "workspace-1", projectId: "project-1",
+      storageClass: "bucket", mime: "image/png", bytes: 12, createdAt: 1, referenceCount: 1,
+      target: { type: "object", id: "obj_1" },
+    })).rejects.toThrow("Invalid generation target");
+  });
+
+  test("rejects malformed generation detail at every public boundary", async () => {
+    const invalid = [
+      { ...generationDetail, status: "private" },
+      { ...generationDetail, target: { type: "object", id: "obj_1" } },
+      { ...generationDetail, target: { type: "artifact-revision", id: "" } },
+      { ...generationDetail, attempts: { items: [], nextCursor: 1 } },
+      { ...generationDetail, run: { ...generationDetail.run, state: "done" } },
+      { ...generationDetail, run: { ...generationDetail.run, createdAt: Number.NaN } },
+      { ...generationDetail, attempts: { items: [{ ...generationDetail.attempts.items[0]!, provider: 1 }], nextCursor: null } },
+      { ...generationDetail, attempts: { items: [{ ...generationDetail.attempts.items[0]!, attemptNo: 0 }], nextCursor: null } },
+      { ...generationDetail, attempts: { items: [{ ...generationDetail.attempts.items[0]!, costUsd: Number.POSITIVE_INFINITY }], nextCursor: null } },
+      { ...generationDetail, cost: { knownUsd: Number.NaN, complete: true } },
+      { ...generationDetail, attempts: { items: [{ ...generationDetail.attempts.items[0]!, input: { version: 1, texts: [{ role: "prompt", value: "x".repeat(65_537), truncated: false }], parameters: [] } }], nextCursor: null } },
+      { ...generationDetail, attempts: { items: [{ ...generationDetail.attempts.items[0]!, input: { version: 1, texts: [], parameters: [{ name: "voiceId", value: "private" }] } }], nextCursor: null } },
+      { ...generationDetail, attempts: { items: [{ ...generationDetail.attempts.items[0]!, input: { version: 1, texts: [], parameters: [{ name: "speed", value: Number.NaN }] } }], nextCursor: null } },
+      { ...generationDetail, attempts: { items: [{ ...generationDetail.attempts.items[0]!, input: { version: 1, texts: [], parameters: [], credential: "private" } }], nextCursor: null } },
+      { ...generationDetail, metadata: { private: true } },
+    ];
+
+    for (const result of invalid) {
+      const reader = createProjectReader({ request: vi.fn(async () => result) as unknown as RalphyBridgeClient["request"] });
+      await expect(reader.loadGeneration(project, { type: "artifact-revision", id: "arev_1" })).rejects.toThrow("Invalid generation detail");
+    }
+  });
+
+  test("pages Artifact revisions and selects one with a null-aware guard", async () => {
+    const revision = { id: "arev_1", artifactId: "art_1", revisionNo: 1, state: "approved", objectId: "obj_1", createdAt: 2 };
+    const request = vi.fn(async (method: string) => method === "media.revisions" ? page([revision], "next") : artifactCard);
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+
+    await expect(reader.loadMediaRevisions(project, "art_1")).resolves.toEqual(page([revision], "next"));
+    await expect(reader.selectMediaRevision(project, "art_1", "arev_1", null)).resolves.toEqual(artifactCard);
+    expect(request).toHaveBeenNthCalledWith(1, "media.revisions", {
+      context: project, ref: { type: "artifact", id: "art_1" }, limit: 50,
+    });
+    expect(request).toHaveBeenNthCalledWith(2, "media.select", {
+      context: project,
+      ref: { type: "artifact", id: "art_1" },
+      revisionId: "arev_1",
+      expectedSelectedRevisionId: null,
+    });
+  });
+
+  test("rejects invalid revision pages and mismatched selection responses", async () => {
+    const invalidPageReader = createProjectReader({
+      request: vi.fn(async () => page([{ id: "arev_1", artifactId: "other", revisionNo: 1, state: "approved", objectId: "obj_1", createdAt: 1 }])) as unknown as RalphyBridgeClient["request"],
+    });
+    await expect(invalidPageReader.loadMediaRevisions(project, "art_1")).rejects.toThrow("Invalid Artifact revision page");
+
+    for (const response of [
+      { ...artifactCard, ref: { type: "artifact", id: "other" } },
+      { ...artifactCard, selectedRevisionId: "arev_other" },
+      { ...artifactCard, ref: { type: "run-object", id: "art_1" } },
+      { ...artifactCard, target: { type: "object", id: "obj_other" } },
+    ]) {
+      const reader = createProjectReader({ request: vi.fn(async () => response) as unknown as RalphyBridgeClient["request"] });
+      await expect(reader.selectMediaRevision(project, "art_1", "arev_1", null)).rejects.toThrow("Invalid selected Artifact");
+    }
+  });
+
+  test("maps all ten Media filters to exact Core predicates", async () => {
+    const request = vi.fn(async () => page([], "still-more"));
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+    const cases: Array<["all" | MediaFilter, Record<string, unknown>]> = [
+      ["all", { types: ["artifact", "run-object"] }],
+      ["references", { types: ["artifact", "run-object"], filter: "references" }],
+      ["working", { types: ["artifact", "run-object"], filter: "working" }],
+      ["candidate", { types: ["artifact", "run-object"], filter: "candidate" }],
+      ["approved", { types: ["artifact", "run-object"], filter: "approved" }],
+      ["rejected", { types: ["artifact", "run-object"], filter: "rejected" }],
+      ["superseded", { types: ["artifact", "run-object"], filter: "superseded" }],
+      ["run-diagnostics", { types: ["artifact", "run-object"], filter: "run-diagnostics" }],
+      ["run-cache-temp", { types: ["artifact", "run-object"], filter: "run-cache-temp" }],
+      ["advanced-objects", { types: ["object"], filter: "advanced-objects" }],
+    ];
+
+    for (const [mediaFilter, predicate] of cases) {
+      await reader.loadPage({ tab: "media", project, mediaFilter });
+      expect(request).toHaveBeenLastCalledWith("media.list", {
+        context: project,
+        limit: 50,
+        ...predicate,
+      });
+    }
+    expect(request).toHaveBeenCalledTimes(10);
+  });
+
+  test("forwards a cursor with the unchanged Candidate predicate", async () => {
+    const request = vi.fn(async () => page([], "still-more"));
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+
+    await reader.loadPage({
+      tab: "media",
+      project,
+      cursor: "page-680",
+      mediaFilter: "candidate",
+    });
+
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).toHaveBeenCalledWith("media.list", {
+      context: project,
+      after: "page-680",
+      filter: "candidate",
+      limit: 50,
+      types: ["artifact", "run-object"],
+    });
+  });
+
+  test("includes the project id on a bounded Compositions page", async () => {
+    const request = vi.fn(async () => page());
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+
+    await reader.loadPage({ tab: "compositions", project });
+    expect(request).toHaveBeenCalledWith("composition.list", {
+      context: project,
+      projectId: "project-1",
+      limit: 50,
+    });
+  });
+
+  test("loads the complete Composition aggregate by draining every opaque nested cursor", async () => {
+    const composition = { id: "composition-1", projectId: "project-1", slug: "hero", kind: "video", latestRevisionId: "revision-2", selectedRevisionId: "revision-1", createdAt: 1, updatedAt: 2 };
+    const revision = (id: string, revisionNo: number) => ({ id, compositionId: "composition-1", revisionNo, parentRevisionId: revisionNo === 1 ? null : "revision-1", iterationId: null, state: "sealed", engine: "manual", engineVersion: null, authoredBySessionId: null, createdAt: revisionNo, sealedAt: revisionNo });
+    const build = (id: string) => ({ id, compositionRevisionId: "revision-1", runId: `run-${id}`, state: "succeeded", createdAt: 3, finishedAt: 4 });
+    const request = vi.fn(async (method: string, params: Record<string, unknown>) => {
+      if (method === "composition.show") return composition;
+      if (method === "composition.revisions") return params.after ? page([revision("revision-2", 2)]) : page([revision("revision-1", 1)], "revisions-next");
+      if (method === "composition.sources") {
+        if (params.revisionId === "revision-2") return page();
+        return params.after ? page([{ id: "source-2", compositionRevisionId: "revision-1", objectId: "object-2", position: 1, createdAt: 2 }]) : page([{ id: "source-1", compositionRevisionId: "revision-1", objectId: "object-1", position: 0, createdAt: 1 }], "sources-next");
+      }
+      if (method === "composition.inputs") return page();
+      if (method === "composition.builds") {
+        if (params.compositionRevisionId === "revision-2") return page();
+        return params.after ? page([build("build-2")]) : page([build("build-1")], "builds-next");
+      }
+      if (method === "build.outputs") {
+        if (params.buildId === "build-2") return page();
+        return params.after ? page([{ id: "output-2", buildId: "build-1", artifactRevisionId: "artifact-revision-2", role: "preview", position: 1, createdAt: 2 }]) : page([{ id: "output-1", buildId: "build-1", artifactRevisionId: "artifact-revision-1", role: "master", position: 0, createdAt: 1 }], "outputs-next");
+      }
+      if (method === "evaluation.list") return page([{ id: `evaluation-${(params.target as { id: string }).id}`, workspaceId: "workspace-1", projectId: "project-1", target: params.target, kind: "review", verdict: null, favorite: false, rating: null, tags: [], note: null, authoredBySessionId: "session-1", createdAt: 1 }]);
+      throw new Error(`Unexpected ${method}`);
+    });
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+
+    const aggregate = await reader.loadComposition(project, "composition-1");
+
+    expect(aggregate.revisions.map(({ id }) => id)).toEqual(["revision-1", "revision-2"]);
+    expect(aggregate.revisions[0]!.sources.map(({ id }) => id)).toEqual(["source-1", "source-2"]);
+    expect(aggregate.revisions[0]!.builds.map(({ id }) => id)).toEqual(["build-1", "build-2"]);
+    expect(aggregate.revisions[0]!.builds[0]!.outputs.map(({ id }) => id)).toEqual(["output-1", "output-2"]);
+    expect(request).toHaveBeenCalledWith("evaluation.list", { context: project, target: { type: "composition_revision", id: "revision-1" }, limit: 50 });
+    expect(request).toHaveBeenCalledWith("evaluation.list", { context: project, target: { type: "build", id: "build-1" }, limit: 50 });
+    expect(request).toHaveBeenCalledWith("build.outputs", { context: project, buildId: "build-1", after: "outputs-next", limit: 50 });
+  });
+
+  test("previews one exact Build output revision without returning its locator", async () => {
+    const request = vi.fn(async (method: string) => {
+      if (method === "media.revision.show") return { id: "artifact-revision-1", artifactId: "artifact-1", revisionNo: 1, state: "candidate", objectId: "object-1", createdAt: 1 };
+      if (method === "locator.resolve") return { absolutePath: "/private/output.mp4", mime: "video/mp4", bytes: 12 };
+      throw new Error(`Unexpected ${method}`);
+    });
+    const mint = vi.fn(async () => ({ url: "ralphy-media://asset/token", sizeBytes: 12 }));
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"], mint });
+
+    const preview = await reader.resolveCompositionOutputPreview(project, "artifact-revision-1");
+
+    expect(preview).toEqual({ url: "ralphy-media://asset/token", sizeBytes: 12, mime: "video/mp4" });
+    expect(Object.keys(preview)).toEqual(["url", "sizeBytes", "mime"]);
+    expect(request).toHaveBeenNthCalledWith(1, "media.revision.show", { context: project, revisionId: "artifact-revision-1" });
+    expect(request).toHaveBeenNthCalledWith(2, "locator.resolve", { context: project, target: { type: "object", id: "object-1" }, purpose: "preview" });
+    expect(JSON.stringify(preview)).not.toContain("/private/output.mp4");
+  });
+
+  test("forwards exact Composition mutation guards without legacy wrappers", async () => {
+    const request = vi.fn(async (method: string) => method === "composition.build"
+      ? { id: "build-1", compositionRevisionId: "revision-2", runId: "run-1", state: "succeeded", createdAt: 1, finishedAt: 2, outputs: [] }
+      : method === "composition.select"
+        ? { id: "composition-1", projectId: "project-1", slug: "hero", kind: "video", latestRevisionId: "revision-2", selectedRevisionId: "revision-1", createdAt: 1, updatedAt: 2 }
+        : { id: "revision-3", compositionId: "composition-1", revisionNo: 3, parentRevisionId: "revision-2", iterationId: null, state: "draft", engine: "manual", engineVersion: null, authoredBySessionId: null, createdAt: 3, sealedAt: null });
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+
+    await reader.reviseComposition(project, { compositionId: "composition-1", expectedLatestRevisionId: "revision-2", parentRevisionId: "revision-2", engine: "manual", engineVersion: null });
+    await reader.selectCompositionRevision(project, { compositionId: "composition-1", revisionId: "revision-1", expectedSelectedRevisionId: "revision-2" });
+    await reader.buildComposition(project, "revision-2");
+
+    expect(request).toHaveBeenNthCalledWith(1, "composition.revise", { context: project, compositionId: "composition-1", expectedLatestRevisionId: "revision-2", parentRevisionId: "revision-2", engine: "manual", engineVersion: null });
+    expect(request).toHaveBeenNthCalledWith(2, "composition.select", { context: project, compositionId: "composition-1", revisionId: "revision-1", expectedSelectedRevisionId: "revision-2" });
+    expect(request).toHaveBeenNthCalledWith(3, "composition.build", { context: project, compositionRevisionId: "revision-2" });
+  });
+
+  test("uses the regular page limit for Activity after its sequence cursor", async () => {
+    const request = vi.fn(async () => page());
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+
+    await reader.loadPage({ tab: "activity", project, cursor: 42 });
+    expect(request).toHaveBeenCalledWith("activity.list", {
+      context: project,
+      afterSequence: 42,
+      limit: 50,
+    });
+  });
+
+  test("uses only an Artifact target for a preview and never returns its locator path", async () => {
+    const card = {
+      ref: { type: "artifact" as const, id: "artifact-1" },
+      workspaceId: "workspace-1",
+      projectId: "project-1",
+      slug: "hero",
+      kind: "image",
+      selectedRevisionId: "revision-1",
+      selectedState: "approved",
+      mime: "image/png",
+      bytes: 12,
+      selectedAt: 1,
+      revisionCount: 1,
+      selectedObjectId: "object-1",
+      storageClass: "hot",
+      usageRoles: [],
+      target: { type: "object" as const, id: "object-1" },
+    };
+    const request = vi.fn(async (method: string, params?: { ref?: { id: string } }) => {
+      if (method === "media.show") return params?.ref?.id === "unselected" ? { ...card, ref: { type: "artifact", id: "unselected" }, target: null } : card;
+      if (method === "locator.resolve") {
+        return { absolutePath: "/private/asset.mp4", mime: "video/mp4", bytes: 12 };
+      }
+      throw new Error(`Unexpected ${method}`);
+    });
+    const mint = vi.fn(async () => ({ url: "ralphy-media://asset/token", sizeBytes: 12 }));
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"], mint });
+
+    await expect(reader.resolvePreview(project, card.ref)).resolves.toEqual({ url: "ralphy-media://asset/token", sizeBytes: 12 });
+    expect(request).toHaveBeenNthCalledWith(1, "media.show", {
+      context: project,
+      ref: { type: "artifact", id: "artifact-1" },
+    });
+    expect(request).toHaveBeenNthCalledWith(2, "locator.resolve", {
+      context: project,
+      target: { type: "object", id: "object-1" },
+      purpose: "preview",
+    });
+    expect(request).toHaveBeenCalledWith("locator.resolve", {
+      context: project,
+      target: { type: "object", id: "object-1" },
+      purpose: "preview",
+    });
+    expect(mint).toHaveBeenCalledWith("/private/asset.mp4", "video/mp4", 12);
+
+    await expect(reader.resolvePreview(project, {
+      type: "artifact", id: "unselected",
+    })).resolves.toBeNull();
+  });
+
+  test("reads document content in bounded chunks only", async () => {
+    const request = vi.fn(async () => ({
+      revisionId: "revision-1",
+      format: "markdown",
+      text: "preview",
+      nextByte: null,
+    }));
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+
+    await reader.loadDocumentPreview(project, "revision-1");
+    expect(request).toHaveBeenCalledWith("document.content", {
+      context: project,
+      revisionId: "revision-1",
+      afterByte: 0,
+      limitBytes: 65_536,
+    });
+  });
+
+  test("marks a preview truncated when a UTF-8-completing chunk crosses the 2 MiB ceiling", async () => {
+    const maxBytes = 2 * 1024 * 1024;
+    let servedBytes = 0;
+    const request = vi.fn(async (_method: string, params: { afterByte: number; limitBytes: number }) => {
+      if (servedBytes === maxBytes - 1) {
+        servedBytes += 4;
+        return { revisionId: "revision-1", format: "markdown", text: "😀", nextByte: servedBytes };
+      }
+      const bytes = Math.min(params.limitBytes, maxBytes - 1 - servedBytes);
+      servedBytes += bytes;
+      return { revisionId: "revision-1", format: "markdown", text: "a".repeat(bytes), nextByte: servedBytes };
+    });
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+
+    const preview = await reader.loadDocumentPreview(project, "revision-1");
+
+    expect(Buffer.byteLength(preview.text)).toBe(maxBytes - 1);
+    expect(preview.text).not.toContain("😀");
+    expect(preview.truncated).toBe(true);
+    expect(request).toHaveBeenLastCalledWith("document.content", {
+      context: project, revisionId: "revision-1", afterByte: maxBytes - 1, limitBytes: 1,
+    });
+  });
+
+  test("does not mark an exactly 2 MiB terminal revision truncated", async () => {
+    const maxBytes = 2 * 1024 * 1024;
+    let servedBytes = 0;
+    const request = vi.fn(async (_method: string, params: { limitBytes: number }) => {
+      const bytes = Math.min(params.limitBytes, maxBytes - servedBytes);
+      servedBytes += bytes;
+      return { revisionId: "revision-1", format: "text", text: "a".repeat(bytes), nextByte: servedBytes === maxBytes ? null : servedBytes };
+    });
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+
+    await expect(reader.loadDocumentPreview(project, "revision-1")).resolves.toMatchObject({ truncated: false });
+  });
+});

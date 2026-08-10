@@ -1,3 +1,5 @@
+import type { MediaFilter } from "../ralphy/types";
+
 export type ReviewStatus =
   | "Unreviewed"
   | "Approved"
@@ -27,6 +29,23 @@ export interface ProjectReference {
   projectId: string;
 }
 
+export type ProjectTab = "documents" | "media" | "compositions" | "units" | "activity";
+export const PROJECT_MEDIA_FILTERS = [
+  "all",
+  "references",
+  "working",
+  "candidate",
+  "approved",
+  "rejected",
+  "superseded",
+  "run-diagnostics",
+  "run-cache-temp",
+  "advanced-objects",
+] as const satisfies readonly ("all" | MediaFilter)[];
+export type ProjectMediaFilter = typeof PROJECT_MEDIA_FILTERS[number];
+export type ProjectPage = { items: unknown[]; nextCursor: string | number | null };
+export type ProjectPreview = { url: string; sizeBytes: number };
+
 export interface WorkspaceSummary {
   id: string;
   name: string;
@@ -43,7 +62,6 @@ export interface ProjectSummary extends ProjectReference {
   id: string;
   name: string;
   brief: string;
-  absolutePath: string;
   status: string;
   phase: string | null;
   finalState: string;
@@ -107,36 +125,10 @@ export interface AnnotationStore {
   items: Record<string, MediaAnnotation>;
 }
 
-export type ProjectMode = "overview" | "finals" | "assets" | "refs" | "units" | "files";
-export type MediaSort = "recent" | "name" | "size" | "cost" | "review";
-export type MediaGroup = "none" | "entity" | "kind" | "review";
-
-export interface MediaQueryOptions {
-  mode: ProjectMode;
-  search: string;
-  entities: MediaEntity[];
-  kinds: MediaKind[];
-  reviewStatuses: ReviewStatus[];
-  sortBy: MediaSort;
-  sortDirection: "ascending" | "descending";
-  groupBy: MediaGroup;
-  includeIntermediate: boolean;
-}
-
-export interface ProjectScanQuery {
-  includeIntermediate?: boolean;
-}
-
 export interface CatalogProgress {
   generation: number;
   workspacesRead: number;
   projectsRead: number;
-}
-
-export interface ProjectScanProgress extends ProjectReference {
-  generation: number;
-  filesScanned: number;
-  bytesScanned: number;
 }
 
 export interface CatalogResult {
@@ -156,20 +148,6 @@ export interface GenerationLedgerResult {
   truncated: boolean;
 }
 
-export interface ProjectScanResult extends ProjectReference {
-  rootPath: string;
-  generation: number;
-  items: MediaItem[];
-  ledger: GenerationLedgerResult;
-  completedAt: string;
-}
-
-export interface ProjectScanRequest extends ProjectReference {
-  rootPath: string;
-  generation: number;
-  includeIntermediate?: boolean;
-}
-
 export interface LibraryOpenResult {
   identity: RootIdentity;
   catalog: CatalogResult;
@@ -178,7 +156,16 @@ export interface LibraryOpenResult {
 export interface RootIdentity {
   storeId: string;
   label: string;
+  rootEpoch: number;
+  activitySequence: number;
 }
+
+export type ActivityRefreshEvent = {
+  type: "activity-refresh";
+  storeId: string;
+  rootEpoch: number;
+  sequence: number;
+};
 
 export interface MigrationRecovery {
   runId: string;
@@ -284,22 +271,65 @@ export interface AgentChatEnvelope {
 
 export type MediaEvent =
   | { type: "root-ready"; identity: RootIdentity }
+  | ActivityRefreshEvent
   | { type: "migration-recovery"; recovery: MigrationRecovery }
   | { type: "catalog-progress"; progress: CatalogProgress }
   | { type: "catalog-result"; result: CatalogResult }
-  | { type: "project-progress"; progress: ProjectScanProgress }
-  | { type: "project-result"; result: ProjectScanResult }
-  | { type: "project-cancelled"; request: ProjectScanRequest }
   | { type: "error"; operation: string; message: string; generation?: number };
 
 export interface MediaWorkbenchBridge {
   chooseLibrary(): Promise<LibraryOpenResult | null>;
   restoreLibrary(): Promise<LibraryOpenResult | null>;
-  scanProject(
+  loadWorkspaceOverview(workspaceId: string): Promise<import("../ralphy/types").WorkspaceOverviewDto>;
+  loadProjectOverview(project: ProjectReference): Promise<import("../ralphy/types").ProjectOverviewDto>;
+  loadProjectPage(input: {
+    tab: ProjectTab;
+    project: ProjectReference;
+    cursor?: string | number | null;
+    mediaFilter?: ProjectMediaFilter;
+  }): Promise<ProjectPage>;
+  loadProjectGeneration(
     project: ProjectReference,
-    options?: ProjectScanQuery,
-  ): Promise<ProjectScanResult>;
-  cancelProjectScan(): Promise<void>;
+    target: import("../ralphy/types").MediaGenerationTarget,
+    after?: string | null,
+  ): Promise<import("../ralphy/types").MediaGenerationDetailDto>;
+  loadProjectMediaRevisions(
+    project: ProjectReference,
+    artifactId: string,
+    after?: string | null,
+  ): Promise<import("../ralphy/types").Page<import("../ralphy/types").ArtifactRevisionDto>>;
+  selectProjectMediaRevision(
+    project: ProjectReference,
+    artifactId: string,
+    revisionId: string,
+    expectedSelectedRevisionId: string | null,
+  ): Promise<import("../ralphy/types").ArtifactMediaCardDto>;
+  loadDocumentPreview(project: ProjectReference, revisionId: string): Promise<{
+    revisionId: string;
+    format: string;
+    text: string;
+    truncated: boolean;
+  }>;
+  searchProjectDocuments(project: ProjectReference, query: string): Promise<import("../ralphy/types").Page<import("../ralphy/types").DocumentSearchDto>>;
+  showProjectDocument(project: ProjectReference, documentId: string): Promise<import("../ralphy/types").DocumentDetailDto>;
+  reviseProjectDocument(project: ProjectReference, input: {
+    documentId: string;
+    expectedHeadId?: string | null;
+    iterationId?: string | null;
+    format: "markdown" | "text" | "json";
+    title?: string | null;
+    body: import("../ralphy/types").JsonValue;
+  }): Promise<import("../ralphy/types").DocumentRevisionDto>;
+  resolveProjectPreview(project: ProjectReference, ref: import("../ralphy/types").MediaCardDto["ref"]): Promise<ProjectPreview | null>;
+  loadProjectComposition(project: ProjectReference, compositionId: string): Promise<import("../ralphy/project-reader").CompositionAggregate>;
+  reviseProjectComposition(project: ProjectReference, input: import("../ralphy/project-reader").ReviseCompositionInput): Promise<import("../ralphy/types").CompositionRevisionDto>;
+  selectProjectCompositionRevision(project: ProjectReference, input: {
+    compositionId: string;
+    revisionId: string;
+    expectedSelectedRevisionId: string | null;
+  }): Promise<import("../ralphy/types").CompositionDto>;
+  buildProjectComposition(project: ProjectReference, compositionRevisionId: string, profile?: import("../ralphy/types").JsonValue): Promise<import("../ralphy/types").CompositionBuildCompletion>;
+  resolveCompositionOutputPreview(project: ProjectReference, artifactRevisionId: string): Promise<import("../ralphy/project-reader").CompositionOutputPreview>;
   onMediaEvent(callback: (event: MediaEvent) => void): () => void;
   loadAnnotations(): Promise<AnnotationStore>;
   updateAnnotations(updates: Record<string, AnnotationInput>): Promise<AnnotationStore>;
@@ -336,8 +366,22 @@ export const APP_CHANNELS = {
 export const MEDIA_CHANNELS = {
   chooseLibrary: "media:library:choose",
   restoreLibrary: "media:library:restore",
-  scanProject: "media:project:scan",
-  cancelProjectScan: "media:project:cancel",
+  loadWorkspaceOverview: "workspace:overview",
+  loadProjectOverview: "project:overview",
+  loadProjectPage: "project:page",
+  loadProjectGeneration: "project:media:generation",
+  loadProjectMediaRevisions: "project:media:revisions",
+  selectProjectMediaRevision: "project:media:select",
+  loadDocumentPreview: "project:document-preview",
+  searchProjectDocuments: "project:documents:search",
+  showProjectDocument: "project:document:show",
+  reviseProjectDocument: "project:document:revise",
+  resolveProjectPreview: "project:preview",
+  loadProjectComposition: "project:composition:show",
+  reviseProjectComposition: "project:composition:revise",
+  selectProjectCompositionRevision: "project:composition:select",
+  buildProjectComposition: "project:composition:build",
+  resolveCompositionOutputPreview: "project:composition:output-preview",
   event: "media:event",
   loadAnnotations: "media:annotations:load",
   updateAnnotations: "media:annotations:update",
@@ -370,14 +414,9 @@ export const AGENT_CHANNELS = {
 } as const;
 
 export type WorkerRequest =
-  | { type: "catalog"; requestId: number; rootPath: string; generation: number }
-  | { type: "scan-project"; requestId: number; request: ProjectScanRequest }
-  | { type: "cancel-project" };
+  { type: "catalog"; requestId: number; rootPath: string; generation: number };
 
 export type WorkerResponse =
   | { type: "catalog-progress"; requestId: number; progress: CatalogProgress }
   | { type: "catalog-result"; requestId: number; result: CatalogResult }
-  | { type: "project-progress"; requestId: number; progress: ProjectScanProgress }
-  | { type: "project-result"; requestId: number; result: ProjectScanResult }
-  | { type: "project-cancelled"; requestId: number }
   | { type: "error"; requestId: number; message: string };

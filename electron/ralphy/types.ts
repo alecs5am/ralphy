@@ -35,6 +35,7 @@ export const BRIDGE_METHODS = [
   "feedback.list",
   "feedback.add",
   "feedback.resolve",
+  "generation.start",
   "document.create",
   "document.list",
   "document.show",
@@ -43,17 +44,19 @@ export const BRIDGE_METHODS = [
   "document.search",
   "document.revise",
   "document.bind",
+  "media.generation.show",
   "media.list",
   "media.show",
   "media.revisions",
+  "media.revision.show",
   "media.select",
   "media.review",
   "evaluation.list",
   "evaluation.show",
   "evaluation.create",
-  "generation.start",
   "run.list",
   "run.show",
+  "run.attempts",
   "run.objects",
   "run.results",
   "run.cancel",
@@ -62,6 +65,11 @@ export const BRIDGE_METHODS = [
   "composition.show",
   "composition.revisions",
   "composition.revision.show",
+  "composition.sources",
+  "composition.inputs",
+  "composition.builds",
+  "build.show",
+  "build.outputs",
   "composition.revise",
   "composition.build",
   "composition.select",
@@ -69,6 +77,10 @@ export const BRIDGE_METHODS = [
   "unit.show",
   "unit.revisions",
   "unit.revision.show",
+  "unit.items",
+  "unit.presentations",
+  "presentation.items",
+  "presentation.captions",
   "unit.revise",
   "unit.select",
   "unit.preview",
@@ -206,7 +218,7 @@ export interface ProjectDto extends EntityDto {
   workspaceId: string;
   slug: string;
   name: string;
-  status: string;
+  state: "active" | "archived";
   rowVersion: number;
   createdAt: number;
   updatedAt: number;
@@ -231,14 +243,40 @@ export interface FeedbackDto extends EntityDto {
   createdAt: number;
 }
 export interface DocumentDto extends ScopedDto {
+  kind: "brief" | "style-guide" | "production-plan" | "scenario" | "storyboard" | "research" | "postmortem" | "memory" | "note" | "custom";
   slug: string;
-  kind: string;
-  selectedRevisionId: string | null;
+  title: string;
+  currentRevisionId: string | null;
+  rowVersion: number;
   createdAt: number;
+  updatedAt: number;
 }
 export interface DocumentRevisionDto extends RevisionDto {
   documentId: string;
-  format: string;
+  parentRevisionId: string | null;
+  iterationId: string | null;
+  format: "markdown" | "text" | "json";
+  title: string | null;
+  authoredBySessionId: string | null;
+}
+export interface DocumentDetailDto extends DocumentDto {
+  currentRevision: DocumentRevisionDto | null;
+}
+export interface DocumentSearchDto {
+  documentId: string;
+  revisionId: string;
+  workspaceId: string;
+  projectId: string | null;
+  kind: DocumentDto["kind"];
+  slug: string;
+  documentTitle: string;
+  revisionNo: number;
+  parentRevisionId: string | null;
+  iterationId: string | null;
+  format: DocumentRevisionDto["format"];
+  title: string | null;
+  authoredBySessionId: string | null;
+  createdAt: number;
 }
 export interface DocumentBindingDto {
   ownerType: "project" | "build";
@@ -246,33 +284,87 @@ export interface DocumentBindingDto {
   role: string;
   documentId: string;
   boundRevisionId: string;
-  currentHeadRevisionId: string;
+  currentHeadRevisionId: string | null;
   hasNewerHead: boolean;
 }
-export type MediaRef = {
-  type: "artifact" | "run-object" | "object";
-  id: string;
-};
-export interface MediaCardDto extends ScopedDto {
-  ref: MediaRef;
+export type MediaRef = { type: "artifact" | "run-object" | "object"; id: string };
+export type MediaFilter =
+  | "references" | "working" | "candidate" | "approved" | "rejected"
+  | "superseded" | "run-diagnostics" | "run-cache-temp"
+  | "advanced-objects";
+export type RunObjectLocationClass = "temp" | "cache" | "bucket" | "other";
+export type ArtifactMediaCardDto = {
+  ref: { type: "artifact"; id: string };
+  workspaceId: string;
+  projectId: string | null;
+  slug: string;
   kind: string;
+  selectedRevisionId: string | null;
+  selectedState: string | null;
+  mime: string | null;
+  bytes: number | null;
+  selectedAt: number | null;
+  revisionCount: number;
+  selectedObjectId: string | null;
+  storageClass: string | null;
+  usageRoles: string[];
+  target: { type: "object"; id: string } | null;
+};
+export type RunObjectMediaCardDto = {
+  ref: { type: "run-object"; id: string };
+  workspaceId: string | null;
+  projectId: string | null;
+  runId: string;
+  purpose: string;
+  state: string;
+  retention: string;
   mime: string | null;
   bytes: number | null;
   createdAt: number;
-}
+  objectId: string | null;
+  logicalPath: string;
+  locationClass: RunObjectLocationClass;
+  attemptId: null;
+  attemptNo: null;
+  target: { type: "object"; id: string } | { type: "run-object"; id: string };
+};
+export type ObjectMediaCardDto = {
+  ref: { type: "object"; id: string };
+  workspaceId: string;
+  projectId: string | null;
+  storageClass: string;
+  mime: string;
+  bytes: number;
+  createdAt: number;
+  referenceCount: number;
+  target: { type: "object"; id: string };
+};
+export type MediaCardDto = ArtifactMediaCardDto | RunObjectMediaCardDto | ObjectMediaCardDto;
 export interface ArtifactRevisionDto extends RevisionDto {
   artifactId: string;
   state: string;
-  objectId: string | null;
+  objectId: string;
 }
+export interface RunAttemptDto extends EntityDto {
+  runId: string;
+  attemptNo: number;
+  provider: string | null;
+  model: string | null;
+  state: RunState;
+  costUsd: number | null;
+  startedAt: number;
+  endedAt: number | null;
+}
+export type EvaluationTargetType = "artifact_revision" | "composition_revision" | "build" | "run";
+export type EvaluationTarget = { type: EvaluationTargetType; id: string };
 export interface EvaluationDto extends ScopedDto {
-  targetType: string;
-  targetId: string;
-  verdict: string;
+  target: EvaluationTarget;
+  kind: string;
+  verdict: string | null;
   favorite: boolean;
-  rating: 1 | 2 | 3 | 4 | 5 | null;
+  rating: number | null;
   tags: string[];
-  note: string;
+  note: string | null;
   authoredBySessionId: string;
   createdAt: number;
 }
@@ -288,17 +380,75 @@ export interface RunDto extends EntityDto {
   startedAt: number | null;
   endedAt: number | null;
 }
+export type GenerationTextRole = "prompt" | "text" | "negative-prompt";
+export type GenerationParameterName =
+  | "size"
+  | "durationSec"
+  | "aspectRatio"
+  | "resolution"
+  | "generateAudio"
+  | "referenceCount"
+  | "referenceVideoCount"
+  | "hasFirstFrame"
+  | "hasLastFrame"
+  | "hasImage"
+  | "voiceSpecified"
+  | "stability"
+  | "similarityBoost"
+  | "style"
+  | "speed"
+  | "speakerBoost"
+  | "forceInstrumental"
+  | "promptInfluence"
+  | "language"
+  | "backend";
+export type GenerationInputDto = {
+  version: 1;
+  texts: Array<{ role: GenerationTextRole; value: string; truncated: boolean }>;
+  parameters: Array<{
+    name: GenerationParameterName;
+    value: string | number | boolean;
+  }>;
+};
+export type MediaGenerationTarget =
+  | { type: "artifact-revision"; id: string }
+  | { type: "run-object"; id: string };
+export type GenerationAttemptDetailDto = RunAttemptDto & {
+  input: GenerationInputDto | null;
+};
+export type MediaGenerationDetailDto =
+  | {
+      status: "generation";
+      target: MediaGenerationTarget;
+      run: RunDto;
+      attempts: Page<GenerationAttemptDetailDto>;
+      cost: { knownUsd: number | null; complete: boolean };
+    }
+  | {
+      status: "not-generation";
+      target: MediaGenerationTarget;
+      producer: RunDto;
+    }
+  | {
+      status: "unknown";
+      target: MediaGenerationTarget;
+      reason: "not-recorded" | "ambiguous";
+    };
 export interface RunObjectDto extends EntityDto {
   workspaceId: string | null;
   projectId: string | null;
   runId: string;
+  objectId: string | null;
   purpose: string;
   state: string;
   retention: string;
   mime: string | null;
   bytes: number | null;
+  logicalPath: string;
+  locationClass: RunObjectLocationClass;
+  attemptId: null;
+  attemptNo: null;
   createdAt: number;
-  objectId: string | null;
 }
 export interface RunResultDto extends EntityDto {
   runId: string;
@@ -320,31 +470,115 @@ export interface OperationAccepted {
   results: Page<RunResultDto>;
   replayed: boolean;
 }
-export interface CompositionDto extends ScopedDto {
+export type CompositionKind = "video" | "carousel" | "sticker-pack" | "image" | "audio" | "document" | "custom";
+export interface CompositionDto extends EntityDto {
+  projectId: string;
   slug: string;
-  kind: string;
+  kind: CompositionKind;
+  latestRevisionId: string | null;
   selectedRevisionId: string | null;
   createdAt: number;
+  updatedAt: number;
 }
 export interface CompositionRevisionDto extends RevisionDto {
   compositionId: string;
-  state: string;
+  parentRevisionId: string | null;
+  iterationId: string | null;
+  state: "draft" | "sealed";
+  engine: string;
+  engineVersion: string | null;
+  authoredBySessionId: string | null;
+  sealedAt: number | null;
 }
-export interface BuildDto extends ScopedDto {
+export interface CompositionSourceDto extends EntityDto {
+  compositionRevisionId: string;
+  objectId: string;
+  position: number;
+  createdAt: number;
+}
+export interface CompositionInputDto extends EntityDto {
+  compositionRevisionId: string;
+  artifactRevisionId: string;
+  role: string;
+  position: number;
+  createdAt: number;
+}
+export interface BuildDto extends EntityDto {
+  compositionRevisionId: string;
+  runId: string | null;
+  state: "pending" | "running" | "succeeded" | "failed" | "cancelled";
+  createdAt: number;
+  finishedAt: number | null;
+}
+export interface BuildOutputDto extends EntityDto {
+  buildId: string;
+  artifactRevisionId: string;
+  role: string | null;
+  position: number;
+  createdAt: number;
+}
+export interface CompositionBuildCompletion {
+  id: string;
   compositionRevisionId: string;
   runId: string;
-  state: string;
+  state: "succeeded";
   createdAt: number;
+  finishedAt: number | null;
+  outputs: Array<{
+    artifactRevisionId: string;
+    objectId: string;
+    role: string | null;
+    position: number;
+  }>;
 }
 export interface UnitDto extends ScopedDto {
   slug: string;
-  kind: string;
+  format: string;
+  latestRevisionId: string | null;
   selectedRevisionId: string | null;
   createdAt: number;
+  updatedAt: number;
 }
 export interface UnitRevisionDto extends RevisionDto {
   unitId: string;
-  state: string;
+  parentRevisionId: string | null;
+  iterationId: string | null;
+  note: string | null;
+  authoredBySessionId: string | null;
+  sealedAt: number | null;
+}
+export interface UnitItemDto extends EntityDto {
+  unitRevisionId: string;
+  artifactRevisionId: string | null;
+  documentRevisionId: string | null;
+  role: string;
+  position: number;
+  config: JsonValue | null;
+  createdAt: number;
+}
+export interface UnitPresentationDto extends EntityDto {
+  unitRevisionId: string;
+  platform: string;
+  position: number;
+  effectiveCaptionRevisionId: string | null;
+  coverArtifactRevisionId: string | null;
+  crop: JsonValue | null;
+  safeArea: JsonValue | null;
+  options: JsonValue;
+  createdAt: number;
+}
+export interface PresentationItemDto extends EntityDto {
+  presentationId: string;
+  unitItemId: string;
+  position: number;
+  config: JsonValue | null;
+  createdAt: number;
+}
+export interface PresentationCaptionRevisionDto extends RevisionDto {
+  presentationId: string;
+  parentRevisionId: string | null;
+  state: "draft" | "humanized" | "auto-draft-archived" | "final";
+  text: string;
 }
 export interface UnitPreviewDto {
   unitRevisionId: string;
@@ -391,8 +625,101 @@ export interface AgentTurnEventDto {
   kind: string;
   data: JsonValue;
 }
-export interface WorkspaceOverviewDto { workspace: WorkspaceDto; sections: JsonObject }
-export interface ProjectOverviewDto { project: ProjectDto; sections: JsonObject }
+export type OverviewPage<Item, Cursor = string> = Page<Item, Cursor>;
+export type OverviewProjectDto = ProjectDto & { purpose: string | null };
+export type OverviewProjectDocumentDto = DocumentDto & { binding: DocumentBindingDto | null };
+export interface OverviewIterationDto extends EntityDto {
+  projectId: string;
+  number: number;
+  title: string;
+  state: "active" | "closed";
+  priorIterationChanges: string | null;
+  createdAt: number;
+  closedAt: number | null;
+}
+export interface OverviewAccountDto {
+  id: string;
+  workspaceId: string;
+  platform: string;
+  externalId: string;
+  displayName: string | null;
+  username: string | null;
+  credentialConfigured: boolean;
+  credentialSource: "encrypted" | "environment" | "subscription" | "missing";
+  relinkRequired: boolean;
+  rowVersion: number;
+  createdAt: number;
+  updatedAt: number;
+}
+export interface OverviewPublicationDto {
+  id: string;
+  unitId: string;
+  presentationId: string;
+  platform: string;
+  socialAccountId: string | null;
+  rail: "postiz" | "github-pages" | "devto" | "hashnode" | "manual";
+  state: "draft" | "submitting" | "scheduled" | "submitted" | "published"
+    | "failed" | "cancelled" | "reconciliation_required" | "unknown";
+  url: string | null;
+  scheduledAt: number | null;
+  submittedAt: number | null;
+  publishedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+export interface MetricTotals {
+  publicationCount: number;
+  views: number | null;
+  likes: number | null;
+  comments: number | null;
+  shares: number | null;
+  watchTimeMs: number | null;
+}
+export interface WorkspaceOverviewDto {
+  workspace: WorkspaceDto;
+  documents?: Page<DocumentDto>;
+  units?: Page<UnitDto>;
+  accounts?: Page<OverviewAccountDto>;
+  projects?: Page<ProjectDto>;
+  activity?: Page<ActivityDto, number>;
+  sharedMedia?: Page<MediaCardDto>;
+  publications?: Page<OverviewPublicationDto>;
+  metrics?: MetricTotals;
+}
+export interface OverviewFeedbackDto extends EntityDto {
+  projectId: string;
+  iterationId: string;
+  status: "open" | "resolved" | "dismissed";
+  targetType: "document_revision" | "artifact_revision" | "composition_revision" | "build" | "build_output" | "unit_item" | "unit_presentation" | null;
+  targetId: string | null;
+  createdAt: number;
+  resolvedAt: number | null;
+}
+export interface OverviewRunDto extends EntityDto {
+  workspaceId: string | null;
+  projectId: string | null;
+  kind: string;
+  label: string | null;
+  state: RunState;
+  createdAt: number;
+  startedAt: number | null;
+  endedAt: number | null;
+}
+export interface ProjectOverviewDto {
+  project: OverviewProjectDto;
+  documents?: OverviewPage<OverviewProjectDocumentDto>;
+  iterations?: OverviewPage<OverviewIterationDto>;
+  feedback?: OverviewPage<OverviewFeedbackDto>;
+  stages?: OverviewPage<{ id: string; projectId: string; stage: string; state: string; entityType: string | null; entityId: string | null; rowVersion: number; updatedAt: number }>;
+  compositions?: OverviewPage<CompositionDto>;
+  builds?: OverviewPage<BuildDto>;
+  units?: OverviewPage<UnitDto>;
+  runs?: OverviewPage<OverviewRunDto>;
+  activity?: OverviewPage<ActivityDto, number>;
+  mediaCounts?: { artifacts: number; objects: number; runObjects: number };
+  publications?: Page<OverviewPublicationDto>;
+  metrics?: MetricTotals;
+}
 export interface LocatorDto { absolutePath: string; mime: string | null; bytes: number }
 export interface MigrationDto { runId: string; state: string; issues: number }
 
@@ -419,7 +746,35 @@ type CursorParams = { after?: string | null; limit?: number };
 type ScopedCursorParams = ScopedParams & CursorParams;
 type IdParams<Key extends string> = ScopedParams & { [Field in Key]: string };
 type Contract<Params, Result> = { params: Params; result: Result };
+type ProjectOverviewPage = { after?: string | null; limit: number };
+type WorkspaceOverviewSections = {
+  documents?: ProjectOverviewPage;
+  units?: ProjectOverviewPage;
+  accounts?: ProjectOverviewPage;
+  projects?: ProjectOverviewPage;
+  activity?: { afterSequence: number; limit: number };
+  sharedMedia?: ProjectOverviewPage & { filter?: MediaFilter };
+  publications?: ProjectOverviewPage;
+  metrics?: true;
+};
+type ProjectOverviewSections = {
+  documents?: ProjectOverviewPage;
+  iterations?: ProjectOverviewPage;
+  feedback?: ProjectOverviewPage;
+  stages?: ProjectOverviewPage;
+  compositions?: ProjectOverviewPage;
+  builds?: ProjectOverviewPage;
+  units?: ProjectOverviewPage;
+  runs?: ProjectOverviewPage;
+  activity?: { afterSequence: number; limit: number };
+  mediaCounts?: true;
+  publications?: ProjectOverviewPage;
+  metrics?: true;
+};
 type ExternalOperationParams = { external?: ExternalOperation };
+type EvaluationListFilter =
+  | { target?: EvaluationTarget; targetType?: never }
+  | { target?: never; targetType?: EvaluationTargetType };
 type ExternalOperationTuple = Omit<ExternalOperation, "idempotencyKey">;
 type OperationFindSelector =
   | { external: ExternalOperationTuple; idempotencyKey?: never }
@@ -440,7 +795,6 @@ type ReplayableOperationParams = {
   tag?: string;
   resultsLimit?: number;
 };
-
 export interface MediaReviewParams {
   context: BridgeContext;
   ref: { type: "artifact"; id: string };
@@ -473,7 +827,7 @@ export interface BridgeMethodContract {
   "workspace.list": Contract<CursorParams, Page<WorkspaceDto>>;
   "workspace.show": Contract<IdParams<"workspaceId">, WorkspaceDto>;
   "workspace.update": Contract<IdParams<"workspaceId"> & { expectedRowVersion: number; patch: JsonObject }, WorkspaceDto>;
-  "workspace.overview": Contract<IdParams<"workspaceId"> & { request: JsonObject }, WorkspaceOverviewDto>;
+  "workspace.overview": Contract<IdParams<"workspaceId"> & { sections: WorkspaceOverviewSections }, WorkspaceOverviewDto>;
   "workspace.account.list": Contract<IdParams<"workspaceId"> & CursorParams, Page<SocialAccountDto>>;
   "workspace.account.upsert": Contract<IdParams<"workspaceId"> & { account: JsonObject }, SocialAccountDto>;
   "workspace.export": Contract<IdParams<"workspaceId"> & { idempotencyKey: string }, {
@@ -493,7 +847,7 @@ export interface BridgeMethodContract {
   "project.show": Contract<IdParams<"projectId">, ProjectDto>;
   "project.update": Contract<IdParams<"projectId"> & { expectedRowVersion: number; patch: JsonObject }, ProjectDto>;
   "project.status": Contract<IdParams<"projectId">, { projectId: string; status: string; currentIterationId: string | null }>;
-  "project.overview": Contract<IdParams<"projectId"> & { request: JsonObject }, ProjectOverviewDto>;
+  "project.overview": Contract<IdParams<"projectId"> & { sections: ProjectOverviewSections }, ProjectOverviewDto>;
   "project.iteration.list": Contract<IdParams<"projectId"> & CursorParams, Page<IterationDto>>;
   "project.iteration.create": Contract<IdParams<"projectId"> & { label?: string }, IterationDto>;
   "feedback.list": Contract<IdParams<"projectId"> & CursorParams & { state?: string }, Page<FeedbackDto>>;
@@ -501,16 +855,22 @@ export interface BridgeMethodContract {
   "feedback.resolve": Contract<IdParams<"feedbackId"> & { resolutionRevisionId: string }, FeedbackDto>;
   "document.create": Contract<ScopedParams & { slug: string; kind: string; format: string; body: string }, DocumentDto>;
   "document.list": Contract<ScopedCursorParams, Page<DocumentDto>>;
-  "document.show": Contract<IdParams<"documentId">, DocumentDto>;
+  "document.show": Contract<IdParams<"documentId">, DocumentDetailDto>;
   "document.revisions": Contract<IdParams<"documentId"> & CursorParams, Page<DocumentRevisionDto>>;
   "document.content": Contract<ScopedParams & { revisionId: string; afterByte: number; limitBytes: number }, {
     revisionId: string;
-    format: string;
+    format: DocumentRevisionDto["format"];
     text: string;
-    nextByte: number;
+    nextByte: number | null;
   }>;
-  "document.search": Contract<ScopedCursorParams & { query: string }, Page<DocumentDto>>;
-  "document.revise": Contract<IdParams<"documentId"> & { expectedRevisionId: string; format: string; body: string }, DocumentRevisionDto>;
+  "document.search": Contract<ScopedCursorParams & { query: string }, Page<DocumentSearchDto>>;
+  "document.revise": Contract<IdParams<"documentId"> & {
+    expectedHeadId?: string | null;
+    iterationId?: string | null;
+    format: DocumentRevisionDto["format"];
+    title?: string | null;
+    body: JsonValue;
+  }, DocumentRevisionDto>;
   "document.bind": Contract<ScopedParams & (
     | { projectId: string; buildId?: never; role: string }
     | { projectId?: never; buildId: string; role: string }
@@ -518,16 +878,18 @@ export interface BridgeMethodContract {
     revisionId: string;
     expectedRevisionId: string | null;
   }, DocumentBindingDto>;
-  "media.list": Contract<ScopedCursorParams & { kind?: string }, Page<MediaCardDto>>;
+  "media.list": Contract<ScopedCursorParams & { filter?: MediaFilter; types?: MediaRef["type"][] }, Page<MediaCardDto>>;
   "media.show": Contract<ScopedParams & { ref: MediaRef }, MediaCardDto>;
+  "media.generation.show": Contract<ScopedParams & { target: MediaGenerationTarget } & CursorParams, MediaGenerationDetailDto>;
   "media.revisions": Contract<ScopedParams & { ref: { type: "artifact"; id: string } } & CursorParams, Page<ArtifactRevisionDto>>;
+  "media.revision.show": Contract<ScopedParams & { revisionId: string }, ArtifactRevisionDto>;
   "media.select": Contract<ScopedParams & {
     ref: { type: "artifact"; id: string };
     revisionId: string;
-    expectedSelectedRevisionId: string;
+    expectedSelectedRevisionId: string | null;
   }, MediaCardDto>;
   "media.review": Contract<MediaReviewParams, MediaReviewResult>;
-  "evaluation.list": Contract<ScopedCursorParams & { target?: { type: string; id: string } }, Page<EvaluationDto>>;
+  "evaluation.list": Contract<ScopedCursorParams & EvaluationListFilter, Page<EvaluationDto>>;
   "evaluation.show": Contract<IdParams<"evaluationId">, EvaluationDto>;
   "evaluation.create": Contract<ScopedParams & {
     target: { type: string; id: string };
@@ -542,6 +904,7 @@ export interface BridgeMethodContract {
   "generation.start": Contract<ReplayableOperationParams, OperationAccepted>;
   "run.list": Contract<ScopedCursorParams & { kind?: string; state?: string }, Page<RunDto>>;
   "run.show": Contract<IdParams<"runId">, RunDto>;
+  "run.attempts": Contract<IdParams<"runId"> & CursorParams, Page<RunAttemptDto>>;
   "run.objects": Contract<IdParams<"runId"> & CursorParams, Page<RunObjectDto>>;
   "run.results": Contract<IdParams<"runId"> & CursorParams, Page<RunResultDto>>;
   "run.cancel": Contract<IdParams<"runId"> & { expectedState: string }, RunDto>;
@@ -549,17 +912,33 @@ export interface BridgeMethodContract {
     resultsAfter?: string | null;
     resultsLimit?: number;
   }, { run: RunDto; results: Page<RunResultDto>; replayed: true }>;
-  "composition.list": Contract<ScopedCursorParams, Page<CompositionDto>>;
+  "composition.list": Contract<ScopedCursorParams & { projectId: string }, Page<CompositionDto>>;
   "composition.show": Contract<IdParams<"compositionId">, CompositionDto>;
   "composition.revisions": Contract<IdParams<"compositionId"> & CursorParams, Page<CompositionRevisionDto>>;
   "composition.revision.show": Contract<ScopedParams & { revisionId: string }, CompositionRevisionDto>;
-  "composition.revise": Contract<IdParams<"compositionId"> & { expectedLatestRevisionId: string; input: JsonObject }, CompositionRevisionDto>;
-  "composition.build": Contract<ScopedParams & ExternalOperationParams & { compositionRevisionId: string; input?: JsonObject }, OperationAccepted>;
+  "composition.sources": Contract<ScopedParams & { revisionId: string } & CursorParams, Page<CompositionSourceDto>>;
+  "composition.inputs": Contract<ScopedParams & { revisionId: string } & CursorParams, Page<CompositionInputDto>>;
+  "composition.builds": Contract<ScopedParams & { compositionRevisionId: string } & CursorParams, Page<BuildDto>>;
+  "build.show": Contract<ScopedParams & { buildId: string }, BuildDto>;
+  "build.outputs": Contract<ScopedParams & { buildId: string } & CursorParams, Page<BuildOutputDto>>;
+  "composition.revise": Contract<IdParams<"compositionId"> & {
+    expectedLatestRevisionId: string | null;
+    parentRevisionId?: string | null;
+    iterationId?: string | null;
+    engine: string;
+    engineVersion?: string | null;
+    engineConfig?: JsonValue;
+  }, CompositionRevisionDto>;
+  "composition.build": Contract<ScopedParams & { compositionRevisionId: string; profile?: JsonValue }, CompositionBuildCompletion>;
   "composition.select": Contract<IdParams<"compositionId"> & { revisionId: string; expectedSelectedRevisionId: string | null }, CompositionDto>;
   "unit.list": Contract<ScopedCursorParams, Page<UnitDto>>;
   "unit.show": Contract<IdParams<"unitId">, UnitDto>;
   "unit.revisions": Contract<IdParams<"unitId"> & CursorParams, Page<UnitRevisionDto>>;
   "unit.revision.show": Contract<ScopedParams & { revisionId: string }, UnitRevisionDto>;
+  "unit.items": Contract<ScopedParams & { revisionId: string } & CursorParams, Page<UnitItemDto>>;
+  "unit.presentations": Contract<ScopedParams & { revisionId: string } & CursorParams, Page<UnitPresentationDto>>;
+  "presentation.items": Contract<ScopedParams & { presentationId: string } & CursorParams, Page<PresentationItemDto>>;
+  "presentation.captions": Contract<ScopedParams & { presentationId: string } & CursorParams, Page<PresentationCaptionRevisionDto>>;
   "unit.revise": Contract<IdParams<"unitId"> & ExternalOperationParams & { expectedLatestRevisionId: string; input: JsonObject }, UnitRevisionDto | OperationAccepted>;
   "unit.select": Contract<IdParams<"unitId"> & { revisionId: string; expectedSelectedRevisionId: string | null }, UnitDto>;
   "unit.preview": Contract<ScopedParams & { unitRevisionId: string; platform: string }, UnitPreviewDto>;
@@ -586,9 +965,19 @@ export interface BridgeMethodContract {
   "campaign.update": Contract<IdParams<"campaignId"> & { expectedRowVersion: number; patch: JsonObject }, CampaignDto>;
   "calendar.list": Contract<ScopedCursorParams & { from?: number; to?: number }, Page<CalendarEntryDto>>;
   "calendar.update": Contract<IdParams<"calendarEntryId"> & { expectedRowVersion: number; patch: JsonObject }, CalendarEntryDto>;
-  "activity.list": Contract<{ afterSequence: number; limit: number }, Page<ActivityDto, number>>;
-  "activity.subscribe": Contract<{ afterSequence: number }, { subscriptionId: string; afterSequence: number }>;
-  "activity.unsubscribe": Contract<{ subscriptionId: string }, AckDto>;
+  "activity.list": Contract<
+    | { context: BridgeContext; afterSequence: number; limit: number }
+    | { afterSequence: number; limit: number },
+    Page<ActivityDto, number>
+  >;
+  "activity.subscribe": Contract<
+    { subscriptionId: string; afterSequence: number },
+    { subscriptionId: string; sequence: number }
+  >;
+  "activity.unsubscribe": Contract<
+    { subscriptionId: string },
+    { subscriptionId: string; unsubscribed: true }
+  >;
   "locator.resolve": Contract<ScopedParams & {
     target: { type: "object" | "run-object"; id: string };
     purpose: "preview" | "read-text" | "finder" | "open" | "drag";
