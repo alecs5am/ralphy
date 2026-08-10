@@ -184,6 +184,31 @@ describe("Project domain reader", () => {
     });
   });
 
+  test("loads one exact scoped Media card and rejects mismatched or malformed results", async () => {
+    const request = vi.fn(async () => artifactCard);
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+
+    await expect(reader.loadMediaCard(project, artifactCard.ref)).resolves.toEqual(artifactCard);
+    expect(request).toHaveBeenCalledWith("media.show", {
+      context: project,
+      ref: artifactCard.ref,
+    });
+
+    await expect(reader.loadMediaCard(project, { type: "artifact", id: "" })).rejects.toThrow("Invalid Media reference");
+    await expect(reader.loadMediaCard(project, { type: "artifact", id: "art_1", extra: true } as never)).rejects.toThrow("Invalid Media reference");
+    for (const result of [
+      { ...artifactCard, ref: { type: "artifact", id: "other" } },
+      { ...artifactCard, workspaceId: "other" },
+      { ...artifactCard, projectId: "other" },
+      { ...artifactCard, privatePath: "/private/asset.png" },
+    ]) {
+      const invalidReader = createProjectReader({
+        request: vi.fn(async () => result) as unknown as RalphyBridgeClient["request"],
+      });
+      await expect(invalidReader.loadMediaCard(project, artifactCard.ref)).rejects.toThrow("Invalid Media card");
+    }
+  });
+
   test("rejects invalid revision pages and mismatched selection responses", async () => {
     const invalidPageReader = createProjectReader({
       request: vi.fn(async () => page([{

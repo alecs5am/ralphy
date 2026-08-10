@@ -46,6 +46,7 @@ function projectApi() {
   return {
     loadProjectOverview: async () => ({ project: { id: "project-1", workspaceId: "workspace-1", slug: "launch", name: "Launch", purpose: null, state: "active", rowVersion: 1, createdAt: 1, updatedAt: 1 } }),
     loadProjectPage: async () => ({ items: [runObject], nextCursor: null }),
+    loadProjectMediaCard: async () => runObject,
     loadDocumentPreview: async () => ({ revisionId: "revision-1", format: "text", text: "", truncated: false }),
     searchProjectDocuments: async () => ({ items: [], nextCursor: null }),
     showProjectDocument: async () => { throw new Error("Not used"); },
@@ -176,28 +177,38 @@ describe("Project media presentation", () => {
 
   test("mounts the production media viewer with safe generation details and loaded-row controls", async () => {
     const prompt = '<img src=x onerror="steal()"> Keep this literal';
+    const epochMs = 1_775_000_000_000;
+    const subCent = { ...runObject, ref: { type: "run-object" as const, id: "run-object-cost" }, runId: "run-cost", purpose: "sub-cent" };
     const next = { ...runObject, ref: { type: "run-object" as const, id: "run-object-2" }, runId: "run-2", purpose: "second" };
     const object: MediaCardDto = { ref: { type: "object", id: "object-1" }, workspaceId: "workspace-1", projectId: "project-1", storageClass: "final", mime: "image/png", bytes: 20, createdAt: 1, referenceCount: 1, target: { type: "object", id: "object-1" } };
     const generation: MediaGenerationDetailDto = {
       status: "generation",
       target: { type: "run-object", id: "run-object-1" },
-      run: { id: "run-1", workspaceId: "workspace-1", projectId: "project-1", agentSessionId: null, kind: "generation", label: "Hero", state: "succeeded", createdAt: 1, startedAt: 2, endedAt: 4 },
+      run: { id: "run-1", workspaceId: "workspace-1", projectId: "project-1", agentSessionId: null, kind: "generation", label: "Hero", state: "succeeded", createdAt: epochMs, startedAt: epochMs + 2, endedAt: epochMs + 4 },
       attempts: { items: [
-        { id: "attempt-1", runId: "run-1", attemptNo: 1, provider: "fal", model: "flux-pro", state: "succeeded", costUsd: 1.25, startedAt: 2, endedAt: 4, input: { version: 1, texts: [{ role: "prompt", value: prompt, truncated: false }], parameters: [{ name: "aspectRatio", value: "16:9" }] } },
-        { id: "attempt-2", runId: "run-1", attemptNo: 2, provider: null, model: null, state: "failed", costUsd: null, startedAt: 5, endedAt: null, input: null },
+        { id: "attempt-1", runId: "run-1", attemptNo: 1, provider: "fal", model: "flux-pro", state: "succeeded", costUsd: 1.25, startedAt: epochMs + 2, endedAt: epochMs + 4, input: { version: 1, texts: [{ role: "prompt", value: prompt, truncated: false }], parameters: [{ name: "aspectRatio", value: "16:9" }] } },
+        { id: "attempt-2", runId: "run-1", attemptNo: 2, provider: null, model: null, state: "failed", costUsd: null, startedAt: epochMs + 5, endedAt: null, input: null },
+        { id: "attempt-3", runId: "run-1", attemptNo: 3, provider: "fal", model: "cached", state: "succeeded", costUsd: 0, startedAt: epochMs + 6, endedAt: epochMs + 6, input: null },
       ], nextCursor: null },
       cost: { knownUsd: 1.25, complete: false },
     };
+    const completeSubCent: MediaGenerationDetailDto = {
+      ...generation,
+      target: { type: "run-object", id: "run-object-cost" },
+      run: { ...generation.run, id: "run-cost", createdAt: 1, startedAt: 2, endedAt: 4 },
+      attempts: { items: [], nextCursor: null },
+      cost: { knownUsd: 0.0049, complete: true },
+    };
     const api = {
       ...projectApi(),
-      loadProjectPage: vi.fn(async () => ({ items: [runObject, next, object], nextCursor: "not-loaded" })),
+      loadProjectPage: vi.fn(async () => ({ items: [runObject, subCent, next, object], nextCursor: "not-loaded" })),
       resolveProjectPreview: vi.fn(async () => ({ url: "ralphy-media://asset/viewer", sizeBytes: 128 })),
-      loadProjectGeneration: vi.fn(async (_project: unknown, target: MediaGenerationDetailDto["target"]) => target.id === "run-object-1" ? generation : ({ status: "not-generation", target, producer: { id: "run-2", workspaceId: "workspace-1", projectId: "project-1", agentSessionId: null, kind: "import", label: null, state: "succeeded", createdAt: 1, startedAt: 1, endedAt: 2 } } as const)),
+      loadProjectGeneration: vi.fn(async (_project: unknown, target: MediaGenerationDetailDto["target"]) => target.id === "run-object-1" ? generation : target.id === "run-object-cost" ? completeSubCent : ({ status: "not-generation", target, producer: { id: "run-2", workspaceId: "workspace-1", projectId: "project-1", agentSessionId: null, kind: "import", label: null, state: "succeeded", createdAt: 1, startedAt: 1, endedAt: 2 } } as const)),
     };
     const controller = createProjectScreenController(api as never, project);
     await controller.selectTab("media");
     const previewSpy = vi.spyOn(bridge, "resolveProjectPreview").mockResolvedValue(null);
-    const copySpy = vi.spyOn(bridge, "copyText").mockResolvedValue();
+    const copySpy = vi.spyOn(bridge, "copyText").mockRejectedValueOnce(new Error("Clipboard denied")).mockResolvedValue();
     const host = createReactHost();
     const root = createRoot(host.container as unknown as Element);
     try {
@@ -216,7 +227,8 @@ describe("Project media presentation", () => {
       expect(dialog.textContent).toContain("fal");
       expect(dialog.textContent).toContain("flux-pro");
       expect(dialog.textContent).toContain("$1.25 · Partial");
-      expect(dialog.textContent).toContain("2000 ms");
+      expect(dialog.textContent).toContain("$0.00");
+      expect(dialog.textContent).toContain("2 ms");
       expect(dialog.textContent).toContain("Not recorded");
       expect(dialog.textContent).toContain(prompt);
       expect(dialog.findAll((node) => node.tagName === "IMG")).toHaveLength(0);
@@ -224,29 +236,57 @@ describe("Project media presentation", () => {
       expect(button(dialog, "Next").disabled).toBe(false);
       expect(api.loadProjectPage).toHaveBeenCalledOnce();
 
-      await act(async () => { button(dialog, "Copy prompt").dispatchEvent(new Event("click", { bubbles: true })); });
+      await act(async () => { button(dialog, "Copy prompt").dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); });
       expect(copySpy).toHaveBeenCalledWith(prompt);
+      expect(dialog.findAll((node) => node.getAttribute("role") === "alert").map((node) => node.textContent)).toContain("Clipboard denied");
+      await act(async () => { button(dialog, "Copy prompt").dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); });
+      expect(dialog.findAll((node) => node.getAttribute("role") === "alert")).toHaveLength(0);
+      expect(copySpy).toHaveBeenCalledTimes(2);
 
-      for (const [tag, attribute, value] of [["input", null, null], ["textarea", null, null], ["div", "contenteditable", "true"], ["div", "role", "slider"]] as const) {
+      for (const [tag, attribute, value, nested] of [
+        ["input", null, null, false], ["textarea", null, null, false],
+        ["div", "contenteditable", "true", true], ["div", "contenteditable", "", true],
+        ["div", "contenteditable", "plaintext-only", true], ["div", "role", "slider", true],
+      ] as const) {
         const field = globalThis.document.createElement(tag) as unknown as HostNode;
-        if (attribute && value) field.setAttribute(attribute, value);
+        if (attribute) field.setAttribute(attribute, value ?? "");
+        const focused = nested ? globalThis.document.createElement("span") as unknown as HostNode : field;
+        if (nested) field.appendChild(focused);
         dialog.appendChild(field);
-        field.focus();
+        focused.focus();
         await act(async () => { keydown(globalThis.window, "ArrowRight"); await Promise.resolve(); });
         expect(controller.getSnapshot().selectedMedia).toEqual(runObject);
       }
-      await act(async () => { keydown(globalThis.window, "ArrowRight", { metaKey: true }); await Promise.resolve(); });
-      expect(controller.getSnapshot().selectedMedia).toEqual(runObject);
+
+      for (const modifier of ["metaKey", "ctrlKey", "altKey", "shiftKey"] as const) {
+        dialog.focus();
+        await act(async () => { keydown(globalThis.window, "ArrowRight", { [modifier]: true }); await Promise.resolve(); });
+        expect(controller.getSnapshot().selectedMedia).toEqual(runObject);
+      }
+
+      const editableFalse = globalThis.document.createElement("div") as unknown as HostNode;
+      editableFalse.setAttribute("contenteditable", "false");
+      const falseChild = globalThis.document.createElement("span") as unknown as HostNode;
+      editableFalse.appendChild(falseChild);
+      dialog.appendChild(editableFalse);
+      falseChild.focus();
+      await act(async () => { keydown(globalThis.window, "ArrowRight"); await Promise.resolve(); });
+      expect(controller.getSnapshot().selectedMedia).toEqual(subCent);
+      await act(async () => { await controller.navigateMediaViewer(-1); });
 
       const surface = dialog;
       surface.focus();
+      await act(async () => { keydown(globalThis.window, "ArrowRight"); await Promise.resolve(); });
+      expect(controller.getSnapshot().selectedMedia).toEqual(subCent);
+      expect((globalThis.document.body as unknown as HostNode).textContent).toContain("$0.0049 · Complete");
+      expect((globalThis.document.body as unknown as HostNode).textContent).toContain("2 ms");
       await act(async () => { keydown(globalThis.window, "ArrowRight"); await Promise.resolve(); });
       expect(controller.getSnapshot().selectedMedia).toEqual(next);
       expect((globalThis.document.body as unknown as HostNode).textContent).toContain("Not a generation");
       await act(async () => { keydown(globalThis.window, "ArrowRight"); await Promise.resolve(); });
       expect(controller.getSnapshot().selectedMedia).toEqual(object);
       expect((globalThis.document.body as unknown as HostNode).textContent).toContain("Provenance unavailable");
-      expect(api.loadProjectGeneration).toHaveBeenCalledTimes(2);
+      expect(api.loadProjectGeneration).toHaveBeenCalledTimes(5);
       expect(api.loadProjectPage).toHaveBeenCalledOnce();
 
       await act(async () => { keydown(globalThis.document, "Escape"); await new Promise((resolve) => setTimeout(resolve, 32)); });
@@ -293,6 +333,70 @@ describe("Project media presentation", () => {
       expect(api.loadProjectGeneration).toHaveBeenCalledTimes(2);
     } finally {
       await act(async () => { root.unmount(); await new Promise((resolve) => setTimeout(resolve, 0)); });
+      tilePreview.mockRestore();
+      host.restore();
+    }
+  });
+
+  test("restores focus to the stable Media tab after filtering removes the opener", async () => {
+    const api = {
+      ...projectApi(),
+      loadProjectPage: vi.fn(async ({ mediaFilter }: { mediaFilter?: string }) => ({ items: mediaFilter === "references" ? [] : [runObject], nextCursor: null })),
+    };
+    const controller = createProjectScreenController(api as never, project);
+    await controller.selectTab("media");
+    const tilePreview = vi.spyOn(bridge, "resolveProjectPreview").mockResolvedValue(null);
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
+      const opener = button(host.container, "Open diagnostic-log");
+      opener.focus();
+      await act(async () => { opener.dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); });
+      const dialog = (globalThis.document.body as unknown as HostNode).findAll((node) => node.getAttribute("role") === "dialog")[0];
+      expect(globalThis.document.activeElement).toBe(dialog);
+
+      await act(async () => { textButton(host.container, "References").dispatchEvent(new Event("click", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
+
+      const mediaTab = host.container.findAll((node) => node.getAttribute("data-media-focus-fallback") === "true")[0];
+      expect(mediaTab).toBeDefined();
+      expect(globalThis.document.activeElement).toBe(mediaTab);
+      expect((globalThis.document.activeElement as unknown as HostNode).isConnected).toBe(true);
+      expect(globalThis.document.activeElement).not.toBe(globalThis.document.body);
+    } finally {
+      await act(async () => { root.unmount(); await Promise.resolve(); });
+      tilePreview.mockRestore();
+      host.restore();
+    }
+  });
+
+  test("restores focus to the replacement Media tab when an open viewer controller is disposed", async () => {
+    const first = createProjectScreenController(projectApi(), project);
+    await first.selectTab("media");
+    const replacement = createProjectScreenController(projectApi(), project);
+    await replacement.start();
+    const tilePreview = vi.spyOn(bridge, "resolveProjectPreview").mockResolvedValue(null);
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<MountedProject key="root-1" controller={first} />); await Promise.resolve(); });
+      const opener = button(host.container, "Open diagnostic-log");
+      opener.focus();
+      await act(async () => { opener.dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); });
+      const removedDialog = (globalThis.document.body as unknown as HostNode).findAll((node) => node.getAttribute("role") === "dialog")[0];
+      expect(globalThis.document.activeElement).toBe(removedDialog);
+
+      first.dispose();
+      await act(async () => { root.render(<MountedProject key="root-2" controller={replacement} />); await new Promise((resolve) => setTimeout(resolve, 0)); });
+
+      const mediaTab = host.container.findAll((node) => node.getAttribute("data-media-focus-fallback") === "true")[0];
+      expect(globalThis.document.activeElement).toBe(mediaTab);
+      expect((globalThis.document.activeElement as unknown as HostNode).isConnected).toBe(true);
+      expect(globalThis.document.activeElement).not.toBe(removedDialog);
+      expect(globalThis.document.activeElement).not.toBe(globalThis.document.body);
+    } finally {
+      await act(async () => { root.unmount(); await Promise.resolve(); });
+      replacement.dispose();
       tilePreview.mockRestore();
       host.restore();
     }

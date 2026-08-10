@@ -183,6 +183,7 @@ describe("Electron IPC security", () => {
       "loadWorkspaceOverview",
       "loadProjectOverview",
       "loadProjectPage",
+      "loadProjectMediaCard",
       "loadProjectGeneration",
       "loadProjectMediaRevisions",
       "selectProjectMediaRevision",
@@ -201,6 +202,7 @@ describe("Electron IPC security", () => {
       startFileDrag(path: string): Promise<void>;
       loadWorkspaceOverview(workspaceId: string): Promise<void>;
       loadProjectOverview(project: { workspaceId: string; projectId: string }): Promise<void>;
+      loadProjectMediaCard(project: { workspaceId: string; projectId: string }, ref: { type: "artifact"; id: string }): Promise<void>;
       loadProjectGeneration(project: { workspaceId: string; projectId: string }, target: { type: "artifact-revision"; id: string }, after?: string): Promise<void>;
       loadProjectMediaRevisions(project: { workspaceId: string; projectId: string }, artifactId: string, after?: string): Promise<void>;
       selectProjectMediaRevision(project: { workspaceId: string; projectId: string }, artifactId: string, revisionId: string, expectedSelectedRevisionId: string | null): Promise<void>;
@@ -213,6 +215,7 @@ describe("Electron IPC security", () => {
     await bridge.startFileDrag("/library/video.mp4");
     await bridge.loadWorkspaceOverview("workspace-1");
     await bridge.loadProjectOverview({ workspaceId: "workspace-1", projectId: "project-1" });
+    await bridge.loadProjectMediaCard({ workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact", id: "artifact-1" });
     await bridge.loadProjectGeneration({ workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact-revision", id: "revision-1" }, "generation-next");
     await bridge.loadProjectMediaRevisions({ workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-next");
     await bridge.selectProjectMediaRevision({ workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-1", null);
@@ -225,6 +228,7 @@ describe("Electron IPC security", () => {
       ["media:files:drag", "/library/video.mp4"],
       ["workspace:overview", "workspace-1"],
       ["project:overview", { workspaceId: "workspace-1", projectId: "project-1" }],
+      ["project:media:show", { workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact", id: "artifact-1" }],
       ["project:media:generation", { workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact-revision", id: "revision-1" }, "generation-next"],
       ["project:media:revisions", { workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-next"],
       ["project:media:select", { workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-1", null],
@@ -328,9 +332,10 @@ describe("Electron IPC security", () => {
     });
 
     expect([...handlers.keys()]).toEqual([
-      "project:media:generation", "project:media:revisions", "project:media:select",
+      "project:media:generation", "project:media:show", "project:media:revisions", "project:media:select",
     ]);
     const generation = handlers.get("project:media:generation")!;
+    const show = handlers.get("project:media:show")!;
     const revisions = handlers.get("project:media:revisions")!;
     const select = handlers.get("project:media:select")!;
     const trusted = { sender: webContents, senderFrame: mainFrame };
@@ -345,6 +350,7 @@ describe("Electron IPC security", () => {
       () => generation(trusted, { workspaceId: "", projectId: "project-1" }, { type: "artifact-revision", id: "revision-1" }, undefined),
       () => generation(trusted, { workspaceId: "workspace-1", projectId: "project-1" }, { type: "object", id: "object-1" }, undefined),
       () => generation(trusted, { workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact-revision", id: "revision-1" }, 1),
+      () => show(trusted, { workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact", id: "", extra: true }),
       () => revisions(trusted, { workspaceId: "workspace-1", projectId: "project-1" }, "", undefined),
       () => select(trusted, { workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-1", undefined),
     ]) await expect(call()).resolves.toMatchObject({ ok: false });

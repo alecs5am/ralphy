@@ -34,7 +34,7 @@ export interface ProjectScreenSnapshot {
   compositionConflict: string | null;
   compositionMutationError: string | null;
 }
-export type ProjectScreenApi = Pick<MediaWorkbenchBridge, "loadProjectOverview" | "loadProjectPage" | "loadProjectGeneration" | "loadProjectMediaRevisions" | "selectProjectMediaRevision" | "loadDocumentPreview" | "searchProjectDocuments" | "showProjectDocument" | "reviseProjectDocument" | "resolveProjectPreview" | "loadProjectComposition" | "reviseProjectComposition" | "selectProjectCompositionRevision" | "buildProjectComposition" | "resolveCompositionOutputPreview">;
+export type ProjectScreenApi = Pick<MediaWorkbenchBridge, "loadProjectOverview" | "loadProjectPage" | "loadProjectMediaCard" | "loadProjectGeneration" | "loadProjectMediaRevisions" | "selectProjectMediaRevision" | "loadDocumentPreview" | "searchProjectDocuments" | "showProjectDocument" | "reviseProjectDocument" | "resolveProjectPreview" | "loadProjectComposition" | "reviseProjectComposition" | "selectProjectCompositionRevision" | "buildProjectComposition" | "resolveCompositionOutputPreview">;
 export interface ProjectScreenController {
   getSnapshot(): ProjectScreenSnapshot;
   subscribe(listener: () => void): () => void;
@@ -474,13 +474,16 @@ export function createProjectScreenController(
         }
         const conflict = "The selected revision changed elsewhere. Current card and revisions reloaded; select again to retry.";
         try {
-          const [page, revisions] = await Promise.all([
-            api.loadProjectPage({ tab: "media", project: snapshot.domain.project, mediaFilter: snapshot.domain.media.filter }),
+          const [refreshed, revisions] = await Promise.all([
+            api.loadProjectMediaCard(snapshot.domain.project, card.ref),
             api.loadProjectMediaRevisions(snapshot.domain.project, card.ref.id),
           ]);
           if (disposed || requestId !== mediaRevisionRequest || !snapshot.mediaViewerOpen || !sameMedia(snapshot.selectedMedia, card)) return;
-          const refreshed = (page.items as MediaCardDto[]).find((item) => sameMedia(item, card));
-          if (refreshed) replaceLoadedMedia(refreshed);
+          replaceLoadedMedia(refreshed);
+          if (isArtifactMedia(refreshed) && refreshed.selectedRevisionId) {
+            await Promise.all([loadMediaPreview(refreshed), loadMediaGeneration(refreshed)]);
+          }
+          if (disposed || requestId !== mediaRevisionRequest || !snapshot.mediaViewerOpen || !sameMedia(snapshot.selectedMedia, refreshed)) return;
           emit({ ...snapshot, mediaRevisions: { status: "ready", items: revisions.items, error: conflict } });
         } catch (reloadError) {
           if (disposed || requestId !== mediaRevisionRequest || !snapshot.mediaViewerOpen) return;

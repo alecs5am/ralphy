@@ -25,6 +25,7 @@ const mediaBridge: MediaWorkbenchBridge = {
   loadWorkspaceOverview: (workspaceId) => invoke(MEDIA_CHANNELS.loadWorkspaceOverview, workspaceId),
   loadProjectOverview: (project) => invoke(MEDIA_CHANNELS.loadProjectOverview, project),
   loadProjectPage: (input) => invoke(MEDIA_CHANNELS.loadProjectPage, input),
+  loadProjectMediaCard: (project, ref) => invoke(MEDIA_CHANNELS.loadProjectMediaCard, project, ref),
   loadProjectGeneration: (project, target, after) => (
     invoke(MEDIA_CHANNELS.loadProjectGeneration, project, target, after)
   ),

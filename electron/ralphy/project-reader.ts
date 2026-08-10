@@ -285,6 +285,78 @@ function validateArtifactCard(value: unknown, project: ProjectRef, artifactId: s
   return value as ArtifactMediaCardDto;
 }
 
+function mediaRef(value: unknown): MediaCardDto["ref"] {
+  const ref = record(value);
+  if (!ref || !exactKeys(ref, ["type", "id"]) || !validGenerationId(ref.id)
+    || !["artifact", "run-object", "object"].includes(ref.type as string)) {
+    throw new Error("Invalid Media reference");
+  }
+  return { type: ref.type as MediaCardDto["ref"]["type"], id: ref.id };
+}
+
+function optionalScope(value: unknown, expected: string): boolean {
+  return value === null || value === expected;
+}
+
+function validateMediaCard(value: unknown, project: ProjectRef, expectedRef: MediaCardDto["ref"]): MediaCardDto {
+  const card = record(value);
+  const ref = record(card?.ref);
+  const target = card?.target === null ? null : record(card?.target);
+  const exactRef = !!ref && exactKeys(ref, ["type", "id"])
+    && ref.type === expectedRef.type && ref.id === expectedRef.id;
+  const validTarget = (expectedType: "object" | "run-object", expectedId: string): boolean => (
+    !!target && exactKeys(target, ["type", "id"]) && target.type === expectedType && target.id === expectedId
+  );
+  if (!card || !exactRef) throw new Error("Invalid Media card");
+
+  if (expectedRef.type === "artifact") {
+    const selected = card.selectedRevisionId !== null;
+    if (!exactKeys(card, [
+      "ref", "workspaceId", "projectId", "slug", "kind", "selectedRevisionId", "selectedState",
+      "mime", "bytes", "selectedAt", "revisionCount", "selectedObjectId", "storageClass", "usageRoles", "target",
+    ]) || card.workspaceId !== project.workspaceId || !optionalScope(card.projectId, project.projectId)
+      || typeof card.slug !== "string" || !card.slug || card.slug.length > 256
+      || typeof card.kind !== "string" || !card.kind || card.kind.length > 256
+      || (selected ? !validGenerationId(card.selectedRevisionId) : card.selectedRevisionId !== null)
+      || (card.selectedState !== null && (typeof card.selectedState !== "string" || !card.selectedState || card.selectedState.length > 128))
+      || (card.mime !== null && (typeof card.mime !== "string" || !card.mime || card.mime.length > 1024))
+      || (card.bytes !== null && !sequence(card.bytes)) || (card.selectedAt !== null && !sequence(card.selectedAt))
+      || !sequence(card.revisionCount) || (card.selectedObjectId !== null && !validGenerationId(card.selectedObjectId))
+      || selected !== (card.selectedObjectId !== null)
+      || (card.storageClass !== null && (typeof card.storageClass !== "string" || !card.storageClass || card.storageClass.length > 128))
+      || !Array.isArray(card.usageRoles) || !card.usageRoles.every((role) => typeof role === "string" && !!role && role.length <= 256)
+      || (card.selectedObjectId === null ? target !== null : !validTarget("object", card.selectedObjectId))) {
+      throw new Error("Invalid Media card");
+    }
+  } else if (expectedRef.type === "run-object") {
+    if (!exactKeys(card, [
+      "ref", "workspaceId", "projectId", "runId", "purpose", "state", "retention", "mime", "bytes",
+      "createdAt", "objectId", "logicalPath", "locationClass", "attemptId", "attemptNo", "target",
+    ]) || !optionalScope(card.workspaceId, project.workspaceId) || !optionalScope(card.projectId, project.projectId)
+      || !validGenerationId(card.runId) || typeof card.purpose !== "string" || !card.purpose || card.purpose.length > 256
+      || typeof card.state !== "string" || !card.state || card.state.length > 128
+      || typeof card.retention !== "string" || !card.retention || card.retention.length > 128
+      || (card.mime !== null && (typeof card.mime !== "string" || !card.mime || card.mime.length > 1024))
+      || (card.bytes !== null && !sequence(card.bytes)) || !sequence(card.createdAt)
+      || (card.objectId !== null && !validGenerationId(card.objectId))
+      || typeof card.logicalPath !== "string" || !card.logicalPath || card.logicalPath.length > 4096
+      || !["temp", "cache", "bucket", "other"].includes(card.locationClass as string)
+      || card.attemptId !== null || card.attemptNo !== null
+      || (card.objectId === null ? !validTarget("run-object", expectedRef.id) : !validTarget("object", card.objectId))) {
+      throw new Error("Invalid Media card");
+    }
+  } else if (!exactKeys(card, [
+    "ref", "workspaceId", "projectId", "storageClass", "mime", "bytes", "createdAt", "referenceCount", "target",
+  ]) || card.workspaceId !== project.workspaceId || !optionalScope(card.projectId, project.projectId)
+    || typeof card.storageClass !== "string" || !card.storageClass || card.storageClass.length > 128
+    || typeof card.mime !== "string" || !card.mime || card.mime.length > 1024
+    || !sequence(card.bytes) || !sequence(card.createdAt) || !sequence(card.referenceCount)
+    || !validTarget("object", expectedRef.id)) {
+    throw new Error("Invalid Media card");
+  }
+  return value as MediaCardDto;
+}
+
 function normalizeGenerationSource(value: MediaGenerationTarget | MediaCardDto): {
   target: MediaGenerationTarget;
   localUnknown?: true;
@@ -400,6 +472,9 @@ export function registerProjectMediaIpc<Root>({
       pageCursor(rawAfter),
     )
   )));
+  handle(MEDIA_CHANNELS.loadProjectMediaCard, secured((reader, rawProject, rawRef) => (
+    reader.loadMediaCard(parseProjectMediaIpcProject(rawProject), mediaRef(rawRef))
+  )));
   handle(MEDIA_CHANNELS.loadProjectMediaRevisions, secured((reader, rawProject, rawArtifactId, rawAfter) => {
     if (!validGenerationId(rawArtifactId)) throw new Error("Invalid Artifact identifier");
     return reader.loadMediaRevisions(
@@ -512,6 +587,12 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
         limit: GENERATION_ATTEMPT_LIMIT,
       });
       return validateGenerationDetail(detail, target, context);
+    },
+
+    async loadMediaCard(project: ProjectRef, ref: MediaCardDto["ref"]): Promise<MediaCardDto> {
+      const context = projectContext(project);
+      const exactRef = mediaRef(ref);
+      return validateMediaCard(await request("media.show", { context, ref: exactRef }), context, exactRef);
     },
 
     async loadMediaRevisions(

@@ -12,16 +12,23 @@ import type { ProjectScreenController, ProjectScreenSnapshot } from "../../state
 
 function formatTime(value: number | null): string {
   if (value === null) return "Not recorded";
-  return new Date(value < 1_000_000_000_000 ? value * 1000 : value).toLocaleString();
+  return new Date(value).toLocaleString();
+}
+
+function formatUsd(value: number | null): string {
+  if (value === null) return "Unknown";
+  if (value === 0) return "$0.00";
+  const exact = String(value);
+  return `$${exact.includes(".") || exact.includes("e") ? exact : `${exact}.00`}`;
 }
 
 function formatCost(value: number | null, complete: boolean): string {
-  return `${value === null ? "Unknown" : `$${value.toFixed(2)}`} · ${complete ? "Complete" : "Partial"}`;
+  return `${formatUsd(value)} · ${complete ? "Complete" : "Partial"}`;
 }
 
 function formatDuration(startedAt: number | null, endedAt: number | null): string {
   if (startedAt === null || endedAt === null) return "Not recorded";
-  return `${Math.max(0, endedAt - startedAt) * (startedAt < 1_000_000_000_000 ? 1000 : 1)} ms`;
+  return `${Math.max(0, endedAt - startedAt)} ms`;
 }
 
 function isArtifactMedia(card: MediaCardDto): card is ArtifactMediaCardDto {
@@ -34,14 +41,31 @@ function Facts({ rows }: { rows: Array<[string, React.ReactNode]> }) {
 
 function PromptText({ role, value, truncated }: { role: string; value: string; truncated: boolean }) {
   const [expanded, setExpanded] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
+  const copyRequest = useRef(0);
   const label = role === "negative-prompt" ? "Negative prompt" : role[0].toUpperCase() + role.slice(1);
+  useEffect(() => {
+    copyRequest.current += 1;
+    setCopyError(null);
+    return () => { copyRequest.current += 1; };
+  }, [value]);
+  const copy = async () => {
+    const requestId = ++copyRequest.current;
+    setCopyError(null);
+    try {
+      await bridge.copyText(value);
+    } catch (error) {
+      if (requestId === copyRequest.current) setCopyError(error instanceof Error ? error.message : "Copy failed");
+    }
+  };
   return <section className="generation-text">
     <h4>{label}{truncated ? " · Truncated" : ""}</h4>
     <pre style={expanded ? undefined : { maxHeight: 96, overflow: "hidden" }}>{value}</pre>
     <div className="viewer-actions">
       <button type="button" aria-expanded={expanded} onClick={() => setExpanded((current) => !current)}>{expanded ? "Show less" : "Show full"}</button>
-      <button type="button" aria-label={`Copy ${role}`} onClick={() => { void bridge.copyText(value); }}><Copy size={14} aria-hidden="true" />Copy</button>
+      <button type="button" aria-label={`Copy ${role}`} onClick={() => { void copy(); }}><Copy size={14} aria-hidden="true" />Copy</button>
     </div>
+    {copyError && <p className="project-local-error" role="alert">{copyError}</p>}
   </section>;
 }
 
@@ -54,7 +78,7 @@ function Attempt({ attempt }: { attempt: GenerationAttemptDetailDto }) {
       ["State", attempt.state],
       ["Started", formatTime(attempt.startedAt)],
       ["Ended", formatTime(attempt.endedAt)],
-      ["Cost", attempt.costUsd === null ? "Unknown" : `$${attempt.costUsd.toFixed(2)}`],
+      ["Cost", formatUsd(attempt.costUsd)],
     ]} />
     {attempt.input === null ? <p>Inputs · Not recorded</p> : <>
       {attempt.input.texts.map((text, index) => <PromptText key={`${text.role}-${index}`} {...text} />)}
@@ -113,9 +137,15 @@ function ViewerPreview({ card, snapshot, controller }: { card: MediaCardDto; sna
 }
 
 function editableTarget(event: KeyboardEvent): boolean {
-  const target = event.target instanceof HTMLElement ? event.target : document.activeElement instanceof HTMLElement ? document.activeElement : null;
-  const tag = target?.tagName.toLowerCase();
-  return tag === "input" || tag === "textarea" || target?.getAttribute("contenteditable") === "true" || target?.getAttribute("role") === "slider";
+  let target = event.target instanceof HTMLElement ? event.target : document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  for (; target; target = target.parentElement) {
+    const tag = target.tagName.toLowerCase();
+    const contentEditable = target.getAttribute("contenteditable");
+    if (tag === "input" || tag === "textarea"
+      || (contentEditable !== null && contentEditable.toLowerCase() !== "false")
+      || target.getAttribute("role") === "slider") return true;
+  }
+  return false;
 }
 
 export function MediaViewer({ controller, snapshot }: { controller: ProjectScreenController; snapshot: ProjectScreenSnapshot }) {
@@ -127,10 +157,14 @@ export function MediaViewer({ controller, snapshot }: { controller: ProjectScree
   const index = card ? items.findIndex((item) => item.ref.type === card.ref.type && item.ref.id === card.ref.id) : -1;
   if (snapshot.mediaViewerOpen && !wasOpenRef.current && typeof document !== "undefined") returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   wasOpenRef.current = snapshot.mediaViewerOpen;
-  const restoreFocus = () => {
+  const restoreFocus = (): boolean => {
     const previous = returnFocusRef.current;
-    if (previous && (previous.isConnected ?? true)) { previous.focus(); return; }
-    document.querySelector<HTMLElement>(".media-card-tile [aria-pressed='true']")?.focus();
+    if (previous && previous.isConnected) { previous.focus(); return true; }
+    const fallback = document.querySelector<HTMLElement>(".media-card-tile [aria-pressed='true']")
+      ?? document.querySelector<HTMLElement>("[data-media-focus-fallback='true']");
+    if (!fallback?.isConnected) return false;
+    fallback.focus();
+    return true;
   };
   useEffect(() => {
     if (!snapshot.mediaViewerOpen) return;
@@ -145,6 +179,14 @@ export function MediaViewer({ controller, snapshot }: { controller: ProjectScree
   useEffect(() => {
     if (!snapshot.mediaViewerOpen && returnFocusRef.current) restoreFocus();
   }, [snapshot.mediaViewerOpen]);
+  useEffect(() => () => {
+    if (!wasOpenRef.current) return;
+    queueMicrotask(() => {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && active.isConnected && active !== document.body) return;
+      if (!restoreFocus()) window.requestAnimationFrame(() => { restoreFocus(); });
+    });
+  }, []);
   if (!card) return null;
   return <Dialog.Root open={snapshot.mediaViewerOpen} onOpenChange={(open) => { if (!open) controller.closeMediaViewer(); }}>
     <Dialog.Portal container={typeof document === "undefined" ? undefined : document.body}>
@@ -164,7 +206,7 @@ export function MediaViewer({ controller, snapshot }: { controller: ProjectScree
           </div>
           <div className="asset-modal-body">
             <div className="asset-modal-stage"><motion.div className="asset-modal-content" key={`${card.ref.type}:${card.ref.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }}><ViewerPreview card={card} snapshot={snapshot} controller={controller} /></motion.div></div>
-            <aside className="asset-modal-inspector"><div className="inspector"><GenerationInspector detail={snapshot.mediaGeneration.value} state={snapshot.mediaGeneration.status} error={snapshot.mediaGeneration.error} onRetry={() => { void controller.retryMediaGeneration(); }} /></div></aside>
+            <aside className="asset-modal-inspector"><div className="inspector"><GenerationInspector key={`${card.ref.type}:${card.ref.id}`} detail={snapshot.mediaGeneration.value} state={snapshot.mediaGeneration.status} error={snapshot.mediaGeneration.error} onRetry={() => { void controller.retryMediaGeneration(); }} /></div></aside>
           </div>
         </motion.section>
       </Dialog.Content>

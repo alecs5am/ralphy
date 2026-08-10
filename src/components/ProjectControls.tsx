@@ -39,6 +39,7 @@ export function ProjectControls({ activeTab, onSelect }: ProjectControlsProps) {
               role="tab"
               aria-controls={`project-panel-${tab.value}`}
               aria-selected={activeTab === tab.value}
+              data-media-focus-fallback={tab.value === "media" ? "true" : undefined}
               tabIndex={activeTab === tab.value ? 0 : -1}
               ref={(button) => { buttons.current[tab.value] = button ?? undefined; }}
               className={activeTab === tab.value ? "is-active" : ""}

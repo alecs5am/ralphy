@@ -288,6 +288,10 @@ export interface MediaWorkbenchBridge {
     cursor?: string | number | null;
     mediaFilter?: ProjectMediaFilter;
   }): Promise<ProjectPage>;
+  loadProjectMediaCard(
+    project: ProjectReference,
+    ref: import("../ralphy/types").MediaCardDto["ref"],
+  ): Promise<import("../ralphy/types").MediaCardDto>;
   loadProjectGeneration(
     project: ProjectReference,
     target: import("../ralphy/types").MediaGenerationTarget,
@@ -369,6 +373,7 @@ export const MEDIA_CHANNELS = {
   loadWorkspaceOverview: "workspace:overview",
   loadProjectOverview: "project:overview",
   loadProjectPage: "project:page",
+  loadProjectMediaCard: "project:media:show",
   loadProjectGeneration: "project:media:generation",
   loadProjectMediaRevisions: "project:media:revisions",
   selectProjectMediaRevision: "project:media:select",

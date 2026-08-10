@@ -225,6 +225,9 @@ function createMockBridge(): RalphyBridge {
     async loadProjectPage() {
       throw new Error("Project domain reader is unavailable in mock mode");
     },
+    async loadProjectMediaCard() {
+      throw new Error("Project domain reader is unavailable in mock mode");
+    },
     async loadProjectGeneration() {
       throw new Error("Project domain reader is unavailable in mock mode");
     },
