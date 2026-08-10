@@ -83,7 +83,7 @@ export function listActivity(input: {
   };
 }
 
-/** @internal Verifier and test drainage of the one global sequence. */
+/** @internal Trusted-root catch-up, subscription pumping, and verification. */
 export function listGlobalActivity(input: {
   afterSequence: number;
   limit: number;

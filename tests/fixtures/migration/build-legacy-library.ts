@@ -45,6 +45,120 @@ export type LegacyFixture = {
   cleanup(): void;
 };
 
+export function buildRealLegacyCompositionLayout(project: string): void {
+  for (const [relative, body] of [
+    ["index.html", "<html>root composition</html>\n"],
+    ["compositions/variant-1.html", "<html>variant one</html>\n"],
+    ["compositions/variant-1.v2.html", "<html>independent version-looking source</html>\n"],
+    ["compositions/title-card.html", "<html>title card</html>\n"],
+    ["render/root.mp4", "root-render"],
+    ["render/variant-1.mp4", "variant-one-render"],
+    ["render/title-card.mp4", "title-card-render"],
+    ["compositions/wrong-scope.html", "<html>wrong scope</html>\n"],
+    ["compositions/nested/deep.html", "<html>too deep</html>\n"],
+    ["compositions/wrong-bytes.html", "<html>wrong bytes</html>\n"],
+    ["compositions/duplicate-a.html", "<html>duplicate a</html>\n"],
+    ["compositions/duplicate-b.html", "<html>duplicate b</html>\n"],
+    ["render/wrong-scope.mp4", "wrong-scope"],
+    ["render/deeper.mp4", "deeper"],
+    ["render/unsafe.mp4", "unsafe"],
+    ["render/wrong-bytes.mp4", "wrong-bytes"],
+    ["render/duplicate.mp4", "duplicate"],
+  ] as const) write(path.join(project, relative), body);
+
+  write(path.join(project, "logs", "generations.jsonl"), [
+    {
+      timestamp: "2026-07-10T10:00:00.000Z",
+      provider: "other",
+      model: "hyperframes-render",
+      endpoint: "hyperframes-render",
+      kind: "video",
+      input: { project: "registered-project", composition: "index.html" },
+      output: { local: "render/root.mp4", bytes: 11 },
+      status: "ok",
+    },
+    {
+      timestamp: "2026-07-10T10:01:00.000Z",
+      provider: "other",
+      model: "hyperframes-render",
+      endpoint: "hyperframes-render",
+      kind: "video",
+      input: { project: "registered-project", composition: "compositions/variant-1.html" },
+      output: { local: "render/variant-1.mp4", bytes: 18 },
+      status: "ok",
+    },
+    {
+      timestamp: "2026-07-10T10:02:00.000Z",
+      provider: "other",
+      model: "hyperframes-render",
+      endpoint: "hyperframes-render",
+      kind: "video",
+      input: { project: "registered-project", composition: "compositions/title-card.html" },
+      output: { local: "render/title-card.mp4", bytes: 17 },
+      status: "ok",
+    },
+    {
+      endpoint: "hyperframes-render",
+      input: { project: "registered-project", composition: "index.html" },
+      output: { local: "render/root.mp4" },
+      status: "error",
+    },
+    {
+      endpoint: "hyperframes-render",
+      input: { project: "registered-project", composition: "index.html" },
+      output: { local: "render/root.mp4" },
+      status: "pending",
+    },
+    {
+      timestamp: "2026-07-10T10:03:00.000Z",
+      endpoint: "hyperframes-render",
+      input: {
+        workspace: "other-workspace",
+        project: "other-project",
+        composition: "compositions/wrong-scope.html",
+      },
+      output: { local: "render/wrong-scope.mp4", bytes: 11 },
+      status: "ok",
+    },
+    {
+      timestamp: "2026-07-10T10:04:00.000Z",
+      endpoint: "hyperframes-render",
+      input: { project: "registered-project", composition: "compositions/nested/deep.html" },
+      output: { local: "render/deeper.mp4", bytes: 6 },
+      status: "ok",
+    },
+    {
+      timestamp: "2026-07-10T10:05:00.000Z",
+      endpoint: "hyperframes-render",
+      input: { project: "registered-project", composition: "../index.html" },
+      output: { local: "render/unsafe.mp4", bytes: 6 },
+      status: "ok",
+    },
+    {
+      timestamp: "2026-07-10T10:06:00.000Z",
+      endpoint: "hyperframes-render",
+      input: { project: "registered-project", composition: "compositions/wrong-bytes.html" },
+      output: { local: "render/wrong-bytes.mp4", bytes: 999 },
+      status: "ok",
+    },
+    {
+      timestamp: "2026-07-10T10:07:00.000Z",
+      endpoint: "hyperframes-render",
+      input: { project: "registered-project", composition: "compositions/duplicate-a.html" },
+      output: { local: "render/duplicate.mp4", bytes: 9 },
+      status: "ok",
+    },
+    {
+      timestamp: "2026-07-10T10:08:00.000Z",
+      endpoint: "hyperframes-render",
+      input: { project: "registered-project", composition: "compositions/duplicate-b.html" },
+      output: { local: "render/duplicate.mp4", bytes: 9 },
+      status: "ok",
+    },
+    { endpoint: "hyperframes-render", input: { composition: "index.html" }, status: "ok" },
+  ].map((row) => JSON.stringify(row)).join("\n") + "\n{malformed\n");
+}
+
 export function buildLegacyLibrary(root: string): LegacyFixture {
   const currentRoot = path.join(root, ".ralphy");
   const legacyRoot = path.join(root, "workspace", ".ralph");
@@ -104,6 +218,12 @@ export function buildLegacyLibrary(root: string): LegacyFixture {
     recursive: true,
   });
   write(path.join(physicalOnlyProject, "semantic-empty.md"), "");
+  write(path.join(physicalOnlyProject, "logs", "user-assets.jsonl"), "");
+  write(path.join(physicalOnlyProject, "artifacts", "videos", "truncated.mp4"), "");
+  // Same stem, different extension: distinct Objects that must land in distinct
+  // Artifact families, or both prove revision 1 of one Artifact.
+  write(path.join(physicalOnlyProject, "artifacts", "images", "poster.png"), "poster-png-bytes");
+  write(path.join(physicalOnlyProject, "artifacts", "images", "poster.jpg"), "poster-jpg-bytes");
 
   const workspaceUnits = path.join(currentRoot, "workspaces", "studio", "units");
   writeJson(path.join(workspaceUnits, "workspace-announcement", "unit.json"), {
@@ -581,6 +701,8 @@ function buildDesktopEvidence(desktopRoot: string): void {
     recentProjects: ["registered-project"],
     window: { width: 1440, height: 900 },
   });
+  writeJson(path.join(desktopRoot, "window-state.json"), { width: 1440, height: 900 });
+  writeJson(path.join(desktopRoot, "media-library-settings.json"), { lastLibrary: "/tmp/legacy-library" });
   write(path.join(desktopRoot, "logs", "desktop.log"), "fixture desktop stopped\n");
   fs.mkdirSync(path.join(desktopRoot, "empty-review-directory"), { recursive: true });
 }

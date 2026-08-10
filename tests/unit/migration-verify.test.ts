@@ -29,6 +29,20 @@ const BUILD_ID = "build_00000000-0000-4000-8000-000000000078";
 const UNIT_ID = "unit_00000000-0000-4000-8000-000000000079";
 const LEGACY_RUN_ID = "run_00000000-0000-4000-8000-00000000007a";
 const RUN_OBJECT_ID = "robj_00000000-0000-4000-8000-00000000007b";
+const GENERATION_ENTRY_ID = "mentry_00000000-0000-4000-8000-000000000091";
+const SOURCE_ENTRY_ID = "mentry_00000000-0000-4000-8000-000000000092";
+const RENDER_ENTRY_ID = "mentry_00000000-0000-4000-8000-000000000093";
+const GENERATION_OBJECT_ID = "obj_00000000-0000-4000-8000-000000000094";
+const SOURCE_OBJECT_ID = "obj_00000000-0000-4000-8000-000000000095";
+const RENDER_OBJECT_ID = "obj_00000000-0000-4000-8000-000000000096";
+const GENERATION_DOCUMENT_ID = "doc_00000000-0000-4000-8000-000000000097";
+const GENERATION_REVISION_ID = "drev_00000000-0000-4000-8000-000000000098";
+const SOURCE_ARTIFACT_ID = "art_00000000-0000-4000-8000-000000000099";
+const SOURCE_ARTIFACT_REVISION_ID = "arev_00000000-0000-4000-8000-00000000009a";
+const RENDER_ARTIFACT_ID = "art_00000000-0000-4000-8000-00000000009b";
+const RENDER_ARTIFACT_REVISION_ID = "arev_00000000-0000-4000-8000-00000000009c";
+const GENERATION_RUN_ID = "run_00000000-0000-4000-8000-00000000009d";
+const GENERATION_RUN_OBJECT_ID = "robj_00000000-0000-4000-8000-00000000009e";
 const EMPTY_SHA256 = sha256("");
 const SECRET_REF = `provider/test/workspace/${WORKSPACE_ID}/token`;
 const SECRET_VALUE = "fixture-authenticated-secret-value";
@@ -100,6 +114,20 @@ describe("migration freeze and read-only verification", () => {
 
     await expect(freezeMigration(fixture.ctx, { verificationDir: fixture.verificationDir }))
       .rejects.toThrow(entryId);
+  });
+
+  test("accepts a zero-byte system file a named rule recognizes", async () => {
+    const fixture = setup({ recognizedEmpty: true });
+
+    await freezeMigration(fixture.ctx, { verificationDir: fixture.verificationDir });
+
+    const report = verifyMigration({
+      storeRoot: fixture.storeRoot,
+      runId: RUN_ID,
+      verificationDir: fixture.verificationDir,
+    });
+    expect(report.blockers).toEqual([]);
+    expect(report).toMatchObject({ sourceEntries: 2, coveredEntries: 2 });
   });
 
   test("rejects an internal verification directory without creating it", async () => {
@@ -279,6 +307,16 @@ describe("migration freeze and read-only verification", () => {
     expect(fs.statSync(second.recordPath).mode & 0o777).toBe(0o600);
   });
 
+  test("accepts secret-looking documentation placeholders", async () => {
+    const fixture = setup();
+    fixture.ctx.db.prepare("UPDATE workspaces SET metadata_json = ? WHERE id = ?")
+      .run(JSON.stringify({ css: "sk-keyframes", example: "xi-api-key: $XI_API_KEY" }), WORKSPACE_ID);
+
+    await expect(freezeMigration(fixture.ctx, {
+      verificationDir: fixture.verificationDir,
+    })).resolves.toBeDefined();
+  });
+
   test("verification detects Object mode drift", async () => {
     const fixture = setup();
     await freezeMigration(fixture.ctx, { verificationDir: fixture.verificationDir });
@@ -320,6 +358,16 @@ describe("migration freeze and read-only verification", () => {
       runId: RUN_ID,
       verificationDir: fixture.verificationDir,
     })).not.toThrow();
+  });
+
+  test("accepts an imported secret whose source hash was intentionally omitted", async () => {
+    const fixture = setup({ pendingSecret: true, unhashedSecret: true });
+    await importFixtureSecret(fixture);
+
+    await expect(freezeMigration(fixture.ctx, {
+      verificationDir: fixture.verificationDir,
+      keyProvider,
+    })).resolves.toBeDefined();
   });
 
   test("zeroes retained decrypted and stage-scan buffers", async () => {
@@ -368,6 +416,32 @@ describe("migration freeze and read-only verification", () => {
       .rejects.toThrow(ENTRY_ID);
   });
 
+  test("freeze verifier rejects persisted Artifact-only HyperFrames provenance", async () => {
+    const fixture = setup({ artifactOnlyGeneration: true });
+    installArtifactOnlyGenerationAccounting(fixture);
+    expect(fixture.ctx.db.query<{ count: number }, []>(
+      "SELECT COUNT(*) AS count FROM compositions",
+    ).get()?.count).toBe(0);
+    expect(fixture.ctx.db.query<{ count: number }, []>(
+      "SELECT COUNT(*) AS count FROM builds",
+    ).get()?.count).toBe(0);
+
+    let error: Error | null = null;
+    try {
+      await freezeMigration(fixture.ctx, { verificationDir: fixture.verificationDir });
+    } catch (value) {
+      error = value as Error;
+    }
+    expect(error).not.toBeNull();
+    expect(error?.message).toBe(
+      `Migration activation blocked: MIGRATION_PRODUCTION_ACCOUNTING:${GENERATION_ENTRY_ID}`,
+    );
+    expect(fs.existsSync(path.join(
+      fixture.verificationDir,
+      `migration-${RUN_ID}.freeze.json`,
+    ))).toBe(false);
+  });
+
   test("rejects a non-Unit graph omitted from both its accounting fact and index", async () => {
     const fixture = setup();
     installOmittedBuildAccountingIndex(fixture);
@@ -398,7 +472,13 @@ describe("migration freeze and read-only verification", () => {
   });
 });
 
-function setup(options: { unclassifiedEmpty?: boolean; pendingSecret?: boolean } = {}): Fixture {
+function setup(options: {
+  unclassifiedEmpty?: boolean;
+  pendingSecret?: boolean;
+  unhashedSecret?: boolean;
+  recognizedEmpty?: boolean;
+  artifactOnlyGeneration?: boolean;
+} = {}): Fixture {
   const root = makeTmpRoot("ralphy-migration-verify");
   let sourceRoot = path.join(root.dir, "source", ".ralphy");
   let storeRoot = path.join(root.dir, ".ralphy");
@@ -408,7 +488,22 @@ function setup(options: { unclassifiedEmpty?: boolean; pendingSecret?: boolean }
   sourceRoot = fs.realpathSync(sourceRoot);
   storeRoot = fs.realpathSync(storeRoot);
   fs.writeFileSync(path.join(sourceRoot, "control.json"), "{}");
+  const generationBody = JSON.stringify({
+    timestamp: "2026-07-10T10:00:00.000Z",
+    endpoint: "hyperframes-render",
+    input: { project: "incident", composition: "index.html" },
+    output: { local: "render/final.mp4", bytes: 13 },
+    status: "ok",
+  });
+  if (options.artifactOnlyGeneration) {
+    fs.mkdirSync(path.join(sourceRoot, "workspaces/fixture/projects/incident/logs"), { recursive: true });
+    fs.mkdirSync(path.join(sourceRoot, "workspaces/fixture/projects/incident/render"), { recursive: true });
+    fs.writeFileSync(path.join(sourceRoot, "workspaces/fixture/projects/incident/index.html"), "<html></html>");
+    fs.writeFileSync(path.join(sourceRoot, "workspaces/fixture/projects/incident/render/final.mp4"), "render-output");
+    fs.writeFileSync(path.join(sourceRoot, "workspaces/fixture/projects/incident/logs/generations.jsonl"), `${generationBody}\n`);
+  }
   if (options.unclassifiedEmpty) fs.writeFileSync(path.join(sourceRoot, "unknown.empty"), "");
+  if (options.recognizedEmpty) fs.writeFileSync(path.join(sourceRoot, ".DS_Store"), "");
   if (options.pendingSecret) fs.writeFileSync(path.join(sourceRoot, "claude-api-key.bin"), "fixture-secret");
   const sourceStat = fs.statSync(sourceRoot);
   const controlStat = fs.statSync(path.join(sourceRoot, "control.json"));
@@ -426,26 +521,171 @@ function setup(options: { unclassifiedEmpty?: boolean; pendingSecret?: boolean }
      (id, workspace_id, backend, bucket, key, sha256, mime, bytes, storage_class, original_name, metadata_json, created_at)
      VALUES (?, ?, 'local', ?, ?, ?, 'application/json', 2, 'durable', 'control.json', '{}', 1)`,
   ).run(OBJECT_ID, WORKSPACE_ID, bucket, key, sha256("{}"));
-  const entries = [{
+  const incidentEntries: Array<{
+    id: string;
+    path: string;
+    kind: "directory" | "file";
+    disposition: string;
+    state: string;
+    bytes: number;
+    sha: string;
+    stat: fs.Stats;
+    raw: string | null;
+    refs: string[];
+  }> = [];
+  if (options.artifactOnlyGeneration) {
+    db.prepare(
+      "INSERT INTO projects (id, workspace_id, slug, name, created_at, updated_at) VALUES (?, ?, 'incident', 'Incident', 1, 1)",
+    ).run(PROJECT_ID, WORKSPACE_ID);
+    const addObject = (id: string, originalName: string, body: string): string => {
+      const incidentBucket = `buckets/${WORKSPACE_ID}/projects/${PROJECT_ID}`;
+      const objectKey = `objects/${id}${path.extname(originalName)}`;
+      fs.mkdirSync(path.join(storeRoot, incidentBucket, "objects"), { recursive: true });
+      fs.writeFileSync(path.join(storeRoot, incidentBucket, objectKey), body);
+      db.prepare(
+        `INSERT INTO objects
+         (id, workspace_id, project_id, backend, bucket, key, sha256, mime, bytes,
+          storage_class, original_name, metadata_json, created_at)
+         VALUES (?, ?, ?, 'local', ?, ?, ?, 'application/octet-stream', ?,
+                 'durable', ?, '{}', 1)`,
+      ).run(id, WORKSPACE_ID, PROJECT_ID, incidentBucket, objectKey, sha256(body), Buffer.byteLength(body), originalName);
+      return `${incidentBucket}/${objectKey}`;
+    };
+    const generationObjectPath = addObject(GENERATION_OBJECT_ID, "generations.jsonl", `${generationBody}\n`);
+    addObject(SOURCE_OBJECT_ID, "index.html", "<html></html>");
+    addObject(RENDER_OBJECT_ID, "final.mp4", "render-output");
+    db.prepare(
+      `INSERT INTO documents (id, workspace_id, project_id, kind, slug, title, created_at, updated_at)
+       VALUES (?, ?, ?, 'custom', 'generation-line-1', 'generations.jsonl line-1', 1, 1)`,
+    ).run(GENERATION_DOCUMENT_ID, WORKSPACE_ID, PROJECT_ID);
+    db.prepare(
+      `INSERT INTO document_revisions
+       (id, document_id, revision_no, format, title, body, content_sha256, created_at)
+       VALUES (?, ?, 1, 'json', 'generations.jsonl line-1', ?, ?, 1)`,
+    ).run(GENERATION_REVISION_ID, GENERATION_DOCUMENT_ID, generationBody, sha256(generationBody));
+    db.prepare("UPDATE documents SET current_revision_id = ? WHERE id = ?")
+      .run(GENERATION_REVISION_ID, GENERATION_DOCUMENT_ID);
+    for (const [artifactId, revisionId, objectId, slug, kind] of [
+      [SOURCE_ARTIFACT_ID, SOURCE_ARTIFACT_REVISION_ID, SOURCE_OBJECT_ID, "incident-source", "html"],
+      [RENDER_ARTIFACT_ID, RENDER_ARTIFACT_REVISION_ID, RENDER_OBJECT_ID, "incident-render", "video"],
+    ] as const) {
+      db.prepare(
+        `INSERT INTO artifacts (id, workspace_id, project_id, slug, kind, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 1, 1)`,
+      ).run(artifactId, WORKSPACE_ID, PROJECT_ID, slug, kind);
+      db.prepare(
+        `INSERT INTO artifact_revisions
+         (id, artifact_id, object_id, revision_no, state, metadata_json, created_at)
+         VALUES (?, ?, ?, 1, 'working', '{}', 1)`,
+      ).run(revisionId, artifactId, objectId);
+    }
+    db.prepare(
+      `INSERT INTO runs (id, workspace_id, project_id, kind, state, created_at)
+       VALUES (?, ?, ?, 'legacy-generation-log', 'pending', 1)`,
+    ).run(GENERATION_RUN_ID, WORKSPACE_ID, PROJECT_ID);
+    db.prepare(
+      `INSERT INTO run_objects
+       (id, run_id, object_id, path, purpose, state, retention, bytes, sha256, mime, created_at)
+       VALUES (?, ?, ?, ?, 'diagnostic', 'promoted', 'keep', ?, ?, 'application/octet-stream', 1)`,
+    ).run(
+      GENERATION_RUN_OBJECT_ID,
+      GENERATION_RUN_ID,
+      GENERATION_OBJECT_ID,
+      generationObjectPath,
+      Buffer.byteLength(`${generationBody}\n`),
+      sha256(`${generationBody}\n`),
+    );
+    for (const [index, relative] of [
+      "workspaces",
+      "workspaces/fixture",
+      "workspaces/fixture/projects",
+      "workspaces/fixture/projects/incident",
+      "workspaces/fixture/projects/incident/logs",
+      "workspaces/fixture/projects/incident/render",
+    ].entries()) {
+      incidentEntries.push({
+        id: `mentry_10000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+        path: relative,
+        kind: "directory",
+        disposition: "system",
+        state: "excluded",
+        bytes: 0,
+        sha: null,
+        stat: fs.statSync(path.join(sourceRoot, relative)),
+        raw: null,
+        refs: [],
+      });
+    }
+    for (const [id, relative, disposition, raw, refs] of [
+      [GENERATION_ENTRY_ID, "workspaces/fixture/projects/incident/logs/generations.jsonl", "domain", GENERATION_OBJECT_ID, [GENERATION_OBJECT_ID, GENERATION_DOCUMENT_ID, GENERATION_REVISION_ID, GENERATION_RUN_ID, GENERATION_RUN_OBJECT_ID]],
+      [SOURCE_ENTRY_ID, "workspaces/fixture/projects/incident/index.html", "object", null, [SOURCE_OBJECT_ID, SOURCE_ARTIFACT_ID, SOURCE_ARTIFACT_REVISION_ID]],
+      [RENDER_ENTRY_ID, "workspaces/fixture/projects/incident/render/final.mp4", "object", null, [RENDER_OBJECT_ID, RENDER_ARTIFACT_ID, RENDER_ARTIFACT_REVISION_ID]],
+    ] as const) {
+      const file = path.join(sourceRoot, relative);
+      const body = fs.readFileSync(file);
+      incidentEntries.push({
+        id,
+        path: relative,
+        kind: "file",
+        disposition,
+        state: disposition === "domain" ? "imported" : "verified",
+        bytes: body.byteLength,
+        sha: sha256(body),
+        stat: fs.statSync(file),
+        raw,
+        refs: [...refs],
+      });
+    }
+  }
+  const entries: Array<{
+    id: string;
+    path: string;
+    kind: "directory" | "file";
+    disposition: string;
+    state: string;
+    bytes: number;
+    sha: string | null;
+    stat: fs.Stats;
+    raw: string | null;
+    refs: string[];
+  }> = [{
     id: ENTRY_ID,
     path: "control.json",
+    kind: "file",
     disposition: "domain",
     state: "imported",
     bytes: 2,
     sha: sha256("{}"),
     stat: controlStat,
     raw: OBJECT_ID,
-  }];
+    refs: [OBJECT_ID],
+  }, ...incidentEntries];
   if (options.unclassifiedEmpty) {
     entries.push({
       id: EXTRA_ID,
       path: "unknown.empty",
+      kind: "file",
       disposition: "system",
       state: "excluded",
       bytes: 0,
       sha: EMPTY_SHA256,
       stat: fs.statSync(path.join(sourceRoot, "unknown.empty")),
-      raw: null as unknown as string,
+      raw: null,
+      refs: [],
+    });
+  }
+  if (options.recognizedEmpty) {
+    entries.push({
+      id: EXTRA_ID,
+      path: ".DS_Store",
+      kind: "file",
+      disposition: "system",
+      state: "excluded",
+      bytes: 0,
+      sha: EMPTY_SHA256,
+      stat: fs.statSync(path.join(sourceRoot, ".DS_Store")),
+      raw: null,
+      refs: [],
     });
   }
   if (options.pendingSecret) {
@@ -453,16 +693,18 @@ function setup(options: { unclassifiedEmpty?: boolean; pendingSecret?: boolean }
     entries.push({
       id: EXTRA_ID,
       path: "claude-api-key.bin",
+      kind: "file",
       disposition: "secret-recovery-only",
       state: "inventoried",
       bytes: fs.statSync(file).size,
-      sha: sha256(fs.readFileSync(file)),
+      sha: options.unhashedSecret ? null as unknown as string : sha256(fs.readFileSync(file)),
       stat: fs.statSync(file),
-      raw: null as unknown as string,
+      raw: null,
+      refs: [],
     });
   }
   const inventoryDigest = createHash("sha256").update(entries.map((entry) => [
-    sourceLocatorHash("ralphy", entry.path), "file", entry.disposition,
+    sourceLocatorHash("ralphy", entry.path), entry.kind, entry.disposition,
     String(entry.stat.dev), String(entry.stat.ino), String(entry.stat.mode),
     String(entry.bytes), String(Math.trunc(entry.stat.mtimeMs)), entry.sha,
   ].join("\0")).sort().join("\n"), "utf8").digest("hex");
@@ -471,7 +713,12 @@ function setup(options: { unclassifiedEmpty?: boolean; pendingSecret?: boolean }
      (id, stage_root_rel, recovery_root_rel, phase, source_entry_count, source_file_count,
       source_bytes, inventory_completed_at, created_at, updated_at)
      VALUES (?, 'stage/.ralphy', 'recovery/.ralphy', 'relations', ?, ?, ?, 1, 1, 1)`,
-  ).run(RUN_ID, entries.length, entries.length, entries.reduce((sum, entry) => sum + entry.bytes, 0));
+  ).run(
+    RUN_ID,
+    entries.length,
+    entries.filter((entry) => entry.kind === "file").length,
+    entries.reduce((sum, entry) => sum + entry.bytes, 0),
+  );
   db.prepare(
     `INSERT INTO migration_sources
      (id, migration_run_id, source_kind, source_label, canonical_path_hash,
@@ -493,12 +740,12 @@ function setup(options: { unclassifiedEmpty?: boolean; pendingSecret?: boolean }
         entry_kind, source_kind, disposition, source_device, source_inode, source_mode,
         bytes, mtime_ms, sha256, target_refs_json, raw_evidence_object_id, state,
         terminal_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, 'file', 'ralphy', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1)`,
+       VALUES (?, ?, ?, ?, ?, ?, 'ralphy', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1)`,
     ).run(
-      entry.id, RUN_ID, SOURCE_ID, entry.path, sourceLocatorHash("ralphy", entry.path),
+      entry.id, RUN_ID, SOURCE_ID, entry.path, sourceLocatorHash("ralphy", entry.path), entry.kind,
       entry.disposition, String(entry.stat.dev), String(entry.stat.ino), entry.stat.mode,
       entry.bytes, Math.trunc(entry.stat.mtimeMs), entry.sha,
-      entry.raw ? JSON.stringify([entry.raw]) : "[]", entry.raw,
+      JSON.stringify([...(entry.refs ?? (entry.raw ? [entry.raw] : []))].sort()), entry.raw,
       entry.state, entry.state === "inventoried" ? null : 1,
     );
   }
@@ -648,6 +895,50 @@ function installProductionAccountingFact(fixture: Fixture): void {
       metricRecords: [],
       metricWinnerIds: [],
     })),
+  }));
+}
+
+function installArtifactOnlyGenerationAccounting(fixture: Fixture): void {
+  const refs = fixture.ctx.db.query<{ refs: string }, [string]>(
+    "SELECT target_refs_json AS refs FROM migration_entries WHERE id = ?",
+  ).get(GENERATION_ENTRY_ID)!;
+  const parsedRefs = JSON.parse(refs.refs) as string[];
+  const facts = parsedRefs.map((ref) => {
+    const table = ({ obj: "objects", doc: "documents", drev: "document_revisions", run: "runs", robj: "run_objects" } as Record<string, string>)[ref.slice(0, ref.indexOf("_"))]!;
+    const row = fixture.ctx.db.query<Record<string, unknown>, [string]>(
+      `SELECT * FROM ${table} WHERE id = ?`,
+    ).get(ref)!;
+    return { ref, digest: sha256(canonicalRow(row)) };
+  });
+  const sourceFingerprint = {
+    unitRecords: [],
+    productionRecords: [],
+    deliveryRecords: [],
+    deliveryOccurrences: [],
+    metricRecords: [],
+    metricWinnerIds: [],
+  };
+  fixture.ctx.db.prepare(
+    `INSERT INTO migration_issues
+     (id, migration_run_id, code, severity, detail_json, created_at)
+     VALUES ('miss_artifact-only-generation-fact', ?, 'MIGRATION_PRODUCTION_ACCOUNTING_FACT', 'info', ?, 2)`,
+  ).run(RUN_ID, JSON.stringify({
+    entryId: GENERATION_ENTRY_ID,
+    sourceLocatorHash: sourceLocatorHash(
+      "ralphy",
+      "workspaces/fixture/projects/incident/logs/generations.jsonl",
+    ),
+    refs: parsedRefs,
+    facts,
+  }));
+  fixture.ctx.db.prepare(
+    `INSERT INTO migration_issues
+     (id, migration_run_id, code, severity, detail_json, created_at)
+     VALUES ('miss_artifact-only-generation-index', ?, 'MIGRATION_PRODUCTION_ACCOUNTING_INDEX', 'info', ?, 2)`,
+  ).run(RUN_ID, JSON.stringify({
+    entryIds: [GENERATION_ENTRY_ID],
+    sourceFingerprint,
+    sourceFingerprintDigest: sha256(canonicalRow(sourceFingerprint)),
   }));
 }
 

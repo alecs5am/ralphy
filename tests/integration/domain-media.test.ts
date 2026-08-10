@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   addArtifactRevision,
+  addArtifactUsage,
   createArtifact,
   getArtifact,
   selectArtifactRevision,
@@ -147,9 +148,13 @@ describe("media cards", () => {
         "ref",
         "revisionCount",
         "selectedAt",
+        "selectedObjectId",
         "selectedRevisionId",
         "selectedState",
         "slug",
+        "storageClass",
+        "target",
+        "usageRoles",
         "workspaceId",
       ],
       object: [
@@ -160,11 +165,16 @@ describe("media cards", () => {
         "ref",
         "referenceCount",
         "storageClass",
+        "target",
         "workspaceId",
       ],
       "run-object": [
+        "attemptId",
+        "attemptNo",
         "bytes",
         "createdAt",
+        "locationClass",
+        "logicalPath",
         "mime",
         "objectId",
         "projectId",
@@ -173,6 +183,7 @@ describe("media cards", () => {
         "retention",
         "runId",
         "state",
+        "target",
         "workspaceId",
       ],
     } as const;
@@ -264,9 +275,13 @@ describe("media cards", () => {
       "ref",
       "revisionCount",
       "selectedAt",
+      "selectedObjectId",
       "selectedRevisionId",
       "selectedState",
       "slug",
+      "storageClass",
+      "target",
+      "usageRoles",
       "workspaceId",
     ]);
     expect(cards[1]).toMatchObject({
@@ -278,8 +293,12 @@ describe("media cards", () => {
       revisionCount: 1,
     });
     expect(Object.keys(cards[0]!).sort()).toEqual([
+      "attemptId",
+      "attemptNo",
       "bytes",
       "createdAt",
+      "locationClass",
+      "logicalPath",
       "mime",
       "objectId",
       "projectId",
@@ -288,10 +307,19 @@ describe("media cards", () => {
       "retention",
       "runId",
       "state",
+      "target",
       "workspaceId",
     ]);
     // An unpromoted RunObject has no MIME anywhere in the database.
-    expect(cards[0]).toMatchObject({ mime: null, objectId: null, bytes: 5 });
+    expect(cards[0]).toMatchObject({
+      mime: null,
+      objectId: null,
+      bytes: 5,
+      logicalPath: "tmp/trace.bin",
+      locationClass: "temp",
+      attemptId: null,
+      attemptNo: null,
+    });
     expect(Object.keys(cards[2]!).sort()).toEqual([
       "bytes",
       "createdAt",
@@ -300,6 +328,7 @@ describe("media cards", () => {
       "ref",
       "referenceCount",
       "storageClass",
+      "target",
       "workspaceId",
     ]);
     expect(JSON.stringify(cards)).not.toMatch(
@@ -400,6 +429,131 @@ describe("media cards", () => {
     expect(() =>
       listMedia({ context: { workspaceId: f.workspace.id }, types: [], limit: 5 }),
     ).toThrow(/at least one type/i);
+  });
+
+  test("applies every media predicate before cursor and limit without widening visibility", async () => {
+    const root = makeRoot();
+    const f = await fixture(root);
+    const otherWorkspace = createWorkspace({ slug: "other-media", name: "Other Media" });
+    const otherProject = createProject({
+      workspaceId: otherWorkspace.id,
+      slug: "other-media",
+      name: "Other Media",
+    });
+    const otherObject = await ingest(root, "other.png", {
+      workspaceId: otherWorkspace.id,
+      projectId: otherProject.id,
+    });
+
+    const addSelected = (
+      slug: string,
+      state: "working" | "candidate" | "approved" | "rejected" | "superseded",
+      projectId = f.project.id,
+      objectId = f.projectObject.id,
+    ) => {
+      const artifact = createArtifact({ projectId, slug, kind: "image" });
+      const revision = addArtifactRevision({
+        artifactId: artifact.id,
+        objectId,
+        state,
+      });
+      selectArtifactRevision({
+        artifactId: artifact.id,
+        revisionId: revision.id,
+        expectedRevisionId: null,
+      });
+      return { artifact, revision };
+    };
+    const candidate = addSelected("candidate", "candidate");
+    const approved = addSelected("approved", "approved");
+    const rejected = addSelected("rejected", "rejected");
+    const superseded = addSelected("superseded", "superseded");
+    const siblingApproved = addSelected(
+      "sibling-approved",
+      "approved",
+      f.sibling.id,
+      f.siblingObject.id,
+    );
+    const otherApproved = addSelected(
+      "other-approved",
+      "approved",
+      otherProject.id,
+      otherObject.id,
+    );
+    const sharedReference = createArtifact({
+      workspaceId: f.workspace.id,
+      slug: "shared-reference",
+      kind: "image",
+    });
+    const sharedReferenceRevision = addArtifactRevision({
+      artifactId: sharedReference.id,
+      objectId: f.sharedObject.id,
+      state: "working",
+    });
+    selectArtifactRevision({
+      artifactId: sharedReference.id,
+      revisionId: sharedReferenceRevision.id,
+      expectedRevisionId: null,
+    });
+    addArtifactUsage({
+      artifactRevisionId: sharedReferenceRevision.id,
+      workspaceId: f.workspace.id,
+      role: "reference",
+    });
+    const mixedCaseRunObjects = ["Cache/upper.bin", "Tmp/upper.bin"].map(
+      (logicalPath) => recordRunObject({
+        runId: f.run.id,
+        path: logicalPath,
+        purpose: "intermediate",
+        state: "cached",
+        retention: "cache",
+      }),
+    );
+
+    const expected = {
+      references: [sharedReference.id],
+      working: [f.artifact.id, sharedReference.id],
+      candidate: [candidate.artifact.id],
+      approved: [approved.artifact.id],
+      rejected: [rejected.artifact.id],
+      superseded: [superseded.artifact.id],
+      "run-diagnostics": [f.runObject.id],
+      "run-cache-temp": [f.runObject.id],
+      "advanced-objects": [f.projectObject.id, f.sharedObject.id],
+    } as const;
+    const context = { workspaceId: f.workspace.id, projectId: f.project.id };
+    expect(mixedCaseRunObjects.map((item) =>
+      (getMediaCard({ context, ref: { type: "run-object", id: item.id } }) as {
+        locationClass: string;
+      }).locationClass,
+    )).toEqual(["other", "other"]);
+    for (const [filter, ids] of Object.entries(expected)) {
+      const seen: string[] = [];
+      let after: string | null = null;
+      do {
+        const page = listMedia({ context, filter: filter as never, after, limit: 1 });
+        seen.push(...page.items.map((item) => item.ref.id));
+        after = page.nextCursor;
+      } while (after !== null);
+      expect(seen.sort()).toEqual([...ids].sort());
+    }
+    expect(listMedia({
+      context,
+      types: ["object"],
+      filter: "references" as never,
+      limit: 1,
+    }).items).toEqual([]);
+    expect(listMedia({
+      context: { workspaceId: f.workspace.id },
+      filter: "references" as never,
+      limit: 10,
+    }).items.map((item) => item.ref.id)).toEqual([sharedReference.id]);
+    expect(listMedia({ context, filter: "approved" as never, limit: 10 }).items.map(
+      (item) => item.ref.id,
+    )).toEqual([approved.artifact.id]);
+    expect([siblingApproved.artifact.id, otherApproved.artifact.id]).not.toContain(
+      approved.artifact.id,
+    );
   });
 
   test("counts every registered Object reference and detects registry drift", async () => {

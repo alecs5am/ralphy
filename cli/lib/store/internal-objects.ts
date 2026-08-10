@@ -122,6 +122,14 @@ export async function prepareObject(
 
   try {
     await ensureSafeStoreDirectory(root, stageDir);
+    // A caller-supplied Object ID is a deterministic, replayable allocation, so a
+    // leftover clone at the staged path is that allocation's own abandoned
+    // attempt. Clear only that file — callers may stage their decoded source
+    // alongside it in the same directory. A generated ID still fails on EEXIST.
+    if (input.objectId) {
+      await assertSafeStorePath(root, stagedPath);
+      await fs.promises.rm(stagedPath, { force: true });
+    }
     await fs.promises.copyFile(sourcePath, stagedPath, input.clonePolicy === "require"
       ? fs.constants.COPYFILE_FICLONE_FORCE | fs.constants.COPYFILE_EXCL
       : fs.constants.COPYFILE_FICLONE | fs.constants.COPYFILE_EXCL);
@@ -181,20 +189,21 @@ export async function writeExclusiveStoreTemp(
   const target = path.resolve(filePath);
   await ensureSafeStoreDirectory(root, path.dirname(target));
   await assertSafeStorePath(root, target);
-  const handle = await fs.promises.open(
+  // Synchronous for the same reason as {@link hashDescriptor}.
+  const fd = fs.openSync(
     target,
     fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW,
     0o600,
   );
   try {
-    await handle.writeFile(contents);
-    await handle.sync();
+    fs.writeFileSync(fd, contents);
+    fs.fsyncSync(fd);
   } catch (error) {
-    await handle.close();
+    fs.closeSync(fd);
     await fs.promises.rm(target, { force: true });
     throw error;
   } finally {
-    try { await handle.close(); } catch { /* The error path already closed it. */ }
+    try { fs.closeSync(fd); } catch { /* The error path already closed it. */ }
   }
 }
 
@@ -468,50 +477,64 @@ function isWithin(parent: string, child: string): boolean {
 async function hashFile(
   filePath: string,
 ): Promise<{ bytes: number; sha256: string }> {
-  const hash = createHash("sha256");
-  let bytes = 0;
-  for await (const chunk of fs.createReadStream(filePath)) {
-    bytes += chunk.length;
-    hash.update(chunk);
-  }
-  return { bytes, sha256: hash.digest("hex") };
+  return hashDescriptor(fs.openSync(filePath, "r"));
 }
 
-async function hashRegularFileNoFollow(filePath: string): Promise<{ bytes: number; sha256: string }> {
-  const handle = await fs.promises.open(filePath, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+/**
+ * Synchronous on purpose. Async `FileHandle` reads and fsyncs lose their
+ * completion under sustained staging load: the promise never settles, every
+ * worker parks idle, and the run hangs on an open descriptor with no error to
+ * observe. Blocking calls skip that path entirely, and object staging is a
+ * one-shot batch where the descriptor is the only thing waiting anyway.
+ */
+function hashDescriptor(fd: number): { bytes: number; sha256: string } {
   try {
-    const stat = await handle.stat();
-    if (!stat.isFile()) throw new Error("Immutable Object target is not a regular file");
     const hash = createHash("sha256");
     const buffer = Buffer.allocUnsafe(64 * 1024);
     let bytes = 0;
-    while (true) {
-      const { bytesRead } = await handle.read(buffer, 0, buffer.length, bytes);
-      if (bytesRead === 0) break;
-      bytes += bytesRead;
-      hash.update(buffer.subarray(0, bytesRead));
+    for (;;) {
+      const read = fs.readSync(fd, buffer, 0, buffer.length, bytes);
+      if (read === 0) break;
+      bytes += read;
+      hash.update(buffer.subarray(0, read));
     }
     return { bytes, sha256: hash.digest("hex") };
   } finally {
-    await handle.close();
+    fs.closeSync(fd);
   }
+}
+
+async function hashRegularFileNoFollow(filePath: string): Promise<{ bytes: number; sha256: string }> {
+  const fd = fs.openSync(filePath, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  let stat: fs.Stats;
+  try {
+    stat = fs.fstatSync(fd);
+  } catch (error) {
+    fs.closeSync(fd);
+    throw error;
+  }
+  if (!stat.isFile()) {
+    fs.closeSync(fd);
+    throw new Error("Immutable Object target is not a regular file");
+  }
+  return hashDescriptor(fd);
 }
 
 async function syncFile(filePath: string): Promise<void> {
-  const handle = await fs.promises.open(filePath, "r");
-  try {
-    await handle.sync();
-  } finally {
-    await handle.close();
-  }
+  syncPath(filePath);
 }
 
 async function syncDirectory(directory: string): Promise<void> {
-  const handle = await fs.promises.open(directory, "r");
+  syncPath(directory);
+}
+
+/** Synchronous for the same reason as {@link hashDescriptor}. */
+function syncPath(target: string): void {
+  const fd = fs.openSync(target, "r");
   try {
-    await handle.sync();
+    fs.fsyncSync(fd);
   } finally {
-    await handle.close();
+    fs.closeSync(fd);
   }
 }
 
@@ -587,7 +610,7 @@ export async function assertSafeStorePath(
   }
 }
 
-async function removeSafeStoreDirectory(root: string, directory: string): Promise<void> {
+export async function removeSafeStoreDirectory(root: string, directory: string): Promise<void> {
   try {
     await assertSafeStorePath(root, directory);
     const stat = await fs.promises.lstat(directory);

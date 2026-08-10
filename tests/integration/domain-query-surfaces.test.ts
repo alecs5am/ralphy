@@ -778,6 +778,7 @@ function forbiddenOrdinaryFields(value: unknown): string[] {
     for (const [key, nested] of Object.entries(current)) {
       const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, "");
       if (
+        key !== "logicalPath" &&
         !isFeedbackBody(current, key) &&
         !isSafeAccountCredentialStatus(current, key) &&
         (ordinaryKeyParts(key).some((part) =>
@@ -825,35 +826,26 @@ const EXPECTED_ACTIVITY_WRITERS = [
 ] as const;
 const UNEXERCISED_LITERAL_ACTIVITY_ACTIONS = [
   "agent_turn.started",
-  "analytics.jsonl",
-  "brief.md",
   "build.cancelled",
   "build.failed",
   "calendar.entry.created",
   "calendar.entry.transitioned",
   "calendar.entry.updated",
-  "calendar.json",
   "calendar.slot.created",
   "campaign.created",
-  "campaign.json",
   "campaign.pending_link.appended",
   "campaign.pending_links.cleared",
   "campaign.planned",
   "campaign.updated",
   "campaign_cell.produced",
   "campaign_cell.published",
-  "captions.json",
   "composition.build",
   "composition.input_removed",
   "composition.source_removed",
-  "delivery.json",
   "dev.to",
   "document.rebound",
-  "jobs.db",
   "memory_entry.created",
   "memory_entry.revised",
-  "production.json",
-  "production_plan.md",
   "project.transferred",
   "project_stage.created",
   "project_stage.updated",
@@ -863,18 +855,11 @@ const UNEXERCISED_LITERAL_ACTIVITY_ACTIONS = [
   "publication.idempotent_skip",
   "publication.operation_claim_expired",
   "publication.reconciliation_requested",
-  "ralphy.db",
   "run.object_promoted",
-  "scenario.json",
-  "scenario.md",
   "session.started",
   "setting.created",
   "setting.deleted",
   "setting.updated",
-  "settings.json",
-  "storyboard.json",
-  "storyboard.md",
-  "style_lock.md",
 ] as const;
 
 async function readActivitySourceInventory(): Promise<{
@@ -900,7 +885,7 @@ async function readActivitySourceInventory(): Promise<{
       /["'`]([a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_-]*)+)["'`]/g,
     )) {
       const action = match[1]!;
-      if (!action.endsWith("_id")) actions.add(action);
+      if (!action.endsWith("_id") && !/\.(?:jsonl?|md|db)$/u.test(action)) actions.add(action);
     }
   }
   return {

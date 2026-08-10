@@ -137,15 +137,28 @@ export function isLegacyRegistryPath(relativePath: string): boolean {
   return normalizeRelativePath(relativePath) === "registry.json";
 }
 
+/**
+ * Files that can carry the legacy active-Workspace pointer. `registry.json` holds
+ * the project map, but `ralphy workspace use` writes the pointer into
+ * `config.json`, so a library whose registry has no `currentWorkspace` still has
+ * an authoritative active Workspace there.
+ */
+export function isLegacyWorkspacePointerPath(relativePath: string): boolean {
+  const normalized = normalizeRelativePath(relativePath);
+  return normalized === "registry.json" || normalized === "config.json";
+}
+
 export function parseLegacyRegistry(raw: Buffer): {
   activeWorkspace: string | null;
   projects: Map<string, string>;
 } {
   const value = JSON.parse(raw.toString("utf8")) as unknown;
   if (!isRecord(value)) throw new Error("Legacy registry root is invalid");
-  const activeWorkspace = typeof value.currentWorkspace === "string" && value.currentWorkspace
-    ? value.currentWorkspace
-    : null;
+  // `registry.json` names it `currentWorkspace`; `config.json` names it
+  // `activeWorkspace`. Both are the same legacy pointer.
+  const pointer = [value.currentWorkspace, value.activeWorkspace]
+    .find((candidate) => typeof candidate === "string" && candidate);
+  const activeWorkspace = typeof pointer === "string" ? pointer : null;
   const projects = new Map<string, string>();
   if (Array.isArray(value.projects)) {
     for (const item of value.projects) {
@@ -362,7 +375,7 @@ function sanitizeLegacyTextValue(
       return `${prefix}[migration-data-omitted sha256=${sha256(dataUrl)}]`;
     },
   );
-  sanitized = sanitized.replace(/file:\/{3}[^\s"'<>)]*/gimu, (uri) => {
+  sanitized = sanitized.replace(/file:[^\s"'<>)]*/gimu, (uri) => {
     try {
       return sanitizeAbsoluteLocator(decodeURIComponent(new URL(uri).pathname), sourceRoot);
     } catch {

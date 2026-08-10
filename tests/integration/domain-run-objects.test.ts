@@ -46,9 +46,13 @@ describe("bounded RunObject queries", () => {
     });
     const context = { workspaceId: workspace.id };
     const keys = [
+      "attemptId",
+      "attemptNo",
       "bytes",
       "createdAt",
       "id",
+      "locationClass",
+      "logicalPath",
       "mime",
       "objectId",
       "projectId",
@@ -60,8 +64,16 @@ describe("bounded RunObject queries", () => {
     ];
 
     expect(Object.keys(recorded).sort()).toEqual(keys);
+    expect(recorded).toMatchObject({
+      logicalPath: "tmp/private/output.png",
+      locationClass: "temp",
+      attemptId: null,
+      attemptNo: null,
+    });
     expect(getRunObject({ context, runObjectId: recorded.id })).toEqual(recorded);
-    expect(JSON.stringify(recorded)).not.toMatch(/path|sha256|metadata|private/i);
+    expect(JSON.stringify(recorded)).not.toMatch(
+      /"(path|sha256|metadata|request|response|error)":/i,
+    );
     expect(
       openDomainDb()
         .query<
@@ -162,7 +174,9 @@ describe("bounded RunObject queries", () => {
         limit: 1,
       });
       seen.push(...page.items.map((item) => item.id));
-      expect(JSON.stringify(page.items)).not.toMatch(/path|sha256|metadata/i);
+      expect(JSON.stringify(page.items)).not.toMatch(
+        /"(path|sha256|metadata|request|response|error)":/i,
+      );
       if (page.nextCursor) {
         ordinals.push(decodeCursor("c1", page.nextCursor).ordinal);
       }
@@ -310,7 +324,15 @@ describe("bounded RunObject queries", () => {
       workspaceId: workspace.id,
     });
     expect(promoted.objectId).toMatch(/^obj_/);
-    expect(JSON.stringify(promoted)).not.toMatch(/tmp\/|sha256|metadata/i);
+    expect(promoted).toMatchObject({
+      logicalPath: "tmp/output.png",
+      locationClass: "temp",
+      attemptId: null,
+      attemptNo: null,
+    });
+    expect(JSON.stringify(promoted)).not.toMatch(
+      /"(path|sha256|metadata|request|response|error)":/i,
+    );
 
     const legacySource = path.join(root.dir, ".ralphy", "tmp", "legacy.bin");
     fs.writeFileSync(legacySource, "legacy");

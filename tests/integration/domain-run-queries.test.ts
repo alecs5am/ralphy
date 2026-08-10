@@ -10,10 +10,13 @@ import {
 import {
   finishRun,
   finishRunAttempt,
+  getRunObject,
   getRun,
   getRunAttempt,
+  listRunObjects,
   listRunAttempts,
   listRuns,
+  recordRunObject,
   startRun,
   startRunAttempt,
 } from "../../cli/lib/store/runs.js";
@@ -258,6 +261,67 @@ describe("bounded Run queries", () => {
         limit: 1,
       }),
     ).toThrow("Cursor family is invalid");
+  });
+
+  test("returns safe RunObject locations with explicitly unknown attempt attribution", () => {
+    root = makeTmpRoot("ralphy-run-object-query");
+    const workspace = createWorkspace({ slug: "client", name: "Client" });
+    const project = createProject({
+      workspaceId: workspace.id,
+      slug: "campaign",
+      name: "Campaign",
+    });
+    const run = startRun({ projectId: project.id, kind: "generation" });
+    const firstAttempt = startRunAttempt({ runId: run.id, provider: "first" });
+    finishRunAttempt(firstAttempt.id, { state: "failed" });
+    finishRun(run.id, { state: "failed" });
+    startRunAttempt({ runId: run.id, provider: "second" });
+    const expected = [
+      ["tmp/run/output.bin", "temp"],
+      ["cache/run/output.bin", "cache"],
+      ["buckets/workspace/output.bin", "bucket"],
+      ["debug/run/output.bin", "other"],
+    ] as const;
+    const objects = expected.map(([logicalPath], index) => recordRunObject({
+      runId: run.id,
+      path: logicalPath,
+      purpose: `evidence-${index}`,
+      state: "working",
+      retention: "keep",
+    }));
+    const context = { workspaceId: workspace.id, projectId: project.id };
+    const page = listRunObjects({ context, runId: run.id, limit: 10 });
+    for (const [index, object] of objects.entries()) {
+      const detail = getRunObject({ context, runObjectId: object.id });
+      const listed = page.items.find((item) => item.id === object.id)!;
+      expect(detail).toEqual(listed);
+      expect(detail).toMatchObject({
+        logicalPath: expected[index]![0],
+        locationClass: expected[index]![1],
+        attemptId: null,
+        attemptNo: null,
+      });
+      expect(Object.keys(detail).sort()).toEqual([
+        "attemptId",
+        "attemptNo",
+        "bytes",
+        "createdAt",
+        "id",
+        "locationClass",
+        "logicalPath",
+        "mime",
+        "objectId",
+        "projectId",
+        "purpose",
+        "retention",
+        "runId",
+        "state",
+        "workspaceId",
+      ]);
+      expect(JSON.stringify(detail)).not.toMatch(
+        /"(path|sha256|metadata|request|response|error)"/,
+      );
+    }
   });
 
   test("isolates external Runs by live consumer authority and exact scope", () => {

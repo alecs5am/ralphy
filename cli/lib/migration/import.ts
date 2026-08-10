@@ -13,6 +13,7 @@ import {
   isLegacyDesktopReviewPath,
   isLegacyPublishLedgerName,
   isLegacyRegistryPath,
+  isLegacyWorkspacePointerPath,
   isLegacyRootConfigPath,
   isLegacySecretCandidate,
   isLegacyUnitManifestName,
@@ -28,11 +29,24 @@ import {
 } from "./legacy.js";
 import type { MigrationContext, MigrationSourceRoot } from "./types.js";
 import {
+  classifyCompositionLocator,
+  decodeHyperframesGenerationEvidence,
+  type HyperframesGenerationClassification,
+} from "./production-evidence.js";
+import {
   productionSourceGraphMismatches,
   type ProductionGraphExpectation,
   type ProductionSourceFingerprintFact,
   type ProductionSourceRecord,
 } from "./production-accounting.js";
+
+export {
+  classifierVersion,
+  classifyCompositionLocator,
+  classifyRenderLocator,
+  decodeHyperframesGenerationEvidence,
+  type HyperframesGenerationClassification,
+} from "./production-evidence.js";
 
 export type MigrationImportSummary = {
   workspaces: number;
@@ -86,6 +100,13 @@ type LegacyRecord = {
   value: Record<string, unknown>;
   unitKeyHint: string | null;
   unitRevisionHint: number | null;
+  generation?: true;
+};
+
+type ProductionFile = {
+  entry: Entry;
+  source: MigrationSourceRoot;
+  scope: ProductionScope;
 };
 
 type PublicationRail = "postiz" | "github-pages" | "devto" | "hashnode" | "manual";
@@ -141,7 +162,7 @@ type PublicationCandidate = {
 type ProductionPrepared = {
   entries: Entry[];
   sources: Map<string, MigrationSourceRoot>;
-  files: Map<string, { entry: Entry; source: MigrationSourceRoot; raw: Buffer; scope: ProductionScope }>;
+  files: Map<string, ProductionFile>;
   units: UnitEvidence[];
   productions: LegacyRecord[];
   deliveries: LegacyRecord[];
@@ -154,6 +175,7 @@ type ProductionImportOptions = {
   omitLastRepeatedUnitItemForTesting?: boolean;
   omitBuildEntryIdForTesting?: string;
   omitLastDeliveryTargetForTesting?: boolean;
+  onMaterializeForTesting?: () => void;
 };
 
 type ProductionSourceFingerprint = ProductionSourceFingerprintFact;
@@ -287,6 +309,14 @@ export function importScopesAndDocuments(ctx: MigrationContext): MigrationImport
       if (kind === "raw-evidence") continue;
       const scope = scopeForPath(scopes, entry, source);
       if (!scope) continue;
+      if (kind === "jsonl" && entry.bytes === 0) {
+        // An empty JSONL has no records to import, so the explicit empty marker
+        // Document is its only semantic evidence; the ledger keeps the zero hash.
+        const marker = preparedDocument(ctx, entry, scope, { format: "text", body: "" }, entry.mtimeMs);
+        if (marker.bindingRole) bindingDocuments.push(marker);
+        else insert(marker);
+        continue;
+      }
       if (kind === "jsonl") {
         for (const record of iterateLegacyJsonl(raw, entry.sourcePath)) {
           if (record.issue) {
@@ -485,12 +515,14 @@ export function importProductionAndDelivery(
   options: ProductionImportOptions = {},
 ): ProductionImportSummary {
   const prepared = prepareProduction(ctx);
-  const expected = deriveProductionAccounting(ctx, prepared, options);
 
   ctx.db.transaction(() => {
+    const sourceFingerprint = productionSourceFingerprint(ctx, prepared, options);
     const materialized = materializeProduction(ctx, prepared, options);
     for (const issue of materialized.issues) insertIssue(ctx, issue);
     finalizeTaskFiveEntries(ctx, prepared.entries, materialized.refs, prepared.pendingEntryIds);
+    const expected = captureProductionAccounting(ctx, prepared, sourceFingerprint);
+    assertProductionSourceCoverage(ctx.db, expected, sourceFingerprint, materialized.issues);
     assertProductionAccountingTarget(ctx.db, expected);
     recordProductionAccountingFacts(ctx, expected);
     const blockers = ctx.db.query<{ count: number }, [string]>(
@@ -521,6 +553,7 @@ function materializeProduction(
   prepared: ProductionPrepared,
   options: ProductionImportOptions = {},
 ): { refs: Map<string, Set<string>>; issues: PreparedIssue[] } {
+  options.onMaterializeForTesting?.();
   const refs = new Map<string, Set<string>>();
   const issues = [...prepared.issues];
   const artifactBySourcePath = new Map<string, string>();
@@ -546,26 +579,6 @@ function materializeProduction(
   return { refs, issues };
 }
 
-function deriveProductionAccounting(
-  ctx: MigrationContext,
-  prepared: ProductionPrepared,
-  options: ProductionImportOptions,
-): PreparedProductionAccounting {
-  const sourceFingerprint = productionSourceFingerprint(ctx, prepared, options);
-  ctx.db.exec("SAVEPOINT migration_expected_production");
-  try {
-    const materialized = materializeProduction(ctx, prepared, options);
-    for (const issue of materialized.issues) insertIssue(ctx, issue);
-    finalizeTaskFiveEntries(ctx, prepared.entries, materialized.refs, prepared.pendingEntryIds);
-    const expected = captureProductionAccounting(ctx, prepared, sourceFingerprint);
-    assertProductionSourceCoverage(ctx.db, expected, sourceFingerprint, materialized.issues);
-    return expected;
-  } finally {
-    ctx.db.exec("ROLLBACK TO migration_expected_production");
-    ctx.db.exec("RELEASE migration_expected_production");
-  }
-}
-
 export async function importDesktopStateAndSecrets(
   ctx: MigrationContext,
   options: { keyProvider?: KeyProvider } = {},
@@ -583,7 +596,7 @@ export async function importDesktopStateAndSecrets(
     if (known === "desktop-handoff") {
       const plan = desktopSecretHandoffPlan(ctx, entry);
       if (!plan) {
-        insertIssue(ctx, secretIssue(entry, "MIGRATION_SECRET_UNKNOWN"));
+        terminalizeUnknownSecret(ctx, entry);
         continue;
       }
       ctx.db.transaction(() => {
@@ -593,13 +606,13 @@ export async function importDesktopStateAndSecrets(
       continue;
     }
     if (known === null) {
-      insertIssue(ctx, secretIssue(entry, "MIGRATION_SECRET_UNKNOWN"));
+      terminalizeUnknownSecret(ctx, entry);
       continue;
     }
     const absolute = checkedSourceFile(source, entry);
     if (known === "instagram-cookie") {
       if (entry.bytes !== 667_395) {
-        insertIssue(ctx, secretIssue(entry, "MIGRATION_SECRET_UNKNOWN"));
+        terminalizeUnknownSecret(ctx, entry);
         continue;
       }
       const workspaceId = workspaceForSource(ctx, entry.sourceLabel, null);
@@ -622,7 +635,7 @@ export async function importDesktopStateAndSecrets(
     }
     const parsed = parseKnownCredentialFile(ctx, entry, source, fs.readFileSync(absolute), known);
     if (parsed === null) {
-      insertIssue(ctx, secretIssue(entry, "MIGRATION_SECRET_UNKNOWN"));
+      terminalizeUnknownSecret(ctx, entry);
       continue;
     }
     recordMigrationSecretImportPlan(ctx, entry, parsed.map((secret) => secret.ref), "text");
@@ -662,7 +675,7 @@ export async function importDesktopStateAndSecrets(
 function prepareProduction(ctx: MigrationContext): ProductionPrepared {
   const entries = migrationEntries(ctx);
   const sources = new Map(ctx.sourceRoots.map((source) => [source.id, source]));
-  const files = new Map<string, { entry: Entry; source: MigrationSourceRoot; raw: Buffer; scope: ProductionScope }>();
+  const files = new Map<string, ProductionFile>();
   const issues: PreparedIssue[] = [];
   const pendingEntryIds = new Set<string>();
   for (const entry of entries) {
@@ -673,14 +686,13 @@ function prepareProduction(ctx: MigrationContext): ProductionPrepared {
     if (!source) throw new Error("Migration source identity is missing");
     const scope = productionScope(ctx, entry);
     if (!scope) continue;
-    const raw = fs.readFileSync(checkedSourceFile(source, entry));
-    files.set(sourcePathKey(entry.sourceLabel, entry.sourcePath), { entry, source, raw, scope });
+    files.set(sourcePathKey(entry.sourceLabel, entry.sourcePath), productionFile(entry, source, scope));
   }
 
   const units: UnitEvidence[] = [];
   for (const file of files.values()) {
     if (!isLegacyUnitManifestName(path.posix.basename(file.entry.sourcePath).toLowerCase())) continue;
-    const value = parseJsonObject(file.raw);
+    const value = parseProductionJson(file);
     if (!value || !validLegacyUnitManifest(value, file.entry.mtimeMs)) {
       pendingEntryIds.add(file.entry.id);
       issues.push(productionIssue(file.entry, "unit-manifest", "MIGRATION_UNIT_MANIFEST_INVALID", "block"));
@@ -700,25 +712,25 @@ function prepareProduction(ctx: MigrationContext): ProductionPrepared {
   }
 
   const productions: LegacyRecord[] = [];
+  const generationProductions: LegacyRecord[] = [];
   const deliveries: LegacyRecord[] = [];
   const metrics: LegacyRecord[] = [];
   for (const file of files.values()) {
     const relative = file.entry.sourcePath.toLowerCase();
     const name = path.posix.basename(relative);
     if (isLegacyAssetManifestName(name)) {
-      const root = parseJsonObject(file.raw);
+      const root = parseProductionJson(file);
       if (!root || !validLegacyAssetManifest(root)) {
         pendingEntryIds.add(file.entry.id);
         issues.push(productionIssue(file.entry, "asset-manifest", "MIGRATION_ASSET_MANIFEST_INVALID", "block"));
       }
     } else if (name === "captions.json") {
-      const root = parseJsonObject(file.raw);
-      if (!root || !validLegacyCaptionsManifest(root)) {
+      if (!validLegacyCaptions(readProductionFile(file))) {
         pendingEntryIds.add(file.entry.id);
         issues.push(productionIssue(file.entry, "captions-manifest", "MIGRATION_CAPTIONS_MANIFEST_INVALID", "block"));
       }
     } else if (name === "production.json") {
-      const root = parseJsonObject(file.raw);
+      const root = parseJsonObject(readProductionFile(file));
       if (!root || !Array.isArray(root.productions) || !root.productions.every(validLegacyProductionRecord)) {
         pendingEntryIds.add(file.entry.id);
         issues.push(productionIssue(file.entry, "production-manifest", "MIGRATION_PRODUCTION_MANIFEST_INVALID", "block"));
@@ -727,8 +739,10 @@ function prepareProduction(ctx: MigrationContext): ProductionPrepared {
       }
     } else if (/(?:^|\/)production\/[^/]+\.jsonl$/u.test(relative)) {
       collectJsonlRecords(productions, file, null, issues, "MIGRATION_PRODUCTION_RECORD_INVALID", validLegacyProductionRecord);
+    } else if (name === "generations.jsonl") {
+      collectGenerationRecords(generationProductions, file, entries);
     } else if (name === "delivery.json") {
-      const root = parseJsonObject(file.raw);
+      const root = parseJsonObject(readProductionFile(file));
       if (!root || !Array.isArray(root.attempts)
         || !root.attempts.every((value) => validateLegacyDeliverySemantics(value, false, file.entry.mtimeMs).ok)) {
         pendingEntryIds.add(file.entry.id);
@@ -742,6 +756,15 @@ function prepareProduction(ctx: MigrationContext): ProductionPrepared {
       collectJsonlRecords(metrics, file, null, issues, "MIGRATION_METRIC_RECORD_INVALID", isLegacyObjectRecord);
     }
   }
+  const renderUses = new Map<string, number>();
+  for (const record of generationProductions) {
+    const output = record.value.output as string;
+    const key = `${record.entry.sourceLabel}\0${record.scope.prefix}\0${output}`;
+    renderUses.set(key, (renderUses.get(key) ?? 0) + 1);
+  }
+  productions.push(...generationProductions.filter((record) =>
+    renderUses.get(`${record.entry.sourceLabel}\0${record.scope.prefix}\0${record.value.output as string}`) === 1
+  ));
   for (const unit of units) {
     if (isRecord(unit.value.manifestOnlyAttempt)
       && validateLegacyDeliverySemantics(unit.value.manifestOnlyAttempt, true, unit.entry.mtimeMs).ok) {
@@ -758,6 +781,97 @@ function prepareProduction(ctx: MigrationContext): ProductionPrepared {
     }
   }
   return { entries, sources, files, units, productions, deliveries, metrics, issues, pendingEntryIds };
+}
+
+function productionFile(
+  entry: Entry,
+  source: MigrationSourceRoot,
+  scope: ProductionScope,
+): ProductionFile {
+  return { entry, source, scope };
+}
+
+function readProductionFile(file: ProductionFile): Buffer {
+  return fs.readFileSync(checkedSourceFile(file.source, file.entry));
+}
+
+function parseProductionJson(file: ProductionFile): Record<string, unknown> | null {
+  const name = path.posix.basename(file.entry.sourcePath).toLowerCase();
+  return parseJsonObject(isLegacyAssetManifestName(name)
+    ? readJsonWithoutDataUrlPayloads(checkedSourceFile(file.source, file.entry))
+    : readProductionFile(file));
+}
+
+function readJsonWithoutDataUrlPayloads(file: string): Buffer {
+  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  const input = Buffer.allocUnsafe(1024 * 1024);
+  const chunks: Buffer[] = [];
+  let output = Buffer.allocUnsafe(1024 * 1024);
+  let outputLength = 0;
+  let stringState: "outside" | "probing" | "copying" | "eliding" = "outside";
+  let escaped = false;
+  let probe: number[] = [];
+  const prefix = Buffer.from("data:");
+  const replacement = Buffer.from("data:omitted");
+  const write = (byte: number): void => {
+    if (outputLength === output.length) {
+      chunks.push(output);
+      output = Buffer.allocUnsafe(1024 * 1024);
+      outputLength = 0;
+    }
+    output[outputLength] = byte;
+    outputLength += 1;
+  };
+  const writeBytes = (bytes: readonly number[] | Buffer): void => {
+    for (const byte of bytes) write(byte);
+  };
+  try {
+    for (;;) {
+      const bytes = fs.readSync(fd, input, 0, input.length, null);
+      if (bytes === 0) break;
+      for (let index = 0; index < bytes; index += 1) {
+        const byte = input[index]!;
+        if (stringState === "outside") {
+          write(byte);
+          if (byte === 0x22) {
+            stringState = "probing";
+            probe = [];
+          }
+          continue;
+        }
+        if (stringState === "probing") {
+          probe.push(byte);
+          if (byte !== prefix[probe.length - 1]) {
+            writeBytes(probe);
+            stringState = byte === 0x22 ? "outside" : "copying";
+            escaped = byte === 0x5c;
+          } else if (probe.length === prefix.length) {
+            writeBytes(replacement);
+            stringState = "eliding";
+            escaped = false;
+          }
+          continue;
+        }
+        if (stringState === "copying") {
+          write(byte);
+          if (escaped) escaped = false;
+          else if (byte === 0x5c) escaped = true;
+          else if (byte === 0x22) stringState = "outside";
+          continue;
+        }
+        if (escaped) escaped = false;
+        else if (byte === 0x5c) escaped = true;
+        else if (byte === 0x22) {
+          write(byte);
+          stringState = "outside";
+        }
+      }
+    }
+  } finally {
+    fs.closeSync(fd);
+  }
+  if (outputLength > 0) chunks.push(output.subarray(0, outputLength));
+  return Buffer.concat(chunks);
 }
 
 function collectObjectRecords(
@@ -780,19 +894,69 @@ function collectObjectRecords(
 
 function collectJsonlRecords(
   output: LegacyRecord[],
-  file: { entry: Entry; source: MigrationSourceRoot; scope: ProductionScope; raw: Buffer },
+  file: ProductionFile,
   unitKeyHint: string | null,
   issues: PreparedIssue[],
   code: string,
   valid: (value: unknown, hasUnitHint: boolean) => boolean,
 ): void {
-  for (const record of parseLegacyJsonl(file.raw, file.entry.sourcePath)) {
+  for (const record of parseLegacyJsonl(readProductionFile(file), file.entry.sourcePath)) {
     if (record.issue || !isRecord(record.value) || !valid(record.value, unitKeyHint !== null)) {
       issues.push(productionIssue(file.entry, `${code}:${record.lineNo}`, code, "review", record.lineNo));
       continue;
     }
     output.push({ ...file, rowOrdinal: record.lineNo, targetSlot: null, value: record.value, unitKeyHint, unitRevisionHint: null });
   }
+}
+
+function collectGenerationRecords(
+  output: LegacyRecord[],
+  file: ProductionFile,
+  entries: readonly Entry[],
+): void {
+  if (!file.scope.projectId) return;
+  for (const record of parseLegacyJsonl(readProductionFile(file), file.entry.sourcePath)) {
+    if (record.issue || record.value === null) continue;
+    const normalized = normalizeLegacyValue(record.value, file.source.path) as Parameters<
+      typeof decodeHyperframesGenerationEvidence
+    >[0]["body"];
+    const classification: HyperframesGenerationClassification = decodeHyperframesGenerationEvidence({
+      body: normalized,
+      documentProjectId: file.scope.projectId,
+      owningEntryWorkspaceId: file.scope.workspaceId,
+      owningEntryProjectId: file.scope.projectId,
+      projectLocator: file.scope.prefix,
+    });
+    if (classification.kind !== "eligible") continue;
+    const renderEntry = productionEntry(entries, file, classification.render.canonicalProjectRelative);
+    const compositionEntry = productionEntry(entries, file, classification.composition.canonicalProjectRelative);
+    if (!renderEntry || !compositionEntry || renderEntry.bytes !== classification.outputBytes) continue;
+    output.push({
+      ...file,
+      rowOrdinal: record.lineNo,
+      targetSlot: null,
+      value: {
+        sourceRevision: classification.composition.canonicalProjectRelative,
+        output: classification.render.canonicalProjectRelative,
+        profile: "hyperframes-render",
+        completedAt: classification.completedAt,
+      },
+      unitKeyHint: null,
+      unitRevisionHint: null,
+      generation: true,
+    });
+  }
+}
+
+function productionEntry(
+  entries: readonly Entry[],
+  file: ProductionFile,
+  projectRelative: string,
+): Entry | null {
+  const sourcePath = path.posix.join(file.scope.prefix, projectRelative);
+  return entries.find((entry) =>
+    entry.sourceLabel === file.entry.sourceLabel && entry.sourcePath === sourcePath
+  ) ?? null;
 }
 
 function importLegacyArtifacts(
@@ -812,7 +976,7 @@ function importLegacyArtifacts(
   const families = new Map<string, Array<{ file: typeof candidates[number]; revisionNo: number; familyPath: string }>>();
   for (const file of candidates) {
     const proven = provenRevisionPath(file.entry, candidatePaths);
-    const familyKey = `${file.entry.sourceLabel}\0${file.scope.workspaceId}\0${file.scope.projectId ?? ""}\0${proven.familyPath}\0${proven.revisionStyle}`;
+    const familyKey = `${file.entry.sourceLabel}\0${file.scope.workspaceId}\0${file.scope.projectId ?? ""}\0${proven.familyPath}\0${proven.familyExtension}\0${proven.revisionStyle}`;
     const family = families.get(familyKey) ?? [];
     family.push({ file, revisionNo: proven.revisionNo, familyPath: proven.familyPath });
     families.set(familyKey, family);
@@ -902,8 +1066,8 @@ function importLegacyCompositions(
   }
   const families = new Map<string, Array<{ file: typeof candidates[number]; revisionNo: number; familyPath: string }>>();
   for (const file of candidates) {
-    const proven = provenRevisionPath(file.entry, candidatePaths);
-    const familyKey = `${file.entry.sourceLabel}\0${file.scope.projectId ?? ""}\0${proven.familyPath}\0${proven.revisionStyle}`;
+    const proven = provenCompositionRevisionPath(file.entry, candidatePaths);
+    const familyKey = `${file.entry.sourceLabel}\0${file.scope.projectId ?? ""}\0${proven.familyPath}\0${proven.familyExtension}\0${proven.revisionStyle}`;
     const family = families.get(familyKey) ?? [];
     family.push({ file, revisionNo: proven.revisionNo, familyPath: proven.familyPath });
     families.set(familyKey, family);
@@ -1005,6 +1169,7 @@ function importLegacyBuilds(
     const outputPath = outputValue ? resolveEvidencePath(prepared, record, outputValue, "project") : null;
     const revisionId = sourcePath ? compositionBySourcePath.get(sourcePath) : null;
     const artifactRevisionId = outputPath ? artifactBySourcePath.get(outputPath) : null;
+    const outputEntry = outputPath ? prepared.files.get(outputPath)?.entry ?? null : null;
     if (!revisionId || !artifactRevisionId) {
       issues.push(productionIssue(record.entry, `build-binding:${record.rowOrdinal}`, "MIGRATION_BUILD_BINDING_AMBIGUOUS", "review", record.rowOrdinal));
       continue;
@@ -1048,7 +1213,12 @@ function importLegacyBuilds(
     } else {
       assertBuildReplay(ctx.db, buildId, revisionId, artifactRevisionId, runId);
     }
-    addRefs(refs, record.entry.id, revisionId, artifactRevisionId, runId, attemptId, buildId, outputId, resultId);
+    if (record.generation) {
+      addRefs(refs, record.entry.id, runId, attemptId, buildId, outputId, resultId);
+      if (outputEntry) addRefs(refs, outputEntry.id, buildId, outputId);
+    } else {
+      addRefs(refs, record.entry.id, revisionId, artifactRevisionId, runId, attemptId, buildId, outputId, resultId);
+    }
   }
 }
 
@@ -1464,7 +1634,7 @@ function captionEvidence(
   if (prepared.pendingEntryIds.has(file.entry.id)) {
     return { entry: file.entry, effectiveRevision: null, values: [] };
   }
-  const value = parseJsonObject(file.raw);
+  const value = parseJsonObject(readProductionFile(file));
   if (!value || !Array.isArray(value.caption_versions)) {
     issues.push(productionIssue(file.entry, "captions-json", "MIGRATION_CAPTION_RECORD_INVALID", "review"));
     return { entry: file.entry, effectiveRevision: null, values: [] };
@@ -1941,7 +2111,7 @@ function finalizeTaskFiveEntries(
     const serialized = JSON.stringify(refs);
     if (entry.state === "staged" || entry.state === "inventoried") {
       const state = entry.disposition === "object" ? "verified" : "imported";
-      const updated = ctx.db.prepare(
+      const updated = ctx.db.query(
         `UPDATE migration_entries
          SET target_refs_json = ?, state = ?, terminal_at = ?, updated_at = ?
          WHERE id = ? AND state = ? RETURNING id`,
@@ -1975,6 +2145,7 @@ function isTaskFiveSource(relative: string, disposition: string): boolean {
     || name === "captions.json"
     || isLegacyAssetManifestName(name)
     || name === "production.json"
+    || name === "generations.jsonl"
     || name === "delivery.json"
     || isLegacyPublishLedgerName(name)
     || name === "analytics.jsonl"
@@ -2233,13 +2404,64 @@ function validLegacyUnitManifest(value: Record<string, unknown>, fallbackCreated
 }
 
 function validLegacyAssetManifest(value: Record<string, unknown>): boolean {
+  if (isRecord(value.slots)) return legacySlotAssets(value.slots) !== null;
   return Array.isArray(value.assets) && value.assets.every((asset) => {
     if (!isRecord(asset)) return false;
-    const refs = [asset.path, asset.file, asset.dataUrl].filter((candidate) => candidate !== undefined);
-    return refs.length > 0 && refs.every((candidate) => typeof candidate === "string" && !!candidate.trim())
+    // A `status: "pending"` asset carries an explicit `file: null` until it is
+    // generated, and the manifest counts it in `pendingAssets`. Only a present,
+    // malformed reference is invalid.
+    const refs = [asset.path, asset.file, asset.dataUrl]
+      .filter((candidate) => candidate !== undefined && candidate !== null);
+    return refs.every((candidate) => typeof candidate === "string" && !!candidate.trim())
       && [asset.selected, asset.current, asset.head]
         .every((candidate) => candidate === undefined || typeof candidate === "boolean");
   });
+}
+
+/**
+ * Current Ralphy writes the asset manifest as `{ slots: { <slot>: { path, … } } }`;
+ * only the oldest manifests use the `{ assets: [ … ] }` array. Slots carry no
+ * selection flag, so they prove an Artifact path without selecting a head.
+ * Returns null when the shape is not a usable slot map.
+ */
+function legacySlotAssets(slots: Record<string, unknown>): Array<{ path: string; selected: boolean }> | null {
+  const assets: Array<{ path: string; selected: boolean }> = [];
+  for (const slot of Object.values(slots)) {
+    if (!isRecord(slot)) return null;
+    if (typeof slot.path !== "string" || !slot.path.trim()) return null;
+    assets.push({ path: slot.path, selected: false });
+  }
+  return assets;
+}
+
+/** Manifest asset references, from either the slot map or the legacy array. */
+function legacyManifestAssets(root: Record<string, unknown> | null): Array<{ path: string; selected: boolean }> {
+  if (!root) return [];
+  if (isRecord(root.slots)) return legacySlotAssets(root.slots) ?? [];
+  if (!Array.isArray(root.assets)) return [];
+  return root.assets.flatMap((asset) => {
+    if (!isRecord(asset)) return [];
+    const reference = [asset.path, asset.file].find((candidate) => typeof candidate === "string" && candidate.trim());
+    if (typeof reference !== "string") return [];
+    return [{
+      path: reference,
+      selected: asset.selected === true || asset.current === true || asset.head === true,
+    }];
+  });
+}
+
+/**
+ * Current Ralphy writes `captions.json` as a flat token list
+ * (`[{ text, startMs, endMs, … }]`); the older shape is a `caption_versions`
+ * history object. Both are valid legacy captions.
+ */
+function validLegacyCaptions(raw: Buffer): boolean {
+  let value: unknown;
+  try { value = JSON.parse(raw.toString("utf8")); } catch { return false; }
+  if (Array.isArray(value)) {
+    return value.every((token) => isRecord(token) && typeof token.text === "string");
+  }
+  return isRecord(value) && validLegacyCaptionsManifest(value);
 }
 
 function validLegacyCaptionsManifest(value: Record<string, unknown>): boolean {
@@ -2283,7 +2505,26 @@ function unitIdentityKey(sourceId: string, scope: ProductionScope, legacyId: str
 }
 
 function isCompositionSource(relative: string): boolean {
-  return /^(?:workspaces\/[^/]+\/projects\/[^/]+|projects\/[^/]+)\/composition\/[^/]+\.html$/iu.test(relative);
+  const match = relative.match(/^((?:workspaces\/[^/]+\/projects\/[^/]+|projects\/[^/]+))\/(.+)$/u);
+  if (!match) return false;
+  if (/^composition\/[^/]+\.html$/iu.test(match[2]!)) return true;
+  return classifyCompositionLocator({ value: match[2]!, projectLocator: match[1]! }).kind !== "invalid";
+}
+
+function provenCompositionRevisionPath(
+  entry: Entry,
+  candidates: ReadonlySet<string>,
+): ReturnType<typeof provenRevisionPath> {
+  const match = entry.sourcePath.match(/^((?:workspaces\/[^/]+\/projects\/[^/]+|projects\/[^/]+))\/(.+)$/u);
+  if (match && classifyCompositionLocator({ value: match[2]!, projectLocator: match[1]! }).kind !== "invalid") {
+    return {
+      familyPath: pathWithoutExtension(entry.sourcePath),
+      familyExtension: path.posix.extname(entry.sourcePath).toLowerCase(),
+      revisionNo: 1,
+      revisionStyle: "",
+    };
+  }
+  return provenRevisionPath(entry, candidates);
 }
 
 function pathWithoutExtension(value: string): string {
@@ -2294,32 +2535,68 @@ function pathWithoutExtension(value: string): string {
 function provenRevisionPath(
   entry: Entry,
   candidates: ReadonlySet<string>,
-): { familyPath: string; revisionNo: number; revisionStyle: "" | "." | "-" } {
+): { familyPath: string; familyExtension: string; revisionNo: number; revisionStyle: "" | "." | "-" } {
   const extension = path.posix.extname(entry.sourcePath);
   const stem = pathWithoutExtension(entry.sourcePath);
+  // Sibling detection below already groups per extension, and revision numbers
+  // are unique per Artifact — so the extension has to reach the family key too,
+  // or PNG and JPEG siblings land in one family where both prove revision 1
+  // and the second revision insert violates that uniqueness. It stays out of
+  // `familyPath` because that is what names the Artifact slug.
+  const familyExtension = extension.toLowerCase();
   const match = stem.match(/^(.*?)([.-])v(\d+)$/iu);
-  if (!match) return { familyPath: stem, revisionNo: 1, revisionStyle: "" };
+  if (!match) return { familyPath: stem, familyExtension, revisionNo: 1, revisionStyle: "" };
   const revisionNo = Number(match[3]);
   const base = `${match[1]}${extension}`;
-  const styles = new Set<"." | "-">();
-  const siblings = [...candidates].filter((candidate) => {
-    const prefix = `${entry.sourceLabel}\0`;
-    if (!candidate.startsWith(prefix)) return false;
-    const candidatePath = candidate.slice(prefix.length);
-    if (path.posix.extname(candidatePath).toLowerCase() !== extension.toLowerCase()) return false;
-    const sibling = pathWithoutExtension(candidatePath).match(/^(.*?)([.-])v(\d+)$/iu);
-    if (sibling?.[1] === match[1]) styles.add(sibling[2] as "." | "-");
-    return sibling?.[1] === match[1] && sibling[2] === match[2];
-  });
+  const styles = revisionSiblings(candidates, `${entry.sourceLabel}\0${match[1]}\0${familyExtension}`);
+  const sameStyle = styles.get(match[2] as "." | "-") ?? new Set<number>();
   const hasBase = candidates.has(sourcePathKey(entry.sourceLabel, base));
   return Number.isSafeInteger(revisionNo) && revisionNo > 1
-      && (hasBase || siblings.length > 1)
+      && (hasBase || sameStyle.size > 1)
     ? {
       familyPath: match[1]!,
-      revisionNo,
+      familyExtension,
+      revisionNo: (hasBase && styles.size === 1 ? 2 : 1)
+        + [...sameStyle].filter((candidate) => candidate < revisionNo).length,
       revisionStyle: hasBase && styles.size === 1 ? "" : match[2] as "." | "-",
     }
-    : { familyPath: stem, revisionNo: 1, revisionStyle: "" };
+    : { familyPath: stem, familyExtension, revisionNo: 1, revisionStyle: "" };
+}
+
+/**
+ * Revision siblings per `<sourceLabel>\0<family prefix>\0<extension>`, indexed by
+ * suffix style and observed version. Indexed once per candidate set: the previous per-file scan spread
+ * the whole set on every versioned file, which is quadratic and allocated
+ * gigabytes on a library with thousands of auto-versioned renders.
+ */
+const REVISION_SIBLINGS = new WeakMap<ReadonlySet<string>, Map<string, Map<"." | "-", Set<number>>>>();
+
+function revisionSiblings(
+  candidates: ReadonlySet<string>,
+  key: string,
+): Map<"." | "-", Set<number>> {
+  let index = REVISION_SIBLINGS.get(candidates);
+  if (!index) {
+    index = new Map();
+    for (const candidate of candidates) {
+      const split = candidate.indexOf("\0");
+      if (split < 0) continue;
+      const candidatePath = candidate.slice(split + 1);
+      const sibling = pathWithoutExtension(candidatePath).match(/^(.*?)([.-])v(\d+)$/iu);
+      if (!sibling) continue;
+      const style = sibling[2] as "." | "-";
+      const revisionNo = Number(sibling[3]);
+      if (!Number.isSafeInteger(revisionNo) || revisionNo <= 1) continue;
+      const siblingKey = `${candidate.slice(0, split)}\0${sibling[1]}\0${path.posix.extname(candidatePath).toLowerCase()}`;
+      const styles = index.get(siblingKey) ?? new Map<"." | "-", Set<number>>();
+      const revisions = styles.get(style) ?? new Set<number>();
+      revisions.add(revisionNo);
+      styles.set(style, revisions);
+      index.set(siblingKey, styles);
+    }
+    REVISION_SIBLINGS.set(candidates, index);
+  }
+  return index.get(key) ?? new Map();
 }
 
 function artifactKind(relative: string): string {
@@ -2351,10 +2628,8 @@ function explicitArtifactPaths(prepared: ProductionPrepared): Set<string> {
   for (const file of prepared.files.values()) {
     if (!isLegacyAssetManifestName(path.posix.basename(file.entry.sourcePath).toLowerCase())) continue;
     if (prepared.pendingEntryIds.has(file.entry.id)) continue;
-    const root = parseJsonObject(file.raw);
-    for (const asset of Array.isArray(root?.assets) ? root.assets : []) {
-      if (!isRecord(asset) || typeof asset.path !== "string"
-        || (asset.selected !== true && asset.current !== true && asset.head !== true)) continue;
+    for (const asset of legacyManifestAssets(parseProductionJson(file))) {
+      if (!asset.selected) continue;
       const resolved = resolveEvidencePath(prepared, file, asset.path, "project");
       if (resolved) selected.add(resolved);
     }
@@ -2372,9 +2647,7 @@ function provenArtifactPaths(prepared: ProductionPrepared): Set<string> {
   for (const file of prepared.files.values()) {
     if (!isLegacyAssetManifestName(path.posix.basename(file.entry.sourcePath).toLowerCase())) continue;
     if (prepared.pendingEntryIds.has(file.entry.id)) continue;
-    const root = parseJsonObject(file.raw);
-    for (const asset of Array.isArray(root?.assets) ? root.assets : []) {
-      if (!isRecord(asset) || typeof asset.path !== "string") continue;
+    for (const asset of legacyManifestAssets(parseProductionJson(file))) {
       const resolved = resolveEvidencePath(prepared, file, asset.path, "project");
       if (resolved) proven.add(resolved);
     }
@@ -2514,7 +2787,7 @@ function insertArtifactIdentity(
     }
     return;
   }
-  db.prepare(
+  db.query(
     `INSERT INTO artifacts
      (id, workspace_id, project_id, slug, kind, selected_revision_id, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, NULL, ?, ?)`,
@@ -3187,7 +3460,7 @@ function sourceArtifactRevisions(
   const revisions = new Map<string, string>();
   for (const file of candidates) {
     const proven = provenRevisionPath(file.entry, candidatePaths);
-    const familyKey = `${file.entry.sourceLabel}\0${file.scope.workspaceId}\0${file.scope.projectId ?? ""}\0${proven.familyPath}\0${proven.revisionStyle}`;
+    const familyKey = `${file.entry.sourceLabel}\0${file.scope.workspaceId}\0${file.scope.projectId ?? ""}\0${proven.familyPath}\0${proven.familyExtension}\0${proven.revisionStyle}`;
     revisions.set(
       sourcePathKey(file.entry.sourceLabel, file.entry.sourcePath),
       stableId("arev", ctx, `artifact-revision:${familyKey}:${proven.revisionNo}:${file.entry.sourceLocatorHash}`),
@@ -3207,8 +3480,8 @@ function sourceCompositionRevisions(
   const revisions = new Map<string, string>();
   for (const file of candidates) {
     if (!file.scope.projectId) continue;
-    const proven = provenRevisionPath(file.entry, candidatePaths);
-    const familyKey = `${file.entry.sourceLabel}\0${file.scope.projectId}\0${proven.familyPath}\0${proven.revisionStyle}`;
+    const proven = provenCompositionRevisionPath(file.entry, candidatePaths);
+    const familyKey = `${file.entry.sourceLabel}\0${file.scope.projectId}\0${proven.familyPath}\0${proven.familyExtension}\0${proven.revisionStyle}`;
     revisions.set(
       sourcePathKey(file.entry.sourceLabel, file.entry.sourcePath),
       stableId("crev", ctx, `composition-revision:${familyKey}:${proven.revisionNo}:${file.entry.sourceLocatorHash}`),
@@ -3263,7 +3536,7 @@ function sourcePresentations(
         path.posix.join(path.posix.dirname(unit.entry.sourcePath), "captions.json"),
       );
       const captionFile = prepared.files.get(captionPath);
-      const captionRoot = captionFile ? parseJsonObject(captionFile.raw) : null;
+      const captionRoot = captionFile ? parseJsonObject(readProductionFile(captionFile)) : null;
       const captionVersions = new Set(
         Array.isArray(captionRoot?.caption_versions)
           ? captionRoot.caption_versions.filter(isRecord).map((value) => positiveInteger(value.version)).filter((value): value is number => value !== null)
@@ -4109,15 +4382,38 @@ function knownSecretShape(entry: Entry): KnownSecretShape | null {
   return null;
 }
 
-function secretIssue(entry: Entry, code: string): PreparedIssue {
+function secretIssue(entry: Entry, code: string, severity: PreparedIssue["severity"] = "block"): PreparedIssue {
   return {
     entryId: null,
     issueKey: `secret:${entry.sourceLabel}:${entry.sourceLocatorHash}:${code}`,
     code,
-    severity: "block",
+    severity,
     lineNo: null,
     detail: { sourceEntryId: entry.id, sourceLocatorHash: entry.sourceLocatorHash },
   };
+}
+
+/**
+ * A secret candidate nobody can parse is never opened: it keeps an explicit
+ * sensitive recovery-only disposition and its bytes stay in the untouched
+ * recovery tree. That is the reviewed outcome the migration plan allows, not a
+ * blocker. No hash is computed here — reading an unparseable secret is exactly
+ * what the disposition exists to prevent — so the entry carries only the hash
+ * inventory already took for control-sized files.
+ */
+function terminalizeUnknownSecret(ctx: MigrationContext, entry: Entry): void {
+  const now = Date.now();
+  ctx.db.transaction(() => {
+    // Only an entry that still owns no refs is terminalised here. One that already
+    // carries a planned import ref belongs to that plan, and clearing it would
+    // silently release a ref another entry is being checked against.
+    ctx.db.prepare(
+      `UPDATE migration_entries SET state = 'excluded', terminal_at = ?, updated_at = ?
+       WHERE id = ? AND state = 'inventoried' AND disposition = 'secret-recovery-only'
+         AND COALESCE(target_refs_json, '[]') = '[]'`,
+    ).run(now, now, entry.id);
+    insertIssue(ctx, secretIssue(entry, "MIGRATION_SECRET_UNKNOWN", "review"));
+  }).immediate();
 }
 
 function desktopSecretHandoffPlan(
@@ -5062,10 +5358,20 @@ function buildScopeModel(
   const issues: PreparedIssue[] = [];
   const registries = new Map<string, ReturnType<typeof parseLegacyRegistry>>();
   for (const item of prepared) {
-    if (item.entry.sourceKind === "desktop" || !isLegacyRegistryPath(item.entry.sourcePath)) continue;
+    if (item.entry.sourceKind === "desktop" || !isLegacyWorkspacePointerPath(item.entry.sourcePath)) continue;
     const raw = readCheckedSourceFile(item.source, item.entry);
     if (isLegacySecretCandidate(item.entry.sourcePath, raw)) continue;
-    registries.set(item.source.id, parseLegacyRegistry(raw));
+    const parsed = parseLegacyRegistry(raw);
+    const existing = registries.get(item.source.id);
+    // The project map and the active-Workspace pointer can live in different
+    // files of the legacy pair, so merge them instead of letting whichever is
+    // read last win.
+    registries.set(item.source.id, existing
+      ? {
+        activeWorkspace: existing.activeWorkspace ?? parsed.activeWorkspace,
+        projects: new Map([...existing.projects, ...parsed.projects]),
+      }
+      : parsed);
   }
 
   for (const source of ctx.sourceRoots) {
@@ -5073,10 +5379,10 @@ function buildScopeModel(
     const workspaceSlugs = new Set<string>();
     let hasPhysicalDefault = source.kind === "legacy-workspace";
     for (const entry of entries) {
-      if (entry.sourceLabel !== source.id) continue;
-      const match = entry.sourcePath.match(/^workspaces\/([^/]+)(?:\/|$)/u);
+      if (entry.sourceLabel !== source.id || entry.entryKind !== "directory") continue;
+      const match = entry.sourcePath.match(/^workspaces\/([^/]+)$/u);
       if (match) workspaceSlugs.add(match[1]!);
-      if (/^projects\/[^/]+(?:\/|$)/u.test(entry.sourcePath)) hasPhysicalDefault = true;
+      if (/^projects\/[^/]+$/u.test(entry.sourcePath)) hasPhysicalDefault = true;
     }
     const registry = registries.get(source.id);
     for (const workspace of registry?.projects.values() ?? []) workspaceSlugs.add(workspace);
@@ -5110,9 +5416,9 @@ function buildScopeModel(
     if (source.kind === "desktop") continue;
     const physical = new Map<string, Set<string>>();
     for (const entry of entries) {
-      if (entry.sourceLabel !== source.id) continue;
-      const current = entry.sourcePath.match(/^workspaces\/([^/]+)\/projects\/([^/]+)(?:\/|$)/u);
-      const legacy = entry.sourcePath.match(/^projects\/([^/]+)(?:\/|$)/u);
+      if (entry.sourceLabel !== source.id || entry.entryKind !== "directory") continue;
+      const current = entry.sourcePath.match(/^workspaces\/([^/]+)\/projects\/([^/]+)$/u);
+      const legacy = entry.sourcePath.match(/^projects\/([^/]+)$/u);
       const projectSlug = current?.[2] ?? legacy?.[1];
       const workspaceSlug = current?.[1] ?? (legacy ? "default" : null);
       if (!projectSlug || !workspaceSlug) continue;
@@ -5690,6 +5996,15 @@ function updatePreparedEntry(
       && current.sha256 === object.sha256 && current.bytes === object.bytes) {
       return;
     }
+    // A recognized empty system checkpoint sidecar is
+    // terminalised as an exclusion by staging before this step runs, and by
+    // design carries no evidence Object. Binding evidence to it is a no-op, not
+    // a conflict, as long as the digest still agrees.
+    if (current.state === "excluded" && current.disposition === "system"
+      && current.bytes === 0 && targetRefs.length === 0
+      && (digest === null || current.sha256 === digest)) {
+      return;
+    }
     throw new Error("Migration ledger update conflicts with terminal evidence binding during import replay");
   }
   const nextDisposition = disposition ?? current.disposition;
@@ -5754,7 +6069,7 @@ function insertIssue(ctx: MigrationContext, issue: PreparedIssue): void {
     if (existing.detail !== detail || existing.severity !== issue.severity) throw new Error("Migration issue replay conflict");
     return;
   }
-  ctx.db.prepare(
+  ctx.db.query(
     `INSERT INTO migration_issues
      (id, migration_run_id, migration_entry_id, code, severity, line_no, detail_json, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -5773,7 +6088,7 @@ function insertExact(
     if (!matchesInsert(existing, sql, values)) throw new Error(`Migration ${table} replay conflict`);
     return;
   }
-  db.prepare(sql).run(...values);
+  db.query(sql).run(...values);
 }
 
 type SqlValue = string | number | bigint | boolean | null | Uint8Array;

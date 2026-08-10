@@ -10,6 +10,7 @@ import {
   prepareObject,
   promoteStagedFile,
   registerPreparedObject,
+  removeSafeStoreDirectory,
   type PreparedObject,
   writeExclusiveStoreTemp,
 } from "../store/internal-objects.js";
@@ -127,6 +128,13 @@ export async function stageInventoryObjects(
       continue;
     }
     if (row.bytes === 0) {
+      // Objects require at least one byte, so an empty content file cannot be
+      // relocated; it keeps an explicit disposition and stays in the recovery
+      // tree. Anything else empty is still unclassified and blocks.
+      if (OBJECT_DISPOSITIONS.has(row.disposition)) {
+        terminalizeExcluded(ctx, row, "recovery-only", null, EMPTY_SHA256);
+        continue;
+      }
       issues += recordBlockingIssue(ctx, row, "MIGRATION_OBJECT_EMPTY");
       continue;
     }
@@ -137,7 +145,7 @@ export async function stageInventoryObjects(
       digests.push(...result.digests);
       continue;
     }
-    if (!new Set(["object", "run-object", "decoded-object"]).has(row.disposition)) continue;
+    if (!OBJECT_DISPOSITIONS.has(row.disposition)) continue;
     const result = await stageFileObject(ctx, row, options.copyMode ?? "clone");
     staged += result.staged;
     bytes += result.bytes;
@@ -257,6 +265,7 @@ async function stageControlEvidence(
   })];
   for (const value of decoded) {
     const decodedSource = path.join(ctx.storeRoot, "tmp", value.id, "decoded");
+    await removeSafeStoreDirectory(ctx.storeRoot, path.dirname(decodedSource));
     await writeExclusiveStoreTemp(ctx.storeRoot, decodedSource, value.bytes);
     prepared.push(await prepareOrResume(ctx, {
       row: { ...row, bytes: value.bytes.length, sha256: null },
@@ -272,6 +281,7 @@ async function stageControlEvidence(
   }
   for (const value of diagnostics) {
     const diagnosticSource = path.join(ctx.storeRoot, "tmp", value.id, "diagnostic");
+    await removeSafeStoreDirectory(ctx.storeRoot, path.dirname(diagnosticSource));
     await writeExclusiveStoreTemp(ctx.storeRoot, diagnosticSource, value.bytes);
     prepared.push(await prepareOrResume(ctx, {
       row: { ...row, bytes: value.bytes.length, sha256: value.sha256 },
@@ -331,6 +341,7 @@ function isTaskFiveEvidence(row: Pick<Entry, "disposition" | "sourcePath">): boo
     || name === "captions.json"
     || isLegacyAssetManifestName(name)
     || name === "production.json"
+    || name === "generations.jsonl"
     || name === "delivery.json"
     || isLegacyPublishLedgerName(name)
     || name === "analytics.jsonl"
@@ -694,12 +705,17 @@ function scopeForEntry(ctx: MigrationContext, row: Entry): Scope {
     ).get(row.sourceLabel, projectScope.workspaceSlug, projectScope.projectSlug);
     if (project) return { workspaceId: project.workspaceId, projectId: project.id };
   }
-  const workspaceSlug = row.sourcePath.match(/^workspaces\/([^/]+)(?:\/|$)/u)?.[1];
+  // The slug must be a real directory component. A loose file dropped straight
+  // into `workspaces/` (`workspaces/archive.zip`) is not a Workspace, so it
+  // falls back to the source's Workspace like any other unscoped file.
+  const workspaceSlug = row.sourcePath.match(/^workspaces\/([^/]+)\//u)?.[1];
   const workspace = ctx.db.query<{ id: string }, [string, string | null, string | null]>(
     `SELECT id FROM workspaces
      WHERE json_extract(metadata_json, '$.migrationSourceLabel') = ?
        AND (? IS NULL OR slug = ?)
-     ORDER BY id LIMIT 1`,
+     ORDER BY (slug = 'default') DESC,
+              (json_extract(metadata_json, '$.migrationPrimary') = 1) DESC,
+              id LIMIT 1`,
   ).get(row.sourceLabel, workspaceSlug ?? null, workspaceSlug ?? null);
   if (!workspace) throw new Error(`Migration Object scope is missing: ${row.sourceLocatorHash}`);
   return { workspaceId: workspace.id };
@@ -747,14 +763,28 @@ async function verifyPrepared(ctx: MigrationContext, prepared: PreparedObject, b
   return actual;
 }
 
+/**
+ * Synchronous on purpose. Read streams and async `FileHandle` reads lose their
+ * completion under sustained staging load: the promise never settles, every
+ * worker parks idle, and the run hangs on an open descriptor with no error to
+ * observe. Blocking reads skip that path entirely.
+ */
 async function hashFile(file: string): Promise<{ bytes: number; sha256: string }> {
-  const hash = createHash("sha256");
-  let bytes = 0;
-  for await (const chunk of fs.createReadStream(file)) {
-    bytes += chunk.length;
-    hash.update(chunk);
+  const fd = fs.openSync(file, "r");
+  try {
+    const hash = createHash("sha256");
+    const buffer = Buffer.allocUnsafe(64 * 1024);
+    let bytes = 0;
+    for (;;) {
+      const read = fs.readSync(fd, buffer, 0, buffer.length, bytes);
+      if (read === 0) break;
+      bytes += read;
+      hash.update(buffer.subarray(0, read));
+    }
+    return { bytes, sha256: hash.digest("hex") };
+  } finally {
+    fs.closeSync(fd);
   }
-  return { bytes, sha256: hash.digest("hex") };
 }
 
 function allocatedObjectId(row: Entry, role: string, runId: string): string {
@@ -812,7 +842,7 @@ function updateDisposition(ctx: MigrationContext, entryId: string, disposition: 
 function terminalizeExcluded(
   ctx: MigrationContext,
   row: Entry,
-  disposition: "cache" | "system",
+  disposition: "cache" | "system" | "recovery-only",
   targetPath: string | null,
   sha256: string,
 ): void {
@@ -846,8 +876,8 @@ async function stageCache(ctx: MigrationContext, row: Entry, copyMode: "clone" |
       if (staged.bytes !== sourceDigest.bytes || staged.sha256 !== sourceDigest.sha256) {
         throw new Error("Migration cache staged digest conflict");
       }
-      const handle = await fs.promises.open(temporary, "r");
-      try { await handle.sync(); } finally { await handle.close(); }
+      const fd = fs.openSync(temporary, "r");
+      try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
       await promoteStagedFile(ctx.storeRoot, temporary, target, sourceDigest);
     } finally {
       await fs.promises.rm(temporary, { force: true });
@@ -987,6 +1017,7 @@ function recordBlockingIssue(ctx: MigrationContext, row: Entry, code: string): n
 }
 
 const EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+const OBJECT_DISPOSITIONS = new Set(["object", "run-object", "decoded-object"]);
 const COPY_DB_BASE_BYTES = 1024 ** 2;
 const COPY_DB_ENTRY_BYTES = 64 * 1024;
 const COPY_DB_OBJECT_BYTES = 64 * 1024;

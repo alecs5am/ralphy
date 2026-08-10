@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -162,6 +163,50 @@ describe("migration Object staging", () => {
     ).get(decoded.id)!;
     expect(fs.readFileSync(path.join(fixture.storeRoot, decodedPath.bucket, decodedPath.key), "utf8")).toBe("hello");
     expect(JSON.stringify(fixture.db.query("SELECT * FROM migration_entries").all())).not.toContain("aGVsbG8=");
+  });
+
+  test("replaces an abandoned decoded temp on resume", async () => {
+    const fixture = setup("decoded-resume");
+    const sourcePath = "workspaces/acme/projects/demo/asset-manifest.json";
+    const source = fixture.writeSource(sourcePath, JSON.stringify({
+      preview: "data:text/plain;base64,aGVsbG8=",
+    }));
+    const entryId = fixture.addEntry({
+      sourcePath,
+      disposition: "domain",
+      bytes: fs.statSync(source).size,
+      targetPath: `migration-evidence/source/${"a".repeat(64)}.raw`,
+      targetRefs: [fixture.projectId],
+    });
+    const decodedId = stableTestId(fixture.ctx.runId, `${entryId}:data-url:0`);
+    const decoded = path.join(fixture.storeRoot, "tmp", decodedId, "decoded");
+    fs.mkdirSync(path.dirname(decoded), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(decoded, "interrupted");
+
+    await expect(stageInventoryObjects(fixture.ctx)).resolves.toMatchObject({ staged: 2 });
+    expect(fs.existsSync(path.dirname(decoded))).toBe(false);
+  });
+
+  test("stages unscoped Objects in the source default Workspace", async () => {
+    const fixture = setup("unscoped-default");
+    const defaultId = "ws_ffffffff-ffff-4fff-8fff-ffffffffffff";
+    fixture.db.prepare(
+      `INSERT INTO workspaces (id, slug, name, metadata_json, created_at, updated_at)
+       VALUES (?, 'default', 'Default', ?, 1, 1),
+              ('ws_00000000-0000-4000-8000-000000000001', 'alternate', 'Alternate', ?, 1, 1)`,
+    ).run(
+      defaultId,
+      JSON.stringify({ migrationRunId: fixture.ctx.runId, migrationSourceLabel: "source" }),
+      JSON.stringify({ migrationRunId: fixture.ctx.runId, migrationSourceLabel: "source" }),
+    );
+    fixture.writeSource(".scratch/frame.png", "frame");
+    fixture.addEntry({ sourcePath: ".scratch/frame.png", disposition: "object", bytes: 5 });
+
+    await stageInventoryObjects(fixture.ctx);
+
+    expect(fixture.db.query<{ workspaceId: string }, []>(
+      "SELECT workspace_id AS workspaceId FROM objects",
+    ).get()?.workspaceId).toBe(defaultId);
   });
 
   test("refuses poisoned decoded-temp and cache ancestors without writing outside the stage", async () => {
@@ -365,6 +410,87 @@ describe("migration Object staging", () => {
       sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     });
   });
+
+  test("scopes a loose file dropped straight into workspaces/ to the source Workspace", async () => {
+    const fixture = setup("loose-workspace-file");
+    const relative = "workspaces/choose-path.zip";
+    fixture.writeSource(relative, "loose-archive");
+    const id = fixture.addEntry({ sourcePath: relative, disposition: "object", bytes: 13 });
+
+    const summary = await stageInventoryObjects(fixture.ctx);
+
+    expect(summary.staged).toBe(1);
+    expect(entry(fixture.ctx, id).state).toBe("staged");
+    expect(fixture.db.query<{ workspaceId: string; projectId: string | null }, []>(
+      "SELECT workspace_id AS workspaceId, project_id AS projectId FROM objects",
+    ).get()).toEqual({ workspaceId: fixture.workspaceId, projectId: null });
+  });
+
+  test("clears an abandoned staging directory for a replayable Object ID", async () => {
+    const fixture = setup("abandoned-stage");
+    const source = fixture.writeSource("hero.mp4", "interrupted-body");
+    const objectId = newDomainId("obj");
+    // An interrupted run dies between the exclusive clone and promotion.
+    const stageDir = path.join(fixture.storeRoot, "tmp", objectId);
+    fs.mkdirSync(stageDir, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(path.join(stageDir, `${objectId}.mp4`), "half-written");
+
+    const prepared = await prepareObject(fixture.db, fixture.storeRoot, {
+      scope: { workspaceId: fixture.workspaceId },
+      sourcePath: source,
+      originalName: "hero.mp4",
+      mime: "video/mp4",
+      storageClass: "durable",
+      transfer: "copy",
+      clonePolicy: "allow-copy",
+      objectId,
+    });
+
+    expect(prepared.sha256).toBe(createHash("sha256").update("interrupted-body").digest("hex"));
+    expect(fs.existsSync(stageDir)).toBe(false);
+  });
+
+  test("stages a file spanning many read buffers with an exact digest", async () => {
+    const fixture = setup("multi-chunk");
+    const relative = "workspaces/acme/projects/demo/artifacts/videos/big.mp4";
+    // Several times the 64 KiB read buffer, so the hash loop has to iterate.
+    const body = Buffer.alloc(320 * 1024).map((_, index) => index % 251);
+    fixture.writeSource(relative, body);
+    const id = fixture.addEntry({ sourcePath: relative, disposition: "object", bytes: body.length });
+
+    const summary = await stageInventoryObjects(fixture.ctx);
+
+    expect(summary.bytes).toBe(body.length);
+    expect(entry(fixture.ctx, id)).toMatchObject({
+      state: "staged",
+      sha256: createHash("sha256").update(body).digest("hex"),
+    });
+  });
+
+  test("retains an empty content file in recovery and still blocks an unclassified empty file", async () => {
+    const fixture = setup("empty-content");
+    const mediaPath = "references/clip/source_re.mp4";
+    const unclassifiedPath = "workspaces/acme/projects/demo/logs/user-assets.jsonl";
+    fixture.writeSource(mediaPath, "");
+    fixture.writeSource(unclassifiedPath, "");
+    const mediaId = fixture.addEntry({ sourcePath: mediaPath, disposition: "object", bytes: 0 });
+    const unclassifiedId = fixture.addEntry({ sourcePath: unclassifiedPath, disposition: "domain", bytes: 0 });
+
+    const summary = await stageInventoryObjects(fixture.ctx);
+
+    expect(summary.staged).toBe(0);
+    expect(entry(fixture.ctx, mediaId)).toMatchObject({
+      state: "excluded",
+      disposition: "recovery-only",
+      targetPath: null,
+      sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    });
+    expect(entry(fixture.ctx, unclassifiedId)).toMatchObject({
+      state: "issue",
+      disposition: "issue",
+      errorCode: "MIGRATION_OBJECT_EMPTY",
+    });
+  });
 });
 
 function setup(label: string) {
@@ -474,12 +600,15 @@ function setup(label: string) {
 function entry(ctx: MigrationContext, id: string) {
   return ctx.db.query<{
     state: string;
+    disposition: string;
+    errorCode: string | null;
     targetPath: string | null;
     targetRefs: string;
     rawEvidenceObjectId: string | null;
     sha256: string | null;
   }, [string]>(
-    `SELECT state, target_path AS targetPath, target_refs_json AS targetRefs,
+    `SELECT state, disposition, error_code AS errorCode, target_path AS targetPath,
+            target_refs_json AS targetRefs,
             raw_evidence_object_id AS rawEvidenceObjectId, sha256
      FROM migration_entries WHERE id = ?`,
   ).get(id)!;

@@ -14,6 +14,7 @@ import {
   inventoryLegacySource,
   releaseMaintenanceLock,
   scanMigrationProcesses,
+  isRecognizedEmptySystemFile,
   setMigrationLockFaultForTesting,
   setMigrationProcessToolsForTesting,
 } from "../../cli/lib/migration/inventory.js";
@@ -277,6 +278,10 @@ describe("migration inventory", () => {
         .toMatchObject({ disposition: "issue" });
       expect(rows.find((row) => row.sourceKind === "desktop" && row.sourcePath === "logs/desktop.log"))
         .toMatchObject({ disposition: "system" });
+      expect(rows.find((row) => row.sourceKind === "desktop" && row.sourcePath === "window-state.json"))
+        .toMatchObject({ disposition: "system" });
+      expect(rows.find((row) => row.sourceKind === "desktop" && row.sourcePath === "media-library-settings.json"))
+        .toMatchObject({ disposition: "system" });
       expect(rows.find((row) => row.sourcePath === "config.json")?.sha256).toBe(
         fixture.expected.sha256["ralphy:config.json"],
       );
@@ -302,6 +307,18 @@ describe("migration inventory", () => {
       releaseMaintenanceLock(lock);
       fs.rmSync(poisonRoot, { recursive: true, force: true });
     }
+  });
+});
+
+describe("recognized zero-byte system files", () => {
+  test("covers only the named rules that classify an empty file as system", () => {
+    expect(isRecognizedEmptySystemFile(".DS_Store", "ralphy")).toBe(true);
+    expect(isRecognizedEmptySystemFile("jobs.db-wal", "ralphy")).toBe(true);
+    expect(isRecognizedEmptySystemFile("jobs.db-shm", "ralphy")).toBe(true);
+    expect(isRecognizedEmptySystemFile("Local Storage/leveldb/LOCK", "desktop")).toBe(true);
+    expect(isRecognizedEmptySystemFile("Local Storage/leveldb/LOCK", "ralphy")).toBe(false);
+    expect(isRecognizedEmptySystemFile("unknown.empty", "ralphy")).toBe(false);
+    expect(isRecognizedEmptySystemFile("references/clip/source_re.mp4", "ralphy")).toBe(false);
   });
 });
 

@@ -1,12 +1,15 @@
 import { PassThrough } from "node:stream";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
 import { createBridgeMethods } from "../../cli/lib/bridge/methods.js";
 import { runBridge } from "../../cli/lib/bridge/server.js";
+import { latestActivitySequence } from "../../cli/lib/store/activity.js";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
 import { createWorkspace } from "../../cli/lib/store/scopes.js";
 import { createProject } from "../../cli/lib/store/scopes.js";
+import { installConsumer, prepareConsumer } from "../helpers/consumer-auth.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 
 let root: TmpRoot;
@@ -14,6 +17,7 @@ const bridgeKeyProvider = {
   lookupKey: async () => Buffer.alloc(32, 19),
   createKey: async () => Buffer.alloc(32, 19),
 };
+const repoRoot = path.resolve(import.meta.dir, "../..");
 
 afterEach(() => {
   closeDomainDb();
@@ -60,6 +64,32 @@ describe("stdio bridge", () => {
     expect(output.trim().split("\n")).toHaveLength(1);
   });
 
+  test("CLI bridge opens a root with multiple Workspaces without inferring scope", () => {
+    root = makeTmpRoot("ralphy-bridge-multi-workspace");
+    createWorkspace({ slug: "first", name: "First" });
+    createWorkspace({ slug: "second", name: "Second" });
+    closeDomainDb();
+
+    const result = spawnSync(process.execPath, [
+      path.join(repoRoot, "cli/index.ts"),
+      "bridge",
+      "--stdio",
+      "--root",
+      path.join(root.dir, ".ralphy"),
+    ], {
+      cwd: root.dir,
+      encoding: "utf8",
+      input: '{"v":1,"id":"hello","method":"system.hello"}\n',
+    });
+
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout.trim())).toMatchObject({
+      id: "hello",
+      ok: true,
+      result: { startup: { state: "ready", migration: "complete" } },
+    });
+  });
+
   test("does not expose the superseded Farm migration map", async () => {
     root = makeTmpRoot("ralphy-bridge-no-farm-map");
     createWorkspace({ slug: "primary", name: "Primary" });
@@ -90,9 +120,11 @@ describe("stdio bridge", () => {
     expect(responses.some((response) => response.id === null && response.error?.code === "E_PROTOCOL_INVALID")).toBe(true);
   });
 
-  test("drains the subscription acknowledgement before activity events", async () => {
+  test("globally resumes activity while authenticated reads stay scoped", async () => {
     root = makeTmpRoot("ralphy-bridge-activity");
-    const workspace = createWorkspace({ slug: "primary", name: "Primary" });
+    const first = createWorkspace({ slug: "first", name: "First" });
+    const second = createWorkspace({ slug: "second", name: "Second" });
+    const afterSequence = latestActivitySequence();
     const stdin = new PassThrough();
     const stdout = new PassThrough();
     const lines: string[] = [];
@@ -104,25 +136,139 @@ describe("stdio bridge", () => {
     });
     const server = runBridge({ dataRoot: `${root.dir}/.ralphy`, input: stdin, output: stdout });
     stdin.write('{"v":1,"id":"hello","method":"system.hello"}\n');
-    stdin.write('{"v":1,"id":"sub","method":"activity.subscribe","params":{"subscriptionId":"s1","afterSequence":1}}\n');
+    stdin.write(`${JSON.stringify({
+      v: 1,
+      id: "sub",
+      method: "activity.subscribe",
+      params: { subscriptionId: "s1", afterSequence },
+    })}\n`);
     await new Promise<void>((resolve) => {
       if (lines.length >= 2) resolve();
       else resolveLines = resolve;
     });
-    createProject({ workspaceId: workspace.id, slug: "activity", name: "Activity" });
+    createProject({ workspaceId: first.id, slug: "first-project", name: "First Project" });
+    createProject({ workspaceId: second.id, slug: "second-project", name: "Second Project" });
     await new Promise<void>((resolve) => {
       const check = () => {
-        if (lines.length >= 3) resolve();
+        if (lines.length >= 4) resolve();
         else setTimeout(check, 10);
       };
       check();
     });
     stdin.end();
     await server;
-    const events = lines.map((line) => JSON.parse(line) as { event?: string; id?: string; sequence?: number });
-    expect(events[1]?.id).toBe("sub");
-    expect(events[2]?.event).toBe("activity");
-    expect(events[2]?.sequence).toBeGreaterThan(1);
+    const frames = lines.map((line) => JSON.parse(line) as {
+      event?: string;
+      id?: string;
+      sequence?: number;
+    });
+    const subscriptionSequences = frames
+      .filter((frame) => frame.event === "activity")
+      .map((frame) => frame.sequence!);
+    expect(frames[1]?.id).toBe("sub");
+    expect(subscriptionSequences).toHaveLength(2);
+
+    const methods = createBridgeMethods({ dataRoot: `${root.dir}/.ralphy` });
+    const trusted = {
+      consumerSessions: new Set<string>(),
+      activitySubscriptions: new Map<string, { sequence: number; ready: boolean }>(),
+      helloComplete: true,
+      markHello() {},
+      setAuthority() {},
+    };
+    const firstPage = await methods.get("activity.list")!.handle({
+      afterSequence,
+      limit: 1,
+    }, trusted) as { items: { sequence: number }[]; nextCursor: number | null };
+    const secondPage = await methods.get("activity.list")!.handle({
+      afterSequence: firstPage.nextCursor,
+      limit: 1,
+    }, trusted) as { items: { sequence: number }[]; nextCursor: number | null };
+    expect([...firstPage.items, ...secondPage.items].map((item) => item.sequence))
+      .toEqual(subscriptionSequences);
+    expect(secondPage.items[0]!.sequence).toBeGreaterThan(firstPage.items[0]!.sequence);
+
+    const consumer = installConsumer(root);
+    const authenticated = { ...trusted, authority: consumer.authority };
+    expect(() => methods.get("activity.list")!.handle({
+      afterSequence,
+      limit: 10,
+    }, authenticated)).toThrow(/scope|context/i);
+    expect(() => methods.get("activity.subscribe")!.handle({
+      subscriptionId: "authenticated",
+      afterSequence,
+    }, authenticated)).toThrow(/trusted|authenticated/i);
+    const scoped = await methods.get("activity.list")!.handle({
+      context: { workspaceId: first.id },
+      afterSequence,
+      limit: 10,
+    }, authenticated) as { items: { workspaceId: string | null }[] };
+    expect(scoped.items).toHaveLength(1);
+    expect(scoped.items[0]!.workspaceId).toBe(first.id);
+  });
+
+  test("does not authenticate a connection while its trusted-root activity subscription exists", async () => {
+    root = makeTmpRoot("ralphy-bridge-activity-auth-transition");
+    const workspace = createWorkspace({ slug: "primary", name: "Primary" });
+    const consumer = prepareConsumer(root);
+    const stdin = new PassThrough();
+    const stdout = new PassThrough();
+    const lines: string[] = [];
+    let buffered = "";
+    stdout.on("data", (chunk: Buffer) => {
+      buffered += chunk.toString("utf8");
+      const parts = buffered.split("\n");
+      buffered = parts.pop()!;
+      lines.push(...parts.filter(Boolean));
+    });
+    const frames = () => lines.map((line) => JSON.parse(line) as {
+      id?: string;
+      ok?: boolean;
+      event?: string;
+    });
+    const waitFor = async (id: string): Promise<void> => {
+      const deadline = Date.now() + 2_000;
+      while (!frames().some((frame) => frame.id === id)) {
+        if (Date.now() > deadline) throw new Error(`Timed out waiting for ${id}`);
+        await Bun.sleep(5);
+      }
+    };
+    const server = runBridge({ dataRoot: `${root.dir}/.ralphy`, input: stdin, output: stdout });
+
+    stdin.write('{"v":1,"id":"hello","method":"system.hello"}\n');
+    await waitFor("hello");
+    stdin.write(`${JSON.stringify({
+      v: 1,
+      id: "sub",
+      method: "activity.subscribe",
+      params: { subscriptionId: "root", afterSequence: latestActivitySequence() },
+    })}\n`);
+    await waitFor("sub");
+    stdin.write(`${JSON.stringify({
+      v: 1,
+      id: "auth-blocked",
+      method: "consumer.authenticate",
+      params: { namespace: consumer.namespace, tokenBase64url: consumer.token },
+    })}\n`);
+    await waitFor("auth-blocked");
+    expect(frames().find((frame) => frame.id === "auth-blocked")?.ok).toBe(false);
+
+    stdin.write('{"v":1,"id":"unsub","method":"activity.unsubscribe","params":{"subscriptionId":"root"}}\n');
+    await waitFor("unsub");
+    stdin.write(`${JSON.stringify({
+      v: 1,
+      id: "auth",
+      method: "consumer.authenticate",
+      params: { namespace: consumer.namespace, tokenBase64url: consumer.token },
+    })}\n`);
+    await waitFor("auth");
+    expect(frames().find((frame) => frame.id === "auth")?.ok).toBe(true);
+
+    createProject({ workspaceId: workspace.id, slug: "after-auth", name: "After Auth" });
+    await Bun.sleep(100);
+    stdin.end();
+    await server;
+    expect(frames().filter((frame) => frame.event === "activity")).toEqual([]);
   });
 
   test("rejects migration secrets without Desktop authorization and never returns their values", async () => {
