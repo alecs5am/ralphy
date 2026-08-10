@@ -14,6 +14,7 @@ import { openrouterConnector } from "../../cli/lib/providers/openrouter.js";
 import { falConnector } from "../../cli/lib/providers/fal.js";
 import type { GenerateImageInput } from "../../cli/lib/providers/types.js";
 import { artifactOut } from "../../cli/lib/artifact-production.js";
+import { readGenerationInput } from "../../cli/lib/generation-input.js";
 import { listArtifactRevisions, listArtifacts, listArtifactUsages } from "../../cli/lib/store/artifacts.js";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
 import { listRunAttempts, listRuns } from "../../cli/lib/store/runs.js";
@@ -138,6 +139,26 @@ describe("generation domain persistence", () => {
     const runs = listRuns({ context, limit: 10 }).items;
     expect(runs).toHaveLength(2);
     expect(runs.map((run) => run.state)).toEqual(["succeeded", "succeeded"]);
+    const inputs = runs.map((run) => generationAttemptInput(run.id))
+      .sort((a, b) => a!.texts[0]!.value.localeCompare(b!.texts[0]!.value));
+    expect(inputs).toEqual([
+      {
+        version: 1,
+        texts: [{ role: "prompt", value: "first fixture", truncated: false }],
+        parameters: [
+          { name: "size", value: "1080x1920" },
+          { name: "referenceCount", value: 0 },
+        ],
+      },
+      {
+        version: 1,
+        texts: [{ role: "prompt", value: "second fixture", truncated: false }],
+        parameters: [
+          { name: "size", value: "1080x1920" },
+          { name: "referenceCount", value: 0 },
+        ],
+      },
+    ]);
     expect(fs.existsSync(path.join(legacyProjectDir, "asset-manifest.json"))).toBe(false);
     expect(fs.existsSync(path.join(legacyProjectDir, "logs", "generations.jsonl"))).toBe(false);
   });
@@ -630,6 +651,13 @@ function persistedGenerationPayloads(): unknown[] {
     UNION ALL SELECT payload_json FROM activity_events
   `).all();
   return rows.flatMap((row) => row.value === null ? [] : [JSON.parse(row.value)]);
+}
+
+function generationAttemptInput(runId: string) {
+  const row = openDomainDb().query<{ request: string | null }, [string]>(
+    "SELECT request_json AS request FROM run_attempts WHERE run_id = ?",
+  ).get(runId);
+  return readGenerationInput(JSON.parse(row?.request ?? "null"));
 }
 
 function persistedGenerationText(): string {
