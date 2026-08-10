@@ -44,3 +44,31 @@ Result: exit 0; `39 pass`, `0 fail`, `378 expect()` calls; diff check clean.
 ## Concerns
 
 None. The full Core gate remains Task 4's responsibility as specified.
+
+## Fix round 1
+
+Review findings fixed:
+
+- Attempt cursors are decoded after immutable-target authorization and before zero-producer, ambiguous, non-generation, or Run-detail returns.
+- Authorized Artifact Revision targets count distinct producer Run IDs globally with `LIMIT 2`, independently of consumer-principal Run visibility.
+- A sole producer is visibility-checked before exposing Run or Attempt facts; an invisible sole producer returns `unknown/not-recorded`.
+
+RED command:
+
+```text
+bun test tests/integration/domain-run-queries.test.ts -t "media generation"
+```
+
+RED result: exit 1, `5 pass`, `2 fail`. A wrong-family cursor returned `unknown/not-recorded`, and consumer A received a concrete generation Run instead of `unknown/ambiguous`.
+
+Focused GREEN result: exit 0, `7 pass`, `0 fail`, `51 expect()` calls.
+
+Final verification:
+
+```text
+bunx tsc --noEmit
+bun test tests/integration/domain-run-queries.test.ts tests/integration/domain-query-surfaces.test.ts
+git diff --check -- cli/lib/store/runs.ts tests/integration/domain-run-queries.test.ts
+```
+
+Result: exit 0; `40 pass`, `0 fail`, `387 expect()` calls; diff check clean.

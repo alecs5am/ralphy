@@ -838,6 +838,128 @@ describe("media generation detail", () => {
       target: { type: "artifact-revision", id: nonGeneration.revision.id },
       producer: renderRun,
     });
+
+    const invalidCursors = [
+      {
+        after: encodeCursor("c1", { ordinal: 0, id: "attempt_test" }),
+        message: "Cursor family is invalid",
+      },
+      { after: "p1.!", message: "Cursor is malformed" },
+    ];
+    for (const id of [
+      absent.revision.id,
+      ambiguous.revision.id,
+      nonGeneration.revision.id,
+    ]) {
+      for (const invalid of invalidCursors) {
+        expect(() => getMediaGenerationDetail({
+          context,
+          target: { type: "artifact-revision", id },
+          after: invalid.after,
+          limit: 20,
+        })).toThrow(invalid.message);
+      }
+    }
+  });
+
+  test("counts Artifact Revision producers before consumer Run visibility", async () => {
+    root = makeTmpRoot("ralphy-media-generation-consumer-ambiguity");
+    const workspace = createWorkspace({ slug: "client", name: "Client" });
+    const project = createProject({
+      workspaceId: workspace.id,
+      slug: "campaign",
+      name: "Campaign",
+    });
+    const ambiguous = await addMediaRevision({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      slug: "ambiguous-consumer",
+    });
+    const soleInvisible = await addMediaRevision({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      slug: "sole-invisible",
+    });
+    const consumerA = installConsumer(root, {
+      id: "consumer_a",
+      namespace: "consumer-a",
+      tokenByte: 1,
+    });
+    const consumerB = installConsumer(root, {
+      id: "consumer_b",
+      namespace: "consumer-b",
+      tokenByte: 2,
+    });
+    const sessionA = startConsumerSession(consumerA.authority, {
+      workspaceId: workspace.id,
+      projectId: project.id,
+    });
+    const sessionB = startConsumerSession(consumerB.authority, {
+      workspaceId: workspace.id,
+      projectId: project.id,
+    });
+    const internal = startRun({ projectId: project.id, kind: "generation" });
+    const external = startConsumerOperationRun(consumerA.authority, {
+      sessionId: sessionA.id,
+      workspaceId: workspace.id,
+      projectId: project.id,
+      kind: "generation",
+      external: {
+        runId: "consumer-a-generation",
+        nodeId: "image-node",
+        attempt: 1,
+        operation: "generation",
+        idempotencyKey: "fixture",
+      },
+      requestDigest: requestDigest({ prompt: "safe digest input" }),
+    }).run;
+    for (const runId of [internal.id, external.id]) {
+      recordRunResult(openDomainDb(), {
+        runId,
+        position: 0,
+        entityType: "artifact_revision",
+        entityId: ambiguous.revision.id,
+      });
+    }
+    recordRunResult(openDomainDb(), {
+      runId: external.id,
+      position: 1,
+      entityType: "artifact_revision",
+      entityId: soleInvisible.revision.id,
+    });
+    const target = {
+      type: "artifact-revision" as const,
+      id: ambiguous.revision.id,
+    };
+
+    for (const [sessionId, consumerAuthority] of [
+      [sessionA.id, consumerA.authority],
+      [sessionB.id, consumerB.authority],
+    ] as const) {
+      expect(getMediaGenerationDetail({
+        context: { sessionId, consumerAuthority },
+        target,
+        limit: 20,
+      })).toEqual({ status: "unknown", target, reason: "ambiguous" });
+    }
+    expect(getMediaGenerationDetail({
+      context: {
+        sessionId: sessionB.id,
+        consumerAuthority: consumerB.authority,
+      },
+      target: {
+        type: "artifact-revision",
+        id: soleInvisible.revision.id,
+      },
+      limit: 20,
+    })).toEqual({
+      status: "unknown",
+      target: {
+        type: "artifact-revision",
+        id: soleInvisible.revision.id,
+      },
+      reason: "not-recorded",
+    });
   });
 
   test("does not enumerate missing, sibling, or foreign immutable targets", async () => {

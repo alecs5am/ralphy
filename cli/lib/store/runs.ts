@@ -1182,7 +1182,12 @@ export function getMediaGenerationDetail(input: {
   const target = checkedMediaGenerationTarget(input.target);
   const db = openDomainDb();
   return db.transaction((): MediaGenerationDetailDto => {
-    const producerIds = resolveMediaProducerIds(db, input.context, target);
+    const { producerIds, access } = resolveMediaProducerIds(
+      db,
+      input.context,
+      target,
+    );
+    const cursor = input.after == null ? null : decodeCursor("p1", input.after);
     if (producerIds.length === 0) {
       return { status: "unknown", target, reason: "not-recorded" };
     }
@@ -1190,15 +1195,15 @@ export function getMediaGenerationDetail(input: {
       return { status: "unknown", target, reason: "ambiguous" };
     }
 
-    const access = resolveRunQueryAccess(db, input.context);
     const runRow = getVisibleRunDtoRow(db, access, producerIds[0]!);
-    if (!runRow) throw mediaTargetNotFound(target);
+    if (!runRow) {
+      return { status: "unknown", target, reason: "not-recorded" };
+    }
     const run = toRunDto(runRow);
     if (run.kind !== "generation" && !run.kind.startsWith("generate.")) {
       return { status: "not-generation", target, producer: run };
     }
 
-    const cursor = input.after == null ? null : decodeCursor("p1", input.after);
     const rows = db.query<GenerationAttemptDetailDbRow, (string | number)[]>(
       `SELECT ${ATTEMPT_DTO_COLUMNS}, attempt.request_json
        FROM run_attempts AS attempt
@@ -1623,7 +1628,10 @@ function resolveMediaProducerIds(
   db: Database,
   context: QueryContext,
   target: MediaGenerationTarget,
-): string[] {
+): {
+  producerIds: string[];
+  access: { sql: string; values: (string | number)[] };
+} {
   if (target.type === "artifact-revision") {
     const scope = resolveQueryContext(db, context);
     const visibility = scopeVisibilityClause(
@@ -1640,14 +1648,14 @@ function resolveMediaProducerIds(
     if (!revision) throw mediaTargetNotFound(target);
 
     const access = resolveRunQueryAccess(db, context);
-    return db.query<{ runId: string }, (string | number)[]>(
+    const producerIds = db.query<{ runId: string }, [string]>(
       `SELECT DISTINCT result.run_id AS runId
        FROM run_results AS result
-       JOIN runs AS run ON run.id = result.run_id
        WHERE result.entity_type = 'artifact_revision'
-         AND result.entity_id = ? AND ${access.sql}
+         AND result.entity_id = ?
        ORDER BY result.run_id ASC LIMIT 2`,
-    ).all(target.id, ...access.values).map((row) => row.runId);
+    ).all(target.id).map((row) => row.runId);
+    return { producerIds, access };
   }
 
   const access = resolveRunQueryAccess(db, context);
@@ -1658,7 +1666,7 @@ function resolveMediaProducerIds(
      WHERE run_object.id = ? AND ${access.sql}`,
   ).get(target.id, ...access.values);
   if (!row) throw mediaTargetNotFound(target);
-  return [row.runId];
+  return { producerIds: [row.runId], access };
 }
 
 function mediaTargetNotFound(target: MediaGenerationTarget): Error {
