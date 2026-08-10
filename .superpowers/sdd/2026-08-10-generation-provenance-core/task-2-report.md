@@ -40,3 +40,8 @@ None. No schema, dependency, migration, bridge, Desktop, or live `.ralphy` chang
 - Final gate: `bun test tests/unit/generation-input.test.ts tests/integration/cli-generation-domain.test.ts tests/integration/cli-generate-captions.test.ts` — 28 passing, 0 failing, 624 assertions.
 - Matrix covers canonical and omitted image sizes, image negative/reference, video reference/video-reference/frame/image/audio fields, voice settings without the voice ID, music retry provenance, SFX, and captions language/backend.
 - `git diff --check` and staged `gitleaks protect --staged --redact` passed for the closeout report.
+
+## Round 4
+
+- The exact matrix now supplies a literal data URI alongside file references and sets `TASK2_MATRIX_SECRET_KEY` for its exercised ElevenLabs commands; decoded attempt request JSON excludes both sentinels.
+- Final focused gate: 28 passing, 0 failing, 624 assertions. Diff and staged gitleaks checks passed.
