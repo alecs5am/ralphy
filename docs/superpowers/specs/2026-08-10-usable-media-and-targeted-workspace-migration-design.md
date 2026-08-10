@@ -125,6 +125,12 @@ The inspector shows, when available:
 - prompt, text, and negative prompt as escaped plain text;
 - a closed set of safe generation parameters.
 
+An Artifact without a selected revision is not a dead end. The modal uses the
+existing scoped `media.revisions` and null-aware `media.select` contracts to
+show its revisions and let the user choose one. Successful selection refreshes
+the card, preview, and provenance; a conflict reloads the current revisions and
+does not retry the mutation automatically.
+
 Long user-authored text is collapsed with Show full and Copy. Historical
 values that were never stored render as `Not recorded`; null cost is unknown,
 never `$0.00`.
