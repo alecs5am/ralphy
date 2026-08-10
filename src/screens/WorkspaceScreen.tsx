@@ -123,14 +123,13 @@ function WorkspaceOverview({
             return catalogProject ? <button className="workspace-project-card" type="button" key={project.id} onClick={() => onOpenProject(catalogProject)}>{content}</button> : <article className="workspace-project-card" key={project.id}>{content}</article>;
           })}</div>
         ) : (
-          <div className="project-table" role="table" aria-label="Projects">
-            <div className="project-table-head" role="row"><span>Name</span><span>State</span><span>Updated</span><span /></div>
+          <ul className="project-table workspace-project-list" aria-label="Projects">
             {value.projects.items.map((project) => {
               const catalogProject = catalogProjectForOverview(catalogProjects, project);
               const content = <><span className="project-name-cell"><strong>{project.name}</strong><small>{project.slug}</small></span><span><i className="status-dot" />{project.state}</span><span>{formatTime(project.updatedAt)}</span>{catalogProject && <ArrowRight size={14} aria-hidden="true" />}</>;
-              return catalogProject ? <button className="project-table-row" type="button" role="row" key={project.id} onClick={() => onOpenProject(catalogProject)}>{content}</button> : <div className="project-table-row" role="row" key={project.id}>{content}</div>;
+              return <li key={project.id}>{catalogProject ? <button className="project-table-row" type="button" onClick={() => onOpenProject(catalogProject)}>{content}</button> : <div className="project-table-row">{content}</div>}</li>;
             })}
-          </div>
+          </ul>
         )}
       </section>
       <BoundedSection<UnitDto> title="Units" page={value.units} empty="No units returned.">

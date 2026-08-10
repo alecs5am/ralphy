@@ -1173,6 +1173,8 @@ button.sidebar-nav-row:hover {
   overflow-y: auto;
   padding: 30px 32px 48px;
   background: var(--canvas);
+  container-name: main-region;
+  container-type: inline-size;
 }
 
 .screen-header {
@@ -1204,7 +1206,8 @@ button.sidebar-nav-row:hover {
   font-size: var(--text-base);
 }
 
-.command-button {
+.command-button,
+.project-local-error button {
   display: inline-flex;
   min-height: var(--control-md);
   flex: none;
@@ -1219,13 +1222,16 @@ button.sidebar-nav-row:hover {
   font-size: var(--text-sm);
 }
 
-.command-button:hover {
+.command-button:hover,
+.project-local-error button:hover {
   border: 0;
   background: var(--selected);
 }
 
-.command-button:focus-visible {
-  box-shadow: inset 0 0 0 1px var(--line-strong);
+.command-button:focus-visible,
+.project-local-error button:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: -2px;
 }
 
 .command-button.is-error {
@@ -1244,6 +1250,16 @@ button.sidebar-nav-row:hover {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin: 0 auto 30px;
   border-block: 1px solid var(--line);
+}
+
+@container main-region (max-width: 650px) {
+  .metrics-band {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metric:nth-child(even) {
+    border-right: 0;
+  }
 }
 
 .metric {
@@ -1365,6 +1381,12 @@ button.sidebar-nav-row:hover {
 .workspace-projects .project-table-head,
 .workspace-projects .project-table-row {
   grid-template-columns: minmax(180px, 1fr) minmax(90px, 0.35fr) minmax(150px, 0.5fr) 18px;
+}
+
+.workspace-project-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .workspace-project-card {
@@ -2016,7 +2038,8 @@ button.workspace-project-card:hover {
 .view-segments button:focus-visible,
 .composition-revisions button:focus-visible,
 .filter-chip:focus-visible {
-  box-shadow: inset 0 0 0 1px var(--line-strong);
+  outline: 2px solid var(--fg);
+  outline-offset: -2px;
 }
 
 .project-domain-list span,
@@ -2085,7 +2108,8 @@ button.workspace-project-card:hover {
 
 .document-search input:focus-visible,
 .document-editor:focus-visible {
-  box-shadow: inset 0 0 0 1px var(--line-strong);
+  outline: 2px solid var(--fg);
+  outline-offset: -2px;
 }
 
 .project-preview img,
@@ -2236,19 +2260,6 @@ button.workspace-project-card:hover {
   text-align: center;
 }
 
-.project-local-error button,
-.load-more {
-  display: inline-flex;
-  min-height: var(--control-sm);
-  align-items: center;
-  gap: 6px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
-  background: var(--raised);
-  color: var(--fg-2);
-}
-
 .load-more {
   margin: 14px;
 }
@@ -2328,6 +2339,38 @@ button.workspace-project-card:hover {
   flex: 1;
   overflow: auto;
   padding: 16px;
+}
+
+.project-domain-body.is-media {
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+}
+
+.project-domain-body.is-media .media-domain-toolbar {
+  flex: none;
+}
+
+.project-domain-body.is-media .project-split-view {
+  min-height: 0;
+  flex: 1;
+}
+
+.project-domain-body.is-media .project-media-grid,
+.project-domain-body.is-media .asset-grid-scroll {
+  min-height: 0;
+}
+
+.project-domain-body.is-media .asset-grid-scroll {
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.project-domain-body.is-media .project-preview {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .virtual-grid-space {

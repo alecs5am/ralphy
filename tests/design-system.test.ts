@@ -1,6 +1,15 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
+import type { MediaCardDto, WorkspaceOverviewDto } from "../electron/ralphy/types";
+import type { ProjectSummary } from "../src/lib/ipc";
+import { ProjectScreenView, createProjectScreenController } from "../src/screens/ProjectScreen";
+import { WorkspaceScreenView, createWorkspaceScreenController } from "../src/screens/WorkspaceScreen";
 
 const styles = ["reset.css", "tokens.css", "app.css", "workbench.css"]
   .map((file) => readFileSync(join(process.cwd(), "src/styles", file), "utf8"))
@@ -10,43 +19,162 @@ const workbenchStyles = readFileSync(
   "utf8",
 );
 
-function computedDeclarations(source: string, selector: string): Record<string, string> {
-  const declarations: Record<string, string> = {};
-  const clean = source.replace(/\/\*[\s\S]*?\*\//g, "");
-  for (const rule of clean.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    if (!rule[1]!.split(",").some((candidate) => candidate.trim() === selector)) continue;
-    for (const declaration of rule[2]!.split(";")) {
-      const separator = declaration.indexOf(":");
-      if (separator < 0) continue;
-      declarations[declaration.slice(0, separator).trim()] = declaration.slice(separator + 1).trim();
-    }
-  }
-  return declarations;
+const project: ProjectSummary = {
+  id: "workspace-1/project-1", workspaceId: "workspace-1", projectId: "project-1", name: "Launch",
+  brief: "Launch campaign", status: "active", phase: "production", finalState: "working", platform: null,
+  aspectRatio: null, spendUsd: null, finalCount: 0, sharedCount: 0, unitCount: 0,
+  recentActivity: "2026-08-02T00:00:00.000Z",
+};
+
+const mediaCard: MediaCardDto = {
+  ref: { type: "run-object", id: "run-object-1" }, workspaceId: "workspace-1", projectId: "project-1",
+  runId: "run-1", purpose: "diagnostic-log", state: "ready", retention: "cache", mime: "text/plain",
+  bytes: 128, createdAt: 1, objectId: null, logicalPath: "runs/run-1/diagnostics.txt", locationClass: "cache",
+  attemptId: null, attemptNo: null, target: { type: "run-object", id: "run-object-1" },
+};
+
+async function activeScreenMarkup(): Promise<{ workspace: string; media: string }> {
+  const workspaceValue = {
+    workspace: { id: "workspace-1", slug: "launch", name: "Launch Studio", rowVersion: 1, createdAt: 1, updatedAt: 2 },
+    projects: { items: [{ id: "project-1", workspaceId: "workspace-1", slug: "launch", name: "Launch", state: "active", rowVersion: 1, createdAt: 1, updatedAt: 2 }], nextCursor: null },
+    metrics: { publicationCount: 12, views: 1234567, likes: 23456, comments: 3456, shares: 456, watchTimeMs: 987654321 },
+  } satisfies WorkspaceOverviewDto;
+  const workspaceController = createWorkspaceScreenController(
+    { loadWorkspaceOverview: async () => workspaceValue },
+    "workspace-1",
+  );
+  await workspaceController.start();
+  const workspace = renderToStaticMarkup(createElement(WorkspaceScreenView, {
+    controller: workspaceController,
+    snapshot: workspaceController.getSnapshot(),
+    catalogProjects: [project],
+    view: "list",
+    onViewChange: () => undefined,
+    onOpenProject: () => undefined,
+  }));
+
+  const projectController = createProjectScreenController({
+    loadProjectOverview: async () => ({ project: { id: "project-1", workspaceId: "workspace-1", slug: "launch", name: "Launch", purpose: null, state: "active", rowVersion: 1, createdAt: 1, updatedAt: 2 } }),
+    loadProjectPage: async () => ({ items: [mediaCard], nextCursor: "next-page" }),
+    loadProjectMediaCard: async () => mediaCard,
+    loadDocumentPreview: async () => ({ revisionId: "revision-1", format: "text", text: "", truncated: false }),
+    searchProjectDocuments: async () => ({ items: [], nextCursor: null }),
+    showProjectDocument: async () => { throw new Error("Not used"); },
+    reviseProjectDocument: async () => { throw new Error("Not used"); },
+    resolveProjectPreview: async () => null,
+    loadProjectGeneration: async (_project, target) => ({ status: "unknown" as const, target, reason: "not-recorded" as const }),
+    loadProjectMediaRevisions: async () => ({ items: [], nextCursor: null }),
+    selectProjectMediaRevision: async () => { throw new Error("Not used"); },
+  }, project);
+  await projectController.selectTab("media");
+  await projectController.openMedia(mediaCard);
+  const media = renderToStaticMarkup(createElement(ProjectScreenView, {
+    project,
+    controller: projectController,
+    snapshot: projectController.getSnapshot(),
+  }));
+  return { workspace, media };
 }
 
-function declaredValues(source: string, selector: string, property: string): string[] {
-  const values: string[] = [];
-  const clean = source.replace(/\/\*[\s\S]*?\*\//g, "");
-  for (const rule of clean.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    if (!rule[1]!.split(",").some((candidate) => candidate.trim() === selector)) continue;
-    for (const declaration of rule[2]!.split(";")) {
-      const separator = declaration.indexOf(":");
-      if (separator >= 0 && declaration.slice(0, separator).trim() === property) {
-        values.push(declaration.slice(separator + 1).trim());
-      }
-    }
-  }
-  return values;
-}
+type GeometryResult = {
+  screen: "workspace" | "media";
+  width: number;
+  height: number;
+  overflows: string[];
+  metricColumns: number | null;
+  mediaScrollOwners: string[];
+  nestedMediaScroll: boolean;
+  mediaInsets: number[];
+  focus: { width: number; contrast: number } | null;
+};
 
-function activeSurfaceViolations(source: string): string[] {
-  const violations: string[] = [];
-  const list = computedDeclarations(source, ".project-domain-list");
-  const rows = computedDeclarations(source, ".project-domain-list > article");
-  if (source.includes("var(--surface)")) violations.push("undefined surface token");
-  if (list.border !== "0") violations.push("project list border");
-  if (rows["border-bottom"] !== "0") violations.push("project row border");
-  return violations;
+async function chromiumGeometry(markup: { workspace: string; media: string }): Promise<GeometryResult[]> {
+  const directory = mkdtempSync(join(tmpdir(), "ralphy-geometry-"));
+  try {
+    const links = ["reset.css", "tokens.css", "app.css", "workbench.css"]
+      .map((file) => `<link rel="stylesheet" href="${pathToFileURL(join(process.cwd(), "src/styles", file)).href}">`)
+      .join("");
+    const shell = (screen: string) => `<div class="workbench has-right-panel" style="--sidebar-w:288px;--inspector-w:336px"><aside class="context-sidebar"></aside><section class="main-shell"><header class="main-header"></header><div class="main-content-stage">${screen}</div></section><aside class="utility-right-panel"></aside></div>`;
+    writeFileSync(join(directory, "layout.html"), `<!doctype html><html><head>${links}</head><body><div id="root"></div><template id="workspace">${shell(markup.workspace)}</template><template id="media">${shell(markup.media)}</template></body></html>`);
+    writeFileSync(join(directory, "package.json"), JSON.stringify({ main: "main.cjs" }));
+    writeFileSync(join(directory, "main.cjs"), `
+      const { app, BrowserWindow } = require("electron");
+      app.commandLine.appendSwitch("disable-gpu");
+      app.whenReady().then(async () => {
+        const win = new BrowserWindow({ show: false, width: 1360, height: 860, useContentSize: true });
+        await win.loadFile(${JSON.stringify(join(directory, "layout.html"))});
+        win.webContents.debugger.attach("1.3");
+        await win.webContents.debugger.sendCommand("DOM.enable");
+        await win.webContents.debugger.sendCommand("CSS.enable");
+        const results = [];
+        for (const [width, height] of [[1360, 860], [1100, 720]]) {
+          win.setContentSize(width, height);
+          for (const screen of ["workspace", "media"]) {
+            await win.webContents.executeJavaScript(\`(async () => {
+              const screen = \${JSON.stringify(screen)}, root = document.getElementById("root");
+              root.innerHTML = document.getElementById(screen).innerHTML;
+              if (screen === "media") { const space = root.querySelector(".virtual-grid-space"); if (space) space.style.height = "1600px"; }
+              await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            })()\`);
+            const documentNode = await win.webContents.debugger.sendCommand("DOM.getDocument");
+            const focusNode = await win.webContents.debugger.sendCommand("DOM.querySelector", { nodeId: documentNode.root.nodeId, selector: screen === "media" ? ".filter-chip" : ".project-table-row" });
+            await win.webContents.debugger.sendCommand("CSS.forcePseudoState", { nodeId: focusNode.nodeId, forcedPseudoClasses: ["focus-visible"] });
+            results.push(await win.webContents.executeJavaScript(\`(() => {
+              const screen = \${JSON.stringify(screen)};
+              const root = document.getElementById("root");
+              const selectors = screen === "workspace"
+                ? [".main-region", ".screen-header", ".metrics-band", ".metric", ".workspace-domain-body", ".workspace-projects", ".project-table", ".project-table-row"]
+                : [".main-region", ".project-domain-body", ".media-domain-toolbar", ".project-split-view", ".project-media-grid", ".asset-grid-scroll", ".project-preview"];
+              const overflows = [];
+              for (const selector of selectors) for (const element of root.querySelectorAll(selector)) {
+                if (element.scrollWidth > element.clientWidth + 1) overflows.push(selector + ":" + element.scrollWidth + ">" + element.clientWidth);
+              }
+              const metrics = root.querySelector(".metrics-band");
+              const metricColumns = metrics ? getComputedStyle(metrics).gridTemplateColumns.split(" ").filter(Boolean).length : null;
+              const mediaScrollOwners = [".project-domain-body", ".asset-grid-scroll", ".project-preview"].filter((selector) => {
+                const element = root.querySelector(selector); if (!element) return false;
+                const overflow = getComputedStyle(element).overflowY;
+                return (overflow === "auto" || overflow === "scroll") && element.scrollHeight > element.clientHeight + 1;
+              });
+              const nestedMediaScroll = mediaScrollOwners.some((outer) => mediaScrollOwners.some((inner) => outer !== inner && root.querySelector(outer).contains(root.querySelector(inner))));
+              const mediaInsets = [".project-domain-body", ".asset-grid-scroll"].map((selector) => {
+                const element = root.querySelector(selector); return element ? parseFloat(getComputedStyle(element).paddingLeft) : 0;
+              }).filter((value) => value > 0);
+              const target = root.querySelector(".filter-chip, .command-button, .project-table-row");
+              let focus = null;
+              if (target) {
+                const style = getComputedStyle(target);
+                const color = (value) => { const parts = (value.match(/[\\\\d.]+/g) || []).map(Number); const scale = value.startsWith("color(srgb") ? 255 : 1; return { rgb: parts.slice(0, 3).map((part) => part * scale), alpha: parts[3] ?? 1 }; };
+                const composite = (top, bottom) => ({ rgb: top.rgb.map((part, index) => part * top.alpha + bottom.rgb[index] * (1 - top.alpha)), alpha: top.alpha + bottom.alpha * (1 - top.alpha) });
+                let background = color(style.backgroundColor), parent = target.parentElement;
+                while (background.alpha < 1 && parent) { background = composite(background, color(getComputedStyle(parent).backgroundColor)); parent = parent.parentElement; }
+                const luminance = (parts) => parts.map((part) => part / 255).map((part) => part <= .04045 ? part / 12.92 : ((part + .055) / 1.055) ** 2.4).reduce((sum, part, index) => sum + part * [.2126, .7152, .0722][index], 0);
+                const a = luminance(color(style.outlineColor).rgb), b = luminance(background.rgb);
+                focus = { width: parseFloat(style.outlineWidth), contrast: (Math.max(a, b) + .05) / (Math.min(a, b) + .05) };
+              }
+              return { screen, width: innerWidth, height: innerHeight, overflows, metricColumns, mediaScrollOwners, nestedMediaScroll, mediaInsets, focus };
+            })()\`));
+          }
+        }
+        process.stdout.write("RALPHY_GEOMETRY=" + JSON.stringify(results) + "\\n");
+        app.quit();
+      }).catch((error) => { console.error(error); app.exit(1); });
+    `);
+    const electron = join(process.cwd(), "node_modules", ".bin", "electron");
+    const output = await new Promise<string>((resolve, reject) => {
+      const child = spawn(electron, [directory], { env: { ...process.env, ELECTRON_DISABLE_SECURITY_WARNINGS: "true" } });
+      let stdout = "", stderr = "";
+      child.stdout.on("data", (chunk) => { stdout += chunk; });
+      child.stderr.on("data", (chunk) => { stderr += chunk; });
+      child.once("error", reject);
+      child.once("close", (code) => code === 0 ? resolve(stdout) : reject(new Error(`Electron geometry smoke failed (${code}): ${stderr}`)));
+    });
+    const line = output.split("\n").find((candidate) => candidate.startsWith("RALPHY_GEOMETRY="));
+    if (!line) throw new Error(`Electron geometry smoke returned no results: ${output}`);
+    return JSON.parse(line.slice("RALPHY_GEOMETRY=".length)) as GeometryResult[];
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 }
 const renderer = readdirSync(join(process.cwd(), "src"), {
   recursive: true,
@@ -78,52 +206,27 @@ describe("design system contract", () => {
     expect(styles).toMatch(/\.asset-modal-surface,[\s\S]*corner-shape:\s*squircle/);
   });
 
-  test("computes the active screen surfaces, scroll ownership, and responsive split from current selectors", () => {
-    expect(activeSurfaceViolations(workbenchStyles)).toEqual([]);
+  test("renders active Workspace and Media screens without horizontal overflow or competing scroll in Chromium", async () => {
+    const results = await chromiumGeometry(await activeScreenMarkup());
+
+    expect(results).toHaveLength(4);
+    expect(results.map(({ screen, width, overflows }) => ({ screen, width, overflows })))
+      .toEqual(results.map(({ screen, width }) => ({ screen, width, overflows: [] })));
+    expect(results.find(({ screen, width }) => screen === "workspace" && width === 1100)?.metricColumns).toBe(2);
+    expect(results.filter(({ screen }) => screen === "media").map(({ width, mediaScrollOwners }) => ({ width, mediaScrollOwners })))
+      .toEqual([{ width: 1360, mediaScrollOwners: [".asset-grid-scroll", ".project-preview"] }, { width: 1100, mediaScrollOwners: [".asset-grid-scroll", ".project-preview"] }]);
+    expect(results.filter(({ screen, nestedMediaScroll }) => screen === "media" && nestedMediaScroll)).toEqual([]);
+    expect(results.filter(({ screen }) => screen === "media").map(({ width, mediaInsets }) => ({ width, mediaInsets: mediaInsets.length })))
+      .toEqual([{ width: 1360, mediaInsets: 1 }, { width: 1100, mediaInsets: 1 }]);
+    expect(results.filter(({ focus }) => focus === null || focus.width < 2).map(({ screen, width, focus }) => ({ screen, width, focus }))).toEqual([]);
+    expect(results.filter(({ focus }) => focus === null || focus.contrast < 3).map(({ screen, width, focus }) => ({ screen, width, focus }))).toEqual([]);
+  }, 20_000);
+
+  test("keeps active surfaces borderless and free of the undefined surface token", () => {
     expect(styles).not.toContain("var(--surface)");
-
-    expect(computedDeclarations(workbenchStyles, ".project-domain-card")).toMatchObject({
-      border: "0",
-      background: "transparent",
-    });
-    expect(computedDeclarations(workbenchStyles, ".project-preview")).toMatchObject({
-      border: "0",
-      background: "var(--raised)",
-    });
-    expect(computedDeclarations(workbenchStyles, ".main-region")).toMatchObject({
-      "overflow-x": "hidden",
-      "overflow-y": "auto",
-    });
-    expect(computedDeclarations(workbenchStyles, ".project-region").overflow).toBe("hidden");
-    expect(computedDeclarations(workbenchStyles, ".project-domain-body")).toMatchObject({
-      "overflow-x": "hidden",
-      "overflow-y": "auto",
-    });
-    expect(computedDeclarations(workbenchStyles, ".workbench")["grid-template-columns"])
-      .toBe("var(--sidebar-column) minmax(0, 1fr) var(--right-column)");
-    expect(computedDeclarations(workbenchStyles, ".main-shell")["min-width"]).toBe("0");
-    expect(computedDeclarations(workbenchStyles, ".main-content-stage > *")["min-width"]).toBe("0");
-    expect(declaredValues(workbenchStyles, ".project-split-view", "grid-template-columns"))
-      .toEqual(expect.arrayContaining(["minmax(220px, 0.8fr) minmax(0, 1.2fr)", "minmax(0, 1fr)"]));
-    expect(computedDeclarations(workbenchStyles, ".project-heading h2")).toMatchObject({
-      display: "flex",
-      "align-items": "center",
-    });
-    expect(computedDeclarations(workbenchStyles, ".document-search input:focus-visible")["box-shadow"])
-      .toBe("inset 0 0 0 1px var(--line-strong)");
-    expect(computedDeclarations(workbenchStyles, ".command-button:focus-visible")["box-shadow"])
-      .toBe("inset 0 0 0 1px var(--line-strong)");
-
-    const panelWidths = [
-      { viewport: 1360, sidebar: 288, right: 336 },
-      { viewport: 1100, sidebar: 288, right: 336 },
-      { viewport: 1100, sidebar: 288, right: 0 },
-    ].map(({ viewport, sidebar, right }) => viewport - sidebar - right);
-    expect(panelWidths).toEqual([736, 476, 812]);
-    expect(workbenchStyles).toMatch(
-      /@container project-domain \(max-width:\s*700px\)[\s\S]*\.project-split-view\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/,
-    );
-    expect(workbenchStyles).toMatch(/@container workspace-domain \(max-width:\s*600px\)/);
+    expect(workbenchStyles).not.toMatch(/\.project-domain-list\s*\{[^}]*border:\s*1px/s);
+    expect(workbenchStyles).toMatch(/\.project-domain-list\s*\{[^}]*border:\s*0/s);
+    expect(workbenchStyles).toMatch(/\.project-domain-list > article\s*\{[^}]*border-bottom:\s*0/s);
     expect(styles).toMatch(/\.project-preview,[\s\S]*corner-shape:\s*squircle/);
   });
 
@@ -131,8 +234,13 @@ describe("design system contract", () => {
     const borderMutation = `${workbenchStyles}\n.project-domain-list { border: 1px solid var(--line); }`;
     const surfaceMutation = `${workbenchStyles}\n.project-preview { background: var(--surface); }`;
 
-    expect(activeSurfaceViolations(borderMutation)).toContain("project list border");
-    expect(activeSurfaceViolations(surfaceMutation)).toContain("undefined surface token");
+    expect(borderMutation).toMatch(/\.project-domain-list\s*\{[^}]*border:\s*1px/s);
+    expect(surfaceMutation).toContain("var(--surface)");
+  });
+
+  test("uses one squircle command style without a stale pill override", () => {
+    expect(workbenchStyles).not.toMatch(/\.project-local-error button,\s*\.load-more\s*\{/);
+    expect(workbenchStyles).not.toMatch(/\.load-more\s*\{[^}]*border-radius/s);
   });
 
   test("resets browser chrome without applying a global accent focus ring", () => {

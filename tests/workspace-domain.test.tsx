@@ -241,6 +241,28 @@ describe("Workspace screen", () => {
     }
   });
 
+  test("keeps Workspace list navigation as native list items and buttons", async () => {
+    const controller = createWorkspaceScreenController(
+      { loadWorkspaceOverview: vi.fn(async () => populatedOverview) },
+      "workspace-1",
+    );
+    await controller.start();
+
+    const markup = renderToStaticMarkup(<WorkspaceScreenView
+      controller={controller}
+      snapshot={controller.getSnapshot()}
+      catalogProjects={[catalogProject]}
+      view="list"
+      onViewChange={() => undefined}
+      onOpenProject={() => undefined}
+    />);
+
+    expect(markup).toContain('<ul class="project-table workspace-project-list" aria-label="Projects">');
+    expect(markup).toMatch(/<li><button class="project-table-row" type="button">/);
+    expect(markup).not.toContain('role="row"');
+    expect(markup).not.toContain('role="table"');
+  });
+
   test("ignores a late completion after disposal", async () => {
     const pending = deferred<WorkspaceOverviewDto>();
     const controller = createWorkspaceScreenController({ loadWorkspaceOverview: () => pending.promise }, "workspace-1");
