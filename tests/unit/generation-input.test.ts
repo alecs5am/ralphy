@@ -14,7 +14,7 @@ describe("generation input projection", () => {
   });
 
   test("canonicalizes every connector-supported positive size spelling", () => {
-    for (const [value, expected] of [["1024 X 1024", "1024x1024"], ["1024 x 1024", "1024x1024"], ["1x1", "1x1"]]) {
+    for (const [value, expected] of [["1024 X 1024", "1024x1024"], ["1024 x 1024", "1024x1024"], ["1x1", "1x1"], ["100000000000000000000000000000x1", "100000000000000000000000000000x1"]]) {
       expect(generationInput([], [{ name: "size", value }])).toMatchObject({
         parameters: [{ name: "size", value: expected }],
       });
