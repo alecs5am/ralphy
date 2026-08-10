@@ -1,4 +1,4 @@
-import type { DocumentDetailDto, DocumentDto, DocumentSearchDto, JsonValue, MediaCardDto } from "../../electron/ralphy/types";
+import type { ArtifactMediaCardDto, ArtifactRevisionDto, DocumentDetailDto, DocumentDto, DocumentSearchDto, JsonValue, MediaCardDto, MediaGenerationDetailDto, MediaGenerationTarget } from "../../electron/ralphy/types";
 import type { CompositionAggregate, CompositionOutputPreview } from "../../electron/ralphy/project-reader";
 import type { MediaWorkbenchBridge, ProjectMediaFilter, ProjectSummary, ProjectTab } from "../../electron/media/types";
 import { createProjectDomainState, projectDomainReducer, type DomainRow, type ProjectDomainState } from "./project-domain";
@@ -23,6 +23,9 @@ export interface ProjectScreenSnapshot {
   documentDraft: DocumentDraft | null;
   documentConflict: string | null;
   selectedMedia: MediaCardDto | null;
+  mediaViewerOpen: boolean;
+  mediaGeneration: { status: "idle" | "loading" | "ready" | "error"; value: MediaGenerationDetailDto | null; error: string | null };
+  mediaRevisions: { status: "idle" | "loading" | "ready" | "error"; items: ArtifactRevisionDto[]; error: string | null };
   compositionId: string | null;
   composition: { status: "idle" | "loading" | "ready" | "error"; value: CompositionAggregate | null; error: string | null };
   inspectedCompositionRevisionId: string | null;
@@ -31,7 +34,7 @@ export interface ProjectScreenSnapshot {
   compositionConflict: string | null;
   compositionMutationError: string | null;
 }
-export type ProjectScreenApi = Pick<MediaWorkbenchBridge, "loadProjectOverview" | "loadProjectPage" | "loadDocumentPreview" | "searchProjectDocuments" | "showProjectDocument" | "reviseProjectDocument" | "resolveProjectPreview" | "loadProjectComposition" | "reviseProjectComposition" | "selectProjectCompositionRevision" | "buildProjectComposition" | "resolveCompositionOutputPreview">;
+export type ProjectScreenApi = Pick<MediaWorkbenchBridge, "loadProjectOverview" | "loadProjectPage" | "loadProjectGeneration" | "loadProjectMediaRevisions" | "selectProjectMediaRevision" | "loadDocumentPreview" | "searchProjectDocuments" | "showProjectDocument" | "reviseProjectDocument" | "resolveProjectPreview" | "loadProjectComposition" | "reviseProjectComposition" | "selectProjectCompositionRevision" | "buildProjectComposition" | "resolveCompositionOutputPreview">;
 export interface ProjectScreenController {
   getSnapshot(): ProjectScreenSnapshot;
   subscribe(listener: () => void): () => void;
@@ -46,6 +49,13 @@ export interface ProjectScreenController {
   setDocumentDraft(body: string): void;
   saveDocument(): Promise<void>;
   openMedia(card: MediaCardDto): Promise<void>;
+  openMediaViewer(card: MediaCardDto): Promise<void>;
+  closeMediaViewer(): void;
+  navigateMediaViewer(delta: number): Promise<void>;
+  retryMediaPreview(): Promise<void>;
+  retryMediaGeneration(): Promise<void>;
+  retryMediaRevisions(): Promise<void>;
+  selectMediaRevision(revisionId: string): Promise<void>;
   setMediaFilter(filter: ProjectMediaFilter): Promise<void>;
   openComposition(compositionId: string): Promise<void>;
   inspectCompositionRevision(revisionId: string): void;
@@ -79,6 +89,9 @@ export function createProjectScreenController(
     documentDraft: null,
     documentConflict: null,
     selectedMedia: null,
+    mediaViewerOpen: false,
+    mediaGeneration: { status: "idle", value: null, error: null },
+    mediaRevisions: { status: "idle", items: [], error: null },
     compositionId: null,
     composition: { status: "idle", value: null, error: null },
     inspectedCompositionRevisionId: null,
@@ -97,6 +110,9 @@ export function createProjectScreenController(
   let compositionRequest = 0;
   let compositionPreviewRequest = 0;
   let compositionMutationRequest = 0;
+  let mediaPreviewRequest = 0;
+  let mediaGenerationRequest = 0;
+  let mediaRevisionRequest = 0;
   const listeners = new Set<() => void>();
   const emit = (next: ProjectScreenSnapshot) => {
     if (disposed) return;
@@ -228,6 +244,100 @@ export function createProjectScreenController(
     }
   };
 
+  const sameMedia = (left: MediaCardDto | null, right: MediaCardDto): boolean => left?.ref.type === right.ref.type && left.ref.id === right.ref.id;
+  const isArtifactMedia = (card: MediaCardDto): card is ArtifactMediaCardDto => card.ref.type === "artifact";
+  const loadedMedia = (card: MediaCardDto): MediaCardDto | null => (
+    snapshot.domain.pages.media.items as MediaCardDto[]
+  ).find((item) => sameMedia(item, card)) ?? null;
+  const generationTarget = (card: MediaCardDto): MediaGenerationTarget | null => {
+    if (isArtifactMedia(card)) return card.selectedRevisionId ? { type: "artifact-revision", id: card.selectedRevisionId } : null;
+    if (card.ref.type === "run-object") return { type: "run-object", id: card.ref.id };
+    return null;
+  };
+  const resetPreview = () => ({ ...snapshot.domain, preview: { status: "idle" as const, value: null, error: null, requestId: null } });
+  const replaceLoadedMedia = (card: MediaCardDto) => {
+    const page = snapshot.domain.pages.media;
+    emit({
+      ...snapshot,
+      selectedMedia: card,
+      domain: {
+        ...snapshot.domain,
+        pages: {
+          ...snapshot.domain.pages,
+          media: { ...page, items: (page.items as MediaCardDto[]).map((item) => sameMedia(item, card) ? card : item) },
+        },
+      },
+    });
+  };
+  const loadMediaPreview = async (card: MediaCardDto) => {
+    const requestId = ++mediaPreviewRequest;
+    const generation = snapshot.domain.generation;
+    reduce({ type: "preview-loading", generation, requestId: `viewer-preview-${requestId}` });
+    try {
+      const value = await api.resolveProjectPreview(snapshot.domain.project, card.ref);
+      if (disposed || requestId !== mediaPreviewRequest || !snapshot.mediaViewerOpen || !sameMedia(snapshot.selectedMedia, card)) return;
+      reduce({ type: "preview-ready", generation, requestId: `viewer-preview-${requestId}`, value });
+    } catch (error) {
+      if (disposed || requestId !== mediaPreviewRequest || !snapshot.mediaViewerOpen || !sameMedia(snapshot.selectedMedia, card)) return;
+      reduce({ type: "preview-failed", generation, requestId: `viewer-preview-${requestId}`, error: errorMessage(error) });
+    }
+  };
+  const loadMediaGeneration = async (card: MediaCardDto) => {
+    const target = generationTarget(card);
+    const requestId = ++mediaGenerationRequest;
+    if (!target) {
+      emit({ ...snapshot, mediaGeneration: { status: "ready", value: null, error: null } });
+      return;
+    }
+    emit({ ...snapshot, mediaGeneration: { status: "loading", value: null, error: null } });
+    try {
+      const value = await api.loadProjectGeneration(snapshot.domain.project, target);
+      if (disposed || requestId !== mediaGenerationRequest || !snapshot.mediaViewerOpen || !sameMedia(snapshot.selectedMedia, card)) return;
+      emit({ ...snapshot, mediaGeneration: { status: "ready", value, error: null } });
+    } catch (error) {
+      if (disposed || requestId !== mediaGenerationRequest || !snapshot.mediaViewerOpen || !sameMedia(snapshot.selectedMedia, card)) return;
+      emit({ ...snapshot, mediaGeneration: { status: "error", value: null, error: errorMessage(error) } });
+    }
+  };
+  const loadMediaRevisions = async (card: MediaCardDto, conflict: string | null = null) => {
+    const requestId = ++mediaRevisionRequest;
+    if (!isArtifactMedia(card)) {
+      emit({ ...snapshot, mediaRevisions: { status: "idle", items: [], error: null } });
+      return;
+    }
+    emit({ ...snapshot, mediaRevisions: { status: "loading", items: [], error: conflict } });
+    try {
+      const page = await api.loadProjectMediaRevisions(snapshot.domain.project, card.ref.id);
+      if (disposed || requestId !== mediaRevisionRequest || !snapshot.mediaViewerOpen || !sameMedia(snapshot.selectedMedia, card)) return;
+      emit({ ...snapshot, mediaRevisions: { status: "ready", items: page.items, error: conflict } });
+    } catch (error) {
+      if (disposed || requestId !== mediaRevisionRequest || !snapshot.mediaViewerOpen || !sameMedia(snapshot.selectedMedia, card)) return;
+      emit({ ...snapshot, mediaRevisions: { status: "error", items: [], error: errorMessage(error) } });
+    }
+  };
+  const openLoadedMediaViewer = async (card: MediaCardDto) => {
+    mediaPreviewRequest += 1;
+    mediaGenerationRequest += 1;
+    mediaRevisionRequest += 1;
+    emit({
+      ...snapshot,
+      selectedMedia: card,
+      mediaViewerOpen: true,
+      mediaGeneration: { status: "idle", value: null, error: null },
+      mediaRevisions: { status: "idle", items: [], error: null },
+      domain: resetPreview(),
+    });
+    if (isArtifactMedia(card) && !card.selectedRevisionId) {
+      await loadMediaRevisions(card);
+      return;
+    }
+    await Promise.all([
+      loadMediaPreview(card),
+      loadMediaGeneration(card),
+      ...(isArtifactMedia(card) ? [loadMediaRevisions(card)] : []),
+    ]);
+  };
+
   const controller: ProjectScreenController = {
     getSnapshot: () => snapshot,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
@@ -298,19 +408,92 @@ export function createProjectScreenController(
     },
     async openMedia(card) {
       const generation = snapshot.domain.generation;
-      const requestId = `preview-${++request}`;
+      const id = ++mediaPreviewRequest;
+      const requestId = `preview-${id}`;
       emit({ ...snapshot, selectedMedia: card });
       reduce({ type: "preview-loading", generation, requestId });
       try {
         const value = await api.resolveProjectPreview(snapshot.domain.project, card.ref);
+        if (disposed || id !== mediaPreviewRequest || !sameMedia(snapshot.selectedMedia, card)) return;
         reduce({ type: "preview-ready", generation, requestId, value });
       } catch (error) {
+        if (disposed || id !== mediaPreviewRequest || !sameMedia(snapshot.selectedMedia, card)) return;
         reduce({ type: "preview-failed", generation, requestId, error: errorMessage(error) });
+      }
+    },
+    async openMediaViewer(card) {
+      const loaded = loadedMedia(card);
+      if (loaded) await openLoadedMediaViewer(loaded);
+    },
+    closeMediaViewer() {
+      mediaPreviewRequest += 1;
+      mediaGenerationRequest += 1;
+      mediaRevisionRequest += 1;
+      emit({
+        ...snapshot,
+        mediaViewerOpen: false,
+        mediaGeneration: { status: "idle", value: null, error: null },
+        mediaRevisions: { status: "idle", items: [], error: null },
+        domain: resetPreview(),
+      });
+    },
+    async navigateMediaViewer(delta) {
+      if (!snapshot.mediaViewerOpen || !snapshot.selectedMedia || delta === 0) return;
+      const items = snapshot.domain.pages.media.items as MediaCardDto[];
+      const index = items.findIndex((item) => sameMedia(item, snapshot.selectedMedia!));
+      const next = items[index + Math.sign(delta)];
+      if (next) await openLoadedMediaViewer(next);
+    },
+    async retryMediaPreview() {
+      const card = snapshot.selectedMedia;
+      if (snapshot.mediaViewerOpen && card && !(isArtifactMedia(card) && !card.selectedRevisionId)) await loadMediaPreview(card);
+    },
+    async retryMediaGeneration() {
+      const card = snapshot.selectedMedia;
+      if (snapshot.mediaViewerOpen && card && generationTarget(card)) await loadMediaGeneration(card);
+    },
+    async retryMediaRevisions() {
+      const card = snapshot.selectedMedia;
+      if (snapshot.mediaViewerOpen && card && isArtifactMedia(card)) await loadMediaRevisions(card);
+    },
+    async selectMediaRevision(revisionId) {
+      const card = snapshot.selectedMedia;
+      if (!snapshot.mediaViewerOpen || !card || !isArtifactMedia(card) || !snapshot.mediaRevisions.items.some(({ id }) => id === revisionId)) return;
+      const requestId = ++mediaRevisionRequest;
+      emit({ ...snapshot, mediaRevisions: { ...snapshot.mediaRevisions, status: "loading", error: null } });
+      try {
+        const refreshed = await api.selectProjectMediaRevision(snapshot.domain.project, card.ref.id, revisionId, card.selectedRevisionId);
+        if (disposed || requestId !== mediaRevisionRequest || !snapshot.mediaViewerOpen || !sameMedia(snapshot.selectedMedia, card)) return;
+        replaceLoadedMedia(refreshed);
+        await openLoadedMediaViewer(refreshed);
+      } catch (error) {
+        if (disposed || requestId !== mediaRevisionRequest || !snapshot.mediaViewerOpen || !sameMedia(snapshot.selectedMedia, card)) return;
+        if (!isConflict(error)) {
+          emit({ ...snapshot, mediaRevisions: { ...snapshot.mediaRevisions, status: "error", error: errorMessage(error) } });
+          return;
+        }
+        const conflict = "The selected revision changed elsewhere. Current card and revisions reloaded; select again to retry.";
+        try {
+          const [page, revisions] = await Promise.all([
+            api.loadProjectPage({ tab: "media", project: snapshot.domain.project, mediaFilter: snapshot.domain.media.filter }),
+            api.loadProjectMediaRevisions(snapshot.domain.project, card.ref.id),
+          ]);
+          if (disposed || requestId !== mediaRevisionRequest || !snapshot.mediaViewerOpen || !sameMedia(snapshot.selectedMedia, card)) return;
+          const refreshed = (page.items as MediaCardDto[]).find((item) => sameMedia(item, card));
+          if (refreshed) replaceLoadedMedia(refreshed);
+          emit({ ...snapshot, mediaRevisions: { status: "ready", items: revisions.items, error: conflict } });
+        } catch (reloadError) {
+          if (disposed || requestId !== mediaRevisionRequest || !snapshot.mediaViewerOpen) return;
+          emit({ ...snapshot, mediaRevisions: { status: "error", items: [], error: errorMessage(reloadError) } });
+        }
       }
     },
     async setMediaFilter(filter) {
       if (filter === snapshot.domain.media.filter) return;
-      emit({ ...snapshot, selectedMedia: null });
+      mediaPreviewRequest += 1;
+      mediaGenerationRequest += 1;
+      mediaRevisionRequest += 1;
+      emit({ ...snapshot, selectedMedia: null, mediaViewerOpen: false, mediaGeneration: { status: "idle", value: null, error: null }, mediaRevisions: { status: "idle", items: [], error: null } });
       reduce({ type: "media-filter", filter });
       if (snapshot.activeTab === "media") await loadPage("media");
     },

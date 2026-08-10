@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { act, StrictMode } from "react";
 import { describe, expect, test, vi } from "vitest";
-import type { MediaCardDto, ProjectOverviewDto } from "../electron/ralphy/types";
+import type { ArtifactRevisionDto, MediaCardDto, MediaGenerationDetailDto, ProjectOverviewDto } from "../electron/ralphy/types";
 import type { ProjectSummary } from "../src/lib/ipc";
 import * as screen from "../src/screens/ProjectScreen";
 import { bridge } from "../src/lib/ipc";
@@ -49,6 +49,9 @@ function createApi() {
     showProjectDocument: vi.fn(async (project: unknown, documentId: string) => ({ id: documentId, workspaceId: "workspace-1", projectId: "project-1", kind: "brief", slug: "brief", title: "Brief", currentRevisionId: "revision-1", rowVersion: 1, createdAt: 1, updatedAt: 1, currentRevision: { id: "revision-1", documentId, revisionNo: 1, parentRevisionId: null, iterationId: null, format: "markdown", title: null, authoredBySessionId: null, createdAt: 1 } })),
     reviseProjectDocument: vi.fn(async () => ({ id: "revision-2", documentId: "document-1", revisionNo: 2, parentRevisionId: "revision-1", iterationId: null, format: "markdown", title: null, authoredBySessionId: null, createdAt: 2 })),
     resolveProjectPreview: vi.fn(async () => null as { url: string; sizeBytes: number } | null),
+    loadProjectGeneration: vi.fn(async (_project: unknown, target: MediaGenerationDetailDto["target"]) => ({ status: "unknown" as const, target, reason: "not-recorded" as const })),
+    loadProjectMediaRevisions: vi.fn(async () => ({ items: [] as ArtifactRevisionDto[], nextCursor: null })),
+    selectProjectMediaRevision: vi.fn(async () => { throw new Error("Not used"); }),
   };
 }
 
@@ -63,6 +66,12 @@ function createController(api: ReturnType<typeof createApi>, activitySequence = 
       openDocument(document: unknown): Promise<void>;
       setDocumentDraft(body: string): void;
       openMedia(card: MediaCardDto): Promise<void>;
+      openMediaViewer(card: MediaCardDto): Promise<void>;
+      closeMediaViewer(): void;
+      navigateMediaViewer(delta: number): Promise<void>;
+      retryMediaGeneration(): Promise<void>;
+      retryMediaRevisions(): Promise<void>;
+      selectMediaRevision(revisionId: string): Promise<void>;
       setMediaFilter(filter: string): Promise<void>;
       getSnapshot(): any;
     };
@@ -123,6 +132,169 @@ describe("ProjectScreen behavior", () => {
       expect(markup).toContain(`>${value}</span><span class="metric-label">${label}`);
     }
     expect(markup).not.toContain(">1</strong><span>Documents");
+  });
+
+  test("media viewer ignores late A preview/provenance and navigates only loaded rows", async () => {
+    const media = (id: string): MediaCardDto => ({
+      ref: { type: "run-object", id }, workspaceId: "workspace-1", projectId: "project-1",
+      runId: `run-${id}`, purpose: id, state: "ready", retention: "temp", mime: "image/png", bytes: 12,
+      createdAt: 1, objectId: `object-${id}`, logicalPath: `runs/${id}.png`, locationClass: "temp",
+      attemptId: null, attemptNo: null, target: { type: "object", id: `object-${id}` },
+    });
+    const a = media("a");
+    const b = media("b");
+    const previews = { a: deferred<{ url: string; sizeBytes: number } | null>(), b: deferred<{ url: string; sizeBytes: number } | null>() };
+    const generations = { a: deferred<MediaGenerationDetailDto>(), b: deferred<MediaGenerationDetailDto>() };
+    const api = createApi();
+    api.loadProjectPage.mockResolvedValue({ items: [a, b], nextCursor: "another-page" });
+    api.resolveProjectPreview.mockImplementation((_project, ref) => previews[ref.id as "a" | "b"].promise);
+    api.loadProjectGeneration.mockImplementation((_project, target) => generations[target.id as "a" | "b"].promise);
+    const controller = createController(api);
+    await controller.selectTab("media");
+
+    const openingA = controller.openMediaViewer(a);
+    const openingB = controller.openMediaViewer(b);
+    previews.b.resolve({ url: "ralphy-media://asset/b", sizeBytes: 12 });
+    generations.b.resolve({ status: "unknown", target: { type: "run-object", id: "b" }, reason: "not-recorded" });
+    await openingB;
+    previews.a.resolve({ url: "ralphy-media://asset/a", sizeBytes: 12 });
+    generations.a.resolve({ status: "unknown", target: { type: "run-object", id: "a" }, reason: "not-recorded" });
+    await openingA;
+
+    expect(controller.getSnapshot()).toMatchObject({
+      mediaViewerOpen: true,
+      selectedMedia: b,
+      domain: { preview: { status: "ready", value: { url: "ralphy-media://asset/b" } } },
+      mediaGeneration: { status: "ready", value: { target: { id: "b" } } },
+    });
+    await controller.navigateMediaViewer(1);
+    expect(api.resolveProjectPreview).toHaveBeenCalledTimes(2);
+    await controller.navigateMediaViewer(-1);
+    expect(controller.getSnapshot().selectedMedia).toEqual(a);
+    expect(api.loadProjectPage).toHaveBeenCalledOnce();
+  });
+
+  test("media viewer chooses an unselected Artifact with nullable CAS and replaces only its loaded card", async () => {
+    const unselected: MediaCardDto = {
+      ref: { type: "artifact", id: "artifact-1" }, workspaceId: "workspace-1", projectId: "project-1",
+      slug: "Hero", kind: "image", selectedRevisionId: null, selectedState: null, mime: null, bytes: null,
+      selectedAt: null, revisionCount: 1, selectedObjectId: null, storageClass: null, usageRoles: [], target: null,
+    };
+    const selected: MediaCardDto = {
+      ...unselected, selectedRevisionId: "revision-1", selectedState: "approved", mime: "image/png", bytes: 12,
+      selectedAt: 3, selectedObjectId: "object-1", storageClass: "final", target: { type: "object", id: "object-1" },
+    };
+    const revision: ArtifactRevisionDto = {
+      id: "revision-1", artifactId: "artifact-1", objectId: "object-1", revisionNo: 1,
+      parentRevisionId: null, iterationId: null, state: "approved", authoredBySessionId: null, createdAt: 2,
+    };
+    const api = createApi();
+    api.loadProjectPage.mockResolvedValue({ items: [unselected], nextCursor: "more" });
+    api.loadProjectMediaRevisions.mockResolvedValue({ items: [revision], nextCursor: null });
+    api.selectProjectMediaRevision.mockResolvedValue(selected as never);
+    api.resolveProjectPreview.mockResolvedValue({ url: "ralphy-media://asset/selected", sizeBytes: 12 });
+    const controller = createController(api);
+    await controller.selectTab("media");
+
+    await controller.openMediaViewer(unselected);
+    expect(controller.getSnapshot()).toMatchObject({ mediaViewerOpen: true, mediaRevisions: { status: "ready", items: [revision] } });
+    expect(api.resolveProjectPreview).not.toHaveBeenCalled();
+    expect(api.loadProjectGeneration).not.toHaveBeenCalled();
+
+    await controller.selectMediaRevision("revision-1");
+    expect(api.selectProjectMediaRevision).toHaveBeenCalledWith(
+      { workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-1", null,
+    );
+    expect(controller.getSnapshot()).toMatchObject({
+      selectedMedia: selected,
+      domain: { pages: { media: { items: [selected], nextCursor: "more" } }, preview: { status: "ready" } },
+      mediaGeneration: { status: "ready" },
+    });
+  });
+
+  test("media viewer reloads the Artifact card and revisions once after a CAS conflict", async () => {
+    const unselected = {
+      ref: { type: "artifact" as const, id: "artifact-1" }, workspaceId: "workspace-1", projectId: "project-1",
+      slug: "Hero", kind: "image", selectedRevisionId: null, selectedState: null, mime: null, bytes: null,
+      selectedAt: null, revisionCount: 2, selectedObjectId: null, storageClass: null, usageRoles: [], target: null,
+    };
+    const current = { ...unselected, selectedRevisionId: "revision-2", selectedState: "candidate", mime: "image/png", bytes: 10, selectedAt: 4, selectedObjectId: "object-2", storageClass: "final", target: { type: "object" as const, id: "object-2" } };
+    const revisions: ArtifactRevisionDto[] = [1, 2].map((revisionNo) => ({
+      id: `revision-${revisionNo}`, artifactId: "artifact-1", objectId: `object-${revisionNo}`, revisionNo,
+      parentRevisionId: revisionNo === 1 ? null : "revision-1", iterationId: null, state: revisionNo === 1 ? "approved" : "candidate",
+      authoredBySessionId: null, createdAt: revisionNo,
+    }));
+    const conflict = Object.assign(new Error("Conflict"), { code: "E_CONFLICT" });
+    const api = createApi();
+    api.loadProjectPage.mockResolvedValueOnce({ items: [unselected], nextCursor: "more" }).mockResolvedValueOnce({ items: [current], nextCursor: null });
+    api.loadProjectMediaRevisions.mockResolvedValueOnce({ items: [revisions[0]], nextCursor: null }).mockResolvedValueOnce({ items: revisions, nextCursor: null });
+    api.selectProjectMediaRevision.mockRejectedValue(conflict);
+    const controller = createController(api);
+    await controller.selectTab("media");
+    await controller.openMediaViewer(unselected);
+
+    await controller.selectMediaRevision("revision-1");
+
+    expect(api.selectProjectMediaRevision).toHaveBeenCalledOnce();
+    expect(api.loadProjectPage).toHaveBeenCalledTimes(2);
+    expect(controller.getSnapshot()).toMatchObject({
+      mediaViewerOpen: true,
+      selectedMedia: current,
+      domain: { pages: { media: { items: [current], nextCursor: "more" } } },
+      mediaRevisions: { status: "ready", items: revisions, error: expect.stringContaining("changed") },
+    });
+  });
+
+  test("media viewer close invalidates late requests and generation Retry does not reload preview", async () => {
+    const media: MediaCardDto = {
+      ref: { type: "run-object", id: "run-object-1" }, workspaceId: "workspace-1", projectId: "project-1",
+      runId: "run-1", purpose: "output", state: "ready", retention: "temp", mime: "image/png", bytes: 12,
+      createdAt: 1, objectId: "object-1", logicalPath: "runs/output.png", locationClass: "temp",
+      attemptId: null, attemptNo: null, target: { type: "object", id: "object-1" },
+    };
+    const latePreview = deferred<{ url: string; sizeBytes: number } | null>();
+    const lateGeneration = deferred<MediaGenerationDetailDto>();
+    const api = createApi();
+    api.loadProjectPage.mockResolvedValue({ items: [media], nextCursor: null });
+    api.resolveProjectPreview.mockReturnValue(latePreview.promise);
+    api.loadProjectGeneration.mockReturnValueOnce(lateGeneration.promise).mockRejectedValueOnce(new Error("Offline")).mockResolvedValueOnce({ status: "unknown", target: { type: "run-object", id: "run-object-1" }, reason: "not-recorded" });
+    const controller = createController(api);
+    await controller.selectTab("media");
+    const opening = controller.openMediaViewer(media);
+    controller.closeMediaViewer();
+    latePreview.resolve({ url: "ralphy-media://asset/late", sizeBytes: 12 });
+    lateGeneration.resolve({ status: "unknown", target: { type: "run-object", id: "run-object-1" }, reason: "not-recorded" });
+    await opening;
+    expect(controller.getSnapshot()).toMatchObject({ mediaViewerOpen: false, mediaGeneration: { status: "idle" }, domain: { preview: { status: "idle" } } });
+
+    api.resolveProjectPreview.mockResolvedValue({ url: "ralphy-media://asset/current", sizeBytes: 12 });
+    await controller.openMediaViewer(media);
+    expect(controller.getSnapshot().mediaGeneration.status).toBe("error");
+    await controller.retryMediaGeneration();
+    expect(api.resolveProjectPreview).toHaveBeenCalledTimes(2);
+    expect(api.loadProjectGeneration).toHaveBeenCalledTimes(3);
+    expect(controller.getSnapshot().mediaGeneration.status).toBe("ready");
+  });
+
+  test("media viewer revision Retry reloads only the chooser", async () => {
+    const card = {
+      ref: { type: "artifact" as const, id: "artifact-1" }, workspaceId: "workspace-1", projectId: "project-1",
+      slug: "Hero", kind: "image", selectedRevisionId: null, selectedState: null, mime: null, bytes: null,
+      selectedAt: null, revisionCount: 1, selectedObjectId: null, storageClass: null, usageRoles: [], target: null,
+    };
+    const api = createApi();
+    api.loadProjectPage.mockResolvedValue({ items: [card], nextCursor: null });
+    api.loadProjectMediaRevisions.mockRejectedValueOnce(new Error("Offline")).mockResolvedValueOnce({ items: [], nextCursor: null });
+    const controller = createController(api);
+    await controller.selectTab("media");
+    await controller.openMediaViewer(card);
+
+    await controller.retryMediaRevisions();
+
+    expect(controller.getSnapshot().mediaRevisions.status).toBe("ready");
+    expect(api.loadProjectMediaRevisions).toHaveBeenCalledTimes(2);
+    expect(api.resolveProjectPreview).not.toHaveBeenCalled();
+    expect(api.loadProjectGeneration).not.toHaveBeenCalled();
   });
 
   test("renders explicit null and empty Overview summaries without inventing totals", async () => {

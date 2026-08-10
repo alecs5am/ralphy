@@ -1,12 +1,15 @@
 import { renderToStaticMarkup } from "react-dom/server";
+import { act, useSyncExternalStore } from "react";
+import { createRoot } from "react-dom/client";
 import { describe, expect, test, vi } from "vitest";
-import type { MediaCardDto, RunObjectMediaCardDto } from "../electron/ralphy/types";
+import type { MediaCardDto, MediaGenerationDetailDto, RunObjectMediaCardDto } from "../electron/ralphy/types";
 import { VirtualAssetGrid, MediaCardTile } from "../src/components/VirtualAssetGrid";
 import { AudioWaveform } from "../src/components/media/AudioWaveform";
 import { ImageViewport } from "../src/components/media/ImageViewport";
 import { VideoPlayer } from "../src/components/media/VideoPlayer";
 import { ProjectScreenView, createProjectScreenController } from "../src/screens/ProjectScreen";
-import type { ProjectSummary } from "../src/lib/ipc";
+import { bridge, type ProjectSummary } from "../src/lib/ipc";
+import { createReactHost, type HostNode } from "./react-host";
 
 const card: MediaCardDto = {
   ref: { type: "artifact", id: "artifact-1" },
@@ -48,7 +51,33 @@ function projectApi() {
     showProjectDocument: async () => { throw new Error("Not used"); },
     reviseProjectDocument: async () => { throw new Error("Not used"); },
     resolveProjectPreview: async () => null,
+    loadProjectGeneration: async (_project: unknown, target: MediaGenerationDetailDto["target"]) => ({ status: "unknown" as const, target, reason: "not-recorded" as const }),
+    loadProjectMediaRevisions: async () => ({ items: [], nextCursor: null }),
+    selectProjectMediaRevision: async () => { throw new Error("Not used"); },
   };
+}
+
+function MountedProject({ controller }: { controller: ReturnType<typeof createProjectScreenController> }) {
+  const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
+  return <ProjectScreenView project={project} controller={controller} snapshot={snapshot} />;
+}
+
+function button(root: HostNode, label: string): HostNode {
+  const found = root.findAll((node) => node.tagName === "BUTTON" && node.getAttribute("aria-label") === label)[0];
+  if (!found) throw new Error(`Missing button: ${label}`);
+  return found;
+}
+
+function textButton(root: HostNode, label: string): HostNode {
+  const found = root.findAll((node) => node.tagName === "BUTTON" && node.textContent === label)[0];
+  if (!found) throw new Error(`Missing button text: ${label}`);
+  return found;
+}
+
+function keydown(target: EventTarget, key: string, modifiers: Partial<Pick<KeyboardEvent, "altKey" | "ctrlKey" | "metaKey" | "shiftKey">> = {}) {
+  const event = new Event("keydown", { bubbles: true, cancelable: true });
+  Object.defineProperties(event, { key: { value: key }, ...Object.fromEntries(Object.entries(modifiers).map(([name, value]) => [name, { value }])) });
+  target.dispatchEvent(event);
 }
 
 describe("Project media presentation", () => {
@@ -143,5 +172,166 @@ describe("Project media presentation", () => {
     renderToStaticMarkup(<ProjectScreenView project={project} rootEpoch={4} controller={controller} snapshot={controller.getSnapshot()} />);
 
     expect(loadProjectPage).toHaveBeenCalledOnce();
+  });
+
+  test("mounts the production media viewer with safe generation details and loaded-row controls", async () => {
+    const prompt = '<img src=x onerror="steal()"> Keep this literal';
+    const next = { ...runObject, ref: { type: "run-object" as const, id: "run-object-2" }, runId: "run-2", purpose: "second" };
+    const object: MediaCardDto = { ref: { type: "object", id: "object-1" }, workspaceId: "workspace-1", projectId: "project-1", storageClass: "final", mime: "image/png", bytes: 20, createdAt: 1, referenceCount: 1, target: { type: "object", id: "object-1" } };
+    const generation: MediaGenerationDetailDto = {
+      status: "generation",
+      target: { type: "run-object", id: "run-object-1" },
+      run: { id: "run-1", workspaceId: "workspace-1", projectId: "project-1", agentSessionId: null, kind: "generation", label: "Hero", state: "succeeded", createdAt: 1, startedAt: 2, endedAt: 4 },
+      attempts: { items: [
+        { id: "attempt-1", runId: "run-1", attemptNo: 1, provider: "fal", model: "flux-pro", state: "succeeded", costUsd: 1.25, startedAt: 2, endedAt: 4, input: { version: 1, texts: [{ role: "prompt", value: prompt, truncated: false }], parameters: [{ name: "aspectRatio", value: "16:9" }] } },
+        { id: "attempt-2", runId: "run-1", attemptNo: 2, provider: null, model: null, state: "failed", costUsd: null, startedAt: 5, endedAt: null, input: null },
+      ], nextCursor: null },
+      cost: { knownUsd: 1.25, complete: false },
+    };
+    const api = {
+      ...projectApi(),
+      loadProjectPage: vi.fn(async () => ({ items: [runObject, next, object], nextCursor: "not-loaded" })),
+      resolveProjectPreview: vi.fn(async () => ({ url: "ralphy-media://asset/viewer", sizeBytes: 128 })),
+      loadProjectGeneration: vi.fn(async (_project: unknown, target: MediaGenerationDetailDto["target"]) => target.id === "run-object-1" ? generation : ({ status: "not-generation", target, producer: { id: "run-2", workspaceId: "workspace-1", projectId: "project-1", agentSessionId: null, kind: "import", label: null, state: "succeeded", createdAt: 1, startedAt: 1, endedAt: 2 } } as const)),
+    };
+    const controller = createProjectScreenController(api as never, project);
+    await controller.selectTab("media");
+    const previewSpy = vi.spyOn(bridge, "resolveProjectPreview").mockResolvedValue(null);
+    const copySpy = vi.spyOn(bridge, "copyText").mockResolvedValue();
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
+      const opener = button(host.container, "Open diagnostic-log");
+      opener.focus();
+      await act(async () => { opener.dispatchEvent(new Event("click", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
+
+      expect(controller.getSnapshot().mediaViewerOpen).toBe(true);
+      const body = globalThis.document.body as unknown as HostNode;
+      const dialog = body.findAll((node) => node.getAttribute("role") === "dialog")[0];
+      expect(dialog).toBeDefined();
+      expect(dialog.getAttribute("aria-labelledby")).toBeTruthy();
+      expect(dialog.getAttribute("aria-describedby")).toBeTruthy();
+      expect(dialog.textContent).toContain("Generation");
+      expect(dialog.textContent).toContain("fal");
+      expect(dialog.textContent).toContain("flux-pro");
+      expect(dialog.textContent).toContain("$1.25 · Partial");
+      expect(dialog.textContent).toContain("2000 ms");
+      expect(dialog.textContent).toContain("Not recorded");
+      expect(dialog.textContent).toContain(prompt);
+      expect(dialog.findAll((node) => node.tagName === "IMG")).toHaveLength(0);
+      expect(button(dialog, "Previous").disabled).toBe(true);
+      expect(button(dialog, "Next").disabled).toBe(false);
+      expect(api.loadProjectPage).toHaveBeenCalledOnce();
+
+      await act(async () => { button(dialog, "Copy prompt").dispatchEvent(new Event("click", { bubbles: true })); });
+      expect(copySpy).toHaveBeenCalledWith(prompt);
+
+      for (const [tag, attribute, value] of [["input", null, null], ["textarea", null, null], ["div", "contenteditable", "true"], ["div", "role", "slider"]] as const) {
+        const field = globalThis.document.createElement(tag) as unknown as HostNode;
+        if (attribute && value) field.setAttribute(attribute, value);
+        dialog.appendChild(field);
+        field.focus();
+        await act(async () => { keydown(globalThis.window, "ArrowRight"); await Promise.resolve(); });
+        expect(controller.getSnapshot().selectedMedia).toEqual(runObject);
+      }
+      await act(async () => { keydown(globalThis.window, "ArrowRight", { metaKey: true }); await Promise.resolve(); });
+      expect(controller.getSnapshot().selectedMedia).toEqual(runObject);
+
+      const surface = dialog;
+      surface.focus();
+      await act(async () => { keydown(globalThis.window, "ArrowRight"); await Promise.resolve(); });
+      expect(controller.getSnapshot().selectedMedia).toEqual(next);
+      expect((globalThis.document.body as unknown as HostNode).textContent).toContain("Not a generation");
+      await act(async () => { keydown(globalThis.window, "ArrowRight"); await Promise.resolve(); });
+      expect(controller.getSnapshot().selectedMedia).toEqual(object);
+      expect((globalThis.document.body as unknown as HostNode).textContent).toContain("Provenance unavailable");
+      expect(api.loadProjectGeneration).toHaveBeenCalledTimes(2);
+      expect(api.loadProjectPage).toHaveBeenCalledOnce();
+
+      await act(async () => { keydown(globalThis.document, "Escape"); await new Promise((resolve) => setTimeout(resolve, 32)); });
+      expect(controller.getSnapshot().mediaViewerOpen).toBe(false);
+      expect(globalThis.document.activeElement).toBe(opener);
+    } finally {
+      await act(async () => { root.unmount(); await new Promise((resolve) => setTimeout(resolve, 0)); });
+      previewSpy.mockRestore();
+      copySpy.mockRestore();
+      host.restore();
+    }
+  });
+
+  test("shows independent viewer loading and generation Retry without reloading preview", async () => {
+    let resolvePreview!: (value: { url: string; sizeBytes: number }) => void;
+    let rejectGeneration!: (error: Error) => void;
+    const preview = new Promise<{ url: string; sizeBytes: number }>((resolve) => { resolvePreview = resolve; });
+    const generation = new Promise<MediaGenerationDetailDto>((_resolve, reject) => { rejectGeneration = reject; });
+    const api = {
+      ...projectApi(),
+      loadProjectPage: vi.fn(async () => ({ items: [runObject], nextCursor: null })),
+      resolveProjectPreview: vi.fn(() => preview),
+      loadProjectGeneration: vi.fn().mockReturnValueOnce(generation).mockResolvedValueOnce({ status: "unknown", target: { type: "run-object", id: "run-object-1" }, reason: "not-recorded" }),
+    };
+    const controller = createProjectScreenController(api as never, project);
+    await controller.selectTab("media");
+    const tilePreview = vi.spyOn(bridge, "resolveProjectPreview").mockResolvedValue(null);
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
+      await act(async () => { button(host.container, "Open diagnostic-log").dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); });
+      const body = globalThis.document.body as unknown as HostNode;
+      expect(body.findAll((node) => node.getAttribute("role") === "status").map((node) => node.textContent)).toEqual(expect.arrayContaining(["Loading preview…", "Loading generation details…"]));
+
+      resolvePreview({ url: "ralphy-media://asset/ready", sizeBytes: 128 });
+      rejectGeneration(new Error("Offline"));
+      await act(async () => { await Promise.allSettled([preview, generation]); });
+      expect(body.findAll((node) => node.getAttribute("role") === "alert").map((node) => node.textContent)).toContain("OfflineRetry");
+
+      await act(async () => { textButton(body, "Retry").dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); });
+      expect(body.textContent).toContain("Provenance unavailable");
+      expect(api.resolveProjectPreview).toHaveBeenCalledOnce();
+      expect(api.loadProjectGeneration).toHaveBeenCalledTimes(2);
+    } finally {
+      await act(async () => { root.unmount(); await new Promise((resolve) => setTimeout(resolve, 0)); });
+      tilePreview.mockRestore();
+      host.restore();
+    }
+  });
+
+  test("shows the unselected Artifact revision chooser and replaces it with the selected image", async () => {
+    const unselected: MediaCardDto = { ...card, selectedRevisionId: null, selectedState: null, mime: null, bytes: null, selectedAt: null, selectedObjectId: null, storageClass: null, target: null };
+    const selected: MediaCardDto = { ...card, selectedRevisionId: "revision-1", target: { type: "object", id: "object-1" } };
+    const revision = { id: "revision-1", artifactId: "artifact-1", objectId: "object-1", revisionNo: 1, parentRevisionId: null, iterationId: null, state: "approved" as const, authoredBySessionId: null, createdAt: 2 };
+    const api = {
+      ...projectApi(),
+      loadProjectPage: vi.fn(async () => ({ items: [unselected], nextCursor: "more" })),
+      loadProjectMediaRevisions: vi.fn(async () => ({ items: [revision], nextCursor: null })),
+      selectProjectMediaRevision: vi.fn(async () => selected),
+      resolveProjectPreview: vi.fn(async () => ({ url: "ralphy-media://asset/hero", sizeBytes: 2048 })),
+      loadProjectGeneration: vi.fn(async (_project: unknown, target: MediaGenerationDetailDto["target"]) => ({ status: "unknown" as const, target, reason: "not-recorded" as const })),
+    };
+    const controller = createProjectScreenController(api as never, project);
+    await controller.selectTab("media");
+    const tilePreview = vi.spyOn(bridge, "resolveProjectPreview").mockResolvedValue(null);
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
+      await act(async () => { button(host.container, "Open Campaign hero").dispatchEvent(new Event("click", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
+      const body = globalThis.document.body as unknown as HostNode;
+      expect(body.textContent).toContain("Select a revision");
+      expect(body.textContent).toContain("Revision 1 · approved");
+      expect(api.resolveProjectPreview).not.toHaveBeenCalled();
+      expect(api.loadProjectGeneration).not.toHaveBeenCalled();
+
+      await act(async () => { textButton(body, "Select").dispatchEvent(new Event("click", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
+      const image = body.findAll((node) => node.tagName === "IMG" && node.getAttribute("alt") === "Campaign hero")[0];
+      expect(image.getAttribute("src")).toBe("ralphy-media://asset/hero");
+      expect(controller.getSnapshot().domain.pages.media).toMatchObject({ items: [selected], nextCursor: "more" });
+    } finally {
+      await act(async () => { root.unmount(); await new Promise((resolve) => setTimeout(resolve, 0)); });
+      tilePreview.mockRestore();
+      host.restore();
+    }
   });
 });

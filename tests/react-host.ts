@@ -1,5 +1,5 @@
 export const reactHostGlobalKeys = [
-  "window", "document", "Node", "HTMLElement", "ResizeObserver", "IS_REACT_ACT_ENVIRONMENT",
+  "window", "document", "Node", "Element", "HTMLElement", "ResizeObserver", "MutationObserver", "CustomEvent", "getComputedStyle", "IS_REACT_ACT_ENVIRONMENT",
 ] as const;
 
 type Listener = EventListenerOrEventListenerObject;
@@ -87,13 +87,28 @@ export class HostNode {
     node.parentNode = this;
     return node;
   }
+  insertAdjacentElement(position: InsertPosition, node: HostNode): HostNode | null {
+    if (position === "afterbegin") return this.firstChild ? this.insertBefore(node, this.firstChild) : this.appendChild(node);
+    if (position === "beforeend") return this.appendChild(node);
+    if (!this.parentNode) return null;
+    const index = this.parentNode.childNodes.indexOf(this);
+    const before = position === "beforebegin" ? this : this.parentNode.childNodes[index + 1];
+    return before ? this.parentNode.insertBefore(node, before) : this.parentNode.appendChild(node);
+  }
   removeChild(node: HostNode): HostNode {
     this.childNodes.splice(this.childNodes.indexOf(node), 1);
     node.parentNode = null;
     return node;
   }
+  remove(): void { this.parentNode?.removeChild(this); }
   get firstChild(): HostNode | null { return this.childNodes[0] ?? null; }
   get children(): HostNode[] { return this.childNodes.filter((node) => node.nodeType === 1); }
+  get parentElement(): HostNode | null { return this.parentNode?.nodeType === 1 ? this.parentNode : null; }
+  get isConnected(): boolean {
+    let node: HostNode | null = this;
+    while (node?.parentNode) node = node.parentNode;
+    return node?.tagName === "HTML";
+  }
   get offsetWidth(): number { return this.clientWidth; }
   get offsetHeight(): number { return this.clientHeight; }
   getBoundingClientRect(): DOMRect {
@@ -109,6 +124,31 @@ export class HostNode {
     const document = this.ownerDocument as Document & { activeElement: HostNode | null };
     if (document.activeElement === this) document.activeElement = null;
   }
+  contains(node: HostNode | null): boolean { return node === this || this.childNodes.some((child) => child.contains(node)); }
+  matches(selector: string): boolean {
+    return selector.split(",").some((part) => {
+      const value = part.trim();
+      const attribute = value.match(/^\[([^=\]]+)(?:=['\"]?([^'\"]+)['\"]?)?\]$/);
+      if (attribute) return attribute[2] === undefined ? this.attributes.has(attribute[1]) : this.getAttribute(attribute[1]) === attribute[2];
+      if (value.startsWith(".")) return (this.getAttribute("class") ?? "").split(/\s+/).includes(value.slice(1));
+      if (value.startsWith("#")) return this.getAttribute("id") === value.slice(1);
+      return this.tagName === value.toUpperCase();
+    });
+  }
+  querySelectorAll(selector: string): HostNode[] {
+    const parts = selector.trim().split(/\s+/);
+    return this.findAll((node) => {
+      if (!node.matches(parts.at(-1)!)) return false;
+      let ancestor = node.parentNode;
+      for (let index = parts.length - 2; index >= 0; index -= 1) {
+        while (ancestor && !ancestor.matches(parts[index])) ancestor = ancestor.parentNode;
+        if (!ancestor) return false;
+        ancestor = ancestor.parentNode;
+      }
+      return true;
+    });
+  }
+  querySelector(selector: string): HostNode | null { return this.querySelectorAll(selector)[0] ?? null; }
   #focusNext(): void {
     let root: HostNode = this;
     while (root.parentNode) root = root.parentNode;
@@ -145,6 +185,9 @@ export function createReactHost() {
       node.textContent = value;
       return node;
     },
+    getElementById: (id: string) => rawDocument.documentElement.findAll((node) => node.getAttribute("id") === id)[0] ?? null,
+    querySelectorAll: (selector: string) => rawDocument.documentElement.querySelectorAll(selector),
+    querySelector: (selector: string) => rawDocument.documentElement.querySelector(selector),
   });
   document = rawDocument as unknown as Document;
   rawDocument.documentElement = new HostNode(1, "HTML", document);
@@ -152,12 +195,21 @@ export function createReactHost() {
   rawDocument.body = new HostNode(1, "BODY", document);
   rawDocument.documentElement.appendChild(rawDocument.head);
   rawDocument.documentElement.appendChild(rawDocument.body);
+  const computedStyle = (node: HostNode) => ({
+    paddingLeft: node.style.paddingLeft || "0",
+    paddingRight: node.style.paddingRight || "0",
+    animationName: "none",
+    display: node.style.display || "block",
+    visibility: node.style.visibility || "visible",
+  });
   const window = Object.assign(new EventTarget(), {
     document,
     HTMLIFrameElement: class {},
     HTMLElement: HostNode,
     Node: HostNode,
-    getComputedStyle: (node: HostNode) => ({ paddingLeft: node.style.paddingLeft || "0", paddingRight: node.style.paddingRight || "0" }),
+    getComputedStyle: computedStyle,
+    setTimeout,
+    clearTimeout,
     requestAnimationFrame: (callback: FrameRequestCallback) => setTimeout(() => callback(Date.now()), 0) as unknown as number,
     cancelAnimationFrame: (handle: number) => clearTimeout(handle),
   });
@@ -168,9 +220,19 @@ export function createReactHost() {
     disconnect() {}
     unobserve() {}
   }
+  class HostMutationObserver {
+    constructor(_callback: MutationCallback) {}
+    observe() {}
+    disconnect() {}
+    takeRecords(): MutationRecord[] { return []; }
+  }
+  class HostCustomEvent<T = unknown> extends Event {
+    readonly detail: T;
+    constructor(type: string, init?: CustomEventInit<T>) { super(type, init); this.detail = init?.detail as T; }
+  }
   const globals = globalThis as unknown as Record<string, unknown>;
   const previous = new Map(reactHostGlobalKeys.map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
-  Object.assign(globals, { window, document, Node: HostNode, HTMLElement: HostNode, ResizeObserver: HostResizeObserver, IS_REACT_ACT_ENVIRONMENT: true });
+  Object.assign(globals, { window, document, Node: HostNode, Element: HostNode, HTMLElement: HostNode, ResizeObserver: HostResizeObserver, MutationObserver: HostMutationObserver, CustomEvent: HostCustomEvent, getComputedStyle: computedStyle, IS_REACT_ACT_ENVIRONMENT: true });
   const container = new HostNode(1, "DIV", document);
   rawDocument.body.appendChild(container);
   return {
