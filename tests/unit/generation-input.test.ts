@@ -13,6 +13,16 @@ describe("generation input projection", () => {
     });
   });
 
+  test("canonicalizes every connector-supported positive size spelling", () => {
+    for (const [value, expected] of [["1024 X 1024", "1024x1024"], ["1024 x 1024", "1024x1024"], ["1x1", "1x1"]]) {
+      expect(generationInput([], [{ name: "size", value }])).toMatchObject({
+        parameters: [{ name: "size", value: expected }],
+      });
+      expect(readGenerationInput({ type: "generation-input/v1", texts: [], parameters: [{ name: "size", value }] }))
+        .toEqual({ version: 1, texts: [], parameters: [{ name: "size", value: expected }] });
+    }
+  });
+
   test("truncates text at 65,536 UTF-8 bytes without splitting its final code point", () => {
     const input = generationInput([{ role: "negative-prompt", value: `${"a".repeat(65_532)}🙂b` }], []);
     const text = (input as { texts: Array<{ role: string; value: string; truncated: boolean }> }).texts[0];
