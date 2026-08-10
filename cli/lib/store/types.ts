@@ -485,6 +485,39 @@ export type RunAttemptDto = {
   endedAt: number | null;
 };
 
+export type GenerationTextRole = "prompt" | "text" | "negative-prompt";
+
+export type GenerationParameterName =
+  | "size"
+  | "durationSec"
+  | "aspectRatio"
+  | "resolution"
+  | "generateAudio"
+  | "referenceCount"
+  | "referenceVideoCount"
+  | "hasFirstFrame"
+  | "hasLastFrame"
+  | "hasImage"
+  | "voiceSpecified"
+  | "stability"
+  | "similarityBoost"
+  | "style"
+  | "speed"
+  | "speakerBoost"
+  | "forceInstrumental"
+  | "promptInfluence"
+  | "language"
+  | "backend";
+
+export type GenerationInputDto = {
+  version: 1;
+  texts: Array<{ role: GenerationTextRole; value: string; truncated: boolean }>;
+  parameters: Array<{
+    name: GenerationParameterName;
+    value: string | number | boolean;
+  }>;
+};
+
 export type RunObjectDto = {
   id: string;
   workspaceId: string | null;
