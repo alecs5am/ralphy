@@ -96,11 +96,11 @@ function TilePreview({ card, project, rootEpoch, resolvePreview }: Pick<MediaCar
   const kind = previewKind(card);
   const key = previewKey(project, rootEpoch, card.ref);
   const initial = previewCache.get(key);
-  const [preview, setPreview] = useState<PreviewState>(() => ({ key, entry: initial ?? null, value: initial?.settled ? initial.value : null }));
+  const [preview, setPreview] = useState<PreviewState>(() => ({ key, entry: initial ?? null, value: null }));
   const releaseRef = useRef<(() => void) | null>(null);
   useEffect(() => {
     const cached = previewCache.get(key);
-    setPreview({ key, entry: cached ?? null, value: cached?.settled ? cached.value : null });
+    setPreview({ key, entry: cached ?? null, value: null });
     if (!kind) return;
     let disposed = false;
     void previewScheduler.acquire(kind).then(async (release) => {

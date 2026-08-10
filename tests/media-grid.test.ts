@@ -1,13 +1,29 @@
 import { act, createElement, type ReactElement } from "react";
 import { flushSync } from "react-dom";
-import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { MediaCardDto } from "../electron/ralphy/types";
 import { MediaCardTile, VirtualAssetGrid } from "../src/components/VirtualAssetGrid";
 import { MAX_WAVEFORM_DECODE_BYTES } from "../src/lib/audio-preview";
 import type { ProjectPreview, ProjectReference } from "../src/lib/ipc";
 import { assetGridGeometry, createPreviewScheduler, previewScheduler } from "../src/lib/media";
 import { createReactHost, type HostNode } from "./react-host";
+
+const waveSurfer = vi.hoisted(() => ({ instances: [] as Array<{ emit(event: string, ...args: unknown[]): void }> }));
+vi.mock("wavesurfer.js", () => ({
+  default: {
+    create: () => {
+      const listeners = new Map<string, Array<(...args: unknown[]) => void>>();
+      const instance = {
+        on(event: string, callback: (...args: unknown[]) => void) { listeners.set(event, [...(listeners.get(event) ?? []), callback]); },
+        emit(event: string, ...args: unknown[]) { listeners.get(event)?.forEach((callback) => callback(...args)); },
+        destroy() {}, getCurrentTime: () => 0, playPause: async () => undefined,
+        setTime() {}, setMuted() {}, setVolume() {},
+      };
+      waveSurfer.instances.push(instance);
+      return instance;
+    },
+  },
+}));
 
 const project: ProjectReference = { workspaceId: "workspace-grid", projectId: "project-grid" };
 
@@ -28,7 +44,7 @@ async function mounted(element: ReactElement) {
     rerender: async (next: ReactElement) => { await act(async () => { root.render(next); await Promise.resolve(); await Promise.resolve(); }); },
     rerenderSync: (next: ReactElement) => flushSync(() => root.render(next)),
     flush: async () => { await act(async () => { await Promise.resolve(); await Promise.resolve(); }); },
-    unmount: async () => { await act(async () => root.unmount()); host.restore(); },
+    unmount: async () => { await act(async () => { root.unmount(); await Promise.resolve(); await Promise.resolve(); }); host.restore(); },
   };
 }
 
@@ -48,6 +64,7 @@ function grid(cards: MediaCardDto[], rootEpoch: number, resolvePreview: (project
 }
 
 function byTag(root: HostNode, tag: string): HostNode[] { return root.findAll((node) => node.tagName === tag); }
+function bySrc(root: HostNode, src: string): HostNode[] { return root.findAll((node) => node.getAttribute("src") === src); }
 function byLabel(root: HostNode, label: string): HostNode {
   const node = root.findAll((candidate) => candidate.getAttribute("aria-label") === label)[0];
   if (!node) throw new Error(`Missing ${label}`);
@@ -58,6 +75,8 @@ function dispatchKey(node: HostNode, type: "keydown" | "keyup", key: string): vo
   Object.defineProperty(event, "key", { value: key });
   node.dispatchEvent(event);
 }
+
+beforeEach(() => { waveSurfer.instances.length = 0; });
 
 describe("media grid geometry and scheduling", () => {
   test("derives non-overlapping 16:10 rows at narrow, medium, and wide widths", () => {
@@ -131,17 +150,52 @@ describe("mounted media tiles", () => {
     const imageCard = mediaCard("lazy-image");
     const image = await mounted(tile(imageCard, 202, resolver));
     try {
-      expect(byTag(image.host.container, "IMG")).toHaveLength(1);
-      expect(renderToStaticMarkup(tile(imageCard, 202, resolver))).toContain('loading="lazy"');
+      const element = byTag(image.host.container, "IMG")[0];
+      expect(element.getAttribute("loading")).toBe("lazy");
     } finally { await image.unmount(); }
     const videoCard = mediaCard("metadata-video", "video/mp4");
     const video = await mounted(tile(videoCard, 203, resolver));
     try {
-      expect(byTag(video.host.container, "VIDEO")).toHaveLength(1);
-      const markup = renderToStaticMarkup(tile(videoCard, 203, resolver));
-      expect(markup).toContain('preload="metadata"');
-      expect(markup).toContain('muted=""');
+      const element = byTag(video.host.container, "VIDEO")[0] as HostNode & { muted: boolean };
+      expect(element.getAttribute("preload")).toBe("metadata");
+      expect(element.muted).toBe(true);
     } finally { await video.unmount(); }
+  });
+
+  test("keeps a settled cache remount as a glyph until its production permit is handed off", async () => {
+    const cached = mediaCard("cached-queued");
+    const cachedUrl = "ralphy-media://preview/cached-queued";
+    const resolver = vi.fn(async (_project: ProjectReference, ref: MediaCardDto["ref"]) => ({ url: `ralphy-media://preview/${ref.id}`, sizeBytes: 2048 }));
+    const seed = await mounted(tile(cached, 212, resolver));
+    try {
+      const image = bySrc(seed.host.container, cachedUrl)[0];
+      await act(async () => { image.dispatchEvent(new Event("load", { bubbles: true })); await Promise.resolve(); });
+    } finally { await seed.unmount(); }
+
+    const blockers = Array.from({ length: 4 }, (_, index) => mediaCard(`cache-blocker-${index}`));
+    const follower = mediaCard("cache-follower");
+    const last = mediaCard("cache-last");
+    const view = await mounted(grid([...blockers, cached, follower, last], 212, resolver));
+    try {
+      expect(resolver.mock.calls.map(([, ref]) => ref.id)).toEqual([cached.ref.id, ...blockers.map(({ ref }) => ref.id)]);
+      expect(bySrc(view.host.container, cachedUrl)).toHaveLength(0);
+
+      const blocker = bySrc(view.host.container, "ralphy-media://preview/cache-blocker-0")[0];
+      await act(async () => { blocker.dispatchEvent(new Event("load", { bubbles: true })); await Promise.resolve(); });
+      expect(bySrc(view.host.container, cachedUrl)).toHaveLength(1);
+      expect(resolver.mock.calls.filter(([, ref]) => ref.id === cached.ref.id)).toHaveLength(1);
+
+      const cachedImage = bySrc(view.host.container, cachedUrl)[0];
+      await act(async () => { cachedImage.dispatchEvent(new Event("load", { bubbles: true })); await Promise.resolve(); });
+      expect(resolver.mock.calls.some(([, ref]) => ref.id === follower.ref.id)).toBe(true);
+      cachedImage.dispatchEvent(new Event("load", { bubbles: true }));
+      await Promise.resolve();
+      expect(resolver.mock.calls.some(([, ref]) => ref.id === last.ref.id)).toBe(false);
+
+      const followerImage = bySrc(view.host.container, "ralphy-media://preview/cache-follower")[0];
+      await act(async () => { followerImage.dispatchEvent(new Event("load", { bubbles: true })); await Promise.resolve(); });
+      expect(resolver.mock.calls.some(([, ref]) => ref.id === last.ref.id)).toBe(true);
+    } finally { await view.unmount(); }
   });
 
   test("separates colon-bearing Project identities in the preview cache", async () => {
@@ -185,7 +239,7 @@ describe("mounted media tiles", () => {
     try { expect(resolver).toHaveBeenCalledTimes(2); } finally { await retry.unmount(); }
   });
 
-  test("holds the audio slot through bounded decode and releases it on unmount", async () => {
+  test("hands the audio slot to the mounted second tile only after bounded WaveSurfer ready", async () => {
     const cards = [mediaCard("bounded-a", "audio/wav", 2048), mediaCard("bounded-b", "audio/wav", 2048)];
     const resolver = vi.fn(async (_project: ProjectReference, ref: MediaCardDto["ref"]) => ({ url: `ralphy-media://preview/${ref.id}`, sizeBytes: 2048 }));
     const view = await mounted(grid(cards, 208, resolver));
@@ -195,8 +249,48 @@ describe("mounted media tiles", () => {
       audio.duration = 30; audio.volume = 1; audio.muted = false;
       await act(async () => { audio.dispatchEvent(new Event("loadedmetadata", { bubbles: true })); await Promise.resolve(); });
       expect(resolver.mock.calls.map(([, ref]) => ref.id)).toEqual(["bounded-a"]);
-      await view.rerender(grid([cards[1]], 208, resolver));
+      await vi.waitFor(() => expect(waveSurfer.instances).toHaveLength(1));
+      await act(async () => { waveSurfer.instances[0].emit("ready", 30); await Promise.resolve(); });
       expect(resolver.mock.calls.map(([, ref]) => ref.id)).toEqual(["bounded-a", "bounded-b"]);
+    } finally { await view.unmount(); }
+  });
+
+  test("final streaming error hands off, restores the glyph, and invalidates its cache while the second tile stays mounted", async () => {
+    const bytes = MAX_WAVEFORM_DECODE_BYTES + 1;
+    const first = mediaCard("error-stream-a", "audio/mpeg", bytes);
+    const second = mediaCard("error-stream-b", "audio/mpeg", bytes);
+    const resolver = vi.fn(async (_project: ProjectReference, ref: MediaCardDto["ref"]) => ({ url: `ralphy-media://preview/${ref.id}`, sizeBytes: bytes }));
+    const view = await mounted(grid([first, second], 213, resolver));
+    try {
+      const failedAudio = bySrc(view.host.container, "ralphy-media://preview/error-stream-a")[0];
+      expect(resolver.mock.calls.map(([, ref]) => ref.id)).toEqual([first.ref.id]);
+      await act(async () => { failedAudio.dispatchEvent(new Event("error", { bubbles: true })); await Promise.resolve(); });
+      expect(bySrc(view.host.container, "ralphy-media://preview/error-stream-a")).toHaveLength(0);
+      expect(resolver.mock.calls.map(([, ref]) => ref.id)).toEqual([first.ref.id, second.ref.id]);
+
+      const secondAudio = bySrc(view.host.container, "ralphy-media://preview/error-stream-b")[0] as HostNode & { duration: number; volume: number; muted: boolean };
+      secondAudio.duration = 30; secondAudio.volume = 1; secondAudio.muted = false;
+      await act(async () => { secondAudio.dispatchEvent(new Event("loadedmetadata", { bubbles: true })); await Promise.resolve(); });
+      await view.rerender(grid([second], 213, resolver));
+      await view.rerender(grid([second, first], 213, resolver));
+      expect(resolver.mock.calls.map(([, ref]) => ref.id)).toEqual([first.ref.id, second.ref.id, first.ref.id]);
+    } finally { await view.unmount(); }
+  });
+
+  test("unmounting an audio tile queued without a permit hands the slot to the next mounted tile", async () => {
+    const bytes = MAX_WAVEFORM_DECODE_BYTES + 1;
+    const holder = mediaCard("unmount-holder", "audio/mpeg", bytes);
+    const queued = mediaCard("unmount-queued", "audio/mpeg", bytes);
+    const follower = mediaCard("unmount-follower", "audio/mpeg", bytes);
+    const resolver = vi.fn(async (_project: ProjectReference, ref: MediaCardDto["ref"]) => ({ url: `ralphy-media://preview/${ref.id}`, sizeBytes: bytes }));
+    const view = await mounted(grid([holder, queued, follower], 214, resolver));
+    try {
+      expect(resolver.mock.calls.map(([, ref]) => ref.id)).toEqual([holder.ref.id]);
+      await view.rerender(grid([holder, follower], 214, resolver));
+      const audio = bySrc(view.host.container, "ralphy-media://preview/unmount-holder")[0] as HostNode & { duration: number; volume: number; muted: boolean };
+      audio.duration = 30; audio.volume = 1; audio.muted = false;
+      await act(async () => { audio.dispatchEvent(new Event("loadedmetadata", { bubbles: true })); await Promise.resolve(); await Promise.resolve(); });
+      expect(resolver.mock.calls.map(([, ref]) => ref.id)).toEqual([holder.ref.id, follower.ref.id]);
     } finally { await view.unmount(); }
   });
 
@@ -221,6 +315,8 @@ describe("mounted media tiles", () => {
     const view = await mounted(tile(first, 210, resolver));
     try {
       for (let index = 1; index <= 128; index += 1) await view.rerender(tile(mediaCard(`cache-${index}`), 210, resolver));
+      await view.rerender(tile(mediaCard("cache-128"), 210, resolver));
+      expect(resolver).toHaveBeenCalledTimes(129);
       await view.rerender(tile(first, 210, resolver));
       expect(resolver).toHaveBeenCalledTimes(130);
     } finally { await view.unmount(); }

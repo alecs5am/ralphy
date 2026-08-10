@@ -29,3 +29,11 @@
 - Replaced the ambiguous cache key with a JSON tuple, bound preview state/rendering and React tile keys to the full identity, invalidated only the exact failed cache entry, and added optional safe `AudioWaveform` readiness/error callbacks. Project/root/resolver/Open inputs are now required.
 - Expanded the committed React host only enough for real measurements, event bubbling, native Enter/Space activation, and Tab focus. Tests now use the real virtualizer and cover production 4/2/1 FIFO/idempotent/error/queued-unmount release, bounded and streaming audio serialization, the byte ceiling, 128-entry eviction, media failure recovery, and dispatched keyboard behavior.
 - GREEN: the focused two-file gate passed 20 tests; `bun run typecheck` exited 0; the full Desktop suite passed 344 tests with 1 intentional live-Core skip across 40 files.
+
+## Review fix round 2
+
+- RED: `bun run test -- tests/media-grid.test.ts` ran 17 tests with 1 failure and 16 passes. A settled cached image rendered while all four production image permits were occupied instead of remaining a glyph until scheduler handoff.
+- Cached entries now initialize and reset with no published value. Only after the mount acquires its permit does it await the cached promise and publish, so readiness/error cannot precede `releaseRef`; cache hits still avoid a resolver call.
+- The saturated remount test holds all four image permits, verifies cached media absence and resolver reuse, then proves one ready event hands off once. Cache eviction now proves a resident recent key reuses its resolver before the oldest 129th key resolves again.
+- Audio integration keeps the second tile mounted while a mocked bounded WaveSurfer emits `ready`, while a final streaming error restores the glyph/invalidates cache and hands off, and while a queued tile unmounts before acquiring without leaking the production audio permit.
+- GREEN: the focused two-file gate passed 23 tests; `bun run typecheck` exited 0; the full Desktop suite passed 347 tests with 1 intentional live-Core skip across 40 files; `bun run build` and `git diff --check` exited 0.
