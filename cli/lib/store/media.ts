@@ -15,6 +15,7 @@ import type {
   ArtifactMediaCard,
   EvaluationDto,
   MediaCard,
+  MediaFilter,
   MediaRef,
   MediaRefType,
   ObjectMediaCard,
@@ -24,6 +25,7 @@ import type {
   RunObjectMediaCard,
 } from "./types.js";
 import { StoreConflictError } from "./types.js";
+import { runObjectLocationClass } from "./runs.js";
 
 /**
  * Every non-null direct foreign key to `objects(id)`. A schema-introspection
@@ -86,9 +88,29 @@ export function getMediaCards(input: {
 export function listMedia(input: {
   context: QueryContext;
   types?: MediaRefType[];
+  filter?: MediaFilter;
   after?: string | null;
   limit: number;
 }): Page<MediaCard> {
+  const db = openDomainDb();
+  return db.transaction(() => listMediaInDatabase(
+    db,
+    resolveQueryContext(db, input.context),
+    input,
+  ))();
+}
+
+/** @internal Shared by bounded overview projections inside their read transaction. */
+export function listMediaInDatabase(
+  db: Database,
+  scope: ResolvedScope,
+  input: {
+    types?: MediaRefType[];
+    filter?: MediaFilter;
+    after?: string | null;
+    limit: number;
+  },
+): Page<MediaCard> {
   assertLimit(input.limit);
   const types = new Set<MediaRefType>(
     input.types === undefined
@@ -96,30 +118,26 @@ export function listMedia(input: {
       : input.types.map((type) => checkedRefType({ type })),
   );
   if (types.size === 0) throw new Error("Media request needs at least one type");
-  const db = openDomainDb();
-  return db.transaction(() => {
-    const scope = resolveQueryContext(db, input.context);
-    const cursor = input.after == null ? null : decodeCursor("c1", input.after);
-    const rows: { type: MediaRefType; id: string; createdAt: number }[] = [];
-    for (const type of types) {
-      rows.push(...readIdentities(db, scope, type, cursor, input.limit + 1));
-    }
-    rows.sort(
-      (left, right) =>
-        left.createdAt - right.createdAt ||
-        (left.id < right.id ? -1 : left.id > right.id ? 1 : 0),
-    );
-    const page = buildPage(rows.slice(0, input.limit + 1), input.limit, "c1", (row) => ({
-      ordinal: row.createdAt,
-      id: row.id,
-    }));
-    return {
-      items: page.items.map(
-        (row) => readCard(db, scope, { type: row.type, id: row.id })!,
-      ),
-      nextCursor: page.nextCursor,
-    };
-  })();
+  const cursor = input.after == null ? null : decodeCursor("c1", input.after);
+  const rows: { type: MediaRefType; id: string; createdAt: number }[] = [];
+  for (const type of types) {
+    rows.push(...readIdentities(db, scope, type, input.filter, cursor, input.limit + 1));
+  }
+  rows.sort(
+    (left, right) =>
+      left.createdAt - right.createdAt ||
+      (left.id < right.id ? -1 : left.id > right.id ? 1 : 0),
+  );
+  const page = buildPage(rows.slice(0, input.limit + 1), input.limit, "c1", (row) => ({
+    ordinal: row.createdAt,
+    id: row.id,
+  }));
+  return {
+    items: page.items.map(
+      (row) => readCard(db, scope, { type: row.type, id: row.id })!,
+    ),
+    nextCursor: page.nextCursor,
+  };
 }
 
 /**
@@ -254,12 +272,16 @@ function readIdentities(
   db: Database,
   scope: ResolvedScope,
   type: MediaRefType,
+  filter: MediaFilter | undefined,
   cursor: { ordinal: number; id: string } | null,
   limit: number,
 ): { type: MediaRefType; id: string; createdAt: number }[] {
   const visibility = visibilityClause(scope, type);
   const clauses = [visibility.sql];
   const values: (string | number)[] = [...visibility.values];
+  const predicate = mediaFilterClause(type, filter);
+  clauses.push(predicate.sql);
+  values.push(...predicate.values);
   if (cursor) {
     clauses.push(`(${visibility.createdAt} > ? OR (${visibility.createdAt} = ? AND ${visibility.id} > ?))`);
     values.push(cursor.ordinal, cursor.ordinal, cursor.id);
@@ -273,6 +295,70 @@ function readIdentities(
     )
     .all(...values)
     .map((row) => ({ type, id: row.id, createdAt: row.createdAt }));
+}
+
+function mediaFilterClause(
+  type: MediaRefType,
+  filter: MediaFilter | undefined,
+): { sql: string; values: string[] } {
+  if (filter === undefined) return { sql: "1", values: [] };
+  if (filter === "advanced-objects") {
+    return { sql: type === "object" ? "1" : "0", values: [] };
+  }
+  if (filter === "references") {
+    return {
+      sql: type === "artifact"
+        ? `EXISTS (
+            SELECT 1 FROM artifact_usages usage
+            WHERE usage.artifact_revision_id = artifacts.selected_revision_id
+              AND usage.role = 'reference'
+          )`
+        : "0",
+      values: [],
+    };
+  }
+  if (["candidate", "approved", "rejected", "superseded"].includes(filter)) {
+    return {
+      sql: type === "artifact"
+        ? `EXISTS (
+            SELECT 1 FROM artifact_revisions selected
+            WHERE selected.id = artifacts.selected_revision_id
+              AND selected.state = ?
+          )`
+        : "0",
+      values: type === "artifact" ? [filter] : [],
+    };
+  }
+  if (filter === "working") {
+    return {
+      sql: type === "artifact"
+        ? `EXISTS (
+            SELECT 1 FROM artifact_revisions selected
+            WHERE selected.id = artifacts.selected_revision_id
+              AND selected.state = 'working'
+          )`
+        : type === "run-object" ? "runObject.state = 'working'" : "0",
+      values: [],
+    };
+  }
+  if (filter === "run-diagnostics") {
+    return {
+      sql: type === "run-object"
+        ? `(runObject.state IN ('diagnostic', 'failed')
+            OR runObject.retention IN ('diagnostic', 'keep-on-failure'))`
+        : "0",
+      values: [],
+    };
+  }
+  if (filter === "run-cache-temp") {
+    return {
+      sql: type === "run-object"
+        ? `(runObject.path GLOB 'cache/*' OR runObject.path GLOB 'tmp/*')`
+        : "0",
+      values: [],
+    };
+  }
+  throw new Error(`Invalid Media filter: ${String(filter)}`);
 }
 
 function visibilityClause(
@@ -356,6 +442,8 @@ function readArtifactCard(
         state: string | null;
         mime: string | null;
         bytes: number | null;
+        selectedObjectId: string | null;
+        storageClass: string | null;
         createdAt: number | null;
         revisionCount: number;
       },
@@ -365,6 +453,7 @@ function readArtifactCard(
               artifact.slug AS slug, artifact.kind AS kind,
               artifact.selected_revision_id AS selectedRevisionId,
               selected.state AS state, object.mime AS mime, object.bytes AS bytes,
+              selected.object_id AS selectedObjectId, object.storage_class AS storageClass,
               selected.created_at AS createdAt,
               (SELECT COUNT(*) FROM artifact_revisions revision
                WHERE revision.artifact_id = artifact.id) AS revisionCount
@@ -376,6 +465,10 @@ function readArtifactCard(
     )
     .get(id);
   if (!row || !visible(scope, row.workspaceId, row.projectId)) return null;
+  const usageRoles = db.query<{ role: string }, [string]>(
+    `SELECT DISTINCT role FROM artifact_usages
+     WHERE artifact_revision_id = ? ORDER BY role ASC`,
+  ).all(row.selectedRevisionId ?? "").map((usage) => usage.role);
   return {
     ref: { type: "artifact", id },
     workspaceId: row.workspaceId,
@@ -388,6 +481,10 @@ function readArtifactCard(
     bytes: row.bytes,
     selectedAt: row.createdAt,
     revisionCount: row.revisionCount,
+    selectedObjectId: row.selectedObjectId,
+    storageClass: row.storageClass,
+    usageRoles,
+    target: row.selectedObjectId === null ? null : { type: "object", id: row.selectedObjectId },
   };
 }
 
@@ -407,6 +504,7 @@ function readRunObjectCard(
         retention: string;
         mime: string | null;
         bytes: number | null;
+        logicalPath: string;
         createdAt: number;
         objectId: string | null;
       },
@@ -416,12 +514,14 @@ function readRunObjectCard(
               runObject.run_id AS runId, runObject.purpose AS purpose,
               runObject.state AS state, runObject.retention AS retention,
               runObject.mime AS mime, runObject.bytes AS bytes,
+              runObject.path AS logicalPath,
               runObject.created_at AS createdAt, runObject.object_id AS objectId
        FROM run_objects runObject JOIN runs run ON run.id = runObject.run_id
        WHERE runObject.id = ?`,
     )
     .get(id);
   if (!row || !visible(scope, row.workspaceId, row.projectId)) return null;
+  const locationClass = runObjectLocationClass(row.logicalPath);
   return {
     ref: { type: "run-object", id },
     workspaceId: row.workspaceId,
@@ -432,8 +532,15 @@ function readRunObjectCard(
     retention: row.retention,
     mime: row.mime,
     bytes: row.bytes,
+    logicalPath: row.logicalPath,
+    locationClass,
+    attemptId: null,
+    attemptNo: null,
     createdAt: row.createdAt,
     objectId: row.objectId,
+    target: row.objectId === null
+      ? { type: "run-object", id }
+      : { type: "object", id: row.objectId },
   };
 }
 
@@ -480,6 +587,7 @@ function readObjectCard(
     bytes: row.bytes,
     createdAt: row.createdAt,
     referenceCount,
+    target: { type: "object", id },
   };
 }
 

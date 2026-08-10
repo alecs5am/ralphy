@@ -879,21 +879,13 @@ function createMacKeyProvider(): KeyProvider {
     async createKey(storeId) {
       const key = randomBytes(32);
       const child = Bun.spawn({
-        cmd: [
-          "/usr/bin/security",
-          "add-generic-password",
-          "-s",
-          `ralphy-domain-store-key:${storeId}`,
-          "-a",
-          "ralphy",
-          "-w",
-        ],
-        stdin: "pipe",
-        stdout: "pipe",
-        stderr: "pipe",
+        cmd: ["/usr/bin/security", "-i"],
+        stdin: Buffer.from(
+          `add-generic-password -s ralphy-domain-store-key:${storeId} -a ralphy -w ${key.toString("base64")}\n`,
+        ),
+        stdout: "ignore",
+        stderr: "ignore",
       });
-      child.stdin.write(key.toString("base64"));
-      child.stdin.end();
       if ((await child.exited) === 0) return key;
       const existing = await this.lookupKey(storeId);
       if (existing !== null) return existing;

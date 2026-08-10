@@ -13,6 +13,7 @@ import {
   importExecutionAndOperations,
   importScopesAndDocuments,
 } from "../../cli/lib/migration/import.js";
+import { stageInventoryObjects } from "../../cli/lib/migration/staging.js";
 import {
   classifyLegacyPath,
   isLegacySecretCandidate,
@@ -157,6 +158,38 @@ describe("legacy semantic migration", () => {
     expect(() => importScopesAndDocuments(ctx!)).toThrow(/replay conflict/i);
   });
 
+  test("gives a zero-byte JSONL an explicit empty marker Document", async () => {
+    await setupFixture();
+    importScopesAndDocuments(ctx!);
+
+    const marker = entry("workspaces/studio/projects/physical-only-project/logs/user-assets.jsonl");
+    expect(marker).toMatchObject({ disposition: "domain", targetPath: null });
+    const refs = JSON.parse(marker.targetRefs) as string[];
+    expect(refs.filter((ref) => ref.startsWith("doc_"))).toHaveLength(1);
+    const revisionId = refs.find((ref) => ref.startsWith("drev_"));
+    expect(ctx!.db.query<{ body: string; format: string }, [string]>(
+      "SELECT body, format FROM document_revisions WHERE id = ?",
+    ).get(revisionId!)).toEqual({ body: "", format: "text" });
+  });
+
+  test("does not infer migration scopes from system files", async () => {
+    await setupFixture({
+      mutate(value) {
+        fs.writeFileSync(path.join(value.paths.currentRoot, "workspaces", ".DS_Store"), "");
+        fs.writeFileSync(
+          path.join(value.paths.currentRoot, "workspaces", "studio", "projects", ".DS_Store"),
+          "",
+        );
+      },
+    });
+
+    expect(importScopesAndDocuments(ctx!)).toMatchObject({ workspaces: 2, projects: 6 });
+    await stageInventoryObjects(ctx!);
+    for (const sourcePath of ["workspaces/.DS_Store", "workspaces/studio/projects/.DS_Store"]) {
+      expect(entry(sourcePath)).toMatchObject({ disposition: "system", state: "excluded" });
+    }
+  });
+
   test("continues around malformed JSONL and allocates byte-exact diagnostics", async () => {
     await setupFixture();
     importScopesAndDocuments(ctx!);
@@ -175,6 +208,20 @@ describe("legacy semantic migration", () => {
       createHash("sha256").update(Buffer.from('{"id":"malformed",\n')).digest("hex"),
     );
     expect(detail.evidenceTargetPath).toMatch(/^migration-evidence\/diagnostics\/[0-9a-f]{16}\/[0-9a-f]{64}-2\.raw$/);
+  });
+
+  test("binds jobs evidence around a checkpointed WAL already excluded by staging", async () => {
+    await setupFixture({ checkpointJobsWal: true });
+    importScopesAndDocuments(ctx!);
+    expect(entry("jobs.db-wal")).toMatchObject({ disposition: "system" });
+    // Staging terminalises the recognized empty system file before this step.
+    ctx!.db.prepare(
+      `UPDATE migration_entries SET state = 'excluded', sha256 = ?, terminal_at = ?, updated_at = ?
+       WHERE source_path = 'jobs.db-wal'`,
+    ).run(createHash("sha256").update("").digest("hex"), 1, 1);
+
+    expect(() => importExecutionAndOperations(ctx!)).not.toThrow();
+    expect(entry("jobs.db-wal")).toMatchObject({ state: "excluded", disposition: "system" });
   });
 
   test("forced-clones and reconciles legacy jobs while holding pending work", async () => {
@@ -248,6 +295,7 @@ describe("legacy semantic migration", () => {
           JSON.stringify({
             nested: {
               file: "file:///Users/alice/private/file",
+              relativeFile: "file:private-file",
               html: '<img src="/Volumes/secret/a.png">',
               data: "data:text/plain,document-secret",
               "/Users/alice/private/object-key": "absolute-key-value",
@@ -285,6 +333,7 @@ describe("legacy semantic migration", () => {
       "dep-data",
       "kind-data",
       "file:///Users/alice/private/file",
+      "file:private-file",
       "/Volumes/secret/a.png",
       "data:text/plain",
     ]) {
@@ -491,6 +540,7 @@ async function setupFixture(options: {
   jobSecrets?: boolean;
   adversarialJobs?: boolean;
   jobProjectId?: string;
+  checkpointJobsWal?: boolean;
 } = {}): Promise<void> {
   root = makeTmpRoot("ralphy-migration-import");
   fixtureDir = fs.realpathSync(fs.mkdtempSync("/tmp/ralphy-mi-"));
@@ -556,6 +606,9 @@ async function setupFixture(options: {
     jobs.prepare("UPDATE job_artifacts SET kind = ? WHERE id = 2").run("data:text/plain,kind-data");
   }
   jobs.close();
+  // A live library that checkpointed its jobs database leaves a zero-byte WAL,
+  // which inventory classifies as a recognized empty system file.
+  if (options.checkpointJobsWal) fs.truncateSync(`${fixture.paths.jobsDb}-wal`, 0);
   const runId = "mig_00000000-0000-4000-8000-000000000003";
   const storeRoot = path.join(fixtureDir, "stage", ".ralphy");
   fs.mkdirSync(storeRoot, { recursive: true });

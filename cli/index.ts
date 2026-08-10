@@ -276,7 +276,7 @@ program
     }
     // Migration commands own their exact source and may need to recover while
     // the live .ralphy name is absent. Never open an ambient domain store first.
-    if (sub === "migrate") return;
+    if (sub === "migrate" || sub === "bridge") return;
     if (domainContextRequired && (await configureDomainContext(true))) return;
     const guardLegacyLayout = () => {
       if (sub === "migrate" || sub === "doctor") return;

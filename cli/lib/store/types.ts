@@ -496,6 +496,10 @@ export type RunObjectDto = {
   retention: string;
   mime: string | null;
   bytes: number | null;
+  logicalPath: string;
+  locationClass: RunObjectLocationClass;
+  attemptId: null;
+  attemptNo: null;
   createdAt: number;
 };
 
@@ -573,6 +577,26 @@ export type ProjectSummaryDto = {
   updatedAt: number;
 };
 
+export type OverviewProjectDto = ProjectSummaryDto & {
+  purpose: string | null;
+};
+
+export type OverviewPublicationDto = {
+  id: string;
+  unitId: string;
+  presentationId: string;
+  platform: string;
+  socialAccountId: string | null;
+  rail: PublicationRail;
+  state: PublicationState;
+  url: string | null;
+  scheduledAt: number | null;
+  submittedAt: number | null;
+  publishedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+};
+
 export type DocumentBindingDto = {
   ownerType: "project" | "build";
   ownerId: string;
@@ -623,6 +647,7 @@ export type OverviewIterationDto = {
   number: number;
   title: string;
   state: IterationState;
+  priorIterationChanges: string | null;
   createdAt: number;
   closedAt: number | null;
 };
@@ -671,7 +696,21 @@ export type OverviewMediaCounts = {
   runObjects: number;
 };
 
+export type MediaFilter =
+  | "references"
+  | "working"
+  | "candidate"
+  | "approved"
+  | "rejected"
+  | "superseded"
+  | "run-diagnostics"
+  | "run-cache-temp"
+  | "advanced-objects";
+
+export type RunObjectLocationClass = "temp" | "cache" | "bucket" | "other";
+
 export type OverviewPageRequest<C = string> = { after?: C | null; limit: number };
+export type OverviewMediaRequest = OverviewPageRequest & { filter?: MediaFilter };
 export type OverviewActivityRequest = { afterSequence: number; limit: number };
 
 export type WorkspaceOverviewRequest = {
@@ -683,6 +722,9 @@ export type WorkspaceOverviewRequest = {
     accounts?: OverviewPageRequest;
     projects?: OverviewPageRequest;
     activity?: OverviewActivityRequest;
+    sharedMedia?: OverviewMediaRequest;
+    publications?: OverviewPageRequest;
+    metrics?: true;
   };
 };
 
@@ -693,6 +735,9 @@ export type WorkspaceOverview = {
   accounts?: Page<OverviewAccountDto>;
   projects?: Page<ProjectSummaryDto>;
   activity?: Page<ActivityDto, number>;
+  sharedMedia?: Page<MediaCard>;
+  publications?: Page<OverviewPublicationDto>;
+  metrics?: MetricTotals;
 };
 
 export type ProjectOverviewRequest = {
@@ -709,11 +754,13 @@ export type ProjectOverviewRequest = {
     runs?: OverviewPageRequest;
     activity?: OverviewActivityRequest;
     mediaCounts?: true;
+    publications?: OverviewPageRequest;
+    metrics?: true;
   };
 };
 
 export type ProjectOverview = {
-  project: ProjectSummaryDto;
+  project: OverviewProjectDto;
   documents?: Page<OverviewProjectDocumentDto>;
   iterations?: Page<OverviewIterationDto>;
   feedback?: Page<OverviewFeedbackDto>;
@@ -724,6 +771,8 @@ export type ProjectOverview = {
   runs?: Page<OverviewRunDto>;
   activity?: Page<ActivityDto, number>;
   mediaCounts?: OverviewMediaCounts;
+  publications?: Page<OverviewPublicationDto>;
+  metrics?: MetricTotals;
 };
 
 export type MediaRefType = "artifact" | "run-object" | "object";
@@ -742,6 +791,10 @@ export type ArtifactMediaCard = {
   bytes: number | null;
   selectedAt: number | null;
   revisionCount: number;
+  selectedObjectId: string | null;
+  storageClass: string | null;
+  usageRoles: string[];
+  target: { type: "object"; id: string } | null;
 };
 
 export type RunObjectMediaCard = {
@@ -754,8 +807,13 @@ export type RunObjectMediaCard = {
   retention: string;
   mime: string | null;
   bytes: number | null;
+  logicalPath: string;
+  locationClass: RunObjectLocationClass;
+  attemptId: null;
+  attemptNo: null;
   createdAt: number;
   objectId: string | null;
+  target: { type: "object"; id: string } | { type: "run-object"; id: string };
 };
 
 export type ObjectMediaCard = {
@@ -767,6 +825,7 @@ export type ObjectMediaCard = {
   bytes: number;
   createdAt: number;
   referenceCount: number;
+  target: { type: "object"; id: string };
 };
 
 export type MediaCard = ArtifactMediaCard | RunObjectMediaCard | ObjectMediaCard;

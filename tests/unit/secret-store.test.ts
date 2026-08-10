@@ -35,6 +35,39 @@ function fixedKeyProvider(): KeyProvider {
 }
 
 describe("root-bound encrypted secret store", () => {
+  const macKeychainTest = process.platform === "darwin" ? test : test.skip;
+
+  macKeychainTest("persists a newly created native keychain key", async () => {
+    const { dataRoot } = fixture();
+    const storeId = openDomainDb()
+      .query<{ storeId: string }, []>(
+        "SELECT store_id AS storeId FROM store_metadata WHERE singleton = 1",
+      )
+      .get()!.storeId;
+    const service = `ralphy-domain-store-key:${storeId}`;
+
+    try {
+      const store = createSecretStore({ dataRoot });
+      await store.set("provider/openrouter", SECRET);
+
+      expect(await createSecretStore({ dataRoot }).read("provider/openrouter")).toBe(SECRET);
+    } finally {
+      const cleanup = Bun.spawn({
+        cmd: [
+          "/usr/bin/security",
+          "delete-generic-password",
+          "-s",
+          service,
+          "-a",
+          "ralphy",
+        ],
+        stdout: "ignore",
+        stderr: "ignore",
+      });
+      await cleanup.exited;
+    }
+  });
+
   test("rejects a relative data root even when it resolves to a valid store", () => {
     const { dataRoot } = fixture();
     const relativeRoot = path.relative(process.cwd(), dataRoot);

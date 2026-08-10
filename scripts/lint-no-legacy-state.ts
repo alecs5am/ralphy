@@ -35,8 +35,14 @@ export function findLegacyStateViolations(root: string): string[] {
     const source = fs.readFileSync(file, "utf8");
     const relative = path.relative(root, file);
     const allowedExport = relative === "cli/lib/store/portable.ts";
+    const allowedMigrationGenerationEvidence = new Set([
+      "cli/lib/migration/import.ts",
+      "cli/lib/migration/production-accounting.ts",
+      "cli/lib/migration/staging.ts",
+    ]).has(relative);
     for (const name of BANNED_LEGACY_NAMES) {
-      if (!allowedExport && source.includes(name)) violations.push(`${relative}: ${name}`);
+      if (!allowedExport && !(allowedMigrationGenerationEvidence && name === "generations.jsonl")
+        && source.includes(name)) violations.push(`${relative}: ${name}`);
     }
     for (const name of BANNED_APIS) {
       if (source.includes(name)) violations.push(`${relative}: ${name}`);

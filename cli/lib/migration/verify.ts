@@ -20,8 +20,13 @@ import {
   unlinkAt,
 } from "../store/posix-directory.js";
 import { VERSION } from "../version.js";
-import { assertMigrationMaintenanceLock, assertMigrationQuiescent } from "./inventory.js";
-import type { MigrationContext, MigrationIssue } from "./types.js";
+import {
+  assertMigrationMaintenanceLock,
+  assertMigrationQuiescent,
+  isRecognizedEmptySystemFile,
+} from "./inventory.js";
+import { isLegacySecretCandidate } from "./legacy.js";
+import type { MigrationContext, MigrationIssue, MigrationSourceKind } from "./types.js";
 import {
   isProductionSourceFingerprint,
   productionSourceGraphMismatches,
@@ -97,6 +102,7 @@ type Entry = {
   sourcePath: string;
   sourceLocatorHash: string;
   entryKind: string;
+  sourceKind: MigrationSourceKind;
   disposition: string;
   device: string;
   inode: string;
@@ -409,8 +415,14 @@ function inspectEntry(db: Database, entry: Entry, blockers: MigrationIssue[]): v
   if (!TERMINAL_STATES.has(entry.state) || entry.terminalAt === null) {
     blockers.push(issue("MIGRATION_ENTRY_INCOMPLETE", entry.id));
   }
-  if (entry.entryKind === "file" && entry.sha256 === null) blockers.push(issue("MIGRATION_ENTRY_HASH_MISSING", entry.id));
-  if (entry.entryKind === "file" && entry.bytes === 0 && entry.disposition === "system" && path.posix.basename(entry.sourcePath).toLowerCase() !== ".ds_store") {
+  // Secret dispositions are the one case with no hash to demand: the bytes of an
+  // unparseable candidate are never opened, which is the whole point of keeping
+  // them recovery-only, and inventory only hashes control-sized files.
+  if (entry.entryKind === "file" && entry.sha256 === null && !entry.disposition.startsWith("secret-")) {
+    blockers.push(issue("MIGRATION_ENTRY_HASH_MISSING", entry.id));
+  }
+  if (entry.entryKind === "file" && entry.bytes === 0 && entry.disposition === "system"
+    && !isRecognizedEmptySystemFile(entry.sourcePath, entry.sourceKind)) {
     blockers.push(issue("MIGRATION_EMPTY_UNCLASSIFIED", entry.id));
   }
   if (entry.disposition === "domain" && entry.entryKind === "file") {
@@ -481,7 +493,8 @@ function inspectSources(ctx: MigrationContext, activation: Activation): void {
         activation.blockers.push(issue("MIGRATION_SOURCE_FINGERPRINT_DRIFT", entry.id));
         continue;
       }
-      if (stat.isFile() && hashFile(path.join(bound.path, ...entry.sourcePath.split("/"))) !== entry.sha256) {
+      if (stat.isFile() && entry.sha256 !== null
+        && hashFile(path.join(bound.path, ...entry.sourcePath.split("/"))) !== entry.sha256) {
         activation.blockers.push(issue("MIGRATION_SOURCE_HASH_DRIFT", entry.id));
       }
     }
@@ -830,7 +843,6 @@ function inspectSecretInventory(
 }
 
 function inspectPlaintextRows(db: Database, blockers: MigrationIssue[]): void {
-  const pattern = /(?:-----BEGIN [A-Z ]+PRIVATE KEY-----|authorization["']?\s*:\s*["']?(?:bearer|basic)\s+\S+|["']?(?:api[_-]?key|token|password|secret)["']?\s*[:=]\s*["']?[^\s"'}]{4,}|\bsk-[A-Za-z0-9_-]{8,})/iu;
   for (const { name } of db.query<{ name: string }, []>(
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
   ).all()) {
@@ -841,7 +853,7 @@ function inspectPlaintextRows(db: Database, blockers: MigrationIssue[]): void {
     for (const row of db.query<Record<string, string | number | null>, []>(`SELECT rowid AS __rowid, * FROM "${name}"`).all()) {
       for (const column of columns) {
         const value = row[column];
-        if (typeof value === "string" && pattern.test(value)) {
+        if (typeof value === "string" && isLegacySecretCandidate("row.txt", Buffer.from(value))) {
           blockers.push(issue("MIGRATION_PLAINTEXT_SECRET", String(row.id ?? row.__rowid), { table: name, column }));
         }
       }
@@ -855,7 +867,6 @@ function inspectStagePlaintext(
   blockers: MigrationIssue[],
   afterPlaintextBufferReleased?: (buffer: Buffer) => void,
 ): void {
-  const pattern = /(?:-----BEGIN [A-Z ]+PRIVATE KEY-----|authorization["']?\s*:\s*["']?(?:bearer|basic)\s+\S+|["']?(?:api[_-]?key|token|password|secret)["']?\s*[:=]\s*["']?[^\s"'}]{4,}|\bsk-[A-Za-z0-9_-]{8,})/iu;
   for (const relative of walkStageFiles(storeRoot)) {
     if (relative === "secrets.enc") continue;
     let leaked: boolean;
@@ -863,7 +874,6 @@ function inspectStagePlaintext(
       leaked = fileContainsPlaintext(
         containedPath(storeRoot, relative),
         secrets,
-        pattern,
         afterPlaintextBufferReleased,
       );
     }
@@ -875,7 +885,6 @@ function inspectStagePlaintext(
 function fileContainsPlaintext(
   file: string,
   secrets: readonly SecretInventoryEntry[],
-  pattern: RegExp,
   afterPlaintextBufferReleased?: (buffer: Buffer) => void,
 ): boolean {
   const needles = secrets.map((secret) => secret.value).filter((value) => value.length > 0);
@@ -894,7 +903,7 @@ function fileContainsPlaintext(
       if (count === 0) return false;
       const combined = Buffer.concat([carry, chunk.subarray(0, count)]);
       bytes = combined;
-      if (needles.some((needle) => combined.indexOf(needle) !== -1) || pattern.test(combined.toString("utf8"))) return true;
+      if (needles.some((needle) => combined.indexOf(needle) !== -1)) return true;
       const nextCarry = Buffer.from(combined.subarray(Math.max(0, combined.length - overlap)));
       release(combined);
       bytes = null;
@@ -1036,7 +1045,8 @@ function migrationEntries(db: Database, runId: string): Entry[] {
   return db.query<Entry, [string]>(
     `SELECT entry.id, entry.migration_source_id AS sourceId, source.source_label AS sourceLabel,
             entry.source_path AS sourcePath, entry.source_locator_hash AS sourceLocatorHash,
-            entry.entry_kind AS entryKind, entry.disposition, entry.source_device AS device,
+            entry.entry_kind AS entryKind, entry.source_kind AS sourceKind,
+            entry.disposition, entry.source_device AS device,
             entry.source_inode AS inode, entry.source_mode AS mode, entry.bytes,
             entry.mtime_ms AS mtimeMs, entry.sha256, entry.target_path AS targetPath,
             COALESCE(entry.target_refs_json, '[]') AS targetRefs,

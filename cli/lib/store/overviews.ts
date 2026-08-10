@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { listActivity } from "./activity.js";
 import { openDomainDb } from "./db.js";
+import { listMediaInDatabase } from "./media.js";
 import { assertLimit, buildPage, decodeCursor } from "./pagination.js";
 import { resolveQueryContext, type QueryContext } from "./scope-context.js";
 import type {
@@ -13,10 +14,13 @@ import type {
   OverviewFeedbackDto,
   OverviewIterationDto,
   OverviewMediaCounts,
+  OverviewProjectDto,
+  OverviewPublicationDto,
   OverviewRunDto,
   OverviewStageDto,
   OverviewUnitDto,
   Page,
+  MetricTotals,
   ProjectOverview,
   ProjectOverviewRequest,
   ProjectSummaryDto,
@@ -77,6 +81,24 @@ export function getWorkspaceOverview(
     if (sections.activity) {
       overview.activity = pageActivity(sections.activity, request.context);
     }
+    if (sections.sharedMedia) {
+      assertLimit(sections.sharedMedia.limit, MAX_SECTION_LIMIT);
+      overview.sharedMedia = listMediaInDatabase(
+        db,
+        { workspaceId: scope.workspaceId, projectId: null },
+        sections.sharedMedia,
+      );
+    }
+    const workspaceUnits = {
+      sql: "unit.workspace_id = ? AND unit.project_id IS NULL",
+      values: [request.workspaceId],
+    };
+    if (sections.publications) {
+      overview.publications = pagePublications(db, sections.publications, workspaceUnits);
+    }
+    if (sections.metrics) {
+      overview.metrics = readMetricTotals(db, workspaceUnits);
+    }
     return overview;
   })();
 }
@@ -91,10 +113,12 @@ export function getProjectOverview(
   return db.transaction(() => {
     const scope = resolveQueryContext(db, request.context);
     const project = db
-      .query<ProjectSummaryDto, [string]>(
+      .query<OverviewProjectDto, [string]>(
         `SELECT id, workspace_id AS workspaceId, slug, name, state,
                 row_version AS rowVersion, created_at AS createdAt,
-                updated_at AS updatedAt
+                updated_at AS updatedAt,
+                CASE WHEN json_type(metadata_json, '$.purpose') = 'text'
+                  THEN json_extract(metadata_json, '$.purpose') ELSE NULL END AS purpose
          FROM projects WHERE id = ?`,
       )
       .get(request.projectId);
@@ -165,6 +189,16 @@ export function getProjectOverview(
     }
     if (sections.mediaCounts) {
       overview.mediaCounts = readMediaCounts(db, project);
+    }
+    const projectUnits = {
+      sql: "unit.project_id = ?",
+      values: [request.projectId],
+    };
+    if (sections.publications) {
+      overview.publications = pagePublications(db, sections.publications, projectUnits);
+    }
+    if (sections.metrics) {
+      overview.metrics = readMetricTotals(db, projectUnits);
     }
     return overview;
   })();
@@ -301,10 +335,84 @@ function pageIterations(
     db,
     request,
     `id, project_id AS projectId, number, title, state,
+     CASE WHEN EXISTS (
+       SELECT 1 FROM project_iterations prior
+       WHERE prior.project_id = project_iterations.project_id
+         AND prior.number < project_iterations.number
+     ) THEN reason ELSE NULL END AS priorIterationChanges,
      created_at AS createdAt, closed_at AS closedAt`,
     "project_iterations",
     { sql: "project_id = ?", values: [projectId] },
   );
+}
+
+function pagePublications(
+  db: Database,
+  request: SectionRequest,
+  ownership: Filter,
+): Page<OverviewPublicationDto> {
+  assertLimit(request.limit, MAX_SECTION_LIMIT);
+  const clauses = [ownership.sql];
+  const values: (string | number)[] = [...ownership.values];
+  if (request.after != null) {
+    const cursor = decodeCursor("c1", request.after);
+    clauses.push(
+      "(publication.created_at > ? OR (publication.created_at = ? AND publication.id > ?))",
+    );
+    values.push(cursor.ordinal, cursor.ordinal, cursor.id);
+  }
+  values.push(request.limit + 1);
+  const rows = db.query<OverviewPublicationDto, (string | number)[]>(
+    `SELECT publication.id AS id, unit.id AS unitId,
+            publication.presentation_id AS presentationId,
+            presentation.platform AS platform,
+            publication.social_account_id AS socialAccountId,
+            publication.rail AS rail, publication.state AS state,
+            publication.url AS url, publication.scheduled_at AS scheduledAt,
+            publication.submitted_at AS submittedAt,
+            publication.published_at AS publishedAt,
+            publication.created_at AS createdAt,
+            publication.updated_at AS updatedAt
+     FROM publications publication
+     JOIN unit_presentations presentation
+       ON presentation.id = publication.presentation_id
+     JOIN unit_revisions revision ON revision.id = presentation.unit_revision_id
+     JOIN units unit ON unit.id = revision.unit_id
+     WHERE ${clauses.join(" AND ")}
+     ORDER BY publication.created_at ASC, publication.id ASC LIMIT ?`,
+  ).all(...values);
+  return buildPage(rows, request.limit, "c1", (row) => ({
+    ordinal: row.createdAt,
+    id: row.id,
+  }));
+}
+
+function readMetricTotals(
+  db: Database,
+  ownership: Filter,
+): MetricTotals {
+  return db.query<MetricTotals, (string | number)[]>(
+    `WITH ranked AS (
+       SELECT metric.views, metric.likes, metric.comments, metric.shares,
+              metric.watch_time_ms AS watchTimeMs,
+              ROW_NUMBER() OVER (
+                PARTITION BY metric.publication_id
+                ORDER BY metric.as_of DESC, metric.created_at DESC, metric.id DESC
+              ) AS winner
+       FROM metric_snapshots metric
+       JOIN publications publication ON publication.id = metric.publication_id
+       JOIN unit_presentations presentation
+         ON presentation.id = publication.presentation_id
+       JOIN unit_revisions revision ON revision.id = presentation.unit_revision_id
+       JOIN units unit ON unit.id = revision.unit_id
+       WHERE ${ownership.sql}
+     )
+     SELECT COUNT(*) AS publicationCount,
+            SUM(views) AS views, SUM(likes) AS likes,
+            SUM(comments) AS comments, SUM(shares) AS shares,
+            SUM(watchTimeMs) AS watchTimeMs
+     FROM ranked WHERE winner = 1`,
+  ).get(...ownership.values)!;
 }
 
 function pageFeedback(

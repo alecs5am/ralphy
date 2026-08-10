@@ -698,6 +698,14 @@ describe("domain store verification", () => {
     const report = verifyDomainStore({ hashObjects: true });
     expect(report.unreferencedObjects).not.toContain(raw.id);
     expect(report.unreferencedObjects).not.toContain(staged.id);
+
+    db.prepare(
+      `UPDATE migration_entries
+       SET state = 'verified', terminal_at = 2, updated_at = 2
+       WHERE id = ?`,
+    ).run("mentry_00000000-0000-4000-8000-000000000010");
+    expect(verifyDomainStore({ hashObjects: true }).unreferencedObjects)
+      .not.toContain(staged.id);
   });
 
   test("treats farm as one reserved lstat-only boundary", () => {

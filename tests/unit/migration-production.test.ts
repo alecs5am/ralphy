@@ -12,10 +12,12 @@ import {
   importScopesAndDocuments,
   type ProductionImportSummary,
 } from "../../cli/lib/migration/import.js";
+import { productionSourceGraphMismatches } from "../../cli/lib/migration/production-accounting.js";
 import { stageInventoryObjects } from "../../cli/lib/migration/staging.js";
 import type { MigrationContext, MigrationLock } from "../../cli/lib/migration/types.js";
 import { openDomainDbAt } from "../../cli/lib/store/db.js";
 import {
+  buildRealLegacyCompositionLayout,
   buildLegacyLibrary,
   type LegacyFixture,
 } from "../fixtures/migration/build-legacy-library.js";
@@ -43,6 +45,136 @@ afterEach(() => {
 });
 
 describe("legacy production and delivery migration", () => {
+  test("imports the real HyperFrames Composition and Build layout without production manifests", async () => {
+    await setupFixture(({ project }) => {
+      fs.rmSync(path.join(project, "production.json"));
+      fs.rmSync(path.join(project, "production"), { recursive: true });
+      buildRealLegacyCompositionLayout(project);
+    });
+
+    expect(fs.existsSync(path.join(fixture!.paths.registeredProject, "production.json"))).toBe(false);
+    expect(fs.existsSync(path.join(fixture!.paths.registeredProject, "production"))).toBe(false);
+
+    const generationPath = "workspaces/studio/projects/registered-project/logs/generations.jsonl";
+    const before = generationLedger(generationPath);
+    expect(before).toMatchObject({ state: "inventoried", terminalAt: null });
+    expect(before.rawEvidenceObjectId).toMatch(/^obj_/u);
+    expect(before.refs).toContain(before.rawEvidenceObjectId!);
+    expect(before.refs.some((ref) => ref.startsWith("doc_"))).toBe(true);
+    expect(before.refs.some((ref) => ref.startsWith("drev_"))).toBe(true);
+    expect(before.refs.some((ref) => ref.startsWith("run_"))).toBe(true);
+    expect(before.refs.some((ref) => ref.startsWith("robj_"))).toBe(true);
+
+    const first = importProductionAndDelivery(ctx!);
+    const after = generationLedger(generationPath);
+    expect(after.state).toBe("imported");
+    expect(after.terminalAt).toBeNumber();
+    expect(after.refs.length).toBeGreaterThan(before.refs.length);
+    for (const ref of before.refs) expect(after.refs).toContain(ref);
+    const firstDomain = productionDomainIds();
+
+    const replay = importProductionAndDelivery(ctx!);
+    expect(replay).toEqual(first);
+    expect(generationLedger(generationPath)).toEqual(after);
+    expect(productionDomainIds()).toEqual(firstDomain);
+
+    for (const relative of ["index.html", "compositions/variant-1.html", "compositions/title-card.html"]) {
+      const refs = ledgerEntry(`workspaces/studio/projects/registered-project/${relative}`).refs;
+      expect(refs.some((ref) => ref.startsWith("obj_"))).toBe(true);
+      expect(refs.some((ref) => ref.startsWith("comp_"))).toBe(true);
+      expect(refs.some((ref) => ref.startsWith("crev_"))).toBe(true);
+      expect(refs.some((ref) => ref.startsWith("cfile_"))).toBe(true);
+    }
+    const variant = revisionBinding(
+      "workspaces/studio/projects/registered-project/compositions/variant-1.html",
+      "composition",
+    );
+    const versionLooking = revisionBinding(
+      "workspaces/studio/projects/registered-project/compositions/variant-1.v2.html",
+      "composition",
+    );
+    expect(versionLooking).toMatchObject({ revisionNo: 1 });
+    expect(versionLooking.identityId).not.toBe(variant.identityId);
+    const expectedRows = [
+      { compositionPath: "index.html", renderPath: "render/root.mp4", bytes: 11 },
+      { compositionPath: "compositions/variant-1.html", renderPath: "render/variant-1.mp4", bytes: 18 },
+      { compositionPath: "compositions/title-card.html", renderPath: "render/title-card.mp4", bytes: 17 },
+    ] as const;
+    for (const expected of expectedRows) assertExactBuildBinding(expected);
+    const generationRefs = after.refs;
+    const buildChains = ctx!.db.query<{
+      runId: string;
+      attemptId: string;
+      buildId: string;
+      outputId: string;
+      resultId: string;
+    }, []>(
+      `SELECT run.id AS runId, attempt.id AS attemptId, build.id AS buildId,
+              output.id AS outputId, result.id AS resultId
+       FROM builds build
+       JOIN runs run ON run.id = build.run_id
+       JOIN run_attempts attempt ON attempt.run_id = run.id
+       JOIN build_outputs output ON output.build_id = build.id
+       JOIN run_results result ON result.run_id = run.id
+       JOIN projects project ON project.id = run.project_id
+       JOIN workspaces workspace ON workspace.id = project.workspace_id
+       WHERE project.slug = 'registered-project' AND workspace.slug = 'studio'
+       ORDER BY build.id`,
+    ).all();
+    expect(buildChains).toHaveLength(3);
+    for (const chain of buildChains) {
+      for (const ref of Object.values(chain)) expect(generationRefs).toContain(ref);
+    }
+    for (const relative of [
+      "render/wrong-scope.mp4",
+      "render/deeper.mp4",
+      "render/unsafe.mp4",
+      "render/wrong-bytes.mp4",
+      "render/duplicate.mp4",
+    ]) {
+      const refs = ledgerEntry(`workspaces/studio/projects/registered-project/${relative}`).refs;
+      expect(refs.filter((ref) => ref.startsWith("build_"))).toEqual([]);
+      expect(refs.filter((ref) => ref.startsWith("output_"))).toEqual([]);
+      const artifactRevisionId = refs.find((ref) => ref.startsWith("arev_"));
+      expect(artifactRevisionId).toBeString();
+      expect(ctx!.db.query<{ count: number }, [string]>(
+        "SELECT COUNT(*) AS count FROM build_outputs WHERE artifact_revision_id = ?",
+      ).get(artifactRevisionId!)?.count).toBe(0);
+    }
+  });
+
+  test("production reconciliation rejects an Artifact-only graph for recognized HyperFrames provenance", async () => {
+    await setupFixture(({ project }) => {
+      fs.rmSync(path.join(project, "production.json"));
+      fs.rmSync(path.join(project, "production"), { recursive: true });
+      buildRealLegacyCompositionLayout(project);
+    });
+    importProductionAndDelivery(ctx!);
+    const entryId = ctx!.db.query<{ id: string }, [string, string]>(
+      "SELECT id FROM migration_entries WHERE migration_run_id = ? AND source_path = ?",
+    ).get(ctx!.runId, "workspaces/studio/projects/registered-project/logs/generations.jsonl")?.id;
+    expect(entryId).toBeString();
+
+    expect(productionSourceGraphMismatches(ctx!.db, {
+      productionRecords: [],
+      deliveryRecords: [],
+      deliveryOccurrences: [],
+    })).toContain(entryId!);
+  });
+
+  test("materializes the production graph once per import", async () => {
+    await setupFixture();
+    let materializations = 0;
+    const importWithSeam = importProductionAndDelivery as unknown as (
+      input: MigrationContext,
+      options: { onMaterializeForTesting: () => void },
+    ) => ProductionImportSummary;
+
+    importWithSeam(ctx!, { onMaterializeForTesting: () => { materializations += 1; } });
+
+    expect(materializations).toBe(1);
+  });
+
   test("blocks a 40-to-39 Unit occurrence omission against source-derived accounting", async () => {
     await setupFixture();
     const sourcePath = "workspaces/studio/projects/registered-project/units/repeated-pack/unit.json";
@@ -60,7 +192,7 @@ describe("legacy production and delivery migration", () => {
     expect(ctx!.db.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM units").get()?.count).toBe(0);
   });
 
-  test("blocks a Build omission shared by dry and live materialization", async () => {
+  test("blocks a Build omission against source-derived accounting", async () => {
     await setupFixture();
     const sourcePath = "workspaces/studio/projects/registered-project/production.json";
     const entryId = ctx!.db.query<{ id: string }, [string, string]>(
@@ -622,7 +754,7 @@ describe("legacy production and delivery migration", () => {
     ).get()?.count).toBe(0);
   });
 
-  test("keeps malformed Task 5 manifests pending and preserves observed revision numbers", async () => {
+  test("keeps malformed Task 5 manifests pending and normalizes observed revision numbers", async () => {
     await setupFixture(({ project, fixture: built }) => {
       const brokenUnit = path.join(project, "units", "broken", "unit.json");
       fs.mkdirSync(path.dirname(brokenUnit), { recursive: true });
@@ -660,19 +792,23 @@ describe("legacy production and delivery migration", () => {
     expect(ctx!.db.query<{ count: number }, []>(
       "SELECT COUNT(*) AS count FROM units WHERE slug = 'valid-sibling'",
     ).get()?.count).toBe(1);
-    expect(revisionNumbers("artifact", "artifacts-images-observed")).toEqual([2, 3]);
-    expect(revisionNumbers("composition", "observed")).toEqual([2, 3]);
+    expect(revisionNumbers("artifact", "artifacts-images-observed")).toEqual([1, 2]);
+    expect(revisionNumbers("composition", "observed")).toEqual([1, 2]);
   });
 
-  test("keeps dot and dash version families distinct with observed revision numbers", async () => {
+  test("keeps dot and dash version families distinct with contiguous revision numbers", async () => {
     await setupFixture(({ project }) => {
       for (const relative of [
+        "composition/mixed.v1.html",
         "composition/mixed.v2.html",
         "composition/mixed.v3.html",
+        "composition/mixed-v1.html",
         "composition/mixed-v2.html",
         "composition/mixed-v3.html",
+        "artifacts/images/mixed.v1.png",
         "artifacts/images/mixed.v2.png",
         "artifacts/images/mixed.v3.png",
+        "artifacts/images/mixed-v1.png",
         "artifacts/images/mixed-v2.png",
         "artifacts/images/mixed-v3.png",
       ]) {
@@ -696,8 +832,8 @@ describe("legacy production and delivery migration", () => {
         `workspaces/studio/projects/registered-project/${prefix}mixed-v${revision}${extension}`,
         kind,
       ));
-      expect(dot.map((value) => value.revisionNo)).toEqual([2, 3]);
-      expect(dash.map((value) => value.revisionNo)).toEqual([2, 3]);
+      expect(dot.map((value) => value.revisionNo)).toEqual([1, 2]);
+      expect(dash.map((value) => value.revisionNo)).toEqual([1, 2]);
       expect(new Set(dot.map((value) => value.identityId)).size).toBe(1);
       expect(new Set(dash.map((value) => value.identityId)).size).toBe(1);
       expect(dot[0]!.identityId).not.toBe(dash[0]!.identityId);
@@ -1246,6 +1382,90 @@ function ledgerEntry(sourcePath: string): { refs: string[] } {
   ).get(ctx!.runId, sourcePath);
   if (!row) throw new Error(`Missing migration entry: ${sourcePath}`);
   return { refs: JSON.parse(row.refs) as string[] };
+}
+
+function generationLedger(sourcePath: string): {
+  state: string;
+  terminalAt: number | null;
+  refs: string[];
+  rawEvidenceObjectId: string | null;
+} {
+  const row = ctx!.db.query<{
+    state: string;
+    terminalAt: number | null;
+    refs: string;
+    rawEvidenceObjectId: string | null;
+  }, [string, string]>(
+    `SELECT state, terminal_at AS terminalAt, target_refs_json AS refs,
+            raw_evidence_object_id AS rawEvidenceObjectId
+     FROM migration_entries WHERE migration_run_id = ? AND source_path = ?`,
+  ).get(ctx!.runId, sourcePath);
+  if (!row) throw new Error(`Missing migration entry: ${sourcePath}`);
+  return { ...row, refs: JSON.parse(row.refs) as string[] };
+}
+
+function productionDomainIds(): Record<string, string[]> {
+  return Object.fromEntries([
+    "compositions", "composition_revisions", "composition_revision_files", "artifacts",
+    "artifact_revisions", "builds", "build_outputs", "runs", "run_attempts", "run_results",
+  ].map((table) => [
+    table,
+    ctx!.db.query<{ id: string }, []>(`SELECT id FROM ${table} ORDER BY id`).all().map(({ id }) => id),
+  ]));
+}
+
+function assertExactBuildBinding(expected: {
+  compositionPath: string;
+  renderPath: string;
+  bytes: number;
+}): void {
+  const prefix = "workspaces/studio/projects/registered-project/";
+  const sourceRefs = ledgerEntry(prefix + expected.compositionPath).refs;
+  const renderRefs = ledgerEntry(prefix + expected.renderPath).refs;
+  const sourceObjectId = sourceRefs.find((ref) => ref.startsWith("obj_"));
+  const compositionRevisionId = sourceRefs.find((ref) => ref.startsWith("crev_"));
+  const compositionFileId = sourceRefs.find((ref) => ref.startsWith("cfile_"));
+  const renderObjectId = renderRefs.find((ref) => ref.startsWith("obj_"));
+  const artifactRevisionId = renderRefs.find((ref) => ref.startsWith("arev_"));
+  const buildId = renderRefs.find((ref) => ref.startsWith("build_"));
+  const outputId = renderRefs.find((ref) => ref.startsWith("output_"));
+  expect([
+    sourceObjectId, compositionRevisionId, compositionFileId, renderObjectId,
+    artifactRevisionId, buildId, outputId,
+  ].every((value) => value !== undefined)).toBe(true);
+  const row = ctx!.db.query<{
+    compositionRevisionId: string;
+    compositionFileId: string;
+    sourceObjectId: string;
+    outputId: string;
+    artifactRevisionId: string;
+    outputObjectId: string;
+    position: number;
+    bytes: number;
+  }, [string]>(
+    `SELECT build.composition_revision_id AS compositionRevisionId,
+            file.id AS compositionFileId,
+            file.object_id AS sourceObjectId, output.id AS outputId,
+            output.artifact_revision_id AS artifactRevisionId,
+            artifact.object_id AS outputObjectId, output.position, object.bytes
+     FROM builds build
+     JOIN composition_revision_files file
+       ON file.composition_revision_id = build.composition_revision_id
+     JOIN build_outputs output ON output.build_id = build.id
+     JOIN artifact_revisions artifact ON artifact.id = output.artifact_revision_id
+     JOIN objects object ON object.id = artifact.object_id
+     WHERE build.id = ?`,
+  ).get(buildId!);
+  expect(row).toEqual({
+    compositionRevisionId,
+    compositionFileId,
+    sourceObjectId,
+    outputId,
+    artifactRevisionId,
+    outputObjectId: renderObjectId,
+    position: 0,
+    bytes: expected.bytes,
+  });
 }
 
 function entryState(sourcePath: string): string {

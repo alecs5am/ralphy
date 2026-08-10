@@ -52,6 +52,7 @@ import type {
   RunAttemptDto,
   RunDto,
   RunObjectDto,
+  RunObjectLocationClass,
   RunResultEntityType,
   RunResultDto,
 } from "./types.js";
@@ -140,6 +141,7 @@ type RunObjectDtoDbRow = {
   retention: string;
   mime: string | null;
   bytes: number | null;
+  logical_path: string;
   created_at: number;
 };
 
@@ -163,7 +165,7 @@ const ATTEMPT_DTO_COLUMNS =
 const RUN_OBJECT_COLUMNS =
   "id, run_id, object_id, path, purpose, state, retention, mime, bytes, sha256, metadata_json, created_at";
 const RUN_OBJECT_DTO_COLUMNS =
-  "run_object.id, run.workspace_id, run.project_id, run_object.run_id, run_object.object_id, run_object.purpose, run_object.state, run_object.retention, run_object.mime, run_object.bytes, run_object.created_at";
+  "run_object.id, run.workspace_id, run.project_id, run_object.run_id, run_object.object_id, run_object.purpose, run_object.state, run_object.retention, run_object.mime, run_object.bytes, run_object.path AS logical_path, run_object.created_at";
 const RUN_RESULT_COLUMNS =
   "id, run_id, position, entity_type, entity_id, created_at";
 const RUN_RESULT_ENTITY_TYPES = new Set<RunResultEntityType>([
@@ -1004,6 +1006,31 @@ export function getRunObject(input: {
   return toPublicRunObjectDto(row);
 }
 
+/** Resolves unpromoted local evidence for the trusted desktop consumer only. */
+export function resolveUnpromotedRunObject(input: {
+  context: QueryContext;
+  runObjectId: string;
+}): { absolutePath: string; mime: string | null; bytes: number } {
+  const db = openDomainDb();
+  const access = resolveRunQueryAccess(db, input.context);
+  const row = db.query<{
+    objectId: string | null;
+    path: string;
+    mime: string | null;
+    bytes: number | null;
+  }, (string | number)[]>(
+    `SELECT run_object.object_id AS objectId, run_object.path, run_object.mime,
+            run_object.bytes
+     FROM run_objects AS run_object JOIN runs AS run ON run.id = run_object.run_id
+     WHERE run_object.id = ? AND ${access.sql}`,
+  ).get(input.runObjectId, ...access.values);
+  if (!row) throw new Error(`RunObject not found: ${input.runObjectId}`);
+  if (row.objectId !== null) throw new Error("RunObject is already promoted");
+  if (row.bytes === null) throw new Error("RunObject byte count is required");
+  const absolutePath = resolveTrustedRunObjectPath(row.path, row.bytes);
+  return { absolutePath, mime: row.mime, bytes: row.bytes };
+}
+
 export function listRunObjects(input: {
   context: QueryContext;
   runId: string;
@@ -1679,6 +1706,33 @@ function resolveRunObjectSource(locator: string): string {
   return resolved;
 }
 
+function resolveTrustedRunObjectPath(locator: string, expectedBytes: number): string {
+  const parts = checkedRunObjectPath(locator).split("/");
+  const root = path.resolve(ralphDir());
+  let current = root;
+  for (const [index, part] of parts.entries()) {
+    current = path.join(current, part);
+    let stat: fs.Stats;
+    try {
+      stat = fs.lstatSync(current);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        throw new Error("RunObject source is missing");
+      }
+      throw error;
+    }
+    if (stat.isSymbolicLink()) throw new Error("RunObject source must not contain a symlink");
+    if (index !== parts.length - 1 && !stat.isDirectory()) {
+      throw new Error("RunObject path contains a non-directory");
+    }
+    if (index === parts.length - 1) {
+      if (!stat.isFile()) throw new Error("RunObject source must be a regular file");
+      if (stat.size !== expectedBytes) throw new Error("RunObject byte count does not match recorded evidence");
+    }
+  }
+  return current;
+}
+
 async function inspectPromotionSource(
   sourcePath: string,
 ): Promise<{ bytes: number; sha256: string }> {
@@ -1700,13 +1754,24 @@ async function inspectPromotionSource(
   const root = await fs.promises.realpath(path.resolve(ralphDir()));
   const source = await fs.promises.realpath(sourcePath);
   if (!isWithin(root, source)) throw new Error("RunObject path escapes .ralphy");
-  const hash = createHash("sha256");
-  let bytes = 0;
-  for await (const chunk of fs.createReadStream(sourcePath)) {
-    bytes += chunk.length;
-    hash.update(chunk);
+  // Synchronous on purpose: read streams and async `FileHandle` reads lose their
+  // completion under sustained promotion load, leaving the caller parked on an
+  // open descriptor with no error to observe.
+  const fd = fs.openSync(sourcePath, "r");
+  try {
+    const hash = createHash("sha256");
+    const buffer = Buffer.allocUnsafe(64 * 1024);
+    let bytes = 0;
+    for (;;) {
+      const read = fs.readSync(fd, buffer, 0, buffer.length, bytes);
+      if (read === 0) break;
+      bytes += read;
+      hash.update(buffer.subarray(0, read));
+    }
+    return { bytes, sha256: hash.digest("hex") };
+  } finally {
+    fs.closeSync(fd);
   }
-  return { bytes, sha256: hash.digest("hex") };
 }
 
 function requireRun(db: Database, id: string): RunRow {
@@ -1901,6 +1966,7 @@ function toRunObjectRow(row: RunObjectDbRow): RunObjectRow {
 }
 
 function toRunObjectDto(row: RunObjectRow, run: RunRow): RunObjectDto {
+  const logicalPath = checkedRunObjectPath(row.path);
   return {
     id: row.id,
     workspaceId: run.workspaceId,
@@ -1912,11 +1978,16 @@ function toRunObjectDto(row: RunObjectRow, run: RunRow): RunObjectDto {
     retention: row.retention,
     mime: row.mime,
     bytes: row.bytes,
+    logicalPath,
+    locationClass: runObjectLocationClass(logicalPath),
+    attemptId: null,
+    attemptNo: null,
     createdAt: row.createdAt,
   };
 }
 
 function toPublicRunObjectDto(row: RunObjectDtoDbRow): RunObjectDto {
+  const logicalPath = checkedRunObjectPath(row.logical_path);
   return {
     id: row.id,
     workspaceId: row.workspace_id,
@@ -1928,6 +1999,10 @@ function toPublicRunObjectDto(row: RunObjectDtoDbRow): RunObjectDto {
     retention: row.retention,
     mime: row.mime,
     bytes: row.bytes,
+    logicalPath,
+    locationClass: runObjectLocationClass(logicalPath),
+    attemptId: null,
+    attemptNo: null,
     createdAt: row.created_at,
   };
 }
@@ -2015,6 +2090,15 @@ function checkedRunObjectPath(value: string): string {
     throw new Error("RunObject path must be a relative .ralphy locator");
   }
   return value;
+}
+
+/** @internal Safe public classification of a validated relative RunObject locator. */
+export function runObjectLocationClass(value: string): RunObjectLocationClass {
+  const locator = checkedRunObjectPath(value);
+  if (locator.startsWith("tmp/")) return "temp";
+  if (locator.startsWith("cache/")) return "cache";
+  if (locator.startsWith("buckets/")) return "bucket";
+  return "other";
 }
 
 function checkedJson(

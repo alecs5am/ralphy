@@ -20,16 +20,21 @@ import {
   reviseDocument,
   searchDocuments,
 } from "../store/documents.js";
-import { latestActivitySequence, listActivity } from "../store/activity.js";
+import { latestActivitySequence, listActivity, listGlobalActivity } from "../store/activity.js";
 import { openDomainDb, openDomainDbAt } from "../store/db.js";
 import { SCHEMA_VERSION } from "../store/schema.js";
 import { getMediaCard, listMedia, reviewMedia } from "../store/media.js";
-import { listArtifactRevisions, selectArtifactRevision } from "../store/artifacts.js";
+import { getArtifactRevision, listArtifactRevisions, selectArtifactRevision } from "../store/artifacts.js";
 import { createEvaluation, getEvaluation, listEvaluations } from "../store/evaluations.js";
 import {
+  getBuild,
   getComposition,
   listCompositions,
+  listBuildOutputs,
+  listBuilds,
+  listCompositionInputs,
   listCompositionRevisions,
+  listCompositionSources,
   getCompositionRevision,
   reviseComposition,
   selectCompositionRevision,
@@ -47,11 +52,15 @@ import {
   findPublicationByIdempotencyKey,
   getPublication,
   getUnitPresentation,
+  listPresentationCaptionRevisions,
+  listPresentationItems,
   startPublicationSubmission,
   cancelDraftPublication,
   requestPublicationReconciliation,
   expirePublicationOperationClaim,
   startMetricRefresh,
+  listUnitItems,
+  listUnitPresentations,
 } from "../store/units.js";
 import {
   getProjectOverview,
@@ -67,9 +76,12 @@ import {
 import {
   finishRun,
   getRun,
+  getRunObject,
+  listRunAttempts,
   listRunObjects,
   listRuns,
   startRun,
+  resolveUnpromotedRunObject,
 } from "../store/runs.js";
 import {
   addFeedback,
@@ -181,6 +193,9 @@ export function createBridgeMethods(input: {
   });
   add("consumer.authenticate", "mutation", (params, context) => {
     if (!context.helloComplete) throw new Error("system.hello is required first");
+    if (context.activitySubscriptions.size > 0) {
+      throw new Error("Activity subscriptions must be removed before consumer authentication");
+    }
     const value = object(params, "consumer.authenticate");
     const namespace = string(value.namespace, "namespace");
     const tokenBase64url = string(value.tokenBase64url, "tokenBase64url");
@@ -461,7 +476,7 @@ export function createBridgeMethods(input: {
 
   add("media.list", "read", (params) => {
     const value = object(params, "media.list");
-    return listMedia({ context: scopedContext(value), types: value.types as never, after: optionalString(value.after), limit: limit(value.limit) });
+    return listMedia({ context: scopedContext(value), types: value.types as never, filter: optionalString(value.filter) as never, after: optionalString(value.after), limit: limit(value.limit) });
   });
   add("media.show", "read", (params) => {
     const value = object(params, "media.show");
@@ -478,6 +493,10 @@ export function createBridgeMethods(input: {
       after: optionalString(value.after),
       limit: limit(value.limit),
     });
+  });
+  add("media.revision.show", "read", (params) => {
+    const value = object(params, "media.revision.show");
+    return getArtifactRevision({ context: scopedContext(value), revisionId: string(value.revisionId, "revisionId") });
   });
   add("media.select", "mutation", (params) => {
     const value = object(params, "media.select");
@@ -542,6 +561,10 @@ export function createBridgeMethods(input: {
   add("run.show", "read", (params) => {
     const value = object(params, "run.show");
     return getRun({ context: scopedContext(value), runId: string(value.runId, "runId") });
+  });
+  add("run.attempts", "read", (params) => {
+    const value = object(params, "run.attempts");
+    return listRunAttempts({ context: scopedContext(value), runId: string(value.runId, "runId"), after: optionalString(value.after), limit: limit(value.limit) });
   });
   add("run.results", "read", (params, context) => {
     const value = object(params, "run.results");
@@ -613,6 +636,26 @@ export function createBridgeMethods(input: {
     const value = object(params, "composition.revision.show");
     return getCompositionRevision({ context: scopedContext(value), revisionId: string(value.revisionId, "revisionId") });
   });
+  add("composition.sources", "read", (params) => {
+    const value = object(params, "composition.sources");
+    return listCompositionSources({ context: scopedContext(value), revisionId: string(value.revisionId, "revisionId"), after: optionalString(value.after), limit: limit(value.limit) });
+  });
+  add("composition.inputs", "read", (params) => {
+    const value = object(params, "composition.inputs");
+    return listCompositionInputs({ context: scopedContext(value), revisionId: string(value.revisionId, "revisionId"), after: optionalString(value.after), limit: limit(value.limit) });
+  });
+  add("composition.builds", "read", (params) => {
+    const value = object(params, "composition.builds");
+    return listBuilds({ context: scopedContext(value), compositionRevisionId: string(value.compositionRevisionId, "compositionRevisionId"), after: optionalString(value.after), limit: limit(value.limit) });
+  });
+  add("build.show", "read", (params) => {
+    const value = object(params, "build.show");
+    return getBuild({ context: scopedContext(value), buildId: string(value.buildId, "buildId") });
+  });
+  add("build.outputs", "read", (params) => {
+    const value = object(params, "build.outputs");
+    return listBuildOutputs({ context: scopedContext(value), buildId: string(value.buildId, "buildId"), after: optionalString(value.after), limit: limit(value.limit) });
+  });
 
   add("unit.list", "read", (params) => {
     const value = object(params, "unit.list");
@@ -629,6 +672,22 @@ export function createBridgeMethods(input: {
   add("unit.revision.show", "read", (params) => {
     const value = object(params, "unit.revision.show");
     return getUnitRevision({ context: scopedContext(value), revisionId: string(value.revisionId, "revisionId") });
+  });
+  add("unit.items", "read", (params) => {
+    const value = object(params, "unit.items");
+    return listUnitItems({ context: scopedContext(value), revisionId: string(value.revisionId, "revisionId"), after: optionalString(value.after), limit: limit(value.limit) });
+  });
+  add("unit.presentations", "read", (params) => {
+    const value = object(params, "unit.presentations");
+    return listUnitPresentations({ context: scopedContext(value), revisionId: string(value.revisionId, "revisionId"), after: optionalString(value.after), limit: limit(value.limit) });
+  });
+  add("presentation.items", "read", (params) => {
+    const value = object(params, "presentation.items");
+    return listPresentationItems({ context: scopedContext(value), presentationId: string(value.presentationId, "presentationId"), after: optionalString(value.after), limit: limit(value.limit) });
+  });
+  add("presentation.captions", "read", (params) => {
+    const value = object(params, "presentation.captions");
+    return listPresentationCaptionRevisions({ context: scopedContext(value), presentationId: string(value.presentationId, "presentationId"), after: optionalString(value.after), limit: limit(value.limit) });
   });
   add("unit.revise", "mutation", (params) => {
     const value = object(params, "unit.revise");
@@ -769,10 +828,22 @@ export function createBridgeMethods(input: {
     const value = object(params, "locator.resolve");
     const context = scopedContext(value);
     const target = object(value.target, "target");
-    if (string(target.type, "target.type") !== "object") {
-      throw new Error("Only Object locators are available to the trusted main process");
+    const purpose = string(value.purpose, "purpose");
+    if (!new Set(["preview", "read-text", "finder", "open", "drag"]).has(purpose)) {
+      throw new Error("locator.resolve purpose is not allowed");
     }
-    const objectId = string(target.id, "target.id");
+    const type = string(target.type, "target.type");
+    const id = string(target.id, "target.id");
+    if (type === "run-object") {
+      const runObject = getRunObject({ context, runObjectId: id });
+      if (runObject.objectId === null) return resolveUnpromotedRunObject({ context, runObjectId: id });
+      const row = getObjectRow(openDomainDb(), runObject.objectId);
+      if (!row) throw new Error("Object not found");
+      getMediaCard({ context, ref: { type: "object", id: runObject.objectId } });
+      return { absolutePath: resolveObjectPath(row), mime: row.mime, bytes: row.bytes };
+    }
+    if (type !== "object") throw new Error("locator.resolve target must be an Object or RunObject");
+    const objectId = id;
     getMediaCard({ context, ref: { type: "object", id: objectId } });
     const row = getObjectRow(openDomainDb(), objectId);
     if (!row) throw new Error("Object not found");
@@ -893,11 +964,20 @@ export function createBridgeMethods(input: {
     return { ref, kind, completed: true };
   });
 
-  add("activity.list", "read", (params) => {
+  add("activity.list", "read", (params, context) => {
     const value = object(params, "activity.list");
+    if (value.context === undefined) {
+      if (context.authority) {
+        throw new Error("Authenticated activity reads require scoped context");
+      }
+      return listGlobalActivity({ afterSequence: integer(value.afterSequence, "afterSequence"), limit: limit(value.limit) });
+    }
     return listActivity({ context: scopedContext(value), afterSequence: integer(value.afterSequence, "afterSequence"), limit: limit(value.limit) });
   });
   add("activity.subscribe", "read", (params, context) => {
+    if (context.authority) {
+      throw new Error("Activity subscriptions are trusted root reads");
+    }
     const value = object(params, "activity.subscribe");
     const sequence = integer(value.afterSequence, "afterSequence");
     const subscriptionId = string(value.subscriptionId, "subscriptionId");
@@ -990,7 +1070,7 @@ export function createBridgeMethods(input: {
   for (const [name, kind] of [
     ["workspace.export", "operation-start"], ["workspace.import", "operation-start"],
     ["document.bind", "mutation"], ["media.list", "read"], ["media.show", "read"],
-    ["media.revisions", "read"], ["media.select", "mutation"], ["media.review", "mutation"],
+    ["media.revisions", "read"], ["media.revision.show", "read"], ["media.select", "mutation"], ["media.review", "mutation"],
     ["evaluation.list", "read"], ["evaluation.show", "read"], ["evaluation.create", "mutation"],
     ["run.objects", "read"], ["run.cancel", "mutation"],
     ["composition.list", "read"], ["composition.show", "read"], ["composition.revise", "mutation"],

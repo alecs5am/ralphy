@@ -46,7 +46,8 @@ const DESKTOP_SYSTEM_ROOTS = new Set([
 ]);
 const DESKTOP_SYSTEM_FILES = new Set([
   "dips", "devtoolsactiveport", "local state", "network persistent state",
-  "preferences", "trust tokens", "trust tokens-journal",
+  "media-library-settings.json", "preferences", "trust tokens", "trust tokens-journal",
+  "window-state.json",
 ]);
 export function sourceLocatorHash(sourceKind: MigrationSourceKind, relativePath: string): string {
   const normalized = normalizeRelativePath(relativePath);
@@ -921,7 +922,7 @@ function classifyDisposition(
   if (isLegacySecretCandidate(relative)) return "secret-recovery-only";
   if (relative.split("/").some((part) => part === "cache" || part === "tmp")) return "cache";
   if (sourceKind === "desktop" && isDesktopSystemPath(relative)) return "system";
-  if (bytes === 0 && (basename === "jobs.db-wal" || basename === "jobs.db-shm")) return "system";
+  if (bytes === 0 && isRecognizedEmptySystemFile(relative, sourceKind)) return "system";
   if (/^(?:workspaces\/[^/]+\/projects\/[^/]+|projects\/[^/]+)\/render\/work-[^/]+\//iu.test(relative)) {
     return "run-object";
   }
@@ -929,9 +930,19 @@ function classifyDisposition(
     return "object";
   }
   if (isLegacyControlName(basename) || [".json", ".jsonl", ".md", ".markdown", ".txt", ".yaml", ".yml"].some((suffix) => basename.endsWith(suffix))) return "domain";
-  if (MEDIA_EXTENSIONS.has(extension)) return "object";
-  if (OPAQUE_OBJECT_EXTENSIONS.has(extension)) return bytes === 0 ? "system" : "object";
+  if (MEDIA_EXTENSIONS.has(extension) || OPAQUE_OBJECT_EXTENSIONS.has(extension)) return "object";
   return "issue";
+}
+
+/**
+ * Zero-byte files a named rule classifies as `system`. Every other empty file
+ * must keep an explicit disposition, so verification reuses this exact list
+ * instead of trusting `system` on its own.
+ */
+export function isRecognizedEmptySystemFile(relative: string, sourceKind: MigrationSourceKind): boolean {
+  const basename = path.posix.basename(relative).toLowerCase();
+  if (basename === ".ds_store" || basename === "jobs.db-wal" || basename === "jobs.db-shm") return true;
+  return sourceKind === "desktop" && isDesktopSystemPath(relative);
 }
 
 function isDesktopSystemPath(relative: string): boolean {

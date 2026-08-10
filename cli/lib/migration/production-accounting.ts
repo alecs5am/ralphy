@@ -1,4 +1,6 @@
 import type { Database } from "bun:sqlite";
+import type { JsonValue } from "../store/types.js";
+import { decodeHyperframesGenerationEvidence } from "./production-evidence.js";
 
 export type ProductionGraphExpectation =
   | {
@@ -139,10 +141,83 @@ export function productionSourceGraphMismatches(
   for (const record of source.deliveryRecords) {
     if (!expectedKeys.has(recordKey(record))) mismatches.add(record.entryId);
   }
+  const plannedProductions = new Map(source.productionRecords.map((record) => [recordKey(record), record]));
+  for (const recognized of recognizedGenerationRecords(db)) {
+    const planned = plannedProductions.get(recordKey(recognized));
+    if (planned?.expected.kind !== "build") mismatches.add(recognized.entryId);
+  }
   for (const record of [...source.productionRecords, ...source.deliveryRecords]) {
     if (!matchesExpectation(db, record)) mismatches.add(record.entryId);
   }
   return [...mismatches].sort();
+}
+
+function recognizedGenerationRecords(db: Database): Array<{
+  entryId: string;
+  rowOrdinal: number;
+  targetSlot: null;
+}> {
+  const rows = db.query<{
+    entryId: string;
+    sourceId: string;
+    sourcePath: string;
+    workspaceId: string;
+    projectId: string | null;
+    title: string;
+    body: string;
+  }, []>(
+    `SELECT entry.id AS entryId, entry.migration_source_id AS sourceId,
+            entry.source_path AS sourcePath, document.workspace_id AS workspaceId,
+            document.project_id AS projectId, document.title, revision.body
+     FROM migration_entries entry, json_each(COALESCE(entry.target_refs_json, '[]')) ref
+     JOIN document_revisions revision ON revision.id = ref.value
+     JOIN documents document ON document.id = revision.document_id
+     WHERE entry.entry_kind = 'file' AND entry.source_path LIKE '%generations.jsonl'`,
+  ).all();
+  const candidates: Array<{ entryId: string; rowOrdinal: number; renderEntryId: string }> = [];
+  for (const row of rows) {
+    const locator = row.sourcePath.match(/^((?:workspaces\/[^/]+\/projects\/[^/]+|projects\/[^/]+))\/(?:logs\/)?generations\.jsonl$/u);
+    const line = row.title.match(/ line-(\d+)$/u);
+    if (!locator || !line || !row.projectId) continue;
+    let body: JsonValue;
+    try { body = JSON.parse(row.body) as JsonValue; } catch { continue; }
+    const classification = decodeHyperframesGenerationEvidence({
+      body,
+      documentProjectId: row.projectId,
+      owningEntryWorkspaceId: row.workspaceId,
+      owningEntryProjectId: row.projectId,
+      projectLocator: locator[1]!,
+    });
+    if (classification.kind !== "eligible") continue;
+    const compositionPath = `${locator[1]}/${classification.composition.canonicalProjectRelative}`;
+    const renderPath = `${locator[1]}/${classification.render.canonicalProjectRelative}`;
+    const composition = migrationObjectEntry(db, row.sourceId, compositionPath);
+    const render = migrationObjectEntry(db, row.sourceId, renderPath);
+    if (!composition || !render || render.bytes !== classification.outputBytes
+      || !composition.refs.some((ref) => ref.startsWith("obj_"))
+      || !render.refs.some((ref) => ref.startsWith("obj_"))
+      || !render.refs.some((ref) => ref.startsWith("arev_"))) continue;
+    candidates.push({ entryId: row.entryId, rowOrdinal: Number(line[1]), renderEntryId: render.id });
+  }
+  const renderUses = new Map<string, number>();
+  for (const candidate of candidates) {
+    renderUses.set(candidate.renderEntryId, (renderUses.get(candidate.renderEntryId) ?? 0) + 1);
+  }
+  return candidates.filter((candidate) => renderUses.get(candidate.renderEntryId) === 1)
+    .map(({ entryId, rowOrdinal }) => ({ entryId, rowOrdinal, targetSlot: null }));
+}
+
+function migrationObjectEntry(
+  db: Database,
+  sourceId: string,
+  sourcePath: string,
+): { id: string; bytes: number; refs: string[] } | null {
+  const row = db.query<{ id: string; bytes: number; refs: string }, [string, string]>(
+    `SELECT id, bytes, COALESCE(target_refs_json, '[]') AS refs
+     FROM migration_entries
+     WHERE migration_source_id = ? AND source_path = ? AND entry_kind = 'file' AND disposition = 'object'`,
+  ).get(sourceId, sourcePath);
+  return row ? { id: row.id, bytes: row.bytes, refs: JSON.parse(row.refs) as string[] } : null;
 }
 
 function matchesExpectation(db: Database, record: ProductionSourceRecord): boolean {

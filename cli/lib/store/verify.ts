@@ -822,7 +822,7 @@ function inspectObjectReferences(
     ? `AND NOT EXISTS (
          SELECT 1 FROM migration_entries entry
          WHERE entry.raw_evidence_object_id = object.id
-            OR (entry.state = 'staged' AND EXISTS (
+            OR (entry.state IN ('imported', 'staged', 'verified', 'excluded', 'issue') AND EXISTS (
               SELECT 1 FROM json_each(COALESCE(entry.target_refs_json, '[]')) ref
               WHERE ref.value = object.id
             )))`

@@ -1,9 +1,11 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
 import {
   addArtifactRevision,
+  addArtifactUsage,
   createArtifact,
+  selectArtifactRevision,
 } from "../../cli/lib/store/artifacts.js";
 import {
   bindCompositionInput,
@@ -32,7 +34,14 @@ import {
   createWorkspace,
   upsertSocialAccount,
 } from "../../cli/lib/store/scopes.js";
-import { createUnit } from "../../cli/lib/store/units.js";
+import { startAgentSession } from "../../cli/lib/store/sessions.js";
+import {
+  appendMetricSnapshot,
+  createUnit,
+  createUnitWithRevision,
+  listUnitPresentations,
+  recordPublication,
+} from "../../cli/lib/store/units.js";
 import { withPoisonFarmReadTrap } from "../helpers/poison-farm.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 
@@ -56,6 +65,22 @@ const PROJECT_KEYS = [
   "state",
   "updatedAt",
   "workspaceId",
+] as const;
+const OVERVIEW_PROJECT_KEYS = [...PROJECT_KEYS, "purpose"] as const;
+const PUBLICATION_KEYS = [
+  "createdAt",
+  "id",
+  "platform",
+  "presentationId",
+  "publishedAt",
+  "rail",
+  "scheduledAt",
+  "socialAccountId",
+  "state",
+  "submittedAt",
+  "unitId",
+  "updatedAt",
+  "url",
 ] as const;
 const UNIT_KEYS = [
   "createdAt",
@@ -231,6 +256,8 @@ async function fixture(root: TmpRoot) {
     iteration,
     build,
     stageId,
+    artifact,
+    artifactRevision,
   };
 }
 
@@ -391,7 +418,7 @@ describe("project overview", () => {
         mediaCounts: true,
       },
     });
-    expectKeys(overview.project, PROJECT_KEYS);
+    expectKeys(overview.project, OVERVIEW_PROJECT_KEYS);
     expect(overview.project.id).toBe(project.id);
     expect(Object.keys(overview).sort()).toEqual([
       "activity",
@@ -445,6 +472,7 @@ describe("project overview", () => {
       "createdAt",
       "id",
       "number",
+      "priorIterationChanges",
       "projectId",
       "state",
       "title",
@@ -620,6 +648,7 @@ describe("project overview", () => {
       "builds",
       "units",
       "runs",
+      "publications",
     ];
     for (const section of pagedSections) {
       expect(() => request({ [section]: { limit: 51 } })).toThrow(/limit/i);
@@ -639,7 +668,7 @@ describe("project overview", () => {
         workspaceId: workspace.id,
         sections: sections as never,
       });
-    for (const section of ["documents", "units", "accounts", "projects"]) {
+    for (const section of ["documents", "units", "accounts", "projects", "sharedMedia", "publications"]) {
       expect(() => workspaceRequest({ [section]: { limit: 51 } })).toThrow(
         /limit/i,
       );
@@ -666,6 +695,231 @@ describe("project overview", () => {
         workspaceRequest({ activity: { afterSequence, limit: 5 } }),
       ).toThrow(/afterSequence|integer/i);
     }
+  });
+
+  test("projects overview media, publications, and latest metrics without leaking sibling records", async () => {
+    const root = makeRoot();
+    const f = await fixture(root);
+    openDomainDb().prepare("UPDATE projects SET metadata_json = ? WHERE id = ?")
+      .run(JSON.stringify({ purpose: "Launch the campaign", privatePlan: true }), f.project.id);
+    const secondIteration = createIteration({
+      projectId: f.project.id,
+      title: "v2",
+      reason: "Apply the approved client corrections.",
+    });
+
+    const sharedPath = path.join(root.dir, "shared-reference.png");
+    fs.writeFileSync(sharedPath, "shared-reference");
+    const sharedObject = await ingestObject({
+      scope: { workspaceId: f.workspace.id },
+      sourcePath: sharedPath,
+      originalName: "shared-reference.png",
+      mime: "image/png",
+      storageClass: "durable",
+    });
+    const sharedArtifact = createArtifact({
+      workspaceId: f.workspace.id,
+      slug: "shared-reference",
+      kind: "image",
+    });
+    const sharedRevision = addArtifactRevision({
+      artifactId: sharedArtifact.id,
+      objectId: sharedObject.id,
+      state: "approved",
+    });
+    selectArtifactRevision({
+      artifactId: sharedArtifact.id,
+      revisionId: sharedRevision.id,
+      expectedRevisionId: null,
+    });
+    addArtifactUsage({
+      artifactRevisionId: sharedRevision.id,
+      workspaceId: f.workspace.id,
+      role: "reference",
+    });
+    selectArtifactRevision({
+      artifactId: f.artifact.id,
+      revisionId: f.artifactRevision.id,
+      expectedRevisionId: null,
+    });
+    addArtifactUsage({
+      artifactRevisionId: f.artifactRevision.id,
+      projectId: f.project.id,
+      role: "reference",
+    });
+
+    const outsideWorkspace = createWorkspace({ slug: "outside-overview", name: "Outside" });
+    const outsideProject = createProject({
+      workspaceId: outsideWorkspace.id,
+      slug: "outside-overview",
+      name: "Outside",
+    });
+    const outsidePath = path.join(root.dir, "outside.png");
+    fs.writeFileSync(outsidePath, "outside");
+    const outsideObject = await ingestObject({
+      scope: { workspaceId: outsideWorkspace.id, projectId: outsideProject.id },
+      sourcePath: outsidePath,
+      originalName: "outside.png",
+      mime: "image/png",
+      storageClass: "durable",
+    });
+    const outsideArtifact = createArtifact({
+      projectId: outsideProject.id,
+      slug: "outside",
+      kind: "image",
+    });
+    const outsideRevision = addArtifactRevision({
+      artifactId: outsideArtifact.id,
+      objectId: outsideObject.id,
+      state: "approved",
+    });
+
+    const publish = (owner: { workspaceId: string } | { projectId: string }, artifactRevisionId: string, slug: string, views: number) => {
+      const revision = createUnitWithRevision({
+        ...owner,
+        slug,
+        format: "video",
+        items: [{ artifactRevisionId, role: "primary", position: 0 }],
+        presentations: [{ platform: "manual" }],
+      });
+      const context = "projectId" in owner
+        ? { workspaceId: owner.projectId === outsideProject.id ? outsideWorkspace.id : f.workspace.id, projectId: owner.projectId }
+        : { workspaceId: owner.workspaceId };
+      const presentation = listUnitPresentations({
+        context,
+        revisionId: revision.id,
+        limit: 1,
+      }).items[0]!;
+      const publication = recordPublication({
+        presentationId: presentation.id,
+        submissionRunId: startRun({ ...owner, kind: "publication" }).id,
+        rail: "manual",
+        idempotencyKey: `overview-${slug}`,
+      });
+      const metricsRun = startRun({ ...owner, kind: "metric-refresh" });
+      appendMetricSnapshot({
+        publicationId: publication.id,
+        runId: metricsRun.id,
+        position: 0,
+        source: "manual",
+        asOf: 1,
+        views: views - 1,
+      });
+      appendMetricSnapshot({
+        publicationId: publication.id,
+        runId: metricsRun.id,
+        position: 1,
+        source: "manual",
+        asOf: 2,
+        views,
+      });
+      return publication;
+    };
+    const workspacePublication = publish(
+      { workspaceId: f.workspace.id },
+      sharedRevision.id,
+      "workspace-publication",
+      10,
+    );
+    const clock = spyOn(Date, "now").mockReturnValue(1_000);
+    const firstProjectPublication = publish(
+      { projectId: f.project.id },
+      f.artifactRevision.id,
+      "project-publication-one",
+      20,
+    );
+    const secondProjectPublication = publish(
+      { projectId: f.project.id },
+      f.artifactRevision.id,
+      "project-publication-two",
+      30,
+    );
+    clock.mockRestore();
+    publish({ projectId: f.sibling.id }, sharedRevision.id, "sibling-publication", 40);
+    publish({ projectId: outsideProject.id }, outsideRevision.id, "outside-publication", 50);
+    const workspaceOverview = getWorkspaceOverview({
+      context: { workspaceId: f.workspace.id },
+      workspaceId: f.workspace.id,
+      sections: {
+        sharedMedia: { filter: "references", limit: 1 },
+        publications: { limit: 10 },
+        metrics: true,
+      },
+    });
+    expect(workspaceOverview.sharedMedia!.items.map((item) => item.ref.id)).toEqual([
+      sharedArtifact.id,
+    ]);
+    const projectSession = startAgentSession({
+      workspaceId: f.workspace.id,
+      projectId: f.project.id,
+      agent: "overview-review",
+    });
+    for (const context of [
+      { workspaceId: f.workspace.id, projectId: f.project.id },
+      { sessionId: projectSession.id },
+    ]) {
+      expect(getWorkspaceOverview({
+        context,
+        workspaceId: f.workspace.id,
+        sections: { sharedMedia: { filter: "references", limit: 10 } },
+      }).sharedMedia!.items.map((item) => item.ref.id)).toEqual([sharedArtifact.id]);
+    }
+    expect(workspaceOverview.publications!.items.map((item) => item.id)).toEqual([
+      workspacePublication.id,
+    ]);
+    expect(workspaceOverview.metrics).toEqual({
+      publicationCount: 1,
+      views: 10,
+      likes: null,
+      comments: null,
+      shares: null,
+      watchTimeMs: null,
+    });
+
+    const firstPage = getProjectOverview({
+      context: { workspaceId: f.workspace.id, projectId: f.project.id },
+      projectId: f.project.id,
+      sections: { iterations: { limit: 10 }, publications: { limit: 1 }, metrics: true },
+    });
+    const secondPage = getProjectOverview({
+      context: { workspaceId: f.workspace.id, projectId: f.project.id },
+      projectId: f.project.id,
+      sections: { publications: { after: firstPage.publications!.nextCursor, limit: 1 } },
+    });
+    expect(firstPage.project).toMatchObject({ purpose: "Launch the campaign" });
+    expect(firstPage.iterations!.items.find((item) => item.id === f.iteration.id))
+      .toMatchObject({ priorIterationChanges: null });
+    expect(firstPage.iterations!.items.find((item) => item.id === secondIteration.id))
+      .toMatchObject({ priorIterationChanges: "Apply the approved client corrections." });
+    const projectPublications = [
+      ...firstPage.publications!.items,
+      ...secondPage.publications!.items,
+    ];
+    expect(secondPage.publications!.nextCursor).toBeNull();
+    expect(projectPublications.map((item) => item.id).sort()).toEqual(
+      [firstProjectPublication.id, secondProjectPublication.id].sort(),
+    );
+    expect(new Set(projectPublications.map((item) => item.id)).size).toBe(2);
+    for (const publication of projectPublications) expectKeys(publication, PUBLICATION_KEYS);
+    expect(firstPage.metrics).toEqual({
+      publicationCount: 2,
+      views: 50,
+      likes: null,
+      comments: null,
+      shares: null,
+      watchTimeMs: null,
+    });
+    expect(JSON.stringify(projectPublications)).not.toMatch(
+      /effectiveOptions|providerPublicationId|submissionRunId|failure|metadata|error/,
+    );
+
+    openDomainDb().prepare("UPDATE projects SET metadata_json = ? WHERE id = ?")
+      .run(JSON.stringify({ purpose: 42 }), f.sibling.id);
+    expect(getProjectOverview({
+      context: { workspaceId: f.workspace.id, projectId: f.sibling.id },
+      projectId: f.sibling.id,
+      sections: {},
+    }).project.purpose).toBeNull();
   });
 
   test("refuses a sibling Project and a Project outside the context Workspace", async () => {
