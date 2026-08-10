@@ -207,6 +207,11 @@ const renderer = readdirSync(join(process.cwd(), "src"), {
   .join("\n");
 
 describe("design system contract", () => {
+  test("allows trusted media URLs for image previews", () => {
+    expect(readFileSync(join(process.cwd(), "index.html"), "utf8"))
+      .toMatch(/img-src[^;]*ralphy-media:/);
+  });
+
   test("uses only the supplied type scale and regular weight", () => {
     expect(styles).not.toMatch(/font-size:\s*(?:9|10)px/);
     expect(styles).not.toContain("font-weight: 500");
