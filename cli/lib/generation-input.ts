@@ -108,5 +108,7 @@ function normalizeSize(value: unknown): string | null {
   if (typeof value !== "string" || value.length > 32) return null;
   const match = value.match(/^(\d+)\s*x\s*(\d+)$/i);
   if (!match || Number(match[1]) <= 0 || Number(match[2]) <= 0) return null;
-  return `${Number(match[1])}x${Number(match[2])}`;
+  const width = match[1]!.replace(/^0+/, "") || "0";
+  const height = match[2]!.replace(/^0+/, "") || "0";
+  return width === "0" || height === "0" ? null : `${width}x${height}`;
 }
