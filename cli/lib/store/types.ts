@@ -518,6 +518,33 @@ export type GenerationInputDto = {
   }>;
 };
 
+export type MediaGenerationTarget =
+  | { type: "artifact-revision"; id: string }
+  | { type: "run-object"; id: string };
+
+export type GenerationAttemptDetailDto = RunAttemptDto & {
+  input: GenerationInputDto | null;
+};
+
+export type MediaGenerationDetailDto =
+  | {
+      status: "generation";
+      target: MediaGenerationTarget;
+      run: RunDto;
+      attempts: Page<GenerationAttemptDetailDto>;
+      cost: { knownUsd: number | null; complete: boolean };
+    }
+  | {
+      status: "not-generation";
+      target: MediaGenerationTarget;
+      producer: RunDto;
+    }
+  | {
+      status: "unknown";
+      target: MediaGenerationTarget;
+      reason: "not-recorded" | "ambiguous";
+    };
+
 export type RunObjectDto = {
   id: string;
   workspaceId: string | null;

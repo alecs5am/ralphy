@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import fs from "node:fs";
 import path from "node:path";
+import {
+  addArtifactRevision,
+  createArtifact,
+} from "../../cli/lib/store/artifacts.js";
+import { generationInput } from "../../cli/lib/generation-input.js";
 import { requestDigest } from "../../cli/lib/store/canonical-json.js";
 import { authenticateConsumer } from "../../cli/lib/store/consumer-auth.js";
 import { startConsumerOperationRun } from "../../cli/lib/store/consumer-runs.js";
@@ -10,6 +16,7 @@ import {
 import {
   finishRun,
   finishRunAttempt,
+  getMediaGenerationDetail,
   getRunObject,
   getRun,
   getRunAttempt,
@@ -17,9 +24,11 @@ import {
   listRunAttempts,
   listRuns,
   recordRunObject,
+  recordRunResult,
   startRun,
   startRunAttempt,
 } from "../../cli/lib/store/runs.js";
+import { ingestObject } from "../../cli/lib/store/objects.js";
 import { encodeCursor } from "../../cli/lib/store/pagination.js";
 import {
   createProject,
@@ -35,6 +44,33 @@ import { withPoisonFarmReadTrap } from "../helpers/poison-farm.js";
 import { installConsumer } from "../helpers/consumer-auth.js";
 
 let root: TmpRoot | null = null;
+
+async function addMediaRevision(input: {
+  workspaceId: string;
+  projectId: string;
+  slug: string;
+}) {
+  const sourcePath = path.join(root!.dir, `${input.slug}.png`);
+  fs.writeFileSync(sourcePath, input.slug);
+  const object = await ingestObject({
+    scope: { workspaceId: input.workspaceId, projectId: input.projectId },
+    sourcePath,
+    originalName: `${input.slug}.png`,
+    mime: "image/png",
+    storageClass: "durable",
+  });
+  const artifact = createArtifact({
+    projectId: input.projectId,
+    slug: input.slug,
+    kind: "image",
+  });
+  const revision = addArtifactRevision({
+    artifactId: artifact.id,
+    objectId: object.id,
+    state: "approved",
+  });
+  return { artifact, revision };
+}
 
 afterEach(() => {
   closeDomainDb();
@@ -508,5 +544,435 @@ describe("bounded Run queries", () => {
       path.join(import.meta.dir, "../../cli/lib/store/runs.ts"),
     ).text();
     expect(source).not.toContain("export function getRunAggregate");
+  });
+});
+
+describe("media generation detail", () => {
+  test("resolves an Artifact Revision producer, pages retries, and totals every attempt", async () => {
+    root = makeTmpRoot("ralphy-media-generation-artifact");
+    const workspace = createWorkspace({ slug: "client", name: "Client" });
+    const project = createProject({
+      workspaceId: workspace.id,
+      slug: "campaign",
+      name: "Campaign",
+    });
+    const { revision } = await addMediaRevision({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      slug: "hero",
+    });
+    const run = startRun({ projectId: project.id, kind: "generate.image" });
+    recordRunResult(openDomainDb(), {
+      runId: run.id,
+      position: 0,
+      entityType: "artifact_revision",
+      entityId: revision.id,
+    });
+    const firstAttempt = startRunAttempt({
+      runId: run.id,
+      provider: "fixture",
+      model: "fixture-image",
+      request: generationInput(
+        [{ role: "prompt", value: "A safe hand-authored prompt" }],
+        [{ name: "aspectRatio", value: "9:16" }],
+      ),
+    });
+    finishRunAttempt(firstAttempt.id, { state: "failed", costUsd: 1.25 });
+    finishRun(run.id, { state: "failed" });
+    const secondAttempt = startRunAttempt({
+      runId: run.id,
+      provider: "retry",
+      request: { slot: "legacy-private-slot" },
+    });
+    finishRunAttempt(secondAttempt.id, { state: "succeeded" });
+    finishRun(run.id, { state: "succeeded" });
+    const context = { workspaceId: workspace.id, projectId: project.id };
+    const target = { type: "artifact-revision" as const, id: revision.id };
+
+    const first = getMediaGenerationDetail({ context, target, limit: 1 });
+    expect(first.status).toBe("generation");
+    if (first.status !== "generation") throw new Error("Expected generation detail");
+    expect(first.target).toEqual(target);
+    expect(first.run).toMatchObject({
+      id: run.id,
+      kind: "generate.image",
+      state: "succeeded",
+      workspaceId: workspace.id,
+      projectId: project.id,
+    });
+    expect(Object.keys(first.attempts.items[0]!).sort()).toEqual([
+      "attemptNo",
+      "costUsd",
+      "endedAt",
+      "id",
+      "input",
+      "model",
+      "provider",
+      "runId",
+      "startedAt",
+      "state",
+    ]);
+    expect(first.attempts.items[0]).toMatchObject({
+      id: firstAttempt.id,
+      runId: run.id,
+      attemptNo: 1,
+      state: "failed",
+      costUsd: 1.25,
+      input: {
+        version: 1,
+        texts: [
+          {
+            role: "prompt",
+            value: "A safe hand-authored prompt",
+            truncated: false,
+          },
+        ],
+        parameters: [{ name: "aspectRatio", value: "9:16" }],
+      },
+    });
+    expect(first.attempts.nextCursor).toBe(
+      encodeCursor("p1", { ordinal: 1, id: firstAttempt.id }),
+    );
+    expect(first.cost).toEqual({ knownUsd: 1.25, complete: false });
+
+    const second = getMediaGenerationDetail({
+      context,
+      target,
+      after: first.attempts.nextCursor,
+      limit: 1,
+    });
+    expect(second.status).toBe("generation");
+    if (second.status !== "generation") throw new Error("Expected generation detail");
+    expect(second.attempts.items[0]).toMatchObject({
+      id: secondAttempt.id,
+      runId: run.id,
+      attemptNo: 2,
+      state: "succeeded",
+      input: null,
+    });
+    expect(second.attempts.nextCursor).toBeNull();
+    expect(second.cost).toEqual({ knownUsd: 1.25, complete: false });
+  });
+
+  test("resolves a RunObject directly and preserves complete zero cost", () => {
+    root = makeTmpRoot("ralphy-media-generation-run-object");
+    const workspace = createWorkspace({ slug: "client", name: "Client" });
+    const project = createProject({
+      workspaceId: workspace.id,
+      slug: "campaign",
+      name: "Campaign",
+    });
+    const run = startRun({ projectId: project.id, kind: "generation" });
+    const runObject = recordRunObject({
+      runId: run.id,
+      path: "tmp/output.png",
+      purpose: "result",
+      state: "ready",
+      retention: "working",
+    });
+    const attempt = startRunAttempt({ runId: run.id });
+    finishRunAttempt(attempt.id, { state: "succeeded", costUsd: 0 });
+    finishRun(run.id, { state: "succeeded" });
+    const target = { type: "run-object" as const, id: runObject.id };
+
+    const detail = getMediaGenerationDetail({
+      context: { workspaceId: workspace.id, projectId: project.id },
+      target,
+      limit: 20,
+    });
+
+    expect(detail.status).toBe("generation");
+    if (detail.status !== "generation") throw new Error("Expected generation detail");
+    expect(detail.target).toEqual(target);
+    expect(detail.run.id).toBe(run.id);
+    expect(detail.attempts.items).toHaveLength(1);
+    expect(detail.attempts.items[0]).toMatchObject({
+      id: attempt.id,
+      state: "succeeded",
+      costUsd: 0,
+      input: null,
+    });
+    expect(detail.cost).toEqual({ knownUsd: 0, complete: true });
+
+    const unknownCostRun = startRun({ projectId: project.id, kind: "generation" });
+    const unknownCostObject = recordRunObject({
+      runId: unknownCostRun.id,
+      path: "tmp/unknown-cost.png",
+      purpose: "result",
+      state: "ready",
+      retention: "working",
+    });
+    const unknownCostAttempt = startRunAttempt({ runId: unknownCostRun.id });
+    finishRunAttempt(unknownCostAttempt.id, { state: "succeeded" });
+    const unknownCost = getMediaGenerationDetail({
+      context: { workspaceId: workspace.id, projectId: project.id },
+      target: { type: "run-object", id: unknownCostObject.id },
+      limit: 20,
+    });
+    expect(unknownCost.status).toBe("generation");
+    if (unknownCost.status !== "generation") throw new Error("Expected generation detail");
+    expect(unknownCost.cost).toEqual({ knownUsd: null, complete: false });
+
+    const noAttemptRun = startRun({ projectId: project.id, kind: "generation" });
+    const noAttemptObject = recordRunObject({
+      runId: noAttemptRun.id,
+      path: "tmp/no-attempt.png",
+      purpose: "result",
+      state: "ready",
+      retention: "working",
+    });
+    const noAttempt = getMediaGenerationDetail({
+      context: { workspaceId: workspace.id, projectId: project.id },
+      target: { type: "run-object", id: noAttemptObject.id },
+      limit: 20,
+    });
+    expect(noAttempt.status).toBe("generation");
+    if (noAttempt.status !== "generation") throw new Error("Expected generation detail");
+    expect(noAttempt.attempts.items).toEqual([]);
+    expect(noAttempt.cost).toEqual({ knownUsd: null, complete: false });
+  });
+
+  test("reports complete cost independently from the requested page", async () => {
+    root = makeTmpRoot("ralphy-media-generation-complete-cost");
+    const workspace = createWorkspace({ slug: "client", name: "Client" });
+    const project = createProject({
+      workspaceId: workspace.id,
+      slug: "campaign",
+      name: "Campaign",
+    });
+    const { revision } = await addMediaRevision({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      slug: "complete",
+    });
+    const run = startRun({ projectId: project.id, kind: "generate.video" });
+    recordRunResult(openDomainDb(), {
+      runId: run.id,
+      position: 0,
+      entityType: "artifact_revision",
+      entityId: revision.id,
+    });
+    const first = startRunAttempt({ runId: run.id });
+    finishRunAttempt(first.id, { state: "failed", costUsd: 0.75 });
+    finishRun(run.id, { state: "failed" });
+    const second = startRunAttempt({ runId: run.id });
+    finishRunAttempt(second.id, { state: "succeeded", costUsd: 1.25 });
+
+    const detail = getMediaGenerationDetail({
+      context: { workspaceId: workspace.id, projectId: project.id },
+      target: { type: "artifact-revision", id: revision.id },
+      limit: 1,
+    });
+
+    expect(detail.status).toBe("generation");
+    if (detail.status !== "generation") throw new Error("Expected generation detail");
+    expect(detail.attempts.items).toHaveLength(1);
+    expect(detail.cost).toEqual({ knownUsd: 2, complete: true });
+  });
+
+  test("distinguishes absent, ambiguous, and proven non-generation producers", async () => {
+    root = makeTmpRoot("ralphy-media-generation-status");
+    const workspace = createWorkspace({ slug: "client", name: "Client" });
+    const project = createProject({
+      workspaceId: workspace.id,
+      slug: "campaign",
+      name: "Campaign",
+    });
+    const context = { workspaceId: workspace.id, projectId: project.id };
+    const absent = await addMediaRevision({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      slug: "absent",
+    });
+    const nonGeneration = await addMediaRevision({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      slug: "rendered",
+    });
+    const ambiguous = await addMediaRevision({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      slug: "ambiguous",
+    });
+    const renderRun = startRun({ projectId: project.id, kind: "render" });
+    recordRunResult(openDomainDb(), {
+      runId: renderRun.id,
+      position: 0,
+      entityType: "artifact_revision",
+      entityId: nonGeneration.revision.id,
+    });
+    for (const kind of ["generation", "generate.image"]) {
+      const run = startRun({ projectId: project.id, kind });
+      recordRunResult(openDomainDb(), {
+        runId: run.id,
+        position: 0,
+        entityType: "artifact_revision",
+        entityId: ambiguous.revision.id,
+      });
+    }
+
+    expect(getMediaGenerationDetail({
+      context,
+      target: { type: "artifact-revision", id: absent.revision.id },
+      limit: 20,
+    })).toEqual({
+      status: "unknown",
+      target: { type: "artifact-revision", id: absent.revision.id },
+      reason: "not-recorded",
+    });
+    expect(getMediaGenerationDetail({
+      context,
+      target: { type: "artifact-revision", id: ambiguous.revision.id },
+      limit: 20,
+    })).toEqual({
+      status: "unknown",
+      target: { type: "artifact-revision", id: ambiguous.revision.id },
+      reason: "ambiguous",
+    });
+    expect(getMediaGenerationDetail({
+      context,
+      target: { type: "artifact-revision", id: nonGeneration.revision.id },
+      limit: 20,
+    })).toEqual({
+      status: "not-generation",
+      target: { type: "artifact-revision", id: nonGeneration.revision.id },
+      producer: renderRun,
+    });
+  });
+
+  test("does not enumerate missing, sibling, or foreign immutable targets", async () => {
+    root = makeTmpRoot("ralphy-media-generation-scope");
+    const workspace = createWorkspace({ slug: "client", name: "Client" });
+    const project = createProject({
+      workspaceId: workspace.id,
+      slug: "campaign",
+      name: "Campaign",
+    });
+    const sibling = createProject({
+      workspaceId: workspace.id,
+      slug: "sibling",
+      name: "Sibling",
+    });
+    const foreignWorkspace = createWorkspace({ slug: "foreign", name: "Foreign" });
+    const foreignProject = createProject({
+      workspaceId: foreignWorkspace.id,
+      slug: "foreign",
+      name: "Foreign",
+    });
+    const siblingRevision = await addMediaRevision({
+      workspaceId: workspace.id,
+      projectId: sibling.id,
+      slug: "sibling",
+    });
+    const foreignRevision = await addMediaRevision({
+      workspaceId: foreignWorkspace.id,
+      projectId: foreignProject.id,
+      slug: "foreign",
+    });
+    const siblingRun = startRun({ projectId: sibling.id, kind: "generation" });
+    const siblingObject = recordRunObject({
+      runId: siblingRun.id,
+      path: "tmp/sibling.png",
+      purpose: "result",
+      state: "ready",
+      retention: "working",
+    });
+    const foreignRun = startRun({ projectId: foreignProject.id, kind: "generation" });
+    const foreignObject = recordRunObject({
+      runId: foreignRun.id,
+      path: "tmp/foreign.png",
+      purpose: "result",
+      state: "ready",
+      retention: "working",
+    });
+    const context = { workspaceId: workspace.id, projectId: project.id };
+
+    for (const id of [
+      "arev_missing",
+      siblingRevision.revision.id,
+      foreignRevision.revision.id,
+    ]) {
+      expect(() => getMediaGenerationDetail({
+        context,
+        target: { type: "artifact-revision", id },
+        limit: 20,
+      })).toThrow(`Artifact Revision not found: ${id}`);
+    }
+    for (const id of ["runobj_missing", siblingObject.id, foreignObject.id]) {
+      expect(() => getMediaGenerationDetail({
+        context,
+        target: { type: "run-object", id },
+        limit: 20,
+      })).toThrow(`RunObject not found: ${id}`);
+    }
+    expect(() => getMediaGenerationDetail({
+      context,
+      target: { type: "artifact-revision", id: siblingRevision.revision.id },
+      after: encodeCursor("c1", { ordinal: 0, id: "attempt_test" }),
+      limit: 20,
+    })).toThrow(`Artifact Revision not found: ${siblingRevision.revision.id}`);
+  });
+
+  test("rejects malformed bounds, cursors, target kinds, and mismatched IDs", async () => {
+    root = makeTmpRoot("ralphy-media-generation-invalid");
+    const workspace = createWorkspace({ slug: "client", name: "Client" });
+    const project = createProject({
+      workspaceId: workspace.id,
+      slug: "campaign",
+      name: "Campaign",
+    });
+    const { revision } = await addMediaRevision({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      slug: "hero",
+    });
+    const run = startRun({ projectId: project.id, kind: "generation" });
+    recordRunResult(openDomainDb(), {
+      runId: run.id,
+      position: 0,
+      entityType: "artifact_revision",
+      entityId: revision.id,
+    });
+    const runObject = recordRunObject({
+      runId: run.id,
+      path: "tmp/output.png",
+      purpose: "result",
+      state: "ready",
+      retention: "working",
+    });
+    const context = { workspaceId: workspace.id, projectId: project.id };
+    const target = { type: "artifact-revision" as const, id: revision.id };
+
+    for (const limit of [0, 101]) {
+      expect(() => getMediaGenerationDetail({ context, target, limit })).toThrow(
+        "Limit must be an integer from 1 through 100",
+      );
+    }
+    expect(() => getMediaGenerationDetail({
+      context,
+      target,
+      after: encodeCursor("c1", { ordinal: 0, id: "attempt_test" }),
+      limit: 20,
+    })).toThrow("Cursor family is invalid");
+    expect(() => getMediaGenerationDetail({
+      context,
+      target: { type: "object", id: "obj_private" } as never,
+      limit: 20,
+    })).toThrow("Media generation target is invalid");
+    expect(() => getMediaGenerationDetail({
+      context,
+      target: { type: "artifact-revision", id: "" },
+      limit: 20,
+    })).toThrow("Media generation target is invalid");
+    expect(() => getMediaGenerationDetail({
+      context,
+      target: { type: "artifact-revision", id: runObject.id },
+      limit: 20,
+    })).toThrow(`Artifact Revision not found: ${runObject.id}`);
+    expect(() => getMediaGenerationDetail({
+      context,
+      target: { type: "run-object", id: revision.id },
+      limit: 20,
+    })).toThrow(`RunObject not found: ${revision.id}`);
   });
 });
