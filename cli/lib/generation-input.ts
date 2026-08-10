@@ -32,6 +32,22 @@ export function generationInput(
   return { type: "generation-input/v1", texts: dto.texts, parameters: dto.parameters };
 }
 
+export function generationParameter(
+  name: GenerationParameterName,
+  value: unknown,
+): GenerationInputDto["parameters"][number] | null {
+  if (!PARAMETER_NAMES.has(name)) return null;
+  if (name === "size") return validString(value, /^[1-9]\d{1,4}x[1-9]\d{1,4}$/) ? { name, value } : null;
+  if (name === "aspectRatio") return validString(value, /^[1-9]\d?:[1-9]\d?$/) ? { name, value } : null;
+  if (name === "resolution") return validString(value, /^(?:[1-9]\d{2,3}p|[248]K)$/) ? { name, value } : null;
+  if (name === "language") return value === "ru" || value === "en" || value === "auto" ? { name, value } : null;
+  if (name === "backend") return value === "elevenlabs" || value === "openrouter" || value === "gemini" ? { name, value } : null;
+  if (["durationSec", "referenceCount", "referenceVideoCount", "stability", "similarityBoost", "style", "speed", "promptInfluence"].includes(name)) {
+    return typeof value === "number" && Number.isFinite(value) ? { name, value } : null;
+  }
+  return typeof value === "boolean" ? { name, value } : null;
+}
+
 export function readGenerationInput(value: unknown): GenerationInputDto | null {
   if (!isRecord(value) || !hasOnlyKeys(value, ["type", "texts", "parameters"])
     || value.type !== "generation-input/v1" || !Array.isArray(value.texts)
@@ -53,13 +69,11 @@ export function readGenerationInput(value: unknown): GenerationInputDto | null {
   const parameters: GenerationInputDto["parameters"] = [];
   for (const parameter of value.parameters) {
     if (!isRecord(parameter) || !hasOnlyKeys(parameter, ["name", "value"])
-      || !PARAMETER_NAMES.has(parameter.name as GenerationParameterName)
-      || !isParameterValue(parameter.value) || names.has(parameter.name as GenerationParameterName)) return null;
-    names.add(parameter.name as GenerationParameterName);
-    parameters.push({
-      name: parameter.name as GenerationParameterName,
-      value: parameter.value,
-    });
+      || typeof parameter.name !== "string" || names.has(parameter.name as GenerationParameterName)) return null;
+    const safe = generationParameter(parameter.name as GenerationParameterName, parameter.value);
+    if (!safe) return null;
+    names.add(safe.name);
+    parameters.push(safe);
   }
   return { version: 1, texts, parameters };
 }
@@ -83,7 +97,6 @@ function hasOnlyKeys(value: Record<string, unknown>, keys: string[]): boolean {
   return Reflect.ownKeys(value).length === keys.length && keys.every((key) => Object.hasOwn(value, key));
 }
 
-function isParameterValue(value: unknown): value is string | number | boolean {
-  return typeof value === "string" || typeof value === "boolean"
-    || (typeof value === "number" && Number.isFinite(value));
+function validString(value: unknown, pattern: RegExp): value is string {
+  return typeof value === "string" && value.length <= 32 && pattern.test(value);
 }

@@ -12,6 +12,7 @@ import { __setMagickBinaryForTest } from "../../cli/lib/image/magick.js";
 import { setRoot } from "../../cli/lib/paths.js";
 import { openrouterConnector } from "../../cli/lib/providers/openrouter.js";
 import { falConnector } from "../../cli/lib/providers/fal.js";
+import { elevenlabsConnector } from "../../cli/lib/providers/elevenlabs.js";
 import type { GenerateImageInput } from "../../cli/lib/providers/types.js";
 import { artifactOut } from "../../cli/lib/artifact-production.js";
 import { readGenerationInput } from "../../cli/lib/generation-input.js";
@@ -286,9 +287,73 @@ describe("generation domain persistence", () => {
     const context = { workspaceId: workspace.id, projectId: project.id };
     expect(listArtifacts({ context, limit: 10 }).items.map((artifact) => artifact.slug).sort())
       .toEqual(["one", "two"]);
-    expect(listRuns({ context, limit: 10 }).items).toHaveLength(2);
+    const runs = listRuns({ context, limit: 10 }).items;
+    expect(runs).toHaveLength(2);
+    expect(runs.map((run) => generationAttemptInput(run.id))
+      .sort((a, b) => a!.texts[0]!.value.localeCompare(b!.texts[0]!.value)))
+      .toEqual([
+        {
+          version: 1,
+          texts: [{ role: "prompt", value: "first", truncated: false }],
+          parameters: [
+            { name: "size", value: "1080x1920" },
+            { name: "referenceCount", value: 0 },
+          ],
+        },
+        {
+          version: 1,
+          texts: [{ role: "prompt", value: "second", truncated: false }],
+          parameters: [
+            { name: "size", value: "1080x1920" },
+            { name: "referenceCount", value: 0 },
+          ],
+        },
+      ]);
     expect(fs.existsSync(path.join(legacyProjectDir, "asset-manifest.json"))).toBe(false);
     expect(fs.existsSync(path.join(legacyProjectDir, "logs", "generations.jsonl"))).toBe(false);
+  });
+
+  test("video, voiceover, music, and SFX retain only their approved inputs", async () => {
+    const workspace = createWorkspace({ slug: "default", name: "Default" });
+    const project = createProject({ workspaceId: workspace.id, slug: "safe-inputs", name: "Safe inputs" });
+    seedLegacyProject(fixtureRoot, project.id);
+    const frame = path.join(fixtureRoot, "TASK2_FRAME_PATH.png");
+    fs.writeFileSync(frame, "frame");
+    const originalVideo = openrouterConnector.generateVideo;
+    const originalVoice = elevenlabsConnector.generateVoiceover;
+    const originalMusic = elevenlabsConnector.generateMusic;
+    const originalSfx = elevenlabsConnector.generateSfx;
+    const originalElevenlabsAvailable = elevenlabsConnector.available;
+    const result = (input: any) => {
+      fs.mkdirSync(path.dirname(input.outputPath), { recursive: true });
+      fs.writeFileSync(input.outputPath, "fixture");
+      return { localPath: input.outputPath, costUsd: 0.01, latencyMs: 1, model: input.model ?? "fixture" };
+    };
+    openrouterConnector.generateVideo = async (input: any) => result(input);
+    elevenlabsConnector.generateVoiceover = async (input: any) => result(input);
+    elevenlabsConnector.generateMusic = async (input: any) => result(input);
+    elevenlabsConnector.generateSfx = async (input: any) => result(input);
+    elevenlabsConnector.available = () => true;
+    try {
+      await generateCmd().parseAsync(["video", "--project", project.id, "--slot", "clip", "--prompt", "move", "--duration", "5", "--model", "fixture/video", "--no-validate", "--first-frame", frame, "--ref", frame, "--audio", "--aspect-ratio", "16:9", "--resolution", "720p", "--provider", "openrouter", "--no-ref-consent", "fixture"], { from: "user" });
+      await generateCmd().parseAsync(["voiceover", "--project", project.id, "--slot", "voice", "--voice", "TASK2_EXTERNAL_VOICE_ID", "--text", "speak", "--stability", "0.5", "--no-speaker-boost", "--provider", "elevenlabs", "--no-ref-consent", "fixture"], { from: "user" });
+      await generateCmd().parseAsync(["music", "--project", project.id, "--slot", "music", "--prompt", "original music prompt", "--duration", "5", "--provider", "elevenlabs", "--no-ref-consent", "fixture"], { from: "user" });
+      await generateCmd().parseAsync(["sfx", "--project", project.id, "--slot", "sfx", "--prompt", "click", "--duration", "2", "--prompt-influence", "0.7", "--provider", "elevenlabs", "--no-ref-consent", "fixture"], { from: "user" });
+    } finally {
+      openrouterConnector.generateVideo = originalVideo;
+      elevenlabsConnector.generateVoiceover = originalVoice;
+      elevenlabsConnector.generateMusic = originalMusic;
+      elevenlabsConnector.generateSfx = originalSfx;
+      elevenlabsConnector.available = originalElevenlabsAvailable;
+    }
+    const context = { workspaceId: workspace.id, projectId: project.id };
+    const inputs = listRuns({ context, limit: 10 }).items.map((run) => generationAttemptInput(run.id));
+    expect(inputs).toContainEqual(expect.objectContaining({ texts: [{ role: "prompt", value: "move", truncated: false }], parameters: expect.arrayContaining([{ name: "referenceCount", value: 1 }, { name: "hasFirstFrame", value: true }, { name: "generateAudio", value: true }, { name: "aspectRatio", value: "16:9" }, { name: "resolution", value: "720p" }]) }));
+    expect(inputs).toContainEqual(expect.objectContaining({ texts: [{ role: "text", value: "speak", truncated: false }], parameters: expect.arrayContaining([{ name: "voiceSpecified", value: true }, { name: "stability", value: 0.5 }, { name: "speakerBoost", value: false }]) }));
+    expect(inputs).toContainEqual(expect.objectContaining({ texts: [{ role: "prompt", value: "original music prompt", truncated: false }], parameters: [{ name: "durationSec", value: 5 }, { name: "forceInstrumental", value: true }] }));
+    expect(inputs).toContainEqual(expect.objectContaining({ texts: [{ role: "prompt", value: "click", truncated: false }], parameters: [{ name: "durationSec", value: 2 }, { name: "promptInfluence", value: 0.7 }] }));
+    const requests = JSON.stringify(inputs);
+    for (const sentinel of [fixtureRoot, frame, "TASK2_EXTERNAL_VOICE_ID", "data:image", "outputPath", "fixture-elevenlabs-key", "note", "provider-error"]) expect(requests).not.toContain(sentinel);
   });
 
   test("direct image convert stores its output as an Artifact revision instead of the requested legacy path", async () => {

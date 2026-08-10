@@ -37,6 +37,29 @@ describe("generation input projection", () => {
     expect(() => generationInput([], [{ name: "voiceId", value: "secret" }] as any)).toThrow();
   });
 
+  test("rejects arbitrary strings and wrong parameter value types", () => {
+    const invalid = [
+      { name: "size", value: "/private/fixture.png" },
+      { name: "aspectRatio", value: "https://example.test/secret" },
+      { name: "resolution", value: "data:image/png;base64,private" },
+      { name: "language", value: "credential=private" },
+      { name: "backend", value: "provider-error-private" },
+      { name: "backend", value: "x".repeat(65_537) },
+      { name: "durationSec", value: "5" },
+      { name: "voiceSpecified", value: "true" },
+      { name: "backend", value: true },
+    ] as any;
+
+    for (const parameter of invalid) {
+      expect(() => generationInput([], [parameter])).toThrow();
+      expect(readGenerationInput({
+        type: "generation-input/v1",
+        texts: [],
+        parameters: [parameter],
+      })).toBeNull();
+    }
+  });
+
   test("reads only valid closed projections and never returns private payloads", () => {
     const privateNames = ["voiceId", "path", "url", "note", "request", "response", "error"];
     const valid = {
