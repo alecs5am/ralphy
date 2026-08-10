@@ -80,7 +80,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function hasOnlyKeys(value: Record<string, unknown>, keys: string[]): boolean {
-  return Object.keys(value).length === keys.length && keys.every((key) => key in value);
+  return Reflect.ownKeys(value).length === keys.length && keys.every((key) => Object.hasOwn(value, key));
 }
 
 function isParameterValue(value: unknown): value is string | number | boolean {
