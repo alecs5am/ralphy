@@ -33,3 +33,10 @@ None. No schema, dependency, migration, bridge, Desktop, or live `.ralphy` chang
 - RED: the constructor/parser rejected `1024 X 1024`; unit coverage captured the existing connector-supported spelling before implementation.
 - GREEN: the focused unit and integration command passed with 28 tests.
 - Positive image dimensions now use the connector's case-insensitive `WxH` grammar and persist the compact canonical spelling. Unsupported executable raw values remain omitted from provenance rather than blocking generation.
+
+## Round 3 closeout
+
+- Commits: `63d02eb6` preserves arbitrary-length positive dimensions without numeric precision loss; `04b879c9` covers image negative/reference, positive video references/frames/image, and music ToS rewrite retry while retaining the original request prompt.
+- Final gate: `bun test tests/unit/generation-input.test.ts tests/integration/cli-generation-domain.test.ts tests/integration/cli-generate-captions.test.ts` — 28 passing, 0 failing, 624 assertions.
+- Matrix covers canonical and omitted image sizes, image negative/reference, video reference/video-reference/frame/image/audio fields, voice settings without the voice ID, music retry provenance, SFX, and captions language/backend.
+- `git diff --check` and staged `gitleaks protect --staged --redact` passed for the closeout report.
