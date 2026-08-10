@@ -360,9 +360,10 @@ describe("generation domain persistence", () => {
     };
     elevenlabsConnector.generateSfx = async (input: any) => result(input);
     elevenlabsConnector.available = () => true;
+    process.env.ELEVENLABS_API_KEY = "TASK2_MATRIX_SECRET_KEY";
     try {
-      await generateCmd().parseAsync(["image", "--project", project.id, "--slot", "negative", "--prompt", "picture", "--negative", "blur", "--ref", image, "--note", "note-TASK2", "--provider", "openrouter", "--no-ref-consent", "fixture"], { from: "user" });
-      await generateCmd().parseAsync(["video", "--project", project.id, "--slot", "clip", "--prompt", "move", "--duration", "5", "--model", "fixture/video", "--no-validate", "--first-frame", frame, "--last-frame", frameLast, "--image", image, "--ref", frame, "--ref-video", videoRef, "--audio", "--aspect-ratio", "16:9", "--resolution", "720p", "--provider", "openrouter", "--no-ref-consent", "fixture"], { from: "user" });
+      await generateCmd().parseAsync(["image", "--project", project.id, "--slot", "negative", "--prompt", "picture", "--negative", "blur", "--ref", image, "--ref", "data:image/png;base64,TASK2_MATRIX_DATA_URI", "--note", "note-TASK2", "--provider", "openrouter", "--no-ref-consent", "fixture"], { from: "user" });
+      await generateCmd().parseAsync(["video", "--project", project.id, "--slot", "clip", "--prompt", "move", "--duration", "5", "--model", "fixture/video", "--no-validate", "--first-frame", frame, "--last-frame", frameLast, "--image", image, "--ref", frame, "--ref", "data:image/png;base64,TASK2_MATRIX_DATA_URI", "--ref-video", videoRef, "--audio", "--aspect-ratio", "16:9", "--resolution", "720p", "--provider", "openrouter", "--no-ref-consent", "fixture"], { from: "user" });
       await generateCmd().parseAsync(["voiceover", "--project", project.id, "--slot", "voice", "--voice", "TASK2_EXTERNAL_VOICE_ID", "--text", "speak", "--stability", "0.5", "--similarity-boost", "0.6", "--style", "0.7", "--speed", "1.2", "--no-speaker-boost", "--provider", "elevenlabs", "--no-ref-consent", "fixture"], { from: "user" });
       await generateCmd().parseAsync(["music", "--project", project.id, "--slot", "music", "--prompt", "original music prompt", "--duration", "5", "--auto-retry-on-tos-rejection", "--provider", "elevenlabs", "--no-ref-consent", "fixture"], { from: "user" });
       await generateCmd().parseAsync(["sfx", "--project", project.id, "--slot", "sfx", "--prompt", "click", "--duration", "2", "--prompt-influence", "0.7", "--provider", "elevenlabs", "--no-ref-consent", "fixture"], { from: "user" });
@@ -376,14 +377,14 @@ describe("generation domain persistence", () => {
     const context = { workspaceId: workspace.id, projectId: project.id };
     const inputs = listRuns({ context, limit: 10 }).items.map((run) => generationAttemptInput(run.id));
     const inputFor = (value: string) => inputs.find((input) => input!.texts[0]?.value === value);
-    expect(inputFor("picture")).toEqual({ version: 1, texts: [{ role: "prompt", value: "picture", truncated: false }, { role: "negative-prompt", value: "blur", truncated: false }], parameters: [{ name: "size", value: "1080x1920" }, { name: "referenceCount", value: 1 }] });
-    expect(inputFor("move")).toEqual({ version: 1, texts: [{ role: "prompt", value: "move", truncated: false }], parameters: [{ name: "durationSec", value: 5 }, { name: "aspectRatio", value: "16:9" }, { name: "resolution", value: "720p" }, { name: "generateAudio", value: true }, { name: "referenceCount", value: 1 }, { name: "referenceVideoCount", value: 1 }, { name: "hasFirstFrame", value: true }, { name: "hasLastFrame", value: true }, { name: "hasImage", value: true }] });
+    expect(inputFor("picture")).toEqual({ version: 1, texts: [{ role: "prompt", value: "picture", truncated: false }, { role: "negative-prompt", value: "blur", truncated: false }], parameters: [{ name: "size", value: "1080x1920" }, { name: "referenceCount", value: 2 }] });
+    expect(inputFor("move")).toEqual({ version: 1, texts: [{ role: "prompt", value: "move", truncated: false }], parameters: [{ name: "durationSec", value: 5 }, { name: "aspectRatio", value: "16:9" }, { name: "resolution", value: "720p" }, { name: "generateAudio", value: true }, { name: "referenceCount", value: 2 }, { name: "referenceVideoCount", value: 1 }, { name: "hasFirstFrame", value: true }, { name: "hasLastFrame", value: true }, { name: "hasImage", value: true }] });
     expect(inputFor("speak")).toEqual({ version: 1, texts: [{ role: "text", value: "speak", truncated: false }], parameters: [{ name: "voiceSpecified", value: true }, { name: "stability", value: 0.5 }, { name: "similarityBoost", value: 0.6 }, { name: "style", value: 0.7 }, { name: "speed", value: 1.2 }, { name: "speakerBoost", value: false }] });
     expect(inputFor("original music prompt")).toEqual({ version: 1, texts: [{ role: "prompt", value: "original music prompt", truncated: false }], parameters: [{ name: "durationSec", value: 5 }, { name: "forceInstrumental", value: true }] });
     expect(inputFor("click")).toEqual({ version: 1, texts: [{ role: "prompt", value: "click", truncated: false }], parameters: [{ name: "durationSec", value: 2 }, { name: "promptInfluence", value: 0.7 }] });
     expect(musicPrompts).toEqual(["original music prompt", "rewritten music prompt"]);
     const requests = JSON.stringify(inputs);
-    for (const sentinel of [fixtureRoot, frame, "TASK2_EXTERNAL_VOICE_ID", "data:image", "outputPath", "fixture-elevenlabs-key", "note", "provider-error"]) expect(requests).not.toContain(sentinel);
+    for (const sentinel of [fixtureRoot, frame, "TASK2_EXTERNAL_VOICE_ID", "data:image/png;base64,TASK2_MATRIX_DATA_URI", "outputPath", "TASK2_MATRIX_SECRET_KEY", "note", "provider-error"]) expect(requests).not.toContain(sentinel);
   });
 
   test("direct image convert stores its output as an Artifact revision instead of the requested legacy path", async () => {
