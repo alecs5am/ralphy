@@ -82,7 +82,7 @@ import {
 import type { GenerateResult } from "../lib/providers/types.js";
 import type { ArtifactKind } from "../lib/store/types.js";
 import { providerCompletionFacts } from "../lib/artifact-production.js";
-import { generationInput } from "../lib/generation-input.js";
+import { generationInput, generationParameter } from "../lib/generation-input.js";
 
 // Re-export for unit tests (single import target).
 export { buildVariantItems } from "../lib/generate-batch.js";
@@ -293,6 +293,14 @@ function providerDestination(destination: GenerationDestination):
   return destination.kind === "project"
     ? { projectId: destination.id }
     : { workspaceId: destination.id };
+}
+
+function optionalGenerationParameter(
+  name: "size" | "aspectRatio" | "resolution" | "language" | "backend",
+  value: unknown,
+) {
+  const parameter = generationParameter(name, value);
+  return parameter ? [parameter] : [];
 }
 
 async function executeGeneratedArtifact(input: {
@@ -590,7 +598,7 @@ async function runImageBatch(args: {
             ...(negative ? [{ role: "negative-prompt" as const, value: negative }] : []),
           ],
           [
-            { name: "size", value: args.resolvedSize },
+            ...optionalGenerationParameter("size", args.resolvedSize),
             { name: "referenceCount", value: refs?.length ?? 0 },
           ],
         ),
@@ -885,7 +893,7 @@ export function generateCmd() {
             ...(opts.negative ? [{ role: "negative-prompt" as const, value: opts.negative }] : []),
           ],
           [
-            { name: "size", value: resolvedSize },
+            ...optionalGenerationParameter("size", resolvedSize),
             { name: "referenceCount", value: opts.ref?.length ?? 0 },
           ],
         ),
@@ -1243,8 +1251,8 @@ export function generateCmd() {
           [{ role: "prompt", value: opts.prompt }],
           [
             { name: "durationSec", value: opts.duration },
-            { name: "aspectRatio", value: opts.aspectRatio },
-            { name: "resolution", value: opts.resolution },
+            ...optionalGenerationParameter("aspectRatio", opts.aspectRatio),
+            ...optionalGenerationParameter("resolution", opts.resolution),
             { name: "generateAudio", value: Boolean(opts.audio) },
             { name: "referenceCount", value: opts.ref?.length ?? 0 },
             { name: "referenceVideoCount", value: opts.refVideo?.length ?? 0 },
@@ -1789,8 +1797,8 @@ export function generateCmd() {
         provider: backend === "elevenlabs" ? "elevenlabs" : "openrouter",
         model: `transcribe/${backend}`,
         request: generationInput([], [
-          { name: "language", value: opts.language },
-          { name: "backend", value: backend },
+          ...optionalGenerationParameter("language", opts.language),
+          ...optionalGenerationParameter("backend", backend),
         ]),
       });
       const outPath = path.join(ralphDir(), "tmp", run.id, `${slot}.json`);

@@ -20,3 +20,10 @@
 ## Concerns
 
 None. No schema, dependency, migration, bridge, Desktop, or live `.ralphy` changes were made.
+
+## Fix round 1
+
+- RED: `bun test tests/unit/generation-input.test.ts` failed because `generationInput()` accepted `/private/fixture.png` as a `size` parameter. The root cause was the generic string/number/boolean parameter check.
+- GREEN: `bun test tests/unit/generation-input.test.ts tests/integration/cli-generation-domain.test.ts tests/integration/cli-generate-captions.test.ts` passed with 26 tests.
+- The shared constructor/parser now accepts only named value types and bounded string domains: dimension sizes, numeric aspect ratios, known resolutions, `ru|en|auto`, and the three transcription backends. Raw values outside those domains are rejected by the projection parser; generation callers omit an unusual unrecordable size/aspect/resolution/language/backend value so execution is not blocked.
+- The integration suite queries each exact attempt request through `readGenerationInput()` for single and batch images, video references/frames/audio, voice settings and ID exclusion, music, SFX, and captions. Direct sentinels cover paths, output fields, data URIs, notes, provider failures, external IDs, and credentials.
