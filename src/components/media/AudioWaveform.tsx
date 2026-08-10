@@ -4,7 +4,7 @@ import type WaveSurfer from "wavesurfer.js";
 import { MAX_WAVEFORM_DECODE_BYTES, shouldDecodeWaveform } from "../../lib/audio-preview";
 import { SnappySlider } from "../ui/SnappySlider";
 
-interface AudioWaveformProps { src: string; name: string; sizeBytes: number; compact?: boolean }
+interface AudioWaveformProps { src: string; name: string; sizeBytes: number; compact?: boolean; onReady?(): void; onError?(): void }
 const formatTime = (seconds: number) => Number.isFinite(seconds) && seconds >= 0 ? `${Math.floor(seconds / 60)}:${(Math.floor(seconds) % 60).toString().padStart(2, "0")}` : "0:00";
 
 function streamBars(name: string, count: number): number[] {
@@ -12,7 +12,7 @@ function streamBars(name: string, count: number): number[] {
   return Array.from({ length: count }, () => { seed = (seed * 1664525 + 1013904223) >>> 0; return 20 + (seed % 76); });
 }
 
-function StreamingAudioPlayer({ src, name, compact, probing, onMetadata }: { src: string; name: string; compact: boolean; probing: boolean; onMetadata?(duration: number): void }) {
+function StreamingAudioPlayer({ src, name, compact, probing, onMetadata, onError }: { src: string; name: string; compact: boolean; probing: boolean; onMetadata?(duration: number): void; onError?(): void }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -36,7 +36,7 @@ function StreamingAudioPlayer({ src, name, compact, probing, onMetadata }: { src
     <audio ref={audioRef} className="audio-stream-element" src={src} aria-label={name} preload="metadata"
       onLoadedMetadata={(event) => { const next = event.currentTarget.duration; setDuration(next); setVolume(event.currentTarget.volume); setMuted(event.currentTarget.muted); setReady(true); onMetadata?.(next); }}
       onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)}
-      onVolumeChange={(event) => { setVolume(event.currentTarget.volume); setMuted(event.currentTarget.muted); }} onError={() => setError(`“${name}” cannot be played.`)} />
+      onVolumeChange={(event) => { setVolume(event.currentTarget.volume); setMuted(event.currentTarget.muted); }} onError={() => { setError(`“${name}” cannot be played.`); onError?.(); }} />
     <div className="audio-waveform-heading"><button className="audio-play-button" type="button" aria-label={`${playing ? "Pause" : "Play"} ${name}`} disabled={!ready || probing} onClick={toggle}>{playing ? <Pause size={compact ? 16 : 21} fill="currentColor" /> : <Play size={compact ? 16 : 21} fill="currentColor" />}</button><span><strong>{name}</strong><small>{probing ? "Checking audio…" : error ? "Preview unavailable" : ready ? `${formatTime(duration)} · streaming preview` : "Loading audio…"}</small></span></div>
     <div className="audio-stream-waveform"><div className="audio-stream-bars" aria-hidden="true">{bars.map((height, index) => <i className={index / bars.length <= progress ? "is-played" : ""} key={index} style={{ height: `${height}%` }} />)}</div><SnappySlider className="audio-stream-seek" value={currentTime} min={0} max={Math.max(duration, 0.1)} step={0.1} ariaLabel={`Position in ${name}`} disabled={!ready || probing} onValueChange={seek} /></div>
     {!compact && <div className="audio-waveform-controls"><span>{formatTime(currentTime)}</span><button type="button" aria-label={`Back 10 seconds in ${name}`} disabled={!ready} onClick={() => seek(currentTime - 10)}><RotateCcw size={15} /></button><button type="button" aria-label={`Forward 10 seconds in ${name}`} disabled={!ready} onClick={() => seek(currentTime + 10)}><RotateCw size={15} /></button><button type="button" aria-label={`${muted ? "Unmute" : "Mute"} ${name}`} disabled={!ready} onClick={() => { if (audioRef.current) audioRef.current.muted = !muted; }}>{muted || volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}</button><SnappySlider className="volume-slider" value={muted ? 0 : volume} min={0} max={1} step={0.05} ariaLabel={`Volume for ${name}`} disabled={!ready} onValueChange={(next) => { if (!audioRef.current) return; audioRef.current.volume = next; audioRef.current.muted = false; }} /><span>{formatTime(duration)}</span></div>}
@@ -44,7 +44,7 @@ function StreamingAudioPlayer({ src, name, compact, probing, onMetadata }: { src
   </div>;
 }
 
-function DecodedAudioWaveform({ src, name, compact, onFallback }: { src: string; name: string; compact: boolean; onFallback(): void }) {
+function DecodedAudioWaveform({ src, name, compact, onReady, onFallback }: { src: string; name: string; compact: boolean; onReady?(): void; onFallback(): void }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const waveRef = useRef<WaveSurfer | null>(null);
   const [ready, setReady] = useState(false);
@@ -62,7 +62,7 @@ function DecodedAudioWaveform({ src, name, compact, onFallback }: { src: string;
       if (disposed || !containerRef.current) return;
       wave = WaveSurfer.create({ container: containerRef.current, url: src, height: compact ? 56 : 164, waveColor: "#555555", progressColor: "#9b8df8", cursorColor: "#f4f4f4", cursorWidth: 1, barWidth: compact ? 2 : 3, barGap: compact ? 2 : 3, barRadius: 3, barMinHeight: 2, normalize: true, interact: true, dragToSeek: true, hideScrollbar: true, autoScroll: false });
       waveRef.current = wave;
-      wave.on("ready", (next) => { setDuration(next); setReady(true); });
+      wave.on("ready", (next) => { setDuration(next); setReady(true); onReady?.(); });
       wave.on("timeupdate", setCurrentTime); wave.on("play", () => setPlaying(true)); wave.on("pause", () => setPlaying(false)); wave.on("finish", () => setPlaying(false)); wave.on("error", onFallback);
     }).catch(() => { if (!disposed) onFallback(); });
     return () => { disposed = true; if (waveRef.current === wave) waveRef.current = null; wave?.destroy(); };
@@ -88,11 +88,14 @@ function DecodedAudioWaveform({ src, name, compact, onFallback }: { src: string;
   </div>;
 }
 
-export function AudioWaveform({ src, name, sizeBytes, compact = false }: AudioWaveformProps) {
+export function AudioWaveform({ src, name, sizeBytes, compact = false, onReady, onError }: AudioWaveformProps) {
   const [mode, setMode] = useState<"probing" | "waveform" | "streaming">(sizeBytes <= MAX_WAVEFORM_DECODE_BYTES ? "probing" : "streaming");
   const waveformSrc = `${src}${src.includes("?") ? "&" : "?"}purpose=waveform`;
   useEffect(() => setMode(sizeBytes <= MAX_WAVEFORM_DECODE_BYTES ? "probing" : "streaming"), [sizeBytes, src]);
   const fallbackToStream = useCallback(() => setMode("streaming"), []);
-  if (mode === "waveform") return <DecodedAudioWaveform src={waveformSrc} name={name} compact={compact} onFallback={fallbackToStream} />;
-  return <StreamingAudioPlayer src={src} name={name} compact={compact} probing={mode === "probing"} onMetadata={mode === "probing" ? (duration) => setMode(shouldDecodeWaveform(sizeBytes, duration) ? "waveform" : "streaming") : undefined} />;
+  if (mode === "waveform") return <DecodedAudioWaveform src={waveformSrc} name={name} compact={compact} onReady={onReady} onFallback={fallbackToStream} />;
+  return <StreamingAudioPlayer src={src} name={name} compact={compact} probing={mode === "probing"} onError={onError} onMetadata={mode === "probing" ? (duration) => {
+    if (shouldDecodeWaveform(sizeBytes, duration)) setMode("waveform");
+    else { setMode("streaming"); onReady?.(); }
+  } : onReady ? () => onReady() : undefined} />;
 }

@@ -1,6 +1,6 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { File, FileText, Film, Image, Music2 } from "lucide-react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { FileText, Film, Image, Music2 } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { MediaCardDto, MediaRef } from "../../electron/ralphy/types";
 import type { ProjectPreview, ProjectReference } from "../lib/ipc";
 import { assetGridGeometry, previewScheduler } from "../lib/media";
@@ -10,12 +10,12 @@ type ResolvePreview = (project: ProjectReference, ref: MediaCardDto["ref"]) => P
 
 interface VirtualAssetGridProps {
   items: MediaCardDto[];
-  project?: ProjectReference;
-  rootEpoch?: number;
+  project: ProjectReference;
+  rootEpoch: number;
   selectedRef: MediaRef | null;
-  resolvePreview?: ResolvePreview;
+  resolvePreview: ResolvePreview;
   onSelect(card: MediaCardDto): void;
-  onOpen?(card: MediaCardDto): void;
+  onOpen(card: MediaCardDto): void;
 }
 
 interface MediaCardTileProps {
@@ -30,8 +30,8 @@ interface MediaCardTileProps {
 
 type PreviewKind = "image" | "video" | "audio";
 type PreviewCacheEntry = { promise: Promise<ProjectPreview | null>; settled: boolean; value: ProjectPreview | null };
+type PreviewState = { key: string; entry: PreviewCacheEntry | null; value: ProjectPreview | null };
 const previewCache = new Map<string, PreviewCacheEntry>();
-const noPreview: ResolvePreview = async () => null;
 
 function previewKind(card: MediaCardDto): PreviewKind | null {
   const kind = card.mime?.split("/")[0] ?? ("kind" in card ? card.kind : null);
@@ -39,7 +39,7 @@ function previewKind(card: MediaCardDto): PreviewKind | null {
 }
 
 function previewKey(project: ProjectReference, rootEpoch: number, ref: MediaRef): string {
-  return `${rootEpoch}:${project.workspaceId}:${project.projectId}:${ref.type}:${ref.id}`;
+  return JSON.stringify([rootEpoch, project.workspaceId, project.projectId, ref.type, ref.id]);
 }
 
 function cachedPreview(key: string, project: ProjectReference, ref: MediaRef, resolvePreview: ResolvePreview): PreviewCacheEntry {
@@ -89,29 +89,30 @@ function FileGlyph({ kind, size = 26 }: { kind: PreviewKind | null; size?: numbe
   if (kind === "image") return <Image size={size} />;
   if (kind === "video") return <Film size={size} />;
   if (kind === "audio") return <Music2 size={size} />;
-  if (kind === null) return <FileText size={size} />;
-  return <File size={size} />;
+  return <FileText size={size} />;
 }
 
 function TilePreview({ card, project, rootEpoch, resolvePreview }: Pick<MediaCardTileProps, "card" | "project" | "rootEpoch" | "resolvePreview">) {
   const kind = previewKind(card);
   const key = previewKey(project, rootEpoch, card.ref);
   const initial = previewCache.get(key);
-  const [source, setSource] = useState<ProjectPreview | null>(() => initial?.settled ? initial.value : null);
+  const [preview, setPreview] = useState<PreviewState>(() => ({ key, entry: initial ?? null, value: initial?.settled ? initial.value : null }));
   const releaseRef = useRef<(() => void) | null>(null);
   useEffect(() => {
-    setSource(previewCache.get(key)?.value ?? null);
+    const cached = previewCache.get(key);
+    setPreview({ key, entry: cached ?? null, value: cached?.settled ? cached.value : null });
     if (!kind) return;
     let disposed = false;
     void previewScheduler.acquire(kind).then(async (release) => {
       if (disposed) { release(); return; }
       releaseRef.current = release;
       try {
-        const value = await cachedPreview(key, project, card.ref, resolvePreview).promise;
-        if (!disposed) setSource(value);
+        const entry = cachedPreview(key, project, card.ref, resolvePreview);
+        const value = await entry.promise;
+        if (!disposed) setPreview({ key, entry, value });
         if (!value) { release(); releaseRef.current = null; }
       } catch {
-        if (!disposed) setSource(null);
+        if (!disposed) setPreview({ key, entry: null, value: null });
         release();
         releaseRef.current = null;
       }
@@ -122,12 +123,21 @@ function TilePreview({ card, project, rootEpoch, resolvePreview }: Pick<MediaCar
       releaseRef.current = null;
     };
   }, [card.ref, key, kind, project, resolvePreview]);
-  const loaded = () => { releaseRef.current?.(); releaseRef.current = null; };
+  const loaded = useCallback(() => { releaseRef.current?.(); releaseRef.current = null; }, []);
+  const failed = useCallback(() => {
+    setPreview((current) => {
+      if (current.key !== key) return current;
+      if (current.entry && previewCache.get(key) === current.entry) previewCache.delete(key);
+      return { key, entry: null, value: null };
+    });
+    loaded();
+  }, [key, loaded]);
+  const source = preview.key === key ? preview.value : null;
   const glyph = <FileGlyph kind={kind} />;
   let content = glyph;
-  if (source && kind === "image") content = <img src={source.url} alt="" loading="lazy" onLoad={loaded} onError={loaded} />;
-  else if (source && kind === "video") content = <video src={source.url} muted preload="metadata" onLoadedMetadata={loaded} onError={loaded} />;
-  else if (source && kind === "audio") content = <div onLoadedMetadataCapture={loaded} onErrorCapture={loaded}><AudioWaveform src={source.url} name={mediaCardName(card)} sizeBytes={source.sizeBytes} compact /></div>;
+  if (source && kind === "image") content = <img src={source.url} alt="" loading="lazy" onLoad={loaded} onError={failed} />;
+  else if (source && kind === "video") content = <video src={source.url} muted preload="metadata" onLoadedMetadata={loaded} onError={failed} />;
+  else if (source && kind === "audio") content = <AudioWaveform src={source.url} name={mediaCardName(card)} sizeBytes={source.sizeBytes} compact onReady={loaded} onError={failed} />;
   return <div className="asset-preview" style={{ aspectRatio: "16 / 10", height: "auto" }} aria-hidden={kind === "audio" ? undefined : true}>
     {content}
     <span className={`asset-extension type-${kind ?? "file"}`}><FileGlyph kind={kind} size={11} />{kind ?? "file"}</span>
@@ -148,7 +158,7 @@ export function MediaCardTile({ card, project, rootEpoch, selected, resolvePrevi
   </article>;
 }
 
-export function VirtualAssetGrid({ items, project = { workspaceId: "", projectId: "" }, rootEpoch = 0, selectedRef, resolvePreview = noPreview, onSelect, onOpen = onSelect }: VirtualAssetGridProps) {
+export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resolvePreview, onSelect, onOpen }: VirtualAssetGridProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(800);
   const geometry = assetGridGeometry(width, 190, 16);
@@ -171,7 +181,7 @@ export function VirtualAssetGrid({ items, project = { workspaceId: "", projectId
   return <div className="asset-grid-scroll" ref={scrollRef}>
     <div className="virtual-grid-space" style={{ height: virtualizer.getTotalSize() }}>
       {virtualizer.getVirtualItems().map((virtualRow) => <div className="virtual-asset-row" key={virtualRow.key} style={{ transform: `translateY(${virtualRow.start}px)`, gridTemplateColumns: `repeat(${geometry.columns}, minmax(0, 1fr))`, height: `${geometry.rowHeight}px`, "--asset-tile-height": `${geometry.tileHeight}px`, "--asset-row-gap": `${geometry.gap}px` } as CSSProperties}>
-        {rows[virtualRow.index].items.map((card) => <MediaCardTile key={`${card.ref.type}:${card.ref.id}`} card={card} project={project} rootEpoch={rootEpoch} selected={selectedRef?.type === card.ref.type && selectedRef.id === card.ref.id} resolvePreview={resolvePreview} onSelect={() => onSelect(card)} onOpen={() => onOpen(card)} />)}
+        {rows[virtualRow.index].items.map((card) => <MediaCardTile key={previewKey(project, rootEpoch, card.ref)} card={card} project={project} rootEpoch={rootEpoch} selected={selectedRef?.type === card.ref.type && selectedRef.id === card.ref.id} resolvePreview={resolvePreview} onSelect={() => onSelect(card)} onOpen={() => onOpen(card)} />)}
       </div>)}
     </div>
   </div>;

@@ -79,7 +79,15 @@ describe("Project media presentation", () => {
       onSelect={() => undefined}
       onOpen={() => undefined}
     />);
-    const grid = renderToStaticMarkup(<VirtualAssetGrid items={[card]} selectedRef={card.ref} onSelect={() => undefined} />);
+    const grid = renderToStaticMarkup(<VirtualAssetGrid
+      items={[card]}
+      project={{ workspaceId: "workspace-1", projectId: "project-1" }}
+      rootEpoch={7}
+      selectedRef={card.ref}
+      resolvePreview={async () => null}
+      onSelect={() => undefined}
+      onOpen={() => undefined}
+    />);
     expect(tile).toContain('aria-label="Campaign hero, selected"');
     expect(tile).toContain('aria-label="Open Campaign hero"');
     expect(tile.match(/<button/g)).toHaveLength(2);
