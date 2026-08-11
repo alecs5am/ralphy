@@ -1368,17 +1368,17 @@ function createWindow(): void {
               ) return false;
               const fixture = document.createElement("div");
               fixture.innerHTML = [
-                '<button class="filter-chip">Filter</button>',
+                '<div class="project-facts"><span>Fact</span></div>',
                 '<button class="structure-row">Row</button>',
                 '<div class="project-controls"></div>',
               ].join("");
               document.body.append(fixture);
-              const chip = getComputedStyle(fixture.children[0]);
+              const fact = getComputedStyle(fixture.children[0].children[0]);
               const row = getComputedStyle(fixture.children[1]);
               const controls = getComputedStyle(fixture.children[2]);
               const valid =
-                Number.parseFloat(chip.fontSize) >= 11
-                && chip.getPropertyValue("corner-shape").trim() === "round"
+                Number.parseFloat(fact.fontSize) >= 11
+                && fact.getPropertyValue("corner-shape").trim() === "round"
                 && row.borderBottomWidth === "0px"
                 && controls.containerName === "project-controls";
               fixture.remove();
