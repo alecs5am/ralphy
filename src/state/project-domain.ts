@@ -69,6 +69,7 @@ export type ProjectDomainAction =
   | { type: "page-loading"; tab: ProjectTab; generation: number; requestId: string; mediaFilter?: ProjectMediaFilter }
   | { type: "page-ready"; tab: ProjectTab; generation: number; requestId: string; mediaFilter?: ProjectMediaFilter; append?: boolean; page: { items: DomainRow[]; nextCursor: string | number | null } }
   | { type: "page-failed"; tab: ProjectTab; generation: number; requestId: string; mediaFilter?: ProjectMediaFilter; error: string }
+  | { type: "activity-merge"; generation: number; items: DomainRow[] }
   | { type: "media-query"; query: ProjectMediaQuery }
   | { type: "preview-loading"; generation: number; requestId: string }
   | { type: "preview-ready"; generation: number; requestId: string; value: { url: string; sizeBytes: number } | null }
@@ -80,6 +81,14 @@ export function projectDomainReducer(state: ProjectDomainState, action: ProjectD
   if (action.type === "overview-loading") return { ...state, overview: { status: "loading", value: null, error: null } };
   if (action.type === "overview-ready") return { ...state, overview: { status: "ready", value: action.value, error: null } };
   if (action.type === "overview-failed") return { ...state, overview: { status: "error", value: null, error: action.error } };
+  if (action.type === "activity-merge") {
+    const page = state.pages.activity;
+    const rows = [...page.items, ...action.items];
+    const seen = new Set<number>();
+    const items = rows.filter((row) => typeof row.sequence === "number" && !seen.has(row.sequence) && !!seen.add(row.sequence))
+      .sort((left, right) => left.sequence! - right.sequence!);
+    return { ...state, pages: { ...state.pages, activity: { ...page, items } } };
+  }
   if (action.type === "page-loading") {
     return {
       ...state,
@@ -105,12 +114,15 @@ export function projectDomainReducer(state: ProjectDomainState, action: ProjectD
     if (action.requestId !== previous.requestId || (action.mediaFilter ?? null) !== previous.mediaFilter) return state;
     const combined = action.append ? [...previous.items, ...action.page.items] : action.page.items;
     const seen = new Set<string>();
-    const items = combined.filter((row) => {
+    const unique = combined.filter((row) => {
       const key = identity(row);
       if (key === null || seen.has(key)) return key === null;
       seen.add(key);
       return true;
     });
+    const items = action.tab === "activity"
+      ? unique.sort((left, right) => (left.sequence ?? 0) - (right.sequence ?? 0))
+      : unique;
     return {
       ...state,
       pages: {
