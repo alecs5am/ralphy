@@ -360,7 +360,8 @@ For each method, assert `order: "newest"` page one returns rows 55…6 and its
 cursor returns 5…1 with no duplicate/gap. Omitted order remains 1…50 then
 51…55. An ascending cursor used with newest (and vice versa), an unknown order,
 or an unknown bridge key must reject. Prove newest Build/evaluation is present
-on page one.
+on page one. Name the cursor-family codec test with `newest history pages` so
+the focused `-t` command actually executes c1↔c2 and v1↔v2 rejection.
 
 - [ ] **Step 2: Run the focused RED**
 
@@ -376,8 +377,11 @@ no algorithm change because it respects caller row order. Validate the closed
 `order` enum once per store method. Keep the current
 ascending SQL/cursor unchanged. For newest, decode a distinct cursor family,
 use the same `(ordinal,id)` tuple with `<`, order both fields DESC, and emit that
-same newest-family cursor from `buildPage()`. Bridge handlers parse/forward only
-the optional enum. Do not add a `before` field, count query, offset, or index.
+same newest-family cursor from `buildPage()`. When newest has no cursor, omit
+the boundary predicate entirely; do not reuse the oldest `-1` sentinel or add a
+synthetic high sentinel. Bridge handlers parse/forward only the optional enum
+and close their top-level key sets; `evaluation.list.target` remains exactly
+`{ type, id }`. Do not add a `before` field, count query, offset, or index.
 
 - [ ] **Step 4: Run GREEN and commit Task 3**
 
