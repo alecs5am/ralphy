@@ -2887,15 +2887,73 @@ button.workspace-project-card:hover {
   white-space: pre-wrap;
 }
 
+.project-domain-body.is-compositions {
+  overflow: hidden;
+  padding-bottom: 24px;
+}
+
+.composition-workbench {
+  display: grid;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.composition-master,
+.composition-detail {
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.composition-master-virtual,
+.composition-revision-rail > div {
+  position: relative;
+}
+
+.composition-master-row {
+  position: absolute;
+  left: 0;
+  display: grid;
+  width: 100%;
+  height: 60px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+}
+
+.composition-master-row:hover { background: var(--hover); }
+.composition-master-row.is-selected { background: var(--selected); box-shadow: var(--ring-select); }
+.composition-master-row span { min-width: 0; }
+.composition-master-row strong,
+.composition-master-row small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.composition-master-row small { margin-top: 3px; color: var(--fg-3); }
+
 .composition-detail {
   display: block;
-  place-items: initial;
+  padding: 0 18px 48px;
+}
+
+.composition-heading {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  padding: 16px 0;
+  background: var(--canvas);
 }
 
 .composition-heading,
 .composition-revision-detail > header,
-.composition-build > header,
-.composition-build li {
+.composition-primary li {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -2905,35 +2963,41 @@ button.workspace-project-card:hover {
 .composition-heading h3,
 .composition-revision-detail h4,
 .composition-revision-detail h5,
-.composition-build p {
+.composition-primary p {
   margin: 0;
 }
 
 .composition-heading p,
 .composition-revision-detail p,
-.composition-build span,
-.composition-build small {
+.composition-primary span,
+.composition-primary small,
+.composition-empty {
   color: var(--fg-3);
   overflow-wrap: anywhere;
 }
 
 .composition-heading button,
 .composition-actions button,
-.composition-build button {
+.composition-primary button {
   min-height: var(--control-sm);
   padding: 0 12px;
 }
 
-.composition-revisions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 18px 0;
-  overflow: visible;
+.composition-revision-rail {
+  position: relative;
+  min-height: 92px;
+  margin: 10px 0 18px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-gutter: stable;
 }
 
-.composition-revisions button {
-  min-width: 150px;
+.composition-revision-rail > div { height: 72px; }
+
+.composition-revision-rail button {
+  position: absolute;
+  top: 0;
+  height: 68px;
   padding: 10px;
   border: 0;
   border-radius: var(--radius-md);
@@ -2942,9 +3006,12 @@ button.workspace-project-card:hover {
   text-align: left;
 }
 
-.composition-revisions button.is-selected {
-  background: var(--selected);
-}
+.composition-revision-rail button:hover { background: var(--hover); }
+.composition-revision-rail button.is-selected { background: var(--selected); box-shadow: var(--ring-select); }
+.composition-revision-rail button span,
+.composition-revision-rail button small { display: block; margin-top: 3px; color: var(--fg-3); white-space: nowrap; }
+.composition-rail-tail { position: absolute; top: 0; width: 2px; height: 68px; }
+.composition-revision-rail .auto-cursor-tail { width: 2px; height: 68px; padding: 0; }
 
 .composition-actions {
   display: flex;
@@ -2952,7 +3019,7 @@ button.workspace-project-card:hover {
 }
 
 .composition-revision-detail section,
-.composition-build {
+.composition-technical {
   margin-top: 16px;
   padding: 16px 0 0;
   border: 0;
@@ -2960,12 +3027,35 @@ button.workspace-project-card:hover {
   border-radius: 0;
 }
 
-.composition-build li {
+.composition-primary li {
   margin-top: 8px;
 }
 
+.composition-build-summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.composition-technical summary { cursor: pointer; color: var(--fg-2); }
+.composition-technical dl { display: grid; gap: 8px; }
+.composition-technical dl div { display: grid; grid-template-columns: minmax(110px, 0.3fr) minmax(0, 1fr); gap: 12px; }
+.composition-technical dt { color: var(--fg-3); }
+.composition-technical dd { min-width: 0; margin: 0; overflow-wrap: anywhere; font-family: var(--font-mono); }
+
 .composition-output-preview {
   min-height: 0;
+}
+
+@container project-domain (max-width: 719px) {
+  .composition-workbench {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(180px, min(36vh, 320px)) minmax(280px, 1fr);
+  }
+
+  .composition-master { max-height: min(36vh, 320px); }
 }
 
 .run-object-evidence {

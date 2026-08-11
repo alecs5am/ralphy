@@ -557,40 +557,47 @@ describe("Project domain reader", () => {
     }
   });
 
-  test("loads the complete Composition aggregate by draining every opaque nested cursor", async () => {
+  test("loads bounded Composition identities and forwards only the requested opaque cursor", async () => {
     const composition = { id: "composition-1", projectId: "project-1", slug: "hero", kind: "video", latestRevisionId: "revision-2", selectedRevisionId: "revision-1", createdAt: 1, updatedAt: 2 };
     const revision = (id: string, revisionNo: number) => ({ id, compositionId: "composition-1", revisionNo, parentRevisionId: revisionNo === 1 ? null : "revision-1", iterationId: null, state: "sealed", engine: "manual", engineVersion: null, authoredBySessionId: null, createdAt: revisionNo, sealedAt: revisionNo });
     const build = (id: string) => ({ id, compositionRevisionId: "revision-1", runId: `run-${id}`, state: "succeeded", createdAt: 3, finishedAt: 4 });
     const request = vi.fn(async (method: string, params: Record<string, unknown>) => {
       if (method === "composition.show") return composition;
-      if (method === "composition.revisions") return params.after ? page([revision("revision-2", 2)]) : page([revision("revision-1", 1)], "revisions-next");
+      if (method === "composition.revision.show") return revision("revision-1", 1);
+      if (method === "build.show") return build("build-1");
+      if (method === "composition.revisions") return page([revision("revision-2", 2)], "revisions-next");
       if (method === "composition.sources") {
-        if (params.revisionId === "revision-2") return page();
-        return params.after ? page([{ id: "source-2", compositionRevisionId: "revision-1", objectId: "object-2", position: 1, createdAt: 2 }]) : page([{ id: "source-1", compositionRevisionId: "revision-1", objectId: "object-1", position: 0, createdAt: 1 }], "sources-next");
+        return page([{ id: "source-2", compositionRevisionId: "revision-1", objectId: "object-2", position: 1, createdAt: 2 }]);
       }
       if (method === "composition.inputs") return page();
       if (method === "composition.builds") {
-        if (params.compositionRevisionId === "revision-2") return page();
-        return params.after ? page([build("build-2")]) : page([build("build-1")], "builds-next");
+        return page([build("build-1")], "builds-next");
       }
       if (method === "build.outputs") {
-        if (params.buildId === "build-2") return page();
-        return params.after ? page([{ id: "output-2", buildId: "build-1", artifactRevisionId: "artifact-revision-2", role: "preview", position: 1, createdAt: 2 }]) : page([{ id: "output-1", buildId: "build-1", artifactRevisionId: "artifact-revision-1", role: "master", position: 0, createdAt: 1 }], "outputs-next");
+        return page([{ id: "output-2", buildId: "build-1", artifactRevisionId: "artifact-revision-2", role: "preview", position: 1, createdAt: 2 }]);
       }
       if (method === "evaluation.list") return page([{ id: `evaluation-${(params.target as { id: string }).id}`, workspaceId: "workspace-1", projectId: "project-1", target: params.target, kind: "review", verdict: null, favorite: false, rating: null, tags: [], note: null, authoredBySessionId: "session-1", createdAt: 1 }]);
       throw new Error(`Unexpected ${method}`);
     });
     const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
 
-    const aggregate = await reader.loadComposition(project, "composition-1");
+    await expect(reader.loadProjectComposition(project, "composition-1")).resolves.toEqual(composition);
+    await expect(reader.loadProjectCompositionRevision(project, "revision-1")).resolves.toEqual(revision("revision-1", 1));
+    await expect(reader.loadProjectCompositionBuild(project, "build-1")).resolves.toEqual(build("build-1"));
+    await reader.loadProjectCompositionPage(project, { kind: "revisions", compositionId: "composition-1" });
+    await reader.loadProjectCompositionPage(project, { kind: "sources", revisionId: "revision-1", cursor: "sources-next" });
+    await reader.loadProjectCompositionPage(project, { kind: "revision-evaluations", revisionId: "revision-1" });
+    await reader.loadProjectCompositionPage(project, { kind: "builds", revisionId: "revision-1" });
+    await reader.loadProjectCompositionPage(project, { kind: "build-outputs", buildId: "build-1", cursor: "outputs-next" });
+    await reader.loadProjectCompositionPage(project, { kind: "build-evaluations", buildId: "build-1" });
 
-    expect(aggregate.revisions.map(({ id }) => id)).toEqual(["revision-1", "revision-2"]);
-    expect(aggregate.revisions[0]!.sources.map(({ id }) => id)).toEqual(["source-1", "source-2"]);
-    expect(aggregate.revisions[0]!.builds.map(({ id }) => id)).toEqual(["build-1", "build-2"]);
-    expect(aggregate.revisions[0]!.builds[0]!.outputs.map(({ id }) => id)).toEqual(["output-1", "output-2"]);
-    expect(request).toHaveBeenCalledWith("evaluation.list", { context: project, target: { type: "composition_revision", id: "revision-1" }, limit: 50 });
-    expect(request).toHaveBeenCalledWith("evaluation.list", { context: project, target: { type: "build", id: "build-1" }, limit: 50 });
+    expect(request).toHaveBeenCalledWith("composition.revisions", { context: project, compositionId: "composition-1", order: "newest", limit: 50 });
+    expect(request).toHaveBeenCalledWith("composition.sources", { context: project, revisionId: "revision-1", after: "sources-next", limit: 50 });
+    expect(request).toHaveBeenCalledWith("evaluation.list", { context: project, target: { type: "composition_revision", id: "revision-1" }, order: "newest", limit: 50 });
+    expect(request).toHaveBeenCalledWith("composition.builds", { context: project, compositionRevisionId: "revision-1", order: "newest", limit: 50 });
     expect(request).toHaveBeenCalledWith("build.outputs", { context: project, buildId: "build-1", after: "outputs-next", limit: 50 });
+    expect(request).toHaveBeenCalledWith("evaluation.list", { context: project, target: { type: "build", id: "build-1" }, order: "newest", limit: 50 });
+    expect(request.mock.calls.map(([method]) => method).filter((method) => method === "composition.revisions")).toHaveLength(1);
   });
 
   test("previews one exact Build output revision without returning its locator", async () => {

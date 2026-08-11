@@ -36,6 +36,7 @@ export type {
   MediaWorkbenchBridge,
   MigrationRecovery,
   ProjectReference,
+  ProjectCompositionPageRequest,
   ProjectTab,
   ProjectMediaFilter,
   ProjectPage,
@@ -257,6 +258,15 @@ function createMockBridge(): RalphyBridge {
       throw new Error("Project domain reader is unavailable in mock mode");
     },
     async loadProjectComposition() {
+      throw new Error("Composition reader is unavailable in mock mode");
+    },
+    async loadProjectCompositionRevision() {
+      throw new Error("Composition reader is unavailable in mock mode");
+    },
+    async loadProjectCompositionBuild() {
+      throw new Error("Composition reader is unavailable in mock mode");
+    },
+    async loadProjectCompositionPage() {
       throw new Error("Composition reader is unavailable in mock mode");
     },
     async reviseProjectComposition() {
