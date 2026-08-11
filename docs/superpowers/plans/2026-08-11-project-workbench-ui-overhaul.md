@@ -12,7 +12,9 @@
 
 - The approved design is `docs/superpowers/specs/2026-08-11-project-workbench-ui-overhaul-design.md`. The six Claude Design screenshots are structural references, not pixel specifications.
 - Work only in `/Users/maximovchinnikov/github/ralphy/ralphy-desktop/.worktrees/sqlite-domain-store-desktop`, already isolated on `codex/sqlite-domain-store-desktop`. Do not mutate the installed app or live `.ralphy` during implementation.
-- Core literal search and media-facet contracts must be independently reviewed and frozen first. Desktop must be tested against that exact binary before packaging.
+- Core Tasks 1–4 must be independently reviewed and frozen before their
+  Desktop consumers start. Desktop must be tested against the exact handoff
+  binary before packaging.
 - Preserve Workspace → Project routing, six tabs, Core-backed state, cursor families, root epochs, stale-response fences, immutable media refs, and modal provenance semantics.
 - No new package, UI framework, design system, raw path in renderer, Trash action, eager full cursor drain, page-local media filtering, or per-tile generation-detail fan-out.
 - Use existing `--canvas`, `--panel-solid`, `--raised`, `--hover`, `--selected`, AWS Diatype, focus, spacing, radius, squircle, `SelectMenu`, `SnappySlider`, `MarkdownView`, media primitives, and Radix Dialog.
@@ -21,7 +23,9 @@
 - Cursor append is user-scroll driven, one request in flight, never a hidden drain. Append failure retains loaded items and shows Retry.
 - Media mouse contract is exact: single click selects, double-click opens modal, right-click selects and opens context. Keyboard Space selects and Enter opens.
 - Future multiselect is not implemented. Keep one selected ref without baking selection into the modal or preview state.
-- Unit work uses `unit.show`, revisions/items/presentations/captions/items and nullable-CAS `unit.select`. Do not consume the currently inconsistent `unit.preview` handler and do not add `unit.revise`.
+- Unit work uses `unit.show`, revisions, items, presentations, and nullable-CAS
+  `unit.select`. Do not consume presentation children, the currently
+  inconsistent `unit.preview` handler, or `unit.revise`.
 - Source, tests, reports, and commit messages are English-only. Use strict TDD and behavior/mounted tests rather than source-string assertions or framework mocks.
 - Every task runs focused tests, typecheck when it changes types, `git diff --check`, staged diff check, and `gitleaks protect --staged --redact` before commit.
 
@@ -162,7 +166,6 @@ git commit -m "feat(desktop): add scoped media facets and actions"
 - Modify: `electron/ralphy/contract-type-assertions.ts`
 - Modify: `electron/ralphy/project-reader.ts`
 - Modify: `electron/media/types.ts`
-- Modify: `electron/main.ts`
 - Modify: `electron/preload.ts`
 - Modify: `src/lib/ipc.ts`
 - Modify: `src/state/project-screen-controller.ts`
@@ -172,6 +175,8 @@ git commit -m "feat(desktop): add scoped media facets and actions"
 - Test: `tests/project-screen-behavior.test.tsx`
 
 **Interfaces:**
+- Starts only after reviewed Core Tasks 3 and 4 plus the exact handoff binary
+  are frozen.
 - Produces closed, cursor-preserving methods:
 
 ```ts
@@ -181,11 +186,23 @@ type ProjectUnitPageRequest =
   | { kind: "presentations"; revisionId: string; cursor?: string | null };
 
 loadProjectUnit(project: ProjectReference, unitId: string): Promise<UnitDto>;
-loadProjectUnitRevision(project: ProjectReference, revisionId: string): Promise<UnitRevisionDto>;
+loadProjectUnitRevision(
+  project: ProjectReference,
+  unitId: string,
+  revisionId: string,
+): Promise<UnitRevisionDto>;
 loadProjectUnitPage(
   project: ProjectReference,
-  request: ProjectUnitPageRequest,
-): Promise<Page<UnitRevisionDto> | Page<UnitItemDto> | Page<UnitPresentationDto>>;
+  request: Extract<ProjectUnitPageRequest, { kind: "revisions" }>,
+): Promise<Page<UnitRevisionDto>>;
+loadProjectUnitPage(
+  project: ProjectReference,
+  request: Extract<ProjectUnitPageRequest, { kind: "items" }>,
+): Promise<Page<UnitItemDto>>;
+loadProjectUnitPage(
+  project: ProjectReference,
+  request: Extract<ProjectUnitPageRequest, { kind: "presentations" }>,
+): Promise<Page<UnitPresentationDto>>;
 selectProjectUnitRevision(
   project: ProjectReference,
   unitId: string,
@@ -197,15 +214,28 @@ selectProjectUnitRevision(
 Controller additions:
 
 ```ts
+type UnitLoad<T> = {
+  status: "idle" | "loading" | "ready" | "error";
+  value: T | null;
+  error: string | null;
+};
+type UnitPage<T> = {
+  status: "idle" | "loading" | "ready" | "error";
+  items: T[];
+  nextCursor: string | null;
+  requestedCursor: string | null;
+  error: string | null;
+};
 unitId: string | null;
-unit: LoadState<UnitDto>;
-unitRevisions: DomainPage<UnitRevisionDto>;
+unit: UnitLoad<UnitDto>;
+unitRevisions: UnitPage<UnitRevisionDto>;
 inspectedUnitRevisionId: string | null;
-inspectedUnitRevision: LoadState<UnitRevisionDto>;
-unitItems: DomainPage<UnitItemDto>;
-unitPresentations: DomainPage<UnitPresentationDto>;
+inspectedUnitRevision: UnitLoad<UnitRevisionDto>;
+unitItems: UnitPage<UnitItemDto>;
+unitPresentations: UnitPage<UnitPresentationDto>;
 unitMutation: "idle" | "select";
 unitConflict: string | null;
+unitMutationError: string | null;
 openUnit(unitId: string): Promise<void>;
 loadMoreUnitRevisions(): Promise<void>;
 inspectUnitRevision(revisionId: string): Promise<void>;
@@ -222,8 +252,10 @@ every row against the requested Unit/revision and Project scope, and returns its
 next cursor unchanged. Assert no method drains the second page until its
 corresponding load-more action and no call reaches `presentation.items`,
 `presentation.captions`, `unit.preview`, or `unit.revise`.
-Assert only the revision request includes `order: "newest"` and a >50-row Core
-fixture presents the highest revision first.
+Assert only the revision request includes `order: "newest"`; Core Task 3 owns
+the real >50 ordering proof. Exact revision reads carry the expected `unitId`
+and reject a sibling Unit revision. Selection results must match the requested
+Unit, Project scope, and returned selected revision.
 
 - [ ] **Step 2: Write failing secured IPC/controller tests**
 
@@ -234,7 +266,17 @@ discriminator, exact IDs/cursor, sender, root epoch, nullable expected-selected
 CAS, and response scope. Controller tests cover A→B stale Unit/revision
 suppression, one in-flight page per family, selected/latest initial inspection,
 `sealedAt !== null` select, conflict authoritative reload with no mutation retry, and
-dispose fencing.
+dispose fencing. Use an off-page selected revision fixture: opening loads the
+Unit, newest revision page, that exact selected revision, and only page one of
+its Items/Presentations without draining older revisions.
+
+Fence Unit shell, revision page, exact revision, Items, Presentations, and
+mutation independently. Two concurrent tail calls for the same cursor issue one
+request; a response with the same next cursor is rejected as no progress;
+append failure retains rows/cursor for Retry. Opening Unit B invalidates every A
+request/mutation/conflict reload, and inspecting revision B invalidates A's
+exact/child reads. Successful selection replaces the matching row in
+`domain.pages.units`; non-conflict mutation failures remain visible.
 
 - [ ] **Step 3: Run the focused RED**
 
@@ -257,21 +299,29 @@ the UI owns when the next visible page is requested.
 
 Add only `loadProjectUnit`, `loadProjectUnitRevision`,
 `loadProjectUnitPage`, and `selectProjectUnitRevision` channels to
-preload/bridge/main. Register via `securedHandle`/current root reader; the page
-channel accepts only the closed Unit discriminator and is not a generic Core
-request. Add no Unit preview.
+preload/bridge. Extend the existing production-used registrar in
+`project-reader.ts` and its sender/root wrapper; do not add a duplicate
+registrar or a direct `main.ts` handler. The page channel accepts only the
+closed Unit discriminator and is not a generic Core request. Add no Unit
+preview.
 
 - [ ] **Step 5: Implement controller state and conflict reload**
 
-Mirror the proven Composition request-counter/CAS pattern without a new
-controller. Opening a Unit loads its identity and page one of revisions only;
-inspecting a revision loads that exact revision plus page one of Items and
-Presentations. Each family appends independently with its own request fence.
-On conflict, keep the chosen inspected revision ID if still present, reload the
-Unit and first revision page once, expose a clear conflict message, and require
-an explicit second click. Selection is allowed only for a loaded inspected
-revision whose `sealedAt` is non-null and which is not already selected. Derive
-the Draft/Sealed display label from `sealedAt`; `UnitRevisionDto` has no `state`.
+Mirror the proven request-counter/CAS pattern inside the existing controller.
+Opening a Unit loads its identity and newest revision page, chooses
+`selectedRevisionId ?? latestRevisionId ?? firstPage.items[0]?.id`, then loads
+that exact revision plus page one of its Items and Presentations. The chosen
+revision may be outside page one; never drain revision pages to find it. Each
+family appends independently with its own Unit/revision/cursor-qualified fence.
+
+On conflict, keep the already validated inspected revision ID even when it is
+outside page one, reload the Unit and first revision page once, replace the
+matching Unit master row, expose a clear conflict message, and require an
+explicit second click. Never retry the mutation. Successful selection uses the
+returned Unit to replace both the detail shell and matching master row.
+Selection is allowed only for a loaded inspected revision whose `sealedAt` is
+non-null and which is not already selected. Derive the Draft/Sealed display
+label from `sealedAt`; `UnitRevisionDto` has no `state`.
 
 - [ ] **Step 6: Run focused GREEN and typecheck**
 
@@ -283,7 +333,7 @@ bun run typecheck
 - [ ] **Step 7: Commit Task 2**
 
 ```bash
-git add electron/ralphy/types.ts electron/ralphy/contract-type-assertions.ts electron/ralphy/project-reader.ts electron/media/types.ts electron/main.ts electron/preload.ts src/lib/ipc.ts src/state/project-screen-controller.ts tests/ralphy-current-core.test.ts tests/project-reader.test.ts tests/ipc-security.test.ts tests/project-screen-behavior.test.tsx
+git add electron/ralphy/types.ts electron/ralphy/contract-type-assertions.ts electron/ralphy/project-reader.ts electron/media/types.ts electron/preload.ts src/lib/ipc.ts src/state/project-screen-controller.ts tests/ralphy-current-core.test.ts tests/project-reader.test.ts tests/ipc-security.test.ts tests/project-screen-behavior.test.tsx
 git diff --cached --check
 gitleaks protect --staged --redact
 git commit -m "feat(desktop): load interactive unit details"

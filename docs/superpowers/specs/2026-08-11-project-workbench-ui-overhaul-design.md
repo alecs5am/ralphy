@@ -218,8 +218,9 @@ Compositions becomes an independently scrolling master/detail surface.
 Units reuses the Compositions master/detail grammar without inventing a new
 domain.
 
-- Master rows show slug, format, selected/latest badges, item count/status, and
-  updated time. Rows are real buttons.
+- Master rows show slug, format, selected/latest badges, and updated time. Rows
+  are real buttons. Item counts/status appear only when already present in a
+  bounded DTO; the UI never drains child pages to synthesize them.
 - Detail contains a compact revision timeline, selected/latest controls,
   ordered Items, and Presentations grouped by platform.
 - `unit.show`, `unit.revisions`, `unit.items`, `unit.presentations`, and
