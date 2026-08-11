@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { reviseCompositionCheckout, runCompositionBuild } from "../composition-build.js";
 import {
   authenticateConsumer,
   type ConsumerAuthority,
@@ -36,7 +37,6 @@ import {
   listCompositionRevisions,
   listCompositionSources,
   getCompositionRevision,
-  reviseComposition,
   selectCompositionRevision,
 } from "../store/compositions.js";
 import {
@@ -81,7 +81,6 @@ import {
   listRunAttempts,
   listRunObjects,
   listRuns,
-  startRun,
   resolveUnpromotedRunObject,
 } from "../store/runs.js";
 import {
@@ -114,7 +113,6 @@ import {
 import { resolveQueryContext, type QueryContext } from "../store/scope-context.js";
 import { getStoreIdentity } from "../store/sessions.js";
 import { exportWorkspacePackage, importWorkspacePackage } from "../store/portable.js";
-import { startBuild } from "../store/compositions.js";
 import { getObjectRow, resolveObjectPath } from "../store/internal-objects.js";
 import { createSecretStore, type KeyProvider } from "../store/secrets.js";
 import {
@@ -559,7 +557,17 @@ export function createBridgeMethods(input: {
 
   add("evaluation.list", "read", (params) => {
     const value = object(params, "evaluation.list");
-    return listEvaluations({ context: scopedContext(value), targetType: optionalString(value.targetType) as never, after: optionalString(value.after), limit: limit(value.limit) });
+    const target = value.target === undefined ? undefined : object(value.target, "target");
+    return listEvaluations({
+      context: scopedContext(value),
+      target: target === undefined ? undefined : {
+        type: string(target.type, "target.type") as never,
+        id: string(target.id, "target.id"),
+      },
+      targetType: optionalString(value.targetType) as never,
+      after: optionalString(value.after),
+      limit: limit(value.limit),
+    });
   });
   add("evaluation.show", "read", (params) => {
     const value = object(params, "evaluation.show");
@@ -630,32 +638,55 @@ export function createBridgeMethods(input: {
     const value = object(params, "composition.show");
     return getComposition({ context: scopedContext(value), compositionId: string(value.compositionId, "compositionId") });
   });
-  add("composition.revise", "mutation", (params) => {
+  add("composition.revise", "mutation", async (params) => {
     const value = object(params, "composition.revise");
     const context = scopedContext(value);
-    return reviseComposition({
-      compositionId: string(value.compositionId, "compositionId"),
+    const compositionId = string(value.compositionId, "compositionId");
+    getComposition({ context, compositionId });
+    const revision = await reviseCompositionCheckout({
+      context,
+      compositionId,
       expectedLatestRevisionId: value.expectedLatestRevisionId === null ? null : string(value.expectedLatestRevisionId, "expectedLatestRevisionId"),
-      parentRevisionId: optionalString(value.parentRevisionId),
-      iterationId: optionalString(value.iterationId),
+      ...(value.parentRevisionId === undefined ? {} : {
+        parentRevisionId: value.parentRevisionId === null ? null : string(value.parentRevisionId, "parentRevisionId"),
+      }),
+      ...(value.iterationId === undefined ? {} : {
+        iterationId: value.iterationId === null ? null : string(value.iterationId, "iterationId"),
+      }),
       engine: string(value.engine, "engine"),
-      engineVersion: optionalString(value.engineVersion),
-      engineConfig: value.engineConfig === undefined ? undefined : jsonValue(value.engineConfig),
+      ...(value.engineVersion === undefined ? {} : {
+        engineVersion: value.engineVersion === null ? null : string(value.engineVersion, "engineVersion"),
+      }),
+      ...(value.engineConfig === undefined ? {} : { engineConfig: jsonValue(value.engineConfig) }),
       authoredBySessionId: context.sessionId,
     });
+    return getCompositionRevision({ context, revisionId: revision.id });
   });
-  add("composition.build", "operation-start", (params) => {
+  add("composition.build", "operation-start", async (params) => {
     const value = object(params, "composition.build");
     const context = scopedContext(value);
-    const scope = resolveScope(context);
     const revision = getCompositionRevision({ context, revisionId: string(value.compositionRevisionId, "compositionRevisionId") });
-    if (revision.state !== "sealed") throw new Error("Composition Revision must be sealed before Build");
-    const run = startRunForScope(scope, context, "composition.build", value.label);
-    return startBuild({ compositionRevisionId: revision.id, runId: run.id, profile: jsonValue(value.profile ?? {}) });
+    return runCompositionBuild({
+      context,
+      compositionId: revision.compositionId,
+      revisionId: revision.id,
+      profile: jsonValue(value.profile ?? {}),
+      authoredBySessionId: context.sessionId ?? null,
+    });
   });
   add("composition.select", "mutation", (params) => {
     const value = object(params, "composition.select");
-    return selectCompositionRevision({ compositionId: string(value.compositionId, "compositionId"), revisionId: string(value.revisionId, "revisionId"), expectedSelectedRevisionId: value.expectedSelectedRevisionId === null ? null : string(value.expectedSelectedRevisionId, "expectedSelectedRevisionId") });
+    const context = scopedContext(value);
+    const compositionId = string(value.compositionId, "compositionId");
+    const revisionId = string(value.revisionId, "revisionId");
+    getComposition({ context, compositionId });
+    getCompositionRevision({ context, revisionId });
+    return selectCompositionRevision({
+      context,
+      compositionId,
+      revisionId,
+      expectedSelectedRevisionId: value.expectedSelectedRevisionId === null ? null : string(value.expectedSelectedRevisionId, "expectedSelectedRevisionId"),
+    });
   });
   add("composition.revisions", "read", (params) => {
     const value = object(params, "composition.revisions");
@@ -1184,7 +1215,7 @@ function systemHello(dataRoot: string, capabilities: string[]): Record<string, u
   const rootId = createHash("sha256").update(`${path.resolve(dataRoot)}\0${stat.dev}\0${stat.ino}`).digest("hex");
   return {
     protocolVersion: BRIDGE_PROTOCOL_VERSION,
-    coreVersion: "1",
+    coreVersion: "2",
     schemaVersion: SCHEMA_VERSION,
     storeId: getStoreIdentity(),
     rootId,
@@ -1219,21 +1250,6 @@ function scopedContext(value: Record<string, unknown>): QueryContext {
 
 function resolveScope(context: QueryContext): { workspaceId: string; projectId: string | null } {
   return resolveQueryContext(openDomainDb(), context);
-}
-
-function startRunForScope(
-  scope: { workspaceId: string; projectId: string | null },
-  context: QueryContext,
-  kind: string,
-  label: unknown,
-) {
-  return startRun({
-    workspaceId: scope.workspaceId,
-    projectId: scope.projectId,
-    agentSessionId: context.sessionId ?? null,
-    kind,
-    label: optionalString(label),
-  });
 }
 
 function assertVisible(context: QueryContext, workspaceId: string, projectId: string | null): void {

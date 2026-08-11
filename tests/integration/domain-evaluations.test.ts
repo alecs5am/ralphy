@@ -512,6 +512,122 @@ describe("domain Evaluations", () => {
     ).toThrow(/limit/i);
   });
 
+  test("pages only the exact Evaluation target before applying the cursor", async () => {
+    const root = makeRoot();
+    const { workspace, project, object, session } = await fixture(root, "exact-target");
+    const other = await fixture(root, "exact-target-other");
+    const createBuildTarget = (projectId: string, objectId: string, slug: string) => {
+      const composition = createComposition({ projectId, slug, kind: "video" });
+      const draft = reviseComposition({
+        compositionId: composition.id,
+        expectedLatestRevisionId: null,
+        engine: "manual",
+      });
+      putCompositionSource({
+        revisionId: draft.id,
+        logicalPath: `${slug}.bin`,
+        objectId,
+      });
+      const revision = sealCompositionRevision({ revisionId: draft.id });
+      const build = startBuild({
+        compositionRevisionId: revision.id,
+        runId: startRun({ projectId, kind: "build" }).id,
+        profile: {},
+      });
+      return { revision, build };
+    };
+    const exact = createBuildTarget(project.id, object.id, "exact");
+    const unrelated = createBuildTarget(project.id, object.id, "unrelated");
+    const foreign = createBuildTarget(other.project.id, other.object.id, "foreign");
+    const createdAt = 2_000;
+    const exactRevision = [
+      createEvaluation({
+        target: { type: "composition_revision", id: exact.revision.id },
+        authoredBySessionId: session.id,
+        kind: "review-a",
+        report: { secret: "revision-report-secret" },
+        createdAt,
+      }),
+      createEvaluation({
+        target: { type: "composition_revision", id: exact.revision.id },
+        authoredBySessionId: session.id,
+        kind: "review-b",
+        createdAt,
+      }),
+    ].sort((left, right) => left.id.localeCompare(right.id));
+    createEvaluation({
+      target: { type: "composition_revision", id: unrelated.revision.id },
+      authoredBySessionId: session.id,
+      kind: "unrelated",
+      createdAt,
+    });
+    const exactBuild = [
+      createEvaluation({
+        target: { type: "build", id: exact.build.id },
+        authoredBySessionId: session.id,
+        kind: "review-a",
+        createdAt,
+      }),
+      createEvaluation({
+        target: { type: "build", id: exact.build.id },
+        authoredBySessionId: session.id,
+        kind: "review-b",
+        createdAt,
+      }),
+    ].sort((left, right) => left.id.localeCompare(right.id));
+    createEvaluation({
+      target: { type: "build", id: unrelated.build.id },
+      authoredBySessionId: session.id,
+      kind: "unrelated",
+      createdAt,
+    });
+
+    const drain = (target: { type: "composition_revision" | "build"; id: string }) => {
+      const items = [];
+      let after: string | null = null;
+      for (;;) {
+        const page = listEvaluations({
+          context: { workspaceId: workspace.id, projectId: project.id },
+          target,
+          after,
+          limit: 1,
+        });
+        items.push(...page.items);
+        if (page.nextCursor === null) return items;
+        after = page.nextCursor;
+      }
+    };
+    expect(drain({ type: "composition_revision", id: exact.revision.id })).toEqual(exactRevision);
+    expect(drain({ type: "build", id: exact.build.id })).toEqual(exactBuild);
+    expect(listEvaluations({
+      context: { sessionId: session.id },
+      target: { type: "build", id: exact.build.id },
+      limit: 10,
+    }).items).toEqual(exactBuild);
+    expect(listEvaluations({
+      context: { workspaceId: workspace.id, projectId: project.id },
+      targetType: "build",
+      limit: 10,
+    }).items).toHaveLength(3);
+    expect(listEvaluations({
+      context: { workspaceId: workspace.id, projectId: project.id },
+      target: { type: "build", id: foreign.build.id },
+      limit: 10,
+    }).items).toEqual([]);
+    expect(() => listEvaluations({
+      context: { workspaceId: workspace.id, projectId: project.id },
+      target: { type: "build", id: exact.build.id },
+      targetType: "build",
+      limit: 10,
+    })).toThrow(/mutually exclusive/i);
+    expect(() => listEvaluations({
+      context: { workspaceId: workspace.id, projectId: project.id },
+      target: { type: "invalid", id: exact.build.id },
+      limit: 10,
+    } as never)).toThrow(/target type/i);
+    expect(JSON.stringify(exactRevision)).not.toContain("revision-report-secret");
+  });
+
   test("resolves a Session context to the same visibility", async () => {
     const root = makeRoot();
     const { revision, session } = await fixture(root, "session-context");

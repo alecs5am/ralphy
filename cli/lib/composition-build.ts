@@ -14,12 +14,14 @@ import { newDomainId } from "./store/ids.js";
 import {
   failCompositionBuildRun,
   getComposition,
+  getCompositionRevision,
   listBuildOutputs,
   listBuilds,
   listCompositionInputs,
   listCompositionRevisions,
   listCompositionSources,
   listCompositions,
+  prepareCompositionRevisionMaterialization,
   snapshotAndStartCompositionBuild,
   reviseComposition,
   validateBuildProfile,
@@ -68,8 +70,11 @@ type CompositionBuildTestHooks = {
 };
 
 export async function reviseCompositionCheckout(input: {
+  context?: QueryContext;
   compositionId: string;
   expectedLatestRevisionId: string | null;
+  parentRevisionId?: string | null;
+  iterationId?: string | null;
   engine: string;
   engineVersion?: string | null;
   engineConfig?: JsonValue;
@@ -81,6 +86,13 @@ export async function reviseCompositionCheckout(input: {
     beforeRevisionCommit?: (facts: { checkoutPath: string; revisionId: string }) => void;
   };
 }) {
+  if (input.context !== undefined) {
+    getComposition({ context: input.context, compositionId: input.compositionId });
+  }
+  const materialization = prepareCompositionRevisionMaterialization(input);
+  const materializedParentId = materialization.parentRevisionId;
+  const parentSources = materialization.sources;
+  const parentInputs = materialization.inputs;
   const revisionId = newDomainId("crev");
   const checkoutPath = checkoutFor(revisionId);
   const descriptors: number[] = [];
@@ -93,8 +105,6 @@ export async function reviseCompositionCheckout(input: {
     const openedRevision = openDirectoryAt(tmp, revisionId, 0o700); revisionDirectory = openedRevision.fd; descriptors.push(revisionDirectory);
     const checkout = openDirectoryAt(revisionDirectory, "checkout", 0o700); descriptors.push(checkout.fd);
     input.testHooks?.afterCheckoutOpened?.(checkoutPath);
-    const parentSources = input.expectedLatestRevisionId === null ? [] : revisionSources(input.expectedLatestRevisionId);
-    const parentInputs = input.expectedLatestRevisionId === null ? [] : revisionInputs(input.expectedLatestRevisionId);
     for (const source of parentSources) {
       const object = getObjectRow(openDomainDb(), source.objectId);
       if (!object) throw new Error(`Object not found: ${source.objectId}`);
@@ -112,7 +122,7 @@ export async function reviseCompositionCheckout(input: {
     const revision = reviseComposition({
       ...input,
       preallocatedRevisionId: revisionId,
-      ...(input.expectedLatestRevisionId === null ? {} : {
+      ...(materializedParentId === null ? {} : {
         expectedParentSnapshot: {
           sources: parentSources.map(({ logicalPath, objectId, position }) => ({ logicalPath, objectId, position })),
           inputs: parentInputs.map(({ artifactRevisionId, role, position, config }) => ({ artifactRevisionId, role, position, config })),
@@ -131,6 +141,7 @@ export async function reviseCompositionCheckout(input: {
 }
 
 export async function runCompositionBuild(input: {
+  context?: QueryContext;
   compositionId: string;
   revisionId: string;
   profile?: JsonValue;
@@ -138,6 +149,9 @@ export async function runCompositionBuild(input: {
   /** @internal Fault and renderer fixtures. */
   testHooks?: CompositionBuildTestHooks;
 }) {
+  if (input.context !== undefined) {
+    getCompositionRevision({ context: input.context, revisionId: input.revisionId });
+  }
   const profile = validateBuildProfile(input.profile ?? {});
   let revision = buildRevision(input.compositionId, input.revisionId);
   if (revision.latestRevisionId !== revision.id) {
@@ -151,7 +165,7 @@ export async function runCompositionBuild(input: {
   }
   validateEngineRequest(revision, input.testHooks);
 
-  const started = await snapshotCheckout(revision, profile, input.authoredBySessionId, input.testHooks);
+  const started = await snapshotCheckout(revision, profile, input.context, input.authoredBySessionId, input.testHooks);
   const { run, attempt, build } = started;
   try {
     input.testHooks?.beforeBuildRevisionReload?.();
@@ -235,6 +249,7 @@ export function videoCompositionForProject(context: QueryContext, projectId: str
 async function snapshotCheckout(
   revision: RevisionRow,
   profile: JsonValue,
+  context?: QueryContext,
   authoredBySessionId?: string | null,
   hooks?: CompositionBuildTestHooks,
 ) {
@@ -255,6 +270,7 @@ async function snapshotCheckout(
     }
     hooks?.beforeSnapshotCommit?.();
     return snapshotAndStartCompositionBuild({
+      context,
       revisionId: revision.id,
       expectedLatestRevisionId: revision.id,
       sources: prepared,
