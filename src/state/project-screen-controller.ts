@@ -1,4 +1,4 @@
-import type { ArtifactMediaCardDto, ArtifactRevisionDto, BuildDto, BuildOutputDto, CompositionDto, CompositionInputDto, CompositionRevisionDto, CompositionSourceDto, DocumentDetailDto, DocumentDto, DocumentSearchDto, EvaluationDto, JsonValue, MediaCardDto, MediaGenerationDetailDto, MediaGenerationTarget, UnitDto, UnitItemDto, UnitPresentationDto, UnitRevisionDto } from "../../electron/ralphy/types";
+import type { ActivityDto, ArtifactMediaCardDto, ArtifactRevisionDto, BuildDto, BuildOutputDto, CompositionDto, CompositionInputDto, CompositionRevisionDto, CompositionSourceDto, DocumentDetailDto, DocumentDto, DocumentSearchDto, EvaluationDto, JsonValue, MediaCardDto, MediaGenerationDetailDto, MediaGenerationTarget, UnitDto, UnitItemDto, UnitPresentationDto, UnitRevisionDto } from "../../electron/ralphy/types";
 import type { CompositionOutputPreview } from "../../electron/ralphy/project-reader";
 import type { MediaWorkbenchBridge, ProjectMediaQuery, ProjectSummary, ProjectTab } from "../../electron/media/types";
 import { createProjectDomainState, projectDomainReducer, type DomainRow, type ProjectDomainState } from "./project-domain";
@@ -198,6 +198,11 @@ export function createProjectScreenController(
   let request = 0;
   let overviewRequest = 0;
   let coveredActivitySequence = initialActivitySequence;
+  let highestActivityAnnouncement = initialActivitySequence;
+  let activityCatchupRequest = 0;
+  let activityCatchupInFlight = false;
+  let activityPageReady = false;
+  const pendingActivity = new Map<number, ActivityDto>();
   let documentRequest = 0;
   let searchRequest = 0;
   let saveRequest = 0;
@@ -254,13 +259,55 @@ export function createProjectScreenController(
     try {
       const value = await api.loadProjectPage({ tab, project: projectRef, ...(append ? { cursor: page.nextCursor } : {}), ...(mediaQuery ? { mediaQuery } : {}) });
       if (disposed) return;
+      if (tab === "activity" && append && page.nextCursor !== null && value.nextCursor === page.nextCursor) {
+        throw new Error("Activity page cursor did not advance");
+      }
       reduce({ type: "page-ready", tab, generation, requestId, mediaFilter, append, page: value as { items: DomainRow[]; nextCursor: string | number | null } });
+      if (tab === "activity" && !append && snapshot.domain.pages.activity.requestId === requestId) {
+        activityPageReady = true;
+        if (pendingActivity.size > 0) {
+          reduce({ type: "activity-merge", generation, items: [...pendingActivity.values()] });
+          pendingActivity.clear();
+        }
+      }
       if (tab === "compositions" && !append && snapshot.domain.pages.compositions.requestId === requestId) {
         const compositionId = snapshot.compositionId ?? (value.items[0] as { id?: string } | undefined)?.id ?? null;
         if (compositionId) await loadComposition(compositionId, snapshot.inspectedCompositionRevisionId);
       }
     } catch (error) {
       reduce({ type: "page-failed", tab, generation, requestId, mediaFilter, error: errorMessage(error) });
+    }
+  };
+
+  const mergeActivity = (items: ActivityDto[], generation: number) => {
+    if (activityPageReady) reduce({ type: "activity-merge", generation, items });
+    else for (const item of items) pendingActivity.set(item.sequence, item);
+  };
+
+  const catchUpActivity = async (announcedSequence: number) => {
+    const requestId = ++activityCatchupRequest;
+    const generation = snapshot.domain.generation;
+    const projectRef = snapshot.domain.project;
+    let cursor = coveredActivitySequence;
+    activityCatchupInFlight = true;
+    try {
+      while (!disposed && requestId === activityCatchupRequest && cursor < announcedSequence) {
+        const page = await api.loadProjectPage({ tab: "activity", project: projectRef, cursor });
+        if (disposed || requestId !== activityCatchupRequest || generation !== snapshot.domain.generation) return;
+        const next = page.nextCursor;
+        if (next !== null && (typeof next !== "number" || !Number.isSafeInteger(next) || next <= cursor)) return;
+        mergeActivity(page.items as ActivityDto[], generation);
+        if (next === null) {
+          coveredActivitySequence = Math.max(announcedSequence, ...page.items.map((item) => (item as ActivityDto).sequence));
+          return;
+        }
+        cursor = next;
+        coveredActivitySequence = next;
+      }
+    } catch {
+      // A later announcement retries from the last proven cursor.
+    } finally {
+      if (requestId === activityCatchupRequest) activityCatchupInFlight = false;
     }
   };
 
@@ -833,12 +880,14 @@ export function createProjectScreenController(
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     async start() { if (snapshot.domain.overview.status === "idle") await loadOverview(); },
     async refresh(sequence) {
-      if (disposed || sequence <= coveredActivitySequence) return;
-      coveredActivitySequence = sequence;
+      if (disposed || sequence <= coveredActivitySequence || sequence < highestActivityAnnouncement
+        || (sequence === highestActivityAnnouncement && activityCatchupInFlight)) return;
+      if (sequence > highestActivityAnnouncement) highestActivityAnnouncement = sequence;
       const activeTab = snapshot.activeTab;
       await Promise.all([
         loadOverview(),
-        ...(activeTab === "overview" ? [] : [loadPage(activeTab)]),
+        catchUpActivity(sequence),
+        ...(activeTab === "overview" || activeTab === "activity" ? [] : [loadPage(activeTab)]),
       ]);
     },
     async selectTab(tab) {

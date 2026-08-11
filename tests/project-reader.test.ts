@@ -650,6 +650,42 @@ describe("Project domain reader", () => {
     });
   });
 
+  test("activity timeline validates one forward-only scoped page", async () => {
+    const event = (sequence: number, overrides: Record<string, unknown> = {}) => ({
+      sequence, workspaceId: "workspace-1", projectId: "project-1", entityType: "run",
+      entityId: `run-${sequence}`, action: "started", createdAt: sequence, ...overrides,
+    });
+    const valid = { items: [event(51), event(52, { projectId: null })], nextCursor: 52 };
+    const request = vi.fn(async () => valid);
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+
+    await expect(reader.loadPage({ tab: "activity", project, cursor: 50 })).resolves.toEqual(valid);
+    expect(request).toHaveBeenCalledWith("activity.list", { context: project, afterSequence: 50, limit: 50 });
+
+    const malformed = [
+      { ...valid, private: true },
+      { items: Array.from({ length: 51 }, (_, index) => event(index + 51)), nextCursor: 101 },
+      { items: [{ ...event(51), private: true }], nextCursor: 51 },
+      { items: [event(51), event(51)], nextCursor: 51 },
+      { items: [event(50)], nextCursor: 51 },
+      { items: [event(52), event(51)], nextCursor: 52 },
+      { items: [event(51, { sequence: Number.MAX_SAFE_INTEGER + 1 })], nextCursor: null },
+      { items: [event(51, { workspaceId: "workspace-2" })], nextCursor: 51 },
+      { items: [event(51, { projectId: "project-2" })], nextCursor: 51 },
+      { items: [event(51, { entityType: "" })], nextCursor: 51 },
+      { items: [event(51, { entityId: "x".repeat(257) })], nextCursor: 51 },
+      { items: [event(51, { action: "x".repeat(257) })], nextCursor: 51 },
+      { items: [event(51, { createdAt: Number.NaN })], nextCursor: 51 },
+      { items: [event(51)], nextCursor: 50 },
+      { items: [event(52)], nextCursor: 51 },
+      { items: [event(51)], nextCursor: "51" },
+    ];
+    for (const value of malformed) {
+      const invalid = createProjectReader({ request: vi.fn(async () => value) as unknown as RalphyBridgeClient["request"] });
+      await expect(invalid.loadPage({ tab: "activity", project, cursor: 50 })).rejects.toThrow("Invalid Activity page");
+    }
+  });
+
   test("uses only an Artifact target for a preview and never returns its locator path", async () => {
     const card = {
       ref: { type: "artifact" as const, id: "artifact-1" },

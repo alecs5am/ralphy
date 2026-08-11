@@ -1075,7 +1075,7 @@ describe("ProjectScreen behavior", () => {
     await controller.refresh(21);
 
     expect(api.loadProjectOverview).toHaveBeenCalledTimes(2);
-    expect(api.loadProjectPage).toHaveBeenNthCalledWith(2, {
+    expect(api.loadProjectPage.mock.calls.filter(([request]) => request.tab === "documents").at(-1)?.[0]).toEqual({
       tab: "documents",
       project: { workspaceId: "workspace-1", projectId: "project-1" },
     });

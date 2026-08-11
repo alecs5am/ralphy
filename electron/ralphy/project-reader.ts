@@ -526,6 +526,25 @@ function asPage(value: unknown): ProjectPage {
   return value as ProjectPage;
 }
 
+function asActivityPage(value: unknown, project: ProjectRef, afterSequence: number): ProjectPage {
+  const page = record(value);
+  if (!page || !exactKeys(page, ["items", "nextCursor"]) || !Array.isArray(page.items)
+    || page.items.length > PROJECT_PAGE_LIMIT) throw new Error("Invalid Activity page");
+  let previous = afterSequence;
+  for (const raw of page.items) {
+    const item = record(raw);
+    if (!item || !exactKeys(item, ["sequence", "workspaceId", "projectId", "entityType", "entityId", "action", "createdAt"])
+      || !sequence(item.sequence, true) || item.sequence <= previous
+      || item.workspaceId !== project.workspaceId || !optionalScope(item.projectId, project.projectId)
+      || !validId(item.entityType) || !validId(item.entityId) || !validId(item.action)
+      || !finite(item.createdAt) || item.createdAt < 0) throw new Error("Invalid Activity page");
+    previous = item.sequence;
+  }
+  if (page.nextCursor !== null && (!sequence(page.nextCursor, true)
+    || page.nextCursor <= afterSequence || page.nextCursor < previous)) throw new Error("Invalid Activity page");
+  return value as ProjectPage;
+}
+
 function asMediaPage(value: unknown, project: ProjectRef): ProjectPage {
   const page = record(value);
   if (!page || !exactKeys(page, ["items", "nextCursor"]) || !Array.isArray(page.items)
@@ -1005,11 +1024,12 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
     }): Promise<ProjectPage> {
       const context = projectContext(input.project);
       if (input.tab === "activity") {
-        return asPage(await request("activity.list", {
+        const afterSequence = activityCursor(input.cursor);
+        return asActivityPage(await request("activity.list", {
           context,
-          afterSequence: activityCursor(input.cursor),
+          afterSequence,
           limit: PROJECT_PAGE_LIMIT,
-        }));
+        }), context, afterSequence);
       }
       const after = pageCursor(input.cursor);
       if (input.tab === "documents") {

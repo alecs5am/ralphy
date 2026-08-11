@@ -3269,6 +3269,92 @@ button.workspace-project-card:hover {
   gap: 12px;
 }
 
+.project-domain-body.is-activity {
+  overflow: hidden;
+  padding-bottom: 24px;
+}
+
+.activity-scroll {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.activity-scroll:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: -2px;
+}
+
+.activity-virtual-list {
+  position: relative;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
+.activity-day {
+  display: flex;
+  align-items: end;
+  padding: 0 12px 8px;
+  color: var(--fg-3);
+}
+
+.activity-day h3 {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+
+.activity-event {
+  display: grid;
+  grid-template-columns: 64px minmax(140px, 0.8fr) minmax(0, 1.2fr);
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  color: var(--fg);
+}
+
+.activity-event time,
+.activity-event span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-event strong {
+  overflow: hidden;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@container project-domain (max-width: 719px) {
+  .activity-event {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .activity-event span {
+    grid-column: 2;
+  }
+}
+
 .virtual-asset-row {
   position: absolute;
   top: 0;
