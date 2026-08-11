@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   addArtifactRevision,
   createArtifact,
+  selectArtifactRevision,
 } from "../../cli/lib/store/artifacts.js";
 import {
   bindCompositionInput,
@@ -38,6 +39,7 @@ import {
   startRunAttempt,
 } from "../../cli/lib/store/runs.js";
 import { ingestObject } from "../../cli/lib/store/objects.js";
+import { getMediaCard } from "../../cli/lib/store/media.js";
 import { encodeCursor } from "../../cli/lib/store/pagination.js";
 import {
   createProject,
@@ -678,7 +680,7 @@ describe("media generation detail", () => {
     expect(JSON.stringify(detail)).not.toContain("secret-response");
   });
 
-  test("deduplicates one producer and reports distinct direct or Build producers as ambiguous", async () => {
+  test("media facets keep direct and Build producer cardinality aligned with detail", async () => {
     root = makeTmpRoot("ralphy-media-generation-build-ambiguity");
     const workspace = createWorkspace({ slug: "client", name: "Client" });
     const project = createProject({
@@ -784,6 +786,24 @@ describe("media generation detail", () => {
       target: buildOnlyTarget,
       limit: 20,
     })).toEqual({ status: "unknown", target: buildOnlyTarget, reason: "ambiguous" });
+
+    for (const item of [deduplicated, mixed, buildOnly]) {
+      selectArtifactRevision({
+        artifactId: item.artifact.id,
+        revisionId: item.revision.id,
+        expectedRevisionId: null,
+      });
+    }
+    expect(getMediaCard({
+      context,
+      ref: { type: "artifact", id: deduplicated.artifact.id },
+    }).provenance).toBe("generation");
+    for (const item of [mixed, buildOnly]) {
+      expect(getMediaCard({
+        context,
+        ref: { type: "artifact", id: item.artifact.id },
+      }).provenance).toBe("unknown");
+    }
   });
 
   test("excludes mismatched and failed Build result ownership", async () => {

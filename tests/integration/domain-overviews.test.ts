@@ -15,6 +15,8 @@ import {
   startBuild,
 } from "../../cli/lib/store/compositions.js";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
+import { requestDigest } from "../../cli/lib/store/canonical-json.js";
+import { startConsumerOperationRun } from "../../cli/lib/store/consumer-runs.js";
 import { replaceProjectDocumentBinding } from "../../cli/lib/store/document-content.js";
 import {
   createDocument,
@@ -26,7 +28,7 @@ import {
   getProjectOverview,
   getWorkspaceOverview,
 } from "../../cli/lib/store/overviews.js";
-import { startRun } from "../../cli/lib/store/runs.js";
+import { recordRunObject, recordRunResult, startRun } from "../../cli/lib/store/runs.js";
 import {
   addFeedback,
   createIteration,
@@ -34,7 +36,7 @@ import {
   createWorkspace,
   upsertSocialAccount,
 } from "../../cli/lib/store/scopes.js";
-import { startAgentSession } from "../../cli/lib/store/sessions.js";
+import { startAgentSession, startConsumerSession } from "../../cli/lib/store/sessions.js";
 import {
   appendMetricSnapshot,
   createUnit,
@@ -44,6 +46,7 @@ import {
 } from "../../cli/lib/store/units.js";
 import { withPoisonFarmReadTrap } from "../helpers/poison-farm.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
+import { installConsumer } from "../helpers/consumer-auth.js";
 
 let roots: TmpRoot[] = [];
 
@@ -383,6 +386,115 @@ describe("workspace overview", () => {
         sections: {},
       }),
     ).toThrow(/not found/i);
+  });
+
+  test("media facets keep sharedMedia narrowed while preserving consumer isolation", async () => {
+    const root = makeRoot();
+    const f = await fixture(root);
+    const sourcePath = path.join(root.dir, "shared-facet.png");
+    fs.writeFileSync(sourcePath, "shared facet");
+    const object = await ingestObject({
+      scope: { workspaceId: f.workspace.id },
+      sourcePath,
+      originalName: "shared-facet.png",
+      mime: "image/png",
+      storageClass: "durable",
+    });
+    const artifact = createArtifact({
+      workspaceId: f.workspace.id,
+      slug: "shared-facet",
+      kind: "image",
+    });
+    const revision = addArtifactRevision({
+      artifactId: artifact.id,
+      objectId: object.id,
+      state: "approved",
+    });
+    selectArtifactRevision({
+      artifactId: artifact.id,
+      revisionId: revision.id,
+      expectedRevisionId: null,
+    });
+    const owner = installConsumer(root, {
+      id: "overview_media_owner",
+      namespace: "overview-media-owner",
+      tokenByte: 51,
+    });
+    const other = installConsumer(root, {
+      id: "overview_media_other",
+      namespace: "overview-media-other",
+      tokenByte: 52,
+    });
+    const ownerSession = startConsumerSession(owner.authority, {
+      workspaceId: f.workspace.id,
+    });
+    const otherSession = startConsumerSession(other.authority, {
+      workspaceId: f.workspace.id,
+    });
+    const run = startConsumerOperationRun(owner.authority, {
+      sessionId: ownerSession.id,
+      workspaceId: f.workspace.id,
+      kind: "generation",
+      external: {
+        runId: "overview-media-run",
+        nodeId: "overview-media-node",
+        attempt: 1,
+        operation: "generation",
+        idempotencyKey: "overview-media",
+      },
+      requestDigest: requestDigest({ fixture: "overview-media" }),
+    }).run;
+    recordRunResult(openDomainDb(), {
+      runId: run.id,
+      position: 0,
+      entityType: "artifact_revision",
+      entityId: revision.id,
+    });
+    const projectRunObject = recordRunObject({
+      runId: startRun({ projectId: f.project.id, kind: "generation" }).id,
+      path: "tmp/project-only.png",
+      purpose: "result",
+      state: "ready",
+      retention: "keep",
+      mime: "image/png",
+    });
+
+    const page = (sessionId: string, consumerAuthority: typeof owner.authority) =>
+      getWorkspaceOverview({
+        context: { sessionId, consumerAuthority },
+        workspaceId: f.workspace.id,
+        sections: { sharedMedia: { limit: 50 } },
+      }).sharedMedia!.items;
+    const ownerItems = page(ownerSession.id, owner.authority);
+    expect(ownerItems.find((item) => item.ref.id === artifact.id)).toMatchObject({
+      ref: { type: "artifact", id: artifact.id },
+      mediaKind: "image",
+      provenance: "generation",
+    });
+    expect(ownerItems.find((item) => item.ref.id === object.id)).toMatchObject({
+      ref: { type: "object", id: object.id },
+      mediaKind: "image",
+      provenance: "unknown",
+    });
+    const otherItems = page(otherSession.id, other.authority);
+    expect(otherItems.find((item) => item.ref.id === artifact.id)).toMatchObject({
+      provenance: "unknown",
+    });
+    expect(otherItems.map((item) => item.ref.id)).not.toContain(f.artifact.id);
+    expect(otherItems.map((item) => item.ref.id)).not.toContain(projectRunObject.id);
+    const projectSession = startAgentSession({
+      workspaceId: f.workspace.id,
+      projectId: f.project.id,
+      agent: "overview-media-project",
+    });
+    const projectItems = getWorkspaceOverview({
+      context: { sessionId: projectSession.id },
+      workspaceId: f.workspace.id,
+      sections: { sharedMedia: { limit: 50 } },
+    }).sharedMedia!.items;
+    expect(projectItems.map((item) => item.ref.id)).toContain(artifact.id);
+    expect(projectItems.map((item) => item.ref.id)).not.toContain(f.artifact.id);
+    expect(projectItems.map((item) => item.ref.id)).not.toContain(projectRunObject.id);
   });
 });
 

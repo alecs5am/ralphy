@@ -837,6 +837,8 @@ export type ProjectOverview = {
 
 export type MediaRefType = "artifact" | "run-object" | "object";
 export type MediaRef = { type: MediaRefType; id: string };
+export type MediaKind = "image" | "video" | "audio" | "document" | "other";
+export type MediaProvenance = "generation" | "not-generation" | "unknown";
 
 /** No card carries a bucket, key, hash, original name, path, or metadata. */
 export type ArtifactMediaCard = {
@@ -888,7 +890,10 @@ export type ObjectMediaCard = {
   target: { type: "object"; id: string };
 };
 
-export type MediaCard = ArtifactMediaCard | RunObjectMediaCard | ObjectMediaCard;
+export type MediaCard = (ArtifactMediaCard | RunObjectMediaCard | ObjectMediaCard) & {
+  mediaKind: MediaKind;
+  provenance: MediaProvenance;
+};
 
 export type MediaReviewVerdict =
   | "shortlist"
@@ -897,6 +902,7 @@ export type MediaReviewVerdict =
   | "needs-work";
 
 export type ReviewMediaInput = {
+  context?: QueryContext;
   ref: MediaRef;
   expectedSelectedRevisionId: string;
   verdict: MediaReviewVerdict;
@@ -910,7 +916,10 @@ export type ReviewMediaInput = {
 };
 
 export type ReviewMediaResult = {
-  card: ArtifactMediaCard;
+  card: ArtifactMediaCard & {
+    mediaKind: MediaKind;
+    provenance: MediaProvenance;
+  };
   revisionId: string;
   evaluation: EvaluationDto;
   feedbackId: string | null;

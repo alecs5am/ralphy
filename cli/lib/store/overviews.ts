@@ -85,6 +85,7 @@ export function getWorkspaceOverview(
       assertLimit(sections.sharedMedia.limit, MAX_SECTION_LIMIT);
       overview.sharedMedia = listMediaInDatabase(
         db,
+        request.context,
         { workspaceId: scope.workspaceId, projectId: null },
         sections.sharedMedia,
       );

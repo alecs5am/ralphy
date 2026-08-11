@@ -275,9 +275,9 @@ export function createBridgeMethods(input: {
       positiveInteger(value.expectedRowVersion, "expectedRowVersion"),
     );
   });
-  add("workspace.overview", "read", (params) => {
+  add("workspace.overview", "read", (params, methodContext) => {
     const value = object(params, "workspace.overview");
-    const context = scopedContext(value);
+    const context = consumerQueryContext(value, methodContext);
     const scope = resolveScope(context);
     return getWorkspaceOverview({
       context,
@@ -475,15 +475,36 @@ export function createBridgeMethods(input: {
       : replaceProjectDocumentBinding({ ...input, projectId: ownerProjectId });
   });
 
-  add("media.list", "read", (params) => {
+  add("media.list", "read", (params, methodContext) => {
     const value = object(params, "media.list");
-    return listMedia({ context: scopedContext(value), types: value.types as never, filter: optionalString(value.filter) as never, after: optionalString(value.after), limit: limit(value.limit) });
+    exactKeys(value, [
+      "context",
+      ...["types", "filter", "mediaKind", "provenance", "after", "limit"]
+        .filter((key) => Object.hasOwn(value, key)),
+    ], "media.list");
+    const mediaKind = optionalString(value.mediaKind);
+    const provenance = optionalString(value.provenance);
+    if (mediaKind !== undefined && !["image", "video", "audio", "document", "other"].includes(mediaKind)) {
+      throw new Error("mediaKind is invalid");
+    }
+    if (provenance !== undefined && !["generation", "not-generation", "unknown"].includes(provenance)) {
+      throw new Error("provenance is invalid");
+    }
+    return listMedia({
+      context: consumerQueryContext(value, methodContext),
+      types: value.types as never,
+      filter: optionalString(value.filter) as never,
+      mediaKind: mediaKind as never,
+      provenance: provenance as never,
+      after: optionalString(value.after),
+      limit: limit(value.limit),
+    });
   });
-  add("media.show", "read", (params) => {
+  add("media.show", "read", (params, methodContext) => {
     const value = object(params, "media.show");
-    return getMediaCard({ context: scopedContext(value), ref: object(value.ref, "ref") as never });
+    return getMediaCard({ context: consumerQueryContext(value, methodContext), ref: object(value.ref, "ref") as never });
   });
-  add("media.generation.show", "read", (params) => {
+  add("media.generation.show", "read", (params, methodContext) => {
     const value = object(params, "media.generation.show");
     exactKeys(value, [
       "context",
@@ -504,7 +525,7 @@ export function createBridgeMethods(input: {
       throw new Error("limit must be at most 100");
     }
     return getMediaGenerationDetail({
-      context: scopedContext(value),
+      context: consumerQueryContext(value, methodContext),
       target: { type, id },
       after: optionalString(value.after),
       limit: pageLimit,
@@ -526,9 +547,9 @@ export function createBridgeMethods(input: {
     const value = object(params, "media.revision.show");
     return getArtifactRevision({ context: scopedContext(value), revisionId: string(value.revisionId, "revisionId") });
   });
-  add("media.select", "mutation", (params) => {
+  add("media.select", "mutation", (params, methodContext) => {
     const value = object(params, "media.select");
-    const context = scopedContext(value);
+    const context = consumerQueryContext(value, methodContext);
     const ref = object(value.ref, "ref");
     if (string(ref.type, "ref.type") !== "artifact") throw new Error("Only Artifact refs may be selected");
     getMediaCard({ context, ref: ref as never });
@@ -539,11 +560,12 @@ export function createBridgeMethods(input: {
     });
     return getMediaCard({ context, ref: ref as never });
   });
-  add("media.review", "mutation", (params) => {
+  add("media.review", "mutation", (params, methodContext) => {
     const value = object(params, "media.review");
-    const context = scopedContext(value);
+    const context = consumerQueryContext(value, methodContext);
     if (context.sessionId === undefined) throw new Error("Media review requires a Session context");
     return reviewMedia({
+      context,
       ref: object(value.ref, "ref") as never,
       expectedSelectedRevisionId: string(value.expectedSelectedRevisionId, "expectedSelectedRevisionId"),
       verdict: string(value.verdict, "verdict") as never,
@@ -1248,6 +1270,16 @@ function scopedContext(value: Record<string, unknown>): QueryContext {
   const workspaceId = string(context.workspaceId, "context.workspaceId");
   const projectId = context.projectId === undefined ? undefined : string(context.projectId, "context.projectId");
   return projectId === undefined ? { workspaceId } : { workspaceId, projectId };
+}
+
+function consumerQueryContext(
+  value: Record<string, unknown>,
+  methodContext: BridgeMethodContext,
+): QueryContext {
+  const context = scopedContext(value);
+  return context.sessionId !== undefined && methodContext.authority
+    ? { ...context, consumerAuthority: methodContext.authority }
+    : context;
 }
 
 function resolveScope(context: QueryContext): { workspaceId: string; projectId: string | null } {

@@ -16,6 +16,8 @@ import type {
   EvaluationDto,
   MediaCard,
   MediaFilter,
+  MediaKind,
+  MediaProvenance,
   MediaRef,
   MediaRefType,
   ObjectMediaCard,
@@ -25,7 +27,11 @@ import type {
   RunObjectMediaCard,
 } from "./types.js";
 import { StoreConflictError } from "./types.js";
-import { runObjectLocationClass } from "./runs.js";
+import {
+  ARTIFACT_REVISION_PRODUCERS_SQL,
+  resolveRunQueryAccess,
+  runObjectLocationClass,
+} from "./runs.js";
 
 /**
  * Every non-null direct foreign key to `objects(id)`. A schema-introspection
@@ -50,6 +56,17 @@ const REVIEW_VERDICTS = {
 
 const MAX_REFS = 100;
 const MAX_FEEDBACK_BYTES = 4_096;
+const MEDIA_KINDS = new Set<MediaKind>(["image", "video", "audio", "document", "other"]);
+const MEDIA_PROVENANCE = new Set<MediaProvenance>(["generation", "not-generation", "unknown"]);
+
+type MediaIdentity = {
+  type: MediaRefType;
+  id: string;
+  createdAt: number;
+  mediaKind: MediaKind;
+  provenance: MediaProvenance;
+};
+type RunAccess = ReturnType<typeof resolveRunQueryAccess>;
 
 export function getMediaCard(input: {
   context: QueryContext;
@@ -77,7 +94,9 @@ export function getMediaCards(input: {
   const db = openDomainDb();
   return db.transaction(() => {
     const scope = resolveQueryContext(db, input.context);
-    const cards = input.refs.map((ref) => readCard(db, scope, ref));
+    const runAccess = resolveRunQueryAccess(db, input.context);
+    const cards = input.refs.map((ref) =>
+      readCard(db, input.context, scope, ref, undefined, runAccess));
     if (cards.some((card) => card === null)) {
       throw new Error("Media request contains an unresolvable ref");
     }
@@ -89,12 +108,15 @@ export function listMedia(input: {
   context: QueryContext;
   types?: MediaRefType[];
   filter?: MediaFilter;
+  mediaKind?: MediaKind;
+  provenance?: MediaProvenance;
   after?: string | null;
   limit: number;
 }): Page<MediaCard> {
   const db = openDomainDb();
   return db.transaction(() => listMediaInDatabase(
     db,
+    input.context,
     resolveQueryContext(db, input.context),
     input,
   ))();
@@ -103,10 +125,13 @@ export function listMedia(input: {
 /** @internal Shared by bounded overview projections inside their read transaction. */
 export function listMediaInDatabase(
   db: Database,
+  context: QueryContext,
   scope: ResolvedScope,
   input: {
     types?: MediaRefType[];
     filter?: MediaFilter;
+    mediaKind?: MediaKind;
+    provenance?: MediaProvenance;
     after?: string | null;
     limit: number;
   },
@@ -118,10 +143,21 @@ export function listMediaInDatabase(
       : input.types.map((type) => checkedRefType({ type })),
   );
   if (types.size === 0) throw new Error("Media request needs at least one type");
+  const mediaKind = input.mediaKind === undefined ? undefined : checkedMediaKind(input.mediaKind);
+  const provenance = input.provenance === undefined
+    ? undefined
+    : checkedMediaProvenance(input.provenance);
+  const runAccess = resolveRunQueryAccess(db, context);
   const cursor = input.after == null ? null : decodeCursor("c1", input.after);
-  const rows: { type: MediaRefType; id: string; createdAt: number }[] = [];
+  const rows: MediaIdentity[] = [];
   for (const type of types) {
-    rows.push(...readIdentities(db, scope, type, input.filter, cursor, input.limit + 1));
+    rows.push(...readIdentities(db, scope, runAccess, type, {
+      filter: input.filter,
+      mediaKind,
+      provenance,
+      cursor,
+      limit: input.limit + 1,
+    }));
   }
   rows.sort(
     (left, right) =>
@@ -134,7 +170,14 @@ export function listMediaInDatabase(
   }));
   return {
     items: page.items.map(
-      (row) => readCard(db, scope, { type: row.type, id: row.id })!,
+      (row) => readCard(
+        db,
+        context,
+        scope,
+        { type: row.type, id: row.id },
+        row,
+        runAccess,
+      )!,
     ),
     nextCursor: page.nextCursor,
   };
@@ -257,10 +300,12 @@ export function reviewMedia(input: ReviewMediaInput): ReviewMediaResult {
       createdAt: revision.createdAt,
     });
     return {
-      card: readCard(db, { workspaceId: artifact.workspaceId, projectId: artifact.projectId }, {
-        type: "artifact",
-        id: artifact.id,
-      }) as ArtifactMediaCard,
+      card: readCard(
+        db,
+        input.context ?? { sessionId: input.authoredBySessionId },
+        { workspaceId: artifact.workspaceId, projectId: artifact.projectId },
+        { type: "artifact", id: artifact.id },
+      ) as ReviewMediaResult["card"],
       revisionId: revision.id,
       evaluation,
       feedbackId,
@@ -271,30 +316,61 @@ export function reviewMedia(input: ReviewMediaInput): ReviewMediaResult {
 function readIdentities(
   db: Database,
   scope: ResolvedScope,
+  runAccess: RunAccess,
   type: MediaRefType,
-  filter: MediaFilter | undefined,
-  cursor: { ordinal: number; id: string } | null,
-  limit: number,
-): { type: MediaRefType; id: string; createdAt: number }[] {
-  const visibility = visibilityClause(scope, type);
-  const clauses = [visibility.sql];
-  const values: (string | number)[] = [...visibility.values];
-  const predicate = mediaFilterClause(type, filter);
-  clauses.push(predicate.sql);
+  input: {
+    filter?: MediaFilter;
+    mediaKind?: MediaKind;
+    provenance?: MediaProvenance;
+    cursor?: { ordinal: number; id: string } | null;
+    id?: string;
+    limit: number;
+  },
+): MediaIdentity[] {
+  const source = mediaIdentitySource(scope, runAccess, type);
+  const innerClauses = [source.visibilitySql, source.authorizationSql];
+  const values: (string | number)[] = [
+    ...source.joinValues,
+    ...source.visibilityValues,
+    ...source.authorizationValues,
+  ];
+  const predicate = mediaFilterClause(type, input.filter);
+  innerClauses.push(predicate.sql);
   values.push(...predicate.values);
-  if (cursor) {
-    clauses.push(`(${visibility.createdAt} > ? OR (${visibility.createdAt} = ? AND ${visibility.id} > ?))`);
-    values.push(cursor.ordinal, cursor.ordinal, cursor.id);
+  if (input.id !== undefined) {
+    innerClauses.push(`${source.id} = ?`);
+    values.push(input.id);
   }
-  values.push(limit);
+  const clauses = ["1"];
+  if (input.mediaKind !== undefined) {
+    clauses.push("identity.mediaKind = ?");
+    values.push(input.mediaKind);
+  }
+  if (input.provenance !== undefined) {
+    clauses.push("identity.provenance = ?");
+    values.push(input.provenance);
+  }
+  if (input.cursor) {
+    clauses.push("(identity.createdAt > ? OR (identity.createdAt = ? AND identity.id > ?))");
+    values.push(input.cursor.ordinal, input.cursor.ordinal, input.cursor.id);
+  }
+  values.push(input.limit);
   return db
-    .query<{ id: string; createdAt: number }, (string | number)[]>(
-      `SELECT ${visibility.id} AS id, ${visibility.createdAt} AS createdAt
-       FROM ${visibility.from} WHERE ${clauses.join(" AND ")}
-       ORDER BY ${visibility.createdAt} ASC, ${visibility.id} ASC LIMIT ?`,
+    .query<Omit<MediaIdentity, "type">, (string | number)[]>(
+      `SELECT identity.id, identity.createdAt,
+              identity.mediaKind, identity.provenance
+       FROM (
+         SELECT ${source.id} AS id, ${source.createdAt} AS createdAt,
+                ${mediaKindSql(source.mime)} AS mediaKind,
+                ${source.provenance} AS provenance
+         FROM ${source.from}
+         WHERE ${innerClauses.join(" AND ")}
+       ) identity
+       WHERE ${clauses.join(" AND ")}
+       ORDER BY identity.createdAt ASC, identity.id ASC LIMIT ?`,
     )
     .all(...values)
-    .map((row) => ({ type, id: row.id, createdAt: row.createdAt }));
+    .map((row) => ({ type, ...row }));
 }
 
 function mediaFilterClause(
@@ -361,32 +437,64 @@ function mediaFilterClause(
   throw new Error(`Invalid Media filter: ${String(filter)}`);
 }
 
-function visibilityClause(
+function mediaIdentitySource(
   scope: ResolvedScope,
+  runAccess: RunAccess,
   type: MediaRefType,
 ): {
   from: string;
   id: string;
   createdAt: string;
-  sql: string;
-  values: (string | number)[];
+  mime: string;
+  provenance: string;
+  joinValues: (string | number)[];
+  visibilitySql: string;
+  visibilityValues: (string | number)[];
+  authorizationSql: string;
+  authorizationValues: (string | number)[];
 } {
   const shape =
     type === "artifact"
       ? {
-          from: "artifacts",
-          id: "id",
-          createdAt: "created_at",
-          workspace: "workspace_id",
-          project: "project_id",
+          from: `artifacts
+            LEFT JOIN artifact_revisions selectedMedia
+              ON selectedMedia.id = artifacts.selected_revision_id
+            LEFT JOIN objects mediaObject ON mediaObject.id = selectedMedia.object_id
+            LEFT JOIN (
+              SELECT producer.artifactRevisionId,
+                     COUNT(*) AS producerCount,
+                     CASE WHEN COUNT(*) = 1 THEN MIN(producer.runId) END AS soleRunId
+              FROM (${ARTIFACT_REVISION_PRODUCERS_SQL}) producer
+              GROUP BY producer.artifactRevisionId
+            ) producer ON producer.artifactRevisionId = artifacts.selected_revision_id
+            LEFT JOIN runs run
+              ON run.id = producer.soleRunId AND (${runAccess.sql})`,
+          id: "artifacts.id",
+          createdAt: "artifacts.created_at",
+          workspace: "artifacts.workspace_id",
+          project: "artifacts.project_id",
+          mime: "mediaObject.mime",
+          provenance: `CASE
+            WHEN COALESCE(producer.producerCount, 0) <> 1 OR run.id IS NULL THEN 'unknown'
+            WHEN run.kind = 'generation' OR substr(run.kind, 1, 9) = 'generate.' THEN 'generation'
+            ELSE 'not-generation'
+          END`,
+          joinValues: runAccess.values,
+          authorizationSql: "1",
+          authorizationValues: [],
         }
       : type === "object"
         ? {
             from: "objects",
-            id: "id",
-            createdAt: "created_at",
-            workspace: "workspace_id",
-            project: "project_id",
+            id: "objects.id",
+            createdAt: "objects.created_at",
+            workspace: "objects.workspace_id",
+            project: "objects.project_id",
+            mime: "objects.mime",
+            provenance: "'unknown'",
+            joinValues: [],
+            authorizationSql: "1",
+            authorizationValues: [],
           }
         : {
             from:
@@ -395,28 +503,77 @@ function visibilityClause(
             createdAt: "runObject.created_at",
             workspace: "run.workspace_id",
             project: "run.project_id",
+            mime: "runObject.mime",
+            provenance: `CASE
+              WHEN run.kind = 'generation' OR substr(run.kind, 1, 9) = 'generate.' THEN 'generation'
+              ELSE 'not-generation'
+            END`,
+            joinValues: [],
+            authorizationSql: runAccess.sql,
+            authorizationValues: runAccess.values,
           };
-  const sql =
+  const visibilitySql =
     scope.projectId === null
       ? `${shape.workspace} = ? AND ${shape.project} IS NULL`
       : `${shape.workspace} = ? AND (${shape.project} IS NULL OR ${shape.project} = ?)`;
-  const values =
+  const visibilityValues =
     scope.projectId === null
       ? [scope.workspaceId]
       : [scope.workspaceId, scope.projectId];
-  return { from: shape.from, id: shape.id, createdAt: shape.createdAt, sql, values };
+  return { ...shape, visibilitySql, visibilityValues };
+}
+
+function mediaKindSql(mime: string): string {
+  const value = `lower(COALESCE(${mime}, ''))`;
+  return `CASE
+    WHEN ${value} LIKE 'image/%' THEN 'image'
+    WHEN ${value} LIKE 'video/%' THEN 'video'
+    WHEN ${value} LIKE 'audio/%' THEN 'audio'
+    WHEN ${value} LIKE 'text/%'
+      OR ${value} LIKE 'application/%+json'
+      OR ${value} LIKE 'application/%+xml'
+      OR ${value} IN (
+      'application/pdf', 'application/json', 'application/xml',
+      'application/rtf', 'application/x-rtf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/vnd.oasis.opendocument.text',
+      'application/vnd.oasis.opendocument.spreadsheet',
+      'application/vnd.oasis.opendocument.presentation'
+    ) THEN 'document'
+    ELSE 'other'
+  END`;
 }
 
 function readCard(
   db: Database,
+  context: QueryContext,
   scope: ResolvedScope,
   ref: MediaRef,
+  identity?: MediaIdentity,
+  runAccess = resolveRunQueryAccess(db, context),
 ): MediaCard | null {
   const type = checkedRefType(ref);
   const id = checkedId(ref.id);
-  if (type === "artifact") return readArtifactCard(db, scope, id);
-  if (type === "object") return readObjectCard(db, scope, id);
-  return readRunObjectCard(db, scope, id);
+  const classification = identity ?? readIdentities(db, scope, runAccess, type, {
+    id,
+    limit: 1,
+  })[0];
+  if (!classification) return null;
+  const card = type === "artifact"
+    ? readArtifactCard(db, scope, id)
+    : type === "object"
+      ? readObjectCard(db, scope, id)
+      : readRunObjectCard(db, scope, id);
+  return card === null ? null : {
+    ...card,
+    mediaKind: classification.mediaKind,
+    provenance: classification.provenance,
+  } as MediaCard;
 }
 
 function visible(scope: ResolvedScope, workspaceId: string | null, projectId: string | null): boolean {
@@ -589,6 +746,18 @@ function readObjectCard(
     referenceCount,
     target: { type: "object", id },
   };
+}
+
+function checkedMediaKind(value: MediaKind): MediaKind {
+  if (!MEDIA_KINDS.has(value)) throw new Error(`Invalid media kind: ${String(value)}`);
+  return value;
+}
+
+function checkedMediaProvenance(value: MediaProvenance): MediaProvenance {
+  if (!MEDIA_PROVENANCE.has(value)) {
+    throw new Error(`Invalid media provenance: ${String(value)}`);
+  }
+  return value;
 }
 
 function checkedRefType(ref: { type: string }): MediaRefType {
