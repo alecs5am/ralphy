@@ -23,6 +23,9 @@ by the Project workbench.
 - No raw path, locator, provider payload, request/response, secret, external ID, or generation input is added to `media.list`.
 - `media.generation.show` remains the on-demand detail contract. `media.list` exposes only `mediaKind` and `provenance` classifications.
 - Preserve global producer ambiguity before consumer visibility and same-Run succeeded Build-result compatibility.
+- Preserve consumer-principal Run isolation end to end: media store reads retain
+  the original `QueryContext`, and bridge media/overview handlers attach the
+  authenticated `BridgeMethodContext.authority` for Session contexts.
 - Use strict TDD: witness the focused RED against production behavior, make the smallest GREEN change, and leave mutation-catching tests.
 - Before each commit run `git diff --check`, `git diff --cached --check`, `rg '\p{Cyrillic}' --pcre2 --hidden -g '!.git' -g '!node_modules' -g '!*.lock'` over staged task paths, and `gitleaks protect --staged --redact`.
 
@@ -123,13 +126,17 @@ git commit -m "fix(core): search documents as literal text"
 - Modify: `cli/lib/store/types.ts`
 - Modify: `cli/lib/store/runs.ts`
 - Modify: `cli/lib/store/media.ts`
+- Modify: `cli/lib/store/overviews.ts`
 - Modify: `cli/lib/bridge/methods.ts`
 - Test: `tests/integration/domain-media.test.ts`
 - Test: `tests/integration/domain-run-queries.test.ts`
+- Test: `tests/integration/domain-overviews.test.ts`
 - Test: `tests/integration/cli-bridge-domain-contract.test.ts`
 
 **Interfaces:**
 - Consumes: the exact artifact-revision producer route currently used by `getMediaGenerationDetail`: direct ArtifactRevision RunResult UNION same-Run succeeded Build RunResult→BuildOutput, DISTINCT Run IDs, global cardinality limited to two.
+- Consumes: the existing consumer-aware Run access clause from `runs.ts`; do
+  not duplicate its principal/scope rules in `media.ts`.
 - Produces:
 
 ```ts
@@ -171,7 +178,13 @@ const cases = [
 ] as const;
 ```
 
-Provenance cases must include: direct generation; same-Run succeeded Build generation; unique non-generation; zero producer; duplicate producers; direct+Build same Run dedupe; direct Run A plus Build Run B ambiguity; unselected Artifact; raw Object; inaccessible sole producer. Assert filter axes AND with existing lifecycle/source `filter` and entity `types`.
+Provenance cases must include: direct generation; same-Run succeeded Build generation; unique non-generation; zero producer; duplicate producers; direct+Build same Run dedupe; direct Run A plus Build Run B ambiguity; unselected Artifact; raw Object; inaccessible sole producer. Assert filter axes AND with existing lifecycle/source `filter` and entity `types`. For two consumer principals in the same scope, assert the non-owner cannot list or show the other principal's RunObject, while an otherwise visible Artifact with that sole inaccessible producer remains visible with `provenance: "unknown"`.
+
+In `domain-overviews.test.ts`, assert `workspace.overview.sharedMedia` projects
+the same classifications and consumer isolation as `media.list` without a
+separate detail/provenance lookup. A Project Session must still receive only
+Workspace-shared media in that section; project-owned media must not leak into
+the explicitly narrowed overview scope.
 
 - [ ] **Step 2: Add failing strict bridge/privacy tests**
 
@@ -188,12 +201,20 @@ Update the superseded byte-for-byte list-shape assertion to the new exact safe s
 The pre-existing bounded RunObject `logicalPath` field remains part of its
 reviewed public DTO; this additive task neither removes nor broadens it.
 
+Use one real authenticated `BridgeMethodContext` with two consumer principals
+in the same scope. Cover `media.list`, `media.show`, `media.generation.show`,
+`media.select`, `media.review`, and `workspace.overview`: the owner succeeds;
+the non-owner cannot list/show the other principal's RunObject; and a visible
+Artifact whose sole producer is inaccessible remains `unknown`. These checks
+must exercise the bridge handlers rather than manually supplying
+`consumerAuthority` to store calls.
+
 - [ ] **Step 3: Run the focused RED**
 
 Run:
 
 ```bash
-bun test tests/integration/domain-media.test.ts tests/integration/domain-run-queries.test.ts tests/integration/cli-bridge-domain-contract.test.ts -t "media facets"
+bun test tests/integration/domain-media.test.ts tests/integration/domain-run-queries.test.ts tests/integration/domain-overviews.test.ts tests/integration/cli-bridge-domain-contract.test.ts -t "media facets"
 ```
 
 Expected: current DTOs omit both classifications, bridge ignores/rejects the new request fields, and matching rows behind a nonmatching page boundary are not returned.
@@ -201,7 +222,9 @@ Expected: current DTOs omit both classifications, bridge ignores/rejects the new
 - [ ] **Step 4: Extract one authoritative set-based producer relation**
 
 Move only the producer relation into an internal SQL fragment shared by
-generation detail and media identity selection. The relation returns
+generation detail and media identity selection. Export the existing
+consumer-aware Run access resolver as an `/** @internal */` store helper for
+reuse by `media.ts`; do not copy its SQL or authentication rules. The relation returns
 `(artifactRevisionId, runId)` pairs for direct ArtifactRevision RunResults UNION
 same-Run succeeded Build RunResult→BuildOutput pairs. `UNION` dedupes the same
 Run reached both ways.
@@ -229,7 +252,12 @@ consumer visibility remain in the public caller. Do not expose a generic API.
 
 - [ ] **Step 5: Classify identities before cursor/limit and project the same values**
 
-Add closed enum validators in `media.ts`/bridge. Extend the internal identity
+Add closed enum validators in `media.ts`/bridge. Change the internal
+`listMediaInDatabase` seam to receive both the caller's original `QueryContext`
+and an explicit `ResolvedScope`. `listMedia` passes its resolved scope;
+`workspace.overview.sharedMedia` keeps passing the deliberately narrowed
+`{ workspaceId, projectId: null }` scope plus `request.context` for
+consumer-aware Run access. Extend the internal identity
 row to carry `mediaKind` and `provenance`. Derive MIME kind from the effective
 selected Artifact Object MIME, RunObject MIME, or raw Object MIME; treat
 `text/*`, PDF, JSON, XML, RTF, and existing Office document MIME values as
@@ -249,13 +277,26 @@ and spread them onto the card returned by `readCard`; do not scan/filter a page,
 call generation detail, invoke a per-ID TypeScript resolver, or issue a second
 provenance query per returned card.
 
+The exact-card path (`media.show`, select/review result, and the existing bounded
+`getMediaCards` batch) uses the same classification SQL and Run-access clause;
+the list/overview path passes its already-calculated identity classifications
+into `readCard`. Do not weaken RunObject card visibility to Workspace/Project
+scope when the context belongs to a consumer principal. Add the original
+`QueryContext` to `ReviewMediaInput`; bridge callers pass the authenticated
+context, while trusted store callers may omit authority only for non-consumer
+agent sessions.
+
 - [ ] **Step 6: Wire strict bridge parameters**
 
-Update `media.list` handler validation to accept only the existing keys plus optional `mediaKind` and `provenance`, validate both against the closed enums, and forward them unchanged:
+Update `media.list` handler validation to accept only the existing keys plus optional `mediaKind` and `provenance`, validate both against the closed enums, and forward them unchanged. For `media.list`, `media.show`, `media.generation.show`, `media.select`, `media.review`, and `workspace.overview`, attach the authenticated bridge authority to a Session query context using the existing `run.results`/`run.objects` pattern before calling the store. Pass that context through both pre/post-select card reads and into `reviewMedia`:
 
 ```ts
+const queryContext = scopedContext(value);
+const mediaContext = queryContext.sessionId !== undefined && context.authority
+  ? { ...queryContext, consumerAuthority: context.authority }
+  : queryContext;
 return listMedia({
-  context: scopedContext(value),
+  context: mediaContext,
   types: value.types as never,
   filter: optionalString(value.filter) as never,
   mediaKind: optionalString(value.mediaKind) as never,
@@ -272,7 +313,7 @@ Use the existing strict-key helper rather than adding another validator framewor
 Run:
 
 ```bash
-bun test tests/integration/domain-media.test.ts tests/integration/domain-run-queries.test.ts tests/integration/cli-bridge-domain-contract.test.ts
+bun test tests/integration/domain-media.test.ts tests/integration/domain-run-queries.test.ts tests/integration/domain-overviews.test.ts tests/integration/cli-bridge-domain-contract.test.ts
 bunx tsc --noEmit
 ```
 
@@ -281,9 +322,9 @@ Capture `EXPLAIN QUERY PLAN` for one representative scoped Artifact provenance f
 - [ ] **Step 8: Commit only Task 2 hunks**
 
 ```bash
-git add -p cli/lib/store/types.ts cli/lib/store/runs.ts cli/lib/store/media.ts cli/lib/bridge/methods.ts tests/integration/domain-media.test.ts tests/integration/domain-run-queries.test.ts tests/integration/cli-bridge-domain-contract.test.ts
+git add -p cli/lib/store/types.ts cli/lib/store/runs.ts cli/lib/store/media.ts cli/lib/store/overviews.ts cli/lib/bridge/methods.ts tests/integration/domain-media.test.ts tests/integration/domain-run-queries.test.ts tests/integration/domain-overviews.test.ts tests/integration/cli-bridge-domain-contract.test.ts
 git diff --cached --check
-rg '\p{Cyrillic}' --pcre2 --hidden -g '!.git' -g '!node_modules' -g '!*.lock' cli/lib/store/types.ts cli/lib/store/runs.ts cli/lib/store/media.ts cli/lib/bridge/methods.ts tests/integration/domain-media.test.ts tests/integration/domain-run-queries.test.ts tests/integration/cli-bridge-domain-contract.test.ts
+rg '\p{Cyrillic}' --pcre2 --hidden -g '!.git' -g '!node_modules' -g '!*.lock' cli/lib/store/types.ts cli/lib/store/runs.ts cli/lib/store/media.ts cli/lib/store/overviews.ts cli/lib/bridge/methods.ts tests/integration/domain-media.test.ts tests/integration/domain-run-queries.test.ts tests/integration/domain-overviews.test.ts tests/integration/cli-bridge-domain-contract.test.ts
 gitleaks protect --staged --redact
 git commit -m "feat(core): add media list facets"
 ```
