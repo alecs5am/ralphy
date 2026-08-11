@@ -70,6 +70,7 @@ function PromptText({ role, value, truncated }: { role: string; value: string; t
 }
 
 function Attempt({ attempt }: { attempt: GenerationAttemptDetailDto }) {
+  const hasPrimaryText = attempt.input?.texts.some(({ role }) => role === "prompt" || role === "text") ?? false;
   return <section className="generation-attempt">
     <h4>Attempt {attempt.attemptNo}</h4>
     <Facts rows={[
@@ -80,10 +81,9 @@ function Attempt({ attempt }: { attempt: GenerationAttemptDetailDto }) {
       ["Ended", formatTime(attempt.endedAt)],
       ["Cost", formatUsd(attempt.costUsd)],
     ]} />
-    {attempt.input === null ? <p>Inputs · Not recorded</p> : <>
-      {attempt.input.texts.map((text, index) => <PromptText key={`${text.role}-${index}`} {...text} />)}
-      {attempt.input.parameters.length > 0 && <><h4>Parameters</h4><Facts rows={attempt.input.parameters.map(({ name, value }) => [name, String(value)])} /></>}
-    </>}
+    {!hasPrimaryText && <section className="generation-text"><h4>Prompt</h4><pre>Not recorded</pre></section>}
+    {attempt.input?.texts.map((text, index) => <PromptText key={`${text.role}-${index}`} {...text} />)}
+    {!!attempt.input?.parameters.length && <><h4>Parameters</h4><Facts rows={attempt.input.parameters.map(({ name, value }) => [name, String(value)])} /></>}
   </section>;
 }
 

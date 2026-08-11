@@ -300,6 +300,66 @@ describe("Project media presentation", () => {
     }
   });
 
+  test("shows a styled Prompt Not recorded fallback for null and primary-less generation inputs", async () => {
+    const generation: MediaGenerationDetailDto = {
+      status: "generation",
+      target: { type: "run-object", id: "run-object-1" },
+      run: { id: "run-1", workspaceId: "workspace-1", projectId: "project-1", agentSessionId: null, kind: "generation", label: null, state: "succeeded", createdAt: 1_775_000_000_000, startedAt: 1_775_000_000_001, endedAt: 1_775_000_000_002 },
+      attempts: {
+        items: [
+          { id: "attempt-null", runId: "run-1", attemptNo: 1, provider: "fal", model: "model", state: "succeeded", costUsd: 0, startedAt: 1_775_000_000_001, endedAt: 1_775_000_000_002, input: null },
+          { id: "attempt-empty", runId: "run-1", attemptNo: 2, provider: "fal", model: "model", state: "succeeded", costUsd: 0, startedAt: 1_775_000_000_001, endedAt: 1_775_000_000_002, input: { version: 1, texts: [], parameters: [] } },
+          { id: "attempt-negative", runId: "run-1", attemptNo: 3, provider: "fal", model: "model", state: "succeeded", costUsd: 0, startedAt: 1_775_000_000_001, endedAt: 1_775_000_000_002, input: { version: 1, texts: [{ role: "negative-prompt", value: "No logos", truncated: false }], parameters: [{ name: "aspectRatio", value: "9:16" }] } },
+          { id: "attempt-recorded", runId: "run-1", attemptNo: 4, provider: "fal", model: "model", state: "succeeded", costUsd: 0, startedAt: 1_775_000_000_001, endedAt: 1_775_000_000_002, input: { version: 1, texts: [{ role: "prompt", value: "<b>Literal prompt</b>", truncated: false }, { role: "text", value: "Exact voiceover", truncated: false }, { role: "negative-prompt", value: "No watermark", truncated: false }], parameters: [{ name: "aspectRatio", value: "16:9" }] } },
+          { id: "attempt-text", runId: "run-1", attemptNo: 5, provider: "fal", model: "model", state: "succeeded", costUsd: 0, startedAt: 1_775_000_000_001, endedAt: 1_775_000_000_002, input: { version: 1, texts: [{ role: "text", value: "Text-only primary", truncated: false }], parameters: [] } },
+        ],
+        nextCursor: null,
+      },
+      cost: { knownUsd: 0, complete: true },
+    };
+    const api = {
+      ...projectApi(),
+      loadProjectGeneration: vi.fn(async () => generation),
+      resolveProjectPreview: vi.fn(async () => null),
+    };
+    const controller = createProjectScreenController(api, project);
+    await controller.selectTab("media");
+    const tilePreview = vi.spyOn(bridge, "resolveProjectPreview").mockResolvedValue(null);
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
+      await act(async () => { button(host.container, "Open diagnostic-log").dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); });
+      const dialog = (globalThis.document.body as unknown as HostNode).findAll((node) => node.getAttribute("role") === "dialog")[0];
+      const attempts = dialog.findAll((node) => node.getAttribute("class") === "generation-attempt");
+      const attempt = (number: number) => attempts.find((node) => node.textContent.startsWith(`Attempt ${number}`))!;
+      const promptFallbacks = (number: number) => attempt(number).findAll((node) => (
+        node.getAttribute("class") === "generation-text" && node.textContent === "PromptNot recorded"
+      ));
+
+      expect(promptFallbacks(1)).toHaveLength(1);
+      expect(promptFallbacks(2)).toHaveLength(1);
+      expect(promptFallbacks(3)).toHaveLength(1);
+      expect(attempt(3).textContent).toContain("Negative promptNo logos");
+      expect(attempt(3).textContent).toContain("aspectRatio9:16");
+      expect(promptFallbacks(4)).toHaveLength(0);
+      expect(attempt(4).textContent).toContain("Prompt<b>Literal prompt</b>");
+      expect(attempt(4).textContent).toContain("TextExact voiceover");
+      expect(attempt(4).textContent).toContain("Negative promptNo watermark");
+      expect(attempt(4).textContent).toContain("aspectRatio16:9");
+      expect(promptFallbacks(5)).toHaveLength(0);
+      expect(attempt(5).textContent).toContain("TextText-only primary");
+      expect(dialog.findAll((node) => node.tagName === "B")).toHaveLength(0);
+    } finally {
+      if (controller.getSnapshot().mediaViewerOpen) {
+        await act(async () => { keydown(globalThis.document, "Escape"); await new Promise((resolve) => setTimeout(resolve, 32)); });
+      }
+      await act(async () => { root.unmount(); await new Promise((resolve) => setTimeout(resolve, 0)); });
+      tilePreview.mockRestore();
+      host.restore();
+    }
+  });
+
   test("shows independent viewer loading and generation Retry without reloading preview", async () => {
     let resolvePreview!: (value: { url: string; sizeBytes: number }) => void;
     let rejectGeneration!: (error: Error) => void;
