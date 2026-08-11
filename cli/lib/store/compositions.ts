@@ -119,6 +119,20 @@ type RevisionScope = {
   workspaceId: string;
 };
 
+type CompositionRevisionGuardInput = {
+  context?: QueryContext;
+  compositionId: string;
+  expectedLatestRevisionId: string | null;
+  parentRevisionId?: string | null;
+  iterationId?: string | null;
+  authoredBySessionId?: string | null;
+};
+
+type CompositionParentSnapshot = {
+  sources: readonly { logicalPath: string; objectId: string; position: number }[];
+  inputs: readonly { artifactRevisionId: string; role: string; position: number; config: JsonValue | null }[];
+};
+
 const COMPOSITION_COLUMNS =
   "id, project_id, slug, kind, selected_revision_id, row_version, created_at, updated_at";
 const REVISION_COLUMNS =
@@ -214,16 +228,40 @@ export function createComposition(input: {
   });
 }
 
+/** Validates revision guards and captures the exact parent children before checkout I/O. */
+export function prepareCompositionRevisionMaterialization(
+  input: CompositionRevisionGuardInput,
+): { parentRevisionId: string | null } & CompositionParentSnapshot {
+  return withImmediateTransaction((db) => {
+    const { parentId } = validateCompositionRevisionGuards(db, input);
+    if (parentId === null) return { parentRevisionId: null, sources: [], inputs: [] };
+    const children = revisionChildren(db, parentId);
+    return {
+      parentRevisionId: parentId,
+      sources: children.sources.map((source) => ({
+        logicalPath: source.logical_path,
+        objectId: source.object_id,
+        position: source.position,
+      })),
+      inputs: children.inputs.map((item) => ({
+        artifactRevisionId: item.artifact_revision_id,
+        role: item.role,
+        position: item.position,
+        config: parseJson(item.config_json),
+      })),
+    };
+  });
+}
+
 export function reviseComposition(input: {
+  /** @internal Revalidated inside the writer transaction for bridge callers. */
+  context?: QueryContext;
   compositionId: string;
   expectedLatestRevisionId: string | null;
   /** @internal Preallocated by descriptor-first checkout materialization. */
   preallocatedRevisionId?: string;
   /** @internal Exact parent children captured for descriptor-first checkout materialization. */
-  expectedParentSnapshot?: {
-    sources: readonly { logicalPath: string; objectId: string; position: number }[];
-    inputs: readonly { artifactRevisionId: string; role: string; position: number; config: JsonValue | null }[];
-  };
+  expectedParentSnapshot?: CompositionParentSnapshot;
   parentRevisionId?: string | null;
   iterationId?: string | null;
   engine: string;
@@ -244,40 +282,7 @@ export function reviseComposition(input: {
     "Composition engine config",
   );
   return withImmediateTransaction((db) => {
-    const composition = getCompositionRow(db, input.compositionId);
-    if (!composition) {
-      throw new Error(`Composition not found: ${input.compositionId}`);
-    }
-    const scope = projectScope(db, composition.projectId)!;
-    const latest = latestRevision(db, composition.id);
-    if ((latest?.id ?? null) !== input.expectedLatestRevisionId) {
-      throw new StoreConflictError("Composition latest revision conflict");
-    }
-
-    const parentId = Object.hasOwn(input, "parentRevisionId")
-      ? input.parentRevisionId ?? null
-      : latest?.id ?? null;
-    if (latest && parentId === null) {
-      throw new Error("Only the first Composition revision may have no parent");
-    }
-    if (!latest && parentId !== null) {
-      throw new Error("The first Composition revision cannot have a parent");
-    }
-    if (parentId !== null) {
-      const parent = getRevisionRow(db, parentId);
-      if (!parent || parent.compositionId !== composition.id) {
-        throw new Error(
-          "Composition revision parent must belong to the same Composition",
-        );
-      }
-    }
-    assertIterationProject(db, input.iterationId ?? null, composition.projectId);
-    if (input.authoredBySessionId != null) {
-      assertActiveSessionScope(db, input.authoredBySessionId, {
-        workspaceId: scope.workspaceId,
-        projectId: composition.projectId,
-      });
-    }
+    const { composition, scope, latest, parentId } = validateCompositionRevisionGuards(db, input);
 
     const id = input.preallocatedRevisionId ?? newDomainId("crev");
     const revisionNo = (latest?.revisionNo ?? 0) + 1;
@@ -546,6 +551,8 @@ export function sealCompositionRevision(input: {
 
 /** Atomically snapshots, seals, and starts the Composition Build lifecycle. */
 export function snapshotAndStartCompositionBuild(input: {
+  /** @internal Revalidated inside the writer transaction for bridge callers. */
+  context?: QueryContext;
   revisionId: string;
   expectedLatestRevisionId: string;
   sources: readonly { logicalPath: string; prepared: unknown; position: number }[];
@@ -570,6 +577,9 @@ export function snapshotAndStartCompositionBuild(input: {
   }
   return withImmediateTransaction((db) => {
     const scope = requireDraftRevision(db, input.revisionId);
+    if (input.context !== undefined) {
+      assertVisibleProject(db, resolveQueryContext(db, input.context), scope.composition.projectId);
+    }
     const latest = latestRevision(db, scope.composition.id);
     if (!latest || latest.id !== input.expectedLatestRevisionId || latest.id !== scope.revision.id) {
       throw new StoreConflictError("Composition latest revision conflict");
@@ -692,6 +702,8 @@ export function failCompositionBuildRun(input: {
 }
 
 export function selectCompositionRevision(input: {
+  /** @internal Revalidated inside the writer transaction for bridge callers. */
+  context?: QueryContext;
   compositionId: string;
   revisionId: string;
   expectedSelectedRevisionId: string | null;
@@ -706,6 +718,9 @@ export function selectCompositionRevision(input: {
     const composition = getCompositionRow(db, input.compositionId);
     if (!composition) {
       throw new Error(`Composition not found: ${input.compositionId}`);
+    }
+    if (input.context !== undefined) {
+      assertVisibleProject(db, resolveQueryContext(db, input.context), composition.projectId);
     }
     const revision = getRevisionRow(db, input.revisionId);
     if (!revision || revision.compositionId !== composition.id) {
@@ -1415,6 +1430,45 @@ function appendBuildActivity(
   });
 }
 
+function validateCompositionRevisionGuards(
+  db: Database,
+  input: CompositionRevisionGuardInput,
+) {
+  const composition = getCompositionRow(db, input.compositionId);
+  if (!composition) throw new Error(`Composition not found: ${input.compositionId}`);
+  if (input.context !== undefined) {
+    assertVisibleProject(db, resolveQueryContext(db, input.context), composition.projectId);
+  }
+  const scope = projectScope(db, composition.projectId)!;
+  const latest = latestRevision(db, composition.id);
+  if ((latest?.id ?? null) !== input.expectedLatestRevisionId) {
+    throw new StoreConflictError("Composition latest revision conflict");
+  }
+  const parentId = Object.hasOwn(input, "parentRevisionId")
+    ? input.parentRevisionId ?? null
+    : latest?.id ?? null;
+  if (latest && parentId === null) {
+    throw new Error("Only the first Composition revision may have no parent");
+  }
+  if (!latest && parentId !== null) {
+    throw new Error("The first Composition revision cannot have a parent");
+  }
+  if (parentId !== null) {
+    const parent = getRevisionRow(db, parentId);
+    if (!parent || parent.compositionId !== composition.id) {
+      throw new Error("Composition revision parent must belong to the same Composition");
+    }
+  }
+  assertIterationProject(db, input.iterationId ?? null, composition.projectId);
+  if (input.authoredBySessionId != null) {
+    assertActiveSessionScope(db, input.authoredBySessionId, {
+      workspaceId: scope.workspaceId,
+      projectId: composition.projectId,
+    });
+  }
+  return { composition, scope, latest, parentId };
+}
+
 function latestRevision(
   db: Database,
   compositionId: string,
@@ -1428,6 +1482,20 @@ function latestRevision(
   return row ? toRevisionRow(row) : null;
 }
 
+function revisionChildren(db: Database, parentId: string) {
+  return {
+    sources: db.query<CompositionSourceDbRow, [string]>(
+      `SELECT ${SOURCE_COLUMNS} FROM composition_revision_files
+       WHERE composition_revision_id = ?
+       ORDER BY position ASC, logical_path ASC, id ASC`,
+    ).all(parentId),
+    inputs: db.query<CompositionInputDbRow, [string]>(
+      `SELECT ${INPUT_COLUMNS} FROM composition_inputs
+       WHERE composition_revision_id = ? ORDER BY position ASC, id ASC`,
+    ).all(parentId),
+  };
+}
+
 function cloneRevisionChildren(
   db: Database,
   parentId: string,
@@ -1438,19 +1506,7 @@ function cloneRevisionChildren(
     inputs: readonly { artifactRevisionId: string; role: string; position: number; config: JsonValue | null }[];
   },
 ): void {
-  const sources = db
-    .query<CompositionSourceDbRow, [string]>(
-      `SELECT ${SOURCE_COLUMNS} FROM composition_revision_files
-       WHERE composition_revision_id = ?
-       ORDER BY position ASC, logical_path ASC, id ASC`,
-    )
-    .all(parentId);
-  const inputs = db
-    .query<CompositionInputDbRow, [string]>(
-      `SELECT ${INPUT_COLUMNS} FROM composition_inputs
-       WHERE composition_revision_id = ? ORDER BY position ASC, id ASC`,
-    )
-    .all(parentId);
+  const { sources, inputs } = revisionChildren(db, parentId);
   const sourceMismatch = expected && (
     sources.length !== expected.sources.length || sources.some((source, index) => {
       const captured = expected.sources[index];

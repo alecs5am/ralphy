@@ -160,17 +160,27 @@ export function getEvaluation(
 
 export function listEvaluations(input: {
   context: QueryContext;
+  target?: EvaluationTarget;
   targetType?: EvaluationTargetType;
   after?: string | null;
   limit: number;
 }): Page<EvaluationDto> {
   assertLimit(input.limit);
+  if (input.target !== undefined && input.targetType !== undefined) {
+    throw new Error("Evaluation target and targetType are mutually exclusive");
+  }
   const db = openDomainDb();
   const scope = resolveQueryContext(db, input.context);
   const visibility = scopeVisibilityClause(scope, "workspace_id", "project_id");
   const clauses = [visibility.sql];
   const values: (string | number)[] = [...visibility.values];
-  if (input.targetType !== undefined) {
+  if (input.target !== undefined) {
+    if (!Object.hasOwn(TARGET_COLUMN, input.target.type)) {
+      throw new Error(`Invalid Evaluation target type: ${input.target.type}`);
+    }
+    clauses.push(`${TARGET_COLUMN[input.target.type]} = ?`);
+    values.push(checkedText(input.target.id, "Evaluation target ID", 128));
+  } else if (input.targetType !== undefined) {
     if (!Object.hasOwn(TARGET_COLUMN, input.targetType)) {
       throw new Error(`Invalid Evaluation target type: ${input.targetType}`);
     }
