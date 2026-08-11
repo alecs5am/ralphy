@@ -327,11 +327,12 @@ describe("Documents panel", () => {
   });
 
   test("keeps edit and navigation blocked until the authoritative conflict preview settles", async () => {
+    const shown = deferred<typeof document>();
     const preview = deferred<{ revisionId: string; format: string; text: string; truncated: boolean }>();
     const current = { ...document, currentRevisionId: "revision-4", currentRevision: { ...document.currentRevision, id: "revision-4", revisionNo: 4, parentRevisionId: "revision-3" } };
     const api = createApi();
     api.reviseProjectDocument.mockRejectedValueOnce({ code: "E_CONFLICT", message: "Document head conflict" });
-    api.showProjectDocument.mockResolvedValueOnce(document).mockResolvedValueOnce(current);
+    api.showProjectDocument.mockResolvedValueOnce(document).mockReturnValueOnce(shown.promise);
     api.loadDocumentPreview
       .mockResolvedValueOnce({ revisionId: "revision-3", format: "markdown", text: "# Old head", truncated: false })
       .mockReturnValueOnce(preview.promise);
@@ -341,6 +342,14 @@ describe("Documents panel", () => {
     controller.beginDocumentEdit();
     controller.setDocumentDraftBody("# My local draft");
     const saving = controller.saveDocument();
+    await vi.waitFor(() => expect(api.showProjectDocument).toHaveBeenCalledTimes(2));
+    expect(controller.getSnapshot()).toMatchObject({
+      documentSaving: true,
+      documentConflictReview: false,
+      documentPreview: { status: "loading", value: null },
+    });
+    expect(markup(controller)).not.toContain("Review current");
+    shown.resolve(current);
     await vi.waitFor(() => expect(controller.getSnapshot().documentPreview.status).toBe("loading"));
 
     const host = createReactHost();
@@ -440,8 +449,12 @@ describe("Documents panel", () => {
       await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
       await click(textButton(host.container, "Second document"));
       expect(confirm).toHaveBeenCalledOnce();
-      expect(controller.getSnapshot()).toMatchObject({ documentMode: "read", documentDraft: null, documentDirty: false });
+      expect(controller.getSnapshot()).toMatchObject({ documentMode: "read", documentDraft: null, documentDirty: false, documentSaving: true, documentPreview: { status: "loading", value: null } });
       expect(host.container.querySelector(".document-editor")).toBeNull();
+      const edit = textButton(host.container, "Edit");
+      expect(edit.disabled).toBe(true);
+      await click(edit);
+      controller.setDocumentDraftBody("# Recreated during open");
       await controller.saveDocument();
       expect(api.reviseProjectDocument).not.toHaveBeenCalled();
       await act(async () => {
@@ -493,12 +506,13 @@ describe("Documents panel", () => {
   });
 
   test("keeps a rejected confirmed search-result open out of the discarded editor", async () => {
+    const shown = deferred<typeof document>();
     const secondResult = { ...result, documentId: "document-2", revisionId: "revision-b", documentTitle: "Second result" };
     const api = createApi();
     api.searchProjectDocuments.mockResolvedValue({ items: [secondResult], nextCursor: null });
     api.showProjectDocument
       .mockResolvedValueOnce(document)
-      .mockRejectedValueOnce(new Error("show failed"));
+      .mockReturnValueOnce(shown.promise);
     const controller = createController(api);
     await controller.selectTab("documents");
     await controller.openDocument(document);
@@ -513,12 +527,23 @@ describe("Documents panel", () => {
     try {
       await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
       await click(textButton(host.container, "Second result"));
-      await vi.waitFor(() => expect(controller.getSnapshot().documentPreview.status).toBe("error"));
       expect(confirm).toHaveBeenCalledOnce();
-      expect(controller.getSnapshot()).toMatchObject({ documentMode: "read", documentDraft: null, documentDirty: false });
+      expect(controller.getSnapshot()).toMatchObject({ documentMode: "read", documentDraft: null, documentDirty: false, documentSaving: true, documentPreview: { status: "loading", value: null } });
       expect(host.container.querySelector(".document-editor")).toBeNull();
+      const edit = textButton(host.container, "Edit");
+      expect(edit.disabled).toBe(true);
+      await click(edit);
+      controller.setDocumentDraftBody("# Recreated during search open");
+      await controller.saveDocument();
       expect(api.reviseProjectDocument).not.toHaveBeenCalled();
+      await act(async () => {
+        shown.reject(new Error("show failed"));
+        await vi.waitFor(() => expect(controller.getSnapshot().documentPreview.status).toBe("error"));
+      });
+      expect(controller.getSnapshot()).toMatchObject({ documentMode: "read", documentDraft: null, documentDirty: false, documentSaving: false });
+      expect(host.container.querySelector(".document-editor")).toBeNull();
     } finally {
+      shown.reject(new Error("show failed"));
       await act(async () => root.unmount());
       host.restore();
     }
@@ -724,6 +749,7 @@ describe("documents workbench", () => {
     controller.setDocumentDraftBody("# My local draft");
     await controller.saveDocument();
     expect(controller.getSnapshot().documentPreview.status).toBe("error");
+    expect(markup(controller)).not.toContain("Review current");
 
     const host = createReactHost();
     const { createRoot } = await import("react-dom/client");
@@ -737,7 +763,9 @@ describe("documents workbench", () => {
         documentDraft: { body: "# My local draft" },
         documentPreview: { status: "ready", value: { text: "# Current head" } },
         documentConflict: expect.stringContaining("local draft was kept"),
+        documentConflictReview: true,
       });
+      expect(host.container.textContent).toContain("Review current");
     } finally {
       await act(async () => root.unmount());
       host.restore();

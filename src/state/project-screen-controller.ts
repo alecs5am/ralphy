@@ -233,7 +233,17 @@ export function createProjectScreenController(
     const requestId = ++documentRequest;
     saveRequest += 1;
     if (!retainedDraft) documentDraftBase = null;
-    else emit({ ...snapshot, documentSaving: true, documentConflict: conflict, documentConflictReview: conflictReview });
+    const currentDraft = retainedDraft ? snapshot.documentDraft : null;
+    emit({
+      ...snapshot,
+      documentPreview: { status: "loading", value: null, error: null },
+      documentMode: currentDraft ? "edit" : "read",
+      documentDraft: currentDraft,
+      documentDirty: currentDraft ? snapshot.documentDirty : false,
+      documentSaving: true,
+      documentConflict: conflict,
+      documentConflictReview: false,
+    });
     const projectRef = snapshot.domain.project;
     try {
       const document = await api.showProjectDocument(projectRef, documentId);
@@ -247,9 +257,9 @@ export function createProjectScreenController(
         documentMode: currentDraft ? "edit" : "read",
         documentDraft: currentDraft,
         documentDirty: currentDraft !== null,
-        documentSaving: currentDraft !== null && revisionId !== null,
+        documentSaving: revisionId !== null,
         documentConflict: conflict,
-        documentConflictReview: conflictReview,
+        documentConflictReview: false,
       });
       if (!revisionId) return;
       const value = await api.loadDocumentPreview(projectRef, revisionId);
@@ -264,10 +274,11 @@ export function createProjectScreenController(
           documentPreview: { status: "ready", value, error: null },
           documentDirty: currentDraft && documentDraftBase ? !sameDraft(currentDraft, documentDraftBase) : false,
           documentSaving: false,
+          documentConflictReview: conflictReview,
         });
       }
     } catch (error) {
-      if (!disposed && documentRequest === requestId) emit({ ...snapshot, documentPreview: { status: "error", value: null, error: errorMessage(error) }, documentSaving: false });
+      if (!disposed && documentRequest === requestId) emit({ ...snapshot, documentPreview: { status: "error", value: null, error: errorMessage(error) }, documentSaving: false, documentConflictReview: conflictReview });
     }
   };
 
@@ -717,7 +728,7 @@ export function createProjectScreenController(
       await loadDocument(result.documentId, retained, retained ? snapshot.documentConflict : null, retained ? snapshot.documentConflictReview : false);
     },
     beginDocumentEdit() {
-      if (!snapshot.selectedDocument || snapshot.documentMode === "edit") return;
+      if (!snapshot.selectedDocument || snapshot.documentMode === "edit" || snapshot.documentSaving) return;
       const preview = snapshot.documentPreview.value;
       if (snapshot.selectedDocument.currentRevisionId && (!preview || preview.truncated || snapshot.documentPreview.status !== "ready")) return;
       const format = preview?.format;
