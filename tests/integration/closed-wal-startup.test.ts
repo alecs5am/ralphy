@@ -239,6 +239,36 @@ describe("closed WAL startup", () => {
       resolveDataRoot({ root: fixture.dataRoot })
     );
   });
+
+  test("does not admit a gap in closed WAL migration history", () => {
+    const fixture = createSchemaFixture("ralphy-migration-gap-context");
+    fixture.db.exec("DELETE FROM schema_migrations WHERE version = 5");
+    expect(
+      fixture.db.query<{ version: number }, []>(
+        "SELECT version FROM schema_migrations ORDER BY version",
+      ).all().map((row) => row.version),
+    ).toEqual([1, 2, 3, 4, 6]);
+    closeAsStandaloneWal(fixture);
+
+    expectMigrationIncomplete(() =>
+      resolveDataRoot({ root: fixture.dataRoot })
+    );
+  });
+
+  test("does not admit closed WAL schema drift with current markers", () => {
+    const fixture = createSchemaFixture("ralphy-schema-drift-context");
+    fixture.db.exec("DROP TABLE migration_entry_supplemental_refs");
+    expect(
+      fixture.db.query<{ integrity_check: string }, []>(
+        "PRAGMA integrity_check",
+      ).all(),
+    ).toEqual([{ integrity_check: "ok" }]);
+    closeAsStandaloneWal(fixture);
+
+    expectMigrationIncomplete(() =>
+      resolveDataRoot({ root: fixture.dataRoot })
+    );
+  });
 });
 
 type SchemaFixture = {
