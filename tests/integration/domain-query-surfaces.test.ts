@@ -845,10 +845,8 @@ const UNEXERCISED_LITERAL_ACTIVITY_ACTIONS = [
   "campaign.updated",
   "campaign_cell.produced",
   "campaign_cell.published",
-  "composition.build",
   "composition.input_removed",
   "composition.source_removed",
-  "dev.to",
   "document.rebound",
   "memory_entry.created",
   "memory_entry.revised",
@@ -887,11 +885,18 @@ async function readActivitySourceInventory(): Promise<{
       /import\s*\{[^}]*\bappendActivity\b[^}]*\}\s*from\s*["'][^"']*activity\.js["']/s,
     );
     writers.push(file);
-    for (const match of source.matchAll(
-      /["'`]([a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_-]*)+)["'`]/g,
-    )) {
-      const action = match[1]!;
-      if (!action.endsWith("_id") && !/\.(?:jsonl?|md|db)$/u.test(action)) actions.add(action);
+    const actionExpressions = source.matchAll(
+      /\baction\s*:\s*([\s\S]*?)(?=,\s*\n\s*payload\s*:)/g,
+    );
+    const forwardedActions = source.matchAll(
+      /\b(?:appendBuildActivity|appendRevisionActivity|updateCampaignMetadata)\s*\(([\s\S]*?)\);/g,
+    );
+    for (const expression of [...actionExpressions, ...forwardedActions]) {
+      for (const match of expression[1]!.matchAll(
+        /["'`]([a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_-]*)+)["'`]/g,
+      )) {
+        actions.add(match[1]!);
+      }
     }
   }
   return {
@@ -1250,6 +1255,16 @@ describe("activity payload safety", () => {
     const inventory = await readActivitySourceInventory();
     expect(inventory.writers).toEqual([...EXPECTED_ACTIVITY_WRITERS].sort());
     expect(inventory.directSqlFiles).toEqual(["cli/lib/store/activity.ts"]);
+    expect(inventory.actions).toContain("artifact.reviewed");
+    for (const sqlAlias of [
+      "artifacts.created_at",
+      "artifacts.id",
+      "objects.created_at",
+      "objects.id",
+      "objects.mime",
+    ]) {
+      expect(inventory.actions).not.toContain(sqlAlias);
+    }
     const db = openDomainDb();
     const stored = db
       .query<{ action: string; payloadJson: string }, []>(
