@@ -162,10 +162,17 @@ export function listEvaluations(input: {
   context: QueryContext;
   target?: EvaluationTarget;
   targetType?: EvaluationTargetType;
+  order?: "oldest" | "newest";
   after?: string | null;
   limit: number;
 }): Page<EvaluationDto> {
   assertLimit(input.limit);
+  const order = input.order ?? "oldest";
+  if (order !== "oldest" && order !== "newest") {
+    throw new Error(`Invalid history order: ${String(order)}`);
+  }
+  const newest = order === "newest";
+  const family = newest ? "c2" : "c1";
   if (input.target !== undefined && input.targetType !== undefined) {
     throw new Error("Evaluation target and targetType are mutually exclusive");
   }
@@ -187,19 +194,22 @@ export function listEvaluations(input: {
     clauses.push(`${TARGET_COLUMN[input.targetType]} IS NOT NULL`);
   }
   if (input.after != null) {
-    const cursor = decodeCursor("c1", input.after);
-    clauses.push("(created_at > ? OR (created_at = ? AND id > ?))");
+    const cursor = decodeCursor(family, input.after);
+    clauses.push(newest
+      ? "(created_at < ? OR (created_at = ? AND id < ?))"
+      : "(created_at > ? OR (created_at = ? AND id > ?))");
     values.push(cursor.ordinal, cursor.ordinal, cursor.id);
   }
   values.push(input.limit + 1);
   const rows = db
     .query<EvaluationDbRow, (string | number)[]>(
       `SELECT ${COLUMNS} FROM evaluations WHERE ${clauses.join(" AND ")}
-       ORDER BY created_at ASC, id ASC LIMIT ?`,
+       ORDER BY created_at ${newest ? "DESC" : "ASC"},
+                id ${newest ? "DESC" : "ASC"} LIMIT ?`,
     )
     .all(...values)
     .map(toEvaluationDto);
-  return buildPage(rows, input.limit, "c1", (row) => ({
+  return buildPage(rows, input.limit, family, (row) => ({
     ordinal: row.createdAt,
     id: row.id,
   }));

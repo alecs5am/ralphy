@@ -441,6 +441,150 @@ describe("bounded Composition and Build queries", () => {
     expect(new Set(seen).size).toBe(101);
   });
 
+  test("newest history pages traverse 55 Composition revisions and Builds", async () => {
+    const value = await fixture("newest-history");
+    const { composition, project } = value;
+    const context = { workspaceId: value.workspace.id, projectId: project.id };
+    const revisions = [value.revision];
+    let latestRevisionId = value.revision.id;
+    for (let index = 1; index < 55; index += 1) {
+      const draft = reviseComposition({
+        compositionId: composition.id,
+        expectedLatestRevisionId: latestRevisionId,
+        engine: "manual",
+      });
+      const revision = sealCompositionRevision({ revisionId: draft.id });
+      revisions.push(revision);
+      latestRevisionId = revision.id;
+    }
+
+    const buildIds = Array.from(
+      { length: 55 },
+      (_, index) => `build-history-${String(index + 1).padStart(3, "0")}`,
+    );
+    const runs = buildIds.map(() => startRun({ projectId: project.id, kind: "build" }));
+    const insertBuild = openDomainDb().prepare(
+      `INSERT INTO builds
+       (id, composition_revision_id, run_id, state, profile_json, created_at, started_at)
+       VALUES (?, ?, ?, 'running', '{}', 1000, 1000)`,
+    );
+    openDomainDb().transaction(() => {
+      for (const [index, id] of buildIds.entries()) {
+        insertBuild.run(id, revisions[1]!.id, runs[index]!.id);
+      }
+    })();
+
+    const oldestRevisions = listCompositionRevisions({
+      context,
+      compositionId: composition.id,
+      limit: 50,
+    });
+    expect(oldestRevisions.items.map((item) => item.revisionNo))
+      .toEqual(Array.from({ length: 50 }, (_, index) => index + 1));
+    expect(oldestRevisions.nextCursor?.startsWith("v1.")).toBe(true);
+    expect(listCompositionRevisions({
+      context,
+      compositionId: composition.id,
+      order: "oldest",
+      after: oldestRevisions.nextCursor,
+      limit: 50,
+    }).items.map((item) => item.revisionNo)).toEqual([51, 52, 53, 54, 55]);
+
+    const newestRevisions = listCompositionRevisions({
+      context,
+      compositionId: composition.id,
+      order: "newest",
+      limit: 50,
+    });
+    expect(newestRevisions.items.map((item) => item.revisionNo))
+      .toEqual(Array.from({ length: 50 }, (_, index) => 55 - index));
+    expect(newestRevisions.nextCursor?.startsWith("v2.")).toBe(true);
+    expect(listCompositionRevisions({
+      context,
+      compositionId: composition.id,
+      order: "newest",
+      after: newestRevisions.nextCursor,
+      limit: 50,
+    })).toMatchObject({
+      items: [5, 4, 3, 2, 1].map((revisionNo) => ({ revisionNo })),
+      nextCursor: null,
+    });
+
+    const oldestBuilds = listBuilds({
+      context,
+      compositionRevisionId: revisions[1]!.id,
+      limit: 50,
+    });
+    expect(oldestBuilds.items.map((item) => item.id)).toEqual(buildIds.slice(0, 50));
+    expect(oldestBuilds.nextCursor?.startsWith("c1.")).toBe(true);
+    expect(listBuilds({
+      context,
+      compositionRevisionId: revisions[1]!.id,
+      order: "oldest",
+      after: oldestBuilds.nextCursor,
+      limit: 50,
+    }).items.map((item) => item.id)).toEqual(buildIds.slice(50));
+
+    const newestBuilds = listBuilds({
+      context,
+      compositionRevisionId: revisions[1]!.id,
+      order: "newest",
+      limit: 50,
+    });
+    expect(newestBuilds.items.map((item) => item.id)).toEqual([...buildIds].reverse().slice(0, 50));
+    expect(newestBuilds.items[0]!.id).toBe(buildIds[54]);
+    expect(newestBuilds.nextCursor?.startsWith("c2.")).toBe(true);
+    expect(listBuilds({
+      context,
+      compositionRevisionId: revisions[1]!.id,
+      order: "newest",
+      after: newestBuilds.nextCursor,
+      limit: 50,
+    })).toMatchObject({
+      items: [...buildIds].reverse().slice(50).map((id) => ({ id })),
+      nextCursor: null,
+    });
+
+    expect(() => listCompositionRevisions({
+      context,
+      compositionId: composition.id,
+      order: "newest",
+      after: oldestRevisions.nextCursor,
+      limit: 1,
+    })).toThrow(/cursor/i);
+    expect(() => listCompositionRevisions({
+      context,
+      compositionId: composition.id,
+      after: newestRevisions.nextCursor,
+      limit: 1,
+    })).toThrow(/cursor/i);
+    expect(() => listCompositionRevisions({
+      context,
+      compositionId: composition.id,
+      order: "sideways" as never,
+      limit: 1,
+    })).toThrow(/order/i);
+    expect(() => listBuilds({
+      context,
+      compositionRevisionId: revisions[1]!.id,
+      order: "newest",
+      after: oldestBuilds.nextCursor,
+      limit: 1,
+    })).toThrow(/cursor/i);
+    expect(() => listBuilds({
+      context,
+      compositionRevisionId: revisions[1]!.id,
+      after: newestBuilds.nextCursor,
+      limit: 1,
+    })).toThrow(/cursor/i);
+    expect(() => listBuilds({
+      context,
+      compositionRevisionId: revisions[1]!.id,
+      order: "sideways" as never,
+      limit: 1,
+    })).toThrow(/order/i);
+  });
+
   test("nested histories use v1 or p1 and Builds use c1", async () => {
     const value = await fixture("nested-pages");
     const context = {

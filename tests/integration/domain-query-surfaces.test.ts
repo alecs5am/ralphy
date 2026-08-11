@@ -159,7 +159,7 @@ import {
 import { withPoisonFarmReadTrap } from "../helpers/poison-farm.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 
-const FAMILIES: CursorFamily[] = ["c1", "v1", "p1"];
+const FAMILIES: CursorFamily[] = ["c1", "c2", "v1", "v2", "p1"];
 
 let roots: TmpRoot[] = [];
 
@@ -916,7 +916,7 @@ describe("domain cursor codecs", () => {
     expect(new Set(encoded).size).toBe(FAMILIES.length);
   });
 
-  test("rejects a cursor decoded by the wrong family", () => {
+  test("newest history pages reject a cursor decoded by the wrong family", () => {
     for (const family of FAMILIES) {
       const cursor = encodeCursor(family, { ordinal: 1, id: "a" });
       for (const other of FAMILIES) {

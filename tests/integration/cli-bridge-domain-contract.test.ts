@@ -668,6 +668,167 @@ describe("Desktop bridge domain contract", () => {
     })).toEqual({ items: [targetEvaluation], nextCursor: null });
   });
 
+  test("newest history pages are strict across bridge history methods", async () => {
+    root = makeTmpRoot("ralphy-bridge-newest-history");
+    const workspace = createWorkspace({ slug: "newest-history", name: "Newest history" });
+    const project = createProject({
+      workspaceId: workspace.id,
+      slug: "newest-history",
+      name: "Newest history",
+    });
+    const context = { workspaceId: workspace.id, projectId: project.id };
+    const object = await storedObject(workspace.id, project.id, "newest-history.bin");
+    const artifact = createArtifact({ projectId: project.id, slug: "history", kind: "data" });
+    const artifactRevision = addArtifactRevision({
+      artifactId: artifact.id,
+      objectId: object.id,
+      state: "approved",
+    });
+    const session = startAgentSession({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      agent: "history",
+    });
+
+    const composition = createComposition({
+      projectId: project.id,
+      slug: "history",
+      kind: "video",
+    });
+    const firstDraft = reviseComposition({
+      compositionId: composition.id,
+      expectedLatestRevisionId: null,
+      engine: "manual",
+    });
+    putCompositionSource({
+      revisionId: firstDraft.id,
+      logicalPath: "history.bin",
+      objectId: object.id,
+    });
+    const firstRevision = sealCompositionRevision({ revisionId: firstDraft.id });
+    const secondDraft = reviseComposition({
+      compositionId: composition.id,
+      expectedLatestRevisionId: firstRevision.id,
+      engine: "manual",
+    });
+    const secondRevision = sealCompositionRevision({ revisionId: secondDraft.id });
+    const firstBuild = { id: "build-bridge-history-1" };
+    const secondBuild = { id: "build-bridge-history-2" };
+    const insertBuild = openDomainDb().prepare(
+      `INSERT INTO builds
+       (id, composition_revision_id, run_id, state, profile_json, created_at, started_at)
+       VALUES (?, ?, ?, 'running', '{}', ?, ?)`,
+    );
+    insertBuild.run(
+      firstBuild.id,
+      firstRevision.id,
+      startRun({ projectId: project.id, kind: "build" }).id,
+      1,
+      1,
+    );
+    insertBuild.run(
+      secondBuild.id,
+      firstRevision.id,
+      startRun({ projectId: project.id, kind: "build" }).id,
+      2,
+      2,
+    );
+
+    const unit = createUnit({ projectId: project.id, slug: "history", format: "video" });
+    const firstUnitRevision = reviseUnit({
+      unitId: unit.id,
+      expectedLatestRevisionId: null,
+      items: [{ artifactRevisionId: artifactRevision.id, role: "item", position: 0 }],
+    });
+    const secondUnitRevision = reviseUnit({
+      unitId: unit.id,
+      expectedLatestRevisionId: firstUnitRevision.id,
+      items: [{ artifactRevisionId: artifactRevision.id, role: "item", position: 0 }],
+    });
+    const target = { type: "artifact_revision", id: artifactRevision.id } as const;
+    const firstEvaluation = createEvaluation({
+      target,
+      authoredBySessionId: session.id,
+      kind: "history",
+      createdAt: 1,
+    });
+    const secondEvaluation = createEvaluation({
+      target,
+      authoredBySessionId: session.id,
+      kind: "history",
+      createdAt: 2,
+    });
+
+    const cases = [
+      {
+        method: "composition.revisions",
+        params: { context, compositionId: composition.id },
+        oldestId: firstRevision.id,
+        newestId: secondRevision.id,
+      },
+      {
+        method: "composition.builds",
+        params: { context, compositionRevisionId: firstRevision.id },
+        oldestId: firstBuild.id,
+        newestId: secondBuild.id,
+      },
+      {
+        method: "unit.revisions",
+        params: { context, unitId: unit.id },
+        oldestId: firstUnitRevision.id,
+        newestId: secondUnitRevision.id,
+      },
+      {
+        method: "evaluation.list",
+        params: { context, target },
+        oldestId: firstEvaluation.id,
+        newestId: secondEvaluation.id,
+      },
+    ] as const;
+    for (const item of cases) {
+      const oldest = await call(item.method, {
+        ...item.params,
+        order: "oldest",
+        limit: 1,
+      }) as { items: Array<{ id: string }>; nextCursor: string | null };
+      const newest = await call(item.method, {
+        ...item.params,
+        order: "newest",
+        limit: 1,
+      }) as { items: Array<{ id: string }>; nextCursor: string | null };
+      expect(oldest.items[0]!.id).toBe(item.oldestId);
+      expect(newest.items[0]!.id).toBe(item.newestId);
+      expect(oldest.nextCursor).not.toBeNull();
+      expect(newest.nextCursor).not.toBeNull();
+      await expect(call(item.method, {
+        ...item.params,
+        order: "newest",
+        after: oldest.nextCursor,
+        limit: 1,
+      })).rejects.toThrow(/cursor/i);
+      await expect(call(item.method, {
+        ...item.params,
+        after: newest.nextCursor,
+        limit: 1,
+      })).rejects.toThrow(/cursor/i);
+      await expect(call(item.method, {
+        ...item.params,
+        order: "sideways",
+        limit: 1,
+      })).rejects.toThrow(/order/i);
+      await expect(call(item.method, {
+        ...item.params,
+        limit: 1,
+        extra: true,
+      })).rejects.toThrow(/unsupported fields/i);
+    }
+    await expect(call("evaluation.list", {
+      context,
+      target: { ...target, extra: true },
+      limit: 1,
+    })).rejects.toThrow(/unsupported fields/i);
+  });
+
   test("rechecks exact Project authorization inside the Composition revise transaction", async () => {
     root = makeTmpRoot("ralphy-bridge-revise-authorization");
     const workspace = createWorkspace({ slug: "revise-auth", name: "Revise auth" });

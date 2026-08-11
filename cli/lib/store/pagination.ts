@@ -5,10 +5,12 @@ import type { Page } from "./types.js";
  * never be replayed against a semantic ordinal:
  *
  * - `c1` pages creation-ordered roots by `(created_at, id)`.
+ * - `c2` pages the same creation tuple newest first.
  * - `v1` pages revision histories by `(revision_no, id)`.
+ * - `v2` pages the same revision tuple newest first.
  * - `p1` pages ordered children and Run results by `(position, id)`.
  */
-export type CursorFamily = "c1" | "v1" | "p1";
+export type CursorFamily = "c1" | "c2" | "v1" | "v2" | "p1";
 export type CursorValue = { ordinal: number; id: string };
 
 const MAX_CURSOR_BYTES = 256;
@@ -62,9 +64,9 @@ export function decodeCursor(
 }
 
 /**
- * Callers query `LIMIT limit + 1` ascending; the extra row is the only proof
- * that another page exists. Pages promise stable-set traversal, not snapshot
- * isolation.
+ * Callers query `LIMIT limit + 1` in their requested order; the extra row is
+ * the only proof that another page exists. Pages promise stable-set traversal,
+ * not snapshot isolation.
  */
 export function buildPage<T>(
   rows: T[],
