@@ -38,12 +38,17 @@
 - Modify: `electron/main.ts`
 - Modify: `electron/preload.ts`
 - Modify: `src/lib/ipc.ts`
+- Modify: `src/state/project-screen-controller.ts`
 - Test: `tests/ralphy-current-core.test.ts`
 - Test: `tests/project-reader.test.ts`
 - Test: `tests/ipc-security.test.ts`
 - Test: `tests/protocol-access.test.ts`
+- Test: `tests/project-screen-behavior.test.tsx`
+- Test: `tests/project-media-presentation.test.tsx`
 
 **Interfaces:**
+- Starts only after reviewed Core Task 2 is frozen; copy its exact DTO/request
+  contract rather than anticipating an in-progress Core shape.
 - Consumes reviewed Core card fields and request axes:
 
 ```ts
@@ -71,6 +76,9 @@ performProjectMediaAction(
 - [ ] **Step 1: Write failing exact Core/reader contract tests**
 
 Update the real-Core fixture and compiled assertions to require `mediaKind` and `provenance` on all three card variants. Add reader tests that pass each optional query axis unchanged to `media.list` and reject malformed/unknown response classifications.
+Add controller/presentation expectations proving the compiled caller sends
+`mediaQuery: { filter: mediaFilter }`; keep the reducer's existing
+`mediaFilter` state name and do not introduce a temporary dual reader API.
 
 ```ts
 await reader.loadPage({
@@ -101,14 +109,14 @@ sink is not sufficient. The preload surface must contain exactly one named
 - [ ] **Step 3: Run the focused RED**
 
 ```bash
-bun run test -- tests/ralphy-current-core.test.ts tests/project-reader.test.ts tests/ipc-security.test.ts tests/protocol-access.test.ts
+bun run test -- tests/ralphy-current-core.test.ts tests/project-reader.test.ts tests/ipc-security.test.ts tests/protocol-access.test.ts tests/project-screen-behavior.test.tsx tests/project-media-presentation.test.tsx
 ```
 
 Expected: new card keys/query axes and named action method/handler do not exist.
 
 - [ ] **Step 4: Copy and strictly validate the frozen Core types**
 
-Add closed enum parsers and exact-key card validation in `project-reader.ts`; extend every card DTO and compiled contract assertion. Change media page input from `mediaFilter` to `mediaQuery`, forwarding only present optional fields. Keep existing 50-item page limits and entity-ref `types` policy.
+Add closed enum parsers and exact-key card validation in `project-reader.ts`; extend every card DTO and compiled contract assertion. Change media page input from `mediaFilter` to `mediaQuery`, forwarding only present optional fields. Adapt the one compiled caller in `project-screen-controller.ts` to send `{ mediaQuery: { filter: mediaFilter } }`; keep reducer/state internals unchanged. Keep existing 50-item page limits and entity-ref `types` policy.
 
 - [ ] **Step 5: Implement one main-only resolver for context actions**
 
@@ -131,7 +139,7 @@ immediately before `shell.openPath`, `shell.showItemInFolder`, or
 - [ ] **Step 6: Run focused GREEN and typecheck**
 
 ```bash
-bun run test -- tests/ralphy-current-core.test.ts tests/project-reader.test.ts tests/ipc-security.test.ts tests/protocol-access.test.ts
+bun run test -- tests/ralphy-current-core.test.ts tests/project-reader.test.ts tests/ipc-security.test.ts tests/protocol-access.test.ts tests/project-screen-behavior.test.tsx tests/project-media-presentation.test.tsx
 bun run typecheck
 git diff --check
 ```
@@ -141,7 +149,7 @@ Mutation check: changing `copy` purpose to an unapproved value, returning the lo
 - [ ] **Step 7: Commit Task 1**
 
 ```bash
-git add electron/ralphy/types.ts electron/ralphy/contract-type-assertions.ts electron/ralphy/project-reader.ts electron/media/types.ts electron/media/protocol-access.ts electron/main.ts electron/preload.ts src/lib/ipc.ts tests/ralphy-current-core.test.ts tests/project-reader.test.ts tests/ipc-security.test.ts tests/protocol-access.test.ts
+git add electron/ralphy/types.ts electron/ralphy/contract-type-assertions.ts electron/ralphy/project-reader.ts electron/media/types.ts electron/media/protocol-access.ts electron/main.ts electron/preload.ts src/lib/ipc.ts src/state/project-screen-controller.ts tests/ralphy-current-core.test.ts tests/project-reader.test.ts tests/ipc-security.test.ts tests/protocol-access.test.ts tests/project-screen-behavior.test.tsx tests/project-media-presentation.test.tsx
 git diff --cached --check
 gitleaks protect --staged --redact
 git commit -m "feat(desktop): add scoped media facets and actions"
