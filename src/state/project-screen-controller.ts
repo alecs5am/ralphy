@@ -428,7 +428,7 @@ export function createProjectScreenController(
     const unitId = snapshot.unitId;
     const current = snapshot.unitRevisions;
     const cursor = current.nextCursor;
-    if (!unitId || !cursor || current.status === "loading") return;
+    if (!unitId || !cursor || current.status === "loading" || snapshot.unitMutation !== "idle") return;
     const requestId = ++unitRevisionPageRequest;
     emit({ ...snapshot, unitRevisions: { ...current, status: "loading", requestedCursor: cursor, error: null } });
     try {
@@ -818,7 +818,7 @@ export function createProjectScreenController(
       if (!unit || snapshot.unit.status !== "ready" || !revision
         || snapshot.inspectedUnitRevision.status !== "ready" || revision.sealedAt === null
         || revision.unitId !== unit.id || revision.id === unit.selectedRevisionId
-        || snapshot.unitMutation !== "idle") return;
+        || snapshot.unitMutation !== "idle" || snapshot.unitRevisions.status === "loading") return;
       const requestId = ++unitMutationRequest;
       const unitId = unit.id;
       const revisionId = revision.id;

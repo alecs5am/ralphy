@@ -794,6 +794,114 @@ describe("ProjectScreen behavior", () => {
     });
   });
 
+  test("revision append refuses to interrupt a pending Unit conflict refresh", async () => {
+    const unit: UnitDto = {
+      id: "unit-1", workspaceId: "workspace-1", projectId: "project-1", slug: "reel",
+      format: "9:16", latestRevisionId: "revision-3", selectedRevisionId: "revision-1",
+      createdAt: 1, updatedAt: 3,
+    };
+    const revision = (id: string): UnitRevisionDto => ({
+      id, unitId: "unit-1", revisionNo: Number(id.at(-1)), parentRevisionId: null,
+      iterationId: null, note: null, authoredBySessionId: null, createdAt: 1, sealedAt: 2,
+    });
+    const refreshedUnit = deferred<UnitDto>();
+    const refreshedRevisions = deferred<{ items: UnitRevisionDto[]; nextCursor: string | null }>();
+    const conflict = Object.assign(new Error("Conflict"), { code: "E_CONFLICT" });
+    const api = createApi();
+    let revisionPage = 0;
+    api.loadProjectUnit.mockResolvedValueOnce(unit).mockReturnValueOnce(refreshedUnit.promise);
+    api.loadProjectUnitRevision.mockImplementation(async (_project, _unitId, id) => revision(id));
+    api.loadProjectUnitPage.mockImplementation(async (_project, request: any) => {
+      if (request.kind !== "revisions") return { items: [], nextCursor: null };
+      if (request.cursor) return { items: [revision("revision-older")], nextCursor: null };
+      revisionPage += 1;
+      if (revisionPage === 2) return refreshedRevisions.promise;
+      return { items: [revision("revision-3"), revision("revision-2")], nextCursor: "revision-next" };
+    });
+    api.selectProjectUnitRevision.mockRejectedValueOnce(conflict);
+    const controller = createController(api);
+    await controller.openUnit("unit-1");
+    await controller.inspectUnitRevision("revision-2");
+
+    const selecting = controller.selectInspectedUnitRevision();
+    await vi.waitFor(() => expect(revisionPage).toBe(2));
+    await controller.loadMoreUnitRevisions();
+
+    expect(api.loadProjectUnitPage.mock.calls.filter(([, request]) => request.kind === "revisions" && request.cursor))
+      .toHaveLength(0);
+    expect(controller.getSnapshot()).toMatchObject({
+      unitRevisions: {
+        status: "ready", items: [{ id: "revision-3" }, { id: "revision-2" }],
+        nextCursor: "revision-next", requestedCursor: null, error: null,
+      },
+      unitMutation: "select",
+    });
+    refreshedUnit.resolve({ ...unit, selectedRevisionId: "revision-3", updatedAt: 4 });
+    refreshedRevisions.resolve({ items: [revision("revision-3")], nextCursor: null });
+    await selecting;
+
+    expect(controller.getSnapshot()).toMatchObject({
+      unit: { status: "ready", value: { selectedRevisionId: "revision-3" } },
+      unitRevisions: { status: "ready", items: [{ id: "revision-3" }], nextCursor: null },
+      unitMutation: "idle",
+      unitConflict: expect.stringContaining("changed"),
+      unitMutationError: null,
+    });
+  });
+
+  test("Unit selection refuses while revision append is loading and works after it settles", async () => {
+    const unit: UnitDto = {
+      id: "unit-1", workspaceId: "workspace-1", projectId: "project-1", slug: "reel",
+      format: "9:16", latestRevisionId: "revision-3", selectedRevisionId: "revision-1",
+      createdAt: 1, updatedAt: 3,
+    };
+    const revision = (id: string): UnitRevisionDto => ({
+      id, unitId: "unit-1", revisionNo: Number(id.at(-1)) || 1, parentRevisionId: null,
+      iterationId: null, note: null, authoredBySessionId: null, createdAt: 1, sealedAt: 2,
+    });
+    const tail = deferred<{ items: UnitRevisionDto[]; nextCursor: string | null }>();
+    const api = createApi();
+    api.loadProjectUnit.mockResolvedValue(unit);
+    api.loadProjectUnitRevision.mockImplementation(async (_project, _unitId, id) => revision(id));
+    api.loadProjectUnitPage.mockImplementation(async (_project, request: any) => {
+      if (request.kind !== "revisions") return { items: [], nextCursor: null };
+      if (request.cursor) return tail.promise;
+      return { items: [revision("revision-3"), revision("revision-2")], nextCursor: "revision-next" };
+    });
+    api.selectProjectUnitRevision.mockResolvedValue({ ...unit, selectedRevisionId: "revision-2", updatedAt: 4 });
+    const controller = createController(api);
+    await controller.openUnit("unit-1");
+    await controller.inspectUnitRevision("revision-2");
+
+    const appending = controller.loadMoreUnitRevisions();
+    await vi.waitFor(() => expect(controller.getSnapshot().unitRevisions.status).toBe("loading"));
+    await controller.selectInspectedUnitRevision();
+
+    expect(api.selectProjectUnitRevision).not.toHaveBeenCalled();
+    expect(controller.getSnapshot()).toMatchObject({
+      unit: { status: "ready", value: { selectedRevisionId: "revision-1" } },
+      unitRevisions: {
+        status: "loading", items: [{ id: "revision-3" }, { id: "revision-2" }],
+        nextCursor: "revision-next", requestedCursor: "revision-next", error: null,
+      },
+      unitMutation: "idle",
+    });
+    tail.resolve({ items: [revision("revision-older")], nextCursor: null });
+    await appending;
+    await controller.selectInspectedUnitRevision();
+
+    expect(api.selectProjectUnitRevision).toHaveBeenCalledOnce();
+    expect(controller.getSnapshot()).toMatchObject({
+      unit: { status: "ready", value: { selectedRevisionId: "revision-2" } },
+      unitRevisions: {
+        status: "ready",
+        items: [{ id: "revision-3" }, { id: "revision-2" }, { id: "revision-older" }],
+        nextCursor: null,
+      },
+      unitMutation: "idle",
+    });
+  });
+
   test("refreshes only newer activity and rejects an older Overview completion", async () => {
     const older = deferred<ProjectOverviewDto>();
     const newer = deferred<ProjectOverviewDto>();
