@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DomainError } from "./errors/domain.js";
 import { assertStartupJournalReady } from "./migration/cutover-journal.js";
-import { SCHEMA_VERSION } from "./store/schema.js";
+import { MIGRATIONS, SCHEMA_VERSION } from "./store/schema.js";
 
 export type DataRootIdentity = {
   dataRoot: string;
@@ -265,17 +265,12 @@ function openStandaloneWalSnapshot(
     ) {
       throw openError;
     }
-    const migration = snapshot
-      .query<{ version: number | null }, []>(
-        "SELECT MAX(version) AS version FROM schema_migrations",
-      )
-      .get();
     const userVersion = snapshot
       .query<{ user_version: number }, []>("PRAGMA user_version")
       .get();
     if (
-      migration?.version !== SCHEMA_VERSION ||
-      userVersion?.user_version !== SCHEMA_VERSION
+      userVersion?.user_version !== SCHEMA_VERSION ||
+      !hasExactSchemaIdentity(snapshot)
     ) {
       throw openError;
     }
@@ -305,6 +300,44 @@ function openStandaloneWalSnapshot(
       if (directoryDescriptor !== null) fs.closeSync(directoryDescriptor);
     }
   }
+}
+
+type SchemaIdentityRow = {
+  type: string;
+  name: string;
+  tableName: string;
+  sql: string | null;
+};
+
+function hasExactSchemaIdentity(snapshot: Database): boolean {
+  const versions = snapshot
+    .query<{ version: number }, []>(
+      "SELECT version FROM schema_migrations ORDER BY version",
+    )
+    .all();
+  if (
+    versions.length !== MIGRATIONS.length ||
+    versions.some((row, index) => row.version !== MIGRATIONS[index]?.version)
+  ) {
+    return false;
+  }
+
+  const expected = new Database(":memory:", { strict: true });
+  try {
+    for (const migration of MIGRATIONS) expected.exec(migration.sql);
+    return JSON.stringify(readSchemaIdentity(snapshot)) ===
+      JSON.stringify(readSchemaIdentity(expected));
+  } finally {
+    expected.close();
+  }
+}
+
+function readSchemaIdentity(db: Database): SchemaIdentityRow[] {
+  return db.query<SchemaIdentityRow, []>(
+    `SELECT type, name, tbl_name AS tableName, sql
+     FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'
+     ORDER BY type, name`,
+  ).all();
 }
 
 function hasWalSidecar(databasePath: string): boolean {
