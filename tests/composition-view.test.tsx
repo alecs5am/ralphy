@@ -119,6 +119,30 @@ describe("Composition production inspector", () => {
     expect(controller.getSnapshot().compositionConflict).toContain("changed elsewhere");
   });
 
+  test("preserves an inspected revision from after the first page on conflict reload", async () => {
+    const api = createApi();
+    const firstPage = Array.from({ length: 50 }, (_, index) => (
+      index === 49 ? revisions[1]! : revision(`revision-${52 - index}-uuid`, 52 - index, "sealed")
+    ));
+    api.loadProjectCompositionPage.mockImplementation(async (_project, request: { kind: string; cursor?: string }) => {
+      if (request.kind === "revisions") return { items: request.cursor ? [oldRevision] : firstPage, nextCursor: request.cursor ? null : "revision-next" };
+      return { items: [], nextCursor: null };
+    });
+    api.selectProjectCompositionRevision.mockRejectedValueOnce({ code: "E_CONFLICT", message: "stale" });
+    const controller = createProjectScreenController(api, project);
+
+    await controller.selectTab("compositions");
+    await controller.loadMoreCompositionRevisions();
+    await controller.inspectCompositionRevision(oldRevision.id);
+    await controller.selectInspectedCompositionRevision();
+
+    const snapshot = controller.getSnapshot();
+    expect(api.selectProjectCompositionRevision).toHaveBeenCalledOnce();
+    expect(snapshot.inspectedCompositionRevisionId).toBe(oldRevision.id);
+    expect(snapshot.compositionRevisions.items.filter(({ id }) => id === oldRevision.id)).toHaveLength(1);
+    expect(snapshot.compositionConflict).toContain("changed elsewhere");
+  });
+
   test("drops an output preview after the inspected revision changes", async () => {
     const pending = deferred<{ url: string; sizeBytes: number; mime: string }>();
     const api = createApi();

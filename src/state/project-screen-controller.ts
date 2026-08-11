@@ -554,8 +554,15 @@ export function createProjectScreenController(
       if (disposed || requestId !== compositionRequest || snapshot.compositionId !== compositionId) return;
       const revisions = snapshot.compositionRevisions.items;
       const preferred = inspectedRevisionId ?? value.selectedRevisionId ?? value.latestRevisionId;
-      const revisionId = preferred && revisions.some(({ id }) => id === preferred) ? preferred : revisions[0]?.id ?? null;
-      if (revisionId) await loadCompositionRevision(revisionId);
+      const revisionId = preferred ?? revisions[0]?.id ?? null;
+      if (revisionId) {
+        await loadCompositionRevision(revisionId);
+        if (disposed || requestId !== compositionRequest || snapshot.compositionId !== compositionId) return;
+        const exact = snapshot.inspectedCompositionRevision.value;
+        if (exact && !snapshot.compositionRevisions.items.some(({ id }) => id === exact.id)) {
+          emit({ ...snapshot, compositionRevisions: { ...snapshot.compositionRevisions, items: [...snapshot.compositionRevisions.items, exact] } });
+        }
+      }
     } catch (error) {
       if (!disposed && requestId === compositionRequest && snapshot.compositionId === compositionId) {
         emit({ ...snapshot, composition: { status: "error", value: null, error: errorMessage(error) } });
