@@ -465,7 +465,11 @@ describe("domain document store", () => {
     }
 
     expect(
-      searchDocuments({ context, query: "é".repeat(512), limit: 50 }).items,
+      searchDocuments({
+        context,
+        query: ` ${"é".repeat(512)} `,
+        limit: 50,
+      }).items,
     ).toEqual([]);
     for (const query of [
       "   ",

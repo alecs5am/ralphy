@@ -212,7 +212,7 @@ describe("Desktop bridge domain contract", () => {
     }) as { items: Array<{ documentTitle: string }> };
     expect(page.items.map((item) => item.documentTitle)).toEqual(["C++ launch"]);
 
-    for (const query of ["   ", "a".repeat(1_025), `${"é".repeat(512)}a`]) {
+    for (const query of ["", "   ", "a".repeat(1_025), `${"é".repeat(512)}a`]) {
       let error: unknown;
       try {
         await call("document.search", { context, query, limit: 50 });
