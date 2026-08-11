@@ -429,6 +429,55 @@ describe("domain document store", () => {
     ).toThrow(/1 through 100/);
   });
 
+  test("treats literal document search as bounded user text", () => {
+    const { workspace } = setupProject("literal-search");
+    const context = { workspaceId: workspace.id };
+    const fixtures = [
+      "C++ launch",
+      "foo-bar launch",
+      'The "quoted" brief',
+      "NOT approved",
+    ] as const;
+    for (const [index, title] of fixtures.entries()) {
+      const document = createDocument({
+        workspaceId: workspace.id,
+        kind: "note",
+        slug: `literal-${index}`,
+        title,
+      });
+      reviseDocument({
+        documentId: document.id,
+        format: "text",
+        title,
+        body: title,
+      });
+    }
+
+    for (const [query, title] of [
+      ["c++", "C++ launch"],
+      ["foo-bar", "foo-bar launch"],
+      ['"quoted"', 'The "quoted" brief'],
+      ['quoted"', 'The "quoted" brief'],
+      ["NOT", "NOT approved"],
+    ] as const) {
+      const page = searchDocuments({ context, query, limit: 50 });
+      expect(page.items.map((item) => item.documentTitle)).toEqual([title]);
+    }
+
+    expect(
+      searchDocuments({ context, query: "é".repeat(512), limit: 50 }).items,
+    ).toEqual([]);
+    for (const query of [
+      "   ",
+      "a".repeat(1_025),
+      `${"é".repeat(512)}a`,
+    ]) {
+      expect(() => searchDocuments({ context, query, limit: 50 })).toThrow(
+        expect.objectContaining({ code: "E_VALIDATION_FAILED" }),
+      );
+    }
+  });
+
   test("creates a scoped Document with no current revision", () => {
     const { workspace, project } = setupProject("create");
     const context = { workspaceId: workspace.id, projectId: project.id };

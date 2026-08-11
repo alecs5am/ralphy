@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import { createHash } from "node:crypto";
+import { DomainError } from "../errors/domain.js";
 import { appendActivity } from "./activity.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
@@ -368,6 +369,17 @@ export function listDocumentRevisions(input: {
   );
 }
 
+function literalDocumentSearchQuery(query: string): string {
+  const literal = query.trim();
+  if (!literal || Buffer.byteLength(literal, "utf8") > 1_024) {
+    throw new DomainError("E_VALIDATION_FAILED", undefined, {
+      target: "document search",
+      detail: "query must contain 1 to 1024 UTF-8 bytes",
+    });
+  }
+  return `"${literal.replaceAll('"', '""')}"`;
+}
+
 export function searchDocuments(
   input: {
     context: QueryContext;
@@ -376,8 +388,7 @@ export function searchDocuments(
     limit: number;
   },
 ): Page<DocumentSearchDto> {
-  if (!input.query.trim())
-    throw new Error("Document search query must not be empty");
+  const query = literalDocumentSearchQuery(input.query);
   const db = openDomainDb();
   assertLimit(input.limit);
   const cursor =
@@ -411,7 +422,7 @@ export function searchDocuments(
            ) ORDER BY r.created_at ASC, r.id ASC LIMIT ?`,
         )
         .all(
-          input.query,
+          query,
           afterCreatedAt,
           afterCreatedAt,
           afterId,
@@ -432,7 +443,7 @@ export function searchDocuments(
            ORDER BY r.created_at ASC, r.id ASC LIMIT ?`,
         )
         .all(
-          input.query,
+          query,
           afterCreatedAt,
           afterCreatedAt,
           afterId,

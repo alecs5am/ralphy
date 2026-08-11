@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
 import { reviseCompositionCheckout, runCompositionBuild } from "../../cli/lib/composition-build.js";
 import { generationInput } from "../../cli/lib/generation-input.js";
+import { projectBridgeError } from "../../cli/lib/bridge/protocol.js";
 import {
   addArtifactRevision,
   addArtifactUsage,
@@ -24,6 +25,7 @@ import {
   startBuild,
 } from "../../cli/lib/store/compositions.js";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
+import { createDocument, reviseDocument } from "../../cli/lib/store/documents.js";
 import { ingestObject } from "../../cli/lib/store/objects.js";
 import {
   promoteRunObject,
@@ -182,6 +184,45 @@ async function assertReviseGuardBeforeMaterialization(
 }
 
 describe("Desktop bridge domain contract", () => {
+  test("projects literal document search validation instead of an internal error", async () => {
+    root = makeTmpRoot("ralphy-bridge-literal-document-search");
+    const workspace = createWorkspace({ slug: "literal-search", name: "Literal Search" });
+    const project = createProject({
+      workspaceId: workspace.id,
+      slug: "project",
+      name: "Project",
+    });
+    const context = { workspaceId: workspace.id, projectId: project.id };
+    const document = createDocument({
+      projectId: project.id,
+      kind: "note",
+      slug: "cpp-launch",
+      title: "C++ launch",
+    });
+    reviseDocument({
+      documentId: document.id,
+      format: "text",
+      body: "C++ launch",
+    });
+
+    const page = await call("document.search", {
+      context,
+      query: "c++",
+      limit: 50,
+    }) as { items: Array<{ documentTitle: string }> };
+    expect(page.items.map((item) => item.documentTitle)).toEqual(["C++ launch"]);
+
+    for (const query of ["   ", "a".repeat(1_025), `${"é".repeat(512)}a`]) {
+      let error: unknown;
+      try {
+        await call("document.search", { context, query, limit: 50 });
+      } catch (caught) {
+        error = caught;
+      }
+      expect(projectBridgeError(error).error.code).toBe("E_VALIDATION_FAILED");
+    }
+  });
+
   test("advertises and resolves a scoped Artifact revision", async () => {
     root = makeTmpRoot("ralphy-bridge-domain-reads");
     const workspace = createWorkspace({ slug: "desktop", name: "Desktop" });
