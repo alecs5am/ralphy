@@ -68,8 +68,7 @@ export function resolveCommandContext(input: {
   }
   let db: Database | null = null;
   try {
-    db = new Database(databasePath, { readonly: true });
-    db.exec("PRAGMA busy_timeout = 5000");
+    db = openIdentityDatabase(databasePath);
     return resolveContext(db, { ...input, dataRoot });
   } catch (error) {
     if (error instanceof DomainError) throw error;
@@ -161,8 +160,7 @@ function resolveContext(
 function identifyDataRoot(dataRoot: string): DataRootIdentity {
   let db: Database | null = null;
   try {
-    db = new Database(path.join(dataRoot, "ralphy.db"), { readonly: true });
-    db.exec("PRAGMA busy_timeout = 5000");
+    db = openIdentityDatabase(path.join(dataRoot, "ralphy.db"));
     const store = db
       .query<{ storeId: string }, []>(
         "SELECT store_id AS storeId FROM store_metadata WHERE singleton = 1",
@@ -180,6 +178,102 @@ function identifyDataRoot(dataRoot: string): DataRootIdentity {
   } finally {
     db?.close();
   }
+}
+
+function openIdentityDatabase(databasePath: string): Database {
+  let db: Database | null = null;
+  try {
+    db = new Database(databasePath, { readonly: true });
+    db.exec("PRAGMA busy_timeout = 5000");
+    db.query("PRAGMA schema_version").get();
+    return db;
+  } catch (error) {
+    try {
+      db?.close();
+    } catch {
+      // Preserve the original open failure.
+    }
+    if (!isSqliteCantOpen(error)) throw error;
+    return openStandaloneWalSnapshot(databasePath, error);
+  }
+}
+
+function openStandaloneWalSnapshot(
+  databasePath: string,
+  openError: unknown,
+): Database {
+  let descriptor: number | null = null;
+  let snapshot: Database | null = null;
+  try {
+    if (hasWalSidecar(databasePath)) throw openError;
+    const before = fs.lstatSync(databasePath);
+    if (!before.isFile() || before.isSymbolicLink()) throw openError;
+    descriptor = fs.openSync(
+      databasePath,
+      fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW,
+    );
+    const opened = fs.fstatSync(descriptor);
+    if (!sameFile(before, opened)) throw openError;
+    const image = fs.readFileSync(descriptor);
+    const after = fs.fstatSync(descriptor);
+    const current = fs.lstatSync(databasePath);
+    if (
+      !sameFile(opened, after) ||
+      !sameFile(opened, current) ||
+      hasWalSidecar(databasePath) ||
+      image.byteLength !== opened.size ||
+      image.subarray(0, 16).toString("binary") !== "SQLite format 3\0" ||
+      image[18] !== 2 ||
+      image[19] !== 2
+    ) {
+      throw openError;
+    }
+    image[18] = 1;
+    image[19] = 1;
+    snapshot = Database.deserialize(image, { readonly: true });
+    snapshot.exec("PRAGMA query_only = ON");
+    const integrity = snapshot
+      .query<{ integrity_check: string }, []>("PRAGMA integrity_check")
+      .all();
+    if (
+      integrity.length !== 1 ||
+      integrity[0]?.integrity_check !== "ok"
+    ) {
+      throw openError;
+    }
+    if (
+      hasWalSidecar(databasePath) ||
+      !sameFile(opened, fs.lstatSync(databasePath))
+    ) {
+      throw openError;
+    }
+    return snapshot;
+  } catch {
+    try {
+      snapshot?.close();
+    } catch {
+      // The caller maps the original open failure to the public error.
+    }
+    throw openError;
+  } finally {
+    if (descriptor !== null) fs.closeSync(descriptor);
+  }
+}
+
+function hasWalSidecar(databasePath: string): boolean {
+  return fs.existsSync(`${databasePath}-wal`) ||
+    fs.existsSync(`${databasePath}-shm`);
+}
+
+function isSqliteCantOpen(error: unknown): boolean {
+  return typeof error === "object" && error !== null &&
+    "code" in error && error.code === "SQLITE_CANTOPEN";
+}
+
+function sameFile(left: fs.Stats, right: fs.Stats): boolean {
+  return left.dev === right.dev && left.ino === right.ino &&
+    left.size === right.size && left.mtimeMs === right.mtimeMs &&
+    left.ctimeMs === right.ctimeMs;
 }
 
 function projectFromCwd(
