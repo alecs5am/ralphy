@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -127,6 +127,45 @@ describe("closed WAL startup", () => {
     );
   });
 
+  test("treats a dangling WAL symlink as an existing sidecar", () => {
+    const fixture = createSchemaFixture("ralphy-dangling-wal-context");
+    closeAsStandaloneWal(fixture);
+    const sidecar = `${fixture.databasePath}-wal`;
+    fs.symlinkSync(path.join(root!.dir, "missing-wal-target"), sidecar);
+
+    expect(fs.lstatSync(sidecar).isSymbolicLink()).toBe(true);
+    expect(fs.existsSync(sidecar)).toBe(false);
+    expectMigrationIncomplete(() =>
+      resolveDataRoot({ root: fixture.dataRoot })
+    );
+  });
+
+  test("detects a sidecar created and removed during the snapshot read", () => {
+    const fixture = createSchemaFixture("ralphy-transient-wal-context");
+    closeAsStandaloneWal(fixture);
+    const originalRead = fs.readFileSync.bind(fs);
+    let mutated = false;
+    const readSpy = spyOn(fs, "readFileSync").mockImplementation((
+      (target: fs.PathOrFileDescriptor, ...args: unknown[]) => {
+        if (!mutated && typeof target === "number") {
+          mutated = true;
+          const sidecar = `${fixture.databasePath}-wal`;
+          fs.writeFileSync(sidecar, "transient");
+          fs.rmSync(sidecar);
+        }
+        return Reflect.apply(originalRead, fs, [target, ...args]);
+      }
+    ) as typeof fs.readFileSync);
+    try {
+      expectMigrationIncomplete(() =>
+        resolveDataRoot({ root: fixture.dataRoot })
+      );
+      expect(mutated).toBe(true);
+    } finally {
+      readSpy.mockRestore();
+    }
+  });
+
   test("does not normalize a mixed journal header", () => {
     const fixture = createSchemaFixture("ralphy-mixed-header-context");
     const image = closeAsStandaloneWal(fixture);
@@ -161,6 +200,40 @@ describe("closed WAL startup", () => {
     } finally {
       fs.closeSync(descriptor);
     }
+
+    expectMigrationIncomplete(() =>
+      resolveDataRoot({ root: fixture.dataRoot })
+    );
+  });
+
+  test("does not admit a closed WAL store on schema 5", () => {
+    const fixture = createSchemaFixture("ralphy-schema-five-context");
+    fixture.db.exec(`
+      DROP TABLE migration_entry_supplemental_refs;
+      DELETE FROM schema_migrations WHERE version = 6;
+      PRAGMA user_version = 5;
+    `);
+    expect(
+      fixture.db.query<{ version: number }, []>(
+        "SELECT MAX(version) AS version FROM schema_migrations",
+      ).get()!.version,
+    ).toBe(5);
+    closeAsStandaloneWal(fixture);
+
+    expectMigrationIncomplete(() =>
+      resolveDataRoot({ root: fixture.dataRoot })
+    );
+  });
+
+  test("does not admit a partially versioned closed WAL store", () => {
+    const fixture = createSchemaFixture("ralphy-partial-schema-context");
+    fixture.db.exec("PRAGMA user_version = 5");
+    expect(
+      fixture.db.query<{ version: number }, []>(
+        "SELECT MAX(version) AS version FROM schema_migrations",
+      ).get()!.version,
+    ).toBe(6);
+    closeAsStandaloneWal(fixture);
 
     expectMigrationIncomplete(() =>
       resolveDataRoot({ root: fixture.dataRoot })
