@@ -1,6 +1,6 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { FileText, Film, Image, Music2 } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent } from "react";
 import type { MediaCardDto, MediaRef } from "../../electron/ralphy/types";
 import type { ProjectPreview, ProjectReference } from "../lib/ipc";
 import { assetGridGeometry, previewScheduler } from "../lib/media";
@@ -18,6 +18,8 @@ export interface VirtualAssetGridProps {
   resolvePreview: ResolvePreview;
   onSelect(card: MediaCardDto): void;
   onOpen(card: MediaCardDto): void;
+  onContextMenu(card: MediaCardDto, point: { x: number; y: number }): void;
+  density: number;
   hasMore: boolean;
   loadingMore: boolean;
   appendError: string | null;
@@ -36,6 +38,7 @@ interface MediaCardTileProps {
   resolvePreview: ResolvePreview;
   onSelect(): void;
   onOpen(): void;
+  onContextMenu(point: { x: number; y: number }): void;
 }
 
 type PreviewKind = "image" | "video" | "audio";
@@ -154,21 +157,30 @@ function TilePreview({ card, project, rootEpoch, resolvePreview }: Pick<MediaCar
   </div>;
 }
 
-export function MediaCardTile({ card, project, rootEpoch, selected, resolvePreview, onSelect, onOpen }: MediaCardTileProps) {
+export function MediaCardTile({ card, project, rootEpoch, selected, resolvePreview, onSelect, onOpen, onContextMenu }: MediaCardTileProps) {
   const name = mediaCardName(card);
-  const kind = previewKind(card);
-  const copy = <span className="asset-copy"><strong>{name}</strong><small>{mediaCardKind(card)} · {card.ref.id} · {mediaCardFacts(card)}</small></span>;
-  const selection = <button type="button" aria-label={`${name}${selected ? ", selected" : ""}`} aria-pressed={selected} onClick={onSelect} onDoubleClick={onOpen} style={{ width: "100%", padding: 0, border: 0, background: "transparent", color: "inherit", textAlign: "left" }}>
-    {kind === "audio" ? copy : <><TilePreview card={card} project={project} rootEpoch={rootEpoch} resolvePreview={resolvePreview} />{copy}</>}
-  </button>;
-  return <article className={`asset-tile media-card-tile${selected ? " is-selected" : ""}`} style={{ position: "relative" }}>
-    {kind === "audio" && <TilePreview card={card} project={project} rootEpoch={rootEpoch} resolvePreview={resolvePreview} />}
-    {selection}
-    <button type="button" aria-label={`Open ${name}`} onClick={onOpen} style={{ position: "absolute", top: 8, right: 8, zIndex: 1 }}>Open</button>
+  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.repeat) return;
+    if (event.key === " ") { event.preventDefault(); onSelect(); }
+    if (event.key === "Enter") { event.preventDefault(); onOpen(); }
+  };
+  const openContext = (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.currentTarget.focus({ preventScroll: true });
+    onSelect();
+    onContextMenu({ x: event.clientX, y: event.clientY });
+  };
+  return <article className={`asset-tile media-card-tile${selected ? " is-selected" : ""}`} data-selected={selected || undefined}>
+    <TilePreview card={card} project={project} rootEpoch={rootEpoch} resolvePreview={resolvePreview} />
+    <button className="media-card-button" type="button" aria-label={`${name}${selected ? ", selected" : ""}`} aria-pressed={selected} onClick={onSelect} onDoubleClick={onOpen} onKeyDown={onKeyDown} onContextMenu={openContext}>
+      <span className="asset-copy"><strong>{name}</strong><small>{mediaCardKind(card)} · {mediaCardFacts(card)}</small></span>
+      {card.provenance === "generation" && <span className="asset-provenance is-generated">Generated</span>}
+      {card.provenance === "unknown" && <span className="asset-provenance">Unknown</span>}
+    </button>
   </article>;
 }
 
-export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resolvePreview, onSelect, onOpen, hasMore, loadingMore, appendError, onLoadMore, onRetryAppend, scrollMemory, scrollKey, scrollResetToken }: VirtualAssetGridProps) {
+export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resolvePreview, onSelect, onOpen, onContextMenu, density, hasMore, loadingMore, appendError, onLoadMore, onRetryAppend, scrollMemory, scrollKey, scrollResetToken }: VirtualAssetGridProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null);
   const rememberedScroll = useRememberedScroll(scrollMemory, scrollKey, scrollResetToken);
@@ -178,7 +190,7 @@ export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resol
     setScrollRoot((current) => current === node ? current : node);
   }, [rememberedScroll.ref]);
   const [width, setWidth] = useState(800);
-  const geometry = assetGridGeometry(width, 190, 16);
+  const geometry = assetGridGeometry(width, density, 16);
   const rows = useMemo(() => Array.from({ length: Math.ceil(items.length / geometry.columns) }, (_, index) => ({ key: index, items: items.slice(index * geometry.columns, (index + 1) * geometry.columns) })), [geometry.columns, items]);
   const virtualizer = useVirtualizer({ count: rows.length, getScrollElement: () => scrollRef.current, getItemKey: (index) => rows[index]?.key ?? index, estimateSize: () => geometry.rowHeight, initialOffset: () => scrollMemory.get(scrollKey) ?? 0, overscan: 3 });
   useLayoutEffect(() => {
@@ -198,7 +210,7 @@ export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resol
   return <div className="asset-grid-scroll" ref={attachScroll} onScroll={rememberedScroll.onScroll}>
     <div className="virtual-grid-space" style={{ height: virtualizer.getTotalSize() }}>
       {virtualizer.getVirtualItems().map((virtualRow) => <div className="virtual-asset-row" key={virtualRow.key} style={{ transform: `translateY(${virtualRow.start}px)`, gridTemplateColumns: `repeat(${geometry.columns}, minmax(0, 1fr))`, height: `${geometry.rowHeight}px`, "--asset-tile-height": `${geometry.tileHeight}px`, "--asset-row-gap": `${geometry.gap}px` } as CSSProperties}>
-        {rows[virtualRow.index].items.map((card) => <MediaCardTile key={previewKey(project, rootEpoch, card.ref)} card={card} project={project} rootEpoch={rootEpoch} selected={selectedRef?.type === card.ref.type && selectedRef.id === card.ref.id} resolvePreview={resolvePreview} onSelect={() => onSelect(card)} onOpen={() => onOpen(card)} />)}
+        {rows[virtualRow.index].items.map((card) => <MediaCardTile key={previewKey(project, rootEpoch, card.ref)} card={card} project={project} rootEpoch={rootEpoch} selected={selectedRef?.type === card.ref.type && selectedRef.id === card.ref.id} resolvePreview={resolvePreview} onSelect={() => onSelect(card)} onOpen={() => onOpen(card)} onContextMenu={(point) => onContextMenu(card, point)} />)}
       </div>)}
     </div>
     <AutoCursorTail root={scrollRoot} hasMore={hasMore} loading={loadingMore} error={appendError} onLoadMore={onLoadMore} onRetry={onRetryAppend} />

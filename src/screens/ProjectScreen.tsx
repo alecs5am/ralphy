@@ -1,17 +1,14 @@
-import { AlertCircle, ImageOff, RefreshCw } from "lucide-react";
+import { AlertCircle, RefreshCw } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import type { ActivityDto, MediaCardDto, ProjectOverviewDto, RunObjectMediaCardDto, UnitDto } from "../../electron/ralphy/types";
-import { VirtualAssetGrid, mediaCardName } from "../components/VirtualAssetGrid";
+import type { ActivityDto, ProjectOverviewDto, UnitDto } from "../../electron/ralphy/types";
 import { ProjectControls } from "../components/ProjectControls";
 import { ProjectHeader } from "../components/ProjectHeader";
-import { AudioWaveform } from "../components/media/AudioWaveform";
-import { ImageViewport } from "../components/media/ImageViewport";
-import { VideoPlayer } from "../components/media/VideoPlayer";
 import { CompositionsPanel } from "./project/CompositionsPanel";
 import { DocumentsPanel } from "./project/DocumentsPanel";
+import { MediaPanel } from "./project/MediaPanel";
 import { MediaViewer } from "./project/MediaViewer";
 import { useRememberedScroll } from "./project/scroll-memory";
-import { bridge, type ProjectMediaFilter, type ProjectSummary } from "../lib/ipc";
+import { bridge, type ProjectSummary } from "../lib/ipc";
 import type { DomainPage } from "../state/project-domain";
 import { createProjectScreenController, type ProjectScreenApi, type ProjectScreenController, type ProjectScreenSnapshot } from "../state/project-screen-controller";
 
@@ -75,43 +72,14 @@ function Overview({ value }: { value: ProjectOverviewDto }) {
   </div>;
 }
 
-function RunObjectEvidence({ card }: { card: RunObjectMediaCardDto }) {
-  return <section className="run-object-evidence" aria-label="RunObject evidence"><h3>RunObject evidence</h3><dl><div><dt>Run ID</dt><dd>{card.runId}</dd></div><div><dt>Attempt</dt><dd>Unlinked</dd></div><div><dt>Purpose</dt><dd>{card.purpose}</dd></div><div><dt>State</dt><dd>{card.state}</dd></div><div><dt>Retention</dt><dd>{card.retention}</dd></div><div><dt>Logical path</dt><dd>{card.logicalPath}</dd></div><div><dt>Location class</dt><dd>{card.locationClass}</dd></div><div><dt>Object ID</dt><dd>{card.objectId ?? "Not promoted"}</dd></div></dl></section>;
-}
-
-function isRunObjectMediaCard(card: MediaCardDto): card is RunObjectMediaCardDto {
-  return card.ref.type === "run-object";
-}
-
-function MediaPreview({ snapshot }: { snapshot: ProjectScreenSnapshot }) {
-  const { selectedMedia } = snapshot;
-  const preview = snapshot.domain.preview;
-  if (!selectedMedia) return <div className="empty-section">Select media to preview it.</div>;
-  const evidence = isRunObjectMediaCard(selectedMedia) ? <RunObjectEvidence card={selectedMedia} /> : null;
-  let content: React.ReactNode = null;
-  if (preview.status === "loading") content = <div className="project-skeleton" role="status">Loading preview…</div>;
-  else if (preview.status === "error") content = <div className="preview-unavailable" role="alert"><ImageOff size={24} aria-hidden="true" /><strong>Preview unavailable</strong><span>{preview.error}</span></div>;
-  else if (preview.status === "ready" && preview.value === null) content = <div className="preview-unavailable"><ImageOff size={24} aria-hidden="true" /><strong>Preview needs review</strong><span>{selectedMedia.ref.type === "artifact" ? "Select an Artifact revision before previewing it." : "No preview target is available for this record."}</span></div>;
-  else if (preview.status === "ready" && preview.value) {
-    const name = mediaCardName(selectedMedia);
-    if (selectedMedia.mime?.startsWith("image/")) content = <ImageViewport src={preview.value.url} name={name} />;
-    else if (selectedMedia.mime?.startsWith("video/")) content = <VideoPlayer src={preview.value.url} name={name} />;
-    else if (selectedMedia.mime?.startsWith("audio/")) content = <AudioWaveform src={preview.value.url} name={name} sizeBytes={preview.value.sizeBytes} />;
-    else content = <a href={preview.value.url} aria-label={`Open ${name}`}>Open preview</a>;
-  }
-  return <>{evidence}{content}</>;
-}
-
 type ScrollBinding = ReturnType<typeof useRememberedScroll>;
 
 export function ProjectScreenView({ project, rootEpoch = 0, controller, snapshot, scrollMemory = new Map<string, number>(), documentsScrollMemory = scrollMemory, overviewScroll }: { project: ProjectSummary; rootEpoch?: number; controller: ProjectScreenController; snapshot: ProjectScreenSnapshot; scrollMemory?: Map<string, number>; documentsScrollMemory?: Map<string, number>; overviewScroll?: ScrollBinding }) {
   const state = snapshot.domain;
   const activeTab = snapshot.activeTab;
   const page = activeTab === "overview" ? null : state.pages[activeTab];
-  const media = state.pages.media.items as MediaCardDto[];
   const projectScrollToken = JSON.stringify([rootEpoch, state.project.workspaceId, state.project.projectId]);
-  const mediaScrollToken = JSON.stringify([projectScrollToken, state.media.filter]);
-  const mediaFilters: Array<[ProjectMediaFilter, string]> = [["all", "All"], ["references", "References"], ["working", "Working"], ["candidate", "Candidate"], ["approved", "Approved"], ["rejected", "Rejected"], ["superseded", "Superseded"], ["run-diagnostics", "Run diagnostics"], ["run-cache-temp", "Cache/temp RunObjects"], ["advanced-objects", "Advanced Objects"]];
+  const mediaScrollToken = JSON.stringify([projectScrollToken, state.media]);
   const retry = () => { void controller.retry(); };
   const selectTab = (tab: Parameters<ProjectScreenController["selectTab"]>[0]) => {
     if (activeTab === "documents" && tab !== "documents" && snapshot.documentSaving) return;
@@ -127,7 +95,7 @@ export function ProjectScreenView({ project, rootEpoch = 0, controller, snapshot
     <div className={`project-domain-body${activeTab === "media" ? " is-media" : activeTab === "documents" ? " is-documents" : ""}`} role="tabpanel" id={`project-panel-${activeTab}`} aria-labelledby={`project-tab-${activeTab}`} ref={activeTab === "overview" ? overviewScroll?.ref : undefined} onScroll={activeTab === "overview" ? overviewScroll?.onScroll : undefined}>
       {activeTab === "overview" && (state.overview.status === "loading" ? <div className="project-skeleton" role="status">Loading project overview…</div> : state.overview.status === "error" ? <ProjectError error={state.overview.error} onRetry={retry} /> : state.overview.value ? <Overview value={state.overview.value as ProjectOverviewDto} /> : null)}
       {activeTab === "documents" && page && (page.status === "loading" && page.items.length === 0 ? <div className="project-skeleton" role="status">Loading documents…</div> : page.status === "error" && page.items.length === 0 ? <ProjectError error={page.error} onRetry={retry} /> : <DocumentsPanel page={page} controller={controller} snapshot={snapshot} scrollMemory={documentsScrollMemory} resetToken={projectScrollToken} />)}
-      {activeTab === "media" && page && <><div className="media-domain-toolbar" aria-label="Media filters">{mediaFilters.map(([value, label]) => <button className={`filter-chip${state.media.filter === value ? " is-active" : ""}`} type="button" aria-pressed={state.media.filter === value} key={value} onClick={() => { void controller.setMediaFilter(value); }}>{label}</button>)}</div><PageState page={page} empty="No media yet." onRetry={retry}><div className="project-split-view"><div className="project-media-grid"><VirtualAssetGrid items={media} project={state.project} rootEpoch={rootEpoch} selectedRef={snapshot.selectedMedia?.ref ?? null} resolvePreview={bridge.resolveProjectPreview} onSelect={(card) => { void controller.openMedia(card); }} onOpen={(card) => { void controller.openMediaViewer(card); }} hasMore={page.nextCursor !== null} loadingMore={page.status === "loading" && page.items.length > 0} appendError={page.status === "error" && page.items.length > 0 ? page.error : null} onLoadMore={() => { void controller.loadMore("media"); }} onRetryAppend={() => { void controller.retryPage("media"); }} scrollMemory={scrollMemory} scrollKey="media" scrollResetToken={mediaScrollToken} /></div><section className="project-preview" aria-label="Media preview"><MediaPreview snapshot={snapshot} /></section></div></PageState></>}
+      {activeTab === "media" && page && <MediaPanel page={page} controller={controller} snapshot={snapshot} rootEpoch={rootEpoch} scrollMemory={scrollMemory} scrollResetToken={mediaScrollToken} />}
       {activeTab === "compositions" && page && <PageState page={page} empty="No compositions yet." onRetry={retry}><CompositionsPanel page={page} controller={controller} snapshot={snapshot} pagination={<Pagination page={page} onLoad={() => { void controller.loadMore("compositions"); }} onRetry={() => { void controller.retryPage("compositions"); }} />} /></PageState>}
       {activeTab === "units" && page && <PageState page={page} empty="No units yet." onRetry={retry}><div className="project-domain-list">{(page.items as UnitDto[]).map((item) => <article key={item.id}><strong>{item.slug}</strong><span>{item.format}</span><small>ID {item.id} · Selected {item.selectedRevisionId ?? "None"} · Latest {item.latestRevisionId ?? "None"}</small></article>)}<Pagination page={page} onLoad={() => { void controller.loadMore("units"); }} onRetry={() => { void controller.retryPage("units"); }} /></div></PageState>}
       {activeTab === "activity" && page && <PageState page={page} empty="No activity yet." onRetry={retry}><div className="project-domain-list">{(page.items as ActivityDto[]).map((event) => <article key={event.sequence}><strong>#{event.sequence} · {event.action}</strong><span>{event.entityType} · {event.entityId}</span><time dateTime={new Date(event.createdAt).toISOString()}>{formatTime(event.createdAt)}</time></article>)}<Pagination page={page} onLoad={() => { void controller.loadMore("activity"); }} onRetry={() => { void controller.retryPage("activity"); }} /></div></PageState>}
@@ -151,7 +119,7 @@ export function startProjectScreenController(
 function ConnectedProjectScreen({ project, rootEpoch, controller }: { project: ProjectSummary; rootEpoch: number; controller: ProjectScreenController }) {
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
   const projectScrollToken = JSON.stringify([rootEpoch, snapshot.domain.project.workspaceId, snapshot.domain.project.projectId]);
-  const mediaScrollToken = JSON.stringify([projectScrollToken, snapshot.domain.media.filter]);
+  const mediaScrollToken = JSON.stringify([projectScrollToken, snapshot.domain.media]);
   const [ownedScroll, setOwnedScroll] = useState(() => ({
     projectScrollToken,
     mediaScrollToken,

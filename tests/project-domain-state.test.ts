@@ -153,7 +153,7 @@ describe("Project domain state", () => {
       type: "page-ready", tab: "media", generation: 1, requestId: "all-1", mediaFilter: "all",
       page: { items: [{ ref: { type: "artifact", id: "artifact-1" } }], nextCursor: "more" },
     });
-    state = projectDomainReducer(state, { type: "media-filter", filter: "candidate" });
+    state = projectDomainReducer(state, { type: "media-query", query: { filter: "candidate" } });
 
     expect(state.media.filter).toBe("candidate");
     expect(state.pages.media).toMatchObject({ status: "idle", items: [], nextCursor: null, mediaFilter: null });

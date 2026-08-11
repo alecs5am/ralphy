@@ -2,7 +2,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { ChevronLeft, ChevronRight, Copy, RefreshCw, X } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
-import type { ArtifactMediaCardDto, ArtifactRevisionDto, GenerationAttemptDetailDto, MediaCardDto, MediaGenerationDetailDto } from "../../../electron/ralphy/types";
+import type { ArtifactMediaCardDto, ArtifactRevisionDto, GenerationAttemptDetailDto, MediaCardDto, MediaGenerationDetailDto, RunObjectMediaCardDto } from "../../../electron/ralphy/types";
 import { mediaCardName } from "../../components/VirtualAssetGrid";
 import { AudioWaveform } from "../../components/media/AudioWaveform";
 import { ImageViewport } from "../../components/media/ImageViewport";
@@ -33,6 +33,10 @@ function formatDuration(startedAt: number | null, endedAt: number | null): strin
 
 function isArtifactMedia(card: MediaCardDto): card is ArtifactMediaCardDto {
   return card.ref.type === "artifact";
+}
+
+function isRunObjectMedia(card: MediaCardDto): card is RunObjectMediaCardDto {
+  return card.ref.type === "run-object";
 }
 
 function Facts({ rows }: { rows: Array<[string, React.ReactNode]> }) {
@@ -105,6 +109,14 @@ function GenerationInspector({ detail, state, error, onRetry }: {
   </>;
 }
 
+function RunObjectEvidence({ card }: { card: RunObjectMediaCardDto }) {
+  return <section className="run-object-evidence" aria-label="RunObject evidence"><h3>RunObject evidence</h3><Facts rows={[
+    ["Run ID", card.runId], ["Attempt", "Unlinked"], ["Purpose", card.purpose], ["State", card.state],
+    ["Retention", card.retention], ["Logical path", card.logicalPath], ["Location class", card.locationClass],
+    ["Object ID", card.objectId ?? "Not promoted"],
+  ]} /></section>;
+}
+
 function RevisionChooser({ revisions, selectedRevisionId, onSelect, onRetry }: {
   revisions: ProjectScreenSnapshot["mediaRevisions"];
   selectedRevisionId: string | null;
@@ -158,6 +170,7 @@ export function MediaViewer({ controller, snapshot }: { controller: ProjectScree
   if (snapshot.mediaViewerOpen && !wasOpenRef.current && typeof document !== "undefined") returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   wasOpenRef.current = snapshot.mediaViewerOpen;
   const restoreFocus = (): boolean => {
+    if (typeof document === "undefined") return false;
     const previous = returnFocusRef.current;
     if (previous && previous.isConnected) { previous.focus(); return true; }
     const fallback = document.querySelector<HTMLElement>(".media-card-tile [aria-pressed='true']")
@@ -206,7 +219,7 @@ export function MediaViewer({ controller, snapshot }: { controller: ProjectScree
           </div>
           <div className="asset-modal-body">
             <div className="asset-modal-stage"><motion.div className="asset-modal-content" key={`${card.ref.type}:${card.ref.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }}><ViewerPreview card={card} snapshot={snapshot} controller={controller} /></motion.div></div>
-            <aside className="asset-modal-inspector"><div className="inspector"><GenerationInspector key={`${card.ref.type}:${card.ref.id}`} detail={snapshot.mediaGeneration.value} state={snapshot.mediaGeneration.status} error={snapshot.mediaGeneration.error} onRetry={() => { void controller.retryMediaGeneration(); }} /></div></aside>
+            <aside className="asset-modal-inspector"><div className="inspector">{isRunObjectMedia(card) && <RunObjectEvidence card={card} />}<GenerationInspector key={`${card.ref.type}:${card.ref.id}`} detail={snapshot.mediaGeneration.value} state={snapshot.mediaGeneration.status} error={snapshot.mediaGeneration.error} onRetry={() => { void controller.retryMediaGeneration(); }} /></div></aside>
           </div>
         </motion.section>
       </Dialog.Content>

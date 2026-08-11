@@ -1,4 +1,4 @@
-import type { ProjectMediaFilter, ProjectReference, ProjectTab } from "../lib/ipc";
+import type { ProjectMediaFilter, ProjectMediaQuery, ProjectReference, ProjectTab } from "../../electron/media/types";
 
 type ProjectRef = ProjectReference;
 
@@ -18,7 +18,7 @@ export type ProjectDomainState = {
   generation: number;
   overview: { status: LoadStatus; value: unknown | null; error: string | null };
   pages: Record<ProjectTab, DomainPage>;
-  media: { filter: ProjectMediaFilter };
+  media: ProjectMediaQuery;
   preview: { status: LoadStatus; value: { url: string; sizeBytes: number } | null; error: string | null; requestId: string | null };
 };
 
@@ -69,7 +69,7 @@ export type ProjectDomainAction =
   | { type: "page-loading"; tab: ProjectTab; generation: number; requestId: string; mediaFilter?: ProjectMediaFilter }
   | { type: "page-ready"; tab: ProjectTab; generation: number; requestId: string; mediaFilter?: ProjectMediaFilter; append?: boolean; page: { items: DomainRow[]; nextCursor: string | number | null } }
   | { type: "page-failed"; tab: ProjectTab; generation: number; requestId: string; mediaFilter?: ProjectMediaFilter; error: string }
-  | { type: "media-filter"; filter: ProjectMediaFilter }
+  | { type: "media-query"; query: ProjectMediaQuery }
   | { type: "preview-loading"; generation: number; requestId: string }
   | { type: "preview-ready"; generation: number; requestId: string; value: { url: string; sizeBytes: number } | null }
   | { type: "preview-failed"; generation: number; requestId: string; error: string };
@@ -126,11 +126,11 @@ export function projectDomainReducer(state: ProjectDomainState, action: ProjectD
       },
     };
   }
-  if (action.type === "media-filter") {
+  if (action.type === "media-query") {
     return {
       ...state,
       pages: { ...state.pages, media: emptyPage() },
-      media: { filter: action.filter },
+      media: action.query,
       preview: { status: "idle", value: null, error: null, requestId: null },
     };
   }

@@ -32,6 +32,8 @@ function mediaCard(id: string, mime = "image/png", bytes = 2048): MediaCardDto {
   return {
     ref: { type: "object", id }, workspaceId: project.workspaceId, projectId: project.projectId,
     storageClass: "final", mime, bytes, createdAt: 1, referenceCount: 1, target: { type: "object", id },
+    mediaKind: mime.startsWith("video/") ? "video" : mime.startsWith("audio/") ? "audio" : "image",
+    provenance: "not-generation",
   };
 }
 
@@ -57,7 +59,7 @@ function tile(
   onSelect = () => undefined,
   onOpen = () => undefined,
 ) {
-  return createElement(MediaCardTile, { card, project: targetProject, rootEpoch, selected: false, resolvePreview, onSelect, onOpen });
+  return createElement(MediaCardTile, { card, project: targetProject, rootEpoch, selected: false, resolvePreview, onSelect, onOpen, onContextMenu: () => undefined });
 }
 
 function grid(
@@ -77,6 +79,8 @@ function grid(
     resolvePreview,
     onSelect,
     onOpen,
+    onContextMenu: () => undefined,
+    density: 230,
     hasMore: false,
     loadingMore: false,
     appendError: null,
@@ -488,26 +492,20 @@ describe("mounted media tiles", () => {
     } finally { await view.unmount(); }
   });
 
-  test("dispatches click, Enter, Space, double-click, Tab, and keyboard Open without nested buttons", async () => {
+  test("dispatches click, Enter, Space, double-click, and context without nested buttons", async () => {
     const onSelect = vi.fn();
     const onOpen = vi.fn();
     const view = await mounted(tile(mediaCard("accessible"), 211, async () => null, project, onSelect, onOpen));
     try {
       const selection = byLabel(view.host.container, "image/png");
-      const open = byLabel(view.host.container, "Open image/png");
       selection.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
       dispatchKey(selection, "keydown", "Enter");
       dispatchKey(selection, "keydown", " ");
       dispatchKey(selection, "keyup", " ");
       selection.dispatchEvent(new Event("dblclick", { bubbles: true, cancelable: true }));
       expect(onSelect).toHaveBeenCalledTimes(3);
-      expect(onOpen).toHaveBeenCalledOnce();
-      selection.focus();
-      dispatchKey(selection, "keydown", "Tab");
-      expect(document.activeElement).toBe(open);
-      dispatchKey(open, "keydown", "Enter");
       expect(onOpen).toHaveBeenCalledTimes(2);
-      expect(selection.findAll((node) => node.tagName === "BUTTON")).toHaveLength(1);
+      expect(view.host.container.findAll((node) => node.tagName === "BUTTON")).toHaveLength(1);
     } finally { await view.unmount(); }
   });
 });

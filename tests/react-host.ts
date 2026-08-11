@@ -1,5 +1,5 @@
 export const reactHostGlobalKeys = [
-  "window", "document", "Node", "Element", "HTMLElement", "ResizeObserver", "IntersectionObserver", "MutationObserver", "CustomEvent", "getComputedStyle", "IS_REACT_ACT_ENVIRONMENT",
+  "window", "document", "Node", "Element", "HTMLElement", "DocumentFragment", "ResizeObserver", "IntersectionObserver", "MutationObserver", "CustomEvent", "getComputedStyle", "IS_REACT_ACT_ENVIRONMENT",
 ] as const;
 
 type Listener = EventListenerOrEventListenerObject;
@@ -103,6 +103,7 @@ export class HostNode {
   remove(): void { this.parentNode?.removeChild(this); }
   get firstChild(): HostNode | null { return this.childNodes[0] ?? null; }
   get children(): HostNode[] { return this.childNodes.filter((node) => node.nodeType === 1); }
+  get options(): HostNode[] { return this.findAll((node) => node.tagName === "OPTION"); }
   get parentElement(): HostNode | null { return this.parentNode?.nodeType === 1 ? this.parentNode : null; }
   get isConnected(): boolean {
     let node: HostNode | null = this;
@@ -134,6 +135,10 @@ export class HostNode {
       if (value.startsWith("#")) return this.getAttribute("id") === value.slice(1);
       return this.tagName === value.toUpperCase();
     });
+  }
+  closest(selector: string): HostNode | null {
+    for (let node: HostNode | null = this; node; node = node.parentNode) if (node.matches(selector)) return node;
+    return null;
   }
   querySelectorAll(selector: string): HostNode[] {
     const parts = selector.trim().split(/\s+/);
@@ -202,9 +207,17 @@ export function createReactHost() {
     display: node.style.display || "block",
     visibility: node.style.visibility || "visible",
   });
+  class HostDocumentFragment extends HostNode {
+    constructor() { super(11, "#document-fragment", document); }
+  }
+  class HostSelectElement {
+    get value(): string { return (this as unknown as { selectValue?: string }).selectValue ?? ""; }
+    set value(value: string) { (this as unknown as { selectValue?: string }).selectValue = value; }
+  }
   const window = Object.assign(new EventTarget(), {
     document,
     HTMLIFrameElement: class {},
+    HTMLSelectElement: HostSelectElement,
     HTMLElement: HostNode,
     Node: HostNode,
     getComputedStyle: computedStyle,
@@ -268,7 +281,7 @@ export function createReactHost() {
   }
   const globals = globalThis as unknown as Record<string, unknown>;
   const previous = new Map(reactHostGlobalKeys.map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
-  Object.assign(globals, { window, document, Node: HostNode, Element: HostNode, HTMLElement: HostNode, ResizeObserver: HostResizeObserver, IntersectionObserver: HostIntersectionObserver, MutationObserver: HostMutationObserver, CustomEvent: HostCustomEvent, getComputedStyle: computedStyle, IS_REACT_ACT_ENVIRONMENT: true });
+  Object.assign(globals, { window, document, Node: HostNode, Element: HostNode, HTMLElement: HostNode, DocumentFragment: HostDocumentFragment, ResizeObserver: HostResizeObserver, IntersectionObserver: HostIntersectionObserver, MutationObserver: HostMutationObserver, CustomEvent: HostCustomEvent, getComputedStyle: computedStyle, IS_REACT_ACT_ENVIRONMENT: true });
   const container = new HostNode(1, "DIV", document);
   rawDocument.body.appendChild(container);
   return {

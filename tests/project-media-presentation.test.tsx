@@ -27,6 +27,8 @@ const card: MediaCardDto = {
   storageClass: "final",
   usageRoles: ["cover"],
   target: { type: "object", id: "object-1" },
+  mediaKind: "image",
+  provenance: "generation",
 };
 
 const project: ProjectSummary = {
@@ -40,6 +42,7 @@ const runObject: RunObjectMediaCardDto = {
   runId: "run-1", purpose: "diagnostic-log", state: "ready", retention: "cache", mime: "text/plain", bytes: 128,
   createdAt: 1, objectId: null, logicalPath: "runs/run-1/diagnostics.txt", locationClass: "cache",
   attemptId: null, attemptNo: null, target: { type: "run-object", id: "run-object-1" },
+  mediaKind: "document", provenance: "unknown",
 };
 
 function projectApi() {
@@ -108,6 +111,7 @@ describe("Project media presentation", () => {
       resolvePreview={async () => null}
       onSelect={() => undefined}
       onOpen={() => undefined}
+      onContextMenu={() => undefined}
     />);
     const grid = renderToStaticMarkup(<VirtualAssetGrid
       items={[card]}
@@ -117,6 +121,8 @@ describe("Project media presentation", () => {
       resolvePreview={async () => null}
       onSelect={() => undefined}
       onOpen={() => undefined}
+      onContextMenu={() => undefined}
+      density={230}
       hasMore={false}
       loadingMore={false}
       appendError={null}
@@ -127,18 +133,102 @@ describe("Project media presentation", () => {
       scrollResetToken={7}
     />);
     expect(tile).toContain('aria-label="Campaign hero, selected"');
-    expect(tile).toContain('aria-label="Open Campaign hero"');
-    expect(tile.match(/<button/g)).toHaveLength(2);
+    expect(tile).not.toContain('aria-label="Open Campaign hero"');
+    expect(tile.match(/<button/g)).toHaveLength(1);
     expect(tile).toContain("aspect-ratio:16 / 10");
-    expect(tile).toContain("Artifact · artifact-1");
+    expect(tile).toContain("Artifact · image/png");
     expect(tile).toContain("image/png · 2.0 KB · approved · cover");
     expect(grid).toContain("asset-grid-scroll");
+  });
+
+  test("full media grid keeps selection, viewer, context actions, focus, and density on one tile surface", async () => {
+    const second = { ...card, ref: { type: "artifact" as const, id: "artifact-2" }, slug: "Second asset" };
+    const api = {
+      ...projectApi(),
+      loadProjectPage: vi.fn(async () => ({ items: [card, second], nextCursor: "next-media-page" })),
+      resolveProjectPreview: vi.fn(async () => null),
+    };
+    const controller = createProjectScreenController(api as never, project);
+    await controller.selectTab("media");
+    const tilePreview = vi.spyOn(bridge, "resolveProjectPreview").mockResolvedValue(null);
+    const mediaAction = vi.spyOn(bridge, "performProjectMediaAction").mockResolvedValue();
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    const contextMenu = (target: HostNode, x = 120, y = 140) => {
+      const event = new Event("contextmenu", { bubbles: true, cancelable: true });
+      Object.defineProperties(event, { clientX: { value: x }, clientY: { value: y } });
+      target.dispatchEvent(event);
+    };
+    try {
+      await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); await Promise.resolve(); });
+      const first = button(host.container, "Campaign hero");
+      const secondTile = button(host.container, "Second asset");
+      api.resolveProjectPreview.mockClear();
+
+      await act(async () => { first.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })); await Promise.resolve(); });
+      expect(controller.getSnapshot().selectedMedia).toEqual(card);
+      expect(controller.getSnapshot().mediaViewerOpen).toBe(false);
+      expect(api.resolveProjectPreview).not.toHaveBeenCalled();
+
+      await act(async () => { secondTile.dispatchEvent(new Event("dblclick", { bubbles: true, cancelable: true })); await Promise.resolve(); });
+      expect(controller.getSnapshot().mediaViewerOpen).toBe(true);
+      await act(async () => { controller.closeMediaViewer(); await Promise.resolve(); });
+
+      await act(async () => { keydown(secondTile, " "); await Promise.resolve(); });
+      expect(controller.getSnapshot().selectedMedia).toEqual(second);
+      await act(async () => { keydown(first, "Enter"); await Promise.resolve(); });
+      expect(controller.getSnapshot().mediaViewerOpen).toBe(true);
+      await act(async () => { controller.closeMediaViewer(); await Promise.resolve(); });
+
+      await act(async () => { contextMenu(secondTile); await Promise.resolve(); await Promise.resolve(); });
+      expect(controller.getSnapshot().selectedMedia).toEqual(second);
+      let menu = host.container.querySelector(".asset-context-menu")!;
+      expect(menu).toBeDefined();
+      expect(menu.querySelectorAll("button").map((item) => item.textContent)).toEqual(["Preview", "Open externally", "Reveal in Finder", "Copy file"]);
+      expect(menu.textContent).not.toContain("Trash");
+      expect(menu.style.left).toBe("120px");
+      expect(menu.style.top).toBe("140px");
+
+      await act(async () => { textButton(menu, "Preview").dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); });
+      expect(controller.getSnapshot().mediaViewerOpen).toBe(true);
+      await act(async () => { controller.closeMediaViewer(); await Promise.resolve(); });
+      for (const [label, action] of [["Open externally", "open"], ["Reveal in Finder", "finder"], ["Copy file", "copy"]] as const) {
+        await act(async () => { contextMenu(secondTile); await Promise.resolve(); });
+        menu = host.container.querySelector(".asset-context-menu")!;
+        await act(async () => { textButton(menu, label).dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); });
+        expect(mediaAction).toHaveBeenLastCalledWith({ workspaceId: "workspace-1", projectId: "project-1" }, second.ref, action);
+      }
+
+      await act(async () => { contextMenu(secondTile); await Promise.resolve(); await Promise.resolve(); });
+      await act(async () => { keydown(globalThis.document, "Escape"); await Promise.resolve(); });
+      expect(host.container.querySelector(".asset-context-menu")).toBeNull();
+      expect(globalThis.document.activeElement).toBe(secondTile);
+      await act(async () => { contextMenu(secondTile); await Promise.resolve(); });
+      await act(async () => { globalThis.document.dispatchEvent(new Event("mousedown", { bubbles: true, cancelable: true })); await Promise.resolve(); });
+      expect(host.container.querySelector(".asset-context-menu")).toBeNull();
+      expect(globalThis.document.activeElement).toBe(secondTile);
+
+      expect(host.container.querySelectorAll(".asset-grid-scroll")).toHaveLength(1);
+      expect(host.container.querySelector(".project-preview")).toBeNull();
+      expect(host.container.findAll((node) => node.tagName === "BUTTON" && node.getAttribute("aria-label") === "Open Campaign hero")).toHaveLength(0);
+      const slider = host.container.findAll((node) => node.getAttribute("role") === "slider" && node.getAttribute("aria-label") === "Grid density")[0];
+      const columns = () => host.container.querySelector(".virtual-asset-row")!.style.gridTemplateColumns;
+      await act(async () => { keydown(slider, "Home"); await Promise.resolve(); });
+      expect(columns()).toContain("repeat(4");
+      await act(async () => { keydown(slider, "End"); await Promise.resolve(); });
+      expect(columns()).toContain("repeat(2");
+    } finally {
+      await act(async () => { root.unmount(); await Promise.resolve(); });
+      mediaAction.mockRestore();
+      tilePreview.mockRestore();
+      host.restore();
+    }
   });
 
   test("renders only literal safe RunObject evidence and keeps the logical path inert", async () => {
     const controller = createProjectScreenController(projectApi(), project);
     await controller.selectTab("media");
-    await controller.openMedia({
+    await controller.openMediaViewer({
       ...runObject,
       path: "/private/raw/path",
       hash: "secret-hash",
@@ -147,18 +237,25 @@ describe("Project media presentation", () => {
       response: { secret: "response-body" },
       error: { secret: "error-body" },
     } as RunObjectMediaCardDto);
-
-    const markup = renderToStaticMarkup(<ProjectScreenView project={project} controller={controller} snapshot={controller.getSnapshot()} />);
-    expect(markup).toContain("RunObject evidence");
-    expect(markup).toContain("run-1");
-    expect(markup).toContain("Attempt</dt><dd>Unlinked");
-    expect(markup).toContain("diagnostic-log");
-    expect(markup).toContain("ready");
-    expect(markup).toContain("cache");
-    expect(markup).toContain("runs/run-1/diagnostics.txt");
-    expect(markup).toContain("Not promoted");
-    expect(markup).not.toMatch(/href="runs\/run-1\/diagnostics\.txt|<button[^>]*>runs\/run-1\/diagnostics\.txt/);
-    expect(markup).not.toMatch(/private\/raw|secret-hash|secret-provider|request-body|response-body|error-body/);
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
+      const dialog = (globalThis.document.body as unknown as HostNode).findAll((node) => node.getAttribute("role") === "dialog")[0];
+      expect(dialog.textContent).toContain("RunObject evidence");
+      expect(dialog.textContent).toContain("run-1");
+      expect(dialog.textContent).toContain("AttemptUnlinked");
+      expect(dialog.textContent).toContain("diagnostic-log");
+      expect(dialog.textContent).toContain("ready");
+      expect(dialog.textContent).toContain("cache");
+      expect(dialog.textContent).toContain("runs/run-1/diagnostics.txt");
+      expect(dialog.textContent).toContain("Not promoted");
+      expect(dialog.findAll((node) => node.getAttribute("href") === "runs/run-1/diagnostics.txt" || (node.tagName === "BUTTON" && node.textContent === "runs/run-1/diagnostics.txt"))).toHaveLength(0);
+      expect(dialog.textContent).not.toMatch(/private\/raw|secret-hash|secret-provider|request-body|response-body|error-body/);
+    } finally {
+      await act(async () => { root.unmount(); await Promise.resolve(); });
+      host.restore();
+    }
   });
 
   test("does not treat an Artifact with an incidental runId as a RunObject", async () => {
@@ -166,7 +263,7 @@ describe("Project media presentation", () => {
     const api = { ...projectApi(), loadProjectPage: async () => ({ items: [adversarial], nextCursor: null }) };
     const controller = createProjectScreenController(api, project);
     await controller.selectTab("media");
-    await controller.openMedia(adversarial);
+    await controller.openMediaViewer(adversarial);
 
     const markup = renderToStaticMarkup(<ProjectScreenView project={project} controller={controller} snapshot={controller.getSnapshot()} />);
     expect(markup).not.toContain("RunObject evidence");
@@ -221,9 +318,9 @@ describe("Project media presentation", () => {
     const root = createRoot(host.container as unknown as Element);
     try {
       await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
-      const opener = button(host.container, "Open diagnostic-log");
+      const opener = button(host.container, "diagnostic-log");
       opener.focus();
-      await act(async () => { opener.dispatchEvent(new Event("click", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
+      await act(async () => { opener.dispatchEvent(new Event("dblclick", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
 
       expect(controller.getSnapshot().mediaViewerOpen).toBe(true);
       const body = globalThis.document.body as unknown as HostNode;
@@ -337,7 +434,7 @@ describe("Project media presentation", () => {
     const root = createRoot(host.container as unknown as Element);
     try {
       await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
-      await act(async () => { button(host.container, "Open diagnostic-log").dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); });
+      await act(async () => { button(host.container, "diagnostic-log").dispatchEvent(new Event("dblclick", { bubbles: true })); await Promise.resolve(); });
       const dialog = (globalThis.document.body as unknown as HostNode).findAll((node) => node.getAttribute("role") === "dialog")[0];
       const attempts = dialog.findAll((node) => node.getAttribute("class") === "generation-attempt");
       const attempt = (number: number) => attempts.find((node) => node.textContent.startsWith(`Attempt ${number}`))!;
@@ -386,7 +483,7 @@ describe("Project media presentation", () => {
     const root = createRoot(host.container as unknown as Element);
     try {
       await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
-      await act(async () => { button(host.container, "Open diagnostic-log").dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); });
+      await act(async () => { button(host.container, "diagnostic-log").dispatchEvent(new Event("dblclick", { bubbles: true })); await Promise.resolve(); });
       const body = globalThis.document.body as unknown as HostNode;
       expect(body.findAll((node) => node.getAttribute("role") === "status").map((node) => node.textContent)).toEqual(expect.arrayContaining(["Loading preview…", "Loading generation details…"]));
 
@@ -418,13 +515,13 @@ describe("Project media presentation", () => {
     const root = createRoot(host.container as unknown as Element);
     try {
       await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
-      const opener = button(host.container, "Open diagnostic-log");
+      const opener = button(host.container, "diagnostic-log");
       opener.focus();
-      await act(async () => { opener.dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); });
+      await act(async () => { opener.dispatchEvent(new Event("dblclick", { bubbles: true })); await Promise.resolve(); });
       const dialog = (globalThis.document.body as unknown as HostNode).findAll((node) => node.getAttribute("role") === "dialog")[0];
       expect(globalThis.document.activeElement).toBe(dialog);
 
-      await act(async () => { textButton(host.container, "References").dispatchEvent(new Event("click", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
+      await act(async () => { await controller.setMediaQuery({ filter: "references" }); await new Promise((resolve) => setTimeout(resolve, 0)); });
 
       const mediaTab = host.container.findAll((node) => node.getAttribute("data-media-focus-fallback") === "true")[0];
       expect(mediaTab).toBeDefined();
@@ -448,9 +545,9 @@ describe("Project media presentation", () => {
     const root = createRoot(host.container as unknown as Element);
     try {
       await act(async () => { root.render(<MountedProject key="root-1" controller={first} />); await Promise.resolve(); });
-      const opener = button(host.container, "Open diagnostic-log");
+      const opener = button(host.container, "diagnostic-log");
       opener.focus();
-      await act(async () => { opener.dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); });
+      await act(async () => { opener.dispatchEvent(new Event("dblclick", { bubbles: true })); await Promise.resolve(); });
       const removedDialog = (globalThis.document.body as unknown as HostNode).findAll((node) => node.getAttribute("role") === "dialog")[0];
       expect(globalThis.document.activeElement).toBe(removedDialog);
 
@@ -489,7 +586,7 @@ describe("Project media presentation", () => {
     const root = createRoot(host.container as unknown as Element);
     try {
       await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
-      await act(async () => { button(host.container, "Open Campaign hero").dispatchEvent(new Event("click", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
+      await act(async () => { button(host.container, "Campaign hero").dispatchEvent(new Event("dblclick", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
       const body = globalThis.document.body as unknown as HostNode;
       expect(body.textContent).toContain("Select a revision");
       expect(body.textContent).toContain("Revision 1 · approved");

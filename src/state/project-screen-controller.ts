@@ -1,6 +1,6 @@
 import type { ArtifactMediaCardDto, ArtifactRevisionDto, DocumentDetailDto, DocumentDto, DocumentSearchDto, JsonValue, MediaCardDto, MediaGenerationDetailDto, MediaGenerationTarget, UnitDto, UnitItemDto, UnitPresentationDto, UnitRevisionDto } from "../../electron/ralphy/types";
 import type { CompositionAggregate, CompositionOutputPreview } from "../../electron/ralphy/project-reader";
-import type { MediaWorkbenchBridge, ProjectMediaFilter, ProjectSummary, ProjectTab } from "../../electron/media/types";
+import type { MediaWorkbenchBridge, ProjectMediaQuery, ProjectSummary, ProjectTab } from "../../electron/media/types";
 import { createProjectDomainState, projectDomainReducer, type DomainRow, type ProjectDomainState } from "./project-domain";
 
 export type ProjectView = "overview" | ProjectTab;
@@ -82,7 +82,7 @@ export interface ProjectScreenController {
   setDocumentDraftTitle(title: string): void;
   setDocumentDraftFormat(format: DocumentDraft["format"]): void;
   saveDocument(): Promise<void>;
-  openMedia(card: MediaCardDto): Promise<void>;
+  selectMedia(card: MediaCardDto): void;
   openMediaViewer(card: MediaCardDto): Promise<void>;
   closeMediaViewer(): void;
   navigateMediaViewer(delta: number): Promise<void>;
@@ -90,7 +90,7 @@ export interface ProjectScreenController {
   retryMediaGeneration(): Promise<void>;
   retryMediaRevisions(): Promise<void>;
   selectMediaRevision(revisionId: string): Promise<void>;
-  setMediaFilter(filter: ProjectMediaFilter): Promise<void>;
+  setMediaQuery(patch: Partial<ProjectMediaQuery>): Promise<void>;
   openComposition(compositionId: string): Promise<void>;
   inspectCompositionRevision(revisionId: string): void;
   previewCompositionOutput(artifactRevisionId: string): Promise<void>;
@@ -213,11 +213,12 @@ export function createProjectScreenController(
     const generation = snapshot.domain.generation;
     const page = snapshot.domain.pages[tab];
     const requestId = `page-${++request}`;
-    const mediaFilter = tab === "media" ? snapshot.domain.media.filter : undefined;
+    const mediaQuery = tab === "media" ? snapshot.domain.media : undefined;
+    const mediaFilter = mediaQuery?.filter;
     const projectRef = snapshot.domain.project;
     reduce({ type: "page-loading", tab, generation, requestId, mediaFilter });
     try {
-      const value = await api.loadProjectPage({ tab, project: projectRef, ...(append ? { cursor: page.nextCursor } : {}), ...(mediaFilter ? { mediaQuery: { filter: mediaFilter } } : {}) });
+      const value = await api.loadProjectPage({ tab, project: projectRef, ...(append ? { cursor: page.nextCursor } : {}), ...(mediaQuery ? { mediaQuery } : {}) });
       if (disposed) return;
       reduce({ type: "page-ready", tab, generation, requestId, mediaFilter, append, page: value as { items: DomainRow[]; nextCursor: string | number | null } });
       if (tab === "compositions" && !append && snapshot.domain.pages.compositions.requestId === requestId) {
@@ -789,20 +790,9 @@ export function createProjectScreenController(
         emit({ ...snapshot, documentSaving: false, documentConflict: errorMessage(error), documentConflictReview: false });
       }
     },
-    async openMedia(card) {
-      const generation = snapshot.domain.generation;
-      const id = ++mediaPreviewRequest;
-      const requestId = `preview-${id}`;
-      emit({ ...snapshot, selectedMedia: card });
-      reduce({ type: "preview-loading", generation, requestId });
-      try {
-        const value = await api.resolveProjectPreview(snapshot.domain.project, card.ref);
-        if (disposed || id !== mediaPreviewRequest || !sameMedia(snapshot.selectedMedia, card)) return;
-        reduce({ type: "preview-ready", generation, requestId, value });
-      } catch (error) {
-        if (disposed || id !== mediaPreviewRequest || !sameMedia(snapshot.selectedMedia, card)) return;
-        reduce({ type: "preview-failed", generation, requestId, error: errorMessage(error) });
-      }
+    selectMedia(card) {
+      const loaded = loadedMedia(card);
+      if (loaded) emit({ ...snapshot, selectedMedia: loaded });
     },
     async openMediaViewer(card) {
       const loaded = loadedMedia(card);
@@ -874,13 +864,16 @@ export function createProjectScreenController(
         }
       }
     },
-    async setMediaFilter(filter) {
-      if (filter === snapshot.domain.media.filter) return;
+    async setMediaQuery(patch) {
+      const query: ProjectMediaQuery = { ...snapshot.domain.media, ...patch, filter: patch.filter ?? snapshot.domain.media.filter };
+      if (Object.hasOwn(patch, "mediaKind") && patch.mediaKind === undefined) delete query.mediaKind;
+      if (Object.hasOwn(patch, "provenance") && patch.provenance === undefined) delete query.provenance;
+      if (JSON.stringify(query) === JSON.stringify(snapshot.domain.media)) return;
       mediaPreviewRequest += 1;
       mediaGenerationRequest += 1;
       mediaRevisionRequest += 1;
       emit({ ...snapshot, selectedMedia: null, mediaViewerOpen: false, mediaGeneration: { status: "idle", value: null, error: null }, mediaRevisions: { status: "idle", items: [], error: null } });
-      reduce({ type: "media-filter", filter });
+      reduce({ type: "media-query", query });
       if (snapshot.activeTab === "media") await loadPage("media");
     },
     async openComposition(compositionId) {

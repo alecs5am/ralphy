@@ -35,8 +35,10 @@ const overview: ProjectOverviewDto = {
 
 function projectMedia(id: string): MediaCardDto {
   return {
-    ref: { type: "object", id }, workspaceId: project.workspaceId, projectId: project.projectId,
-    storageClass: "final", mime: "image/png", bytes: 12, createdAt: 1, referenceCount: 1,
+    ref: { type: "artifact", id }, workspaceId: project.workspaceId, projectId: project.projectId,
+    slug: id, kind: "image", selectedRevisionId: `revision-${id}`, selectedState: "approved",
+    storageClass: "final", mime: "image/png", bytes: 12, selectedAt: 1, revisionCount: 1,
+    selectedObjectId: `object-${id}`, usageRoles: [], mediaKind: "image", provenance: "not-generation",
     target: { type: "object", id },
   };
 }
@@ -107,14 +109,14 @@ function createController(api: ReturnType<typeof createApi>, activitySequence = 
       openDocument(document: unknown): Promise<void>;
       beginDocumentEdit(): void;
       setDocumentDraftBody(body: string): void;
-      openMedia(card: MediaCardDto): Promise<void>;
+      selectMedia(card: MediaCardDto): void;
       openMediaViewer(card: MediaCardDto): Promise<void>;
       closeMediaViewer(): void;
       navigateMediaViewer(delta: number): Promise<void>;
       retryMediaGeneration(): Promise<void>;
       retryMediaRevisions(): Promise<void>;
       selectMediaRevision(revisionId: string): Promise<void>;
-      setMediaFilter(filter: string): Promise<void>;
+      setMediaQuery(patch: { filter?: string; mediaKind?: string; provenance?: string }): Promise<void>;
       openUnit(unitId: string): Promise<void>;
       loadMoreUnitRevisions(): Promise<void>;
       inspectUnitRevision(revisionId: string): Promise<void>;
@@ -496,7 +498,7 @@ describe("ProjectScreen behavior", () => {
     await controller.selectTab("media");
     const opening = controller.openMediaViewer(selected);
 
-    await controller.setMediaFilter("approved");
+    await controller.setMediaQuery({ filter: "approved" });
     preview.resolve({ url: "ralphy-media://asset/late", sizeBytes: 12 });
     generation.resolve({ status: "unknown", target: { type: "artifact-revision", id: "revision-1" }, reason: "not-recorded" });
     revisions.resolve({ items: [], nextCursor: null });
@@ -1162,7 +1164,7 @@ describe("ProjectScreen behavior", () => {
 
     await controller.selectTab("media");
     const stale = controller.loadMore("media");
-    await controller.setMediaFilter("candidate");
+    await controller.setMediaQuery({ filter: "candidate" });
     oldAppend.resolve({ items: [{ ref: { type: "object", id: "stale" } }], nextCursor: null });
     await stale;
     expect(controller.getSnapshot().domain.pages.media.items).toEqual([{ ref: { type: "object", id: "candidate" } }]);
@@ -1221,18 +1223,14 @@ describe("ProjectScreen behavior", () => {
     };
     const api = createApi();
     api.loadProjectPage.mockResolvedValue({ items: [unselected, selected], nextCursor: null });
-    api.resolveProjectPreview
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ url: "ralphy-media://asset/token", sizeBytes: 12 });
+    api.resolveProjectPreview.mockResolvedValue({ url: "ralphy-media://asset/token", sizeBytes: 12 });
     const controller = createController(api);
 
     await controller.selectTab("media");
-    await controller.openMedia(unselected);
-    expect(renderController(controller)).toContain("Preview needs review");
-    await controller.openMedia(selected);
-    const markup = renderController(controller);
-    expect(markup).toContain("ralphy-media://asset/token");
-    expect(markup).toContain('alt="Hero"');
+    await controller.openMediaViewer(unselected);
+    expect(controller.getSnapshot().domain.preview).toMatchObject({ status: "idle", value: null });
+    await controller.openMediaViewer(selected);
+    expect(controller.getSnapshot().domain.preview).toMatchObject({ status: "ready", value: { url: "ralphy-media://asset/token" } });
   });
 
   test("shows literal unlinked RunObject evidence without another domain request", async () => {
@@ -1248,10 +1246,8 @@ describe("ProjectScreen behavior", () => {
     const controller = createController(api);
 
     await controller.selectTab("media");
-    await controller.openMedia(runObject);
-    const markup = renderController(controller);
-    expect(markup).toContain("Attempt</dt><dd>Unlinked");
-    expect(markup).toContain("object-1");
+    await controller.openMediaViewer(runObject);
+    expect(controller.getSnapshot().selectedMedia).toEqual(runObject);
     expect(api.resolveProjectPreview).toHaveBeenCalledWith({ workspaceId: "workspace-1", projectId: "project-1" }, { type: "run-object", id: "run-object-1" });
   });
 
@@ -1265,7 +1261,7 @@ describe("ProjectScreen behavior", () => {
     const controller = createController(api);
 
     const selecting = controller.selectTab("media");
-    const switching = controller.setMediaFilter("candidate");
+    const switching = controller.setMediaQuery({ filter: "candidate" });
     candidate.resolve({ items: [{ ref: { type: "artifact", id: "candidate-1" } } as MediaCardDto], nextCursor: null });
     await switching;
     all.resolve({ items: [{ ref: { type: "artifact", id: "stale-1" } } as MediaCardDto], nextCursor: null });
@@ -1287,10 +1283,10 @@ describe("ProjectScreen behavior", () => {
     api.resolveProjectPreview.mockResolvedValue({ url: "ralphy-media://asset/one", sizeBytes: 12 });
     const controller = createController(api);
     await controller.selectTab("media");
-    await controller.openMedia(selected);
-    expect(controller.getSnapshot()).toMatchObject({ selectedMedia: selected, domain: { preview: { status: "ready" } } });
+    controller.selectMedia(selected);
+    expect(controller.getSnapshot()).toMatchObject({ selectedMedia: selected, domain: { preview: { status: "idle" } } });
 
-    const switching = controller.setMediaFilter("candidate");
+    const switching = controller.setMediaQuery({ filter: "candidate" });
     expect(controller.getSnapshot()).toMatchObject({ selectedMedia: null, domain: { preview: { status: "idle", value: null } } });
     candidate.resolve({ items: [], nextCursor: null });
     await switching;
@@ -1306,7 +1302,7 @@ describe("ProjectScreen behavior", () => {
     const controller = createController(api);
 
     const selecting = controller.selectTab("media");
-    const switching = controller.setMediaFilter("candidate");
+    const switching = controller.setMediaQuery({ filter: "candidate" });
     all.reject(new Error("stale"));
     await selecting;
     expect(controller.getSnapshot().domain.pages.media).toMatchObject({ status: "loading", error: null, mediaFilter: "candidate" });
@@ -1324,7 +1320,7 @@ describe("ProjectScreen behavior", () => {
     const controller = createController(api);
 
     await controller.selectTab("media");
-    await controller.setMediaFilter("candidate");
+    await controller.setMediaQuery({ filter: "candidate" });
     await controller.loadMore("media");
     expect(api.loadProjectPage).toHaveBeenNthCalledWith(3, { tab: "media", project: { workspaceId: "workspace-1", projectId: "project-1" }, cursor: "candidate-next", mediaQuery: { filter: "candidate" } });
     expect(controller.getSnapshot().domain.pages.media).toMatchObject({ status: "error", items: [{ ref: { type: "artifact", id: "one" } }], nextCursor: "candidate-next", mediaFilter: "candidate" });
@@ -1338,8 +1334,47 @@ describe("ProjectScreen behavior", () => {
     const controller = createController(api);
     await controller.selectTab("media");
 
-    const labels = [...renderController(controller).matchAll(/aria-pressed="(?:true|false)"[^>]*>([^<]+)<\/button>/g)].map((match) => match[1]);
-    expect(labels).toEqual(["All", "References", "Working", "Candidate", "Approved", "Rejected", "Superseded", "Run diagnostics", "Cache/temp RunObjects", "Advanced Objects"]);
+    const markup = renderController(controller);
+    expect(markup.match(/role="combobox"/g)).toHaveLength(3);
+    expect(markup).toContain('aria-label="Lifecycle or source"');
+    expect(markup).toContain('aria-label="Media type"');
+    expect(markup).toContain('aria-label="Generation provenance"');
+    expect(markup).not.toContain("filter-chip");
+  });
+
+  test("full media grid forwards all Core query axes, clears selection, and keeps the returned page authoritative", async () => {
+    const selected = projectMedia("selected");
+    const returned = { ...projectMedia("returned-image"), mediaKind: "image" as const, provenance: "not-generation" as const };
+    const api = createApi();
+    api.loadProjectPage.mockResolvedValueOnce({ items: [selected], nextCursor: null }).mockResolvedValueOnce({ items: [returned], nextCursor: "next-video" });
+    const controller = createController(api) as any;
+    await controller.selectTab("media");
+    controller.selectMedia(selected);
+    api.loadProjectPage.mockClear();
+
+    await controller.setMediaQuery({ filter: "approved", mediaKind: "video", provenance: "generation" });
+
+    expect(api.loadProjectPage).toHaveBeenCalledOnce();
+    expect(api.loadProjectPage).toHaveBeenCalledWith({
+      tab: "media",
+      project: { workspaceId: "workspace-1", projectId: "project-1" },
+      mediaQuery: { filter: "approved", mediaKind: "video", provenance: "generation" },
+    });
+    expect(controller.getSnapshot()).toMatchObject({
+      selectedMedia: null,
+      mediaViewerOpen: false,
+      domain: {
+        media: { filter: "approved", mediaKind: "video", provenance: "generation" },
+        pages: { media: { items: [returned], nextCursor: "next-video" } },
+      },
+    });
+
+    await controller.setMediaQuery({ mediaKind: undefined, provenance: "unknown" });
+    expect(api.loadProjectPage).toHaveBeenLastCalledWith({
+      tab: "media",
+      project: { workspaceId: "workspace-1", projectId: "project-1" },
+      mediaQuery: { filter: "approved", provenance: "unknown" },
+    });
   });
 
   test("automatic cursor clears unmounted Media scroll after a root reset", async () => {
@@ -1386,51 +1421,44 @@ describe("ProjectScreen behavior", () => {
 
   test("automatic cursor clears Media scroll when a filter reset unmounts the grid", async () => {
     const candidate = deferred<{ items: MediaCardDto[]; nextCursor: null }>();
-    const loadOverview = vi.spyOn(bridge, "loadProjectOverview").mockResolvedValue(overview);
-    const loadPage = vi.spyOn(bridge, "loadProjectPage").mockImplementation(({ mediaQuery }) => (
+    const api = createApi();
+    api.loadProjectPage.mockImplementation(({ mediaQuery }) => (
       mediaQuery?.filter === "candidate"
         ? candidate.promise
         : Promise.resolve({ items: projectMediaPage("all-scroll"), nextCursor: null })
     ));
-    const resolvePreview = vi.spyOn(bridge, "resolveProjectPreview").mockResolvedValue(null);
+    const controller = createController(api);
+    await controller.selectTab("media");
+    const View = screen.ProjectScreenView;
+    let scrollMemory = new Map<string, number>();
     const host = createReactHost();
     const { createRoot } = await import("react-dom/client");
     const root = createRoot(host.container as unknown as Element);
-    const ProjectScreen = screen.ProjectScreen;
+    const render = () => <View project={project} rootEpoch={1} controller={controller as never} snapshot={controller.getSnapshot()} scrollMemory={scrollMemory} />;
 
     try {
-      await act(async () => {
-        root.render(<ProjectScreen project={project} rootEpoch={1} activitySequence={0} />);
-        await Promise.resolve();
-        await Promise.resolve();
-      });
-      const overviewOwner = host.container.querySelector(".project-domain-body")!;
-      overviewOwner.scrollTop = 180;
-      await act(async () => overviewOwner.dispatchEvent(new Event("scroll")));
-      await clickButton(host.container, "Media");
+      await act(async () => { root.render(render()); await Promise.resolve(); });
       const owner = host.container.querySelector(".asset-grid-scroll")!;
       expect(Number.parseFloat(owner.querySelector(".virtual-grid-space")!.style.height)).toBeGreaterThan(owner.clientHeight);
       owner.scrollTop = 1_400;
       await act(async () => { owner.dispatchEvent(new Event("scroll")); await Promise.resolve(); });
       expect(owner.querySelectorAll(".media-card-tile").some((tile) => tile.textContent.includes("all-scroll-0"))).toBe(false);
 
-      await clickButton(host.container, "Candidate");
+      const switching = controller.setMediaQuery({ filter: "candidate" });
+      scrollMemory = new Map<string, number>();
+      await act(async () => { root.render(render()); await Promise.resolve(); });
       expect(host.container.querySelector(".asset-grid-scroll")).toBeNull();
       await act(async () => {
         candidate.resolve({ items: projectMediaPage("candidate-scroll"), nextCursor: null });
-        await candidate.promise;
+        await switching;
+        root.render(render());
         await Promise.resolve();
       });
       const resetOwner = host.container.querySelector(".asset-grid-scroll")!;
       expect(resetOwner.scrollTop).toBe(0);
       expect(resetOwner.querySelectorAll(".media-card-tile").some((tile) => tile.textContent.includes("candidate-scroll-0"))).toBe(true);
-      await clickButton(host.container, "Overview");
-      expect(host.container.querySelector(".project-domain-body")!.scrollTop).toBe(180);
     } finally {
       await act(async () => root.unmount());
-      loadOverview.mockRestore();
-      loadPage.mockRestore();
-      resolvePreview.mockRestore();
       host.restore();
     }
   });
