@@ -127,9 +127,6 @@
 
   .pill,
   .dot,
-  .filter-chip,
-  .filter-select-chip,
-  .filter-count,
   .project-facts > span,
   .tag-list button,
   .library-mark,
@@ -142,7 +139,6 @@
   .asset-modal-surface,
   .select-menu-content,
   .select-menu-trigger,
-  .project-preview,
   .workspace-project-card,
   .bottom-panel,
   .utility-right-panel,
