@@ -138,6 +138,29 @@ describe("Documents panel", () => {
     }
   });
 
+  test("keeps a truncated bounded preview read-only", async () => {
+    const api = createApi();
+    api.loadDocumentPreview.mockResolvedValue({ revisionId: "revision-3", format: "markdown", text: "# Partial body", truncated: true });
+    const controller = createController(api);
+    await controller.selectTab("documents");
+    await controller.openDocument(document);
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
+      expect(textButton(host.container, "Edit").disabled).toBe(true);
+      expect(host.container.textContent).toMatch(/bounded preview is read-only/i);
+      controller.beginDocumentEdit();
+      await controller.saveDocument();
+      expect(controller.getSnapshot()).toMatchObject({ documentMode: "read", documentDraft: null, documentDirty: false });
+      expect(api.reviseProjectDocument).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
   test("keeps the local draft and reloads the current head after E_CONFLICT without retrying", async () => {
     const api = createApi();
     api.reviseProjectDocument.mockRejectedValue({ code: "E_CONFLICT", message: "Document head conflict" });
@@ -394,6 +417,112 @@ describe("Documents panel", () => {
       documentSaving: false,
     });
   });
+
+  test("cancels the old draft before a confirmed ordinary document open settles", async () => {
+    const shown = deferred<typeof document>();
+    const second = { ...document, id: "document-2", title: "Second document", currentRevisionId: "revision-b", currentRevision: { ...document.currentRevision, id: "revision-b", documentId: "document-2" } };
+    const api = createApi();
+    api.loadProjectPage.mockResolvedValue({ items: [document, second], nextCursor: null });
+    api.showProjectDocument
+      .mockResolvedValueOnce(document)
+      .mockReturnValueOnce(shown.promise);
+    const controller = createController(api);
+    await controller.selectTab("documents");
+    await controller.openDocument(document);
+    controller.beginDocumentEdit();
+    controller.setDocumentDraftBody("# Discard me");
+    const host = createReactHost();
+    const confirm = vi.fn(() => true);
+    Object.assign(globalThis.window, { confirm });
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
+      await click(textButton(host.container, "Second document"));
+      expect(confirm).toHaveBeenCalledOnce();
+      expect(controller.getSnapshot()).toMatchObject({ documentMode: "read", documentDraft: null, documentDirty: false });
+      expect(host.container.querySelector(".document-editor")).toBeNull();
+      await controller.saveDocument();
+      expect(api.reviseProjectDocument).not.toHaveBeenCalled();
+      await act(async () => {
+        shown.resolve(second);
+        await vi.waitFor(() => expect(controller.getSnapshot().selectedDocument?.id).toBe("document-2"));
+      });
+    } finally {
+      shown.resolve(second);
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
+  test("cancels a clean editor before a different ordinary document open settles", async () => {
+    const shown = deferred<typeof document>();
+    const second = { ...document, id: "document-2", title: "Second document", currentRevisionId: "revision-b", currentRevision: { ...document.currentRevision, id: "revision-b", documentId: "document-2" } };
+    const api = createApi();
+    api.loadProjectPage.mockResolvedValue({ items: [document, second], nextCursor: null });
+    api.showProjectDocument
+      .mockResolvedValueOnce(document)
+      .mockReturnValueOnce(shown.promise);
+    const controller = createController(api);
+    await controller.selectTab("documents");
+    await controller.openDocument(document);
+    controller.beginDocumentEdit();
+    const host = createReactHost();
+    const confirm = vi.fn(() => true);
+    Object.assign(globalThis.window, { confirm });
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
+      await click(textButton(host.container, "Second document"));
+      expect(confirm).not.toHaveBeenCalled();
+      expect(controller.getSnapshot()).toMatchObject({ documentMode: "read", documentDraft: null, documentDirty: false });
+      expect(host.container.querySelector(".document-editor")).toBeNull();
+      controller.setDocumentDraftBody("# Late edit");
+      await controller.saveDocument();
+      expect(api.reviseProjectDocument).not.toHaveBeenCalled();
+      await act(async () => {
+        shown.resolve(second);
+        await vi.waitFor(() => expect(controller.getSnapshot().selectedDocument?.id).toBe("document-2"));
+      });
+    } finally {
+      shown.resolve(second);
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
+  test("keeps a rejected confirmed search-result open out of the discarded editor", async () => {
+    const secondResult = { ...result, documentId: "document-2", revisionId: "revision-b", documentTitle: "Second result" };
+    const api = createApi();
+    api.searchProjectDocuments.mockResolvedValue({ items: [secondResult], nextCursor: null });
+    api.showProjectDocument
+      .mockResolvedValueOnce(document)
+      .mockRejectedValueOnce(new Error("show failed"));
+    const controller = createController(api);
+    await controller.selectTab("documents");
+    await controller.openDocument(document);
+    controller.beginDocumentEdit();
+    controller.setDocumentDraftBody("# Discard me");
+    await controller.searchDocuments("second");
+    const host = createReactHost();
+    const confirm = vi.fn(() => true);
+    Object.assign(globalThis.window, { confirm });
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
+      await click(textButton(host.container, "Second result"));
+      await vi.waitFor(() => expect(controller.getSnapshot().documentPreview.status).toBe("error"));
+      expect(confirm).toHaveBeenCalledOnce();
+      expect(controller.getSnapshot()).toMatchObject({ documentMode: "read", documentDraft: null, documentDirty: false });
+      expect(host.container.querySelector(".document-editor")).toBeNull();
+      expect(api.reviseProjectDocument).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
 });
 
 describe("documents workbench", () => {
@@ -480,6 +609,10 @@ describe("documents workbench", () => {
       expect(master).not.toBeNull();
       expect(detail).not.toBeNull();
       expect(master).not.toBe(detail);
+      expect(master.getAttribute("role")).toBe("region");
+      expect(master.getAttribute("aria-label")).toBe("Documents");
+      expect(detail.tagName).toBe("SECTION");
+      expect(detail.getAttribute("aria-label")).toBe("Document detail");
       expect(host.container.querySelectorAll(".document-row").length).toBeLessThan(documents.length);
       expect(host.intersectionObservers[0]?.root).toBe(master);
 

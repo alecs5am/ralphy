@@ -719,7 +719,7 @@ export function createProjectScreenController(
     beginDocumentEdit() {
       if (!snapshot.selectedDocument || snapshot.documentMode === "edit") return;
       const preview = snapshot.documentPreview.value;
-      if (snapshot.selectedDocument.currentRevisionId && (!preview || snapshot.documentPreview.status !== "ready")) return;
+      if (snapshot.selectedDocument.currentRevisionId && (!preview || preview.truncated || snapshot.documentPreview.status !== "ready")) return;
       const format = preview?.format;
       const base: DocumentDraft = {
         format: format === "json" || format === "text" || format === "markdown" ? format : "markdown",

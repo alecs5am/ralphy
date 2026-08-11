@@ -101,6 +101,9 @@ type GeometryResult = {
   metricColumns: number | null;
   mediaScrollOwners: string[];
   documentScrollOwners: string[];
+  documentDetailWidth: number | null;
+  documentViewerWidths: number[];
+  documentViewerMaxWidths: string[];
   nestedMediaScroll: boolean;
   mediaInsets: number[];
   focus: Array<{ selector: string; width: number; contrast: number }>;
@@ -132,6 +135,10 @@ async function chromiumGeometry(markup: { workspace: string; media: string; docu
               const screen = \${JSON.stringify(screen)}, root = document.getElementById("root");
               root.innerHTML = document.getElementById(screen).innerHTML;
               if (screen === "media") { const space = root.querySelector(".virtual-grid-space"); if (space) space.style.height = "1600px"; }
+              if (screen === "documents") {
+                const detail = root.querySelector(".documents-detail"), viewer = detail?.querySelector(":scope > .markdown-view");
+                if (detail && viewer) { const review = document.createElement("div"); review.className = "document-current-review"; review.append(viewer.cloneNode(true)); detail.append(review); }
+              }
               await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
             })()\`);
             const documentNode = await win.webContents.debugger.sendCommand("DOM.getDocument");
@@ -165,6 +172,10 @@ async function chromiumGeometry(markup: { workspace: string; media: string; docu
                 const overflow = getComputedStyle(element).overflowY;
                 return overflow === "auto" || overflow === "scroll";
               });
+              const documentDetail = root.querySelector(".documents-detail");
+              const documentViewers = [...root.querySelectorAll(".documents-detail > .markdown-view, .document-current-review > .markdown-view")];
+              const documentViewerWidths = documentViewers.map((element) => element.getBoundingClientRect().width);
+              const documentViewerMaxWidths = documentViewers.map((element) => getComputedStyle(element).maxWidth);
               const mediaInsets = [".project-domain-body", ".asset-grid-scroll"].map((selector) => {
                 const element = root.querySelector(selector); return element ? parseFloat(getComputedStyle(element).paddingLeft) : 0;
               }).filter((value) => value > 0);
@@ -180,7 +191,7 @@ async function chromiumGeometry(markup: { workspace: string; media: string; docu
                 const a = luminance(color(style.outlineColor).rgb), b = luminance(background.rgb);
                 return { selector, width: style.outlineStyle === "none" ? 0 : parseFloat(style.outlineWidth), contrast: (Math.max(a, b) + .05) / (Math.min(a, b) + .05) };
               });
-              return { screen, width: innerWidth, height: innerHeight, overflows, metricColumns, mediaScrollOwners, documentScrollOwners, nestedMediaScroll, mediaInsets, focus };
+              return { screen, width: innerWidth, height: innerHeight, overflows, metricColumns, mediaScrollOwners, documentScrollOwners, documentDetailWidth: documentDetail?.getBoundingClientRect().width ?? null, documentViewerWidths, documentViewerMaxWidths, nestedMediaScroll, mediaInsets, focus };
             })()\`));
           }
         }
@@ -264,6 +275,13 @@ describe("design system contract", () => {
       .toEqual([{ width: 1360, mediaInsets: 1 }, { width: 1100, mediaInsets: 1 }]);
     expect(results.filter(({ screen }) => screen === "documents").map(({ width, documentScrollOwners }) => ({ width, documentScrollOwners })))
       .toEqual([{ width: 1360, documentScrollOwners: [".documents-master", ".documents-detail"] }, { width: 1100, documentScrollOwners: [".documents-master", ".documents-detail"] }]);
+    expect(results.flatMap(({ screen, width, documentDetailWidth, documentViewerWidths }) => screen !== "documents" || documentDetailWidth === null
+      ? []
+      : documentViewerWidths.filter((viewerWidth) => viewerWidth > Math.min(820, documentDetailWidth - 48) + 1).map((viewerWidth) => ({ width, documentDetailWidth, viewerWidth })))).toEqual([]);
+    expect(results.filter(({ screen }) => screen === "documents").map(({ width, documentViewerWidths }) => ({ width, viewers: documentViewerWidths.length })))
+      .toEqual([{ width: 1360, viewers: 2 }, { width: 1100, viewers: 2 }]);
+    expect(results.filter(({ screen }) => screen === "documents").map(({ width, documentViewerMaxWidths }) => ({ width, documentViewerMaxWidths })))
+      .toEqual([{ width: 1360, documentViewerMaxWidths: ["820px", "820px"] }, { width: 1100, documentViewerMaxWidths: ["820px", "820px"] }]);
     expect(results.filter(({ screen }) => screen === "documents").map(({ width, focus }) => ({ width, selectors: focus.map(({ selector }) => selector) })))
       .toEqual([{ width: 1360, selectors: [".document-search input", ".document-row", ".document-detail-heading"] }, { width: 1100, selectors: [".document-search input", ".document-row", ".document-detail-heading"] }]);
     expect(results.flatMap(({ screen, width, focus }) => focus.filter(({ width: focusWidth }) => focusWidth < 2).map((value) => ({ screen, width, focus: value })))).toEqual([]);

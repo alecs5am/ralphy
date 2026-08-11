@@ -86,8 +86,10 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
 
   const open = async (row: DocumentRow) => {
     const documentId = row.type === "search" ? row.value.documentId : row.value.id;
-    if (snapshot.selectedDocument?.id !== documentId && snapshot.documentDirty
-      && !window.confirm("Discard unsaved document changes?")) return;
+    if (snapshot.selectedDocument?.id !== documentId && snapshot.documentMode === "edit") {
+      if (snapshot.documentDirty && !window.confirm("Discard unsaved document changes?")) return;
+      controller.cancelDocumentEdit();
+    }
     const scrollTop = masterRef.current?.scrollTop ?? 0;
     if (row.type === "search") await controller.openSearchResult(row.value);
     else await controller.openDocument(row.value);
@@ -107,7 +109,7 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
   const displayTitle = revision?.title ?? selected?.title ?? "Document";
   const displayFormat = draft?.format ?? snapshot.documentPreview.value?.format ?? revision?.format ?? null;
   return <div className="documents-workbench">
-    <div className="documents-master" aria-label="Documents" ref={attachMaster} onScroll={masterScroll.onScroll}>
+    <div className="documents-master" role="region" aria-label="Documents" ref={attachMaster} onScroll={masterScroll.onScroll}>
       <div className="document-search">
         <label htmlFor="document-search">Search documents</label>
         <input id="document-search" type="search" value={query} onInput={(event) => setQuery(event.currentTarget.value)} placeholder="Title or content" />
@@ -154,7 +156,7 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
             <div><h2 className="document-detail-heading" tabIndex={-1} ref={detailHeading}>{displayTitle}</h2><p>{selected.kind}{revision ? ` · Revision ${revision.revisionNo}` : " · No revision"}{snapshot.documentDirty ? " · Unsaved" : ""}</p></div>
           </div>
           {snapshot.documentMode === "read"
-            ? <button className="command-button" type="button" onClick={() => controller.beginDocumentEdit()}>Edit</button>
+            ? <button className="command-button" type="button" disabled={snapshot.documentPreview.value?.truncated === true} aria-describedby={snapshot.documentPreview.value?.truncated ? "document-truncated-note" : undefined} onClick={() => controller.beginDocumentEdit()}>Edit</button>
             : <div className="document-actions"><button className="command-button" type="button" disabled={snapshot.documentSaving} aria-pressed={previewDraft} onClick={() => setPreviewDraft((value) => !value)}>Preview</button><button className="command-button" type="button" disabled={snapshot.documentSaving} onClick={() => controller.cancelDocumentEdit()}>Cancel</button><button className="command-button" type="button" disabled={snapshot.documentSaving || !snapshot.documentDirty} onClick={() => { void controller.saveDocument(); }}>{snapshot.documentSaving ? "Saving…" : "Save"}</button></div>}
           {draft && <div className="document-edit-fields"><label>Title<input disabled={snapshot.documentSaving} value={draft.title ?? ""} onChange={(event) => controller.setDocumentDraftTitle(event.currentTarget.value)} /></label><fieldset className="document-format-options" disabled={snapshot.documentSaving}><legend>Format</legend>{(["markdown", "json", "text"] as const).map((format) => <button className="command-button" type="button" disabled={snapshot.documentSaving} aria-pressed={draft.format === format} key={format} onClick={() => controller.setDocumentDraftFormat(format)}>{formatLabel(format)}</button>)}</fieldset></div>}
         </header>
@@ -165,7 +167,7 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
         {draft && !reviewCurrent && !previewDraft && <textarea className="document-editor" aria-label="Document body" disabled={snapshot.documentSaving} value={draft.body} onChange={(event) => controller.setDocumentDraftBody(event.currentTarget.value)} />}
         {draft && !reviewCurrent && previewDraft && <DocumentContent format={draft.format} text={draft.body} />}
         {snapshot.documentMode === "read" && snapshot.documentPreview.status === "ready" && snapshot.documentPreview.value && <DocumentContent format={snapshot.documentPreview.value.format} text={snapshot.documentPreview.value.text} />}
-        {snapshot.documentPreview.value?.truncated && <p>Preview truncated.</p>}
+        {snapshot.documentPreview.value?.truncated && <p id="document-truncated-note">This bounded preview is read-only because the complete document was not loaded.</p>}
       </>}
     </section>
   </div>;

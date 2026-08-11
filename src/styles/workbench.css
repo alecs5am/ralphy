@@ -2341,10 +2341,14 @@ button.workspace-project-card:hover {
   resize: vertical;
 }
 
-.documents-detail > .markdown-view,
-.documents-detail > .json-document-view,
-.documents-detail > .plain-text-view {
-  width: min(820px, calc(100% - 48px));
+.documents-detail.document-preview > .markdown-view,
+.documents-detail.document-preview > .json-document-view,
+.documents-detail.document-preview > .plain-text-view,
+.documents-detail.document-preview > .document-current-review > .markdown-view,
+.documents-detail.document-preview > .document-current-review > .json-document-view,
+.documents-detail.document-preview > .document-current-review > .plain-text-view {
+  width: calc(100% - 48px);
+  max-width: 820px;
   margin: 0 auto;
   padding: 28px 0 64px;
 }
