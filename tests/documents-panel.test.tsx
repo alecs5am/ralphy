@@ -302,6 +302,98 @@ describe("Documents panel", () => {
     await saving;
     expect(controller.getSnapshot()).toMatchObject({ documentMode: "read", documentSaving: false, documentDraft: null });
   });
+
+  test("keeps edit and navigation blocked until the authoritative conflict preview settles", async () => {
+    const preview = deferred<{ revisionId: string; format: string; text: string; truncated: boolean }>();
+    const current = { ...document, currentRevisionId: "revision-4", currentRevision: { ...document.currentRevision, id: "revision-4", revisionNo: 4, parentRevisionId: "revision-3" } };
+    const api = createApi();
+    api.reviseProjectDocument.mockRejectedValueOnce({ code: "E_CONFLICT", message: "Document head conflict" });
+    api.showProjectDocument.mockResolvedValueOnce(document).mockResolvedValueOnce(current);
+    api.loadDocumentPreview
+      .mockResolvedValueOnce({ revisionId: "revision-3", format: "markdown", text: "# Old head", truncated: false })
+      .mockReturnValueOnce(preview.promise);
+    const controller = createController(api);
+    await controller.selectTab("documents");
+    await controller.openDocument(document);
+    controller.beginDocumentEdit();
+    controller.setDocumentDraftBody("# My local draft");
+    const saving = controller.saveDocument();
+    await vi.waitFor(() => expect(controller.getSnapshot().documentPreview.status).toBe("loading"));
+
+    const host = createReactHost();
+    const confirm = vi.fn(() => true);
+    Object.assign(globalThis.window, { confirm });
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
+      expect(controller.getSnapshot().documentSaving).toBe(true);
+      expect(host.container.querySelector(".document-editor")?.disabled).toBe(true);
+      expect(textButton(host.container, "Cancel").disabled).toBe(true);
+      expect(textButton(host.container, "Saving…").disabled).toBe(true);
+      expect(textButton(host.container, "Launch brief").disabled).toBe(true);
+      controller.setDocumentDraftBody("# Different");
+      await click(textButton(host.container, "Media"));
+      expect(confirm).not.toHaveBeenCalled();
+      expect(controller.getSnapshot()).toMatchObject({
+        activeTab: "documents",
+        documentSaving: true,
+        documentDraft: { body: "# My local draft" },
+      });
+
+      await act(async () => {
+        preview.resolve({ revisionId: "revision-4", format: "markdown", text: "# Current head", truncated: false });
+        await saving;
+      });
+      expect(controller.getSnapshot()).toMatchObject({
+        documentSaving: false,
+        documentDirty: true,
+        documentDraft: { body: "# My local draft" },
+        documentPreview: { value: { revisionId: "revision-4", text: "# Current head" } },
+      });
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
+  test("defers an explicit conflict retry until the authoritative preview has settled", async () => {
+    const preview = deferred<{ revisionId: string; format: string; text: string; truncated: boolean }>();
+    const current = { ...document, currentRevisionId: "revision-4", currentRevision: { ...document.currentRevision, id: "revision-4", revisionNo: 4, parentRevisionId: "revision-3" } };
+    const revision5 = { ...document.currentRevision, id: "revision-5", revisionNo: 5, parentRevisionId: "revision-4" };
+    const api = createApi();
+    api.reviseProjectDocument
+      .mockRejectedValueOnce({ code: "E_CONFLICT", message: "Document head conflict" })
+      .mockResolvedValueOnce(revision5);
+    api.showProjectDocument.mockResolvedValueOnce(document).mockResolvedValueOnce(current);
+    api.loadDocumentPreview
+      .mockResolvedValueOnce({ revisionId: "revision-3", format: "markdown", text: "# Old head", truncated: false })
+      .mockReturnValueOnce(preview.promise);
+    const controller = createController(api);
+    await controller.openDocument(document);
+    controller.beginDocumentEdit();
+    controller.setDocumentDraftBody("# My local draft");
+    const conflictedSave = controller.saveDocument();
+    await vi.waitFor(() => expect(controller.getSnapshot().documentPreview.status).toBe("loading"));
+
+    await controller.saveDocument();
+    expect(api.reviseProjectDocument).toHaveBeenCalledOnce();
+    expect(controller.getSnapshot().documentSaving).toBe(true);
+
+    preview.resolve({ revisionId: "revision-4", format: "markdown", text: "# Current head", truncated: false });
+    await conflictedSave;
+    await controller.saveDocument();
+
+    expect(api.reviseProjectDocument).toHaveBeenCalledTimes(2);
+    expect(controller.getSnapshot()).toMatchObject({
+      selectedDocument: { currentRevisionId: "revision-5" },
+      documentPreview: { value: { revisionId: "revision-5", text: "# My local draft" } },
+      documentMode: "read",
+      documentDraft: null,
+      documentDirty: false,
+      documentSaving: false,
+    });
+  });
 });
 
 describe("documents workbench", () => {

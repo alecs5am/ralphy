@@ -233,33 +233,36 @@ export function createProjectScreenController(
     const requestId = ++documentRequest;
     saveRequest += 1;
     if (!retainedDraft) documentDraftBase = null;
+    else emit({ ...snapshot, documentSaving: true, documentConflict: conflict, documentConflictReview: conflictReview });
     const projectRef = snapshot.domain.project;
     try {
       const document = await api.showProjectDocument(projectRef, documentId);
       if (disposed || documentRequest !== requestId) return;
       const revisionId = document.currentRevision?.id ?? document.currentRevisionId;
+      const currentDraft = retainedDraft ? snapshot.documentDraft : null;
       emit({
         ...snapshot,
         selectedDocument: document,
         documentPreview: revisionId ? { status: "loading", value: null, error: null } : idleDocument,
-        documentMode: retainedDraft ? "edit" : "read",
-        documentDraft: retainedDraft,
-        documentDirty: retainedDraft !== null,
-        documentSaving: false,
+        documentMode: currentDraft ? "edit" : "read",
+        documentDraft: currentDraft,
+        documentDirty: currentDraft !== null,
+        documentSaving: currentDraft !== null && revisionId !== null,
         documentConflict: conflict,
         documentConflictReview: conflictReview,
       });
       if (!revisionId) return;
       const value = await api.loadDocumentPreview(projectRef, revisionId);
       if (!disposed && documentRequest === requestId) {
-        if (retainedDraft) {
+        const currentDraft = snapshot.documentDraft;
+        if (currentDraft) {
           const format = value.format === "json" || value.format === "text" || value.format === "markdown" ? value.format : "markdown";
           documentDraftBase = { format, title: document.currentRevision?.title ?? null, body: value.text };
         }
         emit({
           ...snapshot,
           documentPreview: { status: "ready", value, error: null },
-          documentDirty: retainedDraft && documentDraftBase ? !sameDraft(retainedDraft, documentDraftBase) : false,
+          documentDirty: currentDraft && documentDraftBase ? !sameDraft(currentDraft, documentDraftBase) : false,
           documentSaving: false,
         });
       }
