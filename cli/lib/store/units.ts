@@ -1574,30 +1574,48 @@ export function getUnitRevision(input: {
 export function listUnitRevisions(input: {
   context: QueryContext;
   unitId: string;
+  order?: "oldest" | "newest";
   after?: string | null;
   limit: number;
 }): Page<UnitRevisionDto> {
   assertLimit(input.limit);
-  const cursor = input.after == null ? null : decodeCursor("v1", input.after);
+  const order = input.order ?? "oldest";
+  if (order !== "oldest" && order !== "newest") {
+    throw new Error(`Invalid history order: ${String(order)}`);
+  }
+  const newest = order === "newest";
+  const family = newest ? "v2" : "v1";
+  const cursor = input.after == null ? null : decodeCursor(family, input.after);
   const db = openDomainDb();
   const scope = resolveQueryContext(db, input.context);
   if (!getVisibleUnitDto(db, scope, input.unitId)) {
     throw new Error(`Unit not found: ${input.unitId}`);
   }
+  const boundary = newest
+    ? cursor === null
+      ? { sql: "", values: [] }
+      : {
+          sql: `AND (revision.revision_no < ? OR
+                     (revision.revision_no = ? AND revision.id < ?))`,
+          values: [cursor.ordinal, cursor.ordinal, cursor.id],
+        }
+    : {
+        sql: `AND (revision.revision_no > ? OR
+                   (revision.revision_no = ? AND revision.id > ?))`,
+        values: [cursor?.ordinal ?? -1, cursor?.ordinal ?? -1, cursor?.id ?? ""],
+      };
   const rows = db.query<UnitRevisionDto, (string | number)[]>(
     `SELECT ${REVISION_DTO_COLUMNS} FROM unit_revisions revision
      WHERE revision.unit_id = ?
-       AND (revision.revision_no > ? OR
-            (revision.revision_no = ? AND revision.id > ?))
-     ORDER BY revision.revision_no ASC, revision.id ASC LIMIT ?`,
+       ${boundary.sql}
+     ORDER BY revision.revision_no ${newest ? "DESC" : "ASC"},
+              revision.id ${newest ? "DESC" : "ASC"} LIMIT ?`,
   ).all(
     input.unitId,
-    cursor?.ordinal ?? -1,
-    cursor?.ordinal ?? -1,
-    cursor?.id ?? "",
+    ...boundary.values,
     input.limit + 1,
   );
-  return buildPage(rows, input.limit, "v1", (row) => ({
+  return buildPage(rows, input.limit, family, (row) => ({
     ordinal: row.revisionNo,
     id: row.id,
   }));

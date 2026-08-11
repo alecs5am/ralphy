@@ -734,6 +734,81 @@ describe("bounded Unit graph queries", () => {
     }
   });
 
+  test("newest history pages traverse 55 Unit revisions", async () => {
+    const value = await mediaFixture("newest-history");
+    const revisions = [value.revision];
+    for (let index = 1; index < 55; index += 1) {
+      revisions.push(reviseUnit({
+        unitId: value.unit.id,
+        expectedLatestRevisionId: revisions.at(-1)!.id,
+        items: [{
+          artifactRevisionId: value.shared.id,
+          role: "item",
+          position: 0,
+        }],
+      }));
+    }
+
+    const oldest = listUnitRevisions({
+      context: value.context,
+      unitId: value.unit.id,
+      limit: 50,
+    });
+    expect(oldest.items.map((item) => item.revisionNo))
+      .toEqual(Array.from({ length: 50 }, (_, index) => index + 1));
+    expect(oldest.nextCursor?.startsWith("v1.")).toBe(true);
+    expect(listUnitRevisions({
+      context: value.context,
+      unitId: value.unit.id,
+      order: "oldest",
+      after: oldest.nextCursor,
+      limit: 50,
+    })).toMatchObject({
+      items: [51, 52, 53, 54, 55].map((revisionNo) => ({ revisionNo })),
+      nextCursor: null,
+    });
+
+    const newest = listUnitRevisions({
+      context: value.context,
+      unitId: value.unit.id,
+      order: "newest",
+      limit: 50,
+    });
+    expect(newest.items.map((item) => item.revisionNo))
+      .toEqual(Array.from({ length: 50 }, (_, index) => 55 - index));
+    expect(newest.nextCursor?.startsWith("v2.")).toBe(true);
+    expect(listUnitRevisions({
+      context: value.context,
+      unitId: value.unit.id,
+      order: "newest",
+      after: newest.nextCursor,
+      limit: 50,
+    })).toMatchObject({
+      items: [5, 4, 3, 2, 1].map((revisionNo) => ({ revisionNo })),
+      nextCursor: null,
+    });
+
+    expect(() => listUnitRevisions({
+      context: value.context,
+      unitId: value.unit.id,
+      order: "newest",
+      after: oldest.nextCursor,
+      limit: 1,
+    })).toThrow(/cursor/i);
+    expect(() => listUnitRevisions({
+      context: value.context,
+      unitId: value.unit.id,
+      after: newest.nextCursor,
+      limit: 1,
+    })).toThrow(/cursor/i);
+    expect(() => listUnitRevisions({
+      context: value.context,
+      unitId: value.unit.id,
+      order: "sideways" as never,
+      limit: 1,
+    })).toThrow(/order/i);
+  });
+
   test("authorizes every depth and validates a parent before returning an empty page", async () => {
     const value = await mediaFixture("visibility");
     const shared = createUnit({

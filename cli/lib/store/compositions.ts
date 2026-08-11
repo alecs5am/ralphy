@@ -985,32 +985,50 @@ export function getCompositionRevision(input: {
 export function listCompositionRevisions(input: {
   context: QueryContext;
   compositionId: string;
+  order?: "oldest" | "newest";
   after?: string | null;
   limit: number;
 }): Page<CompositionRevisionDto> {
   assertLimit(input.limit);
-  const cursor = input.after == null ? null : decodeCursor("v1", input.after);
+  const order = input.order ?? "oldest";
+  if (order !== "oldest" && order !== "newest") {
+    throw new Error(`Invalid history order: ${String(order)}`);
+  }
+  const newest = order === "newest";
+  const family = newest ? "v2" : "v1";
+  const cursor = input.after == null ? null : decodeCursor(family, input.after);
   const db = openDomainDb();
   const scope = resolveQueryContext(db, input.context);
   if (!getVisibleCompositionDto(db, scope, input.compositionId)) {
     throw new Error(`Composition not found: ${input.compositionId}`);
   }
+  const boundary = newest
+    ? cursor === null
+      ? { sql: "", values: [] }
+      : {
+          sql: `AND (revision.revision_no < ? OR
+                     (revision.revision_no = ? AND revision.id < ?))`,
+          values: [cursor.ordinal, cursor.ordinal, cursor.id],
+        }
+    : {
+        sql: `AND (revision.revision_no > ? OR
+                   (revision.revision_no = ? AND revision.id > ?))`,
+        values: [cursor?.ordinal ?? -1, cursor?.ordinal ?? -1, cursor?.id ?? ""],
+      };
   const rows = db
     .query<CompositionRevisionDto, (string | number)[]>(
       `SELECT ${REVISION_DTO_COLUMNS} FROM composition_revisions revision
        WHERE revision.composition_id = ?
-         AND (revision.revision_no > ? OR
-              (revision.revision_no = ? AND revision.id > ?))
-       ORDER BY revision.revision_no ASC, revision.id ASC LIMIT ?`,
+         ${boundary.sql}
+       ORDER BY revision.revision_no ${newest ? "DESC" : "ASC"},
+                revision.id ${newest ? "DESC" : "ASC"} LIMIT ?`,
     )
     .all(
       input.compositionId,
-      cursor?.ordinal ?? -1,
-      cursor?.ordinal ?? -1,
-      cursor?.id ?? "",
+      ...boundary.values,
       input.limit + 1,
     );
-  return buildPage(rows, input.limit, "v1", (row) => ({
+  return buildPage(rows, input.limit, family, (row) => ({
     ordinal: row.revisionNo,
     id: row.id,
   }));
@@ -1121,11 +1139,18 @@ export function getBuild(input: {
 export function listBuilds(input: {
   context: QueryContext;
   compositionRevisionId: string;
+  order?: "oldest" | "newest";
   after?: string | null;
   limit: number;
 }): Page<BuildDto> {
   assertLimit(input.limit);
-  const cursor = input.after == null ? null : decodeCursor("c1", input.after);
+  const order = input.order ?? "oldest";
+  if (order !== "oldest" && order !== "newest") {
+    throw new Error(`Invalid history order: ${String(order)}`);
+  }
+  const newest = order === "newest";
+  const family = newest ? "c2" : "c1";
+  const cursor = input.after == null ? null : decodeCursor(family, input.after);
   const db = openDomainDb();
   const scope = resolveQueryContext(db, input.context);
   if (!getVisibleRevisionDto(db, scope, input.compositionRevisionId)) {
@@ -1133,22 +1158,33 @@ export function listBuilds(input: {
       `Composition Revision not found: ${input.compositionRevisionId}`,
     );
   }
+  const boundary = newest
+    ? cursor === null
+      ? { sql: "", values: [] }
+      : {
+          sql: `AND (build.created_at < ? OR
+                     (build.created_at = ? AND build.id < ?))`,
+          values: [cursor.ordinal, cursor.ordinal, cursor.id],
+        }
+    : {
+        sql: `AND (build.created_at > ? OR
+                   (build.created_at = ? AND build.id > ?))`,
+        values: [cursor?.ordinal ?? -1, cursor?.ordinal ?? -1, cursor?.id ?? ""],
+      };
   const rows = db
     .query<BuildDto, (string | number)[]>(
       `SELECT ${BUILD_DTO_COLUMNS} FROM builds build
        WHERE build.composition_revision_id = ?
-         AND (build.created_at > ? OR
-              (build.created_at = ? AND build.id > ?))
-       ORDER BY build.created_at ASC, build.id ASC LIMIT ?`,
+         ${boundary.sql}
+       ORDER BY build.created_at ${newest ? "DESC" : "ASC"},
+                build.id ${newest ? "DESC" : "ASC"} LIMIT ?`,
     )
     .all(
       input.compositionRevisionId,
-      cursor?.ordinal ?? -1,
-      cursor?.ordinal ?? -1,
-      cursor?.id ?? "",
+      ...boundary.values,
       input.limit + 1,
     );
-  return buildPage(rows, input.limit, "c1", (row) => ({
+  return buildPage(rows, input.limit, family, (row) => ({
     ordinal: row.createdAt,
     id: row.id,
   }));

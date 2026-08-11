@@ -581,7 +581,13 @@ export function createBridgeMethods(input: {
 
   add("evaluation.list", "read", (params) => {
     const value = object(params, "evaluation.list");
+    exactKeys(value, [
+      "context",
+      ...["target", "targetType", "order", "after", "limit"]
+        .filter((key) => Object.hasOwn(value, key)),
+    ], "evaluation.list");
     const target = value.target === undefined ? undefined : object(value.target, "target");
+    if (target !== undefined) exactKeys(target, ["type", "id"], "evaluation.list.target");
     return listEvaluations({
       context: scopedContext(value),
       target: target === undefined ? undefined : {
@@ -589,6 +595,7 @@ export function createBridgeMethods(input: {
         id: string(target.id, "target.id"),
       },
       targetType: optionalString(value.targetType) as never,
+      order: optionalHistoryOrder(value.order),
       after: optionalString(value.after),
       limit: limit(value.limit),
     });
@@ -714,7 +721,12 @@ export function createBridgeMethods(input: {
   });
   add("composition.revisions", "read", (params) => {
     const value = object(params, "composition.revisions");
-    return listCompositionRevisions({ context: scopedContext(value), compositionId: string(value.compositionId, "compositionId"), after: optionalString(value.after), limit: limit(value.limit) });
+    exactKeys(value, [
+      "context",
+      "compositionId",
+      ...["order", "after", "limit"].filter((key) => Object.hasOwn(value, key)),
+    ], "composition.revisions");
+    return listCompositionRevisions({ context: scopedContext(value), compositionId: string(value.compositionId, "compositionId"), order: optionalHistoryOrder(value.order), after: optionalString(value.after), limit: limit(value.limit) });
   });
   add("composition.revision.show", "read", (params) => {
     const value = object(params, "composition.revision.show");
@@ -730,7 +742,12 @@ export function createBridgeMethods(input: {
   });
   add("composition.builds", "read", (params) => {
     const value = object(params, "composition.builds");
-    return listBuilds({ context: scopedContext(value), compositionRevisionId: string(value.compositionRevisionId, "compositionRevisionId"), after: optionalString(value.after), limit: limit(value.limit) });
+    exactKeys(value, [
+      "context",
+      "compositionRevisionId",
+      ...["order", "after", "limit"].filter((key) => Object.hasOwn(value, key)),
+    ], "composition.builds");
+    return listBuilds({ context: scopedContext(value), compositionRevisionId: string(value.compositionRevisionId, "compositionRevisionId"), order: optionalHistoryOrder(value.order), after: optionalString(value.after), limit: limit(value.limit) });
   });
   add("build.show", "read", (params) => {
     const value = object(params, "build.show");
@@ -751,7 +768,12 @@ export function createBridgeMethods(input: {
   });
   add("unit.revisions", "read", (params) => {
     const value = object(params, "unit.revisions");
-    return listUnitRevisions({ context: scopedContext(value), unitId: string(value.unitId, "unitId"), after: optionalString(value.after), limit: limit(value.limit) });
+    exactKeys(value, [
+      "context",
+      "unitId",
+      ...["order", "after", "limit"].filter((key) => Object.hasOwn(value, key)),
+    ], "unit.revisions");
+    return listUnitRevisions({ context: scopedContext(value), unitId: string(value.unitId, "unitId"), order: optionalHistoryOrder(value.order), after: optionalString(value.after), limit: limit(value.limit) });
   });
   add("unit.revision.show", "read", (params) => {
     const value = object(params, "unit.revision.show");
@@ -1372,6 +1394,14 @@ function string(value: unknown, label: string): string {
 function optionalString(value: unknown): string | undefined {
   if (value === undefined || value === null) return undefined;
   return string(value, "value");
+}
+
+function optionalHistoryOrder(value: unknown): "oldest" | "newest" | undefined {
+  if (value === undefined) return undefined;
+  if (value !== "oldest" && value !== "newest") {
+    throw new Error("order must be oldest or newest");
+  }
+  return value;
 }
 
 function optionalNumber(value: unknown): number | undefined {

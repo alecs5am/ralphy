@@ -512,6 +512,70 @@ describe("domain Evaluations", () => {
     ).toThrow(/limit/i);
   });
 
+  test("newest history pages traverse 55 target Evaluations", async () => {
+    const root = makeRoot();
+    const { workspace, project, revision, session } = await fixture(root, "newest-history");
+    const context = { workspaceId: workspace.id, projectId: project.id };
+    const target = { type: "artifact_revision" as const, id: revision.id };
+    const evaluations = Array.from({ length: 55 }, (_, index) =>
+      createEvaluation({
+        target,
+        authoredBySessionId: session.id,
+        kind: "history",
+        createdAt: 1_001 + index,
+      }));
+
+    const oldest = listEvaluations({ context, target, limit: 50 });
+    expect(oldest.items.map((item) => item.id)).toEqual(evaluations.slice(0, 50).map((item) => item.id));
+    expect(oldest.nextCursor?.startsWith("c1.")).toBe(true);
+    expect(listEvaluations({
+      context,
+      target,
+      order: "oldest",
+      after: oldest.nextCursor,
+      limit: 50,
+    })).toMatchObject({
+      items: evaluations.slice(50).map((item) => ({ id: item.id })),
+      nextCursor: null,
+    });
+
+    const newest = listEvaluations({ context, target, order: "newest", limit: 50 });
+    expect(newest.items.map((item) => item.id))
+      .toEqual([...evaluations].reverse().slice(0, 50).map((item) => item.id));
+    expect(newest.items[0]!.id).toBe(evaluations[54]!.id);
+    expect(newest.nextCursor?.startsWith("c2.")).toBe(true);
+    expect(listEvaluations({
+      context,
+      target,
+      order: "newest",
+      after: newest.nextCursor,
+      limit: 50,
+    })).toMatchObject({
+      items: [...evaluations].reverse().slice(50).map((item) => ({ id: item.id })),
+      nextCursor: null,
+    });
+
+    expect(() => listEvaluations({
+      context,
+      target,
+      order: "newest",
+      after: oldest.nextCursor,
+      limit: 1,
+    })).toThrow(/cursor/i);
+    expect(() => listEvaluations({
+      context,
+      target,
+      after: newest.nextCursor,
+      limit: 1,
+    })).toThrow(/cursor/i);
+    expect(() => listEvaluations({
+      context,
+      target,
+      order: "sideways" as never,
+      limit: 1,
+    })).toThrow(/order/i);
+  });
+
   test("pages only the exact Evaluation target before applying the cursor", async () => {
     const root = makeRoot();
     const { workspace, project, object, session } = await fixture(root, "exact-target");
