@@ -63,7 +63,8 @@ export interface ProjectScreenController {
   start(): Promise<void>;
   refresh(sequence: number): Promise<void>;
   selectTab(tab: ProjectView): Promise<void>;
-  loadMore(): Promise<void>;
+  loadMore(tab: ProjectTab): Promise<void>;
+  retryPage(tab: ProjectTab): Promise<void>;
   retry(): Promise<void>;
   openDocument(document: DocumentDto): Promise<void>;
   searchDocuments(query: string): Promise<void>;
@@ -595,12 +596,22 @@ export function createProjectScreenController(
       emit({ ...snapshot, activeTab: tab });
       if (tab !== "overview" && snapshot.domain.pages[tab].status === "idle") await loadPage(tab);
     },
-    async loadMore() {
-      if (snapshot.activeTab !== "overview") await loadPage(snapshot.activeTab, snapshot.domain.pages[snapshot.activeTab].items.length > 0);
+    async loadMore(tab) {
+      const page = snapshot.domain.pages[tab];
+      if (disposed || snapshot.activeTab !== tab || page.status !== "ready" || page.nextCursor === null) return;
+      await loadPage(tab, true);
+    },
+    async retryPage(tab) {
+      const page = snapshot.domain.pages[tab];
+      if (disposed || snapshot.activeTab !== tab || page.status !== "error" || page.items.length === 0 || page.nextCursor === null) return;
+      await loadPage(tab, true);
     },
     async retry() {
       if (snapshot.activeTab === "overview") await loadOverview();
-      else await loadPage(snapshot.activeTab, snapshot.domain.pages[snapshot.activeTab].items.length > 0);
+      else {
+        const page = snapshot.domain.pages[snapshot.activeTab];
+        if (page.status === "error" && page.items.length === 0) await loadPage(snapshot.activeTab);
+      }
     },
     async openDocument(document) { await loadDocument(document.id); },
     async searchDocuments(query) {

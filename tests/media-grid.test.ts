@@ -6,6 +6,7 @@ import { MediaCardTile, VirtualAssetGrid } from "../src/components/VirtualAssetG
 import { MAX_WAVEFORM_DECODE_BYTES } from "../src/lib/audio-preview";
 import type { ProjectPreview, ProjectReference } from "../src/lib/ipc";
 import { assetGridGeometry, createPreviewScheduler, previewScheduler } from "../src/lib/media";
+import { useRememberedScroll } from "../src/screens/project/scroll-memory";
 import { createReactHost, type HostNode } from "./react-host";
 
 const waveSurfer = vi.hoisted(() => ({ instances: [] as Array<{ emit(event: string, ...args: unknown[]): void }> }));
@@ -59,8 +60,33 @@ function tile(
   return createElement(MediaCardTile, { card, project: targetProject, rootEpoch, selected: false, resolvePreview, onSelect, onOpen });
 }
 
-function grid(cards: MediaCardDto[], rootEpoch: number, resolvePreview: (project: ProjectReference, ref: MediaCardDto["ref"]) => Promise<ProjectPreview | null>, targetProject = project, onSelect = () => undefined, onOpen = () => undefined) {
-  return createElement(VirtualAssetGrid, { items: cards, project: targetProject, rootEpoch, selectedRef: null, resolvePreview, onSelect, onOpen });
+function grid(
+  cards: MediaCardDto[],
+  rootEpoch: number,
+  resolvePreview: (project: ProjectReference, ref: MediaCardDto["ref"]) => Promise<ProjectPreview | null>,
+  targetProject = project,
+  onSelect = () => undefined,
+  onOpen = () => undefined,
+  paging: Record<string, unknown> = {},
+) {
+  return createElement(VirtualAssetGrid, {
+    items: cards,
+    project: targetProject,
+    rootEpoch,
+    selectedRef: null,
+    resolvePreview,
+    onSelect,
+    onOpen,
+    hasMore: false,
+    loadingMore: false,
+    appendError: null,
+    onLoadMore: () => undefined,
+    onRetryAppend: () => undefined,
+    scrollMemory: new Map<string, number>(),
+    scrollKey: "media",
+    scrollResetToken: rootEpoch,
+    ...paging,
+  } as never);
 }
 
 function byTag(root: HostNode, tag: string): HostNode[] { return root.findAll((node) => node.tagName === tag); }
@@ -74,6 +100,25 @@ function dispatchKey(node: HostNode, type: "keydown" | "keyup", key: string): vo
   const event = new Event(type, { bubbles: true, cancelable: true });
   Object.defineProperty(event, "key", { value: key });
   node.dispatchEvent(event);
+}
+
+function ScrollOwners({
+  memory,
+  overviewReset,
+  mediaReset,
+  revision,
+}: {
+  memory: Map<string, number>;
+  overviewReset: number;
+  mediaReset: number;
+  revision: number;
+}) {
+  const overview = useRememberedScroll(memory, "overview", overviewReset);
+  const media = useRememberedScroll(memory, "media", mediaReset);
+  return createElement("section", null,
+    createElement("div", { className: "project-domain-body", key: `overview-${revision}`, ref: overview.ref, onScroll: overview.onScroll }),
+    createElement("div", { className: "asset-grid-scroll", key: `media-${revision}`, ref: media.ref, onScroll: media.onScroll }),
+  );
 }
 
 beforeEach(() => { waveSurfer.instances.length = 0; });
@@ -134,6 +179,127 @@ describe("media grid geometry and scheduling", () => {
 });
 
 describe("mounted media tiles", () => {
+  test("automatic cursor scroll memory isolates owners and resets only the changed token", async () => {
+    const memory = new Map<string, number>();
+    const render = (revision: number, overviewReset = 1, mediaReset = 1) => createElement(ScrollOwners, {
+      memory,
+      revision,
+      overviewReset,
+      mediaReset,
+    });
+    const view = await mounted(render(1));
+    try {
+      let overviewOwner = view.host.container.querySelector(".project-domain-body")!;
+      let mediaOwner = view.host.container.querySelector(".asset-grid-scroll")!;
+      overviewOwner.scrollTop = 140;
+      mediaOwner.scrollTop = 280;
+      overviewOwner.dispatchEvent(new Event("scroll"));
+      mediaOwner.dispatchEvent(new Event("scroll"));
+      expect([...memory]).toEqual([["overview", 140], ["media", 280]]);
+
+      await view.rerender(render(2));
+      overviewOwner = view.host.container.querySelector(".project-domain-body")!;
+      mediaOwner = view.host.container.querySelector(".asset-grid-scroll")!;
+      expect(overviewOwner.scrollTop).toBe(140);
+      expect(mediaOwner.scrollTop).toBe(280);
+
+      await view.rerender(render(2, 1, 2));
+      expect(overviewOwner.scrollTop).toBe(140);
+      expect(mediaOwner.scrollTop).toBe(0);
+      expect([...memory]).toEqual([["overview", 140]]);
+    } finally { await view.unmount(); }
+  });
+
+  test("automatic cursor observes the exact Media owner and rearms only after leaving the tail", async () => {
+    const onLoadMore = vi.fn();
+    const scrollMemory = new Map<string, number>();
+    const paging = (loadingMore: boolean) => ({
+      hasMore: true,
+      loadingMore,
+      appendError: null,
+      onLoadMore,
+      onRetryAppend: vi.fn(),
+      scrollMemory,
+      scrollKey: "media",
+      scrollResetToken: 1,
+    });
+    const render = (loadingMore: boolean) => grid(
+      [mediaCard("automatic-cursor")],
+      215,
+      async () => null,
+      project,
+      undefined,
+      undefined,
+      paging(loadingMore),
+    );
+    const view = await mounted(render(false));
+    try {
+      expect(view.host.intersectionObservers).toHaveLength(1);
+      const observer = view.host.intersectionObservers[0];
+      const owner = view.host.container.querySelector(".asset-grid-scroll")!;
+      const space = owner.querySelector(".virtual-grid-space")!;
+      const sentinel = owner.querySelector(".auto-cursor-tail")!;
+      expect(observer.root).toBe(owner);
+      expect(owner.contains(sentinel)).toBe(true);
+      expect(owner.children.indexOf(sentinel)).toBeGreaterThan(owner.children.indexOf(space));
+      expect(observer.rootMargin).toBe("240px 0px");
+
+      act(() => observer.deliver(sentinel as unknown as Element, true));
+      await view.rerender(render(true));
+      expect(view.host.container.querySelector("[role='status']")?.textContent).toContain("Loading");
+      await view.rerender(render(false));
+      act(() => observer.deliver(sentinel as unknown as Element, true));
+      expect(onLoadMore).toHaveBeenCalledOnce();
+      expect(view.host.intersectionObservers).toHaveLength(1);
+
+      act(() => observer.deliver(sentinel as unknown as Element, false));
+      act(() => observer.deliver(sentinel as unknown as Element, true));
+      expect(onLoadMore).toHaveBeenCalledTimes(2);
+    } finally { await view.unmount(); }
+  });
+
+  test("automatic cursor keeps append errors in the tail and never loads a null cursor", async () => {
+    const onLoadMore = vi.fn();
+    const onRetryAppend = vi.fn();
+    const scrollMemory = new Map<string, number>();
+    const render = (hasMore: boolean, appendError: string | null) => grid(
+      [mediaCard("automatic-error")],
+      216,
+      async () => null,
+      project,
+      undefined,
+      undefined,
+      {
+        hasMore,
+        loadingMore: false,
+        appendError,
+        onLoadMore,
+        onRetryAppend,
+        scrollMemory,
+        scrollKey: "media",
+        scrollResetToken: 1,
+      },
+    );
+    const view = await mounted(render(true, "Offline"));
+    try {
+      const observer = view.host.intersectionObservers[0];
+      const sentinel = view.host.container.querySelector(".auto-cursor-tail")!;
+      const alert = view.host.container.querySelector("[role='alert']")!;
+      expect(alert.textContent).toContain("Offline");
+      const retry = alert.querySelector("button")!;
+      retry.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+      expect(onRetryAppend).toHaveBeenCalledOnce();
+      act(() => observer.deliver(sentinel as unknown as Element, true));
+      expect(onLoadMore).not.toHaveBeenCalled();
+
+      await view.rerender(render(false, null));
+      act(() => observer.deliver(sentinel as unknown as Element, false));
+      act(() => observer.deliver(sentinel as unknown as Element, true));
+      expect(onLoadMore).not.toHaveBeenCalled();
+      expect(view.host.intersectionObservers).toHaveLength(1);
+    } finally { await view.unmount(); }
+  });
+
   test("uses the real virtualizer measurements and resolves only mounted rows", async () => {
     const cards = Array.from({ length: 100 }, (_, index) => mediaCard(`real-${index}`));
     const resolver = vi.fn(async () => null);

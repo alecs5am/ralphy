@@ -4,11 +4,13 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import type { MediaCardDto, MediaRef } from "../../electron/ralphy/types";
 import type { ProjectPreview, ProjectReference } from "../lib/ipc";
 import { assetGridGeometry, previewScheduler } from "../lib/media";
+import { AutoCursorTail } from "../screens/project/AutoCursorTail";
+import { useRememberedScroll } from "../screens/project/scroll-memory";
 import { AudioWaveform } from "./media/AudioWaveform";
 
 type ResolvePreview = (project: ProjectReference, ref: MediaCardDto["ref"]) => Promise<ProjectPreview | null>;
 
-interface VirtualAssetGridProps {
+export interface VirtualAssetGridProps {
   items: MediaCardDto[];
   project: ProjectReference;
   rootEpoch: number;
@@ -16,6 +18,14 @@ interface VirtualAssetGridProps {
   resolvePreview: ResolvePreview;
   onSelect(card: MediaCardDto): void;
   onOpen(card: MediaCardDto): void;
+  hasMore: boolean;
+  loadingMore: boolean;
+  appendError: string | null;
+  onLoadMore(): void;
+  onRetryAppend(): void;
+  scrollMemory: Map<string, number>;
+  scrollKey: string;
+  scrollResetToken: string | number;
 }
 
 interface MediaCardTileProps {
@@ -158,8 +168,15 @@ export function MediaCardTile({ card, project, rootEpoch, selected, resolvePrevi
   </article>;
 }
 
-export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resolvePreview, onSelect, onOpen }: VirtualAssetGridProps) {
+export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resolvePreview, onSelect, onOpen, hasMore, loadingMore, appendError, onLoadMore, onRetryAppend, scrollMemory, scrollKey, scrollResetToken }: VirtualAssetGridProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null);
+  const rememberedScroll = useRememberedScroll(scrollMemory, scrollKey, scrollResetToken);
+  const attachScroll = useCallback((node: HTMLDivElement | null) => {
+    scrollRef.current = node;
+    rememberedScroll.ref(node);
+    setScrollRoot((current) => current === node ? current : node);
+  }, [rememberedScroll.ref]);
   const [width, setWidth] = useState(800);
   const geometry = assetGridGeometry(width, 190, 16);
   const rows = useMemo(() => Array.from({ length: Math.ceil(items.length / geometry.columns) }, (_, index) => ({ key: index, items: items.slice(index * geometry.columns, (index + 1) * geometry.columns) })), [geometry.columns, items]);
@@ -178,11 +195,12 @@ export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resol
   }, []);
   useEffect(() => virtualizer.measure(), [geometry.columns, geometry.rowHeight, virtualizer]);
   if (items.length === 0) return <div className="asset-grid-empty"><strong>No media matches this filter.</strong><span>Change the media filter to see other records.</span></div>;
-  return <div className="asset-grid-scroll" ref={scrollRef}>
+  return <div className="asset-grid-scroll" ref={attachScroll} onScroll={rememberedScroll.onScroll}>
     <div className="virtual-grid-space" style={{ height: virtualizer.getTotalSize() }}>
       {virtualizer.getVirtualItems().map((virtualRow) => <div className="virtual-asset-row" key={virtualRow.key} style={{ transform: `translateY(${virtualRow.start}px)`, gridTemplateColumns: `repeat(${geometry.columns}, minmax(0, 1fr))`, height: `${geometry.rowHeight}px`, "--asset-tile-height": `${geometry.tileHeight}px`, "--asset-row-gap": `${geometry.gap}px` } as CSSProperties}>
         {rows[virtualRow.index].items.map((card) => <MediaCardTile key={previewKey(project, rootEpoch, card.ref)} card={card} project={project} rootEpoch={rootEpoch} selected={selectedRef?.type === card.ref.type && selectedRef.id === card.ref.id} resolvePreview={resolvePreview} onSelect={() => onSelect(card)} onOpen={() => onOpen(card)} />)}
       </div>)}
     </div>
+    <AutoCursorTail root={scrollRoot} hasMore={hasMore} loading={loadingMore} error={appendError} onLoadMore={onLoadMore} onRetry={onRetryAppend} />
   </div>;
 }

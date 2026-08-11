@@ -2378,6 +2378,25 @@ button.workspace-project-card:hover {
   width: 100%;
 }
 
+.auto-cursor-tail {
+  display: flex;
+  min-height: 1px;
+  align-items: center;
+  justify-content: center;
+  padding-block: 12px;
+  color: var(--fg-3);
+}
+
+.auto-cursor-tail:empty {
+  padding-block: 0;
+}
+
+.auto-cursor-tail [role="alert"] {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .virtual-asset-row {
   position: absolute;
   top: 0;

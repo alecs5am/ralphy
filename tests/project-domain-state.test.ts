@@ -82,7 +82,7 @@ describe("Project domain state", () => {
     });
   });
 
-  test("rejects stale results, keeps errors local for retry, and resets on project change", () => {
+  test("automatic cursor rejects stale results and resets on project change", () => {
     let state = createProjectDomainState({ workspaceId: "workspace-1", projectId: "project-1" });
     state = projectDomainReducer(state, { type: "project-changed", project: { workspaceId: "workspace-1", projectId: "project-2" } });
     state = projectDomainReducer(state, {
@@ -110,7 +110,7 @@ describe("Project domain state", () => {
     expect(state.pages.compositions).toMatchObject({ status: "ready", items: [] });
   });
 
-  test("keeps loaded rows visible when pagination fails and retries append-only", () => {
+  test("automatic cursor keeps loaded rows visible when append fails and retries", () => {
     let state = createProjectDomainState({ workspaceId: "workspace-1", projectId: "project-1" });
     state = projectDomainReducer(state, { type: "page-loading", tab: "documents", generation: 1, requestId: "documents-1" });
     state = projectDomainReducer(state, {

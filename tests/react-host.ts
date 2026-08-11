@@ -1,5 +1,5 @@
 export const reactHostGlobalKeys = [
-  "window", "document", "Node", "Element", "HTMLElement", "ResizeObserver", "MutationObserver", "CustomEvent", "getComputedStyle", "IS_REACT_ACT_ENVIRONMENT",
+  "window", "document", "Node", "Element", "HTMLElement", "ResizeObserver", "IntersectionObserver", "MutationObserver", "CustomEvent", "getComputedStyle", "IS_REACT_ACT_ENVIRONMENT",
 ] as const;
 
 type Listener = EventListenerOrEventListenerObject;
@@ -220,6 +220,42 @@ export function createReactHost() {
     disconnect() {}
     unobserve() {}
   }
+  const intersectionObservers: HostIntersectionObserver[] = [];
+  class HostIntersectionObserver implements IntersectionObserver {
+    readonly root: Element | Document | null;
+    readonly rootMargin: string;
+    readonly thresholds: readonly number[];
+    readonly targets = new Set<Element>();
+
+    constructor(
+      private readonly callback: IntersectionObserverCallback,
+      options: IntersectionObserverInit = {},
+    ) {
+      this.root = options.root ?? null;
+      this.rootMargin = options.rootMargin ?? "0px";
+      this.thresholds = Array.isArray(options.threshold)
+        ? options.threshold
+        : [options.threshold ?? 0];
+      intersectionObservers.push(this);
+    }
+
+    observe(target: Element): void { this.targets.add(target); }
+    unobserve(target: Element): void { this.targets.delete(target); }
+    disconnect(): void { this.targets.clear(); }
+    takeRecords(): IntersectionObserverEntry[] { return []; }
+    deliver(target: Element, isIntersecting: boolean): void {
+      if (!this.targets.has(target)) return;
+      this.callback([{
+        target,
+        isIntersecting,
+        intersectionRatio: isIntersecting ? 1 : 0,
+        time: Date.now(),
+        boundingClientRect: target.getBoundingClientRect(),
+        intersectionRect: target.getBoundingClientRect(),
+        rootBounds: this.root instanceof HostNode ? this.root.getBoundingClientRect() : null,
+      } as IntersectionObserverEntry], this);
+    }
+  }
   class HostMutationObserver {
     constructor(_callback: MutationCallback) {}
     observe() {}
@@ -232,11 +268,12 @@ export function createReactHost() {
   }
   const globals = globalThis as unknown as Record<string, unknown>;
   const previous = new Map(reactHostGlobalKeys.map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
-  Object.assign(globals, { window, document, Node: HostNode, Element: HostNode, HTMLElement: HostNode, ResizeObserver: HostResizeObserver, MutationObserver: HostMutationObserver, CustomEvent: HostCustomEvent, getComputedStyle: computedStyle, IS_REACT_ACT_ENVIRONMENT: true });
+  Object.assign(globals, { window, document, Node: HostNode, Element: HostNode, HTMLElement: HostNode, ResizeObserver: HostResizeObserver, IntersectionObserver: HostIntersectionObserver, MutationObserver: HostMutationObserver, CustomEvent: HostCustomEvent, getComputedStyle: computedStyle, IS_REACT_ACT_ENVIRONMENT: true });
   const container = new HostNode(1, "DIV", document);
   rawDocument.body.appendChild(container);
   return {
     container,
+    intersectionObservers,
     restore: () => {
       for (const key of reactHostGlobalKeys) {
         const descriptor = previous.get(key);

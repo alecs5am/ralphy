@@ -75,7 +75,8 @@ function createController(api: ReturnType<typeof createApi>, activitySequence = 
       start(): Promise<void>;
       refresh(sequence: number): Promise<void>;
       selectTab(tab: string): Promise<void>;
-      loadMore(): Promise<void>;
+      loadMore(tab: string): Promise<void>;
+      retryPage(tab: string): Promise<void>;
       retry(): Promise<void>;
       openDocument(document: unknown): Promise<void>;
       setDocumentDraft(body: string): void;
@@ -255,7 +256,7 @@ describe("ProjectScreen behavior", () => {
     api.resolveProjectPreview.mockResolvedValue({ url: "ralphy-media://asset/current", sizeBytes: 10 });
     const controller = createController(api);
     await controller.selectTab("media");
-    await controller.loadMore();
+    await controller.loadMore("media");
     await controller.openMediaViewer(unselected);
 
     await controller.selectMediaRevision("revision-1");
@@ -954,6 +955,110 @@ describe("ProjectScreen behavior", () => {
     expect(controller.getSnapshot().selectedDocument?.id).toBe("document-1");
   });
 
+  test("automatic cursor starts one active append and lets it settle after a tab switch", async () => {
+    const append = deferred<{ items: Array<{ ref: { type: "object"; id: string } }>; nextCursor: null }>();
+    const api = createApi();
+    api.loadProjectPage.mockImplementation(async ({ tab, cursor }: { tab: string; cursor?: string }) => {
+      if (tab !== "media") return { items: [], nextCursor: null };
+      if (cursor) return append.promise;
+      return { items: [{ ref: { type: "object" as const, id: "media-1" } }], nextCursor: "media-next" };
+    });
+    const controller = createController(api);
+
+    await controller.selectTab("media");
+    const first = controller.loadMore("media");
+    await controller.loadMore("media");
+    expect(api.loadProjectPage.mock.calls.filter(([request]) => request.tab === "media" && request.cursor === "media-next")).toHaveLength(1);
+
+    await controller.selectTab("documents");
+    append.resolve({ items: [{ ref: { type: "object", id: "media-2" } }], nextCursor: null });
+    await first;
+    expect(controller.getSnapshot().domain.pages.media).toMatchObject({
+      status: "ready",
+      items: [{ ref: { type: "object", id: "media-1" } }, { ref: { type: "object", id: "media-2" } }],
+      nextCursor: null,
+    });
+
+    const calls = api.loadProjectPage.mock.calls.length;
+    await controller.loadMore("media");
+    await controller.selectTab("media");
+    await controller.loadMore("media");
+    expect(api.loadProjectPage).toHaveBeenCalledTimes(calls);
+  });
+
+  test("automatic cursor blocks initial loading and retries only the failed loaded cursor", async () => {
+    const initial = deferred<{ items: Array<{ id: string }>; nextCursor: string }>();
+    const api = createApi();
+    api.loadProjectPage
+      .mockReturnValueOnce(initial.promise)
+      .mockRejectedValueOnce(new Error("Offline"))
+      .mockResolvedValueOnce({ items: [{ id: "document-2" }], nextCursor: null });
+    const controller = createController(api);
+
+    const selecting = controller.selectTab("documents");
+    await controller.loadMore("documents");
+    expect(api.loadProjectPage).toHaveBeenCalledOnce();
+    initial.resolve({ items: [{ id: "document-1" }], nextCursor: "documents-next" });
+    await selecting;
+
+    await controller.loadMore("documents");
+    expect(controller.getSnapshot().domain.pages.documents).toMatchObject({
+      status: "error",
+      items: [{ id: "document-1" }],
+      nextCursor: "documents-next",
+    });
+    await controller.loadMore("documents");
+    await controller.retry();
+    expect(api.loadProjectPage).toHaveBeenCalledTimes(2);
+    await controller.retryPage("documents");
+    expect(api.loadProjectPage).toHaveBeenNthCalledWith(3, {
+      tab: "documents",
+      project: { workspaceId: "workspace-1", projectId: "project-1" },
+      cursor: "documents-next",
+    });
+    expect(controller.getSnapshot().domain.pages.documents.items).toEqual([{ id: "document-1" }, { id: "document-2" }]);
+
+    const initialFailureApi = createApi();
+    initialFailureApi.loadProjectPage
+      .mockRejectedValueOnce(new Error("Initial offline"))
+      .mockResolvedValueOnce({ items: [], nextCursor: null });
+    const initialFailure = createController(initialFailureApi);
+    await initialFailure.selectTab("activity");
+    await initialFailure.retryPage("activity");
+    expect(initialFailureApi.loadProjectPage).toHaveBeenCalledOnce();
+    await initialFailure.retry();
+    expect(initialFailureApi.loadProjectPage).toHaveBeenNthCalledWith(2, {
+      tab: "activity",
+      project: { workspaceId: "workspace-1", projectId: "project-1" },
+    });
+  });
+
+  test("automatic cursor fences late Media append on filter reset and dispose", async () => {
+    const oldAppend = deferred<{ items: Array<{ ref: { type: "object"; id: string } }>; nextCursor: null }>();
+    const disposedAppend = deferred<{ items: Array<{ ref: { type: "object"; id: string } }>; nextCursor: null }>();
+    const api = createApi();
+    api.loadProjectPage.mockImplementation(({ cursor, mediaQuery }: { cursor?: string; mediaQuery?: { filter: string } }) => {
+      if (cursor === "all-next") return oldAppend.promise;
+      if (cursor === "candidate-next") return disposedAppend.promise;
+      if (mediaQuery?.filter === "candidate") return Promise.resolve({ items: [{ ref: { type: "object" as const, id: "candidate" } }], nextCursor: "candidate-next" });
+      return Promise.resolve({ items: [{ ref: { type: "object" as const, id: "all" } }], nextCursor: "all-next" });
+    });
+    const controller = createController(api);
+
+    await controller.selectTab("media");
+    const stale = controller.loadMore("media");
+    await controller.setMediaFilter("candidate");
+    oldAppend.resolve({ items: [{ ref: { type: "object", id: "stale" } }], nextCursor: null });
+    await stale;
+    expect(controller.getSnapshot().domain.pages.media.items).toEqual([{ ref: { type: "object", id: "candidate" } }]);
+
+    const disposed = controller.loadMore("media");
+    controller.dispose();
+    disposedAppend.resolve({ items: [{ ref: { type: "object", id: "disposed" } }], nextCursor: null });
+    await disposed;
+    expect(controller.getSnapshot().domain.pages.media.items).toEqual([{ ref: { type: "object", id: "candidate" } }]);
+  });
+
   test("keeps loaded rows through Load more failure, retry, and dedupe", async () => {
     const api = createApi();
     api.loadProjectPage
@@ -963,11 +1068,11 @@ describe("ProjectScreen behavior", () => {
     const controller = createController(api);
 
     await controller.selectTab("documents");
-    await controller.loadMore();
+    await controller.loadMore("documents");
     expect(controller.getSnapshot().domain.pages.documents).toMatchObject({ status: "error", items: [{ id: "document-1", title: "One" }] });
     expect(renderController(controller)).toContain("Offline");
 
-    await controller.retry();
+    await controller.retryPage("documents");
     expect(controller.getSnapshot().domain.pages.documents.items.map((item: { id: string }) => item.id)).toEqual(["document-1", "document-2"]);
   });
 
@@ -1105,10 +1210,10 @@ describe("ProjectScreen behavior", () => {
 
     await controller.selectTab("media");
     await controller.setMediaFilter("candidate");
-    await controller.loadMore();
+    await controller.loadMore("media");
     expect(api.loadProjectPage).toHaveBeenNthCalledWith(3, { tab: "media", project: { workspaceId: "workspace-1", projectId: "project-1" }, cursor: "candidate-next", mediaQuery: { filter: "candidate" } });
     expect(controller.getSnapshot().domain.pages.media).toMatchObject({ status: "error", items: [{ ref: { type: "artifact", id: "one" } }], nextCursor: "candidate-next", mediaFilter: "candidate" });
-    await controller.retry();
+    await controller.retryPage("media");
     expect(api.loadProjectPage).toHaveBeenNthCalledWith(4, { tab: "media", project: { workspaceId: "workspace-1", projectId: "project-1" }, cursor: "candidate-next", mediaQuery: { filter: "candidate" } });
     expect(controller.getSnapshot().domain.pages.media.items).toEqual([{ ref: { type: "artifact", id: "one" } }, { ref: { type: "artifact", id: "two" } }]);
   });
