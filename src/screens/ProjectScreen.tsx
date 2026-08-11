@@ -1,6 +1,6 @@
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import type { ActivityDto, ProjectOverviewDto, UnitDto } from "../../electron/ralphy/types";
+import type { ActivityDto, ProjectOverviewDto } from "../../electron/ralphy/types";
 import { ProjectControls } from "../components/ProjectControls";
 import { ProjectHeader } from "../components/ProjectHeader";
 import { CompositionsPanel } from "./project/CompositionsPanel";
@@ -8,6 +8,7 @@ import { DocumentsPanel } from "./project/DocumentsPanel";
 import { MediaPanel } from "./project/MediaPanel";
 import { MediaViewer } from "./project/MediaViewer";
 import { OverviewPanel } from "./project/OverviewPanel";
+import { UnitsPanel } from "./project/UnitsPanel";
 import { useRememberedScroll } from "./project/scroll-memory";
 import { bridge, type ProjectSummary } from "../lib/ipc";
 import type { DomainPage } from "../state/project-domain";
@@ -38,7 +39,7 @@ function Pagination({ page, onLoad, onRetry }: { page: DomainPage; onLoad(): voi
 
 type ScrollBinding = ReturnType<typeof useRememberedScroll>;
 
-export function ProjectScreenView({ project, rootEpoch = 0, controller, snapshot, scrollMemory = new Map<string, number>(), documentsScrollMemory = scrollMemory, overviewScroll }: { project: ProjectSummary; rootEpoch?: number; controller: ProjectScreenController; snapshot: ProjectScreenSnapshot; scrollMemory?: Map<string, number>; documentsScrollMemory?: Map<string, number>; overviewScroll?: ScrollBinding }) {
+export function ProjectScreenView({ project, rootEpoch = 0, controller, snapshot, scrollMemory = new Map<string, number>(), documentsScrollMemory = scrollMemory, unitsScrollMemory = scrollMemory, overviewScroll }: { project: ProjectSummary; rootEpoch?: number; controller: ProjectScreenController; snapshot: ProjectScreenSnapshot; scrollMemory?: Map<string, number>; documentsScrollMemory?: Map<string, number>; unitsScrollMemory?: Map<string, number>; overviewScroll?: ScrollBinding }) {
   const state = snapshot.domain;
   const activeTab = snapshot.activeTab;
   const page = activeTab === "overview" ? null : state.pages[activeTab];
@@ -59,12 +60,12 @@ export function ProjectScreenView({ project, rootEpoch = 0, controller, snapshot
   return <main className="main-region project-region">
     <ProjectHeader project={project} />
     <ProjectControls activeTab={activeTab} onSelect={selectTab} />
-    <div className={`project-domain-body${activeTab === "media" ? " is-media" : activeTab === "documents" ? " is-documents" : ""}`} role="tabpanel" id={`project-panel-${activeTab}`} aria-labelledby={`project-tab-${activeTab}`} ref={activeTab === "overview" ? overviewScroll?.ref : undefined} onScroll={activeTab === "overview" ? overviewScroll?.onScroll : undefined}>
+    <div className={`project-domain-body${activeTab === "media" ? " is-media" : activeTab === "documents" ? " is-documents" : activeTab === "units" ? " is-units" : ""}`} role="tabpanel" id={`project-panel-${activeTab}`} aria-labelledby={`project-tab-${activeTab}`} ref={activeTab === "overview" ? overviewScroll?.ref : undefined} onScroll={activeTab === "overview" ? overviewScroll?.onScroll : undefined}>
       {activeTab === "overview" && (state.overview.status === "loading" ? <div className="project-skeleton" role="status">Loading project overview…</div> : state.overview.status === "error" ? <ProjectError error={state.overview.error} onRetry={retry} /> : state.overview.value ? <OverviewPanel value={state.overview.value as ProjectOverviewDto} onViewTab={selectTab} onOpenDocument={openOverviewDocument} onOpenComposition={openOverviewComposition} onOpenUnit={openOverviewUnit} /> : null)}
       {activeTab === "documents" && page && (page.status === "loading" && page.items.length === 0 ? <div className="project-skeleton" role="status">Loading documents…</div> : page.status === "error" && page.items.length === 0 ? <ProjectError error={page.error} onRetry={retry} /> : <DocumentsPanel page={page} controller={controller} snapshot={snapshot} scrollMemory={documentsScrollMemory} resetToken={projectScrollToken} />)}
       {activeTab === "media" && page && <MediaPanel page={page} controller={controller} snapshot={snapshot} rootEpoch={rootEpoch} scrollMemory={scrollMemory} scrollResetToken={mediaScrollToken} />}
       {activeTab === "compositions" && page && <PageState page={page} empty="No compositions yet." onRetry={retry}><CompositionsPanel page={page} controller={controller} snapshot={snapshot} pagination={<Pagination page={page} onLoad={() => { void controller.loadMore("compositions"); }} onRetry={() => { void controller.retryPage("compositions"); }} />} /></PageState>}
-      {activeTab === "units" && page && <PageState page={page} empty="No units yet." onRetry={retry}><div className="project-domain-list">{(page.items as UnitDto[]).map((item) => <article key={item.id}><strong>{item.slug}</strong><span>{item.format}</span><small>ID {item.id} · Selected {item.selectedRevisionId ?? "None"} · Latest {item.latestRevisionId ?? "None"}</small></article>)}<Pagination page={page} onLoad={() => { void controller.loadMore("units"); }} onRetry={() => { void controller.retryPage("units"); }} /></div></PageState>}
+      {activeTab === "units" && page && <PageState page={page} empty="No units yet." onRetry={retry}><UnitsPanel page={page} controller={controller} snapshot={snapshot} scrollMemory={unitsScrollMemory} resetToken={projectScrollToken} /></PageState>}
       {activeTab === "activity" && page && <PageState page={page} empty="No activity yet." onRetry={retry}><div className="project-domain-list">{(page.items as ActivityDto[]).map((event) => <article key={event.sequence}><strong>#{event.sequence} · {event.action}</strong><span>{event.entityType} · {event.entityId}</span><time dateTime={new Date(event.createdAt).toISOString()}>{formatTime(event.createdAt)}</time></article>)}<Pagination page={page} onLoad={() => { void controller.loadMore("activity"); }} onRetry={() => { void controller.retryPage("activity"); }} /></div></PageState>}
     </div>
     <MediaViewer controller={controller} snapshot={snapshot} />
@@ -93,6 +94,7 @@ function ConnectedProjectScreen({ project, rootEpoch, controller }: { project: P
     overview: new Map<string, number>(),
     media: new Map<string, number>(),
     documents: new Map<string, number>(),
+    units: new Map<string, number>(),
   }));
   let currentScroll = ownedScroll;
   if (ownedScroll.projectScrollToken !== projectScrollToken || ownedScroll.mediaScrollToken !== mediaScrollToken) {
@@ -102,11 +104,12 @@ function ConnectedProjectScreen({ project, rootEpoch, controller }: { project: P
       overview: ownedScroll.projectScrollToken === projectScrollToken ? ownedScroll.overview : new Map<string, number>(),
       media: new Map<string, number>(),
       documents: ownedScroll.projectScrollToken === projectScrollToken ? ownedScroll.documents : new Map<string, number>(),
+      units: ownedScroll.projectScrollToken === projectScrollToken ? ownedScroll.units : new Map<string, number>(),
     };
     setOwnedScroll(currentScroll);
   }
   const overviewScroll = useRememberedScroll(currentScroll.overview, "overview", projectScrollToken);
-  return <ProjectScreenView project={project} rootEpoch={rootEpoch} controller={controller} snapshot={snapshot} scrollMemory={currentScroll.media} documentsScrollMemory={currentScroll.documents} overviewScroll={overviewScroll} />;
+  return <ProjectScreenView project={project} rootEpoch={rootEpoch} controller={controller} snapshot={snapshot} scrollMemory={currentScroll.media} documentsScrollMemory={currentScroll.documents} unitsScrollMemory={currentScroll.units} overviewScroll={overviewScroll} />;
 }
 
 export function ProjectScreen({
