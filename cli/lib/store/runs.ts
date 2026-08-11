@@ -176,6 +176,21 @@ const RUN_OBJECT_DTO_COLUMNS =
   "run_object.id, run.workspace_id, run.project_id, run_object.run_id, run_object.object_id, run_object.purpose, run_object.state, run_object.retention, run_object.mime, run_object.bytes, run_object.path AS logical_path, run_object.created_at";
 const RUN_RESULT_COLUMNS =
   "id, run_id, position, entity_type, entity_id, created_at";
+
+/** @internal Closed SQL relation; callers add target/scope/cardinality rules. */
+export const ARTIFACT_REVISION_PRODUCERS_SQL = `
+  SELECT result.entity_id AS artifactRevisionId, result.run_id AS runId
+  FROM run_results result
+  WHERE result.entity_type = 'artifact_revision'
+  UNION
+  SELECT output.artifact_revision_id AS artifactRevisionId, result.run_id AS runId
+  FROM run_results result
+  JOIN builds build ON build.id = result.entity_id
+  JOIN build_outputs output ON output.build_id = build.id
+  WHERE result.entity_type = 'build'
+    AND build.run_id = result.run_id
+    AND build.state = 'succeeded'
+`;
 const RUN_RESULT_ENTITY_TYPES = new Set<RunResultEntityType>([
   "document_revision",
   "artifact_revision",
@@ -1566,7 +1581,8 @@ function resolveRunScope(
   return { workspaceId: null, projectId: null };
 }
 
-function resolveRunQueryAccess(
+/** @internal Consumer-aware Run visibility shared by scoped store projections. */
+export function resolveRunQueryAccess(
   db: Database,
   context: QueryContext,
 ): { sql: string; values: (string | number)[] } {
@@ -1648,22 +1664,12 @@ function resolveMediaProducerIds(
     if (!revision) throw mediaTargetNotFound(target);
 
     const access = resolveRunQueryAccess(db, context);
-    const producerIds = db.query<{ runId: string }, [string, string]>(
-      `SELECT result.run_id AS runId
-       FROM run_results AS result
-       WHERE result.entity_type = 'artifact_revision'
-         AND result.entity_id = ?
-       UNION
-       SELECT result.run_id AS runId
-       FROM run_results AS result
-       JOIN builds AS build ON build.id = result.entity_id
-       JOIN build_outputs AS output ON output.build_id = build.id
-       WHERE result.entity_type = 'build'
-         AND output.artifact_revision_id = ?
-         AND build.run_id = result.run_id
-         AND build.state = 'succeeded'
-       ORDER BY runId ASC LIMIT 2`,
-    ).all(target.id, target.id).map((row) => row.runId);
+    const producerIds = db.query<{ runId: string }, [string]>(
+      `SELECT producer.runId
+       FROM (${ARTIFACT_REVISION_PRODUCERS_SQL}) producer
+       WHERE producer.artifactRevisionId = ?
+       ORDER BY producer.runId ASC LIMIT 2`,
+    ).all(target.id).map((row) => row.runId);
     return { producerIds, access };
   }
 

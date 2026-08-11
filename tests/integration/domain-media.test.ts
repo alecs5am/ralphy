@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -10,10 +10,16 @@ import {
   selectArtifactRevision,
 } from "../../cli/lib/store/artifacts.js";
 import {
+  bindCompositionInput,
+  completeBuild,
   createComposition,
   putCompositionSource,
   reviseComposition,
+  sealCompositionRevision,
+  startBuild,
 } from "../../cli/lib/store/compositions.js";
+import { requestDigest } from "../../cli/lib/store/canonical-json.js";
+import { startConsumerOperationRun } from "../../cli/lib/store/consumer-runs.js";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
 import { listEvaluations } from "../../cli/lib/store/evaluations.js";
 import {
@@ -24,16 +30,21 @@ import {
   reviewMedia,
 } from "../../cli/lib/store/media.js";
 import { ingestObject } from "../../cli/lib/store/objects.js";
-import { recordRunObject, startRun } from "../../cli/lib/store/runs.js";
+import { recordRunObject, recordRunResult, startRun } from "../../cli/lib/store/runs.js";
 import {
   createIteration,
   createProject,
   createWorkspace,
 } from "../../cli/lib/store/scopes.js";
-import { endAgentSession, startAgentSession } from "../../cli/lib/store/sessions.js";
+import {
+  endAgentSession,
+  startAgentSession,
+  startConsumerSession,
+} from "../../cli/lib/store/sessions.js";
 import { StoreConflictError } from "../../cli/lib/store/types.js";
 import { verifyDomainStore } from "../../cli/lib/store/verify.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
+import { installConsumer } from "../helpers/consumer-auth.js";
 
 let roots: TmpRoot[] = [];
 
@@ -52,14 +63,14 @@ afterEach(() => {
 async function ingest(root: TmpRoot, name: string, scope: {
   workspaceId: string;
   projectId?: string;
-}) {
+}, mime = "image/png") {
   const filePath = path.join(root.dir, name);
   fs.writeFileSync(filePath, name);
   return ingestObject({
     scope,
     sourcePath: filePath,
     originalName: name,
-    mime: "image/png",
+    mime,
     storageClass: "durable",
   });
 }
@@ -143,8 +154,10 @@ describe("media cards", () => {
       artifact: [
         "bytes",
         "kind",
+        "mediaKind",
         "mime",
         "projectId",
+        "provenance",
         "ref",
         "revisionCount",
         "selectedAt",
@@ -160,8 +173,10 @@ describe("media cards", () => {
       object: [
         "bytes",
         "createdAt",
+        "mediaKind",
         "mime",
         "projectId",
+        "provenance",
         "ref",
         "referenceCount",
         "storageClass",
@@ -175,9 +190,11 @@ describe("media cards", () => {
         "createdAt",
         "locationClass",
         "logicalPath",
+        "mediaKind",
         "mime",
         "objectId",
         "projectId",
+        "provenance",
         "purpose",
         "ref",
         "retention",
@@ -270,8 +287,10 @@ describe("media cards", () => {
     expect(Object.keys(cards[1]!).sort()).toEqual([
       "bytes",
       "kind",
+      "mediaKind",
       "mime",
       "projectId",
+      "provenance",
       "ref",
       "revisionCount",
       "selectedAt",
@@ -299,9 +318,11 @@ describe("media cards", () => {
       "createdAt",
       "locationClass",
       "logicalPath",
+      "mediaKind",
       "mime",
       "objectId",
       "projectId",
+      "provenance",
       "purpose",
       "ref",
       "retention",
@@ -323,8 +344,10 @@ describe("media cards", () => {
     expect(Object.keys(cards[2]!).sort()).toEqual([
       "bytes",
       "createdAt",
+      "mediaKind",
       "mime",
       "projectId",
+      "provenance",
       "ref",
       "referenceCount",
       "storageClass",
@@ -429,6 +452,320 @@ describe("media cards", () => {
     expect(() =>
       listMedia({ context: { workspaceId: f.workspace.id }, types: [], limit: 5 }),
     ).toThrow(/at least one type/i);
+  });
+
+  test("media facets classify every card and filter before the page limit", async () => {
+    const root = makeRoot();
+    const f = await fixture(root);
+    const context = { workspaceId: f.workspace.id, projectId: f.project.id };
+    const db = openDomainDb();
+    db.prepare("UPDATE objects SET mime = 'image/png', created_at = 1 WHERE id = ?")
+      .run(f.projectObject.id);
+    db.prepare("UPDATE objects SET mime = 'video/mp4', created_at = 2 WHERE id = ?")
+      .run(f.sharedObject.id);
+
+    expect(listMedia({ context, limit: 100 }).items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          ref: { type: "artifact", id: f.artifact.id },
+          mediaKind: "image",
+          provenance: "unknown",
+        }),
+        expect.objectContaining({
+          ref: { type: "run-object", id: f.runObject.id },
+          mediaKind: "other",
+          provenance: "not-generation",
+        }),
+      ]),
+    );
+    expect(listMedia({
+      context,
+      types: ["object"],
+      mediaKind: "video",
+      limit: 1,
+    }).items.map((card) => card.ref.id)).toEqual([f.sharedObject.id]);
+    const generated = recordRunObject({
+      runId: startRun({ projectId: f.project.id, kind: "generation" }).id,
+      path: "tmp/generated.png",
+      purpose: "result",
+      state: "ready",
+      retention: "keep",
+      mime: "image/png",
+    });
+    db.prepare("UPDATE run_objects SET created_at = 3 WHERE id = ?").run(f.runObject.id);
+    db.prepare("UPDATE run_objects SET created_at = 4 WHERE id = ?").run(generated.id);
+    expect(listMedia({
+      context,
+      types: ["run-object"],
+      provenance: "generation",
+      limit: 1,
+    }).items.map((card) => card.ref.id)).toEqual([generated.id]);
+    expect(() => listMedia({ context, mediaKind: "archive" as never, limit: 1 }))
+      .toThrow(/media kind/i);
+    expect(() => listMedia({ context, provenance: "maybe" as never, limit: 1 }))
+      .toThrow(/media provenance/i);
+  });
+
+  test("media facets classify the closed MIME matrix", async () => {
+    const root = makeRoot();
+    const f = await fixture(root);
+    const cases = [
+      { mime: "image/png", kind: "image" },
+      { mime: "video/mp4", kind: "video" },
+      { mime: "audio/wav", kind: "audio" },
+      { mime: "text/markdown", kind: "document" },
+      { mime: "application/pdf", kind: "document" },
+      { mime: "application/vnd.ralphy.workspace+json", kind: "document" },
+      { mime: "application/octet-stream", kind: "other" },
+    ] as const;
+    const refs = [];
+    for (const [index, item] of cases.entries()) {
+      const object = await ingest(
+        root,
+        `mime-${index}.bin`,
+        { workspaceId: f.workspace.id, projectId: f.project.id },
+        item.mime,
+      );
+      refs.push({ type: "object" as const, id: object.id });
+    }
+    expect(getMediaCards({
+      context: { workspaceId: f.workspace.id, projectId: f.project.id },
+      refs,
+    }).map((card) => ({ kind: card.mediaKind, provenance: card.provenance })))
+      .toEqual(cases.map((item) => ({ kind: item.kind, provenance: "unknown" })));
+  });
+
+  test("media facets preserve producer cardinality and consumer isolation", async () => {
+    const root = makeRoot();
+    const f = await fixture(root);
+    const context = { workspaceId: f.workspace.id, projectId: f.project.id };
+    const selected = (slug: string, state = "approved" as const) => {
+      const artifact = createArtifact({ projectId: f.project.id, slug, kind: "image" });
+      const revision = addArtifactRevision({
+        artifactId: artifact.id,
+        objectId: f.projectObject.id,
+        state,
+      });
+      selectArtifactRevision({
+        artifactId: artifact.id,
+        revisionId: revision.id,
+        expectedRevisionId: null,
+      });
+      return { artifact, revision };
+    };
+    const direct = selected("facet-direct");
+    const buildOnly = selected("facet-build");
+    const nonGeneration = selected("facet-non-generation");
+    const caseSensitive = selected("facet-case-sensitive");
+    const absent = selected("facet-absent");
+    const ambiguous = selected("facet-ambiguous");
+    const deduplicated = selected("facet-deduplicated");
+    const mixed = selected("facet-mixed");
+    const unselected = createArtifact({
+      projectId: f.project.id,
+      slug: "facet-unselected",
+      kind: "image",
+    });
+    addArtifactRevision({
+      artifactId: unselected.id,
+      objectId: f.projectObject.id,
+      state: "approved",
+    });
+
+    const directRun = startRun({ projectId: f.project.id, kind: "generation" });
+    recordRunResult(openDomainDb(), {
+      runId: directRun.id,
+      position: 0,
+      entityType: "artifact_revision",
+      entityId: direct.revision.id,
+    });
+    const nonGenerationRun = startRun({ projectId: f.project.id, kind: "render" });
+    recordRunResult(openDomainDb(), {
+      runId: nonGenerationRun.id,
+      position: 0,
+      entityType: "artifact_revision",
+      entityId: nonGeneration.revision.id,
+    });
+    const caseSensitiveRun = startRun({
+      projectId: f.project.id,
+      kind: "Generate.image",
+    });
+    recordRunResult(openDomainDb(), {
+      runId: caseSensitiveRun.id,
+      position: 0,
+      entityType: "artifact_revision",
+      entityId: caseSensitive.revision.id,
+    });
+    for (let position = 0; position < 2; position += 1) {
+      const run = startRun({ projectId: f.project.id, kind: "generation" });
+      recordRunResult(openDomainDb(), {
+        runId: run.id,
+        position,
+        entityType: "artifact_revision",
+        entityId: ambiguous.revision.id,
+      });
+    }
+
+    const composition = createComposition({
+      projectId: f.project.id,
+      slug: "facet-producers",
+      kind: "video",
+    });
+    const draft = reviseComposition({
+      compositionId: composition.id,
+      expectedLatestRevisionId: null,
+      engine: "manual",
+    });
+    bindCompositionInput({
+      revisionId: draft.id,
+      artifactRevisionId: direct.revision.id,
+      role: "source",
+      position: 0,
+    });
+    const compositionRevision = sealCompositionRevision({ revisionId: draft.id });
+    const recordBuildProducer = (runId: string, artifactRevisionId: string, position: number) => {
+      const build = startBuild({
+        compositionRevisionId: compositionRevision.id,
+        runId,
+        profile: { fixture: true },
+      });
+      const completed = completeBuild({
+        buildId: build.id,
+        outputs: [{ artifactRevisionId, role: "result", position: 0 }],
+      });
+      recordRunResult(openDomainDb(), {
+        runId,
+        position,
+        entityType: "build",
+        entityId: completed.id,
+      });
+    };
+    const buildRun = startRun({ projectId: f.project.id, kind: "generate.video" });
+    recordBuildProducer(buildRun.id, buildOnly.revision.id, 0);
+    const sameRun = startRun({ projectId: f.project.id, kind: "generation" });
+    recordRunResult(openDomainDb(), {
+      runId: sameRun.id,
+      position: 0,
+      entityType: "artifact_revision",
+      entityId: deduplicated.revision.id,
+    });
+    recordBuildProducer(sameRun.id, deduplicated.revision.id, 1);
+    const mixedDirectRun = startRun({ projectId: f.project.id, kind: "generation" });
+    recordRunResult(openDomainDb(), {
+      runId: mixedDirectRun.id,
+      position: 0,
+      entityType: "artifact_revision",
+      entityId: mixed.revision.id,
+    });
+    const mixedBuildRun = startRun({ projectId: f.project.id, kind: "generation" });
+    recordBuildProducer(mixedBuildRun.id, mixed.revision.id, 0);
+
+    const expected = new Map([
+      [direct.artifact.id, "generation"],
+      [buildOnly.artifact.id, "generation"],
+      [nonGeneration.artifact.id, "not-generation"],
+      [caseSensitive.artifact.id, "not-generation"],
+      [absent.artifact.id, "unknown"],
+      [ambiguous.artifact.id, "unknown"],
+      [deduplicated.artifact.id, "generation"],
+      [mixed.artifact.id, "unknown"],
+      [unselected.id, "unknown"],
+    ] as const);
+    const page = listMedia({ context, types: ["artifact"], limit: 100 });
+    const byId = new Map(page.items.map((card) => [card.ref.id, card]));
+    for (const [id, provenance] of expected) {
+      expect(byId.get(id)).toMatchObject({ mediaKind: id === unselected.id ? "other" : "image", provenance });
+      expect(getMediaCard({ context, ref: { type: "artifact", id } })).toMatchObject({ provenance });
+    }
+    expect(listMedia({
+      context,
+      types: ["artifact"],
+      filter: "approved",
+      mediaKind: "image",
+      provenance: "generation",
+      limit: 100,
+    }).items.map((card) => card.ref.id).sort()).toEqual([
+      buildOnly.artifact.id,
+      deduplicated.artifact.id,
+      direct.artifact.id,
+    ].sort());
+
+    const owner = installConsumer(root, {
+      id: "media_facet_owner",
+      namespace: "media-facet-owner",
+      tokenByte: 41,
+    });
+    const other = installConsumer(root, {
+      id: "media_facet_other",
+      namespace: "media-facet-other",
+      tokenByte: 42,
+    });
+    const ownerSession = startConsumerSession(owner.authority, {
+      workspaceId: f.workspace.id,
+      projectId: f.project.id,
+    });
+    const otherSession = startConsumerSession(other.authority, {
+      workspaceId: f.workspace.id,
+      projectId: f.project.id,
+    });
+    const privateArtifact = selected("facet-private-producer");
+    const privateRun = startConsumerOperationRun(owner.authority, {
+      sessionId: ownerSession.id,
+      workspaceId: f.workspace.id,
+      projectId: f.project.id,
+      kind: "generation",
+      external: {
+        runId: "facet-private-run",
+        nodeId: "facet-node",
+        attempt: 1,
+        operation: "generation",
+        idempotencyKey: "facet-private",
+      },
+      requestDigest: requestDigest({ fixture: "facet-private" }),
+    }).run;
+    recordRunResult(openDomainDb(), {
+      runId: privateRun.id,
+      position: 0,
+      entityType: "artifact_revision",
+      entityId: privateArtifact.revision.id,
+    });
+    const privateRunObject = recordRunObject({
+      runId: privateRun.id,
+      path: "tmp/facet-private.png",
+      purpose: "result",
+      state: "ready",
+      retention: "keep",
+      mime: "image/png",
+    });
+    const query = spyOn(openDomainDb(), "query");
+    try {
+      expect(listMedia({
+        context: { sessionId: ownerSession.id, consumerAuthority: owner.authority },
+        limit: 100,
+      }).items.length).toBeGreaterThan(1);
+      expect(query.mock.calls.filter(([sql]) =>
+        String(sql).includes("SELECT consumer_principal_id AS principalId"),
+      )).toHaveLength(1);
+    } finally {
+      query.mockRestore();
+    }
+    expect(getMediaCard({
+      context: { sessionId: ownerSession.id, consumerAuthority: owner.authority },
+      ref: { type: "artifact", id: privateArtifact.artifact.id },
+    }).provenance).toBe("generation");
+    expect(getMediaCard({
+      context: { sessionId: otherSession.id, consumerAuthority: other.authority },
+      ref: { type: "artifact", id: privateArtifact.artifact.id },
+    }).provenance).toBe("unknown");
+    expect(listMedia({
+      context: { sessionId: otherSession.id, consumerAuthority: other.authority },
+      types: ["run-object"],
+      limit: 100,
+    }).items.map((card) => card.ref.id)).not.toContain(privateRunObject.id);
+    expect(() => getMediaCard({
+      context: { sessionId: otherSession.id, consumerAuthority: other.authority },
+      ref: { type: "run-object", id: privateRunObject.id },
+    })).toThrow(/unresolvable/);
   });
 
   test("applies every media predicate before cursor and limit without widening visibility", async () => {

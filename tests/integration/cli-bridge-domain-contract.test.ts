@@ -5,6 +5,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { reviseCompositionCheckout, runCompositionBuild } from "../../cli/lib/composition-build.js";
 import { generationInput } from "../../cli/lib/generation-input.js";
 import { projectBridgeError } from "../../cli/lib/bridge/protocol.js";
+import { requestDigest } from "../../cli/lib/store/canonical-json.js";
+import { startConsumerOperationRun } from "../../cli/lib/store/consumer-runs.js";
 import {
   addArtifactRevision,
   addArtifactUsage,
@@ -37,11 +39,12 @@ import {
   startRunAttempt,
 } from "../../cli/lib/store/runs.js";
 import { createIteration, createProject, createWorkspace } from "../../cli/lib/store/scopes.js";
-import { startAgentSession } from "../../cli/lib/store/sessions.js";
+import { startAgentSession, startConsumerSession } from "../../cli/lib/store/sessions.js";
 import { StoreConflictError } from "../../cli/lib/store/types.js";
 import { storedObjectPath } from "../helpers/stored-object.js";
 import { createUnit, reviseUnit } from "../../cli/lib/store/units.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
+import { installConsumer } from "../helpers/consumer-auth.js";
 
 let root: TmpRoot;
 
@@ -50,20 +53,26 @@ afterEach(() => {
   root.cleanup();
 });
 
-function bridgeContext(): BridgeMethodContext {
-  return {
+function bridgeContext(authority?: BridgeMethodContext["authority"]): BridgeMethodContext {
+  const context: BridgeMethodContext = {
+    ...(authority === undefined ? {} : { authority }),
     consumerSessions: new Set(),
     activitySubscriptions: new Map(),
     helloComplete: true,
     markHello() {},
-    setAuthority() {},
+    setAuthority(value) { context.authority = value; },
   };
+  return context;
 }
 
-async function call(method: string, params: Record<string, unknown>) {
+async function call(
+  method: string,
+  params: Record<string, unknown>,
+  context = bridgeContext(),
+) {
   const handler = createBridgeMethods({ dataRoot: path.join(root.dir, ".ralphy") }).get(method);
   if (!handler) throw new Error(`Missing bridge method: ${method}`);
-  return handler.handle(params, bridgeContext()) as Promise<unknown> | unknown;
+  return handler.handle(params, context) as Promise<unknown> | unknown;
 }
 
 async function storedObject(
@@ -242,6 +251,187 @@ describe("Desktop bridge domain contract", () => {
       .toMatchObject({ id: artifactRevision.id, objectId: object.id });
   });
 
+  test("media facets preserve consumer authority at the bridge boundary", async () => {
+    root = makeTmpRoot("ralphy-bridge-media-facets-authority");
+    const workspace = createWorkspace({ slug: "media-facets", name: "Media Facets" });
+    const project = createProject({
+      workspaceId: workspace.id,
+      slug: "project",
+      name: "Project",
+    });
+    const owner = installConsumer(root, {
+      id: "consumer_media_owner",
+      namespace: "media-owner",
+      tokenByte: 31,
+    });
+    const other = installConsumer(root, {
+      id: "consumer_media_other",
+      namespace: "media-other",
+      tokenByte: 32,
+    });
+    const ownerSession = startConsumerSession(owner.authority, {
+      workspaceId: workspace.id,
+      projectId: project.id,
+    });
+    const otherSession = startConsumerSession(other.authority, {
+      workspaceId: workspace.id,
+      projectId: project.id,
+    });
+    const ownerRun = startConsumerOperationRun(owner.authority, {
+      sessionId: ownerSession.id,
+      workspaceId: workspace.id,
+      projectId: project.id,
+      kind: "generation",
+      external: {
+        runId: "media-owner-run",
+        nodeId: "media-node",
+        attempt: 1,
+        operation: "generation",
+        idempotencyKey: "media-facets",
+      },
+      requestDigest: requestDigest({ fixture: "media-facets" }),
+    }).run;
+    const ownerRunObject = recordRunObject({
+      runId: ownerRun.id,
+      path: "tmp/owner.png",
+      purpose: "result",
+      state: "ready",
+      retention: "keep",
+      mime: "image/png",
+    });
+    const generatedObject = await storedObject(
+      workspace.id,
+      project.id,
+      "media-facet-generated.png",
+      "durable",
+    );
+    const generatedArtifact = createArtifact({
+      projectId: project.id,
+      slug: "media-facet-generated",
+      kind: "image",
+    });
+    const generatedRevision = addArtifactRevision({
+      artifactId: generatedArtifact.id,
+      objectId: generatedObject.id,
+      state: "approved",
+    });
+    recordRunResult(openDomainDb(), {
+      runId: ownerRun.id,
+      position: 0,
+      entityType: "artifact_revision",
+      entityId: generatedRevision.id,
+    });
+    const sharedPath = path.join(root.dir, "media-facet-shared.png");
+    fs.writeFileSync(sharedPath, "shared media facet");
+    const sharedObject = await ingestObject({
+      scope: { workspaceId: workspace.id },
+      sourcePath: sharedPath,
+      originalName: "media-facet-shared.png",
+      mime: "image/png",
+      storageClass: "durable",
+    });
+    const sharedArtifact = createArtifact({
+      workspaceId: workspace.id,
+      slug: "media-facet-shared",
+      kind: "image",
+    });
+    const sharedRevision = addArtifactRevision({
+      artifactId: sharedArtifact.id,
+      objectId: sharedObject.id,
+      state: "approved",
+    });
+    selectArtifactRevision({
+      artifactId: sharedArtifact.id,
+      revisionId: sharedRevision.id,
+      expectedRevisionId: null,
+    });
+    const ownerBridge = bridgeContext(owner.authority);
+    ownerBridge.consumerSessions.add(ownerSession.id);
+    const otherBridge = bridgeContext(other.authority);
+    otherBridge.consumerSessions.add(otherSession.id);
+
+    const ownerPage = await call("media.list", {
+      context: { sessionId: ownerSession.id },
+      types: ["run-object"],
+      mediaKind: "image",
+      provenance: "generation",
+      limit: 20,
+    }, ownerBridge) as { items: Array<Record<string, unknown>> };
+    expect(ownerPage.items.map((card) => (card.ref as { id: string }).id))
+      .toContain(ownerRunObject.id);
+    for (const key of [
+      "absolutePath", "bucket", "key", "hash", "metadata",
+      "request", "response", "error", "prompt", "provider", "model", "costUsd",
+    ]) expect(JSON.stringify(ownerPage)).not.toContain(`"${key}"`);
+    expect(await call("media.show", {
+      context: { sessionId: ownerSession.id },
+      ref: { type: "run-object", id: ownerRunObject.id },
+    }, ownerBridge)).toMatchObject({
+      mediaKind: "image",
+      provenance: "generation",
+    });
+    expect(await call("media.generation.show", {
+      context: { sessionId: ownerSession.id },
+      target: { type: "run-object", id: ownerRunObject.id },
+    }, ownerBridge)).toMatchObject({ status: "generation" });
+    const page = await call("media.list", {
+      context: { sessionId: otherSession.id },
+      types: ["run-object"],
+      limit: 20,
+    }, otherBridge) as { items: Array<{ ref: { id: string } }> };
+    expect(page.items.map((card) => card.ref.id)).not.toContain(ownerRunObject.id);
+    await expect(call("media.show", {
+      context: { sessionId: otherSession.id },
+      ref: { type: "run-object", id: ownerRunObject.id },
+    }, otherBridge)).rejects.toThrow(/unresolvable/);
+    await expect(call("media.generation.show", {
+      context: { sessionId: otherSession.id },
+      target: { type: "run-object", id: ownerRunObject.id },
+    }, otherBridge)).rejects.toThrow(/not found/i);
+
+    expect(await call("media.select", {
+      context: { sessionId: ownerSession.id },
+      ref: { type: "artifact", id: generatedArtifact.id },
+      revisionId: generatedRevision.id,
+      expectedSelectedRevisionId: null,
+    }, ownerBridge)).toMatchObject({ provenance: "generation" });
+    expect(await call("media.show", {
+      context: { sessionId: otherSession.id },
+      ref: { type: "artifact", id: generatedArtifact.id },
+    }, otherBridge)).toMatchObject({ provenance: "unknown" });
+    expect(await call("media.generation.show", {
+      context: { sessionId: otherSession.id },
+      target: { type: "artifact-revision", id: generatedRevision.id },
+    }, otherBridge)).toMatchObject({ status: "unknown", reason: "not-recorded" });
+    expect(await call("media.review", {
+      context: { sessionId: ownerSession.id },
+      ref: { type: "artifact", id: generatedArtifact.id },
+      expectedSelectedRevisionId: generatedRevision.id,
+      verdict: "approved",
+    }, ownerBridge)).toMatchObject({ card: { selectedState: "approved" } });
+
+    for (const [methodContext, sessionId] of [
+      [ownerBridge, ownerSession.id],
+      [otherBridge, otherSession.id],
+    ] as const) {
+      const overview = await call("workspace.overview", {
+        context: { sessionId },
+        workspaceId: workspace.id,
+        sections: { sharedMedia: { limit: 50 } },
+      }, methodContext) as { sharedMedia: { items: Array<{ ref: { id: string } }> } };
+      expect(overview.sharedMedia.items.map((card) => card.ref.id)).toContain(sharedArtifact.id);
+      expect(overview.sharedMedia.items.map((card) => card.ref.id)).not.toContain(generatedArtifact.id);
+      expect(overview.sharedMedia.items.map((card) => card.ref.id)).not.toContain(ownerRunObject.id);
+    }
+    for (const params of [
+      { context: { sessionId: ownerSession.id }, mediaKind: "archive", limit: 20 },
+      { context: { sessionId: ownerSession.id }, provenance: "maybe", limit: 20 },
+      { context: { sessionId: ownerSession.id }, limit: 20, extra: true },
+    ]) {
+      await expect(call("media.list", params, ownerBridge)).rejects.toThrow();
+    }
+  });
+
   test("media.select returns the refreshed public card from a null selection", async () => {
     root = makeTmpRoot("ralphy-bridge-media-select-card");
     const workspace = createWorkspace({ slug: "selection", name: "Selection" });
@@ -265,6 +455,8 @@ describe("Desktop bridge domain contract", () => {
       projectId: project.id,
       slug: "hero",
       kind: "image",
+      mediaKind: "other",
+      provenance: "unknown",
       selectedRevisionId: revision.id,
       selectedState: "approved",
       mime: "application/octet-stream",
@@ -383,6 +575,8 @@ describe("Desktop bridge domain contract", () => {
         storageClass: null,
         usageRoles: [],
         target: null,
+        mediaKind: "other",
+        provenance: "unknown",
       }],
       nextCursor: null,
     }));
