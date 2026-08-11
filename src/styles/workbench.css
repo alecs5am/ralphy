@@ -2635,6 +2635,245 @@ button.workspace-project-card:hover {
   }
 }
 
+.project-domain-body.is-units {
+  overflow: hidden;
+  padding-bottom: 24px;
+}
+
+.units-workbench {
+  display: grid;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.units-master,
+.units-detail {
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.units-virtual-list {
+  position: relative;
+  width: 100%;
+}
+
+.unit-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  width: calc(100% - 2px);
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+}
+
+.unit-row:hover:not(.is-selected) {
+  background: var(--hover);
+}
+
+.unit-row.is-selected,
+.unit-revision-rail button.is-selected {
+  background: var(--selected);
+  box-shadow: var(--ring-select);
+}
+
+.unit-row:focus-visible,
+.unit-detail-heading:focus-visible,
+.unit-revision-rail button:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: -2px;
+}
+
+.unit-row strong,
+.unit-row small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unit-row small,
+.unit-detail-header p,
+.unit-revision-detail p,
+.unit-item span,
+.unit-presentation span {
+  margin: 3px 0 0;
+  color: var(--fg-3);
+  font-size: var(--text-xs);
+}
+
+.unit-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.unit-badges > span,
+.unit-revision-rail small {
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  color: var(--ok);
+  font-size: var(--text-xs);
+}
+
+.units-detail {
+  border-radius: var(--radius-lg);
+  background: var(--raised);
+}
+
+.unit-detail-header {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--raised);
+}
+
+.unit-detail-heading,
+.unit-revision-detail h3,
+.unit-revision-detail h4,
+.unit-revision-detail h5 {
+  margin: 0;
+}
+
+.unit-detail-heading {
+  font-size: var(--text-lg);
+  font-weight: 400;
+}
+
+.unit-revision-rail {
+  display: flex;
+  min-width: 0;
+  gap: 8px;
+  padding: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+}
+
+.unit-revision-rail > button {
+  display: grid;
+  min-width: 104px;
+  min-height: 68px;
+  align-content: center;
+  gap: 3px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--panel-solid);
+  color: var(--fg);
+  text-align: left;
+}
+
+.unit-revision-rail > button:hover:not(.is-selected) {
+  background: var(--hover);
+}
+
+.unit-revision-rail .auto-cursor-tail {
+  min-width: 1px;
+  padding: 0;
+}
+
+.unit-revision-detail {
+  padding: 0 16px 48px;
+}
+
+.unit-revision-detail > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0 16px;
+}
+
+.unit-items,
+.unit-presentations,
+.unit-technical {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.unit-item,
+.unit-presentation {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 0;
+}
+
+.unit-platform + .unit-platform {
+  margin-top: 12px;
+}
+
+.unit-technical summary {
+  cursor: pointer;
+  color: var(--fg-2);
+}
+
+.unit-technical dl {
+  display: grid;
+  gap: 8px;
+}
+
+.unit-technical dl div {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.35fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.unit-technical dt {
+  color: var(--fg-3);
+}
+
+.unit-technical dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.unit-technical pre {
+  padding: 10px 0;
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@container project-domain (max-width: 719px) {
+  .units-workbench {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(180px, min(36vh, 320px)) minmax(280px, 1fr);
+  }
+
+  .units-master {
+    max-height: min(36vh, 320px);
+  }
+}
+
 .project-preview img,
 .project-preview video {
   max-width: 100%;
