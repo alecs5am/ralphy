@@ -852,11 +852,6 @@ export function createProjectScreenController(
         }
         const shellRequestId = ++unitRequest;
         const pageRequestId = ++unitRevisionPageRequest;
-        emit({
-          ...snapshot,
-          unit: { ...snapshot.unit, status: "loading", error: null },
-          unitRevisions: { ...snapshot.unitRevisions, status: "loading", requestedCursor: null, error: null },
-        });
         try {
           const [authoritative, revisions] = await Promise.all([
             api.loadProjectUnit(snapshot.domain.project, unitId),
