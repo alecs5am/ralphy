@@ -54,6 +54,10 @@ export type ProjectMediaQuery = {
   provenance?: MediaProvenance;
 };
 export type ProjectMediaAction = "open" | "finder" | "copy";
+export type ProjectUnitPageRequest =
+  | { kind: "revisions"; unitId: string; cursor?: string | null }
+  | { kind: "items"; revisionId: string; cursor?: string | null }
+  | { kind: "presentations"; revisionId: string; cursor?: string | null };
 export type { MediaProvenance };
 export type ProjectPage = { items: unknown[]; nextCursor: string | number | null };
 export type ProjectPreview = { url: string; sizeBytes: number };
@@ -351,6 +355,12 @@ export interface MediaWorkbenchBridge {
   }): Promise<import("../ralphy/types").CompositionDto>;
   buildProjectComposition(project: ProjectReference, compositionRevisionId: string, profile?: import("../ralphy/types").JsonValue): Promise<import("../ralphy/types").CompositionBuildCompletion>;
   resolveCompositionOutputPreview(project: ProjectReference, artifactRevisionId: string): Promise<import("../ralphy/project-reader").CompositionOutputPreview>;
+  loadProjectUnit(project: ProjectReference, unitId: string): Promise<import("../ralphy/types").UnitDto>;
+  loadProjectUnitRevision(project: ProjectReference, unitId: string, revisionId: string): Promise<import("../ralphy/types").UnitRevisionDto>;
+  loadProjectUnitPage(project: ProjectReference, request: Extract<ProjectUnitPageRequest, { kind: "revisions" }>): Promise<import("../ralphy/types").Page<import("../ralphy/types").UnitRevisionDto>>;
+  loadProjectUnitPage(project: ProjectReference, request: Extract<ProjectUnitPageRequest, { kind: "items" }>): Promise<import("../ralphy/types").Page<import("../ralphy/types").UnitItemDto>>;
+  loadProjectUnitPage(project: ProjectReference, request: Extract<ProjectUnitPageRequest, { kind: "presentations" }>): Promise<import("../ralphy/types").Page<import("../ralphy/types").UnitPresentationDto>>;
+  selectProjectUnitRevision(project: ProjectReference, unitId: string, revisionId: string, expectedSelectedRevisionId: string | null): Promise<import("../ralphy/types").UnitDto>;
   onMediaEvent(callback: (event: MediaEvent) => void): () => void;
   loadAnnotations(): Promise<AnnotationStore>;
   updateAnnotations(updates: Record<string, AnnotationInput>): Promise<AnnotationStore>;
@@ -405,6 +415,10 @@ export const MEDIA_CHANNELS = {
   selectProjectCompositionRevision: "project:composition:select",
   buildProjectComposition: "project:composition:build",
   resolveCompositionOutputPreview: "project:composition:output-preview",
+  loadProjectUnit: "project:unit:show",
+  loadProjectUnitRevision: "project:unit:revision:show",
+  loadProjectUnitPage: "project:unit:page",
+  selectProjectUnitRevision: "project:unit:select",
   event: "media:event",
   loadAnnotations: "media:annotations:load",
   updateAnnotations: "media:annotations:update",

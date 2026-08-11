@@ -165,6 +165,36 @@ const currentCoreFixtures = [
     result: { items: [{ id: "robj_1", workspaceId: "ws_1", projectId: "prj_1", runId: "run_1", objectId: "obj_prj_1", purpose: "output", state: "ready", retention: "durable", mime: "video/mp4", bytes: 12, logicalPath: "outputs/final.mp4", locationClass: "other", attemptId: null, attemptNo: null, createdAt: 5 }], nextCursor: null },
   },
   {
+    method: "unit.show",
+    params: { context: { workspaceId: "ws_1", projectId: "prj_1" }, unitId: "unit_prj_1" },
+    result: { id: "unit_prj_1", workspaceId: "ws_1", projectId: "prj_1", slug: "project-reel", format: "9:16", latestRevisionId: "urev_prj_1", selectedRevisionId: "urev_prj_1", createdAt: 3, updatedAt: 4 },
+  },
+  {
+    method: "unit.revision.show",
+    params: { context: { workspaceId: "ws_1", projectId: "prj_1" }, revisionId: "urev_prj_1" },
+    result: { id: "urev_prj_1", unitId: "unit_prj_1", revisionNo: 1, parentRevisionId: null, iterationId: "iter_1", note: "Approved cut", authoredBySessionId: "session_1", createdAt: 3, sealedAt: 4 },
+  },
+  {
+    method: "unit.revisions",
+    params: { context: { workspaceId: "ws_1", projectId: "prj_1" }, unitId: "unit_prj_1", order: "newest", limit: 50 },
+    result: { items: [{ id: "urev_prj_1", unitId: "unit_prj_1", revisionNo: 1, parentRevisionId: null, iterationId: "iter_1", note: "Approved cut", authoredBySessionId: "session_1", createdAt: 3, sealedAt: 4 }], nextCursor: null },
+  },
+  {
+    method: "unit.items",
+    params: { context: { workspaceId: "ws_1", projectId: "prj_1" }, revisionId: "urev_prj_1", limit: 50 },
+    result: { items: [{ id: "uitem_prj_1", unitRevisionId: "urev_prj_1", artifactRevisionId: "arev_prj_1", documentRevisionId: null, role: "asset", position: 0, config: null, createdAt: 3 }], nextCursor: null },
+  },
+  {
+    method: "unit.presentations",
+    params: { context: { workspaceId: "ws_1", projectId: "prj_1" }, revisionId: "urev_prj_1", limit: 50 },
+    result: { items: [{ id: "presentation_prj_1", unitRevisionId: "urev_prj_1", platform: "tiktok", position: 0, effectiveCaptionRevisionId: null, coverArtifactRevisionId: "arev_prj_1", crop: null, safeArea: null, options: {}, createdAt: 3 }], nextCursor: null },
+  },
+  {
+    method: "unit.select",
+    params: { context: { workspaceId: "ws_1", projectId: "prj_1" }, unitId: "unit_prj_1", revisionId: "urev_prj_1", expectedSelectedRevisionId: null },
+    result: { id: "unit_prj_1", workspaceId: "ws_1", projectId: "prj_1", slug: "project-reel", format: "9:16", latestRevisionId: "urev_prj_1", selectedRevisionId: "urev_prj_1", createdAt: 3, updatedAt: 4 },
+  },
+  {
     method: "activity.list",
     params: { afterSequence: 6, limit: 10 },
     result: { items: [{ sequence: 7, workspaceId: "ws_1", projectId: null, entityType: "workspace", entityId: "ws_1", action: "updated", createdAt: 7 }, { sequence: 8, workspaceId: "ws_1", projectId: "prj_1", entityType: "project", entityId: "prj_1", action: "updated", createdAt: 8 }], nextCursor: null },
@@ -640,6 +670,42 @@ describe("current Core bridge contract", () => {
         revisionId: "arev_prj_1",
         expectedSelectedRevisionId: null,
       })).resolves.toEqual(fixturesFor("media.select")[0]!.result);
+    } finally {
+      await client.close();
+    }
+  });
+
+  test("unit workbench round-trips the frozen newest-page and nullable-CAS contract", async () => {
+    const client = new RalphyBridgeClient({ bin: fixtureBin, root: "/fixture-root" });
+    await client.start();
+    try {
+      const context = { workspaceId: "ws_1", projectId: "prj_1" };
+      const unit = await client.request("unit.show", { context, unitId: "unit_prj_1" });
+      const revision = await client.request("unit.revision.show", { context, revisionId: "urev_prj_1" });
+      const revisions = await client.request("unit.revisions", {
+        context, unitId: "unit_prj_1", order: "newest", limit: 50,
+      });
+      const items = await client.request("unit.items", { context, revisionId: "urev_prj_1", limit: 50 });
+      const presentations = await client.request("unit.presentations", { context, revisionId: "urev_prj_1", limit: 50 });
+      const selected = await client.request("unit.select", {
+        context, unitId: "unit_prj_1", revisionId: "urev_prj_1", expectedSelectedRevisionId: null,
+      });
+
+      expect(unit).toEqual(fixturesFor("unit.show")[0]!.result);
+      expect(revision).toEqual(revisions.items[0]);
+      expect(items.items[0]).toMatchObject({ unitRevisionId: revision.id, position: 0 });
+      expect(presentations.items[0]).toMatchObject({ unitRevisionId: revision.id, platform: "tiktok" });
+      expect(selected.selectedRevisionId).toBe(revision.id);
+      expect(Object.keys(revision)).toEqual([
+        "id", "unitId", "revisionNo", "parentRevisionId", "iterationId", "note",
+        "authoredBySessionId", "createdAt", "sealedAt",
+      ]);
+      await expect(client.request("unit.items", {
+        context, revisionId: "urev_prj_1", order: "newest", limit: 50,
+      } as never)).rejects.toMatchObject({ code: "E_FIXTURE" });
+      await expect(client.request("unit.revisions", {
+        context, unitId: "unit_prj_1", order: "sideways", limit: 50,
+      } as never)).rejects.toMatchObject({ code: "E_FIXTURE" });
     } finally {
       await client.close();
     }

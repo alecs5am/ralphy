@@ -41,6 +41,7 @@ export type {
   ProjectPage,
   ProjectPreview,
   ProjectSummary,
+  ProjectUnitPageRequest,
   RootIdentity,
   TextReadResult,
   TerminalDimensions,
@@ -269,6 +270,18 @@ function createMockBridge(): RalphyBridge {
     },
     async resolveCompositionOutputPreview() {
       throw new Error("Composition previews are unavailable in mock mode");
+    },
+    async loadProjectUnit() {
+      throw new Error("Unit reader is unavailable in mock mode");
+    },
+    async loadProjectUnitRevision() {
+      throw new Error("Unit reader is unavailable in mock mode");
+    },
+    async loadProjectUnitPage() {
+      throw new Error("Unit reader is unavailable in mock mode");
+    },
+    async selectProjectUnitRevision() {
+      throw new Error("Unit mutations are unavailable in mock mode");
     },
     onMediaEvent(callback) {
       mediaCallbacks.add(callback);

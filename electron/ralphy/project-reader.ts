@@ -2,6 +2,7 @@ import type { RalphyBridgeClient } from "./client";
 import { isAbsolute } from "node:path";
 import { pathToFileURL } from "node:url";
 import { assertTrustedSender, toIpcResult } from "../ipc-security";
+import { parseBoundedJsonValue } from "../json-value";
 import type {
   ActivityDto,
   ArtifactMediaCardDto,
@@ -27,6 +28,10 @@ import type {
   ProjectOverviewDto,
   ResultFor,
   RunDto,
+  UnitDto,
+  UnitItemDto,
+  UnitPresentationDto,
+  UnitRevisionDto,
 } from "./types";
 import {
   MEDIA_CHANNELS,
@@ -42,6 +47,7 @@ import type {
   ProjectPreview,
   ProjectReference,
   ProjectTab,
+  ProjectUnitPageRequest,
   MediaProvenance,
 } from "../media/types";
 
@@ -143,6 +149,81 @@ const MEDIA_PROVENANCE = new Set<MediaProvenance>([
 function validMediaClassification(value: Record<string, unknown>): boolean {
   return PROJECT_MEDIA_KINDS.has(value.mediaKind as ProjectMediaKind)
     && MEDIA_PROVENANCE.has(value.provenance as MediaProvenance);
+}
+
+function validJson(value: unknown): value is JsonValue {
+  try {
+    parseBoundedJsonValue(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function unitDto(value: unknown, project: ProjectRef, unitId: string): value is UnitDto {
+  const unit = record(value);
+  return !!unit && exactKeys(unit, [
+    "id", "workspaceId", "projectId", "slug", "format", "latestRevisionId",
+    "selectedRevisionId", "createdAt", "updatedAt",
+  ]) && unit.id === unitId && unit.workspaceId === project.workspaceId
+    && optionalScope(unit.projectId, project.projectId) && validId(unit.slug) && validId(unit.format)
+    && (unit.latestRevisionId === null || validId(unit.latestRevisionId))
+    && (unit.selectedRevisionId === null || validId(unit.selectedRevisionId))
+    && sequence(unit.createdAt) && sequence(unit.updatedAt);
+}
+
+function unitRevisionDto(value: unknown, unitId: string): value is UnitRevisionDto {
+  const revision = record(value);
+  return !!revision && exactKeys(revision, [
+    "id", "unitId", "revisionNo", "parentRevisionId", "iterationId", "note",
+    "authoredBySessionId", "createdAt", "sealedAt",
+  ]) && validId(revision.id) && revision.unitId === unitId && sequence(revision.revisionNo, true)
+    && (revision.parentRevisionId === null || validId(revision.parentRevisionId))
+    && (revision.iterationId === null || validId(revision.iterationId))
+    && (revision.note === null || (typeof revision.note === "string" && Buffer.byteLength(revision.note, "utf8") <= 65_536))
+    && (revision.authoredBySessionId === null || validId(revision.authoredBySessionId))
+    && sequence(revision.createdAt) && (revision.sealedAt === null || sequence(revision.sealedAt));
+}
+
+function unitItemDto(value: unknown, revisionId: string): value is UnitItemDto {
+  const item = record(value);
+  if (!item || !exactKeys(item, [
+    "id", "unitRevisionId", "artifactRevisionId", "documentRevisionId", "role",
+    "position", "config", "createdAt",
+  ])) return false;
+  const artifact = item.artifactRevisionId === null || validId(item.artifactRevisionId);
+  const document = item.documentRevisionId === null || validId(item.documentRevisionId);
+  return validId(item.id) && item.unitRevisionId === revisionId && artifact && document
+    && (item.artifactRevisionId === null) !== (item.documentRevisionId === null)
+    && validId(item.role) && sequence(item.position) && (item.config === null || validJson(item.config))
+    && sequence(item.createdAt);
+}
+
+function unitPresentationDto(value: unknown, revisionId: string): value is UnitPresentationDto {
+  const presentation = record(value);
+  return !!presentation && exactKeys(presentation, [
+    "id", "unitRevisionId", "platform", "position", "effectiveCaptionRevisionId",
+    "coverArtifactRevisionId", "crop", "safeArea", "options", "createdAt",
+  ]) && validId(presentation.id) && presentation.unitRevisionId === revisionId
+    && validId(presentation.platform) && sequence(presentation.position)
+    && (presentation.effectiveCaptionRevisionId === null || validId(presentation.effectiveCaptionRevisionId))
+    && (presentation.coverArtifactRevisionId === null || validId(presentation.coverArtifactRevisionId))
+    && (presentation.crop === null || validJson(presentation.crop))
+    && (presentation.safeArea === null || validJson(presentation.safeArea))
+    && validJson(presentation.options) && sequence(presentation.createdAt);
+}
+
+function unitPage<Item>(
+  value: unknown,
+  validItem: (item: unknown) => item is Item,
+): Page<Item> {
+  const page = record(value);
+  if (!page || !exactKeys(page, ["items", "nextCursor"]) || !Array.isArray(page.items)
+    || page.items.length > PROJECT_PAGE_LIMIT || !page.items.every(validItem)
+    || (page.nextCursor !== null && (typeof page.nextCursor !== "string" || !page.nextCursor || page.nextCursor.length > 4096))) {
+    throw new Error("Invalid Unit page");
+  }
+  return value as Page<Item>;
 }
 
 function generationTarget(value: unknown): MediaGenerationTarget {
@@ -480,6 +561,22 @@ function parseProjectMediaIpcProject(value: unknown): ProjectRef {
   return { workspaceId: project.workspaceId, projectId: project.projectId };
 }
 
+function parseProjectUnitPageRequest(value: unknown): ProjectUnitPageRequest {
+  const input = record(value);
+  if (!input || (input.kind !== "revisions" && input.kind !== "items" && input.kind !== "presentations")) {
+    throw new Error("Invalid Unit page request");
+  }
+  const idKey = input.kind === "revisions" ? "unitId" : "revisionId";
+  if (!exactKeys(input, ["kind", idKey, ...Object.hasOwn(input, "cursor") ? ["cursor"] : []])
+    || !validId(input[idKey])) throw new Error("Invalid Unit page request");
+  const cursor = pageCursor(input.cursor);
+  return {
+    kind: input.kind,
+    [idKey]: input[idKey],
+    ...(cursor === undefined ? {} : { cursor }),
+  } as ProjectUnitPageRequest;
+}
+
 export function registerProjectMediaIpc<Root>({
   handle,
   getWindow,
@@ -613,9 +710,86 @@ export function registerProjectMediaIpc<Root>({
     }
     return undefined;
   }));
+  handle(MEDIA_CHANNELS.loadProjectUnit, secured((reader, _root, _assertCurrent, rawProject, rawUnitId) => {
+    if (!validId(rawUnitId)) throw new Error("Invalid Unit identifier");
+    return reader.loadProjectUnit(parseProjectMediaIpcProject(rawProject), rawUnitId);
+  }));
+  handle(MEDIA_CHANNELS.loadProjectUnitRevision, secured((reader, _root, _assertCurrent, rawProject, rawUnitId, rawRevisionId) => {
+    if (!validId(rawUnitId) || !validId(rawRevisionId)) throw new Error("Invalid Unit revision identifier");
+    return reader.loadProjectUnitRevision(
+      parseProjectMediaIpcProject(rawProject),
+      rawUnitId,
+      rawRevisionId,
+    );
+  }));
+  handle(MEDIA_CHANNELS.loadProjectUnitPage, secured((reader, _root, _assertCurrent, rawProject, rawRequest) => {
+    const project = parseProjectMediaIpcProject(rawProject);
+    const input = parseProjectUnitPageRequest(rawRequest);
+    if (input.kind === "revisions") return reader.loadProjectUnitPage(project, input);
+    if (input.kind === "items") return reader.loadProjectUnitPage(project, input);
+    return reader.loadProjectUnitPage(project, input);
+  }));
+  handle(MEDIA_CHANNELS.selectProjectUnitRevision, secured((reader, _root, _assertCurrent, rawProject, rawUnitId, rawRevisionId, rawExpectedSelectedRevisionId) => {
+    if (!validId(rawUnitId) || !validId(rawRevisionId)
+      || (rawExpectedSelectedRevisionId !== null && !validId(rawExpectedSelectedRevisionId))) {
+      throw new Error("Invalid Unit selection");
+    }
+    return reader.selectProjectUnitRevision(
+      parseProjectMediaIpcProject(rawProject),
+      rawUnitId,
+      rawRevisionId,
+      rawExpectedSelectedRevisionId,
+    );
+  }));
 }
 
 export function createProjectReader({ request, mint }: { request: Request; mint?: Mint }) {
+  function loadProjectUnitPage(
+    project: ProjectRef,
+    input: Extract<ProjectUnitPageRequest, { kind: "revisions" }>,
+  ): Promise<Page<UnitRevisionDto>>;
+  function loadProjectUnitPage(
+    project: ProjectRef,
+    input: Extract<ProjectUnitPageRequest, { kind: "items" }>,
+  ): Promise<Page<UnitItemDto>>;
+  function loadProjectUnitPage(
+    project: ProjectRef,
+    input: Extract<ProjectUnitPageRequest, { kind: "presentations" }>,
+  ): Promise<Page<UnitPresentationDto>>;
+  async function loadProjectUnitPage(
+    project: ProjectRef,
+    rawInput: ProjectUnitPageRequest,
+  ): Promise<Page<UnitRevisionDto> | Page<UnitItemDto> | Page<UnitPresentationDto>> {
+    const context = projectContext(project);
+    const input = parseProjectUnitPageRequest(rawInput);
+    const after = pageCursor(input.cursor);
+    if (input.kind === "revisions") {
+      return unitPage(
+        await request("unit.revisions", {
+          context, unitId: input.unitId, order: "newest",
+          ...(after ? { after } : {}), limit: PROJECT_PAGE_LIMIT,
+        }),
+        (item): item is UnitRevisionDto => unitRevisionDto(item, input.unitId),
+      );
+    }
+    if (input.kind === "items") {
+      return unitPage(
+        await request("unit.items", {
+          context, revisionId: input.revisionId,
+          ...(after ? { after } : {}), limit: PROJECT_PAGE_LIMIT,
+        }),
+        (item): item is UnitItemDto => unitItemDto(item, input.revisionId),
+      );
+    }
+    return unitPage(
+      await request("unit.presentations", {
+        context, revisionId: input.revisionId,
+        ...(after ? { after } : {}), limit: PROJECT_PAGE_LIMIT,
+      }),
+      (item): item is UnitPresentationDto => unitPresentationDto(item, input.revisionId),
+    );
+  }
+
   return {
     async loadOverview(project: ProjectRef): Promise<ProjectOverviewDto> {
       const context = projectContext(project);
@@ -682,6 +856,48 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
         return asPage(await request("unit.list", { context, ...(after ? { after } : {}), limit: PROJECT_PAGE_LIMIT }));
       }
       throw new Error("Invalid Project tab");
+    },
+
+    async loadProjectUnit(project: ProjectRef, unitId: string): Promise<UnitDto> {
+      const context = projectContext(project);
+      if (!validId(unitId)) throw new Error("Invalid Unit identifier");
+      const value = await request("unit.show", { context, unitId });
+      if (!unitDto(value, context, unitId)) throw new Error("Invalid Unit");
+      return value;
+    },
+
+    async loadProjectUnitRevision(
+      project: ProjectRef,
+      unitId: string,
+      revisionId: string,
+    ): Promise<UnitRevisionDto> {
+      const context = projectContext(project);
+      if (!validId(unitId) || !validId(revisionId)) throw new Error("Invalid Unit revision identifier");
+      const value = await request("unit.revision.show", { context, revisionId });
+      if (!unitRevisionDto(value, unitId)) throw new Error("Invalid Unit revision");
+      return value;
+    },
+
+    loadProjectUnitPage,
+
+    async selectProjectUnitRevision(
+      project: ProjectRef,
+      unitId: string,
+      revisionId: string,
+      expectedSelectedRevisionId: string | null,
+    ): Promise<UnitDto> {
+      const context = projectContext(project);
+      if (!validId(unitId) || !validId(revisionId)
+        || (expectedSelectedRevisionId !== null && !validId(expectedSelectedRevisionId))) {
+        throw new Error("Invalid Unit selection");
+      }
+      const value = await request("unit.select", {
+        context, unitId, revisionId, expectedSelectedRevisionId,
+      });
+      if (!unitDto(value, context, unitId) || value.selectedRevisionId !== revisionId) {
+        throw new Error("Invalid Unit selection");
+      }
+      return value;
     },
 
     async loadGeneration(

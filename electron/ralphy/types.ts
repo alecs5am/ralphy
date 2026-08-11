@@ -764,6 +764,7 @@ export interface MigrationSecretImportResult {
 type EmptyParams = Record<string, never>;
 type ScopedParams = { context: BridgeContext };
 type CursorParams = { after?: string | null; limit?: number };
+type HistoryOrderParams = { order?: "oldest" | "newest" };
 type ScopedCursorParams = ScopedParams & CursorParams;
 type IdParams<Key extends string> = ScopedParams & { [Field in Key]: string };
 type Contract<Params, Result> = { params: Params; result: Result };
@@ -915,7 +916,7 @@ export interface BridgeMethodContract {
     expectedSelectedRevisionId: string | null;
   }, MediaCardDto>;
   "media.review": Contract<MediaReviewParams, MediaReviewResult>;
-  "evaluation.list": Contract<ScopedCursorParams & EvaluationListFilter, Page<EvaluationDto>>;
+  "evaluation.list": Contract<ScopedCursorParams & HistoryOrderParams & EvaluationListFilter, Page<EvaluationDto>>;
   "evaluation.show": Contract<IdParams<"evaluationId">, EvaluationDto>;
   "evaluation.create": Contract<ScopedParams & {
     target: { type: string; id: string };
@@ -940,11 +941,11 @@ export interface BridgeMethodContract {
   }, { run: RunDto; results: Page<RunResultDto>; replayed: true }>;
   "composition.list": Contract<ScopedCursorParams & { projectId: string }, Page<CompositionDto>>;
   "composition.show": Contract<IdParams<"compositionId">, CompositionDto>;
-  "composition.revisions": Contract<IdParams<"compositionId"> & CursorParams, Page<CompositionRevisionDto>>;
+  "composition.revisions": Contract<IdParams<"compositionId"> & CursorParams & HistoryOrderParams, Page<CompositionRevisionDto>>;
   "composition.revision.show": Contract<ScopedParams & { revisionId: string }, CompositionRevisionDto>;
   "composition.sources": Contract<ScopedParams & { revisionId: string } & CursorParams, Page<CompositionSourceDto>>;
   "composition.inputs": Contract<ScopedParams & { revisionId: string } & CursorParams, Page<CompositionInputDto>>;
-  "composition.builds": Contract<ScopedParams & { compositionRevisionId: string } & CursorParams, Page<BuildDto>>;
+  "composition.builds": Contract<ScopedParams & { compositionRevisionId: string } & CursorParams & HistoryOrderParams, Page<BuildDto>>;
   "build.show": Contract<ScopedParams & { buildId: string }, BuildDto>;
   "build.outputs": Contract<ScopedParams & { buildId: string } & CursorParams, Page<BuildOutputDto>>;
   "composition.revise": Contract<IdParams<"compositionId"> & {
@@ -959,7 +960,7 @@ export interface BridgeMethodContract {
   "composition.select": Contract<IdParams<"compositionId"> & { revisionId: string; expectedSelectedRevisionId: string | null }, CompositionDto>;
   "unit.list": Contract<ScopedCursorParams, Page<UnitDto>>;
   "unit.show": Contract<IdParams<"unitId">, UnitDto>;
-  "unit.revisions": Contract<IdParams<"unitId"> & CursorParams, Page<UnitRevisionDto>>;
+  "unit.revisions": Contract<IdParams<"unitId"> & CursorParams & HistoryOrderParams, Page<UnitRevisionDto>>;
   "unit.revision.show": Contract<ScopedParams & { revisionId: string }, UnitRevisionDto>;
   "unit.items": Contract<ScopedParams & { revisionId: string } & CursorParams, Page<UnitItemDto>>;
   "unit.presentations": Contract<ScopedParams & { revisionId: string } & CursorParams, Page<UnitPresentationDto>>;

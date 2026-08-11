@@ -200,6 +200,10 @@ describe("Electron IPC security", () => {
       "selectProjectCompositionRevision",
       "buildProjectComposition",
       "resolveCompositionOutputPreview",
+      "loadProjectUnit",
+      "loadProjectUnitRevision",
+      "loadProjectUnitPage",
+      "selectProjectUnitRevision",
       "copyMigrationRecoveryCommand",
       "sendAgentMessage",
       "createTerminal",
@@ -217,6 +221,10 @@ describe("Electron IPC security", () => {
       loadProjectComposition(project: { workspaceId: string; projectId: string }, compositionId: string): Promise<void>;
       buildProjectComposition(project: { workspaceId: string; projectId: string }, revisionId: string): Promise<void>;
       resolveCompositionOutputPreview(project: { workspaceId: string; projectId: string }, revisionId: string): Promise<void>;
+      loadProjectUnit(project: { workspaceId: string; projectId: string }, unitId: string): Promise<void>;
+      loadProjectUnitRevision(project: { workspaceId: string; projectId: string }, unitId: string, revisionId: string): Promise<void>;
+      loadProjectUnitPage(project: { workspaceId: string; projectId: string }, request: { kind: "revisions"; unitId: string; cursor?: string }): Promise<void>;
+      selectProjectUnitRevision(project: { workspaceId: string; projectId: string }, unitId: string, revisionId: string, expectedSelectedRevisionId: string | null): Promise<void>;
       writeTerminal(sessionId: string, data: string): Promise<void>;
       resizeTerminal(sessionId: string, dimensions: { cols: number; rows: number }): Promise<void>;
     };
@@ -231,6 +239,10 @@ describe("Electron IPC security", () => {
     await bridge.loadProjectComposition({ workspaceId: "workspace-1", projectId: "project-1" }, "composition-1");
     await bridge.buildProjectComposition({ workspaceId: "workspace-1", projectId: "project-1" }, "revision-1");
     await bridge.resolveCompositionOutputPreview({ workspaceId: "workspace-1", projectId: "project-1" }, "artifact-revision-1");
+    await bridge.loadProjectUnit({ workspaceId: "workspace-1", projectId: "project-1" }, "unit-1");
+    await bridge.loadProjectUnitRevision({ workspaceId: "workspace-1", projectId: "project-1" }, "unit-1", "unit-revision-1");
+    await bridge.loadProjectUnitPage({ workspaceId: "workspace-1", projectId: "project-1" }, { kind: "revisions", unitId: "unit-1", cursor: "unit-next" });
+    await bridge.selectProjectUnitRevision({ workspaceId: "workspace-1", projectId: "project-1" }, "unit-1", "unit-revision-1", null);
     await bridge.writeTerminal("terminal-1", "ls\n");
     await bridge.resizeTerminal("terminal-1", { cols: 80, rows: 24 });
     expect(invoke.mock.calls).toEqual(expect.arrayContaining([
@@ -245,6 +257,10 @@ describe("Electron IPC security", () => {
       ["project:composition:show", { workspaceId: "workspace-1", projectId: "project-1" }, "composition-1"],
       ["project:composition:build", { workspaceId: "workspace-1", projectId: "project-1" }, "revision-1", undefined],
       ["project:composition:output-preview", { workspaceId: "workspace-1", projectId: "project-1" }, "artifact-revision-1"],
+      ["project:unit:show", { workspaceId: "workspace-1", projectId: "project-1" }, "unit-1"],
+      ["project:unit:revision:show", { workspaceId: "workspace-1", projectId: "project-1" }, "unit-1", "unit-revision-1"],
+      ["project:unit:page", { workspaceId: "workspace-1", projectId: "project-1" }, { kind: "revisions", unitId: "unit-1", cursor: "unit-next" }],
+      ["project:unit:select", { workspaceId: "workspace-1", projectId: "project-1" }, "unit-1", "unit-revision-1", null],
       ["terminal:write", "terminal-1", "ls\n"],
       ["terminal:resize", "terminal-1", { cols: 80, rows: 24 }],
     ]));
@@ -347,6 +363,7 @@ describe("Electron IPC security", () => {
 
     expect([...handlers.keys()]).toEqual([
       "project:media:generation", "project:media:show", "project:media:revisions", "project:media:select", "project:media:action",
+      "project:unit:show", "project:unit:revision:show", "project:unit:page", "project:unit:select",
     ]);
     const generation = handlers.get("project:media:generation")!;
     const show = handlers.get("project:media:show")!;
@@ -417,6 +434,90 @@ describe("Electron IPC security", () => {
       undefined,
     )).resolves.toEqual({ ok: true, value });
     expect(assertRoot).toHaveBeenCalledTimes(4);
+  });
+
+  test("unit workbench production registrar validates closed pages, scope, sender, and root", async () => {
+    const { registerProjectMediaIpc } = await import("../electron/ralphy/project-reader");
+    const handlers = new Map<string, (event: unknown, ...args: unknown[]) => Promise<any>>();
+    const mainFrame = {};
+    const webContents = { mainFrame };
+    const window = { isDestroyed: () => false, webContents };
+    const project = { workspaceId: "workspace-1", projectId: "project-1" };
+    const unit = {
+      id: "unit-1", ...project, slug: "reel", format: "9:16", latestRevisionId: "unit-revision-2",
+      selectedRevisionId: "unit-revision-1", createdAt: 1, updatedAt: 2,
+    };
+    const revision = {
+      id: "unit-revision-1", unitId: "unit-1", revisionNo: 1, parentRevisionId: null,
+      iterationId: null, note: null, authoredBySessionId: null, sealedAt: 2, createdAt: 1,
+    };
+    let epoch = 1;
+    let mode: "valid" | "shared" | "sibling" | "stale" = "valid";
+    const request = vi.fn(async (method: string) => {
+      const result = method === "unit.revisions"
+        ? { items: [revision], nextCursor: "revision-next" }
+        : method === "unit.revision.show"
+          ? revision
+          : unit;
+      if (mode === "stale") epoch += 1;
+      if (mode === "shared") return { ...unit, projectId: null };
+      if (mode === "sibling") {
+        return method === "unit.revision.show"
+          ? { ...revision, unitId: "unit-2" }
+          : { ...unit, projectId: "project-2" };
+      }
+      return result;
+    });
+    registerProjectMediaIpc({
+      handle(channel, listener) { handlers.set(channel, listener); },
+      getWindow: () => window,
+      captureRoot: () => ({ epoch }),
+      assertRoot: (binding) => { if (binding.epoch !== epoch) throw new Error("stale root"); },
+      session: { client: { request: request as RalphyBridgeClient["request"] } },
+      authorizeTrustedLocator: vi.fn(), openPath: vi.fn(), showItemInFolder: vi.fn(), writeBuffer: vi.fn(),
+    });
+
+    const show = handlers.get("project:unit:show");
+    const showRevision = handlers.get("project:unit:revision:show");
+    const page = handlers.get("project:unit:page");
+    const select = handlers.get("project:unit:select");
+    expect([show, showRevision, page, select].every((handler) => typeof handler === "function")).toBe(true);
+    const trusted = { sender: webContents, senderFrame: mainFrame };
+
+    await expect(page!(trusted, project, { kind: "revisions", unitId: "unit-1" }))
+      .resolves.toEqual({ ok: true, value: { items: [revision], nextCursor: "revision-next" } });
+    expect(request).toHaveBeenLastCalledWith("unit.revisions", {
+      context: project, unitId: "unit-1", order: "newest", limit: 50,
+    });
+    await expect(select!(trusted, project, "unit-1", "unit-revision-1", null))
+      .resolves.toEqual({ ok: true, value: unit });
+    expect(request).toHaveBeenLastCalledWith("unit.select", {
+      context: project, unitId: "unit-1", revisionId: "unit-revision-1",
+      expectedSelectedRevisionId: null,
+    });
+
+    mode = "shared";
+    await expect(show!(trusted, project, "unit-1"))
+      .resolves.toEqual({ ok: true, value: { ...unit, projectId: null } });
+    mode = "valid";
+
+    request.mockClear();
+    for (const call of [
+      () => page!({ sender: webContents, senderFrame: {} }, project, { kind: "revisions", unitId: "unit-1" }),
+      () => page!(trusted, project, { kind: "revisions", unitId: "unit-1", extra: true }),
+      () => page!(trusted, project, { kind: "children", unitId: "unit-1" }),
+      () => page!(trusted, project, { kind: "items", revisionId: "", cursor: 1 }),
+      () => select!(trusted, project, "unit-1", "unit-revision-1", undefined),
+    ]) await expect(call()).resolves.toMatchObject({ ok: false });
+    expect(request).not.toHaveBeenCalled();
+
+    mode = "sibling";
+    await expect(show!(trusted, project, "unit-1")).resolves.toMatchObject({ ok: false });
+    await expect(showRevision!(trusted, project, "unit-1", "unit-revision-1"))
+      .resolves.toMatchObject({ ok: false });
+    mode = "stale";
+    epoch = 1;
+    await expect(show!(trusted, project, "unit-1")).resolves.toMatchObject({ ok: false });
   });
 
   test("registered Project media actions keep locators in main and copy a native file URL buffer", async () => {

@@ -9,6 +9,10 @@ import type {
   MediaGenerationDetailDto,
   MediaFilter,
   ProjectOverviewDto,
+  UnitDto,
+  UnitItemDto,
+  UnitPresentationDto,
+  UnitRevisionDto,
 } from "../electron/ralphy/types";
 
 const project = { workspaceId: "workspace-1", projectId: "project-1" };
@@ -405,6 +409,101 @@ describe("Project domain reader", () => {
       projectId: "project-1",
       limit: 50,
     });
+  });
+
+  test("unit workbench reads exact identities and one opaque page per Unit family", async () => {
+    const unit: UnitDto = {
+      id: "unit-1", workspaceId: "workspace-1", projectId: "project-1", slug: "reel",
+      format: "9:16", latestRevisionId: "unit-revision-2", selectedRevisionId: "unit-revision-1",
+      createdAt: 1, updatedAt: 2,
+    };
+    const revision = (id: string, revisionNo: number): UnitRevisionDto => ({
+      id, unitId: "unit-1", revisionNo, parentRevisionId: revisionNo === 1 ? null : "unit-revision-1",
+      iterationId: null, note: null, authoredBySessionId: null, createdAt: revisionNo,
+      sealedAt: revisionNo,
+    });
+    const item = (id: string, position: number): UnitItemDto => ({
+      id, unitRevisionId: "unit-revision-1", artifactRevisionId: `artifact-${id}`,
+      documentRevisionId: null, role: "asset", position, config: null, createdAt: position + 1,
+    });
+    const presentation = (id: string, position: number): UnitPresentationDto => ({
+      id, unitRevisionId: "unit-revision-1", platform: "tiktok", position,
+      effectiveCaptionRevisionId: null, coverArtifactRevisionId: null, crop: null,
+      safeArea: null, options: {}, createdAt: position + 1,
+    });
+    const request = vi.fn(async (method: string, params: Record<string, unknown>) => {
+      if (method === "unit.show" || method === "unit.select") return unit;
+      if (method === "unit.revision.show") return revision("unit-revision-1", 1);
+      if (method === "unit.revisions") return params.after
+        ? page([revision("unit-revision-1", 1)])
+        : page([revision("unit-revision-2", 2)], "revision-next");
+      if (method === "unit.items") return params.after
+        ? page([item("item-2", 1)])
+        : page([item("item-1", 0)], "item-next");
+      if (method === "unit.presentations") return params.after
+        ? page([presentation("presentation-2", 1)])
+        : page([presentation("presentation-1", 0)], "presentation-next");
+      throw new Error(`Unexpected ${method}`);
+    });
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+
+    await expect(reader.loadProjectUnit(project, "unit-1")).resolves.toEqual(unit);
+    await expect(reader.loadProjectUnitRevision(project, "unit-1", "unit-revision-1"))
+      .resolves.toMatchObject({ id: "unit-revision-1", unitId: "unit-1" });
+    await reader.loadProjectUnitPage(project, { kind: "revisions", unitId: "unit-1" });
+    await reader.loadProjectUnitPage(project, { kind: "revisions", unitId: "unit-1", cursor: "revision-next" });
+    await reader.loadProjectUnitPage(project, { kind: "items", revisionId: "unit-revision-1" });
+    await reader.loadProjectUnitPage(project, { kind: "items", revisionId: "unit-revision-1", cursor: "item-next" });
+    await reader.loadProjectUnitPage(project, { kind: "presentations", revisionId: "unit-revision-1" });
+    await reader.loadProjectUnitPage(project, { kind: "presentations", revisionId: "unit-revision-1", cursor: "presentation-next" });
+    await expect(reader.selectProjectUnitRevision(project, "unit-1", "unit-revision-1", null))
+      .resolves.toEqual(unit);
+
+    expect(request).toHaveBeenCalledWith("unit.revisions", {
+      context: project, unitId: "unit-1", order: "newest", limit: 50,
+    });
+    expect(request).toHaveBeenCalledWith("unit.revisions", {
+      context: project, unitId: "unit-1", order: "newest", after: "revision-next", limit: 50,
+    });
+    expect(request).toHaveBeenCalledWith("unit.items", {
+      context: project, revisionId: "unit-revision-1", after: "item-next", limit: 50,
+    });
+    expect(request).toHaveBeenCalledWith("unit.presentations", {
+      context: project, revisionId: "unit-revision-1", after: "presentation-next", limit: 50,
+    });
+    expect(request).toHaveBeenCalledWith("unit.select", {
+      context: project, unitId: "unit-1", revisionId: "unit-revision-1",
+      expectedSelectedRevisionId: null,
+    });
+    expect(request.mock.calls.map(([method]) => method)).not.toEqual(expect.arrayContaining([
+      "presentation.items", "presentation.captions", "unit.preview", "unit.revise",
+    ]));
+
+    const sharedUnit = { ...unit, projectId: null };
+    const sharedReader = createProjectReader({
+      request: vi.fn(async () => sharedUnit) as unknown as RalphyBridgeClient["request"],
+    });
+    await expect(sharedReader.loadProjectUnit(project, "unit-1")).resolves.toEqual(sharedUnit);
+
+    let overDepth: Record<string, unknown> = {};
+    for (let depth = 0; depth < 34; depth += 1) overDepth = { child: overDepth };
+
+    for (const [method, result, action] of [
+      ["unit.show", { ...unit, projectId: "project-2" }, (candidate: ReturnType<typeof createProjectReader>) => candidate.loadProjectUnit(project, "unit-1")],
+      ["unit.revision.show", { ...revision("unit-revision-1", 1), unitId: "unit-2" }, (candidate: ReturnType<typeof createProjectReader>) => candidate.loadProjectUnitRevision(project, "unit-1", "unit-revision-1")],
+      ["unit.items", page([{ ...item("item-1", 0), unitRevisionId: "unit-revision-2" }]), (candidate: ReturnType<typeof createProjectReader>) => candidate.loadProjectUnitPage(project, { kind: "items", revisionId: "unit-revision-1" })],
+      ["unit.items", page([{ ...item("item-1", 0), config: overDepth }]), (candidate: ReturnType<typeof createProjectReader>) => candidate.loadProjectUnitPage(project, { kind: "items", revisionId: "unit-revision-1" })],
+      ["unit.presentations", page([{ ...presentation("presentation-1", 0), unitRevisionId: "unit-revision-2" }]), (candidate: ReturnType<typeof createProjectReader>) => candidate.loadProjectUnitPage(project, { kind: "presentations", revisionId: "unit-revision-1" })],
+      ["unit.select", { ...unit, selectedRevisionId: "unit-revision-2" }, (candidate: ReturnType<typeof createProjectReader>) => candidate.selectProjectUnitRevision(project, "unit-1", "unit-revision-1", null)],
+    ] as const) {
+      const candidate = createProjectReader({
+        request: vi.fn(async (actual) => {
+          if (actual !== method) throw new Error(`Unexpected ${actual}`);
+          return result;
+        }) as unknown as RalphyBridgeClient["request"],
+      });
+      await expect(action(candidate)).rejects.toThrow(/Invalid Unit/);
+    }
   });
 
   test("loads the complete Composition aggregate by draining every opaque nested cursor", async () => {

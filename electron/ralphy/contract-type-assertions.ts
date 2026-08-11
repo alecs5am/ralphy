@@ -143,6 +143,12 @@ export type MediaRevisionResultIsCurrent = Assert<Equal<ResultFor<"media.revisio
   items: ExpectedArtifactRevision[];
   nextCursor: string | null;
 }>>;
+type HistoryOrder = "oldest" | "newest" | undefined;
+export type EvaluationHistoryOrderIsCurrent = Assert<Equal<ParamsFor<"evaluation.list">["order"], HistoryOrder>>;
+export type CompositionRevisionHistoryOrderIsCurrent = Assert<Equal<ParamsFor<"composition.revisions">["order"], HistoryOrder>>;
+export type CompositionBuildHistoryOrderIsCurrent = Assert<Equal<ParamsFor<"composition.builds">["order"], HistoryOrder>>;
+export type UnitRevisionHistoryOrderIsCurrent = Assert<Equal<ParamsFor<"unit.revisions">["order"], HistoryOrder>>;
+export type UnitChildOrderRemainsImplicit = Assert<Equal<Extract<keyof ParamsFor<"unit.items"> | keyof ParamsFor<"unit.presentations">, "order">, never>>;
 export type EvaluationFiltersAreExclusive = Assert<Equal<{
   context: BridgeContext;
   target: { type: "build"; id: string };

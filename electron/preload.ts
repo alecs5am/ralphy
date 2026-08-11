@@ -10,13 +10,35 @@ import {
   type AgentChatRequest,
   type MediaEvent,
   type MediaWorkbenchBridge,
+  type ProjectReference,
+  type ProjectUnitPageRequest,
   type TerminalEvent,
 } from "./media/types";
+import type { Page, UnitItemDto, UnitPresentationDto, UnitRevisionDto } from "./ralphy/types";
 
 async function invoke<Value>(channel: string, ...args: unknown[]): Promise<Value> {
   return unwrapIpcResult(
     await ipcRenderer.invoke(channel, ...args) as IpcResult<Value>,
   );
+}
+
+function loadProjectUnitPage(
+  project: ProjectReference,
+  request: Extract<ProjectUnitPageRequest, { kind: "revisions" }>,
+): Promise<Page<UnitRevisionDto>>;
+function loadProjectUnitPage(
+  project: ProjectReference,
+  request: Extract<ProjectUnitPageRequest, { kind: "items" }>,
+): Promise<Page<UnitItemDto>>;
+function loadProjectUnitPage(
+  project: ProjectReference,
+  request: Extract<ProjectUnitPageRequest, { kind: "presentations" }>,
+): Promise<Page<UnitPresentationDto>>;
+function loadProjectUnitPage(
+  project: ProjectReference,
+  request: ProjectUnitPageRequest,
+): Promise<Page<UnitRevisionDto | UnitItemDto | UnitPresentationDto>> {
+  return invoke(MEDIA_CHANNELS.loadProjectUnitPage, project, request);
 }
 
 const mediaBridge: MediaWorkbenchBridge = {
@@ -73,6 +95,22 @@ const mediaBridge: MediaWorkbenchBridge = {
   ),
   resolveCompositionOutputPreview: (project, artifactRevisionId) => (
     invoke(MEDIA_CHANNELS.resolveCompositionOutputPreview, project, artifactRevisionId)
+  ),
+  loadProjectUnit: (project, unitId) => (
+    invoke(MEDIA_CHANNELS.loadProjectUnit, project, unitId)
+  ),
+  loadProjectUnitRevision: (project, unitId, revisionId) => (
+    invoke(MEDIA_CHANNELS.loadProjectUnitRevision, project, unitId, revisionId)
+  ),
+  loadProjectUnitPage,
+  selectProjectUnitRevision: (project, unitId, revisionId, expectedSelectedRevisionId) => (
+    invoke(
+      MEDIA_CHANNELS.selectProjectUnitRevision,
+      project,
+      unitId,
+      revisionId,
+      expectedSelectedRevisionId,
+    )
   ),
   onMediaEvent(callback: (event: MediaEvent) => void) {
     const listener = (_event: Electron.IpcRendererEvent, payload: MediaEvent): void => {

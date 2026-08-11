@@ -1,4 +1,4 @@
-import type { ArtifactMediaCardDto, ArtifactRevisionDto, DocumentDetailDto, DocumentDto, DocumentSearchDto, JsonValue, MediaCardDto, MediaGenerationDetailDto, MediaGenerationTarget } from "../../electron/ralphy/types";
+import type { ArtifactMediaCardDto, ArtifactRevisionDto, DocumentDetailDto, DocumentDto, DocumentSearchDto, JsonValue, MediaCardDto, MediaGenerationDetailDto, MediaGenerationTarget, UnitDto, UnitItemDto, UnitPresentationDto, UnitRevisionDto } from "../../electron/ralphy/types";
 import type { CompositionAggregate, CompositionOutputPreview } from "../../electron/ralphy/project-reader";
 import type { MediaWorkbenchBridge, ProjectMediaFilter, ProjectSummary, ProjectTab } from "../../electron/media/types";
 import { createProjectDomainState, projectDomainReducer, type DomainRow, type ProjectDomainState } from "./project-domain";
@@ -14,6 +14,18 @@ export interface DocumentDraft {
   title: string | null;
   body: string;
 }
+export type UnitLoad<T> = {
+  status: "idle" | "loading" | "ready" | "error";
+  value: T | null;
+  error: string | null;
+};
+export type UnitPage<T> = {
+  status: "idle" | "loading" | "ready" | "error";
+  items: T[];
+  nextCursor: string | null;
+  requestedCursor: string | null;
+  error: string | null;
+};
 export interface ProjectScreenSnapshot {
   domain: ProjectDomainState;
   activeTab: ProjectView;
@@ -33,8 +45,18 @@ export interface ProjectScreenSnapshot {
   compositionMutation: "idle" | "revise" | "select" | "build";
   compositionConflict: string | null;
   compositionMutationError: string | null;
+  unitId: string | null;
+  unit: UnitLoad<UnitDto>;
+  unitRevisions: UnitPage<UnitRevisionDto>;
+  inspectedUnitRevisionId: string | null;
+  inspectedUnitRevision: UnitLoad<UnitRevisionDto>;
+  unitItems: UnitPage<UnitItemDto>;
+  unitPresentations: UnitPage<UnitPresentationDto>;
+  unitMutation: "idle" | "select";
+  unitConflict: string | null;
+  unitMutationError: string | null;
 }
-export type ProjectScreenApi = Pick<MediaWorkbenchBridge, "loadProjectOverview" | "loadProjectPage" | "loadProjectMediaCard" | "loadProjectGeneration" | "loadProjectMediaRevisions" | "selectProjectMediaRevision" | "loadDocumentPreview" | "searchProjectDocuments" | "showProjectDocument" | "reviseProjectDocument" | "resolveProjectPreview" | "loadProjectComposition" | "reviseProjectComposition" | "selectProjectCompositionRevision" | "buildProjectComposition" | "resolveCompositionOutputPreview">;
+export type ProjectScreenApi = Pick<MediaWorkbenchBridge, "loadProjectOverview" | "loadProjectPage" | "loadProjectMediaCard" | "loadProjectGeneration" | "loadProjectMediaRevisions" | "selectProjectMediaRevision" | "loadDocumentPreview" | "searchProjectDocuments" | "showProjectDocument" | "reviseProjectDocument" | "resolveProjectPreview" | "loadProjectComposition" | "reviseProjectComposition" | "selectProjectCompositionRevision" | "buildProjectComposition" | "resolveCompositionOutputPreview" | "loadProjectUnit" | "loadProjectUnitRevision" | "loadProjectUnitPage" | "selectProjectUnitRevision">;
 export interface ProjectScreenController {
   getSnapshot(): ProjectScreenSnapshot;
   subscribe(listener: () => void): () => void;
@@ -63,16 +85,29 @@ export interface ProjectScreenController {
   selectInspectedCompositionRevision(): Promise<void>;
   reviseSelectedComposition(): Promise<void>;
   buildInspectedCompositionRevision(): Promise<void>;
+  openUnit(unitId: string): Promise<void>;
+  loadMoreUnitRevisions(): Promise<void>;
+  inspectUnitRevision(revisionId: string): Promise<void>;
+  loadMoreUnitItems(): Promise<void>;
+  loadMoreUnitPresentations(): Promise<void>;
+  selectInspectedUnitRevision(): Promise<void>;
   dispose(): void;
 }
 
 const idleDocument: DocumentPreview = { status: "idle", value: null, error: null };
+const idleUnitLoad = <T>(): UnitLoad<T> => ({ status: "idle", value: null, error: null });
+const idleUnitPage = <T>(): UnitPage<T> => ({ status: "idle", items: [], nextCursor: null, requestedCursor: null, error: null });
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : String(error);
 const isConflict = (error: unknown): boolean => error !== null && typeof error === "object" && (error as { code?: unknown }).code === "E_CONFLICT";
 
 function revisionBody(format: DocumentDraft["format"], body: string): JsonValue {
   if (format !== "json") return body;
   return JSON.parse(body) as JsonValue;
+}
+
+function appendUnique<T extends { id: string }>(current: T[], incoming: T[]): T[] {
+  const seen = new Set(current.map(({ id }) => id));
+  return [...current, ...incoming.filter(({ id }) => !seen.has(id) && !!seen.add(id))];
 }
 
 export function createProjectScreenController(
@@ -99,6 +134,16 @@ export function createProjectScreenController(
     compositionMutation: "idle",
     compositionConflict: null,
     compositionMutationError: null,
+    unitId: null,
+    unit: idleUnitLoad(),
+    unitRevisions: idleUnitPage(),
+    inspectedUnitRevisionId: null,
+    inspectedUnitRevision: idleUnitLoad(),
+    unitItems: idleUnitPage(),
+    unitPresentations: idleUnitPage(),
+    unitMutation: "idle",
+    unitConflict: null,
+    unitMutationError: null,
   };
   let disposed = false;
   let request = 0;
@@ -113,6 +158,12 @@ export function createProjectScreenController(
   let mediaPreviewRequest = 0;
   let mediaGenerationRequest = 0;
   let mediaRevisionRequest = 0;
+  let unitRequest = 0;
+  let unitRevisionPageRequest = 0;
+  let unitExactRevisionRequest = 0;
+  let unitItemsRequest = 0;
+  let unitPresentationsRequest = 0;
+  let unitMutationRequest = 0;
   const listeners = new Set<() => void>();
   const emit = (next: ProjectScreenSnapshot) => {
     if (disposed) return;
@@ -241,6 +292,195 @@ export function createProjectScreenController(
         return;
       }
       emit({ ...snapshot, compositionMutation: "idle", compositionMutationError: errorMessage(error) });
+    }
+  };
+
+  const domainWithUnit = (value: UnitDto): ProjectDomainState => {
+    const units = snapshot.domain.pages.units;
+    return {
+      ...snapshot.domain,
+      pages: {
+        ...snapshot.domain.pages,
+        units: {
+          ...units,
+          items: units.items.map((row) => row.id === value.id ? value : row),
+        },
+      },
+    };
+  };
+
+  const loadUnitItems = async (unitId: string, revisionId: string, requestId: number) => {
+    emit({ ...snapshot, unitItems: { status: "loading", items: [], nextCursor: null, requestedCursor: null, error: null } });
+    try {
+      const page = await api.loadProjectUnitPage(snapshot.domain.project, { kind: "items", revisionId });
+      if (disposed || requestId !== unitItemsRequest || snapshot.unitId !== unitId
+        || snapshot.inspectedUnitRevisionId !== revisionId) return;
+      emit({ ...snapshot, unitItems: { status: "ready", items: page.items, nextCursor: page.nextCursor, requestedCursor: null, error: null } });
+    } catch (error) {
+      if (disposed || requestId !== unitItemsRequest || snapshot.unitId !== unitId
+        || snapshot.inspectedUnitRevisionId !== revisionId) return;
+      emit({ ...snapshot, unitItems: { status: "error", items: [], nextCursor: null, requestedCursor: null, error: errorMessage(error) } });
+    }
+  };
+
+  const loadUnitPresentations = async (unitId: string, revisionId: string, requestId: number) => {
+    emit({ ...snapshot, unitPresentations: { status: "loading", items: [], nextCursor: null, requestedCursor: null, error: null } });
+    try {
+      const page = await api.loadProjectUnitPage(snapshot.domain.project, { kind: "presentations", revisionId });
+      if (disposed || requestId !== unitPresentationsRequest || snapshot.unitId !== unitId
+        || snapshot.inspectedUnitRevisionId !== revisionId) return;
+      emit({ ...snapshot, unitPresentations: { status: "ready", items: page.items, nextCursor: page.nextCursor, requestedCursor: null, error: null } });
+    } catch (error) {
+      if (disposed || requestId !== unitPresentationsRequest || snapshot.unitId !== unitId
+        || snapshot.inspectedUnitRevisionId !== revisionId) return;
+      emit({ ...snapshot, unitPresentations: { status: "error", items: [], nextCursor: null, requestedCursor: null, error: errorMessage(error) } });
+    }
+  };
+
+  const loadUnitRevision = async (revisionId: string) => {
+    const unitId = snapshot.unitId;
+    if (!unitId || !revisionId) return;
+    const requestId = ++unitExactRevisionRequest;
+    const itemsRequestId = ++unitItemsRequest;
+    const presentationsRequestId = ++unitPresentationsRequest;
+    unitMutationRequest += 1;
+    emit({
+      ...snapshot,
+      inspectedUnitRevisionId: revisionId,
+      inspectedUnitRevision: { status: "loading", value: null, error: null },
+      unitItems: idleUnitPage(),
+      unitPresentations: idleUnitPage(),
+      unitMutation: "idle",
+      unitConflict: null,
+      unitMutationError: null,
+    });
+    try {
+      const value = await api.loadProjectUnitRevision(snapshot.domain.project, unitId, revisionId);
+      if (disposed || requestId !== unitExactRevisionRequest || snapshot.unitId !== unitId
+        || snapshot.inspectedUnitRevisionId !== revisionId) return;
+      if (value.id !== revisionId || value.unitId !== unitId) throw new Error("Invalid Unit revision");
+      emit({ ...snapshot, inspectedUnitRevision: { status: "ready", value, error: null } });
+      await Promise.all([
+        loadUnitItems(unitId, revisionId, itemsRequestId),
+        loadUnitPresentations(unitId, revisionId, presentationsRequestId),
+      ]);
+    } catch (error) {
+      if (disposed || requestId !== unitExactRevisionRequest || snapshot.unitId !== unitId
+        || snapshot.inspectedUnitRevisionId !== revisionId) return;
+      emit({ ...snapshot, inspectedUnitRevision: { status: "error", value: null, error: errorMessage(error) } });
+    }
+  };
+
+  const loadUnit = async (unitId: string) => {
+    if (!unitId) return;
+    const requestId = ++unitRequest;
+    unitRevisionPageRequest += 1;
+    unitExactRevisionRequest += 1;
+    unitItemsRequest += 1;
+    unitPresentationsRequest += 1;
+    unitMutationRequest += 1;
+    emit({
+      ...snapshot,
+      unitId,
+      unit: { status: "loading", value: null, error: null },
+      unitRevisions: idleUnitPage(),
+      inspectedUnitRevisionId: null,
+      inspectedUnitRevision: idleUnitLoad(),
+      unitItems: idleUnitPage(),
+      unitPresentations: idleUnitPage(),
+      unitMutation: "idle",
+      unitConflict: null,
+      unitMutationError: null,
+    });
+    let value: UnitDto;
+    try {
+      value = await api.loadProjectUnit(snapshot.domain.project, unitId);
+      if (disposed || requestId !== unitRequest || snapshot.unitId !== unitId) return;
+      if (value.id !== unitId) throw new Error("Invalid Unit");
+      emit({ ...snapshot, unit: { status: "ready", value, error: null }, domain: domainWithUnit(value) });
+    } catch (error) {
+      if (disposed || requestId !== unitRequest || snapshot.unitId !== unitId) return;
+      emit({ ...snapshot, unit: { status: "error", value: null, error: errorMessage(error) } });
+      return;
+    }
+
+    const revisionRequestId = ++unitRevisionPageRequest;
+    let revisions: UnitRevisionDto[] = [];
+    emit({ ...snapshot, unitRevisions: { status: "loading", items: [], nextCursor: null, requestedCursor: null, error: null } });
+    try {
+      const page = await api.loadProjectUnitPage(snapshot.domain.project, { kind: "revisions", unitId });
+      if (disposed || requestId !== unitRequest || revisionRequestId !== unitRevisionPageRequest
+        || snapshot.unitId !== unitId) return;
+      revisions = page.items;
+      emit({ ...snapshot, unitRevisions: { status: "ready", items: revisions, nextCursor: page.nextCursor, requestedCursor: null, error: null } });
+    } catch (error) {
+      if (disposed || requestId !== unitRequest || revisionRequestId !== unitRevisionPageRequest
+        || snapshot.unitId !== unitId) return;
+      emit({ ...snapshot, unitRevisions: { status: "error", items: [], nextCursor: null, requestedCursor: null, error: errorMessage(error) } });
+    }
+    const preferred = value.selectedRevisionId ?? value.latestRevisionId ?? revisions[0]?.id ?? null;
+    if (preferred && !disposed && requestId === unitRequest && snapshot.unitId === unitId) {
+      await loadUnitRevision(preferred);
+    }
+  };
+
+  const appendUnitRevisions = async () => {
+    const unitId = snapshot.unitId;
+    const current = snapshot.unitRevisions;
+    const cursor = current.nextCursor;
+    if (!unitId || !cursor || current.status === "loading") return;
+    const requestId = ++unitRevisionPageRequest;
+    emit({ ...snapshot, unitRevisions: { ...current, status: "loading", requestedCursor: cursor, error: null } });
+    try {
+      const page = await api.loadProjectUnitPage(snapshot.domain.project, { kind: "revisions", unitId, cursor });
+      if (disposed || requestId !== unitRevisionPageRequest || snapshot.unitId !== unitId) return;
+      if (page.nextCursor === cursor) throw new Error("Unit page cursor did not advance");
+      emit({ ...snapshot, unitRevisions: { status: "ready", items: appendUnique(current.items, page.items), nextCursor: page.nextCursor, requestedCursor: null, error: null } });
+    } catch (error) {
+      if (disposed || requestId !== unitRevisionPageRequest || snapshot.unitId !== unitId) return;
+      emit({ ...snapshot, unitRevisions: { status: "error", items: current.items, nextCursor: cursor, requestedCursor: null, error: errorMessage(error) } });
+    }
+  };
+
+  const appendUnitItems = async () => {
+    const unitId = snapshot.unitId;
+    const revisionId = snapshot.inspectedUnitRevisionId;
+    const current = snapshot.unitItems;
+    const cursor = current.nextCursor;
+    if (!unitId || !revisionId || !cursor || current.status === "loading") return;
+    const requestId = ++unitItemsRequest;
+    emit({ ...snapshot, unitItems: { ...current, status: "loading", requestedCursor: cursor, error: null } });
+    try {
+      const page = await api.loadProjectUnitPage(snapshot.domain.project, { kind: "items", revisionId, cursor });
+      if (disposed || requestId !== unitItemsRequest || snapshot.unitId !== unitId
+        || snapshot.inspectedUnitRevisionId !== revisionId) return;
+      if (page.nextCursor === cursor) throw new Error("Unit item cursor did not advance");
+      emit({ ...snapshot, unitItems: { status: "ready", items: appendUnique(current.items, page.items), nextCursor: page.nextCursor, requestedCursor: null, error: null } });
+    } catch (error) {
+      if (disposed || requestId !== unitItemsRequest || snapshot.unitId !== unitId
+        || snapshot.inspectedUnitRevisionId !== revisionId) return;
+      emit({ ...snapshot, unitItems: { status: "error", items: current.items, nextCursor: cursor, requestedCursor: null, error: errorMessage(error) } });
+    }
+  };
+
+  const appendUnitPresentations = async () => {
+    const unitId = snapshot.unitId;
+    const revisionId = snapshot.inspectedUnitRevisionId;
+    const current = snapshot.unitPresentations;
+    const cursor = current.nextCursor;
+    if (!unitId || !revisionId || !cursor || current.status === "loading") return;
+    const requestId = ++unitPresentationsRequest;
+    emit({ ...snapshot, unitPresentations: { ...current, status: "loading", requestedCursor: cursor, error: null } });
+    try {
+      const page = await api.loadProjectUnitPage(snapshot.domain.project, { kind: "presentations", revisionId, cursor });
+      if (disposed || requestId !== unitPresentationsRequest || snapshot.unitId !== unitId
+        || snapshot.inspectedUnitRevisionId !== revisionId) return;
+      if (page.nextCursor === cursor) throw new Error("Unit presentation cursor did not advance");
+      emit({ ...snapshot, unitPresentations: { status: "ready", items: appendUnique(current.items, page.items), nextCursor: page.nextCursor, requestedCursor: null, error: null } });
+    } catch (error) {
+      if (disposed || requestId !== unitPresentationsRequest || snapshot.unitId !== unitId
+        || snapshot.inspectedUnitRevisionId !== revisionId) return;
+      emit({ ...snapshot, unitPresentations: { status: "error", items: current.items, nextCursor: cursor, requestedCursor: null, error: errorMessage(error) } });
     }
   };
 
@@ -557,6 +797,90 @@ export function createProjectScreenController(
       if (!value || !revision || revision.id !== value.latestRevisionId || revision.state !== "draft") return;
       await runCompositionMutation("build", () => api.buildProjectComposition(snapshot.domain.project, revision.id));
     },
+    async openUnit(unitId) {
+      await loadUnit(unitId);
+    },
+    async loadMoreUnitRevisions() {
+      await appendUnitRevisions();
+    },
+    async inspectUnitRevision(revisionId) {
+      await loadUnitRevision(revisionId);
+    },
+    async loadMoreUnitItems() {
+      await appendUnitItems();
+    },
+    async loadMoreUnitPresentations() {
+      await appendUnitPresentations();
+    },
+    async selectInspectedUnitRevision() {
+      const unit = snapshot.unit.value;
+      const revision = snapshot.inspectedUnitRevision.value;
+      if (!unit || snapshot.unit.status !== "ready" || !revision
+        || snapshot.inspectedUnitRevision.status !== "ready" || revision.sealedAt === null
+        || revision.unitId !== unit.id || revision.id === unit.selectedRevisionId
+        || snapshot.unitMutation !== "idle") return;
+      const requestId = ++unitMutationRequest;
+      const unitId = unit.id;
+      const revisionId = revision.id;
+      emit({ ...snapshot, unitMutation: "select", unitConflict: null, unitMutationError: null });
+      try {
+        const selected = await api.selectProjectUnitRevision(
+          snapshot.domain.project,
+          unitId,
+          revisionId,
+          unit.selectedRevisionId,
+        );
+        if (disposed || requestId !== unitMutationRequest || snapshot.unitId !== unitId
+          || snapshot.inspectedUnitRevisionId !== revisionId) return;
+        if (selected.id !== unitId || selected.selectedRevisionId !== revisionId) {
+          throw new Error("Invalid Unit selection");
+        }
+        emit({
+          ...snapshot,
+          unit: { status: "ready", value: selected, error: null },
+          unitMutation: "idle",
+          unitConflict: null,
+          unitMutationError: null,
+          domain: domainWithUnit(selected),
+        });
+      } catch (error) {
+        if (disposed || requestId !== unitMutationRequest || snapshot.unitId !== unitId
+          || snapshot.inspectedUnitRevisionId !== revisionId) return;
+        if (!isConflict(error)) {
+          emit({ ...snapshot, unitMutation: "idle", unitMutationError: errorMessage(error) });
+          return;
+        }
+        const shellRequestId = ++unitRequest;
+        const pageRequestId = ++unitRevisionPageRequest;
+        emit({
+          ...snapshot,
+          unit: { ...snapshot.unit, status: "loading", error: null },
+          unitRevisions: { ...snapshot.unitRevisions, status: "loading", requestedCursor: null, error: null },
+        });
+        try {
+          const [authoritative, revisions] = await Promise.all([
+            api.loadProjectUnit(snapshot.domain.project, unitId),
+            api.loadProjectUnitPage(snapshot.domain.project, { kind: "revisions", unitId }),
+          ]);
+          if (disposed || requestId !== unitMutationRequest || shellRequestId !== unitRequest
+            || pageRequestId !== unitRevisionPageRequest || snapshot.unitId !== unitId
+            || snapshot.inspectedUnitRevisionId !== revisionId) return;
+          if (authoritative.id !== unitId) throw new Error("Invalid Unit");
+          emit({
+            ...snapshot,
+            unit: { status: "ready", value: authoritative, error: null },
+            unitRevisions: { status: "ready", items: revisions.items, nextCursor: revisions.nextCursor, requestedCursor: null, error: null },
+            unitMutation: "idle",
+            unitConflict: "The selected revision changed elsewhere. Current pointer reloaded; click again to retry.",
+            unitMutationError: null,
+            domain: domainWithUnit(authoritative),
+          });
+        } catch (reloadError) {
+          if (disposed || requestId !== unitMutationRequest || snapshot.unitId !== unitId) return;
+          emit({ ...snapshot, unitMutation: "idle", unitMutationError: errorMessage(reloadError) });
+        }
+      }
+    },
     dispose() {
       disposed = true;
       overviewRequest += 1;
@@ -566,6 +890,12 @@ export function createProjectScreenController(
       compositionRequest += 1;
       compositionPreviewRequest += 1;
       compositionMutationRequest += 1;
+      unitRequest += 1;
+      unitRevisionPageRequest += 1;
+      unitExactRevisionRequest += 1;
+      unitItemsRequest += 1;
+      unitPresentationsRequest += 1;
+      unitMutationRequest += 1;
       listeners.clear();
     },
   };
