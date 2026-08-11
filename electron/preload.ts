@@ -41,6 +41,9 @@ const mediaBridge: MediaWorkbenchBridge = {
       expectedSelectedRevisionId,
     )
   ),
+  performProjectMediaAction: (project, ref, action) => (
+    invoke(MEDIA_CHANNELS.performProjectMediaAction, project, ref, action)
+  ),
   loadDocumentPreview: (project, revisionId) => (
     invoke(MEDIA_CHANNELS.loadDocumentPreview, project, revisionId)
   ),

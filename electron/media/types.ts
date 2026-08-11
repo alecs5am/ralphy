@@ -1,4 +1,8 @@
-import type { MediaFilter } from "../ralphy/types";
+import type {
+  MediaFilter,
+  MediaKind as CoreMediaKind,
+  MediaProvenance,
+} from "../ralphy/types";
 
 export type ReviewStatus =
   | "Unreviewed"
@@ -43,6 +47,14 @@ export const PROJECT_MEDIA_FILTERS = [
   "advanced-objects",
 ] as const satisfies readonly ("all" | MediaFilter)[];
 export type ProjectMediaFilter = typeof PROJECT_MEDIA_FILTERS[number];
+export type ProjectMediaKind = CoreMediaKind;
+export type ProjectMediaQuery = {
+  filter: ProjectMediaFilter;
+  mediaKind?: ProjectMediaKind;
+  provenance?: MediaProvenance;
+};
+export type ProjectMediaAction = "open" | "finder" | "copy";
+export type { MediaProvenance };
 export type ProjectPage = { items: unknown[]; nextCursor: string | number | null };
 export type ProjectPreview = { url: string; sizeBytes: number };
 
@@ -286,7 +298,7 @@ export interface MediaWorkbenchBridge {
     tab: ProjectTab;
     project: ProjectReference;
     cursor?: string | number | null;
-    mediaFilter?: ProjectMediaFilter;
+    mediaQuery?: ProjectMediaQuery;
   }): Promise<ProjectPage>;
   loadProjectMediaCard(
     project: ProjectReference,
@@ -308,6 +320,11 @@ export interface MediaWorkbenchBridge {
     revisionId: string,
     expectedSelectedRevisionId: string | null,
   ): Promise<import("../ralphy/types").ArtifactMediaCardDto>;
+  performProjectMediaAction(
+    project: ProjectReference,
+    ref: import("../ralphy/types").MediaCardDto["ref"],
+    action: ProjectMediaAction,
+  ): Promise<void>;
   loadDocumentPreview(project: ProjectReference, revisionId: string): Promise<{
     revisionId: string;
     format: string;
@@ -377,6 +394,7 @@ export const MEDIA_CHANNELS = {
   loadProjectGeneration: "project:media:generation",
   loadProjectMediaRevisions: "project:media:revisions",
   selectProjectMediaRevision: "project:media:select",
+  performProjectMediaAction: "project:media:action",
   loadDocumentPreview: "project:document-preview",
   searchProjectDocuments: "project:documents:search",
   showProjectDocument: "project:document:show",

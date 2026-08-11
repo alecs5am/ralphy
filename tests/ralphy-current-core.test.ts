@@ -83,7 +83,7 @@ const currentCoreFixtures = [
       accounts: { items: [{ id: "acct_1", workspaceId: "ws_1", platform: "tiktok", externalId: "external_1", displayName: "Launch Studio", username: "launch", credentialConfigured: true, credentialSource: "encrypted", relinkRequired: false, rowVersion: 1, createdAt: 2, updatedAt: 3 }], nextCursor: null },
       projects: { items: [{ id: "prj_1", workspaceId: "ws_1", slug: "launch", name: "Launch", state: "active", rowVersion: 1, createdAt: 1, updatedAt: 8 }], nextCursor: null },
       activity: { items: [{ sequence: 7, workspaceId: "ws_1", projectId: null, entityType: "workspace", entityId: "ws_1", action: "updated", createdAt: 7 }, { sequence: 8, workspaceId: "ws_1", projectId: "prj_1", entityType: "project", entityId: "prj_1", action: "updated", createdAt: 8 }], nextCursor: null },
-      sharedMedia: { items: [{ ref: { type: "artifact", id: "art_ws_1" }, workspaceId: "ws_1", projectId: null, slug: "logo", kind: "image", selectedRevisionId: "arev_ws_1", selectedState: "approved", mime: "image/png", bytes: 12, selectedAt: 4, revisionCount: 1, selectedObjectId: "obj_ws_1", storageClass: "bucket", usageRoles: ["reference"], target: { type: "object", id: "obj_ws_1" } }], nextCursor: null },
+      sharedMedia: { items: [{ ref: { type: "artifact", id: "art_ws_1" }, workspaceId: "ws_1", projectId: null, slug: "logo", kind: "image", selectedRevisionId: "arev_ws_1", selectedState: "approved", mime: "image/png", bytes: 12, selectedAt: 4, revisionCount: 1, selectedObjectId: "obj_ws_1", storageClass: "bucket", usageRoles: ["reference"], target: { type: "object", id: "obj_ws_1" }, mediaKind: "image", provenance: "not-generation" }], nextCursor: null },
       publications: { items: [{ id: "pub_ws_1", unitId: "unit_ws_1", presentationId: "pres_ws_1", platform: "tiktok", socialAccountId: "acct_1", rail: "postiz", state: "published", url: "https://example.test/post/workspace", scheduledAt: null, submittedAt: 6, publishedAt: 7, createdAt: 5, updatedAt: 7 }], nextCursor: null },
       metrics: { publicationCount: 1, views: 100, likes: 10, comments: 2, shares: 1, watchTimeMs: 1000 },
     },
@@ -113,7 +113,22 @@ const currentCoreFixtures = [
   {
     method: "media.list",
     params: { context: { workspaceId: "ws_1", projectId: "prj_1" }, limit: 1, filter: "references", types: ["artifact"] },
-    result: { items: [{ ref: { type: "artifact", id: "art_prj_1" }, workspaceId: "ws_1", projectId: "prj_1", slug: "reference-1", kind: "image", selectedRevisionId: "arev_prj_1", selectedState: "approved", mime: "image/png", bytes: 12, selectedAt: 4, revisionCount: 1, selectedObjectId: "obj_prj_1", storageClass: "bucket", usageRoles: ["reference"], target: { type: "object", id: "obj_prj_1" } }], nextCursor: firstMediaCursor },
+    result: { items: [{ ref: { type: "artifact", id: "art_prj_1" }, workspaceId: "ws_1", projectId: "prj_1", slug: "reference-1", kind: "image", selectedRevisionId: "arev_prj_1", selectedState: "approved", mime: "image/png", bytes: 12, selectedAt: 4, revisionCount: 1, selectedObjectId: "obj_prj_1", storageClass: "bucket", usageRoles: ["reference"], target: { type: "object", id: "obj_prj_1" }, mediaKind: "image", provenance: "generation" }], nextCursor: firstMediaCursor },
+  },
+  {
+    method: "media.show",
+    params: { context: { workspaceId: "ws_1", projectId: "prj_1" }, ref: { type: "artifact", id: "art_prj_1" } },
+    result: { ref: { type: "artifact", id: "art_prj_1" }, workspaceId: "ws_1", projectId: "prj_1", slug: "reference-1", kind: "image", selectedRevisionId: "arev_prj_1", selectedState: "approved", mime: "image/png", bytes: 12, selectedAt: 4, revisionCount: 1, selectedObjectId: "obj_prj_1", storageClass: "bucket", usageRoles: ["reference"], target: { type: "object", id: "obj_prj_1" }, mediaKind: "image", provenance: "generation" },
+  },
+  {
+    method: "media.show",
+    params: { context: { workspaceId: "ws_1", projectId: "prj_1" }, ref: { type: "run-object", id: "robj_1" } },
+    result: { ref: { type: "run-object", id: "robj_1" }, workspaceId: "ws_1", projectId: "prj_1", runId: "run_1", purpose: "output", state: "ready", retention: "durable", mime: "video/mp4", bytes: 12, createdAt: 5, objectId: "obj_prj_1", logicalPath: "outputs/final.mp4", locationClass: "other", attemptId: null, attemptNo: null, target: { type: "object", id: "obj_prj_1" }, mediaKind: "video", provenance: "generation" },
+  },
+  {
+    method: "media.show",
+    params: { context: { workspaceId: "ws_1", projectId: "prj_1" }, ref: { type: "object", id: "obj_prj_1" } },
+    result: { ref: { type: "object", id: "obj_prj_1" }, workspaceId: "ws_1", projectId: "prj_1", storageClass: "bucket", mime: "video/mp4", bytes: 12, createdAt: 4, referenceCount: 2, target: { type: "object", id: "obj_prj_1" }, mediaKind: "video", provenance: "generation" },
   },
   {
     method: "media.generation.show",
@@ -137,12 +152,12 @@ const currentCoreFixtures = [
   {
     method: "media.select",
     params: { context: { workspaceId: "ws_1", projectId: "prj_1" }, ref: { type: "artifact", id: "art_prj_1" }, revisionId: "arev_prj_1", expectedSelectedRevisionId: null },
-    result: { ref: { type: "artifact", id: "art_prj_1" }, workspaceId: "ws_1", projectId: "prj_1", slug: "reference-1", kind: "image", selectedRevisionId: "arev_prj_1", selectedState: "approved", mime: "image/png", bytes: 12, selectedAt: 4, revisionCount: 1, selectedObjectId: "obj_prj_1", storageClass: "bucket", usageRoles: ["reference"], target: { type: "object", id: "obj_prj_1" } },
+    result: { ref: { type: "artifact", id: "art_prj_1" }, workspaceId: "ws_1", projectId: "prj_1", slug: "reference-1", kind: "image", selectedRevisionId: "arev_prj_1", selectedState: "approved", mime: "image/png", bytes: 12, selectedAt: 4, revisionCount: 1, selectedObjectId: "obj_prj_1", storageClass: "bucket", usageRoles: ["reference"], target: { type: "object", id: "obj_prj_1" }, mediaKind: "image", provenance: "generation" },
   },
   {
     method: "media.list",
     params: { context: { workspaceId: "ws_1", projectId: "prj_1" }, after: firstMediaCursor, limit: 1, filter: "references", types: ["artifact"] },
-    result: { items: [{ ref: { type: "artifact", id: "art_prj_2" }, workspaceId: "ws_1", projectId: "prj_1", slug: "reference-2", kind: "image", selectedRevisionId: "arev_prj_2", selectedState: "approved", mime: "image/png", bytes: 13, selectedAt: 5, revisionCount: 1, selectedObjectId: "obj_prj_2", storageClass: "bucket", usageRoles: ["reference"], target: { type: "object", id: "obj_prj_2" } }], nextCursor: null },
+    result: { items: [{ ref: { type: "artifact", id: "art_prj_2" }, workspaceId: "ws_1", projectId: "prj_1", slug: "reference-2", kind: "image", selectedRevisionId: "arev_prj_2", selectedState: "approved", mime: "image/png", bytes: 13, selectedAt: 5, revisionCount: 1, selectedObjectId: "obj_prj_2", storageClass: "bucket", usageRoles: ["reference"], target: { type: "object", id: "obj_prj_2" }, mediaKind: "image", provenance: "unknown" }], nextCursor: null },
   },
   {
     method: "run.objects",
@@ -448,7 +463,7 @@ describe("current Core bridge contract", () => {
         "sequence", "workspaceId", "projectId", "entityType", "entityId", "action", "createdAt",
       ]);
       expect(Object.keys(workspace.sharedMedia!.items[0]!)).toEqual([
-        "ref", "workspaceId", "projectId", "slug", "kind", "selectedRevisionId", "selectedState", "mime", "bytes", "selectedAt", "revisionCount", "selectedObjectId", "storageClass", "usageRoles", "target",
+        "ref", "workspaceId", "projectId", "slug", "kind", "selectedRevisionId", "selectedState", "mime", "bytes", "selectedAt", "revisionCount", "selectedObjectId", "storageClass", "usageRoles", "target", "mediaKind", "provenance",
       ]);
       expect(Object.keys(workspace.publications!.items[0]!)).toEqual([
         "id", "unitId", "presentationId", "platform", "socialAccountId", "rail", "state", "url", "scheduledAt", "submittedAt", "publishedAt", "createdAt", "updatedAt",
@@ -523,6 +538,31 @@ describe("current Core bridge contract", () => {
       expect(firstProjectMedia).toMatchObject({ nextCursor: firstMediaCursor });
       expect(firstProjectMedia.items[0]).toMatchObject({ projectId: "prj_1" });
       expect(firstProjectMedia.items[0]!.ref.id).not.toBe(workspace.sharedMedia!.items[0]!.ref.id);
+      const shownMedia = await Promise.all([
+        client.request("media.show", {
+          context: { workspaceId: "ws_1", projectId: "prj_1" }, ref: { type: "artifact", id: "art_prj_1" },
+        }),
+        client.request("media.show", {
+          context: { workspaceId: "ws_1", projectId: "prj_1" }, ref: { type: "run-object", id: "robj_1" },
+        }),
+        client.request("media.show", {
+          context: { workspaceId: "ws_1", projectId: "prj_1" }, ref: { type: "object", id: "obj_prj_1" },
+        }),
+      ]);
+      expect(shownMedia.map(({ mediaKind, provenance }) => ({ mediaKind, provenance }))).toEqual([
+        { mediaKind: "image", provenance: "generation" },
+        { mediaKind: "video", provenance: "generation" },
+        { mediaKind: "video", provenance: "generation" },
+      ]);
+      expect(Object.keys(shownMedia[0]!)).toEqual([
+        "ref", "workspaceId", "projectId", "slug", "kind", "selectedRevisionId", "selectedState", "mime", "bytes", "selectedAt", "revisionCount", "selectedObjectId", "storageClass", "usageRoles", "target", "mediaKind", "provenance",
+      ]);
+      expect(Object.keys(shownMedia[1]!)).toEqual([
+        "ref", "workspaceId", "projectId", "runId", "purpose", "state", "retention", "mime", "bytes", "createdAt", "objectId", "logicalPath", "locationClass", "attemptId", "attemptNo", "target", "mediaKind", "provenance",
+      ]);
+      expect(Object.keys(shownMedia[2]!)).toEqual([
+        "ref", "workspaceId", "projectId", "storageClass", "mime", "bytes", "createdAt", "referenceCount", "target", "mediaKind", "provenance",
+      ]);
       await expect(client.request("media.list", {
         context: { workspaceId: "ws_1", projectId: "prj_1" }, after: firstProjectMedia.nextCursor!, limit: 1, filter: "references", types: ["artifact"],
       })).resolves.toMatchObject({ nextCursor: null });

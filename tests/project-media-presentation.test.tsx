@@ -401,7 +401,7 @@ describe("Project media presentation", () => {
   test("restores focus to the stable Media tab after filtering removes the opener", async () => {
     const api = {
       ...projectApi(),
-      loadProjectPage: vi.fn(async ({ mediaFilter }: { mediaFilter?: string }) => ({ items: mediaFilter === "references" ? [] : [runObject], nextCursor: null })),
+      loadProjectPage: vi.fn(async ({ mediaQuery }: { mediaQuery?: { filter: string } }) => ({ items: mediaQuery?.filter === "references" ? [] : [runObject], nextCursor: null })),
     };
     const controller = createProjectScreenController(api as never, project);
     await controller.selectTab("media");

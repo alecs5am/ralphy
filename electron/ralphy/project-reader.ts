@@ -1,4 +1,6 @@
 import type { RalphyBridgeClient } from "./client";
+import { isAbsolute } from "node:path";
+import { pathToFileURL } from "node:url";
 import { assertTrustedSender, toIpcResult } from "../ipc-security";
 import type {
   ActivityDto,
@@ -33,10 +35,14 @@ import {
 import type { RalphySession } from "./session";
 import type {
   ProjectMediaFilter,
+  ProjectMediaAction,
+  ProjectMediaKind,
+  ProjectMediaQuery,
   ProjectPage,
   ProjectPreview,
   ProjectReference,
   ProjectTab,
+  MediaProvenance,
 } from "../media/types";
 
 export const PROJECT_PAGE_LIMIT = 50;
@@ -47,7 +53,7 @@ export const DOCUMENT_PREVIEW_MAX_BYTES = 2 * 1024 * 1024;
 export const GENERATION_ATTEMPT_LIMIT = 20;
 
 export type ProjectRef = ProjectReference;
-export type { ProjectMediaFilter, ProjectPage, ProjectPreview, ProjectTab };
+export type { ProjectMediaFilter, ProjectMediaQuery, ProjectPage, ProjectPreview, ProjectTab };
 
 type Request = Pick<RalphyBridgeClient, "request">["request"];
 type Mint = (absolutePath: string, mime: string | null, expectedBytes: number) => Promise<ProjectPreview>;
@@ -127,6 +133,17 @@ const BOOLEAN_PARAMETERS = new Set([
   "generateAudio", "hasFirstFrame", "hasLastFrame", "hasImage", "voiceSpecified",
   "speakerBoost", "forceInstrumental",
 ]);
+const PROJECT_MEDIA_KINDS = new Set<ProjectMediaKind>([
+  "image", "video", "audio", "document", "other",
+]);
+const MEDIA_PROVENANCE = new Set<MediaProvenance>([
+  "generation", "not-generation", "unknown",
+]);
+
+function validMediaClassification(value: Record<string, unknown>): boolean {
+  return PROJECT_MEDIA_KINDS.has(value.mediaKind as ProjectMediaKind)
+    && MEDIA_PROVENANCE.has(value.provenance as MediaProvenance);
+}
 
 function generationTarget(value: unknown): MediaGenerationTarget {
   const target = record(value);
@@ -265,6 +282,7 @@ function validateArtifactCard(value: unknown, project: ProjectRef, artifactId: s
   if (!card || !exactKeys(card, [
     "ref", "workspaceId", "projectId", "slug", "kind", "selectedRevisionId", "selectedState",
     "mime", "bytes", "selectedAt", "revisionCount", "selectedObjectId", "storageClass", "usageRoles", "target",
+    "mediaKind", "provenance",
   ]) || !ref || !exactKeys(ref, ["type", "id"]) || ref.type !== "artifact" || ref.id !== artifactId
     || card.workspaceId !== project.workspaceId || card.projectId !== project.projectId
     || typeof card.slug !== "string" || !card.slug || card.slug.length > 256
@@ -278,6 +296,7 @@ function validateArtifactCard(value: unknown, project: ProjectRef, artifactId: s
     || !validGenerationId(card.selectedObjectId)
     || (card.storageClass !== null && (typeof card.storageClass !== "string" || !card.storageClass || card.storageClass.length > 128))
     || !Array.isArray(card.usageRoles) || !card.usageRoles.every((role) => typeof role === "string" && !!role && role.length <= 256)
+    || !validMediaClassification(card)
     || !target || !exactKeys(target, ["type", "id"]) || target.type !== "object"
     || target.id !== card.selectedObjectId) {
     throw new Error("Invalid selected Artifact");
@@ -308,12 +327,14 @@ function validateMediaCard(value: unknown, project: ProjectRef, expectedRef: Med
     !!target && exactKeys(target, ["type", "id"]) && target.type === expectedType && target.id === expectedId
   );
   if (!card || !exactRef) throw new Error("Invalid Media card");
+  if (!validMediaClassification(card)) throw new Error("Invalid Media card");
 
   if (expectedRef.type === "artifact") {
     const selected = card.selectedRevisionId !== null;
     if (!exactKeys(card, [
       "ref", "workspaceId", "projectId", "slug", "kind", "selectedRevisionId", "selectedState",
       "mime", "bytes", "selectedAt", "revisionCount", "selectedObjectId", "storageClass", "usageRoles", "target",
+      "mediaKind", "provenance",
     ]) || card.workspaceId !== project.workspaceId || !optionalScope(card.projectId, project.projectId)
       || typeof card.slug !== "string" || !card.slug || card.slug.length > 256
       || typeof card.kind !== "string" || !card.kind || card.kind.length > 256
@@ -332,6 +353,7 @@ function validateMediaCard(value: unknown, project: ProjectRef, expectedRef: Med
     if (!exactKeys(card, [
       "ref", "workspaceId", "projectId", "runId", "purpose", "state", "retention", "mime", "bytes",
       "createdAt", "objectId", "logicalPath", "locationClass", "attemptId", "attemptNo", "target",
+      "mediaKind", "provenance",
     ]) || !optionalScope(card.workspaceId, project.workspaceId) || !optionalScope(card.projectId, project.projectId)
       || !validGenerationId(card.runId) || typeof card.purpose !== "string" || !card.purpose || card.purpose.length > 256
       || typeof card.state !== "string" || !card.state || card.state.length > 128
@@ -347,6 +369,7 @@ function validateMediaCard(value: unknown, project: ProjectRef, expectedRef: Med
     }
   } else if (!exactKeys(card, [
     "ref", "workspaceId", "projectId", "storageClass", "mime", "bytes", "createdAt", "referenceCount", "target",
+    "mediaKind", "provenance",
   ]) || card.workspaceId !== project.workspaceId || !optionalScope(card.projectId, project.projectId)
     || typeof card.storageClass !== "string" || !card.storageClass || card.storageClass.length > 128
     || typeof card.mime !== "string" || !card.mime || card.mime.length > 1024
@@ -395,6 +418,34 @@ function asPage(value: unknown): ProjectPage {
   return value as ProjectPage;
 }
 
+function asMediaPage(value: unknown, project: ProjectRef): ProjectPage {
+  const page = record(value);
+  if (!page || !exactKeys(page, ["items", "nextCursor"]) || !Array.isArray(page.items)
+    || page.items.length > PROJECT_PAGE_LIMIT
+    || (page.nextCursor !== null && (typeof page.nextCursor !== "string" || !page.nextCursor || page.nextCursor.length > 4096))) {
+    throw new Error("Invalid Media page");
+  }
+  for (const item of page.items) {
+    const value = record(item);
+    validateMediaCard(item, project, mediaRef(value?.ref));
+  }
+  return value as ProjectPage;
+}
+
+function mediaQuery(value: ProjectMediaQuery | undefined): ProjectMediaQuery {
+  const query = value ?? { filter: "all" };
+  const raw = record(query);
+  if (!raw || !exactKeys(raw, [
+    "filter",
+    ...["mediaKind", "provenance"].filter((key) => Object.hasOwn(raw, key)),
+  ]) || !PROJECT_MEDIA_FILTERS.includes(raw.filter as ProjectMediaFilter)
+    || (raw.mediaKind !== undefined && !PROJECT_MEDIA_KINDS.has(raw.mediaKind as ProjectMediaKind))
+    || (raw.provenance !== undefined && !MEDIA_PROVENANCE.has(raw.provenance as MediaProvenance))) {
+    throw new Error("Invalid Media query");
+  }
+  return raw as ProjectMediaQuery;
+}
+
 async function drain<Item>(load: (after?: string) => Promise<Page<Item>>): Promise<Item[]> {
   const items: Item[] = [];
   let after: string | undefined;
@@ -435,6 +486,10 @@ export function registerProjectMediaIpc<Root>({
   captureRoot,
   assertRoot,
   session,
+  authorizeTrustedLocator,
+  openPath,
+  showItemInFolder,
+  writeBuffer,
 }: {
   handle(
     channel: string,
@@ -444,38 +499,55 @@ export function registerProjectMediaIpc<Root>({
   captureRoot(): Root;
   assertRoot(root: Root): void;
   session: Pick<RalphySession, "client">;
+  authorizeTrustedLocator(
+    root: Root,
+    absolutePath: string,
+    mime: string | null,
+    expectedBytes: number,
+    assertCurrent: () => void,
+  ): Promise<string>;
+  openPath(path: string): unknown;
+  showItemInFolder(path: string): unknown;
+  writeBuffer(format: "public.file-url", data: Buffer): unknown;
 }): void {
   type Reader = ReturnType<typeof createProjectReader>;
   const secured = (
-    listener: (reader: Reader, ...args: unknown[]) => unknown,
+    listener: (reader: Reader, root: Root, assertCurrent: () => void, ...args: unknown[]) => unknown,
   ): ((event: ProjectMediaIpcEvent, ...args: unknown[]) => Promise<unknown>) => (
     (event, ...args) => toIpcResult(async () => {
       assertTrustedSender(event, getWindow());
       const root = captureRoot();
+      const assertCurrent = () => {
+        assertTrustedSender(event, getWindow());
+        assertRoot(root);
+      };
+      assertCurrent();
       const request: Request = async <Method extends BridgeMethod>(
         method: Method,
         params: ParamsFor<Method>,
       ): Promise<ResultFor<Method>> => {
-        assertRoot(root);
+        assertCurrent();
         const result = await session.client.request(method, params);
-        assertRoot(root);
+        assertCurrent();
         return result;
       };
-      return listener(createProjectReader({ request }), ...args);
+      const result = await listener(createProjectReader({ request }), root, assertCurrent, ...args);
+      assertCurrent();
+      return result;
     })
   );
 
-  handle(MEDIA_CHANNELS.loadProjectGeneration, secured((reader, rawProject, rawTarget, rawAfter) => (
+  handle(MEDIA_CHANNELS.loadProjectGeneration, secured((reader, _root, _assertCurrent, rawProject, rawTarget, rawAfter) => (
     reader.loadGeneration(
       parseProjectMediaIpcProject(rawProject),
       generationTarget(rawTarget),
       pageCursor(rawAfter),
     )
   )));
-  handle(MEDIA_CHANNELS.loadProjectMediaCard, secured((reader, rawProject, rawRef) => (
+  handle(MEDIA_CHANNELS.loadProjectMediaCard, secured((reader, _root, _assertCurrent, rawProject, rawRef) => (
     reader.loadMediaCard(parseProjectMediaIpcProject(rawProject), mediaRef(rawRef))
   )));
-  handle(MEDIA_CHANNELS.loadProjectMediaRevisions, secured((reader, rawProject, rawArtifactId, rawAfter) => {
+  handle(MEDIA_CHANNELS.loadProjectMediaRevisions, secured((reader, _root, _assertCurrent, rawProject, rawArtifactId, rawAfter) => {
     if (!validGenerationId(rawArtifactId)) throw new Error("Invalid Artifact identifier");
     return reader.loadMediaRevisions(
       parseProjectMediaIpcProject(rawProject),
@@ -485,6 +557,8 @@ export function registerProjectMediaIpc<Root>({
   }));
   handle(MEDIA_CHANNELS.selectProjectMediaRevision, secured((
     reader,
+    _root,
+    _assertCurrent,
     rawProject,
     rawArtifactId,
     rawRevisionId,
@@ -500,6 +574,44 @@ export function registerProjectMediaIpc<Root>({
       rawRevisionId,
       rawExpectedSelectedRevisionId,
     );
+  }));
+  handle(MEDIA_CHANNELS.performProjectMediaAction, secured(async (
+    reader,
+    root,
+    assertCurrent,
+    rawProject,
+    rawRef,
+    rawAction,
+  ) => {
+    if (rawAction !== "open" && rawAction !== "finder" && rawAction !== "copy") {
+      throw new Error("Invalid Media action");
+    }
+    const locator = await reader.resolveMediaActionLocator(
+      parseProjectMediaIpcProject(rawProject),
+      mediaRef(rawRef),
+      rawAction,
+    );
+    assertCurrent();
+    const path = await authorizeTrustedLocator(
+      root,
+      locator.absolutePath,
+      locator.mime,
+      locator.bytes,
+      assertCurrent,
+    );
+    assertCurrent();
+    if (rawAction === "open") {
+      assertCurrent();
+      await openPath(path);
+      assertCurrent();
+    } else if (rawAction === "finder") {
+      assertCurrent();
+      showItemInFolder(path);
+    } else {
+      assertCurrent();
+      writeBuffer("public.file-url", Buffer.from(pathToFileURL(path).href));
+    }
+    return undefined;
   }));
 }
 
@@ -531,7 +643,7 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
       tab: ProjectTab;
       project: ProjectRef;
       cursor?: string | number | null;
-      mediaFilter?: ProjectMediaFilter;
+      mediaQuery?: ProjectMediaQuery;
     }): Promise<ProjectPage> {
       const context = projectContext(input.project);
       if (input.tab === "activity") {
@@ -546,16 +658,17 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
         return asPage(await request("document.list", { context, ...(after ? { after } : {}), limit: PROJECT_PAGE_LIMIT }));
       }
       if (input.tab === "media") {
-        const mediaFilter = input.mediaFilter ?? "all";
-        if (!PROJECT_MEDIA_FILTERS.includes(mediaFilter)) throw new Error("Invalid Media filter");
-        const filter = mediaFilter === "all" ? {} : { filter: mediaFilter };
-        return asPage(await request("media.list", {
+        const query = mediaQuery(input.mediaQuery);
+        const filter = query.filter === "all" ? {} : { filter: query.filter };
+        return asMediaPage(await request("media.list", {
           context,
           ...(after ? { after } : {}),
           ...filter,
+          ...(query.mediaKind === undefined ? {} : { mediaKind: query.mediaKind }),
+          ...(query.provenance === undefined ? {} : { provenance: query.provenance }),
           limit: PROJECT_PAGE_LIMIT,
-          types: mediaFilter === "advanced-objects" ? ["object"] : ["artifact", "run-object"],
-        }));
+          types: query.filter === "advanced-objects" ? ["object"] : ["artifact", "run-object"],
+        }), context);
       }
       if (input.tab === "compositions") {
         return asPage(await request("composition.list", {
@@ -593,6 +706,34 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
       const context = projectContext(project);
       const exactRef = mediaRef(ref);
       return validateMediaCard(await request("media.show", { context, ref: exactRef }), context, exactRef);
+    },
+
+    async resolveMediaActionLocator(
+      project: ProjectRef,
+      ref: MediaCardDto["ref"],
+      action: ProjectMediaAction,
+    ): Promise<{ absolutePath: string; mime: string | null; bytes: number }> {
+      const context = projectContext(project);
+      const exactRef = mediaRef(ref);
+      if (!["open", "finder", "copy"].includes(action)) throw new Error("Invalid Media action");
+      const card = validateMediaCard(
+        await request("media.show", { context, ref: exactRef }),
+        context,
+        exactRef,
+      );
+      if (!card.target) throw new Error("Media has no resolvable target");
+      const locator = record(await request("locator.resolve", {
+        context,
+        target: card.target,
+        purpose: action === "copy" ? "drag" : action,
+      }));
+      if (!locator || !exactKeys(locator, ["absolutePath", "mime", "bytes"])
+        || !validPath(locator.absolutePath) || !isAbsolute(locator.absolutePath)
+        || (locator.mime !== null && (typeof locator.mime !== "string" || !locator.mime || locator.mime.length > 1024))
+        || !Number.isSafeInteger(locator.bytes) || (locator.bytes as number) < 0) {
+        throw new Error("Invalid action locator");
+      }
+      return locator as { absolutePath: string; mime: string | null; bytes: number };
     },
 
     async loadMediaRevisions(

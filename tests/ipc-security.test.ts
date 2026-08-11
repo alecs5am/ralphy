@@ -1,5 +1,10 @@
 import { describe, expect, test, vi } from "vitest";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { realpath, rm, stat, symlink } from "node:fs/promises";
+import { join, relative } from "node:path";
 import type { RalphyBridgeClient } from "../electron/ralphy/client";
+import { MediaProtocolAccess } from "../electron/media/protocol-access";
+import { makeLibraryFixture } from "./fixtures";
 
 describe("Electron IPC security", () => {
   test("keeps root identity and activity refresh payloads numeric and private", async () => {
@@ -187,6 +192,7 @@ describe("Electron IPC security", () => {
       "loadProjectGeneration",
       "loadProjectMediaRevisions",
       "selectProjectMediaRevision",
+      "performProjectMediaAction",
       "loadDocumentPreview",
       "resolveProjectPreview",
       "loadProjectComposition",
@@ -198,6 +204,7 @@ describe("Electron IPC security", () => {
       "sendAgentMessage",
       "createTerminal",
     ]));
+    expect(Object.keys(exposed as object).filter((name) => name === "performProjectMediaAction")).toHaveLength(1);
     const bridge = exposed as {
       startFileDrag(path: string): Promise<void>;
       loadWorkspaceOverview(workspaceId: string): Promise<void>;
@@ -206,6 +213,7 @@ describe("Electron IPC security", () => {
       loadProjectGeneration(project: { workspaceId: string; projectId: string }, target: { type: "artifact-revision"; id: string }, after?: string): Promise<void>;
       loadProjectMediaRevisions(project: { workspaceId: string; projectId: string }, artifactId: string, after?: string): Promise<void>;
       selectProjectMediaRevision(project: { workspaceId: string; projectId: string }, artifactId: string, revisionId: string, expectedSelectedRevisionId: string | null): Promise<void>;
+      performProjectMediaAction(project: { workspaceId: string; projectId: string }, ref: { type: "artifact"; id: string }, action: "copy"): Promise<void>;
       loadProjectComposition(project: { workspaceId: string; projectId: string }, compositionId: string): Promise<void>;
       buildProjectComposition(project: { workspaceId: string; projectId: string }, revisionId: string): Promise<void>;
       resolveCompositionOutputPreview(project: { workspaceId: string; projectId: string }, revisionId: string): Promise<void>;
@@ -219,6 +227,7 @@ describe("Electron IPC security", () => {
     await bridge.loadProjectGeneration({ workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact-revision", id: "revision-1" }, "generation-next");
     await bridge.loadProjectMediaRevisions({ workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-next");
     await bridge.selectProjectMediaRevision({ workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-1", null);
+    await bridge.performProjectMediaAction({ workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact", id: "artifact-1" }, "copy");
     await bridge.loadProjectComposition({ workspaceId: "workspace-1", projectId: "project-1" }, "composition-1");
     await bridge.buildProjectComposition({ workspaceId: "workspace-1", projectId: "project-1" }, "revision-1");
     await bridge.resolveCompositionOutputPreview({ workspaceId: "workspace-1", projectId: "project-1" }, "artifact-revision-1");
@@ -232,6 +241,7 @@ describe("Electron IPC security", () => {
       ["project:media:generation", { workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact-revision", id: "revision-1" }, "generation-next"],
       ["project:media:revisions", { workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-next"],
       ["project:media:select", { workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-1", null],
+      ["project:media:action", { workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact", id: "artifact-1" }, "copy"],
       ["project:composition:show", { workspaceId: "workspace-1", projectId: "project-1" }, "composition-1"],
       ["project:composition:build", { workspaceId: "workspace-1", projectId: "project-1" }, "revision-1", undefined],
       ["project:composition:output-preview", { workspaceId: "workspace-1", projectId: "project-1" }, "artifact-revision-1"],
@@ -329,10 +339,14 @@ describe("Electron IPC security", () => {
         if (binding.epoch !== epoch) throw new Error("stale root");
       },
       session,
+      authorizeTrustedLocator: vi.fn(),
+      openPath: vi.fn(),
+      showItemInFolder: vi.fn(),
+      writeBuffer: vi.fn(),
     });
 
     expect([...handlers.keys()]).toEqual([
-      "project:media:generation", "project:media:show", "project:media:revisions", "project:media:select",
+      "project:media:generation", "project:media:show", "project:media:revisions", "project:media:select", "project:media:action",
     ]);
     const generation = handlers.get("project:media:generation")!;
     const show = handlers.get("project:media:show")!;
@@ -370,6 +384,201 @@ describe("Electron IPC security", () => {
       reason: "not-recorded",
     });
     await expect(pending).resolves.toMatchObject({ ok: false });
+  });
+
+  test("registered Project media IPC fences each settled Core request", async () => {
+    const { registerProjectMediaIpc } = await import("../electron/ralphy/project-reader");
+    const handlers = new Map<string, (event: unknown, ...args: unknown[]) => Promise<unknown>>();
+    const mainFrame = {};
+    const webContents = { mainFrame };
+    const window = { isDestroyed: () => false, webContents };
+    const assertRoot = vi.fn();
+    const value = {
+      status: "unknown" as const,
+      target: { type: "artifact-revision" as const, id: "revision-1" },
+      reason: "not-recorded",
+    };
+    registerProjectMediaIpc({
+      handle(channel, listener) { handlers.set(channel, listener); },
+      getWindow: () => window,
+      captureRoot: () => ({ epoch: 1 }),
+      assertRoot,
+      session: { client: { request: vi.fn(async () => value) as RalphyBridgeClient["request"] } },
+      authorizeTrustedLocator: vi.fn(),
+      openPath: vi.fn(),
+      showItemInFolder: vi.fn(),
+      writeBuffer: vi.fn(),
+    });
+
+    await expect(handlers.get("project:media:generation")!(
+      { sender: webContents, senderFrame: mainFrame },
+      { workspaceId: "workspace-1", projectId: "project-1" },
+      value.target,
+      undefined,
+    )).resolves.toEqual({ ok: true, value });
+    expect(assertRoot).toHaveBeenCalledTimes(4);
+  });
+
+  test("registered Project media actions keep locators in main and copy a native file URL buffer", async () => {
+    const { registerProjectMediaIpc } = await import("../electron/ralphy/project-reader");
+    const handlers = new Map<string, (event: unknown, ...args: unknown[]) => Promise<unknown>>();
+    const mainFrame = {};
+    const webContents = { mainFrame };
+    const window = { isDestroyed: () => false, webContents };
+    const project = { workspaceId: "workspace-1", projectId: "project-1" };
+    const ref = { type: "artifact" as const, id: "artifact-1" };
+    const card = {
+      ref, ...project, slug: "hero", kind: "image", selectedRevisionId: "revision-1",
+      selectedState: "approved", mime: "image/png", bytes: 12, selectedAt: 1,
+      revisionCount: 1, selectedObjectId: "object-1", storageClass: "bucket", usageRoles: [],
+      target: { type: "object" as const, id: "object-1" }, mediaKind: "image" as const,
+      provenance: "generation" as const,
+    };
+    const locator = { absolutePath: "/private/library/.ralphy/buckets/hero.png", mime: "image/png", bytes: 12 };
+    const canonicalPath = "/private/library/.ralphy/buckets/canonical-hero.png";
+    const request = vi.fn(async (method: string) => method === "media.show" ? card : locator);
+    const authorizeTrustedLocator = vi.fn(async () => canonicalPath);
+    const openPath = vi.fn(async () => "");
+    const showItemInFolder = vi.fn();
+    const writeBuffer = vi.fn();
+
+    registerProjectMediaIpc({
+      handle(channel, listener) { handlers.set(channel, listener); },
+      getWindow: () => window,
+      captureRoot: () => ({ epoch: 1 }),
+      assertRoot: () => undefined,
+      session: { client: { request: request as RalphyBridgeClient["request"] } },
+      authorizeTrustedLocator,
+      openPath,
+      showItemInFolder,
+      writeBuffer,
+    });
+
+    const action = handlers.get("project:media:action");
+    expect(action).toBeTypeOf("function");
+    const trusted = { sender: webContents, senderFrame: mainFrame };
+    for (const name of ["open", "finder", "copy"] as const) {
+      await expect(action!(trusted, project, ref, name)).resolves.toEqual({ ok: true, value: undefined });
+    }
+
+    expect(request.mock.calls.filter(([method]) => method === "locator.resolve").map(([, params]) => (
+      (params as { purpose: string }).purpose
+    ))).toEqual(["open", "finder", "drag"]);
+    expect(authorizeTrustedLocator).toHaveBeenCalledTimes(3);
+    expect(openPath).toHaveBeenCalledWith(canonicalPath);
+    expect(showItemInFolder).toHaveBeenCalledWith(canonicalPath);
+    expect(writeBuffer).toHaveBeenCalledOnce();
+    const [format, buffer] = writeBuffer.mock.calls[0]!;
+    expect(format).toBe("public.file-url");
+    expect(Buffer.isBuffer(buffer)).toBe(true);
+    expect(buffer.toString("utf8")).toBe(pathToFileURL(canonicalPath).href);
+    expect(fileURLToPath(buffer.toString("utf8"))).toBe(canonicalPath);
+    expect(JSON.stringify(await action!(trusted, project, ref, "copy"))).not.toContain(canonicalPath);
+  });
+
+  test("registered Project media actions reject untrusted, stale, and unauthorized targets before effects", async () => {
+    const fixture = await makeLibraryFixture();
+    try {
+      const { registerProjectMediaIpc } = await import("../electron/ralphy/project-reader");
+      const handlers = new Map<string, (event: unknown, ...args: unknown[]) => Promise<unknown>>();
+      const mainFrame = {};
+      const webContents = { mainFrame };
+      const window = { isDestroyed: () => false, webContents };
+      let activeWindow = window;
+      const project = { workspaceId: "workspace-1", projectId: "project-1" };
+      const ref = { type: "artifact" as const, id: "artifact-1" };
+      const card = {
+        ref, ...project, slug: "hero", kind: "image", selectedRevisionId: "revision-1",
+        selectedState: "approved", mime: "image/png", bytes: 3, selectedAt: 1,
+        revisionCount: 1, selectedObjectId: "object-1", storageClass: "bucket", usageRoles: [],
+        target: { type: "object" as const, id: "object-1" }, mediaKind: "image" as const,
+        provenance: "generation" as const,
+      };
+      const mediaPath = join(fixture.alphaPath, "artifacts", "images", "hero.png");
+      const canonicalMediaPath = await realpath(mediaPath);
+      const canonicalRoot = await realpath(fixture.rootPath);
+      const linkedPath = join(fixture.alphaPath, "artifacts", "images", "action-link.png");
+      await symlink(mediaPath, linkedPath);
+      const canonicalLinkedPath = join(canonicalRoot, relative(fixture.rootPath, linkedPath));
+      const bytes = (await stat(mediaPath)).size;
+      const access = new MediaProtocolAccess();
+      let epoch = 1;
+      let mode: "valid" | "missing" | "sibling" | "malformed" | "outside" | "symlink"
+        | "stale-core" | "stale-locator" | "stale-auth" | "stale-sender" = "valid";
+      const request = vi.fn(async (method: string) => {
+        if (method === "media.show") {
+          if (mode === "stale-core") epoch += 1;
+          if (mode === "missing") return { ...card, selectedRevisionId: null, selectedState: null, mime: null,
+            bytes: null, selectedAt: null, selectedObjectId: null, storageClass: null, target: null };
+          if (mode === "sibling") return { ...card, workspaceId: "workspace-2" };
+          return card;
+        }
+        if (mode === "stale-locator") epoch += 1;
+        if (mode === "malformed") return { absolutePath: canonicalMediaPath, mime: "image/png", bytes, private: true };
+        if (mode === "outside") return { absolutePath: "/tmp/outside.png", mime: "image/png", bytes };
+        if (mode === "symlink") return { absolutePath: canonicalLinkedPath, mime: "image/png", bytes };
+        return { absolutePath: canonicalMediaPath, mime: "image/png", bytes };
+      });
+      const authorizeTrustedLocator = vi.fn(async (
+        root: { rootPath: string },
+        path: string,
+        mime: string | null,
+        expectedBytes: number,
+        assertCurrent: () => void,
+      ) => {
+        const authorized = await access.authorizeTrustedLocator(
+          root.rootPath,
+          path,
+          mime,
+          expectedBytes,
+          assertCurrent,
+        );
+        if (mode === "stale-auth") epoch += 1;
+        if (mode === "stale-sender") {
+          activeWindow = { isDestroyed: () => false, webContents: { mainFrame: {} } };
+        }
+        return authorized;
+      });
+      const openPath = vi.fn();
+      const showItemInFolder = vi.fn();
+      const writeBuffer = vi.fn();
+
+      registerProjectMediaIpc({
+        handle(channel, listener) { handlers.set(channel, listener); },
+        getWindow: () => activeWindow,
+        captureRoot: () => ({ epoch, rootPath: fixture.rootPath }),
+        assertRoot: (root) => { if (root.epoch !== epoch) throw new Error("stale root"); },
+        session: { client: { request: request as RalphyBridgeClient["request"] } },
+        authorizeTrustedLocator,
+        openPath,
+        showItemInFolder,
+        writeBuffer,
+      });
+      const action = handlers.get("project:media:action")!;
+      const trusted = { sender: webContents, senderFrame: mainFrame };
+
+      await expect(action({ sender: webContents, senderFrame: {} }, project, ref, "open")).resolves.toMatchObject({ ok: false });
+      for (const args of [
+        [{ workspaceId: "", projectId: "project-1" }, ref, "open"],
+        [project, { type: "artifact", id: "", extra: true }, "open"],
+        [project, ref, "trash"],
+      ] as const) await expect(action(trusted, ...args)).resolves.toMatchObject({ ok: false });
+      expect(request).not.toHaveBeenCalled();
+
+      for (mode of [
+        "missing", "sibling", "malformed", "outside", "symlink",
+        "stale-core", "stale-locator", "stale-auth", "stale-sender",
+      ] as const) {
+        epoch = 1;
+        activeWindow = window;
+        await expect(action(trusted, project, ref, "open")).resolves.toMatchObject({ ok: false });
+      }
+      expect(openPath).not.toHaveBeenCalled();
+      expect(showItemInFolder).not.toHaveBeenCalled();
+      expect(writeBuffer).not.toHaveBeenCalled();
+    } finally {
+      await rm(fixture.parentPath, { recursive: true, force: true });
+    }
   });
 
   test("never enables renderer mocks in production without an explicit flag", async () => {

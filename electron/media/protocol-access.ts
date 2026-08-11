@@ -136,6 +136,32 @@ export class MediaProtocolAccess {
     return minted;
   }
 
+  async authorizeTrustedLocator(
+    rootPath: string,
+    requestedPath: string,
+    mime: string | null,
+    expectedBytes: number,
+    assertCurrent: () => void = () => undefined,
+  ): Promise<string> {
+    assertCurrent();
+    const root = await validateLibraryRoot(rootPath);
+    assertCurrent();
+    if (mime !== null && (typeof mime !== "string" || !mime || mime.length > 1024)) {
+      throw new Error("Invalid locator MIME");
+    }
+    const path = await resolveContainedPath(root, requestedPath).catch(() => {
+      throw new Error("Locator is outside the active library");
+    });
+    assertCurrent();
+    const info = await lstat(path);
+    assertCurrent();
+    if (!info.isFile() || info.isSymbolicLink()) throw new Error("Locator is not a regular file");
+    if (!Number.isSafeInteger(expectedBytes) || expectedBytes < 0 || info.size !== expectedBytes) {
+      throw new Error("Locator size changed");
+    }
+    return path;
+  }
+
   async resolve(
     rootPath: string,
     token: string,

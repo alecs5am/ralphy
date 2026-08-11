@@ -288,6 +288,8 @@ export interface DocumentBindingDto {
   hasNewerHead: boolean;
 }
 export type MediaRef = { type: "artifact" | "run-object" | "object"; id: string };
+export type MediaKind = "image" | "video" | "audio" | "document" | "other";
+export type MediaProvenance = "generation" | "not-generation" | "unknown";
 export type MediaFilter =
   | "references" | "working" | "candidate" | "approved" | "rejected"
   | "superseded" | "run-diagnostics" | "run-cache-temp"
@@ -309,6 +311,8 @@ export type ArtifactMediaCardDto = {
   storageClass: string | null;
   usageRoles: string[];
   target: { type: "object"; id: string } | null;
+  mediaKind: MediaKind;
+  provenance: MediaProvenance;
 };
 export type RunObjectMediaCardDto = {
   ref: { type: "run-object"; id: string };
@@ -327,6 +331,8 @@ export type RunObjectMediaCardDto = {
   attemptId: null;
   attemptNo: null;
   target: { type: "object"; id: string } | { type: "run-object"; id: string };
+  mediaKind: MediaKind;
+  provenance: MediaProvenance;
 };
 export type ObjectMediaCardDto = {
   ref: { type: "object"; id: string };
@@ -338,6 +344,8 @@ export type ObjectMediaCardDto = {
   createdAt: number;
   referenceCount: number;
   target: { type: "object"; id: string };
+  mediaKind: MediaKind;
+  provenance: MediaProvenance;
 };
 export type MediaCardDto = ArtifactMediaCardDto | RunObjectMediaCardDto | ObjectMediaCardDto;
 export type ArtifactRevisionState =
@@ -891,7 +899,12 @@ export interface BridgeMethodContract {
     revisionId: string;
     expectedRevisionId: string | null;
   }, DocumentBindingDto>;
-  "media.list": Contract<ScopedCursorParams & { filter?: MediaFilter; types?: MediaRef["type"][] }, Page<MediaCardDto>>;
+  "media.list": Contract<ScopedCursorParams & {
+    filter?: MediaFilter;
+    types?: MediaRef["type"][];
+    mediaKind?: MediaKind;
+    provenance?: MediaProvenance;
+  }, Page<MediaCardDto>>;
   "media.show": Contract<ScopedParams & { ref: MediaRef }, MediaCardDto>;
   "media.generation.show": Contract<ScopedParams & { target: MediaGenerationTarget } & CursorParams, MediaGenerationDetailDto>;
   "media.revisions": Contract<ScopedParams & { ref: { type: "artifact"; id: string } } & CursorParams, Page<ArtifactRevisionDto>>;

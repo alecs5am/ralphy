@@ -1,4 +1,4 @@
-import { realpath, rm, stat } from "node:fs/promises";
+import { mkdir, realpath, rm, stat, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import { MediaProtocolAccess, resolveMediaByteRange } from "../electron/media/protocol-access";
@@ -70,6 +70,36 @@ describe("media protocol access", () => {
       mediaPath,
       "image/png",
       bytes + 1,
+    )).rejects.toThrow(/size changed/i);
+  });
+
+  test("authorizes any regular Core locator without minting a renderer token", async () => {
+    fixture = await makeLibraryFixture();
+    const access = new MediaProtocolAccess();
+    const mediaPath = join(fixture.alphaPath, "artifacts", "images", "hero.png");
+    const canonicalMediaPath = await realpath(mediaPath);
+    const bytes = (await stat(mediaPath)).size;
+    const linkedPath = join(fixture.alphaPath, "artifacts", "images", "linked.txt");
+    await symlink(mediaPath, linkedPath);
+    const aliasParent = join(fixture.parentPath, "alias");
+    const linkedRoot = join(aliasParent, ".ralphy");
+    await mkdir(aliasParent);
+    await symlink(fixture.rootPath, linkedRoot);
+
+    await expect(access.authorizeTrustedLocator(
+      fixture.rootPath, canonicalMediaPath, "text/plain", bytes,
+    )).resolves.toBe(canonicalMediaPath);
+    await expect(access.authorizeTrustedLocator(
+      fixture.rootPath, "/tmp/outside.txt", "text/plain", bytes,
+    )).rejects.toThrow(/outside/i);
+    await expect(access.authorizeTrustedLocator(
+      fixture.rootPath, linkedPath, null, bytes,
+    )).rejects.toThrow(/outside|symbolic link/i);
+    await expect(access.authorizeTrustedLocator(
+      linkedRoot, canonicalMediaPath, "text/plain", bytes,
+    )).rejects.toThrow(/real directory|symbolic link/i);
+    await expect(access.authorizeTrustedLocator(
+      fixture.rootPath, canonicalMediaPath, "application/json", bytes + 1,
     )).rejects.toThrow(/size changed/i);
   });
 });

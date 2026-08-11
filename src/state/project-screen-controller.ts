@@ -144,7 +144,7 @@ export function createProjectScreenController(
     const projectRef = snapshot.domain.project;
     reduce({ type: "page-loading", tab, generation, requestId, mediaFilter });
     try {
-      const value = await api.loadProjectPage({ tab, project: projectRef, ...(append ? { cursor: page.nextCursor } : {}), ...(mediaFilter ? { mediaFilter } : {}) });
+      const value = await api.loadProjectPage({ tab, project: projectRef, ...(append ? { cursor: page.nextCursor } : {}), ...(mediaFilter ? { mediaQuery: { filter: mediaFilter } } : {}) });
       if (disposed) return;
       reduce({ type: "page-ready", tab, generation, requestId, mediaFilter, append, page: value as { items: DomainRow[]; nextCursor: string | number | null } });
       if (tab === "compositions" && !append && snapshot.domain.pages.compositions.requestId === requestId) {

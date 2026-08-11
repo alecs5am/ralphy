@@ -102,6 +102,19 @@ type ExpectedMediaSelectionParams = Context & {
   revisionId: string;
   expectedSelectedRevisionId: string | null;
 };
+type ExpectedMediaFacets = {
+  mediaKind: "image" | "video" | "audio" | "document" | "other";
+  provenance: "generation" | "not-generation" | "unknown";
+};
+type ExpectedMediaListParams = Context & {
+  after?: string | null;
+  limit?: number;
+  filter?: "references" | "working" | "candidate" | "approved" | "rejected"
+    | "superseded" | "run-diagnostics" | "run-cache-temp" | "advanced-objects";
+  types?: Array<"artifact" | "run-object" | "object">;
+  mediaKind?: ExpectedMediaFacets["mediaKind"];
+  provenance?: ExpectedMediaFacets["provenance"];
+};
 type ExpectedArtifactRevision = {
   id: string;
   artifactId: string;
@@ -121,6 +134,11 @@ export type EvaluationDtoIsCurrent = Assert<Equal<ResultFor<"evaluation.list">["
 export type GenerationParamsAreCurrent = Assert<Equal<ParamsFor<"media.generation.show">, ExpectedGenerationParams>>;
 export type GenerationDetailIsCurrent = Assert<Equal<ResultFor<"media.generation.show">, ExpectedGenerationDetail>>;
 export type MediaSelectionParamsAreNullAware = Assert<Equal<ParamsFor<"media.select">, ExpectedMediaSelectionParams>>;
+export type MediaListParamsAreCurrent = Assert<Equal<ParamsFor<"media.list">, ExpectedMediaListParams>>;
+type MediaCard = ResultFor<"media.list">["items"][number];
+export type ArtifactMediaFacetsAreRequired = Assert<Equal<Pick<Extract<MediaCard, { ref: { type: "artifact" } }>, keyof ExpectedMediaFacets>, ExpectedMediaFacets>>;
+export type RunObjectMediaFacetsAreRequired = Assert<Equal<Pick<Extract<MediaCard, { ref: { type: "run-object" } }>, keyof ExpectedMediaFacets>, ExpectedMediaFacets>>;
+export type ObjectMediaFacetsAreRequired = Assert<Equal<Pick<Extract<MediaCard, { ref: { type: "object" } }>, keyof ExpectedMediaFacets>, ExpectedMediaFacets>>;
 export type MediaRevisionResultIsCurrent = Assert<Equal<ResultFor<"media.revisions">, {
   items: ExpectedArtifactRevision[];
   nextCursor: string | null;

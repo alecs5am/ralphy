@@ -5,6 +5,7 @@ import type {
   ArtifactMediaCardDto,
   CompositionRevisionDto,
   DocumentRevisionDto,
+  MediaCardDto,
   MediaGenerationDetailDto,
   MediaFilter,
   ProjectOverviewDto,
@@ -32,6 +33,22 @@ const artifactCard: ArtifactMediaCardDto = {
   slug: "hero", kind: "image", selectedRevisionId: "arev_1", selectedState: "approved",
   mime: "image/png", bytes: 12, selectedAt: 3, revisionCount: 1, selectedObjectId: "obj_1",
   storageClass: "bucket", usageRoles: [], target: { type: "object", id: "obj_1" },
+  mediaKind: "image", provenance: "generation",
+};
+
+const runObjectCard: MediaCardDto = {
+  ref: { type: "run-object", id: "robj_1" }, workspaceId: "workspace-1", projectId: "project-1",
+  runId: "run_1", purpose: "output", state: "ready", retention: "durable",
+  mime: "video/mp4", bytes: 24, logicalPath: "outputs/final.mp4", locationClass: "other",
+  attemptId: null, attemptNo: null, createdAt: 4, objectId: "obj_2",
+  target: { type: "object", id: "obj_2" }, mediaKind: "video", provenance: "not-generation",
+};
+
+const objectCard: MediaCardDto = {
+  ref: { type: "object", id: "obj_3" }, workspaceId: "workspace-1", projectId: "project-1",
+  storageClass: "bucket", mime: "application/json", bytes: 36, createdAt: 5,
+  referenceCount: 1, target: { type: "object", id: "obj_3" },
+  mediaKind: "document", provenance: "unknown",
 };
 
 describe("Project domain reader", () => {
@@ -133,7 +150,7 @@ describe("Project domain reader", () => {
     await expect(reader.loadGeneration(project, {
       ref: { type: "object", id: "obj_1" }, workspaceId: "workspace-1", projectId: "project-1",
       storageClass: "bucket", mime: "image/png", bytes: 12, createdAt: 1, referenceCount: 1,
-      target: { type: "object", id: "obj_1" },
+      target: { type: "object", id: "obj_1" }, mediaKind: "image", provenance: "unknown",
     })).rejects.toThrow("Invalid generation target");
   });
 
@@ -209,6 +226,44 @@ describe("Project domain reader", () => {
     }
   });
 
+  test("resolves one exact action locator with the purpose mapped inside main", async () => {
+    const locator = { absolutePath: "/private/hero.png", mime: "image/png", bytes: 12 };
+    const request = vi.fn(async (method: string) => method === "media.show" ? artifactCard : locator);
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+
+    for (const [action, purpose] of [
+      ["open", "open"], ["finder", "finder"], ["copy", "drag"],
+    ] as const) {
+      request.mockClear();
+      await expect(reader.resolveMediaActionLocator(project, artifactCard.ref, action)).resolves.toEqual(locator);
+      expect(request).toHaveBeenNthCalledWith(1, "media.show", { context: project, ref: artifactCard.ref });
+      expect(request).toHaveBeenNthCalledWith(2, "locator.resolve", {
+        context: project, target: artifactCard.target, purpose,
+      });
+    }
+
+    const unselected = { ...artifactCard, selectedRevisionId: null, selectedState: null, mime: null,
+      bytes: null, selectedAt: null, selectedObjectId: null, storageClass: null, target: null };
+    const noTarget = createProjectReader({
+      request: vi.fn(async () => unselected) as unknown as RalphyBridgeClient["request"],
+    });
+    await expect(noTarget.resolveMediaActionLocator(project, artifactCard.ref, "open"))
+      .rejects.toThrow("Media has no resolvable target");
+
+    for (const malformed of [
+      { ...locator, absolutePath: "relative/hero.png" },
+      { ...locator, mime: 42 },
+      { ...locator, bytes: -1 },
+      { ...locator, providerResponse: "private" },
+    ]) {
+      const invalid = createProjectReader({
+        request: vi.fn(async (method: string) => method === "media.show" ? artifactCard : malformed) as unknown as RalphyBridgeClient["request"],
+      });
+      await expect(invalid.resolveMediaActionLocator(project, artifactCard.ref, "open"))
+        .rejects.toThrow("Invalid action locator");
+    }
+  });
+
   test("rejects invalid revision pages and mismatched selection responses", async () => {
     const invalidPageReader = createProjectReader({
       request: vi.fn(async () => page([{
@@ -262,8 +317,8 @@ describe("Project domain reader", () => {
     }
   });
 
-  test("maps all ten Media filters to exact Core predicates", async () => {
-    const request = vi.fn(async () => page([], "still-more"));
+  test("maps the lifecycle filter and optional facet axes to one exact Core query", async () => {
+    const request = vi.fn(async () => page([artifactCard, runObjectCard, objectCard], "still-more"));
     const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
     const cases: Array<["all" | MediaFilter, Record<string, unknown>]> = [
       ["all", { types: ["artifact", "run-object"] }],
@@ -279,7 +334,7 @@ describe("Project domain reader", () => {
     ];
 
     for (const [mediaFilter, predicate] of cases) {
-      await reader.loadPage({ tab: "media", project, mediaFilter });
+      await reader.loadPage({ tab: "media", project, mediaQuery: { filter: mediaFilter } });
       expect(request).toHaveBeenLastCalledWith("media.list", {
         context: project,
         limit: 50,
@@ -287,6 +342,36 @@ describe("Project domain reader", () => {
       });
     }
     expect(request).toHaveBeenCalledTimes(10);
+
+    await reader.loadPage({
+      tab: "media",
+      project,
+      mediaQuery: { filter: "candidate", mediaKind: "video", provenance: "generation" },
+    });
+    expect(request).toHaveBeenLastCalledWith("media.list", {
+      context: project,
+      filter: "candidate",
+      mediaKind: "video",
+      provenance: "generation",
+      limit: 50,
+      types: ["artifact", "run-object"],
+    });
+  });
+
+  test("rejects unknown or malformed Media classifications from every card variant", async () => {
+    for (const result of [
+      { ...artifactCard, mediaKind: "model-output" },
+      { ...runObjectCard, provenance: "probably" },
+      { ...objectCard, mediaKind: null },
+      { ...objectCard, privatePath: "/private/object.json" },
+    ]) {
+      const reader = createProjectReader({
+        request: vi.fn(async () => page([result])) as unknown as RalphyBridgeClient["request"],
+      });
+      await expect(reader.loadPage({
+        tab: "media", project, mediaQuery: { filter: "all" },
+      })).rejects.toThrow("Invalid Media card");
+    }
   });
 
   test("forwards a cursor with the unchanged Candidate predicate", async () => {
@@ -297,7 +382,7 @@ describe("Project domain reader", () => {
       tab: "media",
       project,
       cursor: "page-680",
-      mediaFilter: "candidate",
+      mediaQuery: { filter: "candidate" },
     });
 
     expect(request).toHaveBeenCalledTimes(1);

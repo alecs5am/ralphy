@@ -70,6 +70,9 @@ import {
   type MediaPreviewSource,
   type ProjectReference,
   type ProjectMediaFilter,
+  type ProjectMediaKind,
+  type ProjectMediaQuery,
+  type MediaProvenance,
   type TerminalDimensions,
   type WorkerRequest,
   type WorkerResponse,
@@ -1082,12 +1085,15 @@ function parseProjectDomainPage(value: unknown): {
   tab: "documents" | "media" | "compositions" | "units" | "activity";
   project: ProjectReference;
   cursor?: string | number | null;
-  mediaFilter?: ProjectMediaFilter;
+  mediaQuery?: ProjectMediaQuery;
 } {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Invalid Project page request");
   }
   const input = value as Record<string, unknown>;
+  if (!Reflect.ownKeys(input).every((key) => (
+    key === "tab" || key === "project" || key === "cursor" || key === "mediaQuery"
+  ))) throw new Error("Invalid Project page request");
   if (![
     "documents", "media", "compositions", "units", "activity",
   ].includes(input.tab as string)) throw new Error("Invalid Project tab");
@@ -1097,15 +1103,32 @@ function parseProjectDomainPage(value: unknown): {
     && typeof input.cursor !== "string"
     && (!Number.isSafeInteger(input.cursor) || (input.cursor as number) < 0)
   ) throw new Error("Invalid Project cursor");
-  if (input.mediaFilter !== undefined && !PROJECT_MEDIA_FILTERS.includes(input.mediaFilter as ProjectMediaFilter)) {
-    throw new Error("Invalid Media filter");
-  }
+  const mediaQuery = input.mediaQuery === undefined ? undefined : parseProjectMediaQuery(input.mediaQuery);
   return {
     tab: input.tab as "documents" | "media" | "compositions" | "units" | "activity",
     project: parseProjectReference(input.project),
     ...(input.cursor === undefined ? {} : { cursor: input.cursor as string | number | null }),
-    ...(input.mediaFilter === undefined ? {} : { mediaFilter: input.mediaFilter as ProjectMediaFilter }),
+    ...(mediaQuery === undefined ? {} : { mediaQuery }),
   };
+}
+
+function parseProjectMediaQuery(value: unknown): ProjectMediaQuery {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Invalid Media query");
+  }
+  const query = value as Record<string, unknown>;
+  const keys = Reflect.ownKeys(query);
+  if (!keys.every((key) => key === "filter" || key === "mediaKind" || key === "provenance")
+    || !PROJECT_MEDIA_FILTERS.includes(query.filter as ProjectMediaFilter)
+    || (query.mediaKind !== undefined && ![
+      "image", "video", "audio", "document", "other",
+    ].includes(query.mediaKind as ProjectMediaKind))
+    || (query.provenance !== undefined && ![
+      "generation", "not-generation", "unknown",
+    ].includes(query.provenance as MediaProvenance))) {
+    throw new Error("Invalid Media query");
+  }
+  return query as ProjectMediaQuery;
 }
 
 function parseProjectMediaRef(value: unknown): { type: "artifact" | "run-object" | "object"; id: string } {
@@ -1133,6 +1156,18 @@ function registerProjectDomainIpc(): void {
     captureRoot: captureBridgeRoot,
     assertRoot: assertBridgeRoot,
     session: ralphySession,
+    authorizeTrustedLocator: (operation, absolutePath, mime, expectedBytes, assertCurrent) => (
+      mediaState.fileAccess.authorizeTrustedLocator(
+        operation.rootPath,
+        absolutePath,
+        mime,
+        expectedBytes,
+        assertCurrent,
+      )
+    ),
+    openPath: (path) => shell.openPath(path),
+    showItemInFolder: (path) => shell.showItemInFolder(path),
+    writeBuffer: (format, data) => clipboard.writeBuffer(format, data),
   });
   securedHandle(MEDIA_CHANNELS.loadProjectOverview, (_event, rawProject: unknown) => (
     projectReaderForCurrentRoot().loadOverview(parseProjectReference(rawProject))

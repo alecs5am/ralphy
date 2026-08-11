@@ -584,8 +584,8 @@ describe("ProjectScreen behavior", () => {
     const all = deferred<{ items: MediaCardDto[]; nextCursor: null }>();
     const candidate = deferred<{ items: MediaCardDto[]; nextCursor: null }>();
     const api = createApi();
-    api.loadProjectPage.mockImplementation(({ mediaFilter }: { mediaFilter?: string }) => (
-      mediaFilter === "candidate" ? candidate.promise : all.promise
+    api.loadProjectPage.mockImplementation(({ mediaQuery }: { mediaQuery?: { filter: string } }) => (
+      mediaQuery?.filter === "candidate" ? candidate.promise : all.promise
     ));
     const controller = createController(api);
 
@@ -625,8 +625,8 @@ describe("ProjectScreen behavior", () => {
     const all = deferred<{ items: MediaCardDto[]; nextCursor: null }>();
     const candidate = deferred<{ items: MediaCardDto[]; nextCursor: null }>();
     const api = createApi();
-    api.loadProjectPage.mockImplementation(({ mediaFilter }: { mediaFilter?: string }) => (
-      mediaFilter === "candidate" ? candidate.promise : all.promise
+    api.loadProjectPage.mockImplementation(({ mediaQuery }: { mediaQuery?: { filter: string } }) => (
+      mediaQuery?.filter === "candidate" ? candidate.promise : all.promise
     ));
     const controller = createController(api);
 
@@ -651,10 +651,10 @@ describe("ProjectScreen behavior", () => {
     await controller.selectTab("media");
     await controller.setMediaFilter("candidate");
     await controller.loadMore();
-    expect(api.loadProjectPage).toHaveBeenNthCalledWith(3, { tab: "media", project: { workspaceId: "workspace-1", projectId: "project-1" }, cursor: "candidate-next", mediaFilter: "candidate" });
+    expect(api.loadProjectPage).toHaveBeenNthCalledWith(3, { tab: "media", project: { workspaceId: "workspace-1", projectId: "project-1" }, cursor: "candidate-next", mediaQuery: { filter: "candidate" } });
     expect(controller.getSnapshot().domain.pages.media).toMatchObject({ status: "error", items: [{ ref: { type: "artifact", id: "one" } }], nextCursor: "candidate-next", mediaFilter: "candidate" });
     await controller.retry();
-    expect(api.loadProjectPage).toHaveBeenNthCalledWith(4, { tab: "media", project: { workspaceId: "workspace-1", projectId: "project-1" }, cursor: "candidate-next", mediaFilter: "candidate" });
+    expect(api.loadProjectPage).toHaveBeenNthCalledWith(4, { tab: "media", project: { workspaceId: "workspace-1", projectId: "project-1" }, cursor: "candidate-next", mediaQuery: { filter: "candidate" } });
     expect(controller.getSnapshot().domain.pages.media.items).toEqual([{ ref: { type: "artifact", id: "one" } }, { ref: { type: "artifact", id: "two" } }]);
   });
 

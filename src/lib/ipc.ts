@@ -237,6 +237,9 @@ function createMockBridge(): RalphyBridge {
     async selectProjectMediaRevision() {
       throw new Error("Project domain reader is unavailable in mock mode");
     },
+    async performProjectMediaAction() {
+      throw new Error("Project media actions are unavailable in mock mode");
+    },
     async loadDocumentPreview() {
       throw new Error("Project domain reader is unavailable in mock mode");
     },
