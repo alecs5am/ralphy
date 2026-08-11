@@ -2800,6 +2800,7 @@ button.workspace-project-card:hover {
   position: absolute;
   top: 0;
   height: 68px;
+  overflow: hidden;
   padding: 10px;
   border: 0;
   border-radius: var(--radius-md);
@@ -2811,7 +2812,7 @@ button.workspace-project-card:hover {
 .composition-revision-rail button:hover { background: var(--hover); }
 .composition-revision-rail button.is-selected { background: var(--selected); box-shadow: var(--ring-select); }
 .composition-revision-rail button span,
-.composition-revision-rail button small { display: block; margin-top: 3px; color: var(--fg-3); white-space: nowrap; }
+.composition-revision-rail button small { display: block; overflow: hidden; margin-top: 3px; color: var(--fg-3); text-overflow: ellipsis; white-space: nowrap; }
 .composition-rail-tail { position: absolute; top: 0; width: 2px; height: 68px; }
 .composition-revision-rail .auto-cursor-tail { width: 2px; height: 68px; padding: 0; }
 
