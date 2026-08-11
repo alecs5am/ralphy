@@ -335,7 +335,7 @@ export interface MediaWorkbenchBridge {
     text: string;
     truncated: boolean;
   }>;
-  searchProjectDocuments(project: ProjectReference, query: string): Promise<import("../ralphy/types").Page<import("../ralphy/types").DocumentSearchDto>>;
+  searchProjectDocuments(project: ProjectReference, query: string, cursor?: string | null): Promise<import("../ralphy/types").Page<import("../ralphy/types").DocumentSearchDto>>;
   showProjectDocument(project: ProjectReference, documentId: string): Promise<import("../ralphy/types").DocumentDetailDto>;
   reviseProjectDocument(project: ProjectReference, input: {
     documentId: string;

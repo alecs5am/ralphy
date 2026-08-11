@@ -2112,6 +2112,270 @@ button.workspace-project-card:hover {
   outline-offset: -2px;
 }
 
+.project-domain-body.is-documents {
+  overflow: hidden;
+  padding-bottom: 24px;
+}
+
+.documents-workbench {
+  display: grid;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.documents-master,
+.documents-detail {
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.documents-master {
+  position: relative;
+  overscroll-behavior: contain;
+}
+
+.documents-master .document-search {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 0 0 12px;
+  background: var(--canvas);
+}
+
+.documents-virtual-list {
+  position: relative;
+  width: 100%;
+}
+
+.document-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  width: calc(100% - 2px);
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+}
+
+.document-row:hover {
+  background: var(--hover);
+}
+
+.document-row.is-selected {
+  background: var(--selected);
+  box-shadow: var(--ring-select);
+}
+
+.document-row:focus-visible,
+.document-detail-heading:focus-visible,
+.document-edit-fields input:focus-visible,
+.document-format-options button:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: -2px;
+}
+
+.document-row strong,
+.document-row small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.document-row small {
+  margin-top: 4px;
+  color: var(--fg-3);
+  font-size: var(--text-xs);
+}
+
+.document-format-badge {
+  display: inline-flex;
+  min-width: 52px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--fg-3) 14%, transparent);
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.document-format-badge.format-markdown {
+  background: var(--accent-fill);
+  color: var(--accent-soft);
+}
+
+.document-format-badge.format-json {
+  background: color-mix(in srgb, var(--ok) 16%, transparent);
+  color: var(--ok);
+}
+
+.document-format-badge.format-text {
+  background: color-mix(in srgb, var(--warn) 16%, transparent);
+  color: var(--warn);
+}
+
+.documents-detail.document-preview {
+  display: block;
+  place-items: initial;
+  padding: 0;
+  background: var(--raised);
+  overscroll-behavior: contain;
+}
+
+.document-detail-header {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  display: flex;
+  min-height: 74px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--raised);
+}
+
+.document-detail-identity,
+.document-actions,
+.document-edit-fields {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.document-detail-identity > div {
+  min-width: 0;
+}
+
+.document-detail-heading,
+.document-detail-header p {
+  margin: 0;
+}
+
+.document-detail-heading {
+  overflow: hidden;
+  font-size: var(--text-lg);
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.document-detail-header p {
+  margin-top: 3px;
+  color: var(--fg-3);
+  font-size: var(--text-xs);
+}
+
+.document-edit-fields {
+  width: 100%;
+}
+
+.document-edit-fields label {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 4px;
+  color: var(--fg-3);
+  font-size: var(--text-xs);
+}
+
+.document-edit-fields input,
+.document-format-options button {
+  width: 100%;
+  height: var(--control-md);
+  min-width: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--panel-solid);
+  color: var(--fg);
+}
+
+.document-edit-fields input {
+  padding: 0 10px;
+}
+
+.document-format-options {
+  display: flex;
+  min-width: 0;
+  align-items: end;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+}
+
+.document-format-options legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.document-format-options button[aria-pressed="true"] {
+  background: var(--selected);
+  box-shadow: var(--ring-select);
+}
+
+.documents-detail > .document-editor {
+  width: calc(100% - 32px);
+  min-height: calc(100% - 176px);
+  margin: 16px;
+  resize: vertical;
+}
+
+.documents-detail > .markdown-view,
+.documents-detail > .json-document-view,
+.documents-detail > .plain-text-view {
+  width: min(820px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 28px 0 64px;
+}
+
+.json-document-view,
+.plain-text-view {
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.json-token-key { color: var(--accent-soft); }
+.json-token-string { color: var(--ok); }
+.json-token-number { color: var(--warn); }
+.json-token-boolean { color: color-mix(in srgb, var(--accent-soft) 70%, var(--warn)); }
+.json-token-null { color: var(--fg-3); }
+
+@container project-domain (max-width: 719px) {
+  .documents-workbench {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(180px, min(36vh, 320px)) minmax(280px, 1fr);
+  }
+
+  .documents-master {
+    max-height: min(36vh, 320px);
+  }
+}
+
 .project-preview img,
 .project-preview video {
   max-width: 100%;

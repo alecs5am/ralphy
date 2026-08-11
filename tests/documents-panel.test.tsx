@@ -1,10 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { act, isValidElement, type ReactElement, type ReactNode } from "react";
+import { act, useSyncExternalStore } from "react";
 import { describe, expect, test, vi } from "vitest";
 import type { DocumentSearchDto } from "../electron/ralphy/types";
 import type { ProjectSummary } from "../src/lib/ipc";
 import * as screen from "../src/screens/ProjectScreen";
-import { createReactHost } from "./react-host";
+import { createReactHost, type HostNode } from "./react-host";
 
 const project: ProjectSummary = {
   id: "project-1", workspaceId: "workspace-1", projectId: "project-1", name: "Launch", brief: "Brief",
@@ -54,17 +54,24 @@ function markup(controller: any): string {
   return renderToStaticMarkup(<View project={project} controller={controller} snapshot={controller.getSnapshot()} />);
 }
 
-function findElement(node: ReactNode, predicate: (element: ReactElement) => boolean): ReactElement | null {
-  if (Array.isArray(node)) {
-    for (const child of node) {
-      const match = findElement(child, predicate);
-      if (match) return match;
-    }
-    return null;
-  }
-  if (!isValidElement(node)) return null;
-  if (predicate(node)) return node;
-  return findElement((node.props as { children?: ReactNode }).children, predicate);
+function MountedProject({ controller, memory = new Map<string, number>() }: { controller: any; memory?: Map<string, number> }) {
+  const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
+  const View = (screen as typeof screen & { ProjectScreenView: React.ComponentType<any> }).ProjectScreenView;
+  return <View project={project} rootEpoch={1} controller={controller} snapshot={snapshot} scrollMemory={memory} />;
+}
+
+function textButton(root: HostNode, text: string): HostNode {
+  const value = root.findAll((node) => node.tagName === "BUTTON" && node.textContent.includes(text))[0];
+  if (!value) throw new Error(`Missing ${text} button`);
+  return value;
+}
+
+async function click(node: HostNode): Promise<void> {
+  await act(async () => {
+    node.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+  });
 }
 
 describe("Documents panel", () => {
@@ -79,11 +86,12 @@ describe("Documents panel", () => {
     expect(api.searchProjectDocuments).toHaveBeenCalledWith({ workspaceId: "workspace-1", projectId: "project-1" }, "launch");
     expect(api.showProjectDocument).toHaveBeenCalledWith({ workspaceId: "workspace-1", projectId: "project-1" }, "document-1");
     expect(api.loadDocumentPreview).toHaveBeenCalledWith({ workspaceId: "workspace-1", projectId: "project-1" }, "revision-3");
-    expect(markup(controller)).toContain("Revision 3 · Parent revision-2");
+    expect(markup(controller)).toContain("Revision 3");
+    expect(markup(controller)).not.toContain("Parent revision-2");
     expect(markup(controller)).toContain("<h1>Launch brief</h1>");
   });
 
-  test("renders Markdown and pretty JSON/text, keeps an ordinary draft textarea, and revises with the selected head", async () => {
+  test("renders JSON and revises an explicit edit with the selected head", async () => {
     const api = createApi();
     api.showProjectDocument.mockResolvedValue({ ...document, currentRevision: { ...document.currentRevision, format: "json" } });
     api.loadDocumentPreview.mockResolvedValue({ revisionId: "revision-3", format: "json", text: '{"stage":"draft","count":2}', truncated: false });
@@ -92,21 +100,24 @@ describe("Documents panel", () => {
 
     await controller.selectTab("documents");
     await controller.openDocument(document);
-    controller.setDocumentDraft('{"stage":"ready","count":2}');
+    controller.beginDocumentEdit();
+    controller.setDocumentDraftBody('{"stage":"ready","count":2}');
     await controller.saveDocument();
 
     expect(api.reviseProjectDocument).toHaveBeenCalledWith({ workspaceId: "workspace-1", projectId: "project-1" }, {
       documentId: "document-1", expectedHeadId: "revision-3", format: "json", title: "Launch brief v3", body: { stage: "ready", count: 2 },
     });
     const output = markup(controller);
-    expect(output).toContain("&quot;stage&quot;: &quot;ready&quot;");
-    expect(output).toContain("textarea");
+    expect(output).toContain("&quot;stage&quot;");
+    expect(output).toContain("&quot;ready&quot;");
+    expect(output).not.toContain("textarea");
   });
 
   test("renders the active search, editor, and save action with established controls", async () => {
     const controller = createController(createApi());
     await controller.selectTab("documents");
     await controller.openDocument(document);
+    controller.beginDocumentEdit();
     const host = createReactHost();
     const { createRoot } = await import("react-dom/client");
     const root = createRoot(host.container as unknown as Element);
@@ -120,7 +131,7 @@ describe("Documents panel", () => {
       expect(host.container.querySelector(".document-editor")).not.toBeNull();
       expect(host.container.querySelector(".project-heading h2")?.textContent).toContain("Launch");
       const commands = host.container.findAll((node) => node.matches(".command-button"));
-      expect(commands.map((node) => node.textContent)).toEqual(expect.arrayContaining(["Search", "Save revision"]));
+      expect(commands.map((node) => node.textContent)).toEqual(expect.arrayContaining(["Preview", "Cancel", "Save"]));
     } finally {
       await act(async () => root.unmount());
       host.restore();
@@ -140,7 +151,8 @@ describe("Documents panel", () => {
 
     await controller.selectTab("documents");
     await controller.openDocument(document);
-    controller.setDocumentDraft("# My local draft");
+    controller.beginDocumentEdit();
+    controller.setDocumentDraftBody("# My local draft");
     await controller.saveDocument();
 
     expect(api.reviseProjectDocument).toHaveBeenCalledTimes(1);
@@ -159,8 +171,9 @@ describe("Documents panel", () => {
     await controller.selectTab("documents");
     await controller.openDocument(empty);
     expect(controller.getSnapshot().documentPreview.status).not.toBe("error");
+    controller.beginDocumentEdit();
     expect(markup(controller)).toContain("textarea");
-    controller.setDocumentDraft("# First revision");
+    controller.setDocumentDraftBody("# First revision");
     await controller.saveDocument();
 
     expect(api.loadDocumentPreview).not.toHaveBeenCalled();
@@ -219,7 +232,7 @@ describe("Documents panel", () => {
     oldSearch.resolve({ items: [result], nextCursor: null });
     await oldRequest;
 
-    expect(controller.getSnapshot().documentSearch).toMatchObject({ query: "new", status: "ready", results: [newResult] });
+    expect(controller.getSnapshot().documentSearch).toMatchObject({ query: "new", status: "ready", items: [newResult] });
   });
 
   test("retries a failed Document search with the same query instead of reloading the page", async () => {
@@ -231,18 +244,12 @@ describe("Documents panel", () => {
     await controller.selectTab("documents");
     await controller.searchDocuments("launch hook");
 
-    const tree = screen.ProjectScreenView({ project, controller, snapshot: controller.getSnapshot() });
-    const searchError = findElement(tree, (element) => (
-      (element.props as { error?: unknown }).error === "Search unavailable"
-    ));
-    expect(searchError).not.toBeNull();
-    (searchError!.props as { onRetry(): void }).onRetry();
-    await vi.waitFor(() => expect(api.searchProjectDocuments).toHaveBeenCalledTimes(2));
-    await vi.waitFor(() => expect(controller.getSnapshot().documentSearch.status).toBe("ready"));
+    expect(controller.getSnapshot().documentSearch).toMatchObject({ status: "error", appendError: "Search unavailable" });
+    await controller.retryDocumentSearchAppend();
 
     expect(api.searchProjectDocuments).toHaveBeenNthCalledWith(2, { workspaceId: "workspace-1", projectId: "project-1" }, "launch hook");
     expect(api.loadProjectPage).toHaveBeenCalledTimes(1);
-    expect(controller.getSnapshot().documentSearch).toMatchObject({ query: "launch hook", status: "ready", results: [result] });
+    expect(controller.getSnapshot().documentSearch).toMatchObject({ query: "launch hook", status: "ready", items: [result] });
   });
 
   test("ignores a save for A after the user selects B", async () => {
@@ -263,5 +270,158 @@ describe("Documents panel", () => {
 
     expect(controller.getSnapshot().selectedDocument?.id).toBe("document-2");
     expect(controller.getSnapshot().documentPreview.value?.text).toBe("# B");
+  });
+});
+
+describe("documents workbench", () => {
+  test("documents workbench renders distinct format badges and safe Markdown, JSON, and text viewers", async () => {
+    const formats = (["markdown", "json", "text"] as const).map((format, index) => ({
+      ...result, documentId: `document-${index + 1}`, revisionId: `revision-${index + 1}`,
+      documentTitle: `${format} document`, format,
+    }));
+    const api = createApi();
+    api.loadProjectPage.mockResolvedValue({
+      items: [
+        { ...document, id: "listed-md", slug: "brief.MD", title: "Brief" },
+        { ...document, id: "listed-json", slug: "settings.JSON", title: "Settings" },
+        { ...document, id: "listed-text", slug: "notes.TXT", title: "Notes" },
+      ],
+      nextCursor: null,
+    });
+    api.searchProjectDocuments.mockResolvedValue({ items: formats, nextCursor: null });
+    const controller = createController(api) as any;
+    await controller.selectTab("documents");
+    const listedBadges = markup(controller);
+    expect(listedBadges).toContain("format-markdown");
+    expect(listedBadges).toContain("format-json");
+    expect(listedBadges).toContain("format-text");
+    await controller.searchDocuments("formats");
+    const badges = markup(controller);
+    expect(badges).toContain("document-format-badge format-markdown");
+    expect(badges).toContain(">MD<");
+    expect(badges).toContain("document-format-badge format-json");
+    expect(badges).toContain(">JSON<");
+    expect(badges).toContain("document-format-badge format-text");
+    expect(badges).toContain(">TXT<");
+
+    api.showProjectDocument.mockResolvedValue({ ...document, currentRevision: { ...document.currentRevision, format: "markdown" } });
+    api.loadDocumentPreview.mockResolvedValue({ revisionId: "revision-3", format: "markdown", text: "# Heading\n\n- item\n\n```ts\nconst x = 1\n```", truncated: false });
+    await controller.openDocument(document);
+    const markdown = markup(controller);
+    expect(markdown).toMatch(/<h1>Heading<\/h1>[\s\S]*<ul>[\s\S]*<code class="language-ts">/);
+    expect(markdown).toContain("Revision 3");
+    expect(markdown).not.toContain("Parent revision-2");
+
+    api.showProjectDocument.mockResolvedValue({ ...document, currentRevision: { ...document.currentRevision, format: "json" } });
+    api.loadDocumentPreview.mockResolvedValue({ revisionId: "revision-3", format: "json", text: '{"key":"</script><img src=x>","count":2,"ready":true,"empty":null}', truncated: false });
+    await controller.openDocument(document);
+    const json = markup(controller);
+    expect(json).toContain("json-token-key");
+    expect(json).toContain("json-token-string");
+    expect(json).toContain("json-token-number");
+    expect(json).toContain("json-token-boolean");
+    expect(json).toContain("json-token-null");
+    expect(json).toContain("&lt;/script&gt;&lt;img src=x&gt;");
+    expect(json).not.toContain("dangerouslySetInnerHTML");
+
+    api.showProjectDocument.mockResolvedValue({ ...document, currentRevision: { ...document.currentRevision, format: "text" } });
+    api.loadDocumentPreview.mockResolvedValue({ revisionId: "revision-3", format: "text", text: "Plain text", truncated: false });
+    await controller.openDocument(document);
+    expect(markup(controller)).toContain('<pre class="plain-text-view">Plain text</pre>');
+  });
+
+  test("documents workbench owns independent virtual master/detail scroll and preserves selection position", async () => {
+    const documents = Array.from({ length: 60 }, (_, index) => ({
+      ...document, id: `document-${index}`, title: `Document ${index}`, currentRevisionId: `revision-${index}`,
+    }));
+    const api = createApi();
+    api.loadProjectPage
+      .mockResolvedValueOnce({ items: documents, nextCursor: "documents-next" })
+      .mockResolvedValueOnce({ items: [{ ...document, id: "document-tail", title: "Tail" }], nextCursor: null });
+    api.showProjectDocument.mockImplementation(async (_project, id) => ({
+      ...document, id, title: id, currentRevisionId: `revision-${id}`,
+      currentRevision: { ...document.currentRevision, id: `revision-${id}`, documentId: id },
+    }));
+    api.loadDocumentPreview.mockImplementation(async (_project, revisionId) => ({ revisionId, format: "markdown", text: `# ${revisionId}`, truncated: false }));
+    const controller = createController(api) as any;
+    await controller.selectTab("documents");
+    const memory = new Map<string, number>();
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<MountedProject controller={controller} memory={memory} />); await Promise.resolve(); await Promise.resolve(); });
+      const outer = host.container.querySelector(".project-domain-body")!;
+      const master = host.container.querySelector(".documents-master")!;
+      const detail = host.container.querySelector(".documents-detail")!;
+      expect(master).not.toBeNull();
+      expect(detail).not.toBeNull();
+      expect(master).not.toBe(detail);
+      expect(host.container.querySelectorAll(".document-row").length).toBeLessThan(documents.length);
+      expect(host.intersectionObservers[0]?.root).toBe(master);
+
+      master.scrollTop = 320;
+      detail.scrollTop = 90;
+      outer.scrollTop = 0;
+      await act(async () => { master.dispatchEvent(new Event("scroll")); detail.dispatchEvent(new Event("scroll")); });
+      await click(textButton(master, "Document 1"));
+      expect(master.scrollTop).toBe(320);
+      expect(detail.scrollTop).toBe(90);
+      expect(globalThis.document.activeElement).toBe(host.container.querySelector(".document-detail-heading"));
+      expect(memory).toMatchObject(new Map([["documents-master", 320], ["documents-detail", 90]]));
+
+      const sentinel = master.querySelector(".auto-cursor-tail")!;
+      act(() => host.intersectionObservers[0].deliver(sentinel as unknown as Element, true));
+      await vi.waitFor(() => expect(api.loadProjectPage).toHaveBeenLastCalledWith(expect.objectContaining({ tab: "documents", cursor: "documents-next" })));
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
+  test("documents workbench debounces trimmed search and confirms one dirty tab discard", async () => {
+    const api = createApi();
+    api.loadProjectPage.mockImplementation(async ({ tab }: { tab: string }) => ({
+      items: tab === "documents" ? [{ ...document }] : [], nextCursor: null,
+    }));
+    const controller = createController(api) as any;
+    await controller.selectTab("documents");
+    const host = createReactHost();
+    const confirm = vi.fn(() => false);
+    Object.assign(globalThis.window, { confirm });
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<MountedProject controller={controller} />); await Promise.resolve(); });
+      const search = host.container.querySelector("#document-search")! as HostNode & { value: string };
+      search.value = "  c++ -draft NOT  ";
+      await act(async () => { search.dispatchEvent(new Event("input", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 280)); });
+      expect(api.searchProjectDocuments).toHaveBeenCalledOnce();
+      expect(api.searchProjectDocuments).toHaveBeenCalledWith(
+        { workspaceId: "workspace-1", projectId: "project-1" }, "c++ -draft NOT",
+      );
+
+      await click(textButton(host.container, "Overview"));
+      await click(textButton(host.container, "Documents"));
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 280)); });
+      expect(api.searchProjectDocuments).toHaveBeenCalledOnce();
+
+      const restoredSearch = host.container.querySelector("#document-search")! as HostNode & { value: string };
+      restoredSearch.value = "   ";
+      await act(async () => { restoredSearch.dispatchEvent(new Event("input", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 280)); });
+      expect(api.searchProjectDocuments).toHaveBeenCalledOnce();
+
+      await act(async () => { await controller.openDocument(document); controller.beginDocumentEdit(); controller.setDocumentDraftBody("# Dirty"); });
+      await click(textButton(host.container, "Media"));
+      expect(confirm).toHaveBeenCalledOnce();
+      expect(controller.getSnapshot().activeTab).toBe("documents");
+      confirm.mockReturnValue(true);
+      await click(textButton(host.container, "Media"));
+      expect(confirm).toHaveBeenCalledTimes(2);
+      expect(controller.getSnapshot()).toMatchObject({ activeTab: "media", documentMode: "read", documentDraft: null });
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
   });
 });

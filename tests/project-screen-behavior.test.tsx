@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { act, StrictMode } from "react";
 import { describe, expect, test, vi } from "vitest";
-import type { ArtifactRevisionDto, MediaCardDto, MediaGenerationDetailDto, ProjectOverviewDto, UnitDto, UnitRevisionDto } from "../electron/ralphy/types";
+import type { ArtifactRevisionDto, DocumentSearchDto, MediaCardDto, MediaGenerationDetailDto, ProjectOverviewDto, UnitDto, UnitRevisionDto } from "../electron/ralphy/types";
 import type { ProjectSummary } from "../src/lib/ipc";
 import * as screen from "../src/screens/ProjectScreen";
 import { bridge } from "../src/lib/ipc";
@@ -105,6 +105,7 @@ function createController(api: ReturnType<typeof createApi>, activitySequence = 
       retryPage(tab: string): Promise<void>;
       retry(): Promise<void>;
       openDocument(document: unknown): Promise<void>;
+      beginDocumentEdit(): void;
       setDocumentDraft(body: string): void;
       openMedia(card: MediaCardDto): Promise<void>;
       openMediaViewer(card: MediaCardDto): Promise<void>;
@@ -135,6 +136,91 @@ function renderController(controller: ReturnType<typeof createController>) {
 }
 
 describe("ProjectScreen behavior", () => {
+  test("documents workbench keeps read state separate from explicit dirty editing and local JSON validation", async () => {
+    const api = createApi();
+    const controller = createController(api) as any;
+
+    await controller.openDocument({ id: "document-1" });
+    expect(controller.getSnapshot()).toMatchObject({
+      documentMode: "read", documentDraft: null, documentDirty: false,
+      documentPreview: { status: "ready", value: { text: "# Bounded brief" } },
+    });
+
+    controller.beginDocumentEdit();
+    expect(controller.getSnapshot().documentDraft).toEqual({
+      format: "markdown", title: null, body: "# Bounded brief",
+    });
+    controller.setDocumentDraftBody("# Changed");
+    expect(controller.getSnapshot().documentDirty).toBe(true);
+    controller.setDocumentDraftBody("# Bounded brief");
+    expect(controller.getSnapshot().documentDirty).toBe(false);
+
+    controller.setDocumentDraftFormat("json");
+    controller.setDocumentDraftBody('{"unsafe":');
+    await controller.saveDocument();
+    expect(api.reviseProjectDocument).not.toHaveBeenCalled();
+    expect(controller.getSnapshot()).toMatchObject({
+      documentMode: "edit", documentDirty: true,
+      documentConflict: expect.stringMatching(/valid JSON/i),
+    });
+
+    controller.cancelDocumentEdit();
+    expect(controller.getSnapshot()).toMatchObject({ documentMode: "read", documentDraft: null, documentDirty: false });
+  });
+
+  test("documents workbench appends only the current opaque search cursor and preserves a conflict draft", async () => {
+    const first: DocumentSearchDto = {
+      documentId: "document-1", revisionId: "revision-1", workspaceId: "workspace-1", projectId: "project-1",
+      kind: "brief", slug: "brief", documentTitle: "Brief", revisionNo: 1, parentRevisionId: null,
+      iterationId: null, format: "markdown", title: null, authoredBySessionId: null, createdAt: 1,
+    };
+    const second = { ...first, revisionId: "revision-2", revisionNo: 2, createdAt: 2 };
+    const api = createApi();
+    const oldDocument = await api.showProjectDocument({}, "document-1");
+    api.showProjectDocument.mockClear();
+    api.searchProjectDocuments
+      .mockResolvedValueOnce({ items: [first], nextCursor: "search-next" })
+      .mockResolvedValueOnce({ items: [first, second], nextCursor: null });
+    api.reviseProjectDocument.mockRejectedValueOnce(Object.assign(new Error("Conflict"), { code: "E_CONFLICT" }));
+    api.showProjectDocument
+      .mockResolvedValueOnce(oldDocument)
+      .mockResolvedValueOnce({
+        ...oldDocument, currentRevisionId: "revision-2",
+        currentRevision: { ...oldDocument.currentRevision!, id: "revision-2", revisionNo: 2, parentRevisionId: "revision-1" },
+      });
+    api.loadDocumentPreview
+      .mockResolvedValueOnce({ revisionId: "revision-1", format: "markdown", text: "# Old head", truncated: false })
+      .mockResolvedValueOnce({ revisionId: "revision-2", format: "markdown", text: "# Current head", truncated: false });
+    const controller = createController(api) as any;
+
+    await controller.searchDocuments("   ");
+    expect(api.searchProjectDocuments).not.toHaveBeenCalled();
+    expect(controller.getSnapshot().documentSearch).toEqual({
+      query: "", items: [], nextCursor: null, status: "idle", appendError: null,
+    });
+    await controller.searchDocuments("  c++ -draft NOT  ");
+    await controller.loadMoreDocumentSearch();
+    expect(api.searchProjectDocuments).toHaveBeenNthCalledWith(
+      1, { workspaceId: "workspace-1", projectId: "project-1" }, "c++ -draft NOT",
+    );
+    expect(api.searchProjectDocuments).toHaveBeenNthCalledWith(
+      2, { workspaceId: "workspace-1", projectId: "project-1" }, "c++ -draft NOT", "search-next",
+    );
+    expect(controller.getSnapshot().documentSearch.items.map(({ revisionId }: DocumentSearchDto) => revisionId))
+      .toEqual(["revision-1", "revision-2"]);
+
+    await controller.openDocument({ id: "document-1" });
+    controller.beginDocumentEdit();
+    controller.setDocumentDraftBody("# My draft");
+    await controller.saveDocument();
+    expect(api.reviseProjectDocument).toHaveBeenCalledTimes(1);
+    expect(controller.getSnapshot()).toMatchObject({
+      documentMode: "edit", documentDirty: true, documentDraft: { body: "# My draft" },
+      documentPreview: { value: { revisionId: "revision-2", text: "# Current head" } },
+      documentConflict: expect.stringContaining("local draft was kept"),
+    });
+  });
+
   test("renders returned Overview records as clearly bounded recent data", async () => {
     const api = createApi();
     api.loadProjectOverview.mockResolvedValue({
@@ -966,6 +1052,7 @@ describe("ProjectScreen behavior", () => {
     await controller.start();
     await controller.selectTab("documents");
     await controller.openDocument(document as never);
+    controller.beginDocumentEdit();
     controller.setDocumentDraft("line one\nline two\n");
     const before = controller.getSnapshot().documentDraft;
 

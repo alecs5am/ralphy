@@ -7,6 +7,69 @@ import { MediaProtocolAccess } from "../electron/media/protocol-access";
 import { makeLibraryFixture } from "./fixtures";
 
 describe("Electron IPC security", () => {
+  test("documents workbench production search validates sender, query, scope, cursor, and stale root", async () => {
+    const { registerProjectMediaIpc } = await import("../electron/ralphy/project-reader");
+    const handlers = new Map<string, (event: unknown, ...args: unknown[]) => Promise<any>>();
+    const mainFrame = {};
+    const webContents = { mainFrame };
+    const window = { isDestroyed: () => false, webContents };
+    const project = { workspaceId: "workspace-1", projectId: "project-1" };
+    const result = {
+      documentId: "document-1", revisionId: "revision-1", workspaceId: "workspace-1", projectId: "project-1",
+      kind: "brief", slug: "brief", documentTitle: "Brief", revisionNo: 1, parentRevisionId: null,
+      iterationId: null, format: "markdown", title: null, authoredBySessionId: null, createdAt: 1,
+    };
+    let epoch = 1;
+    let mode: "valid" | "sibling" | "stale" = "valid";
+    const request = vi.fn(async () => {
+      if (mode === "stale") epoch += 1;
+      return { items: [{ ...result, ...(mode === "sibling" ? { projectId: "project-2" } : {}) }], nextCursor: "next" };
+    });
+    registerProjectMediaIpc({
+      handle(channel, listener) { handlers.set(channel, listener); },
+      getWindow: () => window,
+      captureRoot: () => ({ epoch }),
+      assertRoot: (root) => { if (root.epoch !== epoch) throw new Error("stale root"); },
+      session: { client: { request: request as RalphyBridgeClient["request"] } },
+      authorizeTrustedLocator: vi.fn(), openPath: vi.fn(), showItemInFolder: vi.fn(), writeBuffer: vi.fn(),
+    });
+
+    const search = handlers.get("project:documents:search");
+    expect(search).toBeTypeOf("function");
+    if (!search) return;
+    const trusted = { sender: webContents, senderFrame: mainFrame };
+    await expect(search(trusted, project, "c++ -draft NOT", "opaque-after")).resolves.toEqual({
+      ok: true, value: { items: [result], nextCursor: "next" },
+    });
+    expect(request).toHaveBeenCalledWith("document.search", {
+      context: project, query: "c++ -draft NOT", after: "opaque-after", limit: 50,
+    });
+
+    const utf8Boundary = `  ${"é".repeat(512)}  `;
+    request.mockClear();
+    await expect(search(trusted, project, utf8Boundary, null)).resolves.toMatchObject({ ok: true });
+    expect(request).toHaveBeenCalledWith("document.search", {
+      context: project, query: utf8Boundary, limit: 50,
+    });
+
+    request.mockClear();
+    for (const call of [
+      () => search({ sender: webContents, senderFrame: {} }, project, "launch", null),
+      () => search(trusted, { workspaceId: "", projectId: "project-1" }, "launch", null),
+      () => search(trusted, project, "", null),
+      () => search(trusted, project, "é".repeat(513), null),
+      () => search(trusted, project, "launch", 1),
+      () => search(trusted, project, "launch", "x".repeat(4097)),
+    ]) await expect(call()).resolves.toMatchObject({ ok: false });
+    expect(request).not.toHaveBeenCalled();
+
+    mode = "sibling";
+    await expect(search(trusted, project, "launch", null)).resolves.toMatchObject({ ok: false });
+    mode = "stale";
+    epoch = 1;
+    await expect(search(trusted, project, "launch", null)).resolves.toMatchObject({ ok: false });
+  });
+
   test("keeps root identity and activity refresh payloads numeric and private", async () => {
     const { applyActivityRefresh } = await import("../src/App") as {
       applyActivityRefresh(identity: unknown, event: unknown): unknown;
@@ -363,6 +426,7 @@ describe("Electron IPC security", () => {
 
     expect([...handlers.keys()]).toEqual([
       "project:media:generation", "project:media:show", "project:media:revisions", "project:media:select", "project:media:action",
+      "project:documents:search",
       "project:unit:show", "project:unit:revision:show", "project:unit:page", "project:unit:select",
     ]);
     const generation = handlers.get("project:media:generation")!;

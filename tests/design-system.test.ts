@@ -100,6 +100,7 @@ type GeometryResult = {
   overflows: string[];
   metricColumns: number | null;
   mediaScrollOwners: string[];
+  documentScrollOwners: string[];
   nestedMediaScroll: boolean;
   mediaInsets: number[];
   focus: Array<{ selector: string; width: number; contrast: number }>;
@@ -134,7 +135,7 @@ async function chromiumGeometry(markup: { workspace: string; media: string; docu
               await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
             })()\`);
             const documentNode = await win.webContents.debugger.sendCommand("DOM.getDocument");
-            const focusSelectors = screen === "documents" ? [".document-search input", ".document-editor", ".command-button"] : [screen === "media" ? ".filter-chip" : ".project-table-row"];
+            const focusSelectors = screen === "documents" ? [".document-search input", ".document-row", ".document-detail-heading"] : [screen === "media" ? ".filter-chip" : ".project-table-row"];
             for (const selector of focusSelectors) {
               const focusNode = await win.webContents.debugger.sendCommand("DOM.querySelector", { nodeId: documentNode.root.nodeId, selector });
               await win.webContents.debugger.sendCommand("CSS.forcePseudoState", { nodeId: focusNode.nodeId, forcedPseudoClasses: ["focus-visible"] });
@@ -145,7 +146,7 @@ async function chromiumGeometry(markup: { workspace: string; media: string; docu
               const selectors = screen === "workspace"
                 ? [".main-region", ".screen-header", ".metrics-band", ".metric", ".workspace-domain-body", ".workspace-projects", ".project-table", ".project-table-row"]
                 : screen === "documents"
-                  ? [".main-region", ".project-domain-body", ".project-split-view", ".document-search", ".document-search input", ".project-preview", ".document-editor"]
+                  ? [".main-region", ".project-domain-body", ".documents-workbench", ".documents-master", ".document-search", ".document-search input", ".documents-detail"]
                   : [".main-region", ".project-domain-body", ".media-domain-toolbar", ".project-split-view", ".project-media-grid", ".asset-grid-scroll", ".project-preview"];
               const overflows = [];
               for (const selector of selectors) for (const element of root.querySelectorAll(selector)) {
@@ -159,10 +160,15 @@ async function chromiumGeometry(markup: { workspace: string; media: string; docu
                 return (overflow === "auto" || overflow === "scroll") && element.scrollHeight > element.clientHeight + 1;
               });
               const nestedMediaScroll = mediaScrollOwners.some((outer) => mediaScrollOwners.some((inner) => outer !== inner && root.querySelector(outer).contains(root.querySelector(inner))));
+              const documentScrollOwners = [".project-domain-body", ".documents-master", ".documents-detail"].filter((selector) => {
+                const element = root.querySelector(selector); if (!element) return false;
+                const overflow = getComputedStyle(element).overflowY;
+                return overflow === "auto" || overflow === "scroll";
+              });
               const mediaInsets = [".project-domain-body", ".asset-grid-scroll"].map((selector) => {
                 const element = root.querySelector(selector); return element ? parseFloat(getComputedStyle(element).paddingLeft) : 0;
               }).filter((value) => value > 0);
-              const focusSelectors = screen === "documents" ? [".document-search input", ".document-editor", ".command-button"] : [screen === "media" ? ".filter-chip" : ".project-table-row"];
+              const focusSelectors = screen === "documents" ? [".document-search input", ".document-row", ".document-detail-heading"] : [screen === "media" ? ".filter-chip" : ".project-table-row"];
               const focus = focusSelectors.map((selector) => {
                 const target = root.querySelector(selector);
                 const style = getComputedStyle(target);
@@ -174,7 +180,7 @@ async function chromiumGeometry(markup: { workspace: string; media: string; docu
                 const a = luminance(color(style.outlineColor).rgb), b = luminance(background.rgb);
                 return { selector, width: style.outlineStyle === "none" ? 0 : parseFloat(style.outlineWidth), contrast: (Math.max(a, b) + .05) / (Math.min(a, b) + .05) };
               });
-              return { screen, width: innerWidth, height: innerHeight, overflows, metricColumns, mediaScrollOwners, nestedMediaScroll, mediaInsets, focus };
+              return { screen, width: innerWidth, height: innerHeight, overflows, metricColumns, mediaScrollOwners, documentScrollOwners, nestedMediaScroll, mediaInsets, focus };
             })()\`));
           }
         }
@@ -207,6 +213,16 @@ const renderer = readdirSync(join(process.cwd(), "src"), {
   .join("\n");
 
 describe("design system contract", () => {
+  test("documents workbench locks the outer panel and gives both responsive panes exact semantic states", () => {
+    expect(workbenchStyles).toMatch(/\.project-domain-body\.is-documents\s*\{[^}]*overflow:\s*hidden/s);
+    expect(workbenchStyles).toMatch(/\.documents-workbench\s*\{[^}]*grid-template-columns:\s*minmax\(280px,\s*340px\)\s+minmax\(0,\s*1fr\)/s);
+    expect(workbenchStyles).toMatch(/\.documents-master,[\s\S]*\.documents-detail\s*\{[^}]*min-height:\s*0[^}]*overflow-y:\s*auto/s);
+    expect(workbenchStyles).toMatch(/\.document-row:hover\s*\{[^}]*background:\s*var\(--hover\)/s);
+    expect(workbenchStyles).toMatch(/\.document-row\.is-selected\s*\{[^}]*background:\s*var\(--selected\)[^}]*box-shadow:\s*var\(--ring-select\)/s);
+    expect(workbenchStyles).not.toMatch(/\.document-row\.is-selected\s*\{[^}]*inset\s+2px\s+0/s);
+    expect(workbenchStyles).toMatch(/@container project-domain \(max-width:\s*719px\)[\s\S]*\.documents-workbench\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
+  });
+
   test("allows trusted media URLs for image previews", () => {
     expect(readFileSync(join(process.cwd(), "index.html"), "utf8"))
       .toMatch(/img-src[^;]*ralphy-media:/);
@@ -246,8 +262,10 @@ describe("design system contract", () => {
     expect(results.filter(({ screen, nestedMediaScroll }) => screen === "media" && nestedMediaScroll)).toEqual([]);
     expect(results.filter(({ screen }) => screen === "media").map(({ width, mediaInsets }) => ({ width, mediaInsets: mediaInsets.length })))
       .toEqual([{ width: 1360, mediaInsets: 1 }, { width: 1100, mediaInsets: 1 }]);
+    expect(results.filter(({ screen }) => screen === "documents").map(({ width, documentScrollOwners }) => ({ width, documentScrollOwners })))
+      .toEqual([{ width: 1360, documentScrollOwners: [".documents-master", ".documents-detail"] }, { width: 1100, documentScrollOwners: [".documents-master", ".documents-detail"] }]);
     expect(results.filter(({ screen }) => screen === "documents").map(({ width, focus }) => ({ width, selectors: focus.map(({ selector }) => selector) })))
-      .toEqual([{ width: 1360, selectors: [".document-search input", ".document-editor", ".command-button"] }, { width: 1100, selectors: [".document-search input", ".document-editor", ".command-button"] }]);
+      .toEqual([{ width: 1360, selectors: [".document-search input", ".document-row", ".document-detail-heading"] }, { width: 1100, selectors: [".document-search input", ".document-row", ".document-detail-heading"] }]);
     expect(results.flatMap(({ screen, width, focus }) => focus.filter(({ width: focusWidth }) => focusWidth < 2).map((value) => ({ screen, width, focus: value })))).toEqual([]);
     expect(results.flatMap(({ screen, width, focus }) => focus.filter(({ contrast }) => contrast < 3).map((value) => ({ screen, width, focus: value })))).toEqual([]);
   }, 20_000);

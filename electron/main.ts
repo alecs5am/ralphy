@@ -1185,15 +1185,6 @@ function registerProjectDomainIpc(): void {
     ),
   );
   securedHandle(
-    MEDIA_CHANNELS.searchProjectDocuments,
-    (_event, rawProject: unknown, rawQuery: unknown) => (
-      projectReaderForCurrentRoot().searchDocuments(
-        parseProjectReference(rawProject),
-        parseString(rawQuery, "document search query", 1024),
-      )
-    ),
-  );
-  securedHandle(
     MEDIA_CHANNELS.showProjectDocument,
     (_event, rawProject: unknown, rawDocumentId: unknown) => (
       projectReaderForCurrentRoot().showDocument(

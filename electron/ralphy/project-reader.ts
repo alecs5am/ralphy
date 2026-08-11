@@ -145,6 +145,10 @@ const PROJECT_MEDIA_KINDS = new Set<ProjectMediaKind>([
 const MEDIA_PROVENANCE = new Set<MediaProvenance>([
   "generation", "not-generation", "unknown",
 ]);
+const DOCUMENT_KINDS = new Set([
+  "brief", "style-guide", "production-plan", "scenario", "storyboard", "research", "postmortem", "memory", "note", "custom",
+]);
+const DOCUMENT_FORMATS = new Set(["markdown", "text", "json"]);
 
 function validMediaClassification(value: Record<string, unknown>): boolean {
   return PROJECT_MEDIA_KINDS.has(value.mediaKind as ProjectMediaKind)
@@ -224,6 +228,33 @@ function unitPage<Item>(
     throw new Error("Invalid Unit page");
   }
   return value as Page<Item>;
+}
+
+function documentSearchPage(value: unknown, project: ProjectRef): Page<DocumentSearchDto> {
+  const page = record(value);
+  const validItem = (item: unknown): item is DocumentSearchDto => {
+    const result = record(item);
+    return !!result && exactKeys(result, [
+      "documentId", "revisionId", "workspaceId", "projectId", "kind", "slug", "documentTitle",
+      "revisionNo", "parentRevisionId", "iterationId", "format", "title", "authoredBySessionId", "createdAt",
+    ]) && validId(result.documentId) && validId(result.revisionId)
+      && result.workspaceId === project.workspaceId && optionalScope(result.projectId, project.projectId)
+      && DOCUMENT_KINDS.has(result.kind as string) && validId(result.slug)
+      && typeof result.documentTitle === "string" && result.documentTitle.length > 0 && result.documentTitle.length <= 4_096
+      && sequence(result.revisionNo, true)
+      && (result.parentRevisionId === null || validId(result.parentRevisionId))
+      && (result.iterationId === null || validId(result.iterationId))
+      && DOCUMENT_FORMATS.has(result.format as string)
+      && (result.title === null || (typeof result.title === "string" && result.title.length <= 4_096))
+      && (result.authoredBySessionId === null || validId(result.authoredBySessionId))
+      && sequence(result.createdAt);
+  };
+  if (!page || !exactKeys(page, ["items", "nextCursor"]) || !Array.isArray(page.items)
+    || page.items.length > PROJECT_PAGE_LIMIT || !page.items.every(validItem)
+    || (page.nextCursor !== null && (typeof page.nextCursor !== "string" || !page.nextCursor || page.nextCursor.length > 4_096))) {
+    throw new Error("Invalid Document search page");
+  }
+  return value as Page<DocumentSearchDto>;
 }
 
 function generationTarget(value: unknown): MediaGenerationTarget {
@@ -486,6 +517,12 @@ function pageCursor(value: unknown): string | undefined {
   return value;
 }
 
+function validDocumentSearchQuery(value: unknown): value is string {
+  return typeof value === "string"
+    && value.trim().length > 0
+    && Buffer.byteLength(value.trim(), "utf8") <= 1_024;
+}
+
 function activityCursor(value: unknown): number {
   if (value === undefined || value === null) return 0;
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) throw new Error("Invalid activity cursor");
@@ -709,6 +746,16 @@ export function registerProjectMediaIpc<Root>({
       writeBuffer("public.file-url", Buffer.from(pathToFileURL(path).href));
     }
     return undefined;
+  }));
+  handle(MEDIA_CHANNELS.searchProjectDocuments, secured((reader, _root, _assertCurrent, rawProject, rawQuery, rawAfter) => {
+    if (!validDocumentSearchQuery(rawQuery)) {
+      throw new Error("Invalid document search query");
+    }
+    return reader.searchDocuments(
+      parseProjectMediaIpcProject(rawProject),
+      rawQuery,
+      pageCursor(rawAfter),
+    );
   }));
   handle(MEDIA_CHANNELS.loadProjectUnit, secured((reader, _root, _assertCurrent, rawProject, rawUnitId) => {
     if (!validId(rawUnitId)) throw new Error("Invalid Unit identifier");
@@ -1025,10 +1072,15 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
       return { revisionId, format, text, truncated };
     },
 
-    async searchDocuments(project: ProjectRef, query: string): Promise<Page<DocumentSearchDto>> {
+    async searchDocuments(project: ProjectRef, query: string, after?: string | null): Promise<Page<DocumentSearchDto>> {
       const context = projectContext(project);
-      if (!query.trim()) throw new Error("Document search query must not be empty");
-      return await request("document.search", { context, query, limit: PROJECT_PAGE_LIMIT });
+      if (!validDocumentSearchQuery(query)) {
+        throw new Error("Invalid document search query");
+      }
+      const cursor = pageCursor(after);
+      return documentSearchPage(await request("document.search", {
+        context, query, ...(cursor ? { after: cursor } : {}), limit: PROJECT_PAGE_LIMIT,
+      }), context);
     },
 
     async showDocument(project: ProjectRef, documentId: string): Promise<DocumentDetailDto> {

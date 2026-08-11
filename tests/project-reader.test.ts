@@ -5,6 +5,7 @@ import type {
   ArtifactMediaCardDto,
   CompositionRevisionDto,
   DocumentRevisionDto,
+  DocumentSearchDto,
   MediaCardDto,
   MediaGenerationDetailDto,
   MediaFilter,
@@ -56,6 +57,56 @@ const objectCard: MediaCardDto = {
 };
 
 describe("Project domain reader", () => {
+  test("documents workbench validates and forwards one literal search page without draining", async () => {
+    const searchResult: DocumentSearchDto = {
+      documentId: "document-1", revisionId: "revision-2", workspaceId: "workspace-1", projectId: "project-1",
+      kind: "brief", slug: "launch-brief", documentTitle: "Launch brief", revisionNo: 2,
+      parentRevisionId: "revision-1", iterationId: null, format: "markdown", title: "Launch brief v2",
+      authoredBySessionId: null, createdAt: 2,
+    };
+    const request = vi.fn(async () => page([searchResult], "opaque-next"));
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+
+    for (const query of ["c++", "launch-hook", 'say "launch"', "NOT"]) {
+      request.mockClear();
+      await expect(reader.searchDocuments(project, query, "opaque-after")).resolves.toEqual(
+        page([searchResult], "opaque-next"),
+      );
+      expect(request).toHaveBeenCalledOnce();
+      expect(request).toHaveBeenCalledWith("document.search", {
+        context: project, query, after: "opaque-after", limit: 50,
+      });
+    }
+
+    const utf8Boundary = `  ${"é".repeat(512)}  `;
+    request.mockClear();
+    await expect(reader.searchDocuments(project, utf8Boundary)).resolves.toEqual(
+      page([searchResult], "opaque-next"),
+    );
+    expect(request).toHaveBeenCalledWith("document.search", {
+      context: project, query: utf8Boundary, limit: 50,
+    });
+
+    request.mockClear();
+    for (const [query, cursor] of [["   ", null], ["é".repeat(513), null], ["x", ""], ["x", "x".repeat(4097)], ["x", 1]] as const) {
+      await expect(reader.searchDocuments(project, query, cursor as never)).rejects.toThrow();
+    }
+    expect(request).not.toHaveBeenCalled();
+
+    for (const malformed of [
+      { items: [searchResult], nextCursor: "opaque-next", private: true },
+      page([{ ...searchResult, projectId: "project-2" }]),
+      page([{ ...searchResult, workspaceId: "workspace-2" }]),
+      page([{ ...searchResult, format: "html" }]),
+      page([searchResult], 1 as never),
+    ]) {
+      const invalid = createProjectReader({
+        request: vi.fn(async () => malformed) as unknown as RalphyBridgeClient["request"],
+      });
+      await expect(invalid.searchDocuments(project, "launch")).rejects.toThrow("Invalid Document search page");
+    }
+  });
+
   test("preserves populated Core overview and revision DTO fields", async () => {
     const overview: ProjectOverviewDto = {
       project: { id: "project-1", workspaceId: "workspace-1", slug: "launch", name: "Launch", state: "active", rowVersion: 1, createdAt: 1, updatedAt: 2 },

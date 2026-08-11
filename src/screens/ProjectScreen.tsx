@@ -1,14 +1,14 @@
-import { AlertCircle, FileText, ImageOff, RefreshCw } from "lucide-react";
+import { AlertCircle, ImageOff, RefreshCw } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import type { ActivityDto, DocumentDto, MediaCardDto, ProjectOverviewDto, RunObjectMediaCardDto, UnitDto } from "../../electron/ralphy/types";
+import type { ActivityDto, MediaCardDto, ProjectOverviewDto, RunObjectMediaCardDto, UnitDto } from "../../electron/ralphy/types";
 import { VirtualAssetGrid, mediaCardName } from "../components/VirtualAssetGrid";
-import { MarkdownView } from "../components/MarkdownView";
 import { ProjectControls } from "../components/ProjectControls";
 import { ProjectHeader } from "../components/ProjectHeader";
 import { AudioWaveform } from "../components/media/AudioWaveform";
 import { ImageViewport } from "../components/media/ImageViewport";
 import { VideoPlayer } from "../components/media/VideoPlayer";
 import { CompositionsPanel } from "./project/CompositionsPanel";
+import { DocumentsPanel } from "./project/DocumentsPanel";
 import { MediaViewer } from "./project/MediaViewer";
 import { useRememberedScroll } from "./project/scroll-memory";
 import { bridge, type ProjectMediaFilter, type ProjectSummary } from "../lib/ipc";
@@ -102,28 +102,9 @@ function MediaPreview({ snapshot }: { snapshot: ProjectScreenSnapshot }) {
   return <>{evidence}{content}</>;
 }
 
-function documentText(format: string, text: string): string {
-  if (format !== "json") return text;
-  try { return JSON.stringify(JSON.parse(text), null, 2); } catch { return text; }
-}
-
-function DocumentPreview({ controller, snapshot }: { controller: ProjectScreenController; snapshot: ProjectScreenSnapshot }) {
-  const { selectedDocument, documentPreview, documentDraft } = snapshot;
-  const revision = selectedDocument?.currentRevision;
-  return <section className="project-preview document-preview" aria-label="Document content">
-    {!selectedDocument && <div className="empty-section">Select a document to open it.</div>}
-    {revision && <p className="document-revision-meta">Revision {revision.revisionNo} · Parent {revision.parentRevisionId ?? "None"}{revision.iterationId ? ` · Iteration ${revision.iterationId}` : ""}</p>}
-    {documentPreview.status === "loading" && <div className="project-skeleton" role="status">Loading document…</div>}
-    {documentPreview.status === "error" && <ProjectError error={documentPreview.error} onRetry={() => { if (selectedDocument) void controller.openDocument(selectedDocument); }} />}
-    {documentPreview.status === "ready" && documentPreview.value && <>{documentPreview.value.format === "markdown" ? <MarkdownView markdown={documentPreview.value.text} /> : <pre>{documentText(documentPreview.value.format, documentPreview.value.text)}</pre>}{documentPreview.value.truncated && <p>Preview truncated.</p>}</>}
-    {documentDraft && <><label htmlFor="document-draft">Draft</label><textarea className="document-editor" id="document-draft" value={documentDraft.body} onChange={(event) => controller.setDocumentDraft(event.target.value)} /><button className="command-button" type="button" onClick={() => { void controller.saveDocument(); }}>Save revision</button></>}
-    {snapshot.documentConflict && <p className="project-local-error" role="alert">{snapshot.documentConflict}</p>}
-  </section>;
-}
-
 type ScrollBinding = ReturnType<typeof useRememberedScroll>;
 
-export function ProjectScreenView({ project, rootEpoch = 0, controller, snapshot, scrollMemory = new Map<string, number>(), overviewScroll }: { project: ProjectSummary; rootEpoch?: number; controller: ProjectScreenController; snapshot: ProjectScreenSnapshot; scrollMemory?: Map<string, number>; overviewScroll?: ScrollBinding }) {
+export function ProjectScreenView({ project, rootEpoch = 0, controller, snapshot, scrollMemory = new Map<string, number>(), documentsScrollMemory = scrollMemory, overviewScroll }: { project: ProjectSummary; rootEpoch?: number; controller: ProjectScreenController; snapshot: ProjectScreenSnapshot; scrollMemory?: Map<string, number>; documentsScrollMemory?: Map<string, number>; overviewScroll?: ScrollBinding }) {
   const state = snapshot.domain;
   const activeTab = snapshot.activeTab;
   const page = activeTab === "overview" ? null : state.pages[activeTab];
@@ -132,12 +113,19 @@ export function ProjectScreenView({ project, rootEpoch = 0, controller, snapshot
   const mediaScrollToken = JSON.stringify([projectScrollToken, state.media.filter]);
   const mediaFilters: Array<[ProjectMediaFilter, string]> = [["all", "All"], ["references", "References"], ["working", "Working"], ["candidate", "Candidate"], ["approved", "Approved"], ["rejected", "Rejected"], ["superseded", "Superseded"], ["run-diagnostics", "Run diagnostics"], ["run-cache-temp", "Cache/temp RunObjects"], ["advanced-objects", "Advanced Objects"]];
   const retry = () => { void controller.retry(); };
+  const selectTab = (tab: Parameters<ProjectScreenController["selectTab"]>[0]) => {
+    if (activeTab === "documents" && tab !== "documents" && snapshot.documentDirty) {
+      if (!window.confirm("Discard unsaved document changes?")) return;
+      controller.cancelDocumentEdit();
+    }
+    void controller.selectTab(tab);
+  };
   return <main className="main-region project-region">
     <ProjectHeader project={project} />
-    <ProjectControls activeTab={activeTab} onSelect={(tab) => { void controller.selectTab(tab); }} />
-    <div className={`project-domain-body${activeTab === "media" ? " is-media" : ""}`} role="tabpanel" id={`project-panel-${activeTab}`} aria-labelledby={`project-tab-${activeTab}`} ref={activeTab === "overview" ? overviewScroll?.ref : undefined} onScroll={activeTab === "overview" ? overviewScroll?.onScroll : undefined}>
+    <ProjectControls activeTab={activeTab} onSelect={selectTab} />
+    <div className={`project-domain-body${activeTab === "media" ? " is-media" : activeTab === "documents" ? " is-documents" : ""}`} role="tabpanel" id={`project-panel-${activeTab}`} aria-labelledby={`project-tab-${activeTab}`} ref={activeTab === "overview" ? overviewScroll?.ref : undefined} onScroll={activeTab === "overview" ? overviewScroll?.onScroll : undefined}>
       {activeTab === "overview" && (state.overview.status === "loading" ? <div className="project-skeleton" role="status">Loading project overview…</div> : state.overview.status === "error" ? <ProjectError error={state.overview.error} onRetry={retry} /> : state.overview.value ? <Overview value={state.overview.value as ProjectOverviewDto} /> : null)}
-      {activeTab === "documents" && page && <PageState page={page} empty="No documents yet." onRetry={retry}><div className="project-split-view"><div className="project-domain-list"><form className="document-search" onSubmit={(event) => { event.preventDefault(); const query = new FormData(event.currentTarget).get("query"); if (typeof query === "string") void controller.searchDocuments(query); }}><label htmlFor="document-search">Search documents</label><input id="document-search" name="query" type="search" defaultValue={snapshot.documentSearch.query} /><button className="command-button" type="submit">Search</button></form>{snapshot.documentSearch.status === "error" && <ProjectError error={snapshot.documentSearch.error} onRetry={() => { void controller.searchDocuments(snapshot.documentSearch.query); }} />}{snapshot.documentSearch.results.map((result) => <button type="button" className={snapshot.selectedDocument?.id === result.documentId ? "is-selected" : ""} key={result.revisionId} onClick={() => { void controller.openSearchResult(result); }}><FileText size={16} aria-hidden="true" /><span><strong>{result.documentTitle}</strong><small>{result.kind} · Revision {result.revisionNo}</small></span></button>)}{(page.items as DocumentDto[]).map((document) => <button type="button" className={snapshot.selectedDocument?.id === document.id ? "is-selected" : ""} key={document.id} onClick={() => { void controller.openDocument(document); }}><FileText size={16} aria-hidden="true" /><span><strong>{document.title}</strong><small>{document.kind} · {document.currentRevisionId ?? "No revision"}</small></span></button>)}<Pagination page={page} onLoad={() => { void controller.loadMore("documents"); }} onRetry={() => { void controller.retryPage("documents"); }} /></div><DocumentPreview controller={controller} snapshot={snapshot} /></div></PageState>}
+      {activeTab === "documents" && page && (page.status === "loading" && page.items.length === 0 ? <div className="project-skeleton" role="status">Loading documents…</div> : page.status === "error" && page.items.length === 0 ? <ProjectError error={page.error} onRetry={retry} /> : <DocumentsPanel page={page} controller={controller} snapshot={snapshot} scrollMemory={documentsScrollMemory} resetToken={projectScrollToken} />)}
       {activeTab === "media" && page && <><div className="media-domain-toolbar" aria-label="Media filters">{mediaFilters.map(([value, label]) => <button className={`filter-chip${state.media.filter === value ? " is-active" : ""}`} type="button" aria-pressed={state.media.filter === value} key={value} onClick={() => { void controller.setMediaFilter(value); }}>{label}</button>)}</div><PageState page={page} empty="No media yet." onRetry={retry}><div className="project-split-view"><div className="project-media-grid"><VirtualAssetGrid items={media} project={state.project} rootEpoch={rootEpoch} selectedRef={snapshot.selectedMedia?.ref ?? null} resolvePreview={bridge.resolveProjectPreview} onSelect={(card) => { void controller.openMedia(card); }} onOpen={(card) => { void controller.openMediaViewer(card); }} hasMore={page.nextCursor !== null} loadingMore={page.status === "loading" && page.items.length > 0} appendError={page.status === "error" && page.items.length > 0 ? page.error : null} onLoadMore={() => { void controller.loadMore("media"); }} onRetryAppend={() => { void controller.retryPage("media"); }} scrollMemory={scrollMemory} scrollKey="media" scrollResetToken={mediaScrollToken} /></div><section className="project-preview" aria-label="Media preview"><MediaPreview snapshot={snapshot} /></section></div></PageState></>}
       {activeTab === "compositions" && page && <PageState page={page} empty="No compositions yet." onRetry={retry}><CompositionsPanel page={page} controller={controller} snapshot={snapshot} pagination={<Pagination page={page} onLoad={() => { void controller.loadMore("compositions"); }} onRetry={() => { void controller.retryPage("compositions"); }} />} /></PageState>}
       {activeTab === "units" && page && <PageState page={page} empty="No units yet." onRetry={retry}><div className="project-domain-list">{(page.items as UnitDto[]).map((item) => <article key={item.id}><strong>{item.slug}</strong><span>{item.format}</span><small>ID {item.id} · Selected {item.selectedRevisionId ?? "None"} · Latest {item.latestRevisionId ?? "None"}</small></article>)}<Pagination page={page} onLoad={() => { void controller.loadMore("units"); }} onRetry={() => { void controller.retryPage("units"); }} /></div></PageState>}
@@ -168,6 +156,7 @@ function ConnectedProjectScreen({ project, rootEpoch, controller }: { project: P
     mediaScrollToken,
     overview: new Map<string, number>(),
     media: new Map<string, number>(),
+    documents: new Map<string, number>(),
   }));
   let currentScroll = ownedScroll;
   if (ownedScroll.projectScrollToken !== projectScrollToken || ownedScroll.mediaScrollToken !== mediaScrollToken) {
@@ -176,11 +165,12 @@ function ConnectedProjectScreen({ project, rootEpoch, controller }: { project: P
       mediaScrollToken,
       overview: ownedScroll.projectScrollToken === projectScrollToken ? ownedScroll.overview : new Map<string, number>(),
       media: new Map<string, number>(),
+      documents: ownedScroll.projectScrollToken === projectScrollToken ? ownedScroll.documents : new Map<string, number>(),
     };
     setOwnedScroll(currentScroll);
   }
   const overviewScroll = useRememberedScroll(currentScroll.overview, "overview", projectScrollToken);
-  return <ProjectScreenView project={project} rootEpoch={rootEpoch} controller={controller} snapshot={snapshot} scrollMemory={currentScroll.media} overviewScroll={overviewScroll} />;
+  return <ProjectScreenView project={project} rootEpoch={rootEpoch} controller={controller} snapshot={snapshot} scrollMemory={currentScroll.media} documentsScrollMemory={currentScroll.documents} overviewScroll={overviewScroll} />;
 }
 
 export function ProjectScreen({

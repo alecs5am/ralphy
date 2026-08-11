@@ -69,8 +69,8 @@ const mediaBridge: MediaWorkbenchBridge = {
   loadDocumentPreview: (project, revisionId) => (
     invoke(MEDIA_CHANNELS.loadDocumentPreview, project, revisionId)
   ),
-  searchProjectDocuments: (project, query) => (
-    invoke(MEDIA_CHANNELS.searchProjectDocuments, project, query)
+  searchProjectDocuments: (project, query, cursor) => (
+    invoke(MEDIA_CHANNELS.searchProjectDocuments, project, query, cursor)
   ),
   showProjectDocument: (project, documentId) => (
     invoke(MEDIA_CHANNELS.showProjectDocument, project, documentId)
