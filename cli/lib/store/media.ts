@@ -87,7 +87,11 @@ export function getMediaCards(input: {
   if (!Array.isArray(input.refs) || input.refs.length < 1 || input.refs.length > MAX_REFS) {
     throw new Error(`Media request must carry 1..${MAX_REFS} refs`);
   }
-  const keys = input.refs.map((ref) => `${checkedRefType(ref)}:${checkedId(ref.id)}`);
+  const refs = input.refs.map((ref) => ({
+    type: checkedRefType(ref),
+    id: checkedId(ref.id),
+  }));
+  const keys = refs.map((ref) => `${ref.type}:${ref.id}`);
   if (new Set(keys).size !== keys.length) {
     throw new Error("Media refs must be distinct");
   }
@@ -95,8 +99,22 @@ export function getMediaCards(input: {
   return db.transaction(() => {
     const scope = resolveQueryContext(db, input.context);
     const runAccess = resolveRunQueryAccess(db, input.context);
-    const cards = input.refs.map((ref) =>
-      readCard(db, input.context, scope, ref, undefined, runAccess));
+    const identities = new Map<string, MediaIdentity>();
+    for (const type of new Set(refs.map((ref) => ref.type))) {
+      const ids = refs.filter((ref) => ref.type === type).map((ref) => ref.id);
+      for (const identity of readIdentities(db, scope, runAccess, type, {
+        ids,
+        limit: ids.length,
+      })) {
+        identities.set(`${type}:${identity.id}`, identity);
+      }
+    }
+    const cards = refs.map((ref, index) => {
+      const identity = identities.get(keys[index]!);
+      return identity === undefined
+        ? null
+        : readCard(db, input.context, scope, ref, identity, runAccess);
+    });
     if (cards.some((card) => card === null)) {
       throw new Error("Media request contains an unresolvable ref");
     }
@@ -323,7 +341,7 @@ function readIdentities(
     mediaKind?: MediaKind;
     provenance?: MediaProvenance;
     cursor?: { ordinal: number; id: string } | null;
-    id?: string;
+    ids?: readonly string[];
     limit: number;
   },
 ): MediaIdentity[] {
@@ -337,9 +355,9 @@ function readIdentities(
   const predicate = mediaFilterClause(type, input.filter);
   innerClauses.push(predicate.sql);
   values.push(...predicate.values);
-  if (input.id !== undefined) {
-    innerClauses.push(`${source.id} = ?`);
-    values.push(input.id);
+  if (input.ids !== undefined) {
+    innerClauses.push(`${source.id} IN (${input.ids.map(() => "?").join(", ")})`);
+    values.push(...input.ids);
   }
   const clauses = ["1"];
   if (input.mediaKind !== undefined) {
@@ -560,7 +578,7 @@ function readCard(
   const type = checkedRefType(ref);
   const id = checkedId(ref.id);
   const classification = identity ?? readIdentities(db, scope, runAccess, type, {
-    id,
+    ids: [id],
     limit: 1,
   })[0];
   if (!classification) return null;
