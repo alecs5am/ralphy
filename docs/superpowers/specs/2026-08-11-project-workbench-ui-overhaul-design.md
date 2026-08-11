@@ -72,10 +72,16 @@ removed from all tabs.
   pane positions. A first visit starts at the top.
 - Selection preserves the master position and moves/focuses the detail heading
   without moving unrelated tab scroll state.
-- When the last visible virtual row enters a small threshold and a non-null
-  cursor exists, request exactly one next page. Never drain hidden pages.
+- When the last visible virtual row newly enters a small threshold and a
+  non-null cursor exists, request exactly one next page. Remaining visible
+  through a loading/ready transition does not rearm the request; the tail must
+  leave and re-enter the threshold. Never drain hidden pages.
 - Only one append request per tab may be in flight. Query/filter/root/project
   changes invalidate the cursor generation and reset the affected scroll owner.
+- Switching tabs preserves loaded pages, cursor generations, and scroll
+  positions. A valid append that started while its tab was active may settle
+  into that now-inactive preserved tab; only new inactive-tab appends are
+  rejected.
 - Append failures keep loaded items visible and render a bottom `role="alert"`
   with Retry. Loading more uses a polite status row.
 

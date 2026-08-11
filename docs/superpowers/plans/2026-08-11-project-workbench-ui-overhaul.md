@@ -369,25 +369,54 @@ export function AutoCursorTail(props: {
 export function useRememberedScroll(
   memory: Map<string, number>,
   key: string,
+  resetToken: string | number,
 ): { ref(node: HTMLElement | null): void; onScroll(event: React.UIEvent<HTMLElement>): void };
 
 loadMore(tab: ProjectTab): Promise<void>;
 retryPage(tab: ProjectTab): Promise<void>;
+
+type VirtualAssetGridProps = {
+  // existing preview/cache props
+  hasMore: boolean;
+  loadingMore: boolean;
+  appendError: string | null;
+  onLoadMore(): void;
+  onRetryAppend(): void;
+  scrollMemory: Map<string, number>;
+  scrollKey: string;
+  scrollResetToken: string | number;
+};
 ```
 
 - [ ] **Step 1: Write controller REDs for duplicate/stale append**
 
-Assert two simultaneous `loadMore("media")` calls issue one request; null cursor, inactive tab, initial loading, and append error do not silently drain; tab/root/query reset invalidates a late append; retry sends the same current cursor and retains loaded items.
+Assert two simultaneous `loadMore("media")` calls issue one request; null cursor,
+inactive tab, initial loading, and append error do not silently drain. A tab
+switch does not invalidate an already-started append and its response settles
+into the preserved inactive tab. Project/root/query/filter reset does invalidate
+the affected late append. Retry sends the same current cursor and retains loaded
+items. Keep existing `retry()` for initial/empty-page failure; `retryPage(tab)`
+is only for a loaded-row append error with the same non-null cursor. All remaining
+`Pagination` callers pass their explicit tab to `loadMore(tab)` for a normal
+next page and to `retryPage(tab)` from the loaded-row error branch until later
+tasks remove them; do not add an optional/current-tab overload or a second
+in-flight registry beyond the existing status/request-ID fence.
 
 - [ ] **Step 2: Write mounted IntersectionObserver/scroll-memory REDs**
 
 Extend the real host only with the browser `IntersectionObserver` behavior
-required by production. Mount a scroll root and sentinel, prove intersection
-triggers once, loading prevents a duplicate, error renders `role="alert"` plus
-Retry, and no next cursor removes the observer. Switch tabs/unmount/remount and
-prove separate master/detail offsets restore exactly. Name and exercise all six
-tab keys—Overview, Documents, Media, Compositions, Units, and Activity—rather
-than testing only one generic key.
+required by production. Mount the actual Media grid, assert the observer root is
+the exact `.asset-grid-scroll` element and its sentinel is a descendant after
+`.virtual-grid-space`. Deliver `true`, toggle loading true then false, and deliver
+`true` again: there is still exactly one request until a `false` entry rearms a
+later `true`. Error renders `role="alert"` plus Retry; a null cursor never calls
+append.
+
+Prove `useRememberedScroll` isolates two real owner keys and restores their
+offsets exactly. Changing its reset token clears only that owner to zero. Task 3
+wires the real Media and Overview owners. Tasks 4, 7, 8, and 9 wire Documents,
+Compositions, and Units master/detail plus Activity. Do not substitute a
+string-only inventory test for mounted owner wiring.
 
 - [ ] **Step 3: Run the focused RED**
 
@@ -397,13 +426,35 @@ bun run test -- tests/project-domain-state.test.ts tests/project-screen-behavior
 
 - [ ] **Step 4: Implement the smallest native primitives**
 
-`AutoCursorTail` uses one `IntersectionObserver` with `root`, `rootMargin: "240px 0px"`, and no timer loop. It calls `onLoadMore` only when `hasMore && !loading && !error`. It renders a polite loading status or bottom alert/Retry in the same sentinel location.
+`AutoCursorTail` uses one `IntersectionObserver` for the lifetime of its mounted
+root/sentinel, with `rootMargin: "240px 0px"` and no timer loop. The callback
+reads current props through refs and keeps a `wasIntersecting` latch. It calls
+`onLoadMore` only on a false-to-true entry while
+`hasMore && !loading && !error`; loading/error/hasMore renders must not recreate
+the observer or rearm the latch. It renders a polite loading status or bottom
+alert/Retry in the same sentinel location.
 
-`useRememberedScroll` stores `scrollTop` in the parent-owned map on real scroll and restores it in `useLayoutEffect`/ref attachment. Do not introduce global storage or controller DOM state.
+`useRememberedScroll` stores `scrollTop` in the parent-owned map on real scroll
+and restores it in `useLayoutEffect`/ref attachment. A changed reset token deletes
+only that key and sets its connected owner to zero. Project/root changes reset
+all affected owners; Media query changes reset only Media. Do not introduce
+global storage or controller DOM state.
 
 - [ ] **Step 5: Harden controller and expose the Media tail**
 
-Make `loadMore(tab)` verify active tab, non-null cursor, non-loading status, and no current append request before calling the existing append reducer path. Keep one request ID per tab/generation. Add the tail to the actual `.asset-grid-scroll`; remove the shared `Pagination` component only where the replacement is active. Later panel tasks remove the remaining buttons.
+Make `loadMore(tab)` verify active tab, non-null cursor, non-loading status, and
+no current append request before calling the existing append reducer path. Keep
+the existing reducer status/request ID per tab generation. Do not recheck active
+tab on settlement: tab switches preserve valid state. Project/root/query/filter
+generation changes still fence stale responses.
+
+`VirtualAssetGrid` owns the actual `.asset-grid-scroll`, so it consumes the
+paging and remembered-scroll props above, composes its real ref/onScroll, and
+renders `AutoCursorTail` after `.virtual-grid-space` inside that same element.
+`ProjectScreen` attaches the same hook to Overview's existing outer content
+owner. Remove the Media `Pagination`; remaining buttons call `loadMore(tab)` for
+normal append and `retryPage(tab)` for append Retry until their panel tasks
+remove them.
 
 - [ ] **Step 6: Run focused GREEN and typecheck**
 
@@ -523,6 +574,11 @@ a depth/entry ceiling matching the existing JSON IPC bound; it never uses
 
 The detail sticky header owns Read/Edit, format, title, revision, Preview/Cancel/Save. Use native `<textarea>`, `<input>`, `<select>` or existing `SelectMenu`; no editor dependency.
 
+Attach `useRememberedScroll` to the actual Documents master and detail owners.
+Project/root changes reset both. A new normalized document-search query resets
+only the master owner; selection preserves master scroll and focuses the detail
+heading. Do not attach memory to the locked outer panel.
+
 - [ ] **Step 5: Implement independent layout and exact visual states**
 
 CSS uses a 280–340px master column and minmax detail, each `overflow:auto`, `min-height:0`; below 720px stack with bounded master height. Selected rows use `--selected` plus `--ring-select`; hover uses `--hover`. Add explicit format badge colors derived from existing semantic/accent tokens, not a new palette.
@@ -572,16 +628,15 @@ type VirtualAssetGridProps = {
   // existing preview/cache props
   selectedRef: MediaSelection;
   density: number;
-  hasMore: boolean;
-  loadingMore: boolean;
-  appendError: string | null;
   onSelect(card: MediaCardDto): void;
   onOpen(card: MediaCardDto): void;
   onContextMenu(card: MediaCardDto, point: { x: number; y: number }): void;
-  onLoadMore(): void;
-  onRetryAppend(): void;
 };
 ```
+
+These are additions to the paging and remembered-scroll `VirtualAssetGrid`
+props already implemented by Task 3. Do not redeclare a second tail or scroll
+owner in `MediaPanel`.
 
 - [ ] **Step 1: Write mounted interaction/filter REDs**
 
@@ -798,6 +853,9 @@ the visible end of every cursor-backed rail/list.
 
 Give master/detail their own `overflow:auto; min-height:0`; sticky header
 remains inside detail. Remove Pagination and the obsolete aggregate/drain code.
+Attach `useRememberedScroll` to both actual Composition owners. Project/root
+changes reset both; selecting a Composition or revision preserves the master
+offset while the connected detail heading receives focus.
 
 - [ ] **Step 6: Run GREEN and mutation checks**
 
@@ -856,6 +914,10 @@ bun run test -- tests/units-panel.test.tsx tests/project-screen-behavior.test.ts
 - [ ] **Step 3: Implement the panel using Composition grammar**
 
 Use installed virtualization for master rows, `AutoCursorTail`, sticky detail header, horizontal revision rail, ordered semantic sections, and native technical disclosure. Reuse selected/hover/focus classes; do not introduce a new generic master-detail framework.
+
+Attach `useRememberedScroll` to the actual Unit master and detail owners.
+Project/root changes reset both; Unit/revision selection preserves the master
+offset while the connected detail heading receives focus.
 
 Wire exact controller select action and error states. Omit item navigation when current reader contracts cannot reverse-resolve the parent without a scan.
 
@@ -931,6 +993,10 @@ path from a live event. Fence late catch-up by generation/request ID;
 stale/lower announcements are ignored.
 
 Render a virtualized semantic list grouped by local calendar day; rows show compact time, humanized action label, entity type/ID as secondary technical text, and no action button without an exact destination. Add `AutoCursorTail`; remove final Pagination usage.
+
+Attach `useRememberedScroll` to the actual Activity scroll owner. Live catch-up
+must preserve that offset; only project/root replacement resets it. Overview
+keeps the outer page owner already wired by `ProjectScreen`.
 
 - [ ] **Step 4: Run GREEN and typecheck**
 
