@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DomainError } from "./errors/domain.js";
 import { assertStartupJournalReady } from "./migration/cutover-journal.js";
+import { SCHEMA_VERSION } from "./store/schema.js";
 
 export type DataRootIdentity = {
   dataRoot: string;
@@ -202,9 +203,27 @@ function openStandaloneWalSnapshot(
   databasePath: string,
   openError: unknown,
 ): Database {
+  let directoryDescriptor: number | null = null;
   let descriptor: number | null = null;
   let snapshot: Database | null = null;
   try {
+    const directoryPath = path.dirname(databasePath);
+    const directoryBefore = fs.lstatSync(directoryPath);
+    if (!directoryBefore.isDirectory() || directoryBefore.isSymbolicLink()) {
+      throw openError;
+    }
+    directoryDescriptor = fs.openSync(
+      directoryPath,
+      fs.constants.O_RDONLY | fs.constants.O_DIRECTORY |
+        fs.constants.O_NOFOLLOW,
+    );
+    const directoryOpened = fs.fstatSync(directoryDescriptor);
+    if (
+      !directoryOpened.isDirectory() ||
+      !sameFile(directoryBefore, directoryOpened)
+    ) {
+      throw openError;
+    }
     if (hasWalSidecar(databasePath)) throw openError;
     const before = fs.lstatSync(databasePath);
     if (!before.isFile() || before.isSymbolicLink()) throw openError;
@@ -220,6 +239,11 @@ function openStandaloneWalSnapshot(
     if (
       !sameFile(opened, after) ||
       !sameFile(opened, current) ||
+      !samePinnedDirectory(
+        directoryDescriptor,
+        directoryOpened,
+        directoryPath,
+      ) ||
       hasWalSidecar(databasePath) ||
       image.byteLength !== opened.size ||
       image.subarray(0, 16).toString("binary") !== "SQLite format 3\0" ||
@@ -241,9 +265,28 @@ function openStandaloneWalSnapshot(
     ) {
       throw openError;
     }
+    const migration = snapshot
+      .query<{ version: number | null }, []>(
+        "SELECT MAX(version) AS version FROM schema_migrations",
+      )
+      .get();
+    const userVersion = snapshot
+      .query<{ user_version: number }, []>("PRAGMA user_version")
+      .get();
+    if (
+      migration?.version !== SCHEMA_VERSION ||
+      userVersion?.user_version !== SCHEMA_VERSION
+    ) {
+      throw openError;
+    }
     if (
       hasWalSidecar(databasePath) ||
-      !sameFile(opened, fs.lstatSync(databasePath))
+      !sameFile(opened, fs.lstatSync(databasePath)) ||
+      !samePinnedDirectory(
+        directoryDescriptor,
+        directoryOpened,
+        directoryPath,
+      )
     ) {
       throw openError;
     }
@@ -256,13 +299,42 @@ function openStandaloneWalSnapshot(
     }
     throw openError;
   } finally {
-    if (descriptor !== null) fs.closeSync(descriptor);
+    try {
+      if (descriptor !== null) fs.closeSync(descriptor);
+    } finally {
+      if (directoryDescriptor !== null) fs.closeSync(directoryDescriptor);
+    }
   }
 }
 
 function hasWalSidecar(databasePath: string): boolean {
-  return fs.existsSync(`${databasePath}-wal`) ||
-    fs.existsSync(`${databasePath}-shm`);
+  return pathEntryExists(`${databasePath}-wal`) ||
+    pathEntryExists(`${databasePath}-shm`);
+}
+
+function pathEntryExists(candidate: string): boolean {
+  try {
+    fs.lstatSync(candidate);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code !== "ENOENT";
+  }
+}
+
+function samePinnedDirectory(
+  descriptor: number,
+  opened: fs.Stats,
+  directoryPath: string,
+): boolean {
+  try {
+    const after = fs.fstatSync(descriptor);
+    const current = fs.lstatSync(directoryPath);
+    return after.isDirectory() && current.isDirectory() &&
+      !current.isSymbolicLink() && sameFile(opened, after) &&
+      sameFile(opened, current);
+  } catch {
+    return false;
+  }
 }
 
 function isSqliteCantOpen(error: unknown): boolean {
