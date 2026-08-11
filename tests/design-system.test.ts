@@ -41,7 +41,7 @@ const document = {
     iterationId: null, format: "markdown" as const, title: "Launch brief", authoredBySessionId: null, createdAt: 1 },
 };
 
-async function activeScreenMarkup(): Promise<{ workspace: string; media: string; documents: string }> {
+async function activeScreenMarkup(): Promise<{ workspace: string; overview: string; media: string; documents: string }> {
   const workspaceValue = {
     workspace: { id: "workspace-1", slug: "launch", name: "Launch Studio", rowVersion: 1, createdAt: 1, updatedAt: 2 },
     projects: { items: [{ id: "project-1", workspaceId: "workspace-1", slug: "launch", name: "Launch", state: "active", rowVersion: 1, createdAt: 1, updatedAt: 2 }], nextCursor: null },
@@ -62,7 +62,11 @@ async function activeScreenMarkup(): Promise<{ workspace: string; media: string;
   }));
 
   const projectController = createProjectScreenController({
-    loadProjectOverview: async () => ({ project: { id: "project-1", workspaceId: "workspace-1", slug: "launch", name: "Launch", purpose: null, state: "active", rowVersion: 1, createdAt: 1, updatedAt: 2 } }),
+    loadProjectOverview: async () => ({
+      project: { id: "project-1", workspaceId: "workspace-1", slug: "launch", name: "Launch", purpose: "Launch campaign", state: "active", rowVersion: 1, createdAt: 1, updatedAt: 2 },
+      mediaCounts: { artifacts: 12, objects: 8, runObjects: 4 },
+      metrics: { publicationCount: 2, views: 1_200, likes: 80, comments: 12, shares: 7, watchTimeMs: 345_000 },
+    }),
     loadProjectPage: async ({ tab }) => tab === "media"
       ? { items: [mediaCard], nextCursor: "next-page" }
       : { items: [document], nextCursor: null },
@@ -76,6 +80,12 @@ async function activeScreenMarkup(): Promise<{ workspace: string; media: string;
     loadProjectMediaRevisions: async () => ({ items: [], nextCursor: null }),
     selectProjectMediaRevision: async () => { throw new Error("Not used"); },
   }, project);
+  await projectController.start();
+  const overview = renderToStaticMarkup(createElement(ProjectScreenView, {
+    project,
+    controller: projectController,
+    snapshot: projectController.getSnapshot(),
+  }));
   await projectController.selectTab("media");
   projectController.selectMedia(mediaCard);
   const media = renderToStaticMarkup(createElement(ProjectScreenView, {
@@ -90,11 +100,11 @@ async function activeScreenMarkup(): Promise<{ workspace: string; media: string;
     controller: projectController,
     snapshot: projectController.getSnapshot(),
   }));
-  return { workspace, media, documents };
+  return { workspace, overview, media, documents };
 }
 
 type GeometryResult = {
-  screen: "workspace" | "media" | "documents";
+  screen: "workspace" | "overview" | "media" | "documents";
   width: number;
   height: number;
   overflows: string[];
@@ -107,16 +117,20 @@ type GeometryResult = {
   nestedMediaScroll: boolean;
   mediaInsets: number[];
   focus: Array<{ selector: string; width: number; contrast: number }>;
+  overviewColumns: number | null;
+  overviewWidth: number | null;
+  overviewMetricWidths: number[];
+  overviewScrollOwners: string[];
 };
 
-async function chromiumGeometry(markup: { workspace: string; media: string; documents: string }): Promise<GeometryResult[]> {
+async function chromiumGeometry(markup: { workspace: string; overview: string; media: string; documents: string }): Promise<GeometryResult[]> {
   const directory = mkdtempSync(join(tmpdir(), "ralphy-geometry-"));
   try {
     const links = ["reset.css", "tokens.css", "app.css", "workbench.css"]
       .map((file) => `<link rel="stylesheet" href="${pathToFileURL(join(process.cwd(), "src/styles", file)).href}">`)
       .join("");
     const shell = (screen: string) => `<div class="workbench has-right-panel" style="--sidebar-w:288px;--inspector-w:336px"><aside class="context-sidebar"></aside><section class="main-shell"><header class="main-header"></header><div class="main-content-stage">${screen}</div></section><aside class="utility-right-panel"></aside></div>`;
-    writeFileSync(join(directory, "layout.html"), `<!doctype html><html><head>${links}</head><body><div id="root"></div><template id="workspace">${shell(markup.workspace)}</template><template id="media">${shell(markup.media)}</template><template id="documents">${shell(markup.documents)}</template></body></html>`);
+    writeFileSync(join(directory, "layout.html"), `<!doctype html><html><head>${links}</head><body><div id="root"></div><template id="workspace">${shell(markup.workspace)}</template><template id="overview">${shell(markup.overview)}</template><template id="media">${shell(markup.media)}</template><template id="documents">${shell(markup.documents)}</template></body></html>`);
     writeFileSync(join(directory, "package.json"), JSON.stringify({ main: "main.cjs" }));
     writeFileSync(join(directory, "main.cjs"), `
       const { app, BrowserWindow } = require("electron");
@@ -128,12 +142,18 @@ async function chromiumGeometry(markup: { workspace: string; media: string; docu
         await win.webContents.debugger.sendCommand("DOM.enable");
         await win.webContents.debugger.sendCommand("CSS.enable");
         const results = [];
-        for (const [width, height] of [[1360, 860], [1100, 720]]) {
+        for (const [screen, width, height] of [["workspace", 1360, 860], ["media", 1360, 860], ["documents", 1360, 860], ["workspace", 1100, 720], ["media", 1100, 720], ["documents", 1100, 720], ["overview", 476, 760], ["overview", 900, 760], ["overview", 1280, 860], ["overview", 1800, 900]]) {
           win.setContentSize(width, height);
-          for (const screen of ["workspace", "media", "documents"]) {
-            await win.webContents.executeJavaScript(\`(async () => {
+          await win.webContents.executeJavaScript(\`(async () => {
               const screen = \${JSON.stringify(screen)}, root = document.getElementById("root");
               root.innerHTML = document.getElementById(screen).innerHTML;
+              if (screen === "overview") {
+                const workbench = root.querySelector(".workbench");
+                workbench.style.setProperty("--sidebar-column", "0px");
+                workbench.style.setProperty("--right-column", "0px");
+                workbench.style.minWidth = "0";
+                root.querySelectorAll("aside").forEach((node) => { node.style.display = "none"; });
+              }
               if (screen === "media") { const space = root.querySelector(".virtual-grid-space"); if (space) space.style.height = "1600px"; }
               if (screen === "documents") {
                 const detail = root.querySelector(".documents-detail"), viewer = detail?.querySelector(":scope > .markdown-view");
@@ -142,7 +162,7 @@ async function chromiumGeometry(markup: { workspace: string; media: string; docu
               await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
             })()\`);
             const documentNode = await win.webContents.debugger.sendCommand("DOM.getDocument");
-            const focusSelectors = screen === "documents" ? [".document-search input", ".document-row", ".document-detail-heading"] : [screen === "media" ? ".select-menu-trigger" : ".project-table-row"];
+            const focusSelectors = screen === "documents" ? [".document-search input", ".document-row", ".document-detail-heading"] : [screen === "media" ? ".select-menu-trigger" : screen === "overview" ? ".overview-link" : ".project-table-row"];
             for (const selector of focusSelectors) {
               const focusNode = await win.webContents.debugger.sendCommand("DOM.querySelector", { nodeId: documentNode.root.nodeId, selector });
               await win.webContents.debugger.sendCommand("CSS.forcePseudoState", { nodeId: focusNode.nodeId, forcedPseudoClasses: ["focus-visible"] });
@@ -154,7 +174,9 @@ async function chromiumGeometry(markup: { workspace: string; media: string; docu
                 ? [".main-region", ".screen-header", ".metrics-band", ".metric", ".workspace-domain-body", ".workspace-projects", ".project-table", ".project-table-row"]
                 : screen === "documents"
                   ? [".main-region", ".project-domain-body", ".documents-workbench", ".documents-master", ".document-search", ".document-search input", ".documents-detail"]
-                  : [".main-region", ".project-domain-body", ".media-panel", ".media-domain-toolbar", ".project-media-grid", ".asset-grid-scroll"];
+                  : screen === "overview"
+                    ? [".project-domain-body", ".overview-dashboard", ".overview-card", ".overview-metrics"]
+                    : [".main-region", ".project-domain-body", ".media-panel", ".media-domain-toolbar", ".project-media-grid", ".asset-grid-scroll"];
               const overflows = [];
               for (const selector of selectors) for (const element of root.querySelectorAll(selector)) {
                 if (element.scrollWidth > element.clientWidth + 1) overflows.push(selector + ":" + element.scrollWidth + ">" + element.clientWidth);
@@ -179,7 +201,7 @@ async function chromiumGeometry(markup: { workspace: string; media: string; docu
               const mediaInsets = [".project-domain-body", ".asset-grid-scroll"].map((selector) => {
                 const element = root.querySelector(selector); return element ? parseFloat(getComputedStyle(element).paddingLeft) : 0;
               }).filter((value) => value > 0);
-              const focusSelectors = screen === "documents" ? [".document-search input", ".document-row", ".document-detail-heading"] : [screen === "media" ? ".select-menu-trigger" : ".project-table-row"];
+              const focusSelectors = screen === "documents" ? [".document-search input", ".document-row", ".document-detail-heading"] : [screen === "media" ? ".select-menu-trigger" : screen === "overview" ? ".overview-link" : ".project-table-row"];
               const focus = focusSelectors.map((selector) => {
                 const target = root.querySelector(selector);
                 const style = getComputedStyle(target);
@@ -191,9 +213,13 @@ async function chromiumGeometry(markup: { workspace: string; media: string; docu
                 const a = luminance(color(style.outlineColor).rgb), b = luminance(background.rgb);
                 return { selector, width: style.outlineStyle === "none" ? 0 : parseFloat(style.outlineWidth), contrast: (Math.max(a, b) + .05) / (Math.min(a, b) + .05) };
               });
-              return { screen, width: innerWidth, height: innerHeight, overflows, metricColumns, mediaScrollOwners, documentScrollOwners, documentDetailWidth: documentDetail?.getBoundingClientRect().width ?? null, documentViewerWidths, documentViewerMaxWidths, nestedMediaScroll, mediaInsets, focus };
+              const overviewDashboard = root.querySelector(".overview-dashboard");
+              const overviewColumns = overviewDashboard ? getComputedStyle(overviewDashboard).gridTemplateColumns.split(" ").filter(Boolean).length : null;
+              const overviewWidth = overviewDashboard?.getBoundingClientRect().width ?? null;
+              const overviewMetricWidths = [...root.querySelectorAll(".overview-metrics > div")].map((item) => item.getBoundingClientRect().width);
+              const overviewScrollOwners = [".project-domain-body", ".overview-dashboard"].filter((selector) => { const item = root.querySelector(selector); if (!item) return false; const overflow = getComputedStyle(item).overflowY; return overflow === "auto" || overflow === "scroll"; });
+              return { screen, width: innerWidth, height: innerHeight, overflows, metricColumns, mediaScrollOwners, documentScrollOwners, documentDetailWidth: documentDetail?.getBoundingClientRect().width ?? null, documentViewerWidths, documentViewerMaxWidths, nestedMediaScroll, mediaInsets, focus, overviewColumns, overviewWidth, overviewMetricWidths, overviewScrollOwners };
             })()\`));
-          }
         }
         process.stdout.write("RALPHY_GEOMETRY=" + JSON.stringify(results) + "\\n");
         app.quit();
@@ -260,10 +286,10 @@ describe("design system contract", () => {
     expect(styles).toMatch(/\.asset-modal-surface,[\s\S]*corner-shape:\s*squircle/);
   });
 
-  test("renders active Workspace, Media, and Documents screens with visible focus in Chromium", async () => {
+  test("renders active surfaces and the overview dashboard geometry with visible focus in Chromium", async () => {
     const results = await chromiumGeometry(await activeScreenMarkup());
 
-    expect(results).toHaveLength(6);
+    expect(results).toHaveLength(10);
     expect(results.filter(({ screen }) => screen === "documents")).toHaveLength(2);
     expect(results.map(({ screen, width, overflows }) => ({ screen, width, overflows })))
       .toEqual(results.map(({ screen, width }) => ({ screen, width, overflows: [] })));
@@ -284,6 +310,12 @@ describe("design system contract", () => {
       .toEqual([{ width: 1360, documentViewerMaxWidths: ["820px", "820px"] }, { width: 1100, documentViewerMaxWidths: ["820px", "820px"] }]);
     expect(results.filter(({ screen }) => screen === "documents").map(({ width, focus }) => ({ width, selectors: focus.map(({ selector }) => selector) })))
       .toEqual([{ width: 1360, selectors: [".document-search input", ".document-row", ".document-detail-heading"] }, { width: 1100, selectors: [".document-search input", ".document-row", ".document-detail-heading"] }]);
+    expect(results.filter(({ screen }) => screen === "overview").map(({ width, overviewColumns }) => ({ width, overviewColumns })))
+      .toEqual([{ width: 476, overviewColumns: 1 }, { width: 900, overviewColumns: 2 }, { width: 1280, overviewColumns: 12 }, { width: 1800, overviewColumns: 12 }]);
+    expect(results.filter(({ screen, overviewWidth }) => screen === "overview" && overviewWidth !== null && overviewWidth > 1440)).toEqual([]);
+    expect(results.filter(({ screen }) => screen === "overview").map(({ width, overviewScrollOwners }) => ({ width, overviewScrollOwners })))
+      .toEqual([476, 900, 1280, 1800].map((width) => ({ width, overviewScrollOwners: [".project-domain-body"] })));
+    expect(results.flatMap(({ screen, width, overviewMetricWidths }) => screen === "overview" ? overviewMetricWidths.filter((value) => value < 60).map((value) => ({ width, value })) : [])).toEqual([]);
     expect(results.flatMap(({ screen, width, focus }) => focus.filter(({ width: focusWidth }) => focusWidth < 2).map((value) => ({ screen, width, focus: value })))).toEqual([]);
     expect(results.flatMap(({ screen, width, focus }) => focus.filter(({ contrast }) => contrast < 3).map((value) => ({ screen, width, focus: value })))).toEqual([]);
   }, 20_000);

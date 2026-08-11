@@ -4,6 +4,7 @@ import { describe, expect, test, vi } from "vitest";
 import type { ArtifactRevisionDto, DocumentSearchDto, MediaCardDto, MediaGenerationDetailDto, ProjectOverviewDto, UnitDto, UnitRevisionDto } from "../electron/ralphy/types";
 import type { ProjectSummary } from "../src/lib/ipc";
 import * as screen from "../src/screens/ProjectScreen";
+import { OverviewPanel } from "../src/screens/project/OverviewPanel";
 import { bridge } from "../src/lib/ipc";
 import { createReactHost, type HostNode, reactHostGlobalKeys } from "./react-host";
 
@@ -59,6 +60,12 @@ async function clickButton(root: HostNode, text: string): Promise<void> {
     await Promise.resolve();
     await Promise.resolve();
   });
+}
+
+async function clickButtonContaining(root: HostNode, text: string): Promise<void> {
+  const button = root.findAll((node) => node.tagName === "BUTTON" && node.textContent.includes(text))[0];
+  if (!button) throw new Error(`Missing ${text} button`);
+  await act(async () => button.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
 }
 
 function deferred<Value>() {
@@ -225,9 +232,8 @@ describe("ProjectScreen behavior", () => {
     });
   });
 
-  test("renders returned Overview records as clearly bounded recent data", async () => {
-    const api = createApi();
-    api.loadProjectOverview.mockResolvedValue({
+  test("overview dashboard keeps facts readable and navigation exact", async () => {
+    const value: ProjectOverviewDto = {
       ...overview,
       project: { ...overview.project, purpose: "Give reviewers one trusted campaign workbench." },
       iterations: { items: [{ id: "iteration-1", projectId: "project-1", number: 3, title: "Launch polish", state: "active", priorIterationChanges: "Shortened the cold open and replaced the end card.", createdAt: 1, closedAt: null }], nextCursor: "more" },
@@ -240,36 +246,43 @@ describe("ProjectScreen behavior", () => {
       activity: { items: [{ sequence: 9, workspaceId: "workspace-1", projectId: "project-1", entityType: "run", entityId: "run-1", action: "started", createdAt: 3 }], nextCursor: 9 },
       publications: { items: [{ id: "publication-1", unitId: "unit-1", presentationId: "presentation-1", platform: "tiktok", socialAccountId: "account-1", rail: "postiz", state: "published", url: "https://example.test/post/1", scheduledAt: 2, submittedAt: 3, publishedAt: 4, createdAt: 1, updatedAt: 4 }], nextCursor: "more-publications" },
       metrics: { publicationCount: 4, views: 1200, likes: 80, comments: 12, shares: 7, watchTimeMs: 345_000 },
-    });
-    const controller = createController(api);
+    };
+    const onViewTab = vi.fn();
+    const onOpenDocument = vi.fn();
+    const onOpenComposition = vi.fn();
+    const onOpenUnit = vi.fn();
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
 
-    await controller.start();
-    const markup = renderController(controller);
-    expect(markup).toContain("Recent records (bounded)");
-    expect(markup).toContain("Give reviewers one trusted campaign workbench.");
-    expect(markup).toContain("Launch polish");
-    expect(markup).toContain("Shortened the cold open and replaced the end card.");
-    expect(markup).toContain("artifact_revision · revision-1");
-    expect(markup).toContain("edit · working");
-    expect(markup).toContain("Creative brief");
-    expect(markup).toContain("Bound revision-1 · Current revision-2 · Newer head available");
-    expect(markup).toContain("hero-cut");
-    expect(markup).toContain("Selected composition-revision-1 · Latest composition-revision-2");
-    expect(markup).toContain("reel");
-    expect(markup).toContain("Final render · render · running");
-    expect(markup).toContain("#9 · started");
-    expect(markup).toContain("Recent publications (bounded)");
-    expect(markup).toContain("tiktok · published");
-    expect(markup).toContain("postiz");
-    expect(markup).toContain("Scheduled");
-    expect(markup).toContain("Submitted");
-    expect(markup).toContain("Published");
-    expect(markup).toContain("https://example.test/post/1");
-    expect(markup).not.toContain('href="https://example.test/post/1"');
-    for (const [value, label] of [["4", "Publications"], ["1200", "Views"], ["80", "Likes"], ["12", "Comments"], ["7", "Shares"], ["345000", "Watch time (ms)"]]) {
-      expect(markup).toContain(`>${value}</span><span class="metric-label">${label}`);
+    try {
+      await act(async () => root.render(<OverviewPanel value={value} onViewTab={onViewTab} onOpenDocument={onOpenDocument} onOpenComposition={onOpenComposition} onOpenUnit={onOpenUnit} />));
+      expect(host.container.textContent).toContain("Give reviewers one trusted campaign workbench.");
+      expect(host.container.textContent).toContain("Production stream");
+      expect(host.container.textContent).toContain("Deliverables");
+      expect(host.container.textContent).toContain("Distribution");
+      expect(host.container.textContent).toContain("Recent activity");
+      expect(host.container.textContent).not.toContain("Recent records (bounded)");
+      expect(host.container.textContent).not.toContain("project-1");
+      expect(host.container.querySelector(".overview-dashboard")).not.toBeNull();
+
+      await clickButton(host.container, "Browse media");
+      await clickButtonContaining(host.container, "Creative brief");
+      await clickButtonContaining(host.container, "hero-cut");
+      await clickButtonContaining(host.container, "reel");
+      expect(onViewTab).toHaveBeenCalledWith("media");
+      expect(onOpenDocument).toHaveBeenCalledWith("document-1");
+      expect(onOpenComposition).toHaveBeenCalledWith("composition-1");
+      expect(onOpenUnit).toHaveBeenCalledWith("unit-1");
+      expect(host.container.findAll((node) => node.tagName === "BUTTON" && node.textContent.includes("Final render"))).toEqual([]);
+
+      const sparse = renderToStaticMarkup(<OverviewPanel value={overview} onViewTab={() => undefined} onOpenDocument={() => undefined} onOpenComposition={() => undefined} onOpenUnit={() => undefined} />);
+      expect(sparse).not.toContain("Distribution");
+      expect(sparse).not.toContain("Recent activity");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
     }
-    expect(markup).not.toContain(">1</strong><span>Documents");
   });
 
   test("media viewer ignores late A preview/provenance and navigates only loaded rows", async () => {
@@ -562,11 +575,10 @@ describe("ProjectScreen behavior", () => {
 
     await controller.start();
     const markup = renderController(controller);
-    expect(markup).toContain("Purpose not provided");
-    expect(markup).toContain("No prior iteration changes");
-    expect(markup).toContain("No publications returned.");
-    expect(markup).toContain('>0</span><span class="metric-label">Publications');
-    expect(markup.match(/>—<\/span>/g)).toHaveLength(5);
+    expect(markup).toContain("No project purpose has been added yet.");
+    expect(markup).toContain("Initial");
+    expect(markup).not.toContain("Distribution");
+    expect(markup).not.toContain('aria-label="Production metrics"');
   });
 
   test("loads Overview immediately and each other tab only on first selection", async () => {
