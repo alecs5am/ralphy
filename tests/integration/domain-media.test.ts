@@ -359,6 +359,58 @@ describe("media cards", () => {
     );
   });
 
+  test("classifies an exact batch once per selected media type", async () => {
+    const root = makeRoot();
+    const f = await fixture(root);
+    const secondArtifact = createArtifact({
+      projectId: f.project.id,
+      slug: "batch-second",
+      kind: "image",
+    });
+    const secondRevision = addArtifactRevision({
+      artifactId: secondArtifact.id,
+      objectId: f.sharedObject.id,
+      state: "approved",
+    });
+    selectArtifactRevision({
+      artifactId: secondArtifact.id,
+      revisionId: secondRevision.id,
+      expectedRevisionId: null,
+    });
+    const secondRunObject = recordRunObject({
+      runId: f.run.id,
+      path: "tmp/trace-2.bin",
+      purpose: "diagnostic",
+      state: "diagnostic",
+      retention: "keep-on-failure",
+    });
+    const refs = [
+      { type: "artifact" as const, id: secondArtifact.id },
+      { type: "object" as const, id: f.projectObject.id },
+      { type: "run-object" as const, id: f.runObject.id },
+      { type: "artifact" as const, id: f.artifact.id },
+      { type: "run-object" as const, id: secondRunObject.id },
+      { type: "object" as const, id: f.sharedObject.id },
+    ];
+    const query = spyOn(openDomainDb(), "query");
+    try {
+      const cards = getMediaCards({
+        context: { workspaceId: f.workspace.id, projectId: f.project.id },
+        refs,
+      });
+      expect(cards.map((card) => card.ref)).toEqual(refs);
+      const identityQueries = query.mock.calls.filter(([sql]) =>
+        String(sql).includes("SELECT identity.id, identity.createdAt"),
+      );
+      expect(identityQueries.filter(([sql]) =>
+        String(sql).includes("COUNT(*) AS producerCount"),
+      )).toHaveLength(1);
+      expect(identityQueries).toHaveLength(3);
+    } finally {
+      query.mockRestore();
+    }
+  });
+
   test("rejects the whole batch atomically without naming the bad ref", async () => {
     const root = makeRoot();
     const f = await fixture(root);
@@ -737,6 +789,33 @@ describe("media cards", () => {
       retention: "keep",
       mime: "image/png",
     });
+    const crossAuthorityArtifact = selected("facet-cross-authority-producers");
+    recordRunResult(openDomainDb(), {
+      runId: privateRun.id,
+      position: 1,
+      entityType: "artifact_revision",
+      entityId: crossAuthorityArtifact.revision.id,
+    });
+    const otherRun = startConsumerOperationRun(other.authority, {
+      sessionId: otherSession.id,
+      workspaceId: f.workspace.id,
+      projectId: f.project.id,
+      kind: "generation",
+      external: {
+        runId: "facet-other-run",
+        nodeId: "facet-other-node",
+        attempt: 1,
+        operation: "generation",
+        idempotencyKey: "facet-other",
+      },
+      requestDigest: requestDigest({ fixture: "facet-other" }),
+    }).run;
+    recordRunResult(openDomainDb(), {
+      runId: otherRun.id,
+      position: 0,
+      entityType: "artifact_revision",
+      entityId: crossAuthorityArtifact.revision.id,
+    });
     const query = spyOn(openDomainDb(), "query");
     try {
       expect(listMedia({
@@ -745,6 +824,13 @@ describe("media cards", () => {
       }).items.length).toBeGreaterThan(1);
       expect(query.mock.calls.filter(([sql]) =>
         String(sql).includes("SELECT consumer_principal_id AS principalId"),
+      )).toHaveLength(1);
+      const identityQueries = query.mock.calls.filter(([sql]) =>
+        String(sql).includes("SELECT identity.id, identity.createdAt"),
+      );
+      expect(identityQueries).toHaveLength(3);
+      expect(identityQueries.filter(([sql]) =>
+        String(sql).includes("COUNT(*) AS producerCount"),
       )).toHaveLength(1);
     } finally {
       query.mockRestore();
@@ -757,6 +843,15 @@ describe("media cards", () => {
       context: { sessionId: otherSession.id, consumerAuthority: other.authority },
       ref: { type: "artifact", id: privateArtifact.artifact.id },
     }).provenance).toBe("unknown");
+    for (const [sessionId, consumerAuthority] of [
+      [ownerSession.id, owner.authority],
+      [otherSession.id, other.authority],
+    ] as const) {
+      expect(getMediaCard({
+        context: { sessionId, consumerAuthority },
+        ref: { type: "artifact", id: crossAuthorityArtifact.artifact.id },
+      }).provenance).toBe("unknown");
+    }
     expect(listMedia({
       context: { sessionId: otherSession.id, consumerAuthority: other.authority },
       types: ["run-object"],

@@ -408,7 +408,13 @@ describe("Desktop bridge domain contract", () => {
       ref: { type: "artifact", id: generatedArtifact.id },
       expectedSelectedRevisionId: generatedRevision.id,
       verdict: "approved",
-    }, ownerBridge)).toMatchObject({ card: { selectedState: "approved" } });
+    }, ownerBridge)).toMatchObject({
+      card: {
+        selectedState: "approved",
+        mediaKind: "other",
+        provenance: "unknown",
+      },
+    });
 
     for (const [methodContext, sessionId] of [
       [ownerBridge, ownerSession.id],
