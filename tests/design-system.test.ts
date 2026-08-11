@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
-import type { MediaCardDto, WorkspaceOverviewDto } from "../electron/ralphy/types";
+import type { ActivityDto, CompositionDto, CompositionRevisionDto, MediaCardDto, UnitDto, UnitRevisionDto, WorkspaceOverviewDto } from "../electron/ralphy/types";
 import type { ProjectSummary } from "../src/lib/ipc";
 import { ProjectScreenView, createProjectScreenController } from "../src/screens/ProjectScreen";
 import { WorkspaceScreenView, createWorkspaceScreenController } from "../src/screens/WorkspaceScreen";
@@ -41,7 +41,31 @@ const document = {
     iterationId: null, format: "markdown" as const, title: "Launch brief", authoredBySessionId: null, createdAt: 1 },
 };
 
-async function activeScreenMarkup(): Promise<{ workspace: string; overview: string; media: string; documents: string }> {
+const composition: CompositionDto = {
+  id: "composition-1", projectId: "project-1", slug: "launch-cut", kind: "video",
+  latestRevisionId: "composition-revision-1", selectedRevisionId: "composition-revision-1", createdAt: 1, updatedAt: 2,
+};
+const compositionRevision: CompositionRevisionDto = {
+  id: "composition-revision-1", compositionId: "composition-1", revisionNo: 1, parentRevisionId: null,
+  iterationId: null, state: "sealed", engine: "hyperframes", engineVersion: null,
+  authoredBySessionId: null, createdAt: 1, sealedAt: 2,
+};
+const unit: UnitDto = {
+  id: "unit-1", workspaceId: "workspace-1", projectId: "project-1", slug: "launch-unit", format: "9:16",
+  latestRevisionId: "unit-revision-1", selectedRevisionId: "unit-revision-1", createdAt: 1, updatedAt: 2,
+};
+const unitRevision: UnitRevisionDto = {
+  id: "unit-revision-1", unitId: "unit-1", revisionNo: 1, parentRevisionId: null, iterationId: null,
+  note: null, authoredBySessionId: null, createdAt: 1, sealedAt: 2,
+};
+const activity: ActivityDto = {
+  sequence: 1, workspaceId: "workspace-1", projectId: "project-1", entityType: "run", entityId: "run-1",
+  action: "generation.completed", createdAt: 1,
+};
+
+type ProjectMarkup = Record<"overview" | "documents" | "media" | "compositions" | "units" | "activity", string>;
+
+async function activeScreenMarkup(): Promise<{ workspace: string } & ProjectMarkup> {
   const workspaceValue = {
     workspace: { id: "workspace-1", slug: "launch", name: "Launch Studio", rowVersion: 1, createdAt: 1, updatedAt: 2 },
     projects: { items: [{ id: "project-1", workspaceId: "workspace-1", slug: "launch", name: "Launch", state: "active", rowVersion: 1, createdAt: 1, updatedAt: 2 }], nextCursor: null },
@@ -67,9 +91,13 @@ async function activeScreenMarkup(): Promise<{ workspace: string; overview: stri
       mediaCounts: { artifacts: 12, objects: 8, runObjects: 4 },
       metrics: { publicationCount: 2, views: 1_200, likes: 80, comments: 12, shares: 7, watchTimeMs: 345_000 },
     }),
-    loadProjectPage: async ({ tab }) => tab === "media"
-      ? { items: [mediaCard], nextCursor: "next-page" }
-      : { items: [document], nextCursor: null },
+    loadProjectPage: async ({ tab }) => ({
+      documents: { items: [document], nextCursor: null },
+      media: { items: [mediaCard], nextCursor: "next-page" },
+      compositions: { items: [composition], nextCursor: null },
+      units: { items: [unit], nextCursor: null },
+      activity: { items: [activity], nextCursor: null },
+    })[tab],
     loadProjectMediaCard: async () => mediaCard,
     loadDocumentPreview: async () => ({ revisionId: "revision-1", format: "markdown", text: "# Launch brief", truncated: false }),
     searchProjectDocuments: async () => ({ items: [], nextCursor: null }),
@@ -79,7 +107,23 @@ async function activeScreenMarkup(): Promise<{ workspace: string; overview: stri
     loadProjectGeneration: async (_project, target) => ({ status: "unknown" as const, target, reason: "not-recorded" as const }),
     loadProjectMediaRevisions: async () => ({ items: [], nextCursor: null }),
     selectProjectMediaRevision: async () => { throw new Error("Not used"); },
-  }, project);
+    loadProjectComposition: async () => composition,
+    loadProjectCompositionRevision: async () => compositionRevision,
+    loadProjectCompositionBuild: async () => { throw new Error("Not used"); },
+    loadProjectCompositionPage: async (_project, request) => request.kind === "revisions"
+      ? { items: [compositionRevision], nextCursor: null }
+      : { items: [], nextCursor: null },
+    reviseProjectComposition: async () => compositionRevision,
+    selectProjectCompositionRevision: async () => composition,
+    buildProjectComposition: async () => { throw new Error("Not used"); },
+    resolveCompositionOutputPreview: async () => null,
+    loadProjectUnit: async () => unit,
+    loadProjectUnitRevision: async () => unitRevision,
+    loadProjectUnitPage: async (_project, request) => request.kind === "revisions"
+      ? { items: [unitRevision], nextCursor: null }
+      : { items: [], nextCursor: null },
+    selectProjectUnitRevision: async () => unit,
+  } as never, project);
   await projectController.start();
   const overview = renderToStaticMarkup(createElement(ProjectScreenView, {
     project,
@@ -100,17 +144,23 @@ async function activeScreenMarkup(): Promise<{ workspace: string; overview: stri
     controller: projectController,
     snapshot: projectController.getSnapshot(),
   }));
-  return { workspace, overview, media, documents };
+  await projectController.selectTab("compositions");
+  const compositions = renderToStaticMarkup(createElement(ProjectScreenView, { project, controller: projectController, snapshot: projectController.getSnapshot() }));
+  await projectController.selectTab("units");
+  await projectController.openUnit(unit.id);
+  const units = renderToStaticMarkup(createElement(ProjectScreenView, { project, controller: projectController, snapshot: projectController.getSnapshot() }));
+  await projectController.selectTab("activity");
+  const activityMarkup = renderToStaticMarkup(createElement(ProjectScreenView, { project, controller: projectController, snapshot: projectController.getSnapshot() }));
+  return { workspace, overview, media, documents, compositions, units, activity: activityMarkup };
 }
 
 type GeometryResult = {
-  screen: "workspace" | "overview" | "media" | "documents";
+  screen: "workspace" | keyof ProjectMarkup;
   width: number;
   height: number;
   overflows: string[];
   metricColumns: number | null;
-  mediaScrollOwners: string[];
-  documentScrollOwners: string[];
+  scrollOwners: string[];
   documentDetailWidth: number | null;
   documentViewerWidths: number[];
   documentViewerMaxWidths: string[];
@@ -121,39 +171,34 @@ type GeometryResult = {
   overviewWidth: number | null;
   overviewMetricWidths: number[];
   overviewScrollOwners: string[];
+  forbidden: number;
 };
 
-async function chromiumGeometry(markup: { workspace: string; overview: string; media: string; documents: string }): Promise<GeometryResult[]> {
+async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): Promise<GeometryResult[]> {
   const directory = mkdtempSync(join(tmpdir(), "ralphy-geometry-"));
   try {
     const links = ["reset.css", "tokens.css", "app.css", "workbench.css"]
       .map((file) => `<link rel="stylesheet" href="${pathToFileURL(join(process.cwd(), "src/styles", file)).href}">`)
       .join("");
     const shell = (screen: string) => `<div class="workbench has-right-panel" style="--sidebar-w:288px;--inspector-w:336px"><aside class="context-sidebar"></aside><section class="main-shell"><header class="main-header"></header><div class="main-content-stage">${screen}</div></section><aside class="utility-right-panel"></aside></div>`;
-    writeFileSync(join(directory, "layout.html"), `<!doctype html><html><head>${links}</head><body><div id="root"></div><template id="workspace">${shell(markup.workspace)}</template><template id="overview">${shell(markup.overview)}</template><template id="media">${shell(markup.media)}</template><template id="documents">${shell(markup.documents)}</template></body></html>`);
+    const templates = Object.entries(markup).map(([name, value]) => `<template id="${name}">${shell(value)}</template>`).join("");
+    writeFileSync(join(directory, "layout.html"), `<!doctype html><html><head>${links}</head><body><div id="root"></div>${templates}</body></html>`);
     writeFileSync(join(directory, "package.json"), JSON.stringify({ main: "main.cjs" }));
     writeFileSync(join(directory, "main.cjs"), `
       const { app, BrowserWindow } = require("electron");
       app.commandLine.appendSwitch("disable-gpu");
       app.whenReady().then(async () => {
-        const win = new BrowserWindow({ show: false, width: 1360, height: 860, useContentSize: true });
+        const win = new BrowserWindow({ show: false, width: 1360, height: 900, useContentSize: true });
         await win.loadFile(${JSON.stringify(join(directory, "layout.html"))});
         win.webContents.debugger.attach("1.3");
         await win.webContents.debugger.sendCommand("DOM.enable");
         await win.webContents.debugger.sendCommand("CSS.enable");
         const results = [];
-        for (const [screen, width, height] of [["workspace", 1360, 860], ["media", 1360, 860], ["documents", 1360, 860], ["workspace", 1100, 720], ["media", 1100, 720], ["documents", 1100, 720], ["overview", 476, 760], ["overview", 900, 760], ["overview", 1280, 860], ["overview", 1800, 900]]) {
+        for (const [screen, width, height] of ["workspace", "overview", "documents", "media", "compositions", "units", "activity"].flatMap((screen) => [[screen, 1360, 900], [screen, 1100, 720]])) {
           win.setContentSize(width, height);
           await win.webContents.executeJavaScript(\`(async () => {
               const screen = \${JSON.stringify(screen)}, root = document.getElementById("root");
               root.innerHTML = document.getElementById(screen).innerHTML;
-              if (screen === "overview") {
-                const workbench = root.querySelector(".workbench");
-                workbench.style.setProperty("--sidebar-column", "0px");
-                workbench.style.setProperty("--right-column", "0px");
-                workbench.style.minWidth = "0";
-                root.querySelectorAll("aside").forEach((node) => { node.style.display = "none"; });
-              }
               if (screen === "media") { const space = root.querySelector(".virtual-grid-space"); if (space) space.style.height = "1600px"; }
               if (screen === "documents") {
                 const detail = root.querySelector(".documents-detail"), viewer = detail?.querySelector(":scope > .markdown-view");
@@ -162,9 +207,17 @@ async function chromiumGeometry(markup: { workspace: string; overview: string; m
               await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
             })()\`);
             const documentNode = await win.webContents.debugger.sendCommand("DOM.getDocument");
-            const focusSelectors = screen === "documents" ? [".document-search input", ".document-row", ".document-detail-heading"] : [screen === "media" ? ".select-menu-trigger" : screen === "overview" ? ".overview-link" : ".project-table-row"];
+            const focusSelectors = ({
+              workspace: [".project-table-row"], overview: [".mode-segments button[aria-selected=true]", ".overview-link"],
+              documents: [".mode-segments button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"],
+              media: [".mode-segments button[aria-selected=true]", ".select-menu-trigger", ".snappy-slider"],
+              compositions: [".mode-segments button[aria-selected=true]", ".composition-master-row", ".composition-heading h3"],
+              units: [".mode-segments button[aria-selected=true]", ".unit-row", ".unit-detail-heading"],
+              activity: [".mode-segments button[aria-selected=true]", ".activity-scroll"],
+            })[screen];
             for (const selector of focusSelectors) {
               const focusNode = await win.webContents.debugger.sendCommand("DOM.querySelector", { nodeId: documentNode.root.nodeId, selector });
+              if (!focusNode.nodeId) throw new Error("Missing focus target: " + screen + " " + selector);
               await win.webContents.debugger.sendCommand("CSS.forcePseudoState", { nodeId: focusNode.nodeId, forcedPseudoClasses: ["focus-visible"] });
             }
             results.push(await win.webContents.executeJavaScript(\`(() => {
@@ -172,28 +225,21 @@ async function chromiumGeometry(markup: { workspace: string; overview: string; m
               const root = document.getElementById("root");
               const selectors = screen === "workspace"
                 ? [".main-region", ".screen-header", ".metrics-band", ".metric", ".workspace-domain-body", ".workspace-projects", ".project-table", ".project-table-row"]
-                : screen === "documents"
-                  ? [".main-region", ".project-domain-body", ".documents-workbench", ".documents-master", ".document-search", ".document-search input", ".documents-detail"]
-                  : screen === "overview"
-                    ? [".project-domain-body", ".overview-dashboard", ".overview-card", ".overview-metrics"]
-                    : [".main-region", ".project-domain-body", ".media-panel", ".media-domain-toolbar", ".project-media-grid", ".asset-grid-scroll"];
+                : [".main-region", ".project-header", ".project-controls", ".project-domain-body", ".mode-segments",
+                  ...({ overview: [".overview-dashboard", ".overview-card", ".overview-metrics"], documents: [".documents-workbench", ".documents-master", ".documents-detail"], media: [".media-panel", ".media-domain-toolbar", ".project-media-grid", ".asset-grid-scroll"], compositions: [".composition-workbench", ".composition-master", ".composition-detail"], units: [".units-workbench", ".units-master", ".units-detail"], activity: [".activity-scroll"] })[screen]];
               const overflows = [];
               for (const selector of selectors) for (const element of root.querySelectorAll(selector)) {
                 if (element.scrollWidth > element.clientWidth + 1) overflows.push(selector + ":" + element.scrollWidth + ">" + element.clientWidth);
               }
               const metrics = root.querySelector(".metrics-band");
               const metricColumns = metrics ? getComputedStyle(metrics).gridTemplateColumns.split(" ").filter(Boolean).length : null;
-              const mediaScrollOwners = [".project-domain-body", ".asset-grid-scroll"].filter((selector) => {
-                const element = root.querySelector(selector); if (!element) return false;
-                const overflow = getComputedStyle(element).overflowY;
-                return (overflow === "auto" || overflow === "scroll") && element.scrollHeight > element.clientHeight + 1;
-              });
-              const nestedMediaScroll = mediaScrollOwners.some((outer) => mediaScrollOwners.some((inner) => outer !== inner && root.querySelector(outer).contains(root.querySelector(inner))));
-              const documentScrollOwners = [".project-domain-body", ".documents-master", ".documents-detail"].filter((selector) => {
+              const ownerCandidates = ({ overview: [".project-domain-body", ".overview-dashboard"], documents: [".project-domain-body", ".documents-master", ".documents-detail"], media: [".project-domain-body", ".asset-grid-scroll"], compositions: [".project-domain-body", ".composition-master", ".composition-detail"], units: [".project-domain-body", ".units-master", ".units-detail"], activity: [".project-domain-body", ".activity-scroll"], workspace: [".workspace-domain-body"] })[screen];
+              const scrollOwners = ownerCandidates.filter((selector) => {
                 const element = root.querySelector(selector); if (!element) return false;
                 const overflow = getComputedStyle(element).overflowY;
                 return overflow === "auto" || overflow === "scroll";
               });
+              const nestedMediaScroll = screen === "media" && scrollOwners.length > 1;
               const documentDetail = root.querySelector(".documents-detail");
               const documentViewers = [...root.querySelectorAll(".documents-detail > .markdown-view, .document-current-review > .markdown-view")];
               const documentViewerWidths = documentViewers.map((element) => element.getBoundingClientRect().width);
@@ -201,7 +247,7 @@ async function chromiumGeometry(markup: { workspace: string; overview: string; m
               const mediaInsets = [".project-domain-body", ".asset-grid-scroll"].map((selector) => {
                 const element = root.querySelector(selector); return element ? parseFloat(getComputedStyle(element).paddingLeft) : 0;
               }).filter((value) => value > 0);
-              const focusSelectors = screen === "documents" ? [".document-search input", ".document-row", ".document-detail-heading"] : [screen === "media" ? ".select-menu-trigger" : screen === "overview" ? ".overview-link" : ".project-table-row"];
+              const focusSelectors = ({ workspace: [".project-table-row"], overview: [".mode-segments button[aria-selected=true]", ".overview-link"], documents: [".mode-segments button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"], media: [".mode-segments button[aria-selected=true]", ".select-menu-trigger", ".snappy-slider"], compositions: [".mode-segments button[aria-selected=true]", ".composition-master-row", ".composition-heading h3"], units: [".mode-segments button[aria-selected=true]", ".unit-row", ".unit-detail-heading"], activity: [".mode-segments button[aria-selected=true]", ".activity-scroll"] })[screen];
               const focus = focusSelectors.map((selector) => {
                 const target = root.querySelector(selector);
                 const style = getComputedStyle(target);
@@ -218,7 +264,8 @@ async function chromiumGeometry(markup: { workspace: string; overview: string; m
               const overviewWidth = overviewDashboard?.getBoundingClientRect().width ?? null;
               const overviewMetricWidths = [...root.querySelectorAll(".overview-metrics > div")].map((item) => item.getBoundingClientRect().width);
               const overviewScrollOwners = [".project-domain-body", ".overview-dashboard"].filter((selector) => { const item = root.querySelector(selector); if (!item) return false; const overflow = getComputedStyle(item).overflowY; return overflow === "auto" || overflow === "scroll"; });
-              return { screen, width: innerWidth, height: innerHeight, overflows, metricColumns, mediaScrollOwners, documentScrollOwners, documentDetailWidth: documentDetail?.getBoundingClientRect().width ?? null, documentViewerWidths, documentViewerMaxWidths, nestedMediaScroll, mediaInsets, focus, overviewColumns, overviewWidth, overviewMetricWidths, overviewScrollOwners };
+              const forbidden = [...root.querySelectorAll(".load-more, .project-preview, .pagination")].length + (screen === "media" ? [...root.querySelectorAll(".media-panel button")].filter((button) => button.textContent.trim() === "Open").length : 0);
+              return { screen, width: innerWidth, height: innerHeight, overflows, metricColumns, scrollOwners, documentDetailWidth: documentDetail?.getBoundingClientRect().width ?? null, documentViewerWidths, documentViewerMaxWidths, nestedMediaScroll, mediaInsets, focus, overviewColumns, overviewWidth, overviewMetricWidths, overviewScrollOwners, forbidden };
             })()\`));
         }
         process.stdout.write("RALPHY_GEOMETRY=" + JSON.stringify(results) + "\\n");
@@ -272,10 +319,9 @@ describe("design system contract", () => {
     expect(styles).not.toMatch(/letter-spacing:\s*-/);
   });
 
-  test("names the responsive controls container and preserves round pills", () => {
+  test("names the responsive controls container and preserves round status pills", () => {
     expect(styles).toContain("container-name: project-controls");
-    expect(styles).toContain("@container project-controls");
-    expect(styles).toMatch(/\.filter-chip,[\s\S]*corner-shape:\s*round/);
+    expect(styles).toMatch(/\.project-facts > span,[\s\S]*corner-shape:\s*round/);
   });
 
   test("uses the approved neutral surfaces and larger smooth radii", () => {
@@ -289,18 +335,29 @@ describe("design system contract", () => {
   test("renders active surfaces and the overview dashboard geometry with visible focus in Chromium", async () => {
     const results = await chromiumGeometry(await activeScreenMarkup());
 
-    expect(results).toHaveLength(10);
-    expect(results.filter(({ screen }) => screen === "documents")).toHaveLength(2);
+    expect(results).toHaveLength(14);
+    for (const screen of ["overview", "documents", "media", "compositions", "units", "activity"] as const) {
+      expect(results.filter((result) => result.screen === screen).map(({ width, height }) => ({ width, height })))
+        .toEqual([{ width: 1360, height: 900 }, { width: 1100, height: 720 }]);
+    }
     expect(results.map(({ screen, width, overflows }) => ({ screen, width, overflows })))
       .toEqual(results.map(({ screen, width }) => ({ screen, width, overflows: [] })));
     expect(results.find(({ screen, width }) => screen === "workspace" && width === 1100)?.metricColumns).toBe(2);
-    expect(results.filter(({ screen }) => screen === "media").map(({ width, mediaScrollOwners }) => ({ width, mediaScrollOwners })))
-      .toEqual([{ width: 1360, mediaScrollOwners: [".asset-grid-scroll"] }, { width: 1100, mediaScrollOwners: [".asset-grid-scroll"] }]);
+    const expectedOwners = {
+      overview: [".project-domain-body"],
+      documents: [".documents-master", ".documents-detail"],
+      media: [".asset-grid-scroll"],
+      compositions: [".composition-master", ".composition-detail"],
+      units: [".units-master", ".units-detail"],
+      activity: [".activity-scroll"],
+    };
+    for (const [screen, scrollOwners] of Object.entries(expectedOwners)) {
+      expect(results.filter((result) => result.screen === screen).map((result) => result.scrollOwners))
+        .toEqual([scrollOwners, scrollOwners]);
+    }
     expect(results.filter(({ screen, nestedMediaScroll }) => screen === "media" && nestedMediaScroll)).toEqual([]);
     expect(results.filter(({ screen }) => screen === "media").map(({ width, mediaInsets }) => ({ width, mediaInsets: mediaInsets.length })))
       .toEqual([{ width: 1360, mediaInsets: 1 }, { width: 1100, mediaInsets: 1 }]);
-    expect(results.filter(({ screen }) => screen === "documents").map(({ width, documentScrollOwners }) => ({ width, documentScrollOwners })))
-      .toEqual([{ width: 1360, documentScrollOwners: [".documents-master", ".documents-detail"] }, { width: 1100, documentScrollOwners: [".documents-master", ".documents-detail"] }]);
     expect(results.flatMap(({ screen, width, documentDetailWidth, documentViewerWidths }) => screen !== "documents" || documentDetailWidth === null
       ? []
       : documentViewerWidths.filter((viewerWidth) => viewerWidth > Math.min(820, documentDetailWidth - 48) + 1).map((viewerWidth) => ({ width, documentDetailWidth, viewerWidth })))).toEqual([]);
@@ -309,15 +366,18 @@ describe("design system contract", () => {
     expect(results.filter(({ screen }) => screen === "documents").map(({ width, documentViewerMaxWidths }) => ({ width, documentViewerMaxWidths })))
       .toEqual([{ width: 1360, documentViewerMaxWidths: ["820px", "820px"] }, { width: 1100, documentViewerMaxWidths: ["820px", "820px"] }]);
     expect(results.filter(({ screen }) => screen === "documents").map(({ width, focus }) => ({ width, selectors: focus.map(({ selector }) => selector) })))
-      .toEqual([{ width: 1360, selectors: [".document-search input", ".document-row", ".document-detail-heading"] }, { width: 1100, selectors: [".document-search input", ".document-row", ".document-detail-heading"] }]);
+      .toEqual([{ width: 1360, selectors: [".mode-segments button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"] }, { width: 1100, selectors: [".mode-segments button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"] }]);
     expect(results.filter(({ screen }) => screen === "overview").map(({ width, overviewColumns }) => ({ width, overviewColumns })))
-      .toEqual([{ width: 476, overviewColumns: 1 }, { width: 900, overviewColumns: 2 }, { width: 1280, overviewColumns: 12 }, { width: 1800, overviewColumns: 12 }]);
+      .toEqual([{ width: 1360, overviewColumns: 1 }, { width: 1100, overviewColumns: 1 }]);
     expect(results.filter(({ screen, overviewWidth }) => screen === "overview" && overviewWidth !== null && overviewWidth > 1440)).toEqual([]);
-    expect(results.filter(({ screen }) => screen === "overview").map(({ width, overviewScrollOwners }) => ({ width, overviewScrollOwners })))
-      .toEqual([476, 900, 1280, 1800].map((width) => ({ width, overviewScrollOwners: [".project-domain-body"] })));
     expect(results.flatMap(({ screen, width, overviewMetricWidths }) => screen === "overview" ? overviewMetricWidths.filter((value) => value < 60).map((value) => ({ width, value })) : [])).toEqual([]);
     expect(results.flatMap(({ screen, width, focus }) => focus.filter(({ width: focusWidth }) => focusWidth < 2).map((value) => ({ screen, width, focus: value })))).toEqual([]);
     expect(results.flatMap(({ screen, width, focus }) => focus.filter(({ contrast }) => contrast < 3).map((value) => ({ screen, width, focus: value })))).toEqual([]);
+    expect(results.filter(({ forbidden }) => forbidden !== 0)).toEqual([]);
+    expect(workbenchStyles).toMatch(/\.media-card-button:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--fg\)/s);
+    expect(workbenchStyles).toMatch(/\.asset-context-menu button:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--fg\)/s);
+    expect(workbenchStyles).toMatch(/\.overview-dashboard\s*\{[^}]*max-width:\s*1440px/s);
+    expect(workbenchStyles).toMatch(/@container project-domain \(min-width:\s*1200px\)/);
   }, 20_000);
 
   test("keeps active surfaces borderless and free of the undefined surface token", () => {
@@ -325,12 +385,12 @@ describe("design system contract", () => {
     expect(workbenchStyles).not.toMatch(/\.project-domain-list\s*\{[^}]*border:\s*1px/s);
     expect(workbenchStyles).toMatch(/\.project-domain-list\s*\{[^}]*border:\s*0/s);
     expect(workbenchStyles).toMatch(/\.project-domain-list > article\s*\{[^}]*border-bottom:\s*0/s);
-    expect(styles).toMatch(/\.project-preview,[\s\S]*corner-shape:\s*squircle/);
+    expect(styles).not.toContain(".project-preview");
+    expect(workbenchStyles).not.toMatch(/\.project-domain-list > button\.is-selected\s*\{[^}]*inset\s+2px\s+0/s);
   });
 
   test("uses one squircle command style without a stale pill override", () => {
-    expect(workbenchStyles).not.toMatch(/\.project-local-error button,\s*\.load-more\s*\{/);
-    expect(workbenchStyles).not.toMatch(/\.load-more\s*\{[^}]*border-radius/s);
+    expect(workbenchStyles).not.toContain(".load-more");
   });
 
   test("resets browser chrome without applying a global accent focus ring", () => {
