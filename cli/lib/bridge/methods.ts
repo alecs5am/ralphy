@@ -439,7 +439,9 @@ export function createBridgeMethods(input: {
   });
   add("document.search", "read", (params) => {
     const value = object(params, "document.search");
-    return searchDocuments({ context: scopedContext(value), query: string(value.query, "query"), after: optionalString(value.after), limit: limit(value.limit) });
+    const query = value.query;
+    if (typeof query !== "string") throw new Error("query must be a string");
+    return searchDocuments({ context: scopedContext(value), query, after: optionalString(value.after), limit: limit(value.limit) });
   });
   add("document.revise", "mutation", (params) => {
     const value = object(params, "document.revise");
