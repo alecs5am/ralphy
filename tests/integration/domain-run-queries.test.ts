@@ -5,6 +5,15 @@ import {
   addArtifactRevision,
   createArtifact,
 } from "../../cli/lib/store/artifacts.js";
+import {
+  bindCompositionInput,
+  completeBuild,
+  createComposition,
+  failBuild,
+  reviseComposition,
+  sealCompositionRevision,
+  startBuild,
+} from "../../cli/lib/store/compositions.js";
 import { generationInput } from "../../cli/lib/generation-input.js";
 import { requestDigest } from "../../cli/lib/store/canonical-json.js";
 import { authenticateConsumer } from "../../cli/lib/store/consumer-auth.js";
@@ -70,6 +79,50 @@ async function addMediaRevision(input: {
     state: "approved",
   });
   return { artifact, revision };
+}
+
+function addSealedCompositionRevision(input: {
+  projectId: string;
+  artifactRevisionId: string;
+  slug: string;
+}) {
+  const composition = createComposition({
+    projectId: input.projectId,
+    slug: input.slug,
+    kind: "custom",
+  });
+  const draft = reviseComposition({
+    compositionId: composition.id,
+    expectedLatestRevisionId: null,
+    engine: "manual",
+  });
+  bindCompositionInput({
+    revisionId: draft.id,
+    artifactRevisionId: input.artifactRevisionId,
+    role: "source",
+    position: 0,
+  });
+  return sealCompositionRevision({ revisionId: draft.id });
+}
+
+function addSucceededBuild(input: {
+  compositionRevisionId: string;
+  runId: string;
+  artifactRevisionId: string;
+}) {
+  const build = startBuild({
+    compositionRevisionId: input.compositionRevisionId,
+    runId: input.runId,
+    profile: { renderer: "fixture" },
+  });
+  return completeBuild({
+    buildId: build.id,
+    outputs: [{
+      artifactRevisionId: input.artifactRevisionId,
+      role: "result",
+      position: 0,
+    }],
+  });
 }
 
 afterEach(() => {
@@ -548,6 +601,335 @@ describe("bounded Run queries", () => {
 });
 
 describe("media generation detail", () => {
+  test("resolves an exact same-Run succeeded Build result through its output", async () => {
+    root = makeTmpRoot("ralphy-media-generation-build-result");
+    const workspace = createWorkspace({ slug: "client", name: "Client" });
+    const project = createProject({
+      workspaceId: workspace.id,
+      slug: "campaign",
+      name: "Campaign",
+    });
+    const { revision } = await addMediaRevision({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      slug: "recovered",
+    });
+    const compositionRevision = addSealedCompositionRevision({
+      projectId: project.id,
+      artifactRevisionId: revision.id,
+      slug: "recovered",
+    });
+    const run = startRun({
+      projectId: project.id,
+      kind: "generate.hyperframes",
+      metadata: { rawPath: "/private/run.json" },
+    });
+    const build = addSucceededBuild({
+      compositionRevisionId: compositionRevision.id,
+      runId: run.id,
+      artifactRevisionId: revision.id,
+    });
+    recordRunResult(openDomainDb(), {
+      runId: run.id,
+      position: 0,
+      entityType: "build",
+      entityId: build.id,
+    });
+    const attempt = startRunAttempt({
+      runId: run.id,
+      provider: "fixture-provider",
+      model: "fixture-model",
+      request: generationInput(
+        [{ role: "prompt", value: "Recovered frame" }],
+        [{ name: "backend", value: "openrouter" }],
+      ),
+    });
+    finishRunAttempt(attempt.id, {
+      state: "succeeded",
+      response: { rawPath: "/private/result.png", token: "secret-response" },
+      costUsd: 2.75,
+    });
+    finishRun(run.id, { state: "succeeded" });
+
+    const detail = getMediaGenerationDetail({
+      context: { workspaceId: workspace.id, projectId: project.id },
+      target: { type: "artifact-revision", id: revision.id },
+      limit: 20,
+    });
+
+    expect(detail.status).toBe("generation");
+    if (detail.status !== "generation") throw new Error("Expected generation detail");
+    expect(detail.run.id).toBe(run.id);
+    expect(detail.attempts.items).toEqual([
+      expect.objectContaining({
+        id: attempt.id,
+        provider: "fixture-provider",
+        model: "fixture-model",
+        costUsd: 2.75,
+        input: {
+          version: 1,
+          texts: [{ role: "prompt", value: "Recovered frame", truncated: false }],
+          parameters: [{ name: "backend", value: "openrouter" }],
+        },
+      }),
+    ]);
+    expect(detail.cost).toEqual({ knownUsd: 2.75, complete: true });
+    expect(JSON.stringify(detail)).not.toContain("/private/");
+    expect(JSON.stringify(detail)).not.toContain("secret-response");
+  });
+
+  test("deduplicates one producer and reports distinct direct or Build producers as ambiguous", async () => {
+    root = makeTmpRoot("ralphy-media-generation-build-ambiguity");
+    const workspace = createWorkspace({ slug: "client", name: "Client" });
+    const project = createProject({
+      workspaceId: workspace.id,
+      slug: "campaign",
+      name: "Campaign",
+    });
+    const deduplicated = await addMediaRevision({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      slug: "deduplicated",
+    });
+    const mixed = await addMediaRevision({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      slug: "mixed",
+    });
+    const buildOnly = await addMediaRevision({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      slug: "build-only",
+    });
+    const compositionRevision = addSealedCompositionRevision({
+      projectId: project.id,
+      artifactRevisionId: deduplicated.revision.id,
+      slug: "producer-cases",
+    });
+    const context = { workspaceId: workspace.id, projectId: project.id };
+
+    const sameRun = startRun({ projectId: project.id, kind: "generation" });
+    const sameBuild = addSucceededBuild({
+      compositionRevisionId: compositionRevision.id,
+      runId: sameRun.id,
+      artifactRevisionId: deduplicated.revision.id,
+    });
+    recordRunResult(openDomainDb(), {
+      runId: sameRun.id,
+      position: 0,
+      entityType: "build",
+      entityId: sameBuild.id,
+    });
+    recordRunResult(openDomainDb(), {
+      runId: sameRun.id,
+      position: 1,
+      entityType: "artifact_revision",
+      entityId: deduplicated.revision.id,
+    });
+    const sameDetail = getMediaGenerationDetail({
+      context,
+      target: { type: "artifact-revision", id: deduplicated.revision.id },
+      limit: 20,
+    });
+    expect(sameDetail.status).toBe("generation");
+    if (sameDetail.status !== "generation") throw new Error("Expected generation detail");
+    expect(sameDetail.run.id).toBe(sameRun.id);
+
+    const directRun = startRun({ projectId: project.id, kind: "generation" });
+    recordRunResult(openDomainDb(), {
+      runId: directRun.id,
+      position: 0,
+      entityType: "artifact_revision",
+      entityId: mixed.revision.id,
+    });
+    const mixedBuildRun = startRun({ projectId: project.id, kind: "generation" });
+    const mixedBuild = addSucceededBuild({
+      compositionRevisionId: compositionRevision.id,
+      runId: mixedBuildRun.id,
+      artifactRevisionId: mixed.revision.id,
+    });
+    recordRunResult(openDomainDb(), {
+      runId: mixedBuildRun.id,
+      position: 0,
+      entityType: "build",
+      entityId: mixedBuild.id,
+    });
+    const mixedTarget = { type: "artifact-revision" as const, id: mixed.revision.id };
+    expect(getMediaGenerationDetail({ context, target: mixedTarget, limit: 20 })).toEqual({
+      status: "unknown",
+      target: mixedTarget,
+      reason: "ambiguous",
+    });
+
+    for (let index = 0; index < 2; index += 1) {
+      const buildRun = startRun({ projectId: project.id, kind: "generation" });
+      const build = addSucceededBuild({
+        compositionRevisionId: compositionRevision.id,
+        runId: buildRun.id,
+        artifactRevisionId: buildOnly.revision.id,
+      });
+      recordRunResult(openDomainDb(), {
+        runId: buildRun.id,
+        position: 0,
+        entityType: "build",
+        entityId: build.id,
+      });
+    }
+    const buildOnlyTarget = {
+      type: "artifact-revision" as const,
+      id: buildOnly.revision.id,
+    };
+    expect(getMediaGenerationDetail({
+      context,
+      target: buildOnlyTarget,
+      limit: 20,
+    })).toEqual({ status: "unknown", target: buildOnlyTarget, reason: "ambiguous" });
+  });
+
+  test("excludes mismatched and failed Build result ownership", async () => {
+    root = makeTmpRoot("ralphy-media-generation-build-ownership");
+    const workspace = createWorkspace({ slug: "client", name: "Client" });
+    const project = createProject({
+      workspaceId: workspace.id,
+      slug: "campaign",
+      name: "Campaign",
+    });
+    const mismatched = await addMediaRevision({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      slug: "mismatched",
+    });
+    const failed = await addMediaRevision({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      slug: "failed",
+    });
+    const compositionRevision = addSealedCompositionRevision({
+      projectId: project.id,
+      artifactRevisionId: mismatched.revision.id,
+      slug: "excluded-builds",
+    });
+    const context = { workspaceId: workspace.id, projectId: project.id };
+
+    const buildRun = startRun({ projectId: project.id, kind: "generation" });
+    const mismatchedBuild = addSucceededBuild({
+      compositionRevisionId: compositionRevision.id,
+      runId: buildRun.id,
+      artifactRevisionId: mismatched.revision.id,
+    });
+    const resultRun = startRun({ projectId: project.id, kind: "generation" });
+    recordRunResult(openDomainDb(), {
+      runId: resultRun.id,
+      position: 0,
+      entityType: "build",
+      entityId: mismatchedBuild.id,
+    });
+
+    const failedRun = startRun({ projectId: project.id, kind: "generation" });
+    const failedBuild = startBuild({
+      compositionRevisionId: compositionRevision.id,
+      runId: failedRun.id,
+      profile: { renderer: "fixture" },
+    });
+    openDomainDb().prepare(
+      `INSERT INTO build_outputs
+       (id, build_id, artifact_revision_id, role, position, created_at)
+       VALUES (?, ?, ?, 'result', 0, ?)`,
+    ).run(`output_${failedBuild.id}`, failedBuild.id, failed.revision.id, Date.now());
+    failBuild(failedBuild.id, { error: "fixture failure" });
+    recordRunResult(openDomainDb(), {
+      runId: failedRun.id,
+      position: 0,
+      entityType: "build",
+      entityId: failedBuild.id,
+    });
+
+    for (const revisionId of [mismatched.revision.id, failed.revision.id]) {
+      const target = { type: "artifact-revision" as const, id: revisionId };
+      expect(getMediaGenerationDetail({ context, target, limit: 20 })).toEqual({
+        status: "unknown",
+        target,
+        reason: "not-recorded",
+      });
+    }
+  });
+
+  test("keeps a sole Build producer invisible to another consumer", async () => {
+    root = makeTmpRoot("ralphy-media-generation-build-consumer");
+    const workspace = createWorkspace({ slug: "client", name: "Client" });
+    const project = createProject({
+      workspaceId: workspace.id,
+      slug: "campaign",
+      name: "Campaign",
+    });
+    const { revision } = await addMediaRevision({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      slug: "consumer-build",
+    });
+    const compositionRevision = addSealedCompositionRevision({
+      projectId: project.id,
+      artifactRevisionId: revision.id,
+      slug: "consumer-build",
+    });
+    const consumerA = installConsumer(root, {
+      id: "consumer_a",
+      namespace: "consumer-a",
+      tokenByte: 1,
+    });
+    const consumerB = installConsumer(root, {
+      id: "consumer_b",
+      namespace: "consumer-b",
+      tokenByte: 2,
+    });
+    const sessionA = startConsumerSession(consumerA.authority, {
+      workspaceId: workspace.id,
+      projectId: project.id,
+    });
+    const sessionB = startConsumerSession(consumerB.authority, {
+      workspaceId: workspace.id,
+      projectId: project.id,
+    });
+    const run = startConsumerOperationRun(consumerA.authority, {
+      sessionId: sessionA.id,
+      workspaceId: workspace.id,
+      projectId: project.id,
+      kind: "generation",
+      external: {
+        runId: "consumer-build-generation",
+        nodeId: "build-node",
+        attempt: 1,
+        operation: "generation",
+        idempotencyKey: "fixture",
+      },
+      requestDigest: requestDigest({ source: "fixture" }),
+    }).run;
+    const build = addSucceededBuild({
+      compositionRevisionId: compositionRevision.id,
+      runId: run.id,
+      artifactRevisionId: revision.id,
+    });
+    recordRunResult(openDomainDb(), {
+      runId: run.id,
+      position: 0,
+      entityType: "build",
+      entityId: build.id,
+    });
+    const target = { type: "artifact-revision" as const, id: revision.id };
+
+    const ownDetail = getMediaGenerationDetail({
+      context: { sessionId: sessionA.id, consumerAuthority: consumerA.authority },
+      target,
+      limit: 20,
+    });
+    expect(ownDetail.status).toBe("generation");
+    expect(getMediaGenerationDetail({
+      context: { sessionId: sessionB.id, consumerAuthority: consumerB.authority },
+      target,
+      limit: 20,
+    })).toEqual({ status: "unknown", target, reason: "not-recorded" });
+  });
+
   test("resolves an Artifact Revision producer, pages retries, and totals every attempt", async () => {
     root = makeTmpRoot("ralphy-media-generation-artifact");
     const workspace = createWorkspace({ slug: "client", name: "Client" });

@@ -1648,13 +1648,22 @@ function resolveMediaProducerIds(
     if (!revision) throw mediaTargetNotFound(target);
 
     const access = resolveRunQueryAccess(db, context);
-    const producerIds = db.query<{ runId: string }, [string]>(
-      `SELECT DISTINCT result.run_id AS runId
+    const producerIds = db.query<{ runId: string }, [string, string]>(
+      `SELECT result.run_id AS runId
        FROM run_results AS result
        WHERE result.entity_type = 'artifact_revision'
          AND result.entity_id = ?
-       ORDER BY result.run_id ASC LIMIT 2`,
-    ).all(target.id).map((row) => row.runId);
+       UNION
+       SELECT result.run_id AS runId
+       FROM run_results AS result
+       JOIN builds AS build ON build.id = result.entity_id
+       JOIN build_outputs AS output ON output.build_id = build.id
+       WHERE result.entity_type = 'build'
+         AND output.artifact_revision_id = ?
+         AND build.run_id = result.run_id
+         AND build.state = 'succeeded'
+       ORDER BY runId ASC LIMIT 2`,
+    ).all(target.id, target.id).map((row) => row.runId);
     return { producerIds, access };
   }
 
