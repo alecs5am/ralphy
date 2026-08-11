@@ -812,7 +812,7 @@ export function createBridgeMethods(input: {
   });
   add("unit.select", "mutation", (params) => {
     const value = object(params, "unit.select");
-    return selectUnitRevision({ unitId: string(value.unitId, "unitId"), revisionId: string(value.revisionId, "revisionId"), expectedSelectedRevisionId: value.expectedSelectedRevisionId === null ? null : string(value.expectedSelectedRevisionId, "expectedSelectedRevisionId") });
+    return selectUnitRevision({ context: scopedContext(value), unitId: string(value.unitId, "unitId"), revisionId: string(value.revisionId, "revisionId"), expectedSelectedRevisionId: value.expectedSelectedRevisionId === null ? null : string(value.expectedSelectedRevisionId, "expectedSelectedRevisionId") });
   });
   add("unit.preview", "read", (params) => {
     const value = object(params, "unit.preview");

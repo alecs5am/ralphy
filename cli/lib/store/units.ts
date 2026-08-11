@@ -535,6 +535,8 @@ function createUnitInTransaction(
 }
 
 export function selectUnitRevision(input: {
+  /** @internal Revalidated inside the writer transaction for bridge callers. */
+  context?: QueryContext;
   unitId: string;
   revisionId: string;
   expectedSelectedRevisionId: string | null;
@@ -543,7 +545,13 @@ export function selectUnitRevision(input: {
     throw new Error("Unit selection requires expectedSelectedRevisionId");
   }
   return withImmediateTransaction((db) => {
-    const unit = getUnitRow(db, input.unitId);
+    const unit = input.context === undefined
+      ? getUnitRow(db, input.unitId)
+      : getVisibleUnitDto(
+          db,
+          resolveQueryContext(db, input.context),
+          input.unitId,
+        );
     if (!unit) throw new Error(`Unit not found: ${input.unitId}`);
     const revision = getRevisionRow(db, input.revisionId);
     if (!revision || revision.unitId !== unit.id || revision.sealedAt === null) {

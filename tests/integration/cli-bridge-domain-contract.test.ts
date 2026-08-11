@@ -886,6 +886,59 @@ describe("Desktop bridge domain contract", () => {
     ).get(composition.id)!.selected).toBeNull();
   });
 
+  test("scopes unit selection before changing the selected revision", async () => {
+    root = makeTmpRoot("ralphy-bridge-unit-select-scope");
+    const workspace = createWorkspace({ slug: "unit-select", name: "Unit select" });
+    const owner = createProject({ workspaceId: workspace.id, slug: "owner", name: "Owner" });
+    const sibling = createProject({ workspaceId: workspace.id, slug: "sibling", name: "Sibling" });
+    const document = createDocument({
+      projectId: owner.id,
+      kind: "brief",
+      slug: "source",
+      title: "Source",
+    });
+    const documentRevision = reviseDocument({
+      documentId: document.id,
+      expectedCurrentRevisionId: null,
+      format: "markdown",
+      body: "# Source",
+    });
+    const unit = createUnit({ projectId: owner.id, slug: "deliverable", format: "post" });
+    const revision = reviseUnit({
+      unitId: unit.id,
+      expectedLatestRevisionId: null,
+      items: [{ documentRevisionId: documentRevision.id, role: "body", position: 0 }],
+    });
+    const selectedRevisionId = () => openDomainDb().query<
+      { selectedRevisionId: string | null },
+      [string]
+    >(
+      "SELECT selected_revision_id AS selectedRevisionId FROM units WHERE id = ?",
+    ).get(unit.id)!.selectedRevisionId;
+
+    await expect(call("unit.select", {
+      context: { workspaceId: workspace.id, projectId: sibling.id },
+      unitId: unit.id,
+      revisionId: revision.id,
+      expectedSelectedRevisionId: null,
+    })).rejects.toThrow(/Unit not found/);
+    expect(selectedRevisionId()).toBeNull();
+    await expect(call("unit.select", {
+      context: { workspaceId: workspace.id, projectId: sibling.id },
+      unitId: unit.id,
+      revisionId: "urev_missing",
+      expectedSelectedRevisionId: null,
+    })).rejects.toThrow(/Unit not found/);
+
+    expect(await call("unit.select", {
+      context: { workspaceId: workspace.id, projectId: owner.id },
+      unitId: unit.id,
+      revisionId: revision.id,
+      expectedSelectedRevisionId: null,
+    })).toMatchObject({ id: unit.id, selectedRevisionId: revision.id });
+    expect(selectedRevisionId()).toBe(revision.id);
+  });
+
   test("denies a foreign bridge revise before creating a revision or checkout", async () => {
     root = makeTmpRoot("ralphy-bridge-revise-scope");
     const workspace = createWorkspace({ slug: "revise-scope", name: "Revise scope" });
