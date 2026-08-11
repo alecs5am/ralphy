@@ -1,5 +1,5 @@
 import { AlertCircle, FileText, ImageOff, RefreshCw } from "lucide-react";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import type { ActivityDto, DocumentDto, MediaCardDto, ProjectOverviewDto, RunObjectMediaCardDto, UnitDto } from "../../electron/ralphy/types";
 import { VirtualAssetGrid, mediaCardName } from "../components/VirtualAssetGrid";
 import { MarkdownView } from "../components/MarkdownView";
@@ -161,10 +161,26 @@ export function startProjectScreenController(
 
 function ConnectedProjectScreen({ project, rootEpoch, controller }: { project: ProjectSummary; rootEpoch: number; controller: ProjectScreenController }) {
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
-  const scrollMemory = useRef(new Map<string, number>()).current;
   const projectScrollToken = JSON.stringify([rootEpoch, snapshot.domain.project.workspaceId, snapshot.domain.project.projectId]);
-  const overviewScroll = useRememberedScroll(scrollMemory, "overview", projectScrollToken);
-  return <ProjectScreenView project={project} rootEpoch={rootEpoch} controller={controller} snapshot={snapshot} scrollMemory={scrollMemory} overviewScroll={overviewScroll} />;
+  const mediaScrollToken = JSON.stringify([projectScrollToken, snapshot.domain.media.filter]);
+  const [ownedScroll, setOwnedScroll] = useState(() => ({
+    projectScrollToken,
+    mediaScrollToken,
+    overview: new Map<string, number>(),
+    media: new Map<string, number>(),
+  }));
+  let currentScroll = ownedScroll;
+  if (ownedScroll.projectScrollToken !== projectScrollToken || ownedScroll.mediaScrollToken !== mediaScrollToken) {
+    currentScroll = {
+      projectScrollToken,
+      mediaScrollToken,
+      overview: ownedScroll.projectScrollToken === projectScrollToken ? ownedScroll.overview : new Map<string, number>(),
+      media: new Map<string, number>(),
+    };
+    setOwnedScroll(currentScroll);
+  }
+  const overviewScroll = useRememberedScroll(currentScroll.overview, "overview", projectScrollToken);
+  return <ProjectScreenView project={project} rootEpoch={rootEpoch} controller={controller} snapshot={snapshot} scrollMemory={currentScroll.media} overviewScroll={overviewScroll} />;
 }
 
 export function ProjectScreen({

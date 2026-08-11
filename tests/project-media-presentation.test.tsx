@@ -117,6 +117,14 @@ describe("Project media presentation", () => {
       resolvePreview={async () => null}
       onSelect={() => undefined}
       onOpen={() => undefined}
+      hasMore={false}
+      loadingMore={false}
+      appendError={null}
+      onLoadMore={() => undefined}
+      onRetryAppend={() => undefined}
+      scrollMemory={new Map()}
+      scrollKey="media"
+      scrollResetToken={7}
     />);
     expect(tile).toContain('aria-label="Campaign hero, selected"');
     expect(tile).toContain('aria-label="Open Campaign hero"');

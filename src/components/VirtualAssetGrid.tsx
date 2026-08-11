@@ -180,7 +180,7 @@ export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resol
   const [width, setWidth] = useState(800);
   const geometry = assetGridGeometry(width, 190, 16);
   const rows = useMemo(() => Array.from({ length: Math.ceil(items.length / geometry.columns) }, (_, index) => ({ key: index, items: items.slice(index * geometry.columns, (index + 1) * geometry.columns) })), [geometry.columns, items]);
-  const virtualizer = useVirtualizer({ count: rows.length, getScrollElement: () => scrollRef.current, getItemKey: (index) => rows[index]?.key ?? index, estimateSize: () => geometry.rowHeight, overscan: 3 });
+  const virtualizer = useVirtualizer({ count: rows.length, getScrollElement: () => scrollRef.current, getItemKey: (index) => rows[index]?.key ?? index, estimateSize: () => geometry.rowHeight, initialOffset: () => scrollMemory.get(scrollKey) ?? 0, overscan: 3 });
   useLayoutEffect(() => {
     const element = scrollRef.current;
     if (!element) return;

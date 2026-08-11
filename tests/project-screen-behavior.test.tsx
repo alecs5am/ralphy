@@ -5,7 +5,7 @@ import type { ArtifactRevisionDto, MediaCardDto, MediaGenerationDetailDto, Proje
 import type { ProjectSummary } from "../src/lib/ipc";
 import * as screen from "../src/screens/ProjectScreen";
 import { bridge } from "../src/lib/ipc";
-import { createReactHost, reactHostGlobalKeys } from "./react-host";
+import { createReactHost, type HostNode, reactHostGlobalKeys } from "./react-host";
 
 const project: ProjectSummary = {
   id: "project-1",
@@ -32,6 +32,32 @@ const overview: ProjectOverviewDto = {
   },
   mediaCounts: { artifacts: 2, objects: 1, runObjects: 0 },
 };
+
+function projectMedia(id: string): MediaCardDto {
+  return {
+    ref: { type: "object", id }, workspaceId: project.workspaceId, projectId: project.projectId,
+    storageClass: "final", mime: "image/png", bytes: 12, createdAt: 1, referenceCount: 1,
+    target: { type: "object", id },
+  };
+}
+
+function projectMediaPage(prefix: string): MediaCardDto[] {
+  return Array.from({ length: 60 }, (_, index) => projectMedia(`${prefix}-${index}`));
+}
+
+function buttonWithText(root: HostNode, text: string): HostNode {
+  const button = root.findAll((node) => node.tagName === "BUTTON" && node.textContent === text)[0];
+  if (!button) throw new Error(`Missing ${text} button`);
+  return button;
+}
+
+async function clickButton(root: HostNode, text: string): Promise<void> {
+  await act(async () => {
+    buttonWithText(root, text).dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
 
 function deferred<Value>() {
   let resolve!: (value: Value) => void;
@@ -1225,6 +1251,99 @@ describe("ProjectScreen behavior", () => {
 
     const labels = [...renderController(controller).matchAll(/aria-pressed="(?:true|false)"[^>]*>([^<]+)<\/button>/g)].map((match) => match[1]);
     expect(labels).toEqual(["All", "References", "Working", "Candidate", "Approved", "Rejected", "Superseded", "Run diagnostics", "Cache/temp RunObjects", "Advanced Objects"]);
+  });
+
+  test("automatic cursor clears unmounted Media scroll after a root reset", async () => {
+    const cards = projectMediaPage("root-scroll");
+    const loadOverview = vi.spyOn(bridge, "loadProjectOverview").mockResolvedValue(overview);
+    const loadPage = vi.spyOn(bridge, "loadProjectPage").mockResolvedValue({ items: cards, nextCursor: null });
+    const resolvePreview = vi.spyOn(bridge, "resolveProjectPreview").mockResolvedValue(null);
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    const ProjectScreen = screen.ProjectScreen;
+    const render = (rootEpoch: number) => <ProjectScreen project={project} rootEpoch={rootEpoch} activitySequence={0} />;
+
+    try {
+      await act(async () => { root.render(render(1)); await Promise.resolve(); await Promise.resolve(); });
+      await clickButton(host.container, "Media");
+      let owner = host.container.querySelector(".asset-grid-scroll")!;
+      expect(Number.parseFloat(owner.querySelector(".virtual-grid-space")!.style.height)).toBeGreaterThan(owner.clientHeight);
+      owner.scrollTop = 1_400;
+      await act(async () => { owner.dispatchEvent(new Event("scroll")); await Promise.resolve(); });
+      const visibleBefore = owner.querySelectorAll(".media-card-tile").map((tile) => tile.textContent);
+      expect(visibleBefore.some((text) => text.includes("root-scroll-0"))).toBe(false);
+
+      await clickButton(host.container, "Overview");
+      await clickButton(host.container, "Media");
+      owner = host.container.querySelector(".asset-grid-scroll")!;
+      expect(owner.scrollTop).toBe(1_400);
+      expect(owner.querySelectorAll(".media-card-tile").map((tile) => tile.textContent)).toEqual(visibleBefore);
+
+      await clickButton(host.container, "Overview");
+      await act(async () => { root.render(render(2)); await Promise.resolve(); await Promise.resolve(); });
+      await clickButton(host.container, "Media");
+      owner = host.container.querySelector(".asset-grid-scroll")!;
+      expect(owner.scrollTop).toBe(0);
+      expect(owner.querySelectorAll(".media-card-tile").some((tile) => tile.textContent.includes("root-scroll-0"))).toBe(true);
+    } finally {
+      await act(async () => root.unmount());
+      loadOverview.mockRestore();
+      loadPage.mockRestore();
+      resolvePreview.mockRestore();
+      host.restore();
+    }
+  });
+
+  test("automatic cursor clears Media scroll when a filter reset unmounts the grid", async () => {
+    const candidate = deferred<{ items: MediaCardDto[]; nextCursor: null }>();
+    const loadOverview = vi.spyOn(bridge, "loadProjectOverview").mockResolvedValue(overview);
+    const loadPage = vi.spyOn(bridge, "loadProjectPage").mockImplementation(({ mediaQuery }) => (
+      mediaQuery?.filter === "candidate"
+        ? candidate.promise
+        : Promise.resolve({ items: projectMediaPage("all-scroll"), nextCursor: null })
+    ));
+    const resolvePreview = vi.spyOn(bridge, "resolveProjectPreview").mockResolvedValue(null);
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    const ProjectScreen = screen.ProjectScreen;
+
+    try {
+      await act(async () => {
+        root.render(<ProjectScreen project={project} rootEpoch={1} activitySequence={0} />);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      const overviewOwner = host.container.querySelector(".project-domain-body")!;
+      overviewOwner.scrollTop = 180;
+      await act(async () => overviewOwner.dispatchEvent(new Event("scroll")));
+      await clickButton(host.container, "Media");
+      const owner = host.container.querySelector(".asset-grid-scroll")!;
+      expect(Number.parseFloat(owner.querySelector(".virtual-grid-space")!.style.height)).toBeGreaterThan(owner.clientHeight);
+      owner.scrollTop = 1_400;
+      await act(async () => { owner.dispatchEvent(new Event("scroll")); await Promise.resolve(); });
+      expect(owner.querySelectorAll(".media-card-tile").some((tile) => tile.textContent.includes("all-scroll-0"))).toBe(false);
+
+      await clickButton(host.container, "Candidate");
+      expect(host.container.querySelector(".asset-grid-scroll")).toBeNull();
+      await act(async () => {
+        candidate.resolve({ items: projectMediaPage("candidate-scroll"), nextCursor: null });
+        await candidate.promise;
+        await Promise.resolve();
+      });
+      const resetOwner = host.container.querySelector(".asset-grid-scroll")!;
+      expect(resetOwner.scrollTop).toBe(0);
+      expect(resetOwner.querySelectorAll(".media-card-tile").some((tile) => tile.textContent.includes("candidate-scroll-0"))).toBe(true);
+      await clickButton(host.container, "Overview");
+      expect(host.container.querySelector(".project-domain-body")!.scrollTop).toBe(180);
+    } finally {
+      await act(async () => root.unmount());
+      loadOverview.mockRestore();
+      loadPage.mockRestore();
+      resolvePreview.mockRestore();
+      host.restore();
+    }
   });
 
   test("mounted Strict Mode replaces same-ID Project ownership across root epochs", async () => {
