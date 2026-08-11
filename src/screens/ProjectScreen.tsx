@@ -7,6 +7,7 @@ import { CompositionsPanel } from "./project/CompositionsPanel";
 import { DocumentsPanel } from "./project/DocumentsPanel";
 import { MediaPanel } from "./project/MediaPanel";
 import { MediaViewer } from "./project/MediaViewer";
+import { OverviewPanel } from "./project/OverviewPanel";
 import { useRememberedScroll } from "./project/scroll-memory";
 import { bridge, type ProjectSummary } from "../lib/ipc";
 import type { DomainPage } from "../state/project-domain";
@@ -35,43 +36,6 @@ function Pagination({ page, onLoad, onRetry }: { page: DomainPage; onLoad(): voi
   return <button className="command-button load-more" type="button" disabled={page.status === "loading"} onClick={onLoad}>{page.status === "loading" ? "Loading…" : "Load more"}</button>;
 }
 
-function RecentSection({ title, children, empty }: { title: string; children: React.ReactNode; empty: boolean }) {
-  return <section className="content-section project-domain-card"><div className="section-heading"><h3>{title}</h3><span>Recent records (bounded)</span></div>{empty ? <div className="empty-section">None returned.</div> : <div className="project-domain-list overview-records">{children}</div>}</section>;
-}
-
-function Overview({ value }: { value: ProjectOverviewDto }) {
-  const documents = value.documents?.items ?? [];
-  const iterations = value.iterations?.items ?? [];
-  const feedback = value.feedback?.items ?? [];
-  const stages = value.stages?.items ?? [];
-  const compositions = value.compositions?.items ?? [];
-  const builds = value.builds?.items ?? [];
-  const units = value.units?.items ?? [];
-  const runs = value.runs?.items ?? [];
-  const activity = value.activity?.items ?? [];
-  const publications = value.publications?.items ?? [];
-  const metrics = value.metrics;
-  return <div className="project-overview">
-    <section className="content-section project-domain-card"><div className="section-heading"><h3>Current state</h3><span>{value.project.state}</span></div><dl className="overview-facts"><div><dt>Project ID</dt><dd>{value.project.id}</dd></div><div><dt>Purpose</dt><dd>{value.project.purpose ?? "Purpose not provided"}</dd></div><div><dt>Updated</dt><dd>{formatTime(value.project.updatedAt)}</dd></div><div><dt>Current iteration</dt><dd>{iterations.find((item) => item.state === "active")?.title ?? "None returned"}</dd></div></dl></section>
-    <section className="content-section project-domain-card"><div className="section-heading"><h3>Media totals</h3><span>Complete domain counts</span></div><div className="overview-counts"><div><strong>{value.mediaCounts?.artifacts ?? 0}</strong><span>Artifacts</span></div><div><strong>{value.mediaCounts?.runObjects ?? 0}</strong><span>Run objects</span></div><div><strong>{value.mediaCounts?.objects ?? 0}</strong><span>Objects</span></div></div></section>
-    <section className="content-section project-domain-card"><div className="section-heading"><h3>Publication metrics</h3><span>Complete domain totals</span></div><div className="metrics-band project-metrics" aria-label="Project metrics"><div className="metric"><span className="metric-value">{metrics?.publicationCount ?? "—"}</span><span className="metric-label">Publications</span></div><div className="metric"><span className="metric-value">{metrics?.views ?? "—"}</span><span className="metric-label">Views</span></div><div className="metric"><span className="metric-value">{metrics?.likes ?? "—"}</span><span className="metric-label">Likes</span></div><div className="metric"><span className="metric-value">{metrics?.comments ?? "—"}</span><span className="metric-label">Comments</span></div><div className="metric"><span className="metric-value">{metrics?.shares ?? "—"}</span><span className="metric-label">Shares</span></div><div className="metric"><span className="metric-value">{metrics?.watchTimeMs ?? "—"}</span><span className="metric-label">Watch time (ms)</span></div></div></section>
-    <RecentSection title="Iterations and feedback" empty={iterations.length + feedback.length === 0}>
-      {iterations.map((item) => <article key={item.id}><strong>Iteration {item.number} · {item.title}</strong><span>{item.state}</span><small>{item.priorIterationChanges ?? "No prior iteration changes"}</small><small>Created {formatTime(item.createdAt)}{item.closedAt ? ` · Closed ${formatTime(item.closedAt)}` : ""}</small></article>)}
-      {feedback.map((item) => <article key={item.id}><strong>Feedback · {item.status}</strong><span>{item.targetType && item.targetId ? `${item.targetType} · ${item.targetId}` : "Project feedback"}</span><small>Iteration {item.iterationId} · {formatTime(item.createdAt)}</small></article>)}
-    </RecentSection>
-    <RecentSection title="Stages" empty={stages.length === 0}>{stages.map((item) => <article key={item.id}><strong>{item.stage} · {item.state}</strong><span>{item.entityType && item.entityId ? `${item.entityType} · ${item.entityId}` : "No bound entity"}</span><small>Updated {formatTime(item.updatedAt)} · revision {item.rowVersion}</small></article>)}</RecentSection>
-    <RecentSection title="Documents" empty={documents.length === 0}>{documents.map((item) => <article key={item.id}><strong>{item.title}</strong><span>{item.kind} · Current {item.currentRevisionId ?? "None"}</span><small>{item.binding ? `Bound ${item.binding.boundRevisionId} · Current ${item.binding.currentHeadRevisionId ?? "None"}${item.binding.hasNewerHead ? " · Newer head available" : ""}` : "Not bound"}</small></article>)}</RecentSection>
-    <RecentSection title="Compositions and builds" empty={compositions.length + builds.length === 0}>
-      {compositions.map((item) => <article key={item.id}><strong>{item.slug}</strong><span>{item.kind}</span><small>Selected {item.selectedRevisionId ?? "None"} · Latest {item.latestRevisionId ?? "None"}</small></article>)}
-      {builds.map((item) => <article key={item.id}><strong>Build {item.id}</strong><span>{item.state}</span><small>Composition {item.compositionRevisionId} · Run {item.runId ?? "None"}</small></article>)}
-    </RecentSection>
-    <RecentSection title="Units" empty={units.length === 0}>{units.map((item) => <article key={item.id}><strong>{item.slug}</strong><span>{item.format}</span><small>Selected {item.selectedRevisionId ?? "None"} · Latest {item.latestRevisionId ?? "None"}</small></article>)}</RecentSection>
-    <RecentSection title="Working runs" empty={runs.length === 0}>{runs.map((item) => <article key={item.id}><strong>{item.label ?? item.id} · {item.kind} · {item.state}</strong><span>Run {item.id}</span><small>Created {formatTime(item.createdAt)}{item.startedAt ? ` · Started ${formatTime(item.startedAt)}` : ""}</small></article>)}</RecentSection>
-    <section className="content-section project-domain-card"><div className="section-heading"><h3>Publications</h3><span>Recent publications (bounded)</span></div>{publications.length === 0 ? <div className="empty-section">No publications returned.</div> : <div className="project-domain-list overview-records">{publications.map((item) => <article key={item.id}><strong>{item.platform} · {item.state}</strong><span>{item.rail}</span><small>{item.url ?? "No URL returned"}</small><small>Created {formatTime(item.createdAt)} · Updated {formatTime(item.updatedAt)}{item.scheduledAt ? ` · Scheduled ${formatTime(item.scheduledAt)}` : ""}{item.submittedAt ? ` · Submitted ${formatTime(item.submittedAt)}` : ""}{item.publishedAt ? ` · Published ${formatTime(item.publishedAt)}` : ""}</small></article>)}</div>}</section>
-    <RecentSection title="Activity" empty={activity.length === 0}>{activity.map((item) => <article key={item.sequence}><strong>#{item.sequence} · {item.action}</strong><span>{item.entityType} · {item.entityId}</span><time dateTime={new Date(item.createdAt).toISOString()}>{formatTime(item.createdAt)}</time></article>)}</RecentSection>
-  </div>;
-}
-
 type ScrollBinding = ReturnType<typeof useRememberedScroll>;
 
 export function ProjectScreenView({ project, rootEpoch = 0, controller, snapshot, scrollMemory = new Map<string, number>(), documentsScrollMemory = scrollMemory, overviewScroll }: { project: ProjectSummary; rootEpoch?: number; controller: ProjectScreenController; snapshot: ProjectScreenSnapshot; scrollMemory?: Map<string, number>; documentsScrollMemory?: Map<string, number>; overviewScroll?: ScrollBinding }) {
@@ -89,11 +53,14 @@ export function ProjectScreenView({ project, rootEpoch = 0, controller, snapshot
     }
     void controller.selectTab(tab);
   };
+  const openOverviewDocument = (documentId: string) => { void controller.selectTab("documents").then(() => controller.openDocumentById(documentId)); };
+  const openOverviewComposition = (compositionId: string) => { void controller.selectTab("compositions").then(() => controller.openComposition(compositionId)); };
+  const openOverviewUnit = (unitId: string) => { void controller.selectTab("units").then(() => controller.openUnit(unitId)); };
   return <main className="main-region project-region">
     <ProjectHeader project={project} />
     <ProjectControls activeTab={activeTab} onSelect={selectTab} />
     <div className={`project-domain-body${activeTab === "media" ? " is-media" : activeTab === "documents" ? " is-documents" : ""}`} role="tabpanel" id={`project-panel-${activeTab}`} aria-labelledby={`project-tab-${activeTab}`} ref={activeTab === "overview" ? overviewScroll?.ref : undefined} onScroll={activeTab === "overview" ? overviewScroll?.onScroll : undefined}>
-      {activeTab === "overview" && (state.overview.status === "loading" ? <div className="project-skeleton" role="status">Loading project overview…</div> : state.overview.status === "error" ? <ProjectError error={state.overview.error} onRetry={retry} /> : state.overview.value ? <Overview value={state.overview.value as ProjectOverviewDto} /> : null)}
+      {activeTab === "overview" && (state.overview.status === "loading" ? <div className="project-skeleton" role="status">Loading project overview…</div> : state.overview.status === "error" ? <ProjectError error={state.overview.error} onRetry={retry} /> : state.overview.value ? <OverviewPanel value={state.overview.value as ProjectOverviewDto} onViewTab={selectTab} onOpenDocument={openOverviewDocument} onOpenComposition={openOverviewComposition} onOpenUnit={openOverviewUnit} /> : null)}
       {activeTab === "documents" && page && (page.status === "loading" && page.items.length === 0 ? <div className="project-skeleton" role="status">Loading documents…</div> : page.status === "error" && page.items.length === 0 ? <ProjectError error={page.error} onRetry={retry} /> : <DocumentsPanel page={page} controller={controller} snapshot={snapshot} scrollMemory={documentsScrollMemory} resetToken={projectScrollToken} />)}
       {activeTab === "media" && page && <MediaPanel page={page} controller={controller} snapshot={snapshot} rootEpoch={rootEpoch} scrollMemory={scrollMemory} scrollResetToken={mediaScrollToken} />}
       {activeTab === "compositions" && page && <PageState page={page} empty="No compositions yet." onRetry={retry}><CompositionsPanel page={page} controller={controller} snapshot={snapshot} pagination={<Pagination page={page} onLoad={() => { void controller.loadMore("compositions"); }} onRetry={() => { void controller.retryPage("compositions"); }} />} /></PageState>}

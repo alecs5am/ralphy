@@ -71,6 +71,7 @@ export interface ProjectScreenController {
   retryPage(tab: ProjectTab): Promise<void>;
   retry(): Promise<void>;
   openDocument(document: DocumentDto): Promise<void>;
+  openDocumentById(documentId: string): Promise<void>;
   searchDocuments(query: string): Promise<void>;
   clearDocumentSearch(): void;
   loadMoreDocumentSearch(): Promise<void>;
@@ -705,6 +706,9 @@ export function createProjectScreenController(
     async openDocument(document) {
       const retained = snapshot.selectedDocument?.id === document.id ? snapshot.documentDraft : null;
       await loadDocument(document.id, retained, retained ? snapshot.documentConflict : null, retained ? snapshot.documentConflictReview : false);
+    },
+    async openDocumentById(documentId) {
+      await loadDocument(documentId);
     },
     async searchDocuments(query) {
       const normalized = query.trim();
