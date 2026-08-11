@@ -11,10 +11,11 @@ import {
   type MediaEvent,
   type MediaWorkbenchBridge,
   type ProjectReference,
+  type ProjectCompositionPageRequest,
   type ProjectUnitPageRequest,
   type TerminalEvent,
 } from "./media/types";
-import type { Page, UnitItemDto, UnitPresentationDto, UnitRevisionDto } from "./ralphy/types";
+import type { BuildDto, BuildOutputDto, CompositionInputDto, CompositionRevisionDto, CompositionSourceDto, EvaluationDto, Page, UnitItemDto, UnitPresentationDto, UnitRevisionDto } from "./ralphy/types";
 
 async function invoke<Value>(channel: string, ...args: unknown[]): Promise<Value> {
   return unwrapIpcResult(
@@ -39,6 +40,13 @@ function loadProjectUnitPage(
   request: ProjectUnitPageRequest,
 ): Promise<Page<UnitRevisionDto | UnitItemDto | UnitPresentationDto>> {
   return invoke(MEDIA_CHANNELS.loadProjectUnitPage, project, request);
+}
+
+function loadProjectCompositionPage(
+  project: ProjectReference,
+  request: ProjectCompositionPageRequest,
+): Promise<Page<CompositionRevisionDto | CompositionSourceDto | CompositionInputDto | EvaluationDto | BuildDto | BuildOutputDto>> {
+  return invoke(MEDIA_CHANNELS.loadProjectCompositionPage, project, request);
 }
 
 const mediaBridge: MediaWorkbenchBridge = {
@@ -84,6 +92,13 @@ const mediaBridge: MediaWorkbenchBridge = {
   loadProjectComposition: (project, compositionId) => (
     invoke(MEDIA_CHANNELS.loadProjectComposition, project, compositionId)
   ),
+  loadProjectCompositionRevision: (project, revisionId) => (
+    invoke(MEDIA_CHANNELS.loadProjectCompositionRevision, project, revisionId)
+  ),
+  loadProjectCompositionBuild: (project, buildId) => (
+    invoke(MEDIA_CHANNELS.loadProjectCompositionBuild, project, buildId)
+  ),
+  loadProjectCompositionPage,
   reviseProjectComposition: (project, input) => (
     invoke(MEDIA_CHANNELS.reviseProjectComposition, project, input)
   ),

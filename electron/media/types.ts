@@ -58,6 +58,10 @@ export type ProjectUnitPageRequest =
   | { kind: "revisions"; unitId: string; cursor?: string | null }
   | { kind: "items"; revisionId: string; cursor?: string | null }
   | { kind: "presentations"; revisionId: string; cursor?: string | null };
+export type ProjectCompositionPageRequest =
+  | { kind: "revisions"; compositionId: string; cursor?: string | null }
+  | { kind: "sources" | "inputs" | "revision-evaluations" | "builds"; revisionId: string; cursor?: string | null }
+  | { kind: "build-outputs" | "build-evaluations"; buildId: string; cursor?: string | null };
 export type { MediaProvenance };
 export type ProjectPage = { items: unknown[]; nextCursor: string | number | null };
 export type ProjectPreview = { url: string; sizeBytes: number };
@@ -346,7 +350,10 @@ export interface MediaWorkbenchBridge {
     body: import("../ralphy/types").JsonValue;
   }): Promise<import("../ralphy/types").DocumentRevisionDto>;
   resolveProjectPreview(project: ProjectReference, ref: import("../ralphy/types").MediaCardDto["ref"]): Promise<ProjectPreview | null>;
-  loadProjectComposition(project: ProjectReference, compositionId: string): Promise<import("../ralphy/project-reader").CompositionAggregate>;
+  loadProjectComposition(project: ProjectReference, compositionId: string): Promise<import("../ralphy/types").CompositionDto>;
+  loadProjectCompositionRevision(project: ProjectReference, revisionId: string): Promise<import("../ralphy/types").CompositionRevisionDto>;
+  loadProjectCompositionBuild(project: ProjectReference, buildId: string): Promise<import("../ralphy/types").BuildDto>;
+  loadProjectCompositionPage(project: ProjectReference, request: ProjectCompositionPageRequest): Promise<import("../ralphy/types").Page<import("../ralphy/types").CompositionRevisionDto | import("../ralphy/types").CompositionSourceDto | import("../ralphy/types").CompositionInputDto | import("../ralphy/types").EvaluationDto | import("../ralphy/types").BuildDto | import("../ralphy/types").BuildOutputDto>>;
   reviseProjectComposition(project: ProjectReference, input: import("../ralphy/project-reader").ReviseCompositionInput): Promise<import("../ralphy/types").CompositionRevisionDto>;
   selectProjectCompositionRevision(project: ProjectReference, input: {
     compositionId: string;
@@ -411,6 +418,9 @@ export const MEDIA_CHANNELS = {
   reviseProjectDocument: "project:document:revise",
   resolveProjectPreview: "project:preview",
   loadProjectComposition: "project:composition:show",
+  loadProjectCompositionRevision: "project:composition:revision:show",
+  loadProjectCompositionBuild: "project:composition:build:show",
+  loadProjectCompositionPage: "project:composition:page",
   reviseProjectComposition: "project:composition:revise",
   selectProjectCompositionRevision: "project:composition:select",
   buildProjectComposition: "project:composition:build",

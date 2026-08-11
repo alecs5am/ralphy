@@ -1212,15 +1212,6 @@ function registerProjectDomainIpc(): void {
     ),
   );
   securedHandle(
-    MEDIA_CHANNELS.loadProjectComposition,
-    (_event, rawProject: unknown, rawCompositionId: unknown) => (
-      projectReaderForCurrentRoot().loadComposition(
-        parseProjectReference(rawProject),
-        parseString(rawCompositionId, "composition id", 256),
-      )
-    ),
-  );
-  securedHandle(
     MEDIA_CHANNELS.reviseProjectComposition,
     (_event, rawProject: unknown, rawInput: unknown) => (
       projectReaderForCurrentRoot().reviseComposition(

@@ -268,6 +268,9 @@ describe("Electron IPC security", () => {
       "loadDocumentPreview",
       "resolveProjectPreview",
       "loadProjectComposition",
+      "loadProjectCompositionRevision",
+      "loadProjectCompositionBuild",
+      "loadProjectCompositionPage",
       "reviseProjectComposition",
       "selectProjectCompositionRevision",
       "buildProjectComposition",
@@ -291,6 +294,9 @@ describe("Electron IPC security", () => {
       selectProjectMediaRevision(project: { workspaceId: string; projectId: string }, artifactId: string, revisionId: string, expectedSelectedRevisionId: string | null): Promise<void>;
       performProjectMediaAction(project: { workspaceId: string; projectId: string }, ref: { type: "artifact"; id: string }, action: "copy"): Promise<void>;
       loadProjectComposition(project: { workspaceId: string; projectId: string }, compositionId: string): Promise<void>;
+      loadProjectCompositionRevision(project: { workspaceId: string; projectId: string }, revisionId: string): Promise<void>;
+      loadProjectCompositionBuild(project: { workspaceId: string; projectId: string }, buildId: string): Promise<void>;
+      loadProjectCompositionPage(project: { workspaceId: string; projectId: string }, request: { kind: "revisions"; compositionId: string; cursor?: string }): Promise<void>;
       buildProjectComposition(project: { workspaceId: string; projectId: string }, revisionId: string): Promise<void>;
       resolveCompositionOutputPreview(project: { workspaceId: string; projectId: string }, revisionId: string): Promise<void>;
       loadProjectUnit(project: { workspaceId: string; projectId: string }, unitId: string): Promise<void>;
@@ -309,6 +315,9 @@ describe("Electron IPC security", () => {
     await bridge.selectProjectMediaRevision({ workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-1", null);
     await bridge.performProjectMediaAction({ workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact", id: "artifact-1" }, "copy");
     await bridge.loadProjectComposition({ workspaceId: "workspace-1", projectId: "project-1" }, "composition-1");
+    await bridge.loadProjectCompositionRevision({ workspaceId: "workspace-1", projectId: "project-1" }, "revision-1");
+    await bridge.loadProjectCompositionBuild({ workspaceId: "workspace-1", projectId: "project-1" }, "build-1");
+    await bridge.loadProjectCompositionPage({ workspaceId: "workspace-1", projectId: "project-1" }, { kind: "revisions", compositionId: "composition-1", cursor: "composition-next" });
     await bridge.buildProjectComposition({ workspaceId: "workspace-1", projectId: "project-1" }, "revision-1");
     await bridge.resolveCompositionOutputPreview({ workspaceId: "workspace-1", projectId: "project-1" }, "artifact-revision-1");
     await bridge.loadProjectUnit({ workspaceId: "workspace-1", projectId: "project-1" }, "unit-1");
@@ -327,6 +336,9 @@ describe("Electron IPC security", () => {
       ["project:media:select", { workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-1", null],
       ["project:media:action", { workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact", id: "artifact-1" }, "copy"],
       ["project:composition:show", { workspaceId: "workspace-1", projectId: "project-1" }, "composition-1"],
+      ["project:composition:revision:show", { workspaceId: "workspace-1", projectId: "project-1" }, "revision-1"],
+      ["project:composition:build:show", { workspaceId: "workspace-1", projectId: "project-1" }, "build-1"],
+      ["project:composition:page", { workspaceId: "workspace-1", projectId: "project-1" }, { kind: "revisions", compositionId: "composition-1", cursor: "composition-next" }],
       ["project:composition:build", { workspaceId: "workspace-1", projectId: "project-1" }, "revision-1", undefined],
       ["project:composition:output-preview", { workspaceId: "workspace-1", projectId: "project-1" }, "artifact-revision-1"],
       ["project:unit:show", { workspaceId: "workspace-1", projectId: "project-1" }, "unit-1"],
@@ -436,6 +448,7 @@ describe("Electron IPC security", () => {
     expect([...handlers.keys()]).toEqual([
       "project:media:generation", "project:media:show", "project:media:revisions", "project:media:select", "project:media:action",
       "project:documents:search",
+      "project:composition:show", "project:composition:revision:show", "project:composition:build:show", "project:composition:page",
       "project:unit:show", "project:unit:revision:show", "project:unit:page", "project:unit:select",
     ]);
     const generation = handlers.get("project:media:generation")!;
@@ -507,6 +520,52 @@ describe("Electron IPC security", () => {
       undefined,
     )).resolves.toEqual({ ok: true, value });
     expect(assertRoot).toHaveBeenCalledTimes(4);
+  });
+
+  test("composition production registrar validates closed pages, parent scope, sender, and root", async () => {
+    const { registerProjectMediaIpc } = await import("../electron/ralphy/project-reader");
+    const handlers = new Map<string, (event: unknown, ...args: unknown[]) => Promise<any>>();
+    const mainFrame = {};
+    const webContents = { mainFrame };
+    const window = { isDestroyed: () => false, webContents };
+    const project = { workspaceId: "workspace-1", projectId: "project-1" };
+    let epoch = 1;
+    let sibling = false;
+    const request = vi.fn(async (method: string) => method === "composition.revisions" ? {
+      items: [{ id: "revision-1", compositionId: sibling ? "composition-2" : "composition-1", revisionNo: 1, parentRevisionId: null, iterationId: null, state: "sealed", engine: "manual", engineVersion: null, authoredBySessionId: null, createdAt: 1, sealedAt: 2 }],
+      nextCursor: "next",
+    } : { id: "composition-1", projectId: sibling ? "project-2" : "project-1", slug: "hero", kind: "video", latestRevisionId: "revision-1", selectedRevisionId: "revision-1", createdAt: 1, updatedAt: 2 });
+    registerProjectMediaIpc({
+      handle(channel, listener) { handlers.set(channel, listener); },
+      getWindow: () => window,
+      captureRoot: () => ({ epoch }),
+      assertRoot: (root) => { if (root.epoch !== epoch) throw new Error("stale root"); },
+      session: { client: { request: request as RalphyBridgeClient["request"] } },
+      authorizeTrustedLocator: vi.fn(), openPath: vi.fn(), showItemInFolder: vi.fn(), writeBuffer: vi.fn(),
+    });
+    const trusted = { sender: webContents, senderFrame: mainFrame };
+    const show = handlers.get("project:composition:show")!;
+    const page = handlers.get("project:composition:page")!;
+
+    await expect(page(trusted, project, { kind: "revisions", compositionId: "composition-1", cursor: "opaque" })).resolves.toMatchObject({ ok: true });
+    expect(request).toHaveBeenLastCalledWith("composition.revisions", { context: project, compositionId: "composition-1", order: "newest", after: "opaque", limit: 50 });
+    request.mockClear();
+    for (const call of [
+      () => page({ sender: webContents, senderFrame: {} }, project, { kind: "revisions", compositionId: "composition-1" }),
+      () => page(trusted, project, { kind: "all", compositionId: "composition-1" }),
+      () => page(trusted, project, { kind: "sources", revisionId: "", cursor: 1 }),
+      () => page(trusted, project, { kind: "build-outputs", buildId: "build-1", extra: true }),
+    ]) await expect(call()).resolves.toMatchObject({ ok: false });
+    expect(request).not.toHaveBeenCalled();
+
+    sibling = true;
+    await expect(show(trusted, project, "composition-1")).resolves.toMatchObject({ ok: false });
+    await expect(page(trusted, project, { kind: "revisions", compositionId: "composition-1" })).resolves.toMatchObject({ ok: false });
+    sibling = false;
+    const original = request.getMockImplementation()!;
+    request.mockImplementation(async (...args: Parameters<typeof original>) => { epoch += 1; return original(...args); });
+    epoch = 1;
+    await expect(show(trusted, project, "composition-1")).resolves.toMatchObject({ ok: false });
   });
 
   test("unit workbench production registrar validates closed pages, scope, sender, and root", async () => {

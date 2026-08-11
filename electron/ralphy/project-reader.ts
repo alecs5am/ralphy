@@ -47,6 +47,7 @@ import type {
   ProjectPreview,
   ProjectReference,
   ProjectTab,
+  ProjectCompositionPageRequest,
   ProjectUnitPageRequest,
   MediaProvenance,
 } from "../media/types";
@@ -64,17 +65,6 @@ export type { ProjectMediaFilter, ProjectMediaQuery, ProjectPage, ProjectPreview
 type Request = Pick<RalphyBridgeClient, "request">["request"];
 type Mint = (absolutePath: string, mime: string | null, expectedBytes: number) => Promise<ProjectPreview>;
 
-export type CompositionBuildAggregate = BuildDto & {
-  outputs: BuildOutputDto[];
-  evaluations: EvaluationDto[];
-};
-export type CompositionRevisionAggregate = CompositionRevisionDto & {
-  sources: CompositionSourceDto[];
-  inputs: CompositionInputDto[];
-  evaluations: EvaluationDto[];
-  builds: CompositionBuildAggregate[];
-};
-export type CompositionAggregate = CompositionDto & { revisions: CompositionRevisionAggregate[] };
 export type CompositionOutputPreview = ProjectPreview & { mime: string | null };
 export type ReviseCompositionInput = {
   compositionId: string;
@@ -564,21 +554,6 @@ function mediaQuery(value: ProjectMediaQuery | undefined): ProjectMediaQuery {
   return raw as ProjectMediaQuery;
 }
 
-async function drain<Item>(load: (after?: string) => Promise<Page<Item>>): Promise<Item[]> {
-  const items: Item[] = [];
-  let after: string | undefined;
-  for (;;) {
-    const page = await load(after);
-    if (!page || !Array.isArray(page.items) || (page.nextCursor !== null && typeof page.nextCursor !== "string")) {
-      throw new Error("Invalid Composition page");
-    }
-    items.push(...page.items);
-    if (page.nextCursor === null) return items;
-    if (!page.nextCursor || page.nextCursor === after) throw new Error("Invalid Composition page cursor");
-    after = page.nextCursor;
-  }
-}
-
 interface ProjectMediaIpcEvent {
   sender: unknown;
   senderFrame: unknown;
@@ -612,6 +587,82 @@ function parseProjectUnitPageRequest(value: unknown): ProjectUnitPageRequest {
     [idKey]: input[idKey],
     ...(cursor === undefined ? {} : { cursor }),
   } as ProjectUnitPageRequest;
+}
+
+const COMPOSITION_KINDS = new Set(["video", "carousel", "sticker-pack", "image", "audio", "document", "custom"]);
+const BUILD_STATES = new Set(["pending", "running", "succeeded", "failed", "cancelled"]);
+
+function compositionDto(value: unknown, project: ProjectRef, compositionId: string): value is CompositionDto {
+  const item = record(value);
+  return !!item && exactKeys(item, [
+    "id", "projectId", "slug", "kind", "latestRevisionId", "selectedRevisionId", "createdAt", "updatedAt",
+  ]) && item.id === compositionId && item.projectId === project.projectId
+    && validId(item.slug) && COMPOSITION_KINDS.has(item.kind as string)
+    && (item.latestRevisionId === null || validId(item.latestRevisionId))
+    && (item.selectedRevisionId === null || validId(item.selectedRevisionId))
+    && sequence(item.createdAt) && sequence(item.updatedAt);
+}
+
+function compositionRevisionDto(value: unknown, revisionId: string, compositionId?: string): value is CompositionRevisionDto {
+  const item = record(value);
+  return !!item && exactKeys(item, [
+    "id", "compositionId", "revisionNo", "parentRevisionId", "iterationId", "state", "engine",
+    "engineVersion", "authoredBySessionId", "createdAt", "sealedAt",
+  ]) && item.id === revisionId && (compositionId === undefined ? validId(item.compositionId) : item.compositionId === compositionId)
+    && sequence(item.revisionNo, true) && (item.parentRevisionId === null || validId(item.parentRevisionId))
+    && (item.iterationId === null || validId(item.iterationId)) && (item.state === "draft" || item.state === "sealed")
+    && validId(item.engine) && (item.engineVersion === null || validId(item.engineVersion))
+    && (item.authoredBySessionId === null || validId(item.authoredBySessionId))
+    && sequence(item.createdAt) && (item.sealedAt === null || sequence(item.sealedAt));
+}
+
+function compositionBuildDto(value: unknown, buildId: string, revisionId?: string): value is BuildDto {
+  const item = record(value);
+  return !!item && exactKeys(item, [
+    "id", "compositionRevisionId", "runId", "state", "createdAt", "finishedAt",
+  ]) && item.id === buildId
+    && (revisionId === undefined ? validId(item.compositionRevisionId) : item.compositionRevisionId === revisionId)
+    && (item.runId === null || validId(item.runId)) && BUILD_STATES.has(item.state as string)
+    && sequence(item.createdAt) && (item.finishedAt === null || sequence(item.finishedAt));
+}
+
+function compositionEvaluationDto(value: unknown, project: ProjectRef, target: EvaluationDto["target"]): value is EvaluationDto {
+  const item = record(value);
+  const actualTarget = record(item?.target);
+  return !!item && exactKeys(item, [
+    "id", "workspaceId", "projectId", "target", "kind", "verdict", "favorite", "rating", "tags",
+    "note", "authoredBySessionId", "createdAt",
+  ]) && validId(item.id) && item.workspaceId === project.workspaceId && optionalScope(item.projectId, project.projectId)
+    && !!actualTarget && exactKeys(actualTarget, ["type", "id"])
+    && actualTarget.type === target.type && actualTarget.id === target.id
+    && validId(item.kind) && (item.verdict === null || validId(item.verdict))
+    && typeof item.favorite === "boolean" && (item.rating === null || (sequence(item.rating, true) && (item.rating as number) <= 5))
+    && Array.isArray(item.tags) && item.tags.length <= 64 && item.tags.every(validId)
+    && (item.note === null || (typeof item.note === "string" && Buffer.byteLength(item.note, "utf8") <= 65_536))
+    && validId(item.authoredBySessionId) && sequence(item.createdAt);
+}
+
+function compositionPage<Item>(value: unknown, validItem: (item: unknown) => item is Item): Page<Item> {
+  const page = record(value);
+  if (!page || !exactKeys(page, ["items", "nextCursor"]) || !Array.isArray(page.items)
+    || page.items.length > PROJECT_PAGE_LIMIT || !page.items.every(validItem)
+    || (page.nextCursor !== null && (typeof page.nextCursor !== "string" || !page.nextCursor || page.nextCursor.length > 4096))) {
+    throw new Error("Invalid Composition page");
+  }
+  return value as Page<Item>;
+}
+
+function parseProjectCompositionPageRequest(value: unknown): ProjectCompositionPageRequest {
+  const input = record(value);
+  const kinds = ["revisions", "sources", "inputs", "revision-evaluations", "builds", "build-outputs", "build-evaluations"];
+  if (!input || !kinds.includes(input.kind as string)) throw new Error("Invalid Composition page request");
+  const idKey = input.kind === "revisions" ? "compositionId"
+    : input.kind === "build-outputs" || input.kind === "build-evaluations" ? "buildId" : "revisionId";
+  if (!exactKeys(input, ["kind", idKey, ...Object.hasOwn(input, "cursor") ? ["cursor"] : []]) || !validId(input[idKey])) {
+    throw new Error("Invalid Composition page request");
+  }
+  const cursor = pageCursor(input.cursor);
+  return { kind: input.kind, [idKey]: input[idKey], ...(cursor === undefined ? {} : { cursor }) } as ProjectCompositionPageRequest;
 }
 
 export function registerProjectMediaIpc<Root>({
@@ -760,6 +811,24 @@ export function registerProjectMediaIpc<Root>({
       pageCursor(rawAfter),
     );
   }));
+  handle(MEDIA_CHANNELS.loadProjectComposition, secured((reader, _root, _assertCurrent, rawProject, rawCompositionId) => {
+    if (!validId(rawCompositionId)) throw new Error("Invalid Composition identifier");
+    return reader.loadProjectComposition(parseProjectMediaIpcProject(rawProject), rawCompositionId);
+  }));
+  handle(MEDIA_CHANNELS.loadProjectCompositionRevision, secured((reader, _root, _assertCurrent, rawProject, rawRevisionId) => {
+    if (!validId(rawRevisionId)) throw new Error("Invalid Composition revision identifier");
+    return reader.loadProjectCompositionRevision(parseProjectMediaIpcProject(rawProject), rawRevisionId);
+  }));
+  handle(MEDIA_CHANNELS.loadProjectCompositionBuild, secured((reader, _root, _assertCurrent, rawProject, rawBuildId) => {
+    if (!validId(rawBuildId)) throw new Error("Invalid Composition Build identifier");
+    return reader.loadProjectCompositionBuild(parseProjectMediaIpcProject(rawProject), rawBuildId);
+  }));
+  handle(MEDIA_CHANNELS.loadProjectCompositionPage, secured((reader, _root, _assertCurrent, rawProject, rawRequest) => (
+    reader.loadProjectCompositionPage(
+      parseProjectMediaIpcProject(rawProject),
+      parseProjectCompositionPageRequest(rawRequest),
+    )
+  )));
   handle(MEDIA_CHANNELS.loadProjectUnit, secured((reader, _root, _assertCurrent, rawProject, rawUnitId) => {
     if (!validId(rawUnitId)) throw new Error("Invalid Unit identifier");
     return reader.loadProjectUnit(parseProjectMediaIpcProject(rawProject), rawUnitId);
@@ -794,6 +863,71 @@ export function registerProjectMediaIpc<Root>({
 }
 
 export function createProjectReader({ request, mint }: { request: Request; mint?: Mint }) {
+  async function loadProjectCompositionPage(
+    project: ProjectRef,
+    rawInput: ProjectCompositionPageRequest,
+  ): Promise<Page<CompositionRevisionDto | CompositionSourceDto | CompositionInputDto | EvaluationDto | BuildDto | BuildOutputDto>> {
+    const context = projectContext(project);
+    const input = parseProjectCompositionPageRequest(rawInput);
+    const after = pageCursor(input.cursor);
+    const cursor = after ? { after } : {};
+    if (input.kind === "revisions") {
+      const value = await request("composition.revisions", { context, compositionId: input.compositionId, order: "newest", ...cursor, limit: PROJECT_PAGE_LIMIT });
+      return compositionPage(value, (item): item is CompositionRevisionDto => {
+        const id = record(item)?.id;
+        return validId(id) && compositionRevisionDto(item, id, input.compositionId);
+      });
+    }
+    if (input.kind === "sources") {
+      const value = await request("composition.sources", { context, revisionId: input.revisionId, ...cursor, limit: PROJECT_PAGE_LIMIT });
+      return compositionPage(value, (item): item is CompositionSourceDto => {
+        const source = record(item);
+        return !!source && exactKeys(source, ["id", "compositionRevisionId", "objectId", "position", "createdAt"])
+          && validId(source.id) && source.compositionRevisionId === input.revisionId && validId(source.objectId)
+          && sequence(source.position) && sequence(source.createdAt);
+      });
+    }
+    if (input.kind === "inputs") {
+      const value = await request("composition.inputs", { context, revisionId: input.revisionId, ...cursor, limit: PROJECT_PAGE_LIMIT });
+      return compositionPage(value, (item): item is CompositionInputDto => {
+        const compositionInput = record(item);
+        return !!compositionInput && exactKeys(compositionInput, ["id", "compositionRevisionId", "artifactRevisionId", "role", "position", "createdAt"])
+          && validId(compositionInput.id) && compositionInput.compositionRevisionId === input.revisionId
+          && validId(compositionInput.artifactRevisionId) && validId(compositionInput.role)
+          && sequence(compositionInput.position) && sequence(compositionInput.createdAt);
+      });
+    }
+    if (input.kind === "revision-evaluations") {
+      const target = { type: "composition_revision" as const, id: input.revisionId };
+      return compositionPage(
+        await request("evaluation.list", { context, target, order: "newest", ...cursor, limit: PROJECT_PAGE_LIMIT }),
+        (item): item is EvaluationDto => compositionEvaluationDto(item, context, target),
+      );
+    }
+    if (input.kind === "builds") {
+      const value = await request("composition.builds", { context, compositionRevisionId: input.revisionId, order: "newest", ...cursor, limit: PROJECT_PAGE_LIMIT });
+      return compositionPage(value, (item): item is BuildDto => {
+        const id = record(item)?.id;
+        return validId(id) && compositionBuildDto(item, id, input.revisionId);
+      });
+    }
+    if (input.kind === "build-outputs") {
+      const value = await request("build.outputs", { context, buildId: input.buildId, ...cursor, limit: PROJECT_PAGE_LIMIT });
+      return compositionPage(value, (item): item is BuildOutputDto => {
+        const output = record(item);
+        return !!output && exactKeys(output, ["id", "buildId", "artifactRevisionId", "role", "position", "createdAt"])
+          && validId(output.id) && output.buildId === input.buildId && validId(output.artifactRevisionId)
+          && (output.role === null || validId(output.role)) && sequence(output.position) && sequence(output.createdAt);
+      });
+    }
+    if (input.kind !== "build-evaluations") throw new Error("Invalid Composition page request");
+    const target = { type: "build" as const, id: input.buildId };
+    return compositionPage(
+      await request("evaluation.list", { context, target, order: "newest", ...cursor, limit: PROJECT_PAGE_LIMIT }),
+      (item): item is EvaluationDto => compositionEvaluationDto(item, context, target),
+    );
+  }
+
   function loadProjectUnitPage(
     project: ProjectRef,
     input: Extract<ProjectUnitPageRequest, { kind: "revisions" }>,
@@ -1105,33 +1239,31 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
       return await request("document.revise", { context, ...input });
     },
 
-    async loadComposition(project: ProjectRef, compositionId: string): Promise<CompositionAggregate> {
+    async loadProjectComposition(project: ProjectRef, compositionId: string): Promise<CompositionDto> {
       const context = projectContext(project);
       if (!validId(compositionId)) throw new Error("Invalid composition identifier");
-      const composition = await request("composition.show", { context, compositionId });
-      const revisions = await drain((after) => request("composition.revisions", {
-        context,
-        compositionId,
-        ...(after ? { after } : {}),
-        limit: PROJECT_PAGE_LIMIT,
-      }));
-      const aggregates: CompositionRevisionAggregate[] = [];
-      for (const revision of revisions) {
-        const revisionId = revision.id;
-        const sources = await drain((after) => request("composition.sources", { context, revisionId, ...(after ? { after } : {}), limit: PROJECT_PAGE_LIMIT }));
-        const inputs = await drain((after) => request("composition.inputs", { context, revisionId, ...(after ? { after } : {}), limit: PROJECT_PAGE_LIMIT }));
-        const evaluations = await drain((after) => request("evaluation.list", { context, target: { type: "composition_revision", id: revisionId }, ...(after ? { after } : {}), limit: PROJECT_PAGE_LIMIT }));
-        const builds = await drain((after) => request("composition.builds", { context, compositionRevisionId: revisionId, ...(after ? { after } : {}), limit: PROJECT_PAGE_LIMIT }));
-        const buildAggregates: CompositionBuildAggregate[] = [];
-        for (const build of builds) {
-          const outputs = await drain((after) => request("build.outputs", { context, buildId: build.id, ...(after ? { after } : {}), limit: PROJECT_PAGE_LIMIT }));
-          const buildEvaluations = await drain((after) => request("evaluation.list", { context, target: { type: "build", id: build.id }, ...(after ? { after } : {}), limit: PROJECT_PAGE_LIMIT }));
-          buildAggregates.push({ ...build, outputs, evaluations: buildEvaluations });
-        }
-        aggregates.push({ ...revision, sources, inputs, evaluations, builds: buildAggregates });
-      }
-      return { ...composition, revisions: aggregates };
+      const value = await request("composition.show", { context, compositionId });
+      if (!compositionDto(value, context, compositionId)) throw new Error("Invalid Composition");
+      return value;
     },
+
+    async loadProjectCompositionRevision(project: ProjectRef, revisionId: string): Promise<CompositionRevisionDto> {
+      const context = projectContext(project);
+      if (!validId(revisionId)) throw new Error("Invalid Composition revision identifier");
+      const value = await request("composition.revision.show", { context, revisionId });
+      if (!compositionRevisionDto(value, revisionId)) throw new Error("Invalid Composition revision");
+      return value;
+    },
+
+    async loadProjectCompositionBuild(project: ProjectRef, buildId: string): Promise<BuildDto> {
+      const context = projectContext(project);
+      if (!validId(buildId)) throw new Error("Invalid Composition Build identifier");
+      const value = await request("build.show", { context, buildId });
+      if (!compositionBuildDto(value, buildId)) throw new Error("Invalid Composition Build");
+      return value;
+    },
+
+    loadProjectCompositionPage,
 
     async reviseComposition(project: ProjectRef, input: ReviseCompositionInput): Promise<CompositionRevisionDto> {
       const context = projectContext(project);
