@@ -53,11 +53,20 @@ describe("Electron IPC security", () => {
     });
 
     request.mockClear();
+    await expect(search(trusted, project, "é".repeat(513), null)).resolves.toEqual({
+      ok: false,
+      error: {
+        code: "E_VALIDATION_FAILED",
+        message: "Document search query must be 1–1,024 UTF-8 bytes after trimming.",
+      },
+    });
+    await expect(search(trusted, project, "é".repeat(513), null)).resolves.not.toMatchObject({
+      error: { message: "The operation could not be completed" },
+    });
     for (const call of [
       () => search({ sender: webContents, senderFrame: {} }, project, "launch", null),
       () => search(trusted, { workspaceId: "", projectId: "project-1" }, "launch", null),
       () => search(trusted, project, "", null),
-      () => search(trusted, project, "é".repeat(513), null),
       () => search(trusted, project, "launch", 1),
       () => search(trusted, project, "launch", "x".repeat(4097)),
     ]) await expect(call()).resolves.toMatchObject({ ok: false });

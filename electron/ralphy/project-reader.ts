@@ -1,4 +1,4 @@
-import type { RalphyBridgeClient } from "./client";
+import { RalphyBridgeError, type RalphyBridgeClient } from "./client";
 import { isAbsolute } from "node:path";
 import { pathToFileURL } from "node:url";
 import { assertTrustedSender, toIpcResult } from "../ipc-security";
@@ -749,7 +749,10 @@ export function registerProjectMediaIpc<Root>({
   }));
   handle(MEDIA_CHANNELS.searchProjectDocuments, secured((reader, _root, _assertCurrent, rawProject, rawQuery, rawAfter) => {
     if (!validDocumentSearchQuery(rawQuery)) {
-      throw new Error("Invalid document search query");
+      throw new RalphyBridgeError(
+        "E_VALIDATION_FAILED",
+        "Document search query must be 1–1,024 UTF-8 bytes after trimming.",
+      );
     }
     return reader.searchDocuments(
       parseProjectMediaIpcProject(rawProject),

@@ -35,7 +35,9 @@ export interface ProjectScreenSnapshot {
   documentSearch: { query: string; items: DocumentSearchDto[]; nextCursor: string | null; status: "idle" | "loading" | "ready" | "error"; appendError: string | null };
   documentDraft: DocumentDraft | null;
   documentDirty: boolean;
+  documentSaving: boolean;
   documentConflict: string | null;
+  documentConflictReview: boolean;
   selectedMedia: MediaCardDto | null;
   mediaViewerOpen: boolean;
   mediaGeneration: { status: "idle" | "loading" | "ready" | "error"; value: MediaGenerationDetailDto | null; error: string | null };
@@ -79,7 +81,6 @@ export interface ProjectScreenController {
   setDocumentDraftBody(body: string): void;
   setDocumentDraftTitle(title: string): void;
   setDocumentDraftFormat(format: DocumentDraft["format"]): void;
-  setDocumentDraft(body: string): void;
   saveDocument(): Promise<void>;
   openMedia(card: MediaCardDto): Promise<void>;
   openMediaViewer(card: MediaCardDto): Promise<void>;
@@ -140,7 +141,9 @@ export function createProjectScreenController(
     documentSearch: { query: "", items: [], nextCursor: null, status: "idle", appendError: null },
     documentDraft: null,
     documentDirty: false,
+    documentSaving: false,
     documentConflict: null,
+    documentConflictReview: false,
     selectedMedia: null,
     mediaViewerOpen: false,
     mediaGeneration: { status: "idle", value: null, error: null },
@@ -226,7 +229,7 @@ export function createProjectScreenController(
     }
   };
 
-  const loadDocument = async (documentId: string, retainedDraft: DocumentDraft | null = null, conflict: string | null = null) => {
+  const loadDocument = async (documentId: string, retainedDraft: DocumentDraft | null = null, conflict: string | null = null, conflictReview = false) => {
     const requestId = ++documentRequest;
     saveRequest += 1;
     if (!retainedDraft) documentDraftBase = null;
@@ -242,16 +245,26 @@ export function createProjectScreenController(
         documentMode: retainedDraft ? "edit" : "read",
         documentDraft: retainedDraft,
         documentDirty: retainedDraft !== null,
+        documentSaving: false,
         documentConflict: conflict,
+        documentConflictReview: conflictReview,
       });
       if (!revisionId) return;
       const value = await api.loadDocumentPreview(projectRef, revisionId);
-      if (!disposed && documentRequest === requestId) emit({
-        ...snapshot,
-        documentPreview: { status: "ready", value, error: null },
-      });
+      if (!disposed && documentRequest === requestId) {
+        if (retainedDraft) {
+          const format = value.format === "json" || value.format === "text" || value.format === "markdown" ? value.format : "markdown";
+          documentDraftBase = { format, title: document.currentRevision?.title ?? null, body: value.text };
+        }
+        emit({
+          ...snapshot,
+          documentPreview: { status: "ready", value, error: null },
+          documentDirty: retainedDraft && documentDraftBase ? !sameDraft(retainedDraft, documentDraftBase) : false,
+          documentSaving: false,
+        });
+      }
     } catch (error) {
-      if (!disposed && documentRequest === requestId) emit({ ...snapshot, documentPreview: { status: "error", value: null, error: errorMessage(error) } });
+      if (!disposed && documentRequest === requestId) emit({ ...snapshot, documentPreview: { status: "error", value: null, error: errorMessage(error) }, documentSaving: false });
     }
   };
 
@@ -674,7 +687,10 @@ export function createProjectScreenController(
         if (page.status === "error" && page.items.length === 0) await loadPage(snapshot.activeTab);
       }
     },
-    async openDocument(document) { await loadDocument(document.id); },
+    async openDocument(document) {
+      const retained = snapshot.selectedDocument?.id === document.id ? snapshot.documentDraft : null;
+      await loadDocument(document.id, retained, retained ? snapshot.documentConflict : null, retained ? snapshot.documentConflictReview : false);
+    },
     async searchDocuments(query) {
       const normalized = query.trim();
       if (!normalized) { controller.clearDocumentSearch(); return; }
@@ -693,7 +709,10 @@ export function createProjectScreenController(
         await loadDocumentSearch(search.query, true);
       } else await loadDocumentSearch(search.query, false);
     },
-    async openSearchResult(result) { await loadDocument(result.documentId); },
+    async openSearchResult(result) {
+      const retained = snapshot.selectedDocument?.id === result.documentId ? snapshot.documentDraft : null;
+      await loadDocument(result.documentId, retained, retained ? snapshot.documentConflict : null, retained ? snapshot.documentConflictReview : false);
+    },
     beginDocumentEdit() {
       if (!snapshot.selectedDocument || snapshot.documentMode === "edit") return;
       const preview = snapshot.documentPreview.value;
@@ -705,37 +724,36 @@ export function createProjectScreenController(
         body: preview?.text ?? "",
       };
       documentDraftBase = base;
-      emit({ ...snapshot, documentMode: "edit", documentDraft: base, documentDirty: false, documentConflict: null });
+      emit({ ...snapshot, documentMode: "edit", documentDraft: base, documentDirty: false, documentConflict: null, documentConflictReview: false });
     },
     cancelDocumentEdit() {
+      if (snapshot.documentSaving) return;
       documentDraftBase = null;
       saveRequest += 1;
-      emit({ ...snapshot, documentMode: "read", documentDraft: null, documentDirty: false, documentConflict: null });
+      emit({ ...snapshot, documentMode: "read", documentDraft: null, documentDirty: false, documentConflict: null, documentConflictReview: false });
     },
     setDocumentDraftBody(body) {
-      if (!snapshot.documentDraft || !documentDraftBase) return;
+      if (snapshot.documentSaving || !snapshot.documentDraft || !documentDraftBase) return;
       const draft = { ...snapshot.documentDraft, body };
-      emit({ ...snapshot, documentDraft: draft, documentDirty: !sameDraft(draft, documentDraftBase), documentConflict: null });
+      emit({ ...snapshot, documentDraft: draft, documentDirty: !sameDraft(draft, documentDraftBase), documentConflict: null, documentConflictReview: false });
     },
     setDocumentDraftTitle(title) {
-      if (!snapshot.documentDraft || !documentDraftBase) return;
+      if (snapshot.documentSaving || !snapshot.documentDraft || !documentDraftBase) return;
       const draft = { ...snapshot.documentDraft, title: title || null };
-      emit({ ...snapshot, documentDraft: draft, documentDirty: !sameDraft(draft, documentDraftBase), documentConflict: null });
+      emit({ ...snapshot, documentDraft: draft, documentDirty: !sameDraft(draft, documentDraftBase), documentConflict: null, documentConflictReview: false });
     },
     setDocumentDraftFormat(format) {
-      if (!snapshot.documentDraft || !documentDraftBase || !["markdown", "text", "json"].includes(format)) return;
+      if (snapshot.documentSaving || !snapshot.documentDraft || !documentDraftBase || !["markdown", "text", "json"].includes(format)) return;
       const draft = { ...snapshot.documentDraft, format };
-      emit({ ...snapshot, documentDraft: draft, documentDirty: !sameDraft(draft, documentDraftBase), documentConflict: null });
-    },
-    setDocumentDraft(body) {
-      controller.setDocumentDraftBody(body);
+      emit({ ...snapshot, documentDraft: draft, documentDirty: !sameDraft(draft, documentDraftBase), documentConflict: null, documentConflictReview: false });
     },
     async saveDocument() {
       const document = snapshot.selectedDocument;
       const draft = snapshot.documentDraft;
-      if (!document || !draft) return;
+      if (!document || !draft || snapshot.documentSaving) return;
       const requestId = ++saveRequest;
       const projectRef = snapshot.domain.project;
+      emit({ ...snapshot, documentSaving: true, documentConflict: null, documentConflictReview: false });
       try {
         const revision = await api.reviseProjectDocument(projectRef, {
           documentId: document.id,
@@ -747,14 +765,14 @@ export function createProjectScreenController(
         if (saveRequest !== requestId || snapshot.selectedDocument?.id !== document.id) return;
         const selectedDocument = { ...document, currentRevisionId: revision.id, currentRevision: revision };
         documentDraftBase = null;
-        emit({ ...snapshot, selectedDocument, documentPreview: { status: "ready", value: { revisionId: revision.id, format: revision.format, text: draft.body, truncated: false }, error: null }, documentMode: "read", documentDraft: null, documentDirty: false, documentConflict: null });
+        emit({ ...snapshot, selectedDocument, documentPreview: { status: "ready", value: { revisionId: revision.id, format: revision.format, text: draft.body, truncated: false }, error: null }, documentMode: "read", documentDraft: null, documentDirty: false, documentSaving: false, documentConflict: null, documentConflictReview: false });
       } catch (error) {
         if (saveRequest !== requestId || snapshot.selectedDocument?.id !== document.id) return;
         if (isConflict(error)) {
-          await loadDocument(document.id, draft, "The document changed elsewhere. Current head reloaded; your local draft was kept.");
+          await loadDocument(document.id, draft, "The document changed elsewhere. Current head reloaded; your local draft was kept.", true);
           return;
         }
-        emit({ ...snapshot, documentConflict: errorMessage(error) });
+        emit({ ...snapshot, documentSaving: false, documentConflict: errorMessage(error), documentConflictReview: false });
       }
     },
     async openMedia(card) {

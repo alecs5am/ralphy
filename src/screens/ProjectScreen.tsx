@@ -114,6 +114,7 @@ export function ProjectScreenView({ project, rootEpoch = 0, controller, snapshot
   const mediaFilters: Array<[ProjectMediaFilter, string]> = [["all", "All"], ["references", "References"], ["working", "Working"], ["candidate", "Candidate"], ["approved", "Approved"], ["rejected", "Rejected"], ["superseded", "Superseded"], ["run-diagnostics", "Run diagnostics"], ["run-cache-temp", "Cache/temp RunObjects"], ["advanced-objects", "Advanced Objects"]];
   const retry = () => { void controller.retry(); };
   const selectTab = (tab: Parameters<ProjectScreenController["selectTab"]>[0]) => {
+    if (activeTab === "documents" && tab !== "documents" && snapshot.documentSaving) return;
     if (activeTab === "documents" && tab !== "documents" && snapshot.documentDirty) {
       if (!window.confirm("Discard unsaved document changes?")) return;
       controller.cancelDocumentEdit();

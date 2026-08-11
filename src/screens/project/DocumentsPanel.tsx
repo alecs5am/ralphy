@@ -50,6 +50,7 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
   const [query, setQuery] = useState(snapshot.documentSearch.query);
   const [masterRoot, setMasterRoot] = useState<HTMLDivElement | null>(null);
   const [previewDraft, setPreviewDraft] = useState(false);
+  const [reviewCurrent, setReviewCurrent] = useState(false);
   const masterRef = useRef<HTMLDivElement>(null);
   const detailHeading = useRef<HTMLHeadingElement>(null);
   const normalizedQuery = query.trim();
@@ -81,6 +82,7 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
     return () => window.clearTimeout(timeout);
   }, [controller, normalizedQuery, snapshot.documentSearch.query]);
   useEffect(() => setPreviewDraft(false), [snapshot.documentMode, snapshot.selectedDocument?.id]);
+  useEffect(() => setReviewCurrent(false), [snapshot.documentConflict, snapshot.selectedDocument?.id]);
 
   const open = async (row: DocumentRow) => {
     const documentId = row.type === "search" ? row.value.documentId : row.value.id;
@@ -125,6 +127,7 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
           return <button
             className={`document-row${selected?.id === documentId ? " is-selected" : ""}`}
             type="button"
+            disabled={snapshot.documentSaving}
             aria-pressed={selected?.id === documentId}
             aria-label={`Open ${title}`}
             key={item.key}
@@ -152,14 +155,15 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
           </div>
           {snapshot.documentMode === "read"
             ? <button className="command-button" type="button" onClick={() => controller.beginDocumentEdit()}>Edit</button>
-            : <div className="document-actions"><button className="command-button" type="button" aria-pressed={previewDraft} onClick={() => setPreviewDraft((value) => !value)}>Preview</button><button className="command-button" type="button" onClick={() => controller.cancelDocumentEdit()}>Cancel</button><button className="command-button" type="button" disabled={!snapshot.documentDirty} onClick={() => { void controller.saveDocument(); }}>Save</button></div>}
-          {draft && <div className="document-edit-fields"><label>Title<input value={draft.title ?? ""} onChange={(event) => controller.setDocumentDraftTitle(event.currentTarget.value)} /></label><fieldset className="document-format-options"><legend>Format</legend>{(["markdown", "json", "text"] as const).map((format) => <button className="command-button" type="button" aria-pressed={draft.format === format} key={format} onClick={() => controller.setDocumentDraftFormat(format)}>{formatLabel(format)}</button>)}</fieldset></div>}
+            : <div className="document-actions"><button className="command-button" type="button" disabled={snapshot.documentSaving} aria-pressed={previewDraft} onClick={() => setPreviewDraft((value) => !value)}>Preview</button><button className="command-button" type="button" disabled={snapshot.documentSaving} onClick={() => controller.cancelDocumentEdit()}>Cancel</button><button className="command-button" type="button" disabled={snapshot.documentSaving || !snapshot.documentDirty} onClick={() => { void controller.saveDocument(); }}>{snapshot.documentSaving ? "Saving…" : "Save"}</button></div>}
+          {draft && <div className="document-edit-fields"><label>Title<input disabled={snapshot.documentSaving} value={draft.title ?? ""} onChange={(event) => controller.setDocumentDraftTitle(event.currentTarget.value)} /></label><fieldset className="document-format-options" disabled={snapshot.documentSaving}><legend>Format</legend>{(["markdown", "json", "text"] as const).map((format) => <button className="command-button" type="button" disabled={snapshot.documentSaving} aria-pressed={draft.format === format} key={format} onClick={() => controller.setDocumentDraftFormat(format)}>{formatLabel(format)}</button>)}</fieldset></div>}
         </header>
-        {snapshot.documentConflict && <div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.documentConflict}</span></div>}
+        {snapshot.documentConflict && <div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.documentConflict}</span>{snapshot.documentConflictReview && snapshot.documentPreview.value && <button className="command-button" type="button" onClick={() => setReviewCurrent(true)}>Review current</button>}</div>}
         {snapshot.documentPreview.status === "loading" && <div className="project-skeleton" role="status">Loading document…</div>}
         {snapshot.documentPreview.status === "error" && <div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.documentPreview.error}</span><button className="command-button" type="button" onClick={() => { void controller.openDocument(selected); }}>Retry</button></div>}
-        {draft && !previewDraft && <textarea className="document-editor" aria-label="Document body" value={draft.body} onChange={(event) => controller.setDocumentDraftBody(event.currentTarget.value)} />}
-        {draft && previewDraft && <DocumentContent format={draft.format} text={draft.body} />}
+        {draft && reviewCurrent && snapshot.documentPreview.value && <div className="document-current-review"><button className="command-button" type="button" onClick={() => setReviewCurrent(false)}>Back to edit</button><DocumentContent format={snapshot.documentPreview.value.format} text={snapshot.documentPreview.value.text} /></div>}
+        {draft && !reviewCurrent && !previewDraft && <textarea className="document-editor" aria-label="Document body" disabled={snapshot.documentSaving} value={draft.body} onChange={(event) => controller.setDocumentDraftBody(event.currentTarget.value)} />}
+        {draft && !reviewCurrent && previewDraft && <DocumentContent format={draft.format} text={draft.body} />}
         {snapshot.documentMode === "read" && snapshot.documentPreview.status === "ready" && snapshot.documentPreview.value && <DocumentContent format={snapshot.documentPreview.value.format} text={snapshot.documentPreview.value.text} />}
         {snapshot.documentPreview.value?.truncated && <p>Preview truncated.</p>}
       </>}

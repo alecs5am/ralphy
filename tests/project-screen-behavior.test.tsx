@@ -106,7 +106,7 @@ function createController(api: ReturnType<typeof createApi>, activitySequence = 
       retry(): Promise<void>;
       openDocument(document: unknown): Promise<void>;
       beginDocumentEdit(): void;
-      setDocumentDraft(body: string): void;
+      setDocumentDraftBody(body: string): void;
       openMedia(card: MediaCardDto): Promise<void>;
       openMediaViewer(card: MediaCardDto): Promise<void>;
       closeMediaViewer(): void;
@@ -140,6 +140,7 @@ describe("ProjectScreen behavior", () => {
     const api = createApi();
     const controller = createController(api) as any;
 
+    await controller.selectTab("documents");
     await controller.openDocument({ id: "document-1" });
     expect(controller.getSnapshot()).toMatchObject({
       documentMode: "read", documentDraft: null, documentDirty: false,
@@ -163,6 +164,7 @@ describe("ProjectScreen behavior", () => {
       documentMode: "edit", documentDirty: true,
       documentConflict: expect.stringMatching(/valid JSON/i),
     });
+    expect(renderController(controller)).not.toContain("Review current");
 
     controller.cancelDocumentEdit();
     expect(controller.getSnapshot()).toMatchObject({ documentMode: "read", documentDraft: null, documentDirty: false });
@@ -1053,7 +1055,7 @@ describe("ProjectScreen behavior", () => {
     await controller.selectTab("documents");
     await controller.openDocument(document as never);
     controller.beginDocumentEdit();
-    controller.setDocumentDraft("line one\nline two\n");
+    controller.setDocumentDraftBody("line one\nline two\n");
     const before = controller.getSnapshot().documentDraft;
 
     await controller.refresh(21);
