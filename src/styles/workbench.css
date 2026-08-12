@@ -2639,6 +2639,14 @@ button.workspace-project-card:hover {
   color: var(--fg-3);
 }
 
+.unit-visual-preview > .markdown-view,
+.unit-visual-preview > .json-document-view,
+.unit-visual-preview > .plain-text-view {
+  height: 100%;
+  overflow: auto;
+  padding: 24px;
+}
+
 .unit-item,
 .unit-presentation {
   display: flex;

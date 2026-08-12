@@ -48,6 +48,7 @@ function createApi() {
     }),
     selectProjectUnitRevision: vi.fn(async (_project: unknown, _unitId: string, revisionId: string) => ({ ...unit(1), selectedRevisionId: revisionId })),
     resolveCompositionOutputPreview: vi.fn(async () => ({ url: "ralphy-media://asset/unit-cover", sizeBytes: 12, mime: "image/png" })),
+    loadDocumentPreview: vi.fn(async (_project: unknown, revisionId: string) => ({ revisionId, format: "markdown", text: "# Script", truncated: false })),
     loadProjectUnitPreview: vi.fn(),
     reviseProjectUnit: vi.fn(),
   };
@@ -138,6 +139,25 @@ describe("units workbench", () => {
       await act(async () => root.unmount());
       host.restore();
     }
+  });
+
+  test("previews a document-backed Unit without a platform renderer", async () => {
+    const api = createApi();
+    api.loadProjectUnitPage.mockImplementation(async (_project: unknown, request: { kind: string }) => {
+      if (request.kind === "revisions") return { items: [revision("revision-1-2", 2)], nextCursor: null };
+      if (request.kind === "items") return { items: [{ id: "item-doc", unitRevisionId: "revision-1-2", artifactRevisionId: null, documentRevisionId: "document-revision-2", role: "body", position: 1, config: null, createdAt: 1 }], nextCursor: null };
+      return { items: [], nextCursor: null };
+    });
+    const controller = screen.createProjectScreenController(api as any, project);
+
+    await controller.selectTab("units");
+    await controller.openUnit("unit-1");
+    await vi.waitFor(() => expect(controller.getSnapshot().unitPreview.status).toBe("ready"));
+
+    expect(api.loadDocumentPreview).toHaveBeenCalledWith(
+      { workspaceId: "workspace-1", projectId: "project-1" }, "document-revision-2",
+    );
+    expect(controller.getSnapshot().unitPreview.value).toMatchObject({ format: "markdown", text: "# Script" });
   });
 
   test("locks the outer body and stacks only below the approved container breakpoint", () => {

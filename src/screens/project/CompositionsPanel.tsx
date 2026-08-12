@@ -11,6 +11,7 @@ import { ArtifactPreview } from "./ArtifactPreview";
 import { useRememberedScroll } from "./scroll-memory";
 
 const formatTime = (value: number) => new Date(value < 1_000_000_000_000 ? value * 1000 : value).toLocaleString();
+const formatDate = (value: number) => new Date(value < 1_000_000_000_000 ? value * 1000 : value).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
 function Evaluations({ items }: { items: EvaluationDto[] }) {
   if (items.length === 0) return <p className="composition-empty">No evaluations.</p>;
@@ -76,7 +77,7 @@ export function CompositionsPanel({ page, controller, snapshot, scrollMemory, re
               const item = revisions[virtual.index]!;
               const selected = item.id === composition.selectedRevisionId;
               const latest = item.id === composition.latestRevisionId;
-              return <button type="button" title={`Revision ${item.revisionNo} · ${formatTime(item.createdAt)}`} key={item.id} className={snapshot.inspectedCompositionRevisionId === item.id ? "is-selected" : ""} aria-pressed={snapshot.inspectedCompositionRevisionId === item.id} style={{ transform: `translateX(${virtual.start}px)`, width: virtual.size }} onClick={() => { void controller.inspectCompositionRevision(item.id); }}><strong>R{item.revisionNo}</strong><span>{item.state}</span><small>{selected && latest ? "Selected · Latest" : selected ? "Selected" : latest ? "Latest" : formatTime(item.createdAt)}</small></button>;
+              return <button type="button" title={`Revision ${item.revisionNo} · ${formatTime(item.createdAt)}`} key={item.id} className={snapshot.inspectedCompositionRevisionId === item.id ? "is-selected" : ""} aria-pressed={snapshot.inspectedCompositionRevisionId === item.id} style={{ transform: `translateX(${virtual.start}px)`, width: virtual.size }} onClick={() => { void controller.inspectCompositionRevision(item.id); }}><strong>R{item.revisionNo}</strong><span>{item.state}</span><small>{selected && latest ? "Selected · Latest" : selected ? "Selected" : latest ? "Latest" : formatDate(item.createdAt)}</small></button>;
             })}
             <div className="composition-rail-tail" style={{ transform: `translateX(${Math.max(0, revisionRail.getTotalSize() - 1)}px)` }}><PageTail root={rail} page={snapshot.compositionRevisions} load={() => { void controller.loadMoreCompositionRevisions(); }} /></div>
           </div>

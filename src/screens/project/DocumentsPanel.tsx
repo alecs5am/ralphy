@@ -34,7 +34,7 @@ function FormatBadge({ format }: { format: string | null }) {
   return <span className={`document-format-badge format-${format ?? "unknown"}`}><FormatIcon format={format} />{formatLabel(format)}</span>;
 }
 
-function DocumentContent({ format, text }: { format: string; text: string }) {
+export function DocumentContent({ format, text }: { format: string; text: string }) {
   if (format === "markdown") return <MarkdownView markdown={text} />;
   if (format === "json") return <JsonDocumentView text={text} />;
   return <pre className="plain-text-view">{text}</pre>;

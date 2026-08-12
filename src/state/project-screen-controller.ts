@@ -66,7 +66,7 @@ export interface ProjectScreenSnapshot {
   inspectedUnitRevision: UnitLoad<UnitRevisionDto>;
   unitItems: UnitPage<UnitItemDto>;
   unitPresentations: UnitPage<UnitPresentationDto>;
-  unitPreview: { status: "idle" | "loading" | "ready" | "error"; value: CompositionOutputPreview | null; error: string | null; artifactRevisionId: string | null };
+  unitPreview: { status: "idle" | "loading" | "ready" | "error"; value: CompositionOutputPreview | NonNullable<DocumentPreview["value"]> | null; error: string | null; artifactRevisionId: string | null };
   unitMutation: "idle" | "select";
   unitConflict: string | null;
   unitMutationError: string | null;
@@ -674,14 +674,17 @@ export function createProjectScreenController(
     const artifactRevisionId = snapshot.unitPresentations.items.find(({ coverArtifactRevisionId }) => coverArtifactRevisionId)?.coverArtifactRevisionId
       ?? snapshot.unitItems.items.find(({ artifactRevisionId }) => artifactRevisionId)?.artifactRevisionId
       ?? null;
-    if (!artifactRevisionId) {
+    const documentRevisionId = snapshot.unitItems.items.find(({ documentRevisionId }) => documentRevisionId)?.documentRevisionId ?? null;
+    if (!artifactRevisionId && !documentRevisionId) {
       emit({ ...snapshot, unitPreview: { status: "idle", value: null, error: null, artifactRevisionId: null } });
       return;
     }
     const requestId = ++unitPreviewRequest;
     emit({ ...snapshot, unitPreview: { status: "loading", value: null, error: null, artifactRevisionId } });
     try {
-      const value = await api.resolveCompositionOutputPreview(snapshot.domain.project, artifactRevisionId);
+      const value = artifactRevisionId
+        ? await api.resolveCompositionOutputPreview(snapshot.domain.project, artifactRevisionId)
+        : await api.loadDocumentPreview(snapshot.domain.project, documentRevisionId!);
       if (disposed || requestId !== unitPreviewRequest || snapshot.unitId !== unitId
         || snapshot.inspectedUnitRevisionId !== revisionId) return;
       emit({ ...snapshot, unitPreview: { status: "ready", value, error: null, artifactRevisionId } });
