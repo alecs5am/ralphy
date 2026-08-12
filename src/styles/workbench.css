@@ -2607,10 +2607,36 @@ button.workspace-project-card:hover {
 
 .unit-items,
 .unit-presentations,
+.unit-visual-section,
 .unit-technical {
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid var(--line);
+}
+
+.unit-visual-preview,
+.composition-output-preview {
+  height: clamp(260px, 46vh, 540px);
+  min-height: 260px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--panel-solid);
+}
+
+.unit-visual-preview > .project-skeleton,
+.unit-visual-preview > .preview-unavailable,
+.unit-visual-preview > .preview-empty,
+.composition-output-preview > .project-skeleton,
+.composition-output-preview > .preview-unavailable,
+.composition-output-preview > .preview-empty {
+  height: 100%;
+}
+
+.preview-empty {
+  display: grid;
+  place-items: center;
+  color: var(--fg-3);
 }
 
 .unit-item,
@@ -2825,10 +2851,6 @@ button.workspace-project-card:hover {
 .composition-technical dl div { display: grid; grid-template-columns: minmax(110px, 0.3fr) minmax(0, 1fr); gap: 12px; }
 .composition-technical dt { color: var(--fg-3); }
 .composition-technical dd { min-width: 0; margin: 0; overflow-wrap: anywhere; font-family: var(--font-mono); }
-
-.composition-output-preview {
-  min-height: 0;
-}
 
 @container project-domain (max-width: 719px) {
   .documents-workbench,

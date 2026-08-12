@@ -194,7 +194,7 @@ export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resol
   const rows = useMemo(() => Array.from({ length: Math.ceil(items.length / geometry.columns) }, (_, index) => ({ key: index, items: items.slice(index * geometry.columns, (index + 1) * geometry.columns) })), [geometry.columns, items]);
   const virtualizer = useVirtualizer({ count: rows.length, getScrollElement: () => scrollRef.current, getItemKey: (index) => rows[index]?.key ?? index, estimateSize: () => geometry.rowHeight, initialOffset: () => scrollMemory.get(scrollKey) ?? 0, overscan: 3 });
   useLayoutEffect(() => {
-    const element = scrollRef.current;
+    const element = scrollRoot;
     if (!element) return;
     const measure = () => {
       const style = window.getComputedStyle(element);
@@ -204,7 +204,7 @@ export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resol
     const observer = new ResizeObserver(([entry]) => setWidth(Math.max(1, entry.contentRect.width)));
     observer.observe(element);
     return () => observer.disconnect();
-  }, []);
+  }, [scrollRoot]);
   useEffect(() => virtualizer.measure(), [geometry.columns, geometry.rowHeight, virtualizer]);
   if (items.length === 0) return <div className="asset-grid-empty"><strong>No media matches this filter.</strong><span>Change the media filter to see other records.</span></div>;
   return <div className="asset-grid-scroll" ref={attachScroll} onScroll={rememberedScroll.onScroll}>

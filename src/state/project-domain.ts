@@ -139,9 +139,10 @@ export function projectDomainReducer(state: ProjectDomainState, action: ProjectD
     };
   }
   if (action.type === "media-query") {
+    const media = state.pages.media;
     return {
       ...state,
-      pages: { ...state.pages, media: emptyPage() },
+      pages: { ...state.pages, media: { ...media, status: "idle", nextCursor: null, error: null, requestId: null, mediaFilter: null } },
       media: action.query,
       preview: { status: "idle", value: null, error: null, requestId: null },
     };

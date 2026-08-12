@@ -66,6 +66,7 @@ export interface ProjectScreenSnapshot {
   inspectedUnitRevision: UnitLoad<UnitRevisionDto>;
   unitItems: UnitPage<UnitItemDto>;
   unitPresentations: UnitPage<UnitPresentationDto>;
+  unitPreview: { status: "idle" | "loading" | "ready" | "error"; value: CompositionOutputPreview | null; error: string | null; artifactRevisionId: string | null };
   unitMutation: "idle" | "select";
   unitConflict: string | null;
   unitMutationError: string | null;
@@ -190,6 +191,7 @@ export function createProjectScreenController(
     inspectedUnitRevision: idleUnitLoad(),
     unitItems: idleUnitPage(),
     unitPresentations: idleUnitPage(),
+    unitPreview: { status: "idle", value: null, error: null, artifactRevisionId: null },
     unitMutation: "idle",
     unitConflict: null,
     unitMutationError: null,
@@ -224,6 +226,7 @@ export function createProjectScreenController(
   let unitExactRevisionRequest = 0;
   let unitItemsRequest = 0;
   let unitPresentationsRequest = 0;
+  let unitPreviewRequest = 0;
   let unitMutationRequest = 0;
   const listeners = new Set<() => void>();
   const emit = (next: ProjectScreenSnapshot) => {
@@ -428,7 +431,7 @@ export function createProjectScreenController(
     return { ...snapshot.domain, pages: { ...snapshot.domain.pages, compositions: { ...compositions, items: compositions.items.map((item) => item.id === value.id ? value : item) } } };
   };
 
-  async function loadCompositionBuild(buildId: string): Promise<void> {
+  async function loadCompositionBuild(buildId: string, known?: BuildDto): Promise<void> {
     const revisionId = snapshot.inspectedCompositionRevisionId;
     if (!revisionId) return;
     const requestId = ++compositionBuildRequest;
@@ -438,13 +441,13 @@ export function createProjectScreenController(
     emit({
       ...snapshot,
       inspectedCompositionBuildId: buildId,
-      inspectedCompositionBuild: { status: "loading", value: null, error: null },
+      inspectedCompositionBuild: known ? { status: "ready", value: known, error: null } : { status: "loading", value: null, error: null },
       compositionBuildOutputs: idleUnitPage(),
       compositionBuildEvaluations: idleUnitPage(),
       compositionPreview: { status: "idle", value: null, error: null, artifactRevisionId: null },
     });
     try {
-      const value = await api.loadProjectCompositionBuild(snapshot.domain.project, buildId);
+      const value = known ?? await api.loadProjectCompositionBuild(snapshot.domain.project, buildId);
       if (disposed || requestId !== compositionBuildRequest || snapshot.inspectedCompositionRevisionId !== revisionId
         || snapshot.inspectedCompositionBuildId !== buildId) return;
       if (value.compositionRevisionId !== revisionId) throw new Error("Invalid Composition Build");
@@ -457,6 +460,29 @@ export function createProjectScreenController(
       if (!disposed && requestId === compositionBuildRequest && snapshot.inspectedCompositionBuildId === buildId) {
         emit({ ...snapshot, inspectedCompositionBuild: { status: "error", value: null, error: errorMessage(error) } });
       }
+    }
+  }
+
+  async function loadCompositionPreview(artifactRevisionId: string): Promise<void> {
+    const value = snapshot.composition.value;
+    if (!value || !snapshot.compositionBuildOutputs.items.some((output) => output.artifactRevisionId === artifactRevisionId)) return;
+    if (snapshot.compositionPreview.artifactRevisionId === artifactRevisionId
+      && (snapshot.compositionPreview.status === "loading" || snapshot.compositionPreview.status === "ready")) return;
+    const requestId = ++compositionPreviewRequest;
+    const compositionId = value.id;
+    const revisionId = snapshot.inspectedCompositionRevisionId;
+    const buildId = snapshot.inspectedCompositionBuildId;
+    emit({ ...snapshot, compositionPreview: { status: "loading", value: null, error: null, artifactRevisionId } });
+    try {
+      const preview = await api.resolveCompositionOutputPreview(snapshot.domain.project, artifactRevisionId);
+      if (disposed || requestId !== compositionPreviewRequest || snapshot.compositionId !== compositionId
+        || snapshot.inspectedCompositionRevisionId !== revisionId || snapshot.inspectedCompositionBuildId !== buildId
+        || !snapshot.compositionBuildOutputs.items.some((output) => output.artifactRevisionId === artifactRevisionId)) return;
+      emit({ ...snapshot, compositionPreview: { status: "ready", value: preview, error: null, artifactRevisionId } });
+    } catch (error) {
+      if (disposed || requestId !== compositionPreviewRequest || snapshot.compositionId !== compositionId
+        || snapshot.inspectedCompositionRevisionId !== revisionId || snapshot.inspectedCompositionBuildId !== buildId) return;
+      emit({ ...snapshot, compositionPreview: { status: "error", value: null, error: errorMessage(error), artifactRevisionId } });
     }
   }
 
@@ -478,7 +504,10 @@ export function createProjectScreenController(
       emit({ ...snapshot, [key]: { status: "ready", items, nextCursor: page.nextCursor, requestedCursor: null, error: null } } as ProjectScreenSnapshot);
       if (kind === "builds" && !append) {
         const newest = (items as BuildDto[])[0];
-        if (newest) await loadCompositionBuild(newest.id);
+        if (newest) await loadCompositionBuild(newest.id, newest);
+      } else if (kind === "build-outputs" && !append) {
+        const first = [...items as BuildOutputDto[]].sort((left, right) => left.position - right.position)[0];
+        if (first) void loadCompositionPreview(first.artifactRevisionId);
       }
     } catch (error) {
       if (disposed || requestId !== compositionPageRequests[kind] || !compositionParentCurrent(kind, parentId)) return;
@@ -486,7 +515,7 @@ export function createProjectScreenController(
     }
   }
 
-  async function loadCompositionRevision(revisionId: string): Promise<void> {
+  async function loadCompositionRevision(revisionId: string, known?: CompositionRevisionDto): Promise<void> {
     const compositionId = snapshot.compositionId;
     if (!compositionId) return;
     const requestId = ++compositionRevisionRequest;
@@ -496,7 +525,7 @@ export function createProjectScreenController(
     emit({
       ...snapshot,
       inspectedCompositionRevisionId: revisionId,
-      inspectedCompositionRevision: { status: "loading", value: null, error: null },
+      inspectedCompositionRevision: known ? { status: "ready", value: known, error: null } : { status: "loading", value: null, error: null },
       compositionSources: idleUnitPage(),
       compositionInputs: idleUnitPage(),
       compositionRevisionEvaluations: idleUnitPage(),
@@ -508,7 +537,7 @@ export function createProjectScreenController(
       compositionPreview: { status: "idle", value: null, error: null, artifactRevisionId: null },
     });
     try {
-      const value = await api.loadProjectCompositionRevision(snapshot.domain.project, revisionId);
+      const value = known ?? await api.loadProjectCompositionRevision(snapshot.domain.project, revisionId);
       if (disposed || requestId !== compositionRevisionRequest || snapshot.compositionId !== compositionId
         || snapshot.inspectedCompositionRevisionId !== revisionId) return;
       if (value.compositionId !== compositionId) throw new Error("Invalid Composition revision");
@@ -556,7 +585,7 @@ export function createProjectScreenController(
       const preferred = inspectedRevisionId ?? value.selectedRevisionId ?? value.latestRevisionId;
       const revisionId = preferred ?? revisions[0]?.id ?? null;
       if (revisionId) {
-        await loadCompositionRevision(revisionId);
+        await loadCompositionRevision(revisionId, revisions.find(({ id }) => id === revisionId));
         if (disposed || requestId !== compositionRequest || snapshot.compositionId !== compositionId) return;
         const exact = snapshot.inspectedCompositionRevision.value;
         if (exact && !snapshot.compositionRevisions.items.some(({ id }) => id === exact.id)) {
@@ -641,25 +670,49 @@ export function createProjectScreenController(
     }
   };
 
-  const loadUnitRevision = async (revisionId: string) => {
+  const loadUnitPreview = async (unitId: string, revisionId: string) => {
+    const artifactRevisionId = snapshot.unitPresentations.items.find(({ coverArtifactRevisionId }) => coverArtifactRevisionId)?.coverArtifactRevisionId
+      ?? snapshot.unitItems.items.find(({ artifactRevisionId }) => artifactRevisionId)?.artifactRevisionId
+      ?? null;
+    if (!artifactRevisionId) {
+      emit({ ...snapshot, unitPreview: { status: "idle", value: null, error: null, artifactRevisionId: null } });
+      return;
+    }
+    const requestId = ++unitPreviewRequest;
+    emit({ ...snapshot, unitPreview: { status: "loading", value: null, error: null, artifactRevisionId } });
+    try {
+      const value = await api.resolveCompositionOutputPreview(snapshot.domain.project, artifactRevisionId);
+      if (disposed || requestId !== unitPreviewRequest || snapshot.unitId !== unitId
+        || snapshot.inspectedUnitRevisionId !== revisionId) return;
+      emit({ ...snapshot, unitPreview: { status: "ready", value, error: null, artifactRevisionId } });
+    } catch (error) {
+      if (disposed || requestId !== unitPreviewRequest || snapshot.unitId !== unitId
+        || snapshot.inspectedUnitRevisionId !== revisionId) return;
+      emit({ ...snapshot, unitPreview: { status: "error", value: null, error: errorMessage(error), artifactRevisionId } });
+    }
+  };
+
+  const loadUnitRevision = async (revisionId: string, known?: UnitRevisionDto) => {
     const unitId = snapshot.unitId;
     if (!unitId || !revisionId) return;
     const requestId = ++unitExactRevisionRequest;
     const itemsRequestId = ++unitItemsRequest;
     const presentationsRequestId = ++unitPresentationsRequest;
+    unitPreviewRequest += 1;
     unitMutationRequest += 1;
     emit({
       ...snapshot,
       inspectedUnitRevisionId: revisionId,
-      inspectedUnitRevision: { status: "loading", value: null, error: null },
+      inspectedUnitRevision: known ? { status: "ready", value: known, error: null } : { status: "loading", value: null, error: null },
       unitItems: idleUnitPage(),
       unitPresentations: idleUnitPage(),
+      unitPreview: { status: "idle", value: null, error: null, artifactRevisionId: null },
       unitMutation: "idle",
       unitConflict: null,
       unitMutationError: null,
     });
     try {
-      const value = await api.loadProjectUnitRevision(snapshot.domain.project, unitId, revisionId);
+      const value = known ?? await api.loadProjectUnitRevision(snapshot.domain.project, unitId, revisionId);
       if (disposed || requestId !== unitExactRevisionRequest || snapshot.unitId !== unitId
         || snapshot.inspectedUnitRevisionId !== revisionId) return;
       if (value.id !== revisionId || value.unitId !== unitId) throw new Error("Invalid Unit revision");
@@ -668,6 +721,8 @@ export function createProjectScreenController(
         loadUnitItems(unitId, revisionId, itemsRequestId),
         loadUnitPresentations(unitId, revisionId, presentationsRequestId),
       ]);
+      if (!disposed && requestId === unitExactRevisionRequest && snapshot.unitId === unitId
+        && snapshot.inspectedUnitRevisionId === revisionId) void loadUnitPreview(unitId, revisionId);
     } catch (error) {
       if (disposed || requestId !== unitExactRevisionRequest || snapshot.unitId !== unitId
         || snapshot.inspectedUnitRevisionId !== revisionId) return;
@@ -682,6 +737,7 @@ export function createProjectScreenController(
     unitExactRevisionRequest += 1;
     unitItemsRequest += 1;
     unitPresentationsRequest += 1;
+    unitPreviewRequest += 1;
     unitMutationRequest += 1;
     emit({
       ...snapshot,
@@ -692,6 +748,7 @@ export function createProjectScreenController(
       inspectedUnitRevision: idleUnitLoad(),
       unitItems: idleUnitPage(),
       unitPresentations: idleUnitPage(),
+      unitPreview: { status: "idle", value: null, error: null, artifactRevisionId: null },
       unitMutation: "idle",
       unitConflict: null,
       unitMutationError: null,
@@ -724,7 +781,7 @@ export function createProjectScreenController(
     }
     const preferred = value.selectedRevisionId ?? value.latestRevisionId ?? revisions[0]?.id ?? null;
     if (preferred && !disposed && requestId === unitRequest && snapshot.unitId === unitId) {
-      await loadUnitRevision(preferred);
+      await loadUnitRevision(preferred, revisions.find(({ id }) => id === preferred));
     }
   };
 
@@ -915,7 +972,7 @@ export function createProjectScreenController(
       if (snapshot.activeTab === "overview") await loadOverview();
       else {
         const page = snapshot.domain.pages[snapshot.activeTab];
-        if (page.status === "error" && page.items.length === 0) await loadPage(snapshot.activeTab);
+        if (page.status === "error" && (page.items.length === 0 || (snapshot.activeTab === "media" && page.nextCursor === null))) await loadPage(snapshot.activeTab);
       }
     },
     async openDocument(document) {
@@ -1101,9 +1158,10 @@ export function createProjectScreenController(
       await loadComposition(compositionId);
     },
     async inspectCompositionRevision(revisionId) {
-      if (!snapshot.compositionRevisions.items.some(({ id }) => id === revisionId)) return;
+      const known = snapshot.compositionRevisions.items.find(({ id }) => id === revisionId);
+      if (!known) return;
       emit({ ...snapshot, compositionConflict: null, compositionMutationError: null });
-      await loadCompositionRevision(revisionId);
+      await loadCompositionRevision(revisionId, known);
     },
     async loadMoreCompositionRevisions() { if (snapshot.compositionId) await loadCompositionPage("revisions", snapshot.compositionId, snapshot.compositionRevisions.items.length > 0); },
     async loadMoreCompositionSources() { if (snapshot.inspectedCompositionRevisionId) await loadCompositionPage("sources", snapshot.inspectedCompositionRevisionId, snapshot.compositionSources.items.length > 0); },
@@ -1113,24 +1171,7 @@ export function createProjectScreenController(
     async loadMoreCompositionBuildOutputs() { if (snapshot.inspectedCompositionBuildId) await loadCompositionPage("build-outputs", snapshot.inspectedCompositionBuildId, snapshot.compositionBuildOutputs.items.length > 0); },
     async loadMoreCompositionBuildEvaluations() { if (snapshot.inspectedCompositionBuildId) await loadCompositionPage("build-evaluations", snapshot.inspectedCompositionBuildId, snapshot.compositionBuildEvaluations.items.length > 0); },
     async previewCompositionOutput(artifactRevisionId) {
-      const value = snapshot.composition.value;
-      if (!value || !snapshot.compositionBuildOutputs.items.some((output) => output.artifactRevisionId === artifactRevisionId)) return;
-      const requestId = ++compositionPreviewRequest;
-      const compositionId = value.id;
-      const revisionId = snapshot.inspectedCompositionRevisionId;
-      const buildId = snapshot.inspectedCompositionBuildId;
-      emit({ ...snapshot, compositionPreview: { status: "loading", value: null, error: null, artifactRevisionId } });
-      try {
-        const preview = await api.resolveCompositionOutputPreview(snapshot.domain.project, artifactRevisionId);
-        if (disposed || requestId !== compositionPreviewRequest || snapshot.compositionId !== compositionId
-          || snapshot.inspectedCompositionRevisionId !== revisionId || snapshot.inspectedCompositionBuildId !== buildId
-          || !snapshot.compositionBuildOutputs.items.some((output) => output.artifactRevisionId === artifactRevisionId)) return;
-        emit({ ...snapshot, compositionPreview: { status: "ready", value: preview, error: null, artifactRevisionId } });
-      } catch (error) {
-        if (disposed || requestId !== compositionPreviewRequest || snapshot.compositionId !== compositionId
-          || snapshot.inspectedCompositionRevisionId !== revisionId || snapshot.inspectedCompositionBuildId !== buildId) return;
-        emit({ ...snapshot, compositionPreview: { status: "error", value: null, error: errorMessage(error), artifactRevisionId } });
-      }
+      await loadCompositionPreview(artifactRevisionId);
     },
     async selectInspectedCompositionRevision() {
       const revisionId = snapshot.inspectedCompositionRevisionId;
@@ -1169,7 +1210,8 @@ export function createProjectScreenController(
       await appendUnitRevisions();
     },
     async inspectUnitRevision(revisionId) {
-      await loadUnitRevision(revisionId);
+      const known = snapshot.unitRevisions.items.find(({ id }) => id === revisionId);
+      await loadUnitRevision(revisionId, known);
     },
     async loadMoreUnitItems() {
       await appendUnitItems();
@@ -1258,6 +1300,7 @@ export function createProjectScreenController(
       unitExactRevisionRequest += 1;
       unitItemsRequest += 1;
       unitPresentationsRequest += 1;
+      unitPreviewRequest += 1;
       unitMutationRequest += 1;
       listeners.clear();
     },

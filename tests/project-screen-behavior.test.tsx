@@ -1284,7 +1284,7 @@ describe("ProjectScreen behavior", () => {
     expect(controller.getSnapshot().domain.pages.media.items).toEqual([{ ref: { type: "artifact", id: "candidate-1" } }]);
   });
 
-  test("clears selected Media and its preview before loading a new filter", async () => {
+  test("clears selected Media, keeps the grid during refresh, and retries a failed filter", async () => {
     const selected: MediaCardDto = {
       ref: { type: "artifact", id: "artifact-1" }, workspaceId: "workspace-1", projectId: "project-1",
       slug: "Hero", kind: "image", selectedRevisionId: "revision-1", selectedState: "approved", mime: "image/png", bytes: 12,
@@ -1301,9 +1301,17 @@ describe("ProjectScreen behavior", () => {
     expect(controller.getSnapshot()).toMatchObject({ selectedMedia: selected, domain: { preview: { status: "idle" } } });
 
     const switching = controller.setMediaQuery({ filter: "candidate" });
-    expect(controller.getSnapshot()).toMatchObject({ selectedMedia: null, domain: { preview: { status: "idle", value: null } } });
-    candidate.resolve({ items: [], nextCursor: null });
+    expect(controller.getSnapshot()).toMatchObject({
+      selectedMedia: null,
+      domain: { preview: { status: "idle", value: null }, pages: { media: { status: "loading", items: [selected], nextCursor: null } } },
+    });
+    candidate.reject(new Error("Offline"));
     await switching;
+    expect(controller.getSnapshot().domain.pages.media).toMatchObject({ status: "error", items: [selected], nextCursor: null, error: "Offline" });
+    api.loadProjectPage.mockResolvedValueOnce({ items: [], nextCursor: null });
+    await controller.retry();
+    expect(api.loadProjectPage).toHaveBeenLastCalledWith({ tab: "media", project: { workspaceId: "workspace-1", projectId: "project-1" }, mediaQuery: { filter: "candidate" } });
+    expect(controller.getSnapshot().domain.pages.media.items).toEqual([]);
   });
 
   test("keeps Candidate loading when the previous filter fails late", async () => {
@@ -1433,7 +1441,7 @@ describe("ProjectScreen behavior", () => {
     }
   });
 
-  test("automatic cursor clears Media scroll when a filter reset unmounts the grid", async () => {
+  test("automatic cursor keeps Media visible while a filter reset clears scroll", async () => {
     const candidate = deferred<{ items: MediaCardDto[]; nextCursor: null }>();
     const api = createApi();
     api.loadProjectPage.mockImplementation(({ mediaQuery }) => (
@@ -1461,7 +1469,9 @@ describe("ProjectScreen behavior", () => {
       const switching = controller.setMediaQuery({ filter: "candidate" });
       scrollMemory = new Map<string, number>();
       await act(async () => { root.render(render()); await Promise.resolve(); });
-      expect(host.container.querySelector(".asset-grid-scroll")).toBeNull();
+      const pendingOwner = host.container.querySelector(".asset-grid-scroll")!;
+      expect(pendingOwner.scrollTop).toBe(0);
+      expect(pendingOwner.querySelectorAll(".media-card-tile").some((tile) => tile.textContent.includes("all-scroll-0"))).toBe(true);
       await act(async () => {
         candidate.resolve({ items: projectMediaPage("candidate-scroll"), nextCursor: null });
         await switching;

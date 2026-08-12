@@ -67,8 +67,8 @@ describe("Composition production inspector", () => {
     await controller.selectTab("compositions");
 
     expect(api.loadProjectComposition).toHaveBeenCalledOnce();
-    expect(api.loadProjectCompositionRevision).toHaveBeenCalledWith({ workspaceId: "workspace-1", projectId: "project-1" }, "revision-1-uuid");
-    expect(api.loadProjectCompositionBuild).toHaveBeenCalledWith({ workspaceId: "workspace-1", projectId: "project-1" }, "build-uuid");
+    expect(api.loadProjectCompositionRevision).not.toHaveBeenCalled();
+    expect(api.loadProjectCompositionBuild).not.toHaveBeenCalled();
     expect(api.loadProjectCompositionPage.mock.calls.map(([, request]) => request.kind)).toEqual([
       "revisions", "sources", "inputs", "revision-evaluations", "builds", "build-outputs", "build-evaluations",
     ]);
@@ -85,6 +85,7 @@ describe("Composition production inspector", () => {
       expect(rail.textContent).not.toContain("revision-2-uuid");
       expect(host.container.querySelector(".composition-heading")?.textContent).toContain("New draft");
       expect(host.container.querySelector(".composition-primary")?.textContent).toContain("succeeded");
+      await vi.waitFor(() => expect(host.container.querySelector(".composition-output-preview video")).not.toBeNull());
       expect(host.container.querySelector(".composition-technical")?.textContent).toContain("composition-uuid");
     } finally {
       await act(async () => root.unmount());

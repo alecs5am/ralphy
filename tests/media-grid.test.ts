@@ -183,6 +183,32 @@ describe("media grid geometry and scheduling", () => {
 });
 
 describe("mounted media tiles", () => {
+  test("remeasures the grid when filtered results replace an empty page", async () => {
+    const host = createReactHost();
+    let observed = 0;
+    globalThis.ResizeObserver = class {
+      constructor(private readonly callback: ResizeObserverCallback) {}
+      observe(node: Element) {
+        observed += 1;
+        this.callback([{ target: node, contentRect: { width: 1490 } } as ResizeObserverEntry], this as unknown as ResizeObserver);
+      }
+      disconnect() {}
+      unobserve() {}
+    } as typeof ResizeObserver;
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(grid([], 200, async () => null)); await Promise.resolve(); });
+      expect(observed).toBe(0);
+      await act(async () => { root.render(grid(Array.from({ length: 12 }, (_, index) => mediaCard(`filtered-${index}`)), 200, async () => null)); await Promise.resolve(); await Promise.resolve(); });
+      expect(observed).toBeGreaterThan(1);
+      expect((host.container.querySelector(".virtual-asset-row") as unknown as HostNode).style.gridTemplateColumns).toBe("repeat(6, minmax(0, 1fr))");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
   test("automatic cursor scroll memory isolates owners and resets only the changed token", async () => {
     const memory = new Map<string, number>();
     const render = (revision: number, overviewReset = 1, mediaReset = 1) => createElement(ScrollOwners, {

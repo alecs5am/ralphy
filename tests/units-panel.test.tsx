@@ -47,6 +47,7 @@ function createApi() {
         : { items: [{ id: "presentation-1", unitRevisionId: "revision-1-2", platform: "tiktok", position: 1, effectiveCaptionRevisionId: "caption-1", coverArtifactRevisionId: "cover-1", crop: { x: 0 }, safeArea: { top: 10 }, options: { loop: false }, createdAt: 1 }], nextCursor: "presentations-next" };
     }),
     selectProjectUnitRevision: vi.fn(async (_project: unknown, _unitId: string, revisionId: string) => ({ ...unit(1), selectedRevisionId: revisionId })),
+    resolveCompositionOutputPreview: vi.fn(async () => ({ url: "ralphy-media://asset/unit-cover", sizeBytes: 12, mime: "image/png" })),
     loadProjectUnitPreview: vi.fn(),
     reviseProjectUnit: vi.fn(),
   };
@@ -107,8 +108,11 @@ describe("units workbench", () => {
       expect(host.container.querySelector(".unit-technical")?.textContent).toContain("artifact-revision-1");
       expect(host.container.querySelector(".unit-technical")?.textContent).toContain('"top": 10');
       expect(host.container.querySelector('[data-platform="tiktok"]')).not.toBeNull();
+      await vi.waitFor(() => expect(host.container.querySelector(".unit-visual-preview img")).not.toBeNull());
 
+      api.loadProjectUnitRevision.mockClear();
       await click(button(host.container, "R3"));
+      expect(api.loadProjectUnitRevision).not.toHaveBeenCalled();
       await click(button(host.container, "Make selected"));
       expect(api.selectProjectUnitRevision).toHaveBeenCalledWith(
         { workspaceId: "workspace-1", projectId: "project-1" }, "unit-1", "revision-1-3", "revision-1-2",
