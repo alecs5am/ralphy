@@ -110,6 +110,7 @@ describe("Project domain reader", () => {
   test("preserves populated Core overview and revision DTO fields", async () => {
     const overview: ProjectOverviewDto = {
       project: { id: "project-1", workspaceId: "workspace-1", slug: "launch", name: "Launch", state: "active", rowVersion: 1, createdAt: 1, updatedAt: 2 },
+      spendUsd: 3.84,
       documents: {
         items: [{
           id: "document-1", workspaceId: "workspace-1", projectId: "project-1", slug: "brief", title: "Brief", kind: "brief",
@@ -138,14 +139,17 @@ describe("Project domain reader", () => {
   });
 
   test("reads the Core state and bounded overview sections without a scanner", async () => {
-    const request = vi.fn(async () => ({
+    const coreOverview = {
       project: { id: "project-1", workspaceId: "workspace-1", slug: "launch", name: "Launch", purpose: "Launch the summer campaign.", state: "active", rowVersion: 1, createdAt: 1, updatedAt: 1 },
+      spendUsd: 0,
       mediaCounts: { artifacts: 1, objects: 2, runObjects: 3 },
-    }));
+    };
+    const request = vi.fn(async () => coreOverview);
     const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
 
     await expect(reader.loadOverview(project)).resolves.toMatchObject({
       project: { state: "active" },
+      spendUsd: 0,
       mediaCounts: { artifacts: 1, objects: 2, runObjects: 3 },
     });
     expect(request).toHaveBeenCalledOnce();
@@ -167,6 +171,10 @@ describe("Project domain reader", () => {
         metrics: true,
       },
     });
+    for (const malformed of [{ ...coreOverview, spendUsd: -1 }, { ...coreOverview, private: true }]) {
+      const invalid = createProjectReader({ request: vi.fn(async () => malformed) as unknown as RalphyBridgeClient["request"] });
+      await expect(invalid.loadOverview(project)).rejects.toThrow("Invalid Project overview");
+    }
   });
 
   test("loads one bounded Documents page without a scanner follow-up", async () => {

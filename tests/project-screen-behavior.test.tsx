@@ -31,6 +31,7 @@ const overview: ProjectOverviewDto = {
     id: "project-1", workspaceId: "workspace-1", slug: "launch", name: "Launch",
     purpose: null, state: "active", rowVersion: 1, createdAt: 1, updatedAt: 2,
   },
+  spendUsd: 0,
   mediaCounts: { artifacts: 2, objects: 1, runObjects: 0 },
 };
 
@@ -258,6 +259,7 @@ describe("ProjectScreen behavior", () => {
     try {
       await act(async () => root.render(<OverviewPanel value={value} onViewTab={onViewTab} onOpenDocument={onOpenDocument} onOpenComposition={onOpenComposition} onOpenUnit={onOpenUnit} />));
       expect(host.container.textContent).toContain("Give reviewers one trusted campaign workbench.");
+      expect(host.container.textContent).toContain("Spent$0.00");
       expect(host.container.textContent).toContain("Production stream");
       expect(host.container.textContent).toContain("Deliverables");
       expect(host.container.textContent).toContain("Distribution");

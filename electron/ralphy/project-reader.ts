@@ -109,6 +109,23 @@ function finite(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+function projectOverviewDto(value: unknown, project: ProjectRef): ProjectOverviewDto {
+  const overview = record(value);
+  const details = record(overview?.project);
+  const allowed = new Set([
+    "project", "spendUsd", "documents", "iterations", "feedback", "stages",
+    "compositions", "builds", "units", "runs", "activity", "mediaCounts",
+    "publications", "metrics",
+  ]);
+  if (!overview || !details || !Object.hasOwn(overview, "project") || !Object.hasOwn(overview, "spendUsd")
+    || Reflect.ownKeys(overview).some((key) => typeof key !== "string" || !allowed.has(key))
+    || details.id !== project.projectId || details.workspaceId !== project.workspaceId
+    || !finite(overview.spendUsd) || overview.spendUsd < 0) {
+    throw new Error("Invalid Project overview");
+  }
+  return value as ProjectOverviewDto;
+}
+
 function sequence(value: unknown, positive = false): value is number {
   return Number.isSafeInteger(value) && (value as number) >= (positive ? 1 : 0);
 }
@@ -996,7 +1013,7 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
   return {
     async loadOverview(project: ProjectRef): Promise<ProjectOverviewDto> {
       const context = projectContext(project);
-      return await request("project.overview", {
+      return projectOverviewDto(await request("project.overview", {
         context,
         projectId: context.projectId,
         sections: {
@@ -1013,7 +1030,7 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
           publications: { limit: PROJECT_OVERVIEW_LIMIT },
           metrics: true,
         },
-      });
+      }), context);
     },
 
     async loadPage(input: {

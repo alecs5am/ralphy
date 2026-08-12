@@ -93,6 +93,7 @@ const currentCoreFixtures = [
     params: { context: { workspaceId: "ws_1", projectId: "prj_1" }, projectId: "prj_1", sections: { documents: { limit: 5 }, iterations: { limit: 5 }, feedback: { limit: 5 }, stages: { limit: 5 }, compositions: { limit: 5 }, builds: { limit: 5 }, units: { limit: 5 }, runs: { limit: 5 }, activity: { afterSequence: 0, limit: 10 }, mediaCounts: true, publications: { limit: 5 }, metrics: true } },
     result: {
       project: { id: "prj_1", workspaceId: "ws_1", slug: "launch", name: "Launch", state: "active", rowVersion: 1, createdAt: 1, updatedAt: 8, purpose: "Launch" },
+      spendUsd: 3.84,
       documents: { items: [
         { id: "doc_1", workspaceId: "ws_1", projectId: "prj_1", slug: "launch", title: "Launch", kind: "brief", currentRevisionId: "drev_3", rowVersion: 3, createdAt: 1, updatedAt: 3, binding: { ownerType: "project", ownerId: "prj_1", role: "brief", documentId: "doc_1", boundRevisionId: "drev_2", currentHeadRevisionId: "drev_3", hasNewerHead: true } },
         { id: "doc_ws_1", workspaceId: "ws_1", projectId: null, slug: "workspace-brief", title: "Workspace brief", kind: "brief", currentRevisionId: "drev_ws_1", rowVersion: 1, createdAt: 2, updatedAt: 2, binding: null },
@@ -505,8 +506,9 @@ describe("current Core bridge contract", () => {
         context: { workspaceId: "ws_1", projectId: "prj_1" }, projectId: "prj_1", sections: projectSections,
       });
       expect(Object.keys(project)).toEqual([
-        "project", "documents", "iterations", "feedback", "stages", "compositions", "builds", "units", "runs", "activity", "mediaCounts", "publications", "metrics",
+        "project", "spendUsd", "documents", "iterations", "feedback", "stages", "compositions", "builds", "units", "runs", "activity", "mediaCounts", "publications", "metrics",
       ]);
+      expect(project.spendUsd).toBe(3.84);
       expect(Object.keys(project.project)).toEqual([
         "id", "workspaceId", "slug", "name", "state", "rowVersion", "createdAt", "updatedAt", "purpose",
       ]);

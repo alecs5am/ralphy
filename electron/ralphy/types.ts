@@ -728,6 +728,7 @@ export interface OverviewRunDto extends EntityDto {
 }
 export interface ProjectOverviewDto {
   project: OverviewProjectDto;
+  spendUsd: number;
   documents?: OverviewPage<OverviewProjectDocumentDto>;
   iterations?: OverviewPage<OverviewIterationDto>;
   feedback?: OverviewPage<OverviewFeedbackDto>;
