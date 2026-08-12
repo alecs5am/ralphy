@@ -141,6 +141,5 @@ describe("units workbench", () => {
     expect(css).toMatch(/\.project-domain-body\.is-units\s*\{[^}]*overflow:\s*hidden/s);
     expect(css).toMatch(/\.units-workbench\s*\{[^}]*grid-template-columns:\s*minmax\(280px,\s*340px\)\s+minmax\(0,\s*1fr\)/s);
     expect(css).toMatch(/\.units-master,[\s\S]*\.units-detail\s*\{[^}]*min-height:\s*0[^}]*overflow-y:\s*auto/s);
-    expect(css).toMatch(/@container project-domain \(max-width:\s*719px\)[\s\S]*\.units-workbench\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
   });
 });

@@ -2433,17 +2433,6 @@ button.workspace-project-card:hover {
 .json-token-boolean { color: color-mix(in srgb, var(--accent-soft) 70%, var(--warn)); }
 .json-token-null { color: var(--fg-3); }
 
-@container project-domain (max-width: 719px) {
-  .documents-workbench {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(180px, min(36vh, 320px)) minmax(280px, 1fr);
-  }
-
-  .documents-master {
-    max-height: min(36vh, 320px);
-  }
-}
-
 .project-domain-body.is-units {
   overflow: hidden;
   padding-bottom: 24px;
@@ -2672,17 +2661,6 @@ button.workspace-project-card:hover {
   overflow-wrap: anywhere;
 }
 
-@container project-domain (max-width: 719px) {
-  .units-workbench {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(180px, min(36vh, 320px)) minmax(280px, 1fr);
-  }
-
-  .units-master {
-    max-height: min(36vh, 320px);
-  }
-}
-
 .project-domain-body.is-compositions {
   overflow: hidden;
   padding-bottom: 24px;
@@ -2853,12 +2831,12 @@ button.workspace-project-card:hover {
 }
 
 @container project-domain (max-width: 719px) {
+  .documents-workbench,
+  .units-workbench,
   .composition-workbench {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(180px, min(36vh, 320px)) minmax(280px, 1fr);
+    grid-template-rows: minmax(140px, 0.4fr) minmax(0, 1fr);
   }
-
-  .composition-master { max-height: min(36vh, 320px); }
 }
 
 .run-object-evidence {

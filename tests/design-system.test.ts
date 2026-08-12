@@ -171,6 +171,7 @@ type GeometryResult = {
   overviewWidth: number | null;
   overviewMetricWidths: number[];
   overviewScrollOwners: string[];
+  splitVerticalContained: boolean | null;
   forbidden: number;
 };
 
@@ -264,8 +265,14 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
               const overviewWidth = overviewDashboard?.getBoundingClientRect().width ?? null;
               const overviewMetricWidths = [...root.querySelectorAll(".overview-metrics > div")].map((item) => item.getBoundingClientRect().width);
               const overviewScrollOwners = [".project-domain-body", ".overview-dashboard"].filter((selector) => { const item = root.querySelector(selector); if (!item) return false; const overflow = getComputedStyle(item).overflowY; return overflow === "auto" || overflow === "scroll"; });
+              const split = root.querySelector(".documents-workbench, .composition-workbench, .units-workbench");
+              const splitBody = root.querySelector(".project-domain-body");
+              const splitVerticalContained = split && splitBody ? [split, ...split.children].every((pane) => {
+                const outer = splitBody.getBoundingClientRect(), inner = pane.getBoundingClientRect();
+                return inner.height > 0 && inner.top >= outer.top - 1 && inner.bottom <= outer.bottom + 1;
+              }) : null;
               const forbidden = [...root.querySelectorAll(".load-more, .project-preview, .pagination")].length + (screen === "media" ? [...root.querySelectorAll(".media-panel button")].filter((button) => button.textContent.trim() === "Open").length : 0);
-              return { screen, width: innerWidth, height: innerHeight, overflows, metricColumns, scrollOwners, documentDetailWidth: documentDetail?.getBoundingClientRect().width ?? null, documentViewerWidths, documentViewerMaxWidths, nestedMediaScroll, mediaInsets, focus, overviewColumns, overviewWidth, overviewMetricWidths, overviewScrollOwners, forbidden };
+              return { screen, width: innerWidth, height: innerHeight, overflows, metricColumns, scrollOwners, documentDetailWidth: documentDetail?.getBoundingClientRect().width ?? null, documentViewerWidths, documentViewerMaxWidths, nestedMediaScroll, mediaInsets, focus, overviewColumns, overviewWidth, overviewMetricWidths, overviewScrollOwners, splitVerticalContained, forbidden };
             })()\`));
         }
         process.stdout.write("RALPHY_GEOMETRY=" + JSON.stringify(results) + "\\n");
@@ -304,7 +311,6 @@ describe("design system contract", () => {
     expect(workbenchStyles).toMatch(/\.document-row:hover\s*\{[^}]*background:\s*var\(--hover\)/s);
     expect(workbenchStyles).toMatch(/\.document-row\.is-selected\s*\{[^}]*background:\s*var\(--selected\)[^}]*box-shadow:\s*var\(--ring-select\)/s);
     expect(workbenchStyles).not.toMatch(/\.document-row\.is-selected\s*\{[^}]*inset\s+2px\s+0/s);
-    expect(workbenchStyles).toMatch(/@container project-domain \(max-width:\s*719px\)[\s\S]*\.documents-workbench\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
   });
 
   test("allows trusted media URLs for image previews", () => {
@@ -355,6 +361,8 @@ describe("design system contract", () => {
       expect(results.filter((result) => result.screen === screen).map((result) => result.scrollOwners))
         .toEqual([scrollOwners, scrollOwners]);
     }
+    expect(results.filter(({ screen, width }) => width === 1100 && ["documents", "compositions", "units"].includes(screen)).map(({ screen, splitVerticalContained }) => ({ screen, splitVerticalContained })))
+      .toEqual(["documents", "compositions", "units"].map((screen) => ({ screen, splitVerticalContained: true })));
     expect(results.filter(({ screen, nestedMediaScroll }) => screen === "media" && nestedMediaScroll)).toEqual([]);
     expect(results.filter(({ screen }) => screen === "media").map(({ width, mediaInsets }) => ({ width, mediaInsets: mediaInsets.length })))
       .toEqual([{ width: 1360, mediaInsets: 1 }, { width: 1100, mediaInsets: 1 }]);
