@@ -88,6 +88,7 @@ async function activeScreenMarkup(): Promise<{ workspace: string } & ProjectMark
   const projectController = createProjectScreenController({
     loadProjectOverview: async () => ({
       project: { id: "project-1", workspaceId: "workspace-1", slug: "launch", name: "Launch", purpose: "Launch campaign", state: "active", rowVersion: 1, createdAt: 1, updatedAt: 2 },
+      spendUsd: 3.84,
       mediaCounts: { artifacts: 12, objects: 8, runObjects: 4 },
       metrics: { publicationCount: 2, views: 1_200, likes: 80, comments: 12, shares: 7, watchTimeMs: 345_000 },
     }),
