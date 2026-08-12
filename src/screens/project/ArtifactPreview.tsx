@@ -14,7 +14,7 @@ export function ArtifactPreview({ preview, empty, retry }: { preview: Preview; e
   if (!preview.value) return <div className="preview-empty">{empty}</div>;
   const name = preview.artifactRevisionId ?? "Artifact preview";
   if (preview.value.mime?.startsWith("image/")) return <ImageViewport src={preview.value.url} name={name} />;
-  if (preview.value.mime?.startsWith("video/")) return <VideoPlayer src={preview.value.url} name={name} />;
-  if (preview.value.mime?.startsWith("audio/")) return <AudioWaveform src={preview.value.url} name={name} sizeBytes={preview.value.sizeBytes} />;
+  if (preview.value.mime?.startsWith("video/")) return <VideoPlayer src={preview.value.url} name={name} compact />;
+  if (preview.value.mime?.startsWith("audio/")) return <AudioWaveform src={preview.value.url} name={name} sizeBytes={preview.value.sizeBytes} compact />;
   return <a href={preview.value.url} aria-label={`Open ${name}`}>Open preview</a>;
 }
