@@ -177,6 +177,26 @@ describe("workbench navigation", () => {
     expect(state.route).toEqual({ kind: "library" });
   });
 
+  test("opens each project once and closes the active tab to its workspace", () => {
+    let state = createInitialWorkbenchState();
+    state = workbenchReducer(state, { type: "library-opened", catalog, workspaceId: "newer" });
+    const projectRef = { workspaceId: "newer", projectId: "newer-project" };
+
+    state = workbenchReducer(state, { type: "open-project", project: projectRef });
+    state = workbenchReducer(state, { type: "open-project", project: projectRef });
+
+    expect((state as unknown as { tabs: unknown[] }).tabs).toEqual([projectRef]);
+    expect(state.route).toEqual({ kind: "project", ...projectRef });
+
+    state = workbenchReducer(state, {
+      type: "close-project-tab",
+      project: projectRef,
+    } as never);
+
+    expect((state as unknown as { tabs: unknown[] }).tabs).toEqual([]);
+    expect(state.route).toEqual({ kind: "workspace", workspaceId: "newer" });
+  });
+
 });
 
 describe("workbench ordering and preferences", () => {
@@ -246,6 +266,7 @@ describe("workbench ordering and preferences", () => {
       projectId: "newer-project",
       pinnedWorkspaceIds: ["newer"],
       pinnedProjectIds: ["newer/newer-project"],
+      workspacePage: "projects",
       sidebarVisible: false,
       rightPanelVisible: true,
       bottomPanelVisible: true,

@@ -1152,7 +1152,7 @@ export function createProjectScreenController(
       mediaGenerationRequest += 1;
       mediaRevisionRequest += 1;
       emit({ ...snapshot, selectedMedia: null, mediaViewerOpen: false, mediaGeneration: { status: "idle", value: null, error: null }, mediaRevisions: { status: "idle", items: [], error: null } });
-      reduce({ type: "media-query", query });
+      reduce({ type: "media-query", query, preserveItems: true });
       if (snapshot.activeTab === "media") await loadPage("media");
     },
     async openComposition(compositionId) {

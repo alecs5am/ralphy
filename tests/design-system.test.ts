@@ -449,7 +449,7 @@ describe("design system contract", () => {
     expect(renderer).toContain('ariaLabel="Resize right panel"');
     expect(renderer).toContain('ariaLabel="Resize bottom panel"');
     expect(renderer).toContain("onLostPointerCapture");
-    expect(renderer).toContain("breadcrumb-button");
+    expect(renderer).toContain("header-tabs");
     expect(renderer).toContain("createPortal");
     expect(styles).toMatch(
       /\.workspace-picker-popover\s*\{[^}]*position:\s*fixed/s,
@@ -472,6 +472,10 @@ describe("design system contract", () => {
       join(process.cwd(), "src/components/ContextSidebar.tsx"),
       "utf8",
     );
+    const projectsScreen = readFileSync(
+      join(process.cwd(), "src/screens/WorkspaceProjectsScreen.tsx"),
+      "utf8",
+    );
     const profile = readFileSync(
       join(process.cwd(), "src/components/ProfileMenu.tsx"),
       "utf8",
@@ -485,11 +489,11 @@ describe("design system contract", () => {
     expect(picker).not.toContain("workspace-hero-pill");
     expect(picker).toContain("workspace-option-field");
     expect(picker).toContain("style={workspaceDitherVars(workspace.name)}");
-    expect(sidebar).toContain("projectGlyphVars(project.name)");
-    expect(sidebar).toContain("projectGlyphSlot(project.name)");
-    expect(sidebar).toContain("data-glyph=");
+    expect(projectsScreen).toContain("projectGlyphVars(project.name)");
+    expect(projectsScreen).toContain("projectGlyphSlot(project.name)");
+    expect(projectsScreen).toContain("data-glyph=");
     expect(picker).toContain("workspaceDitherVars(selected?.name ?? value)");
-    expect(sidebar).toContain("sidebar-row-field");
+    expect(sidebar).toContain("sidebar-nav-row");
     expect(sidebar).not.toContain("sidebar-mascot-peek");
     expect(sidebar).not.toContain('title="Filter projects"');
     expect(profile).toContain(".ralphy library</small>");

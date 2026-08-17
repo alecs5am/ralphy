@@ -197,6 +197,65 @@ strong {
   margin-left: auto;
 }
 
+.header-tabs {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 2px;
+  overflow: hidden;
+  -webkit-app-region: no-drag;
+}
+
+.header-tab {
+  display: flex;
+  min-width: 0;
+  max-width: 220px;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  color: var(--fg-3);
+}
+
+.header-tab.is-active {
+  background: var(--selected);
+  color: var(--fg);
+}
+
+.header-tab-label {
+  min-width: 0;
+  height: var(--control-md);
+  overflow: hidden;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: currentColor;
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header-tab-label:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+
+.header-tab-close {
+  display: inline-grid;
+  width: var(--control-md);
+  height: var(--control-md);
+  flex: none;
+  place-items: center;
+  margin-left: calc(var(--space-2) * -1);
+  padding: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-3);
+}
+
+.header-tab-close:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+
 .header-actions-menu-wrap {
   position: relative;
 }
@@ -854,10 +913,24 @@ button.sidebar-nav-row:hover {
   color: var(--fg);
 }
 
+button.sidebar-nav-row.is-selected {
+  background: var(--selected);
+  color: var(--fg);
+}
+
+button.sidebar-nav-row.is-selected svg {
+  color: var(--accent);
+}
+
 .sidebar-nav-row small {
   color: var(--fg-3);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
+}
+
+.sidebar-spacer {
+  min-height: var(--space-4);
+  flex: 1;
 }
 
 .sidebar-section-label {
@@ -1333,6 +1406,43 @@ button.sidebar-nav-row:hover {
   gap: 14px;
 }
 
+.workspace-search {
+  display: flex;
+  height: var(--control-lg);
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--canvas);
+  color: var(--fg-3);
+}
+
+.workspace-search:focus-within {
+  border-color: var(--line-strong);
+}
+
+.workspace-search input {
+  width: 160px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--fg);
+  font-size: var(--text-sm);
+}
+
+.workspace-search input::placeholder {
+  color: var(--fg-3);
+}
+
+.workspace-search kbd {
+  color: var(--fg-4);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+}
+
 .view-segments {
   display: inline-flex;
   height: var(--control-lg);
@@ -1376,6 +1486,53 @@ button.sidebar-nav-row:hover {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 12px;
+}
+
+.workspace-project-card-shell {
+  position: relative;
+  min-width: 0;
+}
+
+.workspace-project-card-pin {
+  position: absolute;
+  z-index: 1;
+  top: var(--space-3);
+  right: var(--space-3);
+}
+
+.workspace-project-preview {
+  display: flex;
+  position: relative;
+  min-height: 108px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--raised);
+  color: var(--glyph-color);
+}
+
+.workspace-project-preview-grid {
+  position: absolute;
+  inset: var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--glyph-color) 38%, transparent);
+  border-radius: var(--radius-sm);
+}
+
+.workspace-project-preview-mark {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+}
+
+.workspace-project-preview-meta {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-2);
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
 }
 
 .workspace-projects .project-table-head,
@@ -1425,6 +1582,11 @@ button.workspace-project-card:hover {
 .workspace-project-card-head {
   justify-content: space-between;
   gap: 12px;
+}
+
+.workspace-project-card-arrow {
+  margin-left: auto;
+  color: var(--fg-4);
 }
 
 .workspace-project-icon {
@@ -5222,6 +5384,8 @@ button.workspace-project-card:hover {
   .sidebar-monogram,
   .workspace-option-avatar,
   .workspace-project-icon,
+  .workspace-project-card-shell,
+  .workspace-project-preview,
   .view-segments,
   .view-segments button,
   .inspector-file-icon,

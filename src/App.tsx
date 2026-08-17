@@ -11,7 +11,7 @@ import {
 } from "react";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion } from "motion/react";
 import { ContextSidebar } from "./components/ContextSidebar";
-import { MainHeader } from "./components/Titlebar";
+import { MainHeader, type MainHeaderTab } from "./components/Titlebar";
 import { AgentChatPanel, BottomPanel } from "./components/UtilityPanels";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { ResizeHandle } from "./components/ui/ResizeHandle";
@@ -24,7 +24,7 @@ import {
   type RootIdentity,
 } from "./lib/ipc";
 import { LibraryScreen } from "./screens/LibraryScreen";
-import { WorkspaceScreen } from "./screens/WorkspaceScreen";
+import { WorkspacePagePlaceholder, WorkspaceProjectsScreen } from "./screens/WorkspaceProjectsScreen";
 import { MigrationRecoveryScreen } from "./screens/MigrationRecoveryScreen";
 import {
   createInitialWorkbenchState,
@@ -33,7 +33,9 @@ import {
   readWorkbenchPreferences,
   workbenchReducer,
   writeWorkbenchPreferences,
+  WORKSPACE_PAGE_LABELS,
   type WorkspaceView,
+  type WorkspacePage,
 } from "./state/workbench";
 
 const loadProjectScreen = () =>
@@ -87,6 +89,9 @@ export function App() {
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>(
     initialPreferences.current.workspaceView,
+  );
+  const [workspacePage, setWorkspacePage] = useState<WorkspacePage>(
+    initialPreferences.current.workspacePage,
   );
   const [sidebarWidth, setSidebarWidth] = useState(
     initialPreferences.current.sidebarWidth,
@@ -269,6 +274,7 @@ export function App() {
         projectId,
         pinnedWorkspaceIds: state.pinnedWorkspaceIds,
         pinnedProjectIds: state.pinnedProjectIds,
+        workspacePage,
         sidebarVisible,
         rightPanelVisible,
         bottomPanelVisible,
@@ -290,6 +296,7 @@ export function App() {
     state.pinnedProjectIds,
     state.pinnedWorkspaceIds,
     state.route,
+    workspacePage,
     workspaceView,
   ]);
 
@@ -327,6 +334,13 @@ export function App() {
         dispatch({ type: "forward" });
       } else if (command && key === "f") {
         event.preventDefault();
+        const workspaceId = state.route.kind === "library"
+          ? mostRecentWorkspaceId(workspaces)
+          : state.route.workspaceId;
+        if (workspaceId && state.route.kind !== "workspace") {
+          dispatch({ type: "open-workspace", workspaceId });
+        }
+        setWorkspacePage("projects");
         setSidebarSearchRequest((request) => request + 1);
       } else if (command && key === "j") {
         event.preventDefault();
@@ -352,7 +366,7 @@ export function App() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [navigateBack, settingsVisible]);
+  }, [navigateBack, settingsVisible, state.route, workspaces]);
 
   const openProject = (project: ProjectSummary) => {
     dispatch({
@@ -364,20 +378,35 @@ export function App() {
     });
   };
 
-  const breadcrumbs = selectedProject
-    ? [
-        {
-          label: selectedWorkspace?.name ?? "Workspace",
-          onClick: () => dispatch({
-            type: "open-workspace",
-            workspaceId: selectedProject.workspaceId,
-          }),
-        },
-        { label: selectedProject.name },
-      ]
-    : selectedWorkspace
-      ? [{ label: selectedWorkspace.name }]
-      : [{ label: "Workspaces" }];
+  const closeProjectTab = useCallback((project: { workspaceId: string; projectId: string }) => {
+    dispatch({ type: "close-project-tab", project });
+  }, []);
+
+  const tabs: MainHeaderTab[] = [
+    {
+      id: `workspace:${selectedWorkspace?.id ?? "library"}`,
+      label: catalog ? WORKSPACE_PAGE_LABELS[workspacePage] : "Workspaces",
+      active: state.route.kind !== "project",
+      onOpen: () => {
+        if (selectedWorkspace) dispatch({ type: "open-workspace", workspaceId: selectedWorkspace.id });
+        else dispatch({ type: "open-library" });
+      },
+    },
+    ...state.tabs.map((tab) => {
+      const project = projects.find(
+        (item) => item.workspaceId === tab.workspaceId && item.projectId === tab.projectId,
+      );
+      return {
+        id: `${tab.workspaceId}/${tab.projectId}`,
+        label: project?.name ?? tab.projectId,
+        active: state.route.kind === "project"
+          && state.route.workspaceId === tab.workspaceId
+          && state.route.projectId === tab.projectId,
+        onOpen: () => dispatch({ type: "open-project", project: tab }),
+        onClose: () => closeProjectTab(tab),
+      };
+    }),
+  ];
 
   if (migrationRecovery) {
     return (
@@ -406,19 +435,22 @@ export function App() {
       onOpenProject={openProject}
     />
   );
-  if (state.route.kind === "workspace" && selectedWorkspace) {
+  if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "projects") {
     content = (
-      <WorkspaceScreen
-        key={`workspace:${rootIdentity?.rootEpoch ?? 0}:${selectedWorkspace.id}`}
-        workspaceId={selectedWorkspace.id}
-        rootEpoch={rootIdentity?.rootEpoch ?? 0}
-        activitySequence={rootIdentity?.activitySequence ?? 0}
-        catalogProjects={projects.filter((project) => project.workspaceId === selectedWorkspace.id)}
+      <WorkspaceProjectsScreen
+        workspaceName={selectedWorkspace.name}
+        workspaceDescription={selectedWorkspace.description}
+        projects={projects.filter((project) => project.workspaceId === selectedWorkspace.id)}
+        pinnedProjectIds={state.pinnedProjectIds}
         view={workspaceView}
+        searchRequest={sidebarSearchRequest}
         onViewChange={setWorkspaceView}
         onOpenProject={openProject}
+        onToggleProjectPin={(projectId) => dispatch({ type: "toggle-project-pin", projectId })}
       />
     );
+  } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage !== "projects") {
+    content = <WorkspacePagePlaceholder workspaceName={selectedWorkspace.name} page={workspacePage} />;
   } else if (state.route.kind === "project" && selectedProject) {
     content = (
       <Suspense
@@ -467,12 +499,12 @@ export function App() {
             {catalog && sidebarVisible && (
               <ContextSidebar
                 route={state.route}
+                page={workspacePage}
+                pageActive={state.route.kind !== "project"}
                 rootPath={rootIdentity?.storeId ?? catalog.rootPath}
                 workspaces={workspaces}
-                projects={projects}
+                workspaceId={selectedWorkspace?.id ?? null}
                 pinnedWorkspaceIds={state.pinnedWorkspaceIds}
-                pinnedProjectIds={state.pinnedProjectIds}
-                searchRequest={sidebarSearchRequest}
                 canGoBack={canGoBack}
                 canGoForward={canGoForward}
                 onBack={navigateBack}
@@ -482,10 +514,11 @@ export function App() {
                 onOpenWorkspace={(workspaceId) =>
                   dispatch({ type: "open-workspace", workspaceId })
                 }
-                onOpenProject={openProject}
-                onToggleProjectPin={(projectId) =>
-                  dispatch({ type: "toggle-project-pin", projectId })
-                }
+                onOpenPage={(page) => {
+                  setWorkspacePage(page);
+                  const workspaceId = selectedWorkspace?.id ?? mostRecentWorkspaceId(workspaces);
+                  if (workspaceId) dispatch({ type: "open-workspace", workspaceId });
+                }}
               />
             )}
           </AnimatePresence>
@@ -505,7 +538,7 @@ export function App() {
           )}
           <motion.section className="main-shell">
             <MainHeader
-              breadcrumbs={breadcrumbs}
+              tabs={tabs}
               sidebarVisible={sidebarVisible}
               canGoBack={canGoBack}
               canGoForward={canGoForward}

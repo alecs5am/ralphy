@@ -70,7 +70,7 @@ export type ProjectDomainAction =
   | { type: "page-ready"; tab: ProjectTab; generation: number; requestId: string; mediaFilter?: ProjectMediaFilter; append?: boolean; page: { items: DomainRow[]; nextCursor: string | number | null } }
   | { type: "page-failed"; tab: ProjectTab; generation: number; requestId: string; mediaFilter?: ProjectMediaFilter; error: string }
   | { type: "activity-merge"; generation: number; items: DomainRow[] }
-  | { type: "media-query"; query: ProjectMediaQuery }
+  | { type: "media-query"; query: ProjectMediaQuery; preserveItems?: boolean }
   | { type: "preview-loading"; generation: number; requestId: string }
   | { type: "preview-ready"; generation: number; requestId: string; value: { url: string; sizeBytes: number } | null }
   | { type: "preview-failed"; generation: number; requestId: string; error: string };
@@ -142,7 +142,12 @@ export function projectDomainReducer(state: ProjectDomainState, action: ProjectD
     const media = state.pages.media;
     return {
       ...state,
-      pages: { ...state.pages, media: { ...media, status: "idle", nextCursor: null, error: null, requestId: null, mediaFilter: null } },
+      pages: {
+        ...state.pages,
+        media: action.preserveItems
+          ? { ...media, status: "idle", nextCursor: null, error: null, requestId: null, mediaFilter: null }
+          : emptyPage(),
+      },
       media: action.query,
       preview: { status: "idle", value: null, error: null, requestId: null },
     };

@@ -11,6 +11,23 @@ export type WorkbenchRoute =
   | { kind: "project"; workspaceId: string; projectId: string };
 
 export type WorkspaceView = "grid" | "list";
+export type WorkspacePage = "projects" | "units" | "shared" | "memory" | "calendar";
+
+export const WORKSPACE_PAGES: WorkspacePage[] = [
+  "projects",
+  "units",
+  "shared",
+  "memory",
+  "calendar",
+];
+
+export const WORKSPACE_PAGE_LABELS: Record<WorkspacePage, string> = {
+  projects: "Projects",
+  units: "Units",
+  shared: "Shared library",
+  memory: "Memory",
+  calendar: "Calendar",
+};
 
 export interface WorkbenchPreferences {
   rootPath: string | null;
@@ -18,6 +35,7 @@ export interface WorkbenchPreferences {
   projectId: string | null;
   pinnedWorkspaceIds: string[];
   pinnedProjectIds: string[];
+  workspacePage: WorkspacePage;
   sidebarVisible: boolean;
   rightPanelVisible: boolean;
   bottomPanelVisible: boolean;
@@ -35,6 +53,7 @@ export interface WorkbenchState {
   catalogGeneration: number;
   pinnedWorkspaceIds: string[];
   pinnedProjectIds: string[];
+  tabs: ProjectReference[];
 }
 
 export type WorkbenchAction =
@@ -43,6 +62,7 @@ export type WorkbenchAction =
   | { type: "open-library" }
   | { type: "open-workspace"; workspaceId: string }
   | { type: "open-project"; project: ProjectReference }
+  | { type: "close-project-tab"; project: ProjectReference }
   | { type: "back" }
   | { type: "forward" }
   | { type: "toggle-workspace-pin"; workspaceId: string }
@@ -67,6 +87,7 @@ export function createInitialWorkbenchState(
     catalogGeneration: -1,
     pinnedWorkspaceIds: preferences?.pinnedWorkspaceIds ?? [],
     pinnedProjectIds: preferences?.pinnedProjectIds ?? [],
+    tabs: [],
   };
 }
 
@@ -126,6 +147,7 @@ export function workbenchReducer(
         historyIndex: 0,
         catalog: action.catalog,
         catalogGeneration: action.catalog.generation,
+        tabs: [],
       };
     }
     case "catalog-received":
@@ -134,6 +156,9 @@ export function workbenchReducer(
         const catalog = action.catalog;
         const route = validRouteForCatalog(state.route, catalog);
         const routeChanged = JSON.stringify(route) !== JSON.stringify(state.route);
+        const tabs = state.tabs.filter((tab) => catalog.projects.some(
+          (project) => project.workspaceId === tab.workspaceId && project.projectId === tab.projectId,
+        ));
         return {
           ...state,
           route,
@@ -142,6 +167,7 @@ export function workbenchReducer(
             : state.history,
           catalog,
           catalogGeneration: action.catalog.generation,
+          tabs,
         };
       }
     case "open-library":
@@ -153,7 +179,31 @@ export function workbenchReducer(
     case "open-workspace":
       return navigate(state, { kind: "workspace", workspaceId: action.workspaceId });
     case "open-project":
-      return navigate(state, { kind: "project", ...action.project });
+      return {
+        ...navigate(state, { kind: "project", ...action.project }),
+        tabs: state.tabs.some((tab) => (
+          tab.workspaceId === action.project.workspaceId && tab.projectId === action.project.projectId
+        )) ? state.tabs : [...state.tabs, action.project],
+      };
+    case "close-project-tab": {
+      const index = state.tabs.findIndex((tab) => (
+        tab.workspaceId === action.project.workspaceId && tab.projectId === action.project.projectId
+      ));
+      if (index < 0) return state;
+      const tabs = state.tabs.filter((_, tabIndex) => tabIndex !== index);
+      const active = state.route.kind === "project"
+        && state.route.workspaceId === action.project.workspaceId
+        && state.route.projectId === action.project.projectId;
+      if (!active) return { ...state, tabs };
+      const next = tabs[Math.min(index, tabs.length - 1)];
+      return {
+        ...navigate(
+          { ...state, tabs },
+          next ? { kind: "project", ...next } : { kind: "workspace", workspaceId: action.project.workspaceId },
+        ),
+        tabs,
+      };
+    }
     case "back": {
       if (state.historyIndex === 0) return state;
       const historyIndex = state.historyIndex - 1;
@@ -252,6 +302,7 @@ export function readWorkbenchPreferences(storage: StorageLike): WorkbenchPrefere
     projectId: null,
     pinnedWorkspaceIds: [],
     pinnedProjectIds: [],
+    workspacePage: "projects",
     sidebarVisible: true,
     rightPanelVisible: false,
     bottomPanelVisible: false,
@@ -270,6 +321,9 @@ export function readWorkbenchPreferences(storage: StorageLike): WorkbenchPrefere
       projectId: typeof record.projectId === "string" ? record.projectId : null,
       pinnedWorkspaceIds: strings(record.pinnedWorkspaceIds),
       pinnedProjectIds: strings(record.pinnedProjectIds),
+      workspacePage: WORKSPACE_PAGES.includes(record.workspacePage as WorkspacePage)
+        ? record.workspacePage as WorkspacePage
+        : "projects",
       sidebarVisible:
         typeof record.sidebarVisible === "boolean" ? record.sidebarVisible : true,
       rightPanelVisible:

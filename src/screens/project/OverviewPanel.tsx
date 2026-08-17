@@ -59,6 +59,7 @@ export function OverviewPanel({ value, onViewTab, onOpenDocument, onOpenComposit
   const media = value.mediaCounts ?? { artifacts: 0, objects: 0, runObjects: 0 };
   const mediaTotal = media.artifacts + media.objects + media.runObjects;
   const metrics = value.metrics;
+  const spendUsd = Number.isFinite(value.spendUsd) ? value.spendUsd : null;
   const hasMetrics = metrics && [metrics.publicationCount, metrics.views, metrics.likes, metrics.comments, metrics.shares, metrics.watchTimeMs].some((item) => item !== null && item !== 0);
   const hasProduction = iterations.length + feedback.length + stages.length + runs.length > 0;
   const hasDeliverables = documents.length + compositions.length + builds.length + units.length > 0;
@@ -70,7 +71,7 @@ export function OverviewPanel({ value, onViewTab, onOpenDocument, onOpenComposit
         <span className="overview-eyebrow">Current state</span>
         <div className="overview-card-title"><h3>{value.project.name}</h3><Status value={value.project.state} /></div>
         <p>{value.project.purpose ?? "No project purpose has been added yet."}</p>
-        <dl className="overview-inline-facts"><div><dt>Current iteration</dt><dd>{activeIteration?.title ?? "None active"}</dd></div><div><dt>Updated</dt><dd>{formatTime(value.project.updatedAt)}</dd></div><div><dt>Spent</dt><dd className="mono-number">${value.spendUsd.toFixed(2)}</dd></div></dl>
+        <dl className="overview-inline-facts"><div><dt>Current iteration</dt><dd>{activeIteration?.title ?? "None active"}</dd></div><div><dt>Updated</dt><dd>{formatTime(value.project.updatedAt)}</dd></div><div><dt>Spent</dt><dd className="mono-number">{spendUsd === null ? "—" : `$${spendUsd.toFixed(2)}`}</dd></div></dl>
         {currentComposition ? <button className="command-button overview-primary-action" type="button" onClick={() => onOpenComposition(currentComposition.id)}>Continue production</button> : documents[0] ? <button className="command-button overview-primary-action" type="button" onClick={() => onOpenDocument(documents[0].id)}>Open latest document</button> : null}
       </div>
     </section>
