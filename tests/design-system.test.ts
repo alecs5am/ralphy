@@ -201,6 +201,13 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
           await win.webContents.executeJavaScript(\`(async () => {
               const screen = \${JSON.stringify(screen)}, root = document.getElementById("root");
               root.innerHTML = document.getElementById(screen).innerHTML;
+              if (screen === "overview") {
+                const workbench = root.querySelector(".workbench");
+                workbench.style.setProperty("--sidebar-column", "0px");
+                workbench.style.setProperty("--right-column", "0px");
+                workbench.style.minWidth = "0";
+                root.querySelectorAll("aside").forEach((node) => { node.style.display = "none"; });
+              }
               if (screen === "media") { const space = root.querySelector(".virtual-grid-space"); if (space) space.style.height = "1600px"; }
               if (screen === "documents") {
                 const detail = root.querySelector(".documents-detail"), viewer = detail?.querySelector(":scope > .markdown-view");
