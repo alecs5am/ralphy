@@ -1,10 +1,3 @@
-/* ─────────────────────────────────────────────────────────────
-   Ralphy Desktop — brand tokens.
-   Mirrored from landing/app/globals.css so the desktop surface reads
-   identical to the marketing site. Source of truth for the rules is
-   BRAND_DESIGN.md (no borders, binary radii, no shadows, bento layers).
-   Fonts are copied into public/assets/fonts/ from the landing.
-   ───────────────────────────────────────────────────────────── */
 @font-face {
   font-family: "AWS Diatype";
   src: url("/assets/fonts/AWSDiatype-Regular.woff2") format("woff2");
@@ -12,6 +5,7 @@
   font-style: normal;
   font-display: swap;
 }
+
 @font-face {
   font-family: "AWS Diatype Mono";
   src: url("/assets/fonts/AWSDiatypeRoundedSemi-Mono-Regular.woff2") format("woff2");
@@ -19,6 +13,15 @@
   font-style: normal;
   font-display: swap;
 }
+
+@font-face {
+  font-family: "Andale Mono";
+  src: url("/assets/fonts/AndaleMono-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @font-face {
   font-family: "AWS Diatype Mono";
   src: url("/assets/fonts/AWSDiatypeRoundedSemi-Mono-Bold.woff2") format("woff2");
@@ -26,46 +29,163 @@
   font-style: normal;
   font-display: swap;
 }
-@font-face {
-  font-family: "Fragment Mono";
-  src: url("/assets/fonts/FragmentMono-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
 
 :root {
-  /* Background scale — bento layering (5 steps). The ONLY depth mechanism. */
-  --bg:     #0A0A0B;
-  --bg-1:   #131316;
-  --bg-2:   #1A1A1D;
-  --bg-3:   #212125;
-  --bg-4:   #28282C;
-  --inset:  #050506;
+  color-scheme: dark;
 
-  /* Ink scale — heading / body / label / caption encoded purely here. */
-  --ink:    #F5F5F4;
-  --ink-2:  #DDDDDA;
-  --ink-3:  #B5B5B2;
-  --mute:   #8E8E8B;
-  --mute-2: #5A5A5E;
+  --canvas: #181818;
+  --sunken: #111111;
+  --panel: rgb(30 30 30 / 0.72);
+  --panel-solid: #202020;
+  --raised: #2d2d2d;
+  --hover: #343434;
+  --selected: #3a3a3a;
+  --pressed: #424242;
 
-  /* Single accent — Ralphy orange (the landing's --vio override). */
-  --vio:    #FFA630;
-  --vio-2:  #FFB85C;
-  --vio-3:  #D97E1A;
+  --fg: #f4f4f4;
+  --fg-2: #bebebe;
+  --fg-3: #929292;
+  --fg-4: #6c6c6c;
 
-  --ok:     #6FCF97;
-  --warn:   #F2C66B;
-  --err:    #E8736B;
+  --accent: #8b7cf6;
+  --accent-soft: color-mix(in srgb, var(--accent) 74%, #ffffff);
+  --accent-fill: color-mix(in srgb, var(--accent) 20%, transparent);
+  --accent-line: color-mix(in srgb, var(--accent) 38%, transparent);
 
-  --font-display: "AWS Diatype Mono", -apple-system, system-ui, sans-serif;
-  --font-sans:    "AWS Diatype", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --font-mono:    "Fragment Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --ok: #7cb994;
+  --warn: #cdae80;
+  --danger: #d49692;
+  --idle: #6a6a74;
 
-  /* Binary radii — sharp, fully-round, or the bento-plate band. Nothing else. */
-  --r-sharp: 4px;
-  --r-pill:  999px;
-  --r-card:  16px;
-  --r-panel: 22px;
+  --line: rgb(255 255 255 / 0.07);
+  --line-strong: rgb(255 255 255 / 0.12);
+
+  --font-sans: "AWS Diatype", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --font-mono: "AWS Diatype Mono", "Andale Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-lg: 15px;
+  --text-xl: 20px;
+  --leading-tight: 1.3;
+  --leading-snug: 1.45;
+  --leading-body: 1.55;
+
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-pill: 999px;
+
+  --control-sm: 26px;
+  --control-md: 30px;
+  --control-lg: 34px;
+  --row-md: 42px;
+  --row-lg: 48px;
+  --sidebar-w: 288px;
+  --inspector-w: 336px;
+  --titlebar-h: 48px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+
+  --blur: blur(44px) saturate(180%);
+  --ring-select: 0 0 0 2px var(--accent);
+  --shadow-pop: 0 8px 24px -6px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.06);
+  --shadow-window: 0 44px 96px -26px rgb(0 0 0 / 0.78);
+
+  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+  --dur-fast: 90ms;
+  --dur: 160ms;
+  --dur-slow: 220ms;
+
+  --dither-op: 1;
+  --p1: oklch(0.76 0.1 288);
+  --p2: oklch(0.76 0.1 238);
+  --p3: oklch(0.76 0.1 188);
+  --p4: oklch(0.76 0.1 148);
+  --p5: oklch(0.76 0.1 82);
+  --p6: oklch(0.76 0.1 32);
+  --p7: oklch(0.76 0.1 340);
+  --p8: oklch(0.76 0.1 208);
+}
+
+@supports (corner-shape: squircle) {
+  .sq,
+  button,
+  input,
+  textarea,
+  select {
+    corner-shape: squircle;
+  }
+
+  .pill,
+  .dot,
+  .project-facts > span,
+  .tag-list button,
+  .library-mark,
+  .phase-indicator,
+  .status-dot,
+  [style*="border-radius: 999px"] {
+    corner-shape: round;
+  }
+
+  .asset-modal-surface,
+  .select-menu-content,
+  .select-menu-trigger,
+  .workspace-project-card,
+  .bottom-panel,
+  .utility-right-panel,
+  .profile-avatar,
+  .workspace-picker-popover,
+  .workspace-hero,
+  .workspace-hero-orb,
+  .project-glyph,
+  .sidebar-row,
+  .sidebar-nav-row,
+  .video-controls,
+  .image-zoom-controls,
+  .inspector-preview {
+    corner-shape: squircle;
+  }
+}
+
+.panel-blur {
+  background: var(--panel);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .panel-blur {
+    background: var(--panel-solid);
+  }
+}
+
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: var(--radius-pill);
+  background: rgb(255 255 255 / 0.16);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(255 255 255 / 0.32);
+  background-clip: padding-box;
 }

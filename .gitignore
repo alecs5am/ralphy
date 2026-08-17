@@ -1,5 +1,9 @@
 node_modules/
 dist/
 dist-electron/
+/build/
+/release/
+native/RalphyMedia/.build/
+.worktrees/
 *.log
 .DS_Store

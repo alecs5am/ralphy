@@ -1,90 +1,91 @@
-# Ralphy Desktop
+# Ralphy Media
 
-Electron app with an embedded Claude Code chat that drives a Ralphy project — the
-pencil.dev shape, applied to UGC video. You chat; a Claude Code agent runs the
-`ralphy` pipeline over `workspace/projects/<id>/`; the project panel updates live.
+Ralphy Media is a macOS Electron workbench for reviewing files produced inside
+Ralphy workspaces and projects. It opens a user-selected `.ralphy` directory and
+does not depend on the deprecated `activeWorkspace` setting.
 
-The original design note remains in the core Ralphy development history. The
-renderer uses the same public brand language as the website.
-The Electron + Claude wiring is live: it spawns your local `claude` and streams a
-real conversation.
+## Product model
 
-## Run the desktop app (real chat, real auth)
+- The library view indexes workspace and project metadata without scanning every
+  asset.
+- A workspace is always the active context; its projects are sorted by recent
+  filesystem activity.
+- Opening a project starts a cancellable worker-thread scan for that project only.
+- The project overview separates Ralphy finals, generated artifacts, references,
+  reusable units, lifecycle documents, and other files.
+- The asset grid is virtualized and limits concurrent image and video previews.
+- Files created by Ralphy appear through the macOS recursive filesystem watcher.
+- Images, video, audio, Markdown, text, JSON, and PDF open in the main content
+  area. Back returns to the same grid position.
 
-Requires a local `claude` on PATH (`claude --version`) logged into your subscription.
+Review state includes shortlist, approved, needs-work, reject, favorite, rating,
+tags, and notes. `Copy for Agent` places a path-aware feedback block on the
+clipboard. Destructive deletion uses the macOS Trash.
 
-```bash
-bun install                  # downloads the Electron binary; needs network
-bun run start                # builds renderer + electron, then opens the window
+Review metadata is stored at:
+
+```text
+.ralphy/media-library/library.json
 ```
 
-Pick **My Claude subscription** on first run → chat. Each turn spawns
-`claude -p --output-format stream-json` with `cwd` at the repo root, so the agent
-loads the real `AGENTS.md` + `CLAUDE.md` and answers as the Ralphy router. Usage
-draws from your plan's Agent SDK credit (no API key).
+Generated files are never modified when review metadata changes.
 
-## Check just the design (no Electron, no `claude`)
+## Run
 
-The renderer also runs standalone in a browser with a mock agent stream:
+Requires Bun and macOS.
 
 ```bash
-bun run dev                  # opens http://localhost:4180
+bun install
+bun run start
 ```
 
-You'll see: the onboarding auth picker → the workspace (chat left, live project
-panel right) → send a message to watch streamed agent events, tool chips, and the
-confirm-with-cost permission modal.
+For renderer-only development with fixture data:
+
+```bash
+bun run dev
+```
+
+## Validate
+
+```bash
+bun run typecheck
+bun run test
+bun run build
+bun run smoke
+bun run benchmark
+```
+
+The benchmark uses a real `.ralphy` path when passed as an argument, or the
+repository fixture path by default:
+
+```bash
+bun run benchmark /path/to/repository/.ralphy
+```
+
+## Package for macOS
+
+```bash
+bun run package:mac
+```
+
+The signed development build is written to `release/Ralphy Media.app`.
 
 ## Architecture
 
-```
-Electron main process (electron/main.ts)
-  ├─ ClaudeSession (electron/claude/session.ts)
-  │    spawns the user's local `claude` binary in stream-json mode,
-  │    cwd = workspace/projects/<id>  → loads AGENTS.md + CLAUDE.md + skills
-  │    normalizes stdout lines → AgentEvent
-  │    gates paid/destructive verbs (ralphy generate/render, rm) → permission
-  ├─ IPC: auth:get/set, agent:send, agent:event, agent:permission(:resolve)
-  └─ BrowserWindow → loads dist/ (the Vite renderer)
+```text
+Electron main
+  media session epoch + validated IPC
+  shallow catalog and project worker
+  recursive filesystem watcher
+  tokenized ralphy-media:// file protocol
+  macOS Finder, clipboard, open, and Trash operations
 
-Renderer (src/) — React + Vite
-  ├─ window.ralphy bridge (electron/preload.ts) ; mock fallback (src/lib/ipc.ts)
-  ├─ Onboarding  — subscription vs API-key auth
-  ├─ Workspace   — Chat + ProjectPanel + PermissionModal
-  └─ styles/     — tokens.css (mirrored from landing) + app.css
+React renderer
+  contextual workspace/project navigation
+  project overview and explicit filter controls
+  virtualized media grid and in-place viewer
+  review inspector and Copy for Agent
 ```
 
-## Auth & billing (the honest version)
-
-Two paths, picked on first run:
-
-- **My Claude subscription (recommended)** — reuses the same `claude` login you
-  use in the terminal. Usage is covered by your plan's monthly **Agent SDK credit**
-  (Pro $20 · Max 5x $100 · Max 20x $200), with no API key and no pay-per-token.
-- **Anthropic API key** — pay-per-token, for machines without a subscription login.
-
-Important: this does **not** draw from the 5h/weekly *interactive* limits. Anthropic
-routes all programmatic driving (Agent SDK and headless `claude -p`) to the separate
-Agent SDK credit pool by design — there is no way to present as interactive Claude
-Code. The subscription path still means "no extra key, covered by my plan."
-
-Trap: if `ANTHROPIC_API_KEY` is set in your environment it silently overrides the
-subscription and bills pay-per-token. The onboarding screen warns when it detects this.
-
-## Known limits of this spike
-
-- **Permission gate is not live yet.** The session runs in `--permission-mode default`,
-  so read-only tools work and anything risky (Bash / Edit / Write, incl. paid
-  `ralphy generate`) is denied in headless mode — safe, but the confirm-with-cost
-  modal is wired in the UI only, not yet to the binary's `can_use_tool` channel
-  (needs `--input-format stream-json` + the control protocol).
-- **No live file watcher yet** — the project panel reflects chat progress, not real
-  changes under `workspace/projects/<id>/`.
-- **cwd is the repo root** for the demo (so the agent loads the full router). A real
-  build would scope it to the selected project dir.
-
-## Repository boundary
-
-The desktop app launches installed coding-agent and `ralphy` binaries. It must
-not import TypeScript from a sibling core checkout. CLI behavior belongs in
-[alecs5am/ralphy](https://github.com/alecs5am/ralphy).
+The desktop repository consumes Ralphy's documented filesystem contract. It
+does not import source from a sibling checkout.

@@ -1,0 +1,40 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+button,
+input,
+textarea,
+select {
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: 0;
+}
+
+button {
+  padding: 0;
+  border: 0;
+}
+
+:focus,
+:focus-visible {
+  outline: none;
+}
+
+img,
+svg,
+video,
+canvas {
+  display: block;
+}
