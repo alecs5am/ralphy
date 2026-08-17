@@ -2869,6 +2869,15 @@ button.workspace-project-card:hover {
   }
 }
 
+@container project-domain (max-width: 719px) {
+  .composition-workbench {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(180px, min(36vh, 320px)) minmax(280px, 1fr);
+  }
+
+  .composition-master { max-height: min(36vh, 320px); }
+}
+
 .run-object-evidence {
   width: 100%;
   align-self: start;
