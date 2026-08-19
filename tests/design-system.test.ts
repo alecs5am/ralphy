@@ -208,6 +208,7 @@ type GeometryResult = {
   memoryOpenBackground: string | null;
   memoryBodyBorder: string | null;
   mediaSelectedRing: { light: string; dark: string } | null;
+  activityIslandTypography: Record<"count" | "progress" | "busy", { family: string; size: number } | null> | null;
 };
 
 async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): Promise<GeometryResult[]> {
@@ -216,7 +217,10 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
     const links = ["reset.css", "tokens.css", "app.css", "workbench.css"]
       .map((file) => `<link rel="stylesheet" href="${pathToFileURL(join(process.cwd(), "src/styles", file)).href}">`)
       .join("");
-    const shell = (screen: string) => `<div class="workbench has-right-panel" style="--sidebar-w:288px;--inspector-w:336px"><aside class="context-sidebar"></aside><section class="main-shell"><header class="main-header"></header><div class="main-content-stage">${screen}</div></section><aside class="utility-right-panel"></aside></div>`;
+    const activityIsland = renderToStaticMarkup(createElement(ActivityIsland, { state: {
+      projectName: "Launch", status: "active", count: 12, busyLabel: "Syncing", progress: 64, alert: null,
+    } }));
+    const shell = (screen: string) => `<div class="workbench has-right-panel" style="--sidebar-w:288px;--inspector-w:336px"><aside class="context-sidebar"></aside><section class="main-shell"><header class="main-header">${activityIsland}</header><div class="main-content-stage">${screen}</div></section><aside class="utility-right-panel"></aside></div>`;
     const templates = Object.entries(markup).map(([name, value]) => `<template id="${name}">${shell(value)}</template>`).join("");
     writeFileSync(join(directory, "layout.html"), `<!doctype html><html><head>${links}</head><body><div id="root"></div>${templates}</body></html>`);
     writeFileSync(join(directory, "package.json"), JSON.stringify({ main: "main.cjs" }));
@@ -362,6 +366,11 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
                 document.documentElement.dataset.theme = theme;
                 return [theme, getComputedStyle(selectedPreview).boxShadow];
               })) : null;
+              const activityIslandTypography = screen === "activity" ? Object.fromEntries(["count", "progress", "busy"].map((name) => {
+                const element = root.querySelector(".activity-island-" + name);
+                const computed = element ? getComputedStyle(element) : null;
+                return [name, computed ? { family: computed.fontFamily, size: Number.parseFloat(computed.fontSize) } : null];
+              })) : null;
               delete document.documentElement.dataset.theme;
               return { screen, width: innerWidth, height: innerHeight, overflows, metricColumns, scrollOwners, documentDetailWidth: documentDetail?.getBoundingClientRect().width ?? null, documentViewerWidths, documentViewerMaxWidths, nestedMediaScroll, mediaInsets, focus, overviewColumns, overviewWidth, overviewMetricWidths, overviewNarrativeColumns, overviewColumnRatio, overviewScrollOwners, splitVerticalContained, masterRowEdgeInset, masterRowTopInset, masterRowHeight, masterRowGap, revisionEdgeInset, revisionTopInset, revisionGap, mediaTitleFontSize, mediaMetaFontSize, activityTimeFontSize, activityEntityFontSize, forbidden, projectHeaderCount, projectTabsCenterOffset, gooeyBlobCoverage, unitCardsInGridFlow, projectTabsHeaderOffset, projectTabsReceivePointer, projectTabsAppRegion,
                 memoryRegionPadding: style(".memory-region")?.padding ?? null,
@@ -370,7 +379,7 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
                 memoryInactiveBackground: style(".memory-rule:not(.is-open)")?.backgroundColor ?? null,
                 memoryOpenBackground: style(".memory-rule.is-open")?.backgroundColor ?? null,
                 memoryBodyBorder: style(".memory-rule-body")?.borderTopWidth ?? null,
-                mediaSelectedRing };
+                mediaSelectedRing, activityIslandTypography };
             })()\`));
         }
         process.stdout.write("RALPHY_GEOMETRY=" + JSON.stringify(results) + "\\n");
@@ -455,21 +464,6 @@ describe("design system contract", () => {
     expect(tokenStyles).toMatch(/--danger:\s*var\(--red\)/);
     expect(styles).toMatch(/\.main-header\s*\{[^}]*border-bottom:\s*0/s);
     expect(styles).toMatch(/\.asset-modal-surface,[\s\S]*corner-shape:\s*squircle/);
-  });
-
-  test("uses Doto only at 13px or larger and marks numeric island values explicitly", () => {
-    const markup = renderToStaticMarkup(createElement(ActivityIsland, { state: {
-      projectName: "Launch", status: "active", count: 12, busyLabel: "Syncing", progress: null, alert: null,
-    } }));
-    expect(markup).toContain('class="activity-island-count"');
-    expect(markup).toContain('class="activity-island-busy"');
-
-    const dotoRules = [...workbenchStyles.matchAll(/([^{}]+)\{([^{}]*var\(--font-doto\)[^{}]*)\}/g)];
-    expect(dotoRules.length).toBeGreaterThan(0);
-    for (const [, selector, body] of dotoRules) {
-      const size = body.match(/font-size:\s*([\d.]+)px/) ?? body.match(/font:\s*[^;]*?([\d.]+)px/);
-      expect(Number(size?.[1]), selector.trim()).toBeGreaterThanOrEqual(13);
-    }
   });
 
   test("shares the compact profile-menu tokens across reusable controls", () => {
@@ -557,6 +551,13 @@ describe("design system contract", () => {
       expect(mediaSelectedRing?.dark).toContain("rgb(242, 242, 240)");
       expect(mediaSelectedRing?.light).toContain("3px");
       expect(mediaSelectedRing?.dark).toContain("3px");
+    }
+    for (const { activityIslandTypography } of results.filter(({ screen }) => screen === "activity")) {
+      for (const name of ["count", "progress"] as const) {
+        expect.soft(activityIslandTypography?.[name]?.family).toContain("Doto");
+        expect.soft(activityIslandTypography?.[name]?.size).toBeGreaterThanOrEqual(13);
+      }
+      expect.soft(activityIslandTypography?.busy?.family).not.toContain("Doto");
     }
     expect(results.filter(({ screen }) => screen === "activity").flatMap(({ width, activityTimeFontSize, activityEntityFontSize }) =>
       activityTimeFontSize !== null && activityTimeFontSize >= 12 && activityEntityFontSize !== null && activityEntityFontSize >= 12 ? [] : [{ width, activityTimeFontSize, activityEntityFontSize }])).toEqual([]);
