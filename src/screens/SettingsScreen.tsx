@@ -89,14 +89,16 @@ function SettingRow({
 function Segmented({
   value,
   values,
+  className,
   onChange,
 }: {
   value: string;
   values: string[];
+  className?: string;
   onChange(value: string): void;
 }) {
   return (
-    <div className="settings-segmented" role="group">
+    <div className={`settings-segmented${className ? ` ${className}` : ""}`} role="group">
       {values.map((item) => (
         <button
           className={value === item ? "is-selected" : ""}
@@ -191,6 +193,7 @@ function AppearanceSettings({
           <Segmented
             value={theme[0].toUpperCase() + theme.slice(1)}
             values={["System", "Light", "Dark"]}
+            className="settings-theme-selector"
             onChange={(value) => onThemeChange(value.toLowerCase() as ThemePreference)}
           />
         </SettingRow>

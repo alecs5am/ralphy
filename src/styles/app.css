@@ -2043,9 +2043,8 @@ body {
   justify-items: center;
   gap: 14px;
   overflow: hidden;
-  background: var(--canvas);
-  background-image: radial-gradient(circle, rgb(255 255 255 / 0.07) 1px, transparent 1px);
-  background-size: 20px 20px;
+  background: var(--desk);
+  background-image: none;
   opacity: 1;
   transition: opacity 300ms var(--ease), transform 300ms var(--ease);
 }
@@ -2053,7 +2052,7 @@ body {
 .welcome-screen::before {
   position: absolute;
   inset: 0;
-  background: rgb(24 24 24 / 0.72);
+  background: transparent;
   content: "";
 }
 
@@ -2073,14 +2072,14 @@ body {
   width: 132px;
   height: 132px;
   place-items: center;
-  border: 1px solid var(--line-strong);
+  border: 0;
   border-radius: 36px;
-  background: var(--raised);
-  box-shadow: var(--shadow-pop);
+  background: var(--widget-light);
+  box-shadow: none;
 }
 
 .welcome-mascot .ralphy-mascot {
-  filter: drop-shadow(0 10px 18px rgb(0 0 0 / 0.52));
+  filter: none;
 }
 
 .welcome-screen h1 {
@@ -2194,4 +2193,84 @@ body {
   .review-filter button {
     padding-inline: 5px;
   }
+}
+
+/* Instrument v11 welcome, recovery, viewer, and toast surfaces. */
+.welcome-screen {
+  background: var(--desk);
+  background-image: none;
+}
+
+.welcome-screen::before { display: none; }
+
+.welcome-mascot {
+  border: 0;
+  border-radius: var(--radius-widget);
+  background: var(--widget-light);
+  box-shadow: none;
+}
+
+.welcome-mascot .ralphy-mascot { filter: none; }
+.welcome-statuses > div.is-active { color: var(--ink); }
+.welcome-statuses > div.is-complete,
+.welcome-statuses > div.is-complete svg { color: var(--ink-secondary); }
+
+.migration-recovery {
+  display: grid;
+  min-height: 100%;
+  padding: 24px;
+  place-items: center;
+  background: var(--desk);
+  color: var(--ink);
+}
+
+.migration-recovery > section {
+  width: min(560px, 100%);
+  padding: 28px;
+  border: 0;
+  border-radius: var(--radius-widget);
+  background: var(--widget-light);
+  box-shadow: none;
+}
+
+.migration-recovery h1 { margin: 6px 0 12px; font-size: 24px; font-weight: 400; }
+.migration-recovery p { color: var(--ink-secondary); line-height: var(--leading-body); }
+.migration-recovery dl { display: grid; gap: 8px; margin: 20px 0; }
+.migration-recovery dl > div { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 12px; }
+.migration-recovery dt { color: var(--ink-muted); font: 10px var(--font-mono); }
+.migration-recovery dd { overflow-wrap: anywhere; margin: 0; color: var(--ink); font: 12px var(--font-mono); }
+.migration-recovery button { min-height: 34px; padding: 0 14px; border-radius: var(--radius-pill); background: var(--ink); color: var(--desk); }
+.migration-recovery button:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+.asset-viewer,
+.viewer-toolbar,
+.viewer-document {
+  border: 0;
+  background: var(--widget-light);
+  box-shadow: none;
+  color: var(--ink);
+}
+
+.viewer-stage { background: var(--frame); }
+.viewer-back:focus-visible,
+.viewer-actions button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.error-banner {
+  border: 0;
+  border-radius: var(--radius-widget);
+  background: var(--red);
+  box-shadow: none;
+  color: #ffffff;
+}
+
+.error-banner button {
+  background: rgb(0 0 0 / .2);
+  color: #ffffff;
+}
+
+.error-banner button:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
+
+@media (max-width: 1100px) {
+  .migration-recovery { padding: 16px; }
+  .migration-recovery > section { padding: 22px; }
 }

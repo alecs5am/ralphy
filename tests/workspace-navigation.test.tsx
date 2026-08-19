@@ -11,7 +11,8 @@ import { ActivityIsland } from "../src/components/ActivityIsland";
 import { MainHeader } from "../src/components/Titlebar";
 import { MarketplaceScreen } from "../src/screens/MarketplaceScreen";
 import { App } from "../src/App";
-import { WorkspaceProjectsScreen } from "../src/screens/WorkspaceProjectsScreen";
+import { SettingsScreen } from "../src/screens/SettingsScreen";
+import { WorkspacePagePlaceholder, WorkspaceProjectsScreen } from "../src/screens/WorkspaceProjectsScreen";
 import { LibraryScreen } from "../src/screens/LibraryScreen";
 import { bridge } from "../src/lib/ipc";
 import { createReactHost } from "./react-host";
@@ -231,12 +232,58 @@ describe("workspace projects navigation", () => {
     expect(markup).toContain("workspace-project-preview");
     expect(markup).toContain("workspace-project-card-details");
     expect(markup).toContain("workspace-project-card-status");
+    expect(markup).toContain("instrument-card workspace-project-card-shell");
     expect(markup).toContain("Launch film");
     expect(markup).toContain("Open project Launch film");
     expect(markup).toContain("Pin project Launch film");
     expect(markup).toContain("1 final");
     expect(markup.slice(markup.indexOf("workspace-project-grid"))).not.toContain("3.84");
     expect(styles).toMatch(/\.workspace-project-card-shell \.workspace-project-card\s*\{[^}]*width:\s*100%/s);
+  });
+
+  test("renders workspace placeholders on the Instrument desk", () => {
+    const markup = renderToStaticMarkup(
+      <WorkspacePagePlaceholder workspaceName="Launch Studio" page="units" />,
+    );
+
+    expect(markup).toContain("instrument-placeholder-page");
+    expect(markup).toContain("instrument-placeholder");
+    expect(markup).toContain("Units is not wired yet.");
+  });
+
+  test("exposes the real three-way theme selector", async () => {
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    const onThemeChange = vi.fn();
+
+    try {
+      await act(async () => {
+        root.render(
+          <SettingsScreen
+            rootPath="/tmp/demo/.ralphy"
+            theme="system"
+            onThemeChange={onThemeChange}
+            onBack={() => undefined}
+          />,
+        );
+      });
+      const appearance = [...host.container.querySelectorAll("button")]
+        .find((button) => button.textContent === "Appearance");
+      await act(async () => appearance!.dispatchEvent(new Event("click", { bubbles: true })));
+
+      const selector = host.container.querySelector(".settings-theme-selector");
+      expect(selector?.textContent).toBe("SystemLightDark");
+      expect(selector?.querySelectorAll("button")).toHaveLength(3);
+
+      const dark = [...selector!.querySelectorAll("button")]
+        .find((button) => button.textContent === "Dark");
+      await act(async () => dark!.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(onThemeChange).toHaveBeenCalledWith("dark");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
   });
 
   test("keeps My Work focused on workspace resources", () => {

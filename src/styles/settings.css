@@ -48,10 +48,10 @@
   position: fixed;
   z-index: 1600;
   padding: var(--menu-padding);
-  border: 1px solid var(--menu-border);
+  border: 0;
   border-radius: var(--menu-radius);
   background: var(--menu-surface);
-  box-shadow: var(--menu-shadow);
+  box-shadow: none;
   corner-shape: squircle;
 }
 
@@ -169,8 +169,8 @@
   display: flex;
   min-height: 0;
   flex-direction: column;
-  border-right: 1px solid var(--line);
-  background: #222222;
+  border-right: 0;
+  background: var(--widget-dark);
 }
 
 .settings-window-bar {
@@ -213,7 +213,7 @@
   gap: 7px;
   margin: 2px 10px 14px;
   padding: 0 8px;
-  border: 1px solid var(--field-border);
+  border: 0;
   border-radius: var(--field-radius);
   background: var(--field-surface);
   color: var(--fg-4);
@@ -301,8 +301,8 @@
   align-items: end;
   gap: 12px;
   padding: 0 max(36px, calc((100% - 720px) / 2)) 18px;
-  background: rgb(24 24 24 / 0.88);
-  backdrop-filter: blur(20px);
+  background: var(--desk);
+  backdrop-filter: none;
 }
 
 .settings-main-header h1 {
@@ -346,9 +346,9 @@
 
 .settings-group {
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: var(--radius-lg);
-  background: #212121;
+  background: var(--widget-light);
   corner-shape: squircle;
 }
 
@@ -442,7 +442,7 @@
 .settings-segmented {
   display: inline-flex;
   padding: 2px;
-  border: 1px solid var(--field-border);
+  border: 0;
   border-radius: var(--field-radius);
   background: var(--field-surface);
   corner-shape: squircle;
@@ -466,7 +466,7 @@
   width: 190px;
   height: 28px;
   padding: 0 8px;
-  border: 1px solid var(--field-border);
+  border: 0;
   border-radius: var(--field-radius);
   outline: 0;
   background: var(--field-surface);
@@ -575,9 +575,9 @@
 
 .settings-shortcut {
   padding: 4px 7px;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: 6px;
-  background: #191919;
+  background: var(--widget-light-sunken);
 }
 
 .settings-muted {
@@ -591,14 +591,14 @@
   height: 48px;
   place-items: center;
   border-radius: var(--radius-lg);
-  border: 1px solid var(--accent-line);
+  border: 0;
   background: var(--raised);
   corner-shape: squircle;
 }
 
 .settings-about-mark .ralphy-mascot,
 .settings-sidebar-product .ralphy-mascot {
-  filter: drop-shadow(0 4px 8px rgb(0 0 0 / 0.4));
+  filter: none;
 }
 
 @media (max-width: 1000px) {
@@ -659,3 +659,115 @@
 .settings-about-mark { border: 0; }
 .settings-about-mark .ralphy-mascot,
 .settings-sidebar-product .ralphy-mascot { filter: none; }
+
+.settings-screen {
+  gap: 8px;
+  padding: 8px;
+  background: var(--desk);
+}
+
+.settings-sidebar {
+  border: 0;
+  border-radius: var(--radius-widget);
+  background: var(--widget-dark);
+  color: var(--ink-on-dark);
+}
+
+.settings-window-bar button,
+.settings-nav button,
+.settings-sidebar-product {
+  color: var(--ink-on-dark-secondary);
+}
+
+.settings-window-bar button:hover,
+.settings-nav button:hover {
+  background: var(--widget-dark-hover);
+  color: var(--ink-on-dark);
+}
+
+.settings-nav button.is-active {
+  background: var(--ink-on-dark);
+  color: var(--widget-dark);
+}
+
+.settings-search {
+  border: 0;
+  background: var(--widget-dark-raised);
+  color: var(--ink-on-dark-muted);
+}
+
+.settings-search input { color: var(--ink-on-dark); }
+.settings-search:focus-within { outline: 2px solid var(--ink-on-dark); outline-offset: 2px; }
+
+.settings-main {
+  border-radius: var(--radius-widget);
+  background: var(--desk);
+}
+
+.settings-main-header {
+  background: var(--desk);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.settings-group {
+  border: 0;
+  background: var(--widget-light);
+  box-shadow: none;
+}
+
+.settings-row,
+.settings-profile-hero,
+.settings-about,
+.provider-row,
+.menu-separator {
+  border: 0;
+  background-image: none;
+}
+
+.menu-separator { background: transparent; }
+
+.settings-segmented,
+.settings-input,
+.settings-shortcut {
+  border: 0;
+  background: var(--widget-light-sunken);
+  box-shadow: none;
+}
+
+.settings-segmented button.is-selected,
+.settings-toggle.is-on,
+.provider-connect.is-connected {
+  background: var(--ink);
+  color: var(--desk);
+}
+
+.settings-toggle.is-on > span { background: var(--desk); }
+
+.settings-input:focus,
+.settings-segmented button:focus-visible,
+.settings-toggle:focus-visible,
+.settings-nav button:focus-visible,
+.provider-connect:focus-visible {
+  border-color: transparent;
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.settings-nav button:focus-visible {
+  outline-color: var(--ink-on-dark);
+  outline-offset: -2px;
+}
+
+.settings-about-mark,
+.provider-mark {
+  border: 0;
+  background: var(--widget-light-sunken);
+  box-shadow: none;
+}
+
+@media (max-width: 1100px) {
+  .settings-screen { grid-template-columns: 220px minmax(0, 1fr); }
+  .settings-content { width: calc(100% - 40px); }
+  .provider-row { grid-template-columns: 28px minmax(100px, 1fr) minmax(120px, 180px) 72px; }
+}

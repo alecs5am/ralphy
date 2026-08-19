@@ -485,8 +485,8 @@ describe("design system contract", () => {
     expect(workbenchStyles).toMatch(/\.workspace-picker-popover\s*\{[^}]*border:\s*1px solid var\(--menu-border\)[^}]*background:\s*var\(--menu-surface\)/s);
     expect(workbenchStyles).toMatch(/\.agent-popover\s*\{[^}]*padding:\s*var\(--menu-padding\)[^}]*border:\s*1px solid var\(--menu-border\)[^}]*background:\s*var\(--menu-surface\)/s);
     expect(workbenchStyles).toMatch(/\.asset-context-menu\s*\{[^}]*padding:\s*var\(--menu-padding\)[^}]*border:\s*1px solid var\(--menu-border\)[^}]*background:\s*var\(--menu-surface\)/s);
-    expect(settingsStyles).toMatch(/\.profile-menu,[\s\S]*\.help-menu\s*\{[^}]*padding:\s*var\(--menu-padding\)[^}]*border:\s*1px solid var\(--menu-border\)[^}]*background:\s*var\(--menu-surface\)/s);
-    expect(settingsStyles).toMatch(/\.settings-input\s*\{[^}]*border:\s*1px solid var\(--field-border\)[^}]*background:\s*var\(--field-surface\)/s);
+    expect(settingsStyles).toMatch(/\.profile-menu,[\s\S]*\.help-menu\s*\{[^}]*padding:\s*var\(--menu-padding\)[^}]*border:\s*0[^}]*background:\s*var\(--menu-surface\)[^}]*box-shadow:\s*none/s);
+    expect(settingsStyles).toMatch(/\.settings-input\s*\{[^}]*border:\s*0[^}]*background:\s*var\(--field-surface\)/s);
   });
 
   test("leaves the project overview uncapped on wide screens", () => {
@@ -520,9 +520,9 @@ describe("design system contract", () => {
       .toEqual([{ screen: "documents", splitVerticalContained: true }]);
     expect(results.filter(({ screen, nestedMediaScroll }) => screen === "media" && nestedMediaScroll)).toEqual([]);
     expect(results.filter(({ screen }) => screen === "memory").map(({ memoryRegionPadding, memoryTopbarBorder, memoryFilterBorder, memoryInactiveBackground, memoryOpenBackground, memoryBodyBorder }) => ({ memoryRegionPadding, memoryTopbarBorder, memoryFilterBorder, memoryInactiveBackground, memoryOpenBackground, memoryBodyBorder }))).toEqual([
-      { memoryRegionPadding: "0px", memoryTopbarBorder: "0px", memoryFilterBorder: "0px", memoryInactiveBackground: "rgba(0, 0, 0, 0)", memoryOpenBackground: "rgb(29, 29, 29)", memoryBodyBorder: "0px" },
-      { memoryRegionPadding: "0px", memoryTopbarBorder: "0px", memoryFilterBorder: "0px", memoryInactiveBackground: "rgba(0, 0, 0, 0)", memoryOpenBackground: "rgb(29, 29, 29)", memoryBodyBorder: "0px" },
-      { memoryRegionPadding: "0px", memoryTopbarBorder: "0px", memoryFilterBorder: "0px", memoryInactiveBackground: "rgba(0, 0, 0, 0)", memoryOpenBackground: "rgb(29, 29, 29)", memoryBodyBorder: "0px" },
+      { memoryRegionPadding: "0px", memoryTopbarBorder: "0px", memoryFilterBorder: "0px", memoryInactiveBackground: "rgba(0, 0, 0, 0)", memoryOpenBackground: "rgb(241, 242, 246)", memoryBodyBorder: "0px" },
+      { memoryRegionPadding: "0px", memoryTopbarBorder: "0px", memoryFilterBorder: "0px", memoryInactiveBackground: "rgba(0, 0, 0, 0)", memoryOpenBackground: "rgb(241, 242, 246)", memoryBodyBorder: "0px" },
+      { memoryRegionPadding: "0px", memoryTopbarBorder: "0px", memoryFilterBorder: "0px", memoryInactiveBackground: "rgba(0, 0, 0, 0)", memoryOpenBackground: "rgb(241, 242, 246)", memoryBodyBorder: "0px" },
     ]);
     expect(results.filter(({ screen }) => screen === "media").map(({ width, mediaInsets }) => ({ width, mediaInsets: mediaInsets.length })))
       .toEqual([{ width: 2560, mediaInsets: 1 }, { width: 1360, mediaInsets: 1 }, { width: 1100, mediaInsets: 1 }]);

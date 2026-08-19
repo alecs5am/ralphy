@@ -7665,3 +7665,391 @@ button.memory-primary:hover { background: #8d89df; color: #111; }
   .resize-right { display: none; }
   .media-domain-toolbar { align-content: flex-start; height: auto; }
 }
+
+/* Instrument v11 remaining screens and secondary surfaces. */
+.main-region {
+  color: var(--ink);
+}
+
+.screen-kicker,
+.section-heading > span,
+.workspace-project-card-copy small,
+.workspace-project-card-status,
+.empty-section {
+  color: var(--ink-secondary);
+}
+
+.workspace-search,
+.metrics-band,
+.content-section,
+.instrument-card .workspace-project-card,
+.instrument-placeholder {
+  border: 0;
+  box-shadow: none;
+}
+
+.workspace-search,
+.metrics-band,
+.content-section,
+.instrument-placeholder {
+  background: var(--widget-light);
+}
+
+.workspace-search:focus-within,
+.instrument-card .workspace-project-card:focus-visible,
+.instrument-placeholder-page button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.workspace-project-card-shell {
+  border-radius: var(--radius-widget);
+  background: var(--widget-light);
+  box-shadow: none;
+}
+
+.instrument-card .workspace-project-card {
+  border-radius: var(--radius-widget);
+  background: transparent;
+}
+
+.instrument-card .workspace-project-card:hover {
+  background: var(--widget-light-hover);
+}
+
+.workspace-project-preview {
+  border: 0;
+  background: var(--frame);
+  box-shadow: none;
+}
+
+.workspace-project-phase,
+.workspace-project-phase[data-status="active"],
+.workspace-project-phase[data-status="ready"],
+.workspace-project-phase[data-status="complete"] {
+  background: var(--widget-light-sunken);
+  color: var(--ink-secondary);
+}
+
+.workspace-project-phase .status-dot { background: var(--ink-secondary); }
+.instrument-placeholder-page { display: flex; min-height: 0; flex-direction: column; }
+.instrument-placeholder { display: grid; min-height: 260px; flex: 1; place-items: center; border-radius: var(--radius-widget); }
+.instrument-placeholder .empty-section { background: transparent; }
+
+.overview-dashboard,
+.documents-workbench,
+.units-workbench,
+.activity-log,
+.project-domain-body:not(.is-media) {
+  background: var(--desk);
+  color: var(--ink);
+}
+
+.overview-section,
+.documents-master,
+.documents-detail,
+.document-editor,
+.document-row,
+.unit-card,
+.units-empty,
+.activity-inspector,
+.activity-event {
+  border: 0;
+  background: var(--widget-light);
+  box-shadow: none;
+}
+
+.document-row:hover,
+.unit-card:hover,
+.activity-event:hover {
+  background: var(--widget-light-hover);
+}
+
+.document-row.is-selected,
+.unit-card.is-selected {
+  background: var(--ink);
+  color: var(--desk);
+  box-shadow: none;
+}
+
+.unit-card:focus-visible { outline-color: var(--ink); }
+.unit-card.is-selected:focus-visible { outline-color: var(--desk); }
+
+.unit-card-preview {
+  background: var(--frame);
+}
+
+.memory-region,
+.calendar-region,
+.calendar-shell {
+  background: var(--desk);
+  color: var(--ink);
+}
+
+.memory-topbar button,
+.memory-rule-body footer button,
+.memory-search,
+.memory-type-chips button,
+.memory-sort,
+.memory-rule.is-open,
+.memory-rule.is-proposal,
+.memory-modal,
+.memory-recall-list article,
+.memory-history article,
+.calendar-toolbar > button,
+.calendar-filter-wrap > button,
+.calendar-view-tabs,
+.calendar-month-cell,
+.calendar-no-time-event,
+.calendar-week-columns > div,
+.calendar-week-event,
+.calendar-agenda-tabs,
+.calendar-filter-popover,
+.calendar-date-card,
+.calendar-revision-card,
+.calendar-channel-list > div,
+.calendar-inspector,
+.calendar-ready-drawer,
+.calendar-unit-popover,
+.calendar-date-popover,
+.calendar-time-popover,
+.calendar-modal,
+.calendar-reconnect-dialog {
+  border: 0;
+  background: var(--widget-light);
+  box-shadow: none;
+}
+
+.memory-search:focus-within,
+.memory-editor input:focus,
+.memory-editor textarea:focus,
+.memory-editor select:focus,
+.calendar-region button:focus-visible,
+.calendar-region input:focus-visible,
+.calendar-region textarea:focus-visible,
+.calendar-region select:focus-visible {
+  border-color: transparent;
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+button.memory-primary,
+.memory-segments button.is-active,
+.memory-type-chips button.is-active,
+.calendar-view-tabs button.is-active,
+.calendar-agenda-tabs button.is-active,
+.calendar-toolbar .calendar-primary,
+.calendar-modal .calendar-primary {
+  background: var(--ink);
+  color: var(--desk);
+}
+
+button.memory-primary:hover,
+.calendar-toolbar .calendar-primary:hover,
+.calendar-modal .calendar-primary:hover {
+  background: var(--ink);
+  color: var(--desk);
+}
+
+.memory-type-chips button.is-active span,
+.memory-rule-head small em.memory-tag,
+.memory-override,
+.memory-recall-note {
+  background: var(--widget-light-sunken);
+  color: var(--ink-secondary);
+}
+
+.memory-review-strip,
+.memory-quality,
+.calendar-revision-card p,
+.calendar-agenda-action {
+  background: var(--widget-light-sunken);
+  color: var(--ink-secondary);
+}
+
+.memory-modal-overlay,
+.calendar-modal-overlay,
+.calendar-reconnect-overlay,
+.unit-viewer-overlay,
+.asset-modal-overlay {
+  background: rgb(0 0 0 / .58);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.memory-modal,
+.calendar-modal,
+.calendar-reconnect-dialog,
+.unit-viewer,
+.asset-modal-surface {
+  border: 0;
+  border-radius: var(--radius-widget);
+  background: var(--widget-light);
+  box-shadow: none;
+  color: var(--ink);
+}
+
+.memory-modal > header,
+.calendar-modal > header,
+.unit-viewer-header {
+  border: 0;
+}
+
+.calendar-month-cell.is-today,
+.calendar-week-head b.is-today,
+.calendar-agenda-list > section > header > b.is-today,
+.calendar-month-cell.is-today > header > span {
+  background: var(--ink);
+  color: var(--desk);
+}
+
+.calendar-now-line,
+.calendar-now-line > i { background: var(--ink); }
+.calendar-hour-line,
+.calendar-hour-line.is-even,
+.calendar-week-event,
+.calendar-picker-trigger,
+.calendar-modal input,
+.calendar-native-field,
+.calendar-modal > footer { box-shadow: none; }
+.calendar-loading span { background: var(--widget-light); animation: none; }
+.calendar-event-dot { background: var(--unreviewed); }
+.calendar-event-dot.is-published { background: var(--ink); }
+.calendar-event-dot.is-partial { background: var(--ink-secondary); }
+.calendar-event-dot.is-failed { background: var(--red); }
+.calendar-status { color: var(--ink-secondary); }
+.calendar-status.is-failed,
+.calendar-error,
+.calendar-reconnect-banner,
+.calendar-channel-option.is-disconnected,
+.calendar-platform-tabs small.is-warning { color: var(--red); }
+
+.calendar-thumb {
+  background: var(--frame);
+  box-shadow: none;
+}
+
+.calendar-thumb::after { display: none; }
+.calendar-revision-picker button.is-active,
+.is-selected > .calendar-check-box,
+.calendar-settings-check .calendar-check-box:has(svg),
+.calendar-picker-days button.is-selected,
+.calendar-time-popover section button.is-selected,
+.calendar-reconnect-dialog > footer button.calendar-primary {
+  background: var(--ink);
+  color: var(--desk);
+  box-shadow: none;
+}
+
+.calendar-picker-days button.is-today {
+  outline: 1px solid var(--ink);
+  outline-offset: -2px;
+  box-shadow: none;
+  color: var(--ink);
+}
+
+.calendar-agenda-channel,
+.calendar-agenda-channel.is-published,
+.calendar-agenda-channel.is-draft { color: var(--ink-secondary); }
+.calendar-agenda-channel.is-failed,
+.calendar-agenda-channel.is-disconnected { color: var(--red); }
+
+.select-menu-content,
+.workspace-picker-popover,
+.asset-context-menu,
+.agent-popover,
+.header-actions-menu {
+  border: 0;
+  background: var(--widget-light);
+  box-shadow: none;
+  color: var(--ink);
+}
+
+.select-menu-item[data-highlighted],
+.asset-context-menu button:hover,
+.asset-context-menu button:focus-visible,
+.agent-menu-command:hover,
+.agent-chat-list > button:hover,
+.agent-chat-list > button.is-selected,
+.agent-provider-menu button:hover,
+.agent-provider-menu button.is-selected,
+.agent-model-list button:hover,
+.agent-model-list button.is-selected,
+.agent-mode-menu button:hover,
+.agent-mode-menu button.is-selected {
+  background: var(--desk-hover);
+  color: var(--ink);
+}
+
+.agent-popover,
+.agent-model-search,
+.agent-key-form label,
+.agent-auth-tabs,
+.agent-connect-primary,
+.agent-key-ready,
+.agent-key-form,
+.agent-tool-row,
+.agent-working {
+  border: 0;
+  box-shadow: none;
+}
+
+.agent-send:not(.is-stop),
+.agent-connect-primary {
+  background: var(--ink-on-dark);
+  color: var(--widget-dark);
+}
+
+.agent-send.is-stop,
+.agent-connect-error,
+.agent-message.is-error,
+.asset-context-menu button.danger-action:hover,
+.asset-context-menu button.danger-action:focus-visible {
+  color: var(--red);
+}
+
+.unit-viewer { background: var(--widget-light); color: var(--ink); }
+.unit-viewer-header h2 { color: var(--ink); }
+.overview-unit-visual,
+.unit-card-preview { background: var(--frame); }
+.unit-card-progress span,
+.unit-lifecycle li.is-current > span::after,
+.unit-agent-block > i span { background: var(--ink); }
+.unit-status,
+.unit-guides-toggle.is-active {
+  background: var(--widget-light-sunken);
+  color: var(--ink-secondary);
+}
+.unit-lifecycle li.is-current > span { box-shadow: inset 0 0 0 1.5px var(--ink); }
+.unit-spinner { border-color: var(--widget-light-sunken); border-top-color: var(--ink); }
+.unit-primary-action,
+.unit-selected-version,
+.unit-revision-badges b,
+.unit-agent-block > i span {
+  background: var(--ink);
+  color: var(--desk);
+}
+
+.unit-primary-action:hover,
+.unit-current-version > button:hover {
+  background: var(--ink);
+  color: var(--desk);
+}
+
+@media (max-width: 1180px) {
+  .workspace-projects-region,
+  .memory-header,
+  .memory-filters,
+  .memory-rulebook,
+  .calendar-shell { padding-inline: 16px; }
+  .workspace-project-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .calendar-toolbar { flex-wrap: wrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .calendar-inspector,
+  .calendar-ready-drawer,
+  .calendar-modal,
+  .memory-modal { animation: none; }
+}

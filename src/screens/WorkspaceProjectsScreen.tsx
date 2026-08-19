@@ -101,7 +101,7 @@ function PinButton({ project, active, onToggle }: { project: ProjectSummary; act
 
 function ProjectCard({ project, rootEpoch, pinned, onOpen, onTogglePin }: { project: ProjectSummary; rootEpoch: number; pinned: boolean; onOpen(): void; onTogglePin(): void }) {
   return (
-    <article className="workspace-project-card-shell">
+    <article className="instrument-card workspace-project-card-shell">
       <button className="workspace-project-card" type="button" aria-label={`Open project ${project.name}`} onClick={onOpen}>
         <ProjectPreview project={project} rootEpoch={rootEpoch} />
         <span className="workspace-project-card-details">
@@ -190,9 +190,9 @@ export function WorkspaceProjectsScreen({
 
 export function WorkspacePagePlaceholder({ workspaceName, page }: { workspaceName: string; page: Exclude<WorkspacePage, "projects"> }) {
   return (
-    <main className="main-region">
+    <main className="main-region instrument-placeholder-page">
       <div className="screen-header"><div><div className="screen-kicker">{workspaceName}</div><h2>{WORKSPACE_PAGE_LABELS[page]}</h2><p>Workspace tools are ready to be connected to the Core contract.</p></div></div>
-      <section className="content-section"><div className="empty-section">{WORKSPACE_PAGE_LABELS[page]} is not wired yet.</div></section>
+      <section className="content-section instrument-placeholder"><div className="empty-section">{WORKSPACE_PAGE_LABELS[page]} is not wired yet.</div></section>
     </main>
   );
 }
