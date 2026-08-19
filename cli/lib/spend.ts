@@ -34,6 +34,7 @@ import { projectDir } from "./paths.js";
 import { readGenerations } from "./gen-log.js";
 import { estimateVideoCostUsd } from "./or-catalog.js";
 import { imageCostUsd } from "./generate-batch.js";
+import { heygenPricePerSec, isHeygenRoute } from "./providers/heygen.js";
 
 /** Project-relative location the spend ledger is persisted to. */
 export const SPEND_LEDGER_ARTIFACT = "spend-ledger.json" as const;
@@ -185,6 +186,11 @@ export function activeApproval(ledger: SpendLedger | null): Approval | null {
  * there is a single price table: `imageCostUsd` (image, same helper the
  * `generate image` dry-run uses), `estimateVideoCostUsd` (catalog-backed video
  * per-second price), and the flat ElevenLabs ballparks for VO / music / sfx.
+ *
+ * A provider whose routes are NOT in the OpenRouter video catalog needs its own
+ * branch, or `estimateVideoCostUsd`'s generic fallback silently mis-prices it —
+ * a HeyGen `avatar-v-twin` came out at $0.14/s against its real $0.0667/s, so
+ * the governor disagreed with the `--dry-run` figure printed by the same call.
  */
 export function estimatedCallCostUsd(args: {
   kind: "image" | "video" | "voiceover" | "music" | "sfx";
@@ -197,6 +203,11 @@ export function estimatedCallCostUsd(args: {
     case "image":
       return Number((imageCostUsd(args.model ?? "") * variants).toFixed(6));
     case "video":
+      if (isHeygenRoute(args.model)) {
+        return Number(
+          (heygenPricePerSec(args.model!) * (args.durationSec ?? 0) * variants).toFixed(6),
+        );
+      }
       return Number((estimateVideoCostUsd(args.model ?? "", args.durationSec ?? 0) * variants).toFixed(6));
     case "voiceover":
       return Number((VOICEOVER_COST_USD * variants).toFixed(6));

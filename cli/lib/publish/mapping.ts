@@ -7,7 +7,7 @@
 import type { UnitManifest } from "../schemas/unit.js";
 import type { PostizIntegration, PostizPostEntry, PostizPostValue } from "../providers/postiz.js";
 
-export const PUBLISH_TARGETS = ["youtube", "tiktok", "instagram", "x", "telegram"] as const;
+export const PUBLISH_TARGETS = ["youtube", "tiktok", "instagram", "x", "telegram", "devto"] as const;
 export type PublishTarget = (typeof PUBLISH_TARGETS)[number];
 
 export function isPublishTarget(t: string): t is PublishTarget {
@@ -202,4 +202,41 @@ export function buildPostEntry(
   }));
   const settings = settingsForTarget(target, manifest, integrationIdentifier, defaults);
   return { integration: { id: integrationId }, value, ...(settings && { settings }) };
+}
+
+/**
+ * Build the dev.to article post entry for Postiz (#527). dev.to is an article
+ * provider: the markdown body rides in `value[].content`, and the per-provider
+ * `settings` carry `__type: "devto"`, the title (min 2 chars), up to 4 tags, an
+ * optional canonical URL, and an optional uploaded `main_image`. The caller
+ * rewrites inline body image refs to their uploaded URLs before this runs.
+ */
+export function buildDevtoEntry(
+  integrationId: string,
+  manifest: UnitManifest,
+  bodyMarkdown: string,
+  mainImage?: UploadedMedia,
+): PostizPostEntry {
+  const title = manifest.article?.title ?? manifest.title ?? manifest.slug;
+  const settings: Record<string, unknown> = { __type: "devto", title };
+  // dev.to tags (#551). Postiz validates each tag as `{ value: number, label:
+  // string }` (its `DevToTagsSettingsDto`: `@IsNumber() value`, `@IsString()
+  // label`) — the earlier `value: string` shape from the public docs is what
+  // this cloud rejected ("settings.tags.N.value must be a number"). The Postiz
+  // dev.to provider then sends only `label` to the dev.to API
+  // (`tags.map((t) => t.label)`), so `value` is a UI-only field that just has to
+  // be numeric; we set it to the array index. Sourced from `article.tags`, `#`
+  // stripped, capped at 4 (Postiz `@ArrayMaxSize(4)`).
+  const tags = (manifest.article?.tags ?? [])
+    .map((tag) => tag.replace(/^#/u, "").trim())
+    .filter(Boolean)
+    .slice(0, 4)
+    .map((label, value) => ({ value, label }));
+  if (tags.length) settings.tags = tags;
+  const canonical = manifest.article?.canonicalUrl?.trim();
+  if (canonical) settings.canonical = canonical;
+  if (mainImage?.id && mainImage?.path) {
+    settings.main_image = { id: mainImage.id, path: mainImage.path };
+  }
+  return { integration: { id: integrationId }, value: [{ content: bodyMarkdown, image: [] }], settings };
 }

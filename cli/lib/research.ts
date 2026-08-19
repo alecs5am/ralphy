@@ -226,6 +226,8 @@ export type PullOptions = {
   localPath?: string;
   /** Force the global `.ralphy/references/<slug>/` tree, bypassing the active workspace (#401). */
   global?: boolean;
+  /** Pass `--cookies-from-browser <browser>` to yt-dlp so login-gated sources (Instagram reels, private posts) resolve using the local browser session. Same mechanism as the research profile-scrape retriever. */
+  cookiesFromBrowser?: string;
 };
 
 export type PullResult = {
@@ -249,9 +251,16 @@ export async function pullReference(opts: PullOptions): Promise<PullResult> {
   const paths = refPaths(slug, dirOpts);
   await fs.mkdir(paths.dir, { recursive: true });
 
+  // Login-gated sources (Instagram reels/private posts) need the local browser
+  // session — mirror the research profile-scrape retriever's cookie handling.
+  const cookieArgs = opts.cookiesFromBrowser
+    ? ["--cookies-from-browser", opts.cookiesFromBrowser]
+    : [];
+
   // 1. metadata (cheap, always)
   const metaR = await run("yt-dlp", [
     ...ytDlpBaseArgs(),
+    ...cookieArgs,
     "--dump-single-json",
     "--no-download",
     opts.url,
@@ -270,6 +279,7 @@ export async function pullReference(opts: PullOptions): Promise<PullResult> {
       // download audio-only as mp3
       const r = await run("yt-dlp", [
         ...ytDlpBaseArgs(),
+        ...cookieArgs,
         "-x",
         "--audio-format",
         "mp3",
@@ -287,6 +297,7 @@ export async function pullReference(opts: PullOptions): Promise<PullResult> {
       // download mp4
       const r = await run("yt-dlp", [
         ...ytDlpBaseArgs(),
+        ...cookieArgs,
         "-f",
         "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b",
         "--merge-output-format",

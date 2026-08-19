@@ -51,26 +51,39 @@ function expectRefusal(fn: () => unknown): number {
 }
 
 describe("provider registry — matrix", () => {
-  test("three bundled connectors in priority order: openrouter, elevenlabs, then fal", () => {
-    // fal (#402) is a video-only third-party connector and sits LAST so it
-    // never pre-empts OpenRouter as the default video provider.
-    expect(listConnectors().map((c) => c.id)).toEqual(["openrouter", "elevenlabs", "fal"]);
+  test("four bundled connectors in priority order: openrouter, elevenlabs, fal, then heygen", () => {
+    // fal (#402) is a video-only third-party connector and sits LAST-but-one so
+    // it never pre-empts OpenRouter as the default video provider. heygen (#512)
+    // owns the lipsync cell outright and shares `voice` from LAST place (#555),
+    // so ElevenLabs stays the default voice provider.
+    expect(listConnectors().map((c) => c.id)).toEqual([
+      "openrouter",
+      "elevenlabs",
+      "fal",
+      "heygen",
+    ]);
   });
 
-  test("openrouter serves text/image/video/transcribe; elevenlabs voice/music/sfx/transcribe; fal video", () => {
+  test("openrouter serves text/image/video/transcribe; elevenlabs voice/music/sfx/transcribe; fal video; heygen lipsync+voice", () => {
     const byId = Object.fromEntries(providerMatrix().map((p) => [p.id, p.capabilities]));
     expect(byId.openrouter).toEqual(["text", "image", "video", "transcribe"]);
     expect(byId.elevenlabs).toEqual(["voice", "music", "sfx", "transcribe"]);
     expect(byId.fal).toEqual(["video"]);
+    // #555: heygen's Starfish TTS fills the voice cell too, so a HeyGen voice
+    // clone can read a line without an avatar render.
+    expect(byId.heygen).toEqual(["lipsync", "voice"]);
   });
 
   test("connectorsFor maps a capability to the providers that serve it", () => {
     expect(connectorsFor("image").map((c) => c.id)).toEqual(["openrouter"]);
-    expect(connectorsFor("voice").map((c) => c.id)).toEqual(["elevenlabs"]);
+    // elevenlabs FIRST — heygen is reachable only via an explicit --provider.
+    expect(connectorsFor("voice").map((c) => c.id)).toEqual(["elevenlabs", "heygen"]);
     // video is served by openrouter (first) then fal (#402)
     expect(connectorsFor("video").map((c) => c.id)).toEqual(["openrouter", "fal"]);
     // transcribe is served by both audio + text connectors, openrouter first
     expect(connectorsFor("transcribe").map((c) => c.id)).toEqual(["openrouter", "elevenlabs"]);
+    // lipsync is heygen's alone (#512)
+    expect(connectorsFor("lipsync").map((c) => c.id)).toEqual(["heygen"]);
   });
 });
 

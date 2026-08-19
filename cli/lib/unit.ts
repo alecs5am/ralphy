@@ -478,7 +478,10 @@ export async function createUnit(args: CreateUnitArgs): Promise<CreateUnitResult
 // ─── captionUnit (#403) ──────────────────────────────────────────────────────
 
 export interface CaptionUnitArgs {
-  projectId: string;
+  /** Owning project. Exactly one of projectId / workspaceId. */
+  projectId?: string;
+  /** Owning account workspace, for workspace units under `<ws>/units/`. */
+  workspaceId?: string;
   /** The unit DIRECTORY name under `units/` (usually the slug). */
   dirName: string;
   /** Target-audience language for the copy. */
@@ -504,8 +507,12 @@ export type CaptionUnitResult =
  * dropped). Returns null when the unit dir has no readable unit.json.
  */
 export async function captionUnit(args: CaptionUnitArgs): Promise<CaptionUnitResult | null> {
-  const projDir = projectDir(args.projectId);
-  const unitDir = path.join(unitsRoot(projDir), args.dirName);
+  if (Boolean(args.projectId) === Boolean(args.workspaceId)) {
+    throw new Error("captionUnit needs exactly one projectId or workspaceId");
+  }
+  const unitDir = args.workspaceId
+    ? path.join(workspaceUnitsDir(args.workspaceId), args.dirName)
+    : path.join(unitsRoot(projectDir(args.projectId!)), args.dirName);
   const manifest = await readUnitManifest(unitDir);
   if (!manifest) return null;
 

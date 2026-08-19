@@ -22,6 +22,14 @@ function genKindOf(kind: JobKind): "image" | "video" | "voiceover" | "music" | "
     case "generate.voiceover": return "voiceover";
     case "generate.music": return "music";
     case "generate.sfx": return "sfx";
+    // Lipsync output IS a video and bills per second of it, so it prices through
+    // the same table. Caveat: the estimate lands at 0 anyway, because lipsync
+    // takes no `--duration` — its length follows the driving audio, which only
+    // an ffprobe of the `--audio` path would reveal and this function is
+    // deliberately IO-free. The gate therefore degrades to the coarse
+    // already-at-cap check for a QUEUED lipsync job; the interactive path
+    // (`maybeCheckSpend`) passes a probed duration and is exact.
+    case "generate.lipsync": return "video";
     // generate.captions is effectively free (no per-call cost table); render /
     // shell are not paid model calls.
     default: return null;

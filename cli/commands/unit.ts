@@ -16,9 +16,9 @@
 
 import { Command } from "commander";
 import fs from "node:fs/promises";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { projectDir } from "../lib/paths.js";
+import { projectDir, workspaceUnitsDir } from "../lib/paths.js";
 import { out, ok } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import {
@@ -444,15 +444,28 @@ export function unitCmd() {
     .option("--language <lang>", "Target-audience language for the copy", "English")
     .option("--niche <hint>", "Niche / register hint (picks the voice + hashtag spine; defaults to the unit's tags/provenance)")
     .option("--brief <text>", "Extra grounding text (on-screen text / source-reel caption / brief)")
+    .option("--workspace <slug>", "Caption an account-level workspace unit (the first arg is the unit slug)")
+    .option(
+      "--copy-file <path>",
+      "Skip the LLM draft: read the platform copy verbatim from a JSON file ({tiktok, reels, shorts, hashtags?}); a provided hashtags array wins over the bank",
+    )
     .option("--bulk", "Caption every unit in the project (slug arg ignored)")
     .option("--force", "Re-draft even if a caption exists (archives the prior into caption_versions)")
     .action(async (project: string, slug: string | undefined, opts: any) => {
-      const projectDir = resolveProjectDir(project);
-      const unitsDir = unitsRoot(projectDir);
+      const workspace = typeof opts.workspace === "string" ? opts.workspace.trim() : "";
+      if (workspace && (slug || opts.bulk)) {
+        raiseError("E_VALIDATION_FAILED", {
+          target: "--workspace",
+          detail: "use `ralphy unit caption <unit-slug> --workspace <slug>` (single unit, no --bulk)",
+        });
+      }
+      const unitsDir = workspace ? workspaceUnitsDir(workspace) : unitsRoot(resolveProjectDir(project));
 
       // Resolve the target unit dir names: one (slug) or all (--bulk).
       let targetDirs: string[];
-      if (opts.bulk) {
+      if (workspace) {
+        targetDirs = [project];
+      } else if (opts.bulk) {
         targetDirs = existsSync(unitsDir)
           ? readdirSync(unitsDir, { withFileTypes: true })
               .filter((e) => e.isDirectory())
@@ -472,17 +485,24 @@ export function unitCmd() {
         targetDirs = [slug!];
       }
 
+      // --copy-file: agent-authored copy injected through the same draft seam
+      // the tests use — no LLM call, hashtag bank + append-only archive intact.
+      const draft = opts.copyFile
+        ? async () => JSON.parse(readFileSync(String(opts.copyFile), "utf8")) as unknown
+        : undefined;
+
       const results: Array<Record<string, unknown>> = [];
       for (const dirName of targetDirs) {
         // Caption core lives in cli/lib/unit.ts (#511) — the same path the
         // social-copy entry points call. Append-only semantics.
         const result = await captionUnit({
-          projectId: project,
+          ...(workspace ? { workspaceId: workspace } : { projectId: project }),
           dirName,
           language: String(opts.language),
           niche: opts.niche != null ? String(opts.niche) : undefined,
           brief: opts.brief != null ? String(opts.brief) : undefined,
           force: Boolean(opts.force),
+          ...(draft && { draft }),
         });
         if (!result) {
           // In bulk mode, skip non-unit dirs silently; single-slug → hard error.
@@ -512,7 +532,8 @@ export function unitCmd() {
       const captioned = results.filter((r) => !("skipped" in r)).length;
       ok(`Captioned ${captioned} unit(s)`);
       out({
-        project,
+        project: workspace ? null : project,
+        workspace: workspace || null,
         bulk: Boolean(opts.bulk),
         captioned,
         bank_last_reviewed: LAST_REVIEWED,

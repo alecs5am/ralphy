@@ -86,6 +86,16 @@ ralphy publish <project> <unit-slug> --targets youtube --at <ISO>
 
 The CLI binds the correct Postiz integration, uploads non-text media, supplies provider settings, appends the Postiz post ID/status to `unit.json`, and guards retries with the workspace publish ledger.
 
+### Revise an already-scheduled post
+
+To push updated copy into posts that are scheduled but not yet live, update the unit's caption first (`ralphy unit caption ... --force`, optionally `--copy-file` for verbatim agent-authored copy), then:
+
+```bash
+ralphy publish <unit-slug> --workspace <workspace> --targets instagram --revise
+```
+
+Postiz has no post-edit endpoint, so `--revise` deletes the old scheduled post and recreates it at the same recorded time from the unit's CURRENT caption. It refuses targets that are already live. Explicit user intent to update/revise the scheduled posts authorizes it, same as publish.
+
 ## After publishing
 
 Report only:

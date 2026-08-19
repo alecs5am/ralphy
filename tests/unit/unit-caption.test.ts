@@ -19,7 +19,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root";
-import { projectDir } from "../../cli/lib/paths";
+import { projectDir, workspaceUnitsDir } from "../../cli/lib/paths";
 import { buildUnitCaption, type CaptionContext } from "../../cli/lib/social/caption";
 import { UnitManifestSchema, UnitCaptionSchema } from "../../cli/lib/schemas/unit";
 import { NICHE_TAGS, bankTags } from "../../cli/lib/social/hashtag-bank";
@@ -248,7 +248,7 @@ describe("ralphy unit caption (CLI smoke, faked LLM)", () => {
     expect(afterForce.caption_versions[0]).toEqual(firstCaption);
     // Still schema-valid after the force re-draft.
     expect(() => UnitManifestSchema.parse(afterForce)).not.toThrow();
-  });
+  }, 20000); // three CLI spawns — the 5s default flakes under parallel load
 
   test("--bulk writes a caption block per unit", () => {
     const slugs = ["bulk-a", "bulk-b", "bulk-c"];
@@ -267,4 +267,31 @@ describe("ralphy unit caption (CLI smoke, faked LLM)", () => {
       expect(() => UnitManifestSchema.parse(written)).not.toThrow();
     }
   });
+
+  test("--workspace + --copy-file captions a workspace unit with verbatim copy", () => {
+    const WS = "caption-ws";
+    const slug = "ws-wire-001";
+    const unitDir = path.join(workspaceUnitsDir(WS), slug);
+    fs.mkdirSync(unitDir, { recursive: true });
+    fs.writeFileSync(path.join(unitDir, "unit.json"), JSON.stringify(baseManifest(slug), null, 2));
+    const copyPath = path.join(tmp.dir, "seo-copy.json");
+    fs.writeFileSync(copyPath, JSON.stringify({ ...CANNED_COPY, hashtags: ["#ipo", "openai"] }));
+
+    // No RALPHY_FAKE hook: --copy-file itself must bypass the LLM draft.
+    const r = spawnSync(
+      "bun",
+      ["run", CLI, "--cwd", tmp.dir, "--json", "unit", "caption", slug, "--workspace", WS, "--copy-file", copyPath],
+      { cwd: tmp.dir, encoding: "utf8" },
+    );
+    expect(r.status).toBe(0);
+    const json = JSON.parse(r.stdout);
+    expect(json.workspace).toBe(WS);
+    expect(json.captioned).toBe(1);
+
+    const written = JSON.parse(fs.readFileSync(path.join(unitDir, "unit.json"), "utf8"));
+    expect(() => UnitManifestSchema.parse(written)).not.toThrow();
+    expect(written.caption.platform.reels).toBe(CANNED_COPY.reels);
+    // A curated hashtag set in the copy file wins over the bank ('#' enforced).
+    expect(written.caption.hashtags).toEqual(["#ipo", "#openai"]);
+  }, 20000); // CLI spawn — the 5s default flakes under parallel load
 });

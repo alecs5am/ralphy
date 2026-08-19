@@ -224,6 +224,12 @@ export const UnitPublishRecordSchema = z.object({
   scheduleAt: z.string().nullable(),
   /** Failure detail for status "failed". */
   error: z.string().optional(),
+  /**
+   * The prior Postiz post id this record replaced via `ralphy publish
+   * --revise` (Postiz has no post-edit endpoint, so a revise is
+   * delete-then-recreate at the same schedule time). Optional/additive.
+   */
+  revisedFrom: z.string().optional(),
   /** ISO timestamp of the attempt. */
   at: z.string(),
   /** Publishing backend ("postiz" today; a direct connector is a named follow-up). */

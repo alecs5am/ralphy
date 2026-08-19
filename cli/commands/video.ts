@@ -16,16 +16,19 @@ import {
   optimizeReencode,
   addMusicBed,
   applyVhs,
+  chromaKeyVideo,
+  dither,
   compressForSocial,
   colorGrade,
   extractFrame,
   extractLastFrame,
+  probeDurationSec,
   type ColorGradePreset,
 } from "../lib/ffmpeg-recipes.js";
 import { detectFaces } from "../lib/face-bbox.js";
 import { out, ok } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
-import { projectRefsDir, projectDir } from "../lib/paths.js";
+import { currentWorkspace, projectRefsDir, projectDir } from "../lib/paths.js";
 import { logGeneration } from "../lib/gen-log.js";
 import { resolveConnector } from "../lib/providers/registry.js";
 import { resolveModelAlias } from "../lib/model-aliases.js";
@@ -45,6 +48,10 @@ export function videoCmd() {
     .requiredOption("--start <sec>", "Start in seconds", (v) => Number(v))
     .requiredOption("--end <sec>", "End in seconds", (v) => Number(v))
     .option("--no-reencode", "Stream-copy instead (faster, key-frame aligned)")
+    .option(
+      "--mute",
+      "Drop the audio track. Use for screen-recording segments bound for a HyperFrames composition — the render mixes any audio stream that is present, so the source narration would leak under the voiceover.",
+    )
     .option("--project <id>", "Project ID for log line")
     .option("--note <note>", "Free-form note")
     .action(async (opts: any) => {
@@ -55,6 +62,7 @@ export function videoCmd() {
           startSec: opts.start,
           endSec: opts.end,
           reencode: opts.reencode !== false,
+          mute: !!opts.mute,
           projectId: opts.project,
           note: opts.note,
         });
@@ -549,6 +557,88 @@ export function videoCmd() {
       }
     });
 
+  // ── chromakey ──────────────────────────────────────────────────────────
+  cmd
+    .command("chromakey")
+    .description(
+      "Key a green-screen video to a transparent VP9 alpha WebM (chromakey + despill). HyperFrames plays the .webm directly via <video>. Video sibling of `ralphy asset chromakey` (images).",
+    )
+    .requiredOption("--in <path>", "Input green-screen video (mp4/mov)")
+    .requiredOption("--out <path>", "Output .webm (VP9 + alpha)")
+    .option("--color <hex>", "Key colour (default 0x00b140 greenscreen green)", "0x00b140")
+    .option("--similarity <n>", "chromakey similarity 0..1", (v) => Number(v), 0.24)
+    .option("--blend <n>", "chromakey blend / edge softness 0..1", (v) => Number(v), 0.08)
+    .option("--force-overwrite", "Skip the .v2 collision archive", false)
+    .option("--project <id>", "Project ID for log line")
+    .option("--note <note>", "Free-form note")
+    .action(async (opts: any) => {
+      try {
+        const dst = await chromaKeyVideo({
+          src: path.resolve(opts.in),
+          dst: path.resolve(opts.out),
+          color: opts.color,
+          similarity: opts.similarity,
+          blend: opts.blend,
+          forceOverwrite: opts.forceOverwrite,
+          projectId: opts.project,
+          note: opts.note,
+        });
+        ok(`Chroma-keyed → ${dst}`);
+        out({ src: opts.in, dst, color: opts.color, similarity: opts.similarity, blend: opts.blend });
+      } catch (e: any) {
+        raiseError("E_INTERNAL", { detail: `chromakey: ${e?.message || e}` });
+      }
+    });
+
+  // ── dither ─────────────────────────────────────────────────────────────
+  cmd
+    .command("dither")
+    .description(
+      "Stylish dither / halftone effect. Default: crisp 1-bit black & white (monob). --palette N keeps hue as an N-colour dither. Sibling of `ralphy video color-grade` / `apply-vhs`.",
+    )
+    .requiredOption("--in <path>", "Input video")
+    .requiredOption("--out <path>", "Output .mp4")
+    .option("--pixelate <n>", "Downscale factor for chunky retro dots (1 = native res)", (v) => Number(v), 1)
+    .option("--contrast <n>", "Pre-dither contrast boost (1 = off; real footage wants ~1.5-2.0 for a punchy 1-bit look)", (v) => Number(v), 1)
+    .option("--palette <n>", "Switch to an N-colour palette dither that keeps hue (omit for 1-bit B&W)", (v) => Number(v))
+    .option(
+      "--mode <mode>",
+      "Palette dither mode: bayer | floyd_steinberg | sierra2 | sierra2_4a | sierra3 | burkes | atkinson | heckbert | none",
+      "bayer",
+    )
+    .option("--bayer-scale <n>", "Bayer pattern coarseness 0..5 (palette + bayer mode only)", (v) => Number(v), 2)
+    .option("--force-overwrite", "Skip the .v2 collision archive", false)
+    .option("--project <id>", "Project ID for log line")
+    .option("--note <note>", "Free-form note")
+    .action(async (opts: any) => {
+      try {
+        const dst = await dither({
+          src: path.resolve(opts.in),
+          dst: path.resolve(opts.out),
+          pixelate: opts.pixelate,
+          palette: opts.palette,
+          mode: opts.mode,
+          bayerScale: opts.bayerScale,
+          contrast: opts.contrast,
+          forceOverwrite: opts.forceOverwrite,
+          projectId: opts.project,
+          note: opts.note,
+        });
+        ok(`Dithered → ${dst}`);
+        out({
+          src: opts.in,
+          dst,
+          pixelate: opts.pixelate,
+          palette: opts.palette ?? null,
+          mode: opts.mode,
+          bayerScale: opts.bayerScale,
+          contrast: opts.contrast,
+        });
+      } catch (e: any) {
+        raiseError("E_INTERNAL", { detail: `dither: ${e?.message || e}` });
+      }
+    });
+
   // ── compress ───────────────────────────────────────────────────────────
   cmd
     .command("compress")
@@ -686,6 +776,154 @@ export function videoCmd() {
       } catch (e: any) {
         raiseError("E_INTERNAL", { detail: `boomerang: ${e?.message ?? e}` });
       }
+    });
+
+  // ── translate ───────────────────────────────────────────────────────────
+  // The only NON-ffmpeg recipe in this group: a paid provider call (HeyGen
+  // /v3/video-translations) that re-voices a finished cut into other languages
+  // and re-animates the speaker's lips. Lives here because the input and output
+  // are both a finished mp4 — the same shape as every other verb in the group.
+  cmd
+    .command("translate")
+    .description(
+      "Dub a finished cut into other languages (HeyGen): re-voiced audio + re-animated lips, one output per target language.",
+    )
+    .requiredOption("--in <path|url>", "Source video (local path or URL)")
+    .requiredOption(
+      "--languages <list>",
+      'Comma-separated target language NAMES as the provider spells them (e.g. "Spanish (Spain),German"). Run `ralphy video translate-languages` to enumerate.',
+    )
+    .option("--out-dir <dir>", "Directory for the dubbed files. Default: alongside the source.")
+    .option("--mode <mode>", "speed (default, $0.0333/s) | precision (better lip-sync, $0.0667/s)", "speed")
+    .option("--input-language <lang>", "Source language. Auto-detected when omitted.")
+    .option("--speakers <n>", "Number of distinct speakers — improves separation on multi-voice sources", (v) => parseInt(v, 10))
+    .option("--captions", "Also produce SRT captions per language", false)
+    .option("--audio-only", "Translate the audio track only (no lip re-animation)", false)
+    .option("--project <id>", "Project ID for the gen-log line")
+    .option("--poll-interval-ms <ms>", "Polling cadence (default 15000)", (v) => parseInt(v, 10))
+    .option("--poll-max-attempts <n>", "Max polls before timeout (default 80 ≈ 20min)", (v) => parseInt(v, 10))
+    .option("--force-overwrite", "Overwrite an existing output file in place instead of auto-versioning it", false)
+    .option("--dry-run", "Validate params + print the resolved plan and cost estimate; do not submit", false)
+    .action(async (opts: any) => {
+      const { collectVideoTranslation, heygenPricePerSec, submitVideoTranslation } = await import(
+        "../lib/providers/heygen.js"
+      );
+      const isRemote = /^https?:\/\//.test(opts.in);
+      const source = isRemote ? opts.in : path.resolve(opts.in);
+      if (!isRemote && !existsSync(source)) {
+        raiseError("E_FILE_UNREADABLE", { path: source, verb: "video translate" });
+      }
+      const languages = (opts.languages as string)
+        .split(",")
+        .map((l) => l.trim())
+        .filter(Boolean);
+      if (languages.length === 0) {
+        raiseError("E_INPUT_INVALID", {
+          field: "languages",
+          detail: "pass at least one target language name",
+          verb: "video translate",
+        });
+      }
+      const mode: "speed" | "precision" = opts.mode === "precision" ? "precision" : "speed";
+      const outDir = opts.outDir ? path.resolve(opts.outDir) : path.dirname(source);
+      const stem = path.basename(source, path.extname(source));
+      const sourceSec = isRemote ? null : probeDurationSec(source);
+      const estUsd =
+        sourceSec === null
+          ? null
+          : Number((heygenPricePerSec(`translate-${mode}`) * sourceSec * languages.length).toFixed(4));
+
+      if (opts.dryRun) {
+        out({
+          dryRun: true,
+          source: opts.in,
+          languages,
+          mode,
+          sourceDurationSec: sourceSec,
+          outDir,
+          estimatedCostUsd: estUsd,
+        });
+        return;
+      }
+
+      try {
+        const ids = await submitVideoTranslation({
+          source,
+          languages,
+          mode,
+          inputLanguage: opts.inputLanguage,
+          speakerNum: opts.speakers,
+          enableCaption: !!opts.captions,
+          translateAudioOnly: !!opts.audioOnly,
+          title: stem,
+        });
+        // One job per requested language, resolved in submit order.
+        const results = [];
+        for (const [index, id] of ids.entries()) {
+          const label = languages[index] ?? id;
+          const result = await collectVideoTranslation({
+            id,
+            dest: path.join(outDir, `${stem}.${label.replace(/[^A-Za-z0-9]+/g, "-").toLowerCase()}.mp4`),
+            mode,
+            overwrite: opts.forceOverwrite,
+            pollIntervalMs: opts.pollIntervalMs,
+            pollMaxAttempts: opts.pollMaxAttempts,
+          });
+          results.push({ requested: label, ...result });
+          await logGeneration(
+            opts.project ? { kind: "project", id: opts.project } : { kind: "workspace", id: currentWorkspace() },
+            {
+              slot: `${stem}-${label}`,
+              provider: "heygen",
+              model: `translate-${mode}`,
+              endpoint: "/v3/video-translations",
+              kind: "video",
+              input: { slot: `${stem}-${label}`, project: opts.project, language: label, mode },
+              output: { url: result.url, local: result.localPath, job_id: id },
+              status: result.status === "completed" ? "ok" : "error",
+              ...(result.failure ? { error: result.failure } : {}),
+              cost_usd: result.costUsd,
+              note: `video translate ${label}`,
+            },
+          );
+        }
+        const failed = results.filter((r) => r.status !== "completed");
+        if (failed.length === 0) ok(`Translated into ${results.length} language(s)`);
+        out({
+          source: opts.in,
+          mode,
+          outDir,
+          totalCostUsd: Number(results.reduce((sum, r) => sum + r.costUsd, 0).toFixed(4)),
+          results: results.map((r) => ({
+            language: r.requested,
+            status: r.status,
+            path: r.localPath ?? null,
+            durationSec: r.durationSec ?? null,
+            costUsd: r.costUsd,
+            failure: r.failure ?? null,
+          })),
+        });
+      } catch (e: any) {
+        raiseError("E_INTERNAL", { detail: `video translate: ${e?.message ?? e}` });
+      }
+    })
+    .addHelpText(
+      "after",
+      `
+Examples:
+  ralphy video translate-languages
+  ralphy video translate --in render/final.mp4 --languages "Spanish (Spain),German" --captions
+  ralphy video translate --in render/final.mp4 --languages Japanese --mode precision --project my-ad-001
+`,
+    );
+
+  cmd
+    .command("translate-languages")
+    .description("Print the target language names `video translate` currently accepts (free, no generation).")
+    .action(async () => {
+      const { listTranslationLanguages } = await import("../lib/providers/heygen.js");
+      const languages = await listTranslationLanguages();
+      out({ count: languages.length, languages });
     });
 
   return cmd;

@@ -10,6 +10,7 @@
 //   provider list [--capability <cap>]   — the connector/capability matrix
 //   provider test [<id>] [--ping]        — availability + config validity (offline by default)
 //   provider matrix [--model <id>]       — per-(model, capability, provider) param coverage (#497)
+//   provider balance [--provider <id>]   — remaining prepaid balance / credits (#555)
 
 import { Command } from "commander";
 import { out } from "../lib/output.js";
@@ -18,7 +19,7 @@ import { PROVIDER_COVERAGE, coverageForModel } from "../lib/providers/coverage.j
 import { loadProviderConfigs } from "../lib/providers/config.js";
 import { raiseError } from "../lib/errors/index.js";
 
-const ALL_CAPS: Capability[] = ["text", "image", "video", "voice", "music", "sfx", "transcribe"];
+const ALL_CAPS: Capability[] = ["text", "image", "video", "voice", "music", "sfx", "lipsync", "transcribe"];
 
 function assertCapability(cap: string | undefined): Capability | undefined {
   if (cap === undefined) return undefined;
@@ -114,6 +115,37 @@ export function providerCmd() {
           source: e.source,
           notes: e.notes ?? null,
         })),
+      });
+    });
+
+  // Balance pre-flight (#555). Free, and the cheapest way to find out that a
+  // paid batch is about to fail on an empty wallet rather than mid-run.
+  cmd
+    .command("balance")
+    .description(
+      "Remaining prepaid balance / credits on a provider account. Free — run it before a paid batch. Implemented for: heygen.",
+    )
+    .option("--provider <id>", "Connector to query", "heygen")
+    .action(async (opts: { provider: string }) => {
+      if (opts.provider !== "heygen") {
+        raiseError("E_INPUT_INVALID", {
+          field: "provider",
+          detail: `balance is only implemented for heygen (got "${opts.provider}"). OpenRouter / ElevenLabs / fal expose usage on their own dashboards.`,
+          verb: "provider balance",
+        });
+      }
+      const { getHeygenAccount, heygenRemainingBalance } = await import("../lib/providers/heygen.js");
+      const account = await getHeygenAccount();
+      const { amount, unit } = heygenRemainingBalance(account);
+      out({
+        provider: "heygen",
+        username: account.username ?? null,
+        billingType: account.billing_type ?? null,
+        remaining: amount,
+        unit,
+        plan: account.subscription?.plan ?? null,
+        spendingCurrentUsd: account.usage_based?.spending_current_usd ?? null,
+        spendingCapUsd: account.usage_based?.spending_cap_usd ?? null,
       });
     });
 

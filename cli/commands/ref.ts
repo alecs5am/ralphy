@@ -126,6 +126,10 @@ export function refCmd() {
     .option("--audio-only", "Skip the video stream — only fetch mp3 (URL mode only)")
     .option("--meta-only", "Skip download — only write meta.info.json (URL mode only)")
     .option("--no-audio-extract", "Skip auto-extraction of mono 64k mp3 from mp4")
+    .option(
+      "--cookies-from-browser [browser]",
+      "Pass yt-dlp --cookies-from-browser so login-gated sources (Instagram reels, private posts) resolve via the local browser session. Defaults to 'chrome' when no browser is named.",
+    )
     .option("--global", "Write to the global .ralphy/references/<slug>/ tree, bypassing the active workspace (#401)", false)
     .option("--register", "Also call `ref add --type social <url>`", false)
     // Bulk-image-pull flags (#048):
@@ -170,6 +174,8 @@ export function refCmd() {
           metaOnly: opts.metaOnly,
           noAudioExtract: !opts.audioExtract && opts.noAudioExtract === true,
           global: opts.global === true,
+          cookiesFromBrowser:
+            opts.cookiesFromBrowser === true ? "chrome" : opts.cookiesFromBrowser,
         });
         if (opts.register) {
           await addAction(url, { type: "social", name: result.slug });

@@ -28,11 +28,13 @@ import {
   postizIntegrations,
   postizUpload,
   postizCreatePost,
+  postizDeletePost,
   type FetchLike,
 } from "../providers/postiz.js";
 import {
   bindIntegrations,
   buildPostEntry,
+  buildDevtoEntry,
   type PublishTarget,
   type PostizSettingsDefaults,
   type UploadedMedia,
@@ -152,6 +154,8 @@ export interface TargetPublishResult {
   quotaRescheduledTo?: string;
   /** The quota-reschedule reason, when `quotaRescheduledTo` is set. */
   quotaReason?: string;
+  /** The prior Postiz post id this result replaced (`--revise` only). */
+  revisedFrom?: string;
 }
 
 export interface PublishUnitResult {
@@ -206,10 +210,29 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
   }
 
   // Upload the unit's ordered media ONCE; every target references the same set.
+  // Skip the article body markdown — only images are uploaded (#527 devto).
   const media: UploadedMedia[] = [];
-  for (const filename of manifest.media.filter((item) => item !== manifest.text?.body)) {
+  const uploadedByName: Record<string, UploadedMedia> = {};
+  for (const filename of manifest.media.filter(
+    (item) => item !== manifest.text?.body && !item.toLowerCase().endsWith(".md"),
+  )) {
     const up = await postizUpload(path.join(unitDir, filename), fetchImpl, workspace);
-    media.push({ id: up.id, path: up.path });
+    const ref: UploadedMedia = { id: up.id, path: up.path };
+    media.push(ref);
+    uploadedByName[filename] = ref;
+  }
+
+  // Article units (#527): the body markdown lives in a file. Load it and rewrite
+  // any inline image refs to their uploaded Postiz URLs so devto renders them.
+  let articleBody: string | undefined;
+  if (manifest.format === "article") {
+    const bodyFile = manifest.media.find((m) => m.toLowerCase().endsWith(".md"));
+    if (bodyFile) {
+      articleBody = await fs.readFile(path.join(unitDir, bodyFile), "utf8");
+      for (const [name, ref] of Object.entries(uploadedByName)) {
+        if (ref.path) articleBody = articleBody.split(`(${name})`).join(`(${ref.path})`);
+      }
+    }
   }
 
   const requestedScheduleAt = opts.scheduleAt ?? null;
@@ -253,15 +276,16 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
     const quotaFields = q.rescheduled ? { quotaRescheduledTo: q.scheduleAt, quotaReason: q.reason } : {};
 
     const identifier = integrations.find((integration) => integration.id === integrationId)?.identifier ?? target;
-    const entry = buildPostEntry(
-      target,
-      integrationId,
-      manifest,
-      media,
-      identifier,
-      textBody,
-      defaults,
-    );
+    const heroName = manifest.article?.hero;
+    const entry =
+      target === "devto"
+        ? buildDevtoEntry(
+            integrationId,
+            manifest,
+            articleBody ?? "",
+            heroName ? uploadedByName[heroName] : undefined,
+          )
+        : buildPostEntry(target, integrationId, manifest, media, identifier, textBody, defaults);
     try {
       const created = await postizCreatePost(
         {
@@ -330,6 +354,204 @@ export async function publishUnit(opts: PublishUnitOptions): Promise<PublishUnit
     scheduleAt: requestedScheduleAt,
     results,
     // idempotent-skip is a success — allFailed stays "every target failed".
+    allFailed: results.every((r) => r.status === "failed"),
+  };
+}
+
+// ─── the revise run (delete-then-recreate; Postiz has no post-edit API) ──────
+
+export interface RevisePublishOptions {
+  projectId?: string;
+  workspaceId?: string;
+  slug: string;
+  targets: PublishTarget[];
+  /** Explicit target → Postiz integration-id bindings (win over auto-match). */
+  accounts?: Partial<Record<PublishTarget, string>>;
+  /** Workspace for the idempotency ledger. Defaults to the project's workspace. */
+  workspace?: string;
+  /** Injectable fetch (zero-network tests). */
+  fetchImpl?: FetchLike;
+  /** Clock seam for the still-in-the-future check (deterministic tests). */
+  now?: () => Date;
+}
+
+/**
+ * Re-push the CURRENT unit.json copy into already-SCHEDULED Postiz posts.
+ * The public API exposes create / delete / change-status but no post edit, so
+ * a revise is delete-then-recreate at the ledger's recorded schedule time.
+ * Delete-first is deliberate (fail-closed): a failed create leaves a missing
+ * scheduled post — recoverable by re-running revise (the delete tolerates
+ * 404 = "already deleted") — never a public double-post. Targets with no prior
+ * blocking ledger record, or whose scheduleAt is absent/past (already live),
+ * are refused as `failed` rows: revise never touches a live post.
+ */
+export async function revisePublishUnit(opts: RevisePublishOptions): Promise<PublishUnitResult> {
+  const fetchImpl = opts.fetchImpl ?? fetch;
+  if (Boolean(opts.projectId) === Boolean(opts.workspaceId)) {
+    throw new Error("revise needs exactly one projectId or workspaceId");
+  }
+  const workspace = opts.workspaceId ?? opts.workspace ?? projectWorkspace(opts.projectId!);
+  const ownerId = opts.projectId ?? `workspace:${opts.workspaceId}`;
+  const unitDir = opts.workspaceId
+    ? workspaceUnitDirFor(opts.workspaceId, opts.slug)
+    : unitDirFor(opts.projectId!, opts.slug);
+  const manifest = await readUnitManifest(unitDir);
+  if (!manifest) {
+    throw new Error(
+      `unit '${opts.slug}' not found in ${opts.workspaceId ? `workspace '${opts.workspaceId}'` : `project '${opts.projectId}'`}`,
+    );
+  }
+  if (opts.targets.length === 0) throw new Error("no revise targets given");
+
+  const integrations = await postizIntegrations(fetchImpl, workspace);
+  const bound = bindIntegrations(opts.targets, integrations, opts.accounts);
+  const defaults = await readPostizDefaults(workspace);
+  const textBody = manifest.text?.body;
+  const now = opts.now ?? (() => new Date());
+
+  // Upload lazily — only when at least one target passes the revise checks.
+  let media: UploadedMedia[] | null = null;
+  const uploadedByName: Record<string, UploadedMedia> = {};
+  const uploadMedia = async (): Promise<UploadedMedia[]> => {
+    if (media) return media;
+    media = [];
+    for (const filename of manifest.media.filter(
+      (item) => item !== manifest.text?.body && !item.toLowerCase().endsWith(".md"),
+    )) {
+      const up = await postizUpload(path.join(unitDir, filename), fetchImpl, workspace);
+      const ref: UploadedMedia = { id: up.id, path: up.path };
+      media.push(ref);
+      uploadedByName[filename] = ref;
+    }
+    return media;
+  };
+
+  // Article body loader (#527): mirror the publish path — load the markdown body
+  // and rewrite inline image refs to their uploaded Postiz URLs.
+  const buildArticleBody = async (): Promise<string> => {
+    const bodyFile = manifest.media.find((m) => m.toLowerCase().endsWith(".md"));
+    if (!bodyFile) return "";
+    let body = await fs.readFile(path.join(unitDir, bodyFile), "utf8");
+    for (const [name, ref] of Object.entries(uploadedByName)) {
+      if (ref.path) body = body.split(`(${name})`).join(`(${ref.path})`);
+    }
+    return body;
+  };
+
+  const results: TargetPublishResult[] = [];
+  for (const target of opts.targets) {
+    const integrationId = bound[target];
+    const key = publishIdempotencyKey({ workspace, projectId: ownerId, slug: opts.slug, target });
+    const prior = findLedgerEntry(workspace, key, target);
+    if (!prior?.postId) {
+      results.push({
+        target,
+        integrationId,
+        status: "failed",
+        postId: null,
+        scheduleAt: null,
+        error: "no prior scheduled publish to revise — use a plain `ralphy publish` first",
+      });
+      continue;
+    }
+    if (!prior.scheduleAt || new Date(prior.scheduleAt).getTime() <= now().getTime()) {
+      results.push({
+        target,
+        integrationId,
+        status: "failed",
+        postId: prior.postId,
+        scheduleAt: prior.scheduleAt,
+        error: "post is already live — revise only touches future-scheduled posts",
+      });
+      continue;
+    }
+    const identifier =
+      integrations.find((integration) => integration.id === integrationId)?.identifier ?? target;
+    try {
+      try {
+        await postizDeletePost(prior.postId, fetchImpl, workspace);
+      } catch (e) {
+        // Postiz DELETE 404 means "already deleted" (an earlier revise's
+        // create may have failed after its delete) — proceed to recreate.
+        if (!(e as Error).message.includes(" 404:")) throw e;
+      }
+      const uploaded = await uploadMedia();
+      const heroName = manifest.article?.hero;
+      const entry =
+        target === "devto"
+          ? buildDevtoEntry(
+              integrationId,
+              manifest,
+              await buildArticleBody(),
+              heroName ? uploadedByName[heroName] : undefined,
+            )
+          : buildPostEntry(target, integrationId, manifest, uploaded, identifier, textBody, defaults);
+      const created = await postizCreatePost(
+        {
+          type: "schedule",
+          date: prior.scheduleAt,
+          shortLink: false,
+          tags: [],
+          posts: [entry],
+        },
+        fetchImpl,
+        workspace,
+      );
+      const postId = created[0]?.postId ?? created[0]?.id ?? null;
+      appendPublishLedger(workspace, {
+        key,
+        project: ownerId,
+        slug: opts.slug,
+        target,
+        postId,
+        scheduleAt: prior.scheduleAt,
+        status: "scheduled",
+      });
+      results.push({
+        target,
+        integrationId,
+        status: "scheduled",
+        postId,
+        scheduleAt: prior.scheduleAt,
+        revisedFrom: prior.postId,
+      });
+    } catch (e) {
+      results.push({
+        target,
+        integrationId,
+        status: "failed",
+        postId: null,
+        scheduleAt: prior.scheduleAt,
+        error: (e as Error).message,
+        revisedFrom: prior.postId,
+      });
+    }
+  }
+
+  const at = new Date().toISOString();
+  await appendPublishRecords(
+    unitDir,
+    results.map((r) => ({
+      target: r.target,
+      integrationId: r.integrationId,
+      postId: r.postId,
+      status: r.status,
+      scheduleAt: r.scheduleAt,
+      ...(r.error && { error: r.error }),
+      ...(r.revisedFrom && { revisedFrom: r.revisedFrom }),
+      at,
+      backend: "postiz",
+    })),
+  );
+
+  return {
+    project: opts.projectId ?? null,
+    workspace,
+    slug: opts.slug,
+    unitDir,
+    type: "schedule",
+    scheduleAt: null,
+    results,
     allFailed: results.every((r) => r.status === "failed"),
   };
 }

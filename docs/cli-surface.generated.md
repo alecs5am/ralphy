@@ -3,7 +3,7 @@
 > DO NOT EDIT. Regenerate via `bun run cli:surface:build`.
 > The hand-curated companion lives at `docs/cli-surface.md`.
 
-Verbs registered: **52**
+Verbs registered: **54**
 
 ## Top-level verbs
 
@@ -240,6 +240,8 @@ Commands:
                          #007 per-endpoint concurrency. #024
   video [options]        Generate one video via OpenRouter (default:
                          kling-v3.0-pro)
+  lipsync [options]      Drive a talking head from a still, a trained avatar, or
+                         a finished cut (default: HeyGen)
   voiceover [options]    Generate voiceover via ElevenLabs (default:
                          eleven_multilingual_v2)
   music [options]        Generate music bed via ElevenLabs Music (instrumental
@@ -283,6 +285,9 @@ Commands:
                        data (decision D-02) — an unknown model has no entry (no
                        entry = no warning at generate time). Example: ralphy
                        provider matrix --model bytedance/seedance-2.0
+  balance [options]    Remaining prepaid balance / credits on a provider
+                       account. Free — run it before a paid batch. Implemented
+                       for: heygen.
   help [command]       display help for command
 ```
 
@@ -633,25 +638,16 @@ Usage: ralphy voice [options] [command]
 ElevenLabs voice library inspection — pre-flight checks before VO batches.
 
 Options:
-  -h, --help        display help for command
+  -h, --help                              display help for command
 
 Commands:
-  exists <voiceId>  Pre-flight check that an ElevenLabs voice ID resolves.
-                    Returns 200 + voice metadata if OK, exits 1 with a clear
-                    error if 404. Run before any multi-clip VO batch.
-  clone [options]   Clone a voice into your ElevenLabs library via Instant Voice
-                    Cloning (/v1/voices/add). Optional pre-pass through
-                    /v1/audio-isolation strips background music / noise (#030).
-  design [options]  Design a brand-new voice from a text description (POST
-                    /v1/text-to-voice/design). Writes ~3 preview mp3s; a human
-                    picks one BY EAR, then `ralphy voice create` freezes it into
-                    the library. The pick is deliberately human-only.
-  create [options]  Freeze a designed preview into a permanent library voice
-                    (POST /v1/text-to-voice). Takes the generated_voice_id
-                    printed by `ralphy voice design`.
-  list              List voices available on the user's ElevenLabs account
-                    (custom clones + favorites).
-  help [command]    display help for command
+  exists [options] <voiceId>              Pre-flight check that a voice ID resolves. Returns 200 + voice metadata if OK, exits 1 with a clear error if 404. Run before any multi-clip VO batch.
+  clone [options]                         Clone a voice into your provider library — ElevenLabs Instant Voice Cloning (/v1/voices/add) or HeyGen (/v3/voices/clone). Persists the result in the workspace performer store under a local slug.
+  design [options]                        Design a brand-new voice from a text description (POST /v1/text-to-voice/design). Writes ~3 preview mp3s; a human picks one BY EAR, then `ralphy voice create` freezes it into the library. The pick is deliberately human-only.
+  create [options]                        Freeze a designed preview into a permanent library voice (POST /v1/text-to-voice). Takes the generated_voice_id printed by `ralphy voice design`.
+  add [options] <publicUserId> <voiceId>  Add a shared Voice Library voice to your account so its id resolves for TTS (POST /v1/voices/add/{public_user_id}/{voice_id}). Needs the owner's public_user_id from the voice's share data, not just the voice id. Returns the library voice_id to pass to `generate voiceover --voice`.
+  list [options]                          List voices available on the account (custom clones + favorites), or the workspace's slug-addressable clones with --stored.
+  help [command]                          display help for command
 ```
 
 ### `ralphy whoami`
@@ -786,6 +782,50 @@ Commands:
   update [options] <id>  Update a persona
   delete <id>            Delete a persona
   help [command]         display help for command
+```
+
+### `ralphy avatar`
+
+```
+____        __      __
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
+        agent content runtime · ralphy.dev
+
+Usage: ralphy avatar [options] [command]
+
+Persistent avatars — create, train, consent and list reusable performers
+(HeyGen).
+
+Options:
+  -h, --help                display help for command
+
+Commands:
+  create [options]          Create + train a persistent avatar and store it in
+                            the workspace under a local slug. digital_twin
+                            unlocks Avatar V but requires a consent video; photo
+                            needs no consent and exposes Avatar IV / III only;
+                            prompt generates a synthetic look from text.
+  link [options] <lookId>   Adopt an avatar that already exists on the provider
+                            account into the workspace store under a local slug
+                            (no training, no charge). Use `avatar list` to find
+                            unlinked looks.
+  list [options]            List the workspace's avatars, refreshed from the
+                            provider. The engines column is the point: it is how
+                            you learn why avatar_v is unavailable on a given
+                            look.
+  show [options] <slug>     One avatar in full, refreshed from the provider —
+                            including the last training error.
+  consent [options] <slug>  Register the consent video for an avatar's group,
+                            then re-read the group status. HeyGen rejects every
+                            generation against a non-consented digital twin.
+  delete [options] <slug>   Drop the LOCAL avatar record. The provider-side
+                            avatar is left untouched — delete it in the HeyGen
+                            dashboard if you also want it gone there.
+  help [command]            display help for command
 ```
 
 ### `ralphy ref`
@@ -1619,13 +1659,16 @@ Arguments:
 Options:
   --workspace <slug>  Publish a Unit owned directly by this workspace
   --targets <list>    Comma-separated targets (youtube | tiktok | instagram | x
-                      | telegram)
+                      | telegram | devto)
   --at <iso>          Schedule datetime (ISO). Omit to post immediately
   --now               Submit immediately (the default when --at is absent)
   --account <map>     Explicit account bindings, e.g.
                       "youtube=<integration-id>,x=<id>"
   --force <reason>    Bypass the readiness gate with an explicit reason (logged
                       to user-prompts.jsonl)
+  --revise            Re-push the unit's CURRENT copy into its already-scheduled
+                      Postiz posts (delete-then-recreate at the recorded
+                      schedule time; refuses targets that are already live)
   -h, --help          display help for command
 ```
 
@@ -1702,6 +1745,7 @@ Commands:
   config                                           Manage configuration
   brand                                            Manage brands (design systems)
   persona                                          Manage personas (voice + style)
+  avatar                                           Persistent avatars — create, train, consent and list reusable performers (HeyGen).
   ref                                              Manage references (websites, social media)
   project                                          Manage video projects
   unit                                             Manage project or workspace deliverables, including social posts, threads, and articles
@@ -1723,6 +1767,7 @@ Commands:
   analytics                                        Per-post performance metrics for published units (#507): append-only analytics.jsonl snapshots + an evidence-grounded performance postmortem. Example: ralphy analytics pull spring-2026-001
   migrate [options]                                One-pass migration of this root to the final layout: workspace/ tree → .ralphy/ root + workspaces (#108), per-project assets/ + refs/ → artifacts/ (#105). Idempotent; refuses while generation jobs are in flight. Structural relocation: path strings in manifests/logs/HTML follow their files (NOT a log edit — invariant #14).
   assets                                           Pull / list / clean assets from the ralphy-assets companion repo
+  meme                                             Green-screen meme overlays + meme sound effects (greenscreenmemes.com / memesoundeffects.com). Live search, on-demand pull, fair-use-meme-reference licensing — rights clearance is on the user.
   example                                          Pull / list complete reference projects from the companion repo
   audio                                            FFmpeg audio recipes (loudnorm, sidechain duck, concat). All wrap cli/lib/ffmpeg-recipes.ts.
   video                                            FFmpeg video recipes (extract-segment, burn-subs, tonemap-hdr, concat). Wraps cli/lib/ffmpeg-recipes.ts.
@@ -1823,6 +1868,44 @@ Examples:
   ralphy assets pull <template-slug>
   ralphy assets install <project-id> <template-slug>
   ralphy assets unpack ./brand.zip --project my-proj-001
+```
+
+### `ralphy meme`
+
+```
+____        __      __
+   / __ \____ _/ /___  / /_  __  __
+  / /_/ / __ `/ / __ \/ __ \/ / / /
+ / _, _/ /_/ / / /_/ / / / / /_/ /
+/_/ |_|\__,_/_/ .___/_/ /_/\__, /
+             /_/          /____/
+        agent content runtime · ralphy.dev
+
+Usage: ralphy meme [options] [command]
+
+Green-screen meme overlays + meme sound effects (greenscreenmemes.com /
+memesoundeffects.com). Live search, on-demand pull, fair-use-meme-reference
+licensing — rights clearance is on the user.
+
+Options:
+  -h, --help                display help for command
+
+Commands:
+  search [options] <query>  Live search both sites' catalogs (~6.5k green-screen
+                            clips, ~12k sounds)
+  trending [options]        Hand-curated trending lists (/trending-sounds/ and
+                            /top-100/)
+  pull [options] <ref>      Download one meme into the cache. <ref> is
+                            '<source>/<slug>' (from search), a page URL, or a
+                            direct media URL (from trending).
+  help [command]            display help for command
+
+Examples:
+  ralphy meme search "vine boom" --source sounds
+  ralphy meme search "haaland" --source greenscreen
+  ralphy meme trending --source sounds --limit 10
+  ralphy meme pull greenscreen/haaland-brazilian-dance-green-screen --install my-proj-001 --keyed
+  ralphy meme pull sounds/nope-meme --install my-proj-001
 ```
 
 ### `ralphy example`
@@ -1928,6 +2011,14 @@ Commands:
                              length with a fade-out tail.
   vhs [options]              VHS post-process chain: chroma shift + sine drift +
                              film grain + vignette + slight desat/contrast.
+  chromakey [options]        Key a green-screen video to a transparent VP9 alpha
+                             WebM (chromakey + despill). HyperFrames plays the
+                             .webm directly via <video>. Video sibling of
+                             `ralphy asset chromakey` (images).
+  dither [options]           Stylish dither / halftone effect. Default: crisp
+                             1-bit black & white (monob). --palette N keeps hue
+                             as an N-colour dither. Sibling of `ralphy video
+                             color-grade` / `apply-vhs`.
   compress [options]         x264 CRF + faststart for social-shareable
                              deliverables. Default CRF 23 (`--social` is
                              implicit).
@@ -1940,6 +2031,11 @@ Commands:
                              back-and-forth loop (classic Instagram boomerang).
                              Drops audio (add a music bed in the compose/render
                              step). Output is ~2x the source length.
+  translate [options]        Dub a finished cut into other languages (HeyGen):
+                             re-voiced audio + re-animated lips, one output per
+                             target language.
+  translate-languages        Print the target language names `video translate`
+                             currently accepts (free, no generation).
   help [command]             display help for command
 ```
 

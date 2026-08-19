@@ -1,0 +1,284 @@
+<style>
+:root{
+  --bg:#070709; --panel:#0c0d10; --panel2:#101216;
+  --line:#1b1e22; --line2:#2a2e34;
+  --dim:#6d7178; --mid:#9aa0a8; --fg:#e7e9ec;
+  --red:#ff2333; --red-deep:#c20f1a; --red-dim:#5a1216;
+  color-scheme: dark;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+html,body{background:#000;color:var(--fg)}
+.wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(120% 120% at 50% 40%,#0a0a0d 0%,#000 75%);padding:16px}
+.stage{
+  position:relative;width:min(96vw,1180px);aspect-ratio:16/9;overflow:hidden;
+  background:var(--bg);container-type:size;
+  font-family:ui-monospace,"SF Mono","JetBrains Mono","Cascadia Code",Menlo,Consolas,monospace;
+  border:1px solid #141619;box-shadow:0 0 120px rgba(0,0,0,.9) inset;user-select:none;
+}
+.lyr{position:absolute;inset:0;pointer-events:none}
+/* dither + scan + vignette overlays */
+.dither{background-image:radial-gradient(rgba(255,255,255,.045) .5px,transparent .6px);
+  background-size:3px 3px;mix-blend-mode:overlay;opacity:.5}
+.scan{background:repeating-linear-gradient(to bottom,rgba(0,0,0,0) 0 2px,rgba(0,0,0,.28) 2px 3px);
+  opacity:.55;animation:scan 7s linear infinite}
+@keyframes scan{to{background-position:0 300px}}
+.vig{background:radial-gradient(120% 110% at 50% 45%,transparent 55%,rgba(0,0,0,.72) 100%)}
+.grain{opacity:.06;mix-blend-mode:screen;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation:grain .5s steps(2) infinite}
+@keyframes grain{to{transform:translate(-6px,4px)}}
+/* corner brackets */
+.br{position:absolute;width:clamp(22px,3.4cqw,44px);height:clamp(22px,3.4cqw,44px);border:2px solid var(--red);opacity:.85}
+.br.tl{top:14px;left:14px;border-right:0;border-bottom:0}
+.br.tr{top:14px;right:14px;border-left:0;border-bottom:0}
+.br.bl{bottom:14px;left:14px;border-right:0;border-top:0}
+.br.brr{bottom:14px;right:14px;border-left:0;border-top:0}
+/* HUD micro type */
+.hud{position:absolute;font-size:clamp(9px,1.15cqw,14px);letter-spacing:.22em;color:var(--dim);text-transform:uppercase}
+.hud .rd{color:var(--red)}
+.top{top:26px;left:0;right:0;display:flex;justify-content:space-between;padding:0 clamp(30px,5cqw,72px)}
+.rec{display:flex;align-items:center;gap:8px}
+.dot{width:9px;height:9px;background:var(--red);border-radius:50%;box-shadow:0 0 10px var(--red);animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:.15;box-shadow:none}}
+/* edge data blips */
+.blips{position:absolute;inset:0}
+.blip{position:absolute;width:7px;height:7px;background:var(--line2)}
+.blip.on{background:var(--red);box-shadow:0 0 8px var(--red)}
+/* CENTER */
+.center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(6px,1cqw,14px)}
+.eyebrow{font-size:clamp(9px,1.2cqw,15px);letter-spacing:.5em;color:var(--dim);text-transform:uppercase;opacity:0;transform:translateY(6px)}
+.mark{position:relative;font-weight:800;letter-spacing:.02em;line-height:.9;
+  font-size:clamp(40px,12cqw,168px);color:var(--fg);text-transform:uppercase;white-space:nowrap}
+.mark .g{position:absolute;inset:0;opacity:0}
+.mark .g.r{color:var(--red);mix-blend-mode:screen}
+.mark .g.b{color:#8fb6ff;mix-blend-mode:screen}
+.tm{position:absolute;top:4%;right:-1.1em;font-size:.2em;color:var(--red);letter-spacing:0}
+.tag{font-size:clamp(11px,1.9cqw,26px);letter-spacing:.18em;color:var(--mid);text-transform:lowercase;opacity:0;transform:translateY(8px)}
+.tag b{color:var(--red);font-weight:500}
+/* LEFT dossier */
+.panel{position:absolute;top:50%;transform:translateY(-50%);background:linear-gradient(180deg,var(--panel),var(--panel2));
+  border:1px solid var(--line);padding:clamp(10px,1.4cqw,20px);width:clamp(180px,26cqw,320px);opacity:0}
+.panel.left{left:clamp(26px,4.4cqw,66px);transform:translateY(-50%) translateX(-18px)}
+.panel.right{right:clamp(26px,4.4cqw,66px);transform:translateY(-50%) translateX(18px);text-align:right}
+.ph{font-size:clamp(9px,1.05cqw,13px);letter-spacing:.28em;color:var(--dim);text-transform:uppercase;
+  border-bottom:1px solid var(--line2);padding-bottom:8px;margin-bottom:10px;display:flex;justify-content:space-between;gap:10px}
+.ph .id{color:var(--red)}
+.row{display:flex;justify-content:space-between;gap:12px;font-size:clamp(9px,1.15cqw,15px);padding:4px 0;color:var(--mid);letter-spacing:.06em}
+.row .k{color:var(--dim);text-transform:uppercase;letter-spacing:.16em;font-size:.86em}
+.row .v{color:var(--fg)}
+.stat{color:var(--red);border:1px solid var(--red-deep);padding:1px 8px;letter-spacing:.14em;background:rgba(255,35,51,.07)}
+.portrait{margin-top:12px;height:clamp(64px,9cqw,120px);position:relative;border:1px solid var(--line2);
+  background-image:radial-gradient(rgba(255,255,255,.16) .5px,transparent .6px),linear-gradient(135deg,#15171b,#0a0b0d);
+  background-size:3px 3px,100% 100%}
+.portrait::after{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:var(--red);box-shadow:0 0 8px var(--red);animation:reticle 3s ease-in-out infinite}
+@keyframes reticle{0%,100%{top:12%}50%{top:88%}}
+.portrait .redact{position:absolute;bottom:8px;left:8px;right:30%;height:10px;background:var(--red-deep);opacity:.8}
+/* right metrics */
+.metric{padding:6px 0}
+.metric .lbl{font-size:clamp(8px,1cqw,13px);letter-spacing:.2em;color:var(--dim);text-transform:uppercase}
+.metric .num{font-size:clamp(20px,3.6cqw,52px);font-weight:700;color:var(--red);line-height:1;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.metric .sub{font-size:clamp(8px,.95cqw,12px);color:var(--dim);letter-spacing:.12em}
+/* payload strip */
+.payload{position:absolute;left:0;right:0;bottom:clamp(76px,12cqw,150px);display:flex;justify-content:center;gap:clamp(8px,1.4cqw,20px);
+  font-size:clamp(9px,1.35cqw,18px);letter-spacing:.2em;text-transform:uppercase;color:var(--dim);opacity:0}
+.payload .step{border:1px solid var(--line2);padding:5px 12px}
+.payload .step.hot{color:var(--fg);border-color:var(--mid)}
+.payload .step.fire{color:#fff;border-color:var(--red);background:var(--red);box-shadow:0 0 22px var(--red)}
+.payload .arw{color:var(--line2)}
+/* boot log */
+.boot{position:absolute;left:clamp(28px,4.6cqw,66px);bottom:clamp(70px,11cqw,140px);font-size:clamp(9px,1.05cqw,14px);
+  letter-spacing:.08em;color:var(--dim);line-height:1.7}
+.boot .ok{color:var(--red)}
+/* bottom BACKED bar */
+.backed{position:absolute;left:0;right:0;bottom:0;height:clamp(44px,7cqw,86px);
+  display:flex;align-items:center;justify-content:center;gap:14px;
+  border-top:1px solid var(--line);background:linear-gradient(180deg,rgba(255,35,51,.04),rgba(0,0,0,.5));
+  font-size:clamp(11px,1.9cqw,27px);letter-spacing:.26em;font-weight:700;text-transform:uppercase;color:var(--fg);opacity:0}
+.backed .hl{color:var(--red)}
+.backed::after{content:"";position:absolute;left:12%;right:12%;bottom:0;height:2px;background:var(--red);box-shadow:0 0 12px var(--red);transform:scaleX(0);transform-origin:left}
+/* cta */
+.cta{position:absolute;left:0;right:0;bottom:clamp(52px,8.4cqw,102px);text-align:center;
+  font-size:clamp(9px,1.3cqw,17px);letter-spacing:.34em;text-transform:uppercase;color:var(--mid);opacity:0}
+.cta .site{color:var(--red)}
+/* playhead */
+.play{position:absolute;left:0;bottom:0;height:2px;background:var(--red);width:0;opacity:.5;z-index:5}
+/* glitch shake */
+.stage.shake{animation:shk .28s steps(2) 2}
+@keyframes shk{25%{transform:translate(2px,-1px)}75%{transform:translate(-2px,1px)}}
+@media (prefers-reduced-motion:reduce){.scan,.grain,.dot,.portrait::after,.stage.shake{animation:none}}
+</style>
+
+<p class="sr-only">Animated look-development frame for NIGHTMAKER, episode one of the satirical Dark Launch series: a dark cyberpunk terminal launch trailer whose wordmark boots as the word nightmare then glitches into nightmaker, with a target dossier, fake metrics, a payload-deploy sequence, and the running tagline "backed by BlackRock and Palantir."</p>
+
+<div class="wrap">
+  <div class="stage" id="stage">
+    <div class="lyr dither"></div>
+    <div class="lyr scan"></div>
+    <div class="lyr grain"></div>
+
+    <div class="blips" id="blips"></div>
+
+    <div class="hud top">
+      <div>NIGHTMAKER&nbsp;&nbsp;<span class="rd">// GHOST-PROTOCOL</span></div>
+      <div class="rec"><span class="dot"></span><span>REC <span id="tc">00:00:00:00</span></span></div>
+    </div>
+
+    <div class="center">
+      <div class="eyebrow" id="eyebrow">SERIES // DARK LAUNCH &nbsp;·&nbsp; EP.01</div>
+      <div class="mark" id="mark"><span id="base">NIGHTMARE</span><span class="g r" id="gr"></span><span class="g b" id="gb"></span><span class="tm" id="tm">™</span></div>
+      <div class="tag" id="tag">we make their day a <b>nightmare.</b></div>
+    </div>
+
+    <div class="panel left" id="dossier">
+      <div class="ph"><span>TARGET DOSSIER</span><span class="id">#0447</span></div>
+      <div class="row"><span class="k">Investor</span><span class="v">████████</span></div>
+      <div class="row"><span class="k">Fund</span><span class="v">████ CAPITAL</span></div>
+      <div class="row"><span class="k">Last reply</span><span class="v">"left on read"</span></div>
+      <div class="row"><span class="k">Round</span><span class="stat">PASSED</span></div>
+      <div class="row"><span class="k">Status</span><span class="stat">GHOSTED</span></div>
+      <div class="portrait"><div class="redact"></div></div>
+    </div>
+
+    <div class="panel right" id="metrics">
+      <div class="ph"><span>LIVE // OUTCOMES</span><span class="id">▲</span></div>
+      <div class="metric"><div class="lbl">Response rate</div><div class="num"><span id="m1">0.0</span>%</div><div class="sub">(finally)</div></div>
+      <div class="metric"><div class="lbl">Time-to-regret</div><div class="num"><span id="m2">0</span>H</div><div class="sub">median</div></div>
+      <div class="metric"><div class="lbl">Payloads deployed</div><div class="num" style="font-size:clamp(16px,2.6cqw,36px)"><span id="m3">0</span></div><div class="sub">this quarter</div></div>
+    </div>
+
+    <div class="payload" id="payload">
+      <span class="step" id="s1">SCRAPE GHOST-LIST</span><span class="arw">›</span>
+      <span class="step" id="s2">SELECT [ DURIAN ]</span><span class="arw">›</span>
+      <span class="step" id="s3">DEPLOY</span>
+    </div>
+
+    <div class="boot" id="boot"></div>
+
+    <div class="cta" id="cta">REJECTION HAS A RETURN ADDRESS &nbsp;·&nbsp; JOIN THE WAITLIST ▸ <span class="site">nightmaker.vc</span></div>
+
+    <div class="backed" id="backed">BACKED BY <span class="hl">BLACKROCK</span> AND <span class="hl">PALANTIR</span></div>
+
+    <div class="br tl"></div><div class="br tr"></div><div class="br bl"></div><div class="br brr"></div>
+    <div class="play" id="play"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const LOOP=11.2;
+  const stage=document.getElementById("stage");
+  const el=id=>document.getElementById(id);
+  const base=el("base"),gr=el("gr"),gb=el("gb"),mark=el("mark");
+  const center=document.querySelector(".center");
+  const reduce=matchMedia("(prefers-reduced-motion:reduce)").matches;
+
+  // edge data-blips
+  const blips=el("blips");
+  for(let i=0;i<26;i++){const b=document.createElement("div");b.className="blip";
+    const edge=i%4; const p=(6+Math.random()*88)+"%";
+    if(edge===0){b.style.top="8px";b.style.left=p}
+    else if(edge===1){b.style.bottom="8px";b.style.left=p}
+    else if(edge===2){b.style.left="8px";b.style.top=p}
+    else{b.style.right="8px";b.style.top=p}
+    b.dataset.seed=Math.random();blips.appendChild(b);}
+  const blipEls=[...blips.children];
+
+  const bootLines=["> boot ghost-protocol v0.4 ......... ok","> ingesting inbox // rejections ... 659","> cross-ref cap table ............. ok","> targets locked ................. 447","> arming payloads ...........",];
+  const SCR="▓▒▞▚█▐▌#%&/\\<>|=+*0101ABKMNRE";
+  const CHAR=t=>SCR[(Math.floor(t)+7)%SCR.length];
+  function scramble(target,p,fr){let locked=Math.floor(p*(target.length+1));let out="";
+    for(let i=0;i<target.length;i++){if(target[i]===" "){out+=" ";continue;}
+      out+= i<locked? target[i] : CHAR(fr*0.7+i*5.3);}return out;}
+  function seg(t,a,b){return Math.max(0,Math.min(1,(t-a)/(b-a)))}
+  const easeOut=p=>1-Math.pow(1-p,3);
+  function setBoot(p){const n=Math.floor(p*bootLines.length*1.15);let h="";
+    for(let i=0;i<Math.min(n,bootLines.length);i++){const l=bootLines[i];
+      h+=l.replace("ok",'<span class="ok">ok</span>')+"<br>";}el("boot").innerHTML=h;}
+
+  let fr=0;
+  function frame(now){
+    fr++; const t=(now/1000)%LOOP;
+    const H=stage.clientHeight;
+    const demote=easeOut(seg(t,3.15,4.0));
+    el("play").style.width=(t/LOOP*100)+"%";
+    // timecode
+    const f=Math.floor((now/1000*24))%24; const s=Math.floor(now/1000)%60; const mi=Math.floor(now/60000)%60;
+    el("tc").textContent=`${String(mi).padStart(2,"0")}:${String(s).padStart(2,"0")}:${String(s%24).padStart(2,"0")}:${String(f).padStart(2,"0")}`;
+    // blips flicker
+    for(const b of blipEls){const sd=+b.dataset.seed; b.classList.toggle("on",((fr*0.04+sd*30)%7)<0.35 && sd>0.72);}
+
+    // boot 0.0-1.35
+    setBoot(seg(t,0,1.2)); el("boot").style.opacity = (1-seg(t,3.55,4.25));
+
+    // eyebrow
+    const ey=seg(t,0.6,1.4); el("eyebrow").style.opacity=ey*(1-demote); el("eyebrow").style.transform=`translateY(${(1-easeOut(ey))*6}px)`;
+    center.style.transform=`translateY(${-0.30*H*demote}px)`;
+
+    // wordmark: NIGHTMARE in (1.05-2.15), glitch->NIGHTMAKER (2.2-3.05)
+    let showMark=t>1.0;
+    let glon=0;
+    if(t<2.2){ const p=seg(t,1.05,2.15); base.textContent = p<1?scramble("NIGHTMARE",p,fr):"NIGHTMARE"; }
+    else { const p=seg(t,2.2,3.05); base.textContent = p<1?scramble("NIGHTMAKER",p,fr):"NIGHTMAKER";
+      glon=Math.max(0, 1-Math.abs(seg(t,2.2,3.05)-0.35)*3.2); }
+    mark.style.opacity=showMark?1:0;
+    mark.style.transform=`scale(${1-0.54*demote})`;
+    // chroma ghosts during glitch + random micro glitches
+    const micro = (t>3.1 && ((fr*0.05)%6)<0.08)?0.7:0;
+    const g=Math.max(glon,micro);
+    const off=(4+g*7);
+    gr.textContent=base.textContent; gb.textContent=base.textContent;
+    gr.style.opacity=g*0.9; gb.style.opacity=g*0.7;
+    gr.style.transform=`translate(${off}px,${-off*0.3}px)`;
+    gb.style.transform=`translate(${-off}px,${off*0.3}px)`;
+
+    // tagline 2.85-3.6
+    const tg=seg(t,2.85,3.6); el("tag").style.opacity=tg; el("tag").style.transform=`translateY(${(1-easeOut(tg))*8}px) scale(${1-0.22*demote})`;
+
+    // dossier 3.35-4.4
+    const ds=seg(t,3.35,4.4); const d=el("dossier"); d.style.opacity=ds;
+    d.style.transform=`translateY(-50%) translateX(${(1-easeOut(ds))*-18}px)`;
+    // metrics 3.7-5.0 + counters roll to 5.5
+    const ms=seg(t,3.7,4.6); const m=el("metrics"); m.style.opacity=ms;
+    m.style.transform=`translateY(-50%) translateX(${(1-easeOut(ms))*18}px)`;
+    const cp=easeOut(seg(t,3.9,5.6));
+    el("m1").textContent=(89.7*cp).toFixed(1);
+    el("m2").textContent=Math.round(36*cp);
+    el("m3").textContent=Math.round(1204*cp).toLocaleString("en-US");
+
+    // payload 5.2-7.2
+    const pl=seg(t,5.15,5.7); const pv=el("payload"); pv.style.opacity=pl;
+    el("s1").classList.toggle("hot",t>5.5);
+    el("s2").classList.toggle("hot",t>6.0);
+    const fire=t>6.7&&t<8.8; el("s3").classList.toggle("fire",fire);
+
+    // BACKED slam 7.3-8.2 + underline wipe
+    const bk=seg(t,7.3,7.9); const bd=el("backed"); bd.style.opacity=bk;
+    bd.style.transform=`translateY(${(1-easeOut(bk))*18}px)`;
+    document.documentElement.style.setProperty("--ulw",easeOut(seg(t,7.7,8.7)));
+
+    // cta 8.5-9.3
+    el("cta").style.opacity=seg(t,8.5,9.3)*(t<10.6?1:1-seg(t,10.6,11.1));
+    el("backed").style.opacity = bk*(t<10.6?1:1-seg(t,10.6,11.1));
+
+    // shake on slam + outro glitch
+    if((t>7.3&&t<7.6)||(t>10.7&&t<11.05)) stage.classList.add("shake"); else stage.classList.remove("shake");
+
+    requestAnimationFrame(frame);
+  }
+  // underline wipe: bind CSS var to ::after
+  const st=document.createElement("style");
+  st.textContent=".backed::after{transform:scaleX(var(--ulw,0))}";
+  document.head.appendChild(st);
+
+  if(reduce){
+    base.textContent="NIGHTMAKER"; mark.style.opacity=1;
+    ["eyebrow","tag","dossier","metrics","payload","cta","backed"].forEach(i=>el(i).style.opacity=1);
+    el("dossier").style.transform="translateY(-50%)"; el("metrics").style.transform="translateY(-50%)";
+    el("m1").textContent="89.7";el("m2").textContent="36";el("m3").textContent="1,204";
+    el("s3").classList.add("fire"); setBoot(1);
+    document.documentElement.style.setProperty("--ulw",1);
+  } else requestAnimationFrame(frame);
+})();
+</script>
