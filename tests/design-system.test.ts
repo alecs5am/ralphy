@@ -601,6 +601,13 @@ describe("design system contract", () => {
     expect(app).not.toContain('commandOption && key === "b"');
   });
 
+  test("uses one window-wide Instrument top row", () => {
+    const app = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
+    expect(app.indexOf("<MainHeader")).toBeLessThan(app.indexOf("<ContextSidebar"));
+    expect(workbenchStyles).toMatch(/grid-template-rows:\s*var\(--titlebar-h\)\s+minmax\(0, 1fr\)/);
+    expect(workbenchStyles).toMatch(/\.main-header\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/s);
+  });
+
   test("provides searchable workspace navigation and resizable utility panels", () => {
     expect(renderer).toContain('aria-label="Search workspaces"');
     expect(renderer).toContain('aria-activedescendant');

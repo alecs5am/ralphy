@@ -10,6 +10,7 @@ import { ProfileAvatar } from "./ProfileAvatar";
 interface MainHeaderProps {
   sidebarVisible: boolean;
   rightPanelVisible: boolean;
+  rightPanelAvailable: boolean;
   rootPath: string;
   activity: ActivityIslandState;
   onToggleSidebar(): void;
@@ -19,6 +20,7 @@ interface MainHeaderProps {
 export function MainHeader({
   sidebarVisible,
   rightPanelVisible,
+  rightPanelAvailable,
   rootPath,
   activity,
   onToggleSidebar,
@@ -34,9 +36,11 @@ export function MainHeader({
       </div>
       <ActivityIsland state={activity} />
       <div className="main-header-actions">
-        <button className={`icon-button${rightPanelVisible ? " is-active" : ""}`} type="button" title="Toggle right panel (⌘R)" aria-label="Toggle right panel" aria-pressed={rightPanelVisible} onClick={onToggleRightPanel}>
-          <PanelRight size={16} strokeWidth={1.5} />
-        </button>
+        {rightPanelAvailable && (
+          <button className={`icon-button${rightPanelVisible ? " is-active" : ""}`} type="button" title="Toggle right panel (⌘R)" aria-label="Toggle right panel" aria-pressed={rightPanelVisible} onClick={onToggleRightPanel}>
+            <PanelRight size={16} strokeWidth={1.5} />
+          </button>
+        )}
         <span className="main-header-avatar"><ProfileAvatar rootPath={rootPath} size={20} /></span>
       </div>
     </motion.header>

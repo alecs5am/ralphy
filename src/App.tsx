@@ -91,7 +91,6 @@ export function App() {
   const [localModelsVisible, setLocalModelsVisible] = useState(false);
   const [theme, onThemeChange] = useState<ThemePreference>(initialPreferences.current.theme);
   const [mode, onModeChange] = useState<WorkbenchMode>(initialPreferences.current.mode);
-  void onModeChange;
   const workspaceView: WorkspaceView = "grid";
   const [workspacePage, setWorkspacePage] = useState<WorkspacePage>(
     initialPreferences.current.workspacePage,
@@ -474,6 +473,22 @@ export function App() {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.24 }}
         >
+          <MainHeader
+            sidebarVisible={sidebarVisible}
+            rightPanelVisible={showRightPanel}
+            rightPanelAvailable={mode === "work"}
+            rootPath={catalog.rootPath}
+            activity={{
+              projectName: selectedProject?.name ?? selectedWorkspace?.name ?? null,
+              status: selectedProject?.status ?? null,
+              count: selectedWorkspace?.projectCount ?? null,
+              busyLabel: null,
+              progress: null,
+              alert: error,
+            }}
+            onToggleSidebar={() => setSidebarVisible((visible) => !visible)}
+            onToggleRightPanel={() => setRightPanelVisible((visible) => !visible)}
+          />
           <AnimatePresence initial={false}>
             {catalog && sidebarVisible && (
               <ContextSidebar
@@ -514,23 +529,6 @@ export function App() {
             />
           )}
           <motion.section className="main-shell">
-            <MainHeader
-              sidebarVisible={sidebarVisible}
-              rightPanelVisible={rightPanelVisible}
-              rootPath={catalog.rootPath}
-              activity={{
-                projectName: selectedProject?.name ?? selectedWorkspace?.name ?? null,
-                status: selectedProject?.status ?? null,
-                count: selectedWorkspace?.projectCount ?? null,
-                busyLabel: null,
-                progress: null,
-                alert: error,
-              }}
-              onToggleSidebar={() => setSidebarVisible((visible) => !visible)}
-              onToggleRightPanel={() =>
-                setRightPanelVisible((visible) => !visible)
-              }
-            />
             <div className="main-content-stage">{content}</div>
           </motion.section>
           {showRightPanel && (

@@ -10,6 +10,7 @@ import { ContextSidebar } from "../src/components/ContextSidebar";
 import { ActivityIsland } from "../src/components/ActivityIsland";
 import { MainHeader } from "../src/components/Titlebar";
 import { MarketplaceScreen } from "../src/screens/MarketplaceScreen";
+import { App } from "../src/App";
 import { WorkspaceProjectsScreen } from "../src/screens/WorkspaceProjectsScreen";
 import { LibraryScreen } from "../src/screens/LibraryScreen";
 import { bridge } from "../src/lib/ipc";
@@ -68,6 +69,69 @@ function mediaCard(id: string, mime: string): MediaCardDto {
 }
 
 describe("workspace projects navigation", () => {
+  test("keeps the active workspace route through Marketplace and Local Models", async () => {
+    const host = createReactHost();
+    const storage = new Map<string, string>([[
+      "ralphy-media-workbench-v1",
+      JSON.stringify({ rootPath: "mock-store", workspaceId: "launch-studio", rightPanelVisible: true }),
+    ]]);
+    const localStorage = {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+    };
+    const previousLocalStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+    const previousAnimationFrame = Object.getOwnPropertyDescriptor(globalThis, "requestAnimationFrame");
+    const previousCancelAnimationFrame = Object.getOwnPropertyDescriptor(globalThis, "cancelAnimationFrame");
+    Object.defineProperty(globalThis, "localStorage", { configurable: true, value: localStorage });
+    Object.assign(document.documentElement, { dataset: {} });
+    Object.assign(window, {
+      innerWidth: 1280,
+      innerHeight: 800,
+      localStorage,
+      matchMedia: () => ({ matches: false, addEventListener: () => undefined, removeEventListener: () => undefined }),
+    });
+    Object.assign(globalThis, { requestAnimationFrame: window.requestAnimationFrame, cancelAnimationFrame: window.cancelAnimationFrame });
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    const button = (label: string) => host.container.findAll((node) => (
+      node.tagName === "BUTTON" && node.textContent.includes(label)
+    ))[0];
+
+    try {
+      await act(async () => {
+        root.render(<App />);
+        await Promise.resolve();
+      });
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 1_600));
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      });
+
+      await act(async () => button("Marketplace")!.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(host.container.textContent).toContain("WORK IN PROGRESS");
+      expect(button("Local Models")).toBeDefined();
+      expect(host.container.findAll((node) => node.getAttribute("aria-label") === "Toggle right panel")).toHaveLength(0);
+
+      await act(async () => button("Local Models")!.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(host.container.textContent).toContain("Back to Marketplace");
+      await act(async () => button("Back to Marketplace")!.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(host.container.textContent).toContain("WORK IN PROGRESS");
+
+      await act(async () => button("My Work")!.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(host.container.textContent).toContain("Arc Grinder Launch");
+    } finally {
+      await act(async () => root.unmount());
+      if (previousLocalStorage) Object.defineProperty(globalThis, "localStorage", previousLocalStorage);
+      else delete (globalThis as { localStorage?: unknown }).localStorage;
+      if (previousAnimationFrame) Object.defineProperty(globalThis, "requestAnimationFrame", previousAnimationFrame);
+      else delete (globalThis as { requestAnimationFrame?: unknown }).requestAnimationFrame;
+      if (previousCancelAnimationFrame) Object.defineProperty(globalThis, "cancelAnimationFrame", previousCancelAnimationFrame);
+      else delete (globalThis as { cancelAnimationFrame?: unknown }).cancelAnimationFrame;
+      host.restore();
+    }
+  });
+
   test("never mounts the workbench hidden while motion is reduced", () => {
     const source = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
     expect(source).toContain("initial={false}");
@@ -251,6 +315,7 @@ describe("workspace projects navigation", () => {
       <MainHeader
         sidebarVisible
         rightPanelVisible={false}
+        rightPanelAvailable
         rootPath="/tmp/demo/.ralphy"
         activity={{ projectName: null, status: null, count: null, busyLabel: null, progress: null, alert: null }}
         onToggleSidebar={() => undefined}
