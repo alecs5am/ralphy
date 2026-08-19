@@ -22,7 +22,9 @@
 //        cli/lib/providers/postiz.ts only — #501 publish connector;
 //        YOUTUBE_API_KEY + googleapis.com
 //        in cli/lib/providers/youtube-analytics.ts only — #507 analytics
-//        connector; hosted Vercel / OpenAI-direct forbidden everywhere)
+//        connector; HEYGEN_API_KEY + heygen.com in cli/lib/providers/heygen.ts
+//        only — #512 lipsync connector;
+//        hosted Vercel / OpenAI-direct forbidden everywhere)
 //   #2  ralphy is the only entry-point            — partially TESTED
 //                                                   (this file + tests/integration/cli-render-from-clip.test.ts)
 //   #3  reference-required gate                   — TESTED (tests/unit/eval-refs.test.ts)
@@ -162,10 +164,11 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
     expect(offenders).toEqual([]);
   });
 
-  // #500 ingestion connectors — the same file-scoped discipline as fal:
-  // each connector's env var + host are sanctioned ONLY inside its own file,
-  // and the allowlist must not be vacuous.
-  const INGESTION_CONNECTORS: Array<{ file: string; envVar: string; hostRe: RegExp; hostLabel: string }> = [
+  // Connectors under the same file-scoped discipline as fal: each connector's
+  // env var + host are sanctioned ONLY inside its own file, and the allowlist
+  // must not be vacuous. #500 brought the ingestion connectors; #512 added the
+  // HeyGen lipsync connector on the same terms.
+  const FILE_SCOPED_CONNECTORS: Array<{ file: string; envVar: string; hostRe: RegExp; hostLabel: string }> = [
     {
       file: path.join("cli", "lib", "providers", "firecrawl.ts"),
       envVar: "FIRECRAWL_API_KEY",
@@ -187,6 +190,17 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
       envVar: "YOUTUBE_API_KEY",
       hostRe: /https?:\/\/[a-z0-9.-]*googleapis\.com\b/i,
       hostLabel: "googleapis.com",
+    },
+    // #512 lipsync connector — the ONLY file permitted to read HEYGEN_API_KEY
+    // or reach a HeyGen API host. Scoped to the api / upload / app subdomains
+    // rather than all of heygen.com on purpose: HyperFrames is a HeyGen product
+    // and its docs live at hyperframes.heygen.com, which the render layer cites
+    // in a comment. A doc link is not an API call.
+    {
+      file: path.join("cli", "lib", "providers", "heygen.ts"),
+      envVar: "HEYGEN_API_KEY",
+      hostRe: /https?:\/\/(?:api|upload|app)\.heygen\.com\b/i,
+      hostLabel: "HeyGen API (api/upload/app.heygen.com)",
     },
   ];
 
@@ -221,7 +235,7 @@ describe("AGENTS.md invariant #1 — only registered connectors hold keys / hit 
     });
   }
 
-  for (const { file, envVar, hostRe, hostLabel } of INGESTION_CONNECTORS) {
+  for (const { file, envVar, hostRe, hostLabel } of FILE_SCOPED_CONNECTORS) {
     const keyRe = new RegExp(`process\\.env(?:\\.${envVar}\\b|\\[["']${envVar}["']\\])`);
 
     test(`${envVar} is read ONLY by the sanctioned connector file (${file})`, () => {

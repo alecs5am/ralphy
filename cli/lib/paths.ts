@@ -172,6 +172,16 @@ export function workspaceManifestPath(slug: string) {
 }
 
 /**
+ * `.ralphy/workspaces/<slug>/avatars.json` — the persistent-performer store
+ * (#555): trained avatars + cloned voices, keyed by a local slug so no
+ * provider id ever has to appear on a command line. Account-level and
+ * expensive to recreate, so it lives beside `workspace.json`, not in a project.
+ */
+export function workspacePerformersPath(slug: string) {
+  return path.join(workspaceDir(slug), "avatars.json");
+}
+
+/**
  * The active workspace slug — the default home for new projects. Stored as
  * the `activeWorkspace` key in config.json (`ralphy workspace use <slug>`).
  */

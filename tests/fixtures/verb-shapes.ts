@@ -69,6 +69,69 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       },
     },
   ],
+  avatar: [
+    {
+      label: "avatar.create",
+      shape: {
+        slug: "marco",
+        name: "Marco",
+        type: "digital_twin",
+        status: "completed",
+        engines: ["avatar_v", "avatar_iv", "avatar_iii"],
+        consent: "pending",
+        lookId: "0eba0781160d4b8a848bdd81316c3a0a",
+        workspace: "acme",
+        groupId: "9e0c9d1fd686414494458bf318075467",
+        error: null,
+        next: "ralphy avatar consent marco --video <clip>",
+      },
+    },
+    {
+      label: "avatar.list",
+      shape: {
+        workspace: "acme",
+        count: 2,
+        avatars: [
+          {
+            slug: "marco",
+            name: "Marco",
+            type: "digital_twin",
+            status: "completed",
+            engines: ["avatar_v", "avatar_iv"],
+            consent: "approved",
+            lookId: "0eba0781160d4b8a848bdd81316c3a0a",
+          },
+          {
+            slug: "hook-face",
+            name: "Hook Face",
+            type: "photo",
+            status: "completed",
+            engines: null,
+            consent: null,
+            lookId: "1e09cd52abdd4145a5d6e76194b387b9",
+          },
+        ],
+        unlinked: [
+          { lookId: "adc83bb901194684998dd94f0218567b", name: null, type: "digital_twin", status: "failed", engines: null },
+        ],
+      },
+    },
+    {
+      label: "avatar.consent",
+      shape: {
+        workspace: "acme",
+        slug: "marco",
+        groupId: "9e0c9d1fd686414494458bf318075467",
+        consent: "pending",
+        engines: ["avatar_v", "avatar_iv", "avatar_iii"],
+        consentVideo: "artifacts/refs/marco-consent.mp4",
+      },
+    },
+    {
+      label: "avatar.deleted",
+      shape: { deleted: "marco", workspace: "acme", lookId: "0eba0781160d4b8a848bdd81316c3a0a", providerSideKept: true },
+    },
+  ],
   asset: [
     {
       label: "asset.list",
@@ -547,6 +610,42 @@ export const VERB_SHAPES: Record<string, VerbShape[]> = {
       ],
     },
     { label: "library.blueprints", shape: [{ unitId: "unit-spring-001", createdAt: "2026-06-01" }, { unitId: "unit-summer-002", createdAt: null }] },
+  ],
+  meme: [
+    {
+      label: "meme.search",
+      shape: {
+        query: "vine boom",
+        hits: [
+          {
+            ref: "sounds/vine-boom",
+            title: "Vine Boom",
+            mediaUrl: "https://media.memesoundeffects.com/2023/01/vine-boom.mp3",
+            durationSec: null,
+            pageUrl: "https://memesoundeffects.com/vine-boom/",
+          },
+          {
+            ref: "greenscreen/haaland-brazilian-dance-green-screen",
+            title: "Haaland Brazilian Dance Green Screen",
+            mediaUrl: "https://media.greenscreenmemes.com/2026/07/Haaland-Brazilian-Dance-Green-Screen.mp4",
+            durationSec: 13,
+            pageUrl: "https://greenscreenmemes.com/haaland-brazilian-dance-green-screen/",
+          },
+        ],
+      },
+    },
+    {
+      label: "meme.pull",
+      shape: {
+        ref: "greenscreen/haaland-brazilian-dance-green-screen",
+        mediaUrl: "https://media.greenscreenmemes.com/2026/07/Haaland-Brazilian-Dance-Green-Screen.mp4",
+        cachedPath: ".ralphy/cache/memes/greenscreen/Haaland-Brazilian-Dance-Green-Screen.mp4",
+        durationSec: 13,
+        project: "demo-001",
+        dest: "artifacts/videos/meme-haaland-brazilian-dance-green-screen.mp4",
+        keyed: "artifacts/videos/meme-haaland-brazilian-dance-green-screen.webm",
+      },
+    },
   ],
   memory: [
     { label: "memory.note", shape: { slug: "kling-no-ru-audio", type: "feedback", scope: "global", path: "memory/feedback_kling.md", versioned: false, overwritten: false } },

@@ -34,6 +34,7 @@ ralphy video extract-segment --in <src.mp4> --start 1.2 --end 4.5 --out <seg.mp4
 ralphy video burn-subs       --in <src.mp4> --srt <subs.srt> --out <final.mp4>   # last step
 ralphy video tonemap-hdr     --in <hdr.mp4> --out <sdr.mp4>                       # HDR → Rec.709
 ralphy video concat          --files a.mp4,b.mp4 --out concat.mp4
+ralphy video dither          --in <src.mp4> --out <dith.mp4>                       # stylish 1-bit B&W dither; --pixelate N chunky dots, --palette N keep hue
 
 # HyperFrames iteration loop (foreground only — no auto-Studio)
 bunx hyperframes preview .ralphy/workspaces/<ws>/projects/<id>
@@ -41,11 +42,21 @@ bunx hyperframes lint    .ralphy/workspaces/<ws>/projects/<id>
 bunx hyperframes inspect .ralphy/workspaces/<ws>/projects/<id>
 bunx hyperframes add <block-slug> .ralphy/workspaces/<ws>/projects/<id>
 
+# Meme overlays + meme sound effects (greenscreenmemes.com / memesoundeffects.com — live catalogs, on-demand pull)
+ralphy meme search "vine boom" --source sounds           # ~12k meme sfx; sounds/<slug> refs
+ralphy meme search "haaland" --source greenscreen        # ~6.5k green-screen clips, duration/res included
+ralphy meme trending --source sounds                     # hand-curated /trending-sounds/ (also: greenscreen /top-100/)
+ralphy meme pull greenscreen/<slug> --install <id> --keyed  # → artifacts/videos/meme-<slug>.mp4 + .webm (VP9 alpha, plays in a HF <video> overlay)
+ralphy meme pull sounds/<slug> --install <id>            # → artifacts/sfx/meme-<slug>.mp3
+ralphy video chromakey --in <green.mp4> --out <o.webm>   # key any green-screen clip yourself (chromakey + despill)
+
 # Inspect inputs / outputs
 ralphy project show <id> --assets        # asset-manifest before composing
 ralphy project show <id> --status        # what's done / missing
 ralphy project log <id> --type generations --limit 50    # ffmpeg + render entries
 ```
+
+**Meme licensing note:** everything from the meme sites is `fair-use-meme-reference` — the sites grant no real rights (greenscreenmemes even forbids reuploading originals, which is why nothing is rehosted into ralphy-assets). Same clearance posture as the `trend-music` pool: fine for transformative meme edits, the user owns the rights call on commercial work.
 
 For HyperFrames API specifics (composition rules, GSAP timelines, captions, transitions, registry blocks) read [`hyperframes.md`](hyperframes.md) — that's the reference manual, not this playbook.
 

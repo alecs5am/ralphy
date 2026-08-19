@@ -19,6 +19,7 @@ export type JobKind =
   | "generate.music"
   | "generate.captions"
   | "generate.sfx"
+  | "generate.lipsync"
   | "render"
   | "shell";       // raw shell — argv + env
 

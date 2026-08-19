@@ -17,6 +17,7 @@ import { raiseError } from "../errors/index.js";
 import { openrouterConnector } from "./openrouter.js";
 import { elevenlabsConnector } from "./elevenlabs.js";
 import { falConnector } from "./fal.js";
+import { heygenConnector } from "./heygen.js";
 import { loadProviderConfigs } from "./config.js";
 import { makeOpenAiCompatibleConnector } from "./openai-compatible.js";
 import { loadConfigSync } from "../config.js";
@@ -33,8 +34,16 @@ export type { Capability, RalphyConnector } from "./types.js";
 // because it fills the most cells; ElevenLabs owns the audio cells OR doesn't.
 // fal is a video-only third-party connector (#402) and sits LAST so it never
 // pre-empts OpenRouter as the default video provider — it's reached only via
-// an explicit `--provider fal` (or a fal-only model id).
-const BUNDLED: RalphyConnector[] = [openrouterConnector, elevenlabsConnector, falConnector];
+// an explicit `--provider fal` (or a fal-only model id). HeyGen is the sole
+// `lipsync` connector (#512) and also serves `voice` via its Starfish TTS
+// (#555); it sits LAST so ElevenLabs stays the default voice provider and
+// HeyGen TTS is reached only via an explicit `--provider heygen`.
+const BUNDLED: RalphyConnector[] = [
+  openrouterConnector,
+  elevenlabsConnector,
+  falConnector,
+  heygenConnector,
+];
 
 // Custom (config-loaded) connectors are cached per process — the config file is
 // read once on first registry touch. Bundled connectors ALWAYS come first so

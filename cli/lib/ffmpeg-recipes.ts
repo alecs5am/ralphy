@@ -79,18 +79,26 @@ export type ExtractSegmentInput = {
   dst: string;
   /** Re-encode with explicit codec. Default true (safer, exact frame). */
   reencode?: boolean;
+  /**
+   * Drop the audio track (`-an`). Needed for screen-recording segments that go
+   * into a HyperFrames composition: the render mixes in any audio stream that
+   * is present, regardless of `data-volume="0"` / `data-has-audio="false"`, so
+   * the source narration leaks under the voiceover.
+   */
+  mute?: boolean;
 } & FFmpegOptions;
 
 export async function extractSegment(input: ExtractSegmentInput): Promise<string> {
-  const { src, startSec, endSec, dst, reencode = true, ...opts } = input;
+  const { src, startSec, endSec, dst, reencode = true, mute = false, ...opts } = input;
   await fs.mkdir(path.dirname(dst), { recursive: true });
+  const audioArgs = mute ? ["-an"] : reencode ? ["-c:a", "aac", "-b:a", "192k"] : [];
   const args = reencode
     ? [
         "-ss", String(startSec),
         "-to", String(endSec),
         "-i", src,
         "-c:v", "libx264", "-preset", "fast", "-crf", "18",
-        "-c:a", "aac", "-b:a", "192k",
+        ...audioArgs,
         "-movflags", "+faststart",
         dst,
       ]
@@ -100,11 +108,12 @@ export async function extractSegment(input: ExtractSegmentInput): Promise<string
         "-to", String(endSec),
         "-i", src,
         "-c", "copy",
+        ...audioArgs,
         dst,
       ];
   await runFfmpeg(args, {
     endpoint: "ffmpeg/extract-segment",
-    input: { src, startSec, endSec, dst, reencode },
+    input: { src, startSec, endSec, dst, reencode, mute },
     opts,
   });
   return dst;
@@ -591,7 +600,8 @@ export async function clip(input: ClipInput): Promise<string> {
   return dst;
 }
 
-function probeDurationSec(src: string): number {
+/** Container duration in seconds, 0 when ffprobe can't read it. Works on audio-only files. */
+export function probeDurationSec(src: string): number {
   const r = spawnSync(
     "ffprobe",
     ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", src],
@@ -1411,5 +1421,163 @@ export async function contactSheet(input: ContactSheetInput): Promise<string> {
     opts,
     kind: "video",
   });
+  return dst;
+}
+
+// --- Recipe: chroma-key video → VP9 alpha WebM ---------------------------
+//
+// Turn a green-screen meme clip (greenscreenmemes.com et al.) into a
+// transparent overlay a HyperFrames composition plays directly via <video>
+// (Chrome decodes VP9 alpha natively — see the hyperframes-media skill).
+// Soft key + despill per the sticker lessons: never a binary mask.
+
+export function buildChromaKeyFilter(opts: {
+  color: string;
+  similarity: number;
+  blend: number;
+}): string {
+  return `chromakey=${opts.color}:${opts.similarity}:${opts.blend},despill=type=green,format=yuva420p`;
+}
+
+export type ChromaKeyVideoInput = {
+  src: string;
+  /** Output path — must end in .webm (VP9 + alpha). */
+  dst: string;
+  /** Key colour. Default 0x00b140 (standard greenscreen green). */
+  color?: string;
+  /** chromakey similarity 0..1. Default 0.24. */
+  similarity?: number;
+  /** chromakey blend 0..1 (edge softness). Default 0.08. */
+  blend?: number;
+  forceOverwrite?: boolean;
+} & FFmpegOptions;
+
+export async function chromaKeyVideo(input: ChromaKeyVideoInput): Promise<string> {
+  const {
+    src,
+    dst,
+    color = "0x00b140",
+    similarity = 0.24,
+    blend = 0.08,
+    forceOverwrite = false,
+    ...opts
+  } = input;
+  if (!dst.endsWith(".webm")) throw new Error("chromaKeyVideo: dst must be a .webm (VP9 alpha)");
+  await fs.mkdir(path.dirname(dst), { recursive: true });
+  await protectExistingAsset(dst, forceOverwrite);
+  const filter = buildChromaKeyFilter({ color, similarity, blend });
+  await runFfmpeg(
+    [
+      "-i", src,
+      "-vf", filter,
+      "-c:v", "libvpx-vp9",
+      "-pix_fmt", "yuva420p",
+      "-auto-alt-ref", "0",
+      "-b:v", "0", "-crf", "32",
+      "-row-mt", "1", "-deadline", "good", "-cpu-used", "4",
+      "-c:a", "libopus", "-b:a", "96k",
+      dst,
+    ],
+    {
+      endpoint: "ffmpeg/chromakey-video",
+      input: { src, dst, color, similarity, blend, filter },
+      opts,
+    },
+  );
+  return dst;
+}
+
+// --- Recipe: stylish dither / halftone ----------------------------------
+//
+// Two engines (Pixelbuddha "Dithering" / "Bitmap" aesthetic):
+//   palette == null → 1-bit black & white via `format=monob`. swscale dithers
+//     the →monob conversion across the full tonal range — the crisp screenshot
+//     look. This is the DEFAULT.
+//   palette == N    → N-colour adaptive palette that keeps hue (palettegen
+//     aggregates one palette over the whole clip → stable frame-to-frame;
+//     reserve_transparent=0 frees the last slot; paletteuse dither mode +
+//     bayer_scale control the pattern).
+// --pixelate downscales before dithering and nearest-neighbor upscales after,
+// enlarging the dither cells into chunky retro dots. Both engines end with an
+// even-dim scale so yuv420p / libx264 is happy.
+
+export function buildDitherFilter(opts: {
+  /** Downscale factor before dithering (≥1; 1 = native res). */
+  pixelate: number;
+  /** null = 1-bit B&W (monob); N = N-colour adaptive palette (keeps hue). */
+  palette: number | null;
+  /** paletteuse dither mode (palette engine only): bayer | floyd_steinberg | sierra2 | sierra2_4a | sierra3 | burkes | atkinson | heckbert | none */
+  mode: string;
+  /** 0..5, only applies when mode === "bayer" (coarser pattern = bigger crosshatch). */
+  bayerScale: number;
+  /** eq contrast multiplier applied before dithering (1 = off). Real footage wants ~1.5-2.0 for a punchy 1-bit look. */
+  contrast: number;
+}): string {
+  const down = opts.pixelate > 1 ? [`scale=iw/${opts.pixelate}:ih/${opts.pixelate}:flags=bilinear`] : [];
+  const up = opts.pixelate > 1 ? [`scale=iw*${opts.pixelate}:ih*${opts.pixelate}:flags=neighbor`] : [];
+  const eq = opts.contrast !== 1 ? [`eq=contrast=${opts.contrast}`] : [];
+  const evenGuard = "scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=neighbor";
+  if (opts.palette == null) {
+    return ["format=gray", ...eq, ...down, "format=monob", "format=gray", ...up, evenGuard].join(",");
+  }
+  const pre = [...eq, ...down, "split[s0][s1]"].join(",");
+  const use = [
+    opts.mode === "bayer"
+      ? `[s1][pal]paletteuse=dither=bayer:bayer_scale=${opts.bayerScale}`
+      : `[s1][pal]paletteuse=dither=${opts.mode}`,
+    ...up,
+    evenGuard,
+  ].join(",");
+  return `${pre};[s0]palettegen=max_colors=${opts.palette}:reserve_transparent=0[pal];${use}`;
+}
+
+export type DitherInput = {
+  src: string;
+  dst: string;
+  /** Downscale factor for chunky retro pixels (≥1; 1 = native res). Default 1. */
+  pixelate?: number;
+  /** Undefined = 1-bit black & white. A number switches to an N-colour palette that keeps hue. */
+  palette?: number;
+  /** paletteuse dither mode (palette engine only). Default "bayer". */
+  mode?: string;
+  /** Bayer pattern coarseness 0..5 (palette + bayer mode only). Default 2. */
+  bayerScale?: number;
+  /** Pre-dither eq contrast (1 = off). Real footage usually wants ~1.5-2.0. Default 1. */
+  contrast?: number;
+  /** Pass true to skip the v2 collision archive. Default false. */
+  forceOverwrite?: boolean;
+} & FFmpegOptions;
+
+export async function dither(input: DitherInput): Promise<string> {
+  const {
+    src,
+    dst,
+    pixelate = 1,
+    palette,
+    mode = "bayer",
+    bayerScale = 2,
+    contrast = 1,
+    forceOverwrite = false,
+    ...opts
+  } = input;
+  await fs.mkdir(path.dirname(dst), { recursive: true });
+  await protectExistingAsset(dst, forceOverwrite);
+  const filter = buildDitherFilter({ pixelate, palette: palette ?? null, mode, bayerScale, contrast });
+  await runFfmpeg(
+    [
+      "-i", src,
+      "-vf", filter,
+      // ponytail: crf 22 not 18 — dither is high-frequency and bloats x264 hard
+      "-c:v", "libx264", "-preset", "fast", "-crf", "22", "-pix_fmt", "yuv420p",
+      "-c:a", "copy",
+      "-movflags", "+faststart",
+      dst,
+    ],
+    {
+      endpoint: "ffmpeg/dither",
+      input: { src, dst, pixelate, palette: palette ?? null, mode, bayerScale, contrast, filter },
+      opts,
+    },
+  );
   return dst;
 }

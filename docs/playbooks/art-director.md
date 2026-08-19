@@ -44,6 +44,29 @@ ralphy generate music --project <id> --slot bed-01 --prompt "<genre, tempo, mood
 # Captions via ElevenLabs Scribe v1 (word-level, ≤25MB audio)
 ralphy generate captions --project <id> --audio <vo.mp3>
 
+# Talking head via HeyGen — three input modes, one output kind (see MODELS.md).
+# Reach for it whenever the SAME person must speak across several shots: separate
+# i2v takes re-roll the voice per shot and the drift reads as two actors.
+ralphy provider balance                                  # free wallet pre-flight
+ralphy generate lipsync --project <id> --slot hook-01 \
+  --image artifacts/images/anchor.png --audio artifacts/voiceover/hook.mp3
+ralphy generate lipsync --project <id> --slot hook-01 --avatar <slug> \
+  --script-file prompts/hook.txt --voice <voice-slug> [--engine avatar_v]
+ralphy generate lipsync --project <id> --slot hook-01-es \
+  --video render/final.mp4 --audio artifacts/voiceover/hook-es.mp3 --quality precision
+
+# The persistent performers behind --avatar / --voice are WORKSPACE-level and
+# cost real money to create ($1.00 per avatar, 10 voice clones per account) —
+# create once, then reference by slug from every project.
+ralphy avatar create --from artifacts/refs/presenter.mp4 --name "Marco" --type digital_twin --wait
+ralphy avatar consent <slug> --video <clip of the same person>   # digital twins only
+ralphy avatar list                                       # the engine column explains avatar_v
+ralphy voice clone --provider heygen --from artifacts/refs/presenter.mp4 --name "Marco" --wait
+
+# Dub a finished cut into other languages (per-language billing — --dry-run first)
+ralphy video translate-languages
+ralphy video translate --in render/final.mp4 --languages "Spanish (Spain),German" --captions
+
 # Single-slot regen — APPEND-ONLY: new file lands at <slot>.v<N>.<ext>, never overwrites.
 # Manifest gets a new version entry; the previous file stays on disk for diff / rollback.
 ralphy generate video --project <id> --slot scene-03-vid --prompt "<new>" --duration 5
@@ -55,7 +78,7 @@ ralphy project log <id> --type generations --limit 50    # cost + latency + erro
 ralphy asset list --project <id>         # disk inventory by slot
 ```
 
-If you reach for a backend that isn't covered (e.g. lipsync, image editing, talking-head) — STOP. Don't write a script. Either `MODELS.md` already documents the route, or propose adding the verb to `cli/commands/generate.ts`.
+If you reach for a backend that isn't covered (e.g. image editing, avatar templates, streaming avatars) — STOP. Don't write a script. Either `MODELS.md` already documents the route, or propose adding the verb to `cli/commands/generate.ts`.
 
 ## Sub-docs (read on demand)
 

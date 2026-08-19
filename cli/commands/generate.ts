@@ -9,7 +9,7 @@ import { Command } from "commander";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { artifactKindDir, projectDir, root, workspaceDir } from "../lib/paths.js";
+import { artifactKindDir, projectDir, projectWorkspace, root, workspaceDir } from "../lib/paths.js";
 import { out } from "../lib/output.js";
 import { raiseError } from "../lib/errors/index.js";
 import { transcribe, type TranscribeBackend } from "../lib/transcribe.js";
@@ -45,6 +45,9 @@ import { resolveConnector } from "../lib/providers/registry.js";
 import { emitCoverageWarnings } from "../lib/providers/coverage.js";
 import { naturalSizeFor } from "../lib/providers/openrouter.js";
 import { isFalVideoModel, falVideoPricePerSec } from "../lib/providers/fal.js";
+import { avatarRoute, heygenPricePerSec, resolveAvatarEngine } from "../lib/providers/heygen.js";
+import { getAvatar, resolveVoiceRef } from "../lib/avatars.js";
+import { probeDurationSec } from "../lib/ffmpeg-recipes.js";
 import { TerminalProviderError } from "../lib/providers/shared.js";
 import {
   lintMusicPrompt,
@@ -1222,6 +1225,283 @@ export function generateCmd() {
     return lines.join("\n");
   });
 
+  // ── lipsync ─────────────────────────────────────────────────────────────
+  // Talking-head route (#512, #555). Three mutually exclusive input modes, one
+  // output kind (an mp4 in artifacts/videos/):
+  //
+  //   --image <ref>    stateless: animate an arbitrary still, Avatar IV only.
+  //   --avatar <slug>  persistent: a TRAINED avatar from the workspace store,
+  //                    engine selectable, the performer identical across shots.
+  //   --video <ref>    re-dub: replace the audio on a finished cut and
+  //                    re-animate the speaker's lips.
+  //
+  // Distinct from `generate video`, which invents motion from a prompt — here
+  // the speech IS the script, so the voice cannot drift between shots the way
+  // it does across separate i2v takes.
+  const lipsyncCmd = cmd
+    .command("lipsync")
+    .description("Drive a talking head from a still, a trained avatar, or a finished cut (default: HeyGen)")
+    .option("--project <id>", "Project ID")
+    .option("--workspace <slug>", "Workspace shared-asset destination")
+    .requiredOption("--slot <slot>", "Asset slot id (e.g. hook-01-avatar)")
+    .option(
+      "--image <ref>",
+      "STATELESS mode: still portrait anchor (URL or local path). Path-only refs resolve cwd-first, then <project>/ + <project>/artifacts/refs/ (#025). A frame lifted out of an existing hook clip works — no pre-registered avatar needed. Mutually exclusive with --avatar / --video.",
+    )
+    .option(
+      "--avatar <slug>",
+      "PERSISTENT mode: local slug of a trained avatar from the workspace store (`ralphy avatar list`). Unlocks --engine avatar_v and keeps the performer identical across shots. Mutually exclusive with --image / --video.",
+    )
+    .option(
+      "--engine <engine>",
+      "Engine for --avatar mode (avatar_v | avatar_iv | avatar_iii). Default: the best engine the avatar advertises. avatar_v needs a consented digital_twin — `ralphy avatar list` shows the engine column.",
+    )
+    .option(
+      "--video <ref>",
+      "RE-DUB mode: a finished video whose audio is replaced and lips re-animated. Requires --audio. Mutually exclusive with --image / --avatar.",
+    )
+    .option("--quality <mode>", "Re-dub quality trade-off (speed | precision). precision buys better lip-sync at 2x the rate.", "speed")
+    .option(
+      "--audio <ref>",
+      "Driving audio track (URL or local path, mp3/wav/m4a, <=32MB). Output length follows the audio. Same path resolution as --image. Mutually exclusive with --script.",
+    )
+    .option(
+      "--script <text>",
+      "Text for a provider-side voice to read instead of a finished track. Requires --voice. Mutually exclusive with --audio — use this to drive the head with a clone of the performer's own voice rather than a second TTS provider. Not available in --video re-dub mode.",
+    )
+    .option("--script-file <path>", "Read the script from a file. Symmetric with --script; inline wins when both are passed.")
+    .option("--voice <slug|voiceId>", "Voice that reads --script: a local slug from the workspace store (`ralphy voice list --stored`) or a raw provider voice id.")
+    .option("--model <route>", "Override the gen-log route id / rate (avatar-iv-image | avatar-iv-photo | avatar-iv-twin | avatar-v-twin | avatar-iii-photo | avatar-iii-twin | lipsync-speed | lipsync-precision). Default: derived from the input mode + engine.")
+    .option("--provider <id>", "Provider connector to use. Default: first available provider that supports lipsync. See `ralphy provider list`.")
+    .option("--aspect-ratio <ratio>", "Aspect ratio (9:16 | 16:9 | 1:1 | 4:5 | 5:4 | auto)", "9:16")
+    .option("--resolution <res>", "Resolution (720p | 1080p | 4k)", "1080p")
+    .option("--motion-prompt <text>", "Style / motion hint, --avatar mode only (HeyGen documents motion_prompt as unsupported for the stateless image route).")
+    .option("--poll-interval-ms <ms>", "Polling cadence (default 10000)", parseInt)
+    .option("--poll-max-attempts <n>", "Max polls before timeout (default 60 ≈ 10min)", parseInt)
+    .option("--dry-run", "Validate params + print resolved request + cost estimate; do not submit", false)
+    .option("--summary", "Per-stage rollup for dry-run (no-op for single-step verbs)", false)
+    .option("--note <note>", "Free-form note")
+    .option("--force-overwrite", "Bypass auto-versioning and overwrite the existing slot file in place. Default: archive existing to <slot>.v{N}.mp4.")
+    .option("--no-ref-consent <reason>", "Explicit user override of the reference-required gate (AGENTS invariant #3). Logs `stage: \"no-ref-consent\"` with the reason to user-prompts.jsonl.")
+    .option("--no-retry", "Bypass the transient-error retry loop (#005).")
+    .action(async (opts) => {
+      const destination = resolveGenerateDestination(opts);
+      await ensureGenerateDestination(destination);
+      opts.slot = normalizeSlot(opts.slot);
+      await maybeLogNoRefConsent(opts);
+      if (opts.queue) rejectProjectOnlyMode(destination, "--queue");
+      if (maybeEnqueue(opts, "generate.lipsync", opts.project)) return;
+
+      const inputModes = [opts.image && "--image", opts.avatar && "--avatar", opts.video && "--video"].filter(
+        Boolean,
+      ) as string[];
+      if (inputModes.length !== 1) {
+        raiseError("E_INPUT_INVALID", {
+          field: "image",
+          detail: `pass exactly one of --image <ref> (stateless still), --avatar <slug> (trained avatar) or --video <ref> (re-dub); got ${inputModes.length === 0 ? "none" : inputModes.join(" + ")}`,
+          verb: "generate lipsync",
+        });
+      }
+      const mode: "image" | "avatar" | "dub" = opts.video ? "dub" : opts.avatar ? "avatar" : "image";
+      if (opts.image) opts.image = intakeDestinationPath(opts.image, destination, "image");
+      if (opts.video) opts.video = intakeDestinationPath(opts.video, destination, "video");
+
+      const lipsyncScript = await readPromptOrFile({
+        prompt: opts.script,
+        promptFile: opts.scriptFile,
+        ...providerDestination(destination),
+      });
+      if (mode === "dub") {
+        if (!opts.audio || lipsyncScript) {
+          raiseError("E_INPUT_INVALID", {
+            field: "audio",
+            detail: "--video re-dub replaces an existing track, so it needs --audio <ref>; --script is not supported on this route",
+            verb: "generate lipsync",
+          });
+        }
+      } else if (Boolean(opts.audio) === Boolean(lipsyncScript)) {
+        raiseError("E_INPUT_INVALID", {
+          field: "audio",
+          detail: "pass exactly one of --audio <ref> or --script/--script-file <text>",
+          verb: "generate lipsync",
+        });
+      }
+      if (lipsyncScript && !opts.voice) {
+        raiseError("E_INPUT_INVALID", {
+          field: "voice",
+          detail: "--script requires --voice <slug|voiceId> (the provider-side voice that reads it)",
+          verb: "generate lipsync",
+        });
+      }
+      opts.script = lipsyncScript;
+      if (opts.audio) opts.audio = intakeDestinationPath(opts.audio, destination, "audio");
+
+      // Avatars and voice clones are workspace-level (#555), so a --project run
+      // resolves slugs against the workspace that owns the project.
+      const performerWorkspace =
+        destination.kind === "workspace" ? destination.id : projectWorkspace(destination.id);
+      let avatarId: string | undefined;
+      let avatarType: string | undefined;
+      let engine: "avatar_v" | "avatar_iv" | "avatar_iii" | undefined;
+      if (mode === "avatar") {
+        const stored = await getAvatar(performerWorkspace, opts.avatar);
+        if (!stored) {
+          raiseError("E_NOT_FOUND", { kind: "Avatar", id: `${performerWorkspace}/${opts.avatar}` });
+        }
+        // Resolve the engine/consent constraint locally so a doomed call is
+        // never paid for (HTTP 400 avatar_consent_required otherwise).
+        const resolved = resolveAvatarEngine({
+          requested: opts.engine,
+          avatarType: stored.type,
+          engines: stored.engines,
+          consentStatus: stored.consentStatus,
+          status: stored.status,
+        });
+        if ("error" in resolved) {
+          raiseError("E_INPUT_INVALID", {
+            field: "avatar",
+            detail: `${opts.avatar}: ${resolved.error}`,
+            verb: "generate lipsync",
+          });
+        }
+        avatarId = stored.lookId;
+        avatarType = stored.type;
+        engine = resolved.engine;
+      }
+      if (opts.voice) {
+        opts.voice = (await resolveVoiceRef(performerWorkspace, opts.voice)).voiceId;
+      }
+
+      const route: string =
+        opts.model ??
+        (mode === "dub"
+          ? `lipsync-${opts.quality === "precision" ? "precision" : "speed"}`
+          : mode === "avatar"
+            ? avatarRoute(engine!, avatarType)
+            : "avatar-iv-image");
+
+      // Cost tracks the OUTPUT length, which tracks the audio (or the source
+      // cut in re-dub mode). A local file is probe-able up front; a URL isn't,
+      // and a script's read length is only known after the provider speaks it —
+      // both degrade the estimate to null and the real figure lands in the
+      // gen-log row after the run.
+      const durationRef = mode === "dub" ? opts.video : opts.audio;
+      const audioSec = !durationRef || /^https?:\/\//.test(durationRef)
+        ? null
+        : probeDurationSec(durationRef);
+      const estUsd =
+        audioSec === null ? null : Number((heygenPricePerSec(route) * audioSec).toFixed(4));
+
+      if (opts.dryRun) {
+        out({
+          dryRun: true,
+          // `inputMode`, not `mode`: --mode is the content-mode flag repo-wide
+          // (BUDGET_FLAGS), so reusing the key here would read as that.
+          inputMode: mode,
+          model: route,
+          slot: opts.slot,
+          image: opts.image ? "[ref-supplied]" : null,
+          video: opts.video ? "[ref-supplied]" : null,
+          avatar: opts.avatar ?? null,
+          avatarLookId: avatarId ?? null,
+          engine: engine ?? null,
+          audio: opts.audio ? "[ref-supplied]" : null,
+          script: opts.script ?? null,
+          voice: opts.voice ?? null,
+          audioDurationSec: audioSec,
+          aspectRatio: opts.aspectRatio,
+          resolution: opts.resolution,
+          estimatedCostUsd: estUsd,
+        });
+        return;
+      }
+
+      await maybeCheckSpend(opts, { kind: "video", model: route, durationSec: audioSec ?? undefined, mode: opts.mode });
+      const connL = resolveConnector("lipsync", opts.provider);
+      const uil = await import("../lib/ui.js");
+      const { CommandStream } = await import("../lib/stream/command.js");
+      const cs = new CommandStream();
+      cs.event("generate-lipsync-started", {
+        slot: opts.slot,
+        inputMode: mode,
+        model: route,
+        aspectRatio: opts.aspectRatio,
+      });
+      const result = await uil.withSpinner(
+        `lipsync ${mode} (${route}, ${audioSec ? `${audioSec.toFixed(1)}s` : "audio-length"}, ${opts.aspectRatio}) → ${opts.slot}`,
+        () =>
+          connL.generateLipsync!({
+            ...providerDestination(destination),
+            slot: opts.slot,
+            model: route,
+            image: opts.image,
+            avatarId,
+            avatarType,
+            engine,
+            video: opts.video,
+            mode: opts.quality === "precision" ? "precision" : "speed",
+            audio: opts.audio,
+            script: opts.script,
+            voiceId: opts.voice,
+            prompt: opts.motionPrompt,
+            aspectRatio: opts.aspectRatio,
+            resolution: opts.resolution,
+            pollIntervalMs: opts.pollIntervalMs,
+            pollMaxAttempts: opts.pollMaxAttempts,
+            note: opts.note,
+            overwrite: opts.forceOverwrite,
+            noRetry: opts.retry === false,
+          }),
+        {
+          successText: (r) => `lipsync ${uil.c.cmd(opts.slot)} → ${uil.c.path(r.localPath)} ${uil.c.muted(`($${r.costUsd.toFixed(2)}, ${(r.latencyMs / 1000).toFixed(0)}s)`)}`,
+          failText: (e) => `lipsync ${uil.c.cmd(opts.slot)} failed: ${(e as Error).message?.slice(0, 200)}`,
+        },
+      );
+      await updateProjectManifest(destination, opts.slot, {
+        kind: "video",
+        path: result.localPath,
+        model: result.model,
+        costUsd: result.costUsd,
+        url: result.url,
+        generatedAt: new Date().toISOString(),
+      });
+      cs.event("generate-lipsync-finished", {
+        slot: opts.slot,
+        path: result.localPath,
+        costUsd: result.costUsd,
+      });
+      cs.summary({
+        slot: opts.slot,
+        path: result.localPath,
+        model: result.model,
+        costUsd: result.costUsd,
+        latencyMs: result.latencyMs,
+      });
+    });
+
+  QUEUE_FLAGS(lipsyncCmd);
+  BUDGET_FLAGS(lipsyncCmd);
+
+  lipsyncCmd.addHelpText(
+    "after",
+    `
+Examples:
+  # stateless — animate a frame lifted out of an existing hook clip
+  ralphy generate lipsync --project my-ad-001 --slot hook-01 \\
+    --image artifacts/images/anchor.png --audio artifacts/voiceover/hook.mp3
+
+  # persistent — the same trained performer across every shot, Avatar V engine
+  ralphy generate lipsync --project my-ad-001 --slot hook-01 --avatar marco \\
+    --script-file prompts/hook.txt --voice marco-voice --engine avatar_v
+
+  # re-dub — swap the audio on a finished cut and re-animate the lips
+  ralphy generate lipsync --project my-ad-001 --slot hook-01-es \\
+    --video render/final.mp4 --audio artifacts/voiceover/hook-es.mp3 --mode precision
+
+Create the performers first: \`ralphy avatar create\`, \`ralphy voice clone --provider heygen\`.
+`,
+  );
+
   // ── voiceover ───────────────────────────────────────────────────────────
   const voCmd = cmd
     .command("voiceover")
@@ -1229,11 +1509,12 @@ export function generateCmd() {
     .option("--project <id>", "Project ID")
     .option("--workspace <slug>", "Workspace shared-asset destination")
     .requiredOption("--slot <slot>", "Asset slot id (e.g. scene-01-vo)")
-    .requiredOption("--voice <voiceId>", "ElevenLabs voice id (clone or library)")
+    .requiredOption("--voice <slug|voiceId>", "Voice: a local slug from the workspace performer store (`ralphy voice list --stored`) or a raw provider voice id (clone or library)")
     .option("--text <text>", "VO text (RU or EN)")
     .option("--text-file <path>", "Read VO text from a file (#025). Symmetric with --text; inline wins when both are passed.")
-    .option("--model <model>", "ElevenLabs TTS model id", "eleven_multilingual_v2")
-    .option("--provider <id>", "Provider connector to use (e.g. elevenlabs). Default: first available provider that supports voice. See `ralphy provider list`.")
+    .option("--model <model>", "ElevenLabs TTS model id (ignored by --provider heygen, whose Starfish engine has no model selector)", "eleven_multilingual_v2")
+    .option("--provider <id>", "Provider connector to use (elevenlabs default, heygen for a HeyGen voice clone). Default: first available provider that supports voice. See `ralphy provider list`.")
+    .option("--language <lang>", "Language hint where the provider accepts one (heygen: e.g. en). Auto-detected when omitted.")
     .option("--stability <n>", "Voice stability 0-1 (lower = more variation, useful for emotional / cinematic deliveries; higher = monotone, useful for analog-horror PSA / robo-narrator). Default 0.55.", (v) => parseFloat(v))
     .option("--similarity-boost <n>", "Similarity-to-source 0-1 (higher = closer to the cloned voice; lower = more interpretation). Default 0.8.", (v) => parseFloat(v))
     .option("--style <n>", "Style amplification 0-1 (0 = monotone broadcast register, 1 = full dramatic). Default 0.25. Analog-horror postmortem: style 0 with stability ~0.5 produced the cold-robo-female PSA register.", (v) => parseFloat(v))
@@ -1269,16 +1550,30 @@ export function generateCmd() {
       }
       opts.text = voText!;
 
+      // A voice may be named by its local performer-store slug (#555); resolve
+      // it before either the estimate or the call.
+      opts.voice = (
+        await resolveVoiceRef(
+          destination.kind === "workspace" ? destination.id : projectWorkspace(destination.id),
+          opts.voice,
+        )
+      ).voiceId;
+
       if (opts.dryRun) {
         const chars = (opts.text || "").length;
         // #030: route the dry-run estimate through the same pricing module
-        // the live call uses, so dry-run and post-call cost match.
+        // the live call uses, so dry-run and post-call cost match. HeyGen bills
+        // per second of audio instead of per character, so its estimate is
+        // derived from a ~15 chars/sec speaking rate and is approximate.
         const { voiceoverCostUsd } = await import("../lib/providers/voice-pricing.js");
-        const estUsd = voiceoverCostUsd(chars, opts.model);
+        const estUsd =
+          opts.provider === "heygen"
+            ? Number((heygenPricePerSec("tts-starfish") * (chars / 15)).toFixed(6))
+            : voiceoverCostUsd(chars, opts.model);
         out({
           dryRun: true,
           would_call: [
-            { stage: "voiceover", model_id: opts.model, slot: opts.slot, voice: opts.voice, characters: chars, est_usd: estUsd },
+            { stage: "voiceover", model_id: opts.provider === "heygen" ? "tts-starfish" : opts.model, slot: opts.slot, voice: opts.voice, characters: chars, est_usd: estUsd },
           ],
           cost_estimate_usd: estUsd,
           would_write: [path.relative(root(), destinationAssetPath(destination, "voiceover", `${opts.slot}.mp3`))],
@@ -1321,6 +1616,7 @@ export function generateCmd() {
             voiceId: opts.voice,
             text: opts.text,
             modelId: opts.model,
+            language: opts.language,
             voiceSettings: Object.keys(voiceSettings).length > 0 ? (voiceSettings as any) : undefined,
             note: opts.note,
             overwrite: opts.forceOverwrite,

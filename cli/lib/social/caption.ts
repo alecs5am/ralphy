@@ -158,11 +158,21 @@ export async function buildUnitCaption(input: BuildCaptionInput): Promise<UnitCa
   const copy = coerceDraft(raw, ctx);
 
   const niche = resolveNicheKey(ctx.niche ?? (ctx.tags ?? []).join(" "));
-  const hashtags = bankTags({
-    niche,
-    format: ctx.format,
-    limit: input.hashtagLimit,
-  });
+  // A draft payload may carry its OWN curated hashtag set (`unit caption
+  // --copy-file` with topic-specific tags the bank cannot know); it wins over
+  // the bank. The LLM prompt forbids hashtags, so the LLM path never hits this.
+  const provided = (
+    Array.isArray((raw as Record<string, unknown> | null)?.hashtags)
+      ? ((raw as Record<string, unknown>).hashtags as unknown[])
+      : []
+  ).filter((t): t is string => typeof t === "string" && t.trim().length > 0);
+  const hashtags = provided.length
+    ? provided.map((t) => (t.startsWith("#") ? t : `#${t}`))
+    : bankTags({
+        niche,
+        format: ctx.format,
+        limit: input.hashtagLimit,
+      });
 
   return {
     platform: { tiktok: copy.tiktok, reels: copy.reels, shorts: copy.shorts },

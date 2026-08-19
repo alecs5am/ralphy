@@ -176,17 +176,17 @@ describe("prefixed model routing", () => {
 });
 
 describe("backwards compatibility", () => {
-  test("with no providers config, listConnectors() returns exactly the bundled three", () => {
+  test("with no providers config, listConnectors() returns exactly the bundled four", () => {
     seedConfig({});
-    expect(listConnectors().map((c) => c.id)).toEqual(["openrouter", "elevenlabs", "fal"]);
+    expect(listConnectors().map((c) => c.id)).toEqual(["openrouter", "elevenlabs", "fal", "heygen"]);
   });
 
-  test("custom connectors append AFTER the bundled three", () => {
+  test("custom connectors append AFTER the bundled four", () => {
     seedConfig({
       providers: [
         { id: "local-llama", kind: "openai-compatible", baseUrl: "http://localhost:11434/v1", capabilities: ["text"] },
       ],
     });
-    expect(listConnectors().map((c) => c.id)).toEqual(["openrouter", "elevenlabs", "fal", "local-llama"]);
+    expect(listConnectors().map((c) => c.id)).toEqual(["openrouter", "elevenlabs", "fal", "heygen", "local-llama"]);
   });
 });

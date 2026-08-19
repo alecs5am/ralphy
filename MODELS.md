@@ -272,6 +272,98 @@ Voice picks: Adam (`pNInz6obpgDQGcFmaJgB`) for dramatic narrator, Brian (`nPczCj
 
 ---
 
+## Talking-head lipsync (still / trained avatar / finished cut → video)
+
+Verb: `ralphy generate lipsync`. Provider: HeyGen (`HEYGEN_API_KEY`), the only
+connector that fills the `lipsync` capability (#512, #555). Billing is per
+second of OUTPUT video against a prepaid USD wallet — not credits — and the
+output length follows the audio, so a 12s VO costs 12s of video. Check the
+wallet first with `ralphy provider balance` (free).
+
+Three mutually exclusive input modes:
+
+| Mode | Flag | Route (`--model`) | Price | Why |
+|---|---|---|---|---|
+| **Stateless** | `--image <ref>` | `avatar-iv-image` | $0.05/s | Avatar IV arbitrary-image mode, no registration. Takes a frame lifted straight out of an existing i2v clip, so the talking head matches a hook you already generated. |
+| **Persistent** | `--avatar <slug>` | `avatar-v-twin` / `avatar-iv-twin` | $0.0667/s | A TRAINED avatar from the workspace store. The only way to reach Avatar V, and the only way a series of ads reads as the same person. |
+| **Persistent (photo)** | `--avatar <slug>` | `avatar-iv-photo` / `avatar-iii-photo` | $0.05/s / $0.0433/s | A registered photo avatar. Cheaper, no consent step, but capped at Avatar IV. Avatar III has a visibly weaker mouth interior. |
+| **Re-dub** | `--video <ref>` | `lipsync-speed` / `lipsync-precision` | $0.0333/s / $0.0667/s | Replace the audio on a FINISHED cut and re-animate the lips. `--quality precision` buys better sync at double the rate. |
+
+`avatar-iii-twin` bills at $0.0167/s — the cheapest video route on the account.
+
+**Persistent avatars (#555).** `ralphy avatar create --from <clip> --name <n>
+--type digital_twin --wait` trains one and stores it under a local slug in
+`.ralphy/workspaces/<ws>/avatars.json`; `ralphy avatar list` shows the engine
+column. The constraint that governs everything:
+
+| Avatar type | Consent | Engines |
+|---|---|---|
+| `digital_twin` (15-600s of footage) | **required** | `avatar_v`, `avatar_iv`, `avatar_iii` |
+| `photo` (a still) | none | `avatar_iv`, `avatar_iii` |
+| `prompt` (text-generated look) | none | as the trained look advertises |
+
+So **Avatar V on your own avatar implies a digital twin, which implies a consent
+video** recorded by the same real person reading HeyGen's consent sentence. A
+synthetic performer cannot satisfy it. `ralphy avatar consent <slug> --video
+<clip>` registers it; the CLI refuses `avatar_v` against a `pending` group
+locally rather than burning the call on a guaranteed HTTP 400
+`avatar_consent_required`.
+
+Creation costs **$1.00 per call** (digital twin or photo), so the training band
+is pre-flighted locally: an 8.0s clip fails upstream with `training_failed:
+"Footage is too short or too long"`; 15.0s trains clean.
+
+**Voices.** `ralphy voice clone --provider heygen --from <clip|mp3> --name <n>`
+clones the performer's own voice (cap: 10 clones per account) and stores it
+under a slug, so `--script "<line>" --voice <slug>` drives the head without a
+second TTS provider. The same clone reads standalone VO through
+`ralphy generate voiceover --provider heygen` (Starfish TTS, $0.000667/s of
+audio — three orders of magnitude below the video rate).
+
+**When to reach for it over i2v:** any cut where the SAME person speaks across
+several shots. Separate Kling/Veo i2v takes re-roll the voice every shot, and the
+drift reads as two different actors — the failure the `denti-perio-pitch-001`
+client rejected by name ("the voice reading the measurements is a different
+voice from the hook"). Lipsync inverts the dependency: generate the voiceover
+once (one voice id), then drive every shot from that single track — or train one
+avatar and reference it from every shot.
+
+**Failure modes:**
+- Assets cap at 32 MB (`POST /v3/assets`). Fine for a portrait plus UGC-length
+  VO; a full-length music bed is not.
+- `motion_prompt` is avatar-route-only and explicitly unsupported on the
+  `type: "image"` route. `--motion-prompt` is therefore ignored in `--image` mode.
+- The result is a clean studio-grade head. That is the WRONG register for a
+  "filmed it myself on a phone" brief — post-treat with grain / handheld drift,
+  or the polish itself breaks the UGC illusion.
+
+**Avoid:**
+- Driving lipsync from a portrait whose framing differs from the surrounding
+  cut — the head size pops on the transition. Lift the anchor from the clip it
+  has to match.
+- Re-creating an avatar per project. It is account-level and costs $1.00 a call;
+  link the existing one with `ralphy avatar link <lookId> --slug <slug>`.
+
+---
+
+## Video translation (finished cut → dubbed cut)
+
+Verb: `ralphy video translate --in <cut> --languages "<names>"`. Same HeyGen key.
+Re-voices a finished mp4 into other languages and re-animates the speaker's
+lips, one output file per target language.
+
+| Route | Price | Why |
+|---|---|---|
+| **Default** `translate-speed` | $0.0333/s **per language** | Fast dub, acceptable sync. |
+| `translate-precision` (`--mode precision`) | $0.0667/s per language | Better lip-sync; use when the mouth is on screen and large. |
+
+`ralphy video translate-languages` enumerates the accepted target language
+NAMES (HeyGen spells them out, e.g. `Spanish (Spain)` — not ISO codes). Cost
+scales with `languages × source seconds`, so a 30s cut into 5 languages at
+speed mode is 5 × 30 × $0.0333 ≈ $5.00. `--dry-run` prices it first.
+
+---
+
 ## Music generation
 
 | Use case | Model | Price | Why |

@@ -17,6 +17,7 @@ import { parseTargets, type PublishTarget } from "../lib/publish/mapping.js";
 import {
   checkPublishReadiness,
   publishUnit,
+  revisePublishUnit,
   unitDirFor,
   workspaceUnitDirFor,
   readUnitManifest,
@@ -47,13 +48,17 @@ export function publishCmd() {
     .argument("<owner-or-unit>", "Project id, or the workspace Unit slug when --workspace is set")
     .argument("[unit-slug]", "Unit slug under <project>/units/")
     .option("--workspace <slug>", "Publish a Unit owned directly by this workspace")
-    .requiredOption("--targets <list>", "Comma-separated targets (youtube | tiktok | instagram | x | telegram)")
+    .requiredOption("--targets <list>", "Comma-separated targets (youtube | tiktok | instagram | x | telegram | devto)")
     .option("--at <iso>", "Schedule datetime (ISO). Omit to post immediately")
     .option("--now", "Submit immediately (the default when --at is absent)")
     .option("--account <map>", 'Explicit account bindings, e.g. "youtube=<integration-id>,x=<id>"')
     .option(
       "--force <reason>",
       "Bypass the readiness gate with an explicit reason (logged to user-prompts.jsonl)",
+    )
+    .option(
+      "--revise",
+      "Re-push the unit's CURRENT copy into its already-scheduled Postiz posts (delete-then-recreate at the recorded schedule time; refuses targets that are already live)",
     )
     .action(async (ownerOrUnit: string, unitSlug: string | undefined, opts) => {
       const workspace = typeof opts.workspace === "string" ? opts.workspace.trim() : "";
@@ -72,6 +77,13 @@ export function publishCmd() {
         raiseError("E_INPUT_INVALID", {
           field: "schedule",
           detail: "pass either --at or --now, not both",
+          verb: "publish",
+        });
+      }
+      if (opts.revise && (opts.at || opts.now)) {
+        raiseError("E_INPUT_INVALID", {
+          field: "schedule",
+          detail: "--revise keeps each post's recorded schedule time — drop --at/--now",
           verb: "publish",
         });
       }
@@ -123,13 +135,16 @@ export function publishCmd() {
       }
 
       try {
-        const result = await publishUnit({
-          ...(project ? { projectId: project } : { workspaceId: workspace }),
-          slug,
-          targets,
-          accounts,
-          scheduleAt: opts.at ? new Date(opts.at).toISOString() : null,
-        });
+        const owner = project ? { projectId: project } : { workspaceId: workspace };
+        const result = opts.revise
+          ? await revisePublishUnit({ ...owner, slug, targets, accounts })
+          : await publishUnit({
+              ...owner,
+              slug,
+              targets,
+              accounts,
+              scheduleAt: opts.at ? new Date(opts.at).toISOString() : null,
+            });
         if (result.allFailed) {
           raiseError("E_PROVIDER_HTTP", {
             provider: "Postiz",
@@ -138,7 +153,7 @@ export function publishCmd() {
           });
         }
         const done = result.results.filter((r) => r.status !== "failed").length;
-        const action = result.type === "schedule" ? "Scheduled" : "Submitted";
+        const action = opts.revise ? "Revised" : result.type === "schedule" ? "Scheduled" : "Submitted";
         ok(
           `${action} ${done}/${result.results.length} target(s)${result.scheduleAt ? ` for ${result.scheduleAt}` : ""}`,
         );

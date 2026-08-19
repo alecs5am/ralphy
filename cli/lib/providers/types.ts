@@ -17,6 +17,7 @@ export type Capability =
   | "voice"
   | "music"
   | "sfx"
+  | "lipsync"
   | "transcribe";
 
 // ─── Shared media types ──────────────────────────────────────────────────────
@@ -124,6 +125,11 @@ export type GenerateVoiceoverInput = CommonInput & {
   voiceId: string;
   /** Default eleven_multilingual_v2 (RU). */
   modelId?: string;
+  /**
+   * Language hint where the provider accepts one (HeyGen /v3/voices/speech
+   * auto-detects when omitted). ElevenLabs infers it from the model id.
+   */
+  language?: string;
   /** Default tuned for deadpan young Russian — see MODELS.md. */
   voiceSettings?: {
     stability?: number;
@@ -142,12 +148,52 @@ export type GenerateVoiceoverInput = CommonInput & {
 export type GenerateLipsyncInput = CommonInput & {
   /** Route/model id where the provider exposes more than one avatar route. */
   model?: string;
-  /** Still portrait / talking-photo anchor (URL, local path, or data: URI). */
-  image: string;
-  /** Driving audio track (URL or local path). */
-  audio: string;
+  /**
+   * Still portrait / talking-photo anchor (URL, local path, or data: URI) —
+   * the stateless mode. Mutually exclusive with `avatarId` and `video`;
+   * exactly one of the three is required.
+   */
+  image?: string;
+  /**
+   * A trained, persistent avatar look id — the stateful mode (#555). Reaches
+   * engines a stateless still cannot (HeyGen Avatar V) and keeps the performer
+   * identical across shots.
+   */
+  avatarId?: string;
+  /** Provider avatar family of `avatarId` (digital_twin | photo | prompt) — prices the route. */
+  avatarType?: string;
+  /** Engine for the persistent mode (HeyGen: avatar_v | avatar_iv | avatar_iii). */
+  engine?: "avatar_v" | "avatar_iv" | "avatar_iii";
+  /**
+   * A FINISHED video to re-dub: the provider replaces its audio and re-animates
+   * the speaker's lips. Requires `audio`. Mutually exclusive with `image` /
+   * `avatarId`.
+   */
+  video?: string;
+  /** Quality/latency trade-off on the re-dub route: speed (default) | precision. */
+  mode?: "speed" | "precision";
+  /**
+   * Driving audio track (URL or local path). Mutually exclusive with `script`;
+   * exactly one of the two is required.
+   */
+  audio?: string;
+  /**
+   * Text for the provider's own voice to read, instead of a finished audio
+   * track. Requires `voiceId`. Mutually exclusive with `audio`.
+   */
+  script?: string;
+  /** Provider-side voice id (e.g. a HeyGen voice clone). Used with `script`. */
+  voiceId?: string;
   /** Optional style / motion prompt where the route supports it. */
   prompt?: string;
+  /** Aspect ratio. Default "9:16" (TikTok). */
+  aspectRatio?: "9:16" | "16:9" | "1:1" | "4:5" | "5:4" | "auto";
+  /** Resolution. Default "1080p". */
+  resolution?: "720p" | "1080p" | "4k";
+  /** Polling cadence in ms. Default 10000. Total budget = pollIntervalMs * pollMaxAttempts. */
+  pollIntervalMs?: number;
+  /** Max polling attempts. Default 60 (≈10 min at 10s cadence). */
+  pollMaxAttempts?: number;
 };
 
 export type GenerateMusicInput = CommonInput & {
@@ -228,12 +274,11 @@ export interface RalphyConnector {
   generateImage?(input: GenerateImageInput): Promise<GenerateResult>;
   generateVideo?(input: GenerateVideoInput): Promise<GenerateResult>;
   /**
-   * Talking-head lipsync (image + audio → video). OPTIONAL EXTENSION SEAM
-   * (#512): no first-party connector implements it yet — the HeyGen
-   * talking-photo flow is raw-API only and the fal avatar routes are not
-   * registered. Lipsync generation resolves the video-capability
-   * connector and fails with a structured error when this method is absent;
-   * a future connector fills the seam without touching the executor.
+   * Talking-head lipsync (still / trained avatar / finished cut + speech →
+   * video). Filled by the HeyGen connector (`heygen.ts`, #512 stateless image
+   * route, #555 persistent-avatar and re-dub routes). `ralphy generate lipsync`
+   * resolves the `lipsync` capability, so a second connector (fal avatar
+   * routes) drops in without touching the executor.
    */
   generateLipsync?(input: GenerateLipsyncInput): Promise<GenerateResult>;
   generateVoiceover?(input: GenerateVoiceoverInput): Promise<GenerateResult>;
