@@ -3,7 +3,6 @@ import {
   ExternalLink,
   Globe2,
   Keyboard,
-  Settings,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -18,10 +17,8 @@ import { ProfileAvatar, profileIdentity } from "./ProfileAvatar";
 
 export function ProfileMenu({
   rootPath,
-  onOpenSettings,
 }: {
   rootPath: string;
-  onOpenSettings(): void;
 }) {
   const [open, setOpen] = useState<"profile" | "help" | null>(null);
   const [position, setPosition] = useState<CSSProperties>({});
@@ -123,19 +120,6 @@ export function ProfileMenu({
                     <ProfileAvatar rootPath={rootPath} size={20} />
                     <strong>{identity}</strong>
                   </div>
-                  <div className="menu-separator" />
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setOpen(null);
-                      onOpenSettings();
-                    }}
-                  >
-                    <Settings size={15} strokeWidth={1.5} />
-                    <span>Settings</span>
-                    <kbd>⌘,</kbd>
-                  </button>
                 </>
               ) : (
                 <>

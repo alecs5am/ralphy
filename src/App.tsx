@@ -12,7 +12,7 @@ import {
 import { AnimatePresence, LayoutGroup, MotionConfig, motion } from "motion/react";
 import { ContextSidebar } from "./components/ContextSidebar";
 import { MainHeader } from "./components/Titlebar";
-import { AgentChatPanel, BottomPanel } from "./components/UtilityPanels";
+import { AgentChatPanel } from "./components/UtilityPanels";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { ResizeHandle } from "./components/ui/ResizeHandle";
 import { useAgentChat } from "./chat/useAgentChat";
@@ -28,7 +28,7 @@ import { WorkspacePagePlaceholder, WorkspaceProjectsScreen } from "./screens/Wor
 import { MigrationRecoveryScreen } from "./screens/MigrationRecoveryScreen";
 import { MemoryScreen } from "./screens/MemoryScreen";
 import { CalendarScreen } from "./screens/CalendarScreen";
-import { LocalModelsScreen } from "./screens/LocalModelsScreen";
+import { MarketplaceScreen } from "./screens/MarketplaceScreen";
 import {
   createInitialWorkbenchState,
   mostRecentWorkspaceId,
@@ -87,9 +87,6 @@ export function App() {
   const [rightPanelVisible, setRightPanelVisible] = useState(
     initialPreferences.current.rightPanelVisible,
   );
-  const [bottomPanelVisible, setBottomPanelVisible] = useState(
-    initialPreferences.current.bottomPanelVisible,
-  );
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [localModelsVisible, setLocalModelsVisible] = useState(false);
   const [theme, onThemeChange] = useState<ThemePreference>(initialPreferences.current.theme);
@@ -104,9 +101,6 @@ export function App() {
   );
   const [rightPanelWidth, setRightPanelWidth] = useState(
     initialPreferences.current.rightPanelWidth,
-  );
-  const [bottomPanelHeight, setBottomPanelHeight] = useState(
-    initialPreferences.current.bottomPanelHeight,
   );
   const [viewport, setViewport] = useState(() => ({
     width: window.innerWidth,
@@ -139,8 +133,7 @@ export function App() {
     project: selectedProject,
     enabled: rightPanelVisible,
   });
-  const showRightPanel = catalog !== null && rightPanelVisible && !localModelsVisible;
-  const showBottomPanel = bottomPanelVisible && !localModelsVisible;
+  const showRightPanel = catalog !== null && mode === "work" && rightPanelVisible;
   const sidebarMax = Math.max(
     PANEL_SIZE_LIMITS.sidebar.min,
     Math.min(
@@ -154,10 +147,6 @@ export function App() {
       PANEL_SIZE_LIMITS.right.max,
       viewport.width - (sidebarVisible ? sidebarWidth : 0) - 440,
     ),
-  );
-  const bottomPanelMax = Math.max(
-    PANEL_SIZE_LIMITS.bottom.min,
-    Math.min(PANEL_SIZE_LIMITS.bottom.max, Math.floor(viewport.height * 0.5)),
   );
 
   const restoreHomeLibrary = useCallback(async () => {
@@ -267,8 +256,7 @@ export function App() {
   useEffect(() => {
     setSidebarWidth((value) => Math.min(value, sidebarMax));
     setRightPanelWidth((value) => Math.min(value, rightPanelMax));
-    setBottomPanelHeight((value) => Math.min(value, bottomPanelMax));
-  }, [bottomPanelMax, rightPanelMax, sidebarMax]);
+  }, [rightPanelMax, sidebarMax]);
 
   useEffect(() => watchTheme(theme, (resolvedTheme) => {
     document.documentElement.dataset.theme = resolvedTheme;
@@ -290,17 +278,13 @@ export function App() {
         workspacePage,
         sidebarVisible,
         rightPanelVisible,
-        bottomPanelVisible,
         workspaceView,
         sidebarWidth,
         rightPanelWidth,
-        bottomPanelHeight,
       });
     }, 120);
     return () => window.clearTimeout(timer);
   }, [
-    bottomPanelHeight,
-    bottomPanelVisible,
     rootIdentity?.storeId,
     rightPanelWidth,
     rightPanelVisible,
@@ -345,9 +329,6 @@ export function App() {
         }
         setWorkspacePage("projects");
         setSidebarSearchRequest((request) => request + 1);
-      } else if (command && key === "j") {
-        event.preventDefault();
-        setBottomPanelVisible((visible) => !visible);
       } else if (command && key === "b") {
         event.preventDefault();
         setSidebarVisible((visible) => !visible);
@@ -372,7 +353,6 @@ export function App() {
   }, [navigateBack, settingsVisible, state.route, workspaces]);
 
   const openProject = (project: ProjectSummary, unitId: string | null = null) => {
-    setLocalModelsVisible(false);
     setTargetUnitId(unitId);
     dispatch({
       type: "open-project",
@@ -423,8 +403,14 @@ export function App() {
       onOpenProject={openProject}
     />
   );
-  if (localModelsVisible) {
-    content = <LocalModelsScreen />;
+  if (mode === "marketplace") {
+    content = (
+      <MarketplaceScreen
+        localModelsOpen={localModelsVisible}
+        onOpenLocalModels={() => setLocalModelsVisible(true)}
+        onCloseLocalModels={() => setLocalModelsVisible(false)}
+      />
+    );
   } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "projects") {
     content = (
       <WorkspaceProjectsScreen
@@ -470,9 +456,6 @@ export function App() {
     );
   }
 
-  const canGoBack = state.historyIndex > 0;
-  const canGoForward = state.historyIndex < state.history.length - 1;
-
   return (
     <MotionConfig reducedMotion="user">
       <LayoutGroup id="asset-workbench">
@@ -480,9 +463,7 @@ export function App() {
           className={[
             "workbench",
             !sidebarVisible ? " sidebar-collapsed" : "",
-            localModelsVisible ? " local-models-open" : "",
             showRightPanel ? " has-right-panel" : "",
-            showBottomPanel ? " has-bottom-panel" : "",
             isResizing ? " is-resizing" : "",
           ].join("")}
           style={{
@@ -496,27 +477,21 @@ export function App() {
           <AnimatePresence initial={false}>
             {catalog && sidebarVisible && (
               <ContextSidebar
-                route={state.route}
                 page={workspacePage}
-                pageActive={!localModelsVisible && state.route.kind !== "project"}
-                localModelsActive={localModelsVisible}
+                pageActive={mode === "work" && state.route.kind !== "project"}
+                mode={mode}
                 rootPath={catalog.rootPath}
                 workspaces={workspaces}
                 workspaceId={selectedWorkspace?.id ?? null}
                 pinnedWorkspaceIds={state.pinnedWorkspaceIds}
-                canGoBack={canGoBack}
-                canGoForward={canGoForward}
-                onBack={navigateBack}
-                onForward={() => dispatch({ type: "forward" })}
-                onToggleSidebar={() => setSidebarVisible(false)}
-                onOpenSettings={() => setSettingsVisible(true)}
-                onOpenLocalModels={() => setLocalModelsVisible(true)}
+                onModeChange={(nextMode) => {
+                  onModeChange(nextMode);
+                  if (nextMode === "work") setLocalModelsVisible(false);
+                }}
                 onOpenWorkspace={(workspaceId) => {
-                  setLocalModelsVisible(false);
                   dispatch({ type: "open-workspace", workspaceId });
                 }}
                 onOpenPage={(page) => {
-                  setLocalModelsVisible(false);
                   setWorkspacePage(page);
                   const workspaceId = selectedWorkspace?.id ?? mostRecentWorkspaceId(workspaces);
                   if (workspaceId) dispatch({ type: "open-workspace", workspaceId });
@@ -541,47 +516,22 @@ export function App() {
           <motion.section className="main-shell">
             <MainHeader
               sidebarVisible={sidebarVisible}
-              canGoBack={canGoBack}
-              canGoForward={canGoForward}
               rightPanelVisible={rightPanelVisible}
-              bottomPanelVisible={showBottomPanel}
-              onBack={navigateBack}
-              onForward={() => dispatch({ type: "forward" })}
-              onHome={() => {
-                setLocalModelsVisible(false);
-                setWorkspacePage("projects");
-                const workspaceId = selectedWorkspace?.id ?? mostRecentWorkspaceId(workspaces);
-                if (workspaceId) dispatch({ type: "open-workspace", workspaceId });
-                else dispatch({ type: "open-library" });
+              rootPath={catalog.rootPath}
+              activity={{
+                projectName: selectedProject?.name ?? selectedWorkspace?.name ?? null,
+                status: selectedProject?.status ?? null,
+                count: selectedWorkspace?.projectCount ?? null,
+                busyLabel: null,
+                progress: null,
+                alert: error,
               }}
               onToggleSidebar={() => setSidebarVisible((visible) => !visible)}
               onToggleRightPanel={() =>
                 setRightPanelVisible((visible) => !visible)
               }
-              onToggleBottomPanel={() =>
-                setBottomPanelVisible((visible) => !visible)
-              }
             />
             <div className="main-content-stage">{content}</div>
-            {showBottomPanel && (
-              <ResizeHandle
-                ariaLabel="Resize bottom panel"
-                orientation="horizontal"
-                value={bottomPanelHeight}
-                min={PANEL_SIZE_LIMITS.bottom.min}
-                max={bottomPanelMax}
-                defaultValue={PANEL_SIZE_LIMITS.bottom.default}
-                direction={-1}
-                className="resize-bottom"
-                onChange={setBottomPanelHeight}
-                onActiveChange={setIsResizing}
-              />
-            )}
-            <BottomPanel
-              height={bottomPanelHeight}
-              visible={showBottomPanel}
-              rootPath={rootIdentity?.storeId ?? null}
-            />
           </motion.section>
           {showRightPanel && (
             <ResizeHandle

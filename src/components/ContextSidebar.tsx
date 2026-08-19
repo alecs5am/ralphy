@@ -1,4 +1,4 @@
-import { Boxes, Brain, CalendarDays, FolderOpen, HardDrive, SlidersHorizontal, UsersRound, type LucideIcon } from "lucide-react";
+import { Boxes, Brain, CalendarDays, FolderOpen, UsersRound, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { useMemo } from "react";
 import type { WorkspaceSummary } from "../lib/ipc";
@@ -6,29 +6,21 @@ import {
   sortWorkspaces,
   WORKSPACE_PAGE_LABELS,
   WORKSPACE_PAGES,
-  type WorkbenchRoute,
+  type WorkbenchMode,
   type WorkspacePage,
 } from "../state/workbench";
 import { ProfileMenu } from "./ProfileMenu";
-import { SidebarChrome } from "./Titlebar";
 import { WorkspacePicker } from "./WorkspacePicker";
 
 interface ContextSidebarProps {
-  route: WorkbenchRoute;
   page: WorkspacePage;
   pageActive: boolean;
-  localModelsActive: boolean;
+  mode: WorkbenchMode;
   rootPath: string;
   workspaces: WorkspaceSummary[];
   workspaceId: string | null;
   pinnedWorkspaceIds: string[];
-  canGoBack: boolean;
-  canGoForward: boolean;
-  onBack(): void;
-  onForward(): void;
-  onToggleSidebar(): void;
-  onOpenSettings(): void;
-  onOpenLocalModels(): void;
+  onModeChange(mode: WorkbenchMode): void;
   onOpenWorkspace(workspaceId: string): void;
   onOpenPage(page: WorkspacePage): void;
 }
@@ -62,18 +54,12 @@ function pageCount(page: WorkspacePage, workspace?: WorkspaceSummary): number | 
 export function ContextSidebar({
   page,
   pageActive,
-  localModelsActive,
+  mode,
   rootPath,
   workspaces,
   workspaceId,
   pinnedWorkspaceIds,
-  canGoBack,
-  canGoForward,
-  onBack,
-  onForward,
-  onToggleSidebar,
-  onOpenSettings,
-  onOpenLocalModels,
+  onModeChange,
   onOpenWorkspace,
   onOpenPage,
 }: ContextSidebarProps) {
@@ -92,13 +78,10 @@ export function ContextSidebar({
       exit={{ x: -24, opacity: 0 }}
       transition={{ duration: 0.18, ease: [0.2, 0, 0.2, 1] }}
     >
-      <SidebarChrome
-        canGoBack={canGoBack}
-        canGoForward={canGoForward}
-        onBack={onBack}
-        onForward={onForward}
-        onToggleSidebar={onToggleSidebar}
-      />
+      <nav className="sidebar-mode-switch" aria-label="Workbench mode">
+        <button type="button" aria-pressed={mode === "work"} onClick={() => onModeChange("work")}>My Work</button>
+        <button type="button" aria-pressed={mode === "marketplace"} onClick={() => onModeChange("marketplace")}>Marketplace</button>
+      </nav>
 
       <div className="sidebar-context">
         {workspace ? (
@@ -132,28 +115,9 @@ export function ContextSidebar({
         })}
       </nav>
 
-      <div className="sidebar-section-label"><span>THIS COMPUTER</span><i /></div>
-      <nav className="sidebar-nav sidebar-global-nav" aria-label="This computer">
-        <button
-          className={`sidebar-nav-row${localModelsActive ? " is-selected" : ""}`}
-          type="button"
-          aria-current={localModelsActive ? "page" : undefined}
-          onClick={onOpenLocalModels}
-        >
-          <HardDrive size={16} strokeWidth={1.5} aria-hidden="true" />
-          <span>Local Models</span>
-          <small />
-        </button>
-        <button className="sidebar-nav-row" type="button" onClick={onOpenSettings}>
-          <SlidersHorizontal size={16} strokeWidth={1.5} aria-hidden="true" />
-          <span>Settings</span>
-          <small />
-        </button>
-      </nav>
-
       <div className="sidebar-spacer" />
       <div className="sidebar-footer">
-        <ProfileMenu rootPath={rootPath} onOpenSettings={onOpenSettings} />
+        <ProfileMenu rootPath={rootPath} />
       </div>
     </motion.aside>
   );

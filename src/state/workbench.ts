@@ -42,11 +42,9 @@ export interface WorkbenchPreferences {
   workspacePage: WorkspacePage;
   sidebarVisible: boolean;
   rightPanelVisible: boolean;
-  bottomPanelVisible: boolean;
   workspaceView: WorkspaceView;
   sidebarWidth: number;
   rightPanelWidth: number;
-  bottomPanelHeight: number;
 }
 
 export interface WorkbenchState {
@@ -77,7 +75,6 @@ const PREFERENCES_KEY = "ralphy-media-workbench-v1";
 export const PANEL_SIZE_LIMITS = {
   sidebar: { min: 288, max: 420, default: 288 },
   right: { min: 280, max: 520, default: 336 },
-  bottom: { min: 160, max: 720, default: 220 },
 } as const;
 
 export function createInitialWorkbenchState(
@@ -311,11 +308,9 @@ export function readWorkbenchPreferences(storage: StorageLike): WorkbenchPrefere
     workspacePage: "projects",
     sidebarVisible: true,
     rightPanelVisible: false,
-    bottomPanelVisible: false,
     workspaceView: "grid",
     sidebarWidth: PANEL_SIZE_LIMITS.sidebar.default,
     rightPanelWidth: PANEL_SIZE_LIMITS.right.default,
-    bottomPanelHeight: PANEL_SIZE_LIMITS.bottom.default,
   };
   try {
     const value = JSON.parse(storage.getItem(PREFERENCES_KEY) ?? "null") as unknown;
@@ -336,12 +331,9 @@ export function readWorkbenchPreferences(storage: StorageLike): WorkbenchPrefere
         typeof record.sidebarVisible === "boolean" ? record.sidebarVisible : true,
       rightPanelVisible:
         typeof record.rightPanelVisible === "boolean" ? record.rightPanelVisible : false,
-      bottomPanelVisible:
-        typeof record.bottomPanelVisible === "boolean" ? record.bottomPanelVisible : false,
       workspaceView: record.workspaceView === "list" ? "list" : "grid",
       sidebarWidth: panelSize(record.sidebarWidth, PANEL_SIZE_LIMITS.sidebar),
       rightPanelWidth: panelSize(record.rightPanelWidth, PANEL_SIZE_LIMITS.right),
-      bottomPanelHeight: panelSize(record.bottomPanelHeight, PANEL_SIZE_LIMITS.bottom),
     };
   } catch {
     return empty;

@@ -586,7 +586,7 @@ describe("design system contract", () => {
     );
   });
 
-  test("uses headless selectors and panel shortcuts", () => {
+  test("uses headless selectors without terminal controls", () => {
     const app = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
     expect(renderer).not.toMatch(/<select(?:\s|>)/);
     expect(renderer).toContain("@radix-ui/react-select");
@@ -594,10 +594,10 @@ describe("design system contract", () => {
     expect(renderer).toContain('role="slider"');
     expect(renderer).toContain('aria-label="Toggle sidebar"');
     expect(renderer).toContain('aria-label="Toggle right panel"');
-    expect(renderer).toContain('aria-label="Toggle bottom panel"');
+    expect(renderer).not.toContain('aria-label="Toggle bottom panel"');
     expect(app).toContain("if (event.repeat) return");
     expect(app).toContain('command && key === "b"');
-    expect(app).toContain('command && key === "j"');
+    expect(app).not.toContain('command && key === "j"');
     expect(app).not.toContain('commandOption && key === "b"');
   });
 
@@ -607,7 +607,7 @@ describe("design system contract", () => {
     expect(renderer).toContain("closeAndRestoreFocus");
     expect(renderer).toContain('ariaLabel="Resize sidebar"');
     expect(renderer).toContain('ariaLabel="Resize right panel"');
-    expect(renderer).toContain('ariaLabel="Resize bottom panel"');
+    expect(renderer).not.toContain('ariaLabel="Resize bottom panel"');
     expect(renderer).toContain("onLostPointerCapture");
     expect(renderer).toContain("createPortal");
     expect(styles).toMatch(
@@ -785,7 +785,7 @@ describe("design system contract", () => {
     expect(smoke).toContain("RALPHY_TERMINAL_BRIDGE_READY");
   });
 
-  test("keeps a persistent xterm workspace with draggable resizable splits", () => {
+  test("keeps terminal internals available without app-shell exposure", () => {
     const app = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
     const controller = readFileSync(
       join(process.cwd(), "src/terminal/controller.ts"),
@@ -827,13 +827,13 @@ describe("design system contract", () => {
     expect(pane).toContain('["top", "right", "bottom", "left"]');
     expect(workspace).toContain("setPointerCapture");
     expect(workspace).toContain("onLostPointerCapture");
-    expect(app).toContain("visible={showBottomPanel}");
-    expect(app).toContain("Math.floor(viewport.height * 0.5)");
+    expect(app).not.toContain("BottomPanel");
+    expect(app).not.toContain("bottomPanelVisible");
     expect(workspace).toContain("@xterm/xterm/css/xterm.css");
     expect(app).toContain("loadSettingsScreen");
   });
 
-  test("opens app-level settings from a custom profile popover", () => {
+  test("keeps app-level settings out of the My Work profile popover", () => {
     const app = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
     const profileMenu = readFileSync(
       join(process.cwd(), "src/components/ProfileMenu.tsx"),
@@ -850,7 +850,7 @@ describe("design system contract", () => {
 
     expect(profileMenu).toContain("createPortal");
     expect(profileMenu).toContain('role="menu"');
-    expect(profileMenu).toContain("Settings");
+    expect(profileMenu).not.toContain("Settings");
     expect(profileMenu).toContain("closeAndRestoreFocus");
     expect(app).toContain('command && event.key === ","');
     expect(app).toContain("<SettingsScreen");
@@ -901,16 +901,15 @@ describe("design system contract", () => {
     expect(welcome).toContain("<RalphyMascot");
   });
 
-  test("keeps library switching in the profile and panel toggles in requested order", () => {
+  test("keeps library switching in the profile and only the right panel toggle", () => {
     const titlebar = readFileSync(
       join(process.cwd(), "src/components/Titlebar.tsx"),
       "utf8",
     );
     expect(titlebar).not.toContain("MoreHorizontal");
     expect(titlebar).not.toContain("Change library");
-    expect(titlebar.indexOf('aria-label="Toggle bottom panel"')).toBeLessThan(
-      titlebar.indexOf('aria-label="Toggle right panel"'),
-    );
+    expect(titlebar).not.toContain('aria-label="Toggle bottom panel"');
+    expect(titlebar).toContain('aria-label="Toggle right panel"');
     const main = readFileSync(join(process.cwd(), "electron/main.ts"), "utf8");
     expect(main).toContain("trafficLightPosition");
     expect(main).toContain("setWindowOpenHandler");

@@ -7,7 +7,9 @@ import type { MediaCardDto } from "../electron/ralphy/types";
 import type { ProjectSummary } from "../src/lib/ipc";
 import type { WorkspaceSummary } from "../src/lib/ipc";
 import { ContextSidebar } from "../src/components/ContextSidebar";
+import { ActivityIsland } from "../src/components/ActivityIsland";
 import { MainHeader } from "../src/components/Titlebar";
+import { MarketplaceScreen } from "../src/screens/MarketplaceScreen";
 import { WorkspaceProjectsScreen } from "../src/screens/WorkspaceProjectsScreen";
 import { LibraryScreen } from "../src/screens/LibraryScreen";
 import { bridge } from "../src/lib/ipc";
@@ -173,24 +175,17 @@ describe("workspace projects navigation", () => {
     expect(styles).toMatch(/\.workspace-project-card-shell \.workspace-project-card\s*\{[^}]*width:\s*100%/s);
   });
 
-  test("keeps workspace resources in the sidebar navigation", () => {
+  test("keeps My Work focused on workspace resources", () => {
     const markup = renderToStaticMarkup(
       <ContextSidebar
-        route={{ kind: "workspace", workspaceId: workspace.id }}
         page="projects"
         pageActive
-        localModelsActive={false}
+        mode="work"
         rootPath="/tmp/demo/.ralphy"
         workspaces={[workspace]}
         workspaceId={workspace.id}
         pinnedWorkspaceIds={[]}
-        canGoBack={false}
-        canGoForward={false}
-        onBack={() => undefined}
-        onForward={() => undefined}
-        onToggleSidebar={() => undefined}
-        onOpenSettings={() => undefined}
-        onOpenLocalModels={() => undefined}
+        onModeChange={() => undefined}
         onOpenWorkspace={() => undefined}
         onOpenPage={() => undefined}
       />,
@@ -199,44 +194,71 @@ describe("workspace projects navigation", () => {
     expect(markup).toContain("Memory");
     expect(markup).toContain("Calendar");
     expect(markup).toContain("Shared library");
-    expect(markup).toContain("THIS COMPUTER");
-    expect(markup).toContain("Local Models");
+    expect(markup).toContain("My Work");
+    expect(markup).toContain("Marketplace");
+    expect(markup).not.toContain("THIS COMPUTER");
+    expect(markup).not.toContain("Local Models");
+    expect(markup).not.toContain("Settings");
     expect(markup).not.toContain("Filter projects");
     expect(markup).not.toContain("Launch film");
   });
 
-  test("opens the project grid from one Home action without an open-project tab strip", async () => {
-    const onHome = vi.fn();
-    const host = createReactHost();
-    const { createRoot } = await import("react-dom/client");
-    const root = createRoot(host.container as unknown as Element);
+  test("renders an honest Marketplace landing with a Local Models action", () => {
+    const markup = renderToStaticMarkup(
+      <MarketplaceScreen
+        localModelsOpen={false}
+        onOpenLocalModels={() => undefined}
+        onCloseLocalModels={() => undefined}
+      />,
+    );
 
-    try {
-      await act(async () => {
-        root.render(<MainHeader
-          sidebarVisible
-          canGoBack={false}
-          canGoForward={false}
-          rightPanelVisible={false}
-          bottomPanelVisible={false}
-          onHome={onHome}
-          onBack={() => undefined}
-          onForward={() => undefined}
-          onToggleSidebar={() => undefined}
-          onToggleRightPanel={() => undefined}
-          onToggleBottomPanel={() => undefined}
-        />);
-      });
+    expect(markup).toContain("WORK IN PROGRESS");
+    expect(markup).toContain("Local Models");
+  });
 
-      expect(host.container.querySelector(".header-tabs")).toBeNull();
-      const home = host.container.querySelector<HTMLButtonElement>(".main-header-home");
-      expect(home).not.toBeNull();
-      await act(async () => home!.dispatchEvent(new Event("click", { bubbles: true })));
+  test("shows only explicit Activity Island state", () => {
+    const markup = renderToStaticMarkup(
+      <ActivityIsland
+        state={{
+          projectName: "Launch film",
+          status: "Rendering",
+          count: 2,
+          busyLabel: "Exporting",
+          progress: 140,
+          alert: "Review needed",
+        }}
+      />,
+    );
 
-      expect(onHome).toHaveBeenCalledOnce();
-    } finally {
-      await act(async () => root.unmount());
-      host.restore();
-    }
+    expect(markup).toContain("Launch film");
+    expect(markup).toContain("Rendering");
+    expect(markup).toContain("2");
+    expect(markup).toContain("Exporting");
+    expect(markup).toContain("100%");
+    expect(markup).toContain("Review needed");
+    expect(markup).not.toMatch(/WAN|MB\/S|\d{1,2}:\d{2}/);
+
+    const empty = renderToStaticMarkup(
+      <ActivityIsland
+        state={{ projectName: null, status: null, count: null, busyLabel: null, progress: null, alert: null }}
+      />,
+    );
+    expect(empty).not.toMatch(/Launch film|Rendering|Exporting|Review needed/);
+  });
+
+  test("renders the Instrument top row without an open-project tab strip", () => {
+    const markup = renderToStaticMarkup(
+      <MainHeader
+        sidebarVisible
+        rightPanelVisible={false}
+        rootPath="/tmp/demo/.ralphy"
+        activity={{ projectName: null, status: null, count: null, busyLabel: null, progress: null, alert: null }}
+        onToggleSidebar={() => undefined}
+        onToggleRightPanel={() => undefined}
+      />,
+    );
+
+    expect(markup).not.toContain("header-tabs");
+    expect(markup).toContain('aria-label="Toggle right panel"');
   });
 });

@@ -239,11 +239,9 @@ describe("workbench ordering and preferences", () => {
     expect(preferences).toMatchObject({
       sidebarVisible: true,
       rightPanelVisible: false,
-      bottomPanelVisible: false,
       workspaceView: "grid",
       sidebarWidth: 288,
       rightPanelWidth: 336,
-      bottomPanelHeight: 220,
     });
   });
 
@@ -265,14 +263,12 @@ describe("workbench ordering and preferences", () => {
       getItem: () => JSON.stringify({
         sidebarWidth: 10_000,
         rightPanelWidth: 1,
-        bottomPanelHeight: -40,
       }),
       setItem: () => undefined,
     });
 
     expect(preferences.sidebarWidth).toBe(420);
     expect(preferences.rightPanelWidth).toBe(280);
-    expect(preferences.bottomPanelHeight).toBe(160);
 
     const compact = readWorkbenchPreferences({
       getItem: () => JSON.stringify({ sidebarWidth: 1 }),
@@ -298,11 +294,9 @@ describe("workbench ordering and preferences", () => {
       workspacePage: "projects",
       sidebarVisible: false,
       rightPanelVisible: true,
-      bottomPanelVisible: true,
       workspaceView: "list" as const,
       sidebarWidth: 320,
       rightPanelWidth: 400,
-      bottomPanelHeight: 280,
     };
 
     writeWorkbenchPreferences(storage, preferences);
