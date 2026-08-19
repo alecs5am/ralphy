@@ -8,6 +8,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 import type { ActivityDto, CompositionDto, CompositionRevisionDto, MediaCardDto, UnitDto, UnitRevisionDto, WorkspaceOverviewDto } from "../electron/ralphy/types";
 import type { ProjectSummary } from "../src/lib/ipc";
+import { ActivityIsland } from "../src/components/ActivityIsland";
 import { ProjectScreenView, createProjectScreenController } from "../src/screens/ProjectScreen";
 import { WorkspaceScreenView, createWorkspaceScreenController } from "../src/screens/WorkspaceScreen";
 
@@ -206,6 +207,7 @@ type GeometryResult = {
   memoryInactiveBackground: string | null;
   memoryOpenBackground: string | null;
   memoryBodyBorder: string | null;
+  mediaSelectedRing: { light: string; dark: string } | null;
 };
 
 async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): Promise<GeometryResult[]> {
@@ -355,13 +357,20 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
               const unitCardsInGridFlow = screen !== "units" ? null : unitCards.length > 0 && unitCards.every((card) => getComputedStyle(card).position !== "absolute");
               const forbidden = [...root.querySelectorAll(".load-more, .project-preview, .pagination")].length + (screen === "media" ? [...root.querySelectorAll(".media-panel button")].filter((button) => button.textContent.trim() === "Open").length : 0);
               const style = (selector) => { const element = root.querySelector(selector); return element ? getComputedStyle(element) : null; };
+              const selectedPreview = screen === "media" ? root.querySelector(".media-card-tile.is-selected .asset-preview") : null;
+              const mediaSelectedRing = selectedPreview ? Object.fromEntries(["light", "dark"].map((theme) => {
+                document.documentElement.dataset.theme = theme;
+                return [theme, getComputedStyle(selectedPreview).boxShadow];
+              })) : null;
+              delete document.documentElement.dataset.theme;
               return { screen, width: innerWidth, height: innerHeight, overflows, metricColumns, scrollOwners, documentDetailWidth: documentDetail?.getBoundingClientRect().width ?? null, documentViewerWidths, documentViewerMaxWidths, nestedMediaScroll, mediaInsets, focus, overviewColumns, overviewWidth, overviewMetricWidths, overviewNarrativeColumns, overviewColumnRatio, overviewScrollOwners, splitVerticalContained, masterRowEdgeInset, masterRowTopInset, masterRowHeight, masterRowGap, revisionEdgeInset, revisionTopInset, revisionGap, mediaTitleFontSize, mediaMetaFontSize, activityTimeFontSize, activityEntityFontSize, forbidden, projectHeaderCount, projectTabsCenterOffset, gooeyBlobCoverage, unitCardsInGridFlow, projectTabsHeaderOffset, projectTabsReceivePointer, projectTabsAppRegion,
                 memoryRegionPadding: style(".memory-region")?.padding ?? null,
                 memoryTopbarBorder: style(".memory-topbar")?.borderBottomWidth ?? null,
                 memoryFilterBorder: style(".memory-filters")?.borderTopWidth ?? null,
                 memoryInactiveBackground: style(".memory-rule:not(.is-open)")?.backgroundColor ?? null,
                 memoryOpenBackground: style(".memory-rule.is-open")?.backgroundColor ?? null,
-                memoryBodyBorder: style(".memory-rule-body")?.borderTopWidth ?? null };
+                memoryBodyBorder: style(".memory-rule-body")?.borderTopWidth ?? null,
+                mediaSelectedRing };
             })()\`));
         }
         process.stdout.write("RALPHY_GEOMETRY=" + JSON.stringify(results) + "\\n");
@@ -448,6 +457,21 @@ describe("design system contract", () => {
     expect(styles).toMatch(/\.asset-modal-surface,[\s\S]*corner-shape:\s*squircle/);
   });
 
+  test("uses Doto only at 13px or larger and marks numeric island values explicitly", () => {
+    const markup = renderToStaticMarkup(createElement(ActivityIsland, { state: {
+      projectName: "Launch", status: "active", count: 12, busyLabel: "Syncing", progress: null, alert: null,
+    } }));
+    expect(markup).toContain('class="activity-island-count"');
+    expect(markup).toContain('class="activity-island-busy"');
+
+    const dotoRules = [...workbenchStyles.matchAll(/([^{}]+)\{([^{}]*var\(--font-doto\)[^{}]*)\}/g)];
+    expect(dotoRules.length).toBeGreaterThan(0);
+    for (const [, selector, body] of dotoRules) {
+      const size = body.match(/font-size:\s*([\d.]+)px/) ?? body.match(/font:\s*[^;]*?([\d.]+)px/);
+      expect(Number(size?.[1]), selector.trim()).toBeGreaterThanOrEqual(13);
+    }
+  });
+
   test("shares the compact profile-menu tokens across reusable controls", () => {
     for (const token of [
       "--field-surface",
@@ -528,6 +552,12 @@ describe("design system contract", () => {
       { width: 1360, mediaTitleFontSize: 11.5, mediaMetaFontSize: 9.5 },
       { width: 1100, mediaTitleFontSize: 11.5, mediaMetaFontSize: 9.5 },
     ]);
+    for (const { mediaSelectedRing } of results.filter(({ screen }) => screen === "media")) {
+      expect(mediaSelectedRing?.light).toContain("rgb(20, 20, 20)");
+      expect(mediaSelectedRing?.dark).toContain("rgb(242, 242, 240)");
+      expect(mediaSelectedRing?.light).toContain("3px");
+      expect(mediaSelectedRing?.dark).toContain("3px");
+    }
     expect(results.filter(({ screen }) => screen === "activity").flatMap(({ width, activityTimeFontSize, activityEntityFontSize }) =>
       activityTimeFontSize !== null && activityTimeFontSize >= 12 && activityEntityFontSize !== null && activityEntityFontSize >= 12 ? [] : [{ width, activityTimeFontSize, activityEntityFontSize }])).toEqual([]);
     expect(results.filter(({ screen }) => screen === "documents").map(({ width, focus }) => ({ width, selectors: focus.map(({ selector }) => selector) })))

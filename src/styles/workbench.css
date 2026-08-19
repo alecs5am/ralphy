@@ -6926,8 +6926,7 @@ button.memory-primary:hover { background: #8d89df; color: #111; }
 .project-region .unit-card.is-selected,
 .project-region .unit-revision-rail button.is-selected,
 .project-region .composition-master-row.is-selected,
-.project-region .composition-revision-rail button.is-selected,
-.project-region .asset-tile.is-selected .asset-preview {
+.project-region .composition-revision-rail button.is-selected {
   box-shadow: none;
 }
 
@@ -7371,7 +7370,8 @@ button.memory-primary:hover { background: #8d89df; color: #111; }
 }
 .activity-island strong { overflow: hidden; color: var(--ink-on-dark); font-weight: 400; text-overflow: ellipsis; }
 .activity-island > span:not([role="alert"]) { color: var(--ink-on-dark-secondary); }
-.activity-island > span:not([role="alert"]):last-of-type { font: 800 13px var(--font-doto); }
+.activity-island-count,
+.activity-island-progress { font: 800 13px var(--font-doto); }
 .activity-island [role="alert"] { color: var(--red); }
 
 .context-sidebar {
@@ -7450,7 +7450,7 @@ button.memory-primary:hover { background: #8d89df; color: #111; }
   color: var(--ink-on-dark-secondary);
 }
 .sidebar-nav-row svg { width: 14px; height: 14px; }
-.sidebar-nav-row small { color: inherit; font: 800 12px var(--font-doto); }
+.sidebar-nav-row small { color: inherit; font: 12px var(--font-mono); }
 .sidebar-nav-row:hover { background: var(--widget-dark-hover); color: var(--ink-on-dark); }
 .sidebar-nav-row.is-selected { background: var(--ink-on-dark); color: #111111; }
 .sidebar-footer { padding: 0; }

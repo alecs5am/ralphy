@@ -13,9 +13,9 @@ export function ActivityIsland({ state }: { state: ActivityIslandState }) {
     <div className="activity-island" aria-live="polite">
       {state.projectName && <strong>{state.projectName}</strong>}
       {state.status && <span>{state.status}</span>}
-      {state.count !== null && <span>{state.count}</span>}
-      {state.busyLabel && <span>{state.busyLabel}</span>}
-      {progress !== null && <span>{progress}%</span>}
+      {state.count !== null && <span className="activity-island-count">{state.count}</span>}
+      {state.busyLabel && <span className="activity-island-busy">{state.busyLabel}</span>}
+      {progress !== null && <span className="activity-island-progress">{progress}%</span>}
       {state.alert && <span role="alert">{state.alert}</span>}
     </div>
   );
