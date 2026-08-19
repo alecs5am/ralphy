@@ -241,8 +241,7 @@ export interface ProjectDto extends EntityDto {
   updatedAt: number;
 }
 export interface SessionDto extends ScopedDto {
-  tool: string;
-  state: string;
+  agent: string;
   startedAt: number;
   endedAt: number | null;
 }
@@ -925,9 +924,9 @@ export interface MediaReviewParams {
 
 export interface MediaReviewResult {
   card: MediaCardDto & { ref: { type: "artifact"; id: string } };
-  revision: ArtifactRevisionDto;
+  revisionId: string;
   evaluation: EvaluationDto;
-  feedback: FeedbackDto | null;
+  feedbackId: string | null;
 }
 
 export type MemoryTier = "global" | "workspace";
@@ -998,7 +997,7 @@ export interface BridgeMethodContract {
   "consumer.authenticate": Contract<{ namespace: "farm"; tokenBase64url: string }, AckDto>;
   "consumer.session.start": Contract<{ workspaceId: string; projectId?: string; tool: string; label?: string }, SessionDto>;
   "consumer.session.end": Contract<{ sessionId: string }, SessionDto>;
-  "session.start": Contract<{ workspaceId: string; projectId?: string; tool: string; label?: string }, SessionDto>;
+  "session.start": Contract<{ workspaceId: string; projectId?: string; agent: string }, SessionDto>;
   "session.show": Contract<{ sessionId: string }, SessionDto>;
   "session.list": Contract<ScopedCursorParams, Page<SessionDto>>;
   "session.end": Contract<{ sessionId: string }, SessionDto>;

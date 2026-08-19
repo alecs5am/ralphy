@@ -8,45 +8,50 @@ Captured on 2026-08-19 from the production renderer build against the live
 RALPHY_BIN='/Users/maximovchinnikov/github/ralphy/ralphy-desktop/release/Ralphy Media.app/Contents/Resources/bin/ralphy' ./node_modules/.bin/electron . --remote-debugging-port=9333
 ```
 
-The existing Playwright install under `.ds-sync/` connected over CDP for
-deterministic renderer captures. No dependency was added. Native macOS traffic
-lights are outside the renderer bitmap and therefore do not appear in these
-screenshots.
+The existing Playwright install under `.ds-sync/` connected over CDP and used
+Chromium device metrics for deterministic 1440×900 and 1100×720 renderer
+captures. No dependency was added. Native macOS traffic lights are outside the
+renderer bitmap and therefore do not appear in these screenshots.
 
 ## Automated verification
 
 | Command | Exit | Result |
 | --- | ---: | --- |
 | `bun run typecheck` | 0 | Passed (`tsc --noEmit`). |
-| `bun run test` | 1 | 495 passed, 1 skipped, 1 failed. The known Calendar test expects `Tue, Aug 18, 2026`, while the schedule dialog deliberately initializes from `Date.now()` (Aug 19 at verification time). |
+| `bun run test` | 0 | 502 passed, 1 skipped across 56 files. The Calendar assertion now controls the clock and is deterministic. |
 | `bun run build` | 0 | Renderer and Electron bundles built. Vite emitted its existing advisory for a chunk larger than 500 kB. |
 | `bun run smoke` | 1 | The unqualified development smoke selected global `ralphy` 0.2.0, which exits with `error: unknown option '--stdio'`; the harness then exits 1 after `pty:prepare` without surfacing the child stderr. |
 | `RALPHY_BIN='.../release/Ralphy Media.app/Contents/Resources/bin/ralphy' bun run smoke` | 0 | Diagnostic rerun passed with bundled Core 0.3.0: `Electron smoke passed`. |
 
-No source or test was changed for either baseline/environment failure. The
-Calendar assertion is date-dependent test drift, not an Instrument behavior
-regression. The smoke failure is caused by the globally installed legacy CLI;
-the current bundled Core satisfies the Desktop bridge contract.
+The unqualified smoke remains an environment failure caused by the globally
+installed legacy CLI, not an Instrument regression. The current bundled Core
+satisfies the Desktop bridge contract. A focused bundled-Core integration test
+also copies the live SQLite store to a temporary root, then exercises
+`createProjectReader().reviewMedia` through approve and reject; each call creates
+and ends a main-owned Core Session. The source store is never mutated.
 
 ## Icon decision
 
-Selected concept: **abstract dither aperture**, a strict mechanical module made
-from black/white flat geometry, one red functional indicator, and a restrained
-halftone aperture. The mechanical R and dial explorations were not shipped.
+Selected concept: **abstract dither aperture**, retained from the selected
+image-generation exploration and quantized into deterministic `#050505`,
+`#F2F2F0`, and `#E0362C` flat fills. The mechanical R and dial explorations were
+not shipped.
 
+`assets/app-icon-1024.png` contains exactly those three colors; edge
+antialiasing is introduced only by resizing into the ICNS representations.
 `bun run icon:mac` rebuilt `build/RalphyMedia.icns`. The `build/` directory is
-repository-ignored, so only `assets/app-icon-1024.png` is committed. Small-size
-inspection retained both the silhouette and indicator:
+repository-ignored, so only the source PNG is committed. Small-size inspection
+retained both the silhouette and red indicator:
 
-| Size | Red pixels | Inspection |
-| ---: | ---: | --- |
-| 16 px | 1 | Indicator survives as a single functional pixel; silhouette remains distinct. |
-| 32 px | 12 | Indicator and aperture remain separable. |
-| 128 px | 210 | Indicator, aperture, and restrained dither are clear. |
-| 1024 px | — | Source is a 1024×1024 PNG; SHA-256 `daded690674e3743890e1c4fae9a70655e7189062c45e23c965ee802663a161d`. |
+| Size | Sample | Inspection |
+| ---: | --- | --- |
+| 16 px | 4 red-dominant antialiased pixels | Indicator survives; silhouette remains distinct. |
+| 32 px | 16 red-dominant antialiased pixels | Indicator and aperture remain separable. |
+| 128 px | 254 red-dominant pixels, 132 exact red | Indicator, aperture, and binary dither are clear. |
+| 1024 px | 14,519 exact-red pixels; 3 colors total | Exact source palette; SHA-256 `b7303ff5c8ca2afcf13a510493e834ffe79962d62c358bcfc017a7003ec47ad5`. |
 
 Generated ICNS SHA-256:
-`7f938cc435653fc38903a6e91a1dd0db1b47c0fb5586b1ca5ab8b90e2ac80424`.
+`09dc9109030c7d601ae29daed5845a6eb115043c70595198a8c1f9f54451f7a0`.
 
 ## Screenshot inventory
 
@@ -78,8 +83,14 @@ Matches observed in both themes:
 - Computed styles on the header, sidebar, right rail, Review, captions, and
   project dock report zero borders, `box-shadow: none`, and
   `backdrop-filter: none`.
+- Computed contrast checks cover the selected sidebar row and invariant white
+  composer chips in light and dark themes; all text ratios are at least 4.5:1.
+- Review is 374 px high at 1440×900 and leaves 454 px for chat, matching the
+  reference's compact review/chat balance. Close overlays the preview, verdict
+  is folded into metadata, and navigation follows the verdict actions.
 - At 1100×720 the right rail can be collapsed and the document remains exactly
-  1100 px wide with no horizontal overflow.
+  1100 px wide with no horizontal overflow. Icon-only project dock buttons use
+  their `aria-label`s without rendering redundant hidden-label spans.
 
 Concrete differences from the reference:
 
@@ -90,24 +101,24 @@ Concrete differences from the reference:
   live project has no equivalent shell context, so those widgets are omitted.
 - The handoff toolbar includes an explicit rows/columns/gallery control cluster;
   the production toolbar exposes the current density slider/control only.
-- The live Review widget is about 419 px high and leaves about 409 px for chat;
-  the handoff allocates roughly 366 px to Review and 461 px to chat. Review is
-  therefore visibly taller and chat shorter in the production capture.
-- The dark chat composer footer/chips have lower contrast than the handoff's
-  light sunken chips.
+- The handoff enables Needs work. Production disables both the action and `N`
+  shortcut with an accessible explanation because Core requires an iteration
+  and non-empty feedback, and this wave intentionally does not invent that
+  workflow. Approve and Reject are real Core-backed actions.
 - File order, selected item, status totals, captions, and preview ratios differ
   because the captures use live project data rather than prototype samples.
 
 ## Other capture observations
 
-- Marketplace correctly presents WIP and a working Local Models action, but its
-  left rail still shows the My Work workspace/navigation stack instead of a
-  Marketplace-specific stack.
-- Settings is keyboard-reachable with `Command-,`, but the current user-pill
-  profile popover contains only identity and does not expose the Settings action
-  described by the v11 product decision.
-- The 1100×720 project dock remains reachable, though its visible labels are
-  tightly packed around the active icon.
-
-These observations are recorded for the parent-owned adversarial review; no
-verification-wave UI fix was applied here.
+- Marketplace is a true top-level shell: its rail shows Discover/WIP, working
+  Local Models, and the user pill without My Work counts or project navigation.
+  The island reports `Marketplace · Catalog preview`, while My Work route and
+  project selection remain preserved for return.
+- The island is keyboard-operable and opens a compact disclosure containing the
+  same real status/project/count/busy data, avoiding silent truncation without
+  inventing telemetry.
+- Settings is reachable through `Command-,` and the user-pill Settings menu
+  item. Its modal has initial focus, a focus trap, Escape close, opener restore,
+  and an inert workbench background.
+- The built preview is left open at 1440×900, dark Media, with a live approved
+  item selected in Review.

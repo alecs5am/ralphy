@@ -61,7 +61,8 @@ function MountedProject({ controller, memory = new Map<string, number>() }: { co
 }
 
 function textButton(root: HostNode, text: string): HostNode {
-  const value = root.findAll((node) => node.tagName === "BUTTON" && node.textContent.includes(text))[0];
+  const value = root.findAll((node) => node.tagName === "BUTTON"
+    && (node.textContent.includes(text) || node.getAttribute("aria-label") === text))[0];
   if (!value) throw new Error(`Missing ${text} button`);
   return value;
 }

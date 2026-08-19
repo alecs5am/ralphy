@@ -109,7 +109,7 @@ describe("Project media presentation", () => {
     expect(audio).toContain('aria-label="Play Voiceover"');
   });
 
-  test("review console binds A/N/R and Escape while guarding editable focus", async () => {
+  test("review console binds A/R and Escape only on its visible foreground surface", async () => {
     const clearMediaSelection = vi.fn();
     const selectAdjacentMedia = vi.fn();
     const reviewSelectedMedia = vi.fn(async () => undefined);
@@ -130,11 +130,16 @@ describe("Project media presentation", () => {
       expect(host.container.textContent).toContain("Campaign hero");
       expect(host.container.textContent).toContain("approved");
 
-      for (const [key, verdict] of [["a", "approved"], ["N", "needs-work"], ["r", "rejected"]] as const) {
+      for (const [key, verdict] of [["a", "approved"], ["r", "rejected"]] as const) {
         await act(async () => { keydown(globalThis.window, key); await Promise.resolve(); });
         expect(reviewSelectedMedia).toHaveBeenLastCalledWith(verdict);
       }
-      expect(reviewSelectedMedia).toHaveBeenCalledTimes(3);
+      expect(reviewSelectedMedia).toHaveBeenCalledTimes(2);
+      const needsWork = host.container.findAll((node) => node.tagName === "BUTTON" && node.textContent.includes("Needs work"))[0]!;
+      expect(needsWork.disabled).toBe(true);
+      expect(needsWork.getAttribute("title")).toContain("feedback workflow");
+      await act(async () => { keydown(globalThis.window, "n"); await Promise.resolve(); });
+      expect(reviewSelectedMedia).toHaveBeenCalledTimes(2);
 
       for (const [tag, contenteditable] of [["input", null], ["textarea", null], ["div", "true"]] as const) {
         const field = globalThis.document.createElement(tag) as unknown as HostNode;
@@ -143,7 +148,29 @@ describe("Project media presentation", () => {
         field.focus();
         await act(async () => { keydown(globalThis.window, "a"); await Promise.resolve(); });
       }
-      expect(reviewSelectedMedia).toHaveBeenCalledTimes(3);
+      expect(reviewSelectedMedia).toHaveBeenCalledTimes(2);
+
+      const blocked = new Event("keydown", { bubbles: true, cancelable: true });
+      Object.defineProperty(blocked, "key", { value: "a" });
+      blocked.preventDefault();
+      await act(async () => { globalThis.window.dispatchEvent(blocked); await Promise.resolve(); });
+      expect(reviewSelectedMedia).toHaveBeenCalledTimes(2);
+
+      const dialog = globalThis.document.createElement("div");
+      dialog.setAttribute("role", "dialog");
+      dialog.setAttribute("aria-modal", "true");
+      globalThis.document.body.appendChild(dialog);
+      await act(async () => { keydown(globalThis.window, "r"); keydown(globalThis.window, "Escape"); await Promise.resolve(); });
+      expect(reviewSelectedMedia).toHaveBeenCalledTimes(2);
+      expect(clearMediaSelection).not.toHaveBeenCalled();
+      dialog.remove();
+
+      const rail = host.container.querySelector(".review-console")!.parentElement!;
+      rail.style.display = "none";
+      await act(async () => { keydown(globalThis.window, "a"); keydown(globalThis.window, "Escape"); await Promise.resolve(); });
+      expect(reviewSelectedMedia).toHaveBeenCalledTimes(2);
+      expect(clearMediaSelection).not.toHaveBeenCalled();
+      rail.style.display = "";
 
       await act(async () => { button(host.container, "Previous media").dispatchEvent(new Event("click", { bubbles: true })); });
       await act(async () => { button(host.container, "Next media").dispatchEvent(new Event("click", { bubbles: true })); });

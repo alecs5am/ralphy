@@ -410,30 +410,32 @@ describe("Electron IPC security", () => {
     const project = { workspaceId: "workspace-1", projectId: "project-1" };
     const card = {
       ref: { type: "artifact" as const, id: "artifact-1" }, ...project, slug: "hero", kind: "image",
-      selectedRevisionId: "revision-1", selectedState: "approved", mime: "image/png", bytes: 12,
+      selectedRevisionId: "review-revision-1", selectedState: "approved", mime: "image/png", bytes: 12,
       selectedAt: 1, revisionCount: 1, selectedObjectId: "object-1", storageClass: "bucket", usageRoles: [],
       target: { type: "object" as const, id: "object-1" }, mediaKind: "image" as const, provenance: "generation" as const,
     };
-    const revision = {
-      id: "revision-1", artifactId: "artifact-1", objectId: "object-1", revisionNo: 1,
-      parentRevisionId: null, iterationId: null, state: "approved", authoredBySessionId: "session-1", createdAt: 2,
-    };
     const evaluation = {
-      id: "evaluation-1", ...project, target: { type: "artifact_revision" as const, id: "revision-1" },
+      id: "evaluation-1", ...project, target: { type: "artifact_revision" as const, id: "review-revision-1" },
       kind: "review", verdict: "approved", favorite: false, rating: null, tags: [], note: null,
       authoredBySessionId: "session-1", createdAt: 3,
     };
     let epoch = 1;
     let mode: "valid" | "sibling" | "evaluation-null" | "evaluation-sibling" | "stale" = "valid";
-    const request = vi.fn(async () => {
+    const request = vi.fn(async (method: string) => {
+      if (method === "session.start") return {
+        id: "review-session", ...project, agent: "desktop", startedAt: 1, endedAt: null,
+      };
+      if (method === "session.end") return {
+        id: "review-session", ...project, agent: "desktop", startedAt: 1, endedAt: 4,
+      };
       if (mode === "stale") epoch += 1;
       return {
         card: mode === "sibling" ? { ...card, projectId: "project-2" } : card,
-        revision,
+        revisionId: "review-revision-1",
         evaluation: mode === "evaluation-null"
           ? { ...evaluation, projectId: null }
           : mode === "evaluation-sibling" ? { ...evaluation, projectId: "project-2" } : evaluation,
-        feedback: null,
+        feedbackId: null,
       };
     });
     registerProjectMediaIpc({
@@ -452,9 +454,10 @@ describe("Electron IPC security", () => {
     await expect(review(trusted, project, "artifact-1", "revision-1", "approved"))
       .resolves.toEqual({ ok: true, value: card });
     expect(request).toHaveBeenCalledWith("media.review", {
-      context: project, ref: { type: "artifact", id: "artifact-1" },
+      context: { sessionId: "review-session" }, ref: { type: "artifact", id: "artifact-1" },
       expectedSelectedRevisionId: "revision-1", verdict: "approved",
     });
+    expect(request).toHaveBeenCalledWith("session.end", { sessionId: "review-session" });
 
     request.mockClear();
     for (const call of [

@@ -3,6 +3,7 @@ import {
   ExternalLink,
   Globe2,
   Keyboard,
+  Settings,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -17,8 +18,10 @@ import { ProfileAvatar, profileIdentity } from "./ProfileAvatar";
 
 export function ProfileMenu({
   rootPath,
+  onOpenSettings,
 }: {
   rootPath: string;
+  onOpenSettings(): void;
 }) {
   const [open, setOpen] = useState<"profile" | "help" | null>(null);
   const [position, setPosition] = useState<CSSProperties>({});
@@ -30,7 +33,7 @@ export function ProfileMenu({
   const closeAndRestoreFocus = () => {
     const trigger = open === "help" ? helpTriggerRef : profileTriggerRef;
     setOpen(null);
-    requestAnimationFrame(() => trigger.current?.focus());
+    window.requestAnimationFrame(() => trigger.current?.focus());
   };
 
   useEffect(() => {
@@ -41,8 +44,8 @@ export function ProfileMenu({
       if (!bounds) return;
       const width = open === "help" ? 320 : Math.max(bounds.width, 246);
       setPosition({
-        left: Math.max(8, Math.min(bounds.left, window.innerWidth - width - 8)),
-        bottom: window.innerHeight - bounds.top + 8,
+        left: Math.max(8, Math.min(bounds.left, (window.innerWidth || 800) - width - 8)),
+        bottom: (window.innerHeight || 600) - bounds.top + 8,
         width,
       });
     };
@@ -60,7 +63,7 @@ export function ProfileMenu({
       if (event.key === "Escape") closeAndRestoreFocus();
     };
     place();
-    requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
       menuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
     });
     window.addEventListener("resize", place);
@@ -120,6 +123,10 @@ export function ProfileMenu({
                     <ProfileAvatar rootPath={rootPath} size={20} />
                     <strong>{identity}</strong>
                   </div>
+                  <button type="button" role="menuitem" onClick={() => { setOpen(null); onOpenSettings(); }}>
+                    <Settings size={15} strokeWidth={1.5} />
+                    <span>Settings</span>
+                  </button>
                 </>
               ) : (
                 <>

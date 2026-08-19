@@ -1,4 +1,4 @@
-import { Boxes, Brain, CalendarDays, FolderOpen, UsersRound, type LucideIcon } from "lucide-react";
+import { Boxes, Brain, CalendarDays, Compass, Cpu, FolderOpen, UsersRound, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { useMemo } from "react";
 import type { WorkspaceSummary } from "../lib/ipc";
@@ -23,6 +23,8 @@ interface ContextSidebarProps {
   onModeChange(mode: WorkbenchMode): void;
   onOpenWorkspace(workspaceId: string): void;
   onOpenPage(page: WorkspacePage): void;
+  onOpenLocalModels(): void;
+  onOpenSettings(): void;
 }
 
 const PAGE_ICONS: Record<WorkspacePage, LucideIcon> = {
@@ -62,6 +64,8 @@ export function ContextSidebar({
   onModeChange,
   onOpenWorkspace,
   onOpenPage,
+  onOpenLocalModels,
+  onOpenSettings,
 }: ContextSidebarProps) {
   const workspace = workspaces.find((item) => item.id === workspaceId);
   const orderedWorkspaces = useMemo(
@@ -83,6 +87,7 @@ export function ContextSidebar({
         <button type="button" aria-pressed={mode === "marketplace"} onClick={() => onModeChange("marketplace")}>Marketplace</button>
       </nav>
 
+      {mode === "work" ? <>
       <div className="sidebar-context">
         {workspace ? (
           <WorkspacePicker value={workspace.id} workspaces={orderedWorkspaces} onValueChange={onOpenWorkspace} />
@@ -114,10 +119,23 @@ export function ContextSidebar({
           );
         })}
       </nav>
+      </> : <nav className="sidebar-nav marketplace-sidebar-nav" aria-label="Marketplace pages">
+        <button className="sidebar-nav-row is-selected" type="button" aria-current="page">
+          <Compass size={16} strokeWidth={1.5} aria-hidden="true" />
+          <span>Discover</span>
+          <small>WIP</small>
+        </button>
+        <button className="sidebar-nav-row" type="button" onClick={onOpenLocalModels}>
+          <Cpu size={16} strokeWidth={1.5} aria-hidden="true" />
+          <span>Local Models</span>
+          <small>LOCAL</small>
+        </button>
+        <p className="marketplace-sidebar-note">WORK IN PROGRESS</p>
+      </nav>}
 
       <div className="sidebar-spacer" />
       <div className="sidebar-footer">
-        <ProfileMenu rootPath={rootPath} />
+        <ProfileMenu rootPath={rootPath} onOpenSettings={onOpenSettings} />
       </div>
     </motion.aside>
   );

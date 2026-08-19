@@ -314,43 +314,75 @@ describe("Project domain reader", () => {
   });
 
   test("reviews one selected Artifact through the exact scoped Core contract", async () => {
-    const revision = {
-      id: "arev_1", artifactId: "art_1", objectId: "obj_1", revisionNo: 1,
-      parentRevisionId: null, iterationId: null, state: "approved",
-      authoredBySessionId: "session-1", createdAt: 2,
-    };
+    const reviewRevisionId = "arev_review_1";
     const evaluation = {
       id: "evaluation-1", workspaceId: "workspace-1", projectId: "project-1",
-      target: { type: "artifact_revision", id: "arev_1" }, kind: "review", verdict: "approved",
+      target: { type: "artifact_revision", id: reviewRevisionId }, kind: "review", verdict: "approved",
       favorite: false, rating: null, tags: [], note: null, authoredBySessionId: "session-1", createdAt: 3,
     };
-    const reviewed = { ...artifactCard, selectedState: "approved" };
-    const request = vi.fn(async () => ({ card: reviewed, revision, evaluation, feedback: null }));
+    const reviewed = { ...artifactCard, selectedRevisionId: reviewRevisionId, selectedState: "approved" };
+    const request = vi.fn(async (method: string) => {
+      if (method === "session.start") return {
+        id: "review-session", workspaceId: project.workspaceId, projectId: project.projectId,
+        agent: "desktop", startedAt: 1, endedAt: null,
+      };
+      if (method === "session.end") return {
+        id: "review-session", workspaceId: project.workspaceId, projectId: project.projectId,
+        agent: "desktop", startedAt: 1, endedAt: 4,
+      };
+      return { card: reviewed, revisionId: reviewRevisionId, evaluation, feedbackId: null };
+    });
     const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
 
     await expect(reader.reviewMedia(project, "art_1", "arev_1", "approved")).resolves.toEqual(reviewed);
-    expect(request).toHaveBeenCalledOnce();
-    expect(request).toHaveBeenCalledWith("media.review", {
-      context: project,
+    expect(request.mock.calls).toEqual([
+      ["session.start", { workspaceId: project.workspaceId, projectId: project.projectId, agent: "desktop" }],
+      ["media.review", {
+      context: { sessionId: "review-session" },
       ref: { type: "artifact", id: "art_1" },
       expectedSelectedRevisionId: "arev_1",
       verdict: "approved",
-    });
+      }],
+      ["session.end", { sessionId: "review-session" }],
+    ]);
 
     for (const result of [
-      { card: { ...reviewed, workspaceId: "workspace-2" }, revision, evaluation, feedback: null },
-      { card: reviewed, revision: { ...revision, artifactId: "art_2" }, evaluation, feedback: null },
-      { card: reviewed, revision, evaluation: { ...evaluation, projectId: null }, feedback: null },
-      { card: reviewed, revision, evaluation: { ...evaluation, projectId: "project-2" }, feedback: null },
-      { card: reviewed, revision, evaluation: { ...evaluation, target: { type: "artifact_revision", id: "arev_2" } }, feedback: null },
-      { card: reviewed, revision, evaluation, feedback: null, privatePath: "/private/review.json" },
+      { card: { ...reviewed, workspaceId: "workspace-2" }, revisionId: reviewRevisionId, evaluation, feedbackId: null },
+      { card: reviewed, revisionId: "arev_other", evaluation, feedbackId: null },
+      { card: reviewed, revisionId: reviewRevisionId, evaluation: { ...evaluation, projectId: null }, feedbackId: null },
+      { card: reviewed, revisionId: reviewRevisionId, evaluation: { ...evaluation, projectId: "project-2" }, feedbackId: null },
+      { card: reviewed, revisionId: reviewRevisionId, evaluation: { ...evaluation, target: { type: "artifact_revision", id: "arev_2" } }, feedbackId: null },
+      { card: reviewed, revisionId: reviewRevisionId, evaluation, feedbackId: "feedback-1" },
+      { card: reviewed, revisionId: reviewRevisionId, evaluation, feedbackId: null, privatePath: "/private/review.json" },
     ]) {
+      const invalidRequest = vi.fn(async (method: string) => method === "session.start"
+        ? { id: "review-session", workspaceId: project.workspaceId, projectId: project.projectId, agent: "desktop", startedAt: 1, endedAt: null }
+        : method === "session.end"
+          ? { id: "review-session", workspaceId: project.workspaceId, projectId: project.projectId, agent: "desktop", startedAt: 1, endedAt: 4 }
+          : result);
       const invalid = createProjectReader({
-        request: vi.fn(async () => result) as unknown as RalphyBridgeClient["request"],
+        request: invalidRequest as unknown as RalphyBridgeClient["request"],
       });
       await expect(invalid.reviewMedia(project, "art_1", "arev_1", "approved"))
         .rejects.toThrow("Invalid Media review");
+      expect(invalidRequest).toHaveBeenLastCalledWith("session.end", { sessionId: "review-session" });
     }
+  });
+
+  test("ends review Sessions on failure and preserves the primary review error", async () => {
+    const primary = new Error("Core review failed");
+    const request = vi.fn(async (method: string) => {
+      if (method === "session.start") return {
+        id: "review-session", workspaceId: project.workspaceId, projectId: project.projectId,
+        agent: "desktop", startedAt: 1, endedAt: null,
+      };
+      if (method === "session.end") throw new Error("Session cleanup failed");
+      throw primary;
+    });
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+
+    await expect(reader.reviewMedia(project, "art_1", "arev_1", "approved")).rejects.toBe(primary);
+    expect(request).toHaveBeenLastCalledWith("session.end", { sessionId: "review-session" });
   });
 
   test("loads one exact scoped Media card and rejects mismatched or malformed results", async () => {

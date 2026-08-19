@@ -53,7 +53,6 @@ export function ProjectControls({ activeTab, onSelect }: ProjectControlsProps) {
               }}
             >
               <Icon size={17} aria-hidden="true" />
-              <span className="sr-only">{tab.label}</span>
             </button>;
           })}
         </div>

@@ -10,6 +10,7 @@ import {
   type CSSProperties,
 } from "react";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion } from "motion/react";
+import { createPortal } from "react-dom";
 import { ContextSidebar } from "./components/ContextSidebar";
 import { MainHeader } from "./components/Titlebar";
 import { AgentChatPanel } from "./components/UtilityPanels";
@@ -110,6 +111,7 @@ export function App() {
   const [sidebarSearchRequest, setSidebarSearchRequest] = useState(0);
   const [targetUnitId, setTargetUnitId] = useState<string | null>(null);
   const [projectShellContext, setProjectShellContext] = useState<ProjectShellContext | null>(null);
+  const settingsOpener = useRef<HTMLElement | null>(null);
   const restorationStarted = useRef(false);
   const welcomeStartedAt = useRef(Date.now());
 
@@ -300,13 +302,20 @@ export function App() {
     workspaceView,
   ]);
 
+  const openSettings = useCallback(() => {
+    if (document.querySelector(".settings-screen")) return;
+    settingsOpener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSettingsVisible(true);
+  }, []);
+
   const navigateBack = useCallback(() => {
     if (localModelsVisible) {
       setLocalModelsVisible(false);
       return;
     }
+    if (mode === "marketplace") return;
     dispatch({ type: "back" });
-  }, [localModelsVisible]);
+  }, [localModelsVisible, mode]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -315,33 +324,37 @@ export function App() {
       const command =
         event.metaKey && !event.altKey && !event.ctrlKey && !event.shiftKey;
       if (command && event.key === "[") {
-        event.preventDefault();
-        navigateBack();
-      } else if (command && event.key === "]") {
-        event.preventDefault();
-        dispatch({ type: "forward" });
-      } else if (command && key === "f") {
-        event.preventDefault();
-        const workspaceId = state.route.kind === "library"
-          ? mostRecentWorkspaceId(workspaces)
-          : state.route.workspaceId;
-        if (workspaceId && state.route.kind !== "workspace") {
-          dispatch({ type: "open-workspace", workspaceId });
+        if (mode === "work") {
+          event.preventDefault();
+          navigateBack();
         }
-        setWorkspacePage("projects");
-        setSidebarSearchRequest((request) => request + 1);
+      } else if (command && event.key === "]") {
+        if (mode === "work") {
+          event.preventDefault();
+          dispatch({ type: "forward" });
+        }
+      } else if (command && key === "f") {
+        if (mode === "work") {
+          event.preventDefault();
+          const workspaceId = state.route.kind === "library"
+            ? mostRecentWorkspaceId(workspaces)
+            : state.route.workspaceId;
+          if (workspaceId && state.route.kind !== "workspace") {
+            dispatch({ type: "open-workspace", workspaceId });
+          }
+          setWorkspacePage("projects");
+          setSidebarSearchRequest((request) => request + 1);
+        }
       } else if (command && key === "b") {
         event.preventDefault();
         setSidebarVisible((visible) => !visible);
       } else if (command && event.key === ",") {
         event.preventDefault();
-        setSettingsVisible(true);
-      } else if (settingsVisible && event.key === "Escape") {
-        event.preventDefault();
-        setSettingsVisible(false);
+        openSettings();
       }
     };
     const onMouseUp = (event: MouseEvent) => {
+      if (mode !== "work") return;
       if (event.button === 3) navigateBack();
       if (event.button === 4) dispatch({ type: "forward" });
     };
@@ -351,7 +364,7 @@ export function App() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [navigateBack, settingsVisible, state.route, workspaces]);
+  }, [mode, navigateBack, openSettings, state.route, workspaces]);
 
   const openProject = (project: ProjectSummary, unitId: string | null = null) => {
     setTargetUnitId(unitId);
@@ -482,9 +495,9 @@ export function App() {
             rightPanelAvailable={mode === "work"}
             rootPath={catalog.rootPath}
             activity={{
-              projectName: selectedProject?.name ?? selectedWorkspace?.name ?? null,
-              status: selectedProject?.status ?? null,
-              count: selectedWorkspace?.projectCount ?? null,
+              projectName: mode === "marketplace" ? "Marketplace" : selectedProject?.name ?? selectedWorkspace?.name ?? null,
+              status: mode === "marketplace" ? (localModelsVisible ? "Local Models" : "Catalog preview") : selectedProject?.status ?? null,
+              count: mode === "marketplace" ? null : selectedWorkspace?.projectCount ?? null,
               busyLabel: null,
               progress: null,
               alert: error,
@@ -514,6 +527,8 @@ export function App() {
                   const workspaceId = selectedWorkspace?.id ?? mostRecentWorkspaceId(workspaces);
                   if (workspaceId) dispatch({ type: "open-workspace", workspaceId });
                 }}
+                onOpenLocalModels={() => setLocalModelsVisible(true)}
+                onOpenSettings={openSettings}
               />
             )}
           </AnimatePresence>
@@ -567,7 +582,7 @@ export function App() {
               <button type="button" onClick={() => setError(null)}>Dismiss</button>
             </div>
           )}
-          <AnimatePresence>
+          {createPortal(<AnimatePresence>
             {settingsVisible && (
               <Suspense fallback={null}>
                 <SettingsScreen
@@ -575,10 +590,11 @@ export function App() {
                   theme={theme}
                   onThemeChange={onThemeChange}
                   onBack={() => setSettingsVisible(false)}
+                  returnFocus={settingsOpener.current}
                 />
               </Suspense>
             )}
-          </AnimatePresence>
+          </AnimatePresence>, document.body)}
         </motion.div>
       </LayoutGroup>
     </MotionConfig>

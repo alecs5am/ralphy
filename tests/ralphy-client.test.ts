@@ -388,14 +388,7 @@ describe("RalphyBridgeClient", () => {
         bytes: 100,
         createdAt: 1,
       },
-      revision: {
-        id: "revision-2",
-        artifactId: "artifact-1",
-        revisionNo: 2,
-        state: "approved",
-        objectId: "object-1",
-        createdAt: 2,
-      },
+      revisionId: "revision-2",
       evaluation: {
         id: "evaluation-1",
         workspaceId: "workspace-1",
@@ -410,9 +403,9 @@ describe("RalphyBridgeClient", () => {
         authoredBySessionId: "session-1",
         createdAt: 2,
       },
-      feedback: null,
+      feedbackId: null,
     };
-    expect(result.revision.id).toBe("revision-2");
+    expect(result.revisionId).toBe("revision-2");
 
     const invalid: ParamsFor<"media.review"> = {
       ...valid,

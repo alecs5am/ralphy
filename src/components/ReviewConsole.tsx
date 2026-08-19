@@ -41,6 +41,7 @@ export function ReviewConsole({ context }: { context: ProjectShellContext }) {
   const [busy, setBusy] = useState<ProjectMediaReviewVerdict | null>(null);
   const [feedback, setFeedback] = useState<{ error: boolean; message: string } | null>(null);
   const request = useRef(0);
+  const surface = useRef<HTMLElement>(null);
   const card = context.selectedMedia;
   const reviewable = isArtifact(card) && card.selectedRevisionId !== null;
   const currentVerdict = isArtifact(card) ? card.selectedState ?? "unreviewed" : "Review unavailable";
@@ -72,14 +73,19 @@ export function ReviewConsole({ context }: { context: ProjectShellContext }) {
 
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
-      if (event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
+      if (event.defaultPrevented || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
+      if (document.querySelector('[role="dialog"]') || document.querySelector('[role="menu"]')) return;
+      for (let element: HTMLElement | null = surface.current; element; element = element.parentElement) {
+        const style = window.getComputedStyle(element);
+        if (style.display === "none" || style.visibility === "hidden") return;
+      }
       if (event.key === "Escape") {
         event.preventDefault();
         context.clearMediaSelection();
         return;
       }
       if (editableTarget(event)) return;
-      const verdict = ({ a: "approved", n: "needs-work", r: "rejected" } as const)[event.key.toLocaleLowerCase() as "a" | "n" | "r"];
+      const verdict = ({ a: "approved", r: "rejected" } as const)[event.key.toLocaleLowerCase() as "a" | "r"];
       if (verdict) {
         event.preventDefault();
         void review(verdict);
@@ -89,9 +95,8 @@ export function ReviewConsole({ context }: { context: ProjectShellContext }) {
     return () => window.removeEventListener("keydown", keydown);
   }, [busy, context, reviewable]);
 
-  return <section className="review-console" aria-label="Media review console">
+  return <section className="review-console" aria-label="Media review console" ref={surface}>
     <header className="review-console-header">
-      <span>Review</span>
       <button type="button" aria-label="Clear media selection" title="Clear selection" onClick={context.clearMediaSelection}>
         <X size={14} aria-hidden="true" />
       </button>
@@ -105,8 +110,12 @@ export function ReviewConsole({ context }: { context: ProjectShellContext }) {
     />
     <div className="review-console-copy">
       <strong>{mediaCardName(card)}</strong>
-      <small>{cardMetadata(card)}</small>
-      <span>Verdict · {currentVerdict}</span>
+      <small>{cardMetadata(card)} · Verdict {currentVerdict}</small>
+    </div>
+    <div className="review-console-actions" aria-label="Review verdict">
+      <button type="button" disabled={!reviewable || busy !== null} onClick={() => { void review("approved"); }}><Check size={14} aria-hidden="true" />Approve <kbd>A</kbd></button>
+      <button type="button" disabled title="Needs work requires an iteration feedback workflow, which is not available yet."><RotateCcw size={14} aria-hidden="true" />Needs work <kbd>N</kbd></button>
+      <button type="button" disabled={!reviewable || busy !== null} onClick={() => { void review("rejected"); }}><X size={14} aria-hidden="true" />Reject <kbd>R</kbd></button>
     </div>
     <div className="review-console-navigation">
       <button type="button" aria-label="Previous media" disabled={!context.canSelectPrevious} onClick={() => context.selectAdjacentMedia(-1)}>
@@ -115,11 +124,6 @@ export function ReviewConsole({ context }: { context: ProjectShellContext }) {
       <button type="button" aria-label="Next media" disabled={!context.canSelectNext} onClick={() => context.selectAdjacentMedia(1)}>
         <ChevronRight size={15} aria-hidden="true" />
       </button>
-    </div>
-    <div className="review-console-actions" aria-label="Review verdict">
-      <button type="button" disabled={!reviewable || busy !== null} onClick={() => { void review("approved"); }}><Check size={14} aria-hidden="true" />Approve <kbd>A</kbd></button>
-      <button type="button" disabled={!reviewable || busy !== null} onClick={() => { void review("needs-work"); }}><RotateCcw size={14} aria-hidden="true" />Needs work <kbd>N</kbd></button>
-      <button type="button" disabled={!reviewable || busy !== null} onClick={() => { void review("rejected"); }}><X size={14} aria-hidden="true" />Reject <kbd>R</kbd></button>
     </div>
     {!reviewable && <p className="review-console-help">Review requires an Artifact with a selected revision.</p>}
     {busy && <p role="status">Updating review…</p>}

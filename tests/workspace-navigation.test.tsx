@@ -17,7 +17,9 @@ import { LibraryScreen } from "../src/screens/LibraryScreen";
 import { bridge } from "../src/lib/ipc";
 import { createReactHost } from "./react-host";
 
-vi.mock("../src/components/ProfileMenu", () => ({ ProfileMenu: () => null }));
+vi.mock("../src/components/ProfileMenu", () => ({
+  ProfileMenu: ({ onOpenSettings }: { onOpenSettings(): void }) => <button type="button" onClick={onOpenSettings}>Settings</button>,
+}));
 
 const projects: ProjectSummary[] = [
   {
@@ -113,6 +115,19 @@ describe("workspace projects navigation", () => {
       expect(host.container.textContent).toContain("WORK IN PROGRESS");
       expect(button("Local Models")).toBeDefined();
       expect(host.container.findAll((node) => node.getAttribute("aria-label") === "Toggle right panel")).toHaveLength(0);
+      expect(host.container.textContent).not.toContain("Arc Grinder Launch");
+      expect(host.container.textContent).not.toContain("Shared library");
+
+      for (const key of ["[", "]", "f"] as const) {
+        const event = new Event("keydown", { bubbles: true, cancelable: true });
+        Object.defineProperties(event, { key: { value: key }, metaKey: { value: true } });
+        await act(async () => window.dispatchEvent(event));
+      }
+      for (const buttonNumber of [3, 4]) {
+        const event = new Event("mouseup", { bubbles: true });
+        Object.defineProperty(event, "button", { value: buttonNumber });
+        await act(async () => window.dispatchEvent(event));
+      }
 
       await act(async () => button("Local Models")!.dispatchEvent(new Event("click", { bubbles: true })));
       expect(host.container.textContent).toContain("Back to Marketplace");
@@ -121,6 +136,11 @@ describe("workspace projects navigation", () => {
 
       await act(async () => button("My Work")!.dispatchEvent(new Event("click", { bubbles: true })));
       expect(host.container.textContent).toContain("Arc Grinder Launch");
+
+      await act(async () => { button("Settings")!.dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); });
+      const settingsDialog = document.body.querySelector(".settings-screen");
+      expect(settingsDialog?.getAttribute("role")).toBe("dialog");
+      expect(settingsDialog?.getAttribute("aria-modal")).toBe("true");
     } finally {
       await act(async () => root.unmount());
       if (previousLocalStorage) Object.defineProperty(globalThis, "localStorage", previousLocalStorage);
@@ -286,6 +306,53 @@ describe("workspace projects navigation", () => {
     }
   });
 
+  test("makes Settings a modal focus trap and restores its opener", async () => {
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    const opener = document.createElement("button");
+    document.body.appendChild(opener);
+    opener.focus();
+    const onBack = vi.fn();
+    try {
+      await act(async () => root.render(<>
+        <div className="workbench"><button type="button">Background</button></div><SettingsScreen
+          rootPath="/tmp/demo/.ralphy" theme="system" onThemeChange={() => undefined}
+          onBack={onBack} returnFocus={opener}
+        /></>,
+      ));
+      await act(async () => new Promise((resolve) => setTimeout(resolve, 1)));
+      const dialog = host.container.querySelector(".settings-screen")!;
+      expect(dialog.getAttribute("role")).toBe("dialog");
+      expect(dialog.getAttribute("aria-modal")).toBe("true");
+      expect(dialog.getAttribute("aria-labelledby")).toBe("settings-dialog-title");
+      expect(host.container.querySelector(".workbench")?.getAttribute("inert")).toBe("");
+      expect(document.activeElement?.textContent).toContain("Back to app");
+
+      const focusable = [
+        ...dialog.querySelectorAll<HTMLElement>("button"),
+        ...dialog.querySelectorAll<HTMLElement>("input"),
+      ].filter((element) => !(element as HTMLButtonElement).disabled && element.tabIndex !== -1);
+      focusable.at(-1)!.focus();
+      const tab = new Event("keydown", { bubbles: true, cancelable: true });
+      Object.defineProperties(tab, { key: { value: "Tab" }, shiftKey: { value: false } });
+      await act(async () => document.dispatchEvent(tab));
+      expect(document.activeElement).toBe(focusable[0]);
+
+      const escape = new Event("keydown", { bubbles: true, cancelable: true });
+      Object.defineProperty(escape, "key", { value: "Escape" });
+      await act(async () => document.dispatchEvent(escape));
+      expect(onBack).toHaveBeenCalledOnce();
+      await act(async () => root.unmount());
+      await act(async () => new Promise((resolve) => window.requestAnimationFrame(resolve)));
+      expect(document.activeElement).toBe(opener);
+    } finally {
+      if (host.container.childNodes.length) await act(async () => root.unmount());
+      opener.remove();
+      host.restore();
+    }
+  });
+
   test("keeps My Work focused on workspace resources", () => {
     const markup = renderToStaticMarkup(
       <ContextSidebar
@@ -299,6 +366,8 @@ describe("workspace projects navigation", () => {
         onModeChange={() => undefined}
         onOpenWorkspace={() => undefined}
         onOpenPage={() => undefined}
+        onOpenLocalModels={() => undefined}
+        onOpenSettings={() => undefined}
       />,
     );
 
@@ -309,9 +378,24 @@ describe("workspace projects navigation", () => {
     expect(markup).toContain("Marketplace");
     expect(markup).not.toContain("THIS COMPUTER");
     expect(markup).not.toContain("Local Models");
-    expect(markup).not.toContain("Settings");
+    expect(markup).toContain("Settings");
     expect(markup).not.toContain("Filter projects");
     expect(markup).not.toContain("Launch film");
+  });
+
+  test("renders a mode-specific Marketplace rail without work context", () => {
+    const markup = renderToStaticMarkup(<ContextSidebar
+      page="projects" pageActive={false} mode="marketplace" rootPath="/tmp/.ralphy"
+      workspaces={[workspace]} workspaceId={workspace.id} pinnedWorkspaceIds={[]}
+      onModeChange={() => undefined} onOpenWorkspace={() => undefined} onOpenPage={() => undefined}
+      onOpenLocalModels={() => undefined} onOpenSettings={() => undefined}
+    />);
+    expect(markup).toContain("Discover");
+    expect(markup).toContain("WORK IN PROGRESS");
+    expect(markup).toContain("Local Models");
+    expect(markup).not.toContain("Launch Studio");
+    expect(markup).not.toContain("Shared library");
+    expect(markup).not.toContain("Memory");
   });
 
   test("renders an honest Marketplace landing with a Local Models action", () => {
@@ -359,6 +443,7 @@ describe("workspace projects navigation", () => {
     expect(markup).toContain("Exporting");
     expect(markup).toContain("100%");
     expect(markup).toContain("Review needed");
+    expect(markup).toContain('aria-haspopup="dialog"');
     expect(markup).not.toMatch(/WAN|MB\/S|\d{1,2}:\d{2}/);
 
     const empty = renderToStaticMarkup(
@@ -367,6 +452,34 @@ describe("workspace projects navigation", () => {
       />,
     );
     expect(empty).not.toMatch(/Launch film|Rendering|Exporting|Review needed/);
+  });
+
+  test("discloses every Activity Island value without truncation", async () => {
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => root.render(<ActivityIsland state={{
+        projectName: "A project name too long for the compact island", status: "Rendering", count: 4,
+        busyLabel: "Exporting", progress: 64, alert: null,
+      }} />));
+      const trigger = host.container.querySelector("button")!;
+      trigger.focus();
+      await act(async () => trigger.dispatchEvent(new Event("click", { bubbles: true })));
+      const popover = host.container.querySelector('[role="dialog"]')!;
+      expect(popover.textContent).toContain("A project name too long for the compact island");
+      expect(popover.textContent).toContain("Rendering");
+      expect(popover.textContent).toContain("4");
+      expect(popover.textContent).toContain("Exporting");
+      const escape = new Event("keydown", { bubbles: true });
+      Object.defineProperty(escape, "key", { value: "Escape" });
+      await act(async () => document.dispatchEvent(escape));
+      expect(host.container.querySelector('[role="dialog"]')).toBeNull();
+      expect(document.activeElement).toBe(trigger);
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
   });
 
   test("renders the Instrument top row without an open-project tab strip", () => {

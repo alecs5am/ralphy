@@ -469,36 +469,23 @@ function validateArtifactCard(value: unknown, project: ProjectRef, artifactId: s
   return value as ArtifactMediaCardDto;
 }
 
-function validReviewFeedback(value: unknown, project: ProjectRef): boolean {
-  if (value === null) return true;
-  const feedback = record(value);
-  return !!feedback && exactKeys(feedback, ["id", "projectId", "iterationId", "text", "state", "createdAt"])
-    && validId(feedback.id) && feedback.projectId === project.projectId
-    && validId(feedback.iterationId) && typeof feedback.text === "string"
-    && Buffer.byteLength(feedback.text, "utf8") <= 65_536
-    && validId(feedback.state) && sequence(feedback.createdAt);
-}
-
 function validateMediaReview(
   value: unknown,
   project: ProjectRef,
   artifactId: string,
-  revisionId: string,
   verdict: ProjectMediaReviewVerdict,
 ): ArtifactMediaCardDto {
   const review = record(value);
-  const target = { type: "artifact_revision" as const, id: revisionId };
-  if (!review || !exactKeys(review, ["card", "revision", "evaluation", "feedback"])
-    || !artifactRevision(review.revision, artifactId)
-    || (review.revision as ArtifactRevisionDto).id !== revisionId
-    || !compositionEvaluationDto(review.evaluation, project, target)
+  if (!review || !exactKeys(review, ["card", "revisionId", "evaluation", "feedbackId"])
+    || !validId(review.revisionId)
+    || review.feedbackId !== null
+    || !compositionEvaluationDto(review.evaluation, project, { type: "artifact_revision", id: review.revisionId })
     || (review.evaluation as EvaluationDto).projectId !== project.projectId
-    || (review.evaluation as EvaluationDto).verdict !== verdict
-    || !validReviewFeedback(review.feedback, project)) {
+    || (review.evaluation as EvaluationDto).verdict !== verdict) {
     throw new Error("Invalid Media review");
   }
   try {
-    return validateArtifactCard(review.card, project, artifactId, revisionId);
+    return validateArtifactCard(review.card, project, artifactId, review.revisionId);
   } catch {
     throw new Error("Invalid Media review");
   }
@@ -1370,13 +1357,34 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
         || !["approved", "needs-work", "rejected"].includes(verdict)) {
         throw new Error("Invalid Media review");
       }
-      const reviewed = await request("media.review", {
-        context,
-        ref: { type: "artifact", id: artifactId },
-        expectedSelectedRevisionId,
-        verdict,
+      const started = await request("session.start", {
+        workspaceId: context.workspaceId,
+        projectId: context.projectId,
+        agent: "desktop",
       });
-      return validateMediaReview(reviewed, context, artifactId, expectedSelectedRevisionId, verdict);
+      if (!validId(started.id) || started.workspaceId !== context.workspaceId
+        || started.projectId !== context.projectId || started.endedAt !== null) {
+        throw new Error("Invalid Media review session");
+      }
+      let failed = false;
+      try {
+        const reviewed = await request("media.review", {
+          context: { sessionId: started.id },
+          ref: { type: "artifact", id: artifactId },
+          expectedSelectedRevisionId,
+          verdict,
+        });
+        return validateMediaReview(reviewed, context, artifactId, verdict);
+      } catch (error) {
+        failed = true;
+        throw error;
+      } finally {
+        try {
+          await request("session.end", { sessionId: started.id });
+        } catch (error) {
+          if (!failed) throw error;
+        }
+      }
     },
 
     async loadDocumentPreview(project: ProjectRef, revisionId: string) {

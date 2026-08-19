@@ -11,7 +11,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { ProfileAvatar, profileIdentity } from "../components/ProfileAvatar";
 import { RalphyMascot } from "../components/RalphyMascot";
@@ -331,12 +331,17 @@ export function SettingsScreen({
   theme,
   onThemeChange,
   onBack,
+  returnFocus,
 }: {
   rootPath: string | null;
   theme: ThemePreference;
   onThemeChange(theme: ThemePreference): void;
   onBack(): void;
+  returnFocus?: HTMLElement | null;
 }) {
+  const dialog = useRef<HTMLDivElement>(null);
+  const close = useRef(onBack);
+  close.current = onBack;
   const [active, setActive] = useState<SettingsCategory>("general");
   const [query, setQuery] = useState("");
   const visibleCategories = useMemo(() => {
@@ -346,6 +351,46 @@ export function SettingsScreen({
       : categories;
   }, [query]);
   const title = categories.find((category) => category.id === active)?.label ?? "Settings";
+
+  useEffect(() => {
+    const background = document.querySelector<HTMLElement>(".workbench");
+    background?.setAttribute("inert", "");
+    const focusables = () => [...new Set([
+      ...dialog.current?.querySelectorAll<HTMLElement>("button") ?? [],
+      ...dialog.current?.querySelectorAll<HTMLElement>("input") ?? [],
+      ...dialog.current?.querySelectorAll<HTMLElement>("[href]") ?? [],
+      ...dialog.current?.querySelectorAll<HTMLElement>("[tabindex]") ?? [],
+    ])].filter((element) => !(element as HTMLButtonElement).disabled && element.tabIndex !== -1
+      && getComputedStyle(element).display !== "none");
+    const frame = window.requestAnimationFrame(() => focusables()[0]?.focus());
+    const keydown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        close.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusables();
+      if (!items.length) return;
+      const first = items[0]!;
+      const last = items.at(-1)!;
+      if (event.shiftKey && (document.activeElement === first || !dialog.current?.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !dialog.current?.contains(document.activeElement))) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", keydown);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", keydown);
+      background?.removeAttribute("inert");
+      window.requestAnimationFrame(() => returnFocus?.focus());
+    };
+  }, [returnFocus]);
 
   let content = <GeneralSettings rootPath={rootPath} />;
   if (active === "profile") content = <ProfileSettings rootPath={rootPath} />;
@@ -357,6 +402,10 @@ export function SettingsScreen({
   return (
     <motion.div
       className="settings-screen"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="settings-dialog-title"
+      ref={dialog}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -399,7 +448,7 @@ export function SettingsScreen({
       </aside>
       <main className="settings-main">
         <header className="settings-main-header">
-          <h1>{title}</h1>
+          <h1 id="settings-dialog-title">{title}</h1>
           {active === "general" && (
             <span>
               <Monitor size={13} strokeWidth={1.5} />

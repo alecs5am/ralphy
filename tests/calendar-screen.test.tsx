@@ -81,6 +81,8 @@ describe("Calendar screen", () => {
   });
 
   test("switches views, clears filters, and opens both modal screens", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 7, 18, 12));
     vi.spyOn(bridge, "loadCalendar").mockResolvedValue(workspace);
     vi.spyOn(bridge, "reconnectCalendarAccount").mockResolvedValue();
     const host = createReactHost();
@@ -115,7 +117,7 @@ describe("Calendar screen", () => {
       await act(async () => click(button(document.body as unknown as HTMLElement, "Share to feed")));
       expect(document.body.querySelector(".calendar-platform-tabs")?.textContent).toContain("Edited");
     } finally {
-      await act(async () => root.unmount()); host.restore(); vi.restoreAllMocks();
+      await act(async () => root.unmount()); host.restore(); vi.restoreAllMocks(); vi.useRealTimers();
     }
   });
 

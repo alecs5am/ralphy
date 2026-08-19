@@ -224,6 +224,8 @@ type GeometryResult = {
   mediaSelectedRing: { light: string; dark: string } | null;
   activityIslandTypography: Record<"count" | "progress" | "busy", { family: string; size: number } | null> | null;
   reviewSurfaceStyles: Record<string, Record<string, string>> | null;
+  instrumentContrast: Record<string, { sidebar: number; chip: number; chipBackground: string }>;
+  reviewConsoleHeight: number | null;
 };
 
 async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): Promise<GeometryResult[]> {
@@ -235,7 +237,7 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
     const activityIsland = renderToStaticMarkup(createElement(ActivityIsland, { state: {
       projectName: "Launch", status: "active", count: 12, busyLabel: "Syncing", progress: 64, alert: null,
     } }));
-    const shell = (screen: string) => `<div class="workbench has-right-panel" style="--sidebar-w:288px;--inspector-w:336px"><aside class="context-sidebar"></aside><section class="main-shell"><header class="main-header">${activityIsland}</header><div class="main-content-stage">${screen}</div></section><aside class="utility-right-panel"></aside></div>`;
+    const shell = (screen: string) => `<div class="workbench has-right-panel" style="--sidebar-w:288px;--inspector-w:336px"><aside class="context-sidebar"><nav class="sidebar-nav"><button class="sidebar-nav-row is-selected"><span>Selected</span></button></nav></aside><section class="main-shell"><header class="main-header">${activityIsland}</header><div class="main-content-stage">${screen}</div></section><aside class="utility-right-rail"><section class="review-console"><div class="review-console-preview"></div><div class="review-console-copy"><strong>Review</strong><small>Artifact</small></div><div class="review-console-actions"><button>Approve</button><button disabled>Needs work</button><button>Reject</button></div><div class="review-console-navigation"><button>Previous</button><button>Next</button></div></section><section class="utility-right-panel"><div class="agent-composer"><button class="agent-menu-trigger">Model</button></div></section></aside></div>`;
     const templates = Object.entries(markup).map(([name, value]) => `<template id="${name}">${shell(value)}</template>`).join("");
     writeFileSync(join(directory, "layout.html"), `<!doctype html><html><head>${links}</head><body><div id="root"></div>${templates}</body></html>`);
     writeFileSync(join(directory, "package.json"), JSON.stringify({ main: "main.cjs" }));
@@ -420,6 +422,19 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
                 document.documentElement.dataset.theme = theme;
                 return [theme, Object.fromEntries(Object.entries(reviewSelectors).map(([name, [selector, property]]) => [name, getComputedStyle(root.querySelector(selector))[property]]))];
               })) : null;
+              const contrast = (foreground, background) => {
+                const rgb = (value) => { const parts = (value.match(/[0-9.]+/g) || []).slice(0, 3).map(Number); return value.startsWith("color(srgb") ? parts.map((part) => part * 255) : parts; };
+                const luminance = (parts) => parts.map((part) => part / 255).map((part) => part <= .04045 ? part / 12.92 : ((part + .055) / 1.055) ** 2.4).reduce((sum, part, index) => sum + part * [.2126, .7152, .0722][index], 0);
+                const [a, b] = [luminance(rgb(foreground)), luminance(rgb(background))];
+                return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
+              };
+              const instrumentContrast = Object.fromEntries(["light", "dark"].map((theme) => {
+                document.documentElement.dataset.theme = theme;
+                const sidebar = getComputedStyle(root.querySelector(".sidebar-nav-row.is-selected"));
+                const chip = getComputedStyle(root.querySelector(".agent-composer .agent-menu-trigger"));
+                return [theme, { sidebar: contrast(sidebar.color, sidebar.backgroundColor), chip: contrast(chip.color, chip.backgroundColor), chipBackground: chip.backgroundColor }];
+              }));
+              const reviewConsoleHeight = root.querySelector(".review-console")?.getBoundingClientRect().height ?? null;
               delete document.documentElement.dataset.theme;
               return { screen, width: innerWidth, height: innerHeight, overflows, metricColumns, scrollOwners, documentDetailWidth: documentDetail?.getBoundingClientRect().width ?? null, documentViewerWidths, documentViewerMaxWidths, nestedMediaScroll, mediaInsets, focus, overviewColumns, overviewWidth, overviewMetricWidths, overviewNarrativeColumns, overviewColumnRatio, overviewScrollOwners, splitVerticalContained, masterRowEdgeInset, masterRowTopInset, masterRowHeight, masterRowGap, revisionEdgeInset, revisionTopInset, revisionGap, mediaTitleFontSize, mediaMetaFontSize, activityTimeFontSize, activityEntityFontSize, forbidden, projectHeaderCount, projectTabsCenterOffset, gooeyBlobCoverage, unitCardsInGridFlow, projectTabsHeaderOffset, projectTabsReceivePointer, projectTabsAppRegion,
                 memoryRegionPadding: style(".memory-region")?.padding ?? null,
@@ -428,7 +443,7 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
                 memoryInactiveBackground: style(".memory-rule:not(.is-open)")?.backgroundColor ?? null,
                 memoryOpenBackground: style(".memory-rule.is-open")?.backgroundColor ?? null,
                 memoryBodyBorder: style(".memory-rule-body")?.borderTopWidth ?? null,
-                mediaSelectedRing, activityIslandTypography, reviewSurfaceStyles };
+                mediaSelectedRing, activityIslandTypography, reviewSurfaceStyles, instrumentContrast, reviewConsoleHeight };
             })()\`));
         }
         process.stdout.write("RALPHY_GEOMETRY=" + JSON.stringify(results) + "\\n");
@@ -574,6 +589,14 @@ describe("design system contract", () => {
       { memoryRegionPadding: "0px", memoryTopbarBorder: "0px", memoryFilterBorder: "0px", memoryInactiveBackground: "rgba(0, 0, 0, 0)", memoryOpenBackground: "rgb(241, 242, 246)", memoryBodyBorder: "0px" },
     ]);
     const reviewSurfaceStyles = results.find(({ screen, width }) => screen === "memory" && width === 1360)?.reviewSurfaceStyles;
+    const instrument = results.find(({ screen, width }) => screen === "media" && width === 1360);
+    expect(instrument?.instrumentContrast.light.sidebar).toBeGreaterThanOrEqual(4.5);
+    expect(instrument?.instrumentContrast.dark.sidebar).toBeGreaterThanOrEqual(4.5);
+    expect(instrument?.instrumentContrast.light.chip).toBeGreaterThanOrEqual(4.5);
+    expect(instrument?.instrumentContrast.dark.chip).toBeGreaterThanOrEqual(4.5);
+    expect(instrument?.instrumentContrast.dark.chipBackground).toBe("rgb(228, 228, 226)");
+    expect(instrument?.reviewConsoleHeight).toBeGreaterThanOrEqual(366);
+    expect(instrument?.reviewConsoleHeight).toBeLessThanOrEqual(380);
     expect(reviewSurfaceStyles?.light).toMatchObject({
       calendarDefault: "rgb(241, 242, 246)",
       calendarTitle: "rgb(20, 20, 20)",
@@ -975,7 +998,7 @@ describe("design system contract", () => {
     expect(app).toContain("loadSettingsScreen");
   });
 
-  test("keeps app-level settings out of the My Work profile popover", () => {
+  test("opens the app-level Settings dialog from the profile popover", () => {
     const app = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
     const profileMenu = readFileSync(
       join(process.cwd(), "src/components/ProfileMenu.tsx"),
@@ -992,7 +1015,8 @@ describe("design system contract", () => {
 
     expect(profileMenu).toContain("createPortal");
     expect(profileMenu).toContain('role="menu"');
-    expect(profileMenu).not.toContain("Settings");
+    expect(profileMenu).toContain("Settings");
+    expect(profileMenu).toContain("onOpenSettings");
     expect(profileMenu).toContain("closeAndRestoreFocus");
     expect(app).toContain('command && event.key === ","');
     expect(app).toContain("<SettingsScreen");

@@ -50,7 +50,8 @@ function projectMediaPage(prefix: string): MediaCardDto[] {
 }
 
 function buttonWithText(root: HostNode, text: string): HostNode {
-  const button = root.findAll((node) => node.tagName === "BUTTON" && node.textContent === text)[0];
+  const button = root.findAll((node) => node.tagName === "BUTTON"
+    && (node.textContent === text || node.getAttribute("aria-label") === text))[0];
   if (!button) throw new Error(`Missing ${text} button`);
   return button;
 }
