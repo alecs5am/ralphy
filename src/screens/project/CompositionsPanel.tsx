@@ -10,6 +10,10 @@ import { AutoCursorTail } from "./AutoCursorTail";
 import { ArtifactPreview } from "./ArtifactPreview";
 import { useRememberedScroll } from "./scroll-memory";
 
+const LIST_EDGE = 4;
+const ROW_GAP = 6;
+const ROW_SIZE = 52;
+
 const formatTime = (value: number) => new Date(value < 1_000_000_000_000 ? value * 1000 : value).toLocaleString();
 const formatDate = (value: number) => new Date(value < 1_000_000_000_000 ? value * 1000 : value).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
@@ -36,7 +40,7 @@ export function CompositionsPanel({ page, controller, snapshot, scrollMemory, re
   const heading = useRef<HTMLHeadingElement>(null);
   const masterScroll = useRememberedScroll(scrollMemory, "compositions-master", resetToken);
   const detailScroll = useRememberedScroll(scrollMemory, "compositions-detail", resetToken);
-  const rows = useVirtualizer({ count: compositions.length, getScrollElement: () => master, estimateSize: () => 64, overscan: 6, initialRect: { width: 320, height: 640 } });
+  const rows = useVirtualizer({ count: compositions.length, getScrollElement: () => master, estimateSize: () => ROW_SIZE, overscan: 6, initialRect: { width: 320, height: 640 } });
   const revisions = snapshot.compositionRevisions.items;
   const revisionRail = useVirtualizer({ horizontal: true, count: revisions.length, getScrollElement: () => rail, estimateSize: () => 124, overscan: 4, initialRect: { width: 760, height: 88 } });
   const composition = snapshot.composition.value;
@@ -54,10 +58,10 @@ export function CompositionsPanel({ page, controller, snapshot, scrollMemory, re
 
   return <div className="composition-workbench">
     <div className="composition-master" aria-label="Compositions" ref={bindMaster} onScroll={masterScroll.onScroll}>
-      <div className="composition-master-virtual" style={{ height: rows.getTotalSize() }}>
+      <div className="composition-master-virtual" style={{ height: rows.getTotalSize() + LIST_EDGE * 2 }}>
         {rows.getVirtualItems().map((virtual) => {
           const item = compositions[virtual.index]!;
-          return <button type="button" key={item.id} className={`composition-master-row${snapshot.compositionId === item.id ? " is-selected" : ""}`} aria-pressed={snapshot.compositionId === item.id} style={{ transform: `translateY(${virtual.start}px)` }} onClick={() => { void open(item.id); }}>
+          return <button type="button" key={item.id} className={`composition-master-row${snapshot.compositionId === item.id ? " is-selected" : ""}`} aria-pressed={snapshot.compositionId === item.id} style={{ height: virtual.size - ROW_GAP, transform: `translateY(${virtual.start + LIST_EDGE}px)` }} onClick={() => { void open(item.id); }}>
             <FileVideo size={17} aria-hidden="true" /><span><strong>{item.slug}</strong><small>{item.kind} · {item.selectedRevisionId ? "Selected" : "No selection"} · {item.latestRevisionId ? "Latest available" : "No revisions"}</small></span>
           </button>;
         })}
@@ -77,7 +81,7 @@ export function CompositionsPanel({ page, controller, snapshot, scrollMemory, re
               const item = revisions[virtual.index]!;
               const selected = item.id === composition.selectedRevisionId;
               const latest = item.id === composition.latestRevisionId;
-              return <button type="button" title={`Revision ${item.revisionNo} · ${formatTime(item.createdAt)}`} key={item.id} className={snapshot.inspectedCompositionRevisionId === item.id ? "is-selected" : ""} aria-pressed={snapshot.inspectedCompositionRevisionId === item.id} style={{ transform: `translateX(${virtual.start}px)`, width: virtual.size }} onClick={() => { void controller.inspectCompositionRevision(item.id); }}><strong>R{item.revisionNo}</strong><span>{item.state}</span><small>{selected && latest ? "Selected · Latest" : selected ? "Selected" : latest ? "Latest" : formatDate(item.createdAt)}</small></button>;
+              return <button type="button" title={`Revision ${item.revisionNo} · ${formatTime(item.createdAt)}`} key={item.id} className={snapshot.inspectedCompositionRevisionId === item.id ? "is-selected" : ""} aria-pressed={snapshot.inspectedCompositionRevisionId === item.id} style={{ transform: `translateX(${virtual.start}px)`, width: virtual.size - ROW_GAP }} onClick={() => { void controller.inspectCompositionRevision(item.id); }}><strong>R{item.revisionNo}</strong><span>{item.state}</span><small>{selected && latest ? "Selected · Latest" : selected ? "Selected" : latest ? "Latest" : formatDate(item.createdAt)}</small></button>;
             })}
             <div className="composition-rail-tail" style={{ transform: `translateX(${Math.max(0, revisionRail.getTotalSize() - 1)}px)` }}><PageTail root={rail} page={snapshot.compositionRevisions} load={() => { void controller.loadMoreCompositionRevisions(); }} /></div>
           </div>

@@ -4,6 +4,8 @@ import { SnappySlider } from "../ui/SnappySlider";
 
 interface VideoPlayerProps { src: string; name: string; compact?: boolean }
 
+export const compactVideoStartTime = (duration: number, compact: boolean) => compact && duration > 4 ? 4 : 0;
+
 function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
   const whole = Math.floor(seconds);
@@ -42,9 +44,9 @@ export function VideoPlayer({ src, name, compact = false }: VideoPlayerProps) {
   const skip = (seconds: number) => { if (videoRef.current) videoRef.current.currentTime = Math.min(duration, Math.max(0, videoRef.current.currentTime + seconds)); };
 
   return <div className={`custom-video-player${compact ? " is-compact" : ""}`} ref={rootRef}>
-    <video ref={videoRef} className="viewer-video" src={src} aria-label={name} preload="metadata" playsInline onClick={togglePlayback} onDoubleClick={enterFullscreen}
+    <video ref={videoRef} className="viewer-video" src={src} aria-label={name} preload="auto" playsInline onClick={togglePlayback} onDoubleClick={enterFullscreen}
       onCanPlay={() => setError(null)} onError={() => setError(`“${name}” cannot be played.`)}
-      onLoadedMetadata={(event) => { setDuration(event.currentTarget.duration); setCurrentTime(event.currentTarget.currentTime); setVolume(event.currentTarget.volume); setMuted(event.currentTarget.muted); }}
+      onLoadedMetadata={(event) => { const startTime = compactVideoStartTime(event.currentTarget.duration, compact); event.currentTarget.currentTime = startTime; setDuration(event.currentTarget.duration); setCurrentTime(startTime); setVolume(event.currentTarget.volume); setMuted(event.currentTarget.muted); }}
       onDurationChange={(event) => setDuration(event.currentTarget.duration)} onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
       onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)}
       onVolumeChange={(event) => { setVolume(event.currentTarget.volume); setMuted(event.currentTarget.muted); }} />

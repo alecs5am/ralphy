@@ -25,7 +25,7 @@ const project = {
 };
 
 describe("Project domain screen", () => {
-  test("renders exactly the six accessible domain tabs", () => {
+  test("renders exactly the five accessible domain tabs", () => {
     const markup = renderToStaticMarkup(
       <projectControls.ProjectControls activeTab="overview" onSelect={vi.fn()} />,
     );
@@ -36,7 +36,6 @@ describe("Project domain screen", () => {
       "Overview",
       "Documents",
       "Media",
-      "Compositions",
       "Units",
       "Activity",
     ]);

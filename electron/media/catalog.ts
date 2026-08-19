@@ -1,5 +1,6 @@
 import {
   lstat,
+  mkdir,
   open,
   readdir,
   realpath,
@@ -37,6 +38,17 @@ export class InvalidLibraryRootError extends Error {
     super(message);
     this.name = "InvalidLibraryRootError";
   }
+}
+
+export async function ensureHomeLibraryRoot(homePath: string): Promise<string> {
+  const rootPath = join(homePath, ".ralphy");
+  try {
+    await lstat(rootPath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    await mkdir(join(rootPath, "workspaces"), { recursive: true });
+  }
+  return validateLibraryRoot(rootPath);
 }
 
 function isInside(rootPath: string, candidatePath: string): boolean {

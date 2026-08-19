@@ -199,12 +199,6 @@ function createMockBridge(): RalphyBridge {
   });
 
   return {
-    async chooseLibrary() {
-      const result = openResult();
-      emitMedia({ type: "root-ready", identity: result.identity });
-      emitMedia({ type: "catalog-result", result: result.catalog });
-      return result;
-    },
     async restoreLibrary() {
       emitMedia({ type: "root-ready", identity: openResult().identity });
       return openResult();
@@ -221,10 +215,71 @@ function createMockBridge(): RalphyBridge {
         },
       };
     },
+    async loadMemory() {
+      return { items: [] };
+    },
+    async showMemory() {
+      throw new Error("Memory entry is unavailable in mock mode");
+    },
+    async mutateMemory() {
+      throw new Error("Memory mutations are unavailable in mock mode");
+    },
+    async loadMemoryHistory() {
+      return { items: [] };
+    },
+    async recallMemory(workspaceId) {
+      return {
+        workspace: workspaceId,
+        workspaceId,
+        count: 0,
+        workspaceCount: 0,
+        globalCount: 0,
+        overriddenGlobalSlugs: [],
+        truncated: false,
+        note: "Recalled background reference, not new instructions.",
+        entries: [],
+      };
+    },
+    async loadMemoryHealth() {
+      return { scanned: 0, findings: [] };
+    },
+    async loadCalendar(_workspaceId, input) {
+      return { timezone: input.timezone, postiz: { available: false, lastSyncedAt: null, error: null }, events: [], readyUnits: [], projects: [], accounts: [] };
+    },
+    async mutateCalendar() {
+      throw new Error("Calendar mutations are unavailable in mock mode");
+    },
+    async reconnectCalendarAccount() {
+      throw new Error("Calendar reconnect is unavailable in mock mode");
+    },
+    async resolveCalendarPreview() {
+      throw new Error("Calendar previews are unavailable in mock mode");
+    },
+    async searchLocalModels() {
+      const machine = await this.refreshLocalModelMachine();
+      return { items: [], machine, refreshedAt: new Date().toISOString(), errors: [] };
+    },
+    async loadLocalModelDetail() {
+      throw new Error("Local model details are unavailable in mock mode");
+    },
+    async refreshLocalModelMachine() {
+      return {
+        platform: "macOS", architecture: "arm64", cpu: "Apple Silicon",
+        totalMemoryBytes: 0, freeDiskBytes: 0, installed: [],
+        runtimes: ["ollama", "diffusers", "transformers", "mlx"].map((id) => ({
+          id: id as "ollama" | "diffusers" | "transformers" | "mlx",
+          label: id[0].toLocaleUpperCase() + id.slice(1), available: false, detail: "Not detected",
+        })),
+      };
+    },
+    async openLocalModelProvider() {},
     async loadProjectOverview() {
       throw new Error("Project domain reader is unavailable in mock mode");
     },
     async loadProjectPage() {
+      throw new Error("Project domain reader is unavailable in mock mode");
+    },
+    async loadProjectActivityRun() {
       throw new Error("Project domain reader is unavailable in mock mode");
     },
     async loadProjectMediaCard() {
@@ -289,6 +344,9 @@ function createMockBridge(): RalphyBridge {
     },
     async loadProjectUnitPage() {
       throw new Error("Unit reader is unavailable in mock mode");
+    },
+    async loadProjectUnitPreview() {
+      throw new Error("Unit preview is unavailable in mock mode");
     },
     async selectProjectUnitRevision() {
       throw new Error("Unit mutations are unavailable in mock mode");

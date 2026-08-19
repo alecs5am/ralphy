@@ -25,6 +25,16 @@ export const BRIDGE_METHODS = [
   "workspace.account.upsert",
   "workspace.export",
   "workspace.import",
+  "memory.list",
+  "memory.show",
+  "memory.create",
+  "memory.revise",
+  "memory.approve",
+  "memory.reject",
+  "memory.retire",
+  "memory.history",
+  "memory.recall",
+  "memory.health",
   "project.list",
   "project.show",
   "project.update",
@@ -73,6 +83,7 @@ export const BRIDGE_METHODS = [
   "composition.revise",
   "composition.build",
   "composition.select",
+  "unit.create",
   "unit.list",
   "unit.show",
   "unit.revisions",
@@ -99,6 +110,12 @@ export const BRIDGE_METHODS = [
   "campaign.update",
   "calendar.list",
   "calendar.update",
+  "calendar.overview",
+  "calendar.create",
+  "calendar.submit",
+  "calendar.reschedule",
+  "calendar.remove",
+  "calendar.retry",
   "activity.list",
   "activity.subscribe",
   "activity.unsubscribe",
@@ -553,6 +570,7 @@ export interface CompositionBuildCompletion {
   }>;
 }
 export interface UnitDto extends ScopedDto {
+  compositionId: string | null;
   slug: string;
   format: string;
   latestRevisionId: string | null;
@@ -562,6 +580,7 @@ export interface UnitDto extends ScopedDto {
 }
 export interface UnitRevisionDto extends RevisionDto {
   unitId: string;
+  compositionRevisionId: string | null;
   parentRevisionId: string | null;
   iterationId: string | null;
   note: string | null;
@@ -631,6 +650,79 @@ export interface CalendarEntryDto extends ScopedDto {
   publicationId: string | null;
   scheduledAt: number;
   rowVersion: number;
+}
+export type CalendarChannelStatus = "draft" | "scheduled" | "uploading" | "published" | "failed" | "disconnected";
+export type CalendarEventStatus = "draft" | "scheduled" | "uploading" | "published" | "partial" | "failed";
+export interface CalendarChannelPublicationDto {
+  id: string | null;
+  platform: string;
+  accountId: string | null;
+  account: string;
+  status: CalendarChannelStatus;
+  at: number | null;
+  postUrl: string | null;
+  error: string | null;
+  settings: JsonValue;
+}
+export interface CalendarMetricsDto {
+  views: number | null;
+  likes: number | null;
+  comments: number | null;
+  shares: number | null;
+  syncedAt: number;
+}
+export interface CalendarEventDto {
+  id: string;
+  rowVersion: number;
+  unitId: string;
+  unitRevisionId: string;
+  title: string;
+  projectId: string | null;
+  project: string;
+  kind: string;
+  thumbnail: { type: "artifact-revision"; id: string } | null;
+  at: number | null;
+  draftAt: number | null;
+  timezone: string;
+  pinnedRevision: number;
+  unitSelectedRevision: number | null;
+  status: CalendarEventStatus;
+  channels: CalendarChannelPublicationDto[];
+  metrics: CalendarMetricsDto | null;
+}
+export interface CalendarReadyUnitDto {
+  unitId: string;
+  unitRevisionId: string | null;
+  title: string;
+  projectId: string | null;
+  project: string;
+  revision: number | null;
+  kind: string;
+  thumbnail: { type: "artifact-revision"; id: string } | null;
+  platforms: string[];
+  channels: Array<CalendarChannelInput & { platform: string; account: string }>;
+  revisions: Array<{
+    unitRevisionId: string;
+    revision: number;
+    thumbnail: { type: "artifact-revision"; id: string } | null;
+    platforms: string[];
+    channels: Array<CalendarChannelInput & { platform: string; account: string }>;
+  }>;
+  readiness: "ready" | "review" | "blocked" | "draft";
+  note: string | null;
+}
+export interface CalendarWorkspaceDto {
+  timezone: string;
+  postiz: { available: boolean; lastSyncedAt: number | null; error: string | null };
+  events: CalendarEventDto[];
+  readyUnits: CalendarReadyUnitDto[];
+  projects: Array<{ id: string; name: string }>;
+  accounts: Array<{ id: string; platform: string; handle: string; disconnected: boolean; rowVersion: number }>;
+}
+export interface CalendarChannelInput {
+  presentationId: string;
+  socialAccountId: string;
+  settings: JsonValue;
 }
 export interface AgentProviderDto { id: string; name: string; capabilities: string[] }
 export interface CredentialStatusDto { provider: string; state: string; source: string | null }
@@ -838,6 +930,69 @@ export interface MediaReviewResult {
   feedback: FeedbackDto | null;
 }
 
+export type MemoryTier = "global" | "workspace";
+export type MemoryStatus = "active" | "proposed" | "rejected" | "archived";
+export type MemoryType = "model" | "craft" | "tooling" | "client" | "style" | "user" | "legacy";
+export type MemoryQualityFlag =
+  | "missing-rule"
+  | "missing-why"
+  | "missing-how-to-apply"
+  | "missing-negative-scope";
+export interface MemoryBodyDto {
+  rule: string;
+  why: string;
+  howToApply: string[];
+  doesNotApplyTo: string[];
+}
+export interface MemoryDetailDto {
+  id: string;
+  revisionId: string;
+  slug: string;
+  version: number;
+  revisionNo: number;
+  tier: MemoryTier;
+  workspace?: string;
+  status: MemoryStatus;
+  name: string;
+  description: string;
+  type: MemoryType;
+  filed: string;
+  source: string;
+  body: MemoryBodyDto;
+  rawBody: string;
+  qualityFlags: MemoryQualityFlag[];
+  overridesGlobal: boolean;
+}
+export interface MemoryWriteInput {
+  tier: MemoryTier;
+  status: "active" | "proposed";
+  slug: string;
+  name: string;
+  description: string;
+  type: Exclude<MemoryType, "legacy">;
+  body: MemoryBodyDto;
+  source: string;
+}
+export interface MemoryRecallDto {
+  workspace: string;
+  workspaceId: string;
+  count: number;
+  workspaceCount: number;
+  globalCount: number;
+  overriddenGlobalSlugs: string[];
+  truncated: boolean;
+  note: string;
+  entries: MemoryDetailDto[];
+}
+export interface MemoryHealthDto {
+  scanned: number;
+  findings: Array<{
+    memoryEntryId: string;
+    slug: string;
+    flags: MemoryQualityFlag[];
+  }>;
+}
+
 export interface BridgeMethodContract {
   "system.hello": Contract<EmptyParams, BridgeHello>;
   "consumer.authenticate": Contract<{ namespace: "farm"; tokenBase64url: string }, AckDto>;
@@ -866,6 +1021,25 @@ export interface BridgeMethodContract {
     relinkAfter?: string | null;
     relinkLimit?: number;
   }, { workspaceId: string; entityMapPage: Page<JsonObject>; relinkPage: Page<JsonObject> }>;
+  "memory.list": Contract<ScopedParams & {
+    scope?: "effective" | MemoryTier;
+    status?: MemoryStatus;
+    query?: string;
+    types?: MemoryType[];
+    order?: "slug" | "name";
+  }, { items: MemoryDetailDto[] }>;
+  "memory.show": Contract<ScopedParams & { memoryEntryId: string }, MemoryDetailDto>;
+  "memory.create": Contract<ScopedParams & MemoryWriteInput, MemoryDetailDto>;
+  "memory.revise": Contract<ScopedParams & Omit<MemoryWriteInput, "tier" | "slug"> & {
+    memoryEntryId: string;
+    expectedRevisionId: string;
+  }, MemoryDetailDto>;
+  "memory.approve": Contract<ScopedParams & { memoryEntryId: string; expectedRevisionId: string }, unknown>;
+  "memory.reject": Contract<ScopedParams & { memoryEntryId: string; expectedRevisionId: string }, unknown>;
+  "memory.retire": Contract<ScopedParams & { memoryEntryId: string; expectedRevisionId: string }, unknown>;
+  "memory.history": Contract<ScopedParams & { memoryEntryId: string }, { items: MemoryDetailDto[] }>;
+  "memory.recall": Contract<ScopedParams & { full?: boolean }, MemoryRecallDto>;
+  "memory.health": Contract<ScopedParams, MemoryHealthDto>;
   "project.list": Contract<IdParams<"workspaceId"> & CursorParams, Page<ProjectDto>>;
   "project.show": Contract<IdParams<"projectId">, ProjectDto>;
   "project.update": Contract<IdParams<"projectId"> & { expectedRowVersion: number; patch: JsonObject }, ProjectDto>;
@@ -959,6 +1133,7 @@ export interface BridgeMethodContract {
   }, CompositionRevisionDto>;
   "composition.build": Contract<ScopedParams & { compositionRevisionId: string; profile?: JsonValue }, CompositionBuildCompletion>;
   "composition.select": Contract<IdParams<"compositionId"> & { revisionId: string; expectedSelectedRevisionId: string | null }, CompositionDto>;
+  "unit.create": Contract<ScopedParams & { slug: string; format: string; compositionId?: string | null }, UnitDto>;
   "unit.list": Contract<ScopedCursorParams, Page<UnitDto>>;
   "unit.show": Contract<IdParams<"unitId">, UnitDto>;
   "unit.revisions": Contract<IdParams<"unitId"> & CursorParams & HistoryOrderParams, Page<UnitRevisionDto>>;
@@ -967,7 +1142,16 @@ export interface BridgeMethodContract {
   "unit.presentations": Contract<ScopedParams & { revisionId: string } & CursorParams, Page<UnitPresentationDto>>;
   "presentation.items": Contract<ScopedParams & { presentationId: string } & CursorParams, Page<PresentationItemDto>>;
   "presentation.captions": Contract<ScopedParams & { presentationId: string } & CursorParams, Page<PresentationCaptionRevisionDto>>;
-  "unit.revise": Contract<IdParams<"unitId"> & ExternalOperationParams & { expectedLatestRevisionId: string; input: JsonObject }, UnitRevisionDto | OperationAccepted>;
+  "unit.revise": Contract<IdParams<"unitId"> & {
+    expectedLatestRevisionId: string | null;
+    compositionRevisionId?: string | null;
+    parentRevisionId?: string | null;
+    iterationId?: string | null;
+    note?: string | null;
+    metadata?: JsonValue;
+    items: JsonObject[];
+    presentations?: JsonObject[];
+  }, UnitRevisionDto>;
   "unit.select": Contract<IdParams<"unitId"> & { revisionId: string; expectedSelectedRevisionId: string | null }, UnitDto>;
   "unit.preview": Contract<ScopedParams & { unitRevisionId: string; platform: string }, UnitPreviewDto>;
   "publication.list": Contract<ScopedCursorParams & { unitId?: string; platform?: string; state?: string }, Page<PublicationDto>>;
@@ -993,6 +1177,12 @@ export interface BridgeMethodContract {
   "campaign.update": Contract<IdParams<"campaignId"> & { expectedRowVersion: number; patch: JsonObject }, CampaignDto>;
   "calendar.list": Contract<ScopedCursorParams & { from?: number; to?: number }, Page<CalendarEntryDto>>;
   "calendar.update": Contract<IdParams<"calendarEntryId"> & { expectedRowVersion: number; patch: JsonObject }, CalendarEntryDto>;
+  "calendar.overview": Contract<ScopedParams & { from: string; to: string; timezone: string }, CalendarWorkspaceDto>;
+  "calendar.create": Contract<ScopedParams & { unitRevisionId: string; at: number | null; draftAt: number; timezone: string; channels: CalendarChannelInput[] }, CalendarEventDto>;
+  "calendar.submit": Contract<ScopedParams & { eventId: string; expectedRowVersion: number; at: number }, CalendarEventDto>;
+  "calendar.reschedule": Contract<ScopedParams & { eventId: string; expectedRowVersion: number; at: number }, CalendarEventDto>;
+  "calendar.remove": Contract<ScopedParams & { eventId: string; expectedRowVersion: number }, CalendarEventDto>;
+  "calendar.retry": Contract<ScopedParams & { eventId: string; expectedRowVersion: number }, CalendarEventDto>;
   "activity.list": Contract<
     | { context: BridgeContext; afterSequence: number; limit: number }
     | { afterSequence: number; limit: number },
@@ -1012,7 +1202,7 @@ export interface BridgeMethodContract {
   }, LocatorDto>;
   "agent.providers": Contract<EmptyParams, AgentProviderDto[]>;
   "agent.credential.status": Contract<ScopedParams & { provider: string }, CredentialStatusDto>;
-  "agent.credential.set": Contract<ScopedParams & { provider: string; credential: string }, CredentialStatusDto>;
+  "agent.credential.set": Contract<ScopedParams & { provider: string; value: string; accountId?: string; expectedRowVersion?: number }, { provider: string; configured: boolean }>;
   "agent.credential.clear": Contract<ScopedParams & { provider: string }, CredentialStatusDto>;
   "agent.auth.status": Contract<ScopedParams & { provider: string }, CredentialStatusDto>;
   "agent.auth.login": Contract<ScopedParams & { provider: string }, CredentialStatusDto>;

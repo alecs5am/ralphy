@@ -1,9 +1,9 @@
 import type { ActivityDto, ArtifactMediaCardDto, ArtifactRevisionDto, BuildDto, BuildOutputDto, CompositionDto, CompositionInputDto, CompositionRevisionDto, CompositionSourceDto, DocumentDetailDto, DocumentDto, DocumentSearchDto, EvaluationDto, JsonValue, MediaCardDto, MediaGenerationDetailDto, MediaGenerationTarget, UnitDto, UnitItemDto, UnitPresentationDto, UnitRevisionDto } from "../../electron/ralphy/types";
 import type { CompositionOutputPreview } from "../../electron/ralphy/project-reader";
-import type { MediaWorkbenchBridge, ProjectMediaQuery, ProjectSummary, ProjectTab } from "../../electron/media/types";
+import type { ActivityRunDetail, MediaWorkbenchBridge, ProjectMediaQuery, ProjectSummary, ProjectTab } from "../../electron/media/types";
 import { createProjectDomainState, projectDomainReducer, type DomainRow, type ProjectDomainState } from "./project-domain";
 
-export type ProjectView = "overview" | ProjectTab;
+export type ProjectView = "overview" | Exclude<ProjectTab, "compositions">;
 export interface DocumentPreview {
   status: "idle" | "loading" | "ready" | "error";
   value: { revisionId: string; format: string; text: string; truncated: boolean } | null;
@@ -71,7 +71,7 @@ export interface ProjectScreenSnapshot {
   unitConflict: string | null;
   unitMutationError: string | null;
 }
-export type ProjectScreenApi = Pick<MediaWorkbenchBridge, "loadProjectOverview" | "loadProjectPage" | "loadProjectMediaCard" | "loadProjectGeneration" | "loadProjectMediaRevisions" | "selectProjectMediaRevision" | "loadDocumentPreview" | "searchProjectDocuments" | "showProjectDocument" | "reviseProjectDocument" | "resolveProjectPreview" | "loadProjectComposition" | "loadProjectCompositionRevision" | "loadProjectCompositionBuild" | "loadProjectCompositionPage" | "reviseProjectComposition" | "selectProjectCompositionRevision" | "buildProjectComposition" | "resolveCompositionOutputPreview" | "loadProjectUnit" | "loadProjectUnitRevision" | "loadProjectUnitPage" | "selectProjectUnitRevision">;
+export type ProjectScreenApi = Pick<MediaWorkbenchBridge, "loadProjectOverview" | "loadProjectPage" | "loadProjectActivityRun" | "loadProjectMediaCard" | "loadProjectGeneration" | "loadProjectMediaRevisions" | "selectProjectMediaRevision" | "loadDocumentPreview" | "searchProjectDocuments" | "showProjectDocument" | "reviseProjectDocument" | "resolveProjectPreview" | "loadProjectComposition" | "loadProjectCompositionRevision" | "loadProjectCompositionBuild" | "loadProjectCompositionPage" | "reviseProjectComposition" | "selectProjectCompositionRevision" | "buildProjectComposition" | "resolveCompositionOutputPreview" | "loadProjectUnit" | "loadProjectUnitRevision" | "loadProjectUnitPage" | "selectProjectUnitRevision">;
 export interface ProjectScreenController {
   getSnapshot(): ProjectScreenSnapshot;
   subscribe(listener: () => void): () => void;
@@ -81,6 +81,7 @@ export interface ProjectScreenController {
   loadMore(tab: ProjectTab): Promise<void>;
   retryPage(tab: ProjectTab): Promise<void>;
   retry(): Promise<void>;
+  loadActivityRun(runId: string): Promise<ActivityRunDetail>;
   openDocument(document: DocumentDto): Promise<void>;
   openDocumentById(documentId: string): Promise<void>;
   searchDocuments(query: string): Promise<void>;
@@ -642,6 +643,34 @@ export function createProjectScreenController(
     };
   };
 
+  const clearUnitProduction = () => {
+    compositionRequest += 1;
+    compositionRevisionRequest += 1;
+    compositionBuildRequest += 1;
+    compositionPreviewRequest += 1;
+    for (const kind of Object.keys(compositionPageRequests) as CompositionPageKind[]) compositionPageRequests[kind] += 1;
+    emit({
+      ...snapshot,
+      compositionId: null,
+      composition: idleUnitLoad(),
+      compositionRevisions: idleUnitPage(),
+      inspectedCompositionRevisionId: null,
+      inspectedCompositionRevision: idleUnitLoad(),
+      compositionSources: idleUnitPage(),
+      compositionInputs: idleUnitPage(),
+      compositionRevisionEvaluations: idleUnitPage(),
+      compositionBuilds: idleUnitPage(),
+      inspectedCompositionBuildId: null,
+      inspectedCompositionBuild: idleUnitLoad(),
+      compositionBuildOutputs: idleUnitPage(),
+      compositionBuildEvaluations: idleUnitPage(),
+      compositionPreview: { status: "idle", value: null, error: null, artifactRevisionId: null },
+      compositionMutation: "idle",
+      compositionConflict: null,
+      compositionMutationError: null,
+    });
+  };
+
   const loadUnitItems = async (unitId: string, revisionId: string, requestId: number) => {
     emit({ ...snapshot, unitItems: { status: "loading", items: [], nextCursor: null, requestedCursor: null, error: null } });
     try {
@@ -719,10 +748,18 @@ export function createProjectScreenController(
       if (disposed || requestId !== unitExactRevisionRequest || snapshot.unitId !== unitId
         || snapshot.inspectedUnitRevisionId !== revisionId) return;
       if (value.id !== revisionId || value.unitId !== unitId) throw new Error("Invalid Unit revision");
+      const compositionId = snapshot.unit.value?.compositionId ?? null;
+      if (value.compositionRevisionId && compositionId === null) {
+        throw new Error("Invalid Unit production link");
+      }
       emit({ ...snapshot, inspectedUnitRevision: { status: "ready", value, error: null } });
+      const production = value.compositionRevisionId && compositionId
+        ? loadComposition(compositionId, value.compositionRevisionId)
+        : Promise.resolve(clearUnitProduction());
       await Promise.all([
         loadUnitItems(unitId, revisionId, itemsRequestId),
         loadUnitPresentations(unitId, revisionId, presentationsRequestId),
+        production,
       ]);
       if (!disposed && requestId === unitExactRevisionRequest && snapshot.unitId === unitId
         && snapshot.inspectedUnitRevisionId === revisionId) void loadUnitPreview(unitId, revisionId);
@@ -744,6 +781,23 @@ export function createProjectScreenController(
     unitMutationRequest += 1;
     emit({
       ...snapshot,
+      compositionId: null,
+      composition: idleUnitLoad(),
+      compositionRevisions: idleUnitPage(),
+      inspectedCompositionRevisionId: null,
+      inspectedCompositionRevision: idleUnitLoad(),
+      compositionSources: idleUnitPage(),
+      compositionInputs: idleUnitPage(),
+      compositionRevisionEvaluations: idleUnitPage(),
+      compositionBuilds: idleUnitPage(),
+      inspectedCompositionBuildId: null,
+      inspectedCompositionBuild: idleUnitLoad(),
+      compositionBuildOutputs: idleUnitPage(),
+      compositionBuildEvaluations: idleUnitPage(),
+      compositionPreview: { status: "idle", value: null, error: null, artifactRevisionId: null },
+      compositionMutation: "idle",
+      compositionConflict: null,
+      compositionMutationError: null,
       unitId,
       unit: { status: "loading", value: null, error: null },
       unitRevisions: idleUnitPage(),
@@ -978,6 +1032,9 @@ export function createProjectScreenController(
         if (page.status === "error" && (page.items.length === 0 || (snapshot.activeTab === "media" && page.nextCursor === null))) await loadPage(snapshot.activeTab);
       }
     },
+    async loadActivityRun(runId) {
+      return api.loadProjectActivityRun(snapshot.domain.project, runId);
+    },
     async openDocument(document) {
       const retained = snapshot.selectedDocument?.id === document.id ? snapshot.documentDraft : null;
       await loadDocument(document.id, retained, retained ? snapshot.documentConflict : null, retained ? snapshot.documentConflictReview : false);
@@ -1203,7 +1260,15 @@ export function createProjectScreenController(
     async buildInspectedCompositionRevision() {
       const value = snapshot.composition.value;
       const revision = snapshot.inspectedCompositionRevision.value;
-      if (!value || !revision || revision.id !== value.latestRevisionId || revision.state !== "draft") return;
+      const unit = snapshot.unit.value;
+      const unitRevision = snapshot.inspectedUnitRevision.value;
+      const linkedSelection = !!unit && !!unitRevision
+        && unit.selectedRevisionId === unitRevision.id
+        && unitRevision.compositionRevisionId === revision?.id;
+      const latestBuild = [...snapshot.compositionBuilds.items].sort((left, right) => right.createdAt - left.createdAt)[0];
+      const retry = linkedSelection && revision?.state === "sealed"
+        && (latestBuild?.state === "failed" || latestBuild?.state === "cancelled");
+      if (!value || !revision || (!retry && (revision.id !== value.latestRevisionId || revision.state !== "draft"))) return;
       await runCompositionMutation("build", () => api.buildProjectComposition(snapshot.domain.project, revision.id));
     },
     async openUnit(unitId) {

@@ -26,7 +26,7 @@
 - Unit work uses `unit.show`, revisions, items, presentations, and nullable-CAS
   `unit.select`. Do not consume presentation children, the currently
   inconsistent `unit.preview` handler, or `unit.revise`.
-- Source, tests, reports, and commit messages are English-only. Use strict TDD and behavior/mounted tests rather than source-string assertions or framework mocks.
+- Source, tests, reports, and commit messages are English-only. Use behavior/mounted tests rather than source-string assertions or framework mocks.
 - Every task runs focused tests, typecheck when it changes types, `git diff --check`, staged diff check, and `gitleaks protect --staged --redact` before commit.
 
 ---

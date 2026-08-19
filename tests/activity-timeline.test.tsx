@@ -4,6 +4,7 @@ import { describe, expect, test, vi } from "vitest";
 import type { ActivityDto } from "../electron/ralphy/types";
 import type { ProjectSummary } from "../src/lib/ipc";
 import * as screen from "../src/screens/ProjectScreen";
+import { activitySearchText, activitySource, summarizeActivityRun } from "../src/screens/project/activity-presentation";
 import { createReactHost, type HostNode } from "./react-host";
 
 const project: ProjectSummary = {
@@ -28,6 +29,12 @@ function MountedProject({ controller, memory }: { controller: any; memory: Map<s
   return <View project={project} rootEpoch={1} controller={controller} snapshot={snapshot} activityScrollMemory={memory} />;
 }
 
+function keydown(node: HostNode, key: string): void {
+  const event = new Event("keydown", { bubbles: true, cancelable: true });
+  Object.defineProperty(event, "key", { value: key });
+  node.dispatchEvent(event);
+}
+
 async function click(node: HostNode): Promise<void> {
   await act(async () => {
     node.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
@@ -37,6 +44,24 @@ async function click(node: HostNode): Promise<void> {
 }
 
 describe("activity timeline", () => {
+  test("classifies ownership and derives searchable model and cost summaries from safe run details", () => {
+    expect(activitySource(event(1))).toBe("generation");
+    expect(activitySource({ ...event(2), entityType: "document", action: "document.revised" })).toBe("production");
+    expect(activitySource({ ...event(3), entityType: "project", action: "project.archived" })).toBe("ralphy");
+    expect(activitySource({ ...event(4), entityType: "unknown", action: "updated" })).toBe("ralphy");
+    const detail = {
+      run: { id: "run-1", workspaceId: "workspace-1", projectId: "project-1", agentSessionId: null, kind: "generation", label: "Hero", state: "succeeded", createdAt: 1, startedAt: 2, endedAt: 5 },
+      attempts: [
+        { id: "attempt-1", runId: "run-1", attemptNo: 1, provider: "openrouter", model: "openai/gpt-5", state: "succeeded", costUsd: 0.12, startedAt: 2, endedAt: 5 },
+        { id: "attempt-2", runId: "run-1", attemptNo: 2, provider: "openrouter", model: "openai/gpt-5", state: "failed", costUsd: null, startedAt: 3, endedAt: 4 },
+      ],
+      nextCursor: null,
+    } as const;
+    expect(summarizeActivityRun(detail)).toEqual({ models: ["openai/gpt-5"], providers: ["openrouter"], costUsd: 0.12, durationMs: 3000 });
+    expect(activitySearchText(event(1), detail)).toContain("openai/gpt-5 openrouter");
+    expect(activitySearchText(event(1), detail)).not.toMatch(/prompt|providerRequest|credential/i);
+  });
+
   test("keeps forward visible history separate from live catch-up and mounts one virtual scroll owner", async () => {
     const latest = deferred<{ items: ActivityDto[]; nextCursor: null }>();
     let initialCalls = 0;
@@ -76,6 +101,11 @@ describe("activity timeline", () => {
     const api = {
       loadProjectOverview: vi.fn(async () => ({ project: { id: "project-1", workspaceId: "workspace-1", slug: "launch", name: "Launch", state: "active", rowVersion: 1, createdAt: 1, updatedAt: 2 } })),
       loadProjectPage,
+      loadProjectActivityRun: vi.fn(async (_project, runId: string) => ({
+        run: { id: runId, workspaceId: "workspace-1", projectId: "project-1", agentSessionId: null, kind: "generation", label: "Hero generation", state: "succeeded", createdAt: 1, startedAt: 2, endedAt: 5 },
+        attempts: [{ id: `attempt-${runId}`, runId, attemptNo: 1, provider: "openrouter", model: "openai/gpt-5", state: "succeeded", costUsd: 0.12, startedAt: 2, endedAt: 5 }],
+        nextCursor: null,
+      })),
     };
     const controller = screen.createProjectScreenController(api as any, project, 100);
 
@@ -101,9 +131,26 @@ describe("activity timeline", () => {
       expect(host.container.querySelectorAll(".activity-event").length).toBeLessThan(62);
       expect(host.container.querySelectorAll(".activity-day").length).toBeGreaterThanOrEqual(2);
       expect(host.container.textContent).toContain("Generation completed");
-      expect(host.container.textContent).not.toMatch(/\b(?:cost|state)\b/i);
-      expect(host.container.querySelectorAll(".activity-event button")).toHaveLength(0);
-      expect(host.container.querySelectorAll(".activity-filter, .load-more")).toHaveLength(0);
+      expect(host.container.querySelectorAll(".activity-event").filter((node) => node.getAttribute("class")?.split(/\s+/).includes("is-milestone"))).toHaveLength(1);
+      expect(host.container.querySelectorAll(".activity-icon").length).toBeGreaterThan(0);
+      expect(host.container.querySelectorAll(".activity-event").filter((node) => node.getAttribute("data-tone") === "success" && node.querySelector(".activity-icon"))).toHaveLength(1);
+      expect(host.container.querySelectorAll(".activity-marker")).toHaveLength(0);
+      expect(host.container.querySelectorAll(".activity-toolbar")).toHaveLength(1);
+      expect(host.container.querySelectorAll('[role="table"]')).toHaveLength(1);
+      expect(host.container.textContent).toMatch(/Source.*Event.*Entity.*Model.*Cost/s);
+      expect(host.container.querySelectorAll(".activity-event").every((node) => node.tagName === "BUTTON")).toBe(true);
+      const firstRow = host.container.querySelector(".activity-event")!;
+      await click(firstRow);
+      await vi.waitFor(() => expect(host.container.querySelectorAll(".activity-inspector")).toHaveLength(1));
+      expect(host.container.textContent).toContain("run-1");
+      expect(host.container.textContent).toContain("openai/gpt-5");
+      expect(host.container.textContent).toContain("$0.1200");
+      const selectedRow = host.container.querySelectorAll(".activity-event").find((node) => node.getAttribute("aria-selected") === "true")!;
+      await act(async () => { keydown(selectedRow, "ArrowDown"); await Promise.resolve(); });
+      expect(host.container.querySelectorAll(".activity-event").filter((node) => node.getAttribute("aria-selected") === "true")).toHaveLength(1);
+      const closeInspector = host.container.findAll((node) => node.tagName === "BUTTON" && node.getAttribute("aria-label") === "Close activity details")[0];
+      await click(closeInspector);
+      expect(host.container.querySelectorAll(".activity-inspector")).toHaveLength(0);
 
       owner.scrollTop = 420;
       await act(async () => owner.dispatchEvent(new Event("scroll")));

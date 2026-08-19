@@ -26,7 +26,7 @@ const PASSTHROUGH_ENV_KEYS = ["HOME", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE"] as
 const SHA256_HEX = /^[a-f0-9]{64}$/;
 const CLOSE_GRACE_MS = 1_000;
 const CLOSE_TERM_MS = 1_000;
-const SUPPORTED_CORE_CONTRACT_VERSION = 2;
+const SUPPORTED_CORE_CONTRACT_VERSION = 3;
 
 interface PendingRequest {
   resolve(value: unknown): void;

@@ -1,178 +1,179 @@
-import { useVirtualizer } from "@tanstack/react-virtual";
-import { AlertCircle, Layers3 } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { FileText, Film, Images, Layers3, Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { JsonValue, UnitDto, UnitPresentationDto } from "../../../electron/ralphy/types";
+import type { BuildDto, ProjectOverviewDto, UnitDto } from "../../../electron/ralphy/types";
+import { RalphyMascot } from "../../components/RalphyMascot";
+import { SocialIcon } from "../../components/ui/SocialIcon";
+import { bridge } from "../../lib/ipc";
+import { unitLifecycle, type UnitLifecycle } from "../../lib/unit-lifecycle";
+import { preferredUnitPoster, resolveUnitMedia, unitPreviewKind, type UnitMedia } from "../../lib/unit-previews";
 import type { DomainPage } from "../../state/project-domain";
-import type { ProjectScreenController, ProjectScreenSnapshot, UnitPage } from "../../state/project-screen-controller";
+import type { ProjectScreenController, ProjectScreenSnapshot } from "../../state/project-screen-controller";
 import { AutoCursorTail } from "./AutoCursorTail";
-import { ArtifactPreview } from "./ArtifactPreview";
 import { useRememberedScroll } from "./scroll-memory";
+import { UnitViewer } from "./UnitViewer";
 
-const formatTime = (value: number) => new Date(value < 1_000_000_000_000 ? value * 1000 : value).toLocaleString();
-const json = (value: JsonValue | null) => value === null ? "None" : JSON.stringify(value, null, 2);
+type Filter = "all" | "in-progress" | "scheduled" | "published";
+type CardSummary = { lifecycle: UnitLifecycle; media: UnitMedia | null; platforms: string[]; revisionNo: number };
 
-function Tail({ root, page, load }: { root: HTMLElement | null; page: UnitPage<{ id: string }>; load(): Promise<void> }) {
-  return <AutoCursorTail
-    root={root}
-    hasMore={page.nextCursor !== null}
-    loading={page.status === "loading" && page.items.length > 0}
-    error={page.status === "error" && page.items.length > 0 ? page.error : null}
-    onLoadMore={() => { void load(); }}
-    onRetry={() => { void load(); }}
-  />;
+const formatTime = (value: number) => new Date(value < 1_000_000_000_000 ? value * 1000 : value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+const typeLabel = (format: string) => format.toLowerCase().includes("audio") ? "AUDIO" : ({ video: "VIDEO", carousel: "CAROUSEL", longform: "LONG-FORM", post: "POST", generic: format.toUpperCase() })[unitPreviewKind(format)];
+const formatKey = (format: string) => { const value = format.trim().toLowerCase() || "unknown"; return value === "longform" ? "long-form" : value; };
+const formatLabels: Record<string, string> = { "long-form": "Long-form", "fb-creative": "FB creative" };
+const formatLabel = (format: string) => { const value = format.replace(/[-_]+/g, " "); return formatLabels[format] ?? value[0]?.toUpperCase() + value.slice(1).toLowerCase(); };
+const formatOrder = ["video", "carousel", "long-form", "audio", "image", "post", "thread", "article", "fb-creative", "motion-design", "poster", "sticker-pack"];
+const filterFor = (lifecycle: UnitLifecycle): Exclude<Filter, "all"> => lifecycle.label === "Published" ? "published" : lifecycle.label === "Scheduled" ? "scheduled" : "in-progress";
+
+function Status({ lifecycle }: { lifecycle: UnitLifecycle }) {
+  return <span className={`unit-status status-${lifecycle.tone}`}><span aria-hidden="true" />{lifecycle.label}</span>;
 }
 
-function Badges({ unit }: { unit: UnitDto }) {
-  return <span className="unit-badges">
-    {unit.selectedRevisionId && <span>Selected</span>}
-    {unit.latestRevisionId && <span>Latest</span>}
+function FormatIcon({ format }: { format: string }) {
+  const kind = unitPreviewKind(format);
+  const Icon = kind === "video" || kind === "longform" ? Film : kind === "carousel" ? Images : kind === "post" ? FileText : Layers3;
+  return <Icon size={26} aria-hidden="true" />;
+}
+
+function PlatformIcons({ platforms }: { platforms: string[] }) {
+  return <span className="unit-card-platforms" aria-label={platforms.length ? `Platforms: ${platforms.join(", ")}` : "No platforms yet"}>
+    {[...new Set(platforms)].map((platform) => <SocialIcon platform={platform} key={platform} />)}
   </span>;
 }
 
-function RevisionRail({ root, setRoot, unit, snapshot, controller, onInspect }: {
-  root: HTMLDivElement | null;
-  setRoot(node: HTMLDivElement | null): void;
+function CardMedia({ media, format }: { media: UnitMedia | null; format: string }) {
+  if (!media) return <><FormatIcon format={format} /><span>Preview builds appear here</span></>;
+  if ("text" in media.preview) return <p>{media.preview.text}</p>;
+  if (media.role === "cover" || media.role === "vertical-cover") return <img src={media.preview.url} alt="" loading="lazy" />;
+  if (media.kind === "image") return <img src={media.preview.url} alt="" loading="lazy" />;
+  if (media.kind === "video") return <video src={media.preview.url} muted playsInline preload="auto" onMouseEnter={(event) => { void event.currentTarget.play().catch(() => undefined); }} onMouseLeave={(event) => { event.currentTarget.pause(); event.currentTarget.currentTime = 0; }} />;
+  return <FormatIcon format={format} />;
+}
+
+function detailFor(lifecycle: UnitLifecycle, unit: UnitDto, publications: NonNullable<ProjectOverviewDto["publications"]>["items"]): string {
+  const publication = publications.find((item) => item.unitId === unit.id && (item.state === "published" || item.state === "scheduled"));
+  if (lifecycle.label === "Scheduled" && publication?.scheduledAt) return formatTime(publication.scheduledAt);
+  if (lifecycle.label === "Published") return publication?.publishedAt ? formatTime(publication.publishedAt) : "live";
+  if (lifecycle.label === "Render failed") return "final render";
+  if (lifecycle.label === "Rendering") return "rendering final";
+  if (lifecycle.label === "Preview ready") return "awaiting selection";
+  if (lifecycle.label === "Selected") return "ready to render";
+  if (lifecycle.label === "Ready") return "final ready";
+  return "agent is working";
+}
+
+function UnitCard({ unit, baseLifecycle, publications, controller, disabled, onOpen }: {
   unit: UnitDto;
-  snapshot: ProjectScreenSnapshot;
+  baseLifecycle: UnitLifecycle;
+  publications: NonNullable<ProjectOverviewDto["publications"]>["items"];
   controller: ProjectScreenController;
-  onInspect(revisionId: string): Promise<void>;
+  disabled: boolean;
+  onOpen(trigger: HTMLElement): void;
 }) {
-  const revisions = useMemo(() => {
-    const exact = snapshot.inspectedUnitRevision.value;
-    const rows = exact && !snapshot.unitRevisions.items.some(({ id }) => id === exact.id)
-      ? [...snapshot.unitRevisions.items, exact]
-      : snapshot.unitRevisions.items;
-    return [...rows].sort((a, b) => b.revisionNo - a.revisionNo);
-  }, [snapshot.inspectedUnitRevision.value, snapshot.unitRevisions.items]);
-  return <div className="unit-revision-rail" aria-label="Unit revisions" ref={setRoot}>
-    {revisions.map((revision) => <button
-      type="button"
-      className={snapshot.inspectedUnitRevisionId === revision.id ? "is-selected" : ""}
-      aria-pressed={snapshot.inspectedUnitRevisionId === revision.id}
-      disabled={snapshot.unitMutation !== "idle"}
-      key={revision.id}
-      onClick={() => { void onInspect(revision.id); }}
-    >
-      <strong>R{revision.revisionNo}</strong>
-      <span>{revision.sealedAt === null ? "Draft" : "Sealed"}</span>
-      {revision.id === unit.selectedRevisionId && <small>Selected</small>}
-      {revision.id === unit.latestRevisionId && <small>Latest</small>}
-    </button>)}
-    <Tail root={root} page={snapshot.unitRevisions} load={controller.loadMoreUnitRevisions} />
-  </div>;
+  const [summary, setSummary] = useState<CardSummary | null>(null);
+  useEffect(() => {
+    let current = true;
+    if (!unit.latestRevisionId) return () => { current = false; };
+    void Promise.all([
+      bridge.loadProjectUnitRevision(controller.getSnapshot().domain.project, unit.id, unit.latestRevisionId),
+      bridge.loadProjectUnitPage(controller.getSnapshot().domain.project, { kind: "items", revisionId: unit.latestRevisionId }),
+      bridge.loadProjectUnitPage(controller.getSnapshot().domain.project, { kind: "presentations", revisionId: unit.latestRevisionId }),
+    ]).then(async ([revision, items, presentations]) => {
+      const media = await resolveUnitMedia(bridge, controller.getSnapshot().domain.project, items.items);
+      let lifecycle = unitLifecycle({ unit, revision, publications });
+      if (revision.compositionRevisionId) {
+        const [productionRevision, builds] = await Promise.all([
+          bridge.loadProjectCompositionRevision(controller.getSnapshot().domain.project, revision.compositionRevisionId),
+          bridge.loadProjectCompositionPage(controller.getSnapshot().domain.project, { kind: "builds", revisionId: revision.compositionRevisionId }),
+        ]);
+        const buildItems = builds.items.filter((item): item is BuildDto => "state" in item && "compositionRevisionId" in item);
+        lifecycle = unitLifecycle({ unit, revision, compositionRevision: productionRevision, builds: buildItems, publications });
+      }
+      if (current) setSummary({ lifecycle, media: preferredUnitPoster(media) ?? media.find((item) => item.kind === "video") ?? media[0] ?? null, platforms: presentations.items.map(({ platform }) => platform), revisionNo: revision.revisionNo });
+    }).catch(() => undefined);
+    return () => { current = false; };
+  }, [controller, publications, unit]);
+
+  const lifecycle = summary?.lifecycle ?? baseLifecycle;
+  const retry = lifecycle.action === "retry";
+  return <article className="unit-card-shell">
+    <button className="unit-card" type="button" disabled={disabled} aria-label={`Open ${unit.slug}`} onClick={(event) => onOpen(event.currentTarget)}>
+      <span className="unit-card-preview"><CardMedia media={summary?.media ?? null} format={unit.format} /><em>{typeLabel(unit.format)}</em>{lifecycle.label === "Rendering" && <i className="unit-card-progress"><span /></i>}</span>
+      <span className="unit-card-copy">
+        <strong>{unit.slug}</strong>
+        <span className="unit-card-status"><Status lifecycle={lifecycle} /><small>{detailFor(lifecycle, unit, publications)}</small></span>
+        <span className="unit-card-footer"><PlatformIcons platforms={summary?.platforms ?? []} /><small>{summary ? `R${summary.revisionNo}` : unit.latestRevisionId ? "Latest" : "Starting"} · {formatTime(unit.updatedAt)}</small></span>
+      </span>
+    </button>
+    {retry && <button className="unit-card-retry" type="button" disabled={disabled} onClick={() => { void controller.openUnit(unit.id).then(() => controller.buildInspectedCompositionRevision()); }}>Retry</button>}
+  </article>;
 }
 
-function Presentations({ items }: { items: UnitPresentationDto[] }) {
-  const groups = useMemo(() => {
-    const values = new Map<string, UnitPresentationDto[]>();
-    for (const item of [...items].sort((a, b) => a.platform.localeCompare(b.platform) || a.position - b.position)) {
-      values.set(item.platform, [...(values.get(item.platform) ?? []), item]);
-    }
-    return [...values];
-  }, [items]);
-  if (groups.length === 0) return <p className="empty-section">No presentations.</p>;
-  return <>{groups.map(([platform, rows]) => <section className="unit-platform" data-platform={platform} key={platform}>
-    <h5>{platform}</h5>
-    {rows.map((item) => <article className="unit-presentation" key={item.id}><strong>Position {item.position}</strong><span>{item.effectiveCaptionRevisionId ? "Effective caption" : "No effective caption"}{item.coverArtifactRevisionId ? " · Cover assigned" : ""}</span></article>)}
-  </section>)}</>;
-}
-
-export function UnitsPanel({ page, controller, snapshot, scrollMemory, resetToken }: {
+export function UnitsPanel({ page, controller, snapshot, targetUnitId, scrollMemory, resetToken }: {
   page: DomainPage;
   controller: ProjectScreenController;
   snapshot: ProjectScreenSnapshot;
+  targetUnitId?: string | null;
   scrollMemory: Map<string, number>;
   resetToken: string;
 }) {
   const units = page.items as UnitDto[];
-  const masterRef = useRef<HTMLDivElement>(null);
-  const detailHeading = useRef<HTMLHeadingElement>(null);
-  const [masterRoot, setMasterRoot] = useState<HTMLDivElement | null>(null);
-  const [detailRoot, setDetailRoot] = useState<HTMLElement | null>(null);
-  const [revisionRoot, setRevisionRoot] = useState<HTMLDivElement | null>(null);
-  const masterScroll = useRememberedScroll(scrollMemory, "units-master", resetToken);
-  const detailScroll = useRememberedScroll(scrollMemory, "units-detail", resetToken);
-  const attachMaster = useCallback((node: HTMLDivElement | null) => {
-    masterRef.current = node;
-    masterScroll.ref(node);
-    setMasterRoot((current) => current === node ? current : node);
-  }, [masterScroll.ref]);
-  const attachDetail = useCallback((node: HTMLElement | null) => {
-    detailScroll.ref(node);
-    setDetailRoot((current) => current === node ? current : node);
-  }, [detailScroll.ref]);
-  const virtualizer = useVirtualizer({
-    count: units.length,
-    getScrollElement: () => masterRef.current,
-    getItemKey: (index) => units[index]?.id ?? index,
-    estimateSize: () => 72,
-    initialOffset: () => scrollMemory.get("units-master") ?? 0,
-    initialRect: { width: 320, height: 600 },
-    overscan: 5,
-  });
-  const selected = snapshot.unit.value;
-  const inspected = snapshot.inspectedUnitRevision.value;
-  const pending = snapshot.unitMutation !== "idle";
-  const open = async (unitId: string) => {
-    const position = masterRef.current?.scrollTop ?? 0;
-    await controller.openUnit(unitId);
-    if (masterRef.current) masterRef.current.scrollTop = position;
-    detailHeading.current?.focus({ preventScroll: true });
-  };
-  const inspect = async (revisionId: string) => {
-    const position = masterRef.current?.scrollTop ?? 0;
-    await controller.inspectUnitRevision(revisionId);
-    if (masterRef.current) masterRef.current.scrollTop = position;
-    detailHeading.current?.focus({ preventScroll: true });
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [returnFocus, setReturnFocus] = useState<HTMLElement | null>(null);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [query, setQuery] = useState("");
+  useEffect(() => {
+    if (!targetUnitId) return;
+    setViewerOpen(true);
+    void controller.openUnit(targetUnitId);
+  }, [controller, targetUnitId]);
+  const rememberedScroll = useRememberedScroll(scrollMemory, "units-grid", resetToken);
+  const publications = (snapshot.domain.overview.value as ProjectOverviewDto | null)?.publications?.items ?? [];
+  const rows = useMemo(() => units.map((unit) => ({ unit, lifecycle: unitLifecycle({ unit, publications }) })), [publications, units]);
+  const counts = useMemo(() => ({
+    all: rows.length,
+    "in-progress": rows.filter(({ lifecycle }) => filterFor(lifecycle) === "in-progress").length,
+    scheduled: rows.filter(({ lifecycle }) => filterFor(lifecycle) === "scheduled").length,
+    published: rows.filter(({ lifecycle }) => filterFor(lifecycle) === "published").length,
+  }), [rows]);
+  const typeFilters = useMemo(() => [...new Set([...formatOrder, ...units.map(({ format }) => formatKey(format))])].sort((a, b) => {
+    const aIndex = formatOrder.indexOf(a); const bIndex = formatOrder.indexOf(b);
+    return (aIndex < 0 ? formatOrder.length : aIndex) - (bIndex < 0 ? formatOrder.length : bIndex) || a.localeCompare(b);
+  }), [units]);
+  const visible = useMemo(() => rows.filter(({ unit, lifecycle }) => (filter === "all" || filterFor(lifecycle) === filter) && (typeFilter === "all" || formatKey(unit.format) === typeFilter) && unit.slug.toLowerCase().includes(query.trim().toLowerCase())), [filter, query, rows, typeFilter]);
+  const attachScroll = useCallback((node: HTMLDivElement | null) => {
+    scrollRef.current = node;
+    rememberedScroll.ref(node);
+    setScrollRoot((current) => current === node ? current : node);
+  }, [rememberedScroll.ref]);
+
+  const openUnit = (unitId: string, trigger: HTMLElement) => {
+    const scrollTop = scrollRef.current?.scrollTop ?? 0;
+    setReturnFocus(trigger);
+    setViewerOpen(true);
+    void controller.openUnit(unitId).finally(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollTop; });
   };
 
-  return <div className="units-workbench">
-    <div className="units-master" role="region" aria-label="Units" ref={attachMaster} onScroll={masterScroll.onScroll}>
-      <div className="units-virtual-list" style={{ height: virtualizer.getTotalSize() }}>
-        {virtualizer.getVirtualItems().map((row) => {
-          const item = units[row.index];
-          return <button
-            className={`unit-row${snapshot.unitId === item.id ? " is-selected" : ""}`}
-            type="button"
-            disabled={snapshot.unitMutation !== "idle"}
-            aria-pressed={snapshot.unitId === item.id}
-            key={row.key}
-            onClick={() => { void open(item.id); }}
-            style={{ height: row.size, transform: `translateY(${row.start}px)` }}
-          ><Layers3 size={18} aria-hidden="true" /><span><strong>{item.slug}</strong><small>{item.format} · Updated {formatTime(item.updatedAt)}</small></span><Badges unit={item} /></button>;
-        })}
+  return <div className="units-workbench units-grid-workbench">
+    <div className="units-toolbar">
+      <div className="units-toolbar-filters">
+        <div className="units-filter" role="group" aria-label="Unit status filter">
+          {(["all", "in-progress", "scheduled", "published"] as Filter[]).map((value) => <button className={filter === value ? "is-active" : ""} type="button" aria-pressed={filter === value} key={value} onClick={() => setFilter(value)}>{value === "all" ? "All" : value === "in-progress" ? "In progress" : value[0].toUpperCase() + value.slice(1)} <span>{counts[value]}</span></button>)}
+        </div>
+        <div className="units-type-filter" role="group" aria-label="Unit type filter">
+          {["all", ...typeFilters].map((value) => <button className={typeFilter === value ? "is-active" : ""} type="button" aria-pressed={typeFilter === value} key={value} onClick={() => setTypeFilter(value)}>{value === "all" ? "All" : formatLabel(value)}</button>)}
+        </div>
       </div>
-      <AutoCursorTail
-        root={masterRoot}
-        hasMore={page.nextCursor !== null}
-        loading={page.status === "loading" && page.items.length > 0}
-        error={page.status === "error" && page.items.length > 0 ? page.error : null}
-        onLoadMore={() => { void controller.loadMore("units"); }}
-        onRetry={() => { void controller.retryPage("units"); }}
-      />
+      <label className="units-search"><Search aria-hidden="true" /><input aria-label="Search units" placeholder="Search units" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
     </div>
-    <section className="units-detail" aria-label="Unit detail" ref={attachDetail} onScroll={detailScroll.onScroll}>
-      {!snapshot.unitId && <div className="empty-section">Select a Unit to inspect it.</div>}
-      {snapshot.unit.status === "loading" && <div className="project-skeleton" role="status">Loading Unit…</div>}
-      {snapshot.unit.status === "error" && <div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.unit.error}</span><button className="command-button" type="button" onClick={() => { if (snapshot.unitId) void controller.openUnit(snapshot.unitId); }}>Retry</button></div>}
-      {selected && <>
-        <header className="unit-detail-header"><div><h2 className="unit-detail-heading" tabIndex={-1} ref={detailHeading}>{selected.slug}</h2><p>{selected.format} · Updated {formatTime(selected.updatedAt)}</p></div><Badges unit={selected} /></header>
-        {snapshot.unitConflict && <p className="project-local-error" role="alert">{snapshot.unitConflict}</p>}
-        {snapshot.unitMutationError && <p className="project-local-error" role="alert">{snapshot.unitMutationError}</p>}
-        {snapshot.unitRevisions.status === "loading" && snapshot.unitRevisions.items.length === 0 && <div className="project-skeleton" role="status">Loading revisions…</div>}
-        {snapshot.unitRevisions.status === "error" && snapshot.unitRevisions.items.length === 0 && <div className="project-local-error" role="alert"><span>{snapshot.unitRevisions.error}</span><button className="command-button" type="button" onClick={() => { void controller.openUnit(selected.id); }}>Retry</button></div>}
-        {(snapshot.unitRevisions.items.length > 0 || inspected) && <RevisionRail root={revisionRoot} setRoot={setRevisionRoot} unit={selected} snapshot={snapshot} controller={controller} onInspect={inspect} />}
-        {snapshot.inspectedUnitRevision.status === "loading" && <div className="project-skeleton" role="status">Loading revision…</div>}
-        {snapshot.inspectedUnitRevision.status === "error" && <div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.inspectedUnitRevision.error}</span></div>}
-        {inspected && <div className="unit-revision-detail">
-          <header><div><h3>Revision {inspected.revisionNo}</h3><p>{inspected.sealedAt === null ? "Draft" : `Sealed ${formatTime(inspected.sealedAt)}`}{inspected.note ? ` · ${inspected.note}` : ""}</p></div><button className="command-button" type="button" disabled={pending || snapshot.unitRevisions.status === "loading" || inspected.sealedAt === null || inspected.id === selected.selectedRevisionId} onClick={() => { void controller.selectInspectedUnitRevision(); }}>{pending ? "Selecting…" : "Make selected"}</button></header>
-          <section className="unit-visual-section"><h4>Revision preview</h4><div className="unit-visual-preview"><ArtifactPreview preview={snapshot.unitPreview} empty="No visual source in this revision." retry={() => { void controller.inspectUnitRevision(inspected.id); }} /></div></section>
-          <section className="unit-items" aria-label="Unit items"><h4>Items</h4>{snapshot.unitItems.status === "loading" && snapshot.unitItems.items.length === 0 ? <div className="project-skeleton" role="status">Loading items…</div> : snapshot.unitItems.status === "error" && snapshot.unitItems.items.length === 0 ? <div className="project-local-error" role="alert"><span>{snapshot.unitItems.error}</span><button className="command-button" type="button" onClick={() => { void controller.inspectUnitRevision(inspected.id); }}>Retry</button></div> : snapshot.unitItems.items.length === 0 ? <p className="empty-section">No items.</p> : [...snapshot.unitItems.items].sort((a, b) => a.position - b.position).map((item) => <article className="unit-item" key={item.id}><strong>#{item.position} · {item.role}</strong><span>{item.artifactRevisionId ? "Artifact source" : item.documentRevisionId ? "Document source" : "Unbound source"}</span></article>)}<Tail key={`items:${inspected.id}`} root={detailRoot} page={snapshot.unitItems} load={controller.loadMoreUnitItems} /></section>
-          <section className="unit-presentations" aria-label="Unit presentations"><h4>Presentations</h4>{snapshot.unitPresentations.status === "loading" && snapshot.unitPresentations.items.length === 0 ? <div className="project-skeleton" role="status">Loading presentations…</div> : snapshot.unitPresentations.status === "error" && snapshot.unitPresentations.items.length === 0 ? <div className="project-local-error" role="alert"><span>{snapshot.unitPresentations.error}</span><button className="command-button" type="button" onClick={() => { void controller.inspectUnitRevision(inspected.id); }}>Retry</button></div> : <Presentations items={snapshot.unitPresentations.items} />}<Tail key={`presentations:${inspected.id}`} root={detailRoot} page={snapshot.unitPresentations} load={controller.loadMoreUnitPresentations} /></section>
-          <details className="unit-technical"><summary>Technical details</summary><dl><div><dt>Unit ID</dt><dd>{selected.id}</dd></div><div><dt>Revision ID</dt><dd>{inspected.id}</dd></div><div><dt>Parent revision</dt><dd>{inspected.parentRevisionId ?? "None"}</dd></div><div><dt>Iteration</dt><dd>{inspected.iterationId ?? "None"}</dd></div><div><dt>Author session</dt><dd>{inspected.authoredBySessionId ?? "None"}</dd></div></dl><h4>Item configuration</h4>{snapshot.unitItems.items.map((item) => <pre key={item.id}>{item.id}{"\n"}{item.artifactRevisionId ?? item.documentRevisionId ?? "No source"}{"\n"}{json(item.config)}</pre>)}<h4>Presentation configuration</h4>{snapshot.unitPresentations.items.map((item) => <pre key={item.id}>{item.id}{"\n"}Caption {item.effectiveCaptionRevisionId ?? "None"}{"\n"}Cover {item.coverArtifactRevisionId ?? "None"}{"\n"}Crop {json(item.crop)}{"\n"}Safe area {json(item.safeArea)}{"\n"}Options {json(item.options)}</pre>)}</details>
-        </div>}
-      </>}
-    </section>
+    <div className="units-grid-scroll" role="region" aria-label="Units" ref={attachScroll} onScroll={rememberedScroll.onScroll}>
+      {units.length === 0 ? <div className="units-empty"><RalphyMascot size={46} /><strong>No units yet</strong><p>Units appear here as soon as an agent starts working, long before the final render is ready.</p></div> : visible.length === 0 ? <div className="units-empty is-filtered"><strong>No matching units</strong><p>Try another status, type, or search phrase.</p></div> : <div className="units-grid">
+        {visible.map(({ unit, lifecycle }) => <UnitCard key={unit.id} unit={unit} baseLifecycle={lifecycle} publications={publications} controller={controller} disabled={snapshot.unitMutation !== "idle" || snapshot.compositionMutation !== "idle"} onOpen={(trigger) => openUnit(unit.id, trigger)} />)}
+      </div>}
+      <AutoCursorTail root={scrollRoot} hasMore={page.nextCursor !== null} loading={page.status === "loading" && units.length > 0} error={page.status === "error" && units.length > 0 ? page.error : null} onLoadMore={() => { void controller.loadMore("units"); }} onRetry={() => { void controller.retryPage("units"); }} />
+    </div>
+    <UnitViewer open={viewerOpen} onOpenChange={setViewerOpen} controller={controller} snapshot={snapshot} returnFocus={returnFocus} />
   </div>;
 }

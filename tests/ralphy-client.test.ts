@@ -38,7 +38,7 @@ function injectedBridge(mode: "success" | "error" | "backpressure-close") {
         callback();
         setImmediate(() => send({ v: 1, id: request.id, ok: true, result: {
           protocolVersion: 1,
-          coreVersion: "2",
+          coreVersion: "3",
           schemaVersion: 9,
           storeId: "store-injected",
           rootId: "a".repeat(64),
@@ -140,7 +140,7 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
     const result = {
       protocolVersion: root.includes("protocol-2") ? 2 : 1,
       schemaVersion: 9,
-      coreVersion: root.includes("core-1") ? "1" : root.includes("core-3") ? "3" : "2.0.0-test",
+      coreVersion: root.includes("core-1") ? "1" : root.includes("core-2") ? "2" : "3.0.0-test",
       storeId: "store-test",
       rootId: root.includes("bad-root-id") ? "root-test" : "a".repeat(64),
       capabilities: root.includes("missing-method")
@@ -518,7 +518,7 @@ describe("RalphyBridgeClient", () => {
       ParamsFor<"agent.turn.resume">,
     ] = [
       { context, compositionRevisionId: "composition-revision-1", profile: { quality: "preview" } },
-      { context, external, unitId: "unit-1", expectedLatestRevisionId: "unit-revision-1", input: {} },
+      { context, unitId: "unit-1", expectedLatestRevisionId: "unit-revision-1", compositionRevisionId: "composition-revision-1", items: [] },
       { context, external, unitRevisionId: "unit-revision-1", platform: "tiktok" },
       { context, external, publicationId: "publication-1" },
       { context, external, publicationId: "publication-1" },
@@ -670,7 +670,7 @@ describe("RalphyBridgeClient", () => {
     await expect(client.start()).resolves.toEqual({
       protocolVersion: 1,
       schemaVersion: 9,
-      coreVersion: "2.0.0-test",
+      coreVersion: "3.0.0-test",
       storeId: "store-test",
       rootId: "a".repeat(64),
       capabilities: [...BRIDGE_METHODS],
@@ -742,7 +742,7 @@ describe("RalphyBridgeClient", () => {
     await client.close();
   });
 
-  test.each(["core-1", "core-3"])("rejects unsupported %s before enabling Task-5 Composition mutations", async (root) => {
+  test.each(["core-1", "core-2"])("rejects unsupported %s before enabling production mutations", async (root) => {
     const client = new RalphyBridgeClient({ bin: fixtureBin, root: `/${root}` });
 
     await expect(client.start()).rejects.toMatchObject({

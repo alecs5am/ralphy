@@ -1,11 +1,10 @@
 import {
   ArrowLeft,
   ArrowRight,
-  FolderOpen,
+  House,
   PanelBottom,
   PanelLeft,
   PanelRight,
-  X,
 } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -44,42 +43,30 @@ export function SidebarChrome({
   );
 }
 
-export interface MainHeaderTab {
-  id: string;
-  label: string;
-  active: boolean;
-  onOpen(): void;
-  onClose?(): void;
-}
-
 interface MainHeaderProps {
-  tabs: MainHeaderTab[];
   sidebarVisible: boolean;
   canGoBack: boolean;
   canGoForward: boolean;
   rightPanelVisible: boolean;
   bottomPanelVisible: boolean;
-  showChooseLibrary: boolean;
   onBack(): void;
   onForward(): void;
+  onHome(): void;
   onToggleSidebar(): void;
-  onChooseLibrary(): void;
   onToggleRightPanel(): void;
   onToggleBottomPanel(): void;
 }
 
 export function MainHeader({
-  tabs,
   sidebarVisible,
   canGoBack,
   canGoForward,
   rightPanelVisible,
   bottomPanelVisible,
-  showChooseLibrary,
   onBack,
   onForward,
+  onHome,
   onToggleSidebar,
-  onChooseLibrary,
   onToggleRightPanel,
   onToggleBottomPanel,
 }: MainHeaderProps) {
@@ -99,26 +86,10 @@ export function MainHeader({
           </button>
         </div>
       )}
-      <nav className="header-tabs" aria-label="Open project tabs" role="tablist">
-        {tabs.map((tab) => (
-          <div className={`header-tab${tab.active ? " is-active" : ""}`} key={tab.id}>
-            <button className="header-tab-label" type="button" role="tab" aria-selected={tab.active} onClick={tab.onOpen}>
-              {tab.label}
-            </button>
-            {tab.onClose && (
-              <button className="header-tab-close" type="button" aria-label={`Close ${tab.label}`} title={`Close ${tab.label}`} onClick={tab.onClose}>
-                <X size={13} strokeWidth={1.5} aria-hidden="true" />
-              </button>
-            )}
-          </div>
-        ))}
-      </nav>
+      <button className="icon-button main-header-home" type="button" title="Projects" aria-label="Projects" onClick={onHome}>
+        <House size={16} strokeWidth={1.5} aria-hidden="true" />
+      </button>
       <div className="main-header-actions">
-        {showChooseLibrary && (
-          <button className="icon-button" type="button" title="Choose .ralphy library" aria-label="Choose .ralphy library" onClick={onChooseLibrary}>
-            <FolderOpen size={15} strokeWidth={1.5} />
-          </button>
-        )}
         <button className={`icon-button${bottomPanelVisible ? " is-active" : ""}`} type="button" title="Toggle bottom panel (⌘J)" aria-label="Toggle bottom panel" aria-pressed={bottomPanelVisible} onClick={onToggleBottomPanel}>
           <PanelBottom size={16} strokeWidth={1.5} />
         </button>

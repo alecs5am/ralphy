@@ -1,4 +1,10 @@
-import { ChevronRight, Settings } from "lucide-react";
+import {
+  CircleHelp,
+  ExternalLink,
+  Globe2,
+  Keyboard,
+  Settings,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   useEffect,
@@ -17,35 +23,40 @@ export function ProfileMenu({
   rootPath: string;
   onOpenSettings(): void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState<"profile" | "help" | null>(null);
   const [position, setPosition] = useState<CSSProperties>({});
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const profileTriggerRef = useRef<HTMLButtonElement>(null);
+  const helpTriggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const identity = profileIdentity(rootPath);
 
   const closeAndRestoreFocus = () => {
-    setOpen(false);
-    requestAnimationFrame(() => triggerRef.current?.focus());
+    const trigger = open === "help" ? helpTriggerRef : profileTriggerRef;
+    setOpen(null);
+    requestAnimationFrame(() => trigger.current?.focus());
   };
 
   useEffect(() => {
     if (!open) return;
     const place = () => {
-      const bounds = triggerRef.current?.getBoundingClientRect();
+      const trigger = open === "help" ? helpTriggerRef : profileTriggerRef;
+      const bounds = trigger.current?.getBoundingClientRect();
       if (!bounds) return;
+      const width = open === "help" ? 320 : Math.max(bounds.width, 246);
       setPosition({
-        left: Math.min(bounds.left, window.innerWidth - 266),
+        left: Math.max(8, Math.min(bounds.left, window.innerWidth - width - 8)),
         bottom: window.innerHeight - bounds.top + 8,
-        width: Math.max(bounds.width, 246),
+        width,
       });
     };
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
       if (
         !menuRef.current?.contains(target)
-        && !triggerRef.current?.contains(target)
+        && !profileTriggerRef.current?.contains(target)
+        && !helpTriggerRef.current?.contains(target)
       ) {
-        setOpen(false);
+        setOpen(null);
       }
     };
     const onKeyDown = (event: KeyboardEvent) => {
@@ -67,33 +78,38 @@ export function ProfileMenu({
 
   return (
     <>
-      <button
-        className="profile-menu-trigger"
-        type="button"
-        aria-label="Open profile menu"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        ref={triggerRef}
-        onClick={() => setOpen((value) => !value)}
-      >
-        <ProfileAvatar rootPath={rootPath} />
-        <span className="sidebar-profile-copy">
-          <strong>{identity}</strong>
-          <small title={rootPath}>.ralphy library</small>
-        </span>
-        <ChevronRight
-          className="profile-menu-chevron"
-          size={14}
-          strokeWidth={1.5}
-        />
-      </button>
+      <div className="profile-controls">
+        <button
+          className="profile-menu-trigger"
+          type="button"
+          aria-label="Open profile menu"
+          aria-haspopup="menu"
+          aria-expanded={open === "profile"}
+          ref={profileTriggerRef}
+          onClick={() => setOpen((value) => value === "profile" ? null : "profile")}
+        >
+          <ProfileAvatar rootPath={rootPath} size={20} />
+          <strong className="sidebar-profile-name">{identity}</strong>
+        </button>
+        <button
+          className="help-menu-trigger"
+          type="button"
+          aria-label="Open help menu"
+          aria-haspopup="menu"
+          aria-expanded={open === "help"}
+          ref={helpTriggerRef}
+          onClick={() => setOpen((value) => value === "help" ? null : "help")}
+        >
+          <CircleHelp size={15} strokeWidth={1.5} aria-hidden="true" />
+        </button>
+      </div>
       {createPortal(
         <AnimatePresence>
           {open && (
             <motion.div
-              className="profile-menu"
+              className={open === "help" ? "help-menu" : "profile-menu"}
               role="menu"
-              aria-label="Profile"
+              aria-label={open === "help" ? "Help" : "Profile"}
               ref={menuRef}
               style={position}
               initial={{ opacity: 0, y: 6, scale: 0.98 }}
@@ -101,26 +117,57 @@ export function ProfileMenu({
               exit={{ opacity: 0, y: 4, scale: 0.985 }}
               transition={{ duration: 0.14, ease: [0.2, 0, 0.2, 1] }}
             >
-              <div className="profile-menu-identity">
-                <ProfileAvatar rootPath={rootPath} size={30} />
-                <span>
-                  <strong>{identity}</strong>
-                  <small>Local workspace profile</small>
-                </span>
-              </div>
-              <div className="profile-menu-separator" />
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setOpen(false);
-                  onOpenSettings();
-                }}
-              >
-                <Settings size={15} strokeWidth={1.5} />
-                <span>Settings</span>
-                <kbd>⌘,</kbd>
-              </button>
+              {open === "profile" ? (
+                <>
+                  <div className="profile-menu-identity">
+                    <ProfileAvatar rootPath={rootPath} size={20} />
+                    <strong>{identity}</strong>
+                  </div>
+                  <div className="menu-separator" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setOpen(null);
+                      onOpenSettings();
+                    }}
+                  >
+                    <Settings size={15} strokeWidth={1.5} />
+                    <span>Settings</span>
+                    <kbd>⌘,</kbd>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="help-menu-label">What's new</div>
+                  <div className="help-menu-update">
+                    <span />
+                    <strong>Ralphy Desktop preview</strong>
+                    <time>17 Aug</time>
+                  </div>
+                  <div className="help-menu-update">
+                    <span />
+                    <strong>Project media grid</strong>
+                    <time>17 Aug</time>
+                  </div>
+                  <div className="menu-separator" />
+                  <a href="https://alecs5am.com" target="_blank" rel="noreferrer" role="menuitem" onClick={() => setOpen(null)}>
+                    <Globe2 size={15} strokeWidth={1.5} />
+                    <span>Ralphy website</span>
+                    <ExternalLink size={13} strokeWidth={1.5} />
+                  </a>
+                  <button type="button" role="menuitem" disabled>
+                    <Keyboard size={15} strokeWidth={1.5} />
+                    <span>Keyboard shortcuts</span>
+                    <small>Soon</small>
+                  </button>
+                  <a href="https://alecs5am.com" target="_blank" rel="noreferrer" role="menuitem" onClick={() => setOpen(null)}>
+                    <CircleHelp size={15} strokeWidth={1.5} />
+                    <span>Help</span>
+                    <ExternalLink size={13} strokeWidth={1.5} />
+                  </a>
+                </>
+              )}
             </motion.div>
           )}
         </AnimatePresence>,

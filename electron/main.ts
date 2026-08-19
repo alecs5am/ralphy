@@ -2,7 +2,6 @@ import {
   app,
   BrowserWindow,
   clipboard,
-  dialog,
   ipcMain,
   net,
   nativeImage,
@@ -13,8 +12,9 @@ import {
   shell,
 } from "electron";
 import { readFileSync, statSync } from "node:fs";
-import { mkdir, readFile, realpath, stat } from "node:fs/promises";
+import { mkdir, realpath, stat } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
+import { homedir } from "node:os";
 import { Worker } from "node:worker_threads";
 import { basename, dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -47,7 +47,7 @@ import {
 import { loadAnnotations, updateAnnotations } from "./media/annotations";
 import {
   buildDomainCatalog,
-  InvalidLibraryRootError,
+  ensureHomeLibraryRoot,
   isDomainLibraryRoot,
   readBoundedText,
   resolveProjectPath,
@@ -110,6 +110,8 @@ import {
   type ActivitySynchronizer,
 } from "./ralphy/activity-sync";
 import { createProjectReader, registerProjectMediaIpc } from "./ralphy/project-reader";
+import { createMemoryReader } from "./ralphy/memory-reader";
+import { createCalendarReader } from "./ralphy/calendar-reader";
 import { registerWorkspaceOverviewIpc } from "./ralphy/workspace-reader";
 import type { BridgeMethod, JsonValue, ParamsFor, ResultFor } from "./ralphy/types";
 import { resolveRalphyExecutable } from "./ralphy/executable";
@@ -139,10 +141,17 @@ import {
   type WindowBounds,
 } from "./window-state";
 import { parseBoundedJsonValue as parseJsonValue } from "./json-value";
+import {
+  loadLocalModelDetail,
+  loadLocalModelMachine,
+  parseLocalModelProviderUrl,
+  parseLocalModelReference,
+  parseLocalModelSearchInput,
+  searchLocalModels,
+} from "./local-models";
 
 const RENDERER = join(__dirname, "..", "dist", "index.html");
 const WORKER_ENTRY = join(__dirname, "media", "worker.cjs");
-const SETTINGS_LIMIT_BYTES = 64 * 1024;
 const WINDOW_STATE_LIMIT_BYTES = 1024;
 const DEFAULT_WINDOW_SIZE = { width: 1200, height: 800 };
 const MINIMUM_WINDOW_SIZE = { width: 1100, height: 720 };
@@ -186,10 +195,6 @@ function fileDragIcon(): Electron.NativeImage {
 interface PendingWorkerRequest {
   resolve: (value: CatalogResult) => void;
   reject: (error: Error) => void;
-}
-
-interface AppSettings {
-  lastLibrary: string | null;
 }
 
 class MediaWorkerClient {
@@ -421,10 +426,6 @@ function mediaWorker(): MediaWorkerClient {
   return worker;
 }
 
-function settingsPath(): string {
-  return join(app.getPath("userData"), "media-library-settings.json");
-}
-
 function windowStatePath(): string {
   return join(app.getPath("userData"), "window-state.json");
 }
@@ -446,46 +447,6 @@ async function writeWindowBounds(bounds: WindowBounds): Promise<void> {
   await guardedAtomicWrite(path, `${JSON.stringify(bounds)}\n`, {
     maxBytes: WINDOW_STATE_LIMIT_BYTES,
   });
-}
-
-async function readSettings(assertCurrent: () => void = () => undefined): Promise<AppSettings> {
-  assertCurrent();
-  const path = settingsPath();
-  const info = await stat(path).catch(() => null);
-  assertCurrent();
-  if (!info?.isFile() || info.size > SETTINGS_LIMIT_BYTES) return { lastLibrary: null };
-  let data: string;
-  try {
-    data = await readFile(path, "utf8");
-  } catch {
-    return { lastLibrary: null };
-  }
-  assertCurrent();
-  try {
-    const value = JSON.parse(data) as unknown;
-    if (value !== null && typeof value === "object") {
-      const lastLibrary = (value as Record<string, unknown>).lastLibrary;
-      return { lastLibrary: typeof lastLibrary === "string" ? lastLibrary : null };
-    }
-  } catch {
-    // Invalid app-local state is treated as no restoration.
-  }
-  return { lastLibrary: null };
-}
-
-async function writeSettings(
-  settings: AppSettings,
-  assertCurrent: () => void,
-): Promise<void> {
-  assertCurrent();
-  const path = settingsPath();
-  await mkdir(dirname(path), { recursive: true });
-  assertCurrent();
-  await guardedAtomicWrite(
-    path,
-    `${JSON.stringify(settings, null, 2)}\n`,
-    { maxBytes: SETTINGS_LIMIT_BYTES, assertCurrent },
-  );
 }
 
 function parseString(value: unknown, label: string, maxLength = 4096): string {
@@ -679,10 +640,6 @@ async function prepareMediaRoot(
     const active = await watcher.replace({
       assertCurrent: () => mediaState.assertOpen(operation),
       create: () => createWatcher(root, client),
-      prepare: () => writeSettings(
-        { lastLibrary: root },
-        () => mediaState.assertOpen(operation),
-      ),
       commit: () => mediaState.completeOpen(operation, root),
     });
     mediaState.assertActive(active);
@@ -716,7 +673,6 @@ async function openLibrary(
           }
           mediaState.close();
           watcher.close();
-          await writeSettings({ lastLibrary: null }, () => undefined);
         };
       },
       invalidateFileTokens: () => mediaState.fileAccess.clear(),
@@ -920,38 +876,26 @@ async function mediaUrl(
 }
 
 function registerMediaIpc(): void {
-  securedHandle(MEDIA_CHANNELS.chooseLibrary, async () => {
-    const options: Electron.OpenDialogOptions = {
-      title: "Choose Ralphy Library",
-      message: "Choose a .ralphy directory",
-      properties: ["openDirectory"],
-    };
-    try {
-      const result = win
-        ? await dialog.showOpenDialog(win, options)
-        : await dialog.showOpenDialog(options);
-      if (result.canceled || !result.filePaths[0]) return null;
-      return await openLibrary(result.filePaths[0]);
-    } catch (error) {
-      if (error instanceof MigrationRecoveryRequired) {
-        showMigrationRecovery(error.recovery);
-        return null;
-      }
-      throw error;
-    }
+  securedHandle(MEDIA_CHANNELS.searchLocalModels, (_event, rawInput: unknown) => (
+    searchLocalModels(parseLocalModelSearchInput(rawInput), undefined, net.fetch)
+  ));
+  securedHandle(MEDIA_CHANNELS.loadLocalModelDetail, async (_event, rawRef: unknown) => {
+    const machine = await loadLocalModelMachine(net.fetch);
+    return loadLocalModelDetail(parseLocalModelReference(rawRef), machine, net.fetch);
   });
+  securedHandle(MEDIA_CHANNELS.refreshLocalModelMachine, () => loadLocalModelMachine(net.fetch));
+  securedHandle(MEDIA_CHANNELS.openLocalModelProvider, (_event, rawUrl: unknown) => (
+    shell.openExternal(parseLocalModelProviderUrl(rawUrl))
+  ));
   securedHandle(MEDIA_CHANNELS.restoreLibrary, () => {
     return restoreLibrary(async () => {
-      const root = (await readSettings()).lastLibrary;
-      if (!root) return null;
       try {
-        return await openLibrary(root);
+        return await openLibrary(await ensureHomeLibraryRoot(homedir()));
       } catch (error) {
         if (error instanceof MigrationRecoveryRequired) {
           showMigrationRecovery(error.recovery);
           return null;
         }
-        if (error instanceof InvalidLibraryRootError) return null;
         throw error;
       }
     });
@@ -1081,6 +1025,41 @@ function projectReaderForCurrentRoot() {
   });
 }
 
+function memoryReaderForCurrentRoot() {
+  const operation = captureBridgeRoot();
+  return createMemoryReader({
+    request: async <Method extends BridgeMethod>(method: Method, params: ParamsFor<Method>): Promise<ResultFor<Method>> => {
+      assertBridgeRoot(operation);
+      const result = await ralphySession.client.request(method, params);
+      assertBridgeRoot(operation);
+      return result;
+    },
+  });
+}
+
+function calendarReaderForCurrentRoot() {
+  const operation = captureBridgeRoot();
+  return createCalendarReader({
+    request: async <Method extends BridgeMethod>(method: Method, params: ParamsFor<Method>): Promise<ResultFor<Method>> => {
+      assertBridgeRoot(operation);
+      const result = await ralphySession.client.request(method, params);
+      assertBridgeRoot(operation);
+      return result;
+    },
+    mint: async (absolutePath, mime, expectedBytes) => {
+      const minted = await mediaState.fileAccess.mintTrustedLocator(
+        operation.rootPath,
+        absolutePath,
+        mime,
+        expectedBytes,
+        () => assertBridgeRoot(operation),
+      );
+      assertBridgeRoot(operation);
+      return { url: `ralphy-media://asset/${minted.token}`, sizeBytes: minted.sizeBytes };
+    },
+  });
+}
+
 function parseProjectDomainPage(value: unknown): {
   tab: "documents" | "media" | "compositions" | "units" | "activity";
   project: ProjectReference;
@@ -1169,11 +1148,72 @@ function registerProjectDomainIpc(): void {
     showItemInFolder: (path) => shell.showItemInFolder(path),
     writeBuffer: (format, data) => clipboard.writeBuffer(format, data),
   });
+  securedHandle(MEDIA_CHANNELS.loadMemory, (_event, rawWorkspaceId: unknown, rawInput: unknown) => (
+    memoryReaderForCurrentRoot().list(
+      parseString(rawWorkspaceId, "Workspace identifier", 256),
+      rawInput as never,
+    )
+  ));
+  securedHandle(MEDIA_CHANNELS.showMemory, (_event, rawWorkspaceId: unknown, rawEntryId: unknown) => (
+    memoryReaderForCurrentRoot().show(
+      parseString(rawWorkspaceId, "Workspace identifier", 256),
+      parseString(rawEntryId, "Memory identifier", 256),
+    )
+  ));
+  securedHandle(MEDIA_CHANNELS.mutateMemory, (_event, rawWorkspaceId: unknown, rawInput: unknown) => (
+    memoryReaderForCurrentRoot().mutate(
+      parseString(rawWorkspaceId, "Workspace identifier", 256),
+      rawInput as never,
+    )
+  ));
+  securedHandle(MEDIA_CHANNELS.loadMemoryHistory, (_event, rawWorkspaceId: unknown, rawEntryId: unknown) => (
+    memoryReaderForCurrentRoot().history(
+      parseString(rawWorkspaceId, "Workspace identifier", 256),
+      parseString(rawEntryId, "Memory identifier", 256),
+    )
+  ));
+  securedHandle(MEDIA_CHANNELS.recallMemory, (_event, rawWorkspaceId: unknown) => (
+    memoryReaderForCurrentRoot().recall(parseString(rawWorkspaceId, "Workspace identifier", 256))
+  ));
+  securedHandle(MEDIA_CHANNELS.loadMemoryHealth, (_event, rawWorkspaceId: unknown) => (
+    memoryReaderForCurrentRoot().health(parseString(rawWorkspaceId, "Workspace identifier", 256))
+  ));
+  securedHandle(MEDIA_CHANNELS.loadCalendar, (_event, rawWorkspaceId: unknown, rawInput: unknown) => (
+    calendarReaderForCurrentRoot().load(
+      parseString(rawWorkspaceId, "Workspace identifier", 256),
+      rawInput as never,
+    )
+  ));
+  securedHandle(MEDIA_CHANNELS.mutateCalendar, (_event, rawWorkspaceId: unknown, rawInput: unknown) => (
+    calendarReaderForCurrentRoot().mutate(
+      parseString(rawWorkspaceId, "Workspace identifier", 256),
+      rawInput as never,
+    )
+  ));
+  securedHandle(MEDIA_CHANNELS.reconnectCalendarAccount, (_event, rawWorkspaceId: unknown, rawInput: unknown) => (
+    calendarReaderForCurrentRoot().reconnect(
+      parseString(rawWorkspaceId, "Workspace identifier", 256),
+      rawInput as never,
+    )
+  ));
+  securedHandle(MEDIA_CHANNELS.resolveCalendarPreview, (_event, rawWorkspaceId: unknown, rawProjectId: unknown, rawRef: unknown) => (
+    calendarReaderForCurrentRoot().resolvePreview(
+      parseString(rawWorkspaceId, "Workspace identifier", 256),
+      rawProjectId === null ? null : parseString(rawProjectId, "Project identifier", 256),
+      rawRef as never,
+    )
+  ));
   securedHandle(MEDIA_CHANNELS.loadProjectOverview, (_event, rawProject: unknown) => (
     projectReaderForCurrentRoot().loadOverview(parseProjectReference(rawProject))
   ));
   securedHandle(MEDIA_CHANNELS.loadProjectPage, (_event, rawInput: unknown) => (
     projectReaderForCurrentRoot().loadPage(parseProjectDomainPage(rawInput))
+  ));
+  securedHandle(MEDIA_CHANNELS.loadProjectActivityRun, (_event, rawProject: unknown, rawRunId: unknown) => (
+    projectReaderForCurrentRoot().loadProjectActivityRun(
+      parseProjectReference(rawProject),
+      parseString(rawRunId, "Run identifier", 256),
+    )
   ));
   securedHandle(
     MEDIA_CHANNELS.loadDocumentPreview,
@@ -1359,7 +1399,7 @@ function createWindow(): void {
             `(() => {
               if (
                 !document.querySelector(".workbench")
-                || !window.ralphy?.chooseLibrary
+                || !window.ralphy?.restoreLibrary
                 || !window.ralphy?.createTerminal
                 || !window.ralphy?.getAgentProviders
                 || !window.ralphy?.sendAgentMessage

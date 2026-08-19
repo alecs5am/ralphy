@@ -129,9 +129,9 @@ describe("Documents panel", () => {
       });
       expect(host.container.querySelector(".document-search")).not.toBeNull();
       expect(host.container.querySelector(".document-editor")).not.toBeNull();
-      expect(host.container.querySelector(".project-heading h2")?.textContent).toContain("Launch");
+      expect(host.container.querySelector(".document-detail-heading")?.textContent).toContain("Launch");
       const commands = host.container.findAll((node) => node.matches(".command-button"));
-      expect(commands.map((node) => node.textContent)).toEqual(expect.arrayContaining(["Preview", "Cancel", "Save"]));
+      expect(commands.map((node) => node.textContent)).toEqual(expect.arrayContaining(["Cancel", "Save"]));
     } finally {
       await act(async () => root.unmount());
       host.restore();
@@ -559,9 +559,9 @@ describe("documents workbench", () => {
     const api = createApi();
     api.loadProjectPage.mockResolvedValue({
       items: [
-        { ...document, id: "listed-md", slug: "brief.MD", title: "Brief" },
-        { ...document, id: "listed-json", slug: "settings.JSON", title: "Settings" },
-        { ...document, id: "listed-text", slug: "notes.TXT", title: "Notes" },
+        { ...document, id: "listed-md", slug: "brief.MD", title: "Brief", currentRevision: { ...document.currentRevision, format: "markdown" as const } },
+        { ...document, id: "listed-json", slug: "settings.JSON", title: "Settings", currentRevision: { ...document.currentRevision, format: "json" as const } },
+        { ...document, id: "listed-text", slug: "notes.TXT", title: "Notes", currentRevision: { ...document.currentRevision, format: "text" as const } },
       ],
       nextCursor: null,
     });

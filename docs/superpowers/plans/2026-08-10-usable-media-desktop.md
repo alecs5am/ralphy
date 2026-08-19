@@ -20,7 +20,7 @@
 - Modal previous/next navigates loaded filtered items only and never auto-loads another page.
 - Prompt-like text is escaped plain text, collapsed by default, and copied only on explicit user action.
 - Keep one outer scroll owner per screen and structural borders only.
-- Use TDD with a witnessed behavior-level RED before every production change.
+- Cover production changes with behavior-level tests.
 - Do not access or mutate the live `.ralphy` tree during implementation.
 
 ---

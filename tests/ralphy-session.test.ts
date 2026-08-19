@@ -61,7 +61,7 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
         result: {
           protocolVersion: 1,
           schemaVersion: 9,
-          coreVersion: "2.0.0-test",
+          coreVersion: "3.0.0-test",
           storeId: "store-test",
           rootId,
           capabilities: ${JSON.stringify(BRIDGE_METHODS)},

@@ -16,6 +16,7 @@ import type {
   CompositionRevisionDto,
   CompositionSourceDto,
   DocumentDetailDto,
+  DocumentDto,
   DocumentRevisionDto,
   DocumentSearchDto,
   EvaluationDto,
@@ -27,10 +28,12 @@ import type {
   ParamsFor,
   ProjectOverviewDto,
   ResultFor,
+  RunAttemptDto,
   RunDto,
   UnitDto,
   UnitItemDto,
   UnitPresentationDto,
+  UnitPreviewDto,
   UnitRevisionDto,
 } from "./types";
 import {
@@ -174,10 +177,11 @@ function validJson(value: unknown): value is JsonValue {
 function unitDto(value: unknown, project: ProjectRef, unitId: string): value is UnitDto {
   const unit = record(value);
   return !!unit && exactKeys(unit, [
-    "id", "workspaceId", "projectId", "slug", "format", "latestRevisionId",
+    "id", "workspaceId", "projectId", "compositionId", "slug", "format", "latestRevisionId",
     "selectedRevisionId", "createdAt", "updatedAt",
   ]) && unit.id === unitId && unit.workspaceId === project.workspaceId
     && optionalScope(unit.projectId, project.projectId) && validId(unit.slug) && validId(unit.format)
+    && (unit.compositionId === null || validId(unit.compositionId))
     && (unit.latestRevisionId === null || validId(unit.latestRevisionId))
     && (unit.selectedRevisionId === null || validId(unit.selectedRevisionId))
     && sequence(unit.createdAt) && sequence(unit.updatedAt);
@@ -186,9 +190,10 @@ function unitDto(value: unknown, project: ProjectRef, unitId: string): value is 
 function unitRevisionDto(value: unknown, unitId: string): value is UnitRevisionDto {
   const revision = record(value);
   return !!revision && exactKeys(revision, [
-    "id", "unitId", "revisionNo", "parentRevisionId", "iterationId", "note",
+    "id", "unitId", "compositionRevisionId", "revisionNo", "parentRevisionId", "iterationId", "note",
     "authoredBySessionId", "createdAt", "sealedAt",
   ]) && validId(revision.id) && revision.unitId === unitId && sequence(revision.revisionNo, true)
+    && (revision.compositionRevisionId === null || validId(revision.compositionRevisionId))
     && (revision.parentRevisionId === null || validId(revision.parentRevisionId))
     && (revision.iterationId === null || validId(revision.iterationId))
     && (revision.note === null || (typeof revision.note === "string" && Buffer.byteLength(revision.note, "utf8") <= 65_536))
@@ -224,6 +229,13 @@ function unitPresentationDto(value: unknown, revisionId: string): value is UnitP
     && validJson(presentation.options) && sequence(presentation.createdAt);
 }
 
+function unitPreviewDto(value: unknown, revisionId: string, platform: string): value is UnitPreviewDto {
+  const preview = record(value);
+  return !!preview && exactKeys(preview, ["unitRevisionId", "platform", "presentation"])
+    && preview.unitRevisionId === revisionId && preview.platform === platform
+    && record(preview.presentation) !== null && validJson(preview.presentation);
+}
+
 function unitPage<Item>(
   value: unknown,
   validItem: (item: unknown) => item is Item,
@@ -235,6 +247,32 @@ function unitPage<Item>(
     throw new Error("Invalid Unit page");
   }
   return value as Page<Item>;
+}
+
+function documentRevisionDto(value: unknown, documentId: string): value is DocumentRevisionDto {
+  const revision = record(value);
+  return !!revision && validId(revision.id) && revision.documentId === documentId
+    && sequence(revision.revisionNo, true)
+    && (revision.parentRevisionId === null || validId(revision.parentRevisionId))
+    && (revision.iterationId === null || validId(revision.iterationId))
+    && DOCUMENT_FORMATS.has(revision.format as string)
+    && (revision.title === null || typeof revision.title === "string")
+    && (revision.authoredBySessionId === null || validId(revision.authoredBySessionId))
+    && sequence(revision.createdAt);
+}
+
+function documentDetailDto(value: unknown, project: ProjectRef, documentId: string): value is DocumentDetailDto {
+  const document = record(value);
+  return !!document && document.id === documentId && document.workspaceId === project.workspaceId
+    && optionalScope(document.projectId, project.projectId)
+    && DOCUMENT_KINDS.has(document.kind as string) && validId(document.slug)
+    && typeof document.title === "string"
+    && (document.currentRevisionId === null || validId(document.currentRevisionId))
+    && sequence(document.rowVersion, true) && sequence(document.createdAt) && sequence(document.updatedAt)
+    && (document.currentRevision === null || documentRevisionDto(document.currentRevision, documentId))
+    && (document.currentRevision === null
+      ? document.currentRevisionId === null
+      : document.currentRevision.id === document.currentRevisionId);
 }
 
 function documentSearchPage(value: unknown, project: ProjectRef): Page<DocumentSearchDto> {
@@ -340,6 +378,13 @@ function generationAttempt(value: unknown, runId: string): boolean {
     && sequence(attempt.startedAt)
     && (attempt.endedAt === null || sequence(attempt.endedAt))
     && (attempt.input === null || generationInput(attempt.input));
+}
+
+function runAttemptDto(value: unknown, runId: string): value is RunAttemptDto {
+  const attempt = record(value);
+  return !!attempt && exactKeys(attempt, [
+    "id", "runId", "attemptNo", "provider", "model", "state", "costUsd", "startedAt", "endedAt",
+  ]) && generationAttempt({ ...attempt, input: null }, runId);
 }
 
 function validateGenerationDetail(
@@ -884,6 +929,10 @@ export function registerProjectMediaIpc<Root>({
     if (input.kind === "items") return reader.loadProjectUnitPage(project, input);
     return reader.loadProjectUnitPage(project, input);
   }));
+  handle(MEDIA_CHANNELS.loadProjectUnitPreview, secured((reader, _root, _assertCurrent, rawProject, rawRevisionId, rawPlatform) => {
+    if (!validId(rawRevisionId) || !validId(rawPlatform)) throw new Error("Invalid Unit preview request");
+    return reader.loadProjectUnitPreview(parseProjectMediaIpcProject(rawProject), rawRevisionId, rawPlatform);
+  }));
   handle(MEDIA_CHANNELS.selectProjectUnitRevision, secured((reader, _root, _assertCurrent, rawProject, rawUnitId, rawRevisionId, rawExpectedSelectedRevisionId) => {
     if (!validId(rawUnitId) || !validId(rawRevisionId)
       || (rawExpectedSelectedRevisionId !== null && !validId(rawExpectedSelectedRevisionId))) {
@@ -899,6 +948,7 @@ export function registerProjectMediaIpc<Root>({
 }
 
 export function createProjectReader({ request, mint }: { request: Request; mint?: Mint }) {
+  const documentDetails = new Map<string, DocumentDetailDto>();
   async function loadProjectCompositionPage(
     project: ProjectRef,
     rawInput: ProjectCompositionPageRequest,
@@ -1033,6 +1083,20 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
       }), context);
     },
 
+    async loadProjectActivityRun(project: ProjectRef, runId: string): Promise<import("../media/types").ActivityRunDetail> {
+      const context = projectContext(project);
+      if (!validGenerationId(runId)) throw new Error("Invalid Run identifier");
+      const run = await request("run.show", { context, runId });
+      if (!runDto(run, context) || run.id !== runId) throw new Error("Invalid Activity run detail");
+      const value = record(await request("run.attempts", { context, runId, limit: GENERATION_ATTEMPT_LIMIT }));
+      if (!value || !exactKeys(value, ["items", "nextCursor"]) || !Array.isArray(value.items)
+        || value.items.length > GENERATION_ATTEMPT_LIMIT || !value.items.every((item) => runAttemptDto(item, runId))
+        || (value.nextCursor !== null && (typeof value.nextCursor !== "string" || !value.nextCursor || value.nextCursor.length > 4096))) {
+        throw new Error("Invalid Activity run detail");
+      }
+      return { run, attempts: value.items, nextCursor: value.nextCursor };
+    },
+
     async loadPage(input: {
       tab: ProjectTab;
       project: ProjectRef;
@@ -1050,7 +1114,21 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
       }
       const after = pageCursor(input.cursor);
       if (input.tab === "documents") {
-        return asPage(await request("document.list", { context, ...(after ? { after } : {}), limit: PROJECT_PAGE_LIMIT }));
+        const page = asPage(await request("document.list", { context, ...(after ? { after } : {}), limit: PROJECT_PAGE_LIMIT })) as Page<DocumentDto>;
+        const items = await Promise.all(page.items.map(async (document) => {
+          const cacheKey = `${document.id}:${document.currentRevisionId ?? "none"}`;
+          const cached = documentDetails.get(cacheKey);
+          if (cached) return cached;
+          try {
+            const detail = await request("document.show", { context, documentId: document.id });
+            if (!documentDetailDto(detail, context, document.id)) throw new Error("Invalid Document detail");
+            documentDetails.set(cacheKey, detail);
+            return detail;
+          } catch {
+            return document;
+          }
+        }));
+        return { ...page, items };
       }
       if (input.tab === "media") {
         const query = mediaQuery(input.mediaQuery);
@@ -1085,6 +1163,14 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
       const value = await request("unit.show", { context, unitId });
       if (!unitDto(value, context, unitId)) throw new Error("Invalid Unit");
       return value;
+    },
+
+    async loadProjectUnitPreview(project: ProjectRef, revisionId: string, platform: string): Promise<UnitPreviewDto> {
+      const context = projectContext(project);
+      if (!validId(revisionId) || !validId(platform)) throw new Error("Invalid Unit preview request");
+      const preview = await request("unit.preview", { context, unitRevisionId: revisionId, platform });
+      if (!unitPreviewDto(preview, revisionId, platform)) throw new Error("Invalid Unit preview");
+      return preview;
     },
 
     async loadProjectUnitRevision(
@@ -1260,7 +1346,9 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
     async showDocument(project: ProjectRef, documentId: string): Promise<DocumentDetailDto> {
       const context = projectContext(project);
       if (!validId(documentId)) throw new Error("Invalid document identifier");
-      return await request("document.show", { context, documentId });
+      const detail = await request("document.show", { context, documentId });
+      if (!documentDetailDto(detail, context, documentId)) throw new Error("Invalid Document detail");
+      return detail;
     },
 
     async reviseDocument(project: ProjectRef, input: {

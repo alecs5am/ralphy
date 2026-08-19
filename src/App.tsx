@@ -11,7 +11,7 @@ import {
 } from "react";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion } from "motion/react";
 import { ContextSidebar } from "./components/ContextSidebar";
-import { MainHeader, type MainHeaderTab } from "./components/Titlebar";
+import { MainHeader } from "./components/Titlebar";
 import { AgentChatPanel, BottomPanel } from "./components/UtilityPanels";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { ResizeHandle } from "./components/ui/ResizeHandle";
@@ -26,6 +26,9 @@ import {
 import { LibraryScreen } from "./screens/LibraryScreen";
 import { WorkspacePagePlaceholder, WorkspaceProjectsScreen } from "./screens/WorkspaceProjectsScreen";
 import { MigrationRecoveryScreen } from "./screens/MigrationRecoveryScreen";
+import { MemoryScreen } from "./screens/MemoryScreen";
+import { CalendarScreen } from "./screens/CalendarScreen";
+import { LocalModelsScreen } from "./screens/LocalModelsScreen";
 import {
   createInitialWorkbenchState,
   mostRecentWorkspaceId,
@@ -33,7 +36,6 @@ import {
   readWorkbenchPreferences,
   workbenchReducer,
   writeWorkbenchPreferences,
-  WORKSPACE_PAGE_LABELS,
   type WorkspaceView,
   type WorkspacePage,
 } from "./state/workbench";
@@ -87,9 +89,8 @@ export function App() {
     initialPreferences.current.bottomPanelVisible,
   );
   const [settingsVisible, setSettingsVisible] = useState(false);
-  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>(
-    initialPreferences.current.workspaceView,
-  );
+  const [localModelsVisible, setLocalModelsVisible] = useState(false);
+  const workspaceView: WorkspaceView = "grid";
   const [workspacePage, setWorkspacePage] = useState<WorkspacePage>(
     initialPreferences.current.workspacePage,
   );
@@ -108,6 +109,7 @@ export function App() {
   }));
   const [isResizing, setIsResizing] = useState(false);
   const [sidebarSearchRequest, setSidebarSearchRequest] = useState(0);
+  const [targetUnitId, setTargetUnitId] = useState<string | null>(null);
   const restorationStarted = useRef(false);
   const welcomeStartedAt = useRef(Date.now());
 
@@ -132,7 +134,8 @@ export function App() {
     project: selectedProject,
     enabled: rightPanelVisible,
   });
-  const showRightPanel = catalog !== null && rightPanelVisible;
+  const showRightPanel = catalog !== null && rightPanelVisible && !localModelsVisible;
+  const showBottomPanel = bottomPanelVisible && !localModelsVisible;
   const sidebarMax = Math.max(
     PANEL_SIZE_LIMITS.sidebar.min,
     Math.min(
@@ -152,6 +155,46 @@ export function App() {
     Math.min(PANEL_SIZE_LIMITS.bottom.max, Math.floor(viewport.height * 0.5)),
   );
 
+  const restoreHomeLibrary = useCallback(async () => {
+    setRestoring(true);
+    setError(null);
+    try {
+      const result = await bridge.restoreLibrary();
+      if (!result) return;
+      const saved = initialPreferences.current;
+      const savedWorkspace =
+        saved.rootPath === result.identity.storeId &&
+        saved.workspaceId &&
+        result.catalog.workspaces.some(
+          (workspace) => workspace.id === saved.workspaceId,
+        )
+          ? saved.workspaceId
+          : null;
+      const workspaceId =
+        savedWorkspace ?? mostRecentWorkspaceId(result.catalog.workspaces);
+      dispatch({ type: "library-opened", catalog: result.catalog, workspaceId });
+      if (
+        workspaceId &&
+        saved.rootPath === result.identity.storeId &&
+        saved.projectId &&
+        result.catalog.projects.some(
+          (project) =>
+            project.workspaceId === workspaceId &&
+            project.projectId === saved.projectId,
+        )
+      ) {
+        dispatch({
+          type: "open-project",
+          project: { workspaceId, projectId: saved.projectId },
+        });
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setRestoring(false);
+    }
+  }, []);
+
   useEffect(() => {
     const unsubscribe = bridge.onMediaEvent((event) => {
       if (event.type === "root-ready") {
@@ -170,53 +213,11 @@ export function App() {
 
     if (!restorationStarted.current) {
       restorationStarted.current = true;
-      void bridge
-        .restoreLibrary()
-        .then((result) => {
-          if (!result) return;
-          const saved = initialPreferences.current;
-          const savedWorkspace =
-            saved.rootPath === result.identity.storeId &&
-            saved.workspaceId &&
-            result.catalog.workspaces.some(
-              (workspace) => workspace.id === saved.workspaceId,
-            )
-              ? saved.workspaceId
-              : null;
-          const workspaceId =
-            savedWorkspace ?? mostRecentWorkspaceId(result.catalog.workspaces);
-          dispatch({
-            type: "library-opened",
-            catalog: result.catalog,
-            workspaceId,
-          });
-          if (
-            workspaceId &&
-            saved.rootPath === result.identity.storeId &&
-            saved.projectId &&
-            result.catalog.projects.some(
-              (project) =>
-                project.workspaceId === workspaceId &&
-                project.projectId === saved.projectId,
-            )
-          ) {
-            dispatch({
-              type: "open-project",
-              project: {
-                workspaceId,
-                projectId: saved.projectId,
-              },
-            });
-          }
-        })
-        .catch((cause: unknown) => {
-          setError(cause instanceof Error ? cause.message : String(cause));
-        })
-        .finally(() => setRestoring(false));
+      void restoreHomeLibrary();
     }
 
     return unsubscribe;
-  }, []);
+  }, [restoreHomeLibrary]);
 
   useEffect(() => {
     if (restoring || !welcomeVisible) return;
@@ -300,25 +301,13 @@ export function App() {
     workspaceView,
   ]);
 
-  const chooseLibrary = useCallback(async () => {
-    setError(null);
-    try {
-      const result = await bridge.chooseLibrary();
-      if (result) {
-        dispatch({
-          type: "library-opened",
-          catalog: result.catalog,
-          workspaceId: mostRecentWorkspaceId(result.catalog.workspaces),
-        });
-      }
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    }
-  }, []);
-
   const navigateBack = useCallback(() => {
+    if (localModelsVisible) {
+      setLocalModelsVisible(false);
+      return;
+    }
     dispatch({ type: "back" });
-  }, []);
+  }, [localModelsVisible]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -368,7 +357,9 @@ export function App() {
     };
   }, [navigateBack, settingsVisible, state.route, workspaces]);
 
-  const openProject = (project: ProjectSummary) => {
+  const openProject = (project: ProjectSummary, unitId: string | null = null) => {
+    setLocalModelsVisible(false);
+    setTargetUnitId(unitId);
     dispatch({
       type: "open-project",
       project: {
@@ -377,36 +368,6 @@ export function App() {
       },
     });
   };
-
-  const closeProjectTab = useCallback((project: { workspaceId: string; projectId: string }) => {
-    dispatch({ type: "close-project-tab", project });
-  }, []);
-
-  const tabs: MainHeaderTab[] = [
-    {
-      id: `workspace:${selectedWorkspace?.id ?? "library"}`,
-      label: catalog ? WORKSPACE_PAGE_LABELS[workspacePage] : "Workspaces",
-      active: state.route.kind !== "project",
-      onOpen: () => {
-        if (selectedWorkspace) dispatch({ type: "open-workspace", workspaceId: selectedWorkspace.id });
-        else dispatch({ type: "open-library" });
-      },
-    },
-    ...state.tabs.map((tab) => {
-      const project = projects.find(
-        (item) => item.workspaceId === tab.workspaceId && item.projectId === tab.projectId,
-      );
-      return {
-        id: `${tab.workspaceId}/${tab.projectId}`,
-        label: project?.name ?? tab.projectId,
-        active: state.route.kind === "project"
-          && state.route.workspaceId === tab.workspaceId
-          && state.route.projectId === tab.projectId,
-        onOpen: () => dispatch({ type: "open-project", project: tab }),
-        onClose: () => closeProjectTab(tab),
-      };
-    }),
-  ];
 
   if (migrationRecovery) {
     return (
@@ -417,7 +378,6 @@ export function App() {
             setError(cause instanceof Error ? cause.message : String(cause));
           });
         }}
-        onChooseLibrary={() => void chooseLibrary()}
       />
     );
   }
@@ -426,29 +386,51 @@ export function App() {
     return <WelcomeScreen exiting={welcomeExiting} restoring={restoring} />;
   }
 
+  if (!catalog) {
+    return (
+      <LibraryScreen
+        catalog={null}
+        error={error}
+        restoring={restoring}
+        pinnedWorkspaceIds={state.pinnedWorkspaceIds}
+        onRetry={() => void restoreHomeLibrary()}
+        onOpenWorkspace={() => undefined}
+        onOpenProject={() => undefined}
+      />
+    );
+  }
+
   let content = (
     <LibraryScreen
       catalog={catalog}
       pinnedWorkspaceIds={state.pinnedWorkspaceIds}
-      onChooseLibrary={chooseLibrary}
+      onRetry={() => void restoreHomeLibrary()}
       onOpenWorkspace={(workspaceId) => dispatch({ type: "open-workspace", workspaceId })}
       onOpenProject={openProject}
     />
   );
-  if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "projects") {
+  if (localModelsVisible) {
+    content = <LocalModelsScreen />;
+  } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "projects") {
     content = (
       <WorkspaceProjectsScreen
         workspaceName={selectedWorkspace.name}
         workspaceDescription={selectedWorkspace.description}
         projects={projects.filter((project) => project.workspaceId === selectedWorkspace.id)}
+        rootEpoch={rootIdentity?.rootEpoch ?? 0}
         pinnedProjectIds={state.pinnedProjectIds}
-        view={workspaceView}
         searchRequest={sidebarSearchRequest}
-        onViewChange={setWorkspaceView}
         onOpenProject={openProject}
         onToggleProjectPin={(projectId) => dispatch({ type: "toggle-project-pin", projectId })}
       />
     );
+  } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "memory") {
+    content = <MemoryScreen workspaceId={selectedWorkspace.id} workspaceName={selectedWorkspace.name} />;
+  } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "calendar") {
+    content = <CalendarScreen workspaceId={selectedWorkspace.id} workspaceName={selectedWorkspace.name} onOpenProject={(projectId, unitId) => {
+      const project = projects.find((item) => item.projectId === projectId);
+      if (project) openProject(project, unitId);
+    }} />;
   } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage !== "projects") {
     content = <WorkspacePagePlaceholder workspaceName={selectedWorkspace.name} page={workspacePage} />;
   } else if (state.route.kind === "project" && selectedProject) {
@@ -468,6 +450,7 @@ export function App() {
           project={selectedProject}
           rootEpoch={rootIdentity?.rootEpoch ?? 0}
           activitySequence={rootIdentity?.activitySequence ?? 0}
+          targetUnitId={targetUnitId}
         />
       </Suspense>
     );
@@ -483,15 +466,16 @@ export function App() {
           className={[
             "workbench",
             !sidebarVisible ? " sidebar-collapsed" : "",
+            localModelsVisible ? " local-models-open" : "",
             showRightPanel ? " has-right-panel" : "",
-            bottomPanelVisible ? " has-bottom-panel" : "",
+            showBottomPanel ? " has-bottom-panel" : "",
             isResizing ? " is-resizing" : "",
           ].join("")}
           style={{
             "--sidebar-w": `${sidebarWidth}px`,
             "--inspector-w": `${rightPanelWidth}px`,
           } as CSSProperties}
-          initial={{ opacity: 0 }}
+          initial={false}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.24 }}
         >
@@ -500,8 +484,9 @@ export function App() {
               <ContextSidebar
                 route={state.route}
                 page={workspacePage}
-                pageActive={state.route.kind !== "project"}
-                rootPath={rootIdentity?.storeId ?? catalog.rootPath}
+                pageActive={!localModelsVisible && state.route.kind !== "project"}
+                localModelsActive={localModelsVisible}
+                rootPath={catalog.rootPath}
                 workspaces={workspaces}
                 workspaceId={selectedWorkspace?.id ?? null}
                 pinnedWorkspaceIds={state.pinnedWorkspaceIds}
@@ -511,10 +496,13 @@ export function App() {
                 onForward={() => dispatch({ type: "forward" })}
                 onToggleSidebar={() => setSidebarVisible(false)}
                 onOpenSettings={() => setSettingsVisible(true)}
-                onOpenWorkspace={(workspaceId) =>
-                  dispatch({ type: "open-workspace", workspaceId })
-                }
+                onOpenLocalModels={() => setLocalModelsVisible(true)}
+                onOpenWorkspace={(workspaceId) => {
+                  setLocalModelsVisible(false);
+                  dispatch({ type: "open-workspace", workspaceId });
+                }}
                 onOpenPage={(page) => {
+                  setLocalModelsVisible(false);
                   setWorkspacePage(page);
                   const workspaceId = selectedWorkspace?.id ?? mostRecentWorkspaceId(workspaces);
                   if (workspaceId) dispatch({ type: "open-workspace", workspaceId });
@@ -538,17 +526,21 @@ export function App() {
           )}
           <motion.section className="main-shell">
             <MainHeader
-              tabs={tabs}
               sidebarVisible={sidebarVisible}
               canGoBack={canGoBack}
               canGoForward={canGoForward}
               rightPanelVisible={rightPanelVisible}
-              bottomPanelVisible={bottomPanelVisible}
-              showChooseLibrary={!catalog}
+              bottomPanelVisible={showBottomPanel}
               onBack={navigateBack}
               onForward={() => dispatch({ type: "forward" })}
+              onHome={() => {
+                setLocalModelsVisible(false);
+                setWorkspacePage("projects");
+                const workspaceId = selectedWorkspace?.id ?? mostRecentWorkspaceId(workspaces);
+                if (workspaceId) dispatch({ type: "open-workspace", workspaceId });
+                else dispatch({ type: "open-library" });
+              }}
               onToggleSidebar={() => setSidebarVisible((visible) => !visible)}
-              onChooseLibrary={chooseLibrary}
               onToggleRightPanel={() =>
                 setRightPanelVisible((visible) => !visible)
               }
@@ -557,7 +549,7 @@ export function App() {
               }
             />
             <div className="main-content-stage">{content}</div>
-            {bottomPanelVisible && (
+            {showBottomPanel && (
               <ResizeHandle
                 ariaLabel="Resize bottom panel"
                 orientation="horizontal"
@@ -573,7 +565,7 @@ export function App() {
             )}
             <BottomPanel
               height={bottomPanelHeight}
-              visible={bottomPanelVisible}
+              visible={showBottomPanel}
               rootPath={rootIdentity?.storeId ?? null}
             />
           </motion.section>
@@ -614,7 +606,6 @@ export function App() {
                 <SettingsScreen
                   rootPath={rootIdentity?.storeId ?? null}
                   onBack={() => setSettingsVisible(false)}
-                  onChooseLibrary={() => void chooseLibrary()}
                 />
               </Suspense>
             )}

@@ -1,4 +1,4 @@
-import { Boxes, Brain, CalendarDays, FolderOpen, UsersRound, type LucideIcon } from "lucide-react";
+import { Boxes, Brain, CalendarDays, FolderOpen, HardDrive, SlidersHorizontal, UsersRound, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { useMemo } from "react";
 import type { WorkspaceSummary } from "../lib/ipc";
@@ -17,6 +17,7 @@ interface ContextSidebarProps {
   route: WorkbenchRoute;
   page: WorkspacePage;
   pageActive: boolean;
+  localModelsActive: boolean;
   rootPath: string;
   workspaces: WorkspaceSummary[];
   workspaceId: string | null;
@@ -27,6 +28,7 @@ interface ContextSidebarProps {
   onForward(): void;
   onToggleSidebar(): void;
   onOpenSettings(): void;
+  onOpenLocalModels(): void;
   onOpenWorkspace(workspaceId: string): void;
   onOpenPage(page: WorkspacePage): void;
 }
@@ -60,6 +62,7 @@ function pageCount(page: WorkspacePage, workspace?: WorkspaceSummary): number | 
 export function ContextSidebar({
   page,
   pageActive,
+  localModelsActive,
   rootPath,
   workspaces,
   workspaceId,
@@ -70,6 +73,7 @@ export function ContextSidebar({
   onForward,
   onToggleSidebar,
   onOpenSettings,
+  onOpenLocalModels,
   onOpenWorkspace,
   onOpenPage,
 }: ContextSidebarProps) {
@@ -126,6 +130,25 @@ export function ContextSidebar({
             </button>
           );
         })}
+      </nav>
+
+      <div className="sidebar-section-label"><span>THIS COMPUTER</span><i /></div>
+      <nav className="sidebar-nav sidebar-global-nav" aria-label="This computer">
+        <button
+          className={`sidebar-nav-row${localModelsActive ? " is-selected" : ""}`}
+          type="button"
+          aria-current={localModelsActive ? "page" : undefined}
+          onClick={onOpenLocalModels}
+        >
+          <HardDrive size={16} strokeWidth={1.5} aria-hidden="true" />
+          <span>Local Models</span>
+          <small />
+        </button>
+        <button className="sidebar-nav-row" type="button" onClick={onOpenSettings}>
+          <SlidersHorizontal size={16} strokeWidth={1.5} aria-hidden="true" />
+          <span>Settings</span>
+          <small />
+        </button>
       </nav>
 
       <div className="sidebar-spacer" />

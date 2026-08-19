@@ -7,3 +7,5 @@ native/RalphyMedia/.build/
 .worktrees/
 *.log
 .DS_Store
+.superpowers/brainstorm/.last-*
+.superpowers/brainstorm/*/state/

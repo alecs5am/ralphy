@@ -60,6 +60,29 @@
   --line: rgb(255 255 255 / 0.07);
   --line-strong: rgb(255 255 255 / 0.12);
 
+  /* Shared control layer, derived from the compact profile menu. */
+  --control-hover: var(--hover);
+  --control-selected: var(--selected);
+  --control-text: var(--fg-2);
+  --control-text-hover: var(--fg);
+  --control-focus: 2px solid var(--fg);
+
+  --field-surface: #242424;
+  --field-border: rgb(255 255 255 / 0.045);
+  --field-border-focus: rgb(255 255 255 / 0.1);
+  --field-radius: var(--radius-md);
+  --field-height: var(--control-md);
+  --field-text: var(--fg);
+  --field-placeholder: var(--fg-3);
+
+  --menu-surface: #242424;
+  --menu-border: rgb(255 255 255 / 0.045);
+  --menu-radius: 16px;
+  --menu-padding: 2px;
+  --menu-item-height: 30px;
+  --menu-item-radius: var(--radius-md);
+  --menu-shadow: 0 8px 24px -6px rgb(0 0 0 / 0.7);
+
   --font-sans: "AWS Diatype", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   --font-mono: "AWS Diatype Mono", "Andale Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --text-xs: 11px;

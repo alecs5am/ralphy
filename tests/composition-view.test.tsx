@@ -61,7 +61,7 @@ function deferred<Value>() {
 }
 
 describe("Composition production inspector", () => {
-  test("loads closed page-one families, mounts independent panes and keeps UUIDs out of the primary rail", async () => {
+  test("keeps the internal production controller without restoring a top-level Composition workbench", async () => {
     const api = createApi();
     const controller = createProjectScreenController(api, project);
     await controller.selectTab("compositions");
@@ -78,15 +78,8 @@ describe("Composition production inspector", () => {
     const root = createRoot(host.container as unknown as Element);
     try {
       await act(async () => { root.render(<Mounted controller={controller} />); await Promise.resolve(); });
-      expect(host.container.querySelector(".composition-master")).not.toBeNull();
-      expect(host.container.querySelector(".composition-detail")).not.toBeNull();
-      const rail = host.container.querySelector(".composition-revision-rail")!;
-      expect(rail.textContent).toContain("R2");
-      expect(rail.textContent).not.toContain("revision-2-uuid");
-      expect(host.container.querySelector(".composition-heading")?.textContent).toContain("New draft");
-      expect(host.container.querySelector(".composition-primary")?.textContent).toContain("succeeded");
-      await vi.waitFor(() => expect(host.container.querySelector(".composition-output-preview video")).not.toBeNull());
-      expect(host.container.querySelector(".composition-technical")?.textContent).toContain("composition-uuid");
+      expect(host.container.querySelector(".composition-master")).toBeNull();
+      expect(host.container.textContent).not.toContain("Compositions");
     } finally {
       await act(async () => root.unmount());
       host.restore();

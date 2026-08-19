@@ -1,12 +1,20 @@
-.profile-menu-trigger {
+.profile-controls {
   display: flex;
   width: 100%;
-  height: 44px;
-  min-width: 0;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
+}
+
+.profile-menu-trigger {
+  display: flex;
+  width: auto;
+  height: 32px;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
   padding: 0 8px;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--fg-2);
   text-align: left;
@@ -14,87 +22,136 @@
 
 .profile-menu-trigger:hover,
 .profile-menu-trigger[aria-expanded="true"] {
-  background: var(--hover);
+  background: var(--control-hover);
 }
 
-.profile-menu-chevron {
+.help-menu-trigger {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
   flex: none;
+  place-items: center;
+  padding: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
   color: var(--fg-4);
-  transform: rotate(-90deg);
 }
 
-.profile-menu {
+.help-menu-trigger:hover,
+.help-menu-trigger[aria-expanded="true"] {
+  background: var(--control-hover);
+  color: var(--control-text);
+}
+
+.profile-menu,
+.help-menu {
   position: fixed;
   z-index: 1600;
-  padding: 6px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-lg);
-  background: #292929;
-  box-shadow: var(--shadow-pop);
+  padding: var(--menu-padding);
+  border: 1px solid var(--menu-border);
+  border-radius: var(--menu-radius);
+  background: var(--menu-surface);
+  box-shadow: var(--menu-shadow);
   corner-shape: squircle;
 }
 
 .profile-menu-identity {
   display: flex;
+  height: 30px;
   min-width: 0;
   align-items: center;
-  gap: 10px;
-  padding: 8px;
+  gap: 8px;
+  padding: 0 7px;
 }
 
-.profile-menu-identity > span:last-child {
-  display: flex;
+.profile-menu-identity strong {
   min-width: 0;
-  flex-direction: column;
-}
-
-.profile-menu-identity strong,
-.profile-menu-identity small {
+  color: var(--fg);
+  font-size: var(--text-sm);
+  font-weight: 400;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.profile-menu-identity strong {
-  color: var(--fg);
-  font-size: var(--text-sm);
-}
-
-.profile-menu-identity small {
-  color: var(--fg-4);
-  font-size: var(--text-xs);
-}
-
-.profile-menu-separator {
+.menu-separator {
   height: 1px;
-  margin: 2px 4px 5px;
+  margin: 3px 4px;
   background: var(--line);
 }
 
-.profile-menu > button {
+.profile-menu > button,
+.help-menu > a,
+.help-menu > button {
   display: grid;
   width: 100%;
-  height: 32px;
+  height: var(--menu-item-height);
   grid-template-columns: 18px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 7px;
-  padding: 0 8px;
-  border-radius: var(--radius-md);
+  gap: 8px;
+  padding: 0 7px;
+  border-radius: var(--menu-item-radius);
   background: transparent;
-  color: var(--fg-2);
+  color: var(--control-text);
   font-size: var(--text-sm);
+  text-decoration: none;
   text-align: left;
 }
 
 .profile-menu > button:hover,
-.profile-menu > button:focus-visible {
-  background: var(--hover);
-  color: var(--fg);
+.profile-menu > button:focus-visible,
+.help-menu > a:hover,
+.help-menu > a:focus-visible,
+.help-menu > button:hover,
+.help-menu > button:focus-visible {
+  background: var(--control-hover);
+  color: var(--control-text-hover);
 }
 
-.profile-menu kbd {
+.help-menu > button:disabled {
+  color: var(--fg-4);
+}
+
+.profile-menu kbd,
+.help-menu small {
   color: var(--fg-4);
   font-family: var(--font-sans);
+  font-size: var(--text-xs);
+}
+
+.help-menu-label {
+  padding: 4px 6px 2px;
+  color: var(--fg-4);
+  font-size: var(--text-xs);
+}
+
+.help-menu-update {
+  display: grid;
+  height: 26px;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+}
+
+.help-menu-update > span {
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--fg-4);
+  border-radius: var(--radius-pill);
+}
+
+.help-menu-update strong {
+  overflow: hidden;
+  color: var(--fg-2);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.help-menu-update time {
+  color: var(--fg-4);
   font-size: var(--text-xs);
 }
 
@@ -156,15 +213,15 @@
   gap: 7px;
   margin: 2px 10px 14px;
   padding: 0 8px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--raised);
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
+  background: var(--field-surface);
   color: var(--fg-4);
   corner-shape: squircle;
 }
 
 .settings-search:focus-within {
-  border-color: var(--line-strong);
+  border-color: var(--field-border-focus);
 }
 
 .settings-search input {
@@ -174,7 +231,7 @@
   border: 0;
   outline: 0;
   background: transparent;
-  color: var(--fg);
+  color: var(--field-text);
   font-size: var(--text-sm);
 }
 
@@ -341,16 +398,16 @@
   align-items: center;
   gap: 7px;
   padding: 0 9px;
-  border-radius: var(--radius-md);
-  background: var(--raised);
-  color: var(--fg-2);
+  border-radius: var(--field-radius);
+  background: var(--field-surface);
+  color: var(--control-text);
   font-size: var(--text-sm);
 }
 
 .settings-command:hover,
 .provider-connect:hover:not(:disabled) {
-  background: var(--hover);
-  color: var(--fg);
+  background: var(--control-hover);
+  color: var(--control-text-hover);
 }
 
 .settings-toggle {
@@ -385,9 +442,9 @@
 .settings-segmented {
   display: inline-flex;
   padding: 2px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: #191919;
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
+  background: var(--field-surface);
   corner-shape: squircle;
 }
 
@@ -401,26 +458,26 @@
 }
 
 .settings-segmented button.is-selected {
-  background: var(--selected);
-  color: var(--fg-2);
+  background: var(--control-selected);
+  color: var(--control-text);
 }
 
 .settings-input {
   width: 190px;
   height: 28px;
   padding: 0 8px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
   outline: 0;
-  background: #191919;
-  color: var(--fg-2);
+  background: var(--field-surface);
+  color: var(--field-text);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   corner-shape: squircle;
 }
 
 .settings-input:focus {
-  border-color: var(--line-strong);
+  border-color: var(--field-border-focus);
 }
 
 .settings-profile-hero,

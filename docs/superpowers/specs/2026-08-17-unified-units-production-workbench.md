@@ -12,7 +12,7 @@ Make Units the only project-level production destination. A Unit is visible as s
 - `unit.create` creates an empty Unit identity, optionally linked to a Composition. Empty Units are valid and represent work in progress.
 - `unit.revise` accepts `compositionRevisionId`. A revision may contain Unit items, a Composition revision link, or both.
 - Core validates that linked Composition entities belong to the same project as the Unit. Links are immutable.
-- Selecting a linked Unit revision requires its Composition revision to be sealed.
+- A sealed Unit revision may be selected while its linked Composition revision is still draft; publishing remains gated on a successful final build.
 - Existing Unit and Composition records migrate with null links.
 
 ## Desktop information architecture

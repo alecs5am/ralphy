@@ -146,6 +146,38 @@ function renderController(controller: ReturnType<typeof createController>) {
 }
 
 describe("ProjectScreen behavior", () => {
+  test("opens a calendar deep-link on the requested Unit", async () => {
+    const api = createApi();
+    api.loadProjectPage.mockResolvedValue({ items: [await api.loadProjectUnit()], nextCursor: null });
+    api.loadProjectUnit.mockClear();
+    const spies = [
+      vi.spyOn(bridge, "loadProjectOverview").mockImplementation(api.loadProjectOverview),
+      vi.spyOn(bridge, "loadProjectPage").mockImplementation(api.loadProjectPage),
+      vi.spyOn(bridge, "loadProjectUnit").mockImplementation(api.loadProjectUnit),
+      vi.spyOn(bridge, "loadProjectUnitRevision").mockImplementation(api.loadProjectUnitRevision),
+      vi.spyOn(bridge, "loadProjectUnitPage").mockImplementation(api.loadProjectUnitPage),
+    ];
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+
+    try {
+      await act(async () => {
+        root.render(<screen.ProjectScreen project={project} rootEpoch={1} activitySequence={0} targetUnitId="unit-1" />);
+        await Promise.resolve();
+      });
+      await vi.waitFor(() => expect(api.loadProjectUnit).toHaveBeenCalledWith(
+        { workspaceId: "workspace-1", projectId: "project-1" },
+        "unit-1",
+      ));
+      await vi.waitFor(() => expect(document.body.querySelector(".unit-viewer")?.textContent).toContain("reel"));
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+      spies.forEach((spy) => spy.mockRestore());
+    }
+  });
+
   test("documents workbench keeps read state separate from explicit dirty editing and local JSON validation", async () => {
     const api = createApi();
     const controller = createController(api) as any;
@@ -260,21 +292,18 @@ describe("ProjectScreen behavior", () => {
       await act(async () => root.render(<OverviewPanel value={value} onViewTab={onViewTab} onOpenDocument={onOpenDocument} onOpenComposition={onOpenComposition} onOpenUnit={onOpenUnit} />));
       expect(host.container.textContent).toContain("Give reviewers one trusted campaign workbench.");
       expect(host.container.textContent).toContain("Spent$0.00");
-      expect(host.container.textContent).toContain("Production stream");
-      expect(host.container.textContent).toContain("Deliverables");
+      expect(host.container.textContent).toContain("Project pulse");
+      expect(host.container.textContent).toContain("Ready units");
       expect(host.container.textContent).toContain("Distribution");
-      expect(host.container.textContent).toContain("Recent activity");
       expect(host.container.textContent).not.toContain("Recent records (bounded)");
       expect(host.container.textContent).not.toContain("project-1");
       expect(host.container.querySelector(".overview-dashboard")).not.toBeNull();
 
-      await clickButton(host.container, "Browse media");
-      await clickButtonContaining(host.container, "Creative brief");
-      await clickButtonContaining(host.container, "hero-cut");
+      await clickButton(host.container, "View all units");
       await clickButtonContaining(host.container, "reel");
-      expect(onViewTab).toHaveBeenCalledWith("media");
-      expect(onOpenDocument).toHaveBeenCalledWith("document-1");
-      expect(onOpenComposition).toHaveBeenCalledWith("composition-1");
+      expect(onViewTab).toHaveBeenCalledWith("units");
+      expect(onOpenDocument).not.toHaveBeenCalled();
+      expect(onOpenComposition).not.toHaveBeenCalled();
       expect(onOpenUnit).toHaveBeenCalledWith("unit-1");
       expect(host.container.findAll((node) => node.tagName === "BUTTON" && node.textContent.includes("Final render"))).toEqual([]);
 
@@ -578,7 +607,7 @@ describe("ProjectScreen behavior", () => {
     await controller.start();
     const markup = renderController(controller);
     expect(markup).toContain("No project purpose has been added yet.");
-    expect(markup).toContain("Initial");
+    expect(markup).toContain("None active");
     expect(markup).not.toContain("Distribution");
     expect(markup).not.toContain('aria-label="Production metrics"');
   });
@@ -1207,15 +1236,14 @@ describe("ProjectScreen behavior", () => {
     expect(controller.getSnapshot().domain.pages.documents.items.map((item: { id: string }) => item.id)).toEqual(["document-1", "document-2"]);
   });
 
-  test("renders a normal empty Composition page and bounded Document content", async () => {
+  test("does not expose an empty Composition destination and keeps bounded Document content", async () => {
     const api = createApi();
     api.loadProjectPage.mockImplementation(async ({ tab }: { tab: string }) => tab === "documents"
       ? { items: [{ id: "document-1", title: "Brief", kind: "brief", currentRevisionId: "revision-1" }], nextCursor: null }
       : { items: [], nextCursor: null });
     const controller = createController(api);
 
-    await controller.selectTab("compositions");
-    expect(renderController(controller)).toContain("No compositions yet.");
+    expect(renderController(controller)).not.toContain("Compositions");
     await controller.selectTab("documents");
     await controller.openDocument(controller.getSnapshot().domain.pages.documents.items[0]);
     const markup = renderController(controller);

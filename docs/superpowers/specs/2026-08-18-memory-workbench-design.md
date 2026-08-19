@@ -25,7 +25,7 @@ The implementation ports these rules rather than maintaining the legacy file sto
 
 ## Core storage
 
-Add a schema migration after the current schema version. `memory_entries` gains an explicit `tier` column with values `workspace` and `global`. Workspace entries keep their real `workspace_id`. Global entries belong to one reserved internal workspace so the existing foreign-key, Document, and `(workspace_id, slug)` contracts remain intact while a real workspace can override the same slug. Core excludes the reserved workspace from every user-facing workspace query. A global entry is visible in every real workspace.
+Add a schema migration after the current schema version that creates one reserved internal workspace for global Memory. Workspace entries keep their real `workspace_id`; global entries use the reserved ID. This preserves the existing foreign-key, Document, and `(workspace_id, slug)` contracts while a real workspace can override the same slug. Core derives the tier from the scope ID and excludes the reserved workspace from every user-facing workspace query. A global entry is visible in every real workspace.
 
 The linked Document revision stores the structured Markdown body. Memory rows store identity, lifecycle, type, provenance, and current revision pointers. Revisions are immutable:
 

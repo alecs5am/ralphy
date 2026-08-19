@@ -4,6 +4,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import {
   buildDomainCatalog,
   buildShallowCatalog,
+  ensureHomeLibraryRoot,
   readBoundedText,
   resolveContainedPath,
   trashContainedItems,
@@ -205,6 +206,29 @@ describe("shallow library catalog", () => {
 });
 
 describe("library trust boundary", () => {
+  test("creates a valid home library only when ~/.ralphy is absent", async () => {
+    fixture = await makeLibraryFixture();
+    await rm(fixture.rootPath, { recursive: true });
+
+    const rootPath = await ensureHomeLibraryRoot(fixture.parentPath);
+
+    expect(rootPath).toBe(await realpath(join(fixture.parentPath, ".ralphy")));
+    await expect(realpath(join(rootPath, "workspaces"))).resolves.toBe(
+      join(rootPath, "workspaces"),
+    );
+  });
+
+  test("does not write through a ~/.ralphy symlink", async () => {
+    fixture = await makeLibraryFixture();
+    const outside = join(fixture.parentPath, "outside");
+    await rm(fixture.rootPath, { recursive: true });
+    await mkdir(outside);
+    await symlink(outside, fixture.rootPath);
+
+    await expect(ensureHomeLibraryRoot(fixture.parentPath)).rejects.toThrow(/symbolic link/);
+    await expect(realpath(join(outside, "workspaces"))).rejects.toThrow();
+  });
+
   test("requires a real .ralphy directory with the current workspace layout", async () => {
     fixture = await makeLibraryFixture();
     await expect(validateLibraryRoot(fixture.parentPath)).rejects.toThrow(/\.ralphy/);

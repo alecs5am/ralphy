@@ -1,5 +1,5 @@
 export const reactHostGlobalKeys = [
-  "window", "document", "Node", "Element", "HTMLElement", "DocumentFragment", "ResizeObserver", "IntersectionObserver", "MutationObserver", "CustomEvent", "getComputedStyle", "IS_REACT_ACT_ENVIRONMENT",
+  "window", "document", "Node", "NodeFilter", "Element", "HTMLElement", "HTMLInputElement", "DocumentFragment", "ResizeObserver", "IntersectionObserver", "MutationObserver", "CustomEvent", "getComputedStyle", "IS_REACT_ACT_ENVIRONMENT",
 ] as const;
 
 type Listener = EventListenerOrEventListenerObject;
@@ -193,6 +193,19 @@ export function createReactHost() {
     getElementById: (id: string) => rawDocument.documentElement.findAll((node) => node.getAttribute("id") === id)[0] ?? null,
     querySelectorAll: (selector: string) => rawDocument.documentElement.querySelectorAll(selector),
     querySelector: (selector: string) => rawDocument.documentElement.querySelector(selector),
+    createTreeWalker(root: HostNode, _show: number, filter: { acceptNode(node: HostNode): number }) {
+      const accepted = root.findAll((node) => node !== root && filter.acceptNode(node) === 1);
+      let index = -1;
+      return {
+        currentNode: root,
+        nextNode() {
+          index += 1;
+          if (!accepted[index]) return null;
+          this.currentNode = accepted[index];
+          return this.currentNode;
+        },
+      };
+    },
   });
   document = rawDocument as unknown as Document;
   rawDocument.documentElement = new HostNode(1, "HTML", document);
@@ -281,7 +294,7 @@ export function createReactHost() {
   }
   const globals = globalThis as unknown as Record<string, unknown>;
   const previous = new Map(reactHostGlobalKeys.map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
-  Object.assign(globals, { window, document, Node: HostNode, Element: HostNode, HTMLElement: HostNode, DocumentFragment: HostDocumentFragment, ResizeObserver: HostResizeObserver, IntersectionObserver: HostIntersectionObserver, MutationObserver: HostMutationObserver, CustomEvent: HostCustomEvent, getComputedStyle: computedStyle, IS_REACT_ACT_ENVIRONMENT: true });
+  Object.assign(globals, { window, document, Node: HostNode, NodeFilter: { SHOW_ELEMENT: 1, FILTER_ACCEPT: 1, FILTER_SKIP: 3 }, Element: HostNode, HTMLElement: HostNode, HTMLInputElement: class {}, DocumentFragment: HostDocumentFragment, ResizeObserver: HostResizeObserver, IntersectionObserver: HostIntersectionObserver, MutationObserver: HostMutationObserver, CustomEvent: HostCustomEvent, getComputedStyle: computedStyle, IS_REACT_ACT_ENVIRONMENT: true });
   const container = new HostNode(1, "DIV", document);
   rawDocument.body.appendChild(container);
   return {

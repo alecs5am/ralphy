@@ -49,7 +49,7 @@ The existing tables remain authoritative:
 - `social_accounts` stores account identity and reconnect state.
 - `metric_snapshots` stores published performance data.
 
-No schema expansion is required for the first implementation. Existing `calendar_entries.unit_revision_id`, `scheduled_at`, `platforms_json`, `state`, `metadata_json`, and row-version fields cover the event and draft state. Existing publication `effective_options_json` stores per-publication settings.
+No table or column expansion is required for the first implementation. Existing `calendar_entries.unit_revision_id`, `scheduled_at`, `platforms_json`, `state`, `metadata_json`, and row-version fields cover the event and draft state. Schema v9 relaxes the publication-options integrity trigger so existing `effective_options_json` can store per-publication settings that intentionally differ from presentation defaults.
 
 The Calendar projection exposes the handoff shape:
 

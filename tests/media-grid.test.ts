@@ -3,9 +3,10 @@ import { flushSync } from "react-dom";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { MediaCardDto } from "../electron/ralphy/types";
 import { MediaCardTile, VirtualAssetGrid } from "../src/components/VirtualAssetGrid";
+import { AudioWaveform } from "../src/components/media/AudioWaveform";
 import { MAX_WAVEFORM_DECODE_BYTES } from "../src/lib/audio-preview";
 import type { ProjectPreview, ProjectReference } from "../src/lib/ipc";
-import { assetGridGeometry, createPreviewScheduler, previewScheduler } from "../src/lib/media";
+import { assetGridGeometry, createPreviewScheduler, mediaFallbackAspectRatio, previewScheduler } from "../src/lib/media";
 import { useRememberedScroll } from "../src/screens/project/scroll-memory";
 import { createReactHost, type HostNode } from "./react-host";
 
@@ -32,7 +33,7 @@ function mediaCard(id: string, mime = "image/png", bytes = 2048): MediaCardDto {
   return {
     ref: { type: "object", id }, workspaceId: project.workspaceId, projectId: project.projectId,
     storageClass: "final", mime, bytes, createdAt: 1, referenceCount: 1, target: { type: "object", id },
-    mediaKind: mime.startsWith("video/") ? "video" : mime.startsWith("audio/") ? "audio" : "image",
+    mediaKind: mime.startsWith("video/") ? "video" : mime.startsWith("audio/") ? "audio" : mime.startsWith("image/") ? "image" : "document",
     provenance: "not-generation",
   };
 }
@@ -128,10 +129,32 @@ function ScrollOwners({
 beforeEach(() => { waveSurfer.instances.length = 0; });
 
 describe("media grid geometry and scheduling", () => {
+  test("groups compact audio controls for vertical centering without changing the full viewer", async () => {
+    const view = await mounted(createElement(AudioWaveform, { src: "ralphy-media://preview/audio", name: "Voiceover", sizeBytes: MAX_WAVEFORM_DECODE_BYTES + 1, compact: true }));
+    try {
+      expect(view.host.container.findAll((node) => node.getAttribute("class") === "audio-compact-content")).toHaveLength(1);
+      await view.rerender(createElement(AudioWaveform, { src: "ralphy-media://preview/audio", name: "Voiceover", sizeBytes: MAX_WAVEFORM_DECODE_BYTES + 1 }));
+      expect(view.host.container.findAll((node) => node.getAttribute("class") === "audio-compact-content")).toHaveLength(0);
+    } finally { await view.unmount(); }
+  });
+
+  test("gives nonvisual media stable bounded masonry proportions", () => {
+    expect(mediaFallbackAspectRatio("audio", "a")).toBe(1.6);
+    expect(mediaFallbackAspectRatio(null, "document-a")).toBeGreaterThanOrEqual(0.72);
+    expect(mediaFallbackAspectRatio(null, "document-a")).toBeLessThanOrEqual(1.15);
+    expect(mediaFallbackAspectRatio(null, "document-a")).toBe(mediaFallbackAspectRatio(null, "document-a"));
+    expect(mediaFallbackAspectRatio(null, "document-a")).not.toBe(mediaFallbackAspectRatio(null, "document-b"));
+  });
+
   test("derives non-overlapping 16:10 rows at narrow, medium, and wide widths", () => {
     expect(assetGridGeometry(492, 190, 16)).toEqual({ columns: 2, tileWidth: 238, tileHeight: 202.75, rowHeight: 218.75, gap: 16 });
     expect(assetGridGeometry(688, 190, 16)).toEqual({ columns: 3, tileWidth: 218.66666666666666, tileHeight: 190.66666666666666, rowHeight: 206.66666666666666, gap: 16 });
     expect(assetGridGeometry(1000, 190, 16)).toEqual({ columns: 4, tileWidth: 238, tileHeight: 202.75, rowHeight: 218.75, gap: 16 });
+  });
+
+  test("caps project media density without changing normal geometry", () => {
+    expect(assetGridGeometry(1000, 190, 16)).toMatchObject({ columns: 4 });
+    expect(assetGridGeometry(2300, 230, 16, 7)).toMatchObject({ columns: 7 });
   });
 
   test("enforces the production 4/2/1 limits with FIFO, idempotent, error, and queued-unmount release", async () => {
@@ -202,7 +225,9 @@ describe("mounted media tiles", () => {
       expect(observed).toBe(0);
       await act(async () => { root.render(grid(Array.from({ length: 12 }, (_, index) => mediaCard(`filtered-${index}`)), 200, async () => null)); await Promise.resolve(); await Promise.resolve(); });
       expect(observed).toBeGreaterThan(1);
-      expect((host.container.querySelector(".virtual-asset-row") as unknown as HostNode).style.gridTemplateColumns).toBe("repeat(6, minmax(0, 1fr))");
+      const items = host.container.querySelectorAll(".virtual-masonry-item");
+      expect(items.length).toBeGreaterThan(6);
+      expect(new Set(items.map((item) => item.style.left)).size).toBe(6);
     } finally {
       await act(async () => root.unmount());
       host.restore();
@@ -356,6 +381,20 @@ describe("mounted media tiles", () => {
       expect(element.getAttribute("preload")).toBe("metadata");
       expect(element.muted).toBe(true);
     } finally { await video.unmount(); }
+  });
+
+  test("updates a masonry preview to its intrinsic image proportion", async () => {
+    const resolver = vi.fn(async () => ({ url: "ralphy-media://preview/intrinsic", sizeBytes: 2048 }));
+    const view = await mounted(grid([mediaCard("intrinsic")], 217, resolver));
+    try {
+      const preview = view.host.container.querySelector(".asset-preview")!;
+      expect(preview.style.aspectRatio).toBe("1");
+      const image = byTag(view.host.container, "IMG")[0];
+      Object.defineProperty(image, "naturalWidth", { value: 1600 });
+      Object.defineProperty(image, "naturalHeight", { value: 900 });
+      await act(async () => { image.dispatchEvent(new Event("load", { bubbles: true })); await Promise.resolve(); });
+      expect(preview.style.aspectRatio).toBe(String(16 / 9));
+    } finally { await view.unmount(); }
   });
 
   test("keeps a settled cache remount as a glyph until its production permit is handed off", async () => {

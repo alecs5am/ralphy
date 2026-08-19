@@ -24,7 +24,8 @@ const currentCoreCapabilities = [
   "activity.list", "activity.subscribe", "activity.unsubscribe", "agent.auth.login",
   "agent.auth.status", "agent.credential.clear", "agent.credential.set",
   "agent.credential.status", "agent.providers", "agent.turn.resume", "agent.turn.start", "agent.turn.status", "agent.turn.stop",
-  "build.outputs", "build.show", "calendar.list", "calendar.update",
+  "build.outputs", "build.show", "calendar.create", "calendar.list", "calendar.overview",
+  "calendar.remove", "calendar.reschedule", "calendar.retry", "calendar.submit", "calendar.update",
   "campaign.list", "campaign.show", "campaign.update", "composition.build",
   "composition.builds", "composition.inputs", "composition.list", "composition.revise", "composition.revision.show",
   "composition.revisions", "composition.select", "composition.show", "composition.sources",
@@ -32,7 +33,10 @@ const currentCoreCapabilities = [
   "document.bind", "document.content", "document.create", "document.list",
   "document.revise", "document.revisions", "document.search", "document.show",
   "evaluation.create", "evaluation.list", "evaluation.show", "feedback.add", "feedback.list", "feedback.resolve", "generation.start",
-  "locator.resolve", "media.generation.show", "media.list", "media.review", "media.revision.show", "media.revisions", "media.select", "media.show", "metric.list", "metric.totals",
+  "locator.resolve", "media.generation.show", "media.list", "media.review", "media.revision.show", "media.revisions", "media.select", "media.show",
+  "memory.approve", "memory.create", "memory.health", "memory.history", "memory.list",
+  "memory.recall", "memory.reject", "memory.retire", "memory.revise", "memory.show",
+  "metric.list", "metric.totals",
   "migration.desktop.import", "migration.secret.import", "operation.find",
   "presentation.captions", "presentation.items", "project.iteration.create",
   "project.iteration.list", "project.list", "project.overview", "project.show",
@@ -40,7 +44,7 @@ const currentCoreCapabilities = [
   "publication.lookup", "publication.publish", "publication.reconcile", "publication.recover",
   "publication.refresh", "repair.start", "run.attempts", "run.cancel", "run.list", "run.objects", "run.results", "run.show",
   "session.end", "session.list", "session.show", "session.start", "system.hello",
-  "transcription.start", "transform.start", "unit.items", "unit.list", "unit.presentations",
+  "transcription.start", "transform.start", "unit.create", "unit.items", "unit.list", "unit.presentations",
   "unit.preview", "unit.revise", "unit.revision.show", "unit.revisions", "unit.select",
   "unit.show", "workspace.account.list", "workspace.account.upsert", "workspace.export",
   "workspace.import", "workspace.list", "workspace.overview", "workspace.show", "workspace.update",
@@ -79,7 +83,7 @@ const currentCoreFixtures = [
     result: {
       workspace: { id: "ws_1", slug: "launch", name: "Launch Studio", rowVersion: 2, createdAt: 1, updatedAt: 9 },
       documents: { items: [{ id: "doc_ws_1", workspaceId: "ws_1", projectId: null, slug: "workspace-brief", title: "Workspace brief", kind: "brief", currentRevisionId: "drev_ws_1", rowVersion: 1, createdAt: 2, updatedAt: 2 }], nextCursor: null },
-      units: { items: [{ id: "unit_ws_1", workspaceId: "ws_1", projectId: null, slug: "launch-reel", format: "9:16", latestRevisionId: "urev_ws_2", selectedRevisionId: "urev_ws_1", createdAt: 2, updatedAt: 5 }], nextCursor: null },
+      units: { items: [{ id: "unit_ws_1", workspaceId: "ws_1", projectId: null, compositionId: null, slug: "launch-reel", format: "9:16", latestRevisionId: "urev_ws_2", selectedRevisionId: "urev_ws_1", createdAt: 2, updatedAt: 5 }], nextCursor: null },
       accounts: { items: [{ id: "acct_1", workspaceId: "ws_1", platform: "tiktok", externalId: "external_1", displayName: "Launch Studio", username: "launch", credentialConfigured: true, credentialSource: "encrypted", relinkRequired: false, rowVersion: 1, createdAt: 2, updatedAt: 3 }], nextCursor: null },
       projects: { items: [{ id: "prj_1", workspaceId: "ws_1", slug: "launch", name: "Launch", state: "active", rowVersion: 1, createdAt: 1, updatedAt: 8 }], nextCursor: null },
       activity: { items: [{ sequence: 7, workspaceId: "ws_1", projectId: null, entityType: "workspace", entityId: "ws_1", action: "updated", createdAt: 7 }, { sequence: 8, workspaceId: "ws_1", projectId: "prj_1", entityType: "project", entityId: "prj_1", action: "updated", createdAt: 8 }], nextCursor: null },
@@ -103,7 +107,7 @@ const currentCoreFixtures = [
       stages: { items: [{ id: "stage_1", projectId: "prj_1", stage: "production", state: "active", entityType: "composition", entityId: "comp_1", rowVersion: 1, updatedAt: 3 }], nextCursor: null },
       compositions: { items: [{ id: "comp_1", projectId: "prj_1", slug: "launch-cut", kind: "video", latestRevisionId: "crev_1", selectedRevisionId: "crev_1", createdAt: 2, updatedAt: 3 }], nextCursor: null },
       builds: { items: [{ id: "build_1", compositionRevisionId: "crev_1", runId: "run_1", state: "succeeded", createdAt: 3, finishedAt: 4 }], nextCursor: null },
-      units: { items: [{ id: "unit_prj_1", workspaceId: "ws_1", projectId: "prj_1", slug: "project-reel", format: "9:16", latestRevisionId: "urev_prj_1", selectedRevisionId: "urev_prj_1", createdAt: 3, updatedAt: 4 }], nextCursor: null },
+      units: { items: [{ id: "unit_prj_1", workspaceId: "ws_1", projectId: "prj_1", compositionId: "comp_1", slug: "project-reel", format: "9:16", latestRevisionId: "urev_prj_1", selectedRevisionId: "urev_prj_1", createdAt: 3, updatedAt: 4 }], nextCursor: null },
       runs: { items: [{ id: "run_1", workspaceId: "ws_1", projectId: "prj_1", kind: "generation", label: "Launch", state: "succeeded", createdAt: 1, startedAt: 2, endedAt: 3 }], nextCursor: null },
       activity: { items: [{ sequence: 7, workspaceId: "ws_1", projectId: null, entityType: "workspace", entityId: "ws_1", action: "updated", createdAt: 7 }, { sequence: 8, workspaceId: "ws_1", projectId: "prj_1", entityType: "project", entityId: "prj_1", action: "updated", createdAt: 8 }], nextCursor: null },
       mediaCounts: { artifacts: 2, objects: 2, runObjects: 1 },
@@ -168,17 +172,17 @@ const currentCoreFixtures = [
   {
     method: "unit.show",
     params: { context: { workspaceId: "ws_1", projectId: "prj_1" }, unitId: "unit_prj_1" },
-    result: { id: "unit_prj_1", workspaceId: "ws_1", projectId: "prj_1", slug: "project-reel", format: "9:16", latestRevisionId: "urev_prj_1", selectedRevisionId: "urev_prj_1", createdAt: 3, updatedAt: 4 },
+    result: { id: "unit_prj_1", workspaceId: "ws_1", projectId: "prj_1", compositionId: "comp_1", slug: "project-reel", format: "9:16", latestRevisionId: "urev_prj_1", selectedRevisionId: "urev_prj_1", createdAt: 3, updatedAt: 4 },
   },
   {
     method: "unit.revision.show",
     params: { context: { workspaceId: "ws_1", projectId: "prj_1" }, revisionId: "urev_prj_1" },
-    result: { id: "urev_prj_1", unitId: "unit_prj_1", revisionNo: 1, parentRevisionId: null, iterationId: "iter_1", note: "Approved cut", authoredBySessionId: "session_1", createdAt: 3, sealedAt: 4 },
+    result: { id: "urev_prj_1", unitId: "unit_prj_1", compositionRevisionId: "crev_1", revisionNo: 1, parentRevisionId: null, iterationId: "iter_1", note: "Approved cut", authoredBySessionId: "session_1", createdAt: 3, sealedAt: 4 },
   },
   {
     method: "unit.revisions",
     params: { context: { workspaceId: "ws_1", projectId: "prj_1" }, unitId: "unit_prj_1", order: "newest", limit: 50 },
-    result: { items: [{ id: "urev_prj_1", unitId: "unit_prj_1", revisionNo: 1, parentRevisionId: null, iterationId: "iter_1", note: "Approved cut", authoredBySessionId: "session_1", createdAt: 3, sealedAt: 4 }], nextCursor: null },
+    result: { items: [{ id: "urev_prj_1", unitId: "unit_prj_1", compositionRevisionId: "crev_1", revisionNo: 1, parentRevisionId: null, iterationId: "iter_1", note: "Approved cut", authoredBySessionId: "session_1", createdAt: 3, sealedAt: 4 }], nextCursor: null },
   },
   {
     method: "unit.items",
@@ -193,7 +197,7 @@ const currentCoreFixtures = [
   {
     method: "unit.select",
     params: { context: { workspaceId: "ws_1", projectId: "prj_1" }, unitId: "unit_prj_1", revisionId: "urev_prj_1", expectedSelectedRevisionId: null },
-    result: { id: "unit_prj_1", workspaceId: "ws_1", projectId: "prj_1", slug: "project-reel", format: "9:16", latestRevisionId: "urev_prj_1", selectedRevisionId: "urev_prj_1", createdAt: 3, updatedAt: 4 },
+    result: { id: "unit_prj_1", workspaceId: "ws_1", projectId: "prj_1", compositionId: "comp_1", slug: "project-reel", format: "9:16", latestRevisionId: "urev_prj_1", selectedRevisionId: "urev_prj_1", createdAt: 3, updatedAt: 4 },
   },
   {
     method: "activity.list",
@@ -232,8 +236,8 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
   const request = JSON.parse(line);
   if (request.method === "system.hello") return send({ v: 1, id: request.id, ok: true, result: {
     protocolVersion: 1,
-    coreVersion: "2",
-    schemaVersion: 6,
+    coreVersion: "3",
+    schemaVersion: 8,
     storeId: "${currentCoreStoreId}",
     rootId: "${"a".repeat(64)}",
     capabilities: ${JSON.stringify(currentCoreCapabilities)},
@@ -269,8 +273,8 @@ describe("current Core bridge contract", () => {
     const hello = await client.start();
     expect(hello).toEqual({
       protocolVersion: 1,
-      coreVersion: "2",
-      schemaVersion: 6,
+      coreVersion: "3",
+      schemaVersion: 8,
       storeId: currentCoreStoreId,
       rootId: "a".repeat(64),
       capabilities: [...currentCoreCapabilities],
@@ -482,7 +486,7 @@ describe("current Core bridge contract", () => {
         "id", "workspaceId", "projectId", "slug", "title", "kind", "currentRevisionId", "rowVersion", "createdAt", "updatedAt",
       ]);
       expect(Object.keys(workspace.units!.items[0]!)).toEqual([
-        "id", "workspaceId", "projectId", "slug", "format", "latestRevisionId", "selectedRevisionId", "createdAt", "updatedAt",
+        "id", "workspaceId", "projectId", "compositionId", "slug", "format", "latestRevisionId", "selectedRevisionId", "createdAt", "updatedAt",
       ]);
       expect(Object.keys(workspace.accounts!.items[0]!)).toEqual([
         "id", "workspaceId", "platform", "externalId", "displayName", "username", "credentialConfigured", "credentialSource", "relinkRequired", "rowVersion", "createdAt", "updatedAt",
@@ -534,7 +538,7 @@ describe("current Core bridge contract", () => {
         "id", "compositionRevisionId", "runId", "state", "createdAt", "finishedAt",
       ]);
       expect(Object.keys(project.units!.items[0]!)).toEqual([
-        "id", "workspaceId", "projectId", "slug", "format", "latestRevisionId", "selectedRevisionId", "createdAt", "updatedAt",
+        "id", "workspaceId", "projectId", "compositionId", "slug", "format", "latestRevisionId", "selectedRevisionId", "createdAt", "updatedAt",
       ]);
       expect(Object.keys(project.runs!.items[0]!)).toEqual([
         "id", "workspaceId", "projectId", "kind", "label", "state", "createdAt", "startedAt", "endedAt",
@@ -699,7 +703,7 @@ describe("current Core bridge contract", () => {
       expect(presentations.items[0]).toMatchObject({ unitRevisionId: revision.id, platform: "tiktok" });
       expect(selected.selectedRevisionId).toBe(revision.id);
       expect(Object.keys(revision)).toEqual([
-        "id", "unitId", "revisionNo", "parentRevisionId", "iterationId", "note",
+        "id", "unitId", "compositionRevisionId", "revisionNo", "parentRevisionId", "iterationId", "note",
         "authoredBySessionId", "createdAt", "sealedAt",
       ]);
       await expect(client.request("unit.items", {

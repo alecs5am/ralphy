@@ -7,6 +7,30 @@ import { MediaProtocolAccess } from "../electron/media/protocol-access";
 import { makeLibraryFixture } from "./fixtures";
 
 describe("Electron IPC security", () => {
+  test("validates Local Models provider requests before network access", async () => {
+    const localModels = await import("../electron/local-models") as typeof import("../electron/local-models") & {
+      parseLocalModelSearchInput(value: unknown): unknown;
+      parseLocalModelReference(value: unknown): unknown;
+      parseLocalModelProviderUrl(value: unknown): string;
+    };
+
+    expect(localModels.parseLocalModelSearchInput({ query: " qwen ", provider: "huggingface", sort: "comfort", limit: 8 }))
+      .toEqual({ query: "qwen", provider: "huggingface", sort: "comfort", limit: 8 });
+    expect(localModels.parseLocalModelReference({ provider: "civitai", id: "123" }))
+      .toEqual({ provider: "civitai", id: "123" });
+    expect(localModels.parseLocalModelProviderUrl("https://huggingface.co/Qwen/model"))
+      .toBe("https://huggingface.co/Qwen/model");
+    for (const invalid of [
+      { query: "x".repeat(257) },
+      { provider: "evil" },
+      { sort: "best" },
+      { limit: 0 },
+      { unexpected: true },
+    ]) expect(() => localModels.parseLocalModelSearchInput(invalid)).toThrow("Invalid Local Models search");
+    expect(() => localModels.parseLocalModelReference({ provider: "huggingface", id: "../token" })).toThrow("Invalid model reference");
+    expect(() => localModels.parseLocalModelProviderUrl("file:///Users/demo/.ssh/id_rsa")).toThrow("Invalid provider URL");
+  });
+
   test("documents workbench production search validates sender, query, scope, cursor, and stale root", async () => {
     const { registerProjectMediaIpc } = await import("../electron/ralphy/project-reader");
     const handlers = new Map<string, (event: unknown, ...args: unknown[]) => Promise<any>>();
@@ -254,12 +278,13 @@ describe("Electron IPC security", () => {
 
     expect(exposed).toBeTypeOf("object");
     expect(Object.keys(exposed as object)).not.toContain("request");
+    expect(Object.keys(exposed as object)).not.toContain("chooseLibrary");
     expect(Object.keys(exposed as object)).toEqual(expect.arrayContaining([
       "restoreLibrary",
-      "chooseLibrary",
       "loadWorkspaceOverview",
       "loadProjectOverview",
       "loadProjectPage",
+      "loadProjectActivityRun",
       "loadProjectMediaCard",
       "loadProjectGeneration",
       "loadProjectMediaRevisions",
@@ -282,12 +307,17 @@ describe("Electron IPC security", () => {
       "copyMigrationRecoveryCommand",
       "sendAgentMessage",
       "createTerminal",
+      "searchLocalModels",
+      "loadLocalModelDetail",
+      "refreshLocalModelMachine",
+      "openLocalModelProvider",
     ]));
     expect(Object.keys(exposed as object).filter((name) => name === "performProjectMediaAction")).toHaveLength(1);
     const bridge = exposed as {
       startFileDrag(path: string): Promise<void>;
       loadWorkspaceOverview(workspaceId: string): Promise<void>;
       loadProjectOverview(project: { workspaceId: string; projectId: string }): Promise<void>;
+      loadProjectActivityRun(project: { workspaceId: string; projectId: string }, runId: string): Promise<void>;
       loadProjectMediaCard(project: { workspaceId: string; projectId: string }, ref: { type: "artifact"; id: string }): Promise<void>;
       loadProjectGeneration(project: { workspaceId: string; projectId: string }, target: { type: "artifact-revision"; id: string }, after?: string): Promise<void>;
       loadProjectMediaRevisions(project: { workspaceId: string; projectId: string }, artifactId: string, after?: string): Promise<void>;
@@ -305,10 +335,15 @@ describe("Electron IPC security", () => {
       selectProjectUnitRevision(project: { workspaceId: string; projectId: string }, unitId: string, revisionId: string, expectedSelectedRevisionId: string | null): Promise<void>;
       writeTerminal(sessionId: string, data: string): Promise<void>;
       resizeTerminal(sessionId: string, dimensions: { cols: number; rows: number }): Promise<void>;
+      searchLocalModels(input: { query: string; provider: "huggingface" }): Promise<void>;
+      loadLocalModelDetail(ref: { provider: "huggingface"; id: string }): Promise<void>;
+      refreshLocalModelMachine(): Promise<void>;
+      openLocalModelProvider(url: string): Promise<void>;
     };
     await bridge.startFileDrag("/library/video.mp4");
     await bridge.loadWorkspaceOverview("workspace-1");
     await bridge.loadProjectOverview({ workspaceId: "workspace-1", projectId: "project-1" });
+    await bridge.loadProjectActivityRun({ workspaceId: "workspace-1", projectId: "project-1" }, "run-1");
     await bridge.loadProjectMediaCard({ workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact", id: "artifact-1" });
     await bridge.loadProjectGeneration({ workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact-revision", id: "revision-1" }, "generation-next");
     await bridge.loadProjectMediaRevisions({ workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-next");
@@ -326,10 +361,15 @@ describe("Electron IPC security", () => {
     await bridge.selectProjectUnitRevision({ workspaceId: "workspace-1", projectId: "project-1" }, "unit-1", "unit-revision-1", null);
     await bridge.writeTerminal("terminal-1", "ls\n");
     await bridge.resizeTerminal("terminal-1", { cols: 80, rows: 24 });
+    await bridge.searchLocalModels({ query: "qwen", provider: "huggingface" });
+    await bridge.loadLocalModelDetail({ provider: "huggingface", id: "Qwen/model" });
+    await bridge.refreshLocalModelMachine();
+    await bridge.openLocalModelProvider("https://huggingface.co/Qwen/model");
     expect(invoke.mock.calls).toEqual(expect.arrayContaining([
       ["media:files:drag", "/library/video.mp4"],
       ["workspace:overview", "workspace-1"],
       ["project:overview", { workspaceId: "workspace-1", projectId: "project-1" }],
+      ["project:activity:run", { workspaceId: "workspace-1", projectId: "project-1" }, "run-1"],
       ["project:media:show", { workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact", id: "artifact-1" }],
       ["project:media:generation", { workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact-revision", id: "revision-1" }, "generation-next"],
       ["project:media:revisions", { workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-next"],
@@ -345,6 +385,10 @@ describe("Electron IPC security", () => {
       ["project:unit:revision:show", { workspaceId: "workspace-1", projectId: "project-1" }, "unit-1", "unit-revision-1"],
       ["project:unit:page", { workspaceId: "workspace-1", projectId: "project-1" }, { kind: "revisions", unitId: "unit-1", cursor: "unit-next" }],
       ["project:unit:select", { workspaceId: "workspace-1", projectId: "project-1" }, "unit-1", "unit-revision-1", null],
+      ["models:search", { query: "qwen", provider: "huggingface" }],
+      ["models:detail", { provider: "huggingface", id: "Qwen/model" }],
+      ["models:machine"],
+      ["models:open-provider", "https://huggingface.co/Qwen/model"],
       ["terminal:write", "terminal-1", "ls\n"],
       ["terminal:resize", "terminal-1", { cols: 80, rows: 24 }],
     ]));
@@ -449,7 +493,7 @@ describe("Electron IPC security", () => {
       "project:media:generation", "project:media:show", "project:media:revisions", "project:media:select", "project:media:action",
       "project:documents:search",
       "project:composition:show", "project:composition:revision:show", "project:composition:build:show", "project:composition:page",
-      "project:unit:show", "project:unit:revision:show", "project:unit:page", "project:unit:select",
+      "project:unit:show", "project:unit:revision:show", "project:unit:page", "project:unit:preview", "project:unit:select",
     ]);
     const generation = handlers.get("project:media:generation")!;
     const show = handlers.get("project:media:show")!;
@@ -576,11 +620,11 @@ describe("Electron IPC security", () => {
     const window = { isDestroyed: () => false, webContents };
     const project = { workspaceId: "workspace-1", projectId: "project-1" };
     const unit = {
-      id: "unit-1", ...project, slug: "reel", format: "9:16", latestRevisionId: "unit-revision-2",
+      id: "unit-1", ...project, compositionId: null, slug: "reel", format: "9:16", latestRevisionId: "unit-revision-2",
       selectedRevisionId: "unit-revision-1", createdAt: 1, updatedAt: 2,
     };
     const revision = {
-      id: "unit-revision-1", unitId: "unit-1", revisionNo: 1, parentRevisionId: null,
+      id: "unit-revision-1", unitId: "unit-1", compositionRevisionId: null, revisionNo: 1, parentRevisionId: null,
       iterationId: null, note: null, authoredBySessionId: null, sealedAt: 2, createdAt: 1,
     };
     let epoch = 1;

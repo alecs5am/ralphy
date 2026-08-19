@@ -4,7 +4,7 @@
 
 **Goal:** Ship the supplied workspace Memory rulebook as a functional Desktop page backed by the current SQLite Core contract.
 
-**Architecture:** Port the existing Hermes Memory lifecycle into the SQLite domain store, anchor global entries in one hidden system workspace, and expose typed `memory.*` bridge methods. Desktop validates that contract in Electron and renders one stateful Memory screen; it never opens `ralphy.db` directly.
+**Architecture:** Complete the existing Hermes-to-SQLite Memory adapter, anchor global entries in one hidden system workspace, and expose typed `memory.*` bridge methods. Desktop validates that contract in Electron and renders one stateful Memory screen; it never opens `ralphy.db` directly.
 
 **Tech Stack:** Bun, `bun:sqlite`, TypeScript, Electron IPC, React 19, Radix Dialog, Lucide React, Vitest, Playwright.
 
@@ -27,12 +27,11 @@
 **Files:**
 - Modify: `/Users/maximovchinnikov/github/ralphy/ralphy/.worktrees/sqlite-domain-store/cli/lib/store/schema.ts`
 - Modify: `/Users/maximovchinnikov/github/ralphy/ralphy/.worktrees/sqlite-domain-store/cli/lib/store/scopes.ts`
-- Modify: `/Users/maximovchinnikov/github/ralphy/ralphy/.worktrees/sqlite-domain-store/cli/lib/store/types.ts`
-- Create: `/Users/maximovchinnikov/github/ralphy/ralphy/.worktrees/sqlite-domain-store/cli/lib/store/memories.ts`
+- Modify: `/Users/maximovchinnikov/github/ralphy/ralphy/.worktrees/sqlite-domain-store/cli/lib/memory/store.ts`
 - Create: `/Users/maximovchinnikov/github/ralphy/ralphy/.worktrees/sqlite-domain-store/tests/integration/domain-memory.test.ts`
 
 **Interfaces:**
-- Produces `MemoryTier`, `MemoryStatus`, `MemoryType`, `MemoryBodyInput`, `MemorySummaryDto`, `MemoryDetailDto`, `MemoryRevisionDto`, and `MemoryRecallDto`.
+- Extends the existing `MemoryTier`, `MemoryStatus`, `MemoryType`, `MemoryEntry`, and `RecallResult` contracts with structured body, quality, history, and global-SQL support.
 - Produces `listMemories`, `getMemory`, `createMemory`, `reviseMemory`, `approveMemory`, `rejectMemory`, `retireMemory`, `listMemoryHistory`, `recallMemory`, and `getMemoryHealth`.
 
 ```ts
@@ -117,31 +116,24 @@ Add independent tests for: hidden global workspace filtering, active/proposed cr
 
 Run: `bun test tests/integration/domain-memory.test.ts`
 
-Expected: FAIL because `cli/lib/store/memories.ts` and the new schema migration do not exist.
+Expected: FAIL because global Memory still uses files and the hidden scope migration does not exist.
 
 - [ ] **Step 3: Add the minimal schema migration**
 
 Add one migration after the current version:
 
 ```sql
-ALTER TABLE memory_entries
-  ADD COLUMN tier TEXT NOT NULL DEFAULT 'workspace'
-  CHECK (tier IN ('workspace', 'global'));
-
 INSERT OR IGNORE INTO workspaces
   (id, slug, name, metadata_json, row_version, created_at, updated_at)
 VALUES
   ('ws_00000000-0000-0000-0000-000000000000', '__global-memory__', 'Global Memory', '{"system":"global-memory"}', 1, 0, 0);
-
-CREATE UNIQUE INDEX memory_entries_global_slug_idx
-  ON memory_entries(slug) WHERE tier = 'global';
 ```
 
-Export `GLOBAL_MEMORY_WORKSPACE_ID` and exclude it in `listWorkspaces`. Existing rows retain `tier = 'workspace'`.
+Export `GLOBAL_MEMORY_WORKSPACE_ID` and exclude it in `listWorkspaces`. Tier is derived: the reserved ID is global and every other workspace ID is workspace tier.
 
 - [ ] **Step 4: Implement the store with one transaction per mutation**
 
-Use the existing `documents` and `document_revisions` tables for immutable body storage. Canonical structured bodies render as:
+Refactor the existing `writeWorkspaceEntry`, `listWorkspaceEntries`, `getWorkspaceEntry`, and `moveWorkspaceEntry` helpers into scope-neutral SQL helpers. Both tiers use the existing `documents` and `document_revisions` tables for immutable body storage. Canonical structured bodies render as:
 
 ```md
 ## Rule

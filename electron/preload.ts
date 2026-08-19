@@ -50,11 +50,25 @@ function loadProjectCompositionPage(
 }
 
 const mediaBridge: MediaWorkbenchBridge = {
-  chooseLibrary: () => invoke(MEDIA_CHANNELS.chooseLibrary),
   restoreLibrary: () => invoke(MEDIA_CHANNELS.restoreLibrary),
   loadWorkspaceOverview: (workspaceId) => invoke(MEDIA_CHANNELS.loadWorkspaceOverview, workspaceId),
+  loadMemory: (workspaceId, input) => invoke(MEDIA_CHANNELS.loadMemory, workspaceId, input),
+  showMemory: (workspaceId, memoryEntryId) => invoke(MEDIA_CHANNELS.showMemory, workspaceId, memoryEntryId),
+  mutateMemory: (workspaceId, input) => invoke(MEDIA_CHANNELS.mutateMemory, workspaceId, input),
+  loadMemoryHistory: (workspaceId, memoryEntryId) => invoke(MEDIA_CHANNELS.loadMemoryHistory, workspaceId, memoryEntryId),
+  recallMemory: (workspaceId) => invoke(MEDIA_CHANNELS.recallMemory, workspaceId),
+  loadMemoryHealth: (workspaceId) => invoke(MEDIA_CHANNELS.loadMemoryHealth, workspaceId),
+  loadCalendar: (workspaceId, input) => invoke(MEDIA_CHANNELS.loadCalendar, workspaceId, input),
+  mutateCalendar: (workspaceId, input) => invoke(MEDIA_CHANNELS.mutateCalendar, workspaceId, input),
+  reconnectCalendarAccount: (workspaceId, input) => invoke(MEDIA_CHANNELS.reconnectCalendarAccount, workspaceId, input),
+  resolveCalendarPreview: (workspaceId, projectId, ref) => invoke(MEDIA_CHANNELS.resolveCalendarPreview, workspaceId, projectId, ref),
+  searchLocalModels: (input) => invoke(MEDIA_CHANNELS.searchLocalModels, input),
+  loadLocalModelDetail: (ref) => invoke(MEDIA_CHANNELS.loadLocalModelDetail, ref),
+  refreshLocalModelMachine: () => invoke(MEDIA_CHANNELS.refreshLocalModelMachine),
+  openLocalModelProvider: (url) => invoke(MEDIA_CHANNELS.openLocalModelProvider, url),
   loadProjectOverview: (project) => invoke(MEDIA_CHANNELS.loadProjectOverview, project),
   loadProjectPage: (input) => invoke(MEDIA_CHANNELS.loadProjectPage, input),
+  loadProjectActivityRun: (project, runId) => invoke(MEDIA_CHANNELS.loadProjectActivityRun, project, runId),
   loadProjectMediaCard: (project, ref) => invoke(MEDIA_CHANNELS.loadProjectMediaCard, project, ref),
   loadProjectGeneration: (project, target, after) => (
     invoke(MEDIA_CHANNELS.loadProjectGeneration, project, target, after)
@@ -118,6 +132,9 @@ const mediaBridge: MediaWorkbenchBridge = {
     invoke(MEDIA_CHANNELS.loadProjectUnitRevision, project, unitId, revisionId)
   ),
   loadProjectUnitPage,
+  loadProjectUnitPreview: (project, revisionId, platform) => (
+    invoke(MEDIA_CHANNELS.loadProjectUnitPreview, project, revisionId, platform)
+  ),
   selectProjectUnitRevision: (project, unitId, revisionId, expectedSelectedRevisionId) => (
     invoke(
       MEDIA_CHANNELS.selectProjectUnitRevision,

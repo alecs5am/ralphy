@@ -1,17 +1,19 @@
-import { ArrowRight, CircleDollarSign, FolderOpen, LayoutGrid, List, Pin, Search } from "lucide-react";
+import { FolderOpen, Pin, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { MediaCardDto } from "../../electron/ralphy/types";
+import { MediaCardPreview } from "../components/VirtualAssetGrid";
 import type { ProjectSummary } from "../lib/ipc";
+import { bridge } from "../lib/ipc";
 import { projectGlyphSlot, projectGlyphVars } from "../lib/project-glyph";
-import { sortProjects, WORKSPACE_PAGE_LABELS, type WorkspacePage, type WorkspaceView } from "../state/workbench";
+import { sortProjects, WORKSPACE_PAGE_LABELS, type WorkspacePage } from "../state/workbench";
 
 interface WorkspaceProjectsScreenProps {
   workspaceName: string;
   workspaceDescription: string;
   projects: ProjectSummary[];
+  rootEpoch: number;
   pinnedProjectIds: string[];
-  view: WorkspaceView;
   searchRequest: number;
-  onViewChange(view: WorkspaceView): void;
   onOpenProject(project: ProjectSummary): void;
   onToggleProjectPin(projectId: string): void;
 }
@@ -37,18 +39,48 @@ function initials(value: string): string {
     .toLocaleUpperCase();
 }
 
-function ProjectPreview({ project }: { project: ProjectSummary }) {
+function ProjectPreview({ project, rootEpoch }: { project: ProjectSummary; rootEpoch: number }) {
+  const [media, setMedia] = useState<MediaCardDto[]>([]);
+
+  useEffect(() => {
+    let current = true;
+    setMedia([]);
+    void bridge.loadProjectPage({
+      tab: "media",
+      project,
+      mediaQuery: { filter: "all" },
+    }).then((page) => {
+      if (!current) return;
+      setMedia((page.items as MediaCardDto[])
+        .filter((item) => item.mediaKind === "image" || item.mediaKind === "video")
+        .slice(0, 4));
+    }).catch(() => undefined);
+    return () => { current = false; };
+  }, [project.projectId, project.workspaceId, rootEpoch]);
+
   return (
-    <span className="workspace-project-preview" style={projectGlyphVars(project.name)} aria-hidden="true">
-      <span className="workspace-project-preview-grid" />
-      <span className="workspace-project-preview-mark" data-glyph={projectGlyphSlot(project.name)}>
-        {initials(project.name)}
-      </span>
-      <span className="workspace-project-preview-meta">
-        {project.aspectRatio ?? "Project"}
-        {project.platform ? ` · ${project.platform}` : ""}
-      </span>
-    </span>
+    <div className="workspace-project-preview" style={projectGlyphVars(project.name)} aria-hidden="true">
+      {media.length > 0 ? (
+        <div className="workspace-project-preview-collage" data-count={media.length}>
+          {media.map((card) => (
+            <MediaCardPreview
+              key={`${card.ref.type}:${card.ref.id}`}
+              card={card}
+              project={project}
+              rootEpoch={rootEpoch}
+              resolvePreview={bridge.resolveProjectPreview}
+              fill
+              className="workspace-project-preview-file"
+            />
+          ))}
+        </div>
+      ) : (
+        <span className="workspace-project-preview-mark" data-glyph={projectGlyphSlot(project.name)}>
+          {initials(project.name)}
+        </span>
+      )}
+      <span className="workspace-project-preview-meta">{project.aspectRatio ?? "Project"}</span>
+    </div>
   );
 }
 
@@ -67,23 +99,20 @@ function PinButton({ project, active, onToggle }: { project: ProjectSummary; act
   );
 }
 
-function ProjectCard({ project, pinned, onOpen, onTogglePin }: { project: ProjectSummary; pinned: boolean; onOpen(): void; onTogglePin(): void }) {
+function ProjectCard({ project, rootEpoch, pinned, onOpen, onTogglePin }: { project: ProjectSummary; rootEpoch: number; pinned: boolean; onOpen(): void; onTogglePin(): void }) {
   return (
     <article className="workspace-project-card-shell">
       <button className="workspace-project-card" type="button" aria-label={`Open project ${project.name}`} onClick={onOpen}>
-        <ProjectPreview project={project} />
-        <span className="workspace-project-card-head">
-          <span className="workspace-project-phase"><i className="status-dot" />{project.phase ?? project.status}</span>
-          <span className="workspace-project-card-arrow"><ArrowRight size={14} aria-hidden="true" /></span>
-        </span>
-        <span className="workspace-project-card-copy">
-          <strong>{project.name}</strong>
-          <small>{project.brief || "No brief available"}</small>
-        </span>
-        <span className="workspace-project-card-footer">
-          <span>{project.finalCount} final{project.finalCount === 1 ? "" : "s"}</span>
-          <span>{relativeActivity(project.recentActivity)}</span>
-          {project.spendUsd !== null && <><CircleDollarSign size={11} aria-hidden="true" />{project.spendUsd.toFixed(2)}</>}
+        <ProjectPreview project={project} rootEpoch={rootEpoch} />
+        <span className="workspace-project-card-details">
+          <span className="workspace-project-card-copy">
+            <strong>{project.name}</strong>
+            <small>{project.brief || "No brief available"}</small>
+          </span>
+          <span className="workspace-project-card-status">
+            <span className="workspace-project-phase" data-status={project.status}><i className="status-dot" />{project.status}</span>
+            <span>{project.finalCount} final{project.finalCount === 1 ? "" : "s"} · {relativeActivity(project.recentActivity)}</span>
+          </span>
         </span>
       </button>
       <PinButton project={project} active={pinned} onToggle={onTogglePin} />
@@ -95,10 +124,9 @@ export function WorkspaceProjectsScreen({
   workspaceName,
   workspaceDescription,
   projects,
+  rootEpoch,
   pinnedProjectIds,
-  view,
   searchRequest,
-  onViewChange,
   onOpenProject,
   onToggleProjectPin,
 }: WorkspaceProjectsScreenProps) {
@@ -124,7 +152,7 @@ export function WorkspaceProjectsScreen({
   const finals = projects.reduce((total, project) => total + project.finalCount, 0);
 
   return (
-    <main className="main-region">
+    <main className="main-region workspace-projects-region">
       <div className="screen-header workspace-header">
         <div>
           <div className="screen-kicker">{workspaceName}</div>
@@ -137,10 +165,6 @@ export function WorkspaceProjectsScreen({
             <input ref={searchRef} type="search" value={query} placeholder="Filter projects" aria-label="Filter projects" onChange={(event) => setQuery(event.target.value)} />
             <kbd>⌘F</kbd>
           </label>
-          <div className="view-segments" role="group" aria-label="Project view">
-            <button className={view === "grid" ? "is-active" : ""} type="button" aria-label="Grid view" aria-pressed={view === "grid"} onClick={() => onViewChange("grid")}><LayoutGrid size={15} aria-hidden="true" /></button>
-            <button className={view === "list" ? "is-active" : ""} type="button" aria-label="List view" aria-pressed={view === "list"} onClick={() => onViewChange("list")}><List size={15} aria-hidden="true" /></button>
-          </div>
         </div>
       </div>
 
@@ -154,14 +178,10 @@ export function WorkspaceProjectsScreen({
         <div className="section-heading"><h3>All projects</h3><span>{ordered.length}{query ? " matching" : " total"}</span></div>
         {ordered.length === 0 ? (
           <div className="empty-section">{query ? "No projects match this filter." : "No projects in this workspace."}</div>
-        ) : view === "grid" ? (
-          <div className="workspace-project-grid">
-            {ordered.map((project) => <ProjectCard key={project.id} project={project} pinned={pinnedProjectIds.includes(project.id)} onOpen={() => onOpenProject(project)} onTogglePin={() => onToggleProjectPin(project.id)} />)}
-          </div>
         ) : (
-          <ul className="project-table workspace-project-list" aria-label="Projects">
-            {ordered.map((project) => <li key={project.id}><button className="project-table-row" type="button" onClick={() => onOpenProject(project)}><span className="project-name-cell"><strong>{project.name}</strong><small>{project.brief || "No brief available"}</small></span><span><i className="status-dot" />{project.phase ?? project.status}</span><span>{relativeActivity(project.recentActivity)}</span><ArrowRight size={14} aria-hidden="true" /></button></li>)}
-          </ul>
+          <div className="workspace-project-grid">
+            {ordered.map((project) => <ProjectCard key={project.id} project={project} rootEpoch={rootEpoch} pinned={pinnedProjectIds.includes(project.id)} onOpen={() => onOpenProject(project)} onTogglePin={() => onToggleProjectPin(project.id)} />)}
+          </div>
         )}
       </section>
     </main>

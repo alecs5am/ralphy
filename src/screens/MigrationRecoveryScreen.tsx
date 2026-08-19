@@ -3,11 +3,9 @@ import type { MigrationRecovery } from "../../electron/migration-recovery";
 export function MigrationRecoveryScreen({
   recovery,
   onCopyCommand,
-  onChooseLibrary,
 }: {
   recovery: MigrationRecovery;
   onCopyCommand(): void;
-  onChooseLibrary(): void;
 }) {
   return (
     <main className="migration-recovery" aria-labelledby="migration-recovery-title">
@@ -24,7 +22,6 @@ export function MigrationRecoveryScreen({
         </dl>
         <div>
           <button type="button" onClick={onCopyCommand}>Copy recovery command</button>
-          <button type="button" onClick={onChooseLibrary}>Choose another library</button>
         </div>
       </section>
     </main>

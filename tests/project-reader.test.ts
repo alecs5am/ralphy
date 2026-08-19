@@ -57,6 +57,41 @@ const objectCard: MediaCardDto = {
 };
 
 describe("Project domain reader", () => {
+  test("loads a bounded safe run summary for Activity without generation payloads", async () => {
+    const run = {
+      id: "run-1", workspaceId: project.workspaceId, projectId: project.projectId, agentSessionId: null,
+      kind: "generation", label: "Hero image", state: "succeeded", createdAt: 1, startedAt: 2, endedAt: 3,
+    } as const;
+    const attempt = {
+      id: "attempt-1", runId: run.id, attemptNo: 1, provider: "openrouter", model: "openai/gpt-5",
+      state: "succeeded", costUsd: 0.12, startedAt: 2, endedAt: 3,
+    } as const;
+    const request = vi.fn(async (method: string) => method === "run.show" ? run : page([attempt], "next"));
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+
+    await expect(reader.loadProjectActivityRun(project, run.id)).resolves.toEqual({ run, attempts: [attempt], nextCursor: "next" });
+    expect(request.mock.calls).toEqual([
+      ["run.show", { context: project, runId: run.id }],
+      ["run.attempts", { context: project, runId: run.id, limit: 20 }],
+    ]);
+    expect(JSON.stringify(await reader.loadProjectActivityRun(project, run.id))).not.toMatch(/prompt|providerRequest|providerResponse|credential/i);
+
+    request.mockClear();
+    await expect(reader.loadProjectActivityRun(project, "")).rejects.toThrow("Invalid Run identifier");
+    expect(request).not.toHaveBeenCalled();
+
+    for (const malformed of [
+      { method: "run.show", value: { ...run, projectId: "project-2" } },
+      { method: "run.attempts", value: page([{ ...attempt, runId: "run-2" }]) },
+      { method: "run.attempts", value: page([{ ...attempt, providerRequest: "private" }]) },
+    ]) {
+      const invalid = createProjectReader({
+        request: vi.fn(async (method: string) => method === malformed.method ? malformed.value : method === "run.show" ? run : page([attempt])) as unknown as RalphyBridgeClient["request"],
+      });
+      await expect(invalid.loadProjectActivityRun(project, run.id)).rejects.toThrow("Invalid Activity run detail");
+    }
+  });
+
   test("documents workbench validates and forwards one literal search page without draining", async () => {
     const searchResult: DocumentSearchDto = {
       documentId: "document-1", revisionId: "revision-2", workspaceId: "workspace-1", projectId: "project-1",
@@ -177,18 +212,32 @@ describe("Project domain reader", () => {
     }
   });
 
-  test("loads one bounded Documents page without a scanner follow-up", async () => {
-    const request = vi.fn(async () => page([{ id: "document-1" }], "next"));
+  test("enriches bounded Document pages with exact formats and caches unchanged heads", async () => {
+    const document = {
+      id: "document-1", workspaceId: "workspace-1", projectId: "project-1", kind: "brief", slug: "brief",
+      title: "Brief", currentRevisionId: "revision-1", rowVersion: 1, createdAt: 1, updatedAt: 2,
+    } as const;
+    const detail = {
+      ...document,
+      currentRevision: {
+        id: "revision-1", documentId: "document-1", revisionNo: 1, parentRevisionId: null,
+        iterationId: null, format: "json", title: null, authoredBySessionId: null, createdAt: 2,
+      },
+    } as const;
+    const request = vi.fn(async (method: string) => method === "document.list" ? page([document], "next") : detail);
     const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
 
     await expect(reader.loadPage({ tab: "documents", project })).resolves.toEqual(
-      page([{ id: "document-1" }], "next"),
+      page([detail], "next"),
     );
-    expect(request).toHaveBeenCalledTimes(1);
-    expect(request).toHaveBeenCalledWith("document.list", {
+    await expect(reader.loadPage({ tab: "documents", project })).resolves.toEqual(page([detail], "next"));
+    expect(request).toHaveBeenCalledTimes(3);
+    expect(request).toHaveBeenNthCalledWith(1, "document.list", {
       context: project,
       limit: 50,
     });
+    expect(request).toHaveBeenNthCalledWith(2, "document.show", { context: project, documentId: "document-1" });
+    expect(request).toHaveBeenNthCalledWith(3, "document.list", { context: project, limit: 50 });
   });
 
   test("loads one exact generation-detail request and maps selected Artifact cards locally", async () => {
@@ -472,12 +521,12 @@ describe("Project domain reader", () => {
 
   test("unit workbench reads exact identities and one opaque page per Unit family", async () => {
     const unit: UnitDto = {
-      id: "unit-1", workspaceId: "workspace-1", projectId: "project-1", slug: "reel",
+      id: "unit-1", workspaceId: "workspace-1", projectId: "project-1", compositionId: "composition-1", slug: "reel",
       format: "9:16", latestRevisionId: "unit-revision-2", selectedRevisionId: "unit-revision-1",
       createdAt: 1, updatedAt: 2,
     };
     const revision = (id: string, revisionNo: number): UnitRevisionDto => ({
-      id, unitId: "unit-1", revisionNo, parentRevisionId: revisionNo === 1 ? null : "unit-revision-1",
+      id, unitId: "unit-1", compositionRevisionId: "composition-revision-1", revisionNo, parentRevisionId: revisionNo === 1 ? null : "unit-revision-1",
       iterationId: null, note: null, authoredBySessionId: null, createdAt: revisionNo,
       sealedAt: revisionNo,
     });

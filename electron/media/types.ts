@@ -33,6 +33,12 @@ export interface ProjectReference {
   projectId: string;
 }
 
+export type ActivityRunDetail = {
+  run: import("../ralphy/types").RunDto;
+  attempts: import("../ralphy/types").RunAttemptDto[];
+  nextCursor: string | null;
+};
+
 export type ProjectTab = "documents" | "media" | "compositions" | "units" | "activity";
 export const PROJECT_MEDIA_FILTERS = [
   "all",
@@ -297,10 +303,127 @@ export type MediaEvent =
   | { type: "catalog-result"; result: CatalogResult }
   | { type: "error"; operation: string; message: string; generation?: number };
 
+export type LocalModelProvider = "huggingface" | "civitai" | "modelscope";
+export type LocalModelRuntimeId = "ollama" | "diffusers" | "transformers" | "mlx";
+export type LocalModelComfortLevel = "comfortable" | "usable" | "tight" | "unknown" | "incompatible";
+
+export interface LocalModelRuntime {
+  id: LocalModelRuntimeId;
+  label: string;
+  available: boolean;
+  detail: string;
+}
+
+export interface LocalInstalledModel {
+  id: string;
+  name: string;
+  runtime: LocalModelRuntimeId;
+  digest: string;
+  bytes: number;
+  format: string;
+  updatedAt: string | null;
+}
+
+export interface LocalModelMachine {
+  platform: string;
+  architecture: string;
+  cpu: string;
+  totalMemoryBytes: number;
+  freeDiskBytes: number;
+  runtimes: LocalModelRuntime[];
+  installed?: LocalInstalledModel[];
+}
+
+export interface LocalModelComfort {
+  level: LocalModelComfortLevel;
+  label: string;
+  score: 0 | 1 | 2 | 3 | 4;
+  runtime: LocalModelRuntimeId;
+  estimatedMemoryBytes: number | null;
+  evidence: string[];
+}
+
+export interface LocalModelFile {
+  name: string;
+  bytes: number | null;
+  format: string;
+  recommended: boolean;
+  warning: string | null;
+}
+
+export interface LocalModelPackage {
+  format: string;
+  bytes: number | null;
+  files: string[];
+}
+
+export interface LocalModelSummary {
+  provider: LocalModelProvider;
+  id: string;
+  name: string;
+  author: string;
+  task: string;
+  modality: "text" | "image" | "video" | "audio" | "multimodal" | "unknown";
+  modelType: string;
+  baseModel: string | null;
+  license: string | null;
+  gated: boolean;
+  revision: string | null;
+  lastModified: string | null;
+  downloads: number;
+  likes: number;
+  tags: string[];
+  iconUrl: string | null;
+  previewUrl: string | null;
+  providerUrl: string;
+  recommendedPackage: LocalModelPackage;
+  comfort: LocalModelComfort;
+  state: "remote" | "gated" | "downloaded" | "ready";
+  permissions: string[];
+}
+
+export interface LocalModelDetail extends LocalModelSummary {
+  readme: string;
+  previewUrls: string[];
+  files: LocalModelFile[];
+}
+
+export interface LocalModelCatalog {
+  items: LocalModelSummary[];
+  machine: LocalModelMachine;
+  refreshedAt: string;
+  errors: { provider: LocalModelProvider; message: string }[];
+}
+
+export interface LocalModelSearchInput {
+  query?: string;
+  provider?: "all" | LocalModelProvider;
+  sort?: "trending" | "downloads" | "updated" | "comfort" | "size";
+  limit?: number;
+}
+
+export interface LocalModelReference {
+  provider: LocalModelProvider;
+  id: string;
+}
+
 export interface MediaWorkbenchBridge {
-  chooseLibrary(): Promise<LibraryOpenResult | null>;
   restoreLibrary(): Promise<LibraryOpenResult | null>;
   loadWorkspaceOverview(workspaceId: string): Promise<import("../ralphy/types").WorkspaceOverviewDto>;
+  loadMemory(workspaceId: string, input?: import("../ralphy/memory-reader").MemoryListInput): Promise<{ items: import("../ralphy/types").MemoryDetailDto[] }>;
+  showMemory(workspaceId: string, memoryEntryId: string): Promise<import("../ralphy/types").MemoryDetailDto>;
+  mutateMemory(workspaceId: string, input: import("../ralphy/memory-reader").MemoryMutation): Promise<import("../ralphy/types").MemoryDetailDto | void>;
+  loadMemoryHistory(workspaceId: string, memoryEntryId: string): Promise<{ items: import("../ralphy/types").MemoryDetailDto[] }>;
+  recallMemory(workspaceId: string): Promise<import("../ralphy/types").MemoryRecallDto>;
+  loadMemoryHealth(workspaceId: string): Promise<import("../ralphy/types").MemoryHealthDto>;
+  loadCalendar(workspaceId: string, input: import("../ralphy/calendar-reader").CalendarRangeInput): Promise<import("../ralphy/types").CalendarWorkspaceDto>;
+  mutateCalendar(workspaceId: string, input: import("../ralphy/calendar-reader").CalendarMutation): Promise<import("../ralphy/types").CalendarEventDto>;
+  reconnectCalendarAccount(workspaceId: string, input: import("../ralphy/calendar-reader").CalendarReconnectInput): Promise<void>;
+  resolveCalendarPreview(workspaceId: string, projectId: string | null, ref: { type: "artifact-revision"; id: string }): Promise<ProjectPreview>;
+  searchLocalModels(input?: LocalModelSearchInput): Promise<LocalModelCatalog>;
+  loadLocalModelDetail(ref: LocalModelReference): Promise<LocalModelDetail>;
+  refreshLocalModelMachine(): Promise<LocalModelMachine>;
+  openLocalModelProvider(url: string): Promise<void>;
   loadProjectOverview(project: ProjectReference): Promise<import("../ralphy/types").ProjectOverviewDto>;
   loadProjectPage(input: {
     tab: ProjectTab;
@@ -308,6 +431,7 @@ export interface MediaWorkbenchBridge {
     cursor?: string | number | null;
     mediaQuery?: ProjectMediaQuery;
   }): Promise<ProjectPage>;
+  loadProjectActivityRun(project: ProjectReference, runId: string): Promise<ActivityRunDetail>;
   loadProjectMediaCard(
     project: ProjectReference,
     ref: import("../ralphy/types").MediaCardDto["ref"],
@@ -367,6 +491,7 @@ export interface MediaWorkbenchBridge {
   loadProjectUnitPage(project: ProjectReference, request: Extract<ProjectUnitPageRequest, { kind: "revisions" }>): Promise<import("../ralphy/types").Page<import("../ralphy/types").UnitRevisionDto>>;
   loadProjectUnitPage(project: ProjectReference, request: Extract<ProjectUnitPageRequest, { kind: "items" }>): Promise<import("../ralphy/types").Page<import("../ralphy/types").UnitItemDto>>;
   loadProjectUnitPage(project: ProjectReference, request: Extract<ProjectUnitPageRequest, { kind: "presentations" }>): Promise<import("../ralphy/types").Page<import("../ralphy/types").UnitPresentationDto>>;
+  loadProjectUnitPreview(project: ProjectReference, revisionId: string, platform: string): Promise<import("../ralphy/types").UnitPreviewDto>;
   selectProjectUnitRevision(project: ProjectReference, unitId: string, revisionId: string, expectedSelectedRevisionId: string | null): Promise<import("../ralphy/types").UnitDto>;
   onMediaEvent(callback: (event: MediaEvent) => void): () => void;
   loadAnnotations(): Promise<AnnotationStore>;
@@ -402,11 +527,25 @@ export const APP_CHANNELS = {
 } as const;
 
 export const MEDIA_CHANNELS = {
-  chooseLibrary: "media:library:choose",
   restoreLibrary: "media:library:restore",
   loadWorkspaceOverview: "workspace:overview",
+  loadMemory: "workspace:memory:list",
+  showMemory: "workspace:memory:show",
+  mutateMemory: "workspace:memory:mutate",
+  loadMemoryHistory: "workspace:memory:history",
+  recallMemory: "workspace:memory:recall",
+  loadMemoryHealth: "workspace:memory:health",
+  loadCalendar: "workspace:calendar:load",
+  mutateCalendar: "workspace:calendar:mutate",
+  reconnectCalendarAccount: "workspace:calendar:reconnect-account",
+  resolveCalendarPreview: "workspace:calendar:preview",
+  searchLocalModels: "models:search",
+  loadLocalModelDetail: "models:detail",
+  refreshLocalModelMachine: "models:machine",
+  openLocalModelProvider: "models:open-provider",
   loadProjectOverview: "project:overview",
   loadProjectPage: "project:page",
+  loadProjectActivityRun: "project:activity:run",
   loadProjectMediaCard: "project:media:show",
   loadProjectGeneration: "project:media:generation",
   loadProjectMediaRevisions: "project:media:revisions",
@@ -428,6 +567,7 @@ export const MEDIA_CHANNELS = {
   loadProjectUnit: "project:unit:show",
   loadProjectUnitRevision: "project:unit:revision:show",
   loadProjectUnitPage: "project:unit:page",
+  loadProjectUnitPreview: "project:unit:preview",
   selectProjectUnitRevision: "project:unit:select",
   event: "media:event",
   loadAnnotations: "media:annotations:load",

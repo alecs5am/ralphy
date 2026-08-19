@@ -141,14 +141,13 @@ describe("migration recovery", () => {
     const markup = renderToStaticMarkup(MigrationRecoveryScreen({
       recovery: { runId: "run-safe", phase: "source-moved" },
       onCopyCommand: vi.fn(),
-      onChooseLibrary: vi.fn(),
     }));
 
     expect(markup).toContain("Migration recovery required");
     expect(markup).toContain("run-safe");
     expect(markup).toContain("source-moved");
     expect(markup).toContain("Copy recovery command");
-    expect(markup).toContain("Choose another library");
+    expect(markup).not.toContain("Choose another library");
     expect(markup).not.toContain("journalPath");
     expect(markup).not.toContain("/Users/");
   });

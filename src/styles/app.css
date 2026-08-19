@@ -416,18 +416,18 @@ body {
   justify-content: center;
   gap: 7px;
   padding: 5px 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--raised);
-  color: var(--fg-2);
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
+  background: var(--field-surface);
+  color: var(--control-text);
   font-size: 12px;
   cursor: default;
 }
 
 .command-button:hover {
-  border-color: #464646;
-  background: var(--hover);
-  color: var(--fg);
+  border-color: var(--field-border-focus);
+  background: var(--control-hover);
+  color: var(--control-text-hover);
 }
 
 .command-button.is-primary {
@@ -944,14 +944,14 @@ body {
   gap: 6px;
   margin-right: 5px;
   padding: 0 7px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--canvas);
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
+  background: var(--field-surface);
   color: var(--fg-3);
 }
 
 .project-search:focus-within {
-  border-color: var(--line-strong);
+  border-color: var(--field-border-focus);
 }
 
 .project-search input {
@@ -975,9 +975,9 @@ body {
   flex: none;
   align-items: center;
   overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--canvas);
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
+  background: var(--field-surface);
 }
 
 .control-group > span,
@@ -1021,9 +1021,9 @@ body {
   display: inline-flex;
   height: 27px;
   align-items: center;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--canvas);
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
+  background: var(--field-surface);
   color: var(--fg-3);
   font-size: var(--text-xs);
 }
@@ -1032,9 +1032,9 @@ body {
   height: 25px;
   padding: 0 20px 0 6px;
   border: 0;
-  border-left: 1px solid var(--line);
+  border-left: 1px solid var(--field-border);
   outline: 0;
-  background: var(--canvas);
+  background: var(--field-surface);
   color: var(--fg-2);
   font-size: var(--text-xs);
 }
@@ -1574,11 +1574,11 @@ body {
 .tag-editor > input,
 .notes-editor textarea {
   width: 100%;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
   outline: 0;
-  background: var(--canvas);
-  color: var(--fg);
+  background: var(--field-surface);
+  color: var(--field-text);
   font-size: 11px;
 }
 
@@ -1589,7 +1589,7 @@ body {
 
 .tag-editor > input:focus,
 .notes-editor textarea:focus {
-  border-color: var(--accent);
+  border-color: var(--field-border-focus);
 }
 
 .notes-editor {
@@ -1902,6 +1902,7 @@ body {
   margin: 0.2em 0;
 }
 
+.markdown-view a,
 .markdown-link {
   color: var(--accent);
   text-decoration: underline;
@@ -1915,19 +1916,26 @@ body {
 }
 
 .markdown-table-scroll {
+  margin: 14px 0;
   overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
 }
 
 .markdown-view table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
 }
 
 .markdown-view th,
 .markdown-view td {
-  padding: 6px 8px;
-  border: 1px solid var(--line);
+  min-width: 72px;
+  padding: 7px 9px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   text-align: left;
+  vertical-align: top;
 }
 
 .markdown-view th {
@@ -1935,6 +1943,95 @@ body {
   color: var(--fg);
   font-weight: 400;
 }
+
+.markdown-view th:first-child,
+.markdown-view td:first-child {
+  min-width: 160px;
+  white-space: normal;
+}
+
+.markdown-view th:last-child,
+.markdown-view td:last-child {
+  border-right: 0;
+}
+
+.markdown-view tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.markdown-view details {
+  margin: 12px 0;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--sunken);
+}
+
+.markdown-view summary {
+  color: var(--fg-2);
+  cursor: pointer;
+}
+
+.markdown-view img {
+  display: inline-block;
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  vertical-align: middle;
+}
+
+.markdown-view hr {
+  margin: 20px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.markdown-view kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: var(--raised);
+  box-shadow: 0 1px 0 var(--line-strong);
+  font: 0.85em var(--font-mono);
+}
+
+.markdown-view mark {
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--warn) 28%, transparent);
+  color: var(--fg);
+}
+
+.markdown-view input[type="checkbox"] {
+  margin: 0 7px 0 -20px;
+  accent-color: var(--accent);
+}
+
+.markdown-alert {
+  padding: 9px 12px;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.markdown-alert-label {
+  display: block;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.markdown-alert-warning,
+.markdown-alert-caution {
+  border-left-color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 7%, transparent);
+}
+
+.markdown-alert-warning .markdown-alert-label,
+.markdown-alert-caution .markdown-alert-label {
+  color: var(--warn);
+}
+
+.markdown-align-center { text-align: center; }
+.markdown-align-right { text-align: right; }
 
 .welcome-screen {
   position: relative;

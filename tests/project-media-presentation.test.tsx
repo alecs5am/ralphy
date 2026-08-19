@@ -6,7 +6,7 @@ import type { MediaCardDto, MediaGenerationDetailDto, RunObjectMediaCardDto } fr
 import { VirtualAssetGrid, MediaCardTile } from "../src/components/VirtualAssetGrid";
 import { AudioWaveform } from "../src/components/media/AudioWaveform";
 import { ImageViewport } from "../src/components/media/ImageViewport";
-import { VideoPlayer } from "../src/components/media/VideoPlayer";
+import { compactVideoStartTime, VideoPlayer } from "../src/components/media/VideoPlayer";
 import { ProjectScreenView, createProjectScreenController } from "../src/screens/ProjectScreen";
 import { bridge, type ProjectSummary } from "../src/lib/ipc";
 import { createReactHost, type HostNode } from "./react-host";
@@ -85,6 +85,12 @@ function keydown(target: EventTarget, key: string, modifiers: Partial<Pick<Keybo
 }
 
 describe("Project media presentation", () => {
+  test("seeks compact social previews to their four-second poster frame", () => {
+    expect(compactVideoStartTime(24, true)).toBe(4);
+    expect(compactVideoStartTime(24, false)).toBe(0);
+    expect(compactVideoStartTime(3, true)).toBe(0);
+  });
+
   test("keeps accessible image zoom, pan, and fit presentation", () => {
     const markup = renderToStaticMarkup(<ImageViewport src="ralphy-media://asset/image" name="Campaign hero" />);
     expect(markup).toContain('alt="Campaign hero"');
@@ -135,7 +141,7 @@ describe("Project media presentation", () => {
     expect(tile).toContain('aria-label="Campaign hero, selected"');
     expect(tile).not.toContain('aria-label="Open Campaign hero"');
     expect(tile.match(/<button/g)).toHaveLength(1);
-    expect(tile).toContain("aspect-ratio:16 / 10");
+    expect(tile).toContain("aspect-ratio:1");
     expect(tile).toContain("Artifact · image/png");
     expect(tile).toContain("image/png · 2.0 KB · approved · cover");
     expect(grid).toContain("asset-grid-scroll");
@@ -212,11 +218,11 @@ describe("Project media presentation", () => {
       expect(host.container.querySelector(".project-preview")).toBeNull();
       expect(host.container.findAll((node) => node.tagName === "BUTTON" && node.getAttribute("aria-label") === "Open Campaign hero")).toHaveLength(0);
       const slider = host.container.findAll((node) => node.getAttribute("role") === "slider" && node.getAttribute("aria-label") === "Grid density")[0];
-      const columns = () => host.container.querySelector(".virtual-asset-row")!.style.gridTemplateColumns;
+      const tileWidth = () => Number.parseFloat(host.container.querySelector(".virtual-masonry-item")!.style.width);
       await act(async () => { keydown(slider, "Home"); await Promise.resolve(); });
-      expect(columns()).toContain("repeat(4");
+      const compactWidth = tileWidth();
       await act(async () => { keydown(slider, "End"); await Promise.resolve(); });
-      expect(columns()).toContain("repeat(2");
+      expect(tileWidth()).toBeGreaterThan(compactWidth * 1.8);
     } finally {
       await act(async () => { root.unmount(); await Promise.resolve(); });
       mediaAction.mockRestore();

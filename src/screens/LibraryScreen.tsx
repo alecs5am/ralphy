@@ -14,8 +14,10 @@ import { sortWorkspaces } from "../state/workbench";
 
 interface LibraryScreenProps {
   catalog: CatalogResult | null;
+  error?: string | null;
+  restoring?: boolean;
   pinnedWorkspaceIds: string[];
-  onChooseLibrary(): void;
+  onRetry(): void;
   onOpenWorkspace(workspaceId: string): void;
   onOpenProject(project: ProjectSummary): void;
 }
@@ -67,8 +69,10 @@ function WorkspaceLine({
 
 export function LibraryScreen({
   catalog,
+  error,
+  restoring,
   pinnedWorkspaceIds,
-  onChooseLibrary,
+  onRetry,
   onOpenWorkspace,
   onOpenProject,
 }: LibraryScreenProps) {
@@ -77,11 +81,10 @@ export function LibraryScreen({
       <main className="main-region empty-library">
         <div className="empty-library-content">
           <div className="ralphy-wordmark">RALPHY</div>
-          <h2>Open a production library</h2>
-          <p>Select the <code>.ralphy</code> directory in your main repository.</p>
-          <button className="command-button is-primary" type="button" onClick={onChooseLibrary}>
-            <FolderOpen size={15} />
-            Choose .ralphy
+          <h2>Home library unavailable</h2>
+          <p>{error ?? "Ralphy could not open ~/.ralphy."}</p>
+          <button className="command-button is-primary" type="button" disabled={restoring} onClick={onRetry}>
+            {restoring ? "Opening…" : "Retry"}
           </button>
         </div>
       </main>
@@ -108,10 +111,6 @@ export function LibraryScreen({
           <h2>Workspace overview</h2>
           <p className="screen-path" title={catalog.rootPath}>{catalog.rootPath}</p>
         </div>
-        <button className="command-button" type="button" onClick={onChooseLibrary}>
-          <FolderOpen size={14} />
-          Change library
-        </button>
       </div>
 
       <section className="metrics-band" aria-label="Library summary">

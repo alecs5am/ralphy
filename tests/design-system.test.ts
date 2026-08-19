@@ -18,6 +18,8 @@ const workbenchStyles = readFileSync(
   join(process.cwd(), "src/styles/workbench.css"),
   "utf8",
 );
+const tokenStyles = readFileSync(join(process.cwd(), "src/styles/tokens.css"), "utf8");
+const settingsStyles = readFileSync(join(process.cwd(), "src/styles/settings.css"), "utf8");
 
 const project: ProjectSummary = {
   id: "workspace-1/project-1", workspaceId: "workspace-1", projectId: "project-1", name: "Launch",
@@ -51,11 +53,11 @@ const compositionRevision: CompositionRevisionDto = {
   authoredBySessionId: null, createdAt: 1, sealedAt: 2,
 };
 const unit: UnitDto = {
-  id: "unit-1", workspaceId: "workspace-1", projectId: "project-1", slug: "launch-unit", format: "9:16",
+  id: "unit-1", workspaceId: "workspace-1", projectId: "project-1", compositionId: composition.id, slug: "launch-unit", format: "9:16",
   latestRevisionId: "unit-revision-1", selectedRevisionId: "unit-revision-1", createdAt: 1, updatedAt: 2,
 };
 const unitRevision: UnitRevisionDto = {
-  id: "unit-revision-1", unitId: "unit-1", revisionNo: 1, parentRevisionId: null, iterationId: null,
+  id: "unit-revision-1", unitId: "unit-1", compositionRevisionId: compositionRevision.id, revisionNo: 1, parentRevisionId: null, iterationId: null,
   note: null, authoredBySessionId: null, createdAt: 1, sealedAt: 2,
 };
 const activity: ActivityDto = {
@@ -63,7 +65,7 @@ const activity: ActivityDto = {
   action: "generation.completed", createdAt: 1,
 };
 
-type ProjectMarkup = Record<"overview" | "documents" | "media" | "compositions" | "units" | "activity", string>;
+type ProjectMarkup = Record<"overview" | "documents" | "media" | "units" | "activity" | "memory", string>;
 
 async function activeScreenMarkup(): Promise<{ workspace: string } & ProjectMarkup> {
   const workspaceValue = {
@@ -95,7 +97,6 @@ async function activeScreenMarkup(): Promise<{ workspace: string } & ProjectMark
     loadProjectPage: async ({ tab }) => ({
       documents: { items: [document], nextCursor: null },
       media: { items: [mediaCard], nextCursor: "next-page" },
-      compositions: { items: [composition], nextCursor: null },
       units: { items: [unit], nextCursor: null },
       activity: { items: [activity], nextCursor: null },
     })[tab],
@@ -145,14 +146,19 @@ async function activeScreenMarkup(): Promise<{ workspace: string } & ProjectMark
     controller: projectController,
     snapshot: projectController.getSnapshot(),
   }));
-  await projectController.selectTab("compositions");
-  const compositions = renderToStaticMarkup(createElement(ProjectScreenView, { project, controller: projectController, snapshot: projectController.getSnapshot() }));
   await projectController.selectTab("units");
   await projectController.openUnit(unit.id);
   const units = renderToStaticMarkup(createElement(ProjectScreenView, { project, controller: projectController, snapshot: projectController.getSnapshot() }));
   await projectController.selectTab("activity");
   const activityMarkup = renderToStaticMarkup(createElement(ProjectScreenView, { project, controller: projectController, snapshot: projectController.getSnapshot() }));
-  return { workspace, overview, media, documents, compositions, units, activity: activityMarkup };
+  const memory = `<main class="main-region memory-region">
+    <div class="memory-topbar"></div><div class="memory-filters"></div>
+    <section class="memory-rulebook"><div class="memory-group"><header><i></i></header><div>
+      <article class="memory-rule"><button class="memory-rule-head">Memory</button></article>
+      <article class="memory-rule is-open"><button class="memory-rule-head">Open memory</button><div class="memory-rule-body">Body</div></article>
+    </div></div></section>
+  </main>`;
+  return { workspace, overview, media, documents, units, activity: activityMarkup, memory };
 }
 
 type GeometryResult = {
@@ -171,9 +177,35 @@ type GeometryResult = {
   overviewColumns: number | null;
   overviewWidth: number | null;
   overviewMetricWidths: number[];
+  overviewNarrativeColumns: number | null;
+  overviewColumnRatio: number | null;
   overviewScrollOwners: string[];
   splitVerticalContained: boolean | null;
+  masterRowEdgeInset: number | null;
+  masterRowTopInset: number | null;
+  masterRowHeight: number | null;
+  masterRowGap: number | null;
+  revisionEdgeInset: number | null;
+  revisionTopInset: number | null;
+  revisionGap: number | null;
+  mediaTitleFontSize: number | null;
+  mediaMetaFontSize: number | null;
+  activityTimeFontSize: number | null;
+  activityEntityFontSize: number | null;
   forbidden: number;
+  projectHeaderCount: number;
+  projectTabsCenterOffset: number | null;
+  gooeyBlobCoverage: number | null;
+  unitCardsInGridFlow: boolean | null;
+  projectTabsHeaderOffset: number | null;
+  projectTabsReceivePointer: boolean | null;
+  projectTabsAppRegion: string | null;
+  memoryRegionPadding: string | null;
+  memoryTopbarBorder: string | null;
+  memoryFilterBorder: string | null;
+  memoryInactiveBackground: string | null;
+  memoryOpenBackground: string | null;
+  memoryBodyBorder: string | null;
 };
 
 async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): Promise<GeometryResult[]> {
@@ -196,7 +228,8 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
         await win.webContents.debugger.sendCommand("DOM.enable");
         await win.webContents.debugger.sendCommand("CSS.enable");
         const results = [];
-        for (const [screen, width, height] of ["workspace", "overview", "documents", "media", "compositions", "units", "activity"].flatMap((screen) => [[screen, 1360, 900], [screen, 1100, 720]])) {
+        const viewports = [[2560, 1400], [1360, 900], [1100, 720]];
+        for (const [screen, width, height] of ["workspace", "overview", "documents", "media", "units", "activity", "memory"].flatMap((screen) => viewports.map(([width, height]) => [screen, width, height]))) {
           win.setContentSize(width, height);
           await win.webContents.executeJavaScript(\`(async () => {
               const screen = \${JSON.stringify(screen)}, root = document.getElementById("root");
@@ -220,9 +253,9 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
               workspace: [".project-table-row"], overview: [".mode-segments button[aria-selected=true]", ".overview-link"],
               documents: [".mode-segments button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"],
               media: [".mode-segments button[aria-selected=true]", ".select-menu-trigger", ".snappy-slider"],
-              compositions: [".mode-segments button[aria-selected=true]", ".composition-master-row", ".composition-heading h3"],
-              units: [".mode-segments button[aria-selected=true]", ".unit-row", ".unit-detail-heading"],
+              units: [".mode-segments button[aria-selected=true]", ".unit-card"],
               activity: [".mode-segments button[aria-selected=true]", ".activity-scroll"],
+              memory: [".memory-rule-head"],
             })[screen];
             for (const selector of focusSelectors) {
               const focusNode = await win.webContents.debugger.sendCommand("DOM.querySelector", { nodeId: documentNode.root.nodeId, selector });
@@ -234,15 +267,14 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
               const root = document.getElementById("root");
               const selectors = screen === "workspace"
                 ? [".main-region", ".screen-header", ".metrics-band", ".metric", ".workspace-domain-body", ".workspace-projects", ".project-table", ".project-table-row"]
-                : [".main-region", ".project-header", ".project-controls", ".project-domain-body", ".mode-segments",
-                  ...({ overview: [".overview-dashboard", ".overview-card", ".overview-metrics"], documents: [".documents-workbench", ".documents-master", ".documents-detail"], media: [".media-panel", ".media-domain-toolbar", ".project-media-grid", ".asset-grid-scroll"], compositions: [".composition-workbench", ".composition-master", ".composition-detail"], units: [".units-workbench", ".units-master", ".units-detail"], activity: [".activity-scroll"] })[screen]];
+                : [".main-region", ...({ overview: [".project-header", ".project-controls", ".project-domain-body", ".mode-segments", ".overview-dashboard", ".overview-card", ".overview-metrics"], documents: [".project-header", ".project-controls", ".project-domain-body", ".mode-segments", ".documents-workbench", ".documents-master", ".documents-detail"], media: [".project-header", ".project-controls", ".project-domain-body", ".mode-segments", ".media-panel", ".media-domain-toolbar", ".project-media-grid", ".asset-grid-scroll"], units: [".project-header", ".project-controls", ".project-domain-body", ".mode-segments", ".units-workbench", ".units-grid-scroll", ".units-grid", ".unit-card"], activity: [".project-header", ".project-controls", ".project-domain-body", ".mode-segments", ".activity-scroll"], memory: [".memory-filters", ".memory-rulebook", ".memory-rule"] })[screen]];
               const overflows = [];
               for (const selector of selectors) for (const element of root.querySelectorAll(selector)) {
                 if (element.scrollWidth > element.clientWidth + 1) overflows.push(selector + ":" + element.scrollWidth + ">" + element.clientWidth);
               }
               const metrics = root.querySelector(".metrics-band");
               const metricColumns = metrics ? getComputedStyle(metrics).gridTemplateColumns.split(" ").filter(Boolean).length : null;
-              const ownerCandidates = ({ overview: [".project-domain-body", ".overview-dashboard"], documents: [".project-domain-body", ".documents-master", ".documents-detail"], media: [".project-domain-body", ".asset-grid-scroll"], compositions: [".project-domain-body", ".composition-master", ".composition-detail"], units: [".project-domain-body", ".units-master", ".units-detail"], activity: [".project-domain-body", ".activity-scroll"], workspace: [".workspace-domain-body"] })[screen];
+              const ownerCandidates = ({ overview: [".project-domain-body", ".overview-dashboard"], documents: [".project-domain-body", ".documents-master", ".documents-detail"], media: [".project-domain-body", ".asset-grid-scroll"], units: [".project-domain-body", ".units-grid-scroll"], activity: [".project-domain-body", ".activity-scroll"], memory: [".memory-rulebook"], workspace: [".workspace-domain-body"] })[screen];
               const scrollOwners = ownerCandidates.filter((selector) => {
                 const element = root.querySelector(selector); if (!element) return false;
                 const overflow = getComputedStyle(element).overflowY;
@@ -256,7 +288,7 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
               const mediaInsets = [".project-domain-body", ".asset-grid-scroll"].map((selector) => {
                 const element = root.querySelector(selector); return element ? parseFloat(getComputedStyle(element).paddingLeft) : 0;
               }).filter((value) => value > 0);
-              const focusSelectors = ({ workspace: [".project-table-row"], overview: [".mode-segments button[aria-selected=true]", ".overview-link"], documents: [".mode-segments button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"], media: [".mode-segments button[aria-selected=true]", ".select-menu-trigger", ".snappy-slider"], compositions: [".mode-segments button[aria-selected=true]", ".composition-master-row", ".composition-heading h3"], units: [".mode-segments button[aria-selected=true]", ".unit-row", ".unit-detail-heading"], activity: [".mode-segments button[aria-selected=true]", ".activity-scroll"] })[screen];
+              const focusSelectors = ({ workspace: [".project-table-row"], overview: [".mode-segments button[aria-selected=true]", ".overview-link"], documents: [".mode-segments button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"], media: [".mode-segments button[aria-selected=true]", ".select-menu-trigger", ".snappy-slider"], units: [".mode-segments button[aria-selected=true]", ".unit-card"], activity: [".mode-segments button[aria-selected=true]", ".activity-scroll"], memory: [".memory-rule-head"] })[screen];
               const focus = focusSelectors.map((selector) => {
                 const target = root.querySelector(selector);
                 const style = getComputedStyle(target);
@@ -272,15 +304,64 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
               const overviewColumns = overviewDashboard ? getComputedStyle(overviewDashboard).gridTemplateColumns.split(" ").filter(Boolean).length : null;
               const overviewWidth = overviewDashboard?.getBoundingClientRect().width ?? null;
               const overviewMetricWidths = [...root.querySelectorAll(".overview-metrics > div")].map((item) => item.getBoundingClientRect().width);
+              const overviewNarrative = root.querySelector(".overview-main-layout");
+              const overviewNarrativeColumns = overviewNarrative ? getComputedStyle(overviewNarrative).gridTemplateColumns.split(" ").filter(Boolean).length : null;
+              const overviewPrimaryWidth = root.querySelector(".overview-primary-column")?.getBoundingClientRect().width ?? null;
+              const overviewSupportWidth = root.querySelector(".overview-support-column")?.getBoundingClientRect().width ?? null;
+              const overviewColumnRatio = overviewPrimaryWidth && overviewSupportWidth ? overviewPrimaryWidth / overviewSupportWidth : null;
               const overviewScrollOwners = [".project-domain-body", ".overview-dashboard"].filter((selector) => { const item = root.querySelector(selector); if (!item) return false; const overflow = getComputedStyle(item).overflowY; return overflow === "auto" || overflow === "scroll"; });
-              const split = root.querySelector(".documents-workbench, .composition-workbench, .units-workbench");
+              const split = root.querySelector(".documents-workbench, .composition-workbench");
               const splitBody = root.querySelector(".project-domain-body");
               const splitVerticalContained = split && splitBody ? [split, ...split.children].every((pane) => {
                 const outer = splitBody.getBoundingClientRect(), inner = pane.getBoundingClientRect();
                 return inner.height > 0 && inner.top >= outer.top - 1 && inner.bottom <= outer.bottom + 1;
               }) : null;
+              const masterGeometry = ({ documents: [".documents-virtual-list", ".document-row", 54] })[screen];
+              const masterList = masterGeometry ? root.querySelector(masterGeometry[0]) : null;
+              const masterRow = masterGeometry ? root.querySelector(masterGeometry[1]) : null;
+              const masterListRect = masterList?.getBoundingClientRect();
+              const masterRowRect = masterRow?.getBoundingClientRect();
+              const masterRowEdgeInset = masterListRect && masterRowRect ? masterRowRect.left - masterListRect.left : null;
+              const masterRowTopInset = masterListRect && masterRowRect ? masterRowRect.top - masterListRect.top : null;
+              const masterRowHeight = masterRowRect?.height ?? null;
+              const masterRowGap = masterRowRect ? masterGeometry[2] - masterRowRect.height : null;
+              const revisionRail = root.querySelector(screen === "units" ? ".unit-revision-rail" : ":not(*)");
+              const revisionButton = revisionRail?.querySelector("button");
+              const revisionRailRect = revisionRail?.getBoundingClientRect();
+              const revisionButtonRect = revisionButton?.getBoundingClientRect();
+              const revisionEdgeInset = revisionRailRect && revisionButtonRect ? revisionButtonRect.left - revisionRailRect.left : null;
+              const revisionTopInset = revisionRailRect && revisionButtonRect ? revisionButtonRect.top - revisionRailRect.top : null;
+              const revisionGap = !revisionRail || !revisionButtonRect ? null : Number.parseFloat(getComputedStyle(revisionRail).columnGap);
+              const fontSize = (selector) => { const element = root.querySelector(selector); return element ? Number.parseFloat(getComputedStyle(element).fontSize) : null; };
+              const mediaTitleFontSize = fontSize(".media-card-tile .asset-copy strong");
+              const mediaMetaFontSize = fontSize(".media-card-tile .asset-copy small");
+              const activityTimeFontSize = fontSize(".activity-event time");
+              const activityEntityFontSize = fontSize(".activity-event > span:not(.activity-icon)");
+              const projectHeaderCount = root.querySelectorAll(".project-header").length;
+              const projectControls = root.querySelector(".project-controls");
+              const controlsRect = projectControls?.getBoundingClientRect();
+              const tabsRect = root.querySelector(".project-controls .gooey-tabs")?.getBoundingClientRect();
+              const blobsRect = root.querySelector(".project-controls .gooey-tabs-blobs")?.getBoundingClientRect();
+              const projectTabsCenterOffset = controlsRect && tabsRect ? Math.abs((controlsRect.left + controlsRect.width / 2) - (tabsRect.left + tabsRect.width / 2)) : null;
+              const headerRect = root.querySelector(".main-header")?.getBoundingClientRect();
+              const projectTabsHeaderOffset = headerRect && tabsRect ? Math.abs((headerRect.top + headerRect.height / 2) - (tabsRect.top + tabsRect.height / 2)) : null;
+              const projectTab = root.querySelector(".project-controls [role=tab]");
+              const projectTabRect = projectTab?.getBoundingClientRect();
+              const projectTabHit = projectTabRect ? document.elementFromPoint(projectTabRect.left + projectTabRect.width / 2, projectTabRect.top + projectTabRect.height / 2) : null;
+              const projectTabsReceivePointer = projectTab ? projectTab === projectTabHit || projectTab.contains(projectTabHit) : null;
+              const projectTabsAppRegion = projectControls ? getComputedStyle(projectControls).getPropertyValue("-webkit-app-region") : null;
+              const gooeyBlobCoverage = tabsRect && blobsRect ? blobsRect.width / Math.max(1, tabsRect.width - 6) : null;
+              const unitCards = [...root.querySelectorAll(".unit-card")];
+              const unitCardsInGridFlow = screen !== "units" ? null : unitCards.length > 0 && unitCards.every((card) => getComputedStyle(card).position !== "absolute");
               const forbidden = [...root.querySelectorAll(".load-more, .project-preview, .pagination")].length + (screen === "media" ? [...root.querySelectorAll(".media-panel button")].filter((button) => button.textContent.trim() === "Open").length : 0);
-              return { screen, width: innerWidth, height: innerHeight, overflows, metricColumns, scrollOwners, documentDetailWidth: documentDetail?.getBoundingClientRect().width ?? null, documentViewerWidths, documentViewerMaxWidths, nestedMediaScroll, mediaInsets, focus, overviewColumns, overviewWidth, overviewMetricWidths, overviewScrollOwners, splitVerticalContained, forbidden };
+              const style = (selector) => { const element = root.querySelector(selector); return element ? getComputedStyle(element) : null; };
+              return { screen, width: innerWidth, height: innerHeight, overflows, metricColumns, scrollOwners, documentDetailWidth: documentDetail?.getBoundingClientRect().width ?? null, documentViewerWidths, documentViewerMaxWidths, nestedMediaScroll, mediaInsets, focus, overviewColumns, overviewWidth, overviewMetricWidths, overviewNarrativeColumns, overviewColumnRatio, overviewScrollOwners, splitVerticalContained, masterRowEdgeInset, masterRowTopInset, masterRowHeight, masterRowGap, revisionEdgeInset, revisionTopInset, revisionGap, mediaTitleFontSize, mediaMetaFontSize, activityTimeFontSize, activityEntityFontSize, forbidden, projectHeaderCount, projectTabsCenterOffset, gooeyBlobCoverage, unitCardsInGridFlow, projectTabsHeaderOffset, projectTabsReceivePointer, projectTabsAppRegion,
+                memoryRegionPadding: style(".memory-region")?.padding ?? null,
+                memoryTopbarBorder: style(".memory-topbar")?.borderBottomWidth ?? null,
+                memoryFilterBorder: style(".memory-filters")?.borderTopWidth ?? null,
+                memoryInactiveBackground: style(".memory-rule:not(.is-open)")?.backgroundColor ?? null,
+                memoryOpenBackground: style(".memory-rule.is-open")?.backgroundColor ?? null,
+                memoryBodyBorder: style(".memory-rule-body")?.borderTopWidth ?? null };
             })()\`));
         }
         process.stdout.write("RALPHY_GEOMETRY=" + JSON.stringify(results) + "\\n");
@@ -316,14 +397,29 @@ describe("design system contract", () => {
     expect(workbenchStyles).toMatch(/\.project-domain-body\.is-documents\s*\{[^}]*overflow:\s*hidden/s);
     expect(workbenchStyles).toMatch(/\.documents-workbench\s*\{[^}]*grid-template-columns:\s*minmax\(280px,\s*340px\)\s+minmax\(0,\s*1fr\)/s);
     expect(workbenchStyles).toMatch(/\.documents-master,[\s\S]*\.documents-detail\s*\{[^}]*min-height:\s*0[^}]*overflow-y:\s*auto/s);
-    expect(workbenchStyles).toMatch(/\.document-row:hover\s*\{[^}]*background:\s*var\(--hover\)/s);
+    expect(workbenchStyles).toMatch(/\.document-row:hover:not\(\.is-selected\)\s*\{[^}]*background:\s*var\(--hover\)/s);
     expect(workbenchStyles).toMatch(/\.document-row\.is-selected\s*\{[^}]*background:\s*var\(--selected\)[^}]*box-shadow:\s*var\(--ring-select\)/s);
     expect(workbenchStyles).not.toMatch(/\.document-row\.is-selected\s*\{[^}]*inset\s+2px\s+0/s);
   });
 
+  test("uses one calm responsive master detail language", () => {
+    expect(workbenchStyles).toMatch(/\.documents-workbench\s*\{[^}]*gap:\s*16px/s);
+    expect(workbenchStyles).toMatch(/\.documents-detail[^}]*\{[^}]*border-radius:\s*var\(--radius-lg\)[^}]*background:\s*var\(--raised\)/s);
+    expect(workbenchStyles).toMatch(/\.composition-detail[^}]*\{[^}]*border-radius:\s*var\(--radius-lg\)[^}]*background:\s*var\(--raised\)/s);
+    expect(workbenchStyles).toMatch(/\.composition-output-preview:has\(\.preview-empty\)\s*\{[^}]*height:\s*160px/s);
+    expect(workbenchStyles).not.toMatch(/\.(?:documents-detail|composition-detail)\s*\{[^}]*border:\s*1px/s);
+  });
+
+  test("keeps an unselected detail state compact instead of painting an empty slab", () => {
+    expect(workbenchStyles).toMatch(/\.(?:documents-detail|composition-detail):has\(> \.empty-section\)[\s\S]*background:\s*transparent/s);
+    expect(workbenchStyles).toMatch(/\.(?:documents-detail|composition-detail) > \.empty-section[\s\S]*width:\s*min\(360px,\s*100%\)[\s\S]*background:\s*var\(--raised\)/s);
+  });
+
   test("allows trusted media URLs for image previews", () => {
-    expect(readFileSync(join(process.cwd(), "index.html"), "utf8"))
-      .toMatch(/img-src[^;]*ralphy-media:/);
+    const html = readFileSync(join(process.cwd(), "index.html"), "utf8");
+    expect(html).toMatch(/img-src[^;]*ralphy-media:/);
+    expect(html).toMatch(/img-src[^;]*\*\.cdn\.hf\.co/);
+    expect(html).toMatch(/img-src[^;]*image-b2\.civitai\.com/);
   });
 
   test("uses only the supplied type scale and regular weight", () => {
@@ -346,13 +442,40 @@ describe("design system contract", () => {
     expect(styles).toMatch(/\.asset-modal-surface,[\s\S]*corner-shape:\s*squircle/);
   });
 
+  test("shares the compact profile-menu tokens across reusable controls", () => {
+    for (const token of [
+      "--field-surface",
+      "--field-border",
+      "--field-border-focus",
+      "--field-radius",
+      "--menu-surface",
+      "--menu-border",
+      "--menu-radius",
+      "--menu-padding",
+      "--menu-item-height",
+      "--control-focus",
+    ]) expect(tokenStyles).toContain(token);
+
+    expect(workbenchStyles).toMatch(/\.select-menu-content\s*\{[^}]*padding:\s*var\(--menu-padding\)[^}]*border:\s*1px solid var\(--menu-border\)[^}]*background:\s*var\(--menu-surface\)/s);
+    expect(workbenchStyles).toMatch(/\.select-menu-trigger\s*\{[^}]*border:\s*1px solid var\(--field-border\)[^}]*background:\s*var\(--field-surface\)/s);
+    expect(workbenchStyles).toMatch(/\.workspace-picker-popover\s*\{[^}]*border:\s*1px solid var\(--menu-border\)[^}]*background:\s*var\(--menu-surface\)/s);
+    expect(workbenchStyles).toMatch(/\.agent-popover\s*\{[^}]*padding:\s*var\(--menu-padding\)[^}]*border:\s*1px solid var\(--menu-border\)[^}]*background:\s*var\(--menu-surface\)/s);
+    expect(workbenchStyles).toMatch(/\.asset-context-menu\s*\{[^}]*padding:\s*var\(--menu-padding\)[^}]*border:\s*1px solid var\(--menu-border\)[^}]*background:\s*var\(--menu-surface\)/s);
+    expect(settingsStyles).toMatch(/\.profile-menu,[\s\S]*\.help-menu\s*\{[^}]*padding:\s*var\(--menu-padding\)[^}]*border:\s*1px solid var\(--menu-border\)[^}]*background:\s*var\(--menu-surface\)/s);
+    expect(settingsStyles).toMatch(/\.settings-input\s*\{[^}]*border:\s*1px solid var\(--field-border\)[^}]*background:\s*var\(--field-surface\)/s);
+  });
+
+  test("leaves the project overview uncapped on wide screens", () => {
+    expect(workbenchStyles).not.toMatch(/\.overview-dashboard\s*\{[^}]*max-width:/s);
+  });
+
   test("renders active surfaces and the overview dashboard geometry with visible focus in Chromium", async () => {
     const results = await chromiumGeometry(await activeScreenMarkup());
 
-    expect(results).toHaveLength(14);
-    for (const screen of ["overview", "documents", "media", "compositions", "units", "activity"] as const) {
+    expect(results).toHaveLength(21);
+    for (const screen of ["overview", "documents", "media", "units", "activity", "memory"] as const) {
       expect(results.filter((result) => result.screen === screen).map(({ width, height }) => ({ width, height })))
-        .toEqual([{ width: 1360, height: 900 }, { width: 1100, height: 720 }]);
+        .toEqual([{ width: 2560, height: 1400 }, { width: 1360, height: 900 }, { width: 1100, height: 720 }]);
     }
     expect(results.map(({ screen, width, overflows }) => ({ screen, width, overflows })))
       .toEqual(results.map(({ screen, width }) => ({ screen, width, overflows: [] })));
@@ -361,39 +484,64 @@ describe("design system contract", () => {
       overview: [".project-domain-body"],
       documents: [".documents-master", ".documents-detail"],
       media: [".asset-grid-scroll"],
-      compositions: [".composition-master", ".composition-detail"],
-      units: [".units-master", ".units-detail"],
+      units: [".units-grid-scroll"],
       activity: [".activity-scroll"],
+      memory: [".memory-rulebook"],
     };
     for (const [screen, scrollOwners] of Object.entries(expectedOwners)) {
       expect(results.filter((result) => result.screen === screen).map((result) => result.scrollOwners))
-        .toEqual([scrollOwners, scrollOwners]);
+        .toEqual([scrollOwners, scrollOwners, scrollOwners]);
     }
-    expect(results.filter(({ screen, width }) => width === 1100 && ["documents", "compositions", "units"].includes(screen)).map(({ screen, splitVerticalContained }) => ({ screen, splitVerticalContained })))
-      .toEqual(["documents", "compositions", "units"].map((screen) => ({ screen, splitVerticalContained: true })));
+    expect(results.filter(({ screen, width }) => width === 1100 && screen === "documents").map(({ screen, splitVerticalContained }) => ({ screen, splitVerticalContained })))
+      .toEqual([{ screen: "documents", splitVerticalContained: true }]);
     expect(results.filter(({ screen, nestedMediaScroll }) => screen === "media" && nestedMediaScroll)).toEqual([]);
+    expect(results.filter(({ screen }) => screen === "memory").map(({ memoryRegionPadding, memoryTopbarBorder, memoryFilterBorder, memoryInactiveBackground, memoryOpenBackground, memoryBodyBorder }) => ({ memoryRegionPadding, memoryTopbarBorder, memoryFilterBorder, memoryInactiveBackground, memoryOpenBackground, memoryBodyBorder }))).toEqual([
+      { memoryRegionPadding: "0px", memoryTopbarBorder: "0px", memoryFilterBorder: "0px", memoryInactiveBackground: "rgba(0, 0, 0, 0)", memoryOpenBackground: "rgb(29, 29, 29)", memoryBodyBorder: "0px" },
+      { memoryRegionPadding: "0px", memoryTopbarBorder: "0px", memoryFilterBorder: "0px", memoryInactiveBackground: "rgba(0, 0, 0, 0)", memoryOpenBackground: "rgb(29, 29, 29)", memoryBodyBorder: "0px" },
+      { memoryRegionPadding: "0px", memoryTopbarBorder: "0px", memoryFilterBorder: "0px", memoryInactiveBackground: "rgba(0, 0, 0, 0)", memoryOpenBackground: "rgb(29, 29, 29)", memoryBodyBorder: "0px" },
+    ]);
     expect(results.filter(({ screen }) => screen === "media").map(({ width, mediaInsets }) => ({ width, mediaInsets: mediaInsets.length })))
-      .toEqual([{ width: 1360, mediaInsets: 1 }, { width: 1100, mediaInsets: 1 }]);
+      .toEqual([{ width: 2560, mediaInsets: 1 }, { width: 1360, mediaInsets: 1 }, { width: 1100, mediaInsets: 1 }]);
     expect(results.flatMap(({ screen, width, documentDetailWidth, documentViewerWidths }) => screen !== "documents" || documentDetailWidth === null
       ? []
-      : documentViewerWidths.filter((viewerWidth) => viewerWidth > Math.min(820, documentDetailWidth - 48) + 1).map((viewerWidth) => ({ width, documentDetailWidth, viewerWidth })))).toEqual([]);
+      : documentViewerWidths.filter((viewerWidth) => viewerWidth > Math.min(960, documentDetailWidth - 48) + 1).map((viewerWidth) => ({ width, documentDetailWidth, viewerWidth })))).toEqual([]);
     expect(results.filter(({ screen }) => screen === "documents").map(({ width, documentViewerWidths }) => ({ width, viewers: documentViewerWidths.length })))
-      .toEqual([{ width: 1360, viewers: 2 }, { width: 1100, viewers: 2 }]);
+      .toEqual([{ width: 2560, viewers: 2 }, { width: 1360, viewers: 2 }, { width: 1100, viewers: 2 }]);
     expect(results.filter(({ screen }) => screen === "documents").map(({ width, documentViewerMaxWidths }) => ({ width, documentViewerMaxWidths })))
-      .toEqual([{ width: 1360, documentViewerMaxWidths: ["820px", "820px"] }, { width: 1100, documentViewerMaxWidths: ["820px", "820px"] }]);
+      .toEqual([{ width: 2560, documentViewerMaxWidths: ["960px", "960px"] }, { width: 1360, documentViewerMaxWidths: ["960px", "960px"] }, { width: 1100, documentViewerMaxWidths: ["960px", "960px"] }]);
+    expect(results.filter(({ screen }) => screen === "documents").flatMap(({ screen, width, masterRowEdgeInset }) =>
+      masterRowEdgeInset === null || masterRowEdgeInset >= 6 ? [] : [{ screen, width, masterRowEdgeInset }])).toEqual([]);
+    expect(results.filter(({ screen }) => screen === "documents").flatMap(({ screen, width, masterRowTopInset }) =>
+      masterRowTopInset !== null && masterRowTopInset >= 4 ? [] : [{ screen, width, masterRowTopInset }])).toEqual([]);
+    expect(results.filter(({ screen }) => screen === "documents").flatMap(({ screen, width, masterRowHeight }) =>
+      masterRowHeight !== null && masterRowHeight <= 54 ? [] : [{ screen, width, masterRowHeight }])).toEqual([]);
+    expect(results.filter(({ screen }) => screen === "documents").flatMap(({ screen, width, masterRowGap }) =>
+      masterRowGap === null || masterRowGap >= 6 ? [] : [{ screen, width, masterRowGap }])).toEqual([]);
+    expect(results.filter(({ screen }) => screen === "media").flatMap(({ width, mediaTitleFontSize, mediaMetaFontSize }) =>
+      mediaTitleFontSize !== null && mediaTitleFontSize >= 13 && mediaMetaFontSize !== null && mediaMetaFontSize >= 12 ? [] : [{ width, mediaTitleFontSize, mediaMetaFontSize }])).toEqual([]);
+    expect(results.filter(({ screen }) => screen === "activity").flatMap(({ width, activityTimeFontSize, activityEntityFontSize }) =>
+      activityTimeFontSize !== null && activityTimeFontSize >= 12 && activityEntityFontSize !== null && activityEntityFontSize >= 12 ? [] : [{ width, activityTimeFontSize, activityEntityFontSize }])).toEqual([]);
     expect(results.filter(({ screen }) => screen === "documents").map(({ width, focus }) => ({ width, selectors: focus.map(({ selector }) => selector) })))
-      .toEqual([{ width: 1360, selectors: [".mode-segments button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"] }, { width: 1100, selectors: [".mode-segments button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"] }]);
+      .toEqual([{ width: 2560, selectors: [".mode-segments button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"] }, { width: 1360, selectors: [".mode-segments button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"] }, { width: 1100, selectors: [".mode-segments button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"] }]);
     expect(results.filter(({ screen }) => screen === "overview").map(({ width, overviewColumns }) => ({ width, overviewColumns })))
-      .toEqual([{ width: 1360, overviewColumns: 1 }, { width: 1100, overviewColumns: 1 }]);
-    expect(results.filter(({ screen, overviewWidth }) => screen === "overview" && overviewWidth !== null && overviewWidth > 1440)).toEqual([]);
+      .toEqual([{ width: 2560, overviewColumns: 12 }, { width: 1360, overviewColumns: 12 }, { width: 1100, overviewColumns: 1 }]);
+    expect(results.filter(({ screen }) => screen === "overview").map(({ width, overviewNarrativeColumns }) => ({ width, overviewNarrativeColumns })))
+      .toEqual([{ width: 2560, overviewNarrativeColumns: 12 }, { width: 1360, overviewNarrativeColumns: 12 }, { width: 1100, overviewNarrativeColumns: 1 }]);
+    expect(results.find(({ screen, width }) => screen === "overview" && width === 2560)?.overviewWidth).toBeGreaterThan(1440);
     expect(results.flatMap(({ screen, width, overviewMetricWidths }) => screen === "overview" ? overviewMetricWidths.filter((value) => value < 60).map((value) => ({ width, value })) : [])).toEqual([]);
     expect(results.flatMap(({ screen, width, focus }) => focus.filter(({ width: focusWidth }) => focusWidth < 2).map((value) => ({ screen, width, focus: value })))).toEqual([]);
     expect(results.flatMap(({ screen, width, focus }) => focus.filter(({ contrast }) => contrast < 3).map((value) => ({ screen, width, focus: value })))).toEqual([]);
     expect(results.filter(({ forbidden }) => forbidden !== 0)).toEqual([]);
+    expect(results.filter(({ screen }) => screen !== "workspace").every(({ projectHeaderCount }) => projectHeaderCount === 0)).toBe(true);
+    expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ projectTabsCenterOffset }) => projectTabsCenterOffset !== null && projectTabsCenterOffset < 1)).toBe(true);
+    expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ projectTabsHeaderOffset }) => projectTabsHeaderOffset !== null && projectTabsHeaderOffset < 1)).toBe(true);
+    expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ projectTabsReceivePointer }) => projectTabsReceivePointer)).toBe(true);
+    expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ projectTabsAppRegion }) => projectTabsAppRegion === "no-drag")).toBe(true);
+    expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ gooeyBlobCoverage }) => gooeyBlobCoverage !== null && gooeyBlobCoverage >= 0.99)).toBe(true);
+    expect(results.filter(({ screen }) => screen === "units").every(({ unitCardsInGridFlow }) => unitCardsInGridFlow)).toBe(true);
     expect(workbenchStyles).toMatch(/\.media-card-button:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--fg\)/s);
     expect(workbenchStyles).toMatch(/\.asset-context-menu button:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--fg\)/s);
-    expect(workbenchStyles).toMatch(/\.overview-dashboard\s*\{[^}]*max-width:\s*1440px/s);
-    expect(workbenchStyles).toMatch(/@container project-domain \(min-width:\s*1200px\)/);
+    expect(workbenchStyles).not.toMatch(/\.overview-dashboard\s*\{[^}]*max-width:/s);
   }, 20_000);
 
   test("keeps active surfaces borderless and free of the undefined surface token", () => {
@@ -403,6 +551,18 @@ describe("design system contract", () => {
     expect(workbenchStyles).toMatch(/\.project-domain-list > article\s*\{[^}]*border-bottom:\s*0/s);
     expect(styles).not.toContain(".project-preview");
     expect(workbenchStyles).not.toMatch(/\.project-domain-list > button\.is-selected\s*\{[^}]*inset\s+2px\s+0/s);
+    expect(workbenchStyles).toMatch(/\.calendar-region\{[^}]*padding:0[^}]*background:#181818/s);
+    expect(workbenchStyles).not.toMatch(/\.calendar-shell\{[^}]*border-radius/s);
+    expect(workbenchStyles).not.toMatch(/\.calendar-shell\{[^}]*box-shadow/s);
+  });
+
+  test("draws one continuous activity rail instead of a segment inside every event", () => {
+    expect(workbenchStyles).toMatch(/\.activity-virtual-list::before\s*\{[^}]*top:[^}]*bottom:[^}]*content:\s*""/s);
+    expect(workbenchStyles).not.toContain(".activity-source::before");
+  });
+
+  test("keeps the activity timeline surface transparent", () => {
+    expect(workbenchStyles).toMatch(/\.activity-table\s*\{[^}]*background:\s*transparent/s);
   });
 
   test("uses one squircle command style without a stale pill override", () => {
@@ -449,7 +609,6 @@ describe("design system contract", () => {
     expect(renderer).toContain('ariaLabel="Resize right panel"');
     expect(renderer).toContain('ariaLabel="Resize bottom panel"');
     expect(renderer).toContain("onLostPointerCapture");
-    expect(renderer).toContain("header-tabs");
     expect(renderer).toContain("createPortal");
     expect(styles).toMatch(
       /\.workspace-picker-popover\s*\{[^}]*position:\s*fixed/s,
@@ -496,7 +655,7 @@ describe("design system contract", () => {
     expect(sidebar).toContain("sidebar-nav-row");
     expect(sidebar).not.toContain("sidebar-mascot-peek");
     expect(sidebar).not.toContain('title="Filter projects"');
-    expect(profile).toContain(".ralphy library</small>");
+    expect(profile).not.toContain(".ralphy library");
     expect(styles).toContain("--dither-op: 1");
     expect(styles).toMatch(
       /\.workspace-hero\s*\{[^}]*width:\s*calc\(100% - 24px\)/s,
@@ -582,7 +741,7 @@ describe("design system contract", () => {
     expect(styles).toMatch(
       /\.utility-right-panel\s*\{[^}]*border-left:\s*1px solid var\(--line\)/s,
     );
-    expect(styles).toMatch(/\.agent-composer\s*\{[^}]*background:\s*var\(--raised\)/s);
+    expect(styles).toMatch(/\.agent-composer\s*\{[^}]*background:\s*var\(--field-surface\)/s);
     expect(styles).toMatch(
       /\.agent-composer textarea\s*\{[^}]*border:\s*0[^}]*background:\s*transparent/s,
     );
@@ -668,7 +827,7 @@ describe("design system contract", () => {
     expect(pane).toContain('["top", "right", "bottom", "left"]');
     expect(workspace).toContain("setPointerCapture");
     expect(workspace).toContain("onLostPointerCapture");
-    expect(app).toContain("visible={bottomPanelVisible}");
+    expect(app).toContain("visible={showBottomPanel}");
     expect(app).toContain("Math.floor(viewport.height * 0.5)");
     expect(workspace).toContain("@xterm/xterm/css/xterm.css");
     expect(app).toContain("loadSettingsScreen");
@@ -706,7 +865,8 @@ describe("design system contract", () => {
     ]) {
       expect(settings).toContain(`"${category}"`);
     }
-    expect(settings).toContain("Change .ralphy library");
+    expect(settings).toContain("Home Ralphy library");
+    expect(settings).not.toContain("Change .ralphy library");
     expect(settings).toContain('type="password"');
     expect(settings).toContain('autoComplete="off"');
     expect(preferences).not.toMatch(/apiKey|providerKey|elevenlabs|openrouter/i);

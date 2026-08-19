@@ -1,7 +1,6 @@
 import {
   ArrowLeft,
   Check,
-  FolderOpen,
   Info,
   KeyRound,
   Monitor,
@@ -112,30 +111,17 @@ function Segmented({
   );
 }
 
-function GeneralSettings({
-  rootPath,
-  onChooseLibrary,
-}: {
-  rootPath: string | null;
-  onChooseLibrary(): void;
-}) {
+function GeneralSettings({ rootPath }: { rootPath: string | null }) {
   const [restoreContext, setRestoreContext] = useState(true);
   const [revealGenerated, setRevealGenerated] = useState(true);
   return (
     <>
       <SettingGroup title="Library">
         <SettingRow
-          title="Active Ralphy library"
-          description={rootPath ?? "No library selected"}
+          title="Home Ralphy library"
+          description={rootPath ?? "~/.ralphy"}
         >
-          <button
-            className="settings-command"
-            type="button"
-            onClick={onChooseLibrary}
-          >
-            <FolderOpen size={14} strokeWidth={1.5} />
-            Change .ralphy library
-          </button>
+          <span className="settings-muted">Automatic</span>
         </SettingRow>
       </SettingGroup>
       <SettingGroup title="Startup">
@@ -330,11 +316,9 @@ function AboutSettings() {
 export function SettingsScreen({
   rootPath,
   onBack,
-  onChooseLibrary,
 }: {
   rootPath: string | null;
   onBack(): void;
-  onChooseLibrary(): void;
 }) {
   const [active, setActive] = useState<SettingsCategory>("general");
   const [query, setQuery] = useState("");
@@ -346,7 +330,7 @@ export function SettingsScreen({
   }, [query]);
   const title = categories.find((category) => category.id === active)?.label ?? "Settings";
 
-  let content = <GeneralSettings rootPath={rootPath} onChooseLibrary={onChooseLibrary} />;
+  let content = <GeneralSettings rootPath={rootPath} />;
   if (active === "profile") content = <ProfileSettings rootPath={rootPath} />;
   if (active === "appearance") content = <AppearanceSettings />;
   if (active === "providers") content = <ProviderSettings />;
