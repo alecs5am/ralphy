@@ -160,12 +160,17 @@ async function activeScreenMarkup(): Promise<{ workspace: string } & ProjectMark
     </div></div></section>
     <div class="review-style-fixtures" style="position:fixed;top:-10000px;width:480px" aria-hidden="true">
       <button class="calendar-week-event" style="position:static"><span class="calendar-week-event-copy"><b>Launch</b><span class="calendar-week-event-meta"><small>10:30</small></span></span></button>
-      <button class="calendar-week-event is-selected" style="position:static"><span class="calendar-week-event-copy"><b>Selected</b></span></button>
+      <button class="calendar-week-event is-selected" style="position:static"><span class="calendar-week-event-copy"><b>Selected</b><span class="calendar-week-event-meta"><small>10:30</small><span class="calendar-week-platforms"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" /></svg></span></span></span></button>
       <div class="calendar-agenda-row"><button class="calendar-agenda-event"><span class="calendar-agenda-copy"><strong>Agenda</strong><small>Project · R1</small></span></button></div>
+      <div class="calendar-agenda-row is-selected"><button class="calendar-agenda-event"><span class="calendar-agenda-copy"><strong>Selected agenda</strong><small>Project · R1</small></span><span class="calendar-agenda-channels"><span class="calendar-agenda-channel is-published"><b>Published</b><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" /></svg></span></span></button></div>
       <section class="unit-meta-section unit-current-version"><button type="button">Choose this version</button><span class="unit-selected-version">Selected version</span><div><strong>R1</strong></div><p>Creative revision preview</p></section>
       <section class="unit-meta-section unit-platforms"><button class="is-active"><span>Instagram</span></button></section>
       <section class="unit-meta-section unit-caption"><div>Caption</div></section>
       <section class="unit-revisions"><div><button>R1</button></div></section>
+      <section class="unit-agent-block"><strong>Agent</strong><small>queued</small><p>Previewing the current revision</p></section>
+      <section class="unit-schedule"><div><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" /></svg><span><strong>10:30</strong><small>scheduled</small></span></div></section>
+      <section class="unit-performance"><div class="unit-metrics"><span><strong>1.2K</strong><small>Views</small></span></div></section>
+      <details class="unit-viewer-production" open><summary>Production</summary><div class="unit-production-content"><dl><div><dt>Run</dt><dd>run-1</dd></div></dl><p>Details</p><code>raw</code></div></details>
     </div>
   </main>`;
   return { workspace, overview, media, documents, units, activity: activityMarkup, memory };
@@ -218,7 +223,7 @@ type GeometryResult = {
   memoryBodyBorder: string | null;
   mediaSelectedRing: { light: string; dark: string } | null;
   activityIslandTypography: Record<"count" | "progress" | "busy", { family: string; size: number } | null> | null;
-  reviewSurfaceStyles: Record<string, string> | null;
+  reviewSurfaceStyles: Record<string, Record<string, string>> | null;
 };
 
 async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): Promise<GeometryResult[]> {
@@ -381,14 +386,17 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
                 const computed = element ? getComputedStyle(element) : null;
                 return [name, computed ? { family: computed.fontFamily, size: Number.parseFloat(computed.fontSize) } : null];
               })) : null;
-              const reviewSurfaceStyles = screen === "memory" ? Object.fromEntries(Object.entries({
+              const reviewSelectors = {
                 calendarDefault: [".calendar-week-event", "backgroundColor"],
                 calendarTitle: [".calendar-week-event-copy > b", "color"],
                 calendarMeta: [".calendar-week-event-meta small", "color"],
                 calendarSelected: [".calendar-week-event.is-selected", "backgroundColor"],
                 calendarSelectedTitle: [".calendar-week-event.is-selected .calendar-week-event-copy > b", "color"],
+                calendarSelectedPlatform: [".calendar-week-event.is-selected .calendar-week-platforms svg", "color"],
                 agendaTitle: [".calendar-agenda-copy > strong", "color"],
                 agendaMeta: [".calendar-agenda-copy > small", "color"],
+                agendaSelectedChannel: [".calendar-agenda-row.is-selected .calendar-agenda-channel", "color"],
+                agendaSelectedChannelIcon: [".calendar-agenda-row.is-selected .calendar-agenda-channel svg", "color"],
                 unitVersionAction: [".unit-current-version > button", "backgroundColor"],
                 unitVersionActionText: [".unit-current-version > button", "color"],
                 unitCurrentTitle: [".unit-current-version > div strong", "color"],
@@ -396,7 +404,22 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
                 unitPlatformActive: [".unit-platforms > button.is-active", "backgroundColor"],
                 unitCaption: [".unit-caption > div", "backgroundColor"],
                 unitRevision: [".unit-revisions > div > button", "backgroundColor"],
-              }).map(([name, [selector, property]]) => [name, getComputedStyle(root.querySelector(selector))[property]])) : null;
+                unitAgentTitle: [".unit-agent-block strong", "color"],
+                unitAgentMeta: [".unit-agent-block small", "color"],
+                unitAgentCopy: [".unit-agent-block p", "color"],
+                unitScheduleTitle: [".unit-schedule strong", "color"],
+                unitScheduleMeta: [".unit-schedule small", "color"],
+                unitMetricValue: [".unit-metrics strong", "color"],
+                unitMetricLabel: [".unit-metrics small", "color"],
+                unitProductionTerm: [".unit-production-content dt", "color"],
+                unitProductionValue: [".unit-production-content dd", "color"],
+                unitProductionCopy: [".unit-production-content p", "color"],
+                unitProductionCode: [".unit-production-content code", "color"],
+              };
+              const reviewSurfaceStyles = screen === "memory" ? Object.fromEntries(["light", "dark"].map((theme) => {
+                document.documentElement.dataset.theme = theme;
+                return [theme, Object.fromEntries(Object.entries(reviewSelectors).map(([name, [selector, property]]) => [name, getComputedStyle(root.querySelector(selector))[property]]))];
+              })) : null;
               delete document.documentElement.dataset.theme;
               return { screen, width: innerWidth, height: innerHeight, overflows, metricColumns, scrollOwners, documentDetailWidth: documentDetail?.getBoundingClientRect().width ?? null, documentViewerWidths, documentViewerMaxWidths, nestedMediaScroll, mediaInsets, focus, overviewColumns, overviewWidth, overviewMetricWidths, overviewNarrativeColumns, overviewColumnRatio, overviewScrollOwners, splitVerticalContained, masterRowEdgeInset, masterRowTopInset, masterRowHeight, masterRowGap, revisionEdgeInset, revisionTopInset, revisionGap, mediaTitleFontSize, mediaMetaFontSize, activityTimeFontSize, activityEntityFontSize, forbidden, projectHeaderCount, projectTabsCenterOffset, gooeyBlobCoverage, unitCardsInGridFlow, projectTabsHeaderOffset, projectTabsReceivePointer, projectTabsAppRegion,
                 memoryRegionPadding: style(".memory-region")?.padding ?? null,
@@ -550,14 +573,18 @@ describe("design system contract", () => {
       { memoryRegionPadding: "0px", memoryTopbarBorder: "0px", memoryFilterBorder: "0px", memoryInactiveBackground: "rgba(0, 0, 0, 0)", memoryOpenBackground: "rgb(241, 242, 246)", memoryBodyBorder: "0px" },
       { memoryRegionPadding: "0px", memoryTopbarBorder: "0px", memoryFilterBorder: "0px", memoryInactiveBackground: "rgba(0, 0, 0, 0)", memoryOpenBackground: "rgb(241, 242, 246)", memoryBodyBorder: "0px" },
     ]);
-    expect(results.find(({ screen, width }) => screen === "memory" && width === 1360)?.reviewSurfaceStyles).toEqual({
+    const reviewSurfaceStyles = results.find(({ screen, width }) => screen === "memory" && width === 1360)?.reviewSurfaceStyles;
+    expect(reviewSurfaceStyles?.light).toMatchObject({
       calendarDefault: "rgb(241, 242, 246)",
       calendarTitle: "rgb(20, 20, 20)",
       calendarMeta: "rgb(110, 110, 106)",
       calendarSelected: "rgb(20, 20, 20)",
       calendarSelectedTitle: "rgb(226, 228, 234)",
+      calendarSelectedPlatform: "rgb(226, 228, 234)",
       agendaTitle: "rgb(20, 20, 20)",
       agendaMeta: "rgb(110, 110, 106)",
+      agendaSelectedChannel: "rgb(226, 228, 234)",
+      agendaSelectedChannelIcon: "rgb(226, 228, 234)",
       unitVersionAction: "rgb(20, 20, 20)",
       unitVersionActionText: "rgb(226, 228, 234)",
       unitCurrentTitle: "rgb(20, 20, 20)",
@@ -565,6 +592,34 @@ describe("design system contract", () => {
       unitPlatformActive: "rgb(20, 20, 20)",
       unitCaption: "rgb(228, 228, 226)",
       unitRevision: "rgb(228, 228, 226)",
+      unitAgentTitle: "rgb(20, 20, 20)",
+      unitAgentMeta: "rgb(110, 110, 106)",
+      unitAgentCopy: "rgb(110, 110, 106)",
+      unitScheduleTitle: "rgb(20, 20, 20)",
+      unitScheduleMeta: "rgb(110, 110, 106)",
+      unitMetricValue: "rgb(20, 20, 20)",
+      unitMetricLabel: "rgb(110, 110, 106)",
+      unitProductionTerm: "rgb(110, 110, 106)",
+      unitProductionValue: "rgb(20, 20, 20)",
+      unitProductionCopy: "rgb(110, 110, 106)",
+      unitProductionCode: "rgb(110, 110, 106)",
+    });
+    expect(reviewSurfaceStyles?.dark).toMatchObject({
+      calendarSelectedTitle: "rgb(5, 5, 5)",
+      calendarSelectedPlatform: "rgb(5, 5, 5)",
+      agendaSelectedChannel: "rgb(5, 5, 5)",
+      agendaSelectedChannelIcon: "rgb(5, 5, 5)",
+      unitAgentTitle: "rgb(242, 242, 240)",
+      unitAgentMeta: "rgb(138, 138, 134)",
+      unitAgentCopy: "rgb(138, 138, 134)",
+      unitScheduleTitle: "rgb(242, 242, 240)",
+      unitScheduleMeta: "rgb(138, 138, 134)",
+      unitMetricValue: "rgb(242, 242, 240)",
+      unitMetricLabel: "rgb(138, 138, 134)",
+      unitProductionTerm: "rgb(138, 138, 134)",
+      unitProductionValue: "rgb(242, 242, 240)",
+      unitProductionCopy: "rgb(138, 138, 134)",
+      unitProductionCode: "rgb(138, 138, 134)",
     });
     expect(results.filter(({ screen }) => screen === "media").map(({ width, mediaInsets }) => ({ width, mediaInsets: mediaInsets.length })))
       .toEqual([{ width: 2560, mediaInsets: 1 }, { width: 1360, mediaInsets: 1 }, { width: 1100, mediaInsets: 1 }]);

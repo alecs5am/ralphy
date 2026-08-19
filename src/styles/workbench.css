@@ -7998,6 +7998,12 @@ button.memory-primary:hover,
   color: var(--desk);
 }
 
+.calendar-week-event.is-selected .calendar-week-platforms,
+.calendar-week-event.is-selected .calendar-week-platforms svg,
+.calendar-agenda-row.is-selected .calendar-agenda-channel:not(.is-failed):not(.is-disconnected) {
+  color: var(--desk);
+}
+
 .select-menu-content,
 .workspace-picker-popover,
 .asset-context-menu,
@@ -8116,6 +8122,31 @@ button.memory-primary:hover,
 .unit-revisions > div > button {
   background: var(--widget-light-sunken);
   box-shadow: none;
+}
+
+.unit-agent-block,
+.unit-schedule > div,
+.unit-metrics > span,
+.unit-retention,
+.unit-viewer-production,
+.unit-production-content,
+.unit-agent-block small,
+.unit-agent-block p,
+.unit-schedule small,
+.unit-metrics small,
+.unit-retention small,
+.unit-viewer-production summary small,
+.unit-production-content dt,
+.unit-production-content p,
+.unit-production-content code {
+  color: var(--ink-secondary);
+}
+
+.unit-agent-block strong,
+.unit-schedule strong,
+.unit-metrics strong,
+.unit-production-content dd {
+  color: var(--ink);
 }
 
 .unit-platforms > button { color: var(--ink-secondary); }
