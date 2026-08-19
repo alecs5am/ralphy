@@ -279,6 +279,7 @@ describe("Electron IPC security", () => {
     expect(exposed).toBeTypeOf("object");
     expect(Object.keys(exposed as object)).not.toContain("request");
     expect(Object.keys(exposed as object)).not.toContain("chooseLibrary");
+    expect(Object.keys(exposed as object)).toHaveLength(67);
     expect(Object.keys(exposed as object)).toEqual(expect.arrayContaining([
       "restoreLibrary",
       "loadWorkspaceOverview",
@@ -289,6 +290,7 @@ describe("Electron IPC security", () => {
       "loadProjectGeneration",
       "loadProjectMediaRevisions",
       "selectProjectMediaRevision",
+      "reviewProjectMedia",
       "performProjectMediaAction",
       "loadDocumentPreview",
       "resolveProjectPreview",
@@ -313,6 +315,7 @@ describe("Electron IPC security", () => {
       "openLocalModelProvider",
     ]));
     expect(Object.keys(exposed as object).filter((name) => name === "performProjectMediaAction")).toHaveLength(1);
+    expect(Object.keys(exposed as object).filter((name) => name === "reviewProjectMedia")).toHaveLength(1);
     const bridge = exposed as {
       startFileDrag(path: string): Promise<void>;
       loadWorkspaceOverview(workspaceId: string): Promise<void>;
@@ -322,6 +325,7 @@ describe("Electron IPC security", () => {
       loadProjectGeneration(project: { workspaceId: string; projectId: string }, target: { type: "artifact-revision"; id: string }, after?: string): Promise<void>;
       loadProjectMediaRevisions(project: { workspaceId: string; projectId: string }, artifactId: string, after?: string): Promise<void>;
       selectProjectMediaRevision(project: { workspaceId: string; projectId: string }, artifactId: string, revisionId: string, expectedSelectedRevisionId: string | null): Promise<void>;
+      reviewProjectMedia(project: { workspaceId: string; projectId: string }, artifactId: string, expectedSelectedRevisionId: string, verdict: "approved" | "needs-work" | "rejected"): Promise<void>;
       performProjectMediaAction(project: { workspaceId: string; projectId: string }, ref: { type: "artifact"; id: string }, action: "copy"): Promise<void>;
       loadProjectComposition(project: { workspaceId: string; projectId: string }, compositionId: string): Promise<void>;
       loadProjectCompositionRevision(project: { workspaceId: string; projectId: string }, revisionId: string): Promise<void>;
@@ -348,6 +352,7 @@ describe("Electron IPC security", () => {
     await bridge.loadProjectGeneration({ workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact-revision", id: "revision-1" }, "generation-next");
     await bridge.loadProjectMediaRevisions({ workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-next");
     await bridge.selectProjectMediaRevision({ workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-1", null);
+    await bridge.reviewProjectMedia({ workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-1", "approved");
     await bridge.performProjectMediaAction({ workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact", id: "artifact-1" }, "copy");
     await bridge.loadProjectComposition({ workspaceId: "workspace-1", projectId: "project-1" }, "composition-1");
     await bridge.loadProjectCompositionRevision({ workspaceId: "workspace-1", projectId: "project-1" }, "revision-1");
@@ -374,6 +379,7 @@ describe("Electron IPC security", () => {
       ["project:media:generation", { workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact-revision", id: "revision-1" }, "generation-next"],
       ["project:media:revisions", { workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-next"],
       ["project:media:select", { workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-1", null],
+      ["project:media:review", { workspaceId: "workspace-1", projectId: "project-1" }, "artifact-1", "revision-1", "approved"],
       ["project:media:action", { workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact", id: "artifact-1" }, "copy"],
       ["project:composition:show", { workspaceId: "workspace-1", projectId: "project-1" }, "composition-1"],
       ["project:composition:revision:show", { workspaceId: "workspace-1", projectId: "project-1" }, "revision-1"],
@@ -393,6 +399,76 @@ describe("Electron IPC security", () => {
       ["terminal:resize", "terminal-1", { cols: 80, rows: 24 }],
     ]));
     expect(send).not.toHaveBeenCalled();
+  });
+
+  test("registered Project review IPC validates sender, root, inputs, and result scope", async () => {
+    const { registerProjectMediaIpc } = await import("../electron/ralphy/project-reader");
+    const handlers = new Map<string, (event: unknown, ...args: unknown[]) => Promise<any>>();
+    const mainFrame = {};
+    const webContents = { mainFrame };
+    const window = { isDestroyed: () => false, webContents };
+    const project = { workspaceId: "workspace-1", projectId: "project-1" };
+    const card = {
+      ref: { type: "artifact" as const, id: "artifact-1" }, ...project, slug: "hero", kind: "image",
+      selectedRevisionId: "revision-1", selectedState: "approved", mime: "image/png", bytes: 12,
+      selectedAt: 1, revisionCount: 1, selectedObjectId: "object-1", storageClass: "bucket", usageRoles: [],
+      target: { type: "object" as const, id: "object-1" }, mediaKind: "image" as const, provenance: "generation" as const,
+    };
+    const revision = {
+      id: "revision-1", artifactId: "artifact-1", objectId: "object-1", revisionNo: 1,
+      parentRevisionId: null, iterationId: null, state: "approved", authoredBySessionId: "session-1", createdAt: 2,
+    };
+    const evaluation = {
+      id: "evaluation-1", ...project, target: { type: "artifact_revision" as const, id: "revision-1" },
+      kind: "review", verdict: "approved", favorite: false, rating: null, tags: [], note: null,
+      authoredBySessionId: "session-1", createdAt: 3,
+    };
+    let epoch = 1;
+    let mode: "valid" | "sibling" | "stale" = "valid";
+    const request = vi.fn(async () => {
+      if (mode === "stale") epoch += 1;
+      return {
+        card: mode === "sibling" ? { ...card, projectId: "project-2" } : card,
+        revision, evaluation, feedback: null,
+      };
+    });
+    registerProjectMediaIpc({
+      handle(channel, listener) { handlers.set(channel, listener); },
+      getWindow: () => window,
+      captureRoot: () => ({ epoch }),
+      assertRoot: (root) => { if (root.epoch !== epoch) throw new Error("stale root"); },
+      session: { client: { request: request as RalphyBridgeClient["request"] } },
+      authorizeTrustedLocator: vi.fn(), openPath: vi.fn(), showItemInFolder: vi.fn(), writeBuffer: vi.fn(),
+    });
+    const review = handlers.get("project:media:review");
+    expect(review).toBeTypeOf("function");
+    if (!review) return;
+    const trusted = { sender: webContents, senderFrame: mainFrame };
+
+    await expect(review(trusted, project, "artifact-1", "revision-1", "approved"))
+      .resolves.toEqual({ ok: true, value: card });
+    expect(request).toHaveBeenCalledWith("media.review", {
+      context: project, ref: { type: "artifact", id: "artifact-1" },
+      expectedSelectedRevisionId: "revision-1", verdict: "approved",
+    });
+
+    request.mockClear();
+    for (const call of [
+      () => review({ sender: webContents, senderFrame: {} }, project, "artifact-1", "revision-1", "approved"),
+      () => review(trusted, { workspaceId: "", projectId: "project-1" }, "artifact-1", "revision-1", "approved"),
+      () => review(trusted, project, "", "revision-1", "approved"),
+      () => review(trusted, project, "artifact-1", "", "approved"),
+      () => review(trusted, project, "artifact-1", "revision-1", "shortlist"),
+    ]) await expect(call()).resolves.toMatchObject({ ok: false });
+    expect(request).not.toHaveBeenCalled();
+
+    mode = "sibling";
+    await expect(review(trusted, project, "artifact-1", "revision-1", "approved"))
+      .resolves.toMatchObject({ ok: false });
+    mode = "stale";
+    epoch = 1;
+    await expect(review(trusted, project, "artifact-1", "revision-1", "approved"))
+      .resolves.toMatchObject({ ok: false });
   });
 
   test("registered Workspace overview IPC validates, trusts, and rejects stale roots", async () => {
@@ -490,7 +566,7 @@ describe("Electron IPC security", () => {
     });
 
     expect([...handlers.keys()]).toEqual([
-      "project:media:generation", "project:media:show", "project:media:revisions", "project:media:select", "project:media:action",
+      "project:media:generation", "project:media:show", "project:media:revisions", "project:media:select", "project:media:review", "project:media:action",
       "project:documents:search",
       "project:composition:show", "project:composition:revision:show", "project:composition:build:show", "project:composition:page",
       "project:unit:show", "project:unit:revision:show", "project:unit:page", "project:unit:preview", "project:unit:select",

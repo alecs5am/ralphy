@@ -98,6 +98,7 @@ function createApi() {
     loadProjectGeneration: vi.fn(async (_project: unknown, target: MediaGenerationDetailDto["target"]) => ({ status: "unknown" as const, target, reason: "not-recorded" as const })),
     loadProjectMediaRevisions: vi.fn(async () => ({ items: [] as ArtifactRevisionDto[], nextCursor: null })),
     selectProjectMediaRevision: vi.fn(async () => { throw new Error("Not used"); }),
+    reviewProjectMedia: vi.fn(async () => { throw new Error("Not used"); }),
     loadProjectUnit: vi.fn(async () => unit),
     loadProjectUnitRevision: vi.fn(async () => revision),
     loadProjectUnitPage: vi.fn(async () => ({ items: [], nextCursor: null })),
@@ -118,6 +119,9 @@ function createController(api: ReturnType<typeof createApi>, activitySequence = 
       beginDocumentEdit(): void;
       setDocumentDraftBody(body: string): void;
       selectMedia(card: MediaCardDto): void;
+      clearMediaSelection(): void;
+      selectAdjacentMedia(direction: -1 | 1): void;
+      reviewSelectedMedia(verdict: "approved" | "needs-work" | "rejected"): Promise<void>;
       openMediaViewer(card: MediaCardDto): Promise<void>;
       closeMediaViewer(): void;
       navigateMediaViewer(delta: number): Promise<void>;
@@ -354,6 +358,73 @@ describe("ProjectScreen behavior", () => {
     await controller.navigateMediaViewer(-1);
     expect(controller.getSnapshot().selectedMedia).toEqual(a);
     expect(api.loadProjectPage).toHaveBeenCalledOnce();
+  });
+
+  test("media console toggles selection and moves only within loaded rows", async () => {
+    const a = projectMedia("a");
+    const b = projectMedia("b");
+    const api = createApi();
+    api.loadProjectPage.mockResolvedValue({ items: [a, b], nextCursor: "another-page" });
+    const controller = createController(api);
+    await controller.selectTab("media");
+
+    controller.selectMedia(a);
+    expect(controller.getSnapshot().selectedMedia).toEqual(a);
+    controller.selectMedia(a);
+    expect(controller.getSnapshot().selectedMedia).toBeNull();
+
+    controller.selectMedia(a);
+    controller.selectAdjacentMedia(-1);
+    expect(controller.getSnapshot().selectedMedia).toEqual(a);
+    controller.selectAdjacentMedia(1);
+    expect(controller.getSnapshot().selectedMedia).toEqual(b);
+    controller.selectAdjacentMedia(1);
+    expect(controller.getSnapshot().selectedMedia).toEqual(b);
+    expect(api.loadProjectPage).toHaveBeenCalledOnce();
+
+    controller.clearMediaSelection();
+    expect(controller.getSnapshot().selectedMedia).toBeNull();
+  });
+
+  test("media console reviews only a selected Artifact and replaces its loaded card", async () => {
+    const selected = { ...projectMedia("hero"), selectedState: "candidate" };
+    const reviewed = { ...selected, selectedState: "approved" };
+    const runObject: MediaCardDto = {
+      ref: { type: "run-object", id: "run-object-1" }, workspaceId: project.workspaceId, projectId: project.projectId,
+      runId: "run-1", purpose: "output", state: "ready", retention: "temp", mime: "image/png", bytes: 12,
+      createdAt: 1, objectId: "object-1", logicalPath: "runs/output.png", locationClass: "temp",
+      attemptId: null, attemptNo: null, target: { type: "object", id: "object-1" }, mediaKind: "image", provenance: "generation",
+    };
+    const unselected: MediaCardDto = {
+      ...selected, ref: { type: "artifact", id: "unselected" }, slug: "unselected",
+      selectedRevisionId: null, selectedState: null, mime: null, bytes: null, selectedAt: null,
+      selectedObjectId: null, storageClass: null, target: null,
+    };
+    const api = createApi();
+    api.loadProjectPage.mockResolvedValue({ items: [selected, runObject, unselected], nextCursor: null });
+    api.reviewProjectMedia.mockResolvedValue(reviewed);
+    const controller = createController(api);
+    await controller.selectTab("media");
+
+    controller.selectMedia(selected);
+    await controller.reviewSelectedMedia("approved");
+    expect(api.reviewProjectMedia).toHaveBeenCalledOnce();
+    expect(api.reviewProjectMedia).toHaveBeenCalledWith(
+      { workspaceId: "workspace-1", projectId: "project-1" }, "hero", "revision-hero", "approved",
+    );
+    expect(controller.getSnapshot()).toMatchObject({
+      selectedMedia: reviewed,
+      domain: { pages: { media: { items: [reviewed, runObject, unselected] } } },
+    });
+
+    api.reviewProjectMedia.mockClear();
+    controller.selectMedia(runObject);
+    await expect(controller.reviewSelectedMedia("approved")).rejects.toThrow("selected Artifact");
+    controller.selectMedia(unselected);
+    await expect(controller.reviewSelectedMedia("rejected")).rejects.toThrow("selected revision");
+    controller.clearMediaSelection();
+    await expect(controller.reviewSelectedMedia("needs-work")).rejects.toThrow("selected Artifact");
+    expect(api.reviewProjectMedia).not.toHaveBeenCalled();
   });
 
   test("media viewer chooses an unselected Artifact with nullable CAS and replaces only its loaded card", async () => {
@@ -1425,6 +1496,50 @@ describe("ProjectScreen behavior", () => {
       project: { workspaceId: "workspace-1", projectId: "project-1" },
       mediaQuery: { filter: "approved", provenance: "unknown" },
     });
+  });
+
+  test("publishes only active Media shell context and clears it on leave and unmount", async () => {
+    const selected = projectMedia("shell-selected");
+    const loadOverview = vi.spyOn(bridge, "loadProjectOverview").mockResolvedValue(overview);
+    const loadPage = vi.spyOn(bridge, "loadProjectPage").mockResolvedValue({ items: [selected], nextCursor: null });
+    const resolvePreview = vi.spyOn(bridge, "resolveProjectPreview").mockResolvedValue(null);
+    const onShellContextChange = vi.fn();
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+
+    try {
+      await act(async () => {
+        root.render(<screen.ProjectScreen project={project} rootEpoch={1} activitySequence={0} onShellContextChange={onShellContextChange} />);
+        await Promise.resolve();
+      });
+      await clickButton(host.container, "Media");
+      const tile = host.container.findAll((node) => node.tagName === "BUTTON" && node.getAttribute("aria-label") === "shell-selected")[0];
+      await act(async () => { tile.dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); });
+
+      const published = onShellContextChange.mock.calls.at(-1)?.[0];
+      expect(published).toMatchObject({
+        project: { workspaceId: "workspace-1", projectId: "project-1" },
+        rootEpoch: 1,
+        selectedMedia: selected,
+        canSelectPrevious: false,
+        canSelectNext: false,
+      });
+      expect(published.clearMediaSelection).toBeTypeOf("function");
+      expect(published.selectAdjacentMedia).toBeTypeOf("function");
+      expect(published.reviewSelectedMedia).toBeTypeOf("function");
+
+      await clickButton(host.container, "Overview");
+      expect(onShellContextChange).toHaveBeenLastCalledWith(null);
+      await act(async () => root.unmount());
+      expect(onShellContextChange).toHaveBeenLastCalledWith(null);
+    } finally {
+      if ((root as unknown as { _internalRoot?: unknown })._internalRoot) await act(async () => root.unmount());
+      loadOverview.mockRestore();
+      loadPage.mockRestore();
+      resolvePreview.mockRestore();
+      host.restore();
+    }
   });
 
   test("automatic cursor clears unmounted Media scroll after a root reset", async () => {

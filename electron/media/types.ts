@@ -407,6 +407,8 @@ export interface LocalModelReference {
   id: string;
 }
 
+export type ProjectMediaReviewVerdict = "approved" | "needs-work" | "rejected";
+
 export interface MediaWorkbenchBridge {
   restoreLibrary(): Promise<LibraryOpenResult | null>;
   loadWorkspaceOverview(workspaceId: string): Promise<import("../ralphy/types").WorkspaceOverviewDto>;
@@ -451,6 +453,12 @@ export interface MediaWorkbenchBridge {
     artifactId: string,
     revisionId: string,
     expectedSelectedRevisionId: string | null,
+  ): Promise<import("../ralphy/types").ArtifactMediaCardDto>;
+  reviewProjectMedia(
+    project: ProjectReference,
+    artifactId: string,
+    expectedSelectedRevisionId: string,
+    verdict: ProjectMediaReviewVerdict,
   ): Promise<import("../ralphy/types").ArtifactMediaCardDto>;
   performProjectMediaAction(
     project: ProjectReference,
@@ -550,6 +558,7 @@ export const MEDIA_CHANNELS = {
   loadProjectGeneration: "project:media:generation",
   loadProjectMediaRevisions: "project:media:revisions",
   selectProjectMediaRevision: "project:media:select",
+  reviewProjectMedia: "project:media:review",
   performProjectMediaAction: "project:media:action",
   loadDocumentPreview: "project:document-preview",
   searchProjectDocuments: "project:documents:search",

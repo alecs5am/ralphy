@@ -1,6 +1,6 @@
 import type { ActivityDto, ArtifactMediaCardDto, ArtifactRevisionDto, BuildDto, BuildOutputDto, CompositionDto, CompositionInputDto, CompositionRevisionDto, CompositionSourceDto, DocumentDetailDto, DocumentDto, DocumentSearchDto, EvaluationDto, JsonValue, MediaCardDto, MediaGenerationDetailDto, MediaGenerationTarget, UnitDto, UnitItemDto, UnitPresentationDto, UnitRevisionDto } from "../../electron/ralphy/types";
 import type { CompositionOutputPreview } from "../../electron/ralphy/project-reader";
-import type { ActivityRunDetail, MediaWorkbenchBridge, ProjectMediaQuery, ProjectSummary, ProjectTab } from "../../electron/media/types";
+import type { ActivityRunDetail, MediaWorkbenchBridge, ProjectMediaQuery, ProjectMediaReviewVerdict, ProjectSummary, ProjectTab } from "../../electron/media/types";
 import { createProjectDomainState, projectDomainReducer, type DomainRow, type ProjectDomainState } from "./project-domain";
 
 export type ProjectView = "overview" | Exclude<ProjectTab, "compositions">;
@@ -71,7 +71,7 @@ export interface ProjectScreenSnapshot {
   unitConflict: string | null;
   unitMutationError: string | null;
 }
-export type ProjectScreenApi = Pick<MediaWorkbenchBridge, "loadProjectOverview" | "loadProjectPage" | "loadProjectActivityRun" | "loadProjectMediaCard" | "loadProjectGeneration" | "loadProjectMediaRevisions" | "selectProjectMediaRevision" | "loadDocumentPreview" | "searchProjectDocuments" | "showProjectDocument" | "reviseProjectDocument" | "resolveProjectPreview" | "loadProjectComposition" | "loadProjectCompositionRevision" | "loadProjectCompositionBuild" | "loadProjectCompositionPage" | "reviseProjectComposition" | "selectProjectCompositionRevision" | "buildProjectComposition" | "resolveCompositionOutputPreview" | "loadProjectUnit" | "loadProjectUnitRevision" | "loadProjectUnitPage" | "selectProjectUnitRevision">;
+export type ProjectScreenApi = Pick<MediaWorkbenchBridge, "loadProjectOverview" | "loadProjectPage" | "loadProjectActivityRun" | "loadProjectMediaCard" | "loadProjectGeneration" | "loadProjectMediaRevisions" | "selectProjectMediaRevision" | "reviewProjectMedia" | "loadDocumentPreview" | "searchProjectDocuments" | "showProjectDocument" | "reviseProjectDocument" | "resolveProjectPreview" | "loadProjectComposition" | "loadProjectCompositionRevision" | "loadProjectCompositionBuild" | "loadProjectCompositionPage" | "reviseProjectComposition" | "selectProjectCompositionRevision" | "buildProjectComposition" | "resolveCompositionOutputPreview" | "loadProjectUnit" | "loadProjectUnitRevision" | "loadProjectUnitPage" | "selectProjectUnitRevision">;
 export interface ProjectScreenController {
   getSnapshot(): ProjectScreenSnapshot;
   subscribe(listener: () => void): () => void;
@@ -96,6 +96,9 @@ export interface ProjectScreenController {
   setDocumentDraftFormat(format: DocumentDraft["format"]): void;
   saveDocument(): Promise<void>;
   selectMedia(card: MediaCardDto): void;
+  clearMediaSelection(): void;
+  selectAdjacentMedia(direction: -1 | 1): void;
+  reviewSelectedMedia(verdict: ProjectMediaReviewVerdict): Promise<void>;
   openMediaViewer(card: MediaCardDto): Promise<void>;
   closeMediaViewer(): void;
   navigateMediaViewer(delta: number): Promise<void>;
@@ -222,6 +225,7 @@ export function createProjectScreenController(
   let mediaPreviewRequest = 0;
   let mediaGenerationRequest = 0;
   let mediaRevisionRequest = 0;
+  let mediaReviewRequest = 0;
   let unitRequest = 0;
   let unitRevisionPageRequest = 0;
   let unitExactRevisionRequest = 0;
@@ -927,6 +931,20 @@ export function createProjectScreenController(
       },
     });
   };
+  const clearMediaSelection = () => {
+    mediaPreviewRequest += 1;
+    mediaGenerationRequest += 1;
+    mediaRevisionRequest += 1;
+    mediaReviewRequest += 1;
+    emit({
+      ...snapshot,
+      selectedMedia: null,
+      mediaViewerOpen: false,
+      mediaGeneration: { status: "idle", value: null, error: null },
+      mediaRevisions: { status: "idle", items: [], error: null },
+      domain: resetPreview(),
+    });
+  };
   const loadMediaPreview = async (card: MediaCardDto) => {
     const requestId = ++mediaPreviewRequest;
     const generation = snapshot.domain.generation;
@@ -1128,7 +1146,33 @@ export function createProjectScreenController(
     },
     selectMedia(card) {
       const loaded = loadedMedia(card);
-      if (loaded) emit({ ...snapshot, selectedMedia: loaded });
+      if (loaded) {
+        if (sameMedia(snapshot.selectedMedia, loaded)) clearMediaSelection();
+        else emit({ ...snapshot, selectedMedia: loaded });
+      }
+    },
+    clearMediaSelection,
+    selectAdjacentMedia(direction) {
+      const card = snapshot.selectedMedia;
+      if (!card || (direction !== -1 && direction !== 1)) return;
+      const items = snapshot.domain.pages.media.items as MediaCardDto[];
+      const index = items.findIndex((item) => sameMedia(item, card));
+      const next = items[index + direction];
+      if (next) emit({ ...snapshot, selectedMedia: next });
+    },
+    async reviewSelectedMedia(verdict) {
+      const card = snapshot.selectedMedia;
+      if (!card || !isArtifactMedia(card)) throw new Error("Review requires a selected Artifact.");
+      if (!card.selectedRevisionId) throw new Error("Review requires a selected revision.");
+      const requestId = ++mediaReviewRequest;
+      const reviewed = await api.reviewProjectMedia(
+        snapshot.domain.project,
+        card.ref.id,
+        card.selectedRevisionId,
+        verdict,
+      );
+      if (disposed || requestId !== mediaReviewRequest || !sameMedia(snapshot.selectedMedia, card)) return;
+      replaceLoadedMedia(reviewed);
     },
     async openMediaViewer(card) {
       const loaded = loadedMedia(card);
@@ -1363,6 +1407,10 @@ export function createProjectScreenController(
       for (const kind of Object.keys(compositionPageRequests) as CompositionPageKind[]) compositionPageRequests[kind] += 1;
       compositionPreviewRequest += 1;
       compositionMutationRequest += 1;
+      mediaPreviewRequest += 1;
+      mediaGenerationRequest += 1;
+      mediaRevisionRequest += 1;
+      mediaReviewRequest += 1;
       unitRequest += 1;
       unitRevisionPageRequest += 1;
       unitExactRevisionRequest += 1;

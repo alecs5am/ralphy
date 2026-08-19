@@ -1,7 +1,8 @@
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import type { ProjectOverviewDto } from "../../electron/ralphy/types";
+import type { MediaCardDto, ProjectOverviewDto } from "../../electron/ralphy/types";
 import { ProjectControls } from "../components/ProjectControls";
+import type { ProjectShellContext } from "../components/ReviewConsole";
 import { ActivityTimeline } from "./project/ActivityTimeline";
 import { DocumentsPanel } from "./project/DocumentsPanel";
 import { MediaPanel } from "./project/MediaPanel";
@@ -70,7 +71,7 @@ export function startProjectScreenController(
   return () => controller.dispose();
 }
 
-function ConnectedProjectScreen({ project, rootEpoch, controller, targetUnitId }: { project: ProjectSummary; rootEpoch: number; controller: ProjectScreenController; targetUnitId?: string | null }) {
+function ConnectedProjectScreen({ project, rootEpoch, controller, targetUnitId, onShellContextChange }: { project: ProjectSummary; rootEpoch: number; controller: ProjectScreenController; targetUnitId?: string | null; onShellContextChange?: (context: ProjectShellContext | null) => void }) {
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
   const projectScrollToken = JSON.stringify([rootEpoch, snapshot.domain.project.workspaceId, snapshot.domain.project.projectId]);
   const mediaScrollToken = JSON.stringify([projectScrollToken, snapshot.domain.media]);
@@ -97,6 +98,26 @@ function ConnectedProjectScreen({ project, rootEpoch, controller, targetUnitId }
     setOwnedScroll(currentScroll);
   }
   const overviewScroll = useRememberedScroll(currentScroll.overview, "overview", projectScrollToken);
+  useEffect(() => {
+    if (!onShellContextChange) return;
+    if (snapshot.activeTab !== "media" || !snapshot.selectedMedia) {
+      onShellContextChange(null);
+      return;
+    }
+    const items = snapshot.domain.pages.media.items as MediaCardDto[];
+    const index = items.findIndex((item) => item.ref.type === snapshot.selectedMedia?.ref.type && item.ref.id === snapshot.selectedMedia?.ref.id);
+    onShellContextChange({
+      project: snapshot.domain.project,
+      rootEpoch,
+      selectedMedia: snapshot.selectedMedia,
+      canSelectPrevious: index > 0,
+      canSelectNext: index >= 0 && index < items.length - 1,
+      clearMediaSelection: controller.clearMediaSelection,
+      selectAdjacentMedia: controller.selectAdjacentMedia,
+      reviewSelectedMedia: controller.reviewSelectedMedia,
+    });
+  }, [controller, onShellContextChange, rootEpoch, snapshot.activeTab, snapshot.domain.pages.media.items, snapshot.domain.project, snapshot.selectedMedia]);
+  useEffect(() => () => onShellContextChange?.(null), [onShellContextChange]);
   return <ProjectScreenView project={project} rootEpoch={rootEpoch} controller={controller} snapshot={snapshot} targetUnitId={targetUnitId} scrollMemory={currentScroll.media} documentsScrollMemory={currentScroll.documents} unitsScrollMemory={currentScroll.units} activityScrollMemory={currentScroll.activity} overviewScroll={overviewScroll} />;
 }
 
@@ -105,11 +126,13 @@ export function ProjectScreen({
   rootEpoch,
   activitySequence,
   targetUnitId,
+  onShellContextChange,
 }: {
   project: ProjectSummary;
   rootEpoch: number;
   activitySequence: number;
   targetUnitId?: string | null;
+  onShellContextChange?: (context: ProjectShellContext | null) => void;
 }) {
   const [controller, setController] = useState<ProjectScreenController | null>(null);
   useEffect(
@@ -121,6 +144,6 @@ export function ProjectScreen({
     if (controller && targetUnitId) void controller.selectTab("units");
   }, [controller, targetUnitId]);
   return controller
-    ? <ConnectedProjectScreen project={project} rootEpoch={rootEpoch} controller={controller} targetUnitId={targetUnitId} />
+    ? <ConnectedProjectScreen project={project} rootEpoch={rootEpoch} controller={controller} targetUnitId={targetUnitId} onShellContextChange={onShellContextChange} />
     : <main className="main-region project-region"><div className="project-skeleton" role="status">Loading project overview…</div></main>;
 }

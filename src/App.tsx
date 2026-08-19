@@ -13,6 +13,7 @@ import { AnimatePresence, LayoutGroup, MotionConfig, motion } from "motion/react
 import { ContextSidebar } from "./components/ContextSidebar";
 import { MainHeader } from "./components/Titlebar";
 import { AgentChatPanel } from "./components/UtilityPanels";
+import { ReviewConsole, type ProjectShellContext } from "./components/ReviewConsole";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { ResizeHandle } from "./components/ui/ResizeHandle";
 import { useAgentChat } from "./chat/useAgentChat";
@@ -108,6 +109,7 @@ export function App() {
   const [isResizing, setIsResizing] = useState(false);
   const [sidebarSearchRequest, setSidebarSearchRequest] = useState(0);
   const [targetUnitId, setTargetUnitId] = useState<string | null>(null);
+  const [projectShellContext, setProjectShellContext] = useState<ProjectShellContext | null>(null);
   const restorationStarted = useRef(false);
   const welcomeStartedAt = useRef(Date.now());
 
@@ -450,6 +452,7 @@ export function App() {
           rootEpoch={rootIdentity?.rootEpoch ?? 0}
           activitySequence={rootIdentity?.activitySequence ?? 0}
           targetUnitId={targetUnitId}
+          onShellContextChange={setProjectShellContext}
         />
       </Suspense>
     );
@@ -547,13 +550,15 @@ export function App() {
           )}
           <AnimatePresence initial={false}>
             {showRightPanel ? (
-              <AgentChatPanel
-                key="agent-chat"
-                chat={agentChat}
-                workspace={selectedWorkspace}
-                project={selectedProject}
-                onClose={() => setRightPanelVisible(false)}
-              />
+              <motion.div className="utility-right-rail" key="utility-right-rail">
+                {projectShellContext && <ReviewConsole context={projectShellContext} />}
+                <AgentChatPanel
+                  chat={agentChat}
+                  workspace={selectedWorkspace}
+                  project={selectedProject}
+                  onClose={() => setRightPanelVisible(false)}
+                />
+              </motion.div>
             ) : null}
           </AnimatePresence>
           {error && (

@@ -29,7 +29,7 @@ describe("Project domain screen", () => {
     const markup = renderToStaticMarkup(
       <projectControls.ProjectControls activeTab="overview" onSelect={vi.fn()} />,
     );
-    const labels = [...markup.matchAll(/role="tab"[^>]*>([^<]+)<\/button>/g)]
+    const labels = [...markup.matchAll(/role="tab"[^>]*aria-label="([^"]+)"/g)]
       .map((match) => match[1]);
 
     expect(labels).toEqual([
@@ -40,7 +40,9 @@ describe("Project domain screen", () => {
       "Activity",
     ]);
     expect(markup).toContain('role="tablist"');
+    expect(markup).toContain('class="project-dock"');
     expect(markup).toMatch(/role="tab"[^>]*aria-selected="true"/);
+    expect(markup).not.toContain("gooey-tabs");
     expect(markup).not.toMatch(/>Finals<|>Files<|>Refs</);
   });
 

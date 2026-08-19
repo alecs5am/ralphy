@@ -39,6 +39,7 @@ export type {
   ProjectCompositionPageRequest,
   ProjectTab,
   ProjectMediaFilter,
+  ProjectMediaReviewVerdict,
   ProjectPage,
   ProjectPreview,
   ProjectSummary,
@@ -293,6 +294,9 @@ function createMockBridge(): RalphyBridge {
     },
     async selectProjectMediaRevision() {
       throw new Error("Project domain reader is unavailable in mock mode");
+    },
+    async reviewProjectMedia() {
+      throw new Error("Project media review is unavailable in mock mode");
     },
     async performProjectMediaAction() {
       throw new Error("Project media actions are unavailable in mock mode");

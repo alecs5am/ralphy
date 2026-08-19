@@ -4862,6 +4862,21 @@ button.memory-primary:hover { background: #8d89df; color: #111; }
   -webkit-backdrop-filter: var(--blur);
 }
 
+.utility-right-rail {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  grid-column: 3;
+  grid-row: 2;
+  overflow: hidden;
+  flex-direction: column;
+}
+
+.utility-right-rail > .utility-right-panel {
+  min-height: 0;
+  flex: 1;
+}
+
 .utility-right-panel {
   display: flex;
   overflow: hidden;

@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { describe, expect, test, vi } from "vitest";
 import type { MediaCardDto, MediaGenerationDetailDto, RunObjectMediaCardDto } from "../electron/ralphy/types";
 import { VirtualAssetGrid, MediaCardTile } from "../src/components/VirtualAssetGrid";
+import { ReviewConsole, type ProjectShellContext } from "../src/components/ReviewConsole";
 import { AudioWaveform } from "../src/components/media/AudioWaveform";
 import { ImageViewport } from "../src/components/media/ImageViewport";
 import { compactVideoStartTime, VideoPlayer } from "../src/components/media/VideoPlayer";
@@ -108,6 +109,54 @@ describe("Project media presentation", () => {
     expect(audio).toContain('aria-label="Play Voiceover"');
   });
 
+  test("review console binds A/N/R and Escape while guarding editable focus", async () => {
+    const clearMediaSelection = vi.fn();
+    const selectAdjacentMedia = vi.fn();
+    const reviewSelectedMedia = vi.fn(async () => undefined);
+    const context: ProjectShellContext = {
+      project: { workspaceId: project.workspaceId, projectId: project.projectId },
+      rootEpoch: 4,
+      selectedMedia: card,
+      canSelectPrevious: true,
+      canSelectNext: true,
+      clearMediaSelection,
+      selectAdjacentMedia,
+      reviewSelectedMedia,
+    };
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<ReviewConsole context={context} />); await Promise.resolve(); });
+      expect(host.container.textContent).toContain("Campaign hero");
+      expect(host.container.textContent).toContain("approved");
+
+      for (const [key, verdict] of [["a", "approved"], ["N", "needs-work"], ["r", "rejected"]] as const) {
+        await act(async () => { keydown(globalThis.window, key); await Promise.resolve(); });
+        expect(reviewSelectedMedia).toHaveBeenLastCalledWith(verdict);
+      }
+      expect(reviewSelectedMedia).toHaveBeenCalledTimes(3);
+
+      for (const [tag, contenteditable] of [["input", null], ["textarea", null], ["div", "true"]] as const) {
+        const field = globalThis.document.createElement(tag) as unknown as HostNode;
+        if (contenteditable) field.setAttribute("contenteditable", contenteditable);
+        host.container.appendChild(field);
+        field.focus();
+        await act(async () => { keydown(globalThis.window, "a"); await Promise.resolve(); });
+      }
+      expect(reviewSelectedMedia).toHaveBeenCalledTimes(3);
+
+      await act(async () => { button(host.container, "Previous media").dispatchEvent(new Event("click", { bubbles: true })); });
+      await act(async () => { button(host.container, "Next media").dispatchEvent(new Event("click", { bubbles: true })); });
+      expect(selectAdjacentMedia.mock.calls).toEqual([[-1], [1]]);
+
+      await act(async () => { keydown(globalThis.window, "Escape"); await Promise.resolve(); });
+      expect(clearMediaSelection).toHaveBeenCalledOnce();
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
   test("keeps a virtualized grid with stable MediaRef selection and accessible cards", () => {
     const tile = renderToStaticMarkup(<MediaCardTile
       card={card}
@@ -180,6 +229,8 @@ describe("Project media presentation", () => {
       expect(controller.getSnapshot().mediaViewerOpen).toBe(true);
       await act(async () => { controller.closeMediaViewer(); await Promise.resolve(); });
 
+      await act(async () => { keydown(secondTile, " "); await Promise.resolve(); });
+      expect(controller.getSnapshot().selectedMedia).toBeNull();
       await act(async () => { keydown(secondTile, " "); await Promise.resolve(); });
       expect(controller.getSnapshot().selectedMedia).toEqual(second);
       await act(async () => { keydown(first, "Enter"); await Promise.resolve(); });

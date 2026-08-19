@@ -85,6 +85,15 @@ const mediaBridge: MediaWorkbenchBridge = {
       expectedSelectedRevisionId,
     )
   ),
+  reviewProjectMedia: (project, artifactId, expectedSelectedRevisionId, verdict) => (
+    invoke(
+      MEDIA_CHANNELS.reviewProjectMedia,
+      project,
+      artifactId,
+      expectedSelectedRevisionId,
+      verdict,
+    )
+  ),
   performProjectMediaAction: (project, ref, action) => (
     invoke(MEDIA_CHANNELS.performProjectMediaAction, project, ref, action)
   ),

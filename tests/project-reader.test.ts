@@ -313,6 +313,45 @@ describe("Project domain reader", () => {
     });
   });
 
+  test("reviews one selected Artifact through the exact scoped Core contract", async () => {
+    const revision = {
+      id: "arev_1", artifactId: "art_1", objectId: "obj_1", revisionNo: 1,
+      parentRevisionId: null, iterationId: null, state: "approved",
+      authoredBySessionId: "session-1", createdAt: 2,
+    };
+    const evaluation = {
+      id: "evaluation-1", workspaceId: "workspace-1", projectId: "project-1",
+      target: { type: "artifact_revision", id: "arev_1" }, kind: "review", verdict: "approved",
+      favorite: false, rating: null, tags: [], note: null, authoredBySessionId: "session-1", createdAt: 3,
+    };
+    const reviewed = { ...artifactCard, selectedState: "approved" };
+    const request = vi.fn(async () => ({ card: reviewed, revision, evaluation, feedback: null }));
+    const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
+
+    await expect(reader.reviewMedia(project, "art_1", "arev_1", "approved")).resolves.toEqual(reviewed);
+    expect(request).toHaveBeenCalledOnce();
+    expect(request).toHaveBeenCalledWith("media.review", {
+      context: project,
+      ref: { type: "artifact", id: "art_1" },
+      expectedSelectedRevisionId: "arev_1",
+      verdict: "approved",
+    });
+
+    for (const result of [
+      { card: { ...reviewed, workspaceId: "workspace-2" }, revision, evaluation, feedback: null },
+      { card: reviewed, revision: { ...revision, artifactId: "art_2" }, evaluation, feedback: null },
+      { card: reviewed, revision, evaluation: { ...evaluation, projectId: "project-2" }, feedback: null },
+      { card: reviewed, revision, evaluation: { ...evaluation, target: { type: "artifact_revision", id: "arev_2" } }, feedback: null },
+      { card: reviewed, revision, evaluation, feedback: null, privatePath: "/private/review.json" },
+    ]) {
+      const invalid = createProjectReader({
+        request: vi.fn(async () => result) as unknown as RalphyBridgeClient["request"],
+      });
+      await expect(invalid.reviewMedia(project, "art_1", "arev_1", "approved"))
+        .rejects.toThrow("Invalid Media review");
+    }
+  });
+
   test("loads one exact scoped Media card and rejects mismatched or malformed results", async () => {
     const request = vi.fn(async () => artifactCard);
     const reader = createProjectReader({ request: request as RalphyBridgeClient["request"] });
