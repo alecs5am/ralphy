@@ -340,6 +340,7 @@ describe("Project domain reader", () => {
     for (const result of [
       { card: { ...reviewed, workspaceId: "workspace-2" }, revision, evaluation, feedback: null },
       { card: reviewed, revision: { ...revision, artifactId: "art_2" }, evaluation, feedback: null },
+      { card: reviewed, revision, evaluation: { ...evaluation, projectId: null }, feedback: null },
       { card: reviewed, revision, evaluation: { ...evaluation, projectId: "project-2" }, feedback: null },
       { card: reviewed, revision, evaluation: { ...evaluation, target: { type: "artifact_revision", id: "arev_2" } }, feedback: null },
       { card: reviewed, revision, evaluation, feedback: null, privatePath: "/private/review.json" },

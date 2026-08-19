@@ -492,6 +492,7 @@ function validateMediaReview(
     || !artifactRevision(review.revision, artifactId)
     || (review.revision as ArtifactRevisionDto).id !== revisionId
     || !compositionEvaluationDto(review.evaluation, project, target)
+    || (review.evaluation as EvaluationDto).projectId !== project.projectId
     || (review.evaluation as EvaluationDto).verdict !== verdict
     || !validReviewFeedback(review.feedback, project)) {
     throw new Error("Invalid Media review");

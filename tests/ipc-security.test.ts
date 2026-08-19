@@ -424,12 +424,16 @@ describe("Electron IPC security", () => {
       authoredBySessionId: "session-1", createdAt: 3,
     };
     let epoch = 1;
-    let mode: "valid" | "sibling" | "stale" = "valid";
+    let mode: "valid" | "sibling" | "evaluation-null" | "evaluation-sibling" | "stale" = "valid";
     const request = vi.fn(async () => {
       if (mode === "stale") epoch += 1;
       return {
         card: mode === "sibling" ? { ...card, projectId: "project-2" } : card,
-        revision, evaluation, feedback: null,
+        revision,
+        evaluation: mode === "evaluation-null"
+          ? { ...evaluation, projectId: null }
+          : mode === "evaluation-sibling" ? { ...evaluation, projectId: "project-2" } : evaluation,
+        feedback: null,
       };
     });
     registerProjectMediaIpc({
@@ -465,6 +469,10 @@ describe("Electron IPC security", () => {
     mode = "sibling";
     await expect(review(trusted, project, "artifact-1", "revision-1", "approved"))
       .resolves.toMatchObject({ ok: false });
+    for (mode of ["evaluation-null", "evaluation-sibling"] as const) {
+      await expect(review(trusted, project, "artifact-1", "revision-1", "approved"))
+        .resolves.toMatchObject({ ok: false });
+    }
     mode = "stale";
     epoch = 1;
     await expect(review(trusted, project, "artifact-1", "revision-1", "approved"))
