@@ -123,7 +123,7 @@ export function ProfileMenu({
                     <ProfileAvatar rootPath={rootPath} size={20} />
                     <strong>{identity}</strong>
                   </div>
-                  <button type="button" role="menuitem" onClick={() => { setOpen(null); onOpenSettings(); }}>
+                  <button type="button" role="menuitem" onClick={() => { profileTriggerRef.current?.focus(); setOpen(null); onOpenSettings(); }}>
                     <Settings size={15} strokeWidth={1.5} />
                     <span>Settings</span>
                   </button>

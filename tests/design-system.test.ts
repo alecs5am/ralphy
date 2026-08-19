@@ -224,7 +224,7 @@ type GeometryResult = {
   mediaSelectedRing: { light: string; dark: string } | null;
   activityIslandTypography: Record<"count" | "progress" | "busy", { family: string; size: number } | null> | null;
   reviewSurfaceStyles: Record<string, Record<string, string>> | null;
-  instrumentContrast: Record<string, { sidebar: number; chip: number; chipBackground: string }>;
+  instrumentContrast: Record<string, { sidebar: number; sidebarIcon: number; chip: number; chipBackground: string }>;
   reviewConsoleHeight: number | null;
 };
 
@@ -237,7 +237,7 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
     const activityIsland = renderToStaticMarkup(createElement(ActivityIsland, { state: {
       projectName: "Launch", status: "active", count: 12, busyLabel: "Syncing", progress: 64, alert: null,
     } }));
-    const shell = (screen: string) => `<div class="workbench has-right-panel" style="--sidebar-w:288px;--inspector-w:336px"><aside class="context-sidebar"><nav class="sidebar-nav"><button class="sidebar-nav-row is-selected"><span>Selected</span></button></nav></aside><section class="main-shell"><header class="main-header">${activityIsland}</header><div class="main-content-stage">${screen}</div></section><aside class="utility-right-rail"><section class="review-console"><div class="review-console-preview"></div><div class="review-console-copy"><strong>Review</strong><small>Artifact</small></div><div class="review-console-actions"><button>Approve</button><button disabled>Needs work</button><button>Reject</button></div><div class="review-console-navigation"><button>Previous</button><button>Next</button></div></section><section class="utility-right-panel"><div class="agent-composer"><button class="agent-menu-trigger">Model</button></div></section></aside></div>`;
+    const shell = (screen: string) => `<div class="workbench has-right-panel" style="--sidebar-w:288px;--inspector-w:336px"><aside class="context-sidebar"><nav class="sidebar-nav"><button class="sidebar-nav-row is-selected"><svg viewBox="0 0 24 24"><path d="M2 12h20"/></svg><span>Selected</span></button></nav></aside><section class="main-shell"><header class="main-header">${activityIsland}</header><div class="main-content-stage">${screen}</div></section><aside class="utility-right-rail"><section class="review-console"><div class="review-console-preview"></div><div class="review-console-copy"><strong>Review</strong><small>Artifact</small></div><div class="review-console-actions"><button>Approve</button><button disabled>Needs work</button><button>Reject</button></div><div class="review-console-navigation"><button>Previous</button><button>Next</button></div></section><section class="utility-right-panel"><div class="agent-composer"><button class="agent-menu-trigger">Model</button></div></section></aside></div>`;
     const templates = Object.entries(markup).map(([name, value]) => `<template id="${name}">${shell(value)}</template>`).join("");
     writeFileSync(join(directory, "layout.html"), `<!doctype html><html><head>${links}</head><body><div id="root"></div>${templates}</body></html>`);
     writeFileSync(join(directory, "package.json"), JSON.stringify({ main: "main.cjs" }));
@@ -431,8 +431,9 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
               const instrumentContrast = Object.fromEntries(["light", "dark"].map((theme) => {
                 document.documentElement.dataset.theme = theme;
                 const sidebar = getComputedStyle(root.querySelector(".sidebar-nav-row.is-selected"));
+                const sidebarIcon = getComputedStyle(root.querySelector(".sidebar-nav-row.is-selected svg"));
                 const chip = getComputedStyle(root.querySelector(".agent-composer .agent-menu-trigger"));
-                return [theme, { sidebar: contrast(sidebar.color, sidebar.backgroundColor), chip: contrast(chip.color, chip.backgroundColor), chipBackground: chip.backgroundColor }];
+                return [theme, { sidebar: contrast(sidebar.color, sidebar.backgroundColor), sidebarIcon: contrast(sidebarIcon.color, sidebar.backgroundColor), chip: contrast(chip.color, chip.backgroundColor), chipBackground: chip.backgroundColor }];
               }));
               const reviewConsoleHeight = root.querySelector(".review-console")?.getBoundingClientRect().height ?? null;
               delete document.documentElement.dataset.theme;
@@ -592,6 +593,8 @@ describe("design system contract", () => {
     const instrument = results.find(({ screen, width }) => screen === "media" && width === 1360);
     expect(instrument?.instrumentContrast.light.sidebar).toBeGreaterThanOrEqual(4.5);
     expect(instrument?.instrumentContrast.dark.sidebar).toBeGreaterThanOrEqual(4.5);
+    expect(instrument?.instrumentContrast.light.sidebarIcon).toBeGreaterThanOrEqual(4.5);
+    expect(instrument?.instrumentContrast.dark.sidebarIcon).toBeGreaterThanOrEqual(4.5);
     expect(instrument?.instrumentContrast.light.chip).toBeGreaterThanOrEqual(4.5);
     expect(instrument?.instrumentContrast.dark.chip).toBeGreaterThanOrEqual(4.5);
     expect(instrument?.instrumentContrast.dark.chipBackground).toBe("rgb(228, 228, 226)");

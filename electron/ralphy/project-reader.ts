@@ -810,17 +810,19 @@ export function registerProjectMediaIpc<Root>({
         assertTrustedSender(event, getWindow());
         assertRoot(root);
       };
+      const client = session.client;
       assertCurrent();
       const request: Request = async <Method extends BridgeMethod>(
         method: Method,
         params: ParamsFor<Method>,
       ): Promise<ResultFor<Method>> => {
         assertCurrent();
-        const result = await session.client.request(method, params);
+        const result = await client.request(method, params);
         assertCurrent();
         return result;
       };
-      const result = await listener(createProjectReader({ request }), root, assertCurrent, ...args);
+      const endSession = (sessionId: string) => client.request("session.end", { sessionId });
+      const result = await listener(createProjectReader({ request, endSession }), root, assertCurrent, ...args);
       assertCurrent();
       return result;
     })
@@ -990,7 +992,12 @@ export function registerProjectMediaIpc<Root>({
   }));
 }
 
-export function createProjectReader({ request, mint }: { request: Request; mint?: Mint }) {
+export function createProjectReader({ request, mint, endSession }: {
+  request: Request;
+  mint?: Mint;
+  endSession?: (sessionId: string) => Promise<unknown>;
+}) {
+  const closeSession = endSession ?? ((sessionId: string) => request("session.end", { sessionId }));
   const documentDetails = new Map<string, DocumentDetailDto>();
   async function loadProjectCompositionPage(
     project: ProjectRef,
@@ -1380,7 +1387,7 @@ export function createProjectReader({ request, mint }: { request: Request; mint?
         throw error;
       } finally {
         try {
-          await request("session.end", { sessionId: started.id });
+          await closeSession(started.id);
         } catch (error) {
           if (!failed) throw error;
         }

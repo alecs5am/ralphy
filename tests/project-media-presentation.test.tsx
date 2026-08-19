@@ -137,7 +137,9 @@ describe("Project media presentation", () => {
       expect(reviewSelectedMedia).toHaveBeenCalledTimes(2);
       const needsWork = host.container.findAll((node) => node.tagName === "BUTTON" && node.textContent.includes("Needs work"))[0]!;
       expect(needsWork.disabled).toBe(true);
-      expect(needsWork.getAttribute("title")).toContain("feedback workflow");
+      const needsWorkReason = host.container.querySelector(`#${needsWork.getAttribute("aria-describedby")}`)!;
+      expect(needsWorkReason.textContent).toContain("iteration and written feedback");
+      expect(getComputedStyle(needsWorkReason as unknown as HTMLElement).display).not.toBe("none");
       await act(async () => { keydown(globalThis.window, "n"); await Promise.resolve(); });
       expect(reviewSelectedMedia).toHaveBeenCalledTimes(2);
 
@@ -147,8 +149,10 @@ describe("Project media presentation", () => {
         host.container.appendChild(field);
         field.focus();
         await act(async () => { keydown(globalThis.window, "a"); await Promise.resolve(); });
+        await act(async () => { keydown(globalThis.window, "Escape"); await Promise.resolve(); });
       }
       expect(reviewSelectedMedia).toHaveBeenCalledTimes(2);
+      expect(clearMediaSelection).not.toHaveBeenCalled();
 
       const blocked = new Event("keydown", { bubbles: true, cancelable: true });
       Object.defineProperty(blocked, "key", { value: "a" });
@@ -176,6 +180,7 @@ describe("Project media presentation", () => {
       await act(async () => { button(host.container, "Next media").dispatchEvent(new Event("click", { bubbles: true })); });
       expect(selectAdjacentMedia.mock.calls).toEqual([[-1], [1]]);
 
+      button(host.container, "Previous media").focus();
       await act(async () => { keydown(globalThis.window, "Escape"); await Promise.resolve(); });
       expect(clearMediaSelection).toHaveBeenCalledOnce();
     } finally {

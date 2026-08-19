@@ -7471,6 +7471,7 @@ button.memory-primary:hover { background: #8d89df; color: #111; }
 .sidebar-nav-row small { color: inherit; font: 12px var(--font-mono); }
 .sidebar-nav-row:hover { background: var(--widget-dark-hover); color: var(--ink-on-dark); }
 button.sidebar-nav-row.is-selected { background: var(--ink-on-dark); color: #111111; }
+button.sidebar-nav-row.is-selected svg { color: inherit; }
 .marketplace-sidebar-note { margin: 8px 11px 4px; color: var(--ink-on-dark-muted); font: 9.5px var(--font-mono); letter-spacing: .08em; }
 .sidebar-footer { padding: 0; }
 

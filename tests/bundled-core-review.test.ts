@@ -40,6 +40,10 @@ describe("bundled Core media review integration", () => {
       expect(selected.status, selected.stderr).toBe(0);
       const [workspaceId, projectId, artifactId, revisionId] = selected.stdout.trim().split("|");
       expect([workspaceId, projectId, artifactId, revisionId].every(Boolean)).toBe(true);
+      const openSessionCount = () => Number(spawnSync("sqlite3", [destination,
+        "SELECT COUNT(*) FROM agent_sessions WHERE agent = 'desktop' AND ended_at IS NULL;",
+      ], { encoding: "utf8" }).stdout.trim());
+      const openSessionsBefore = openSessionCount();
 
       const reader = createProjectReader({ request: client.request.bind(client) });
       let expectedRevisionId = revisionId!;
@@ -54,6 +58,7 @@ describe("bundled Core media review integration", () => {
         expect(reviewed.selectedState).toBe(verdict);
         expectedRevisionId = reviewed.selectedRevisionId!;
       }
+      expect(openSessionCount()).toBe(openSessionsBefore);
     } catch (error) {
       throw new Error(`${stage}: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     } finally {

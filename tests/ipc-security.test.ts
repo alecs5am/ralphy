@@ -478,8 +478,10 @@ describe("Electron IPC security", () => {
     }
     mode = "stale";
     epoch = 1;
+    request.mockClear();
     await expect(review(trusted, project, "artifact-1", "revision-1", "approved"))
       .resolves.toMatchObject({ ok: false });
+    expect(request).toHaveBeenCalledWith("session.end", { sessionId: "review-session" });
   });
 
   test("registered Workspace overview IPC validates, trusts, and rejects stale roots", async () => {

@@ -1,5 +1,5 @@
 import { Check, ChevronLeft, ChevronRight, RotateCcw, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { ArtifactMediaCardDto, MediaCardDto } from "../../electron/ralphy/types";
 import type { ProjectMediaReviewVerdict, ProjectReference } from "../lib/ipc";
 import { bridge } from "../lib/ipc";
@@ -40,6 +40,7 @@ function isArtifact(card: MediaCardDto): card is ArtifactMediaCardDto {
 export function ReviewConsole({ context }: { context: ProjectShellContext }) {
   const [busy, setBusy] = useState<ProjectMediaReviewVerdict | null>(null);
   const [feedback, setFeedback] = useState<{ error: boolean; message: string } | null>(null);
+  const needsWorkReasonId = useId();
   const request = useRef(0);
   const surface = useRef<HTMLElement>(null);
   const card = context.selectedMedia;
@@ -79,12 +80,12 @@ export function ReviewConsole({ context }: { context: ProjectShellContext }) {
         const style = window.getComputedStyle(element);
         if (style.display === "none" || style.visibility === "hidden") return;
       }
+      if (editableTarget(event)) return;
       if (event.key === "Escape") {
         event.preventDefault();
         context.clearMediaSelection();
         return;
       }
-      if (editableTarget(event)) return;
       const verdict = ({ a: "approved", r: "rejected" } as const)[event.key.toLocaleLowerCase() as "a" | "r"];
       if (verdict) {
         event.preventDefault();
@@ -114,9 +115,10 @@ export function ReviewConsole({ context }: { context: ProjectShellContext }) {
     </div>
     <div className="review-console-actions" aria-label="Review verdict">
       <button type="button" disabled={!reviewable || busy !== null} onClick={() => { void review("approved"); }}><Check size={14} aria-hidden="true" />Approve <kbd>A</kbd></button>
-      <button type="button" disabled title="Needs work requires an iteration feedback workflow, which is not available yet."><RotateCcw size={14} aria-hidden="true" />Needs work <kbd>N</kbd></button>
+      <button type="button" disabled aria-describedby={needsWorkReasonId}><RotateCcw size={14} aria-hidden="true" />Needs work <kbd>N</kbd></button>
       <button type="button" disabled={!reviewable || busy !== null} onClick={() => { void review("rejected"); }}><X size={14} aria-hidden="true" />Reject <kbd>R</kbd></button>
     </div>
+    <p className="review-console-help" id={needsWorkReasonId}>Needs work is unavailable: it requires an iteration and written feedback.</p>
     <div className="review-console-navigation">
       <button type="button" aria-label="Previous media" disabled={!context.canSelectPrevious} onClick={() => context.selectAdjacentMedia(-1)}>
         <ChevronLeft size={15} aria-hidden="true" />

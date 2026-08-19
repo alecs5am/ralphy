@@ -18,7 +18,7 @@ renderer bitmap and therefore do not appear in these screenshots.
 | Command | Exit | Result |
 | --- | ---: | --- |
 | `bun run typecheck` | 0 | Passed (`tsc --noEmit`). |
-| `bun run test` | 0 | 502 passed, 1 skipped across 56 files. The Calendar assertion now controls the clock and is deterministic. |
+| `bun run test` | 0 | 503 passed, 1 skipped across 57 files. The Calendar assertion now controls the clock and is deterministic. |
 | `bun run build` | 0 | Renderer and Electron bundles built. Vite emitted its existing advisory for a chunk larger than 500 kB. |
 | `bun run smoke` | 1 | The unqualified development smoke selected global `ralphy` 0.2.0, which exits with `error: unknown option '--stdio'`; the harness then exits 1 after `pty:prepare` without surfacing the child stderr. |
 | `RALPHY_BIN='.../release/Ralphy Media.app/Contents/Resources/bin/ralphy' bun run smoke` | 0 | Diagnostic rerun passed with bundled Core 0.3.0: `Electron smoke passed`. |
@@ -28,7 +28,9 @@ installed legacy CLI, not an Instrument regression. The current bundled Core
 satisfies the Desktop bridge contract. A focused bundled-Core integration test
 also copies the live SQLite store to a temporary root, then exercises
 `createProjectReader().reviewMedia` through approve and reject; each call creates
-and ends a main-owned Core Session. The source store is never mutated.
+and ends a main-owned Core Session. Cleanup uses the originating Core client
+even if the renderer root becomes stale, and the integration compares open
+Session counts before and after review. The source store is never mutated.
 
 ## Icon decision
 
@@ -84,7 +86,8 @@ Matches observed in both themes:
   project dock report zero borders, `box-shadow: none`, and
   `backdrop-filter: none`.
 - Computed contrast checks cover the selected sidebar row and invariant white
-  composer chips in light and dark themes; all text ratios are at least 4.5:1.
+  composer chips in light and dark themes; the selected row's SVG icon is also
+  sampled independently. All sampled ratios are at least 4.5:1.
 - Review is 374 px high at 1440×900 and leaves 454 px for chat, matching the
   reference's compact review/chat balance. Close overlays the preview, verdict
   is folded into metadata, and navigation follows the verdict actions.
@@ -102,9 +105,10 @@ Concrete differences from the reference:
 - The handoff toolbar includes an explicit rows/columns/gallery control cluster;
   the production toolbar exposes the current density slider/control only.
 - The handoff enables Needs work. Production disables both the action and `N`
-  shortcut with an accessible explanation because Core requires an iteration
-  and non-empty feedback, and this wave intentionally does not invent that
-  workflow. Approve and Reject are real Core-backed actions.
+  shortcut because Core requires an iteration and non-empty feedback, and this
+  wave intentionally does not invent that workflow. A persistent on-surface
+  explanation is associated with the disabled action through
+  `aria-describedby`. Approve and Reject are real Core-backed actions.
 - File order, selected item, status totals, captions, and preview ratios differ
   because the captures use live project data rather than prototype samples.
 
@@ -113,12 +117,14 @@ Concrete differences from the reference:
 - Marketplace is a true top-level shell: its rail shows Discover/WIP, working
   Local Models, and the user pill without My Work counts or project navigation.
   The island reports `Marketplace · Catalog preview`, while My Work route and
-  project selection remain preserved for return.
+  project selection remain preserved for return. The Marketplace screenshot is
+  captured only after the outgoing work chat rail has detached.
 - The island is keyboard-operable and opens a compact disclosure containing the
   same real status/project/count/busy data, avoiding silent truncation without
   inventing telemetry.
 - Settings is reachable through `Command-,` and the user-pill Settings menu
   item. Its modal has initial focus, a focus trap, Escape close, opener restore,
-  and an inert workbench background.
+  and an inert workbench background. The profile path restores focus to the
+  persistent user-pill trigger rather than the transient menu item.
 - The built preview is left open at 1440×900, dark Media, with a live approved
   item selected in Review.
