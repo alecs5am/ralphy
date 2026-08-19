@@ -7955,6 +7955,49 @@ button.memory-primary:hover,
 .calendar-agenda-channel.is-failed,
 .calendar-agenda-channel.is-disconnected { color: var(--red); }
 
+.calendar-month-cell > header,
+.calendar-event small,
+.calendar-week-event-meta small,
+.calendar-agenda-time,
+.calendar-agenda-copy > small,
+.calendar-agenda-list > section > header > span,
+.calendar-agenda-list > section > header > small {
+  color: var(--ink-secondary);
+}
+
+.calendar-event b,
+.calendar-event.is-lead b,
+.calendar-week-event-copy > b,
+.calendar-agenda-copy > strong,
+.calendar-agenda-list > section > header > b {
+  color: var(--ink);
+}
+
+.calendar-event:hover,
+.calendar-event.is-lead,
+.calendar-event.is-lead:hover,
+.calendar-week-event:hover,
+.calendar-agenda-row:hover {
+  background: var(--widget-light-hover);
+}
+
+.calendar-event.is-selected,
+.calendar-week-event.is-selected,
+.calendar-agenda-row.is-selected {
+  background: var(--ink);
+  color: var(--desk);
+}
+
+.calendar-event.is-selected b,
+.calendar-event.is-selected small,
+.calendar-week-event.is-selected .calendar-week-event-copy > b,
+.calendar-week-event.is-selected .calendar-week-event-meta small,
+.calendar-agenda-row.is-selected .calendar-agenda-time,
+.calendar-agenda-row.is-selected .calendar-agenda-copy > strong,
+.calendar-agenda-row.is-selected .calendar-agenda-copy > small {
+  color: var(--desk);
+}
+
 .select-menu-content,
 .workspace-picker-popover,
 .asset-context-menu,
@@ -8036,6 +8079,154 @@ button.memory-primary:hover,
   background: var(--ink);
   color: var(--desk);
 }
+
+.unit-meta-section > label,
+.unit-revisions > label,
+.unit-current-version > div span,
+.unit-current-version > small,
+.unit-lifecycle-note,
+.unit-caption > div > span,
+.unit-revisions button small,
+.unit-revisions button p,
+.unit-revisions button em {
+  color: var(--ink-secondary);
+}
+
+.unit-current-version > div strong,
+.unit-current-version p,
+.unit-caption p,
+.unit-revisions button strong {
+  color: var(--ink);
+}
+
+.unit-current-version p { color: var(--ink-secondary); }
+
+.unit-current-version > button,
+.unit-selected-version {
+  background: var(--ink);
+  color: var(--desk);
+}
+
+.unit-agent-block,
+.unit-caption > div,
+.unit-schedule > div,
+.unit-metrics > span,
+.unit-retention,
+.unit-production-content,
+.unit-revisions > div > button {
+  background: var(--widget-light-sunken);
+  box-shadow: none;
+}
+
+.unit-platforms > button { color: var(--ink-secondary); }
+.unit-platforms > button:hover { background: var(--widget-light-hover); color: var(--ink); }
+.unit-platforms > button.is-active { background: var(--ink); color: var(--desk); }
+.unit-platforms > button.is-active svg,
+.unit-platforms > button.is-active small,
+.unit-platforms > button.is-active em { color: var(--desk); }
+
+.unit-caption button:hover,
+.unit-playback button:hover,
+.unit-revisions > div > button:hover {
+  background: var(--widget-light-hover);
+  color: var(--ink);
+}
+
+.unit-revisions {
+  background: var(--widget-light);
+  color: var(--ink);
+}
+
+.unit-revisions > div > button.is-viewing {
+  background: var(--ink);
+  color: var(--desk);
+}
+
+.unit-revisions > div > button.is-viewing strong,
+.unit-revisions > div > button.is-viewing small,
+.unit-revisions > div > button.is-viewing p,
+.unit-revisions > div > button.is-viewing em {
+  color: var(--desk);
+}
+
+.marketplace-region,
+.marketplace-local-models {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  background: var(--desk);
+  color: var(--ink);
+}
+
+.marketplace-region {
+  display: grid;
+  padding: 16px;
+  place-items: center;
+}
+
+.marketplace-notice {
+  display: grid;
+  width: min(560px, 100%);
+  min-height: 280px;
+  justify-items: start;
+  align-content: center;
+  gap: 10px;
+  padding: 32px;
+  border: 0;
+  border-radius: var(--radius-widget);
+  background: var(--widget-light);
+  box-shadow: none;
+}
+
+.marketplace-notice p {
+  margin: 0;
+  color: var(--ink-secondary);
+  font: 11px var(--font-mono);
+  letter-spacing: .08em;
+}
+
+.marketplace-notice h1 { margin: 0 0 10px; font-size: 28px; font-weight: 400; }
+
+.marketplace-local-models-action,
+.marketplace-local-models-header button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  background: var(--ink);
+  color: var(--desk);
+}
+
+.marketplace-local-models-action:focus-visible,
+.marketplace-local-models-header button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.marketplace-local-models {
+  display: grid;
+  grid-template-rows: 44px minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.marketplace-local-models-header {
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+}
+
+.marketplace-local-models-header button {
+  min-height: 30px;
+  padding-inline: 11px;
+  background: var(--widget-light);
+  color: var(--ink);
+}
+
+.marketplace-local-models-header button:hover { background: var(--widget-light-hover); }
+.marketplace-local-models > .local-models-region { min-height: 0; }
 
 @media (max-width: 1180px) {
   .workspace-projects-region,

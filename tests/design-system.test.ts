@@ -158,6 +158,15 @@ async function activeScreenMarkup(): Promise<{ workspace: string } & ProjectMark
       <article class="memory-rule"><button class="memory-rule-head">Memory</button></article>
       <article class="memory-rule is-open"><button class="memory-rule-head">Open memory</button><div class="memory-rule-body">Body</div></article>
     </div></div></section>
+    <div class="review-style-fixtures" style="position:fixed;top:-10000px;width:480px" aria-hidden="true">
+      <button class="calendar-week-event" style="position:static"><span class="calendar-week-event-copy"><b>Launch</b><span class="calendar-week-event-meta"><small>10:30</small></span></span></button>
+      <button class="calendar-week-event is-selected" style="position:static"><span class="calendar-week-event-copy"><b>Selected</b></span></button>
+      <div class="calendar-agenda-row"><button class="calendar-agenda-event"><span class="calendar-agenda-copy"><strong>Agenda</strong><small>Project · R1</small></span></button></div>
+      <section class="unit-meta-section unit-current-version"><button type="button">Choose this version</button><span class="unit-selected-version">Selected version</span><div><strong>R1</strong></div><p>Creative revision preview</p></section>
+      <section class="unit-meta-section unit-platforms"><button class="is-active"><span>Instagram</span></button></section>
+      <section class="unit-meta-section unit-caption"><div>Caption</div></section>
+      <section class="unit-revisions"><div><button>R1</button></div></section>
+    </div>
   </main>`;
   return { workspace, overview, media, documents, units, activity: activityMarkup, memory };
 }
@@ -209,6 +218,7 @@ type GeometryResult = {
   memoryBodyBorder: string | null;
   mediaSelectedRing: { light: string; dark: string } | null;
   activityIslandTypography: Record<"count" | "progress" | "busy", { family: string; size: number } | null> | null;
+  reviewSurfaceStyles: Record<string, string> | null;
 };
 
 async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): Promise<GeometryResult[]> {
@@ -371,6 +381,22 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
                 const computed = element ? getComputedStyle(element) : null;
                 return [name, computed ? { family: computed.fontFamily, size: Number.parseFloat(computed.fontSize) } : null];
               })) : null;
+              const reviewSurfaceStyles = screen === "memory" ? Object.fromEntries(Object.entries({
+                calendarDefault: [".calendar-week-event", "backgroundColor"],
+                calendarTitle: [".calendar-week-event-copy > b", "color"],
+                calendarMeta: [".calendar-week-event-meta small", "color"],
+                calendarSelected: [".calendar-week-event.is-selected", "backgroundColor"],
+                calendarSelectedTitle: [".calendar-week-event.is-selected .calendar-week-event-copy > b", "color"],
+                agendaTitle: [".calendar-agenda-copy > strong", "color"],
+                agendaMeta: [".calendar-agenda-copy > small", "color"],
+                unitVersionAction: [".unit-current-version > button", "backgroundColor"],
+                unitVersionActionText: [".unit-current-version > button", "color"],
+                unitCurrentTitle: [".unit-current-version > div strong", "color"],
+                unitCurrentCopy: [".unit-current-version p", "color"],
+                unitPlatformActive: [".unit-platforms > button.is-active", "backgroundColor"],
+                unitCaption: [".unit-caption > div", "backgroundColor"],
+                unitRevision: [".unit-revisions > div > button", "backgroundColor"],
+              }).map(([name, [selector, property]]) => [name, getComputedStyle(root.querySelector(selector))[property]])) : null;
               delete document.documentElement.dataset.theme;
               return { screen, width: innerWidth, height: innerHeight, overflows, metricColumns, scrollOwners, documentDetailWidth: documentDetail?.getBoundingClientRect().width ?? null, documentViewerWidths, documentViewerMaxWidths, nestedMediaScroll, mediaInsets, focus, overviewColumns, overviewWidth, overviewMetricWidths, overviewNarrativeColumns, overviewColumnRatio, overviewScrollOwners, splitVerticalContained, masterRowEdgeInset, masterRowTopInset, masterRowHeight, masterRowGap, revisionEdgeInset, revisionTopInset, revisionGap, mediaTitleFontSize, mediaMetaFontSize, activityTimeFontSize, activityEntityFontSize, forbidden, projectHeaderCount, projectTabsCenterOffset, gooeyBlobCoverage, unitCardsInGridFlow, projectTabsHeaderOffset, projectTabsReceivePointer, projectTabsAppRegion,
                 memoryRegionPadding: style(".memory-region")?.padding ?? null,
@@ -379,7 +405,7 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
                 memoryInactiveBackground: style(".memory-rule:not(.is-open)")?.backgroundColor ?? null,
                 memoryOpenBackground: style(".memory-rule.is-open")?.backgroundColor ?? null,
                 memoryBodyBorder: style(".memory-rule-body")?.borderTopWidth ?? null,
-                mediaSelectedRing, activityIslandTypography };
+                mediaSelectedRing, activityIslandTypography, reviewSurfaceStyles };
             })()\`));
         }
         process.stdout.write("RALPHY_GEOMETRY=" + JSON.stringify(results) + "\\n");
@@ -524,6 +550,22 @@ describe("design system contract", () => {
       { memoryRegionPadding: "0px", memoryTopbarBorder: "0px", memoryFilterBorder: "0px", memoryInactiveBackground: "rgba(0, 0, 0, 0)", memoryOpenBackground: "rgb(241, 242, 246)", memoryBodyBorder: "0px" },
       { memoryRegionPadding: "0px", memoryTopbarBorder: "0px", memoryFilterBorder: "0px", memoryInactiveBackground: "rgba(0, 0, 0, 0)", memoryOpenBackground: "rgb(241, 242, 246)", memoryBodyBorder: "0px" },
     ]);
+    expect(results.find(({ screen, width }) => screen === "memory" && width === 1360)?.reviewSurfaceStyles).toEqual({
+      calendarDefault: "rgb(241, 242, 246)",
+      calendarTitle: "rgb(20, 20, 20)",
+      calendarMeta: "rgb(110, 110, 106)",
+      calendarSelected: "rgb(20, 20, 20)",
+      calendarSelectedTitle: "rgb(226, 228, 234)",
+      agendaTitle: "rgb(20, 20, 20)",
+      agendaMeta: "rgb(110, 110, 106)",
+      unitVersionAction: "rgb(20, 20, 20)",
+      unitVersionActionText: "rgb(226, 228, 234)",
+      unitCurrentTitle: "rgb(20, 20, 20)",
+      unitCurrentCopy: "rgb(110, 110, 106)",
+      unitPlatformActive: "rgb(20, 20, 20)",
+      unitCaption: "rgb(228, 228, 226)",
+      unitRevision: "rgb(228, 228, 226)",
+    });
     expect(results.filter(({ screen }) => screen === "media").map(({ width, mediaInsets }) => ({ width, mediaInsets: mediaInsets.length })))
       .toEqual([{ width: 2560, mediaInsets: 1 }, { width: 1360, mediaInsets: 1 }, { width: 1100, mediaInsets: 1 }]);
     expect(results.flatMap(({ screen, width, documentDetailWidth, documentViewerWidths }) => screen !== "documents" || documentDetailWidth === null

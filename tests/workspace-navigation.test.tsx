@@ -325,6 +325,18 @@ describe("workspace projects navigation", () => {
 
     expect(markup).toContain("WORK IN PROGRESS");
     expect(markup).toContain("Local Models");
+    expect(markup).toContain("marketplace-notice");
+    expect(markup).toContain("marketplace-local-models-action");
+
+    const models = renderToStaticMarkup(
+      <MarketplaceScreen
+        localModelsOpen
+        onOpenLocalModels={() => undefined}
+        onCloseLocalModels={() => undefined}
+      />,
+    );
+    expect(models).toContain("marketplace-local-models");
+    expect(models).toContain("marketplace-local-models-header");
   });
 
   test("shows only explicit Activity Island state", () => {
