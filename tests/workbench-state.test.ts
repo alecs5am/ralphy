@@ -16,6 +16,20 @@ import {
 
 const rootPath = "/tmp/demo/.ralphy";
 
+function emptyStorage() {
+  return {
+    getItem: () => null,
+    setItem: () => undefined,
+  };
+}
+
+function storageWith(value: Record<string, unknown>) {
+  return {
+    getItem: () => JSON.stringify(value),
+    setItem: () => undefined,
+  };
+}
+
 function workspace(
   id: string,
   recentActivity: string,
@@ -233,6 +247,19 @@ describe("workbench ordering and preferences", () => {
     });
   });
 
+  test("migrates theme and mode preferences", () => {
+    expect(readWorkbenchPreferences(emptyStorage()).theme).toBe("system");
+    expect(readWorkbenchPreferences(emptyStorage()).mode).toBe("work");
+    expect(readWorkbenchPreferences(storageWith({ theme: "light", mode: "marketplace" }))).toMatchObject({
+      theme: "light",
+      mode: "marketplace",
+    });
+    expect(readWorkbenchPreferences(storageWith({ theme: "sepia", mode: "store" }))).toMatchObject({
+      theme: "system",
+      mode: "work",
+    });
+  });
+
   test("clamps persisted panel sizes to usable bounds", () => {
     const preferences = readWorkbenchPreferences({
       getItem: () => JSON.stringify({
@@ -261,6 +288,8 @@ describe("workbench ordering and preferences", () => {
       setItem: (key: string, value: string) => values.set(key, value),
     };
     const preferences = {
+      theme: "dark" as const,
+      mode: "marketplace" as const,
       rootPath,
       workspaceId: "newer",
       projectId: "newer-project",

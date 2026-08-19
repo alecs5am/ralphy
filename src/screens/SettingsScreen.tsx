@@ -15,6 +15,7 @@ import { useMemo, useState, type ReactNode } from "react";
 
 import { ProfileAvatar, profileIdentity } from "../components/ProfileAvatar";
 import { RalphyMascot } from "../components/RalphyMascot";
+import type { ThemePreference } from "../theme";
 
 const categories = [
   { id: "general", label: "General", icon: Settings },
@@ -174,15 +175,24 @@ function ProfileSettings({ rootPath }: { rootPath: string | null }) {
   );
 }
 
-function AppearanceSettings() {
-  const [theme, setTheme] = useState("Dark");
+function AppearanceSettings({
+  theme,
+  onThemeChange,
+}: {
+  theme: ThemePreference;
+  onThemeChange(theme: ThemePreference): void;
+}) {
   const [density, setDensity] = useState("Comfortable");
   const [motionEnabled, setMotionEnabled] = useState(true);
   return (
     <>
       <SettingGroup title="Interface">
         <SettingRow title="Theme" description="Neutral surfaces optimized for media.">
-          <Segmented value={theme} values={["Dark", "System"]} onChange={setTheme} />
+          <Segmented
+            value={theme[0].toUpperCase() + theme.slice(1)}
+            values={["System", "Light", "Dark"]}
+            onChange={(value) => onThemeChange(value.toLowerCase() as ThemePreference)}
+          />
         </SettingRow>
         <SettingRow title="Density">
           <Segmented
@@ -315,9 +325,13 @@ function AboutSettings() {
 
 export function SettingsScreen({
   rootPath,
+  theme,
+  onThemeChange,
   onBack,
 }: {
   rootPath: string | null;
+  theme: ThemePreference;
+  onThemeChange(theme: ThemePreference): void;
   onBack(): void;
 }) {
   const [active, setActive] = useState<SettingsCategory>("general");
@@ -332,7 +346,7 @@ export function SettingsScreen({
 
   let content = <GeneralSettings rootPath={rootPath} />;
   if (active === "profile") content = <ProfileSettings rootPath={rootPath} />;
-  if (active === "appearance") content = <AppearanceSettings />;
+  if (active === "appearance") content = <AppearanceSettings theme={theme} onThemeChange={onThemeChange} />;
   if (active === "providers") content = <ProviderSettings />;
   if (active === "terminal") content = <TerminalSettings />;
   if (active === "about") content = <AboutSettings />;

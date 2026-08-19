@@ -36,9 +36,11 @@ import {
   readWorkbenchPreferences,
   workbenchReducer,
   writeWorkbenchPreferences,
+  type WorkbenchMode,
   type WorkspaceView,
   type WorkspacePage,
 } from "./state/workbench";
+import { watchTheme, type ThemePreference } from "./theme";
 
 const loadProjectScreen = () =>
   import("./screens/ProjectScreen").then(({ ProjectScreen }) => ({
@@ -90,6 +92,9 @@ export function App() {
   );
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [localModelsVisible, setLocalModelsVisible] = useState(false);
+  const [theme, onThemeChange] = useState<ThemePreference>(initialPreferences.current.theme);
+  const [mode, onModeChange] = useState<WorkbenchMode>(initialPreferences.current.mode);
+  void onModeChange;
   const workspaceView: WorkspaceView = "grid";
   const [workspacePage, setWorkspacePage] = useState<WorkspacePage>(
     initialPreferences.current.workspacePage,
@@ -265,11 +270,18 @@ export function App() {
     setBottomPanelHeight((value) => Math.min(value, bottomPanelMax));
   }, [bottomPanelMax, rightPanelMax, sidebarMax]);
 
+  useEffect(() => watchTheme(theme, (resolvedTheme) => {
+    document.documentElement.dataset.theme = resolvedTheme;
+    document.documentElement.style.colorScheme = resolvedTheme;
+  }), [theme]);
+
   useEffect(() => {
     const workspaceId = state.route.kind === "library" ? null : state.route.workspaceId;
     const projectId = state.route.kind === "project" ? state.route.projectId : null;
     const timer = window.setTimeout(() => {
       writeWorkbenchPreferences(localStorage, {
+        theme,
+        mode,
         rootPath: rootIdentity?.storeId ?? null,
         workspaceId,
         projectId,
@@ -297,6 +309,8 @@ export function App() {
     state.pinnedProjectIds,
     state.pinnedWorkspaceIds,
     state.route,
+    theme,
+    mode,
     workspacePage,
     workspaceView,
   ]);
@@ -605,6 +619,8 @@ export function App() {
               <Suspense fallback={null}>
                 <SettingsScreen
                   rootPath={rootIdentity?.storeId ?? null}
+                  theme={theme}
+                  onThemeChange={onThemeChange}
                   onBack={() => setSettingsVisible(false)}
                 />
               </Suspense>
