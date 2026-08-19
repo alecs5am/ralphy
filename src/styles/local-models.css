@@ -351,3 +351,14 @@
   .local-models-region:not(.has-downloads) .local-model-row-comfort { display: none; }
   .local-model-runtime { display: none; }
 }
+
+/* Instrument v11 keeps model surfaces flat while Task 5 retunes the full screen. */
+.local-models-region { background: var(--desk); }
+.local-model-card,
+.local-model-downloads,
+.local-model-downloads > header,
+.local-model-dialog,
+.local-model-dialog-header,
+.local-model-detail-rail,
+.local-model-dialog-footer { border: 0; box-shadow: none; }
+.local-model-dialog-backdrop { backdrop-filter: none; }

@@ -191,8 +191,32 @@ describe("Project media presentation", () => {
     expect(tile).not.toContain('aria-label="Open Campaign hero"');
     expect(tile.match(/<button/g)).toHaveLength(1);
     expect(tile).toContain("aspect-ratio:1");
-    expect(tile).toContain("Artifact · image/png");
-    expect(tile).toContain("image/png · 2.0 KB · approved · cover");
+    expect(tile).toContain('class="media-card-caption"');
+    expect(tile).toContain('class="media-card-status is-approved"');
+    expect(tile).toContain('aria-label="Approved"');
+    expect(tile).toContain("2.0 KB");
+    expect(tile).toContain("IN CONSOLE");
+    expect(tile).not.toContain("asset-extension");
+    expect(tile).not.toContain("asset-provenance");
+    expect(tile).not.toContain("image/png · 2.0 KB · approved · cover");
+    for (const [selectedState, statusClass, label] of [
+      ["candidate", "is-needs-work", "Needs work"],
+      ["rejected", "is-rejected", "Rejected"],
+      [null, "is-unreviewed", "Unreviewed"],
+    ] as const) {
+      const markup = renderToStaticMarkup(<MediaCardTile
+        card={{ ...card, selectedState, selectedRevisionId: selectedState ? card.selectedRevisionId : null }}
+        project={{ workspaceId: "workspace-1", projectId: "project-1" }}
+        rootEpoch={7}
+        selected={false}
+        resolvePreview={async () => null}
+        onSelect={() => undefined}
+        onOpen={() => undefined}
+        onContextMenu={() => undefined}
+      />);
+      expect(markup).toContain(`media-card-status ${statusClass}`);
+      expect(markup).toContain(`aria-label="${label}"`);
+    }
     expect(grid).toContain("asset-grid-scroll");
   });
 

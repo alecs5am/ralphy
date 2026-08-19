@@ -15,6 +15,14 @@
 }
 
 @font-face {
+  font-family: "Doto";
+  src: url("/assets/fonts/Doto-Variable.woff2") format("woff2");
+  font-weight: 500 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
   font-family: "Andale Mono";
   src: url("/assets/fonts/AndaleMono-Regular.ttf") format("truetype");
   font-weight: 400;
@@ -30,35 +38,56 @@
   font-display: swap;
 }
 
-:root {
-  color-scheme: dark;
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
 
-  --canvas: #181818;
-  --sunken: #111111;
-  --panel: rgb(30 30 30 / 0.72);
-  --panel-solid: #202020;
-  --raised: #2d2d2d;
-  --hover: #343434;
-  --selected: #3a3a3a;
-  --pressed: #424242;
+  --desk: #e2e4ea;
+  --desk-hover: #d3d6dd;
+  --widget-dark: #141414;
+  --widget-dark-raised: #1e1e1e;
+  --widget-dark-hover: #1c1c1c;
+  --widget-light: #f1f2f6;
+  --widget-light-hover: #ffffff;
+  --widget-light-sunken: #e4e4e2;
+  --filter-surface: #f1f2f6;
+  --filter-hover: #ffffff;
+  --frame: #060606;
+  --ink: #141414;
+  --ink-secondary: #6e6e6a;
+  --ink-muted: #9a9a96;
+  --ink-on-dark: #f2f2f0;
+  --ink-on-dark-secondary: #a4a4a0;
+  --ink-on-dark-muted: #6a6a66;
+  --unreviewed: #ccced6;
+  --red: #e0362c;
+  --traffic-close: #ed6a5e;
+  --traffic-minimize: #f0b544;
+  --traffic-expand: #5cc45c;
 
-  --fg: #f4f4f4;
-  --fg-2: #bebebe;
-  --fg-3: #929292;
-  --fg-4: #6c6c6c;
-
-  --accent: #8b7cf6;
-  --accent-soft: color-mix(in srgb, var(--accent) 74%, #ffffff);
-  --accent-fill: color-mix(in srgb, var(--accent) 20%, transparent);
-  --accent-line: color-mix(in srgb, var(--accent) 38%, transparent);
-
-  --ok: #7cb994;
-  --warn: #cdae80;
-  --danger: #d49692;
-  --idle: #6a6a74;
-
-  --line: rgb(255 255 255 / 0.07);
-  --line-strong: rgb(255 255 255 / 0.12);
+  /* Compatibility aliases keep existing screens on one theme source. */
+  --canvas: var(--desk);
+  --sunken: var(--widget-light-sunken);
+  --panel: var(--widget-dark);
+  --panel-solid: var(--widget-dark);
+  --raised: var(--widget-light);
+  --hover: var(--desk-hover);
+  --selected: var(--ink);
+  --pressed: var(--ink-secondary);
+  --fg: var(--ink);
+  --fg-2: var(--ink-secondary);
+  --fg-3: var(--ink-muted);
+  --fg-4: var(--ink-muted);
+  --accent: var(--ink);
+  --accent-soft: var(--ink-secondary);
+  --accent-fill: var(--widget-light-sunken);
+  --accent-line: transparent;
+  --ok: var(--ink);
+  --warn: var(--ink-secondary);
+  --danger: var(--red);
+  --idle: var(--unreviewed);
+  --line: transparent;
+  --line-strong: transparent;
 
   /* Shared control layer, derived from the compact profile menu. */
   --control-hover: var(--hover);
@@ -67,24 +96,25 @@
   --control-text-hover: var(--fg);
   --control-focus: 2px solid var(--fg);
 
-  --field-surface: #242424;
-  --field-border: rgb(255 255 255 / 0.045);
-  --field-border-focus: rgb(255 255 255 / 0.1);
+  --field-surface: var(--widget-light);
+  --field-border: transparent;
+  --field-border-focus: transparent;
   --field-radius: var(--radius-md);
   --field-height: var(--control-md);
   --field-text: var(--fg);
   --field-placeholder: var(--fg-3);
 
-  --menu-surface: #242424;
-  --menu-border: rgb(255 255 255 / 0.045);
+  --menu-surface: var(--widget-light);
+  --menu-border: transparent;
   --menu-radius: 16px;
   --menu-padding: 2px;
   --menu-item-height: 30px;
   --menu-item-radius: var(--radius-md);
-  --menu-shadow: 0 8px 24px -6px rgb(0 0 0 / 0.7);
+  --menu-shadow: none;
 
   --font-sans: "AWS Diatype", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   --font-mono: "AWS Diatype Mono", "Andale Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-doto: "Doto", var(--font-mono);
   --text-xs: 11px;
   --text-sm: 12px;
   --text-base: 13px;
@@ -98,6 +128,9 @@
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-xl: 18px;
+  --radius-widget: 24px;
+  --radius-preview: 16px;
+  --radius-keycap: 5px;
   --radius-pill: 999px;
 
   --control-sm: 26px;
@@ -105,8 +138,8 @@
   --control-lg: 34px;
   --row-md: 42px;
   --row-lg: 48px;
-  --sidebar-w: 288px;
-  --inspector-w: 336px;
+  --sidebar-w: 240px;
+  --inspector-w: 292px;
   --titlebar-h: 48px;
 
   --space-1: 4px;
@@ -118,10 +151,10 @@
   --space-7: 32px;
   --space-8: 40px;
 
-  --blur: blur(44px) saturate(180%);
-  --ring-select: 0 0 0 2px var(--accent);
-  --shadow-pop: 0 8px 24px -6px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.06);
-  --shadow-window: 0 44px 96px -26px rgb(0 0 0 / 0.78);
+  --blur: none;
+  --ring-select: 0 0 0 3px var(--ink);
+  --shadow-pop: none;
+  --shadow-window: none;
 
   --ease: cubic-bezier(0.2, 0, 0.2, 1);
   --dur-fast: 90ms;
@@ -137,6 +170,28 @@
   --p6: oklch(0.76 0.1 32);
   --p7: oklch(0.76 0.1 340);
   --p8: oklch(0.76 0.1 208);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --desk: #050505;
+  --filter-surface: #1c1c1c;
+  --desk-hover: #242422;
+  --filter-hover: #242424;
+  --widget-light: #141414;
+  --widget-light-hover: #242424;
+  --widget-light-sunken: #1e1e1e;
+  --ink: #f2f2f0;
+  --ink-secondary: #8a8a86;
+  --ink-muted: #8a8a86;
+  --unreviewed: #3a3a38;
+  --sunken: var(--widget-dark-raised);
+  --raised: var(--widget-dark);
+  --selected: var(--ink);
+  --pressed: var(--ink-secondary);
+  --menu-surface: var(--filter-surface);
+  --field-surface: var(--filter-surface);
+  --ring-select: 0 0 0 3px var(--ink);
 }
 
 @supports (corner-shape: squircle) {
@@ -155,6 +210,15 @@
   .library-mark,
   .phase-indicator,
   .status-dot,
+  .media-card-status,
+  .media-console-badge,
+  .activity-island,
+  .sidebar-mode-switch,
+  .sidebar-mode-switch button,
+  .project-dock,
+  .project-dock button,
+  .review-console-actions button,
+  .profile-controls,
   [style*="border-radius: 999px"] {
     corner-shape: round;
   }
@@ -165,6 +229,8 @@
   .workspace-project-card,
   .bottom-panel,
   .utility-right-panel,
+  .review-console,
+  .sidebar-nav,
   .profile-avatar,
   .workspace-picker-popover,
   .workspace-hero,
@@ -181,14 +247,8 @@
 
 .panel-blur {
   background: var(--panel);
-  backdrop-filter: var(--blur);
-  -webkit-backdrop-filter: var(--blur);
-}
-
-@supports not (backdrop-filter: blur(1px)) {
-  .panel-blur {
-    background: var(--panel-solid);
-  }
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 ::-webkit-scrollbar {

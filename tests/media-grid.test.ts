@@ -152,6 +152,16 @@ describe("media grid geometry and scheduling", () => {
     expect(assetGridGeometry(1000, 190, 16)).toEqual({ columns: 4, tileWidth: 238, tileHeight: 202.75, rowHeight: 218.75, gap: 16 });
   });
 
+  test("uses four natural-ratio lanes with ten-pixel gaps at the Media reference width", async () => {
+    const cards = Array.from({ length: 8 }, (_, index) => mediaCard(`lane-${index}`));
+    const view = await mounted(grid(cards, 4, async () => null, project, undefined, undefined, { density: 190 }));
+    try {
+      const items = view.host.container.findAll((node) => node.getAttribute("class") === "virtual-masonry-item");
+      expect([...new Set(items.map((item) => item.getAttribute("data-lane")))]).toEqual(["0", "1", "2", "3"]);
+      expect(items.find((item) => item.getAttribute("data-lane") === "1")?.style.left).toBe("202.5px");
+    } finally { await view.unmount(); }
+  });
+
   test("caps project media density without changing normal geometry", () => {
     expect(assetGridGeometry(1000, 190, 16)).toMatchObject({ columns: 4 });
     expect(assetGridGeometry(2300, 230, 16, 7)).toMatchObject({ columns: 7 });
@@ -381,6 +391,28 @@ describe("mounted media tiles", () => {
       expect(element.getAttribute("preload")).toBe("metadata");
       expect(element.muted).toBe(true);
     } finally { await video.unmount(); }
+  });
+
+  test("plays a mounted video preview on hover and resets it on leave", async () => {
+    const resolver = vi.fn(async () => ({ url: "ralphy-media://preview/hover-video", sizeBytes: 2048 }));
+    const view = await mounted(tile(mediaCard("hover-video", "video/mp4"), 204, resolver));
+    try {
+      const video = byTag(view.host.container, "VIDEO")[0] as HostNode & {
+        currentTime: number;
+        pause: ReturnType<typeof vi.fn>;
+        play: ReturnType<typeof vi.fn>;
+      };
+      video.currentTime = 7;
+      video.play = vi.fn(async () => undefined);
+      video.pause = vi.fn();
+      const cardButton = byTag(view.host.container, "BUTTON")[0];
+      cardButton.dispatchEvent(new Event("mouseover", { bubbles: true }));
+      await view.flush();
+      expect(video.play).toHaveBeenCalledOnce();
+      cardButton.dispatchEvent(new Event("mouseout", { bubbles: true }));
+      expect(video.pause).toHaveBeenCalledOnce();
+      expect(video.currentTime).toBe(0);
+    } finally { await view.unmount(); }
   });
 
   test("updates a masonry preview to its intrinsic image proportion", async () => {

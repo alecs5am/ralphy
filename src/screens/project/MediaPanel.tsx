@@ -34,7 +34,7 @@ export function MediaPanel({ page, controller, snapshot, rootEpoch, scrollMemory
   scrollMemory: Map<string, number>;
   scrollResetToken: string;
 }) {
-  const [density, setDensity] = useState(230);
+  const [density, setDensity] = useState(190);
   const [context, setContext] = useState<ContextState>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -91,8 +91,8 @@ export function MediaPanel({ page, controller, snapshot, rootEpoch, scrollMemory
       <SelectMenu value={query.filter} options={lifecycleOptions} ariaLabel="Lifecycle or source" prefix="Source" onValueChange={(filter) => { void controller.setMediaQuery({ filter }); }} />
       <SelectMenu value={query.mediaKind ?? "all"} options={kindOptions} ariaLabel="Media type" prefix="Type" onValueChange={(mediaKind) => { void controller.setMediaQuery({ mediaKind: mediaKind === "all" ? undefined : mediaKind }); }} />
       <SelectMenu value={query.provenance ?? "all"} options={provenanceOptions} ariaLabel="Generation provenance" prefix="Generation" onValueChange={(provenance) => { void controller.setMediaQuery({ provenance: provenance === "all" ? undefined : provenance }); }} />
-      <span className="media-item-count">{page.items.length.toLocaleString()} items</span>
-      <div className="grid-size-control" title="Grid density"><GalleryHorizontalEnd size={15} aria-hidden="true" /><SnappySlider value={density} min={150} max={310} step={20} values={densityStops} defaultValue={230} ariaLabel="Grid density" onValueChange={setDensity} /></div>
+      <span className="media-item-count"><strong>{page.items.length.toLocaleString()}</strong><span>ITEMS</span></span>
+      <div className="grid-size-control" title="Grid density"><GalleryHorizontalEnd size={15} aria-hidden="true" /><SnappySlider value={density} min={150} max={310} step={20} values={densityStops} defaultValue={190} ariaLabel="Grid density" onValueChange={setDensity} /></div>
     </div>
     {actionError && <div className="project-local-error media-action-error" role="alert">{actionError}</div>}
     {page.status === "error" && page.items.length > 0 && page.nextCursor === null && <div className="project-local-error media-action-error" role="alert"><span>{page.error ?? "Media could not be updated."}</span><button className="command-button" type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>}

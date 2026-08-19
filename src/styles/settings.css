@@ -614,3 +614,48 @@
     grid-template-columns: 32px minmax(110px, 1fr) 150px 72px;
   }
 }
+
+/* Instrument v11 flat settings and user surfaces. */
+.profile-controls {
+  height: 48px;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--widget-dark);
+}
+.profile-menu-trigger { height: 40px; padding: 0 8px; color: var(--ink-on-dark-secondary); }
+.help-menu-trigger { width: 40px; height: 40px; border-radius: var(--radius-pill); color: var(--ink-on-dark-muted); }
+.profile-menu-trigger:hover,
+.profile-menu-trigger[aria-expanded="true"],
+.help-menu-trigger:hover,
+.help-menu-trigger[aria-expanded="true"] { background: var(--widget-dark-hover); color: var(--ink-on-dark); }
+.profile-menu-trigger:focus-visible,
+.help-menu-trigger:focus-visible { outline: 2px solid var(--ink-on-dark); outline-offset: -2px; }
+.profile-menu,
+.help-menu {
+  border: 0;
+  border-radius: var(--radius-widget);
+  background: var(--widget-dark);
+  box-shadow: none;
+  color: var(--ink-on-dark);
+}
+.profile-menu > button,
+.help-menu > a,
+.help-menu > button { color: var(--ink-on-dark-secondary); }
+.profile-menu > button:hover,
+.profile-menu > button:focus-visible,
+.help-menu > a:hover,
+.help-menu > a:focus-visible,
+.help-menu > button:hover,
+.help-menu > button:focus-visible { background: var(--widget-dark-hover); color: var(--ink-on-dark); }
+.settings-main-header { background: var(--desk); backdrop-filter: none; }
+.settings-group { border: 0; border-radius: var(--radius-widget); background: var(--widget-light); }
+.settings-row,
+.settings-profile-hero,
+.settings-about,
+.provider-row { border: 0; }
+.settings-segmented,
+.settings-input { border: 0; box-shadow: none; }
+.settings-about-mark { border: 0; }
+.settings-about-mark .ralphy-mascot,
+.settings-sidebar-product .ralphy-mascot { filter: none; }

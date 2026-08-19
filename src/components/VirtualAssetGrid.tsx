@@ -80,12 +80,6 @@ export function mediaCardName(card: MediaCardDto): string {
   return card.mime || "Media object";
 }
 
-function mediaCardKind(card: MediaCardDto): string {
-  if (card.ref.type === "artifact") return "Artifact";
-  if (card.ref.type === "run-object") return "Run object";
-  return "Object";
-}
-
 function formatBytes(bytes: number | null): string {
   if (bytes === null) return "Size unknown";
   if (bytes < 1024) return `${bytes} B`;
@@ -94,10 +88,13 @@ function formatBytes(bytes: number | null): string {
   return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
 }
 
-function mediaCardFacts(card: MediaCardDto): string {
-  if ("slug" in card) return [card.mime, formatBytes(card.bytes), card.selectedState ?? "unselected", ...card.usageRoles].filter(Boolean).join(" · ");
-  if ("purpose" in card) return [card.mime, formatBytes(card.bytes), card.state, card.retention].filter(Boolean).join(" · ");
-  return [card.mime, formatBytes(card.bytes), card.storageClass, `${card.referenceCount} references`].join(" · ");
+function mediaCardStatus(card: MediaCardDto): { className: string; label: string } {
+  if (!("selectedRevisionId" in card) || !card.selectedRevisionId) return { className: "is-unreviewed", label: "Unreviewed" };
+  const state = card.selectedState?.toLocaleLowerCase();
+  if (state === "approved") return { className: "is-approved", label: "Approved" };
+  if (state === "rejected" || state === "reject") return { className: "is-rejected", label: "Rejected" };
+  if (state === "candidate" || state === "working" || state === "needs work" || state === "needs-work") return { className: "is-needs-work", label: "Needs work" };
+  return { className: "is-unreviewed", label: "Unreviewed" };
 }
 
 function FileGlyph({ kind, size = 26 }: { kind: PreviewKind | null; size?: number }) {
@@ -116,11 +113,13 @@ export function MediaCardPreview({
   className = "",
   aspectRatio,
   onAspectRatio,
+  showTypeBadge = true,
 }: Pick<MediaCardTileProps, "card" | "project" | "rootEpoch" | "resolvePreview"> & {
   fill?: boolean;
   className?: string;
   aspectRatio?: number;
   onAspectRatio?(ratio: number): void;
+  showTypeBadge?: boolean;
 }) {
   const kind = previewKind(card);
   const key = previewKey(project, rootEpoch, card.ref);
@@ -179,16 +178,23 @@ export function MediaCardPreview({
   const glyph = <FileGlyph kind={kind} />;
   let content = glyph;
   if (source && kind === "image") content = <img src={source.url} alt="" loading="lazy" onLoad={(event) => loadedWithSize(event.currentTarget.naturalWidth, event.currentTarget.naturalHeight)} onError={failed} />;
-  else if (source && kind === "video") content = <video src={source.url} muted preload="metadata" onLoadedMetadata={(event) => loadedWithSize(event.currentTarget.videoWidth, event.currentTarget.videoHeight)} onError={failed} />;
+  else if (source && kind === "video") content = <video
+    src={source.url}
+    muted
+    preload="metadata"
+    onLoadedMetadata={(event) => loadedWithSize(event.currentTarget.videoWidth, event.currentTarget.videoHeight)}
+    onError={failed}
+  />;
   else if (source && kind === "audio") content = <AudioWaveform src={source.url} name={mediaCardName(card)} sizeBytes={source.sizeBytes} compact onReady={loaded} onError={failed} />;
   return <div className={`asset-preview${className ? ` ${className}` : ""}`} style={fill ? undefined : { aspectRatio: aspectRatio ?? 1, height: "auto" }} aria-hidden={kind === "audio" ? undefined : true}>
     {content}
-    <span className={`asset-extension type-${kind ?? "file"}`}><FileGlyph kind={kind} size={11} />{kind ?? "file"}</span>
+    {showTypeBadge && <span className={`asset-extension type-${kind ?? "file"}`}><FileGlyph kind={kind} size={11} />{kind ?? "file"}</span>}
   </div>;
 }
 
 export function MediaCardTile({ card, project, rootEpoch, selected, resolvePreview, onSelect, onOpen, onContextMenu, aspectRatio, onAspectRatio }: MediaCardTileProps) {
   const name = mediaCardName(card);
+  const status = mediaCardStatus(card);
   const key = previewKey(project, rootEpoch, card.ref);
   const ratio = aspectRatio ?? mediaFallbackAspectRatio(previewKind(card), key);
   const rememberRatio = useCallback((value: number) => onAspectRatio?.(key, value), [key, onAspectRatio]);
@@ -203,12 +209,12 @@ export function MediaCardTile({ card, project, rootEpoch, selected, resolvePrevi
     onSelect();
     onContextMenu({ x: event.clientX, y: event.clientY });
   };
+  const previewVideo = (event: MouseEvent<HTMLButtonElement>) => event.currentTarget.parentElement?.querySelector("video");
   return <article className={`asset-tile media-card-tile${selected ? " is-selected" : ""}`} data-selected={selected || undefined} style={{ "--asset-aspect": ratio } as CSSProperties}>
-    <MediaCardPreview card={card} project={project} rootEpoch={rootEpoch} resolvePreview={resolvePreview} aspectRatio={ratio} onAspectRatio={rememberRatio} />
-    <button className="media-card-button" type="button" aria-label={`${name}${selected ? ", selected" : ""}`} aria-pressed={selected} onClick={onSelect} onDoubleClick={onOpen} onKeyDown={onKeyDown} onContextMenu={openContext}>
-      <span className="asset-copy"><strong>{name}</strong><small>{mediaCardKind(card)} · {mediaCardFacts(card)}</small></span>
-      {card.provenance === "generation" && <span className="asset-provenance is-generated">Generated</span>}
-      {card.provenance === "unknown" && <span className="asset-provenance">Unknown</span>}
+    <MediaCardPreview card={card} project={project} rootEpoch={rootEpoch} resolvePreview={resolvePreview} aspectRatio={ratio} onAspectRatio={rememberRatio} showTypeBadge={false} />
+    {selected && <span className="media-console-badge">IN CONSOLE</span>}
+    <button className="media-card-button" type="button" aria-label={`${name}${selected ? ", selected" : ""}`} aria-pressed={selected} onClick={onSelect} onDoubleClick={onOpen} onKeyDown={onKeyDown} onContextMenu={openContext} onMouseEnter={(event) => { void previewVideo(event)?.play().catch(() => undefined); }} onMouseLeave={(event) => { const video = previewVideo(event); if (video) { video.pause(); video.currentTime = 0; } }}>
+      <span className="media-card-caption"><span className={`media-card-status ${status.className}`} role="img" aria-label={status.label} /><strong>{name}</strong><small>{formatBytes(card.bytes)}</small></span>
     </button>
   </article>;
 }
@@ -224,7 +230,7 @@ export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resol
   }, [rememberedScroll.ref]);
   const [width, setWidth] = useState(800);
   const [ratios, setRatios] = useState<Record<string, number>>({});
-  const geometry = assetGridGeometry(width, density, 16, 7);
+  const geometry = assetGridGeometry(width, density, 10, 7);
   const cardRatio = useCallback((card: MediaCardDto) => {
     const key = previewKey(project, rootEpoch, card.ref);
     return ratios[key] ?? mediaFallbackAspectRatio(previewKind(card), key);
@@ -233,7 +239,7 @@ export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resol
     count: items.length,
     getScrollElement: () => scrollRef.current,
     getItemKey: (index) => previewKey(project, rootEpoch, items[index]!.ref),
-    estimateSize: (index) => geometry.tileWidth / cardRatio(items[index]!) + 54,
+    estimateSize: (index) => geometry.tileWidth / cardRatio(items[index]!) + 27,
     initialOffset: () => scrollMemory.get(scrollKey) ?? 0,
     initialRect: { width: 800, height: 600 },
     lanes: geometry.columns,

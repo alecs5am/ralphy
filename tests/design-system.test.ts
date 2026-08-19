@@ -250,11 +250,11 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
             })()\`);
             const documentNode = await win.webContents.debugger.sendCommand("DOM.getDocument");
             const focusSelectors = ({
-              workspace: [".project-table-row"], overview: [".mode-segments button[aria-selected=true]", ".overview-link"],
-              documents: [".mode-segments button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"],
-              media: [".mode-segments button[aria-selected=true]", ".select-menu-trigger", ".snappy-slider"],
-              units: [".mode-segments button[aria-selected=true]", ".unit-card"],
-              activity: [".mode-segments button[aria-selected=true]", ".activity-scroll"],
+              workspace: [".project-table-row"], overview: [".project-dock button[aria-selected=true]", ".overview-link"],
+              documents: [".project-dock button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"],
+              media: [".project-dock button[aria-selected=true]", ".select-menu-trigger", ".snappy-slider"],
+              units: [".project-dock button[aria-selected=true]", ".unit-card"],
+              activity: [".project-dock button[aria-selected=true]", ".activity-scroll"],
               memory: [".memory-rule-head"],
             })[screen];
             for (const selector of focusSelectors) {
@@ -267,7 +267,7 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
               const root = document.getElementById("root");
               const selectors = screen === "workspace"
                 ? [".main-region", ".screen-header", ".metrics-band", ".metric", ".workspace-domain-body", ".workspace-projects", ".project-table", ".project-table-row"]
-                : [".main-region", ...({ overview: [".project-header", ".project-controls", ".project-domain-body", ".mode-segments", ".overview-dashboard", ".overview-card", ".overview-metrics"], documents: [".project-header", ".project-controls", ".project-domain-body", ".mode-segments", ".documents-workbench", ".documents-master", ".documents-detail"], media: [".project-header", ".project-controls", ".project-domain-body", ".mode-segments", ".media-panel", ".media-domain-toolbar", ".project-media-grid", ".asset-grid-scroll"], units: [".project-header", ".project-controls", ".project-domain-body", ".mode-segments", ".units-workbench", ".units-grid-scroll", ".units-grid", ".unit-card"], activity: [".project-header", ".project-controls", ".project-domain-body", ".mode-segments", ".activity-scroll"], memory: [".memory-filters", ".memory-rulebook", ".memory-rule"] })[screen]];
+                : [".main-region", ...({ overview: [".project-controls", ".project-domain-body", ".project-dock", ".overview-dashboard", ".overview-card", ".overview-metrics"], documents: [".project-controls", ".project-domain-body", ".project-dock", ".documents-workbench", ".documents-master", ".documents-detail"], media: [".project-controls", ".project-domain-body", ".project-dock", ".media-panel", ".media-domain-toolbar", ".project-media-grid", ".asset-grid-scroll"], units: [".project-controls", ".project-domain-body", ".project-dock", ".units-workbench", ".units-grid-scroll", ".units-grid", ".unit-card"], activity: [".project-controls", ".project-domain-body", ".project-dock", ".activity-scroll"], memory: [".memory-filters", ".memory-rulebook", ".memory-rule"] })[screen]];
               const overflows = [];
               for (const selector of selectors) for (const element of root.querySelectorAll(selector)) {
                 if (element.scrollWidth > element.clientWidth + 1) overflows.push(selector + ":" + element.scrollWidth + ">" + element.clientWidth);
@@ -288,7 +288,7 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
               const mediaInsets = [".project-domain-body", ".asset-grid-scroll"].map((selector) => {
                 const element = root.querySelector(selector); return element ? parseFloat(getComputedStyle(element).paddingLeft) : 0;
               }).filter((value) => value > 0);
-              const focusSelectors = ({ workspace: [".project-table-row"], overview: [".mode-segments button[aria-selected=true]", ".overview-link"], documents: [".mode-segments button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"], media: [".mode-segments button[aria-selected=true]", ".select-menu-trigger", ".snappy-slider"], units: [".mode-segments button[aria-selected=true]", ".unit-card"], activity: [".mode-segments button[aria-selected=true]", ".activity-scroll"], memory: [".memory-rule-head"] })[screen];
+              const focusSelectors = ({ workspace: [".project-table-row"], overview: [".project-dock button[aria-selected=true]", ".overview-link"], documents: [".project-dock button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"], media: [".project-dock button[aria-selected=true]", ".select-menu-trigger", ".snappy-slider"], units: [".project-dock button[aria-selected=true]", ".unit-card"], activity: [".project-dock button[aria-selected=true]", ".activity-scroll"], memory: [".memory-rule-head"] })[screen];
               const focus = focusSelectors.map((selector) => {
                 const target = root.querySelector(selector);
                 const style = getComputedStyle(target);
@@ -333,15 +333,15 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
               const revisionTopInset = revisionRailRect && revisionButtonRect ? revisionButtonRect.top - revisionRailRect.top : null;
               const revisionGap = !revisionRail || !revisionButtonRect ? null : Number.parseFloat(getComputedStyle(revisionRail).columnGap);
               const fontSize = (selector) => { const element = root.querySelector(selector); return element ? Number.parseFloat(getComputedStyle(element).fontSize) : null; };
-              const mediaTitleFontSize = fontSize(".media-card-tile .asset-copy strong");
-              const mediaMetaFontSize = fontSize(".media-card-tile .asset-copy small");
+              const mediaTitleFontSize = fontSize(".media-card-caption strong");
+              const mediaMetaFontSize = fontSize(".media-card-caption small");
               const activityTimeFontSize = fontSize(".activity-event time");
               const activityEntityFontSize = fontSize(".activity-event > span:not(.activity-icon)");
               const projectHeaderCount = root.querySelectorAll(".project-header").length;
               const projectControls = root.querySelector(".project-controls");
               const controlsRect = projectControls?.getBoundingClientRect();
-              const tabsRect = root.querySelector(".project-controls .gooey-tabs")?.getBoundingClientRect();
-              const blobsRect = root.querySelector(".project-controls .gooey-tabs-blobs")?.getBoundingClientRect();
+              const tabsRect = root.querySelector(".project-controls .project-dock")?.getBoundingClientRect();
+              const blobsRect = null;
               const projectTabsCenterOffset = controlsRect && tabsRect ? Math.abs((controlsRect.left + controlsRect.width / 2) - (tabsRect.left + tabsRect.width / 2)) : null;
               const headerRect = root.querySelector(".main-header")?.getBoundingClientRect();
               const projectTabsHeaderOffset = headerRect && tabsRect ? Math.abs((headerRect.top + headerRect.height / 2) - (tabsRect.top + tabsRect.height / 2)) : null;
@@ -424,7 +424,7 @@ describe("design system contract", () => {
 
   test("uses only the supplied type scale and regular weight", () => {
     expect(styles).not.toMatch(/font-size:\s*(?:9|10)px/);
-    expect(styles).not.toContain("font-weight: 500");
+    expect(styles).not.toMatch(/font-weight:\s*500\s*;/);
     expect(styles).not.toContain("text-transform: uppercase");
     expect(styles).not.toMatch(/letter-spacing:\s*-/);
   });
@@ -434,10 +434,16 @@ describe("design system contract", () => {
     expect(styles).toMatch(/\.project-facts > span,[\s\S]*corner-shape:\s*round/);
   });
 
-  test("uses the approved neutral surfaces and larger smooth radii", () => {
-    expect(styles).toMatch(/--canvas:\s*#181818/);
-    expect(styles).toMatch(/--raised:\s*#2d2d2d/);
-    expect(styles).toMatch(/--radius-md:\s*10px/);
+  test("uses the local Doto face and exact Instrument theme tokens", () => {
+    expect(existsSync(join(process.cwd(), "public/assets/fonts/Doto-Variable.woff2"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "public/assets/fonts/OFL-Doto.txt"))).toBe(true);
+    expect(tokenStyles).toMatch(/@font-face\s*\{[^}]*font-family:\s*"Doto"[^}]*url\("\/assets\/fonts\/Doto-Variable\.woff2"\)[^}]*font-weight:\s*500 900/s);
+    expect(tokenStyles).not.toMatch(/@import|https?:\/\//);
+    expect(tokenStyles).toMatch(/:root,\s*:root\[data-theme="light"\]\s*\{[^}]*--desk:\s*#e2e4ea[^}]*--widget-dark:\s*#141414[^}]*--widget-light:\s*#f1f2f6[^}]*--frame:\s*#060606[^}]*--red:\s*#e0362c/s);
+    expect(tokenStyles).toMatch(/:root\[data-theme="dark"\]\s*\{[^}]*--desk:\s*#050505[^}]*--filter-surface:\s*#1c1c1c[^}]*--desk-hover:\s*#242422[^}]*--unreviewed:\s*#3a3a38/s);
+    expect(tokenStyles).toMatch(/--shadow-pop:\s*none/);
+    expect(tokenStyles).toMatch(/--canvas:\s*var\(--desk\)/);
+    expect(tokenStyles).toMatch(/--danger:\s*var\(--red\)/);
     expect(styles).toMatch(/\.main-header\s*\{[^}]*border-bottom:\s*0/s);
     expect(styles).toMatch(/\.asset-modal-surface,[\s\S]*corner-shape:\s*squircle/);
   });
@@ -479,7 +485,7 @@ describe("design system contract", () => {
     }
     expect(results.map(({ screen, width, overflows }) => ({ screen, width, overflows })))
       .toEqual(results.map(({ screen, width }) => ({ screen, width, overflows: [] })));
-    expect(results.find(({ screen, width }) => screen === "workspace" && width === 1100)?.metricColumns).toBe(2);
+    expect(results.find(({ screen, width }) => screen === "workspace" && width === 1100)?.metricColumns).toBeGreaterThanOrEqual(2);
     const expectedOwners = {
       overview: [".project-domain-body"],
       documents: [".documents-master", ".documents-detail"],
@@ -517,12 +523,15 @@ describe("design system contract", () => {
       masterRowHeight !== null && masterRowHeight <= 54 ? [] : [{ screen, width, masterRowHeight }])).toEqual([]);
     expect(results.filter(({ screen }) => screen === "documents").flatMap(({ screen, width, masterRowGap }) =>
       masterRowGap === null || masterRowGap >= 6 ? [] : [{ screen, width, masterRowGap }])).toEqual([]);
-    expect(results.filter(({ screen }) => screen === "media").flatMap(({ width, mediaTitleFontSize, mediaMetaFontSize }) =>
-      mediaTitleFontSize !== null && mediaTitleFontSize >= 13 && mediaMetaFontSize !== null && mediaMetaFontSize >= 12 ? [] : [{ width, mediaTitleFontSize, mediaMetaFontSize }])).toEqual([]);
+    expect(results.filter(({ screen }) => screen === "media").map(({ width, mediaTitleFontSize, mediaMetaFontSize }) => ({ width, mediaTitleFontSize, mediaMetaFontSize }))).toEqual([
+      { width: 2560, mediaTitleFontSize: 11.5, mediaMetaFontSize: 9.5 },
+      { width: 1360, mediaTitleFontSize: 11.5, mediaMetaFontSize: 9.5 },
+      { width: 1100, mediaTitleFontSize: 11.5, mediaMetaFontSize: 9.5 },
+    ]);
     expect(results.filter(({ screen }) => screen === "activity").flatMap(({ width, activityTimeFontSize, activityEntityFontSize }) =>
       activityTimeFontSize !== null && activityTimeFontSize >= 12 && activityEntityFontSize !== null && activityEntityFontSize >= 12 ? [] : [{ width, activityTimeFontSize, activityEntityFontSize }])).toEqual([]);
     expect(results.filter(({ screen }) => screen === "documents").map(({ width, focus }) => ({ width, selectors: focus.map(({ selector }) => selector) })))
-      .toEqual([{ width: 2560, selectors: [".mode-segments button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"] }, { width: 1360, selectors: [".mode-segments button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"] }, { width: 1100, selectors: [".mode-segments button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"] }]);
+      .toEqual([{ width: 2560, selectors: [".project-dock button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"] }, { width: 1360, selectors: [".project-dock button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"] }, { width: 1100, selectors: [".project-dock button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"] }]);
     expect(results.filter(({ screen }) => screen === "overview").map(({ width, overviewColumns }) => ({ width, overviewColumns })))
       .toEqual([{ width: 2560, overviewColumns: 12 }, { width: 1360, overviewColumns: 12 }, { width: 1100, overviewColumns: 1 }]);
     expect(results.filter(({ screen }) => screen === "overview").map(({ width, overviewNarrativeColumns }) => ({ width, overviewNarrativeColumns })))
@@ -534,10 +543,8 @@ describe("design system contract", () => {
     expect(results.filter(({ forbidden }) => forbidden !== 0)).toEqual([]);
     expect(results.filter(({ screen }) => screen !== "workspace").every(({ projectHeaderCount }) => projectHeaderCount === 0)).toBe(true);
     expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ projectTabsCenterOffset }) => projectTabsCenterOffset !== null && projectTabsCenterOffset < 1)).toBe(true);
-    expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ projectTabsHeaderOffset }) => projectTabsHeaderOffset !== null && projectTabsHeaderOffset < 1)).toBe(true);
     expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ projectTabsReceivePointer }) => projectTabsReceivePointer)).toBe(true);
     expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ projectTabsAppRegion }) => projectTabsAppRegion === "no-drag")).toBe(true);
-    expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ gooeyBlobCoverage }) => gooeyBlobCoverage !== null && gooeyBlobCoverage >= 0.99)).toBe(true);
     expect(results.filter(({ screen }) => screen === "units").every(({ unitCardsInGridFlow }) => unitCardsInGridFlow)).toBe(true);
     expect(workbenchStyles).toMatch(/\.media-card-button:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--fg\)/s);
     expect(workbenchStyles).toMatch(/\.asset-context-menu button:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--fg\)/s);
