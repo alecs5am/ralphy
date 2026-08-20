@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { act } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { ArtifactMediaCardDto } from "../electron/ralphy/types";
 import { bridge } from "../src/lib/ipc";
 import { SharedLibraryScreen } from "../src/screens/SharedLibraryScreen";
 import {
   SharedLibraryWorkflows,
+  type SharedLibrarySuggestion,
   type SharedLibraryWorkflowKind,
 } from "../src/screens/shared-library/SharedLibraryWorkflows";
-import { presentSharedArtifact } from "../src/screens/shared-library/presentation";
+import { presentSharedArtifact, type Availability } from "../src/screens/shared-library/presentation";
 import { createReactHost, type HostNode } from "./react-host";
 
 function artifact(): ArtifactMediaCardDto {
@@ -61,7 +63,12 @@ async function click(node: HostNode) {
   await act(async () => { node.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
 }
 
-async function mountWorkflow(kind: SharedLibraryWorkflowKind) {
+const unavailableSuggestions: Availability<SharedLibrarySuggestion[]> = {
+  status: "unavailable",
+  reason: "Metadata suggestions are unavailable from this Core version because Core exposes no suggestion evidence.",
+};
+
+async function mountWorkflow(kind: SharedLibraryWorkflowKind, suggestions: Availability<SharedLibrarySuggestion[]> = unavailableSuggestions) {
   const host = createReactHost();
   const origin = document.createElement("button") as unknown as HostNode;
   origin.textContent = "origin";
@@ -71,12 +78,14 @@ async function mountWorkflow(kind: SharedLibraryWorkflowKind) {
   const root = createRoot(host.container as unknown as Element);
   function Harness() {
     const [open, setOpen] = useState(true);
-    return open ? <SharedLibraryWorkflows
-      kind={kind}
-      artifact={presentSharedArtifact(artifact())}
-      returnFocus={origin as unknown as HTMLElement}
-      onClose={() => setOpen(false)}
-    /> : null;
+    const props = {
+      kind,
+      artifact: presentSharedArtifact(artifact()),
+      suggestions,
+      returnFocus: origin as unknown as HTMLElement,
+      onClose: () => setOpen(false),
+    };
+    return open ? <SharedLibraryWorkflows {...props} /> : null;
   }
   await act(async () => { root.render(<Harness />); await settle(); });
   await act(async () => { await settle(); });
@@ -117,7 +126,7 @@ describe("Shared Library non-mutating workflows", () => {
   test.each([
     ["promote", ["Source project artifact", "Workspace meaning", "Added to Shared Library · the existing project remains pinned to its current artifact.", "No promotion has occurred"]],
     ["duplicate", ["Same content identity", "Reuse the existing artifact", "Add as a new revision", "Create a separate artifact", "Content hash comparison is unavailable from this Core version"]],
-    ["suggestions", ["Suggested from file content", "from EXIF + visual content", "matches existing artifacts", "NOT SUGGESTED", "Licence, consent and identity are never inferred", "Universal-use rules"]],
+    ["suggestions", ["Suggested from file content", "Metadata suggestions are unavailable from this Core version because Core exposes no suggestion evidence.", "NOT SUGGESTED", "Licence, consent and identity are never inferred", "Universal-use rules"]],
     ["archive", ["Archive impact", "Active references", "Historical references", "Projects affected", "Units affected", "Currently canonical", "File state", "Replacement for future work", "Nothing is deleted", "reversible"]],
     ["update-review", ["Revision update review", "Update compatible usages", "Keep current revision", "Open usage for review", "backlinks and compatibility evidence are unavailable"]],
   ] as const)("renders the complete %s inventory without pretending Core evidence exists", async (kind, inventory) => {
@@ -133,6 +142,12 @@ describe("Shared Library non-mutating workflows", () => {
       if (kind === "archive") {
         expect(final.getAttribute("class")).toContain("shared-workflow-warning");
         expect(final.getAttribute("class")).not.toContain("danger");
+      }
+      if (kind === "suggestions") {
+        expect(dialog.querySelectorAll(".shared-workflow-suggestion")).toHaveLength(4);
+        expect(dialog.querySelectorAll(".shared-workflow-suggestion").every((row) => row.textContent.includes("Unavailable from this Core version"))).toBe(true);
+        expect(dialog.querySelectorAll("button").filter((node) => /^(?:Accept|Reject) /.test(node.textContent)).every((node) => node.disabled)).toBe(true);
+        expect(dialog.textContent).not.toMatch(/rooftop|EXIF|matches existing artifacts/i);
       }
     } finally {
       await act(async () => mounted.root.unmount());
@@ -152,10 +167,18 @@ describe("Shared Library non-mutating workflows", () => {
       duplicate.host.restore();
     }
 
-    const suggestions = await mountWorkflow("suggestions");
+    const suggestions = await mountWorkflow("suggestions", { status: "ready", value: [
+      { field: "Title", value: "Three-note sonic logo", source: "from supplied audio-analysis evidence" },
+      { field: "Media kind and role", value: "Audio · Brand signature", source: "from supplied MIME evidence" },
+      { field: "Named entity", value: "Acme", source: "from supplied entity-analysis evidence" },
+      { field: "Purpose", value: "Approved brand mnemonic", source: "from supplied audio-analysis evidence" },
+    ] });
     try {
       const dialog = suggestions.body.querySelector("[role=dialog]")!;
       expect(dialog.querySelectorAll(".shared-workflow-suggestion")).toHaveLength(4);
+      expect(dialog.textContent).toContain("Three-note sonic logo");
+      expect(dialog.textContent).toContain("from supplied audio-analysis evidence");
+      expect(dialog.textContent).not.toMatch(/rooftop|EXIF|matches existing artifacts/i);
       await click(button(dialog, "Accept Title suggestion"));
       await click(button(dialog, "Reject Purpose suggestion"));
       const reviewed = dialog.querySelectorAll(".shared-workflow-suggestion");
@@ -194,7 +217,7 @@ describe("Shared Library non-mutating workflows", () => {
     }
   });
 
-  test("opens Add and Promote from the page and all artifact-specific previews from the inspector", async () => {
+  test("opens Add and Promote from the page and all artifact-specific previews without inventing audio suggestion evidence", async () => {
     vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue({ items: [artifact()], nextCursor: null });
     vi.spyOn(bridge, "loadSharedLibraryArtifact").mockResolvedValue(artifact());
     vi.spyOn(bridge, "loadSharedLibraryRevisions").mockResolvedValue({ items: [], nextCursor: null });
@@ -222,11 +245,23 @@ describe("Shared Library non-mutating workflows", () => {
       ]) {
         await click(button(host.container, buttonText));
         expect((document.body as unknown as HostNode).textContent).toContain(dialogText);
+        if (buttonText === "Preview metadata suggestions") {
+          const suggestionText = (document.body as unknown as HostNode).textContent;
+          expect(suggestionText).toContain("Core exposes no suggestion evidence");
+          expect(suggestionText).not.toMatch(/rooftop|EXIF|matches existing artifacts/i);
+        }
         await click(buttonByAria(document.body as unknown as HostNode, `Close ${dialogText === "Same content identity" ? "Duplicate review" : dialogText === "Suggested from file content" ? "Suggested from file content" : dialogText === "Archive impact" ? "Archive impact" : "Revision update review"}`));
       }
     } finally {
       await act(async () => root.unmount());
       host.restore();
     }
+  });
+
+  test("disables and describes Add and Promote during the pre-effect bootstrap render", () => {
+    const markup = renderToStaticMarkup(<SharedLibraryScreen workspaceId="workspace-1" workspaceName="Studio" rootEpoch={1} />);
+    expect(markup.match(/disabled=""/g)).toHaveLength(2);
+    expect(markup.match(/aria-describedby="shared-library-initializing-actions"/g)).toHaveLength(2);
+    expect(markup).toContain("Workflow previews are unavailable while the Shared Library is initializing.");
   });
 });

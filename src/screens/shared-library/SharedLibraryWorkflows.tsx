@@ -1,7 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { AlertTriangle, X } from "lucide-react";
 import { useCallback, useId, useRef, useState, type ReactNode } from "react";
-import type { SharedArtifactPresentation } from "./presentation";
+import type { Availability, SharedArtifactPresentation } from "./presentation";
 
 export type SharedLibraryWorkflowKind = "add" | "promote" | "duplicate" | "suggestions" | "archive" | "update-review";
 
@@ -163,26 +163,29 @@ function DuplicateWorkflow({ returnFocus, onClose }: Pick<SharedLibraryWorkflows
   </WorkflowFrame>;
 }
 
-const suggestions = [
-  ["Title", "Rooftop bar — establishing", "from EXIF + visual content"],
-  ["Media kind and role", "Image · Location", "from MIME + visual content"],
-  ["Named entity", "Possible existing entity", "matches existing artifacts · not verified"],
-  ["Purpose", "Wide establishing view for location context", "from visual content"],
-] as const;
+const suggestionFields = ["Title", "Media kind and role", "Named entity", "Purpose"];
 
-function SuggestionsWorkflow({ returnFocus, onClose }: Pick<SharedLibraryWorkflowsProps, "returnFocus" | "onClose">) {
+function SuggestionsWorkflow({ suggestions, returnFocus, onClose }: Pick<SharedLibraryWorkflowsProps, "suggestions" | "returnFocus" | "onClose">) {
   const [review, setReview] = useState<Record<string, "pending" | "accepted" | "rejected">>({});
   const reasonId = useId();
+  const items = suggestions.status === "ready" || suggestions.status === "partial" ? suggestions.value : [];
+  const suggestionReason = suggestions.status === "ready" ? "No suggestion evidence was supplied." : suggestions.reason;
   return <WorkflowFrame kind="suggestions" title="Suggested from file content" description="Review each local suggestion before it could become context agents receive." returnFocus={returnFocus} onClose={onClose} footerNote="SUGGESTIONS ARE NOT CANONICAL UNTIL ACCEPTED" actions={<><Dialog.Close asChild><button type="button">Cancel</button></Dialog.Close><button type="button" className="shared-workflow-primary" disabled aria-describedby={reasonId}>Apply reviewed fields unavailable</button></>}>
-    <Block label="Suggestions" tag="REVIEW 4">
-      <div className="shared-workflow-suggestions">{suggestions.map(([field, value, source]) => {
-        const status = review[field] ?? "pending";
-        return <article className="shared-workflow-suggestion" key={field}>
+    <Block label="Suggestions" tag={items.length ? `REVIEW ${items.length}` : "UNAVAILABLE"}>
+      <div className="shared-workflow-suggestions">{items.length ? items.map(({ field, value, source }, index) => {
+        const key = `${field}:${index}`;
+        const status = review[key] ?? "pending";
+        return <article className="shared-workflow-suggestion" key={key}>
           <header><strong>{field}</strong><span>SUGGESTED</span></header><p>{value}</p><small>{source}</small>
-          <div><button type="button" aria-pressed={status === "accepted"} onClick={() => setReview((current) => ({ ...current, [field]: "accepted" }))}>Accept {field} suggestion</button><button type="button" aria-pressed={status === "rejected"} onClick={() => setReview((current) => ({ ...current, [field]: "rejected" }))}>Reject {field} suggestion</button></div>
+          <div><button type="button" aria-pressed={status === "accepted"} onClick={() => setReview((current) => ({ ...current, [key]: "accepted" }))}>Accept {field} suggestion</button><button type="button" aria-pressed={status === "rejected"} onClick={() => setReview((current) => ({ ...current, [key]: "rejected" }))}>Reject {field} suggestion</button></div>
           <b>{status === "accepted" ? "Accepted locally for review" : status === "rejected" ? "Rejected locally" : "Awaiting review"}</b>
         </article>;
-      })}</div>
+      }) : suggestionFields.map((field) => <article className="shared-workflow-suggestion" key={field}>
+        <header><strong>{field}</strong><span>UNAVAILABLE</span></header><p>{suggestionReason}</p><small>No suggestion value or source evidence returned.</small>
+        <div><button type="button" disabled>Accept {field} suggestion</button><button type="button" disabled>Reject {field} suggestion</button></div>
+        <b>Unavailable from this Core version</b>
+      </article>)}</div>
+      {suggestions.status === "partial" && <p className="shared-workflow-caption">{suggestions.reason}</p>}
     </Block>
     <div className="shared-workflow-note is-warning"><AlertTriangle aria-hidden="true" /><span><strong>Licence, consent and identity are never inferred.</strong> Universal-use rules are never inferred from media either.</span></div>
     <Block label="NOT SUGGESTED"><dl className="shared-workflow-inventory"><div><dt>Rights and licence</dt><dd>Human evidence only</dd></div><div><dt>Consent and identity</dt><dd>Human evidence only</dd></div><div><dt>Universal-use rules</dt><dd>Human decision only</dd></div><div><dt>Canonical status</dt><dd>Human decision only</dd></div></dl></Block>
@@ -216,8 +219,15 @@ function UpdateReviewWorkflow({ artifact, returnFocus, onClose }: SharedLibraryW
 export interface SharedLibraryWorkflowsProps {
   kind: SharedLibraryWorkflowKind;
   artifact?: SharedArtifactPresentation;
+  suggestions: Availability<SharedLibrarySuggestion[]>;
   returnFocus: HTMLElement | null;
   onClose(): void;
+}
+
+export interface SharedLibrarySuggestion {
+  field: string;
+  value: string;
+  source: string;
 }
 
 export function SharedLibraryWorkflows(props: SharedLibraryWorkflowsProps) {

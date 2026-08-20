@@ -11,10 +11,11 @@ import { SharedArtifactPreview } from "./shared-library/SharedArtifactPreview";
 import { SharedArtifactInspector } from "./shared-library/SharedArtifactInspector";
 import { SharedArtifactViewer } from "./shared-library/SharedArtifactViewer";
 import { SharedLibraryToolbar } from "./shared-library/SharedLibraryToolbar";
-import { SharedLibraryWorkflows, type SharedLibraryWorkflowKind } from "./shared-library/SharedLibraryWorkflows";
+import { SharedLibraryWorkflows, type SharedLibrarySuggestion, type SharedLibraryWorkflowKind } from "./shared-library/SharedLibraryWorkflows";
 import type { Availability, SharedArtifactPresentation } from "./shared-library/presentation";
 
 type OpenCallback = (artifact: SharedArtifactPresentation) => void;
+const unavailableSuggestions = { status: "unavailable", reason: "Metadata suggestions are unavailable from this Core version because Core exposes no suggestion evidence." } satisfies Availability<SharedLibrarySuggestion[]>;
 
 export interface SharedLibraryScreenProps {
   workspaceId: string;
@@ -163,9 +164,10 @@ function SharedLibraryAuditList({ artifacts, selectedId, selectedRows, workspace
   </div>;
 }
 
-function ScreenHeader({ workspaceName, totals, onAdd, onPromote }: {
+function ScreenHeader({ workspaceName, totals, actionsUnavailableReason, onAdd, onPromote }: {
   workspaceName: string;
   totals?: { count: Availability<number>; bytes: Availability<number> };
+  actionsUnavailableReason?: string;
   onAdd(origin: HTMLButtonElement): void;
   onPromote(origin: HTMLButtonElement): void;
 }) {
@@ -173,7 +175,8 @@ function ScreenHeader({ workspaceName, totals, onAdd, onPromote }: {
     <div><div className="screen-kicker">{workspaceName}</div><h1>Shared Library</h1><p>Reusable workspace artifacts for people and agents</p></div>
     <div className="shared-library-header-side">
       {totals && <div className="shared-library-totals"><span>{countLabel(totals.count)}</span><span>{bytesLabel(totals.bytes)}</span></div>}
-      <div className="shared-library-actions"><button type="button" onClick={(event) => onPromote(event.currentTarget)}><Upload size={13} aria-hidden="true" />Promote from project</button><button className="shared-library-primary" type="button" onClick={(event) => onAdd(event.currentTarget)}><Plus size={13} aria-hidden="true" />Add artifact</button></div>
+      <div className="shared-library-actions"><button type="button" disabled={!!actionsUnavailableReason} aria-describedby={actionsUnavailableReason ? "shared-library-initializing-actions" : undefined} onClick={(event) => onPromote(event.currentTarget)}><Upload size={13} aria-hidden="true" />Promote from project</button><button className="shared-library-primary" type="button" disabled={!!actionsUnavailableReason} aria-describedby={actionsUnavailableReason ? "shared-library-initializing-actions" : undefined} onClick={(event) => onAdd(event.currentTarget)}><Plus size={13} aria-hidden="true" />Add artifact</button></div>
+      {actionsUnavailableReason && <p className="shared-library-actions-reason" id="shared-library-initializing-actions">{actionsUnavailableReason}</p>}
     </div>
   </header>;
 }
@@ -238,7 +241,7 @@ export function SharedLibraryScreenView({ workspaceId, workspaceName, rootEpoch,
       onReconcile={controller.reconcileArtifact}
       onOpenInspector={(artifact) => { setViewer(null); inspect(artifact, viewer.origin); }}
     />}
-    {workflow && <SharedLibraryWorkflows kind={workflow.kind} artifact={workflow.artifact} returnFocus={workflow.origin} onClose={() => setWorkflow(null)} />}
+    {workflow && <SharedLibraryWorkflows kind={workflow.kind} artifact={workflow.artifact} suggestions={unavailableSuggestions} returnFocus={workflow.origin} onClose={() => setWorkflow(null)} />}
   </main>;
 }
 
@@ -258,5 +261,5 @@ export function SharedLibraryScreen(props: SharedLibraryScreenProps) {
   }, [props.workspaceId, props.rootEpoch, scope]);
   return active?.scope === scope
     ? <ConnectedSharedLibraryScreen {...props} controller={active.controller} />
-    : <main className="main-region shared-library-screen" aria-busy="true"><ScreenHeader workspaceName={props.workspaceName} onAdd={() => props.onAdd?.()} onPromote={() => props.onPromote?.()} /><div className="shared-library-loading" role="status">Loading Shared Library…</div></main>;
+    : <main className="main-region shared-library-screen" aria-busy="true"><ScreenHeader workspaceName={props.workspaceName} actionsUnavailableReason="Workflow previews are unavailable while the Shared Library is initializing." onAdd={() => props.onAdd?.()} onPromote={() => props.onPromote?.()} /><div className="shared-library-loading" role="status">Loading Shared Library…</div></main>;
 }

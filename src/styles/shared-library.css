@@ -59,6 +59,8 @@
 }
 
 .shared-library-actions { gap: 8px; }
+.shared-library-header .shared-library-actions-reason { max-width: 260px; color: var(--fg-4); font-size: 10.5px; line-height: 1.4; text-align: right; }
+.shared-library-actions button:disabled { opacity: .5; cursor: not-allowed; }
 
 .shared-library-actions button,
 .shared-library-toolbar button,
