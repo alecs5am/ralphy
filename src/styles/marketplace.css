@@ -349,6 +349,7 @@
 .marketplace-screen button:focus-visible,
 .marketplace-screen input:focus-visible,
 .marketplace-screen [tabindex]:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.marketplace-workflow-window button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
 
 @media (max-width: 1160px) {
   .marketplace-header { grid-template-columns: minmax(200px, 1fr) minmax(260px, 400px); }

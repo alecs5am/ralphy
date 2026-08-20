@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { CheckCircle2, CircleAlert, Download, X } from "lucide-react";
+import { CheckCircle2, CircleAlert, Download, LoaderCircle, X } from "lucide-react";
 import { useCallback, useId, useRef, useState, type ReactNode } from "react";
 import type { CatalogResult } from "../../lib/ipc";
 import type { WorkbenchRoute } from "../../state/workbench";
@@ -303,9 +303,9 @@ export function MarketplaceDownloads({ presentation }: { presentation: Marketpla
       const jobs = presentation.jobs.filter((job) => job.state === state);
       return <section key={state} aria-labelledby={`marketplace-download-${state}`}><h3 id={`marketplace-download-${state}`}>{label}</h3>
         {jobs.length === 0 ? <p>No jobs in this supplied presentation.</p> : <ul role="list">{jobs.map((job) => <li key={job.id}>
-          {job.state === "failed" ? <CircleAlert aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
+          {job.state === "active" ? <LoaderCircle aria-hidden="true" /> : job.state === "failed" ? <CircleAlert aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
           <span><strong>{job.label}</strong><small>{job.nextAction}</small></span>
-          {job.progress === null ? <em>Progress unavailable</em> : <progress max={100} value={Math.max(0, Math.min(100, job.progress))}>{job.progress}%</progress>}
+          {job.progress === null ? <em>Progress unavailable</em> : <progress max={100} value={Math.max(0, Math.min(100, job.progress))} aria-label={`${job.label} download progress: ${job.progress}%`}>{job.progress}%</progress>}
         </li>)}</ul>}
       </section>;
     })}

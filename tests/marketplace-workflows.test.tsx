@@ -1,6 +1,7 @@
 import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { CatalogResult } from "../electron/media/types";
 import { bridge } from "../src/lib/ipc";
@@ -17,6 +18,8 @@ import type { WorkbenchRoute } from "../src/state/workbench";
 import type { MarketplaceLocation, MarketplaceQueryState } from "../src/state/marketplace-navigation";
 import type { MarketplaceSnapshot } from "../src/screens/marketplace/presentation";
 import { createReactHost, type HostNode } from "./react-host";
+
+const marketplaceStyles = readFileSync(new URL("../src/styles/marketplace.css", import.meta.url), "utf8");
 
 const catalog: CatalogResult = {
   rootPath: "/Users/demo/.ralphy",
@@ -177,6 +180,10 @@ describe("Marketplace workflow targets", () => {
 });
 
 describe("Marketplace non-mutating action reviews", () => {
+  test("keeps portal workflow buttons visibly focusable outside the Marketplace screen", () => {
+    expect(marketplaceStyles).toMatch(/\.marketplace-workflow-window button:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--fg\)[^}]*outline-offset:\s*2px/s);
+  });
+
   test("connects an unsupported detail review to the real target matrix without enabling a mutation", async () => {
     const host = createReactHost();
     const root = createRoot(host.container as unknown as Element);
@@ -240,6 +247,9 @@ describe("Marketplace non-mutating action reviews", () => {
     expect(markup).toContain("<progress");
     expect(markup).toContain("value=\"62\"");
     expect(markup).toContain("value=\"100\"");
+    expect(markup).toContain("lucide-loader-circle");
+    expect(markup).toContain("aria-label=\"Qwen 14B download progress: 62%\"");
+    expect(markup).toContain("aria-label=\"Flux download progress: 100%\"");
   });
 
   test("cancels on Escape and scrim click, restores focus, and never invokes a bridge mutation", async () => {
