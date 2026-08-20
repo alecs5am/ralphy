@@ -46,10 +46,18 @@ export function MarketplaceScreen({
   onRememberLocation,
 }: MarketplaceScreenProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const focusId = location.focusId ?? "marketplace-heading";
+  const focusRouteKey = JSON.stringify(location.route);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: location.scrollTop });
   }, [location.route]);
+
+  useEffect(() => {
+    const target = document.getElementById(focusId) ?? document.getElementById("marketplace-heading");
+    if (target?.closest("[hidden]")) return;
+    target?.focus({ preventScroll: true });
+  }, [focusId, focusRouteKey]);
 
   const openCategory = (category: MarketplaceCategory) => {
     onNavigate({

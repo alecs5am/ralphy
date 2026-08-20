@@ -201,6 +201,8 @@ describe("marketplace navigation", () => {
       await act(async () => { root.render(<App />); await settle(); });
       await act(async () => { vi.advanceTimersByTime(1_500); await settle(); });
       const workMode = host.container.querySelector("#app-mode-work") as unknown as HostNode;
+      const hiddenMarketplaceHeading = host.container.querySelector("#marketplace-heading") as HostNode;
+      expect(document.activeElement).not.toBe(hiddenMarketplaceHeading);
       workMode.focus();
       const marketplace = [...host.container.querySelectorAll("button")].find((button) => button.textContent === "Marketplace")!;
       await act(async () => marketplace.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
@@ -271,6 +273,57 @@ describe("marketplace navigation", () => {
       await act(async () => workAgain.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
       await act(async () => { vi.advanceTimersByTime(1); await settle(); });
       expect((document.activeElement as unknown as HostNode).getAttribute("id")).toBe("app-mode-work");
+    } finally {
+      await act(async () => root.unmount());
+      restore.mockRestore();
+      if (previousStorage) Object.defineProperty(globalThis, "localStorage", previousStorage);
+      else delete (globalThis as Record<string, unknown>).localStorage;
+      host.restore();
+    }
+  });
+
+  test("restores persisted Marketplace focus after Welcome without stealing it on scroll memory", async () => {
+    vi.useFakeTimers();
+    const host = createReactHost();
+    Object.defineProperties(window, {
+      innerWidth: { configurable: true, value: 1360 },
+      innerHeight: { configurable: true, value: 900 },
+    });
+    const local = storage();
+    let persistedMarketplace = readMarketplaceNavigation(local);
+    persistedMarketplace = marketplaceReducer(persistedMarketplace, {
+      type: "switch-mode",
+      mode: "marketplace",
+      returnFocusId: null,
+    });
+    persistedMarketplace = marketplaceReducer(persistedMarketplace, {
+      type: "remember",
+      patch: { focusId: "marketplace-heading", scrollTop: 438 },
+    });
+    writeMarketplaceNavigation(local, persistedMarketplace);
+    const previousStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+    Object.defineProperty(globalThis, "localStorage", { configurable: true, value: local });
+    const restore = vi.spyOn(bridge, "restoreLibrary").mockResolvedValue(null);
+    const { App } = await import("../src/App");
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<App />); await settle(); });
+      expect(host.container.textContent).toContain("Loading Ralphy");
+      await act(async () => { vi.advanceTimersByTime(1_500); await settle(); });
+
+      const marketplaceSurface = host.container.querySelector(".app-mode-marketplace") as HostNode;
+      const marketplaceHeading = marketplaceSurface.querySelector("#marketplace-heading") as HostNode;
+      const marketplaceScroll = marketplaceSurface.querySelector(".marketplace-task-one-scroll") as HostNode;
+      expect(marketplaceSurface.getAttribute("hidden")).toBeNull();
+      expect(document.activeElement).toBe(marketplaceHeading);
+      expect(marketplaceScroll.scrollTop).toBe(438);
+
+      const marketplaceMode = host.container.querySelector("#app-mode-marketplace") as HostNode;
+      marketplaceMode.focus();
+      marketplaceScroll.scrollTop = 612;
+      await act(async () => marketplaceScroll.dispatchEvent(new Event("scroll", { bubbles: true })));
+      expect(document.activeElement).toBe(marketplaceMode);
     } finally {
       await act(async () => root.unmount());
       restore.mockRestore();
