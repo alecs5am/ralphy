@@ -363,7 +363,7 @@ export interface MarketplaceBrowseProps {
 
 export function MarketplaceBrowse({ route, snapshot, originKey, onOpenItem, onOpenCategory, onOpenLibrary, onOpenCollection, onOpenUnavailableDetail, onRetry, onClearQuery, onClearFilters }: MarketplaceBrowseProps) {
   if (snapshot.status === "loading") return <div className="marketplace-loading" role="status" aria-busy="true"><div aria-hidden="true">{Array.from({ length: 6 }, (_, index) => <i key={index} />)}</div><span>Loading Marketplace…</span></div>;
-  if (snapshot.status === "error") return <div className="marketplace-total-failure"><SourceState snapshot={snapshot} onRetry={onRetry} /><h2>{snapshot.error}</h2><p>No source returned a current result set.</p></div>;
+  if (snapshot.status === "error") return <div className="marketplace-total-failure"><SourceState snapshot={snapshot} onRetry={onRetry} /><h2>{snapshot.error}</h2><p>No source returned a current result set. Last known source metadata is unavailable.</p></div>;
   const categoryUnavailable = route.kind === "category"
     && snapshot.categories.find(({ category }) => category === route.category)?.count.status === "unavailable";
   const noResults = (route.kind === "results" || route.kind === "category")
@@ -371,7 +371,7 @@ export function MarketplaceBrowse({ route, snapshot, originKey, onOpenItem, onOp
     && snapshot.items.length === 0;
   return <>
     {snapshot.refreshing && <div className="marketplace-refreshing" role="status">Refreshing catalog…</div>}
-    {snapshot.publicSource?.source === "cache" && <div className="marketplace-cache-state" role="status"><CircleAlert aria-hidden="true" /><span><strong>Cached public catalog</strong><small>{snapshot.publicSource.warning ?? `Last refreshed ${formatDate(snapshot.publicSource.refreshedAt)}`}</small></span><button type="button" onClick={onRetry}><RefreshCw aria-hidden="true" />Refresh</button></div>}
+    {snapshot.publicSource?.source === "cache" && <div className="marketplace-cache-state" role="status"><CircleAlert aria-hidden="true" /><span><strong>Offline · cached catalog</strong><small>{snapshot.publicSource.warning ? `${snapshot.publicSource.warning} · ` : ""}Last refreshed {formatDate(snapshot.publicSource.refreshedAt)}</small></span><button type="button" onClick={onRetry}><RefreshCw aria-hidden="true" />Refresh</button></div>}
     <SourceState snapshot={snapshot} onRetry={onRetry} />
     {noResults ? <div className="marketplace-no-results" role="status"><FileText aria-hidden="true" /><h2>No results</h2><p>The current query and filters returned no source-backed items.</p><span><button type="button" onClick={onClearFilters}>Clear filters</button><button type="button" onClick={onClearQuery}>Clear query</button></span></div>
       : route.kind === "discover" ? <MarketplaceDiscover snapshot={snapshot} onOpenCategory={onOpenCategory} onOpenLibrary={onOpenLibrary} onOpenCollection={onOpenCollection} />

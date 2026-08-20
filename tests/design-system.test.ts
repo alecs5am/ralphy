@@ -27,6 +27,7 @@ const workbenchStyles = readFileSync(
 const tokenStyles = readFileSync(join(process.cwd(), "src/styles/tokens.css"), "utf8");
 const settingsStyles = readFileSync(join(process.cwd(), "src/styles/settings.css"), "utf8");
 const sharedLibraryStyles = readFileSync(join(process.cwd(), "src/styles/shared-library.css"), "utf8");
+const marketplaceStyles = readFileSync(join(process.cwd(), "src/styles/marketplace.css"), "utf8");
 
 const project: ProjectSummary = {
   id: "workspace-1/project-1", workspaceId: "workspace-1", projectId: "project-1", name: "Launch",
@@ -687,6 +688,13 @@ const renderer = readdirSync(join(process.cwd(), "src"), {
   .join("\n");
 
 describe("design system contract", () => {
+  test("gives Marketplace container-responsive detail, sidebar focus, and complete reduced motion rules", () => {
+    expect(marketplaceStyles).toMatch(/\.marketplace-screen\s*\{[^}]*container-name:\s*main-region[^}]*container-type:\s*inline-size/s);
+    expect(marketplaceStyles).toMatch(/#app-mode-marketplace:focus-visible,[\s\S]*Marketplace categories[\s\S]*outline:\s*2px solid var\(--fg\)/);
+    expect(marketplaceStyles).toMatch(/@container main-region \(max-width:\s*760px\)[\s\S]*\.marketplace-model-detail-layout,[\s\S]*\.marketplace-public-detail-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+    expect(marketplaceStyles).toMatch(/@media \(prefers-reduced-motion:\s*reduce\)[\s\S]*animation-duration:\s*0s !important[\s\S]*transition-duration:\s*0s !important/);
+  });
+
   test("documents workbench locks the outer panel and gives both responsive panes exact semantic states", () => {
     expect(workbenchStyles).toMatch(/\.project-domain-body\.is-documents\s*\{[^}]*overflow:\s*hidden/s);
     expect(workbenchStyles).toMatch(/\.documents-workbench\s*\{[^}]*grid-template-columns:\s*minmax\(280px,\s*340px\)\s+minmax\(0,\s*1fr\)/s);

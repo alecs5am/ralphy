@@ -262,8 +262,9 @@ describe("Marketplace browse surfaces", () => {
     expect(refreshing).toContain("Alpha model");
 
     const cached = renderToStaticMarkup(<MarketplaceBrowse route={{ kind: "discover" }} snapshot={readySnapshot({ publicSource: { ...readySnapshot().publicSource!, source: "cache", warning: "Network unavailable" } })} onOpenItem={() => undefined} onOpenCategory={() => undefined} onOpenLibrary={() => undefined} onRetry={() => undefined} onClearQuery={() => undefined} onClearFilters={() => undefined} />);
-    expect(cached).toContain("Cached public catalog");
+    expect(cached).toContain("Offline · cached catalog");
     expect(cached).toContain("Network unavailable");
+    expect(cached).toContain("Last refreshed");
 
     const filteredQuery = { ...defaultQuery, text: "missing", filters: { ...defaultQuery.filters, source: "ralphy" as const } };
     const noResults = renderToStaticMarkup(<MarketplaceBrowse route={{ kind: "results" }} snapshot={readySnapshot({ items: [], query: filteredQuery })} onOpenItem={() => undefined} onOpenCategory={() => undefined} onOpenLibrary={() => undefined} onRetry={() => undefined} onClearQuery={() => undefined} onClearFilters={() => undefined} />);
@@ -277,6 +278,7 @@ describe("Marketplace browse surfaces", () => {
 
     const failure = renderToStaticMarkup(<MarketplaceBrowse route={{ kind: "results" }} snapshot={{ status: "error", error: "Marketplace sources are unavailable", sourceErrors: [{ source: "ralphy-public", scope: "public-library", message: "offline" }, { source: "models", scope: "model-catalog", message: "offline" }], sourceHealth: { publicLibrary: "unavailable", models: "unavailable" }, query: defaultQuery }} onOpenItem={() => undefined} onOpenCategory={() => undefined} onOpenLibrary={() => undefined} onRetry={() => undefined} onClearQuery={() => undefined} onClearFilters={() => undefined} />);
     expect(failure).toContain("Marketplace sources are unavailable");
+    expect(failure).toContain("Last known source metadata is unavailable");
     expect(failure).toContain("Retry sources");
     expect(failure).not.toContain("Results from healthy sources are still shown");
   });
