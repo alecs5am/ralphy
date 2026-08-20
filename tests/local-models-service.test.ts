@@ -6,6 +6,7 @@ import {
   normalizeCivitaiModel,
   normalizeHuggingFaceModel,
   safeProviderMediaUrl,
+  searchLocalModels,
 } from "../electron/local-models";
 import { projectMarketplaceModelDetail } from "../src/screens/marketplace/presentation";
 
@@ -23,6 +24,21 @@ const machine = {
     { id: "mlx", label: "MLX", available: false, detail: "Not detected" },
   ],
 } as const;
+
+function responseAt(url: string, body: BodyInit | null, init: ResponseInit = {}): Response {
+  const response = new Response(body, init);
+  Object.defineProperty(response, "url", { value: url });
+  return response;
+}
+
+const huggingFaceRaw = (id = "org/model") => ({
+  id,
+  author: id.split("/")[0],
+  sha: "abc1234",
+  pipeline_tag: "text-generation",
+  tags: ["gguf"],
+  siblings: [{ rfilename: "model-q4_k_m.gguf", size: 2 * GB }],
+});
 
 describe("Local Models provider normalization", () => {
   test("turns Hugging Face file metadata into a comfortable evidence-based package", () => {
@@ -221,5 +237,204 @@ describe("Local Models provider normalization", () => {
     expect(detail.previewUrls).toEqual([]);
     expect((detail as LocalModelDetail & { iconUrl: string | null }).iconUrl)
       .toBe("https://cdn-avatars.huggingface.co/org.png");
+  });
+
+  test("follows only bounded same-host HTTPS redirects with manual credential-free fetches", async () => {
+    const fetcher = vi.fn(async (input: string | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("?blobs=true")) {
+        return responseAt(url, null, { status: 302, headers: { location: "/api/models/org/model?blobs=redirected" } });
+      }
+      if (url.endsWith("?blobs=redirected")) return responseAt(url, JSON.stringify(huggingFaceRaw()));
+      return responseAt(url, "", { status: 404 });
+    });
+
+    const detail = await loadLocalModelDetail({ provider: "huggingface", id: "org/model" }, machine, fetcher);
+
+    expect(detail.id).toBe("org/model");
+    expect(fetcher.mock.calls[0]?.[1]).toMatchObject({ redirect: "manual", credentials: "omit" });
+    expect(fetcher.mock.calls[1]?.[0]).toBe("https://huggingface.co/api/models/org/model?blobs=redirected");
+  });
+
+  test.each([
+    "http://127.0.0.1:11434/api/tags",
+    "https://10.0.0.8/private",
+    "https://localhost/private?token=secret",
+    "https://civitai.com/api/v1/models/123",
+    "https://user:password@huggingface.co/api/models/org/model",
+    "https://huggingface.co:8443/api/models/org/model",
+  ])("rejects a hostile provider redirect without disclosing its target: %s", async (location) => {
+    const requested: string[] = [];
+    const fetcher = vi.fn(async (input: string | Request) => {
+      const url = String(input);
+      requested.push(url);
+      return responseAt(url, null, { status: 302, headers: { location } });
+    });
+
+    const error = await loadLocalModelDetail({ provider: "huggingface", id: "org/model" }, machine, fetcher)
+      .then(() => null, (cause: unknown) => cause as Error);
+
+    expect(error?.message).toBe("Provider request failed");
+    expect(error?.message).not.toMatch(/localhost|127\.0\.0\.1|civitai|password|8443|secret/i);
+    expect(requested).toHaveLength(1);
+  });
+
+  test("rejects redirect loops and excessive redirect hops", async () => {
+    const loopFetcher = vi.fn(async (input: string | Request) => {
+      const url = String(input);
+      return responseAt(url, null, { status: 302, headers: { location: url } });
+    });
+    await expect(loadLocalModelDetail({ provider: "huggingface", id: "org/model" }, machine, loopFetcher))
+      .rejects.toThrow("Provider request failed");
+    expect(loopFetcher).toHaveBeenCalledTimes(1);
+
+    let hop = 0;
+    const hopFetcher = vi.fn(async (input: string | Request) => {
+      const url = String(input);
+      hop += 1;
+      return responseAt(url, null, { status: 302, headers: { location: `/api/models/org/model?hop=${hop}` } });
+    });
+    await expect(loadLocalModelDetail({ provider: "huggingface", id: "org/model" }, machine, hopFetcher))
+      .rejects.toThrow("Provider request failed");
+    expect(hopFetcher.mock.calls.length).toBeLessThanOrEqual(4);
+  });
+
+  test("rejects a hostile final response URL", async () => {
+    const fetcher = vi.fn(async () => responseAt("https://localhost/private", JSON.stringify(huggingFaceRaw())));
+    await expect(loadLocalModelDetail({ provider: "huggingface", id: "org/model" }, machine, fetcher))
+      .rejects.toThrow("Provider request failed");
+  });
+
+  test("slices oversized search records before a bounded 24-item detail fan-out", async () => {
+    const values = Array.from({ length: 30 }, (_, index) => huggingFaceRaw(`org/model-${index}`));
+    const detailRequests: string[] = [];
+    const fetcher = vi.fn(async (input: string | Request) => {
+      const url = String(input);
+      if (url.includes("/api/models?")) return responseAt(url, JSON.stringify(values));
+      if (url.includes("/api/models/org/model-")) {
+        detailRequests.push(url);
+        const id = url.match(/\/api\/models\/([^?]+)/)?.[1] ?? "org/model";
+        return responseAt(url, JSON.stringify(huggingFaceRaw(id)));
+      }
+      return responseAt(url, "", { status: 404 });
+    });
+
+    const catalog = await searchLocalModels({ provider: "huggingface", limit: 24 }, machine, fetcher);
+
+    expect(catalog.items).toHaveLength(24);
+    expect(detailRequests).toHaveLength(24);
+  });
+
+  test("bounds DTO tags, files, nested arrays, and strings before projection", () => {
+    const model = normalizeHuggingFaceModel({
+      ...huggingFaceRaw(),
+      author: "a".repeat(10_000),
+      tags: Array.from({ length: 10_000 }, (_, index) => `${index}-${"t".repeat(1_000)}`),
+      siblings: Array.from({ length: 1_000 }, (_, index) => ({ rfilename: `${index}-${"f".repeat(1_000)}.gguf`, size: 1 })),
+    }, machine);
+    const projected = projectMarketplaceModelDetail({ ...model, readme: "bounded", previewUrls: [], files: [] });
+
+    expect(model.tags.length).toBeLessThanOrEqual(64);
+    expect(Math.max(...model.tags.map((tag) => tag.length))).toBeLessThanOrEqual(256);
+    expect(model.author.length).toBeLessThanOrEqual(256);
+    expect(model.recommendedPackage.files.length).toBeLessThanOrEqual(64);
+    expect(Math.max(...model.recommendedPackage.files.map((file) => file.length))).toBeLessThanOrEqual(1_024);
+    expect(projected.tags).toEqual(model.tags);
+  });
+
+  test("rejects oversized content-length and excessive streamed chunks before JSON parsing", async () => {
+    const oversizedLength = vi.fn(async (input: string | Request) => {
+      const url = String(input);
+      return responseAt(url, "[]", { headers: { "content-length": String(2 * 1_024 * 1_024 + 1) } });
+    });
+    const lengthCatalog = await searchLocalModels({ provider: "huggingface" }, machine, oversizedLength);
+    expect(lengthCatalog.errors).toEqual([{ provider: "huggingface", message: "Hugging Face request failed" }]);
+
+    const oversizedBody = vi.fn(async (input: string | Request) => {
+      const url = String(input);
+      const stream = new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(new Uint8Array(2 * 1_024 * 1_024 + 1)); controller.close(); } });
+      return responseAt(url, stream);
+    });
+    const bodyCatalog = await searchLocalModels({ provider: "huggingface" }, machine, oversizedBody);
+    expect(bodyCatalog.errors).toEqual([{ provider: "huggingface", message: "Hugging Face request failed" }]);
+
+    const chunks = Array.from({ length: 4_097 }, () => new Uint8Array([0x20]));
+    chunks.push(new TextEncoder().encode("[]"));
+    const chunked = vi.fn(async (input: string | Request) => {
+      const url = String(input);
+      const stream = new ReadableStream<Uint8Array>({ pull(controller) { controller.enqueue(chunks.shift()!); if (!chunks.length) controller.close(); } });
+      return responseAt(url, stream);
+    });
+    const chunkCatalog = await searchLocalModels({ provider: "huggingface" }, machine, chunked);
+    expect(chunkCatalog.errors).toEqual([{ provider: "huggingface", message: "Hugging Face request failed" }]);
+  });
+
+  test("rejects an oversized README content-length before reading provider text", async () => {
+    const fetcher = vi.fn(async (input: string | Request) => {
+      const url = String(input);
+      if (url.includes("/api/models/")) return responseAt(url, JSON.stringify(huggingFaceRaw()));
+      if (url.includes("/raw/")) return responseAt(url, "# small body", { headers: { "content-length": String(256 * 1_024 + 1) } });
+      return responseAt(url, "", { status: 404 });
+    });
+
+    await expect(loadLocalModelDetail({ provider: "huggingface", id: "org/model" }, machine, fetcher))
+      .rejects.toThrow("Hugging Face request failed");
+  });
+
+  test("bounds avatar JSON before parsing optional detail metadata", async () => {
+    const oversizedAvatar = `${" ".repeat(2 * 1_024 * 1_024)}{"avatarUrl":"https://cdn-avatars.huggingface.co/leak.png"}`;
+    const fetcher = vi.fn(async (input: string | Request) => {
+      const url = String(input);
+      if (url.includes("/api/models/")) return responseAt(url, JSON.stringify(huggingFaceRaw()));
+      if (url.includes("/api/organizations/") || url.includes("/api/users/")) return responseAt(url, oversizedAvatar);
+      return responseAt(url, "", { status: 404 });
+    });
+
+    const detail = await loadLocalModelDetail({ provider: "huggingface", id: "org/model" }, machine, fetcher);
+
+    expect(detail.iconUrl).toBeNull();
+  });
+
+  test("sanitizes provider stream failures without URL or path details", async () => {
+    const fetcher = vi.fn(async (input: string | Request) => {
+      const url = String(input);
+      if (url.includes("/api/models/")) return responseAt(url, JSON.stringify(huggingFaceRaw()));
+      if (url.includes("/raw/")) {
+        return responseAt(url, new ReadableStream({ start(controller) { controller.error(new Error("https://huggingface.co/private?token=secret /Users/demo/key")); } }));
+      }
+      return responseAt(url, "", { status: 404 });
+    });
+
+    const error = await loadLocalModelDetail({ provider: "huggingface", id: "org/model" }, machine, fetcher)
+      .then(() => null, (cause: unknown) => cause as Error);
+
+    expect(error?.message).toBe("Hugging Face request failed");
+    expect(error?.message).not.toMatch(/huggingface\.co|token|Users|key|secret/i);
+  });
+
+  test("caps detail files and recommended file names before IPC", async () => {
+    const raw = {
+      ...huggingFaceRaw(),
+      siblings: Array.from({ length: 1_000 }, (_, index) => ({ rfilename: `model-${index}.safetensors`, size: 1 })),
+    };
+    const fetcher = vi.fn(async (input: string | Request) => {
+      const url = String(input);
+      if (url.includes("/api/models/")) return responseAt(url, JSON.stringify(raw));
+      return responseAt(url, "", { status: 404 });
+    });
+
+    const detail = await loadLocalModelDetail({ provider: "huggingface", id: "org/model" }, machine, fetcher);
+
+    expect(detail.files).toHaveLength(256);
+    expect(detail.recommendedPackage.files.length).toBeLessThanOrEqual(64);
+  });
+
+  test("accepts only real RFC3339 timestamps and preserves timezone meaning", () => {
+    expect(normalizeHuggingFaceModel({ ...huggingFaceRaw(), lastModified: "2026-08-20T12:30:45+03:00" }, machine).lastModified)
+      .toBe("2026-08-20T09:30:45.000Z");
+    for (const value of ["2026-02-30T12:00:00Z", "08/20/2026 12:00", "2026-08-20T12:00:00", "not-a-date"]) {
+      expect(normalizeHuggingFaceModel({ ...huggingFaceRaw(), lastModified: value }, machine).lastModified).toBeNull();
+      expect(normalizeCivitaiModel({ id: 1, updatedAt: value, modelVersions: [] }, machine).lastModified).toBeNull();
+    }
   });
 });

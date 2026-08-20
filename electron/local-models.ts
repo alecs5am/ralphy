@@ -28,6 +28,19 @@ const PROVIDER_MEDIA_HOSTS = new Set([
 ]);
 const PROVIDER_PAGE_HOSTS = new Set(["huggingface.co", "civitai.com", "www.civitai.com", "modelscope.cn"]);
 const PROVIDER_TIMEOUT_MS = 8_000;
+const PROVIDER_JSON_MAX_BYTES = 2 * 1024 * 1024;
+const PROVIDER_README_MAX_BYTES = 256 * 1024;
+const PROVIDER_MAX_CHUNKS = 4_096;
+const PROVIDER_MAX_REDIRECTS = 3;
+const MAX_MODEL_RESULTS = 24;
+const MAX_TAGS = 64;
+const MAX_FILES = 256;
+const MAX_RECOMMENDED_FILES = 64;
+const MAX_INSTALLED_MODELS = 256;
+const MAX_TEXT = 4_096;
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const PROVIDER_FETCH_HOSTS = new Set(["huggingface.co", "civitai.com"]);
+const REPOSITORY_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const huggingFaceAvatarCache = new Map<string, Promise<string | null>>();
 
 type JsonRecord = Record<string, unknown>;
@@ -39,12 +52,12 @@ function record(value: unknown): JsonRecord {
     : {};
 }
 
-function array(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
+function array(value: unknown, limit = MAX_FILES): unknown[] {
+  return Array.isArray(value) ? value.slice(0, limit) : [];
 }
 
-function text(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback;
+function text(value: unknown, fallback = "", maxLength = MAX_TEXT): string {
+  return (typeof value === "string" ? value : fallback).slice(0, maxLength);
 }
 
 function number(value: unknown, fallback = 0): number {
@@ -53,6 +66,25 @@ function number(value: unknown, fallback = 0): number {
 
 function bool(value: unknown): boolean {
   return value === true || value === "auto" || value === "manual";
+}
+
+function rfc3339(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > 64) return null;
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|([+-])(\d{2}):(\d{2}))$/);
+  if (!match || match[1] === "0000" || match[8] === "-00:00") return null;
+  const [year, month, day, hour, minute, second] = match.slice(1, 7).map(Number);
+  const milliseconds = Number((match[7] ?? "").slice(0, 3).padEnd(3, "0"));
+  const local = new Date(0);
+  local.setUTCFullYear(year, month - 1, day);
+  local.setUTCHours(hour, minute, second, milliseconds);
+  if (local.getUTCFullYear() !== year || local.getUTCMonth() !== month - 1 || local.getUTCDate() !== day
+    || local.getUTCHours() !== hour || local.getUTCMinutes() !== minute || local.getUTCSeconds() !== second) return null;
+  const offsetHours = Number(match[10] ?? 0);
+  const offsetMinutes = Number(match[11] ?? 0);
+  if (offsetHours > 23 || offsetMinutes > 59) return null;
+  const offset = match[8] === "Z" ? 0 : (match[9] === "+" ? 1 : -1) * (offsetHours * 60 + offsetMinutes);
+  const instant = new Date(local.getTime() - offset * 60_000);
+  return instant.getUTCFullYear() >= 1 && instant.getUTCFullYear() <= 9_999 ? instant.toISOString() : null;
 }
 
 export function parseLocalModelSearchInput(value: unknown): LocalModelSearchInput {
@@ -83,9 +115,8 @@ export function parseLocalModelReference(value: unknown): LocalModelReference {
   if (Object.keys(input).some((key) => !["provider", "id"].includes(key))) throw new Error("Invalid model reference");
   const provider = text(input.provider);
   const id = text(input.id);
-  const repositoryId = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
   const valid = provider === "civitai" ? /^\d{1,12}$/.test(id)
-    : (provider === "huggingface" || provider === "modelscope") && repositoryId.test(id);
+    : (provider === "huggingface" || provider === "modelscope") && REPOSITORY_ID.test(id);
   if (!valid) throw new Error("Invalid model reference");
   return { provider: provider as LocalModelProvider, id };
 }
@@ -94,7 +125,7 @@ export function parseLocalModelProviderUrl(value: unknown): string {
   if (typeof value !== "string" || value.length > 2_048) throw new Error("Invalid provider URL");
   try {
     const url = new URL(value);
-    if (url.protocol !== "https:" || !PROVIDER_PAGE_HOSTS.has(url.hostname)) throw new Error();
+    if (url.protocol !== "https:" || url.username || url.password || url.port || !PROVIDER_PAGE_HOSTS.has(url.hostname)) throw new Error();
     return url.toString();
   } catch {
     throw new Error("Invalid provider URL");
@@ -180,7 +211,7 @@ export function safeProviderMediaUrl(value: unknown, base?: string): string | nu
   if (typeof value !== "string" || value.length > 2_048) return null;
   try {
     const url = new URL(value, base);
-    if (url.protocol !== "https:" || !PROVIDER_MEDIA_HOSTS.has(url.hostname)) return null;
+    if (url.protocol !== "https:" || url.username || url.password || url.port || !PROVIDER_MEDIA_HOSTS.has(url.hostname)) return null;
     return url.toString();
   } catch {
     return null;
@@ -188,9 +219,9 @@ export function safeProviderMediaUrl(value: unknown, base?: string): string | nu
 }
 
 function modelFiles(raw: JsonRecord): LocalModelFile[] {
-  return array(raw.siblings).map((value) => {
+  return array(raw.siblings, MAX_FILES).map((value) => {
     const file = record(value);
-    const name = text(file.rfilename);
+    const name = text(file.rfilename, "", 1_024);
     const bytes = number(file.size, number(record(file.lfs).size, -1));
     const lower = name.toLocaleLowerCase();
     const format = lower.endsWith(".gguf") ? "GGUF"
@@ -280,7 +311,7 @@ function recommendedFiles(files: LocalModelFile[]): LocalModelFile[] {
 }
 
 function packageFrom(files: LocalModelFile[], tags: string[]) {
-  const selected = recommendedFiles(files);
+  const selected = recommendedFiles(files).slice(0, MAX_RECOMMENDED_FILES);
   const bytes = selected.every((file) => file.bytes !== null)
     ? selected.reduce((sum, file) => sum + (file.bytes ?? 0), 0)
     : null;
@@ -295,16 +326,17 @@ function packageFrom(files: LocalModelFile[], tags: string[]) {
 
 function baseModel(cardData: JsonRecord): string | null {
   const value = cardData.base_model;
-  if (typeof value === "string") return value;
-  return array(value).find((item): item is string => typeof item === "string") ?? null;
+  if (typeof value === "string") return text(value, "", 256);
+  const selected = array(value, 16).find((item): item is string => typeof item === "string");
+  return selected ? text(selected, "", 256) : null;
 }
 
 export function normalizeHuggingFaceModel(rawValue: unknown, machine: LocalModelMachine): LocalModelSummary {
   const raw = record(rawValue);
-  const id = text(raw.id);
+  const id = text(raw.id, "", 256);
   const cardData = record(raw.cardData);
-  const tags = array(raw.tags).filter((tag): tag is string => typeof tag === "string");
-  const task = text(raw.pipeline_tag, text(cardData.pipeline_tag, "unknown"));
+  const tags = array(raw.tags, MAX_TAGS).filter((tag): tag is string => typeof tag === "string").map((tag) => text(tag, "", 256));
+  const task = text(raw.pipeline_tag, text(cardData.pipeline_tag, "unknown", 128), 128);
   const files = modelFiles(raw);
   const recommendedPackage = packageFrom(files, tags);
   const comfort = assessModelComfort({ task, format: recommendedPackage.format, bytes: recommendedPackage.bytes }, machine);
@@ -313,16 +345,16 @@ export function normalizeHuggingFaceModel(rawValue: unknown, machine: LocalModel
   return {
     provider: "huggingface",
     id,
-    name: titleFromId(id),
-    author: text(raw.author, id.split("/")[0] ?? "Hugging Face"),
+    name: text(titleFromId(id), "", 256),
+    author: text(raw.author, id.split("/")[0] ?? "Hugging Face", 256),
     task,
     modality: modalityForTask(task),
     modelType: tags.some((tag) => /lora|adapter|peft/i.test(tag)) ? "Adapter" : "Base",
     baseModel: baseModel(cardData),
-    license: text(cardData.license_name, text(cardData.license, licenseTag ?? "")) || null,
+    license: text(cardData.license_name, text(cardData.license, licenseTag ?? "", 512), 512) || null,
     gated: bool(raw.gated),
-    revision: text(raw.sha) || null,
-    lastModified: text(raw.lastModified) || null,
+    revision: text(raw.sha, "", 256) || null,
+    lastModified: rfc3339(raw.lastModified),
     downloads: number(raw.downloads),
     likes: number(raw.likes),
     tags,
@@ -338,11 +370,11 @@ export function normalizeHuggingFaceModel(rawValue: unknown, machine: LocalModel
 
 export function normalizeCivitaiModel(rawValue: unknown, machine: LocalModelMachine): LocalModelSummary {
   const raw = record(rawValue);
-  const version = record(array(raw.modelVersions)[0]);
-  const files = array(version.files).map((value) => {
+  const version = record(array(raw.modelVersions, 1)[0]);
+  const files = array(version.files, MAX_FILES).map((value) => {
     const file = record(value);
-    const name = text(file.name);
-    const rawFormat = text(record(file.metadata).format, name.toLocaleLowerCase().endsWith(".safetensors") ? "Safetensors" : "File");
+    const name = text(file.name, "", 1_024);
+    const rawFormat = text(record(file.metadata).format, name.toLocaleLowerCase().endsWith(".safetensors") ? "Safetensors" : "File", 128);
     const format = /safetensor/i.test(rawFormat) ? "Safetensors" : rawFormat;
     return {
       name,
@@ -352,7 +384,7 @@ export function normalizeCivitaiModel(rawValue: unknown, machine: LocalModelMach
       warning: /pickle|ckpt/i.test(format) ? "Executable checkpoint format" : null,
     } satisfies LocalModelFile;
   }).filter((file) => file.name.length > 0);
-  const tags = array(raw.tags).filter((tag): tag is string => typeof tag === "string");
+  const tags = array(raw.tags, MAX_TAGS).filter((tag): tag is string => typeof tag === "string").map((tag) => text(tag, "", 256));
   const recommendedPackage = packageFrom(files, tags);
   const descriptor = [raw.name, raw.type, version.baseModel, ...tags].map((value) => text(value)).join(" ");
   const task = /video|\bwan\b|cogvideo|animatediff|hunyuan.*video|\bltx\b/i.test(descriptor)
@@ -360,7 +392,7 @@ export function normalizeCivitaiModel(rawValue: unknown, machine: LocalModelMach
     : /audio|speech|voice|music/i.test(descriptor)
       ? "text-to-audio"
       : "text-to-image";
-  const commercialScopes = array(raw.allowCommercialUse).filter((value): value is string => typeof value === "string");
+  const commercialScopes = array(raw.allowCommercialUse, 16).filter((value): value is string => typeof value === "string").map((value) => text(value, "", 128));
   const commercial = commercialScopes.length > 0;
   const permissions = [
     commercial ? `Commercial use allowed: ${commercialScopes.join(", ")}` : "Commercial use not permitted",
@@ -368,23 +400,23 @@ export function normalizeCivitaiModel(rawValue: unknown, machine: LocalModelMach
     raw.allowNoCredit === true ? "No creator credit required" : "Creator credit required",
     raw.allowDifferentLicense === true ? "Alternate license permitted" : "Alternate license restricted",
   ];
-  const previewUrl = array(version.images)
+  const previewUrl = array(version.images, 64)
     .map((image) => safeProviderMediaUrl(record(image).url))
     .find((url): url is string => url !== null) ?? null;
   const id = String(number(raw.id));
   return {
     provider: "civitai",
     id,
-    name: text(raw.name, `Civitai model ${id}`),
-    author: text(record(raw.creator).username, "Civitai"),
+    name: text(raw.name, `Civitai model ${id}`, 256),
+    author: text(record(raw.creator).username, "Civitai", 256),
     task,
     modality: modalityForTask(task),
-    modelType: text(raw.type, "Model"),
-    baseModel: text(version.baseModel) || null,
+    modelType: text(raw.type, "Model", 128),
+    baseModel: text(version.baseModel, "", 256) || null,
     license: commercial ? "Creator terms" : "Restricted creator terms",
     gated: false,
-    revision: text(version.name) || String(number(version.id)) || null,
-    lastModified: text(raw.updatedAt) || null,
+    revision: text(version.name, "", 256) || String(number(version.id)) || null,
+    lastModified: rfc3339(raw.updatedAt),
     downloads: number(record(raw.stats).downloadCount),
     likes: number(record(raw.stats).thumbsUpCount),
     tags,
@@ -407,13 +439,74 @@ function readmePreviewUrls(markdown: string, modelId: string, revision: string |
   return [...new Set(candidates.map((url) => safeProviderMediaUrl(url, base)).filter((url): url is string => url !== null))].slice(0, 5);
 }
 
-async function jsonResponse(response: Response, label: string): Promise<unknown> {
-  if (!response.ok) throw new Error(`${label} returned ${response.status}`);
-  return response.json();
+async function boundedResponseText(response: Response, maxBytes: number, label: string): Promise<string> {
+  try {
+    if (!response.ok) throw new Error();
+    const rawLength = response.headers.get("content-length");
+    if (rawLength !== null && (!/^(?:0|[1-9]\d*)$/.test(rawLength) || Number(rawLength) > maxBytes)) throw new Error();
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    let count = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      count += 1;
+      size += value.byteLength;
+      if (count > PROVIDER_MAX_CHUNKS || size > maxBytes) {
+        void reader.cancel();
+        throw new Error();
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throw new Error(`${label} request failed`);
+  }
 }
 
-function providerFetch(fetcher: Fetcher, input: string | Request, init?: RequestInit): Promise<Response> {
-  return fetcher(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(PROVIDER_TIMEOUT_MS) });
+async function jsonResponse(response: Response, label: string): Promise<unknown> {
+  try {
+    return JSON.parse(await boundedResponseText(response, PROVIDER_JSON_MAX_BYTES, label));
+  } catch {
+    throw new Error(`${label} request failed`);
+  }
+}
+
+function providerUrl(value: string, hostname?: string): URL {
+  const url = new URL(value);
+  if (url.protocol !== "https:" || url.username || url.password || url.port
+    || !PROVIDER_FETCH_HOSTS.has(url.hostname) || (hostname !== undefined && url.hostname !== hostname)) throw new Error();
+  return url;
+}
+
+async function providerFetch(fetcher: Fetcher, input: string, init?: RequestInit): Promise<Response> {
+  try {
+    let current = providerUrl(input);
+    const hostname = current.hostname;
+    const seen = new Set([current.toString()]);
+    const signal = init?.signal ?? AbortSignal.timeout(PROVIDER_TIMEOUT_MS);
+    for (let redirects = 0; ; redirects += 1) {
+      const response = await fetcher(current.toString(), { ...init, credentials: "omit", redirect: "manual", signal });
+      const finalUrl = providerUrl(response.url || current.toString(), hostname);
+      if (!REDIRECT_STATUSES.has(response.status)) return response;
+      const location = response.headers.get("location");
+      if (redirects >= PROVIDER_MAX_REDIRECTS || location === null || location.length > 2_048) throw new Error();
+      const next = providerUrl(new URL(location, finalUrl).toString(), hostname);
+      if (seen.has(next.toString())) throw new Error();
+      seen.add(next.toString());
+      current = next;
+    }
+  } catch {
+    throw new Error("Provider request failed");
+  }
 }
 
 async function fetchHuggingFaceAvatar(author: string, fetcher: Fetcher): Promise<string | null> {
@@ -422,7 +515,7 @@ async function fetchHuggingFaceAvatar(author: string, fetcher: Fetcher): Promise
       try {
         const response = await providerFetch(fetcher, `https://huggingface.co/api/${kind}/${encodeURIComponent(author)}/overview`);
         if (!response.ok) continue;
-        const avatar = safeProviderMediaUrl(record(await response.json()).avatarUrl);
+        const avatar = safeProviderMediaUrl(record(await jsonResponse(response, "Hugging Face")).avatarUrl);
         if (avatar) return avatar;
       } catch { /* try the other owner kind */ }
     }
@@ -442,11 +535,13 @@ export async function loadHuggingFaceDetail(
 ): Promise<LocalModelDetail> {
   const encoded = id.split("/").map(encodeURIComponent).join("/");
   const raw = await jsonResponse(await providerFetch(fetcher, `https://huggingface.co/api/models/${encoded}?blobs=true`), "Hugging Face");
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Hugging Face request failed");
   const normalized = normalizeHuggingFaceModel(raw, machine);
+  if (normalized.id !== id || !REPOSITORY_ID.test(normalized.id)) throw new Error("Hugging Face request failed");
   const summary = { ...normalized, iconUrl: await fetchHuggingFaceAvatar(normalized.author, fetcher) };
   const readmeResponse = await providerFetch(fetcher, `https://huggingface.co/${encoded}/raw/${encodeURIComponent(summary.revision ?? "main")}/README.md`);
   const readme = readmeResponse.ok
-    ? (await readmeResponse.text()).slice(0, 256 * 1024)
+    ? await boundedResponseText(readmeResponse, PROVIDER_README_MAX_BYTES, "Hugging Face")
     : summary.gated
       ? "# Access required\n\nThis model card is gated by Hugging Face. Open the provider page to request access."
       : "# Model card unavailable\n\nHugging Face did not return a README for this revision.";
@@ -464,18 +559,20 @@ async function loadCivitaiDetail(
   fetcher: Fetcher,
 ): Promise<LocalModelDetail> {
   const raw = await jsonResponse(await providerFetch(fetcher, `https://civitai.com/api/v1/models/${encodeURIComponent(id)}`), "Civitai");
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Civitai request failed");
   const summary = normalizeCivitaiModel(raw, machine);
+  if (summary.id !== id) throw new Error("Civitai request failed");
   const rawRecord = record(raw);
-  const version = record(array(rawRecord.modelVersions)[0]);
-  const files = array(version.files).map((value) => {
+  const version = record(array(rawRecord.modelVersions, 1)[0]);
+  const files = array(version.files, MAX_FILES).map((value) => {
     const file = record(value);
-    const name = text(file.name);
-    const rawFormat = text(record(file.metadata).format, "File");
+    const name = text(file.name, "", 1_024);
+    const rawFormat = text(record(file.metadata).format, "File", 128);
     const format = /safetensor/i.test(rawFormat) ? "Safetensors" : rawFormat;
     return { name, bytes: number(file.sizeKB, -1) >= 0 ? number(file.sizeKB) * 1024 : null, format, recommended: /safetensor/i.test(format), warning: /pickle|ckpt/i.test(format) ? "Executable checkpoint format" : null };
-  });
-  const previewUrls = array(version.images).map((image) => safeProviderMediaUrl(record(image).url)).filter((url): url is string => url !== null).slice(0, 5);
-  const description = text(rawRecord.description).trim();
+  }).filter((file) => file.name.length > 0);
+  const previewUrls = array(version.images, 64).map((image) => safeProviderMediaUrl(record(image).url)).filter((url): url is string => url !== null).slice(0, 5);
+  const description = text(rawRecord.description, "", PROVIDER_README_MAX_BYTES).trim();
   return { ...summary, readme: `# ${summary.name}\n\n${description || "No model description was supplied by the creator."}`, previewUrls, files };
 }
 
@@ -498,7 +595,8 @@ export async function loadLocalModelDetail(
 }
 
 async function detailedHuggingFaceResults(values: unknown[], machine: LocalModelMachine, fetcher: Fetcher): Promise<LocalModelSummary[]> {
-  return Promise.all(values.map(async (value) => {
+  const records = values.filter((value) => REPOSITORY_ID.test(text(record(value).id, "", 256))).slice(0, MAX_MODEL_RESULTS);
+  return Promise.all(records.map(async (value) => {
     const id = text(record(value).id);
     if (!id) return null;
     let summary: LocalModelSummary;
@@ -516,14 +614,18 @@ async function searchHuggingFace(input: LocalModelSearchInput, machine: LocalMod
   const query = new URLSearchParams({ limit: String(limit), full: "true", sort: input.sort === "updated" ? "lastModified" : input.sort === "downloads" ? "downloads" : "trendingScore", direction: "-1" });
   if (input.query?.trim()) query.set("search", input.query.trim());
   const raw = await jsonResponse(await providerFetch(fetcher, `https://huggingface.co/api/models?${query}`), "Hugging Face");
-  return detailedHuggingFaceResults(array(raw), machine, fetcher);
+  if (!Array.isArray(raw)) throw new Error("Hugging Face request failed");
+  return detailedHuggingFaceResults(raw.slice(0, limit), machine, fetcher);
 }
 
 async function searchCivitai(input: LocalModelSearchInput, machine: LocalModelMachine, fetcher: Fetcher, limit: number): Promise<LocalModelSummary[]> {
   const query = new URLSearchParams({ limit: String(limit), nsfw: "false", sort: input.sort === "updated" ? "Newest" : "Most Downloaded" });
   if (input.query?.trim()) query.set("query", input.query.trim());
-  const raw = record(await jsonResponse(await providerFetch(fetcher, `https://civitai.com/api/v1/models?${query}`), "Civitai"));
-  return array(raw.items).map((value) => normalizeCivitaiModel(value, machine));
+  const response = await jsonResponse(await providerFetch(fetcher, `https://civitai.com/api/v1/models?${query}`), "Civitai");
+  if (response === null || typeof response !== "object" || Array.isArray(response)) throw new Error("Civitai request failed");
+  return array(record(response).items, limit)
+    .filter((value) => /^\d{1,12}$/.test(String(number(record(value).id, -1))))
+    .map((value) => normalizeCivitaiModel(value, machine));
 }
 
 export async function searchLocalModels(
@@ -533,14 +635,14 @@ export async function searchLocalModels(
 ): Promise<LocalModelCatalog> {
   const snapshot = machine ?? await loadLocalModelMachine(fetcher);
   const provider = input.provider ?? "all";
-  const limit = Math.max(1, Math.min(24, input.limit ?? 8));
+  const limit = Math.max(1, Math.min(MAX_MODEL_RESULTS, input.limit ?? 8));
   const searches: { provider: LocalModelProvider; run: () => Promise<LocalModelSummary[]> }[] = [];
   if (provider === "all" || provider === "huggingface") searches.push({ provider: "huggingface", run: () => searchHuggingFace(input, snapshot, fetcher, provider === "all" ? Math.max(6, limit - 2) : limit) });
   if (provider === "all" || provider === "civitai") searches.push({ provider: "civitai", run: () => searchCivitai(input, snapshot, fetcher, provider === "all" ? 2 : limit) });
   if (provider === "modelscope") searches.push({ provider: "modelscope", run: async () => { throw new Error("ModelScope catalogue integration is not available yet"); } });
   const settled = await Promise.all(searches.map(async ({ provider: source, run }) => {
     try { return { source, items: await run(), error: null }; }
-    catch (cause) { return { source, items: [], error: cause instanceof Error ? cause.message : String(cause) }; }
+    catch { return { source, items: [], error: `${source === "huggingface" ? "Hugging Face" : source === "civitai" ? "Civitai" : "ModelScope"} request failed` }; }
   }));
   const items = settled.flatMap((result) => result.items);
   if (input.sort === "comfort") items.sort((left, right) => right.comfort.score - left.comfort.score || right.downloads - left.downloads);
@@ -572,20 +674,20 @@ async function ollamaInventory(fetcher: Fetcher): Promise<{ label: string; insta
   try {
     const response = await fetcher("http://127.0.0.1:11434/api/tags", { signal: AbortSignal.timeout(800) });
     if (!response.ok) return null;
-    const raw = record(await response.json());
-    const installed = array(raw.models).map((value) => {
+    const raw = record(JSON.parse(await boundedResponseText(response, PROVIDER_JSON_MAX_BYTES, "Ollama")));
+    const installed = array(raw.models, MAX_INSTALLED_MODELS).map((value) => {
       const model = record(value);
       const details = record(model.details);
       return {
-        id: text(model.model, text(model.name)),
-        name: text(model.name, text(model.model)),
+        id: text(model.model, text(model.name, "", 256), 256),
+        name: text(model.name, text(model.model, "", 256), 256),
         runtime: "ollama",
-        digest: text(model.digest),
+        digest: text(model.digest, "", 256),
         bytes: number(model.size),
-        format: [text(details.family), text(details.parameter_size), text(details.quantization_level)].filter(Boolean).join(" · "),
-        updatedAt: text(model.modified_at) || null,
+        format: text([text(details.family, "", 128), text(details.parameter_size, "", 128), text(details.quantization_level, "", 128)].filter(Boolean).join(" · "), "", 512),
+        updatedAt: rfc3339(model.modified_at),
       } satisfies LocalInstalledModel;
-    });
+    }).filter((model) => model.id.length > 0 && model.name.length > 0);
     return { label: "Ollama", installed };
   } catch {
     return null;
@@ -603,9 +705,9 @@ export async function loadLocalModelMachine(fetcher: Fetcher = fetch): Promise<L
     : release();
   const runtime = (id: LocalModelRuntimeId, label: string, detail?: string) => ({ id, label, available: detail?.startsWith("Detected") ?? false, detail: detail ?? "Not detected" });
   return {
-    platform: `${platform() === "darwin" ? "macOS" : platform()} ${version}`,
-    architecture: arch(),
-    cpu: cpus()[0]?.model ?? "Unknown CPU",
+    platform: text(`${platform() === "darwin" ? "macOS" : platform()} ${version}`, "", 256),
+    architecture: text(arch(), "", 64),
+    cpu: text(cpus()[0]?.model, "Unknown CPU", 256),
     totalMemoryBytes: totalmem(),
     freeDiskBytes: disk ? Number(disk.bavail * disk.bsize) : 0,
     runtimes: [
