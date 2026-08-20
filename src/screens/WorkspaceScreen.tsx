@@ -11,11 +11,11 @@ import {
 import type { WorkspacePage } from "../state/workbench";
 import {
   presentWorkspaceOverview,
-  type Availability,
   type WorkspaceOverviewPresentation,
 } from "./workspace/overview-presentation";
 import { WorkspaceOverviewHeader } from "./workspace/WorkspaceOverviewHeader";
 import { WorkspaceInsights } from "./workspace/WorkspaceInsights";
+import { WorkspaceOperations } from "./workspace/WorkspaceOperations";
 import { WorkspacePerformance } from "./workspace/WorkspacePerformance";
 import { WorkspacePlanAndOutcomes } from "./workspace/WorkspacePlanAndOutcomes";
 
@@ -33,40 +33,47 @@ export function startWorkspaceScreenController(
   return () => controller.dispose();
 }
 
-function PlaceholderSection({
-  title,
-  value,
-  ready,
-}: {
-  title: string;
-  value: Availability<unknown>;
-  ready: string;
-}) {
-  const id = `workspace-${title.toLowerCase().replaceAll(" ", "-")}`;
-  return <section className="workspace-overview-section" aria-labelledby={id}>
-    <h2 id={id}>{title}</h2>
-    <p>{value.status === "ready" ? ready : value.reason}</p>
-  </section>;
-}
-
-function WorkspaceOverviewShell({ value, onOpenPage, onOpenUnit }: {
+function WorkspaceOverviewShell({ value, onOpenPage, onOpenUnit, onOpenProject, onRetry }: {
   value: WorkspaceOverviewPresentation;
   onOpenPage(page: WorkspacePage): void;
   onOpenUnit(projectId: string, unitId: string): void;
+  onOpenProject(project: ProjectSummary): void;
+  onRetry(): void;
 }) {
-  const attention = value.attention.status === "ready" || value.attention.status === "partial"
-    ? `${value.attention.value.items.length} attention item${value.attention.value.items.length === 1 ? "" : "s"} available.`
-    : "Attention data available.";
-  const projects = value.projects.status === "ready" || value.projects.status === "partial"
-    ? `${value.projects.value.length} active project${value.projects.value.length === 1 ? "" : "s"} available.`
-    : "Project data available.";
   return <>
     <WorkspacePerformance value={value} onOpenCalendar={() => onOpenPage("calendar")} />
     <WorkspacePlanAndOutcomes value={value} onOpenPage={onOpenPage} onOpenUnit={onOpenUnit} />
     <WorkspaceInsights value={value} onOpenPage={onOpenPage} />
-    <PlaceholderSection title="Attention" value={value.attention} ready={attention} />
-    <PlaceholderSection title="Active projects" value={value.projects} ready={projects} />
+    <WorkspaceOperations value={value} onOpenProject={onOpenProject} onOpenPage={onOpenPage} onRetry={onRetry} />
   </>;
+}
+
+function WorkspaceOverviewLoading() {
+  return <main className="main-region workspace-overview workspace-overview-loading" aria-busy="true">
+    <header className="screen-header workspace-overview-header workspace-overview-loading-header">
+      <div className="screen-kicker">Workspace overview</div>
+      <h1>Loading workspace overview…</h1>
+    </header>
+    <div className="workspace-overview-scroll" role="status" aria-label="Loading workspace overview">
+      {["Performance", "Planning", "Insights", "Operations"].map((label) => <section key={label} className="workspace-overview-skeleton-section" aria-hidden="true">
+        <span>{label}</span><i /><i /><i />
+      </section>)}
+    </div>
+  </main>;
+}
+
+function WorkspaceOverviewError({ error, onRetry }: { error: string | null; onRetry(): void }) {
+  return <main className="main-region workspace-overview workspace-overview-error">
+    <header className="screen-header workspace-overview-header workspace-overview-loading-header">
+      <div className="screen-kicker">Workspace overview</div>
+      <h1>Workspace overview could not be loaded</h1>
+    </header>
+    <div className="project-local-error" role="alert">
+      <AlertCircle size={17} aria-hidden="true" />
+      <span>{error ?? "Core did not return workspace data."}</span>
+      <button type="button" onClick={onRetry}><RefreshCw size={14} aria-hidden="true" />Retry</button>
+    </div>
+  </main>;
 }
 
 interface WorkspaceScreenViewProps {
@@ -82,10 +89,10 @@ interface WorkspaceScreenViewProps {
 export function WorkspaceScreenView(props: WorkspaceScreenViewProps) {
   const { controller, snapshot, catalogProjects, workspaceDescription } = props;
   if (snapshot.status === "loading" || snapshot.status === "idle") {
-    return <main className="main-region"><div className="project-skeleton" role="status">Loading workspace overview…</div></main>;
+    return <WorkspaceOverviewLoading />;
   }
   if (snapshot.status === "error") {
-    return <main className="main-region"><div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.error ?? "Workspace overview could not be loaded."}</span><button type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div></main>;
+    return <WorkspaceOverviewError error={snapshot.error} onRetry={() => { void controller.retry(); }} />;
   }
   if (!snapshot.value) return null;
   const presentation = presentWorkspaceOverview({
@@ -105,7 +112,13 @@ export function WorkspaceScreenView(props: WorkspaceScreenViewProps) {
     />
     {snapshot.error && <div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.error}</span><button type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>}
     <div className="workspace-overview-scroll">
-      <WorkspaceOverviewShell value={presentation} onOpenPage={props.onOpenPage} onOpenUnit={props.onOpenUnit} />
+      <WorkspaceOverviewShell
+        value={presentation}
+        onOpenPage={props.onOpenPage}
+        onOpenUnit={props.onOpenUnit}
+        onOpenProject={props.onOpenProject}
+        onRetry={() => { void controller.retry(); }}
+      />
     </div>
   </main>;
 }
@@ -142,5 +155,5 @@ export function WorkspaceScreen(props: WorkspaceScreenProps) {
         onOpenUnit={props.onOpenUnit}
         onOpenProject={props.onOpenProject}
       />
-    : <main className="main-region"><div className="project-skeleton" role="status">Loading workspace overview…</div></main>;
+    : <WorkspaceOverviewLoading />;
 }

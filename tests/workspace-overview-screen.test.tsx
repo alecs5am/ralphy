@@ -1,15 +1,18 @@
+import { readFileSync } from "node:fs";
 import { act } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import type { WorkspaceOverviewDto } from "../electron/ralphy/types";
+import type { ProjectSummary } from "../src/lib/ipc";
 import {
   WorkspaceScreenView,
   createWorkspaceScreenController,
 } from "../src/screens/WorkspaceScreen";
-import type { WorkspaceMomentumPresentation } from "../src/screens/workspace/overview-presentation";
+import type { WorkspaceMomentumPresentation, WorkspaceOverviewPresentation } from "../src/screens/workspace/overview-presentation";
 import { AccessibleTrendChart, WorkspaceMomentum } from "../src/screens/workspace/WorkspacePerformance";
 import { WorkspacePlanAndOutcomes } from "../src/screens/workspace/WorkspacePlanAndOutcomes";
 import { WorkspaceInsights } from "../src/screens/workspace/WorkspaceInsights";
+import { WorkspaceOperations } from "../src/screens/workspace/WorkspaceOperations";
 import { createReactHost } from "./react-host";
 
 const populatedOverview = {
@@ -39,9 +42,17 @@ const populatedOverview = {
 
 const planDays = Array.from({ length: 14 }, (_, index) => new Date(2026, 7, 20 + index).getTime());
 
+const catalogProject: ProjectSummary = {
+  id: "project-1", workspaceId: "workspace-1", projectId: "project-1", name: "Launch campaign",
+  brief: "Launch the new product line", status: "active", phase: "production", finalState: "working",
+  platform: "tiktok", aspectRatio: "9:16", spendUsd: null, finalCount: 1, sharedCount: 2,
+  unitCount: 3, recentActivity: "2026-08-20T09:00:00.000Z",
+};
+
 async function renderWorkspace(
   value: WorkspaceOverviewDto,
   snapshotPatch: { error?: string | null; refreshing?: boolean } = {},
+  catalogProjects: ProjectSummary[] = [],
 ): Promise<string> {
   const controller = createWorkspaceScreenController(
     { loadWorkspaceOverview: vi.fn(async () => value) },
@@ -52,7 +63,7 @@ async function renderWorkspace(
     <WorkspaceScreenView
       controller={controller}
       snapshot={{ ...controller.getSnapshot(), ...snapshotPatch }}
-      catalogProjects={[]}
+      catalogProjects={catalogProjects}
       workspaceDescription="Short-form launches"
       onOpenPage={() => undefined}
       onOpenUnit={() => undefined}
@@ -717,5 +728,246 @@ describe("workspace overview shell", () => {
       await act(async () => root.unmount());
       host.restore();
     }
+  });
+
+  test("renders the complete operations inventory in priority order without raw activity vocabulary", async () => {
+    const project = {
+      id: "project-1", workspaceId: "workspace-1", slug: "launch-campaign", name: "Launch campaign",
+      state: "active" as const, rowVersion: 1, createdAt: 1, updatedAt: 2,
+    };
+    const publication = populatedOverview.publications.items[0];
+    const markup = await renderWorkspace({
+      ...populatedOverview,
+      accounts: { items: [{ ...populatedOverview.accounts.items[0], relinkRequired: true }], nextCursor: null },
+      projects: { items: [project], nextCursor: null },
+      publications: { items: [publication, { ...publication, id: "publication-2" }], nextCursor: null },
+    }, {}, [catalogProject]);
+    const headings = ["Attention", "Production pulse", "In progress", "Active projects", "Recent changes"];
+    const positions = headings.map((heading) => markup.indexOf(heading));
+
+    expect(positions.every((position) => position >= 0)).toBe(true);
+    expect(positions).toEqual([...positions].sort((left, right) => left - right));
+    expect(markup).toContain('<ul class="workspace-attention-list"');
+    expect(markup).toContain("Affects 2 publications");
+    expect(markup).toContain("Review publications");
+    expect(markup).toContain("Workspace run and build progress is not available from Core yet");
+    expect(markup).toContain("Core currently returns technical activity without display names");
+    expect(markup).toContain("Launch the new product line");
+    expect(markup).toContain("Open project");
+    expect(markup).toContain("View all projects");
+    expect(markup).not.toMatch(/#\d+ · [a-z]+\.[a-z]+/);
+    expect(markup).not.toContain(">Fix<");
+  });
+
+  test("distinguishes no attention and no active work from unavailable production data", () => {
+    const base = {
+      attention: { status: "ready", value: { items: [], criticalCount: { status: "ready", value: 0 } } },
+      projects: { status: "ready", value: [] },
+      recentChanges: { status: "unavailable", reason: "Human-readable changes are unavailable." },
+      onboarding: { status: "ready", value: false },
+    } satisfies Pick<WorkspaceOverviewPresentation, "attention" | "projects" | "recentChanges" | "onboarding">;
+    const empty = renderToStaticMarkup(<WorkspaceOperations
+      value={{ ...base, pulse: { status: "ready", value: { stages: [] } } }}
+      onOpenProject={() => undefined}
+      onOpenPage={() => undefined}
+      onRetry={() => undefined}
+    />);
+    const unavailable = renderToStaticMarkup(<WorkspaceOperations
+      value={{ ...base, pulse: { status: "unavailable", reason: "Production data is unavailable." } }}
+      onOpenProject={() => undefined}
+      onOpenPage={() => undefined}
+      onRetry={() => undefined}
+    />);
+
+    expect(empty).toContain("Nothing needs attention");
+    expect(empty).toContain("No Units are currently in production");
+    expect(empty).not.toContain("Active production work is unavailable");
+    expect(unavailable).toContain("Active production work is unavailable");
+    expect(unavailable).not.toContain("No Units are currently in production");
+  });
+
+  test("renders ordered new-workspace onboarding with only supported destinations", async () => {
+    const openPage = vi.fn();
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => root.render(<WorkspaceOperations
+        value={{
+          attention: { status: "ready", value: { items: [], criticalCount: { status: "ready", value: 0 } } },
+          pulse: { status: "unavailable", reason: "Production data is unavailable." },
+          projects: { status: "ready", value: [] },
+          recentChanges: { status: "unavailable", reason: "Changes are unavailable." },
+          onboarding: { status: "ready", value: true },
+        }}
+        onOpenProject={() => undefined}
+        onOpenPage={openPage}
+        onRetry={() => undefined}
+      />));
+      const text = host.container.textContent ?? "";
+      const steps = ["Create or import a project", "Add reusable brand assets", "Plan publishing"];
+      const positions = steps.map((step) => text.indexOf(step));
+      expect(positions).toEqual([...positions].sort((left, right) => left - right));
+      expect(text).toContain("Start producing in this workspace");
+      expect(text).not.toContain("Connect account");
+
+      for (const [label, page] of [["Open Projects", "projects"], ["Open Shared library", "shared"], ["Open Calendar", "calendar"]] as const) {
+        const button = [...host.container.querySelectorAll("button")].find((candidate) => candidate.textContent === label);
+        await act(async () => button!.dispatchEvent(new Event("click", { bubbles: true })));
+        expect(openPage).toHaveBeenCalledWith(page);
+      }
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
+  test("keeps healthy operations visible beside section-level partial failure retries", () => {
+    const retry = vi.fn();
+    const markup = renderToStaticMarkup(<WorkspaceOperations
+      value={{
+        attention: { status: "partial", reason: "Attention is limited.", value: { items: [], criticalCount: { status: "partial", reason: "Limited.", value: 0 } } },
+        pulse: { status: "unavailable", reason: "Production data is unavailable." },
+        projects: { status: "partial", reason: "Projects are limited.", value: [{ id: "project-1", name: "Launch campaign", slug: "launch-campaign", updatedAt: 2, catalog: catalogProject }] },
+        recentChanges: { status: "unavailable", reason: "Human-readable changes are unavailable." },
+        onboarding: { status: "ready", value: false },
+      }}
+      onOpenProject={() => undefined}
+      onOpenPage={() => undefined}
+      onRetry={retry}
+    />);
+
+    expect(markup).toContain("Partial attention data");
+    expect(markup).toContain("Retry attention");
+    expect(markup).toContain("Partial project data");
+    expect(markup).toContain("Retry projects");
+    expect(markup).toContain("Launch campaign");
+    expect(markup).toContain("Production pulse");
+  });
+
+  test("gives every attention row one named primary action and caps continuation projects at four", async () => {
+    const openPage = vi.fn();
+    const openProject = vi.fn();
+    const projects = Array.from({ length: 5 }, (_, index) => ({
+      id: `project-${index}`, name: `Project ${index}`, slug: `project-${index}`, updatedAt: 10 - index,
+      catalog: { ...catalogProject, id: `project-${index}`, projectId: `project-${index}`, name: `Project ${index}` },
+    }));
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => root.render(<WorkspaceOperations
+        value={{
+          attention: { status: "ready", value: { items: [
+            { kind: "publication-failure", severity: "critical", accountId: "account-1", affectedCount: { status: "ready", value: 3 }, title: "Publication failed" },
+            { kind: "account-relink", severity: "warning", accountId: "account-1", affectedCount: { status: "ready", value: 3 }, title: "Launch needs relinking" },
+          ], criticalCount: { status: "ready", value: 1 } } },
+          pulse: { status: "unavailable", reason: "Production data is unavailable." },
+          projects: { status: "ready", value: projects },
+          recentChanges: { status: "ready", value: [{ id: "#928 · entity.update" }] },
+          onboarding: { status: "ready", value: false },
+        }}
+        onOpenProject={openProject}
+        onOpenPage={openPage}
+        onRetry={() => undefined}
+      />));
+
+      const attentionRows = host.container.querySelector(".workspace-attention-list")!.querySelectorAll("li");
+      expect(attentionRows).toHaveLength(2);
+      for (const row of attentionRows) {
+        expect(row.querySelectorAll("button")).toHaveLength(1);
+        expect(row.querySelector("button")?.textContent).toMatch(/Review publications|Review account publications/);
+      }
+      expect(host.container.querySelector(".workspace-active-project-list")!.querySelectorAll("li")).toHaveLength(4);
+      expect(host.container.textContent).not.toContain("Project 4");
+      expect(host.container.textContent).not.toContain("#928");
+
+      const open = [...host.container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Open project Project 0");
+      await act(async () => open!.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(openProject).toHaveBeenCalledWith(projects[0]!.catalog);
+      const viewAll = [...host.container.querySelectorAll("button")].find((button) => button.textContent === "View all projects");
+      await act(async () => viewAll!.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(openPage).toHaveBeenCalledWith("projects");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
+  test("preserves the total when attention is initially limited to five rows", async () => {
+    const items = Array.from({ length: 6 }, (_, index) => ({
+      kind: "publication-failure" as const,
+      severity: "critical" as const,
+      accountId: `account-${index}`,
+      affectedCount: { status: "ready" as const, value: 1 },
+      title: `Publication group ${index + 1} failed`,
+    }));
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => root.render(<WorkspaceOperations
+        value={{
+          attention: { status: "ready", value: { items, criticalCount: { status: "ready", value: 6 } } },
+          pulse: { status: "unavailable", reason: "Production data is unavailable." },
+          projects: { status: "ready", value: [] },
+          recentChanges: { status: "unavailable", reason: "Changes are unavailable." },
+          onboarding: { status: "ready", value: false },
+        }}
+        onOpenProject={() => undefined}
+        onOpenPage={() => undefined}
+        onRetry={() => undefined}
+      />));
+
+      expect(host.container.textContent).toContain("Showing 5 of 6 actionable items");
+      expect(host.container.querySelector(".workspace-attention-list")!.querySelectorAll("li")).toHaveLength(5);
+      const viewAll = [...host.container.querySelectorAll("button")].find((button) => button.textContent === "View all attention");
+      await act(async () => viewAll!.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(host.container.querySelector(".workspace-attention-list")!.querySelectorAll("li")).toHaveLength(6);
+      expect(host.container.textContent).toContain("Showing all 6 actionable items");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
+  test("uses stable initial skeletons and a full-page retry surface", () => {
+    const controller = createWorkspaceScreenController({ loadWorkspaceOverview: vi.fn(async () => populatedOverview) }, "workspace-1");
+    const loading = renderToStaticMarkup(<WorkspaceScreenView
+      controller={controller}
+      snapshot={{ status: "loading", value: null, error: null, refreshing: false }}
+      catalogProjects={[]}
+      workspaceDescription="Short-form launches"
+      onOpenPage={() => undefined}
+      onOpenUnit={() => undefined}
+      onOpenProject={() => undefined}
+    />);
+    const error = renderToStaticMarkup(<WorkspaceScreenView
+      controller={controller}
+      snapshot={{ status: "error", value: null, error: "Core unavailable", refreshing: false }}
+      catalogProjects={[]}
+      workspaceDescription="Short-form launches"
+      onOpenPage={() => undefined}
+      onOpenUnit={() => undefined}
+      onOpenProject={() => undefined}
+    />);
+
+    expect(loading).toContain('aria-busy="true"');
+    expect(loading).toContain("Workspace overview");
+    expect(loading.match(/workspace-overview-skeleton-section/g)).toHaveLength(4);
+    expect(error).toContain('role="alert"');
+    expect(error).toContain("Workspace overview could not be loaded");
+    expect(error).toContain("Core unavailable");
+    expect(error).toContain(">Retry<");
+  });
+
+  test("locks the narrow operations order, account breakpoints, and page overflow geometry", () => {
+    const css = readFileSync(new URL("../src/styles/workspace-overview.css", import.meta.url), "utf8");
+
+    expect(css).toMatch(/\.workspace-operations-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(0,\s*1fr\)/s);
+    expect(css).toMatch(/@container main-region \(max-width:\s*1000px\)[\s\S]*?\.workspace-operations-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+    expect(css).toMatch(/@container account-portfolio \(max-width:\s*900px\)[\s\S]*?repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+    expect(css).toMatch(/@container account-portfolio \(max-width:\s*520px\)[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+    expect(css).toMatch(/\.workspace-overview-scroll\s*\{[^}]*overflow-x:\s*hidden/s);
   });
 });
