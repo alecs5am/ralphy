@@ -58,7 +58,7 @@ describe("workspace overview presentation", () => {
   });
 
   test("marks truncated account, project, and publication pages as partial", () => {
-    const now = Date.UTC(2026, 7, 20);
+    const now = new Date(2026, 7, 20, 12).getTime();
     const value = presentWorkspaceOverview({
       overview: {
         ...populatedOverview,
@@ -87,6 +87,56 @@ describe("workspace overview presentation", () => {
     if (value.attention.status === "partial") {
       expect(value.attention.value.items[0]!.affectedCount).toMatchObject({ status: "partial", value: 1 });
     }
+    expect(value.plan.days[0]).toBe(new Date(2026, 7, 20).getTime());
+    expect(value.plan.days).toHaveLength(14);
+
+    const finalBoundary = new Date(2026, 8, 3).getTime();
+    const publication = populatedOverview.publications!.items[0]!;
+    const bounded = presentWorkspaceOverview({
+      overview: {
+        ...populatedOverview,
+        publications: { items: [
+          { ...publication, id: "earlier-today", scheduledAt: new Date(2026, 7, 20, 8).getTime() },
+          { ...publication, id: "inside", scheduledAt: finalBoundary - 1 },
+          { ...publication, id: "outside", scheduledAt: finalBoundary },
+        ], nextCursor: null },
+      },
+      catalogProjects: [], description: "", now,
+    });
+    expect(bounded.plan.upcoming).toMatchObject({ status: "ready" });
+    if (bounded.plan.upcoming.status === "ready") {
+      expect(bounded.plan.upcoming.value.flatMap((event) => event.publications.map((item) => item.id))).toEqual(["earlier-today", "inside"]);
+    }
+
+    const incompleteLookups = presentWorkspaceOverview({
+      overview: {
+        ...populatedOverview,
+        accounts: undefined,
+        units: { items: [], nextCursor: "more-units" },
+        projects: undefined,
+        publications: { items: [{ ...publication, state: "scheduled", scheduledAt: now }], nextCursor: null },
+      },
+      catalogProjects: [], description: "", now,
+    });
+    expect(incompleteLookups.plan.upcoming).toMatchObject({ status: "partial", value: [expect.objectContaining({ unit: null, project: null, accounts: [] })] });
+    if (incompleteLookups.plan.upcoming.status === "partial") {
+      expect(incompleteLookups.plan.upcoming.reason).toContain("connected accounts were not returned by Core");
+      expect(incompleteLookups.plan.upcoming.reason).toContain("returned Core Unit page");
+      expect(incompleteLookups.plan.upcoming.reason).toContain("projects were not returned by Core");
+    }
+    const scheduledOverview = {
+      ...populatedOverview,
+      publications: { items: [{ ...publication, state: "scheduled" as const, scheduledAt: now }], nextCursor: null },
+    };
+    const complementaryLookupLimits = [
+      [presentWorkspaceOverview({ overview: { ...scheduledOverview, accounts: { ...populatedOverview.accounts!, nextCursor: "more-accounts" } }, catalogProjects: [], description: "", now }).plan.upcoming, "returned Core account page"],
+      [presentWorkspaceOverview({ overview: { ...scheduledOverview, units: undefined }, catalogProjects: [], description: "", now }).plan.upcoming, "Units were not returned by Core"],
+      [presentWorkspaceOverview({ overview: { ...scheduledOverview, projects: { items: [], nextCursor: "more-projects" } }, catalogProjects: [], description: "", now }).plan.upcoming, "returned Core project page"],
+    ] as const;
+    for (const [upcoming, reason] of complementaryLookupLimits) {
+      expect(upcoming).toMatchObject({ status: "partial" });
+      if (upcoming.status === "partial") expect(upcoming.reason).toContain(reason);
+    }
   });
 
   test("marks omitted account, project, and publication pages as unavailable", () => {
@@ -102,4 +152,5 @@ describe("workspace overview presentation", () => {
     expect(value.attention).toMatchObject({ status: "unavailable" });
     expect(value.onboarding).toMatchObject({ status: "unavailable" });
   });
+
 });

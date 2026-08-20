@@ -4,7 +4,9 @@ import { useState } from "react";
 import type { WorkspacePage } from "../../state/workbench";
 import type {
   Availability,
+  PlanCoveragePresentation,
   PublishingEventPresentation,
+  ReadyUnscheduledPresentation,
   UnitOutcomeGroups,
   UnitOutcomePresentation,
   WorkspaceOverviewPresentation,
@@ -30,21 +32,18 @@ function statusLabel(value: string): string {
 function accountLabel(event: PublishingEventPresentation, accountId: string | null): string {
   if (!accountId) return "Account unavailable";
   const account = event.accounts?.find((candidate) => candidate.id === accountId);
-  return account?.username ?? account?.displayName ?? account?.externalId ?? `Account ${accountId}`;
+  return account?.username ?? account?.displayName ?? "Account details unavailable";
 }
 
-function DayStrip({ events }: { events: PublishingEventPresentation[] }) {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
+function DayStrip({ days, events }: { days: number[]; events: PublishingEventPresentation[] }) {
   const counts = new Map<string, number>();
   for (const event of events) {
     const key = new Date(event.scheduledAt).toDateString();
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
   return <ol className="workspace-plan-days" aria-label="Next 14 days publishing density">
-    {Array.from({ length: 14 }, (_, index) => {
-      const date = new Date(start);
-      date.setDate(start.getDate() + index);
+    {days.map((value) => {
+      const date = new Date(value);
       const count = counts.get(date.toDateString()) ?? 0;
       return <li key={date.toISOString()} aria-label={`${date.toLocaleDateString(undefined, { dateStyle: "full" })}: ${count} scheduled content event${count === 1 ? "" : "s"}`}>
         <time dateTime={date.toISOString()}>{date.toLocaleDateString(undefined, { weekday: "short", day: "numeric" })}</time>
@@ -61,12 +60,14 @@ function ContentEvent({ event, onOpenCalendar, onOpenUnit, onOpenUnits }: {
   onOpenUnits(): void;
 }) {
   const blocked = event.publications.filter((publication) => attentionStates.has(publication.state)).length;
+  const unitLabel = event.unit?.slug ?? "Unit details unavailable";
+  const dateLabel = new Date(event.scheduledAt).toLocaleString(undefined, { dateStyle: "long", timeStyle: "short" });
   const openUnit = () => event.unit?.projectId ? onOpenUnit(event.unit.projectId, event.unitId) : onOpenUnits();
-  return <li className="workspace-plan-event" data-content-event={event.unitId}>
+  return <li className="workspace-plan-event" data-content-event>
     <span className="workspace-unit-glyph" aria-hidden="true"><Boxes /></span>
     <div className="workspace-plan-event-main">
-      <h3>{event.unit?.slug ?? event.unitId}</h3>
-      <p>{event.project?.name ?? "Project unavailable"} · {event.unit?.selectedRevisionId ? `Selected revision ${event.unit.selectedRevisionId}` : "Selected revision unavailable"}</p>
+      <h3>{unitLabel}</h3>
+      <p>{event.project?.name ?? "Project unavailable"} · {event.unit?.selectedRevisionId ? "Selected revision set" : "Selected revision unavailable"}</p>
       <time dateTime={new Date(event.scheduledAt).toISOString()}>{new Date(event.scheduledAt).toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" })}</time>
       <ul className="workspace-publication-list" aria-label="Child publications">
         {event.publications.map((publication) => <li key={publication.id}>
@@ -76,12 +77,37 @@ function ContentEvent({ event, onOpenCalendar, onOpenUnit, onOpenUnits }: {
       </ul>
       {blocked > 0 && <p className="workspace-plan-warning">{blocked} channel{blocked === 1 ? "" : "s"} needs attention</p>}
       <div className="workspace-plan-actions">
-        <button type="button" onClick={onOpenCalendar}>Open in Calendar</button>
-        <button type="button" onClick={openUnit}>Open Unit</button>
-        {blocked > 0 && <button type="button" onClick={onOpenCalendar}>Review problem</button>}
+        <button type="button" aria-label={`Open ${unitLabel} scheduled ${dateLabel} in Calendar`} onClick={onOpenCalendar}>Open in Calendar</button>
+        <button type="button" aria-label={`${event.unit?.projectId ? "Open Unit" : "Open Units for"} ${unitLabel} scheduled ${dateLabel}`} onClick={openUnit}>{event.unit?.projectId ? "Open Unit" : "Open Units"}</button>
+        {blocked > 0 && <button type="button" aria-label={`Review problem for ${unitLabel} scheduled ${dateLabel}`} onClick={onOpenCalendar}>Review problem</button>}
       </div>
     </div>
   </li>;
+}
+
+function PlanCoverage({ value }: { value: Availability<PlanCoveragePresentation[]> }) {
+  if (value.status !== "ready" && value.status !== "partial") return unavailable(value.status === "empty" ? "No plan coverage" : "Plan coverage unavailable", value.reason);
+  return <>
+    {value.status === "partial" && unavailable("Partial cadence coverage", value.reason)}
+    {value.value.length > 0 ? <ul className="workspace-plan-coverage">
+      {value.value.map((item) => <li key={item.id}><span>{item.label}</span><strong>{item.planned} of {item.target} planned</strong><progress value={item.planned} max={item.target} aria-label={`${item.label}: ${item.planned} of ${item.target} planned`} /></li>)}
+    </ul> : unavailable("Plan coverage empty", "No plan coverage values were returned.")}
+  </>;
+}
+
+function ReadyUnscheduled({ value, onOpenUnit, onOpenUnits }: {
+  value: Availability<ReadyUnscheduledPresentation[]>;
+  onOpenUnit(projectId: string, unitId: string): void;
+  onOpenUnits(): void;
+}) {
+  if (value.status !== "ready" && value.status !== "partial") return unavailable(value.status === "empty" ? "No ready Units" : "Ready Unit count unavailable", value.reason);
+  return <>
+    {value.status === "partial" && unavailable("Partial ready Unit data", value.reason)}
+    {value.value.length > 0 ? <ul className="workspace-ready-list">{value.value.map((unit) => <li key={unit.unitId}>
+      <span><strong>{unit.title}</strong><small>{unit.projectTitle ?? "Project unavailable"}</small></span>
+      <button type="button" onClick={() => unit.projectId ? onOpenUnit(unit.projectId, unit.unitId) : onOpenUnits()}>{unit.projectId ? "Open Unit" : "Open Units"}</button>
+    </li>)}</ul> : unavailable("No ready Units", "No ready, unscheduled Units were returned.")}
+  </>;
 }
 
 function ContentPlan({ value, onOpenCalendar, onOpenUnits, onOpenUnit }: {
@@ -94,10 +120,8 @@ function ContentPlan({ value, onOpenCalendar, onOpenUnits, onOpenUnit }: {
   return <section className="workspace-overview-section workspace-content-plan" aria-labelledby="workspace-content-plan-title">
     <header className="workspace-section-heading"><h2 id="workspace-content-plan-title">Content plan</h2><span>Next 14 days</span></header>
     <p className="workspace-plan-timezone">Dates and times use this device’s timezone; workspace timezone is not available from the current Core contract.</p>
-    {value.coverage.status === "ready" || value.coverage.status === "partial"
-      ? value.coverage.status === "partial" && unavailable("Partial cadence coverage", value.coverage.reason)
-      : unavailable("Plan coverage unavailable", value.coverage.reason)}
-    <DayStrip events={events} />
+    <PlanCoverage value={value.coverage} />
+    {value.upcoming.status !== "unavailable" && <DayStrip days={value.days} events={events} />}
     {value.upcoming.status === "partial" && unavailable("Partial publishing data", value.upcoming.reason)}
     {value.upcoming.status === "unavailable" && unavailable("Publishing schedule unavailable", value.upcoming.reason)}
     {value.upcoming.status === "empty" && <div className="workspace-plan-empty">
@@ -109,9 +133,7 @@ function ContentPlan({ value, onOpenCalendar, onOpenUnits, onOpenUnit }: {
     </ol>}
     <div className="workspace-ready-unscheduled">
       <h3>Ready, not scheduled</h3>
-      {value.readyUnscheduled.status === "ready" || value.readyUnscheduled.status === "partial"
-        ? value.readyUnscheduled.status === "partial" && unavailable("Partial ready Unit data", value.readyUnscheduled.reason)
-        : unavailable("Ready Unit count unavailable", value.readyUnscheduled.reason)}
+      <ReadyUnscheduled value={value.readyUnscheduled} onOpenUnit={onOpenUnit} onOpenUnits={onOpenUnits} />
     </div>
   </section>;
 }

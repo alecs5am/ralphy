@@ -11,8 +11,10 @@ import type { ProjectSummary } from "../src/lib/ipc";
 import { ProjectScreenView, createProjectScreenController } from "../src/screens/ProjectScreen";
 import { WorkspaceScreenView, createWorkspaceScreenController } from "../src/screens/WorkspaceScreen";
 
+const workspaceOverviewStyles = readFileSync(join(process.cwd(), "src/styles/workspace-overview.css"), "utf8");
 const styles = ["reset.css", "tokens.css", "app.css", "workbench.css"]
   .map((file) => readFileSync(join(process.cwd(), "src/styles", file), "utf8"))
+  .concat(workspaceOverviewStyles)
   .join("\n");
 const workbenchStyles = readFileSync(
   join(process.cwd(), "src/styles/workbench.css"),
@@ -70,7 +72,10 @@ type ProjectMarkup = Record<"documents" | "media" | "units" | "activity" | "memo
 async function activeScreenMarkup(): Promise<{ workspace: string } & ProjectMarkup> {
   const workspaceValue = {
     workspace: { id: "workspace-1", slug: "launch", name: "Launch Studio", rowVersion: 1, createdAt: 1, updatedAt: 2 },
+    accounts: { items: [], nextCursor: null },
     projects: { items: [{ id: "project-1", workspaceId: "workspace-1", slug: "launch", name: "Launch", state: "active", rowVersion: 1, createdAt: 1, updatedAt: 2 }], nextCursor: null },
+    units: { items: [], nextCursor: null },
+    publications: { items: [], nextCursor: null },
     metrics: { publicationCount: 12, views: 1234567, likes: 23456, comments: 3456, shares: 456, watchTimeMs: 987654321 },
   } satisfies WorkspaceOverviewDto;
   const workspaceController = createWorkspaceScreenController(
@@ -212,7 +217,7 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
       .join("");
     const shell = (screen: string) => `<div class="workbench has-right-panel" style="--sidebar-w:288px;--inspector-w:336px"><aside class="context-sidebar"></aside><section class="main-shell"><header class="main-header"></header><div class="main-content-stage">${screen}</div></section><aside class="utility-right-panel"></aside></div>`;
     const templates = Object.entries(markup).map(([name, value]) => `<template id="${name}">${shell(value)}</template>`).join("");
-    writeFileSync(join(directory, "layout.html"), `<!doctype html><html><head>${links}</head><body><div id="root"></div>${templates}</body></html>`);
+    writeFileSync(join(directory, "layout.html"), `<!doctype html><html><head>${links}<style>${workspaceOverviewStyles}</style></head><body><div id="root"></div>${templates}</body></html>`);
     writeFileSync(join(directory, "package.json"), JSON.stringify({ main: "main.cjs" }));
     writeFileSync(join(directory, "main.cjs"), `
       const { app, BrowserWindow } = require("electron");
@@ -255,7 +260,7 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
               const screen = \${JSON.stringify(screen)};
               const root = document.getElementById("root");
               const selectors = screen === "workspace"
-                ? [".main-region", ".screen-header", ".workspace-overview-meta", ".workspace-overview-scroll", ".workspace-overview-section"]
+                ? [".main-region", ".screen-header", ".workspace-overview-meta", ".workspace-overview-scroll", ".workspace-overview-section", ".workspace-content-plan", ".workspace-plan-events", ".workspace-unit-outcomes", ".workspace-outcome-groups"]
                 : [".main-region", ...({ documents: [".project-header", ".project-controls", ".project-domain-body", ".mode-segments", ".documents-workbench", ".documents-master", ".documents-detail"], media: [".project-header", ".project-controls", ".project-domain-body", ".mode-segments", ".media-panel", ".media-domain-toolbar", ".project-media-grid", ".asset-grid-scroll"], units: [".project-header", ".project-controls", ".project-domain-body", ".mode-segments", ".units-workbench", ".units-grid-scroll", ".units-grid", ".unit-card"], activity: [".project-header", ".project-controls", ".project-domain-body", ".mode-segments", ".activity-scroll"], memory: [".memory-filters", ".memory-rulebook", ".memory-rule"] })[screen]];
               const overflows = [];
               for (const selector of selectors) for (const element of root.querySelectorAll(selector)) {
@@ -421,6 +426,8 @@ describe("design system contract", () => {
   test("names the responsive controls container and preserves round status pills", () => {
     expect(styles).toContain("container-name: project-controls");
     expect(styles).toMatch(/\.project-facts > span,[\s\S]*corner-shape:\s*round/);
+    expect(styles).toContain(".workspace-plan-days");
+    expect(styles).toMatch(/@container main-region \(max-width: 760px\)[\s\S]*\.workspace-outcome-groups\s*\{[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\)/);
   });
 
   test("uses the approved neutral surfaces and larger smooth radii", () => {
@@ -462,6 +469,7 @@ describe("design system contract", () => {
       expect(results.filter((result) => result.screen === screen).map(({ width, height }) => ({ width, height })))
         .toEqual([{ width: 2560, height: 1400 }, { width: 1360, height: 900 }, { width: 1100, height: 720 }]);
     }
+    expect(results.find(({ screen, width }) => screen === "workspace" && width === 1100)?.overflows).toEqual([]);
     expect(results.map(({ screen, width, overflows }) => ({ screen, width, overflows })))
       .toEqual(results.map(({ screen, width }) => ({ screen, width, overflows: [] })));
     const expectedOwners = {

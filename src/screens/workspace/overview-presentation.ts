@@ -63,10 +63,25 @@ export interface PublishingEventPresentation {
   project: ProjectDto | null;
 }
 
+export interface PlanCoveragePresentation {
+  id: string;
+  label: string;
+  planned: number;
+  target: number;
+}
+
+export interface ReadyUnscheduledPresentation {
+  unitId: string;
+  projectId: string | null;
+  title: string;
+  projectTitle: string | null;
+}
+
 export interface WorkspacePlanPresentation {
-  coverage: Availability<never[]>;
+  days: number[];
+  coverage: Availability<PlanCoveragePresentation[]>;
   upcoming: Availability<PublishingEventPresentation[]>;
-  readyUnscheduled: Availability<never[]>;
+  readyUnscheduled: Availability<ReadyUnscheduledPresentation[]>;
 }
 
 export interface UnitOutcomePresentation {
@@ -137,8 +152,6 @@ export interface WorkspaceOverviewPresentation {
   recentChanges: Availability<RecentChangePresentation[]>;
   onboarding: Availability<boolean>;
 }
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function presentWorkspaceOverview({
   overview, catalogProjects, description, now = Date.now(),
@@ -221,10 +234,12 @@ function presentPlan(
   projects: Page<ProjectDto> | undefined,
   now: number,
 ): WorkspacePlanPresentation {
-  const coverage = unavailable<never[]>("cadence targets are not configured in the current Core contract.");
-  const readyUnscheduled = unavailable<never[]>("Ready Unit lifecycle state is not available from the current Core contract.");
+  const days = planDays(now);
+  const coverage = unavailable<PlanCoveragePresentation[]>("cadence targets are not configured in the current Core contract.");
+  const readyUnscheduled = unavailable<ReadyUnscheduledPresentation[]>("Ready Unit lifecycle state is not available from the current Core contract.");
   if (!publications) {
     return {
+      days,
       coverage,
       upcoming: unavailable("Upcoming publications were not returned by Core."),
       readyUnscheduled,
@@ -232,10 +247,11 @@ function presentPlan(
   }
 
   const events = new Map<string, PublishingEventPresentation>();
+  const windowEnd = planWindowEnd(days);
   for (const publication of publications.items) {
     if (publication.scheduledAt === null) continue;
     const scheduledAt = timestampMs(publication.scheduledAt);
-    if (scheduledAt < now || scheduledAt >= now + 14 * DAY_MS) continue;
+    if (scheduledAt < days[0]! || scheduledAt >= windowEnd) continue;
     const key = `${publication.unitId}:${scheduledAt}`;
     const existing = events.get(key);
     if (existing) existing.publications.push(publication);
@@ -259,15 +275,53 @@ function presentPlan(
   }
 
   const upcoming = [...events.values()].sort((left, right) => left.scheduledAt - right.scheduledAt);
+  const limitations = planLimitations(publications, accounts, units, projects);
   return {
+    days,
     coverage,
-    upcoming: publications.nextCursor !== null
-      ? { status: "partial", reason: "Upcoming publications are limited to the returned Core page.", value: upcoming }
+    upcoming: limitations.length > 0
+      ? { status: "partial", reason: limitations.join(" "), value: upcoming }
       : upcoming.length > 0
         ? { status: "ready", value: upcoming }
         : { status: "empty", reason: "Nothing scheduled in the next 14 days." },
     readyUnscheduled,
   };
+}
+
+function planDays(now: number): number[] {
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  return Array.from({ length: 14 }, (_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    return date.getTime();
+  });
+}
+
+function planWindowEnd(days: number[]): number {
+  const end = new Date(days.at(-1)!);
+  end.setDate(end.getDate() + 1);
+  return end.getTime();
+}
+
+function planLimitations(
+  publications: Page<OverviewPublicationDto>,
+  accounts: Page<OverviewAccountDto> | undefined,
+  units: Page<UnitDto> | undefined,
+  projects: Page<ProjectDto> | undefined,
+): string[] {
+  return [
+    publications.nextCursor === null ? null : "Upcoming publications are limited to the returned Core page.",
+    !accounts
+      ? "Publishing account labels are unavailable because connected accounts were not returned by Core."
+      : accounts.nextCursor === null ? null : "Publishing account labels are limited to the returned Core account page.",
+    !units
+      ? "Unit labels and exact navigation are unavailable because Units were not returned by Core."
+      : units.nextCursor === null ? null : "Unit labels and exact navigation are limited to the returned Core Unit page.",
+    !projects
+      ? "Project labels are unavailable because projects were not returned by Core."
+      : projects.nextCursor === null ? null : "Project labels are limited to the returned Core project page.",
+  ].filter((reason): reason is string => reason !== null);
 }
 
 function presentAttention(

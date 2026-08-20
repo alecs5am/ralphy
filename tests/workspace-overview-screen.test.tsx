@@ -36,6 +36,8 @@ const populatedOverview = {
   },
 } satisfies WorkspaceOverviewDto;
 
+const planDays = Array.from({ length: 14 }, (_, index) => new Date(2026, 7, 20 + index).getTime());
+
 async function renderWorkspace(
   value: WorkspaceOverviewDto,
   snapshotPatch: { error?: string | null; refreshing?: boolean } = {},
@@ -243,6 +245,67 @@ describe("workspace overview shell", () => {
     expect(markup).toContain("Learning opportunities");
     expect(markup).toContain("Comparable performance data is not available yet");
     expect(markup).not.toContain("Content gap");
+
+    const unavailableSchedule = renderToStaticMarkup(<WorkspacePlanAndOutcomes
+      value={{
+        plan: {
+          days: planDays,
+          coverage: { status: "unavailable", reason: "Cadence unavailable." },
+          upcoming: { status: "unavailable", reason: "Schedule unavailable." },
+          readyUnscheduled: { status: "unavailable", reason: "Ready Units unavailable." },
+        },
+        outcomes: { status: "unavailable", reason: "Outcomes unavailable." },
+      }}
+      onOpenPage={() => undefined}
+      onOpenUnit={() => undefined}
+    />);
+    expect(unavailableSchedule).toContain("Schedule unavailable");
+    expect(unavailableSchedule).not.toContain("Next 14 days publishing density");
+    expect(unavailableSchedule).not.toContain("scheduled content events");
+
+    const emptyPlanValues = renderToStaticMarkup(<WorkspacePlanAndOutcomes
+      value={{
+        plan: {
+          days: planDays,
+          coverage: { status: "empty", reason: "No configured coverage." },
+          upcoming: { status: "empty", reason: "Nothing scheduled in the next 14 days." },
+          readyUnscheduled: { status: "empty", reason: "No ready Units." },
+        },
+        outcomes: { status: "unavailable", reason: "Outcomes unavailable." },
+      }}
+      onOpenPage={() => undefined}
+      onOpenUnit={() => undefined}
+    />);
+    expect(emptyPlanValues).toContain("No plan coverage");
+    expect(emptyPlanValues).toContain("No ready Units");
+
+    const plan = {
+      days: planDays,
+      upcoming: { status: "empty", reason: "Nothing scheduled in the next 14 days." },
+      coverage: { status: "ready", value: [{ id: "tiktok", label: "TikTok @launch", planned: 8, target: 10 }] },
+      readyUnscheduled: { status: "ready", value: [{ unitId: "unit-ready", projectId: "project-1", title: "Ready reveal", projectTitle: "Launch campaign" }] },
+    } as const;
+    const ready = renderToStaticMarkup(<WorkspacePlanAndOutcomes value={{ plan, outcomes: { status: "unavailable", reason: "Outcomes unavailable." } }} onOpenPage={() => undefined} onOpenUnit={() => undefined} />);
+    const partial = renderToStaticMarkup(<WorkspacePlanAndOutcomes
+      value={{
+        plan: {
+          ...plan,
+          coverage: { status: "partial", reason: "Coverage is limited.", value: plan.coverage.value },
+          readyUnscheduled: { status: "partial", reason: "Ready Units are limited.", value: plan.readyUnscheduled.value },
+        },
+        outcomes: { status: "unavailable", reason: "Outcomes unavailable." },
+      }}
+      onOpenPage={() => undefined}
+      onOpenUnit={() => undefined}
+    />);
+    for (const stateMarkup of [ready, partial]) {
+      expect(stateMarkup).toContain("TikTok @launch");
+      expect(stateMarkup).toContain("8 of 10 planned");
+      expect(stateMarkup).toContain("Ready reveal");
+      expect(stateMarkup).toContain("Launch campaign");
+    }
+    expect(partial).toContain("Coverage is limited");
+    expect(partial).toContain("Ready Units are limited");
   });
 
   test("groups child publications into one event and keeps failed channels visible", async () => {
@@ -273,6 +336,10 @@ describe("workspace overview shell", () => {
     expect(markup).toContain("instagram");
     expect(markup).toContain("Failed");
     expect(markup).toContain("1 channel needs attention");
+    expect(markup).toContain('aria-label="Open product-reveal scheduled');
+    expect(markup).toContain('in Calendar"');
+    expect(markup).toContain('aria-label="Open Unit product-reveal scheduled');
+    expect(markup).toContain('aria-label="Review problem for product-reveal scheduled');
   });
 
   test("preserves a partial publishing page beside returned events", async () => {
@@ -296,6 +363,7 @@ describe("workspace overview shell", () => {
     const markup = renderToStaticMarkup(<WorkspacePlanAndOutcomes
       value={{
         plan: {
+          days: planDays,
           coverage: { status: "unavailable", reason: "Cadence targets are not configured in the current Core contract." },
           upcoming: { status: "empty", reason: "Nothing scheduled in the next 14 days." },
           readyUnscheduled: { status: "unavailable", reason: "Ready Unit lifecycle state is not available from the current Core contract." },
@@ -316,6 +384,7 @@ describe("workspace overview shell", () => {
       await act(async () => root.render(<WorkspacePlanAndOutcomes
         value={{
           plan: {
+            days: planDays,
             coverage: { status: "unavailable", reason: "Cadence unavailable." },
             upcoming: { status: "empty", reason: "Nothing scheduled in the next 14 days." },
             readyUnscheduled: { status: "unavailable", reason: "Ready Units unavailable." },
@@ -343,6 +412,25 @@ describe("workspace overview shell", () => {
       scheduledAt: Date.now() + 60 * 60 * 1000,
       publications: [{ ...populatedOverview.publications.items[0], state: "scheduled" as const }],
     };
+    const incompleteMarkup = renderToStaticMarkup(<WorkspacePlanAndOutcomes
+      value={{
+        plan: {
+          days: planDays,
+          coverage: { status: "unavailable", reason: "Cadence unavailable." },
+          upcoming: { status: "partial", reason: "Lookup pages are incomplete.", value: [{ ...event, unitId: "unit-raw-id", scheduledAt: planDays[0]!, accounts: [], unit: null, project: null }] },
+          readyUnscheduled: { status: "unavailable", reason: "Ready Units unavailable." },
+        },
+        outcomes: { status: "unavailable", reason: "Outcomes unavailable." },
+      }}
+      onOpenPage={openPage}
+      onOpenUnit={openUnit}
+    />);
+    expect(incompleteMarkup).toContain("Unit details unavailable");
+    expect(incompleteMarkup).toContain("Account details unavailable");
+    expect(incompleteMarkup).toContain(">Open Units<");
+    expect(incompleteMarkup).toContain('aria-label="Open Units for Unit details unavailable scheduled');
+    expect(incompleteMarkup).not.toContain(">unit-raw-id<");
+    expect(incompleteMarkup).not.toContain("Account account-1");
     const host = createReactHost();
     const { createRoot } = await import("react-dom/client");
     const root = createRoot(host.container as unknown as Element);
@@ -350,6 +438,7 @@ describe("workspace overview shell", () => {
       await act(async () => root.render(<WorkspacePlanAndOutcomes
         value={{
           plan: {
+            days: planDays,
             coverage: { status: "unavailable", reason: "Cadence unavailable." },
             upcoming: { status: "ready", value: [{
               ...event,
@@ -376,6 +465,7 @@ describe("workspace overview shell", () => {
       await act(async () => root.render(<WorkspacePlanAndOutcomes
         value={{
           plan: {
+            days: planDays,
             coverage: { status: "unavailable", reason: "Cadence unavailable." },
             upcoming: { status: "ready", value: [{ ...event, accounts: [], unit: null, project: null }] },
             readyUnscheduled: { status: "unavailable", reason: "Ready Units unavailable." },
@@ -403,6 +493,7 @@ describe("workspace overview shell", () => {
       await act(async () => root.render(<WorkspacePlanAndOutcomes
         value={{
           plan: {
+            days: planDays,
             coverage: { status: "unavailable", reason: "Cadence unavailable." },
             upcoming: { status: "empty", reason: "Nothing scheduled in the next 14 days." },
             readyUnscheduled: { status: "unavailable", reason: "Ready Units unavailable." },
