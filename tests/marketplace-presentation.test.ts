@@ -323,6 +323,17 @@ describe("Marketplace presentation", () => {
     expect(artifactResult?.category === "recipes" ? artifactResult.recipe.recipe?.artifact : null).toBe("artifact-only-marker");
   });
 
+  test("keyword-searches neutral models by their displayed provider source only", () => {
+    const models = catalog([
+      model({ provider: "huggingface", id: "Acme/one", name: "Neutral one", author: "Acme", tags: [], providerUrl: "https://example.invalid/one" }),
+      model({ provider: "civitai", id: "2", name: "Neutral two", author: "Acme", tags: [], providerUrl: "https://example.invalid/two" }),
+    ]);
+    const keys = (text: string) => presentMarketplaceSources(null, models, query({ text }), [], { publicLibrary: "unavailable", models: "ready" }).items.map(({ key }) => key);
+
+    expect(keys("hugging face")).toEqual(["model:huggingface:Acme/one"]);
+    expect(keys("civitai")).toEqual(["model:civitai:2"]);
+  });
+
   test("keeps the combined projected result bound at 512 public items plus 24 models", () => {
     const publicItems = Array.from({ length: 513 }, (_, index) => publicItem({ id: `template-${index}`, name: `Template ${String(index).padStart(3, "0")}` }));
     const models = Array.from({ length: 25 }, (_, index) => model({ id: `Acme/model-${index}`, name: `Model ${String(index).padStart(3, "0")}` }));

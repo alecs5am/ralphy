@@ -234,7 +234,7 @@ function keywordScore(item: MarketplaceItemPresentation, tokens: string[]): numb
   if (tokens.length === 0) return 0;
   const name = item.name.toLocaleLowerCase();
   const summary = item.summary.toLocaleLowerCase();
-  const metadata = item.category === "models"
+  const categoryMetadata = item.category === "models"
     ? [
       item.model.id,
       item.model.task,
@@ -247,16 +247,16 @@ function keywordScore(item: MarketplaceItemPresentation, tokens: string[]): numb
       ...item.model.tags,
       ...item.model.permissions,
       ...item.model.comfort.evidence,
-    ].join(" ").toLocaleLowerCase()
+    ]
     : [
-      item.sourceLabel,
       item.category,
       ...(item.category === "recipes" ? [
         item.recipe.recipe?.kind ?? "",
         item.recipe.recipe?.body ?? "",
         item.recipe.recipe?.artifact ?? "",
       ] : []),
-    ].join(" ").toLocaleLowerCase();
+    ];
+  const metadata = [item.sourceLabel, ...categoryMetadata].join(" ").toLocaleLowerCase();
   const author = item.category === "models" ? item.model.author.toLocaleLowerCase() : "";
   let score = 0;
   for (const token of tokens) {
