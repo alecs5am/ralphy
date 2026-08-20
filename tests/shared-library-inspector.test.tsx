@@ -262,6 +262,63 @@ describe("Shared Artifact inspector", () => {
     }
   });
 
+  test("ignores a pending conflict reload after the inspected artifact changes", async () => {
+    const second = artifact({
+      ref: { type: "artifact", id: "artifact-2" },
+      slug: "second-artifact",
+      selectedRevisionId: "revision-9",
+    });
+    const staleDetail = deferred<ArtifactMediaCardDto>();
+    const staleRevisions = deferred<Page<ArtifactRevisionDto>>();
+    const conflict = Object.assign(new Error("Conflict"), { code: "E_CONFLICT" });
+    vi.spyOn(bridge, "loadSharedLibraryArtifact")
+      .mockResolvedValueOnce(artifact())
+      .mockReturnValueOnce(staleDetail.promise)
+      .mockResolvedValueOnce(second);
+    let firstArtifactRevisionLoads = 0;
+    vi.spyOn(bridge, "loadSharedLibraryRevisions").mockImplementation(async (_workspaceId, artifactId) => {
+      if (artifactId === "artifact-1" && ++firstArtifactRevisionLoads === 2) return staleRevisions.promise;
+      return {
+        items: artifactId === "artifact-2"
+          ? [revision(9, { id: "revision-9", artifactId: "artifact-2" })]
+          : [revision(1), revision(2)],
+        nextCursor: null,
+      };
+    });
+    vi.spyOn(bridge, "resolveSharedLibraryPreview").mockResolvedValue(null);
+    vi.spyOn(bridge, "selectSharedLibraryRevision").mockRejectedValue(conflict);
+    const mounted = await mountInspector();
+    try {
+      await click(buttonByAria(mounted.host.container, "Select revision 2 as default for future use"));
+      await click(button(mounted.host.container, "Reload current state"));
+
+      await act(async () => {
+        mounted.root.render(<SharedArtifactInspector
+          artifact={presentSharedArtifact(second)}
+          workspaceId="workspace-1"
+          rootEpoch={1}
+          returnFocus={null}
+          onClose={() => undefined}
+          onReconcile={() => undefined}
+        />);
+        await settle();
+      });
+      expect(mounted.host.container.textContent).toContain("Slug identity · second-artifact");
+      expect(mounted.host.container.textContent).toContain("Revision 9Selected default");
+
+      await act(async () => { staleDetail.resolve(artifact({ selectedRevisionId: "revision-3" })); await settle(); });
+      await act(async () => { staleRevisions.resolve({ items: [revision(3)], nextCursor: null }); await settle(); });
+
+      expect(mounted.host.container.textContent).toContain("Slug identity · second-artifact");
+      expect(mounted.host.container.textContent).toContain("Revision 9Selected default");
+      expect(mounted.host.container.textContent).not.toContain("Current selected default reloaded. Retry when ready.");
+      expect(mounted.host.container.textContent).not.toContain("Retry selection");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
   test("keeps targetless and failed previews explicit and delegates opening to the safe bridge action", async () => {
     vi.spyOn(bridge, "loadSharedLibraryArtifact").mockResolvedValue(artifact());
     vi.spyOn(bridge, "loadSharedLibraryRevisions").mockResolvedValue({ items: [], nextCursor: null });

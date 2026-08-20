@@ -163,9 +163,12 @@ export function SharedArtifactInspector({ artifact, workspaceId, rootEpoch, retu
   const reloadConflict = async () => {
     if (selection.status !== "conflict") return;
     const revisionId = selection.revisionId;
+    const current = ++selectionRequest.current;
     setSelection({ status: "reloading", revisionId });
     const card = await loadDetail();
+    if (current !== selectionRequest.current) return;
     await loadRevisionPage();
+    if (current !== selectionRequest.current) return;
     setSelection(card
       ? { status: "reloaded", revisionId }
       : { status: "error", revisionId, message: "Current selected default could not be reloaded." });
