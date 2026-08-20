@@ -77,9 +77,9 @@ function AttentionQueue({ value, onOpenPage, onRetry, expanded: controlledExpand
       {value.status === "ready" ? "Nothing needs attention." : "No actionable items were returned in this partial page."}
     </p>}
     {items.length > 0 && <ul className="workspace-attention-list">
-      {items.map((item, index) => {
-        const focusId = `workspace-attention-${item.kind}-${item.accountId ?? "unassigned"}-${index}`;
-        return <li key={`${item.kind}:${item.accountId ?? "unassigned"}:${index}`}>
+      {items.map((item) => {
+        const focusId = `workspace-attention-${item.kind}-${item.accountId ?? "unassigned"}`;
+        return <li key={focusId}>
           <span className={`workspace-attention-severity is-${item.severity}`}>
             <AlertTriangle size={15} aria-hidden="true" />{item.severity === "critical" ? "Critical" : "Warning"}
           </span>

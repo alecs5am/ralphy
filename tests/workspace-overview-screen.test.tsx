@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { act } from "react";
+import { act, useEffect, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import type { WorkspaceOverviewDto } from "../electron/ralphy/types";
@@ -204,6 +204,45 @@ describe("workspace overview shell", () => {
 
       expect(live?.textContent).toBe("Refresh failed. Refresh unavailable");
       expect(live?.textContent).not.toContain("Workspace refreshed");
+
+      await act(async () => root.render(<WorkspaceOverviewHeader
+        value={value}
+        criticalCount={{ status: "ready", value: 2 }}
+        refreshing
+        lastSuccessfulRefreshAt={2_000}
+        error={null}
+        onRefresh={() => undefined}
+      />));
+      await act(async () => root.render(<WorkspaceOverviewHeader
+        value={value}
+        criticalCount={{ status: "ready", value: 2 }}
+        refreshing={false}
+        lastSuccessfulRefreshAt={1_500}
+        error="System clock moved backward"
+        onRefresh={() => undefined}
+      />));
+
+      expect(live?.textContent).toBe("Refresh failed. System clock moved backward");
+      expect(live?.textContent).not.toContain("Workspace refreshed");
+
+      await act(async () => root.render(<WorkspaceOverviewHeader
+        value={value}
+        criticalCount={{ status: "ready", value: 2 }}
+        refreshing
+        lastSuccessfulRefreshAt={null}
+        error={null}
+        onRefresh={() => undefined}
+      />));
+      await act(async () => root.render(<WorkspaceOverviewHeader
+        value={value}
+        criticalCount={{ status: "ready", value: 2 }}
+        refreshing={false}
+        lastSuccessfulRefreshAt={3_000}
+        error={null}
+        onRefresh={() => undefined}
+      />));
+
+      expect(live?.textContent).toBe("Workspace refreshed. 2 critical issues.");
     } finally {
       await act(async () => root.unmount());
       host.restore();
@@ -823,6 +862,67 @@ describe("workspace overview shell", () => {
     }
   });
 
+  test("restores focus to the exact Learned review trigger after Memory unmounts and remounts insights", async () => {
+    const value = {
+      insights: { status: "ready" as const, value: [{
+        id: "insight-1",
+        observation: "Product-first openings are associated with stronger performance.",
+        dimension: "Opening hook: product visible in the first two seconds",
+        platform: "TikTok",
+        account: "@launch",
+        reportingWindow: "Last 90 days · first 24 hours",
+        sampleSize: 9,
+        method: "Comparable short-form Units on the same account and observation window.",
+        baseline: "Workspace median: 12,000 views",
+        medianComparison: "Observed median: 20,400 views · 1.7× workspace median",
+        evidenceStrength: "strong" as const,
+        supportingUnits: [{ id: "unit-1", label: "Product reveal" }],
+        counterexamples: [],
+        caveats: [],
+        memoryAction: { status: "ready" as const, value: { label: "Save as proposed Memory" } },
+      }] },
+      efficiency: { status: "unavailable" as const, reason: "Efficiency unavailable." },
+    };
+    function Harness() {
+      const [page, setPage] = useState<"overview" | "memory">("overview");
+      const [returnFocusId, setReturnFocusId] = useState<string | null>(null);
+      useEffect(() => {
+        if (page === "overview" && returnFocusId) document.getElementById(returnFocusId)?.focus();
+      }, [page, returnFocusId]);
+      return page === "memory"
+        ? <main><h1>Memory</h1><button type="button" onClick={() => setPage("overview")}>Back to Overview</button></main>
+        : <WorkspaceInsights value={value} onOpenPage={(destination, focusId) => {
+          if (destination !== "memory") return;
+          setReturnFocusId(focusId);
+          setPage("memory");
+        }} />;
+    }
+
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => root.render(<Harness />));
+      const learnedReview = [...host.container.querySelectorAll(".workspace-learning-list button")]
+        .find((button) => button.textContent === "Review evidence")!;
+      expect(learnedReview.getAttribute("id")).toBe("workspace-learning-review-insight-1");
+      await act(async () => learnedReview.dispatchEvent(new Event("click", { bubbles: true })));
+      const saveMemory = [...document.body.querySelectorAll("[role=dialog] button")]
+        .find((button) => button.textContent === "Save as proposed Memory")!;
+      await act(async () => saveMemory.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(host.container.textContent).toContain("Memory");
+
+      const back = [...host.container.querySelectorAll("button")]
+        .find((button) => button.textContent === "Back to Overview")!;
+      await act(async () => back.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(document.activeElement?.getAttribute("id")).toBe("workspace-learning-review-insight-1");
+      expect(document.activeElement?.getAttribute("id")).not.toBe("workspace-insight-insight-1");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
   test("renders the complete operations inventory in priority order without raw activity vocabulary", async () => {
     const project = {
       id: "project-1", workspaceId: "workspace-1", slug: "launch-campaign", name: "Launch campaign",
@@ -1081,6 +1181,47 @@ describe("workspace overview shell", () => {
       await act(async () => viewAll!.dispatchEvent(new Event("click", { bubbles: true })));
       expect(host.container.querySelector(".workspace-attention-list")!.querySelectorAll("li")).toHaveLength(6);
       expect(host.container.textContent).toContain("Showing all 6 actionable items");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
+  test("retries Overview focus restoration when the durable Attention target arrives later", async () => {
+    const controller = createWorkspaceScreenController({ loadWorkspaceOverview: vi.fn(async () => populatedOverview) }, "workspace-1");
+    const withoutAttention: WorkspaceOverviewDto = {
+      ...populatedOverview,
+      publications: { items: [], nextCursor: null },
+      metrics: { ...populatedOverview.metrics, publicationCount: 0 },
+    };
+    const returnState = {
+      originWorkspaceId: "workspace-1",
+      scrollTop: 0,
+      attentionExpanded: false,
+      returnFocusId: "workspace-attention-publication-failure-account-1",
+    };
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    const props = {
+      controller,
+      catalogProjects: [] as ProjectSummary[],
+      workspaceDescription: "Short-form launches",
+      overviewReturnState: returnState,
+      onOpenPage: () => undefined,
+      onOpenUnit: () => undefined,
+      onOpenProject: () => undefined,
+    };
+    try {
+      await act(async () => root.render(<WorkspaceScreenView {...props} snapshot={{
+        status: "ready", value: withoutAttention, error: null, refreshing: false, lastSuccessfulRefreshAt: 1_000,
+      }} />));
+      expect(document.getElementById(returnState.returnFocusId)).toBeNull();
+
+      await act(async () => root.render(<WorkspaceScreenView {...props} snapshot={{
+        status: "ready", value: populatedOverview, error: null, refreshing: false, lastSuccessfulRefreshAt: 2_000,
+      }} />));
+      expect(document.activeElement?.getAttribute("id")).toBe(returnState.returnFocusId);
     } finally {
       await act(async () => root.unmount());
       host.restore();

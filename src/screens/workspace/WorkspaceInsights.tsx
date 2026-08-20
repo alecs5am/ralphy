@@ -71,7 +71,7 @@ function InsightCard({ value, onReview }: { value: WorkspaceInsightPresentation;
 
 function EvidenceState({ value, onReview }: {
   value: Availability<WorkspaceInsightPresentation[]>;
-  onReview(value: WorkspaceInsightPresentation): void;
+  onReview(value: WorkspaceInsightPresentation, returnFocusId: string): void;
 }) {
   if (value.status !== "ready" && value.status !== "partial") {
     return <UnavailablePanel title="More comparable publications are needed" reason={value.reason} />;
@@ -81,13 +81,13 @@ function EvidenceState({ value, onReview }: {
   }
   return <>
     {value.status === "partial" && <UnavailablePanel title="Partial evidence" reason={value.reason} />}
-    <ul className="workspace-insight-list">{value.value.map((insight) => <InsightCard key={insight.id} value={insight} onReview={() => onReview(insight)} />)}</ul>
+    <ul className="workspace-insight-list">{value.value.map((insight) => <InsightCard key={insight.id} value={insight} onReview={() => onReview(insight, `workspace-insight-${insight.id}`)} />)}</ul>
   </>;
 }
 
 function LearnedState({ value, onReview, onOpenMemory }: {
   value: Availability<WorkspaceInsightPresentation[]>;
-  onReview(value: WorkspaceInsightPresentation): void;
+  onReview(value: WorkspaceInsightPresentation, returnFocusId: string): void;
   onOpenMemory(returnFocusId: string): void;
 }) {
   if (value.status !== "ready" && value.status !== "partial") {
@@ -97,14 +97,17 @@ function LearnedState({ value, onReview, onOpenMemory }: {
   if (supported.length === 0) {
     return <UnavailablePanel title="No proposed learning without evidence" reason="No supported learnings were returned." />;
   }
-  return <ul className="workspace-learning-list">{supported.map((insight) => <li key={insight.id}>
+  return <ul className="workspace-learning-list">{supported.map((insight) => {
+    const reviewId = `workspace-learning-review-${insight.id}`;
+    return <li key={insight.id}>
     <span className="workspace-learning-state">Proposed · {strengthLabel(insight.evidenceStrength)}</span>
     <p>{insight.observation}</p>
     <div>
-      <button type="button" onClick={() => onReview(insight)}>Review evidence</button>
+      <button id={reviewId} type="button" onClick={() => onReview(insight, reviewId)}>Review evidence</button>
       {insight.memoryAction.status === "ready" && <button id={`workspace-learning-memory-${insight.id}`} type="button" onClick={() => onOpenMemory(`workspace-learning-memory-${insight.id}`)}>{insight.memoryAction.value.label}</button>}
     </div>
-  </li>)}</ul>;
+  </li>;
+  })}</ul>;
 }
 
 function EvidenceDetailDialog({ value, onOpenChange, onOpenMemory }: {
@@ -164,18 +167,19 @@ function ProductionEfficiency({ value, onOpenShared }: {
 }
 
 export function WorkspaceInsights({ value, onOpenPage }: Props) {
-  const [selected, setSelected] = useState<WorkspaceInsightPresentation | null>(null);
+  const [selected, setSelected] = useState<{ value: WorkspaceInsightPresentation; returnFocusId: string } | null>(null);
   const openMemory = (returnFocusId: string) => onOpenPage("memory", returnFocusId);
+  const selectEvidence = (insight: WorkspaceInsightPresentation, returnFocusId: string) => setSelected({ value: insight, returnFocusId });
   return <>
     <section className="workspace-overview-section workspace-insights" aria-labelledby="workspace-insights-title">
       <header className="workspace-section-heading"><h2 id="workspace-insights-title">What works</h2><span>Comparable evidence</span></header>
-      <EvidenceState value={value.insights} onReview={setSelected} />
+      <EvidenceState value={value.insights} onReview={selectEvidence} />
     </section>
     <section className="workspace-overview-section workspace-learnings" aria-labelledby="workspace-learnings-title">
       <header className="workspace-section-heading"><h2 id="workspace-learnings-title">What Ralphy learned</h2><span>Review before Memory</span></header>
-      <LearnedState value={value.insights} onReview={setSelected} onOpenMemory={openMemory} />
+      <LearnedState value={value.insights} onReview={selectEvidence} onOpenMemory={openMemory} />
     </section>
     <ProductionEfficiency value={value.efficiency} onOpenShared={() => onOpenPage("shared", "workspace-open-shared")} />
-    <EvidenceDetailDialog value={selected} onOpenChange={(open) => { if (!open) setSelected(null); }} onOpenMemory={() => selected && openMemory(`workspace-insight-${selected.id}`)} />
+    <EvidenceDetailDialog value={selected?.value ?? null} onOpenChange={(open) => { if (!open) setSelected(null); }} onOpenMemory={() => selected && openMemory(selected.returnFocusId)} />
   </>;
 }

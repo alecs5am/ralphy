@@ -118,8 +118,10 @@ export function WorkspaceScreenView(props: WorkspaceScreenViewProps) {
     const state = props.overviewReturnState;
     if (snapshot.status !== "ready" || !snapshot.value || !state || state.originWorkspaceId !== snapshot.value.workspace.id
       || restoredFocus.current === state || attentionExpanded !== state.attentionExpanded) return;
-    restoredFocus.current = state;
-    document.getElementById(state.returnFocusId)?.focus({ preventScroll: true });
+    const target = document.getElementById(state.returnFocusId);
+    if (!target) return;
+    target.focus({ preventScroll: true });
+    if (document.activeElement === target) restoredFocus.current = state;
   }, [attentionExpanded, props.overviewReturnState, snapshot.status, snapshot.value]);
   if (snapshot.status === "loading" || snapshot.status === "idle") {
     return <WorkspaceOverviewLoading workspaceName={props.workspaceName ?? ""} workspaceDescription={workspaceDescription} />;

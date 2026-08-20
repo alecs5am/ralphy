@@ -31,7 +31,8 @@ export function WorkspaceOverviewHeader({
   const previousRefreshAt = useRef(lastSuccessfulRefreshAt);
   useEffect(() => {
     if (wasRefreshing.current && !refreshing) {
-      if (lastSuccessfulRefreshAt !== null && lastSuccessfulRefreshAt !== previousRefreshAt.current) {
+      if (lastSuccessfulRefreshAt !== null
+        && (previousRefreshAt.current === null || lastSuccessfulRefreshAt > previousRefreshAt.current)) {
         setAnnouncement(`Workspace refreshed. ${countLabel(criticalCount, "critical issue")}.`);
       } else if (error) {
         setAnnouncement(`Refresh failed. ${error}`);

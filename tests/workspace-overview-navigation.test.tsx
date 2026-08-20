@@ -182,18 +182,26 @@ describe("workspace overview navigation lifecycle", () => {
   });
 
   test("restores an originating Attention control that only exists after expansion", async () => {
-    const mounted = await mountApp();
+    const overviews: Record<string, WorkspaceOverviewDto> = { "workspace-1": overview };
+    const mounted = await mountApp({ overviews });
     try {
       const expand = [...mounted.host.container.querySelectorAll("button")]
         .find((button) => button.textContent === "View all attention")!;
       await act(async () => expand.dispatchEvent(new Event("click", { bubbles: true })));
       const attention = [...mounted.host.container.querySelectorAll(".workspace-attention-list button")].at(-1)!;
       const focusId = attention.getAttribute("id");
+      expect(focusId).toBe("workspace-attention-publication-failure-account-6");
       await act(async () => { attention.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      overviews["workspace-1"] = {
+        ...overview,
+        accounts: { items: [{ ...account, id: "account-0", externalId: "private-0", username: "launch0" }, ...overview.accounts.items], nextCursor: null },
+        publications: { items: [{ ...publication, id: "publication-0", socialAccountId: "account-0" }, ...overview.publications.items], nextCursor: null },
+        metrics: { ...overview.metrics, publicationCount: 7 },
+      };
       const back = [...mounted.host.container.querySelectorAll("button")]
         .find((button) => button.textContent === "Back to Overview")!;
       await act(async () => { back.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
-      expect(mounted.host.container.querySelector(".workspace-attention-list")?.querySelectorAll("li")).toHaveLength(6);
+      expect(mounted.host.container.querySelector(".workspace-attention-list")?.querySelectorAll("li")).toHaveLength(7);
       expect((document.activeElement as unknown as HostNode)?.getAttribute("id")).toBe(focusId);
     } finally {
       await mounted.cleanup();
