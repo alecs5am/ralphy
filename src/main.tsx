@@ -6,7 +6,6 @@ import "./styles/tokens.css";
 import "./styles/app.css";
 import "./styles/workbench.css";
 import "./styles/settings.css";
-import "./styles/local-models.css";
 import "./styles/workspace-overview.css";
 import "./styles/shared-library.css";
 import "./styles/marketplace.css";

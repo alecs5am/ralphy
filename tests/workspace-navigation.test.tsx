@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { act } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -255,6 +255,16 @@ describe("workspace projects navigation", () => {
     expect(markup).toContain("Needs attention");
     expect(markup).not.toContain("Launch Studio");
     expect(markup).not.toContain("Local Models");
+  });
+
+  test("has no standalone Local Models screen, style entry, or application route", () => {
+    const app = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
+    const entry = readFileSync(join(process.cwd(), "src/main.tsx"), "utf8");
+
+    expect(existsSync(join(process.cwd(), "src/screens/LocalModelsScreen.tsx"))).toBe(false);
+    expect(existsSync(join(process.cwd(), "src/styles/local-models.css"))).toBe(false);
+    expect(app).not.toMatch(/LocalModelsScreen|localModelsVisible|local-models/i);
+    expect(entry).not.toContain("./styles/local-models.css");
   });
 
   test("opens the project grid from one Home action without an open-project tab strip", async () => {

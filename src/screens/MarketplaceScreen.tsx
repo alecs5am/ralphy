@@ -17,6 +17,10 @@ import {
   marketplaceItemDomId,
 } from "./marketplace/MarketplaceBrowse";
 import { MarketplaceHeader } from "./marketplace/MarketplaceHeader";
+import {
+  MarketplaceInstalledModels,
+  MarketplaceModelDetail,
+} from "./marketplace/MarketplaceModelViews";
 import type { MarketplaceSnapshot } from "./marketplace/presentation";
 
 export interface MarketplaceScreenProps {
@@ -48,6 +52,16 @@ function routeTitle(location: MarketplaceLocation): string {
 
 function browseRoute(route: MarketplaceLocation["route"]): MarketplaceBrowseRoute | null {
   return route.kind === "detail" || route.kind === "unavailable-detail" ? null : route;
+}
+
+function modelReference(itemId: string) {
+  const match = /^model:(huggingface|civitai|modelscope):(.{1,256})$/.exec(itemId);
+  if (!match) return null;
+  const provider = match[1] as "huggingface" | "civitai" | "modelscope";
+  const id = match[2]!;
+  const repositoryId = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+  if (provider === "civitai" ? !/^\d{1,12}$/.test(id) : !repositoryId.test(id)) return null;
+  return { provider, id };
 }
 
 function clearedFilters(query: MarketplaceQueryState, category: MarketplaceCategory | "all"): MarketplaceQueryState {
@@ -198,6 +212,18 @@ export function MarketplaceScreenView({
     }
     onRememberLocation({ query });
   };
+  const detailReference = location.route.kind === "detail" ? modelReference(location.route.itemId) : null;
+  const backToModels = () => {
+    if (location.route.kind !== "detail") return;
+    onNavigate({
+      ...location,
+      route: { kind: "category", category: "models" },
+      query: { ...location.query, filters: { ...location.query.filters, category: "models" } },
+      selectedItemId: null,
+      scrollTop: 0,
+      focusId: marketplaceItemDomId(location.route.itemId),
+    });
+  };
 
   return <main className="marketplace-screen main-region" data-sidebar-visible={sidebarVisible ? "true" : "false"}>
     <MarketplaceHeader
@@ -216,8 +242,12 @@ export function MarketplaceScreenView({
       onScroll={(event) => onRememberLocation({ scrollTop: event.currentTarget.scrollTop })}
     >
       <p className="marketplace-target-state">{targetMessage}</p>
-      {route === null
-        ? <section className="marketplace-route-placeholder" role="status"><h2>{routeTitle(location)}</h2><p>Full item details show only fields returned by the current source. This route does not expose a mutation yet.</p></section>
+      {detailReference
+        ? <MarketplaceModelDetail reference={detailReference} onBack={backToModels} onReviewDownload={() => undefined} />
+        : location.route.kind === "library" && location.route.section === "installed"
+          ? <MarketplaceInstalledModels machine={snapshot.status === "ready" ? snapshot.machine : null} />
+          : route === null
+            ? <section className="marketplace-route-placeholder" role="status"><h2>{routeTitle(location)}</h2><p>Full item details show only fields returned by the current source. This route does not expose a mutation yet.</p></section>
         : <MarketplaceBrowse
           route={route}
           snapshot={snapshot}
