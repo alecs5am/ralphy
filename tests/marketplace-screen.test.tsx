@@ -421,7 +421,14 @@ describe("Marketplace header and navigation composition", () => {
     ] satisfies Array<[MarketplaceLocation["route"], string]>;
     try {
       for (const [route, label] of routes) {
-        const location: MarketplaceLocation = { ...resultsLocation, route, selectedItemId: route.kind === "detail" ? route.itemId : null };
+        const location: MarketplaceLocation = {
+          ...resultsLocation,
+          route,
+          query: route.kind === "collection"
+            ? { ...resultsLocation.query, filters: { ...resultsLocation.query.filters, category: "models" } }
+            : resultsLocation.query,
+          selectedItemId: route.kind === "detail" ? route.itemId : null,
+        };
         await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={false} snapshot={readySnapshot()} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
         expect(host.container.querySelector(".marketplace-header-category-menu .select-menu-value")?.textContent).toBe(label);
       }

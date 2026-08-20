@@ -68,7 +68,7 @@ function queryWithFilter<Key extends keyof MarketplaceQueryState["filters"]>(
 export interface MarketplaceHeaderProps {
   title: string;
   query: MarketplaceQueryState;
-  selectedCategory: MarketplaceCategory | null;
+  selectedCategory: MarketplaceCategory | "all" | null;
   sidebarVisible: boolean;
   refreshing: boolean;
   onQueryChange(query: MarketplaceQueryState): void;

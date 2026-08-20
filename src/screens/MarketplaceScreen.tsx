@@ -121,15 +121,17 @@ export function MarketplaceScreenView({
   const detailItemId = location.route.kind === "detail" ? location.route.itemId : null;
   const detailReference = detailItemId === null ? null : modelReference(detailItemId);
   const publicReference = detailItemId === null ? null : publicItemReference(detailItemId);
-  const selectedCategory = location.route.kind === "category" || location.route.kind === "unavailable-detail"
-    ? location.route.category
-    : detailReference
-      ? "models"
-      : publicReference?.category === "template"
-        ? "templates"
-        : publicReference?.category === "recipe"
-          ? "recipes"
-          : null;
+  const selectedCategory: MarketplaceCategory | "all" | null = location.route.kind === "collection"
+    ? "all"
+    : location.route.kind === "category" || location.route.kind === "unavailable-detail"
+      ? location.route.category
+      : detailReference
+        ? "models"
+        : publicReference?.category === "template"
+          ? "templates"
+          : publicReference?.category === "recipe"
+            ? "recipes"
+            : null;
   const itemOrigin = focusId.startsWith("marketplace-item-");
   const originItems = snapshot.status === "ready" && route?.kind === "results"
     ? snapshot.items

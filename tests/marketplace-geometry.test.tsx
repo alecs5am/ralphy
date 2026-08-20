@@ -106,7 +106,7 @@ async function marketplaceGeometry(): Promise<GeometrySmoke> {
         "skill-shell": { route: { kind: "unavailable-detail", category: "skills" }, query },
         installed: { route: { kind: "library", section: "installed" }, query },
         "update-conflict": { route: { kind: "library", section: "updates" }, query },
-        collection: { route: { kind: "collection" }, query },
+        collection: { route: { kind: "collection" }, query: { ...query, filters: { ...query.filters, category: "models" } } },
         offline: { route: { kind: "discover" }, query },
       };
       const normalize = (value) => ({ ...value, selectedItemId: value.route.kind === "detail" ? value.route.itemId : null, scrollTop: 0, focusId: null });
@@ -291,6 +291,7 @@ describe("Marketplace production geometry", () => {
     expect(results.find(({ state, layout }) => state === "model-detail" && layout === "wide")!.trustLabels).toBeGreaterThanOrEqual(2);
     expect(results.find(({ state, layout }) => state === "template-detail" && layout === "wide")!.trustLabels).toBeGreaterThanOrEqual(2);
     expect(results.find(({ state, layout }) => state === "offline" && layout === "wide")!.statusLabels).toBeGreaterThan(0);
+    expect(results.find(({ state, layout }) => state === "collection" && layout === "narrow")!.categoryMenuValue).toBe("All categories");
     for (const [state, value] of [["model-detail", "Models"], ["template-detail", "Templates"], ["recipe-detail", "Recipes"]]) {
       expect(results.find((result) => result.state === state && result.layout === "narrow")!.categoryMenuValue).toBe(value);
       const wideDetail = results.find((result) => result.state === state && result.layout === "detail-container-wide")!;
