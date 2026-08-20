@@ -15,6 +15,7 @@ import {
   type WorkspaceOverviewPresentation,
 } from "./workspace/overview-presentation";
 import { WorkspaceOverviewHeader } from "./workspace/WorkspaceOverviewHeader";
+import { WorkspacePerformance } from "./workspace/WorkspacePerformance";
 
 export { createWorkspaceScreenController } from "../state/workspace-screen-controller";
 
@@ -46,7 +47,7 @@ function PlaceholderSection({
   </section>;
 }
 
-function WorkspaceOverviewShell({ value }: { value: WorkspaceOverviewPresentation }) {
+function WorkspaceOverviewShell({ value, onOpenPage }: { value: WorkspaceOverviewPresentation; onOpenPage(page: WorkspacePage): void }) {
   const attention = value.attention.status === "ready" || value.attention.status === "partial"
     ? `${value.attention.value.items.length} attention item${value.attention.value.items.length === 1 ? "" : "s"} available.`
     : "Attention data available.";
@@ -54,8 +55,7 @@ function WorkspaceOverviewShell({ value }: { value: WorkspaceOverviewPresentatio
     ? `${value.projects.value.length} active project${value.projects.value.length === 1 ? "" : "s"} available.`
     : "Project data available.";
   return <>
-    <PlaceholderSection title="Workspace momentum" value={value.momentum.trend} ready="Trend data available." />
-    <PlaceholderSection title="Accounts" value={value.accounts} ready="Connected account data available." />
+    <WorkspacePerformance value={value} onOpenCalendar={() => onOpenPage("calendar")} />
     <PlaceholderSection title="Content plan" value={value.plan.coverage} ready="Content plan data available." />
     <PlaceholderSection title="Top and emerging Units" value={value.outcomes} ready="Unit outcome data available." />
     <PlaceholderSection title="What works" value={value.insights} ready="Workspace insight data available." />
@@ -101,7 +101,7 @@ export function WorkspaceScreenView(props: WorkspaceScreenViewProps) {
     />
     {snapshot.error && <div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.error}</span><button type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>}
     <div className="workspace-overview-scroll">
-      <WorkspaceOverviewShell value={presentation} />
+      <WorkspaceOverviewShell value={presentation} onOpenPage={props.onOpenPage} />
     </div>
   </main>;
 }

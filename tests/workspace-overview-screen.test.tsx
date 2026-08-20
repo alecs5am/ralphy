@@ -1,3 +1,4 @@
+import { act } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import type { WorkspaceOverviewDto } from "../electron/ralphy/types";
@@ -5,6 +6,9 @@ import {
   WorkspaceScreenView,
   createWorkspaceScreenController,
 } from "../src/screens/WorkspaceScreen";
+import type { WorkspaceMomentumPresentation } from "../src/screens/workspace/overview-presentation";
+import { AccessibleTrendChart, WorkspaceMomentum } from "../src/screens/workspace/WorkspacePerformance";
+import { createReactHost } from "./react-host";
 
 const populatedOverview = {
   workspace: {
@@ -54,6 +58,34 @@ async function renderWorkspace(
 }
 
 describe("workspace overview shell", () => {
+  test("gives a ready trend an accessible chart and exact table alternative", () => {
+    const markup = renderToStaticMarkup(<AccessibleTrendChart value={[
+      { label: "Aug 19", value: 80 },
+      { label: "Aug 20", value: 100 },
+    ]} />);
+
+    expect(markup).toContain('role="img"');
+    expect(markup).toContain("Workspace performance trend");
+    expect(markup).toContain("<polyline");
+    expect(markup).toContain("Aug 19");
+    expect(markup).toContain(">80<");
+    expect(markup).toContain("Aug 20");
+    expect(markup).toContain(">100<");
+  });
+
+  test("keeps returned trend points visible when the trend is partial", () => {
+    const value = {
+      periodLabel: "Last 30 days",
+      totals: { publications: 1, views: 100, likes: 10, comments: 2, shares: 1, watchTimeMs: 60_000 },
+      trend: { status: "partial", reason: "One provider has not synced.", value: [{ label: "Aug 20", value: 100 }] },
+    } as unknown as WorkspaceMomentumPresentation;
+    const markup = renderToStaticMarkup(<WorkspaceMomentum value={value} />);
+
+    expect(markup).toContain('role="img"');
+    expect(markup).toContain("Partial trend data");
+    expect(markup).toContain("One provider has not synced.");
+  });
+
   test("renders the approved section order without legacy resource sections", async () => {
     const markup = await renderWorkspace(populatedOverview);
     const headings = [
@@ -100,5 +132,98 @@ describe("workspace overview shell", () => {
     expect(markup).toContain("Connected accounts are limited to the returned Core page");
     expect(markup).toContain("Refresh unavailable");
     expect(markup).toContain("Workspace momentum");
+  });
+
+  test("renders real momentum totals and an honest account portfolio", async () => {
+    const markup = await renderWorkspace(populatedOverview);
+
+    expect(markup).toContain("Workspace momentum");
+    expect(markup).toContain("Publications");
+    expect(markup).toContain("Watch time");
+    expect(markup).toContain('aria-label="Views: 100"');
+    expect(markup).toContain('aria-label="60 seconds watch time"');
+    expect(markup).toContain("Trend unavailable");
+    expect(markup).toContain("Account metrics are not available from the current Core contract");
+    expect(markup).toContain('aria-label="Account portfolio"');
+    expect(markup).toContain("Connected");
+    expect(markup).toContain("Last Core update");
+    expect(markup).not.toContain("0 views");
+  });
+
+  test("preserves partial accounts and identifies accounts that need relinking", async () => {
+    const account = populatedOverview.accounts.items[0];
+    const markup = await renderWorkspace({
+      ...populatedOverview,
+      accounts: {
+        items: [{ ...account, credentialConfigured: false, relinkRequired: true }],
+        nextCursor: "more-accounts",
+      },
+    });
+
+    expect(markup).toContain("Relink required");
+    expect(markup).toContain("Connected accounts are limited to the returned Core page");
+    expect(markup).toContain("Account metrics are not available from the current Core contract");
+  });
+
+  test("labels a complete account page with no connected accounts", async () => {
+    const markup = await renderWorkspace({
+      ...populatedOverview,
+      accounts: { items: [], nextCursor: null },
+    });
+
+    expect(markup).toContain("No connected accounts were returned by Core");
+    expect(markup).not.toContain('aria-label="Account portfolio"');
+  });
+
+  test("opens a complete account detail drawer without inventing unsupported data", async () => {
+    const controller = createWorkspaceScreenController(
+      { loadWorkspaceOverview: vi.fn(async () => populatedOverview) },
+      "workspace-1",
+    );
+    await controller.start();
+    const openPage = vi.fn();
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => root.render(
+        <WorkspaceScreenView
+          controller={controller}
+          snapshot={controller.getSnapshot()}
+          catalogProjects={[]}
+          workspaceDescription="Short-form launches"
+          onOpenPage={openPage}
+          onOpenUnit={() => undefined}
+          onOpenProject={() => undefined}
+        />,
+      ));
+      const accountButton = [...host.container.querySelectorAll("button")]
+        .find((button) => button.textContent?.includes("@launch"));
+      expect(accountButton).toBeTruthy();
+      await act(async () => accountButton!.dispatchEvent(new Event("click", { bubbles: true })));
+
+      const drawer = document.body.querySelector("[role=dialog]");
+      expect(drawer?.textContent).toContain("Performance");
+      expect(drawer?.textContent).toContain("Top Units");
+      expect(drawer?.textContent).toContain("Upcoming");
+      expect(drawer?.textContent).toContain("Recent publication failures");
+      expect(drawer?.textContent).toContain("Data freshness");
+      expect(drawer?.textContent).toContain("Account metrics are not available from the current Core contract");
+      expect(drawer?.textContent).toContain("Top Units are not available from the current Core contract");
+      expect(drawer?.textContent).toContain("Upcoming content is not available by account from the current Core contract");
+      expect(drawer?.textContent).toContain("Publication failures are not available by account from the current Core contract");
+      expect(drawer?.textContent).toContain("Account management is not available from the current desktop contract");
+      const manageAccount = [...document.body.querySelectorAll("button")]
+        .find((button) => button.textContent?.includes("Manage account"));
+      expect(manageAccount?.disabled).toBe(true);
+
+      const openCalendar = [...document.body.querySelectorAll("button")]
+        .find((button) => button.textContent?.includes("Open Calendar"));
+      await act(async () => openCalendar!.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(openPage).toHaveBeenCalledWith("calendar");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
   });
 });
