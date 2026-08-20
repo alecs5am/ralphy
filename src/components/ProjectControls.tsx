@@ -1,7 +1,7 @@
 import type { ProjectTab } from "../lib/ipc";
 import { GooeyTabs, moveGooeyTab, type GooeyTab } from "./ui/GooeyTabs";
 
-export type ProjectView = "overview" | Exclude<ProjectTab, "compositions">;
+export type ProjectView = Exclude<ProjectTab, "compositions">;
 
 interface ProjectControlsProps {
   activeTab: ProjectView;
@@ -9,10 +9,9 @@ interface ProjectControlsProps {
 }
 
 const tabs: Array<GooeyTab<ProjectView>> = [
-  { value: "overview", label: "Overview", id: "project-tab-overview", controlsId: "project-panel-overview" },
+  { value: "units", label: "Units", id: "project-tab-units", controlsId: "project-panel-units" },
   { value: "documents", label: "Documents", id: "project-tab-documents", controlsId: "project-panel-documents" },
   { value: "media", label: "Media", id: "project-tab-media", controlsId: "project-panel-media", focusFallback: true },
-  { value: "units", label: "Units", id: "project-tab-units", controlsId: "project-panel-units" },
   { value: "activity", label: "Activity", id: "project-tab-activity", controlsId: "project-panel-activity" },
 ];
 

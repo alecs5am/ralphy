@@ -25,18 +25,17 @@ const project = {
 };
 
 describe("Project domain screen", () => {
-  test("renders exactly the five accessible domain tabs", () => {
+  test("renders exactly the four accessible domain tabs", () => {
     const markup = renderToStaticMarkup(
-      <projectControls.ProjectControls activeTab="overview" onSelect={vi.fn()} />,
+      <projectControls.ProjectControls activeTab="units" onSelect={vi.fn()} />,
     );
     const labels = [...markup.matchAll(/role="tab"[^>]*>([^<]+)<\/button>/g)]
       .map((match) => match[1]);
 
     expect(labels).toEqual([
-      "Overview",
+      "Units",
       "Documents",
       "Media",
-      "Units",
       "Activity",
     ]);
     expect(markup).toContain('role="tablist"');
@@ -59,11 +58,11 @@ describe("Project domain screen", () => {
     expect(tabs).toContain('aria-controls="project-panel-media"');
     expect(tabs).toMatch(/id="project-tab-media"[^>]*aria-selected="true"[^>]*tabindex="0"/);
     expect(tabs).toMatch(/id="project-tab-documents"[^>]*tabindex="-1"/);
-    expect(screen).toContain('id="project-panel-overview"');
-    expect(screen).toContain('aria-labelledby="project-tab-overview"');
-    expect(moveProjectTab("overview", "ArrowRight")).toBe("documents");
-    expect(moveProjectTab("overview", "ArrowLeft")).toBe("activity");
-    expect(moveProjectTab("media", "Home")).toBe("overview");
+    expect(screen).toContain('id="project-panel-units"');
+    expect(screen).toContain('aria-labelledby="project-tab-units"');
+    expect(moveProjectTab("units", "ArrowRight")).toBe("documents");
+    expect(moveProjectTab("units", "ArrowLeft")).toBe("activity");
+    expect(moveProjectTab("media", "Home")).toBe("units");
     expect(moveProjectTab("media", "End")).toBe("activity");
   });
 

@@ -11,6 +11,7 @@ import { MainHeader } from "../src/components/Titlebar";
 import { WorkspaceProjectsScreen } from "../src/screens/WorkspaceProjectsScreen";
 import { LibraryScreen } from "../src/screens/LibraryScreen";
 import { bridge } from "../src/lib/ipc";
+import { readWorkbenchPreferences, WORKSPACE_PAGES } from "../src/state/workbench";
 import { createReactHost } from "./react-host";
 
 vi.mock("../src/components/ProfileMenu", () => ({ ProfileMenu: () => null }));
@@ -177,7 +178,7 @@ describe("workspace projects navigation", () => {
     const markup = renderToStaticMarkup(
       <ContextSidebar
         route={{ kind: "workspace", workspaceId: workspace.id }}
-        page="projects"
+        page="overview"
         pageActive
         localModelsActive={false}
         rootPath="/tmp/demo/.ralphy"
@@ -196,6 +197,10 @@ describe("workspace projects navigation", () => {
       />,
     );
 
+    expect(WORKSPACE_PAGES).toEqual(["overview", "projects", "units", "shared", "memory", "calendar"]);
+    expect(readWorkbenchPreferences({ getItem: () => null, setItem: () => undefined }).workspacePage).toBe("overview");
+    expect(markup).toContain("Overview");
+    expect(markup.indexOf("Overview")).toBeLessThan(markup.indexOf("Projects"));
     expect(markup).toContain("Memory");
     expect(markup).toContain("Calendar");
     expect(markup).toContain("Shared library");

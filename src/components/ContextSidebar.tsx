@@ -1,4 +1,4 @@
-import { Boxes, Brain, CalendarDays, FolderOpen, HardDrive, SlidersHorizontal, UsersRound, type LucideIcon } from "lucide-react";
+import { Boxes, Brain, CalendarDays, ChartNoAxesCombined, FolderOpen, HardDrive, SlidersHorizontal, UsersRound, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { useMemo } from "react";
 import type { WorkspaceSummary } from "../lib/ipc";
@@ -34,6 +34,7 @@ interface ContextSidebarProps {
 }
 
 const PAGE_ICONS: Record<WorkspacePage, LucideIcon> = {
+  overview: ChartNoAxesCombined,
   projects: FolderOpen,
   units: UsersRound,
   shared: Boxes,

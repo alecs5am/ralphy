@@ -1,12 +1,12 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { act, StrictMode } from "react";
+import { act } from "react";
 import { describe, expect, test, vi } from "vitest";
 import type { ArtifactRevisionDto, DocumentSearchDto, MediaCardDto, MediaGenerationDetailDto, ProjectOverviewDto, UnitDto, UnitRevisionDto } from "../electron/ralphy/types";
 import type { ProjectSummary } from "../src/lib/ipc";
 import * as screen from "../src/screens/ProjectScreen";
 import { OverviewPanel } from "../src/screens/project/OverviewPanel";
 import { bridge } from "../src/lib/ipc";
-import { createReactHost, type HostNode, reactHostGlobalKeys } from "./react-host";
+import { createReactHost, type HostNode } from "./react-host";
 
 const project: ProjectSummary = {
   id: "project-1",
@@ -593,7 +593,7 @@ describe("ProjectScreen behavior", () => {
     });
   });
 
-  test("renders explicit null and empty Overview summaries without inventing totals", async () => {
+  test("retains explicit null and empty Overview summaries for lifecycle consumers", async () => {
     const api = createApi();
     api.loadProjectOverview.mockResolvedValue({
       ...overview,
@@ -605,26 +605,25 @@ describe("ProjectScreen behavior", () => {
     const controller = createController(api);
 
     await controller.start();
-    const markup = renderController(controller);
-    expect(markup).toContain("No project purpose has been added yet.");
-    expect(markup).toContain("None active");
-    expect(markup).not.toContain("Distribution");
-    expect(markup).not.toContain('aria-label="Production metrics"');
+    expect(controller.getSnapshot().domain.overview).toMatchObject({
+      status: "ready",
+      value: { project: { purpose: null }, metrics: { publicationCount: 0, views: null } },
+    });
   });
 
-  test("loads Overview immediately and each other tab only on first selection", async () => {
+  test("starts on Units while retaining the project Overview lifecycle load", async () => {
     const api = createApi();
     const controller = createController(api);
 
     await controller.start();
     expect(api.loadProjectOverview).toHaveBeenCalledOnce();
-    expect(api.loadProjectPage).not.toHaveBeenCalled();
+    expect(controller.getSnapshot().activeTab).toBe("units");
+    expect(api.loadProjectPage).toHaveBeenCalledWith(expect.objectContaining({ tab: "units" }));
 
     await controller.selectTab("documents");
-    await controller.selectTab("overview");
     await controller.selectTab("documents");
-    expect(api.loadProjectPage).toHaveBeenCalledOnce();
-    expect(api.loadProjectPage).toHaveBeenCalledWith(expect.objectContaining({ tab: "documents" }));
+    expect(api.loadProjectPage).toHaveBeenCalledTimes(2);
+    expect(api.loadProjectPage.mock.calls.filter(([request]) => request.tab === "documents")).toHaveLength(1);
   });
 
   test("unit workbench opens an off-page selection and pages each child family independently", async () => {
@@ -1430,7 +1429,10 @@ describe("ProjectScreen behavior", () => {
   test("automatic cursor clears unmounted Media scroll after a root reset", async () => {
     const cards = projectMediaPage("root-scroll");
     const loadOverview = vi.spyOn(bridge, "loadProjectOverview").mockResolvedValue(overview);
-    const loadPage = vi.spyOn(bridge, "loadProjectPage").mockResolvedValue({ items: cards, nextCursor: null });
+    const loadPage = vi.spyOn(bridge, "loadProjectPage").mockImplementation(async ({ tab }) => ({
+      items: tab === "media" ? cards : [],
+      nextCursor: null,
+    }));
     const resolvePreview = vi.spyOn(bridge, "resolveProjectPreview").mockResolvedValue(null);
     const host = createReactHost();
     const { createRoot } = await import("react-dom/client");
@@ -1448,13 +1450,13 @@ describe("ProjectScreen behavior", () => {
       const visibleBefore = owner.querySelectorAll(".media-card-tile").map((tile) => tile.textContent);
       expect(visibleBefore.some((text) => text.includes("root-scroll-0"))).toBe(false);
 
-      await clickButton(host.container, "Overview");
+      await clickButton(host.container, "Units");
       await clickButton(host.container, "Media");
       owner = host.container.querySelector(".asset-grid-scroll")!;
       expect(owner.scrollTop).toBe(1_400);
       expect(owner.querySelectorAll(".media-card-tile").map((tile) => tile.textContent)).toEqual(visibleBefore);
 
-      await clickButton(host.container, "Overview");
+      await clickButton(host.container, "Units");
       await act(async () => { root.render(render(2)); await Promise.resolve(); await Promise.resolve(); });
       await clickButton(host.container, "Media");
       owner = host.container.querySelector(".asset-grid-scroll")!;
@@ -1515,62 +1517,4 @@ describe("ProjectScreen behavior", () => {
     }
   });
 
-  test("mounted Strict Mode replaces same-ID Project ownership across root epochs", async () => {
-    const firstReplay = deferred<ProjectOverviewDto>();
-    const oldRoot = deferred<ProjectOverviewDto>();
-    const stale = { ...overview, project: { ...overview.project, purpose: "OLD ROOT CONTENT" } };
-    const fresh = { ...overview, project: { ...overview.project, purpose: "NEW ROOT CONTENT" } };
-    const load = vi.spyOn(bridge, "loadProjectOverview")
-      .mockReturnValueOnce(firstReplay.promise)
-      .mockReturnValueOnce(oldRoot.promise)
-      .mockResolvedValueOnce(fresh);
-    const originalGlobals = new Map(
-      reactHostGlobalKeys.map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]),
-    );
-    const host = createReactHost();
-    const { createRoot } = await import("react-dom/client");
-    const root = createRoot(host.container as unknown as Element);
-    const ProjectScreen = screen.ProjectScreen;
-
-    try {
-      await act(async () => {
-        root.render(<StrictMode><ProjectScreen
-          project={project}
-          rootEpoch={1}
-          activitySequence={10}
-        /></StrictMode>);
-        await Promise.resolve();
-      });
-      expect(load).toHaveBeenCalledTimes(2);
-
-      await act(async () => {
-        root.render(<StrictMode><ProjectScreen
-          project={project}
-          rootEpoch={2}
-          activitySequence={10}
-        /></StrictMode>);
-        await Promise.resolve();
-      });
-      expect(load).toHaveBeenCalledTimes(3);
-      expect(host.container.textContent).toContain("NEW ROOT CONTENT");
-
-      await act(async () => {
-        firstReplay.resolve(stale);
-        oldRoot.resolve(stale);
-        await Promise.all([firstReplay.promise, oldRoot.promise]);
-      });
-      expect(host.container.textContent).toContain("NEW ROOT CONTENT");
-      expect(host.container.textContent).not.toContain("OLD ROOT CONTENT");
-      expect(load).toHaveBeenCalledTimes(3);
-    } finally {
-      await act(async () => root.unmount());
-      load.mockRestore();
-      host.restore();
-      for (const key of reactHostGlobalKeys) {
-        const original = originalGlobals.get(key);
-        expect(Object.prototype.hasOwnProperty.call(globalThis, key)).toBe(original !== undefined);
-        expect(Object.getOwnPropertyDescriptor(globalThis, key)).toEqual(original);
-      }
-    }
-  });
 });

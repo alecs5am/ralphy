@@ -11,9 +11,10 @@ export type WorkbenchRoute =
   | { kind: "project"; workspaceId: string; projectId: string };
 
 export type WorkspaceView = "grid" | "list";
-export type WorkspacePage = "projects" | "units" | "shared" | "memory" | "calendar";
+export type WorkspacePage = "overview" | "projects" | "units" | "shared" | "memory" | "calendar";
 
 export const WORKSPACE_PAGES: WorkspacePage[] = [
+  "overview",
   "projects",
   "units",
   "shared",
@@ -22,6 +23,7 @@ export const WORKSPACE_PAGES: WorkspacePage[] = [
 ];
 
 export const WORKSPACE_PAGE_LABELS: Record<WorkspacePage, string> = {
+  overview: "Overview",
   projects: "Projects",
   units: "Units",
   shared: "Shared library",
@@ -302,7 +304,7 @@ export function readWorkbenchPreferences(storage: StorageLike): WorkbenchPrefere
     projectId: null,
     pinnedWorkspaceIds: [],
     pinnedProjectIds: [],
-    workspacePage: "projects",
+    workspacePage: "overview",
     sidebarVisible: true,
     rightPanelVisible: false,
     bottomPanelVisible: false,
@@ -323,7 +325,7 @@ export function readWorkbenchPreferences(storage: StorageLike): WorkbenchPrefere
       pinnedProjectIds: strings(record.pinnedProjectIds),
       workspacePage: WORKSPACE_PAGES.includes(record.workspacePage as WorkspacePage)
         ? record.workspacePage as WorkspacePage
-        : "projects",
+        : "overview",
       sidebarVisible:
         typeof record.sidebarVisible === "boolean" ? record.sidebarVisible : true,
       rightPanelVisible:

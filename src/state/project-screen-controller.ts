@@ -3,7 +3,7 @@ import type { CompositionOutputPreview } from "../../electron/ralphy/project-rea
 import type { ActivityRunDetail, MediaWorkbenchBridge, ProjectMediaQuery, ProjectSummary, ProjectTab } from "../../electron/media/types";
 import { createProjectDomainState, projectDomainReducer, type DomainRow, type ProjectDomainState } from "./project-domain";
 
-export type ProjectView = "overview" | Exclude<ProjectTab, "compositions">;
+export type ProjectView = Exclude<ProjectTab, "compositions">;
 export interface DocumentPreview {
   status: "idle" | "loading" | "ready" | "error";
   value: { revisionId: string; format: string; text: string; truncated: boolean } | null;
@@ -154,7 +154,7 @@ export function createProjectScreenController(
 ): ProjectScreenController {
   let snapshot: ProjectScreenSnapshot = {
     domain: createProjectDomainState({ workspaceId: project.workspaceId, projectId: project.projectId }),
-    activeTab: "overview",
+    activeTab: "units",
     selectedDocument: null,
     documentPreview: idleDocument,
     documentMode: "read",
@@ -999,7 +999,7 @@ export function createProjectScreenController(
   const controller: ProjectScreenController = {
     getSnapshot: () => snapshot,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
-    async start() { if (snapshot.domain.overview.status === "idle") await loadOverview(); },
+    async start() { await Promise.all([loadOverview(), loadPage("units")]); },
     async refresh(sequence) {
       if (disposed || sequence <= coveredActivitySequence || sequence < highestActivityAnnouncement
         || (sequence === highestActivityAnnouncement && activityCatchupInFlight)) return;
@@ -1008,12 +1008,12 @@ export function createProjectScreenController(
       await Promise.all([
         loadOverview(),
         catchUpActivity(sequence),
-        ...(activeTab === "overview" || activeTab === "activity" ? [] : [loadPage(activeTab)]),
+        ...(activeTab === "activity" ? [] : [loadPage(activeTab)]),
       ]);
     },
     async selectTab(tab) {
       emit({ ...snapshot, activeTab: tab });
-      if (tab !== "overview" && snapshot.domain.pages[tab].status === "idle") await loadPage(tab);
+      if (snapshot.domain.pages[tab].status === "idle") await loadPage(tab);
     },
     async loadMore(tab) {
       const page = snapshot.domain.pages[tab];
@@ -1026,11 +1026,8 @@ export function createProjectScreenController(
       await loadPage(tab, true);
     },
     async retry() {
-      if (snapshot.activeTab === "overview") await loadOverview();
-      else {
-        const page = snapshot.domain.pages[snapshot.activeTab];
-        if (page.status === "error" && (page.items.length === 0 || (snapshot.activeTab === "media" && page.nextCursor === null))) await loadPage(snapshot.activeTab);
-      }
+      const page = snapshot.domain.pages[snapshot.activeTab];
+      if (page.status === "error" && (page.items.length === 0 || (snapshot.activeTab === "media" && page.nextCursor === null))) await loadPage(snapshot.activeTab);
     },
     async loadActivityRun(runId) {
       return api.loadProjectActivityRun(snapshot.domain.project, runId);

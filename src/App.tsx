@@ -24,6 +24,7 @@ import {
   type RootIdentity,
 } from "./lib/ipc";
 import { LibraryScreen } from "./screens/LibraryScreen";
+import { WorkspaceScreen } from "./screens/WorkspaceScreen";
 import { WorkspacePagePlaceholder, WorkspaceProjectsScreen } from "./screens/WorkspaceProjectsScreen";
 import { MigrationRecoveryScreen } from "./screens/MigrationRecoveryScreen";
 import { MemoryScreen } from "./screens/MemoryScreen";
@@ -411,6 +412,18 @@ export function App() {
   );
   if (localModelsVisible) {
     content = <LocalModelsScreen />;
+  } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "overview") {
+    content = (
+      <WorkspaceScreen
+        workspaceId={selectedWorkspace.id}
+        rootEpoch={rootIdentity?.rootEpoch ?? 0}
+        activitySequence={rootIdentity?.activitySequence ?? 0}
+        catalogProjects={projects.filter((project) => project.workspaceId === selectedWorkspace.id)}
+        view={workspaceView}
+        onViewChange={() => undefined}
+        onOpenProject={openProject}
+      />
+    );
   } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "projects") {
     content = (
       <WorkspaceProjectsScreen
@@ -535,7 +548,7 @@ export function App() {
               onForward={() => dispatch({ type: "forward" })}
               onHome={() => {
                 setLocalModelsVisible(false);
-                setWorkspacePage("projects");
+                setWorkspacePage("overview");
                 const workspaceId = selectedWorkspace?.id ?? mostRecentWorkspaceId(workspaces);
                 if (workspaceId) dispatch({ type: "open-workspace", workspaceId });
                 else dispatch({ type: "open-library" });
