@@ -8,6 +8,7 @@ import type {
   LibraryOpenResult,
   MediaEvent,
   MediaWorkbenchBridge,
+  MarketplacePublicSnapshotDto,
   ProjectSummary,
   TerminalDimensions,
   TerminalEvent,
@@ -34,6 +35,13 @@ export type {
   MediaAnnotation,
   MediaEvent,
   MediaWorkbenchBridge,
+  MarketplaceBridge,
+  MarketplaceJsonValue,
+  MarketplacePublicCategory,
+  MarketplacePublicItemDto,
+  MarketplacePublicSnapshotDto,
+  MarketplaceRecipeDto,
+  MarketplaceRecipeKind,
   MigrationRecovery,
   ProjectReference,
   ProjectCompositionPageRequest,
@@ -204,6 +212,9 @@ function createMockBridge(): RalphyBridge {
     async restoreLibrary() {
       emitMedia({ type: "root-ready", identity: openResult().identity });
       return openResult();
+    },
+    async loadMarketplacePublicLibrary(): Promise<MarketplacePublicSnapshotDto> {
+      throw new Error("Marketplace public catalog is unavailable in mock mode");
     },
     async loadWorkspaceOverview(workspaceId) {
       return {

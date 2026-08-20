@@ -398,6 +398,52 @@ export interface LocalModelCatalog {
   errors: { provider: LocalModelProvider; message: string }[];
 }
 
+export type MarketplacePublicCategory = "template" | "recipe";
+export type MarketplaceRecipeKind = "ffmpeg" | "encode" | "overlay" | "bake" | "hyperframes" | "prompt";
+export type MarketplaceJsonValue =
+  | null
+  | boolean
+  | number
+  | string
+  | MarketplaceJsonValue[]
+  | { [key: string]: MarketplaceJsonValue };
+
+export interface MarketplaceRecipeDto {
+  kind: MarketplaceRecipeKind | null;
+  body: string | null;
+  artifact: string | null;
+  parameters: MarketplaceJsonValue | null;
+  demo: {
+    kind: "hyperframes" | "media";
+    storageUrl: string | null;
+    beforeUrl: string | null;
+    afterUrl: string | null;
+    posterUrl: string | null;
+  } | null;
+}
+
+export interface MarketplacePublicItemDto {
+  id: string;
+  category: MarketplacePublicCategory;
+  name: string;
+  summary: string;
+  referenceUrls: string[];
+  recipe: MarketplaceRecipeDto | null;
+}
+
+export interface MarketplacePublicSnapshotDto {
+  schemaVersion: 1;
+  source: "live" | "cache";
+  refreshedAt: string;
+  sourceUpdatedAt: string | null;
+  warning: string | null;
+  items: MarketplacePublicItemDto[];
+}
+
+export interface MarketplaceBridge {
+  loadMarketplacePublicLibrary(): Promise<MarketplacePublicSnapshotDto>;
+}
+
 export interface LocalModelSearchInput {
   query?: string;
   provider?: "all" | LocalModelProvider;
@@ -410,7 +456,7 @@ export interface LocalModelReference {
   id: string;
 }
 
-export interface MediaWorkbenchBridge {
+export interface MediaWorkbenchBridge extends MarketplaceBridge {
   restoreLibrary(): Promise<LibraryOpenResult | null>;
   loadWorkspaceOverview(workspaceId: string): Promise<import("../ralphy/types").WorkspaceOverviewDto>;
   loadSharedLibraryPage(workspaceId: string, query?: SharedLibraryQuery): Promise<import("../ralphy/types").Page<import("../ralphy/types").ArtifactMediaCardDto>>;
@@ -537,6 +583,7 @@ export const APP_CHANNELS = {
 
 export const MEDIA_CHANNELS = {
   restoreLibrary: "media:library:restore",
+  loadMarketplacePublicLibrary: "marketplace:public-library:load",
   loadWorkspaceOverview: "workspace:overview",
   loadSharedLibraryPage: "workspace:shared-library:page",
   loadSharedLibraryArtifact: "workspace:shared-library:show",

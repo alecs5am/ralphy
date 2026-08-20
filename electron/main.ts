@@ -114,6 +114,7 @@ import { registerSharedLibraryIpc } from "./ralphy/shared-library-reader";
 import { createMemoryReader } from "./ralphy/memory-reader";
 import { createCalendarReader } from "./ralphy/calendar-reader";
 import { registerWorkspaceOverviewIpc } from "./ralphy/workspace-reader";
+import { registerMarketplaceLibraryIpc } from "./marketplace-library";
 import type { BridgeMethod, JsonValue, ParamsFor, ResultFor } from "./ralphy/types";
 import { resolveRalphyExecutable } from "./ralphy/executable";
 import { RalphySession } from "./ralphy/session";
@@ -1119,6 +1120,17 @@ function parseProjectMediaRef(value: unknown): { type: "artifact" | "run-object"
 }
 
 function registerProjectDomainIpc(): void {
+  registerMarketplaceLibraryIpc({
+    handle: (channel, listener) => {
+      ipcMain.handle(channel, (event, ...args) => listener(event, ...args));
+    },
+    getWindow: () => win,
+    captureRoot: captureBridgeRoot,
+    assertRoot: assertBridgeRoot,
+    fetcher: (input, init) => net.fetch(input instanceof URL ? input.href : input, init),
+    cachePath: join(app.getPath("userData"), "marketplace-public-library.json"),
+    now: Date.now,
+  });
   registerWorkspaceOverviewIpc({
     handle: (channel, listener) => {
       ipcMain.handle(channel, (event, workspaceId) => listener(event, workspaceId));

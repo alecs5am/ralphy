@@ -51,6 +51,7 @@ function loadProjectCompositionPage(
 
 const mediaBridge: MediaWorkbenchBridge = {
   restoreLibrary: () => invoke(MEDIA_CHANNELS.restoreLibrary),
+  loadMarketplacePublicLibrary: () => invoke(MEDIA_CHANNELS.loadMarketplacePublicLibrary),
   loadWorkspaceOverview: (workspaceId) => invoke(MEDIA_CHANNELS.loadWorkspaceOverview, workspaceId),
   loadSharedLibraryPage: (workspaceId, query) => (
     invoke(MEDIA_CHANNELS.loadSharedLibraryPage, workspaceId, query)

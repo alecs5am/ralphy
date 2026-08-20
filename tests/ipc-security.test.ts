@@ -1,7 +1,8 @@
 import { describe, expect, test, vi } from "vitest";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { readFile, realpath, rm, stat, symlink } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, rm, stat, symlink } from "node:fs/promises";
 import { join, relative } from "node:path";
+import { tmpdir } from "node:os";
 import type { RalphyBridgeClient } from "../electron/ralphy/client";
 import { MediaProtocolAccess } from "../electron/media/protocol-access";
 import { makeLibraryFixture } from "./fixtures";
@@ -281,6 +282,7 @@ describe("Electron IPC security", () => {
     expect(Object.keys(exposed as object)).not.toContain("chooseLibrary");
     expect(Object.keys(exposed as object)).toEqual(expect.arrayContaining([
       "restoreLibrary",
+      "loadMarketplacePublicLibrary",
       "loadWorkspaceOverview",
       "loadSharedLibraryPage",
       "loadSharedLibraryArtifact",
@@ -321,6 +323,7 @@ describe("Electron IPC security", () => {
     expect(Object.keys(exposed as object).filter((name) => name === "performProjectMediaAction")).toHaveLength(1);
     const bridge = exposed as {
       startFileDrag(path: string): Promise<void>;
+      loadMarketplacePublicLibrary(): Promise<void>;
       loadWorkspaceOverview(workspaceId: string): Promise<void>;
       loadSharedLibraryPage(workspaceId: string, query?: { after?: string | null; mediaKind?: "image"; provenance?: "generation" }): Promise<void>;
       loadSharedLibraryArtifact(workspaceId: string, artifactId: string): Promise<void>;
@@ -353,6 +356,7 @@ describe("Electron IPC security", () => {
       openLocalModelProvider(url: string): Promise<void>;
     };
     await bridge.startFileDrag("/library/video.mp4");
+    await bridge.loadMarketplacePublicLibrary();
     await bridge.loadWorkspaceOverview("workspace-1");
     await bridge.loadSharedLibraryPage("workspace-1", { after: "shared-next", mediaKind: "image", provenance: "generation" });
     await bridge.loadSharedLibraryArtifact("workspace-1", "artifact-1");
@@ -385,6 +389,7 @@ describe("Electron IPC security", () => {
     await bridge.openLocalModelProvider("https://huggingface.co/Qwen/model");
     expect(invoke.mock.calls).toEqual(expect.arrayContaining([
       ["media:files:drag", "/library/video.mp4"],
+      ["marketplace:public-library:load"],
       ["workspace:overview", "workspace-1"],
       ["workspace:shared-library:page", "workspace-1", { after: "shared-next", mediaKind: "image", provenance: "generation" }],
       ["workspace:shared-library:show", "workspace-1", "artifact-1"],
@@ -419,6 +424,68 @@ describe("Electron IPC security", () => {
     expect(send).not.toHaveBeenCalled();
     const preloadSource = await readFile(fileURLToPath(new URL("../electron/preload.ts", import.meta.url)), "utf8");
     expect(preloadSource).not.toMatch(/absolutePath|\bbucket\b|object path/i);
+  });
+
+  test("registered Marketplace catalog IPC accepts no renderer input and rejects untrusted or stale roots", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "ralphy-marketplace-ipc-"));
+    try {
+      const { registerMarketplaceLibraryIpc } = await import("../electron/marketplace-library");
+      let handler!: (event: unknown, ...args: unknown[]) => Promise<any>;
+      const mainFrame = {};
+      const webContents = { mainFrame };
+      const window = { isDestroyed: () => false, webContents };
+      let epoch = 1;
+      let stale = false;
+      const fetcher = vi.fn(async () => {
+        if (stale) epoch += 1;
+        const result = new Response(JSON.stringify({
+          schemaVersion: 1,
+          blocks: [{ kind: "template", id: "safe", name: "Safe", blurb: "Safe" }],
+        }), { headers: { "content-type": "application/json" } });
+        Object.defineProperty(result, "url", { value: "https://ralphy.b-cdn.net/library/library.json" });
+        return result;
+      }) as unknown as typeof fetch;
+
+      registerMarketplaceLibraryIpc({
+        handle(channel, listener) {
+          expect(channel).toBe("marketplace:public-library:load");
+          handler = listener;
+        },
+        getWindow: () => window,
+        captureRoot: () => ({ epoch }),
+        assertRoot: (root) => { if (root.epoch !== epoch) throw new Error("stale root"); },
+        fetcher,
+        cachePath: join(directory, "catalog.json"),
+        now: () => 1_787_200_000_000,
+      });
+
+      const trusted = { sender: webContents, senderFrame: mainFrame };
+      await expect(handler({ sender: webContents, senderFrame: {} })).resolves.toMatchObject({ ok: false });
+      await expect(handler(trusted, "https://evil.example/library.json")).resolves.toMatchObject({ ok: false });
+      expect(fetcher).not.toHaveBeenCalled();
+
+      await expect(handler(trusted)).resolves.toMatchObject({
+        ok: true,
+        value: { source: "live", items: [{ id: "safe", category: "template" }] },
+      });
+      expect(fetcher).toHaveBeenCalledTimes(1);
+
+      stale = true;
+      epoch = 1;
+      await expect(handler(trusted)).resolves.toEqual({
+        ok: false,
+        error: { code: "E_INTERNAL", message: "The operation could not be completed" },
+      });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  test("mock Marketplace bridge reports the catalog unavailable instead of inventing source evidence", async () => {
+    const { bridge } = await import("../src/lib/ipc");
+    await expect(bridge.loadMarketplacePublicLibrary()).rejects.toThrow(
+      "Marketplace public catalog is unavailable in mock mode",
+    );
   });
 
   test("registered Workspace overview IPC validates, trusts, and rejects stale roots", async () => {
