@@ -1,4 +1,4 @@
-import { Boxes, Brain, CalendarDays, ChartNoAxesCombined, FolderOpen, HardDrive, SlidersHorizontal, UsersRound, type LucideIcon } from "lucide-react";
+import { Boxes, Brain, CalendarDays, ChartNoAxesCombined, CircleAlert, Compass, Download, FolderOpen, Layers3, PackageCheck, Plus, Save, SlidersHorizontal, Sparkles, Store, UsersRound, WandSparkles, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { useMemo } from "react";
 import type { WorkspaceSummary } from "../lib/ipc";
@@ -9,16 +9,24 @@ import {
   type WorkbenchRoute,
   type WorkspacePage,
 } from "../state/workbench";
+import type {
+  AppMode,
+  MarketplaceBrowseRoute,
+  MarketplaceCategory,
+  MarketplaceLibrarySection,
+  MarketplaceRoute,
+} from "../state/marketplace-navigation";
 import { ProfileMenu } from "./ProfileMenu";
 import { SidebarChrome } from "./Titlebar";
 import { WorkspacePicker } from "./WorkspacePicker";
 
 interface ContextSidebarProps {
+  mode: AppMode;
   route: WorkbenchRoute;
   page: WorkspacePage;
   pageActive: boolean;
-  localModelsActive: boolean;
-  rootPath: string;
+  marketplaceRoute?: MarketplaceRoute;
+  rootPath: string | null;
   workspaces: WorkspaceSummary[];
   workspaceId: string | null;
   pinnedWorkspaceIds: string[];
@@ -28,7 +36,8 @@ interface ContextSidebarProps {
   onForward(): void;
   onToggleSidebar(): void;
   onOpenSettings(): void;
-  onOpenLocalModels(): void;
+  onSwitchMode(mode: AppMode): void;
+  onOpenMarketplaceRoute(route: MarketplaceBrowseRoute): void;
   onOpenWorkspace(workspaceId: string): void;
   onOpenPage(page: WorkspacePage): void;
 }
@@ -42,15 +51,23 @@ const PAGE_ICONS: Record<WorkspacePage, LucideIcon> = {
   calendar: CalendarDays,
 };
 
-function initials(value: string): string {
-  return value
-    .split(/[\s_-]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toLocaleUpperCase();
-}
+const MARKETPLACE_CATEGORIES: Array<{ id: MarketplaceCategory; label: string; icon: LucideIcon }> = [
+  { id: "models", label: "Models", icon: Boxes },
+  { id: "templates", label: "Templates", icon: Layers3 },
+  { id: "recipes", label: "Recipes", icon: WandSparkles },
+  { id: "prompts", label: "Prompts", icon: Sparkles },
+  { id: "components", label: "Components & Effects", icon: PackageCheck },
+  { id: "skills", label: "Skills", icon: Store },
+];
+
+const MARKETPLACE_LIBRARY: Array<{ id: MarketplaceLibrarySection; label: string; icon: LucideIcon }> = [
+  { id: "installed", label: "Installed", icon: PackageCheck },
+  { id: "saved", label: "Saved", icon: Save },
+  { id: "added", label: "Added", icon: Plus },
+  { id: "downloads", label: "Downloads", icon: Download },
+  { id: "updates", label: "Updates", icon: Sparkles },
+  { id: "attention", label: "Needs attention", icon: CircleAlert },
+];
 
 function pageCount(page: WorkspacePage, workspace?: WorkspaceSummary): number | null {
   if (!workspace) return null;
@@ -61,9 +78,10 @@ function pageCount(page: WorkspacePage, workspace?: WorkspaceSummary): number | 
 }
 
 export function ContextSidebar({
+  mode,
   page,
   pageActive,
-  localModelsActive,
+  marketplaceRoute = { kind: "discover" },
   rootPath,
   workspaces,
   workspaceId,
@@ -74,7 +92,8 @@ export function ContextSidebar({
   onForward,
   onToggleSidebar,
   onOpenSettings,
-  onOpenLocalModels,
+  onSwitchMode,
+  onOpenMarketplaceRoute,
   onOpenWorkspace,
   onOpenPage,
 }: ContextSidebarProps) {
@@ -83,8 +102,6 @@ export function ContextSidebar({
     () => sortWorkspaces(workspaces, pinnedWorkspaceIds),
     [pinnedWorkspaceIds, workspaces],
   );
-  const contextName = workspace?.name ?? "Workspaces";
-
   return (
     <motion.aside
       className="context-sidebar panel-blur"
@@ -101,18 +118,36 @@ export function ContextSidebar({
         onToggleSidebar={onToggleSidebar}
       />
 
-      <div className="sidebar-context">
-        {workspace ? (
-          <WorkspacePicker value={workspace.id} workspaces={orderedWorkspaces} onValueChange={onOpenWorkspace} />
-        ) : (
-          <div className="sidebar-context-button">
-            <span className="sidebar-monogram">{initials(contextName)}</span>
-            <span>{contextName}</span>
-          </div>
-        )}
-      </div>
+      <nav className="sidebar-nav sidebar-mode-nav" aria-label="Application mode">
+        <button
+          id="app-mode-work"
+          className={`sidebar-nav-row${mode === "work" ? " is-selected" : ""}`}
+          type="button"
+          aria-current={mode === "work" ? "page" : undefined}
+          onClick={() => onSwitchMode("work")}
+        >
+          <FolderOpen size={16} strokeWidth={1.5} aria-hidden="true" />
+          <span>My Work</span>
+          <small />
+        </button>
+        <button
+          id="app-mode-marketplace"
+          className={`sidebar-nav-row${mode === "marketplace" ? " is-selected" : ""}`}
+          type="button"
+          aria-current={mode === "marketplace" ? "page" : undefined}
+          onClick={() => onSwitchMode("marketplace")}
+        >
+          <Store size={16} strokeWidth={1.5} aria-hidden="true" />
+          <span>Marketplace</span>
+          <small />
+        </button>
+      </nav>
 
-      <nav className="sidebar-nav" aria-label="Workspace pages">
+      {mode === "work" && workspace && <div className="sidebar-context">
+        <WorkspacePicker value={workspace.id} workspaces={orderedWorkspaces} onValueChange={onOpenWorkspace} />
+      </div>}
+
+      {mode === "work" && workspace && <nav className="sidebar-nav" aria-label="Workspace pages">
         {WORKSPACE_PAGES.map((item) => {
           const Icon = PAGE_ICONS[item];
           const count = pageCount(item, workspace);
@@ -131,20 +166,57 @@ export function ContextSidebar({
             </button>
           );
         })}
-      </nav>
+      </nav>}
+
+      {mode === "marketplace" && <>
+        <div className="sidebar-section-label"><span>MARKETPLACE</span><i /></div>
+        <nav className="sidebar-nav" aria-label="Marketplace categories">
+          <button
+            className={`sidebar-nav-row${marketplaceRoute.kind === "discover" ? " is-selected" : ""}`}
+            type="button"
+            aria-current={marketplaceRoute.kind === "discover" ? "page" : undefined}
+            onClick={() => onOpenMarketplaceRoute({ kind: "discover" })}
+          >
+            <Compass size={16} strokeWidth={1.5} aria-hidden="true" />
+            <span>Discover</span>
+            <small />
+          </button>
+          {MARKETPLACE_CATEGORIES.map(({ id, label, icon: Icon }) => {
+            const active = marketplaceRoute.kind === "category" && marketplaceRoute.category === id;
+            return <button
+              className={`sidebar-nav-row${active ? " is-selected" : ""}`}
+              type="button"
+              key={id}
+              aria-current={active ? "page" : undefined}
+              onClick={() => onOpenMarketplaceRoute({ kind: "category", category: id })}
+            >
+              <Icon size={16} strokeWidth={1.5} aria-hidden="true" />
+              <span>{label}</span>
+              <small />
+            </button>;
+          })}
+        </nav>
+        <div className="sidebar-section-label"><span>MY LIBRARY</span><i /></div>
+        <nav className="sidebar-nav" aria-label="My Library">
+          {MARKETPLACE_LIBRARY.map(({ id, label, icon: Icon }) => {
+            const active = marketplaceRoute.kind === "library" && marketplaceRoute.section === id;
+            return <button
+              className={`sidebar-nav-row${active ? " is-selected" : ""}`}
+              type="button"
+              key={id}
+              aria-current={active ? "page" : undefined}
+              onClick={() => onOpenMarketplaceRoute({ kind: "library", section: id })}
+            >
+              <Icon size={16} strokeWidth={1.5} aria-hidden="true" />
+              <span>{label}</span>
+              <small />
+            </button>;
+          })}
+        </nav>
+      </>}
 
       <div className="sidebar-section-label"><span>THIS COMPUTER</span><i /></div>
       <nav className="sidebar-nav sidebar-global-nav" aria-label="This computer">
-        <button
-          className={`sidebar-nav-row${localModelsActive ? " is-selected" : ""}`}
-          type="button"
-          aria-current={localModelsActive ? "page" : undefined}
-          onClick={onOpenLocalModels}
-        >
-          <HardDrive size={16} strokeWidth={1.5} aria-hidden="true" />
-          <span>Local Models</span>
-          <small />
-        </button>
         <button className="sidebar-nav-row" type="button" onClick={onOpenSettings}>
           <SlidersHorizontal size={16} strokeWidth={1.5} aria-hidden="true" />
           <span>Settings</span>
@@ -153,9 +225,9 @@ export function ContextSidebar({
       </nav>
 
       <div className="sidebar-spacer" />
-      <div className="sidebar-footer">
+      {rootPath && <div className="sidebar-footer">
         <ProfileMenu rootPath={rootPath} onOpenSettings={onOpenSettings} />
-      </div>
+      </div>}
     </motion.aside>
   );
 }

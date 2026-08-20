@@ -1,0 +1,281 @@
+import { act, type HTMLAttributes, type ReactNode } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { afterEach, describe, expect, test, vi } from "vitest";
+import type { CatalogResult } from "../electron/media/types";
+import { bridge } from "../src/lib/ipc";
+import { MarketplaceScreen } from "../src/screens/MarketplaceScreen";
+import {
+  MARKETPLACE_SIDEBAR_WIDTH,
+  isMarketplaceLocation,
+  marketplaceReducer,
+  readMarketplaceNavigation,
+  writeMarketplaceNavigation,
+  type MarketplaceLocation,
+} from "../src/state/marketplace-navigation";
+import { createReactHost, type HostNode } from "./react-host";
+
+vi.mock("motion/react", () => {
+  const Div = ({ children, initial: _initial, animate: _animate, transition: _transition, layout: _layout, ...props }: HTMLAttributes<HTMLDivElement> & Record<string, unknown>) => <div {...props}>{children as ReactNode}</div>;
+  const Section = ({ children, layout: _layout, ...props }: HTMLAttributes<HTMLElement> & Record<string, unknown>) => <section {...props}>{children as ReactNode}</section>;
+  const Aside = ({ children, initial: _initial, animate: _animate, exit: _exit, transition: _transition, ...props }: HTMLAttributes<HTMLElement> & Record<string, unknown>) => <aside {...props}>{children as ReactNode}</aside>;
+  const Header = ({ children, layout: _layout, ...props }: HTMLAttributes<HTMLElement> & Record<string, unknown>) => <header {...props}>{children as ReactNode}</header>;
+  const Pass = ({ children }: { children: ReactNode }) => <>{children}</>;
+  return { AnimatePresence: Pass, LayoutGroup: Pass, MotionConfig: Pass, motion: { div: Div, section: Section, aside: Aside, header: Header } };
+});
+vi.mock("../src/components/ProfileMenu", () => ({ ProfileMenu: () => null }));
+vi.mock("../src/components/UtilityPanels", () => ({
+  AgentChatPanel: () => <aside data-testid="agent-chat">Agent chat</aside>,
+  BottomPanel: () => null,
+}));
+vi.mock("../src/components/WelcomeScreen", () => ({ WelcomeScreen: () => <div>Loading Ralphy</div> }));
+vi.mock("../src/chat/useAgentChat", () => ({ useAgentChat: () => ({}) }));
+
+const locationA: MarketplaceLocation = {
+  route: { kind: "category", category: "recipes" },
+  query: {
+    text: "ffmpeg",
+    filters: {
+      category: "recipes",
+      source: "ralphy",
+      license: "all",
+      compatibility: "unknown",
+      modality: "all",
+      format: "all",
+    },
+    sort: "name",
+  },
+  selectedItemId: "recipe:voxel-dither",
+  scrollTop: 438,
+  focusId: "marketplace-item-recipe:voxel-dither",
+};
+
+const locationB: MarketplaceLocation = {
+  ...locationA,
+  route: { kind: "detail", itemId: "recipe:voxel-dither" },
+  selectedItemId: "recipe:voxel-dither",
+  scrollTop: 91,
+  focusId: "marketplace-detail-copy",
+};
+
+function storage(initial?: string): Storage {
+  const values = new Map<string, string>();
+  if (initial !== undefined) values.set("ralphy-marketplace-navigation-v1", initial);
+  return {
+    get length() { return values.size; },
+    clear: () => values.clear(),
+    getItem: (key) => values.get(key) ?? null,
+    key: (index) => [...values.keys()][index] ?? null,
+    removeItem: (key) => { values.delete(key); },
+    setItem: (key, value) => { values.set(key, value); },
+  };
+}
+
+function emptyCatalog(): CatalogResult {
+  return {
+    rootPath: "/tmp/.ralphy",
+    generation: 1,
+    workspaces: [],
+    projects: [],
+    mediaItemCount: 0,
+    completedAt: "2026-08-20T10:00:00.000Z",
+  };
+}
+
+async function settle(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
+
+describe("marketplace navigation", () => {
+  test("round-trips one bounded query/location state and rejects malformed variants", () => {
+    const target = storage();
+    let state = readMarketplaceNavigation(target);
+    state = marketplaceReducer(state, { type: "switch-mode", mode: "marketplace", returnFocusId: "workspace-card-a" });
+    state = marketplaceReducer(state, { type: "navigate", location: locationA });
+    writeMarketplaceNavigation(target, state);
+
+    const roundTrip = readMarketplaceNavigation(target);
+    expect(roundTrip.location).toEqual(locationA);
+    expect(roundTrip.workReturnFocusId).toBe("workspace-card-a");
+    expect(isMarketplaceLocation({ ...roundTrip.location, query: { ...roundTrip.location.query, sort: "popular" } })).toBe(false);
+    expect(isMarketplaceLocation({ ...roundTrip.location, route: { kind: "detail", itemId: "model:a" }, selectedItemId: "model:b" })).toBe(false);
+    expect(isMarketplaceLocation({ ...roundTrip.location, query: { ...roundTrip.location.query, extra: true } })).toBe(false);
+    expect(isMarketplaceLocation({ ...roundTrip.location, scrollTop: Number.POSITIVE_INFINITY })).toBe(false);
+    expect(isMarketplaceLocation({ ...roundTrip.location, focusId: "x".repeat(257) })).toBe(false);
+  });
+
+  test("falls back safely when persistence contains unknown keys, invalid enums, or oversized history", () => {
+    const persisted = {
+      mode: "marketplace",
+      sidebarVisible: true,
+      location: { ...locationA, unexpected: true },
+      history: Array.from({ length: 51 }, () => locationA),
+      historyIndex: 50,
+      workReturnFocusId: null,
+    };
+    const state = readMarketplaceNavigation(storage(JSON.stringify(persisted)));
+    expect(state.mode).toBe("work");
+    expect(state.location.route).toEqual({ kind: "discover" });
+    expect(state.history).toHaveLength(1);
+
+    expect(isMarketplaceLocation({ ...locationA, query: { ...locationA.query, text: "x".repeat(257) } })).toBe(false);
+    expect(isMarketplaceLocation({ ...locationA, query: { ...locationA.query, filters: { ...locationA.query.filters, source: "github" } } })).toBe(false);
+    expect(isMarketplaceLocation({ ...locationA, route: { kind: "unavailable-detail", category: "recipes" }, selectedItemId: null })).toBe(false);
+  });
+
+  test("restores immutable history and ignores selection on detail routes", () => {
+    let state = readMarketplaceNavigation(storage());
+    state = marketplaceReducer(state, { type: "navigate", location: locationA });
+    state = marketplaceReducer(state, { type: "navigate", location: locationB });
+    const detailState = state;
+    expect(marketplaceReducer(detailState, { type: "select", itemId: "model:b" })).toBe(detailState);
+
+    state = marketplaceReducer(state, { type: "back" });
+    expect(state.location).toEqual(locationA);
+    state = marketplaceReducer(state, { type: "forward" });
+    expect(state.location).toEqual(locationB);
+    state = marketplaceReducer(state, { type: "remember", patch: { scrollTop: 700, focusId: "copy" } });
+    expect(state.location).toEqual({ ...locationB, scrollTop: 700, focusId: "copy" });
+    state = marketplaceReducer(state, { type: "back" });
+    expect(state.location).toEqual(locationA);
+  });
+
+  test("keeps Marketplace sidebar visibility independent from My Work sizing", () => {
+    const initial = readMarketplaceNavigation(storage());
+    const hidden = marketplaceReducer(initial, { type: "toggle-sidebar" });
+    expect(initial.sidebarVisible).toBe(true);
+    expect(hidden.sidebarVisible).toBe(false);
+    expect(MARKETPLACE_SIDEBAR_WIDTH).toBe(248);
+  });
+
+  test("renders a truthful Marketplace shell for null and empty catalogs", () => {
+    const props = {
+      location: locationA,
+      sidebarVisible: false,
+      onNavigate: () => undefined,
+      onRememberLocation: () => undefined,
+    };
+    const nullMarkup = renderToStaticMarkup(<MarketplaceScreen catalog={null} {...props} />);
+    const emptyMarkup = renderToStaticMarkup(<MarketplaceScreen catalog={emptyCatalog()} {...props} />);
+
+    expect(nullMarkup).toContain("Discover");
+    expect(nullMarkup).toContain("Marketplace category");
+    expect(emptyMarkup).toContain("Discover");
+    expect(emptyMarkup).not.toContain("Choose a workspace");
+  });
+
+  test("keeps both mode surfaces mounted, preserves chat, and returns from Marketplace root", async () => {
+    vi.useFakeTimers();
+    const host = createReactHost();
+    Object.defineProperties(window, {
+      innerWidth: { configurable: true, value: 1360 },
+      innerHeight: { configurable: true, value: 900 },
+    });
+    const local = storage();
+    local.setItem("ralphy-media-workbench-v1", JSON.stringify({ rightPanelVisible: true }));
+    const previousStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+    Object.defineProperty(globalThis, "localStorage", { configurable: true, value: local });
+    const restore = vi.spyOn(bridge, "restoreLibrary").mockResolvedValue({
+      identity: { storeId: "store-1", label: "Ralphy", rootEpoch: 1, activitySequence: 0 },
+      catalog: emptyCatalog(),
+    });
+    const { App } = await import("../src/App");
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<App />); await settle(); });
+      await act(async () => { vi.advanceTimersByTime(1_500); await settle(); });
+      const workMode = host.container.querySelector("#app-mode-work") as unknown as HostNode;
+      workMode.focus();
+      const marketplace = [...host.container.querySelectorAll("button")].find((button) => button.textContent === "Marketplace")!;
+      await act(async () => marketplace.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
+
+      const workSurface = host.container.querySelector(".app-mode-work") as unknown as HostNode;
+      const marketplaceSurface = host.container.querySelector(".app-mode-marketplace") as unknown as HostNode;
+      expect(workSurface.getAttribute("hidden")).not.toBeNull();
+      expect(workSurface.getAttribute("inert")).not.toBeNull();
+      expect(marketplaceSurface.getAttribute("hidden")).toBeNull();
+      expect(host.container.textContent).toContain("Agent chat");
+      expect(host.container.querySelectorAll(".context-sidebar")).toHaveLength(1);
+      expect(((host.container.querySelector(".workbench") as unknown as HostNode).style as unknown as Record<string, string>)["--sidebar-w"]).toBe("248px");
+      expect(host.container.querySelector(".resize-sidebar")).toBeNull();
+
+      const models = [...host.container.querySelectorAll("button")].find((button) => button.textContent === "Models")!;
+      await act(async () => models.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
+      expect(marketplaceSurface.querySelector("h1")?.textContent).toBe("Models");
+      expect(JSON.parse(local.getItem("ralphy-marketplace-navigation-v1")!).location.query.filters.category).toBe("models");
+
+      let back = [...host.container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Back")!;
+      await act(async () => back.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
+      expect(marketplaceSurface.querySelector("h1")?.textContent).toBe("Discover");
+      const forward = [...host.container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Forward")!;
+      await act(async () => forward.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
+      expect(marketplaceSurface.querySelector("h1")?.textContent).toBe("Models");
+      back = [...host.container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Back")!;
+      await act(async () => back.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
+
+      const toggle = new Event("keydown", { bubbles: true, cancelable: true });
+      Object.defineProperties(toggle, {
+        key: { value: "b" },
+        metaKey: { value: true },
+        altKey: { value: false },
+        ctrlKey: { value: false },
+        shiftKey: { value: false },
+        repeat: { value: false },
+      });
+      await act(async () => window.dispatchEvent(toggle));
+      expect(host.container.querySelector(".context-sidebar")).toBeNull();
+      expect(marketplaceSurface.textContent).toContain("Marketplace category");
+      await act(async () => window.dispatchEvent(toggle));
+      expect(host.container.querySelectorAll(".context-sidebar")).toHaveLength(1);
+
+      back = [...host.container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Back")!;
+      await act(async () => back.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
+      await act(async () => { vi.advanceTimersByTime(1); await settle(); });
+      expect(workSurface.getAttribute("hidden")).toBeNull();
+      expect(marketplaceSurface.getAttribute("hidden")).not.toBeNull();
+      expect(document.activeElement).toBe(workMode);
+    } finally {
+      await act(async () => root.unmount());
+      restore.mockRestore();
+      if (previousStorage) Object.defineProperty(globalThis, "localStorage", previousStorage);
+      else delete (globalThis as Record<string, unknown>).localStorage;
+      host.restore();
+    }
+  });
+
+  test("opens Marketplace from the null-catalog recovery state", async () => {
+    vi.useFakeTimers();
+    const host = createReactHost();
+    Object.defineProperties(window, {
+      innerWidth: { configurable: true, value: 1360 },
+      innerHeight: { configurable: true, value: 900 },
+    });
+    const previousStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+    Object.defineProperty(globalThis, "localStorage", { configurable: true, value: storage() });
+    const restore = vi.spyOn(bridge, "restoreLibrary").mockResolvedValue(null);
+    const { App } = await import("../src/App");
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<App />); await settle(); });
+      await act(async () => { vi.advanceTimersByTime(1_500); await settle(); });
+      const marketplace = [...host.container.querySelectorAll("button")].find((button) => button.textContent === "Marketplace");
+      expect(marketplace).not.toBeUndefined();
+      await act(async () => marketplace!.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
+      expect(host.container.textContent).toContain("Discover");
+    } finally {
+      await act(async () => root.unmount());
+      restore.mockRestore();
+      if (previousStorage) Object.defineProperty(globalThis, "localStorage", previousStorage);
+      else delete (globalThis as Record<string, unknown>).localStorage;
+      host.restore();
+    }
+  });
+});

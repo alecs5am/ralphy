@@ -30,7 +30,17 @@ import { MigrationRecoveryScreen } from "./screens/MigrationRecoveryScreen";
 import { MemoryScreen } from "./screens/MemoryScreen";
 import { CalendarScreen } from "./screens/CalendarScreen";
 import { SharedLibraryScreen } from "./screens/SharedLibraryScreen";
-import { LocalModelsScreen } from "./screens/LocalModelsScreen";
+import { MarketplaceScreen } from "./screens/MarketplaceScreen";
+import {
+  MARKETPLACE_SIDEBAR_WIDTH,
+  marketplaceReducer,
+  readMarketplaceNavigation,
+  writeMarketplaceNavigation,
+  type AppMode,
+  type MarketplaceBrowseRoute,
+  type MarketplaceLocation,
+  type MarketplaceMemoryPatch,
+} from "./state/marketplace-navigation";
 import {
   createInitialWorkbenchState,
   mostRecentWorkspaceId,
@@ -101,6 +111,11 @@ export function App() {
     initialPreferences.current,
     createInitialWorkbenchState,
   );
+  const [marketplace, dispatchMarketplace] = useReducer(
+    marketplaceReducer,
+    localStorage,
+    readMarketplaceNavigation,
+  );
   const [restoring, setRestoring] = useState(true);
   const [rootIdentity, setRootIdentity] = useState<RootIdentity | null>(null);
   const [migrationRecovery, setMigrationRecovery] = useState<MigrationRecovery | null>(null);
@@ -117,7 +132,6 @@ export function App() {
     initialPreferences.current.bottomPanelVisible,
   );
   const [settingsVisible, setSettingsVisible] = useState(false);
-  const [localModelsVisible, setLocalModelsVisible] = useState(false);
   const workspaceView: WorkspaceView = "grid";
   const [workspacePage, setWorkspacePage] = useState<WorkspacePage>(
     initialPreferences.current.workspacePage,
@@ -142,6 +156,7 @@ export function App() {
   const [targetUnitId, setTargetUnitId] = useState<string | null>(null);
   const restorationStarted = useRef(false);
   const welcomeStartedAt = useRef(Date.now());
+  const previousAppMode = useRef(marketplace.mode);
 
   const catalog = state.catalog;
   const workspaces = catalog?.workspaces ?? [];
@@ -164,8 +179,11 @@ export function App() {
     project: selectedProject,
     enabled: rightPanelVisible,
   });
-  const showRightPanel = catalog !== null && rightPanelVisible && !localModelsVisible;
-  const showBottomPanel = bottomPanelVisible && !localModelsVisible;
+  const marketplaceSidebarVisible = marketplace.sidebarVisible && viewport.width > 1_280;
+  const activeSidebarVisible = marketplace.mode === "work" ? sidebarVisible : marketplaceSidebarVisible;
+  const activeSidebarWidth = marketplace.mode === "work" ? sidebarWidth : MARKETPLACE_SIDEBAR_WIDTH;
+  const showRightPanel = catalog !== null && rightPanelVisible;
+  const showBottomPanel = bottomPanelVisible;
   const sidebarMax = Math.max(
     PANEL_SIZE_LIMITS.sidebar.min,
     Math.min(
@@ -177,7 +195,7 @@ export function App() {
     PANEL_SIZE_LIMITS.right.min,
     Math.min(
       PANEL_SIZE_LIMITS.right.max,
-      viewport.width - (sidebarVisible ? sidebarWidth : 0) - 440,
+      viewport.width - (activeSidebarVisible ? activeSidebarWidth : 0) - 440,
     ),
   );
   const bottomPanelMax = Math.max(
@@ -331,13 +349,67 @@ export function App() {
     workspaceView,
   ]);
 
+  useEffect(() => {
+    writeMarketplaceNavigation(localStorage, marketplace);
+  }, [marketplace]);
+
+  useEffect(() => {
+    const previous = previousAppMode.current;
+    previousAppMode.current = marketplace.mode;
+    if (previous !== "marketplace" || marketplace.mode !== "work" || !marketplace.workReturnFocusId) return;
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(marketplace.workReturnFocusId!)?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [marketplace.mode, marketplace.workReturnFocusId]);
+
+  const switchAppMode = useCallback((mode: AppMode) => {
+    const returnFocusId = mode === "marketplace"
+      ? (document.activeElement as HTMLElement | null)?.id || null
+      : null;
+    dispatchMarketplace({ type: "switch-mode", mode, returnFocusId });
+  }, []);
+
+  const navigateMarketplace = useCallback((location: MarketplaceLocation) => {
+    dispatchMarketplace({ type: "navigate", location });
+  }, []);
+
+  const rememberMarketplace = useCallback((patch: MarketplaceMemoryPatch) => {
+    dispatchMarketplace({ type: "remember", patch });
+  }, []);
+
+  const openMarketplaceRoute = useCallback((route: MarketplaceBrowseRoute) => {
+    dispatchMarketplace({
+      type: "navigate",
+      location: {
+        ...marketplace.location,
+        route,
+        query: route.kind === "category"
+          ? {
+              ...marketplace.location.query,
+              filters: { ...marketplace.location.query.filters, category: route.category },
+            }
+          : marketplace.location.query,
+        selectedItemId: null,
+        scrollTop: 0,
+        focusId: null,
+      },
+    });
+  }, [marketplace.location]);
+
   const navigateBack = useCallback(() => {
-    if (localModelsVisible) {
-      setLocalModelsVisible(false);
+    if (marketplace.mode === "marketplace") {
+      if (marketplace.historyIndex > 0) dispatchMarketplace({ type: "back" });
+      else switchAppMode("work");
       return;
     }
     dispatch({ type: "back" });
-  }, [localModelsVisible]);
+  }, [marketplace.historyIndex, marketplace.mode, switchAppMode]);
+
+  const navigateForward = useCallback(() => {
+    if (marketplace.mode === "marketplace") dispatchMarketplace({ type: "forward" });
+    else dispatch({ type: "forward" });
+  }, [marketplace.mode]);
 
   const clearOverviewNavigation = useCallback(() => {
     setWorkspaceDestination(null);
@@ -364,7 +436,7 @@ export function App() {
         navigateBack();
       } else if (command && event.key === "]") {
         event.preventDefault();
-        dispatch({ type: "forward" });
+        navigateForward();
       } else if (command && key === "f") {
         event.preventDefault();
         const workspaceId = state.route.kind === "library"
@@ -380,7 +452,8 @@ export function App() {
         setBottomPanelVisible((visible) => !visible);
       } else if (command && key === "b") {
         event.preventDefault();
-        setSidebarVisible((visible) => !visible);
+        if (marketplace.mode === "marketplace") dispatchMarketplace({ type: "toggle-sidebar" });
+        else setSidebarVisible((visible) => !visible);
       } else if (command && event.key === ",") {
         event.preventDefault();
         setSettingsVisible(true);
@@ -391,7 +464,7 @@ export function App() {
     };
     const onMouseUp = (event: MouseEvent) => {
       if (event.button === 3) navigateBack();
-      if (event.button === 4) dispatch({ type: "forward" });
+      if (event.button === 4) navigateForward();
     };
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("mouseup", onMouseUp);
@@ -399,10 +472,9 @@ export function App() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [clearOverviewNavigation, navigateBack, openWorkspace, settingsVisible, state.route, workspaces]);
+  }, [clearOverviewNavigation, marketplace.mode, navigateBack, navigateForward, openWorkspace, settingsVisible, state.route, workspaces]);
 
   const openProject = (project: ProjectSummary, unitId: string | null = null) => {
-    setLocalModelsVisible(false);
     setTargetUnitId(unitId);
     dispatch({
       type: "open-project",
@@ -446,33 +518,19 @@ export function App() {
     return <WelcomeScreen exiting={welcomeExiting} restoring={restoring} />;
   }
 
-  if (!catalog) {
-    return (
-      <LibraryScreen
-        catalog={null}
-        error={error}
-        restoring={restoring}
-        pinnedWorkspaceIds={state.pinnedWorkspaceIds}
-        onRetry={() => void restoreHomeLibrary()}
-        onOpenWorkspace={() => undefined}
-        onOpenProject={() => undefined}
-      />
-    );
-  }
-
-  let content = (
+  let workContent = (
     <LibraryScreen
       catalog={catalog}
+      error={catalog ? undefined : error}
+      restoring={restoring}
       pinnedWorkspaceIds={state.pinnedWorkspaceIds}
       onRetry={() => void restoreHomeLibrary()}
       onOpenWorkspace={openWorkspace}
       onOpenProject={openProject}
     />
   );
-  if (localModelsVisible) {
-    content = <LocalModelsScreen />;
-  } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "overview") {
-    content = (
+  if (catalog && state.route.kind === "workspace" && selectedWorkspace && workspacePage === "overview") {
+    workContent = (
       <WorkspaceScreen
         workspaceId={selectedWorkspace.id}
         rootEpoch={rootIdentity?.rootEpoch ?? 0}
@@ -497,7 +555,7 @@ export function App() {
       />
     );
   } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "projects") {
-    content = (
+    workContent = (
       <WorkspaceProjectsScreen
         workspaceName={selectedWorkspace.name}
         workspaceDescription={selectedWorkspace.description}
@@ -510,9 +568,9 @@ export function App() {
       />
     );
   } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "memory") {
-    content = <MemoryScreen workspaceId={selectedWorkspace.id} workspaceName={selectedWorkspace.name} />;
+    workContent = <MemoryScreen workspaceId={selectedWorkspace.id} workspaceName={selectedWorkspace.name} />;
   } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "shared") {
-    content = <SharedLibraryScreen
+    workContent = <SharedLibraryScreen
       key={`shared:${rootIdentity?.rootEpoch ?? 0}:${selectedWorkspace.id}`}
       workspaceId={selectedWorkspace.id}
       workspaceName={selectedWorkspace.name}
@@ -522,7 +580,7 @@ export function App() {
     const calendarContext = overviewReturnState?.originWorkspaceId === selectedWorkspace.id && workspaceDestination?.page === "calendar"
       ? workspaceDestination.context
       : undefined;
-    content = <CalendarScreen workspaceId={selectedWorkspace.id} workspaceName={selectedWorkspace.name}
+    workContent = <CalendarScreen workspaceId={selectedWorkspace.id} workspaceName={selectedWorkspace.name}
       initialDate={calendarContext?.date === undefined ? undefined : new Date(calendarContext.date)}
       navigationContext={calendarContext}
       onOpenProject={(projectId, unitId) => {
@@ -530,9 +588,9 @@ export function App() {
       if (project) openProject(project, unitId);
     }} />;
   } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage !== "projects") {
-    content = <WorkspacePagePlaceholder workspaceName={selectedWorkspace.name} page={workspacePage} />;
+    workContent = <WorkspacePagePlaceholder workspaceName={selectedWorkspace.name} page={workspacePage} />;
   } else if (state.route.kind === "project" && selectedProject) {
-    content = (
+    workContent = (
       <Suspense
         fallback={
           <main className="main-region project-region">
@@ -556,11 +614,13 @@ export function App() {
 
 
   if (workspaceDestination && overviewReturnState?.originWorkspaceId === selectedWorkspace?.id && state.route.kind === "workspace" && workspacePage === workspaceDestination.page) {
-    content = <WorkspaceDestinationFrame destination={workspaceDestination} onBack={backToOverview}>{content}</WorkspaceDestinationFrame>;
+    workContent = <WorkspaceDestinationFrame destination={workspaceDestination} onBack={backToOverview}>{workContent}</WorkspaceDestinationFrame>;
   }
 
-  const canGoBack = state.historyIndex > 0;
-  const canGoForward = state.historyIndex < state.history.length - 1;
+  const canGoBack = marketplace.mode === "marketplace" ? true : state.historyIndex > 0;
+  const canGoForward = marketplace.mode === "marketplace"
+    ? marketplace.historyIndex < marketplace.history.length - 1
+    : state.historyIndex < state.history.length - 1;
 
   return (
     <MotionConfig reducedMotion="user">
@@ -568,14 +628,13 @@ export function App() {
         <motion.div
           className={[
             "workbench",
-            !sidebarVisible ? " sidebar-collapsed" : "",
-            localModelsVisible ? " local-models-open" : "",
+            !activeSidebarVisible ? " sidebar-collapsed" : "",
             showRightPanel ? " has-right-panel" : "",
             showBottomPanel ? " has-bottom-panel" : "",
             isResizing ? " is-resizing" : "",
           ].join("")}
           style={{
-            "--sidebar-w": `${sidebarWidth}px`,
+            "--sidebar-w": `${activeSidebarWidth}px`,
             "--inspector-w": `${rightPanelWidth}px`,
           } as CSSProperties}
           initial={false}
@@ -583,29 +642,34 @@ export function App() {
           transition={{ duration: 0.24 }}
         >
           <AnimatePresence initial={false}>
-            {catalog && sidebarVisible && (
+            {activeSidebarVisible && (
               <ContextSidebar
+                mode={marketplace.mode}
                 route={state.route}
                 page={workspacePage}
-                pageActive={!localModelsVisible && state.route.kind !== "project"}
-                localModelsActive={localModelsVisible}
-                rootPath={catalog.rootPath}
+                pageActive={marketplace.mode === "work" && state.route.kind !== "project"}
+                marketplaceRoute={marketplace.location.route}
+                rootPath={catalog?.rootPath ?? null}
                 workspaces={workspaces}
                 workspaceId={selectedWorkspace?.id ?? null}
                 pinnedWorkspaceIds={state.pinnedWorkspaceIds}
                 canGoBack={canGoBack}
                 canGoForward={canGoForward}
                 onBack={navigateBack}
-                onForward={() => dispatch({ type: "forward" })}
-                onToggleSidebar={() => setSidebarVisible(false)}
+                onForward={navigateForward}
+                onToggleSidebar={() => {
+                  if (marketplace.mode === "marketplace") dispatchMarketplace({ type: "toggle-sidebar" });
+                  else setSidebarVisible(false);
+                }}
                 onOpenSettings={() => setSettingsVisible(true)}
-                onOpenLocalModels={() => setLocalModelsVisible(true)}
+                onSwitchMode={switchAppMode}
+                onOpenMarketplaceRoute={openMarketplaceRoute}
                 onOpenWorkspace={(workspaceId) => {
-                  setLocalModelsVisible(false);
+                  switchAppMode("work");
                   openWorkspace(workspaceId);
                 }}
                 onOpenPage={(page) => {
-                  setLocalModelsVisible(false);
+                  switchAppMode("work");
                   openWorkspacePage(page);
                   const workspaceId = selectedWorkspace?.id ?? mostRecentWorkspaceId(workspaces);
                   if (workspaceId) openWorkspace(workspaceId);
@@ -613,7 +677,7 @@ export function App() {
               />
             )}
           </AnimatePresence>
-          {catalog && sidebarVisible && (
+          {catalog && marketplace.mode === "work" && sidebarVisible && (
             <ResizeHandle
               ariaLabel="Resize sidebar"
               orientation="vertical"
@@ -629,21 +693,27 @@ export function App() {
           )}
           <motion.section className="main-shell">
             <MainHeader
-              sidebarVisible={sidebarVisible}
+              sidebarVisible={activeSidebarVisible}
               canGoBack={canGoBack}
               canGoForward={canGoForward}
               rightPanelVisible={rightPanelVisible}
               bottomPanelVisible={showBottomPanel}
               onBack={navigateBack}
-              onForward={() => dispatch({ type: "forward" })}
+              onForward={navigateForward}
               onHome={() => {
-                setLocalModelsVisible(false);
+                if (marketplace.mode === "marketplace") {
+                  openMarketplaceRoute({ kind: "discover" });
+                  return;
+                }
                 openWorkspacePage("overview");
                 const workspaceId = selectedWorkspace?.id ?? mostRecentWorkspaceId(workspaces);
                 if (workspaceId) openWorkspace(workspaceId);
                 else dispatch({ type: "open-library" });
               }}
-              onToggleSidebar={() => setSidebarVisible((visible) => !visible)}
+              onToggleSidebar={() => {
+                if (marketplace.mode === "marketplace") dispatchMarketplace({ type: "toggle-sidebar" });
+                else setSidebarVisible((visible) => !visible);
+              }}
               onToggleRightPanel={() =>
                 setRightPanelVisible((visible) => !visible)
               }
@@ -651,7 +721,25 @@ export function App() {
                 setBottomPanelVisible((visible) => !visible)
               }
             />
-            <div className="main-content-stage">{content}</div>
+            <div className="main-content-stage">
+              <div className="app-mode-surface app-mode-work" hidden={marketplace.mode !== "work"} inert={marketplace.mode !== "work"}>
+                {workContent}
+              </div>
+              <div
+                className="app-mode-surface app-mode-marketplace"
+                hidden={marketplace.mode !== "marketplace"}
+                inert={marketplace.mode !== "marketplace"}
+                style={{ "--sidebar-w": `${MARKETPLACE_SIDEBAR_WIDTH}px` } as CSSProperties}
+              >
+                <MarketplaceScreen
+                  catalog={catalog}
+                  location={marketplace.location}
+                  sidebarVisible={marketplaceSidebarVisible}
+                  onNavigate={navigateMarketplace}
+                  onRememberLocation={rememberMarketplace}
+                />
+              </div>
+            </div>
             {showBottomPanel && (
               <ResizeHandle
                 ariaLabel="Resize bottom panel"

@@ -13,6 +13,11 @@ import {
   workbenchReducer,
   writeWorkbenchPreferences,
 } from "../src/state/workbench";
+import {
+  marketplaceReducer,
+  readMarketplaceNavigation,
+  writeMarketplaceNavigation,
+} from "../src/state/marketplace-navigation";
 
 const rootPath = "/tmp/demo/.ralphy";
 
@@ -278,5 +283,32 @@ describe("workbench ordering and preferences", () => {
 
     writeWorkbenchPreferences(storage, preferences);
     expect(readWorkbenchPreferences(storage)).toEqual(preferences);
+  });
+
+  test("persists Marketplace and My Work sidebar memory independently", () => {
+    const values = new Map<string, string>();
+    const shared = {
+      get length() { return values.size; },
+      clear: () => values.clear(),
+      getItem: (key: string) => values.get(key) ?? null,
+      key: (index: number) => [...values.keys()][index] ?? null,
+      removeItem: (key: string) => { values.delete(key); },
+      setItem: (key: string, value: string) => { values.set(key, value); },
+    } satisfies Storage;
+    const preferences = {
+      ...readWorkbenchPreferences(shared),
+      sidebarVisible: true,
+      sidebarWidth: 372,
+    };
+    writeWorkbenchPreferences(shared, preferences);
+    const marketplace = marketplaceReducer(
+      readMarketplaceNavigation(shared),
+      { type: "toggle-sidebar" },
+    );
+    writeMarketplaceNavigation(shared, marketplace);
+
+    expect(readWorkbenchPreferences(shared).sidebarWidth).toBe(372);
+    expect(readWorkbenchPreferences(shared).sidebarVisible).toBe(true);
+    expect(readMarketplaceNavigation(shared).sidebarVisible).toBe(false);
   });
 });

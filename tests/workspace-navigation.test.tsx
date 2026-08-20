@@ -188,10 +188,10 @@ describe("workspace projects navigation", () => {
   test("keeps workspace resources in the sidebar navigation", () => {
     const markup = renderToStaticMarkup(
       <ContextSidebar
+        mode="work"
         route={{ kind: "workspace", workspaceId: workspace.id }}
         page="overview"
         pageActive
-        localModelsActive={false}
         rootPath="/tmp/demo/.ralphy"
         workspaces={[workspace]}
         workspaceId={workspace.id}
@@ -202,7 +202,8 @@ describe("workspace projects navigation", () => {
         onForward={() => undefined}
         onToggleSidebar={() => undefined}
         onOpenSettings={() => undefined}
-        onOpenLocalModels={() => undefined}
+        onSwitchMode={() => undefined}
+        onOpenMarketplaceRoute={() => undefined}
         onOpenWorkspace={() => undefined}
         onOpenPage={() => undefined}
       />,
@@ -216,9 +217,44 @@ describe("workspace projects navigation", () => {
     expect(markup).toContain("Calendar");
     expect(markup).toContain("Shared library");
     expect(markup).toContain("THIS COMPUTER");
-    expect(markup).toContain("Local Models");
+    expect(markup).toContain("My Work");
+    expect(markup).toContain("Marketplace");
+    expect(markup).not.toContain("Local Models");
     expect(markup).not.toContain("Filter projects");
     expect(markup).not.toContain("Launch film");
+  });
+
+  test("adapts the same sidebar to all Marketplace destinations without workspace chrome", () => {
+    const markup = renderToStaticMarkup(
+      <ContextSidebar
+        mode="marketplace"
+        route={{ kind: "workspace", workspaceId: workspace.id }}
+        page="overview"
+        pageActive={false}
+        marketplaceRoute={{ kind: "category", category: "models" }}
+        rootPath="/tmp/demo/.ralphy"
+        workspaces={[workspace]}
+        workspaceId={workspace.id}
+        pinnedWorkspaceIds={[]}
+        canGoBack
+        canGoForward={false}
+        onBack={() => undefined}
+        onForward={() => undefined}
+        onToggleSidebar={() => undefined}
+        onOpenSettings={() => undefined}
+        onSwitchMode={() => undefined}
+        onOpenMarketplaceRoute={() => undefined}
+        onOpenWorkspace={() => undefined}
+        onOpenPage={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain("Discover");
+    expect(markup).toContain("Components &amp; Effects");
+    expect(markup).toContain("MY LIBRARY");
+    expect(markup).toContain("Needs attention");
+    expect(markup).not.toContain("Launch Studio");
+    expect(markup).not.toContain("Local Models");
   });
 
   test("opens the project grid from one Home action without an open-project tab strip", async () => {
