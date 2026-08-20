@@ -367,6 +367,40 @@ describe("Marketplace browse surfaces", () => {
       vi.useRealTimers();
     }
   });
+
+  test("provides a tab stop when entering a virtualized list after a mid-list scroll", async () => {
+    vi.useFakeTimers();
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    const items = Array.from({ length: 140 }, (_, index) => ({ ...modelPresentation, key: `model:huggingface:Acme/entry-${index}`, name: `Entry model ${index}` }));
+    try {
+      await act(async () => root.render(<div className="marketplace-scroll"><button id="before-results" type="button">Before results</button><MarketplaceResults items={items} query={defaultQuery} onOpenItem={() => undefined} /></div>));
+      const scroll = host.container.querySelector(".marketplace-scroll")!;
+      scroll.scrollHeight = items.length * 126;
+      await act(async () => { scroll.scrollTo({ top: 70 * 126 }); await vi.runAllTimersAsync(); });
+
+      const firstRendered = host.container.querySelector(".marketplace-result")!;
+      const adoptedKey = firstRendered.getAttribute("data-marketplace-item-key")!;
+      expect(adoptedKey).not.toBe(items[0]!.key);
+      expect(firstRendered.tabIndex).toBe(0);
+      const before = host.container.querySelector("#before-results")!;
+      before.focus();
+      const tab = new Event("keydown", { bubbles: true, cancelable: true });
+      Object.defineProperty(tab, "key", { value: "Tab" });
+      await act(async () => before.dispatchEvent(tab));
+      expect(document.activeElement).toBe(firstRendered);
+
+      await act(async () => firstRendered.dispatchEvent(new Event("focusin", { bubbles: true })));
+      await act(async () => { scroll.scrollTo({ top: 69 * 126 }); await vi.runAllTimersAsync(); });
+      const adopted = host.container.querySelector(`[data-marketplace-item-key="${adoptedKey}"]`)!;
+      expect(host.container.querySelector(".marketplace-result")!.getAttribute("data-marketplace-item-key")).not.toBe(adoptedKey);
+      expect(adopted.tabIndex).toBe(0);
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("Marketplace header and navigation composition", () => {
@@ -498,6 +532,63 @@ describe("Marketplace header and navigation composition", () => {
       await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot({ items: [dashed, dotted] })} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
       await act(async () => vi.runAllTimersAsync());
       expect((document.activeElement as unknown as { getAttribute(name: string): string | null }).getAttribute("data-marketplace-item-key")).toBe(dotted.key);
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+      vi.useRealTimers();
+    }
+  });
+
+  test("restores an item origin when a loading snapshot becomes ready", async () => {
+    vi.useFakeTimers();
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    const location: MarketplaceLocation = { ...resultsLocation, scrollTop: 0, focusId: marketplaceItemDomId(modelPresentation.key) };
+    try {
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={{ status: "loading", query: defaultQuery }} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      await act(async () => vi.runAllTimersAsync());
+      expect(document.activeElement).not.toBe(host.container.querySelector("#marketplace-heading"));
+
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot()} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      await act(async () => vi.runAllTimersAsync());
+      expect((document.activeElement as unknown as { getAttribute(name: string): string | null }).getAttribute("data-marketplace-item-key")).toBe(modelPresentation.key);
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+      vi.useRealTimers();
+    }
+  });
+
+  test("falls back to the Marketplace heading when a ready result set no longer contains the origin", async () => {
+    vi.useFakeTimers();
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    const location: MarketplaceLocation = { ...resultsLocation, scrollTop: 0, focusId: marketplaceItemDomId("model:huggingface:Acme/removed") };
+    try {
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot({ items: [modelPresentation] })} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      await act(async () => vi.runAllTimersAsync());
+      expect(document.activeElement).toBe(host.container.querySelector("#marketplace-heading"));
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+      vi.useRealTimers();
+    }
+  });
+
+  test("does not steal focus when a restored origin disappears after the user moves on", async () => {
+    vi.useFakeTimers();
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    const location: MarketplaceLocation = { ...resultsLocation, scrollTop: 0, focusId: marketplaceItemDomId(modelPresentation.key) };
+    try {
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot()} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      await act(async () => vi.runAllTimersAsync());
+      const search = host.container.querySelector("input")!;
+      search.focus();
+
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot({ items: [templatePresentation] })} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      await act(async () => vi.runAllTimersAsync());
+      expect(document.activeElement).toBe(search);
     } finally {
       await act(async () => root.unmount());
       host.restore();

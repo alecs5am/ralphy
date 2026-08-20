@@ -83,39 +83,61 @@ export function MarketplaceScreenView({
   const focusRouteKey = JSON.stringify(location.route);
   const route = browseRoute(location.route);
   const selectedCategory = location.route.kind === "category" ? location.route.category : null;
+  const itemOrigin = focusId.startsWith("marketplace-item-");
+  const originItems = snapshot.status === "ready" && route?.kind === "results"
+    ? snapshot.items
+    : snapshot.status === "ready" && route?.kind === "category"
+      ? snapshot.items.filter(({ category }) => category === route.category)
+      : [];
+  const originAvailability = !itemOrigin
+    ? "not-item"
+    : snapshot.status === "loading"
+      ? "pending"
+      : snapshot.status === "ready" && originItems.some(({ key }) => marketplaceItemDomId(key) === focusId)
+        ? "available"
+        : "missing";
+  const restoredOrigin = useRef<string | null>(null);
+  const originRequestKey = `${focusRouteKey}:${focusId}`;
 
   useEffect(() => {
-    if (!focusId.startsWith("marketplace-item-")) {
+    if (!itemOrigin) {
       scrollRef.current?.scrollTo({ top: location.scrollTop });
       return;
     }
     const frame = window.requestAnimationFrame(() => scrollRef.current?.scrollTo({ top: location.scrollTop }));
     return () => window.cancelAnimationFrame(frame);
-  }, [focusId, focusRouteKey, location.scrollTop]);
+  }, [focusId, focusRouteKey, itemOrigin, location.scrollTop, originAvailability]);
 
   useEffect(() => {
-    const itemOrigin = focusId.startsWith("marketplace-item-");
     if (!itemOrigin) {
+      restoredOrigin.current = null;
       const target = document.getElementById(focusId) ?? document.getElementById("marketplace-heading");
       if (!target?.closest("[hidden]")) target?.focus({ preventScroll: true });
       return;
     }
+    if (restoredOrigin.current === originRequestKey) return;
+    if (originAvailability === "pending") return;
+    const heading = document.getElementById("marketplace-heading");
+    if (heading?.closest("[hidden]")) return;
+    if (originAvailability === "missing") {
+      heading?.focus({ preventScroll: true });
+      restoredOrigin.current = originRequestKey;
+      return;
+    }
     let frame = 0;
-    let attempts = 0;
     const restoreFocus = () => {
+      if (heading?.closest("[hidden]")) return;
       const target = document.getElementById(focusId);
-      if (target && !target.closest("[hidden]")) {
+      if (target) {
         target.focus({ preventScroll: true });
+        restoredOrigin.current = originRequestKey;
         return;
       }
-      if (attempts < 8) {
-        attempts += 1;
-        frame = window.requestAnimationFrame(restoreFocus);
-      }
+      frame = window.requestAnimationFrame(restoreFocus);
     };
     frame = window.requestAnimationFrame(restoreFocus);
     return () => window.cancelAnimationFrame(frame);
-  }, [focusId, focusRouteKey]);
+  }, [focusId, focusRouteKey, itemOrigin, originAvailability, originRequestKey]);
 
   const openCategory = (category: MarketplaceCategory) => {
     const filters = {

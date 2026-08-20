@@ -255,6 +255,9 @@ function VirtualMarketplaceResults({ items, query, onOpenItem }: MarketplaceResu
   });
   const navigation = useResultNavigation(items, (index) => virtualizer.scrollToIndex(index, { align: "auto" }));
   const rows = virtualizer.getVirtualItems();
+  const activeKey = rows.some((row) => items[row.index]?.key === navigation.activeKey)
+    ? navigation.activeKey
+    : items[rows[0]?.index ?? -1]?.key ?? null;
   return <section className="marketplace-results" aria-labelledby="marketplace-results-heading">
     <div className="marketplace-results-meta"><h2 id="marketplace-results-heading">{items.length} results</h2><span>{resultOrderLabel(query)}</span></div>
     <ol
@@ -269,7 +272,7 @@ function VirtualMarketplaceResults({ items, query, onOpenItem }: MarketplaceResu
           <MarketplaceResult
             item={item}
             index={row.index}
-            tabStop={navigation.activeKey === item.key}
+            tabStop={activeKey === item.key}
             onFocus={() => navigation.setActiveKey(item.key)}
             onMove={navigation.move}
             onOpenItem={onOpenItem}
