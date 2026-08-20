@@ -15,6 +15,7 @@ import {
   type WorkspaceOverviewPresentation,
 } from "./workspace/overview-presentation";
 import { WorkspaceOverviewHeader } from "./workspace/WorkspaceOverviewHeader";
+import { WorkspaceInsights } from "./workspace/WorkspaceInsights";
 import { WorkspacePerformance } from "./workspace/WorkspacePerformance";
 import { WorkspacePlanAndOutcomes } from "./workspace/WorkspacePlanAndOutcomes";
 
@@ -62,8 +63,7 @@ function WorkspaceOverviewShell({ value, onOpenPage, onOpenUnit }: {
   return <>
     <WorkspacePerformance value={value} onOpenCalendar={() => onOpenPage("calendar")} />
     <WorkspacePlanAndOutcomes value={value} onOpenPage={onOpenPage} onOpenUnit={onOpenUnit} />
-    <PlaceholderSection title="What works" value={value.insights} ready="Workspace insight data available." />
-    <PlaceholderSection title="Production efficiency" value={value.efficiency} ready="Production efficiency data available." />
+    <WorkspaceInsights value={value} onOpenPage={onOpenPage} />
     <PlaceholderSection title="Attention" value={value.attention} ready={attention} />
     <PlaceholderSection title="Active projects" value={value.projects} ready={projects} />
   </>;

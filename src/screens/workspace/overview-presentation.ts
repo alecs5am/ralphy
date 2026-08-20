@@ -101,10 +101,37 @@ export interface UnitOutcomeGroups {
 
 export interface WorkspaceInsightPresentation {
   id: string;
+  observation: string;
+  dimension: string;
+  platform: string;
+  account: string;
+  reportingWindow: string;
+  sampleSize: number;
+  method: string;
+  baseline: string;
+  medianComparison: string;
+  evidenceStrength: "strong" | "weak" | "insufficient";
+  supportingUnits: WorkspaceInsightUnitReference[];
+  counterexamples: WorkspaceInsightUnitReference[];
+  caveats: string[];
+  memoryAction: Availability<{ label: string }>;
+}
+
+export interface WorkspaceInsightUnitReference {
+  id: string;
+  label: string;
+}
+
+export type ProductionEfficiencyMetricId = "production-time" | "revisions" | "cost" | "adaptation" | "asset-reuse" | "conversion";
+
+export interface ProductionEfficiencyMetricPresentation {
+  id: ProductionEfficiencyMetricId;
+  value: Availability<string>;
 }
 
 export interface ProductionEfficiencyPresentation {
-  metrics: never[];
+  metrics: ProductionEfficiencyMetricPresentation[];
+  sharedAction: Availability<{ label: string }>;
 }
 
 export type AttentionKind = "publication-failure" | "publication-reconciliation" | "account-relink" | "account-configuration";

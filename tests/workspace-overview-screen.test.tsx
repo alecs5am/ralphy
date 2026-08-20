@@ -9,6 +9,7 @@ import {
 import type { WorkspaceMomentumPresentation } from "../src/screens/workspace/overview-presentation";
 import { AccessibleTrendChart, WorkspaceMomentum } from "../src/screens/workspace/WorkspacePerformance";
 import { WorkspacePlanAndOutcomes } from "../src/screens/workspace/WorkspacePlanAndOutcomes";
+import { WorkspaceInsights } from "../src/screens/workspace/WorkspaceInsights";
 import { createReactHost } from "./react-host";
 
 const populatedOverview = {
@@ -97,6 +98,7 @@ describe("workspace overview shell", () => {
       "Content plan",
       "Top and emerging Units",
       "What works",
+      "What Ralphy learned",
       "Production efficiency",
       "Attention",
       "Active projects",
@@ -522,6 +524,195 @@ describe("workspace overview shell", () => {
       expect(dialog?.textContent).toContain("Observation windows are not available from the current Core contract");
       expect(dialog?.textContent).toContain("Destination");
       expect(dialog?.textContent).toContain("Destination outcomes are not available from the current Core contract");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
+  test("renders honest unavailable insight and efficiency states without unsupported claims", async () => {
+    const markup = await renderWorkspace(populatedOverview);
+
+    expect(markup).toContain("What works");
+    expect(markup).toContain("What Ralphy learned");
+    expect(markup).toContain("More comparable publications are needed");
+    expect(markup).toContain("Production efficiency");
+    expect(markup).toContain("Production timing and reuse evidence are not available from Core yet");
+    expect(markup.match(/Production timing and reuse evidence are not available from Core yet/g)).toHaveLength(6);
+    expect(markup).not.toMatch(/caused|guaranteed|viral score/i);
+  });
+
+  test("renders complete strong, weak, and insufficient evidence cards and six efficiency slots", () => {
+    const markup = renderToStaticMarkup(<WorkspaceInsights
+      value={{
+        insights: { status: "ready", value: [
+          {
+            id: "insight-strong",
+            observation: "Product-first openings are associated with stronger performance.",
+            dimension: "Opening hook: product visible in the first two seconds",
+            platform: "TikTok",
+            account: "@launch",
+            reportingWindow: "Last 90 days · first 24 hours",
+            sampleSize: 9,
+            method: "Comparable short-form Units on the same account and observation window.",
+            baseline: "Workspace median: 12,000 views",
+            medianComparison: "Observed median: 20,400 views · 1.7× workspace median",
+            evidenceStrength: "strong",
+            supportingUnits: [{ id: "unit-1", label: "Product reveal" }],
+            counterexamples: [{ id: "unit-2", label: "Quiet launch" }],
+            caveats: ["Association only; publication timing may differ."],
+            memoryAction: { status: "ready", value: { label: "Save as proposed Memory" } },
+          },
+          {
+            id: "insight-weak",
+            observation: "The sonic hook frequently appears in stronger Instagram results.",
+            dimension: "Audio: approved brand sonic hook",
+            platform: "Instagram",
+            account: "@studio",
+            reportingWindow: "Last 60 days · first 7 days",
+            sampleSize: 7,
+            method: "Comparable Reels with recorded approved-audio lineage.",
+            baseline: "Workspace median: 8,500 views",
+            medianComparison: "Observed median: 9,200 views · 1.08× workspace median",
+            evidenceStrength: "weak",
+            supportingUnits: [{ id: "unit-3", label: "Studio cut" }],
+            counterexamples: [{ id: "unit-4", label: "Silent close-up" }],
+            caveats: ["The sample is small and audio usage overlaps with format."],
+            memoryAction: { status: "unavailable", reason: "The learning is not ready for Memory review." },
+          },
+          {
+            id: "insight-insufficient",
+            observation: "No reliable duration pattern is available yet.",
+            dimension: "Duration: 18–24 seconds",
+            platform: "YouTube",
+            account: "@launch-shorts",
+            reportingWindow: "Last 30 days · first 7 days",
+            sampleSize: 3,
+            method: "Same-account Shorts with a complete seven-day observation window.",
+            baseline: "Workspace median unavailable for an eligible sample",
+            medianComparison: "Median comparison unavailable until more Units qualify",
+            evidenceStrength: "insufficient",
+            supportingUnits: [{ id: "unit-5", label: "Fast demo" }],
+            counterexamples: [{ id: "unit-6", label: "Long demo" }],
+            caveats: ["Approximately five more comparable Units are needed."],
+            memoryAction: { status: "unavailable", reason: "Insufficient evidence cannot be proposed as Memory." },
+          },
+        ] },
+        efficiency: { status: "ready", value: {
+          metrics: [
+            { id: "production-time", value: { status: "ready", value: "42m" } },
+            { id: "revisions", value: { status: "ready", value: "3" } },
+            { id: "cost", value: { status: "ready", value: "$18" } },
+            { id: "adaptation", value: { status: "ready", value: "68%" } },
+            { id: "asset-reuse", value: { status: "ready", value: "74%" } },
+            { id: "conversion", value: { status: "ready", value: "18 of 24 Units" } },
+          ],
+          sharedAction: { status: "ready", value: { label: "Open Shared library" } },
+        } },
+      }}
+      onOpenPage={() => undefined}
+    />);
+
+    for (const text of [
+      "TikTok · @launch",
+      "Instagram · @studio",
+      "YouTube · @launch-shorts",
+      "Last 90 days · first 24 hours",
+      "Last 60 days · first 7 days",
+      "Last 30 days · first 7 days",
+      "9 comparable Units",
+      "7 comparable Units",
+      "3 comparable Units",
+      "Workspace median: 12,000 views",
+      "Workspace median: 8,500 views",
+      "Workspace median unavailable for an eligible sample",
+      "Strong evidence",
+      "Weak evidence",
+      "Insufficient evidence",
+      "Supporting Units",
+      "Counterexamples",
+      "Caveats",
+      "Product reveal",
+      "Quiet launch",
+      "Approximately five more comparable Units are needed.",
+      "Median production time",
+      "Median revisions before selection",
+      "Generation cost per published Unit",
+      "Multi-platform adaptation",
+      "Approved Shared Library reuse",
+      "Production-to-publication conversion",
+    ]) expect(markup).toContain(text);
+    expect(markup.match(/Save as proposed Memory/g)).toHaveLength(1);
+    expect(markup.match(/No reliable duration pattern is available yet\./g)).toHaveLength(1);
+    expect(markup.match(/class="workspace-efficiency-metric/g)).toHaveLength(6);
+  });
+
+  test("opens evidence in the required reading order and routes only available actions", async () => {
+    const openPage = vi.fn();
+    const value = {
+      insights: { status: "ready" as const, value: [{
+        id: "insight-1",
+        observation: "Product-first openings are associated with stronger performance.",
+        dimension: "Opening hook: product visible in the first two seconds",
+        platform: "TikTok",
+        account: "@launch",
+        reportingWindow: "Last 90 days · first 24 hours",
+        sampleSize: 9,
+        method: "Comparable short-form Units on the same account and observation window.",
+        baseline: "Workspace median: 12,000 views",
+        medianComparison: "Observed median: 20,400 views · 1.7× workspace median",
+        evidenceStrength: "strong" as const,
+        supportingUnits: [{ id: "unit-1", label: "Product reveal" }],
+        counterexamples: [{ id: "unit-2", label: "Quiet launch" }],
+        caveats: ["Association only; publication timing may differ."],
+        memoryAction: { status: "ready" as const, value: { label: "Save as proposed Memory" } },
+      }] },
+      efficiency: { status: "ready" as const, value: {
+        metrics: [
+          { id: "production-time" as const, value: { status: "unavailable" as const, reason: "Selection timestamps are unavailable." } },
+          { id: "revisions" as const, value: { status: "unavailable" as const, reason: "Revision history is unavailable." } },
+          { id: "cost" as const, value: { status: "unavailable" as const, reason: "Generation cost is unavailable." } },
+          { id: "adaptation" as const, value: { status: "unavailable" as const, reason: "Adaptation lineage is unavailable." } },
+          { id: "asset-reuse" as const, value: { status: "unavailable" as const, reason: "Approved asset lineage is unavailable." } },
+          { id: "conversion" as const, value: { status: "unavailable" as const, reason: "Publication conversion is unavailable." } },
+        ],
+        sharedAction: { status: "ready" as const, value: { label: "Open Shared library" } },
+      } },
+    };
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => root.render(<WorkspaceInsights value={value} onOpenPage={openPage} />));
+      const review = [...host.container.querySelectorAll("button")]
+        .find((button) => button.textContent?.includes("Review evidence"));
+      await act(async () => review!.dispatchEvent(new Event("click", { bubbles: true })));
+
+      const dialog = document.body.querySelector("[role=dialog]");
+      const text = dialog?.textContent ?? "";
+      const sections = ["Method and sample", "Median comparison", "Supporting Units", "Counterexamples", "Caveats", "Memory action"];
+      const positions = sections.map((section) => text.indexOf(section));
+      expect(positions.every((position) => position >= 0)).toBe(true);
+      expect(positions).toEqual([...positions].sort((left, right) => left - right));
+      expect(text).toContain("Quiet launch");
+
+      const saveMemory = [...dialog!.querySelectorAll("button")]
+        .find((button) => button.textContent?.includes("Save as proposed Memory"));
+      await act(async () => saveMemory!.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(openPage).toHaveBeenCalledWith("memory");
+
+      const openShared = [...host.container.querySelectorAll("button")]
+        .find((button) => button.textContent?.includes("Open Shared library"));
+      await act(async () => openShared!.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(openPage).toHaveBeenCalledWith("shared");
+      for (const reason of [
+        "Selection timestamps are unavailable.",
+        "Revision history is unavailable.",
+        "Generation cost is unavailable.",
+        "Adaptation lineage is unavailable.",
+        "Approved asset lineage is unavailable.",
+        "Publication conversion is unavailable.",
+      ]) expect(host.container.textContent).toContain(reason);
     } finally {
       await act(async () => root.unmount());
       host.restore();
