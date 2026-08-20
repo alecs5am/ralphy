@@ -25,7 +25,7 @@ export interface WorkspaceHeaderPresentation {
   name: string;
   description: string;
   updatedAt: number;
-  accountCount: number;
+  accountCount: Availability<number>;
 }
 
 export interface WorkspaceMomentumPresentation {
@@ -48,7 +48,7 @@ export interface AccountPresentation {
   displayName: string | null;
   credentialConfigured: boolean;
   relinkRequired: boolean;
-  publicationCount: number;
+  publicationCount: Availability<number>;
   updatedAt: number;
   metrics: Availability<never[]>;
 }
@@ -85,8 +85,13 @@ export interface AttentionPresentation {
   kind: AttentionKind;
   severity: "critical" | "warning";
   accountId: string | null;
-  affectedCount: number;
+  affectedCount: Availability<number>;
   title: string;
+}
+
+export interface AttentionSummaryPresentation {
+  items: AttentionPresentation[];
+  criticalCount: Availability<number>;
 }
 
 export interface ProductionPulsePresentation {
@@ -108,16 +113,16 @@ export interface RecentChangePresentation {
 export interface WorkspaceOverviewPresentation {
   header: WorkspaceHeaderPresentation;
   momentum: WorkspaceMomentumPresentation;
-  accounts: AccountPresentation[];
+  accounts: Availability<AccountPresentation[]>;
   plan: WorkspacePlanPresentation;
   outcomes: Availability<UnitOutcomeGroups>;
   insights: Availability<WorkspaceInsightPresentation[]>;
   efficiency: Availability<ProductionEfficiencyPresentation>;
-  attention: { items: AttentionPresentation[]; criticalCount: number };
+  attention: Availability<AttentionSummaryPresentation>;
   pulse: Availability<ProductionPulsePresentation>;
-  projects: ActiveProjectPresentation[];
+  projects: Availability<ActiveProjectPresentation[]>;
   recentChanges: Availability<RecentChangePresentation[]>;
-  onboarding: boolean;
+  onboarding: Availability<boolean>;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -125,31 +130,29 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export function presentWorkspaceOverview({
   overview, catalogProjects, description, now = Date.now(),
 }: WorkspaceOverviewInput): WorkspaceOverviewPresentation {
-  const publications = overview.publications?.items ?? [];
-  const accounts = overview.accounts?.items ?? [];
   return {
-    header: presentHeader(overview, description, accounts.length),
+    header: presentHeader(overview, description),
     momentum: presentMomentum(overview.metrics),
-    accounts: accounts.map((account) => presentAccount(account, publications)),
+    accounts: presentAccounts(overview.accounts, overview.publications),
     plan: presentPlan(overview.publications, now),
     outcomes: unavailable("Performance benchmarks and observation windows are not available from Core yet."),
     insights: unavailable("Evidence samples and counterexamples are not available from Core yet."),
     efficiency: unavailable("Production timing and reuse evidence are not available from Core yet."),
-    attention: presentAttention(accounts, publications),
+    attention: presentAttention(overview.accounts, overview.publications),
     pulse: unavailable("Workspace run and build progress is not available from Core yet."),
-    projects: presentProjects(overview.projects?.items ?? [], catalogProjects),
+    projects: presentProjects(overview.projects, catalogProjects),
     recentChanges: unavailable("Core currently returns technical activity without display names."),
-    onboarding: (overview.projects?.items.length ?? 0) === 0 && publications.length === 0,
+    onboarding: presentOnboarding(overview.projects, overview.publications),
   };
 }
 
-function presentHeader(overview: WorkspaceOverviewDto, description: string, accountCount: number): WorkspaceHeaderPresentation {
+function presentHeader(overview: WorkspaceOverviewDto, description: string): WorkspaceHeaderPresentation {
   return {
     id: overview.workspace.id,
     name: overview.workspace.name,
     description,
     updatedAt: overview.workspace.updatedAt,
-    accountCount,
+    accountCount: countAvailability(overview.accounts, overview.accounts?.items.length ?? 0, "Connected accounts"),
   };
 }
 
@@ -168,7 +171,19 @@ function presentMomentum(metrics: MetricTotals | undefined): WorkspaceMomentumPr
   };
 }
 
-function presentAccount(account: OverviewAccountDto, publications: OverviewPublicationDto[]): AccountPresentation {
+function presentAccounts(
+  accounts: Page<OverviewAccountDto> | undefined,
+  publications: Page<OverviewPublicationDto> | undefined,
+): Availability<AccountPresentation[]> {
+  if (!accounts) return unavailable("Connected accounts were not returned by Core.");
+  return pageAvailability(
+    accounts,
+    accounts.items.map((account) => presentAccount(account, publications)),
+    "Connected accounts",
+  );
+}
+
+function presentAccount(account: OverviewAccountDto, publications: Page<OverviewPublicationDto> | undefined): AccountPresentation {
   return {
     id: account.id,
     platform: account.platform,
@@ -176,7 +191,11 @@ function presentAccount(account: OverviewAccountDto, publications: OverviewPubli
     displayName: account.displayName,
     credentialConfigured: account.credentialConfigured,
     relinkRequired: account.relinkRequired,
-    publicationCount: publications.filter((publication) => publication.socialAccountId === account.id).length,
+    publicationCount: countAvailability(
+      publications,
+      publications?.items.filter((publication) => publication.socialAccountId === account.id).length ?? 0,
+      "Account publications",
+    ),
     updatedAt: account.updatedAt,
     metrics: unavailable("Account metrics are not available from the current Core contract."),
   };
@@ -207,38 +226,54 @@ function presentPlan(publications: Page<OverviewPublicationDto> | undefined, now
   const upcoming = [...events.values()].sort((left, right) => left.scheduledAt - right.scheduledAt);
   return {
     coverage,
-    upcoming: upcoming.length > 0
-      ? { status: "ready", value: upcoming }
-      : { status: "empty", reason: "Nothing scheduled in the next 14 days." },
+    upcoming: publications.nextCursor !== null
+      ? { status: "partial", reason: "Upcoming publications are limited to the returned Core page.", value: upcoming }
+      : upcoming.length > 0
+        ? { status: "ready", value: upcoming }
+        : { status: "empty", reason: "Nothing scheduled in the next 14 days." },
     readyUnscheduled,
   };
 }
 
-function presentAttention(accounts: OverviewAccountDto[], publications: OverviewPublicationDto[]) {
+function presentAttention(
+  accounts: Page<OverviewAccountDto> | undefined,
+  publications: Page<OverviewPublicationDto> | undefined,
+): Availability<AttentionSummaryPresentation> {
+  if (!accounts && !publications) return unavailable("Account and publication attention data were not returned by Core.");
+  const accountItems = accounts?.items ?? [];
+  const publicationItems = publications?.items ?? [];
   const items: AttentionPresentation[] = [
-    ...publicationAttention(publications, "failed", "publication-failure", "Publication failed"),
-    ...publicationAttention(publications, "reconciliation_required", "publication-reconciliation", "Publication needs reconciliation"),
-    ...accounts.filter((account) => account.relinkRequired).map((account) => ({
+    ...publicationAttention(publicationItems, publications, "failed", "publication-failure", "Publication failed"),
+    ...publicationAttention(publicationItems, publications, "reconciliation_required", "publication-reconciliation", "Publication needs reconciliation"),
+    ...accountItems.filter((account) => account.relinkRequired).map((account) => ({
       kind: "account-relink" as const,
       severity: "warning" as const,
       accountId: account.id,
-      affectedCount: publications.filter((publication) => publication.socialAccountId === account.id).length,
+      affectedCount: countAvailability(publications, publicationItems.filter((publication) => publication.socialAccountId === account.id).length, "Affected publications"),
       title: `${account.displayName ?? account.username ?? account.externalId} needs relinking`,
     })),
-    ...accounts.filter((account) => !account.credentialConfigured).map((account) => ({
+    ...accountItems.filter((account) => !account.credentialConfigured).map((account) => ({
       kind: "account-configuration" as const,
       severity: "warning" as const,
       accountId: account.id,
-      affectedCount: publications.filter((publication) => publication.socialAccountId === account.id).length,
+      affectedCount: countAvailability(publications, publicationItems.filter((publication) => publication.socialAccountId === account.id).length, "Affected publications"),
       title: `${account.displayName ?? account.username ?? account.externalId} is not configured`,
     })),
   ];
   items.sort((left, right) => attentionPriority(left) - attentionPriority(right));
-  return { items, criticalCount: items.filter((item) => item.severity === "critical").length };
+  const value = {
+    items,
+    criticalCount: countAvailability(publications, items.filter((item) => item.severity === "critical").length, "Critical attention"),
+  };
+  if (!accounts || !publications || accounts.nextCursor !== null || publications.nextCursor !== null) {
+    return { status: "partial", reason: "Attention is limited to the returned account and publication pages.", value };
+  }
+  return { status: "ready", value };
 }
 
 function publicationAttention(
   publications: OverviewPublicationDto[],
+  page: Page<OverviewPublicationDto> | undefined,
   state: OverviewPublicationDto["state"],
   kind: Extract<AttentionKind, "publication-failure" | "publication-reconciliation">,
   title: string,
@@ -255,7 +290,7 @@ function publicationAttention(
     kind,
     severity: "critical",
     accountId: accountId === "unknown" ? null : accountId,
-    affectedCount: group.length,
+    affectedCount: countAvailability(page, group.length, "Affected publications"),
     title,
   }));
 }
@@ -266,8 +301,9 @@ function attentionPriority(item: AttentionPresentation): number {
   return 4;
 }
 
-function presentProjects(projects: ProjectDto[], catalogProjects: ProjectSummary[]): ActiveProjectPresentation[] {
-  return projects
+function presentProjects(projects: Page<ProjectDto> | undefined, catalogProjects: ProjectSummary[]): Availability<ActiveProjectPresentation[]> {
+  if (!projects) return unavailable("Projects were not returned by Core.");
+  return pageAvailability(projects, projects.items
     .filter((project) => project.state === "active")
     .map((project) => ({
       id: project.id,
@@ -278,11 +314,33 @@ function presentProjects(projects: ProjectDto[], catalogProjects: ProjectSummary
         candidate.workspaceId === project.workspaceId && candidate.projectId === project.id
       )) ?? null,
     }))
-    .sort((left, right) => right.updatedAt - left.updatedAt);
+    .sort((left, right) => right.updatedAt - left.updatedAt), "Active projects");
+}
+
+function presentOnboarding(
+  projects: Page<ProjectDto> | undefined,
+  publications: Page<OverviewPublicationDto> | undefined,
+): Availability<boolean> {
+  if (projects?.items.length || publications?.items.length) return { status: "ready", value: false };
+  if (!projects || !publications || projects.nextCursor !== null || publications.nextCursor !== null) {
+    return unavailable("Whether this is a new workspace cannot be determined from the returned Core pages.");
+  }
+  return { status: "ready", value: true };
 }
 
 function unavailable<T>(reason: string): Availability<T> {
   return { status: "unavailable", reason };
+}
+
+function pageAvailability<Item, Value>(page: Page<Item>, value: Value, label: string): Availability<Value> {
+  return page.nextCursor === null
+    ? { status: "ready", value }
+    : { status: "partial", reason: `${label} are limited to the returned Core page.`, value };
+}
+
+function countAvailability<Item>(page: Page<Item> | undefined, value: number, label: string): Availability<number> {
+  if (!page) return unavailable(`${label} were not returned by Core.`);
+  return pageAvailability(page, value, label);
 }
 
 function timestampMs(value: number): number {

@@ -25,7 +25,10 @@ describe("workspace overview presentation", () => {
     expect(value.momentum.trend).toMatchObject({ status: "unavailable" });
     expect(value.outcomes).toMatchObject({ status: "unavailable" });
     expect(value.insights).toMatchObject({ status: "unavailable" });
-    expect(value.attention.items.map((item) => item.kind)).toContain("account-relink");
+    expect(value.attention).toMatchObject({ status: "ready" });
+    if (value.attention.status === "ready") {
+      expect(value.attention.value.items.map((item) => item.kind)).toContain("account-relink");
+    }
     expect(value.recentChanges.status).toBe("unavailable");
   });
 
@@ -40,14 +43,63 @@ describe("workspace overview presentation", () => {
       },
       catalogProjects: [], description: "", now: 1,
     });
-    expect(value.attention.items).toEqual(expect.arrayContaining([
-      expect.objectContaining({ kind: "publication-failure", affectedCount: 2 }),
-    ]));
+    expect(value.attention).toMatchObject({ status: "ready" });
+    if (value.attention.status === "ready") {
+      expect(value.attention.value.items).toEqual(expect.arrayContaining([
+        expect.objectContaining({ kind: "publication-failure", affectedCount: { status: "ready", value: 2 } }),
+      ]));
+    }
   });
 
   test("does not infer cadence gaps or top performers from bounded totals", () => {
     const value = presentWorkspaceOverview({ overview: populatedOverview, catalogProjects: [], description: "", now: 1 });
     expect(value.plan.coverage).toMatchObject({ status: "unavailable", reason: expect.stringContaining("cadence") });
     expect(value.outcomes).toMatchObject({ status: "unavailable", reason: expect.stringContaining("benchmark") });
+  });
+
+  test("marks truncated account, project, and publication pages as partial", () => {
+    const now = Date.UTC(2026, 7, 20);
+    const value = presentWorkspaceOverview({
+      overview: {
+        ...populatedOverview,
+        accounts: { ...populatedOverview.accounts!, nextCursor: "account-more" },
+        projects: { items: [], nextCursor: "project-more" },
+        publications: {
+          items: [{
+            ...populatedOverview.publications!.items[0]!,
+            scheduledAt: now + 60 * 60 * 1000,
+          }],
+          nextCursor: "publication-more",
+        },
+      },
+      catalogProjects: [], description: "", now,
+    });
+
+    expect(value.header.accountCount).toMatchObject({ status: "partial", value: 1 });
+    expect(value.accounts).toMatchObject({ status: "partial" });
+    expect(value.projects).toMatchObject({ status: "partial", value: [] });
+    expect(value.plan.upcoming).toMatchObject({ status: "partial" });
+    expect(value.attention).toMatchObject({ status: "partial" });
+    expect(value.onboarding).toEqual({ status: "ready", value: false });
+    if (value.accounts.status === "partial") {
+      expect(value.accounts.value[0]!.publicationCount).toMatchObject({ status: "partial", value: 1 });
+    }
+    if (value.attention.status === "partial") {
+      expect(value.attention.value.items[0]!.affectedCount).toMatchObject({ status: "partial", value: 1 });
+    }
+  });
+
+  test("marks omitted account, project, and publication pages as unavailable", () => {
+    const value = presentWorkspaceOverview({
+      overview: { workspace: populatedOverview.workspace, metrics: populatedOverview.metrics },
+      catalogProjects: [], description: "", now: 1,
+    });
+
+    expect(value.header.accountCount).toMatchObject({ status: "unavailable" });
+    expect(value.accounts).toMatchObject({ status: "unavailable" });
+    expect(value.projects).toMatchObject({ status: "unavailable" });
+    expect(value.plan.upcoming).toMatchObject({ status: "unavailable" });
+    expect(value.attention).toMatchObject({ status: "unavailable" });
+    expect(value.onboarding).toMatchObject({ status: "unavailable" });
   });
 });
