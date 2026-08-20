@@ -1,8 +1,10 @@
 import { act } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { ArtifactMediaCardDto, Page } from "../electron/ralphy/types";
 import { bridge } from "../src/lib/ipc";
-import { SharedLibraryScreen } from "../src/screens/SharedLibraryScreen";
+import { SharedLibraryScreen, SharedLibraryScreenView } from "../src/screens/SharedLibraryScreen";
+import { createSharedLibraryController } from "../src/state/shared-library-controller";
 import { createReactHost, type HostNode } from "./react-host";
 
 function artifact(id: string, overrides: Partial<ArtifactMediaCardDto> = {}): ArtifactMediaCardDto {
@@ -34,8 +36,9 @@ function page(items: ArtifactMediaCardDto[], nextCursor: string | null = null): 
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((yes) => { resolve = yes; });
-  return { promise, resolve };
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
+  return { promise, resolve, reject };
 }
 
 async function settle() {
@@ -84,6 +87,90 @@ async function mountScreen(props: Partial<React.ComponentProps<typeof SharedLibr
 afterEach(() => vi.restoreAllMocks());
 
 describe("Shared Library screen", () => {
+  test("keeps the pre-effect bootstrap shell geometrically stable", () => {
+    const markup = renderToStaticMarkup(<SharedLibraryScreen workspaceId="workspace-1" workspaceName="Launch Studio" rootEpoch={1} />);
+    expect(markup).toContain("shared-library-toolbar");
+    expect(markup).toContain("shared-library-skeleton");
+    expect(markup).toContain('aria-busy="true"');
+    expect(markup.match(/role="status"/g)).toHaveLength(1);
+  });
+
+  test("keeps the loading shell stable with one quiet skeleton status", async () => {
+    const pending = deferred<Page<ArtifactMediaCardDto>>();
+    vi.spyOn(bridge, "loadSharedLibraryPage").mockReturnValue(pending.promise);
+    const mounted = await mountScreen();
+    try {
+      const screen = mounted.host.container.querySelector(".shared-library-screen");
+      expect(screen?.getAttribute("aria-busy")).toBe("true");
+      expect(mounted.host.container.textContent).toContain("Shared Library");
+      expect(mounted.host.container.querySelector(".shared-library-toolbar")).not.toBeNull();
+      expect(mounted.host.container.querySelector(".shared-library-skeleton")).not.toBeNull();
+      expect(mounted.host.container.querySelectorAll("[role=status]")).toHaveLength(1);
+      expect(mounted.host.container.querySelectorAll(".shared-artifact-card")).toHaveLength(0);
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+      pending.resolve(page([]));
+    }
+  });
+
+  test("recovers from a full initial error through the visible Retry action", async () => {
+    vi.spyOn(bridge, "loadSharedLibraryPage")
+      .mockRejectedValueOnce(new Error("Library unavailable"))
+      .mockResolvedValueOnce(page([artifact("recovered")]));
+    const mounted = await mountScreen();
+    try {
+      expect(mounted.host.container.querySelector("[role=alert]")?.textContent).toContain("Library unavailable");
+      await act(async () => { byText(mounted.host.container, "Retry").dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      expect(mounted.host.container.textContent).toContain("recovered");
+      expect(mounted.host.container.textContent).not.toContain("Library unavailable");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
+  test("retains loaded content while refresh is busy and keeps a refresh failure local", async () => {
+    const refreshPage = deferred<Page<ArtifactMediaCardDto>>();
+    const controller = createSharedLibraryController({
+      loadSharedLibraryPage: vi.fn()
+        .mockResolvedValueOnce(page([artifact("retained")]))
+        .mockReturnValueOnce(refreshPage.promise),
+    }, "workspace-1");
+    await controller.start();
+    const refresh = controller.refresh();
+    const render = () => renderToStaticMarkup(<SharedLibraryScreenView
+      workspaceId="workspace-1" workspaceName="Launch Studio" rootEpoch={1}
+      controller={controller} snapshot={controller.getSnapshot()}
+      resolvePreview={async () => null}
+    />);
+    expect(render()).toContain('aria-busy="true"');
+    expect(render()).toContain("retained");
+
+    refreshPage.reject(new Error("Refresh unavailable"));
+    await refresh;
+    const failed = render();
+    expect(failed).toContain("retained");
+    expect(failed).toContain("Refresh unavailable");
+    expect(failed).toContain("Retry refresh");
+    controller.dispose();
+  });
+
+  test("renders the fixed empty library copy with one primary Add action and secondary Promote action", async () => {
+    vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue(page([]));
+    const mounted = await mountScreen();
+    try {
+      expect(mounted.host.container.textContent).toContain("Build a reusable source of truth");
+      expect(mounted.host.container.textContent).toContain("Add canonical characters, locations, products, audio hooks and brand assets for future projects.");
+      expect(byText(mounted.host.container, "Add artifact").getAttribute("class")).toContain("shared-library-primary");
+      expect(byText(mounted.host.container, "Promote from project").getAttribute("class") ?? "").not.toContain("shared-library-primary");
+      expect(mounted.host.container.querySelectorAll(".shared-library-primary")).toHaveLength(1);
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
   test("renders the live shell, honest compact totals, current controls, and unavailable future filters", async () => {
     vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue(page([
       artifact("brand-mark"),
@@ -148,6 +235,66 @@ describe("Shared Library screen", () => {
     }
   });
 
+  test("keeps filters visible and suggests only truthful returned fields when no results match", async () => {
+    vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue(page([artifact("portrait")]));
+    const mounted = await mountScreen();
+    try {
+      const search = byAria(mounted.host.container, "input", "Search Shared Library") as HostNode & { value: string };
+      search.value = "not-returned";
+      await act(async () => { search.dispatchEvent(new Event("input", { bubbles: true })); await settle(); });
+      expect(mounted.host.container.querySelector(".shared-library-toolbar")).not.toBeNull();
+      expect(mounted.host.container.textContent).toContain("No artifacts match these filters");
+      expect(mounted.host.container.textContent).toContain("Try slug, kind, MIME, referenced role, or provenance.");
+      await act(async () => { byText(mounted.host.container, "Clear filters").dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      expect(mounted.host.container.textContent).toContain("portrait");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
+  test("keeps absent attention contracts explicit without inferring evidence states", async () => {
+    vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue(page([artifact("portrait")]));
+    const mounted = await mountScreen();
+    try {
+      const text = mounted.host.container.textContent;
+      for (const state of ["missing-file", "broken-reference", "rights-unknown", "duplicate-candidate", "revision-update"]) {
+        expect(text.toLocaleLowerCase()).toContain(`${state} evidence`);
+      }
+      expect(text).toContain("unavailable from this Core version; no state is inferred");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
+  test("names an unselected target as no preview target in the card, inspector, and viewer", async () => {
+    const targetless = artifact("unselected", { selectedRevisionId: null, selectedState: null, selectedObjectId: null, target: null });
+    vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue(page([targetless]));
+    vi.spyOn(bridge, "loadSharedLibraryArtifact").mockResolvedValue(targetless);
+    vi.spyOn(bridge, "loadSharedLibraryRevisions").mockResolvedValue({ items: [], nextCursor: null });
+    vi.spyOn(bridge, "resolveSharedLibraryPreview").mockResolvedValue(null);
+    const mounted = await mountScreen();
+    try {
+      const identity = byAria(mounted.host.container, "button", "Select unselected identity and open inspector")!;
+      expect(identity.closest("article")?.textContent).toContain("No preview target");
+      await act(async () => { identity.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      const inspectorPreview = mounted.host.container.querySelector(".shared-inspector-preview");
+      expect(inspectorPreview?.textContent).toContain("No preview target");
+      expect(inspectorPreview?.textContent).not.toMatch(/missing file|broken reference|rights unknown|duplicate|revision update/i);
+      await act(async () => { byAria(mounted.host.container, "button", "Close artifact inspector")!.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      const enter = new Event("keydown", { bubbles: true, cancelable: true });
+      Object.defineProperty(enter, "key", { value: "Enter" });
+      await act(async () => { identity.dispatchEvent(enter); await settle(); });
+      const viewerPreview = (document.body as unknown as HostNode).querySelector(".shared-viewer-preview-state");
+      expect(viewerPreview?.textContent).toContain("No preview target");
+      expect(viewerPreview?.textContent).not.toMatch(/missing file|corrupt|damaged/i);
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
   test("uses one grid chrome band, honest workspace previews, and keyboard viewer callbacks", async () => {
     vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue(page([
       artifact("portrait", { usageRoles: ["Very long future usage role that must stay lossless"] }),
@@ -171,6 +318,9 @@ describe("Shared Library screen", () => {
       expect(audio!.getAttribute("autoplay")).toBeNull();
       expect(mounted.host.container.querySelector(".audio-waveform-heading strong")?.textContent).toBe("Slug identity: theme");
       expect(mounted.host.container.textContent).toContain("Preview unavailable");
+      const targetless = byAria(mounted.host.container, "button", "Select notes identity and open inspector")?.closest("article");
+      expect(targetless?.textContent).toContain("No preview target");
+      expect(targetless?.textContent).not.toMatch(/missing file|broken reference|rights unknown|duplicate|revision update/i);
 
       const portrait = byAria(mounted.host.container, "button", "Select portrait identity and open inspector")!;
       expect(portrait).not.toBeNull();
@@ -296,8 +446,30 @@ describe("Shared Library screen", () => {
       const firstRow = mounted.host.container.querySelectorAll(".shared-library-audit-row")[0];
       expect(firstRow.children[5]?.textContent).toBe("revision-portraitapproved");
       expect(firstRow.children[6]?.textContent).toBe("2 revisions");
-      expect(text).toContain("Unavailable");
+      for (const state of [
+        "Canonical evidence unavailable",
+        "Usage evidence unavailable",
+        "Rights evidence unavailable",
+        "Last-used evidence unavailable",
+        "Attention evidence unavailable",
+      ]) expect(text).toContain(state);
       expect(text).not.toContain("not used");
+
+      const auditScroll = mounted.host.container.querySelector(".shared-library-audit-scroll");
+      expect(auditScroll?.getAttribute("role")).toBe("region");
+      expect(auditScroll?.getAttribute("aria-label")).toContain("Scrollable");
+      expect(auditScroll?.getAttribute("tabindex")).toBe("0");
+
+      const firstRowKey = new Event("keydown", { bubbles: true, cancelable: true });
+      Object.defineProperty(firstRowKey, "key", { value: " " });
+      await act(async () => { firstRow.dispatchEvent(firstRowKey); await settle(); });
+      expect(mounted.host.container.querySelector(".shared-artifact-inspector")).not.toBeNull();
+      await act(async () => { byAria(mounted.host.container, "button", "Close artifact inspector")!.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      const enterRow = new Event("keydown", { bubbles: true, cancelable: true });
+      Object.defineProperty(enterRow, "key", { value: "Enter" });
+      await act(async () => { firstRow.dispatchEvent(enterRow); await settle(); });
+      expect((document.body as unknown as HostNode).querySelector(".shared-artifact-viewer")).not.toBeNull();
+      await act(async () => { byAria(document.body as unknown as HostNode, "button", "Close viewer")!.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
 
       const select = byAria(mounted.host.container, "input", "Select portrait")!;
       await act(async () => select.dispatchEvent(new Event("click", { bubbles: true })));
@@ -342,6 +514,7 @@ describe("Shared Library screen", () => {
     const mounted = await mountScreen();
     try {
       expect(mounted.host.container.textContent).toContain("SHOWING 1 LOADED ARTIFACT");
+      expect(mounted.host.container.textContent).toContain("Showing loaded artifacts");
       await act(async () => { byText(mounted.host.container, "Load more").dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
       expect(mounted.host.container.textContent).toContain("first");
       expect(mounted.host.container.textContent).toContain("Next page unavailable");
@@ -349,6 +522,27 @@ describe("Shared Library screen", () => {
       expect(mounted.host.container.textContent).toContain("first");
       expect(mounted.host.container.textContent).toContain("second");
       expect(mounted.host.container.textContent).not.toContain("Next page unavailable");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
+  test("keeps bounded rows visible and marks only the collection busy while loading more", async () => {
+    const next = deferred<Page<ArtifactMediaCardDto>>();
+    vi.spyOn(bridge, "loadSharedLibraryPage")
+      .mockResolvedValueOnce(page([artifact("first")], "next"))
+      .mockReturnValueOnce(next.promise);
+    const mounted = await mountScreen();
+    try {
+      await act(async () => { byText(mounted.host.container, "Load more").dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      expect(mounted.host.container.textContent).toContain("first");
+      expect(mounted.host.container.textContent).toContain("Loading more artifacts…");
+      expect(mounted.host.container.querySelector(".shared-library-scroll")?.getAttribute("aria-busy")).toBe("true");
+      next.resolve(page([artifact("second")], null));
+      await act(async () => { await settle(); });
+      expect(mounted.host.container.textContent).toContain("second");
+      expect(mounted.host.container.querySelector(".shared-library-scroll")?.getAttribute("aria-busy")).toBeNull();
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.host.restore();

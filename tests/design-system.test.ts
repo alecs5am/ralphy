@@ -6,9 +6,12 @@ import { pathToFileURL } from "node:url";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
-import type { ActivityDto, CompositionDto, CompositionRevisionDto, MediaCardDto, UnitDto, UnitRevisionDto, WorkspaceOverviewDto } from "../electron/ralphy/types";
+import type { ActivityDto, ArtifactMediaCardDto, CompositionDto, CompositionRevisionDto, MediaCardDto, UnitDto, UnitRevisionDto, WorkspaceOverviewDto } from "../electron/ralphy/types";
 import type { ProjectSummary } from "../src/lib/ipc";
 import { ProjectScreenView, createProjectScreenController } from "../src/screens/ProjectScreen";
+import { SharedLibraryScreenView } from "../src/screens/SharedLibraryScreen";
+import { SharedArtifactInspector } from "../src/screens/shared-library/SharedArtifactInspector";
+import { presentSharedArtifact } from "../src/screens/shared-library/presentation";
 import { WorkspaceScreenView, createWorkspaceScreenController } from "../src/screens/WorkspaceScreen";
 
 const workspaceOverviewStyles = readFileSync(join(process.cwd(), "src/styles/workspace-overview.css"), "utf8");
@@ -379,6 +382,168 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
     rmSync(directory, { recursive: true, force: true });
   }
 }
+
+const sharedArtifact = (id: string): ArtifactMediaCardDto => ({
+  ref: { type: "artifact", id }, workspaceId: "workspace-1", projectId: null, slug: id, kind: "reference-image",
+  selectedRevisionId: `revision-${id}`, selectedState: "approved", mime: "image/png", bytes: 2_048,
+  selectedAt: 1, revisionCount: 2, selectedObjectId: `object-${id}`, storageClass: "durable", usageRoles: ["reference"],
+  target: null, mediaKind: "image", provenance: "unknown",
+});
+
+function sharedLibraryMarkup(view: "grid" | "list") {
+  const artifacts = Array.from({ length: 10 }, (_, index) => presentSharedArtifact(sharedArtifact(`artifact-${index + 1}`)));
+  const unavailable = { status: "unavailable", reason: "Unavailable from Core." } as const;
+  return renderToStaticMarkup(createElement(SharedLibraryScreenView, {
+    workspaceId: "workspace-1", workspaceName: "Launch Studio", rootEpoch: 1,
+    controller: {
+      subscribe: () => () => undefined, getSnapshot: () => { throw new Error("Not used"); }, start: async () => undefined,
+      refresh: async () => undefined, loadMore: async () => undefined, setQuery: () => undefined,
+      selectArtifact: () => undefined, reconcileArtifact: () => undefined, dispose: () => undefined,
+    },
+    snapshot: {
+      status: "ready", query: { text: "", mediaKind: "all", provenance: "all", view, sort: "recently-selected" },
+      refreshing: false, loadingMore: false, pageError: null, refreshError: null,
+      value: { artifacts, selectedArtifactId: null, nextCursor: null, totalCount: { status: "ready", value: artifacts.length }, totalSelectedBytes: unavailable },
+    },
+    resolvePreview: async () => null,
+  } as never));
+}
+
+type SharedGeometryResult = {
+  state: "grid" | "list" | "inspector" | "viewer" | "workflow";
+  width: number;
+  height: number;
+  overflows: string[];
+  columns: number | null;
+  toolbarHeight: number | null;
+  inspectorPosition: string | null;
+  inspectorWidth: number | null;
+  contentWidth: number | null;
+  auditOverflowX: string | null;
+  auditScrollable: boolean | null;
+  auditTabIndex: number | null;
+  fitsViewport: boolean | null;
+  focus: Array<{ selector: string; width: number; style: string }>;
+  motion: Array<{ selector: string; transition: string; animation: string }>;
+};
+
+async function sharedLibraryGeometry(): Promise<SharedGeometryResult[]> {
+  const directory = mkdtempSync(join(tmpdir(), "ralphy-shared-geometry-"));
+  try {
+    const links = ["reset.css", "tokens.css", "app.css", "workbench.css", "shared-library.css"]
+      .map((file) => `<link rel="stylesheet" href="${pathToFileURL(join(process.cwd(), "src/styles", file)).href}">`)
+      .join("");
+    const shell = (content: string) => `<div class="workbench has-right-panel" style="--sidebar-w:272px;--inspector-w:336px"><aside class="context-sidebar"></aside><section class="main-shell"><header class="main-header"></header><div class="main-content-stage">${content}</div></section><aside class="utility-right-panel"></aside></div>`;
+    const inspector = renderToStaticMarkup(createElement(SharedArtifactInspector, {
+      artifact: presentSharedArtifact(sharedArtifact("artifact-1")), workspaceId: "workspace-1", rootEpoch: 1,
+      returnFocus: null, onClose: () => undefined, onReconcile: () => undefined,
+    }));
+    const viewer = `<section class="shared-artifact-viewer"><header class="shared-viewer-head"><span>IMAGE · PNG · SLUG</span><button>Open original</button><button aria-label="Close viewer">Close</button></header><div class="shared-viewer-body"><div class="shared-viewer-main"><div class="shared-viewer-stage"><div class="shared-viewer-preview-state">Preview unavailable</div><button class="shared-viewer-previous">Previous</button><button class="shared-viewer-next">Next</button></div><div class="shared-viewer-transport"><span>1 / 2 loaded</span><i></i><strong>Revision</strong><button>Revision 1</button></div></div><aside class="shared-viewer-context"><div class="shared-viewer-title"><h2>Title unavailable</h2><p>Slug identity</p></div><section class="shared-viewer-agent-use"><h3>Context agents receive</h3><p>Unavailable</p></section><span class="shared-viewer-spacer"></span><button>Open full inspector</button></aside></div></section>`;
+    const workflow = `<div class="shared-workflow-overlay"></div><section class="shared-workflow-window" data-workflow="add"><header class="shared-workflow-header"><div><h2>Add artifact</h2><p>Local preview</p></div><button aria-label="Close Add artifact">Close</button></header><ol class="shared-workflow-steps"><li><button aria-current="step"><span>1</span>Source</button></li><li><button><span>2</span>Duplicates</button></li><li><button><span>3</span>Describe</button></li><li><button><span>4</span>Confirm</button></li></ol><div class="shared-workflow-body"><section class="shared-workflow-block"><header><h3>REQUIRED FOR REUSE</h3><span>LOCAL</span></header><div class="shared-workflow-fields"><label><span>Title</span><input></label><label><span>Purpose</span><textarea></textarea></label></div></section></div><footer class="shared-workflow-footer"><small>LOCAL PREVIEW ONLY</small><span><button>Back</button><button class="shared-workflow-primary">Continue</button></span></footer></section>`;
+    const templates = [
+      ["grid", shell(sharedLibraryMarkup("grid"))], ["list", shell(sharedLibraryMarkup("list"))],
+      ["inspector-panel", inspector], ["viewer", shell(viewer)], ["workflow", shell(workflow)],
+    ].map(([name, value]) => `<template id="${name}">${value}</template>`).join("");
+    writeFileSync(join(directory, "layout.html"), `<!doctype html><html><head>${links}</head><body><div id="root"></div>${templates}</body></html>`);
+    writeFileSync(join(directory, "package.json"), JSON.stringify({ main: "main.cjs" }));
+    writeFileSync(join(directory, "main.cjs"), `
+      const { app, BrowserWindow } = require("electron");
+      app.commandLine.appendSwitch("disable-gpu");
+      app.whenReady().then(async () => {
+        const win = new BrowserWindow({ show: false, width: 1360, height: 900, useContentSize: true });
+        await win.loadFile(${JSON.stringify(join(directory, "layout.html"))});
+        win.webContents.debugger.attach("1.3");
+        await win.webContents.debugger.sendCommand("DOM.enable");
+        await win.webContents.debugger.sendCommand("CSS.enable");
+        await win.webContents.debugger.sendCommand("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
+        const results = [], viewports = [[2560, 1400], [1360, 900], [1280, 800]];
+        for (const [state, width, height] of ["grid", "list", "inspector", "viewer", "workflow"].flatMap((state) => viewports.map(([width, height]) => [state, width, height]))) {
+          win.setContentSize(width, height);
+          await win.webContents.executeJavaScript(\`(async () => {
+            const state = \${JSON.stringify(state)}, root = document.getElementById("root");
+            root.innerHTML = document.getElementById(state === "inspector" ? "grid" : state).innerHTML;
+            if (state === "inspector") {
+              const content = root.querySelector(".shared-library-content");
+              content.dataset.inspectorOpen = "true";
+              content.append(document.getElementById("inspector-panel").content.cloneNode(true));
+            }
+            await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          })()\`);
+          const focusSelectors = ({
+            grid: [".shared-artifact-identity", ".shared-library-search input", ".shared-library-view-toggle button", ".shared-library-select"],
+            list: [".shared-library-audit-scroll", ".shared-library-audit-row", ".shared-library-audit-row input"],
+            inspector: [".shared-inspector-head button", ".shared-inspector-section > summary"],
+            viewer: [".shared-viewer-head button", ".shared-viewer-previous", ".shared-viewer-context > button"],
+            workflow: [".shared-workflow-header > button", ".shared-workflow-fields input", ".shared-workflow-footer button"],
+          })[state];
+          const documentNode = await win.webContents.debugger.sendCommand("DOM.getDocument");
+          for (const selector of focusSelectors) {
+            const node = await win.webContents.debugger.sendCommand("DOM.querySelector", { nodeId: documentNode.root.nodeId, selector });
+            if (node.nodeId) await win.webContents.debugger.sendCommand("CSS.forcePseudoState", { nodeId: node.nodeId, forcedPseudoClasses: ["focus-visible"] });
+          }
+          results.push(await win.webContents.executeJavaScript(\`(() => {
+            const state = \${JSON.stringify(state)}, root = document.getElementById("root");
+            const selectors = ({
+              grid: [".shared-library-screen", ".shared-library-toolbar", ".shared-library-grid"],
+              list: [".shared-library-screen", ".shared-library-toolbar", ".shared-library-audit"],
+              inspector: [".shared-library-screen", ".shared-library-toolbar", ".shared-library-grid", ".shared-artifact-inspector", ".shared-inspector-scroll", ".shared-inspector-preview", ".shared-inspector-actions"],
+              viewer: [".shared-artifact-viewer", ".shared-viewer-head", ".shared-viewer-body", ".shared-viewer-main", ".shared-viewer-stage", ".shared-viewer-transport", ".shared-viewer-context"],
+              workflow: [".shared-workflow-window", ".shared-workflow-header", ".shared-workflow-body", ".shared-workflow-block", ".shared-workflow-fields", ".shared-workflow-footer"],
+            })[state];
+            const overflows = selectors.flatMap((selector) => {
+              const element = root.querySelector(selector);
+              return !element ? ["missing:" + selector] : element.scrollWidth > element.clientWidth + 1 ? [selector + ":" + element.scrollWidth + ">" + element.clientWidth] : [];
+            });
+            const grid = root.querySelector(".shared-library-grid");
+            const toolbar = root.querySelector(".shared-library-toolbar");
+            const content = root.querySelector(".shared-library-content");
+            const inspector = root.querySelector(".shared-artifact-inspector");
+            const audit = root.querySelector(".shared-library-audit-scroll");
+            const surface = root.querySelector(state === "viewer" ? ".shared-artifact-viewer" : state === "workflow" ? ".shared-workflow-window" : ":not(*)");
+            const rect = surface?.getBoundingClientRect();
+            const focusSelectors = \${JSON.stringify(focusSelectors)};
+            const focus = focusSelectors.map((selector) => {
+              const element = root.querySelector(selector), style = element ? getComputedStyle(element) : null;
+              return { selector, width: style ? parseFloat(style.outlineWidth) : 0, style: style?.outlineStyle ?? "missing" };
+            });
+            const motionSelectors = ({ grid: [".shared-artifact-frame", ".shared-artifact-identity"], list: [".shared-library-audit-row"], inspector: [".shared-inspector-section > summary > svg"], viewer: [".shared-viewer-head button"], workflow: [".shared-workflow-overlay", ".shared-workflow-window"] })[state];
+            const motion = motionSelectors.map((selector) => { const style = getComputedStyle(root.querySelector(selector)); return { selector, transition: style.transitionDuration, animation: style.animationName }; });
+            return {
+              state, width: innerWidth, height: innerHeight, overflows,
+              columns: grid ? getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length : null,
+              toolbarHeight: toolbar?.getBoundingClientRect().height ?? null,
+              inspectorPosition: inspector ? getComputedStyle(inspector).position : null,
+              inspectorWidth: inspector?.getBoundingClientRect().width ?? null,
+              contentWidth: content?.getBoundingClientRect().width ?? null,
+              auditOverflowX: audit ? getComputedStyle(audit).overflowX : null,
+              auditScrollable: audit ? audit.scrollWidth > audit.clientWidth : null,
+              auditTabIndex: audit?.tabIndex ?? null,
+              fitsViewport: rect ? rect.left >= -1 && rect.top >= -1 && rect.right <= innerWidth + 1 && rect.bottom <= innerHeight + 1 : null,
+              focus, motion,
+            };
+          })()\`));
+        }
+        process.stdout.write("RALPHY_SHARED_GEOMETRY=" + JSON.stringify(results) + "\\n");
+        app.quit();
+      }).catch((error) => { console.error(error); app.exit(1); });
+    `);
+    const electron = join(process.cwd(), "node_modules", ".bin", "electron");
+    const output = await new Promise<string>((resolve, reject) => {
+      const child = spawn(electron, [directory], { env: { ...process.env, ELECTRON_DISABLE_SECURITY_WARNINGS: "true" } });
+      let stdout = "", stderr = "";
+      child.stdout.on("data", (chunk) => { stdout += chunk; });
+      child.stderr.on("data", (chunk) => { stderr += chunk; });
+      child.once("error", reject);
+      child.once("close", (code) => code === 0 ? resolve(stdout) : reject(new Error(`Shared Library Electron geometry failed (${code}): ${stderr}`)));
+    });
+    const line = output.split("\n").find((candidate) => candidate.startsWith("RALPHY_SHARED_GEOMETRY="));
+    if (!line) throw new Error(`Shared Library Electron geometry returned no results: ${output}`);
+    return JSON.parse(line.slice("RALPHY_SHARED_GEOMETRY=".length)) as SharedGeometryResult[];
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+
 const renderer = readdirSync(join(process.cwd(), "src"), {
   recursive: true,
   withFileTypes: true,
@@ -431,6 +596,49 @@ describe("design system contract", () => {
     expect(sharedLibraryStyles).toContain("transition: background var(--dur) var(--ease)");
     expect(sharedLibraryStyles).toContain("@media (prefers-reduced-motion: reduce)");
   });
+
+  test("gates the Shared Library stylesheet to the loaded design system contract", () => {
+    const main = readFileSync(join(process.cwd(), "src/main.tsx"), "utf8");
+    const allowedSizes = new Set([9.5, 10.5, 11, 11.5, 12, 12.5, 13, 14, 15, 16, 17, 18, 19, 23, 40, 76]);
+    const sizes = [...sharedLibraryStyles.matchAll(/(?:font-size:\s*|font:\s*)([\d.]+)px/g)].map((match) => Number(match[1]));
+    const weights = [...sharedLibraryStyles.matchAll(/font-weight:\s*(\d+)/g)].map((match) => Number(match[1]));
+    const borders = [...sharedLibraryStyles.matchAll(/border(?::|-(?:top|right|bottom|left):)\s*([^;]+)/g)].map((match) => match[1].trim());
+
+    expect(main).toContain('import "./styles/shared-library.css"');
+    expect([...new Set(sizes.filter((size) => !allowedSizes.has(size)))]).toEqual([]);
+    expect([...new Set(weights)]).toEqual([400]);
+    expect(sharedLibraryStyles).not.toContain("text-transform");
+    expect(borders.filter((value) => value !== "0")).toEqual([]);
+    expect(sharedLibraryStyles).toMatch(/\.shared-library-screen button:focus-visible,[\s\S]*outline:\s*2px solid var\(--accent-soft\)/);
+  });
+
+  test("fits every Shared Library surface and focus target in real Electron geometry", async () => {
+    const results = await sharedLibraryGeometry();
+
+    expect(results).toHaveLength(15);
+    for (const state of ["grid", "list", "inspector", "viewer", "workflow"] as const) {
+      expect(results.filter((result) => result.state === state).map(({ width, height }) => ({ width, height }))).toEqual([
+        { width: 2560, height: 1400 }, { width: 1360, height: 900 }, { width: 1280, height: 800 },
+      ]);
+    }
+    expect(results.flatMap(({ state, width, overflows }) => overflows.map((overflow) => ({ state, width, overflow })))).toEqual([]);
+    expect(results.filter(({ state }) => state === "grid").map(({ width, columns }) => ({ width, columns }))).toEqual([
+      { width: 2560, columns: 5 }, { width: 1360, columns: 3 }, { width: 1280, columns: 3 },
+    ]);
+    expect(results.find(({ state, width }) => state === "inspector" && width === 2560)?.columns).toBe(3);
+    const narrowInspector = results.find(({ state, width }) => state === "inspector" && width === 1280)!;
+    expect(narrowInspector.inspectorPosition).toBe("absolute");
+    expect(Math.abs((narrowInspector.inspectorWidth ?? 0) - (narrowInspector.contentWidth ?? 0))).toBeLessThan(2);
+    expect(results.filter(({ state, width }) => state === "grid" && width <= 1360).every(({ toolbarHeight }) => (toolbarHeight ?? 0) > 36)).toBe(true);
+    expect(results.filter(({ state }) => state === "list").map(({ auditOverflowX, auditScrollable, auditTabIndex }) => ({ auditOverflowX, auditScrollable, auditTabIndex }))).toEqual([
+      { auditOverflowX: "auto", auditScrollable: false, auditTabIndex: 0 },
+      { auditOverflowX: "auto", auditScrollable: true, auditTabIndex: 0 },
+      { auditOverflowX: "auto", auditScrollable: true, auditTabIndex: 0 },
+    ]);
+    expect(results.filter(({ state }) => state === "viewer" || state === "workflow").every(({ fitsViewport }) => fitsViewport)).toBe(true);
+    expect(results.flatMap(({ state, width, focus }) => focus.filter((value) => value.width < 2 || value.style === "none").map((value) => ({ state, width, ...value })))).toEqual([]);
+    expect(results.flatMap(({ state, width, motion }) => motion.filter(({ transition, animation }) => transition !== "0s" || animation !== "none").map((value) => ({ state, width, ...value })))).toEqual([]);
+  }, 20_000);
 
   test("names the responsive controls container and preserves round status pills", () => {
     expect(styles).toContain("container-name: project-controls");

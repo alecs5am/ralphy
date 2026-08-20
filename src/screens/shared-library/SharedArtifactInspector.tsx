@@ -191,6 +191,7 @@ export function SharedArtifactInspector({ artifact, workspaceId, rootEpoch, retu
 
           <div className="shared-inspector-preview">
             <SharedArtifactPreview artifact={detail} workspaceId={workspaceId} rootEpoch={rootEpoch} resolvePreview={bridge.resolveSharedLibraryPreview} />
+            {detail.preview === "no-target" && <span className="shared-inspector-targetless">No preview target</span>}
           </div>
           <Facts rows={[
             ["MIME", detail.mime ?? "Unavailable from Core"],

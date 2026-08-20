@@ -99,7 +99,7 @@ function ViewerStage({ artifact, preview, kind, onPreviewError }: {
   onPreviewError(): void;
 }) {
   if (artifact.preview === "no-target") return <div className="shared-viewer-preview-state">
-    <ImageOff aria-hidden="true" /><strong>Preview unavailable</strong><span>Core returned no selected preview target.</span>
+    <ImageOff aria-hidden="true" /><strong>Preview unavailable</strong><span>No preview target · Core returned no selected preview target.</span>
   </div>;
   if (kind === "unsupported") return <div className="shared-viewer-fallback">
     <FileText aria-hidden="true" />
