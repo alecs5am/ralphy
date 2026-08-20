@@ -214,41 +214,47 @@ describe("Marketplace controller", () => {
   });
 
   test("suppresses stale query results and retains current content while refreshing", async () => {
-    const oldLibrary = deferred<MarketplacePublicSnapshotDto>();
-    const oldModels = deferred<LocalModelCatalog>();
-    const newLibrary = deferred<MarketplacePublicSnapshotDto>();
-    const newModels = deferred<LocalModelCatalog>();
-    const loadMarketplacePublicLibrary = vi.fn()
-      .mockReturnValueOnce(oldLibrary.promise)
-      .mockReturnValueOnce(newLibrary.promise);
-    const searchLocalModels = vi.fn()
-      .mockReturnValueOnce(oldModels.promise)
-      .mockReturnValueOnce(newModels.promise);
-    const controller = createMarketplaceController(api(loadMarketplacePublicLibrary, searchLocalModels), query("all", "old"));
-    const oldRequest = controller.start();
-    controller.setQuery(query("all", "new"));
-    newLibrary.resolve(publicSnapshot([{ ...publicSnapshot().items[0], id: "new", name: "New template", summary: "new" }]));
-    newModels.resolve(catalog([{ ...model, id: "Acme/new", name: "New model" }]));
-    await Promise.resolve();
-    oldLibrary.resolve(publicSnapshot([{ ...publicSnapshot().items[0], id: "old", name: "Old template", summary: "old" }]));
-    oldModels.resolve(catalog([{ ...model, id: "Acme/old", name: "Old model" }]));
-    await oldRequest;
-    await Promise.resolve();
-    expect(controller.getSnapshot()).toMatchObject({ status: "ready", query: { text: "new" } });
-    expect(controller.getSnapshot()).not.toEqual(expect.objectContaining({ items: expect.arrayContaining([expect.objectContaining({ name: "Old model" })]) }));
+    vi.useFakeTimers();
+    try {
+      const oldLibrary = deferred<MarketplacePublicSnapshotDto>();
+      const oldModels = deferred<LocalModelCatalog>();
+      const newLibrary = deferred<MarketplacePublicSnapshotDto>();
+      const newModels = deferred<LocalModelCatalog>();
+      const loadMarketplacePublicLibrary = vi.fn()
+        .mockReturnValueOnce(oldLibrary.promise)
+        .mockReturnValueOnce(newLibrary.promise);
+      const searchLocalModels = vi.fn()
+        .mockReturnValueOnce(oldModels.promise)
+        .mockReturnValueOnce(newModels.promise);
+      const controller = createMarketplaceController(api(loadMarketplacePublicLibrary, searchLocalModels), query("all", "old"));
+      const oldRequest = controller.start();
+      controller.setQuery(query("all", "new"));
+      await vi.advanceTimersByTimeAsync(250);
+      newLibrary.resolve(publicSnapshot([{ ...publicSnapshot().items[0], id: "new", name: "New template", summary: "new" }]));
+      newModels.resolve(catalog([{ ...model, id: "Acme/new", name: "New model" }]));
+      await Promise.resolve();
+      oldLibrary.resolve(publicSnapshot([{ ...publicSnapshot().items[0], id: "old", name: "Old template", summary: "old" }]));
+      oldModels.resolve(catalog([{ ...model, id: "Acme/old", name: "Old model" }]));
+      await oldRequest;
+      await Promise.resolve();
+      expect(controller.getSnapshot()).toMatchObject({ status: "ready", query: { text: "new" } });
+      expect(controller.getSnapshot()).not.toEqual(expect.objectContaining({ items: expect.arrayContaining([expect.objectContaining({ name: "Old model" })]) }));
 
-    const refreshLibrary = deferred<MarketplacePublicSnapshotDto>();
-    const refreshModels = deferred<LocalModelCatalog>();
-    loadMarketplacePublicLibrary.mockReturnValueOnce(refreshLibrary.promise);
-    searchLocalModels.mockReturnValueOnce(refreshModels.promise);
-    const refresh = controller.refresh();
-    const refreshing = controller.getSnapshot();
-    expect(refreshing).toMatchObject({ status: "ready", refreshing: true });
-    expect(refreshing.status === "ready" ? refreshing.items.map(({ name }) => name).sort() : []).toEqual(["New model", "New template"]);
-    refreshLibrary.resolve(publicSnapshot([]));
-    refreshModels.resolve(catalog([]));
-    await refresh;
-    expect(controller.getSnapshot()).toMatchObject({ status: "ready", refreshing: false, items: [] });
+      const refreshLibrary = deferred<MarketplacePublicSnapshotDto>();
+      const refreshModels = deferred<LocalModelCatalog>();
+      loadMarketplacePublicLibrary.mockReturnValueOnce(refreshLibrary.promise);
+      searchLocalModels.mockReturnValueOnce(refreshModels.promise);
+      const refresh = controller.refresh();
+      const refreshing = controller.getSnapshot();
+      expect(refreshing).toMatchObject({ status: "ready", refreshing: true });
+      expect(refreshing.status === "ready" ? refreshing.items.map(({ name }) => name).sort() : []).toEqual(["New model", "New template"]);
+      refreshLibrary.resolve(publicSnapshot([]));
+      refreshModels.resolve(catalog([]));
+      await refresh;
+      expect(controller.getSnapshot()).toMatchObject({ status: "ready", refreshing: false, items: [] });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test("does not retain model catalog or health across effective-provider transitions", async () => {
@@ -283,6 +289,68 @@ describe("Marketplace controller", () => {
       items: [{ category: "templates" }, { name: "Fresh all", model: { provider: "civitai" } }],
     });
     expect(JSON.stringify(controller.getSnapshot())).not.toContain("Stale ModelScope");
+  });
+
+  test("debounces text loads, projects immediately, and keeps local filters and sort network-free", async () => {
+    vi.useFakeTimers();
+    try {
+      const loadMarketplacePublicLibrary = vi.fn(async () => publicSnapshot());
+      const searchLocalModels = vi.fn(async () => catalog());
+      const controller = createMarketplaceController(api(loadMarketplacePublicLibrary, searchLocalModels), query());
+      await controller.start();
+
+      controller.setQuery(query("all", "a"));
+      controller.setQuery(query("all", "al"));
+      controller.setQuery(query("all", "alpha"));
+      expect(controller.getSnapshot()).toMatchObject({ status: "ready", query: { text: "alpha" }, refreshing: false });
+      expect(loadMarketplacePublicLibrary).toHaveBeenCalledTimes(1);
+      expect(searchLocalModels).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(249);
+      expect(searchLocalModels).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+      await Promise.resolve();
+      expect(loadMarketplacePublicLibrary).toHaveBeenCalledTimes(2);
+      expect(searchLocalModels).toHaveBeenCalledTimes(2);
+      expect(searchLocalModels).toHaveBeenLastCalledWith({ query: "alpha", provider: "all", sort: "updated", limit: 24 });
+
+      const filtered = { ...query("all", "alpha"), filters: { ...query().filters, license: "declared" as const } };
+      controller.setQuery(filtered);
+      controller.setQuery({ ...filtered, sort: "name" });
+      await vi.runAllTimersAsync();
+      expect(controller.getSnapshot()).toMatchObject({ status: "ready", query: { sort: "name", filters: { license: "declared" } }, refreshing: false });
+      expect(loadMarketplacePublicLibrary).toHaveBeenCalledTimes(2);
+      expect(searchLocalModels).toHaveBeenCalledTimes(2);
+
+      controller.setQuery({ ...filtered, filters: { ...filtered.filters, source: "civitai" } });
+      expect(loadMarketplacePublicLibrary).toHaveBeenCalledTimes(3);
+      expect(searchLocalModels).toHaveBeenCalledTimes(3);
+      expect(searchLocalModels).toHaveBeenLastCalledWith({ query: "alpha", provider: "civitai", sort: "updated", limit: 24 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("cancels scheduled text loads when a newer provider request or disposal takes over", async () => {
+    vi.useFakeTimers();
+    try {
+      const loadMarketplacePublicLibrary = vi.fn(async () => publicSnapshot());
+      const searchLocalModels = vi.fn(async () => catalog());
+      const controller = createMarketplaceController(api(loadMarketplacePublicLibrary, searchLocalModels), query());
+      await controller.start();
+      controller.setQuery(query("all", "queued"));
+      controller.setQuery(query("civitai", "provider-now"));
+      expect(searchLocalModels).toHaveBeenCalledTimes(2);
+      await vi.runAllTimersAsync();
+      expect(searchLocalModels).toHaveBeenCalledTimes(2);
+
+      controller.setQuery(query("civitai", "dispose-before-load"));
+      controller.dispose();
+      await vi.runAllTimersAsync();
+      expect(searchLocalModels).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test("stops publishing and loading after disposal", async () => {

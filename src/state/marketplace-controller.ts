@@ -20,6 +20,7 @@ export interface MarketplaceController {
 export type MarketplaceApi = Pick<MediaWorkbenchBridge, "loadMarketplacePublicLibrary" | "searchLocalModels">;
 
 type ModelProviderRequest = Exclude<MarketplaceQueryState["filters"]["source"], "ralphy">;
+const SEARCH_DEBOUNCE_MS = 250;
 
 function modelProviderRequest(query: MarketplaceQueryState): ModelProviderRequest {
   return query.filters.source === "all" || query.filters.source === "ralphy"
@@ -36,6 +37,7 @@ export function createMarketplaceController(
   let started = false;
   let disposed = false;
   let activeRequest = 0;
+  let searchTimer: ReturnType<typeof setTimeout> | null = null;
   let lastPublic: Awaited<ReturnType<MarketplaceApi["loadMarketplacePublicLibrary"]>> | null = null;
   let lastModels: {
     provider: ModelProviderRequest;
@@ -45,6 +47,11 @@ export function createMarketplaceController(
     lastModels?.provider === modelProviderRequest(forQuery) ? lastModels.value : null
   );
   const listeners = new Set<() => void>();
+  const clearScheduledSearch = () => {
+    if (searchTimer === null) return;
+    clearTimeout(searchTimer);
+    searchTimer = null;
+  };
   const emit = (next: MarketplaceSnapshot) => {
     if (disposed) return;
     snapshot = next;
@@ -53,6 +60,7 @@ export function createMarketplaceController(
 
   const load = async () => {
     if (disposed) return;
+    clearScheduledSearch();
     const requestId = ++activeRequest;
     const requestQuery = query;
     const requestProvider = modelProviderRequest(requestQuery);
@@ -70,7 +78,8 @@ export function createMarketplaceController(
     ]);
     if (disposed || requestId !== activeRequest) return;
 
-    const attemptedProviders = marketplaceModelProviders(requestQuery.filters.source);
+    const resultQuery = query;
+    const attemptedProviders = marketplaceModelProviders(resultQuery.filters.source);
     const providerIssues: MarketplaceSourceIssue[] = models.status === "fulfilled"
       ? models.value.errors.map(({ provider, message }) => ({ source: provider, scope: "model-provider", message }))
       : [];
@@ -95,12 +104,12 @@ export function createMarketplaceController(
       models: modelHealth,
     };
     if (library.status === "rejected" && modelHealth === "unavailable") {
-      emit({ status: "error", error: "Marketplace sources are unavailable", sourceErrors, sourceHealth, query: requestQuery });
+      emit({ status: "error", error: "Marketplace sources are unavailable", sourceErrors, sourceHealth, query: resultQuery });
       return;
     }
     lastPublic = library.status === "fulfilled" ? library.value : null;
     lastModels = models.status === "fulfilled" ? { provider: requestProvider, value: models.value } : null;
-    emit(presentMarketplaceSources(lastPublic, retainedModels(requestQuery), requestQuery, sourceErrors, sourceHealth));
+    emit(presentMarketplaceSources(lastPublic, retainedModels(resultQuery), resultQuery, sourceErrors, sourceHealth));
   };
 
   return {
@@ -119,12 +128,14 @@ export function createMarketplaceController(
     setQuery(nextQuery) {
       if (disposed || JSON.stringify(query) === JSON.stringify(nextQuery)) return;
       const providerChanged = modelProviderRequest(query) !== modelProviderRequest(nextQuery);
+      const textChanged = query.text.trim() !== nextQuery.text.trim();
       query = nextQuery;
       if (!started) {
         emit({ status: "loading", query });
         return;
       }
       if (providerChanged) {
+        clearScheduledSearch();
         emit({ status: "loading", query });
         void load();
         return;
@@ -132,14 +143,24 @@ export function createMarketplaceController(
       if (snapshot.status === "ready") {
         emit({
           ...presentMarketplaceSources(lastPublic, retainedModels(query), query, snapshot.sourceErrors, snapshot.sourceHealth),
-          refreshing: true,
+          refreshing: textChanged ? false : snapshot.refreshing,
         });
+      } else if (snapshot.status === "loading") {
+        emit({ status: "loading", query });
       }
-      void load();
+      if (textChanged) {
+        clearScheduledSearch();
+        activeRequest += 1;
+        searchTimer = setTimeout(() => {
+          searchTimer = null;
+          void load();
+        }, SEARCH_DEBOUNCE_MS);
+      }
     },
     dispose() {
       disposed = true;
       activeRequest += 1;
+      clearScheduledSearch();
       listeners.clear();
     },
   };

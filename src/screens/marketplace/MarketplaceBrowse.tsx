@@ -12,7 +12,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useRef, type ComponentType, type KeyboardEvent, type SVGProps } from "react";
+import { useEffect, useRef, useState, type ComponentType, type KeyboardEvent, type SVGProps } from "react";
 import type {
   MarketplaceBrowseRoute,
   MarketplaceCategory,
@@ -53,7 +53,12 @@ const sourceLabels: Record<MarketplaceSourceIssue["source"], string> = {
 };
 
 export function marketplaceItemDomId(key: string): string {
-  return `marketplace-item-${key.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 220)}`;
+  let hash = 14_695_981_039_346_656_037n;
+  for (const character of key) {
+    hash ^= BigInt(character.codePointAt(0)!);
+    hash = BigInt.asUintN(64, hash * 1_099_511_628_211n);
+  }
+  return `marketplace-item-${key.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 220)}-${hash.toString(36)}`;
 }
 
 function countLabel(count: Availability<number>): string {
@@ -83,7 +88,15 @@ export function MarketplaceDiscover({ snapshot, onOpenCategory, onOpenLibrary }:
   onOpenLibrary(section: MarketplaceLibrarySection): void;
 }) {
   const installed = snapshot.machine?.installed?.filter(({ runtime }) => runtime === "ollama") ?? [];
-  const updated = snapshot.items.filter((item) => item.updatedAt.status === "ready").slice(0, 6);
+  const updated = snapshot.items
+    .flatMap((item) => {
+      if (item.updatedAt.status !== "ready") return [];
+      const timestamp = Date.parse(item.updatedAt.value);
+      return Number.isFinite(timestamp) ? [{ item, timestamp }] : [];
+    })
+    .sort((left, right) => right.timestamp - left.timestamp)
+    .slice(0, 6)
+    .map(({ item }) => item);
   const hasAnyCount = snapshot.categories.some(({ count }) => count.status === "ready" && count.value > 0);
   return <div className="marketplace-discover">
     <section aria-labelledby="marketplace-categories-heading">
@@ -102,21 +115,30 @@ export function MarketplaceDiscover({ snapshot, onOpenCategory, onOpenLibrary }:
   </div>;
 }
 
-function itemPreview(item: MarketplaceItemPresentation) {
+function previewUrl(item: MarketplaceItemPresentation): string | null {
   if (item.category === "models") {
-    const url = item.model.previewUrl ?? item.model.iconUrl;
-    return url
-      ? <img src={url} alt="" loading="lazy" referrerPolicy="no-referrer" />
-      : <span className="marketplace-preview-fallback"><Cpu aria-hidden="true" /><small>{item.model.recommendedPackage.format || "Format unavailable"}</small></span>;
+    return item.model.previewUrl ?? item.model.iconUrl;
   }
   if (item.category === "recipes") {
     const demo = item.recipe.recipe?.demo;
-    const url = demo?.posterUrl ?? demo?.afterUrl ?? demo?.beforeUrl ?? null;
-    return url
-      ? <img src={url} alt="" loading="lazy" referrerPolicy="no-referrer" />
-      : <span className="marketplace-preview-fallback"><Code2 aria-hidden="true" /><small>{item.recipe.recipe?.kind ?? "Recipe preview unavailable"}</small></span>;
+    return demo?.posterUrl ?? demo?.afterUrl ?? demo?.beforeUrl ?? null;
   }
+  return null;
+}
+
+function previewFallback(item: MarketplaceItemPresentation) {
+  if (item.category === "models") return <span className="marketplace-preview-fallback"><Cpu aria-hidden="true" /><small>{item.model.recommendedPackage.format || "Format unavailable"}</small></span>;
+  if (item.category === "recipes") return <span className="marketplace-preview-fallback"><Code2 aria-hidden="true" /><small>{item.recipe.recipe?.kind ?? "Recipe preview unavailable"}</small></span>;
   return <span className="marketplace-preview-fallback"><LayoutTemplate aria-hidden="true" /><small>Preview unavailable from schema 1</small></span>;
+}
+
+function MarketplaceItemPreview({ item }: { item: MarketplaceItemPresentation }) {
+  const url = previewUrl(item);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  useEffect(() => setFailedUrl(null), [item.key, url]);
+  return url && failedUrl !== url
+    ? <img src={url} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailedUrl(url)} />
+    : previewFallback(item);
 }
 
 function availabilityLabel(value: Availability<string>, fallback: string): string {
@@ -129,9 +151,21 @@ export interface MarketplaceResultsProps {
   onOpenItem(key: string): void;
 }
 
-function MarketplaceResult({ item, onOpenItem }: { item: MarketplaceItemPresentation; onOpenItem(key: string): void }) {
+function MarketplaceResult({ item, index, tabStop, onFocus, onMove, onOpenItem }: {
+  item: MarketplaceItemPresentation;
+  index?: number;
+  tabStop?: boolean;
+  onFocus?(): void;
+  onMove?(key: ResultMoveKey, index: number): void;
+  onOpenItem(key: string): void;
+}) {
   const Icon = categoryIcons[item.category];
   const openFromKeyboard = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (onMove && index !== undefined && ["ArrowDown", "ArrowUp", "Home", "End", "PageDown", "PageUp"].includes(event.key)) {
+      event.preventDefault();
+      onMove(event.key as ResultMoveKey, index);
+      return;
+    }
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     onOpenItem(item.key);
@@ -141,10 +175,12 @@ function MarketplaceResult({ item, onOpenItem }: { item: MarketplaceItemPresenta
     id={marketplaceItemDomId(item.key)}
     data-marketplace-item-key={item.key}
     type="button"
+    tabIndex={tabStop === undefined ? undefined : tabStop ? 0 : -1}
     onClick={() => onOpenItem(item.key)}
+    onFocus={onFocus}
     onKeyDown={openFromKeyboard}
   >
-    <span className="marketplace-result-preview">{itemPreview(item)}</span>
+    <span className="marketplace-result-preview"><MarketplaceItemPreview item={item} /></span>
     <span className="marketplace-result-copy">
       <span className="marketplace-result-category"><Icon aria-hidden="true" />{categoryLabels[item.category]}</span>
       <strong>{item.name}</strong>
@@ -163,6 +199,48 @@ function resultOrderLabel(query: MarketplaceQueryState): string {
   return query.sort === "relevance" ? "Relevance · keyword" : query.sort === "updated" ? "Updated" : "Name";
 }
 
+type ResultMoveKey = "ArrowDown" | "ArrowUp" | "Home" | "End" | "PageDown" | "PageUp";
+
+function resultMoveIndex(key: ResultMoveKey, index: number, count: number): number {
+  if (key === "Home") return 0;
+  if (key === "End") return count - 1;
+  const distance = key === "PageDown" || key === "PageUp" ? 6 : 1;
+  return Math.max(0, Math.min(count - 1, index + (key === "ArrowDown" || key === "PageDown" ? distance : -distance)));
+}
+
+function useResultNavigation(items: MarketplaceItemPresentation[], scrollToIndex?: (index: number) => void) {
+  const [activeKey, setActiveKey] = useState<string | null>(items[0]?.key ?? null);
+  const focusFrame = useRef<number | null>(null);
+  useEffect(() => {
+    if (activeKey !== null && items.some(({ key }) => key === activeKey)) return;
+    setActiveKey(items[0]?.key ?? null);
+  }, [activeKey, items]);
+  useEffect(() => () => {
+    if (focusFrame.current !== null) window.cancelAnimationFrame(focusFrame.current);
+  }, []);
+  const move = (key: ResultMoveKey, index: number) => {
+    const targetIndex = resultMoveIndex(key, index, items.length);
+    const target = items[targetIndex];
+    if (!target) return;
+    setActiveKey(target.key);
+    scrollToIndex?.(targetIndex);
+    if (focusFrame.current !== null) window.cancelAnimationFrame(focusFrame.current);
+    let attempts = 0;
+    const focus = () => {
+      const element = document.getElementById(marketplaceItemDomId(target.key));
+      if (element) {
+        element.focus({ preventScroll: true });
+        focusFrame.current = null;
+      } else if (attempts < 8) {
+        attempts += 1;
+        focusFrame.current = window.requestAnimationFrame(focus);
+      }
+    };
+    focusFrame.current = window.requestAnimationFrame(focus);
+  };
+  return { activeKey, setActiveKey, move };
+}
+
 function VirtualMarketplaceResults({ items, query, onOpenItem }: MarketplaceResultsProps) {
   const root = useRef<HTMLOListElement>(null);
   const scrollMargin = root.current?.offsetTop ?? 0;
@@ -175,6 +253,7 @@ function VirtualMarketplaceResults({ items, query, onOpenItem }: MarketplaceResu
     initialRect: { width: 900, height: 700 },
     scrollMargin,
   });
+  const navigation = useResultNavigation(items, (index) => virtualizer.scrollToIndex(index, { align: "auto" }));
   const rows = virtualizer.getVirtualItems();
   return <section className="marketplace-results" aria-labelledby="marketplace-results-heading">
     <div className="marketplace-results-meta"><h2 id="marketplace-results-heading">{items.length} results</h2><span>{resultOrderLabel(query)}</span></div>
@@ -184,19 +263,36 @@ function VirtualMarketplaceResults({ items, query, onOpenItem }: MarketplaceResu
       ref={root}
       style={{ height: virtualizer.getTotalSize() }}
     >
-      {rows.map((row) => <li key={row.key} style={{ transform: `translateY(${row.start - scrollMargin}px)` }}><MarketplaceResult item={items[row.index]!} onOpenItem={onOpenItem} /></li>)}
+      {rows.map((row) => {
+        const item = items[row.index]!;
+        return <li key={row.key} aria-setsize={items.length} aria-posinset={row.index + 1} style={{ transform: `translateY(${row.start - scrollMargin}px)` }}>
+          <MarketplaceResult
+            item={item}
+            index={row.index}
+            tabStop={navigation.activeKey === item.key}
+            onFocus={() => navigation.setActiveKey(item.key)}
+            onMove={navigation.move}
+            onOpenItem={onOpenItem}
+          />
+        </li>;
+      })}
+    </ol>
+  </section>;
+}
+
+function StandardMarketplaceResults({ items, query, onOpenItem }: MarketplaceResultsProps) {
+  return <section className="marketplace-results" aria-labelledby="marketplace-results-heading">
+    <div className="marketplace-results-meta"><h2 id="marketplace-results-heading">{items.length} {items.length === 1 ? "result" : "results"}</h2><span>{resultOrderLabel(query)}</span></div>
+    <ol className="marketplace-results-list" role="list">
+      {items.map((item, index) => <li key={item.key} aria-setsize={items.length} aria-posinset={index + 1}>
+        <MarketplaceResult item={item} onOpenItem={onOpenItem} />
+      </li>)}
     </ol>
   </section>;
 }
 
 export function MarketplaceResults(props: MarketplaceResultsProps) {
-  if (props.items.length > 100) return <VirtualMarketplaceResults {...props} />;
-  return <section className="marketplace-results" aria-labelledby="marketplace-results-heading">
-    <div className="marketplace-results-meta"><h2 id="marketplace-results-heading">{props.items.length} {props.items.length === 1 ? "result" : "results"}</h2><span>{resultOrderLabel(props.query)}</span></div>
-    <ol className="marketplace-results-list" role="list">
-      {props.items.map((item) => <li key={item.key}><MarketplaceResult item={item} onOpenItem={props.onOpenItem} /></li>)}
-    </ol>
-  </section>;
+  return props.items.length > 100 ? <VirtualMarketplaceResults {...props} /> : <StandardMarketplaceResults {...props} />;
 }
 
 function SourceState({ snapshot, onRetry }: { snapshot: Extract<MarketplaceSnapshot, { status: "ready" | "error" }>; onRetry(): void }) {

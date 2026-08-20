@@ -196,6 +196,21 @@ describe("Marketplace browse surfaces", () => {
     expect(markup).not.toContain("Community collections");
   });
 
+  test("orders Recently updated by valid source timestamps before taking six", () => {
+    const dates = [
+      "2026-08-12T10:00:00.000Z", "invalid", "2026-08-20T10:00:00.000Z", "2026-08-14T10:00:00.000Z",
+      "2026-08-19T10:00:00.000Z", "2026-08-18T10:00:00.000Z", "2026-08-17T10:00:00.000Z", "2026-08-16T10:00:00.000Z",
+    ];
+    const items = dates.map((value, index) => ({ ...modelPresentation, key: `model:huggingface:Acme/updated-${index}`, name: `Updated ${index}`, updatedAt: { status: "ready" as const, value } }));
+    const markup = renderToStaticMarkup(<MarketplaceDiscover snapshot={readySnapshot({ items })} onOpenCategory={() => undefined} onOpenLibrary={() => undefined} />);
+
+    for (const name of ["Updated 2", "Updated 4", "Updated 5", "Updated 6", "Updated 7", "Updated 3"]) expect(markup).toContain(name);
+    expect(markup).not.toContain("Updated 0");
+    expect(markup).not.toContain("Updated 1");
+    expect(markup.indexOf("Updated 2")).toBeLessThan(markup.indexOf("Updated 4"));
+    expect(markup.indexOf("Updated 4")).toBeLessThan(markup.indexOf("Updated 5"));
+  });
+
   test("renders one honest mixed ranking with typed previews and one detail action", () => {
     const markup = renderToStaticMarkup(<MarketplaceResults items={[modelPresentation, templatePresentation, recipePresentation]} query={defaultQuery} onOpenItem={() => undefined} />);
 
@@ -293,6 +308,65 @@ describe("Marketplace browse surfaces", () => {
     expect(larger.match(/data-marketplace-item-key=/g)!.length).toBeGreaterThan(0);
     expect(larger.match(/data-marketplace-item-key=/g)!.length).toBeLessThan(100);
   });
+
+  test("uses stable distinct DOM IDs for keys that share the same readable form", () => {
+    const dotted = marketplaceItemDomId("recipe:a.b");
+    const dashed = marketplaceItemDomId("recipe:a-b");
+    expect(dotted).not.toBe(dashed);
+    expect(dotted).toBe(marketplaceItemDomId("recipe:a.b"));
+    expect(dotted.length).toBeLessThanOrEqual(256);
+    expect(dashed.length).toBeLessThanOrEqual(256);
+  });
+
+  test("switches failed remote previews to a typed fallback and resets for a new URL", async () => {
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => root.render(<MarketplaceResults items={[modelPresentation]} query={defaultQuery} onOpenItem={() => undefined} />));
+      const image = host.container.querySelector("img")!;
+      await act(async () => image.dispatchEvent(new Event("error")));
+      expect(host.container.textContent).toContain("GGUF");
+      expect(host.container.querySelector("img")).toBeNull();
+
+      const next = { ...modelPresentation, key: "model:huggingface:Acme/beta", model: { ...modelPresentation.model, id: "Acme/beta", previewUrl: "https://huggingface.co/Acme/beta/resolve/main/preview.png" } } as MarketplaceItemPresentation;
+      await act(async () => root.render(<MarketplaceResults items={[next]} query={defaultQuery} onOpenItem={() => undefined} />));
+      expect(host.container.querySelector("img")?.getAttribute("src")).toBe("https://huggingface.co/Acme/beta/resolve/main/preview.png");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
+  test("provides roving keyboard navigation across a virtualized result set", async () => {
+    vi.useFakeTimers();
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    const items = Array.from({ length: 140 }, (_, index) => ({ ...modelPresentation, key: `model:huggingface:Acme/key-${index}`, name: `Keyboard model ${index}` }));
+    try {
+      await act(async () => root.render(<div className="marketplace-scroll"><MarketplaceResults items={items} query={defaultQuery} onOpenItem={() => undefined} /></div>));
+      const scroll = host.container.querySelector(".marketplace-scroll")!;
+      scroll.scrollHeight = items.length * 126;
+      const first = host.container.querySelector(`[data-marketplace-item-key="${items[0]!.key}"]`)!;
+      expect(host.container.querySelectorAll(".marketplace-result").filter((item) => item.tabIndex === 0)).toHaveLength(1);
+      first.focus();
+      const end = new Event("keydown", { bubbles: true, cancelable: true });
+      Object.defineProperty(end, "key", { value: "End" });
+      await act(async () => { first.dispatchEvent(end); await vi.runAllTimersAsync(); });
+      expect((document.activeElement as unknown as { getAttribute(name: string): string | null }).getAttribute("data-marketplace-item-key")).toBe(items[139]!.key);
+      const focused = document.activeElement as unknown as { dispatchEvent(event: Event): boolean };
+      const home = new Event("keydown", { bubbles: true, cancelable: true });
+      Object.defineProperty(home, "key", { value: "Home" });
+      await act(async () => { focused.dispatchEvent(home); await vi.runAllTimersAsync(); });
+      expect((document.activeElement as unknown as { getAttribute(name: string): string | null }).getAttribute("data-marketplace-item-key")).toBe(items[0]!.key);
+      const visibleItem = host.container.querySelector(".marketplace-results-list li")!;
+      expect(visibleItem.getAttribute("aria-setsize")).toBe("140");
+      expect(visibleItem.getAttribute("aria-posinset")).not.toBeNull();
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("Marketplace header and navigation composition", () => {
@@ -389,6 +463,45 @@ describe("Marketplace header and navigation composition", () => {
     } finally {
       await act(async () => root.unmount());
       host.restore();
+    }
+  });
+
+  test("restores an offscreen virtual result after returning from detail", async () => {
+    vi.useFakeTimers();
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    const items = Array.from({ length: 140 }, (_, index) => ({ ...modelPresentation, key: `model:huggingface:Acme/restore-${index}`, name: `Restore model ${index}` }));
+    const target = items[120]!;
+    const detail: MarketplaceLocation = { ...resultsLocation, route: { kind: "detail", itemId: target.key }, selectedItemId: target.key, scrollTop: 0, focusId: "marketplace-heading" };
+    const returned: MarketplaceLocation = { ...resultsLocation, scrollTop: 120 * 126, focusId: marketplaceItemDomId(target.key) };
+    try {
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={detail} sidebarVisible={true} snapshot={readySnapshot({ items })} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={returned} sidebarVisible={true} snapshot={readySnapshot({ items })} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      await act(async () => vi.runAllTimersAsync());
+      expect((document.activeElement as unknown as { getAttribute(name: string): string | null }).getAttribute("data-marketplace-item-key")).toBe(target.key);
+      expect((host.container.querySelector(".marketplace-scroll") as unknown as { scrollTop: number }).scrollTop).toBe(returned.scrollTop);
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+      vi.useRealTimers();
+    }
+  });
+
+  test("restores the exact colliding-readable-key result rather than its sibling", async () => {
+    vi.useFakeTimers();
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    const dotted = { ...recipePresentation, key: "recipe:a.b", name: "Dotted recipe" };
+    const dashed = { ...recipePresentation, key: "recipe:a-b", name: "Dashed recipe" };
+    const location: MarketplaceLocation = { ...resultsLocation, focusId: marketplaceItemDomId(dotted.key) };
+    try {
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot({ items: [dashed, dotted] })} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      await act(async () => vi.runAllTimersAsync());
+      expect((document.activeElement as unknown as { getAttribute(name: string): string | null }).getAttribute("data-marketplace-item-key")).toBe(dotted.key);
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+      vi.useRealTimers();
     }
   });
 });

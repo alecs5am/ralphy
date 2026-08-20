@@ -85,13 +85,36 @@ export function MarketplaceScreenView({
   const selectedCategory = location.route.kind === "category" ? location.route.category : null;
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: location.scrollTop });
-  }, [focusRouteKey, location.scrollTop]);
+    if (!focusId.startsWith("marketplace-item-")) {
+      scrollRef.current?.scrollTo({ top: location.scrollTop });
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => scrollRef.current?.scrollTo({ top: location.scrollTop }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusId, focusRouteKey, location.scrollTop]);
 
   useEffect(() => {
-    const target = document.getElementById(focusId) ?? document.getElementById("marketplace-heading");
-    if (target?.closest("[hidden]")) return;
-    target?.focus({ preventScroll: true });
+    const itemOrigin = focusId.startsWith("marketplace-item-");
+    if (!itemOrigin) {
+      const target = document.getElementById(focusId) ?? document.getElementById("marketplace-heading");
+      if (!target?.closest("[hidden]")) target?.focus({ preventScroll: true });
+      return;
+    }
+    let frame = 0;
+    let attempts = 0;
+    const restoreFocus = () => {
+      const target = document.getElementById(focusId);
+      if (target && !target.closest("[hidden]")) {
+        target.focus({ preventScroll: true });
+        return;
+      }
+      if (attempts < 8) {
+        attempts += 1;
+        frame = window.requestAnimationFrame(restoreFocus);
+      }
+    };
+    frame = window.requestAnimationFrame(restoreFocus);
+    return () => window.cancelAnimationFrame(frame);
   }, [focusId, focusRouteKey]);
 
   const openCategory = (category: MarketplaceCategory) => {
