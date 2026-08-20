@@ -8,6 +8,7 @@ import {
 } from "../src/screens/WorkspaceScreen";
 import type { WorkspaceMomentumPresentation } from "../src/screens/workspace/overview-presentation";
 import { AccessibleTrendChart, WorkspaceMomentum } from "../src/screens/workspace/WorkspacePerformance";
+import { WorkspacePlanAndOutcomes } from "../src/screens/workspace/WorkspacePlanAndOutcomes";
 import { createReactHost } from "./react-host";
 
 const populatedOverview = {
@@ -221,6 +222,215 @@ describe("workspace overview shell", () => {
         .find((button) => button.textContent?.includes("Open Calendar"));
       await act(async () => openCalendar!.dispatchEvent(new Event("click", { bubbles: true })));
       expect(openPage).toHaveBeenCalledWith("calendar");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
+  test("renders honest planning and outcome availability without inferring content gaps", async () => {
+    const markup = await renderWorkspace(populatedOverview);
+
+    expect(markup).toContain("Content plan");
+    expect(markup).toContain("Next 14 days");
+    expect(markup).toContain("Dates and times use this device’s timezone");
+    expect(markup).toContain("Cadence targets are not configured in the current Core contract");
+    expect(markup).toContain("Ready, not scheduled");
+    expect(markup.match(/scheduled content events?"/g)).toHaveLength(14);
+    expect(markup).toContain("Top and emerging Units");
+    expect(markup).toContain("Top performers");
+    expect(markup).toContain("Emerging");
+    expect(markup).toContain("Learning opportunities");
+    expect(markup).toContain("Comparable performance data is not available yet");
+    expect(markup).not.toContain("Content gap");
+  });
+
+  test("groups child publications into one event and keeps failed channels visible", async () => {
+    const scheduledAt = Date.now() + 24 * 60 * 60 * 1000;
+    const publication = populatedOverview.publications.items[0];
+    const markup = await renderWorkspace({
+      ...populatedOverview,
+      projects: { items: [{
+        id: "project-1", workspaceId: "workspace-1", slug: "launch-campaign", name: "Launch campaign",
+        state: "active", rowVersion: 1, createdAt: 1, updatedAt: 2,
+      }], nextCursor: null },
+      units: { items: [{
+        id: "unit-1", workspaceId: "workspace-1", projectId: "project-1", compositionId: null,
+        slug: "product-reveal", format: "video", latestRevisionId: "revision-5",
+        selectedRevisionId: "revision-5", createdAt: 1, updatedAt: 2,
+      }], nextCursor: null },
+      publications: { items: [
+        { ...publication, id: "publication-tiktok", state: "scheduled", scheduledAt },
+        { ...publication, id: "publication-instagram", platform: "instagram", socialAccountId: null, state: "failed", scheduledAt },
+      ], nextCursor: null },
+    });
+
+    expect(markup.match(/data-content-event=/g)).toHaveLength(1);
+    expect(markup).toContain("product-reveal");
+    expect(markup).toContain("Launch campaign");
+    expect(markup).toContain("tiktok");
+    expect(markup).toContain("Scheduled");
+    expect(markup).toContain("instagram");
+    expect(markup).toContain("Failed");
+    expect(markup).toContain("1 channel needs attention");
+  });
+
+  test("preserves a partial publishing page beside returned events", async () => {
+    const publication = populatedOverview.publications.items[0];
+    const markup = await renderWorkspace({
+      ...populatedOverview,
+      publications: { items: [{
+        ...publication,
+        state: "scheduled",
+        scheduledAt: Date.now() + 60 * 60 * 1000,
+      }], nextCursor: "more-publications" },
+    });
+
+    expect(markup).toContain("Partial publishing data");
+    expect(markup).toContain("Upcoming publications are limited to the returned Core page");
+    expect(markup).toContain("Scheduled");
+  });
+
+  test("renders the empty planning action and routes it to Calendar", async () => {
+    const openPage = vi.fn();
+    const markup = renderToStaticMarkup(<WorkspacePlanAndOutcomes
+      value={{
+        plan: {
+          coverage: { status: "unavailable", reason: "Cadence targets are not configured in the current Core contract." },
+          upcoming: { status: "empty", reason: "Nothing scheduled in the next 14 days." },
+          readyUnscheduled: { status: "unavailable", reason: "Ready Unit lifecycle state is not available from the current Core contract." },
+        },
+        outcomes: { status: "unavailable", reason: "Performance benchmarks and observation windows are not available from Core yet." },
+      }}
+      onOpenPage={openPage}
+      onOpenUnit={() => undefined}
+    />);
+
+    expect(markup).toContain("Nothing scheduled in the next 14 days");
+    expect(markup).toContain("Open Calendar");
+
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => root.render(<WorkspacePlanAndOutcomes
+        value={{
+          plan: {
+            coverage: { status: "unavailable", reason: "Cadence unavailable." },
+            upcoming: { status: "empty", reason: "Nothing scheduled in the next 14 days." },
+            readyUnscheduled: { status: "unavailable", reason: "Ready Units unavailable." },
+          },
+          outcomes: { status: "unavailable", reason: "Outcomes unavailable." },
+        }}
+        onOpenPage={openPage}
+        onOpenUnit={() => undefined}
+      />));
+      const openCalendar = [...host.container.querySelectorAll("button")]
+        .find((button) => button.textContent?.includes("Open Calendar"));
+      await act(async () => openCalendar!.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(openPage).toHaveBeenCalledWith("calendar");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
+  test("routes grouped events to their Unit and falls back to the Units page", async () => {
+    const openPage = vi.fn();
+    const openUnit = vi.fn();
+    const event = {
+      unitId: "unit-1",
+      scheduledAt: Date.now() + 60 * 60 * 1000,
+      publications: [{ ...populatedOverview.publications.items[0], state: "scheduled" as const }],
+    };
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => root.render(<WorkspacePlanAndOutcomes
+        value={{
+          plan: {
+            coverage: { status: "unavailable", reason: "Cadence unavailable." },
+            upcoming: { status: "ready", value: [{
+              ...event,
+              accounts: [],
+              unit: {
+                id: "unit-1", workspaceId: "workspace-1", projectId: "project-1", compositionId: null,
+                slug: "Product reveal", format: "video", latestRevisionId: "revision-5",
+                selectedRevisionId: "revision-5", createdAt: 1, updatedAt: 2,
+              },
+              project: null,
+            }] },
+            readyUnscheduled: { status: "unavailable", reason: "Ready Units unavailable." },
+          },
+          outcomes: { status: "unavailable", reason: "Outcomes unavailable." },
+        }}
+        onOpenPage={openPage}
+        onOpenUnit={openUnit}
+      />));
+      const openUnitButton = [...host.container.querySelectorAll("button")]
+        .find((button) => button.textContent?.includes("Open Unit"));
+      await act(async () => openUnitButton!.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(openUnit).toHaveBeenCalledWith("project-1", "unit-1");
+
+      await act(async () => root.render(<WorkspacePlanAndOutcomes
+        value={{
+          plan: {
+            coverage: { status: "unavailable", reason: "Cadence unavailable." },
+            upcoming: { status: "ready", value: [{ ...event, accounts: [], unit: null, project: null }] },
+            readyUnscheduled: { status: "unavailable", reason: "Ready Units unavailable." },
+          },
+          outcomes: { status: "unavailable", reason: "Outcomes unavailable." },
+        }}
+        onOpenPage={openPage}
+        onOpenUnit={openUnit}
+      />));
+      const fallback = [...host.container.querySelectorAll("button")]
+        .find((button) => button.textContent?.includes("Open Unit"));
+      await act(async () => fallback!.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(openPage).toHaveBeenCalledWith("units");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
+  test("opens the complete Unit outcome detail shell", async () => {
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => root.render(<WorkspacePlanAndOutcomes
+        value={{
+          plan: {
+            coverage: { status: "unavailable", reason: "Cadence unavailable." },
+            upcoming: { status: "empty", reason: "Nothing scheduled in the next 14 days." },
+            readyUnscheduled: { status: "unavailable", reason: "Ready Units unavailable." },
+          },
+          outcomes: { status: "ready", value: {
+            top: [{ id: "unit-1", unitId: "unit-1", projectId: "project-1", title: "Product reveal", projectTitle: "Launch campaign", revisionLabel: "Revision 5" }],
+            emerging: [], learningOpportunities: [],
+          } },
+        }}
+        onOpenPage={() => undefined}
+        onOpenUnit={() => undefined}
+      />));
+      const card = [...host.container.querySelectorAll("button")]
+        .find((button) => button.textContent?.includes("Product reveal"));
+      await act(async () => card!.dispatchEvent(new Event("click", { bubbles: true })));
+
+      const dialog = document.body.querySelector("[role=dialog]");
+      expect(dialog?.textContent).toContain("Unit outcome detail");
+      expect(dialog?.textContent).toContain("Result");
+      expect(dialog?.textContent).toContain("Normalized result is not available from the current Core contract");
+      expect(dialog?.textContent).toContain("Benchmark method");
+      expect(dialog?.textContent).toContain("Benchmark method is not available from the current Core contract");
+      expect(dialog?.textContent).toContain("Child publications");
+      expect(dialog?.textContent).toContain("Child publication metrics are not available from the current Core contract");
+      expect(dialog?.textContent).toContain("Observation window");
+      expect(dialog?.textContent).toContain("Observation windows are not available from the current Core contract");
+      expect(dialog?.textContent).toContain("Destination");
+      expect(dialog?.textContent).toContain("Destination outcomes are not available from the current Core contract");
     } finally {
       await act(async () => root.unmount());
       host.restore();

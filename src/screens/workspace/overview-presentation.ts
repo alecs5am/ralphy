@@ -4,6 +4,7 @@ import type {
   OverviewPublicationDto,
   Page,
   ProjectDto,
+  UnitDto,
   WorkspaceOverviewDto,
 } from "../../../electron/ralphy/types";
 import type { ProjectSummary } from "../../lib/ipc";
@@ -57,6 +58,9 @@ export interface PublishingEventPresentation {
   unitId: string;
   scheduledAt: number;
   publications: OverviewPublicationDto[];
+  accounts: OverviewAccountDto[];
+  unit: UnitDto | null;
+  project: ProjectDto | null;
 }
 
 export interface WorkspacePlanPresentation {
@@ -65,10 +69,19 @@ export interface WorkspacePlanPresentation {
   readyUnscheduled: Availability<never[]>;
 }
 
+export interface UnitOutcomePresentation {
+  id: string;
+  unitId: string;
+  projectId: string;
+  title: string;
+  projectTitle: string;
+  revisionLabel: string;
+}
+
 export interface UnitOutcomeGroups {
-  top: never[];
-  emerging: never[];
-  learningOpportunities: never[];
+  top: UnitOutcomePresentation[];
+  emerging: UnitOutcomePresentation[];
+  learningOpportunities: UnitOutcomePresentation[];
 }
 
 export interface WorkspaceInsightPresentation {
@@ -134,7 +147,7 @@ export function presentWorkspaceOverview({
     header: presentHeader(overview, description),
     momentum: presentMomentum(overview.metrics),
     accounts: presentAccounts(overview.accounts, overview.publications),
-    plan: presentPlan(overview.publications, now),
+    plan: presentPlan(overview.publications, overview.accounts, overview.units, overview.projects, now),
     outcomes: unavailable("Performance benchmarks and observation windows are not available from Core yet."),
     insights: unavailable("Evidence samples and counterexamples are not available from Core yet."),
     efficiency: unavailable("Production timing and reuse evidence are not available from Core yet."),
@@ -201,7 +214,13 @@ function presentAccount(account: OverviewAccountDto, publications: Page<Overview
   };
 }
 
-function presentPlan(publications: Page<OverviewPublicationDto> | undefined, now: number): WorkspacePlanPresentation {
+function presentPlan(
+  publications: Page<OverviewPublicationDto> | undefined,
+  accounts: Page<OverviewAccountDto> | undefined,
+  units: Page<UnitDto> | undefined,
+  projects: Page<ProjectDto> | undefined,
+  now: number,
+): WorkspacePlanPresentation {
   const coverage = unavailable<never[]>("cadence targets are not configured in the current Core contract.");
   const readyUnscheduled = unavailable<never[]>("Ready Unit lifecycle state is not available from the current Core contract.");
   if (!publications) {
@@ -217,10 +236,26 @@ function presentPlan(publications: Page<OverviewPublicationDto> | undefined, now
     if (publication.scheduledAt === null) continue;
     const scheduledAt = timestampMs(publication.scheduledAt);
     if (scheduledAt < now || scheduledAt >= now + 14 * DAY_MS) continue;
-    const key = `${publication.unitId}:${publication.scheduledAt}`;
+    const key = `${publication.unitId}:${scheduledAt}`;
     const existing = events.get(key);
     if (existing) existing.publications.push(publication);
-    else events.set(key, { unitId: publication.unitId, scheduledAt, publications: [publication] });
+    else {
+      const unit = units?.items.find((candidate) => candidate.id === publication.unitId) ?? null;
+      events.set(key, {
+        unitId: publication.unitId,
+        scheduledAt,
+        publications: [publication],
+        accounts: [],
+        unit,
+        project: projects?.items.find((candidate) => candidate.id === unit?.projectId) ?? null,
+      });
+    }
+  }
+
+  for (const event of events.values()) {
+    event.accounts = accounts?.items.filter((account) => (
+      event.publications.some((publication) => publication.socialAccountId === account.id)
+    )) ?? [];
   }
 
   const upcoming = [...events.values()].sort((left, right) => left.scheduledAt - right.scheduledAt);
