@@ -1959,6 +1959,10 @@ button.workspace-project-card:hover {
   pointer-events: auto;
 }
 
+.project-toolbar .gooey-tabs {
+  --gooey-cell-width: min(104px, calc((100cqw - 6px) / var(--gooey-count)));
+}
+
 .gooey-tabs-s {
   --gooey-cell-width: 92px;
   --gooey-cell-height: 26px;
@@ -2020,20 +2024,6 @@ button.workspace-project-card:hover {
 .gooey-tabs button small {
   color: inherit;
   font-size: var(--text-xs);
-}
-
-@container project-controls (max-width: 650px) {
-  .project-toolbar .gooey-tabs {
-    --gooey-cell-width: calc((100cqw - 6px) / 5);
-    width: 100%;
-  }
-
-  .project-toolbar .gooey-tabs button {
-    overflow: hidden;
-    padding-inline: 4px;
-    font-size: var(--text-xs);
-    text-overflow: ellipsis;
-  }
 }
 
 .mode-segments-legacy {

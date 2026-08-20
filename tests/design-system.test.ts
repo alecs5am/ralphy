@@ -461,8 +461,8 @@ describe("design system contract", () => {
       expect(results.filter((result) => result.screen === screen).map(({ width, height }) => ({ width, height })))
         .toEqual([{ width: 2560, height: 1400 }, { width: 1360, height: 900 }, { width: 1100, height: 720 }]);
     }
-    expect(results.filter(({ screen, width }) => screen !== "activity" || width !== 1100).map(({ screen, width, overflows }) => ({ screen, width, overflows })))
-      .toEqual(results.filter(({ screen, width }) => screen !== "activity" || width !== 1100).map(({ screen, width }) => ({ screen, width, overflows: [] })));
+    expect(results.map(({ screen, width, overflows }) => ({ screen, width, overflows })))
+      .toEqual(results.map(({ screen, width }) => ({ screen, width, overflows: [] })));
     expect(results.find(({ screen, width }) => screen === "workspace" && width === 1100)?.metricColumns).toBe(2);
     const expectedOwners = {
       documents: [".documents-master", ".documents-detail"],
