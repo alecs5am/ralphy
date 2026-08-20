@@ -414,6 +414,7 @@ type SharedGeometryResult = {
   state: string;
   width: number;
   height: number;
+  contentSizeSettled: boolean;
   overflows: string[];
   columns: number | null;
   toolbarHeight: number | null;
@@ -515,8 +516,21 @@ async function sharedLibraryGeometry(): Promise<SharedGeometryResult[]> {
         await win.webContents.debugger.sendCommand("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
         const results = [], viewports = [[2560, 1400], [1360, 900], [1280, 800]];
         const states = ["grid", "list", "inspector", "viewer", "workflow:add:0", "workflow:add:1", "workflow:add:2", "workflow:add:3", "workflow:promote", "workflow:duplicate", "workflow:suggestions", "workflow:archive", "workflow:update-review"];
+        const waitForContentSize = async (state, width, height) => {
+          const deadline = Date.now() + 2000;
+          let bounds, renderer;
+          while (Date.now() < deadline) {
+            bounds = win.getContentBounds();
+            renderer = await win.webContents.executeJavaScript("({ width: innerWidth, height: innerHeight })");
+            if (bounds.width === width && bounds.height === height && renderer.width === width && renderer.height === height) return;
+            await new Promise((resolve) => setTimeout(resolve, 10));
+          }
+          throw new Error("Shared Library geometry viewport " + state + " did not settle at " + width + "x" + height
+            + "; content bounds=" + JSON.stringify(bounds) + "; renderer=" + JSON.stringify(renderer));
+        };
         for (const [state, width, height] of states.flatMap((state) => viewports.map(([width, height]) => [state, width, height]))) {
           win.setContentSize(width, height);
+          await waitForContentSize(state, width, height);
           await win.webContents.executeJavaScript(\`(async () => {
             const state = \${JSON.stringify(state)}, fixture = document.getElementById("fixture-root");
             fixture.innerHTML = "";
@@ -547,7 +561,7 @@ async function sharedLibraryGeometry(): Promise<SharedGeometryResult[]> {
             if (node.nodeId) await win.webContents.debugger.sendCommand("CSS.forcePseudoState", { nodeId: node.nodeId, forcedPseudoClasses: ["focus-visible"] });
           }
           results.push(await win.webContents.executeJavaScript(\`(() => {
-            const state = \${JSON.stringify(state)}, fixture = document.getElementById("fixture-root");
+            const state = \${JSON.stringify(state)}, requestedWidth = \${JSON.stringify(width)}, requestedHeight = \${JSON.stringify(height)}, fixture = document.getElementById("fixture-root");
             const production = state === "viewer" || state.startsWith("workflow:"), scope = production ? document : fixture;
             const selectors = state.startsWith("workflow:") ? [
               ".shared-workflow-window", ".shared-workflow-header", ".shared-workflow-body", ".shared-workflow-block", ".shared-workflow-fields", ".shared-workflow-choices", ".shared-workflow-suggestions", ".shared-workflow-footer",
@@ -579,7 +593,7 @@ async function sharedLibraryGeometry(): Promise<SharedGeometryResult[]> {
             const scrollOwners = state === "viewer" ? [scope.querySelector(".shared-viewer-body"), scope.querySelector(".shared-viewer-context")] : state.startsWith("workflow:") ? [scope.querySelector(".shared-workflow-body")] : [];
             const internalVertical = production ? scrollOwners.filter(Boolean).every((element) => element.scrollHeight <= element.clientHeight + 1 || ["auto", "scroll"].includes(getComputedStyle(element).overflowY)) : null;
             return {
-              state, width: innerWidth, height: innerHeight, overflows,
+              state, width: innerWidth, height: innerHeight, contentSizeSettled: innerWidth === requestedWidth && innerHeight === requestedHeight, overflows,
               columns: grid ? getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length : null,
               toolbarHeight: toolbar?.getBoundingClientRect().height ?? null,
               inspectorPosition: inspector ? getComputedStyle(inspector).position : null,
@@ -698,6 +712,7 @@ describe("design system contract", () => {
         { width: 2560, height: 1400 }, { width: 1360, height: 900 }, { width: 1280, height: 800 },
       ]);
     }
+    expect(results.every(({ contentSizeSettled }) => contentSizeSettled)).toBe(true);
     expect(results.flatMap(({ state, width, overflows }) => overflows.map((overflow) => ({ state, width, overflow })))).toEqual([]);
     expect(results.filter(({ state }) => state === "grid").map(({ width, columns }) => ({ width, columns }))).toEqual([
       { width: 2560, columns: 5 }, { width: 1360, columns: 3 }, { width: 1280, columns: 3 },
