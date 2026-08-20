@@ -10,15 +10,20 @@ import { assetGridGeometry, createPreviewScheduler, mediaFallbackAspectRatio, pr
 import { useRememberedScroll } from "../src/screens/project/scroll-memory";
 import { createReactHost, type HostNode } from "./react-host";
 
-const waveSurfer = vi.hoisted(() => ({ instances: [] as Array<{ emit(event: string, ...args: unknown[]): void }> }));
+const waveSurfer = vi.hoisted(() => ({
+  instances: [] as Array<{ emit(event: string, ...args: unknown[]): void }>,
+  createError: false,
+  playError: false,
+}));
 vi.mock("wavesurfer.js", () => ({
   default: {
     create: () => {
+      if (waveSurfer.createError) throw new Error("decode setup failed");
       const listeners = new Map<string, Array<(...args: unknown[]) => void>>();
       const instance = {
         on(event: string, callback: (...args: unknown[]) => void) { listeners.set(event, [...(listeners.get(event) ?? []), callback]); },
         emit(event: string, ...args: unknown[]) { listeners.get(event)?.forEach((callback) => callback(...args)); },
-        destroy() {}, getCurrentTime: () => 0, playPause: async () => undefined,
+        destroy() {}, getCurrentTime: () => 0, playPause: async () => { if (waveSurfer.playError) throw new Error("play failed"); },
         setTime() {}, setMuted() {}, setVolume() {},
       };
       waveSurfer.instances.push(instance);
@@ -126,7 +131,7 @@ function ScrollOwners({
   );
 }
 
-beforeEach(() => { waveSurfer.instances.length = 0; });
+beforeEach(() => { waveSurfer.instances.length = 0; waveSurfer.createError = false; waveSurfer.playError = false; });
 
 describe("media grid geometry and scheduling", () => {
   test("groups compact audio controls for vertical centering without changing the full viewer", async () => {
@@ -135,6 +140,38 @@ describe("media grid geometry and scheduling", () => {
       expect(view.host.container.findAll((node) => node.getAttribute("class") === "audio-compact-content")).toHaveLength(1);
       await view.rerender(createElement(AudioWaveform, { src: "ralphy-media://preview/audio", name: "Voiceover", sizeBytes: MAX_WAVEFORM_DECODE_BYTES + 1 }));
       expect(view.host.container.findAll((node) => node.getAttribute("class") === "audio-compact-content")).toHaveLength(0);
+    } finally { await view.unmount(); }
+  });
+
+  test.each(["decode error", "create error", "play error"])("falls back to streaming before reporting a final %s", async (failure) => {
+    const onError = vi.fn();
+    if (failure === "create error") waveSurfer.createError = true;
+    if (failure === "play error") waveSurfer.playError = true;
+    const view = await mounted(createElement(AudioWaveform, {
+      src: "ralphy-media://asset/audio-token",
+      name: "Sonic hook",
+      sizeBytes: 2_048,
+      onError,
+    }));
+    try {
+      const probe = bySrc(view.host.container, "ralphy-media://asset/audio-token")[0] as HostNode & { duration: number; volume: number; muted: boolean };
+      probe.duration = 30; probe.volume = 1; probe.muted = false;
+      await act(async () => { probe.dispatchEvent(new Event("loadedmetadata", { bubbles: true })); await import("wavesurfer.js"); await new Promise((resolve) => setTimeout(resolve, 0)); });
+      if (failure !== "create error") await vi.waitFor(() => expect(waveSurfer.instances).toHaveLength(1));
+      if (failure === "decode error") {
+        await act(async () => { waveSurfer.instances[0]?.emit("error", new Error("decode failed")); await Promise.resolve(); });
+      } else if (failure === "play error") {
+        await act(async () => { waveSurfer.instances[0]?.emit("ready", 30); await Promise.resolve(); });
+        const play = byLabel(view.host.container, "Play Sonic hook");
+        await vi.waitFor(() => expect(play.disabled).toBe(false));
+        await act(async () => { play.dispatchEvent(new Event("click", { bubbles: true })); await Promise.resolve(); await Promise.resolve(); });
+      }
+      await view.flush();
+      await vi.waitFor(() => expect(byTag(view.host.container, "AUDIO").map((node) => node.getAttribute("src"))).toContain("ralphy-media://asset/audio-token"));
+      const stream = bySrc(view.host.container, "ralphy-media://asset/audio-token")[0]!;
+      expect(onError).not.toHaveBeenCalled();
+      await act(async () => { stream.dispatchEvent(new Event("error", { bubbles: true })); await Promise.resolve(); });
+      expect(onError).toHaveBeenCalledOnce();
     } finally { await view.unmount(); }
   });
 

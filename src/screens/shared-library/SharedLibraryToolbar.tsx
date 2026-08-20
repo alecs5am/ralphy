@@ -1,4 +1,5 @@
 import { Grid2X2, List, Search, X } from "lucide-react";
+import { useId } from "react";
 import type { MediaKind, MediaProvenance } from "../../../electron/ralphy/types";
 import { SelectMenu, type SelectMenuOption } from "../../components/ui/SelectMenu";
 import type { SharedLibraryController } from "../../state/shared-library-controller";
@@ -22,6 +23,7 @@ export function SharedLibraryToolbar({ query, controller }: {
   query: SharedLibraryQueryState;
   controller: Pick<SharedLibraryController, "setQuery">;
 }) {
+  const unavailableReasonId = useId();
   const dirty = query.text !== "" || query.mediaKind !== "all" || query.provenance !== "all";
   return <form className="shared-library-toolbar" aria-label="Shared Library controls" onSubmit={(event) => event.preventDefault()}>
     <label className="shared-library-search">
@@ -40,9 +42,10 @@ export function SharedLibraryToolbar({ query, controller }: {
     </div>
     <SelectMenu className="shared-library-select" value={query.mediaKind} options={kinds} ariaLabel="Kind" prefix="Kind" onValueChange={(mediaKind) => controller.setQuery({ mediaKind })} />
     <SelectMenu className="shared-library-select" value={query.provenance} options={provenances} ariaLabel="Provenance" prefix="Provenance" onValueChange={(provenance) => controller.setQuery({ provenance })} />
-    {unavailable.map((label) => <button key={label} type="button" disabled data-unavailable-filter title={unavailableReason}>{label}</button>)}
-    <button type="button" disabled data-unavailable-filter title="Grouping by entity is unavailable from Core.">Group by entity</button>
+    {unavailable.map((label) => <button key={label} type="button" aria-disabled="true" aria-describedby={unavailableReasonId} data-unavailable-filter>{label}</button>)}
+    <button type="button" aria-disabled="true" aria-describedby={unavailableReasonId} data-unavailable-filter>Group by entity</button>
     <SelectMenu className="shared-library-select shared-library-sort" value={query.sort} options={sorts} ariaLabel="Sort" prefix="Sort" onValueChange={(sort) => controller.setQuery({ sort })} />
     {dirty && <button className="shared-library-clear" type="button" onClick={() => controller.setQuery({ text: "", mediaKind: "all", provenance: "all" })}><X size={12} aria-hidden="true" />Clear filters</button>}
+    <p className="shared-library-toolbar-reason" id={unavailableReasonId}>{unavailableReason} Grouping by entity is unavailable from Core.</p>
   </form>;
 }

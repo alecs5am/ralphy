@@ -7,6 +7,7 @@ import { bridge } from "../src/lib/ipc";
 import { SharedLibraryScreen } from "../src/screens/SharedLibraryScreen";
 import {
   SharedLibraryWorkflows,
+  SHARED_ARTIFACT_ROLES,
   type SharedLibrarySuggestion,
   type SharedLibraryWorkflowKind,
 } from "../src/screens/shared-library/SharedLibraryWorkflows";
@@ -102,12 +103,36 @@ describe("Shared Library non-mutating workflows", () => {
       expect(dialog.textContent).toContain("Add artifact");
       for (const step of ["Source", "Duplicates", "Describe for reuse", "Confirm"]) expect(dialog.textContent).toContain(step);
       expect(dialog.textContent).toContain("Upload cannot persist with this Core version");
+      for (const source of ["Upload new file", "Promote from project", "Import from asset pool", "Add external reference"]) expect(dialog.textContent).toContain(source);
+      expect(dialog.textContent).toContain("Accepted types · unavailable from the current Core upload contract");
+      expect(dialog.textContent).toContain("Maximum size · unavailable from the current Core upload contract");
+      expect(dialog.querySelectorAll("input")).toHaveLength(1);
+      expect(dialog.textContent).toContain("Drop a file here or choose with the accessible picker");
+      const unavailableSources = dialog.querySelectorAll("button").filter((node) => node.getAttribute("data-unavailable-source") !== null);
+      expect(unavailableSources).toHaveLength(3);
+      expect(unavailableSources.every((control) => control.getAttribute("aria-disabled") === "true" && !!control.getAttribute("aria-describedby"))).toBe(true);
+      const drop = new Event("drop", { bubbles: true, cancelable: true });
+      Object.defineProperty(drop, "dataTransfer", { value: { files: [{ name: "dropped.wav", type: "audio/wav", size: 1_024 }] } });
+      await act(async () => { dialog.querySelector(".shared-workflow-source")!.dispatchEvent(drop); await settle(); });
+      expect(dialog.textContent).toContain("dropped.wav");
+      expect(drop.defaultPrevented).toBe(true);
+      const picker = dialog.querySelectorAll("input")[0] as HostNode & { files: Array<{ name: string; type: string; size: number }> };
+      picker.files = [{ name: "brand-mark.svg", type: "image/svg+xml", size: 2_048 }];
+      await act(async () => { picker.dispatchEvent(new Event("change", { bubbles: true })); await settle(); });
+      expect(dialog.textContent).toContain("brand-mark.svg");
+      expect(dialog.textContent).toContain("image/svg+xml · 2.0 KB");
+      expect(dialog.querySelector(".shared-workflow-local-preview")?.getAttribute("aria-label")).toBe("Local confirmation preview");
       expect(dialog.querySelectorAll(".shared-workflow-primary")).toHaveLength(1);
 
       await click(button(dialog, "Continue to duplicates"));
       expect(dialog.textContent).toContain("Content hash comparison is unavailable from this Core version");
       await click(button(dialog, "Continue to describe"));
       for (const field of ["Title", "Role", "Purpose", "Use when", "Rights status"]) expect(dialog.textContent).toContain(field);
+      expect([...SHARED_ARTIFACT_ROLES]).toEqual([
+        "Canonical character", "Character reference", "Location", "Product", "Logo or brand mark", "Color or style reference",
+        "Universal sound hook", "Music bed", "Sound effect", "Voice reference", "Font", "Prop", "Recurring footage",
+        "Intro or outro", "Overlay or texture", "Document reference", "Other",
+      ]);
       expect(button(dialog, "Not documented").getAttribute("aria-pressed")).toBe("true");
       await click(button(dialog, "Continue to confirm"));
       expect(dialog.textContent).toContain("Needs context");
@@ -120,6 +145,27 @@ describe("Shared Library non-mutating workflows", () => {
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.host.restore();
+    }
+  });
+
+  test("reveals a free-text role only for Other in Add and Promote", async () => {
+    for (const kind of ["add", "promote"] as const) {
+      const mounted = await mountWorkflow(kind);
+      try {
+        const dialog = mounted.body.querySelector("[role=dialog]")!;
+        if (kind === "add") {
+          await click(buttonContaining(dialog, "Describe for reuse"));
+        }
+        expect(dialog.querySelectorAll("input").find((node) => node.getAttribute("aria-label") === "Other role")).toBeUndefined();
+        const select = dialog.querySelectorAll("select")[0] as HostNode & { value: string };
+        if (!select) throw new Error(`Role select missing in ${kind}`);
+        select.value = "Other";
+        await act(async () => { select.dispatchEvent(new Event("change", { bubbles: true })); await settle(); });
+        expect(dialog.querySelectorAll("input").find((node) => node.getAttribute("aria-label") === "Other role")).toBeDefined();
+      } finally {
+        await act(async () => mounted.root.unmount());
+        mounted.host.restore();
+      }
     }
   });
 

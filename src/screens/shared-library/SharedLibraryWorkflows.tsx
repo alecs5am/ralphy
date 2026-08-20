@@ -1,12 +1,26 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { AlertTriangle, X } from "lucide-react";
 import { useCallback, useId, useRef, useState, type ReactNode } from "react";
+import { SelectMenu } from "../../components/ui/SelectMenu";
 import type { Availability, SharedArtifactPresentation } from "./presentation";
 
 export type SharedLibraryWorkflowKind = "add" | "promote" | "duplicate" | "suggestions" | "archive" | "update-review";
 
 const coreReason = "This workflow cannot persist because the current Core version exposes no Shared Library mutation contract.";
 const unavailable = "Unavailable from this Core version";
+export const SHARED_ARTIFACT_ROLES = [
+  "Canonical character", "Character reference", "Location", "Product", "Logo or brand mark", "Color or style reference",
+  "Universal sound hook", "Music bed", "Sound effect", "Voice reference", "Font", "Prop", "Recurring footage",
+  "Intro or outro", "Overlay or texture", "Document reference", "Other",
+] as const;
+const roleOptions = SHARED_ARTIFACT_ROLES.map((value) => ({ value, label: value }));
+const formatLocalBytes = (bytes: number) => bytes < 1024 ? `${bytes} B` : bytes < 1024 ** 2 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+
+function RoleField({ role, otherRole, onRole, onOtherRole }: { role: string; otherRole: string; onRole(value: string): void; onOtherRole(value: string): void }) {
+  return <div className="shared-workflow-field"><span>Role</span><SelectMenu value={role} options={roleOptions} ariaLabel="Role" className="shared-workflow-role" onValueChange={onRole} />
+    {role === "Other" && <input aria-label="Other role" value={otherRole} onChange={(event) => onOtherRole(event.currentTarget.value)} placeholder="Describe the role" />}
+  </div>;
+}
 
 function WorkflowFrame({ kind, title, description, returnFocus, onClose, steps, footerNote, children, actions }: {
   kind: SharedLibraryWorkflowKind;
@@ -44,7 +58,7 @@ function WorkflowFrame({ kind, title, description, returnFocus, onClose, steps, 
           <button type="button" aria-label={`Close ${title}`} onClick={close}><X aria-hidden="true" /></button>
         </header>
         {steps}
-        <div className="shared-workflow-body">{children}</div>
+        <form className="shared-workflow-body" onSubmit={(event) => event.preventDefault()}>{children}</form>
         <footer className="shared-workflow-footer">
           <small>{footerNote ?? coreReason}</small>
           <span>{actions}</span>
@@ -62,11 +76,14 @@ const addSteps = ["Source", "Duplicates", "Describe for reuse", "Confirm"] as co
 
 function AddWorkflow({ returnFocus, onClose }: Pick<SharedLibraryWorkflowsProps, "returnFocus" | "onClose">) {
   const [step, setStep] = useState(0);
-  const [fileName, setFileName] = useState("");
-  const [fields, setFields] = useState({ title: "", role: "", purpose: "", useWhen: "", rights: "Not documented" });
+  const [file, setFile] = useState<{ name: string; type: string; size: number } | null>(null);
+  const [fields, setFields] = useState({ title: "", role: SHARED_ARTIFACT_ROLES[0] as string, otherRole: "", purpose: "", useWhen: "", rights: "Not documented" });
   const reasonId = useId();
+  const sourceReasonId = useId();
   const setField = (field: keyof typeof fields, value: string) => setFields((current) => ({ ...current, [field]: value }));
-  const needsContext = !fields.title.trim() || !fields.role.trim() || !fields.purpose.trim() || !fields.useWhen.trim();
+  const selectFile = (next?: { name: string; type: string; size: number }) => setFile(next ? { name: next.name, type: next.type, size: next.size } : null);
+  const selectedRole = fields.role === "Other" ? fields.otherRole : fields.role;
+  const needsContext = !fields.title.trim() || !selectedRole.trim() || !fields.purpose.trim() || !fields.useWhen.trim();
   const steps = <ol className="shared-workflow-steps" aria-label="Add artifact steps">
     {addSteps.map((label, index) => <li key={label}><button type="button" aria-current={step === index ? "step" : undefined} onClick={() => setStep(index)}><span>{index + 1}</span>{label}</button></li>)}
   </ol>;
@@ -86,11 +103,14 @@ function AddWorkflow({ returnFocus, onClose }: Pick<SharedLibraryWorkflowsProps,
     </>}
   >
     {step === 0 && <Block label="Source" tag="LOCAL ONLY">
-      <label className="shared-workflow-file">
-        <input type="file" onChange={(event) => setFileName(event.currentTarget.files?.[0]?.name ?? "")} />
-        <span>{fileName || "Choose a file"}</span>
-        <small>Upload cannot persist with this Core version. Choosing a file only updates this window.</small>
-      </label>
+      <div className="shared-workflow-sources">
+        <label className="shared-workflow-source is-upload" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); selectFile(event.dataTransfer.files?.[0]); }}><strong>Upload new file</strong><span>Drop a file here or choose with the accessible picker.</span><input type="file" onChange={(event) => selectFile(event.currentTarget.files?.[0])} /><small>{file ? file.name : "Choose a file"}</small></label>
+        {["Promote from project", "Import from asset pool", "Add external reference"].map((label) => <button type="button" data-unavailable-source aria-disabled="true" aria-describedby={sourceReasonId} key={label}><strong>{label}</strong><span>Unavailable from the current Core version.</span></button>)}
+      </div>
+      <dl className="shared-workflow-inventory"><div><dt>Accepted types</dt><dd> · unavailable from the current Core upload contract</dd></div><div><dt>Maximum size</dt><dd> · unavailable from the current Core upload contract</dd></div></dl>
+      {file && <div className="shared-workflow-local-preview" aria-label="Local confirmation preview"><strong>{file.name}</strong><span>{file.type || "Type not reported"} · {formatLocalBytes(file.size)}</span></div>}
+      <p className="shared-workflow-core-reason" id={sourceReasonId}>Project promotion, asset-pool import, and external references are unavailable because Core exposes no source inventory or mutation contract.</p>
+      <p className="shared-workflow-caption">Upload cannot persist with this Core version. Choosing a file only updates this window.</p>
     </Block>}
     {step === 1 && <Block label="Duplicates" tag="CHECK UNAVAILABLE">
       <div className="shared-workflow-note"><AlertTriangle aria-hidden="true" /><span><strong>Content hash comparison is unavailable from this Core version.</strong> No duplicate has been detected and no identity claim is being made.</span></div>
@@ -98,7 +118,7 @@ function AddWorkflow({ returnFocus, onClose }: Pick<SharedLibraryWorkflowsProps,
     {step === 2 && <Block label="Required for reuse" tag="5 FIELDS">
       <div className="shared-workflow-fields">
         <label><span>Title</span><input value={fields.title} onChange={(event) => setField("title", event.currentTarget.value)} placeholder="What this artifact represents" /></label>
-        <label><span>Role</span><input value={fields.role} onChange={(event) => setField("role", event.currentTarget.value)} placeholder="How future work refers to it" /></label>
+        <RoleField role={fields.role} otherRole={fields.otherRole} onRole={(value) => setField("role", value)} onOtherRole={(value) => setField("otherRole", value)} />
         <label><span>Purpose</span><textarea value={fields.purpose} onChange={(event) => setField("purpose", event.currentTarget.value)} placeholder="What this is for" /></label>
         <label><span>Use when</span><textarea value={fields.useWhen} onChange={(event) => setField("useWhen", event.currentTarget.value)} placeholder="Trigger conditions for future work" /></label>
         <fieldset className="shared-workflow-rights"><legend>Rights status</legend><div role="group" aria-label="Proposed rights status">{["Not documented", "Cleared", "Cleared with conditions", "Internal/reference only", "Restricted"].map((status) => <button type="button" aria-pressed={fields.rights === status} onClick={() => setField("rights", status)} key={status}>{status}</button>)}</div></fieldset>
@@ -107,9 +127,10 @@ function AddWorkflow({ returnFocus, onClose }: Pick<SharedLibraryWorkflowsProps,
     </Block>}
     {step === 3 && <Block label="Confirm" tag={needsContext ? "NEEDS CONTEXT" : "CONTEXT REVIEWED"}>
       <dl className="shared-workflow-inventory">
-        <div><dt>Source</dt><dd>{fileName || "No local file selected"}</dd></div>
+        <div><dt>Source</dt><dd>{file?.name || "No local file selected"}</dd></div>
+        <div><dt>Local file facts</dt><dd>{file ? `${file.type || "Type not reported"} · ${formatLocalBytes(file.size)}` : "Unavailable until a local file is selected"}</dd></div>
         <div><dt>Title</dt><dd>{fields.title || "Incomplete"}</dd></div>
-        <div><dt>Role</dt><dd>{fields.role || "Incomplete"}</dd></div>
+        <div><dt>Role</dt><dd>{selectedRole || "Incomplete"}</dd></div>
         <div><dt>Purpose</dt><dd>{fields.purpose || "Incomplete"}</dd></div>
         <div><dt>Use when</dt><dd>{fields.useWhen || "Incomplete"}</dd></div>
         <div><dt>Rights</dt><dd>Proposed rights · {fields.rights}</dd></div>
@@ -122,17 +143,17 @@ function AddWorkflow({ returnFocus, onClose }: Pick<SharedLibraryWorkflowsProps,
 
 function PromoteWorkflow({ returnFocus, onClose }: Pick<SharedLibraryWorkflowsProps, "returnFocus" | "onClose">) {
   const reasonId = useId();
-  const [meaning, setMeaning] = useState({ title: "", role: "", purpose: "" });
+  const [meaning, setMeaning] = useState({ title: "", role: SHARED_ARTIFACT_ROLES[0] as string, otherRole: "", purpose: "" });
   const setField = (field: keyof typeof meaning, value: string) => setMeaning((current) => ({ ...current, [field]: value }));
   return <WorkflowFrame kind="promote" title="Promote from project" description="Make a project artifact reusable without moving or changing its project source." returnFocus={returnFocus} onClose={onClose} actions={<><Dialog.Close asChild><button type="button">Cancel</button></Dialog.Close><button type="button" className="shared-workflow-primary" disabled aria-describedby={reasonId}>Promote to Shared Library unavailable</button></>}>
     <Block label="Source project artifact" tag="INVENTORY UNAVAILABLE">
-      <div className="shared-workflow-field"><span>Project source</span><button type="button" className="shared-workflow-disabled-select" disabled>Project artifact inventory unavailable from this Core version</button></div>
+      <div className="shared-workflow-field"><span>Project source</span><button type="button" className="shared-workflow-disabled-select" aria-disabled="true" aria-describedby={reasonId}>Project artifact inventory unavailable from this Core version</button></div>
       <p className="shared-workflow-caption">A future source picker preserves the source project, Unit, selected revision, provenance, existing reference, and content identity.</p>
     </Block>
     <Block label="Workspace meaning" tag="LOCAL PREVIEW">
       <div className="shared-workflow-fields shared-workflow-fields-three">
         <label><span>Title</span><input value={meaning.title} onChange={(event) => setField("title", event.currentTarget.value)} /></label>
-        <label><span>Role</span><input value={meaning.role} onChange={(event) => setField("role", event.currentTarget.value)} /></label>
+        <RoleField role={meaning.role} otherRole={meaning.otherRole} onRole={(value) => setField("role", value)} onOtherRole={(value) => setField("otherRole", value)} />
         <label><span>Purpose</span><textarea value={meaning.purpose} onChange={(event) => setField("purpose", event.currentTarget.value)} /></label>
       </div>
     </Block>

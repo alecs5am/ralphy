@@ -1,5 +1,5 @@
 import { AlertCircle, Maximize2, Plus, Upload } from "lucide-react";
-import { useEffect, useState, useSyncExternalStore, type MouseEvent } from "react";
+import { useEffect, useId, useState, useSyncExternalStore, type MouseEvent } from "react";
 import type { MediaWorkbenchBridge } from "../../electron/media/types";
 import { bridge } from "../lib/ipc";
 import {
@@ -201,6 +201,7 @@ export function SharedLibraryScreenView({ workspaceId, workspaceName, rootEpoch,
   const [inspector, setInspector] = useState<{ artifact: SharedArtifactPresentation; origin: HTMLElement | null } | null>(null);
   const [viewer, setViewer] = useState<{ artifact: SharedArtifactPresentation; origin: HTMLElement | null } | null>(null);
   const [workflow, setWorkflow] = useState<{ kind: SharedLibraryWorkflowKind; artifact?: SharedArtifactPresentation; origin: HTMLElement | null } | null>(null);
+  const bulkReasonId = useId();
   const add = (origin: HTMLButtonElement) => onAdd ? onAdd() : setWorkflow({ kind: "add", origin });
   const promote = (origin: HTMLButtonElement) => onPromote ? onPromote() : setWorkflow({ kind: "promote", origin });
   const inspect = (artifact: SharedArtifactPresentation, origin: HTMLElement | null = null) => {
@@ -247,7 +248,7 @@ export function SharedLibraryScreenView({ workspaceId, workspaceName, rootEpoch,
       </div>
       {inspector && <SharedArtifactInspector artifact={inspector.artifact} workspaceId={workspaceId} rootEpoch={rootEpoch} returnFocus={inspector.origin} onClose={() => setInspector(null)} onReconcile={controller.reconcileArtifact} onOpenWorkflow={(kind, origin) => setWorkflow({ kind, artifact: inspector.artifact, origin })} />}
     </div>
-    {selectedRows.size > 0 && <div className="shared-library-bulk-bar"><strong>{selectedRows.size} SELECTED</strong>{["Assign role", "Tag", "Review metadata", "Archive"].map((label) => <button type="button" disabled title="This Core mutation is unavailable." key={label}>{label}</button>)}</div>}
+    {selectedRows.size > 0 && <div className="shared-library-bulk-bar"><strong>{selectedRows.size} SELECTED</strong>{["Assign role", "Tag", "Review metadata", "Archive"].map((label) => <button type="button" aria-disabled="true" aria-describedby={bulkReasonId} key={label}>{label}</button>)}<p id={bulkReasonId}>This Core mutation is unavailable.</p></div>}
     {viewer && <SharedArtifactViewer
       artifact={viewer.artifact}
       artifacts={value.artifacts}

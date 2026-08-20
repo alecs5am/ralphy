@@ -210,7 +210,9 @@ describe("Shared Library screen", () => {
       expect(unavailable.map((control) => control.textContent)).toEqual(expect.arrayContaining([
         "Semantic role", "Entity", "Canonical", "Used / unused", "Rights", "Missing metadata", "Group by entity",
       ]));
-      expect(unavailable.every((control) => control.disabled && /Core/.test(control.getAttribute("title") ?? ""))).toBe(true);
+      expect(unavailable.every((control) => !control.disabled && control.getAttribute("aria-disabled") === "true" && !!control.getAttribute("aria-describedby"))).toBe(true);
+      const filterReason = unavailable[0]?.getAttribute("aria-describedby");
+      expect(mounted.host.container.querySelector(`#${filterReason}`)?.textContent).toMatch(/unavailable from the current Core/i);
       expect(text).not.toMatch(/semantic search/i);
     } finally {
       await act(async () => mounted.root.unmount());
@@ -517,8 +519,10 @@ describe("Shared Library screen", () => {
       expect(mounted.host.container.textContent).toContain("1 SELECTED");
       for (const label of ["Assign role", "Tag", "Review metadata", "Archive"]) {
         const action = byText(mounted.host.container, label);
-        expect(action.disabled).toBe(true);
-        expect(action.getAttribute("title")).toMatch(/Core mutation/i);
+        expect(action.disabled).toBe(false);
+        expect(action.getAttribute("aria-disabled")).toBe("true");
+        const reasonId = action.getAttribute("aria-describedby");
+        expect(mounted.host.container.querySelector(`#${reasonId}`)?.textContent).toMatch(/Core mutation/i);
       }
       expect(mounted.host.container.textContent).not.toMatch(/replace revision|update all/i);
     } finally {

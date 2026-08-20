@@ -112,7 +112,11 @@ describe("Shared Artifact inspector", () => {
       expect(text).toContain("Generated media evidence");
       expect(text).toContain("Context agents receive");
       for (const field of ["Purpose", "Use when", "Avoid when", "Constraints"]) expect(text).toContain(field);
-      expect(text.match(/Unavailable from this Core version/g)?.length).toBeGreaterThanOrEqual(4);
+      for (const field of ["Semantic roles", "Tags", "Named entities", "Canonical status"]) expect(text).toContain(field);
+      expect(text).toContain("Selected revision state · approved");
+      expect(text).toContain("Agent-use canonical status");
+      expect(text).toContain("Canonical status is unavailable from the current Core media contract.");
+      expect(text.match(/Unavailable from this Core version/g)?.length).toBeGreaterThanOrEqual(3);
       expect(text).toContain("Actual usage");
       expect(text).toContain("System-derived backlinks are unavailable from this Core version");
       expect(text).toContain("Referenced as");
@@ -140,8 +144,8 @@ describe("Shared Artifact inspector", () => {
       expect(technical?.textContent).toContain("revision-1");
       expect(technical?.textContent).toContain("audio/mpeg");
       expect(technical?.textContent).toContain("durable");
-      expect(button(mounted.host.container, "Use in project").disabled).toBe(true);
-      expect(button(mounted.host.container, "Complete metadata").disabled).toBe(true);
+      expect(button(mounted.host.container, "Use in project").getAttribute("aria-disabled")).toBe("true");
+      expect(button(mounted.host.container, "Complete metadata").getAttribute("aria-disabled")).toBe("true");
       const unavailableActions = button(mounted.host.container, "Use in project").getAttribute("aria-describedby");
       expect(unavailableActions).not.toBeNull();
       expect(mounted.host.container.querySelector(`#${unavailableActions}`)?.textContent).toContain("unavailable until Core exposes mutation contracts");

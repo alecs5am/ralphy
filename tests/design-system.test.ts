@@ -672,6 +672,15 @@ describe("design system contract", () => {
     expect(html).toMatch(/img-src[^;]*image-b2\.civitai\.com/);
   });
 
+  test("allows guarded media URLs for font previews through the registered Electron protocol", () => {
+    const html = readFileSync(join(process.cwd(), "index.html"), "utf8");
+    const main = readFileSync(join(process.cwd(), "electron/main.ts"), "utf8");
+    expect(html).toMatch(/font-src[^;]*ralphy-media:/);
+    expect(main).toContain('protocol.handle("ralphy-media"');
+    expect(main).toContain('url.hostname !== "asset"');
+    expect(main).toContain("mediaState.fileAccess.resolve(");
+  });
+
   test("uses only the supplied type scale and regular weight", () => {
     expect(styles).not.toMatch(/font-size:\s*(?:9|10)px/);
     expect(styles).not.toContain("font-weight: 500");

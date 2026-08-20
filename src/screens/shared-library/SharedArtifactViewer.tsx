@@ -1,12 +1,12 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { ChevronLeft, ChevronRight, ExternalLink, FileText, ImageOff, PanelRight, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { ArtifactMediaCardDto, ArtifactRevisionDto } from "../../../electron/ralphy/types";
 import { AudioWaveform } from "../../components/media/AudioWaveform";
 import { ImageViewport } from "../../components/media/ImageViewport";
 import { VideoPlayer } from "../../components/media/VideoPlayer";
 import { bridge } from "../../lib/ipc";
-import { presentSharedArtifact, type SharedArtifactPresentation } from "./presentation";
+import { presentSharedArtifact, type Availability, type SharedArtifactPresentation } from "./presentation";
 
 type PreviewState =
   | { status: "loading" }
@@ -71,7 +71,13 @@ function FontSpecimen({ src, slug, onError }: { src: string; slug: string; onErr
     }
     let current = true;
     let loaded: FontFace | null = null;
-    const candidate = new FontFace(slug, `url("${src}")`);
+    let candidate: FontFace;
+    try {
+      candidate = new FontFace("RalphySharedArtifactPreview", `url("${src}")`);
+    } catch {
+      onError();
+      return;
+    }
     void candidate.load().then((value) => {
       if (!current) return;
       loaded = value;
@@ -84,13 +90,20 @@ function FontSpecimen({ src, slug, onError }: { src: string; slug: string; onErr
     };
   }, [onError, slug, src]);
   if (!face) return <div className="shared-viewer-preview-state" role="status">Loading font preview…</div>;
-  return <div className="shared-viewer-font" style={{ fontFamily: `"${slug}"` }}>
+  return <div className="shared-viewer-font" style={{ fontFamily: '"RalphySharedArtifactPreview"' }}>
     <span>Font specimen · {slug}</span>
     <strong>Aa Bb Cc 123</strong>
     <p>Handgloves &amp; rooftop dusk</p>
     <small>ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789</small>
   </div>;
 }
+
+const availabilityReason = (value: Availability<unknown>) => value.status === "ready" ? "Available from Core." : value.reason;
+const stringList = (value: Availability<string[]>) => value.status === "ready"
+  ? value.value.length ? value.value.join(" · ") : "No values returned by Core."
+  : value.status === "partial"
+    ? value.value.length ? value.value.join(" · ") : value.reason
+    : value.reason;
 
 function ViewerStage({ artifact, preview, kind, onPreviewError }: {
   artifact: SharedArtifactPresentation;
@@ -143,6 +156,8 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
   const revisionRequest = useRef(0);
   const selectionRequest = useRef(0);
   const actionRequest = useRef(0);
+  const unavailableActionId = useId();
+  const targetlessActionId = useId();
   const kind = viewerKind(detail.mime);
   const index = artifacts.findIndex(({ id }) => id === detail.id);
   const canPrevious = index > 0;
@@ -191,9 +206,12 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
   useEffect(() => {
     setDetail(artifact);
     setSelection({ status: "idle" });
+    actionRequest.current += 1;
+    setOpenState("idle");
     return () => {
       detailRequest.current += 1;
       selectionRequest.current += 1;
+      actionRequest.current += 1;
     };
   }, [artifact]);
 
@@ -294,7 +312,7 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
         <section ref={surfaceRef} tabIndex={-1} className="shared-artifact-viewer" aria-label={`Preview ${detail.slug}`}>
           <header className="shared-viewer-head">
             <span>{topLine}</span>
-            <button type="button" aria-label="Open original" disabled={detail.preview === "no-target" || openState === "pending"} onClick={() => { void openOriginal(); }}><ExternalLink aria-hidden="true" />{openState === "pending" ? "Opening original…" : "Open original"}</button>
+            <button type="button" aria-label="Open original" aria-describedby={detail.preview === "no-target" ? targetlessActionId : undefined} disabled={detail.preview === "no-target" || openState === "pending"} onClick={() => { void openOriginal(); }}><ExternalLink aria-hidden="true" />{openState === "pending" ? "Opening original…" : "Open original"}</button>
             <button type="button" aria-label="Close viewer" onClick={close}><X aria-hidden="true" /></button>
           </header>
           <div className="shared-viewer-body">
@@ -338,13 +356,22 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
               <dl className="shared-viewer-facts">
                 <div><dt>MIME</dt><dd>{detail.mime ?? "Unavailable"}</dd></div>
                 <div><dt>Size</dt><dd>{formatBytes(detail.bytes)}</dd></div>
-                <div><dt>Selected state</dt><dd>{detail.selectedState ?? "Unavailable"}</dd></div>
+                <div><dt>Selected revision state</dt><dd>{detail.selectedState ?? "Unavailable"}</dd></div>
+                <div><dt>Semantic roles</dt><dd>{stringList(detail.semanticRoles)}</dd></div>
+                <div><dt>Tags</dt><dd>{stringList(detail.tags)}</dd></div>
+                <div><dt>Named entities</dt><dd>{stringList(detail.entities)}</dd></div>
+                <div><dt>Canonical status</dt><dd>{availabilityReason(detail.canonicalStatus)}</dd></div>
               </dl>
-              <section className="shared-viewer-agent-use"><h3>Context agents receive</h3><p>Agent use guidance is unavailable from this Core version.</p></section>
+              <section className="shared-viewer-agent-use"><h3>Context agents receive</h3><dl className="shared-viewer-facts">
+                {(["Purpose", "Use when", "Avoid when", "Constraints"] as const).map((label) => <div key={label}><dt>{label}</dt><dd>{availabilityReason(detail.agentUse)}</dd></div>)}
+                <div><dt>Agent-use canonical status</dt><dd>{availabilityReason(detail.canonicalStatus)}</dd></div>
+              </dl></section>
               <section><h3>Referenced as</h3><p>{detail.referencedAs.length ? detail.referencedAs.join(" · ") : "No referenced-role evidence returned by Core."}</p></section>
               <section><h3>Actual usage</h3><p>System-derived backlinks are unavailable from this Core version.</p></section>
               <span className="shared-viewer-spacer" />
-              <button type="button" disabled title="Use in project is unavailable until Core exposes a mutation contract.">Use in project unavailable</button>
+              <button type="button" aria-disabled="true" aria-describedby={unavailableActionId}>Use in project unavailable</button>
+              <p className="shared-viewer-action-reason" id={unavailableActionId}>Use in project is unavailable until Core exposes a mutation contract.</p>
+              {detail.preview === "no-target" && <p className="shared-viewer-action-reason" id={targetlessActionId}>Open original is unavailable because Core returned no selected media target.</p>}
               {onOpenInspector && <button type="button" onClick={() => onOpenInspector(detail)}><PanelRight aria-hidden="true" />Open full inspector</button>}
               <small>← → ARTIFACT · MEDIA CONTROLS ARE LABELLED · ESC CLOSE</small>
             </aside>

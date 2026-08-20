@@ -53,10 +53,12 @@ async function settle() {
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((resolvePromise) => {
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
     resolve = resolvePromise;
+    reject = rejectPromise;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 function byAria(root: HostNode, tag: string, label: string): HostNode {
@@ -81,8 +83,9 @@ function mouseEvent(type: "click" | "dblclick", detail: number): Event {
   return event;
 }
 
-async function mountViewer(card = artifact("portrait"), cards = [card], props: Partial<React.ComponentProps<typeof SharedArtifactViewer>> = {}) {
+async function mountViewer(card = artifact("portrait"), cards = [card], props: Partial<React.ComponentProps<typeof SharedArtifactViewer>> = {}, beforeRender?: () => void) {
   const host = createReactHost();
+  beforeRender?.();
   const origin = document.createElement("button") as unknown as HostNode;
   origin.textContent = "origin";
   (document.body as unknown as HostNode).appendChild(origin);
@@ -127,7 +130,9 @@ describe("Shared Artifact viewer", () => {
       expect(text).toContain("Slug identity · portrait");
       expect(text).toContain("Title unavailable — Core does not return artifact titles");
       expect(text).toContain("Context agents receive");
-      expect(text).toContain("Agent use guidance is unavailable from this Core version");
+      expect(text).toContain("Agent use guidance is unavailable from the current Core media contract.");
+      for (const field of ["Semantic roles", "Tags", "Named entities", "Canonical status", "Agent-use canonical status"]) expect(text).toContain(field);
+      expect(text).toContain("Selected revision stateapproved");
       expect(text).toContain("Actual usage");
       expect(text).toContain("System-derived backlinks are unavailable from this Core version");
       expect(text).toContain("Referenced as");
@@ -143,6 +148,10 @@ describe("Shared Artifact viewer", () => {
       expect(byAria(surface!, "button", "Fit image")).not.toBeNull();
       expect(text).toContain("FIT");
       expect(text).toContain("100%");
+      const useInProject = buttonByText(surface!, "Use in project unavailable");
+      expect(useInProject.disabled).toBe(false);
+      expect(useInProject.getAttribute("aria-disabled")).toBe("true");
+      expect(surface?.querySelector(`#${useInProject.getAttribute("aria-describedby")}`)?.textContent).toContain("unavailable until Core exposes a mutation contract");
       await click(byAria(surface!, "button", "Open original"));
       expect(open).toHaveBeenCalledWith("workspace-1", "portrait", "open");
     } finally {
@@ -207,21 +216,52 @@ describe("Shared Artifact viewer", () => {
     }
 
     const originalFontFace = Object.getOwnPropertyDescriptor(globalThis, "FontFace");
+    let originalFonts: PropertyDescriptor | undefined;
     const loadedFaces: string[] = [];
+    const addFace = vi.fn();
+    const deleteFace = vi.fn();
     class TestFontFace {
       constructor(readonly family: string, readonly source: string) {}
       async load() { loadedFaces.push(`${this.family}:${this.source}`); return this; }
     }
     Object.defineProperty(globalThis, "FontFace", { configurable: true, value: TestFontFace });
-    const font = await mountViewer(artifact("licensed-cut", { mediaKind: "other", mime: "font/woff2" }));
+    const fontCard = artifact("licensed-cut", { mediaKind: "other", mime: "font/woff2" });
+    const font = await mountViewer(fontCard, [fontCard], {}, () => {
+      originalFonts = Object.getOwnPropertyDescriptor(document, "fonts");
+      Object.defineProperty(document, "fonts", { configurable: true, value: { add: addFace, delete: deleteFace } });
+    });
     try {
       expect(font.body.textContent).toContain("Font specimen · licensed-cut");
       expect(font.body.textContent).toContain("Aa Bb Cc 123");
-      expect(loadedFaces).toEqual(["licensed-cut:url(\"ralphy-media://asset/licensed-cut-token\")"]);
+      expect(loadedFaces).toEqual(["RalphySharedArtifactPreview:url(\"ralphy-media://asset/licensed-cut-token\")"]);
+      expect(addFace).toHaveBeenCalledOnce();
       expect(font.body.textContent).not.toContain("Acme Display");
     } finally {
       await act(async () => font.root.unmount());
+      expect(deleteFace).toHaveBeenCalledOnce();
+      if (originalFontFace) Object.defineProperty(globalThis, "FontFace", originalFontFace);
+      else delete (globalThis as { FontFace?: unknown }).FontFace;
+      if (originalFonts) Object.defineProperty(document, "fonts", originalFonts);
+      else delete (document as unknown as { fonts?: unknown }).fonts;
       font.host.restore();
+    }
+  });
+
+  test.each(["construction", "load"])("turns font %s failures into a truthful preview failure", async (failure) => {
+    const originalFontFace = Object.getOwnPropertyDescriptor(globalThis, "FontFace");
+    const TestFontFace = failure === "construction"
+      ? class { constructor() { throw new Error("invalid font bytes"); } }
+      : class { async load() { throw new Error("font load failed"); } };
+    Object.defineProperty(globalThis, "FontFace", { configurable: true, value: TestFontFace });
+    vi.spyOn(bridge, "resolveSharedLibraryPreview").mockResolvedValue({ url: "ralphy-media://asset/bad-font-token", sizeBytes: 2_048 });
+    vi.spyOn(bridge, "loadSharedLibraryRevisions").mockResolvedValue({ items: [], nextCursor: null });
+    const mounted = await mountViewer(artifact("unsafe-\"font", { mediaKind: "other", mime: "font/woff2" }));
+    try {
+      expect(mounted.body.textContent).toContain("Preview unavailable");
+      expect(mounted.body.textContent).toContain("could not be decoded or loaded");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
       if (originalFontFace) Object.defineProperty(globalThis, "FontFace", originalFontFace);
       else delete (globalThis as { FontFace?: unknown }).FontFace;
     }
@@ -361,6 +401,41 @@ describe("Shared Artifact viewer", () => {
     } finally {
       await act(async () => root.unmount());
       host.restore();
+    }
+  });
+
+  test("invalidates a pending open-original request when the artifact changes", async () => {
+    const first = artifact("first");
+    const second = artifact("second");
+    const pending = deferred<void>();
+    vi.spyOn(bridge, "resolveSharedLibraryPreview").mockResolvedValue(null);
+    vi.spyOn(bridge, "loadSharedLibraryRevisions").mockResolvedValue({ items: [], nextCursor: null });
+    vi.spyOn(bridge, "performSharedLibraryAction").mockReturnValue(pending.promise);
+    const mounted = await mountViewer(first, [first, second]);
+    try {
+      await click(byAria(mounted.body, "button", "Open original"));
+      expect(mounted.body.textContent).toContain("Opening original…");
+      await act(async () => {
+        mounted.root.render(<SharedArtifactViewer
+          artifact={presentSharedArtifact(second)}
+          artifacts={[first, second].map(presentSharedArtifact)}
+          workspaceId="workspace-1"
+          rootEpoch={1}
+          returnFocus={mounted.origin as unknown as HTMLElement}
+          onClose={() => undefined}
+          onNavigate={() => undefined}
+          onReconcile={() => undefined}
+        />);
+        await settle();
+      });
+      expect(mounted.body.textContent).toContain("Slug identity · second");
+      expect(mounted.body.textContent).not.toContain("Opening original…");
+      pending.reject(new Error("stale open failure"));
+      await act(async () => { await settle(); });
+      expect(mounted.body.textContent).not.toContain("Open original unavailable");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
     }
   });
 

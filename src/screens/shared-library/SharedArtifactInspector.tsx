@@ -5,7 +5,7 @@ import type { ArtifactMediaCardDto, ArtifactRevisionDto } from "../../../electro
 import { bridge } from "../../lib/ipc";
 import { SharedArtifactPreview } from "./SharedArtifactPreview";
 import type { SharedLibraryWorkflowKind } from "./SharedLibraryWorkflows";
-import { presentSharedArtifact, type SharedArtifactPresentation } from "./presentation";
+import { presentSharedArtifact, type Availability, type SharedArtifactPresentation } from "./presentation";
 
 type RevisionState = {
   status: "loading" | "ready";
@@ -46,9 +46,23 @@ function Facts({ rows }: { rows: Array<[string, React.ReactNode]> }) {
   return <dl className="shared-inspector-facts">{rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>;
 }
 
-function UnavailableAgentUse() {
+const availabilityReason = (value: Availability<unknown>) => value.status === "ready" ? "Available from Core." : value.reason;
+const stringList = (value: Availability<string[]>) => value.status === "ready"
+  ? value.value.length ? value.value.join(" · ") : "No values returned by Core."
+  : value.status === "partial"
+    ? value.value.length ? value.value.join(" · ") : value.reason
+    : value.reason;
+
+function AgentUse({ artifact }: { artifact: SharedArtifactPresentation }) {
+  const values = artifact.agentUse.status === "ready" || artifact.agentUse.status === "partial"
+    ? artifact.agentUse.value
+    : null;
   return <dl className="shared-inspector-agent-use">
-    {["Purpose", "Use when", "Avoid when", "Constraints"].map((label) => <div key={label}><dt>{label}</dt><dd>Unavailable from this Core version</dd></div>)}
+    <div><dt>Purpose</dt><dd>{values?.purpose ?? availabilityReason(artifact.agentUse)}</dd></div>
+    <div><dt>Use when</dt><dd>{values?.useWhen ?? availabilityReason(artifact.agentUse)}</dd></div>
+    <div><dt>Avoid when</dt><dd>{values?.avoidWhen ?? availabilityReason(artifact.agentUse)}</dd></div>
+    <div><dt>Constraints</dt><dd>{values?.constraints ?? availabilityReason(artifact.agentUse)}</dd></div>
+    <div><dt>Agent-use canonical status</dt><dd>{availabilityReason(artifact.canonicalStatus)}</dd></div>
   </dl>;
 }
 
@@ -74,6 +88,7 @@ export function SharedArtifactInspector({ artifact, workspaceId, rootEpoch, retu
   const idStem = artifact.id.replace(/[^a-zA-Z0-9_-]/g, "-");
   const unavailableActionsId = `shared-inspector-${idStem}-actions-unavailable`;
   const targetlessActionId = `shared-inspector-${idStem}-targetless-action`;
+  const backlinksReasonId = `shared-inspector-${idStem}-backlinks-unavailable`;
 
   const loadDetail = useCallback(async () => {
     const current = ++request.current;
@@ -184,7 +199,7 @@ export function SharedArtifactInspector({ artifact, workspaceId, rootEpoch, retu
           <div className="shared-inspector-title">
             <Dialog.Title asChild><h2>{titleText(detail)}</h2></Dialog.Title>
             <Dialog.Description asChild><p>Slug identity · {detail.slug}</p></Dialog.Description>
-            <div><span>Kind · {detail.kind}</span><span>State · {detail.selectedState ?? "Unavailable"}</span><span>Revision · {detail.selectedRevisionId ?? "Unselected"}</span></div>
+            <div><span>Kind · {detail.kind}</span><span>Selected revision state · {detail.selectedState ?? "Unavailable"}</span><span>Revision · {detail.selectedRevisionId ?? "Unselected"}</span></div>
           </div>
 
           {detailError && <div className="shared-inspector-alert" role="alert"><span>{detailError}</span><button type="button" onClick={() => { void loadDetail(); }}><RefreshCw aria-hidden="true" />Retry detail</button></div>}
@@ -198,10 +213,14 @@ export function SharedArtifactInspector({ artifact, workspaceId, rootEpoch, retu
             ["Bytes", formatBytes(detail.bytes)],
             ["Storage class", detail.storageClass ?? "Unavailable from Core"],
             ["Coarse media provenance", provenanceText(detail)],
+            ["Semantic roles", stringList(detail.semanticRoles)],
+            ["Tags", stringList(detail.tags)],
+            ["Named entities", stringList(detail.entities)],
+            ["Canonical status", availabilityReason(detail.canonicalStatus)],
           ]} />
           <div className="shared-inspector-actions">
-            <button type="button" disabled aria-describedby={unavailableActionsId}>Use in project</button>
-            <button type="button" disabled aria-describedby={unavailableActionsId}>Complete metadata</button>
+            <button type="button" aria-disabled="true" aria-describedby={unavailableActionsId}>Use in project</button>
+            <button type="button" aria-disabled="true" aria-describedby={unavailableActionsId}>Complete metadata</button>
             <button type="button" aria-describedby={detail.preview === "no-target" ? targetlessActionId : undefined} disabled={detail.preview === "no-target" || openState.status === "pending"} onClick={() => { void openOriginal(); }}><ExternalLink aria-hidden="true" />{openState.status === "pending" ? "Opening original…" : "Open original"}</button>
           </div>
           <p className="shared-inspector-action-reason" id={unavailableActionsId}>Use in project and Complete metadata are unavailable until Core exposes mutation contracts.</p>
@@ -218,7 +237,7 @@ export function SharedArtifactInspector({ artifact, workspaceId, rootEpoch, retu
             </div>}
           </div>}
 
-          <Section title="Context agents receive"><UnavailableAgentUse /></Section>
+          <Section title="Context agents receive"><AgentUse artifact={detail} /></Section>
 
           <Section title="Revisions" badge="Append-only">
             {revisions.status === "loading" && <p role="status">Loading revisions…</p>}
@@ -237,7 +256,7 @@ export function SharedArtifactInspector({ artifact, workspaceId, rootEpoch, retu
             {revisions.nextCursor && !revisions.error && <button className="shared-inspector-load-more" type="button" disabled={revisions.loadingMore} onClick={() => { void loadRevisionPage(revisions.nextCursor); }}>{revisions.loadingMore ? "Loading more revisions…" : "Load more revisions"}</button>}
             <div className="shared-inspector-selection-note"><strong>Existing references stay pinned</strong><p>Selecting a revision changes only the default for future use.</p>{onOpenWorkflow
               ? <button type="button" onClick={(event) => onOpenWorkflow("update-review", event.currentTarget)}>Preview revision update review</button>
-              : <button type="button" disabled title="Review existing usages is unavailable because Core does not expose backlinks.">Review existing usages unavailable</button>}</div>
+              : <button type="button" aria-disabled="true" aria-describedby={backlinksReasonId}>Review existing usages unavailable</button>}<p id={backlinksReasonId}>Review existing usages is unavailable because Core does not expose backlinks.</p></div>
             {selection.status === "pending" && <p role="status">Selecting default revision…</p>}
             {selection.status === "reloading" && <p role="status">Reloading current selected default…</p>}
             {selection.status === "conflict" && <div className="shared-inspector-alert" role="alert"><span>The selected default changed in Core. Reload current state before retrying.</span><button type="button" onClick={() => { void reloadConflict(); }}>Reload current state</button></div>}
