@@ -1,0 +1,232 @@
+import { useState } from "react";
+import { act } from "react";
+import { afterEach, describe, expect, test, vi } from "vitest";
+import type { ArtifactMediaCardDto } from "../electron/ralphy/types";
+import { bridge } from "../src/lib/ipc";
+import { SharedLibraryScreen } from "../src/screens/SharedLibraryScreen";
+import {
+  SharedLibraryWorkflows,
+  type SharedLibraryWorkflowKind,
+} from "../src/screens/shared-library/SharedLibraryWorkflows";
+import { presentSharedArtifact } from "../src/screens/shared-library/presentation";
+import { createReactHost, type HostNode } from "./react-host";
+
+function artifact(): ArtifactMediaCardDto {
+  return {
+    ref: { type: "artifact", id: "artifact-1" },
+    workspaceId: "workspace-1",
+    projectId: null,
+    slug: "brand-hook",
+    kind: "audio-hook",
+    selectedRevisionId: "revision-1",
+    selectedState: "approved",
+    mime: "audio/mpeg",
+    bytes: 2_048,
+    selectedAt: Date.parse("2026-08-18T10:00:00.000Z"),
+    revisionCount: 3,
+    selectedObjectId: "object-1",
+    storageClass: "durable",
+    usageRoles: ["opening hook"],
+    target: { type: "object", id: "object-1" },
+    mediaKind: "audio",
+    provenance: "generation",
+  };
+}
+
+async function settle() {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+function button(root: HostNode, text: string): HostNode {
+  const found = root.querySelectorAll("button").find((node) => node.textContent === text);
+  if (!found) throw new Error(`Button not found: ${text}`);
+  return found;
+}
+
+function buttonContaining(root: HostNode, text: string): HostNode {
+  const found = root.querySelectorAll("button").find((node) => node.textContent.includes(text));
+  if (!found) throw new Error(`Button not found containing: ${text}`);
+  return found;
+}
+
+function buttonByAria(root: HostNode, label: string): HostNode {
+  const found = root.querySelectorAll("button").find((node) => node.getAttribute("aria-label") === label);
+  if (!found) throw new Error(`Button not found by label: ${label}`);
+  return found;
+}
+
+async function click(node: HostNode) {
+  await act(async () => { node.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+}
+
+async function mountWorkflow(kind: SharedLibraryWorkflowKind) {
+  const host = createReactHost();
+  const origin = document.createElement("button") as unknown as HostNode;
+  origin.textContent = "origin";
+  (document.body as unknown as HostNode).appendChild(origin);
+  origin.focus();
+  const { createRoot } = await import("react-dom/client");
+  const root = createRoot(host.container as unknown as Element);
+  function Harness() {
+    const [open, setOpen] = useState(true);
+    return open ? <SharedLibraryWorkflows
+      kind={kind}
+      artifact={presentSharedArtifact(artifact())}
+      returnFocus={origin as unknown as HTMLElement}
+      onClose={() => setOpen(false)}
+    /> : null;
+  }
+  await act(async () => { root.render(<Harness />); await settle(); });
+  await act(async () => { await settle(); });
+  return { host, root, origin, body: document.body as unknown as HostNode };
+}
+
+afterEach(() => vi.restoreAllMocks());
+
+describe("Shared Library non-mutating workflows", () => {
+  test("walks the complete Add inventory locally and keeps the final mutation unavailable", async () => {
+    const mounted = await mountWorkflow("add");
+    try {
+      const dialog = mounted.body.querySelector("[role=dialog]")!;
+      expect(dialog.textContent).toContain("Add artifact");
+      for (const step of ["Source", "Duplicates", "Describe for reuse", "Confirm"]) expect(dialog.textContent).toContain(step);
+      expect(dialog.textContent).toContain("Upload cannot persist with this Core version");
+      expect(dialog.querySelectorAll(".shared-workflow-primary")).toHaveLength(1);
+
+      await click(button(dialog, "Continue to duplicates"));
+      expect(dialog.textContent).toContain("Content hash comparison is unavailable from this Core version");
+      await click(button(dialog, "Continue to describe"));
+      for (const field of ["Title", "Role", "Purpose", "Use when", "Rights status"]) expect(dialog.textContent).toContain(field);
+      expect(button(dialog, "Not documented").getAttribute("aria-pressed")).toBe("true");
+      await click(button(dialog, "Continue to confirm"));
+      expect(dialog.textContent).toContain("Needs context");
+      expect(dialog.textContent).toContain("Proposed rights · Not documented");
+      expect(dialog.textContent).toContain("Nothing has been saved");
+      const final = button(dialog, "Add to Shared Library unavailable");
+      expect(final.disabled).toBe(true);
+      expect(dialog.querySelector(`#${final.getAttribute("aria-describedby")}`)?.textContent).toMatch(/current Core version/i);
+      expect(dialog.querySelectorAll(".shared-workflow-primary")).toHaveLength(1);
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
+  test.each([
+    ["promote", ["Source project artifact", "Workspace meaning", "Added to Shared Library · the existing project remains pinned to its current artifact.", "No promotion has occurred"]],
+    ["duplicate", ["Same content identity", "Reuse the existing artifact", "Add as a new revision", "Create a separate artifact", "Content hash comparison is unavailable from this Core version"]],
+    ["suggestions", ["Suggested from file content", "from EXIF + visual content", "matches existing artifacts", "NOT SUGGESTED", "Licence, consent and identity are never inferred", "Universal-use rules"]],
+    ["archive", ["Archive impact", "Active references", "Historical references", "Projects affected", "Units affected", "Currently canonical", "File state", "Replacement for future work", "Nothing is deleted", "reversible"]],
+    ["update-review", ["Revision update review", "Update compatible usages", "Keep current revision", "Open usage for review", "backlinks and compatibility evidence are unavailable"]],
+  ] as const)("renders the complete %s inventory without pretending Core evidence exists", async (kind, inventory) => {
+    const mounted = await mountWorkflow(kind);
+    try {
+      const dialog = mounted.body.querySelector("[role=dialog]")!;
+      for (const item of inventory) expect(dialog.textContent).toContain(item);
+      expect(dialog.textContent).toContain("This workflow cannot persist because the current Core version");
+      expect(dialog.querySelectorAll("button").filter((node) => /shared-workflow-(?:primary|warning)/.test(node.getAttribute("class") ?? ""))).toHaveLength(1);
+      const final = dialog.querySelectorAll("button").find((node) => /shared-workflow-(?:primary|warning)/.test(node.getAttribute("class") ?? ""))!;
+      expect(final.disabled).toBe(true);
+      expect(dialog.textContent).not.toContain("Update all");
+      if (kind === "archive") {
+        expect(final.getAttribute("class")).toContain("shared-workflow-warning");
+        expect(final.getAttribute("class")).not.toContain("danger");
+      }
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
+  test("requires a local reason for a separate duplicate and reviews AI suggestions per field", async () => {
+    const duplicate = await mountWorkflow("duplicate");
+    try {
+      await click(buttonContaining(duplicate.body, "Create a separate artifact"));
+      const reason = duplicate.body.querySelectorAll("input").find((node) => node.getAttribute("required") !== null);
+      expect(reason).not.toBeNull();
+      expect(duplicate.body.textContent).toContain("Reason required");
+    } finally {
+      await act(async () => duplicate.root.unmount());
+      duplicate.host.restore();
+    }
+
+    const suggestions = await mountWorkflow("suggestions");
+    try {
+      const dialog = suggestions.body.querySelector("[role=dialog]")!;
+      expect(dialog.querySelectorAll(".shared-workflow-suggestion")).toHaveLength(4);
+      await click(button(dialog, "Accept Title suggestion"));
+      await click(button(dialog, "Reject Purpose suggestion"));
+      const reviewed = dialog.querySelectorAll(".shared-workflow-suggestion");
+      expect(reviewed.find((row) => row.textContent.includes("Title"))?.textContent).toContain("Accepted locally for review");
+      expect(reviewed.find((row) => row.textContent.includes("Purpose"))?.textContent).toContain("Rejected locally");
+      expect(dialog.textContent).toContain("Suggestions are not canonical and nothing has been persisted");
+    } finally {
+      await act(async () => suggestions.root.unmount());
+      suggestions.host.restore();
+    }
+  });
+
+  test("uses a labelled modal, closes on Escape, and returns focus without calling a bridge", async () => {
+    const calls = [
+      vi.spyOn(bridge, "loadSharedLibraryPage"),
+      vi.spyOn(bridge, "loadSharedLibraryArtifact"),
+      vi.spyOn(bridge, "loadSharedLibraryRevisions"),
+      vi.spyOn(bridge, "selectSharedLibraryRevision"),
+      vi.spyOn(bridge, "performSharedLibraryAction"),
+    ];
+    const mounted = await mountWorkflow("archive");
+    try {
+      const dialog = mounted.body.querySelector("[role=dialog]")!;
+      expect(dialog.getAttribute("aria-labelledby")).toBeTruthy();
+      expect(dialog.getAttribute("aria-describedby")).toBeTruthy();
+      expect(dialog.contains(document.activeElement as unknown as HostNode)).toBe(true);
+      const escape = new Event("keydown", { bubbles: true, cancelable: true });
+      Object.defineProperty(escape, "key", { value: "Escape" });
+      await act(async () => { document.dispatchEvent(escape); await settle(); });
+      expect(mounted.body.querySelector("[role=dialog]")).toBeNull();
+      expect(document.activeElement).toBe(mounted.origin);
+      expect(calls.every((call) => call.mock.calls.length === 0)).toBe(true);
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
+  test("opens Add and Promote from the page and all artifact-specific previews from the inspector", async () => {
+    vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue({ items: [artifact()], nextCursor: null });
+    vi.spyOn(bridge, "loadSharedLibraryArtifact").mockResolvedValue(artifact());
+    vi.spyOn(bridge, "loadSharedLibraryRevisions").mockResolvedValue({ items: [], nextCursor: null });
+    vi.spyOn(bridge, "resolveSharedLibraryPreview").mockResolvedValue(null);
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    await act(async () => { root.render(<SharedLibraryScreen workspaceId="workspace-1" workspaceName="Studio" rootEpoch={1} />); await settle(); });
+    await act(async () => { await settle(); });
+    try {
+      await click(button(host.container, "Add artifact"));
+      expect((document.body as unknown as HostNode).textContent).toContain("Upload cannot persist with this Core version");
+      await click(buttonByAria(document.body as unknown as HostNode, "Close Add artifact"));
+      await click(button(host.container, "Promote from project"));
+      expect((document.body as unknown as HostNode).textContent).toContain("Source project artifact");
+      await click(buttonByAria(document.body as unknown as HostNode, "Close Promote from project"));
+
+      await click(buttonByAria(host.container, "Select brand-hook identity and open inspector"));
+      await click(button(host.container, "More workflow previews"));
+      for (const [buttonText, dialogText] of [
+        ["Preview duplicate workflow", "Same content identity"],
+        ["Preview metadata suggestions", "Suggested from file content"],
+        ["Preview archive impact", "Archive impact"],
+        ["Preview revision update review", "Update compatible usages"],
+      ]) {
+        await click(button(host.container, buttonText));
+        expect((document.body as unknown as HostNode).textContent).toContain(dialogText);
+        await click(buttonByAria(document.body as unknown as HostNode, `Close ${dialogText === "Same content identity" ? "Duplicate review" : dialogText === "Suggested from file content" ? "Suggested from file content" : dialogText === "Archive impact" ? "Archive impact" : "Revision update review"}`));
+      }
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+});

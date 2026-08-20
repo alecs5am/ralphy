@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ArtifactMediaCardDto, ArtifactRevisionDto } from "../../../electron/ralphy/types";
 import { bridge } from "../../lib/ipc";
 import { SharedArtifactPreview } from "./SharedArtifactPreview";
+import type { SharedLibraryWorkflowKind } from "./SharedLibraryWorkflows";
 import { presentSharedArtifact, type SharedArtifactPresentation } from "./presentation";
 
 type RevisionState = {
@@ -51,19 +52,21 @@ function UnavailableAgentUse() {
   </dl>;
 }
 
-export function SharedArtifactInspector({ artifact, workspaceId, rootEpoch, returnFocus, onClose, onReconcile }: {
+export function SharedArtifactInspector({ artifact, workspaceId, rootEpoch, returnFocus, onClose, onReconcile, onOpenWorkflow }: {
   artifact: SharedArtifactPresentation;
   workspaceId: string;
   rootEpoch: number;
   returnFocus: HTMLElement | null;
   onClose(): void;
   onReconcile(card: ArtifactMediaCardDto): void;
+  onOpenWorkflow?(kind: Exclude<SharedLibraryWorkflowKind, "add" | "promote">, origin: HTMLButtonElement): void;
 }) {
   const [detail, setDetail] = useState(artifact);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [revisions, setRevisions] = useState<RevisionState>({ status: "loading", items: [], nextCursor: null, loadingMore: false, error: null });
   const [selection, setSelection] = useState<SelectionState>({ status: "idle" });
   const [openState, setOpenState] = useState<{ status: "idle" | "pending" | "error"; message?: string }>({ status: "idle" });
+  const [workflowMenuOpen, setWorkflowMenuOpen] = useState(false);
   const request = useRef(0);
   const revisionRequest = useRef(0);
   const selectionRequest = useRef(0);
@@ -204,6 +207,16 @@ export function SharedArtifactInspector({ artifact, workspaceId, rootEpoch, retu
           {detail.preview === "no-target" && <p className="shared-inspector-action-reason" id={targetlessActionId}>Open original is unavailable because Core returned no selected media target.</p>}
           {openState.status === "error" && <div className="shared-inspector-alert" role="alert"><span>{openState.message}</span><button type="button" onClick={() => { void openOriginal(); }}>Retry open original</button></div>}
 
+          {onOpenWorkflow && <div className="shared-inspector-workflows">
+            <button type="button" aria-expanded={workflowMenuOpen} aria-controls={`shared-inspector-${idStem}-workflow-menu`} onClick={() => setWorkflowMenuOpen((open) => !open)}>More workflow previews</button>
+            {workflowMenuOpen && <div id={`shared-inspector-${idStem}-workflow-menu`} role="group" aria-label="Preview unavailable workflows">
+              <p>Preview unavailable workflow · final actions remain disabled for this Core version.</p>
+              <button type="button" onClick={(event) => onOpenWorkflow("duplicate", event.currentTarget)}>Preview duplicate workflow</button>
+              <button type="button" onClick={(event) => onOpenWorkflow("suggestions", event.currentTarget)}>Preview metadata suggestions</button>
+              <button type="button" onClick={(event) => onOpenWorkflow("archive", event.currentTarget)}>Preview archive impact</button>
+            </div>}
+          </div>}
+
           <Section title="Context agents receive"><UnavailableAgentUse /></Section>
 
           <Section title="Revisions" badge="Append-only">
@@ -221,7 +234,9 @@ export function SharedArtifactInspector({ artifact, workspaceId, rootEpoch, retu
             })}
             {revisions.error && <div className="shared-inspector-alert" role="alert"><span>{revisions.error}</span><button type="button" onClick={() => { void loadRevisionPage(revisions.nextCursor); }}>Retry revision page</button></div>}
             {revisions.nextCursor && !revisions.error && <button className="shared-inspector-load-more" type="button" disabled={revisions.loadingMore} onClick={() => { void loadRevisionPage(revisions.nextCursor); }}>{revisions.loadingMore ? "Loading more revisions…" : "Load more revisions"}</button>}
-            <div className="shared-inspector-selection-note"><strong>Existing references stay pinned</strong><p>Selecting a revision changes only the default for future use.</p><button type="button" disabled title="Review existing usages is unavailable because Core does not expose backlinks.">Review existing usages unavailable</button></div>
+            <div className="shared-inspector-selection-note"><strong>Existing references stay pinned</strong><p>Selecting a revision changes only the default for future use.</p>{onOpenWorkflow
+              ? <button type="button" onClick={(event) => onOpenWorkflow("update-review", event.currentTarget)}>Preview revision update review</button>
+              : <button type="button" disabled title="Review existing usages is unavailable because Core does not expose backlinks.">Review existing usages unavailable</button>}</div>
             {selection.status === "pending" && <p role="status">Selecting default revision…</p>}
             {selection.status === "reloading" && <p role="status">Reloading current selected default…</p>}
             {selection.status === "conflict" && <div className="shared-inspector-alert" role="alert"><span>The selected default changed in Core. Reload current state before retrying.</span><button type="button" onClick={() => { void reloadConflict(); }}>Reload current state</button></div>}

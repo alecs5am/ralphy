@@ -11,6 +11,7 @@ import { SharedArtifactPreview } from "./shared-library/SharedArtifactPreview";
 import { SharedArtifactInspector } from "./shared-library/SharedArtifactInspector";
 import { SharedArtifactViewer } from "./shared-library/SharedArtifactViewer";
 import { SharedLibraryToolbar } from "./shared-library/SharedLibraryToolbar";
+import { SharedLibraryWorkflows, type SharedLibraryWorkflowKind } from "./shared-library/SharedLibraryWorkflows";
 import type { Availability, SharedArtifactPresentation } from "./shared-library/presentation";
 
 type OpenCallback = (artifact: SharedArtifactPresentation) => void;
@@ -165,14 +166,14 @@ function SharedLibraryAuditList({ artifacts, selectedId, selectedRows, workspace
 function ScreenHeader({ workspaceName, totals, onAdd, onPromote }: {
   workspaceName: string;
   totals?: { count: Availability<number>; bytes: Availability<number> };
-  onAdd(): void;
-  onPromote(): void;
+  onAdd(origin: HTMLButtonElement): void;
+  onPromote(origin: HTMLButtonElement): void;
 }) {
   return <header className="shared-library-header">
     <div><div className="screen-kicker">{workspaceName}</div><h1>Shared Library</h1><p>Reusable workspace artifacts for people and agents</p></div>
     <div className="shared-library-header-side">
       {totals && <div className="shared-library-totals"><span>{countLabel(totals.count)}</span><span>{bytesLabel(totals.bytes)}</span></div>}
-      <div className="shared-library-actions"><button type="button" onClick={onPromote}><Upload size={13} aria-hidden="true" />Promote from project</button><button className="shared-library-primary" type="button" onClick={onAdd}><Plus size={13} aria-hidden="true" />Add artifact</button></div>
+      <div className="shared-library-actions"><button type="button" onClick={(event) => onPromote(event.currentTarget)}><Upload size={13} aria-hidden="true" />Promote from project</button><button className="shared-library-primary" type="button" onClick={(event) => onAdd(event.currentTarget)}><Plus size={13} aria-hidden="true" />Add artifact</button></div>
     </div>
   </header>;
 }
@@ -183,11 +184,11 @@ export function SharedLibraryScreenView({ workspaceId, workspaceName, rootEpoch,
   resolvePreview: MediaWorkbenchBridge["resolveSharedLibraryPreview"];
 }) {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(() => new Set());
-  const [openState, setOpenState] = useState<string | null>(null);
   const [inspector, setInspector] = useState<{ artifact: SharedArtifactPresentation; origin: HTMLElement | null } | null>(null);
   const [viewer, setViewer] = useState<{ artifact: SharedArtifactPresentation; origin: HTMLElement | null } | null>(null);
-  const add = () => onAdd ? onAdd() : setOpenState("Add artifact is unavailable until Core exposes a mutation contract.");
-  const promote = () => onPromote ? onPromote() : setOpenState("Promote from project is unavailable until Core exposes a mutation contract.");
+  const [workflow, setWorkflow] = useState<{ kind: SharedLibraryWorkflowKind; artifact?: SharedArtifactPresentation; origin: HTMLElement | null } | null>(null);
+  const add = (origin: HTMLButtonElement) => onAdd ? onAdd() : setWorkflow({ kind: "add", origin });
+  const promote = (origin: HTMLButtonElement) => onPromote ? onPromote() : setWorkflow({ kind: "promote", origin });
   const inspect = (artifact: SharedArtifactPresentation, origin: HTMLElement | null = null) => {
     controller.selectArtifact(artifact.id);
     if (onOpenInspector) onOpenInspector(artifact);
@@ -214,7 +215,6 @@ export function SharedLibraryScreenView({ workspaceId, workspaceName, rootEpoch,
     <ScreenHeader workspaceName={workspaceName} totals={{ count: value.totalCount, bytes: value.totalSelectedBytes }} onAdd={add} onPromote={promote} />
     <SharedLibraryToolbar query={snapshot.query} controller={controller} />
     <div className="shared-library-grouping" role="note">Grouping by entity is unavailable from Core. Showing one flat collection.</div>
-    {openState && <div className="shared-library-open-state" role="status"><span>{openState}</span><button type="button" aria-label="Close Shared Library state" onClick={() => setOpenState(null)}>Close</button></div>}
     {snapshot.refreshError && <div className="shared-library-error" role="alert"><AlertCircle aria-hidden="true" /><span>{snapshot.refreshError}</span><button type="button" onClick={() => { void controller.refresh(); }}>Retry refresh</button></div>}
     <div className="shared-library-content" data-inspector-open={inspector ? "true" : undefined}>
       <div className="shared-library-scroll">
@@ -224,7 +224,7 @@ export function SharedLibraryScreenView({ workspaceId, workspaceName, rootEpoch,
         {snapshot.pageError && <div className="shared-library-error shared-library-page-error" role="alert"><span>{snapshot.pageError}</span><button type="button" onClick={() => { void controller.loadMore(); }}>Retry</button></div>}
         {value.nextCursor && !snapshot.pageError && <button className="shared-library-load-more" type="button" disabled={snapshot.loadingMore} onClick={() => { void controller.loadMore(); }}>{snapshot.loadingMore ? "Loading…" : "Load more"}</button>}
       </div>
-      {inspector && <SharedArtifactInspector artifact={inspector.artifact} workspaceId={workspaceId} rootEpoch={rootEpoch} returnFocus={inspector.origin} onClose={() => setInspector(null)} onReconcile={controller.reconcileArtifact} />}
+      {inspector && <SharedArtifactInspector artifact={inspector.artifact} workspaceId={workspaceId} rootEpoch={rootEpoch} returnFocus={inspector.origin} onClose={() => setInspector(null)} onReconcile={controller.reconcileArtifact} onOpenWorkflow={(kind, origin) => setWorkflow({ kind, artifact: inspector.artifact, origin })} />}
     </div>
     {selectedRows.size > 0 && <div className="shared-library-bulk-bar"><strong>{selectedRows.size} SELECTED</strong>{["Assign role", "Tag", "Review metadata", "Archive"].map((label) => <button type="button" disabled title="This Core mutation is unavailable." key={label}>{label}</button>)}</div>}
     {viewer && <SharedArtifactViewer
@@ -238,6 +238,7 @@ export function SharedLibraryScreenView({ workspaceId, workspaceName, rootEpoch,
       onReconcile={controller.reconcileArtifact}
       onOpenInspector={(artifact) => { setViewer(null); inspect(artifact, viewer.origin); }}
     />}
+    {workflow && <SharedLibraryWorkflows kind={workflow.kind} artifact={workflow.artifact} returnFocus={workflow.origin} onClose={() => setWorkflow(null)} />}
   </main>;
 }
 
@@ -257,5 +258,5 @@ export function SharedLibraryScreen(props: SharedLibraryScreenProps) {
   }, [props.workspaceId, props.rootEpoch, scope]);
   return active?.scope === scope
     ? <ConnectedSharedLibraryScreen {...props} controller={active.controller} />
-    : <main className="main-region shared-library-screen" aria-busy="true"><ScreenHeader workspaceName={props.workspaceName} onAdd={props.onAdd ?? (() => undefined)} onPromote={props.onPromote ?? (() => undefined)} /><div className="shared-library-loading" role="status">Loading Shared Library…</div></main>;
+    : <main className="main-region shared-library-screen" aria-busy="true"><ScreenHeader workspaceName={props.workspaceName} onAdd={() => props.onAdd?.()} onPromote={() => props.onPromote?.()} /><div className="shared-library-loading" role="status">Loading Shared Library…</div></main>;
 }
