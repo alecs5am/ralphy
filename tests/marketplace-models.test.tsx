@@ -421,7 +421,7 @@ describe("Marketplace model routes", () => {
     }
   });
 
-  test("keeps unavailable download review focusable, described, and inert before Task 8", async () => {
+  test("opens the Task 8 download review while keeping the final action focusable and inert", async () => {
     vi.spyOn(bridge, "loadLocalModelDetail").mockResolvedValue(modelA);
     const openProvider = vi.spyOn(bridge, "openLocalModelProvider").mockResolvedValue();
     const onBack = vi.fn();
@@ -438,21 +438,18 @@ describe("Marketplace model routes", () => {
     try {
       await act(async () => { root.render(<MarketplaceScreenView catalog={null} location={detailLocation} sidebarVisible snapshot={snapshot()} onBack={onBack} onNavigate={navigate} onRememberLocation={() => undefined} onRetry={() => undefined} />); await settle(); });
       const review = button(host.container, "Review download");
-      const reasonId = review.getAttribute("aria-describedby");
       expect(review.disabled).toBe(false);
-      expect(review.getAttribute("aria-disabled")).toBe("true");
-      expect(reasonId).not.toBeNull();
-      expect(host.container.querySelector(`#${reasonId}`)?.textContent).toBe("Download and installation are unavailable in the current Desktop contract.");
+      expect(review.getAttribute("aria-disabled")).toBeNull();
       review.focus();
       expect(document.activeElement).toBe(review);
-      await act(async () => {
-        review.dispatchEvent(new Event("click", { bubbles: true }));
-        for (const [type, key] of [["keydown", "Enter"], ["keyup", " "]] as const) {
-          const event = new Event(type, { bubbles: true, cancelable: true });
-          Object.defineProperty(event, "key", { value: key });
-          review.dispatchEvent(event);
-        }
-      });
+      await act(async () => { review.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      const dialog = (document.body as unknown as HostNode).querySelector("[role=dialog]")!;
+      expect(dialog.textContent).toContain("Compatibility preflight");
+      expect(dialog.textContent).toContain("Computer and runtime targets cannot be enumerated");
+      const final = button(dialog, "Download unavailable");
+      expect(final.disabled).toBe(false);
+      expect(final.getAttribute("aria-disabled")).toBe("true");
+      await act(async () => { final.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
       expect(openProvider).not.toHaveBeenCalled();
       expect(onBack).not.toHaveBeenCalled();
       expect(navigate).not.toHaveBeenCalled();

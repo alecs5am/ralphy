@@ -48,6 +48,7 @@ function detailError(cause: unknown): string {
 export interface MarketplaceModelDetailProps {
   reference: LocalModelReference;
   onBack(): void;
+  onReviewDownload?(model: MarketplaceModelDetailDto): void;
 }
 
 export type MarketplaceModelDetailState =
@@ -105,7 +106,7 @@ function localStateCopy(detail: MarketplaceModelDetailDto): string {
   return "No downloaded or runtime-registered state was returned for this model.";
 }
 
-export function MarketplaceModelDetail({ reference, onBack }: MarketplaceModelDetailProps) {
+export function MarketplaceModelDetail({ reference, onBack, onReviewDownload }: MarketplaceModelDetailProps) {
   const state = useMarketplaceModelDetail(reference);
   const referenceKey = `${reference.provider}:${reference.id}`;
   const actionGeneration = useRef(0);
@@ -137,10 +138,15 @@ export function MarketplaceModelDetail({ reference, onBack }: MarketplaceModelDe
       <h2 id="marketplace-model-title">{detail.name}</h2>
       <p>{detail.author} · <code>{detail.id}</code></p>
       <div className="marketplace-model-actions">
-        <button type="button" aria-disabled="true" aria-describedby="marketplace-model-review-unavailable">Review download</button>
+        <button
+          type="button"
+          aria-disabled={onReviewDownload ? undefined : true}
+          aria-describedby={onReviewDownload ? undefined : "marketplace-model-review-unavailable"}
+          onClick={onReviewDownload ? () => onReviewDownload(detail) : undefined}
+        >Review download</button>
         <button type="button" onClick={() => { void openProvider(); }}>Open on {provider}<ExternalLink aria-hidden="true" /></button>
       </div>
-      <p id="marketplace-model-review-unavailable" className="marketplace-model-action-state">Download and installation are unavailable in the current Desktop contract.</p>
+      {!onReviewDownload && <p id="marketplace-model-review-unavailable" className="marketplace-model-action-state">Download and installation are unavailable in the current Desktop contract.</p>}
       {providerError?.key === referenceKey && <p role="alert">{providerError.message}</p>}
     </header>
 

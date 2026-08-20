@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { CatalogResult } from "../lib/ipc";
 import { bridge } from "../lib/ipc";
+import type { WorkbenchRoute } from "../state/workbench";
 import {
   createMarketplaceController,
   type MarketplaceController,
@@ -17,11 +18,14 @@ import {
   marketplaceItemDomId,
 } from "./marketplace/MarketplaceBrowse";
 import { MarketplaceHeader } from "./marketplace/MarketplaceHeader";
-import {
-  MarketplaceInstalledModels,
-  MarketplaceModelDetail,
-} from "./marketplace/MarketplaceModelViews";
+import { MarketplaceModelDetail } from "./marketplace/MarketplaceModelViews";
+import { MarketplaceMyLibrary } from "./marketplace/MarketplaceMyLibrary";
 import { MarketplacePublicItemDetail } from "./marketplace/MarketplacePublicItemDetail";
+import {
+  MarketplaceActionReview,
+  marketplaceTargets,
+  type MarketplaceWorkflowKind,
+} from "./marketplace/MarketplaceWorkflows";
 import {
   marketplaceUnavailableDetailOriginId,
   MarketplaceUnavailableDetail,
@@ -33,6 +37,7 @@ import {
 
 export interface MarketplaceScreenProps {
   catalog: CatalogResult | null;
+  workRoute?: WorkbenchRoute;
   location: MarketplaceLocation;
   sidebarVisible: boolean;
   onBack(): void;
@@ -99,6 +104,7 @@ export interface MarketplaceScreenViewProps extends MarketplaceScreenProps {
 
 export function MarketplaceScreenView({
   catalog,
+  workRoute,
   location,
   sidebarVisible,
   snapshot,
@@ -107,6 +113,7 @@ export function MarketplaceScreenView({
   onRememberLocation,
   onRetry,
 }: MarketplaceScreenViewProps) {
+  const [workflow, setWorkflow] = useState<{ kind: MarketplaceWorkflowKind; itemLabel: string | null } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const focusId = location.focusId ?? "marketplace-heading";
   const focusRouteKey = JSON.stringify(location.route);
@@ -258,6 +265,9 @@ export function MarketplaceScreenView({
         : detailItem
           ? "ready"
           : "missing";
+  const unavailableWorkflow = location.route.kind === "unavailable-detail"
+    ? location.route.category === "prompts" ? "prompt-use" : location.route.category === "components" ? "component-target" : "skill-install"
+    : null;
   return <main className="marketplace-screen main-region" data-sidebar-visible={sidebarVisible ? "true" : "false"}>
     <MarketplaceHeader
       title={routeTitle(location)}
@@ -276,19 +286,28 @@ export function MarketplaceScreenView({
     >
       <p className="marketplace-target-state">{targetMessage}</p>
       {detailReference
-        ? <MarketplaceModelDetail reference={detailReference} onBack={onBack} />
+        ? <MarketplaceModelDetail reference={detailReference} onBack={onBack} onReviewDownload={(model) => setWorkflow({ kind: "model-download", itemLabel: model.name })} />
         : publicDetailState === "ready" && (detailItem?.category === "templates" || detailItem?.category === "recipes")
-          ? <MarketplacePublicItemDetail item={detailItem} onBack={onBack} />
+          ? <MarketplacePublicItemDetail
+            item={detailItem}
+            onBack={onBack}
+            onReviewTemplateTarget={(item) => setWorkflow({ kind: "template-target", itemLabel: item.name })}
+            onReviewRecipeTarget={(item) => setWorkflow({ kind: "recipe-target", itemLabel: item.name })}
+          />
         : publicDetailState === "loading"
           ? <section className="marketplace-route-placeholder" role="status" aria-busy="true"><h2>Loading public item details…</h2></section>
         : publicDetailState === "unavailable"
           ? <section className="marketplace-route-placeholder" role="status"><h2>Public item details unavailable</h2><p>Public item details are unavailable because the Ralphy public library is unavailable.</p></section>
         : publicDetailState === "missing"
           ? <section className="marketplace-route-placeholder" role="status"><h2>Public item not found</h2><p>Public item was not found in the current Ralphy public library.</p></section>
-        : location.route.kind === "library" && location.route.section === "installed"
-          ? <MarketplaceInstalledModels machine={snapshot.status === "ready" ? snapshot.machine : null} />
+        : location.route.kind === "library"
+          ? <MarketplaceMyLibrary section={location.route.section} machine={snapshot.status === "ready" ? snapshot.machine : null} />
         : location.route.kind === "unavailable-detail"
-          ? <MarketplaceUnavailableDetail category={location.route.category} onBack={onBack} />
+          ? <MarketplaceUnavailableDetail
+            category={location.route.category}
+            onBack={onBack}
+            onReview={() => unavailableWorkflow && setWorkflow({ kind: unavailableWorkflow, itemLabel: null })}
+          />
         : route === null
             ? <section className="marketplace-route-placeholder" role="status"><h2>{routeTitle(location)}</h2><p>Full item details show only fields returned by the current source. This route does not expose a mutation yet.</p></section>
         : <MarketplaceBrowse
@@ -305,6 +324,12 @@ export function MarketplaceScreenView({
           onClearFilters={() => onRememberLocation({ query: clearedFilters(location.query, location.route.kind === "category" ? location.route.category : "all") })}
         />}
     </div>
+    {workflow && <MarketplaceActionReview
+      kind={workflow.kind}
+      targets={marketplaceTargets(catalog, workRoute ?? { kind: "library" }, workflow.kind)}
+      itemLabel={workflow.itemLabel}
+      onCancel={() => setWorkflow(null)}
+    />}
   </main>;
 }
 

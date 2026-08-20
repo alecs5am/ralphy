@@ -737,6 +737,7 @@ export function App() {
               >
                 <MarketplaceScreen
                   catalog={catalog}
+                  workRoute={state.route}
                   location={marketplace.location}
                   sidebarVisible={marketplaceSidebarVisible}
                   onBack={navigateBack}

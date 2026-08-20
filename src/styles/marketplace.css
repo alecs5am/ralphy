@@ -293,6 +293,59 @@
 .marketplace-installed-models li em { color: var(--warn); font-size: var(--text-xs); font-style: normal; }
 .marketplace-installed-note { color: var(--fg-4) !important; font-size: var(--text-xs) !important; }
 
+.marketplace-workflow-overlay { position: fixed; z-index: 70; inset: 0; background: rgb(0 0 0 / .5); }
+.marketplace-workflow-window { position: fixed; z-index: 71; top: 50%; left: 50%; display: flex; width: min(620px, calc(100vw - 48px)); max-height: min(760px, calc(100vh - 48px)); transform: translate(-50%, -50%); flex-direction: column; overflow: hidden; border-radius: 20px; outline: 0; background: var(--sidebar); box-shadow: 0 40px 90px rgb(0 0 0 / .55); corner-shape: squircle; }
+.marketplace-workflow-header { display: flex; flex: none; align-items: flex-start; gap: 16px; padding: 17px 18px 13px; }
+.marketplace-workflow-header > div { display: grid; min-width: 0; flex: 1; gap: 5px; }
+.marketplace-workflow-header h2 { margin: 0; color: var(--fg); font-size: var(--text-lg); font-weight: 400; }
+.marketplace-workflow-header p { margin: 0; color: var(--fg-3); font-size: var(--text-sm); line-height: var(--leading-body); }
+.marketplace-workflow-header > button { display: grid; width: 28px; height: 28px; flex: none; place-items: center; border-radius: var(--radius-md); color: var(--fg-3); }
+.marketplace-workflow-header > button:hover { background: var(--raised); color: var(--fg); }
+.marketplace-workflow-header svg { width: 13px; }
+.marketplace-workflow-body { display: flex; min-height: 0; flex: 1; padding: 3px 18px 16px; flex-direction: column; gap: 12px; overflow-y: auto; }
+.marketplace-target-list,
+.marketplace-review-field { display: grid; min-width: 0; gap: 7px; padding: 12px; border-radius: var(--radius-lg); background: var(--sunken); }
+.marketplace-target-list h3,
+.marketplace-review-field h3 { margin: 0; color: var(--fg-4); font: var(--text-xs) var(--font-mono); letter-spacing: .09em; text-transform: uppercase; }
+.marketplace-target-list > p,
+.marketplace-review-field p { margin: 0; color: var(--fg-3); font-size: var(--text-sm); line-height: var(--leading-body); overflow-wrap: anywhere; }
+.marketplace-target-list > div { display: grid; gap: 5px; }
+.marketplace-target-list button { display: flex; min-height: 48px; padding: 8px 10px; align-items: flex-start; flex-direction: column; gap: 3px; border-radius: var(--radius-md); background: var(--raised); color: var(--fg-2); text-align: left; }
+.marketplace-target-list button[aria-pressed="true"] { background: var(--selected); box-shadow: inset 2px 0 var(--accent); }
+.marketplace-target-list button[aria-disabled="true"] { color: var(--fg-4); }
+.marketplace-target-list button small { color: var(--fg-3); font-size: var(--text-xs); line-height: var(--leading-snug); }
+.marketplace-review-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.marketplace-review-save-state { margin: 0; padding: 10px 12px; border-radius: var(--radius-md); background: rgb(205 174 128 / .12); color: var(--warn); font-size: var(--text-xs); }
+.marketplace-workflow-footer { display: flex; min-height: 64px; flex: none; align-items: center; gap: 16px; padding: 12px 18px 16px; box-shadow: inset 0 1px var(--line); }
+.marketplace-workflow-footer small { flex: 1; color: var(--fg-4); font: var(--text-xs)/1.45 var(--font-mono); }
+.marketplace-workflow-footer button { min-height: 32px; padding: 0 13px; border-radius: var(--radius-md); background: var(--raised); color: var(--fg-4); box-shadow: inset 0 0 0 1px var(--line); }
+.marketplace-update-choices { display: grid; grid-column: 1 / -1; gap: 5px; }
+.marketplace-update-choices button { display: flex; min-height: 46px; padding: 8px 10px; align-items: flex-start; flex-direction: column; gap: 3px; border-radius: var(--radius-md); background: var(--raised); color: var(--fg-4); text-align: left; }
+.marketplace-update-choices small { color: var(--fg-4); }
+
+.marketplace-library-unavailable,
+.marketplace-update-review,
+.marketplace-downloads { display: grid; min-height: 260px; align-content: start; gap: 10px; padding: 28px 0 48px; }
+.marketplace-library-unavailable > svg { width: 20px; color: var(--warn); }
+.marketplace-library-unavailable h2,
+.marketplace-update-review h2,
+.marketplace-downloads h2 { margin: 0; font-size: var(--text-lg); }
+.marketplace-library-unavailable p,
+.marketplace-update-review > p { margin: 0; color: var(--fg-3); font-size: var(--text-sm); line-height: var(--leading-body); }
+.marketplace-library-unavailable p { display: flex; align-items: center; gap: 8px; }
+.marketplace-library-unavailable p svg { width: 14px; flex: none; }
+.marketplace-library-unavailable small { color: var(--fg-4); font: var(--text-xs) var(--font-mono); }
+.marketplace-downloads > section { display: grid; gap: 7px; }
+.marketplace-downloads h3 { margin: 0; color: var(--fg-4); font: var(--text-xs) var(--font-mono); letter-spacing: .09em; text-transform: uppercase; }
+.marketplace-downloads ul { display: grid; margin: 0; padding: 0; gap: 6px; list-style: none; }
+.marketplace-downloads li { display: grid; min-height: 60px; padding: 10px 12px; grid-template-columns: auto minmax(0, 1fr) minmax(100px, 180px); align-items: center; gap: 11px; border-radius: var(--radius-lg); background: var(--panel-solid); }
+.marketplace-downloads li > svg { width: 16px; color: var(--ok); }
+.marketplace-downloads li span { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.marketplace-downloads li small,
+.marketplace-downloads li em { color: var(--fg-3); font-size: var(--text-xs); font-style: normal; overflow-wrap: anywhere; }
+.marketplace-downloads progress { width: 100%; accent-color: var(--accent); }
+.marketplace-update-review .marketplace-review-fields { width: min(100%, 780px); }
+
 .marketplace-screen button:focus-visible,
 .marketplace-screen input:focus-visible,
 .marketplace-screen [tabindex]:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
@@ -312,6 +365,10 @@
   .marketplace-public-hero { grid-template-columns: minmax(0, 1fr); }
   .marketplace-public-actions { grid-column: 1; grid-row: auto; }
   .marketplace-public-detail-layout { grid-template-columns: minmax(0, 1fr); }
+  .marketplace-review-fields { grid-template-columns: minmax(0, 1fr); }
+  .marketplace-downloads li { grid-template-columns: auto minmax(0, 1fr); }
+  .marketplace-downloads li progress,
+  .marketplace-downloads li em { grid-column: 2; }
   .marketplace-unavailable-requirements,
   .marketplace-unavailable-contributions { grid-template-columns: minmax(0, 1fr); }
 }
