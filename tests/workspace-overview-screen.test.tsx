@@ -759,6 +759,31 @@ describe("workspace overview shell", () => {
     expect(markup).not.toContain(">Fix<");
   });
 
+  test("distinguishes grouped account failures in row text and primary action names", async () => {
+    const account = populatedOverview.accounts.items[0];
+    const publication = populatedOverview.publications.items[0];
+    const markup = await renderWorkspace({
+      ...populatedOverview,
+      accounts: { items: [
+        account,
+        { ...account, id: "account-2", externalId: "external-2", username: "studio", displayName: "Studio" },
+      ], nextCursor: null },
+      projects: { items: [{
+        id: "project-1", workspaceId: "workspace-1", slug: "launch-campaign", name: "Launch campaign",
+        state: "active", rowVersion: 1, createdAt: 1, updatedAt: 2,
+      }], nextCursor: null },
+      publications: { items: [
+        { ...publication, id: "publication-launch", socialAccountId: account.id },
+        { ...publication, id: "publication-studio", socialAccountId: "account-2" },
+      ], nextCursor: null },
+    });
+
+    expect(markup).toContain("Publication failed · Launch");
+    expect(markup).toContain("Publication failed · Studio");
+    expect(markup).toContain('aria-label="Review publications for Publication failed · Launch"');
+    expect(markup).toContain('aria-label="Review publications for Publication failed · Studio"');
+  });
+
   test("distinguishes no attention and no active work from unavailable production data", () => {
     const base = {
       attention: { status: "ready", value: { items: [], criticalCount: { status: "ready", value: 0 } } },

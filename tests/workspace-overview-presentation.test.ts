@@ -51,6 +51,45 @@ describe("workspace overview presentation", () => {
     }
   });
 
+  test("labels grouped publication failures with distinct bounded account names", () => {
+    const account = populatedOverview.accounts!.items[0]!;
+    const publication = populatedOverview.publications!.items[0]!;
+    const value = presentWorkspaceOverview({
+      overview: {
+        ...populatedOverview,
+        accounts: { items: [
+          account,
+          { ...account, id: "account-2", externalId: "external-2", username: "studio", displayName: "Studio" },
+        ], nextCursor: null },
+        publications: { items: [
+          { ...publication, id: "p1", socialAccountId: account.id },
+          { ...publication, id: "p2", socialAccountId: "account-2" },
+        ], nextCursor: null },
+      },
+      catalogProjects: [], description: "", now: 1,
+    });
+
+    expect(value.attention).toMatchObject({ status: "ready" });
+    if (value.attention.status === "ready") {
+      expect(value.attention.value.items.filter((item) => item.kind === "publication-failure").map((item) => item.title))
+        .toEqual(["Publication failed · Launch", "Publication failed · Studio"]);
+    }
+
+    const partial = presentWorkspaceOverview({
+      overview: {
+        ...populatedOverview,
+        accounts: { items: [account], nextCursor: "more-accounts" },
+        publications: { items: [{ ...publication, socialAccountId: "account-2" }], nextCursor: null },
+      },
+      catalogProjects: [], description: "", now: 1,
+    });
+    expect(partial.attention).toMatchObject({ status: "partial" });
+    if (partial.attention.status === "partial") {
+      expect(partial.attention.value.items[0]!.title).toBe("Publication failed · Publishing account unavailable");
+      expect(partial.attention.value.items[0]!.title).not.toContain("account-2");
+    }
+  });
+
   test("does not infer cadence gaps or top performers from bounded totals", () => {
     const value = presentWorkspaceOverview({ overview: populatedOverview, catalogProjects: [], description: "", now: 1 });
     expect(value.plan.coverage).toMatchObject({ status: "unavailable", reason: expect.stringContaining("cadence") });

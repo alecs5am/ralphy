@@ -72,7 +72,7 @@ function AttentionQueue({ value, onOpenPage, onRetry }: {
           <AlertTriangle size={15} aria-hidden="true" />{item.severity === "critical" ? "Critical" : "Warning"}
         </span>
         <span className="workspace-attention-copy"><strong>{item.title}</strong><small>{affectedLabel(item.affectedCount)}</small></span>
-        <button type="button" onClick={() => onOpenPage("calendar")}>{attentionAction(item)}</button>
+        <button type="button" aria-label={`${attentionAction(item)} for ${item.title}`} onClick={() => onOpenPage("calendar")}>{attentionAction(item)}</button>
       </li>)}
     </ul>}
     {total > 5 && !expanded && <button className="workspace-attention-more" type="button" onClick={() => setExpanded(true)}>View all attention</button>}

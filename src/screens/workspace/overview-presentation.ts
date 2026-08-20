@@ -359,21 +359,21 @@ function presentAttention(
   const accountItems = accounts?.items ?? [];
   const publicationItems = publications?.items ?? [];
   const items: AttentionPresentation[] = [
-    ...publicationAttention(publicationItems, publications, "failed", "publication-failure", "Publication failed"),
-    ...publicationAttention(publicationItems, publications, "reconciliation_required", "publication-reconciliation", "Publication needs reconciliation"),
+    ...publicationAttention(publicationItems, publications, accounts, "failed", "publication-failure", "Publication failed"),
+    ...publicationAttention(publicationItems, publications, accounts, "reconciliation_required", "publication-reconciliation", "Publication needs reconciliation"),
     ...accountItems.filter((account) => account.relinkRequired).map((account) => ({
       kind: "account-relink" as const,
       severity: "warning" as const,
       accountId: account.id,
       affectedCount: countAvailability(publications, publicationItems.filter((publication) => publication.socialAccountId === account.id).length, "Affected publications"),
-      title: `${account.displayName ?? account.username ?? account.externalId} needs relinking`,
+      title: `${accountDisplayLabel(account)} needs relinking`,
     })),
     ...accountItems.filter((account) => !account.credentialConfigured).map((account) => ({
       kind: "account-configuration" as const,
       severity: "warning" as const,
       accountId: account.id,
       affectedCount: countAvailability(publications, publicationItems.filter((publication) => publication.socialAccountId === account.id).length, "Affected publications"),
-      title: `${account.displayName ?? account.username ?? account.externalId} is not configured`,
+      title: `${accountDisplayLabel(account)} is not configured`,
     })),
   ];
   items.sort((left, right) => attentionPriority(left) - attentionPriority(right));
@@ -390,6 +390,7 @@ function presentAttention(
 function publicationAttention(
   publications: OverviewPublicationDto[],
   page: Page<OverviewPublicationDto> | undefined,
+  accounts: Page<OverviewAccountDto> | undefined,
   state: OverviewPublicationDto["state"],
   kind: Extract<AttentionKind, "publication-failure" | "publication-reconciliation">,
   title: string,
@@ -407,8 +408,18 @@ function publicationAttention(
     severity: "critical",
     accountId: accountId === "unknown" ? null : accountId,
     affectedCount: countAvailability(page, group.length, "Affected publications"),
-    title,
+    title: `${title} · ${attentionAccountLabel(accounts, accountId === "unknown" ? null : accountId)}`,
   }));
+}
+
+function accountDisplayLabel(account: OverviewAccountDto): string {
+  return account.displayName?.trim() || account.username?.trim() || `${account.platform} account`;
+}
+
+function attentionAccountLabel(accounts: Page<OverviewAccountDto> | undefined, accountId: string | null): string {
+  if (!accountId) return "Publishing account unavailable";
+  const account = accounts?.items.find((candidate) => candidate.id === accountId);
+  return account ? accountDisplayLabel(account) : "Publishing account unavailable";
 }
 
 function attentionPriority(item: AttentionPresentation): number {
