@@ -22,7 +22,10 @@ import {
   MarketplaceModelDetail,
 } from "./marketplace/MarketplaceModelViews";
 import { MarketplacePublicItemDetail } from "./marketplace/MarketplacePublicItemDetail";
-import type { MarketplaceSnapshot } from "./marketplace/presentation";
+import {
+  projectMarketplacePublicItem,
+  type MarketplaceSnapshot,
+} from "./marketplace/presentation";
 
 export interface MarketplaceScreenProps {
   catalog: CatalogResult | null;
@@ -64,6 +67,11 @@ function modelReference(itemId: string) {
   const repositoryId = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
   if (provider === "civitai" ? !/^\d{1,12}$/.test(id) : !repositoryId.test(id)) return null;
   return { provider, id };
+}
+
+function publicItemReference(itemId: string) {
+  const match = /^(template|recipe):([A-Za-z0-9][A-Za-z0-9._-]{0,127})$/.exec(itemId);
+  return match ? { category: match[1] as "template" | "recipe", id: match[2]! } : null;
 }
 
 function clearedFilters(query: MarketplaceQueryState, category: MarketplaceCategory | "all"): MarketplaceQueryState {
@@ -217,9 +225,22 @@ export function MarketplaceScreenView({
   };
   const detailReference = location.route.kind === "detail" ? modelReference(location.route.itemId) : null;
   const detailItemId = location.route.kind === "detail" ? location.route.itemId : null;
-  const detailItem = detailItemId !== null && snapshot.status === "ready"
-    ? snapshot.items.find(({ key }) => key === detailItemId)
+  const publicReference = detailItemId === null ? null : publicItemReference(detailItemId);
+  const publicDto = publicReference !== null && snapshot.status === "ready"
+    ? snapshot.publicSource?.items.find(({ category, id }) => category === publicReference.category && id === publicReference.id)
     : undefined;
+  const detailItem = publicDto && snapshot.status === "ready" && snapshot.publicSource
+    ? projectMarketplacePublicItem(publicDto, snapshot.publicSource.source)
+    : undefined;
+  const publicDetailState = publicReference === null
+    ? null
+    : snapshot.status === "loading"
+      ? "loading"
+      : snapshot.status === "error" || snapshot.publicSource === null
+        ? "unavailable"
+        : detailItem
+          ? "ready"
+          : "missing";
   return <main className="marketplace-screen main-region" data-sidebar-visible={sidebarVisible ? "true" : "false"}>
     <MarketplaceHeader
       title={routeTitle(location)}
@@ -239,8 +260,14 @@ export function MarketplaceScreenView({
       <p className="marketplace-target-state">{targetMessage}</p>
       {detailReference
         ? <MarketplaceModelDetail reference={detailReference} onBack={onBack} />
-        : detailItem?.category === "templates" || detailItem?.category === "recipes"
+        : publicDetailState === "ready" && (detailItem?.category === "templates" || detailItem?.category === "recipes")
           ? <MarketplacePublicItemDetail item={detailItem} onBack={onBack} />
+        : publicDetailState === "loading"
+          ? <section className="marketplace-route-placeholder" role="status" aria-busy="true"><h2>Loading public item details…</h2></section>
+        : publicDetailState === "unavailable"
+          ? <section className="marketplace-route-placeholder" role="status"><h2>Public item details unavailable</h2><p>Public item details are unavailable because the Ralphy public library is unavailable.</p></section>
+        : publicDetailState === "missing"
+          ? <section className="marketplace-route-placeholder" role="status"><h2>Public item not found</h2><p>Public item was not found in the current Ralphy public library.</p></section>
         : location.route.kind === "library" && location.route.section === "installed"
           ? <MarketplaceInstalledModels machine={snapshot.status === "ready" ? snapshot.machine : null} />
           : route === null

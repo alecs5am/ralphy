@@ -711,11 +711,14 @@ describe("design system contract", () => {
 
   test("allows trusted media URLs for image previews", () => {
     const html = readFileSync(join(process.cwd(), "index.html"), "utf8");
+    const sources = (directive: string) => html.match(new RegExp(`${directive} ([^;]+)`))?.[1].split(/\s+/) ?? [];
     expect(html).toMatch(/img-src[^;]*ralphy-media:/);
     expect(html).toMatch(/img-src[^;]*\*\.cdn\.hf\.co/);
     expect(html).toMatch(/img-src[^;]*image-b2\.civitai\.com/);
-    expect(html).toMatch(/img-src[^;]*https:\/\/ralphy\.b-cdn\.net/);
-    expect(html).toMatch(/media-src[^;]*https:\/\/ralphy\.b-cdn\.net/);
+    expect(sources("img-src")).toEqual(expect.arrayContaining(["https://ralphy.b-cdn.net/blocks/", "https://ralphy.b-cdn.net/units/"]));
+    expect(sources("media-src")).toEqual(expect.arrayContaining(["https://ralphy.b-cdn.net/blocks/", "https://ralphy.b-cdn.net/units/"]));
+    expect(sources("img-src")).not.toContain("https://ralphy.b-cdn.net");
+    expect(sources("media-src")).not.toContain("https://ralphy.b-cdn.net");
     expect(html).not.toMatch(/(?:default-src|script-src|connect-src)[^;]*ralphy\.b-cdn\.net/);
   });
 

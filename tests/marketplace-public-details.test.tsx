@@ -5,6 +5,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { bridge } from "../src/lib/ipc";
 import { MarketplaceScreenView } from "../src/screens/MarketplaceScreen";
 import { MarketplacePublicItemDetail } from "../src/screens/marketplace/MarketplacePublicItemDetail";
+import type { MarketplacePublicItemDto } from "../electron/media/types";
 import type { MarketplaceItemPresentation, MarketplaceSnapshot } from "../src/screens/marketplace/presentation";
 import type { MarketplaceLocation, MarketplaceQueryState } from "../src/state/marketplace-navigation";
 import { createReactHost, type HostNode } from "./react-host";
@@ -75,13 +76,23 @@ function location(item: MarketplaceItemPresentation): MarketplaceLocation {
   return { route: { kind: "detail", itemId: item.key }, query, selectedItemId: item.key, scrollTop: 0, focusId: "marketplace-heading" };
 }
 
-function snapshot(items: MarketplaceItemPresentation[]): Extract<MarketplaceSnapshot, { status: "ready" }> {
+function snapshot(
+  items: MarketplaceItemPresentation[],
+  publicItems: MarketplacePublicItemDto[] = items.flatMap((item) => item.category === "templates" ? [item.template] : item.category === "recipes" ? [item.recipe] : []),
+): Extract<MarketplaceSnapshot, { status: "ready" }> {
   return {
     status: "ready",
     items,
     categories: [],
     machine: null,
-    publicSource: null,
+    publicSource: {
+      schemaVersion: 1,
+      source: "live",
+      refreshedAt: "2026-08-20T10:00:00.000Z",
+      sourceUpdatedAt: null,
+      warning: null,
+      items: publicItems,
+    },
     sourceErrors: [],
     sourceHealth: { publicLibrary: "ready", models: "unavailable" },
     refreshing: false,
@@ -139,6 +150,62 @@ describe("Marketplace public item details", () => {
     expect(markup).toContain("&lt;script&gt;alert(&quot;not html&quot;)&lt;/script&gt;");
     expect(markup).toContain("&lt;width&gt;:&lt;height&gt;");
     expect(markup).not.toContain("<script>");
+  });
+
+  test("renders only evidenced public media types and keeps untrusted preview URLs inert", () => {
+    const item = { ...recipe, recipe: { ...recipe.recipe, recipe: { ...recipe.recipe.recipe!, demo: {
+      kind: "media" as const,
+      storageUrl: "https://evil.example/demo.mp4",
+      beforeUrl: "https://ralphy.b-cdn.net/blocks/recipe/before.mp4",
+      afterUrl: "https://ralphy.b-cdn.net/units/recipe/after.mp4",
+      posterUrl: "https://ralphy.b-cdn.net/private/poster.png",
+    } } } };
+    const markup = renderToStaticMarkup(<MarketplacePublicItemDetail item={item} onBack={() => undefined} />);
+    expect(markup).not.toContain("https://evil.example");
+    expect(markup).not.toContain("/private/poster.png");
+    expect(markup).toContain('<video src="https://ralphy.b-cdn.net/blocks/recipe/before.mp4"');
+    expect(markup).toContain('<video src="https://ralphy.b-cdn.net/units/recipe/after.mp4"');
+    expect(markup).toContain('controlsList="nodownload"');
+    expect(markup).not.toContain('<img src="https://ralphy.b-cdn.net/blocks/recipe/before.mp4"');
+
+    const arbitraryScheme = renderToStaticMarkup(<MarketplacePublicItemDetail item={{ ...template, template: { ...template.template, referenceUrls: ["data:image/png;base64,AAAA"] } }} onBack={() => undefined} />);
+    expect(arbitraryScheme).not.toContain("data:image/png");
+    const unsupportedType = renderToStaticMarkup(<MarketplacePublicItemDetail item={{ ...template, template: { ...template.template, referenceUrls: ["https://ralphy.b-cdn.net/blocks/template/vector.svg"] } }} onBack={() => undefined} />);
+    expect(unsupportedType).not.toContain("vector.svg");
+  });
+
+  test("shows a typed media failure and resets it when the URL changes", async () => {
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    await act(async () => root.render(<MarketplacePublicItemDetail item={template} onBack={() => undefined} />));
+    const image = host.container.querySelector("img");
+    expect(image).not.toBeNull();
+    await act(async () => image!.dispatchEvent(new Event("error")));
+    expect(host.container.textContent).toContain("Template reference preview image is unavailable");
+
+    const replacement = { ...template, template: { ...template.template, referenceUrls: ["https://ralphy.b-cdn.net/units/template/story-arc.mp4"] } };
+    await act(async () => root.render(<MarketplacePublicItemDetail item={replacement} onBack={() => undefined} />));
+    const video = host.container.querySelector("video");
+    expect(video?.getAttribute("src")).toBe("https://ralphy.b-cdn.net/units/template/story-arc.mp4");
+    expect(video?.getAttribute("controlsList")).toBe("nodownload");
+    expect(host.container.textContent).not.toContain("Template reference preview image is unavailable");
+
+    await act(async () => root.unmount());
+    host.restore();
+  });
+
+  test("keeps uncontracted Recipe Markdown links and media inert", () => {
+    const body = [
+      "[evil link](https://evil.example/collect)",
+      "![private pixel](https://ralphy.b-cdn.net/private/pixel.png)",
+      "![accepted preview](https://ralphy.b-cdn.net/blocks/recipe/accepted.png)",
+    ].join("\n\n");
+    const item = { ...recipe, recipe: { ...recipe.recipe, recipe: { ...recipe.recipe.recipe!, body } } };
+    const markup = renderToStaticMarkup(<MarketplacePublicItemDetail item={item} onBack={() => undefined} />);
+    expect(markup).not.toContain("<a ");
+    expect(markup).not.toContain("https://evil.example");
+    expect(markup).not.toContain('src="https://ralphy.b-cdn.net/private/pixel.png"');
+    expect(markup).toContain('src="https://ralphy.b-cdn.net/blocks/recipe/accepted.png"');
   });
 
   test("keeps an unavailable Recipe artifact action focusable, described, and inert", () => {
@@ -200,6 +267,30 @@ describe("Marketplace public item details", () => {
     host.restore();
   });
 
+  test("keys copy work and status to the exact artifact when a Recipe changes in place", async () => {
+    const pending = deferred<void>();
+    const copyText = vi.spyOn(bridge, "copyText").mockReturnValueOnce(pending.promise).mockRejectedValueOnce(new Error("New artifact denied"));
+    const replacement = { ...recipe, recipe: { ...recipe.recipe, recipe: { ...recipe.recipe.recipe!, artifact: "replacement artifact" } } };
+    const removed = { ...recipe, recipe: { ...recipe.recipe, recipe: { ...recipe.recipe.recipe!, artifact: null } } };
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+
+    await act(async () => root.render(<MarketplacePublicItemDetail item={recipe} onBack={() => undefined} />));
+    await act(async () => button(host.container, "Copy artifact").dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
+    await act(async () => root.render(<MarketplacePublicItemDetail item={replacement} onBack={() => undefined} />));
+    await act(async () => { pending.resolve(); await pending.promise; });
+    expect(host.container.textContent).not.toContain("Artifact copied");
+
+    await act(async () => { button(host.container, "Copy artifact").dispatchEvent(new Event("click", { bubbles: true, cancelable: true })); await Promise.resolve(); });
+    expect(copyText).toHaveBeenLastCalledWith("replacement artifact");
+    expect(host.container.textContent).toContain("New artifact denied");
+    await act(async () => root.render(<MarketplacePublicItemDetail item={removed} onBack={() => undefined} />));
+    expect(host.container.textContent).not.toContain("New artifact denied");
+
+    await act(async () => root.unmount());
+    host.restore();
+  });
+
   test("composes real public details into the full Marketplace route and preserves Back delegation", () => {
     const onBack = vi.fn();
     const markup = renderToStaticMarkup(<MarketplaceScreenView
@@ -215,5 +306,30 @@ describe("Marketplace public item details", () => {
     expect(markup).toContain("Story arc");
     expect(markup).toContain("What it gives you");
     expect(markup).not.toContain("This route does not expose a mutation yet");
+  });
+
+  test("resolves detail identity from the unfiltered public source and names loading, unavailable, and missing states", () => {
+    const props = {
+      catalog: null,
+      location: location(template),
+      sidebarVisible: true,
+      onBack: () => undefined,
+      onNavigate: () => undefined,
+      onRememberLocation: () => undefined,
+      onRetry: () => undefined,
+    };
+    const filteredQuery = { ...query, text: "does not match", filters: { ...query.filters, category: "recipes" as const } };
+    const filtered = renderToStaticMarkup(<MarketplaceScreenView {...props} location={{ ...props.location, query: filteredQuery }} snapshot={{ ...snapshot([], [template.template]), query: filteredQuery }} />);
+    expect(filtered).toContain("Story arc");
+    expect(filtered).toContain("What it gives you");
+
+    const loading = renderToStaticMarkup(<MarketplaceScreenView {...props} snapshot={{ status: "loading", query }} />);
+    expect(loading).toContain("Loading public item details");
+
+    const unavailable = renderToStaticMarkup(<MarketplaceScreenView {...props} snapshot={{ ...snapshot([], []), publicSource: null, sourceHealth: { publicLibrary: "unavailable", models: "unavailable" } }} />);
+    expect(unavailable).toContain("Public item details are unavailable because the Ralphy public library is unavailable");
+
+    const missing = renderToStaticMarkup(<MarketplaceScreenView {...props} snapshot={snapshot([], [])} />);
+    expect(missing).toContain("Public item was not found in the current Ralphy public library");
   });
 });

@@ -19,10 +19,52 @@ function available(value: Availability<string>): string {
   return value.status === "ready" ? value.value : value.reason;
 }
 
+function publicMediaKind(value: string): "image" | "video" | null {
+  try {
+    const url = new URL(value);
+    if (url.origin !== "https://ralphy.b-cdn.net"
+      || url.username !== "" || url.password !== "" || url.search !== "" || url.hash !== ""
+      || (!url.pathname.startsWith("/blocks/") && !url.pathname.startsWith("/units/"))) return null;
+    if (/\.(?:avif|gif|jpe?g|png|webp)$/i.test(url.pathname)) return "image";
+    if (/\.(?:mp4|webm)$/i.test(url.pathname)) return "video";
+  } catch {
+    // Invalid source URLs stay inert.
+  }
+  return null;
+}
+
+function allowRecipeMarkdownUrl(url: URL, kind: "link" | "image"): boolean {
+  return kind === "image" && publicMediaKind(url.toString()) === "image";
+}
+
+function PublicMedia({ url, label, posterUrl, className }: { url: string; label: string; posterUrl?: string | null; className?: string }) {
+  const kind = publicMediaKind(url);
+  const [failed, setFailed] = useState(false);
+  if (!kind) return <p className="marketplace-public-media-fallback">{label} media is unavailable.</p>;
+  if (failed) return <p className="marketplace-public-media-fallback">{label} {kind} is unavailable.</p>;
+  if (kind === "video") return <video
+    className={className}
+    src={url}
+    poster={posterUrl && publicMediaKind(posterUrl) === "image" ? posterUrl : undefined}
+    controls
+    controlsList="nodownload"
+    preload="metadata"
+    onError={() => setFailed(true)}
+  />;
+  return <img
+    className={className}
+    src={url}
+    alt={`${label} for Marketplace item`}
+    loading="lazy"
+    referrerPolicy="no-referrer"
+    onError={() => setFailed(true)}
+  />;
+}
+
 function TemplatePreview({ item }: { item: TemplateItem }) {
   const url = item.template.referenceUrls[0];
   return url
-    ? <img className="marketplace-public-reference" src={url} alt={`Reference preview for ${item.name}`} loading="lazy" referrerPolicy="no-referrer" />
+    ? <PublicMedia key={url} className="marketplace-public-reference" url={url} label="Template reference preview" />
     : <p>Template reference preview is unavailable from public-library schema 1.</p>;
 }
 
@@ -32,10 +74,10 @@ function RecipePreview({ item }: { item: RecipeItem }) {
     return <p>Source-provided preview is unavailable from public-library schema 1.</p>;
   }
   return <div className="marketplace-public-preview-grid">
-    {demo.storageUrl && <figure><video src={demo.storageUrl} poster={demo.posterUrl ?? undefined} controls preload="metadata" /><figcaption>Source-provided preview</figcaption></figure>}
-    {!demo.storageUrl && demo.posterUrl && <figure><img src={demo.posterUrl} alt={`Source-provided preview for ${item.name}`} loading="lazy" referrerPolicy="no-referrer" /><figcaption>Source-provided preview</figcaption></figure>}
-    {demo.beforeUrl && <figure><img src={demo.beforeUrl} alt={`Before preview for ${item.name}`} loading="lazy" referrerPolicy="no-referrer" /><figcaption>Before</figcaption></figure>}
-    {demo.afterUrl && <figure><img src={demo.afterUrl} alt={`After preview for ${item.name}`} loading="lazy" referrerPolicy="no-referrer" /><figcaption>After</figcaption></figure>}
+    {demo.storageUrl && <figure><PublicMedia key={demo.storageUrl} url={demo.storageUrl} posterUrl={demo.posterUrl} label="Source-provided preview" /><figcaption>Source-provided preview</figcaption></figure>}
+    {!demo.storageUrl && demo.posterUrl && <figure><PublicMedia key={demo.posterUrl} url={demo.posterUrl} label="Source-provided preview" /><figcaption>Source-provided preview</figcaption></figure>}
+    {demo.beforeUrl && <figure><PublicMedia key={demo.beforeUrl} url={demo.beforeUrl} label={`Before preview for ${item.name}`} /><figcaption>Before</figcaption></figure>}
+    {demo.afterUrl && <figure><PublicMedia key={demo.afterUrl} url={demo.afterUrl} label={`After preview for ${item.name}`} /><figcaption>After</figcaption></figure>}
   </div>;
 }
 
@@ -46,7 +88,7 @@ export function MarketplacePublicItemDetail({
   onReviewRecipeTarget,
 }: MarketplacePublicItemDetailProps) {
   const generation = useRef(0);
-  const [copyResult, setCopyResult] = useState<{ key: string; kind: "success" | "error"; message: string } | null>(null);
+  const [copyResult, setCopyResult] = useState<{ key: string; artifact: string; kind: "success" | "error"; message: string } | null>(null);
   const recipe = item.category === "recipes" ? item.recipe.recipe : null;
   const artifact = recipe?.artifact ?? null;
 
@@ -54,7 +96,7 @@ export function MarketplacePublicItemDetail({
     generation.current += 1;
     setCopyResult(null);
     return () => { generation.current += 1; };
-  }, [item.key]);
+  }, [artifact, item.key]);
 
   const copyArtifact = async () => {
     if (!artifact) return;
@@ -62,11 +104,11 @@ export function MarketplacePublicItemDetail({
     setCopyResult(null);
     try {
       await bridge.copyText(artifact);
-      if (requestGeneration === generation.current) setCopyResult({ key: item.key, kind: "success", message: "Artifact copied" });
+      if (requestGeneration === generation.current) setCopyResult({ key: item.key, artifact, kind: "success", message: "Artifact copied" });
     } catch (cause) {
       if (requestGeneration === generation.current) {
         const message = (cause instanceof Error ? cause.message : String(cause)).slice(0, 1_024);
-        setCopyResult({ key: item.key, kind: "error", message });
+        setCopyResult({ key: item.key, artifact, kind: "error", message });
       }
     }
   };
@@ -74,7 +116,7 @@ export function MarketplacePublicItemDetail({
   const review = item.category === "templates" ? onReviewTemplateTarget : onReviewRecipeTarget;
   const reviewUnavailableId = `marketplace-${item.category}-review-unavailable`;
   const copyUnavailableId = "marketplace-recipe-copy-unavailable";
-  const status = copyResult?.key === item.key ? copyResult : null;
+  const status = copyResult?.key === item.key && copyResult.artifact === artifact ? copyResult : null;
 
   return <article className="marketplace-public-detail marketplace-detail-route" aria-labelledby="marketplace-public-title">
     <button className="marketplace-public-back" type="button" onClick={onBack}><ArrowLeft aria-hidden="true" />Back to {item.category === "templates" ? "Templates" : "Recipes"}</button>
@@ -114,7 +156,7 @@ export function MarketplacePublicItemDetail({
           <h4>Composition skeleton</h4><p>Composition skeleton is unavailable from public-library schema 1.</p>
           <h4>Examples and common failure modes</h4><p>Examples and failure modes are unavailable from public-library schema 1.</p>
         </section> : <>
-          <section><h3>How to use it</h3>{recipe?.body ? <MarkdownView markdown={recipe.body} /> : <p>Recipe instructions are unavailable from public-library schema 1.</p>}</section>
+          <section><h3>How to use it</h3>{recipe?.body ? <MarkdownView markdown={recipe.body} allowUrl={allowRecipeMarkdownUrl} /> : <p>Recipe instructions are unavailable from public-library schema 1.</p>}</section>
           <section><h3>Artifact</h3>{artifact ? <pre><code>{artifact}</code></pre> : <p>An extractable artifact is unavailable from public-library schema 1.</p>}</section>
           <section><h3>Named parameters</h3>{recipe?.parameters !== null && recipe?.parameters !== undefined ? <pre><code>{JSON.stringify(recipe.parameters, null, 2)}</code></pre> : <p>Named parameters are unavailable from public-library schema 1.</p>}</section>
           <section><h3>Required tools</h3><p>Required tools are unavailable from public-library schema 1.</p></section>

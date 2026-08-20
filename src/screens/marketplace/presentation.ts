@@ -189,7 +189,7 @@ function modelPresentation(summary: LocalModelSummary): MarketplaceItemPresentat
   };
 }
 
-function publicPresentation(item: MarketplacePublicItemDto, source: MarketplacePublicSnapshotDto["source"]): MarketplaceItemPresentation {
+export function projectMarketplacePublicItem(item: MarketplacePublicItemDto, source: MarketplacePublicSnapshotDto["source"]): MarketplaceItemPresentation {
   const common = {
     key: `${item.category}:${item.id}`,
     name: item.name,
@@ -308,7 +308,7 @@ export function presentMarketplaceSources(
   sourceErrors: MarketplaceSourceIssue[],
   sourceHealth: MarketplaceSourceHealth,
 ): Extract<MarketplaceSnapshot, { status: "ready" }> {
-  const publicItems = publicSnapshot?.items.slice(0, 512).map((item) => publicPresentation(item, publicSnapshot.source)) ?? [];
+  const publicItems = publicSnapshot?.items.slice(0, 512).map((item) => projectMarketplacePublicItem(item, publicSnapshot.source)) ?? [];
   const modelItems = modelCatalog?.items.slice(0, 24).map(modelPresentation) ?? [];
   const tokens = query.text.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   const scored = [...modelItems, ...publicItems]
