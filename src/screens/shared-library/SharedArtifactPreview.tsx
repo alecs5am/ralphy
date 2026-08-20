@@ -36,7 +36,7 @@ export function SharedArtifactPreview({ artifact, workspaceId, rootEpoch, resolv
     return () => { current = false; };
   }, [artifact.id, artifact.preview, resolvePreview, rootEpoch, workspaceId]);
 
-  if (preview.status === "loading") return <span className="shared-artifact-preview-state" role="status">Loading preview…</span>;
+  if (preview.status === "loading") return <span className="shared-artifact-preview-state" aria-hidden="true">Loading preview…</span>;
   if (preview.status === "unavailable") return <span className="shared-artifact-preview-state" title={preview.reason}><ImageOff aria-hidden="true" /><span>Preview unavailable</span></span>;
   const identityName = `Slug identity: ${artifact.slug}`;
   if (list) {

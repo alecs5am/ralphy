@@ -61,8 +61,9 @@ function interactiveChild(event: MouseEvent<HTMLElement>): boolean {
   return event.target !== event.currentTarget && !!(event.target as HTMLElement).closest("button,input,select,a,[role=slider]");
 }
 
-function ArtifactIdentity({ artifact, audit = false, onSelect, onViewer }: {
+function ArtifactIdentity({ artifact, selected = false, audit = false, onSelect, onViewer }: {
   artifact: SharedArtifactPresentation;
+  selected?: boolean;
   audit?: boolean;
   onSelect(origin: HTMLButtonElement): void;
   onViewer(origin: HTMLButtonElement): void;
@@ -78,6 +79,7 @@ function ArtifactIdentity({ artifact, audit = false, onSelect, onViewer }: {
       type="button"
       aria-label={`Select ${artifact.slug} identity and open inspector`}
       aria-describedby={instructionsId}
+      aria-pressed={audit ? undefined : selected}
       title={reason}
       onClick={(event) => {
         event.stopPropagation();
@@ -121,7 +123,7 @@ function SharedArtifactCard({ artifact, selected, workspaceId, rootEpoch, resolv
       <span className="shared-artifact-format">{artifact.mime?.split("/").at(-1)?.toLocaleUpperCase() ?? artifact.kind.toLocaleUpperCase()}</span>
       <button className="shared-artifact-preview-action" type="button" aria-label={`Preview ${artifact.slug}`} onClick={(event) => onViewer(event.currentTarget)}><Maximize2 aria-hidden="true" />Preview</button>
     </div>
-    <ArtifactIdentity artifact={artifact} onSelect={onSelect} onViewer={onViewer} />
+    <ArtifactIdentity artifact={artifact} selected={selected} onSelect={onSelect} onViewer={onViewer} />
     <small>{artifactFacts(artifact)}</small>
     <span className="shared-artifact-referenced"><b>Referenced as</b> {referencedAs(artifact)}</span>
   </article>;
@@ -141,11 +143,12 @@ function SharedLibraryAuditList({ artifacts, selectedId, selectedRows, workspace
   onViewer(artifact: SharedArtifactPresentation, origin: HTMLElement): void;
 }) {
   const columns = ["", "ARTIFACT", "KIND", "REFERENCED AS", "CANONICAL", "REVISION", "REVISION COUNT", "USED BY", "RIGHTS", "LAST USED", "ATTENTION"];
-  return <div className="shared-library-audit-scroll" role="region" aria-label="Scrollable Shared Library audit columns" tabIndex={0}><div className="shared-library-audit" role="table" aria-label="Shared Library audit list">
+  return <div className="shared-library-audit-scroll" role="region" aria-label="Scrollable Shared Library audit columns" tabIndex={0}><div className="shared-library-audit" role="grid" aria-label="Shared Library audit list">
     <div className="shared-library-audit-header" role="row">{columns.map((column, index) => <span role="columnheader" key={`${column}:${index}`}>{column}</span>)}</div>
     {artifacts.map((artifact) => <div
       className={`shared-library-audit-row${selectedId === artifact.id ? " is-selected" : ""}`}
       role="row"
+      aria-selected={selectedId === artifact.id}
       key={artifact.id}
       onClick={(event) => { if (!interactiveChild(event)) onSelect(artifact, event.currentTarget.querySelector<HTMLElement>(".shared-artifact-identity") ?? event.currentTarget); }}
       onDoubleClick={(event) => { if (!interactiveChild(event)) onViewer(artifact, event.currentTarget.querySelector<HTMLElement>(".shared-artifact-identity") ?? event.currentTarget); }}
@@ -153,7 +156,7 @@ function SharedLibraryAuditList({ artifacts, selectedId, selectedRows, workspace
       onKeyDown={(event) => {
         if (event.target !== event.currentTarget || (event.key !== " " && event.key !== "Enter")) return;
         event.preventDefault();
-        const origin = event.currentTarget.querySelector<HTMLElement>(".shared-artifact-identity") ?? event.currentTarget;
+        const origin = event.currentTarget;
         if (event.key === "Enter") onViewer(artifact, origin); else onSelect(artifact, origin);
       }}
     >
@@ -235,7 +238,7 @@ export function SharedLibraryScreenView({ workspaceId, workspaceName, rootEpoch,
     {snapshot.refreshError && <div className="shared-library-error" role="alert"><AlertCircle aria-hidden="true" /><span>{snapshot.refreshError}</span><button type="button" onClick={() => { void controller.refresh(); }}>Retry refresh</button></div>}
     <div className="shared-library-content" data-inspector-open={inspector ? "true" : undefined}>
       <div className="shared-library-scroll" aria-busy={snapshot.loadingMore || undefined}>
-        {value.artifacts.length === 0 ? <div className="shared-library-empty"><strong>{queryDirty ? "No artifacts match these filters" : "Build a reusable source of truth"}</strong><p>{queryDirty ? "Try slug, kind, MIME, referenced role, or provenance." : "Add canonical characters, locations, products, audio hooks and brand assets for future projects."}</p></div>
+        {value.artifacts.length === 0 ? <div className="shared-library-empty"><strong>{queryDirty ? "No artifacts match these filters" : "Build a reusable source of truth"}</strong><p>{queryDirty ? "Try slug, kind, MIME, referenced role, or provenance." : "Add canonical characters, locations, products, audio hooks, and brand assets for future projects."}</p></div>
           : snapshot.query.view === "grid" ? <div className="shared-library-grid">{value.artifacts.map((artifact) => <SharedArtifactCard key={artifact.id} artifact={artifact} selected={value.selectedArtifactId === artifact.id} workspaceId={workspaceId} rootEpoch={rootEpoch} resolvePreview={resolvePreview} onSelect={(origin) => inspect(artifact, origin)} onViewer={(origin) => view(artifact, origin)} />)}</div>
             : <SharedLibraryAuditList artifacts={value.artifacts} selectedId={value.selectedArtifactId} selectedRows={selectedRows} workspaceId={workspaceId} rootEpoch={rootEpoch} resolvePreview={resolvePreview} onToggle={toggle} onSelect={inspect} onViewer={view} />}
         {value.nextCursor && <p className="shared-library-bounded" role="note">Showing loaded artifacts · {value.artifacts.length} loaded; more are available from Core.</p>}

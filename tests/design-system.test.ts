@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { build } from "esbuild";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -410,7 +411,7 @@ function sharedLibraryMarkup(view: "grid" | "list") {
 }
 
 type SharedGeometryResult = {
-  state: "grid" | "list" | "inspector" | "viewer" | "workflow";
+  state: string;
   width: number;
   height: number;
   overflows: string[];
@@ -423,6 +424,12 @@ type SharedGeometryResult = {
   auditScrollable: boolean | null;
   auditTabIndex: number | null;
   fitsViewport: boolean | null;
+  portalMounted: boolean | null;
+  internalVertical: boolean | null;
+  mediaControls: number;
+  autoplayCount: number;
+  workflowKind: string | null;
+  workflowStep: string | null;
   focus: Array<{ selector: string; width: number; style: string }>;
   motion: Array<{ selector: string; transition: string; animation: string }>;
 };
@@ -438,13 +445,63 @@ async function sharedLibraryGeometry(): Promise<SharedGeometryResult[]> {
       artifact: presentSharedArtifact(sharedArtifact("artifact-1")), workspaceId: "workspace-1", rootEpoch: 1,
       returnFocus: null, onClose: () => undefined, onReconcile: () => undefined,
     }));
-    const viewer = `<section class="shared-artifact-viewer"><header class="shared-viewer-head"><span>IMAGE · PNG · SLUG</span><button>Open original</button><button aria-label="Close viewer">Close</button></header><div class="shared-viewer-body"><div class="shared-viewer-main"><div class="shared-viewer-stage"><div class="shared-viewer-preview-state">Preview unavailable</div><button class="shared-viewer-previous">Previous</button><button class="shared-viewer-next">Next</button></div><div class="shared-viewer-transport"><span>1 / 2 loaded</span><i></i><strong>Revision</strong><button>Revision 1</button></div></div><aside class="shared-viewer-context"><div class="shared-viewer-title"><h2>Title unavailable</h2><p>Slug identity</p></div><section class="shared-viewer-agent-use"><h3>Context agents receive</h3><p>Unavailable</p></section><span class="shared-viewer-spacer"></span><button>Open full inspector</button></aside></div></section>`;
-    const workflow = `<div class="shared-workflow-overlay"></div><section class="shared-workflow-window" data-workflow="add"><header class="shared-workflow-header"><div><h2>Add artifact</h2><p>Local preview</p></div><button aria-label="Close Add artifact">Close</button></header><ol class="shared-workflow-steps"><li><button aria-current="step"><span>1</span>Source</button></li><li><button><span>2</span>Duplicates</button></li><li><button><span>3</span>Describe</button></li><li><button><span>4</span>Confirm</button></li></ol><div class="shared-workflow-body"><section class="shared-workflow-block"><header><h3>REQUIRED FOR REUSE</h3><span>LOCAL</span></header><div class="shared-workflow-fields"><label><span>Title</span><input></label><label><span>Purpose</span><textarea></textarea></label></div></section></div><footer class="shared-workflow-footer"><small>LOCAL PREVIEW ONLY</small><span><button>Back</button><button class="shared-workflow-primary">Continue</button></span></footer></section>`;
     const templates = [
       ["grid", shell(sharedLibraryMarkup("grid"))], ["list", shell(sharedLibraryMarkup("list"))],
-      ["inspector-panel", inspector], ["viewer", shell(viewer)], ["workflow", shell(workflow)],
+      ["inspector-panel", inspector],
     ].map(([name, value]) => `<template id="${name}">${value}</template>`).join("");
-    writeFileSync(join(directory, "layout.html"), `<!doctype html><html><head>${links}</head><body><div id="root"></div>${templates}</body></html>`);
+    writeFileSync(join(directory, "harness.tsx"), `
+      import { createRoot } from "react-dom/client";
+      import { SharedArtifactViewer } from ${JSON.stringify(join(process.cwd(), "src/screens/shared-library/SharedArtifactViewer.tsx"))};
+      import { SharedLibraryWorkflows } from ${JSON.stringify(join(process.cwd(), "src/screens/shared-library/SharedLibraryWorkflows.tsx"))};
+      import { presentSharedArtifact } from ${JSON.stringify(join(process.cwd(), "src/screens/shared-library/presentation.ts"))};
+
+      const card = {
+        ref: { type: "artifact", id: "geometry-artifact" }, workspaceId: "workspace-1", projectId: null,
+        slug: "geometry-artifact-with-a-long-lossless-identity", kind: "brand-reference",
+        selectedRevisionId: "geometry-revision-1", selectedState: "approved", mime: "image/svg+xml", bytes: 2048,
+        selectedAt: 1, revisionCount: 1, selectedObjectId: "geometry-object-1", storageClass: "durable",
+        usageRoles: ["A long referenced role that remains lossless across the viewer context panel"],
+        target: { type: "object", id: "geometry-object-1" }, mediaKind: "image", provenance: "unknown",
+      };
+      const artifact = presentSharedArtifact(card);
+      const suggestions = { status: "ready", value: [
+        { field: "Title", value: "Canonical launch identity with enough descriptive content to exercise the longest suggestion card layout", source: "Embedded metadata and filename evidence" },
+        { field: "Media kind and role", value: "Reusable visual reference for future campaign composition and continuity work", source: "MIME and workspace usage evidence" },
+        { field: "Named entity", value: "Geometry Test Product Family and Campaign Collection", source: "Filename token evidence" },
+        { field: "Purpose", value: "Use when future agents need a consistent visual anchor across projects while preserving the original source identity", source: "Project reference evidence" },
+      ] };
+      window.__sharedGeometryArtifact = card;
+      window.__sharedGeometryRevisions = [{
+        id: "geometry-revision-1", artifactId: card.ref.id, objectId: "geometry-object-1", revisionNo: 1,
+        parentRevisionId: null, iterationId: null, state: "approved", authoredBySessionId: null, createdAt: 1,
+      }];
+      const root = createRoot(document.getElementById("react-root"));
+      function Harness({ state }) {
+        if (state === "viewer") return <SharedArtifactViewer artifact={artifact} artifacts={[artifact]}
+          workspaceId="workspace-1" rootEpoch={1} returnFocus={null} onClose={() => {}}
+          onNavigate={() => {}} onReconcile={() => {}} onOpenInspector={() => {}} />;
+        const kind = state.split(":")[1];
+        return <SharedLibraryWorkflows key={state} kind={kind} artifact={artifact} suggestions={suggestions}
+          returnFocus={null} onClose={() => {}} />;
+      }
+      window.renderSharedGeometry = (state) => root.render(state ? <Harness key={state} state={state} /> : null);
+    `);
+    await build({
+      entryPoints: [join(directory, "harness.tsx")], outfile: join(directory, "harness.js"),
+      bundle: true, platform: "browser", format: "iife", target: "chrome130", jsx: "automatic",
+      nodePaths: [join(process.cwd(), "node_modules")],
+      define: { "process.env.NODE_ENV": '"production"', "import.meta.env": '{"MODE":"test","VITE_RALPHY_ENABLE_MOCKS":"true"}' },
+      logLevel: "silent",
+    });
+    writeFileSync(join(directory, "layout.html"), `<!doctype html><html><head>${links}</head><body><div id="fixture-root"></div><div id="react-root"></div>${templates}<script>
+      window.ralphy = {
+        loadSharedLibraryArtifact: async () => window.__sharedGeometryArtifact,
+        loadSharedLibraryRevisions: async () => ({ items: window.__sharedGeometryRevisions, nextCursor: null }),
+        selectSharedLibraryRevision: async () => window.__sharedGeometryArtifact,
+        resolveSharedLibraryPreview: async () => ({ url: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='900'%3E%3Crect width='100%25' height='100%25' fill='%232d2d2d'/%3E%3C/svg%3E", sizeBytes: 2048 }),
+        performSharedLibraryAction: async () => undefined,
+      };
+    </script><script src="./harness.js"></script></body></html>`);
     writeFileSync(join(directory, "package.json"), JSON.stringify({ main: "main.cjs" }));
     writeFileSync(join(directory, "main.cjs"), `
       const { app, BrowserWindow } = require("electron");
@@ -457,24 +514,32 @@ async function sharedLibraryGeometry(): Promise<SharedGeometryResult[]> {
         await win.webContents.debugger.sendCommand("CSS.enable");
         await win.webContents.debugger.sendCommand("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
         const results = [], viewports = [[2560, 1400], [1360, 900], [1280, 800]];
-        for (const [state, width, height] of ["grid", "list", "inspector", "viewer", "workflow"].flatMap((state) => viewports.map(([width, height]) => [state, width, height]))) {
+        const states = ["grid", "list", "inspector", "viewer", "workflow:add:0", "workflow:add:1", "workflow:add:2", "workflow:add:3", "workflow:promote", "workflow:duplicate", "workflow:suggestions", "workflow:archive", "workflow:update-review"];
+        for (const [state, width, height] of states.flatMap((state) => viewports.map(([width, height]) => [state, width, height]))) {
           win.setContentSize(width, height);
           await win.webContents.executeJavaScript(\`(async () => {
-            const state = \${JSON.stringify(state)}, root = document.getElementById("root");
-            root.innerHTML = document.getElementById(state === "inspector" ? "grid" : state).innerHTML;
+            const state = \${JSON.stringify(state)}, fixture = document.getElementById("fixture-root");
+            fixture.innerHTML = "";
+            window.renderSharedGeometry(state === "viewer" || state.startsWith("workflow:") ? state : null);
+            if (state === "grid" || state === "list" || state === "inspector") fixture.innerHTML = document.getElementById(state === "inspector" ? "grid" : state).innerHTML;
             if (state === "inspector") {
-              const content = root.querySelector(".shared-library-content");
+              const content = fixture.querySelector(".shared-library-content");
               content.dataset.inspectorOpen = "true";
               content.append(document.getElementById("inspector-panel").content.cloneNode(true));
             }
             await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            if (state.startsWith("workflow:add:")) {
+              document.querySelectorAll(".shared-workflow-steps button")[Number(state.split(":")[2])]?.click();
+              await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            }
           })()\`);
-          const focusSelectors = ({
+          const focusSelectors = state.startsWith("workflow:") ? [
+            ".shared-workflow-header > button", ".shared-workflow-footer button",
+          ] : ({
             grid: [".shared-artifact-identity", ".shared-library-search input", ".shared-library-view-toggle button", ".shared-library-select"],
             list: [".shared-library-audit-scroll", ".shared-library-audit-row", ".shared-library-audit-row input"],
             inspector: [".shared-inspector-head button", ".shared-inspector-section > summary"],
-            viewer: [".shared-viewer-head button", ".shared-viewer-previous", ".shared-viewer-context > button"],
-            workflow: [".shared-workflow-header > button", ".shared-workflow-fields input", ".shared-workflow-footer button"],
+            viewer: [".shared-viewer-head button", ".image-zoom-controls button", ".shared-viewer-context > button"],
           })[state];
           const documentNode = await win.webContents.debugger.sendCommand("DOM.getDocument");
           for (const selector of focusSelectors) {
@@ -482,32 +547,37 @@ async function sharedLibraryGeometry(): Promise<SharedGeometryResult[]> {
             if (node.nodeId) await win.webContents.debugger.sendCommand("CSS.forcePseudoState", { nodeId: node.nodeId, forcedPseudoClasses: ["focus-visible"] });
           }
           results.push(await win.webContents.executeJavaScript(\`(() => {
-            const state = \${JSON.stringify(state)}, root = document.getElementById("root");
-            const selectors = ({
+            const state = \${JSON.stringify(state)}, fixture = document.getElementById("fixture-root");
+            const production = state === "viewer" || state.startsWith("workflow:"), scope = production ? document : fixture;
+            const selectors = state.startsWith("workflow:") ? [
+              ".shared-workflow-window", ".shared-workflow-header", ".shared-workflow-body", ".shared-workflow-block", ".shared-workflow-fields", ".shared-workflow-choices", ".shared-workflow-suggestions", ".shared-workflow-footer",
+            ] : ({
               grid: [".shared-library-screen", ".shared-library-toolbar", ".shared-library-grid"],
               list: [".shared-library-screen", ".shared-library-toolbar", ".shared-library-audit"],
               inspector: [".shared-library-screen", ".shared-library-toolbar", ".shared-library-grid", ".shared-artifact-inspector", ".shared-inspector-scroll", ".shared-inspector-preview", ".shared-inspector-actions"],
-              viewer: [".shared-artifact-viewer", ".shared-viewer-head", ".shared-viewer-body", ".shared-viewer-main", ".shared-viewer-stage", ".shared-viewer-transport", ".shared-viewer-context"],
-              workflow: [".shared-workflow-window", ".shared-workflow-header", ".shared-workflow-body", ".shared-workflow-block", ".shared-workflow-fields", ".shared-workflow-footer"],
+              viewer: [".shared-artifact-viewer", ".shared-viewer-head", ".shared-viewer-body", ".shared-viewer-main", ".shared-viewer-stage", ".shared-viewer-transport", ".shared-viewer-context", ".image-viewport", ".image-zoom-controls"],
             })[state];
-            const overflows = selectors.flatMap((selector) => {
-              const element = root.querySelector(selector);
-              return !element ? ["missing:" + selector] : element.scrollWidth > element.clientWidth + 1 ? [selector + ":" + element.scrollWidth + ">" + element.clientWidth] : [];
-            });
-            const grid = root.querySelector(".shared-library-grid");
-            const toolbar = root.querySelector(".shared-library-toolbar");
-            const content = root.querySelector(".shared-library-content");
-            const inspector = root.querySelector(".shared-artifact-inspector");
-            const audit = root.querySelector(".shared-library-audit-scroll");
-            const surface = root.querySelector(state === "viewer" ? ".shared-artifact-viewer" : state === "workflow" ? ".shared-workflow-window" : ":not(*)");
+            const required = state.startsWith("workflow:") ? [".shared-workflow-window", ".shared-workflow-header", ".shared-workflow-body", ".shared-workflow-footer"] : selectors;
+            const overflows = required.filter((selector) => !scope.querySelector(selector)).map((selector) => "missing:" + selector);
+            for (const selector of selectors) for (const element of scope.querySelectorAll(selector)) {
+              if (element.scrollWidth > element.clientWidth + 1) overflows.push(selector + ":" + element.scrollWidth + ">" + element.clientWidth);
+            }
+            const grid = scope.querySelector(".shared-library-grid");
+            const toolbar = scope.querySelector(".shared-library-toolbar");
+            const content = scope.querySelector(".shared-library-content");
+            const inspector = scope.querySelector(".shared-artifact-inspector");
+            const audit = scope.querySelector(".shared-library-audit-scroll");
+            const surface = scope.querySelector(state === "viewer" ? ".shared-artifact-viewer" : state.startsWith("workflow:") ? ".shared-workflow-window" : ":not(*)");
             const rect = surface?.getBoundingClientRect();
             const focusSelectors = \${JSON.stringify(focusSelectors)};
             const focus = focusSelectors.map((selector) => {
-              const element = root.querySelector(selector), style = element ? getComputedStyle(element) : null;
+              const element = scope.querySelector(selector), style = element ? getComputedStyle(element) : null;
               return { selector, width: style ? parseFloat(style.outlineWidth) : 0, style: style?.outlineStyle ?? "missing" };
             });
-            const motionSelectors = ({ grid: [".shared-artifact-frame", ".shared-artifact-identity"], list: [".shared-library-audit-row"], inspector: [".shared-inspector-section > summary > svg"], viewer: [".shared-viewer-head button"], workflow: [".shared-workflow-overlay", ".shared-workflow-window"] })[state];
-            const motion = motionSelectors.map((selector) => { const style = getComputedStyle(root.querySelector(selector)); return { selector, transition: style.transitionDuration, animation: style.animationName }; });
+            const motionSelectors = state.startsWith("workflow:") ? [".shared-workflow-overlay", ".shared-workflow-window"] : ({ grid: [".shared-artifact-frame", ".shared-artifact-identity"], list: [".shared-library-audit-row"], inspector: [".shared-inspector-section > summary > svg"], viewer: [".shared-viewer-head button"] })[state];
+            const motion = motionSelectors.map((selector) => { const style = getComputedStyle(scope.querySelector(selector)); return { selector, transition: style.transitionDuration, animation: style.animationName }; });
+            const scrollOwners = state === "viewer" ? [scope.querySelector(".shared-viewer-body"), scope.querySelector(".shared-viewer-context")] : state.startsWith("workflow:") ? [scope.querySelector(".shared-workflow-body")] : [];
+            const internalVertical = production ? scrollOwners.filter(Boolean).every((element) => element.scrollHeight <= element.clientHeight + 1 || ["auto", "scroll"].includes(getComputedStyle(element).overflowY)) : null;
             return {
               state, width: innerWidth, height: innerHeight, overflows,
               columns: grid ? getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length : null,
@@ -519,6 +589,12 @@ async function sharedLibraryGeometry(): Promise<SharedGeometryResult[]> {
               auditScrollable: audit ? audit.scrollWidth > audit.clientWidth : null,
               auditTabIndex: audit?.tabIndex ?? null,
               fitsViewport: rect ? rect.left >= -1 && rect.top >= -1 && rect.right <= innerWidth + 1 && rect.bottom <= innerHeight + 1 : null,
+              portalMounted: surface ? !document.getElementById("react-root").contains(surface) && document.body.contains(surface) : null,
+              internalVertical,
+              mediaControls: state === "viewer" ? scope.querySelectorAll(".image-zoom-controls button").length : 0,
+              autoplayCount: production ? scope.querySelectorAll("audio[autoplay], video[autoplay]").length : 0,
+              workflowKind: state.startsWith("workflow:") ? surface?.getAttribute("data-workflow") ?? null : null,
+              workflowStep: state.startsWith("workflow:add:") ? scope.querySelector(".shared-workflow-steps button[aria-current=step]")?.textContent.trim() ?? null : null,
               focus, motion,
             };
           })()\`));
@@ -612,11 +688,12 @@ describe("design system contract", () => {
     expect(sharedLibraryStyles).toMatch(/\.shared-library-screen button:focus-visible,[\s\S]*outline:\s*2px solid var\(--accent-soft\)/);
   });
 
-  test("fits every Shared Library surface and focus target in real Electron geometry", async () => {
+  test("fits actual Shared Library components and every workflow portal in real Electron geometry", async () => {
     const results = await sharedLibraryGeometry();
 
-    expect(results).toHaveLength(15);
-    for (const state of ["grid", "list", "inspector", "viewer", "workflow"] as const) {
+    const states = ["grid", "list", "inspector", "viewer", "workflow:add:0", "workflow:add:1", "workflow:add:2", "workflow:add:3", "workflow:promote", "workflow:duplicate", "workflow:suggestions", "workflow:archive", "workflow:update-review"];
+    expect(results).toHaveLength(39);
+    for (const state of states) {
       expect(results.filter((result) => result.state === state).map(({ width, height }) => ({ width, height }))).toEqual([
         { width: 2560, height: 1400 }, { width: 1360, height: 900 }, { width: 1280, height: 800 },
       ]);
@@ -635,7 +712,16 @@ describe("design system contract", () => {
       { auditOverflowX: "auto", auditScrollable: true, auditTabIndex: 0 },
       { auditOverflowX: "auto", auditScrollable: true, auditTabIndex: 0 },
     ]);
-    expect(results.filter(({ state }) => state === "viewer" || state === "workflow").every(({ fitsViewport }) => fitsViewport)).toBe(true);
+    const productionPortals = results.filter(({ state }) => state === "viewer" || state.startsWith("workflow:"));
+    expect(productionPortals.every(({ fitsViewport, portalMounted, internalVertical }) => fitsViewport && portalMounted && internalVertical)).toBe(true);
+    expect(productionPortals.every(({ autoplayCount }) => autoplayCount === 0)).toBe(true);
+    expect(results.filter(({ state }) => state === "viewer").every(({ mediaControls }) => mediaControls === 3)).toBe(true);
+    expect([...new Set(results.filter(({ state }) => state.startsWith("workflow:")).map(({ workflowKind }) => workflowKind))].sort()).toEqual([
+      "add", "archive", "duplicate", "promote", "suggestions", "update-review",
+    ]);
+    expect(results.filter(({ state, width }) => state.startsWith("workflow:add:") && width === 1280).map(({ workflowStep }) => workflowStep)).toEqual([
+      "1Source", "2Duplicates", "3Describe for reuse", "4Confirm",
+    ]);
     expect(results.flatMap(({ state, width, focus }) => focus.filter((value) => value.width < 2 || value.style === "none").map((value) => ({ state, width, ...value })))).toEqual([]);
     expect(results.flatMap(({ state, width, motion }) => motion.filter(({ transition, animation }) => transition !== "0s" || animation !== "none").map((value) => ({ state, width, ...value })))).toEqual([]);
   }, 20_000);

@@ -114,6 +114,21 @@ describe("Shared Library screen", () => {
     }
   });
 
+  test("keeps populated unresolved previews out of live regions", async () => {
+    const preview = deferred<{ url: string; sizeBytes: number } | null>();
+    vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue(page([artifact("portrait"), artifact("theme")]));
+    vi.spyOn(bridge, "resolveSharedLibraryPreview").mockReturnValue(preview.promise);
+    const mounted = await mountScreen();
+    try {
+      expect(mounted.host.container.querySelectorAll(".shared-artifact-preview-state")).toHaveLength(2);
+      expect(mounted.host.container.querySelectorAll("[role=status]")).toHaveLength(0);
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+      preview.resolve(null);
+    }
+  });
+
   test("recovers from a full initial error through the visible Retry action", async () => {
     vi.spyOn(bridge, "loadSharedLibraryPage")
       .mockRejectedValueOnce(new Error("Library unavailable"))
@@ -161,7 +176,7 @@ describe("Shared Library screen", () => {
     const mounted = await mountScreen();
     try {
       expect(mounted.host.container.textContent).toContain("Build a reusable source of truth");
-      expect(mounted.host.container.textContent).toContain("Add canonical characters, locations, products, audio hooks and brand assets for future projects.");
+      expect(mounted.host.container.textContent).toContain("Add canonical characters, locations, products, audio hooks, and brand assets for future projects.");
       expect(byText(mounted.host.container, "Add artifact").getAttribute("class")).toContain("shared-library-primary");
       expect(byText(mounted.host.container, "Promote from project").getAttribute("class") ?? "").not.toContain("shared-library-primary");
       expect(mounted.host.container.querySelectorAll(".shared-library-primary")).toHaveLength(1);
@@ -347,6 +362,32 @@ describe("Shared Library screen", () => {
     }
   });
 
+  test("exposes selected grid and audit artifacts without relying on color", async () => {
+    vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue(page([artifact("portrait"), artifact("theme")]));
+    const mounted = await mountScreen();
+    try {
+      const portrait = byAria(mounted.host.container, "button", "Select portrait identity and open inspector")!;
+      const theme = byAria(mounted.host.container, "button", "Select theme identity and open inspector")!;
+      expect(portrait.getAttribute("aria-pressed")).toBe("false");
+      expect(theme.getAttribute("aria-pressed")).toBe("false");
+      await act(async () => { portrait.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      expect(portrait.getAttribute("aria-pressed")).toBe("true");
+      expect(theme.getAttribute("aria-pressed")).toBe("false");
+
+      await act(async () => { byText(mounted.host.container, "List").dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      expect(mounted.host.container.querySelector(".shared-library-audit")?.getAttribute("role")).toBe("grid");
+      const rows = mounted.host.container.querySelectorAll(".shared-library-audit-row");
+      expect(rows[0].getAttribute("aria-selected")).toBe("true");
+      expect(rows[1].getAttribute("aria-selected")).toBe("false");
+      await act(async () => { rows[1].dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      expect(rows[0].getAttribute("aria-selected")).toBe("false");
+      expect(rows[1].getAttribute("aria-selected")).toBe("true");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
   test.each(["Grid", "List"] as const)("closes the inspector back to the exact %s origin while preserving query, scroll, and selection", async (view) => {
     vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue(page([
       artifact("portrait"), artifact("other"),
@@ -480,6 +521,36 @@ describe("Shared Library screen", () => {
         expect(action.getAttribute("title")).toMatch(/Core mutation/i);
       }
       expect(mounted.host.container.textContent).not.toMatch(/replace revision|update all/i);
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
+  test("restores the exact audit row after Space inspector and Enter viewer paths", async () => {
+    const card = artifact("portrait");
+    vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue(page([card]));
+    vi.spyOn(bridge, "loadSharedLibraryArtifact").mockResolvedValue(card);
+    vi.spyOn(bridge, "loadSharedLibraryRevisions").mockResolvedValue({ items: [], nextCursor: null });
+    vi.spyOn(bridge, "resolveSharedLibraryPreview").mockResolvedValue(null);
+    const mounted = await mountScreen();
+    try {
+      await act(async () => { byText(mounted.host.container, "List").dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      const row = mounted.host.container.querySelector(".shared-library-audit-row")!;
+
+      row.focus();
+      const space = new Event("keydown", { bubbles: true, cancelable: true });
+      Object.defineProperty(space, "key", { value: " " });
+      await act(async () => { row.dispatchEvent(space); await settle(); });
+      await act(async () => { byAria(mounted.host.container, "button", "Close artifact inspector")!.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      expect(document.activeElement).toBe(row);
+
+      row.focus();
+      const enter = new Event("keydown", { bubbles: true, cancelable: true });
+      Object.defineProperty(enter, "key", { value: "Enter" });
+      await act(async () => { row.dispatchEvent(enter); await settle(); });
+      await act(async () => { byAria(document.body as unknown as HostNode, "button", "Close viewer")!.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      expect(document.activeElement).toBe(row);
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.host.restore();
