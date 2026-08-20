@@ -48,7 +48,7 @@ const runObject: RunObjectMediaCardDto = {
 function projectApi() {
   return {
     loadProjectOverview: async () => ({ project: { id: "project-1", workspaceId: "workspace-1", slug: "launch", name: "Launch", purpose: null, state: "active", rowVersion: 1, createdAt: 1, updatedAt: 1 } }),
-    loadProjectPage: async () => ({ items: [runObject], nextCursor: null }),
+    loadProjectPage: async ({ tab }) => ({ items: tab === "media" ? [runObject] : [], nextCursor: null }),
     loadProjectMediaCard: async () => runObject,
     loadDocumentPreview: async () => ({ revisionId: "revision-1", format: "text", text: "", truncated: false }),
     searchProjectDocuments: async () => ({ items: [], nextCursor: null }),

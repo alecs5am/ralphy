@@ -68,7 +68,8 @@ describe("activity timeline", () => {
     let cursor2Calls = 0;
     let cursor171Calls = 0;
     let cursor181Calls = 0;
-    const loadProjectPage = vi.fn(async ({ cursor }: { cursor?: number }) => {
+    const loadProjectPage = vi.fn(async ({ tab, cursor }: { tab: string; cursor?: number }) => {
+      if (tab === "units") return { items: [], nextCursor: null };
       if (cursor === undefined) {
         initialCalls += 1;
         if (initialCalls === 1) throw new Error("Initial activity unavailable");
@@ -110,7 +111,7 @@ describe("activity timeline", () => {
     const controller = screen.createProjectScreenController(api as any, project, 100);
 
     await controller.refresh(160);
-    expect(loadProjectPage.mock.calls.map(([request]) => request.cursor)).toEqual([100, 150]);
+    expect(loadProjectPage.mock.calls.filter(([request]) => request.tab === "activity").map(([request]) => request.cursor)).toEqual([100, 150]);
     await controller.selectTab("activity");
     expect(controller.getSnapshot().domain.pages.activity).toMatchObject({ status: "error", items: [], nextCursor: null });
     await controller.retry();
