@@ -23,7 +23,7 @@
 - Every Electron process uses an explicit temporary `--user-data-dir`; every launch is individually wrapped by the Plan 1 DB/WAL fingerprint utility, with SHM recorded separately.
 - Packaging input is exactly `/Users/maximovchinnikov/github/ralphy/ralphy-desktop/release/Ralphy Media.app/Contents/Resources/bin/ralphy`, version `0.3.0`, fixed SHA-256 `a843e2805b4b0a49d02f7afe46cdd5693d81184c14d560af836be93283d85679`. Reject mismatch before output replacement.
 - Build and independently verify the deterministic mock package before every audit task that consumes it; an intervening bundle-affecting commit invalidates the prior package.
-- Evidence records use the locked typed schema below; every scenario-case keeps its one scenario launch plus an `accessibilityJourneys` array, and every journey child has its own launch/exit, ledger entry, DB/WAL record, separate SHM observation, and artifacts without creating a duplicate scenario-case record.
+- Evidence records use the locked typed schema below: case journeys remain nested by scenario-case, the one `system-theme` execution lives in the manifest-level global suite, and required Media pixel evidence becomes mandatory only at `media-complete`. Tasks 11–14 mutate the bundle only through revision-checked `updateEvidenceBundle`, which atomically commits each record/ledger/artifact update or phase transition.
 - Evidence is written only under ignored `.superpowers/sdd/nothing-instrument/runs/<run-id>/`; mock/production names never collide and the final command prints the absolute HTML report.
 - Every task follows behavior-first RED/GREEN, independent review, `git diff --check`, exact staging, staged gitleaks, and a commit.
 
@@ -53,9 +53,11 @@ export function assertInstrumentScenarioCompleteness(): void;
 
 ```ts
 // scripts/instrument-evidence.d.ts (runtime validation lives in instrument-evidence.mjs)
+export type InstrumentCaseAccessibilityJourneyKind = "keyboard" | "reduced-motion" | "live-region";
+export const GLOBAL_ACCESSIBILITY_JOURNEY_IDS: readonly ["system-theme"];
 export interface InstrumentAccessibilityJourneyEvidence {
   id: string;
-  kind: "keyboard" | "reduced-motion" | "live-region" | "system-theme";
+  kind: InstrumentCaseAccessibilityJourneyKind;
   steps: readonly string[];
   focusOrder: readonly string[];
   liveRegionEvents: readonly string[];
@@ -63,6 +65,25 @@ export interface InstrumentAccessibilityJourneyEvidence {
   artifacts: { trace: string; screenshot: string | null; logs: readonly string[] };
   launch: { label: string; ledgerId: string; exitCode: number | null; signal: string | null };
   dbRecord: string;
+}
+export interface InstrumentGlobalAccessibilityJourneyEvidence {
+  id: "system-theme";
+  kind: "system-theme";
+  steps: readonly ["launch-system-dark", "switch-os-light", "assert-root-consumers"];
+  focusOrder: readonly string[];
+  liveRegionEvents: readonly string[];
+  reducedMotion: false;
+  artifacts: { trace: string; screenshot: string | null; logs: readonly string[] };
+  launch: { label: "journey-global-system-theme"; ledgerId: string; exitCode: number | null; signal: string | null };
+  dbRecord: string;
+}
+export interface InstrumentPixelDiffEvidence {
+  version: 1;
+  rendererCrop: { x: number; y: number; width: number; height: number };
+  mediaContentMask: readonly { id: string; x: number; y: number; width: number; height: number }[];
+  a11yDeviationMask: { version: "readable-text-v1"; regions: readonly { selector: string; x: number; y: number; width: number; height: number; fromToken: string; toToken: string }[]; pixelCount: number };
+  metrics: { outsideUnionOver16: number; mediaContentPixels: number; mediaContentOver24: number; mediaContentOver24Ratio: number; maxGeometryDeltaCssPx: number };
+  thresholds: { outsideUnionOver16: 0; mediaContentOver24Ratio: 0.005; maxGeometryDeltaCssPx: 1 };
 }
 export interface InstrumentEvidenceRecord {
   scenarioId: string;
@@ -77,14 +98,7 @@ export interface InstrumentEvidenceRecord {
   checks: Record<string, "pass" | "fail">;
   artifacts: { screenshot: string; reference: string | null; diff: string | null; accessibility: string | null; logs: readonly string[] };
   accessibilityJourneys: readonly InstrumentAccessibilityJourneyEvidence[];
-  pixelDiff: {
-    version: 1;
-    rendererCrop: { x: number; y: number; width: number; height: number };
-    mediaContentMask: readonly { id: string; x: number; y: number; width: number; height: number }[];
-    a11yDeviationMask: { version: "readable-text-v1"; regions: readonly { selector: string; x: number; y: number; width: number; height: number; fromToken: string; toToken: string }[]; pixelCount: number };
-    metrics: { outsideUnionOver16: number; mediaContentPixels: number; mediaContentOver24: number; mediaContentOver24Ratio: number; maxGeometryDeltaCssPx: number };
-    thresholds: { outsideUnionOver16: 0; mediaContentOver24Ratio: 0.005; maxGeometryDeltaCssPx: 1 };
-  } | null;
+  pixelDiff: InstrumentPixelDiffEvidence | null;
   launch: { label: string; ledgerId: string; exitCode: number | null; signal: string | null };
   dbRecord: string;
   failures: string[];
@@ -102,7 +116,8 @@ export interface InstrumentLaunchLedgerEntry {
 }
 export interface InstrumentEvidenceManifest {
   schemaVersion: 2;
-  phase: "scenario" | "accessibility-complete" | "final";
+  revision: number;
+  phase: "scenario" | "accessibility-complete" | "media-complete" | "final";
   runId: string;
   appCommit: string;
   appBundleSha256: string;
@@ -110,9 +125,24 @@ export interface InstrumentEvidenceManifest {
   coreSha256: "a843e2805b4b0a49d02f7afe46cdd5693d81184c14d560af836be93283d85679";
   referenceArchiveSha256: "fe371e93e3d778bbd9d7e5621d200ff4298e386edbbc20d3e971941c004c0804";
   startedAt: string;
+  requirements: {
+    caseJourneys: Readonly<Record<string, readonly InstrumentCaseAccessibilityJourneyKind[]>>;
+    globalAccessibilityJourneyIds: readonly ["system-theme"];
+    mediaPixelEvidenceKeys: readonly ["mock__media.ready__light__1440x900", "mock__media.ready__dark__1440x900"];
+  };
   launches: InstrumentLaunchLedgerEntry[];
   records: InstrumentEvidenceRecord[];
+  globalAccessibilityJourneys: InstrumentGlobalAccessibilityJourneyEvidence[];
 }
+export type InstrumentEvidenceUpdate =
+  | { type: "append-scenario-record"; record: InstrumentEvidenceRecord; ledgerEntries: readonly InstrumentLaunchLedgerEntry[] }
+  | { type: "append-case-journey"; evidenceKey: string; journey: InstrumentAccessibilityJourneyEvidence; ledgerEntries: readonly [InstrumentLaunchLedgerEntry] }
+  | { type: "set-global-accessibility-journey"; journey: InstrumentGlobalAccessibilityJourneyEvidence; ledgerEntries: readonly [InstrumentLaunchLedgerEntry] }
+  | { type: "attach-media-pixel-evidence"; evidenceKey: "mock__media.ready__light__1440x900" | "mock__media.ready__dark__1440x900"; pixelDiff: InstrumentPixelDiffEvidence; artifacts: InstrumentEvidenceRecord["artifacts"]; ledgerEntries: readonly InstrumentLaunchLedgerEntry[] }
+  | { type: "append-supporting-launches"; ledgerEntries: readonly InstrumentLaunchLedgerEntry[] }
+  | { type: "set-record-reviewer"; evidenceKey: string; reviewer: InstrumentEvidenceRecord["reviewer"] }
+  | { type: "advance-phase"; from: "scenario" | "accessibility-complete" | "media-complete"; to: "accessibility-complete" | "media-complete" | "final" };
+export function updateEvidenceBundle(manifestPath: string, expectedRevision: number, update: InstrumentEvidenceUpdate): Promise<InstrumentEvidenceManifest>;
 ```
 
 ## File Map
@@ -547,7 +577,7 @@ git commit -m "refactor: remove legacy desktop presentation"
 - Modify: `package.json`
 - Test: `tests/instrument-evidence.test.ts`
 
-**Interfaces:** Produces exact Evidence Interfaces, `createEvidenceRun`, `appendEvidenceRecord`, `appendAccessibilityJourneyEvidence(manifestPath, evidenceKey, journey)`, `markAccessibilityEvidenceComplete(manifestPath, scenarios)`, `finalizeEvidenceRun`, and `bun run report:instrument`.
+**Interfaces:** Produces exact Evidence Interfaces, `createEvidenceRun(requirements)`, the sole mutation API `updateEvidenceBundle(manifestPath, expectedRevision, update)`, pure `validateManifest`, and `bun run report:instrument`.
 
 - [ ] **Step 1: Write failing schema/path/collision tests**
 
@@ -555,6 +585,11 @@ git commit -m "refactor: remove legacy desktop presentation"
 expect(validateManifest(validManifest)).toBeUndefined();
 expect(validManifest.schemaVersion).toBe(2);
 expect(validManifest.phase).toBe("final");
+expect(validManifest.requirements).toMatchObject({
+  globalAccessibilityJourneyIds: ["system-theme"],
+  mediaPixelEvidenceKeys: ["mock__media.ready__light__1440x900", "mock__media.ready__dark__1440x900"],
+});
+expect(validManifest.globalAccessibilityJourneys).toEqual([expect.objectContaining({ id: "system-theme", kind: "system-theme", launch: expect.objectContaining({ label: "journey-global-system-theme" }) })]);
 expect(validManifest.launches[0]).toMatchObject({ journeyId: null, dbRecord: expect.stringMatching(/^db\//), database: { main: "verified-unchanged", wal: "verified-unchanged", shm: "recorded-separately" } });
 expect(validManifest.records[0]).toMatchObject({ measurements: expect.any(Object), artifacts: expect.any(Object), accessibilityJourneys: expect.any(Array), launch: expect.any(Object), dbRecord: expect.any(String), reviewer: { regression: expect.any(String) } });
 const threeJourneyRecord = manifestRecordFor("mock__media.ready__dark__1440x900", ["keyboard", "reduced-motion", "live-region"]);
@@ -564,14 +599,31 @@ expect(new Set(threeJourneyRecord.accessibilityJourneys.map(({ dbRecord }) => db
 expect(() => validateManifest(recordMissingDeclaredJourney)).toThrow(/missing.*journey/i);
 expect(() => validateManifest(recordWithDuplicateJourneyId)).toThrow(/duplicate.*journey/i);
 expect(() => validateManifest(recordWithJourneyLedgerMismatch)).toThrow(/journey.*launch ledger/i);
-expect(() => validateManifest({ ...validManifest, phase: "scenario", records: recordsWithEmptyJourneyArrays })).not.toThrow();
-expect(() => validateManifest({ ...validManifest, phase: "accessibility-complete", records: recordsWithEmptyJourneyArrays })).toThrow(/missing.*journey/i);
-expect(() => appendRecord(manifest, duplicateModeScenarioViewport)).toThrow(/duplicate evidence key/i);
-expect(() => validateManifest(mediaRecordWithoutPixelDiff)).toThrow(/pixelDiff/i);
+expect(() => validateManifest(scenarioPhaseWithPendingJourneysAndMedia)).not.toThrow();
+expect(() => validateManifest(accessibilityCompleteWithExactCaseAndGlobalJourneysButPendingMedia)).not.toThrow();
+expect(() => validateManifest(accessibilityCompleteWithoutSystemTheme)).toThrow(/global.*system-theme/i);
+expect(() => validateManifest(accessibilityCompleteWithSystemThemeNestedInCase)).toThrow(/extra.*case journey/i);
+expect(() => validateManifest(mediaCompleteWithoutOneRequiredPixelDiff)).toThrow(/pixelDiff.*mock__media.ready__dark__1440x900/i);
+expect(() => validateManifest(nonRequiredCaseWithPixelDiff)).toThrow(/unexpected.*pixelDiff/i);
+expect(() => validateManifest(skippedMediaPhase)).toThrow(/phase.*accessibility-complete.*media-complete.*final/i);
+await expect(updateEvidenceBundle(path, staleRevision, validUpdate)).rejects.toThrow(/revision/i);
+const bytesBeforeInvalidUpdate = await Bun.file(path).arrayBuffer();
+await expect(updateEvidenceBundle(path, currentRevision, invalidJourneyLedgerUpdate)).rejects.toThrow(/launch ledger/i);
+expect(await Bun.file(path).arrayBuffer()).toEqual(bytesBeforeInvalidUpdate);
+const committed = await updateEvidenceBundle(path, currentRevision, validJourneyUpdate);
+expect(committed.revision).toBe(currentRevision + 1);
+expect(validateManifest(committed)).toBeUndefined();
+const concurrent = await Promise.allSettled([
+  updateEvidenceBundle(path, committed.revision, firstConcurrentUpdate),
+  updateEvidenceBundle(path, committed.revision, secondConcurrentUpdate),
+]);
+expect(concurrent.filter(({ status }) => status === "fulfilled")).toHaveLength(1);
+expect(validateManifest(await Bun.file(path).json())).toBeUndefined();
+expect(() => validateManifest(duplicateModeScenarioViewport)).toThrow(/duplicate evidence key/i);
 expect(() => validateManifest(recordWithMissingArtifact)).toThrow(/artifact/i);
 expect(() => validateManifest(recordWithUnknownLaunch)).toThrow(/launch ledger/i);
 expect(evidenceFileName("mock", "media.ready", "dark", "1440x900")).toBe("mock__media.ready__dark__1440x900.png");
-expect(renderReport(validManifest)).toMatch(/measurements.*pixel diff.*accessibility journeys.*keyboard.*reduced-motion.*live-region.*DB\/WAL\/SHM.*regression/is);
+expect(renderReport(validManifest)).toMatch(/system-theme.*global accessibility.*measurements.*pixel diff.*accessibility journeys.*keyboard.*reduced-motion.*live-region.*DB\/WAL\/SHM.*regression/is);
 ```
 
 - [ ] **Step 2: Run RED**
@@ -586,13 +638,19 @@ Expected: FAIL because manifest/report modules do not exist.
 export const evidenceKey = ({ mode, scenarioId, theme, viewport }) => [mode, scenarioId, theme, viewport].join("__");
 ```
 
-Create `.superpowers/sdd/nothing-instrument/runs/<UTC>-<commit>/` with `manifest.json`, `report.html`, `screenshots/`, `references/`, `diffs/`, `accessibility/`, `db/`, and `logs/`. Keep the scenario record uniqueness key exactly `(mode, scenarioId, theme, viewport)`; the scenario runner appends it once with `accessibilityJourneys: []` while `phase: "scenario"`. `appendAccessibilityJourneyEvidence` atomically locates that parent key and appends one `InstrumentAccessibilityJourneyEvidence` without creating/replacing a record. Incremental validation permits empty arrays only in `phase: "scenario"`, while still validating any entries already present. After Task 12 appends all children, `markAccessibilityEvidenceComplete` independently derives the exact required case/journey set, rejects missing/extra/duplicate entries, and only then changes phase to `accessibility-complete`; `finalizeEvidenceRun` rechecks the same invariant before `final`. Validate the exact schema including conditional Media fields, relative path existence, unique launch labels/IDs, and every scenario/journey record-to-ledger/DB/artifact/log link. A journey ledger entry must have the parent `scenarioEvidenceKey`, matching `journeyId`, DB record, and child exit/signal; its nested launch fields must match that ledger entry. Validate main/WAL/SHM status, scenario and journey child exit results, and all four reviewer roles. The HTML must display current phase, measurements, mask regions/pixel counts/thresholds, artifacts/logs, a row per accessibility journey with its own launch/exit/DB links, failures, and product/accessibility/security/regression decisions. Retain mock/production separately and print the absolute report path.
+Create `.superpowers/sdd/nothing-instrument/runs/<UTC>-<commit>/` with `manifest.json`, `report.html`, `screenshots/`, `references/`, `diffs/`, `accessibility/`, `db/`, and `logs/`. `createEvidenceRun` stores revision `0`, phase `scenario`, the independently expanded case→journey requirements, exact global ID tuple `["system-theme"]`, and exact required Media keys `["mock__media.ready__light__1440x900", "mock__media.ready__dark__1440x900"]`.
+
+`updateEvidenceBundle` is the only exported mutation path used by Tasks 11–14. It acquires an exclusive sibling lock with `open(lockPath, "wx")` from `node:fs/promises` under Bun, reads and fully validates the current manifest, rejects a stale `expectedRevision`, clones and applies exactly one discriminated update including its record/artifact and ledger links, increments revision, validates the resulting phase, serializes to a same-directory unique temporary file, flushes and `fsync`s it, atomically renames it over `manifest.json`, and `fsync`s the parent directory. In `finally`, it closes the handle and unlinks only that exact sibling lock. Any apply/validation/write failure removes the temp file and leaves the prior manifest bytes unchanged; a concurrent/stale writer fails rather than overwriting. No audit script edits JSON directly.
+
+Validation is phase-aware and every stored entry is validated even while collection is incomplete. During `scenario`, records may be a duplicate-free subset of required cases; their case-journey arrays and `globalAccessibilityJourneys` may be incomplete; the two required Media keys may have `pixelDiff: null`; and all non-required records must keep `pixelDiff: null`. Advancing to `accessibility-complete` requires the exact case-key set, exact declared case journeys, and exactly one manifest-level `system-theme` entry with `scenarioEvidenceKey: null`, `journeyId: "system-theme"`, artifacts, child result, ledger ID, and DB link; Media pixel evidence may still be null or partially attached. `attach-media-pixel-evidence` is legal only in `accessibility-complete`. Advancing to `media-complete` requires non-null, valid pixel/artifact/launch/DB evidence for both exact required Media keys and rejects pixel evidence elsewhere. Advancing to `final` is legal only from `media-complete` and revalidates case/global accessibility, Media, all launch/DB/artifact links, and non-null product/accessibility/security/regression decisions. Skipped/reversed phases fail.
+
+The HTML displays revision/phase, measurements, mask regions/pixel counts/thresholds, artifacts/logs, a row per case journey, a separate Global Accessibility section for `system-theme`, launch/exit/DB evidence, failures, and product/accessibility/security/regression decisions. Retain mock/production separately and print the absolute report path.
 
 - [ ] **Step 4: Run GREEN and review**
 
 Run: `bun run test -- tests/instrument-evidence.test.ts && bun run report:instrument -- --fixture tests/fixtures/instrument-evidence-valid.json && git diff --check`
 
-Expected: PASS and prints an absolute ignored HTML path. Reviewer opens the report and traces all three journeys in the fixture independently to their artifact/log, child result, ledger entry, and DB/SHM record without a scenario-key collision.
+Expected: PASS and prints an absolute ignored HTML path. Reviewer traces the three case journeys plus global system-theme independently, confirms accessibility-complete accepts pending Media, media-complete rejects it, and verifies failed/stale writes leave the prior valid bundle unchanged.
 
 - [ ] **Step 5: Commit**
 
@@ -710,7 +768,7 @@ git commit -m "test: enforce per-launch database immutability"
 - Modify: `package.json`
 - Test: `tests/instrument-electron-audit.test.ts`
 
-**Interfaces:** Consumes approved Core pin, scenario manifest, evidence writer, and Bun CDP. Produces and verifies the deterministic mock package before the runner consumes it, then produces `bun run audit:instrument:electron` and `INSTRUMENT_ELECTRON_AUDIT_OK <exact-case-count>`.
+**Interfaces:** Consumes approved Core pin, scenario manifest, revision-checked `updateEvidenceBundle`, and Bun CDP. Produces and verifies the deterministic mock package before the runner consumes it, then produces `bun run audit:instrument:electron` and `INSTRUMENT_ELECTRON_AUDIT_OK <exact-case-count>`.
 
 - [ ] **Step 1: Write failing expansion/calibration/semantic tests**
 
@@ -735,7 +793,7 @@ Expected: FAIL because no per-scenario Bun/CDP runner exists.
 
 - [ ] **Step 3: Implement isolated scenario execution**
 
-For each exact expanded scenario key, create a fresh temp `userData`, then call `withDatabaseFingerprint(label, launch)` around its one Electron child, with label `scenario-${caseId}`. Spawn with `Bun.spawn`, the freshly verified mock package, and CDP. Select fixture via production UI/test-fixture route only in mock build. Record native outer bounds separately from inner dimensions/device scale/top inset. Assert expected root/landmarks/overlay/focus/scroll owner plus `expectedRailMode[viewport]` and `panelSetup[viewport]`, no horizontal overflow, only modal-local scroller exception, dock reachability, native traffic inset/no HTML duplicate, native minimized/maximized/restored Browser states, computed flat styles, and AA contrast for every visible text-sized element/state. Create/retain the manifest at `phase: "scenario"` and append the typed scenario evidence record exactly once with `accessibilityJourneys: []`; its scenario launch-ledger entry has `journeyId: null`. Close in `finally`. Task 12 appends journey entries to these existing parent records and never adds another four-part scenario key. Run the separate exact shell panel matrix without merging it into canonical scenario keys.
+For each exact expanded scenario key, create a fresh temp `userData`, then call `withDatabaseFingerprint(label, launch)` around its one Electron child, with label `scenario-${caseId}`. Spawn with `Bun.spawn`, the freshly verified mock package, and CDP. Select fixture via production UI/test-fixture route only in mock build. Record native outer bounds separately from inner dimensions/device scale/top inset. Assert expected root/landmarks/overlay/focus/scroll owner plus `expectedRailMode[viewport]` and `panelSetup[viewport]`, no horizontal overflow, only modal-local scroller exception, dock reachability, native traffic inset/no HTML duplicate, native minimized/maximized/restored Browser states, computed flat styles, and AA contrast for every visible text-sized element/state. Create/retain the manifest at revision `0`, phase `scenario`; after each child, pass the typed record with `accessibilityJourneys: []` and `pixelDiff: null` plus its `journeyId: null` ledger entry in one `append-scenario-record` update. Carry the returned revision into the next `updateEvidenceBundle` call; never edit `manifest.json` or its launch ledger directly. Close in `finally`. Task 12 appends journey entries to these existing parent records and never adds another four-part scenario key. Run the separate exact shell panel matrix without merging it into canonical scenario keys.
 
 ```js
 const profile = await mkdtemp(join(tmpdir(), `ralphy-instrument-${caseId}-`));
@@ -746,7 +804,7 @@ const child = Bun.spawn([executable, `--user-data-dir=${profile}`, `--remote-deb
 
 Run: `CORE_BIN='/Users/maximovchinnikov/github/ralphy/ralphy-desktop/release/Ralphy Media.app/Contents/Resources/bin/ralphy'; VITE_RALPHY_ENABLE_MOCKS=true RALPHY_CORE_BIN="$CORE_BIN" bun run package:mac && bun scripts/bundled-core.mjs --verify-packaged 'release/Ralphy Media.app' && bun run audit:instrument:electron`
 
-Expected: package is rebuilt and fixed Core/manifest verified before consumption; audit prints `INSTRUMENT_ELECTRON_AUDIT_OK <exact-case-count>` and absolute manifest path; DB main/WAL unchanged, SHM recorded. Reviewer compares exact keys, rail/panel expectations, launch ledger, and per-scenario records rather than a lower bound.
+Expected: package is rebuilt and fixed Core/manifest verified before consumption; audit prints `INSTRUMENT_ELECTRON_AUDIT_OK <exact-case-count>` and absolute manifest path; DB main/WAL unchanged, SHM recorded. The manifest remains valid in `scenario` with pending journeys and Media pixels. Reviewer compares exact keys, rail/panel expectations, revision progression, launch ledger, and per-scenario records rather than a lower bound.
 
 - [ ] **Step 5: Commit**
 
@@ -764,12 +822,13 @@ git commit -m "test: audit canonical Electron scenarios"
 - Modify: `package.json`
 - Test: `tests/instrument-accessibility-audit.test.ts`
 
-**Interfaces:** Consumes expanded scenario cases, each scenario's `journeys`, `appendAccessibilityJourneyEvidence`, and `markAccessibilityEvidenceComplete`; produces `bun run audit:instrument:accessibility` and one nested journey evidence entry per declared journey per scenario-case.
+**Interfaces:** Consumes expanded scenario cases, each scenario's case `journeys`, `GLOBAL_ACCESSIBILITY_JOURNEY_IDS`, and revision-checked `updateEvidenceBundle`; produces `bun run audit:instrument:accessibility`, one nested journey evidence entry per declared case journey, and the separate manifest-level `system-theme` execution.
 
 - [ ] **Step 1: Write failing journey coverage tests**
 
 ```ts
 expect(missingJourneyCoverage(INSTRUMENT_SCENARIOS)).toEqual([]);
+expect(GLOBAL_ACCESSIBILITY_JOURNEY_IDS).toEqual(["system-theme"]);
 expect(systemThemeJourney).toEqual(["launch-system-dark", "switch-os-light", "assert-root-consumers"]);
 expect(shortcutCases).toEqual(expect.arrayContaining(["interactive-button", "contenteditable", "modal-open", "modifier", "composition", "repeat"]));
 const caseWithThreeJourneys = expandedScenarioCase("accessibility.all-kinds");
@@ -779,6 +838,9 @@ expect(expectedJourneyLaunchLabels(caseWithThreeJourneys)).toEqual([
   `journey-${caseWithThreeJourneys.key}-reduced-motion`,
   `journey-${caseWithThreeJourneys.key}-live-region`,
 ]);
+expect(expectedGlobalAccessibilityLaunchLabels()).toEqual(["journey-global-system-theme"]);
+expect(() => validateManifest(accessibilityCompleteWithPendingMediaPixelEvidence)).not.toThrow();
+expect(() => validateManifest(accessibilityCompleteWithSystemThemeNestedInCase)).toThrow(/extra.*case journey/i);
 ```
 
 - [ ] **Step 2: Run RED**
@@ -789,7 +851,9 @@ Expected: FAIL because end-to-end journey coverage and system theme are absent.
 
 - [ ] **Step 3: Implement end-to-end journeys**
 
-For each expanded scenario-case and every journey kind declared by its scenario, launch a separate child and use CDP `Emulation.setEmulatedMedia` for `prefers-color-scheme` and `prefers-reduced-motion`. Wrap that child with `withDatabaseFingerprint(label, launch)` using collision-free label `journey-${caseKey}-${journeyKind}`. Include a system-preference launch, live dark-to-light change, and resolved root/xterm/WaveSurfer assertions without flash. Tab/click/activate sidebar, Workspace picker, dock, Island, profile/Settings, every shared Select owner, all four Agent Chat menus, filters/cards, and every other production-registered overlay; Escape and assert opener focus/unchanged desk offset. Under reduce, nonessential computed animation/transition durations are zero. Append exactly one nested entry through `appendAccessibilityJourneyEvidence(manifestPath, caseKey, entry)` with `id: journeyKind`, `kind`, steps/focus/live-region/reduced-motion result, trace/screenshot/log paths, nested launch/exit plus matching ledger ID, and DB record. The ledger entry stores `scenarioEvidenceKey: caseKey` and `journeyId: journeyKind`. Prove polite deduplication/no focus move and exercise tuple-fenced mock review shortcut suppression cases. After all children, call `markAccessibilityEvidenceComplete(manifestPath, INSTRUMENT_SCENARIOS)`: it validates exact set equality for every case, rejects missing/extra/duplicate entries and second scenario records, then changes phase from `scenario` to `accessibility-complete`.
+For each expanded scenario-case and every case journey declared by its scenario, launch a separate child and use CDP `Emulation.setEmulatedMedia` for `prefers-reduced-motion` where applicable. Wrap that child with `withDatabaseFingerprint(label, launch)` using collision-free label `journey-${caseKey}-${journeyKind}`. Tab/click/activate sidebar, Workspace picker, dock, Island, profile/Settings, every shared Select owner, all four Agent Chat menus, filters/cards, and every other production-registered overlay; Escape and assert opener focus/unchanged desk offset. Under reduce, nonessential computed animation/transition durations are zero. Commit exactly one nested entry and its matching ledger entry through `updateEvidenceBundle(manifestPath, revision, { type: "append-case-journey", evidenceKey: caseKey, journey, ledgerEntries: [ledger] })`, then use the returned revision. The ledger entry stores `scenarioEvidenceKey: caseKey` and `journeyId: journeyKind`; prove polite deduplication/no focus move and exercise tuple-fenced mock-review shortcut suppression cases.
+
+Run `system-theme` once as a typed manifest-level global suite, not as a scenario-case journey. Its separate isolated-profile Electron child uses launch label `journey-global-system-theme`, starts with the OS preference dark, switches the emulated OS preference live to light, and asserts the resolved root, xterm, and WaveSurfer consumers update without a flash. Wrap it with `withDatabaseFingerprint`, then atomically store the global entry and its one ledger entry using `set-global-accessibility-journey`; that ledger has `scenarioEvidenceKey: null` and `journeyId: "system-theme"`. After all case and global children, use one `advance-phase` update from `scenario` to `accessibility-complete`. The writer independently derives and validates exact equality for every case journey plus the exact global ID tuple, rejects missing/extra/duplicate entries or second scenario records, and deliberately accepts both required Media records with `pixelDiff: null` until Task 13. No Task 12 producer edits manifest JSON directly.
 
 ```js
 await cdp("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
@@ -799,7 +863,7 @@ await cdp("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-mo
 
 Run: `bun run audit:instrument:accessibility`
 
-Expected: prints `INSTRUMENT_ACCESSIBILITY_AUDIT_OK <exact-journey-child-count>`; DB/WAL unchanged; every scenario-case record contains its exact journey array, and each entry resolves to a distinct child/ledger/DB/artifact chain. Accessibility reviewer signs focus, keyboard, motion, live regions, and contrast per entry.
+Expected: prints `INSTRUMENT_ACCESSIBILITY_AUDIT_OK <exact-case-journey-child-count+1-global-child>`; DB/WAL unchanged; every scenario-case record contains its exact case-journey array, the manifest has exactly one separate global system-theme execution, and every entry resolves to a distinct child/ledger/DB/artifact chain. Phase is `accessibility-complete` while Media pixel evidence remains optional. Accessibility reviewer signs system theme, focus, keyboard, motion, live regions, and contrast in their matching sections.
 
 - [ ] **Step 5: Commit**
 
@@ -817,7 +881,7 @@ git commit -m "test: audit instrument accessibility journeys"
 - Modify: `package.json`
 - Test: `tests/media-fidelity-audit.test.ts`
 
-**Interfaces:** Consumes stable extracted HTML/assets, freshly rebuilt/verified mock package, Media scenario, locked evidence writer, and ffmpeg. Produces `A11Y_DEVIATION_MASK_VERSION = "readable-text-v1"`, `calibrateRendererCrop`, `validateA11yDeviationMask`, `assertGeometryDelta`, `assertPixelDiff`, and `bun run audit:media:fidelity`.
+**Interfaces:** Consumes stable extracted HTML/assets, freshly rebuilt/verified mock package, the two exact Media evidence keys, revision-checked `updateEvidenceBundle`, and ffmpeg. Produces `A11Y_DEVIATION_MASK_VERSION = "readable-text-v1"`, `calibrateRendererCrop`, `validateA11yDeviationMask`, `assertGeometryDelta`, `assertPixelDiff`, and `bun run audit:media:fidelity`.
 
 - [ ] **Step 1: Write failing geometry/diff tolerance tests**
 
@@ -827,6 +891,10 @@ expect(assertGeometryDelta(referenceBoxes, withinOnePx)).toBeUndefined();
 expect(() => assertGeometryDelta(referenceBoxes, twoPxDelta)).toThrow(/1 CSS px/);
 expect(calibrateRendererCrop(referenceMetrics, actualMetrics)).toEqual({ x: 0, y: 28, width: 1440, height: 872 });
 expect(validateA11yDeviationMask(readableTextMask)).toMatchObject({ version: "readable-text-v1", pixelCount: 18420 });
+expect(requiredMediaPixelEvidenceKeys).toEqual(["mock__media.ready__light__1440x900", "mock__media.ready__dark__1440x900"]);
+expect(() => validateManifest(accessibilityCompleteWithPendingMediaPixelEvidence)).not.toThrow();
+expect(() => validateManifest(mediaCompleteWithoutOneRequiredPixelDiff)).toThrow(/pixelDiff.*mock__media.ready__dark__1440x900/i);
+expect(() => validateManifest(mediaCompleteWithPixelDiffOnNonRequiredCase)).toThrow(/unexpected.*pixelDiff/i);
 expect(assertPixelDiff({ outsideUnionOver16: 0, mediaContentPixels: 100000, mediaContentOver24: 500, maxGeometryDeltaCssPx: 1 })).toBeUndefined();
 expect(() => assertPixelDiff({ outsideUnionOver16: 1, mediaContentPixels: 100000, mediaContentOver24: 500, maxGeometryDeltaCssPx: 1 })).toThrow(/outside union mask/);
 expect(() => validateA11yDeviationMask(maskContainingNativeChrome)).toThrow(/native chrome/i);
@@ -842,7 +910,9 @@ Expected: FAIL because reference capture, geometry, raw diff analysis, and toler
 
 Capture reference HTML sections 3a/3b at 1440×900 from the stable extracted path and actual mock Media light/dark from the freshly verified packaged app. Wrap each reference-browser and actual-app child separately with `withDatabaseFingerprint(label, launch)`, label `media-${captureId}`, and append each child to the launch ledger. Calibrate native outer/content bounds, crop both screenshots to the exact same renderer-content rectangle, and exclude native chrome before diffing. Produce cropped reference/actual/diff PNGs; run ffmpeg `blend=all_mode=difference` and pipe RGB24 raw bytes to Bun.
 
-Build `mediaContentMask` from measured structural Media rectangles. Build versioned `a11yDeviationMask` only from selectors whose computed actual token is an approved readable substitution for the captured handoff token; record each selector/rectangle/from/to token and union pixel count, reject overlap with native chrome and unregistered regions, then union both masks. Require structural boxes within 1 CSS px, zero pixels outside the union above RGB delta 16, and at most 0.5% of Media-content pixels above RGB delta 24. The a11y mask is exempt only from pixel color tolerance, never geometry. Write all crop/mask/threshold/metric/artifact/log/launch/DB fields into the locked schema. Also capture actual 1280/1100 selection/viewer/video-hover/chat/dock/overlay states without the 1440 pixel threshold.
+Build `mediaContentMask` from measured structural Media rectangles. Build versioned `a11yDeviationMask` only from selectors whose computed actual token is an approved readable substitution for the captured handoff token; record each selector/rectangle/from/to token and union pixel count, reject overlap with native chrome and unregistered regions, then union both masks. Require structural boxes within 1 CSS px, zero pixels outside the union above RGB delta 16, and at most 0.5% of Media-content pixels above RGB delta 24. The a11y mask is exempt only from pixel color tolerance, never geometry. For each exact light/dark Media evidence key, include both 3a/3b reference/actual/diff artifacts, metrics, masks, logs, and all reference/app launch-ledger entries in one `attach-media-pixel-evidence` call; pass the current manifest revision and carry the returned revision forward. Partial collection remains a valid `accessibility-complete` bundle, so an interrupted second capture never invalidates the first committed attachment. Also capture actual 1280/1100 selection/viewer/video-hover/chat/dock/overlay states without the 1440 pixel threshold and append their supporting launches through the same update API.
+
+After both exact keys have non-null validated pixel evidence, call `updateEvidenceBundle` once with `advance-phase` from `accessibility-complete` to `media-complete`. The transition derives the exact required keys from the stored manifest, rejects any missing required evidence or any `pixelDiff` on another case, and atomically publishes the new phase. No capture or audit script edits the manifest, records, artifact paths, or launch ledger directly.
 
 ```js
 const diff = Bun.spawn(["ffmpeg", "-i", reference, "-i", actual, "-filter_complex", "blend=all_mode=difference", "-f", "rawvideo", "-pix_fmt", "rgb24", "pipe:1"], { stdout: "pipe" });
@@ -852,7 +922,7 @@ const diff = Bun.spawn(["ffmpeg", "-i", reference, "-i", actual, "-filter_comple
 
 Run: `CORE_BIN='/Users/maximovchinnikov/github/ralphy/ralphy-desktop/release/Ralphy Media.app/Contents/Resources/bin/ralphy'; VITE_RALPHY_ENABLE_MOCKS=true RALPHY_CORE_BIN="$CORE_BIN" bun run package:mac && bun scripts/bundled-core.mjs --verify-packaged 'release/Ralphy Media.app' && bun run audit:media:fidelity`
 
-Expected: mock package and fixed Core/manifest are verified before capture; prints `MEDIA_FIDELITY_AUDIT_OK`; DB/WAL unchanged and SHM linked; manifest records calibrated renderer crops, Media/a11y mask regions and pixel count, exact deltas, artifacts/logs, and launches. Visual reviewer signs the versioned readable-text deviations separately from strict geometry/Media-content tolerance.
+Expected: mock package and fixed Core/manifest are verified before capture; prints `MEDIA_FIDELITY_AUDIT_OK`; DB/WAL unchanged and SHM linked; manifest advances from valid pending-Media `accessibility-complete` to `media-complete` only after both exact records hold calibrated crops, Media/a11y mask regions and pixel count, exact deltas, artifacts/logs, and launches. Visual reviewer signs the versioned readable-text deviations separately from strict geometry/Media-content tolerance.
 
 - [ ] **Step 5: Commit**
 
@@ -871,7 +941,7 @@ git commit -m "test: measure Media handoff fidelity"
 - Modify: `package.json`
 - Test: `tests/instrument-final-acceptance.test.ts`
 
-**Interfaces:** Consumes all audit tools and fixed Core pin. Produces `bun run audit:instrument:final` and absolute final report path.
+**Interfaces:** Consumes all audit tools, the revision-checked evidence bundle, and fixed Core pin. Produces `bun run audit:instrument:final` and absolute final report path.
 
 - [ ] **Step 1: Write failing launch ledger/persistence/final checks**
 
@@ -880,11 +950,14 @@ expect(launchLabels).toEqual(expect.arrayContaining(["mock-smoke", "production-t
 expect(launchLabels.some((label) => label.startsWith("scenario-"))).toBe(true);
 expect(launchLabels.some((label) => label.startsWith("journey-"))).toBe(true);
 expect(launchLabels.some((label) => label.startsWith("media-"))).toBe(true);
-expect(launchLabels).toEqual(expectedFinalLaunchLabels(INSTRUMENT_SCENARIOS, accessibilityJourneys, mediaCaptures));
+expect(launchLabels).toEqual(expectedFinalLaunchLabels(INSTRUMENT_SCENARIOS, GLOBAL_ACCESSIBILITY_JOURNEY_IDS, mediaCaptures));
 expect(assertEveryLaunchHasDbRecord(manifest)).toBeUndefined();
 expect(assertEveryRecordLinksLaunchAndArtifacts(manifest)).toBeUndefined();
 expect(assertEveryScenarioCaseHasExactJourneyExecutions(manifest, INSTRUMENT_SCENARIOS)).toBeUndefined();
+expect(assertExactGlobalAccessibilityExecutions(manifest, GLOBAL_ACCESSIBILITY_JOURNEY_IDS)).toBeUndefined();
 expect(assertEveryJourneyLinksDistinctChildLedgerDbAndArtifacts(manifest)).toBeUndefined();
+expect(manifest.requirements.mediaPixelEvidenceKeys).toEqual(["mock__media.ready__light__1440x900", "mock__media.ready__dark__1440x900"]);
+expect(assertExactMediaPixelEvidence(manifest)).toBeUndefined();
 expect(manifest.phase).toBe("final");
 expect(manifest.records.every(({ reviewer }) => reviewer.regression !== null)).toBe(true);
 expect(assertReportDisplaysLockedSchema(reportHtml)).toBeUndefined();
@@ -900,7 +973,9 @@ Expected: FAIL because the final launch ledger, two-launch profile reuse, produc
 
 - [ ] **Step 3: Implement exact final orchestration**
 
-Preflight the approved Core source/version/SHA, then package mock mode using the verified in-memory bytes and verify its packaged Core/manifest before any consumer. Scenario/accessibility/Media scripts wrap every child internally and append launch-ledger entries; wrap each single smoke child with the CLI and append its returned entry. Accessibility finalization independently expands every scenario-case's declared journeys, requires one nested entry and one distinct `journey-${caseKey}-${journeyKind}` child/ledger/DB/artifact chain for each, and rejects missing/extra/duplicate entries, reused ledger IDs, or an extra four-part scenario record. In the `--persistence` path, create one temporary profile and call `withDatabaseFingerprint("persistence-first", launchFirst)`; choose Light, hide sidebar, close right preference through UI, and close cleanly. Then call `withDatabaseFingerprint("persistence-second", launchSecond)` with the same profile and verify prepaint Light plus restored panels before interaction. Package production false mode, reverify Core/manifest, run source audit, reject the complete fixture/mock marker list, then have `--production-truth` wrap its one child as `production-truth`; wrap production smoke separately. Production truth asserts real read-only Media status, disabled A/N/R reason, unavailable live Island counters, and no mock label. Verify app version/codesign and require exact launch labels, DB/WAL/SHM links, child results, typed scenario/journey records/artifacts, and all four reviewer decisions before `finalizeEvidenceRun` changes `accessibility-complete` to `final` and generates the schema-complete report.
+Preflight the approved Core source/version/SHA, then package mock mode using the verified in-memory bytes and verify its packaged Core/manifest before any consumer. Scenario/accessibility/Media scripts wrap every child internally and commit their record-plus-ledger updates through `updateEvidenceBundle`; wrap each single smoke child with the CLI and add its returned ledger entry with `append-supporting-launches`, always passing the latest returned revision. Accessibility finalization independently expands every scenario-case's declared case journeys, requires one nested entry and one distinct `journey-${caseKey}-${journeyKind}` child/ledger/DB/artifact chain for each, and separately requires the exact manifest-global `system-theme` entry with the `journey-global-system-theme` child and `scenarioEvidenceKey: null`. It rejects missing/extra/duplicate entries, reused ledger IDs, or an extra four-part scenario record.
+
+In the `--persistence` path, create one temporary profile and call `withDatabaseFingerprint("persistence-first", launchFirst)`; choose Light, hide sidebar, close right preference through UI, and close cleanly. Then call `withDatabaseFingerprint("persistence-second", launchSecond)` with the same profile and verify prepaint Light plus restored panels before interaction. Package production false mode, reverify Core/manifest, run source audit, reject the complete fixture/mock marker list, then have `--production-truth` wrap its one child as `production-truth`; wrap production smoke separately. Production truth asserts real read-only Media status, disabled A/N/R reason, unavailable live Island counters, and no mock label. Add these supporting ledger entries and each record's reviewer decision only through revision-checked discriminated updates. Verify app version/codesign and require exact launch labels—including `journey-global-system-theme`—DB/WAL/SHM links, child results, typed scenario/case-journey/global-journey/Media records and artifacts, and all four reviewer decisions. Finally call `updateEvidenceBundle` with `advance-phase` from `media-complete` to `final`; the writer revalidates the complete bundle before the atomic rename, after which the report reads revision/phase and every required section. No final orchestrator edits JSON directly.
 
 ```bash
 CORE_BIN='/Users/maximovchinnikov/github/ralphy/ralphy-desktop/release/Ralphy Media.app/Contents/Resources/bin/ralphy'
@@ -927,7 +1002,7 @@ bun run report:instrument
 
 Run: `bun run test && bun run typecheck && bun run audit:instrument:final`
 
-Expected: all checks pass; every Electron child has its own DB/WAL before/after record and SHM observation; packaged Core/manifest equal fixed pin; production is fixture-free; codesign passes; product, accessibility/visual, security, and regression reviewers record decisions in manifest; command prints the absolute `report.html`.
+Expected: all checks pass; every Electron child has its own DB/WAL before/after record and SHM observation; packaged Core/manifest equal fixed pin; production is fixture-free; codesign passes; exact case journeys, the separate global system-theme journey, and both required Media pixel records validate; product, accessibility/visual, security, and regression reviewers record decisions in manifest; a single atomic `media-complete` → `final` update succeeds and the command prints the absolute `report.html`.
 
 - [ ] **Step 5: Commit final harness**
 
