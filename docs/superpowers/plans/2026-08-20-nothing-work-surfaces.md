@@ -20,7 +20,7 @@
 - Mock review exists only when `import.meta.env.VITE_RALPHY_ENABLE_MOCKS === "true"` and workspace name is exactly `UX Testing Lab`; one dynamically imported module owns reducer plus shortcut policy, label it `TEST REVIEW SESSION · NOT SAVED`, reset reviews/draft/iteration/shortcut scope on any exact `(rootEpoch, workspaceId, projectId)` tuple change, and never call bridge/storage/filesystem.
 - Right-side content uses the shared `docked | overlay | closed` rail. Virtualized Media and Activity use `InstrumentScrollContext` as their external scroll element.
 - Every task completes deterministic ready/loading/empty/partial/unavailable/error/selected/disabled fixtures applicable to its surface and adds behavior-first interaction/focus/scroll assertions; copy assertions alone are not acceptance.
-- Every rendered route consumes its production owner-exported descriptor through `InstrumentScreenRoot`; every dialog/drawer/viewer/menu/sheet/popover consumes `InstrumentOverlay`. Owning tasks update these production registrations and their derived scenarios together.
+- Every rendered route consumes its production owner-exported descriptor through `InstrumentScreenRoot`; every dialog/drawer/viewer/menu/sheet/popover and portalled listbox consumes `InstrumentOverlay`. Each shared `SelectMenu` consumer passes its exact key-derived owner ID and adds an open/select/Escape/focus-return scenario for every applicable route. Owning tasks update these production registrations and derived scenarios together.
 - Each task follows RED/GREEN, task-sized independent review, `git diff --check`, exact staging, staged gitleaks, and a commit.
 
 ---
@@ -40,7 +40,8 @@ export type Availability<T> =
 export type InstrumentRightRailMode = "docked" | "overlay" | "closed";
 export function InstrumentRightRailPortal(props: { owner: InstrumentRightRailOwner; label: string; children: React.ReactNode }): React.ReactPortal | null;
 export type InstrumentOverlayId = keyof typeof INSTRUMENT_OVERLAYS;
-export function InstrumentOverlay<Id extends InstrumentOverlayId>(props: { id: Id; open: boolean; label: string; description: string; opener: HTMLElement | null; onOpenChange(open: boolean): void; children: React.ReactNode; localScroll?: boolean }): React.ReactPortal | null;
+export type InstrumentSharedSelectOwnerId = keyof typeof SHARED_SELECT_OVERLAY_OWNERS;
+export function InstrumentOverlay<Id extends InstrumentOverlayId>(props: { id: Id; open: boolean; label: string; description: string; opener: HTMLElement | null; onOpenChange(open: boolean): void; children: React.ReactNode; localScroll?: boolean; host?: "managed-portal" | "primitive-host"; overlayOwner?: InstrumentSharedSelectOwnerId }): React.ReactPortal | React.ReactElement | null;
 export function defineInstrumentScreenStates<const Descriptor extends InstrumentScreenStateDescriptor>(descriptor: Descriptor): Descriptor;
 export function InstrumentScreenRoot(props: { descriptor: InstrumentScreenStateDescriptor; state: InstrumentScenarioState; children: React.ReactNode }): React.ReactElement;
 export const PRODUCTION_SCREEN_STATES: readonly InstrumentScreenStateDescriptor[];
@@ -86,7 +87,7 @@ export function isReviewShortcutEligible(event: KeyboardEvent, ui: { context: Mo
 - `tests/helpers/render-instrument-scenario.tsx` — DOM scenario renderer using deterministic fixture provider.
 - `src/styles/work-surfaces.css` — route geometry only; all colors are Plan 1 tokens.
 - Owner screen exports plus `src/instrument/production-screen-states.ts` / `scenarios.ts` — live state descriptors and exact derived evidence pairs updated in the same task.
-- `src/instrument/overlay-registry.tsx` — consumed, not forked; every operational overlay below renders through `InstrumentOverlay` with its registered ID.
+- `src/instrument/overlay-registry.tsx` — consumed, not forked; every operational overlay below renders through `InstrumentOverlay` with its registered ID, and every `SelectMenu` consumer uses `shared-select-menu` plus its exact owner ID.
 - `src/screens/workspace/*`, `SharedLibraryScreen.tsx`, `MemoryScreen.tsx`, `CalendarScreen.tsx` — My Work surfaces.
 - `src/screens/project/*` — Documents, read-only/mock Media, Units, Activity.
 - `src/components/VirtualAssetGrid.tsx` and Activity virtualization — external shell-scroll consumers.
@@ -360,7 +361,7 @@ git commit -m "feat: rebuild workspace collections"
 - Test: `tests/shared-library-screen.test.tsx`
 - Test: `tests/shared-library-presentation.test.ts`
 
-**Interfaces:** Consumes current controller/query/paging. Produces Instrument search/filter/results for loading/ready/empty/partial/error and selected states.
+**Interfaces:** Consumes current controller/query/paging and shared `SelectMenu`. Produces Instrument search/filter/results for loading/ready/empty/partial/error and selected states plus `shared-select-menu` owner `shared.toolbar` scenarios on each applicable Shared Library route.
 
 - [ ] **Step 1: Write paging/filter/selection tests**
 
@@ -370,6 +371,10 @@ expect(controller.setQuery).toHaveBeenLastCalledWith("vertical");
 await user.click(screen.getByRole("button", { name: "Load more" }));
 expect(controller.loadMore).toHaveBeenCalledTimes(1);
 expect(renderInstrumentScenario("shared.results.partial").getByRole("status")).toHaveTextContent(/partial/i);
+await user.click(screen.getByRole("combobox", { name: "Kind" }));
+expect(screen.getByRole("listbox")).toHaveAttribute("data-instrument-overlay-owner", "shared.toolbar");
+await user.keyboard("{Escape}");
+expect(screen.getByRole("combobox", { name: "Kind" })).toHaveFocus();
 ```
 
 - [ ] **Step 2: Run RED**
@@ -384,7 +389,7 @@ Expected: FAIL on Instrument root, state semantics, and shell scroll retention.
 <main data-instrument-root="shared-library-results"><SharedLibraryToolbar /><SharedLibraryAuditList scrollElement={scroll.element} /></main>
 ```
 
-Keep controller debounce/paging/stale-request logic; render real availability reasons and selection callbacks. No inspector/workflow changes in this task.
+Keep controller debounce/paging/stale-request logic; render real availability reasons and selection callbacks. Retain `overlayOwner="shared.toolbar"` on the Kind, Provenance, and Sort `SelectMenu` instances and keep the Plan 1 open/select/Escape/focus-return scenarios complete for each Shared Library route where the toolbar is rendered. No inspector/workflow changes in this task.
 
 - [ ] **Step 4: Run GREEN and review**
 
@@ -466,7 +471,7 @@ git commit -m "feat: rebuild shared library inspection"
 - Modify: `src/instrument/scenarios.ts`
 - Test: `tests/shared-library-workflows.test.tsx`
 
-**Interfaces:** Consumes current preflight/mutation contracts. Produces focus-managed `shared-workflow` overlays without no-op actions.
+**Interfaces:** Consumes current preflight/mutation contracts and shared `SelectMenu`. Produces focus-managed `shared-workflow` overlays without no-op actions plus `shared-select-menu` owner `shared.workflow` coverage.
 
 - [ ] **Step 1: Write preflight/confirm/focus tests**
 
@@ -476,6 +481,9 @@ await user.click(screen.getByRole("button", { name: realProject.name }));
 expect(preflight).toHaveBeenCalledWith(realProject);
 expect(screen.getByRole("button", { name: "Confirm" })).toBeDisabled();
 await resolvePreflightReady();
+await user.click(screen.getByRole("combobox", { name: "Role" }));
+expect(screen.getByRole("listbox")).toHaveAttribute("data-instrument-overlay-owner", "shared.workflow");
+await user.keyboard("{Escape}");
 await user.click(screen.getByRole("button", { name: "Confirm" }));
 expect(mutation).toHaveBeenCalledTimes(1);
 ```
@@ -492,7 +500,7 @@ Expected: FAIL on Instrument dialog focus and truthful preflight gating.
 <InstrumentOverlay id="shared-workflow" open={open} label="Shared Library workflow" description={reason} opener={opener} onOpenChange={onOpenChange}>{workflowBody}</InstrumentOverlay>
 ```
 
-Keep exact Core mutation/preflight behavior, loading/error/partial reasons, Escape, and opener focus. No new operation or drag/drop path.
+Keep exact Core mutation/preflight behavior, loading/error/partial reasons, Escape, and opener focus. Retain `overlayOwner="shared.workflow"` on the Role `SelectMenu` and keep its Plan 1 open/select/Escape/focus-return scenario complete on every workflow route. No new operation or drag/drop path.
 
 - [ ] **Step 4: Run GREEN and review**
 
@@ -569,7 +577,7 @@ git commit -m "feat: rebuild memory rulebook"
 - Modify: `src/instrument/scenarios.ts`
 - Test: `tests/memory-screen.test.tsx`
 
-**Interfaces:** Consumes existing memory mutations and feedback-body rules. Produces `memory-editor`, `memory-history`, and `memory-confirm` through `InstrumentOverlay`.
+**Interfaces:** Consumes existing memory mutations, feedback-body rules, and shared `SelectMenu`. Produces `memory-editor`, `memory-history`, and `memory-confirm` through `InstrumentOverlay` plus `shared-select-menu` owner `memory.editor` coverage.
 
 - [ ] **Step 1: Write mutation/focus/conflict tests**
 
@@ -578,6 +586,9 @@ await openMemoryEditor();
 expect(screen.getByRole("dialog", { name: "Edit memory rule" })).toHaveFocus();
 await user.clear(screen.getByLabelText("Does NOT apply to"));
 expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+await user.click(screen.getByRole("combobox", { name: "Memory type" }));
+expect(screen.getByRole("listbox")).toHaveAttribute("data-instrument-overlay-owner", "memory.editor");
+await user.keyboard("{Escape}");
 await user.keyboard("{Escape}");
 expect(openEditorButton).toHaveFocus();
 ```
@@ -594,7 +605,7 @@ Expected: FAIL on registered overlay roots, validation, and focus return.
 <InstrumentOverlay id="memory-editor" open={editorOpen} label="Edit memory rule" description="Edit the complete rule" opener={editorOpener} onOpenChange={setEditorOpen}><MemoryRuleFields requiredNegativeScope /></InstrumentOverlay>
 ```
 
-Preserve approve/reject/retire mutations, destructive red semantics, exact body validation, error alerts, and stale-request fencing.
+Retain `overlayOwner="memory.editor"` on the Scope, Type, and State `SelectMenu` instances and keep the Plan 1 open/select/Escape/focus-return scenario complete on every Memory route where the editor is reachable. Preserve approve/reject/retire mutations, destructive red semantics, exact body validation, error alerts, and stale-request fencing.
 
 - [ ] **Step 4: Run GREEN and review**
 
@@ -960,7 +971,7 @@ git commit -m "test: add tuple-fenced mock review"
 - Test: `tests/media-grid.test.ts`
 - Test: `tests/media-viewer.test.tsx`
 
-**Interfaces:** Consumes shell scroll context, read-only/mock console, current paging/preview/viewer/generation/revision behavior. Produces 3a/3b geometry markers, external-scroll virtualizer, and registered `media-viewer`/`media-context-menu` overlays.
+**Interfaces:** Consumes shell scroll context, read-only/mock console, shared `SelectMenu`, and current paging/preview/viewer/generation/revision behavior. Produces 3a/3b geometry markers, external-scroll virtualizer, registered `media-viewer`/`media-context-menu` overlays, and `shared-select-menu` owner `project.media` coverage.
 
 - [ ] **Step 1: Write geometry/virtualizer/viewer interaction tests**
 
@@ -970,6 +981,9 @@ expect(virtualizer.getScrollElement()).toBe(instrumentScroll.element);
 expect(document.querySelectorAll('[data-scroll-owner="route"]')).toHaveLength(0);
 await user.hover(videoCard); expect(video).toHaveProperty("muted", true);
 await user.tab(); expect(videoPreview).toBeVisible();
+await user.click(screen.getByRole("combobox", { name: "Media type" }));
+expect(screen.getByRole("listbox")).toHaveAttribute("data-instrument-overlay-owner", "project.media");
+await user.keyboard("{Escape}");
 ```
 
 Cover filters/view/zoom, natural aspect ratios, selected badge, previous/next, generation/revision/failure, viewer/context menu, focus/Escape, no sound autoplay, dock/rail clearance, 1280/1100 column changes.
@@ -987,7 +1001,7 @@ const scroll = useInstrumentScroll();
 const virtualizer = useVirtualizer({ count: cards.length, getScrollElement: () => scroll.element, estimateSize });
 ```
 
-At 1440: 38px filter row, four masonry lanes/10px gaps, media frames use the named palette token, captions outside, 3px selection ring/`IN CONSOLE`, 292px rail stack, dock clear. Use container thresholds for 1280/1100 and overlay rail. Render viewer/context menu through their registered `InstrumentOverlay` IDs. Preserve preview cache/scheduler, URL guards, media lifecycle, and actual callbacks.
+At 1440: 38px filter row, four masonry lanes/10px gaps, media frames use the named palette token, captions outside, 3px selection ring/`IN CONSOLE`, 292px rail stack, dock clear. Use container thresholds for 1280/1100 and overlay rail. Render viewer/context menu through their registered `InstrumentOverlay` IDs. Retain `overlayOwner="project.media"` on Lifecycle/Type/Generation `SelectMenu` instances and keep the Plan 1 open/select/Escape/focus-return scenario complete for `project.media`. Preserve preview cache/scheduler, URL guards, media lifecycle, and actual callbacks.
 
 - [ ] **Step 4: Run GREEN and Media reviewer gate**
 
@@ -1123,7 +1137,7 @@ git commit -m "feat: rebuild unit detail and playback"
 - Test: `tests/activity-timeline.test.tsx`
 - Test: `tests/activity-sync.test.ts`
 
-**Interfaces:** Consumes current activity sync/catch-up/order/search/filter. Produces external-scroll virtual list and list state roots.
+**Interfaces:** Consumes current activity sync/catch-up/order/search/filter and shared `SelectMenu`. Produces external-scroll virtual list and list state roots plus `shared-select-menu` owner `project.activity` coverage.
 
 - [ ] **Step 1: Write search/filter/virtual restore tests**
 
@@ -1131,6 +1145,9 @@ git commit -m "feat: rebuild unit detail and playback"
 await user.type(screen.getByRole("searchbox"), "render");
 expect(controller.setActivityQuery).toHaveBeenCalledWith("render");
 expect(activityVirtualizer.getScrollElement()).toBe(instrumentScroll.element);
+await user.click(screen.getByRole("combobox", { name: "Filter activity source" }));
+expect(screen.getByRole("listbox")).toHaveAttribute("data-instrument-overlay-owner", "project.activity");
+await user.keyboard("{Escape}");
 navigateAwayAndBack();
 expect(instrumentScroll.getOffset()).toBe(732);
 ```
@@ -1148,7 +1165,7 @@ const { element } = useInstrumentScroll();
 const rows = useVirtualizer({ count: activities.length, getScrollElement: () => element, estimateSize: () => 52 });
 ```
 
-Keep stable order/catch-up and technical availability; remove route-level vertical overflow.
+Retain `overlayOwner="project.activity"` on Source and Model `SelectMenu` instances and keep the Plan 1 `project.activity` open/select/Escape/focus-return scenario complete. Keep stable order/catch-up and technical availability; remove route-level vertical overflow.
 
 - [ ] **Step 4: Run GREEN and review**
 
@@ -1242,10 +1259,19 @@ for (const scenario of workScenarios()) {
 }
 expect(workScenarioRouteStatePairs()).toEqual(productionWorkRouteStatePairs());
 expect(workScenarioOverlayIds()).toEqual(productionWorkOverlayIds());
+expect(workScenarioSharedOverlayOwnerRoutePairs()).toEqual(productionWorkSharedOverlayOwnerRoutePairs());
+expect(workScenarioGlobalOverlayRoutePairs()).toEqual(productionWorkGlobalOverlayRoutePairs());
 expect(unregisteredRawWorkOverlays()).toEqual([]);
+expect(reachableWorkSelectMenuImports()).toEqual([
+  ["src/screens/MemoryScreen.tsx", "memory.editor"],
+  ["src/screens/project/ActivityTimeline.tsx", "project.activity"],
+  ["src/screens/project/MediaPanel.tsx", "project.media"],
+  ["src/screens/shared-library/SharedLibraryToolbar.tsx", "shared.toolbar"],
+  ["src/screens/shared-library/SharedLibraryWorkflows.tsx", "shared.workflow"],
+]);
 ```
 
-Run keyboard, reduced-motion, and live-region journeys named by each scenario, including all dialogs/sheets/viewers/context menus and focus return.
+Run keyboard, reduced-motion, and live-region journeys named by each scenario, including all dialogs/sheets/viewers/context menus, every shared Select owner, all four Agent Chat menus, the Workspace picker portal on every applicable sidebar route, and focus return.
 
 - [ ] **Step 2: Run RED**
 
@@ -1259,7 +1285,7 @@ Expected: FAIL with exact missing route/state/overlay IDs or interaction journey
 export const WORK_SCENARIO_IDS = INSTRUMENT_SCENARIOS.filter(({ routeKey }) => routeKey.startsWith("startup.") || routeKey.startsWith("workspace.") || routeKey.startsWith("project.") || routeKey.startsWith("settings."));
 ```
 
-Add only missing deterministic payloads/landmarks/markers; do not weaken expectations. Import owner descriptors and overlay keys rather than adding parallel unions. Ensure every Work overlay renders through `InstrumentOverlay`, modal-local scrollers are explicitly marked, and all route virtualizers use the desk owner.
+Add only missing deterministic payloads/landmarks/markers; do not weaken expectations. Import owner descriptors, overlay keys, and key-derived shared-select owners rather than adding parallel unions. Ensure every Work overlay renders through `InstrumentOverlay`; each `SelectMenu` import supplies the exact owner above; the four chat menus and picker carry their fixed registered IDs; modal-local scrollers are explicitly marked; and all route virtualizers use the desk owner. Compare all applicable `(routeKey, overlayId, overlayOwner)` tuples in both directions so a generic ID cannot hide an uncovered owner route.
 
 - [ ] **Step 4: Run GREEN and final Work review**
 

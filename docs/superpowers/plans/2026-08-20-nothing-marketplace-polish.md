@@ -18,12 +18,12 @@
 - Do not add/reconcile Core methods, consumer sessions, `media.review`, IPC, database/schema access, renderer network/filesystem access, remote runtime/assets/fonts, or packages.
 - Marketplace counts/actions are truthful: Models and schema-1 Templates/Recipes are real; unsupported Prompts/Components/Skills/Saved/Added/Downloads/Updates/Attention/Forks stay explicit and disabled.
 - Scenario fixture and mock review/Island code loads only under `import.meta.env.VITE_RALPHY_ENABLE_MOCKS === "true"` and exact UX Testing Lab; production chunks contain neither fixture IDs nor mock module paths.
-- Source audit covers reachable TS/TSX/CSS and authored SVG, exact production screen/overlay roots, primitive usage, selector-aware effects, complete named palette, baseline-hashed brand assets, and production dist. Color literals are legal only in `palette.ts` and the verified definition block of `tokens.css`; xterm/WaveSurfer consume the palette.
+- Source audit covers reachable TS/TSX/CSS and authored SVG, exact production screen/overlay roots, every approved primitive adapter and import owner, selector-aware effects, complete named palette, baseline-hashed brand assets, and production dist. Color literals are legal only in `palette.ts` and the verified definition block of `tokens.css`; xterm/WaveSurfer consume the palette.
 - Every canonical scenario expands to the exact forced light/dark × 1440/1280/1100 case set unless a typed approved exception names each omitted pair; shell panel permutations remain a separate exact matrix.
 - Every Electron process uses an explicit temporary `--user-data-dir`; every launch is individually wrapped by the Plan 1 DB/WAL fingerprint utility, with SHM recorded separately.
 - Packaging input is exactly `/Users/maximovchinnikov/github/ralphy/ralphy-desktop/release/Ralphy Media.app/Contents/Resources/bin/ralphy`, version `0.3.0`, fixed SHA-256 `a843e2805b4b0a49d02f7afe46cdd5693d81184c14d560af836be93283d85679`. Reject mismatch before output replacement.
 - Build and independently verify the deterministic mock package before every audit task that consumes it; an intervening bundle-affecting commit invalidates the prior package.
-- Evidence records use the locked typed schema below; every child has one launch-ledger entry and DB/WAL record plus separate SHM observation.
+- Evidence records use the locked typed schema below; every scenario-case keeps its one scenario launch plus an `accessibilityJourneys` array, and every journey child has its own launch/exit, ledger entry, DB/WAL record, separate SHM observation, and artifacts without creating a duplicate scenario-case record.
 - Evidence is written only under ignored `.superpowers/sdd/nothing-instrument/runs/<run-id>/`; mock/production names never collide and the final command prints the absolute HTML report.
 - Every task follows behavior-first RED/GREEN, independent review, `git diff --check`, exact staging, staged gitleaks, and a commit.
 
@@ -42,7 +42,8 @@ export type Availability<T> =
   | { status: "error"; reason: string };
 export function InstrumentRightRailPortal(props: { owner: InstrumentRightRailOwner; label: string; children: React.ReactNode }): React.ReactPortal | null;
 export type InstrumentOverlayId = keyof typeof INSTRUMENT_OVERLAYS;
-export function InstrumentOverlay<Id extends InstrumentOverlayId>(props: { id: Id; open: boolean; label: string; description: string; opener: HTMLElement | null; onOpenChange(open: boolean): void; children: React.ReactNode; localScroll?: boolean }): React.ReactPortal | null;
+export type InstrumentSharedSelectOwnerId = keyof typeof SHARED_SELECT_OVERLAY_OWNERS;
+export function InstrumentOverlay<Id extends InstrumentOverlayId>(props: { id: Id; open: boolean; label: string; description: string; opener: HTMLElement | null; onOpenChange(open: boolean): void; children: React.ReactNode; localScroll?: boolean; host?: "managed-portal" | "primitive-host"; overlayOwner?: InstrumentSharedSelectOwnerId }): React.ReactPortal | React.ReactElement | null;
 export const PRODUCTION_SCREEN_STATES: readonly InstrumentScreenStateDescriptor[];
 export const INSTRUMENT_SCENARIOS: readonly InstrumentScenario[];
 export function assertInstrumentScenarioCompleteness(): void;
@@ -52,6 +53,17 @@ export function assertInstrumentScenarioCompleteness(): void;
 
 ```ts
 // scripts/instrument-evidence.d.ts (runtime validation lives in instrument-evidence.mjs)
+export interface InstrumentAccessibilityJourneyEvidence {
+  id: string;
+  kind: "keyboard" | "reduced-motion" | "live-region" | "system-theme";
+  steps: readonly string[];
+  focusOrder: readonly string[];
+  liveRegionEvents: readonly string[];
+  reducedMotion: boolean;
+  artifacts: { trace: string; screenshot: string | null; logs: readonly string[] };
+  launch: { label: string; ledgerId: string; exitCode: number | null; signal: string | null };
+  dbRecord: string;
+}
 export interface InstrumentEvidenceRecord {
   scenarioId: string;
   mode: "mock" | "production";
@@ -64,7 +76,7 @@ export interface InstrumentEvidenceRecord {
   measurements: Record<string, { value: number; unit: "css-px" | "device-px" | "ratio" | "ms"; expected: number | null; tolerance: number | null }>;
   checks: Record<string, "pass" | "fail">;
   artifacts: { screenshot: string; reference: string | null; diff: string | null; accessibility: string | null; logs: readonly string[] };
-  accessibilityJourney: { id: string; steps: readonly string[]; focusOrder: readonly string[]; liveRegionEvents: readonly string[]; reducedMotion: boolean } | null;
+  accessibilityJourneys: readonly InstrumentAccessibilityJourneyEvidence[];
   pixelDiff: {
     version: 1;
     rendererCrop: { x: number; y: number; width: number; height: number };
@@ -83,12 +95,14 @@ export interface InstrumentLaunchLedgerEntry {
   label: string;
   kind: "electron" | "reference-browser";
   scenarioEvidenceKey: string | null;
+  journeyId: string | null;
   dbRecord: string;
   database: { main: "verified-unchanged"; wal: "verified-unchanged"; shm: "recorded-separately" };
   child: { exitCode: number | null; signal: string | null };
 }
 export interface InstrumentEvidenceManifest {
   schemaVersion: 2;
+  phase: "scenario" | "accessibility-complete" | "final";
   runId: string;
   appCommit: string;
   appBundleSha256: string;
@@ -127,7 +141,7 @@ export interface InstrumentEvidenceManifest {
 - Test: `tests/marketplace-controller.test.ts`
 - Test: `tests/marketplace-navigation.test.tsx`
 
-**Interfaces:** Consumes existing Marketplace route/query/controller/source health. Produces rendered browse scenarios for discover/results/category/collection and loading/ready/empty/partial/error.
+**Interfaces:** Consumes existing Marketplace route/query/controller/source health and shared `SelectMenu`. Produces rendered browse scenarios for discover/results/category/collection and loading/ready/empty/partial/error plus `shared-select-menu` owner `marketplace.header` coverage on every route that renders `MarketplaceHeader`.
 
 - [ ] **Step 1: Write route/query/paging behavior tests**
 
@@ -139,6 +153,10 @@ expect(navigate).toHaveBeenCalledWith(expect.objectContaining({ route: { kind: "
 await user.click(screen.getByRole("button", { name: "Load more" }));
 expect(controller.loadMore).toHaveBeenCalledTimes(1);
 expect(renderInstrumentScenario("marketplace.results.partial").getByRole("status")).toHaveAccessibleDescription();
+await user.click(screen.getByRole("combobox", { name: "Category" }));
+expect(screen.getByRole("listbox")).toHaveAttribute("data-instrument-overlay-owner", "marketplace.header");
+await user.keyboard("{Escape}");
+expect(screen.getByRole("combobox", { name: "Category" })).toHaveFocus();
 ```
 
 - [ ] **Step 2: Run RED**
@@ -153,7 +171,7 @@ Expected: FAIL on Instrument root/state semantics, route callback, or scroll/foc
 <main data-instrument-root="marketplace-browse"><MarketplaceHeader query={query} /><MarketplaceBrowse state={snapshot} /></main>
 ```
 
-Preserve reducer history/query/filters/paging/source adapters. Render truthful partial/source-health reasons, one desk scroller, adaptive widgets, and no fake count.
+Preserve reducer history/query/filters/paging/source adapters. Retain `overlayOwner="marketplace.header"` on every MarketplaceHeader `SelectMenu` (type/category/source/license/compatibility/modality/format/sort), and keep the Plan 1 open/select/Escape/focus-return scenarios complete for every exact production route where that header renders. Render truthful partial/source-health reasons, one desk scroller, adaptive widgets, and no fake count.
 
 - [ ] **Step 4: Run GREEN and review**
 
@@ -409,6 +427,9 @@ for (const scenario of marketplaceScenarios()) {
 expect(missingMarketplaceRouteStatePairs()).toEqual([]);
 expect(extraMarketplaceRouteStatePairs()).toEqual([]);
 expect(marketplaceScenarioOverlayIds()).toEqual(productionMarketplaceOverlayIds());
+expect(marketplaceScenarioSharedOverlayOwnerRoutePairs()).toEqual(productionMarketplaceSharedOverlayOwnerRoutePairs());
+expect(marketplaceScenarioGlobalOverlayRoutePairs()).toEqual(productionMarketplaceGlobalOverlayRoutePairs());
+expect(reachableMarketplaceSelectMenuImports()).toEqual([["src/screens/marketplace/MarketplaceHeader.tsx", "marketplace.header"]]);
 expect(unregisteredRawMarketplaceOverlays()).toEqual([]);
 ```
 
@@ -424,7 +445,7 @@ Expected: FAIL with exact missing scenario/overlay/journey IDs.
 export const MARKETPLACE_SCENARIO_IDS = INSTRUMENT_SCENARIOS.filter(({ routeKey }) => routeKey.startsWith("marketplace."));
 ```
 
-Fill deterministic payloads/landmarks for every required state and overlay, including focus return and one desk/overlay scroll owner.
+Fill deterministic payloads/landmarks for every required state and overlay, including each `(routeKey, "shared-select-menu", "marketplace.header")` open/select/Escape/focus-return tuple and one desk/overlay scroll owner. Import the key-derived owner type; do not create a Marketplace-only owner union.
 
 - [ ] **Step 4: Run GREEN and review**
 
@@ -456,7 +477,7 @@ git commit -m "test: close marketplace scenario coverage"
 - Test: `tests/instrument-design-guards.test.ts`
 - Test: `tests/design-system.test.ts`
 
-**Interfaces:** Produces `auditInstrumentSource({ root, mocks }): { files: string[]; violations: AuditViolation[] }`, `unregisteredRawOverlaySites(files)`, `cssTokenDefinitions(path)`, `flattenPalette(palette)`, `colorLiteralSites()`, and `bun run audit:instrument:source`.
+**Interfaces:** Produces `auditInstrumentSource({ root, mocks }): { files: string[]; violations: AuditViolation[] }`, `reachableOverlayPrimitiveSites(files)`, `reachableOverlayImportOwners(files)`, `unregisteredRawOverlaySites(files)`, `cssTokenDefinitions(path)`, `flattenPalette(palette)`, `colorLiteralSites()`, and `bun run audit:instrument:source`.
 
 - [ ] **Step 1: Write failing reachable-source/root/selector tests**
 
@@ -464,6 +485,24 @@ git commit -m "test: close marketplace scenario coverage"
 expect(auditInstrumentSource({ root, mocks: false }).violations).toEqual([]);
 expect(missingInstrumentRootMarkers(INSTRUMENT_SCENARIOS)).toEqual([]);
 expect(unregisteredRawOverlaySites(reachableProductionFiles)).toEqual([]);
+expect(reachableOverlayPrimitiveSites(reachableProductionFiles)).toEqual([
+  ["src/components/UtilityPanels.tsx", "agent-chat-model-menu", "inline"],
+  ["src/components/UtilityPanels.tsx", "agent-chat-mode-menu", "inline"],
+  ["src/components/UtilityPanels.tsx", "agent-chat-provider-menu", "inline"],
+  ["src/components/UtilityPanels.tsx", "agent-chat-recent-menu", "inline"],
+  ["src/components/WorkspacePicker.tsx", "workspace-picker", "createPortal"],
+  ["src/components/ui/SelectMenu.tsx", "shared-select-menu", "Select.Portal"],
+]);
+expect(reachableOverlayImportOwners(reachableProductionFiles)).toEqual([
+  ["src/instrument/InstrumentSidebar.tsx", "WorkspacePicker", "workspace-picker"],
+  ["src/screens/MemoryScreen.tsx", "SelectMenu", "memory.editor"],
+  ["src/screens/SettingsScreen.tsx", "SelectMenu", "settings.appearance"],
+  ["src/screens/marketplace/MarketplaceHeader.tsx", "SelectMenu", "marketplace.header"],
+  ["src/screens/project/ActivityTimeline.tsx", "SelectMenu", "project.activity"],
+  ["src/screens/project/MediaPanel.tsx", "SelectMenu", "project.media"],
+  ["src/screens/shared-library/SharedLibraryToolbar.tsx", "SelectMenu", "shared.toolbar"],
+  ["src/screens/shared-library/SharedLibraryWorkflows.tsx", "SelectMenu", "shared.workflow"],
+]);
 expect(productionDistText).not.toMatch(/instrument-test-fixture|mock-review|TEST REVIEW SESSION · NOT SAVED|ux-review-artifact-1|ux-review-iteration-3|mock-needs-work-fixture|ux-mock-render-1/);
 expect(authoredColorsOutside(INSTRUMENT_COLOR_ALLOWLIST)).toEqual([]);
 expect(cssTokenDefinitions("src/styles/tokens.css")).toEqual(flattenPalette(INSTRUMENT_PALETTE));
@@ -478,7 +517,7 @@ Expected: FAIL on legacy imports/files/classes, missing audit/root checks, legac
 
 - [ ] **Step 3: Implement recursive selector-aware audit and delete legacy**
 
-Follow static and `import()` relative edges from `src/main.tsx`; evaluate mock branch false and scan all reachable `.ts/.tsx/.css` plus authored `.svg`. Require every route root to consume its production state descriptor and every dialog/drawer/viewer/menu/sheet/popover to consume `InstrumentOverlay`; reject raw Radix/native overlay sites outside `overlay-registry.tsx`. Compare production route/state and overlay registration to scenarios in both directions. Reject legacy class prefixes/imports/assets, `box-shadow` other than none, backdrop/blur, gradients, old purple, dark-only form scheme; allow `color-scheme: dark` only on `html[data-theme="dark"]`. Parse literals in `palette.ts` and the exact `/* instrument-token-definitions:start */` block of `tokens.css`, require CSS-variable equality to the palette, and reject literals everywhere else, including terminal/WaveSurfer code. Permit brand/provider/model SVG only when path and SHA match the baseline map; dither PNGs only when Plan 1 hashes match. Scan dist against the complete mock module-path/fixture-marker set plus prototype/support/remote font/sprite paths.
+Follow static and `import()` relative edges from `src/main.tsx`; evaluate mock branch false and scan all reachable `.ts/.tsx/.css` plus authored `.svg`. Require every route root to consume its production state descriptor and every dialog/drawer/viewer/menu/sheet/popover or portalled listbox to consume `InstrumentOverlay`. Enumerate JSX wrapper IDs, native/Radix portal or menu/listbox roots, imports of `SelectMenu`/`WorkspacePicker`, and their literal owner props instead of relying only on registry keys. The only raw primitive hosts are the exact six sorted sites above, and each must contain the matching `InstrumentOverlay host="primitive-host"`; `Select.Portal` is allowed only in `SelectMenu.tsx`, `createPortal` only in `WorkspacePicker.tsx`, and the four inline menu roots only in `UtilityPanels.tsx`. Compare the exact import-owner list above with `SHARED_SELECT_OVERLAY_OWNERS`, compare each production route/state/overlay/owner tuple to scenarios in both directions, and reject missing, extra, nonliteral, or duplicate owners as well as any other raw overlay. Reject legacy class prefixes/imports/assets, `box-shadow` other than none, backdrop/blur, gradients, old purple, dark-only form scheme; allow `color-scheme: dark` only on `html[data-theme="dark"]`. Parse literals in `palette.ts` and the exact `/* instrument-token-definitions:start */` block of `tokens.css`, require CSS-variable equality to the palette, and reject literals everywhere else, including terminal/WaveSurfer code. Permit brand/provider/model SVG only when path and SHA match the baseline map; dither PNGs only when Plan 1 hashes match. Scan dist against the complete mock module-path/fixture-marker set plus prototype/support/remote font/sprite paths.
 
 ```js
 if (property === "color-scheme" && value === "dark" && selector !== 'html[data-theme="dark"]') violations.push({ file, selector, property, value });
@@ -488,7 +527,7 @@ if (property === "color-scheme" && value === "dark" && selector !== 'html[data-t
 
 Run: `VITE_RALPHY_ENABLE_MOCKS=false bun run build && bun run audit:instrument:source && bun run test -- tests/instrument-design-guards.test.ts tests/design-system.test.ts && bun run typecheck && git diff --check`
 
-Expected: prints `INSTRUMENT_SOURCE_AUDIT_OK`; reviewer confirms every deletion has no consumer and every scenario has Instrument roots/geometry contracts.
+Expected: prints `INSTRUMENT_SOURCE_AUDIT_OK`; reviewer confirms every deletion has no consumer, the primitive/import inventories equal the exact lists above, no raw site is forbidden by its own audit, and every route/state/overlay/owner tuple has scenario geometry/focus coverage.
 
 - [ ] **Step 5: Commit**
 
@@ -508,21 +547,31 @@ git commit -m "refactor: remove legacy desktop presentation"
 - Modify: `package.json`
 - Test: `tests/instrument-evidence.test.ts`
 
-**Interfaces:** Produces exact Evidence Interfaces, `createEvidenceRun`, `appendEvidenceRecord`, `finalizeEvidenceRun`, and `bun run report:instrument`.
+**Interfaces:** Produces exact Evidence Interfaces, `createEvidenceRun`, `appendEvidenceRecord`, `appendAccessibilityJourneyEvidence(manifestPath, evidenceKey, journey)`, `markAccessibilityEvidenceComplete(manifestPath, scenarios)`, `finalizeEvidenceRun`, and `bun run report:instrument`.
 
 - [ ] **Step 1: Write failing schema/path/collision tests**
 
 ```ts
 expect(validateManifest(validManifest)).toBeUndefined();
 expect(validManifest.schemaVersion).toBe(2);
-expect(validManifest.launches[0]).toMatchObject({ dbRecord: expect.stringMatching(/^db\//), database: { main: "verified-unchanged", wal: "verified-unchanged", shm: "recorded-separately" } });
-expect(validManifest.records[0]).toMatchObject({ measurements: expect.any(Object), artifacts: expect.any(Object), launch: expect.any(Object), dbRecord: expect.any(String), reviewer: { regression: expect.any(String) } });
+expect(validManifest.phase).toBe("final");
+expect(validManifest.launches[0]).toMatchObject({ journeyId: null, dbRecord: expect.stringMatching(/^db\//), database: { main: "verified-unchanged", wal: "verified-unchanged", shm: "recorded-separately" } });
+expect(validManifest.records[0]).toMatchObject({ measurements: expect.any(Object), artifacts: expect.any(Object), accessibilityJourneys: expect.any(Array), launch: expect.any(Object), dbRecord: expect.any(String), reviewer: { regression: expect.any(String) } });
+const threeJourneyRecord = manifestRecordFor("mock__media.ready__dark__1440x900", ["keyboard", "reduced-motion", "live-region"]);
+expect(threeJourneyRecord.accessibilityJourneys.map(({ kind }) => kind)).toEqual(["keyboard", "reduced-motion", "live-region"]);
+expect(threeJourneyRecord.accessibilityJourneys.map(({ launch }) => launch.ledgerId)).toHaveLength(3);
+expect(new Set(threeJourneyRecord.accessibilityJourneys.map(({ dbRecord }) => dbRecord)).size).toBe(3);
+expect(() => validateManifest(recordMissingDeclaredJourney)).toThrow(/missing.*journey/i);
+expect(() => validateManifest(recordWithDuplicateJourneyId)).toThrow(/duplicate.*journey/i);
+expect(() => validateManifest(recordWithJourneyLedgerMismatch)).toThrow(/journey.*launch ledger/i);
+expect(() => validateManifest({ ...validManifest, phase: "scenario", records: recordsWithEmptyJourneyArrays })).not.toThrow();
+expect(() => validateManifest({ ...validManifest, phase: "accessibility-complete", records: recordsWithEmptyJourneyArrays })).toThrow(/missing.*journey/i);
 expect(() => appendRecord(manifest, duplicateModeScenarioViewport)).toThrow(/duplicate evidence key/i);
 expect(() => validateManifest(mediaRecordWithoutPixelDiff)).toThrow(/pixelDiff/i);
 expect(() => validateManifest(recordWithMissingArtifact)).toThrow(/artifact/i);
 expect(() => validateManifest(recordWithUnknownLaunch)).toThrow(/launch ledger/i);
 expect(evidenceFileName("mock", "media.ready", "dark", "1440x900")).toBe("mock__media.ready__dark__1440x900.png");
-expect(renderReport(validManifest)).toMatch(/measurements.*pixel diff.*accessibility journey.*DB\/WAL\/SHM.*regression/is);
+expect(renderReport(validManifest)).toMatch(/measurements.*pixel diff.*accessibility journeys.*keyboard.*reduced-motion.*live-region.*DB\/WAL\/SHM.*regression/is);
 ```
 
 - [ ] **Step 2: Run RED**
@@ -537,13 +586,13 @@ Expected: FAIL because manifest/report modules do not exist.
 export const evidenceKey = ({ mode, scenarioId, theme, viewport }) => [mode, scenarioId, theme, viewport].join("__");
 ```
 
-Create `.superpowers/sdd/nothing-instrument/runs/<UTC>-<commit>/` with `manifest.json`, `report.html`, `screenshots/`, `references/`, `diffs/`, `accessibility/`, `db/`, and `logs/`. Validate the exact schema including conditional Media/a11y fields, relative path existence, unique launch labels/IDs, every record-to-ledger/DB link, main/WAL/SHM status, child exit result, and all four reviewer roles. The HTML must display measurements, mask regions/pixel counts/thresholds, artifacts/logs, accessibility journey, launch/exit/DB evidence, failures, and product/accessibility/security/regression decisions. Retain mock/production separately and print the absolute report path.
+Create `.superpowers/sdd/nothing-instrument/runs/<UTC>-<commit>/` with `manifest.json`, `report.html`, `screenshots/`, `references/`, `diffs/`, `accessibility/`, `db/`, and `logs/`. Keep the scenario record uniqueness key exactly `(mode, scenarioId, theme, viewport)`; the scenario runner appends it once with `accessibilityJourneys: []` while `phase: "scenario"`. `appendAccessibilityJourneyEvidence` atomically locates that parent key and appends one `InstrumentAccessibilityJourneyEvidence` without creating/replacing a record. Incremental validation permits empty arrays only in `phase: "scenario"`, while still validating any entries already present. After Task 12 appends all children, `markAccessibilityEvidenceComplete` independently derives the exact required case/journey set, rejects missing/extra/duplicate entries, and only then changes phase to `accessibility-complete`; `finalizeEvidenceRun` rechecks the same invariant before `final`. Validate the exact schema including conditional Media fields, relative path existence, unique launch labels/IDs, and every scenario/journey record-to-ledger/DB/artifact/log link. A journey ledger entry must have the parent `scenarioEvidenceKey`, matching `journeyId`, DB record, and child exit/signal; its nested launch fields must match that ledger entry. Validate main/WAL/SHM status, scenario and journey child exit results, and all four reviewer roles. The HTML must display current phase, measurements, mask regions/pixel counts/thresholds, artifacts/logs, a row per accessibility journey with its own launch/exit/DB links, failures, and product/accessibility/security/regression decisions. Retain mock/production separately and print the absolute report path.
 
 - [ ] **Step 4: Run GREEN and review**
 
 Run: `bun run test -- tests/instrument-evidence.test.ts && bun run report:instrument -- --fixture tests/fixtures/instrument-evidence-valid.json && git diff --check`
 
-Expected: PASS and prints an absolute ignored HTML path. Reviewer opens the report and traces every required field, artifact, launch, and DB/SHM record from the rendered HTML.
+Expected: PASS and prints an absolute ignored HTML path. Reviewer opens the report and traces all three journeys in the fixture independently to their artifact/log, child result, ledger entry, and DB/SHM record without a scenario-key collision.
 
 - [ ] **Step 5: Commit**
 
@@ -675,6 +724,7 @@ expect(assertExpectedRailAndPanels(expandScenarioCases(INSTRUMENT_SCENARIOS))).t
 expect(calibrateBounds(nativeBounds, innerMetrics)).toMatchObject({ nativeBounds, contentBounds: expect.any(Object) });
 expect(() => assertScenarioEvidence(missingLandmarkRecord)).toThrow(/landmark/i);
 expect(() => assertScenarioEvidence(missingLaunchAndDbRecord)).toThrow(/launch|DB record/i);
+expect(() => assertScenarioEvidence(missingAccessibilityJourneysArray)).toThrow(/accessibilityJourneys/i);
 ```
 
 - [ ] **Step 2: Run RED**
@@ -685,7 +735,7 @@ Expected: FAIL because no per-scenario Bun/CDP runner exists.
 
 - [ ] **Step 3: Implement isolated scenario execution**
 
-For each exact expanded scenario key, create a fresh temp `userData`, then call `withDatabaseFingerprint(label, launch)` around its one Electron child, with label `scenario-${caseId}`. Spawn with `Bun.spawn`, the freshly verified mock package, and CDP. Select fixture via production UI/test-fixture route only in mock build. Record native outer bounds separately from inner dimensions/device scale/top inset. Assert expected root/landmarks/overlay/focus/scroll owner plus `expectedRailMode[viewport]` and `panelSetup[viewport]`, no horizontal overflow, only modal-local scroller exception, dock reachability, native traffic inset/no HTML duplicate, native minimized/maximized/restored Browser states, computed flat styles, and AA contrast for every visible text-sized element/state. Append the typed evidence record and launch-ledger entry with artifact/log/DB/exit links; close in `finally`. Run the separate exact shell panel matrix without merging it into canonical scenario keys.
+For each exact expanded scenario key, create a fresh temp `userData`, then call `withDatabaseFingerprint(label, launch)` around its one Electron child, with label `scenario-${caseId}`. Spawn with `Bun.spawn`, the freshly verified mock package, and CDP. Select fixture via production UI/test-fixture route only in mock build. Record native outer bounds separately from inner dimensions/device scale/top inset. Assert expected root/landmarks/overlay/focus/scroll owner plus `expectedRailMode[viewport]` and `panelSetup[viewport]`, no horizontal overflow, only modal-local scroller exception, dock reachability, native traffic inset/no HTML duplicate, native minimized/maximized/restored Browser states, computed flat styles, and AA contrast for every visible text-sized element/state. Create/retain the manifest at `phase: "scenario"` and append the typed scenario evidence record exactly once with `accessibilityJourneys: []`; its scenario launch-ledger entry has `journeyId: null`. Close in `finally`. Task 12 appends journey entries to these existing parent records and never adds another four-part scenario key. Run the separate exact shell panel matrix without merging it into canonical scenario keys.
 
 ```js
 const profile = await mkdtemp(join(tmpdir(), `ralphy-instrument-${caseId}-`));
@@ -714,7 +764,7 @@ git commit -m "test: audit canonical Electron scenarios"
 - Modify: `package.json`
 - Test: `tests/instrument-accessibility-audit.test.ts`
 
-**Interfaces:** Consumes scenario `journeys`; produces `bun run audit:instrument:accessibility` and journey evidence.
+**Interfaces:** Consumes expanded scenario cases, each scenario's `journeys`, `appendAccessibilityJourneyEvidence`, and `markAccessibilityEvidenceComplete`; produces `bun run audit:instrument:accessibility` and one nested journey evidence entry per declared journey per scenario-case.
 
 - [ ] **Step 1: Write failing journey coverage tests**
 
@@ -722,6 +772,13 @@ git commit -m "test: audit canonical Electron scenarios"
 expect(missingJourneyCoverage(INSTRUMENT_SCENARIOS)).toEqual([]);
 expect(systemThemeJourney).toEqual(["launch-system-dark", "switch-os-light", "assert-root-consumers"]);
 expect(shortcutCases).toEqual(expect.arrayContaining(["interactive-button", "contenteditable", "modal-open", "modifier", "composition", "repeat"]));
+const caseWithThreeJourneys = expandedScenarioCase("accessibility.all-kinds");
+expect(caseWithThreeJourneys.scenario.journeys).toEqual(["keyboard", "reduced-motion", "live-region"]);
+expect(expectedJourneyLaunchLabels(caseWithThreeJourneys)).toEqual([
+  `journey-${caseWithThreeJourneys.key}-keyboard`,
+  `journey-${caseWithThreeJourneys.key}-reduced-motion`,
+  `journey-${caseWithThreeJourneys.key}-live-region`,
+]);
 ```
 
 - [ ] **Step 2: Run RED**
@@ -732,7 +789,7 @@ Expected: FAIL because end-to-end journey coverage and system theme are absent.
 
 - [ ] **Step 3: Implement end-to-end journeys**
 
-Use CDP `Emulation.setEmulatedMedia` for `prefers-color-scheme` and `prefers-reduced-motion`; wrap each journey's Electron child with `withDatabaseFingerprint(label, launch)`, with label `journey-${journeyId}`. Include a system-preference launch, live dark-to-light change, and resolved root/xterm/WaveSurfer assertions without flash. Tab/click/activate sidebar, dock, Island, profile/Settings, chat, filters/cards, every production-registered overlay; Escape and assert opener focus/unchanged desk offset. Under reduce, nonessential computed animation/transition durations are zero. Record the typed accessibility journey steps/focus order/live-region sequence/reduced-motion result plus artifact/log, launch-ledger, DB record, and exit fields. Prove polite deduplication/no focus move and exercise tuple-fenced mock review shortcut suppression cases.
+For each expanded scenario-case and every journey kind declared by its scenario, launch a separate child and use CDP `Emulation.setEmulatedMedia` for `prefers-color-scheme` and `prefers-reduced-motion`. Wrap that child with `withDatabaseFingerprint(label, launch)` using collision-free label `journey-${caseKey}-${journeyKind}`. Include a system-preference launch, live dark-to-light change, and resolved root/xterm/WaveSurfer assertions without flash. Tab/click/activate sidebar, Workspace picker, dock, Island, profile/Settings, every shared Select owner, all four Agent Chat menus, filters/cards, and every other production-registered overlay; Escape and assert opener focus/unchanged desk offset. Under reduce, nonessential computed animation/transition durations are zero. Append exactly one nested entry through `appendAccessibilityJourneyEvidence(manifestPath, caseKey, entry)` with `id: journeyKind`, `kind`, steps/focus/live-region/reduced-motion result, trace/screenshot/log paths, nested launch/exit plus matching ledger ID, and DB record. The ledger entry stores `scenarioEvidenceKey: caseKey` and `journeyId: journeyKind`. Prove polite deduplication/no focus move and exercise tuple-fenced mock review shortcut suppression cases. After all children, call `markAccessibilityEvidenceComplete(manifestPath, INSTRUMENT_SCENARIOS)`: it validates exact set equality for every case, rejects missing/extra/duplicate entries and second scenario records, then changes phase from `scenario` to `accessibility-complete`.
 
 ```js
 await cdp("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
@@ -742,7 +799,7 @@ await cdp("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-mo
 
 Run: `bun run audit:instrument:accessibility`
 
-Expected: prints `INSTRUMENT_ACCESSIBILITY_AUDIT_OK`; DB/WAL unchanged; evidence records every journey. Accessibility reviewer signs focus, keyboard, motion, live regions, contrast.
+Expected: prints `INSTRUMENT_ACCESSIBILITY_AUDIT_OK <exact-journey-child-count>`; DB/WAL unchanged; every scenario-case record contains its exact journey array, and each entry resolves to a distinct child/ledger/DB/artifact chain. Accessibility reviewer signs focus, keyboard, motion, live regions, and contrast per entry.
 
 - [ ] **Step 5: Commit**
 
@@ -826,6 +883,9 @@ expect(launchLabels.some((label) => label.startsWith("media-"))).toBe(true);
 expect(launchLabels).toEqual(expectedFinalLaunchLabels(INSTRUMENT_SCENARIOS, accessibilityJourneys, mediaCaptures));
 expect(assertEveryLaunchHasDbRecord(manifest)).toBeUndefined();
 expect(assertEveryRecordLinksLaunchAndArtifacts(manifest)).toBeUndefined();
+expect(assertEveryScenarioCaseHasExactJourneyExecutions(manifest, INSTRUMENT_SCENARIOS)).toBeUndefined();
+expect(assertEveryJourneyLinksDistinctChildLedgerDbAndArtifacts(manifest)).toBeUndefined();
+expect(manifest.phase).toBe("final");
 expect(manifest.records.every(({ reviewer }) => reviewer.regression !== null)).toBe(true);
 expect(assertReportDisplaysLockedSchema(reportHtml)).toBeUndefined();
 expect(assertTwoLaunchPersistence(first, second)).toMatchObject({ themeBeforePaint: "light", sidebarVisible: false, rightPreference: false });
@@ -840,7 +900,7 @@ Expected: FAIL because the final launch ledger, two-launch profile reuse, produc
 
 - [ ] **Step 3: Implement exact final orchestration**
 
-Preflight the approved Core source/version/SHA, then package mock mode using the verified in-memory bytes and verify its packaged Core/manifest before any consumer. Scenario/accessibility/Media scripts wrap every child internally and append launch-ledger entries; wrap each single smoke child with the CLI and append its returned entry. In the `--persistence` path, create one temporary profile and call `withDatabaseFingerprint("persistence-first", launchFirst)`; choose Light, hide sidebar, close right preference through UI, and close cleanly. Then call `withDatabaseFingerprint("persistence-second", launchSecond)` with the same profile and verify prepaint Light plus restored panels before interaction. Package production false mode, reverify Core/manifest, run source audit, reject the complete fixture/mock marker list, then have `--production-truth` wrap its one child as `production-truth`; wrap production smoke separately. Production truth asserts real read-only Media status, disabled A/N/R reason, unavailable live Island counters, and no mock label. Verify app version/codesign and require exact launch labels, DB/WAL/SHM links, child results, typed records/artifacts, and all four reviewer decisions before generating the schema-complete report.
+Preflight the approved Core source/version/SHA, then package mock mode using the verified in-memory bytes and verify its packaged Core/manifest before any consumer. Scenario/accessibility/Media scripts wrap every child internally and append launch-ledger entries; wrap each single smoke child with the CLI and append its returned entry. Accessibility finalization independently expands every scenario-case's declared journeys, requires one nested entry and one distinct `journey-${caseKey}-${journeyKind}` child/ledger/DB/artifact chain for each, and rejects missing/extra/duplicate entries, reused ledger IDs, or an extra four-part scenario record. In the `--persistence` path, create one temporary profile and call `withDatabaseFingerprint("persistence-first", launchFirst)`; choose Light, hide sidebar, close right preference through UI, and close cleanly. Then call `withDatabaseFingerprint("persistence-second", launchSecond)` with the same profile and verify prepaint Light plus restored panels before interaction. Package production false mode, reverify Core/manifest, run source audit, reject the complete fixture/mock marker list, then have `--production-truth` wrap its one child as `production-truth`; wrap production smoke separately. Production truth asserts real read-only Media status, disabled A/N/R reason, unavailable live Island counters, and no mock label. Verify app version/codesign and require exact launch labels, DB/WAL/SHM links, child results, typed scenario/journey records/artifacts, and all four reviewer decisions before `finalizeEvidenceRun` changes `accessibility-complete` to `final` and generates the schema-complete report.
 
 ```bash
 CORE_BIN='/Users/maximovchinnikov/github/ralphy/ralphy-desktop/release/Ralphy Media.app/Contents/Resources/bin/ralphy'

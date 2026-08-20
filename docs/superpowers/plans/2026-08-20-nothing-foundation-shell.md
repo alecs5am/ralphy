@@ -21,7 +21,7 @@
 - Mock review is scoped to the exact `(rootEpoch, workspaceId, projectId)` tuple and reducer plus shortcut policy live in one dynamically imported module; any tuple change clears the entire session.
 - Theme is exactly `system | dark | light`; apply it before paint and propagate `INSTRUMENT_PALETTE` to xterm and WaveSurfer. Direct literals exist only in `palette.ts` and the verified definition block of `tokens.css`; required text uses the AA-readable token pairs from the spec.
 - Right rail is exactly `docked | overlay | closed`; `overlay` is accessible and all virtualizers use `InstrumentScrollContext` rather than nested route scrollers.
-- Every live dialog/drawer/viewer/menu/sheet/popover consumes `InstrumentOverlay`; every live route consumes its owner-exported state descriptor through `InstrumentScreenRoot`.
+- Every live dialog/drawer/viewer/menu/sheet/popover and portalled listbox consumes `InstrumentOverlay`; approved primitive-host adapters and all their reachable import owners are registered and scenario-covered; every live route consumes its owner-exported state descriptor through `InstrumentScreenRoot`.
 - The one native hidden-inset traffic-light set remains functional. Never render HTML traffic-light duplicates.
 - Each task starts with a definitely absent behavior, follows RED to GREEN, receives an independent task review, runs `git diff --check`, stages only named files, runs staged gitleaks, and commits.
 
@@ -143,7 +143,9 @@ export function InstrumentRightRailPortal(props: {
 // src/instrument/overlay-registry.tsx
 export const INSTRUMENT_OVERLAYS = {
   "root-picker": { kind: "dialog" }, "migration-recovery": { kind: "dialog" }, "app-alert": { kind: "dialog" },
-  "profile-menu": { kind: "menu" }, settings: { kind: "dialog" }, "settings-select": { kind: "popover" },
+  "profile-menu": { kind: "menu" }, settings: { kind: "dialog" }, "shared-select-menu": { kind: "listbox" },
+  "workspace-picker": { kind: "listbox" }, "agent-chat-recent-menu": { kind: "menu" }, "agent-chat-provider-menu": { kind: "menu" },
+  "agent-chat-model-menu": { kind: "menu" }, "agent-chat-mode-menu": { kind: "menu" },
   "dynamic-island": { kind: "popover" }, "right-rail-sheet": { kind: "sheet" },
   "workspace-account-detail": { kind: "dialog" }, "workspace-unit-outcome-detail": { kind: "dialog" }, "workspace-evidence-detail": { kind: "dialog" },
   "shared-inspector": { kind: "rail" }, "shared-viewer": { kind: "viewer" }, "shared-workflow": { kind: "dialog" },
@@ -155,12 +157,23 @@ export const INSTRUMENT_OVERLAYS = {
   "media-viewer": { kind: "viewer" }, "media-context-menu": { kind: "menu" }, "mock-needs-work": { kind: "dialog" },
   "unit-viewer": { kind: "viewer" }, "run-inspector": { kind: "rail" }, "marketplace-detail": { kind: "dialog" },
   "target-chooser": { kind: "dialog" }, terminal: { kind: "drawer" },
-} as const satisfies Record<string, { kind: "dialog" | "drawer" | "viewer" | "popover" | "menu" | "sheet" | "rail" }>;
+} as const satisfies Record<string, { kind: "dialog" | "drawer" | "viewer" | "listbox" | "popover" | "menu" | "sheet" | "rail" }>;
+export const SHARED_SELECT_OVERLAY_OWNERS = {
+  "settings.appearance": { module: "src/screens/SettingsScreen.tsx", routeScope: { kind: "exact", routeKeys: ["settings.appearance"] } },
+  "shared.toolbar": { module: "src/screens/shared-library/SharedLibraryToolbar.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.shared"] } },
+  "shared.workflow": { module: "src/screens/shared-library/SharedLibraryWorkflows.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.shared"] } },
+  "memory.editor": { module: "src/screens/MemoryScreen.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.memory"] } },
+  "project.media": { module: "src/screens/project/MediaPanel.tsx", routeScope: { kind: "exact", routeKeys: ["project.media"] } },
+  "project.activity": { module: "src/screens/project/ActivityTimeline.tsx", routeScope: { kind: "exact", routeKeys: ["project.activity"] } },
+  "marketplace.header": { module: "src/screens/marketplace/MarketplaceHeader.tsx", routeScope: { kind: "production-prefix", prefix: "marketplace." } },
+} as const;
 export type InstrumentOverlayId = keyof typeof INSTRUMENT_OVERLAYS;
+export type InstrumentSharedSelectOwnerId = keyof typeof SHARED_SELECT_OVERLAY_OWNERS;
 export function InstrumentOverlay<Id extends InstrumentOverlayId>(props: {
   id: Id; open: boolean; label: string; description: string; opener: HTMLElement | null;
   onOpenChange(open: boolean): void; children: React.ReactNode; localScroll?: boolean;
-}): React.ReactPortal | null;
+  host?: "managed-portal" | "primitive-host"; overlayOwner?: InstrumentSharedSelectOwnerId;
+}): React.ReactPortal | React.ReactElement | null;
 ```
 
 ```tsx
@@ -186,6 +199,15 @@ export interface InstrumentScreenStateDescriptor<Route extends InstrumentRouteKe
 export function defineInstrumentScreenStates<const Descriptor extends InstrumentScreenStateDescriptor>(descriptor: Descriptor): Descriptor;
 export function InstrumentScreenRoot(props: { descriptor: InstrumentScreenStateDescriptor; state: InstrumentScenarioState; children: React.ReactNode }): React.ReactElement;
 export const PRODUCTION_SCREEN_STATES: readonly InstrumentScreenStateDescriptor[];
+export const WORKSPACE_PICKER_ROUTE_KEYS: readonly InstrumentRouteKey[];
+export const CHAT_RAIL_ROUTE_KEYS: readonly InstrumentRouteKey[];
+export const PRODUCTION_GLOBAL_OVERLAY_ROUTES: Readonly<{
+  "workspace-picker": typeof WORKSPACE_PICKER_ROUTE_KEYS;
+  "agent-chat-recent-menu": typeof CHAT_RAIL_ROUTE_KEYS;
+  "agent-chat-provider-menu": typeof CHAT_RAIL_ROUTE_KEYS;
+  "agent-chat-model-menu": typeof CHAT_RAIL_ROUTE_KEYS;
+  "agent-chat-mode-menu": typeof CHAT_RAIL_ROUTE_KEYS;
+}>;
 ```
 
 ```ts
@@ -210,6 +232,7 @@ export interface InstrumentScenario {
   landmarks: readonly string[];
   railOwner: InstrumentRightRailOwner | null;
   overlay: InstrumentOverlayId | null;
+  overlayOwner: InstrumentSharedSelectOwnerId | null;
   focusEntry: string | null;
   focusReturn: string | null;
   scrollOwner: "desk" | "overlay";
@@ -337,7 +360,8 @@ git commit -m "test: pin instrument design evidence"
 
 ```tsx
 expect(Object.keys(INSTRUMENT_OVERLAYS)).toEqual([
-  "root-picker", "migration-recovery", "app-alert", "profile-menu", "settings", "settings-select", "dynamic-island", "right-rail-sheet",
+  "root-picker", "migration-recovery", "app-alert", "profile-menu", "settings", "shared-select-menu", "workspace-picker",
+  "agent-chat-recent-menu", "agent-chat-provider-menu", "agent-chat-model-menu", "agent-chat-mode-menu", "dynamic-island", "right-rail-sheet",
   "workspace-account-detail", "workspace-unit-outcome-detail", "workspace-evidence-detail", "shared-inspector", "shared-viewer", "shared-workflow",
   "memory-recall", "memory-editor", "memory-history", "memory-confirm", "calendar-filter", "calendar-drawer", "calendar-inspector", "calendar-schedule",
   "calendar-unit-picker", "calendar-date-popover", "calendar-time-popover", "calendar-platform-settings", "calendar-account-detail", "calendar-reconnect",
@@ -345,6 +369,10 @@ expect(Object.keys(INSTRUMENT_OVERLAYS)).toEqual([
   "marketplace-detail", "target-chooser", "terminal",
 ]);
 expect(renderOverlay({ id: "calendar-date-popover", open: true })).toHaveAttribute("data-instrument-overlay", "calendar-date-popover");
+expect(Object.keys(SHARED_SELECT_OVERLAY_OWNERS)).toEqual(["settings.appearance", "shared.toolbar", "shared.workflow", "memory.editor", "project.media", "project.activity", "marketplace.header"]);
+expect(SHARED_SELECT_OVERLAY_OWNERS["project.media"].routeScope).toEqual({ kind: "exact", routeKeys: ["project.media"] });
+expect(SHARED_SELECT_OVERLAY_OWNERS["marketplace.header"].routeScope).toEqual({ kind: "production-prefix", prefix: "marketplace." });
+expect(renderPrimitiveOverlay({ id: "shared-select-menu", overlayOwner: "project.media", host: "primitive-host" })).toHaveAttribute("data-instrument-overlay", "shared-select-menu");
 await user.keyboard("{Escape}");
 expect(opener).toHaveFocus();
 expect(renderOverlay({ id: "calendar-date-popover", open: false })).toBeNull();
@@ -358,13 +386,13 @@ Expected: FAIL because the production registry, derived ID, and common focus/por
 
 - [ ] **Step 3: Implement the production registry and semantic wrapper**
 
-Implement the exact locked object and derive `InstrumentOverlayId = keyof typeof INSTRUMENT_OVERLAYS`. `InstrumentOverlay` reads `kind` from the registry, renders the correct Radix/native semantic root, sets `data-instrument-overlay={id}`, manages initial focus/Escape/opener restoration with `preventScroll`, and marks the sole optional local scroller. It never accepts an unregistered string or lets a caller override the registered kind.
+Implement the exact locked objects and derive both ID types from their keys. `InstrumentOverlay` reads `kind` from the registry, renders the correct Radix/native semantic root, sets `data-instrument-overlay={id}` and, only for `shared-select-menu`, `data-instrument-overlay-owner={overlayOwner}`. Its default `managed-portal` host owns the portal, initial focus, Escape, opener restoration with `preventScroll`, and optional local scroller. `primitive-host` renders only the registered semantic/marker wrapper so the approved Select, chat-menu, or Workspace-picker primitive retains its existing portal/inline anchor, positioning, keyboard, dismissal, selection, and focus-return behavior without a duplicate portal. Reject `shared-select-menu` without one exact owner, reject an owner on every other ID, and never allow a caller to override registered kind.
 
 - [ ] **Step 4: Run GREEN and registry review**
 
 Run: `bun run test -- tests/instrument-overlay-registry.test.tsx && bun run typecheck && git diff --check`
 
-Expected: PASS. Reviewer compares keys with every current live dialog/drawer/viewer/menu/sheet/popover and confirms the ID is key-derived rather than duplicated.
+Expected: PASS. Reviewer compares keys with every current live dialog/drawer/viewer/listbox/menu/sheet/popover, confirms the ID/owner types are key-derived, and confirms primitive-host emits one marker without changing interaction behavior.
 
 - [ ] **Step 5: Commit**
 
@@ -407,6 +435,9 @@ git commit -m "feat: register instrument overlays"
 expect(PRODUCTION_SCREEN_STATES.map(({ routeKey }) => routeKey).sort()).toEqual(actualRouteKeys().sort());
 expect(duplicateRouteDescriptors(PRODUCTION_SCREEN_STATES)).toEqual([]);
 expect(unknownDescriptorStates(PRODUCTION_SCREEN_STATES)).toEqual([]);
+expect(WORKSPACE_PICKER_ROUTE_KEYS).toEqual(routesMatchingLiveWorkspacePickerPredicate());
+expect(CHAT_RAIL_ROUTE_KEYS).toEqual(routesMatchingLiveChatRailPredicate());
+expect(Object.keys(PRODUCTION_GLOBAL_OVERLAY_ROUTES)).toEqual(["workspace-picker", "agent-chat-recent-menu", "agent-chat-provider-menu", "agent-chat-model-menu", "agent-chat-mode-menu"]);
 expect(() => render(<InstrumentScreenRoot descriptor={memoryInstrumentStates} state="playing">x</InstrumentScreenRoot>)).toThrow(/workspace.memory.*playing/);
 expect(renderMemory("unavailable")).toHaveAttribute("data-instrument-state", "unavailable");
 ```
@@ -415,17 +446,17 @@ expect(renderMemory("unavailable")).toHaveAttribute("data-instrument-state", "un
 
 Run: `bun run test -- tests/instrument-production-screen-states.test.tsx tests/workspace-navigation.test.tsx tests/project-screen.test.tsx tests/marketplace-navigation.test.tsx`
 
-Expected: FAIL because route states are not exported by production owners or consumed by a live root wrapper.
+Expected: FAIL because route states and global-overlay visibility sets are not exported by production owners or consumed by a live root wrapper.
 
 - [ ] **Step 3: Export and consume owner descriptors**
 
-Each listed screen exports `defineInstrumentScreenStates({ routeKey, states, rootMarker, landmarks })` for every route key it can render, using only states its real renderer can enter. Settings exports one per category; Marketplace exports route/category/library/unavailable-detail descriptors; shared workspace/project shells export their concrete page/view descriptors. The live root passes the selected descriptor and current state to `InstrumentScreenRoot`, which throws in tests/development for an undeclared state and emits exact root/state markers in production. `production-screen-states.ts` imports those owner exports and contains no independently authored route/state copy.
+Each listed screen exports `defineInstrumentScreenStates({ routeKey, states, rootMarker, landmarks })` for every route key it can render, using only states its real renderer can enter. Settings exports one per category; Marketplace exports route/category/library/unavailable-detail descriptors; shared workspace/project shells export their concrete page/view descriptors. The live root passes the selected descriptor and current state to `InstrumentScreenRoot`, which throws in tests/development for an undeclared state and emits exact root/state markers in production. `production-screen-states.ts` imports those owner exports and contains no independently authored route/state copy. It also derives `WORKSPACE_PICKER_ROUTE_KEYS` from the exact live work-mode/sidebar/workspace predicate and `CHAT_RAIL_ROUTE_KEYS` from the live right-rail availability predicate, then maps the picker and four fixed chat IDs in `PRODUCTION_GLOBAL_OVERLAY_ROUTES`; tests compare both sets to the App predicates in both directions rather than hand-maintaining scenario-only lists.
 
 - [ ] **Step 4: Run GREEN and bidirectional route review**
 
 Run: `bun run test -- tests/instrument-production-screen-states.test.tsx tests/workspace-navigation.test.tsx tests/project-screen.test.tsx tests/marketplace-navigation.test.tsx && bun run typecheck && git diff --check`
 
-Expected: PASS. Reviewer compares actual route unions to production owner exports in both directions and checks every live root consumes its descriptor.
+Expected: PASS. Reviewer compares actual route unions to production owner exports in both directions, checks every live root consumes its descriptor, and compares both global overlay route sets to live App visibility.
 
 - [ ] **Step 5: Commit**
 
@@ -457,6 +488,10 @@ expect(missingRouteStatePairs()).toEqual([]);
 expect(missingRegisteredOverlays()).toEqual([]);
 expect(extraScenarioRouteStatePairs()).toEqual([]);
 expect(extraScenarioOverlays()).toEqual([]);
+expect(missingSharedOverlayOwnerRoutePairs()).toEqual([]);
+expect(extraSharedOverlayOwnerRoutePairs()).toEqual([]);
+expect(missingGlobalOverlayRoutePairs()).toEqual([]);
+expect(extraGlobalOverlayRoutePairs()).toEqual([]);
 expect(duplicateScenarioIds()).toEqual([]);
 for (const scenario of INSTRUMENT_SCENARIOS.filter(({ coverageException }) => coverageException === null)) {
   expect(scenario.themes).toEqual(REQUIRED_SCENARIO_THEMES);
@@ -475,7 +510,7 @@ Expected: FAIL because there is no registry-derived scenario manifest, exact six
 
 - [ ] **Step 3: Implement exact registries and mock-only loader**
 
-Import the production screen descriptors and overlay object keys. Derive required route/state pairs and overlay IDs; compare both sets to scenario entries in both directions. Each non-excepted scenario stores the locked theme/viewport arrays, explicit panel setup and expected rail mode for each viewport. A typed exception must name omitted pairs, a concrete reason, reviewer, and `approved` decision. Compute the exact expected evidence keys independently from the raw scenario records and compare equality with runner expansion; never use a minimum count. Load fixtures only inside:
+Import the production screen descriptors, overlay object keys, shared-select owner keys, and `PRODUCTION_GLOBAL_OVERLAY_ROUTES`. Derive required route/state pairs; overlay IDs; every applicable `(routeKey, "shared-select-menu", overlayOwner)` tuple; and every picker/chat `(routeKey, overlayId, null)` tuple; compare all four sets to scenario entries in both directions. Each non-shared scenario has `overlayOwner: null`; each shared-select open scenario has its exact key-derived owner and a keyboard/select/Escape/focus-return journey. Each non-excepted scenario stores the locked theme/viewport arrays, explicit panel setup and expected rail mode for each viewport. A typed exception must name omitted pairs, a concrete reason, reviewer, and `approved` decision. Compute the exact expected evidence keys independently from the raw scenario records and compare equality with runner expansion; never use a minimum count. Load fixtures only inside:
 
 ```ts
 export async function loadInstrumentTestFixtures() {
@@ -840,17 +875,21 @@ git commit -m "test: gate responsive shell geometry"
 **Files:**
 - Create: `src/instrument/InstrumentSidebar.tsx`
 - Create: `src/instrument/ProjectDock.tsx`
+- Modify: `src/components/WorkspacePicker.tsx`
 - Modify: `src/App.tsx`
 - Modify: `src/screens/ProjectScreen.tsx`
 - Modify: `src/styles/instrument.css`
+- Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/instrument-sidebar.test.tsx`
+- Test: `tests/workspace-picker.test.tsx`
 - Test: `tests/project-screen.test.tsx`
 - Test: `tests/workspace-navigation.test.tsx`
 - Test: `tests/marketplace-navigation.test.tsx`
 
 **Interfaces:**
 - Consumes: current navigation callbacks, truthful counts, stable profile control, `ProjectView`.
-- Produces: `InstrumentSidebar` and generic `ProjectDock`; workspace selector marker `data-workspace-name`.
+- Produces: `InstrumentSidebar` and generic `ProjectDock`; `WorkspacePicker` consuming `InstrumentOverlay id="workspace-picker"` in primitive-host mode; workspace selector marker `data-workspace-name`; open/search/select/Escape/focus-return scenarios for every route on which the production sidebar exposes the picker.
 
 - [ ] **Step 1: Write interaction-first navigation tests**
 
@@ -858,6 +897,11 @@ git commit -m "test: gate responsive shell geometry"
 await user.click(screen.getByRole("button", { name: "Marketplace" }));
 expect(onSwitchMode).toHaveBeenCalledWith("marketplace");
 expect(screen.queryByText("UX Testing Lab")).not.toBeInTheDocument();
+await user.click(screen.getByRole("button", { name: "Select workspace" }));
+expect(screen.getByRole("listbox", { name: "Workspaces" })).toHaveAttribute("data-instrument-overlay", "workspace-picker");
+await user.type(screen.getByRole("combobox", { name: "Search workspaces" }), "Studio");
+await user.keyboard("{Escape}");
+expect(screen.getByRole("button", { name: "Select workspace" })).toHaveFocus();
 await user.click(screen.getByRole("button", { name: "Media" }));
 expect(onProjectView).toHaveBeenCalledWith("media");
 expect(screen.queryByRole("button", { name: "Overview" })).not.toBeInTheDocument();
@@ -865,7 +909,7 @@ expect(screen.queryByRole("button", { name: "Overview" })).not.toBeInTheDocument
 
 - [ ] **Step 2: Run RED**
 
-Run: `bun run test -- tests/instrument-sidebar.test.tsx tests/project-screen.test.tsx tests/workspace-navigation.test.tsx tests/marketplace-navigation.test.tsx`
+Run: `bun run test -- tests/instrument-sidebar.test.tsx tests/workspace-picker.test.tsx tests/project-screen.test.tsx tests/workspace-navigation.test.tsx tests/marketplace-navigation.test.tsx`
 
 Expected: FAIL because the legacy continuous sidebar/tab strip remains and the interactions lack Instrument roots.
 
@@ -880,18 +924,18 @@ const PROJECT_DOCK_ITEMS: readonly ProjectDockItem<ProjectView>[] = [
 ];
 ```
 
-Render mode pill, work-only dither identity, route widgets with supported counts only, bottom profile control, and capability-aware dock for Documents/Media/Units/Activity. Put `data-workspace-name={workspace.name}` on the focusable selector. Preserve reducer history/focus/scroll callbacks; Settings opens only from profile. Marketplace omits workspace identity and keeps Models inside Marketplace.
+Render mode pill, work-only dither identity, route widgets with supported counts only, bottom profile control, and capability-aware dock for Documents/Media/Units/Activity. Put `data-workspace-name={workspace.name}` on the focusable selector. `InstrumentSidebar` is the sole reachable production consumer of `WorkspacePicker` after legacy deletion. Keep `WorkspacePicker`'s existing portal position, search/filter, active descendant, Home/End/arrows/Enter, outside dismissal, selection callback, and focus return, but wrap the portalled listbox with `InstrumentOverlay id="workspace-picker" host="primitive-host"`; no duplicate portal or HTML listbox is introduced. Consume the production-derived `WORKSPACE_PICKER_ROUTE_KEYS` and keep one open-state scenario/journey for each route in that set. Preserve reducer history/focus/scroll callbacks; Settings opens only from profile. Marketplace omits workspace identity and keeps Models inside Marketplace.
 
 - [ ] **Step 4: Run GREEN and reviewer gate**
 
-Run: `bun run test -- tests/instrument-sidebar.test.tsx tests/project-screen.test.tsx tests/workspace-navigation.test.tsx tests/marketplace-navigation.test.tsx tests/instrument-profile.test.tsx && bun run typecheck && git diff --check`
+Run: `bun run test -- tests/instrument-sidebar.test.tsx tests/workspace-picker.test.tsx tests/project-screen.test.tsx tests/workspace-navigation.test.tsx tests/marketplace-navigation.test.tsx tests/instrument-profile.test.tsx tests/instrument-scenarios.test.ts && bun run typecheck && git diff --check`
 
 Expected: PASS. Reviewer traces every enabled row to an existing callback and checks keyboard order and route scroll restoration.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/instrument/InstrumentSidebar.tsx src/instrument/ProjectDock.tsx src/App.tsx src/screens/ProjectScreen.tsx src/styles/instrument.css tests/instrument-sidebar.test.tsx tests/project-screen.test.tsx tests/workspace-navigation.test.tsx tests/marketplace-navigation.test.tsx
+git add src/instrument/InstrumentSidebar.tsx src/instrument/ProjectDock.tsx src/components/WorkspacePicker.tsx src/App.tsx src/screens/ProjectScreen.tsx src/styles/instrument.css src/instrument/test-fixtures.ts src/instrument/scenarios.ts tests/instrument-sidebar.test.tsx tests/workspace-picker.test.tsx tests/project-screen.test.tsx tests/workspace-navigation.test.tsx tests/marketplace-navigation.test.tsx
 gitleaks protect --staged --redact
 git commit -m "feat: replace navigation with instruments"
 ```
@@ -963,7 +1007,6 @@ git commit -m "feat: add truthful dynamic island"
 **Files:**
 - Modify: `src/screens/SettingsScreen.tsx`
 - Modify: `src/components/ProfileMenu.tsx`
-- Modify: `src/components/ui/SelectMenu.tsx`
 - Modify: `src/styles/settings.css`
 - Modify: `src/styles/instrument.css`
 - Test: `tests/instrument-settings.test.tsx`
@@ -1013,7 +1056,7 @@ export const SETTINGS_CAPABILITIES = [
 ] as const;
 ```
 
-Enable only read-only root/profile identity, persisted theme, operational Back/search/category navigation, working terminal shortcut, and static About facts. Disable restore/reveal (`No persisted preference exists in this release.`), profile display-name editing (`Profile identity is derived from the active library.`), density, motion, provider keys/connect, shell mode, and link toggle with exact reasons. Render Settings and its select/popover surfaces through `InstrumentOverlay` IDs `settings` and `settings-select`; no fake What's New data.
+Enable only read-only root/profile identity, persisted theme, operational Back/search/category navigation, working terminal shortcut, and static About facts. Disable restore/reveal (`No persisted preference exists in this release.`), profile display-name editing (`Profile identity is derived from the active library.`), density, motion, provider keys/connect, shell mode, and link toggle with exact reasons. Render Settings through `InstrumentOverlay id="settings"`; keep its operational theme callback ready for the shared Select primitive migration in Task 13. Do not create a Settings-only Select overlay alias or fake What's New data.
 
 - [ ] **Step 4: Run GREEN and reviewer gate**
 
@@ -1024,23 +1067,103 @@ Expected: PASS. Reviewer maps every enabled control to backing/verification and 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/SettingsScreen.tsx src/components/ProfileMenu.tsx src/components/ui/SelectMenu.tsx src/styles/settings.css src/styles/instrument.css tests/instrument-settings.test.tsx tests/profile-menu.test.tsx tests/settings-capabilities.test.ts
+git add src/screens/SettingsScreen.tsx src/components/ProfileMenu.tsx src/styles/settings.css src/styles/instrument.css tests/instrument-settings.test.tsx tests/profile-menu.test.tsx tests/settings-capabilities.test.ts
 gitleaks protect --staged --redact
 git commit -m "feat: make settings capability truthful"
 ```
 
-### Task 13: Integrate permanent chat in docked and overlay rails
+### Task 13: Migrate every shared Select portal through its registered owner
+
+**Files:**
+- Modify: `src/components/ui/SelectMenu.tsx`
+- Modify: `src/screens/SettingsScreen.tsx`
+- Modify: `src/screens/shared-library/SharedLibraryToolbar.tsx`
+- Modify: `src/screens/shared-library/SharedLibraryWorkflows.tsx`
+- Modify: `src/screens/MemoryScreen.tsx`
+- Modify: `src/screens/project/MediaPanel.tsx`
+- Modify: `src/screens/project/ActivityTimeline.tsx`
+- Modify: `src/screens/marketplace/MarketplaceHeader.tsx`
+- Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/scenarios.ts`
+- Test: `tests/select-menu.test.tsx`
+- Test: `tests/instrument-settings.test.tsx`
+- Test: `tests/shared-library-screen.test.tsx`
+- Test: `tests/shared-library-workflows.test.tsx`
+- Test: `tests/memory-screen.test.tsx`
+- Test: `tests/project-media-presentation.test.tsx`
+- Test: `tests/activity-timeline.test.tsx`
+- Test: `tests/marketplace-screen.test.tsx`
+- Test: `tests/instrument-scenarios.test.ts`
+
+**Interfaces:**
+- Consumes: exact `SHARED_SELECT_OVERLAY_OWNERS`, `InstrumentSharedSelectOwnerId`, primitive-host `InstrumentOverlay`, existing controlled Select value/options/placement callbacks, and production screen descriptors.
+- Produces: `SelectMenuProps<Value>` with required `overlayOwner: InstrumentSharedSelectOwnerId`; every reachable Select import passes its exact owner key and every applicable owner route has an open/select/Escape/focus-return scenario.
+
+- [ ] **Step 1: Write failing primitive, owner, and scenario tests**
+
+```tsx
+expect(productionSelectMenuImportOwners()).toEqual([
+  ["src/screens/MemoryScreen.tsx", "memory.editor"],
+  ["src/screens/SettingsScreen.tsx", "settings.appearance"],
+  ["src/screens/marketplace/MarketplaceHeader.tsx", "marketplace.header"],
+  ["src/screens/project/ActivityTimeline.tsx", "project.activity"],
+  ["src/screens/project/MediaPanel.tsx", "project.media"],
+  ["src/screens/shared-library/SharedLibraryToolbar.tsx", "shared.toolbar"],
+  ["src/screens/shared-library/SharedLibraryWorkflows.tsx", "shared.workflow"],
+]);
+const view = renderOwnedSelect("project.media", "Media type");
+await view.user.click(view.getByRole("combobox", { name: "Media type" }));
+expect(view.getByRole("listbox")).toHaveAttribute("data-instrument-overlay", "shared-select-menu");
+expect(view.getByRole("listbox")).toHaveAttribute("data-instrument-overlay-owner", "project.media");
+await view.user.click(view.getByRole("option", { name: "Video" }));
+expect(onValueChange).toHaveBeenCalledWith("video");
+await view.user.click(view.getByRole("combobox", { name: "Media type" }));
+await view.user.keyboard("{Escape}");
+expect(view.getByRole("combobox", { name: "Media type" })).toHaveFocus();
+expect(missingSharedOverlayOwnerRoutePairs()).toEqual([]);
+expect(extraSharedOverlayOwnerRoutePairs()).toEqual([]);
+```
+
+- [ ] **Step 2: Run RED**
+
+Run: `bun run test -- tests/select-menu.test.tsx tests/instrument-settings.test.tsx tests/shared-library-screen.test.tsx tests/shared-library-workflows.test.tsx tests/memory-screen.test.tsx tests/project-media-presentation.test.tsx tests/activity-timeline.test.tsx tests/marketplace-screen.test.tsx tests/instrument-scenarios.test.ts`
+
+Expected: FAIL because `SelectMenu` still owns an unregistered raw `Select.Portal`, callers have no exact owner prop, and owner-route scenarios are incomplete.
+
+- [ ] **Step 3: Implement the shared primitive migration as one compile-safe gate**
+
+Make `SelectMenu` controlled for `open` only so it can pass `open`, `onOpenChange`, the trigger opener, and existing `Select.Content` into `InstrumentOverlay id="shared-select-menu" host="primitive-host" overlayOwner={overlayOwner}` inside the sole existing `Select.Portal`. Preserve the generic `value`, `options`, selected indicator, `side`, `align`, collision padding, keyboard selection, outside dismissal, `onValueChange`, and trigger focus restoration; introduce no second portal or listbox.
+
+Pass the exact owner keys from the test inventory: Settings theme → `settings.appearance`; Shared toolbar Kind/Provenance/Sort → `shared.toolbar`; Shared workflow Role → `shared.workflow`; Memory Scope/Type/State → `memory.editor`; Media Lifecycle/Type/Generation → `project.media`; Activity Source/Model → `project.activity`; all MarketplaceHeader selects → `marketplace.header`. Add a scenario for every route produced by each owner's locked `routeScope`; each scenario opens the listbox, selects a real option, closes with Escape, and checks opener focus. This task updates all consumers before its typecheck, so the required prop never leaves an intermediate broken build.
+
+- [ ] **Step 4: Run GREEN and owner coverage review**
+
+Run: `bun run test -- tests/select-menu.test.tsx tests/instrument-settings.test.tsx tests/shared-library-screen.test.tsx tests/shared-library-workflows.test.tsx tests/memory-screen.test.tsx tests/project-media-presentation.test.tsx tests/activity-timeline.test.tsx tests/marketplace-screen.test.tsx tests/instrument-scenarios.test.ts && bun run typecheck && git diff --check`
+
+Expected: PASS. Reviewer compares the seven reachable import owners and their derived route scopes in both directions, then checks value/placement/keyboard/dismissal/focus behavior for each owner.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/components/ui/SelectMenu.tsx src/screens/SettingsScreen.tsx src/screens/shared-library/SharedLibraryToolbar.tsx src/screens/shared-library/SharedLibraryWorkflows.tsx src/screens/MemoryScreen.tsx src/screens/project/MediaPanel.tsx src/screens/project/ActivityTimeline.tsx src/screens/marketplace/MarketplaceHeader.tsx src/instrument/test-fixtures.ts src/instrument/scenarios.ts tests/select-menu.test.tsx tests/instrument-settings.test.tsx tests/shared-library-screen.test.tsx tests/shared-library-workflows.test.tsx tests/memory-screen.test.tsx tests/project-media-presentation.test.tsx tests/activity-timeline.test.tsx tests/marketplace-screen.test.tsx tests/instrument-scenarios.test.ts
+gitleaks protect --staged --redact
+git commit -m "feat: register shared select overlays"
+```
+
+### Task 14: Integrate permanent chat in docked and overlay rails
 
 **Files:**
 - Modify: `src/components/UtilityPanels.tsx`
 - Modify: `src/App.tsx`
 - Modify: `src/styles/instrument.css`
+- Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/instrument-chat.test.tsx`
 - Test: `tests/chat-state.test.ts`
 
 **Interfaces:**
 - Consumes: `AgentChatController`, rail portal/mode, theme tokens.
-- Produces: permanent chat content shared verbatim by docked and overlay modes.
+- Produces: permanent chat content shared verbatim by docked and overlay modes; four registered primitive-host menus with exact IDs `agent-chat-recent-menu`, `agent-chat-provider-menu`, `agent-chat-model-menu`, and `agent-chat-mode-menu`.
 
 - [ ] **Step 1: Write failing chat rail behaviors**
 
@@ -1048,6 +1171,12 @@ git commit -m "feat: make settings capability truthful"
 expect(renderChat("connected-empty")).toHaveAccessibleName("Agent chat");
 await openRailAt(1100);
 expect(screen.getByRole("dialog", { name: "Agent chat" })).toContainElement(screen.getByRole("textbox"));
+for (const [trigger, id] of [["Recent chats", "agent-chat-recent-menu"], ["Provider", "agent-chat-provider-menu"], ["Model", "agent-chat-model-menu"], ["Agent permissions", "agent-chat-mode-menu"]] as const) {
+  await user.click(screen.getByRole("button", { name: trigger }));
+  expect(screen.getByRole("menu")).toHaveAttribute("data-instrument-overlay", id);
+  await user.keyboard("{Escape}");
+  expect(screen.getByRole("button", { name: trigger })).toHaveFocus();
+}
 await user.keyboard("{Escape}");
 expect(rightRailButton).toHaveFocus();
 ```
@@ -1066,23 +1195,23 @@ Expected: FAIL because chat is not rendered through the shared docked/overlay ra
 <InstrumentRightRailPortal owner="chat" label="Agent chat"><AgentChatPanel controller={agentChatController} /></InstrumentRightRailPortal>
 ```
 
-Keep controller behavior and truthful states. Render a single semantic chat tree into the active rail host; dark `#141414` widget and white composer in both themes. Overlay focus starts at the heading/first actionable control, background is inert, and close restores the top-row button.
+Keep controller behavior and truthful states. Render a single semantic chat tree into the active rail host; dark `#141414` widget and white composer in both themes. Replace each raw conditional menu root in `AgentChatMenu`, `AgentProviderMenu`, `AgentModelMenu`, and `AgentModeMenu` with `InstrumentOverlay host="primitive-host"` and its exact registered ID, and give their triggers the stable accessible names `Recent chats`, `Provider`, `Model`, and `Agent permissions`. `useDismissableMenu` gains a trigger ref and one close-and-restore helper, preserving current recent-chat/provider/model/mode selection callbacks, provider/model availability, model search, opens-up/opens-down placement, outside dismissal, menu roles/arrow navigation, and Escape while restoring the exact opener. Add four separate open/select/Escape/focus-return scenarios/journeys for each route in the production `CHAT_RAIL_ROUTE_KEYS` set; never collapse them into one generic chat-menu scenario. Overlay rail focus starts at the heading/first actionable control, background is inert, and close restores the top-row button.
 
 - [ ] **Step 4: Run GREEN and reviewer gate**
 
-Run: `bun run test -- tests/instrument-chat.test.tsx tests/chat-state.test.ts && bun run typecheck && git diff --check`
+Run: `bun run test -- tests/instrument-chat.test.tsx tests/chat-state.test.ts tests/instrument-scenarios.test.ts && bun run typecheck && git diff --check`
 
 Expected: PASS. Reviewer validates docked/overlay parity, permissions, live regions, disconnected truth, and 1100 accessibility.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/components/UtilityPanels.tsx src/App.tsx src/styles/instrument.css tests/instrument-chat.test.tsx tests/chat-state.test.ts
+git add src/components/UtilityPanels.tsx src/App.tsx src/styles/instrument.css src/instrument/test-fixtures.ts src/instrument/scenarios.ts tests/instrument-chat.test.tsx tests/chat-state.test.ts
 gitleaks protect --staged --redact
 git commit -m "feat: integrate instrument chat rail"
 ```
 
-### Task 14: Apply resolved theme to existing and new terminals and WaveSurfer
+### Task 15: Apply resolved theme to existing and new terminals and WaveSurfer
 
 **Files:**
 - Modify: `src/components/terminal/TerminalPane.tsx`
