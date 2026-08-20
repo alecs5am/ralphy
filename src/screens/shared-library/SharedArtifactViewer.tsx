@@ -20,9 +20,14 @@ type RevisionState = {
   error: string | null;
 };
 
+type SelectionState =
+  | { status: "idle" }
+  | { status: "pending" | "conflict" | "reloading" | "reloaded" | "error"; revisionId: string; message?: string };
+
 type ViewerKind = "image" | "vector" | "video" | "audio" | "font" | "unsupported";
 
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : String(error);
+const isConflict = (error: unknown) => error !== null && typeof error === "object" && (error as { code?: unknown }).code === "E_CONFLICT";
 const titleText = (artifact: SharedArtifactPresentation) => artifact.title.status === "ready" || artifact.title.status === "partial"
   ? artifact.title.value
   : "Title unavailable — Core does not return artifact titles";
@@ -130,9 +135,10 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
   const [detail, setDetail] = useState(artifact);
   const [preview, setPreview] = useState<PreviewState>({ status: "loading" });
   const [revisions, setRevisions] = useState<RevisionState>({ items: [], nextCursor: null, loading: true, error: null });
-  const [selection, setSelection] = useState<{ revisionId: string; error: string | null } | null>(null);
+  const [selection, setSelection] = useState<SelectionState>({ status: "idle" });
   const [openState, setOpenState] = useState<"idle" | "pending" | "error">("idle");
   const surfaceRef = useRef<HTMLElement>(null);
+  const detailRequest = useRef(0);
   const previewRequest = useRef(0);
   const revisionRequest = useRef(0);
   const selectionRequest = useRef(0);
@@ -149,6 +155,18 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
     onClose();
     queueMicrotask(restoreFocus);
   }, [onClose, restoreFocus]);
+
+  const loadDetail = useCallback(async () => {
+    const current = ++detailRequest.current;
+    try {
+      const card = await bridge.loadSharedLibraryArtifact(workspaceId, artifact.id);
+      if (current !== detailRequest.current) return null;
+      setDetail(presentSharedArtifact(card));
+      return card;
+    } catch {
+      return null;
+    }
+  }, [artifact.id, workspaceId]);
 
   const loadRevisions = useCallback(async (after: string | null = null) => {
     const current = ++revisionRequest.current;
@@ -172,7 +190,11 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
 
   useEffect(() => {
     setDetail(artifact);
-    setSelection(null);
+    setSelection({ status: "idle" });
+    return () => {
+      detailRequest.current += 1;
+      selectionRequest.current += 1;
+    };
   }, [artifact]);
 
   useEffect(() => {
@@ -202,8 +224,14 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || editableTarget(event)) return;
-      if (event.key === "ArrowLeft" && canPrevious) onNavigate(artifacts[index - 1]);
-      if (event.key === "ArrowRight" && canNext) onNavigate(artifacts[index + 1]);
+      if (event.key === "ArrowLeft" && canPrevious) {
+        event.preventDefault();
+        onNavigate(artifacts[index - 1]);
+      }
+      if (event.key === "ArrowRight" && canNext) {
+        event.preventDefault();
+        onNavigate(artifacts[index + 1]);
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -211,17 +239,33 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
 
   const selectRevision = async (revisionId: string) => {
     const current = ++selectionRequest.current;
-    setSelection({ revisionId, error: null });
+    setSelection({ status: "pending", revisionId });
     try {
       const card = await bridge.selectSharedLibraryRevision(workspaceId, detail.id, revisionId, detail.selectedRevisionId);
       if (current !== selectionRequest.current) return;
       const next = presentSharedArtifact(card);
       setDetail(next);
-      setSelection(null);
+      setSelection({ status: "idle" });
       onReconcile(card);
     } catch (error) {
-      if (current === selectionRequest.current) setSelection({ revisionId, error: errorMessage(error) });
+      if (current !== selectionRequest.current) return;
+      setSelection(isConflict(error)
+        ? { status: "conflict", revisionId }
+        : { status: "error", revisionId, message: errorMessage(error) });
     }
+  };
+
+  const reloadConflict = async () => {
+    if (selection.status !== "conflict") return;
+    const revisionId = selection.revisionId;
+    const current = ++selectionRequest.current;
+    setSelection({ status: "reloading", revisionId });
+    const card = await loadDetail();
+    await loadRevisions();
+    if (current !== selectionRequest.current) return;
+    setSelection(card
+      ? { status: "reloaded", revisionId }
+      : { status: "error", revisionId, message: "Current selected default could not be reloaded." });
   };
 
   const openOriginal = async () => {
@@ -271,7 +315,7 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
                     type="button"
                     key={revision.id}
                     className={selected ? "is-selected" : ""}
-                    disabled={selected || (selection !== null && selection.error === null)}
+                    disabled={selected || selection.status === "pending" || selection.status === "reloading"}
                     aria-label={selected ? `Revision ${revision.revisionNo} selected default` : `Select revision ${revision.revisionNo} as default for future use`}
                     onClick={() => { void selectRevision(revision.id); }}
                   >Revision {revision.revisionNo}{selected && <small>Selected default</small>}</button>;
@@ -279,7 +323,11 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
                 {revisions.nextCursor && <><span>More revisions are available</span><button type="button" disabled={revisions.loading} onClick={() => { void loadRevisions(revisions.nextCursor); }}>Load more revisions</button></>}
               </div>
               {revisions.error && <div className="shared-viewer-alert" role="alert"><span>Revision history unavailable · {revisions.error}</span><button type="button" onClick={() => { void loadRevisions(revisions.items.length ? revisions.nextCursor : null); }}>Retry revisions</button></div>}
-              {selection?.error && <div className="shared-viewer-alert" role="alert"><span>Revision selection unavailable · {selection.error}</span><button type="button" onClick={() => { void selectRevision(selection.revisionId); }}>Retry selection</button></div>}
+              {selection.status === "pending" && <p role="status">Selecting default revision…</p>}
+              {selection.status === "reloading" && <p role="status">Reloading current selected default…</p>}
+              {selection.status === "conflict" && <div className="shared-viewer-alert" role="alert"><span>The selected default changed in Core. Reload current state before retrying.</span><button type="button" onClick={() => { void reloadConflict(); }}>Reload current state</button></div>}
+              {selection.status === "reloaded" && <div className="shared-viewer-alert" role="status"><span>Current selected default reloaded. Retry when ready.</span><button type="button" onClick={() => { void selectRevision(selection.revisionId); }}>Retry selection</button></div>}
+              {selection.status === "error" && <div className="shared-viewer-alert" role="alert"><span>Revision selection unavailable · {selection.message}</span><button type="button" onClick={() => { void selectRevision(selection.revisionId); }}>Retry selection</button></div>}
               {openState === "error" && <div className="shared-viewer-alert" role="alert"><span>Open original unavailable.</span><button type="button" onClick={() => { void openOriginal(); }}>Retry open original</button></div>}
             </div>
             <aside className="shared-viewer-context">

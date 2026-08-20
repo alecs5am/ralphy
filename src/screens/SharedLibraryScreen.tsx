@@ -77,7 +77,11 @@ function ArtifactIdentity({ artifact, audit = false, onSelect, onViewer }: {
       aria-label={`Select ${artifact.slug} identity and open inspector`}
       aria-describedby={instructionsId}
       title={reason}
-      onClick={(event) => { event.stopPropagation(); onSelect(event.currentTarget); }}
+      onClick={(event) => {
+        event.stopPropagation();
+        if (event.detail > 1) return;
+        onSelect(event.currentTarget);
+      }}
       onDoubleClick={(event) => { event.preventDefault(); event.stopPropagation(); onViewer(event.currentTarget); }}
       onKeyDown={(event) => {
         if (event.key !== "Enter") return;
@@ -191,6 +195,7 @@ export function SharedLibraryScreenView({ workspaceId, workspaceName, rootEpoch,
   };
   const view = (artifact: SharedArtifactPresentation, origin: HTMLElement | null) => {
     controller.selectArtifact(artifact.id);
+    setInspector(null);
     if (onOpenViewer) onOpenViewer(artifact);
     else setViewer({ artifact, origin });
   };

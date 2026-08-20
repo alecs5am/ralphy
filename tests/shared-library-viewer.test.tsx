@@ -1,4 +1,4 @@
-import { act } from "react";
+import { act, useState } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { ArtifactMediaCardDto, ArtifactRevisionDto } from "../electron/ralphy/types";
 import { bridge } from "../src/lib/ipc";
@@ -51,14 +51,34 @@ async function settle() {
   await Promise.resolve();
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 function byAria(root: HostNode, tag: string, label: string): HostNode {
   const node = root.querySelectorAll(tag).find((candidate) => candidate.getAttribute("aria-label") === label);
   if (!node) throw new Error(`${tag} not found: ${label}`);
   return node;
 }
 
+function buttonByText(root: HostNode, label: string): HostNode {
+  const node = root.querySelectorAll("button").find((candidate) => candidate.textContent === label);
+  if (!node) throw new Error(`button not found: ${label}`);
+  return node;
+}
+
 async function click(node: HostNode) {
   await act(async () => { node.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+}
+
+function mouseEvent(type: "click" | "dblclick", detail: number): Event {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperty(event, "detail", { value: detail });
+  return event;
 }
 
 async function mountViewer(card = artifact("portrait"), cards = [card], props: Partial<React.ComponentProps<typeof SharedArtifactViewer>> = {}) {
@@ -283,11 +303,148 @@ describe("Shared Artifact viewer", () => {
       Object.defineProperty(arrowRight, "key", { value: "ArrowRight" });
       await act(async () => { window.dispatchEvent(arrowRight); await settle(); });
       expect(navigate).toHaveBeenCalledWith(expect.objectContaining({ id: "second" }));
+      expect(arrowRight.defaultPrevented).toBe(true);
       await click(byAria(mounted.body, "button", "Select revision 2 as default for future use"));
       expect(select).toHaveBeenCalledWith("workspace-1", "first", "revision-first-2", "revision-first-1");
       expect(reconcile).toHaveBeenCalledWith(selected);
       expect(mounted.body.textContent).toContain("Revision 2Selected default");
       expect(mounted.origin.textContent).toBe("origin");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
+  test("rerenders the controlled viewer with the next artifact preview, revisions, position, and boundaries", async () => {
+    const first = artifact("first", { selectedRevisionId: "revision-first-1" });
+    const second = artifact("second", { selectedRevisionId: "revision-second-4" });
+    const cards = [first, second].map(presentSharedArtifact);
+    vi.spyOn(bridge, "resolveSharedLibraryPreview").mockImplementation(async (_workspaceId, id) => ({
+      url: `ralphy-media://asset/${id}`,
+      sizeBytes: 2_048,
+    }));
+    vi.spyOn(bridge, "loadSharedLibraryRevisions").mockImplementation(async (_workspaceId, id) => ({
+      items: [revision(id, id === "second" ? 4 : 1)],
+      nextCursor: null,
+    }));
+    const host = createReactHost();
+    const origin = document.createElement("button") as unknown as HostNode;
+    (document.body as unknown as HostNode).appendChild(origin);
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    function Harness() {
+      const [current, setCurrent] = useState(cards[0]);
+      return <SharedArtifactViewer
+        artifact={current}
+        artifacts={cards}
+        workspaceId="workspace-1"
+        rootEpoch={1}
+        returnFocus={origin as unknown as HTMLElement}
+        onClose={() => undefined}
+        onNavigate={setCurrent}
+        onReconcile={() => undefined}
+      />;
+    }
+    await act(async () => { root.render(<Harness />); await settle(); });
+    await act(async () => { await settle(); });
+    try {
+      await click(byAria(document.body as unknown as HostNode, "button", "Next artifact"));
+      await act(async () => { await settle(); });
+      const body = document.body as unknown as HostNode;
+      expect(body.textContent).toContain("Slug identity · second");
+      expect(body.querySelector('[src="ralphy-media://asset/second"]')).not.toBeNull();
+      expect(body.querySelector('[src="ralphy-media://asset/first"]')).toBeNull();
+      expect(body.textContent).toContain("Revision 4Selected default");
+      expect(body.textContent).toContain("2 / 2 loaded");
+      expect(byAria(body, "button", "Previous artifact").disabled).toBe(false);
+      expect(byAria(body, "button", "Next artifact").disabled).toBe(true);
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
+  test("ignores a pending revision selection after navigating to another artifact", async () => {
+    const first = artifact("first", { selectedRevisionId: "revision-first-1" });
+    const second = artifact("second", { selectedRevisionId: "revision-second-1" });
+    const pending = deferred<ArtifactMediaCardDto>();
+    vi.spyOn(bridge, "resolveSharedLibraryPreview").mockImplementation(async (_workspaceId, id) => ({
+      url: `ralphy-media://asset/${id}`,
+      sizeBytes: 2_048,
+    }));
+    vi.spyOn(bridge, "loadSharedLibraryRevisions").mockImplementation(async (_workspaceId, id) => ({
+      items: [revision(id, 2), revision(id, 1)],
+      nextCursor: null,
+    }));
+    vi.spyOn(bridge, "selectSharedLibraryRevision").mockReturnValue(pending.promise);
+    const mounted = await mountViewer(first, [first, second]);
+    try {
+      await click(byAria(mounted.body, "button", "Select revision 2 as default for future use"));
+      await act(async () => {
+        mounted.root.render(<SharedArtifactViewer
+          artifact={presentSharedArtifact(second)}
+          artifacts={[first, second].map(presentSharedArtifact)}
+          workspaceId="workspace-1"
+          rootEpoch={1}
+          returnFocus={mounted.origin as unknown as HTMLElement}
+          onClose={() => undefined}
+          onNavigate={() => undefined}
+          onReconcile={() => undefined}
+        />);
+        await settle();
+      });
+      await act(async () => { await settle(); });
+      expect(mounted.body.textContent).toContain("Slug identity · second");
+      expect(mounted.body.querySelector('[src="ralphy-media://asset/second"]')).not.toBeNull();
+      expect(mounted.body.textContent).toContain("Revision 1Selected default");
+
+      pending.resolve(artifact("first", { selectedRevisionId: "revision-first-2" }));
+      await act(async () => { await settle(); });
+
+      expect(mounted.body.textContent).toContain("Slug identity · second");
+      expect(mounted.body.textContent).not.toContain("Slug identity · first");
+      expect(mounted.body.querySelector('[src="ralphy-media://asset/second"]')).not.toBeNull();
+      expect(mounted.body.textContent).not.toContain("Revision selection unavailable");
+      expect(byAria(mounted.body, "button", "Select revision 2 as default for future use").disabled).toBe(false);
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
+  test("reloads current viewer state after a selection conflict and retries with the fresh expected revision", async () => {
+    const current = artifact("conflicted", { selectedRevisionId: "revision-conflicted-1" });
+    const reloaded = artifact("conflicted", { selectedRevisionId: "revision-conflicted-2", selectedState: "candidate" });
+    const selected = artifact("conflicted", { selectedRevisionId: "revision-conflicted-3", selectedState: "approved" });
+    const conflict = Object.assign(new Error("stale selected revision"), { code: "E_CONFLICT" });
+    vi.spyOn(bridge, "resolveSharedLibraryPreview").mockResolvedValue({ url: "ralphy-media://asset/conflicted", sizeBytes: 2_048 });
+    const loadRevisions = vi.spyOn(bridge, "loadSharedLibraryRevisions").mockResolvedValue({
+      items: [revision("conflicted", 3), revision("conflicted", 2), revision("conflicted", 1)],
+      nextCursor: null,
+    });
+    const loadDetail = vi.spyOn(bridge, "loadSharedLibraryArtifact").mockResolvedValue(reloaded);
+    const select = vi.spyOn(bridge, "selectSharedLibraryRevision")
+      .mockRejectedValueOnce(conflict)
+      .mockResolvedValueOnce(selected);
+    const reconcile = vi.fn();
+    const mounted = await mountViewer(current, [current], { onReconcile: reconcile });
+    try {
+      await click(byAria(mounted.body, "button", "Select revision 3 as default for future use"));
+      expect(mounted.body.textContent).toContain("The selected default changed in Core. Reload current state before retrying.");
+      expect(mounted.body.textContent).toContain("Slug identity · conflicted");
+
+      await click(buttonByText(mounted.body, "Reload current state"));
+      expect(loadDetail).toHaveBeenCalledWith("workspace-1", "conflicted");
+      expect(loadRevisions).toHaveBeenCalledTimes(2);
+      expect(mounted.body.textContent).toContain("Current selected default reloaded. Retry when ready.");
+      expect(mounted.body.textContent).toContain("Revision 2Selected default");
+
+      await click(buttonByText(mounted.body, "Retry selection"));
+      expect(select).toHaveBeenNthCalledWith(1, "workspace-1", "conflicted", "revision-conflicted-3", "revision-conflicted-1");
+      expect(select).toHaveBeenNthCalledWith(2, "workspace-1", "conflicted", "revision-conflicted-3", "revision-conflicted-2");
+      expect(reconcile).toHaveBeenCalledWith(selected);
+      expect(mounted.body.textContent).toContain("Slug identity · conflicted");
+      expect(mounted.body.textContent).toContain("Revision 3Selected default");
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.host.restore();
@@ -343,9 +500,19 @@ describe("Shared Artifact viewer", () => {
       const identity = byAria(host.container, "button", "Select portrait identity and open inspector");
       identity.focus();
 
-      await act(async () => { identity.dispatchEvent(new Event("dblclick", { bubbles: true })); await settle(); });
+      await act(async () => {
+        identity.dispatchEvent(mouseEvent("click", 1));
+        await settle();
+      });
+      await act(async () => {
+        identity.dispatchEvent(mouseEvent("click", 2));
+        identity.dispatchEvent(mouseEvent("dblclick", 2));
+        await settle();
+      });
       expect((document.body as unknown as HostNode).querySelector(".shared-artifact-viewer")).not.toBeNull();
+      expect(host.container.querySelector(".shared-artifact-inspector")).toBeNull();
       await click(byAria(document.body as unknown as HostNode, "button", "Close viewer"));
+      expect(host.container.querySelector(".shared-artifact-inspector")).toBeNull();
       expect(document.activeElement).toBe(identity);
 
       const enter = new Event("keydown", { bubbles: true, cancelable: true });
