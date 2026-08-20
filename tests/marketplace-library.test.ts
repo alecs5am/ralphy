@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -175,12 +175,75 @@ describe("Marketplace public catalog trust boundary", () => {
   });
 
   test("does not invent a source-updated timestamp from an invalid Last-Modified header", async () => {
-    const snapshot = await loadMarketplacePublicLibrary({
-      fetcher: fetcher(response(document(), { headers: { "last-modified": "not-a-date" } })),
+    for (const invalid of [
+      "0",
+      "999",
+      "2026-08-20T00:00:00.000Z",
+      "Sun, 31 Feb 2026 00:00:00 GMT",
+      "Wed, 18 Aug 2026 12:00:00 GMT",
+      "Sunday, 06-Nov-94 08:49:37 GMT",
+      "Sun Nov  6 08:49:37 1994",
+      "tue, 18 Aug 2026 12:00:00 GMT",
+      "Tue, 18 Aug 2026 12:00:00 UTC",
+    ]) {
+      const snapshot = await loadMarketplacePublicLibrary({
+        fetcher: fetcher(response(document(), { headers: { "last-modified": invalid } })),
+        cachePath,
+        now: () => NOW,
+      });
+      expect(snapshot.sourceUpdatedAt, invalid).toBeNull();
+    }
+
+    const valid = await loadMarketplacePublicLibrary({
+      fetcher: fetcher(response(document(), {
+        headers: { "last-modified": "Tue, 18 Aug 2026 12:00:00 GMT" },
+      })),
       cachePath,
       now: () => NOW,
     });
-    expect(snapshot.sourceUpdatedAt).toBeNull();
+    expect(valid.sourceUpdatedAt).toBe("Tue, 18 Aug 2026 12:00:00 GMT");
+
+    const poisoned = JSON.parse(await readFile(cachePath, "utf8"));
+    poisoned.sourceUpdatedAt = "2026-08-20T00:00:00.000Z";
+    await writeFile(cachePath, JSON.stringify(poisoned));
+    await expect(loadMarketplacePublicLibrary({
+      fetcher: fetcher(new Error("offline")), cachePath, now: () => NOW,
+    })).rejects.toThrow("Marketplace catalog is unavailable");
+  });
+
+  test("drops htmlparser2 raw-text and RCDATA content idempotently across live and cache", async () => {
+    const opaque = "<textarea><img src=x onerror=alert(1)></textarea>";
+    const malicious = document([{
+      kind: "recipe",
+      id: "raw-text",
+      name: "Safe<style><img src=x onerror=alert(1)></style><textarea><img src=x onerror=alert(1)></textarea> name",
+      blurb: "Safe<title><svg onload=alert(1)></title> summary",
+      body: "Safe<xmp><script>alert(1)</script></xmp> body",
+      artifact: opaque,
+    }]);
+    const live = await loadMarketplacePublicLibrary({
+      fetcher: fetcher(response(malicious, {
+        headers: { "last-modified": "Tue, 18 Aug 2026 12:00:00 GMT" },
+      })),
+      cachePath,
+      now: () => NOW,
+    });
+    expect(live.items[0]).toMatchObject({
+      name: "Safe name",
+      summary: "Safe summary",
+      recipe: { body: "Safe body", artifact: opaque },
+    });
+    expect(JSON.stringify([
+      live.items[0]?.name,
+      live.items[0]?.summary,
+      live.items[0]?.recipe?.body,
+    ])).not.toMatch(/<[^>]*>/);
+
+    const cached = await loadMarketplacePublicLibrary({
+      fetcher: fetcher(new Error("offline")), cachePath, now: () => NOW + 1,
+    });
+    expect(cached).toEqual({ ...live, source: "cache" });
+    expect(cached.items[0]?.recipe?.artifact).toBe(opaque);
   });
 
   test("rejects streamed overflow, invalid UTF-8, invalid JSON, and the wrong schema", async () => {

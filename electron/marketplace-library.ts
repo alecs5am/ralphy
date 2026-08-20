@@ -24,6 +24,7 @@ const MAX_JSON_STRING = 4_096;
 const MAX_BODY = 64 * 1024;
 const CACHE_WRITE_WARNING = "Catalog loaded, but its local cache could not be updated";
 const UNAVAILABLE_ERROR = "Marketplace catalog is unavailable";
+const IMF_FIXDATE = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), (?:0[1-9]|[12]\d|3[01]) (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{4} (?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d GMT$/;
 const RECIPE_KINDS = new Set<MarketplaceRecipeKind>([
   "ffmpeg", "encode", "overlay", "bake", "hyperframes", "prompt",
 ]);
@@ -55,7 +56,10 @@ function boundedRecord(value: unknown): RecordValue | null {
 }
 
 function stripHtml(value: string): string {
-  const dropped = new Set(["script", "style", "iframe", "object", "embed", "template"]);
+  const dropped = new Set([
+    "script", "style", "title", "textarea", "xmp",
+    "iframe", "object", "embed", "template",
+  ]);
   const visit = (node: HtmlNode): string => {
     if (node.name && dropped.has(node.name.toLocaleLowerCase())) return "";
     if (node.type === "text") return node.data ?? "";
@@ -220,7 +224,13 @@ function boundedHeader(headers: Headers, name: string): string | null {
 
 function boundedLastModified(headers: Headers): string | null {
   const value = boundedHeader(headers, "last-modified");
-  return value !== null && Number.isFinite(Date.parse(value)) ? value : null;
+  return value !== null && isCanonicalHttpDate(value) ? value : null;
+}
+
+function isCanonicalHttpDate(value: string): boolean {
+  if (!IMF_FIXDATE.test(value)) return false;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) && new Date(timestamp).toUTCString() === value;
 }
 
 async function readBoundedJson(response: Response, maxBytes: number): Promise<unknown> {
@@ -306,7 +316,7 @@ function strictCachedSnapshot(value: unknown): MarketplacePublicSnapshotDto {
     || (snapshot.sourceUpdatedAt !== null && (
       typeof snapshot.sourceUpdatedAt !== "string"
       || snapshot.sourceUpdatedAt.length > 128
-      || !Number.isFinite(Date.parse(snapshot.sourceUpdatedAt))
+      || !isCanonicalHttpDate(snapshot.sourceUpdatedAt)
     ))
     || snapshot.warning !== null
     || !Array.isArray(snapshot.items)
