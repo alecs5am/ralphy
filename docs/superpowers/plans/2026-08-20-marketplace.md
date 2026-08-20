@@ -469,7 +469,6 @@ export interface MarketplaceController {
 export function projectMarketplaceModel(summary: LocalModelSummary): MarketplaceModelDto;
 export function projectMarketplaceModelDetail(detail: LocalModelDetail): MarketplaceModelDetailDto;
 export function marketplaceModelProviders(source: MarketplaceFilterState["source"]): LocalModelProvider[];
-async function searchMarketplaceModels(query: MarketplaceQueryState): Promise<LocalModelCatalog>;
 
 export function presentMarketplaceSources(
   publicSnapshot: MarketplacePublicSnapshotDto | null,
@@ -497,11 +496,15 @@ expect(explicitModelScopeFailedSnapshot.sourceHealth.models).toBe("unavailable")
 expect(marketplaceModelProviders("all")).toEqual(["huggingface", "civitai"]);
 expect(marketplaceModelProviders("ralphy")).toEqual(["huggingface", "civitai"]);
 expect(marketplaceModelProviders("modelscope")).toEqual(["modelscope"]);
-expect(searchLocalModels.mock.calls.map(([input]) => input.provider)).toEqual(["huggingface", "civitai"]);
+expect(searchLocalModels).toHaveBeenCalledTimes(1);
+expect(searchLocalModels.mock.calls[0]?.[0]).toMatchObject({ provider: "all", sort: "updated", limit: 24 });
+expect(explicitModelScopeSearch).toHaveBeenCalledTimes(1);
+expect(explicitModelScopeSearch.mock.calls[0]?.[0]).toMatchObject({ provider: "modelscope", limit: 24 });
+expect(modelScopeOnlyErrorUnderAllSnapshot.sourceHealth.models).toBe("ready");
 expect(totalFailureSnapshot).toMatchObject({ status: "error", sourceHealth: { publicLibrary: "unavailable", models: "unavailable" } });
 ```
 
-Cover explicit field-by-field model/detail projection, serialized absence of `downloads`/`likes`, keyword scoring over current fields, stable source-prefixed keys, prompt-recipe staying Recipe, every Task 1 filter enum, honest unavailable counts, live/cache source state, fulfilled catalog with one provider error plus usable models, fulfilled catalog with zero models and all attempted providers errored, public failure plus healthy models, model failure plus public items, total model+public failure, stale response suppression, refresh retaining content, deterministic name tie-breaks, no provider-download sorting, and controller disposal. Merge every fulfilled `LocalModelCatalog.errors` entry into `sourceErrors`; a fulfilled catalog is not automatically healthy. For `source: "all"` or `"ralphy"`, the attempted set is exactly Hugging Face + Civitai; ModelScope participates only when explicitly selected. Therefore one of HF/Civitai failing leaves Models partial, both failing makes Models unavailable, and an explicit ModelScope failure makes its selected model source unavailable.
+Cover explicit field-by-field model/detail projection, serialized absence of `downloads`/`likes`, keyword scoring over current fields, stable source-prefixed keys, prompt-recipe staying Recipe, every Task 1 filter enum, honest unavailable counts, live/cache source state, fulfilled catalog with one provider error plus usable models, fulfilled catalog with zero models and all attempted providers errored, public failure plus healthy models, model failure plus public items, total model+public failure, stale response suppression, refresh retaining content, deterministic name tie-breaks, no provider-download sorting, and controller disposal. Merge every fulfilled `LocalModelCatalog.errors` entry into `sourceErrors`; a fulfilled catalog is not automatically healthy. For `source: "all"` or `"ralphy"`, make exactly one existing service call with `provider: "all"`, but compute Marketplace health over exactly Hugging Face + Civitai. ModelScope participates in health only when explicitly selected. Therefore one of HF/Civitai failing leaves Models partial, both failing makes Models unavailable, a ModelScope-only error returned by the broad service call does not degrade Models health, and an explicit ModelScope failure makes its selected model source unavailable. The single call's `limit: 24` is the combined model cap, preserving the Task 4 total bound of 512 public items + 24 models = 536 items.
 
 - [ ] **Step 2: Run model/controller tests and verify RED**
 
@@ -518,22 +521,9 @@ export function marketplaceModelProviders(source: MarketplaceFilterState["source
   return source === "all" || source === "ralphy" ? ["huggingface", "civitai"] : [source];
 }
 
-async function searchMarketplaceModels(query: MarketplaceQueryState): Promise<LocalModelCatalog> {
-  const providers = marketplaceModelProviders(query.filters.source);
-  const results = await Promise.allSettled(providers.map((provider) => bridge.searchLocalModels({ query: query.text || undefined, provider, sort: "updated", limit: 24 })));
-  const successful = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
-  if (!successful.length) throw new Error("Model catalog is unavailable");
-  return {
-    items: successful.flatMap(({ items }) => items),
-    machine: successful[0].machine,
-    refreshedAt: successful.map(({ refreshedAt }) => refreshedAt).sort().at(-1)!,
-    errors: results.flatMap((result, index) => result.status === "fulfilled" ? result.value.errors : [{ provider: providers[index], message: "Provider request failed" }]),
-  };
-}
-
 const [library, models] = await Promise.allSettled([
   bridge.loadMarketplacePublicLibrary(),
-  searchMarketplaceModels(query),
+  bridge.searchLocalModels({ query: query.text || undefined, provider: query.filters.source === "all" || query.filters.source === "ralphy" ? "all" : query.filters.source, sort: "updated", limit: 24 }),
 ]);
 if (requestId !== this.#activeRequest || this.#disposed) return;
 const attemptedProviders = marketplaceModelProviders(query.filters.source);
@@ -545,9 +535,9 @@ const sourceErrors: MarketplaceSourceIssue[] = [
   ...(models.status === "rejected" ? [{ source: "models", scope: "model-catalog", message: "Model catalog is unavailable" } satisfies MarketplaceSourceIssue] : []),
   ...providerIssues,
 ];
-const failedProviders = new Set(providerIssues.map(({ source }) => source));
+const failedProviders = new Set(providerIssues.flatMap(({ source }) => attemptedProviders.includes(source as LocalModelProvider) ? [source] : []));
 const allAttemptedProvidersFailed = attemptedProviders.every((provider) => failedProviders.has(provider));
-const modelHealth = models.status === "rejected" || allAttemptedProvidersFailed ? "unavailable" : providerIssues.length > 0 ? "partial" : "ready";
+const modelHealth = models.status === "rejected" || allAttemptedProvidersFailed ? "unavailable" : failedProviders.size > 0 ? "partial" : "ready";
 const sourceHealth: MarketplaceSourceHealth = { publicLibrary: library.status === "fulfilled" ? "ready" : "unavailable", models: modelHealth };
 if (library.status === "rejected" && modelHealth === "unavailable") {
   this.#snapshot = { status: "error", error: "Marketplace sources are unavailable", sourceErrors, sourceHealth, query };
