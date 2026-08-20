@@ -164,10 +164,10 @@ describe("marketplace navigation", () => {
     const nullMarkup = renderToStaticMarkup(<MarketplaceScreen catalog={null} {...props} />);
     const emptyMarkup = renderToStaticMarkup(<MarketplaceScreen catalog={emptyCatalog()} {...props} />);
 
-    expect(nullMarkup).toContain("Discover");
+    expect(nullMarkup).toContain("Recipes");
     expect(nullMarkup).toContain("Marketplace category");
     expect(nullMarkup).toContain("Workspace targets are unavailable until the home library reconnects.");
-    expect(emptyMarkup).toContain("Discover");
+    expect(emptyMarkup).toContain("Recipes");
     expect(emptyMarkup).toContain("No workspace or project targets are available in the current home library.");
     expect(emptyMarkup).not.toContain("Workspace targets are available for supported reviews.");
     expect(emptyMarkup).not.toContain("Choose a workspace");
@@ -211,7 +211,7 @@ describe("marketplace navigation", () => {
       const workSurface = host.container.querySelector(".app-mode-work") as unknown as HostNode;
       const marketplaceSurface = host.container.querySelector(".app-mode-marketplace") as unknown as HostNode;
       const marketplaceHeading = marketplaceSurface.querySelector("#marketplace-heading") as HostNode;
-      const marketplaceScroll = marketplaceSurface.querySelector(".marketplace-task-one-scroll") as HostNode;
+      const marketplaceScroll = marketplaceSurface.querySelector(".marketplace-scroll") as HostNode;
       expect(workSurface.getAttribute("hidden")).not.toBeNull();
       expect(workSurface.getAttribute("inert")).not.toBeNull();
       expect(marketplaceSurface.getAttribute("hidden")).toBeNull();
@@ -236,7 +236,7 @@ describe("marketplace navigation", () => {
 
       let back = [...host.container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Back")!;
       await act(async () => back.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
-      expect(marketplaceSurface.querySelector("h1")?.textContent).toBe("Discover");
+      expect(marketplaceSurface.querySelector("h1")?.textContent).toBe("Marketplace");
       const forward = [...host.container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Forward")!;
       await act(async () => forward.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
       expect(marketplaceSurface.querySelector("h1")?.textContent).toBe("Models");
@@ -314,7 +314,7 @@ describe("marketplace navigation", () => {
 
       const marketplaceSurface = host.container.querySelector(".app-mode-marketplace") as HostNode;
       const marketplaceHeading = marketplaceSurface.querySelector("#marketplace-heading") as HostNode;
-      const marketplaceScroll = marketplaceSurface.querySelector(".marketplace-task-one-scroll") as HostNode;
+      const marketplaceScroll = marketplaceSurface.querySelector(".marketplace-scroll") as HostNode;
       expect(marketplaceSurface.getAttribute("hidden")).toBeNull();
       expect(document.activeElement).toBe(marketplaceHeading);
       expect(marketplaceScroll.scrollTop).toBe(438);

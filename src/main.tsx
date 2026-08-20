@@ -9,6 +9,7 @@ import "./styles/settings.css";
 import "./styles/local-models.css";
 import "./styles/workspace-overview.css";
 import "./styles/shared-library.css";
+import "./styles/marketplace.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
