@@ -4,20 +4,22 @@
 **Status:** Approved for implementation
 **Target:** `ralphy-desktop`
 **Branch:** `codex/nothing-os-redesign`
-**Reference:** `/Users/maximovchinnikov/Downloads/Ralphy дизайн система (11).zip`
+**Reference archive:** `/Users/maximovchinnikov/Downloads/Ralphy дизайн система (11).zip`
+**Reference SHA-256:** `fe371e93e3d778bbd9d7e5621d200ff4298e386edbbc20d3e971941c004c0804`
+**Stable evidence workspace:** `.superpowers/sdd/nothing-instrument/` (repository-ignored and never packaged)
 
 ## Intent
 
-Rebuild the complete Ralphy Desktop presentation layer as a polished Nothing OS / Teenage Engineering-inspired instrument panel. This is a full UI rewrite, not a CSS reskin. The existing Core v3 contract, Electron security boundary, readers, domain controllers, and persistence remain the source of truth unless a presentation requirement cannot be satisfied without a narrowly scoped adapter.
+Rebuild the complete Ralphy Desktop presentation layer as a polished Nothing OS / Teenage Engineering-inspired instrument panel. This is a full UI rewrite, not a CSS reskin. The existing Core v3 contract, Electron security boundary, readers, domain controllers, and persistence remain the source of truth; this delivery adds no Core method, session, database, or Desktop review adapter.
 
-The supplied handoff is authoritative for the shared Instrument language and for My Work → Project → Media iteration 3a/3b. Earlier prototype sections and `design-v1.md` provide functional layout context only. Screens without a final handoff will be redesigned from the same tokens, blocks, density, and interaction rules rather than copying the old palette.
+The supplied handoff is authoritative for the shared Instrument language and for My Work → Project → Media iteration 3a/3b. Before implementation, verify the archive SHA above and extract it to `.superpowers/sdd/nothing-instrument/reference/design_handoff_instrument/`; every plan uses that stable path. Earlier prototype sections and `design-v1.md` provide functional layout context only. Screens without a final handoff will be redesigned from the same tokens, blocks, density, and interaction rules rather than copying the old palette.
 
 ## Product principles
 
 1. **A desk of instruments.** The window is a cool desk holding separate functional widgets, not three continuous application panels.
 2. **Flat means flat.** App chrome has no elevation shadows, glass, blur, inset highlights, decorative borders, or depth gradients. Hierarchy comes from surface tone and 8px air.
 3. **Monochrome carries interaction.** Selection and primary actions use inversion. Red `#E0362C` is reserved for alerts, rejection, destructive actions, and live recording.
-4. **Data stays honest.** Real UI never invents availability, progress, counts, or notifications. UX Testing Lab may receive deterministic renderer-only mock island data when mock mode is enabled.
+4. **Data stays honest.** Real UI never invents availability, progress, counts, review mutations, or notifications. UX Testing Lab may receive deterministic renderer-only test data only when `VITE_RALPHY_ENABLE_MOCKS === "true"`.
 5. **One system, two palettes.** Light and dark share geometry and component behavior. Dark changes the desk and desk ink; black widgets, frames, island, and white composer remain stable.
 6. **Content is not chrome.** User media, social previews, terminal canvases, and image/video scrims retain the contrast needed by their content and use explicit content tokens.
 7. **Presentation rewrite, domain preservation.** New components may replace all old view hierarchy and CSS, but must reuse existing navigation, Core/bridge contracts, controllers, and truthful availability models.
@@ -48,6 +50,10 @@ The global preference is exactly `system | dark | light` and defaults to `system
 | Unreviewed | `#CCCED6` | `#3A3A38` |
 | Alert | `#E0362C` | `#E0362C` |
 
+The handoff's `#111111`, `#262626`, `#2E2E2E`, `#E8E8E6`, `#4A4A48`, `#DFE2E9`, `#EB4438`, traffic-light colors, and dither/noise colors must be reconciled into one named primitive/semantic token manifest before route work. Application source consumes token references rather than duplicating literals.
+
+Small readable text does not use the handoff's low-contrast muted tones. Readable secondary text is exactly `#4A4A48` on light desk/light widgets and `#A4A4A0` on dark desk/dark widgets; these pairs exceed 4.5:1. Values such as `#6A6A66` on `#141414`, `#9A9A96` on `#E2E4EA`, and `#6E6E6A` on `#E2E4EA` are decorative or disabled-only, carry no required information, and require an accessible name when they identify an element. This deliberate accessibility deviation from 3a/3b is verified by a token contrast matrix and computed Electron checks for text, badges, hover, selected, disabled, and focus states.
+
 The preference is validated and persisted with existing Workbench preferences. The renderer applies `data-theme` before React paints and follows `prefers-color-scheme` changes while set to `system`. `color-scheme` must match the resolved palette. Non-CSS consumers such as xterm and WaveSurfer receive the resolved palette explicitly.
 
 ### Typography and assets
@@ -75,7 +81,7 @@ The old continuous workbench chrome is replaced by `InstrumentShell`.
 
 ### Top row
 
-The 48px row contains colored macOS traffic lights and the left collapse control, a centered Dynamic Island, and the right collapse control plus user avatar. Interactive elements use `-webkit-app-region: no-drag`; remaining space is draggable. The row replaces the old MainHeader rather than adding a second header.
+The 48px row reserves the measured hidden-inset area for exactly one functional native macOS traffic-light set; HTML must not duplicate or imitate those controls. It also contains the left collapse control, centered Dynamic Island, and right collapse control plus the stable profile/avatar control. Interactive elements use `-webkit-app-region: no-drag`; remaining space is draggable. Native minimize/zoom/close hit regions, the reserved inset, and drag/no-drag regions are calibrated in the packaged app. The row replaces the old MainHeader rather than adding a second header.
 
 ### Left instrument stack
 
@@ -91,11 +97,11 @@ Local Models remains inside Marketplace. Settings is not a permanent nav row. Ex
 
 ### Desk
 
-The central desk owns the active screen and its single vertical scroll container. Every screen receives an Instrument header made from filter pills, counters, and contextual actions, then route content composed from shared widgets. Each screen has at most one visually dominant primary pill and one red action.
+The central desk owns the active screen and its single vertical scroll container. `InstrumentScrollContext` exposes that element, measured dimensions, a route scroll key, and capture/restore methods. Media, Activity, and every virtualizer use it as an external scroll element; they do not create nested route scrollers. Modal/sheet content may own one explicitly marked local scroller while the desk is inert and locked. Every screen receives an Instrument header made from filter pills, counters, and contextual actions, then route content composed from shared widgets. Each screen has at most one visually dominant primary pill and one red action.
 
 ### Right instrument column
 
-At full width the column is 292px. Chat is a permanent dark widget with a white composer in both themes. Project Media selection inserts the review console above chat. Other screen inspectors may use the column only when their existing interaction already has an inspector; no new unsupported inspector data is invented.
+The shared right-rail mode is exactly `docked | overlay | closed`. At full width, `docked` is a 292px column. Below the docking threshold, the top-row control opens the same chat/review/inspector content as a modal sheet in `overlay` mode; it is never made unreachable. `overlay` traps focus, makes the desk inert, locks desk scrolling, closes with Escape, restores the opener with `preventScroll`, and preserves selection. `closed` renders neither docked nor overlay content. Chat is a permanent dark widget with a white composer in both themes. Project Media selection inserts the read-only or mock test console above chat. Other inspectors may use the shared contract only when their existing interaction already has an inspector; no route owns a competing viewport heuristic.
 
 ### Project dock
 
@@ -105,7 +111,7 @@ Project routes receive a floating bottom-center dock for Overview, Documents, Me
 
 - **1440×900 and wider:** full 240px left stack, desk, 292px right column, and project dock.
 - **1280×800:** full left stack; right column remains if the desk retains at least 680px, otherwise it collapses behind the top-row control.
-- **1100×720 minimum:** right column starts collapsed; left stack remains available and may be manually collapsed. No horizontal window scroll is allowed.
+- **1100×720 minimum:** right rail starts `closed`; its control opens `overlay`. The left stack remains available and may be manually collapsed. No horizontal window scroll is allowed.
 - Screen layouts respond to the measured desk container, not only viewport width. Dense grids reduce columns at explicit container thresholds; detail columns stack at or below 760px of desk width.
 - Manual collapse preferences are respected across relaunches. Automatic compact behavior never overwrites the user's stored preference.
 - The dock must avoid chat/inspector overlap and remain reachable at every supported width.
@@ -116,7 +122,7 @@ Project routes receive a floating bottom-center dock for Overview, Documents, Me
 
 The island is a fixed black `#141414` 36px pill in both themes. It shows, as available:
 
-- selected-project review/status counters using solid, ring, red, and muted dots;
+- selected-project review/status counters only when an explicit feed supplies them; production V1 supplies none;
 - an active-task segment with dither orb, short mono label, 3px progress track, and Doto percentage;
 - an unread notification count only when a feed explicitly supplies unread items;
 - an expand control.
@@ -127,8 +133,8 @@ It does not show a clock or repeat project context as prose. On library/workspac
 
 Activation morphs into a focus-managed flat card anchored to the top row. It contains:
 
-1. The current active task, progress if supplied, status, and a truthful destination action.
-2. Up to three recent notifications with timestamp, severity, and existing-route destination.
+1. The current active task, progress if supplied, status, and a destination action only when the task carries explicit provenance.
+2. Up to three recent notifications with timestamp/severity; navigation appears only for an explicit existing-route destination.
 3. Explicit empty, unavailable, and error states.
 
 Escape closes it and restores the opener without changing page scroll. Updates are announced politely only for meaningful task/notification transitions, not periodic count refreshes.
@@ -147,7 +153,9 @@ type DynamicIslandFeed = {
 
 Live V1 derives only real selected-route identity, project/workspace availability, current agent work, and application errors already in renderer memory. It does not add a Core or database notification contract.
 
-When `VITE_RALPHY_ENABLE_MOCKS=true` and the selected workspace is UX Testing Lab, a deterministic mock provider supplies one active task and three recent notifications. The mock has stable IDs, routes only to existing screens, resets when the root/workspace changes, and never writes the database or leaks into production builds. One mock notification may animate from the island once per renderer session to demonstrate the iPhone-like behavior; reduced-motion users receive an immediate state change.
+Production V1 always exposes project counters as `unavailable`. Live task/notification destinations are optional; current navigation is never inferred as provenance. An item without a destination renders status without an action.
+
+When `VITE_RALPHY_ENABLE_MOCKS === "true"` and the selected workspace name is exactly `UX Testing Lab`, a deterministic mock provider supplies counters, one active task, and three recent notifications. The mock has stable IDs, routes only to existing screens, resets when the root/workspace changes, and never writes through IPC, filesystem, or database. One mock notification may animate once per renderer session; navigation away and back does not replay it. Reduced-motion users receive an immediate state change. A `false` production build contains neither fixture IDs nor a mock chunk/module path.
 
 The interface is intentionally replaceable by a future Core-backed feed without changing island components.
 
@@ -175,7 +183,8 @@ Every live route and operational overlay is in scope.
 ### Project
 
 - Documents: list, search, editor/viewer, JSON/Markdown, conflicts and revisions.
-- Media: high-fidelity handoff 3a/3b, filters, adaptive masonry, selection, console, keyboard review, media viewer, generation and revision flows.
+- Media: high-fidelity handoff 3a/3b, filters, adaptive masonry, selection, console, keyboard review affordances, media viewer, generation and revision flows. Production is read-only: it presents only real review status already available and renders focusable `aria-disabled` A/N/R controls with the exact reason `Review is unavailable in Core 0.3.0 from Desktop.` No Desktop `media.review` adapter, consumer authentication, session lifecycle, Core type reconciliation, or database mutation is added.
+- In mock mode and exact UX Testing Lab only, Media exposes a clearly labelled `TEST REVIEW SESSION` backed entirely by renderer memory. It supports local Approve/Reject and Needs Work with required feedback plus an active mock iteration. State resets on root/workspace change, never crosses IPC/storage/files, and is excluded from production chunks.
 - Units: collection, detail, revisions, presentations, previews and playback states.
 - Activity: virtual list, filters, search, run inspector and technical/unavailable states.
 
@@ -196,6 +205,16 @@ Every live route and operational overlay is in scope.
 - Bottom terminal panel and xterm palette.
 - Agent chat states, messages, composer, permissions, loading, errors, and disconnected state.
 
+Settings uses a capability table. Each enabled control names its backing state/API, persistence lifetime, and verification. Unsupported provider/general/terminal/reveal/restore/link controls are removed or focusable `aria-disabled` with an exact reason. Every claimed persistent setting has a two-launch isolated-profile test; every claimed operation has an invocation/result test.
+
+## Canonical scenario and evidence contract
+
+`INSTRUMENT_SCENARIOS` is the typed, exhaustive manifest for every route, registered state, and operational overlay. Each scenario declares a stable ID, mode/route, state, deterministic fixture ID, expected Instrument root marker and landmarks, right-rail ownership/mode, overlay, focus entry/return, scroll owner, themes, viewports, and accessibility journeys. Exhaustiveness is checked against the actual route unions and overlay/state registries; adding a route or registered overlay without scenarios is a type/test failure.
+
+Scenario fixtures are deterministic renderer-only modules loaded only when `VITE_RALPHY_ENABLE_MOCKS === "true"`; production bundles contain neither fixture IDs nor fixture chunk paths. Real Electron evidence is captured per scenario, not just per shell permutation, into a versioned ignored bundle with build/app/Core hashes, run mode, viewport/theme, native and content geometry, landmarks, measurements, focus/scroll/contrast results, reference/actual/diff paths, failures, and reviewer decisions. Mock and production names never collide.
+
+Media 3a/3b uses deterministic iteration-3 fixture data. At 1440×900 in both light/dark, evidence contains reference, actual, and `ffmpeg` pixel-diff images plus explicit tolerance: exact structural boxes within 1 CSS px; zero pixels outside the Media content mask above RGB delta 16; within the media-content mask, no more than 0.5% of pixels above RGB delta 24. The measured contract includes native/content inset calibration, 240px sidebar, 8px outer gap, 38px Media filter row, four masonry lanes with 10px gaps, selected ring/badge, 292px console/chat rail, and dock clearance. 1280×800 and 1100×720 capture responsive Media, including overlay rail, viewer, video hover/focus, chat, and dock.
+
 ## Component architecture
 
 The rewrite introduces a small reusable Instrument layer rather than a generic component framework:
@@ -215,7 +234,7 @@ Old presentation components and CSS selectors are removed after their final cons
 - Theme resolution is a pure helper plus a single root attribute; screens do not own local theme state.
 - Dynamic Island receives a projected DTO and navigation callbacks. It performs no IPC, filesystem access, or route mutation itself.
 - Project and workspace controllers remain scoped by root epoch and selected IDs. Island/screen snapshots clear on selection changes and cannot display stale prior-project values.
-- Mock island state is isolated under the existing mock flag and UX Testing Lab identity.
+- Mock island and Media review state are isolated under the exact false-string-safe mock flag and UX Testing Lab identity.
 - All unsupported actions remain focusable explanations or disabled controls with accessible reasons; no enabled no-op actions are permitted.
 
 ## Accessibility and interaction quality
@@ -223,19 +242,21 @@ Old presentation components and CSS selectors are removed after their final cons
 - All icon controls have accessible names, tooltips where the visual label is absent, and visible keyboard focus.
 - Modal/dialog focus is initially visible, Escape works, and opener focus returns with `preventScroll`.
 - Status is never color-only; counters and labels expose semantic text.
-- A/N/R shortcuts operate only with a selected Media item and never while an editable control has focus.
+- Production A/N/R controls remain focusable but disabled with the Core 0.3.0 unsupported reason. Mock A/N/R shortcuts operate only inside the explicit test-review scope with a selected item. They are suppressed during composition/repeat/modifier events, whenever a modal/menu/viewer is open, and when focus is in any editable or interactive control (`input`, `textarea`, `select`, contenteditable, link, button, checkbox/radio, or role-equivalent).
 - Hover-only media behavior has keyboard/focus parity. Video never autoplays with sound.
 - `aria-live` is limited to user-relevant transitions; loading uses `aria-busy`; errors use alerts without repeated announcements.
 - Forced light and dark palettes meet WCAG AA for normal text and focus indicators.
 - Reduced motion disables island morphs, auto-preview movement, and nonessential panel animation.
+- Automated keyboard journeys cover sidebar, dock, island, profile/Settings menus, chat, filters/cards, sheets/dialogs/viewers, Escape, and focus restoration. Live-region tests prove polite deduplication and that island/chat updates never move focus.
 
 ## Security and operational truth
 
 - No renderer network or raw filesystem access is added.
 - Existing media protocol token, root fencing, MIME allowlists, CSP, clipboard bounds, and Marketplace fixed-origin policies remain intact.
 - The prototype HTML, `support.js`, remote Lucide sprite, and remote fonts are never shipped.
-- Mock notifications/tasks are static renderer fixtures, contain no secrets or paths, and are excluded when mock mode is false.
-- UX Testing Lab database remains unchanged. Any future notification persistence requires a separate Core-first contract and migration.
+- Mock notifications/tasks/reviews are static renderer fixtures, contain no secrets or paths, and are excluded when mock mode is false.
+- UX Testing Lab database remains unchanged. Around every packaged application launch, fingerprint existence, SHA-256, byte size, and nanosecond mtime of both `ralphy.db` and `ralphy.db-wal`; fail on WAL creation, removal, growth, or content/metadata change. Record `ralphy.db-shm` existence/metadata separately because read locks may change it; never claim SHM byte immutability. Any future review/notification persistence requires a separate Core-first contract and release.
+- Final packaging accepts only `/Users/maximovchinnikov/github/ralphy/ralphy-desktop/release/Ralphy Media.app/Contents/Resources/bin/ralphy`, version `0.3.0`, SHA-256 `a843e2805b4b0a49d02f7afe46cdd5693d81184c14d560af836be93283d85679`. Reject a mismatch before packaging and verify the packaged binary and manifest against the same independent pin.
 
 ## Verification
 
@@ -244,11 +265,11 @@ Each implementation task uses TDD and an independent task review. Final acceptan
 1. Theme preference validation, persistence, synchronous startup application, system-change behavior, and JS consumer updates.
 2. Component behavior and accessibility tests for shell, sidebar, dock, island, Settings, dialogs, and shortcuts.
 3. Existing domain/controller/bridge/security suites remain green apart from explicitly documented pre-existing baselines.
-4. Real Electron geometry and computed-style checks at 1440×900, 1280×800, and 1100×720 in forced light and dark, with sidebar/chat/bottom-panel combinations.
+4. Real Electron per-scenario geometry and computed-style checks at 1440×900, 1280×800, and 1100×720 in forced light/dark, plus an isolated `system` case with live OS-theme change. Calibrate native outer bounds, content insets/device scale, and renderer inner dimensions separately.
 5. No horizontal body overflow; one vertical scroll owner per screen; portal content fits; focus remains visible.
 6. Automated design guards reject reachable app-chrome shadows, blur, depth gradients, old purple accent use, dark-only form color-scheme, and unallowlisted hard-coded palette literals.
-7. Visual inspection of every route/state in the screen matrix, with special pixel-level comparison of Media light/dark against handoff 3a/3b.
-8. UX Testing Lab launch using bundled Core 0.3.0, mock island data visible only in mock mode, and no live DB byte/mtime change.
+7. Typed scenario completeness plus durable per-scenario screenshots/measurements, keyboard/reduced-motion/live-region journeys, and automated reference/actual/`ffmpeg` pixel comparison of Media 3a/3b using the stated tolerance.
+8. Each UX Testing Lab launch uses the independently pinned Core 0.3.0 input, exact false-string-safe mock behavior, isolated temporary `userData`, per-launch DB/WAL fingerprints, and separate SHM records. A two-launch case proves preference persistence and before-paint theme without touching the developer profile.
 9. Production typecheck and renderer/Electron build.
 10. Broad independent product, accessibility/visual, security, and final regression reviews before handoff.
 
@@ -267,6 +288,7 @@ Later plans may consume interfaces committed by earlier plans but may not weaken
 - The request for a complete rewrite means complete presentation replacement, not a Core/DB rewrite. Rebuilding already-correct domain contracts would add risk without improving the requested design.
 - Colored deterministic workspace dither is selected over grayscale because it provides identity without violating the semantic color rule.
 - Doto is bundled locally rather than loaded remotely so the Electron UI is offline-safe and CSP-compatible.
-- Dynamic Island notifications/tasks are deterministic UX Testing Lab mocks in this branch; production remains truthful and empty until Core exposes a notification feed.
+- Dynamic Island counters and review-specific notifications/tasks are deterministic UX Testing Lab mocks in this branch. Production may show only current agent work and application errors already present in renderer memory, with no inferred counts, progress, destinations, or notification history.
+- Production Media review is deliberately read-only because Core 0.3.0's authenticated session contract is not reconciled in this presentation rewrite. Mock test review is visibly labelled, renderer-local, and non-persistent.
 - Theme remains renderer-persisted for this delivery. A main-process nativeTheme protocol is added only if packaged verification proves Chromium/system handling cannot produce correct native appearance.
 - Fixed 1440 geometry is the fidelity anchor; 1280 and 1100 behavior is a product extension governed by container width and automatic right-rail collapse.

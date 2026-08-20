@@ -2,42 +2,32 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Rebuild every startup, My Work, and Project presentation state inside the Instrument shell, including the high-fidelity Media 3a/3b experience and real Core-backed A/N/R review.
+**Goal:** Rebuild every startup, My Work, and Project route/state in the Instrument shell, including read-only production Media and the isolated UX Testing Lab test-review experience.
 
-**Architecture:** Preserve the existing route reducers, scoped controllers, readers, bridge DTOs, media protocol, and domain mutations. Route components keep their current state machines but emit Instrument headers/widgets; the sole contract adapter added here exposes Core v3's already-released `media.review` through the current guarded Project reader and controller.
+**Architecture:** Existing reducers, controllers, readers, DTOs, media protocol, and mutations remain unchanged. Route components render shared Instrument roots, rail portals, and the external shell scroll owner; deterministic scenario fixtures drive tests only under the exact mock build flag.
 
-**Tech Stack:** Electron 43.2.0 with embedded Node 24.18.0, React 19, resolved TypeScript 5.9.3 (declared `^5.7.3`), Bun 1.3, Vitest 0.34.6, Motion, Radix Dialog/Select, Lucide React, `@tanstack/react-virtual` 3.5.0, existing media viewers, CSS container queries.
+**Tech Stack:** Electron 43.2.0, React 19, TypeScript 5.9.3, Bun 1.3, Vitest 0.34.6, Motion, Radix, Lucide React, `@tanstack/react-virtual` 3.5.0, existing media viewers.
 
 **Spec:** `docs/superpowers/specs/2026-08-20-nothing-os-redesign-design.md`
 
-**Prerequisite:** Complete `docs/superpowers/plans/2026-08-20-nothing-foundation-shell.md` and verify its Stable Interface Lock before Task 1.
-
-**Visual evidence:** `/tmp/ralphy-nothing-os.SYlRcI/design_handoff_instrument/README.md`, `/tmp/ralphy-nothing-os.SYlRcI/design_handoff_instrument/design-v2.md`, final sections `3a` / `3b` of the HTML handoff, and the current route-specific documents under `docs/design/` for functional state/layout evidence only.
+**Visual evidence:** `.superpowers/sdd/nothing-instrument/reference/design_handoff_instrument/`; iteration-3 HTML sections 3a/3b are authoritative only for Media.
 
 ## Global Constraints
 
-- Work only in `/Users/maximovchinnikov/github/ralphy/ralphy-desktop/.worktrees/nothing-os-redesign` on `codex/nothing-os-redesign`; start after the reviewed Plan 1 acceptance gate.
-- This is a presentation rewrite. Reuse the current Core v3 contract, Electron security boundary, readers, controllers, workbench/Marketplace reducers, media protocol, root fencing, MIME allowlists, clipboard bounds, and fixed Marketplace origins.
-- Do not add a Core method, database migration, direct SQLite access, renderer filesystem access, renderer network access, sibling checkout import, prototype runtime, remote asset/font, or new package.
-- Import `Availability<T>`, `InstrumentScreenHeader`, `InstrumentEmptyState`, `InstrumentPill`, `InstrumentWidget`, `InstrumentCounter`, `StatusDot`, `InstrumentRightRailPortal`, and `ProjectDock` from Plan 1. Do not define route-local substitutes.
-- Theme preference remains exactly `system | dark | light`; screens read the resolved palette and never own local theme state. Light desk is `#E2E4EA`; dark desk is `#050505`; alert red is `#E0362C`.
-- App chrome remains flat: no elevation shadow, blur, glass, inset highlight, decorative border, depth gradient, legacy purple accent, or route-specific palette. Content canvases use explicit media/content tokens.
-- Geometry remains 8px outer padding/gap, 24px widgets, 999px pills/circles, 240px left stack, 292px right rail, 1440x900 fidelity anchor, 1280x800 adaptive state, and 1100x720 minimum with no horizontal body overflow.
-- Each route owns at most one vertical desk scroller. Grids respond to measured desk width; detail columns stack at 760px desk width. Portal content fits inside the viewport.
-- Every screen state is truthful. Missing, partial, unavailable, offline, loading, empty, and error states expose exact reasons; absence never becomes a zero, fake progress, fake notification, enabled no-op, or invented action.
-- Project/workspace controller snapshots remain fenced by root epoch and selected IDs. Clear selection, inspector, island, and screen snapshots when root/workspace/project changes; stale completions cannot repaint a new scope.
-- Icon controls have accessible names/tooltips/visible 2px focus. Dialog/drawer/viewer focus is visible, Escape closes, and opener focus returns with `{ preventScroll: true }`. Status is never color-only.
-- A/N/R shortcuts run only for a selected reviewable Artifact, never while an input, textarea, select, contenteditable, or dialog control has focus. Hover-only media behavior has focus parity; video never autoplays with sound.
-- The UX Testing Lab Dynamic Island fixture remains renderer-only under `VITE_RALPHY_ENABLE_MOCKS=true`; no route task may import it or write the database.
-- Use Bun. Every task follows RED to GREEN, receives an independent task review, runs `git diff --check`, stages only its files, runs `gitleaks protect --staged --redact`, and commits before the next task.
+- Begin after Plan 1 completes and record its HEAD. Import Plan 1 interfaces verbatim; do not fork Availability, scenario, rail, scroll, profile, theme, Island, header, or dock contracts.
+- Do not add or reconcile `media.review`, Core consumer authentication/session state, IPC, preload, Core types, database/schema code, renderer persistence, or a package.
+- Production Media is read-only. A/N/R controls are focusable `aria-disabled` with exact reason `Review is unavailable in Core 0.3.0 from Desktop.`
+- Mock review exists only when `import.meta.env.VITE_RALPHY_ENABLE_MOCKS === "true"` and workspace name is exactly `UX Testing Lab`; label it `TEST REVIEW SESSION · NOT SAVED`, reset it on root/workspace change, and never call bridge/storage/filesystem.
+- Right-side content uses the shared `docked | overlay | closed` rail. Virtualized Media and Activity use `InstrumentScrollContext` as their external scroll element.
+- Every task completes deterministic ready/loading/empty/partial/unavailable/error/selected/disabled fixtures applicable to its surface and adds behavior-first interaction/focus/scroll assertions; copy assertions alone are not acceptance.
+- Every rendered route/overlay has `data-instrument-root`, a scenario manifest entry, expected landmarks, focus contract, and scroll owner.
+- Each task follows RED/GREEN, task-sized independent review, `git diff --check`, exact staging, staged gitleaks, and a commit.
 
 ---
 
-Before Task 1, record `NOTHING_WORK_BASE=$(git rev-parse HEAD)` in the executor's progress notes. Do not commit those notes.
+Before Task 1, record `NOTHING_WORK_BASE=$(git rev-parse HEAD)` in executor notes.
 
 ## Consumed Plan 1 Interfaces
-
-These signatures are locked and must be imported verbatim:
 
 ```ts
 export type Availability<T> =
@@ -47,467 +37,651 @@ export type Availability<T> =
   | { status: "unavailable"; reason: string }
   | { status: "error"; reason: string };
 
-export interface InstrumentScreenHeaderProps {
-  eyebrow?: string;
-  title: string;
-  description?: string;
-  filters?: React.ReactNode;
-  counters?: React.ReactNode;
-  actions?: React.ReactNode;
-}
+export type InstrumentRightRailMode = "docked" | "overlay" | "closed";
+export function InstrumentRightRailPortal(props: { owner: InstrumentRightRailOwner; label: string; children: React.ReactNode }): React.ReactPortal | null;
+export function useInstrumentScroll(): InstrumentScrollContextValue;
+export const INSTRUMENT_SCENARIOS: readonly InstrumentScenario[];
+export function assertInstrumentScenarioCompleteness(): void;
+```
 
-export function InstrumentRightRailPortal(props: { children: React.ReactNode }): React.ReactPortal | null;
-export function ProjectDock<Id extends string>(props: {
-  active: Id;
-  items: readonly ProjectDockItem<Id>[];
-  onSelect(id: Id): void;
-}): React.ReactElement;
+## Media Presentation Interfaces
+
+```ts
+// src/screens/project/media-review-presentation.ts
+import type { ArtifactRevisionState, MediaCardDto } from "../../../electron/ralphy/types";
+
+export type MediaReviewVerdict = "approved" | "needs-work" | "rejected";
+export type ProductionMediaReviewStatus = ArtifactRevisionState;
+export const MEDIA_REVIEW_UNSUPPORTED_REASON = "Review is unavailable in Core 0.3.0 from Desktop.";
+export function productionMediaReviewStatus(card: MediaCardDto): Availability<ProductionMediaReviewStatus>;
+
+// src/screens/project/mock-review-session.ts -- mock-only dynamic import
+export interface MockReviewIteration { id: string; label: string; active: boolean }
+export interface MockReviewRecord { artifactId: string; verdict: MediaReviewVerdict; feedback: string | null; iterationId: string | null }
+export interface MockReviewSessionState {
+  rootEpoch: number;
+  workspaceId: string;
+  projectId: string | null;
+  iteration: MockReviewIteration;
+  reviews: Readonly<Record<string, MockReviewRecord>>;
+  needsWorkDraft: { artifactId: string; feedback: string } | null;
+}
+export type MockReviewAction =
+  | { type: "approve" | "reject"; artifactId: string }
+  | { type: "open-needs-work"; artifactId: string }
+  | { type: "change-feedback"; value: string }
+  | { type: "submit-needs-work" }
+  | { type: "cancel-needs-work" }
+  | { type: "reset-context"; rootEpoch: number; workspaceId: string; projectId: string | null };
+export function reduceMockReviewSession(state: MockReviewSessionState, action: MockReviewAction): MockReviewSessionState;
 ```
 
 ## File Map
 
-- `src/styles/work-surfaces.css` — shared route widget/grid/detail geometry only; palette comes from Plan 1 tokens.
-- `src/screens/LibraryScreen.tsx`, `WelcomeScreen.tsx`, and `MigrationRecoveryScreen.tsx` — startup/global truth states.
-- `src/screens/workspace/*` and `WorkspaceProjectsScreen.tsx` — workspace overview/project collection instruments.
-- `src/screens/SharedLibraryScreen.tsx` and `src/screens/shared-library/*` — results, inspector, viewer, revision, failure, and workflow states.
-- `src/screens/MemoryScreen.tsx` — list, rulebook detail, proposal review, recall/history, and capability states.
-- `src/screens/CalendarScreen.tsx` — month/week/agenda, drawer, inspector, schedule/platform/account states.
-- `electron/ralphy/project-reader.ts` plus existing IPC layers — guarded adapter to released Core `media.review`; no Core source change.
-- `src/state/project-screen-controller.ts` — existing Project state plus review request/error/evaluation reconciliation.
-- `src/screens/project/*` — Documents, Media, Units, Activity, viewers, and inspectors.
+- `tests/helpers/render-instrument-scenario.tsx` — DOM scenario renderer using deterministic fixture provider.
+- `src/styles/work-surfaces.css` — route geometry only; all colors are Plan 1 tokens.
+- `src/screens/workspace/*`, `SharedLibraryScreen.tsx`, `MemoryScreen.tsx`, `CalendarScreen.tsx` — My Work surfaces.
+- `src/screens/project/*` — Documents, read-only/mock Media, Units, Activity.
+- `src/components/VirtualAssetGrid.tsx` and Activity virtualization — external shell-scroll consumers.
 
 ### Task 1: Rebuild startup, Home Library, migration, and app-level states
 
 **Files:**
+- Create: `tests/helpers/render-instrument-scenario.tsx`
+- Create: `tests/helpers/instrument-matchers.ts`
+- Create: `tests/helpers/instrument-matchers.d.ts`
 - Create: `src/styles/work-surfaces.css`
 - Modify: `src/main.tsx`
 - Modify: `src/App.tsx`
 - Modify: `src/components/WelcomeScreen.tsx`
 - Modify: `src/screens/LibraryScreen.tsx`
 - Modify: `src/screens/MigrationRecoveryScreen.tsx`
+- Modify: `src/instrument/test-fixtures.ts`
 - Test: `tests/instrument-global-states.test.tsx`
 - Test: `tests/migration-recovery.test.tsx`
-- Test: `tests/workbench-state.test.ts`
 
-**Interfaces:**
-- Consumes: Plan 1 shell/primitives, existing `restoreHomeLibrary`, `CatalogResult | null`, `MigrationRecovery`, workbench restoration, root-selection callback, and app error dismissal.
-- Produces: Instrument states for welcome/restoring, Home Library loading/unavailable/error, empty library/root selection, migration recovery, catalog refresh failure, and app alerts. No new state source or bridge method.
+**Interfaces:** Consumes Plan 1 scenario provider, existing `tests/react-host.ts`, and root/migration callbacks. Produces `renderInstrumentScenario(id: string): InstrumentScenarioHost` for all later DOM state tests. `InstrumentScenarioHost` exposes `container`, `getByRole`, `queryByRole`, `user.click/type/clear/hover/tab/keyboard`, and `cleanup`; it is a thin adapter over the existing DOM host and adds no testing package. `instrument-matchers.ts` implements and declares the plan's DOM matchers with `vitest.expect.extend`; it does not import Testing Library or jest-dom. Each later snippet's `screen` and `user` come from this host.
 
-- [ ] **Step 1: Write failing startup/global state tests**
+- [ ] **Step 1: Write absent rendered-state behavior tests**
 
 ```tsx
-expect(renderWelcome({ restoring: true })).toContain('aria-busy="true"');
-expect(renderLibrary({ catalog: null, restoring: false, error: "Core unavailable" })).toContain("Core unavailable");
-expect(renderLibrary({ catalog: emptyCatalog })).toContain("Choose a Ralphy root");
-expect(renderMigration()).toContain("Migration recovery");
-expect(renderMigration()).toContain("Copy recovery command");
-expect(renderAppAlert("Refresh failed")).toContain('role="alert"');
-expect(globalCss).not.toMatch(/box-shadow|backdrop-filter|linear-gradient|#8b7cf6/i);
+const error = renderInstrumentScenario("startup.library.error");
+expect(error.getByRole("alert")).toHaveTextContent("Core unavailable");
+await user.click(error.getByRole("button", { name: "Choose another library" }));
+expect(onChooseRoot).toHaveBeenCalledTimes(1);
+expect(renderInstrumentScenario("startup.library.empty").getByRole("status")).toHaveAttribute("data-instrument-root");
 ```
 
-Exercise Retry/Dismiss/Copy callbacks and assert unavailable actions remain focusable with `aria-describedby` reasons.
+Cover welcome/restoring, root picker, empty/unavailable/error Home Library, Migration Recovery, app alert/refresh failure, loading/offline/partial.
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [ ] **Step 2: Run RED**
 
-Run: `bun run test -- tests/instrument-global-states.test.tsx tests/migration-recovery.test.tsx tests/workbench-state.test.ts`
+Run: `bun run test -- tests/instrument-global-states.test.tsx tests/migration-recovery.test.tsx`
 
-Expected: FAIL because startup/global routes still render legacy chrome and lack Instrument semantics.
+Expected: FAIL on absent Instrument roots, semantic alert/status behavior, and root-picker focus return.
 
-- [ ] **Step 3: Implement the truthful global surfaces**
+- [ ] **Step 3: Implement state composition and fixture renderer**
 
 ```tsx
-<InstrumentEmptyState
-  title={error ? "Home Library unavailable" : "Choose a Ralphy root"}
-  reason={error ?? "Select a local Ralphy root to load workspaces and projects."}
-  action={error ? <InstrumentPill onClick={onRetry}>Retry</InstrumentPill> : undefined}
-  busy={restoring}
-  error={Boolean(error)}
-/>
+return <main data-instrument-root="startup-library"><InstrumentScreenHeader title="Home Library" />{renderAvailability(catalogState)}</main>;
 ```
 
-Keep the existing welcome minimum/exit timing and restoration flow. Use a local mascot/dither mark after verifying the SVG has a useful title/hidden treatment. Migration Recovery remains a blocking screen and invokes only the current bounded clipboard callback. App alerts stay above the desk, use red only for failure/destructive meaning, and never duplicate the same message in a live region.
+```ts
+export function renderInstrumentScenario(id: string): InstrumentScenarioHost {
+  const scenario = requiredScenario(id);
+  const fixture = requiredFixture(instrumentTestFixtureProvider, scenario.fixtureId);
+  const host = createReactHost();
+  const root = createRoot(host.container as unknown as Element);
+  act(() => root.render(<ScenarioHarness scenario={scenario} fixture={fixture} />));
+  return createInstrumentScenarioHost(host, root);
+}
+```
 
-- [ ] **Step 4: Run GREEN checks and reviewer gate**
+```ts
+function createInstrumentScenarioHost(host: ReturnType<typeof createReactHost>, root: Root): InstrumentScenarioHost {
+  const queryByRole = (role: string, options: { name?: string | RegExp } = {}) => host.container
+    .findAll((node) => implicitOrExplicitRole(node) === role)
+    .find((node) => options.name === undefined || matches(accessibleName(node), options.name)) ?? null;
+  return {
+    container: host.container,
+    queryByRole,
+    getByRole(role, options) { const node = queryByRole(role, options); if (!node) throw new Error(`Role not found: ${role}`); return node; },
+    user: {
+      async click(node) { await act(async () => node.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }))); },
+      async type(node, value) { const input = node as HostNode & { value: string }; for (const key of value) await act(async () => { input.value = `${input.value ?? ""}${key}`; input.dispatchEvent(new InputEvent("input", { bubbles: true, data: key, inputType: "insertText" })); }); },
+      async clear(node) { const input = node as HostNode & { value: string }; await act(async () => { input.value = ""; input.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "deleteContentBackward" })); }); },
+      async hover(node) { await act(async () => node.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }))); },
+      async tab() { const node = (host.container.ownerDocument.activeElement as HostNode | null) ?? host.container; await act(async () => node.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }))); },
+      async keyboard(key) { const node = (host.container.ownerDocument.activeElement as HostNode | null) ?? host.container; const normalized = key === "{Escape}" ? "Escape" : key; await act(async () => node.dispatchEvent(new KeyboardEvent("keydown", { key: normalized, bubbles: true, cancelable: true }))); },
+    },
+    async cleanup() { await act(async () => root.unmount()); host.restore(); },
+  };
+}
+```
 
-Run: `bun run test -- tests/instrument-global-states.test.tsx tests/migration-recovery.test.tsx tests/workbench-state.test.ts && bun run typecheck && git diff --check`
+```ts
+const IMPLICIT_ROLES: Record<string, string> = {
+  ASIDE: "complementary", BUTTON: "button", MAIN: "main", NAV: "navigation",
+  SELECT: "combobox", TABLE: "table", TEXTAREA: "textbox",
+};
+function implicitOrExplicitRole(node: HostNode): string | null {
+  return node.getAttribute("role") ?? IMPLICIT_ROLES[node.tagName] ?? (node.tagName === "INPUT" ? "textbox" : null);
+}
+const matches = (actual: string, expected: string | RegExp) => typeof expected === "string" ? actual === expected : expected.test(actual);
+const matcherResult = (pass: boolean, expected: string) => ({ pass, message: () => `expected node ${pass ? "not " : ""}to be ${expected}` });
+function accessibleName(node: HostNode): string {
+  const labelledBy = node.getAttribute("aria-labelledby");
+  return node.getAttribute("aria-label") ?? (labelledBy ? node.ownerDocument.getElementById(labelledBy)?.textContent : null) ?? node.textContent;
+}
+function accessibleDescription(node: HostNode): string {
+  const describedBy = node.getAttribute("aria-describedby");
+  return describedBy ? describedBy.split(/\s+/).map((id) => node.ownerDocument.getElementById(id)?.textContent ?? "").join(" ").trim() : "";
+}
+expect.extend({
+  toBeVisible(node: HostNode) { return matcherResult(node.getAttribute("hidden") === null && node.getAttribute("aria-hidden") !== "true", "visible"); },
+  toHaveFocus(node: HostNode) { return matcherResult(node.ownerDocument.activeElement === node, "focused"); },
+  toHaveAttribute(node: HostNode, name: string, value?: string) { return matcherResult(value === undefined ? node.getAttributeNames().includes(name) : node.getAttribute(name) === value, `${name}=${value}`); },
+  toHaveTextContent(node: HostNode, value: string | RegExp) { return matcherResult(matches(node.textContent, value), `text ${String(value)}`); },
+  toHaveAccessibleName(node: HostNode, value: string | RegExp) { return matcherResult(matches(accessibleName(node), value), `name ${String(value)}`); },
+  toHaveAccessibleDescription(node: HostNode, value?: string | RegExp) { return matcherResult(matches(accessibleDescription(node), value ?? /.+/), "accessible description"); },
+  toContainElement(node: HostNode, child: HostNode) { return matcherResult(node.contains(child), "contain element"); },
+  toBeDisabled(node: HostNode) { return matcherResult(node.disabled || node.getAttribute("aria-disabled") === "true", "disabled"); },
+});
+```
 
-Expected: suites pass; reviewer verifies every startup branch in `App.tsx` maps to an explicit Instrument state and navigation/restoration behavior is unchanged.
+```ts
+import type { HostNode } from "../react-host";
 
-- [ ] **Step 5: Commit global surfaces**
+declare module "vitest" {
+  interface Assertion<T = unknown> {
+    toBeVisible(): void;
+    toHaveFocus(): void;
+    toHaveAttribute(name: string, value?: string): void;
+    toHaveTextContent(value: string | RegExp): void;
+    toHaveAccessibleName(value: string | RegExp): void;
+    toHaveAccessibleDescription(value?: string | RegExp): void;
+    toContainElement(child: HostNode): void;
+    toBeDisabled(): void;
+  }
+}
+```
+
+Use fixture IDs from the manifest, real callbacks, `aria-busy`, deduped alerts, and focus restoration. Do not turn unavailable into empty or add local mock actions.
+
+- [ ] **Step 4: Run GREEN and review**
+
+Run: `bun run test -- tests/instrument-global-states.test.tsx tests/migration-recovery.test.tsx tests/instrument-scenarios.test.ts && bun run typecheck && git diff --check`
+
+Expected: PASS; reviewer drives all startup scenarios and confirms semantic differences/focus.
+
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src/styles/work-surfaces.css src/main.tsx src/App.tsx src/components/WelcomeScreen.tsx src/screens/LibraryScreen.tsx src/screens/MigrationRecoveryScreen.tsx tests/instrument-global-states.test.tsx tests/migration-recovery.test.tsx tests/workbench-state.test.ts
+git add tests/helpers/render-instrument-scenario.tsx tests/helpers/instrument-matchers.ts tests/helpers/instrument-matchers.d.ts src/styles/work-surfaces.css src/main.tsx src/App.tsx src/components/WelcomeScreen.tsx src/screens/LibraryScreen.tsx src/screens/MigrationRecoveryScreen.tsx src/instrument/test-fixtures.ts tests/instrument-global-states.test.tsx tests/migration-recovery.test.tsx
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild instrument startup states"
 ```
 
-### Task 2: Rebuild Workspace Overview, Projects, and honest Units placeholder
+### Task 2: Rebuild Workspace Overview instruments
 
 **Files:**
 - Modify: `src/screens/WorkspaceScreen.tsx`
-- Modify: `src/screens/WorkspaceProjectsScreen.tsx`
+- Modify: `src/screens/workspace/overview-presentation.ts`
 - Modify: `src/screens/workspace/WorkspaceOverviewHeader.tsx`
 - Modify: `src/screens/workspace/WorkspacePerformance.tsx`
 - Modify: `src/screens/workspace/WorkspacePlanAndOutcomes.tsx`
 - Modify: `src/screens/workspace/WorkspaceInsights.tsx`
 - Modify: `src/screens/workspace/WorkspaceOperations.tsx`
-- Modify: `src/screens/workspace/overview-presentation.ts`
 - Modify: `src/styles/work-surfaces.css`
+- Modify: `src/instrument/test-fixtures.ts`
 - Test: `tests/workspace-overview-screen.test.tsx`
 - Test: `tests/workspace-overview-presentation.test.ts`
 - Test: `tests/workspace-overview-navigation.test.tsx`
-- Test: `tests/workspace-domain.test.tsx`
 
-**Interfaces:**
-- Consumes: unchanged `WorkspaceScreenController`, `WorkspaceOverviewPresentation`, Plan 1 `Availability<T>`, catalog `ProjectSummary[]`, current navigation/return-state callbacks, and truthful summary counts.
-- Produces: Instrument performance, plan/outcomes, insights, operations, attention, project cards, and `WorkspacePagePlaceholder` for Units with an explicit missing-contract reason.
+**Interfaces:** Consumes existing controller/presentation and Plan 1 Availability. Produces overview ready/partial/unavailable/error widgets without changing projection math.
 
-- [ ] **Step 1: Add failing overview/project/placeholder tests**
+- [ ] **Step 1: Write behavior-first availability/navigation tests**
 
 ```tsx
-expect(populated).toContain("Performance");
-expect(populated).toContain("Plan and outcomes");
-expect(populated).toContain("What works");
-expect(populated).toContain("Operations");
-expect(populated).toContain("Attention");
-expect(partial).toContain("Calendar status unavailable");
-expect(projects).toContain('class="instrument-project-card"');
-expect(unitsPlaceholder).toContain("Workspace Units are unavailable from the current contract");
-expect(unitsPlaceholder).not.toMatch(/Create unit|0 units available/i);
+const partial = renderInstrumentScenario("workspace.overview.partial");
+expect(partial.getByRole("status", { name: "Calendar availability" })).toHaveTextContent("Calendar status unavailable");
+await user.click(partial.getByRole("button", { name: "Open attention" }));
+expect(onNavigate).toHaveBeenCalledWith(expect.objectContaining({ page: "calendar" }));
+expect(restoredDeskOffset()).toBe(418);
 ```
 
-Verify overview destination Back restores the recorded scroll/expanded state and opener focus.
+- [ ] **Step 2: Run RED**
 
-- [ ] **Step 2: Run Workspace tests and verify RED**
+Run: `bun run test -- tests/workspace-overview-screen.test.tsx tests/workspace-overview-presentation.test.ts tests/workspace-overview-navigation.test.tsx`
 
-Run: `bun run test -- tests/workspace-overview-screen.test.tsx tests/workspace-overview-presentation.test.ts tests/workspace-overview-navigation.test.tsx tests/workspace-domain.test.tsx`
+Expected: FAIL because sections lack Instrument roots/state semantics and shell scroll restoration.
 
-Expected: FAIL because route composition and cards retain legacy continuous panels.
-
-- [ ] **Step 3: Compose the existing presentation into Instrument widgets**
-
-```tsx
-<InstrumentScreenHeader
-  eyebrow="My Work"
-  title={workspaceName}
-  counters={<InstrumentCounter value={catalogProjects.length} label="Projects" />}
-  actions={refreshing ? <span role="status">Refreshing</span> : undefined}
-/>
-```
-
-In `overview-presentation.ts`, delete its narrower local `Availability<T>` declaration and import the exact Plan 1 type from `../../instrument/types`; do not change projection math or availability decisions. Each major overview section becomes a separate widget with its existing empty/partial/error reason. Projects render adaptive cards and real status/count facts only. Workspace Units remains the existing placeholder surfaced as unavailable until a workspace-unit contract exists; it has no enabled fake creation/list action.
-
-- [ ] **Step 4: Run GREEN checks and independent route review**
-
-Run: `bun run test -- tests/workspace-overview-screen.test.tsx tests/workspace-overview-presentation.test.ts tests/workspace-overview-navigation.test.tsx tests/workspace-domain.test.tsx tests/workspace-navigation.test.tsx && bun run typecheck && git diff --check`
-
-Expected: suites pass; reviewer traces every `Availability` branch and confirms no unavailable value renders as an empty metric/card.
-
-- [ ] **Step 5: Commit Workspace surfaces**
-
-```bash
-git add src/screens/WorkspaceScreen.tsx src/screens/WorkspaceProjectsScreen.tsx src/screens/workspace/WorkspaceOverviewHeader.tsx src/screens/workspace/WorkspacePerformance.tsx src/screens/workspace/WorkspacePlanAndOutcomes.tsx src/screens/workspace/WorkspaceInsights.tsx src/screens/workspace/WorkspaceOperations.tsx src/screens/workspace/overview-presentation.ts src/styles/work-surfaces.css tests/workspace-overview-screen.test.tsx tests/workspace-overview-presentation.test.ts tests/workspace-overview-navigation.test.tsx tests/workspace-domain.test.tsx
-gitleaks protect --staged --redact
-git commit -m "feat: rebuild workspace instruments"
-```
-
-### Task 3: Rebuild Shared Library results, inspector, viewer, and workflows
-
-**Files:**
-- Modify: `src/screens/SharedLibraryScreen.tsx`
-- Modify: `src/screens/shared-library/SharedLibraryToolbar.tsx`
-- Modify: `src/screens/shared-library/SharedArtifactInspector.tsx`
-- Modify: `src/screens/shared-library/SharedArtifactPreview.tsx`
-- Modify: `src/screens/shared-library/SharedArtifactViewer.tsx`
-- Modify: `src/screens/shared-library/SharedLibraryWorkflows.tsx`
-- Modify: `src/screens/shared-library/presentation.ts`
-- Modify: `src/styles/shared-library.css`
-- Modify: `src/styles/work-surfaces.css`
-- Test: `tests/shared-library-screen.test.tsx`
-- Test: `tests/shared-library-inspector.test.tsx`
-- Test: `tests/shared-library-viewer.test.tsx`
-- Test: `tests/shared-library-workflows.test.tsx`
-- Test: `tests/shared-library-presentation.test.ts`
-
-**Interfaces:**
-- Consumes: unchanged `SharedLibraryController`, current guarded preview/actions, revision selection, workflow capability reasons, and Plan 1 `Availability<T>`.
-- Produces: Instrument results/grid-list, selected inspector in `InstrumentRightRailPortal` at wide widths, bounded viewer, revision/history, workflow dialogs, and explicit missing/failed preview states.
-
-- [ ] **Step 1: Add failing Shared Library Instrument tests**
-
-```tsx
-expect(ready).toContain("Shared Library");
-expect(ready).toContain('class="instrument-screen-header"');
-expect(selected).toContain('data-right-rail-kind="shared-library"');
-expect(noTarget).toContain("Preview unavailable because this artifact has no selected target");
-expect(failedPreview).toContain('role="alert"');
-expect(workflow).toContain('role="dialog"');
-expect(workflow).toContain("Unavailable from this Core version");
-```
-
-Assert selected artifact/query/scroll survive inspector open/close and focus returns to the exact card.
-
-- [ ] **Step 2: Run Shared Library tests and verify RED**
-
-Run: `bun run test -- tests/shared-library-screen.test.tsx tests/shared-library-inspector.test.tsx tests/shared-library-viewer.test.tsx tests/shared-library-workflows.test.tsx tests/shared-library-presentation.test.ts`
-
-Expected: FAIL because Shared Library still uses its legacy palette/layout and local availability type.
-
-- [ ] **Step 3: Migrate presentation and surfaces without changing controller truth**
+- [ ] **Step 3: Compose existing projections**
 
 ```ts
 import type { Availability } from "../../instrument/types";
 ```
 
-Delete the route-local `Availability` declaration and import the locked superset. Use Instrument filter pills/header/counters. Portal the existing inspector only when selected and wide; at desk width <=760px use the existing full sheet/route treatment. Keep all current non-mutating workflow reasons, guarded media tokens, revision CAS, loading-more/page error/refresh error states, and missing-media fallbacks.
+Delete the local narrower Availability alias. Render separate Performance, Plan/outcomes, Insights, Operations, and Attention widgets; preserve all existing reasons/math and route-return focus/offset.
 
-- [ ] **Step 4: Run GREEN checks and reviewer gate**
+- [ ] **Step 4: Run GREEN and review**
 
-Run: `bun run test -- tests/shared-library-controller.test.ts tests/shared-library-screen.test.tsx tests/shared-library-inspector.test.tsx tests/shared-library-viewer.test.tsx tests/shared-library-workflows.test.tsx tests/shared-library-presentation.test.ts tests/protocol-access.test.ts && bun run typecheck && git diff --check`
+Run: `bun run test -- tests/workspace-overview-screen.test.tsx tests/workspace-overview-presentation.test.ts tests/workspace-overview-navigation.test.tsx && bun run typecheck && git diff --check`
 
-Expected: suites pass; reviewer confirms no path/locator enters React and all unsupported workflows remain explanatory, not enabled no-ops.
+Expected: PASS; reviewer verifies every presentation branch and one desk scroller.
 
-- [ ] **Step 5: Commit Shared Library presentation**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/SharedLibraryScreen.tsx src/screens/shared-library/SharedLibraryToolbar.tsx src/screens/shared-library/SharedArtifactInspector.tsx src/screens/shared-library/SharedArtifactPreview.tsx src/screens/shared-library/SharedArtifactViewer.tsx src/screens/shared-library/SharedLibraryWorkflows.tsx src/screens/shared-library/presentation.ts src/styles/shared-library.css src/styles/work-surfaces.css tests/shared-library-screen.test.tsx tests/shared-library-inspector.test.tsx tests/shared-library-viewer.test.tsx tests/shared-library-workflows.test.tsx tests/shared-library-presentation.test.ts
+git add src/screens/WorkspaceScreen.tsx src/screens/workspace/overview-presentation.ts src/screens/workspace/WorkspaceOverviewHeader.tsx src/screens/workspace/WorkspacePerformance.tsx src/screens/workspace/WorkspacePlanAndOutcomes.tsx src/screens/workspace/WorkspaceInsights.tsx src/screens/workspace/WorkspaceOperations.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/workspace-overview-screen.test.tsx tests/workspace-overview-presentation.test.ts tests/workspace-overview-navigation.test.tsx
 gitleaks protect --staged --redact
-git commit -m "feat: rebuild shared library instruments"
+git commit -m "feat: rebuild workspace overview instruments"
 ```
 
-### Task 4: Rebuild Memory list, rulebook, reviews, history, and unavailable states
+### Task 3: Rebuild Projects collection and honest Workspace Units
+
+**Files:**
+- Modify: `src/screens/WorkspaceScreen.tsx`
+- Modify: `src/screens/WorkspaceProjectsScreen.tsx`
+- Modify: `src/styles/work-surfaces.css`
+- Modify: `src/instrument/test-fixtures.ts`
+- Test: `tests/workspace-domain.test.tsx`
+- Test: `tests/workspace-navigation.test.tsx`
+
+**Interfaces:** Consumes catalog projects and existing navigation. Produces adaptive project cards and `WorkspacePagePlaceholder` with a fixed unsupported reason.
+
+- [ ] **Step 1: Write card/action/placeholder tests**
+
+```tsx
+await user.click(renderInstrumentScenario("workspace.projects.ready").getByRole("button", { name: /Open project/ }));
+expect(onOpenProject).toHaveBeenCalledWith(realProjectReference);
+const units = renderInstrumentScenario("workspace.units.unavailable");
+expect(units.getByRole("status")).toHaveTextContent("Workspace Units are unavailable from the current contract");
+expect(units.queryByRole("button", { name: /Create unit/i })).toBeNull();
+```
+
+- [ ] **Step 2: Run RED**
+
+Run: `bun run test -- tests/workspace-domain.test.tsx tests/workspace-navigation.test.tsx`
+
+Expected: FAIL on Instrument card behavior and truthful unavailable state.
+
+- [ ] **Step 3: Implement collection/placeholder**
+
+```tsx
+return page === "units" ? <InstrumentEmptyState title="Workspace Units" reason="Workspace Units are unavailable from the current contract." /> : <ProjectCardGrid projects={projects} />;
+```
+
+Render real status/count facts only; no fake zero/create action. Use desk container queries and preserve opener focus on return.
+
+- [ ] **Step 4: Run GREEN and review**
+
+Run: `bun run test -- tests/workspace-domain.test.tsx tests/workspace-navigation.test.tsx && bun run typecheck && git diff --check`
+
+Expected: PASS; reviewer tests ready/empty/error projects and unavailable Units at three widths.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/screens/WorkspaceScreen.tsx src/screens/WorkspaceProjectsScreen.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/workspace-domain.test.tsx tests/workspace-navigation.test.tsx
+gitleaks protect --staged --redact
+git commit -m "feat: rebuild workspace collections"
+```
+
+### Task 4: Rebuild Shared Library search and result states
+
+**Files:**
+- Modify: `src/screens/SharedLibraryScreen.tsx`
+- Modify: `src/screens/shared-library/SharedLibraryToolbar.tsx`
+- Modify: `src/screens/shared-library/presentation.ts`
+- Modify: `src/styles/shared-library.css`
+- Modify: `src/instrument/test-fixtures.ts`
+- Test: `tests/shared-library-screen.test.tsx`
+- Test: `tests/shared-library-presentation.test.ts`
+
+**Interfaces:** Consumes current controller/query/paging. Produces Instrument search/filter/results for loading/ready/empty/partial/error and selected states.
+
+- [ ] **Step 1: Write paging/filter/selection tests**
+
+```tsx
+await user.type(screen.getByRole("searchbox"), "vertical");
+expect(controller.setQuery).toHaveBeenLastCalledWith("vertical");
+await user.click(screen.getByRole("button", { name: "Load more" }));
+expect(controller.loadMore).toHaveBeenCalledTimes(1);
+expect(renderInstrumentScenario("shared.results.partial").getByRole("status")).toHaveTextContent(/partial/i);
+```
+
+- [ ] **Step 2: Run RED**
+
+Run: `bun run test -- tests/shared-library-screen.test.tsx tests/shared-library-presentation.test.ts`
+
+Expected: FAIL on Instrument root, state semantics, and shell scroll retention.
+
+- [ ] **Step 3: Implement results only**
+
+```tsx
+<main data-instrument-root="shared-library-results"><SharedLibraryToolbar /><SharedLibraryAuditList scrollElement={scroll.element} /></main>
+```
+
+Keep controller debounce/paging/stale-request logic; render real availability reasons and selection callbacks. No inspector/workflow changes in this task.
+
+- [ ] **Step 4: Run GREEN and review**
+
+Run: `bun run test -- tests/shared-library-screen.test.tsx tests/shared-library-presentation.test.ts && bun run typecheck && git diff --check`
+
+Expected: PASS; reviewer exercises filters/paging/partial/error and one-scroll-owner restoration.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/screens/SharedLibraryScreen.tsx src/screens/shared-library/SharedLibraryToolbar.tsx src/screens/shared-library/presentation.ts src/styles/shared-library.css src/instrument/test-fixtures.ts tests/shared-library-screen.test.tsx tests/shared-library-presentation.test.ts
+gitleaks protect --staged --redact
+git commit -m "feat: rebuild shared library results"
+```
+
+### Task 5: Rebuild Shared Library inspector, viewer, history, and failures
+
+**Files:**
+- Modify: `src/screens/shared-library/SharedArtifactInspector.tsx`
+- Modify: `src/screens/shared-library/SharedArtifactViewer.tsx`
+- Modify: `src/screens/SharedLibraryScreen.tsx`
+- Modify: `src/styles/shared-library.css`
+- Modify: `src/instrument/test-fixtures.ts`
+- Test: `tests/shared-library-inspector.test.tsx`
+- Test: `tests/shared-library-viewer.test.tsx`
+
+**Interfaces:** Consumes selected item/history/media failure state and shared rail. Produces docked/overlay inspector plus modal viewer.
+
+- [ ] **Step 1: Write rail/viewer focus tests**
+
+```tsx
+await selectSharedItem();
+expect(screen.getByRole("complementary", { name: "Shared item inspector" })).toBeVisible();
+await openAt1100();
+expect(screen.getByRole("dialog", { name: "Shared item inspector" })).toBeVisible();
+await user.keyboard("{Escape}");
+expect(selectedCard).toHaveFocus();
+expect(renderInstrumentScenario("shared.viewer.media-error").getByRole("alert")).toBeVisible();
+```
+
+- [ ] **Step 2: Run RED**
+
+Run: `bun run test -- tests/shared-library-inspector.test.tsx tests/shared-library-viewer.test.tsx`
+
+Expected: FAIL because inspector does not use shared rail modes and viewer focus/failure states are incomplete.
+
+- [ ] **Step 3: Implement rail/viewer ownership**
+
+```tsx
+<InstrumentRightRailPortal owner="shared-inspector" label="Shared item inspector"><SharedArtifactInspector item={selected} /></InstrumentRightRailPortal>
+```
+
+Use one overlay-local scroller marker in viewer only; preserve guarded media URLs, history facts, Escape/opener restoration, and disabled unavailable explanations.
+
+- [ ] **Step 4: Run GREEN and review**
+
+Run: `bun run test -- tests/shared-library-inspector.test.tsx tests/shared-library-viewer.test.tsx tests/protocol-access.test.ts && bun run typecheck && git diff --check`
+
+Expected: PASS; reviewer checks selected/history/failure at docked and 1100 overlay modes.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/screens/shared-library/SharedArtifactInspector.tsx src/screens/shared-library/SharedArtifactViewer.tsx src/screens/SharedLibraryScreen.tsx src/styles/shared-library.css src/instrument/test-fixtures.ts tests/shared-library-inspector.test.tsx tests/shared-library-viewer.test.tsx
+gitleaks protect --staged --redact
+git commit -m "feat: rebuild shared library inspection"
+```
+
+### Task 6: Rebuild Shared Library workflows
+
+**Files:**
+- Modify: `src/screens/shared-library/SharedLibraryWorkflows.tsx`
+- Modify: `src/screens/SharedLibraryScreen.tsx`
+- Modify: `src/styles/shared-library.css`
+- Modify: `src/instrument/test-fixtures.ts`
+- Test: `tests/shared-library-workflows.test.tsx`
+
+**Interfaces:** Consumes current preflight/mutation contracts. Produces focus-managed target/action workflows without no-op actions.
+
+- [ ] **Step 1: Write preflight/confirm/focus tests**
+
+```tsx
+await openWorkflow("Add to project");
+await user.click(screen.getByRole("button", { name: realProject.name }));
+expect(preflight).toHaveBeenCalledWith(realProject);
+expect(screen.getByRole("button", { name: "Confirm" })).toBeDisabled();
+await resolvePreflightReady();
+await user.click(screen.getByRole("button", { name: "Confirm" }));
+expect(mutation).toHaveBeenCalledTimes(1);
+```
+
+- [ ] **Step 2: Run RED**
+
+Run: `bun run test -- tests/shared-library-workflows.test.tsx`
+
+Expected: FAIL on Instrument dialog focus and truthful preflight gating.
+
+- [ ] **Step 3: Reskin existing workflow state machine**
+
+```tsx
+<Dialog.Content data-instrument-root="shared-workflow" aria-describedby={reasonId}>{workflowBody}</Dialog.Content>
+```
+
+Keep exact Core mutation/preflight behavior, loading/error/partial reasons, Escape, and opener focus. No new operation or drag/drop path.
+
+- [ ] **Step 4: Run GREEN and review**
+
+Run: `bun run test -- tests/shared-library-workflows.test.tsx tests/shared-library-screen.test.tsx && bun run typecheck && git diff --check`
+
+Expected: PASS; reviewer verifies no enabled control bypasses preflight.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/screens/shared-library/SharedLibraryWorkflows.tsx src/screens/SharedLibraryScreen.tsx src/styles/shared-library.css src/instrument/test-fixtures.ts tests/shared-library-workflows.test.tsx
+gitleaks protect --staged --redact
+git commit -m "feat: rebuild shared library workflows"
+```
+
+### Task 7: Rebuild Memory list and rulebook detail
 
 **Files:**
 - Modify: `src/screens/MemoryScreen.tsx`
 - Modify: `src/styles/work-surfaces.css`
+- Modify: `src/instrument/test-fixtures.ts`
 - Test: `tests/memory-screen.test.tsx`
 - Test: `tests/memory-contract.test.ts`
 
-**Interfaces:**
-- Consumes: current Memory bridge calls, exact `MemoryDetailDto`/health/recall/history data, existing mutation/retry/focus behavior, and Plan 1 primitives.
-- Produces: Instrument Memory header/filter/list, rulebook detail, proposed review, add/revise/retire confirmations, recall/history drawers, health/unavailable states, and exact mutation errors.
+**Interfaces:** Consumes current Memory controller/contracts. Produces list/filter/loading/empty/partial/unavailable/error and rulebook detail.
 
-- [ ] **Step 1: Add failing Memory state tests**
+- [ ] **Step 1: Write filter/detail/state tests**
 
 ```tsx
-expect(list).toContain("Memory");
-expect(list).toContain("Rulebook");
-expect(proposed).toContain("Approve");
-expect(proposed).toContain("Reject");
-expect(missingNegativeScope).toContain("Does NOT apply to");
-expect(unavailable).toContain("Recall unavailable");
-expect(error).toContain('role="alert"');
+await user.click(screen.getByRole("button", { name: "Proposed" }));
+expect(controller.setStatus).toHaveBeenCalledWith("proposed");
+await user.click(screen.getByRole("button", { name: /Open rule/ }));
+expect(screen.getByText("Does NOT apply to:")).toBeVisible();
+expect(renderInstrumentScenario("memory.list.unavailable").getByRole("status")).toHaveAccessibleDescription();
 ```
 
-Cover active/proposed/rejected/archived filtering, add/revise, version history, recall preview, curation health, empty, loading, error, selection preservation, and focus restoration.
-
-- [ ] **Step 2: Run Memory tests and verify RED**
+- [ ] **Step 2: Run RED**
 
 Run: `bun run test -- tests/memory-screen.test.tsx tests/memory-contract.test.ts`
 
-Expected: FAIL on Instrument class/state expectations.
+Expected: FAIL on Instrument state composition and distinct rule body structure.
 
-- [ ] **Step 3: Implement Memory Instrument composition**
+- [ ] **Step 3: Implement list/detail**
 
 ```tsx
-<InstrumentScreenHeader
-  eyebrow="My Work"
-  title="Memory"
-  description={`${workspaceName} rulebook and review queue`}
-  filters={memoryFilters}
-  actions={recallAction}
-/>
+<article data-instrument-root="memory-rule"><RuleSection title="Why" body={rule.why} /><RuleSection title="How to apply" body={rule.how} /><RuleSection title="Does NOT apply to" body={rule.negativeScope} /></article>
 ```
 
-Keep the current Core mutation contracts and feedback body rules. Status filters and list stay in the desk; existing detail/review uses the right rail only where an inspector already exists. Render the mandatory rule/Why/How to apply/Does NOT apply to body structure distinctly without inventing content. Retire remains destructive red; Approve is the dominant inversion action; unavailable Restore remains absent because Core does not support it.
+Preserve exact body content and controller state; do not invent missing Restore.
 
-- [ ] **Step 4: Run GREEN checks and reviewer gate**
+- [ ] **Step 4: Run GREEN and review**
 
-Run: `bun run test -- tests/memory-screen.test.tsx tests/memory-contract.test.ts tests/design-system.test.ts && bun run typecheck && git diff --check`
+Run: `bun run test -- tests/memory-screen.test.tsx tests/memory-contract.test.ts && bun run typecheck && git diff --check`
 
-Expected: suites pass; reviewer confirms mutation semantics and trust-boundary validation are unchanged.
+Expected: PASS; reviewer exercises all list states and semantic rule sections.
 
-- [ ] **Step 5: Commit Memory presentation**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/MemoryScreen.tsx src/styles/work-surfaces.css tests/memory-screen.test.tsx tests/memory-contract.test.ts
+git add src/screens/MemoryScreen.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/memory-screen.test.tsx tests/memory-contract.test.ts
 gitleaks protect --staged --redact
-git commit -m "feat: rebuild memory instruments"
+git commit -m "feat: rebuild memory rulebook"
 ```
 
-### Task 5: Rebuild Calendar views, inspector, drawers, and scheduling
+### Task 8: Rebuild Memory review/editor/history/confirm overlays
+
+**Files:**
+- Modify: `src/screens/MemoryScreen.tsx`
+- Modify: `src/styles/work-surfaces.css`
+- Modify: `src/instrument/test-fixtures.ts`
+- Test: `tests/memory-screen.test.tsx`
+
+**Interfaces:** Consumes existing memory mutations and feedback-body rules. Produces registered editor/history/confirm overlays.
+
+- [ ] **Step 1: Write mutation/focus/conflict tests**
+
+```tsx
+await openMemoryEditor();
+expect(screen.getByRole("dialog", { name: "Edit memory rule" })).toHaveFocus();
+await user.clear(screen.getByLabelText("Does NOT apply to"));
+expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+await user.keyboard("{Escape}");
+expect(openEditorButton).toHaveFocus();
+```
+
+- [ ] **Step 2: Run RED**
+
+Run: `bun run test -- tests/memory-screen.test.tsx -t 'editor|history|review|confirm'`
+
+Expected: FAIL on registered overlay roots, validation, and focus return.
+
+- [ ] **Step 3: Implement overlay behavior**
+
+```tsx
+<Dialog.Content data-instrument-root="memory-editor"><MemoryRuleFields requiredNegativeScope /></Dialog.Content>
+```
+
+Preserve approve/reject/retire mutations, destructive red semantics, exact body validation, error alerts, and stale-request fencing.
+
+- [ ] **Step 4: Run GREEN and review**
+
+Run: `bun run test -- tests/memory-screen.test.tsx tests/memory-contract.test.ts && bun run typecheck && git diff --check`
+
+Expected: PASS; reviewer checks editor/history/confirm keyboard journeys and unavailable actions.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/screens/MemoryScreen.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/memory-screen.test.tsx
+gitleaks protect --staged --redact
+git commit -m "feat: rebuild memory workflows"
+```
+
+### Task 9: Rebuild Calendar views, filters, and list states
 
 **Files:**
 - Modify: `src/screens/CalendarScreen.tsx`
 - Modify: `src/screens/calendar-presentation.ts`
 - Modify: `src/styles/work-surfaces.css`
+- Modify: `src/instrument/test-fixtures.ts`
 - Test: `tests/calendar-screen.test.tsx`
 - Test: `tests/calendar-presentation.test.ts`
-- Test: `tests/calendar-contract.test.ts`
 
-**Interfaces:**
-- Consumes: unchanged Calendar range/presentation helpers, `CalendarWorkspaceDto`, existing load/mutate/reconnect/preview bridge calls, navigation context, and project-open callback.
-- Produces: Instrument month/week/agenda, event inspector, ready-to-schedule drawer, scheduling flow, platform settings, account/disconnected/partial/error states.
+**Interfaces:** Consumes current month/week/agenda presentation and filters. Produces behavioral view switching and ready/empty/partial/error account/publication states.
 
-- [ ] **Step 1: Add failing Calendar surface/state tests**
+- [ ] **Step 1: Write view/filter/partial tests**
 
 ```tsx
-expect(month).toContain("Month");
-expect(month).toContain("Week");
-expect(month).toContain("Agenda");
-expect(readyDrawer).toContain("Ready to schedule");
-expect(scheduleDialog).toContain("Platform settings");
-expect(partial).toContain("Partially published");
-expect(disconnected).toContain("Reconnect");
-expect(accountUnavailable).toContain("Account data unavailable");
+await user.click(screen.getByRole("button", { name: "Week" }));
+expect(controller.setView).toHaveBeenCalledWith("week");
+await user.click(screen.getByRole("button", { name: "Open filters" }));
+expect(screen.getByRole("dialog", { name: "Calendar filters" })).toBeVisible();
+expect(renderInstrumentScenario("calendar.agenda.partial").getByRole("status")).toHaveTextContent(/partially published/i);
 ```
 
-Cover draft/scheduled/uploading/published/partial/failed cards, inspector actions, schedule preflight, drag-to-prefilled-schedule (never immediate publish), modal focus, Escape, and opener restoration.
+- [ ] **Step 2: Run RED**
 
-- [ ] **Step 2: Run Calendar tests and verify RED**
+Run: `bun run test -- tests/calendar-screen.test.tsx tests/calendar-presentation.test.ts`
 
-Run: `bun run test -- tests/calendar-screen.test.tsx tests/calendar-presentation.test.ts tests/calendar-contract.test.ts`
+Expected: FAIL on Instrument filter overlay, semantics, and focus behavior, even though legacy view labels exist.
 
-Expected: FAIL because Calendar retains legacy screen/modal presentation.
-
-- [ ] **Step 3: Implement adaptive Calendar instruments**
+- [ ] **Step 3: Implement views/filter state**
 
 ```tsx
-<InstrumentScreenHeader
-  eyebrow="My Work"
-  title="Calendar"
-  filters={viewAndFilterPills}
-  counters={<InstrumentCounter value={visibleEvents.length} label="Events" />}
-  actions={<InstrumentPill dominant onClick={openReadyDrawer}>Ready to schedule</InstrumentPill>}
-/>
+<main data-instrument-root="calendar"><InstrumentScreenHeader filters={<CalendarViewPills value={view} onChange={setView} />} />{calendarBody}</main>
 ```
 
-Use one desk scroller, adaptive month/week/agenda layout, existing event inspector and schedule dialog semantics, per-channel status text/icons, and explicit platform/account capability reasons. Move the existing inspector into `InstrumentRightRailPortal` only on wide layouts. Preserve successful channel results on partial failure and retry only failed channels.
+Preserve projection/grouping/order/account facts. Register filter overlay, use one desk scroller, and keep unsupported facts unavailable rather than zero.
 
-- [ ] **Step 4: Run GREEN checks and reviewer gate**
+- [ ] **Step 4: Run GREEN and review**
 
-Run: `bun run test -- tests/calendar-screen.test.tsx tests/calendar-presentation.test.ts tests/calendar-contract.test.ts tests/workspace-overview-navigation.test.tsx && bun run typecheck && git diff --check`
+Run: `bun run test -- tests/calendar-screen.test.tsx tests/calendar-presentation.test.ts && bun run typecheck && git diff --check`
 
-Expected: suites pass; reviewer confirms no drag/drop or schedule control bypasses the current mutation/preflight contract.
+Expected: PASS; reviewer exercises all views/states and keyboard filter dismissal.
 
-- [ ] **Step 5: Commit Calendar presentation**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/CalendarScreen.tsx src/screens/calendar-presentation.ts src/styles/work-surfaces.css tests/calendar-screen.test.tsx tests/calendar-presentation.test.ts tests/calendar-contract.test.ts
+git add src/screens/CalendarScreen.tsx src/screens/calendar-presentation.ts src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/calendar-screen.test.tsx tests/calendar-presentation.test.ts
 gitleaks protect --staged --redact
-git commit -m "feat: rebuild calendar instruments"
+git commit -m "feat: rebuild calendar views"
 ```
 
-### Task 6: Expose the released Core media.review contract through Desktop
+### Task 10: Rebuild Calendar inspector, drawers, and scheduling
 
 **Files:**
-- Modify: `electron/ralphy/project-reader.ts`
-- Modify: `electron/media/types.ts`
-- Modify: `electron/preload.ts`
-- Modify: `electron/main.ts`
-- Modify: `src/lib/ipc.ts`
-- Modify: `src/state/project-screen-controller.ts`
-- Test: `tests/project-reader.test.ts`
-- Test: `tests/ipc-security.test.ts`
-- Test: `tests/ralphy-current-core.test.ts`
-- Test: `tests/project-screen-behavior.test.tsx`
+- Modify: `src/screens/CalendarScreen.tsx`
+- Modify: `src/styles/work-surfaces.css`
+- Modify: `src/instrument/test-fixtures.ts`
+- Test: `tests/calendar-screen.test.tsx`
+- Test: `tests/calendar-contract.test.ts`
 
-**Interfaces:**
-- Consumes: already-declared Core `ParamsFor<"media.review">` / `ResultFor<"media.review">`, existing Project context/root fencing, DTO validators, controller stale-request handling, and selected Artifact CAS.
-- Produces:
+**Interfaces:** Consumes existing inspector/drawer/schedule/platform/account callbacks. Produces rail inspector and registered overlays.
 
-```ts
-export type ProjectMediaVerdict = "approved" | "needs-work" | "rejected";
-export interface ProjectMediaReviewInput {
-  artifactId: string;
-  expectedSelectedRevisionId: string;
-  verdict: ProjectMediaVerdict;
-}
+- [ ] **Step 1: Write rail/schedule/preflight tests**
 
-// MediaWorkbenchBridge
-reviewProjectMedia(project: ProjectReference, input: ProjectMediaReviewInput): Promise<MediaReviewResult>;
-
-// ProjectScreenSnapshot additions
-mediaReview: {
-  status: "idle" | "saving" | "error";
-  artifactId: string | null;
-  error: string | null;
-};
-mediaEvaluations: Record<string, EvaluationDto>;
-
-// ProjectScreenController addition
-reviewSelectedMedia(verdict: ProjectMediaVerdict): Promise<void>;
-
-// electron/ralphy/project-reader.ts internal trust-boundary validator
-function validateMediaReviewResult(
-  value: unknown,
-  context: ProjectRef,
-  artifactId: string,
-  expectedSelectedRevisionId: string,
-  expectedVerdict: ProjectMediaVerdict,
-): MediaReviewResult;
+```tsx
+await selectCalendarItem();
+expect(screen.getByRole("complementary", { name: "Calendar inspector" })).toBeVisible();
+await openAt1100();
+expect(screen.getByRole("dialog", { name: "Calendar inspector" })).toBeVisible();
+await submitSchedule();
+expect(scheduleMutation).toHaveBeenCalledWith(validScheduleInput);
 ```
 
-- [ ] **Step 1: Write failing reader/IPC/controller tests**
+- [ ] **Step 2: Run RED**
 
-```ts
-await reader.reviewMedia(project, {
-  artifactId: "art_1",
-  expectedSelectedRevisionId: "arev_1",
-  verdict: "needs-work",
-});
-expect(request).toHaveBeenCalledWith("media.review", {
-  context: project,
-  ref: { type: "artifact", id: "art_1" },
-  expectedSelectedRevisionId: "arev_1",
-  verdict: "needs-work",
-});
-await expect(reader.reviewMedia(project, { artifactId: "", expectedSelectedRevisionId: "arev_1", verdict: "approved" })).rejects.toThrow(/review/i);
+Run: `bun run test -- tests/calendar-screen.test.tsx tests/calendar-contract.test.ts -t 'inspector|drawer|schedule|platform|account'`
+
+Expected: FAIL on shared rail ownership, overlay focus, and Instrument schedule workflow.
+
+- [ ] **Step 3: Implement existing contracts in shared surfaces**
+
+```tsx
+<InstrumentRightRailPortal owner="calendar-inspector" label="Calendar inspector"><CalendarInspector item={selected} /></InstrumentRightRailPortal>
 ```
 
-Assert IPC rejects unknown keys/verdicts/IDs, untrusted/stale senders, wrong-scope result cards/evaluations/revisions, and mismatched selected revision. Assert controller disables non-Artifact/unselected review, suppresses double submit, reconciles returned card/evaluation into the selected item and current page, exposes errors, and ignores late results after dispose/root change.
+Use registered drawer/schedule/platform/account overlays; preserve drag/drop, validation, mutation, partial/error states, selection, and focus restoration. No new scheduling path.
 
-- [ ] **Step 2: Run adapter tests and verify RED**
+- [ ] **Step 4: Run GREEN and review**
 
-Run: `bun run test -- tests/project-reader.test.ts tests/ipc-security.test.ts tests/ralphy-current-core.test.ts tests/project-screen-behavior.test.tsx`
+Run: `bun run test -- tests/calendar-screen.test.tsx tests/calendar-contract.test.ts && bun run typecheck && git diff --check`
 
-Expected: FAIL because Desktop does not expose `media.review` and the controller lacks review state/methods.
+Expected: PASS; reviewer checks every overlay at docked/1100 overlay and verifies no bypass.
 
-- [ ] **Step 3: Implement the narrow existing-contract adapter**
-
-```ts
-async reviewMedia(project: ProjectRef, input: ProjectMediaReviewInput): Promise<MediaReviewResult> {
-  const context = projectContext(project);
-  if (!validGenerationId(input.artifactId)) throw new Error("Invalid Artifact identifier");
-  if (!validGenerationId(input.expectedSelectedRevisionId)) throw new Error("Invalid selected revision identifier");
-  if (!["approved", "needs-work", "rejected"].includes(input.verdict)) throw new Error("Invalid Media review verdict");
-  const value = await request("media.review", {
-    context,
-    ref: { type: "artifact", id: input.artifactId },
-    expectedSelectedRevisionId: input.expectedSelectedRevisionId,
-    verdict: input.verdict,
-  });
-  return validateMediaReviewResult(value, context, input.artifactId, input.expectedSelectedRevisionId, input.verdict);
-}
-```
-
-Register one IPC channel, validate exact input keys in main, unwrap only the validated DTO in preload, and add an explicit mock-mode unavailable rejection rather than a fake success. `validateMediaReviewResult` must accept exact result keys only, then prove: `card.ref` is the requested Artifact and card scope is the current project; `card.selectedRevisionId` is the expected selected revision; `revision.id` equals that selected revision and `revision.artifactId` equals the requested Artifact; `evaluation` is current-project scoped, targets `{ type: "artifact_revision", id: revision.id }`, and has the requested verdict; `feedback` is null or has `projectId === context.projectId`. Reuse existing field-level DTO validators and root checks. Do not change Core source/schema or write SQLite directly.
-
-- [ ] **Step 4: Run GREEN security/controller checks and reviewer gate**
-
-Run: `bun run test -- tests/project-reader.test.ts tests/ipc-security.test.ts tests/ralphy-current-core.test.ts tests/project-screen-behavior.test.tsx && bun run typecheck && git diff --check`
-
-Expected: suites pass; security reviewer confirms renderer inputs are IDs/enums only, Core remains the sole mutation authority, and stale-root/result checks wrap the whole request.
-
-- [ ] **Step 5: Commit the review adapter**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add electron/ralphy/project-reader.ts electron/media/types.ts electron/preload.ts electron/main.ts src/lib/ipc.ts src/state/project-screen-controller.ts tests/project-reader.test.ts tests/ipc-security.test.ts tests/ralphy-current-core.test.ts tests/project-screen-behavior.test.tsx
+git add src/screens/CalendarScreen.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/calendar-screen.test.tsx tests/calendar-contract.test.ts
 gitleaks protect --staged --redact
-git commit -m "feat: expose project media review"
+git commit -m "feat: rebuild calendar workflows"
 ```
 
-### Task 7: Rebuild Project Documents list, search, editor, viewer, and conflicts
+### Task 11: Rebuild Documents list, search, and viewers
 
 **Files:**
 - Modify: `src/screens/ProjectScreen.tsx`
@@ -515,289 +689,532 @@ git commit -m "feat: expose project media review"
 - Modify: `src/components/MarkdownView.tsx`
 - Modify: `src/components/JsonDocumentView.tsx`
 - Modify: `src/styles/work-surfaces.css`
+- Modify: `src/instrument/test-fixtures.ts`
 - Test: `tests/documents-panel.test.tsx`
 - Test: `tests/markdown-view.test.tsx`
-- Test: `tests/project-screen-behavior.test.tsx`
 
-**Interfaces:**
-- Consumes: unchanged document controller methods/snapshot, guarded preview text, exact `DocumentDraft`, search paging, save conflict state, and Plan 1 project dock/header/primitives.
-- Produces: Instrument Documents list/search, Markdown/JSON/text viewer, editor, revision/conflict UI, loading/error/empty states, and document-saving navigation guard.
+**Interfaces:** Consumes current document paging/search/detail and safe renderers. Produces list/search/loading/append-error/empty plus Markdown/JSON/text viewer.
 
-- [ ] **Step 1: Add failing Documents presentation tests**
+- [ ] **Step 1: Write search/viewer/focus tests**
 
 ```tsx
-expect(list).toContain("Documents");
-expect(list).toContain('aria-label="Search project documents"');
-expect(markdown).toContain('class="instrument-document-viewer"');
-expect(json).toContain("JSON");
-expect(conflict).toContain("Document changed since editing began");
-expect(conflict).toContain("Review latest");
-expect(empty).toContain("No documents yet");
+await user.type(screen.getByRole("searchbox"), "brief");
+expect(controller.searchDocuments).toHaveBeenCalledWith("brief");
+await user.click(screen.getByRole("button", { name: /Open document/ }));
+expect(screen.getByRole("dialog", { name: "Document viewer" })).toBeVisible();
+expect(renderInstrumentScenario("documents.viewer.json").getByRole("tree")).toBeVisible();
 ```
 
-Exercise search loading/append error, select/view/edit/cancel/save, JSON validation, dirty navigation confirmation, conflict review, revisions, and focus restoration.
+- [ ] **Step 2: Run RED**
 
-- [ ] **Step 2: Run Documents tests and verify RED**
+Run: `bun run test -- tests/documents-panel.test.tsx tests/markdown-view.test.tsx -t 'list|search|viewer|json|markdown'`
 
-Run: `bun run test -- tests/documents-panel.test.tsx tests/markdown-view.test.tsx tests/project-screen-behavior.test.tsx -t "document|Documents"`
+Expected: FAIL on registered viewer behavior, Instrument roots, and focus return.
 
-Expected: FAIL on new Instrument selectors/semantics.
-
-- [ ] **Step 3: Implement Documents Instrument layout**
+- [ ] **Step 3: Implement list/viewers**
 
 ```tsx
-<InstrumentScreenHeader
-  eyebrow={projectName}
-  title="Documents"
-  filters={searchControl}
-  counters={<InstrumentCounter value={page.items.length} label="Loaded" />}
-  actions={documentActions}
-/>
+<main data-instrument-root="project-documents"><DocumentSearch /><DocumentList /><DocumentViewerDialog /></main>
 ```
 
-Keep search/editor/controller logic unchanged. Use a desk list plus detail widget above 760px and stacked layout at/below 760px. Viewer content keeps content contrast and bounded line length. Save is the single dominant pill only in edit mode; conflict/error uses alert red and explicit recovery. No document path or untrusted raw HTML is rendered.
+Keep sanitization, JSON validation/display, paging, guarded links, and viewer-local scroller marker; no editor/conflict changes yet.
 
-- [ ] **Step 4: Run GREEN checks and reviewer gate**
+- [ ] **Step 4: Run GREEN and review**
 
-Run: `bun run test -- tests/documents-panel.test.tsx tests/markdown-view.test.tsx tests/project-screen-behavior.test.tsx tests/project-screen.test.tsx && bun run typecheck && git diff --check`
+Run: `bun run test -- tests/documents-panel.test.tsx tests/markdown-view.test.tsx tests/protocol-access.test.ts && bun run typecheck && git diff --check`
 
-Expected: suites pass; reviewer confirms dirty/conflict/data-loss protections remain intact.
+Expected: PASS; reviewer checks list states/viewer formats/focus and no nested desk scroll.
 
-- [ ] **Step 5: Commit Documents presentation**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/ProjectScreen.tsx src/screens/project/DocumentsPanel.tsx src/components/MarkdownView.tsx src/components/JsonDocumentView.tsx src/styles/work-surfaces.css tests/documents-panel.test.tsx tests/markdown-view.test.tsx tests/project-screen-behavior.test.tsx
+git add src/screens/ProjectScreen.tsx src/screens/project/DocumentsPanel.tsx src/components/MarkdownView.tsx src/components/JsonDocumentView.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/documents-panel.test.tsx tests/markdown-view.test.tsx
 gitleaks protect --staged --redact
-git commit -m "feat: rebuild project documents"
+git commit -m "feat: rebuild document browsing"
 ```
 
-### Task 8: Implement the high-fidelity Media 3a/3b surface and review console
+### Task 12: Rebuild Documents editor, revisions, and conflicts
 
 **Files:**
+- Modify: `src/screens/project/DocumentsPanel.tsx`
+- Modify: `src/styles/work-surfaces.css`
+- Modify: `src/instrument/test-fixtures.ts`
+- Test: `tests/documents-panel.test.tsx`
+- Test: `tests/project-screen-behavior.test.tsx`
+
+**Interfaces:** Consumes existing save/CAS/revision/navigation guard. Produces editor/revisions/conflict overlays and dirty-state focus flow.
+
+- [ ] **Step 1: Write edit/save/conflict tests**
+
+```tsx
+await openDocumentEditor();
+await user.type(screen.getByRole("textbox", { name: "Document body" }), " revised");
+await attemptNavigate();
+expect(screen.getByRole("dialog", { name: "Unsaved changes" })).toBeVisible();
+await resolveSaveConflict();
+expect(screen.getByRole("dialog", { name: "Document conflict" })).toHaveFocus();
+```
+
+- [ ] **Step 2: Run RED**
+
+Run: `bun run test -- tests/documents-panel.test.tsx tests/project-screen-behavior.test.tsx -t 'edit|save|revision|conflict|dirty'`
+
+Expected: FAIL on registered Instrument overlays and focus/guard behavior.
+
+- [ ] **Step 3: Reskin existing mutation state**
+
+```tsx
+<Dialog.Content data-instrument-root="document-conflict"><ConflictReview local={draft} remote={latest} /></Dialog.Content>
+```
+
+Preserve exact CAS, JSON validation, stale-root fencing, navigation guard, revision selection, error recovery, and focus restoration.
+
+- [ ] **Step 4: Run GREEN and review**
+
+Run: `bun run test -- tests/documents-panel.test.tsx tests/project-screen-behavior.test.tsx && bun run typecheck && git diff --check`
+
+Expected: PASS; reviewer exercises save success/error/conflict/cancel and dirty navigation.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/screens/project/DocumentsPanel.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/documents-panel.test.tsx tests/project-screen-behavior.test.tsx
+gitleaks protect --staged --redact
+git commit -m "feat: rebuild document editing"
+```
+
+### Task 13: Present truthful read-only production Media review status
+
+**Files:**
+- Create: `src/screens/project/media-review-presentation.ts`
 - Create: `src/screens/project/MediaReviewConsole.tsx`
+- Modify: `src/screens/project/MediaPanel.tsx`
+- Modify: `src/styles/work-surfaces.css`
+- Test: `tests/project-media-review-presentation.test.tsx`
+- Test: `tests/project-screen-behavior.test.tsx`
+
+**Interfaces:** Consumes only the existing `ArtifactMediaCardDto.selectedState` after narrowing `MediaCardDto.ref.type === "artifact"`; produces a validated `ArtifactRevisionState` read-only status and unsupported controls. Run-object/object cards and unknown strings are explicitly unavailable. No Electron/IPC/controller files.
+
+- [ ] **Step 1: Write read-only status and disabled-action tests**
+
+```tsx
+expect(productionMediaReviewStatus(approvedCard)).toEqual({ status: "ready", value: "approved" });
+expect(productionMediaReviewStatus(candidateCard)).toEqual({ status: "ready", value: "candidate" });
+expect(productionMediaReviewStatus(cardWithoutState)).toEqual({ status: "unavailable", reason: "Review status is unavailable for this media item." });
+expect(productionMediaReviewStatus(runObjectCard)).toEqual({ status: "unavailable", reason: "Review status is unavailable for this media item." });
+for (const name of ["Approve", "Needs Work", "Reject"]) {
+  expect(screen.getByRole("button", { name })).toHaveAttribute("aria-disabled", "true");
+  expect(screen.getByRole("button", { name })).toHaveAccessibleDescription(MEDIA_REVIEW_UNSUPPORTED_REASON);
+}
+expect(recordedBridgeCalls()).toEqual([]);
+```
+
+- [ ] **Step 2: Run RED**
+
+Run: `bun run test -- tests/project-media-review-presentation.test.tsx tests/project-screen-behavior.test.tsx -t 'read-only|unsupported review'`
+
+Expected: FAIL because production console neither projects exact read-only truth nor exposes the required disabled explanation.
+
+- [ ] **Step 3: Implement pure read-only presentation**
+
+```tsx
+<button type="button" aria-disabled="true" aria-describedby="media-review-unsupported" onClick={(event) => event.preventDefault()}>Approve</button>
+<p id="media-review-unsupported">{MEDIA_REVIEW_UNSUPPORTED_REASON}</p>
+```
+
+Recognize only the existing `working | candidate | approved | rejected | superseded | archived` `ArtifactRevisionState` values after the artifact discriminant; otherwise return unavailable. Do not add event mutations, controller methods, bridge calls, Core types, sessions, or reconciliation.
+
+- [ ] **Step 4: Run GREEN and architecture gate**
+
+Run: `bun run test -- tests/project-media-review-presentation.test.tsx tests/project-screen-behavior.test.tsx tests/ipc-security.test.ts tests/ralphy-current-core.test.ts && bun run typecheck && ! git diff --name-only "$NOTHING_WORK_BASE" | rg 'electron/|src/lib/ipc|project-reader|ralphy/types' && git diff --check`
+
+Expected: PASS. Reviewer confirms Media review production path is read-only and no Core/Desktop contract work exists.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/screens/project/media-review-presentation.ts src/screens/project/MediaReviewConsole.tsx src/screens/project/MediaPanel.tsx src/styles/work-surfaces.css tests/project-media-review-presentation.test.tsx tests/project-screen-behavior.test.tsx
+gitleaks protect --staged --redact
+git commit -m "feat: present read-only media review status"
+```
+
+### Task 14: Add the renderer-only UX test review session and safe shortcuts
+
+**Files:**
+- Create: `src/screens/project/mock-review-session.ts`
+- Create: `src/screens/project/review-shortcuts.ts`
+- Modify: `src/screens/project/MediaReviewConsole.tsx`
+- Modify: `src/screens/project/MediaPanel.tsx`
+- Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/styles/work-surfaces.css`
+- Test: `tests/mock-review-session.test.ts`
+- Test: `tests/media-review-shortcuts.test.tsx`
+- Test: `tests/project-media-review-presentation.test.tsx`
+
+**Interfaces:** Consumes locked mock review interfaces and exact mock gate. Produces local reducer, Needs Work dialog, and `isReviewShortcutEligible(event, uiState)`.
+
+- [ ] **Step 1: Write reducer/feedback/gating/reset tests**
+
+```ts
+expect(reduceMockReviewSession(initial, { type: "approve", artifactId: "art_1" }).reviews.art_1.verdict).toBe("approved");
+expect(() => reduceMockReviewSession(emptyFeedback, { type: "submit-needs-work" })).toThrow(/Feedback is required/);
+expect(resetAfterWorkspaceChange.reviews).toEqual({});
+expect(isReviewShortcutEligible(keyEvent("a"), { mockSession: true, selected: true, overlayOpen: false })).toBe(true);
+expect(isReviewShortcutEligible(keyEvent("a", { target: button }), safeState)).toBe(false);
+```
+
+Cover input/textarea/select/contenteditable/link/button/role controls, modal/menu/viewer, modifiers, `isComposing`, repeat, no selection, non-UX, false string, inactive iteration, Escape/focus return.
+
+- [ ] **Step 2: Run RED**
+
+Run: `VITE_RALPHY_ENABLE_MOCKS=true bun run test -- tests/mock-review-session.test.ts tests/media-review-shortcuts.test.tsx tests/project-media-review-presentation.test.tsx`
+
+Expected: FAIL because no isolated test review reducer/dialog/shortcut policy exists.
+
+- [ ] **Step 3: Implement renderer-local session**
+
+```ts
+if (import.meta.env.VITE_RALPHY_ENABLE_MOCKS === "true" && workspace.name === "UX Testing Lab") {
+  const { createMockReviewSession } = await import("./mock-review-session");
+  setMockSession(createMockReviewSession(rootEpoch, workspace.id, project?.projectId ?? null));
+}
+```
+
+Render `TEST REVIEW SESSION · NOT SAVED`; Approve/Reject record local verdict, Needs Work opens labelled dialog and requires trimmed feedback plus active fixture iteration. Keep state in component/reducer memory only; reset on root/workspace. Global shortcuts run only from the explicit non-interactive review shortcut region and call no controller/bridge.
+
+- [ ] **Step 4: Run GREEN, production exclusion, and review**
+
+Run: `VITE_RALPHY_ENABLE_MOCKS=true bun run test -- tests/mock-review-session.test.ts tests/media-review-shortcuts.test.tsx tests/project-media-review-presentation.test.tsx && VITE_RALPHY_ENABLE_MOCKS=false bun run build:renderer && ! rg -a 'TEST REVIEW SESSION|mock-review-session|mock-iteration-1' dist && git diff --check`
+
+Expected: PASS and false build contains no test-review strings/chunk. Reviewer verifies label, feedback/iteration semantics, reset, focus, and zero IPC/storage/files.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/screens/project/mock-review-session.ts src/screens/project/review-shortcuts.ts src/screens/project/MediaReviewConsole.tsx src/screens/project/MediaPanel.tsx src/instrument/test-fixtures.ts src/styles/work-surfaces.css tests/mock-review-session.test.ts tests/media-review-shortcuts.test.tsx tests/project-media-review-presentation.test.tsx
+gitleaks protect --staged --redact
+git commit -m "test: add local media review session"
+```
+
+### Task 15: Rebuild high-fidelity Media grid, viewer, and external virtualization
+
+**Files:**
 - Modify: `src/screens/project/MediaPanel.tsx`
 - Modify: `src/screens/project/MediaViewer.tsx`
 - Modify: `src/components/VirtualAssetGrid.tsx`
 - Modify: `src/components/media/ImageViewport.tsx`
 - Modify: `src/components/media/VideoPlayer.tsx`
 - Modify: `src/components/media/AudioWaveform.tsx`
-- Modify: `src/state/project-screen-controller.ts`
 - Modify: `src/styles/work-surfaces.css`
+- Modify: `src/instrument/test-fixtures.ts`
 - Test: `tests/project-media-presentation.test.tsx`
 - Test: `tests/media-grid.test.ts`
-- Test: `tests/project-screen-behavior.test.tsx`
-- Test: `tests/design-system.test.ts`
+- Test: `tests/media-viewer.test.tsx`
 
-**Interfaces:**
-- Consumes: Task 6 `reviewSelectedMedia`, `mediaReview`, and `mediaEvaluations`; existing Media query/paging/preview/viewer/generation/revision actions; Plan 1 rail portal/status primitives; exact 3a/3b visual evidence.
-- Produces:
+**Interfaces:** Consumes shell scroll context, read-only/mock console, current paging/preview/viewer/generation/revision behavior. Produces 3a/3b geometry markers and external-scroll virtualizer.
+
+- [ ] **Step 1: Write geometry/virtualizer/viewer interaction tests**
 
 ```ts
-export function mediaReviewTone(card: MediaCardDto, evaluation?: EvaluationDto): "approved" | "needs-work" | "rejected" | "unreviewed";
-export function editableTarget(target: EventTarget | null): boolean;
-export function MediaReviewConsole(props: {
-  card: MediaCardDto;
-  evaluation?: EvaluationDto;
-  saving: boolean;
-  error: string | null;
-  onReview(verdict: ProjectMediaVerdict): void;
-  onPrevious(): void;
-  onNextUnreviewed(): void;
-}): React.ReactElement;
+expect(mediaGeometry1440()).toMatchObject({ filterRow: 38, lanes: 4, laneGap: 10, rail: 292, selectedRing: 3 });
+expect(virtualizer.getScrollElement()).toBe(instrumentScroll.element);
+expect(document.querySelectorAll('[data-scroll-owner="route"]')).toHaveLength(0);
+await user.hover(videoCard); expect(video).toHaveProperty("muted", true);
+await user.tab(); expect(videoPreview).toBeVisible();
 ```
 
-- [ ] **Step 1: Add failing high-fidelity and keyboard review tests**
+Cover filters/view/zoom, natural aspect ratios, selected badge, previous/next, generation/revision/failure, viewer/context menu, focus/Escape, no sound autoplay, dock/rail clearance, 1280/1100 column changes.
+
+- [ ] **Step 2: Run RED**
+
+Run: `bun run test -- tests/project-media-presentation.test.tsx tests/media-grid.test.ts tests/media-viewer.test.tsx`
+
+Expected: FAIL on exact geometry markers, external scroll element, and focus-parity preview behavior.
+
+- [ ] **Step 3: Implement iteration-3 geometry**
 
 ```tsx
-expect(media).toContain("Source");
-expect(media).toContain("Type");
-expect(media).toContain("Generation");
-expect(media).toContain("ITEMS");
-expect(selected).toContain("IN CONSOLE");
-expect(consoleMarkup).toContain("APPROVE");
-expect(consoleMarkup).toContain("NEEDS WORK");
-expect(consoleMarkup).toContain("REJECT");
-expect(mediaReviewTone(approvedCard)).toBe("approved");
-expect(mediaReviewTone(candidateCard, needsWorkEvaluation)).toBe("needs-work");
+const scroll = useInstrumentScroll();
+const virtualizer = useVirtualizer({ count: cards.length, getScrollElement: () => scroll.element, estimateSize });
 ```
 
-Mount the panel and dispatch A/N/R with a selected Artifact; assert exact verdict calls. Repeat from input/textarea/select/contenteditable and with no selection/non-Artifact/unselected Artifact; assert no call. Cover Escape deselection, focus-visible card actions, hover/focus muted video preview, no sound autoplay, previous/next-unreviewed, viewer focus, generation/revision/failure states, and review errors.
+At 1440: 38px filter row, four masonry lanes/10px gaps, `#060606` media frames, captions outside, 3px selection ring/`IN CONSOLE`, 292px rail stack, dock clear. Use container thresholds for 1280/1100 and overlay rail. Preserve preview cache/scheduler, URL guards, media lifecycle, and actual callbacks.
 
-- [ ] **Step 2: Run Media tests and verify RED**
+- [ ] **Step 4: Run GREEN and Media reviewer gate**
 
-Run: `bun run test -- tests/project-media-presentation.test.tsx tests/media-grid.test.ts tests/project-screen-behavior.test.tsx tests/design-system.test.ts`
+Run: `bun run test -- tests/project-media-presentation.test.tsx tests/media-grid.test.ts tests/media-viewer.test.tsx tests/protocol-access.test.ts && bun run typecheck && bun run build && git diff --check`
 
-Expected: FAIL because the Media console/keyboard review and final Instrument 3a/3b selectors do not exist.
+Expected: PASS. Reviewer records bounding boxes at all viewports and validates selected/viewer/video/chat/dock states against stable 3a/3b reference; automated pixel diff is Plan 3.
 
-- [ ] **Step 3: Implement exact Media geometry and truthful status**
-
-```ts
-export function editableTarget(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement
-    && target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]') !== null;
-}
-export function mediaReviewTone(card: MediaCardDto, evaluation?: EvaluationDto) {
-  if (evaluation?.verdict === "needs-work") return "needs-work";
-  if (evaluation?.verdict === "approved" || ("selectedState" in card && card.selectedState === "approved")) return "approved";
-  if (evaluation?.verdict === "rejected" || ("selectedState" in card && card.selectedState === "rejected")) return "rejected";
-  return "unreviewed";
-}
-```
-
-At 1440px reproduce handoff 3a/3b: 38px desk header; filters; Doto count; view/zoom; four adaptive virtual masonry lanes with 10px gap; natural-ratio frame at `#060606`; captions outside; selected 3px ring and `IN CONSOLE`; 292px review console above chat; flat Approve/Needs Work/Reject pills/keycaps; dock clear of rail. Reduce columns at explicit desk-container thresholds. Keep current virtualizer/preview cache/scheduler and guarded URLs. Review is enabled only for an Artifact with a selected revision; other media show a focusable disabled reason. A/N/R remain available from non-editable controls inside the review dialog; suppress them only when the event target itself is editable.
-
-- [ ] **Step 4: Run GREEN checks and pixel-review gate**
-
-Run: `bun run test -- tests/project-media-presentation.test.tsx tests/media-grid.test.ts tests/project-screen-behavior.test.tsx tests/protocol-access.test.ts tests/design-system.test.ts && bun run typecheck && bun run build && git diff --check`
-
-Expected: suites/build pass. Independent visual reviewer compares forced light/dark 1440x900 screenshots against 3a/3b for geometry, colors, typography, copy, selection, console, chat, and dock; interaction reviewer checks 1280/1100 columns and all keyboard guards.
-
-- [ ] **Step 5: Commit Media presentation**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/project/MediaReviewConsole.tsx src/screens/project/MediaPanel.tsx src/screens/project/MediaViewer.tsx src/components/VirtualAssetGrid.tsx src/components/media/ImageViewport.tsx src/components/media/VideoPlayer.tsx src/components/media/AudioWaveform.tsx src/state/project-screen-controller.ts src/styles/work-surfaces.css tests/project-media-presentation.test.tsx tests/media-grid.test.ts tests/project-screen-behavior.test.tsx tests/design-system.test.ts
+git add src/screens/project/MediaPanel.tsx src/screens/project/MediaViewer.tsx src/components/VirtualAssetGrid.tsx src/components/media/ImageViewport.tsx src/components/media/VideoPlayer.tsx src/components/media/AudioWaveform.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/project-media-presentation.test.tsx tests/media-grid.test.ts tests/media-viewer.test.tsx
 gitleaks protect --staged --redact
-git commit -m "feat: rebuild project media console"
+git commit -m "feat: rebuild project media presentation"
 ```
 
-### Task 9: Rebuild Units collection, detail, revisions, presentations, and playback
+### Task 16: Rebuild Units collection and selection states
 
 **Files:**
 - Modify: `src/screens/project/UnitsPanel.tsx`
+- Modify: `src/screens/project/CompositionsPanel.tsx`
+- Modify: `src/styles/work-surfaces.css`
+- Modify: `src/instrument/test-fixtures.ts`
+- Test: `tests/units-panel.test.tsx`
+- Test: `tests/composition-view.test.tsx`
+
+**Interfaces:** Consumes current Unit/Composition list/filter/paging. Produces ready/loading/empty/partial/error/selected collection, with Compositions folded under Units.
+
+- [ ] **Step 1: Write filter/paging/selection tests**
+
+```tsx
+await user.click(screen.getByRole("button", { name: "Ready" }));
+expect(controller.setUnitFilter).toHaveBeenCalledWith("ready");
+await user.click(screen.getByRole("button", { name: /Open unit/ }));
+expect(selectedUnitId()).toBe(realUnit.id);
+expect(renderInstrumentScenario("units.collection.partial").getByRole("status")).toHaveAccessibleDescription();
+```
+
+- [ ] **Step 2: Run RED**
+
+Run: `bun run test -- tests/units-panel.test.tsx tests/composition-view.test.tsx -t 'collection|filter|paging|selection'`
+
+Expected: FAIL on Instrument collection interactions and state roots.
+
+- [ ] **Step 3: Implement collection only**
+
+```tsx
+<main data-instrument-root="project-units"><UnitFilters /><UnitCollection items={page.items} /></main>
+```
+
+Preserve paging, selection, Composition entry, unavailable reasons, and one desk scroll owner. Detail/playback remain unchanged until Task 17.
+
+- [ ] **Step 4: Run GREEN and review**
+
+Run: `bun run test -- tests/units-panel.test.tsx tests/composition-view.test.tsx && bun run typecheck && git diff --check`
+
+Expected: PASS; reviewer checks all collection states and no fake counts/actions.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/screens/project/UnitsPanel.tsx src/screens/project/CompositionsPanel.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/units-panel.test.tsx tests/composition-view.test.tsx
+gitleaks protect --staged --redact
+git commit -m "feat: rebuild project unit collection"
+```
+
+### Task 17: Rebuild Unit detail, revisions, presentations, previews, and playback
+
+**Files:**
 - Modify: `src/screens/project/UnitViewer.tsx`
 - Modify: `src/screens/project/UnitSocialPreview.tsx`
-- Modify: `src/screens/project/CompositionsPanel.tsx`
 - Modify: `src/screens/project/ArtifactPreview.tsx`
 - Modify: `src/components/ui/IPhoneMockup.tsx`
 - Modify: `src/styles/work-surfaces.css`
-- Test: `tests/units-panel.test.tsx`
-- Test: `tests/composition-view.test.tsx`
+- Modify: `src/instrument/test-fixtures.ts`
 - Test: `tests/unit-previews.test.ts`
 - Test: `tests/unit-lifecycle.test.ts`
+- Test: `tests/units-panel.test.tsx`
 
-**Interfaces:**
-- Consumes: unchanged unit/composition controller methods, lifecycle helper, current preview/presentation DTOs, project dock, and content tokens.
-- Produces: Instrument Unit collection/detail, revision/build/source/input/evaluation states, presentation target previews, mobile/desktop playback, mutation conflict/error/loading/empty states.
+**Interfaces:** Consumes existing unit detail/revisions/presentations/preview/playback contracts. Produces focus-managed Unit viewer states.
 
-- [ ] **Step 1: Add failing Units state tests**
-
-```tsx
-expect(collection).toContain("Units");
-expect(detail).toContain("Revisions");
-expect(detail).toContain("Presentations");
-expect(detail).toContain("Items");
-expect(video).toContain('aria-label="Play preview"');
-expect(conflict).toContain("Unit changed");
-expect(unavailablePreview).toContain("Preview unavailable");
-```
-
-Cover collection/detail, select revision, compositions/revisions/builds, preview loading/error, social presentation choices, mobile/desktop frames, playback controls, pagination, conflict, and target-unit deep link.
-
-- [ ] **Step 2: Run Units tests and verify RED**
-
-Run: `bun run test -- tests/units-panel.test.tsx tests/composition-view.test.tsx tests/unit-previews.test.ts tests/unit-lifecycle.test.ts`
-
-Expected: FAIL on Instrument presentation expectations.
-
-- [ ] **Step 3: Implement responsive Unit instruments**
+- [ ] **Step 1: Write revision/presentation/playback tests**
 
 ```tsx
-<InstrumentScreenHeader
-  eyebrow={projectName}
-  title="Units"
-  counters={<InstrumentCounter value={page.items.length} label="Loaded" />}
-  actions={lifecycleAction}
-/>
+await openUnitViewer();
+await user.click(screen.getByRole("button", { name: "Revision 2" }));
+expect(controller.selectUnitRevision).toHaveBeenCalledWith(revision2.id);
+await user.click(screen.getByRole("button", { name: "Play preview" }));
+expect(player).toHaveProperty("muted", true);
+await user.keyboard("{Escape}"); expect(unitCard).toHaveFocus();
 ```
 
-Keep existing composition/unit grouping and lifecycle decisions. Use adaptive collection widgets, detail columns above 760px, stacked details below it, and explicit content tokens for image/video/social canvases. Controls never imply render/select capability unless the current lifecycle helper returns it. Preserve selected revision CAS/conflict and playback accessibility.
+- [ ] **Step 2: Run RED**
 
-- [ ] **Step 4: Run GREEN checks and reviewer gate**
+Run: `bun run test -- tests/unit-previews.test.ts tests/unit-lifecycle.test.ts tests/units-panel.test.tsx -t 'detail|revision|presentation|preview|playback'`
 
-Run: `bun run test -- tests/units-panel.test.tsx tests/composition-view.test.tsx tests/unit-previews.test.ts tests/unit-lifecycle.test.ts tests/project-screen-behavior.test.tsx && bun run typecheck && git diff --check`
+Expected: FAIL on Instrument viewer hierarchy/focus and playback parity.
 
-Expected: suites pass; reviewer confirms all enabled actions route through existing controller methods and media never autoplays with sound.
+- [ ] **Step 3: Implement detail/viewer**
 
-- [ ] **Step 5: Commit Units presentation**
+```tsx
+<Dialog.Content data-instrument-root="unit-viewer"><UnitRevisionPicker /><UnitPresentation /><UnitPreview /></Dialog.Content>
+```
+
+Preserve current DTO truth, sealed/draft/build/evaluation states, media guards, preview aspect ratios, audio safety, and opener restoration.
+
+- [ ] **Step 4: Run GREEN and review**
+
+Run: `bun run test -- tests/unit-previews.test.ts tests/unit-lifecycle.test.ts tests/units-panel.test.tsx tests/composition-view.test.tsx && bun run typecheck && git diff --check`
+
+Expected: PASS; reviewer drives every registered Unit overlay/state at three widths.
+
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/project/UnitsPanel.tsx src/screens/project/UnitViewer.tsx src/screens/project/UnitSocialPreview.tsx src/screens/project/CompositionsPanel.tsx src/screens/project/ArtifactPreview.tsx src/components/ui/IPhoneMockup.tsx src/styles/work-surfaces.css tests/units-panel.test.tsx tests/composition-view.test.tsx tests/unit-previews.test.ts tests/unit-lifecycle.test.ts
+git add src/screens/project/UnitViewer.tsx src/screens/project/UnitSocialPreview.tsx src/screens/project/ArtifactPreview.tsx src/components/ui/IPhoneMockup.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/unit-previews.test.ts tests/unit-lifecycle.test.ts tests/units-panel.test.tsx
 gitleaks protect --staged --redact
-git commit -m "feat: rebuild project units"
+git commit -m "feat: rebuild unit detail and playback"
 ```
 
-### Task 10: Rebuild Activity timeline/inspector and close the Work-surface gate
+### Task 18: Rebuild Activity search/filter list on shell scrolling
+
+**Files:**
+- Modify: `src/screens/project/ActivityTimeline.tsx`
+- Create: `src/screens/project/ActivityVirtualList.tsx`
+- Modify: `src/styles/work-surfaces.css`
+- Modify: `src/instrument/test-fixtures.ts`
+- Test: `tests/activity-timeline.test.tsx`
+- Test: `tests/activity-sync.test.ts`
+
+**Interfaces:** Consumes current activity sync/catch-up/order/search/filter. Produces external-scroll virtual list and list state roots.
+
+- [ ] **Step 1: Write search/filter/virtual restore tests**
+
+```tsx
+await user.type(screen.getByRole("searchbox"), "render");
+expect(controller.setActivityQuery).toHaveBeenCalledWith("render");
+expect(activityVirtualizer.getScrollElement()).toBe(instrumentScroll.element);
+navigateAwayAndBack();
+expect(instrumentScroll.getOffset()).toBe(732);
+```
+
+- [ ] **Step 2: Run RED**
+
+Run: `bun run test -- tests/activity-timeline.test.tsx tests/activity-sync.test.ts -t 'search|filter|virtual|restore|catch-up'`
+
+Expected: FAIL on external shell-scroll virtualization and Instrument state roots.
+
+- [ ] **Step 3: Implement list migration**
+
+```tsx
+const { element } = useInstrumentScroll();
+const rows = useVirtualizer({ count: activities.length, getScrollElement: () => element, estimateSize: () => 52 });
+```
+
+Keep stable order/catch-up and technical availability; remove route-level vertical overflow.
+
+- [ ] **Step 4: Run GREEN and review**
+
+Run: `bun run test -- tests/activity-timeline.test.tsx tests/activity-sync.test.ts && bun run typecheck && git diff --check`
+
+Expected: PASS; reviewer checks all list states, catch-up, and restoration without nested scrollers.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/screens/project/ActivityTimeline.tsx src/screens/project/ActivityVirtualList.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/activity-timeline.test.tsx tests/activity-sync.test.ts
+gitleaks protect --staged --redact
+git commit -m "feat: rebuild activity timeline"
+```
+
+### Task 19: Rebuild Activity run inspector and unavailable technical states
 
 **Files:**
 - Modify: `src/screens/project/ActivityTimeline.tsx`
 - Modify: `src/screens/project/ActivityInspector.tsx`
-- Modify: `src/screens/project/activity-presentation.ts`
-- Modify: `src/screens/ProjectScreen.tsx`
 - Modify: `src/styles/work-surfaces.css`
+- Modify: `src/instrument/test-fixtures.ts`
 - Test: `tests/activity-timeline.test.tsx`
-- Test: `tests/activity-sync.test.ts`
 - Test: `tests/project-screen.test.tsx`
-- Test: `tests/design-system.test.ts`
 
-**Interfaces:**
-- Consumes: unchanged virtual Activity page/catch-up controller, `loadActivityRun`, presentation formatting, root-epoch sequencing, project dock, and Plan 1 primitives.
-- Produces: Instrument Activity header/filter/search, virtual list, technical/run inspector, loading/empty/error/unavailable states, and a complete My Work/Project route-state review.
+**Interfaces:** Consumes selected run/attempt details. Produces rail-owned inspector in docked/overlay modes.
 
-- [ ] **Step 1: Add failing Activity and route-matrix tests**
+- [ ] **Step 1: Write inspector rail/focus/unavailable tests**
 
 ```tsx
-expect(timeline).toContain("Activity");
-expect(timeline).toContain('aria-label="Search activity"');
-expect(runInspector).toContain("Run details");
-expect(runInspector).toContain("Attempts");
-expect(technicalUnavailable).toContain("Technical details unavailable");
-expect(empty).toContain("No activity yet");
-expect(error).toContain('role="alert"');
+await selectRun();
+expect(screen.getByRole("complementary", { name: "Run inspector" })).toBeVisible();
+await openAt1100(); expect(screen.getByRole("dialog", { name: "Run inspector" })).toBeVisible();
+expect(renderInstrumentScenario("activity.inspector.unavailable").getByRole("status")).toHaveTextContent("Unavailable");
+await user.keyboard("{Escape}"); expect(runRow).toHaveFocus();
 ```
 
-Add a route-matrix assertion that enumerates startup/global, Workspace Overview/Projects/Units placeholder/Shared Library/Memory/Calendar, and Project Documents/Media/Units/Activity test fixtures with loading, ready, empty, partial/unavailable, and error coverage.
+- [ ] **Step 2: Run RED**
 
-- [ ] **Step 2: Run Activity/matrix tests and verify RED**
+Run: `bun run test -- tests/activity-timeline.test.tsx tests/project-screen.test.tsx -t 'run inspector|technical'`
 
-Run: `bun run test -- tests/activity-timeline.test.tsx tests/activity-sync.test.ts tests/project-screen.test.tsx tests/design-system.test.ts`
+Expected: FAIL on shared rail ownership and focus contract.
 
-Expected: FAIL because Activity and the route matrix do not yet assert complete Instrument coverage.
+- [ ] **Step 3: Implement inspector portal**
 
-- [ ] **Step 3: Implement Activity instruments and exact matrix guard**
+```tsx
+<InstrumentRightRailPortal owner="activity-inspector" label="Run inspector"><ActivityInspector detail={detail} /></InstrumentRightRailPortal>
+```
+
+Render only returned technical facts; missing attempts/cost/model become unavailable reasons. Preserve selected run through rail mode changes.
+
+- [ ] **Step 4: Run GREEN and review**
+
+Run: `bun run test -- tests/activity-timeline.test.tsx tests/project-screen.test.tsx && bun run typecheck && git diff --check`
+
+Expected: PASS; reviewer checks docked/overlay/unavailable/error and selection retention.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/screens/project/ActivityTimeline.tsx src/screens/project/ActivityInspector.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/activity-timeline.test.tsx tests/project-screen.test.tsx
+gitleaks protect --staged --redact
+git commit -m "feat: rebuild activity inspection"
+```
+
+### Task 20: Close the rendered Work route/state/overlay matrix
+
+**Files:**
+- Modify: `src/instrument/scenarios.ts`
+- Modify: `src/instrument/test-fixtures.ts`
+- Test: `tests/work-scenario-completeness.test.tsx`
+- Test: `tests/instrument-scroll-owners.test.tsx`
+- Test: `tests/instrument-accessibility-journeys.test.tsx`
+
+**Interfaces:** Consumes all Plan 2 surfaces and Plan 1 manifest. Produces complete rendered Work scenario coverage ready for real Electron audit.
+
+- [ ] **Step 1: Write failing exhaustive rendered checks**
 
 ```ts
-export const WORK_ROUTE_STATE_MATRIX = {
-  startup: ["restoring", "library-unavailable", "library-empty", "migration", "alert"],
-  workspace: ["overview", "projects", "units-unavailable", "shared", "memory", "calendar"],
-  project: ["documents", "media", "units", "activity"],
-} as const;
+for (const scenario of workScenarios()) {
+  const view = renderInstrumentScenario(scenario.id);
+  expect(view.container.querySelector(`[data-instrument-root="${scenario.rootMarker}"]`)).not.toBeNull();
+  expectVisibleLandmarks(view, scenario.landmarks);
+  expectRailOwner(view, scenario.railOwner);
+  expectScrollOwner(view, scenario.scrollOwner);
+}
+expect(missingRegisteredOverlays()).toEqual([]);
 ```
 
-Use Instrument header/pills/counter and keep the current virtual list/catch-up/order behavior. Portal the run inspector above chat only while a run is selected; technical facts not returned by Core render unavailable reasons. Ensure all project sections use `ProjectDock`, one desk scroller, and the same route header grammar.
+Run keyboard, reduced-motion, and live-region journeys named by each scenario, including all dialogs/sheets/viewers/context menus and focus return.
 
-- [ ] **Step 4: Run the complete Work gate and independent reviews**
+- [ ] **Step 2: Run RED**
 
-Run: `bun run test -- tests/instrument-global-states.test.tsx tests/workspace-overview-screen.test.tsx tests/workspace-overview-presentation.test.ts tests/workspace-overview-navigation.test.tsx tests/workspace-domain.test.tsx tests/shared-library-controller.test.ts tests/shared-library-screen.test.tsx tests/shared-library-inspector.test.tsx tests/shared-library-viewer.test.tsx tests/shared-library-workflows.test.tsx tests/shared-library-presentation.test.ts tests/memory-screen.test.tsx tests/memory-contract.test.ts tests/calendar-screen.test.tsx tests/calendar-presentation.test.ts tests/calendar-contract.test.ts tests/project-reader.test.ts tests/ipc-security.test.ts tests/ralphy-current-core.test.ts tests/documents-panel.test.tsx tests/project-media-presentation.test.tsx tests/media-grid.test.ts tests/units-panel.test.tsx tests/composition-view.test.tsx tests/activity-timeline.test.tsx tests/activity-sync.test.ts tests/project-screen.test.tsx tests/project-screen-behavior.test.tsx tests/design-system.test.ts && bun run typecheck && bun run build && git diff --check`
+Run: `bun run test -- tests/work-scenario-completeness.test.tsx tests/instrument-scroll-owners.test.tsx tests/instrument-accessibility-journeys.test.tsx`
 
-Expected: all named suites pass and typecheck/build exit 0. Product reviewer verifies every spec matrix state; accessibility/visual reviewer verifies focus, scroll ownership, responsive stacking, forced light/dark, reduced motion, and Media 3a/3b; security reviewer verifies Task 6 and all guarded media paths.
+Expected: FAIL with exact missing route/state/overlay IDs or interaction journeys, never a copy-only failure.
 
-- [ ] **Step 5: Commit Activity and Work completion**
+- [ ] **Step 3: Complete manifest fixtures and markers**
+
+```ts
+export const WORK_SCENARIO_IDS = INSTRUMENT_SCENARIOS.filter(({ routeKey }) => routeKey.startsWith("startup.") || routeKey.startsWith("workspace.") || routeKey.startsWith("project.") || routeKey.startsWith("settings."));
+```
+
+Add only missing deterministic payloads/landmarks/markers; do not weaken expectations. Ensure modal-local scrollers are explicitly marked and all route virtualizers use the desk owner.
+
+- [ ] **Step 4: Run GREEN and final Work review**
+
+Run: `bun run test -- tests/work-scenario-completeness.test.tsx tests/instrument-scroll-owners.test.tsx tests/instrument-accessibility-journeys.test.tsx tests/project-media-presentation.test.tsx tests/mock-review-session.test.ts && bun run typecheck && VITE_RALPHY_ENABLE_MOCKS=false bun run build && ! rg -a 'TEST REVIEW SESSION|mock-review-session|instrument-test-fixture' dist && git diff --check`
+
+Expected: PASS; production excludes fixtures; independent reviewer signs every Work scenario and explicitly confirms no `media.review`/session/Core/DB change.
+
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/project/ActivityTimeline.tsx src/screens/project/ActivityInspector.tsx src/screens/project/activity-presentation.ts src/screens/ProjectScreen.tsx src/styles/work-surfaces.css tests/activity-timeline.test.tsx tests/activity-sync.test.ts tests/project-screen.test.tsx tests/design-system.test.ts
+git add src/instrument/scenarios.ts src/instrument/test-fixtures.ts tests/work-scenario-completeness.test.tsx tests/instrument-scroll-owners.test.tsx tests/instrument-accessibility-journeys.test.tsx
 gitleaks protect --staged --redact
-git commit -m "feat: complete instrument work surfaces"
+git commit -m "test: close work scenario coverage"
 ```
 
-## Plan 2 Acceptance Gate
+## Work Surfaces Completion Gate
 
-Run:
+Run: `bun run test && bun run typecheck && VITE_RALPHY_ENABLE_MOCKS=false bun run build && ! git diff --name-only "$NOTHING_WORK_BASE" | rg 'electron/|src/lib/ipc|project-reader|ralphy/types' && git diff --check && git log --oneline "$NOTHING_WORK_BASE..HEAD"`
 
-```bash
-bun run test
-bun run typecheck
-bun run build
-git diff --check "$NOTHING_WORK_BASE"..HEAD
-```
-
-Expected: all repository tests pass or only a baseline failure recorded before Task 1 remains; typecheck/build pass; the range contains no Core source/database/schema edits or new dependency. Inspect every My Work/Project state in forced light/dark at 1440x900, 1280x800, and 1100x720, with special pixel-level comparison of Media against final handoff 3a/3b. Confirm UX Testing Lab launch alone causes no database write before beginning Plan 3.
+Expected: all checks pass or only a pre-recorded baseline remains; 20 scoped commits exist; all Work routes/states/overlays render through Instrument contracts; production Media is read-only; mock review is excluded from production; Plan 3 may begin.

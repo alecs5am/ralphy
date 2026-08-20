@@ -1,44 +1,34 @@
-# Nothing Marketplace and Final Polish Implementation Plan
+# Nothing Marketplace and Polish Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Complete the Instrument rewrite across Marketplace and remaining overlays, remove all reachable legacy presentation, and prove real Electron geometry, security, UX Testing Lab database immutability, and bundled Core 0.3.0 launch behavior.
+**Goal:** Finish Marketplace, eliminate reachable legacy presentation, and produce isolated per-scenario Electron, accessibility, Media pixel-diff, Core provenance, and database immutability evidence for final launch.
 
-**Architecture:** Keep the current Marketplace navigation/controller/source adapters and render their exact capability states with the shared Instrument layer. Finish by deleting superseded chrome, enforcing source/build design guards, and driving the packaged Electron app through Chromium DevTools Protocol using Node's built-in `fetch`/`WebSocket`; no browser-test dependency or production debug IPC is added.
+**Architecture:** Existing Marketplace navigation/controller/source adapters remain authoritative. Verification is implemented as Bun scripts outside the renderer: a source/root-marker audit, versioned evidence manifest, CDP scenario runner, accessibility journeys, ffmpeg Media diff, fixed Core pin, and per-launch DB/WAL wrapper.
 
-**Tech Stack:** Electron 43.2.0 with embedded Node 24.18.0, React 19, resolved TypeScript 5.9.3 (declared `^5.7.3`), Bun 1.3, Vitest 0.34.6, Motion, Radix Dialog/Select, Lucide React, current Marketplace/model services, `@types/node` 22-compatible built-ins, Chrome DevTools Protocol, macOS `stat`/`shasum`/`plutil`/`codesign`.
+**Tech Stack:** Electron 43.2.0, React 19, TypeScript 5.9.3, Bun 1.3, Vitest 0.34.6, Chrome DevTools Protocol, macOS `ditto`/`shasum`/`stat`/`plutil`/`codesign`, ffmpeg.
 
 **Spec:** `docs/superpowers/specs/2026-08-20-nothing-os-redesign-design.md`
 
-**Prerequisites:** Complete and review `docs/superpowers/plans/2026-08-20-nothing-foundation-shell.md` and `docs/superpowers/plans/2026-08-20-nothing-work-surfaces.md` before Task 1.
-
-**Visual evidence:** `/tmp/ralphy-nothing-os.SYlRcI/design_handoff_instrument/README.md` and its final Instrument rules. Marketplace section `1b` is low-fidelity functional context only; final tokens, blocks, density, flatness, and responsive behavior come from sections `3a` / `3b` and the approved spec.
+**Visual evidence:** `.superpowers/sdd/nothing-instrument/reference/design_handoff_instrument/` prepared by Plan 1.
 
 ## Global Constraints
 
-- Work only in `/Users/maximovchinnikov/github/ralphy/ralphy-desktop/.worktrees/nothing-os-redesign` on `codex/nothing-os-redesign`; start after the reviewed Plan 2 acceptance gate.
-- This is a presentation rewrite. Reuse the current Core v3 contract, Electron security boundary, readers, controllers, workbench/Marketplace reducers, media protocol, root fencing, MIME allowlists, clipboard bounds, and fixed Marketplace origins.
-- Do not add a Core method, database migration, direct SQLite access, renderer filesystem access, renderer network access, sibling checkout import, prototype runtime, remote asset/font, or new package.
-- Import the Plan 1 Instrument types/components exactly. Do not weaken or fork `Availability<T>`, theme, shell/right-rail portal, screen header, project dock, or Dynamic Island interfaces.
-- Theme remains exactly `system | dark | light`. Light desk is `#E2E4EA`; dark desk is `#050505`; dark widgets are `#141414`; red `#E0362C` is only alert/rejection/destructive/live-recording semantics.
-- App chrome is flat: no elevation shadow, blur, glass, inset highlight, decorative border, depth gradient, old purple accent, dark-only form `color-scheme`, or non-allowlisted hard-coded app palette literal.
-- Geometry remains 8px outer padding/gap, 24px widgets, 999px pills/circles, 240px left stack, 292px right rail, and 1440x900/1280x800/1100x720 support with no horizontal body overflow.
-- Each screen has one desk scroller, at most one dominant primary pill, and at most one red action. Detail columns stack at 760px measured desk width; portal content stays inside the viewport.
-- Marketplace counts/state are truthful. Real production data are current provider/runtime Models and public-library schema-1 Templates/Recipes. Prompts, Components, Skills, Saved, Added, Downloads, Updates, Attention, and Forks are unavailable unless a current contract proves them.
-- Local Models stays inside Marketplace. Installed inventory is the real Ollama/machine result. Target options come only from current `CatalogResult`; review flows remain non-mutating when the contract cannot persist.
-- Provider/public content is untrusted. Preserve fixed-origin policies, safe controlled media, sanitized Markdown/prose, URL allowlists, and bounded clipboard behavior. No remote HTML/script/style execution.
-- UX Testing Lab mock island data exists only in renderer mock builds, is absent from production bundles, routes only to existing screens, resets on root/workspace change, and never writes the database.
-- Final acceptance uses `/Users/maximovchinnikov/github/ralphy/ralphy/.worktrees/sqlite-domain-store/dist/binaries/ralphy-darwin-arm64`; it must report exactly `0.3.0` and match the packaged manifest SHA-256.
-- The live database `/Users/maximovchinnikov/.ralphy/ralphy.db` is read-only for acceptance. Record and compare its SHA-256, byte size, and nanosecond mtime around every real launch; never copy, vacuum, seed, migrate, or edit it.
-- Use Bun. Every task follows RED to GREEN, receives an independent task review, runs `git diff --check`, stages only its files, runs `gitleaks protect --staged --redact`, and commits before the next task.
+- Begin only after Plans 1 and 2 pass; record their HEAD. Import all locked Instrument/scenario/rail/scroll/profile/theme/Media presentation interfaces verbatim.
+- Do not add/reconcile Core methods, consumer sessions, `media.review`, IPC, database/schema access, renderer network/filesystem access, remote runtime/assets/fonts, or packages.
+- Marketplace counts/actions are truthful: Models and schema-1 Templates/Recipes are real; unsupported Prompts/Components/Skills/Saved/Added/Downloads/Updates/Attention/Forks stay explicit and disabled.
+- Scenario fixture and mock review/Island code loads only under `import.meta.env.VITE_RALPHY_ENABLE_MOCKS === "true"` and exact UX Testing Lab; production chunks contain neither fixture IDs nor mock module paths.
+- Source audit covers reachable TS/TSX/CSS and authored SVG, exact root markers, primitive usage, selector-aware effects, complete named palette, baseline-hashed brand assets, and production dist.
+- Every Electron process uses an explicit temporary `--user-data-dir`; every launch is individually wrapped by the Plan 1 DB/WAL fingerprint utility, with SHM recorded separately.
+- Packaging input is exactly `/Users/maximovchinnikov/github/ralphy/ralphy-desktop/release/Ralphy Media.app/Contents/Resources/bin/ralphy`, version `0.3.0`, fixed SHA-256 `a843e2805b4b0a49d02f7afe46cdd5693d81184c14d560af836be93283d85679`. Reject mismatch before output replacement.
+- Evidence is written only under ignored `.superpowers/sdd/nothing-instrument/runs/<run-id>/`; mock/production names never collide and the final command prints the absolute HTML report.
+- Every task follows behavior-first RED/GREEN, independent review, `git diff --check`, exact staging, staged gitleaks, and a commit.
 
 ---
 
-Before Task 1, record `NOTHING_POLISH_BASE=$(git rev-parse HEAD)` in the executor's progress notes. Do not commit those notes.
+Before Task 1, record `NOTHING_POLISH_BASE=$(git rev-parse HEAD)` in executor notes.
 
-## Consumed Plan 1 Interfaces
-
-Marketplace imports the locked superset rather than retaining its local availability type:
+## Consumed Interfaces
 
 ```ts
 export type Availability<T> =
@@ -47,213 +37,207 @@ export type Availability<T> =
   | { status: "empty"; reason: string }
   | { status: "unavailable"; reason: string }
   | { status: "error"; reason: string };
+export function InstrumentRightRailPortal(props: { owner: InstrumentRightRailOwner; label: string; children: React.ReactNode }): React.ReactPortal | null;
+export const INSTRUMENT_SCENARIOS: readonly InstrumentScenario[];
+export function assertInstrumentScenarioCompleteness(): void;
+```
 
-export interface InstrumentScreenHeaderProps {
-  eyebrow?: string;
-  title: string;
-  description?: string;
-  filters?: React.ReactNode;
-  counters?: React.ReactNode;
-  actions?: React.ReactNode;
+## Evidence Interfaces
+
+```ts
+// scripts/instrument-evidence.mjs
+export interface InstrumentEvidenceRecord {
+  scenarioId: string;
+  mode: "mock" | "production";
+  theme: "system" | "dark" | "light";
+  viewport: "1440x900" | "1280x800" | "1100x720";
+  panels: { left: boolean; right: "docked" | "overlay" | "closed"; bottom: boolean };
+  nativeBounds: { x: number; y: number; width: number; height: number };
+  contentBounds: { width: number; height: number; deviceScaleFactor: number; topInset: number };
+  landmarks: Record<string, { x: number; y: number; width: number; height: number }>;
+  checks: Record<string, "pass" | "fail">;
+  screenshot: string;
+  reference: string | null;
+  diff: string | null;
+  failures: string[];
+  reviewer: { product: string | null; accessibility: string | null; security: string | null };
 }
-
-export function InstrumentRightRailPortal(props: { children: React.ReactNode }): React.ReactPortal | null;
+export interface InstrumentEvidenceManifest {
+  schemaVersion: 1;
+  runId: string;
+  appCommit: string;
+  appBundleSha256: string;
+  coreVersion: "0.3.0";
+  coreSha256: "a843e2805b4b0a49d02f7afe46cdd5693d81184c14d560af836be93283d85679";
+  referenceArchiveSha256: "fe371e93e3d778bbd9d7e5621d200ff4298e386edbbc20d3e971941c004c0804";
+  startedAt: string;
+  records: InstrumentEvidenceRecord[];
+}
 ```
 
 ## File Map
 
-- `src/screens/MarketplaceScreen.tsx` — existing controller lifecycle and route composition only.
-- `src/screens/marketplace/MarketplaceHeader.tsx` — Instrument search/filter/category/health header.
-- `src/screens/marketplace/MarketplaceBrowse.tsx` — Discover, results, categories, collection, loading/partial/error/empty states.
-- `src/screens/marketplace/MarketplaceModelViews.tsx` — real provider Models, machine/Ollama inventory, detail and compatibility truth.
-- `src/screens/marketplace/MarketplacePublicItemDetail.tsx` — Template/Recipe details and controlled media.
-- `src/screens/marketplace/MarketplaceUnavailableViews.tsx` — unsupported category/detail/library/contribution states.
-- `src/screens/marketplace/MarketplaceMyLibrary.tsx` — real Installed Models plus honest persistent-state gaps.
-- `src/screens/marketplace/MarketplaceWorkflows.tsx` — current target chooser and non-mutating review flows.
-- `scripts/audit-instrument-source.mjs` — static source/build policy guard.
-- `scripts/audit-instrument-electron.mjs` — external CDP geometry/focus/style/screenshot runner; no application hook.
+- `src/screens/marketplace/*` — Marketplace route presentation only.
+- `scripts/audit-instrument-source.mjs` — production reachability/root/selector/palette/asset guard.
+- `scripts/instrument-evidence.mjs`, `render-instrument-report.mjs` — versioned manifest and HTML/contact sheet.
+- `scripts/audit-instrument-electron.mjs` — per-scenario Bun/CDP runner.
+- `scripts/audit-instrument-accessibility.mjs` — keyboard/reduced-motion/live-region journeys.
+- `scripts/audit-media-fidelity.mjs` — reference/actual/ffmpeg diff and tolerance.
+- `scripts/package-mac.mjs` — fixed source path/version/SHA verification before output replacement.
+- `scripts/with-db-fingerprint.mjs` — Plan 1 per-launch main/WAL enforcement and SHM record.
 
 ### Task 1: Rebuild Discover, search/results, categories, collection, and source states
 
 **Files:**
-- Modify: `src/screens/MarketplaceScreen.tsx`
 - Modify: `src/screens/marketplace/MarketplaceHeader.tsx`
 - Modify: `src/screens/marketplace/MarketplaceBrowse.tsx`
-- Modify: `src/screens/marketplace/presentation.ts`
+- Modify: `src/screens/MarketplaceScreen.tsx`
+- Modify: `src/state/marketplace-controller.ts`
 - Modify: `src/styles/marketplace.css`
+- Modify: `src/instrument/test-fixtures.ts`
 - Test: `tests/marketplace-screen.test.tsx`
-- Test: `tests/marketplace-presentation.test.ts`
+- Test: `tests/marketplace-controller.test.ts`
 - Test: `tests/marketplace-navigation.test.tsx`
-- Test: `tests/marketplace-geometry.test.tsx`
 
-**Interfaces:**
-- Consumes: unchanged `MarketplaceController`, `MarketplaceLocation`, `MarketplaceQueryState`, source health/issues, current navigation memory/focus callbacks, and Plan 1 primitives/types.
-- Produces: Instrument Discover, mixed results, category, collection, loading, refreshing, partial-source, full error, offline-equivalent, no-results, and removed-source states.
+**Interfaces:** Consumes existing Marketplace route/query/controller/source health. Produces rendered browse scenarios for discover/results/category/collection and loading/ready/empty/partial/error.
 
-- [ ] **Step 1: Add failing Marketplace shell/state tests**
+- [ ] **Step 1: Write route/query/paging behavior tests**
 
 ```tsx
-expect(discover).toContain("Discover");
-expect(discover).toContain('aria-label="Search Marketplace"');
-expect(discover).toContain("Models");
-expect(discover).toContain("Templates");
-expect(discover).toContain("Recipes");
-expect(partial).toContain("One source is unavailable");
-expect(noResults).toContain("No results");
-expect(error).toContain('role="alert"');
-expect(marketplaceCss).not.toMatch(/box-shadow|backdrop-filter|linear-gradient|#8b7cf6/i);
+await user.type(screen.getByRole("searchbox"), "video");
+expect(controller.setQueryText).toHaveBeenLastCalledWith("video");
+await user.click(screen.getByRole("button", { name: "Search" }));
+expect(navigate).toHaveBeenCalledWith(expect.objectContaining({ route: { kind: "results" } }));
+await user.click(screen.getByRole("button", { name: "Load more" }));
+expect(controller.loadMore).toHaveBeenCalledTimes(1);
+expect(renderInstrumentScenario("marketplace.results.partial").getByRole("status")).toHaveAccessibleDescription();
 ```
 
-Assert mode round-trip preserves route/query/filter/sort/selection/scroll/focus and that the workspace identity widget is absent in Marketplace.
+- [ ] **Step 2: Run RED**
 
-- [ ] **Step 2: Run Marketplace shell tests and verify RED**
+Run: `bun run test -- tests/marketplace-screen.test.tsx tests/marketplace-controller.test.ts tests/marketplace-navigation.test.tsx -t 'discover|results|category|collection|source'`
 
-Run: `bun run test -- tests/marketplace-screen.test.tsx tests/marketplace-presentation.test.ts tests/marketplace-navigation.test.tsx tests/marketplace-geometry.test.tsx`
+Expected: FAIL on Instrument root/state semantics, route callback, or scroll/focus restoration, even where legacy copy exists.
 
-Expected: FAIL because Marketplace retains legacy layout and its own narrower `Availability` declaration.
+- [ ] **Step 3: Implement browse composition**
 
-- [ ] **Step 3: Compose current source truth with Instrument widgets**
-
-```ts
-import type { Availability } from "../../instrument/types";
+```tsx
+<main data-instrument-root="marketplace-browse"><MarketplaceHeader query={query} /><MarketplaceBrowse state={snapshot} /></main>
 ```
 
-Delete the route-local availability type. Use Instrument search/filter pills and source health reasons. Discover uses only real category counts when ready; unsupported counts render unavailable text and never a number. Results remain keyword relevance over current DTO fields. Collection renders current catalog content or a reasoned unavailable/empty state; it does not invent membership.
+Preserve reducer history/query/filters/paging/source adapters. Render truthful partial/source-health reasons, one desk scroller, adaptive widgets, and no fake count.
 
-- [ ] **Step 4: Run GREEN checks and reviewer gate**
+- [ ] **Step 4: Run GREEN and review**
 
-Run: `bun run test -- tests/marketplace-controller.test.ts tests/marketplace-screen.test.tsx tests/marketplace-presentation.test.ts tests/marketplace-navigation.test.tsx tests/marketplace-geometry.test.tsx && bun run typecheck && git diff --check`
+Run: `bun run test -- tests/marketplace-screen.test.tsx tests/marketplace-controller.test.ts tests/marketplace-navigation.test.tsx && bun run typecheck && git diff --check`
 
-Expected: suites pass; reviewer confirms every source/availability branch maps losslessly and mode/navigation memory is unchanged.
+Expected: PASS; reviewer drives every browse state/route and focus/scroll round trip.
 
-- [ ] **Step 5: Commit Marketplace browse surfaces**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/MarketplaceScreen.tsx src/screens/marketplace/MarketplaceHeader.tsx src/screens/marketplace/MarketplaceBrowse.tsx src/screens/marketplace/presentation.ts src/styles/marketplace.css tests/marketplace-screen.test.tsx tests/marketplace-presentation.test.ts tests/marketplace-navigation.test.tsx tests/marketplace-geometry.test.tsx
+git add src/screens/marketplace/MarketplaceHeader.tsx src/screens/marketplace/MarketplaceBrowse.tsx src/screens/MarketplaceScreen.tsx src/state/marketplace-controller.ts src/styles/marketplace.css src/instrument/test-fixtures.ts tests/marketplace-screen.test.tsx tests/marketplace-controller.test.ts tests/marketplace-navigation.test.tsx
 gitleaks protect --staged --redact
-git commit -m "feat: rebuild marketplace browse instruments"
+git commit -m "feat: rebuild marketplace browse"
 ```
 
-### Task 2: Rebuild Models, machine compatibility, and Ollama inventory
+### Task 2: Rebuild Models, compatibility, and Ollama inventory
 
 **Files:**
 - Modify: `src/screens/marketplace/MarketplaceModelViews.tsx`
-- Modify: `src/screens/marketplace/MarketplaceBrowse.tsx`
+- Modify: `src/screens/MarketplaceScreen.tsx`
 - Modify: `src/styles/marketplace.css`
+- Modify: `src/instrument/test-fixtures.ts`
 - Test: `tests/marketplace-models.test.tsx`
-- Test: `tests/local-models-service.test.ts`
+- Test: `tests/marketplace-controller.test.ts`
 
-**Interfaces:**
-- Consumes: existing provider search/detail, `LocalModelMachine`, real `installed` Ollama records, compatibility presentation, safe provider-open IPC, and exact loading/error/dispose behavior.
-- Produces: Instrument Model cards/detail, hardware/runtime compatibility evidence, preview failure, gated/remote/downloaded/ready labels, machine inventory refresh, and explicit missing-contract action states.
+**Interfaces:** Consumes real model provider results, local Ollama inventory, compatibility/availability. Produces models list/detail/installed/empty/partial/error scenarios.
 
-- [ ] **Step 1: Add failing Model/inventory tests**
+- [ ] **Step 1: Write inventory/filter/detail behaviors**
 
 ```tsx
-expect(models).toContain("Models");
-expect(detail).toContain("Compatibility");
-expect(detail).toContain("Files");
-expect(detail).toContain("License and access");
-expect(installed).toContain("Installed on this computer");
-expect(installed).toContain("Ollama");
-expect(noRuntime).toContain("No compatible runtime detected");
-expect(previewFailure).toContain("Provider preview unavailable");
-expect(detail).not.toMatch(/Install now|Downloaded 1,000/i);
+await user.click(screen.getByRole("button", { name: "Compatible" }));
+expect(controller.setCompatibility).toHaveBeenCalledWith("compatible");
+await user.click(screen.getByRole("button", { name: /Open model/ }));
+expect(screen.getByRole("dialog", { name: "Model detail" })).toBeVisible();
+expect(renderInstrumentScenario("marketplace.models.ollama-empty").getByRole("status")).toHaveTextContent(/No installed models/i);
 ```
 
-Cover loading/error/late completion, provider source, declared/unavailable license, compatibility evidence, insufficient memory/disk, machine refresh failure, gated source action, preview allowlist, and installed inventory.
+- [ ] **Step 2: Run RED**
 
-- [ ] **Step 2: Run Model tests and verify RED**
+Run: `bun run test -- tests/marketplace-models.test.tsx tests/marketplace-controller.test.ts -t 'model|Ollama|compatibility'`
 
-Run: `bun run test -- tests/marketplace-models.test.tsx tests/local-models-service.test.ts`
+Expected: FAIL on Instrument interactions/state/overlay focus.
 
-Expected: FAIL on final Instrument classes/copy/layout.
-
-- [ ] **Step 3: Implement truthful Model instruments**
+- [ ] **Step 3: Implement real inventory views**
 
 ```tsx
-<InstrumentScreenHeader
-  eyebrow="Marketplace"
-  title={model.name}
-  description={`${model.author} · ${model.task}`}
-  counters={model.recommendedPackage.bytes === null ? undefined : <InstrumentCounter value={model.recommendedPackage.bytes} label="Bytes" />}
-  actions={stateAwareAction}
-/>
+<section data-instrument-root="marketplace-models"><ModelFilters /><ModelInventory availability={models} /></section>
 ```
 
-Use real provider/runtime/machine data only. Model detail sections show unavailable trust/license/backlink facts explicitly. The only real installed inventory is current machine/Ollama data. Download/install/update/use controls remain reasoned review states unless the current service actually supports the operation. Do not expose provider download counts as community rank or recommendation.
+Show only real provider/source/license/format/compatibility facts; installed means current Ollama inventory only. Use controlled detail overlay, focus return, and exact unavailable reasons.
 
-- [ ] **Step 4: Run GREEN checks and reviewer gate**
+- [ ] **Step 4: Run GREEN and review**
 
-Run: `bun run test -- tests/marketplace-models.test.tsx tests/local-models-service.test.ts tests/marketplace-controller.test.ts && bun run typecheck && git diff --check`
+Run: `bun run test -- tests/marketplace-models.test.tsx tests/marketplace-controller.test.ts && bun run typecheck && git diff --check`
 
-Expected: suites pass; reviewer traces every displayed compatibility/state value to a current DTO field.
+Expected: PASS; reviewer checks all inventories, compatibility truth, detail focus, and no install no-op.
 
-- [ ] **Step 5: Commit Model surfaces**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/marketplace/MarketplaceModelViews.tsx src/screens/marketplace/MarketplaceBrowse.tsx src/styles/marketplace.css tests/marketplace-models.test.tsx tests/local-models-service.test.ts
+git add src/screens/marketplace/MarketplaceModelViews.tsx src/screens/MarketplaceScreen.tsx src/styles/marketplace.css src/instrument/test-fixtures.ts tests/marketplace-models.test.tsx tests/marketplace-controller.test.ts
 gitleaks protect --staged --redact
-git commit -m "feat: rebuild marketplace model instruments"
+git commit -m "feat: rebuild marketplace models"
 ```
 
 ### Task 3: Rebuild Template and Recipe details with controlled media
 
 **Files:**
 - Modify: `src/screens/marketplace/MarketplacePublicItemDetail.tsx`
-- Modify: `src/screens/marketplace/presentation.ts`
+- Modify: `src/screens/MarketplaceScreen.tsx`
 - Modify: `src/styles/marketplace.css`
+- Modify: `src/instrument/test-fixtures.ts`
 - Test: `tests/marketplace-public-details.test.tsx`
-- Test: `tests/marketplace-library.test.ts`
-- Test: `tests/marketplace-presentation.test.ts`
+- Test: `tests/marketplace-media.test.tsx`
 
-**Interfaces:**
-- Consumes: validated schema-1 public DTOs, `marketplacePublicMediaKind`, current sanitized Markdown/prose, controlled CDN image/video URLs, bounded recipe clipboard action, and availability fields.
-- Produces: Instrument Template/Recipe detail headers, sections, controlled previews, missing/failed media, copy feedback, and non-mutating target review entry.
+**Interfaces:** Consumes validated schema-1 DTOs, controlled CDN media, sanitized prose, bounded recipe clipboard. Produces Template/Recipe detail/missing/failure/inert scenarios.
 
-- [ ] **Step 1: Add failing public-detail/security tests**
+- [ ] **Step 1: Write media/clipboard/back-focus tests**
 
 ```tsx
-expect(template).toContain("What it gives you");
-expect(template).toContain("Use when");
-expect(recipe).toContain("Parameters");
-expect(recipe).toContain("Copy recipe artifact");
-expect(missingMedia).toContain("preview is unavailable");
-expect(untrustedUrl).not.toContain("<img");
-expect(detail).not.toMatch(/verified publisher|audited|safe to install/i);
+await openPublicItem(realRecipe.id);
+expect(screen.getByRole("heading", { name: realRecipe.title })).toBeVisible();
+await user.click(screen.getByRole("button", { name: "Copy recipe" }));
+expect(clipboardWrite).toHaveBeenCalledWith(expectedBoundedText);
+failControlledImage(); expect(screen.getByRole("status", { name: "Media unavailable" })).toBeVisible();
+await user.click(screen.getByRole("button", { name: "Back" })); expect(sourceCard).toHaveFocus();
 ```
 
-Cover template/recipe distinction, prompt-shaped Recipe staying a Recipe, before/after/poster/controlled video, missing media, image/video failure, inert artifact, exact copy, late copy status suppression, and Back focus.
+- [ ] **Step 2: Run RED**
 
-- [ ] **Step 2: Run public-detail tests and verify RED**
+Run: `bun run test -- tests/marketplace-public-details.test.tsx tests/marketplace-media.test.tsx`
 
-Run: `bun run test -- tests/marketplace-public-details.test.tsx tests/marketplace-library.test.ts tests/marketplace-presentation.test.ts`
+Expected: FAIL on Instrument detail overlay/media failures/focus behavior.
 
-Expected: FAIL on Instrument detail selectors/semantics.
-
-- [ ] **Step 3: Implement controlled Instrument details**
+- [ ] **Step 3: Implement controlled details**
 
 ```tsx
-const preview = marketplacePublicMediaKind(url);
-return preview === "image"
-  ? <img src={url} alt={label} loading="lazy" />
-  : preview === "video"
-    ? <video src={url} aria-label={label} controls preload="metadata" />
-    : <InstrumentEmptyState title="Preview unavailable" reason="The current source did not provide an allowlisted preview." />;
+<article data-instrument-root="marketplace-public-detail"><SafePublicMedia media={item.media} /><SanitizedDetail body={item.description} /></article>
 ```
 
-Keep public content inert/sanitized and source identity distinct from publisher verification/audit/license. Use one dominant review/copy action per state. Video never autoplays with sound. Failed media exposes text/retry without changing allowlists.
+Preserve Template/Recipe identity including prompt-shaped Recipe, URL/origin/media controls, no remote HTML/style/script, bounded clipboard, failure fallbacks, and late-status suppression.
 
-- [ ] **Step 4: Run GREEN checks and security reviewer gate**
+- [ ] **Step 4: Run GREEN and security review**
 
-Run: `bun run test -- tests/marketplace-public-details.test.tsx tests/marketplace-library.test.ts tests/marketplace-presentation.test.ts tests/ipc-security.test.ts && bun run typecheck && git diff --check`
+Run: `bun run test -- tests/marketplace-public-details.test.tsx tests/marketplace-media.test.tsx tests/protocol-access.test.ts && bun run typecheck && git diff --check`
 
-Expected: suites pass; reviewer confirms no raw HTML, arbitrary URL, filesystem path, renderer fetch, or unbounded clipboard value was introduced.
+Expected: PASS; reviewer checks media lifecycle, sanitized content, clipboard bounds, and focus.
 
-- [ ] **Step 5: Commit public details**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/marketplace/MarketplacePublicItemDetail.tsx src/screens/marketplace/presentation.ts src/styles/marketplace.css tests/marketplace-public-details.test.tsx tests/marketplace-library.test.ts tests/marketplace-presentation.test.ts
+git add src/screens/marketplace/MarketplacePublicItemDetail.tsx src/screens/MarketplaceScreen.tsx src/styles/marketplace.css src/instrument/test-fixtures.ts tests/marketplace-public-details.test.tsx tests/marketplace-media.test.tsx
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild marketplace public details"
 ```
@@ -261,61 +245,53 @@ git commit -m "feat: rebuild marketplace public details"
 ### Task 4: Complete unavailable categories and My Library capability states
 
 **Files:**
-- Modify: `src/state/marketplace-navigation.ts`
-- Modify: `src/instrument/InstrumentSidebar.tsx`
 - Modify: `src/screens/marketplace/MarketplaceUnavailableViews.tsx`
 - Modify: `src/screens/marketplace/MarketplaceMyLibrary.tsx`
+- Modify: `src/screens/MarketplaceScreen.tsx`
 - Modify: `src/styles/marketplace.css`
-- Test: `tests/marketplace-unavailable-views.test.tsx`
-- Test: `tests/marketplace-my-library.test.tsx`
+- Modify: `src/instrument/test-fixtures.ts`
+- Test: `tests/marketplace-library.test.tsx`
 - Test: `tests/marketplace-navigation.test.tsx`
 
-**Interfaces:**
-- Consumes: existing unsupported Prompt/Component/Skill detail shells, current installed inventory, Marketplace route persistence, and exact missing-contract reasons.
-- Produces: `MarketplaceLibrarySection = "installed" | "saved" | "added" | "downloads" | "updates" | "attention" | "forks"`; Instrument unsupported detail/category/contribution states and My Library Installed/Saved/Added/Downloads/Updates/Attention/Forks.
+**Interfaces:** Consumes unsupported category/detail shells, real installed models, existing library route persistence. Produces explicit unavailable capabilities.
 
-- [ ] **Step 1: Add failing unsupported/library tests**
+- [ ] **Step 1: Write unavailable action/count tests**
 
 ```tsx
-expect(promptDetail).toContain("Prompt details unavailable");
-expect(componentDetail).toContain("Component details unavailable");
-expect(skillDetail).toContain("Skill details unavailable");
-expect(library).toContain("Installed");
-expect(library).toContain("Saved");
-expect(library).toContain("Added");
-expect(library).toContain("Downloads");
-expect(library).toContain("Updates");
-expect(library).toContain("Attention");
-expect(library).toContain("Forks");
-expect(library).not.toMatch(/Saved\s+0|Downloads\s+0|Updates\s+0/);
+for (const category of ["prompts", "components", "skills"]) {
+  const view = renderUnavailableDetail(category);
+  expect(view.getByRole("status")).toHaveAccessibleDescription();
+  expect(view.queryByRole("button", { name: /Install|Add|Fork/ })).toBeNull();
+}
+for (const section of ["saved", "added", "downloads", "updates", "attention"]) {
+  expect(renderLibrarySection(section).getByRole("status")).toHaveTextContent(/unavailable/i);
+}
 ```
 
-Assert persistence validation accepts `forks`, rejects unknown library sections, and every unsupported final action is focusable with `aria-disabled` plus `aria-describedby`.
+- [ ] **Step 2: Run RED**
 
-- [ ] **Step 2: Run unsupported/library tests and verify RED**
+Run: `bun run test -- tests/marketplace-library.test.tsx tests/marketplace-navigation.test.tsx`
 
-Run: `bun run test -- tests/marketplace-unavailable-views.test.tsx tests/marketplace-my-library.test.tsx tests/marketplace-navigation.test.tsx`
+Expected: FAIL on complete Instrument unavailable sections and action truth.
 
-Expected: FAIL because Forks is absent and unsupported/My Library views retain legacy presentation.
+- [ ] **Step 3: Implement capability surfaces**
 
-- [ ] **Step 3: Implement complete capability surfaces**
-
-```ts
-export type MarketplaceLibrarySection = "installed" | "saved" | "added" | "downloads" | "updates" | "attention" | "forks";
+```tsx
+<InstrumentEmptyState title={label} reason={MARKETPLACE_UNAVAILABLE_REASONS[capability]} />
 ```
 
-Keep Installed backed only by current Ollama inventory. Each other section renders one explicit unavailable widget naming the absent persistence/job/update/attention/fork contract; no zero count or sample row. Prompt/Component/Skill details keep complete structural sections so users understand the capability, but the final action remains disabled with its exact contract reason.
+Installed uses only Ollama. Saved/Added/Downloads/Updates/Attention/Forks and Prompt/Component/Skill use exact missing persistence/job/update/fork reasons, no zero/sample row, and disabled structural explanation only.
 
-- [ ] **Step 4: Run GREEN checks and reviewer gate**
+- [ ] **Step 4: Run GREEN and review**
 
-Run: `bun run test -- tests/marketplace-unavailable-views.test.tsx tests/marketplace-my-library.test.tsx tests/marketplace-navigation.test.tsx tests/marketplace-screen.test.tsx && bun run typecheck && git diff --check`
+Run: `bun run test -- tests/marketplace-library.test.tsx tests/marketplace-navigation.test.tsx && bun run typecheck && git diff --check`
 
-Expected: suites pass; reviewer confirms no unsupported state survives only in renderer memory and no enabled action is a no-op.
+Expected: PASS; reviewer confirms every unsupported route is reachable, honest, focusable, and has no enabled no-op.
 
-- [ ] **Step 5: Commit capability surfaces**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src/state/marketplace-navigation.ts src/instrument/InstrumentSidebar.tsx src/screens/marketplace/MarketplaceUnavailableViews.tsx src/screens/marketplace/MarketplaceMyLibrary.tsx src/styles/marketplace.css tests/marketplace-unavailable-views.test.tsx tests/marketplace-my-library.test.tsx tests/marketplace-navigation.test.tsx
+git add src/screens/marketplace/MarketplaceUnavailableViews.tsx src/screens/marketplace/MarketplaceMyLibrary.tsx src/screens/MarketplaceScreen.tsx src/styles/marketplace.css src/instrument/test-fixtures.ts tests/marketplace-library.test.tsx tests/marketplace-navigation.test.tsx
 gitleaks protect --staged --redact
 git commit -m "feat: complete marketplace capability states"
 ```
@@ -326,35 +302,30 @@ git commit -m "feat: complete marketplace capability states"
 - Modify: `src/screens/marketplace/MarketplaceWorkflows.tsx`
 - Modify: `src/screens/MarketplaceScreen.tsx`
 - Modify: `src/styles/marketplace.css`
+- Modify: `src/instrument/test-fixtures.ts`
 - Test: `tests/marketplace-workflows.test.tsx`
-- Test: `tests/marketplace-public-details.test.tsx`
-- Test: `tests/marketplace-models.test.tsx`
 
-**Interfaces:**
-- Consumes: current `CatalogResult.workspaces/projects`, type-specific item presentation, workflow opener/focus callbacks, and all current capability reasons.
-- Produces: Instrument target chooser and Model download/Template add/Recipe review/unsupported review flows that never claim persistence.
+**Interfaces:** Consumes current catalog target chooser and non-mutating review state. Produces exact target IDs and registered target/review overlays.
 
-- [ ] **Step 1: Add failing workflow truth/focus tests**
+- [ ] **Step 1: Write target/focus/no-mutation tests**
 
 ```tsx
-expect(chooser).toContain("Choose a target");
-expect(chooser).toContain("UX Testing Lab");
-expect(chooser).toContain("Workspace · UX Testing Lab");
-expect(chooser).toContain("Project · UX Tester");
-expect(noCatalog).toContain("No target catalog is available");
-expect(review).toContain("Review only");
-expect(review).not.toMatch(/Added|Installed|Downloaded successfully/);
+await openTargetChooser();
+await user.click(screen.getByRole("button", { name: `Project · ${project.name}` }));
+expect(onChoose).toHaveBeenCalledWith(`project:${project.workspaceId}:${project.projectId}`);
+await openReviewWorkflow();
+expect(screen.getByText(/Review only/)).toBeVisible();
+expect(recordedBridgeCalls()).toEqual([]);
+await user.keyboard("{Escape}"); expect(opener).toHaveFocus();
 ```
 
-Assert options come only from supplied catalog, project labels include workspace, no chat/agent target is fabricated, Escape/outside close returns focus, dialogs fit 1100x720, and final unavailable controls are focusable/explanatory.
+- [ ] **Step 2: Run RED**
 
-- [ ] **Step 2: Run workflow tests and verify RED**
+Run: `bun run test -- tests/marketplace-workflows.test.tsx`
 
-Run: `bun run test -- tests/marketplace-workflows.test.tsx tests/marketplace-public-details.test.tsx tests/marketplace-models.test.tsx`
+Expected: FAIL on Instrument overlay/focus and exact target semantics.
 
-Expected: FAIL on Instrument workflow geometry/copy.
-
-- [ ] **Step 3: Implement bounded review workflows**
+- [ ] **Step 3: Implement non-mutating workflows**
 
 ```ts
 const targets = [
@@ -363,23 +334,73 @@ const targets = [
 ];
 ```
 
-Keep every workflow review-only unless an existing method performs the exact action. Selecting a target changes only dialog-local review state. The final control names the missing persistence/install/download/attachment contract and cannot emit fake success. Recipe clipboard copy remains the only allowed mutation here.
+Use real catalog entries, explicit review-only copy, focus trap/return, busy/error semantics, and no mutation/IPC.
 
-- [ ] **Step 4: Run GREEN checks and reviewer gate**
+- [ ] **Step 4: Run GREEN and review**
 
-Run: `bun run test -- tests/marketplace-workflows.test.tsx tests/marketplace-public-details.test.tsx tests/marketplace-models.test.tsx tests/marketplace-screen.test.tsx && bun run typecheck && git diff --check`
+Run: `bun run test -- tests/marketplace-workflows.test.tsx tests/marketplace-public-details.test.tsx && bun run typecheck && git diff --check`
 
-Expected: suites pass; reviewer confirms target enumeration is exact and dialog-local selections do not leak into persisted application state.
+Expected: PASS; reviewer confirms exact IDs and zero mutation path.
 
-- [ ] **Step 5: Commit workflows**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/marketplace/MarketplaceWorkflows.tsx src/screens/MarketplaceScreen.tsx src/styles/marketplace.css tests/marketplace-workflows.test.tsx tests/marketplace-public-details.test.tsx tests/marketplace-models.test.tsx
+git add src/screens/marketplace/MarketplaceWorkflows.tsx src/screens/MarketplaceScreen.tsx src/styles/marketplace.css src/instrument/test-fixtures.ts tests/marketplace-workflows.test.tsx
 gitleaks protect --staged --redact
-git commit -m "feat: rebuild marketplace review workflows"
+git commit -m "feat: rebuild marketplace workflows"
 ```
 
-### Task 6: Remove reachable legacy presentation and add strict design guards
+### Task 6: Close the rendered Marketplace scenario matrix
+
+**Files:**
+- Modify: `src/instrument/scenarios.ts`
+- Modify: `src/instrument/test-fixtures.ts`
+- Test: `tests/marketplace-scenario-completeness.test.tsx`
+- Test: `tests/instrument-accessibility-journeys.test.tsx`
+
+**Interfaces:** Consumes all Marketplace routes/categories/library sections/overlays. Produces complete rendered Marketplace scenarios.
+
+- [ ] **Step 1: Write exhaustive rendered checks**
+
+```ts
+for (const scenario of marketplaceScenarios()) {
+  const view = renderInstrumentScenario(scenario.id);
+  expect(view.container.querySelector(`[data-instrument-root="${scenario.rootMarker}"]`)).not.toBeNull();
+  expectVisibleLandmarks(view, scenario.landmarks);
+  expectFocusContract(view, scenario);
+}
+expect(missingMarketplaceRouteStatePairs()).toEqual([]);
+```
+
+- [ ] **Step 2: Run RED**
+
+Run: `bun run test -- tests/marketplace-scenario-completeness.test.tsx tests/instrument-accessibility-journeys.test.tsx -t Marketplace`
+
+Expected: FAIL with exact missing scenario/overlay/journey IDs.
+
+- [ ] **Step 3: Complete fixtures without weakening expectations**
+
+```ts
+export const MARKETPLACE_SCENARIO_IDS = INSTRUMENT_SCENARIOS.filter(({ routeKey }) => routeKey.startsWith("marketplace."));
+```
+
+Fill deterministic payloads/landmarks for every required state and overlay, including focus return and one desk/overlay scroll owner.
+
+- [ ] **Step 4: Run GREEN and review**
+
+Run: `bun run test -- tests/marketplace-scenario-completeness.test.tsx tests/instrument-accessibility-journeys.test.tsx tests/instrument-scenarios.test.ts && bun run typecheck && git diff --check`
+
+Expected: PASS; reviewer signs every Marketplace scenario before legacy deletion.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/instrument/scenarios.ts src/instrument/test-fixtures.ts tests/marketplace-scenario-completeness.test.tsx tests/instrument-accessibility-journeys.test.tsx
+gitleaks protect --staged --redact
+git commit -m "test: close marketplace scenario coverage"
+```
+
+### Task 7: Remove reachable legacy presentation and enforce source/root/palette guards
 
 **Files:**
 - Create: `scripts/audit-instrument-source.mjs`
@@ -392,203 +413,404 @@ git commit -m "feat: rebuild marketplace review workflows"
 - Delete: `src/styles/workspace-overview.css`
 - Modify: `src/main.tsx`
 - Modify: `package.json`
-- Modify: `src/styles/instrument.css`
-- Modify: `src/styles/work-surfaces.css`
-- Modify: `src/styles/marketplace.css`
-- Modify: `src/styles/settings.css`
-- Modify: `src/styles/shared-library.css`
-- Modify: `src/styles/terminal.css`
 - Test: `tests/instrument-design-guards.test.ts`
 - Test: `tests/design-system.test.ts`
 
-**Interfaces:**
-- Consumes: completed Instrument routes and Vite build output.
-- Produces: `bun run audit:instrument:source`; `auditInstrumentSource({ root, mocks }): { files: string[]; violations: AuditViolation[] }`; a zero-reachability legacy graph; selector-aware guards for forbidden effects/colors/assets/fonts/prototype files and one explicit literal allowlist for content/security/traffic-light/status needs.
+**Interfaces:** Produces `auditInstrumentSource({ root, mocks }): { files: string[]; violations: AuditViolation[] }` and `bun run audit:instrument:source`.
 
-- [ ] **Step 1: Add failing source/build design guards**
+- [ ] **Step 1: Write failing reachable-source/root/selector tests**
 
 ```ts
-expect(importGraph).not.toMatch(/ContextSidebar|MainHeader|ProjectControls|ProjectHeader/);
-expect(auditInstrumentSource({ root: repoRoot, mocks: false }).violations).toEqual([]);
-expect(tokens).toMatch(/html\[data-theme="dark"\]\s*\{[^}]*color-scheme:\s*dark/i);
-expect(distFiles).not.toMatch(/support\.js|lucide-sprite|\.dc\.html|fonts\.googleapis/i);
-expect(distText).not.toContain("ux-mock-render-1");
+expect(auditInstrumentSource({ root, mocks: false }).violations).toEqual([]);
+expect(missingInstrumentRootMarkers(INSTRUMENT_SCENARIOS)).toEqual([]);
+expect(productionDistText).not.toMatch(/instrument-test-fixture|mock-review-session|ux-mock-render-1/);
+expect(authoredColorsOutside(INSTRUMENT_COLOR_ALLOWLIST)).toEqual([]);
 ```
 
-The literal allowlist is exact: spec palette values, macOS traffic lights `#ED6A5E/#F0B544/#5CC45C`, `transparent`, content scrims, provider/model brand SVGs, and security allowlist URLs already in `index.html`. Every other reachable CSS/TSX color literal fails with file/line/value.
-
-- [ ] **Step 2: Run guards and verify RED**
+- [ ] **Step 2: Run RED**
 
 Run: `VITE_RALPHY_ENABLE_MOCKS=false bun run build && bun run test -- tests/instrument-design-guards.test.ts tests/design-system.test.ts`
 
-Expected: FAIL on old component imports/files, legacy CSS effects/tokens, and missing audit script/package command.
+Expected: FAIL on legacy imports/files/classes, missing audit/root checks, legacy TS terminal purple, or unallowlisted source.
 
-- [ ] **Step 3: Delete superseded files and implement the audit**
+- [ ] **Step 3: Implement recursive selector-aware audit and delete legacy**
+
+Follow static and `import()` relative edges from `src/main.tsx`; evaluate mock branch false and scan all reachable `.ts/.tsx/.css` plus authored `.svg`. Require the scenario's `data-instrument-root` and approved shared primitives for every route/portal. Reject legacy class prefixes/imports/assets, `box-shadow` other than none, backdrop/blur, gradients, old purple, dark-only form scheme; allow `color-scheme: dark` only on `html[data-theme="dark"]`. Permit CSS token references; direct literals only in `palette.ts`. Permit brand/provider/model SVG only when path and SHA match the baseline map; dither PNGs only when Plan 1 hashes match. Scan dist for prototype/support/remote font/sprite/mock paths.
 
 ```js
-function forbiddenDeclaration({ file, selector, property, value }) {
-  const normalized = value.trim().toLowerCase();
-  if (property === "color-scheme") {
-    return normalized === "dark" && selector.trim() !== 'html[data-theme="dark"]'
-      ? `${file}: dark-only color-scheme outside the resolved theme root`
-      : null;
-  }
-  if (property === "box-shadow" && normalized !== "none") return `${file}: elevation/inset shadow`;
-  if (property === "backdrop-filter") return `${file}: backdrop filter`;
-  if (property === "filter" && /blur\s*\(/i.test(normalized)) return `${file}: blur filter`;
-  if (/(?:linear|radial)-gradient\s*\(/i.test(normalized)) return `${file}: gradient`;
-  return null;
-}
+if (property === "color-scheme" && value === "dark" && selector !== 'html[data-theme="dark"]') violations.push({ file, selector, property, value });
 ```
 
-Build the reachable module list recursively from `src/main.tsx`, following both static relative imports and relative `import()` edges; evaluate the one `VITE_RALPHY_ENABLE_MOCKS` branch as `false`, so the mock-only module is excluded and every other lazy screen remains included. Scan production-reachable CSS/TSX and `dist`. Parse selector/declaration pairs so `color-scheme: dark` is allowed only on `html[data-theme="dark"]`; reject shadow/blur/gradient declarations everywhere, using borders/outlines and solid pseudo-element content scrims instead. Delete the four superseded components and three superseded styles after `rg` proves no import. The color-literal allowlist is keyed by exact file, selector, property, and value; app-chrome depth is never allowlisted. Add `"audit:instrument:source": "node scripts/audit-instrument-source.mjs"`.
-
-- [ ] **Step 4: Run GREEN guards and broad regression review**
+- [ ] **Step 4: Run GREEN and review**
 
 Run: `VITE_RALPHY_ENABLE_MOCKS=false bun run build && bun run audit:instrument:source && bun run test -- tests/instrument-design-guards.test.ts tests/design-system.test.ts && bun run typecheck && git diff --check`
 
-Expected: guard prints `INSTRUMENT_SOURCE_AUDIT_OK`; suites/typecheck/build pass; `dist` excludes mock IDs/prototype runtime/remote fonts; reviewer confirms every deleted file has no live consumer.
+Expected: prints `INSTRUMENT_SOURCE_AUDIT_OK`; reviewer confirms every deletion has no consumer and every scenario has Instrument roots/geometry contracts.
 
-- [ ] **Step 5: Commit legacy removal and guards**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add -A -- scripts/audit-instrument-source.mjs src/components/ContextSidebar.tsx src/components/Titlebar.tsx src/components/ProjectControls.tsx src/components/ProjectHeader.tsx src/styles/app.css src/styles/workbench.css src/styles/workspace-overview.css src/main.tsx package.json src/styles/instrument.css src/styles/work-surfaces.css src/styles/marketplace.css src/styles/settings.css src/styles/shared-library.css src/styles/terminal.css tests/instrument-design-guards.test.ts tests/design-system.test.ts
+git add -A -- scripts/audit-instrument-source.mjs src/components/ContextSidebar.tsx src/components/Titlebar.tsx src/components/ProjectControls.tsx src/components/ProjectHeader.tsx src/styles/app.css src/styles/workbench.css src/styles/workspace-overview.css src/main.tsx package.json tests/instrument-design-guards.test.ts tests/design-system.test.ts
 gitleaks protect --staged --redact
-git commit -m "refactor: remove legacy workbench presentation"
+git commit -m "refactor: remove legacy desktop presentation"
 ```
 
-### Task 7: Prove real Electron geometry, DB immutability, and bundled Core 0.3.0
+### Task 8: Create the versioned evidence manifest and contact sheet
+
+**Files:**
+- Create: `scripts/instrument-evidence.mjs`
+- Create: `scripts/render-instrument-report.mjs`
+- Modify: `package.json`
+- Test: `tests/instrument-evidence.test.ts`
+
+**Interfaces:** Produces exact Evidence Interfaces, `createEvidenceRun`, `appendEvidenceRecord`, `finalizeEvidenceRun`, and `bun run report:instrument`.
+
+- [ ] **Step 1: Write failing schema/path/collision tests**
+
+```ts
+expect(validateManifest(validManifest)).toBeUndefined();
+expect(() => appendRecord(manifest, duplicateModeScenarioViewport)).toThrow(/duplicate evidence key/i);
+expect(evidenceFileName("mock", "media.ready", "dark", "1440x900")).toBe("mock__media.ready__dark__1440x900.png");
+expect(renderReport(validManifest)).toContain("reference / actual / diff");
+```
+
+- [ ] **Step 2: Run RED**
+
+Run: `bun run test -- tests/instrument-evidence.test.ts`
+
+Expected: FAIL because manifest/report modules do not exist.
+
+- [ ] **Step 3: Implement durable bundle schema/report**
+
+```js
+export const evidenceKey = ({ mode, scenarioId, theme, viewport }) => [mode, scenarioId, theme, viewport].join("__");
+```
+
+Create `.superpowers/sdd/nothing-instrument/runs/<UTC>-<commit>/` with `manifest.json`, `report.html`, `screenshots/`, `references/`, `diffs/`, `db/`, and `logs/`. Validate every field, use relative artifact links in HTML, render contact-sheet cards and reviewer signoff/failures, retain mock/production separately, and print the absolute report path.
+
+- [ ] **Step 4: Run GREEN and review**
+
+Run: `bun run test -- tests/instrument-evidence.test.ts && bun run report:instrument -- --fixture tests/fixtures/instrument-evidence-valid.json && git diff --check`
+
+Expected: PASS and prints an absolute ignored HTML path. Reviewer opens the report and traces every record to files and build identities.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add scripts/instrument-evidence.mjs scripts/render-instrument-report.mjs package.json tests/instrument-evidence.test.ts
+gitleaks protect --staged --redact
+git commit -m "test: create instrument evidence bundle"
+```
+
+### Task 9: Pin Core 0.3.0 before packaging replaces the release app
+
+**Files:**
+- Modify: `scripts/bundled-core.mjs`
+- Modify: `scripts/package-mac.mjs`
+- Modify: `scripts/smoke-electron.mjs`
+- Modify: `package.json`
+- Test: `tests/bundled-core.test.ts`
+
+**Interfaces:** Produces `APPROVED_CORE_SOURCE`, `APPROVED_CORE_VERSION`, `APPROVED_CORE_SHA256`, and `readApprovedCoreBytes()`.
+
+- [ ] **Step 1: Write failing independent-pin tests**
+
+```ts
+expect(APPROVED_CORE_SOURCE).toBe("/Users/maximovchinnikov/github/ralphy/ralphy-desktop/release/Ralphy Media.app/Contents/Resources/bin/ralphy");
+expect(APPROVED_CORE_VERSION).toBe("0.3.0");
+expect(APPROVED_CORE_SHA256).toBe("a843e2805b4b0a49d02f7afe46cdd5693d81184c14d560af836be93283d85679");
+await expect(readApprovedCoreBytes(wrongShaBinary)).rejects.toThrow(/approved Core SHA/i);
+```
+
+- [ ] **Step 2: Run RED**
+
+Run: `bun run test -- tests/bundled-core.test.ts`
+
+Expected: FAIL because packaging trusts caller path/version and a self-authenticated manifest.
+
+- [ ] **Step 3: Verify then retain bytes before output deletion**
+
+```js
+export const APPROVED_CORE_SOURCE = "/Users/maximovchinnikov/github/ralphy/ralphy-desktop/release/Ralphy Media.app/Contents/Resources/bin/ralphy";
+export const APPROVED_CORE_VERSION = "0.3.0";
+export const APPROVED_CORE_SHA256 = "a843e2805b4b0a49d02f7afe46cdd5693d81184c14d560af836be93283d85679";
+```
+
+Before `rm(output)`, require `RALPHY_CORE_BIN === APPROVED_CORE_SOURCE`, verify version/fixed SHA, and read bytes into memory. After replacing output, write those retained bytes to packaged Core, chmod, and write manifest with the fixed values. Smoke validates packaged binary and manifest against the independent constants, not only each other.
+
+Run package/smoke scripts through Bun in `package.json`: `"package:mac": "bun run build && bun run pty:prepare && bun run icon:mac && bun scripts/package-mac.mjs"` and `"smoke:packaged": "RALPHY_PACKAGED_APP='release/Ralphy Media.app' bun scripts/smoke-electron.mjs"`.
+
+- [ ] **Step 4: Run GREEN and provenance review**
+
+Run: `test "$(/Users/maximovchinnikov/github/ralphy/ralphy-desktop/release/Ralphy\ Media.app/Contents/Resources/bin/ralphy --version)" = '0.3.0' && test "$(shasum -a 256 '/Users/maximovchinnikov/github/ralphy/ralphy-desktop/release/Ralphy Media.app/Contents/Resources/bin/ralphy' | awk '{print $1}')" = 'a843e2805b4b0a49d02f7afe46cdd5693d81184c14d560af836be93283d85679' && bun run test -- tests/bundled-core.test.ts && git diff --check`
+
+Expected: PASS before any package command. Reviewer confirms mismatch fails before release output is touched.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add scripts/bundled-core.mjs scripts/package-mac.mjs scripts/smoke-electron.mjs package.json tests/bundled-core.test.ts
+gitleaks protect --staged --redact
+git commit -m "build: pin approved Core 0.3.0"
+```
+
+### Task 10: Enforce main DB and WAL immutability around every launch
+
+**Files:**
+- Modify: `scripts/db-fingerprint.mjs`
+- Modify: `scripts/with-db-fingerprint.mjs`
+- Test: `tests/db-fingerprint.test.ts`
+
+**Interfaces:** Consumes Plan 1 fingerprint utility. Produces `snapshotDatabaseFamily(dbPath)`, `withDatabaseFingerprint(label, launch)`, CLI single-launch wrapper, and launch records.
+
+- [ ] **Step 1: Write failing main/WAL/SHM comparison tests**
+
+```ts
+expect(compareDatabaseSnapshots(before, identicalAfter).violations).toEqual([]);
+expect(compareDatabaseSnapshots(before, walGrew).violations).toContain("ralphy.db-wal size changed");
+expect(compareDatabaseSnapshots(noWal, createdWal).violations).toContain("ralphy.db-wal existence changed");
+expect(compareDatabaseSnapshots(before, shmMetadataChanged).violations).toEqual([]);
+expect(shmMetadataChanged.shm).toBeDefined();
+```
+
+- [ ] **Step 2: Run RED**
+
+Run: `bun run test -- tests/db-fingerprint.test.ts`
+
+Expected: FAIL until existence/SHA/bytes/nanosecond mtime are compared for main and WAL and SHM is separate.
+
+- [ ] **Step 3: Implement exact per-launch wrapper**
+
+```ts
+type FileFingerprint = { exists: boolean; sha256: string | null; bytes: bigint | null; mtimeNs: bigint | null };
+type DatabaseFamilySnapshot = { main: FileFingerprint; wal: FileFingerprint; shm: Omit<FileFingerprint, "sha256"> };
+```
+
+Never open SQLite. Snapshot `/Users/maximovchinnikov/.ralphy/ralphy.db` and `-wal` before/after one child process and fail on any existence/SHA/size/mtime change; record `-shm` existence/size/mtime before/after without failing or claiming byte immutability. Always save JSON under the evidence run, including child exit/signal and label.
+
+- [ ] **Step 4: Run GREEN and safety review**
+
+Run: `bun run test -- tests/db-fingerprint.test.ts && bun scripts/with-db-fingerprint.mjs --label no-launch -- bun -e 'process.exit(0)' && git diff --check`
+
+Expected: PASS and one JSON record; reviewer confirms no SQLite library/command is invoked and each child equals exactly one launch.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add scripts/db-fingerprint.mjs scripts/with-db-fingerprint.mjs tests/db-fingerprint.test.ts
+gitleaks protect --staged --redact
+git commit -m "test: enforce per-launch database immutability"
+```
+
+### Task 11: Drive every canonical scenario in isolated real Electron
 
 **Files:**
 - Create: `scripts/audit-instrument-electron.mjs`
 - Modify: `package.json`
-- Modify: `scripts/smoke-electron.mjs`
-- Modify: `scripts/package-mac.mjs`
 - Test: `tests/instrument-electron-audit.test.ts`
-- Test: `tests/bundled-core.test.ts`
 
-**Interfaces:**
-- Consumes: packaged `release/Ralphy Media.app`, existing package/smoke/Core-manifest helpers, external Chromium DevTools Protocol, and the completed production UI. It adds no app IPC or renderer testing hook.
-- Produces: `bun run audit:instrument:electron`, JSON/screenshot evidence under ignored `.superpowers/sdd/nothing-instrument-electron/`, and explicit `INSTRUMENT_ELECTRON_AUDIT_OK 24` output.
+**Interfaces:** Consumes mock packaged app, scenario manifest, evidence writer, Bun CDP. Produces `bun run audit:instrument:electron` and `INSTRUMENT_ELECTRON_AUDIT_OK <count>`.
 
-- [ ] **Step 1: Write failing audit-runner unit tests**
+- [ ] **Step 1: Write failing expansion/calibration/semantic tests**
 
 ```ts
-expect(auditCases()).toHaveLength(24);
-expect(auditCases().map(({ width, height }) => `${width}x${height}`)).toEqual(expect.arrayContaining(["1440x900", "1280x800", "1100x720"]));
-expect(assertGeometry({ bodyScrollWidth: 1100, innerWidth: 1100, scrollOwners: 1, dockReachable: true })).toBeUndefined();
-expect(() => assertGeometry({ bodyScrollWidth: 1101, innerWidth: 1100, scrollOwners: 1, dockReachable: true })).toThrow(/horizontal overflow/i);
-expect(readCoreManifest(validApp)).toMatchObject({ version: "0.3.0" });
+expect(expandScenarioCases(INSTRUMENT_SCENARIOS).length).toBeGreaterThan(24);
+expect(expandScenarioCases(INSTRUMENT_SCENARIOS).every(({ scenarioId }) => scenarioId.length > 0)).toBe(true);
+expect(calibrateBounds(nativeBounds, innerMetrics)).toMatchObject({ nativeBounds, contentBounds: expect.any(Object) });
+expect(() => assertScenarioEvidence(missingLandmarkRecord)).toThrow(/landmark/i);
 ```
 
-Cover CDP timeout/cleanup, style/focus failures, portal overflow, expected rail behavior at each width, mock visibility expectation, Core SHA mismatch, and before/after DB fingerprint mismatch.
+- [ ] **Step 2: Run RED**
 
-- [ ] **Step 2: Run audit tests and verify RED**
+Run: `bun run test -- tests/instrument-electron-audit.test.ts`
 
-Run: `bun run test -- tests/instrument-electron-audit.test.ts tests/bundled-core.test.ts`
+Expected: FAIL because no per-scenario Bun/CDP runner exists.
 
-Expected: FAIL because the external Electron audit runner and package command do not exist.
+- [ ] **Step 3: Implement isolated scenario execution**
 
-- [ ] **Step 3: Implement the no-dependency external CDP audit**
+For each expanded scenario, create a fresh temp `userData`, then call `withDatabaseFingerprint(label, launch)` around its one Electron child, with label `scenario-${caseId}`. Spawn with `Bun.spawn`, fixed mock build, and CDP. Select fixture via production UI/test-fixture route only in mock build. Record native outer bounds separately from inner dimensions/device scale/top inset. Assert expected root/landmarks/rail/overlay/focus/scroll owner, no horizontal overflow, only modal-local scroller exception, dock reachability, native traffic inset/no HTML duplicate, native minimized/maximized/restored Browser states, computed flat styles, and AA contrast for every visible text-sized element/state. Capture screenshot and evidence record; close in `finally`.
 
 ```js
-export const VIEWPORTS = [[1440, 900], [1280, 800], [1100, 720]];
-export const THEMES = ["light", "dark"];
-export const PANEL_CASES = [
-  { left: true, right: true, bottom: false },
-  { left: false, right: true, bottom: false },
-  { left: true, right: false, bottom: true },
-  { left: false, right: false, bottom: true },
-];
-export function auditCases() {
-  return VIEWPORTS.flatMap(([width, height]) => THEMES.flatMap((theme) => PANEL_CASES.map((panels) => ({ width, height, theme, panels }))));
-}
+const profile = await mkdtemp(join(tmpdir(), `ralphy-instrument-${caseId}-`));
+const child = Bun.spawn([executable, `--user-data-dir=${profile}`, `--remote-debugging-port=${port}`], { env });
 ```
 
-The script chooses an unused loopback debugging port, spawns the packaged executable with `--remote-debugging-port=<port>`, connects using built-in `fetch`/`WebSocket`, gets the native window with `Browser.getWindowForTarget`, applies each size using `Browser.setWindowBounds`, and drives theme/panel controls through accessible DOM selectors. For every case, use `Runtime.evaluate` and `Page.captureScreenshot` to assert:
+- [ ] **Step 4: Run GREEN through the DB wrapper and review**
 
-- exact native `innerWidth/innerHeight`, no horizontal body overflow, one visible desk scroll owner;
-- expected left/right/bottom visibility (1100 auto-collapses right without rewriting its preference; 1280 keeps it only when desk >=680px);
-- desk/rail widths, 8px gaps, top-row 48px, dock bounds/reachability/no rail overlap, detail stacking at <=760px desk width;
-- portals inside viewport, visible 2px keyboard focus, `color-scheme` matching forced theme;
-- computed app-chrome `boxShadow === "none"`, no backdrop filter, no depth background image;
-- mock island active task/three stable notifications only when `RALPHY_EXPECT_MOCKS=true` and the script selects `[data-workspace-name="UX Testing Lab"]`.
+Run: `bun run audit:instrument:electron`
 
-Use `try/finally` to close CDP, terminate the app, and preserve failure evidence. Add `"audit:instrument:electron": "node scripts/audit-instrument-electron.mjs"`. Keep `smoke-electron.mjs` compatible with the new opaque window; make `package-mac.mjs` reject any bundled Core version other than `0.3.0` for this release.
+Expected: prints `INSTRUMENT_ELECTRON_AUDIT_OK <manifest-expanded-count>` and absolute manifest path; DB main/WAL unchanged, SHM recorded. Reviewer checks per-scenario records rather than a shell-only matrix.
 
-- [ ] **Step 4: Run production/mock packages, geometry, DB fingerprint, and final reviews**
-
-First prove the core input:
+- [ ] **Step 5: Commit**
 
 ```bash
-CORE_BIN=/Users/maximovchinnikov/github/ralphy/ralphy/.worktrees/sqlite-domain-store/dist/binaries/ralphy-darwin-arm64
-test "$($CORE_BIN --version)" = "0.3.0"
+git add scripts/audit-instrument-electron.mjs package.json tests/instrument-electron-audit.test.ts
+gitleaks protect --staged --redact
+git commit -m "test: audit canonical Electron scenarios"
 ```
 
-Fingerprint the live DB without opening it through SQLite:
+### Task 12: Add system-theme, keyboard, reduced-motion, and live-region journeys
 
-```bash
-DB=/Users/maximovchinnikov/.ralphy/ralphy.db
-AUDIT_DIR=$(mktemp -d /tmp/ralphy-nothing-db-audit.XXXXXX)
-shasum -a 256 "$DB" > "$AUDIT_DIR/before.sha256"
-stat -f '%Fm %Fc %z' "$DB" > "$AUDIT_DIR/before.stat"
+**Files:**
+- Create: `scripts/audit-instrument-accessibility.mjs`
+- Modify: `scripts/audit-instrument-electron.mjs`
+- Modify: `package.json`
+- Test: `tests/instrument-accessibility-audit.test.ts`
+
+**Interfaces:** Consumes scenario `journeys`; produces `bun run audit:instrument:accessibility` and journey evidence.
+
+- [ ] **Step 1: Write failing journey coverage tests**
+
+```ts
+expect(missingJourneyCoverage(INSTRUMENT_SCENARIOS)).toEqual([]);
+expect(systemThemeJourney).toEqual(["launch-system-dark", "switch-os-light", "assert-root-consumers"]);
+expect(shortcutCases).toEqual(expect.arrayContaining(["interactive-button", "contenteditable", "modal-open", "modifier", "composition", "repeat"]));
 ```
 
-Build/package mock mode, audit all 24 cases with UX fixture visible, and verify packaged Core:
+- [ ] **Step 2: Run RED**
+
+Run: `bun run test -- tests/instrument-accessibility-audit.test.ts`
+
+Expected: FAIL because end-to-end journey coverage and system theme are absent.
+
+- [ ] **Step 3: Implement end-to-end journeys**
+
+Use CDP `Emulation.setEmulatedMedia` for `prefers-color-scheme` and `prefers-reduced-motion`; wrap each journey's Electron child with `withDatabaseFingerprint(label, launch)`, with label `journey-${journeyId}`. Include a system-preference launch, live dark-to-light change, and resolved root/xterm/WaveSurfer assertions without flash. Tab/click/activate sidebar, dock, Island, profile/Settings, chat, filters/cards, all registered menus/dialogs/sheets/viewers/context menus; Escape and assert opener focus/unchanged desk offset. Under reduce, nonessential computed animation/transition durations are zero. Record live-region mutation sequence/politeness/deduplication and prove no focus move. Exercise safe mock review shortcut suppression cases.
+
+```js
+await cdp("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
+```
+
+- [ ] **Step 4: Run GREEN through wrapper and accessibility review**
+
+Run: `bun run audit:instrument:accessibility`
+
+Expected: prints `INSTRUMENT_ACCESSIBILITY_AUDIT_OK`; DB/WAL unchanged; evidence records every journey. Accessibility reviewer signs focus, keyboard, motion, live regions, contrast.
+
+- [ ] **Step 5: Commit**
 
 ```bash
+git add scripts/audit-instrument-accessibility.mjs scripts/audit-instrument-electron.mjs package.json tests/instrument-accessibility-audit.test.ts
+gitleaks protect --staged --redact
+git commit -m "test: audit instrument accessibility journeys"
+```
+
+### Task 13: Measure Media 3a/3b reference, actual, and ffmpeg diff
+
+**Files:**
+- Create: `scripts/capture-media-reference.mjs`
+- Create: `scripts/audit-media-fidelity.mjs`
+- Modify: `package.json`
+- Test: `tests/media-fidelity-audit.test.ts`
+
+**Interfaces:** Consumes stable extracted HTML/assets, mock Media scenario, evidence writer, ffmpeg. Produces `bun run audit:media:fidelity`.
+
+- [ ] **Step 1: Write failing geometry/diff tolerance tests**
+
+```ts
+expect(MEDIA_GEOMETRY_1440).toMatchObject({ sidebar: 240, outerGap: 8, filterRow: 38, lanes: 4, laneGap: 10, rail: 292, selectedRing: 3 });
+expect(assertGeometryDelta(referenceBoxes, withinOnePx)).toBeUndefined();
+expect(() => assertGeometryDelta(referenceBoxes, twoPxDelta)).toThrow(/1 CSS px/);
+expect(assertPixelDiff({ outsideMaskOver16: 0, insideMaskPixels: 100000, insideMaskOver24: 500 })).toBeUndefined();
+expect(() => assertPixelDiff({ outsideMaskOver16: 1, insideMaskPixels: 100000, insideMaskOver24: 500 })).toThrow(/outside mask/);
+```
+
+- [ ] **Step 2: Run RED**
+
+Run: `bun run test -- tests/media-fidelity-audit.test.ts`
+
+Expected: FAIL because reference capture, geometry, raw diff analysis, and tolerance do not exist.
+
+- [ ] **Step 3: Implement reproducible captures and ffmpeg raw diff**
+
+Capture reference HTML sections 3a/3b at 1440×900 from the stable extracted path and actual mock Media light/dark from packaged app. Wrap each reference-browser and actual-app child separately with `withDatabaseFingerprint(label, launch)`, with label `media-${captureId}`. Produce reference/actual/diff PNGs; run ffmpeg `blend=all_mode=difference` and pipe RGB24 raw bytes to Bun. Build the content mask from measured media rectangles. Require all structural boxes within 1 CSS px, zero pixels outside mask above RGB delta 16, and at most 0.5% inside mask above RGB delta 24. Record boxes/metrics/files. Also capture actual 1280/1100 selection/viewer/video-hover/chat/dock/overlay states without pixel threshold.
+
+```js
+const diff = Bun.spawn(["ffmpeg", "-i", reference, "-i", actual, "-filter_complex", "blend=all_mode=difference", "-f", "rawvideo", "-pix_fmt", "rgb24", "pipe:1"], { stdout: "pipe" });
+```
+
+- [ ] **Step 4: Run GREEN through wrapper and visual review**
+
+Run: `bun run audit:media:fidelity`
+
+Expected: prints `MEDIA_FIDELITY_AUDIT_OK`; DB/WAL unchanged; manifest links reference/actual/diff and exact deltas. Visual reviewer signs documented AA text-token deviations separately from geometry/content tolerance.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add scripts/capture-media-reference.mjs scripts/audit-media-fidelity.mjs package.json tests/media-fidelity-audit.test.ts
+gitleaks protect --staged --redact
+git commit -m "test: measure Media handoff fidelity"
+```
+
+### Task 14: Package mock and production, prove persistence/immutability, and finalize evidence
+
+**Files:**
+- Modify: `scripts/audit-instrument-electron.mjs`
+- Modify: `scripts/smoke-electron.mjs`
+- Modify: `scripts/render-instrument-report.mjs`
+- Modify: `package.json`
+- Test: `tests/instrument-final-acceptance.test.ts`
+
+**Interfaces:** Consumes all audit tools and fixed Core pin. Produces `bun run audit:instrument:final` and absolute final report path.
+
+- [ ] **Step 1: Write failing launch ledger/persistence/final checks**
+
+```ts
+expect(launchLabels).toEqual(expect.arrayContaining(["mock-smoke", "production-truth", "production-smoke", "persistence-first", "persistence-second"]));
+expect(launchLabels.some((label) => label.startsWith("scenario-"))).toBe(true);
+expect(launchLabels.some((label) => label.startsWith("journey-"))).toBe(true);
+expect(launchLabels.some((label) => label.startsWith("media-"))).toBe(true);
+expect(assertEveryLaunchHasDbRecord(manifest)).toBeUndefined();
+expect(assertTwoLaunchPersistence(first, second)).toMatchObject({ themeBeforePaint: "light", sidebarVisible: false, rightPreference: false });
+expect(assertProductionExclusion(distText)).toBeUndefined();
+```
+
+- [ ] **Step 2: Run RED**
+
+Run: `bun run test -- tests/instrument-final-acceptance.test.ts`
+
+Expected: FAIL because the final launch ledger, two-launch profile reuse, production truth case, and consolidated report checks do not exist.
+
+- [ ] **Step 3: Implement exact final orchestration**
+
+Preflight the approved Core source/version/SHA, then package mock mode using the verified in-memory bytes. Scenario/accessibility/Media scripts already wrap every child internally; wrap each single smoke child with the CLI. In the `--persistence` path, create one temporary profile and call `withDatabaseFingerprint("persistence-first", launchFirst)`; choose Light, hide sidebar, close right preference through UI, and close cleanly. Then call `withDatabaseFingerprint("persistence-second", launchSecond)` with the same profile and verify prepaint Light plus restored panels before interaction. Package production false mode; run source audit, reject all fixture/mock strings and chunk paths, then have `--production-truth` wrap its one child as `production-truth`; wrap production smoke separately. Production truth asserts real read-only Media status, disabled A/N/R reason, unavailable live Island counters, and no mock label. Verify fixed packaged Core/manifest, app version, codesign, all DB records, and generate report.
+
+```bash
+CORE_BIN='/Users/maximovchinnikov/github/ralphy/ralphy-desktop/release/Ralphy Media.app/Contents/Resources/bin/ralphy'
+test "$($CORE_BIN --version)" = '0.3.0'
+test "$(shasum -a 256 "$CORE_BIN" | awk '{print $1}')" = 'a843e2805b4b0a49d02f7afe46cdd5693d81184c14d560af836be93283d85679'
 VITE_RALPHY_ENABLE_MOCKS=true RALPHY_CORE_BIN="$CORE_BIN" bun run package:mac
-RALPHY_EXPECT_MOCKS=true RALPHY_PACKAGED_APP='release/Ralphy Media.app' bun run audit:instrument:electron
-bun run smoke:packaged
-test "$(plutil -extract CFBundleShortVersionString raw 'release/Ralphy Media.app/Contents/Info.plist')" = "0.1.0"
-test "$('release/Ralphy Media.app/Contents/Resources/bin/ralphy' --version)" = "0.3.0"
-```
-
-Build/package production mode, prove fixture strings/data are absent, audit all 24 cases without mock island data, and smoke again:
-
-```bash
+bun run audit:instrument:electron
+bun scripts/with-db-fingerprint.mjs --label mock-smoke -- bun run smoke:packaged
+bun run audit:instrument:accessibility
+bun run audit:media:fidelity
+bun run audit:instrument:electron -- --persistence
 VITE_RALPHY_ENABLE_MOCKS=false RALPHY_CORE_BIN="$CORE_BIN" bun run package:mac
 bun run audit:instrument:source
-! rg -a 'ux-mock-render-1|ux-mock-review|ux-mock-complete|ux-mock-error' dist 'release/Ralphy Media.app/Contents/Resources/app/dist'
-RALPHY_EXPECT_MOCKS=false RALPHY_PACKAGED_APP='release/Ralphy Media.app' bun run audit:instrument:electron
-bun run smoke:packaged
+! rg -a 'TEST REVIEW SESSION|mock-review-session|instrument-test-fixture|ux-mock-render-1' dist 'release/Ralphy Media.app/Contents/Resources/app/dist'
+bun run audit:instrument:electron -- --production-truth
+bun scripts/with-db-fingerprint.mjs --label production-smoke -- bun run smoke:packaged
 codesign --verify --deep --strict --verbose=2 'release/Ralphy Media.app'
+bun run report:instrument
 ```
 
-Compare the live DB fingerprint:
+- [ ] **Step 4: Run the complete final gate and independent reviews**
+
+Run: `bun run test && bun run typecheck && bun run audit:instrument:final`
+
+Expected: all checks pass; every Electron child has its own DB/WAL before/after record and SHM observation; packaged Core/manifest equal fixed pin; production is fixture-free; codesign passes; product, accessibility/visual, security, and regression reviewers record decisions in manifest; command prints the absolute `report.html`.
+
+- [ ] **Step 5: Commit final harness**
 
 ```bash
-shasum -a 256 "$DB" > "$AUDIT_DIR/after.sha256"
-stat -f '%Fm %Fc %z' "$DB" > "$AUDIT_DIR/after.stat"
-cmp "$AUDIT_DIR/before.sha256" "$AUDIT_DIR/after.sha256"
-cmp "$AUDIT_DIR/before.stat" "$AUDIT_DIR/after.stat"
-```
-
-Expected: both audits print `INSTRUMENT_ELECTRON_AUDIT_OK 24`; packaged Core and manifest report 0.3.0 with matching SHA; production bundle contains no mock IDs; smoke/codesign pass; both `cmp` commands exit 0, proving database bytes and mtime/change-time/size are unchanged. Run independent product, accessibility/visual, security, and final regression reviews over the complete three-plan diff and audit evidence.
-
-- [ ] **Step 5: Run final full suite and commit the audit harness**
-
-Run: `bun run test && bun run typecheck && VITE_RALPHY_ENABLE_MOCKS=false bun run build && bun run audit:instrument:source && git diff --check`
-
-Expected: all tests pass or only a baseline failure recorded before Plan 1 remains; typecheck/build/source audit pass; final production package is the mock-free Core 0.3.0 build.
-
-```bash
-git add scripts/audit-instrument-electron.mjs scripts/smoke-electron.mjs scripts/package-mac.mjs package.json tests/instrument-electron-audit.test.ts tests/bundled-core.test.ts
+git add scripts/audit-instrument-electron.mjs scripts/smoke-electron.mjs scripts/render-instrument-report.mjs package.json tests/instrument-final-acceptance.test.ts
 gitleaks protect --staged --redact
-git commit -m "test: verify instrument electron release"
+git commit -m "test: finalize instrument launch evidence"
 ```
 
-## Plan 3 Acceptance Gate
+## Final Completion Gate
 
-Run:
+Run: `bun run test && bun run typecheck && VITE_RALPHY_ENABLE_MOCKS=false bun run build && bun run audit:instrument:source && bun run audit:instrument:final && git diff --check && git log --oneline "$NOTHING_POLISH_BASE..HEAD"`
 
-```bash
-bun run test
-bun run typecheck
-VITE_RALPHY_ENABLE_MOCKS=false bun run build
-bun run audit:instrument:source
-git diff --check "$NOTHING_POLISH_BASE"..HEAD
-git log --oneline "$NOTHING_POLISH_BASE"..HEAD
-```
-
-Expected: complete green regression gate, production mock exclusion, no reachable legacy chrome/effects/colors, and seven scoped implementation commits. Preserve the final `.superpowers/sdd/nothing-instrument-electron/` JSON/contact-sheet evidence outside Git for handoff; do not commit live DB material, packaged binaries, screenshots, user data, or prototype files.
+Expected: complete green gate; 14 scoped commits; every canonical scenario represented in the versioned report; Media reference/actual/diff within tolerance; system/keyboard/reduced-motion/live-region journeys pass; every launch DB/WAL-clean with SHM recorded; production has no fixtures; bundled Core is exactly pinned 0.3.0; absolute report path is ready for handoff.
