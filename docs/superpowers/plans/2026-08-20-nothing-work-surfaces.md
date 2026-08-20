@@ -17,10 +17,10 @@
 - Begin after Plan 1 completes and record its HEAD. Import Plan 1 interfaces verbatim; do not fork Availability, scenario, rail, scroll, profile, theme, Island, header, or dock contracts.
 - Do not add or reconcile `media.review`, Core consumer authentication/session state, IPC, preload, Core types, database/schema code, renderer persistence, or a package.
 - Production Media is read-only. A/N/R controls are focusable `aria-disabled` with exact reason `Review is unavailable in Core 0.3.0 from Desktop.`
-- Mock review exists only when `import.meta.env.VITE_RALPHY_ENABLE_MOCKS === "true"` and workspace name is exactly `UX Testing Lab`; label it `TEST REVIEW SESSION · NOT SAVED`, reset it on root/workspace change, and never call bridge/storage/filesystem.
+- Mock review exists only when `import.meta.env.VITE_RALPHY_ENABLE_MOCKS === "true"` and workspace name is exactly `UX Testing Lab`; one dynamically imported module owns reducer plus shortcut policy, label it `TEST REVIEW SESSION · NOT SAVED`, reset reviews/draft/iteration/shortcut scope on any exact `(rootEpoch, workspaceId, projectId)` tuple change, and never call bridge/storage/filesystem.
 - Right-side content uses the shared `docked | overlay | closed` rail. Virtualized Media and Activity use `InstrumentScrollContext` as their external scroll element.
 - Every task completes deterministic ready/loading/empty/partial/unavailable/error/selected/disabled fixtures applicable to its surface and adds behavior-first interaction/focus/scroll assertions; copy assertions alone are not acceptance.
-- Every rendered route/overlay has `data-instrument-root`, a scenario manifest entry, expected landmarks, focus contract, and scroll owner.
+- Every rendered route consumes its production owner-exported descriptor through `InstrumentScreenRoot`; every dialog/drawer/viewer/menu/sheet/popover consumes `InstrumentOverlay`. Owning tasks update these production registrations and their derived scenarios together.
 - Each task follows RED/GREEN, task-sized independent review, `git diff --check`, exact staging, staged gitleaks, and a commit.
 
 ---
@@ -39,6 +39,11 @@ export type Availability<T> =
 
 export type InstrumentRightRailMode = "docked" | "overlay" | "closed";
 export function InstrumentRightRailPortal(props: { owner: InstrumentRightRailOwner; label: string; children: React.ReactNode }): React.ReactPortal | null;
+export type InstrumentOverlayId = keyof typeof INSTRUMENT_OVERLAYS;
+export function InstrumentOverlay<Id extends InstrumentOverlayId>(props: { id: Id; open: boolean; label: string; description: string; opener: HTMLElement | null; onOpenChange(open: boolean): void; children: React.ReactNode; localScroll?: boolean }): React.ReactPortal | null;
+export function defineInstrumentScreenStates<const Descriptor extends InstrumentScreenStateDescriptor>(descriptor: Descriptor): Descriptor;
+export function InstrumentScreenRoot(props: { descriptor: InstrumentScreenStateDescriptor; state: InstrumentScenarioState; children: React.ReactNode }): React.ReactElement;
+export const PRODUCTION_SCREEN_STATES: readonly InstrumentScreenStateDescriptor[];
 export function useInstrumentScroll(): InstrumentScrollContextValue;
 export const INSTRUMENT_SCENARIOS: readonly InstrumentScenario[];
 export function assertInstrumentScenarioCompleteness(): void;
@@ -55,14 +60,13 @@ export type ProductionMediaReviewStatus = ArtifactRevisionState;
 export const MEDIA_REVIEW_UNSUPPORTED_REASON = "Review is unavailable in Core 0.3.0 from Desktop.";
 export function productionMediaReviewStatus(card: MediaCardDto): Availability<ProductionMediaReviewStatus>;
 
-// src/screens/project/mock-review-session.ts -- mock-only dynamic import
+// src/screens/project/mock-review.ts -- the single mock-only dynamic import
 export interface MockReviewIteration { id: string; label: string; active: boolean }
 export interface MockReviewRecord { artifactId: string; verdict: MediaReviewVerdict; feedback: string | null; iterationId: string | null }
+export interface MockReviewContext { rootEpoch: number; workspaceId: string; projectId: string | null }
 export interface MockReviewSessionState {
-  rootEpoch: number;
-  workspaceId: string;
-  projectId: string | null;
-  iteration: MockReviewIteration;
+  context: MockReviewContext;
+  iteration: MockReviewIteration | null;
   reviews: Readonly<Record<string, MockReviewRecord>>;
   needsWorkDraft: { artifactId: string; feedback: string } | null;
 }
@@ -72,14 +76,17 @@ export type MockReviewAction =
   | { type: "change-feedback"; value: string }
   | { type: "submit-needs-work" }
   | { type: "cancel-needs-work" }
-  | { type: "reset-context"; rootEpoch: number; workspaceId: string; projectId: string | null };
+  | { type: "reset-context"; context: MockReviewContext };
 export function reduceMockReviewSession(state: MockReviewSessionState, action: MockReviewAction): MockReviewSessionState;
+export function isReviewShortcutEligible(event: KeyboardEvent, ui: { context: MockReviewContext | null; selected: boolean; overlayOpen: boolean; iterationActive: boolean }): boolean;
 ```
 
 ## File Map
 
 - `tests/helpers/render-instrument-scenario.tsx` — DOM scenario renderer using deterministic fixture provider.
 - `src/styles/work-surfaces.css` — route geometry only; all colors are Plan 1 tokens.
+- Owner screen exports plus `src/instrument/production-screen-states.ts` / `scenarios.ts` — live state descriptors and exact derived evidence pairs updated in the same task.
+- `src/instrument/overlay-registry.tsx` — consumed, not forked; every operational overlay below renders through `InstrumentOverlay` with its registered ID.
 - `src/screens/workspace/*`, `SharedLibraryScreen.tsx`, `MemoryScreen.tsx`, `CalendarScreen.tsx` — My Work surfaces.
 - `src/screens/project/*` — Documents, read-only/mock Media, Units, Activity.
 - `src/components/VirtualAssetGrid.tsx` and Activity virtualization — external shell-scroll consumers.
@@ -97,10 +104,12 @@ export function reduceMockReviewSession(state: MockReviewSessionState, action: M
 - Modify: `src/screens/LibraryScreen.tsx`
 - Modify: `src/screens/MigrationRecoveryScreen.tsx`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/instrument-global-states.test.tsx`
 - Test: `tests/migration-recovery.test.tsx`
 
-**Interfaces:** Consumes Plan 1 scenario provider, existing `tests/react-host.ts`, and root/migration callbacks. Produces `renderInstrumentScenario(id: string): InstrumentScenarioHost` for all later DOM state tests. `InstrumentScenarioHost` exposes `container`, `getByRole`, `queryByRole`, `user.click/type/clear/hover/tab/keyboard`, and `cleanup`; it is a thin adapter over the existing DOM host and adds no testing package. `instrument-matchers.ts` implements and declares the plan's DOM matchers with `vitest.expect.extend`; it does not import Testing Library or jest-dom. Each later snippet's `screen` and `user` come from this host.
+**Interfaces:** Consumes Plan 1 scenario/state/overlay provider, existing `tests/react-host.ts`, and root/migration callbacks. Produces `renderInstrumentScenario(id: string): InstrumentScenarioHost` for all later DOM state tests and migrates `root-picker`, `migration-recovery`, and `app-alert` through `InstrumentOverlay`. `InstrumentScenarioHost` exposes `container`, `getByRole`, `queryByRole`, `user.click/type/clear/hover/tab/keyboard`, and `cleanup`; it is a thin adapter over the existing DOM host and adds no testing package. `instrument-matchers.ts` implements and declares the plan's DOM matchers with `vitest.expect.extend`; it does not import Testing Library or jest-dom. Each later snippet's `screen` and `user` come from this host.
 
 - [ ] **Step 1: Write absent rendered-state behavior tests**
 
@@ -206,7 +215,7 @@ declare module "vitest" {
 }
 ```
 
-Use fixture IDs from the manifest, real callbacks, `aria-busy`, deduped alerts, and focus restoration. Do not turn unavailable into empty or add local mock actions.
+Use fixture IDs from the production-derived manifest, real callbacks, `aria-busy`, deduped alerts, and focus restoration. Render root picker, migration recovery, and app alert through their exact `InstrumentOverlay` IDs; update owner descriptors and derived scenarios in the same change. Do not turn unavailable into empty or add local mock actions.
 
 - [ ] **Step 4: Run GREEN and review**
 
@@ -217,7 +226,7 @@ Expected: PASS; reviewer drives all startup scenarios and confirms semantic diff
 - [ ] **Step 5: Commit**
 
 ```bash
-git add tests/helpers/render-instrument-scenario.tsx tests/helpers/instrument-matchers.ts tests/helpers/instrument-matchers.d.ts src/styles/work-surfaces.css src/main.tsx src/App.tsx src/components/WelcomeScreen.tsx src/screens/LibraryScreen.tsx src/screens/MigrationRecoveryScreen.tsx src/instrument/test-fixtures.ts tests/instrument-global-states.test.tsx tests/migration-recovery.test.tsx
+git add tests/helpers/render-instrument-scenario.tsx tests/helpers/instrument-matchers.ts tests/helpers/instrument-matchers.d.ts src/styles/work-surfaces.css src/main.tsx src/App.tsx src/components/WelcomeScreen.tsx src/screens/LibraryScreen.tsx src/screens/MigrationRecoveryScreen.tsx src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts tests/instrument-global-states.test.tsx tests/migration-recovery.test.tsx
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild instrument startup states"
 ```
@@ -234,11 +243,13 @@ git commit -m "feat: rebuild instrument startup states"
 - Modify: `src/screens/workspace/WorkspaceOperations.tsx`
 - Modify: `src/styles/work-surfaces.css`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/workspace-overview-screen.test.tsx`
 - Test: `tests/workspace-overview-presentation.test.ts`
 - Test: `tests/workspace-overview-navigation.test.tsx`
 
-**Interfaces:** Consumes existing controller/presentation and Plan 1 Availability. Produces overview ready/partial/unavailable/error widgets without changing projection math.
+**Interfaces:** Consumes existing controller/presentation and Plan 1 Availability. Produces overview owner states plus registered `workspace-account-detail`, `workspace-unit-outcome-detail`, and `workspace-evidence-detail` overlays without changing projection math.
 
 - [ ] **Step 1: Write behavior-first availability/navigation tests**
 
@@ -248,6 +259,12 @@ expect(partial.getByRole("status", { name: "Calendar availability" })).toHaveTex
 await user.click(partial.getByRole("button", { name: "Open attention" }));
 expect(onNavigate).toHaveBeenCalledWith(expect.objectContaining({ page: "calendar" }));
 expect(restoredDeskOffset()).toBe(418);
+for (const id of ["workspace-account-detail", "workspace-unit-outcome-detail", "workspace-evidence-detail"] as const) {
+  const overlay = await openRegisteredOverlay(id);
+  expect(overlay).toHaveAttribute("data-instrument-overlay", id);
+  await user.keyboard("{Escape}");
+  expect(overlayOpener(id)).toHaveFocus();
+}
 ```
 
 - [ ] **Step 2: Run RED**
@@ -262,7 +279,7 @@ Expected: FAIL because sections lack Instrument roots/state semantics and shell 
 import type { Availability } from "../../instrument/types";
 ```
 
-Delete the local narrower Availability alias. Render separate Performance, Plan/outcomes, Insights, Operations, and Attention widgets; preserve all existing reasons/math and route-return focus/offset.
+Delete the local narrower Availability alias. Render separate Performance, Plan/outcomes, Insights, Operations, and Attention widgets; preserve all existing reasons/math and route-return focus/offset. Replace the three current raw dialogs with `InstrumentOverlay` IDs `workspace-account-detail`, `workspace-unit-outcome-detail`, and `workspace-evidence-detail`; register each focus-return scenario.
 
 - [ ] **Step 4: Run GREEN and review**
 
@@ -273,7 +290,7 @@ Expected: PASS; reviewer verifies every presentation branch and one desk scrolle
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/WorkspaceScreen.tsx src/screens/workspace/overview-presentation.ts src/screens/workspace/WorkspaceOverviewHeader.tsx src/screens/workspace/WorkspacePerformance.tsx src/screens/workspace/WorkspacePlanAndOutcomes.tsx src/screens/workspace/WorkspaceInsights.tsx src/screens/workspace/WorkspaceOperations.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/workspace-overview-screen.test.tsx tests/workspace-overview-presentation.test.ts tests/workspace-overview-navigation.test.tsx
+git add src/screens/WorkspaceScreen.tsx src/screens/workspace/overview-presentation.ts src/screens/workspace/WorkspaceOverviewHeader.tsx src/screens/workspace/WorkspacePerformance.tsx src/screens/workspace/WorkspacePlanAndOutcomes.tsx src/screens/workspace/WorkspaceInsights.tsx src/screens/workspace/WorkspaceOperations.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts tests/workspace-overview-screen.test.tsx tests/workspace-overview-presentation.test.ts tests/workspace-overview-navigation.test.tsx
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild workspace overview instruments"
 ```
@@ -285,6 +302,8 @@ git commit -m "feat: rebuild workspace overview instruments"
 - Modify: `src/screens/WorkspaceProjectsScreen.tsx`
 - Modify: `src/styles/work-surfaces.css`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/workspace-domain.test.tsx`
 - Test: `tests/workspace-navigation.test.tsx`
 
@@ -323,7 +342,7 @@ Expected: PASS; reviewer tests ready/empty/error projects and unavailable Units 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/WorkspaceScreen.tsx src/screens/WorkspaceProjectsScreen.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/workspace-domain.test.tsx tests/workspace-navigation.test.tsx
+git add src/screens/WorkspaceScreen.tsx src/screens/WorkspaceProjectsScreen.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts tests/workspace-domain.test.tsx tests/workspace-navigation.test.tsx
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild workspace collections"
 ```
@@ -336,6 +355,8 @@ git commit -m "feat: rebuild workspace collections"
 - Modify: `src/screens/shared-library/presentation.ts`
 - Modify: `src/styles/shared-library.css`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/shared-library-screen.test.tsx`
 - Test: `tests/shared-library-presentation.test.ts`
 
@@ -374,7 +395,7 @@ Expected: PASS; reviewer exercises filters/paging/partial/error and one-scroll-o
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/SharedLibraryScreen.tsx src/screens/shared-library/SharedLibraryToolbar.tsx src/screens/shared-library/presentation.ts src/styles/shared-library.css src/instrument/test-fixtures.ts tests/shared-library-screen.test.tsx tests/shared-library-presentation.test.ts
+git add src/screens/SharedLibraryScreen.tsx src/screens/shared-library/SharedLibraryToolbar.tsx src/screens/shared-library/presentation.ts src/styles/shared-library.css src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts tests/shared-library-screen.test.tsx tests/shared-library-presentation.test.ts
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild shared library results"
 ```
@@ -387,10 +408,12 @@ git commit -m "feat: rebuild shared library results"
 - Modify: `src/screens/SharedLibraryScreen.tsx`
 - Modify: `src/styles/shared-library.css`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/shared-library-inspector.test.tsx`
 - Test: `tests/shared-library-viewer.test.tsx`
 
-**Interfaces:** Consumes selected item/history/media failure state and shared rail. Produces docked/overlay inspector plus modal viewer.
+**Interfaces:** Consumes selected item/history/media failure state and shared rail. Produces `shared-inspector` through the rail and `shared-viewer` through `InstrumentOverlay`.
 
 - [ ] **Step 1: Write rail/viewer focus tests**
 
@@ -416,7 +439,7 @@ Expected: FAIL because inspector does not use shared rail modes and viewer focus
 <InstrumentRightRailPortal owner="shared-inspector" label="Shared item inspector"><SharedArtifactInspector item={selected} /></InstrumentRightRailPortal>
 ```
 
-Use one overlay-local scroller marker in viewer only; preserve guarded media URLs, history facts, Escape/opener restoration, and disabled unavailable explanations.
+Use `InstrumentOverlay id="shared-viewer"` with one overlay-local scroller marker in viewer only and the registered rail portal for `shared-inspector`; preserve guarded media URLs, history facts, Escape/opener restoration, and disabled unavailable explanations.
 
 - [ ] **Step 4: Run GREEN and review**
 
@@ -427,7 +450,7 @@ Expected: PASS; reviewer checks selected/history/failure at docked and 1100 over
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/shared-library/SharedArtifactInspector.tsx src/screens/shared-library/SharedArtifactViewer.tsx src/screens/SharedLibraryScreen.tsx src/styles/shared-library.css src/instrument/test-fixtures.ts tests/shared-library-inspector.test.tsx tests/shared-library-viewer.test.tsx
+git add src/screens/shared-library/SharedArtifactInspector.tsx src/screens/shared-library/SharedArtifactViewer.tsx src/screens/SharedLibraryScreen.tsx src/styles/shared-library.css src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts tests/shared-library-inspector.test.tsx tests/shared-library-viewer.test.tsx
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild shared library inspection"
 ```
@@ -439,9 +462,11 @@ git commit -m "feat: rebuild shared library inspection"
 - Modify: `src/screens/SharedLibraryScreen.tsx`
 - Modify: `src/styles/shared-library.css`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/shared-library-workflows.test.tsx`
 
-**Interfaces:** Consumes current preflight/mutation contracts. Produces focus-managed target/action workflows without no-op actions.
+**Interfaces:** Consumes current preflight/mutation contracts. Produces focus-managed `shared-workflow` overlays without no-op actions.
 
 - [ ] **Step 1: Write preflight/confirm/focus tests**
 
@@ -464,7 +489,7 @@ Expected: FAIL on Instrument dialog focus and truthful preflight gating.
 - [ ] **Step 3: Reskin existing workflow state machine**
 
 ```tsx
-<Dialog.Content data-instrument-root="shared-workflow" aria-describedby={reasonId}>{workflowBody}</Dialog.Content>
+<InstrumentOverlay id="shared-workflow" open={open} label="Shared Library workflow" description={reason} opener={opener} onOpenChange={onOpenChange}>{workflowBody}</InstrumentOverlay>
 ```
 
 Keep exact Core mutation/preflight behavior, loading/error/partial reasons, Escape, and opener focus. No new operation or drag/drop path.
@@ -478,7 +503,7 @@ Expected: PASS; reviewer verifies no enabled control bypasses preflight.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/shared-library/SharedLibraryWorkflows.tsx src/screens/SharedLibraryScreen.tsx src/styles/shared-library.css src/instrument/test-fixtures.ts tests/shared-library-workflows.test.tsx
+git add src/screens/shared-library/SharedLibraryWorkflows.tsx src/screens/SharedLibraryScreen.tsx src/styles/shared-library.css src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts tests/shared-library-workflows.test.tsx
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild shared library workflows"
 ```
@@ -489,10 +514,12 @@ git commit -m "feat: rebuild shared library workflows"
 - Modify: `src/screens/MemoryScreen.tsx`
 - Modify: `src/styles/work-surfaces.css`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/memory-screen.test.tsx`
 - Test: `tests/memory-contract.test.ts`
 
-**Interfaces:** Consumes current Memory controller/contracts. Produces list/filter/loading/empty/partial/unavailable/error and rulebook detail.
+**Interfaces:** Consumes current Memory controller/contracts. Produces owner-registered list/filter/loading/empty/partial/unavailable/error/rulebook states and the existing `memory-recall` overlay.
 
 - [ ] **Step 1: Write filter/detail/state tests**
 
@@ -516,7 +543,7 @@ Expected: FAIL on Instrument state composition and distinct rule body structure.
 <article data-instrument-root="memory-rule"><RuleSection title="Why" body={rule.why} /><RuleSection title="How to apply" body={rule.how} /><RuleSection title="Does NOT apply to" body={rule.negativeScope} /></article>
 ```
 
-Preserve exact body content and controller state; do not invent missing Restore.
+Preserve exact body content and controller state; render the existing agent-context preview through `InstrumentOverlay id="memory-recall"` and add its scenario/focus return; do not invent missing Restore.
 
 - [ ] **Step 4: Run GREEN and review**
 
@@ -527,7 +554,7 @@ Expected: PASS; reviewer exercises all list states and semantic rule sections.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/MemoryScreen.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/memory-screen.test.tsx tests/memory-contract.test.ts
+git add src/screens/MemoryScreen.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts tests/memory-screen.test.tsx tests/memory-contract.test.ts
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild memory rulebook"
 ```
@@ -538,9 +565,11 @@ git commit -m "feat: rebuild memory rulebook"
 - Modify: `src/screens/MemoryScreen.tsx`
 - Modify: `src/styles/work-surfaces.css`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/memory-screen.test.tsx`
 
-**Interfaces:** Consumes existing memory mutations and feedback-body rules. Produces registered editor/history/confirm overlays.
+**Interfaces:** Consumes existing memory mutations and feedback-body rules. Produces `memory-editor`, `memory-history`, and `memory-confirm` through `InstrumentOverlay`.
 
 - [ ] **Step 1: Write mutation/focus/conflict tests**
 
@@ -562,7 +591,7 @@ Expected: FAIL on registered overlay roots, validation, and focus return.
 - [ ] **Step 3: Implement overlay behavior**
 
 ```tsx
-<Dialog.Content data-instrument-root="memory-editor"><MemoryRuleFields requiredNegativeScope /></Dialog.Content>
+<InstrumentOverlay id="memory-editor" open={editorOpen} label="Edit memory rule" description="Edit the complete rule" opener={editorOpener} onOpenChange={setEditorOpen}><MemoryRuleFields requiredNegativeScope /></InstrumentOverlay>
 ```
 
 Preserve approve/reject/retire mutations, destructive red semantics, exact body validation, error alerts, and stale-request fencing.
@@ -576,7 +605,7 @@ Expected: PASS; reviewer checks editor/history/confirm keyboard journeys and una
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/MemoryScreen.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/memory-screen.test.tsx
+git add src/screens/MemoryScreen.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts tests/memory-screen.test.tsx
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild memory workflows"
 ```
@@ -588,10 +617,12 @@ git commit -m "feat: rebuild memory workflows"
 - Modify: `src/screens/calendar-presentation.ts`
 - Modify: `src/styles/work-surfaces.css`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/calendar-screen.test.tsx`
 - Test: `tests/calendar-presentation.test.ts`
 
-**Interfaces:** Consumes current month/week/agenda presentation and filters. Produces behavioral view switching and ready/empty/partial/error account/publication states.
+**Interfaces:** Consumes current month/week/agenda presentation and filters. Produces owner-registered behavioral view/availability states and `calendar-filter` through `InstrumentOverlay`.
 
 - [ ] **Step 1: Write view/filter/partial tests**
 
@@ -626,7 +657,7 @@ Expected: PASS; reviewer exercises all views/states and keyboard filter dismissa
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/CalendarScreen.tsx src/screens/calendar-presentation.ts src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/calendar-screen.test.tsx tests/calendar-presentation.test.ts
+git add src/screens/CalendarScreen.tsx src/screens/calendar-presentation.ts src/styles/work-surfaces.css src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts tests/calendar-screen.test.tsx tests/calendar-presentation.test.ts
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild calendar views"
 ```
@@ -637,10 +668,12 @@ git commit -m "feat: rebuild calendar views"
 - Modify: `src/screens/CalendarScreen.tsx`
 - Modify: `src/styles/work-surfaces.css`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/calendar-screen.test.tsx`
 - Test: `tests/calendar-contract.test.ts`
 
-**Interfaces:** Consumes existing inspector/drawer/schedule/platform/account callbacks. Produces rail inspector and registered overlays.
+**Interfaces:** Consumes existing inspector/drawer/schedule/platform/account callbacks. Produces rail inspector plus registered `calendar-drawer`, `calendar-schedule`, `calendar-unit-picker`, `calendar-date-popover`, `calendar-time-popover`, `calendar-platform-settings`, `calendar-account-detail`, and `calendar-reconnect` overlays.
 
 - [ ] **Step 1: Write rail/schedule/preflight tests**
 
@@ -651,6 +684,11 @@ await openAt1100();
 expect(screen.getByRole("dialog", { name: "Calendar inspector" })).toBeVisible();
 await submitSchedule();
 expect(scheduleMutation).toHaveBeenCalledWith(validScheduleInput);
+for (const id of ["calendar-unit-picker", "calendar-date-popover", "calendar-time-popover", "calendar-platform-settings", "calendar-account-detail", "calendar-reconnect"] as const) {
+  expect((await openRegisteredOverlay(id)).getAttribute("data-instrument-overlay")).toBe(id);
+  await user.keyboard("{Escape}");
+  expect(overlayOpener(id)).toHaveFocus();
+}
 ```
 
 - [ ] **Step 2: Run RED**
@@ -665,7 +703,7 @@ Expected: FAIL on shared rail ownership, overlay focus, and Instrument schedule 
 <InstrumentRightRailPortal owner="calendar-inspector" label="Calendar inspector"><CalendarInspector item={selected} /></InstrumentRightRailPortal>
 ```
 
-Use registered drawer/schedule/platform/account overlays; preserve drag/drop, validation, mutation, partial/error states, selection, and focus restoration. No new scheduling path.
+Use `InstrumentOverlay` for `calendar-drawer`, `calendar-schedule`, `calendar-unit-picker`, `calendar-date-popover`, `calendar-time-popover`, `calendar-platform-settings`, `calendar-account-detail`, and `calendar-reconnect`; use the registered rail for `calendar-inspector`. Preserve drag/drop, validation, mutation, partial/error states, selection, and focus restoration. Add a derived scenario/focus contract for each named surface. No new scheduling path.
 
 - [ ] **Step 4: Run GREEN and review**
 
@@ -676,7 +714,7 @@ Expected: PASS; reviewer checks every overlay at docked/1100 overlay and verifie
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/CalendarScreen.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/calendar-screen.test.tsx tests/calendar-contract.test.ts
+git add src/screens/CalendarScreen.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts tests/calendar-screen.test.tsx tests/calendar-contract.test.ts
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild calendar workflows"
 ```
@@ -690,10 +728,12 @@ git commit -m "feat: rebuild calendar workflows"
 - Modify: `src/components/JsonDocumentView.tsx`
 - Modify: `src/styles/work-surfaces.css`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/documents-panel.test.tsx`
 - Test: `tests/markdown-view.test.tsx`
 
-**Interfaces:** Consumes current document paging/search/detail and safe renderers. Produces list/search/loading/append-error/empty plus Markdown/JSON/text viewer.
+**Interfaces:** Consumes current document paging/search/detail and safe renderers. Produces owner-registered list/search/loading/append-error/empty plus `document-viewer` through `InstrumentOverlay`.
 
 - [ ] **Step 1: Write search/viewer/focus tests**
 
@@ -714,7 +754,7 @@ Expected: FAIL on registered viewer behavior, Instrument roots, and focus return
 - [ ] **Step 3: Implement list/viewers**
 
 ```tsx
-<main data-instrument-root="project-documents"><DocumentSearch /><DocumentList /><DocumentViewerDialog /></main>
+<InstrumentScreenRoot descriptor={documentsInstrumentStates} state={viewState}><DocumentSearch /><DocumentList /><InstrumentOverlay id="document-viewer" {...viewerProps} /></InstrumentScreenRoot>
 ```
 
 Keep sanitization, JSON validation/display, paging, guarded links, and viewer-local scroller marker; no editor/conflict changes yet.
@@ -728,7 +768,7 @@ Expected: PASS; reviewer checks list states/viewer formats/focus and no nested d
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/ProjectScreen.tsx src/screens/project/DocumentsPanel.tsx src/components/MarkdownView.tsx src/components/JsonDocumentView.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/documents-panel.test.tsx tests/markdown-view.test.tsx
+git add src/screens/ProjectScreen.tsx src/screens/project/DocumentsPanel.tsx src/components/MarkdownView.tsx src/components/JsonDocumentView.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts tests/documents-panel.test.tsx tests/markdown-view.test.tsx
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild document browsing"
 ```
@@ -739,10 +779,12 @@ git commit -m "feat: rebuild document browsing"
 - Modify: `src/screens/project/DocumentsPanel.tsx`
 - Modify: `src/styles/work-surfaces.css`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/documents-panel.test.tsx`
 - Test: `tests/project-screen-behavior.test.tsx`
 
-**Interfaces:** Consumes existing save/CAS/revision/navigation guard. Produces editor/revisions/conflict overlays and dirty-state focus flow.
+**Interfaces:** Consumes existing save/CAS/revision/navigation guard. Produces `document-editor` and `document-conflict` through `InstrumentOverlay` plus dirty-state focus flow.
 
 - [ ] **Step 1: Write edit/save/conflict tests**
 
@@ -764,7 +806,7 @@ Expected: FAIL on registered Instrument overlays and focus/guard behavior.
 - [ ] **Step 3: Reskin existing mutation state**
 
 ```tsx
-<Dialog.Content data-instrument-root="document-conflict"><ConflictReview local={draft} remote={latest} /></Dialog.Content>
+<InstrumentOverlay id="document-conflict" open={conflicted} label="Document conflict" description="Review local and current revisions" opener={editorOpener} onOpenChange={closeConflict}><ConflictReview local={draft} remote={latest} /></InstrumentOverlay>
 ```
 
 Preserve exact CAS, JSON validation, stale-root fencing, navigation guard, revision selection, error recovery, and focus restoration.
@@ -778,7 +820,7 @@ Expected: PASS; reviewer exercises save success/error/conflict/cancel and dirty 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/project/DocumentsPanel.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/documents-panel.test.tsx tests/project-screen-behavior.test.tsx
+git add src/screens/project/DocumentsPanel.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts tests/documents-panel.test.tsx tests/project-screen-behavior.test.tsx
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild document editing"
 ```
@@ -789,6 +831,8 @@ git commit -m "feat: rebuild document editing"
 - Create: `src/screens/project/media-review-presentation.ts`
 - Create: `src/screens/project/MediaReviewConsole.tsx`
 - Modify: `src/screens/project/MediaPanel.tsx`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Modify: `src/styles/work-surfaces.css`
 - Test: `tests/project-media-review-presentation.test.tsx`
 - Test: `tests/project-screen-behavior.test.tsx`
@@ -822,7 +866,7 @@ Expected: FAIL because production console neither projects exact read-only truth
 <p id="media-review-unsupported">{MEDIA_REVIEW_UNSUPPORTED_REASON}</p>
 ```
 
-Recognize only the existing `working | candidate | approved | rejected | superseded | archived` `ArtifactRevisionState` values after the artifact discriminant; otherwise return unavailable. Do not add event mutations, controller methods, bridge calls, Core types, sessions, or reconciliation.
+Recognize only the existing `working | candidate | approved | rejected | superseded | archived` `ArtifactRevisionState` values after the artifact discriminant; otherwise return unavailable. Update the owner-exported Media state descriptor and its derived production scenarios. Do not add event mutations, controller methods, bridge calls, Core types, sessions, or reconciliation.
 
 - [ ] **Step 4: Run GREEN and architecture gate**
 
@@ -833,67 +877,70 @@ Expected: PASS. Reviewer confirms Media review production path is read-only and 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/project/media-review-presentation.ts src/screens/project/MediaReviewConsole.tsx src/screens/project/MediaPanel.tsx src/styles/work-surfaces.css tests/project-media-review-presentation.test.tsx tests/project-screen-behavior.test.tsx
+git add src/screens/project/media-review-presentation.ts src/screens/project/MediaReviewConsole.tsx src/screens/project/MediaPanel.tsx src/instrument/production-screen-states.ts src/instrument/scenarios.ts src/styles/work-surfaces.css tests/project-media-review-presentation.test.tsx tests/project-screen-behavior.test.tsx
 gitleaks protect --staged --redact
 git commit -m "feat: present read-only media review status"
 ```
 
-### Task 14: Add the renderer-only UX test review session and safe shortcuts
+### Task 14: Add the single renderer-only UX test review module
 
 **Files:**
-- Create: `src/screens/project/mock-review-session.ts`
-- Create: `src/screens/project/review-shortcuts.ts`
+- Create: `src/screens/project/mock-review.ts`
 - Modify: `src/screens/project/MediaReviewConsole.tsx`
 - Modify: `src/screens/project/MediaPanel.tsx`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Modify: `src/styles/work-surfaces.css`
-- Test: `tests/mock-review-session.test.ts`
-- Test: `tests/media-review-shortcuts.test.tsx`
+- Test: `tests/mock-review.test.ts`
+- Test: `tests/mock-review-ui.test.tsx`
 - Test: `tests/project-media-review-presentation.test.tsx`
 
-**Interfaces:** Consumes locked mock review interfaces and exact mock gate. Produces local reducer, Needs Work dialog, and `isReviewShortcutEligible(event, uiState)`.
+**Interfaces:** Consumes locked mock review interfaces and exact mock gate. The one dynamically imported `mock-review.ts` produces session creation/reducer and `isReviewShortcutEligible`; no second mock-policy module exists. Needs Work renders through `InstrumentOverlay id="mock-needs-work"`.
 
 - [ ] **Step 1: Write reducer/feedback/gating/reset tests**
 
 ```ts
 expect(reduceMockReviewSession(initial, { type: "approve", artifactId: "art_1" }).reviews.art_1.verdict).toBe("approved");
 expect(() => reduceMockReviewSession(emptyFeedback, { type: "submit-needs-work" })).toThrow(/Feedback is required/);
-expect(resetAfterWorkspaceChange.reviews).toEqual({});
-expect(isReviewShortcutEligible(keyEvent("a"), { mockSession: true, selected: true, overlayOpen: false })).toBe(true);
-expect(isReviewShortcutEligible(keyEvent("a", { target: button }), safeState)).toBe(false);
+const switched = reduceMockReviewSession(reviewedProjectA, { type: "reset-context", context: { rootEpoch: 7, workspaceId: "ux", projectId: "project-b" } });
+expect(switched).toMatchObject({ reviews: {}, needsWorkDraft: null, iteration: null, context: { rootEpoch: 7, workspaceId: "ux", projectId: "project-b" } });
+expect(isReviewShortcutEligible(keyEvent("a"), { context: switched.context, selected: true, overlayOpen: false, iterationActive: false })).toBe(false);
+expect(isReviewShortcutEligible(keyEvent("a", { target: button }), activeProjectState)).toBe(false);
 ```
 
-Cover input/textarea/select/contenteditable/link/button/role controls, modal/menu/viewer, modifiers, `isComposing`, repeat, no selection, non-UX, false string, inactive iteration, Escape/focus return.
+Cover root-epoch change, workspace change, same-workspace project change, input/textarea/select/contenteditable/link/button/role controls, modal/menu/viewer, modifiers, `isComposing`, repeat, no selection, non-UX, false string, inactive iteration, Escape/focus return. Explicitly prove the project switch clears reviews, feedback draft, active iteration, selected artifact, and shortcut scope before the new fixture initializes.
 
 - [ ] **Step 2: Run RED**
 
-Run: `VITE_RALPHY_ENABLE_MOCKS=true bun run test -- tests/mock-review-session.test.ts tests/media-review-shortcuts.test.tsx tests/project-media-review-presentation.test.tsx`
+Run: `VITE_RALPHY_ENABLE_MOCKS=true bun run test -- tests/mock-review.test.ts tests/mock-review-ui.test.tsx tests/project-media-review-presentation.test.tsx`
 
-Expected: FAIL because no isolated test review reducer/dialog/shortcut policy exists.
+Expected: FAIL because no single isolated review module or tuple-fenced reducer/dialog/shortcut policy exists.
 
 - [ ] **Step 3: Implement renderer-local session**
 
 ```ts
 if (import.meta.env.VITE_RALPHY_ENABLE_MOCKS === "true" && workspace.name === "UX Testing Lab") {
-  const { createMockReviewSession } = await import("./mock-review-session");
-  setMockSession(createMockReviewSession(rootEpoch, workspace.id, project?.projectId ?? null));
+  const mockReview = await import("./mock-review");
+  setMockModule(mockReview);
+  setMockSession(mockReview.createMockReviewSession({ rootEpoch, workspaceId: workspace.id, projectId: project?.projectId ?? null }));
 }
 ```
 
-Render `TEST REVIEW SESSION · NOT SAVED`; Approve/Reject record local verdict, Needs Work opens labelled dialog and requires trimmed feedback plus active fixture iteration. Keep state in component/reducer memory only; reset on root/workspace. Global shortcuts run only from the explicit non-interactive review shortcut region and call no controller/bridge.
+Render `TEST REVIEW SESSION · NOT SAVED`; Approve/Reject record local verdict, Needs Work uses `InstrumentOverlay id="mock-needs-work"` and requires trimmed feedback plus active fixture iteration. Keep reducer and shortcut policy in this one dynamically imported module and state in component memory only. Compare the full context tuple on every render/selection transition; reset reviews/draft/iteration/selected shortcut scope before loading the new tuple's fixture. Global shortcuts run only from the explicit non-interactive review shortcut region and call no controller/bridge.
 
 - [ ] **Step 4: Run GREEN, production exclusion, and review**
 
-Run: `VITE_RALPHY_ENABLE_MOCKS=true bun run test -- tests/mock-review-session.test.ts tests/media-review-shortcuts.test.tsx tests/project-media-review-presentation.test.tsx && VITE_RALPHY_ENABLE_MOCKS=false bun run build:renderer && ! rg -a 'TEST REVIEW SESSION|mock-review-session|mock-iteration-1' dist && git diff --check`
+Run: `VITE_RALPHY_ENABLE_MOCKS=true bun run test -- tests/mock-review.test.ts tests/mock-review-ui.test.tsx tests/project-media-review-presentation.test.tsx && VITE_RALPHY_ENABLE_MOCKS=false bun run build:renderer && ! rg -a 'mock-review|TEST REVIEW SESSION · NOT SAVED|ux-review-artifact-1|ux-review-iteration-3|mock-needs-work-fixture' dist && git diff --check`
 
-Expected: PASS and false build contains no test-review strings/chunk. Reviewer verifies label, feedback/iteration semantics, reset, focus, and zero IPC/storage/files.
+Expected: PASS and false build contains none of the complete module-path/fixture-marker allowlist. Reviewer verifies the same-workspace project reset, label, feedback/iteration semantics, focus, and zero IPC/storage/files.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/project/mock-review-session.ts src/screens/project/review-shortcuts.ts src/screens/project/MediaReviewConsole.tsx src/screens/project/MediaPanel.tsx src/instrument/test-fixtures.ts src/styles/work-surfaces.css tests/mock-review-session.test.ts tests/media-review-shortcuts.test.tsx tests/project-media-review-presentation.test.tsx
+git add src/screens/project/mock-review.ts src/screens/project/MediaReviewConsole.tsx src/screens/project/MediaPanel.tsx src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts src/styles/work-surfaces.css tests/mock-review.test.ts tests/mock-review-ui.test.tsx tests/project-media-review-presentation.test.tsx
 gitleaks protect --staged --redact
-git commit -m "test: add local media review session"
+git commit -m "test: add tuple-fenced mock review"
 ```
 
 ### Task 15: Rebuild high-fidelity Media grid, viewer, and external virtualization
@@ -907,11 +954,13 @@ git commit -m "test: add local media review session"
 - Modify: `src/components/media/AudioWaveform.tsx`
 - Modify: `src/styles/work-surfaces.css`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/project-media-presentation.test.tsx`
 - Test: `tests/media-grid.test.ts`
 - Test: `tests/media-viewer.test.tsx`
 
-**Interfaces:** Consumes shell scroll context, read-only/mock console, current paging/preview/viewer/generation/revision behavior. Produces 3a/3b geometry markers and external-scroll virtualizer.
+**Interfaces:** Consumes shell scroll context, read-only/mock console, current paging/preview/viewer/generation/revision behavior. Produces 3a/3b geometry markers, external-scroll virtualizer, and registered `media-viewer`/`media-context-menu` overlays.
 
 - [ ] **Step 1: Write geometry/virtualizer/viewer interaction tests**
 
@@ -938,7 +987,7 @@ const scroll = useInstrumentScroll();
 const virtualizer = useVirtualizer({ count: cards.length, getScrollElement: () => scroll.element, estimateSize });
 ```
 
-At 1440: 38px filter row, four masonry lanes/10px gaps, `#060606` media frames, captions outside, 3px selection ring/`IN CONSOLE`, 292px rail stack, dock clear. Use container thresholds for 1280/1100 and overlay rail. Preserve preview cache/scheduler, URL guards, media lifecycle, and actual callbacks.
+At 1440: 38px filter row, four masonry lanes/10px gaps, media frames use the named palette token, captions outside, 3px selection ring/`IN CONSOLE`, 292px rail stack, dock clear. Use container thresholds for 1280/1100 and overlay rail. Render viewer/context menu through their registered `InstrumentOverlay` IDs. Preserve preview cache/scheduler, URL guards, media lifecycle, and actual callbacks.
 
 - [ ] **Step 4: Run GREEN and Media reviewer gate**
 
@@ -949,7 +998,7 @@ Expected: PASS. Reviewer records bounding boxes at all viewports and validates s
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/project/MediaPanel.tsx src/screens/project/MediaViewer.tsx src/components/VirtualAssetGrid.tsx src/components/media/ImageViewport.tsx src/components/media/VideoPlayer.tsx src/components/media/AudioWaveform.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/project-media-presentation.test.tsx tests/media-grid.test.ts tests/media-viewer.test.tsx
+git add src/screens/project/MediaPanel.tsx src/screens/project/MediaViewer.tsx src/components/VirtualAssetGrid.tsx src/components/media/ImageViewport.tsx src/components/media/VideoPlayer.tsx src/components/media/AudioWaveform.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts tests/project-media-presentation.test.tsx tests/media-grid.test.ts tests/media-viewer.test.tsx
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild project media presentation"
 ```
@@ -961,6 +1010,8 @@ git commit -m "feat: rebuild project media presentation"
 - Modify: `src/screens/project/CompositionsPanel.tsx`
 - Modify: `src/styles/work-surfaces.css`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/units-panel.test.tsx`
 - Test: `tests/composition-view.test.tsx`
 
@@ -999,7 +1050,7 @@ Expected: PASS; reviewer checks all collection states and no fake counts/actions
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/project/UnitsPanel.tsx src/screens/project/CompositionsPanel.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/units-panel.test.tsx tests/composition-view.test.tsx
+git add src/screens/project/UnitsPanel.tsx src/screens/project/CompositionsPanel.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts tests/units-panel.test.tsx tests/composition-view.test.tsx
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild project unit collection"
 ```
@@ -1013,11 +1064,13 @@ git commit -m "feat: rebuild project unit collection"
 - Modify: `src/components/ui/IPhoneMockup.tsx`
 - Modify: `src/styles/work-surfaces.css`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/unit-previews.test.ts`
 - Test: `tests/unit-lifecycle.test.ts`
 - Test: `tests/units-panel.test.tsx`
 
-**Interfaces:** Consumes existing unit detail/revisions/presentations/preview/playback contracts. Produces focus-managed Unit viewer states.
+**Interfaces:** Consumes existing unit detail/revisions/presentations/preview/playback contracts. Produces focus-managed owner states and `unit-viewer` through `InstrumentOverlay`.
 
 - [ ] **Step 1: Write revision/presentation/playback tests**
 
@@ -1039,7 +1092,7 @@ Expected: FAIL on Instrument viewer hierarchy/focus and playback parity.
 - [ ] **Step 3: Implement detail/viewer**
 
 ```tsx
-<Dialog.Content data-instrument-root="unit-viewer"><UnitRevisionPicker /><UnitPresentation /><UnitPreview /></Dialog.Content>
+<InstrumentOverlay id="unit-viewer" open={viewerOpen} label="Unit viewer" description="Inspect revisions and presentations" opener={unitOpener} onOpenChange={setViewerOpen}><UnitRevisionPicker /><UnitPresentation /><UnitPreview /></InstrumentOverlay>
 ```
 
 Preserve current DTO truth, sealed/draft/build/evaluation states, media guards, preview aspect ratios, audio safety, and opener restoration.
@@ -1053,7 +1106,7 @@ Expected: PASS; reviewer drives every registered Unit overlay/state at three wid
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/project/UnitViewer.tsx src/screens/project/UnitSocialPreview.tsx src/screens/project/ArtifactPreview.tsx src/components/ui/IPhoneMockup.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/unit-previews.test.ts tests/unit-lifecycle.test.ts tests/units-panel.test.tsx
+git add src/screens/project/UnitViewer.tsx src/screens/project/UnitSocialPreview.tsx src/screens/project/ArtifactPreview.tsx src/components/ui/IPhoneMockup.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts tests/unit-previews.test.ts tests/unit-lifecycle.test.ts tests/units-panel.test.tsx
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild unit detail and playback"
 ```
@@ -1065,6 +1118,8 @@ git commit -m "feat: rebuild unit detail and playback"
 - Create: `src/screens/project/ActivityVirtualList.tsx`
 - Modify: `src/styles/work-surfaces.css`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/activity-timeline.test.tsx`
 - Test: `tests/activity-sync.test.ts`
 
@@ -1104,7 +1159,7 @@ Expected: PASS; reviewer checks all list states, catch-up, and restoration witho
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/project/ActivityTimeline.tsx src/screens/project/ActivityVirtualList.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/activity-timeline.test.tsx tests/activity-sync.test.ts
+git add src/screens/project/ActivityTimeline.tsx src/screens/project/ActivityVirtualList.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts tests/activity-timeline.test.tsx tests/activity-sync.test.ts
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild activity timeline"
 ```
@@ -1116,10 +1171,12 @@ git commit -m "feat: rebuild activity timeline"
 - Modify: `src/screens/project/ActivityInspector.tsx`
 - Modify: `src/styles/work-surfaces.css`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/activity-timeline.test.tsx`
 - Test: `tests/project-screen.test.tsx`
 
-**Interfaces:** Consumes selected run/attempt details. Produces rail-owned inspector in docked/overlay modes.
+**Interfaces:** Consumes selected run/attempt details. Produces `run-inspector` through the shared registered rail/overlay modes.
 
 - [ ] **Step 1: Write inspector rail/focus/unavailable tests**
 
@@ -1154,7 +1211,7 @@ Expected: PASS; reviewer checks docked/overlay/unavailable/error and selection r
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/project/ActivityTimeline.tsx src/screens/project/ActivityInspector.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts tests/activity-timeline.test.tsx tests/project-screen.test.tsx
+git add src/screens/project/ActivityTimeline.tsx src/screens/project/ActivityInspector.tsx src/styles/work-surfaces.css src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts tests/activity-timeline.test.tsx tests/project-screen.test.tsx
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild activity inspection"
 ```
@@ -1162,8 +1219,9 @@ git commit -m "feat: rebuild activity inspection"
 ### Task 20: Close the rendered Work route/state/overlay matrix
 
 **Files:**
-- Modify: `src/instrument/scenarios.ts`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/work-scenario-completeness.test.tsx`
 - Test: `tests/instrument-scroll-owners.test.tsx`
 - Test: `tests/instrument-accessibility-journeys.test.tsx`
@@ -1178,9 +1236,13 @@ for (const scenario of workScenarios()) {
   expect(view.container.querySelector(`[data-instrument-root="${scenario.rootMarker}"]`)).not.toBeNull();
   expectVisibleLandmarks(view, scenario.landmarks);
   expectRailOwner(view, scenario.railOwner);
+  expectRailModeByViewport(scenario.expectedRailMode);
+  expectPanelSetupByViewport(scenario.panelSetup);
   expectScrollOwner(view, scenario.scrollOwner);
 }
-expect(missingRegisteredOverlays()).toEqual([]);
+expect(workScenarioRouteStatePairs()).toEqual(productionWorkRouteStatePairs());
+expect(workScenarioOverlayIds()).toEqual(productionWorkOverlayIds());
+expect(unregisteredRawWorkOverlays()).toEqual([]);
 ```
 
 Run keyboard, reduced-motion, and live-region journeys named by each scenario, including all dialogs/sheets/viewers/context menus and focus return.
@@ -1197,18 +1259,18 @@ Expected: FAIL with exact missing route/state/overlay IDs or interaction journey
 export const WORK_SCENARIO_IDS = INSTRUMENT_SCENARIOS.filter(({ routeKey }) => routeKey.startsWith("startup.") || routeKey.startsWith("workspace.") || routeKey.startsWith("project.") || routeKey.startsWith("settings."));
 ```
 
-Add only missing deterministic payloads/landmarks/markers; do not weaken expectations. Ensure modal-local scrollers are explicitly marked and all route virtualizers use the desk owner.
+Add only missing deterministic payloads/landmarks/markers; do not weaken expectations. Import owner descriptors and overlay keys rather than adding parallel unions. Ensure every Work overlay renders through `InstrumentOverlay`, modal-local scrollers are explicitly marked, and all route virtualizers use the desk owner.
 
 - [ ] **Step 4: Run GREEN and final Work review**
 
-Run: `bun run test -- tests/work-scenario-completeness.test.tsx tests/instrument-scroll-owners.test.tsx tests/instrument-accessibility-journeys.test.tsx tests/project-media-presentation.test.tsx tests/mock-review-session.test.ts && bun run typecheck && VITE_RALPHY_ENABLE_MOCKS=false bun run build && ! rg -a 'TEST REVIEW SESSION|mock-review-session|instrument-test-fixture' dist && git diff --check`
+Run: `bun run test -- tests/work-scenario-completeness.test.tsx tests/instrument-scroll-owners.test.tsx tests/instrument-accessibility-journeys.test.tsx tests/project-media-presentation.test.tsx tests/mock-review.test.ts && bun run typecheck && VITE_RALPHY_ENABLE_MOCKS=false bun run build && ! rg -a 'mock-review|TEST REVIEW SESSION · NOT SAVED|ux-review-artifact-1|ux-review-iteration-3|mock-needs-work-fixture|instrument-test-fixture' dist && git diff --check`
 
 Expected: PASS; production excludes fixtures; independent reviewer signs every Work scenario and explicitly confirms no `media.review`/session/Core/DB change.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/instrument/scenarios.ts src/instrument/test-fixtures.ts tests/work-scenario-completeness.test.tsx tests/instrument-scroll-owners.test.tsx tests/instrument-accessibility-journeys.test.tsx
+git add src/instrument/production-screen-states.ts src/instrument/scenarios.ts src/instrument/test-fixtures.ts tests/work-scenario-completeness.test.tsx tests/instrument-scroll-owners.test.tsx tests/instrument-accessibility-journeys.test.tsx
 gitleaks protect --staged --redact
 git commit -m "test: close work scenario coverage"
 ```

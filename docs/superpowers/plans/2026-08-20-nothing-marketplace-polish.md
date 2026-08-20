@@ -18,9 +18,12 @@
 - Do not add/reconcile Core methods, consumer sessions, `media.review`, IPC, database/schema access, renderer network/filesystem access, remote runtime/assets/fonts, or packages.
 - Marketplace counts/actions are truthful: Models and schema-1 Templates/Recipes are real; unsupported Prompts/Components/Skills/Saved/Added/Downloads/Updates/Attention/Forks stay explicit and disabled.
 - Scenario fixture and mock review/Island code loads only under `import.meta.env.VITE_RALPHY_ENABLE_MOCKS === "true"` and exact UX Testing Lab; production chunks contain neither fixture IDs nor mock module paths.
-- Source audit covers reachable TS/TSX/CSS and authored SVG, exact root markers, primitive usage, selector-aware effects, complete named palette, baseline-hashed brand assets, and production dist.
+- Source audit covers reachable TS/TSX/CSS and authored SVG, exact production screen/overlay roots, primitive usage, selector-aware effects, complete named palette, baseline-hashed brand assets, and production dist. Color literals are legal only in `palette.ts` and the verified definition block of `tokens.css`; xterm/WaveSurfer consume the palette.
+- Every canonical scenario expands to the exact forced light/dark × 1440/1280/1100 case set unless a typed approved exception names each omitted pair; shell panel permutations remain a separate exact matrix.
 - Every Electron process uses an explicit temporary `--user-data-dir`; every launch is individually wrapped by the Plan 1 DB/WAL fingerprint utility, with SHM recorded separately.
 - Packaging input is exactly `/Users/maximovchinnikov/github/ralphy/ralphy-desktop/release/Ralphy Media.app/Contents/Resources/bin/ralphy`, version `0.3.0`, fixed SHA-256 `a843e2805b4b0a49d02f7afe46cdd5693d81184c14d560af836be93283d85679`. Reject mismatch before output replacement.
+- Build and independently verify the deterministic mock package before every audit task that consumes it; an intervening bundle-affecting commit invalidates the prior package.
+- Evidence records use the locked typed schema below; every child has one launch-ledger entry and DB/WAL record plus separate SHM observation.
 - Evidence is written only under ignored `.superpowers/sdd/nothing-instrument/runs/<run-id>/`; mock/production names never collide and the final command prints the absolute HTML report.
 - Every task follows behavior-first RED/GREEN, independent review, `git diff --check`, exact staging, staged gitleaks, and a commit.
 
@@ -38,6 +41,9 @@ export type Availability<T> =
   | { status: "unavailable"; reason: string }
   | { status: "error"; reason: string };
 export function InstrumentRightRailPortal(props: { owner: InstrumentRightRailOwner; label: string; children: React.ReactNode }): React.ReactPortal | null;
+export type InstrumentOverlayId = keyof typeof INSTRUMENT_OVERLAYS;
+export function InstrumentOverlay<Id extends InstrumentOverlayId>(props: { id: Id; open: boolean; label: string; description: string; opener: HTMLElement | null; onOpenChange(open: boolean): void; children: React.ReactNode; localScroll?: boolean }): React.ReactPortal | null;
+export const PRODUCTION_SCREEN_STATES: readonly InstrumentScreenStateDescriptor[];
 export const INSTRUMENT_SCENARIOS: readonly InstrumentScenario[];
 export function assertInstrumentScenarioCompleteness(): void;
 ```
@@ -45,7 +51,7 @@ export function assertInstrumentScenarioCompleteness(): void;
 ## Evidence Interfaces
 
 ```ts
-// scripts/instrument-evidence.mjs
+// scripts/instrument-evidence.d.ts (runtime validation lives in instrument-evidence.mjs)
 export interface InstrumentEvidenceRecord {
   scenarioId: string;
   mode: "mock" | "production";
@@ -55,15 +61,34 @@ export interface InstrumentEvidenceRecord {
   nativeBounds: { x: number; y: number; width: number; height: number };
   contentBounds: { width: number; height: number; deviceScaleFactor: number; topInset: number };
   landmarks: Record<string, { x: number; y: number; width: number; height: number }>;
+  measurements: Record<string, { value: number; unit: "css-px" | "device-px" | "ratio" | "ms"; expected: number | null; tolerance: number | null }>;
   checks: Record<string, "pass" | "fail">;
-  screenshot: string;
-  reference: string | null;
-  diff: string | null;
+  artifacts: { screenshot: string; reference: string | null; diff: string | null; accessibility: string | null; logs: readonly string[] };
+  accessibilityJourney: { id: string; steps: readonly string[]; focusOrder: readonly string[]; liveRegionEvents: readonly string[]; reducedMotion: boolean } | null;
+  pixelDiff: {
+    version: 1;
+    rendererCrop: { x: number; y: number; width: number; height: number };
+    mediaContentMask: readonly { id: string; x: number; y: number; width: number; height: number }[];
+    a11yDeviationMask: { version: "readable-text-v1"; regions: readonly { selector: string; x: number; y: number; width: number; height: number; fromToken: string; toToken: string }[]; pixelCount: number };
+    metrics: { outsideUnionOver16: number; mediaContentPixels: number; mediaContentOver24: number; mediaContentOver24Ratio: number; maxGeometryDeltaCssPx: number };
+    thresholds: { outsideUnionOver16: 0; mediaContentOver24Ratio: 0.005; maxGeometryDeltaCssPx: 1 };
+  } | null;
+  launch: { label: string; ledgerId: string; exitCode: number | null; signal: string | null };
+  dbRecord: string;
   failures: string[];
-  reviewer: { product: string | null; accessibility: string | null; security: string | null };
+  reviewer: { product: string | null; accessibility: string | null; security: string | null; regression: string | null };
+}
+export interface InstrumentLaunchLedgerEntry {
+  id: string;
+  label: string;
+  kind: "electron" | "reference-browser";
+  scenarioEvidenceKey: string | null;
+  dbRecord: string;
+  database: { main: "verified-unchanged"; wal: "verified-unchanged"; shm: "recorded-separately" };
+  child: { exitCode: number | null; signal: string | null };
 }
 export interface InstrumentEvidenceManifest {
-  schemaVersion: 1;
+  schemaVersion: 2;
   runId: string;
   appCommit: string;
   appBundleSha256: string;
@@ -71,6 +96,7 @@ export interface InstrumentEvidenceManifest {
   coreSha256: "a843e2805b4b0a49d02f7afe46cdd5693d81184c14d560af836be93283d85679";
   referenceArchiveSha256: "fe371e93e3d778bbd9d7e5621d200ff4298e386edbbc20d3e971941c004c0804";
   startedAt: string;
+  launches: InstrumentLaunchLedgerEntry[];
   records: InstrumentEvidenceRecord[];
 }
 ```
@@ -79,7 +105,7 @@ export interface InstrumentEvidenceManifest {
 
 - `src/screens/marketplace/*` — Marketplace route presentation only.
 - `scripts/audit-instrument-source.mjs` — production reachability/root/selector/palette/asset guard.
-- `scripts/instrument-evidence.mjs`, `render-instrument-report.mjs` — versioned manifest and HTML/contact sheet.
+- `scripts/instrument-evidence.d.ts`, `instrument-evidence.mjs`, `render-instrument-report.mjs` — typed versioned manifest, runtime validation, and HTML/contact sheet.
 - `scripts/audit-instrument-electron.mjs` — per-scenario Bun/CDP runner.
 - `scripts/audit-instrument-accessibility.mjs` — keyboard/reduced-motion/live-region journeys.
 - `scripts/audit-media-fidelity.mjs` — reference/actual/ffmpeg diff and tolerance.
@@ -95,6 +121,8 @@ export interface InstrumentEvidenceManifest {
 - Modify: `src/state/marketplace-controller.ts`
 - Modify: `src/styles/marketplace.css`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/marketplace-screen.test.tsx`
 - Test: `tests/marketplace-controller.test.ts`
 - Test: `tests/marketplace-navigation.test.tsx`
@@ -136,7 +164,7 @@ Expected: PASS; reviewer drives every browse state/route and focus/scroll round 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/marketplace/MarketplaceHeader.tsx src/screens/marketplace/MarketplaceBrowse.tsx src/screens/MarketplaceScreen.tsx src/state/marketplace-controller.ts src/styles/marketplace.css src/instrument/test-fixtures.ts tests/marketplace-screen.test.tsx tests/marketplace-controller.test.ts tests/marketplace-navigation.test.tsx
+git add src/screens/marketplace/MarketplaceHeader.tsx src/screens/marketplace/MarketplaceBrowse.tsx src/screens/MarketplaceScreen.tsx src/state/marketplace-controller.ts src/styles/marketplace.css src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts tests/marketplace-screen.test.tsx tests/marketplace-controller.test.ts tests/marketplace-navigation.test.tsx
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild marketplace browse"
 ```
@@ -148,6 +176,8 @@ git commit -m "feat: rebuild marketplace browse"
 - Modify: `src/screens/MarketplaceScreen.tsx`
 - Modify: `src/styles/marketplace.css`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/marketplace-models.test.tsx`
 - Test: `tests/marketplace-controller.test.ts`
 
@@ -186,7 +216,7 @@ Expected: PASS; reviewer checks all inventories, compatibility truth, detail foc
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/marketplace/MarketplaceModelViews.tsx src/screens/MarketplaceScreen.tsx src/styles/marketplace.css src/instrument/test-fixtures.ts tests/marketplace-models.test.tsx tests/marketplace-controller.test.ts
+git add src/screens/marketplace/MarketplaceModelViews.tsx src/screens/MarketplaceScreen.tsx src/styles/marketplace.css src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts tests/marketplace-models.test.tsx tests/marketplace-controller.test.ts
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild marketplace models"
 ```
@@ -198,10 +228,12 @@ git commit -m "feat: rebuild marketplace models"
 - Modify: `src/screens/MarketplaceScreen.tsx`
 - Modify: `src/styles/marketplace.css`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/marketplace-public-details.test.tsx`
 - Test: `tests/marketplace-media.test.tsx`
 
-**Interfaces:** Consumes validated schema-1 DTOs, controlled CDN media, sanitized prose, bounded recipe clipboard. Produces Template/Recipe detail/missing/failure/inert scenarios.
+**Interfaces:** Consumes validated schema-1 DTOs, controlled CDN media, sanitized prose, bounded recipe clipboard. Produces owner-registered Template/Recipe detail/missing/failure/inert states and `marketplace-detail` through `InstrumentOverlay`.
 
 - [ ] **Step 1: Write media/clipboard/back-focus tests**
 
@@ -223,7 +255,7 @@ Expected: FAIL on Instrument detail overlay/media failures/focus behavior.
 - [ ] **Step 3: Implement controlled details**
 
 ```tsx
-<article data-instrument-root="marketplace-public-detail"><SafePublicMedia media={item.media} /><SanitizedDetail body={item.description} /></article>
+<InstrumentOverlay id="marketplace-detail" open={open} label={item.title} description="Marketplace item detail" opener={sourceCard} onOpenChange={onOpenChange}><SafePublicMedia media={item.media} /><SanitizedDetail body={item.description} /></InstrumentOverlay>
 ```
 
 Preserve Template/Recipe identity including prompt-shaped Recipe, URL/origin/media controls, no remote HTML/style/script, bounded clipboard, failure fallbacks, and late-status suppression.
@@ -237,7 +269,7 @@ Expected: PASS; reviewer checks media lifecycle, sanitized content, clipboard bo
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/marketplace/MarketplacePublicItemDetail.tsx src/screens/MarketplaceScreen.tsx src/styles/marketplace.css src/instrument/test-fixtures.ts tests/marketplace-public-details.test.tsx tests/marketplace-media.test.tsx
+git add src/screens/marketplace/MarketplacePublicItemDetail.tsx src/screens/MarketplaceScreen.tsx src/styles/marketplace.css src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts tests/marketplace-public-details.test.tsx tests/marketplace-media.test.tsx
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild marketplace public details"
 ```
@@ -250,6 +282,8 @@ git commit -m "feat: rebuild marketplace public details"
 - Modify: `src/screens/MarketplaceScreen.tsx`
 - Modify: `src/styles/marketplace.css`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/marketplace-library.test.tsx`
 - Test: `tests/marketplace-navigation.test.tsx`
 
@@ -291,7 +325,7 @@ Expected: PASS; reviewer confirms every unsupported route is reachable, honest, 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/marketplace/MarketplaceUnavailableViews.tsx src/screens/marketplace/MarketplaceMyLibrary.tsx src/screens/MarketplaceScreen.tsx src/styles/marketplace.css src/instrument/test-fixtures.ts tests/marketplace-library.test.tsx tests/marketplace-navigation.test.tsx
+git add src/screens/marketplace/MarketplaceUnavailableViews.tsx src/screens/marketplace/MarketplaceMyLibrary.tsx src/screens/MarketplaceScreen.tsx src/styles/marketplace.css src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts tests/marketplace-library.test.tsx tests/marketplace-navigation.test.tsx
 gitleaks protect --staged --redact
 git commit -m "feat: complete marketplace capability states"
 ```
@@ -303,9 +337,11 @@ git commit -m "feat: complete marketplace capability states"
 - Modify: `src/screens/MarketplaceScreen.tsx`
 - Modify: `src/styles/marketplace.css`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/marketplace-workflows.test.tsx`
 
-**Interfaces:** Consumes current catalog target chooser and non-mutating review state. Produces exact target IDs and registered target/review overlays.
+**Interfaces:** Consumes current catalog target chooser and non-mutating review state. Produces exact target IDs and `target-chooser` through `InstrumentOverlay`.
 
 - [ ] **Step 1: Write target/focus/no-mutation tests**
 
@@ -334,7 +370,7 @@ const targets = [
 ];
 ```
 
-Use real catalog entries, explicit review-only copy, focus trap/return, busy/error semantics, and no mutation/IPC.
+Render the chooser with `InstrumentOverlay id="target-chooser"`. Use real catalog entries, explicit review-only copy, focus trap/return, busy/error semantics, and no mutation/IPC.
 
 - [ ] **Step 4: Run GREEN and review**
 
@@ -345,7 +381,7 @@ Expected: PASS; reviewer confirms exact IDs and zero mutation path.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/screens/marketplace/MarketplaceWorkflows.tsx src/screens/MarketplaceScreen.tsx src/styles/marketplace.css src/instrument/test-fixtures.ts tests/marketplace-workflows.test.tsx
+git add src/screens/marketplace/MarketplaceWorkflows.tsx src/screens/MarketplaceScreen.tsx src/styles/marketplace.css src/instrument/test-fixtures.ts src/instrument/production-screen-states.ts src/instrument/scenarios.ts tests/marketplace-workflows.test.tsx
 gitleaks protect --staged --redact
 git commit -m "feat: rebuild marketplace workflows"
 ```
@@ -353,12 +389,13 @@ git commit -m "feat: rebuild marketplace workflows"
 ### Task 6: Close the rendered Marketplace scenario matrix
 
 **Files:**
-- Modify: `src/instrument/scenarios.ts`
 - Modify: `src/instrument/test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
+- Modify: `src/instrument/scenarios.ts`
 - Test: `tests/marketplace-scenario-completeness.test.tsx`
 - Test: `tests/instrument-accessibility-journeys.test.tsx`
 
-**Interfaces:** Consumes all Marketplace routes/categories/library sections/overlays. Produces complete rendered Marketplace scenarios.
+**Interfaces:** Consumes all Marketplace owner state descriptors plus production overlay keys. Produces bidirectionally complete rendered Marketplace scenarios.
 
 - [ ] **Step 1: Write exhaustive rendered checks**
 
@@ -370,6 +407,9 @@ for (const scenario of marketplaceScenarios()) {
   expectFocusContract(view, scenario);
 }
 expect(missingMarketplaceRouteStatePairs()).toEqual([]);
+expect(extraMarketplaceRouteStatePairs()).toEqual([]);
+expect(marketplaceScenarioOverlayIds()).toEqual(productionMarketplaceOverlayIds());
+expect(unregisteredRawMarketplaceOverlays()).toEqual([]);
 ```
 
 - [ ] **Step 2: Run RED**
@@ -395,7 +435,7 @@ Expected: PASS; reviewer signs every Marketplace scenario before legacy deletion
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/instrument/scenarios.ts src/instrument/test-fixtures.ts tests/marketplace-scenario-completeness.test.tsx tests/instrument-accessibility-journeys.test.tsx
+git add src/instrument/production-screen-states.ts src/instrument/scenarios.ts src/instrument/test-fixtures.ts tests/marketplace-scenario-completeness.test.tsx tests/instrument-accessibility-journeys.test.tsx
 gitleaks protect --staged --redact
 git commit -m "test: close marketplace scenario coverage"
 ```
@@ -416,15 +456,18 @@ git commit -m "test: close marketplace scenario coverage"
 - Test: `tests/instrument-design-guards.test.ts`
 - Test: `tests/design-system.test.ts`
 
-**Interfaces:** Produces `auditInstrumentSource({ root, mocks }): { files: string[]; violations: AuditViolation[] }` and `bun run audit:instrument:source`.
+**Interfaces:** Produces `auditInstrumentSource({ root, mocks }): { files: string[]; violations: AuditViolation[] }`, `unregisteredRawOverlaySites(files)`, `cssTokenDefinitions(path)`, `flattenPalette(palette)`, `colorLiteralSites()`, and `bun run audit:instrument:source`.
 
 - [ ] **Step 1: Write failing reachable-source/root/selector tests**
 
 ```ts
 expect(auditInstrumentSource({ root, mocks: false }).violations).toEqual([]);
 expect(missingInstrumentRootMarkers(INSTRUMENT_SCENARIOS)).toEqual([]);
-expect(productionDistText).not.toMatch(/instrument-test-fixture|mock-review-session|ux-mock-render-1/);
+expect(unregisteredRawOverlaySites(reachableProductionFiles)).toEqual([]);
+expect(productionDistText).not.toMatch(/instrument-test-fixture|mock-review|TEST REVIEW SESSION · NOT SAVED|ux-review-artifact-1|ux-review-iteration-3|mock-needs-work-fixture|ux-mock-render-1/);
 expect(authoredColorsOutside(INSTRUMENT_COLOR_ALLOWLIST)).toEqual([]);
+expect(cssTokenDefinitions("src/styles/tokens.css")).toEqual(flattenPalette(INSTRUMENT_PALETTE));
+expect(colorLiteralSites()).toEqual(["src/instrument/palette.ts", "src/styles/tokens.css#instrument-token-definitions"]);
 ```
 
 - [ ] **Step 2: Run RED**
@@ -435,7 +478,7 @@ Expected: FAIL on legacy imports/files/classes, missing audit/root checks, legac
 
 - [ ] **Step 3: Implement recursive selector-aware audit and delete legacy**
 
-Follow static and `import()` relative edges from `src/main.tsx`; evaluate mock branch false and scan all reachable `.ts/.tsx/.css` plus authored `.svg`. Require the scenario's `data-instrument-root` and approved shared primitives for every route/portal. Reject legacy class prefixes/imports/assets, `box-shadow` other than none, backdrop/blur, gradients, old purple, dark-only form scheme; allow `color-scheme: dark` only on `html[data-theme="dark"]`. Permit CSS token references; direct literals only in `palette.ts`. Permit brand/provider/model SVG only when path and SHA match the baseline map; dither PNGs only when Plan 1 hashes match. Scan dist for prototype/support/remote font/sprite/mock paths.
+Follow static and `import()` relative edges from `src/main.tsx`; evaluate mock branch false and scan all reachable `.ts/.tsx/.css` plus authored `.svg`. Require every route root to consume its production state descriptor and every dialog/drawer/viewer/menu/sheet/popover to consume `InstrumentOverlay`; reject raw Radix/native overlay sites outside `overlay-registry.tsx`. Compare production route/state and overlay registration to scenarios in both directions. Reject legacy class prefixes/imports/assets, `box-shadow` other than none, backdrop/blur, gradients, old purple, dark-only form scheme; allow `color-scheme: dark` only on `html[data-theme="dark"]`. Parse literals in `palette.ts` and the exact `/* instrument-token-definitions:start */` block of `tokens.css`, require CSS-variable equality to the palette, and reject literals everywhere else, including terminal/WaveSurfer code. Permit brand/provider/model SVG only when path and SHA match the baseline map; dither PNGs only when Plan 1 hashes match. Scan dist against the complete mock module-path/fixture-marker set plus prototype/support/remote font/sprite paths.
 
 ```js
 if (property === "color-scheme" && value === "dark" && selector !== 'html[data-theme="dark"]') violations.push({ file, selector, property, value });
@@ -458,8 +501,10 @@ git commit -m "refactor: remove legacy desktop presentation"
 ### Task 8: Create the versioned evidence manifest and contact sheet
 
 **Files:**
+- Create: `scripts/instrument-evidence.d.ts`
 - Create: `scripts/instrument-evidence.mjs`
 - Create: `scripts/render-instrument-report.mjs`
+- Create: `tests/fixtures/instrument-evidence-valid.json`
 - Modify: `package.json`
 - Test: `tests/instrument-evidence.test.ts`
 
@@ -469,9 +514,15 @@ git commit -m "refactor: remove legacy desktop presentation"
 
 ```ts
 expect(validateManifest(validManifest)).toBeUndefined();
+expect(validManifest.schemaVersion).toBe(2);
+expect(validManifest.launches[0]).toMatchObject({ dbRecord: expect.stringMatching(/^db\//), database: { main: "verified-unchanged", wal: "verified-unchanged", shm: "recorded-separately" } });
+expect(validManifest.records[0]).toMatchObject({ measurements: expect.any(Object), artifacts: expect.any(Object), launch: expect.any(Object), dbRecord: expect.any(String), reviewer: { regression: expect.any(String) } });
 expect(() => appendRecord(manifest, duplicateModeScenarioViewport)).toThrow(/duplicate evidence key/i);
+expect(() => validateManifest(mediaRecordWithoutPixelDiff)).toThrow(/pixelDiff/i);
+expect(() => validateManifest(recordWithMissingArtifact)).toThrow(/artifact/i);
+expect(() => validateManifest(recordWithUnknownLaunch)).toThrow(/launch ledger/i);
 expect(evidenceFileName("mock", "media.ready", "dark", "1440x900")).toBe("mock__media.ready__dark__1440x900.png");
-expect(renderReport(validManifest)).toContain("reference / actual / diff");
+expect(renderReport(validManifest)).toMatch(/measurements.*pixel diff.*accessibility journey.*DB\/WAL\/SHM.*regression/is);
 ```
 
 - [ ] **Step 2: Run RED**
@@ -486,18 +537,18 @@ Expected: FAIL because manifest/report modules do not exist.
 export const evidenceKey = ({ mode, scenarioId, theme, viewport }) => [mode, scenarioId, theme, viewport].join("__");
 ```
 
-Create `.superpowers/sdd/nothing-instrument/runs/<UTC>-<commit>/` with `manifest.json`, `report.html`, `screenshots/`, `references/`, `diffs/`, `db/`, and `logs/`. Validate every field, use relative artifact links in HTML, render contact-sheet cards and reviewer signoff/failures, retain mock/production separately, and print the absolute report path.
+Create `.superpowers/sdd/nothing-instrument/runs/<UTC>-<commit>/` with `manifest.json`, `report.html`, `screenshots/`, `references/`, `diffs/`, `accessibility/`, `db/`, and `logs/`. Validate the exact schema including conditional Media/a11y fields, relative path existence, unique launch labels/IDs, every record-to-ledger/DB link, main/WAL/SHM status, child exit result, and all four reviewer roles. The HTML must display measurements, mask regions/pixel counts/thresholds, artifacts/logs, accessibility journey, launch/exit/DB evidence, failures, and product/accessibility/security/regression decisions. Retain mock/production separately and print the absolute report path.
 
 - [ ] **Step 4: Run GREEN and review**
 
 Run: `bun run test -- tests/instrument-evidence.test.ts && bun run report:instrument -- --fixture tests/fixtures/instrument-evidence-valid.json && git diff --check`
 
-Expected: PASS and prints an absolute ignored HTML path. Reviewer opens the report and traces every record to files and build identities.
+Expected: PASS and prints an absolute ignored HTML path. Reviewer opens the report and traces every required field, artifact, launch, and DB/SHM record from the rendered HTML.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add scripts/instrument-evidence.mjs scripts/render-instrument-report.mjs package.json tests/instrument-evidence.test.ts
+git add scripts/instrument-evidence.d.ts scripts/instrument-evidence.mjs scripts/render-instrument-report.mjs tests/fixtures/instrument-evidence-valid.json package.json tests/instrument-evidence.test.ts
 gitleaks protect --staged --redact
 git commit -m "test: create instrument evidence bundle"
 ```
@@ -511,7 +562,7 @@ git commit -m "test: create instrument evidence bundle"
 - Modify: `package.json`
 - Test: `tests/bundled-core.test.ts`
 
-**Interfaces:** Produces `APPROVED_CORE_SOURCE`, `APPROVED_CORE_VERSION`, `APPROVED_CORE_SHA256`, and `readApprovedCoreBytes()`.
+**Interfaces:** Produces `APPROVED_CORE_SOURCE`, `APPROVED_CORE_VERSION`, `APPROVED_CORE_SHA256`, `readApprovedCoreBytes()`, `verifyPackagedCore(appPath)`, and `bun scripts/bundled-core.mjs --verify-packaged <app>`.
 
 - [ ] **Step 1: Write failing independent-pin tests**
 
@@ -536,7 +587,7 @@ export const APPROVED_CORE_VERSION = "0.3.0";
 export const APPROVED_CORE_SHA256 = "a843e2805b4b0a49d02f7afe46cdd5693d81184c14d560af836be93283d85679";
 ```
 
-Before `rm(output)`, require `RALPHY_CORE_BIN === APPROVED_CORE_SOURCE`, verify version/fixed SHA, and read bytes into memory. After replacing output, write those retained bytes to packaged Core, chmod, and write manifest with the fixed values. Smoke validates packaged binary and manifest against the independent constants, not only each other.
+Before `rm(output)`, require `RALPHY_CORE_BIN === APPROVED_CORE_SOURCE`, verify version/fixed SHA, and read bytes into memory. After replacing output, write those retained bytes to packaged Core, chmod, and write manifest with the fixed values. `verifyPackagedCore` and its CLI validate packaged binary and manifest against the independent constants, not only each other; all later package-consuming gates call it immediately after building.
 
 Run package/smoke scripts through Bun in `package.json`: `"package:mac": "bun run build && bun run pty:prepare && bun run icon:mac && bun scripts/package-mac.mjs"` and `"smoke:packaged": "RALPHY_PACKAGED_APP='release/Ralphy Media.app' bun scripts/smoke-electron.mjs"`.
 
@@ -561,7 +612,7 @@ git commit -m "build: pin approved Core 0.3.0"
 - Modify: `scripts/with-db-fingerprint.mjs`
 - Test: `tests/db-fingerprint.test.ts`
 
-**Interfaces:** Consumes Plan 1 fingerprint utility. Produces `snapshotDatabaseFamily(dbPath)`, `withDatabaseFingerprint(label, launch)`, CLI single-launch wrapper, and launch records.
+**Interfaces:** Consumes Plan 1 fingerprint utility and locked evidence schema. Produces `snapshotDatabaseFamily(dbPath)`, `withDatabaseFingerprint(label, launch)`, `toInstrumentLaunchLedgerEntry(record)`, CLI single-launch wrapper, and launch records.
 
 - [ ] **Step 1: Write failing main/WAL/SHM comparison tests**
 
@@ -571,6 +622,7 @@ expect(compareDatabaseSnapshots(before, walGrew).violations).toContain("ralphy.d
 expect(compareDatabaseSnapshots(noWal, createdWal).violations).toContain("ralphy.db-wal existence changed");
 expect(compareDatabaseSnapshots(before, shmMetadataChanged).violations).toEqual([]);
 expect(shmMetadataChanged.shm).toBeDefined();
+expect(toInstrumentLaunchLedgerEntry(successRecord)).toMatchObject({ label: "scenario-media", dbRecord: expect.stringMatching(/^db\//), database: { main: "verified-unchanged", wal: "verified-unchanged", shm: "recorded-separately" }, child: { exitCode: 0, signal: null } });
 ```
 
 - [ ] **Step 2: Run RED**
@@ -586,7 +638,7 @@ type FileFingerprint = { exists: boolean; sha256: string | null; bytes: bigint |
 type DatabaseFamilySnapshot = { main: FileFingerprint; wal: FileFingerprint; shm: Omit<FileFingerprint, "sha256"> };
 ```
 
-Never open SQLite. Snapshot `/Users/maximovchinnikov/.ralphy/ralphy.db` and `-wal` before/after one child process and fail on any existence/SHA/size/mtime change; record `-shm` existence/size/mtime before/after without failing or claiming byte immutability. Always save JSON under the evidence run, including child exit/signal and label.
+Never open SQLite. Snapshot `/Users/maximovchinnikov/.ralphy/ralphy.db` and `-wal` before/after one child process and fail on any existence/SHA/size/mtime change; record `-shm` existence/size/mtime before/after without failing or claiming byte immutability. Always save JSON under the evidence run, including stable ID, child exit/signal, and label, and return the exact launch-ledger entry so each caller must append it before finalization.
 
 - [ ] **Step 4: Run GREEN and safety review**
 
@@ -602,22 +654,27 @@ gitleaks protect --staged --redact
 git commit -m "test: enforce per-launch database immutability"
 ```
 
-### Task 11: Drive every canonical scenario in isolated real Electron
+### Task 11: Build the verified mock package and drive every canonical scenario
 
 **Files:**
 - Create: `scripts/audit-instrument-electron.mjs`
 - Modify: `package.json`
 - Test: `tests/instrument-electron-audit.test.ts`
 
-**Interfaces:** Consumes mock packaged app, scenario manifest, evidence writer, Bun CDP. Produces `bun run audit:instrument:electron` and `INSTRUMENT_ELECTRON_AUDIT_OK <count>`.
+**Interfaces:** Consumes approved Core pin, scenario manifest, evidence writer, and Bun CDP. Produces and verifies the deterministic mock package before the runner consumes it, then produces `bun run audit:instrument:electron` and `INSTRUMENT_ELECTRON_AUDIT_OK <exact-case-count>`.
 
 - [ ] **Step 1: Write failing expansion/calibration/semantic tests**
 
 ```ts
-expect(expandScenarioCases(INSTRUMENT_SCENARIOS).length).toBeGreaterThan(24);
-expect(expandScenarioCases(INSTRUMENT_SCENARIOS).every(({ scenarioId }) => scenarioId.length > 0)).toBe(true);
+const expectedKeys = independentlyExpandLockedAxes(INSTRUMENT_SCENARIOS, REQUIRED_SCENARIO_THEMES, REQUIRED_SCENARIO_VIEWPORTS);
+expect(expandScenarioCases(INSTRUMENT_SCENARIOS).map(({ key }) => key)).toEqual(expectedKeys);
+expect(expectedKeys).toHaveLength(INSTRUMENT_SCENARIOS.length * 6 - reviewedOmittedPairCount(INSTRUMENT_SCENARIOS));
+expect(invalidCoverageExceptions(INSTRUMENT_SCENARIOS)).toEqual([]);
+expect(SHELL_PANEL_CASES).toEqual(EXACT_REVIEWED_SHELL_PANEL_CASES);
+expect(assertExpectedRailAndPanels(expandScenarioCases(INSTRUMENT_SCENARIOS))).toBeUndefined();
 expect(calibrateBounds(nativeBounds, innerMetrics)).toMatchObject({ nativeBounds, contentBounds: expect.any(Object) });
 expect(() => assertScenarioEvidence(missingLandmarkRecord)).toThrow(/landmark/i);
+expect(() => assertScenarioEvidence(missingLaunchAndDbRecord)).toThrow(/launch|DB record/i);
 ```
 
 - [ ] **Step 2: Run RED**
@@ -628,7 +685,7 @@ Expected: FAIL because no per-scenario Bun/CDP runner exists.
 
 - [ ] **Step 3: Implement isolated scenario execution**
 
-For each expanded scenario, create a fresh temp `userData`, then call `withDatabaseFingerprint(label, launch)` around its one Electron child, with label `scenario-${caseId}`. Spawn with `Bun.spawn`, fixed mock build, and CDP. Select fixture via production UI/test-fixture route only in mock build. Record native outer bounds separately from inner dimensions/device scale/top inset. Assert expected root/landmarks/rail/overlay/focus/scroll owner, no horizontal overflow, only modal-local scroller exception, dock reachability, native traffic inset/no HTML duplicate, native minimized/maximized/restored Browser states, computed flat styles, and AA contrast for every visible text-sized element/state. Capture screenshot and evidence record; close in `finally`.
+For each exact expanded scenario key, create a fresh temp `userData`, then call `withDatabaseFingerprint(label, launch)` around its one Electron child, with label `scenario-${caseId}`. Spawn with `Bun.spawn`, the freshly verified mock package, and CDP. Select fixture via production UI/test-fixture route only in mock build. Record native outer bounds separately from inner dimensions/device scale/top inset. Assert expected root/landmarks/overlay/focus/scroll owner plus `expectedRailMode[viewport]` and `panelSetup[viewport]`, no horizontal overflow, only modal-local scroller exception, dock reachability, native traffic inset/no HTML duplicate, native minimized/maximized/restored Browser states, computed flat styles, and AA contrast for every visible text-sized element/state. Append the typed evidence record and launch-ledger entry with artifact/log/DB/exit links; close in `finally`. Run the separate exact shell panel matrix without merging it into canonical scenario keys.
 
 ```js
 const profile = await mkdtemp(join(tmpdir(), `ralphy-instrument-${caseId}-`));
@@ -637,9 +694,9 @@ const child = Bun.spawn([executable, `--user-data-dir=${profile}`, `--remote-deb
 
 - [ ] **Step 4: Run GREEN through the DB wrapper and review**
 
-Run: `bun run audit:instrument:electron`
+Run: `CORE_BIN='/Users/maximovchinnikov/github/ralphy/ralphy-desktop/release/Ralphy Media.app/Contents/Resources/bin/ralphy'; VITE_RALPHY_ENABLE_MOCKS=true RALPHY_CORE_BIN="$CORE_BIN" bun run package:mac && bun scripts/bundled-core.mjs --verify-packaged 'release/Ralphy Media.app' && bun run audit:instrument:electron`
 
-Expected: prints `INSTRUMENT_ELECTRON_AUDIT_OK <manifest-expanded-count>` and absolute manifest path; DB main/WAL unchanged, SHM recorded. Reviewer checks per-scenario records rather than a shell-only matrix.
+Expected: package is rebuilt and fixed Core/manifest verified before consumption; audit prints `INSTRUMENT_ELECTRON_AUDIT_OK <exact-case-count>` and absolute manifest path; DB main/WAL unchanged, SHM recorded. Reviewer compares exact keys, rail/panel expectations, launch ledger, and per-scenario records rather than a lower bound.
 
 - [ ] **Step 5: Commit**
 
@@ -675,7 +732,7 @@ Expected: FAIL because end-to-end journey coverage and system theme are absent.
 
 - [ ] **Step 3: Implement end-to-end journeys**
 
-Use CDP `Emulation.setEmulatedMedia` for `prefers-color-scheme` and `prefers-reduced-motion`; wrap each journey's Electron child with `withDatabaseFingerprint(label, launch)`, with label `journey-${journeyId}`. Include a system-preference launch, live dark-to-light change, and resolved root/xterm/WaveSurfer assertions without flash. Tab/click/activate sidebar, dock, Island, profile/Settings, chat, filters/cards, all registered menus/dialogs/sheets/viewers/context menus; Escape and assert opener focus/unchanged desk offset. Under reduce, nonessential computed animation/transition durations are zero. Record live-region mutation sequence/politeness/deduplication and prove no focus move. Exercise safe mock review shortcut suppression cases.
+Use CDP `Emulation.setEmulatedMedia` for `prefers-color-scheme` and `prefers-reduced-motion`; wrap each journey's Electron child with `withDatabaseFingerprint(label, launch)`, with label `journey-${journeyId}`. Include a system-preference launch, live dark-to-light change, and resolved root/xterm/WaveSurfer assertions without flash. Tab/click/activate sidebar, dock, Island, profile/Settings, chat, filters/cards, every production-registered overlay; Escape and assert opener focus/unchanged desk offset. Under reduce, nonessential computed animation/transition durations are zero. Record the typed accessibility journey steps/focus order/live-region sequence/reduced-motion result plus artifact/log, launch-ledger, DB record, and exit fields. Prove polite deduplication/no focus move and exercise tuple-fenced mock review shortcut suppression cases.
 
 ```js
 await cdp("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
@@ -695,7 +752,7 @@ gitleaks protect --staged --redact
 git commit -m "test: audit instrument accessibility journeys"
 ```
 
-### Task 13: Measure Media 3a/3b reference, actual, and ffmpeg diff
+### Task 13: Rebuild the verified mock package and measure Media 3a/3b fidelity
 
 **Files:**
 - Create: `scripts/capture-media-reference.mjs`
@@ -703,7 +760,7 @@ git commit -m "test: audit instrument accessibility journeys"
 - Modify: `package.json`
 - Test: `tests/media-fidelity-audit.test.ts`
 
-**Interfaces:** Consumes stable extracted HTML/assets, mock Media scenario, evidence writer, ffmpeg. Produces `bun run audit:media:fidelity`.
+**Interfaces:** Consumes stable extracted HTML/assets, freshly rebuilt/verified mock package, Media scenario, locked evidence writer, and ffmpeg. Produces `A11Y_DEVIATION_MASK_VERSION = "readable-text-v1"`, `calibrateRendererCrop`, `validateA11yDeviationMask`, `assertGeometryDelta`, `assertPixelDiff`, and `bun run audit:media:fidelity`.
 
 - [ ] **Step 1: Write failing geometry/diff tolerance tests**
 
@@ -711,8 +768,11 @@ git commit -m "test: audit instrument accessibility journeys"
 expect(MEDIA_GEOMETRY_1440).toMatchObject({ sidebar: 240, outerGap: 8, filterRow: 38, lanes: 4, laneGap: 10, rail: 292, selectedRing: 3 });
 expect(assertGeometryDelta(referenceBoxes, withinOnePx)).toBeUndefined();
 expect(() => assertGeometryDelta(referenceBoxes, twoPxDelta)).toThrow(/1 CSS px/);
-expect(assertPixelDiff({ outsideMaskOver16: 0, insideMaskPixels: 100000, insideMaskOver24: 500 })).toBeUndefined();
-expect(() => assertPixelDiff({ outsideMaskOver16: 1, insideMaskPixels: 100000, insideMaskOver24: 500 })).toThrow(/outside mask/);
+expect(calibrateRendererCrop(referenceMetrics, actualMetrics)).toEqual({ x: 0, y: 28, width: 1440, height: 872 });
+expect(validateA11yDeviationMask(readableTextMask)).toMatchObject({ version: "readable-text-v1", pixelCount: 18420 });
+expect(assertPixelDiff({ outsideUnionOver16: 0, mediaContentPixels: 100000, mediaContentOver24: 500, maxGeometryDeltaCssPx: 1 })).toBeUndefined();
+expect(() => assertPixelDiff({ outsideUnionOver16: 1, mediaContentPixels: 100000, mediaContentOver24: 500, maxGeometryDeltaCssPx: 1 })).toThrow(/outside union mask/);
+expect(() => validateA11yDeviationMask(maskContainingNativeChrome)).toThrow(/native chrome/i);
 ```
 
 - [ ] **Step 2: Run RED**
@@ -723,7 +783,9 @@ Expected: FAIL because reference capture, geometry, raw diff analysis, and toler
 
 - [ ] **Step 3: Implement reproducible captures and ffmpeg raw diff**
 
-Capture reference HTML sections 3a/3b at 1440×900 from the stable extracted path and actual mock Media light/dark from packaged app. Wrap each reference-browser and actual-app child separately with `withDatabaseFingerprint(label, launch)`, with label `media-${captureId}`. Produce reference/actual/diff PNGs; run ffmpeg `blend=all_mode=difference` and pipe RGB24 raw bytes to Bun. Build the content mask from measured media rectangles. Require all structural boxes within 1 CSS px, zero pixels outside mask above RGB delta 16, and at most 0.5% inside mask above RGB delta 24. Record boxes/metrics/files. Also capture actual 1280/1100 selection/viewer/video-hover/chat/dock/overlay states without pixel threshold.
+Capture reference HTML sections 3a/3b at 1440×900 from the stable extracted path and actual mock Media light/dark from the freshly verified packaged app. Wrap each reference-browser and actual-app child separately with `withDatabaseFingerprint(label, launch)`, label `media-${captureId}`, and append each child to the launch ledger. Calibrate native outer/content bounds, crop both screenshots to the exact same renderer-content rectangle, and exclude native chrome before diffing. Produce cropped reference/actual/diff PNGs; run ffmpeg `blend=all_mode=difference` and pipe RGB24 raw bytes to Bun.
+
+Build `mediaContentMask` from measured structural Media rectangles. Build versioned `a11yDeviationMask` only from selectors whose computed actual token is an approved readable substitution for the captured handoff token; record each selector/rectangle/from/to token and union pixel count, reject overlap with native chrome and unregistered regions, then union both masks. Require structural boxes within 1 CSS px, zero pixels outside the union above RGB delta 16, and at most 0.5% of Media-content pixels above RGB delta 24. The a11y mask is exempt only from pixel color tolerance, never geometry. Write all crop/mask/threshold/metric/artifact/log/launch/DB fields into the locked schema. Also capture actual 1280/1100 selection/viewer/video-hover/chat/dock/overlay states without the 1440 pixel threshold.
 
 ```js
 const diff = Bun.spawn(["ffmpeg", "-i", reference, "-i", actual, "-filter_complex", "blend=all_mode=difference", "-f", "rawvideo", "-pix_fmt", "rgb24", "pipe:1"], { stdout: "pipe" });
@@ -731,9 +793,9 @@ const diff = Bun.spawn(["ffmpeg", "-i", reference, "-i", actual, "-filter_comple
 
 - [ ] **Step 4: Run GREEN through wrapper and visual review**
 
-Run: `bun run audit:media:fidelity`
+Run: `CORE_BIN='/Users/maximovchinnikov/github/ralphy/ralphy-desktop/release/Ralphy Media.app/Contents/Resources/bin/ralphy'; VITE_RALPHY_ENABLE_MOCKS=true RALPHY_CORE_BIN="$CORE_BIN" bun run package:mac && bun scripts/bundled-core.mjs --verify-packaged 'release/Ralphy Media.app' && bun run audit:media:fidelity`
 
-Expected: prints `MEDIA_FIDELITY_AUDIT_OK`; DB/WAL unchanged; manifest links reference/actual/diff and exact deltas. Visual reviewer signs documented AA text-token deviations separately from geometry/content tolerance.
+Expected: mock package and fixed Core/manifest are verified before capture; prints `MEDIA_FIDELITY_AUDIT_OK`; DB/WAL unchanged and SHM linked; manifest records calibrated renderer crops, Media/a11y mask regions and pixel count, exact deltas, artifacts/logs, and launches. Visual reviewer signs the versioned readable-text deviations separately from strict geometry/Media-content tolerance.
 
 - [ ] **Step 5: Commit**
 
@@ -761,7 +823,11 @@ expect(launchLabels).toEqual(expect.arrayContaining(["mock-smoke", "production-t
 expect(launchLabels.some((label) => label.startsWith("scenario-"))).toBe(true);
 expect(launchLabels.some((label) => label.startsWith("journey-"))).toBe(true);
 expect(launchLabels.some((label) => label.startsWith("media-"))).toBe(true);
+expect(launchLabels).toEqual(expectedFinalLaunchLabels(INSTRUMENT_SCENARIOS, accessibilityJourneys, mediaCaptures));
 expect(assertEveryLaunchHasDbRecord(manifest)).toBeUndefined();
+expect(assertEveryRecordLinksLaunchAndArtifacts(manifest)).toBeUndefined();
+expect(manifest.records.every(({ reviewer }) => reviewer.regression !== null)).toBe(true);
+expect(assertReportDisplaysLockedSchema(reportHtml)).toBeUndefined();
 expect(assertTwoLaunchPersistence(first, second)).toMatchObject({ themeBeforePaint: "light", sidebarVisible: false, rightPreference: false });
 expect(assertProductionExclusion(distText)).toBeUndefined();
 ```
@@ -774,21 +840,23 @@ Expected: FAIL because the final launch ledger, two-launch profile reuse, produc
 
 - [ ] **Step 3: Implement exact final orchestration**
 
-Preflight the approved Core source/version/SHA, then package mock mode using the verified in-memory bytes. Scenario/accessibility/Media scripts already wrap every child internally; wrap each single smoke child with the CLI. In the `--persistence` path, create one temporary profile and call `withDatabaseFingerprint("persistence-first", launchFirst)`; choose Light, hide sidebar, close right preference through UI, and close cleanly. Then call `withDatabaseFingerprint("persistence-second", launchSecond)` with the same profile and verify prepaint Light plus restored panels before interaction. Package production false mode; run source audit, reject all fixture/mock strings and chunk paths, then have `--production-truth` wrap its one child as `production-truth`; wrap production smoke separately. Production truth asserts real read-only Media status, disabled A/N/R reason, unavailable live Island counters, and no mock label. Verify fixed packaged Core/manifest, app version, codesign, all DB records, and generate report.
+Preflight the approved Core source/version/SHA, then package mock mode using the verified in-memory bytes and verify its packaged Core/manifest before any consumer. Scenario/accessibility/Media scripts wrap every child internally and append launch-ledger entries; wrap each single smoke child with the CLI and append its returned entry. In the `--persistence` path, create one temporary profile and call `withDatabaseFingerprint("persistence-first", launchFirst)`; choose Light, hide sidebar, close right preference through UI, and close cleanly. Then call `withDatabaseFingerprint("persistence-second", launchSecond)` with the same profile and verify prepaint Light plus restored panels before interaction. Package production false mode, reverify Core/manifest, run source audit, reject the complete fixture/mock marker list, then have `--production-truth` wrap its one child as `production-truth`; wrap production smoke separately. Production truth asserts real read-only Media status, disabled A/N/R reason, unavailable live Island counters, and no mock label. Verify app version/codesign and require exact launch labels, DB/WAL/SHM links, child results, typed records/artifacts, and all four reviewer decisions before generating the schema-complete report.
 
 ```bash
 CORE_BIN='/Users/maximovchinnikov/github/ralphy/ralphy-desktop/release/Ralphy Media.app/Contents/Resources/bin/ralphy'
 test "$($CORE_BIN --version)" = '0.3.0'
 test "$(shasum -a 256 "$CORE_BIN" | awk '{print $1}')" = 'a843e2805b4b0a49d02f7afe46cdd5693d81184c14d560af836be93283d85679'
 VITE_RALPHY_ENABLE_MOCKS=true RALPHY_CORE_BIN="$CORE_BIN" bun run package:mac
+bun scripts/bundled-core.mjs --verify-packaged 'release/Ralphy Media.app'
 bun run audit:instrument:electron
 bun scripts/with-db-fingerprint.mjs --label mock-smoke -- bun run smoke:packaged
 bun run audit:instrument:accessibility
 bun run audit:media:fidelity
 bun run audit:instrument:electron -- --persistence
 VITE_RALPHY_ENABLE_MOCKS=false RALPHY_CORE_BIN="$CORE_BIN" bun run package:mac
+bun scripts/bundled-core.mjs --verify-packaged 'release/Ralphy Media.app'
 bun run audit:instrument:source
-! rg -a 'TEST REVIEW SESSION|mock-review-session|instrument-test-fixture|ux-mock-render-1' dist 'release/Ralphy Media.app/Contents/Resources/app/dist'
+! rg -a 'mock-review|TEST REVIEW SESSION · NOT SAVED|ux-review-artifact-1|ux-review-iteration-3|mock-needs-work-fixture|instrument-test-fixture|ux-mock-render-1' dist 'release/Ralphy Media.app/Contents/Resources/app/dist'
 bun run audit:instrument:electron -- --production-truth
 bun scripts/with-db-fingerprint.mjs --label production-smoke -- bun run smoke:packaged
 codesign --verify --deep --strict --verbose=2 'release/Ralphy Media.app'

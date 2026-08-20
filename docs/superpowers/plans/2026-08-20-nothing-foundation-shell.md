@@ -18,8 +18,10 @@
 - This is a presentation rewrite. Reuse the current Core v3 contract, Electron security boundary, readers, controllers, reducers, media protocol, root fencing, MIME allowlists, clipboard bounds, and Marketplace origins.
 - Do not add or reconcile a Core method, consumer credential/session lifecycle, `media.review` Desktop adapter, database migration, direct SQLite access, renderer filesystem/network access, sibling import, prototype runtime, remote asset/font, or package.
 - Mock code loads only when `import.meta.env.VITE_RALPHY_ENABLE_MOCKS === "true"` and workspace name is exactly `UX Testing Lab`; it never crosses IPC/storage/files and production output contains no fixture ID or mock chunk path.
-- Theme is exactly `system | dark | light`; apply it before paint and propagate the resolved palette to xterm and WaveSurfer. Required text uses the AA-readable token pairs from the spec.
+- Mock review is scoped to the exact `(rootEpoch, workspaceId, projectId)` tuple and reducer plus shortcut policy live in one dynamically imported module; any tuple change clears the entire session.
+- Theme is exactly `system | dark | light`; apply it before paint and propagate `INSTRUMENT_PALETTE` to xterm and WaveSurfer. Direct literals exist only in `palette.ts` and the verified definition block of `tokens.css`; required text uses the AA-readable token pairs from the spec.
 - Right rail is exactly `docked | overlay | closed`; `overlay` is accessible and all virtualizers use `InstrumentScrollContext` rather than nested route scrollers.
+- Every live dialog/drawer/viewer/menu/sheet/popover consumes `InstrumentOverlay`; every live route consumes its owner-exported state descriptor through `InstrumentScreenRoot`.
 - The one native hidden-inset traffic-light set remains functional. Never render HTML traffic-light duplicates.
 - Each task starts with a definitely absent behavior, follows RED to GREEN, receives an independent task review, runs `git diff --check`, stages only named files, runs staged gitleaks, and commits.
 
@@ -137,10 +139,32 @@ export function InstrumentRightRailPortal(props: {
 }): React.ReactPortal | null;
 ```
 
-```ts
-// src/instrument/scenarios.ts
-export type InstrumentScenarioTheme = ThemePreference;
-export type InstrumentViewport = "1440x900" | "1280x800" | "1100x720";
+```tsx
+// src/instrument/overlay-registry.tsx
+export const INSTRUMENT_OVERLAYS = {
+  "root-picker": { kind: "dialog" }, "migration-recovery": { kind: "dialog" }, "app-alert": { kind: "dialog" },
+  "profile-menu": { kind: "menu" }, settings: { kind: "dialog" }, "settings-select": { kind: "popover" },
+  "dynamic-island": { kind: "popover" }, "right-rail-sheet": { kind: "sheet" },
+  "workspace-account-detail": { kind: "dialog" }, "workspace-unit-outcome-detail": { kind: "dialog" }, "workspace-evidence-detail": { kind: "dialog" },
+  "shared-inspector": { kind: "rail" }, "shared-viewer": { kind: "viewer" }, "shared-workflow": { kind: "dialog" },
+  "memory-recall": { kind: "dialog" }, "memory-editor": { kind: "dialog" }, "memory-history": { kind: "dialog" }, "memory-confirm": { kind: "dialog" },
+  "calendar-filter": { kind: "popover" }, "calendar-drawer": { kind: "drawer" }, "calendar-inspector": { kind: "rail" },
+  "calendar-schedule": { kind: "dialog" }, "calendar-unit-picker": { kind: "popover" }, "calendar-date-popover": { kind: "popover" },
+  "calendar-time-popover": { kind: "popover" }, "calendar-platform-settings": { kind: "dialog" }, "calendar-account-detail": { kind: "dialog" }, "calendar-reconnect": { kind: "dialog" },
+  "document-editor": { kind: "dialog" }, "document-viewer": { kind: "viewer" }, "document-conflict": { kind: "dialog" },
+  "media-viewer": { kind: "viewer" }, "media-context-menu": { kind: "menu" }, "mock-needs-work": { kind: "dialog" },
+  "unit-viewer": { kind: "viewer" }, "run-inspector": { kind: "rail" }, "marketplace-detail": { kind: "dialog" },
+  "target-chooser": { kind: "dialog" }, terminal: { kind: "drawer" },
+} as const satisfies Record<string, { kind: "dialog" | "drawer" | "viewer" | "popover" | "menu" | "sheet" | "rail" }>;
+export type InstrumentOverlayId = keyof typeof INSTRUMENT_OVERLAYS;
+export function InstrumentOverlay<Id extends InstrumentOverlayId>(props: {
+  id: Id; open: boolean; label: string; description: string; opener: HTMLElement | null;
+  onOpenChange(open: boolean): void; children: React.ReactNode; localScroll?: boolean;
+}): React.ReactPortal | null;
+```
+
+```tsx
+// src/instrument/screen-state-registry.tsx and production-screen-states.ts
 export type InstrumentRouteKey =
   | `startup.${"welcome" | "library" | "migration"}`
   | `workspace.${WorkspacePage}`
@@ -153,13 +177,29 @@ export type InstrumentRouteKey =
 export type InstrumentScenarioState =
   | "restoring" | "loading" | "ready" | "empty" | "offline" | "partial" | "unavailable" | "error"
   | "selected" | "disabled" | "editing" | "conflict" | "history" | "viewer" | "playing" | "scheduling" | "mock-review";
-export type InstrumentOverlayId =
-  | "none" | "root-picker" | "migration-recovery" | "app-alert" | "profile-menu" | "settings"
-  | "dynamic-island" | "right-rail-sheet" | "shared-inspector" | "shared-viewer" | "shared-workflow"
-  | "memory-editor" | "memory-history" | "memory-confirm" | "calendar-filter" | "calendar-drawer"
-  | "calendar-inspector" | "calendar-schedule" | "document-editor" | "document-viewer" | "document-conflict"
-  | "media-viewer" | "media-context-menu" | "mock-needs-work" | "unit-viewer" | "run-inspector"
-  | "marketplace-detail" | "target-chooser" | "terminal";
+export interface InstrumentScreenStateDescriptor<Route extends InstrumentRouteKey = InstrumentRouteKey> {
+  routeKey: Route;
+  states: readonly InstrumentScenarioState[];
+  rootMarker: string;
+  landmarks: readonly string[];
+}
+export function defineInstrumentScreenStates<const Descriptor extends InstrumentScreenStateDescriptor>(descriptor: Descriptor): Descriptor;
+export function InstrumentScreenRoot(props: { descriptor: InstrumentScreenStateDescriptor; state: InstrumentScenarioState; children: React.ReactNode }): React.ReactElement;
+export const PRODUCTION_SCREEN_STATES: readonly InstrumentScreenStateDescriptor[];
+```
+
+```ts
+// src/instrument/scenarios.ts
+export type InstrumentScenarioTheme = "light" | "dark";
+export type InstrumentViewport = "1440x900" | "1280x800" | "1100x720";
+export const REQUIRED_SCENARIO_THEMES: readonly ["light", "dark"];
+export const REQUIRED_SCENARIO_VIEWPORTS: readonly ["1440x900", "1280x800", "1100x720"];
+export interface InstrumentPanelSetup { leftVisible: boolean; rightPreference: boolean; rightOverlayOpen: boolean; bottomVisible: boolean }
+export interface InstrumentScenarioCoverageException {
+  omitted: readonly `${InstrumentScenarioTheme}@${InstrumentViewport}`[];
+  reason: string;
+  review: { reviewer: string; decision: "approved" };
+}
 
 export interface InstrumentScenario {
   id: string;
@@ -169,17 +209,21 @@ export interface InstrumentScenario {
   rootMarker: string;
   landmarks: readonly string[];
   railOwner: InstrumentRightRailOwner | null;
-  overlay: InstrumentOverlayId;
+  overlay: InstrumentOverlayId | null;
   focusEntry: string | null;
   focusReturn: string | null;
   scrollOwner: "desk" | "overlay";
   themes: readonly InstrumentScenarioTheme[];
   viewports: readonly InstrumentViewport[];
+  expectedRailMode: Readonly<Record<InstrumentViewport, InstrumentRightRailMode>>;
+  panelSetup: Readonly<Record<InstrumentViewport, InstrumentPanelSetup>>;
+  coverageException: InstrumentScenarioCoverageException | null;
   journeys: readonly ("keyboard" | "reduced-motion" | "live-region")[];
 }
 
 export const INSTRUMENT_SCENARIOS: readonly InstrumentScenario[];
 export function assertInstrumentScenarioCompleteness(): void;
+export function expandInstrumentScenarioCases(scenarios: readonly InstrumentScenario[]): readonly { key: string; scenarioId: string; theme: InstrumentScenarioTheme; viewport: InstrumentViewport }[];
 
 export interface InstrumentTestFixture { id: string; routeKey: InstrumentRouteKey; state: InstrumentScenarioState; payload: unknown }
 export interface InstrumentTestFixtureProvider { get(fixtureId: string): InstrumentTestFixture | null }
@@ -219,7 +263,9 @@ export type DynamicIslandMockProvider = (input: DynamicIslandMockContext) => Dyn
 
 - `.superpowers/sdd/nothing-instrument/` — ignored stable reference and generated evidence only.
 - `src/instrument/types.ts`, `theme.ts`, `palette.ts` — stable types, theme helpers, named palette and contrast data.
-- `src/instrument/scenarios.ts` — exhaustive scenario manifest and registry completeness.
+- `src/instrument/overlay-registry.tsx` — production-used overlay definitions, key-derived ID, and common wrapper.
+- `src/instrument/screen-state-registry.tsx`, `production-screen-states.ts` — production route/state descriptors and live root wrapper.
+- `src/instrument/scenarios.ts` — exact scenario expansion derived bidirectionally from production registries.
 - `src/instrument/test-fixtures.ts`, `dynamic-island-mock.ts` — compile-time mock-only fixtures.
 - `src/instrument/InstrumentShell.tsx` — shell geometry, rail state, portal, external desk scroll owner.
 - `src/instrument/primitives.tsx`, `InstrumentSidebar.tsx`, `ProjectDock.tsx`, `DynamicIsland.tsx` — shared presentation components.
@@ -277,17 +323,130 @@ gitleaks protect --staged --redact
 git commit -m "test: pin instrument design evidence"
 ```
 
-### Task 2: Establish the exhaustive scenario and fixture boundary
+### Task 2: Establish the production overlay registry and wrapper
+
+**Files:**
+- Create: `src/instrument/overlay-registry.tsx`
+- Test: `tests/instrument-overlay-registry.test.tsx`
+
+**Interfaces:**
+- Consumes: existing Radix primitives, focus-return helpers, and Instrument scroll locking.
+- Produces: exact `INSTRUMENT_OVERLAYS`, key-derived `InstrumentOverlayId`, and `InstrumentOverlay` interface in the Stable Interface Lock.
+
+- [ ] **Step 1: Write failing registry and wrapper behavior tests**
+
+```tsx
+expect(Object.keys(INSTRUMENT_OVERLAYS)).toEqual([
+  "root-picker", "migration-recovery", "app-alert", "profile-menu", "settings", "settings-select", "dynamic-island", "right-rail-sheet",
+  "workspace-account-detail", "workspace-unit-outcome-detail", "workspace-evidence-detail", "shared-inspector", "shared-viewer", "shared-workflow",
+  "memory-recall", "memory-editor", "memory-history", "memory-confirm", "calendar-filter", "calendar-drawer", "calendar-inspector", "calendar-schedule",
+  "calendar-unit-picker", "calendar-date-popover", "calendar-time-popover", "calendar-platform-settings", "calendar-account-detail", "calendar-reconnect",
+  "document-editor", "document-viewer", "document-conflict", "media-viewer", "media-context-menu", "mock-needs-work", "unit-viewer", "run-inspector",
+  "marketplace-detail", "target-chooser", "terminal",
+]);
+expect(renderOverlay({ id: "calendar-date-popover", open: true })).toHaveAttribute("data-instrument-overlay", "calendar-date-popover");
+await user.keyboard("{Escape}");
+expect(opener).toHaveFocus();
+expect(renderOverlay({ id: "calendar-date-popover", open: false })).toBeNull();
+```
+
+- [ ] **Step 2: Run RED**
+
+Run: `bun run test -- tests/instrument-overlay-registry.test.tsx`
+
+Expected: FAIL because the production registry, derived ID, and common focus/portal wrapper do not exist.
+
+- [ ] **Step 3: Implement the production registry and semantic wrapper**
+
+Implement the exact locked object and derive `InstrumentOverlayId = keyof typeof INSTRUMENT_OVERLAYS`. `InstrumentOverlay` reads `kind` from the registry, renders the correct Radix/native semantic root, sets `data-instrument-overlay={id}`, manages initial focus/Escape/opener restoration with `preventScroll`, and marks the sole optional local scroller. It never accepts an unregistered string or lets a caller override the registered kind.
+
+- [ ] **Step 4: Run GREEN and registry review**
+
+Run: `bun run test -- tests/instrument-overlay-registry.test.tsx && bun run typecheck && git diff --check`
+
+Expected: PASS. Reviewer compares keys with every current live dialog/drawer/viewer/menu/sheet/popover and confirms the ID is key-derived rather than duplicated.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/instrument/overlay-registry.tsx tests/instrument-overlay-registry.test.tsx
+gitleaks protect --staged --redact
+git commit -m "feat: register instrument overlays"
+```
+
+### Task 3: Register production route states at their owning screens
+
+**Files:**
+- Create: `src/instrument/screen-state-registry.tsx`
+- Create: `src/instrument/production-screen-states.ts`
+- Modify: `src/App.tsx`
+- Modify: `src/components/WelcomeScreen.tsx`
+- Modify: `src/screens/LibraryScreen.tsx`
+- Modify: `src/screens/MigrationRecoveryScreen.tsx`
+- Modify: `src/screens/WorkspaceScreen.tsx`
+- Modify: `src/screens/WorkspaceProjectsScreen.tsx`
+- Modify: `src/screens/SharedLibraryScreen.tsx`
+- Modify: `src/screens/MemoryScreen.tsx`
+- Modify: `src/screens/CalendarScreen.tsx`
+- Modify: `src/screens/ProjectScreen.tsx`
+- Modify: `src/screens/project/DocumentsPanel.tsx`
+- Modify: `src/screens/project/MediaPanel.tsx`
+- Modify: `src/screens/project/UnitsPanel.tsx`
+- Modify: `src/screens/project/ActivityTimeline.tsx`
+- Modify: `src/screens/SettingsScreen.tsx`
+- Modify: `src/screens/MarketplaceScreen.tsx`
+- Test: `tests/instrument-production-screen-states.test.tsx`
+
+**Interfaces:**
+- Consumes: actual route unions and each screen's current availability/view-state discriminants.
+- Produces: exact screen-state interfaces in the Stable Interface Lock; each listed owner exports one or more descriptors covering every route key it renders and passes its real current descriptor/state to `InstrumentScreenRoot`.
+
+- [ ] **Step 1: Write failing production registration tests**
+
+```tsx
+expect(PRODUCTION_SCREEN_STATES.map(({ routeKey }) => routeKey).sort()).toEqual(actualRouteKeys().sort());
+expect(duplicateRouteDescriptors(PRODUCTION_SCREEN_STATES)).toEqual([]);
+expect(unknownDescriptorStates(PRODUCTION_SCREEN_STATES)).toEqual([]);
+expect(() => render(<InstrumentScreenRoot descriptor={memoryInstrumentStates} state="playing">x</InstrumentScreenRoot>)).toThrow(/workspace.memory.*playing/);
+expect(renderMemory("unavailable")).toHaveAttribute("data-instrument-state", "unavailable");
+```
+
+- [ ] **Step 2: Run RED**
+
+Run: `bun run test -- tests/instrument-production-screen-states.test.tsx tests/workspace-navigation.test.tsx tests/project-screen.test.tsx tests/marketplace-navigation.test.tsx`
+
+Expected: FAIL because route states are not exported by production owners or consumed by a live root wrapper.
+
+- [ ] **Step 3: Export and consume owner descriptors**
+
+Each listed screen exports `defineInstrumentScreenStates({ routeKey, states, rootMarker, landmarks })` for every route key it can render, using only states its real renderer can enter. Settings exports one per category; Marketplace exports route/category/library/unavailable-detail descriptors; shared workspace/project shells export their concrete page/view descriptors. The live root passes the selected descriptor and current state to `InstrumentScreenRoot`, which throws in tests/development for an undeclared state and emits exact root/state markers in production. `production-screen-states.ts` imports those owner exports and contains no independently authored route/state copy.
+
+- [ ] **Step 4: Run GREEN and bidirectional route review**
+
+Run: `bun run test -- tests/instrument-production-screen-states.test.tsx tests/workspace-navigation.test.tsx tests/project-screen.test.tsx tests/marketplace-navigation.test.tsx && bun run typecheck && git diff --check`
+
+Expected: PASS. Reviewer compares actual route unions to production owner exports in both directions and checks every live root consumes its descriptor.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/instrument/screen-state-registry.tsx src/instrument/production-screen-states.ts src/App.tsx src/components/WelcomeScreen.tsx src/screens/LibraryScreen.tsx src/screens/MigrationRecoveryScreen.tsx src/screens/WorkspaceScreen.tsx src/screens/WorkspaceProjectsScreen.tsx src/screens/SharedLibraryScreen.tsx src/screens/MemoryScreen.tsx src/screens/CalendarScreen.tsx src/screens/ProjectScreen.tsx src/screens/project/DocumentsPanel.tsx src/screens/project/MediaPanel.tsx src/screens/project/UnitsPanel.tsx src/screens/project/ActivityTimeline.tsx src/screens/SettingsScreen.tsx src/screens/MarketplaceScreen.tsx tests/instrument-production-screen-states.test.tsx
+gitleaks protect --staged --redact
+git commit -m "feat: register production screen states"
+```
+
+### Task 4: Establish the exhaustive scenario and fixture boundary
 
 **Files:**
 - Create: `src/instrument/scenarios.ts`
 - Create: `src/instrument/test-fixtures.ts`
 - Create: `src/instrument/load-test-fixtures.ts`
+- Modify: `src/instrument/production-screen-states.ts`
 - Test: `tests/instrument-scenarios.test.ts`
 - Test: `tests/instrument-production-fixtures.test.ts`
 
 **Interfaces:**
-- Consumes: actual `WorkbenchRoute`, `WorkspacePage`, `ProjectView`, `MarketplaceRoute`, Settings categories, and the overlay registry.
+- Consumes: actual route unions, `PRODUCTION_SCREEN_STATES`, and key-derived `INSTRUMENT_OVERLAYS`.
 - Produces: exact scenario interfaces in the Stable Interface Lock and `loadInstrumentTestFixtures(): Promise<InstrumentTestFixtureProvider | null>`.
 
 - [ ] **Step 1: Write failing completeness and false-string tests**
@@ -296,7 +455,14 @@ git commit -m "test: pin instrument design evidence"
 expect(() => assertInstrumentScenarioCompleteness()).not.toThrow();
 expect(missingRouteStatePairs()).toEqual([]);
 expect(missingRegisteredOverlays()).toEqual([]);
+expect(extraScenarioRouteStatePairs()).toEqual([]);
+expect(extraScenarioOverlays()).toEqual([]);
 expect(duplicateScenarioIds()).toEqual([]);
+for (const scenario of INSTRUMENT_SCENARIOS.filter(({ coverageException }) => coverageException === null)) {
+  expect(scenario.themes).toEqual(REQUIRED_SCENARIO_THEMES);
+  expect(scenario.viewports).toEqual(REQUIRED_SCENARIO_VIEWPORTS);
+}
+expect(expandInstrumentScenarioCases(INSTRUMENT_SCENARIOS).map(({ key }) => key)).toEqual(independentlyComputedExactCaseKeys());
 expect(loaderSource).toContain('import.meta.env.VITE_RALPHY_ENABLE_MOCKS === "true"');
 expect(loaderSource).not.toMatch(/if\s*\(import\.meta\.env\.VITE_RALPHY_ENABLE_MOCKS\s*\)/);
 ```
@@ -305,11 +471,11 @@ expect(loaderSource).not.toMatch(/if\s*\(import\.meta\.env\.VITE_RALPHY_ENABLE_M
 
 Run: `bun run test -- tests/instrument-scenarios.test.ts tests/instrument-production-fixtures.test.ts`
 
-Expected: FAIL because there is no typed manifest, overlay registry, or guarded fixture loader.
+Expected: FAIL because there is no registry-derived scenario manifest, exact six-pair expansion, panel/rail expectation, or guarded fixture loader.
 
 - [ ] **Step 3: Implement exact registries and mock-only loader**
 
-Define route keys for startup `welcome/library/migration`, workspace `overview/projects/units/shared/memory/calendar`, project `documents/media/units/activity`, Settings `general/profile/appearance/providers/terminal/about`, and all Marketplace route/category/library/detail variants from `marketplace-navigation.ts`. Define `INSTRUMENT_SCENARIO_REQUIREMENTS` as `satisfies Record<InstrumentRouteKey, readonly InstrumentScenarioState[]>`; include every overlay in the locked union. Load fixtures only inside:
+Import the production screen descriptors and overlay object keys. Derive required route/state pairs and overlay IDs; compare both sets to scenario entries in both directions. Each non-excepted scenario stores the locked theme/viewport arrays, explicit panel setup and expected rail mode for each viewport. A typed exception must name omitted pairs, a concrete reason, reviewer, and `approved` decision. Compute the exact expected evidence keys independently from the raw scenario records and compare equality with runner expansion; never use a minimum count. Load fixtures only inside:
 
 ```ts
 export async function loadInstrumentTestFixtures() {
@@ -326,17 +492,17 @@ Fixtures expose stable IDs and renderer DTOs only; they import no bridge/Electro
 
 Run: `bun run test -- tests/instrument-scenarios.test.ts tests/instrument-production-fixtures.test.ts && VITE_RALPHY_ENABLE_MOCKS=true bun run build:renderer && VITE_RALPHY_ENABLE_MOCKS=false bun run build:renderer && ! rg -a 'instrument-test-fixture|test-fixtures' dist && git diff --check`
 
-Expected: tests/builds pass and false output has no fixture ID or chunk path. Reviewer checks the manifest against actual unions and registered overlays.
+Expected: tests/builds pass and false output has no fixture ID or chunk path. Reviewer checks exact case keys and bidirectional route/state/overlay coverage against production registries.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/instrument/scenarios.ts src/instrument/test-fixtures.ts src/instrument/load-test-fixtures.ts tests/instrument-scenarios.test.ts tests/instrument-production-fixtures.test.ts
+git add src/instrument/scenarios.ts src/instrument/test-fixtures.ts src/instrument/load-test-fixtures.ts src/instrument/production-screen-states.ts tests/instrument-scenarios.test.ts tests/instrument-production-fixtures.test.ts
 gitleaks protect --staged --redact
 git commit -m "test: define instrument scenario contract"
 ```
 
-### Task 3: Bundle Doto and establish the named AA palette
+### Task 5: Bundle Doto and establish the named AA palette
 
 **Files:**
 - Create: `public/assets/fonts/Doto-Variable.ttf`
@@ -358,6 +524,8 @@ git commit -m "test: define instrument scenario contract"
 
 ```ts
 expect(sha256("public/assets/fonts/Doto-Variable.ttf")).toBe("6f4fe7d37853b91df3698daa84cde2dbe1c9695d88c986e6510134910337d426");
+expect(sha256("public/assets/fonts/OFL-Doto.txt")).toBe("26a7b58bdba6cda8a78ca6e8b3791d8013b8abc6d5e6519f84193893aee02020");
+expect(readFileSync("public/assets/fonts/OFL-Doto.txt", "utf8")).toContain("SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007");
 expect(INSTRUMENT_PALETTE.light.textSecondaryReadable).toBe("#4A4A48");
 expect(INSTRUMENT_PALETTE.dark.textSecondaryReadable).toBe("#A4A4A0");
 expect(contrastRatio("#4A4A48", "#E2E4EA")).toBeGreaterThanOrEqual(4.5);
@@ -376,6 +544,9 @@ Expected: FAIL because Doto, the named palette, readable tokens, and contrast he
 ```bash
 gh api 'repos/google/fonts/contents/ofl/doto/Doto%5BROND%2Cwght%5D.ttf?ref=2c982e6bdf88fefbe9e34e78695d8e9e02d788ec' --jq .content | tr -d '\n' | base64 --decode > public/assets/fonts/Doto-Variable.ttf
 gh api 'repos/google/fonts/contents/ofl/doto/OFL.txt?ref=2c982e6bdf88fefbe9e34e78695d8e9e02d788ec' --jq .content | tr -d '\n' | base64 --decode > public/assets/fonts/OFL-Doto.txt
+test "$(shasum -a 256 public/assets/fonts/Doto-Variable.ttf | awk '{print $1}')" = '6f4fe7d37853b91df3698daa84cde2dbe1c9695d88c986e6510134910337d426'
+test "$(shasum -a 256 public/assets/fonts/OFL-Doto.txt | awk '{print $1}')" = '26a7b58bdba6cda8a78ca6e8b3791d8013b8abc6d5e6519f84193893aee02020'
+rg -F 'SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007' public/assets/fonts/OFL-Doto.txt
 ```
 
 Use this complete authored-app allowlist; `#7F7BD6` is explicitly forbidden:
@@ -405,13 +576,13 @@ export const DITHER_ASSET_SHA256 = {
 } as const;
 ```
 
-CSS references named tokens; low-contrast values are decorative/disabled tokens only. The later audit permits byte-identical dither PNGs rather than arbitrary dither colors.
+Stop immediately if any post-download check fails. CSS references named tokens; place direct literals only between `/* instrument-token-definitions:start */` and `/* instrument-token-definitions:end */` in `tokens.css`. Add an equality test proving each CSS custom-property definition matches its `INSTRUMENT_PALETTE` field. Low-contrast values are decorative/disabled tokens only. The later audit permits byte-identical dither PNGs rather than arbitrary dither colors.
 
 - [ ] **Step 4: Run GREEN and reviewer gate**
 
 Run: `bun run test -- tests/instrument-theme.test.ts tests/instrument-contrast.test.ts tests/design-system.test.ts && bun run typecheck && git diff --check`
 
-Expected: PASS. Reviewer confirms every authored palette literal is named, readable text pairs are AA, Doto is minimum 13px, and old purple is absent.
+Expected: PASS. Reviewer confirms exact font/OFL SHA and license text, every CSS token equals the palette, every authored palette literal is named, readable text pairs are AA, Doto is minimum 13px, and old purple is absent.
 
 - [ ] **Step 5: Commit**
 
@@ -421,7 +592,7 @@ gitleaks protect --staged --redact
 git commit -m "feat: establish accessible instrument tokens"
 ```
 
-### Task 4: Add shared primitives and the stable profile control
+### Task 6: Add shared primitives and the stable profile control
 
 **Files:**
 - Create: `src/instrument/primitives.tsx`
@@ -434,7 +605,7 @@ git commit -m "feat: establish accessible instrument tokens"
 - Test: `tests/project-glyph.test.ts`
 
 **Interfaces:**
-- Consumes: named tokens, existing `ProfileAvatar` identity derivation, Radix menu/dialog behavior, Lucide icons.
+- Consumes: named tokens, existing `ProfileAvatar` identity derivation, `InstrumentOverlay` ID `profile-menu`, Lucide icons.
 - Produces: `InstrumentWidget`, `InstrumentPill`, `InstrumentIconButton`, `InstrumentCounter`, `StatusDot`, `DitherIdentity`, `InstrumentScreenHeader`, `InstrumentEmptyState`, and `InstrumentProfileControl` using `InstrumentProfileIdentity`.
 
 - [ ] **Step 1: Write behavior-first primitive/profile tests**
@@ -462,7 +633,7 @@ export function InstrumentIconButton({ label, tooltip = label, children, ...butt
 }
 ```
 
-Use native button/section/progress/disclosure semantics. Profile uses derived display name/initials and local avatar URL or fallback; menu exposes Settings and dismissal callbacks, contains no fake account action, traps no page scroll, and restores focus with `{ preventScroll: true }`. Add `data-instrument-root` to every shared route/portal root primitive.
+Use native button/section/progress/disclosure semantics. Profile uses derived display name/initials and local avatar URL or fallback; its menu renders through `InstrumentOverlay id="profile-menu"`, exposes Settings and dismissal callbacks, contains no fake account action, traps no page scroll, and restores focus with `{ preventScroll: true }`. Add `data-instrument-root` to every shared route/portal root primitive.
 
 - [ ] **Step 4: Run GREEN and reviewer gate**
 
@@ -478,7 +649,7 @@ gitleaks protect --staged --redact
 git commit -m "feat: add instrument primitives and profile"
 ```
 
-### Task 5: Persist and apply the three-state theme before paint
+### Task 7: Persist and apply the three-state theme before paint
 
 **Files:**
 - Create: `public/theme-bootstrap.js`
@@ -540,7 +711,7 @@ gitleaks protect --staged --redact
 git commit -m "feat: persist three-state instrument theme"
 ```
 
-### Task 6: Build the native responsive shell, shared rail, and scroll context
+### Task 8: Build the native responsive shell, shared rail, and scroll context
 
 **Files:**
 - Create: `src/instrument/InstrumentShell.tsx`
@@ -553,7 +724,7 @@ git commit -m "feat: persist three-state instrument theme"
 - Test: `tests/window-state.test.ts`
 
 **Interfaces:**
-- Consumes: Stable Interface Lock, native hidden-inset BrowserWindow, persisted panel preferences.
+- Consumes: Stable Interface Lock, `InstrumentOverlay` ID `right-rail-sheet`, native hidden-inset BrowserWindow, persisted panel preferences.
 - Produces: exact shell/rail/scroll interfaces; `resolveRightRailMode({ dockEligible, preferenceOpen, overlayOpen })`.
 
 - [ ] **Step 1: Write failing rail, scroll, and native-chrome behaviors**
@@ -584,7 +755,7 @@ export function resolveRightRailMode(input: { dockEligible: boolean; preferenceO
 }
 ```
 
-Measure desk/frame with one `ResizeObserver`; docking requires window width at least 1280 and desk at least 680px. New/invalid preferences default right panel to true, explicit false persists, and automatic narrow behavior never writes it. Overlay uses a labelled dialog/sheet, focus trap, inert desk, local marked scroller, Escape, and opener restoration. Reserve a measured native inset; keep one hidden-inset traffic-light set, remove vibrancy/transparency, and render no HTML copy. Expose the desk element to virtualizers and capture offsets by `routeScrollKey`.
+Measure desk/frame with one `ResizeObserver`; docking requires window width at least 1280 and desk at least 680px. New/invalid preferences default right panel to true, explicit false persists, and automatic narrow behavior never writes it. Overlay uses `InstrumentOverlay id="right-rail-sheet"` for its labelled sheet, focus trap, inert desk, local marked scroller, Escape, and opener restoration. Reserve a measured native inset; keep one hidden-inset traffic-light set, remove vibrancy/transparency, and render no HTML copy. Expose the desk element to virtualizers and capture offsets by `routeScrollKey`.
 
 - [ ] **Step 4: Run GREEN and reviewer gate**
 
@@ -600,7 +771,7 @@ gitleaks protect --staged --redact
 git commit -m "feat: build responsive instrument shell"
 ```
 
-### Task 7: Prove shell geometry at all three viewports early
+### Task 9: Prove shell geometry at all three viewports early
 
 **Files:**
 - Create: `scripts/audit-instrument-shell.mjs`
@@ -612,12 +783,19 @@ git commit -m "feat: build responsive instrument shell"
 
 **Interfaces:**
 - Consumes: built Electron app in mock mode, temporary `userData`, Bun built-in fetch/WebSocket, and live DB path as opaque files only.
-- Produces: `bun run audit:instrument:shell`, `.superpowers/sdd/nothing-instrument/shell/manifest.json`, `snapshotDatabaseFamily`, `compareDatabaseSnapshots`, `withDatabaseFingerprint(label, launch)`, and `bun scripts/with-db-fingerprint.mjs --label <label> -- <single-launch command>`.
+- Produces: exact `SHELL_PANEL_CASES`, `bun run audit:instrument:shell`, `.superpowers/sdd/nothing-instrument/shell/manifest.json`, `snapshotDatabaseFamily`, `compareDatabaseSnapshots`, `withDatabaseFingerprint(label, launch)`, and `bun scripts/with-db-fingerprint.mjs --label <label> -- <single-launch command>`.
 
 - [ ] **Step 1: Write failing calibration and geometry tests**
 
 ```ts
-expect(shellCases()).toEqual([[1440, 900], [1280, 800], [1100, 720]]);
+expect(SHELL_PANEL_CASES).toEqual([
+  { id: "1440-default-light", viewport: "1440x900", theme: "light", left: true, right: "docked", bottom: false },
+  { id: "1440-panels-dark", viewport: "1440x900", theme: "dark", left: false, right: "closed", bottom: true },
+  { id: "1280-docked-light", viewport: "1280x800", theme: "light", left: true, right: "docked", bottom: false },
+  { id: "1280-overlay-dark", viewport: "1280x800", theme: "dark", left: true, right: "overlay", bottom: true },
+  { id: "1100-closed-light", viewport: "1100x720", theme: "light", left: true, right: "closed", bottom: false },
+  { id: "1100-overlay-dark", viewport: "1100x720", theme: "dark", left: false, right: "overlay", bottom: true },
+]);
 expect(calibrateGeometry({ outer: { width: 1440, height: 900 }, inner: { width: 1440, height: 872 } }).topInset).toBe(28);
 expect(assertShellGeometry(valid1100Overlay)).toBeUndefined();
 expect(() => assertShellGeometry({ ...valid1100Overlay, bodyScrollWidth: 1101 })).toThrow(/horizontal overflow/i);
@@ -639,7 +817,7 @@ export type FileFingerprint = { exists: boolean; sha256: string | null; bytes: b
 export type DatabaseFamilySnapshot = { main: FileFingerprint; wal: FileFingerprint; shm: Omit<FileFingerprint, "sha256"> };
 ```
 
-Use `Bun.spawn`, `fetch`, and `WebSocket`; create one temporary `--user-data-dir` per case and call `withDatabaseFingerprint(label, launch)` around each Electron child, with label `foundation-shell-${width}x${height}`. Record native `Browser.getWindowBounds`, renderer inner size, device scale and inset separately. At 1440 assert docked 240/desk/292; at 1280 assert conditional dock threshold; at 1100 assert closed then user-opened accessible overlay. Check one native traffic-light inset/no HTML duplicates, drag/no-drag regions, one scroll owner, no body overflow, dock clearance, Escape/focus restoration, and screenshots. Add `"audit:instrument:shell": "bun scripts/audit-instrument-shell.mjs"`.
+Use `Bun.spawn`, `fetch`, and `WebSocket`; create one temporary `--user-data-dir` for each exact `SHELL_PANEL_CASES` entry and call `withDatabaseFingerprint(label, launch)` around each Electron child, with label `foundation-shell-${caseId}`. Do not derive this matrix from scenario defaults. Record native `Browser.getWindowBounds`, renderer inner size, device scale and inset separately. At 1440 assert docked 240/desk/292 plus manual collapse/bottom state; at 1280 assert dock threshold and user-opened overlay; at 1100 assert closed and user-opened accessible overlay. Check one native traffic-light inset/no HTML duplicates, drag/no-drag regions, one scroll owner, no body overflow, dock clearance, Escape/focus restoration, and screenshots. Add `"audit:instrument:shell": "bun scripts/audit-instrument-shell.mjs"`.
 
 Implement the wrapper without opening SQLite. For `/Users/maximovchinnikov/.ralphy/ralphy.db` and `-wal`, record existence, streaming SHA-256, bytes, and bigint nanosecond mtime before/after one child launch and fail on any difference including creation/removal. Record `-shm` existence/bytes/mtime separately without failing or claiming byte immutability. Always write the labelled JSON record even when the child fails.
 
@@ -647,7 +825,7 @@ Implement the wrapper without opening SQLite. For `/Users/maximovchinnikov/.ralp
 
 Run: `VITE_RALPHY_ENABLE_MOCKS=true bun run build && bun run audit:instrument:shell && git diff --check`
 
-Expected: prints `INSTRUMENT_SHELL_AUDIT_OK 3` and absolute manifest path; main DB/WAL fingerprints match and SHM is recorded. Reviewer checks all three screenshots and the launch record before route migration continues.
+Expected: prints `INSTRUMENT_SHELL_AUDIT_OK 6` and absolute manifest path; main DB/WAL fingerprints match and SHM is recorded. Reviewer checks the exact six-case panel matrix separately from route scenarios before route migration continues.
 
 - [ ] **Step 5: Commit**
 
@@ -657,7 +835,7 @@ gitleaks protect --staged --redact
 git commit -m "test: gate responsive shell geometry"
 ```
 
-### Task 8: Replace sidebar chrome and project tabs
+### Task 10: Replace sidebar chrome and project tabs
 
 **Files:**
 - Create: `src/instrument/InstrumentSidebar.tsx`
@@ -718,7 +896,7 @@ gitleaks protect --staged --redact
 git commit -m "feat: replace navigation with instruments"
 ```
 
-### Task 9: Add truthful live and isolated mock Dynamic Island feeds
+### Task 11: Add truthful live and isolated mock Dynamic Island feeds
 
 **Files:**
 - Create: `src/instrument/dynamic-island-feed.ts`
@@ -731,7 +909,7 @@ git commit -m "feat: replace navigation with instruments"
 - Test: `tests/dynamic-island.test.tsx`
 
 **Interfaces:**
-- Consumes: locked feed types, renderer chat/error memory, mock loader.
+- Consumes: locked feed types, renderer chat/error memory, mock loader, and `InstrumentOverlay` ID `dynamic-island`.
 - Produces: live projector with unavailable counters/optional destinations and UX mock projector with counters/task/three notifications.
 
 - [ ] **Step 1: Write failing truth/focus/once-only tests**
@@ -764,7 +942,7 @@ export function projectDynamicIslandFeed(input: DynamicIslandProjectionInput): D
 }
 ```
 
-Live counters are always `{ status: "unavailable", reason: "Project review totals are unavailable from the current Desktop contract." }`; live chat task has null progress and no inferred destination. Errors become notifications without navigation unless explicit provenance exists. Mock provider matches exact workspace name, uses actual route IDs, stable counters/task/three notification IDs, and is dynamically imported only under `=== "true"`. Keep `hasAnimatedMockNotification` for renderer lifetime, separate from root/workspace feed reset.
+Live counters are always `{ status: "unavailable", reason: "Project review totals are unavailable from the current Desktop contract." }`; live chat task has null progress and no inferred destination. Errors become notifications without navigation unless explicit provenance exists. Mock provider matches exact workspace name, uses actual route IDs, stable counters/task/three notification IDs, and is dynamically imported only under `=== "true"`. Expanded content renders through `InstrumentOverlay id="dynamic-island"`. Keep `hasAnimatedMockNotification` for renderer lifetime, separate from root/workspace feed reset.
 
 - [ ] **Step 4: Run GREEN, both builds, and reviewer gate**
 
@@ -780,7 +958,7 @@ gitleaks protect --staged --redact
 git commit -m "feat: add truthful dynamic island"
 ```
 
-### Task 10: Rebuild Settings from an explicit capability table
+### Task 12: Rebuild Settings from an explicit capability table
 
 **Files:**
 - Modify: `src/screens/SettingsScreen.tsx`
@@ -835,7 +1013,7 @@ export const SETTINGS_CAPABILITIES = [
 ] as const;
 ```
 
-Enable only read-only root/profile identity, persisted theme, operational Back/search/category navigation, working terminal shortcut, and static About facts. Disable restore/reveal (`No persisted preference exists in this release.`), profile display-name editing (`Profile identity is derived from the active library.`), density, motion, provider keys/connect, shell mode, and link toggle with exact reasons. Reskin overlays as bounded flat Instrument surfaces; no fake What's New data.
+Enable only read-only root/profile identity, persisted theme, operational Back/search/category navigation, working terminal shortcut, and static About facts. Disable restore/reveal (`No persisted preference exists in this release.`), profile display-name editing (`Profile identity is derived from the active library.`), density, motion, provider keys/connect, shell mode, and link toggle with exact reasons. Render Settings and its select/popover surfaces through `InstrumentOverlay` IDs `settings` and `settings-select`; no fake What's New data.
 
 - [ ] **Step 4: Run GREEN and reviewer gate**
 
@@ -851,7 +1029,7 @@ gitleaks protect --staged --redact
 git commit -m "feat: make settings capability truthful"
 ```
 
-### Task 11: Integrate permanent chat in docked and overlay rails
+### Task 13: Integrate permanent chat in docked and overlay rails
 
 **Files:**
 - Modify: `src/components/UtilityPanels.tsx`
@@ -904,7 +1082,7 @@ gitleaks protect --staged --redact
 git commit -m "feat: integrate instrument chat rail"
 ```
 
-### Task 12: Apply resolved theme to existing and new terminals and WaveSurfer
+### Task 14: Apply resolved theme to existing and new terminals and WaveSurfer
 
 **Files:**
 - Modify: `src/components/terminal/TerminalPane.tsx`
@@ -918,21 +1096,21 @@ git commit -m "feat: integrate instrument chat rail"
 - Test: `tests/audio-waveform-theme.test.tsx`
 
 **Interfaces:**
-- Consumes: `ResolvedTheme`, xterm `ITheme`, WaveSurfer color setters, existing terminal controller.
+- Consumes: `ResolvedTheme`, `INSTRUMENT_PALETTE`, `InstrumentOverlay` ID `terminal`, xterm `ITheme`, WaveSurfer color setters, existing terminal controller.
 - Produces: `terminalTheme(theme: ResolvedTheme): ITheme` and `TerminalController.setTheme(theme)`.
 
 - [ ] **Step 1: Write failing live-consumer tests**
 
 ```ts
-expect(terminalTheme("light").background).toBe("#F1F2F6");
-expect(terminalTheme("dark").background).toBe("#141414");
+expect(terminalTheme("light").background).toBe(INSTRUMENT_PALETTE.light.terminalBackground);
+expect(terminalTheme("dark").background).toBe(INSTRUMENT_PALETTE.dark.terminalBackground);
 expect(controller.options.theme).toEqual(terminalTheme("light"));
 controller.setTheme("dark");
 expect(existingTerminal.options.theme).toEqual(terminalTheme("dark"));
 expect(newTerminal.options.theme).toEqual(terminalTheme("dark"));
 ```
 
-Assert WaveSurfer updates cursor/wave/progress colors without recreating playback and no source contains `#514a7a`.
+Assert WaveSurfer updates cursor/wave/progress colors from `INSTRUMENT_PALETTE[resolved]` without recreating playback and neither controller nor waveform source contains a color literal.
 
 - [ ] **Step 2: Run RED**
 
@@ -944,19 +1122,18 @@ Expected: FAIL because `src/terminal/controller.ts` owns a legacy fixed purple t
 
 ```ts
 export function terminalTheme(theme: ResolvedTheme): ITheme {
-  return theme === "dark"
-    ? { background: "#141414", foreground: "#F2F2F0", cursor: "#F2F2F0" }
-    : { background: "#F1F2F6", foreground: "#141414", cursor: "#141414" };
+  const palette = INSTRUMENT_PALETTE[theme];
+  return { background: palette.terminalBackground, foreground: palette.terminalForeground, cursor: palette.terminalCursor, selectionBackground: palette.terminalSelection };
 }
 ```
 
-Remove `TERMINAL_THEME`; inject the resolved theme at construction, update every open terminal on changes, and retain it for new tabs. Pass resolved waveform colors without restart. Keep `⌘J`, lazy terminal creation, PTY behavior, and bottom-panel sizing unchanged.
+Remove `TERMINAL_THEME`; inject the resolved theme at construction, update every open terminal on changes, and retain it for new tabs. Pass `waveformWave`, `waveformProgress`, and `waveformCursor` palette fields without restart. Render the terminal drawer through `InstrumentOverlay id="terminal"`. Add a source test rejecting direct color literals in these consumers. Keep `⌘J`, lazy terminal creation, PTY behavior, and bottom-panel sizing unchanged.
 
 - [ ] **Step 4: Run GREEN and final foundation review**
 
 Run: `bun run test -- tests/terminal-theme.test.ts tests/terminal-layout.test.ts tests/audio-waveform-theme.test.tsx tests/instrument-shell.test.tsx tests/instrument-scenarios.test.ts && bun run typecheck && bun run build && bun run audit:instrument:shell && git diff --check`
 
-Expected: PASS and shell audit prints three cases. Reviewer inspects forced light/dark/system consumer changes, reduced motion, chat/terminal, and confirms no Core/DB/product-fixture leakage.
+Expected: PASS and shell audit prints the exact six panel cases. Reviewer inspects forced light/dark/system consumer changes, reduced motion, chat/terminal, and confirms no Core/DB/product-fixture leakage.
 
 - [ ] **Step 5: Commit**
 
@@ -970,4 +1147,4 @@ git commit -m "feat: synchronize terminal and waveform themes"
 
 Run: `bun run test && bun run typecheck && bun run build && VITE_RALPHY_ENABLE_MOCKS=true bun run audit:instrument:shell && git diff --check && git log --oneline "$NOTHING_FOUNDATION_BASE..HEAD"`
 
-Expected: all checks pass or only an exact baseline recorded before Task 1 remains; 12 scoped commits exist; stable reference, scenario, rail, scroll, palette, profile, Island, Settings, chat, and terminal interfaces are ready for Plan 2.
+Expected: all checks pass or only an exact baseline recorded before Task 1 remains; 14 scoped commits exist; stable production overlay/state registries plus scenario, rail, scroll, palette, profile, Island, Settings, chat, and terminal interfaces are ready for Plan 2.
