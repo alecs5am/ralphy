@@ -197,6 +197,41 @@ describe("Shared Library screen", () => {
     }
   });
 
+  test.each(["Grid", "List"] as const)("closes the inspector back to the exact %s origin while preserving query, scroll, and selection", async (view) => {
+    vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue(page([
+      artifact("portrait"), artifact("other"),
+    ]));
+    vi.spyOn(bridge, "loadSharedLibraryArtifact").mockResolvedValue(artifact("portrait"));
+    vi.spyOn(bridge, "loadSharedLibraryRevisions").mockResolvedValue({ items: [], nextCursor: null });
+    vi.spyOn(bridge, "resolveSharedLibraryPreview").mockResolvedValue(null);
+    const mounted = await mountScreen();
+    try {
+      if (view === "List") await act(async () => { byText(mounted.host.container, "List").dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      const search = byAria(mounted.host.container, "input", "Search Shared Library") as HostNode & { value: string };
+      search.value = "portrait";
+      await act(async () => { search.dispatchEvent(new Event("input", { bubbles: true })); await settle(); });
+      const scroll = mounted.host.container.querySelector(".shared-library-scroll")!;
+      scroll.scrollTop = 83;
+      const origin = byAria(mounted.host.container, "button", "Select portrait identity and open inspector")!;
+      origin.focus();
+      await act(async () => { origin.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      expect(mounted.host.container.querySelector(".shared-artifact-inspector")).not.toBeNull();
+      expect(mounted.host.container.querySelector(".shared-library-content")?.getAttribute("data-inspector-open")).toBe("true");
+      expect(mounted.host.container.textContent).toContain("Context agents receive");
+
+      await act(async () => { byAria(mounted.host.container, "button", "Close artifact inspector")!.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      expect(mounted.host.container.querySelector(".shared-artifact-inspector")).toBeNull();
+      expect((search.value ?? "")).toBe("portrait");
+      expect(scroll.scrollTop).toBe(83);
+      const selectedOrigin = view === "Grid" ? origin.closest("article") : origin.closest(".shared-library-audit-row");
+      expect(selectedOrigin?.getAttribute("class")).toContain("is-selected");
+      expect(document.activeElement).toBe(origin);
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
   test("renders the 44px audit list with unavailable future cells and disabled bulk mutations", async () => {
     vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue(page([
       artifact("portrait", { usageRoles: ["character reference"] }),
@@ -279,9 +314,9 @@ describe("Shared Library screen", () => {
     vi.spyOn(bridge, "loadSharedLibraryPage")
       .mockResolvedValueOnce(page([artifact("old-card")]))
       .mockResolvedValueOnce(page([artifact("new-card")]));
-    vi.spyOn(bridge, "resolveSharedLibraryPreview")
-      .mockImplementationOnce(() => oldPreview.promise)
-      .mockResolvedValueOnce({ url: "ralphy-media://asset/new-token", sizeBytes: 2_048 });
+    vi.spyOn(bridge, "resolveSharedLibraryPreview").mockImplementation(async (_workspaceId, artifactId) => artifactId === "old-card"
+      ? oldPreview.promise
+      : { url: "ralphy-media://asset/new-token", sizeBytes: 2_048 });
     const mounted = await mountScreen();
     try {
       const search = byAria(mounted.host.container, "input", "Search Shared Library") as HostNode & { value: string };
