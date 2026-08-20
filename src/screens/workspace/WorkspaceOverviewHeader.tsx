@@ -16,22 +16,30 @@ export function WorkspaceOverviewHeader({
   criticalCount,
   refreshing,
   lastSuccessfulRefreshAt,
+  error,
   onRefresh,
 }: {
   value: WorkspaceHeaderPresentation;
   criticalCount: Availability<number>;
   refreshing: boolean;
   lastSuccessfulRefreshAt: number | null;
+  error: string | null;
   onRefresh(): void;
 }) {
   const [announcement, setAnnouncement] = useState("");
   const wasRefreshing = useRef(false);
+  const previousRefreshAt = useRef(lastSuccessfulRefreshAt);
   useEffect(() => {
     if (wasRefreshing.current && !refreshing) {
-      setAnnouncement(`Workspace refreshed. ${countLabel(criticalCount, "critical issue")}.`);
+      if (lastSuccessfulRefreshAt !== null && lastSuccessfulRefreshAt !== previousRefreshAt.current) {
+        setAnnouncement(`Workspace refreshed. ${countLabel(criticalCount, "critical issue")}.`);
+      } else if (error) {
+        setAnnouncement(`Refresh failed. ${error}`);
+      }
     }
     wasRefreshing.current = refreshing;
-  }, [criticalCount, refreshing]);
+    previousRefreshAt.current = lastSuccessfulRefreshAt;
+  }, [criticalCount, error, lastSuccessfulRefreshAt, refreshing]);
   const degraded = [value.accountCount, criticalCount]
     .filter((item) => item.status !== "ready")
     .map((item) => item.reason);

@@ -25,6 +25,7 @@ const PLATFORM_ICON = { instagram: Instagram, youtube: Youtube, tiktok: Music2, 
 const EMPTY_FILTERS: CalendarFilters = { projectIds: [], platforms: [], statuses: [] };
 const CALENDAR_UNIT_DRAG = "application/x-ralphy-calendar-unit";
 const CalendarWorkspaceContext = createContext("");
+const timestampMs = (value: number) => value < 1_000_000_000_000 ? value * 1000 : value;
 
 export function CalendarScreen({
   workspaceId, workspaceName, initialDate = new Date(), navigationContext, onOpenProject = () => undefined,
@@ -59,14 +60,18 @@ export function CalendarScreen({
       if (!current) return;
       setData(next);
       setSelectedEventId((id) => {
-        if (id && next.events.some((event) => event.id === id)) return id;
         const contextual = navigationContext?.unitId
           ? next.events.find((event) => event.unitId === navigationContext.unitId && (
-            navigationContext.date === undefined || Math.abs((event.at ?? event.draftAt ?? 0) - navigationContext.date) < 24 * 60 * 60 * 1000
+            navigationContext.date === undefined || (
+              event.at !== null || event.draftAt !== null
+            ) && timestampMs((event.at ?? event.draftAt)!) === timestampMs(navigationContext.date)
           ))
           : undefined;
-        if (contextual) setRightPanel("inspector");
-        return contextual?.id ?? null;
+        if (navigationContext?.unitId) {
+          setRightPanel(contextual ? "inspector" : null);
+          return contextual?.id ?? null;
+        }
+        return id && next.events.some((event) => event.id === id) ? id : null;
       });
     }).catch((cause: unknown) => {
       if (current) setError(cause instanceof Error ? cause.message : String(cause));

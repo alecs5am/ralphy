@@ -15,9 +15,9 @@ import type {
 
 interface Props {
   value: Pick<WorkspaceOverviewPresentation, "plan" | "outcomes">;
-  onOpenPage(page: WorkspacePage): void;
-  onOpenCalendar?(context?: WorkspaceCalendarNavigationContext): void;
-  onOpenUnit(projectId: string, unitId: string): void;
+  onOpenPage(page: WorkspacePage, returnFocusId: string): void;
+  onOpenCalendar?(context: WorkspaceCalendarNavigationContext | undefined, returnFocusId: string): void;
+  onOpenUnit(projectId: string, unitId: string, unitLabel: string, returnFocusId: string): void;
 }
 
 const attentionStates = new Set(["failed", "reconciliation_required", "unknown"]);
@@ -56,9 +56,9 @@ function DayStrip({ days, events }: { days: number[]; events: PublishingEventPre
 
 function ContentEvent({ event, onOpenCalendar, onOpenUnit, onOpenUnits }: {
   event: PublishingEventPresentation;
-  onOpenCalendar(context: WorkspaceCalendarNavigationContext): void;
-  onOpenUnit(projectId: string, unitId: string): void;
-  onOpenUnits(): void;
+  onOpenCalendar(context: WorkspaceCalendarNavigationContext, returnFocusId: string): void;
+  onOpenUnit(projectId: string, unitId: string, unitLabel: string, returnFocusId: string): void;
+  onOpenUnits(returnFocusId: string): void;
 }) {
   const blocked = event.publications.filter((publication) => attentionStates.has(publication.state)).length;
   const unitLabel = event.unit?.slug ?? "Unit details unavailable";
@@ -71,7 +71,12 @@ function ContentEvent({ event, onOpenCalendar, onOpenUnit, onOpenUnits }: {
     accountId: firstAccount?.id,
     accountLabel: firstAccount?.username ? `@${firstAccount.username.replace(/^@/, "")}` : firstAccount?.displayName ?? undefined,
   } satisfies WorkspaceCalendarNavigationContext;
-  const openUnit = () => event.unit?.projectId ? onOpenUnit(event.unit.projectId, event.unitId) : onOpenUnits();
+  const eventFocusId = `workspace-calendar-event-${event.unitId}-${event.scheduledAt}`;
+  const problemFocusId = `workspace-calendar-problem-${event.unitId}-${event.scheduledAt}`;
+  const unitFocusId = `workspace-open-unit-${event.unitId}-${event.scheduledAt}`;
+  const openUnit = () => event.unit?.projectId
+    ? onOpenUnit(event.unit.projectId, event.unitId, unitLabel, unitFocusId)
+    : onOpenUnits(unitFocusId);
   return <li className="workspace-plan-event" data-content-event>
     <span className="workspace-unit-glyph" aria-hidden="true"><Boxes /></span>
     <div className="workspace-plan-event-main">
@@ -86,9 +91,9 @@ function ContentEvent({ event, onOpenCalendar, onOpenUnit, onOpenUnits }: {
       </ul>
       {blocked > 0 && <p className="workspace-plan-warning">{blocked} channel{blocked === 1 ? "" : "s"} needs attention</p>}
       <div className="workspace-plan-actions">
-        <button id={`workspace-calendar-event-${event.unitId}-${event.scheduledAt}`} type="button" aria-label={`Open ${unitLabel} scheduled ${dateLabel} in Calendar`} onClick={() => onOpenCalendar(calendarContext)}>Open in Calendar</button>
-        <button type="button" aria-label={`${event.unit?.projectId ? "Open Unit" : "Open Units for"} ${unitLabel} scheduled ${dateLabel}`} onClick={openUnit}>{event.unit?.projectId ? "Open Unit" : "Open Units"}</button>
-        {blocked > 0 && <button type="button" aria-label={`Review problem for ${unitLabel} scheduled ${dateLabel}`} onClick={() => onOpenCalendar(calendarContext)}>Review problem</button>}
+        <button id={eventFocusId} type="button" aria-label={`Open ${unitLabel} scheduled ${dateLabel} in Calendar`} onClick={() => onOpenCalendar(calendarContext, eventFocusId)}>Open in Calendar</button>
+        <button id={unitFocusId} type="button" aria-label={`${event.unit?.projectId ? "Open Unit" : "Open Units for"} ${unitLabel} scheduled ${dateLabel}`} onClick={openUnit}>{event.unit?.projectId ? "Open Unit" : "Open Units"}</button>
+        {blocked > 0 && <button id={problemFocusId} type="button" aria-label={`Review problem for ${unitLabel} scheduled ${dateLabel}`} onClick={() => onOpenCalendar(calendarContext, problemFocusId)}>Review problem</button>}
       </div>
     </div>
   </li>;
@@ -106,24 +111,26 @@ function PlanCoverage({ value }: { value: Availability<PlanCoveragePresentation[
 
 function ReadyUnscheduled({ value, onOpenUnit, onOpenUnits }: {
   value: Availability<ReadyUnscheduledPresentation[]>;
-  onOpenUnit(projectId: string, unitId: string): void;
-  onOpenUnits(): void;
+  onOpenUnit(projectId: string, unitId: string, unitLabel: string, returnFocusId: string): void;
+  onOpenUnits(returnFocusId: string): void;
 }) {
   if (value.status !== "ready" && value.status !== "partial") return unavailable(value.status === "empty" ? "No ready Units" : "Ready Unit count unavailable", value.reason);
   return <>
     {value.status === "partial" && unavailable("Partial ready Unit data", value.reason)}
     {value.value.length > 0 ? <ul className="workspace-ready-list">{value.value.map((unit) => <li key={unit.unitId}>
       <span><strong>{unit.title}</strong><small>{unit.projectTitle ?? "Project unavailable"}</small></span>
-      <button type="button" onClick={() => unit.projectId ? onOpenUnit(unit.projectId, unit.unitId) : onOpenUnits()}>{unit.projectId ? "Open Unit" : "Open Units"}</button>
+      <button id={`workspace-ready-unit-${unit.unitId}`} type="button" onClick={() => unit.projectId
+        ? onOpenUnit(unit.projectId, unit.unitId, unit.title, `workspace-ready-unit-${unit.unitId}`)
+        : onOpenUnits(`workspace-ready-unit-${unit.unitId}`)}>{unit.projectId ? "Open Unit" : "Open Units"}</button>
     </li>)}</ul> : unavailable("No ready Units", "No ready, unscheduled Units were returned.")}
   </>;
 }
 
 function ContentPlan({ value, onOpenCalendar, onOpenUnits, onOpenUnit }: {
   value: WorkspacePlanPresentation;
-  onOpenCalendar(context?: WorkspaceCalendarNavigationContext): void;
-  onOpenUnits(): void;
-  onOpenUnit(projectId: string, unitId: string): void;
+  onOpenCalendar(context: WorkspaceCalendarNavigationContext | undefined, returnFocusId: string): void;
+  onOpenUnits(returnFocusId: string): void;
+  onOpenUnit(projectId: string, unitId: string, unitLabel: string, returnFocusId: string): void;
 }) {
   const events = value.upcoming.status === "ready" || value.upcoming.status === "partial" ? value.upcoming.value : [];
   return <section className="workspace-overview-section workspace-content-plan" aria-labelledby="workspace-content-plan-title">
@@ -135,7 +142,7 @@ function ContentPlan({ value, onOpenCalendar, onOpenUnits, onOpenUnit }: {
     {value.upcoming.status === "unavailable" && unavailable("Publishing schedule unavailable", value.upcoming.reason)}
     {value.upcoming.status === "empty" && <div className="workspace-plan-empty">
       <p>{value.upcoming.reason}</p>
-      <button type="button" className="command-button" onClick={() => onOpenCalendar()}><CalendarDays aria-hidden="true" />Open Calendar</button>
+      <button id="workspace-empty-calendar" type="button" className="command-button" onClick={() => onOpenCalendar(undefined, "workspace-empty-calendar")}><CalendarDays aria-hidden="true" />Open Calendar</button>
     </div>}
     {events.length > 0 && <ol className="workspace-plan-events">
       {events.map((event) => <ContentEvent key={`${event.unitId}:${event.scheduledAt}`} event={event} onOpenCalendar={onOpenCalendar} onOpenUnit={onOpenUnit} onOpenUnits={onOpenUnits} />)}
@@ -150,7 +157,7 @@ function ContentPlan({ value, onOpenCalendar, onOpenUnits, onOpenUnit }: {
 function OutcomeGroup({ title, value, onSelect }: { title: string; value: UnitOutcomePresentation[]; onSelect(value: UnitOutcomePresentation): void }) {
   return <section className="workspace-outcome-group"><h3>{title}</h3>
     {value.length === 0 ? <p>No comparable performance data is available yet.</p> : <div className="workspace-outcome-cards">
-      {value.map((outcome) => <button type="button" key={outcome.id} className="workspace-outcome-card" onClick={() => onSelect(outcome)}>
+      {value.map((outcome) => <button id={`workspace-outcome-${outcome.id}`} type="button" key={outcome.id} className="workspace-outcome-card" onClick={() => onSelect(outcome)}>
         <span className="workspace-unit-glyph" aria-hidden="true"><Boxes /></span>
         <span><strong>{outcome.title}</strong><small>{outcome.projectTitle} · {outcome.revisionLabel}</small><small>Comparable metrics unavailable</small></span>
       </button>)}
@@ -165,7 +172,7 @@ function DetailSection({ title, reason }: { title: string; reason: string }) {
 function UnitOutcomeDetailDialog({ value, onOpenChange, onOpenUnit }: {
   value: UnitOutcomePresentation | null;
   onOpenChange(open: boolean): void;
-  onOpenUnit(projectId: string, unitId: string): void;
+  onOpenUnit(projectId: string, unitId: string, unitLabel: string, returnFocusId: string): void;
 }) {
   return <Dialog.Root open={value !== null} onOpenChange={onOpenChange}>
     {value && <Dialog.Portal forceMount container={typeof document === "undefined" ? undefined : document.body}>
@@ -179,13 +186,13 @@ function UnitOutcomeDetailDialog({ value, onOpenChange, onOpenUnit }: {
           <DetailSection title="Observation window" reason="Observation windows are not available from the current Core contract." />
           <DetailSection title="Destination" reason="Destination outcomes are not available from the current Core contract." />
         </div>
-        <footer className="account-detail-footer"><button type="button" className="command-button" onClick={() => onOpenUnit(value.projectId, value.unitId)}>Open Unit</button></footer>
+        <footer className="account-detail-footer"><button type="button" className="command-button" onClick={() => onOpenUnit(value.projectId, value.unitId, value.title, `workspace-outcome-${value.id}`)}>Open Unit</button></footer>
       </Dialog.Content>
     </Dialog.Portal>}
   </Dialog.Root>;
 }
 
-function UnitOutcomes({ value, onOpenUnit }: { value: Availability<UnitOutcomeGroups>; onOpenUnit(projectId: string, unitId: string): void }) {
+function UnitOutcomes({ value, onOpenUnit }: { value: Availability<UnitOutcomeGroups>; onOpenUnit(projectId: string, unitId: string, unitLabel: string, returnFocusId: string): void }) {
   const [selected, setSelected] = useState<UnitOutcomePresentation | null>(null);
   const groups = value.status === "ready" || value.status === "partial" ? value.value : { top: [], emerging: [], learningOpportunities: [] };
   return <section className="workspace-overview-section workspace-unit-outcomes" aria-labelledby="workspace-unit-outcomes-title">
@@ -202,9 +209,11 @@ function UnitOutcomes({ value, onOpenUnit }: { value: Availability<UnitOutcomeGr
 }
 
 export function WorkspacePlanAndOutcomes({ value, onOpenPage, onOpenCalendar, onOpenUnit }: Props) {
-  const openCalendar = (context?: WorkspaceCalendarNavigationContext) => onOpenCalendar ? onOpenCalendar(context) : onOpenPage("calendar");
+  const openCalendar = (context: WorkspaceCalendarNavigationContext | undefined, returnFocusId: string) => onOpenCalendar
+    ? onOpenCalendar(context, returnFocusId)
+    : onOpenPage("calendar", returnFocusId);
   return <>
-    <ContentPlan value={value.plan} onOpenCalendar={openCalendar} onOpenUnits={() => onOpenPage("units")} onOpenUnit={onOpenUnit} />
+    <ContentPlan value={value.plan} onOpenCalendar={openCalendar} onOpenUnits={(returnFocusId) => onOpenPage("units", returnFocusId)} onOpenUnit={onOpenUnit} />
     <UnitOutcomes value={value.outcomes} onOpenUnit={onOpenUnit} />
   </>;
 }

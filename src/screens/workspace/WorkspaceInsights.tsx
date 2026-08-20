@@ -13,7 +13,7 @@ import type {
 
 interface Props {
   value: Pick<WorkspaceOverviewPresentation, "insights" | "efficiency">;
-  onOpenPage(page: WorkspacePage): void;
+  onOpenPage(page: WorkspacePage, returnFocusId: string): void;
 }
 
 const efficiencySlots: { id: ProductionEfficiencyMetricId; label: string }[] = [
@@ -64,7 +64,7 @@ function InsightCard({ value, onReview }: { value: WorkspaceInsightPresentation;
         <ReferenceList title="Counterexamples" values={value.counterexamples} />
         <CaveatList values={value.caveats} />
       </div>
-      <button type="button" onClick={onReview}>Review evidence</button>
+      <button id={`workspace-insight-${value.id}`} type="button" onClick={onReview}>Review evidence</button>
     </article>
   </li>;
 }
@@ -88,7 +88,7 @@ function EvidenceState({ value, onReview }: {
 function LearnedState({ value, onReview, onOpenMemory }: {
   value: Availability<WorkspaceInsightPresentation[]>;
   onReview(value: WorkspaceInsightPresentation): void;
-  onOpenMemory(): void;
+  onOpenMemory(returnFocusId: string): void;
 }) {
   if (value.status !== "ready" && value.status !== "partial") {
     return <UnavailablePanel title="No proposed learning without evidence" reason={value.reason} />;
@@ -102,7 +102,7 @@ function LearnedState({ value, onReview, onOpenMemory }: {
     <p>{insight.observation}</p>
     <div>
       <button type="button" onClick={() => onReview(insight)}>Review evidence</button>
-      {insight.memoryAction.status === "ready" && <button type="button" onClick={onOpenMemory}>{insight.memoryAction.value.label}</button>}
+      {insight.memoryAction.status === "ready" && <button id={`workspace-learning-memory-${insight.id}`} type="button" onClick={() => onOpenMemory(`workspace-learning-memory-${insight.id}`)}>{insight.memoryAction.value.label}</button>}
     </div>
   </li>)}</ul>;
 }
@@ -159,13 +159,13 @@ function ProductionEfficiency({ value, onOpenShared }: {
         {metric.status !== "ready" && <p>{metric.reason}</p>}
       </div>;
     })}</dl>
-    {presentation?.sharedAction.status === "ready" && <button type="button" className="command-button" onClick={onOpenShared}>{presentation.sharedAction.value.label}</button>}
+    {presentation?.sharedAction.status === "ready" && <button id="workspace-open-shared" type="button" className="command-button" onClick={onOpenShared}>{presentation.sharedAction.value.label}</button>}
   </section>;
 }
 
 export function WorkspaceInsights({ value, onOpenPage }: Props) {
   const [selected, setSelected] = useState<WorkspaceInsightPresentation | null>(null);
-  const openMemory = () => onOpenPage("memory");
+  const openMemory = (returnFocusId: string) => onOpenPage("memory", returnFocusId);
   return <>
     <section className="workspace-overview-section workspace-insights" aria-labelledby="workspace-insights-title">
       <header className="workspace-section-heading"><h2 id="workspace-insights-title">What works</h2><span>Comparable evidence</span></header>
@@ -175,7 +175,7 @@ export function WorkspaceInsights({ value, onOpenPage }: Props) {
       <header className="workspace-section-heading"><h2 id="workspace-learnings-title">What Ralphy learned</h2><span>Review before Memory</span></header>
       <LearnedState value={value.insights} onReview={setSelected} onOpenMemory={openMemory} />
     </section>
-    <ProductionEfficiency value={value.efficiency} onOpenShared={() => onOpenPage("shared")} />
-    <EvidenceDetailDialog value={selected} onOpenChange={(open) => { if (!open) setSelected(null); }} onOpenMemory={openMemory} />
+    <ProductionEfficiency value={value.efficiency} onOpenShared={() => onOpenPage("shared", "workspace-open-shared")} />
+    <EvidenceDetailDialog value={selected} onOpenChange={(open) => { if (!open) setSelected(null); }} onOpenMemory={() => selected && openMemory(`workspace-insight-${selected.id}`)} />
   </>;
 }

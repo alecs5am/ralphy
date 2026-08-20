@@ -55,6 +55,48 @@ function button(host: HTMLElement, name: string): HTMLButtonElement {
 const click = (target: HTMLButtonElement) => target.dispatchEvent(new Event("click", { bubbles: true }));
 
 describe("Calendar screen", () => {
+  test("opens the exact contextual timestamp when one Unit has nearby events", async () => {
+    const exactAt = workspace.events[0]!.at!;
+    vi.spyOn(bridge, "loadCalendar").mockResolvedValue({
+      ...workspace,
+      events: [
+        { ...workspace.events[0]!, id: "event_nearby", title: "Nearby cut", at: exactAt - 60 * 60 * 1000 },
+        { ...workspace.events[0]!, id: "event_exact", title: "Exact cut", at: exactAt / 1000 },
+      ],
+    });
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => {
+        root.render(<CalendarScreen
+          workspaceId="ws_ux"
+          workspaceName="UX Testing Lab"
+          initialDate={new Date(exactAt)}
+          navigationContext={{ label: "Nearby cut", unitId: "unit_1", date: exactAt - 60 * 60 * 1000 }}
+        />);
+        await Promise.resolve(); await Promise.resolve();
+      });
+      expect(host.container.querySelector(".calendar-inspector")?.textContent).toContain("Nearby cut");
+      await act(async () => {
+        root.render(<CalendarScreen
+          workspaceId="ws_ux"
+          workspaceName="UX Testing Lab"
+          initialDate={new Date(exactAt)}
+          navigationContext={{ label: "Exact cut", unitId: "unit_1", date: exactAt }}
+        />);
+        await Promise.resolve(); await Promise.resolve();
+      });
+
+      const inspector = host.container.querySelector(".calendar-inspector");
+      expect(inspector).toBeTruthy();
+      expect(inspector!.textContent).toContain("Exact cut");
+      expect(inspector!.textContent).not.toContain("Nearby cut");
+    } finally {
+      await act(async () => root.unmount()); host.restore(); vi.restoreAllMocks();
+    }
+  });
+
   test("renders Month and keeps the right overlays exclusive", async () => {
     vi.spyOn(bridge, "loadCalendar").mockResolvedValue(workspace);
     const openProject = vi.fn();

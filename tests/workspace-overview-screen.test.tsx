@@ -155,7 +155,7 @@ describe("workspace overview shell", () => {
     expect(markup.slice(0, markup.indexOf("workspace-overview-scroll"))).not.toContain("1970-01-01T00:00:02.000Z");
   });
 
-  test("announces refresh completion and its critical count in one polite atomic live region", async () => {
+  test("announces successful and failed retained-data refreshes without a false success", async () => {
     const host = createReactHost();
     const { createRoot } = await import("react-dom/client");
     const root = createRoot(host.container as unknown as Element);
@@ -169,6 +169,7 @@ describe("workspace overview shell", () => {
         criticalCount={{ status: "ready", value: 2 }}
         refreshing
         lastSuccessfulRefreshAt={1_000}
+        error={null}
         onRefresh={() => undefined}
       />));
       await act(async () => root.render(<WorkspaceOverviewHeader
@@ -176,12 +177,33 @@ describe("workspace overview shell", () => {
         criticalCount={{ status: "ready", value: 2 }}
         refreshing={false}
         lastSuccessfulRefreshAt={2_000}
+        error={null}
         onRefresh={() => undefined}
       />));
 
       const live = host.container.querySelector("[aria-live=polite]");
       expect(live?.getAttribute("aria-atomic")).toBe("true");
       expect(live?.textContent).toBe("Workspace refreshed. 2 critical issues.");
+
+      await act(async () => root.render(<WorkspaceOverviewHeader
+        value={value}
+        criticalCount={{ status: "ready", value: 2 }}
+        refreshing
+        lastSuccessfulRefreshAt={2_000}
+        error={null}
+        onRefresh={() => undefined}
+      />));
+      await act(async () => root.render(<WorkspaceOverviewHeader
+        value={value}
+        criticalCount={{ status: "ready", value: 2 }}
+        refreshing={false}
+        lastSuccessfulRefreshAt={2_000}
+        error="Refresh unavailable"
+        onRefresh={() => undefined}
+      />));
+
+      expect(live?.textContent).toBe("Refresh failed. Refresh unavailable");
+      expect(live?.textContent).not.toContain("Workspace refreshed");
     } finally {
       await act(async () => root.unmount());
       host.restore();
@@ -304,10 +326,10 @@ describe("workspace overview shell", () => {
         .find((button) => button.textContent?.includes("Manage account"));
       expect(manageAccount?.disabled).toBe(true);
 
-      const openCalendar = [...document.body.querySelectorAll("button")]
+      const openCalendar = [...drawer!.querySelectorAll("button")]
         .find((button) => button.textContent?.includes("Open Calendar"));
       await act(async () => openCalendar!.dispatchEvent(new Event("click", { bubbles: true })));
-      expect(openPage).toHaveBeenCalledWith("calendar");
+      expect(openPage).toHaveBeenCalledWith("calendar", "workspace-account-account-1");
     } finally {
       await act(async () => root.unmount());
       host.restore();
@@ -481,7 +503,7 @@ describe("workspace overview shell", () => {
       const openCalendar = [...host.container.querySelectorAll("button")]
         .find((button) => button.textContent?.includes("Open Calendar"));
       await act(async () => openCalendar!.dispatchEvent(new Event("click", { bubbles: true })));
-      expect(openPage).toHaveBeenCalledWith("calendar");
+      expect(openPage).toHaveBeenCalledWith("calendar", "workspace-empty-calendar");
     } finally {
       await act(async () => root.unmount());
       host.restore();
@@ -544,7 +566,7 @@ describe("workspace overview shell", () => {
       const openUnitButton = [...host.container.querySelectorAll("button")]
         .find((button) => button.textContent?.includes("Open Unit"));
       await act(async () => openUnitButton!.dispatchEvent(new Event("click", { bubbles: true })));
-      expect(openUnit).toHaveBeenCalledWith("project-1", "unit-1");
+      expect(openUnit).toHaveBeenCalledWith("project-1", "unit-1", "Product reveal", `workspace-open-unit-unit-1-${event.scheduledAt}`);
 
       await act(async () => root.render(<WorkspacePlanAndOutcomes
         value={{
@@ -562,7 +584,7 @@ describe("workspace overview shell", () => {
       const fallback = [...host.container.querySelectorAll("button")]
         .find((button) => button.textContent?.includes("Open Unit"));
       await act(async () => fallback!.dispatchEvent(new Event("click", { bubbles: true })));
-      expect(openPage).toHaveBeenCalledWith("units");
+      expect(openPage).toHaveBeenCalledWith("units", `workspace-open-unit-unit-1-${event.scheduledAt}`);
     } finally {
       await act(async () => root.unmount());
       host.restore();
@@ -781,12 +803,12 @@ describe("workspace overview shell", () => {
       const saveMemory = [...dialog!.querySelectorAll("button")]
         .find((button) => button.textContent?.includes("Save as proposed Memory"));
       await act(async () => saveMemory!.dispatchEvent(new Event("click", { bubbles: true })));
-      expect(openPage).toHaveBeenCalledWith("memory");
+      expect(openPage).toHaveBeenCalledWith("memory", "workspace-insight-insight-1");
 
       const openShared = [...host.container.querySelectorAll("button")]
         .find((button) => button.textContent?.includes("Open Shared library"));
       await act(async () => openShared!.dispatchEvent(new Event("click", { bubbles: true })));
-      expect(openPage).toHaveBeenCalledWith("shared");
+      expect(openPage).toHaveBeenCalledWith("shared", "workspace-open-shared");
       for (const reason of [
         "Selection timestamps are unavailable.",
         "Revision history is unavailable.",
@@ -910,7 +932,7 @@ describe("workspace overview shell", () => {
       for (const [label, page] of [["Open Projects", "projects"], ["Open Shared library", "shared"], ["Open Calendar", "calendar"]] as const) {
         const button = [...host.container.querySelectorAll("button")].find((candidate) => candidate.textContent === label);
         await act(async () => button!.dispatchEvent(new Event("click", { bubbles: true })));
-        expect(openPage).toHaveBeenCalledWith(page);
+        expect(openPage).toHaveBeenCalledWith(page, `workspace-onboarding-${page}`);
       }
     } finally {
       await act(async () => root.unmount());
@@ -971,7 +993,7 @@ describe("workspace overview shell", () => {
       const viewAll = [...host.container.querySelectorAll("button")]
         .find((button) => button.textContent === "View all projects");
       await act(async () => viewAll!.dispatchEvent(new Event("click", { bubbles: true })));
-      expect(openPage).toHaveBeenCalledWith("projects");
+      expect(openPage).toHaveBeenCalledWith("projects", "workspace-view-all-projects");
       expect(retry).not.toHaveBeenCalled();
     } finally {
       await act(async () => root.unmount());
@@ -1021,7 +1043,7 @@ describe("workspace overview shell", () => {
       expect(openProject).toHaveBeenCalledWith(projects[0]!.catalog);
       const viewAll = [...host.container.querySelectorAll("button")].find((button) => button.textContent === "View all projects");
       await act(async () => viewAll!.dispatchEvent(new Event("click", { bubbles: true })));
-      expect(openPage).toHaveBeenCalledWith("projects");
+      expect(openPage).toHaveBeenCalledWith("projects", "workspace-view-all-projects");
     } finally {
       await act(async () => root.unmount());
       host.restore();

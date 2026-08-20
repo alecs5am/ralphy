@@ -129,7 +129,7 @@ export function AccountPortfolio({
     {value.status === "ready" && accounts.length === 0 && <UnavailablePanel title="No connected accounts" reason="No connected accounts were returned by Core." />}
     {accounts.length > 0 && <div className="account-portfolio-wrap">
       <div className="account-portfolio" aria-label="Account portfolio">
-        {accounts.map((account) => <button className="account-card" type="button" key={account.id} onClick={() => onSelect(account)}>
+        {accounts.map((account) => <button id={`workspace-account-${account.id}`} className="account-card" type="button" key={account.id} onClick={() => onSelect(account)}>
           <span className="account-card-heading"><strong>{account.platform}</strong><span className={`account-health${account.relinkRequired || !account.credentialConfigured ? " is-warning" : ""}`}>{health(account)}</span></span>
           <b>{handle(account.username)}</b>
           {account.displayName && <small>{account.displayName}</small>}
@@ -158,7 +158,7 @@ export function AccountDetailDialog({
 }: {
   account: AccountPresentation | null;
   onOpenChange(open: boolean): void;
-  onOpenCalendar(context: WorkspaceCalendarNavigationContext): void;
+  onOpenCalendar(context: WorkspaceCalendarNavigationContext, returnFocusId: string): void;
 }) {
   return <Dialog.Root open={account !== null} onOpenChange={onOpenChange}>
     {account && <Dialog.Portal forceMount container={typeof document === "undefined" ? undefined : document.body}>
@@ -197,7 +197,7 @@ export function AccountDetailDialog({
               label: account.displayName ?? handle(account.username),
               accountId: account.id,
               accountLabel: account.username ? handle(account.username) : account.displayName ?? "Handle unavailable",
-            })}><CalendarDays aria-hidden="true" />Open Calendar</button>
+            }, `workspace-account-${account.id}`)}><CalendarDays aria-hidden="true" />Open Calendar</button>
             <small>Opens the workspace Calendar; filtering by account is not available yet.</small>
           </span>
           <span>
@@ -215,7 +215,7 @@ export function WorkspacePerformance({
   onOpenCalendar,
 }: {
   value: Pick<WorkspaceOverviewPresentation, "momentum" | "accounts">;
-  onOpenCalendar(context: WorkspaceCalendarNavigationContext): void;
+  onOpenCalendar(context: WorkspaceCalendarNavigationContext, returnFocusId: string): void;
 }) {
   const [selectedAccount, setSelectedAccount] = useState<AccountPresentation | null>(null);
   return <>

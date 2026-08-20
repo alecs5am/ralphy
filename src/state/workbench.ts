@@ -21,14 +21,16 @@ export interface WorkspaceCalendarNavigationContext {
   accountLabel?: string;
 }
 
-export type WorkspaceDestination =
+export type WorkspaceDestination = (
   | { page: "calendar"; context?: WorkspaceCalendarNavigationContext }
-  | { page: Exclude<WorkspacePage, "calendar">; context?: { label: string } };
+  | { page: Exclude<WorkspacePage, "calendar">; context?: { label: string } }
+) & { returnFocusId: string };
 
 export interface WorkspaceOverviewReturnState {
+  originWorkspaceId: string;
   scrollTop: number;
   attentionExpanded: boolean;
-  focusId: string | null;
+  returnFocusId: string;
 }
 
 export const WORKSPACE_PAGES: WorkspacePage[] = [

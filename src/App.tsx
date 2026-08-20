@@ -338,6 +338,20 @@ export function App() {
     dispatch({ type: "back" });
   }, [localModelsVisible]);
 
+  const clearOverviewNavigation = useCallback(() => {
+    setWorkspaceDestination(null);
+    setOverviewReturnState(null);
+  }, []);
+
+  const openWorkspace = useCallback((workspaceId: string) => {
+    clearOverviewNavigation();
+    dispatch({ type: "open-workspace", workspaceId });
+  }, [clearOverviewNavigation]);
+
+  useEffect(() => {
+    if (overviewReturnState && overviewReturnState.originWorkspaceId !== selectedWorkspace?.id) clearOverviewNavigation();
+  }, [clearOverviewNavigation, overviewReturnState, selectedWorkspace?.id]);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.repeat) return;
@@ -356,10 +370,8 @@ export function App() {
           ? mostRecentWorkspaceId(workspaces)
           : state.route.workspaceId;
         if (workspaceId && state.route.kind !== "workspace") {
-          dispatch({ type: "open-workspace", workspaceId });
-        }
-        setWorkspaceDestination(null);
-        setOverviewReturnState(null);
+          openWorkspace(workspaceId);
+        } else clearOverviewNavigation();
         setWorkspacePage("projects");
         setSidebarSearchRequest((request) => request + 1);
       } else if (command && key === "j") {
@@ -386,7 +398,7 @@ export function App() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [navigateBack, settingsVisible, state.route, workspaces]);
+  }, [clearOverviewNavigation, navigateBack, openWorkspace, settingsVisible, state.route, workspaces]);
 
   const openProject = (project: ProjectSummary, unitId: string | null = null) => {
     setLocalModelsVisible(false);
@@ -401,8 +413,7 @@ export function App() {
   };
 
   const openWorkspacePage = (page: WorkspacePage) => {
-    setWorkspaceDestination(null);
-    setOverviewReturnState(null);
+    clearOverviewNavigation();
     setWorkspacePage(page);
   };
 
@@ -453,7 +464,7 @@ export function App() {
       catalog={catalog}
       pinnedWorkspaceIds={state.pinnedWorkspaceIds}
       onRetry={() => void restoreHomeLibrary()}
-      onOpenWorkspace={(workspaceId) => dispatch({ type: "open-workspace", workspaceId })}
+      onOpenWorkspace={openWorkspace}
       onOpenProject={openProject}
     />
   );
@@ -468,17 +479,17 @@ export function App() {
         catalogProjects={projects.filter((project) => project.workspaceId === selectedWorkspace.id)}
         workspaceName={selectedWorkspace.name}
         workspaceDescription={selectedWorkspace.description}
-        overviewReturnState={overviewReturnState}
+        overviewReturnState={overviewReturnState?.originWorkspaceId === selectedWorkspace.id ? overviewReturnState : null}
         onOpenPage={openWorkspacePage}
         onNavigate={navigateFromOverview}
-        onOpenUnit={(projectId, unitId, returnState) => {
+        onOpenUnit={(projectId, unitId, unitLabel, returnState) => {
           const project = projects.find((candidate) => (
             candidate.workspaceId === selectedWorkspace.id && candidate.projectId === projectId
           ));
           if (project) openProject(project, unitId);
-          else navigateFromOverview(
-            { page: "units", context: { label: `Unit ${unitId} is not present in the current project catalog` } },
-            returnState ?? { scrollTop: 0, attentionExpanded: false, focusId: null },
+          else if (returnState) navigateFromOverview(
+            { page: "units", returnFocusId: returnState.returnFocusId, context: { label: `${unitLabel} is not present in the current project catalog` } },
+            returnState,
           );
         }}
         onOpenProject={openProject}
@@ -500,7 +511,9 @@ export function App() {
   } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "memory") {
     content = <MemoryScreen workspaceId={selectedWorkspace.id} workspaceName={selectedWorkspace.name} />;
   } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "calendar") {
-    const calendarContext = workspaceDestination?.page === "calendar" ? workspaceDestination.context : undefined;
+    const calendarContext = overviewReturnState?.originWorkspaceId === selectedWorkspace.id && workspaceDestination?.page === "calendar"
+      ? workspaceDestination.context
+      : undefined;
     content = <CalendarScreen workspaceId={selectedWorkspace.id} workspaceName={selectedWorkspace.name}
       initialDate={calendarContext?.date === undefined ? undefined : new Date(calendarContext.date)}
       navigationContext={calendarContext}
@@ -534,7 +547,7 @@ export function App() {
   }
 
 
-  if (workspaceDestination && state.route.kind === "workspace" && workspacePage === workspaceDestination.page) {
+  if (workspaceDestination && overviewReturnState?.originWorkspaceId === selectedWorkspace?.id && state.route.kind === "workspace" && workspacePage === workspaceDestination.page) {
     content = <WorkspaceDestinationFrame destination={workspaceDestination} onBack={backToOverview}>{content}</WorkspaceDestinationFrame>;
   }
 
@@ -581,13 +594,13 @@ export function App() {
                 onOpenLocalModels={() => setLocalModelsVisible(true)}
                 onOpenWorkspace={(workspaceId) => {
                   setLocalModelsVisible(false);
-                  dispatch({ type: "open-workspace", workspaceId });
+                  openWorkspace(workspaceId);
                 }}
                 onOpenPage={(page) => {
                   setLocalModelsVisible(false);
                   openWorkspacePage(page);
                   const workspaceId = selectedWorkspace?.id ?? mostRecentWorkspaceId(workspaces);
-                  if (workspaceId) dispatch({ type: "open-workspace", workspaceId });
+                  if (workspaceId) openWorkspace(workspaceId);
                 }}
               />
             )}
@@ -619,7 +632,7 @@ export function App() {
                 setLocalModelsVisible(false);
                 openWorkspacePage("overview");
                 const workspaceId = selectedWorkspace?.id ?? mostRecentWorkspaceId(workspaces);
-                if (workspaceId) dispatch({ type: "open-workspace", workspaceId });
+                if (workspaceId) openWorkspace(workspaceId);
                 else dispatch({ type: "open-library" });
               }}
               onToggleSidebar={() => setSidebarVisible((visible) => !visible)}

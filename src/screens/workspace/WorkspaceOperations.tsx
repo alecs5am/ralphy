@@ -17,7 +17,7 @@ type OperationsValue = Pick<
 interface Props {
   value: OperationsValue;
   onOpenProject(project: ProjectSummary): void;
-  onOpenPage(page: WorkspacePage): void;
+  onOpenPage(page: WorkspacePage, returnFocusId: string): void;
   onRetry(): void;
 }
 
@@ -53,7 +53,7 @@ function attentionAction(item: AttentionPresentation): string {
 
 function AttentionQueue({ value, onOpenPage, onRetry, expanded: controlledExpanded, onExpandedChange }: {
   value: OperationsValue["attention"];
-  onOpenPage(page: WorkspacePage): void;
+  onOpenPage(page: WorkspacePage, returnFocusId: string): void;
   onRetry(): void;
   expanded?: boolean;
   onExpandedChange?(expanded: boolean): void;
@@ -77,13 +77,16 @@ function AttentionQueue({ value, onOpenPage, onRetry, expanded: controlledExpand
       {value.status === "ready" ? "Nothing needs attention." : "No actionable items were returned in this partial page."}
     </p>}
     {items.length > 0 && <ul className="workspace-attention-list">
-      {items.map((item, index) => <li key={`${item.kind}:${item.accountId ?? "unassigned"}:${index}`}>
-        <span className={`workspace-attention-severity is-${item.severity}`}>
-          <AlertTriangle size={15} aria-hidden="true" />{item.severity === "critical" ? "Critical" : "Warning"}
-        </span>
-        <span className="workspace-attention-copy"><strong>{item.title}</strong><small>{affectedLabel(item.affectedCount)}</small></span>
-        <button type="button" aria-label={`${attentionAction(item)} for ${item.title}`} onClick={() => onOpenPage("calendar")}>{attentionAction(item)}</button>
-      </li>)}
+      {items.map((item, index) => {
+        const focusId = `workspace-attention-${item.kind}-${item.accountId ?? "unassigned"}-${index}`;
+        return <li key={`${item.kind}:${item.accountId ?? "unassigned"}:${index}`}>
+          <span className={`workspace-attention-severity is-${item.severity}`}>
+            <AlertTriangle size={15} aria-hidden="true" />{item.severity === "critical" ? "Critical" : "Warning"}
+          </span>
+          <span className="workspace-attention-copy"><strong>{item.title}</strong><small>{affectedLabel(item.affectedCount)}</small></span>
+          <button id={focusId} type="button" aria-label={`${attentionAction(item)} for ${item.title}`} onClick={() => onOpenPage("calendar", focusId)}>{attentionAction(item)}</button>
+        </li>;
+      })}
     </ul>}
     {total > 5 && !expanded && <button className="workspace-attention-more" type="button" onClick={() => setExpanded(true)}>View all attention</button>}
   </section>;
@@ -128,9 +131,10 @@ function updatedLabel(value: number): string {
 function ActiveProjectRow({ value, onOpenProject, onOpenPage }: {
   value: ActiveProjectPresentation;
   onOpenProject(project: ProjectSummary): void;
-  onOpenPage(page: WorkspacePage): void;
+  onOpenPage(page: WorkspacePage, returnFocusId: string): void;
 }) {
-  const action = value.catalog ? () => onOpenProject(value.catalog!) : () => onOpenPage("projects");
+  const focusId = `workspace-find-project-${value.id}`;
+  const action = value.catalog ? () => onOpenProject(value.catalog!) : () => onOpenPage("projects", focusId);
   const label = value.catalog ? "Open project" : "Find in Projects";
   return <li>
     <span className="workspace-active-project-glyph" style={projectGlyphVars(value.name)} data-glyph={projectGlyphSlot(value.name)} aria-hidden="true">
@@ -141,14 +145,14 @@ function ActiveProjectRow({ value, onOpenProject, onOpenPage }: {
       <small>{value.catalog?.brief || "Purpose not available from the project catalog."}</small>
       <span>{value.catalog ? `${value.catalog.unitCount} Unit${value.catalog.unitCount === 1 ? "" : "s"} · ` : ""}{updatedLabel(value.updatedAt)}</span>
     </span>
-    <button type="button" aria-label={`${label} ${value.name}`} onClick={action}>{label}</button>
+    <button id={focusId} type="button" aria-label={`${label} ${value.name}`} onClick={action}>{label}</button>
   </li>;
 }
 
 function ActiveProjects({ value, onOpenProject, onOpenPage, onRetry }: {
   value: OperationsValue["projects"];
   onOpenProject(project: ProjectSummary): void;
-  onOpenPage(page: WorkspacePage): void;
+  onOpenPage(page: WorkspacePage, returnFocusId: string): void;
   onRetry(): void;
 }) {
   const available = value.status === "ready" || value.status === "partial";
@@ -156,7 +160,7 @@ function ActiveProjects({ value, onOpenProject, onOpenPage, onRetry }: {
   return <section className="workspace-overview-section workspace-active-projects" aria-labelledby="workspace-active-projects-heading">
     <div className="workspace-section-heading">
       <h2 id="workspace-active-projects-heading">Active projects</h2>
-      {available && <button type="button" onClick={() => onOpenPage("projects")}>View all projects</button>}
+      {available && <button id="workspace-view-all-projects" type="button" onClick={() => onOpenPage("projects", "workspace-view-all-projects")}>View all projects</button>}
     </div>
     {value.status === "partial" && <InfoBanner title="Bounded project data" reason={value.reason} />}
     {value.status === "unavailable" && <RetryBanner title="Active projects unavailable" reason={value.reason} label="Retry projects" onRetry={onRetry} />}
@@ -182,7 +186,7 @@ function RecentChanges({ value }: { value: OperationsValue["recentChanges"] }) {
   </section>;
 }
 
-function WorkspaceOnboarding({ onOpenPage }: { onOpenPage(page: WorkspacePage): void }) {
+function WorkspaceOnboarding({ onOpenPage }: { onOpenPage(page: WorkspacePage, returnFocusId: string): void }) {
   const steps: Array<{ title: string; detail: string; label: string; page: WorkspacePage }> = [
     { title: "Create or import a project", detail: "Start with the campaign or content stream you want to produce.", label: "Open Projects", page: "projects" },
     { title: "Add reusable brand assets", detail: "Keep approved references and reusable media in the Shared library.", label: "Open Shared library", page: "shared" },
@@ -193,7 +197,7 @@ function WorkspaceOnboarding({ onOpenPage }: { onOpenPage(page: WorkspacePage): 
     <ol>
       {steps.map((step) => <li key={step.page}>
         <span><strong>{step.title}</strong><small>{step.detail}</small></span>
-        <button type="button" onClick={() => onOpenPage(step.page)}>{step.label}</button>
+        <button id={`workspace-onboarding-${step.page}`} type="button" onClick={() => onOpenPage(step.page, `workspace-onboarding-${step.page}`)}>{step.label}</button>
       </li>)}
     </ol>
   </section>;

@@ -41,9 +41,9 @@ export function startWorkspaceScreenController(
 
 function WorkspaceOverviewShell({ value, onOpenPage, onOpenCalendar, onOpenUnit, onOpenProject, onRetry, attentionExpanded, onAttentionExpandedChange }: {
   value: WorkspaceOverviewPresentation;
-  onOpenPage(page: WorkspacePage): void;
-  onOpenCalendar(context?: WorkspaceCalendarNavigationContext): void;
-  onOpenUnit(projectId: string, unitId: string): void;
+  onOpenPage(page: WorkspacePage, returnFocusId: string): void;
+  onOpenCalendar(context: WorkspaceCalendarNavigationContext | undefined, returnFocusId: string): void;
+  onOpenUnit(projectId: string, unitId: string, unitLabel: string, returnFocusId: string): void;
   onOpenProject(project: ProjectSummary): void;
   onRetry(): void;
   attentionExpanded: boolean;
@@ -94,10 +94,10 @@ interface WorkspaceScreenViewProps {
   catalogProjects: ProjectSummary[];
   workspaceDescription: string;
   workspaceName?: string;
-  onOpenPage(page: WorkspacePage): void;
+  onOpenPage(page: WorkspacePage, returnFocusId: string): void;
   onNavigate?(destination: WorkspaceDestination, returnState: WorkspaceOverviewReturnState): void;
   overviewReturnState?: WorkspaceOverviewReturnState | null;
-  onOpenUnit(projectId: string, unitId: string, returnState?: WorkspaceOverviewReturnState): void;
+  onOpenUnit(projectId: string, unitId: string, unitLabel: string, returnState?: WorkspaceOverviewReturnState): void;
   onOpenProject(project: ProjectSummary): void;
 }
 
@@ -105,14 +105,22 @@ export function WorkspaceScreenView(props: WorkspaceScreenViewProps) {
   const { controller, snapshot, catalogProjects, workspaceDescription } = props;
   const scrollRef = useRef<HTMLDivElement>(null);
   const restoredState = useRef<WorkspaceOverviewReturnState | null>(null);
-  const [attentionExpanded, setAttentionExpanded] = useState(props.overviewReturnState?.attentionExpanded ?? false);
+  const restoredFocus = useRef<WorkspaceOverviewReturnState | null>(null);
+  const [attentionExpanded, setAttentionExpanded] = useState(false);
   useEffect(() => {
     const state = props.overviewReturnState;
-    if (snapshot.status !== "ready" || !state || restoredState.current === state) return;
+    if (snapshot.status !== "ready" || !snapshot.value || !state || state.originWorkspaceId !== snapshot.value.workspace.id || restoredState.current === state) return;
     restoredState.current = state;
+    setAttentionExpanded(state.attentionExpanded);
     if (scrollRef.current) scrollRef.current.scrollTop = state.scrollTop;
-    if (state.focusId) document.getElementById(state.focusId)?.focus({ preventScroll: true });
-  }, [props.overviewReturnState, snapshot.status]);
+  }, [props.overviewReturnState, snapshot.status, snapshot.value]);
+  useEffect(() => {
+    const state = props.overviewReturnState;
+    if (snapshot.status !== "ready" || !snapshot.value || !state || state.originWorkspaceId !== snapshot.value.workspace.id
+      || restoredFocus.current === state || attentionExpanded !== state.attentionExpanded) return;
+    restoredFocus.current = state;
+    document.getElementById(state.returnFocusId)?.focus({ preventScroll: true });
+  }, [attentionExpanded, props.overviewReturnState, snapshot.status, snapshot.value]);
   if (snapshot.status === "loading" || snapshot.status === "idle") {
     return <WorkspaceOverviewLoading workspaceName={props.workspaceName ?? ""} workspaceDescription={workspaceDescription} />;
   }
@@ -128,29 +136,31 @@ export function WorkspaceScreenView(props: WorkspaceScreenViewProps) {
   const criticalCount = presentation.attention.status === "ready" || presentation.attention.status === "partial"
     ? presentation.attention.value.criticalCount
     : presentation.attention;
-  const returnState = (): WorkspaceOverviewReturnState => ({
+  const returnState = (returnFocusId: string): WorkspaceOverviewReturnState => ({
+    originWorkspaceId: snapshot.value!.workspace.id,
     scrollTop: scrollRef.current?.scrollTop ?? 0,
     attentionExpanded,
-    focusId: document.activeElement instanceof HTMLElement ? document.activeElement.getAttribute("id") : null,
+    returnFocusId,
   });
   const navigate = (destination: WorkspaceDestination) => props.onNavigate
-    ? props.onNavigate(destination, returnState())
-    : props.onOpenPage(destination.page);
+    ? props.onNavigate(destination, returnState(destination.returnFocusId))
+    : props.onOpenPage(destination.page, destination.returnFocusId);
   return <main className="main-region workspace-overview" aria-busy={snapshot.refreshing || undefined}>
     <WorkspaceOverviewHeader
       value={presentation.header}
       criticalCount={criticalCount}
       refreshing={snapshot.refreshing}
       lastSuccessfulRefreshAt={snapshot.lastSuccessfulRefreshAt ?? null}
+      error={snapshot.error}
       onRefresh={() => { void controller.retry(); }}
     />
     {snapshot.error && <div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.error}</span><button type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>}
     <div className="workspace-overview-scroll" ref={scrollRef}>
       <WorkspaceOverviewShell
         value={presentation}
-        onOpenPage={(page) => navigate({ page, context: { label: WORKSPACE_PAGE_LABELS[page] } } as WorkspaceDestination)}
-        onOpenCalendar={(context) => navigate({ page: "calendar", context })}
-        onOpenUnit={(projectId, unitId) => props.onOpenUnit(projectId, unitId, returnState())}
+        onOpenPage={(page, returnFocusId) => navigate({ page, returnFocusId, context: { label: WORKSPACE_PAGE_LABELS[page] } } as WorkspaceDestination)}
+        onOpenCalendar={(context, returnFocusId) => navigate({ page: "calendar", returnFocusId, context })}
+        onOpenUnit={(projectId, unitId, unitLabel, returnFocusId) => props.onOpenUnit(projectId, unitId, unitLabel, returnState(returnFocusId))}
         onOpenProject={props.onOpenProject}
         onRetry={() => { void controller.retry(); }}
         attentionExpanded={attentionExpanded}
