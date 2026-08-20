@@ -2,6 +2,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { ChevronLeft, ChevronRight, ExternalLink, FileText, ImageOff, PanelRight, X } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { ArtifactMediaCardDto, ArtifactRevisionDto } from "../../../electron/ralphy/types";
+import { isSupportedFontPreviewMime } from "../../../shared/font-preview";
 import { AudioWaveform } from "../../components/media/AudioWaveform";
 import { ImageViewport } from "../../components/media/ImageViewport";
 import { VideoPlayer } from "../../components/media/VideoPlayer";
@@ -45,7 +46,7 @@ function viewerKind(mime: string | null): ViewerKind {
   if (value.startsWith("image/")) return "image";
   if (value.startsWith("video/")) return "video";
   if (value.startsWith("audio/")) return "audio";
-  if (value.startsWith("font/") || value.startsWith("application/font-") || value.startsWith("application/x-font-") || value === "application/vnd.ms-fontobject") return "font";
+  if (isSupportedFontPreviewMime(mime)) return "font";
   return "unsupported";
 }
 

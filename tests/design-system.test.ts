@@ -436,7 +436,7 @@ type SharedGeometryResult = {
 };
 
 type SharedGeometrySmoke = {
-  font: { contentType: string | null; loaded: boolean };
+  font: { locatorMime: string; contentType: string | null; loaded: boolean };
   results: SharedGeometryResult[];
 };
 
@@ -533,7 +533,7 @@ async function sharedLibraryGeometry(): Promise<SharedGeometrySmoke> {
       app.commandLine.appendSwitch("disable-gpu");
       app.whenReady().then(async () => {
         const minted = await access.mintTrustedLocator(
-          libraryRoot, ${JSON.stringify(fontPath)}, "font/ttf", ${fontBytes.byteLength},
+          libraryRoot, ${JSON.stringify(fontPath)}, "font/sfnt", ${fontBytes.byteLength},
         );
         const fontUrl = "ralphy-media://asset/" + minted.token;
         let servedContentType = null;
@@ -552,6 +552,7 @@ async function sharedLibraryGeometry(): Promise<SharedGeometrySmoke> {
           document.fonts.add(face);
           return { loaded: face.status === "loaded" && document.fonts.check("12px RalphyGuardedFontSmoke") };
         })()\`);
+        font.locatorMime = "font/sfnt";
         font.contentType = servedContentType;
         win.webContents.debugger.attach("1.3");
         await win.webContents.debugger.sendCommand("DOM.enable");
@@ -757,7 +758,7 @@ describe("design system contract", () => {
   test("fits actual Shared Library components and every workflow portal in real Electron geometry", async () => {
     const { font, results } = await sharedLibraryGeometry();
 
-    expect(font).toEqual({ contentType: "font/ttf", loaded: true });
+    expect(font).toEqual({ locatorMime: "font/sfnt", contentType: "font/ttf", loaded: true });
 
     const states = ["grid", "list", "inspector", "viewer", "workflow:add:0", "workflow:add:1", "workflow:add:2", "workflow:add:3", "workflow:promote", "workflow:duplicate", "workflow:suggestions", "workflow:archive", "workflow:update-review"];
     expect(results).toHaveLength(39);

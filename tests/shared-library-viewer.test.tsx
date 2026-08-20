@@ -273,6 +273,11 @@ describe("Shared Artifact viewer", () => {
     "text/csv",
     "application/x-subrip",
     "application/x-cube",
+    "font/collection",
+    "font/javascript",
+    "font/unknown",
+    "application/font-executable",
+    "application/vnd.ms-fontobject",
   ])("uses an honest facts-only fallback for unsupported %s content", async (mime) => {
     const card = artifact("facts-only", { mediaKind: "other", mime, bytes: 4_096 });
     vi.spyOn(bridge, "resolveSharedLibraryPreview").mockResolvedValue({ url: "ralphy-media://asset/facts-token", sizeBytes: 4_096 });

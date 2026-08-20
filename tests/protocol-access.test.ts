@@ -83,6 +83,7 @@ describe("media protocol access", () => {
       ["typeface.otf", "font/otf"],
       ["typeface.woff", "font/woff"],
       ["typeface.woff2", "font/woff2"],
+      ["sfnt-modern.ttf", "font/sfnt"],
       ["legacy.ttf", "application/x-font-ttf"],
       ["legacy.otf", "application/x-font-opentype"],
       ["legacy.woff", "application/font-woff"],
@@ -100,7 +101,14 @@ describe("media protocol access", () => {
 
     const unsupportedPath = join(fontsPath, "unsupported.bin");
     await writeFile(unsupportedPath, "font");
-    for (const mime of ["font/javascript", "application/font-executable", "application/octet-stream"]) {
+    for (const mime of [
+      "font/collection",
+      "font/javascript",
+      "font/unknown",
+      "application/font-executable",
+      "application/vnd.ms-fontobject",
+      "application/octet-stream",
+    ]) {
       await expect(access.mintTrustedLocator(fixture.rootPath, unsupportedPath, mime, 4))
         .rejects.toThrow(/unsupported/i);
     }

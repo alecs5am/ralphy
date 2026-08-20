@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { lstatSync } from "node:fs";
 import { lstat } from "node:fs/promises";
 import { isAbsolute, join, relative, sep } from "node:path";
+import { isSupportedFontPreviewMime } from "../../shared/font-preview";
 import { resolveContainedPath, validateLibraryRoot } from "./catalog";
 import type {
   MediaKind,
@@ -9,18 +10,6 @@ import type {
 } from "./types";
 
 const PREVIEWABLE_KINDS = new Set<MediaKind>(["image", "video", "audio", "font", "pdf"]);
-const PREVIEWABLE_FONT_MIMES = new Set([
-  "font/ttf",
-  "font/otf",
-  "font/woff",
-  "font/woff2",
-  "application/font-sfnt",
-  "application/font-woff",
-  "application/x-font-ttf",
-  "application/x-font-opentype",
-  "application/x-font-woff",
-  "application/x-font-woff2",
-]);
 const DEFAULT_MAX_ASSET_BYTES = 8 * 1024 * 1024 * 1024;
 const DEFAULT_MAX_TOKENS = 4096;
 
@@ -133,7 +122,7 @@ export class MediaProtocolAccess {
     const kind = mime?.startsWith("image/") ? "image"
       : mime?.startsWith("video/") ? "video"
       : mime?.startsWith("audio/") ? "audio"
-      : mime !== null && PREVIEWABLE_FONT_MIMES.has(mime) ? "font"
+      : isSupportedFontPreviewMime(mime) ? "font"
       : mime === "application/pdf" ? "pdf"
       : null;
     if (!kind) throw new Error("Unsupported preview locator");
