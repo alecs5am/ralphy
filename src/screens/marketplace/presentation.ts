@@ -248,7 +248,15 @@ function keywordScore(item: MarketplaceItemPresentation, tokens: string[]): numb
       ...item.model.permissions,
       ...item.model.comfort.evidence,
     ].join(" ").toLocaleLowerCase()
-    : item.category;
+    : [
+      item.sourceLabel,
+      item.category,
+      ...(item.category === "recipes" ? [
+        item.recipe.recipe?.kind ?? "",
+        item.recipe.recipe?.body ?? "",
+        item.recipe.recipe?.artifact ?? "",
+      ] : []),
+    ].join(" ").toLocaleLowerCase();
   const author = item.category === "models" ? item.model.author.toLocaleLowerCase() : "";
   let score = 0;
   for (const token of tokens) {

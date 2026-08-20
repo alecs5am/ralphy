@@ -15,6 +15,7 @@ import type {
   LocalModelSearchInput,
   LocalModelSummary,
 } from "./media/types";
+import { sanitizeMarketplaceMarkdown } from "./marketplace-library";
 
 const execFile = promisify(execFileCallback);
 const GB = 1024 ** 3;
@@ -474,7 +475,7 @@ async function loadCivitaiDetail(
     return { name, bytes: number(file.sizeKB, -1) >= 0 ? number(file.sizeKB) * 1024 : null, format, recommended: /safetensor/i.test(format), warning: /pickle|ckpt/i.test(format) ? "Executable checkpoint format" : null };
   });
   const previewUrls = array(version.images).map((image) => safeProviderMediaUrl(record(image).url)).filter((url): url is string => url !== null).slice(0, 5);
-  const description = text(rawRecord.description).replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]*>/g, "").trim();
+  const description = text(rawRecord.description).trim();
   return { ...summary, readme: `# ${summary.name}\n\n${description || "No model description was supplied by the creator."}`, previewUrls, files };
 }
 
@@ -483,9 +484,17 @@ export async function loadLocalModelDetail(
   machine: LocalModelMachine,
   fetcher: Fetcher = fetch,
 ): Promise<LocalModelDetail> {
-  if (ref.provider === "huggingface") return loadHuggingFaceDetail(ref.id, machine, fetcher);
-  if (ref.provider === "civitai") return loadCivitaiDetail(ref.id, machine, fetcher);
-  throw new Error("ModelScope browsing is not available yet");
+  const detail = ref.provider === "huggingface"
+    ? await loadHuggingFaceDetail(ref.id, machine, fetcher)
+    : ref.provider === "civitai"
+      ? await loadCivitaiDetail(ref.id, machine, fetcher)
+      : null;
+  if (!detail) throw new Error("ModelScope browsing is not available yet");
+  return {
+    ...detail,
+    readme: sanitizeMarketplaceMarkdown(detail.readme, 256 * 1024)
+      ?? "# Model card unavailable\n\nThe provider returned an invalid model card.",
+  };
 }
 
 async function detailedHuggingFaceResults(values: unknown[], machine: LocalModelMachine, fetcher: Fetcher): Promise<LocalModelSummary[]> {

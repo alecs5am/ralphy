@@ -2,11 +2,12 @@ import { describe, expect, test, vi } from "vitest";
 import type { LocalModelDetail } from "../electron/media/types";
 import {
   assessModelComfort,
-  loadHuggingFaceDetail,
+  loadLocalModelDetail,
   normalizeCivitaiModel,
   normalizeHuggingFaceModel,
   safeProviderMediaUrl,
 } from "../electron/local-models";
+import { projectMarketplaceModelDetail } from "../src/screens/marketplace/presentation";
 
 const GB = 1024 ** 3;
 const machine = {
@@ -180,7 +181,7 @@ describe("Local Models provider normalization", () => {
       .toBe("https://image-b2.civitai.com/model.png");
   });
 
-  test("loads Hugging Face README as Markdown without interpreting provider HTML", async () => {
+  test("strips provider HTML before model detail crosses IPC while preserving Markdown text", async () => {
     const fetcher = vi.fn(async (url: string | URL) => {
       const value = String(url);
       if (value.includes("/api/models/")) return new Response(JSON.stringify({
@@ -196,13 +197,27 @@ describe("Local Models provider normalization", () => {
       if (value.includes("/api/organizations/org/overview")) return new Response(JSON.stringify({
         avatarUrl: "https://cdn-avatars.huggingface.co/org.png",
       }), { status: 200 });
-      return new Response("# Model\n\nSafe **Markdown**.\n\n<script>alert(1)</script>", { status: 200 });
+      return new Response([
+        "# Model",
+        "",
+        "Safe **Markdown** and `const answer = 42`.",
+        "",
+        "<div>Visible provider text</div>",
+        "<script>alert(1)</script>",
+        "<img src=x onerror=alert(2)>",
+        "<textarea><img src=x onerror=alert(3)></textarea>",
+        "<title><svg onload=alert(4)></title>",
+        "<xmp><script>alert(5)</script></xmp>",
+      ].join("\n"), { status: 200 });
     });
 
-    const detail = await loadHuggingFaceDetail("org/model", machine, fetcher as typeof fetch);
+    const detail = await loadLocalModelDetail({ provider: "huggingface", id: "org/model" }, machine, fetcher as typeof fetch);
 
     expect(detail.readme).toContain("# Model");
-    expect(detail.readme).toContain("<script>alert(1)</script>");
+    expect(detail.readme).toContain("Safe **Markdown** and `const answer = 42`.");
+    expect(detail.readme).toContain("Visible provider text");
+    expect(detail.readme).not.toMatch(/<[^>]*>|alert\(|onerror|svg onload/i);
+    expect(JSON.stringify(projectMarketplaceModelDetail(detail))).not.toMatch(/<[^>]*>|alert\(|onerror|svg onload/i);
     expect(detail.previewUrls).toEqual([]);
     expect((detail as LocalModelDetail & { iconUrl: string | null }).iconUrl)
       .toBe("https://cdn-avatars.huggingface.co/org.png");

@@ -297,6 +297,32 @@ describe("Marketplace presentation", () => {
     expect(names(query())).toEqual(["Alpha needle", "Beta", "Zulu"]);
   });
 
+  test("keyword-searches bounded public source, Recipe body, artifact, and kind fields", () => {
+    const recipe = publicItem({
+      id: "searchable-recipe",
+      category: "recipe",
+      name: "Neutral recipe",
+      summary: "Ordinary transformation",
+      recipe: {
+        kind: "hyperframes",
+        body: "body-only-marker",
+        artifact: "artifact-only-marker",
+        parameters: null,
+        demo: null,
+      },
+    });
+    const source = publicSnapshot([publicItem(), recipe]);
+    const keys = (text: string) => presentMarketplaceSources(source, catalog([]), query({ text }), [], allReady).items.map(({ key }) => key);
+
+    expect(keys("ralphy")).toEqual(["template:clean-cut", "recipe:searchable-recipe"]);
+    expect(keys("live")).toEqual(["template:clean-cut", "recipe:searchable-recipe"]);
+    expect(keys("body-only-marker")).toEqual(["recipe:searchable-recipe"]);
+    expect(keys("artifact-only-marker")).toEqual(["recipe:searchable-recipe"]);
+    expect(keys("hyperframes")).toEqual(["recipe:searchable-recipe"]);
+    const artifactResult = presentMarketplaceSources(source, catalog([]), query({ text: "artifact-only-marker" }), [], allReady).items[0];
+    expect(artifactResult?.category === "recipes" ? artifactResult.recipe.recipe?.artifact : null).toBe("artifact-only-marker");
+  });
+
   test("keeps the combined projected result bound at 512 public items plus 24 models", () => {
     const publicItems = Array.from({ length: 513 }, (_, index) => publicItem({ id: `template-${index}`, name: `Template ${String(index).padStart(3, "0")}` }));
     const models = Array.from({ length: 25 }, (_, index) => model({ id: `Acme/model-${index}`, name: `Model ${String(index).padStart(3, "0")}` }));

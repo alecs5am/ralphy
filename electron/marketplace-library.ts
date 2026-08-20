@@ -75,7 +75,7 @@ function sanitizeMarketplaceProse(value: unknown, maxLength: number): string | n
   return sanitized.length > 0 && sanitized.length <= maxLength ? sanitized : null;
 }
 
-function sanitizeMarketplaceMarkdown(value: unknown, maxLength: number): string | null {
+export function sanitizeMarketplaceMarkdown(value: unknown, maxLength: number): string | null {
   if (typeof value !== "string" || value.length > maxLength) return null;
   const sanitized = stripHtml(value);
   return sanitized.length <= maxLength ? sanitized : null;

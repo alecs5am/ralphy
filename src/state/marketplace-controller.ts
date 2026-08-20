@@ -19,6 +19,14 @@ export interface MarketplaceController {
 
 export type MarketplaceApi = Pick<MediaWorkbenchBridge, "loadMarketplacePublicLibrary" | "searchLocalModels">;
 
+type ModelProviderRequest = Exclude<MarketplaceQueryState["filters"]["source"], "ralphy">;
+
+function modelProviderRequest(query: MarketplaceQueryState): ModelProviderRequest {
+  return query.filters.source === "all" || query.filters.source === "ralphy"
+    ? "all"
+    : query.filters.source;
+}
+
 export function createMarketplaceController(
   api: MarketplaceApi,
   initialQuery: MarketplaceQueryState,
@@ -29,7 +37,13 @@ export function createMarketplaceController(
   let disposed = false;
   let activeRequest = 0;
   let lastPublic: Awaited<ReturnType<MarketplaceApi["loadMarketplacePublicLibrary"]>> | null = null;
-  let lastModels: Awaited<ReturnType<MarketplaceApi["searchLocalModels"]>> | null = null;
+  let lastModels: {
+    provider: ModelProviderRequest;
+    value: Awaited<ReturnType<MarketplaceApi["searchLocalModels"]>>;
+  } | null = null;
+  const retainedModels = (forQuery: MarketplaceQueryState) => (
+    lastModels?.provider === modelProviderRequest(forQuery) ? lastModels.value : null
+  );
   const listeners = new Set<() => void>();
   const emit = (next: MarketplaceSnapshot) => {
     if (disposed) return;
@@ -41,6 +55,7 @@ export function createMarketplaceController(
     if (disposed) return;
     const requestId = ++activeRequest;
     const requestQuery = query;
+    const requestProvider = modelProviderRequest(requestQuery);
     if (snapshot.status === "ready") emit({ ...snapshot, query: requestQuery, refreshing: true });
     else emit({ status: "loading", query: requestQuery });
     const modelQuery = requestQuery.text.trim();
@@ -48,9 +63,7 @@ export function createMarketplaceController(
       api.loadMarketplacePublicLibrary(),
       api.searchLocalModels({
         ...(modelQuery ? { query: modelQuery } : {}),
-        provider: requestQuery.filters.source === "all" || requestQuery.filters.source === "ralphy"
-          ? "all"
-          : requestQuery.filters.source,
+        provider: requestProvider,
         sort: "updated",
         limit: 24,
       }),
@@ -86,8 +99,8 @@ export function createMarketplaceController(
       return;
     }
     lastPublic = library.status === "fulfilled" ? library.value : null;
-    lastModels = models.status === "fulfilled" ? models.value : null;
-    emit(presentMarketplaceSources(lastPublic, lastModels, requestQuery, sourceErrors, sourceHealth));
+    lastModels = models.status === "fulfilled" ? { provider: requestProvider, value: models.value } : null;
+    emit(presentMarketplaceSources(lastPublic, retainedModels(requestQuery), requestQuery, sourceErrors, sourceHealth));
   };
 
   return {
@@ -105,14 +118,20 @@ export function createMarketplaceController(
     },
     setQuery(nextQuery) {
       if (disposed || JSON.stringify(query) === JSON.stringify(nextQuery)) return;
+      const providerChanged = modelProviderRequest(query) !== modelProviderRequest(nextQuery);
       query = nextQuery;
       if (!started) {
         emit({ status: "loading", query });
         return;
       }
+      if (providerChanged) {
+        emit({ status: "loading", query });
+        void load();
+        return;
+      }
       if (snapshot.status === "ready") {
         emit({
-          ...presentMarketplaceSources(lastPublic, lastModels, query, snapshot.sourceErrors, snapshot.sourceHealth),
+          ...presentMarketplaceSources(lastPublic, retainedModels(query), query, snapshot.sourceErrors, snapshot.sourceHealth),
           refreshing: true,
         });
       }

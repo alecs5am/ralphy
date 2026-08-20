@@ -251,6 +251,40 @@ describe("Marketplace controller", () => {
     expect(controller.getSnapshot()).toMatchObject({ status: "ready", refreshing: false, items: [] });
   });
 
+  test("does not retain model catalog or health across effective-provider transitions", async () => {
+    const modelScope = deferred<LocalModelCatalog>();
+    const returnedAll = deferred<LocalModelCatalog>();
+    const searchLocalModels = vi.fn()
+      .mockResolvedValueOnce(catalog([model]))
+      .mockReturnValueOnce(modelScope.promise)
+      .mockReturnValueOnce(returnedAll.promise);
+    const controller = createMarketplaceController(api(vi.fn(async () => publicSnapshot()), searchLocalModels), query("all"));
+    await controller.start();
+    expect(controller.getSnapshot()).toMatchObject({ status: "ready", sourceHealth: { models: "ready" }, items: [{ category: "models" }, { category: "templates" }] });
+
+    controller.setQuery(query("modelscope"));
+    expect(controller.getSnapshot()).toEqual({ status: "loading", query: query("modelscope") });
+    expect(searchLocalModels).toHaveBeenNthCalledWith(2, { provider: "modelscope", sort: "updated", limit: 24 });
+
+    controller.setQuery(query("all"));
+    expect(controller.getSnapshot()).toEqual({ status: "loading", query: query("all") });
+    expect(searchLocalModels).toHaveBeenNthCalledWith(3, { provider: "all", sort: "updated", limit: 24 });
+    returnedAll.resolve(catalog([{ ...model, provider: "civitai", id: "84", name: "Fresh all", providerUrl: "https://civitai.com/models/84" }]));
+    await Promise.resolve();
+    await Promise.resolve();
+    modelScope.resolve(catalog([{ ...model, provider: "modelscope", id: "Acme/stale", name: "Stale ModelScope", providerUrl: "https://modelscope.cn/models/Acme/stale" }]));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(controller.getSnapshot()).toMatchObject({
+      status: "ready",
+      query: { filters: { source: "all" } },
+      sourceHealth: { models: "ready" },
+      items: [{ category: "templates" }, { name: "Fresh all", model: { provider: "civitai" } }],
+    });
+    expect(JSON.stringify(controller.getSnapshot())).not.toContain("Stale ModelScope");
+  });
+
   test("stops publishing and loading after disposal", async () => {
     const pendingLibrary = deferred<MarketplacePublicSnapshotDto>();
     const pendingModels = deferred<LocalModelCatalog>();
