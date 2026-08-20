@@ -22,7 +22,7 @@
 - Real production item types in this release are Models from the current provider/runtime service and Templates/Recipes from public-library schema 1. A `recipeKind: "prompt"` record remains a Recipe unless a safe public contract identifies it as a Prompt.
 - Prompts, Components & Effects, and Skills remain visible supported categories with complete unavailable category/detail/review shells. Do not create production sample items for them.
 - Use the fixed HTTPS source `https://ralphy.b-cdn.net/library/library.json`; never honor `RALPHY_LIBRARY_URL`, redirects, `file:` URLs, or a renderer-supplied source.
-- Provider descriptions, Markdown, preview media, public-library fields, and recipe artifacts are untrusted input. Main strips raw HTML, paths/unknown fields, over-limit values, and non-allowlisted URLs before IPC.
+- Provider descriptions, Markdown, preview media, public-library fields, and recipe artifacts are untrusted input. Main strips raw HTML from prose/Markdown, drops raw-HTML/path/unknown fields, rejects over-limit/non-allowlisted URLs, and preserves only the bounded Recipe artifact as opaque inert text for exact copy.
 - Do not invent ratings, downloads, `Trending`, recommendations, collection membership, trust, audit status, licenses, versions, update dates, compatibility, usage backlinks, saved state, or installation state. Model provider download counts must not render or determine Marketplace community ranking.
 - Search ranking is visibly `Relevance · keyword`. Search and sort operate only on fields actually returned by a current source.
 - Source identity, publisher verification, content audit, license, signature/hash, and local modification are separate availability fields; a fixed official source alone does not prove every unavailable field.
@@ -76,24 +76,44 @@ Before Task 1, record `MARKETPLACE_BASE=$(git rev-parse HEAD)` in `.superpowers/
 export type AppMode = "work" | "marketplace";
 export type MarketplaceCategory = "models" | "templates" | "recipes" | "prompts" | "components" | "skills";
 export type MarketplaceLibrarySection = "installed" | "saved" | "added" | "downloads" | "updates" | "attention";
-export type MarketplaceRoute =
+export type MarketplaceBrowseRoute =
   | { kind: "discover" }
   | { kind: "results" }
   | { kind: "category"; category: MarketplaceCategory }
-  | { kind: "detail"; itemId: string }
-  | { kind: "unavailable-detail"; category: "prompts" | "components" | "skills" }
   | { kind: "library"; section: MarketplaceLibrarySection }
   | { kind: "collection" };
+export type MarketplaceRoute = MarketplaceBrowseRoute
+  | { kind: "detail"; itemId: string }
+  | { kind: "unavailable-detail"; category: "prompts" | "components" | "skills" };
 
-export interface MarketplaceLocation {
-  route: MarketplaceRoute;
-  query: string;
-  filters: Record<string, string>;
+export interface MarketplaceFilterState {
+  category: MarketplaceCategory | "all";
+  source: "all" | "ralphy" | "huggingface" | "civitai" | "modelscope";
+  license: "all" | "declared";
+  compatibility: "all" | "compatible" | "unknown" | "incompatible";
+  modality: "all" | "text" | "image" | "video" | "audio" | "multimodal";
+  format: "all" | "gguf" | "safetensors" | "onnx" | "mlx";
+}
+
+export interface MarketplaceQueryState {
+  text: string;
+  filters: MarketplaceFilterState;
   sort: "relevance" | "updated" | "name";
-  selectedItemId: string | null;
+}
+
+interface MarketplaceLocationMemory {
+  query: MarketplaceQueryState;
   scrollTop: number;
   focusId: string | null;
 }
+
+export type MarketplaceLocation = MarketplaceLocationMemory & (
+  | { route: MarketplaceBrowseRoute; selectedItemId: string | null }
+  | { route: { kind: "detail"; itemId: string }; selectedItemId: string }
+  | { route: { kind: "unavailable-detail"; category: "prompts" | "components" | "skills" }; selectedItemId: null }
+);
+
+export const MARKETPLACE_SIDEBAR_WIDTH = 248;
 
 export interface MarketplaceNavigationState {
   mode: AppMode;
@@ -107,38 +127,73 @@ export interface MarketplaceNavigationState {
 export type MarketplaceNavigationAction =
   | { type: "switch-mode"; mode: AppMode; returnFocusId: string | null }
   | { type: "navigate"; location: MarketplaceLocation }
-  | { type: "remember"; patch: Partial<Omit<MarketplaceLocation, "route">> }
+  | { type: "remember"; patch: MarketplaceMemoryPatch }
+  | { type: "select"; itemId: string | null }
   | { type: "back" }
   | { type: "forward" }
   | { type: "toggle-sidebar" };
 
+export type MarketplaceMemoryPatch = Partial<Pick<MarketplaceLocationMemory, "query" | "scrollTop" | "focusId">>;
+
 export interface MarketplaceScreenProps {
+  catalog: CatalogResult | null;
   location: MarketplaceLocation;
-  onNavigate(route: MarketplaceRoute): void;
-  onRememberLocation(patch: Partial<Omit<MarketplaceLocation, "route">>): void;
+  sidebarVisible: boolean;
+  onNavigate(location: MarketplaceLocation): void;
+  onRememberLocation(patch: MarketplaceMemoryPatch): void;
 }
+
+export function readMarketplaceNavigation(storage: Storage): MarketplaceNavigationState;
+export function writeMarketplaceNavigation(storage: Storage, state: MarketplaceNavigationState): void;
+export function isMarketplaceLocation(value: unknown): value is MarketplaceLocation;
+export function marketplaceReducer(state: MarketplaceNavigationState, action: MarketplaceNavigationAction): MarketplaceNavigationState;
 ```
 
-- `readMarketplaceNavigation(storage)` and `writeMarketplaceNavigation(storage, state)` use key `ralphy-marketplace-v1`, validate every enum/string/number, cap query at 256 characters, filter entries at 24, history at 50 locations, and discard malformed locations.
+- `MarketplaceQueryState` is the single serializable query/filter/sort object used by navigation and, by import, the Task 3 controller. No second query type or string-keyed filter bag is allowed.
+- Validation accepts only the declared filter/sort enums, caps query text at 256 characters, IDs/focus IDs at 256 characters, scroll at an integer `0…10_000_000`, and history at 50 locations. It rejects unknown keys, non-finite values, and malformed locations.
+- A detail location is valid only when `selectedItemId === route.itemId`; an unavailable-detail location requires `selectedItemId === null`. The reducer accepts `select` only on browse routes and ignores it on either detail route. `back` and `forward` restore complete immutable locations rather than reconstructing them from the current query.
 - App renders both `.app-mode-work` and `.app-mode-marketplace` surfaces; the inactive surface has `hidden` and `inert` so its React state/scroll stays mounted without remaining interactive or accessible.
+- Marketplace is outside the `if (!catalog)` work-content branch: after welcome/recovery, its global mode control and screen render when `restoreLibrary()` returns `null` or an empty catalog. `MarketplaceScreen` receives `catalog={null}` and renders source/My Library capability states instead of falling back to the workspace-only `LibraryScreen` return.
+- Render the mode rows of `ContextSidebar` whenever the app shell is ready, not behind `catalog && sidebarVisible`; change its `rootPath` prop to `string | null`, pass empty workspace/project arrays when the catalog is null, and keep workspace-only rows hidden. The user can click Marketplace from the null-catalog Library error/empty state without pre-seeding persisted mode.
+- Marketplace uses a mode-fixed 248px sidebar and no resize handle. My Work continues using persisted `PANEL_SIZE_LIMITS.sidebar` values unchanged.
 
 - [ ] **Step 1: Write failing navigation, persistence, and sidebar tests**
 
 ```tsx
 expect(roundTrip.location).toEqual({
-  route: { kind: "category", category: "recipes" }, query: "ffmpeg",
-  filters: { source: "ralphy" }, sort: "name", selectedItemId: "recipe:voxel-dither",
+  route: { kind: "category", category: "recipes" },
+  query: { text: "ffmpeg", filters: { category: "recipes", source: "ralphy", license: "all", compatibility: "unknown", modality: "all", format: "all" }, sort: "name" },
+  selectedItemId: "recipe:voxel-dither",
   scrollTop: 438, focusId: "marketplace-item-recipe:voxel-dither",
 });
+expect(isMarketplaceLocation({ ...roundTrip.location, query: { ...roundTrip.location.query, sort: "popular" } })).toBe(false);
+expect(isMarketplaceLocation({ ...roundTrip.location, route: { kind: "detail", itemId: "model:a" }, selectedItemId: "model:b" })).toBe(false);
+expect(marketplaceReducer(detailState, { type: "select", itemId: "model:b" })).toBe(detailState);
+expect(marketplaceReducer(stateAtB, { type: "back" }).location).toEqual(locationA);
+expect(marketplaceReducer(stateAtA, { type: "forward" }).location).toEqual(locationB);
 expect(workSurface.hidden).toBe(true);
 expect(workSurface.getAttribute("inert")).not.toBeNull();
 expect(marketplaceMarkup).toContain("Discover");
 expect(marketplaceMarkup).toContain("Components & Effects");
 expect(marketplaceMarkup).toContain("MY LIBRARY");
 expect(marketplaceMarkup).not.toContain("Local Models");
+vi.useFakeTimers();
+vi.spyOn(bridge, "restoreLibrary").mockResolvedValue(null);
+const host = createReactHost();
+const root = createRoot(host.container as unknown as Element);
+await act(async () => { root.render(<App />); await vi.advanceTimersByTimeAsync(1_500); });
+const marketplaceButton = host.container.querySelectorAll("button").find((button) => button.textContent === "Marketplace");
+expect(marketplaceButton).not.toBeUndefined();
+await act(async () => marketplaceButton!.click());
+expect(host.container.textContent).toContain("Discover");
+const emptyCatalogMarkup = renderToStaticMarkup(<MarketplaceScreen catalog={{ ...emptyCatalog, workspaces: [], projects: [] }} location={locationA} sidebarVisible={true} onNavigate={() => undefined} onRememberLocation={() => undefined} />);
+expect(emptyCatalogMarkup).toContain("Discover");
+await act(async () => root.unmount());
+host.restore();
+vi.useRealTimers();
 ```
 
-Cover mode-switch focus restoration, Marketplace Back within history, Marketplace-root Back to the exact My Work route, independent sidebar visibility, malformed persisted state, `Cmd+B`, app header back/forward, one mounted sidebar only, Marketplace without workspace hero, and chat/right-panel visibility in Marketplace.
+Cover mode-switch focus restoration, Marketplace Back within history, exact Back→Forward restoration of query/filter/sort/selection/scroll/focus, Marketplace-root Back to the exact My Work route, independent sidebar visibility, malformed persisted enum/filter/detail-selection state, `Cmd+B`, app header back/forward, one mounted sidebar only, Marketplace without workspace hero, null/empty catalog reachability, mode-fixed sidebar width, and chat/right-panel visibility in Marketplace.
 
 - [ ] **Step 2: Run navigation tests and verify RED**
 
@@ -148,14 +203,17 @@ Expected: FAIL because Marketplace navigation/types and mode sidebar do not exis
 
 - [ ] **Step 3: Implement the minimal mode reducer and shell integration**
 
-Keep My Work content mounted under `hidden`/`inert`; do not serialize each existing screen's private state. Marketplace gets a minimal truthful destination shell for this task. Remove the `localModelsVisible` app branch and Local Models row, but leave the model service/screen files until Task 5 migrates their UI.
+Keep My Work content mounted under `hidden`/`inert`; do not serialize each existing screen's private state. Move the existing `if (!catalog)` return into `workContent`, after the global app shell/mode state, so it cannot prevent Marketplace navigation. Render the ContextSidebar mode rows with nullable `rootPath` even when work content has no catalog. Marketplace gets a minimal truthful destination shell for this task. Remove the `localModelsVisible` app branch and Local Models row, but leave the model service/screen files until Task 5 migrates their UI. Use `MARKETPLACE_SIDEBAR_WIDTH` only in Marketplace mode and omit its resize handle.
 
 ```tsx
+const marketplaceSidebarVisible = marketplace.sidebarVisible && viewport.width > 1_280;
+const marketplaceShellStyle = { "--sidebar-w": `${MARKETPLACE_SIDEBAR_WIDTH}px` } as CSSProperties;
+
 <div className="app-mode-surface app-mode-work" hidden={marketplace.mode !== "work"} inert={marketplace.mode !== "work"}>
   {workContent}
 </div>
-<div className="app-mode-surface app-mode-marketplace" hidden={marketplace.mode !== "marketplace"} inert={marketplace.mode !== "marketplace"}>
-  <MarketplaceScreen location={marketplace.location} onNavigate={navigateMarketplace} />
+<div className="app-mode-surface app-mode-marketplace" style={marketplaceShellStyle} hidden={marketplace.mode !== "marketplace"} inert={marketplace.mode !== "marketplace"}>
+  <MarketplaceScreen catalog={catalog} location={marketplace.location} sidebarVisible={marketplaceSidebarVisible} onNavigate={navigateMarketplace} onRememberLocation={rememberMarketplace} />
 </div>
 ```
 
@@ -239,11 +297,17 @@ interface MarketplaceLibraryOptions {
 
 export async function loadMarketplacePublicLibrary(options: MarketplaceLibraryOptions): Promise<MarketplacePublicSnapshotDto>;
 async function readBoundedJson(response: Response, maxBytes: number): Promise<unknown>;
+function sanitizeMarketplaceProse(value: unknown, maxLength: number): string | null;
+function sanitizeMarketplaceMarkdown(value: unknown, maxLength: number): string | null;
+function projectMarketplaceArtifact(value: unknown): string | null;
+function validateMarketplaceAssetUrl(value: unknown): string | null;
+function boundedLastModified(headers: Headers): string | null;
 ```
 
 - `loadMarketplacePublicLibrary(options)` in main-only code accepts injected `fetcher`, `cachePath`, and `now` for tests; no URL argument exists.
-- Exact limits: fixed URL/host/path; HTTPS only; `redirect: "error"`; 8,000 ms timeout; 2 MiB response/cache cap; schema version exactly 1; 1,024 raw blocks; 512 projected items; 128-character ASCII IDs; 160-character names; 2,048-character summaries; 8 reference URLs; 64 KiB body/artifact; JSON depth 4; 64 object keys/array entries; 4,096-character JSON strings; 2,048-character URLs; preview URLs only on `ralphy.b-cdn.net` under `/blocks/` or `/units/`.
-- Main drops `demo.html`, raw HTML tags, filesystem/source-path keys, unknown root/block keys, asset blocks, and invalid/over-limit values. Cache stores only the projected DTO and is revalidated on every read.
+- Exact limits: fixed URL/host/path; HTTPS only; `redirect: "error"`; 8,000 ms timeout; 2 MiB response/cache cap; response URL exactly `https://ralphy.b-cdn.net/library/library.json`; `Content-Type`/`Content-Length`/`Last-Modified` headers at most 128 characters; schema version exactly 1; 1,024 raw blocks; 512 projected items; 128-character ASCII IDs; 160-character names; 2,048-character summaries; 8 reference URLs; 64 KiB body/artifact; JSON depth 4; 64 object keys/array entries; 4,096-character JSON strings; 2,048-character URLs.
+- Preview/reference URLs require no username/password, no non-default port, no query/hash, exact origin `https://ralphy.b-cdn.net`, and a canonical path under `/blocks/` or `/units/`. Reject backslashes, repeated slashes, dot segments, encoded separators/dot segments/NUL, decode errors, redirect responses, and a final `response.url` mismatch.
+- Main drops `demo.html`, filesystem/source-path keys, unknown root/block keys, asset blocks, and invalid/over-limit values. Sanitize HTML only from prose/Markdown fields (`name`, `summary`, `recipe.body`); `recipe.artifact` is an opaque bounded string preserved byte-for-byte for inert text rendering and exact clipboard copy. Cache stores only the projected DTO and is revalidated on every read. Renderer warnings/errors are bounded fixed copy and never interpolate `cachePath`, filesystem paths, request URLs, or raw exception messages.
 
 - [ ] **Step 1: Write failing schema and trust-boundary tests**
 
@@ -255,10 +319,12 @@ expect(snapshot.items).toEqual([
   expect.objectContaining({ id: "choose-the-door", category: "template", recipe: null }),
   expect.objectContaining({ id: "voxel-dither", category: "recipe" }),
 ]);
-expect(JSON.stringify(snapshot)).not.toMatch(/<script|demoHtml|sourcePath|absolutePath|unknownSecret/i);
+expect(JSON.stringify(snapshot.items.map(({ name, summary, recipe }) => [name, summary, recipe?.body]))).not.toMatch(/<script|demoHtml|sourcePath|absolutePath|unknownSecret/i);
+expect(snapshot.items.find(({ id }) => id === "voxel-dither")?.recipe?.artifact).toBe(exactOpaqueArtifactIncludingAngleBrackets);
+expect(snapshot.warning).not.toContain(cachePath);
 ```
 
-Cover redirects, status/content-type errors, false/oversized `Content-Length`, streamed-body overflow, invalid UTF-8/JSON, wrong schema, array/string/depth limits, duplicate IDs, invalid kinds, non-CDN URLs, HTML removal, cache fallback, corrupt/oversized/symlink cache, atomic write failure, and network+cache total failure. Assert no path/URL input crosses preload.
+Cover redirects, a mismatched `response.url`, status/content-type errors, over-128-byte headers, false/oversized `Content-Length`, streamed-body overflow, invalid UTF-8/JSON, wrong schema, array/string/depth limits, duplicate IDs, invalid kinds, URL credentials/non-default ports/query/hash/noncanonical or encoded-traversal paths, prose/Markdown HTML removal, exact opaque artifact preservation, cache fallback, corrupt/oversized/symlink cache, atomic write failure, and network+cache total failure with path-redacted renderer copy. Assert no path/URL input crosses preload.
 
 - [ ] **Step 2: Run adapter/security tests and verify RED**
 
@@ -268,7 +334,7 @@ Expected: FAIL because the adapter, DTOs, channel, and preload method do not exi
 
 - [ ] **Step 3: Implement bounded fetch, projection, and cache fallback**
 
-Read the response stream incrementally and abort at 2 MiB before concatenating. Strip raw HTML from returned strings; do not return the public document, provider headers, cache path, or unprojected `params`. Write the projected snapshot with `guardedAtomicWrite`; cache write failure does not hide a valid live response.
+Read the response stream incrementally and abort at 2 MiB before concatenating. Check bounded headers and the final response URL before parsing. Sanitize only prose/Markdown; never normalize, trim, interpolate, or execute the bounded artifact. Do not return the public document, provider headers, cache path, or unprojected `params`. Write the projected snapshot with `guardedAtomicWrite`; cache write failure does not hide a valid live response and produces only fixed path-free warning copy.
 
 ```ts
 const PUBLIC_LIBRARY_URL = "https://ralphy.b-cdn.net/library/library.json";
@@ -276,7 +342,8 @@ const response = await fetcher(PUBLIC_LIBRARY_URL, {
   headers: { accept: "application/json" }, credentials: "omit", redirect: "error",
   signal: AbortSignal.timeout(8_000),
 });
-const snapshot = { schemaVersion: 1, source: "live", refreshedAt: new Date(now()).toISOString(), sourceUpdatedAt: response.headers.get("last-modified"), warning: null, items: projectMarketplacePublicDocument(await readBoundedJson(response, 2 * 1024 * 1024)) } satisfies MarketplacePublicSnapshotDto;
+if (response.url !== PUBLIC_LIBRARY_URL) throw new Error("Marketplace catalog response origin mismatch");
+const snapshot = { schemaVersion: 1, source: "live", refreshedAt: new Date(now()).toISOString(), sourceUpdatedAt: boundedLastModified(response.headers), warning: null, items: projectMarketplacePublicDocument(await readBoundedJson(response, 2 * 1024 * 1024)) } satisfies MarketplacePublicSnapshotDto;
 await guardedAtomicWrite(cachePath, JSON.stringify(snapshot), { maxBytes: 2 * 1024 * 1024 }).catch(() => undefined);
 return snapshot;
 ```
@@ -304,7 +371,7 @@ git commit -m "feat: add marketplace public catalog adapter"
 - Test: `tests/marketplace-controller.test.ts`
 
 **Interfaces:**
-- Consumes: Task 2 snapshot and current `LocalModelCatalog`, `LocalModelSummary`, `LocalModelMachine`.
+- Consumes: Task 1 `MarketplaceQueryState`, Task 2 snapshot, and current `LocalModelCatalog`, `LocalModelSummary`, `LocalModelDetail`, `LocalModelMachine`.
 - Produces:
 
 ```ts
@@ -326,8 +393,37 @@ interface MarketplaceCommonItem {
   compatibility: Availability<string>;
 }
 
+export interface MarketplaceModelDto {
+  provider: "huggingface" | "civitai" | "modelscope";
+  id: string;
+  name: string;
+  author: string;
+  task: string;
+  modality: "text" | "image" | "video" | "audio" | "multimodal" | "unknown";
+  modelType: string;
+  baseModel: string | null;
+  license: string | null;
+  gated: boolean;
+  revision: string | null;
+  lastModified: string | null;
+  tags: string[];
+  iconUrl: string | null;
+  previewUrl: string | null;
+  providerUrl: string;
+  recommendedPackage: { format: string; bytes: number | null; files: string[] };
+  comfort: { level: "comfortable" | "usable" | "tight" | "unknown" | "incompatible"; label: string; score: 0 | 1 | 2 | 3 | 4; runtime: "ollama" | "diffusers" | "transformers" | "mlx"; estimatedMemoryBytes: number | null; evidence: string[] };
+  state: "remote" | "gated" | "downloaded" | "ready";
+  permissions: string[];
+}
+
+export interface MarketplaceModelDetailDto extends MarketplaceModelDto {
+  readme: string;
+  previewUrls: string[];
+  files: { name: string; bytes: number | null; format: string; recommended: boolean; warning: string | null }[];
+}
+
 export type MarketplaceItemPresentation =
-  | (MarketplaceCommonItem & { category: "models"; model: LocalModelSummary })
+  | (MarketplaceCommonItem & { category: "models"; model: MarketplaceModelDto })
   | (MarketplaceCommonItem & { category: "templates"; template: MarketplacePublicItemDto })
   | (MarketplaceCommonItem & { category: "recipes"; recipe: MarketplacePublicItemDto });
 
@@ -339,36 +435,40 @@ export interface MarketplaceCategoryPresentation {
   catalog: "ready" | "unavailable";
 }
 
-export interface MarketplaceQueryState {
-  text: string;
-  category: MarketplaceCategory | "all";
-  source: "all" | "ralphy" | "huggingface" | "civitai" | "modelscope";
-  license: "all" | "declared";
-  compatibility: "all" | "compatible" | "unknown" | "incompatible";
-  modality: "all" | "text" | "image" | "video" | "audio" | "multimodal";
-  format: "all" | "gguf" | "safetensors" | "onnx" | "mlx";
-  sort: "relevance" | "updated" | "name";
+export interface MarketplaceSourceIssue {
+  source: "ralphy-public" | "huggingface" | "civitai" | "modelscope" | "models";
+  scope: "public-library" | "model-provider" | "model-catalog";
+  message: string;
+}
+
+export interface MarketplaceSourceHealth {
+  publicLibrary: "ready" | "unavailable";
+  models: "ready" | "partial" | "unavailable";
 }
 
 export type MarketplaceSnapshot =
   | { status: "loading"; query: MarketplaceQueryState }
-  | { status: "ready"; items: MarketplaceItemPresentation[]; categories: MarketplaceCategoryPresentation[]; machine: LocalModelMachine | null; publicSource: MarketplacePublicSnapshotDto | null; sourceErrors: { source: string; message: string }[]; refreshing: boolean; query: MarketplaceQueryState }
-  | { status: "error"; error: string; query: MarketplaceQueryState };
+  | { status: "ready"; items: MarketplaceItemPresentation[]; categories: MarketplaceCategoryPresentation[]; machine: LocalModelMachine | null; publicSource: MarketplacePublicSnapshotDto | null; sourceErrors: MarketplaceSourceIssue[]; sourceHealth: MarketplaceSourceHealth; refreshing: boolean; query: MarketplaceQueryState }
+  | { status: "error"; error: string; sourceErrors: MarketplaceSourceIssue[]; sourceHealth: MarketplaceSourceHealth; query: MarketplaceQueryState };
 
 export interface MarketplaceController {
   subscribe(listener: () => void): () => void;
   getSnapshot(): MarketplaceSnapshot;
   start(): Promise<void>;
   refresh(): Promise<void>;
-  setQuery(patch: Partial<MarketplaceQueryState>): void;
+  setQuery(query: MarketplaceQueryState): void;
   dispose(): void;
 }
+
+export function projectMarketplaceModel(summary: LocalModelSummary): MarketplaceModelDto;
+export function projectMarketplaceModelDetail(detail: LocalModelDetail): MarketplaceModelDetailDto;
 
 export function presentMarketplaceSources(
   publicSnapshot: MarketplacePublicSnapshotDto | null,
   modelCatalog: LocalModelCatalog | null,
   query: MarketplaceQueryState,
-  sourceErrors: { source: string; message: string }[],
+  sourceErrors: MarketplaceSourceIssue[],
+  sourceHealth: MarketplaceSourceHealth,
 ): Extract<MarketplaceSnapshot, { status: "ready" }>;
 ```
 
@@ -379,11 +479,15 @@ expect(items.map((item) => item.category)).toEqual(["models", "templates", "reci
 expect(categories.find(({ category }) => category === "skills")?.count.status).toBe("unavailable");
 expect(template.license).toEqual({ status: "unavailable", reason: expect.stringContaining("public library") });
 expect(model.publisherIdentity.status).toBe("unavailable");
-expect(JSON.stringify(items)).not.toMatch(/rating|trending|recommended|downloads/i);
+expect(JSON.stringify(projectMarketplaceModel({ ...modelSummary, downloads: 98_765, likes: 432 }))).not.toMatch(/downloads|likes|rating|trending|recommended/i);
 expect(searchLocalModels).toHaveBeenCalledWith(expect.objectContaining({ sort: "updated", limit: 24 }));
+expect(partialSnapshot.sourceErrors).toContainEqual({ source: "huggingface", scope: "model-provider", message: "rate limited" });
+expect(partialSnapshot.sourceHealth.models).toBe("partial");
+expect(allModelsFailedSnapshot.sourceHealth.models).toBe("unavailable");
+expect(totalFailureSnapshot).toMatchObject({ status: "error", sourceHealth: { publicLibrary: "unavailable", models: "unavailable" } });
 ```
 
-Cover keyword scoring over current fields, stable source-prefixed keys, prompt-recipe staying Recipe, filters, honest unavailable counts, live/cache source state, one-source partial-source failure, both-source failure, stale response suppression, refresh retaining content, deterministic name tie-breaks, no provider-download sorting, and controller disposal.
+Cover explicit field-by-field model/detail projection, serialized absence of `downloads`/`likes`, keyword scoring over current fields, stable source-prefixed keys, prompt-recipe staying Recipe, every Task 1 filter enum, honest unavailable counts, live/cache source state, fulfilled catalog with one provider error plus usable models, fulfilled catalog with zero models and all attempted providers errored, public failure plus healthy models, model failure plus public items, total model+public failure, stale response suppression, refresh retaining content, deterministic name tie-breaks, no provider-download sorting, and controller disposal. Merge every fulfilled `LocalModelCatalog.errors` entry into `sourceErrors`; a fulfilled catalog is not automatically healthy.
 
 - [ ] **Step 2: Run model/controller tests and verify RED**
 
@@ -393,24 +497,43 @@ Expected: FAIL because presentation/controller files do not exist.
 
 - [ ] **Step 3: Implement pure mapping and the smallest source coordinator**
 
-Use `Promise.allSettled` for the two existing source calls. Do not add a query library, catalog superclass, adapter registry, or renderer cache. Keep model `downloads`/`likes` inside the existing service DTO but omit them from Marketplace presentation/search/sort.
+Use `Promise.allSettled` for the two existing source calls. Do not add a query library, catalog superclass, adapter registry, or renderer cache. Import Task 1 `MarketplaceQueryState`; do not redeclare or loosely patch it. Explicitly copy allowlisted model fields into `MarketplaceModelDto`/`MarketplaceModelDetailDto`; never spread a service model because that would reintroduce `downloads`/`likes` into serialized presentation.
 
 ```ts
 const [library, models] = await Promise.allSettled([
   bridge.loadMarketplacePublicLibrary(),
-  bridge.searchLocalModels({ query: query.text || undefined, provider: query.source === "ralphy" ? "all" : query.source, sort: "updated", limit: 24 }),
+  bridge.searchLocalModels({ query: query.text || undefined, provider: query.filters.source === "ralphy" ? "all" : query.filters.source, sort: "updated", limit: 24 }),
 ]);
 if (requestId !== this.#activeRequest || this.#disposed) return;
-const sourceErrors = [library, models].flatMap((result, index) => result.status === "rejected" ? [{ source: index === 0 ? "Ralphy public library" : "Models", message: result.reason instanceof Error ? result.reason.message : String(result.reason) }] : []);
-this.#snapshot = presentMarketplaceSources(library.status === "fulfilled" ? library.value : null, models.status === "fulfilled" ? models.value : null, query, sourceErrors);
+const attemptedProviders = query.filters.source === "all" || query.filters.source === "ralphy"
+  ? (["huggingface", "civitai", "modelscope"] as const)
+  : [query.filters.source];
+const providerIssues: MarketplaceSourceIssue[] = models.status === "fulfilled"
+  ? models.value.errors.map(({ provider, message }) => ({ source: provider, scope: "model-provider", message }))
+  : [];
+const sourceErrors: MarketplaceSourceIssue[] = [
+  ...(library.status === "rejected" ? [{ source: "ralphy-public", scope: "public-library", message: "Ralphy public library is unavailable" } satisfies MarketplaceSourceIssue] : []),
+  ...(models.status === "rejected" ? [{ source: "models", scope: "model-catalog", message: "Model catalog is unavailable" } satisfies MarketplaceSourceIssue] : []),
+  ...providerIssues,
+];
+const failedProviders = new Set(providerIssues.map(({ source }) => source));
+const allAttemptedProvidersFailed = attemptedProviders.every((provider) => failedProviders.has(provider));
+const modelHealth = models.status === "rejected" || allAttemptedProvidersFailed ? "unavailable" : providerIssues.length > 0 ? "partial" : "ready";
+const sourceHealth: MarketplaceSourceHealth = { publicLibrary: library.status === "fulfilled" ? "ready" : "unavailable", models: modelHealth };
+if (library.status === "rejected" && modelHealth === "unavailable") {
+  this.#snapshot = { status: "error", error: "Marketplace sources are unavailable", sourceErrors, sourceHealth, query };
+  this.#emit();
+  return;
+}
+this.#snapshot = presentMarketplaceSources(library.status === "fulfilled" ? library.value : null, models.status === "fulfilled" ? models.value : null, query, sourceErrors, sourceHealth);
 this.#emit();
 ```
 
-- [ ] **Step 4: Run focused tests**
+- [ ] **Step 4: Run focused tests, typecheck, build, and diff check**
 
-Run: `VITE_RALPHY_ENABLE_MOCKS=true bun run test -- tests/marketplace-presentation.test.ts tests/marketplace-controller.test.ts`
+Run: `VITE_RALPHY_ENABLE_MOCKS=true bun run test -- tests/marketplace-presentation.test.ts tests/marketplace-controller.test.ts && bun run typecheck && bun run build && git diff --check`
 
-Expected: PASS.
+Expected: PASS, build exits 0, and the diff has no whitespace errors.
 
 - [ ] **Step 5: Commit presentation and controller**
 
@@ -435,6 +558,16 @@ git commit -m "feat: model marketplace catalog state"
 - Consumes: Task 1 location/navigation callbacks and Task 3 controller snapshot.
 - Produces: Discover, results, and category routes with `onOpenItem(key)`, `onOpenCategory(category)`, `onOpenLibrary(section)`, `onRememberLocation(patch)`, and exact focus restoration.
 
+```ts
+export interface MarketplaceResultsProps {
+  items: MarketplaceItemPresentation[];
+  query: MarketplaceQueryState;
+  onOpenItem(key: string): void;
+}
+
+export function MarketplaceResults(props: MarketplaceResultsProps): React.ReactElement;
+```
+
 - [ ] **Step 1: Write failing shell, discover, results, and state tests**
 
 ```tsx
@@ -447,11 +580,13 @@ expect(discover).toContain("Components & Effects");
 expect(discover).toContain("Skills");
 expect(results).toContain("Relevance · keyword");
 expect(results).not.toMatch(/rating|trending|recommended for you|downloads/i);
+const modelResultMarkup = renderToStaticMarkup(<MarketplaceResults items={[modelPresentation]} query={defaultQuery} onOpenItem={() => undefined} />);
+expect(modelResultMarkup).not.toMatch(/98,?765|432|downloads|likes/i);
 expect(partial).toContain("Civitai is unavailable");
 expect(partial).toContain("Results from healthy sources are still shown");
 ```
 
-Assert category cards show exact loaded counts or an unavailable reason; Continue contains only real installed Ollama state; current-work suggestions are omitted without a match explanation; collection and recently-updated sections do not invent records; mixed results use text category labels; filters remain visible on no results; source retry retains healthy results; cards open on Enter/Space; closing/back restores the origin item and stored scroll.
+Assert category cards show exact loaded counts or an unavailable reason; serialized and rendered model presentation cannot expose `downloads`/`likes`; Continue contains only real installed Ollama state; current-work suggestions are omitted without a match explanation; collection and recently-updated sections do not invent records; mixed results use text category labels; filters remain visible on no results; source retry retains healthy results; cards open on Enter/Space; closing/back restores the origin item and stored scroll.
 
 - [ ] **Step 2: Run renderer tests and verify RED**
 
@@ -508,12 +643,12 @@ git commit -m "feat: add marketplace discovery views"
 export interface MarketplaceModelDetailProps {
   reference: LocalModelReference;
   onBack(): void;
-  onReviewDownload(model: LocalModelDetail): void;
+  onReviewDownload(model: MarketplaceModelDetailDto): void;
 }
 
 export type MarketplaceModelDetailState =
   | { status: "loading" }
-  | { status: "ready"; value: LocalModelDetail }
+  | { status: "ready"; value: MarketplaceModelDetailDto }
   | { status: "error"; message: string };
 
 function useMarketplaceModelDetail(reference: LocalModelReference): MarketplaceModelDetailState;
@@ -536,9 +671,14 @@ expect(detail).toContain("Used by");
 expect(detail).toContain("Download and installation are unavailable in the current Desktop contract");
 expect(detail).not.toMatch(/downloads|likes|trending/i);
 expect(sidebar).not.toContain("Local Models");
+rerender(<MarketplaceModelDetail reference={referenceB} onBack={onBack} onReviewDownload={onReviewDownload} />);
+resolveB(modelB);
+resolveA(modelA);
+expect(screen.getByRole("heading", { name: modelB.name })).toBeVisible();
+expect(screen.queryByRole("heading", { name: modelA.name })).toBeNull();
 ```
 
-Cover Hugging Face public/gated, Civitai permissions, likely/unknown/incompatible evidence, runtime absent, provider failure, preview error fallback, file warnings, full-route Back/focus, provider external link validation, installed Ollama inventory handoff, and chat remaining mounted. Source assertions prove `LocalModelsScreen` is no longer imported or reachable.
+Cover Hugging Face public/gated, Civitai permissions, likely/unknown/incompatible evidence, runtime absent, provider failure, preview error fallback, file warnings, serialized/rendered absence of `downloads`/`likes`, full-route Back/focus, provider external link validation, installed Ollama inventory handoff, and chat remaining mounted. Add deferred-promise tests for A→B where A resolves last, unmount before resolve/reject, and Back during load followed by late resolution; no stale result, state update, focus move, or review callback may occur. Source assertions prove `LocalModelsScreen` is no longer imported or reachable.
 
 - [ ] **Step 2: Run model and navigation tests and verify RED**
 
@@ -548,9 +688,25 @@ Expected: new Marketplace model tests fail before the full-route view exists; pr
 
 - [ ] **Step 3: Move the useful Local Models UI into Marketplace**
 
-Reuse service types and normalization. Replace the old dialog with a Marketplace detail route, remove popularity display/sorts, and leave only evidence-backed compatibility. Delete the old screen/style/test after equivalent behavior is covered in `marketplace-models.test.tsx`.
+Reuse service normalization but immediately project each loaded detail through Task 3 `projectMarketplaceModelDetail`. Replace the old dialog with a Marketplace detail route, remove popularity display/sorts, and leave only evidence-backed compatibility. Guard the non-cancellable existing IPC promise with both a monotonically increasing request generation and effect cleanup; the bridge contract has no `AbortSignal`, so cancellation here means suppressing all late state/callback effects. Delete the old screen/style/test after equivalent behavior is covered in `marketplace-models.test.tsx`.
 
 ```tsx
+function useMarketplaceModelDetail(reference: LocalModelReference): MarketplaceModelDetailState {
+  const generation = useRef(0);
+  const [state, setState] = useState<MarketplaceModelDetailState>({ status: "loading" });
+  useEffect(() => {
+    const requestGeneration = ++generation.current;
+    let cancelled = false;
+    setState({ status: "loading" });
+    void bridge.loadLocalModelDetail(reference).then(
+      (value) => { if (!cancelled && requestGeneration === generation.current) setState({ status: "ready", value: projectMarketplaceModelDetail(value) }); },
+      (cause) => { if (!cancelled && requestGeneration === generation.current) setState({ status: "error", message: cause instanceof Error ? cause.message : String(cause) }); },
+    );
+    return () => { cancelled = true; generation.current += 1; };
+  }, [reference.id, reference.provider]);
+  return state;
+}
+
 export function MarketplaceModelDetail({ reference, onBack, onReviewDownload }: MarketplaceModelDetailProps) {
   const state = useMarketplaceModelDetail(reference);
   if (state.status === "loading") return <main className="marketplace-detail-route" aria-busy="true">Loading model details…</main>;
@@ -614,9 +770,11 @@ expect(recipe).toContain("Source-provided preview");
 expect(recipe).not.toContain("seed fixes composition, not pixels");
 await click("Copy artifact");
 expect(copyText).toHaveBeenCalledWith(exactArtifact);
+expect(recipeMarkup).toContain("&lt;script&gt;");
+expect(recipeRoot.querySelector("script")).toBeNull();
 ```
 
-Cover all ten shared detail sections, Template reference preview/fallback, recipe body/artifact/parameters/demo/before/after, `recipeKind: "prompt"` remaining Recipe, unknown license/version/date/audit/compatibility/backlinks/relationships, copy success/failure announcement without focus theft, no HTML execution, and CDN-only CSP for image/media.
+Cover all ten shared detail sections, Template reference preview/fallback, recipe body/artifact/parameters/demo/before/after, `recipeKind: "prompt"` remaining Recipe, unknown license/version/date/audit/compatibility/backlinks/relationships, exact copy of an artifact containing HTML-like angle brackets, inert `<pre><code>` text rendering with no created HTML node, copy success/failure announcement without focus theft, and CDN-only CSP for image/media.
 
 - [ ] **Step 2: Run detail/design tests and verify RED**
 
@@ -626,7 +784,7 @@ Expected: Marketplace detail assertions fail; the recorded unrelated font-weight
 
 - [ ] **Step 3: Implement full details and the bounded copy action**
 
-Do not infer format, model stack, slots, failure modes, provenance, content review, or license from the item name/body. Add only `https://ralphy.b-cdn.net` to `img-src` and `media-src`; do not widen `default-src`, `script-src`, or `connect-src`.
+Do not infer format, model stack, slots, failure modes, provenance, content review, or license from the item name/body. Render the opaque artifact only as React text children inside `<pre><code>`; never pass it to `MarkdownView`, `dangerouslySetInnerHTML`, a URL, shell, or media element. Add only `https://ralphy.b-cdn.net` to `img-src` and `media-src`; do not widen `default-src`, `script-src`, or `connect-src`.
 
 ```tsx
 const copyArtifact = async () => {
@@ -718,11 +876,11 @@ export function MarketplaceUnavailableDetail({ category, onReview }: { category:
 }
 ```
 
-- [ ] **Step 4: Run view tests**
+- [ ] **Step 4: Run view tests, typecheck, build, and diff check**
 
-Run: `VITE_RALPHY_ENABLE_MOCKS=true bun run test -- tests/marketplace-unavailable-views.test.tsx tests/marketplace-screen.test.tsx tests/marketplace-public-details.test.tsx`
+Run: `VITE_RALPHY_ENABLE_MOCKS=true bun run test -- tests/marketplace-unavailable-views.test.tsx tests/marketplace-screen.test.tsx tests/marketplace-public-details.test.tsx && bun run typecheck && bun run build && git diff --check`
 
-Expected: PASS.
+Expected: PASS, build exits 0, and the diff has no whitespace errors.
 
 - [ ] **Step 5: Commit unsupported surfaces**
 
@@ -757,14 +915,14 @@ export type MarketplaceWorkflowKind =
   | "skill-install"
   | "update-conflict";
 
-export interface MarketplaceTargetOption {
+export interface MarketplaceProjectTargetOption {
   id: string;
-  kind: "workspace" | "project";
+  kind: "project";
   label: string;
   contextLabel: string;
   current: boolean;
-  structurallyCompatible: boolean;
-  reason: string | null;
+  compatible: true;
+  compatibilityBasis: "project-target";
 }
 
 export interface MarketplaceUnavailableTargetScope {
@@ -772,6 +930,23 @@ export interface MarketplaceUnavailableTargetScope {
   label: string;
   reason: string;
 }
+
+export interface MarketplaceWorkflowTargets {
+  workflow: MarketplaceWorkflowKind;
+  projectOptions: MarketplaceProjectTargetOption[];
+  unavailableScopes: MarketplaceUnavailableTargetScope[];
+  contextProjectLabel: string | null;
+  targetUnavailableReason: string | null;
+}
+
+export function marketplaceTargets(catalog: CatalogResult, current: WorkbenchRoute, kind: MarketplaceWorkflowKind): MarketplaceWorkflowTargets;
+
+export interface MarketplaceTargetChooserProps {
+  targets: MarketplaceWorkflowTargets;
+  onCancel(): void;
+}
+
+export function MarketplaceTargetChooser(props: MarketplaceTargetChooserProps): React.ReactElement;
 
 export type MarketplaceDownloadPresentation =
   | { availability: "unavailable"; reason: string }
@@ -783,14 +958,28 @@ export type MarketplaceDownloadPresentation =
 - [ ] **Step 1: Write failing chooser, library, download, and review tests**
 
 ```tsx
-expect(chooser).toContain("UX Testing Lab");
-expect(chooser).toContain("UX Testing Lab / UX Tester");
-expect(chooser).toContain("Current project target");
-expect(chooser).toContain("Adding to projects is unavailable from the current Core contract");
-expect(chooser).toContain("Chat target enumeration is unavailable");
-expect(chooser).toContain("Agent target enumeration is unavailable");
-expect(chooser).toContain("Computer/runtime target enumeration is unavailable");
-expect(chooser).not.toMatch(/current chat|another chat|codex agent|compatible computer|compatible runtime/i);
+const modelTargets = marketplaceTargets(catalog, currentProjectRoute, "model-download");
+const promptTargets = marketplaceTargets(catalog, currentProjectRoute, "prompt-use");
+const skillTargets = marketplaceTargets(catalog, currentProjectRoute, "skill-install");
+expect(modelTargets).toMatchObject({ projectOptions: [], contextProjectLabel: null });
+expect(modelTargets.unavailableScopes.map(({ kind }) => kind)).toEqual(["computer"]);
+expect(promptTargets).toMatchObject({ projectOptions: [], contextProjectLabel: null });
+expect(promptTargets.unavailableScopes.map(({ kind }) => kind)).toEqual(["chat"]);
+expect(skillTargets).toMatchObject({ projectOptions: [], contextProjectLabel: "UX Testing Lab / UX Tester" });
+expect(skillTargets.unavailableScopes.map(({ kind }) => kind)).toEqual(["agent"]);
+for (const workflow of ["template-target", "recipe-target", "component-target"] as const) {
+  const targets = marketplaceTargets(catalog, currentProjectRoute, workflow);
+  expect(targets.projectOptions).toEqual(expect.arrayContaining([expect.objectContaining({ contextLabel: "UX Testing Lab / UX Tester", current: true, compatible: true, compatibilityBasis: "project-target" })]));
+  expect(targets.unavailableScopes).toEqual([]);
+}
+const targetsFromCurrent = marketplaceTargets(catalog, currentProjectRoute, "template-target").projectOptions;
+const targetsFromOther = marketplaceTargets(catalog, otherProjectRoute, "template-target").projectOptions;
+expect(targetsFromOther.map(({ current: _current, ...option }) => option)).toEqual(targetsFromCurrent.map(({ current: _current, ...option }) => option));
+expect(targetsFromOther.map(({ current }) => current)).not.toEqual(targetsFromCurrent.map(({ current }) => current));
+expect(marketplaceTargets(catalog, currentProjectRoute, "update-conflict")).toMatchObject({ projectOptions: [], unavailableScopes: [], targetUnavailableReason: "Update target is unavailable without persistent installed-version and local-modification state" });
+expect(JSON.stringify(marketplaceTargets(catalog, currentProjectRoute, "recipe-target"))).not.toMatch(/\/Users\/|absolutePath|rootPath|ralphy\.db/i);
+const chooserMarkup = renderToStaticMarkup(<MarketplaceTargetChooser targets={marketplaceTargets(catalog, currentProjectRoute, "recipe-target")} onCancel={() => undefined} />);
+for (const path of [catalog.rootPath, ...catalog.workspaces.map(({ absolutePath }) => absolutePath)]) expect(chooserMarkup).not.toContain(path);
 expect(library).toContain("Installed on this Mac");
 expect(library).toContain("Registered in Ollama");
 expect(library).toContain("Saved items are unavailable because there is no persistent saved-state contract");
@@ -806,7 +995,7 @@ expect(actions).toContain("Use in chat is unavailable without target enumeration
 expect(actions).toContain("The final action is disabled");
 ```
 
-Cover exact target names, the current structurally compatible workspace/project preselected and named, targets of unknown compatibility visible with reasons, explicit non-selectable Chat/Agent/Computer scope rows because those targets cannot be enumerated, Escape/scrim cancel, focus trap/restore, no final bridge mutation call, model preflight/license/download/install/test review, Template project review, Recipe apply review, Prompt use-in-chat review, Component add review, Skill bundle/agent/scope/mode/files/tools/network/credentials review, active/failed/completed progress semantics, update keep/fork/replace disabled choices, and My Library distinctions for installed/saved/added/forked/download/update/attention.
+Cover the exact workflow matrix: Model exposes only an unavailable Computer/runtime scope; Prompt only unavailable Chat; Skill only unavailable Agent while the current project is context text and never selectable; Template/Recipe/Component expose only named project options; update/conflict exposes no target and names missing persistent version/modification state. For project workflows, every catalog project is target-kind compatible independent of the current route; `current` only preselects the matching project and never creates compatibility. Assert each wrong target kind is absent, workspace rows are never options, route changes alter only `current`, and serialized/helper and rendered chooser output excludes `CatalogResult.rootPath`, every `WorkspaceSummary.absolutePath`, DB paths, and raw fallback IDs. Also cover Escape/scrim cancel, focus trap/restore, no final bridge mutation call, model preflight/license/download/install/test review, Template project review, Recipe apply review, Prompt use-in-chat review, Component add review, Skill bundle/agent/scope/mode/files/tools/network/credentials review, active/failed/completed progress semantics, update keep/fork/replace disabled choices, and My Library distinctions for installed/saved/added/forked/download/update/attention.
 
 - [ ] **Step 2: Run workflow/library tests and verify RED**
 
@@ -816,15 +1005,21 @@ Expected: FAIL because workflow and My Library components do not exist.
 
 - [ ] **Step 3: Implement complete non-mutating workflows**
 
-Share only the Radix window frame/focus logic. Each action review has its own explicit fields and reason. Workspace/project rows are the only selectable targets; Chat/Agent/Computer are static unavailable scope rows and never synthesize target IDs or compatibility. The only enabled item action remains Recipe copy from Task 6; opening chat without attaching an item is not presented as `Use in chat`.
+Share only the Radix window frame/focus logic. Each action review has its own explicit fields and reason. Project rows exist only for Template/Recipe/Component. `compatible: true` means only that the row is structurally a project target accepted by those workflow kinds; it is identical for current and non-current projects and never claims item/runtime compatibility. Model/Prompt/Skill render exactly their one unavailable scope, and Skill project context is plain text outside the option list. Update/conflict renders only `targetUnavailableReason`. The only enabled item action remains Recipe copy from Task 6; opening chat without attaching an item is not presented as `Use in chat`.
 
 ```ts
-export function marketplaceTargets(catalog: CatalogResult, current: WorkbenchRoute, kind: MarketplaceWorkflowKind): MarketplaceTargetOption[] {
-  const projectTarget = kind === "recipe-target" || kind === "component-target";
+export function marketplaceTargets(catalog: CatalogResult, current: WorkbenchRoute, kind: MarketplaceWorkflowKind): MarketplaceWorkflowTargets {
   const workspaceNames = new Map(catalog.workspaces.map((workspace) => [workspace.id, workspace.name]));
-  return projectTarget
-    ? catalog.projects.map((project) => ({ id: project.projectId, kind: "project", label: project.name, contextLabel: `${workspaceNames.get(project.workspaceId) ?? project.workspaceId} / ${project.name}`, current: current.kind === "project" && current.projectId === project.projectId, structurallyCompatible: current.kind === "project" && current.projectId === project.projectId, reason: current.kind === "project" && current.projectId === project.projectId ? null : "Compatibility is not enumerated by the current contract" }))
-    : catalog.workspaces.map((workspace) => ({ id: workspace.id, kind: "workspace", label: workspace.name, contextLabel: workspace.name, current: current.kind !== "library" && current.workspaceId === workspace.id, structurallyCompatible: current.kind !== "library" && current.workspaceId === workspace.id, reason: current.kind !== "library" && current.workspaceId === workspace.id ? null : "Compatibility is not enumerated by the current contract" }));
+  const namedProjects = catalog.projects.flatMap((project) => {
+    const workspaceName = workspaceNames.get(project.workspaceId);
+    return workspaceName ? [{ id: project.projectId, kind: "project" as const, label: project.name, contextLabel: `${workspaceName} / ${project.name}`, current: current.kind === "project" && current.workspaceId === project.workspaceId && current.projectId === project.projectId, compatible: true as const, compatibilityBasis: "project-target" as const }] : [];
+  });
+  const currentProject = current.kind === "project" ? namedProjects.find(({ id }) => id === current.projectId)?.contextLabel ?? null : null;
+  if (kind === "template-target" || kind === "recipe-target" || kind === "component-target") return { workflow: kind, projectOptions: namedProjects, unavailableScopes: [], contextProjectLabel: null, targetUnavailableReason: namedProjects.length ? null : "No named project targets are available" };
+  if (kind === "model-download") return { workflow: kind, projectOptions: [], unavailableScopes: [{ kind: "computer", label: "Computer/runtime", reason: "Computer and runtime targets cannot be enumerated by the current Desktop contract" }], contextProjectLabel: null, targetUnavailableReason: null };
+  if (kind === "prompt-use") return { workflow: kind, projectOptions: [], unavailableScopes: [{ kind: "chat", label: "Chat", reason: "Chat targets cannot be enumerated or attached by the current Desktop contract" }], contextProjectLabel: null, targetUnavailableReason: null };
+  if (kind === "skill-install") return { workflow: kind, projectOptions: [], unavailableScopes: [{ kind: "agent", label: "Agent", reason: "Agent targets and installation scopes cannot be enumerated by the current Desktop contract" }], contextProjectLabel: currentProject, targetUnavailableReason: null };
+  return { workflow: kind, projectOptions: [], unavailableScopes: [], contextProjectLabel: null, targetUnavailableReason: "Update target is unavailable without persistent installed-version and local-modification state" };
 }
 ```
 
@@ -877,6 +1072,8 @@ The Electron harness renders actual production components for required frames 1�
 
 For every state measure four layouts: 1440×900 with 248px Marketplace sidebar; 1280×800 with sidebar fully hidden and category menu visible; 1440×900 with 336px chat panel; 1280×800 with 336px chat panel and sidebar hidden. Assert page/panels/portals have `scrollWidth <= clientWidth + 1`, one explicit vertical scroll owner, no clipped primary action, no autoplay, no untrusted HTML node, and no horizontal body scroll.
 
+Use computed styles, not class-name inference: at 1440 assert Marketplace sidebar `display !== "none"` and rounded `getBoundingClientRect().width === 248`; at exactly 1280 assert sidebar `display === "none"` (or absent), `MarketplaceScreen` has `data-sidebar-visible="false"`, and the header category menu `display !== "none"`. Repeat with a manually hidden sidebar at 1440 to prove the menu follows actual sidebar visibility rather than a `max-width: 760px` query. Assert My Work still computes its persisted 288–420px sidebar independently.
+
 Force `:focus-visible` on sidebar mode/category rows, search, filter, result, detail CTA, workflow close/choice/final action, and narrow category menu; every outline is at least 2px. Emulate `prefers-reduced-motion: reduce`; card/specimen transitions and animations resolve to `0s`/`none`. Assert semantic list/grid/progress/dialog roles, text category/status/trust labels, and focus restoration after detail/workflow close.
 
 - [ ] **Step 2: Run state/geometry/design tests and verify RED**
@@ -887,11 +1084,13 @@ Expected: new state/geometry assertions fail before final CSS/behavior; only the
 
 - [ ] **Step 3: Implement final states and responsive/a11y rules**
 
-At narrow width hide the Marketplace sidebar entirely; do not create an icon rail. Keep the selected category in the page header menu. Freeze live specimens/video hover under reduced motion, retain visible status text, wrap long IDs/licenses/file names, and keep workflow headers/footers fixed with one scrollable body.
+At viewport width `<= 1280px`, or whenever the user manually hides it, remove the Marketplace sidebar entirely; do not create an icon rail. Pass the computed visibility to `MarketplaceScreen` and keep the selected category in the page header menu whenever `data-sidebar-visible="false"`. The detail-column container query remains independent. Freeze live specimens/video hover under reduced motion, retain visible status text, wrap long IDs/licenses/file names, and keep workflow headers/footers fixed with one scrollable body.
 
 ```css
+.marketplace-screen[data-sidebar-visible="false"] .marketplace-header-category-menu {
+  display: inline-flex;
+}
 @container main-region (max-width: 760px) {
-  .marketplace-header-category-menu { display: inline-flex; }
   .marketplace-detail-layout { grid-template-columns: minmax(0, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) {
