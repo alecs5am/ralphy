@@ -158,6 +158,7 @@ describe("marketplace navigation", () => {
     const props = {
       location: locationA,
       sidebarVisible: false,
+      onBack: () => undefined,
       onNavigate: () => undefined,
       onRememberLocation: () => undefined,
     };

@@ -27,6 +27,7 @@ export interface MarketplaceScreenProps {
   catalog: CatalogResult | null;
   location: MarketplaceLocation;
   sidebarVisible: boolean;
+  onBack(): void;
   onNavigate(location: MarketplaceLocation): void;
   onRememberLocation(patch: MarketplaceMemoryPatch): void;
 }
@@ -88,6 +89,7 @@ export function MarketplaceScreenView({
   location,
   sidebarVisible,
   snapshot,
+  onBack,
   onNavigate,
   onRememberLocation,
   onRetry,
@@ -213,18 +215,6 @@ export function MarketplaceScreenView({
     onRememberLocation({ query });
   };
   const detailReference = location.route.kind === "detail" ? modelReference(location.route.itemId) : null;
-  const backToModels = () => {
-    if (location.route.kind !== "detail") return;
-    onNavigate({
-      ...location,
-      route: { kind: "category", category: "models" },
-      query: { ...location.query, filters: { ...location.query.filters, category: "models" } },
-      selectedItemId: null,
-      scrollTop: 0,
-      focusId: marketplaceItemDomId(location.route.itemId),
-    });
-  };
-
   return <main className="marketplace-screen main-region" data-sidebar-visible={sidebarVisible ? "true" : "false"}>
     <MarketplaceHeader
       title={routeTitle(location)}
@@ -243,7 +233,7 @@ export function MarketplaceScreenView({
     >
       <p className="marketplace-target-state">{targetMessage}</p>
       {detailReference
-        ? <MarketplaceModelDetail reference={detailReference} onBack={backToModels} onReviewDownload={() => undefined} />
+        ? <MarketplaceModelDetail reference={detailReference} onBack={onBack} />
         : location.route.kind === "library" && location.route.section === "installed"
           ? <MarketplaceInstalledModels machine={snapshot.status === "ready" ? snapshot.machine : null} />
           : route === null

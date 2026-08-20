@@ -439,7 +439,7 @@ describe("Marketplace header and navigation composition", () => {
     const host = createReactHost();
     const root = createRoot(host.container as unknown as Element);
     try {
-      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={resultsLocation} sidebarVisible={true} snapshot={readySnapshot()} onNavigate={navigate} onRememberLocation={remember} onRetry={() => undefined} />));
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={resultsLocation} sidebarVisible={true} snapshot={readySnapshot()} onBack={() => undefined} onNavigate={navigate} onRememberLocation={remember} onRetry={() => undefined} />));
       const button = host.container.querySelector(`[data-marketplace-item-key="${modelPresentation.key}"]`)!;
       await act(async () => button.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
       expect(remember).toHaveBeenCalledWith({ focusId: marketplaceItemDomId(modelPresentation.key) });
@@ -466,7 +466,7 @@ describe("Marketplace header and navigation composition", () => {
       query: { ...defaultQuery, filters: { ...defaultQuery.filters, modality: "text", format: "gguf" } },
     };
     try {
-      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot()} onNavigate={navigate} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot()} onBack={() => undefined} onNavigate={navigate} onRememberLocation={() => undefined} onRetry={() => undefined} />));
       const templates = [...host.container.querySelectorAll("button")].find((button) => button.textContent?.includes("Templates"))!;
       await act(async () => templates.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
       expect(navigate).toHaveBeenCalledWith({
@@ -489,7 +489,7 @@ describe("Marketplace header and navigation composition", () => {
     const root = createRoot(host.container as unknown as Element);
     const location: MarketplaceLocation = { ...resultsLocation, route: { kind: "discover" } };
     try {
-      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot()} onNavigate={navigate} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot()} onBack={() => undefined} onNavigate={navigate} onRememberLocation={() => undefined} onRetry={() => undefined} />));
       const installed = [...host.container.querySelectorAll("button")].find((button) => button.textContent?.includes("Llama 3.2"));
       expect(installed).not.toBeUndefined();
       await act(async () => installed!.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
@@ -509,8 +509,8 @@ describe("Marketplace header and navigation composition", () => {
     const detail: MarketplaceLocation = { ...resultsLocation, route: { kind: "detail", itemId: target.key }, selectedItemId: target.key, scrollTop: 0, focusId: "marketplace-heading" };
     const returned: MarketplaceLocation = { ...resultsLocation, scrollTop: 120 * 126, focusId: marketplaceItemDomId(target.key) };
     try {
-      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={detail} sidebarVisible={true} snapshot={readySnapshot({ items })} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
-      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={returned} sidebarVisible={true} snapshot={readySnapshot({ items })} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={detail} sidebarVisible={true} snapshot={readySnapshot({ items })} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={returned} sidebarVisible={true} snapshot={readySnapshot({ items })} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
       await act(async () => vi.runAllTimersAsync());
       expect((document.activeElement as unknown as { getAttribute(name: string): string | null }).getAttribute("data-marketplace-item-key")).toBe(target.key);
       expect((host.container.querySelector(".marketplace-scroll") as unknown as { scrollTop: number }).scrollTop).toBe(returned.scrollTop);
@@ -529,7 +529,7 @@ describe("Marketplace header and navigation composition", () => {
     const dashed = { ...recipePresentation, key: "recipe:a-b", name: "Dashed recipe" };
     const location: MarketplaceLocation = { ...resultsLocation, focusId: marketplaceItemDomId(dotted.key) };
     try {
-      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot({ items: [dashed, dotted] })} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot({ items: [dashed, dotted] })} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
       await act(async () => vi.runAllTimersAsync());
       expect((document.activeElement as unknown as { getAttribute(name: string): string | null }).getAttribute("data-marketplace-item-key")).toBe(dotted.key);
     } finally {
@@ -545,11 +545,11 @@ describe("Marketplace header and navigation composition", () => {
     const root = createRoot(host.container as unknown as Element);
     const location: MarketplaceLocation = { ...resultsLocation, scrollTop: 0, focusId: marketplaceItemDomId(modelPresentation.key) };
     try {
-      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={{ status: "loading", query: defaultQuery }} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={{ status: "loading", query: defaultQuery }} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
       await act(async () => vi.runAllTimersAsync());
       expect(document.activeElement).not.toBe(host.container.querySelector("#marketplace-heading"));
 
-      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot()} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot()} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
       await act(async () => vi.runAllTimersAsync());
       expect((document.activeElement as unknown as { getAttribute(name: string): string | null }).getAttribute("data-marketplace-item-key")).toBe(modelPresentation.key);
     } finally {
@@ -569,12 +569,12 @@ describe("Marketplace header and navigation composition", () => {
       : { ...modelPresentation, key: `model:huggingface:Acme/moved-${index}`, name: `Moved model ${index}` });
     const location: MarketplaceLocation = { ...resultsLocation, scrollTop: 0, focusId: marketplaceItemDomId(target.key) };
     try {
-      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={{ status: "loading", query: defaultQuery }} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={{ status: "loading", query: defaultQuery }} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
       const scroll = host.container.querySelector(".marketplace-scroll")!;
       scroll.scrollHeight = items.length * 126;
       await act(async () => vi.advanceTimersByTimeAsync(20));
 
-      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot({ items })} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot({ items })} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
       await act(async () => vi.advanceTimersByTimeAsync(500));
       expect((document.activeElement as unknown as { getAttribute(name: string): string | null } | null)?.getAttribute("data-marketplace-item-key")).toBe(target.key);
       expect(scroll.scrollTop).toBeGreaterThan(0);
@@ -591,7 +591,7 @@ describe("Marketplace header and navigation composition", () => {
     const root = createRoot(host.container as unknown as Element);
     const location: MarketplaceLocation = { ...resultsLocation, scrollTop: 0, focusId: marketplaceItemDomId("model:huggingface:Acme/removed") };
     try {
-      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot({ items: [modelPresentation] })} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot({ items: [modelPresentation] })} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
       await act(async () => vi.runAllTimersAsync());
       expect(document.activeElement).toBe(host.container.querySelector("#marketplace-heading"));
     } finally {
@@ -607,12 +607,12 @@ describe("Marketplace header and navigation composition", () => {
     const root = createRoot(host.container as unknown as Element);
     const location: MarketplaceLocation = { ...resultsLocation, scrollTop: 0, focusId: marketplaceItemDomId(modelPresentation.key) };
     try {
-      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot()} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot()} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
       await act(async () => vi.runAllTimersAsync());
       const search = host.container.querySelector("input")!;
       search.focus();
 
-      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot({ items: [templatePresentation] })} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot({ items: [templatePresentation] })} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
       await act(async () => vi.runAllTimersAsync());
       expect(document.activeElement).toBe(search);
     } finally {

@@ -12,14 +12,17 @@ import {
   MarketplaceInstalledModels,
   MarketplaceModelDetail,
 } from "../src/screens/marketplace/MarketplaceModelViews";
+import { marketplaceItemDomId } from "../src/screens/marketplace/MarketplaceBrowse";
 import type {
   MarketplaceItemPresentation,
   MarketplaceSnapshot,
 } from "../src/screens/marketplace/presentation";
 import type {
   MarketplaceLocation,
+  MarketplaceNavigationState,
   MarketplaceQueryState,
 } from "../src/state/marketplace-navigation";
+import { marketplaceReducer } from "../src/state/marketplace-navigation";
 import { createReactHost, type HostNode } from "./react-host";
 
 const machine: LocalModelMachine = {
@@ -221,15 +224,14 @@ function button(container: HostNode, label: string): HostNode {
 afterEach(() => vi.restoreAllMocks());
 
 describe("Marketplace model routes", () => {
-  test("renders a full truthful model detail and delegates only provider/review actions", async () => {
+  test("renders a full truthful model detail and delegates only provider and Back actions", async () => {
     vi.spyOn(bridge, "loadLocalModelDetail").mockResolvedValue(modelA);
     const openProvider = vi.spyOn(bridge, "openLocalModelProvider").mockResolvedValue();
     const onBack = vi.fn();
-    const onReviewDownload = vi.fn();
     const host = createReactHost();
     const root = createRoot(host.container as unknown as Element);
     try {
-      await act(async () => { root.render(<MarketplaceModelDetail reference={reference(modelA)} onBack={onBack} onReviewDownload={onReviewDownload} />); await settle(); });
+      await act(async () => { root.render(<MarketplaceModelDetail reference={reference(modelA)} onBack={onBack} />); await settle(); });
       const text = host.container.textContent;
       for (const section of [
         "Compatibility", "What it gives you", "Use when", "Do not use when",
@@ -248,10 +250,6 @@ describe("Marketplace model routes", () => {
 
       await act(async () => { button(host.container, "Open on Hugging Face").dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
       expect(openProvider).toHaveBeenCalledWith(modelA.providerUrl);
-      await act(async () => button(host.container, "Review download").dispatchEvent(new Event("click", { bubbles: true })));
-      expect(onReviewDownload).toHaveBeenCalledOnce();
-      expect(onReviewDownload.mock.calls[0]![0]).not.toHaveProperty("downloads");
-      expect(onReviewDownload.mock.calls[0]![0]).not.toHaveProperty("likes");
       await act(async () => button(host.container, "Back to Models").dispatchEvent(new Event("click", { bubbles: true })));
       expect(onBack).toHaveBeenCalledOnce();
     } finally {
@@ -285,7 +283,7 @@ describe("Marketplace model routes", () => {
         [incompatible, ["Incompatible here", "Package exceeds free disk space"]],
         [gated, ["Gated model", "Provider access is required"]],
       ] as const) {
-        await act(async () => { root.render(<MarketplaceModelDetail reference={reference(item)} onBack={() => undefined} onReviewDownload={() => undefined} />); await settle(); });
+        await act(async () => { root.render(<MarketplaceModelDetail reference={reference(item)} onBack={() => undefined} />); await settle(); });
         for (const value of expected) expect(host.container.textContent).toContain(value);
         expect(host.container.textContent).not.toMatch(/downloads|likes|trending/i);
       }
@@ -300,10 +298,48 @@ describe("Marketplace model routes", () => {
     const host = createReactHost();
     const root = createRoot(host.container as unknown as Element);
     try {
-      await act(async () => { root.render(<MarketplaceModelDetail reference={reference(modelA)} onBack={() => undefined} onReviewDownload={() => undefined} />); await settle(); });
+      await act(async () => { root.render(<MarketplaceModelDetail reference={reference(modelA)} onBack={() => undefined} />); await settle(); });
       expect(host.container.querySelector("[role='alert']")?.textContent).toContain("Hugging Face rate limited the detail request");
       expect(host.container.textContent).not.toContain(modelA.name);
       expect(button(host.container, "Back to Models")).not.toBeNull();
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
+  test("clears a provider action error when a different model starts loading", async () => {
+    vi.spyOn(bridge, "loadLocalModelDetail").mockImplementation(async ({ id }) => id === modelA.id ? modelA : modelB);
+    vi.spyOn(bridge, "openLocalModelProvider").mockRejectedValue(new Error("provider unavailable"));
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<MarketplaceModelDetail reference={reference(modelA)} onBack={() => undefined} />); await settle(); });
+      await act(async () => { button(host.container, "Open on Hugging Face").dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      expect(host.container.querySelector("[role='alert']")?.textContent).toBe("The provider page could not be opened.");
+
+      await act(async () => { root.render(<MarketplaceModelDetail reference={reference(modelB)} onBack={() => undefined} />); await settle(); });
+      expect(host.container.textContent).toContain(modelB.name);
+      expect(host.container.querySelector("[role='alert']")).toBeNull();
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
+  test("suppresses a late provider action error after the model reference changes", async () => {
+    const pendingOpen = deferred<void>();
+    vi.spyOn(bridge, "loadLocalModelDetail").mockImplementation(async ({ id }) => id === modelA.id ? modelA : modelB);
+    vi.spyOn(bridge, "openLocalModelProvider").mockReturnValue(pendingOpen.promise);
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => { root.render(<MarketplaceModelDetail reference={reference(modelA)} onBack={() => undefined} />); await settle(); });
+      await act(async () => { button(host.container, "Open on Hugging Face").dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      await act(async () => { root.render(<MarketplaceModelDetail reference={reference(modelB)} onBack={() => undefined} />); await settle(); });
+      await act(async () => { pendingOpen.reject(new Error("late provider failure")); await settle(); });
+      expect(host.container.textContent).toContain(modelB.name);
+      expect(host.container.querySelector("[role='alert']")).toBeNull();
     } finally {
       await act(async () => root.unmount());
       host.restore();
@@ -317,8 +353,8 @@ describe("Marketplace model routes", () => {
     const host = createReactHost();
     const root = createRoot(host.container as unknown as Element);
     try {
-      await act(async () => { root.render(<MarketplaceModelDetail reference={reference(modelA)} onBack={() => undefined} onReviewDownload={() => undefined} />); await settle(); });
-      await act(async () => { root.render(<MarketplaceModelDetail reference={reference(modelB)} onBack={() => undefined} onReviewDownload={() => undefined} />); await settle(); });
+      await act(async () => { root.render(<MarketplaceModelDetail reference={reference(modelA)} onBack={() => undefined} />); await settle(); });
+      await act(async () => { root.render(<MarketplaceModelDetail reference={reference(modelB)} onBack={() => undefined} />); await settle(); });
       await act(async () => { b.resolve(modelB); await settle(); });
       await act(async () => { a.resolve(modelA); await settle(); });
       expect(host.container.textContent).toContain(modelB.name);
@@ -333,13 +369,12 @@ describe("Marketplace model routes", () => {
     const a = deferred<LocalModelDetail>();
     const b = deferred<LocalModelDetail>();
     vi.spyOn(bridge, "loadLocalModelDetail").mockImplementation(({ id }) => id === modelA.id ? a.promise : b.promise);
-    const onReviewDownload = vi.fn();
     const host = createReactHost();
     const root = createRoot(host.container as unknown as Element);
     function Route({ refValue }: { refValue: LocalModelReference }) {
       const [open, setOpen] = useState(true);
       return open
-        ? <MarketplaceModelDetail reference={refValue} onBack={() => setOpen(false)} onReviewDownload={onReviewDownload} />
+        ? <MarketplaceModelDetail reference={refValue} onBack={() => setOpen(false)} />
         : <button id="model-origin" type="button">Model origin</button>;
     }
     try {
@@ -350,12 +385,10 @@ describe("Marketplace model routes", () => {
       await act(async () => { a.resolve(modelA); await settle(); });
       expect(document.activeElement).toBe(origin);
       expect(host.container.textContent).not.toContain(modelA.name);
-      expect(onReviewDownload).not.toHaveBeenCalled();
 
-      await act(async () => { root.render(<MarketplaceModelDetail reference={reference(modelB)} onBack={() => undefined} onReviewDownload={onReviewDownload} />); await settle(); });
+      await act(async () => { root.render(<MarketplaceModelDetail reference={reference(modelB)} onBack={() => undefined} />); await settle(); });
       await act(async () => root.unmount());
       await act(async () => { b.reject(new Error("late provider failure")); await settle(); });
-      expect(onReviewDownload).not.toHaveBeenCalled();
     } finally {
       host.restore();
     }
@@ -388,9 +421,9 @@ describe("Marketplace model routes", () => {
     }
   });
 
-  test("composes model detail and installed inventory as Marketplace routes", async () => {
+  test("composes download review as an explicit disabled unavailable action before Task 8", async () => {
     vi.spyOn(bridge, "loadLocalModelDetail").mockResolvedValue(modelA);
-    const navigate = vi.fn();
+    const openProvider = vi.spyOn(bridge, "openLocalModelProvider").mockResolvedValue();
     const host = createReactHost();
     const root = createRoot(host.container as unknown as Element);
     const detailLocation: MarketplaceLocation = {
@@ -401,26 +434,75 @@ describe("Marketplace model routes", () => {
       focusId: "marketplace-heading",
     };
     try {
-      await act(async () => { root.render(<MarketplaceScreenView catalog={null} location={detailLocation} sidebarVisible snapshot={snapshot()} onNavigate={navigate} onRememberLocation={() => undefined} onRetry={() => undefined} />); await settle(); });
-      expect(host.container.textContent).toContain(modelA.name);
-      expect(host.container.querySelector(".marketplace-model-detail")).not.toBeNull();
-      await act(async () => button(host.container, "Back to Models").dispatchEvent(new Event("click", { bubbles: true })));
-      expect(navigate).toHaveBeenCalledWith(expect.objectContaining({
-        route: { kind: "category", category: "models" },
-        selectedItemId: null,
-      }));
-
-      const installedLocation: MarketplaceLocation = {
-        ...detailLocation,
-        route: { kind: "library", section: "installed" },
-        selectedItemId: null,
-      };
-      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={installedLocation} sidebarVisible snapshot={snapshot()} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
-      expect(host.container.textContent).toContain("Installed on this Mac");
-      expect(host.container.textContent).toContain("Qwen2.5 Coder 14B");
+      await act(async () => { root.render(<MarketplaceScreenView catalog={null} location={detailLocation} sidebarVisible snapshot={snapshot()} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />); await settle(); });
+      const review = button(host.container, "Review download");
+      const reasonId = review.getAttribute("aria-describedby");
+      expect(review.disabled).toBe(true);
+      expect(reasonId).not.toBeNull();
+      expect(host.container.querySelector(`#${reasonId}`)?.textContent).toBe("Download and installation are unavailable in the current Desktop contract.");
+      await act(async () => review.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(openProvider).not.toHaveBeenCalled();
     } finally {
       await act(async () => root.unmount());
       host.restore();
+    }
+  });
+
+  test("uses Marketplace history Back to restore the exact results origin", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(bridge, "loadLocalModelDetail").mockResolvedValue(modelA);
+    const navigate = vi.fn();
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    const origin: MarketplaceLocation = {
+      route: { kind: "results" },
+      query: { ...defaultQuery, text: "qwen", sort: "name" },
+      selectedItemId: null,
+      scrollTop: 438,
+      focusId: marketplaceItemDomId(modelPresentation.key),
+    };
+    const detailLocation: MarketplaceLocation = {
+      route: { kind: "detail", itemId: modelPresentation.key },
+      query: origin.query,
+      selectedItemId: modelPresentation.key,
+      scrollTop: 0,
+      focusId: "marketplace-heading",
+    };
+    let navigation: MarketplaceNavigationState = {
+      mode: "marketplace",
+      sidebarVisible: true,
+      location: detailLocation,
+      history: [origin, detailLocation],
+      historyIndex: 1,
+      workReturnFocusId: "workspace-heading",
+    };
+    const render = () => root.render(<MarketplaceScreenView
+      catalog={null}
+      location={navigation.location}
+      sidebarVisible
+      snapshot={snapshot()}
+      onBack={() => {
+        navigation = marketplaceReducer(navigation, { type: "back" });
+        render();
+      }}
+      onNavigate={navigate}
+      onRememberLocation={() => undefined}
+      onRetry={() => undefined}
+    />);
+    try {
+      await act(async () => { render(); await settle(); });
+      expect(host.container.textContent).toContain(modelA.name);
+      expect(host.container.querySelector(".marketplace-model-detail")).not.toBeNull();
+      await act(async () => { button(host.container, "Back to Models").dispatchEvent(new Event("click", { bubbles: true })); await vi.runAllTimersAsync(); });
+      expect(navigate).not.toHaveBeenCalled();
+      expect(navigation.historyIndex).toBe(0);
+      expect(navigation.location).toEqual(origin);
+      expect((host.container.querySelector(".marketplace-scroll") as unknown as { scrollTop: number }).scrollTop).toBe(438);
+      expect((document.activeElement as unknown as { getAttribute(name: string): string | null }).getAttribute("data-marketplace-item-key")).toBe(modelPresentation.key);
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+      vi.useRealTimers();
     }
   });
 });

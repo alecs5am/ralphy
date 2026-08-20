@@ -739,6 +739,7 @@ export function App() {
                   catalog={catalog}
                   location={marketplace.location}
                   sidebarVisible={marketplaceSidebarVisible}
+                  onBack={navigateBack}
                   onNavigate={navigateMarketplace}
                   onRememberLocation={rememberMarketplace}
                 />

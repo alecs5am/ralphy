@@ -48,7 +48,6 @@ function detailError(cause: unknown): string {
 export interface MarketplaceModelDetailProps {
   reference: LocalModelReference;
   onBack(): void;
-  onReviewDownload(model: MarketplaceModelDetailDto): void;
 }
 
 export type MarketplaceModelDetailState =
@@ -106,10 +105,11 @@ function localStateCopy(detail: MarketplaceModelDetailDto): string {
   return "No downloaded or runtime-registered state was returned for this model.";
 }
 
-export function MarketplaceModelDetail({ reference, onBack, onReviewDownload }: MarketplaceModelDetailProps) {
+export function MarketplaceModelDetail({ reference, onBack }: MarketplaceModelDetailProps) {
   const state = useMarketplaceModelDetail(reference);
+  const referenceKey = `${reference.provider}:${reference.id}`;
   const actionGeneration = useRef(0);
-  const [providerError, setProviderError] = useState<string | null>(null);
+  const [providerError, setProviderError] = useState<{ key: string; message: string } | null>(null);
   useEffect(() => () => { actionGeneration.current += 1; }, [reference.id, reference.provider]);
 
   if (state.status === "loading") return <article className="marketplace-model-detail marketplace-detail-route is-loading" aria-busy="true"><BackButton onBack={onBack} /><p role="status">Loading model details…</p></article>;
@@ -124,7 +124,9 @@ export function MarketplaceModelDetail({ reference, onBack, onReviewDownload }: 
     try {
       await bridge.openLocalModelProvider(detail.providerUrl);
     } catch {
-      if (requestGeneration === actionGeneration.current) setProviderError("The provider page could not be opened.");
+      if (requestGeneration === actionGeneration.current) {
+        setProviderError({ key: referenceKey, message: "The provider page could not be opened." });
+      }
     }
   };
 
@@ -135,11 +137,11 @@ export function MarketplaceModelDetail({ reference, onBack, onReviewDownload }: 
       <h2 id="marketplace-model-title">{detail.name}</h2>
       <p>{detail.author} · <code>{detail.id}</code></p>
       <div className="marketplace-model-actions">
-        <button type="button" onClick={() => onReviewDownload(detail)}>Review download</button>
+        <button type="button" disabled aria-describedby="marketplace-model-review-unavailable">Review download</button>
         <button type="button" onClick={() => { void openProvider(); }}>Open on {provider}<ExternalLink aria-hidden="true" /></button>
       </div>
-      <p className="marketplace-model-action-state">Download and installation are unavailable in the current Desktop contract.</p>
-      {providerError && <p role="alert">{providerError}</p>}
+      <p id="marketplace-model-review-unavailable" className="marketplace-model-action-state">Download and installation are unavailable in the current Desktop contract.</p>
+      {providerError?.key === referenceKey && <p role="alert">{providerError.message}</p>}
     </header>
 
     <div className="marketplace-model-detail-layout">
