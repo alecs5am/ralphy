@@ -184,7 +184,7 @@ const root = createRoot(host.container as unknown as Element);
 await act(async () => { root.render(<App />); await vi.advanceTimersByTimeAsync(1_500); });
 const marketplaceButton = host.container.querySelectorAll("button").find((button) => button.textContent === "Marketplace");
 expect(marketplaceButton).not.toBeUndefined();
-await act(async () => marketplaceButton!.click());
+await act(async () => marketplaceButton!.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
 expect(host.container.textContent).toContain("Discover");
 const emptyCatalogMarkup = renderToStaticMarkup(<MarketplaceScreen catalog={{ ...emptyCatalog, workspaces: [], projects: [] }} location={locationA} sidebarVisible={true} onNavigate={() => undefined} onRememberLocation={() => undefined} />);
 expect(emptyCatalogMarkup).toContain("Discover");
@@ -321,7 +321,9 @@ expect(snapshot.items).toEqual([
 ]);
 expect(JSON.stringify(snapshot.items.map(({ name, summary, recipe }) => [name, summary, recipe?.body]))).not.toMatch(/<script|demoHtml|sourcePath|absolutePath|unknownSecret/i);
 expect(snapshot.items.find(({ id }) => id === "voxel-dither")?.recipe?.artifact).toBe(exactOpaqueArtifactIncludingAngleBrackets);
-expect(snapshot.warning).not.toContain(cachePath);
+expect(cacheWriteFailureSnapshot.source).toBe("live");
+expect(cacheWriteFailureSnapshot.warning).toBe("Catalog loaded, but its local cache could not be updated");
+expect(cacheWriteFailureSnapshot.warning).not.toContain(cachePath);
 ```
 
 Cover redirects, a mismatched `response.url`, status/content-type errors, over-128-byte headers, false/oversized `Content-Length`, streamed-body overflow, invalid UTF-8/JSON, wrong schema, array/string/depth limits, duplicate IDs, invalid kinds, URL credentials/non-default ports/query/hash/noncanonical or encoded-traversal paths, prose/Markdown HTML removal, exact opaque artifact preservation, cache fallback, corrupt/oversized/symlink cache, atomic write failure, and network+cache total failure with path-redacted renderer copy. Assert no path/URL input crosses preload.
@@ -344,8 +346,12 @@ const response = await fetcher(PUBLIC_LIBRARY_URL, {
 });
 if (response.url !== PUBLIC_LIBRARY_URL) throw new Error("Marketplace catalog response origin mismatch");
 const snapshot = { schemaVersion: 1, source: "live", refreshedAt: new Date(now()).toISOString(), sourceUpdatedAt: boundedLastModified(response.headers), warning: null, items: projectMarketplacePublicDocument(await readBoundedJson(response, 2 * 1024 * 1024)) } satisfies MarketplacePublicSnapshotDto;
-await guardedAtomicWrite(cachePath, JSON.stringify(snapshot), { maxBytes: 2 * 1024 * 1024 }).catch(() => undefined);
-return snapshot;
+try {
+  await guardedAtomicWrite(cachePath, JSON.stringify(snapshot), { maxBytes: 2 * 1024 * 1024 });
+  return snapshot;
+} catch {
+  return { ...snapshot, warning: "Catalog loaded, but its local cache could not be updated" };
+}
 ```
 
 - [ ] **Step 4: Run adapter tests, typecheck, and build**
@@ -371,7 +377,7 @@ git commit -m "feat: add marketplace public catalog adapter"
 - Test: `tests/marketplace-controller.test.ts`
 
 **Interfaces:**
-- Consumes: Task 1 `MarketplaceQueryState`, Task 2 snapshot, and current `LocalModelCatalog`, `LocalModelSummary`, `LocalModelDetail`, `LocalModelMachine`.
+- Consumes: Task 1 `MarketplaceQueryState`/`MarketplaceFilterState`, Task 2 snapshot, and current `LocalModelProvider`, `LocalModelCatalog`, `LocalModelSummary`, `LocalModelDetail`, `LocalModelMachine`.
 - Produces:
 
 ```ts
@@ -462,6 +468,8 @@ export interface MarketplaceController {
 
 export function projectMarketplaceModel(summary: LocalModelSummary): MarketplaceModelDto;
 export function projectMarketplaceModelDetail(detail: LocalModelDetail): MarketplaceModelDetailDto;
+export function marketplaceModelProviders(source: MarketplaceFilterState["source"]): LocalModelProvider[];
+async function searchMarketplaceModels(query: MarketplaceQueryState): Promise<LocalModelCatalog>;
 
 export function presentMarketplaceSources(
   publicSnapshot: MarketplacePublicSnapshotDto | null,
@@ -484,10 +492,16 @@ expect(searchLocalModels).toHaveBeenCalledWith(expect.objectContaining({ sort: "
 expect(partialSnapshot.sourceErrors).toContainEqual({ source: "huggingface", scope: "model-provider", message: "rate limited" });
 expect(partialSnapshot.sourceHealth.models).toBe("partial");
 expect(allModelsFailedSnapshot.sourceHealth.models).toBe("unavailable");
+expect(huggingFaceAndCivitaiFailedSnapshot.sourceHealth.models).toBe("unavailable");
+expect(explicitModelScopeFailedSnapshot.sourceHealth.models).toBe("unavailable");
+expect(marketplaceModelProviders("all")).toEqual(["huggingface", "civitai"]);
+expect(marketplaceModelProviders("ralphy")).toEqual(["huggingface", "civitai"]);
+expect(marketplaceModelProviders("modelscope")).toEqual(["modelscope"]);
+expect(searchLocalModels.mock.calls.map(([input]) => input.provider)).toEqual(["huggingface", "civitai"]);
 expect(totalFailureSnapshot).toMatchObject({ status: "error", sourceHealth: { publicLibrary: "unavailable", models: "unavailable" } });
 ```
 
-Cover explicit field-by-field model/detail projection, serialized absence of `downloads`/`likes`, keyword scoring over current fields, stable source-prefixed keys, prompt-recipe staying Recipe, every Task 1 filter enum, honest unavailable counts, live/cache source state, fulfilled catalog with one provider error plus usable models, fulfilled catalog with zero models and all attempted providers errored, public failure plus healthy models, model failure plus public items, total model+public failure, stale response suppression, refresh retaining content, deterministic name tie-breaks, no provider-download sorting, and controller disposal. Merge every fulfilled `LocalModelCatalog.errors` entry into `sourceErrors`; a fulfilled catalog is not automatically healthy.
+Cover explicit field-by-field model/detail projection, serialized absence of `downloads`/`likes`, keyword scoring over current fields, stable source-prefixed keys, prompt-recipe staying Recipe, every Task 1 filter enum, honest unavailable counts, live/cache source state, fulfilled catalog with one provider error plus usable models, fulfilled catalog with zero models and all attempted providers errored, public failure plus healthy models, model failure plus public items, total model+public failure, stale response suppression, refresh retaining content, deterministic name tie-breaks, no provider-download sorting, and controller disposal. Merge every fulfilled `LocalModelCatalog.errors` entry into `sourceErrors`; a fulfilled catalog is not automatically healthy. For `source: "all"` or `"ralphy"`, the attempted set is exactly Hugging Face + Civitai; ModelScope participates only when explicitly selected. Therefore one of HF/Civitai failing leaves Models partial, both failing makes Models unavailable, and an explicit ModelScope failure makes its selected model source unavailable.
 
 - [ ] **Step 2: Run model/controller tests and verify RED**
 
@@ -500,14 +514,29 @@ Expected: FAIL because presentation/controller files do not exist.
 Use `Promise.allSettled` for the two existing source calls. Do not add a query library, catalog superclass, adapter registry, or renderer cache. Import Task 1 `MarketplaceQueryState`; do not redeclare or loosely patch it. Explicitly copy allowlisted model fields into `MarketplaceModelDto`/`MarketplaceModelDetailDto`; never spread a service model because that would reintroduce `downloads`/`likes` into serialized presentation.
 
 ```ts
+export function marketplaceModelProviders(source: MarketplaceFilterState["source"]): LocalModelProvider[] {
+  return source === "all" || source === "ralphy" ? ["huggingface", "civitai"] : [source];
+}
+
+async function searchMarketplaceModels(query: MarketplaceQueryState): Promise<LocalModelCatalog> {
+  const providers = marketplaceModelProviders(query.filters.source);
+  const results = await Promise.allSettled(providers.map((provider) => bridge.searchLocalModels({ query: query.text || undefined, provider, sort: "updated", limit: 24 })));
+  const successful = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
+  if (!successful.length) throw new Error("Model catalog is unavailable");
+  return {
+    items: successful.flatMap(({ items }) => items),
+    machine: successful[0].machine,
+    refreshedAt: successful.map(({ refreshedAt }) => refreshedAt).sort().at(-1)!,
+    errors: results.flatMap((result, index) => result.status === "fulfilled" ? result.value.errors : [{ provider: providers[index], message: "Provider request failed" }]),
+  };
+}
+
 const [library, models] = await Promise.allSettled([
   bridge.loadMarketplacePublicLibrary(),
-  bridge.searchLocalModels({ query: query.text || undefined, provider: query.filters.source === "ralphy" ? "all" : query.filters.source, sort: "updated", limit: 24 }),
+  searchMarketplaceModels(query),
 ]);
 if (requestId !== this.#activeRequest || this.#disposed) return;
-const attemptedProviders = query.filters.source === "all" || query.filters.source === "ralphy"
-  ? (["huggingface", "civitai", "modelscope"] as const)
-  : [query.filters.source];
+const attemptedProviders = marketplaceModelProviders(query.filters.source);
 const providerIssues: MarketplaceSourceIssue[] = models.status === "fulfilled"
   ? models.value.errors.map(({ provider, message }) => ({ source: provider, scope: "model-provider", message }))
   : [];
@@ -671,11 +700,16 @@ expect(detail).toContain("Used by");
 expect(detail).toContain("Download and installation are unavailable in the current Desktop contract");
 expect(detail).not.toMatch(/downloads|likes|trending/i);
 expect(sidebar).not.toContain("Local Models");
-rerender(<MarketplaceModelDetail reference={referenceB} onBack={onBack} onReviewDownload={onReviewDownload} />);
-resolveB(modelB);
-resolveA(modelA);
-expect(screen.getByRole("heading", { name: modelB.name })).toBeVisible();
-expect(screen.queryByRole("heading", { name: modelA.name })).toBeNull();
+const host = createReactHost();
+const root = createRoot(host.container as unknown as Element);
+await act(async () => { root.render(<MarketplaceModelDetail reference={referenceA} onBack={onBack} onReviewDownload={onReviewDownload} />); await Promise.resolve(); });
+await act(async () => { root.render(<MarketplaceModelDetail reference={referenceB} onBack={onBack} onReviewDownload={onReviewDownload} />); await Promise.resolve(); });
+await act(async () => { resolveB(modelB); await Promise.resolve(); });
+await act(async () => { resolveA(modelA); await Promise.resolve(); });
+expect(host.container.textContent).toContain(modelB.name);
+expect(host.container.textContent).not.toContain(modelA.name);
+await act(async () => root.unmount());
+host.restore();
 ```
 
 Cover Hugging Face public/gated, Civitai permissions, likely/unknown/incompatible evidence, runtime absent, provider failure, preview error fallback, file warnings, serialized/rendered absence of `downloads`/`likes`, full-route Back/focus, provider external link validation, installed Ollama inventory handoff, and chat remaining mounted. Add deferred-promise tests for A→B where A resolves last, unmount before resolve/reject, and Back during load followed by late resolution; no stale result, state update, focus move, or review callback may occur. Source assertions prove `LocalModelsScreen` is no longer imported or reachable.
@@ -768,7 +802,9 @@ expect(recipe).toContain("Named parameters");
 expect(recipe).toContain("Do not use when");
 expect(recipe).toContain("Source-provided preview");
 expect(recipe).not.toContain("seed fixes composition, not pixels");
-await click("Copy artifact");
+const copyButton = recipeRoot.querySelectorAll("button").find((button) => button.textContent === "Copy artifact");
+expect(copyButton).not.toBeUndefined();
+await act(async () => copyButton!.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
 expect(copyText).toHaveBeenCalledWith(exactArtifact);
 expect(recipeMarkup).toContain("&lt;script&gt;");
 expect(recipeRoot.querySelector("script")).toBeNull();
@@ -977,9 +1013,13 @@ const targetsFromOther = marketplaceTargets(catalog, otherProjectRoute, "templat
 expect(targetsFromOther.map(({ current: _current, ...option }) => option)).toEqual(targetsFromCurrent.map(({ current: _current, ...option }) => option));
 expect(targetsFromOther.map(({ current }) => current)).not.toEqual(targetsFromCurrent.map(({ current }) => current));
 expect(marketplaceTargets(catalog, currentProjectRoute, "update-conflict")).toMatchObject({ projectOptions: [], unavailableScopes: [], targetUnavailableReason: "Update target is unavailable without persistent installed-version and local-modification state" });
-expect(JSON.stringify(marketplaceTargets(catalog, currentProjectRoute, "recipe-target"))).not.toMatch(/\/Users\/|absolutePath|rootPath|ralphy\.db/i);
-const chooserMarkup = renderToStaticMarkup(<MarketplaceTargetChooser targets={marketplaceTargets(catalog, currentProjectRoute, "recipe-target")} onCancel={() => undefined} />);
+const recipeTargets = marketplaceTargets(catalog, currentProjectRoute, "recipe-target");
+expect(recipeTargets.projectOptions.map(({ id }) => id)).toContain("prj_89992c84-d007-4a72-9261-a6df04e715b1");
+expect(JSON.stringify(recipeTargets)).not.toMatch(/\/Users\/|absolutePath|rootPath|ralphy\.db/i);
+const chooserMarkup = renderToStaticMarkup(<MarketplaceTargetChooser targets={recipeTargets} onCancel={() => undefined} />);
 for (const path of [catalog.rootPath, ...catalog.workspaces.map(({ absolutePath }) => absolutePath)]) expect(chooserMarkup).not.toContain(path);
+for (const { id } of recipeTargets.projectOptions) expect(chooserMarkup).not.toContain(id);
+expect(marketplaceTargets({ ...catalog, projects: [...catalog.projects, orphanProject] }, currentProjectRoute, "recipe-target").projectOptions.map(({ id }) => id)).not.toContain(orphanProject.projectId);
 expect(library).toContain("Installed on this Mac");
 expect(library).toContain("Registered in Ollama");
 expect(library).toContain("Saved items are unavailable because there is no persistent saved-state contract");
@@ -995,7 +1035,7 @@ expect(actions).toContain("Use in chat is unavailable without target enumeration
 expect(actions).toContain("The final action is disabled");
 ```
 
-Cover the exact workflow matrix: Model exposes only an unavailable Computer/runtime scope; Prompt only unavailable Chat; Skill only unavailable Agent while the current project is context text and never selectable; Template/Recipe/Component expose only named project options; update/conflict exposes no target and names missing persistent version/modification state. For project workflows, every catalog project is target-kind compatible independent of the current route; `current` only preselects the matching project and never creates compatibility. Assert each wrong target kind is absent, workspace rows are never options, route changes alter only `current`, and serialized/helper and rendered chooser output excludes `CatalogResult.rootPath`, every `WorkspaceSummary.absolutePath`, DB paths, and raw fallback IDs. Also cover Escape/scrim cancel, focus trap/restore, no final bridge mutation call, model preflight/license/download/install/test review, Template project review, Recipe apply review, Prompt use-in-chat review, Component add review, Skill bundle/agent/scope/mode/files/tools/network/credentials review, active/failed/completed progress semantics, update keep/fork/replace disabled choices, and My Library distinctions for installed/saved/added/forked/download/update/attention.
+Cover the exact workflow matrix: Model exposes only an unavailable Computer/runtime scope; Prompt only unavailable Chat; Skill only unavailable Agent while the current project is context text and never selectable; Template/Recipe/Component expose only named project options; update/conflict exposes no target and names missing persistent version/modification state. For project workflows, every catalog project is target-kind compatible independent of the current route; `current` only preselects the matching project and never creates compatibility. Assert each wrong target kind is absent, workspace rows are never options, and route changes alter only `current`. Existing `CatalogResult.rootPath` and `WorkspaceSummary.absolutePath` remain in the pre-existing renderer catalog contract; only the new Task 8 `MarketplaceWorkflowTargets` projection and chooser markup must exclude those paths. Opaque project option IDs remain serialized for selection, but never render as fallback labels; projects without a workspace name are omitted instead of displaying raw IDs. Also cover Escape/scrim cancel, focus trap/restore, no final bridge mutation call, model preflight/license/download/install/test review, Template project review, Recipe apply review, Prompt use-in-chat review, Component add review, Skill bundle/agent/scope/mode/files/tools/network/credentials review, active/failed/completed progress semantics, update keep/fork/replace disabled choices, and My Library distinctions for installed/saved/added/forked/download/update/attention.
 
 - [ ] **Step 2: Run workflow/library tests and verify RED**
 
@@ -1161,7 +1201,7 @@ Run a one-shot Bun evaluation that constructs `RalphyBridgeClient` with root `/U
 bun --eval 'import { RalphyBridgeClient } from "./electron/ralphy/client.ts"; const client = new RalphyBridgeClient({ root: "/Users/maximovchinnikov/.ralphy" }); try { await client.start(); const workspaces = await client.request("workspace.list", { limit: 50 }); const projects = await client.request("project.list", { workspaceId: "ws_6afaf432-6794-400c-b50a-e8b640c20cd2", limit: 50 }); console.log(JSON.stringify({ workspaces: workspaces.items.map(({ id, name }) => ({ id, name })), projects: projects.items.map(({ id, workspaceId, name }) => ({ id, workspaceId, name })) }, null, 2)); } finally { await client.close(); }'
 ```
 
-Expected: bridge DTO names match the query-only audit and the chooser fixture expectations; no filesystem path is returned to renderer code.
+Expected: bridge DTO names match the query-only audit and the chooser fixture expectations. This command deliberately prints only IDs/names; it does not change the existing renderer `CatalogResult` contract, which already contains `rootPath` and workspace `absolutePath`. Task 8 alone is responsible for projecting those catalog records into path-free target DTOs and path-free chooser markup.
 
 - [ ] **Step 3: Prove Marketplace introduced no database write surface**
 
