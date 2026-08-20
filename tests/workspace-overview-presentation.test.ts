@@ -51,6 +51,97 @@ describe("workspace overview presentation", () => {
     }
   });
 
+  test("keeps real usernames separate from plain display names and never exposes external account IDs", () => {
+    const account = populatedOverview.accounts!.items[0]!;
+    const value = presentWorkspaceOverview({
+      overview: {
+        ...populatedOverview,
+        accounts: { items: [
+          { ...account, id: "username", username: "launch", displayName: "Launch Studio", externalId: "private-username-id" },
+          { ...account, id: "display-name", username: null, displayName: "Studio Team", externalId: "private-display-id" },
+          { ...account, id: "missing", username: null, displayName: null, externalId: "private-missing-id" },
+        ], nextCursor: null },
+      },
+      catalogProjects: [], description: "", now: 1,
+    });
+
+    expect(value.accounts).toMatchObject({ status: "ready" });
+    if (value.accounts.status === "ready") {
+      expect(value.accounts.value.map(({ username, displayName }) => ({ username, displayName }))).toEqual([
+        { username: "launch", displayName: "Launch Studio" },
+        { username: null, displayName: "Studio Team" },
+        { username: null, displayName: null },
+      ]);
+      expect(JSON.stringify(value.accounts.value)).not.toContain("private-");
+    }
+
+    const usernameOnly = presentWorkspaceOverview({
+      overview: {
+        ...populatedOverview,
+        accounts: { items: [{ ...account, username: "launch", displayName: null, externalId: "private-attention-id", relinkRequired: true }], nextCursor: null },
+        publications: { items: [], nextCursor: null },
+      },
+      catalogProjects: [], description: "", now: 1,
+    });
+    if (usernameOnly.attention.status === "ready") {
+      expect(usernameOnly.attention.value.items[0]?.title).toBe("@launch needs relinking");
+      expect(usernameOnly.attention.value.items[0]?.title).not.toContain("private-attention-id");
+    }
+  });
+
+  test("does not claim historical publications are affected by account actions", () => {
+    const account = populatedOverview.accounts!.items[0]!;
+    const publication = populatedOverview.publications!.items[0]!;
+    const value = presentWorkspaceOverview({
+      overview: {
+        ...populatedOverview,
+        accounts: { items: [{ ...account, relinkRequired: true, credentialConfigured: false }], nextCursor: null },
+        publications: { items: [
+          { ...publication, id: "published-history", state: "published" },
+          { ...publication, id: "failed-now", state: "failed" },
+        ], nextCursor: null },
+      },
+      catalogProjects: [], description: "", now: 1,
+    });
+
+    expect(value.attention).toMatchObject({ status: "ready" });
+    if (value.attention.status === "ready") {
+      expect(value.attention.value.items.find((item) => item.kind === "publication-failure")?.affectedCount)
+        .toEqual({ status: "ready", value: 1 });
+      for (const kind of ["account-relink", "account-configuration"] as const) {
+        expect(value.attention.value.items.find((item) => item.kind === kind)?.affectedCount)
+          .toMatchObject({ status: "unavailable", reason: expect.stringContaining("normalized affected publication references") });
+      }
+    }
+  });
+
+  test("omits terminal upcoming groups only when every child is published or cancelled", () => {
+    const publication = populatedOverview.publications!.items[0]!;
+    const now = new Date(2026, 7, 20, 12).getTime();
+    const publishedToday = new Date(2026, 7, 20, 14).getTime();
+    const cancelledFuture = new Date(2026, 7, 21, 14).getTime();
+    const mixedFuture = new Date(2026, 7, 22, 14).getTime();
+    const value = presentWorkspaceOverview({
+      overview: {
+        ...populatedOverview,
+        publications: { items: [
+          { ...publication, id: "published-today", unitId: "published-unit", state: "published", scheduledAt: publishedToday },
+          { ...publication, id: "cancelled-future", unitId: "cancelled-unit", state: "cancelled", scheduledAt: cancelledFuture },
+          { ...publication, id: "mixed-published", unitId: "mixed-unit", state: "published", scheduledAt: mixedFuture },
+          { ...publication, id: "mixed-scheduled", unitId: "mixed-unit", state: "scheduled", scheduledAt: mixedFuture },
+        ], nextCursor: null },
+      },
+      catalogProjects: [], description: "", now,
+    });
+
+    expect(value.plan.upcoming).toMatchObject({ status: "ready" });
+    if (value.plan.upcoming.status === "ready") {
+      expect(value.plan.upcoming.value).toHaveLength(1);
+      expect(value.plan.upcoming.value[0]?.publications.map(({ id }) => id))
+        .toEqual(["mixed-published", "mixed-scheduled"]);
+    }
+  });
+
   test("labels grouped publication failures with distinct bounded account names", () => {
     const account = populatedOverview.accounts!.items[0]!;
     const publication = populatedOverview.publications!.items[0]!;

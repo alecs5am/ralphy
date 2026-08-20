@@ -13,6 +13,24 @@ export type WorkbenchRoute =
 export type WorkspaceView = "grid" | "list";
 export type WorkspacePage = "overview" | "projects" | "units" | "shared" | "memory" | "calendar";
 
+export interface WorkspaceCalendarNavigationContext {
+  label: string;
+  date?: number;
+  unitId?: string;
+  accountId?: string;
+  accountLabel?: string;
+}
+
+export type WorkspaceDestination =
+  | { page: "calendar"; context?: WorkspaceCalendarNavigationContext }
+  | { page: Exclude<WorkspacePage, "calendar">; context?: { label: string } };
+
+export interface WorkspaceOverviewReturnState {
+  scrollTop: number;
+  attentionExpanded: boolean;
+  focusId: string | null;
+}
+
 export const WORKSPACE_PAGES: WorkspacePage[] = [
   "overview",
   "projects",

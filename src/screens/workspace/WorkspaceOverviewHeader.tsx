@@ -1,12 +1,9 @@
 import { RefreshCw } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type {
   Availability,
   WorkspaceHeaderPresentation,
 } from "./overview-presentation";
-
-function timestampMs(value: number): number {
-  return value < 1_000_000_000_000 ? value * 1000 : value;
-}
 
 function countLabel(value: Availability<number>, noun: string): string {
   if (value.status === "ready") return `${value.value} ${noun}${value.value === 1 ? "" : "s"}`;
@@ -18,14 +15,23 @@ export function WorkspaceOverviewHeader({
   value,
   criticalCount,
   refreshing,
+  lastSuccessfulRefreshAt,
   onRefresh,
 }: {
   value: WorkspaceHeaderPresentation;
   criticalCount: Availability<number>;
   refreshing: boolean;
+  lastSuccessfulRefreshAt: number | null;
   onRefresh(): void;
 }) {
-  const updatedAt = timestampMs(value.updatedAt);
+  const [announcement, setAnnouncement] = useState("");
+  const wasRefreshing = useRef(false);
+  useEffect(() => {
+    if (wasRefreshing.current && !refreshing) {
+      setAnnouncement(`Workspace refreshed. ${countLabel(criticalCount, "critical issue")}.`);
+    }
+    wasRefreshing.current = refreshing;
+  }, [criticalCount, refreshing]);
   const degraded = [value.accountCount, criticalCount]
     .filter((item) => item.status !== "ready")
     .map((item) => item.reason);
@@ -35,7 +41,7 @@ export function WorkspaceOverviewHeader({
       <h1>{value.name}</h1>
       {value.description && <p>{value.description}</p>}
       <div className="workspace-overview-meta">
-        <span>Updated <time dateTime={new Date(updatedAt).toISOString()}>{new Date(updatedAt).toLocaleString()}</time></span>
+        {lastSuccessfulRefreshAt !== null && <span>Refreshed <time dateTime={new Date(lastSuccessfulRefreshAt).toISOString()}>{new Date(lastSuccessfulRefreshAt).toLocaleString()}</time></span>}
         <span>Current Core totals · {countLabel(value.accountCount, "connected account")}</span>
       </div>
       {degraded.length > 0 && <p className="workspace-overview-partial"><strong>Partial data</strong> · {degraded.join(" ")}</p>}
@@ -46,5 +52,6 @@ export function WorkspaceOverviewHeader({
         <RefreshCw size={14} aria-hidden="true" />{refreshing ? "Refreshing…" : "Refresh"}
       </button>
     </div>
+    <span className="workspace-overview-live" aria-live="polite" aria-atomic="true">{announcement}</span>
   </header>;
 }

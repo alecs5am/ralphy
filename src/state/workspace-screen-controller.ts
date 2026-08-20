@@ -7,6 +7,7 @@ export interface WorkspaceScreenSnapshot {
   value: WorkspaceOverviewDto | null;
   error: string | null;
   refreshing: boolean;
+  lastSuccessfulRefreshAt: number | null;
 }
 export interface WorkspaceScreenController {
   getSnapshot(): WorkspaceScreenSnapshot;
@@ -23,8 +24,9 @@ export function createWorkspaceScreenController(
   api: WorkspaceScreenApi,
   workspaceId: string,
   initialActivitySequence = 0,
+  now: () => number = Date.now,
 ): WorkspaceScreenController {
-  let snapshot: WorkspaceScreenSnapshot = { status: "idle", value: null, error: null, refreshing: false };
+  let snapshot: WorkspaceScreenSnapshot = { status: "idle", value: null, error: null, refreshing: false, lastSuccessfulRefreshAt: null };
   let disposed = false;
   let requestId = 0;
   let coveredActivitySequence = initialActivitySequence;
@@ -39,16 +41,16 @@ export function createWorkspaceScreenController(
     const currentRequest = ++requestId;
     const previous = snapshot.status === "ready" ? snapshot.value : null;
     emit(previous
-      ? { status: "ready", value: previous, error: null, refreshing: true }
-      : { status: "loading", value: null, error: null, refreshing: false });
+      ? { ...snapshot, status: "ready", value: previous, error: null, refreshing: true }
+      : { ...snapshot, status: "loading", value: null, error: null, refreshing: false });
     try {
       const value = await api.loadWorkspaceOverview(workspaceId);
-      if (currentRequest === requestId) emit({ status: "ready", value, error: null, refreshing: false });
+      if (currentRequest === requestId) emit({ status: "ready", value, error: null, refreshing: false, lastSuccessfulRefreshAt: now() });
     } catch (error) {
       if (currentRequest !== requestId) return;
       emit(previous
-        ? { status: "ready", value: previous, error: errorMessage(error), refreshing: false }
-        : { status: "error", value: null, error: errorMessage(error), refreshing: false });
+        ? { ...snapshot, status: "ready", value: previous, error: errorMessage(error), refreshing: false }
+        : { ...snapshot, status: "error", value: null, error: errorMessage(error), refreshing: false });
     }
   };
 

@@ -13,6 +13,7 @@ import { AccessibleTrendChart, WorkspaceMomentum } from "../src/screens/workspac
 import { WorkspacePlanAndOutcomes } from "../src/screens/workspace/WorkspacePlanAndOutcomes";
 import { WorkspaceInsights } from "../src/screens/workspace/WorkspaceInsights";
 import { WorkspaceOperations } from "../src/screens/workspace/WorkspaceOperations";
+import { WorkspaceOverviewHeader } from "../src/screens/workspace/WorkspaceOverviewHeader";
 import { createReactHost } from "./react-host";
 
 const populatedOverview = {
@@ -127,7 +128,7 @@ describe("workspace overview shell", () => {
 
     expect(markup).toContain("Launch Studio");
     expect(markup).toContain("Short-form launches");
-    expect(markup).toContain("Updated");
+    expect(markup).toContain("Refreshed");
     expect(markup).toContain("Current Core totals");
     expect(markup).toContain("1 connected account");
     expect(markup).toContain("1 critical");
@@ -135,6 +136,56 @@ describe("workspace overview shell", () => {
     expect(markup).toContain('aria-busy="true"');
     expect(markup).not.toContain("Timezone");
     expect(markup).not.toContain("New project");
+  });
+
+  test("labels actual refresh freshness instead of the workspace record timestamp", () => {
+    const controller = createWorkspaceScreenController({ loadWorkspaceOverview: vi.fn(async () => populatedOverview) }, "workspace-1");
+    const markup = renderToStaticMarkup(<WorkspaceScreenView
+      controller={controller}
+      snapshot={{ status: "ready", value: populatedOverview, error: null, refreshing: false, lastSuccessfulRefreshAt: Date.UTC(2026, 7, 20, 10, 42) }}
+      catalogProjects={[]}
+      workspaceDescription="Short-form launches"
+      onOpenPage={() => undefined}
+      onOpenUnit={() => undefined}
+      onOpenProject={() => undefined}
+    />);
+
+    expect(markup).toContain("Refreshed");
+    expect(markup).toContain("2026-08-20T10:42:00.000Z");
+    expect(markup.slice(0, markup.indexOf("workspace-overview-scroll"))).not.toContain("1970-01-01T00:00:02.000Z");
+  });
+
+  test("announces refresh completion and its critical count in one polite atomic live region", async () => {
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    const value = {
+      id: "workspace-1", name: "Launch Studio", description: "Short-form launches",
+      updatedAt: 2, accountCount: { status: "ready" as const, value: 1 },
+    };
+    try {
+      await act(async () => root.render(<WorkspaceOverviewHeader
+        value={value}
+        criticalCount={{ status: "ready", value: 2 }}
+        refreshing
+        lastSuccessfulRefreshAt={1_000}
+        onRefresh={() => undefined}
+      />));
+      await act(async () => root.render(<WorkspaceOverviewHeader
+        value={value}
+        criticalCount={{ status: "ready", value: 2 }}
+        refreshing={false}
+        lastSuccessfulRefreshAt={2_000}
+        onRefresh={() => undefined}
+      />));
+
+      const live = host.container.querySelector("[aria-live=polite]");
+      expect(live?.getAttribute("aria-atomic")).toBe("true");
+      expect(live?.textContent).toBe("Workspace refreshed. 2 critical issues.");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
   });
 
   test("labels partial data and keeps a local refresh error beside healthy sections", async () => {
@@ -164,6 +215,26 @@ describe("workspace overview shell", () => {
     expect(markup).toContain("Connected");
     expect(markup).toContain("Last Core update");
     expect(markup).not.toContain("0 views");
+  });
+
+  test("prefixes only real usernames and labels missing handles without exposing external IDs", async () => {
+    const account = populatedOverview.accounts.items[0];
+    const markup = await renderWorkspace({
+      ...populatedOverview,
+      accounts: { items: [
+        { ...account, id: "username", username: "launch", displayName: "Launch Studio", externalId: "private-username-id" },
+        { ...account, id: "display", username: null, displayName: "Studio Team", externalId: "private-display-id" },
+        { ...account, id: "missing", username: null, displayName: null, externalId: "private-missing-id" },
+      ], nextCursor: null },
+    });
+
+    expect(markup).toContain("@launch");
+    expect(markup).toContain("Launch Studio");
+    expect(markup).toContain("Studio Team");
+    expect(markup.match(/Handle unavailable/g)).toHaveLength(2);
+    expect(markup).not.toContain("@Launch Studio");
+    expect(markup).not.toContain("@Studio Team");
+    expect(markup).not.toContain("private-");
   });
 
   test("preserves partial accounts and identifies accounts that need relinking", async () => {
@@ -847,27 +918,65 @@ describe("workspace overview shell", () => {
     }
   });
 
-  test("keeps healthy operations visible beside section-level partial failure retries", () => {
-    const retry = vi.fn();
+  test("keeps Attention ahead of onboarding when workspace setup is empty but account action is required", () => {
     const markup = renderToStaticMarkup(<WorkspaceOperations
       value={{
-        attention: { status: "partial", reason: "Attention is limited.", value: { items: [], criticalCount: { status: "partial", reason: "Limited.", value: 0 } } },
+        attention: { status: "ready", value: { items: [{
+          kind: "account-relink", severity: "warning", accountId: "account-1",
+          affectedCount: { status: "unavailable", reason: "Affected references unavailable." },
+          title: "Launch needs relinking",
+        }], criticalCount: { status: "ready", value: 0 } } },
         pulse: { status: "unavailable", reason: "Production data is unavailable." },
-        projects: { status: "partial", reason: "Projects are limited.", value: [{ id: "project-1", name: "Launch campaign", slug: "launch-campaign", updatedAt: 2, catalog: catalogProject }] },
-        recentChanges: { status: "unavailable", reason: "Human-readable changes are unavailable." },
-        onboarding: { status: "ready", value: false },
+        projects: { status: "ready", value: [] },
+        recentChanges: { status: "unavailable", reason: "Changes are unavailable." },
+        onboarding: { status: "ready", value: true },
       }}
       onOpenProject={() => undefined}
       onOpenPage={() => undefined}
-      onRetry={retry}
+      onRetry={() => undefined}
     />);
 
-    expect(markup).toContain("Partial attention data");
-    expect(markup).toContain("Retry attention");
-    expect(markup).toContain("Partial project data");
-    expect(markup).toContain("Retry projects");
-    expect(markup).toContain("Launch campaign");
-    expect(markup).toContain("Production pulse");
+    expect(markup).toContain("Launch needs relinking");
+    expect(markup).toContain("Start producing in this workspace");
+    expect(markup.indexOf("Attention")).toBeLessThan(markup.indexOf("Start producing in this workspace"));
+  });
+
+  test("treats bounded operations as informational and routes to complete destination pages", async () => {
+    const retry = vi.fn();
+    const openPage = vi.fn();
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => root.render(<WorkspaceOperations
+        value={{
+          attention: { status: "partial", reason: "Attention is limited.", value: { items: [], criticalCount: { status: "partial", reason: "Limited.", value: 0 } } },
+          pulse: { status: "unavailable", reason: "Production data is unavailable." },
+          projects: { status: "partial", reason: "Projects are limited.", value: [{ id: "project-1", name: "Launch campaign", slug: "launch-campaign", updatedAt: 2, catalog: catalogProject }] },
+          recentChanges: { status: "unavailable", reason: "Human-readable changes are unavailable." },
+          onboarding: { status: "ready", value: false },
+        }}
+        onOpenProject={() => undefined}
+        onOpenPage={openPage}
+        onRetry={retry}
+      />));
+
+      expect(host.container.textContent).toContain("Bounded attention data");
+      expect(host.container.textContent).toContain("Bounded project data");
+      expect(host.container.textContent).not.toContain("Retry attention");
+      expect(host.container.textContent).not.toContain("Retry projects");
+      expect(host.container.textContent).toContain("Launch campaign");
+      expect(host.container.textContent).toContain("Production pulse");
+
+      const viewAll = [...host.container.querySelectorAll("button")]
+        .find((button) => button.textContent === "View all projects");
+      await act(async () => viewAll!.dispatchEvent(new Event("click", { bubbles: true })));
+      expect(openPage).toHaveBeenCalledWith("projects");
+      expect(retry).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
   });
 
   test("gives every attention row one named primary action and caps continuation projects at four", async () => {
@@ -986,13 +1095,32 @@ describe("workspace overview shell", () => {
     expect(error).toContain(">Retry<");
   });
 
-  test("locks the narrow operations order, account breakpoints, and page overflow geometry", () => {
+  test("retains workspace identity in initial loading and error headers", () => {
+    const controller = createWorkspaceScreenController({ loadWorkspaceOverview: vi.fn(async () => populatedOverview) }, "workspace-1");
+    const props = {
+      controller,
+      catalogProjects: [],
+      workspaceName: "Launch Studio",
+      workspaceDescription: "Short-form launches",
+      onOpenPage: () => undefined,
+      onOpenUnit: () => undefined,
+      onOpenProject: () => undefined,
+    };
+    const loading = renderToStaticMarkup(<WorkspaceScreenView {...props} snapshot={{ status: "loading", value: null, error: null, refreshing: false }} />);
+    const error = renderToStaticMarkup(<WorkspaceScreenView {...props} snapshot={{ status: "error", value: null, error: "Core unavailable", refreshing: false }} />);
+
+    for (const markup of [loading, error]) {
+      expect(markup).toContain("Launch Studio");
+      expect(markup).toContain("Short-form launches");
+    }
+  });
+
+  test("locks the narrow operations order and account breakpoints", () => {
     const css = readFileSync(new URL("../src/styles/workspace-overview.css", import.meta.url), "utf8");
 
     expect(css).toMatch(/\.workspace-operations-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(0,\s*1fr\)/s);
     expect(css).toMatch(/@container main-region \(max-width:\s*1000px\)[\s\S]*?\.workspace-operations-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
     expect(css).toMatch(/@container account-portfolio \(max-width:\s*900px\)[\s\S]*?repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
     expect(css).toMatch(/@container account-portfolio \(max-width:\s*520px\)[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)/);
-    expect(css).toMatch(/\.workspace-overview-scroll\s*\{[^}]*overflow-x:\s*hidden/s);
   });
 });

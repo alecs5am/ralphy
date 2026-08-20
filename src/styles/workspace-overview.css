@@ -5,6 +5,35 @@
   padding-bottom: 0;
 }
 
+.workspace-destination {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.workspace-destination > .main-region {
+  min-height: 0;
+  flex: 1;
+}
+
+.workspace-return-bar {
+  display: flex;
+  min-height: 38px;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-solid);
+  color: var(--fg-3);
+  font-size: var(--text-xs);
+}
+
+.workspace-return-bar button {
+  color: var(--fg-2);
+}
+
 .workspace-overview-header {
   width: 100%;
   max-width: 1200px;
@@ -45,6 +74,14 @@
   color: var(--fg-3);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
+}
+
+.workspace-overview-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
 }
 
 .workspace-overview-scroll {

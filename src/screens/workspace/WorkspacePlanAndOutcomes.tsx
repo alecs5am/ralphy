@@ -1,7 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { Boxes, CalendarDays, X } from "lucide-react";
 import { useState } from "react";
-import type { WorkspacePage } from "../../state/workbench";
+import type { WorkspaceCalendarNavigationContext, WorkspacePage } from "../../state/workbench";
 import type {
   Availability,
   PlanCoveragePresentation,
@@ -16,6 +16,7 @@ import type {
 interface Props {
   value: Pick<WorkspaceOverviewPresentation, "plan" | "outcomes">;
   onOpenPage(page: WorkspacePage): void;
+  onOpenCalendar?(context?: WorkspaceCalendarNavigationContext): void;
   onOpenUnit(projectId: string, unitId: string): void;
 }
 
@@ -32,7 +33,7 @@ function statusLabel(value: string): string {
 function accountLabel(event: PublishingEventPresentation, accountId: string | null): string {
   if (!accountId) return "Account unavailable";
   const account = event.accounts?.find((candidate) => candidate.id === accountId);
-  return account?.username ?? account?.displayName ?? "Account details unavailable";
+  return account?.username ? `@${account.username.replace(/^@/, "")}` : account?.displayName ?? "Account details unavailable";
 }
 
 function DayStrip({ days, events }: { days: number[]; events: PublishingEventPresentation[] }) {
@@ -55,13 +56,21 @@ function DayStrip({ days, events }: { days: number[]; events: PublishingEventPre
 
 function ContentEvent({ event, onOpenCalendar, onOpenUnit, onOpenUnits }: {
   event: PublishingEventPresentation;
-  onOpenCalendar(): void;
+  onOpenCalendar(context: WorkspaceCalendarNavigationContext): void;
   onOpenUnit(projectId: string, unitId: string): void;
   onOpenUnits(): void;
 }) {
   const blocked = event.publications.filter((publication) => attentionStates.has(publication.state)).length;
   const unitLabel = event.unit?.slug ?? "Unit details unavailable";
   const dateLabel = new Date(event.scheduledAt).toLocaleString(undefined, { dateStyle: "long", timeStyle: "short" });
+  const firstAccount = event.accounts[0];
+  const calendarContext = {
+    label: unitLabel,
+    date: event.scheduledAt,
+    unitId: event.unitId,
+    accountId: firstAccount?.id,
+    accountLabel: firstAccount?.username ? `@${firstAccount.username.replace(/^@/, "")}` : firstAccount?.displayName ?? undefined,
+  } satisfies WorkspaceCalendarNavigationContext;
   const openUnit = () => event.unit?.projectId ? onOpenUnit(event.unit.projectId, event.unitId) : onOpenUnits();
   return <li className="workspace-plan-event" data-content-event>
     <span className="workspace-unit-glyph" aria-hidden="true"><Boxes /></span>
@@ -77,9 +86,9 @@ function ContentEvent({ event, onOpenCalendar, onOpenUnit, onOpenUnits }: {
       </ul>
       {blocked > 0 && <p className="workspace-plan-warning">{blocked} channel{blocked === 1 ? "" : "s"} needs attention</p>}
       <div className="workspace-plan-actions">
-        <button type="button" aria-label={`Open ${unitLabel} scheduled ${dateLabel} in Calendar`} onClick={onOpenCalendar}>Open in Calendar</button>
+        <button id={`workspace-calendar-event-${event.unitId}-${event.scheduledAt}`} type="button" aria-label={`Open ${unitLabel} scheduled ${dateLabel} in Calendar`} onClick={() => onOpenCalendar(calendarContext)}>Open in Calendar</button>
         <button type="button" aria-label={`${event.unit?.projectId ? "Open Unit" : "Open Units for"} ${unitLabel} scheduled ${dateLabel}`} onClick={openUnit}>{event.unit?.projectId ? "Open Unit" : "Open Units"}</button>
-        {blocked > 0 && <button type="button" aria-label={`Review problem for ${unitLabel} scheduled ${dateLabel}`} onClick={onOpenCalendar}>Review problem</button>}
+        {blocked > 0 && <button type="button" aria-label={`Review problem for ${unitLabel} scheduled ${dateLabel}`} onClick={() => onOpenCalendar(calendarContext)}>Review problem</button>}
       </div>
     </div>
   </li>;
@@ -112,7 +121,7 @@ function ReadyUnscheduled({ value, onOpenUnit, onOpenUnits }: {
 
 function ContentPlan({ value, onOpenCalendar, onOpenUnits, onOpenUnit }: {
   value: WorkspacePlanPresentation;
-  onOpenCalendar(): void;
+  onOpenCalendar(context?: WorkspaceCalendarNavigationContext): void;
   onOpenUnits(): void;
   onOpenUnit(projectId: string, unitId: string): void;
 }) {
@@ -126,7 +135,7 @@ function ContentPlan({ value, onOpenCalendar, onOpenUnits, onOpenUnit }: {
     {value.upcoming.status === "unavailable" && unavailable("Publishing schedule unavailable", value.upcoming.reason)}
     {value.upcoming.status === "empty" && <div className="workspace-plan-empty">
       <p>{value.upcoming.reason}</p>
-      <button type="button" className="command-button" onClick={onOpenCalendar}><CalendarDays aria-hidden="true" />Open Calendar</button>
+      <button type="button" className="command-button" onClick={() => onOpenCalendar()}><CalendarDays aria-hidden="true" />Open Calendar</button>
     </div>}
     {events.length > 0 && <ol className="workspace-plan-events">
       {events.map((event) => <ContentEvent key={`${event.unitId}:${event.scheduledAt}`} event={event} onOpenCalendar={onOpenCalendar} onOpenUnit={onOpenUnit} onOpenUnits={onOpenUnits} />)}
@@ -192,9 +201,10 @@ function UnitOutcomes({ value, onOpenUnit }: { value: Availability<UnitOutcomeGr
   </section>;
 }
 
-export function WorkspacePlanAndOutcomes({ value, onOpenPage, onOpenUnit }: Props) {
+export function WorkspacePlanAndOutcomes({ value, onOpenPage, onOpenCalendar, onOpenUnit }: Props) {
+  const openCalendar = (context?: WorkspaceCalendarNavigationContext) => onOpenCalendar ? onOpenCalendar(context) : onOpenPage("calendar");
   return <>
-    <ContentPlan value={value.plan} onOpenCalendar={() => onOpenPage("calendar")} onOpenUnits={() => onOpenPage("units")} onOpenUnit={onOpenUnit} />
+    <ContentPlan value={value.plan} onOpenCalendar={openCalendar} onOpenUnits={() => onOpenPage("units")} onOpenUnit={onOpenUnit} />
     <UnitOutcomes value={value.outcomes} onOpenUnit={onOpenUnit} />
   </>;
 }

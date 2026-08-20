@@ -33,10 +33,16 @@ function RetryBanner({ title, reason, label, onRetry }: {
   </div>;
 }
 
+function InfoBanner({ title, reason }: { title: string; reason: string }) {
+  return <div className="workspace-operation-banner" role="note">
+    <span><strong>{title}</strong><small>{reason}</small></span>
+  </div>;
+}
+
 function affectedLabel(value: AttentionPresentation["affectedCount"]): string {
   if (value.status === "ready") return `Affects ${value.value} publication${value.value === 1 ? "" : "s"}`;
   if (value.status === "partial") return `Affects at least ${value.value} publication${value.value === 1 ? "" : "s"} · count limited`;
-  return "Affected publication count unavailable";
+  return value.reason;
 }
 
 function attentionAction(item: AttentionPresentation): string {
@@ -45,12 +51,16 @@ function attentionAction(item: AttentionPresentation): string {
     : "Review account publications";
 }
 
-function AttentionQueue({ value, onOpenPage, onRetry }: {
+function AttentionQueue({ value, onOpenPage, onRetry, expanded: controlledExpanded, onExpandedChange }: {
   value: OperationsValue["attention"];
   onOpenPage(page: WorkspacePage): void;
   onRetry(): void;
+  expanded?: boolean;
+  onExpandedChange?(expanded: boolean): void;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [localExpanded, setLocalExpanded] = useState(false);
+  const expanded = controlledExpanded ?? localExpanded;
+  const setExpanded = onExpandedChange ?? setLocalExpanded;
   const available = value.status === "ready" || value.status === "partial";
   const total = available ? value.value.items.length : 0;
   const items = available ? value.value.items.slice(0, expanded ? total : 5) : [];
@@ -61,7 +71,7 @@ function AttentionQueue({ value, onOpenPage, onRetry }: {
         ? expanded ? `Showing all ${total} actionable items` : `Showing 5 of ${total} actionable items`
         : `${total} actionable`}</span>}
     </div>
-    {value.status === "partial" && <RetryBanner title="Partial attention data" reason={value.reason} label="Retry attention" onRetry={onRetry} />}
+    {value.status === "partial" && <InfoBanner title="Bounded attention data" reason={value.reason} />}
     {value.status === "unavailable" && <RetryBanner title="Attention unavailable" reason={value.reason} label="Retry attention" onRetry={onRetry} />}
     {available && items.length === 0 && <p className="workspace-operation-empty">
       {value.status === "ready" ? "Nothing needs attention." : "No actionable items were returned in this partial page."}
@@ -148,7 +158,7 @@ function ActiveProjects({ value, onOpenProject, onOpenPage, onRetry }: {
       <h2 id="workspace-active-projects-heading">Active projects</h2>
       {available && <button type="button" onClick={() => onOpenPage("projects")}>View all projects</button>}
     </div>
-    {value.status === "partial" && <RetryBanner title="Partial project data" reason={value.reason} label="Retry projects" onRetry={onRetry} />}
+    {value.status === "partial" && <InfoBanner title="Bounded project data" reason={value.reason} />}
     {value.status === "unavailable" && <RetryBanner title="Active projects unavailable" reason={value.reason} label="Retry projects" onRetry={onRetry} />}
     {available && projects.length === 0 && <p className="workspace-operation-empty">No active projects were returned by Core.</p>}
     {projects.length > 0 && <ul className="workspace-active-project-list">
@@ -189,16 +199,22 @@ function WorkspaceOnboarding({ onOpenPage }: { onOpenPage(page: WorkspacePage): 
   </section>;
 }
 
-export function WorkspaceOperations({ value, onOpenProject, onOpenPage, onRetry }: Props) {
-  if (value.onboarding.status === "ready" && value.onboarding.value) return <WorkspaceOnboarding onOpenPage={onOpenPage} />;
+export function WorkspaceOperations({ value, onOpenProject, onOpenPage, onRetry, attentionExpanded, onAttentionExpandedChange }: Props & {
+  attentionExpanded?: boolean;
+  onAttentionExpandedChange?(expanded: boolean): void;
+}) {
+  const onboarding = value.onboarding.status === "ready" && value.onboarding.value;
+  const attentionCompleteEmpty = value.attention.status === "ready" && value.attention.value.items.length === 0;
+  if (onboarding && attentionCompleteEmpty) return <WorkspaceOnboarding onOpenPage={onOpenPage} />;
   return <>
     {value.onboarding.status !== "ready" && <div className="workspace-overview-section">
       <RetryBanner title="Workspace setup state unavailable" reason={value.onboarding.reason} label="Retry workspace state" onRetry={onRetry} />
     </div>}
     <section className="workspace-overview-section workspace-operations-grid" aria-label="Workspace operations">
-      <AttentionQueue value={value.attention} onOpenPage={onOpenPage} onRetry={onRetry} />
+      <AttentionQueue value={value.attention} onOpenPage={onOpenPage} onRetry={onRetry} expanded={attentionExpanded} onExpandedChange={onAttentionExpandedChange} />
       <ProductionState value={value.pulse} />
     </section>
+    {onboarding && <WorkspaceOnboarding onOpenPage={onOpenPage} />}
     <ActiveProjects value={value.projects} onOpenProject={onOpenProject} onOpenPage={onOpenPage} onRetry={onRetry} />
     <RecentChanges value={value.recentChanges} />
   </>;

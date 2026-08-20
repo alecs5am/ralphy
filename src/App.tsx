@@ -37,6 +37,8 @@ import {
   readWorkbenchPreferences,
   workbenchReducer,
   writeWorkbenchPreferences,
+  type WorkspaceDestination,
+  type WorkspaceOverviewReturnState,
   type WorkspaceView,
   type WorkspacePage,
 } from "./state/workbench";
@@ -53,6 +55,30 @@ const loadSettingsScreen = () =>
 const SettingsScreen = lazy(loadSettingsScreen);
 const WELCOME_MINIMUM_MS = 1_200;
 const WELCOME_EXIT_MS = 300;
+
+function WorkspaceDestinationFrame({ destination, onBack, children }: {
+  destination: WorkspaceDestination;
+  onBack(): void;
+  children: React.ReactNode;
+}) {
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const heading = root.current?.querySelector<HTMLElement>("h1") ?? root.current?.querySelector<HTMLElement>("h2");
+    if (!heading) return;
+    heading.tabIndex = -1;
+    heading.focus({ preventScroll: true });
+  }, [destination]);
+  const context = destination.context;
+  return <div className="workspace-destination" ref={root}>
+    <div className="workspace-return-bar">
+      <button type="button" onClick={onBack}>Back to Overview</button>
+      {context && <span>Context from Overview · {context.label}
+        {destination.page === "calendar" && destination.context?.accountLabel ? ` · Account ${destination.context.accountLabel} (context preserved; account filtering unavailable)` : ""}
+      </span>}
+    </div>
+    {children}
+  </div>;
+}
 
 export function applyActivityRefresh(
   identity: RootIdentity | null,
@@ -95,6 +121,8 @@ export function App() {
   const [workspacePage, setWorkspacePage] = useState<WorkspacePage>(
     initialPreferences.current.workspacePage,
   );
+  const [workspaceDestination, setWorkspaceDestination] = useState<WorkspaceDestination | null>(null);
+  const [overviewReturnState, setOverviewReturnState] = useState<WorkspaceOverviewReturnState | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(
     initialPreferences.current.sidebarWidth,
   );
@@ -330,6 +358,8 @@ export function App() {
         if (workspaceId && state.route.kind !== "workspace") {
           dispatch({ type: "open-workspace", workspaceId });
         }
+        setWorkspaceDestination(null);
+        setOverviewReturnState(null);
         setWorkspacePage("projects");
         setSidebarSearchRequest((request) => request + 1);
       } else if (command && key === "j") {
@@ -368,6 +398,23 @@ export function App() {
         projectId: project.projectId,
       },
     });
+  };
+
+  const openWorkspacePage = (page: WorkspacePage) => {
+    setWorkspaceDestination(null);
+    setOverviewReturnState(null);
+    setWorkspacePage(page);
+  };
+
+  const navigateFromOverview = (destination: WorkspaceDestination, returnState: WorkspaceOverviewReturnState) => {
+    setWorkspaceDestination(destination);
+    setOverviewReturnState(returnState);
+    setWorkspacePage(destination.page);
+  };
+
+  const backToOverview = () => {
+    setWorkspaceDestination(null);
+    setWorkspacePage("overview");
   };
 
   if (migrationRecovery) {
@@ -419,13 +466,20 @@ export function App() {
         rootEpoch={rootIdentity?.rootEpoch ?? 0}
         activitySequence={rootIdentity?.activitySequence ?? 0}
         catalogProjects={projects.filter((project) => project.workspaceId === selectedWorkspace.id)}
+        workspaceName={selectedWorkspace.name}
         workspaceDescription={selectedWorkspace.description}
-        onOpenPage={setWorkspacePage}
-        onOpenUnit={(projectId, unitId) => {
+        overviewReturnState={overviewReturnState}
+        onOpenPage={openWorkspacePage}
+        onNavigate={navigateFromOverview}
+        onOpenUnit={(projectId, unitId, returnState) => {
           const project = projects.find((candidate) => (
             candidate.workspaceId === selectedWorkspace.id && candidate.projectId === projectId
           ));
           if (project) openProject(project, unitId);
+          else navigateFromOverview(
+            { page: "units", context: { label: `Unit ${unitId} is not present in the current project catalog` } },
+            returnState ?? { scrollTop: 0, attentionExpanded: false, focusId: null },
+          );
         }}
         onOpenProject={openProject}
       />
@@ -446,7 +500,11 @@ export function App() {
   } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "memory") {
     content = <MemoryScreen workspaceId={selectedWorkspace.id} workspaceName={selectedWorkspace.name} />;
   } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "calendar") {
-    content = <CalendarScreen workspaceId={selectedWorkspace.id} workspaceName={selectedWorkspace.name} onOpenProject={(projectId, unitId) => {
+    const calendarContext = workspaceDestination?.page === "calendar" ? workspaceDestination.context : undefined;
+    content = <CalendarScreen workspaceId={selectedWorkspace.id} workspaceName={selectedWorkspace.name}
+      initialDate={calendarContext?.date === undefined ? undefined : new Date(calendarContext.date)}
+      navigationContext={calendarContext}
+      onOpenProject={(projectId, unitId) => {
       const project = projects.find((item) => item.projectId === projectId);
       if (project) openProject(project, unitId);
     }} />;
@@ -473,6 +531,11 @@ export function App() {
         />
       </Suspense>
     );
+  }
+
+
+  if (workspaceDestination && state.route.kind === "workspace" && workspacePage === workspaceDestination.page) {
+    content = <WorkspaceDestinationFrame destination={workspaceDestination} onBack={backToOverview}>{content}</WorkspaceDestinationFrame>;
   }
 
   const canGoBack = state.historyIndex > 0;
@@ -522,7 +585,7 @@ export function App() {
                 }}
                 onOpenPage={(page) => {
                   setLocalModelsVisible(false);
-                  setWorkspacePage(page);
+                  openWorkspacePage(page);
                   const workspaceId = selectedWorkspace?.id ?? mostRecentWorkspaceId(workspaces);
                   if (workspaceId) dispatch({ type: "open-workspace", workspaceId });
                 }}
@@ -554,7 +617,7 @@ export function App() {
               onForward={() => dispatch({ type: "forward" })}
               onHome={() => {
                 setLocalModelsVisible(false);
-                setWorkspacePage("overview");
+                openWorkspacePage("overview");
                 const workspaceId = selectedWorkspace?.id ?? mostRecentWorkspaceId(workspaces);
                 if (workspaceId) dispatch({ type: "open-workspace", workspaceId });
                 else dispatch({ type: "open-library" });

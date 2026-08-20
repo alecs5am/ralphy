@@ -45,7 +45,7 @@ export interface WorkspaceMomentumPresentation {
 export interface AccountPresentation {
   id: string;
   platform: string;
-  handle: string;
+  username: string | null;
   displayName: string | null;
   credentialConfigured: boolean;
   relinkRequired: boolean;
@@ -240,7 +240,7 @@ function presentAccount(account: OverviewAccountDto, publications: Page<Overview
   return {
     id: account.id,
     platform: account.platform,
-    handle: account.username ?? account.displayName ?? account.externalId,
+    username: account.username,
     displayName: account.displayName,
     credentialConfigured: account.credentialConfigured,
     relinkRequired: account.relinkRequired,
@@ -301,7 +301,9 @@ function presentPlan(
     )) ?? [];
   }
 
-  const upcoming = [...events.values()].sort((left, right) => left.scheduledAt - right.scheduledAt);
+  const upcoming = [...events.values()]
+    .filter((event) => event.publications.some((publication) => publication.state !== "published" && publication.state !== "cancelled"))
+    .sort((left, right) => left.scheduledAt - right.scheduledAt);
   const limitations = planLimitations(publications, accounts, units, projects);
   return {
     days,
@@ -365,14 +367,14 @@ function presentAttention(
       kind: "account-relink" as const,
       severity: "warning" as const,
       accountId: account.id,
-      affectedCount: countAvailability(publications, publicationItems.filter((publication) => publication.socialAccountId === account.id).length, "Affected publications"),
+      affectedCount: unavailable<number>("Core does not provide normalized affected publication references for account actions."),
       title: `${accountDisplayLabel(account)} needs relinking`,
     })),
     ...accountItems.filter((account) => !account.credentialConfigured).map((account) => ({
       kind: "account-configuration" as const,
       severity: "warning" as const,
       accountId: account.id,
-      affectedCount: countAvailability(publications, publicationItems.filter((publication) => publication.socialAccountId === account.id).length, "Affected publications"),
+      affectedCount: unavailable<number>("Core does not provide normalized affected publication references for account actions."),
       title: `${accountDisplayLabel(account)} is not configured`,
     })),
   ];
@@ -413,7 +415,7 @@ function publicationAttention(
 }
 
 function accountDisplayLabel(account: OverviewAccountDto): string {
-  return account.displayName?.trim() || account.username?.trim() || `${account.platform} account`;
+  return account.displayName?.trim() || (account.username?.trim() ? `@${account.username.trim().replace(/^@/, "")}` : `${account.platform} account`);
 }
 
 function attentionAccountLabel(accounts: Page<OverviewAccountDto> | undefined, accountId: string | null): string {

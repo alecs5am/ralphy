@@ -10,6 +10,7 @@ import type {
   CalendarChannelInput, CalendarEventDto, CalendarEventStatus, CalendarReadyUnitDto, CalendarWorkspaceDto, JsonValue,
 } from "../../electron/ralphy/types";
 import { bridge } from "../lib/ipc";
+import type { WorkspaceCalendarNavigationContext } from "../state/workbench";
 import {
   calendarDayKey, calendarRange, eventStatusSummary, filterCalendarEvents, formatCalendarTime,
   groupAgenda, monthDays, weekDays, zonedDateTimeToEpoch, type CalendarFilters, type CalendarView,
@@ -26,8 +27,8 @@ const CALENDAR_UNIT_DRAG = "application/x-ralphy-calendar-unit";
 const CalendarWorkspaceContext = createContext("");
 
 export function CalendarScreen({
-  workspaceId, workspaceName, initialDate = new Date(), onOpenProject = () => undefined,
-}: { workspaceId: string; workspaceName: string; initialDate?: Date; onOpenProject?: (projectId: string, unitId: string) => void }) {
+  workspaceId, workspaceName, initialDate = new Date(), navigationContext, onOpenProject = () => undefined,
+}: { workspaceId: string; workspaceName: string; initialDate?: Date; navigationContext?: WorkspaceCalendarNavigationContext; onOpenProject?: (projectId: string, unitId: string) => void }) {
   const [view, setView] = useState<CalendarView>("month");
   const [anchor, setAnchor] = useState(initialDate);
   const [data, setData] = useState<CalendarWorkspaceDto | null>(null);
@@ -57,12 +58,21 @@ export function CalendarScreen({
     void bridge.loadCalendar(workspaceId, { ...range, timezone }).then((next) => {
       if (!current) return;
       setData(next);
-      setSelectedEventId((id) => id && next.events.some((event) => event.id === id) ? id : null);
+      setSelectedEventId((id) => {
+        if (id && next.events.some((event) => event.id === id)) return id;
+        const contextual = navigationContext?.unitId
+          ? next.events.find((event) => event.unitId === navigationContext.unitId && (
+            navigationContext.date === undefined || Math.abs((event.at ?? event.draftAt ?? 0) - navigationContext.date) < 24 * 60 * 60 * 1000
+          ))
+          : undefined;
+        if (contextual) setRightPanel("inspector");
+        return contextual?.id ?? null;
+      });
     }).catch((cause: unknown) => {
       if (current) setError(cause instanceof Error ? cause.message : String(cause));
     }).finally(() => { if (current) setLoading(false); });
     return () => { current = false; };
-  }, [anchor, refresh, view, workspaceId]); // timezone intentionally follows the loaded workspace
+  }, [anchor, navigationContext, refresh, view, workspaceId]); // timezone intentionally follows the loaded workspace
 
   useEffect(() => {
     const escape = (event: KeyboardEvent) => {

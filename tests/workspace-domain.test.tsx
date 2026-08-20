@@ -169,7 +169,7 @@ describe("Workspace screen", () => {
     await controller.retry();
 
     expect(loadWorkspaceOverview).not.toHaveBeenCalled();
-    expect(controller.getSnapshot()).toEqual({ status: "idle", value: null, error: null, refreshing: false });
+    expect(controller.getSnapshot()).toEqual({ status: "idle", value: null, error: null, refreshing: false, lastSuccessfulRefreshAt: null });
   });
 
   test("keeps ready content visible during refresh", async () => {
@@ -192,6 +192,34 @@ describe("Workspace screen", () => {
     expect(controller.getSnapshot()).toMatchObject({ status: "ready", refreshing: false });
   });
 
+  test("timestamps only successful refreshes and retains freshness after a failed refresh", async () => {
+    let now = 1_000;
+    const api = { loadWorkspaceOverview: vi.fn()
+      .mockResolvedValueOnce(populatedOverview)
+      .mockRejectedValueOnce(new Error("Refresh unavailable"))
+      .mockResolvedValueOnce(populatedOverview) };
+    const controller = createWorkspaceScreenController(api, "workspace-1", 0, () => now);
+
+    await controller.start();
+    expect(controller.getSnapshot().lastSuccessfulRefreshAt).toBe(1_000);
+
+    now = 2_000;
+    await controller.retry();
+    expect(controller.getSnapshot()).toMatchObject({
+      status: "ready",
+      error: "Refresh unavailable",
+      lastSuccessfulRefreshAt: 1_000,
+    });
+
+    now = 3_000;
+    await controller.retry();
+    expect(controller.getSnapshot()).toMatchObject({
+      status: "ready",
+      error: null,
+      lastSuccessfulRefreshAt: 3_000,
+    });
+  });
+
   test("keeps ready content and reports a refresh error locally", async () => {
     const api = { loadWorkspaceOverview: vi.fn()
       .mockResolvedValueOnce(populatedOverview)
@@ -206,6 +234,7 @@ describe("Workspace screen", () => {
       value: populatedOverview,
       error: "Refresh unavailable",
       refreshing: false,
+      lastSuccessfulRefreshAt: expect.any(Number),
     });
   });
 

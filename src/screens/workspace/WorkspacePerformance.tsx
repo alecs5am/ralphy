@@ -1,6 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { CalendarDays, Settings, X } from "lucide-react";
 import { useState } from "react";
+import type { WorkspaceCalendarNavigationContext } from "../../state/workbench";
 import type {
   AccountPresentation,
   Availability,
@@ -30,7 +31,8 @@ function watchTime(value: number | null): string {
   return minutes < 60 ? `${minutes}m` : `${numberFormat.format(minutes / 60)}h`;
 }
 
-function handle(value: string): string {
+function handle(value: string | null): string {
+  if (!value) return "Handle unavailable";
   return value.startsWith("@") ? value : `@${value}`;
 }
 
@@ -129,7 +131,7 @@ export function AccountPortfolio({
       <div className="account-portfolio" aria-label="Account portfolio">
         {accounts.map((account) => <button className="account-card" type="button" key={account.id} onClick={() => onSelect(account)}>
           <span className="account-card-heading"><strong>{account.platform}</strong><span className={`account-health${account.relinkRequired || !account.credentialConfigured ? " is-warning" : ""}`}>{health(account)}</span></span>
-          <b>{handle(account.handle)}</b>
+          <b>{handle(account.username)}</b>
           {account.displayName && <small>{account.displayName}</small>}
           <span className="account-card-facts">
             <span>{publicationCount(account.publicationCount)}</span>
@@ -156,7 +158,7 @@ export function AccountDetailDialog({
 }: {
   account: AccountPresentation | null;
   onOpenChange(open: boolean): void;
-  onOpenCalendar(): void;
+  onOpenCalendar(context: WorkspaceCalendarNavigationContext): void;
 }) {
   return <Dialog.Root open={account !== null} onOpenChange={onOpenChange}>
     {account && <Dialog.Portal forceMount container={typeof document === "undefined" ? undefined : document.body}>
@@ -164,7 +166,7 @@ export function AccountDetailDialog({
       <Dialog.Content forceMount className="account-detail-dialog">
         <header className="account-detail-header">
           <span>
-            <Dialog.Title>{handle(account.handle)}</Dialog.Title>
+            <Dialog.Title>{account.username ? handle(account.username) : account.displayName ?? `${account.platform} account`}</Dialog.Title>
             <Dialog.Description>{account.platform} account · {health(account)}</Dialog.Description>
           </span>
           <Dialog.Close asChild><button type="button" aria-label="Close account details"><X aria-hidden="true" /></button></Dialog.Close>
@@ -177,6 +179,7 @@ export function AccountDetailDialog({
           <section className="account-detail-section">
             <h3>Health</h3>
             <dl className="account-health-list">
+              <div><dt>Handle</dt><dd>{handle(account.username)}</dd></div>
               <div><dt>Link status</dt><dd>{health(account)}</dd></div>
               <div><dt>Credentials</dt><dd>{account.credentialConfigured ? "Configured" : "Not configured"}</dd></div>
               <div><dt>Publications</dt><dd>{publicationCount(account.publicationCount)}</dd></div>
@@ -190,7 +193,11 @@ export function AccountDetailDialog({
         </div>
         <footer className="account-detail-footer">
           <span>
-            <button type="button" className="command-button" onClick={onOpenCalendar}><CalendarDays aria-hidden="true" />Open Calendar</button>
+            <button type="button" className="command-button" onClick={() => onOpenCalendar({
+              label: account.displayName ?? handle(account.username),
+              accountId: account.id,
+              accountLabel: account.username ? handle(account.username) : account.displayName ?? "Handle unavailable",
+            })}><CalendarDays aria-hidden="true" />Open Calendar</button>
             <small>Opens the workspace Calendar; filtering by account is not available yet.</small>
           </span>
           <span>
@@ -208,7 +215,7 @@ export function WorkspacePerformance({
   onOpenCalendar,
 }: {
   value: Pick<WorkspaceOverviewPresentation, "momentum" | "accounts">;
-  onOpenCalendar(): void;
+  onOpenCalendar(context: WorkspaceCalendarNavigationContext): void;
 }) {
   const [selectedAccount, setSelectedAccount] = useState<AccountPresentation | null>(null);
   return <>

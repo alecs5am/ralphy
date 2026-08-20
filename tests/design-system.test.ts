@@ -260,7 +260,7 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
               const screen = \${JSON.stringify(screen)};
               const root = document.getElementById("root");
               const selectors = screen === "workspace"
-                ? [".main-region", ".screen-header", ".workspace-overview-meta", ".workspace-overview-scroll", ".workspace-overview-section", ".workspace-content-plan", ".workspace-plan-events", ".workspace-unit-outcomes", ".workspace-outcome-groups"]
+                ? [".main-region", ".screen-header", ".workspace-overview-meta", ".workspace-overview-scroll", ".workspace-overview-section", ".workspace-content-plan", ".workspace-plan-days", ".workspace-plan-events", ".workspace-unit-outcomes", ".workspace-outcome-groups", ".workspace-operations-grid", ".workspace-operations-panel"]
                 : [".main-region", ...({ documents: [".project-header", ".project-controls", ".project-domain-body", ".mode-segments", ".documents-workbench", ".documents-master", ".documents-detail"], media: [".project-header", ".project-controls", ".project-domain-body", ".mode-segments", ".media-panel", ".media-domain-toolbar", ".project-media-grid", ".asset-grid-scroll"], units: [".project-header", ".project-controls", ".project-domain-body", ".mode-segments", ".units-workbench", ".units-grid-scroll", ".units-grid", ".unit-card"], activity: [".project-header", ".project-controls", ".project-domain-body", ".mode-segments", ".activity-scroll"], memory: [".memory-filters", ".memory-rulebook", ".memory-rule"] })[screen]];
               const overflows = [];
               for (const selector of selectors) for (const element of root.querySelectorAll(selector)) {
