@@ -118,7 +118,18 @@ export function MarketplaceScreenView({
   const focusId = location.focusId ?? "marketplace-heading";
   const focusRouteKey = JSON.stringify(location.route);
   const route = browseRoute(location.route);
-  const selectedCategory = location.route.kind === "category" ? location.route.category : null;
+  const detailItemId = location.route.kind === "detail" ? location.route.itemId : null;
+  const detailReference = detailItemId === null ? null : modelReference(detailItemId);
+  const publicReference = detailItemId === null ? null : publicItemReference(detailItemId);
+  const selectedCategory = location.route.kind === "category" || location.route.kind === "unavailable-detail"
+    ? location.route.category
+    : detailReference
+      ? "models"
+      : publicReference?.category === "template"
+        ? "templates"
+        : publicReference?.category === "recipe"
+          ? "recipes"
+          : null;
   const itemOrigin = focusId.startsWith("marketplace-item-");
   const originItems = snapshot.status === "ready" && route?.kind === "results"
     ? snapshot.items
@@ -247,9 +258,6 @@ export function MarketplaceScreenView({
     }
     onRememberLocation({ query });
   };
-  const detailReference = location.route.kind === "detail" ? modelReference(location.route.itemId) : null;
-  const detailItemId = location.route.kind === "detail" ? location.route.itemId : null;
-  const publicReference = detailItemId === null ? null : publicItemReference(detailItemId);
   const publicDto = publicReference !== null && snapshot.status === "ready"
     ? snapshot.publicSource?.items.find(({ category, id }) => category === publicReference.category && id === publicReference.id)
     : undefined;

@@ -363,7 +363,11 @@
 }
 
 @container main-region (max-width: 760px) {
-  .marketplace-model-detail-layout,
+  .marketplace-model-hero { grid-template-columns: minmax(0, 1fr); }
+  .marketplace-model-actions { grid-column: 1; grid-row: auto; }
+  .marketplace-model-detail-layout { grid-template-columns: minmax(0, 1fr); }
+  .marketplace-public-hero { grid-template-columns: minmax(0, 1fr); }
+  .marketplace-public-actions { grid-column: 1; grid-row: auto; }
   .marketplace-public-detail-layout { grid-template-columns: minmax(0, 1fr); }
 }
 
@@ -376,12 +380,6 @@
   .marketplace-result { grid-template-columns: 126px minmax(220px, 1fr) auto; }
   .marketplace-result-preview { width: 126px; }
   .marketplace-result-evidence { display: none; }
-  .marketplace-model-hero { grid-template-columns: minmax(0, 1fr); }
-  .marketplace-model-actions { grid-column: 1; grid-row: auto; }
-  .marketplace-model-detail-layout { grid-template-columns: minmax(0, 1fr); }
-  .marketplace-public-hero { grid-template-columns: minmax(0, 1fr); }
-  .marketplace-public-actions { grid-column: 1; grid-row: auto; }
-  .marketplace-public-detail-layout { grid-template-columns: minmax(0, 1fr); }
   .marketplace-review-fields { grid-template-columns: minmax(0, 1fr); }
   .marketplace-downloads li { grid-template-columns: auto minmax(0, 1fr); }
   .marketplace-downloads li progress,

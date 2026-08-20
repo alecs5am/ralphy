@@ -689,9 +689,21 @@ const renderer = readdirSync(join(process.cwd(), "src"), {
 
 describe("design system contract", () => {
   test("gives Marketplace container-responsive detail, sidebar focus, and complete reduced motion rules", () => {
+    const containerRules = marketplaceStyles.slice(
+      marketplaceStyles.indexOf("@container main-region (max-width: 760px)"),
+      marketplaceStyles.indexOf("@media (max-width: 1160px)"),
+    );
+    const viewportRules = marketplaceStyles.slice(
+      marketplaceStyles.indexOf("@media (max-width: 1160px)"),
+      marketplaceStyles.indexOf("@media (prefers-reduced-motion: reduce)"),
+    );
     expect(marketplaceStyles).toMatch(/\.marketplace-screen\s*\{[^}]*container-name:\s*main-region[^}]*container-type:\s*inline-size/s);
     expect(marketplaceStyles).toMatch(/#app-mode-marketplace:focus-visible,[\s\S]*Marketplace categories[\s\S]*outline:\s*2px solid var\(--fg\)/);
-    expect(marketplaceStyles).toMatch(/@container main-region \(max-width:\s*760px\)[\s\S]*\.marketplace-model-detail-layout,[\s\S]*\.marketplace-public-detail-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+    expect(containerRules).toMatch(/\.marketplace-model-detail-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+    expect(containerRules).toMatch(/\.marketplace-public-detail-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+    expect(containerRules).toMatch(/\.marketplace-model-hero[\s\S]*\.marketplace-model-actions[\s\S]*\.marketplace-model-detail-layout/);
+    expect(containerRules).toMatch(/\.marketplace-public-hero[\s\S]*\.marketplace-public-actions[\s\S]*\.marketplace-public-detail-layout/);
+    expect(viewportRules).not.toMatch(/\.marketplace-(?:model|public)-(?:hero|actions|detail-layout)/);
     expect(marketplaceStyles).toMatch(/@media \(prefers-reduced-motion:\s*reduce\)[\s\S]*animation-duration:\s*0s !important[\s\S]*transition-duration:\s*0s !important/);
   });
 

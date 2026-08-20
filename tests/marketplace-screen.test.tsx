@@ -407,6 +407,30 @@ describe("Marketplace browse surfaces", () => {
 });
 
 describe("Marketplace header and navigation composition", () => {
+  test("keeps the narrow category trigger aligned with detail route identity", async () => {
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    const routes = [
+      [{ kind: "detail", itemId: modelPresentation.key }, "Models"],
+      [{ kind: "detail", itemId: templatePresentation.key }, "Templates"],
+      [{ kind: "detail", itemId: recipePresentation.key }, "Recipes"],
+      [{ kind: "unavailable-detail", category: "prompts" }, "Prompts"],
+      [{ kind: "unavailable-detail", category: "components" }, "Components & Effects"],
+      [{ kind: "unavailable-detail", category: "skills" }, "Skills"],
+      [{ kind: "collection" }, "All categories"],
+    ] satisfies Array<[MarketplaceLocation["route"], string]>;
+    try {
+      for (const [route, label] of routes) {
+        const location: MarketplaceLocation = { ...resultsLocation, route, selectedItemId: route.kind === "detail" ? route.itemId : null };
+        await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={false} snapshot={readySnapshot()} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+        expect(host.container.querySelector(".marketplace-header-category-menu .select-menu-value")?.textContent).toBe(label);
+      }
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
   test("keeps search, filters, sort, and active chips visible", () => {
     const query = {
       ...defaultQuery,

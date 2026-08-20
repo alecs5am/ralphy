@@ -18,7 +18,13 @@ type GeometryResult = {
   sidebarVisible: string | null;
   categoryMenu: boolean;
   categoryMenuDisplay: string | null;
+  categoryMenuValue: string | null;
   chatWidth: number | null;
+  containerWidth: number | null;
+  containerType: string | null;
+  containerName: string | null;
+  detailGrid: string | null;
+  detailColumns: number | null;
   bodyOverflows: boolean;
   pageScrollOwners: string[];
   workflowScrollOwners: string[];
@@ -48,6 +54,11 @@ const layouts = [
   { name: "narrow", width: 1280, height: 800, sidebar: true, chat: false },
   { name: "wide-chat", width: 1440, height: 900, sidebar: true, chat: true },
   { name: "narrow-chat", width: 1280, height: 800, sidebar: true, chat: true },
+] as const;
+
+const detailLayouts = [
+  { name: "detail-container-wide", width: 1160, height: 800, sidebar: true, chat: false },
+  { name: "detail-container-narrow-chat", width: 1080, height: 800, sidebar: true, chat: true },
 ] as const;
 
 async function marketplaceGeometry(): Promise<GeometrySmoke> {
@@ -157,7 +168,9 @@ async function marketplaceGeometry(): Promise<GeometrySmoke> {
           }
           throw new Error("Marketplace viewport did not settle at " + width + "x" + height);
         };
-        const combinations = states.flatMap((state) => layouts.map((layout) => ({ state, ...layout }))).concat([{ state: "discover", name: "wide-manual-hidden", width: 1440, height: 900, sidebar: false, chat: false }]);
+        const combinations = states.flatMap((state) => layouts.map((layout) => ({ state, ...layout })))
+          .concat([{ state: "discover", name: "wide-manual-hidden", width: 1440, height: 900, sidebar: false, chat: false }])
+          .concat(["model-detail","template-detail","recipe-detail"].flatMap((state) => ${JSON.stringify(detailLayouts)}.map((layout) => ({ state, ...layout }))));
         for (const value of combinations) {
           win.setContentSize(value.width, value.height);
           await waitForSize(value.width, value.height);
@@ -190,8 +203,9 @@ async function marketplaceGeometry(): Promise<GeometrySmoke> {
             const actionFits=actions.every(e=>{const r=e.getBoundingClientRect();return r.left>=boundary.left-1&&r.right<=boundary.right+1&&r.top>=boundary.top-1&&r.bottom<=boundary.bottom+1;});
             const focus=focusSelectors.map(selector=>{const element=document.querySelector(selector),style=element?getComputedStyle(element):null;return{selector,width:style?parseFloat(style.outlineWidth):0,style:style?.outlineStyle??"missing"};});
             const motion=[".marketplace-category-card",".marketplace-result",".marketplace-loading i"].flatMap(selector=>{const element=document.querySelector(selector);if(!element)return[];const style=getComputedStyle(element);return[{selector,transition:style.transitionDuration,animation:style.animationName}];});
-            const categoryMenu=document.querySelector(".marketplace-header-category-menu");
-            return{state,layout,width:innerWidth,height:innerHeight,overflows,sidebarCount:document.querySelectorAll(".context-sidebar").length,sidebarWidth:sidebar?.getBoundingClientRect().width??null,sidebarDisplay:sidebar?getComputedStyle(sidebar).display:null,sidebarVisible:screen?.dataset.sidebarVisible??null,categoryMenu:!!categoryMenu,categoryMenuDisplay:categoryMenu?getComputedStyle(categoryMenu).display:null,chatWidth:chat?.getBoundingClientRect().width??null,bodyOverflows:document.documentElement.scrollWidth>innerWidth+1||document.body.scrollWidth>innerWidth+1,pageScrollOwners:scrollOwners,workflowScrollOwners:workflowOwners,primaryActionsFit:actionFits,autoplayCount:document.querySelectorAll(".workbench audio[autoplay],.workbench video[autoplay],.marketplace-workflow-window audio[autoplay],.marketplace-workflow-window video[autoplay]").length,untrustedCount:document.querySelectorAll(".workbench script,.workbench iframe,.workbench object,.workbench embed,.marketplace-workflow-window script,.marketplace-workflow-window iframe,.marketplace-workflow-window object,.marketplace-workflow-window embed").length,lists:document.querySelectorAll(".marketplace-screen [role=list]").length,progress:document.querySelectorAll(".marketplace-screen progress").length,dialogs:document.querySelectorAll(".marketplace-workflow-window[role=dialog],.marketplace-workflow-window[aria-modal=true]").length,categoryLabels:[...document.querySelectorAll(".marketplace-result-category")].filter(e=>e.textContent.trim()).length,statusLabels:[...document.querySelectorAll(".marketplace-screen [role=status],.marketplace-screen [role=alert]")].filter(e=>e.textContent.trim()).length,trustLabels:[...document.querySelectorAll(".marketplace-detail-route h3,.marketplace-detail-route dt")].filter(e=>/Compatibility|License|Publisher identity|Content audit|provenance/i.test(e.textContent)).length,focus,motion};
+            const categoryMenu=document.querySelector(".marketplace-header-category-menu"),detailLayout=document.querySelector(".marketplace-model-detail-layout,.marketplace-public-detail-layout");
+            const containerStyle=screen?getComputedStyle(screen):null,detailGrid=detailLayout?getComputedStyle(detailLayout).gridTemplateColumns:null;
+            return{state,layout,width:innerWidth,height:innerHeight,overflows,sidebarCount:document.querySelectorAll(".context-sidebar").length,sidebarWidth:sidebar?.getBoundingClientRect().width??null,sidebarDisplay:sidebar?getComputedStyle(sidebar).display:null,sidebarVisible:screen?.dataset.sidebarVisible??null,categoryMenu:!!categoryMenu,categoryMenuDisplay:categoryMenu?getComputedStyle(categoryMenu).display:null,categoryMenuValue:categoryMenu?.querySelector(".select-menu-value")?.textContent.trim()??null,chatWidth:chat?.getBoundingClientRect().width??null,containerWidth:screen?.getBoundingClientRect().width??null,containerType:containerStyle?.containerType??null,containerName:containerStyle?.containerName??null,detailGrid,detailColumns:detailGrid?detailGrid.trim().split(" ").filter(Boolean).length:null,bodyOverflows:document.documentElement.scrollWidth>innerWidth+1||document.body.scrollWidth>innerWidth+1,pageScrollOwners:scrollOwners,workflowScrollOwners:workflowOwners,primaryActionsFit:actionFits,autoplayCount:document.querySelectorAll(".workbench audio[autoplay],.workbench video[autoplay],.marketplace-workflow-window audio[autoplay],.marketplace-workflow-window video[autoplay]").length,untrustedCount:document.querySelectorAll(".workbench script,.workbench iframe,.workbench object,.workbench embed,.marketplace-workflow-window script,.marketplace-workflow-window iframe,.marketplace-workflow-window object,.marketplace-workflow-window embed").length,lists:document.querySelectorAll(".marketplace-screen [role=list]").length,progress:document.querySelectorAll(".marketplace-screen progress").length,dialogs:document.querySelectorAll(".marketplace-workflow-window[role=dialog],.marketplace-workflow-window[aria-modal=true]").length,categoryLabels:[...document.querySelectorAll(".marketplace-result-category")].filter(e=>e.textContent.trim()).length,statusLabels:[...document.querySelectorAll(".marketplace-screen [role=status],.marketplace-screen [role=alert]")].filter(e=>e.textContent.trim()).length,trustLabels:[...document.querySelectorAll(".marketplace-detail-route h3,.marketplace-detail-route dt")].filter(e=>/Compatibility|License|Publisher identity|Content audit|provenance/i.test(e.textContent)).length,focus,motion};
           })()\`));
         }
         const myWorkWidths=[];
@@ -228,11 +242,17 @@ const measuredMarketplaceGeometry = () => geometryRun ??= marketplaceGeometry();
 describe("Marketplace production geometry", () => {
   test("fits all operational frames across sidebar, chat, narrow, and manual-hidden layouts", async () => {
     const { results, myWorkWidths } = await measuredMarketplaceGeometry();
-    expect(results).toHaveLength(states.length * layouts.length + 1);
+    expect(results).toHaveLength(states.length * layouts.length + 1 + 3 * detailLayouts.length);
     expect(new Set(results.map(({ state }) => state))).toEqual(new Set(states));
     for (const result of results) {
-      expect(result.width).toBe(result.layout.startsWith("wide") ? 1440 : 1280);
-      expect(result.height).toBe(result.layout.startsWith("wide") ? 900 : 800);
+      const expectedSize = result.layout === "detail-container-wide"
+        ? [1160, 800]
+        : result.layout === "detail-container-narrow-chat"
+          ? [1080, 800]
+          : result.layout.startsWith("wide")
+            ? [1440, 900]
+            : [1280, 800];
+      expect([result.width, result.height]).toEqual(expectedSize);
       expect(result.overflows, `${result.state}/${result.layout}`).toEqual([]);
       expect(result.primaryActionsFit, `${result.state}/${result.layout}`).toBe(true);
       expect(result.autoplayCount, `${result.state}/${result.layout}`).toBe(0);
@@ -271,6 +291,12 @@ describe("Marketplace production geometry", () => {
     expect(results.find(({ state, layout }) => state === "model-detail" && layout === "wide")!.trustLabels).toBeGreaterThanOrEqual(2);
     expect(results.find(({ state, layout }) => state === "template-detail" && layout === "wide")!.trustLabels).toBeGreaterThanOrEqual(2);
     expect(results.find(({ state, layout }) => state === "offline" && layout === "wide")!.statusLabels).toBeGreaterThan(0);
+    for (const [state, value] of [["model-detail", "Models"], ["template-detail", "Templates"], ["recipe-detail", "Recipes"]]) {
+      expect(results.find((result) => result.state === state && result.layout === "narrow")!.categoryMenuValue).toBe(value);
+      const wideDetail = results.find((result) => result.state === state && result.layout === "detail-container-wide")!;
+      expect(wideDetail.detailColumns, `${state} at ${wideDetail.containerWidth}px ${wideDetail.containerName}/${wideDetail.containerType}: ${wideDetail.detailGrid}`).toBe(2);
+      expect(results.find((result) => result.state === state && result.layout === "detail-container-narrow-chat")!.detailColumns).toBe(1);
+    }
     const manual = results.find(({ layout }) => layout === "wide-manual-hidden")!;
     expect(manual.sidebarCount).toBe(0);
     expect(manual.sidebarVisible).toBe("false");
