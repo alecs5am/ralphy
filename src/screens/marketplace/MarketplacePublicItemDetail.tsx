@@ -20,10 +20,18 @@ function available(value: Availability<string>): string {
 }
 
 function publicMediaKind(value: string): "image" | "video" | null {
+  if (value.length === 0 || value.length > 2_048 || value.includes("\\")) return null;
+  const rawPath = value.match(/^https:\/\/[^/?#]+([^?#]*)$/)?.[1];
+  if (rawPath === undefined
+    || rawPath.includes("//")
+    || rawPath.split("/").some((part) => part === "." || part === "..")
+    || /%(?:25)*(?:00|2e|2f|5c)/i.test(rawPath)) return null;
   try {
     const url = new URL(value);
+    decodeURIComponent(url.pathname);
     if (url.origin !== "https://ralphy.b-cdn.net"
       || url.username !== "" || url.password !== "" || url.search !== "" || url.hash !== ""
+      || (url.port !== "" && url.port !== "443")
       || (!url.pathname.startsWith("/blocks/") && !url.pathname.startsWith("/units/"))) return null;
     if (/\.(?:avif|gif|jpe?g|png|webp)$/i.test(url.pathname)) return "image";
     if (/\.(?:mp4|webm)$/i.test(url.pathname)) return "video";
@@ -33,8 +41,8 @@ function publicMediaKind(value: string): "image" | "video" | null {
   return null;
 }
 
-function allowRecipeMarkdownUrl(url: URL, kind: "link" | "image"): boolean {
-  return kind === "image" && publicMediaKind(url.toString()) === "image";
+function allowRecipeMarkdownUrl(_url: URL, kind: "link" | "image", raw: string): boolean {
+  return kind === "image" && publicMediaKind(raw) === "image";
 }
 
 function PublicMedia({ url, label, posterUrl, className }: { url: string; label: string; posterUrl?: string | null; className?: string }) {

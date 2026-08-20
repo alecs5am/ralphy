@@ -5,7 +5,7 @@ import { marked, type Token, type Tokens } from "marked";
 interface MarkdownViewProps {
   markdown: string;
   baseUrl?: string;
-  allowUrl?(url: URL, kind: "link" | "image"): boolean;
+  allowUrl?(url: URL, kind: "link" | "image", raw: string): boolean;
 }
 
 interface HtmlNode {
@@ -39,7 +39,7 @@ function safeUrl(value: string | undefined, baseUrl: string | undefined, kind: "
   if (!value) return null;
   try {
     const url = new URL(value, baseUrl);
-    return (url.protocol === "https:" || url.protocol === "http:") && (!allowUrl || allowUrl(url, kind)) ? url.toString() : null;
+    return (url.protocol === "https:" || url.protocol === "http:") && (!allowUrl || allowUrl(url, kind, value)) ? url.toString() : null;
   } catch {
     return null;
   }

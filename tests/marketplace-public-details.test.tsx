@@ -174,6 +174,40 @@ describe("Marketplace public item details", () => {
     expect(unsupportedType).not.toContain("vector.svg");
   });
 
+  test("keeps every noncanonical Task 2 media path inert before CSP can load it", () => {
+    const invalid = [
+      "https://ralphy.b-cdn.net//blocks/a.png",
+      "https://ralphy.b-cdn.net/blocks//a.png",
+      "https://ralphy.b-cdn.net/blocks/../units/a.png",
+      "https://ralphy.b-cdn.net/blocks/%2e%2e/units/a.png",
+      "https://ralphy.b-cdn.net/blocks/%252e%252e/units/a.mp4",
+      "https://ralphy.b-cdn.net/blocks/%2Fetc/passwd.png",
+      "https://ralphy.b-cdn.net/blocks/%252fetc/passwd.png",
+      "https://ralphy.b-cdn.net/blocks/%5cetc/passwd.png",
+      "https://ralphy.b-cdn.net/blocks/%255cetc/passwd.png",
+      "https://ralphy.b-cdn.net/blocks/%00.png",
+      "https://ralphy.b-cdn.net/blocks/%2500.png",
+      "https://ralphy.b-cdn.net/blocks/%zz.png",
+      "https://ralphy.b-cdn.net/blocks\\a.png",
+      "https://user:pass@ralphy.b-cdn.net/blocks/a.png",
+      "https://ralphy.b-cdn.net:444/blocks/a.png",
+      "https://ralphy.b-cdn.net/blocks/a.png?q=secret",
+      "https://ralphy.b-cdn.net/blocks/a.png#secret",
+    ];
+    for (const url of invalid) {
+      const item = { ...recipe, recipe: { ...recipe.recipe, recipe: {
+        ...recipe.recipe.recipe!,
+        body: `[bad link](${url})\n\n![bad image](${url})`,
+        demo: { kind: "media" as const, storageUrl: url, beforeUrl: null, afterUrl: null, posterUrl: null },
+      } } };
+      const markup = renderToStaticMarkup(<MarketplacePublicItemDetail item={item} onBack={() => undefined} />);
+      expect(markup, url).not.toContain("<a ");
+      expect(markup, url).not.toContain("<img ");
+      expect(markup, url).not.toContain("<video ");
+      expect(markup, url).not.toContain(url);
+    }
+  });
+
   test("shows a typed media failure and resets it when the URL changes", async () => {
     const host = createReactHost();
     const root = createRoot(host.container as unknown as Element);
