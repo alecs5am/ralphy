@@ -1,5 +1,5 @@
 import { AlertCircle, Plus, Upload } from "lucide-react";
-import { useEffect, useState, useSyncExternalStore, type KeyboardEvent, type MouseEvent } from "react";
+import { useEffect, useState, useSyncExternalStore, type MouseEvent } from "react";
 import type { MediaWorkbenchBridge } from "../../electron/media/types";
 import { bridge } from "../lib/ipc";
 import {
@@ -43,7 +43,7 @@ function bytesLabel(value: Availability<number>): string {
 }
 
 function artifactFacts(artifact: SharedArtifactPresentation): string {
-  return [artifact.kind, artifact.mime, artifact.bytes === null ? "SIZE UNAVAILABLE" : formatBytes(artifact.bytes), `${artifact.revisionCount} REV`]
+  return [artifact.kind, artifact.mime, artifact.bytes === null ? "SIZE UNAVAILABLE" : formatBytes(artifact.bytes), `REVISION COUNT ${artifact.revisionCount}`]
     .filter(Boolean).join(" · ");
 }
 
@@ -57,6 +57,40 @@ function interactiveChild(event: MouseEvent<HTMLElement>): boolean {
   return event.target !== event.currentTarget && !!(event.target as HTMLElement).closest("button,input,select,a,[role=slider]");
 }
 
+function ArtifactIdentity({ artifact, audit = false, onSelect, onViewer }: {
+  artifact: SharedArtifactPresentation;
+  audit?: boolean;
+  onSelect(): void;
+  onViewer(): void;
+}) {
+  const instructionsId = `shared-artifact-${artifact.id.replace(/[^a-zA-Z0-9_-]/g, "-")}-${audit ? "audit" : "grid"}-instructions`;
+  const title = artifact.title.status === "ready" || artifact.title.status === "partial"
+    ? artifact.title.value
+    : "Title unavailable — Core does not return artifact titles";
+  const reason = artifact.title.status === "ready" ? "Title returned by Core." : artifact.title.reason;
+  return <>
+    <button
+      className={`shared-artifact-identity${audit ? " is-audit" : ""}`}
+      type="button"
+      aria-label={`Select ${artifact.slug} identity and open inspector`}
+      aria-describedby={instructionsId}
+      title={reason}
+      onClick={(event) => { event.stopPropagation(); onSelect(); }}
+      onDoubleClick={(event) => { event.preventDefault(); event.stopPropagation(); onViewer(); }}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        event.stopPropagation();
+        onViewer();
+      }}
+    >
+      {!audit && <span className="shared-canonical-dot" title={availabilityReason(artifact.canonicalStatus)} aria-hidden="true" />}
+      <span><strong>{title}</strong><small>SLUG · {artifact.slug}</small></span>
+    </button>
+    <span className="shared-visually-hidden" id={instructionsId}>Click or press Space to select this slug identity and open the inspector. Press Enter or double-click to open the viewer.</span>
+  </>;
+}
+
 function SharedArtifactCard({ artifact, selected, workspaceId, rootEpoch, resolvePreview, onSelect, onViewer }: {
   artifact: SharedArtifactPresentation;
   selected: boolean;
@@ -66,19 +100,8 @@ function SharedArtifactCard({ artifact, selected, workspaceId, rootEpoch, resolv
   onSelect(): void;
   onViewer(): void;
 }) {
-  const openOnKey = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.target !== event.currentTarget) return;
-    if (event.key === "Enter") { event.preventDefault(); onViewer(); }
-    if (event.key === " ") { event.preventDefault(); onSelect(); }
-  };
   return <article
     className={`shared-artifact-card${selected ? " is-selected" : ""}`}
-    role="button"
-    tabIndex={0}
-    aria-label={`Open inspector for ${artifact.slug}`}
-    onClick={(event) => { if (!interactiveChild(event)) onSelect(); }}
-    onDoubleClick={(event) => { if (!interactiveChild(event)) onViewer(); }}
-    onKeyDown={openOnKey}
   >
     <div className="shared-artifact-frame">
       <SharedArtifactPreview artifact={artifact} workspaceId={workspaceId} rootEpoch={rootEpoch} resolvePreview={resolvePreview} />
@@ -88,7 +111,7 @@ function SharedArtifactCard({ artifact, selected, workspaceId, rootEpoch, resolv
       </div>
       <span className="shared-artifact-format">{artifact.mime?.split("/").at(-1)?.toLocaleUpperCase() ?? artifact.kind.toLocaleUpperCase()}</span>
     </div>
-    <div className="shared-artifact-caption"><span className="shared-canonical-dot" title={availabilityReason(artifact.canonicalStatus)} aria-hidden="true" /><strong>{artifact.slug}</strong></div>
+    <ArtifactIdentity artifact={artifact} onSelect={onSelect} onViewer={onViewer} />
     <small>{artifactFacts(artifact)}</small>
     <span className="shared-artifact-referenced"><b>Referenced as</b> {referencedAs(artifact)}</span>
   </article>;
@@ -107,28 +130,23 @@ function SharedLibraryAuditList({ artifacts, selectedId, selectedRows, workspace
   onSelect(artifact: SharedArtifactPresentation): void;
   onViewer(artifact: SharedArtifactPresentation): void;
 }) {
-  const columns = ["", "Artifact", "Kind", "Referenced as", "Canonical", "Revision", "Used by", "Rights", "Last used", "Attention"];
+  const columns = ["", "ARTIFACT", "KIND", "REFERENCED AS", "CANONICAL", "REVISION", "REVISION COUNT", "USED BY", "RIGHTS", "LAST USED", "ATTENTION"];
   return <div className="shared-library-audit" role="table" aria-label="Shared Library audit list">
     <div className="shared-library-audit-header" role="row">{columns.map((column, index) => <span role="columnheader" key={`${column}:${index}`}>{column}</span>)}</div>
     {artifacts.map((artifact) => <div
       className={`shared-library-audit-row${selectedId === artifact.id ? " is-selected" : ""}`}
       role="row"
-      tabIndex={0}
       key={artifact.id}
       onClick={(event) => { if (!interactiveChild(event)) onSelect(artifact); }}
       onDoubleClick={(event) => { if (!interactiveChild(event)) onViewer(artifact); }}
-      onKeyDown={(event) => {
-        if (event.target !== event.currentTarget) return;
-        if (event.key === "Enter") { event.preventDefault(); onViewer(artifact); }
-        if (event.key === " ") { event.preventDefault(); onSelect(artifact); }
-      }}
     >
       <span role="cell"><input type="checkbox" aria-label={`Select ${artifact.slug}`} checked={selectedRows.has(artifact.id)} onClick={(event) => event.stopPropagation()} onChange={() => onToggle(artifact.id)} /></span>
-      <span className="shared-library-audit-artifact" role="cell"><i><SharedArtifactPreview artifact={artifact} workspaceId={workspaceId} rootEpoch={rootEpoch} resolvePreview={resolvePreview} list /></i><span><strong>{artifact.slug}</strong><small>{artifact.id}</small></span></span>
+      <span className="shared-library-audit-artifact" role="cell"><i><SharedArtifactPreview artifact={artifact} workspaceId={workspaceId} rootEpoch={rootEpoch} resolvePreview={resolvePreview} list /></i><ArtifactIdentity artifact={artifact} audit onSelect={() => onSelect(artifact)} onViewer={() => onViewer(artifact)} /></span>
       <span role="cell">{artifact.kind}</span>
       <span role="cell" title={referencedAs(artifact)}>{referencedAs(artifact)}</span>
       <span role="cell">{futureCell(availabilityReason(artifact.canonicalStatus))}</span>
-      <span role="cell">{artifact.selectedRevisionId ? `${artifact.revisionCount} rev` : "Unselected"}</span>
+      <span className="shared-library-revision" role="cell"><strong title={artifact.selectedRevisionId ?? "Core returned no selected revision."}>{artifact.selectedRevisionId ?? "Unselected"}</strong><small>{artifact.selectedState ?? "STATE UNAVAILABLE"}</small></span>
+      <span role="cell">{artifact.revisionCount} {artifact.revisionCount === 1 ? "revision" : "revisions"}</span>
       <span role="cell">{futureCell(availabilityReason(artifact.usageBacklinks))}</span>
       <span role="cell">{futureCell(availabilityReason(artifact.rights))}</span>
       <span role="cell">{futureCell(availabilityReason(artifact.usageBacklinks))}</span>
@@ -164,11 +182,11 @@ export function SharedLibraryScreenView({ workspaceId, workspaceName, rootEpoch,
   const inspect = (artifact: SharedArtifactPresentation) => {
     controller.selectArtifact(artifact.id);
     if (onOpenInspector) onOpenInspector(artifact);
-    else setOpenState(`Inspector selected for ${artifact.slug}. Full details arrive in the inspector task.`);
+    else setOpenState(`Inspector selected for slug identity ${artifact.slug}. Full details arrive in the inspector task.`);
   };
   const view = (artifact: SharedArtifactPresentation) => {
     if (onOpenViewer) onOpenViewer(artifact);
-    else setOpenState(`Viewer requested for ${artifact.slug}. Full content viewing arrives in the viewer task.`);
+    else setOpenState(`Viewer requested for slug identity ${artifact.slug}. Full content viewing arrives in the viewer task.`);
   };
 
   if (snapshot.status === "loading") return <main className="main-region shared-library-screen" aria-busy="true"><ScreenHeader workspaceName={workspaceName} onAdd={add} onPromote={promote} /><div className="shared-library-loading" role="status">Loading Shared Library…</div></main>;

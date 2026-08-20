@@ -140,22 +140,28 @@ describe("Shared Library presentation", () => {
     ];
 
     const search = (text: string) => presentSharedLibrary(page(items), null, { ...DEFAULT_SHARED_LIBRARY_QUERY, text }).artifacts.map(({ id }) => id);
-    expect(search("zeta")).toEqual(["artifact-a"]);
-    expect(search("REFERENCE-IMAGE")).toEqual(["artifact-b"]);
-    expect(search("image/png")).toEqual(["artifact-b"]);
-    expect(search("visual anchor")).toEqual(["artifact-b"]);
-    expect(search("not-generation")).toEqual(["artifact-b"]);
-    expect(search("approved")).toEqual([]);
-    expect(search("artifact-b")).toEqual([]);
+    for (const [field, text, expected] of [
+      ["slug", "zeta", ["artifact-a"]],
+      ["kind", "REFERENCE-IMAGE", ["artifact-b"]],
+      ["MIME", "image/png", ["artifact-b"]],
+      ["referencedAs", "visual anchor", ["artifact-b"]],
+      ["provenance", "not-generation", ["artifact-b"]],
+      ["selected state is outside the search contract", "approved", []],
+      ["artifact ID is outside the search contract", "artifact-b", []],
+    ] as const) {
+      expect(search(text), field).toEqual(expected);
+    }
 
     expect(presentSharedLibrary(page(items), null, {
       ...DEFAULT_SHARED_LIBRARY_QUERY, mediaKind: "image", provenance: "not-generation",
     }).artifacts.map(({ id }) => id)).toEqual(["artifact-b"]);
-    expect(presentSharedLibrary(page(items), null, { ...DEFAULT_SHARED_LIBRARY_QUERY, sort: "name" }).artifacts.map(({ id }) => id))
-      .toEqual(["artifact-b", "artifact-c", "artifact-a"]);
-    expect(presentSharedLibrary(page(items), null, { ...DEFAULT_SHARED_LIBRARY_QUERY, sort: "size" }).artifacts.map(({ id }) => id))
-      .toEqual(["artifact-b", "artifact-a", "artifact-c"]);
-    expect(presentSharedLibrary(page(items), null, DEFAULT_SHARED_LIBRARY_QUERY).artifacts.map(({ id }) => id))
-      .toEqual(["artifact-a", "artifact-b", "artifact-c"]);
+    for (const [sort, expected] of [
+      ["recently-selected", ["artifact-a", "artifact-b", "artifact-c"]],
+      ["name", ["artifact-b", "artifact-c", "artifact-a"]],
+      ["size", ["artifact-b", "artifact-a", "artifact-c"]],
+    ] as const) {
+      expect(presentSharedLibrary(page(items), null, { ...DEFAULT_SHARED_LIBRARY_QUERY, sort }).artifacts.map(({ id }) => id), sort)
+        .toEqual(expected);
+    }
   });
 });

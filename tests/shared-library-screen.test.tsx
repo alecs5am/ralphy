@@ -169,11 +169,22 @@ describe("Shared Library screen", () => {
       const audio = mounted.host.container.querySelector("audio");
       expect(audio).not.toBeNull();
       expect(audio!.getAttribute("autoplay")).toBeNull();
+      expect(mounted.host.container.querySelector(".audio-waveform-heading strong")?.textContent).toBe("Slug identity: theme");
       expect(mounted.host.container.textContent).toContain("Preview unavailable");
 
-      const portrait = byAria(mounted.host.container, "article", "Open inspector for portrait")!;
+      const portrait = byAria(mounted.host.container, "button", "Select portrait identity and open inspector")!;
+      expect(portrait).not.toBeNull();
+      expect(portrait.getAttribute("aria-describedby")).not.toBeNull();
+      expect(mounted.host.container.textContent).toContain("Click or press Space to select this slug identity and open the inspector. Press Enter or double-click to open the viewer.");
+      expect(mounted.host.container.textContent).toContain("Title unavailable");
+      expect(mounted.host.container.textContent).toContain("SLUG · portrait");
+      expect(portrait.closest("article")?.getAttribute("role")).toBeNull();
       await act(async () => portrait.dispatchEvent(new Event("click", { bubbles: true })));
       expect(onOpenInspector).toHaveBeenCalledWith(expect.objectContaining({ id: "portrait" }));
+      const space = new Event("keyup", { bubbles: true, cancelable: true });
+      Object.defineProperty(space, "key", { value: " " });
+      await act(async () => portrait.dispatchEvent(space));
+      expect(onOpenInspector).toHaveBeenCalledTimes(2);
       await act(async () => portrait.dispatchEvent(new Event("dblclick", { bubbles: true })));
       const enter = new Event("keydown", { bubbles: true, cancelable: true });
       Object.defineProperty(enter, "key", { value: "Enter" });
@@ -195,10 +206,15 @@ describe("Shared Library screen", () => {
     try {
       await act(async () => byText(mounted.host.container, "List").dispatchEvent(new Event("click", { bubbles: true })));
       const text = mounted.host.container.textContent;
-      for (const column of ["Artifact", "Kind", "Referenced as", "Canonical", "Revision", "Used by", "Rights", "Last used", "Attention"]) {
+      for (const column of ["ARTIFACT", "KIND", "REFERENCED AS", "CANONICAL", "REVISION", "REVISION COUNT", "USED BY", "RIGHTS", "LAST USED", "ATTENTION"]) {
         expect(text).toContain(column);
       }
       expect(mounted.host.container.querySelectorAll(".shared-library-audit-row")).toHaveLength(2);
+      expect(text).toContain("Title unavailable");
+      expect(text).toContain("SLUG · portrait");
+      const firstRow = mounted.host.container.querySelectorAll(".shared-library-audit-row")[0];
+      expect(firstRow.children[5]?.textContent).toBe("revision-portraitapproved");
+      expect(firstRow.children[6]?.textContent).toBe("2 revisions");
       expect(text).toContain("Unavailable");
       expect(text).not.toContain("not used");
 
@@ -211,6 +227,26 @@ describe("Shared Library screen", () => {
         expect(action.getAttribute("title")).toMatch(/Core mutation/i);
       }
       expect(mounted.host.container.textContent).not.toMatch(/replace revision|update all/i);
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
+  test.each([
+    ["image", "image/png", "img"],
+    ["video", "video/mp4", "video"],
+    ["audio", "audio/mpeg", "audio"],
+  ] as const)("falls back when a resolved %s preview emits a real media error", async (mediaKind, mime, tag) => {
+    vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue(page([artifact(`${mediaKind}-asset`, { mediaKind, mime })]));
+    vi.spyOn(bridge, "resolveSharedLibraryPreview").mockResolvedValue({ url: `ralphy-media://asset/${mediaKind}`, sizeBytes: 2_048 });
+    const mounted = await mountScreen();
+    try {
+      const media = mounted.host.container.querySelector(tag);
+      expect(media).not.toBeNull();
+      await act(async () => { media!.dispatchEvent(new Event("error")); await settle(); });
+      expect(mounted.host.container.textContent).toContain("Preview unavailable");
+      expect(mounted.host.container.querySelector(tag)).toBeNull();
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.host.restore();
@@ -238,28 +274,61 @@ describe("Shared Library screen", () => {
     }
   });
 
-  test("removes stale cards, selection, preview URLs, and query state on root or workspace change", async () => {
+  test("removes stale state and preview tokens when only the root changes", async () => {
     const oldPreview = deferred<{ url: string; sizeBytes: number } | null>();
-    vi.spyOn(bridge, "loadSharedLibraryPage").mockImplementation(async (workspaceId) => workspaceId === "workspace-1"
-      ? page([artifact("old-card")])
-      : page([artifact("new-card", { workspaceId: "workspace-2" })]));
-    vi.spyOn(bridge, "resolveSharedLibraryPreview").mockImplementation(async (workspaceId, id) => workspaceId === "workspace-1"
-      ? oldPreview.promise
-      : { url: `ralphy-media://asset/${id}`, sizeBytes: 2_048 });
+    vi.spyOn(bridge, "loadSharedLibraryPage")
+      .mockResolvedValueOnce(page([artifact("old-card")]))
+      .mockResolvedValueOnce(page([artifact("new-card")]));
+    vi.spyOn(bridge, "resolveSharedLibraryPreview")
+      .mockImplementationOnce(() => oldPreview.promise)
+      .mockResolvedValueOnce({ url: "ralphy-media://asset/new-token", sizeBytes: 2_048 });
     const mounted = await mountScreen();
     try {
       const search = byAria(mounted.host.container, "input", "Search Shared Library") as HostNode & { value: string };
       search.value = "old";
       await act(async () => { search.dispatchEvent(new Event("input", { bubbles: true })); await settle(); });
-      await act(async () => byAria(mounted.host.container, "article", "Open inspector for old-card")!.dispatchEvent(new Event("click", { bubbles: true })));
+      await act(async () => byAria(mounted.host.container, "button", "Select old-card identity and open inspector")!.dispatchEvent(new Event("click", { bubbles: true })));
 
       await act(async () => {
-        mounted.root.render(<SharedLibraryScreen workspaceId="workspace-2" workspaceName="Second Studio" rootEpoch={2} />);
+        mounted.root.render(<SharedLibraryScreen workspaceId="workspace-1" workspaceName="Launch Studio" rootEpoch={2} />);
       });
       expect(mounted.host.container.textContent).not.toContain("old-card");
       oldPreview.resolve({ url: "ralphy-media://asset/stale-token", sizeBytes: 2_048 });
       await act(async () => { await settle(); });
       expect(mounted.host.container.textContent).toContain("new-card");
+      expect(mounted.host.container.querySelector('[src="ralphy-media://asset/new-token"]')).not.toBeNull();
+      expect(mounted.host.container.querySelector('[src="ralphy-media://asset/stale-token"]')).toBeNull();
+      expect((byAria(mounted.host.container, "input", "Search Shared Library") as HostNode & { value?: string }).value ?? "").toBe("");
+      expect(mounted.host.container.querySelector(".is-selected")).toBeNull();
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
+  test("removes stale state and preview tokens when only the workspace changes", async () => {
+    const oldPreview = deferred<{ url: string; sizeBytes: number } | null>();
+    vi.spyOn(bridge, "loadSharedLibraryPage").mockImplementation(async (workspaceId) => workspaceId === "workspace-1"
+      ? page([artifact("old-card")])
+      : page([artifact("new-card", { workspaceId: "workspace-2" })]));
+    vi.spyOn(bridge, "resolveSharedLibraryPreview").mockImplementation(async (workspaceId) => workspaceId === "workspace-1"
+      ? oldPreview.promise
+      : { url: "ralphy-media://asset/new-token", sizeBytes: 2_048 });
+    const mounted = await mountScreen();
+    try {
+      const search = byAria(mounted.host.container, "input", "Search Shared Library") as HostNode & { value: string };
+      search.value = "old";
+      await act(async () => { search.dispatchEvent(new Event("input", { bubbles: true })); await settle(); });
+      await act(async () => byAria(mounted.host.container, "button", "Select old-card identity and open inspector")!.dispatchEvent(new Event("click", { bubbles: true })));
+
+      await act(async () => {
+        mounted.root.render(<SharedLibraryScreen workspaceId="workspace-2" workspaceName="Second Studio" rootEpoch={1} />);
+      });
+      expect(mounted.host.container.textContent).not.toContain("old-card");
+      oldPreview.resolve({ url: "ralphy-media://asset/stale-token", sizeBytes: 2_048 });
+      await act(async () => { await settle(); });
+      expect(mounted.host.container.textContent).toContain("new-card");
+      expect(mounted.host.container.querySelector('[src="ralphy-media://asset/new-token"]')).not.toBeNull();
       expect(mounted.host.container.querySelector('[src="ralphy-media://asset/stale-token"]')).toBeNull();
       expect((byAria(mounted.host.container, "input", "Search Shared Library") as HostNode & { value?: string }).value ?? "").toBe("");
       expect(mounted.host.container.querySelector(".is-selected")).toBeNull();

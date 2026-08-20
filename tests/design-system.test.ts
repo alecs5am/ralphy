@@ -12,7 +12,7 @@ import { ProjectScreenView, createProjectScreenController } from "../src/screens
 import { WorkspaceScreenView, createWorkspaceScreenController } from "../src/screens/WorkspaceScreen";
 
 const workspaceOverviewStyles = readFileSync(join(process.cwd(), "src/styles/workspace-overview.css"), "utf8");
-const styles = ["reset.css", "tokens.css", "app.css", "workbench.css"]
+const styles = ["reset.css", "tokens.css", "app.css", "workbench.css", "shared-library.css"]
   .map((file) => readFileSync(join(process.cwd(), "src/styles", file), "utf8"))
   .concat(workspaceOverviewStyles)
   .join("\n");
@@ -22,6 +22,7 @@ const workbenchStyles = readFileSync(
 );
 const tokenStyles = readFileSync(join(process.cwd(), "src/styles/tokens.css"), "utf8");
 const settingsStyles = readFileSync(join(process.cwd(), "src/styles/settings.css"), "utf8");
+const sharedLibraryStyles = readFileSync(join(process.cwd(), "src/styles/shared-library.css"), "utf8");
 
 const project: ProjectSummary = {
   id: "workspace-1/project-1", workspaceId: "workspace-1", projectId: "project-1", name: "Launch",
@@ -421,6 +422,14 @@ describe("design system contract", () => {
     expect(styles).not.toContain("font-weight: 500");
     expect(styles).not.toContain("text-transform: uppercase");
     expect(styles).not.toMatch(/letter-spacing:\s*-/);
+  });
+
+  test("calibrates the Shared Library grid and motion with existing tokens", () => {
+    expect(sharedLibraryStyles).toMatch(/\.shared-library-grid\s*\{[^}]*grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/s);
+    expect(sharedLibraryStyles).not.toContain("auto-fill");
+    for (const columns of [4, 3, 2]) expect(sharedLibraryStyles).toContain(`grid-template-columns: repeat(${columns}, minmax(0, 1fr))`);
+    expect(sharedLibraryStyles).toContain("transition: background var(--dur) var(--ease)");
+    expect(sharedLibraryStyles).toContain("@media (prefers-reduced-motion: reduce)");
   });
 
   test("names the responsive controls container and preserves round status pills", () => {

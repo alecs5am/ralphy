@@ -2,10 +2,10 @@ import { RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 import { useEffect, useRef, useState, type PointerEvent, type WheelEvent } from "react";
 import { clampImageTransform, containedImageSize, scaleFromWheel, zoomAroundPoint, type ImageTransform, type Size } from "../../lib/image-viewport";
 
-interface ImageViewportProps { src: string; name: string; compact?: boolean }
+interface ImageViewportProps { src: string; name: string; compact?: boolean; onError?(): void }
 const RESET: ImageTransform = { scale: 1, x: 0, y: 0 };
 
-export function ImageViewport({ src, name, compact = false }: ImageViewportProps) {
+export function ImageViewport({ src, name, compact = false, onError }: ImageViewportProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ pointerId: number; x: number; y: number; originX: number; originY: number } | null>(null);
   const [naturalSize, setNaturalSize] = useState<Size>({ width: 0, height: 0 });
@@ -73,7 +73,7 @@ export function ImageViewport({ src, name, compact = false }: ImageViewportProps
       }} onPointerUp={finishDrag} onPointerCancel={finishDrag}>
       <img className="viewer-image" src={src} alt={name} draggable={false}
         style={{ width: fittedSize.width || undefined, height: fittedSize.height || undefined, transform: `translate3d(${transform.x}px, ${transform.y}px, 0) scale(${transform.scale})` }}
-        onLoad={(event) => { setNaturalSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight }); setTransform(RESET); }} />
+        onLoad={(event) => { setNaturalSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight }); setTransform(RESET); }} onError={onError} />
       {!compact && <div className="image-zoom-controls">
         <button type="button" aria-label="Zoom out" title="Zoom out" disabled={transform.scale <= 1} onClick={() => setScale(transform.scale / 1.35)}><ZoomOut size={15} /></button>
         <span>{Math.round(transform.scale * 100)}%</span>

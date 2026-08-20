@@ -2,7 +2,7 @@ import { Expand, FastForward, Pause, Play, Rewind, Volume2, VolumeX } from "luci
 import { useEffect, useRef, useState } from "react";
 import { SnappySlider } from "../ui/SnappySlider";
 
-interface VideoPlayerProps { src: string; name: string; compact?: boolean }
+interface VideoPlayerProps { src: string; name: string; compact?: boolean; onError?(): void }
 
 export const compactVideoStartTime = (duration: number, compact: boolean) => compact && duration > 4 ? 4 : 0;
 
@@ -15,7 +15,7 @@ function formatTime(seconds: number): string {
   return hours > 0 ? `${hours}:${minutes.toString().padStart(2, "0")}:${remainder.toString().padStart(2, "0")}` : `${minutes}:${remainder.toString().padStart(2, "0")}`;
 }
 
-export function VideoPlayer({ src, name, compact = false }: VideoPlayerProps) {
+export function VideoPlayer({ src, name, compact = false, onError }: VideoPlayerProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
@@ -34,10 +34,11 @@ export function VideoPlayer({ src, name, compact = false }: VideoPlayerProps) {
     return () => window.cancelAnimationFrame(frame);
   }, [playing]);
 
+  const fail = () => { setError(`“${name}” cannot be played.`); onError?.(); };
   const togglePlayback = () => {
     const video = videoRef.current;
     if (!video) return;
-    if (video.paused) void video.play().catch(() => setError(`“${name}” cannot be played.`));
+    if (video.paused) void video.play().catch(fail);
     else video.pause();
   };
   const enterFullscreen = () => { void rootRef.current?.requestFullscreen().catch(() => setError("Fullscreen is unavailable.")); };
@@ -45,7 +46,7 @@ export function VideoPlayer({ src, name, compact = false }: VideoPlayerProps) {
 
   return <div className={`custom-video-player${compact ? " is-compact" : ""}`} ref={rootRef}>
     <video ref={videoRef} className="viewer-video" src={src} aria-label={name} preload="auto" playsInline onClick={togglePlayback} onDoubleClick={enterFullscreen}
-      onCanPlay={() => setError(null)} onError={() => setError(`“${name}” cannot be played.`)}
+      onCanPlay={() => setError(null)} onError={fail}
       onLoadedMetadata={(event) => { const startTime = compactVideoStartTime(event.currentTarget.duration, compact); event.currentTarget.currentTime = startTime; setDuration(event.currentTarget.duration); setCurrentTime(startTime); setVolume(event.currentTarget.volume); setMuted(event.currentTarget.muted); }}
       onDurationChange={(event) => setDuration(event.currentTarget.duration)} onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
       onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)}

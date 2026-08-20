@@ -1,5 +1,5 @@
 import { FileText, ImageOff } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ProjectPreview } from "../../lib/ipc";
 import { AudioWaveform } from "../../components/media/AudioWaveform";
 import { ImageViewport } from "../../components/media/ImageViewport";
@@ -18,6 +18,7 @@ export function SharedArtifactPreview({ artifact, workspaceId, rootEpoch, resolv
   const [preview, setPreview] = useState<PreviewState>(() => artifact.preview === "no-target"
     ? { status: "unavailable", reason: "No selected preview target was returned by Core." }
     : { status: "loading" });
+  const mediaError = useCallback(() => setPreview({ status: "unavailable", reason: "The resolved preview media could not be decoded or loaded." }), []);
   useEffect(() => {
     let current = true;
     if (artifact.preview === "no-target") {
@@ -37,13 +38,14 @@ export function SharedArtifactPreview({ artifact, workspaceId, rootEpoch, resolv
 
   if (preview.status === "loading") return <span className="shared-artifact-preview-state" role="status">Loading preview…</span>;
   if (preview.status === "unavailable") return <span className="shared-artifact-preview-state" title={preview.reason}><ImageOff aria-hidden="true" /><span>Preview unavailable</span></span>;
+  const identityName = `Slug identity: ${artifact.slug}`;
   if (list) {
-    if (artifact.mediaKind === "image") return <img src={preview.value.url} alt="" />;
-    if (artifact.mediaKind === "video") return <video src={preview.value.url} aria-label={`${artifact.slug} preview`} muted playsInline preload="metadata" />;
+    if (artifact.mediaKind === "image") return <img src={preview.value.url} alt="" onError={mediaError} />;
+    if (artifact.mediaKind === "video") return <video src={preview.value.url} aria-label={`${identityName} preview`} muted playsInline preload="metadata" onError={mediaError} />;
     return <FileText aria-hidden="true" />;
   }
-  if (artifact.mediaKind === "image") return <ImageViewport src={preview.value.url} name={artifact.slug} compact />;
-  if (artifact.mediaKind === "video") return <VideoPlayer src={preview.value.url} name={artifact.slug} compact />;
-  if (artifact.mediaKind === "audio") return <AudioWaveform src={preview.value.url} name={artifact.slug} sizeBytes={preview.value.sizeBytes} compact />;
+  if (artifact.mediaKind === "image") return <ImageViewport src={preview.value.url} name={identityName} compact onError={mediaError} />;
+  if (artifact.mediaKind === "video") return <VideoPlayer src={preview.value.url} name={identityName} compact onError={mediaError} />;
+  if (artifact.mediaKind === "audio") return <AudioWaveform src={preview.value.url} name={identityName} sizeBytes={preview.value.sizeBytes} compact onError={mediaError} />;
   return <span className="shared-artifact-preview-state"><FileText aria-hidden="true" /><span>{artifact.mime ?? artifact.kind}</span></span>;
 }
