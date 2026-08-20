@@ -60,6 +60,8 @@ export type ProjectMediaQuery = {
   provenance?: MediaProvenance;
 };
 export type ProjectMediaAction = "open" | "finder" | "copy";
+export type SharedLibraryQuery = import("../ralphy/shared-library-reader").SharedLibraryQuery;
+export type SharedLibraryAction = import("../ralphy/shared-library-reader").SharedLibraryAction;
 export type ProjectUnitPageRequest =
   | { kind: "revisions"; unitId: string; cursor?: string | null }
   | { kind: "items"; revisionId: string; cursor?: string | null }
@@ -410,6 +412,12 @@ export interface LocalModelReference {
 export interface MediaWorkbenchBridge {
   restoreLibrary(): Promise<LibraryOpenResult | null>;
   loadWorkspaceOverview(workspaceId: string): Promise<import("../ralphy/types").WorkspaceOverviewDto>;
+  loadSharedLibraryPage(workspaceId: string, query?: SharedLibraryQuery): Promise<import("../ralphy/types").Page<import("../ralphy/types").ArtifactMediaCardDto>>;
+  loadSharedLibraryArtifact(workspaceId: string, artifactId: string): Promise<import("../ralphy/types").ArtifactMediaCardDto>;
+  loadSharedLibraryRevisions(workspaceId: string, artifactId: string, after?: string | null): Promise<import("../ralphy/types").Page<import("../ralphy/types").ArtifactRevisionDto>>;
+  selectSharedLibraryRevision(workspaceId: string, artifactId: string, revisionId: string, expectedSelectedRevisionId: string | null): Promise<import("../ralphy/types").ArtifactMediaCardDto>;
+  resolveSharedLibraryPreview(workspaceId: string, artifactId: string): Promise<ProjectPreview | null>;
+  performSharedLibraryAction(workspaceId: string, artifactId: string, action: SharedLibraryAction): Promise<void>;
   loadMemory(workspaceId: string, input?: import("../ralphy/memory-reader").MemoryListInput): Promise<{ items: import("../ralphy/types").MemoryDetailDto[] }>;
   showMemory(workspaceId: string, memoryEntryId: string): Promise<import("../ralphy/types").MemoryDetailDto>;
   mutateMemory(workspaceId: string, input: import("../ralphy/memory-reader").MemoryMutation): Promise<import("../ralphy/types").MemoryDetailDto | void>;
@@ -529,6 +537,12 @@ export const APP_CHANNELS = {
 export const MEDIA_CHANNELS = {
   restoreLibrary: "media:library:restore",
   loadWorkspaceOverview: "workspace:overview",
+  loadSharedLibraryPage: "workspace:shared-library:page",
+  loadSharedLibraryArtifact: "workspace:shared-library:show",
+  loadSharedLibraryRevisions: "workspace:shared-library:revisions",
+  selectSharedLibraryRevision: "workspace:shared-library:select",
+  resolveSharedLibraryPreview: "workspace:shared-library:preview",
+  performSharedLibraryAction: "workspace:shared-library:action",
   loadMemory: "workspace:memory:list",
   showMemory: "workspace:memory:show",
   mutateMemory: "workspace:memory:mutate",

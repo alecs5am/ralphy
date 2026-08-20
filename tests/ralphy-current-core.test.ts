@@ -52,6 +52,36 @@ const currentCoreCapabilities = [
 
 const currentCoreStoreId = "store_0123456789abcdef0123456789abcdef";
 const firstMediaCursor = "c1.WzQsImFydF9wcmpfMSJd";
+const workspaceSharedCard = {
+  ref: { type: "artifact" as const, id: "art_ws_1" },
+  workspaceId: "ws_1",
+  projectId: null,
+  slug: "logo",
+  kind: "image",
+  selectedRevisionId: "arev_ws_1",
+  selectedState: "approved",
+  mime: "image/png",
+  bytes: 12,
+  selectedAt: 4,
+  revisionCount: 1,
+  selectedObjectId: "obj_ws_1",
+  storageClass: "bucket",
+  usageRoles: ["reference"],
+  target: { type: "object" as const, id: "obj_ws_1" },
+  mediaKind: "image" as const,
+  provenance: "not-generation" as const,
+};
+const workspaceSharedRevision = {
+  id: "arev_ws_1",
+  artifactId: "art_ws_1",
+  objectId: "obj_ws_1",
+  revisionNo: 1,
+  parentRevisionId: null,
+  iterationId: null,
+  state: "approved" as const,
+  authoredBySessionId: null,
+  createdAt: 4,
+};
 
 let fixtureDirectory: string;
 let fixtureBin: string;
@@ -87,7 +117,7 @@ const currentCoreFixtures = [
       accounts: { items: [{ id: "acct_1", workspaceId: "ws_1", platform: "tiktok", externalId: "external_1", displayName: "Launch Studio", username: "launch", credentialConfigured: true, credentialSource: "encrypted", relinkRequired: false, rowVersion: 1, createdAt: 2, updatedAt: 3 }], nextCursor: null },
       projects: { items: [{ id: "prj_1", workspaceId: "ws_1", slug: "launch", name: "Launch", state: "active", rowVersion: 1, createdAt: 1, updatedAt: 8 }], nextCursor: null },
       activity: { items: [{ sequence: 7, workspaceId: "ws_1", projectId: null, entityType: "workspace", entityId: "ws_1", action: "updated", createdAt: 7 }, { sequence: 8, workspaceId: "ws_1", projectId: "prj_1", entityType: "project", entityId: "prj_1", action: "updated", createdAt: 8 }], nextCursor: null },
-      sharedMedia: { items: [{ ref: { type: "artifact", id: "art_ws_1" }, workspaceId: "ws_1", projectId: null, slug: "logo", kind: "image", selectedRevisionId: "arev_ws_1", selectedState: "approved", mime: "image/png", bytes: 12, selectedAt: 4, revisionCount: 1, selectedObjectId: "obj_ws_1", storageClass: "bucket", usageRoles: ["reference"], target: { type: "object", id: "obj_ws_1" }, mediaKind: "image", provenance: "not-generation" }], nextCursor: null },
+      sharedMedia: { items: [workspaceSharedCard], nextCursor: null },
       publications: { items: [{ id: "pub_ws_1", unitId: "unit_ws_1", presentationId: "pres_ws_1", platform: "tiktok", socialAccountId: "acct_1", rail: "postiz", state: "published", url: "https://example.test/post/workspace", scheduledAt: null, submittedAt: 6, publishedAt: 7, createdAt: 5, updatedAt: 7 }], nextCursor: null },
       metrics: { publicationCount: 1, views: 100, likes: 10, comments: 2, shares: 1, watchTimeMs: 1000 },
     },
@@ -163,6 +193,31 @@ const currentCoreFixtures = [
     method: "media.list",
     params: { context: { workspaceId: "ws_1", projectId: "prj_1" }, after: firstMediaCursor, limit: 1, filter: "references", types: ["artifact"] },
     result: { items: [{ ref: { type: "artifact", id: "art_prj_2" }, workspaceId: "ws_1", projectId: "prj_1", slug: "reference-2", kind: "image", selectedRevisionId: "arev_prj_2", selectedState: "approved", mime: "image/png", bytes: 13, selectedAt: 5, revisionCount: 1, selectedObjectId: "obj_prj_2", storageClass: "bucket", usageRoles: ["reference"], target: { type: "object", id: "obj_prj_2" }, mediaKind: "image", provenance: "unknown" }], nextCursor: null },
+  },
+  {
+    method: "media.list",
+    params: { context: { workspaceId: "ws_1" }, limit: 50, types: ["artifact"] },
+    result: { items: [workspaceSharedCard], nextCursor: null },
+  },
+  {
+    method: "media.show",
+    params: { context: { workspaceId: "ws_1" }, ref: { type: "artifact", id: "art_ws_1" } },
+    result: workspaceSharedCard,
+  },
+  {
+    method: "media.revisions",
+    params: { context: { workspaceId: "ws_1" }, ref: { type: "artifact", id: "art_ws_1" }, limit: 50 },
+    result: { items: [workspaceSharedRevision], nextCursor: null },
+  },
+  {
+    method: "media.select",
+    params: { context: { workspaceId: "ws_1" }, ref: { type: "artifact", id: "art_ws_1" }, revisionId: "arev_ws_1", expectedSelectedRevisionId: "arev_ws_1" },
+    result: workspaceSharedCard,
+  },
+  {
+    method: "locator.resolve",
+    params: { context: { workspaceId: "ws_1" }, target: { type: "object", id: "obj_ws_1" }, purpose: "preview" },
+    result: { absolutePath: "/fixture-root/buckets/ws_1/shared/objects/obj_ws_1.png", mime: "image/png", bytes: 12 },
   },
   {
     method: "run.objects",
@@ -381,7 +436,9 @@ describe("current Core bridge contract", () => {
     expect.soft(project.compositions.items[0]!.selectedRevisionId).toBe(project.compositions.items[0]!.latestRevisionId);
     expect.soft(project.builds.items[0]!.runId).toBe(project.runs.items[0]!.id);
 
-    const media = fixturesFor("media.list");
+    const media = fixturesFor("media.list").filter((fixture) => (
+      "projectId" in fixture.params.context
+    ));
     const projectMedia = media.flatMap((fixture) => fixture.result.items);
     const workspaceMedia = workspace.sharedMedia.items[0]!;
     const runObject = fixturesFor("run.objects")[0]!.result.items[0]!;
@@ -417,7 +474,9 @@ describe("current Core bridge contract", () => {
     expect(decoded).toEqual([4, "art_prj_1"]);
     expect(`${family}.${Buffer.from(JSON.stringify(decoded)).toString("base64url")}`).toBe(firstMediaCursor);
 
-    const media = fixturesFor("media.list");
+    const media = fixturesFor("media.list").filter((fixture) => (
+      "projectId" in fixture.params.context
+    ));
     expect(media[0]!.result.nextCursor).toBe(firstMediaCursor);
     expect("after" in media[1]!.params && media[1]!.params.after).toBe(media[0]!.result.nextCursor);
   });
@@ -676,6 +735,54 @@ describe("current Core bridge contract", () => {
         revisionId: "arev_prj_1",
         expectedSelectedRevisionId: null,
       })).resolves.toEqual(fixturesFor("media.select")[0]!.result);
+    } finally {
+      await client.close();
+    }
+  });
+
+  test("round-trips the exact workspace-scoped shared Artifact contract", async () => {
+    const client = new RalphyBridgeClient({ bin: fixtureBin, root: "/fixture-root" });
+    await client.start();
+    try {
+      const context = { workspaceId: "ws_1" };
+      const listed = await client.request("media.list", {
+        context, limit: 50, types: ["artifact"],
+      });
+      const shown = await client.request("media.show", {
+        context, ref: { type: "artifact", id: "art_ws_1" },
+      });
+      const revisions = await client.request("media.revisions", {
+        context, ref: { type: "artifact", id: "art_ws_1" }, limit: 50,
+      });
+      const selected = await client.request("media.select", {
+        context,
+        ref: { type: "artifact", id: "art_ws_1" },
+        revisionId: "arev_ws_1",
+        expectedSelectedRevisionId: "arev_ws_1",
+      });
+      const locator = await client.request("locator.resolve", {
+        context, target: { type: "object", id: "obj_ws_1" }, purpose: "preview",
+      });
+
+      expect(listed).toEqual({ items: [workspaceSharedCard], nextCursor: null });
+      expect(shown).toEqual(workspaceSharedCard);
+      expect(selected).toEqual(workspaceSharedCard);
+      expect(revisions).toEqual({ items: [workspaceSharedRevision], nextCursor: null });
+      expect(Object.keys(shown)).toEqual([
+        "ref", "workspaceId", "projectId", "slug", "kind", "selectedRevisionId",
+        "selectedState", "mime", "bytes", "selectedAt", "revisionCount",
+        "selectedObjectId", "storageClass", "usageRoles", "target", "mediaKind", "provenance",
+      ]);
+      expect(Object.keys(revisions.items[0]!)).toEqual([
+        "id", "artifactId", "objectId", "revisionNo", "parentRevisionId", "iterationId",
+        "state", "authoredBySessionId", "createdAt",
+      ]);
+      expect(locator).toEqual({
+        absolutePath: "/fixture-root/buckets/ws_1/shared/objects/obj_ws_1.png",
+        mime: "image/png",
+        bytes: 12,
+      });
+      expect(nestedKeys({ listed, shown, revisions, selected })).not.toContain("absolutePath");
     } finally {
       await client.close();
     }

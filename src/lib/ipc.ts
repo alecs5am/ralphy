@@ -44,6 +44,8 @@ export type {
   ProjectSummary,
   ProjectUnitPageRequest,
   RootIdentity,
+  SharedLibraryAction,
+  SharedLibraryQuery,
   TextReadResult,
   TerminalDimensions,
   TerminalEvent,
@@ -214,6 +216,24 @@ function createMockBridge(): RalphyBridge {
           updatedAt: 1,
         },
       };
+    },
+    async loadSharedLibraryPage() {
+      return { items: [], nextCursor: null };
+    },
+    async loadSharedLibraryArtifact() {
+      throw new Error("Shared Library Artifact is unavailable in mock mode");
+    },
+    async loadSharedLibraryRevisions() {
+      return { items: [], nextCursor: null };
+    },
+    async selectSharedLibraryRevision() {
+      throw new Error("Shared Library mutations are unavailable in mock mode");
+    },
+    async resolveSharedLibraryPreview() {
+      return null;
+    },
+    async performSharedLibraryAction() {
+      throw new Error("Shared Library actions are unavailable in mock mode");
     },
     async loadMemory() {
       return { items: [] };

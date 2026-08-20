@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { realpath, rm, stat, symlink } from "node:fs/promises";
+import { readFile, realpath, rm, stat, symlink } from "node:fs/promises";
 import { join, relative } from "node:path";
 import type { RalphyBridgeClient } from "../electron/ralphy/client";
 import { MediaProtocolAccess } from "../electron/media/protocol-access";
@@ -282,6 +282,12 @@ describe("Electron IPC security", () => {
     expect(Object.keys(exposed as object)).toEqual(expect.arrayContaining([
       "restoreLibrary",
       "loadWorkspaceOverview",
+      "loadSharedLibraryPage",
+      "loadSharedLibraryArtifact",
+      "loadSharedLibraryRevisions",
+      "selectSharedLibraryRevision",
+      "resolveSharedLibraryPreview",
+      "performSharedLibraryAction",
       "loadProjectOverview",
       "loadProjectPage",
       "loadProjectActivityRun",
@@ -316,6 +322,12 @@ describe("Electron IPC security", () => {
     const bridge = exposed as {
       startFileDrag(path: string): Promise<void>;
       loadWorkspaceOverview(workspaceId: string): Promise<void>;
+      loadSharedLibraryPage(workspaceId: string, query?: { after?: string | null; mediaKind?: "image"; provenance?: "generation" }): Promise<void>;
+      loadSharedLibraryArtifact(workspaceId: string, artifactId: string): Promise<void>;
+      loadSharedLibraryRevisions(workspaceId: string, artifactId: string, after?: string): Promise<void>;
+      selectSharedLibraryRevision(workspaceId: string, artifactId: string, revisionId: string, expectedSelectedRevisionId: string | null): Promise<void>;
+      resolveSharedLibraryPreview(workspaceId: string, artifactId: string): Promise<void>;
+      performSharedLibraryAction(workspaceId: string, artifactId: string, action: "open" | "finder"): Promise<void>;
       loadProjectOverview(project: { workspaceId: string; projectId: string }): Promise<void>;
       loadProjectActivityRun(project: { workspaceId: string; projectId: string }, runId: string): Promise<void>;
       loadProjectMediaCard(project: { workspaceId: string; projectId: string }, ref: { type: "artifact"; id: string }): Promise<void>;
@@ -342,6 +354,12 @@ describe("Electron IPC security", () => {
     };
     await bridge.startFileDrag("/library/video.mp4");
     await bridge.loadWorkspaceOverview("workspace-1");
+    await bridge.loadSharedLibraryPage("workspace-1", { after: "shared-next", mediaKind: "image", provenance: "generation" });
+    await bridge.loadSharedLibraryArtifact("workspace-1", "artifact-1");
+    await bridge.loadSharedLibraryRevisions("workspace-1", "artifact-1", "revision-next");
+    await bridge.selectSharedLibraryRevision("workspace-1", "artifact-1", "revision-1", null);
+    await bridge.resolveSharedLibraryPreview("workspace-1", "artifact-1");
+    await bridge.performSharedLibraryAction("workspace-1", "artifact-1", "finder");
     await bridge.loadProjectOverview({ workspaceId: "workspace-1", projectId: "project-1" });
     await bridge.loadProjectActivityRun({ workspaceId: "workspace-1", projectId: "project-1" }, "run-1");
     await bridge.loadProjectMediaCard({ workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact", id: "artifact-1" });
@@ -368,6 +386,12 @@ describe("Electron IPC security", () => {
     expect(invoke.mock.calls).toEqual(expect.arrayContaining([
       ["media:files:drag", "/library/video.mp4"],
       ["workspace:overview", "workspace-1"],
+      ["workspace:shared-library:page", "workspace-1", { after: "shared-next", mediaKind: "image", provenance: "generation" }],
+      ["workspace:shared-library:show", "workspace-1", "artifact-1"],
+      ["workspace:shared-library:revisions", "workspace-1", "artifact-1", "revision-next"],
+      ["workspace:shared-library:select", "workspace-1", "artifact-1", "revision-1", null],
+      ["workspace:shared-library:preview", "workspace-1", "artifact-1"],
+      ["workspace:shared-library:action", "workspace-1", "artifact-1", "finder"],
       ["project:overview", { workspaceId: "workspace-1", projectId: "project-1" }],
       ["project:activity:run", { workspaceId: "workspace-1", projectId: "project-1" }, "run-1"],
       ["project:media:show", { workspaceId: "workspace-1", projectId: "project-1" }, { type: "artifact", id: "artifact-1" }],
@@ -393,6 +417,8 @@ describe("Electron IPC security", () => {
       ["terminal:resize", "terminal-1", { cols: 80, rows: 24 }],
     ]));
     expect(send).not.toHaveBeenCalled();
+    const preloadSource = await readFile(fileURLToPath(new URL("../electron/preload.ts", import.meta.url)), "utf8");
+    expect(preloadSource).not.toMatch(/absolutePath|\bbucket\b|object path/i);
   });
 
   test("registered Workspace overview IPC validates, trusts, and rejects stale roots", async () => {
@@ -856,6 +882,184 @@ describe("Electron IPC security", () => {
     } finally {
       await rm(fixture.parentPath, { recursive: true, force: true });
     }
+  });
+
+  test("registered Shared Library IPC keeps workspace locators root-fenced and tokens revocable", async () => {
+    const fixture = await makeLibraryFixture();
+    try {
+      const { registerSharedLibraryIpc } = await import("../electron/ralphy/shared-library-reader");
+      const handlers = new Map<string, (event: unknown, ...args: unknown[]) => Promise<any>>();
+      const mainFrame = {};
+      const webContents = { mainFrame };
+      const window = { isDestroyed: () => false, webContents };
+      const trusted = { sender: webContents, senderFrame: mainFrame };
+      const mediaPath = join(fixture.alphaPath, "artifacts", "images", "hero.png");
+      const canonicalMediaPath = await realpath(mediaPath);
+      const canonicalRoot = await realpath(fixture.rootPath);
+      const linkedPath = join(fixture.alphaPath, "artifacts", "images", "shared-link.png");
+      await symlink(mediaPath, linkedPath);
+      const canonicalLinkedPath = join(canonicalRoot, relative(fixture.rootPath, linkedPath));
+      const bytes = (await stat(mediaPath)).size;
+      const card = {
+        ref: { type: "artifact" as const, id: "artifact-1" },
+        workspaceId: "workspace-1",
+        projectId: null,
+        slug: "hero",
+        kind: "image",
+        selectedRevisionId: "revision-1",
+        selectedState: "approved",
+        mime: "image/png",
+        bytes,
+        selectedAt: 1,
+        revisionCount: 1,
+        selectedObjectId: "object-1",
+        storageClass: "durable",
+        usageRoles: ["reference"],
+        target: { type: "object" as const, id: "object-1" },
+        mediaKind: "image" as const,
+        provenance: "not-generation" as const,
+      };
+      const revision = {
+        id: "revision-1", artifactId: "artifact-1", objectId: "object-1",
+        revisionNo: 1, parentRevisionId: null, iterationId: null,
+        state: "approved" as const, authoredBySessionId: null, createdAt: 1,
+      };
+      let epoch = 1;
+      let mode: "valid" | "project" | "workspace" | "outside" | "symlink" | "forged"
+        | "stale-core" | "stale-locator" = "valid";
+      const request = vi.fn(async (method: string) => {
+        if (mode === "stale-core") epoch += 1;
+        if (method === "media.list") return { items: [card], nextCursor: null };
+        if (method === "media.revisions") return { items: [revision], nextCursor: null };
+        if (method === "media.select") return card;
+        if (method === "media.show") {
+          if (mode === "project") return { ...card, projectId: "project-1" };
+          if (mode === "workspace") return { ...card, workspaceId: "workspace-2" };
+          return card;
+        }
+        if (mode === "stale-locator") epoch += 1;
+        if (mode === "outside") return { absolutePath: "/tmp/outside.png", mime: "image/png", bytes };
+        if (mode === "symlink") return { absolutePath: canonicalLinkedPath, mime: "image/png", bytes };
+        if (mode === "forged") return { absolutePath: canonicalMediaPath, mime: "image/png", bytes, private: true };
+        return { absolutePath: canonicalMediaPath, mime: "image/png", bytes };
+      });
+      const access = new MediaProtocolAccess();
+      const mintTrustedLocator = vi.fn(async (
+        root: { rootPath: string },
+        path: string,
+        mime: string | null,
+        expectedBytes: number,
+        assertCurrent: () => void,
+      ) => {
+        const minted = await access.mintTrustedLocator(
+          root.rootPath, path, mime, expectedBytes, assertCurrent,
+        );
+        return { url: `ralphy-media://asset/${minted.token}`, sizeBytes: minted.sizeBytes };
+      });
+      const authorizeTrustedLocator = vi.fn((
+        root: { rootPath: string },
+        path: string,
+        mime: string | null,
+        expectedBytes: number,
+        assertCurrent: () => void,
+      ) => access.authorizeTrustedLocator(root.rootPath, path, mime, expectedBytes, assertCurrent));
+      const openPath = vi.fn(async () => "");
+      const showItemInFolder = vi.fn();
+
+      registerSharedLibraryIpc({
+        handle(channel, listener) { handlers.set(channel, listener); },
+        getWindow: () => window,
+        captureRoot: () => ({ epoch, rootPath: fixture.rootPath }),
+        assertRoot: (root) => { if (root.epoch !== epoch) throw new Error("stale root"); },
+        session: { client: { request: request as RalphyBridgeClient["request"] } },
+        mintTrustedLocator,
+        authorizeTrustedLocator,
+        openPath,
+        showItemInFolder,
+      });
+
+      expect([...handlers.keys()]).toEqual([
+        "workspace:shared-library:page",
+        "workspace:shared-library:show",
+        "workspace:shared-library:revisions",
+        "workspace:shared-library:select",
+        "workspace:shared-library:preview",
+        "workspace:shared-library:action",
+      ]);
+      const loadPage = handlers.get("workspace:shared-library:page")!;
+      const select = handlers.get("workspace:shared-library:select")!;
+      const preview = handlers.get("workspace:shared-library:preview")!;
+      const action = handlers.get("workspace:shared-library:action")!;
+
+      for (const call of [
+        () => loadPage({ sender: webContents, senderFrame: {} }, "workspace-1"),
+        () => loadPage(trusted, "", undefined),
+        () => loadPage(trusted, "workspace-1", { after: 1 }),
+        () => select(trusted, "workspace-1", "artifact-1", "revision-1", undefined),
+        () => action(trusted, "workspace-1", "artifact-1", "trash"),
+      ]) await expect(call()).resolves.toMatchObject({ ok: false });
+      expect(request).not.toHaveBeenCalled();
+
+      await expect(loadPage(trusted, "workspace-1", undefined)).resolves.toEqual({
+        ok: true, value: { items: [card], nextCursor: null },
+      });
+      expect(request).toHaveBeenLastCalledWith("media.list", {
+        context: { workspaceId: "workspace-1" }, limit: 50, types: ["artifact"],
+      });
+      await expect(select(trusted, "workspace-1", "artifact-1", "revision-1", null))
+        .resolves.toEqual({ ok: true, value: card });
+      expect(request).toHaveBeenLastCalledWith("media.select", {
+        context: { workspaceId: "workspace-1" }, ref: { type: "artifact", id: "artifact-1" },
+        revisionId: "revision-1", expectedSelectedRevisionId: null,
+      });
+
+      const previewResult = await preview(trusted, "workspace-1", "artifact-1");
+      expect(previewResult).toMatchObject({ ok: true, value: { sizeBytes: bytes } });
+      expect(JSON.stringify(previewResult)).not.toMatch(/absolutePath|\.ralphy\/|buckets/i);
+      const url = previewResult.value.url as string;
+      const token = new URL(url).pathname.slice(1);
+      await expect(access.resolve(fixture.rootPath, token)).resolves.toBe(await realpath(mediaPath));
+      access.clear();
+      await expect(access.resolve(fixture.rootPath, token)).rejects.toThrow(/unknown media token/i);
+
+      await expect(action(trusted, "workspace-1", "artifact-1", "open"))
+        .resolves.toEqual({ ok: true, value: undefined });
+      await expect(action(trusted, "workspace-1", "artifact-1", "finder"))
+        .resolves.toEqual({ ok: true, value: undefined });
+      expect(openPath).toHaveBeenCalledWith(await realpath(mediaPath));
+      expect(showItemInFolder).toHaveBeenCalledWith(await realpath(mediaPath));
+
+      const effectCounts = [openPath.mock.calls.length, showItemInFolder.mock.calls.length];
+      for (mode of [
+        "project", "workspace", "outside", "symlink", "forged", "stale-core", "stale-locator",
+      ] as const) {
+        epoch = 1;
+        await expect(action(trusted, "workspace-1", "artifact-1", "open"))
+          .resolves.toMatchObject({ ok: false });
+      }
+      expect([openPath.mock.calls.length, showItemInFolder.mock.calls.length]).toEqual(effectCounts);
+    } finally {
+      await rm(fixture.parentPath, { recursive: true, force: true });
+    }
+  });
+
+  test("mock Shared Library bridge stays truthful and does not invent mutations", async () => {
+    const { bridge } = await import("../src/lib/ipc");
+
+    await expect(bridge.loadSharedLibraryPage("workspace-1")).resolves.toEqual({
+      items: [], nextCursor: null,
+    });
+    await expect(bridge.loadSharedLibraryRevisions("workspace-1", "artifact-1"))
+      .resolves.toEqual({ items: [], nextCursor: null });
+    await expect(bridge.resolveSharedLibraryPreview("workspace-1", "artifact-1"))
+      .resolves.toBeNull();
+    await expect(bridge.loadSharedLibraryArtifact("workspace-1", "artifact-1"))
+      .rejects.toThrow(/unavailable in mock mode/i);
+    await expect(bridge.selectSharedLibraryRevision(
+      "workspace-1", "artifact-1", "revision-1", null,
+    )).rejects.toThrow(/mutations are unavailable in mock mode/i);
+    await expect(bridge.performSharedLibraryAction("workspace-1", "artifact-1", "open"))
+      .rejects.toThrow(/actions are unavailable in mock mode/i);
   });
 
   test("never enables renderer mocks in production without an explicit flag", async () => {

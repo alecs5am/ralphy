@@ -110,6 +110,7 @@ import {
   type ActivitySynchronizer,
 } from "./ralphy/activity-sync";
 import { createProjectReader, registerProjectMediaIpc } from "./ralphy/project-reader";
+import { registerSharedLibraryIpc } from "./ralphy/shared-library-reader";
 import { createMemoryReader } from "./ralphy/memory-reader";
 import { createCalendarReader } from "./ralphy/calendar-reader";
 import { registerWorkspaceOverviewIpc } from "./ralphy/workspace-reader";
@@ -1126,6 +1127,37 @@ function registerProjectDomainIpc(): void {
     captureRoot: captureBridgeRoot,
     assertRoot: assertBridgeRoot,
     session: ralphySession,
+  });
+  registerSharedLibraryIpc({
+    handle: (channel, listener) => {
+      ipcMain.handle(channel, (event, ...args) => listener(event, ...args));
+    },
+    getWindow: () => win,
+    captureRoot: captureBridgeRoot,
+    assertRoot: assertBridgeRoot,
+    session: ralphySession,
+    mintTrustedLocator: async (operation, absolutePath, mime, expectedBytes, assertCurrent) => {
+      const minted = await mediaState.fileAccess.mintTrustedLocator(
+        operation.rootPath,
+        absolutePath,
+        mime,
+        expectedBytes,
+        assertCurrent,
+      );
+      assertCurrent();
+      return { url: `ralphy-media://asset/${minted.token}`, sizeBytes: minted.sizeBytes };
+    },
+    authorizeTrustedLocator: (operation, absolutePath, mime, expectedBytes, assertCurrent) => (
+      mediaState.fileAccess.authorizeTrustedLocator(
+        operation.rootPath,
+        absolutePath,
+        mime,
+        expectedBytes,
+        assertCurrent,
+      )
+    ),
+    openPath: (path) => shell.openPath(path),
+    showItemInFolder: (path) => shell.showItemInFolder(path),
   });
   registerProjectMediaIpc({
     handle: (channel, listener) => {

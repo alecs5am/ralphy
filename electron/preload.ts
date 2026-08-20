@@ -52,6 +52,30 @@ function loadProjectCompositionPage(
 const mediaBridge: MediaWorkbenchBridge = {
   restoreLibrary: () => invoke(MEDIA_CHANNELS.restoreLibrary),
   loadWorkspaceOverview: (workspaceId) => invoke(MEDIA_CHANNELS.loadWorkspaceOverview, workspaceId),
+  loadSharedLibraryPage: (workspaceId, query) => (
+    invoke(MEDIA_CHANNELS.loadSharedLibraryPage, workspaceId, query)
+  ),
+  loadSharedLibraryArtifact: (workspaceId, artifactId) => (
+    invoke(MEDIA_CHANNELS.loadSharedLibraryArtifact, workspaceId, artifactId)
+  ),
+  loadSharedLibraryRevisions: (workspaceId, artifactId, after) => (
+    invoke(MEDIA_CHANNELS.loadSharedLibraryRevisions, workspaceId, artifactId, after)
+  ),
+  selectSharedLibraryRevision: (workspaceId, artifactId, revisionId, expectedSelectedRevisionId) => (
+    invoke(
+      MEDIA_CHANNELS.selectSharedLibraryRevision,
+      workspaceId,
+      artifactId,
+      revisionId,
+      expectedSelectedRevisionId,
+    )
+  ),
+  resolveSharedLibraryPreview: (workspaceId, artifactId) => (
+    invoke(MEDIA_CHANNELS.resolveSharedLibraryPreview, workspaceId, artifactId)
+  ),
+  performSharedLibraryAction: (workspaceId, artifactId, action) => (
+    invoke(MEDIA_CHANNELS.performSharedLibraryAction, workspaceId, artifactId, action)
+  ),
   loadMemory: (workspaceId, input) => invoke(MEDIA_CHANNELS.loadMemory, workspaceId, input),
   showMemory: (workspaceId, memoryEntryId) => invoke(MEDIA_CHANNELS.showMemory, workspaceId, memoryEntryId),
   mutateMemory: (workspaceId, input) => invoke(MEDIA_CHANNELS.mutateMemory, workspaceId, input),
