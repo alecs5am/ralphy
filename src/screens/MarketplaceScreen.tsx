@@ -49,8 +49,7 @@ export function MarketplaceScreen({
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: location.scrollTop });
-    if (location.focusId) document.getElementById(location.focusId)?.focus({ preventScroll: true });
-  }, [location]);
+  }, [location.route]);
 
   const openCategory = (category: MarketplaceCategory) => {
     onNavigate({
@@ -65,6 +64,11 @@ export function MarketplaceScreen({
   const selectedCategory = location.route.kind === "category"
     ? location.route.category
     : location.query.filters.category === "all" ? "models" : location.query.filters.category;
+  const targetMessage = catalog === null
+    ? "Workspace targets are unavailable until the home library reconnects."
+    : catalog.workspaces.length + catalog.projects.length === 0
+      ? "No workspace or project targets are available in the current home library."
+      : "Workspace targets are available for supported reviews.";
 
   return (
     <main className="marketplace-screen main-region" data-sidebar-visible={sidebarVisible ? "true" : "false"}>
@@ -91,9 +95,9 @@ export function MarketplaceScreen({
       >
         <div className="marketplace-task-one-intro">
           <p>Discover</p>
-          <h1 tabIndex={-1}>{title(location)}</h1>
+          <h1 id="marketplace-heading" tabIndex={-1}>{title(location)}</h1>
           <p>Browse Models, Templates, and Recipes from their current sources.</p>
-          <p>{catalog ? "Workspace targets are available for supported reviews." : "Workspace targets are unavailable until the home library reconnects."}</p>
+          <p>{targetMessage}</p>
         </div>
       </div>
     </main>

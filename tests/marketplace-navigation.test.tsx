@@ -166,7 +166,10 @@ describe("marketplace navigation", () => {
 
     expect(nullMarkup).toContain("Discover");
     expect(nullMarkup).toContain("Marketplace category");
+    expect(nullMarkup).toContain("Workspace targets are unavailable until the home library reconnects.");
     expect(emptyMarkup).toContain("Discover");
+    expect(emptyMarkup).toContain("No workspace or project targets are available in the current home library.");
+    expect(emptyMarkup).not.toContain("Workspace targets are available for supported reviews.");
     expect(emptyMarkup).not.toContain("Choose a workspace");
   });
 
@@ -179,6 +182,12 @@ describe("marketplace navigation", () => {
     });
     const local = storage();
     local.setItem("ralphy-media-workbench-v1", JSON.stringify({ rightPanelVisible: true }));
+    let persistedMarketplace = readMarketplaceNavigation(local);
+    persistedMarketplace = marketplaceReducer(persistedMarketplace, {
+      type: "remember",
+      patch: { focusId: "marketplace-heading", scrollTop: 438 },
+    });
+    writeMarketplaceNavigation(local, persistedMarketplace);
     const previousStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
     Object.defineProperty(globalThis, "localStorage", { configurable: true, value: local });
     const restore = vi.spyOn(bridge, "restoreLibrary").mockResolvedValue({
@@ -195,9 +204,12 @@ describe("marketplace navigation", () => {
       workMode.focus();
       const marketplace = [...host.container.querySelectorAll("button")].find((button) => button.textContent === "Marketplace")!;
       await act(async () => marketplace.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
+      await act(async () => { vi.advanceTimersByTime(1); await settle(); });
 
       const workSurface = host.container.querySelector(".app-mode-work") as unknown as HostNode;
       const marketplaceSurface = host.container.querySelector(".app-mode-marketplace") as unknown as HostNode;
+      const marketplaceHeading = marketplaceSurface.querySelector("#marketplace-heading") as HostNode;
+      const marketplaceScroll = marketplaceSurface.querySelector(".marketplace-task-one-scroll") as HostNode;
       expect(workSurface.getAttribute("hidden")).not.toBeNull();
       expect(workSurface.getAttribute("inert")).not.toBeNull();
       expect(marketplaceSurface.getAttribute("hidden")).toBeNull();
@@ -205,6 +217,15 @@ describe("marketplace navigation", () => {
       expect(host.container.querySelectorAll(".context-sidebar")).toHaveLength(1);
       expect(((host.container.querySelector(".workbench") as unknown as HostNode).style as unknown as Record<string, string>)["--sidebar-w"]).toBe("248px");
       expect(host.container.querySelector(".resize-sidebar")).toBeNull();
+      expect(document.activeElement).toBe(marketplaceHeading);
+      expect(marketplaceScroll.scrollTop).toBe(438);
+
+      const marketplaceMode = host.container.querySelector("#app-mode-marketplace") as HostNode;
+      marketplaceMode.focus();
+      marketplaceScroll.scrollTop = 612;
+      await act(async () => marketplaceScroll.dispatchEvent(new Event("scroll", { bubbles: true })));
+      expect(document.activeElement).toBe(marketplaceMode);
+      expect(JSON.parse(local.getItem("ralphy-marketplace-navigation-v1")!).location.scrollTop).toBe(612);
 
       const models = [...host.container.querySelectorAll("button")].find((button) => button.textContent === "Models")!;
       await act(async () => models.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
@@ -240,7 +261,16 @@ describe("marketplace navigation", () => {
       await act(async () => { vi.advanceTimersByTime(1); await settle(); });
       expect(workSurface.getAttribute("hidden")).toBeNull();
       expect(marketplaceSurface.getAttribute("hidden")).not.toBeNull();
-      expect(document.activeElement).toBe(workMode);
+      expect((document.activeElement as unknown as HostNode).getAttribute("id")).toBe("app-mode-work");
+
+      const marketplaceAgain = [...host.container.querySelectorAll("button")].find((button) => button.textContent === "Marketplace")!;
+      await act(async () => marketplaceAgain.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
+      await act(async () => { vi.advanceTimersByTime(1); await settle(); });
+      expect(document.activeElement).toBe(marketplaceHeading);
+      const workAgain = [...host.container.querySelectorAll("button")].find((button) => button.textContent === "My Work")!;
+      await act(async () => workAgain.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
+      await act(async () => { vi.advanceTimersByTime(1); await settle(); });
+      expect((document.activeElement as unknown as HostNode).getAttribute("id")).toBe("app-mode-work");
     } finally {
       await act(async () => root.unmount());
       restore.mockRestore();
@@ -266,15 +296,57 @@ describe("marketplace navigation", () => {
     try {
       await act(async () => { root.render(<App />); await settle(); });
       await act(async () => { vi.advanceTimersByTime(1_500); await settle(); });
+      const rightPanelToggle = [...host.container.querySelectorAll("button")]
+        .find((button) => button.getAttribute("aria-label") === "Toggle right panel")!;
+      expect(rightPanelToggle.getAttribute("aria-pressed")).toBe("false");
+      expect(host.container.textContent).not.toContain("Agent chat");
+      await act(async () => rightPanelToggle.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
+      expect(rightPanelToggle.getAttribute("aria-pressed")).toBe("true");
+      expect(host.container.textContent).toContain("Agent chat");
+      expect(host.container.querySelector(".workbench")?.getAttribute("class")).toContain("has-right-panel");
       const marketplace = [...host.container.querySelectorAll("button")].find((button) => button.textContent === "Marketplace");
       expect(marketplace).not.toBeUndefined();
       await act(async () => marketplace!.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
       expect(host.container.textContent).toContain("Discover");
+      expect(rightPanelToggle.getAttribute("aria-pressed")).toBe("true");
+      expect(host.container.textContent).toContain("Agent chat");
     } finally {
       await act(async () => root.unmount());
       restore.mockRestore();
       if (previousStorage) Object.defineProperty(globalThis, "localStorage", previousStorage);
       else delete (globalThis as Record<string, unknown>).localStorage;
+      host.restore();
+    }
+  });
+
+  test("renders the existing disconnected chat state safely without a root", async () => {
+    const host = createReactHost();
+    Object.defineProperty(window, "localStorage", { configurable: true, value: storage() });
+    const previousRaf = Object.getOwnPropertyDescriptor(globalThis, "requestAnimationFrame");
+    const previousCancelRaf = Object.getOwnPropertyDescriptor(globalThis, "cancelAnimationFrame");
+    Object.defineProperties(globalThis, {
+      requestAnimationFrame: { configurable: true, value: window.requestAnimationFrame },
+      cancelAnimationFrame: { configurable: true, value: window.cancelAnimationFrame },
+    });
+    const actualChat = await vi.importActual<typeof import("../src/chat/useAgentChat")>("../src/chat/useAgentChat");
+    const actualPanels = await vi.importActual<typeof import("../src/components/UtilityPanels")>("../src/components/UtilityPanels");
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    function NoRootChat() {
+      const chat = actualChat.useAgentChat({ rootPath: null, project: null, enabled: false });
+      return <actualPanels.AgentChatPanel chat={chat} workspace={null} project={null} onClose={() => undefined} />;
+    }
+    try {
+      await act(async () => { root.render(<NoRootChat />); await settle(); });
+      expect(host.container.textContent).toContain("Connect Codex");
+      expect(host.container.textContent).toContain("Codex CLI not found");
+      expect(host.container.querySelector("textarea")).toBeNull();
+    } finally {
+      await act(async () => root.unmount());
+      if (previousRaf) Object.defineProperty(globalThis, "requestAnimationFrame", previousRaf);
+      else delete (globalThis as Record<string, unknown>).requestAnimationFrame;
+      if (previousCancelRaf) Object.defineProperty(globalThis, "cancelAnimationFrame", previousCancelRaf);
+      else delete (globalThis as Record<string, unknown>).cancelAnimationFrame;
       host.restore();
     }
   });

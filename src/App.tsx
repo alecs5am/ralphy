@@ -182,7 +182,7 @@ export function App() {
   const marketplaceSidebarVisible = marketplace.sidebarVisible && viewport.width > 1_280;
   const activeSidebarVisible = marketplace.mode === "work" ? sidebarVisible : marketplaceSidebarVisible;
   const activeSidebarWidth = marketplace.mode === "work" ? sidebarWidth : MARKETPLACE_SIDEBAR_WIDTH;
-  const showRightPanel = catalog !== null && rightPanelVisible;
+  const showRightPanel = rightPanelVisible;
   const showBottomPanel = bottomPanelVisible;
   const sidebarMax = Math.max(
     PANEL_SIZE_LIMITS.sidebar.min,
@@ -356,16 +356,20 @@ export function App() {
   useEffect(() => {
     const previous = previousAppMode.current;
     previousAppMode.current = marketplace.mode;
-    if (previous !== "marketplace" || marketplace.mode !== "work" || !marketplace.workReturnFocusId) return;
-    const frame = requestAnimationFrame(() => {
-      document.getElementById(marketplace.workReturnFocusId!)?.focus({ preventScroll: true });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [marketplace.mode, marketplace.workReturnFocusId]);
+    const focusId = previous === "marketplace" && marketplace.mode === "work"
+      ? marketplace.workReturnFocusId
+      : previous === "work" && marketplace.mode === "marketplace"
+        ? marketplace.location.focusId ?? "marketplace-heading"
+        : previous === "marketplace" && marketplace.mode === "marketplace"
+          ? marketplace.location.focusId ?? "marketplace-heading"
+          : null;
+    if (!focusId) return;
+    document.getElementById(focusId)?.focus({ preventScroll: true });
+  }, [marketplace.location.focusId, marketplace.location.route, marketplace.mode, marketplace.workReturnFocusId]);
 
   const switchAppMode = useCallback((mode: AppMode) => {
     const returnFocusId = mode === "marketplace"
-      ? (document.activeElement as HTMLElement | null)?.id || null
+      ? (document.activeElement as HTMLElement | null)?.getAttribute("id") || null
       : null;
     dispatchMarketplace({ type: "switch-mode", mode, returnFocusId });
   }, []);
