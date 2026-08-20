@@ -39,13 +39,11 @@ export function createWorkspaceReader({ request }: { request: Request }) {
         context: { workspaceId },
         workspaceId,
         sections: {
-          documents: { limit: 5 },
-          units: { limit: 5 },
-          accounts: { limit: 5 },
-          projects: { limit: 5 },
+          units: { limit: 20 },
+          accounts: { limit: 20 },
+          projects: { limit: 8 },
           activity: { afterSequence: 0, limit: 10 },
-          sharedMedia: { limit: 5 },
-          publications: { limit: 5 },
+          publications: { limit: 30 },
           metrics: true,
         },
       });

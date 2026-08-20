@@ -6,6 +6,7 @@ export interface WorkspaceScreenSnapshot {
   status: "idle" | "loading" | "ready" | "error";
   value: WorkspaceOverviewDto | null;
   error: string | null;
+  refreshing: boolean;
 }
 export interface WorkspaceScreenController {
   getSnapshot(): WorkspaceScreenSnapshot;
@@ -23,7 +24,7 @@ export function createWorkspaceScreenController(
   workspaceId: string,
   initialActivitySequence = 0,
 ): WorkspaceScreenController {
-  let snapshot: WorkspaceScreenSnapshot = { status: "idle", value: null, error: null };
+  let snapshot: WorkspaceScreenSnapshot = { status: "idle", value: null, error: null, refreshing: false };
   let disposed = false;
   let requestId = 0;
   let coveredActivitySequence = initialActivitySequence;
@@ -36,12 +37,18 @@ export function createWorkspaceScreenController(
   const load = async () => {
     if (disposed) return;
     const currentRequest = ++requestId;
-    emit({ status: "loading", value: null, error: null });
+    const previous = snapshot.status === "ready" ? snapshot.value : null;
+    emit(previous
+      ? { status: "ready", value: previous, error: null, refreshing: true }
+      : { status: "loading", value: null, error: null, refreshing: false });
     try {
       const value = await api.loadWorkspaceOverview(workspaceId);
-      if (currentRequest === requestId) emit({ status: "ready", value, error: null });
+      if (currentRequest === requestId) emit({ status: "ready", value, error: null, refreshing: false });
     } catch (error) {
-      if (currentRequest === requestId) emit({ status: "error", value: null, error: errorMessage(error) });
+      if (currentRequest !== requestId) return;
+      emit(previous
+        ? { status: "ready", value: previous, error: errorMessage(error), refreshing: false }
+        : { status: "error", value: null, error: errorMessage(error), refreshing: false });
     }
   };
 

@@ -1,23 +1,20 @@
-import { AlertCircle, ArrowRight, FolderKanban, LayoutGrid, List, RefreshCw } from "lucide-react";
+import { AlertCircle, RefreshCw } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import type {
-  ActivityDto,
-  MediaCardDto,
-  OverviewAccountDto,
-  OverviewPublicationDto,
-  Page,
-  ProjectDto,
-  UnitDto,
-  WorkspaceOverviewDto,
-} from "../../electron/ralphy/types";
-import { bridge, type ProjectSummary } from "../lib/ipc";
+import type { ProjectSummary } from "../lib/ipc";
+import { bridge } from "../lib/ipc";
 import {
   createWorkspaceScreenController,
   type WorkspaceScreenApi,
   type WorkspaceScreenController,
   type WorkspaceScreenSnapshot,
 } from "../state/workspace-screen-controller";
-import type { WorkspaceView } from "../state/workbench";
+import type { WorkspacePage } from "../state/workbench";
+import {
+  presentWorkspaceOverview,
+  type Availability,
+  type WorkspaceOverviewPresentation,
+} from "./workspace/overview-presentation";
+import { WorkspaceOverviewHeader } from "./workspace/WorkspaceOverviewHeader";
 
 export { createWorkspaceScreenController } from "../state/workspace-screen-controller";
 
@@ -33,172 +30,99 @@ export function startWorkspaceScreenController(
   return () => controller.dispose();
 }
 
-function formatTime(value: number): string {
-  return new Date(value < 1_000_000_000_000 ? value * 1000 : value).toLocaleString();
-}
-
-export function catalogProjectForOverview(
-  projects: ProjectSummary[],
-  project: ProjectDto,
-): ProjectSummary | null {
-  return projects.find((candidate) => (
-    candidate.workspaceId === project.workspaceId && candidate.projectId === project.id
-  )) ?? null;
-}
-
-function BoundedSection<Item>({
+function PlaceholderSection({
   title,
-  page,
-  empty,
-  children,
+  value,
+  ready,
 }: {
   title: string;
-  page: Page<Item, string | number> | undefined;
-  empty: string;
-  children(item: Item): React.ReactNode;
+  value: Availability<unknown>;
+  ready: string;
 }) {
-  return <section className="project-domain-card workspace-domain-section">
-    <div className="section-heading"><h3>{title}</h3><span>Bounded records{page?.nextCursor !== null && page ? " · More available" : ""}</span></div>
-    {!page || page.items.length === 0
-      ? <div className="empty-section">{empty}</div>
-      : <div className="project-domain-list">{page.items.map(children)}</div>}
+  const id = `workspace-${title.toLowerCase().replaceAll(" ", "-")}`;
+  return <section className="workspace-overview-section" aria-labelledby={id}>
+    <h2 id={id}>{title}</h2>
+    <p>{value.status === "ready" ? ready : value.reason}</p>
   </section>;
 }
 
-function mediaName(item: MediaCardDto): string {
-  if ("slug" in item) return item.slug;
-  if ("purpose" in item) return item.purpose;
-  return item.ref.id;
-}
-
-function WorkspaceOverview({
-  value,
-  catalogProjects,
-  view,
-  onViewChange,
-  onOpenProject,
-}: {
-  value: WorkspaceOverviewDto;
-  catalogProjects: ProjectSummary[];
-  view: WorkspaceView;
-  onViewChange(view: WorkspaceView): void;
-  onOpenProject(project: ProjectSummary): void;
-}) {
-  const metrics = value.metrics;
+function WorkspaceOverviewShell({ value }: { value: WorkspaceOverviewPresentation }) {
+  const attention = value.attention.status === "ready" || value.attention.status === "partial"
+    ? `${value.attention.value.items.length} attention item${value.attention.value.items.length === 1 ? "" : "s"} available.`
+    : "Attention data available.";
+  const projects = value.projects.status === "ready" || value.projects.status === "partial"
+    ? `${value.projects.value.length} active project${value.projects.value.length === 1 ? "" : "s"} available.`
+    : "Project data available.";
   return <>
-    <div className="screen-header workspace-header">
-      <div><div className="screen-kicker">Workspace</div><h2>{value.workspace.name}</h2><p>{value.workspace.slug}</p></div>
-      <div className="workspace-header-actions">
-        <span className="activity-stamp">Updated {formatTime(value.workspace.updatedAt)}</span>
-        <div className="view-segments" role="group" aria-label="Project view">
-          <button className={view === "grid" ? "is-active" : ""} type="button" aria-label="Grid view" aria-pressed={view === "grid"} onClick={() => onViewChange("grid")}><LayoutGrid size={15} aria-hidden="true" /></button>
-          <button className={view === "list" ? "is-active" : ""} type="button" aria-label="List view" aria-pressed={view === "list"} onClick={() => onViewChange("list")}><List size={15} aria-hidden="true" /></button>
-        </div>
-      </div>
-    </div>
-    <section className="metrics-band" aria-label="Workspace metrics">
-      <div className="metric"><span className="metric-value">{metrics?.publicationCount ?? "—"}</span><span className="metric-label">Publications</span></div>
-      <div className="metric"><span className="metric-value">{metrics?.views ?? "—"}</span><span className="metric-label">Views</span></div>
-      <div className="metric"><span className="metric-value">{metrics?.likes ?? "—"}</span><span className="metric-label">Likes</span></div>
-      <div className="metric"><span className="metric-value">{metrics?.watchTimeMs ?? "—"}</span><span className="metric-label">Watch time (ms)</span></div>
-      <div className="metric"><span className="metric-value">{metrics?.comments ?? "—"}</span><span className="metric-label">Comments</span></div>
-      <div className="metric"><span className="metric-value">{metrics?.shares ?? "—"}</span><span className="metric-label">Shares</span></div>
-    </section>
-    <div className="workspace-domain-body">
-      <BoundedSection<OverviewAccountDto> title="Accounts" page={value.accounts} empty="No accounts returned.">
-        {(account) => <article key={account.id}><strong>{account.displayName ?? account.username ?? account.externalId}</strong><span>{account.username ? `@${account.username} · ` : ""}{account.platform}</span><small>{account.credentialConfigured ? "Configured" : "Not configured"}{account.relinkRequired ? " · Relink required" : " · Linked"}</small></article>}
-      </BoundedSection>
-      <BoundedSection title="Documents" page={value.documents} empty="No documents returned.">
-        {(document) => <article key={document.id}><strong>{document.title}</strong><span>{document.kind}</span><small>Updated {formatTime(document.updatedAt)}</small></article>}
-      </BoundedSection>
-      <BoundedSection title="Shared Media" page={value.sharedMedia} empty="No shared Media returned.">
-        {(item) => <article key={`${item.ref.type}:${item.ref.id}`}><strong>{mediaName(item)}</strong><span>{item.mime ?? "Unknown media type"}</span><small>{"usageRoles" in item && item.usageRoles.length > 0 ? item.usageRoles.join(" · ") : "No reference evidence"}</small></article>}
-      </BoundedSection>
-      <section className="content-section workspace-projects">
-        <div className="section-heading"><h3>Projects</h3><span>Bounded records{value.projects && value.projects.nextCursor !== null ? " · More available" : ""}</span></div>
-        {!value.projects || value.projects.items.length === 0 ? <div className="empty-section">No projects returned.</div> : view === "grid" ? (
-          <div className="workspace-project-grid">{value.projects.items.map((project) => {
-            const catalogProject = catalogProjectForOverview(catalogProjects, project);
-            const content = <><span className="workspace-project-card-head"><span className="workspace-project-icon"><FolderKanban size={16} aria-hidden="true" /></span><span className="workspace-project-phase"><i className="status-dot" />{project.state}</span></span><span className="workspace-project-card-copy"><strong>{project.name}</strong><small>{project.slug}</small></span><span className="workspace-project-card-footer"><span>{project.state}</span><span>Updated {formatTime(project.updatedAt)}</span>{catalogProject && <ArrowRight size={14} aria-hidden="true" />}</span></>;
-            return catalogProject ? <button className="workspace-project-card" type="button" key={project.id} onClick={() => onOpenProject(catalogProject)}>{content}</button> : <article className="workspace-project-card" key={project.id}>{content}</article>;
-          })}</div>
-        ) : (
-          <ul className="project-table workspace-project-list" aria-label="Projects">
-            {value.projects.items.map((project) => {
-              const catalogProject = catalogProjectForOverview(catalogProjects, project);
-              const content = <><span className="project-name-cell"><strong>{project.name}</strong><small>{project.slug}</small></span><span><i className="status-dot" />{project.state}</span><span>{formatTime(project.updatedAt)}</span>{catalogProject && <ArrowRight size={14} aria-hidden="true" />}</>;
-              return <li key={project.id}>{catalogProject ? <button className="project-table-row" type="button" onClick={() => onOpenProject(catalogProject)}>{content}</button> : <div className="project-table-row">{content}</div>}</li>;
-            })}
-          </ul>
-        )}
-      </section>
-      <BoundedSection<UnitDto> title="Units" page={value.units} empty="No units returned.">
-        {(unit) => <article key={unit.id}><strong>{unit.slug}</strong><span>{unit.format}</span><small>Selected {unit.selectedRevisionId ?? "None"} · Latest {unit.latestRevisionId ?? "None"}</small></article>}
-      </BoundedSection>
-      <BoundedSection<OverviewPublicationDto> title="Publications" page={value.publications} empty="No publications returned.">
-        {(publication) => <article key={publication.id}><strong>{publication.platform} · {publication.state}</strong><span>{publication.rail}</span><small>{publication.url ?? "No URL returned"}</small></article>}
-      </BoundedSection>
-      <BoundedSection<ActivityDto> title="Activity" page={value.activity} empty="No activity returned.">
-        {(event) => <article key={event.sequence}><strong>#{event.sequence} · {event.action}</strong><span>{event.entityType} · {event.entityId}</span><time dateTime={new Date(event.createdAt).toISOString()}>{formatTime(event.createdAt)}</time></article>}
-      </BoundedSection>
-    </div>
+    <PlaceholderSection title="Workspace momentum" value={value.momentum.trend} ready="Trend data available." />
+    <PlaceholderSection title="Accounts" value={value.accounts} ready="Connected account data available." />
+    <PlaceholderSection title="Content plan" value={value.plan.coverage} ready="Content plan data available." />
+    <PlaceholderSection title="Top and emerging Units" value={value.outcomes} ready="Unit outcome data available." />
+    <PlaceholderSection title="What works" value={value.insights} ready="Workspace insight data available." />
+    <PlaceholderSection title="Production efficiency" value={value.efficiency} ready="Production efficiency data available." />
+    <PlaceholderSection title="Attention" value={value.attention} ready={attention} />
+    <PlaceholderSection title="Active projects" value={value.projects} ready={projects} />
   </>;
 }
 
-export function WorkspaceScreenView({
-  controller,
-  snapshot,
-  catalogProjects,
-  view,
-  onViewChange,
-  onOpenProject,
-}: {
+interface WorkspaceScreenViewProps {
   controller: WorkspaceScreenController;
   snapshot: WorkspaceScreenSnapshot;
   catalogProjects: ProjectSummary[];
-  view: WorkspaceView;
-  onViewChange(view: WorkspaceView): void;
+  workspaceDescription: string;
+  onOpenPage(page: WorkspacePage): void;
+  onOpenUnit(projectId: string, unitId: string): void;
   onOpenProject(project: ProjectSummary): void;
-}) {
-  if (snapshot.status === "loading" || snapshot.status === "idle") return <main className="main-region"><div className="project-skeleton" role="status">Loading workspace overview…</div></main>;
-  if (snapshot.status === "error") return <main className="main-region"><div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.error ?? "Workspace overview could not be loaded."}</span><button type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div></main>;
-  return <main className="main-region">{snapshot.value && <WorkspaceOverview value={snapshot.value} catalogProjects={catalogProjects} view={view} onViewChange={onViewChange} onOpenProject={onOpenProject} />}</main>;
 }
 
-function ConnectedWorkspaceScreen({
-  controller,
-  catalogProjects,
-  view,
-  onViewChange,
-  onOpenProject,
-}: {
-  controller: WorkspaceScreenController;
-  catalogProjects: ProjectSummary[];
-  view: WorkspaceView;
-  onViewChange(view: WorkspaceView): void;
-  onOpenProject(project: ProjectSummary): void;
-}) {
-  const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
-  return <WorkspaceScreenView controller={controller} snapshot={snapshot} catalogProjects={catalogProjects} view={view} onViewChange={onViewChange} onOpenProject={onOpenProject} />;
+export function WorkspaceScreenView(props: WorkspaceScreenViewProps) {
+  const { controller, snapshot, catalogProjects, workspaceDescription } = props;
+  if (snapshot.status === "loading" || snapshot.status === "idle") {
+    return <main className="main-region"><div className="project-skeleton" role="status">Loading workspace overview…</div></main>;
+  }
+  if (snapshot.status === "error") {
+    return <main className="main-region"><div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.error ?? "Workspace overview could not be loaded."}</span><button type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div></main>;
+  }
+  if (!snapshot.value) return null;
+  const presentation = presentWorkspaceOverview({
+    overview: snapshot.value,
+    catalogProjects,
+    description: workspaceDescription,
+  });
+  const criticalCount = presentation.attention.status === "ready" || presentation.attention.status === "partial"
+    ? presentation.attention.value.criticalCount
+    : presentation.attention;
+  return <main className="main-region workspace-overview" aria-busy={snapshot.refreshing || undefined}>
+    <WorkspaceOverviewHeader
+      value={presentation.header}
+      criticalCount={criticalCount}
+      refreshing={snapshot.refreshing}
+      onRefresh={() => { void controller.retry(); }}
+    />
+    {snapshot.error && <div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.error}</span><button type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>}
+    <div className="workspace-overview-scroll">
+      <WorkspaceOverviewShell value={presentation} />
+    </div>
+  </main>;
 }
 
-export function WorkspaceScreen({
-  workspaceId,
-  rootEpoch,
-  activitySequence,
-  catalogProjects,
-  view,
-  onViewChange,
-  onOpenProject,
-}: {
+function ConnectedWorkspaceScreen(props: Omit<WorkspaceScreenViewProps, "snapshot">) {
+  const snapshot = useSyncExternalStore(
+    props.controller.subscribe,
+    props.controller.getSnapshot,
+    props.controller.getSnapshot,
+  );
+  return <WorkspaceScreenView {...props} snapshot={snapshot} />;
+}
+
+interface WorkspaceScreenProps extends Omit<WorkspaceScreenViewProps, "controller" | "snapshot"> {
   workspaceId: string;
   rootEpoch: number;
   activitySequence: number;
-  catalogProjects: ProjectSummary[];
-  view: WorkspaceView;
-  onViewChange(view: WorkspaceView): void;
-  onOpenProject(project: ProjectSummary): void;
-}) {
+}
+
+export function WorkspaceScreen(props: WorkspaceScreenProps) {
+  const { workspaceId, rootEpoch, activitySequence } = props;
   const [controller, setController] = useState<WorkspaceScreenController | null>(null);
   useEffect(
     () => startWorkspaceScreenController(bridge, workspaceId, activitySequence, setController),
@@ -206,6 +130,13 @@ export function WorkspaceScreen({
   );
   useEffect(() => { void controller?.refresh(activitySequence); }, [activitySequence, controller]);
   return controller
-    ? <ConnectedWorkspaceScreen controller={controller} catalogProjects={catalogProjects} view={view} onViewChange={onViewChange} onOpenProject={onOpenProject} />
+    ? <ConnectedWorkspaceScreen
+        controller={controller}
+        catalogProjects={props.catalogProjects}
+        workspaceDescription={props.workspaceDescription}
+        onOpenPage={props.onOpenPage}
+        onOpenUnit={props.onOpenUnit}
+        onOpenProject={props.onOpenProject}
+      />
     : <main className="main-region"><div className="project-skeleton" role="status">Loading workspace overview…</div></main>;
 }

@@ -419,8 +419,14 @@ export function App() {
         rootEpoch={rootIdentity?.rootEpoch ?? 0}
         activitySequence={rootIdentity?.activitySequence ?? 0}
         catalogProjects={projects.filter((project) => project.workspaceId === selectedWorkspace.id)}
-        view={workspaceView}
-        onViewChange={() => undefined}
+        workspaceDescription={selectedWorkspace.description}
+        onOpenPage={setWorkspacePage}
+        onOpenUnit={(projectId, unitId) => {
+          const project = projects.find((candidate) => (
+            candidate.workspaceId === selectedWorkspace.id && candidate.projectId === projectId
+          ));
+          if (project) openProject(project, unitId);
+        }}
         onOpenProject={openProject}
       />
     );

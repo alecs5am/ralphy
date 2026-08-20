@@ -8,27 +8,18 @@ import {
 } from "../electron/ralphy/workspace-reader";
 import type { RalphyBridgeClient } from "../electron/ralphy/client";
 import type { WorkspaceOverviewDto } from "../electron/ralphy/types";
-import type { ProjectSummary } from "../electron/media/types";
 import { bridge } from "../src/lib/ipc";
 import {
   createWorkspaceScreenController,
 } from "../src/state/workspace-screen-controller";
 import {
-  catalogProjectForOverview,
   WorkspaceScreen,
   WorkspaceScreenView,
 } from "../src/screens/WorkspaceScreen";
-import { createReactHost, reactHostGlobalKeys, type HostNode } from "./react-host";
+import { createReactHost, reactHostGlobalKeys } from "./react-host";
 
 const overview: WorkspaceOverviewDto = {
   workspace: { id: "workspace-1", slug: "launch", name: "Launch", rowVersion: 1, createdAt: 1, updatedAt: 2 },
-};
-
-const catalogProject: ProjectSummary = {
-  id: "workspace-1/project-1", workspaceId: "workspace-1", projectId: "project-1",
-  name: "Catalog-only name", brief: "Catalog-only description", status: "active", phase: "production",
-  finalState: "ready", platform: "tiktok", aspectRatio: "9:16", spendUsd: 99, finalCount: 5,
-  sharedCount: 2, unitCount: 1, recentActivity: "2026-08-01T00:00:00.000Z",
 };
 
 const populatedOverview: WorkspaceOverviewDto = {
@@ -66,13 +57,11 @@ describe("Workspace domain reader", () => {
       context: { workspaceId: "workspace-1" },
       workspaceId: "workspace-1",
       sections: {
-        documents: { limit: 5 },
-        units: { limit: 5 },
-        accounts: { limit: 5 },
-        projects: { limit: 5 },
+        units: { limit: 20 },
+        accounts: { limit: 20 },
+        projects: { limit: 8 },
         activity: { afterSequence: 0, limit: 10 },
-        sharedMedia: { limit: 5 },
-        publications: { limit: 5 },
+        publications: { limit: 30 },
         metrics: true,
       },
     });
@@ -123,32 +112,25 @@ describe("Workspace domain reader", () => {
   });
 });
 
-function renderWorkspace(value: WorkspaceOverviewDto, projects: ProjectSummary[] = [catalogProject]) {
-  const api = { loadWorkspaceOverview: vi.fn(async () => value) };
-  const controller = createWorkspaceScreenController(api, "workspace-1");
-  return controller.start().then(() => renderToStaticMarkup(
-    <WorkspaceScreenView
-      controller={controller}
-      snapshot={controller.getSnapshot()}
-      catalogProjects={projects}
-      view="grid"
-      onViewChange={() => undefined}
-      onOpenProject={() => undefined}
-    />,
-  ));
-}
+const workspaceViewProps = {
+  workspaceDescription: "",
+  onOpenPage: () => undefined,
+  onOpenUnit: () => undefined,
+  onOpenProject: () => undefined,
+};
 
 describe("Workspace screen", () => {
   test("renders loading, then a normal empty bounded overview", async () => {
     const pending = deferred<WorkspaceOverviewDto>();
     const controller = createWorkspaceScreenController({ loadWorkspaceOverview: () => pending.promise }, "workspace-1");
     const loading = controller.start();
-    expect(renderToStaticMarkup(<WorkspaceScreenView controller={controller} snapshot={controller.getSnapshot()} catalogProjects={[]} onOpenProject={() => undefined} />)).toContain("Loading workspace overview");
+    expect(renderToStaticMarkup(<WorkspaceScreenView controller={controller} snapshot={controller.getSnapshot()} catalogProjects={[]} {...workspaceViewProps} />)).toContain("Loading workspace overview");
 
     pending.resolve(overview);
     await loading;
-    const markup = renderToStaticMarkup(<WorkspaceScreenView controller={controller} snapshot={controller.getSnapshot()} catalogProjects={[]} onOpenProject={() => undefined} />);
-    expect(markup).toContain("No documents returned");
+    const markup = renderToStaticMarkup(<WorkspaceScreenView controller={controller} snapshot={controller.getSnapshot()} catalogProjects={[]} {...workspaceViewProps} />);
+    expect(markup).toContain("Connected accounts were not returned by Core");
+    expect(markup).not.toContain("Documents");
     expect(markup).not.toContain("Final renders");
     expect(markup).not.toContain("Indexed project spend");
   });
@@ -160,107 +142,11 @@ describe("Workspace screen", () => {
     const controller = createWorkspaceScreenController(api, "workspace-1");
 
     await controller.start();
-    expect(renderToStaticMarkup(<WorkspaceScreenView controller={controller} snapshot={controller.getSnapshot()} catalogProjects={[]} onOpenProject={() => undefined} />)).toContain("Core unavailable");
+    expect(renderToStaticMarkup(<WorkspaceScreenView controller={controller} snapshot={controller.getSnapshot()} catalogProjects={[]} {...workspaceViewProps} />)).toContain("Core unavailable");
     await controller.retry();
     expect(controller.getSnapshot()).toMatchObject({ status: "ready", value: overview });
     expect(api.loadWorkspaceOverview).toHaveBeenNthCalledWith(1, "workspace-1");
     expect(api.loadWorkspaceOverview).toHaveBeenNthCalledWith(2, "workspace-1");
-  });
-
-  test("renders only bounded Core facts and plain publication URLs", async () => {
-    expect(populatedOverview.documents!.items).toHaveLength(5);
-    expect(populatedOverview.documents!.nextCursor).toBe("document-next");
-    expect(populatedOverview.documents!.items.map(({ kind }) => kind)).toEqual([
-      "brief", "note", "research", "scenario", "production-plan",
-    ]);
-    expect(populatedOverview.activity!.items).toHaveLength(1);
-    expect(populatedOverview.activity!.nextCursor).toBeNull();
-    const markup = await renderWorkspace(populatedOverview);
-
-    expect(markup).toContain("Launch Studio");
-    expect(markup).toContain("Launch Account");
-    expect(markup).toContain("Configured");
-    expect(markup).toContain("Workspace brief");
-    expect(markup).toContain("reference · cover");
-    expect(markup).toContain("Core Project");
-    expect(markup).toContain("launch-reel");
-    expect(markup).toContain("published");
-    expect(markup).toContain("100");
-    expect(markup).toContain("#7 · updated");
-    expect(markup).toContain("Bounded records");
-    expect(markup).not.toContain("Recent");
-    expect(markup).toContain("More available");
-    expect(markup).toContain("https://example.test/post/1");
-    expect(markup).not.toContain('href="https://example.test/post/1"');
-    expect(markup).not.toContain("Catalog-only name");
-    expect(markup).not.toContain("Catalog-only description");
-    expect(markup).not.toContain("$99");
-  });
-
-  test("maps navigation by stable Workspace and Project IDs only", () => {
-    const coreProject = populatedOverview.projects!.items[0]!;
-    expect(catalogProjectForOverview([catalogProject], coreProject)).toBe(catalogProject);
-    expect(catalogProjectForOverview([{ ...catalogProject, workspaceId: "other" }], coreProject)).toBeNull();
-    expect(catalogProjectForOverview([{ ...catalogProject, projectId: "other" }], coreProject)).toBeNull();
-  });
-
-  test("mounts the Core-backed project grid/list toggle and changes only presentation", async () => {
-    const controller = createWorkspaceScreenController(
-      { loadWorkspaceOverview: vi.fn(async () => populatedOverview) },
-      "workspace-1",
-    );
-    await controller.start();
-    const host = createReactHost();
-    const { createRoot } = await import("react-dom/client");
-    const root = createRoot(host.container as unknown as Element);
-    const onViewChange = vi.fn();
-
-    try {
-      await act(async () => {
-        root.render(<WorkspaceScreenView
-          controller={controller}
-          snapshot={controller.getSnapshot()}
-          catalogProjects={[catalogProject]}
-          view="grid"
-          onViewChange={onViewChange}
-          onOpenProject={() => undefined}
-        />);
-      });
-
-      expect(host.container.querySelector(".workspace-project-grid")).not.toBeNull();
-      expect(host.container.textContent).toContain("Core Project");
-      expect(host.container.textContent).toContain("launch-video");
-      expect(host.container.textContent).not.toContain("Catalog-only description");
-      const listToggle = host.container.findAll((node) => node.getAttribute("aria-label") === "List view")[0] as HostNode | undefined;
-      expect(listToggle).toBeDefined();
-      listToggle!.dispatchEvent(new Event("click", { bubbles: true }));
-      expect(onViewChange).toHaveBeenCalledWith("list");
-    } finally {
-      await act(async () => root.unmount());
-      host.restore();
-    }
-  });
-
-  test("keeps Workspace list navigation as native list items and buttons", async () => {
-    const controller = createWorkspaceScreenController(
-      { loadWorkspaceOverview: vi.fn(async () => populatedOverview) },
-      "workspace-1",
-    );
-    await controller.start();
-
-    const markup = renderToStaticMarkup(<WorkspaceScreenView
-      controller={controller}
-      snapshot={controller.getSnapshot()}
-      catalogProjects={[catalogProject]}
-      view="list"
-      onViewChange={() => undefined}
-      onOpenProject={() => undefined}
-    />);
-
-    expect(markup).toContain('<ul class="project-table workspace-project-list" aria-label="Projects">');
-    expect(markup).toMatch(/<li><button class="project-table-row" type="button">/);
-    expect(markup).not.toContain('role="row"');
-    expect(markup).not.toContain('role="table"');
   });
 
   test("ignores a late completion after disposal", async () => {
@@ -283,7 +169,44 @@ describe("Workspace screen", () => {
     await controller.retry();
 
     expect(loadWorkspaceOverview).not.toHaveBeenCalled();
-    expect(controller.getSnapshot()).toEqual({ status: "idle", value: null, error: null });
+    expect(controller.getSnapshot()).toEqual({ status: "idle", value: null, error: null, refreshing: false });
+  });
+
+  test("keeps ready content visible during refresh", async () => {
+    const next = deferred<WorkspaceOverviewDto>();
+    const api = { loadWorkspaceOverview: vi.fn()
+      .mockResolvedValueOnce(populatedOverview)
+      .mockReturnValueOnce(next.promise) };
+    const controller = createWorkspaceScreenController(api, "workspace-1", 1);
+    await controller.start();
+
+    const refreshing = controller.refresh(2);
+
+    expect(controller.getSnapshot()).toMatchObject({
+      status: "ready",
+      refreshing: true,
+      value: populatedOverview,
+    });
+    next.resolve(populatedOverview);
+    await refreshing;
+    expect(controller.getSnapshot()).toMatchObject({ status: "ready", refreshing: false });
+  });
+
+  test("keeps ready content and reports a refresh error locally", async () => {
+    const api = { loadWorkspaceOverview: vi.fn()
+      .mockResolvedValueOnce(populatedOverview)
+      .mockRejectedValueOnce(new Error("Refresh unavailable")) };
+    const controller = createWorkspaceScreenController(api, "workspace-1");
+    await controller.start();
+
+    await controller.retry();
+
+    expect(controller.getSnapshot()).toEqual({
+      status: "ready",
+      value: populatedOverview,
+      error: "Refresh unavailable",
+      refreshing: false,
+    });
   });
 
   test("refreshes only newer activity and rejects an older same-root completion", async () => {
@@ -345,6 +268,9 @@ describe("Workspace screen", () => {
           rootEpoch={2}
           activitySequence={10}
           catalogProjects={[]}
+          workspaceDescription=""
+          onOpenPage={() => undefined}
+          onOpenUnit={() => undefined}
           onOpenProject={() => undefined}
         /></StrictMode>);
         await Promise.resolve();
