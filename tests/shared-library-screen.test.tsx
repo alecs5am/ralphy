@@ -232,6 +232,52 @@ describe("Shared Library screen", () => {
     }
   });
 
+  test("keeps a page-two unselected artifact, loaded extent, revision history, selection, and exact focus after selecting its future default", async () => {
+    const first = artifact("first");
+    const second = artifact("second", { selectedRevisionId: null, selectedState: null, selectedObjectId: null, target: null });
+    const selected = artifact("second", { selectedRevisionId: "revision-second-1", selectedState: "candidate" });
+    vi.spyOn(bridge, "loadSharedLibraryPage")
+      .mockResolvedValueOnce(page([first], "page-2"))
+      .mockResolvedValueOnce(page([second], "page-3"));
+    vi.spyOn(bridge, "loadSharedLibraryArtifact").mockResolvedValue(second);
+    vi.spyOn(bridge, "loadSharedLibraryRevisions").mockResolvedValue({ items: [{
+      id: "revision-second-1",
+      artifactId: "second",
+      objectId: "object-second-1",
+      revisionNo: 1,
+      parentRevisionId: null,
+      iterationId: null,
+      state: "candidate",
+      authoredBySessionId: null,
+      createdAt: Date.parse("2026-08-20T10:00:00.000Z"),
+    }], nextCursor: null });
+    vi.spyOn(bridge, "resolveSharedLibraryPreview").mockResolvedValue(null);
+    const select = vi.spyOn(bridge, "selectSharedLibraryRevision").mockResolvedValue(selected);
+    const mounted = await mountScreen();
+    try {
+      await act(async () => { byText(mounted.host.container, "Load more").dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      const origin = byAria(mounted.host.container, "button", "Select second identity and open inspector")!;
+      origin.focus();
+      await act(async () => { origin.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      await act(async () => { byAria(mounted.host.container, "button", "Select revision 1 as default for future use")!.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+
+      expect(select).toHaveBeenCalledWith("workspace-1", "second", "revision-second-1", null);
+      expect(mounted.host.container.textContent).toContain("Revision 1Selected default");
+      expect(mounted.host.container.textContent).toContain("first");
+      expect(mounted.host.container.textContent).toContain("second");
+      expect(byText(mounted.host.container, "Load more")).not.toBeNull();
+
+      await act(async () => { byAria(mounted.host.container, "button", "Close artifact inspector")!.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      expect(byAria(mounted.host.container, "button", "Select second identity and open inspector")).toBe(origin);
+      expect(origin.closest("article")?.getAttribute("class")).toContain("is-selected");
+      expect(document.activeElement).toBe(origin);
+      expect(bridge.loadSharedLibraryPage).toHaveBeenCalledTimes(2);
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
   test("renders the 44px audit list with unavailable future cells and disabled bulk mutations", async () => {
     vi.spyOn(bridge, "loadSharedLibraryPage").mockResolvedValue(page([
       artifact("portrait", { usageRoles: ["character reference"] }),

@@ -506,6 +506,7 @@
 .shared-inspector-actions button:disabled,
 .shared-inspector-revision button:disabled,
 .shared-inspector-selection-note button:disabled { opacity: .5; cursor: not-allowed; }
+.shared-inspector-action-reason { margin: -8px 0 0; color: var(--fg-4); font-size: 10.5px; line-height: 1.4; }
 .shared-inspector-actions svg,
 .shared-inspector-alert svg { width: 13px; height: 13px; }
 

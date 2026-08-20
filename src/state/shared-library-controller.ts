@@ -20,6 +20,7 @@ export interface SharedLibraryController {
   loadMore(): Promise<void>;
   setQuery(patch: Partial<SharedLibraryQueryState>): void;
   selectArtifact(id: string | null): void;
+  reconcileArtifact(card: ArtifactMediaCardDto): void;
   dispose(): void;
 }
 
@@ -138,6 +139,16 @@ export function createSharedLibraryController(
       if (disposed || snapshot.status !== "ready") return;
       selectedArtifactId = id !== null && snapshot.value.artifacts.some((artifact) => artifact.id === id) ? id : null;
       emit({ ...snapshot, value: { ...snapshot.value, selectedArtifactId } });
+    },
+    reconcileArtifact(card) {
+      if (disposed || snapshot.status !== "ready" || !loaded || !loaded.items.some(({ ref }) => ref.id === card.ref.id)) return;
+      loaded = { ...loaded, items: loaded.items.map((item) => item.ref.id === card.ref.id ? card : item) };
+      emit(ready(loaded, {
+        refreshing: snapshot.refreshing,
+        loadingMore: snapshot.loadingMore,
+        pageError: snapshot.pageError,
+        refreshError: snapshot.refreshError,
+      }));
     },
     dispose() {
       disposed = true;

@@ -133,6 +133,35 @@ describe("Shared Library controller", () => {
     });
   });
 
+  test("reconciles an exact returned artifact in place without truncating loaded pages, cursor, query, or selection", async () => {
+    const loadSharedLibraryPage = vi.fn()
+      .mockResolvedValueOnce(page([artifact("first")], "cursor-1"))
+      .mockResolvedValueOnce(page([artifact("second", { selectedRevisionId: null, selectedState: null })], "cursor-2"));
+    const controller = createSharedLibraryController({ loadSharedLibraryPage }, "workspace-1");
+    await controller.start();
+    await controller.loadMore();
+    controller.setQuery({ view: "list", sort: "name" });
+    controller.selectArtifact("second");
+
+    controller.reconcileArtifact(artifact("second", { selectedRevisionId: "revision-2", selectedState: "candidate" }));
+
+    expect(controller.getSnapshot()).toMatchObject({
+      status: "ready",
+      query: { view: "list", sort: "name" },
+      refreshing: false,
+      loadingMore: false,
+      value: {
+        selectedArtifactId: "second",
+        nextCursor: "cursor-2",
+        artifacts: [
+          { id: "first" },
+          { id: "second", selectedRevisionId: "revision-2", selectedState: "candidate" },
+        ],
+      },
+    });
+    expect(loadSharedLibraryPage).toHaveBeenCalledTimes(2);
+  });
+
   test("suppresses stale append results and all publication after disposal", async () => {
     const append = deferred<Page<ArtifactMediaCardDto>>();
     const refresh = deferred<Page<ArtifactMediaCardDto>>();

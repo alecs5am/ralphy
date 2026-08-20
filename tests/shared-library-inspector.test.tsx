@@ -83,7 +83,7 @@ async function mountInspector(card = artifact(), props: Partial<React.ComponentP
       rootEpoch={1}
       returnFocus={null}
       onClose={() => undefined}
-      onRefresh={async () => undefined}
+      onReconcile={() => undefined}
       {...props}
     />);
     await settle();
@@ -142,6 +142,9 @@ describe("Shared Artifact inspector", () => {
       expect(technical?.textContent).toContain("durable");
       expect(button(mounted.host.container, "Use in project").disabled).toBe(true);
       expect(button(mounted.host.container, "Complete metadata").disabled).toBe(true);
+      const unavailableActions = button(mounted.host.container, "Use in project").getAttribute("aria-describedby");
+      expect(unavailableActions).not.toBeNull();
+      expect(mounted.host.container.querySelector(`#${unavailableActions}`)?.textContent).toContain("unavailable until Core exposes mutation contracts");
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.host.restore();
@@ -186,12 +189,12 @@ describe("Shared Artifact inspector", () => {
 
   test("selects a future default with the current CAS pointer and leaves existing references pinned", async () => {
     const pending = deferred<ArtifactMediaCardDto>();
-    const refresh = vi.fn(async () => undefined);
+    const reconcile = vi.fn();
     vi.spyOn(bridge, "loadSharedLibraryArtifact").mockResolvedValue(artifact());
     vi.spyOn(bridge, "loadSharedLibraryRevisions").mockResolvedValue({ items: [revision(1), revision(2)], nextCursor: null });
     vi.spyOn(bridge, "resolveSharedLibraryPreview").mockResolvedValue(null);
     const select = vi.spyOn(bridge, "selectSharedLibraryRevision").mockReturnValue(pending.promise);
-    const mounted = await mountInspector(artifact(), { onRefresh: refresh });
+    const mounted = await mountInspector(artifact(), { onReconcile: reconcile });
     try {
       await click(buttonByAria(mounted.host.container, "Select revision 2 as default for future use"));
       expect(select).toHaveBeenCalledWith("workspace-1", "artifact-1", "revision-2", "revision-1");
@@ -200,7 +203,27 @@ describe("Shared Artifact inspector", () => {
       expect(mounted.host.container.textContent).not.toMatch(/existing references stay pinned\s*\d|\d+ existing references/i);
       await act(async () => { pending.resolve(artifact({ selectedRevisionId: "revision-2", selectedState: "candidate" })); await settle(); });
       expect(mounted.host.container.textContent).toContain("Revision 2Selected default");
-      expect(refresh).toHaveBeenCalledTimes(1);
+      expect(reconcile).toHaveBeenCalledWith(expect.objectContaining({ selectedRevisionId: "revision-2" }));
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
+  test("selects a future default from an initially unselected artifact with a null CAS pointer", async () => {
+    const unselected = artifact({ selectedRevisionId: null, selectedState: null, selectedObjectId: null, target: null });
+    const selected = artifact({ selectedRevisionId: "revision-1", selectedState: "candidate" });
+    const reconcile = vi.fn();
+    vi.spyOn(bridge, "loadSharedLibraryArtifact").mockResolvedValue(unselected);
+    vi.spyOn(bridge, "loadSharedLibraryRevisions").mockResolvedValue({ items: [revision(1, { state: "candidate" })], nextCursor: null });
+    vi.spyOn(bridge, "resolveSharedLibraryPreview").mockResolvedValue(null);
+    const select = vi.spyOn(bridge, "selectSharedLibraryRevision").mockResolvedValue(selected);
+    const mounted = await mountInspector(unselected, { onReconcile: reconcile });
+    try {
+      await click(buttonByAria(mounted.host.container, "Select revision 1 as default for future use"));
+      expect(select).toHaveBeenCalledWith("workspace-1", "artifact-1", "revision-1", null);
+      expect(reconcile).toHaveBeenCalledWith(selected);
+      expect(mounted.host.container.textContent).toContain("Revision 1Selected default");
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.host.restore();
@@ -257,7 +280,11 @@ describe("Shared Artifact inspector", () => {
     const targetless = await mountInspector(artifact({ target: null }));
     try {
       expect(targetless.host.container.textContent).toContain("Preview unavailable");
-      expect(button(targetless.host.container, "Open original").disabled).toBe(true);
+      const openOriginal = button(targetless.host.container, "Open original");
+      expect(openOriginal.disabled).toBe(true);
+      const reasonId = openOriginal.getAttribute("aria-describedby");
+      expect(reasonId).not.toBeNull();
+      expect(targetless.host.container.querySelector(`#${reasonId}`)?.textContent).toContain("Core returned no selected media target");
     } finally {
       await act(async () => targetless.root.unmount());
       targetless.host.restore();

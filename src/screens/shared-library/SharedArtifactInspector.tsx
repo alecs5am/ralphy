@@ -1,7 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { ChevronRight, ExternalLink, RefreshCw, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ArtifactRevisionDto } from "../../../electron/ralphy/types";
+import type { ArtifactMediaCardDto, ArtifactRevisionDto } from "../../../electron/ralphy/types";
 import { bridge } from "../../lib/ipc";
 import { SharedArtifactPreview } from "./SharedArtifactPreview";
 import { presentSharedArtifact, type SharedArtifactPresentation } from "./presentation";
@@ -51,13 +51,13 @@ function UnavailableAgentUse() {
   </dl>;
 }
 
-export function SharedArtifactInspector({ artifact, workspaceId, rootEpoch, returnFocus, onClose, onRefresh }: {
+export function SharedArtifactInspector({ artifact, workspaceId, rootEpoch, returnFocus, onClose, onReconcile }: {
   artifact: SharedArtifactPresentation;
   workspaceId: string;
   rootEpoch: number;
   returnFocus: HTMLElement | null;
   onClose(): void;
-  onRefresh(): Promise<void>;
+  onReconcile(card: ArtifactMediaCardDto): void;
 }) {
   const [detail, setDetail] = useState(artifact);
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -68,6 +68,9 @@ export function SharedArtifactInspector({ artifact, workspaceId, rootEpoch, retu
   const revisionRequest = useRef(0);
   const selectionRequest = useRef(0);
   const actionRequest = useRef(0);
+  const idStem = artifact.id.replace(/[^a-zA-Z0-9_-]/g, "-");
+  const unavailableActionsId = `shared-inspector-${idStem}-actions-unavailable`;
+  const targetlessActionId = `shared-inspector-${idStem}-targetless-action`;
 
   const loadDetail = useCallback(async () => {
     const current = ++request.current;
@@ -130,7 +133,7 @@ export function SharedArtifactInspector({ artifact, workspaceId, rootEpoch, retu
       if (current !== selectionRequest.current) return;
       setDetail(presentSharedArtifact(card));
       setSelection({ status: "idle" });
-      void onRefresh();
+      onReconcile(card);
     } catch (error) {
       if (current !== selectionRequest.current) return;
       setSelection(isConflict(error)
@@ -193,10 +196,12 @@ export function SharedArtifactInspector({ artifact, workspaceId, rootEpoch, retu
             ["Coarse media provenance", provenanceText(detail)],
           ]} />
           <div className="shared-inspector-actions">
-            <button type="button" disabled title="Use in project is unavailable until Core exposes a mutation contract.">Use in project</button>
-            <button type="button" disabled title="Complete metadata is unavailable until Core exposes a metadata mutation contract.">Complete metadata</button>
-            <button type="button" disabled={detail.preview === "no-target" || openState.status === "pending"} onClick={() => { void openOriginal(); }}><ExternalLink aria-hidden="true" />{openState.status === "pending" ? "Opening original…" : "Open original"}</button>
+            <button type="button" disabled aria-describedby={unavailableActionsId}>Use in project</button>
+            <button type="button" disabled aria-describedby={unavailableActionsId}>Complete metadata</button>
+            <button type="button" aria-describedby={detail.preview === "no-target" ? targetlessActionId : undefined} disabled={detail.preview === "no-target" || openState.status === "pending"} onClick={() => { void openOriginal(); }}><ExternalLink aria-hidden="true" />{openState.status === "pending" ? "Opening original…" : "Open original"}</button>
           </div>
+          <p className="shared-inspector-action-reason" id={unavailableActionsId}>Use in project and Complete metadata are unavailable until Core exposes mutation contracts.</p>
+          {detail.preview === "no-target" && <p className="shared-inspector-action-reason" id={targetlessActionId}>Open original is unavailable because Core returned no selected media target.</p>}
           {openState.status === "error" && <div className="shared-inspector-alert" role="alert"><span>{openState.message}</span><button type="button" onClick={() => { void openOriginal(); }}>Retry open original</button></div>}
 
           <Section title="Context agents receive"><UnavailableAgentUse /></Section>

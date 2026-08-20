@@ -215,7 +215,7 @@ export function SharedLibraryScreenView({ workspaceId, workspaceName, rootEpoch,
         {snapshot.pageError && <div className="shared-library-error shared-library-page-error" role="alert"><span>{snapshot.pageError}</span><button type="button" onClick={() => { void controller.loadMore(); }}>Retry</button></div>}
         {value.nextCursor && !snapshot.pageError && <button className="shared-library-load-more" type="button" disabled={snapshot.loadingMore} onClick={() => { void controller.loadMore(); }}>{snapshot.loadingMore ? "Loading…" : "Load more"}</button>}
       </div>
-      {inspector && <SharedArtifactInspector artifact={inspector.artifact} workspaceId={workspaceId} rootEpoch={rootEpoch} returnFocus={inspector.origin} onClose={() => setInspector(null)} onRefresh={() => controller.refresh()} />}
+      {inspector && <SharedArtifactInspector artifact={inspector.artifact} workspaceId={workspaceId} rootEpoch={rootEpoch} returnFocus={inspector.origin} onClose={() => setInspector(null)} onReconcile={controller.reconcileArtifact} />}
     </div>
     {selectedRows.size > 0 && <div className="shared-library-bulk-bar"><strong>{selectedRows.size} SELECTED</strong>{["Assign role", "Tag", "Review metadata", "Archive"].map((label) => <button type="button" disabled title="This Core mutation is unavailable." key={label}>{label}</button>)}</div>}
   </main>;
