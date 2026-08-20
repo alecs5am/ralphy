@@ -9,6 +9,7 @@ import type { WorkspaceSummary } from "../src/lib/ipc";
 import { ContextSidebar } from "../src/components/ContextSidebar";
 import { MainHeader } from "../src/components/Titlebar";
 import { WorkspaceProjectsScreen } from "../src/screens/WorkspaceProjectsScreen";
+import { SharedLibraryScreen } from "../src/screens/SharedLibraryScreen";
 import { LibraryScreen } from "../src/screens/LibraryScreen";
 import { bridge } from "../src/lib/ipc";
 import { readWorkbenchPreferences, WORKSPACE_PAGES } from "../src/state/workbench";
@@ -67,6 +68,16 @@ function mediaCard(id: string, mime: string): MediaCardDto {
 }
 
 describe("workspace projects navigation", () => {
+  test("renders the live Shared Library destination instead of the workspace placeholder", () => {
+    const markup = renderToStaticMarkup(
+      <SharedLibraryScreen workspaceId="workspace-1" workspaceName="Launch Studio" rootEpoch={7} />,
+    );
+
+    expect(markup).toContain("Shared Library");
+    expect(markup).toContain("Reusable workspace artifacts for people and agents");
+    expect(markup).not.toContain("Shared Library is not wired yet");
+  });
+
   test("never mounts the workbench hidden while motion is reduced", () => {
     const source = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
     expect(source).toContain("initial={false}");

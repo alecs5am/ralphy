@@ -8,6 +8,7 @@ import "./styles/workbench.css";
 import "./styles/settings.css";
 import "./styles/local-models.css";
 import "./styles/workspace-overview.css";
+import "./styles/shared-library.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

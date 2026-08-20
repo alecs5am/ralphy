@@ -125,6 +125,38 @@ async function mountApp({
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe("workspace overview navigation lifecycle", () => {
+  test("opens Shared Library from Overview and restores the originating control on Back", async () => {
+    const emptyOverview: WorkspaceOverviewDto = {
+      ...overview,
+      accounts: { items: [], nextCursor: null },
+      units: { items: [], nextCursor: null },
+      publications: { items: [], nextCursor: null },
+      metrics: { ...overview.metrics, publicationCount: 0 },
+    };
+    const mounted = await mountApp({ overviews: { "workspace-1": emptyOverview } });
+    try {
+      const scroll = mounted.host.container.querySelector(".workspace-overview-scroll") as unknown as HostNode;
+      scroll.scrollTop = 221;
+      const openShared = [...mounted.host.container.querySelectorAll("button")]
+        .find((button) => button.textContent === "Open Shared library")!;
+      const focusId = openShared.getAttribute("id");
+      await act(async () => { openShared.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+
+      expect(mounted.host.container.textContent).toContain("Back to Overview");
+      expect(mounted.host.container.textContent).toContain("Shared Library");
+      expect(mounted.host.container.textContent).toContain("Reusable workspace artifacts for people and agents");
+      expect(mounted.host.container.textContent).not.toContain("Shared Library is not wired yet");
+
+      const back = [...mounted.host.container.querySelectorAll("button")]
+        .find((button) => button.textContent === "Back to Overview")!;
+      await act(async () => { back.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
+      expect((mounted.host.container.querySelector(".workspace-overview-scroll") as unknown as HostNode).scrollTop).toBe(221);
+      expect((document.activeElement as unknown as HostNode)?.getAttribute("id")).toBe(focusId);
+    } finally {
+      await mounted.cleanup();
+    }
+  });
+
   test("carries Calendar context and restores Overview scroll, expansion, and focus on Back", async () => {
     const mounted = await mountApp();
     try {

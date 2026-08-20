@@ -29,6 +29,7 @@ import { WorkspacePagePlaceholder, WorkspaceProjectsScreen } from "./screens/Wor
 import { MigrationRecoveryScreen } from "./screens/MigrationRecoveryScreen";
 import { MemoryScreen } from "./screens/MemoryScreen";
 import { CalendarScreen } from "./screens/CalendarScreen";
+import { SharedLibraryScreen } from "./screens/SharedLibraryScreen";
 import { LocalModelsScreen } from "./screens/LocalModelsScreen";
 import {
   createInitialWorkbenchState,
@@ -510,6 +511,13 @@ export function App() {
     );
   } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "memory") {
     content = <MemoryScreen workspaceId={selectedWorkspace.id} workspaceName={selectedWorkspace.name} />;
+  } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "shared") {
+    content = <SharedLibraryScreen
+      key={`shared:${rootIdentity?.rootEpoch ?? 0}:${selectedWorkspace.id}`}
+      workspaceId={selectedWorkspace.id}
+      workspaceName={selectedWorkspace.name}
+      rootEpoch={rootIdentity?.rootEpoch ?? 0}
+    />;
   } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "calendar") {
     const calendarContext = overviewReturnState?.originWorkspaceId === selectedWorkspace.id && workspaceDestination?.page === "calendar"
       ? workspaceDestination.context

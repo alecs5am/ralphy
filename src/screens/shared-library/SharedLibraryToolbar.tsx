@@ -1,0 +1,48 @@
+import { Grid2X2, List, Search, X } from "lucide-react";
+import type { MediaKind, MediaProvenance } from "../../../electron/ralphy/types";
+import { SelectMenu, type SelectMenuOption } from "../../components/ui/SelectMenu";
+import type { SharedLibraryController } from "../../state/shared-library-controller";
+import type { SharedLibraryQueryState } from "./presentation";
+
+const kinds: Array<SelectMenuOption<MediaKind | "all">> = [
+  ["all", "All kinds"], ["image", "Images"], ["video", "Video"], ["audio", "Audio"],
+  ["document", "Documents"], ["other", "Other"],
+].map(([value, label]) => ({ value, label } as SelectMenuOption<MediaKind | "all">));
+const provenances: Array<SelectMenuOption<MediaProvenance | "all">> = [
+  ["all", "All provenance"], ["generation", "Generated"],
+  ["not-generation", "Not generated"], ["unknown", "Unknown"],
+].map(([value, label]) => ({ value, label } as SelectMenuOption<MediaProvenance | "all">));
+const sorts: Array<SelectMenuOption<SharedLibraryQueryState["sort"]>> = [
+  ["recently-selected", "Recently selected"], ["name", "Name"], ["size", "Size"],
+].map(([value, label]) => ({ value, label } as SelectMenuOption<SharedLibraryQueryState["sort"]>));
+const unavailable = ["Semantic role", "Entity", "Canonical", "Used / unused", "Rights", "Missing metadata"];
+const unavailableReason = "This filter is unavailable from the current Core media contract.";
+
+export function SharedLibraryToolbar({ query, controller }: {
+  query: SharedLibraryQueryState;
+  controller: Pick<SharedLibraryController, "setQuery">;
+}) {
+  const dirty = query.text !== "" || query.mediaKind !== "all" || query.provenance !== "all";
+  return <form className="shared-library-toolbar" aria-label="Shared Library controls" onSubmit={(event) => event.preventDefault()}>
+    <label className="shared-library-search">
+      <Search size={14} aria-hidden="true" />
+      <input
+        type="search"
+        aria-label="Search Shared Library"
+        placeholder="Search slug, kind, referenced role, provenance"
+        value={query.text}
+        onInput={(event) => controller.setQuery({ text: event.currentTarget.value })}
+      />
+    </label>
+    <div className="shared-library-view-toggle" aria-label="View">
+      <button className={query.view === "grid" ? "is-active" : ""} type="button" aria-pressed={query.view === "grid"} onClick={() => controller.setQuery({ view: "grid" })}><Grid2X2 size={13} aria-hidden="true" />Grid</button>
+      <button className={query.view === "list" ? "is-active" : ""} type="button" aria-pressed={query.view === "list"} onClick={() => controller.setQuery({ view: "list" })}><List size={13} aria-hidden="true" />List</button>
+    </div>
+    <SelectMenu className="shared-library-select" value={query.mediaKind} options={kinds} ariaLabel="Kind" prefix="Kind" onValueChange={(mediaKind) => controller.setQuery({ mediaKind })} />
+    <SelectMenu className="shared-library-select" value={query.provenance} options={provenances} ariaLabel="Provenance" prefix="Provenance" onValueChange={(provenance) => controller.setQuery({ provenance })} />
+    {unavailable.map((label) => <button key={label} type="button" disabled data-unavailable-filter title={unavailableReason}>{label}</button>)}
+    <button type="button" disabled data-unavailable-filter title="Grouping by entity is unavailable from Core.">Group by entity</button>
+    <SelectMenu className="shared-library-select shared-library-sort" value={query.sort} options={sorts} ariaLabel="Sort" prefix="Sort" onValueChange={(sort) => controller.setQuery({ sort })} />
+    {dirty && <button className="shared-library-clear" type="button" onClick={() => controller.setQuery({ text: "", mediaKind: "all", provenance: "all" })}><X size={12} aria-hidden="true" />Clear filters</button>}
+  </form>;
+}
