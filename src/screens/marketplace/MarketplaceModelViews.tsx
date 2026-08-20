@@ -137,7 +137,7 @@ export function MarketplaceModelDetail({ reference, onBack }: MarketplaceModelDe
       <h2 id="marketplace-model-title">{detail.name}</h2>
       <p>{detail.author} · <code>{detail.id}</code></p>
       <div className="marketplace-model-actions">
-        <button type="button" disabled aria-describedby="marketplace-model-review-unavailable">Review download</button>
+        <button type="button" aria-disabled="true" aria-describedby="marketplace-model-review-unavailable">Review download</button>
         <button type="button" onClick={() => { void openProvider(); }}>Open on {provider}<ExternalLink aria-hidden="true" /></button>
       </div>
       <p id="marketplace-model-review-unavailable" className="marketplace-model-action-state">Download and installation are unavailable in the current Desktop contract.</p>

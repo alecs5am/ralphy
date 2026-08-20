@@ -421,9 +421,11 @@ describe("Marketplace model routes", () => {
     }
   });
 
-  test("composes download review as an explicit disabled unavailable action before Task 8", async () => {
+  test("keeps unavailable download review focusable, described, and inert before Task 8", async () => {
     vi.spyOn(bridge, "loadLocalModelDetail").mockResolvedValue(modelA);
     const openProvider = vi.spyOn(bridge, "openLocalModelProvider").mockResolvedValue();
+    const onBack = vi.fn();
+    const navigate = vi.fn();
     const host = createReactHost();
     const root = createRoot(host.container as unknown as Element);
     const detailLocation: MarketplaceLocation = {
@@ -434,14 +436,26 @@ describe("Marketplace model routes", () => {
       focusId: "marketplace-heading",
     };
     try {
-      await act(async () => { root.render(<MarketplaceScreenView catalog={null} location={detailLocation} sidebarVisible snapshot={snapshot()} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />); await settle(); });
+      await act(async () => { root.render(<MarketplaceScreenView catalog={null} location={detailLocation} sidebarVisible snapshot={snapshot()} onBack={onBack} onNavigate={navigate} onRememberLocation={() => undefined} onRetry={() => undefined} />); await settle(); });
       const review = button(host.container, "Review download");
       const reasonId = review.getAttribute("aria-describedby");
-      expect(review.disabled).toBe(true);
+      expect(review.disabled).toBe(false);
+      expect(review.getAttribute("aria-disabled")).toBe("true");
       expect(reasonId).not.toBeNull();
       expect(host.container.querySelector(`#${reasonId}`)?.textContent).toBe("Download and installation are unavailable in the current Desktop contract.");
-      await act(async () => review.dispatchEvent(new Event("click", { bubbles: true })));
+      review.focus();
+      expect(document.activeElement).toBe(review);
+      await act(async () => {
+        review.dispatchEvent(new Event("click", { bubbles: true }));
+        for (const [type, key] of [["keydown", "Enter"], ["keyup", " "]] as const) {
+          const event = new Event(type, { bubbles: true, cancelable: true });
+          Object.defineProperty(event, "key", { value: key });
+          review.dispatchEvent(event);
+        }
+      });
       expect(openProvider).not.toHaveBeenCalled();
+      expect(onBack).not.toHaveBeenCalled();
+      expect(navigate).not.toHaveBeenCalled();
     } finally {
       await act(async () => root.unmount());
       host.restore();
