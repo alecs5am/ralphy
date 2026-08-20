@@ -1,6 +1,9 @@
+import { act } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 import { MarkdownView } from "../src/components/MarkdownView";
+import { createReactHost } from "./react-host";
 
 describe("MarkdownView", () => {
   test("renders common GFM and safe model-card HTML without flattening tables", () => {
@@ -42,5 +45,29 @@ library_name: transformers
     expect(markup).not.toContain("javascript:");
     expect(markup).not.toContain("<style");
     expect(markup).not.toContain("<script");
+  });
+
+  test("replaces failed Markdown and allowlisted HTML images with text and resets for new URLs", async () => {
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    const renderImages = (suffix: string) => root.render(<MarkdownView markdown={`![Markdown preview](https://provider.example/${suffix}-markdown.png)\n\n<img src="https://provider.example/${suffix}-html.png" alt="HTML preview">`} />);
+    try {
+      await act(async () => renderImages("first"));
+      const images = host.container.querySelectorAll("img");
+      expect(images).toHaveLength(2);
+      await act(async () => images.forEach((image) => image.dispatchEvent(new Event("error"))));
+      expect(host.container.querySelectorAll("img")).toHaveLength(0);
+      expect(host.container.textContent).toContain("[image unavailable: Markdown preview]");
+      expect(host.container.textContent).toContain("[image unavailable: HTML preview]");
+
+      await act(async () => renderImages("second"));
+      expect(host.container.querySelectorAll("img").map((image) => image.getAttribute("src"))).toEqual([
+        "https://provider.example/second-markdown.png",
+        "https://provider.example/second-html.png",
+      ]);
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
   });
 });

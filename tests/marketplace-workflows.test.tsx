@@ -184,6 +184,27 @@ describe("Marketplace non-mutating action reviews", () => {
     expect(marketplaceStyles).toMatch(/\.marketplace-workflow-window button:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--fg\)[^}]*outline-offset:\s*2px/s);
   });
 
+  test("uses an opaque semantic dialog surface and readable compact state tokens", () => {
+    expect(marketplaceStyles).toMatch(/\.marketplace-workflow-window\s*\{[^}]*background:\s*var\(--panel-solid\)/s);
+    expect(marketplaceStyles).not.toContain("var(--sidebar)");
+    for (const selector of [
+      ".marketplace-target-state",
+      ".marketplace-empty-note small",
+      ".marketplace-model-facts dt",
+      ".marketplace-public-detail-aside dt",
+      ".marketplace-installed-note",
+      ".marketplace-review-field h3",
+      ".marketplace-target-list button[aria-disabled=\"true\"]",
+      ".marketplace-workflow-footer small",
+      ".marketplace-library-unavailable small",
+      ".marketplace-downloads h3",
+    ]) {
+      const start = marketplaceStyles.indexOf(`${selector} {`);
+      expect(start, selector).toBeGreaterThanOrEqual(0);
+      expect(marketplaceStyles.slice(start, marketplaceStyles.indexOf("}", start))).toContain("color: var(--fg-3)");
+    }
+  });
+
   test("connects an unsupported detail review to the real target matrix without enabling a mutation", async () => {
     const host = createReactHost();
     const root = createRoot(host.container as unknown as Element);
@@ -270,6 +291,7 @@ describe("Marketplace non-mutating action reviews", () => {
       const dialog = body.querySelector("[role=dialog]")!;
       expect(dialog).not.toBeNull();
       expect(dialog.contains(document.activeElement as unknown as HostNode)).toBe(true);
+      expect((document.activeElement as unknown as HostNode).getAttribute("aria-label")).toBe("Close Recipe apply review · Voxel dither");
       const final = dialog.querySelectorAll("button").find((node) => node.textContent.includes("Apply"))!;
       expect(final.getAttribute("aria-disabled")).toBe("true");
       await act(async () => {

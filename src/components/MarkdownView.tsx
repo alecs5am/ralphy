@@ -1,4 +1,4 @@
-import { Fragment, createElement, type ReactNode } from "react";
+import { Fragment, createElement, useEffect, useState, type ReactNode } from "react";
 import { parseDocument } from "htmlparser2";
 import { marked, type Token, type Tokens } from "marked";
 
@@ -50,6 +50,14 @@ function positiveInteger(value: string | undefined): number | undefined {
   return Number.isInteger(parsed) && parsed > 0 && parsed <= 100 ? parsed : undefined;
 }
 
+function MarkdownImage({ src, alt, title }: { src: string; alt: string; title?: string }) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  useEffect(() => setFailedUrl(null), [src]);
+  return failedUrl === src
+    ? <span className="markdown-image-fallback">[image unavailable: {alt || "provider image"}]</span>
+    : <img src={src} alt={alt} title={title} loading="lazy" decoding="async" onError={() => setFailedUrl(src)} />;
+}
+
 function html(nodes: HtmlNode[], keyPrefix: string, baseUrl?: string, allowUrl?: MarkdownViewProps["allowUrl"]): ReactNode {
   return nodes.map((node, index) => {
     const key = `${keyPrefix}-${index}`;
@@ -69,7 +77,7 @@ function html(nodes: HtmlNode[], keyPrefix: string, baseUrl?: string, allowUrl?:
     if (tag === "img") {
       const src = safeUrl(attributes.src, baseUrl, "image", allowUrl);
       if (!src) return attributes.alt ? <span className="markdown-image-link" key={key}>[image: {attributes.alt}]</span> : null;
-      Object.assign(props, { src, alt: attributes.alt ?? "", title: attributes.title, loading: "lazy", decoding: "async" });
+      return <MarkdownImage src={src} alt={attributes.alt ?? ""} title={attributes.title} key={key} />;
     }
     if (tag === "td" || tag === "th") Object.assign(props, { colSpan: positiveInteger(attributes.colspan), rowSpan: positiveInteger(attributes.rowspan) });
     if (tag === "ol") props.start = positiveInteger(attributes.start);
@@ -126,7 +134,7 @@ function inline(tokens: Token[] | undefined, keyPrefix: string, baseUrl?: string
     else if (token.type === "image") {
       const src = safeUrl(token.href, baseUrl, "image", allowUrl);
       output.push(src
-        ? <img src={src} alt={token.text} title={token.title ?? undefined} loading="lazy" decoding="async" key={key} />
+        ? <MarkdownImage src={src} alt={token.text} title={token.title ?? undefined} key={key} />
         : <span className="markdown-image-link" key={key}>[image: {token.text}]</span>);
     }
     else if ("tokens" in token && Array.isArray(token.tokens)) output.push(<Fragment key={key}>{inline(token.tokens, key, baseUrl, allowUrl)}</Fragment>);

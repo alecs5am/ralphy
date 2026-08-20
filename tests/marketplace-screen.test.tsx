@@ -95,7 +95,10 @@ const templatePresentation: MarketplaceItemPresentation = {
     category: "template",
     name: "Clean cut",
     summary: "A concise product-reveal structure",
-    referenceUrls: ["https://ralphy.b-cdn.net/library/reference.html"],
+    referenceUrls: [
+      "https://ralphy.b-cdn.net/blocks/template/reference.html",
+      "https://ralphy.b-cdn.net/blocks/template/clean-cut.png",
+    ],
     recipe: null,
   },
 };
@@ -119,10 +122,10 @@ const recipePresentation: MarketplaceItemPresentation = {
       parameters: null,
       demo: {
         kind: "media",
-        storageUrl: null,
+        storageUrl: "https://ralphy.b-cdn.net/units/voxel-dither/demo.mp4",
         beforeUrl: null,
-        afterUrl: "https://ralphy.b-cdn.net/library/voxel-after.png",
-        posterUrl: "https://ralphy.b-cdn.net/library/voxel-poster.png",
+        afterUrl: "https://ralphy.b-cdn.net/blocks/voxel-after.png",
+        posterUrl: "https://ralphy.b-cdn.net/blocks/voxel-poster.png",
       },
     },
   },
@@ -220,10 +223,49 @@ describe("Marketplace browse surfaces", () => {
     expect(markup).toContain("Templates");
     expect(markup).toContain("Recipes");
     expect(markup).toContain("https://huggingface.co/Acme/alpha/resolve/main/preview.png");
-    expect(markup).toContain("https://ralphy.b-cdn.net/library/voxel-poster.png");
-    expect(markup).toContain("Preview unavailable from schema 1");
+    expect(markup).toContain("https://ralphy.b-cdn.net/blocks/template/clean-cut.png");
+    expect(markup).toContain('<video src="https://ralphy.b-cdn.net/units/voxel-dither/demo.mp4"');
+    expect(markup).toContain('preload="metadata"');
+    expect(markup).toContain('controlsList="nodownload"');
+    expect(markup).toContain('muted=""');
+    expect(markup).not.toContain("autoplay");
     expect(markup.match(/View details/g)).toHaveLength(3);
     expect(markup).not.toMatch(/98,?765|432|downloads|likes|rating|trending/i);
+  });
+
+  test("switches failed public previews to typed text and resets when their URL changes", async () => {
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    try {
+      await act(async () => root.render(<MarketplaceResults items={[templatePresentation, recipePresentation]} query={defaultQuery} onOpenItem={() => undefined} />));
+      const templateImage = host.container.querySelector("img")!;
+      const recipeVideo = host.container.querySelector("video");
+      expect(recipeVideo).not.toBeNull();
+      if (!recipeVideo) return;
+      await act(async () => {
+        templateImage.dispatchEvent(new Event("error"));
+        recipeVideo.dispatchEvent(new Event("error"));
+      });
+      expect(host.container.textContent).toContain("Template image preview unavailable");
+      expect(host.container.textContent).toContain("Recipe video preview unavailable");
+
+      const replacement = {
+        ...recipePresentation,
+        recipe: {
+          ...recipePresentation.recipe,
+          recipe: {
+            ...recipePresentation.recipe.recipe!,
+            demo: { ...recipePresentation.recipe.recipe!.demo!, storageUrl: "https://ralphy.b-cdn.net/units/voxel-dither/replacement.png" },
+          },
+        },
+      };
+      await act(async () => root.render(<MarketplaceResults items={[replacement]} query={defaultQuery} onOpenItem={() => undefined} />));
+      expect(host.container.querySelector("img")?.getAttribute("src")).toBe("https://ralphy.b-cdn.net/units/voxel-dither/replacement.png");
+      expect(host.container.textContent).not.toContain("Recipe video preview unavailable");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
   });
 
   test("keeps healthy results during partial failure and exposes retry", () => {

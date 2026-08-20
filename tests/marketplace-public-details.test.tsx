@@ -166,6 +166,8 @@ describe("Marketplace public item details", () => {
     expect(markup).toContain('<video src="https://ralphy.b-cdn.net/blocks/recipe/before.mp4"');
     expect(markup).toContain('<video src="https://ralphy.b-cdn.net/units/recipe/after.mp4"');
     expect(markup).toContain('controlsList="nodownload"');
+    expect(markup).toContain('aria-label="Before preview for Prompt-shaped recipe"');
+    expect(markup).toContain('aria-label="After preview for Prompt-shaped recipe"');
     expect(markup).not.toContain('<img src="https://ralphy.b-cdn.net/blocks/recipe/before.mp4"');
 
     const arbitraryScheme = renderToStaticMarkup(<MarketplacePublicItemDetail item={{ ...template, template: { ...template.template, referenceUrls: ["data:image/png;base64,AAAA"] } }} onBack={() => undefined} />);
@@ -240,6 +242,31 @@ describe("Marketplace public item details", () => {
     expect(markup).not.toContain("https://evil.example");
     expect(markup).not.toContain('src="https://ralphy.b-cdn.net/private/pixel.png"');
     expect(markup).toContain('src="https://ralphy.b-cdn.net/blocks/recipe/accepted.png"');
+  });
+
+  test("recovers a syntactically valid stale detail reference with exact unavailable copy and Back", async () => {
+    const onBack = vi.fn();
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    const staleLocation: MarketplaceLocation = {
+      route: { kind: "detail", itemId: "template:no-longer-published" },
+      query,
+      selectedItemId: "template:no-longer-published",
+      scrollTop: 0,
+      focusId: "marketplace-heading",
+    };
+    try {
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={staleLocation} sidebarVisible snapshot={snapshot([], [])} onBack={onBack} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      expect(host.container.textContent).toContain("Marketplace item unavailable");
+      expect(host.container.textContent).toContain("This Marketplace item is unavailable because its saved reference is invalid or stale.");
+      expect(host.container.textContent).not.toContain("This route does not expose a mutation yet");
+      const back = button(host.container, "Back to Marketplace");
+      await act(async () => back.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
+      expect(onBack).toHaveBeenCalledOnce();
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
   });
 
   test("keeps an unavailable Recipe artifact action focusable, described, and inert", () => {
@@ -364,6 +391,7 @@ describe("Marketplace public item details", () => {
     expect(unavailable).toContain("Public item details are unavailable because the Ralphy public library is unavailable");
 
     const missing = renderToStaticMarkup(<MarketplaceScreenView {...props} snapshot={snapshot([], [])} />);
-    expect(missing).toContain("Public item was not found in the current Ralphy public library");
+    expect(missing).toContain("This Marketplace item is unavailable because its saved reference is invalid or stale.");
+    expect(missing).toContain("Back to Marketplace");
   });
 });

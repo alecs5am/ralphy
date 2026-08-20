@@ -162,7 +162,6 @@ function WorkflowContents({ kind, title, description, onCancel, children, finalL
 }
 
 function WorkflowFrame(props: WorkflowFrameProps) {
-  const surface = useRef<HTMLDivElement>(null);
   const returnFocus = useRef(typeof document === "undefined" ? null : document.activeElement as HTMLElement | null);
   const restoreFocus = useCallback(() => {
     if (returnFocus.current?.isConnected) returnFocus.current.focus({ preventScroll: true });
@@ -176,11 +175,9 @@ function WorkflowFrame(props: WorkflowFrameProps) {
     <Dialog.Portal container={document.body}>
       <Dialog.Overlay className="marketplace-workflow-overlay" onClick={close} />
       <Dialog.Content
-        ref={surface}
         className="marketplace-workflow-window"
         data-workflow={props.kind}
         onClick={(event) => event.stopPropagation()}
-        onOpenAutoFocus={(event) => { event.preventDefault(); surface.current?.focus({ preventScroll: true }); }}
         onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(); }}
       >
         <header className="marketplace-workflow-header"><div><Dialog.Title>{props.title}</Dialog.Title><Dialog.Description>{props.description}</Dialog.Description></div><button type="button" aria-label={`Close ${props.title}`} onClick={close}><X aria-hidden="true" /></button></header>

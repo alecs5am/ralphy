@@ -275,6 +275,7 @@ export function MarketplaceScreenView({
         : detailItem
           ? "ready"
           : "missing";
+  const staleDetail = detailItemId !== null && ((detailReference === null && publicReference === null) || publicDetailState === "missing");
   const unavailableWorkflow = location.route.kind === "unavailable-detail"
     ? location.route.category === "prompts" ? "prompt-use" : location.route.category === "components" ? "component-target" : "skill-install"
     : null;
@@ -308,8 +309,8 @@ export function MarketplaceScreenView({
           ? <section className="marketplace-route-placeholder" role="status" aria-busy="true"><h2>Loading public item details…</h2></section>
         : publicDetailState === "unavailable"
           ? <section className="marketplace-route-placeholder" role="status"><h2>Public item details unavailable</h2><p>Public item details are unavailable because the Ralphy public library is unavailable.</p></section>
-        : publicDetailState === "missing"
-          ? <section className="marketplace-route-placeholder" role="status"><h2>Public item not found</h2><p>Public item was not found in the current Ralphy public library.</p></section>
+        : staleDetail
+          ? <section className="marketplace-route-placeholder" role="status"><button className="marketplace-public-back" type="button" onClick={onBack}>Back to Marketplace</button><h2>Marketplace item unavailable</h2><p>This Marketplace item is unavailable because its saved reference is invalid or stale.</p></section>
         : location.route.kind === "library"
           ? <MarketplaceMyLibrary section={location.route.section} machine={snapshot.status === "ready" ? snapshot.machine : null} />
         : location.route.kind === "unavailable-detail"

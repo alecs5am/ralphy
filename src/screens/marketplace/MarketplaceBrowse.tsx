@@ -26,6 +26,7 @@ import type {
   MarketplaceSnapshot,
   MarketplaceSourceIssue,
 } from "./presentation";
+import { marketplacePublicMediaKind } from "./presentation";
 import {
   MarketplaceUnavailableCategory,
   MarketplaceUnavailableCollectionRoute,
@@ -124,30 +125,42 @@ export function MarketplaceDiscover({ snapshot, onOpenCategory, onOpenLibrary, o
   </div>;
 }
 
-function previewUrl(item: MarketplaceItemPresentation): string | null {
+type MarketplacePreview = { url: string; kind: "image" | "video"; posterUrl?: string };
+
+function preview(item: MarketplaceItemPresentation): MarketplacePreview | null {
   if (item.category === "models") {
-    return item.model.previewUrl ?? item.model.iconUrl;
+    const url = item.model.previewUrl ?? item.model.iconUrl;
+    return url ? { url, kind: "image" } : null;
+  }
+  if (item.category === "templates") {
+    const url = item.template.referenceUrls.find((candidate) => marketplacePublicMediaKind(candidate) !== null);
+    return url ? { url, kind: marketplacePublicMediaKind(url)! } : null;
   }
   if (item.category === "recipes") {
     const demo = item.recipe.recipe?.demo;
-    return demo?.posterUrl ?? demo?.afterUrl ?? demo?.beforeUrl ?? null;
+    const url = [demo?.storageUrl, demo?.afterUrl, demo?.beforeUrl, demo?.posterUrl]
+      .find((candidate): candidate is string => Boolean(candidate && marketplacePublicMediaKind(candidate)));
+    if (!url) return null;
+    const posterUrl = demo?.posterUrl && marketplacePublicMediaKind(demo.posterUrl) === "image" ? demo.posterUrl : undefined;
+    return { url, kind: marketplacePublicMediaKind(url)!, posterUrl };
   }
   return null;
 }
 
-function previewFallback(item: MarketplaceItemPresentation) {
+function previewFallback(item: MarketplaceItemPresentation, failedKind?: "image" | "video") {
   if (item.category === "models") return <span className="marketplace-preview-fallback"><Cpu aria-hidden="true" /><small>{item.model.recommendedPackage.format || "Format unavailable"}</small></span>;
-  if (item.category === "recipes") return <span className="marketplace-preview-fallback"><Code2 aria-hidden="true" /><small>{item.recipe.recipe?.kind ?? "Recipe preview unavailable"}</small></span>;
-  return <span className="marketplace-preview-fallback"><LayoutTemplate aria-hidden="true" /><small>Preview unavailable from schema 1</small></span>;
+  if (item.category === "recipes") return <span className="marketplace-preview-fallback"><Code2 aria-hidden="true" /><small>{failedKind ? `Recipe ${failedKind} preview unavailable` : item.recipe.recipe?.kind ?? "Recipe preview unavailable"}</small></span>;
+  return <span className="marketplace-preview-fallback"><LayoutTemplate aria-hidden="true" /><small>{failedKind ? `Template ${failedKind} preview unavailable` : "Preview unavailable from schema 1"}</small></span>;
 }
 
 function MarketplaceItemPreview({ item }: { item: MarketplaceItemPresentation }) {
-  const url = previewUrl(item);
+  const media = preview(item);
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  useEffect(() => setFailedUrl(null), [item.key, url]);
-  return url && failedUrl !== url
-    ? <img src={url} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailedUrl(url)} />
-    : previewFallback(item);
+  useEffect(() => setFailedUrl(null), [item.key, media?.url]);
+  if (!media || failedUrl === media.url) return previewFallback(item, media?.kind);
+  return media.kind === "video"
+    ? <video src={media.url} poster={media.posterUrl} muted playsInline preload="metadata" controlsList="nodownload" aria-hidden="true" onError={() => setFailedUrl(media.url)} />
+    : <img src={media.url} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailedUrl(media.url)} />;
 }
 
 function availabilityLabel(value: Availability<string>, fallback: string): string {
