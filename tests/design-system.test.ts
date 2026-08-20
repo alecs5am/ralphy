@@ -714,6 +714,9 @@ describe("design system contract", () => {
     expect(html).toMatch(/img-src[^;]*ralphy-media:/);
     expect(html).toMatch(/img-src[^;]*\*\.cdn\.hf\.co/);
     expect(html).toMatch(/img-src[^;]*image-b2\.civitai\.com/);
+    expect(html).toMatch(/img-src[^;]*https:\/\/ralphy\.b-cdn\.net/);
+    expect(html).toMatch(/media-src[^;]*https:\/\/ralphy\.b-cdn\.net/);
+    expect(html).not.toMatch(/(?:default-src|script-src|connect-src)[^;]*ralphy\.b-cdn\.net/);
   });
 
   test("allows guarded media URLs for font previews through the registered Electron protocol", () => {

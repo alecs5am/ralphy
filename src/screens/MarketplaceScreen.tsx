@@ -21,6 +21,7 @@ import {
   MarketplaceInstalledModels,
   MarketplaceModelDetail,
 } from "./marketplace/MarketplaceModelViews";
+import { MarketplacePublicItemDetail } from "./marketplace/MarketplacePublicItemDetail";
 import type { MarketplaceSnapshot } from "./marketplace/presentation";
 
 export interface MarketplaceScreenProps {
@@ -215,6 +216,10 @@ export function MarketplaceScreenView({
     onRememberLocation({ query });
   };
   const detailReference = location.route.kind === "detail" ? modelReference(location.route.itemId) : null;
+  const detailItemId = location.route.kind === "detail" ? location.route.itemId : null;
+  const detailItem = detailItemId !== null && snapshot.status === "ready"
+    ? snapshot.items.find(({ key }) => key === detailItemId)
+    : undefined;
   return <main className="marketplace-screen main-region" data-sidebar-visible={sidebarVisible ? "true" : "false"}>
     <MarketplaceHeader
       title={routeTitle(location)}
@@ -234,6 +239,8 @@ export function MarketplaceScreenView({
       <p className="marketplace-target-state">{targetMessage}</p>
       {detailReference
         ? <MarketplaceModelDetail reference={detailReference} onBack={onBack} />
+        : detailItem?.category === "templates" || detailItem?.category === "recipes"
+          ? <MarketplacePublicItemDetail item={detailItem} onBack={onBack} />
         : location.route.kind === "library" && location.route.section === "installed"
           ? <MarketplaceInstalledModels machine={snapshot.status === "ready" ? snapshot.machine : null} />
           : route === null
