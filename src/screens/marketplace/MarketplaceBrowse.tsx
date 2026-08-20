@@ -1,7 +1,6 @@
 import {
   Blocks,
   Bot,
-  Box,
   CircleAlert,
   Code2,
   Cpu,
@@ -26,6 +25,10 @@ import type {
   MarketplaceSnapshot,
   MarketplaceSourceIssue,
 } from "./presentation";
+import {
+  MarketplaceUnavailableCategory,
+  MarketplaceUnavailableCollectionRoute,
+} from "./MarketplaceUnavailableViews";
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 const categoryIcons: Record<MarketplaceCategory, Icon> = {
@@ -323,15 +326,18 @@ function SourceState({ snapshot, onRetry }: { snapshot: Extract<MarketplaceSnaps
   </div>;
 }
 
-export function MarketplaceCategoryView({ category, snapshot, originKey, onOpenItem }: {
+export function MarketplaceCategoryView({ category, snapshot, originKey, onOpenItem, onOpenUnavailableDetail }: {
   category: MarketplaceCategory;
   snapshot: Extract<MarketplaceSnapshot, { status: "ready" }>;
   originKey?: string | null;
   onOpenItem(key: string): void;
+  onOpenUnavailableDetail?(category: "prompts" | "components" | "skills"): void;
 }) {
   const categoryState = snapshot.categories.find((item) => item.category === category);
   const items = snapshot.items.filter((item) => item.category === category);
-  if (categoryState?.count.status === "unavailable") return <section className="marketplace-unavailable-category" role="status"><Box aria-hidden="true" /><h2>{categoryState.label} catalog unavailable</h2><p>{categoryState.count.reason}</p><small>No sample items are shown as production catalog records.</small></section>;
+  if (categoryState?.count.status === "unavailable" && (category === "prompts" || category === "components" || category === "skills")) {
+    return <MarketplaceUnavailableCategory category={category} sourceReason={categoryState.count.reason} onOpenDetail={onOpenUnavailableDetail} />;
+  }
   return <MarketplaceResults items={items} query={snapshot.query} originKey={originKey} onOpenItem={onOpenItem} />;
 }
 
@@ -342,12 +348,13 @@ export interface MarketplaceBrowseProps {
   onOpenItem(key: string): void;
   onOpenCategory(category: MarketplaceCategory): void;
   onOpenLibrary(section: MarketplaceLibrarySection): void;
+  onOpenUnavailableDetail?(category: "prompts" | "components" | "skills"): void;
   onRetry(): void;
   onClearQuery(): void;
   onClearFilters(): void;
 }
 
-export function MarketplaceBrowse({ route, snapshot, originKey, onOpenItem, onOpenCategory, onOpenLibrary, onRetry, onClearQuery, onClearFilters }: MarketplaceBrowseProps) {
+export function MarketplaceBrowse({ route, snapshot, originKey, onOpenItem, onOpenCategory, onOpenLibrary, onOpenUnavailableDetail, onRetry, onClearQuery, onClearFilters }: MarketplaceBrowseProps) {
   if (snapshot.status === "loading") return <div className="marketplace-loading" role="status" aria-busy="true"><div aria-hidden="true">{Array.from({ length: 6 }, (_, index) => <i key={index} />)}</div><span>Loading Marketplace…</span></div>;
   if (snapshot.status === "error") return <div className="marketplace-total-failure"><SourceState snapshot={snapshot} onRetry={onRetry} /><h2>{snapshot.error}</h2><p>No source returned a current result set.</p></div>;
   const categoryUnavailable = route.kind === "category"
@@ -362,7 +369,8 @@ export function MarketplaceBrowse({ route, snapshot, originKey, onOpenItem, onOp
     {noResults ? <div className="marketplace-no-results" role="status"><FileText aria-hidden="true" /><h2>No results</h2><p>The current query and filters returned no source-backed items.</p><span><button type="button" onClick={onClearFilters}>Clear filters</button><button type="button" onClick={onClearQuery}>Clear query</button></span></div>
       : route.kind === "discover" ? <MarketplaceDiscover snapshot={snapshot} onOpenCategory={onOpenCategory} onOpenLibrary={onOpenLibrary} />
         : route.kind === "results" ? <MarketplaceResults items={snapshot.items} query={snapshot.query} originKey={originKey} onOpenItem={onOpenItem} />
-          : route.kind === "category" ? <MarketplaceCategoryView category={route.category} snapshot={snapshot} originKey={originKey} onOpenItem={onOpenItem} />
-            : <section className="marketplace-route-placeholder" role="status"><Package aria-hidden="true" /><h2>This Marketplace route is not available yet.</h2><p>The current Desktop contract does not expose data or a mutation for this route.</p></section>}
+          : route.kind === "category" ? <MarketplaceCategoryView category={route.category} snapshot={snapshot} originKey={originKey} onOpenItem={onOpenItem} onOpenUnavailableDetail={onOpenUnavailableDetail} />
+            : route.kind === "collection" ? <MarketplaceUnavailableCollectionRoute />
+              : <section className="marketplace-route-placeholder" role="status"><Package aria-hidden="true" /><h2>This Marketplace route is not available yet.</h2><p>The current Desktop contract does not expose data or a mutation for this route.</p></section>}
   </>;
 }

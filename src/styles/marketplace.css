@@ -171,6 +171,24 @@
 .marketplace-no-results > span { display: flex; gap: 8px; margin-top: 8px; }
 .marketplace-unavailable-category small,
 .marketplace-empty-note small { color: var(--fg-4); font-size: var(--text-xs); }
+.marketplace-unavailable-category { padding: 28px 0 48px; }
+.marketplace-unavailable-category > p { color: var(--warn); }
+.marketplace-unavailable-requirements { display: grid; width: min(100%, 720px); margin: 8px 0; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; text-align: left; }
+.marketplace-unavailable-requirements p { margin: 0; padding: 12px; border-radius: var(--radius-md); background: var(--panel-solid); color: var(--fg-3); font-size: var(--text-xs); line-height: var(--leading-body); }
+.marketplace-unavailable-category > button,
+.marketplace-unavailable-review > button { display: inline-flex; min-height: 32px; align-items: center; justify-content: center; padding: 0 12px; border-radius: var(--radius-md); background: var(--raised); color: var(--fg-2); font-size: var(--text-sm); }
+.marketplace-unavailable-category > button { margin-top: 8px; }
+.marketplace-unavailable-category > button[aria-disabled="true"],
+.marketplace-unavailable-review > button[aria-disabled="true"] { box-shadow: inset 0 0 0 1px var(--line); color: var(--fg-4); }
+.marketplace-unavailable-safety { margin: 0; padding: 12px 14px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--warn) 11%, var(--panel-solid)); color: var(--warn) !important; }
+.marketplace-unavailable-review { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; gap: 7px; }
+.marketplace-unavailable-review > p { max-width: 520px; margin: 0; color: var(--warn); font-size: var(--text-xs); line-height: var(--leading-body); }
+.marketplace-unavailable-contributions { display: grid; padding: 28px 0 48px; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.marketplace-unavailable-contribution { display: flex; min-width: 0; min-height: 280px; padding: 16px; flex-direction: column; align-items: flex-start; gap: 10px; border-radius: var(--radius-lg); background: var(--panel-solid); }
+.marketplace-unavailable-contribution > svg { width: 18px; color: var(--accent-soft); }
+.marketplace-unavailable-contribution h2 { margin: 0; font-size: var(--text-lg); line-height: var(--leading-snug); }
+.marketplace-unavailable-contribution > p { margin: 0; color: var(--fg-3); font-size: var(--text-sm); line-height: var(--leading-body); }
+.marketplace-unavailable-contribution .marketplace-unavailable-review { margin-top: auto; }
 
 .marketplace-model-detail { display: flex; min-width: 0; flex-direction: column; gap: 18px; padding: 24px 0 48px; }
 .marketplace-model-detail.is-loading,
@@ -294,6 +312,8 @@
   .marketplace-public-hero { grid-template-columns: minmax(0, 1fr); }
   .marketplace-public-actions { grid-column: 1; grid-row: auto; }
   .marketplace-public-detail-layout { grid-template-columns: minmax(0, 1fr); }
+  .marketplace-unavailable-requirements,
+  .marketplace-unavailable-contributions { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (prefers-reduced-motion: reduce) {

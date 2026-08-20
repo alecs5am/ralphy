@@ -22,6 +22,7 @@ import {
   MarketplaceModelDetail,
 } from "./marketplace/MarketplaceModelViews";
 import { MarketplacePublicItemDetail } from "./marketplace/MarketplacePublicItemDetail";
+import { MarketplaceUnavailableDetail } from "./marketplace/MarketplaceUnavailableViews";
 import {
   projectMarketplacePublicItem,
   type MarketplaceSnapshot,
@@ -198,6 +199,15 @@ export function MarketplaceScreenView({
       focusId: "marketplace-heading",
     });
   };
+  const openUnavailableDetail = (category: "prompts" | "components" | "skills") => {
+    onNavigate({
+      ...location,
+      route: { kind: "unavailable-detail", category },
+      selectedItemId: null,
+      scrollTop: 0,
+      focusId: "marketplace-heading",
+    });
+  };
   const openLibrary = (section: "installed" | "saved" | "added" | "downloads" | "updates" | "attention") => {
     onNavigate({ ...location, route: { kind: "library", section }, selectedItemId: null, scrollTop: 0, focusId: "marketplace-heading" });
   };
@@ -270,7 +280,9 @@ export function MarketplaceScreenView({
           ? <section className="marketplace-route-placeholder" role="status"><h2>Public item not found</h2><p>Public item was not found in the current Ralphy public library.</p></section>
         : location.route.kind === "library" && location.route.section === "installed"
           ? <MarketplaceInstalledModels machine={snapshot.status === "ready" ? snapshot.machine : null} />
-          : route === null
+        : location.route.kind === "unavailable-detail"
+          ? <MarketplaceUnavailableDetail category={location.route.category} onBack={onBack} />
+        : route === null
             ? <section className="marketplace-route-placeholder" role="status"><h2>{routeTitle(location)}</h2><p>Full item details show only fields returned by the current source. This route does not expose a mutation yet.</p></section>
         : <MarketplaceBrowse
           route={route}
@@ -279,6 +291,7 @@ export function MarketplaceScreenView({
           onOpenItem={openItem}
           onOpenCategory={openCategory}
           onOpenLibrary={openLibrary}
+          onOpenUnavailableDetail={openUnavailableDetail}
           onRetry={onRetry}
           onClearQuery={() => onRememberLocation({ query: { ...location.query, text: "" } })}
           onClearFilters={() => onRememberLocation({ query: clearedFilters(location.query, location.route.kind === "category" ? location.route.category : "all") })}
