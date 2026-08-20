@@ -22,7 +22,10 @@ import {
   MarketplaceModelDetail,
 } from "./marketplace/MarketplaceModelViews";
 import { MarketplacePublicItemDetail } from "./marketplace/MarketplacePublicItemDetail";
-import { MarketplaceUnavailableDetail } from "./marketplace/MarketplaceUnavailableViews";
+import {
+  marketplaceUnavailableDetailOriginId,
+  MarketplaceUnavailableDetail,
+} from "./marketplace/MarketplaceUnavailableViews";
 import {
   projectMarketplacePublicItem,
   type MarketplaceSnapshot,
@@ -200,6 +203,7 @@ export function MarketplaceScreenView({
     });
   };
   const openUnavailableDetail = (category: "prompts" | "components" | "skills") => {
+    onRememberLocation({ focusId: marketplaceUnavailableDetailOriginId(category) });
     onNavigate({
       ...location,
       route: { kind: "unavailable-detail", category },
@@ -207,6 +211,9 @@ export function MarketplaceScreenView({
       scrollTop: 0,
       focusId: "marketplace-heading",
     });
+  };
+  const openCollection = () => {
+    onNavigate({ ...location, route: { kind: "collection" }, selectedItemId: null, scrollTop: 0, focusId: "marketplace-heading" });
   };
   const openLibrary = (section: "installed" | "saved" | "added" | "downloads" | "updates" | "attention") => {
     onNavigate({ ...location, route: { kind: "library", section }, selectedItemId: null, scrollTop: 0, focusId: "marketplace-heading" });
@@ -291,6 +298,7 @@ export function MarketplaceScreenView({
           onOpenItem={openItem}
           onOpenCategory={openCategory}
           onOpenLibrary={openLibrary}
+          onOpenCollection={openCollection}
           onOpenUnavailableDetail={openUnavailableDetail}
           onRetry={onRetry}
           onClearQuery={() => onRememberLocation({ query: { ...location.query, text: "" } })}

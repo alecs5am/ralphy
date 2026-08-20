@@ -5,6 +5,7 @@ import {
   Code2,
   Cpu,
   FileText,
+  FolderHeart,
   LayoutTemplate,
   MessageSquareText,
   Package,
@@ -85,10 +86,11 @@ function formatDate(value: string): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export function MarketplaceDiscover({ snapshot, onOpenCategory, onOpenLibrary }: {
+export function MarketplaceDiscover({ snapshot, onOpenCategory, onOpenLibrary, onOpenCollection }: {
   snapshot: Extract<MarketplaceSnapshot, { status: "ready" }>;
   onOpenCategory(category: MarketplaceCategory): void;
   onOpenLibrary(section: MarketplaceLibrarySection): void;
+  onOpenCollection?(): void;
 }) {
   const installed = snapshot.machine?.installed?.filter(({ runtime }) => runtime === "ollama") ?? [];
   const updated = snapshot.items
@@ -107,6 +109,10 @@ export function MarketplaceDiscover({ snapshot, onOpenCategory, onOpenLibrary }:
       <ul className="marketplace-category-grid" role="list">{snapshot.categories.map((category) => <CategoryCard value={category} onOpen={onOpenCategory} key={category.category} />)}</ul>
     </section>
     {!hasAnyCount && <div className="marketplace-empty-note" role="status"><Package aria-hidden="true" /><span><strong>No items have been returned by the current sources yet.</strong><small>Categories remain visible with their current source state.</small></span></div>}
+    <section aria-labelledby="marketplace-community-heading">
+      <div className="marketplace-section-heading"><span>Read-only route</span><h2 id="marketplace-community-heading">Community</h2></div>
+      <ul className="marketplace-category-grid" role="list"><li><button className="marketplace-category-card" type="button" aria-disabled={onOpenCollection ? undefined : true} aria-describedby="marketplace-community-contract-note" onClick={onOpenCollection}><span><FolderHeart aria-hidden="true" /><strong>Community contributions</strong></span><small>Read-only</small><p id="marketplace-community-contract-note">Read-only unavailable-contract review</p></button></li></ul>
+    </section>
     {installed.length > 0 && <section aria-labelledby="marketplace-continue-heading">
       <div className="marketplace-section-heading"><span>Local state</span><h2 id="marketplace-continue-heading">Continue where you left off</h2></div>
       <ul className="marketplace-installed-list" role="list">{installed.map((item) => <li key={`${item.runtime}:${item.id}`}><button type="button" onClick={() => onOpenLibrary("installed")}><Cpu aria-hidden="true" /><span><strong>{item.name}</strong><small>Registered in Ollama · {item.format}</small></span></button></li>)}</ul>
@@ -348,13 +354,14 @@ export interface MarketplaceBrowseProps {
   onOpenItem(key: string): void;
   onOpenCategory(category: MarketplaceCategory): void;
   onOpenLibrary(section: MarketplaceLibrarySection): void;
+  onOpenCollection?(): void;
   onOpenUnavailableDetail?(category: "prompts" | "components" | "skills"): void;
   onRetry(): void;
   onClearQuery(): void;
   onClearFilters(): void;
 }
 
-export function MarketplaceBrowse({ route, snapshot, originKey, onOpenItem, onOpenCategory, onOpenLibrary, onOpenUnavailableDetail, onRetry, onClearQuery, onClearFilters }: MarketplaceBrowseProps) {
+export function MarketplaceBrowse({ route, snapshot, originKey, onOpenItem, onOpenCategory, onOpenLibrary, onOpenCollection, onOpenUnavailableDetail, onRetry, onClearQuery, onClearFilters }: MarketplaceBrowseProps) {
   if (snapshot.status === "loading") return <div className="marketplace-loading" role="status" aria-busy="true"><div aria-hidden="true">{Array.from({ length: 6 }, (_, index) => <i key={index} />)}</div><span>Loading Marketplace…</span></div>;
   if (snapshot.status === "error") return <div className="marketplace-total-failure"><SourceState snapshot={snapshot} onRetry={onRetry} /><h2>{snapshot.error}</h2><p>No source returned a current result set.</p></div>;
   const categoryUnavailable = route.kind === "category"
@@ -367,7 +374,7 @@ export function MarketplaceBrowse({ route, snapshot, originKey, onOpenItem, onOp
     {snapshot.publicSource?.source === "cache" && <div className="marketplace-cache-state" role="status"><CircleAlert aria-hidden="true" /><span><strong>Cached public catalog</strong><small>{snapshot.publicSource.warning ?? `Last refreshed ${formatDate(snapshot.publicSource.refreshedAt)}`}</small></span><button type="button" onClick={onRetry}><RefreshCw aria-hidden="true" />Refresh</button></div>}
     <SourceState snapshot={snapshot} onRetry={onRetry} />
     {noResults ? <div className="marketplace-no-results" role="status"><FileText aria-hidden="true" /><h2>No results</h2><p>The current query and filters returned no source-backed items.</p><span><button type="button" onClick={onClearFilters}>Clear filters</button><button type="button" onClick={onClearQuery}>Clear query</button></span></div>
-      : route.kind === "discover" ? <MarketplaceDiscover snapshot={snapshot} onOpenCategory={onOpenCategory} onOpenLibrary={onOpenLibrary} />
+      : route.kind === "discover" ? <MarketplaceDiscover snapshot={snapshot} onOpenCategory={onOpenCategory} onOpenLibrary={onOpenLibrary} onOpenCollection={onOpenCollection} />
         : route.kind === "results" ? <MarketplaceResults items={snapshot.items} query={snapshot.query} originKey={originKey} onOpenItem={onOpenItem} />
           : route.kind === "category" ? <MarketplaceCategoryView category={route.category} snapshot={snapshot} originKey={originKey} onOpenItem={onOpenItem} onOpenUnavailableDetail={onOpenUnavailableDetail} />
             : route.kind === "collection" ? <MarketplaceUnavailableCollectionRoute />

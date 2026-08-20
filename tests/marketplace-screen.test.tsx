@@ -193,7 +193,8 @@ describe("Marketplace browse surfaces", () => {
     expect(markup).toContain("Alpha model");
     expect(markup).not.toMatch(/rating|trending|recommended for you|downloads|likes/i);
     expect(markup).not.toContain("Useful for your current work");
-    expect(markup).not.toContain("Community collections");
+    expect(markup).toContain("Community contributions");
+    expect(markup).toContain("Read-only unavailable-contract review");
   });
 
   test("orders Recently updated by valid source timestamps before taking six", () => {

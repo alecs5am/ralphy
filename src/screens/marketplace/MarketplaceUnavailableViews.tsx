@@ -25,7 +25,7 @@ const categoryCopy: Record<UnsupportedCategory, {
     label: "Prompts",
     singular: "Prompt",
     icon: MessageSquareText,
-    unavailable: "Prompt catalog is unavailable from the current contract",
+    unavailable: "Prompt catalog is unavailable without a Prompt catalog contract",
     reviewLabel: "Review use in chat",
     reviewReason: "Use in chat review is unavailable without target enumeration and attachment contracts.",
     requirements: [
@@ -38,7 +38,7 @@ const categoryCopy: Record<UnsupportedCategory, {
     label: "Components & Effects",
     singular: "Component",
     icon: Blocks,
-    unavailable: "Component catalog is unavailable from the current contract",
+    unavailable: "Component catalog is unavailable without a Component catalog contract",
     reviewLabel: "Review project target",
     reviewReason: "Component target review is unavailable without a component manifest and project mutation contract.",
     requirements: [
@@ -51,7 +51,7 @@ const categoryCopy: Record<UnsupportedCategory, {
     label: "Skills",
     singular: "Skill",
     icon: Bot,
-    unavailable: "Skill catalog is unavailable from the current contract",
+    unavailable: "Skill catalog is unavailable without a Skill catalog contract",
     reviewLabel: "Review install",
     reviewReason: "Skill install review is unavailable without agent targets, bundle manifests, and installation contracts.",
     requirements: [
@@ -86,32 +86,32 @@ function UnavailableSection({ title, children }: { title: string; children: stri
 function SharedUnavailableSections({ category }: { category: UnsupportedCategory }) {
   const { singular } = categoryCopy[category];
   return <>
-    <UnavailableSection title="What it gives you">{`${singular} outcome data is unavailable because the current contract has no ${singular} catalog record.`}</UnavailableSection>
-    <UnavailableSection title="Preview or example">{`${singular} preview and example evidence are unavailable from the current contract.`}</UnavailableSection>
-    <UnavailableSection title="Use when">{`${singular} use conditions are unavailable from the current contract.`}</UnavailableSection>
-    <UnavailableSection title="Do not use when">{`${singular} negative scope is unavailable from the current contract.`}</UnavailableSection>
+    <UnavailableSection title="What it gives you">{`${singular} outcome data is unavailable without a ${singular} catalog outcome contract.`}</UnavailableSection>
+    <UnavailableSection title="Preview or example">{`${singular} preview and example evidence are unavailable without a ${singular} preview and example evidence contract.`}</UnavailableSection>
+    <UnavailableSection title="Use when">{`${singular} applicability is unavailable without a ${singular} applicability contract.`}</UnavailableSection>
+    <UnavailableSection title="Do not use when">{`${singular} negative scope is unavailable without a ${singular} negative-scope contract.`}</UnavailableSection>
     <UnavailableSection title="Compatibility">{`${singular} compatibility is unavailable without a typed compatibility contract.`}</UnavailableSection>
     <UnavailableSection title="What will be added">{`${singular} changes are unavailable without a mutation-plan contract.`}</UnavailableSection>
-    <UnavailableSection title="Permissions and access">{`${singular} permission and access requirements are unavailable from the current contract.`}</UnavailableSection>
+    <UnavailableSection title="Permissions and access">{`${singular} permission and access requirements are unavailable without a ${singular} permission and access manifest.`}</UnavailableSection>
   </>;
 }
 
 function UnavailableAside({ category }: { category: UnsupportedCategory }) {
   const { singular } = categoryCopy[category];
   return <aside className="marketplace-public-detail-aside">
-    <UnavailableSection title="Version and provenance">{`${singular} source, publisher identity, version, license, signature, audit, and local modification evidence are unavailable from the current contract.`}</UnavailableSection>
+    <UnavailableSection title="Version and provenance">{`${singular} source, publisher identity, version, license, signature, audit, and local modification evidence are unavailable without a ${singular} provenance evidence contract.`}</UnavailableSection>
     <UnavailableSection title="Works with">{`${singular} relationships are unavailable without a Marketplace relationship contract.`}</UnavailableSection>
-    <UnavailableSection title="Used by">Usage backlinks are unavailable from the current Desktop contract.</UnavailableSection>
+    <UnavailableSection title="Used by">Usage backlinks are unavailable without a Marketplace usage-backlink contract.</UnavailableSection>
   </aside>;
 }
 
 function UnavailablePromptDetail({ onReview, onBack }: Pick<MarketplaceUnavailableDetailProps, "onReview" | "onBack">) {
   return <UnavailableDetailFrame category="prompts" onReview={onReview} onBack={onBack}>
     <SharedUnavailableSections category="prompts" />
-    <UnavailableSection title="Prompt body">Prompt body is unavailable because the current contract exposes no Prompt record.</UnavailableSection>
+    <UnavailableSection title="Prompt body">Prompt body is unavailable without a Prompt catalog record contract.</UnavailableSection>
     <UnavailableSection title="Variables">Variable names, defaults, requirements, and validation are unavailable without a Prompt variable contract.</UnavailableSection>
-    <UnavailableSection title="Filled example">A filled example is unavailable because the current contract exposes no source-backed Prompt example.</UnavailableSection>
-    <UnavailableSection title="Expected output shape">Expected output shape is unavailable from the current contract and no output is guaranteed.</UnavailableSection>
+    <UnavailableSection title="Filled example">A filled example is unavailable without a source-backed Prompt example contract.</UnavailableSection>
+    <UnavailableSection title="Expected output shape">Expected output shape is unavailable without a Prompt output-shape contract; no output is guaranteed.</UnavailableSection>
   </UnavailableDetailFrame>;
 }
 
@@ -171,6 +171,10 @@ export function MarketplaceUnavailableDetail({ category, onBack, onReview }: Mar
   return <UnavailableSkillDetail onBack={onBack} onReview={onReview} />;
 }
 
+export function marketplaceUnavailableDetailOriginId(category: UnsupportedCategory): string {
+  return `marketplace-unavailable-detail-origin-${category}`;
+}
+
 export function MarketplaceUnavailableCategory({ category, sourceReason, onOpenDetail }: {
   category: UnsupportedCategory;
   sourceReason: string;
@@ -186,6 +190,7 @@ export function MarketplaceUnavailableCategory({ category, sourceReason, onOpenD
     <div className="marketplace-unavailable-requirements">{copy.requirements.map((requirement) => <p key={requirement}>{requirement}</p>)}</div>
     <small>No sample items are shown as production catalog records.</small>
     <button
+      id={marketplaceUnavailableDetailOriginId(category)}
       type="button"
       aria-disabled={onOpenDetail ? undefined : true}
       aria-describedby={onOpenDetail ? undefined : `marketplace-${category}-category-review-unavailable`}
