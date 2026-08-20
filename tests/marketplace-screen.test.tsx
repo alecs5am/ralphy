@@ -559,6 +559,32 @@ describe("Marketplace header and navigation composition", () => {
     }
   });
 
+  test("restores a moved virtual origin when loading becomes ready at a stale saved scroll", async () => {
+    vi.useFakeTimers();
+    const host = createReactHost();
+    const root = createRoot(host.container as unknown as Element);
+    const target = { ...modelPresentation, key: "model:huggingface:Acme/moved-origin", name: "Moved origin" };
+    const items = Array.from({ length: 140 }, (_, index) => index === 120
+      ? target
+      : { ...modelPresentation, key: `model:huggingface:Acme/moved-${index}`, name: `Moved model ${index}` });
+    const location: MarketplaceLocation = { ...resultsLocation, scrollTop: 0, focusId: marketplaceItemDomId(target.key) };
+    try {
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={{ status: "loading", query: defaultQuery }} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      const scroll = host.container.querySelector(".marketplace-scroll")!;
+      scroll.scrollHeight = items.length * 126;
+      await act(async () => vi.advanceTimersByTimeAsync(20));
+
+      await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot({ items })} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
+      await act(async () => vi.advanceTimersByTimeAsync(500));
+      expect((document.activeElement as unknown as { getAttribute(name: string): string | null } | null)?.getAttribute("data-marketplace-item-key")).toBe(target.key);
+      expect(scroll.scrollTop).toBeGreaterThan(0);
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+      vi.useRealTimers();
+    }
+  });
+
   test("falls back to the Marketplace heading when a ready result set no longer contains the origin", async () => {
     vi.useFakeTimers();
     const host = createReactHost();

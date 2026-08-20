@@ -148,6 +148,7 @@ function availabilityLabel(value: Availability<string>, fallback: string): strin
 export interface MarketplaceResultsProps {
   items: MarketplaceItemPresentation[];
   query: MarketplaceQueryState;
+  originKey?: string | null;
   onOpenItem(key: string): void;
 }
 
@@ -241,7 +242,7 @@ function useResultNavigation(items: MarketplaceItemPresentation[], scrollToIndex
   return { activeKey, setActiveKey, move };
 }
 
-function VirtualMarketplaceResults({ items, query, onOpenItem }: MarketplaceResultsProps) {
+function VirtualMarketplaceResults({ items, query, originKey, onOpenItem }: MarketplaceResultsProps) {
   const root = useRef<HTMLOListElement>(null);
   const scrollMargin = root.current?.offsetTop ?? 0;
   const virtualizer = useVirtualizer({
@@ -255,6 +256,20 @@ function VirtualMarketplaceResults({ items, query, onOpenItem }: MarketplaceResu
   });
   const navigation = useResultNavigation(items, (index) => virtualizer.scrollToIndex(index, { align: "auto" }));
   const rows = virtualizer.getVirtualItems();
+  const originIndex = originKey ? items.findIndex(({ key }) => key === originKey) : -1;
+  useEffect(() => {
+    if (originIndex < 0 || !originKey || document.getElementById(marketplaceItemDomId(originKey))) return;
+    let nextFrame = 0;
+    const frame = window.requestAnimationFrame(() => {
+      nextFrame = window.requestAnimationFrame(() => {
+        if (!document.getElementById(marketplaceItemDomId(originKey))) virtualizer.scrollToIndex(originIndex, { align: "start" });
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.cancelAnimationFrame(nextFrame);
+    };
+  }, [originIndex, originKey, virtualizer]);
   const activeKey = rows.some((row) => items[row.index]?.key === navigation.activeKey)
     ? navigation.activeKey
     : items[rows[0]?.index ?? -1]?.key ?? null;
@@ -308,20 +323,22 @@ function SourceState({ snapshot, onRetry }: { snapshot: Extract<MarketplaceSnaps
   </div>;
 }
 
-export function MarketplaceCategoryView({ category, snapshot, onOpenItem }: {
+export function MarketplaceCategoryView({ category, snapshot, originKey, onOpenItem }: {
   category: MarketplaceCategory;
   snapshot: Extract<MarketplaceSnapshot, { status: "ready" }>;
+  originKey?: string | null;
   onOpenItem(key: string): void;
 }) {
   const categoryState = snapshot.categories.find((item) => item.category === category);
   const items = snapshot.items.filter((item) => item.category === category);
   if (categoryState?.count.status === "unavailable") return <section className="marketplace-unavailable-category" role="status"><Box aria-hidden="true" /><h2>{categoryState.label} catalog unavailable</h2><p>{categoryState.count.reason}</p><small>No sample items are shown as production catalog records.</small></section>;
-  return <MarketplaceResults items={items} query={snapshot.query} onOpenItem={onOpenItem} />;
+  return <MarketplaceResults items={items} query={snapshot.query} originKey={originKey} onOpenItem={onOpenItem} />;
 }
 
 export interface MarketplaceBrowseProps {
   route: MarketplaceBrowseRoute;
   snapshot: MarketplaceSnapshot;
+  originKey?: string | null;
   onOpenItem(key: string): void;
   onOpenCategory(category: MarketplaceCategory): void;
   onOpenLibrary(section: MarketplaceLibrarySection): void;
@@ -330,7 +347,7 @@ export interface MarketplaceBrowseProps {
   onClearFilters(): void;
 }
 
-export function MarketplaceBrowse({ route, snapshot, onOpenItem, onOpenCategory, onOpenLibrary, onRetry, onClearQuery, onClearFilters }: MarketplaceBrowseProps) {
+export function MarketplaceBrowse({ route, snapshot, originKey, onOpenItem, onOpenCategory, onOpenLibrary, onRetry, onClearQuery, onClearFilters }: MarketplaceBrowseProps) {
   if (snapshot.status === "loading") return <div className="marketplace-loading" role="status" aria-busy="true"><div aria-hidden="true">{Array.from({ length: 6 }, (_, index) => <i key={index} />)}</div><span>Loading Marketplace…</span></div>;
   if (snapshot.status === "error") return <div className="marketplace-total-failure"><SourceState snapshot={snapshot} onRetry={onRetry} /><h2>{snapshot.error}</h2><p>No source returned a current result set.</p></div>;
   const categoryUnavailable = route.kind === "category"
@@ -344,8 +361,8 @@ export function MarketplaceBrowse({ route, snapshot, onOpenItem, onOpenCategory,
     <SourceState snapshot={snapshot} onRetry={onRetry} />
     {noResults ? <div className="marketplace-no-results" role="status"><FileText aria-hidden="true" /><h2>No results</h2><p>The current query and filters returned no source-backed items.</p><span><button type="button" onClick={onClearFilters}>Clear filters</button><button type="button" onClick={onClearQuery}>Clear query</button></span></div>
       : route.kind === "discover" ? <MarketplaceDiscover snapshot={snapshot} onOpenCategory={onOpenCategory} onOpenLibrary={onOpenLibrary} />
-        : route.kind === "results" ? <MarketplaceResults items={snapshot.items} query={snapshot.query} onOpenItem={onOpenItem} />
-          : route.kind === "category" ? <MarketplaceCategoryView category={route.category} snapshot={snapshot} onOpenItem={onOpenItem} />
+        : route.kind === "results" ? <MarketplaceResults items={snapshot.items} query={snapshot.query} originKey={originKey} onOpenItem={onOpenItem} />
+          : route.kind === "category" ? <MarketplaceCategoryView category={route.category} snapshot={snapshot} originKey={originKey} onOpenItem={onOpenItem} />
             : <section className="marketplace-route-placeholder" role="status"><Package aria-hidden="true" /><h2>This Marketplace route is not available yet.</h2><p>The current Desktop contract does not expose data or a mutation for this route.</p></section>}
   </>;
 }

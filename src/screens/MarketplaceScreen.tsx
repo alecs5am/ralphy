@@ -89,11 +89,14 @@ export function MarketplaceScreenView({
     : snapshot.status === "ready" && route?.kind === "category"
       ? snapshot.items.filter(({ category }) => category === route.category)
       : [];
+  const originItem = itemOrigin
+    ? originItems.find(({ key }) => marketplaceItemDomId(key) === focusId)
+    : undefined;
   const originAvailability = !itemOrigin
     ? "not-item"
     : snapshot.status === "loading"
       ? "pending"
-      : snapshot.status === "ready" && originItems.some(({ key }) => marketplaceItemDomId(key) === focusId)
+      : snapshot.status === "ready" && originItem
         ? "available"
         : "missing";
   const restoredOrigin = useRef<string | null>(null);
@@ -125,6 +128,7 @@ export function MarketplaceScreenView({
       return;
     }
     let frame = 0;
+    let attempts = 0;
     const restoreFocus = () => {
       if (heading?.closest("[hidden]")) return;
       const target = document.getElementById(focusId);
@@ -133,7 +137,13 @@ export function MarketplaceScreenView({
         restoredOrigin.current = originRequestKey;
         return;
       }
-      frame = window.requestAnimationFrame(restoreFocus);
+      if (attempts < 12) {
+        attempts += 1;
+        frame = window.requestAnimationFrame(restoreFocus);
+        return;
+      }
+      heading?.focus({ preventScroll: true });
+      restoredOrigin.current = originRequestKey;
     };
     frame = window.requestAnimationFrame(restoreFocus);
     return () => window.cancelAnimationFrame(frame);
@@ -211,6 +221,7 @@ export function MarketplaceScreenView({
         : <MarketplaceBrowse
           route={route}
           snapshot={snapshot}
+          originKey={originItem?.key ?? null}
           onOpenItem={openItem}
           onOpenCategory={openCategory}
           onOpenLibrary={openLibrary}
