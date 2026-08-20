@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { build } from "esbuild";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -435,9 +435,26 @@ type SharedGeometryResult = {
   motion: Array<{ selector: string; transition: string; animation: string }>;
 };
 
-async function sharedLibraryGeometry(): Promise<SharedGeometryResult[]> {
+type SharedGeometrySmoke = {
+  font: { contentType: string | null; loaded: boolean };
+  results: SharedGeometryResult[];
+};
+
+async function sharedLibraryGeometry(): Promise<SharedGeometrySmoke> {
   const directory = mkdtempSync(join(tmpdir(), "ralphy-shared-geometry-"));
   try {
+    const systemFont = "/System/Library/Fonts/Keyboard.ttf";
+    if (!existsSync(systemFont)) throw new Error(`Real font fixture is unavailable: ${systemFont}`);
+    const fontBytes = readFileSync(systemFont);
+    const libraryRoot = join(directory, ".ralphy");
+    const fontPath = join(libraryRoot, "workspaces", "specimen.ttf");
+    mkdirSync(join(libraryRoot, "workspaces"), { recursive: true });
+    writeFileSync(fontPath, fontBytes);
+    await build({
+      entryPoints: [join(process.cwd(), "electron/media/protocol-access.ts")],
+      outfile: join(directory, "protocol-access.cjs"), bundle: true, platform: "node", format: "cjs",
+      target: "node22", logLevel: "silent",
+    });
     const links = ["reset.css", "tokens.css", "app.css", "workbench.css", "shared-library.css"]
       .map((file) => `<link rel="stylesheet" href="${pathToFileURL(join(process.cwd(), "src/styles", file)).href}">`)
       .join("");
@@ -494,7 +511,7 @@ async function sharedLibraryGeometry(): Promise<SharedGeometryResult[]> {
       define: { "process.env.NODE_ENV": '"production"', "import.meta.env": '{"MODE":"test","VITE_RALPHY_ENABLE_MOCKS":"true"}' },
       logLevel: "silent",
     });
-    writeFileSync(join(directory, "layout.html"), `<!doctype html><html><head>${links}</head><body><div id="fixture-root"></div><div id="react-root"></div>${templates}<script>
+    writeFileSync(join(directory, "layout.html"), `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' file:; img-src 'self' data: blob: ralphy-media:; media-src 'self' blob: ralphy-media:; connect-src 'self' ws:; font-src 'self' data: ralphy-media:; object-src 'none';">${links}</head><body><div id="fixture-root"></div><div id="react-root"></div>${templates}<script>
       window.ralphy = {
         loadSharedLibraryArtifact: async () => window.__sharedGeometryArtifact,
         loadSharedLibraryRevisions: async () => ({ items: window.__sharedGeometryRevisions, nextCursor: null }),
@@ -505,11 +522,37 @@ async function sharedLibraryGeometry(): Promise<SharedGeometryResult[]> {
     </script><script src="./harness.js"></script></body></html>`);
     writeFileSync(join(directory, "package.json"), JSON.stringify({ main: "main.cjs" }));
     writeFileSync(join(directory, "main.cjs"), `
-      const { app, BrowserWindow } = require("electron");
+      const { app, BrowserWindow, net, protocol } = require("electron");
+      const { pathToFileURL } = require("node:url");
+      const { MediaProtocolAccess } = require("./protocol-access.cjs");
+      const access = new MediaProtocolAccess();
+      const libraryRoot = ${JSON.stringify(libraryRoot)};
+      protocol.registerSchemesAsPrivileged([{ scheme: "ralphy-media", privileges: {
+        standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true,
+      } }]);
       app.commandLine.appendSwitch("disable-gpu");
       app.whenReady().then(async () => {
+        const minted = await access.mintTrustedLocator(
+          libraryRoot, ${JSON.stringify(fontPath)}, "font/ttf", ${fontBytes.byteLength},
+        );
+        const fontUrl = "ralphy-media://asset/" + minted.token;
+        let servedContentType = null;
+        protocol.handle("ralphy-media", async (request) => {
+          const url = new URL(request.url);
+          if (url.hostname !== "asset") return new Response("Not found", { status: 404 });
+          const safePath = await access.resolve(libraryRoot, url.pathname.slice(1));
+          const response = await net.fetch(pathToFileURL(safePath).toString());
+          servedContentType = response.headers.get("content-type");
+          return response;
+        });
         const win = new BrowserWindow({ show: false, width: 1360, height: 900, useContentSize: true });
         await win.loadFile(${JSON.stringify(join(directory, "layout.html"))});
+        const font = await win.webContents.executeJavaScript(\`(async () => {
+          const face = await new FontFace("RalphyGuardedFontSmoke", 'url("' + \${JSON.stringify(fontUrl)} + '")').load();
+          document.fonts.add(face);
+          return { loaded: face.status === "loaded" && document.fonts.check("12px RalphyGuardedFontSmoke") };
+        })()\`);
+        font.contentType = servedContentType;
         win.webContents.debugger.attach("1.3");
         await win.webContents.debugger.sendCommand("DOM.enable");
         await win.webContents.debugger.sendCommand("CSS.enable");
@@ -613,7 +656,7 @@ async function sharedLibraryGeometry(): Promise<SharedGeometryResult[]> {
             };
           })()\`));
         }
-        process.stdout.write("RALPHY_SHARED_GEOMETRY=" + JSON.stringify(results) + "\\n");
+        process.stdout.write("RALPHY_SHARED_GEOMETRY=" + JSON.stringify({ font, results }) + "\\n");
         app.quit();
       }).catch((error) => { console.error(error); app.exit(1); });
     `);
@@ -628,7 +671,7 @@ async function sharedLibraryGeometry(): Promise<SharedGeometryResult[]> {
     });
     const line = output.split("\n").find((candidate) => candidate.startsWith("RALPHY_SHARED_GEOMETRY="));
     if (!line) throw new Error(`Shared Library Electron geometry returned no results: ${output}`);
-    return JSON.parse(line.slice("RALPHY_SHARED_GEOMETRY=".length)) as SharedGeometryResult[];
+    return JSON.parse(line.slice("RALPHY_SHARED_GEOMETRY=".length)) as SharedGeometrySmoke;
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -712,7 +755,9 @@ describe("design system contract", () => {
   });
 
   test("fits actual Shared Library components and every workflow portal in real Electron geometry", async () => {
-    const results = await sharedLibraryGeometry();
+    const { font, results } = await sharedLibraryGeometry();
+
+    expect(font).toEqual({ contentType: "font/ttf", loaded: true });
 
     const states = ["grid", "list", "inspector", "viewer", "workflow:add:0", "workflow:add:1", "workflow:add:2", "workflow:add:3", "workflow:promote", "workflow:duplicate", "workflow:suggestions", "workflow:archive", "workflow:update-review"];
     expect(results).toHaveLength(39);

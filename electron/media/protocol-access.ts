@@ -8,7 +8,19 @@ import type {
   TrashResult,
 } from "./types";
 
-const PREVIEWABLE_KINDS = new Set<MediaKind>(["image", "video", "audio", "pdf"]);
+const PREVIEWABLE_KINDS = new Set<MediaKind>(["image", "video", "audio", "font", "pdf"]);
+const PREVIEWABLE_FONT_MIMES = new Set([
+  "font/ttf",
+  "font/otf",
+  "font/woff",
+  "font/woff2",
+  "application/font-sfnt",
+  "application/font-woff",
+  "application/x-font-ttf",
+  "application/x-font-opentype",
+  "application/x-font-woff",
+  "application/x-font-woff2",
+]);
 const DEFAULT_MAX_ASSET_BYTES = 8 * 1024 * 1024 * 1024;
 const DEFAULT_MAX_TOKENS = 4096;
 
@@ -121,6 +133,7 @@ export class MediaProtocolAccess {
     const kind = mime?.startsWith("image/") ? "image"
       : mime?.startsWith("video/") ? "video"
       : mime?.startsWith("audio/") ? "audio"
+      : mime !== null && PREVIEWABLE_FONT_MIMES.has(mime) ? "font"
       : mime === "application/pdf" ? "pdf"
       : null;
     if (!kind) throw new Error("Unsupported preview locator");

@@ -24,6 +24,7 @@ export type MediaKind =
   | "image"
   | "video"
   | "audio"
+  | "font"
   | "text"
   | "pdf"
   | "other";

@@ -1,4 +1,4 @@
-import { mkdir, realpath, rm, stat, symlink } from "node:fs/promises";
+import { mkdir, realpath, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import { MediaProtocolAccess, resolveMediaByteRange } from "../electron/media/protocol-access";
@@ -71,6 +71,39 @@ describe("media protocol access", () => {
       "image/png",
       bytes + 1,
     )).rejects.toThrow(/size changed/i);
+  });
+
+  test("allows only explicit font locator MIME types", async () => {
+    fixture = await makeLibraryFixture();
+    const access = new MediaProtocolAccess();
+    const fontsPath = join(fixture.alphaPath, "artifacts", "fonts");
+    await mkdir(fontsPath);
+    const supported = [
+      ["typeface.ttf", "font/ttf"],
+      ["typeface.otf", "font/otf"],
+      ["typeface.woff", "font/woff"],
+      ["typeface.woff2", "font/woff2"],
+      ["legacy.ttf", "application/x-font-ttf"],
+      ["legacy.otf", "application/x-font-opentype"],
+      ["legacy.woff", "application/font-woff"],
+      ["legacy-x.woff", "application/x-font-woff"],
+      ["legacy.woff2", "application/x-font-woff2"],
+      ["sfnt.ttf", "application/font-sfnt"],
+    ] as const;
+
+    for (const [name, mime] of supported) {
+      const path = join(fontsPath, name);
+      await writeFile(path, "font");
+      await expect(access.mintTrustedLocator(fixture.rootPath, path, mime, 4))
+        .resolves.toMatchObject({ sizeBytes: 4 });
+    }
+
+    const unsupportedPath = join(fontsPath, "unsupported.bin");
+    await writeFile(unsupportedPath, "font");
+    for (const mime of ["font/javascript", "application/font-executable", "application/octet-stream"]) {
+      await expect(access.mintTrustedLocator(fixture.rootPath, unsupportedPath, mime, 4))
+        .rejects.toThrow(/unsupported/i);
+    }
   });
 
   test("authorizes any regular Core locator without minting a renderer token", async () => {
