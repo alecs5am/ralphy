@@ -5,7 +5,7 @@ import type { BuildDto, ProjectOverviewDto, UnitDto } from "../../../electron/ra
 import { RalphyMascot } from "../../components/RalphyMascot";
 import { SocialIcon } from "../../components/ui/SocialIcon";
 import { bridge } from "../../lib/ipc";
-import { defineInstrumentScreenStates, InstrumentScreenRoot, type InstrumentScenarioState } from "../../instrument/screen-state-registry";
+import { InstrumentScreenRoot, type InstrumentScenarioState } from "../../instrument/screen-state-registry";
 import { unitLifecycle, type UnitLifecycle } from "../../lib/unit-lifecycle";
 import { preferredUnitPoster, resolveUnitMedia, unitPreviewKind, type UnitMedia } from "../../lib/unit-previews";
 import type { DomainPage } from "../../state/project-domain";
@@ -13,6 +13,9 @@ import type { ProjectScreenController, ProjectScreenSnapshot } from "../../state
 import { AutoCursorTail } from "./AutoCursorTail";
 import { useRememberedScroll } from "./scroll-memory";
 import { UnitViewer } from "./UnitViewer";
+import { unitsInstrumentStates } from "./unit-instrument-state";
+
+export { unitsInstrumentStates } from "./unit-instrument-state";
 
 type Filter = "all" | "in-progress" | "scheduled" | "published";
 type CardSummary = { lifecycle: UnitLifecycle; media: UnitMedia | null; platforms: string[]; revisionNo: number };
@@ -24,13 +27,6 @@ const formatLabels: Record<string, string> = { "long-form": "Long-form", "fb-cre
 const formatLabel = (format: string) => { const value = format.replace(/[-_]+/g, " "); return formatLabels[format] ?? value[0]?.toUpperCase() + value.slice(1).toLowerCase(); };
 const formatOrder = ["video", "carousel", "long-form", "audio", "image", "post", "thread", "article", "fb-creative", "motion-design", "poster", "sticker-pack"];
 const filterFor = (lifecycle: UnitLifecycle): Exclude<Filter, "all"> => lifecycle.label === "Published" ? "published" : lifecycle.label === "Scheduled" ? "scheduled" : "in-progress";
-
-export const unitsInstrumentStates = defineInstrumentScreenStates({
-  routeKey: "project.units",
-  states: ["loading", "ready", "empty", "partial", "error", "selected", "viewer", "conflict"],
-  rootMarker: "project-units",
-  landmarks: ["Units", "Unit status filter"],
-} as const);
 
 export function unitsInstrumentState(page: DomainPage, snapshot: ProjectScreenSnapshot, viewerOpen = false): InstrumentScenarioState {
   if (snapshot.unitConflict) return "conflict";

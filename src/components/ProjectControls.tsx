@@ -8,12 +8,14 @@ interface ProjectControlsProps {
   onSelect(tab: ProjectView): void;
 }
 
-const tabs: Array<GooeyTab<ProjectView>> = [
+const tabs = [
   { value: "units", label: "Units", id: "project-tab-units", controlsId: "project-panel-units" },
   { value: "documents", label: "Documents", id: "project-tab-documents", controlsId: "project-panel-documents" },
   { value: "media", label: "Media", id: "project-tab-media", controlsId: "project-panel-media", focusFallback: true },
   { value: "activity", label: "Activity", id: "project-tab-activity", controlsId: "project-panel-activity" },
-];
+] as const satisfies readonly GooeyTab<ProjectView>[];
+
+export const PROJECT_VIEWS = tabs.map(({ value }) => value);
 
 export function moveProjectTab(tab: ProjectView, key: string): ProjectView {
   return moveGooeyTab(tabs, tab, key);

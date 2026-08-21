@@ -27,6 +27,35 @@ function click(target: HTMLButtonElement): void {
 }
 
 describe("Memory screen", () => {
+  test("clears a selected marker when filters hide the expanded memory", async () => {
+    const craft = { ...entry, id: "mentry_3", revisionId: "mrev_3", type: "craft" as const, name: "Craft", body: { ...entry.body, rule: "Keep the cut concise." } };
+    vi.spyOn(bridge, "loadMemory").mockImplementation(async (_workspaceId, input) => ({
+      items: input?.status === "proposed" ? [] : [entry, craft],
+    }));
+    const host = createReactHost();
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+
+    try {
+      await act(async () => {
+        root.render(<MemoryScreen workspaceId="ws_ux" workspaceName="UX Testing Lab" />);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(host.container.querySelector('[data-instrument-state="selected"]')).toBeTruthy();
+
+      await act(async () => click(button(host.container, "Craft 1")));
+
+      expect(host.container.querySelector('[data-instrument-state="ready"]')).toBeTruthy();
+      expect(host.container.querySelector('[aria-expanded="true"]')).toBeNull();
+      expect(host.container.textContent).toContain("Keep the cut concise.");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+      vi.restoreAllMocks();
+    }
+  });
+
   test("matches the handoff filter controls and opens the first active rule", async () => {
     const craft = { ...entry, id: "mentry_3", revisionId: "mrev_3", type: "craft" as const, name: "Craft", body: { ...entry.body, rule: "Keep the cut concise." } };
     vi.spyOn(bridge, "loadMemory").mockImplementation(async (_workspaceId, input) => ({

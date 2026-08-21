@@ -5,7 +5,9 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import {
   isChatRailVisible,
   isWorkspacePickerVisible,
+  ProjectScreenLoadingFallback,
 } from "../src/App";
+import { PROJECT_VIEWS, type ProjectView } from "../src/components/ProjectControls";
 import {
   InstrumentScreenRoot,
   type InstrumentRouteKey,
@@ -19,51 +21,59 @@ import {
 } from "../src/instrument/production-screen-states";
 import { bridge } from "../src/lib/ipc";
 import {
+  MARKETPLACE_BASE_ROUTE_KINDS,
+  MARKETPLACE_CATEGORY_ROUTE_VALUES,
+  MARKETPLACE_LIBRARY_ROUTE_VALUES,
+  MARKETPLACE_UNAVAILABLE_DETAIL_ROUTE_VALUES,
+  MarketplaceScreenView,
+} from "../src/screens/MarketplaceScreen";
+import {
   MemoryScreen,
   memoryInstrumentStates,
 } from "../src/screens/MemoryScreen";
+import { SETTINGS_CATEGORY_IDS } from "../src/screens/SettingsScreen";
+import {
+  projectMarketplacePublicItem,
+  type MarketplaceItemPresentation,
+  type MarketplaceSnapshot,
+} from "../src/screens/marketplace/presentation";
+import { MarketplaceInstalledModels } from "../src/screens/marketplace/MarketplaceModelViews";
+import type { MarketplaceLocation, MarketplaceQueryState, MarketplaceRoute } from "../src/state/marketplace-navigation";
+import { WORKSPACE_PAGES } from "../src/state/workbench";
 import { createReactHost } from "./react-host";
 
-const actualRouteKeys = [
+const actualRouteKeys: readonly InstrumentRouteKey[] = [
   "startup.welcome",
   "startup.library",
   "startup.migration",
-  "workspace.overview",
-  "workspace.projects",
-  "workspace.units",
-  "workspace.shared",
-  "workspace.memory",
-  "workspace.calendar",
-  "project.units",
-  "project.documents",
-  "project.media",
-  "project.activity",
-  "settings.general",
-  "settings.profile",
-  "settings.appearance",
-  "settings.providers",
-  "settings.terminal",
-  "settings.about",
-  "marketplace.discover",
-  "marketplace.results",
-  "marketplace.collection",
-  "marketplace.detail",
-  "marketplace.category.models",
-  "marketplace.category.templates",
-  "marketplace.category.recipes",
-  "marketplace.category.prompts",
-  "marketplace.category.components",
-  "marketplace.category.skills",
-  "marketplace.library.installed",
-  "marketplace.library.saved",
-  "marketplace.library.added",
-  "marketplace.library.downloads",
-  "marketplace.library.updates",
-  "marketplace.library.attention",
-  "marketplace.unavailable-detail.prompts",
-  "marketplace.unavailable-detail.components",
-  "marketplace.unavailable-detail.skills",
-] as const satisfies readonly InstrumentRouteKey[];
+  ...WORKSPACE_PAGES.map((page) => `workspace.${page}` as const),
+  ...PROJECT_VIEWS.map((view) => `project.${view}` as const),
+  ...SETTINGS_CATEGORY_IDS.map((category) => `settings.${category}` as const),
+  ...MARKETPLACE_BASE_ROUTE_KINDS.map((route) => `marketplace.${route}` as const),
+  ...MARKETPLACE_CATEGORY_ROUTE_VALUES.map((category) => `marketplace.category.${category}` as const),
+  ...MARKETPLACE_LIBRARY_ROUTE_VALUES.map((section) => `marketplace.library.${section}` as const),
+  ...MARKETPLACE_UNAVAILABLE_DETAIL_ROUTE_VALUES.map((category) => `marketplace.unavailable-detail.${category}` as const),
+];
+
+type OwnerInstrumentRoute =
+  | `startup.${"welcome" | "library" | "migration"}`
+  | `workspace.${(typeof WORKSPACE_PAGES)[number]}`
+  | `project.${(typeof PROJECT_VIEWS)[number]}`
+  | `settings.${(typeof SETTINGS_CATEGORY_IDS)[number]}`
+  | `marketplace.${(typeof MARKETPLACE_BASE_ROUTE_KINDS)[number]}`
+  | `marketplace.category.${(typeof MARKETPLACE_CATEGORY_ROUTE_VALUES)[number]}`
+  | `marketplace.library.${(typeof MARKETPLACE_LIBRARY_ROUTE_VALUES)[number]}`
+  | `marketplace.unavailable-detail.${(typeof MARKETPLACE_UNAVAILABLE_DETAIL_ROUTE_VALUES)[number]}`;
+type MissingInstrumentRoute = Exclude<InstrumentRouteKey, OwnerInstrumentRoute>;
+type ExtraOwnerRoute = Exclude<OwnerInstrumentRoute, InstrumentRouteKey>;
+type MissingProjectView = Exclude<ProjectView, (typeof PROJECT_VIEWS)[number]>;
+type MissingMarketplaceRouteKind = Exclude<MarketplaceRoute["kind"],
+  | (typeof MARKETPLACE_BASE_ROUTE_KINDS)[number]
+  | "category"
+  | "library"
+  | "unavailable-detail"
+>;
+const instrumentRouteUnionIsExhaustive: [MissingInstrumentRoute, ExtraOwnerRoute, MissingProjectView, MissingMarketplaceRouteKind] extends [never, never, never, never] ? true : never = true;
 
 const scenarioStates = new Set<InstrumentScenarioState>([
   "restoring", "loading", "ready", "empty", "offline", "partial", "unavailable", "error",
@@ -80,9 +90,282 @@ const chatRailRoutes = actualRouteKeys.filter((routeKey) => (
   || routeKey.startsWith("marketplace.")
 ));
 
+const marketplaceQuery: MarketplaceQueryState = {
+  text: "",
+  filters: { category: "models", source: "all", license: "all", compatibility: "all", modality: "all", format: "all" },
+  sort: "relevance",
+};
+const modelDetailLocation: MarketplaceLocation = {
+  route: { kind: "detail", itemId: "model:huggingface:Acme/alpha" },
+  query: marketplaceQuery,
+  selectedItemId: "model:huggingface:Acme/alpha",
+  scrollTop: 0,
+  focusId: "marketplace-heading",
+};
+const marketplaceReady: Extract<MarketplaceSnapshot, { status: "ready" }> = {
+  status: "ready",
+  items: [],
+  categories: [],
+  machine: null,
+  publicSource: { schemaVersion: 1, source: "live", refreshedAt: "2026-08-21T00:00:00.000Z", sourceUpdatedAt: null, warning: null, items: [] },
+  sourceErrors: [],
+  sourceHealth: { publicLibrary: "ready", models: "ready" },
+  refreshing: false,
+  query: marketplaceQuery,
+};
+const localModelDetail = {
+  provider: "huggingface" as const,
+  id: "Acme/alpha",
+  name: "Alpha",
+  author: "Acme",
+  task: "text-generation",
+  modality: "text",
+  modelType: "base",
+  baseModel: "Alpha",
+  license: "apache-2.0",
+  gated: false,
+  revision: "main",
+  lastModified: "2026-08-21T00:00:00.000Z",
+  downloads: 1,
+  likes: 1,
+  tags: [],
+  iconUrl: null,
+  previewUrl: null,
+  providerUrl: "https://huggingface.co/Acme/alpha",
+  recommendedPackage: { format: "GGUF", bytes: 1, files: ["alpha.gguf"] },
+  comfort: { level: "comfortable" as const, label: "Comfortable here", score: 4, runtime: "ollama", estimatedMemoryBytes: 1, evidence: [] },
+  state: "remote" as const,
+  permissions: [],
+  readme: "# Alpha",
+  previewUrls: [],
+  files: [{ name: "alpha.gguf", bytes: 1, format: "GGUF", recommended: true, warning: null }],
+};
+const commonPresentation = {
+  summary: "Source-backed item",
+  sourceLabel: "Ralphy public library · Live",
+  version: { status: "unavailable" as const, reason: "Version unavailable" },
+  updatedAt: { status: "unavailable" as const, reason: "Update unavailable" },
+  license: { status: "ready" as const, value: "apache-2.0" },
+  publisherIdentity: { status: "unavailable" as const, reason: "Publisher unavailable" },
+  contentAudit: { status: "unavailable" as const, reason: "Audit unavailable" },
+  compatibility: { status: "ready" as const, value: "Comfortable here" },
+};
+const modelPresentation: MarketplaceItemPresentation = {
+  ...commonPresentation,
+  key: "model:huggingface:Acme/alpha",
+  category: "models",
+  name: "Alpha",
+  model: localModelDetail,
+};
+const templatePresentation = projectMarketplacePublicItem({
+  id: "clean-cut",
+  category: "template",
+  name: "Clean cut",
+  summary: "A concise template",
+  referenceUrls: [],
+  recipe: null,
+}, "live");
+const recipePresentation = projectMarketplacePublicItem({
+  id: "voxel-dither",
+  category: "recipe",
+  name: "Voxel dither",
+  summary: "A reproducible recipe",
+  referenceUrls: [],
+  recipe: null,
+}, "live");
+
+const marketplaceError: Extract<MarketplaceSnapshot, { status: "error" }> = {
+  status: "error",
+  error: "Marketplace sources are unavailable",
+  sourceErrors: [{ source: "models", scope: "model-catalog", message: "Models unavailable" }],
+  sourceHealth: { publicLibrary: "unavailable", models: "unavailable" },
+  query: marketplaceQuery,
+};
+const localMachine = {
+  platform: "macOS",
+  architecture: "arm64",
+  cpu: "Apple",
+  totalMemoryBytes: 16,
+  freeDiskBytes: 16,
+  runtimes: [{ id: "ollama" as const, label: "Ollama", available: true, detail: "Detected" }],
+  installed: [{ id: "alpha", name: "Alpha", runtime: "ollama" as const, digest: "sha256:a", bytes: 1, format: "GGUF", updatedAt: null }],
+};
+
+function marketplaceLocation(route: MarketplaceLocation["route"]): MarketplaceLocation {
+  return {
+    route,
+    query: marketplaceQuery,
+    selectedItemId: route.kind === "detail" ? route.itemId : null,
+    scrollTop: 0,
+    focusId: "marketplace-heading",
+  } as MarketplaceLocation;
+}
+
+function renderMarketplaceState(route: MarketplaceLocation["route"], snapshot: MarketplaceSnapshot): string | null {
+  const markup = renderToStaticMarkup(<MarketplaceScreenView catalog={null} location={marketplaceLocation(route)} sidebarVisible={false} snapshot={snapshot} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />);
+  return /data-instrument-state="([^"]+)"/.exec(markup)?.[1] ?? null;
+}
+
+async function renderModelDetail(load: ReturnType<typeof vi.spyOn>) {
+  const host = createReactHost();
+  const { createRoot } = await import("react-dom/client");
+  const root = createRoot(host.container as unknown as Element);
+  await act(async () => {
+    root.render(<MarketplaceScreenView catalog={null} location={modelDetailLocation} sidebarVisible={false} snapshot={marketplaceReady} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />);
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+  expect(load).toHaveBeenCalled();
+  return { host, root };
+}
+
 afterEach(() => vi.restoreAllMocks());
 
 describe("production instrument screen states", () => {
+  test("marks the actual lazy ProjectScreen fallback as project units loading", () => {
+    const markup = renderToStaticMarkup(<ProjectScreenLoadingFallback />);
+    expect(markup).toContain('data-instrument-route="project.units"');
+    expect(markup).toContain('data-instrument-state="loading"');
+    expect(markup).toContain('data-instrument-root="project-units"');
+    expect(markup).toContain("Opening project…");
+  });
+
+  test("derives route values from the runtime owners and exhausts the route union", () => {
+    expect(instrumentRouteUnionIsExhaustive).toBe(true);
+    expect(PROJECT_VIEWS.length).toBeGreaterThan(0);
+    expect(SETTINGS_CATEGORY_IDS.length).toBeGreaterThan(0);
+    expect(MARKETPLACE_BASE_ROUTE_KINDS.length).toBeGreaterThan(0);
+    expect(MARKETPLACE_CATEGORY_ROUTE_VALUES.length).toBeGreaterThan(0);
+    expect(MARKETPLACE_LIBRARY_ROUTE_VALUES.length).toBeGreaterThan(0);
+    expect(MARKETPLACE_UNAVAILABLE_DETAIL_ROUTE_VALUES.length).toBeGreaterThan(0);
+  });
+
+  test("declares exactly the states emitted by discover", () => {
+    const descriptor = PRODUCTION_SCREEN_STATES.find(({ routeKey }) => routeKey === "marketplace.discover")!;
+    const emitted = [
+      renderMarketplaceState({ kind: "discover" }, { status: "loading", query: marketplaceQuery }),
+      renderMarketplaceState({ kind: "discover" }, marketplaceError),
+      renderMarketplaceState({ kind: "discover" }, { ...marketplaceReady, sourceHealth: { publicLibrary: "unavailable", models: "ready" } }),
+      renderMarketplaceState({ kind: "discover" }, marketplaceReady),
+    ];
+    expect(descriptor.states).toEqual([...new Set(emitted)]);
+  });
+
+  test("marks collection and unsupported categories unavailable when their live content is unavailable", () => {
+    const unavailableCategory = {
+      ...marketplaceReady,
+      categories: [{ category: "prompts" as const, label: "Prompts", purpose: "Unavailable", count: { status: "unavailable" as const, reason: "No prompt contract" }, catalog: "unavailable" as const }],
+    };
+    expect(renderMarketplaceState({ kind: "collection" }, marketplaceReady)).toBe("unavailable");
+    expect(renderMarketplaceState({ kind: "category", category: "prompts" }, unavailableCategory)).toBe("unavailable");
+  });
+
+  test("lets the installed-library owner emit only unavailable, empty, and ready", () => {
+    const unavailable = renderToStaticMarkup(<MarketplaceInstalledModels machine={null} />);
+    const empty = renderToStaticMarkup(<MarketplaceInstalledModels machine={{ ...localMachine, installed: [] }} />);
+    const ready = renderToStaticMarkup(<MarketplaceInstalledModels machine={localMachine} />);
+    const states = [unavailable, empty, ready].map((markup) => /data-instrument-state="([^"]+)"/.exec(markup)?.[1] ?? null);
+    const descriptor = PRODUCTION_SCREEN_STATES.find(({ routeKey }) => routeKey === "marketplace.library.installed")!;
+    expect(states).toEqual(["unavailable", "empty", "ready"]);
+    expect(descriptor.states).toEqual(states);
+  });
+
+  test("keeps every Marketplace descriptor state reachable from its live route family", () => {
+    const partial = { ...marketplaceReady, sourceHealth: { publicLibrary: "unavailable" as const, models: "ready" as const } };
+    const readyWith = (item: MarketplaceItemPresentation) => ({ ...marketplaceReady, items: [item] });
+    const expected = (routeKey: string, emitted: readonly (string | null)[]) => {
+      const descriptor = PRODUCTION_SCREEN_STATES.find((candidate) => candidate.routeKey === routeKey)!;
+      expect(descriptor.states, routeKey).toEqual([...new Set(emitted)]);
+    };
+
+    expected("marketplace.results", [
+      renderMarketplaceState({ kind: "results" }, { status: "loading", query: marketplaceQuery }),
+      renderMarketplaceState({ kind: "results" }, marketplaceError),
+      renderMarketplaceState({ kind: "results" }, partial),
+      renderMarketplaceState({ kind: "results" }, marketplaceReady),
+      renderMarketplaceState({ kind: "results" }, readyWith(modelPresentation)),
+    ]);
+    expected("marketplace.collection", [
+      renderMarketplaceState({ kind: "collection" }, { status: "loading", query: marketplaceQuery }),
+      renderMarketplaceState({ kind: "collection" }, marketplaceError),
+      renderMarketplaceState({ kind: "collection" }, marketplaceReady),
+    ]);
+
+    const supported = { models: modelPresentation, templates: templatePresentation, recipes: recipePresentation } as const;
+    for (const [category, item] of Object.entries(supported) as [keyof typeof supported, MarketplaceItemPresentation][]) {
+      expected(`marketplace.category.${category}`, [
+        renderMarketplaceState({ kind: "category", category }, { status: "loading", query: marketplaceQuery }),
+        renderMarketplaceState({ kind: "category", category }, marketplaceError),
+        renderMarketplaceState({ kind: "category", category }, partial),
+        renderMarketplaceState({ kind: "category", category }, marketplaceReady),
+        renderMarketplaceState({ kind: "category", category }, readyWith(item)),
+      ]);
+    }
+
+    for (const category of ["prompts", "components", "skills"] as const) {
+      const categoryState = (status: "ready" | "unavailable") => ({
+        ...marketplaceReady,
+        categories: [{ category, label: category, purpose: "Contract state", count: status === "ready" ? { status, value: 0 } : { status, reason: "Unavailable" }, catalog: status }],
+      } as MarketplaceSnapshot);
+      expected(`marketplace.category.${category}`, [
+        renderMarketplaceState({ kind: "category", category }, { status: "loading", query: marketplaceQuery }),
+        renderMarketplaceState({ kind: "category", category }, marketplaceError),
+        renderMarketplaceState({ kind: "category", category }, { ...categoryState("ready"), sourceHealth: partial.sourceHealth } as MarketplaceSnapshot),
+        renderMarketplaceState({ kind: "category", category }, categoryState("ready")),
+        renderMarketplaceState({ kind: "category", category }, categoryState("unavailable")),
+      ]);
+    }
+
+    expect(PRODUCTION_SCREEN_STATES.find(({ routeKey }) => routeKey === "marketplace.detail")!.states)
+      .toEqual(["loading", "ready", "unavailable", "error"]);
+    expect(renderMarketplaceState({ kind: "detail", itemId: "stale" }, marketplaceReady)).toBe("unavailable");
+    for (const section of ["saved", "added", "downloads", "updates", "attention"] as const) {
+      expected(`marketplace.library.${section}`, [renderMarketplaceState({ kind: "library", section }, marketplaceReady)]);
+    }
+    for (const category of ["prompts", "components", "skills"] as const) {
+      expected(`marketplace.unavailable-detail.${category}`, [renderMarketplaceState({ kind: "unavailable-detail", category }, marketplaceReady)]);
+    }
+  });
+
+  test("marks the independent model-detail loading state instead of aggregate ready", async () => {
+    const load = vi.spyOn(bridge, "loadLocalModelDetail").mockImplementation(() => new Promise(() => undefined));
+    const { host, root } = await renderModelDetail(load);
+    try {
+      const markers = host.container.querySelectorAll("[data-instrument-route='marketplace.detail']");
+      expect(markers).toHaveLength(1);
+      expect(markers[0]?.getAttribute("data-instrument-state")).toBe("loading");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
+  test("marks the independent model-detail error state", async () => {
+    const load = vi.spyOn(bridge, "loadLocalModelDetail").mockRejectedValue(new Error("Detail unavailable"));
+    const { host, root } = await renderModelDetail(load);
+    try {
+      const markers = host.container.querySelectorAll("[data-instrument-route='marketplace.detail']");
+      expect(markers).toHaveLength(1);
+      expect(markers[0]?.getAttribute("data-instrument-state")).toBe("error");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
+  test("marks the independent model-detail ready state", async () => {
+    const load = vi.spyOn(bridge, "loadLocalModelDetail").mockResolvedValue(localModelDetail);
+    const { host, root } = await renderModelDetail(load);
+    try {
+      const markers = host.container.querySelectorAll("[data-instrument-route='marketplace.detail']");
+      expect(markers).toHaveLength(1);
+      expect(markers[0]?.getAttribute("data-instrument-state")).toBe("ready");
+    } finally {
+      await act(async () => root.unmount());
+      host.restore();
+    }
+  });
+
   test("registers every concrete route exactly once with declared scenario states", () => {
     const routeKeys = PRODUCTION_SCREEN_STATES.map(({ routeKey }) => routeKey);
     const duplicates = routeKeys.filter((routeKey, index) => routeKeys.indexOf(routeKey) !== index);

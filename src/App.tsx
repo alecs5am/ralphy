@@ -31,6 +31,8 @@ import { MemoryScreen } from "./screens/MemoryScreen";
 import { CalendarScreen } from "./screens/CalendarScreen";
 import { SharedLibraryScreen } from "./screens/SharedLibraryScreen";
 import { MarketplaceScreen } from "./screens/MarketplaceScreen";
+import { InstrumentScreenRoot } from "./instrument/screen-state-registry";
+import { unitsInstrumentStates } from "./screens/project/unit-instrument-state";
 import {
   MARKETPLACE_SIDEBAR_WIDTH,
   marketplaceReducer,
@@ -66,6 +68,19 @@ const loadSettingsScreen = () =>
 const SettingsScreen = lazy(loadSettingsScreen);
 const WELCOME_MINIMUM_MS = 1_200;
 const WELCOME_EXIT_MS = 300;
+
+export function ProjectScreenLoadingFallback() {
+  return (
+    <InstrumentScreenRoot descriptor={unitsInstrumentStates} state="loading">
+      <main className="main-region project-region">
+        <div className="project-indexing">
+          <span className="loading-line" />
+          <span>Opening project…</span>
+        </div>
+      </main>
+    </InstrumentScreenRoot>
+  );
+}
 
 export function isWorkspacePickerVisible({ mode, sidebarVisible, workspaceId }: {
   mode: AppMode;
@@ -616,14 +631,7 @@ export function App() {
   } else if (state.route.kind === "project" && selectedProject) {
     workContent = (
       <Suspense
-        fallback={
-          <main className="main-region project-region">
-            <div className="project-indexing">
-              <span className="loading-line" />
-              <span>Opening project…</span>
-            </div>
-          </main>
-        }
+        fallback={<ProjectScreenLoadingFallback />}
       >
         <ProjectScreen
           key={`project:${rootIdentity?.rootEpoch ?? 0}:${selectedProject.workspaceId}:${selectedProject.projectId}`}

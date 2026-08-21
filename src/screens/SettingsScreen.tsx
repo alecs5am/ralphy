@@ -27,6 +27,7 @@ const categories = [
 ] as const;
 
 export type SettingsCategory = (typeof categories)[number]["id"];
+export const SETTINGS_CATEGORY_IDS = categories.map(({ id }) => id);
 
 export const settingsInstrumentStates = categories.map(({ id, label }) => defineInstrumentScreenStates({
   routeKey: `settings.${id}`,

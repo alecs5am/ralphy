@@ -11,7 +11,8 @@ export type WorkbenchRoute =
   | { kind: "project"; workspaceId: string; projectId: string };
 
 export type WorkspaceView = "grid" | "list";
-export type WorkspacePage = "overview" | "projects" | "units" | "shared" | "memory" | "calendar";
+export const WORKSPACE_PAGES = ["overview", "projects", "units", "shared", "memory", "calendar"] as const;
+export type WorkspacePage = (typeof WORKSPACE_PAGES)[number];
 
 export interface WorkspaceCalendarNavigationContext {
   label: string;
@@ -32,15 +33,6 @@ export interface WorkspaceOverviewReturnState {
   attentionExpanded: boolean;
   returnFocusId: string;
 }
-
-export const WORKSPACE_PAGES: WorkspacePage[] = [
-  "overview",
-  "projects",
-  "units",
-  "shared",
-  "memory",
-  "calendar",
-];
 
 export const WORKSPACE_PAGE_LABELS: Record<WorkspacePage, string> = {
   overview: "Overview",

@@ -1,6 +1,9 @@
 export type AppMode = "work" | "marketplace";
-export type MarketplaceCategory = "models" | "templates" | "recipes" | "prompts" | "components" | "skills";
-export type MarketplaceLibrarySection = "installed" | "saved" | "added" | "downloads" | "updates" | "attention";
+export const MARKETPLACE_CATEGORIES = ["models", "templates", "recipes", "prompts", "components", "skills"] as const;
+export const MARKETPLACE_LIBRARY_SECTIONS = ["installed", "saved", "added", "downloads", "updates", "attention"] as const;
+export const MARKETPLACE_UNAVAILABLE_DETAIL_CATEGORIES = ["prompts", "components", "skills"] as const;
+export type MarketplaceCategory = (typeof MARKETPLACE_CATEGORIES)[number];
+export type MarketplaceLibrarySection = (typeof MARKETPLACE_LIBRARY_SECTIONS)[number];
 export type MarketplaceBrowseRoute =
   | { kind: "discover" }
   | { kind: "results" }
@@ -9,7 +12,7 @@ export type MarketplaceBrowseRoute =
   | { kind: "collection" };
 export type MarketplaceRoute = MarketplaceBrowseRoute
   | { kind: "detail"; itemId: string }
-  | { kind: "unavailable-detail"; category: "prompts" | "components" | "skills" };
+  | { kind: "unavailable-detail"; category: (typeof MARKETPLACE_UNAVAILABLE_DETAIL_CATEGORIES)[number] };
 
 export interface MarketplaceFilterState {
   category: MarketplaceCategory | "all";
@@ -35,7 +38,7 @@ interface MarketplaceLocationMemory {
 export type MarketplaceLocation = MarketplaceLocationMemory & (
   | { route: MarketplaceBrowseRoute; selectedItemId: string | null }
   | { route: { kind: "detail"; itemId: string }; selectedItemId: string }
-  | { route: { kind: "unavailable-detail"; category: "prompts" | "components" | "skills" }; selectedItemId: null }
+  | { route: { kind: "unavailable-detail"; category: (typeof MARKETPLACE_UNAVAILABLE_DETAIL_CATEGORIES)[number] }; selectedItemId: null }
 );
 
 export const MARKETPLACE_SIDEBAR_WIDTH = 248;
@@ -65,8 +68,6 @@ const MAX_TEXT = 256;
 const MAX_SCROLL = 10_000_000;
 const MAX_HISTORY = 50;
 
-const categories = ["models", "templates", "recipes", "prompts", "components", "skills"] as const;
-const librarySections = ["installed", "saved", "added", "downloads", "updates", "attention"] as const;
 const sources = ["all", "ralphy", "huggingface", "civitai", "modelscope"] as const;
 const licenses = ["all", "declared"] as const;
 const compatibilities = ["all", "compatible", "unknown", "incompatible"] as const;
@@ -101,7 +102,7 @@ function isFilters(value: unknown): value is MarketplaceFilterState {
   const candidate = record(value);
   return candidate !== null
     && exactKeys(candidate, ["category", "source", "license", "compatibility", "modality", "format"])
-    && (candidate.category === "all" || oneOf(candidate.category, categories))
+    && (candidate.category === "all" || oneOf(candidate.category, MARKETPLACE_CATEGORIES))
     && oneOf(candidate.source, sources)
     && oneOf(candidate.license, licenses)
     && oneOf(candidate.compatibility, compatibilities)
@@ -129,16 +130,16 @@ function isRoute(value: unknown): value is MarketplaceRoute {
       return exactKeys(candidate, ["kind"]);
     case "category":
       return exactKeys(candidate, ["kind", "category"])
-        && oneOf(candidate.category, categories);
+        && oneOf(candidate.category, MARKETPLACE_CATEGORIES);
     case "library":
       return exactKeys(candidate, ["kind", "section"])
-        && oneOf(candidate.section, librarySections);
+        && oneOf(candidate.section, MARKETPLACE_LIBRARY_SECTIONS);
     case "detail":
       return exactKeys(candidate, ["kind", "itemId"])
         && boundedId(candidate.itemId);
     case "unavailable-detail":
       return exactKeys(candidate, ["kind", "category"])
-        && oneOf(candidate.category, ["prompts", "components", "skills"] as const);
+        && oneOf(candidate.category, MARKETPLACE_UNAVAILABLE_DETAIL_CATEGORIES);
     default:
       return false;
   }

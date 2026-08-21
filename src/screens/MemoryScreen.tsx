@@ -77,6 +77,7 @@ export function MemoryScreen({ workspaceId, workspaceName }: { workspaceId: stri
   const visibleActive = useMemo(() => filterMemory(active, query, type, order), [active, order, query, type]);
   const visibleProposed = useMemo(() => filterMemory(proposed, query, type, order), [order, proposed, query, type]);
   const items = reviewing ? visibleProposed : visibleActive;
+  const selectedVisible = expanded !== null && items.some((entry) => entry.id === expanded);
   const groups = useMemo(() => {
     const order = reviewing ? ["workspace", "global"] : TYPES;
     return order.map((group) => [group, items.filter((entry) => (reviewing ? entry.tier : entry.type) === group)] as const)
@@ -94,6 +95,10 @@ export function MemoryScreen({ workspaceId, workspaceName }: { workspaceId: stri
       setExpanded(firstDisplayed.id);
     }
   }, [groups, loading, reviewing]);
+
+  useEffect(() => {
+    if (expanded !== null && !selectedVisible) setExpanded(null);
+  }, [expanded, selectedVisible]);
 
   const reload = useCallback((message: string) => {
     setNotice(message);
@@ -146,7 +151,7 @@ export function MemoryScreen({ workspaceId, workspaceName }: { workspaceId: stri
       ? "loading"
       : items.length === 0
         ? "empty"
-        : expanded
+        : selectedVisible
           ? "selected"
           : "ready";
 

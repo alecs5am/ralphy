@@ -13,6 +13,7 @@ import type {
   LocalModelReference,
 } from "../../../electron/media/types";
 import { MarkdownView } from "../../components/MarkdownView";
+import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../../instrument/screen-state-registry";
 import { bridge } from "../../lib/ipc";
 import {
   projectMarketplaceModelDetail,
@@ -24,6 +25,20 @@ const providerLabels = {
   civitai: "Civitai",
   modelscope: "ModelScope",
 } as const;
+
+export const marketplaceDetailInstrumentStates = defineInstrumentScreenStates({
+  routeKey: "marketplace.detail",
+  states: ["loading", "ready", "unavailable", "error"],
+  rootMarker: "marketplace-detail",
+  landmarks: ["Item details", "Marketplace"],
+} as const);
+
+export const marketplaceInstalledInstrumentStates = defineInstrumentScreenStates({
+  routeKey: "marketplace.library.installed",
+  states: ["unavailable", "empty", "ready"],
+  rootMarker: "marketplace-library-installed",
+  landmarks: ["Installed on this Mac", "My Library"],
+} as const);
 
 function formatBytes(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "Size unavailable";
@@ -113,8 +128,8 @@ export function MarketplaceModelDetail({ reference, onBack, onReviewDownload }: 
   const [providerError, setProviderError] = useState<{ key: string; message: string } | null>(null);
   useEffect(() => () => { actionGeneration.current += 1; }, [reference.id, reference.provider]);
 
-  if (state.status === "loading") return <article className="marketplace-model-detail marketplace-detail-route is-loading" aria-busy="true"><BackButton onBack={onBack} /><p role="status">Loading model details…</p></article>;
-  if (state.status === "error") return <article className="marketplace-model-detail marketplace-detail-route is-error"><BackButton onBack={onBack} /><p role="alert">{state.message}</p></article>;
+  if (state.status === "loading") return <InstrumentScreenRoot descriptor={marketplaceDetailInstrumentStates} state="loading"><article className="marketplace-model-detail marketplace-detail-route is-loading" aria-busy="true"><BackButton onBack={onBack} /><p role="status">Loading model details…</p></article></InstrumentScreenRoot>;
+  if (state.status === "error") return <InstrumentScreenRoot descriptor={marketplaceDetailInstrumentStates} state="error"><article className="marketplace-model-detail marketplace-detail-route is-error"><BackButton onBack={onBack} /><p role="alert">{state.message}</p></article></InstrumentScreenRoot>;
 
   const detail = state.value;
   const provider = providerLabels[detail.provider];
@@ -131,7 +146,7 @@ export function MarketplaceModelDetail({ reference, onBack, onReviewDownload }: 
     }
   };
 
-  return <article className="marketplace-model-detail marketplace-detail-route" aria-labelledby="marketplace-model-title">
+  return <InstrumentScreenRoot descriptor={marketplaceDetailInstrumentStates} state="ready"><article className="marketplace-model-detail marketplace-detail-route" aria-labelledby="marketplace-model-title">
     <BackButton onBack={onBack} />
     <header className="marketplace-model-hero">
       <span className="marketplace-model-provider">Models · {provider}</span>
@@ -179,7 +194,7 @@ export function MarketplaceModelDetail({ reference, onBack, onReviewDownload }: 
         <section><h3>Used by</h3><p>Workspace, project, and chat backlinks are unavailable from the current contract.</p></section>
       </aside>
     </div>
-  </article>;
+  </article></InstrumentScreenRoot>;
 }
 
 export function MarketplaceInstalledModels({ machine }: { machine: LocalModelMachine | null }) {
@@ -204,7 +219,8 @@ export function MarketplaceInstalledModels({ machine }: { machine: LocalModelMac
   };
   const runtime = current?.runtimes.find(({ id }) => id === "ollama") ?? null;
   const installed = current?.installed?.filter(({ runtime: id }) => id === "ollama") ?? [];
-  return <section className="marketplace-installed-models" aria-labelledby="marketplace-installed-models-title">
+  const instrumentState = !current || !runtime?.available ? "unavailable" : installed.length === 0 ? "empty" : "ready";
+  return <InstrumentScreenRoot descriptor={marketplaceInstalledInstrumentStates} state={instrumentState}><section className="marketplace-installed-models" aria-labelledby="marketplace-installed-models-title">
     <header><span><small>My Library · Models</small><h2 id="marketplace-installed-models-title">Installed on this Mac</h2></span><button type="button" disabled={refreshing} onClick={() => { void refresh(); }}><RefreshCw aria-hidden="true" />{refreshing ? "Checking…" : "Re-check this Mac"}</button></header>
     <p>Registered in Ollama</p>
     {error && <p role="alert">{error}</p>}
@@ -213,5 +229,5 @@ export function MarketplaceInstalledModels({ machine }: { machine: LocalModelMac
         : installed.length === 0 ? <div role="status">No models are registered in Ollama.</div>
           : <ul role="list">{installed.map((model) => <li key={`${model.runtime}:${model.id}`}><Cpu aria-hidden="true" /><span><strong>{model.name}</strong><code>{model.digest}</code><small>{model.format} · {formatBytes(model.bytes)} · Registered in Ollama</small></span><em>Load health is unavailable</em></li>)}</ul>}
     <p className="marketplace-installed-note">Load health is unavailable because the current runtime inventory has no load-test contract.</p>
-  </section>;
+  </section></InstrumentScreenRoot>;
 }
