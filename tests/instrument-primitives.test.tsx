@@ -1,5 +1,6 @@
 import { act } from "react";
 import { RefreshCw } from "lucide-react";
+import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -12,6 +13,7 @@ import {
   InstrumentWidget,
   StatusDot,
 } from "../src/instrument/primitives";
+import { INSTRUMENT_PALETTE, contrastRatio } from "../src/instrument/palette";
 import { createReactHost } from "./react-host";
 
 async function mount(children: React.ReactNode) {
@@ -29,6 +31,7 @@ describe("instrument primitives", () => {
       const button = mounted.host.container.querySelector("button");
       expect(button?.getAttribute("aria-label")).toBe("Refresh");
       expect(button?.getAttribute("title")).toBe("Refresh");
+      expect(button?.getAttribute("type")).toBe("button");
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.host.restore();
@@ -61,12 +64,31 @@ describe("instrument primitives", () => {
       expect(section?.getAttribute("aria-label")).toBe("Workspace summary");
       expect(mounted.host.container.textContent).toContain("UX Testing Lab");
       expect(mounted.host.container.textContent).toContain("Projects");
-      expect(mounted.host.container.querySelector("img")?.getAttribute("src")).toBe("/assets/dither/g4.png");
+      expect(mounted.host.container.querySelector("img")?.getAttribute("src")).toBe("./assets/dither/g4.png");
       expect(mounted.host.container.querySelector("section")?.getAttribute("data-instrument-root")).toBe("instrument-widget");
       expect(mounted.host.container.querySelector("header")?.getAttribute("data-instrument-root")).toBe("instrument-screen-header");
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.host.restore();
     }
+  });
+
+  test("allows an icon action to opt into a submit button", async () => {
+    const mounted = await mount(<InstrumentIconButton label="Save" type="submit"><RefreshCw /></InstrumentIconButton>);
+    try {
+      expect(mounted.host.container.querySelector("button")?.getAttribute("type")).toBe("submit");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
+  test("uses an accessible Doto counter and surface-correct focus indicators", () => {
+    const styles = readFileSync("src/styles/instrument.css", "utf8");
+    expect(styles).toMatch(/\.instrument-counter output\s*\{[^}]*font-family:\s*var\(--font-doto\)[^}]*font-size:\s*max\(13px, 1em\)[^}]*font-weight:\s*800/s);
+    expect(styles).toContain('html[data-theme="light"] .instrument-icon-button:focus-visible');
+    expect(styles).toContain('html[data-theme="dark"] .instrument-icon-button:focus-visible');
+    expect(contrastRatio(INSTRUMENT_PALETTE.light.focusOnLight, INSTRUMENT_PALETTE.light.widgetLight)).toBeGreaterThanOrEqual(3);
+    expect(contrastRatio(INSTRUMENT_PALETTE.dark.focusOnDark, INSTRUMENT_PALETTE.dark.widgetLight)).toBeGreaterThanOrEqual(3);
   });
 });

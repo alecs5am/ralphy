@@ -36,7 +36,12 @@ describe("name-salted visual identity", () => {
   });
 
   test("maps each stable glyph slot to a packaged dither image", () => {
-    expect(projectGlyphAsset("UX Testing Lab")).toBe("/assets/dither/g4.png");
-    expect(projectGlyphAsset("Nightmaker Relaunch 001")).toBe(`/assets/dither/g${projectGlyphSlot("Nightmaker Relaunch 001")}.png`);
+    expect(projectGlyphAsset("UX Testing Lab")).toBe("./assets/dither/g4.png");
+    expect(projectGlyphAsset("Nightmaker Relaunch 001")).toBe(`./assets/dither/g${projectGlyphSlot("Nightmaker Relaunch 001")}.png`);
+  });
+
+  test("resolves dither assets inside the packaged renderer directory", () => {
+    const asset = new URL(projectGlyphAsset("UX Testing Lab"), "file:///Applications/Ralphy%20Media.app/Contents/Resources/app/dist/index.html");
+    expect(asset.pathname).toBe("/Applications/Ralphy%20Media.app/Contents/Resources/app/dist/assets/dither/g4.png");
   });
 });

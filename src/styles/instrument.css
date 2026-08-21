@@ -40,10 +40,16 @@
 .instrument-icon-button:hover { background: var(--instrument-widget-light-hover); }
 .instrument-icon-button:focus-visible,
 .instrument-profile-trigger:focus-visible,
-.instrument-profile-menu button:focus-visible { outline: var(--control-focus); outline-offset: 2px; }
+.instrument-profile-menu button:focus-visible { outline: var(--control-focus-on-light); outline-offset: 2px; }
+html[data-theme="dark"] .instrument-icon-button:focus-visible,
+html[data-theme="dark"] .instrument-profile-trigger:focus-visible,
+html[data-theme="dark"] .instrument-profile-menu button:focus-visible { outline: var(--control-focus); }
+html[data-theme="light"] .instrument-icon-button:focus-visible,
+html[data-theme="light"] .instrument-profile-trigger:focus-visible,
+html[data-theme="light"] .instrument-profile-menu button:focus-visible { outline: var(--control-focus-on-light); }
 
 .instrument-counter { display: grid; gap: 0; color: var(--instrument-text-secondary-readable); }
-.instrument-counter output { font-family: var(--font-doto); color: var(--instrument-text-primary); }
+.instrument-counter output { font-family: var(--font-doto); font-size: max(13px, 1em); font-weight: 800; color: var(--instrument-text-primary); }
 .instrument-counter span { font-size: var(--text-xs); }
 
 .instrument-status { color: var(--instrument-text-secondary-readable); }
@@ -74,7 +80,7 @@
 .instrument-profile-initials { width: var(--control-sm); height: var(--control-sm); border-radius: var(--radius-sm); }
 .instrument-profile-avatar { object-fit: cover; }
 .instrument-profile-initials { display: grid; place-items: center; background: var(--instrument-dither-base); color: var(--instrument-text-on-dark-primary); font-size: var(--text-xs); }
-.instrument-profile-menu { display: grid; gap: var(--space-2); min-width: 180px; padding: var(--space-2); border-radius: var(--radius-md); background: var(--instrument-widget-light); color: var(--instrument-text-primary); }
+.instrument-profile-menu { position: fixed; z-index: 80; display: grid; box-sizing: border-box; width: 192px; gap: var(--space-2); padding: var(--space-2); border-radius: var(--radius-md); background: var(--instrument-widget-light); color: var(--instrument-text-primary); }
 .instrument-profile-menu-identity { display: flex; align-items: center; gap: var(--space-2); }
 .instrument-profile-menu button { min-height: var(--control-md); padding: 0 var(--space-2); border-radius: var(--radius-sm); }
 

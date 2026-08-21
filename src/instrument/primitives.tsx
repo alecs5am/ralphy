@@ -19,7 +19,7 @@ export function InstrumentIconButton({ label, tooltip = label, className, childr
   label: string;
   tooltip?: string;
 }) {
-  return <button {...button} className={classNames("instrument-icon-button", className)} aria-label={label} title={tooltip}>{children}</button>;
+  return <button {...button} type={button.type ?? "button"} className={classNames("instrument-icon-button", className)} aria-label={label} title={tooltip}>{children}</button>;
 }
 
 export function InstrumentCounter({ label, value }: { label: string; value: number | string }) {

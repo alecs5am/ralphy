@@ -22,7 +22,7 @@ export function projectGlyphSlot(name: string): number {
 }
 
 export function projectGlyphAsset(name: string): string {
-  return `/assets/dither/g${projectGlyphSlot(name)}.png`;
+  return `./assets/dither/g${projectGlyphSlot(name)}.png`;
 }
 
 export function workspaceDitherVars(name: string): CSSProperties {
