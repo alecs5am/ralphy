@@ -70,6 +70,7 @@ const loadSettingsScreen = () =>
 const SettingsScreen = lazy(loadSettingsScreen);
 const WELCOME_MINIMUM_MS = 1_200;
 const WELCOME_EXIT_MS = 300;
+const INSTRUMENT_SIDEBAR_WIDTH = 240;
 
 export function ProjectScreenLoadingFallback() {
   return (
@@ -190,7 +191,7 @@ export function App() {
   );
   const [workspaceDestination, setWorkspaceDestination] = useState<WorkspaceDestination | null>(null);
   const [overviewReturnState, setOverviewReturnState] = useState<WorkspaceOverviewReturnState | null>(null);
-  const [sidebarWidth, setSidebarWidth] = useState(
+  const [sidebarWidth] = useState(
     initialPreferences.current.sidebarWidth,
   );
   const [rightPanelWidth] = useState(
@@ -229,24 +230,17 @@ export function App() {
   const agentChat = useAgentChat({
     rootPath: rootIdentity?.storeId ?? null,
     project: selectedProject,
-    enabled: rightPanelVisible,
+    enabled: rightPanelVisible || rightOverlayOpen,
   });
   const marketplaceSidebarVisible = marketplace.sidebarVisible && viewport.width > 1_280;
   const activeSidebarVisible = marketplace.mode === "work" ? sidebarVisible : marketplaceSidebarVisible;
-  const activeSidebarWidth = marketplace.mode === "work" ? sidebarWidth : MARKETPLACE_SIDEBAR_WIDTH;
+  const activeSidebarWidth = INSTRUMENT_SIDEBAR_WIDTH;
   const workspacePickerVisible = isWorkspacePickerVisible({
     mode: marketplace.mode,
     sidebarVisible: activeSidebarVisible,
     workspaceId: selectedWorkspace?.id ?? null,
   });
   const showBottomPanel = bottomPanelVisible;
-  const sidebarMax = Math.max(
-    PANEL_SIZE_LIMITS.sidebar.min,
-    Math.min(
-      PANEL_SIZE_LIMITS.sidebar.max,
-      viewport.width - 440,
-    ),
-  );
   const bottomPanelMax = Math.max(
     PANEL_SIZE_LIMITS.bottom.min,
     Math.min(PANEL_SIZE_LIMITS.bottom.max, Math.floor(viewport.height * 0.5)),
@@ -352,9 +346,8 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    setSidebarWidth((value) => Math.min(value, sidebarMax));
     setBottomPanelHeight((value) => Math.min(value, bottomPanelMax));
-  }, [bottomPanelMax, sidebarMax]);
+  }, [bottomPanelMax]);
 
   useEffect(() => {
     if (restoring) return;
@@ -732,20 +725,6 @@ export function App() {
                   if (workspaceId) openWorkspace(workspaceId);
                 }}
               />
-              {catalog && marketplace.mode === "work" && sidebarVisible && (
-                <ResizeHandle
-                  ariaLabel="Resize sidebar"
-                  orientation="vertical"
-                  value={sidebarWidth}
-                  min={PANEL_SIZE_LIMITS.sidebar.min}
-                  max={sidebarMax}
-                  defaultValue={PANEL_SIZE_LIMITS.sidebar.default}
-                  direction={1}
-                  className="resize-sidebar"
-                  onChange={setSidebarWidth}
-                  onActiveChange={setIsResizing}
-                />
-              )}
             </>}
             desk={<div className="main-content-stage">
               <div className="app-mode-surface app-mode-work" hidden={marketplace.mode !== "work"} inert={marketplace.mode !== "work"}>

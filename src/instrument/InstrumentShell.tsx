@@ -60,6 +60,12 @@ interface RailRegistration {
   label: string;
 }
 
+interface PendingRouteTransition {
+  from: string;
+  to: string;
+  offset: number;
+}
+
 interface InternalRightRailContextValue extends InstrumentRightRailContextValue {
   host: HTMLElement | null;
   register(owner: InstrumentRightRailOwner, label: string): () => void;
@@ -83,6 +89,10 @@ export function useInstrumentScroll(): InstrumentScrollContextValue {
   return value;
 }
 
+export function useOptionalInstrumentScroll(): InstrumentScrollContextValue | null {
+  return useContext(ScrollContext);
+}
+
 export function useInstrumentRightRail(): InstrumentRightRailContextValue {
   const value = useContext(RightRailContext);
   if (!value) throw new Error("useInstrumentRightRail must be used inside InstrumentShell");
@@ -104,14 +114,36 @@ export function InstrumentRightRailPortal({ owner, label, children }: {
 export function InstrumentShell(props: InstrumentShellProps): ReactElement {
   const frameRef = useRef<HTMLDivElement>(null);
   const [deskElement, setDeskElement] = useState<HTMLDivElement | null>(null);
-  const [railHost, setRailHost] = useState<HTMLDivElement | null>(null);
+  const [railHost] = useState<HTMLElement | null>(() => {
+    if (typeof document === "undefined") return null;
+    const host = document.createElement("div");
+    host.setAttribute("class", "instrument-right-rail-host");
+    return host;
+  });
+  const [railParking, setRailParking] = useState<HTMLDivElement | null>(null);
+  const [dockedRailTarget, setDockedRailTarget] = useState<HTMLDivElement | null>(null);
+  const [overlayRailTarget, setOverlayRailTarget] = useState<HTMLDivElement | null>(null);
   const [dimensions, setDimensions] = useState({ frameWidth: 0, deskWidth: 0, deskHeight: 0 });
   const [activeRail, setActiveRail] = useState<{ owner: InstrumentRightRailOwner; label: string }>({ owner: "chat", label: "Agent chat" });
   const registrations = useRef<RailRegistration[]>([]);
   const openerRef = useRef<HTMLElement | null>(null);
   const offsets = useRef(new Map<string, number>());
-  const previousRouteKey = useRef(props.routeScrollKey);
+  const committedRouteKey = useRef(props.routeScrollKey);
+  const pendingRouteTransition = useRef<PendingRouteTransition | null>(null);
+  const focusedRailElement = useRef<HTMLElement | null>(null);
   const modeRef = useRef<InstrumentRightRailMode>("closed");
+
+  if (props.routeScrollKey === committedRouteKey.current) {
+    pendingRouteTransition.current = null;
+  } else if (pendingRouteTransition.current?.to !== props.routeScrollKey) {
+    const transition = {
+      from: committedRouteKey.current,
+      to: props.routeScrollKey,
+      offset: deskElement?.scrollTop ?? 0,
+    };
+    offsets.current.set(transition.from, transition.offset);
+    pendingRouteTransition.current = transition;
+  }
 
   const dockedDeskWidth = modeRef.current === "docked"
     ? dimensions.deskWidth
@@ -122,6 +154,10 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
     preferenceOpen: props.rightPreference,
     overlayOpen: props.rightOverlayOpen,
   });
+  if (mode !== modeRef.current && railHost) {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && railHost.contains(active)) focusedRailElement.current = active;
+  }
   modeRef.current = mode;
 
   useLayoutEffect(() => {
@@ -145,11 +181,55 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
   }, [deskElement]);
 
   useLayoutEffect(() => {
-    if (!deskElement || previousRouteKey.current === props.routeScrollKey) return;
-    offsets.current.set(previousRouteKey.current, deskElement.scrollTop);
-    previousRouteKey.current = props.routeScrollKey;
-    deskElement.scrollTo({ top: offsets.current.get(props.routeScrollKey) ?? 0 });
+    if (!deskElement) return;
+    const transition = pendingRouteTransition.current;
+    if (transition?.to === props.routeScrollKey) {
+      offsets.current.set(transition.from, transition.offset);
+      pendingRouteTransition.current = null;
+    }
+    committedRouteKey.current = props.routeScrollKey;
+    const targetOffset = offsets.current.get(props.routeScrollKey) ?? 0;
+    let frame = 0;
+    const observer = new MutationObserver(() => restoreWhenReady());
+    const restoreWhenReady = () => {
+      const available = Math.max(0, deskElement.scrollHeight - deskElement.clientHeight);
+      deskElement.scrollTo({ top: Math.min(targetOffset, available) });
+      if (targetOffset === 0 || available >= targetOffset) observer.disconnect();
+    };
+    observer.observe(deskElement, { attributes: true, childList: true, subtree: true });
+    restoreWhenReady();
+    frame = window.requestAnimationFrame(restoreWhenReady);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
   }, [deskElement, props.routeScrollKey]);
+
+  useLayoutEffect(() => {
+    if (!railHost || !railParking) return;
+    const target = mode === "docked"
+      ? dockedRailTarget
+      : mode === "overlay"
+        ? overlayRailTarget
+        : railParking;
+    if (!target) return;
+    target.appendChild(railHost);
+    const focused = focusedRailElement.current;
+    let focusTimer = 0;
+    if (focused && railHost.contains(focused) && document.activeElement !== focused) {
+      focused.focus({ preventScroll: true });
+    }
+    if (mode !== "closed" && focused && railHost.contains(focused)) {
+      focusTimer = window.setTimeout(() => focused.focus({ preventScroll: true }), 0);
+    }
+    focusedRailElement.current = null;
+    return () => {
+      window.clearTimeout(focusTimer);
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && railHost.contains(active)) focusedRailElement.current = active;
+      railParking.appendChild(railHost);
+    };
+  }, [dockedRailTarget, mode, overlayRailTarget, railHost, railParking]);
 
   useLayoutEffect(() => {
     if (!deskElement || mode !== "overlay") return;
@@ -210,9 +290,6 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
     register,
   }), [activeRail.owner, closeRail, mode, openRail, railHost, register]);
 
-  const defaultChat = activeRail.owner === "chat" ? props.chat : null;
-  const railSurface = <div className="instrument-right-rail-host" ref={setRailHost}>{defaultChat}</div>;
-
   return <ScrollContext.Provider value={scrollContext}>
     <RightRailContext.Provider value={railContext}>
       <div
@@ -239,7 +316,11 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
           </div>
           {props.bottomVisible && <div className="instrument-bottom-panel">{props.bottomPanel}</div>}
         </section>
-        {mode === "docked" && <aside className="instrument-right-rail" aria-label={activeRail.label}>{railSurface}</aside>}
+        <aside className="instrument-right-rail" aria-label={activeRail.label} hidden={mode !== "docked"}>
+          <div ref={setDockedRailTarget} />
+        </aside>
+        <div className="instrument-rail-parking" ref={setRailParking} hidden inert>
+        </div>
       </div>
       <InstrumentOverlay
         id="right-rail-sheet"
@@ -250,8 +331,18 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
         onOpenChange={props.onRightOverlayOpenChange}
         localScroll
       >
-        {railSurface}
+        <div ref={setOverlayRailTarget} />
       </InstrumentOverlay>
+      {railHost && createPortal(
+        <div
+          className="instrument-chat-rail-content"
+          hidden={activeRail.owner !== "chat"}
+          inert={activeRail.owner !== "chat" || undefined}
+          onFocusCapture={(event) => { focusedRailElement.current = event.target as HTMLElement; }}
+        >{props.chat}</div>,
+        railHost,
+        "instrument-persistent-right-rail",
+      )}
     </RightRailContext.Provider>
   </ScrollContext.Provider>;
 }

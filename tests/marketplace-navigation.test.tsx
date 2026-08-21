@@ -31,7 +31,12 @@ vi.mock("../src/components/UtilityPanels", () => ({
   BottomPanel: () => null,
 }));
 vi.mock("../src/components/WelcomeScreen", () => ({ WelcomeScreen: () => <div>Loading Ralphy</div> }));
-vi.mock("../src/chat/useAgentChat", () => ({ useAgentChat: () => ({}) }));
+vi.mock("../src/chat/useAgentChat", () => ({
+  useAgentChat: ({ enabled }: { enabled: boolean }) => {
+    (globalThis as typeof globalThis & { __agentChatEnabled?: boolean[] }).__agentChatEnabled?.push(enabled);
+    return {};
+  },
+}));
 
 const locationA: MarketplaceLocation = {
   route: { kind: "category", category: "recipes" },
@@ -88,6 +93,22 @@ async function settle(): Promise<void> {
   await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
+}
+
+function installInstrumentMeasurements(frameWidth: number, deskWidth: number): void {
+  class MeasuredResizeObserver {
+    constructor(private readonly callback: ResizeObserverCallback) {}
+    observe(target: Element) {
+      const node = target as unknown as HostNode;
+      const className = node.getAttribute("class") ?? "";
+      if (className.includes("instrument-shell")) node.clientWidth = frameWidth;
+      if (className.includes("instrument-desk-scroll")) node.clientWidth = deskWidth;
+      this.callback([{ target, contentRect: node.getBoundingClientRect() } as ResizeObserverEntry], this as unknown as ResizeObserver);
+    }
+    disconnect() {}
+    unobserve() {}
+  }
+  globalThis.ResizeObserver = MeasuredResizeObserver as unknown as typeof ResizeObserver;
 }
 
 afterEach(() => {
@@ -180,6 +201,7 @@ describe("marketplace navigation", () => {
   test("keeps both mode surfaces mounted, preserves chat, and returns from Marketplace root", async () => {
     vi.useFakeTimers();
     const host = createReactHost();
+    installInstrumentMeasurements(1_360, 1_120);
     Object.defineProperties(window, {
       innerWidth: { configurable: true, value: 1360 },
       innerHeight: { configurable: true, value: 900 },
@@ -219,10 +241,13 @@ describe("marketplace navigation", () => {
       expect(workSurface.getAttribute("hidden")).not.toBeNull();
       expect(workSurface.getAttribute("inert")).not.toBeNull();
       expect(marketplaceSurface.getAttribute("hidden")).toBeNull();
-      expect(host.container.textContent).toContain("Agent chat");
+      const chat = host.container.querySelector("[data-testid=\"agent-chat\"]");
+      expect(chat).not.toBeNull();
+      expect(host.container.querySelector(".instrument-shell")?.getAttribute("data-right-rail-mode")).toBe("docked");
       expect(host.container.querySelectorAll(".context-sidebar")).toHaveLength(1);
-      expect(((host.container.querySelector(".workbench") as unknown as HostNode).style as unknown as Record<string, string>)["--sidebar-w"]).toBe("248px");
+      expect(((host.container.querySelector(".workbench") as unknown as HostNode).style as unknown as Record<string, string>)["--sidebar-w"]).toBe("240px");
       expect(host.container.querySelector(".resize-sidebar")).toBeNull();
+      expect(host.container.querySelector("[data-testid=\"agent-chat\"]")).toBe(chat);
       expect(document.activeElement).toBe(marketplaceHeading);
       expect(marketplaceScroll.scrollTop).toBe(438);
 
@@ -440,12 +465,17 @@ describe("marketplace navigation", () => {
   test("opens Marketplace from the null-catalog recovery state", async () => {
     vi.useFakeTimers();
     const host = createReactHost();
+    installInstrumentMeasurements(1_100, 860);
     Object.defineProperties(window, {
       innerWidth: { configurable: true, value: 1360 },
       innerHeight: { configurable: true, value: 900 },
     });
+    const local = storage();
+    local.setItem("ralphy-media-workbench-v1", JSON.stringify({ rightPanelVisible: false }));
     const previousStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
-    Object.defineProperty(globalThis, "localStorage", { configurable: true, value: storage() });
+    Object.defineProperty(globalThis, "localStorage", { configurable: true, value: local });
+    const enabledStates: boolean[] = [];
+    (globalThis as typeof globalThis & { __agentChatEnabled?: boolean[] }).__agentChatEnabled = enabledStates;
     const restore = vi.spyOn(bridge, "restoreLibrary").mockResolvedValue(null);
     const { App } = await import("../src/App");
     const { createRoot } = await import("react-dom/client");
@@ -456,22 +486,27 @@ describe("marketplace navigation", () => {
       const rightPanelToggle = [...host.container.querySelectorAll("button")]
         .find((button) => button.getAttribute("aria-label") === "Toggle right panel")!;
       expect(rightPanelToggle.getAttribute("aria-pressed")).toBe("false");
-      expect(host.container.textContent).not.toContain("Agent chat");
-      await act(async () => rightPanelToggle.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
+      expect(document.body.querySelector("[data-instrument-overlay=\"right-rail-sheet\"]")).toBeNull();
+      expect(enabledStates.at(-1)).toBe(false);
+      await act(async () => { rightPanelToggle.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })); await settle(); });
       expect(rightPanelToggle.getAttribute("aria-pressed")).toBe("true");
-      expect(host.container.textContent).toContain("Agent chat");
-      expect(host.container.querySelector(".workbench")?.getAttribute("class")).toContain("has-right-panel");
+      const sheet = document.body.querySelector("[data-instrument-overlay=\"right-rail-sheet\"]")!;
+      const chat = sheet.querySelector("[data-testid=\"agent-chat\"]");
+      expect(chat).not.toBeNull();
+      expect(enabledStates.at(-1)).toBe(true);
+      expect(JSON.parse(local.getItem("ralphy-media-workbench-v1")!).rightPanelVisible).toBe(false);
       const marketplace = [...host.container.querySelectorAll("button")].find((button) => button.textContent === "Marketplace");
       expect(marketplace).not.toBeUndefined();
       await act(async () => marketplace!.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
       expect(host.container.textContent).toContain("Discover");
       expect(rightPanelToggle.getAttribute("aria-pressed")).toBe("true");
-      expect(host.container.textContent).toContain("Agent chat");
+      expect(document.body.querySelector("[data-testid=\"agent-chat\"]")).toBe(chat);
     } finally {
       await act(async () => root.unmount());
       restore.mockRestore();
       if (previousStorage) Object.defineProperty(globalThis, "localStorage", previousStorage);
       else delete (globalThis as Record<string, unknown>).localStorage;
+      delete (globalThis as typeof globalThis & { __agentChatEnabled?: boolean[] }).__agentChatEnabled;
       host.restore();
     }
   });

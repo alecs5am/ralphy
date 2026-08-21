@@ -94,7 +94,7 @@ html[data-theme="light"] .instrument-profile-menu button:focus-visible { outline
 .instrument-shell {
   --instrument-native-inset: 76px;
   --instrument-right-rail-width: 292px;
-  --instrument-left-width: var(--sidebar-w, 240px);
+  --instrument-left-width: 240px;
 
   position: relative;
   display: grid;
@@ -176,6 +176,46 @@ html[data-theme="light"] .instrument-profile-menu button:focus-visible { outline
 .instrument-desk-scroll > .main-content-stage { min-height: 100%; }
 .instrument-bottom-panel { position: relative; flex: none; }
 
+.instrument-desk-scroll :is(
+  .main-content-stage,
+  .app-mode-surface,
+  .main-region,
+  .project-region,
+  .project-domain-body,
+  .project-media-grid,
+  .asset-grid-scroll,
+  .workspace-overview,
+  .workspace-overview-scroll,
+  .shared-library-screen,
+  .shared-library-content,
+  .shared-library-scroll,
+  .shared-inspector-scroll,
+  .marketplace-screen,
+  .marketplace-scroll,
+  .documents-master,
+  .documents-detail,
+  .composition-master,
+  .composition-detail,
+  .units-grid-scroll,
+  .activity-scroll,
+  .memory-rulebook,
+  .calendar-week-scroll,
+  .calendar-agenda-list
+) {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  overscroll-behavior: auto !important;
+  scrollbar-gutter: auto !important;
+}
+
+.instrument-desk-scroll :is(
+  .documents-workbench,
+  .composition-workbench,
+  .units-workbench,
+  .activity-log
+) { height: auto !important; }
+
 .instrument-right-rail {
   display: flex;
   width: var(--instrument-right-rail-width);
@@ -185,6 +225,9 @@ html[data-theme="light"] .instrument-profile-menu button:focus-visible { outline
   color: var(--instrument-text-on-dark-primary);
 }
 
+.instrument-right-rail[hidden],
+.instrument-chat-rail-content[hidden] { display: none; }
+
 .instrument-right-rail-host {
   display: flex;
   width: 100%;
@@ -193,7 +236,15 @@ html[data-theme="light"] .instrument-profile-menu button:focus-visible { outline
   flex-direction: column;
 }
 
-.instrument-right-rail-host > .utility-right-panel {
+.instrument-chat-rail-content {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.instrument-chat-rail-content > .utility-right-panel {
   width: 100%;
   height: 100%;
   border: 0;
@@ -217,6 +268,11 @@ html[data-theme="light"] .instrument-profile-menu button:focus-visible { outline
   border-radius: var(--radius-lg);
   background: var(--instrument-widget-dark);
   color: var(--instrument-text-on-dark-primary);
+}
+
+[data-instrument-overlay="right-rail-sheet"] > div:last-child {
+  display: flex;
+  min-height: 100%;
 }
 
 @media (prefers-reduced-motion: reduce) {

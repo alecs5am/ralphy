@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProp
 import type { MediaCardDto, MediaRef } from "../../electron/ralphy/types";
 import type { ProjectPreview, ProjectReference } from "../lib/ipc";
 import { assetGridGeometry, mediaFallbackAspectRatio, previewScheduler } from "../lib/media";
+import { useOptionalInstrumentScroll } from "../instrument/InstrumentShell";
 import { AutoCursorTail } from "../screens/project/AutoCursorTail";
 import { useRememberedScroll } from "../screens/project/scroll-memory";
 import { AudioWaveform } from "./media/AudioWaveform";
@@ -214,14 +215,15 @@ export function MediaCardTile({ card, project, rootEpoch, selected, resolvePrevi
 }
 
 export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resolvePreview, onSelect, onOpen, onContextMenu, density, hasMore, loadingMore, appendError, onLoadMore, onRetryAppend, scrollMemory, scrollKey, scrollResetToken }: VirtualAssetGridProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null);
+  const instrumentScroll = useOptionalInstrumentScroll();
+  const [gridElement, setGridElement] = useState<HTMLDivElement | null>(null);
   const rememberedScroll = useRememberedScroll(scrollMemory, scrollKey, scrollResetToken);
   const attachScroll = useCallback((node: HTMLDivElement | null) => {
-    scrollRef.current = node;
-    rememberedScroll.ref(node);
-    setScrollRoot((current) => current === node ? current : node);
-  }, [rememberedScroll.ref]);
+    setGridElement((current) => current === node ? current : node);
+    rememberedScroll.ref(instrumentScroll ? null : node);
+  }, [instrumentScroll, rememberedScroll.ref]);
+  const scrollRoot = instrumentScroll?.element ?? gridElement;
+  const [scrollMargin, setScrollMargin] = useState(0);
   const [width, setWidth] = useState(800);
   const [ratios, setRatios] = useState<Record<string, number>>({});
   const geometry = assetGridGeometry(width, density, 16, 7);
@@ -231,37 +233,45 @@ export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resol
   }, [project, ratios, rootEpoch]);
   const virtualizer = useVirtualizer({
     count: items.length,
-    getScrollElement: () => scrollRef.current,
+    getScrollElement: () => scrollRoot,
     getItemKey: (index) => previewKey(project, rootEpoch, items[index]!.ref),
     estimateSize: (index) => geometry.tileWidth / cardRatio(items[index]!) + 54,
-    initialOffset: () => scrollMemory.get(scrollKey) ?? 0,
+    initialOffset: () => instrumentScroll ? 0 : scrollMemory.get(scrollKey) ?? 0,
     initialRect: { width: 800, height: 600 },
     lanes: geometry.columns,
     gap: geometry.gap,
     overscan: geometry.columns * 2,
+    scrollMargin,
   });
   const rememberAspectRatio = useCallback((key: string, ratio: number) => {
     setRatios((current) => current[key] === ratio ? current : { ...current, [key]: ratio });
   }, []);
   useLayoutEffect(() => {
-    const element = scrollRoot;
+    const element = gridElement;
     if (!element) return;
     const measure = () => {
       const style = window.getComputedStyle(element);
       setWidth(Math.max(1, element.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight)));
+      if (instrumentScroll?.element) {
+        const gridBounds = element.getBoundingClientRect();
+        const deskBounds = instrumentScroll.element.getBoundingClientRect();
+        setScrollMargin(gridBounds.top - deskBounds.top + instrumentScroll.element.scrollTop);
+      } else {
+        setScrollMargin(0);
+      }
     };
     measure();
     const observer = new ResizeObserver(([entry]) => setWidth(Math.max(1, entry.contentRect.width)));
     observer.observe(element);
     return () => observer.disconnect();
-  }, [scrollRoot]);
+  }, [gridElement, instrumentScroll]);
   useEffect(() => virtualizer.measure(), [geometry.columns, geometry.tileWidth, ratios, virtualizer]);
   if (items.length === 0) return <div className="asset-grid-empty"><strong>No media matches this filter.</strong><span>Change the media filter to see other records.</span></div>;
-  return <div className="asset-grid-scroll" ref={attachScroll} onScroll={rememberedScroll.onScroll}>
+  return <div className="asset-grid-scroll" ref={attachScroll} onScroll={instrumentScroll ? undefined : rememberedScroll.onScroll}>
     <div className="virtual-grid-space" style={{ height: virtualizer.getTotalSize() }}>
       {virtualizer.getVirtualItems().map((virtual) => {
         const card = items[virtual.index]!;
-        return <div className="virtual-masonry-item" data-lane={virtual.lane} key={virtual.key} style={{ left: `${virtual.lane * (geometry.tileWidth + geometry.gap)}px`, transform: `translateY(${virtual.start}px)`, width: `${geometry.tileWidth}px` }}>
+        return <div className="virtual-masonry-item" data-lane={virtual.lane} key={virtual.key} style={{ left: `${virtual.lane * (geometry.tileWidth + geometry.gap)}px`, transform: `translateY(${virtual.start - scrollMargin}px)`, width: `${geometry.tileWidth}px` }}>
           <MediaCardTile card={card} project={project} rootEpoch={rootEpoch} selected={selectedRef?.type === card.ref.type && selectedRef.id === card.ref.id} resolvePreview={resolvePreview} aspectRatio={cardRatio(card)} onAspectRatio={rememberAspectRatio} onSelect={() => onSelect(card)} onOpen={() => onOpen(card)} onContextMenu={(point) => onContextMenu(card, point)} />
         </div>;
       })}

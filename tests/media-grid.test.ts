@@ -7,6 +7,7 @@ import { AudioWaveform } from "../src/components/media/AudioWaveform";
 import { MAX_WAVEFORM_DECODE_BYTES } from "../src/lib/audio-preview";
 import type { ProjectPreview, ProjectReference } from "../src/lib/ipc";
 import { assetGridGeometry, createPreviewScheduler, mediaFallbackAspectRatio, previewScheduler } from "../src/lib/media";
+import { InstrumentShell } from "../src/instrument/InstrumentShell";
 import { useRememberedScroll } from "../src/screens/project/scroll-memory";
 import { createReactHost, type HostNode } from "./react-host";
 
@@ -347,6 +348,33 @@ describe("mounted media tiles", () => {
       act(() => observer.deliver(sentinel as unknown as Element, false));
       act(() => observer.deliver(sentinel as unknown as Element, true));
       expect(onLoadMore).toHaveBeenCalledTimes(2);
+    } finally { await view.unmount(); }
+  });
+
+  test("uses the instrument desk as Media's external scroll and cursor owner", async () => {
+    const view = await mounted(createElement(InstrumentShell, {
+      sidebar: null,
+      desk: grid([mediaCard("instrument-owner")], 217, async () => null),
+      chat: null,
+      island: null,
+      profile: null,
+      routeScrollKey: "project:media",
+      leftVisible: false,
+      rightPreference: false,
+      rightOverlayOpen: false,
+      bottomVisible: false,
+      onToggleLeft: () => undefined,
+      onToggleRightPreference: () => undefined,
+      onRightOverlayOpenChange: () => undefined,
+    }));
+    try {
+      const desk = view.host.container.querySelector(".instrument-desk-scroll")!;
+      const innerGrid = desk.querySelector(".asset-grid-scroll")!;
+      const observer = view.host.intersectionObservers[0];
+      expect(observer.root).toBe(desk);
+      expect(innerGrid.getAttribute("data-instrument-scroll-owner")).toBeNull();
+      expect([...desk.querySelectorAll("[data-instrument-scroll-owner]")].filter((node) => node !== desk)).toHaveLength(0);
+      expect(view.host.container.querySelectorAll("[data-instrument-scroll-owner]")).toHaveLength(1);
     } finally { await view.unmount(); }
   });
 

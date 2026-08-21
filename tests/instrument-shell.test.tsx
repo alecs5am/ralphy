@@ -55,6 +55,11 @@ function StatefulDesk() {
   return <button type="button" onClick={() => setSelected("second")}>{selected}</button>;
 }
 
+function StatefulChat() {
+  const [draft, setDraft] = useState("");
+  return <textarea aria-label="Chat draft" value={draft} onChange={(event) => setDraft(event.currentTarget.value)} />;
+}
+
 const defaultProps = {
   sidebar: <aside>Sidebar</aside>,
   desk: <main>Desk</main>,
@@ -199,6 +204,48 @@ describe("instrument shell", () => {
     }
   });
 
+  test("keeps one chat DOM subtree, draft, and focus while the rail reparents", async () => {
+    let overlayOpen = true;
+    const mounted = await mountShell({
+      chat: <StatefulChat />,
+      rightOverlayOpen: overlayOpen,
+      onRightOverlayOpenChange: (open) => { overlayOpen = open; void mounted.render({ rightOverlayOpen: open }); },
+    });
+    try {
+      const shell = mounted.host.container.querySelector(".instrument-shell")!;
+      const desk = mounted.host.container.querySelector(".instrument-desk-scroll")!;
+      await act(async () => {
+        mounted.observer.resize(shell, 1_100, 720);
+        mounted.observer.resize(desk, 860, 672);
+        await settle();
+      });
+      const draft = mounted.host.container.ownerDocument.body.querySelector("textarea") as HostNode & { value: string };
+      draft.focus();
+      await act(async () => {
+        draft.value = "Keep this exact draft";
+        draft.dispatchEvent(new Event("input", { bubbles: true }));
+        mounted.observer.resize(shell, 1_440, 900);
+        mounted.observer.resize(desk, 1_200, 852);
+        await settle();
+      });
+      const dockedDraft = mounted.host.container.querySelector("textarea") as HostNode & { value: string };
+      expect(dockedDraft).toBe(draft);
+      expect(dockedDraft.value).toBe("Keep this exact draft");
+      expect(mounted.host.container.ownerDocument.activeElement).toBe(draft);
+
+      await act(async () => {
+        mounted.observer.resize(shell, 1_100, 720);
+        mounted.observer.resize(desk, 860, 672);
+        await settle();
+      });
+      expect(mounted.host.container.ownerDocument.body.querySelector("textarea")).toBe(draft);
+      expect((draft as HostNode & { value: string }).value).toBe("Keep this exact draft");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
   test("routes a registered inspector through the shared dock host and reports its owner", async () => {
     const mounted = await mountShell({
       desk: <main><InstrumentRightRailPortal owner="shared-inspector" label="Shared item inspector"><button type="button">Inspect selected artifact</button></InstrumentRightRailPortal></main>,
@@ -215,7 +262,7 @@ describe("instrument shell", () => {
       expect(rail.getAttribute("aria-label")).toBe("Shared item inspector");
       expect(rail.textContent).toContain("Inspect selected artifact");
       expect(mounted.host.container.querySelector("[data-rail-owner=\"shared-inspector\"]")).not.toBeNull();
-      expect(rail.textContent).not.toContain("Chat action");
+      expect(rail.querySelector(".instrument-chat-rail-content")?.getAttribute("hidden")).not.toBeNull();
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.host.restore();

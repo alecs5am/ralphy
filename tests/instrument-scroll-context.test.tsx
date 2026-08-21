@@ -1,4 +1,4 @@
-import { act } from "react";
+import { act, useLayoutEffect } from "react";
 import { describe, expect, test } from "vitest";
 
 import { InstrumentShell, useInstrumentScroll } from "../src/instrument/InstrumentShell";
@@ -6,15 +6,19 @@ import { createReactHost } from "./react-host";
 
 let currentScroll: ReturnType<typeof useInstrumentScroll> | null = null;
 
-function ScrollConsumer() {
+function ScrollConsumer({ routeKey }: { routeKey: string }) {
   currentScroll = useInstrumentScroll();
+  useLayoutEffect(() => {
+    if (currentScroll?.element) Object.defineProperty(currentScroll.element, "scrollHeight", { configurable: true, value: routeKey === "workspace:a" ? 1_200 : 600 });
+    currentScroll?.element?.scrollTo({ top: 0 });
+  }, [routeKey]);
   return <button type="button">Focusable selection</button>;
 }
 
 function props(routeScrollKey: string) {
   return {
     sidebar: null,
-    desk: <ScrollConsumer />,
+    desk: <ScrollConsumer routeKey={routeScrollKey} />,
     chat: null,
     island: null,
     profile: null,
@@ -49,8 +53,8 @@ describe("instrument scroll context", () => {
       expect(currentScroll?.element).toBe(desk);
       expect(currentScroll).toMatchObject({ width: 800, height: 600, routeScrollKey: "workspace:a" });
 
-      currentScroll?.scrollToOffset(137);
-      expect(currentScroll?.capture()).toEqual({ key: "workspace:a", offset: 137 });
+      currentScroll?.scrollToOffset(500);
+      expect(currentScroll?.capture()).toEqual({ key: "workspace:a", offset: 500 });
       await act(async () => {
         root.render(<InstrumentShell {...props("workspace:b")} />);
         await settle();
@@ -63,7 +67,7 @@ describe("instrument scroll context", () => {
         root.render(<InstrumentShell {...props("workspace:a")} />);
         await settle();
       });
-      expect(desk.scrollTop).toBe(137);
+      expect(desk.scrollTop).toBe(500);
       expect(currentScroll?.routeScrollKey).toBe("workspace:a");
     } finally {
       currentScroll = null;

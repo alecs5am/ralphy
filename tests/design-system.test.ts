@@ -16,7 +16,7 @@ import { presentSharedArtifact } from "../src/screens/shared-library/presentatio
 import { WorkspaceScreenView, createWorkspaceScreenController } from "../src/screens/WorkspaceScreen";
 
 const workspaceOverviewStyles = readFileSync(join(process.cwd(), "src/styles/workspace-overview.css"), "utf8");
-const styles = ["reset.css", "tokens.css", "app.css", "workbench.css", "shared-library.css"]
+const styles = ["reset.css", "tokens.css", "app.css", "workbench.css", "shared-library.css", "instrument.css"]
   .map((file) => readFileSync(join(process.cwd(), "src/styles", file), "utf8"))
   .concat(workspaceOverviewStyles)
   .join("\n");
@@ -994,12 +994,12 @@ describe("design system contract", () => {
     expect(app).not.toContain('commandOption && key === "b"');
   });
 
-  test("provides searchable workspace navigation and resizable utility panels", () => {
+  test("provides searchable workspace navigation and fixed foundation side rails", () => {
     expect(renderer).toContain('aria-label="Search workspaces"');
     expect(renderer).toContain('aria-activedescendant');
     expect(renderer).toContain("closeAndRestoreFocus");
-    expect(renderer).toContain('ariaLabel="Resize sidebar"');
-    expect(renderer).toContain('ariaLabel="Resize right panel"');
+    expect(renderer).not.toContain('ariaLabel="Resize sidebar"');
+    expect(renderer).not.toContain('ariaLabel="Resize right panel"');
     expect(renderer).toContain('ariaLabel="Resize bottom panel"');
     expect(renderer).toContain("onLostPointerCapture");
     expect(renderer).toContain("createPortal");
@@ -1013,6 +1013,8 @@ describe("design system contract", () => {
       /\.breadcrumbs\s*\{[^}]*-webkit-app-region:\s*no-drag/s,
     );
     expect(styles).toMatch(/button:not\(:disabled\)[^{]*\{[^}]*cursor:\s*pointer/s);
+    expect(styles).toMatch(/\.instrument-shell\s*\{[^}]*--instrument-left-width:\s*240px/s);
+    expect(styles).toMatch(/\.instrument-shell\s*\{[^}]*--instrument-right-rail-width:\s*292px/s);
   });
 
   test("transfers the approved dither workspace hero and project identity system", () => {
@@ -1117,9 +1119,7 @@ describe("design system contract", () => {
     expect(main).toContain('input.key.toLocaleLowerCase() === "r"');
     expect(main).toContain("event.preventDefault()");
     expect(preload).toContain("onToggleRightPanel");
-    expect(app).toMatch(
-      /bridge\.onToggleRightPanel\(\(\)\s*=>\s*setRightPanelVisible\(\(visible\)\s*=>\s*!visible\)\)/,
-    );
+    expect(app).toContain("bridge.onToggleRightPanel(toggleRightRail)");
     expect(app).toContain("useAgentChat");
     expect(app).toContain("<AgentChatPanel");
     expect(app).not.toContain("<RightPanelSummary");
