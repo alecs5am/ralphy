@@ -1,6 +1,13 @@
 import Avatar from "boring-avatars";
+import { INSTRUMENT_PALETTE } from "../instrument/palette";
 
-const avatarColors = ["#c4b5fd", "#8b5cf6", "#5b5b62", "#d8d8dc", "#2d2d2d"];
+const avatarColors = [
+  INSTRUMENT_PALETTE.dark.ditherHighlight,
+  INSTRUMENT_PALETTE.dark.textSecondaryReadable,
+  INSTRUMENT_PALETTE.dark.textOnDarkMutedDecorative,
+  INSTRUMENT_PALETTE.dark.terminalForeground,
+  INSTRUMENT_PALETTE.dark.legacyRaised,
+];
 
 // Temporary local fallback until the signed-in Ralphy Cloud account supplies identity.
 export function profileIdentity(rootPath: string): string {

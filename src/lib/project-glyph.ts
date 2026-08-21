@@ -11,8 +11,9 @@ function identityHash(value: string): number {
 
 export function projectGlyphVars(name: string): CSSProperties {
   const hash = identityHash(name);
+  const slot = projectGlyphSlot(name);
   return {
-    "--glyph-color": `oklch(0.76 0.1 ${hash % 360})`,
+    "--glyph-color": `color-mix(in oklab, var(--p${slot}) ${55 + hash % 41}%, var(--p${slot % 8 + 1}))`,
   } as CSSProperties;
 }
 
@@ -21,9 +22,10 @@ export function projectGlyphSlot(name: string): number {
 }
 
 export function workspaceDitherVars(name: string): CSSProperties {
-  const hue = identityHash(name) % 360;
+  const hash = identityHash(name);
+  const slot = projectGlyphSlot(name);
   return {
-    "--workspace-color": `oklch(0.66 0.14 ${hue})`,
-    "--workspace-highlight": `oklch(0.8 0.1 ${hue})`,
+    "--workspace-color": `color-mix(in oklab, var(--p${slot}) ${55 + hash % 41}%, var(--p${slot % 8 + 1}))`,
+    "--workspace-highlight": `var(--p${slot % 8 + 1})`,
   } as CSSProperties;
 }

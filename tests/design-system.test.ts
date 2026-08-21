@@ -944,7 +944,7 @@ describe("design system contract", () => {
     expect(workbenchStyles).toMatch(/\.project-domain-list > article\s*\{[^}]*border-bottom:\s*0/s);
     expect(styles).not.toContain(".project-preview");
     expect(workbenchStyles).not.toMatch(/\.project-domain-list > button\.is-selected\s*\{[^}]*inset\s+2px\s+0/s);
-    expect(workbenchStyles).toMatch(/\.calendar-region\{[^}]*padding:0[^}]*background:#181818/s);
+    expect(workbenchStyles).toMatch(/\.calendar-region\{[^}]*padding:0[^}]*background:var\(--canvas\)/s);
     expect(workbenchStyles).not.toMatch(/\.calendar-shell\{[^}]*border-radius/s);
     expect(workbenchStyles).not.toMatch(/\.calendar-shell\{[^}]*box-shadow/s);
   });

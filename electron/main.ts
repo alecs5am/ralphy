@@ -1393,7 +1393,7 @@ function createWindow(): void {
     trafficLightPosition: { x: 16, y: 18 },
     vibrancy: "sidebar",
     visualEffectState: "active",
-    backgroundColor: "#00000000",
+    backgroundColor: "transparent",
     show: !SMOKE_TEST,
     webPreferences: secureWebPreferences(join(__dirname, "preload.cjs")),
   });

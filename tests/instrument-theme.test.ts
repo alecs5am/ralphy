@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
-import { INSTRUMENT_PALETTE } from "../src/instrument/palette";
+import { DITHER_ASSET_SHA256, INSTRUMENT_PALETTE } from "../src/instrument/palette";
 import {
   THEME_PREFERENCES,
   applyResolvedTheme,
@@ -51,7 +51,15 @@ describe("instrument theme contract", () => {
   test("bundles the pinned Doto font and license bytes", () => {
     expect(sha256("public/assets/fonts/Doto-Variable.ttf")).toBe("6f4fe7d37853b91df3698daa84cde2dbe1c9695d88c986e6510134910337d426");
     expect(sha256("public/assets/fonts/OFL-Doto.txt")).toBe("26a7b58bdba6cda8a78ca6e8b3791d8013b8abc6d5e6519f84193893aee02020");
-    expect(readFileSync(join(process.cwd(), "public/assets/fonts/OFL-Doto.txt"), "utf8")).toContain("SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007");
+    const license = readFileSync(join(process.cwd(), "public/assets/fonts/OFL-Doto.txt"), "utf8");
+    expect(license).toContain("SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007");
+    expect(license.split("\n").flatMap((line, index) => /[\t ]+$/.test(line) ? [index + 1] : [])).toEqual([21]);
+  });
+
+  test("keeps excluded binary dither assets byte-identical", () => {
+    const directory = "public/assets/dither";
+    expect(Object.fromEntries(readdirSync(join(process.cwd(), directory)).sort().map((file) => [file, sha256(`${directory}/${file}`)])))
+      .toEqual(DITHER_ASSET_SHA256);
   });
 
   test("keeps CSS theme definitions equal to the named palette", () => {

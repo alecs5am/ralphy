@@ -63,13 +63,17 @@ html[data-theme="dark"] {
   --instrument-alert: #E0362C;
   --instrument-alert-text: #050505;
   --instrument-alert-bright: #EB4438;
+  --instrument-danger-fill: #E0362C;
+  --instrument-error-text: #E8E8E6;
   --instrument-traffic-close: #ED6A5E;
   --instrument-traffic-minimize: #F0B544;
   --instrument-traffic-maximize: #5CC45C;
   --instrument-ghost: #262626;
   --instrument-ghost-hover: #2E2E2E;
   --instrument-divider: #DFE2E9;
-  --instrument-focus: #DFE2E9;
+  --instrument-focus-on-light: #111111;
+  --instrument-focus-on-dark: #DFE2E9;
+  --instrument-composer-surface: #F2F2F0;
   --instrument-terminal-background: #060606;
   --instrument-terminal-foreground: #E8E8E6;
   --instrument-terminal-cursor: #DFE2E9;
@@ -110,13 +114,17 @@ html[data-theme="light"] {
   --instrument-alert: #E0362C;
   --instrument-alert-text: #050505;
   --instrument-alert-bright: #EB4438;
+  --instrument-danger-fill: #E0362C;
+  --instrument-error-text: #E8E8E6;
   --instrument-traffic-close: #ED6A5E;
   --instrument-traffic-minimize: #F0B544;
   --instrument-traffic-maximize: #5CC45C;
   --instrument-ghost: #262626;
   --instrument-ghost-hover: #2E2E2E;
   --instrument-divider: #DFE2E9;
-  --instrument-focus: #111111;
+  --instrument-focus-on-light: #111111;
+  --instrument-focus-on-dark: #DFE2E9;
+  --instrument-composer-surface: #F2F2F0;
   --instrument-terminal-background: #060606;
   --instrument-terminal-foreground: #E8E8E6;
   --instrument-terminal-cursor: #DFE2E9;
@@ -147,7 +155,7 @@ html[data-theme="light"] {
 
   --fg: var(--instrument-text-on-dark-primary);
   --fg-2: var(--instrument-text-on-dark-secondary-readable);
-  --fg-3: var(--instrument-text-on-dark-muted-decorative);
+  --fg-3: var(--instrument-text-on-dark-secondary-readable);
   --fg-4: var(--instrument-text-on-dark-muted-decorative);
 
   --accent: var(--instrument-text-on-dark-primary);
@@ -157,7 +165,9 @@ html[data-theme="light"] {
 
   --ok: var(--instrument-text-on-dark-primary);
   --warn: var(--instrument-text-on-dark-secondary-readable);
-  --danger: var(--instrument-alert);
+  --danger-fill: var(--instrument-danger-fill);
+  --danger-fill-text: var(--instrument-alert-text);
+  --danger: var(--instrument-error-text);
   --idle: var(--instrument-unreviewed);
 
   --line: color-mix(in srgb, var(--instrument-text-on-dark-primary) 7%, transparent);
@@ -167,18 +177,22 @@ html[data-theme="light"] {
   --control-selected: var(--selected);
   --control-text: var(--fg-2);
   --control-text-hover: var(--fg);
-  --control-focus: 2px solid var(--fg);
+  --focus-on-light: var(--instrument-focus-on-light);
+  --focus-on-dark: var(--instrument-focus-on-dark);
+  --control-focus-color: var(--focus-on-dark);
+  --control-focus: 2px solid var(--control-focus-color);
+  --control-focus-on-light: 2px solid var(--focus-on-light);
 
-  --field-surface: var(--instrument-widget-light-hover);
-  --field-border: color-mix(in srgb, var(--instrument-text-on-dark-primary) 5%, transparent);
-  --field-border-focus: color-mix(in srgb, var(--instrument-text-on-dark-primary) 10%, transparent);
+  --field-surface: var(--instrument-ghost);
+  --field-border: color-mix(in srgb, var(--instrument-text-on-dark-primary) 14%, transparent);
+  --field-border-focus: var(--focus-on-dark);
   --field-radius: var(--radius-md);
   --field-height: var(--control-md);
   --field-text: var(--fg);
   --field-placeholder: var(--fg-3);
 
-  --menu-surface: var(--instrument-widget-light-hover);
-  --menu-border: color-mix(in srgb, var(--instrument-text-on-dark-primary) 5%, transparent);
+  --menu-surface: var(--instrument-ghost);
+  --menu-border: color-mix(in srgb, var(--instrument-text-on-dark-primary) 14%, transparent);
   --menu-radius: 16px;
   --menu-padding: 2px;
   --menu-item-height: 30px;

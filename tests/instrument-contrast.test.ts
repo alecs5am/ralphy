@@ -1,9 +1,53 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { join, relative } from "node:path";
 import { describe, expect, test } from "vitest";
 import {
   INSTRUMENT_COLOR_ALLOWLIST,
   INSTRUMENT_PALETTE,
   contrastRatio,
 } from "../src/instrument/palette";
+
+const TOKEN_DEFINITION_BLOCK = /\/\* instrument-token-definitions:start \*\/[\s\S]*?\/\* instrument-token-definitions:end \*\//;
+const COLOR_LITERAL = /#(?:[\dA-F]{8}|[\dA-F]{6}|[\dA-F]{3})(?![\w-])|\b(?:rgb|rgba|hsl|hsla|oklch)\(/gi;
+
+function sourceFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) return ["vendor", "generated"].includes(entry.name) ? [] : sourceFiles(path);
+    return /\.(?:css|ts|tsx)$/.test(entry.name) ? [path] : [];
+  });
+}
+
+function authoredColorLiteralSites(): string[] {
+  return ["src", "electron"].flatMap((directory) => sourceFiles(join(process.cwd(), directory))).flatMap((path) => {
+    const projectPath = relative(process.cwd(), path);
+    if (projectPath === "src/instrument/palette.ts") return [];
+    const source = projectPath === "src/styles/tokens.css"
+      ? readFileSync(path, "utf8").replace(TOKEN_DEFINITION_BLOCK, "")
+      : readFileSync(path, "utf8");
+    return source.split("\n").flatMap((line, index) => [...line.matchAll(COLOR_LITERAL)].map((match) => `${projectPath}:${index + 1}:${match[0]}`));
+  }).sort();
+}
+
+function cssThemeVariables(theme: "light" | "dark"): Record<string, string> {
+  const css = readFileSync(join(process.cwd(), "src/styles/tokens.css"), "utf8");
+  const themeBlock = css.match(new RegExp(`html\\[data-theme="${theme}"\\]\\s*\\{([\\s\\S]*?)\\}`))?.[1] ?? "";
+  const componentBlock = css.slice(css.indexOf("/* instrument-token-definitions:end */")).match(/:root\s*\{([\s\S]*?)\}/)?.[1] ?? "";
+  return Object.fromEntries([...`${themeBlock}\n${componentBlock}`.matchAll(/(--[\w-]+):\s*([^;]+);/g)].map((match) => [match[1], match[2].trim()]));
+}
+
+function resolveCssColor(variables: Record<string, string>, token: string): string {
+  let value = variables[token];
+  const visited = new Set<string>();
+  while (value?.startsWith("var(")) {
+    const dependency = value.match(/^var\((--[\w-]+)\)$/)?.[1];
+    if (!dependency || visited.has(dependency)) throw new Error(`Cannot resolve ${token}: ${value}`);
+    visited.add(dependency);
+    value = variables[dependency];
+  }
+  if (!value || !/^#[\dA-F]{6}$/i.test(value)) throw new Error(`Cannot resolve ${token}: ${value ?? "missing"}`);
+  return value;
+}
 
 describe("instrument color contract", () => {
   test("names the required readable secondary colors", () => {
@@ -18,12 +62,51 @@ describe("instrument color contract", () => {
     expect(contrastRatio("#A4A4A0", "#141414")).toBeGreaterThanOrEqual(4.5);
   });
 
-  test("keeps alert labels and focus indicators readable in both themes", () => {
+  test("keeps alert labels readable in both themes", () => {
     expect(INSTRUMENT_PALETTE.light.alertText).toBe("#050505");
     expect(INSTRUMENT_PALETTE.dark.alertText).toBe("#050505");
     expect(contrastRatio(INSTRUMENT_PALETTE.light.alertText, INSTRUMENT_PALETTE.light.alert)).toBeGreaterThanOrEqual(4.5);
-    expect(contrastRatio(INSTRUMENT_PALETTE.light.focus, INSTRUMENT_PALETTE.light.desk)).toBeGreaterThanOrEqual(3);
-    expect(contrastRatio(INSTRUMENT_PALETTE.dark.focus, INSTRUMENT_PALETTE.dark.desk)).toBeGreaterThanOrEqual(3);
+  });
+
+  test("keeps actual legacy control and required-copy aliases at WCAG AA", () => {
+    const requiredPairs = [
+      ["Settings input", "--field-text", "--field-surface"],
+      ["Shared select trigger", "--control-text", "--field-surface"],
+      ["Workspace/profile/agent menus", "--control-text", "--menu-surface"],
+      ["Chat composer", "--field-text", "--field-surface"],
+      ["Field placeholder", "--field-placeholder", "--field-surface"],
+      ["Required secondary on canvas", "--fg-3", "--canvas"],
+      ["Required secondary on sunken", "--fg-3", "--sunken"],
+      ["Required secondary on raised", "--fg-3", "--raised"],
+      ["Error on canvas", "--danger", "--canvas"],
+      ["Error on sunken", "--danger", "--sunken"],
+      ["Error on raised", "--danger", "--raised"],
+      ["Error on hover", "--danger", "--hover"],
+      ["Error on selected", "--danger", "--selected"],
+      ["Error in fields", "--danger", "--field-surface"],
+      ["Error in menus", "--danger", "--menu-surface"],
+    ] as const;
+    for (const theme of ["light", "dark"] as const) {
+      const variables = cssThemeVariables(theme);
+      const failures = requiredPairs.flatMap(([consumer, foreground, background]) => {
+        const ratio = contrastRatio(resolveCssColor(variables, foreground), resolveCssColor(variables, background));
+        return ratio >= 4.5 ? [] : [{ consumer, foreground, background, ratio }];
+      });
+      expect(failures, theme).toEqual([]);
+    }
+  });
+
+  test("keeps component focus tokens visible on every target surface", () => {
+    for (const theme of ["light", "dark"] as const) {
+      const variables = cssThemeVariables(theme);
+      const pairs = theme === "light"
+        ? [["--focus-on-light", "--instrument-desk"], ["--focus-on-light", "--instrument-widget-light"], ["--focus-on-dark", "--instrument-widget-dark"], ["--focus-on-dark", "--instrument-media-frame"]]
+        : [["--focus-on-dark", "--instrument-desk"], ["--focus-on-dark", "--instrument-widget-dark"], ["--focus-on-dark", "--instrument-widget-light"], ["--focus-on-light", "--instrument-composer-surface"]];
+      expect(pairs.flatMap(([focus, surface]) => {
+        const ratio = contrastRatio(resolveCssColor(variables, focus), resolveCssColor(variables, surface));
+        return ratio >= 3 ? [] : [{ focus, surface, ratio }];
+      }), theme).toEqual([]);
+    }
   });
 
   test("rejects malformed colors instead of silently producing a ratio", () => {
@@ -42,5 +125,9 @@ describe("instrument color contract", () => {
     const named = new Set(Object.values(INSTRUMENT_PALETTE).flatMap((palette) => Object.values(palette)));
     expect(INSTRUMENT_COLOR_ALLOWLIST.filter((color) => !named.has(color))).toEqual([]);
     expect(Object.values(INSTRUMENT_PALETTE).flatMap((palette) => Object.values(palette)).filter((color) => !INSTRUMENT_COLOR_ALLOWLIST.includes(color))).toEqual([]);
+  });
+
+  test("keeps authored app color literals only in the palette and verified token block", () => {
+    expect(authoredColorLiteralSites()).toEqual([]);
   });
 });

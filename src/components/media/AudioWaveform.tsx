@@ -1,6 +1,7 @@
 import { Pause, Play, RotateCcw, RotateCw, Volume2, VolumeX } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type WaveSurfer from "wavesurfer.js";
+import { INSTRUMENT_PALETTE } from "../../instrument/palette";
 import { MAX_WAVEFORM_DECODE_BYTES, shouldDecodeWaveform } from "../../lib/audio-preview";
 import { SnappySlider } from "../ui/SnappySlider";
 
@@ -62,7 +63,8 @@ function DecodedAudioWaveform({ src, name, compact, onReady, onFallback }: { src
     void import("wavesurfer.js").then(({ default: WaveSurfer }) => {
       if (disposed || !containerRef.current) return;
       try {
-        wave = WaveSurfer.create({ container: containerRef.current, url: src, height: compact ? 56 : 164, waveColor: "#555555", progressColor: "#9b8df8", cursorColor: "#f4f4f4", cursorWidth: 1, barWidth: compact ? 2 : 3, barGap: compact ? 2 : 3, barRadius: 3, barMinHeight: 2, normalize: true, interact: true, dragToSeek: true, hideScrollbar: true, autoScroll: false });
+        const palette = INSTRUMENT_PALETTE.dark;
+        wave = WaveSurfer.create({ container: containerRef.current, url: src, height: compact ? 56 : 164, waveColor: palette.waveformWave, progressColor: palette.waveformProgress, cursorColor: palette.waveformCursor, cursorWidth: 1, barWidth: compact ? 2 : 3, barGap: compact ? 2 : 3, barRadius: 3, barMinHeight: 2, normalize: true, interact: true, dragToSeek: true, hideScrollbar: true, autoScroll: false });
       } catch {
         onFallback();
         return;

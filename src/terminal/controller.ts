@@ -2,34 +2,36 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal } from "@xterm/xterm";
 
+import { INSTRUMENT_PALETTE } from "../instrument/palette";
 import type {
   MediaWorkbenchBridge,
   TerminalSession,
 } from "../lib/ipc";
 
+const palette = INSTRUMENT_PALETTE.dark;
 const TERMINAL_THEME = {
-  background: "#111111",
-  foreground: "#d8d8d8",
-  cursor: "#e7e7e7",
-  cursorAccent: "#181818",
-  selectionBackground: "#514a7a",
-  selectionForeground: "#ffffff",
-  black: "#181818",
-  red: "#d49692",
-  green: "#7cb994",
-  yellow: "#cdae80",
-  blue: "#8295c7",
-  magenta: "#aa8ee6",
-  cyan: "#71b4b0",
-  white: "#d8d8d8",
-  brightBlack: "#6c6c6c",
-  brightRed: "#e4aaa6",
-  brightGreen: "#92c9a7",
-  brightYellow: "#ddbf95",
-  brightBlue: "#9dadd8",
-  brightMagenta: "#c2a7f5",
-  brightCyan: "#8bcac6",
-  brightWhite: "#f4f4f4",
+  background: palette.terminalBackground,
+  foreground: palette.terminalForeground,
+  cursor: palette.terminalCursor,
+  cursorAccent: palette.mediaFrame,
+  selectionBackground: palette.terminalSelection,
+  selectionForeground: palette.textOnDarkPrimary,
+  black: palette.legacyCanvas,
+  red: palette.alertBright,
+  green: palette.trafficMaximize,
+  yellow: palette.trafficMinimize,
+  blue: palette.textSecondaryReadable,
+  magenta: palette.ditherHighlight,
+  cyan: palette.divider,
+  white: palette.terminalForeground,
+  brightBlack: palette.textOnDarkMutedDecorative,
+  brightRed: palette.trafficClose,
+  brightGreen: palette.trafficMaximize,
+  brightYellow: palette.trafficMinimize,
+  brightBlue: palette.textSecondaryReadable,
+  brightMagenta: palette.ditherHighlight,
+  brightCyan: palette.divider,
+  brightWhite: palette.textOnDarkPrimary,
 } as const;
 
 export class TerminalController {

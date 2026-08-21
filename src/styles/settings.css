@@ -170,7 +170,7 @@
   min-height: 0;
   flex-direction: column;
   border-right: 1px solid var(--line);
-  background: #222222;
+  background: var(--instrument-ghost);
 }
 
 .settings-window-bar {
@@ -301,7 +301,7 @@
   align-items: end;
   gap: 12px;
   padding: 0 max(36px, calc((100% - 720px) / 2)) 18px;
-  background: rgb(24 24 24 / 0.88);
+  background: color-mix(in srgb, var(--canvas) 88%, transparent);
   backdrop-filter: blur(20px);
 }
 
@@ -348,7 +348,7 @@
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  background: #212121;
+  background: var(--instrument-ghost);
   corner-shape: squircle;
 }
 
@@ -435,7 +435,7 @@
 }
 
 .settings-toggle.is-on > span {
-  background: #ffffff;
+  background: var(--fg);
   transform: translateX(14px);
 }
 
@@ -577,7 +577,7 @@
   padding: 4px 7px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: #191919;
+  background: var(--canvas);
 }
 
 .settings-muted {
@@ -598,7 +598,7 @@
 
 .settings-about-mark .ralphy-mascot,
 .settings-sidebar-product .ralphy-mascot {
-  filter: drop-shadow(0 4px 8px rgb(0 0 0 / 0.4));
+  filter: drop-shadow(0 4px 8px color-mix(in srgb, var(--instrument-media-frame) 40%, transparent));
 }
 
 @media (max-width: 1000px) {
