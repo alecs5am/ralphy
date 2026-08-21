@@ -256,6 +256,45 @@ html[data-theme="light"] {
   --p8: var(--instrument-dither-highlight);
 }
 
+/* Settings is portalled to body, outside the route-level light semantic scope. */
+[data-instrument-overlay="settings"] {
+  --canvas: var(--instrument-desk);
+  --sunken: var(--instrument-widget-light-sunken);
+  --panel: var(--instrument-widget-light);
+  --panel-solid: var(--instrument-widget-light);
+  --raised: var(--instrument-widget-light-sunken);
+  --hover: var(--instrument-widget-light-hover);
+  --selected: var(--instrument-desk-hover);
+  --pressed: var(--instrument-unreviewed);
+  --fg: var(--instrument-text-primary);
+  --fg-2: var(--instrument-text-secondary-readable);
+  --fg-3: var(--instrument-text-secondary-readable);
+  --fg-4: var(--instrument-text-secondary-readable);
+  --accent: var(--instrument-text-primary);
+  --accent-soft: var(--instrument-text-secondary-readable);
+  --accent-fill: color-mix(in srgb, var(--instrument-text-primary) 20%, transparent);
+  --accent-line: color-mix(in srgb, var(--instrument-text-primary) 38%, transparent);
+  --ok: var(--instrument-text-primary);
+  --warn: var(--instrument-text-secondary-readable);
+  --danger: var(--instrument-text-primary);
+  --line: color-mix(in srgb, var(--instrument-text-primary) 8%, transparent);
+  --line-strong: color-mix(in srgb, var(--instrument-text-primary) 16%, transparent);
+  --control-hover: var(--instrument-widget-light-hover);
+  --control-selected: var(--instrument-desk-hover);
+  --control-text: var(--instrument-text-secondary-readable);
+  --control-text-hover: var(--instrument-text-primary);
+  --control-focus-color: var(--instrument-text-primary);
+  --field-surface: var(--instrument-widget-light-sunken);
+  --field-border: color-mix(in srgb, var(--instrument-text-primary) 14%, transparent);
+  --field-border-focus: var(--instrument-text-primary);
+  --field-text: var(--instrument-text-primary);
+  --field-placeholder: var(--instrument-text-secondary-readable);
+  --menu-surface: var(--instrument-widget-light);
+  --menu-border: color-mix(in srgb, var(--instrument-text-primary) 14%, transparent);
+  --instrument-ghost: var(--instrument-widget-light);
+  --instrument-ghost-hover: var(--instrument-widget-light-hover);
+}
+
 @supports (corner-shape: squircle) {
   .sq,
   button,
