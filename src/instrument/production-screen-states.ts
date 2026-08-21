@@ -20,6 +20,7 @@ import type {
   InstrumentRouteKey,
   InstrumentScreenStateDescriptor,
 } from "./screen-state-registry";
+import type { InstrumentOverlayId } from "./overlay-registry";
 
 export const PRODUCTION_SCREEN_STATES: readonly InstrumentScreenStateDescriptor[] = [
   welcomeInstrumentStates,
@@ -70,4 +71,6 @@ export const PRODUCTION_GLOBAL_OVERLAY_ROUTES = {
   "agent-chat-provider-menu": CHAT_RAIL_ROUTE_KEYS,
   "agent-chat-model-menu": CHAT_RAIL_ROUTE_KEYS,
   "agent-chat-mode-menu": CHAT_RAIL_ROUTE_KEYS,
-} as const;
+} as const satisfies Readonly<Partial<Record<InstrumentOverlayId, readonly InstrumentRouteKey[]>>>;
+
+export type ProductionGlobalOverlayId = keyof typeof PRODUCTION_GLOBAL_OVERLAY_ROUTES;
