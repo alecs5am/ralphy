@@ -11,6 +11,7 @@ import {
   type ReactPortal,
 } from "react";
 import { createPortal } from "react-dom";
+import { ArrowLeft, ArrowRight, House, PanelBottom, PanelLeft, PanelRight } from "lucide-react";
 
 import { InstrumentOverlay } from "./overlay-registry";
 import type { InstrumentRightRailMode, InstrumentRightRailOwner } from "./types";
@@ -49,6 +50,14 @@ export interface InstrumentShellProps {
   rightOverlayOpen: boolean;
   bottomPanel?: ReactNode;
   bottomVisible: boolean;
+  topChrome?: {
+    canGoBack: boolean;
+    canGoForward: boolean;
+    onBack(): void;
+    onForward(): void;
+    onHome(): void;
+    onToggleBottom(): void;
+  };
   onToggleLeft(): void;
   onToggleRightPreference(): void;
   onRightOverlayOpenChange(open: boolean): void;
@@ -297,20 +306,46 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
   return <ScrollContext.Provider value={scrollContext}>
     <RightRailContext.Provider value={railContext}>
       <div
-        className={`instrument-shell${props.leftVisible ? "" : " is-left-collapsed"}`}
+        className={`instrument-shell col-span-3 row-start-1 grid h-full min-h-0 w-full min-w-0 overflow-hidden bg-desk grid-rows-[48px_minmax(0,1fr)] ${props.leftVisible ? "grid-cols-[240px_minmax(0,1fr)_auto]" : "grid-cols-[0_minmax(0,1fr)_auto]"}`}
         ref={frameRef}
         data-right-rail-mode={mode}
         data-instrument-native-inset="76"
       >
-        <div className="instrument-native-inset" aria-hidden="true" />
-        {props.leftVisible && <div className="instrument-left-stack">{props.sidebar}</div>}
-        <section className="instrument-desk-column">
-          <header className="instrument-top-row">
-            <div className="instrument-island-slot">{props.island}</div>
-            {props.profile && <div className="instrument-profile-slot">{props.profile}</div>}
-          </header>
+        <header
+          className="instrument-top-row relative col-span-3 row-start-1 grid h-12 min-h-0 min-w-0 items-center bg-desk [-webkit-app-region:drag]"
+          style={{ gridTemplateColumns: `${props.leftVisible ? 240 : 0}px minmax(0, 1fr) ${mode === "docked" ? RIGHT_RAIL_WIDTH : 0}px` }}
+        >
+          {props.topChrome && <div className="absolute inset-y-0 left-0 z-10 flex items-center gap-1 pl-[84px] [-webkit-app-region:no-drag]">
+            <button className="grid size-7 place-items-center rounded-full text-ink hover:bg-board focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink" type="button" title={props.leftVisible ? "Hide sidebar" : "Show sidebar"} aria-label="Toggle sidebar" aria-pressed={props.leftVisible} onClick={props.onToggleLeft}>
+              <PanelLeft size={15} strokeWidth={1.6} aria-hidden="true" />
+            </button>
+            <button className="grid size-7 place-items-center rounded-full text-muted hover:bg-board hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-35" type="button" title="Back" aria-label="Back" disabled={!props.topChrome.canGoBack} onClick={props.topChrome.onBack}>
+              <ArrowLeft size={15} strokeWidth={1.6} aria-hidden="true" />
+            </button>
+            <button className="grid size-7 place-items-center rounded-full text-muted hover:bg-board hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-35" type="button" title="Forward" aria-label="Forward" disabled={!props.topChrome.canGoForward} onClick={props.topChrome.onForward}>
+              <ArrowRight size={15} strokeWidth={1.6} aria-hidden="true" />
+            </button>
+            <button className="main-header-home grid size-7 place-items-center rounded-full text-muted hover:bg-board hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink" type="button" title="Projects" aria-label="Projects" onClick={props.topChrome.onHome}>
+              <House size={15} strokeWidth={1.6} aria-hidden="true" />
+            </button>
+          </div>}
+          <div className="instrument-island-slot col-start-2 row-start-1 min-w-0 justify-self-center [-webkit-app-region:no-drag]">{props.island}</div>
+          <div className="instrument-top-actions absolute inset-y-0 right-2 z-10 flex items-center gap-1 [-webkit-app-region:no-drag]">
+            {props.topChrome && <>
+              <button className={`grid size-7 place-items-center rounded-full hover:bg-board focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${props.bottomVisible ? "bg-board text-ink" : "text-muted"}`} type="button" title="Toggle bottom panel (⌘J)" aria-label="Toggle bottom panel" aria-pressed={props.bottomVisible} onClick={props.topChrome.onToggleBottom}>
+                <PanelBottom size={15} strokeWidth={1.6} aria-hidden="true" />
+              </button>
+              <button className={`grid size-7 place-items-center rounded-full hover:bg-board focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${mode === "closed" ? "text-muted" : "bg-board text-ink"}`} type="button" title="Toggle right panel (⌘R)" aria-label="Toggle right panel" aria-pressed={mode !== "closed"} onClick={(event) => { if (mode === "closed") openRail(event.currentTarget); else closeRail(); }}>
+                <PanelRight size={15} strokeWidth={1.6} aria-hidden="true" />
+              </button>
+            </>}
+            {props.profile && <div className="instrument-profile-slot ml-1 [&_.instrument-profile-trigger]:size-8 [&_.instrument-profile-trigger]:justify-center [&_.instrument-profile-trigger]:overflow-hidden [&_.instrument-profile-trigger]:rounded-full [&_.instrument-profile-trigger]:p-0 [&_.instrument-profile-trigger]:text-ink [&_.instrument-profile-trigger:hover]:bg-board [&_.instrument-profile-trigger>span:last-child]:hidden">{props.profile}</div>}
+          </div>
+        </header>
+        {props.leftVisible && <div className="instrument-left-stack col-start-1 row-start-2 flex h-full min-h-0 w-[240px] overflow-hidden bg-desk p-2 pt-0">{props.sidebar}</div>}
+        <section className="instrument-desk-column col-start-2 row-start-2 flex min-h-0 min-w-0 flex-col overflow-hidden bg-desk">
           <div
-            className="instrument-desk-scroll"
+            className="instrument-desk-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
             ref={setDeskElement}
             data-instrument-scroll-owner="instrument-desk-scroll"
             inert={mode === "overlay" || undefined}
@@ -318,10 +353,10 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
           >
             {props.desk}
           </div>
-          {props.bottomVisible && <div className="instrument-bottom-panel">{props.bottomPanel}</div>}
+          {props.bottomVisible && <div className="instrument-bottom-panel relative shrink-0">{props.bottomPanel}</div>}
         </section>
-        <aside className="instrument-right-rail" aria-label={activeRail.label} hidden={mode !== "docked"}>
-          <div ref={setDockedRailTarget} />
+        <aside className={`instrument-right-rail col-start-3 row-start-2 w-[292px] min-h-0 min-w-0 overflow-hidden bg-desk p-2 pl-0 ${mode === "docked" ? "flex" : "hidden"}`} aria-label={activeRail.label} hidden={mode !== "docked"}>
+          <div className="min-h-0 min-w-0 flex-1" ref={setDockedRailTarget} />
         </aside>
         <div className="instrument-rail-parking" ref={setRailParking} hidden inert>
         </div>

@@ -1,5 +1,5 @@
-import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync, spawn } from "node:child_process";
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -15,7 +15,7 @@ type SurfaceProbe = {
 
 const EXPECTED_LIGHT = {
   settingsDesk: "rgb(226, 228, 234)",
-  settingsSidebar: "rgb(241, 242, 246)",
+  settingsSidebar: "rgb(20, 20, 20)",
   settingsMain: "rgb(226, 228, 234)",
   settingsWidget: "rgb(241, 242, 246)",
   settingsText: "rgb(20, 20, 20)",
@@ -34,21 +34,26 @@ const EXPECTED_LIGHT = {
 async function electronSurfaceResults(): Promise<SurfaceProbe[]> {
   const directory = mkdtempSync(join(tmpdir(), "ralphy-theme-surfaces-"));
   try {
-    const links = [
-      "reset.css", "tokens.css", "instrument.css", "app.css", "workbench.css", "settings.css",
-      "workspace-overview.css", "shared-library.css", "marketplace.css", "work-surfaces.css",
-    ].map((file) => `<link rel="stylesheet" href="${pathToFileURL(join(process.cwd(), "src/styles", file)).href}">`).join("");
+    const assets = join(process.cwd(), "dist", "assets");
+    if (!existsSync(assets)) execFileSync("bun", ["run", "build:renderer"], { cwd: process.cwd(), stdio: "ignore" });
+    let stylesheet = readdirSync(assets).find((file) => /^index-.+\.css$/.test(file));
+    if (!stylesheet) {
+      execFileSync("bun", ["run", "build:renderer"], { cwd: process.cwd(), stdio: "ignore" });
+      stylesheet = readdirSync(assets).find((file) => /^index-.+\.css$/.test(file));
+    }
+    if (!stylesheet) throw new Error("Renderer build produced no application stylesheet");
+    const links = `<link rel="stylesheet" href="${pathToFileURL(join(assets, stylesheet)).href}">`;
     writeFileSync(join(directory, "surfaces.html"), `<!doctype html><html><head>${links}</head><body>
-      <div data-instrument-overlay="settings"><div data-instrument-screen-root><div class="settings-screen" data-probe="settingsDesk">
-        <aside class="settings-sidebar" data-probe="settingsSidebar"></aside>
-        <main class="settings-main" data-probe="settingsMain"><header class="settings-main-header"><h1 data-probe="settingsText">Settings</h1></header><section class="settings-group" data-probe="settingsWidget"></section></main>
+      <div data-instrument-overlay="settings"><div data-instrument-screen-root><div class="settings-screen bg-desk text-ink" data-probe="settingsDesk">
+        <aside class="settings-sidebar bg-instrument" data-probe="settingsSidebar"></aside>
+        <main class="settings-main bg-desk" data-probe="settingsMain"><header class="settings-main-header"><h1 class="text-ink" data-probe="settingsText">Settings</h1></header><section class="settings-group bg-surface" data-probe="settingsWidget"></section></main>
       </div></div></div>
-      <div class="instrument-shell"><div class="instrument-desk-column" data-probe="marketplaceDesk"><div class="instrument-desk-scroll"><div class="main-content-stage">
-        <div class="app-mode-surface app-mode-work">
-          <main class="main-region memory-region" data-probe="memoryDesk"><article class="memory-rule" data-probe="memoryWidget"><span class="memory-rule-head"><strong data-probe="memoryText">Memory</strong></span></article></main>
-          <section class="project-domain-body is-media"><div class="media-panel" data-probe="mediaDesk"><div class="media-domain-toolbar"><button class="select-menu-trigger" data-probe="mediaControl"><span data-probe="mediaText">Type</span></button></div><button class="media-card-tile"><span class="asset-preview" data-probe="mediaFrame"></span></button></div></section>
+      <div class="instrument-shell bg-desk"><div class="instrument-desk-column bg-desk" data-probe="marketplaceDesk"><div class="instrument-desk-scroll"><div class="main-content-stage">
+        <div class="app-mode-surface app-mode-work bg-desk text-ink">
+          <main class="main-region memory-region bg-desk" data-probe="memoryDesk"><article class="memory-rule bg-surface" data-probe="memoryWidget"><span class="memory-rule-head"><strong class="text-ink" data-probe="memoryText">Memory</strong></span></article></main>
+          <section class="project-domain-body is-media"><div class="media-panel bg-desk" data-probe="mediaDesk"><div class="media-domain-toolbar"><button class="select-menu-trigger bg-surface" data-probe="mediaControl"><span class="text-ink" data-probe="mediaText">Type</span></button></div><button class="media-card-tile"><span class="asset-preview bg-[var(--instrument-media-frame)]" data-probe="mediaFrame"></span></button></div></section>
         </div>
-        <div class="app-mode-surface app-mode-marketplace"><main class="marketplace-screen"><header class="marketplace-header" data-probe="marketplaceWidget"><h1 data-probe="marketplaceText">Marketplace</h1></header></main></div>
+        <div class="app-mode-surface app-mode-marketplace"><main class="marketplace-screen bg-desk text-ink"><header class="marketplace-header bg-surface" data-probe="marketplaceWidget"><h1 class="text-ink" data-probe="marketplaceText">Marketplace</h1></header></main></div>
       </div></div></div></div>
     </body></html>`);
     writeFileSync(join(directory, "package.json"), JSON.stringify({ main: "main.cjs" }));

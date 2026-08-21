@@ -109,11 +109,11 @@ function UnitCard({ unit, baseLifecycle, publications, controller, disabled, onO
 
   const lifecycle = summary?.lifecycle ?? baseLifecycle;
   const retry = lifecycle.action === "retry";
-  return <article className="unit-card-shell">
-    <button className="unit-card" type="button" disabled={disabled} aria-label={`Open ${unit.slug}`} onClick={(event) => onOpen(event.currentTarget)}>
-      <span className="unit-card-preview"><CardMedia media={summary?.media ?? null} format={unit.format} /><em>{typeLabel(unit.format)}</em>{lifecycle.label === "Rendering" && <i className="unit-card-progress"><span /></i>}</span>
-      <span className="unit-card-copy">
-        <strong>{unit.slug}</strong>
+  return <article className="unit-card-shell group relative min-w-0 overflow-hidden rounded-[14px] border-0 bg-instrument text-on-instrument shadow-none">
+    <button className="unit-card flex w-full min-w-0 flex-col border-0 bg-transparent p-1.5 text-left text-on-instrument" type="button" disabled={disabled} aria-label={`Open ${unit.slug}`} onClick={(event) => onOpen(event.currentTarget)}>
+      <span className="unit-card-preview relative aspect-video min-h-0 w-full overflow-hidden rounded-[10px] bg-instrument-raised"><CardMedia media={summary?.media ?? null} format={unit.format} /><em>{typeLabel(unit.format)}</em>{lifecycle.label === "Rendering" && <i className="unit-card-progress"><span /></i>}</span>
+      <span className="unit-card-copy w-full min-w-0 px-1 pb-1 pt-2">
+        <strong className="block truncate text-[13px] font-semibold leading-4 text-on-instrument">{unit.slug}</strong>
         <span className="unit-card-status"><Status lifecycle={lifecycle} /><small>{detailFor(lifecycle, unit, publications)}</small></span>
         <span className="unit-card-footer"><PlatformIcons platforms={summary?.platforms ?? []} /><small>{summary ? `R${summary.revisionNo}` : unit.latestRevisionId ? "Latest" : "Starting"} · {formatTime(unit.updatedAt)}</small></span>
       </span>
@@ -170,8 +170,8 @@ export function UnitsPanel({ page, controller, snapshot, targetUnitId, scrollMem
     void controller.openUnit(unitId).finally(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollTop; });
   };
 
-  return <InstrumentScreenRoot descriptor={unitsInstrumentStates} state={unitsInstrumentState(page, snapshot, viewerOpen)}><div className="units-workbench units-grid-workbench">
-    <div className="units-toolbar">
+  return <InstrumentScreenRoot descriptor={unitsInstrumentStates} state={unitsInstrumentState(page, snapshot, viewerOpen)}><div className="units-workbench units-grid-workbench flex min-h-0 flex-1 flex-col gap-2 overflow-hidden bg-transparent text-[13px] text-ink">
+    <div className="units-toolbar m-0 flex w-full max-w-none flex-wrap items-center gap-2 rounded-[14px] border-0 bg-surface-sunken p-2 shadow-none">
       <div className="units-toolbar-filters">
         <div className="units-filter" role="group" aria-label="Unit status filter">
           {(["all", "in-progress", "scheduled", "published"] as Filter[]).map((value) => <button className={filter === value ? "is-active" : ""} type="button" aria-pressed={filter === value} key={value} onClick={() => setFilter(value)}>{value === "all" ? "All" : value === "in-progress" ? "In progress" : value[0].toUpperCase() + value.slice(1)} <span>{counts[value]}</span></button>)}
@@ -180,10 +180,10 @@ export function UnitsPanel({ page, controller, snapshot, targetUnitId, scrollMem
           {["all", ...typeFilters].map((value) => <button className={typeFilter === value ? "is-active" : ""} type="button" aria-pressed={typeFilter === value} key={value} onClick={() => setTypeFilter(value)}>{value === "all" ? "All" : formatLabel(value)}</button>)}
         </div>
       </div>
-      <label className="units-search"><Search aria-hidden="true" /><input aria-label="Search units" placeholder="Search units" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+      <label className="units-search flex h-9 min-w-[200px] items-center gap-2 rounded-control bg-surface px-3"><Search className="size-4 text-muted" aria-hidden="true" /><input className="min-w-0 flex-1 border-0 bg-transparent text-[13px] text-ink outline-none placeholder:text-muted" aria-label="Search units" placeholder="Search units" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
     </div>
-    <div className="units-grid-scroll" role="region" aria-label="Units" ref={attachScroll} onScroll={rememberedScroll.onScroll}>
-      {units.length === 0 ? <div className="units-empty"><RalphyMascot size={46} /><strong>No units yet</strong><p>Units appear here as soon as an agent starts working, long before the final render is ready.</p></div> : visible.length === 0 ? <div className="units-empty is-filtered"><strong>No matching units</strong><p>Try another status, type, or search phrase.</p></div> : <div className="units-grid">
+    <div className="units-grid-scroll min-h-0 flex-1 overflow-auto" role="region" aria-label="Units" ref={attachScroll} onScroll={rememberedScroll.onScroll}>
+      {units.length === 0 ? <div className="units-empty"><RalphyMascot size={46} /><strong>No units yet</strong><p>Units appear here as soon as an agent starts working, long before the final render is ready.</p></div> : visible.length === 0 ? <div className="units-empty is-filtered"><strong>No matching units</strong><p>Try another status, type, or search phrase.</p></div> : <div className="units-grid grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {visible.map(({ unit, lifecycle }) => <UnitCard key={unit.id} unit={unit} baseLifecycle={lifecycle} publications={publications} controller={controller} disabled={snapshot.unitMutation !== "idle" || snapshot.compositionMutation !== "idle"} onOpen={(trigger) => openUnit(unit.id, trigger)} />)}
       </div>}
       <AutoCursorTail root={scrollRoot} hasMore={page.nextCursor !== null} loading={page.status === "loading" && units.length > 0} error={page.status === "error" && units.length > 0 ? page.error : null} onLoadMore={() => { void controller.loadMore("units"); }} onRetry={() => { void controller.retryPage("units"); }} />

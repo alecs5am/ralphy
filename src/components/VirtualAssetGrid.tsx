@@ -21,6 +21,8 @@ export interface VirtualAssetGridProps {
   onOpen(card: MediaCardDto): void;
   onContextMenu(card: MediaCardDto, point: { x: number; y: number }): void;
   density: number;
+  maxColumns?: number;
+  gap?: number;
   hasMore: boolean;
   loadingMore: boolean;
   appendError: string | null;
@@ -182,7 +184,7 @@ export function MediaCardPreview({
   if (source && kind === "image") content = <img src={source.url} alt="" loading="lazy" onLoad={(event) => loadedWithSize(event.currentTarget.naturalWidth, event.currentTarget.naturalHeight)} onError={failed} />;
   else if (source && kind === "video") content = <video src={source.url} muted preload="metadata" onLoadedMetadata={(event) => loadedWithSize(event.currentTarget.videoWidth, event.currentTarget.videoHeight)} onError={failed} />;
   else if (source && kind === "audio") content = <AudioWaveform src={source.url} name={mediaCardName(card)} sizeBytes={source.sizeBytes} compact onReady={loaded} onError={failed} />;
-  return <div className={`asset-preview${className ? ` ${className}` : ""}`} style={fill ? undefined : { aspectRatio: aspectRatio ?? 1, height: "auto" }} aria-hidden={kind === "audio" ? undefined : true}>
+  return <div className={`asset-preview bg-[var(--instrument-media-frame)]${className ? ` ${className}` : ""}`} style={fill ? undefined : { aspectRatio: aspectRatio ?? 1, height: "auto" }} aria-hidden={kind === "audio" ? undefined : true}>
     {content}
     <span className={`asset-extension type-${kind ?? "file"}`}><FileGlyph kind={kind} size={11} />{kind ?? "file"}</span>
   </div>;
@@ -204,17 +206,16 @@ export function MediaCardTile({ card, project, rootEpoch, selected, resolvePrevi
     onSelect();
     onContextMenu({ x: event.clientX, y: event.clientY });
   };
-  return <article className={`asset-tile media-card-tile${selected ? " is-selected" : ""}`} data-selected={selected || undefined} style={{ "--asset-aspect": ratio } as CSSProperties}>
+  return <article className={`asset-tile media-card-tile group overflow-hidden rounded-[14px] border-0 bg-instrument p-1.5 text-on-instrument shadow-none${selected ? " is-selected ring-2 ring-alert" : ""}`} data-selected={selected || undefined} style={{ "--asset-aspect": ratio } as CSSProperties}>
     <MediaCardPreview card={card} project={project} rootEpoch={rootEpoch} resolvePreview={resolvePreview} aspectRatio={ratio} onAspectRatio={rememberRatio} />
-    <button className="media-card-button" type="button" aria-label={`${name}${selected ? ", selected" : ""}`} aria-pressed={selected} onClick={onSelect} onDoubleClick={onOpen} onKeyDown={onKeyDown} onContextMenu={openContext}>
-      <span className="asset-copy"><strong>{name}</strong><small>{mediaCardKind(card)} · {mediaCardFacts(card)}</small></span>
-      {card.provenance === "generation" && <span className="asset-provenance is-generated">Generated</span>}
-      {card.provenance === "unknown" && <span className="asset-provenance">Unknown</span>}
+    <button className="media-card-button flex min-h-11 w-full min-w-0 items-center gap-2 border-0 bg-transparent px-1 py-1.5 text-left text-on-instrument" type="button" aria-label={`${name}${selected ? ", selected" : ""}`} aria-pressed={selected} onClick={onSelect} onDoubleClick={onOpen} onKeyDown={onKeyDown} onContextMenu={openContext}>
+      <i className={`size-1.5 shrink-0 rounded-full ${selected ? "bg-alert" : "bg-on-instrument-muted"}`} aria-hidden="true" />
+      <span className="asset-copy min-w-0"><strong className="block truncate text-[13px] font-medium leading-4 text-on-instrument">{name}</strong><small className="block truncate text-[10px] leading-4 text-on-instrument-muted">{mediaCardKind(card)} · {mediaCardFacts(card)}</small></span>
     </button>
   </article>;
 }
 
-export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resolvePreview, onSelect, onOpen, onContextMenu, density, hasMore, loadingMore, appendError, onLoadMore, onRetryAppend, scrollMemory, scrollKey, scrollResetToken }: VirtualAssetGridProps) {
+export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resolvePreview, onSelect, onOpen, onContextMenu, density, maxColumns = 7, gap = 16, hasMore, loadingMore, appendError, onLoadMore, onRetryAppend, scrollMemory, scrollKey, scrollResetToken }: VirtualAssetGridProps) {
   const instrumentScroll = useOptionalInstrumentScroll();
   const [gridElement, setGridElement] = useState<HTMLDivElement | null>(null);
   const rememberedScroll = useRememberedScroll(scrollMemory, scrollKey, scrollResetToken);
@@ -226,7 +227,7 @@ export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resol
   const [scrollMargin, setScrollMargin] = useState(0);
   const [width, setWidth] = useState(800);
   const [ratios, setRatios] = useState<Record<string, number>>({});
-  const geometry = assetGridGeometry(width, density, 16, 7);
+  const geometry = assetGridGeometry(width, density, gap, maxColumns);
   const cardRatio = useCallback((card: MediaCardDto) => {
     const key = previewKey(project, rootEpoch, card.ref);
     return ratios[key] ?? mediaFallbackAspectRatio(previewKind(card), key);

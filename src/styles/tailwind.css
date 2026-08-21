@@ -1,9 +1,9 @@
 @import "tailwindcss" important;
 
 @theme inline {
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-mono);
-  --font-doto: var(--font-doto);
+  --font-app: var(--font-sans);
+  --font-code: var(--font-mono);
+  --font-display: var(--font-doto);
 
   --color-desk: var(--instrument-desk);
   --color-board: var(--instrument-desk-board);

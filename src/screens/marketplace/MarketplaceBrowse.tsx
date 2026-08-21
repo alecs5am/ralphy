@@ -73,11 +73,11 @@ function countLabel(count: Availability<number>): string {
 
 function CategoryCard({ value, onOpen }: { value: MarketplaceCategoryPresentation; onOpen(category: MarketplaceCategory): void }) {
   const Icon = categoryIcons[value.category];
-  return <li>
-    <button className="marketplace-category-card" type="button" onClick={() => onOpen(value.category)}>
-      <span><Icon aria-hidden="true" /><strong>{value.label}</strong></span>
-      <small className={value.count.status === "unavailable" ? "is-unavailable" : ""}>{countLabel(value.count)}</small>
-      <p>{value.purpose}</p>
+  return <li className="min-w-0">
+    <button className="marketplace-category-card grid min-h-24 w-full grid-cols-[minmax(0,1fr)_auto] content-between gap-x-3 gap-y-2 rounded-panel bg-instrument p-4 text-left text-on-instrument hover:bg-instrument-hover" type="button" onClick={() => onOpen(value.category)}>
+      <span className="flex min-w-0 items-center gap-2"><Icon className="size-4 shrink-0" aria-hidden="true" /><strong className="truncate text-sm font-normal">{value.label}</strong></span>
+      <small className={`font-mono text-[10px] text-on-instrument-muted ${value.count.status === "unavailable" ? "max-w-36 text-right leading-tight" : ""}`}>{countLabel(value.count)}</small>
+      <p className="col-span-full m-0 line-clamp-2 text-xs leading-snug text-on-instrument-muted">{value.purpose}</p>
     </button>
   </li>;
 }
@@ -104,23 +104,23 @@ export function MarketplaceDiscover({ snapshot, onOpenCategory, onOpenLibrary, o
     .slice(0, 6)
     .map(({ item }) => item);
   const hasAnyCount = snapshot.categories.some(({ count }) => count.status === "ready" && count.value > 0);
-  return <div className="marketplace-discover">
+  return <div className="marketplace-discover flex flex-col gap-6 pt-5">
     <section aria-labelledby="marketplace-categories-heading">
-      <div className="marketplace-section-heading"><span>Browse</span><h2 id="marketplace-categories-heading">Categories</h2></div>
-      <ul className="marketplace-category-grid" role="list">{snapshot.categories.map((category) => <CategoryCard value={category} onOpen={onOpenCategory} key={category.category} />)}</ul>
+      <div className="marketplace-section-heading mb-2 grid gap-0.5 px-1"><span className="font-mono text-[9px] uppercase tracking-[.11em] text-muted">Browse</span><h2 className="m-0 text-base font-normal" id="marketplace-categories-heading">Categories</h2></div>
+      <ul className="marketplace-category-grid grid list-none grid-cols-3 gap-2 p-0 @max-[900px]:grid-cols-2 @max-[620px]:grid-cols-1" role="list">{snapshot.categories.map((category) => <CategoryCard value={category} onOpen={onOpenCategory} key={category.category} />)}</ul>
     </section>
-    {!hasAnyCount && <div className="marketplace-empty-note" role="status"><Package aria-hidden="true" /><span><strong>No items have been returned by the current sources yet.</strong><small>Categories remain visible with their current source state.</small></span></div>}
+    {!hasAnyCount && <div className="marketplace-empty-note flex min-h-20 items-center gap-3 rounded-panel bg-surface p-4" role="status"><Package className="size-5 shrink-0 text-muted" aria-hidden="true" /><span className="flex flex-col gap-0.5"><strong className="text-sm font-normal">No items have been returned by the current sources yet.</strong><small className="text-xs text-muted">Categories remain visible with their current source state.</small></span></div>}
     <section aria-labelledby="marketplace-community-heading">
-      <div className="marketplace-section-heading"><span>Read-only route</span><h2 id="marketplace-community-heading">Community</h2></div>
-      <ul className="marketplace-category-grid" role="list"><li><button className="marketplace-category-card" type="button" aria-disabled={onOpenCollection ? undefined : true} aria-describedby="marketplace-community-contract-note" onClick={onOpenCollection}><span><FolderHeart aria-hidden="true" /><strong>Community contributions</strong></span><small>Read-only</small><p id="marketplace-community-contract-note">Read-only unavailable-contract review</p></button></li></ul>
+      <div className="marketplace-section-heading mb-2 grid gap-0.5 px-1"><span className="font-mono text-[9px] uppercase tracking-[.11em] text-muted">Read-only route</span><h2 className="m-0 text-base font-normal" id="marketplace-community-heading">Community</h2></div>
+      <button className="flex min-h-20 w-full items-center gap-3 rounded-panel bg-surface p-4 text-left text-ink hover:bg-surface-hover" type="button" aria-disabled={onOpenCollection ? undefined : true} aria-describedby="marketplace-community-contract-note" onClick={onOpenCollection}><FolderHeart className="size-4 shrink-0" aria-hidden="true" /><span className="flex min-w-0 flex-1 flex-col gap-0.5"><strong className="truncate text-sm font-normal">Community contributions</strong><small className="text-xs text-muted" id="marketplace-community-contract-note">Read-only unavailable-contract review</small></span><small className="font-mono text-[10px] text-muted">Read-only</small></button>
     </section>
     {installed.length > 0 && <section aria-labelledby="marketplace-continue-heading">
-      <div className="marketplace-section-heading"><span>Local state</span><h2 id="marketplace-continue-heading">Continue where you left off</h2></div>
-      <ul className="marketplace-installed-list" role="list">{installed.map((item) => <li key={`${item.runtime}:${item.id}`}><button type="button" onClick={() => onOpenLibrary("installed")}><Cpu aria-hidden="true" /><span><strong>{item.name}</strong><small>Registered in Ollama · {item.format}</small></span></button></li>)}</ul>
+      <div className="marketplace-section-heading mb-2 grid gap-0.5 px-1"><span className="font-mono text-[9px] uppercase tracking-[.11em] text-muted">Local state</span><h2 className="m-0 text-base font-normal" id="marketplace-continue-heading">Continue where you left off</h2></div>
+      <ul className="marketplace-installed-list grid list-none grid-cols-3 gap-2 p-0 @max-[900px]:grid-cols-2 @max-[620px]:grid-cols-1" role="list">{installed.map((item) => <li className="min-w-0" key={`${item.runtime}:${item.id}`}><button className="flex min-h-16 w-full items-center gap-3 rounded-panel bg-surface px-4 py-3 text-left hover:bg-surface-hover" type="button" onClick={() => onOpenLibrary("installed")}><Cpu className="size-4 shrink-0" aria-hidden="true" /><span className="flex min-w-0 flex-col gap-0.5"><strong className="truncate text-sm font-normal">{item.name}</strong><small className="truncate font-mono text-[10px] text-muted">Registered in Ollama · {item.format}</small></span></button></li>)}</ul>
     </section>}
     {updated.length > 0 && <section aria-labelledby="marketplace-updated-heading">
-      <div className="marketplace-section-heading"><span>Source timestamps</span><h2 id="marketplace-updated-heading">Recently updated</h2></div>
-      <ul className="marketplace-updated-list" role="list">{updated.map((item) => <li key={item.key}><span><strong>{item.name}</strong><small>{categoryLabels[item.category]} · {item.sourceLabel}</small></span><time dateTime={item.updatedAt.status === "ready" ? item.updatedAt.value : undefined}>{item.updatedAt.status === "ready" ? formatDate(item.updatedAt.value) : ""}</time></li>)}</ul>
+      <div className="marketplace-section-heading mb-2 grid gap-0.5 px-1"><span className="font-mono text-[9px] uppercase tracking-[.11em] text-muted">Source timestamps</span><h2 className="m-0 text-base font-normal" id="marketplace-updated-heading">Recently updated</h2></div>
+      <ul className="marketplace-updated-list overflow-hidden rounded-panel bg-surface p-0" role="list">{updated.map((item) => <li className="flex min-h-12 items-center gap-4 px-4 py-2 not-first:border-t not-first:border-divider" key={item.key}><span className="flex min-w-0 flex-1 flex-col gap-0.5"><strong className="truncate text-sm font-normal">{item.name}</strong><small className="truncate font-mono text-[10px] text-muted">{categoryLabels[item.category]} · {item.sourceLabel}</small></span><time className="shrink-0 font-mono text-[10px] text-muted" dateTime={item.updatedAt.status === "ready" ? item.updatedAt.value : undefined}>{item.updatedAt.status === "ready" ? formatDate(item.updatedAt.value) : ""}</time></li>)}</ul>
     </section>}
   </div>;
 }
@@ -148,9 +148,9 @@ function preview(item: MarketplaceItemPresentation): MarketplacePreview | null {
 }
 
 function previewFallback(item: MarketplaceItemPresentation, failedKind?: "image" | "video") {
-  if (item.category === "models") return <span className="marketplace-preview-fallback"><Cpu aria-hidden="true" /><small>{item.model.recommendedPackage.format || "Format unavailable"}</small></span>;
-  if (item.category === "recipes") return <span className="marketplace-preview-fallback"><Code2 aria-hidden="true" /><small>{failedKind ? `Recipe ${failedKind} preview unavailable` : item.recipe.recipe?.kind ?? "Recipe preview unavailable"}</small></span>;
-  return <span className="marketplace-preview-fallback"><LayoutTemplate aria-hidden="true" /><small>{failedKind ? `Template ${failedKind} preview unavailable` : "Preview unavailable from schema 1"}</small></span>;
+  if (item.category === "models") return <span className="marketplace-preview-fallback flex size-full flex-col items-center justify-center gap-1.5 text-on-instrument-muted"><Cpu className="size-4" aria-hidden="true" /><small className="max-w-24 text-center font-mono text-[9px] leading-tight">{item.model.recommendedPackage.format || "Format unavailable"}</small></span>;
+  if (item.category === "recipes") return <span className="marketplace-preview-fallback flex size-full flex-col items-center justify-center gap-1.5 text-on-instrument-muted"><Code2 className="size-4" aria-hidden="true" /><small className="max-w-24 text-center font-mono text-[9px] leading-tight">{failedKind ? `Recipe ${failedKind} preview unavailable` : item.recipe.recipe?.kind ?? "Recipe preview unavailable"}</small></span>;
+  return <span className="marketplace-preview-fallback flex size-full flex-col items-center justify-center gap-1.5 text-on-instrument-muted"><LayoutTemplate className="size-4" aria-hidden="true" /><small className="max-w-24 text-center font-mono text-[9px] leading-tight">{failedKind ? `Template ${failedKind} preview unavailable` : "Preview unavailable from schema 1"}</small></span>;
 }
 
 function MarketplaceItemPreview({ item }: { item: MarketplaceItemPresentation }) {
@@ -194,7 +194,7 @@ function MarketplaceResult({ item, index, tabStop, onFocus, onMove, onOpenItem }
     onOpenItem(item.key);
   };
   return <button
-    className={`marketplace-result marketplace-result-${item.category}`}
+    className={`marketplace-result marketplace-result-${item.category} grid min-h-28 w-full min-w-0 grid-cols-[128px_minmax(180px,1fr)_minmax(140px,.45fr)_auto] items-center gap-4 rounded-panel bg-surface p-2.5 text-left text-ink hover:bg-surface-hover @max-[780px]:grid-cols-[96px_minmax(0,1fr)]`}
     id={marketplaceItemDomId(item.key)}
     data-marketplace-item-key={item.key}
     type="button"
@@ -203,18 +203,18 @@ function MarketplaceResult({ item, index, tabStop, onFocus, onMove, onOpenItem }
     onFocus={onFocus}
     onKeyDown={openFromKeyboard}
   >
-    <span className="marketplace-result-preview"><MarketplaceItemPreview item={item} /></span>
-    <span className="marketplace-result-copy">
-      <span className="marketplace-result-category"><Icon aria-hidden="true" />{categoryLabels[item.category]}</span>
-      <strong>{item.name}</strong>
-      <p>{item.summary || "The current source did not provide a summary."}</p>
-      <small>{item.sourceLabel} · {availabilityLabel(item.version, "Version unavailable")}</small>
+    <span className="marketplace-result-preview grid h-24 w-32 place-items-center overflow-hidden rounded-control bg-instrument text-on-instrument @max-[780px]:h-20 @max-[780px]:w-24 [&_img]:size-full [&_img]:object-cover [&_video]:size-full [&_video]:object-cover"><MarketplaceItemPreview item={item} /></span>
+    <span className="marketplace-result-copy flex min-w-0 flex-col gap-1">
+      <span className="marketplace-result-category flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[.08em] text-muted"><Icon className="size-3" aria-hidden="true" />{categoryLabels[item.category]}</span>
+      <strong className="truncate text-base font-normal">{item.name}</strong>
+      <p className="m-0 line-clamp-2 text-xs leading-snug text-muted">{item.summary || "The current source did not provide a summary."}</p>
+      <small className="truncate font-mono text-[9px] text-muted">{item.sourceLabel} · {availabilityLabel(item.version, "Version unavailable")}</small>
     </span>
-    <span className="marketplace-result-evidence">
-      <small>{availabilityLabel(item.license, "License unavailable")}</small>
-      <small>{availabilityLabel(item.compatibility, "Compatibility unavailable")}</small>
+    <span className="marketplace-result-evidence flex min-w-0 flex-col gap-1.5 @max-[780px]:hidden">
+      <small className="truncate font-mono text-[9px] text-muted">{availabilityLabel(item.license, "License unavailable")}</small>
+      <small className="truncate font-mono text-[9px] text-muted">{availabilityLabel(item.compatibility, "Compatibility unavailable")}</small>
     </span>
-    <span className="marketplace-result-action">View details</span>
+    <span className="marketplace-result-action flex h-8 items-center rounded-full bg-instrument px-3 text-xs text-on-instrument @max-[780px]:hidden">View details</span>
   </button>;
 }
 
@@ -295,10 +295,10 @@ function VirtualMarketplaceResults({ items, query, originKey, onOpenItem }: Mark
   const activeKey = rows.some((row) => items[row.index]?.key === navigation.activeKey)
     ? navigation.activeKey
     : items[rows[0]?.index ?? -1]?.key ?? null;
-  return <section className="marketplace-results" aria-labelledby="marketplace-results-heading">
-    <div className="marketplace-results-meta"><h2 id="marketplace-results-heading">{items.length} results</h2><span>{resultOrderLabel(query)}</span></div>
+  return <section className="marketplace-results pt-5" aria-labelledby="marketplace-results-heading">
+    <div className="marketplace-results-meta mb-2 flex items-baseline justify-between gap-4 px-1"><h2 className="m-0 text-base font-normal" id="marketplace-results-heading">{items.length} results</h2><span className="font-mono text-[9px] uppercase tracking-[.08em] text-muted">{resultOrderLabel(query)}</span></div>
     <ol
-      className="marketplace-results-list is-virtualized"
+      className="marketplace-results-list is-virtualized relative block list-none p-0"
       role="list"
       ref={root}
       style={{ height: virtualizer.getTotalSize() }}
@@ -321,9 +321,9 @@ function VirtualMarketplaceResults({ items, query, originKey, onOpenItem }: Mark
 }
 
 function StandardMarketplaceResults({ items, query, onOpenItem }: MarketplaceResultsProps) {
-  return <section className="marketplace-results" aria-labelledby="marketplace-results-heading">
-    <div className="marketplace-results-meta"><h2 id="marketplace-results-heading">{items.length} {items.length === 1 ? "result" : "results"}</h2><span>{resultOrderLabel(query)}</span></div>
-    <ol className="marketplace-results-list" role="list">
+  return <section className="marketplace-results pt-5" aria-labelledby="marketplace-results-heading">
+    <div className="marketplace-results-meta mb-2 flex items-baseline justify-between gap-4 px-1"><h2 className="m-0 text-base font-normal" id="marketplace-results-heading">{items.length} {items.length === 1 ? "result" : "results"}</h2><span className="font-mono text-[9px] uppercase tracking-[.08em] text-muted">{resultOrderLabel(query)}</span></div>
+    <ol className="marketplace-results-list flex list-none flex-col gap-2 p-0" role="list">
       {items.map((item, index) => <li key={item.key} aria-setsize={items.length} aria-posinset={index + 1}>
         <MarketplaceResult item={item} onOpenItem={onOpenItem} />
       </li>)}
@@ -338,10 +338,10 @@ export function MarketplaceResults(props: MarketplaceResultsProps) {
 function SourceState({ snapshot, onRetry }: { snapshot: Extract<MarketplaceSnapshot, { status: "ready" | "error" }>; onRetry(): void }) {
   if (snapshot.sourceErrors.length === 0) return null;
   const partial = snapshot.status === "ready";
-  return <div className={`marketplace-source-state${partial ? " is-partial" : " is-total"}`} role={partial ? "status" : "alert"}>
-    <CircleAlert aria-hidden="true" />
-    <span>{snapshot.sourceErrors.map((issue) => <span key={`${issue.source}:${issue.scope}`}><strong>{sourceLabels[issue.source]} is unavailable</strong><small>{issue.message}</small></span>)}{partial && <em>Results from healthy sources are still shown.</em>}</span>
-    <button type="button" onClick={onRetry}><RefreshCw aria-hidden="true" />Retry sources</button>
+  return <div className={`marketplace-source-state${partial ? " is-partial" : " is-total"} mt-2 flex min-h-14 items-center gap-3 rounded-panel bg-instrument px-4 py-3 text-on-instrument`} role={partial ? "status" : "alert"}>
+    <CircleAlert className="size-4 shrink-0 text-alert" aria-hidden="true" />
+    <span className="flex min-w-0 flex-1 flex-col gap-1">{snapshot.sourceErrors.map((issue) => <span className="flex min-w-0 flex-col" key={`${issue.source}:${issue.scope}`}><strong className="text-sm font-normal">{sourceLabels[issue.source]} is unavailable</strong><small className="text-xs text-on-instrument-muted">{issue.message}</small></span>)}{partial && <em className="text-xs not-italic text-on-instrument-muted">Results from healthy sources are still shown.</em>}</span>
+    <button className="flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-surface px-3 text-xs text-ink" type="button" onClick={onRetry}><RefreshCw className="size-3" aria-hidden="true" />Retry sources</button>
   </div>;
 }
 
@@ -375,22 +375,22 @@ export interface MarketplaceBrowseProps {
 }
 
 export function MarketplaceBrowse({ route, snapshot, originKey, onOpenItem, onOpenCategory, onOpenLibrary, onOpenCollection, onOpenUnavailableDetail, onRetry, onClearQuery, onClearFilters }: MarketplaceBrowseProps) {
-  if (snapshot.status === "loading") return <div className="marketplace-loading" role="status" aria-busy="true"><div aria-hidden="true">{Array.from({ length: 6 }, (_, index) => <i key={index} />)}</div><span>Loading Marketplace…</span></div>;
-  if (snapshot.status === "error") return <div className="marketplace-total-failure"><SourceState snapshot={snapshot} onRetry={onRetry} /><h2>{snapshot.error}</h2><p>No source returned a current result set. Last known source metadata is unavailable.</p></div>;
+  if (snapshot.status === "loading") return <div className="marketplace-loading flex min-h-72 flex-col items-center justify-center gap-4 text-muted" role="status" aria-busy="true"><div className="grid w-full grid-cols-3 gap-2 @max-[900px]:grid-cols-2 @max-[620px]:grid-cols-1" aria-hidden="true">{Array.from({ length: 6 }, (_, index) => <i className="h-24 animate-pulse rounded-panel bg-surface" key={index} />)}</div><span className="text-xs">Loading Marketplace…</span></div>;
+  if (snapshot.status === "error") return <div className="marketplace-total-failure mt-5 flex min-h-64 flex-col items-center justify-center gap-2 rounded-panel bg-surface p-6 text-center"><SourceState snapshot={snapshot} onRetry={onRetry} /><h2 className="m-0 text-base font-normal">{snapshot.error}</h2><p className="m-0 max-w-xl text-sm text-muted">No source returned a current result set. Last known source metadata is unavailable.</p></div>;
   const categoryUnavailable = route.kind === "category"
     && snapshot.categories.find(({ category }) => category === route.category)?.count.status === "unavailable";
   const noResults = (route.kind === "results" || route.kind === "category")
     && !categoryUnavailable
     && snapshot.items.length === 0;
   return <>
-    {snapshot.refreshing && <div className="marketplace-refreshing" role="status">Refreshing catalog…</div>}
-    {snapshot.publicSource?.source === "cache" && <div className="marketplace-cache-state" role="status"><CircleAlert aria-hidden="true" /><span><strong>Offline · cached catalog</strong><small>{snapshot.publicSource.warning ? `${snapshot.publicSource.warning} · ` : ""}Last refreshed {formatDate(snapshot.publicSource.refreshedAt)}</small></span><button type="button" onClick={onRetry}><RefreshCw aria-hidden="true" />Refresh</button></div>}
+    {snapshot.refreshing && <div className="marketplace-refreshing mt-2 text-xs text-muted" role="status">Refreshing catalog…</div>}
+    {snapshot.publicSource?.source === "cache" && <div className="marketplace-cache-state mt-2 flex min-h-14 items-center gap-3 rounded-panel bg-instrument px-4 py-3 text-on-instrument" role="status"><CircleAlert className="size-4 shrink-0 text-alert" aria-hidden="true" /><span className="flex min-w-0 flex-1 flex-col"><strong className="text-sm font-normal">Offline · cached catalog</strong><small className="text-xs text-on-instrument-muted">{snapshot.publicSource.warning ? `${snapshot.publicSource.warning} · ` : ""}Last refreshed {formatDate(snapshot.publicSource.refreshedAt)}</small></span><button className="flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-surface px-3 text-xs text-ink" type="button" onClick={onRetry}><RefreshCw className="size-3" aria-hidden="true" />Refresh</button></div>}
     <SourceState snapshot={snapshot} onRetry={onRetry} />
-    {noResults ? <div className="marketplace-no-results" role="status"><FileText aria-hidden="true" /><h2>No results</h2><p>The current query and filters returned no source-backed items.</p><span><button type="button" onClick={onClearFilters}>Clear filters</button><button type="button" onClick={onClearQuery}>Clear query</button></span></div>
+    {noResults ? <div className="marketplace-no-results mt-5 flex min-h-64 flex-col items-center justify-center gap-2 rounded-panel bg-surface p-6 text-center" role="status"><FileText className="size-5 text-muted" aria-hidden="true" /><h2 className="m-0 text-base font-normal">No results</h2><p className="m-0 max-w-xl text-sm text-muted">The current query and filters returned no source-backed items.</p><span className="mt-2 flex gap-2"><button className="h-8 rounded-full bg-instrument px-3 text-xs text-on-instrument" type="button" onClick={onClearFilters}>Clear filters</button><button className="h-8 rounded-full bg-surface-sunken px-3 text-xs text-ink" type="button" onClick={onClearQuery}>Clear query</button></span></div>
       : route.kind === "discover" ? <MarketplaceDiscover snapshot={snapshot} onOpenCategory={onOpenCategory} onOpenLibrary={onOpenLibrary} onOpenCollection={onOpenCollection} />
         : route.kind === "results" ? <MarketplaceResults items={snapshot.items} query={snapshot.query} originKey={originKey} onOpenItem={onOpenItem} />
           : route.kind === "category" ? <MarketplaceCategoryView category={route.category} snapshot={snapshot} originKey={originKey} onOpenItem={onOpenItem} onOpenUnavailableDetail={onOpenUnavailableDetail} />
             : route.kind === "collection" ? <MarketplaceUnavailableCollectionRoute />
-              : <section className="marketplace-route-placeholder" role="status"><Package aria-hidden="true" /><h2>This Marketplace route is not available yet.</h2><p>The current Desktop contract does not expose data or a mutation for this route.</p></section>}
+              : <section className="marketplace-route-placeholder mt-5 flex min-h-64 flex-col items-center justify-center gap-2 rounded-panel bg-surface p-6 text-center" role="status"><Package className="size-5 text-muted" aria-hidden="true" /><h2 className="m-0 text-base font-normal">This Marketplace route is not available yet.</h2><p className="m-0 max-w-xl text-sm text-muted">The current Desktop contract does not expose data or a mutation for this route.</p></section>}
   </>;
 }

@@ -151,7 +151,7 @@ function ProductionEfficiency({ value, onOpenShared }: {
   onOpenShared(): void;
 }) {
   const presentation = value.status === "ready" || value.status === "partial" ? value.value : null;
-  return <section className="workspace-overview-section workspace-production-efficiency" aria-labelledby="workspace-production-efficiency-title">
+  return <section className="workspace-overview-section workspace-production-efficiency col-span-12 m-0 min-w-0 max-w-none rounded-panel border-0 bg-surface p-4 shadow-none xl:col-span-6" aria-labelledby="workspace-production-efficiency-title">
     <header className="workspace-section-heading"><h2 id="workspace-production-efficiency-title">Production efficiency</h2><span>Operational evidence</span></header>
     {value.status === "partial" && <UnavailablePanel title="Partial production evidence" reason={value.reason} />}
     <dl className="workspace-efficiency-strip">{efficiencySlots.map((slot) => {
@@ -171,11 +171,11 @@ export function WorkspaceInsights({ value, onOpenPage }: Props) {
   const openMemory = (returnFocusId: string) => onOpenPage("memory", returnFocusId);
   const selectEvidence = (insight: WorkspaceInsightPresentation, returnFocusId: string) => setSelected({ value: insight, returnFocusId });
   return <>
-    <section className="workspace-overview-section workspace-insights" aria-labelledby="workspace-insights-title">
+    <section className="workspace-overview-section workspace-insights col-span-12 m-0 min-w-0 max-w-none rounded-panel border-0 bg-surface p-4 shadow-none xl:col-span-6" aria-labelledby="workspace-insights-title">
       <header className="workspace-section-heading"><h2 id="workspace-insights-title">What works</h2><span>Comparable evidence</span></header>
       <EvidenceState value={value.insights} onReview={selectEvidence} />
     </section>
-    <section className="workspace-overview-section workspace-learnings" aria-labelledby="workspace-learnings-title">
+    <section className="workspace-overview-section workspace-learnings col-span-12 m-0 min-w-0 max-w-none rounded-panel border-0 bg-surface p-4 shadow-none xl:col-span-6" aria-labelledby="workspace-learnings-title">
       <header className="workspace-section-heading"><h2 id="workspace-learnings-title">What Ralphy learned</h2><span>Review before Memory</span></header>
       <LearnedState value={value.insights} onReview={selectEvidence} onOpenMemory={openMemory} />
     </section>

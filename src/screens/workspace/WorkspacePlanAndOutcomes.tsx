@@ -133,7 +133,7 @@ function ContentPlan({ value, onOpenCalendar, onOpenUnits, onOpenUnit }: {
   onOpenUnit(projectId: string, unitId: string, unitLabel: string, returnFocusId: string): void;
 }) {
   const events = value.upcoming.status === "ready" || value.upcoming.status === "partial" ? value.upcoming.value : [];
-  return <section className="workspace-overview-section workspace-content-plan" aria-labelledby="workspace-content-plan-title">
+  return <section className="workspace-overview-section workspace-content-plan col-span-12 m-0 min-w-0 max-w-none rounded-panel border-0 bg-surface p-4 shadow-none xl:col-span-6" aria-labelledby="workspace-content-plan-title">
     <header className="workspace-section-heading"><h2 id="workspace-content-plan-title">Content plan</h2><span>Next 14 days</span></header>
     <p className="workspace-plan-timezone">Dates and times use this device’s timezone; workspace timezone is not available from the current Core contract.</p>
     <PlanCoverage value={value.coverage} />
@@ -195,7 +195,7 @@ function UnitOutcomeDetailDialog({ value, onOpenChange, onOpenUnit }: {
 function UnitOutcomes({ value, onOpenUnit }: { value: Availability<UnitOutcomeGroups>; onOpenUnit(projectId: string, unitId: string, unitLabel: string, returnFocusId: string): void }) {
   const [selected, setSelected] = useState<UnitOutcomePresentation | null>(null);
   const groups = value.status === "ready" || value.status === "partial" ? value.value : { top: [], emerging: [], learningOpportunities: [] };
-  return <section className="workspace-overview-section workspace-unit-outcomes" aria-labelledby="workspace-unit-outcomes-title">
+  return <section className="workspace-overview-section workspace-unit-outcomes col-span-12 m-0 min-w-0 max-w-none rounded-panel border-0 bg-surface p-4 shadow-none xl:col-span-6" aria-labelledby="workspace-unit-outcomes-title">
     <header className="workspace-section-heading"><h2 id="workspace-unit-outcomes-title">Top and emerging Units</h2><span>Comparable performance</span></header>
     {value.status === "partial" && unavailable("Partial outcome data", value.reason)}
     {(value.status === "empty" || value.status === "unavailable") && unavailable("Comparable performance data is not available yet", value.reason)}

@@ -9,11 +9,12 @@ import {
   useState,
   type CSSProperties,
   type ComponentProps,
+  type ReactNode,
 } from "react";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion } from "motion/react";
 import { InstrumentSidebar } from "./instrument/InstrumentSidebar";
-import { MainHeader } from "./components/Titlebar";
 import { AgentChatPanel, BottomPanel } from "./components/UtilityPanels";
+import { profileIdentity } from "./components/ProfileAvatar";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { ResizeHandle } from "./components/ui/ResizeHandle";
 import { useAgentChat } from "./chat/useAgentChat";
@@ -34,6 +35,7 @@ import { SharedLibraryScreen } from "./screens/SharedLibraryScreen";
 import { MarketplaceScreen } from "./screens/MarketplaceScreen";
 import { InstrumentScreenRoot } from "./instrument/screen-state-registry";
 import { InstrumentShell, useInstrumentRightRail } from "./instrument/InstrumentShell";
+import { InstrumentProfileControl } from "./instrument/InstrumentProfileControl";
 import { DynamicIsland } from "./instrument/DynamicIsland";
 import { projectDynamicIslandFeed, type DynamicIslandFeed } from "./instrument/dynamic-island-feed";
 import { InstrumentOverlay } from "./instrument/overlay-registry";
@@ -103,18 +105,15 @@ export function isChatRailVisible({ workbenchVisible, rightPanelVisible }: {
   return workbenchVisible && rightPanelVisible;
 }
 
-function InstrumentWorkbenchHeader(props: ComponentProps<typeof MainHeader>) {
+function InstrumentRightRailShortcut({ children }: { children: ReactNode }) {
   const rail = useInstrumentRightRail();
   const toggleRightRail = useCallback(() => {
-    const active = document.activeElement as HTMLElement | null;
-    const opener = active?.getAttribute("aria-label") === "Toggle right panel"
-      ? active
-      : document.querySelector<HTMLElement>('button[aria-label="Toggle right panel"]');
+    const opener = document.querySelector<HTMLElement>('button[aria-label="Toggle right panel"]');
     if (rail.mode === "closed") rail.open(opener);
     else rail.close();
   }, [rail]);
   useEffect(() => bridge.onToggleRightPanel(toggleRightRail), [toggleRightRail]);
-  return <MainHeader {...props} rightPanelVisible={rail.mode !== "closed"} onToggleRightPanel={toggleRightRail} />;
+  return children;
 }
 
 function InstrumentChat(props: Omit<ComponentProps<typeof AgentChatPanel>, "onClose">) {
@@ -771,35 +770,9 @@ export function App() {
               workspace={selectedWorkspace}
               project={selectedProject}
             />}
-            island={<div className="instrument-top-compose"><InstrumentWorkbenchHeader
-              sidebarVisible={activeSidebarVisible}
-              canGoBack={canGoBack}
-              canGoForward={canGoForward}
-              rightPanelVisible={false}
-              bottomPanelVisible={showBottomPanel}
-              onBack={navigateBack}
-              onForward={navigateForward}
-              onHome={() => {
-                if (marketplace.mode === "marketplace") {
-                  openMarketplaceRoute({ kind: "discover" });
-                  return;
-                }
-                openWorkspacePage("overview");
-                const workspaceId = selectedWorkspace?.id ?? mostRecentWorkspaceId(workspaces);
-                if (workspaceId) openWorkspace(workspaceId);
-                else dispatch({ type: "open-library" });
-              }}
-              onToggleSidebar={() => {
-                if (marketplace.mode === "marketplace") dispatchMarketplace({ type: "toggle-sidebar" });
-                else setSidebarVisible((visible) => !visible);
-              }}
-              onToggleRightPanel={() => undefined}
-              onToggleBottomPanel={() =>
-                setBottomPanelVisible((visible) => !visible)
-              }
-            /><DynamicIsland
+            island={<InstrumentRightRailShortcut><DynamicIsland
               feed={mockIslandFeed ?? liveIslandFeed}
-              projectName={selectedProject?.name ?? selectedWorkspace?.name ?? null}
+              projectName={selectedProject?.name ?? null}
               mock={mockIslandFeed !== null}
               onNavigate={(destination) => {
                 if ("kind" in destination) {
@@ -812,8 +785,15 @@ export function App() {
                   navigateMarketplace(destination);
                 }
               }}
-            /></div>}
-            profile={null}
+            /></InstrumentRightRailShortcut>}
+            profile={catalog?.rootPath ? <InstrumentProfileControl
+              identity={{
+                displayName: profileIdentity(catalog.rootPath),
+                initials: profileIdentity(catalog.rootPath).slice(0, 2).toUpperCase(),
+                avatarUrl: null,
+              }}
+              onOpenSettings={() => setSettingsVisible(true)}
+            /> : null}
             routeScrollKey={routeScrollKey}
             leftVisible={activeSidebarVisible}
             rightPreference={rightPanelVisible}
@@ -838,6 +818,23 @@ export function App() {
               />
             </>}
             bottomVisible={showBottomPanel}
+            topChrome={{
+              canGoBack,
+              canGoForward,
+              onBack: navigateBack,
+              onForward: navigateForward,
+              onHome: () => {
+                if (marketplace.mode === "marketplace") {
+                  openMarketplaceRoute({ kind: "discover" });
+                  return;
+                }
+                openWorkspacePage("overview");
+                const workspaceId = selectedWorkspace?.id ?? mostRecentWorkspaceId(workspaces);
+                if (workspaceId) openWorkspace(workspaceId);
+                else dispatch({ type: "open-library" });
+              },
+              onToggleBottom: () => setBottomPanelVisible((visible) => !visible),
+            }}
             onToggleLeft={() => {
               if (marketplace.mode === "marketplace") dispatchMarketplace({ type: "toggle-sidebar" });
               else setSidebarVisible((visible) => !visible);

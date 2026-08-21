@@ -18,7 +18,6 @@ import type {
 } from "../state/marketplace-navigation";
 import { InstrumentProfileControl } from "../instrument/InstrumentProfileControl";
 import { profileIdentity } from "./ProfileAvatar";
-import { SidebarChrome } from "./Titlebar";
 import { WorkspacePicker } from "./WorkspacePicker";
 
 export interface ContextSidebarProps {
@@ -78,6 +77,13 @@ function pageCount(page: WorkspacePage, workspace?: WorkspaceSummary): number | 
   return null;
 }
 
+const SIDEBAR_ROW = "sidebar-nav-row grid h-[34px] w-full shrink-0 grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-full px-3 text-left text-[12px] text-on-instrument-muted hover:bg-instrument-hover hover:text-on-instrument focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-instrument";
+const SIDEBAR_ROW_SELECTED = "is-selected bg-on-instrument text-instrument hover:bg-on-instrument hover:text-instrument";
+
+function sidebarRow(active: boolean) {
+  return `${SIDEBAR_ROW} ${active ? SIDEBAR_ROW_SELECTED : "bg-transparent"}`;
+}
+
 export function ContextSidebar({
   mode,
   page,
@@ -87,11 +93,6 @@ export function ContextSidebar({
   workspaces,
   workspaceId,
   pinnedWorkspaceIds,
-  canGoBack,
-  canGoForward,
-  onBack,
-  onForward,
-  onToggleSidebar,
   onOpenSettings,
   onSwitchMode,
   onOpenMarketplaceRoute,
@@ -105,119 +106,112 @@ export function ContextSidebar({
   );
   return (
     <motion.aside
-      className="context-sidebar panel-blur"
+      className="context-sidebar flex h-full min-h-0 w-full flex-col gap-2 overflow-hidden bg-transparent text-ink"
       initial={{ x: -20, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: -24, opacity: 0 }}
       transition={{ duration: 0.18, ease: [0.2, 0, 0.2, 1] }}
     >
-      <SidebarChrome
-        canGoBack={canGoBack}
-        canGoForward={canGoForward}
-        onBack={onBack}
-        onForward={onForward}
-        onToggleSidebar={onToggleSidebar}
-      />
-
-      <nav className="sidebar-nav sidebar-mode-nav" aria-label="Application mode">
+      <nav className="sidebar-nav sidebar-mode-nav grid h-11 shrink-0 grid-cols-2 gap-1 rounded-full bg-instrument p-1" aria-label="Application mode">
         <button
           id="app-mode-work"
-          className={`sidebar-nav-row${mode === "work" ? " is-selected" : ""}`}
+          className={`sidebar-nav-row flex h-9 items-center justify-center rounded-full px-2 text-[12px] ${mode === "work" ? "is-selected bg-on-instrument text-instrument" : "bg-transparent text-on-instrument-muted hover:bg-instrument-hover hover:text-on-instrument"}`}
           type="button"
           aria-current={mode === "work" ? "page" : undefined}
           onClick={() => onSwitchMode("work")}
         >
-          <FolderOpen size={16} strokeWidth={1.5} aria-hidden="true" />
           <span>My Work</span>
-          <small />
         </button>
         <button
           id="app-mode-marketplace"
-          className={`sidebar-nav-row${mode === "marketplace" ? " is-selected" : ""}`}
+          className={`sidebar-nav-row flex h-9 items-center justify-center rounded-full px-2 text-[12px] ${mode === "marketplace" ? "is-selected bg-on-instrument text-instrument" : "bg-transparent text-on-instrument-muted hover:bg-instrument-hover hover:text-on-instrument"}`}
           type="button"
           aria-current={mode === "marketplace" ? "page" : undefined}
           onClick={() => onSwitchMode("marketplace")}
         >
-          <Store size={16} strokeWidth={1.5} aria-hidden="true" />
           <span>Marketplace</span>
-          <small />
         </button>
       </nav>
 
-      {mode === "work" && workspace && <div className="sidebar-context">
+      {mode === "work" && workspace && <div className="sidebar-context h-[118px] shrink-0 overflow-hidden rounded-[24px] [&_.workspace-hero]:h-full [&_.workspace-picker]:h-full">
         <WorkspacePicker value={workspace.id} workspaces={orderedWorkspaces} onValueChange={onOpenWorkspace} />
       </div>}
 
-      {mode === "work" && workspace && <nav className="sidebar-nav" aria-label="Workspace pages">
-        {WORKSPACE_PAGES.map((item) => {
-          const Icon = PAGE_ICONS[item];
-          const count = pageCount(item, workspace);
-          const active = pageActive && page === item;
-          return (
-            <button
-              className={`sidebar-nav-row${active ? " is-selected" : ""}`}
-              type="button"
-              key={item}
-              aria-current={active ? "page" : undefined}
-              onClick={() => onOpenPage(item)}
-            >
-              <Icon size={16} strokeWidth={1.5} aria-hidden="true" />
-              <span>{WORKSPACE_PAGE_LABELS[item]}</span>
-              <small>{count ?? ""}</small>
-            </button>
-          );
-        })}
-      </nav>}
-
-      {mode === "marketplace" && <>
-        <div className="sidebar-section-label"><span>MARKETPLACE</span><i /></div>
-        <nav className="sidebar-nav" aria-label="Marketplace categories">
-          <button
-            className={`sidebar-nav-row${marketplaceRoute.kind === "discover" ? " is-selected" : ""}`}
-            type="button"
-            aria-current={marketplaceRoute.kind === "discover" ? "page" : undefined}
-            onClick={() => onOpenMarketplaceRoute({ kind: "discover" })}
-          >
-            <Compass size={16} strokeWidth={1.5} aria-hidden="true" />
-            <span>Discover</span>
-            <small />
-          </button>
-          {MARKETPLACE_CATEGORIES.map(({ id, label, icon: Icon }) => {
-            const active = marketplaceRoute.kind === "category" && marketplaceRoute.category === id;
-            return <button
-              className={`sidebar-nav-row${active ? " is-selected" : ""}`}
-              type="button"
-              key={id}
-              aria-current={active ? "page" : undefined}
-              onClick={() => onOpenMarketplaceRoute({ kind: "category", category: id })}
-            >
-              <Icon size={16} strokeWidth={1.5} aria-hidden="true" />
-              <span>{label}</span>
-              <small />
-            </button>;
+      <div className="sidebar-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        {mode === "work" && workspace && <nav className="sidebar-nav flex flex-col gap-0.5 rounded-[24px] bg-instrument p-2" aria-label="Workspace pages">
+          {WORKSPACE_PAGES.map((item) => {
+            const Icon = PAGE_ICONS[item];
+            const count = pageCount(item, workspace);
+            const active = pageActive && page === item;
+            return (
+              <button
+                className={sidebarRow(active)}
+                type="button"
+                key={item}
+                aria-current={active ? "page" : undefined}
+                onClick={() => onOpenPage(item)}
+              >
+                <Icon size={14} strokeWidth={1.6} aria-hidden="true" />
+                <span className="min-w-0 truncate">{WORKSPACE_PAGE_LABELS[item]}</span>
+                <small className="font-display text-[13px]">{count ?? ""}</small>
+              </button>
+            );
           })}
-        </nav>
-        <div className="sidebar-section-label"><span>MY LIBRARY</span><i /></div>
-        <nav className="sidebar-nav" aria-label="My Library">
-          {MARKETPLACE_LIBRARY.map(({ id, label, icon: Icon }) => {
-            const active = marketplaceRoute.kind === "library" && marketplaceRoute.section === id;
-            return <button
-              className={`sidebar-nav-row${active ? " is-selected" : ""}`}
-              type="button"
-              key={id}
-              aria-current={active ? "page" : undefined}
-              onClick={() => onOpenMarketplaceRoute({ kind: "library", section: id })}
-            >
-              <Icon size={16} strokeWidth={1.5} aria-hidden="true" />
-              <span>{label}</span>
-              <small />
-            </button>;
-          })}
-        </nav>
-      </>}
+        </nav>}
 
-      <div className="sidebar-spacer" />
-      {rootPath && <div className="sidebar-footer">
+        {mode === "marketplace" && <div className="grid gap-2">
+          <section>
+            <div className="sidebar-section-label flex h-7 items-center gap-2 px-3 font-code text-[9px] tracking-[.11em] text-muted"><span>MARKETPLACE</span><i className="h-px flex-1 bg-divider" /></div>
+            <nav className="sidebar-nav flex flex-col gap-0.5 rounded-[24px] bg-instrument p-2" aria-label="Marketplace categories">
+              <button
+                className={sidebarRow(marketplaceRoute.kind === "discover")}
+                type="button"
+                aria-current={marketplaceRoute.kind === "discover" ? "page" : undefined}
+                onClick={() => onOpenMarketplaceRoute({ kind: "discover" })}
+              >
+                <Compass size={14} strokeWidth={1.6} aria-hidden="true" />
+                <span className="min-w-0 truncate">Discover</span>
+                <small />
+              </button>
+              {MARKETPLACE_CATEGORIES.map(({ id, label, icon: Icon }) => {
+                const active = marketplaceRoute.kind === "category" && marketplaceRoute.category === id;
+                return <button
+                  className={sidebarRow(active)}
+                  type="button"
+                  key={id}
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => onOpenMarketplaceRoute({ kind: "category", category: id })}
+                >
+                  <Icon size={14} strokeWidth={1.6} aria-hidden="true" />
+                  <span className="min-w-0 truncate">{label}</span>
+                  <small />
+                </button>;
+              })}
+            </nav>
+          </section>
+          <section>
+            <div className="sidebar-section-label flex h-7 items-center gap-2 px-3 font-code text-[9px] tracking-[.11em] text-muted"><span>MY LIBRARY</span><i className="h-px flex-1 bg-divider" /></div>
+            <nav className="sidebar-nav flex flex-col gap-0.5 rounded-[24px] bg-instrument p-2" aria-label="My Library">
+              {MARKETPLACE_LIBRARY.map(({ id, label, icon: Icon }) => {
+                const active = marketplaceRoute.kind === "library" && marketplaceRoute.section === id;
+                return <button
+                  className={sidebarRow(active)}
+                  type="button"
+                  key={id}
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => onOpenMarketplaceRoute({ kind: "library", section: id })}
+                >
+                  <Icon size={14} strokeWidth={1.6} aria-hidden="true" />
+                  <span className="min-w-0 truncate">{label}</span>
+                  <small />
+                </button>;
+              })}
+            </nav>
+          </section>
+        </div>}
+      </div>
+
+      {rootPath && <div className="sidebar-footer h-12 shrink-0 rounded-full bg-instrument p-0 text-on-instrument [&_.instrument-profile-control]:h-full [&_.instrument-profile-control]:w-full [&_.instrument-profile-trigger]:h-12 [&_.instrument-profile-trigger]:w-full [&_.instrument-profile-trigger]:rounded-full [&_.instrument-profile-trigger]:px-2 [&_.instrument-profile-trigger]:text-on-instrument [&_.instrument-profile-trigger:hover]:bg-instrument-hover">
         <InstrumentProfileControl identity={{ displayName: profileIdentity(rootPath), initials: profileIdentity(rootPath).slice(0, 2).toUpperCase(), avatarUrl: null }} onOpenSettings={onOpenSettings} />
       </div>}
     </motion.aside>

@@ -356,7 +356,7 @@ export function MarketplaceScreenView({
                 : (location.route.kind === "results" || instrumentCategory !== null) && instrumentItemCount === 0
                   ? "empty"
                   : "ready";
-  const content = <main className="marketplace-screen main-region" data-sidebar-visible={sidebarVisible ? "true" : "false"}>
+  const content = <main className="marketplace-screen main-region @container flex h-full max-h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-desk text-ink" data-sidebar-visible={sidebarVisible ? "true" : "false"}>
     <MarketplaceHeader
       title={routeTitle(location)}
       query={location.query}
@@ -372,7 +372,7 @@ export function MarketplaceScreenView({
       ref={scrollRef}
       onScroll={(event) => onRememberLocation({ scrollTop: event.currentTarget.scrollTop })}
     >
-      <p className="marketplace-target-state">{targetMessage}</p>
+      <p className="marketplace-target-state mt-2 w-fit rounded-full bg-surface-sunken px-3 py-1.5 font-mono text-[9px] tracking-[.04em] text-muted">{targetMessage}</p>
       {detailReference
         ? <MarketplaceModelDetail reference={detailReference} onBack={onBack} onReviewDownload={(model) => setWorkflow({ kind: "model-download", itemLabel: model.name })} />
         : publicDetailState === "ready" && (detailItem?.category === "templates" || detailItem?.category === "recipes")
@@ -383,11 +383,11 @@ export function MarketplaceScreenView({
             onReviewRecipeTarget={(item) => setWorkflow({ kind: "recipe-target", itemLabel: item.name })}
           />
         : publicDetailState === "loading"
-          ? <section className="marketplace-route-placeholder" role="status" aria-busy="true"><h2>Loading public item details…</h2></section>
+          ? <section className="marketplace-route-placeholder mt-4 grid min-h-64 place-items-center rounded-panel bg-surface p-6 text-center" role="status" aria-busy="true"><h2>Loading public item details…</h2></section>
         : publicDetailState === "unavailable"
-          ? <section className="marketplace-route-placeholder" role="status"><h2>Public item details unavailable</h2><p>Public item details are unavailable because the Ralphy public library is unavailable.</p></section>
+          ? <section className="marketplace-route-placeholder mt-4 grid min-h-64 place-items-center rounded-panel bg-surface p-6 text-center" role="status"><div><h2 className="m-0 text-lg">Public item details unavailable</h2><p className="mt-2 text-sm text-muted">Public item details are unavailable because the Ralphy public library is unavailable.</p></div></section>
         : staleDetail
-          ? <section className="marketplace-route-placeholder" role="status"><button className="marketplace-public-back" type="button" onClick={onBack}>Back to Marketplace</button><h2>Marketplace item unavailable</h2><p>This Marketplace item is unavailable because its saved reference is invalid or stale.</p></section>
+          ? <section className="marketplace-route-placeholder mt-4 grid min-h-64 place-items-center rounded-panel bg-surface p-6 text-center" role="status"><div className="grid justify-items-center gap-2"><button className="marketplace-public-back h-8 rounded-full bg-surface-sunken px-3 text-xs" type="button" onClick={onBack}>Back to Marketplace</button><h2 className="m-0 text-lg">Marketplace item unavailable</h2><p className="m-0 text-sm text-muted">This Marketplace item is unavailable because its saved reference is invalid or stale.</p></div></section>
         : location.route.kind === "library"
           ? <MarketplaceMyLibrary section={location.route.section} machine={snapshot.status === "ready" ? snapshot.machine : null} />
         : location.route.kind === "unavailable-detail"
@@ -397,7 +397,7 @@ export function MarketplaceScreenView({
             onReview={() => unavailableWorkflow && setWorkflow({ kind: unavailableWorkflow, itemLabel: null })}
           />
         : route === null
-            ? <section className="marketplace-route-placeholder" role="status"><h2>{routeTitle(location)}</h2><p>Full item details show only fields returned by the current source. This route does not expose a mutation yet.</p></section>
+            ? <section className="marketplace-route-placeholder mt-4 grid min-h-64 place-items-center rounded-panel bg-surface p-6 text-center" role="status"><div><h2 className="m-0 text-lg">{routeTitle(location)}</h2><p className="mt-2 text-sm text-muted">Full item details show only fields returned by the current source. This route does not expose a mutation yet.</p></div></section>
         : <MarketplaceBrowse
           route={route}
           snapshot={snapshot}

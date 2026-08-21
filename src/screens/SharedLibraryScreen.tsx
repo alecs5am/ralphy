@@ -84,7 +84,7 @@ function ArtifactIdentity({ artifact, selected = false, audit = false, onSelect,
   const reason = artifact.title.status === "ready" ? "Title returned by Core." : artifact.title.reason;
   return <>
     <button
-      className={`shared-artifact-identity${audit ? " is-audit" : ""}`}
+      className={`shared-artifact-identity min-w-0 rounded-control border-0 bg-transparent px-1 py-2 text-left text-on-instrument${audit ? " is-audit" : ""}`}
       type="button"
       aria-label={`Select ${artifact.slug} identity and open inspector`}
       aria-describedby={instructionsId}
@@ -104,7 +104,7 @@ function ArtifactIdentity({ artifact, selected = false, audit = false, onSelect,
       }}
     >
       {!audit && <span className="shared-canonical-dot" title={availabilityReason(artifact.canonicalStatus)} aria-hidden="true" />}
-      <span><strong>{title}</strong><small>SLUG · {artifact.slug}</small></span>
+      <span className="min-w-0"><strong className="block truncate text-[13px] font-semibold text-on-instrument">{title}</strong><small className="block truncate text-[10px] text-on-instrument-muted">SLUG · {artifact.slug}</small></span>
     </button>
     <span className="shared-visually-hidden" id={instructionsId}>Click or press Space to select this slug identity and open the inspector. Press Enter or double-click to open the viewer.</span>
   </>;
@@ -120,12 +120,12 @@ function SharedArtifactCard({ artifact, selected, workspaceId, rootEpoch, resolv
   onViewer(origin: HTMLElement): void;
 }) {
   return <article
-    className={`shared-artifact-card${selected ? " is-selected" : ""}`}
+    className={`shared-artifact-card min-w-0 overflow-hidden rounded-panel border-0 bg-instrument p-2 text-on-instrument shadow-none${selected ? " is-selected ring-2 ring-alert" : ""}`}
   >
-    <div className="shared-artifact-frame">
+    <div className="shared-artifact-frame relative aspect-[16/10] min-h-0 w-full overflow-hidden rounded-[14px] bg-instrument-raised">
       <SharedArtifactPreview artifact={artifact} workspaceId={workspaceId} rootEpoch={rootEpoch} resolvePreview={resolvePreview} />
       {artifact.preview === "no-target" && <span className="shared-artifact-targetless">No preview target</span>}
-      <div className="shared-artifact-chrome">
+      <div className="shared-artifact-chrome hidden">
         <span title={referencedAs(artifact)}>{artifact.referencedAs.length > 0 ? artifact.referencedAs[0] : "REFERENCED AS —"}</span>
         <span title={availabilityReason(artifact.canonicalStatus)}>STATUS UNAVAILABLE</span>
       </div>
@@ -133,8 +133,8 @@ function SharedArtifactCard({ artifact, selected, workspaceId, rootEpoch, resolv
       <button className="shared-artifact-preview-action" type="button" aria-label={`Preview ${artifact.slug}`} onClick={(event) => onViewer(event.currentTarget)}><Maximize2 aria-hidden="true" />Preview</button>
     </div>
     <ArtifactIdentity artifact={artifact} selected={selected} onSelect={onSelect} onViewer={onViewer} />
-    <small>{artifactFacts(artifact)}</small>
-    <span className="shared-artifact-referenced"><b>Referenced as</b> {referencedAs(artifact)}</span>
+    <small className="block truncate px-1 pb-1 text-[10px] leading-4 text-on-instrument-muted">{artifactFacts(artifact)}</small>
+    <span className="shared-artifact-referenced hidden"><b>Referenced as</b> {referencedAs(artifact)}</span>
   </article>;
 }
 
@@ -191,11 +191,11 @@ function ScreenHeader({ workspaceName, totals, actionsUnavailableReason, onAdd, 
   onAdd(origin: HTMLButtonElement): void;
   onPromote(origin: HTMLButtonElement): void;
 }) {
-  return <header className="shared-library-header">
-    <div><div className="screen-kicker">{workspaceName}</div><h1>Shared Library</h1><p>Reusable workspace artifacts for people and agents</p></div>
-    <div className="shared-library-header-side">
-      {totals && <div className="shared-library-totals"><span>{countLabel(totals.count)}</span><span>{bytesLabel(totals.bytes)}</span></div>}
-      <div className="shared-library-actions"><button type="button" disabled={!!actionsUnavailableReason} aria-describedby={actionsUnavailableReason ? "shared-library-initializing-actions" : undefined} onClick={(event) => onPromote(event.currentTarget)}><Upload size={13} aria-hidden="true" />Promote from project</button><button className="shared-library-primary" type="button" disabled={!!actionsUnavailableReason} aria-describedby={actionsUnavailableReason ? "shared-library-initializing-actions" : undefined} onClick={(event) => onAdd(event.currentTarget)}><Plus size={13} aria-hidden="true" />Add artifact</button></div>
+  return <header className="shared-library-header m-0 flex min-h-0 w-full max-w-none flex-wrap items-center justify-between gap-4 rounded-panel border-0 bg-instrument px-5 py-4 text-on-instrument shadow-none">
+    <div><div className="screen-kicker text-[11px] uppercase tracking-[0.14em] text-on-instrument-muted">{workspaceName}</div><h1 className="mt-1 text-[28px] font-semibold leading-none tracking-[-0.03em] text-on-instrument">Shared Library</h1><p className="mt-1 text-[13px] text-on-instrument-muted">Reusable workspace artifacts for people and agents</p></div>
+    <div className="shared-library-header-side flex flex-wrap items-center justify-end gap-2">
+      {totals && <div className="shared-library-totals flex items-center gap-2 text-[11px] text-on-instrument-muted"><span>{countLabel(totals.count)}</span><span>{bytesLabel(totals.bytes)}</span></div>}
+      <div className="shared-library-actions flex gap-2 [&_button]:inline-flex [&_button]:min-h-9 [&_button]:items-center [&_button]:gap-2 [&_button]:rounded-control [&_button]:border-0 [&_button]:px-3 [&_button]:text-[12px]"><button type="button" disabled={!!actionsUnavailableReason} aria-describedby={actionsUnavailableReason ? "shared-library-initializing-actions" : undefined} onClick={(event) => onPromote(event.currentTarget)}><Upload size={13} aria-hidden="true" />Promote from project</button><button className="shared-library-primary bg-surface text-ink" type="button" disabled={!!actionsUnavailableReason} aria-describedby={actionsUnavailableReason ? "shared-library-initializing-actions" : undefined} onClick={(event) => onAdd(event.currentTarget)}><Plus size={13} aria-hidden="true" />Add artifact</button></div>
       {actionsUnavailableReason && <p className="shared-library-actions-reason" id="shared-library-initializing-actions">{actionsUnavailableReason}</p>}
     </div>
   </header>;
@@ -226,13 +226,13 @@ export function SharedLibraryScreenView({ workspaceId, workspaceName, rootEpoch,
     else setViewer({ artifact, origin });
   };
 
-  if (snapshot.status === "loading") return <InstrumentScreenRoot descriptor={sharedLibraryInstrumentStates} state="loading"><main className="main-region shared-library-screen" aria-busy="true">
+  if (snapshot.status === "loading") return <InstrumentScreenRoot descriptor={sharedLibraryInstrumentStates} state="loading"><main className="main-region shared-library-screen flex min-h-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 text-[13px] text-ink" aria-busy="true">
     <ScreenHeader workspaceName={workspaceName} onAdd={add} onPromote={promote} />
     <SharedLibraryToolbar query={snapshot.query} controller={controller} />
     <div className="shared-library-skeleton" aria-hidden="true">{Array.from({ length: 5 }, (_, index) => <i key={index} />)}</div>
     <div className="shared-library-loading" role="status">Loading Shared Library…</div>
   </main></InstrumentScreenRoot>;
-  if (snapshot.status === "error") return <InstrumentScreenRoot descriptor={sharedLibraryInstrumentStates} state="error"><main className="main-region shared-library-screen"><ScreenHeader workspaceName={workspaceName} onAdd={add} onPromote={promote} /><div className="shared-library-error" role="alert"><AlertCircle aria-hidden="true" /><span>{snapshot.error}</span><button type="button" onClick={() => { void controller.refresh(); }}>Retry</button></div></main></InstrumentScreenRoot>;
+  if (snapshot.status === "error") return <InstrumentScreenRoot descriptor={sharedLibraryInstrumentStates} state="error"><main className="main-region shared-library-screen flex min-h-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 text-[13px] text-ink"><ScreenHeader workspaceName={workspaceName} onAdd={add} onPromote={promote} /><div className="shared-library-error rounded-panel bg-surface p-4" role="alert"><AlertCircle aria-hidden="true" /><span>{snapshot.error}</span><button type="button" onClick={() => { void controller.refresh(); }}>Retry</button></div></main></InstrumentScreenRoot>;
 
   const { value } = snapshot;
   const queryDirty = snapshot.query.text !== "" || snapshot.query.mediaKind !== "all" || snapshot.query.provenance !== "all";
@@ -246,16 +246,16 @@ export function SharedLibraryScreenView({ workspaceId, workspaceName, rootEpoch,
     : snapshot.refreshError || snapshot.pageError || value.nextCursor
       ? "partial"
       : "ready";
-  return <InstrumentScreenRoot descriptor={sharedLibraryInstrumentStates} state={instrumentState}><main className="main-region shared-library-screen" aria-busy={snapshot.refreshing || undefined}>
+  return <InstrumentScreenRoot descriptor={sharedLibraryInstrumentStates} state={instrumentState}><main className="main-region shared-library-screen flex min-h-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 text-[13px] text-ink" aria-busy={snapshot.refreshing || undefined}>
     <ScreenHeader workspaceName={workspaceName} totals={{ count: value.totalCount, bytes: value.totalSelectedBytes }} onAdd={add} onPromote={promote} />
     <SharedLibraryToolbar query={snapshot.query} controller={controller} />
-    <div className="shared-library-grouping" role="note">Grouping by entity is unavailable from Core. Showing one flat collection.</div>
-    <div className="shared-library-evidence" role="note"><AlertCircle aria-hidden="true" /><span><strong>Attention evidence unavailable</strong> Missing-file evidence, broken-reference evidence, rights-unknown evidence, duplicate-candidate evidence, and revision-update evidence are unavailable from this Core version; no state is inferred.</span></div>
+    <div className="shared-library-grouping rounded-control bg-surface-sunken px-3 py-2 text-[11px] text-muted" role="note">Grouping by entity is unavailable from Core. Showing one flat collection.</div>
+    <div className="shared-library-evidence flex items-start gap-2 rounded-control bg-surface-sunken px-3 py-2 text-[11px] leading-4 text-muted" role="note"><AlertCircle className="mt-0.5 shrink-0" size={13} aria-hidden="true" /><span><strong className="text-ink">Attention evidence unavailable</strong> Missing-file evidence, broken-reference evidence, rights-unknown evidence, duplicate-candidate evidence, and revision-update evidence are unavailable from this Core version; no state is inferred.</span></div>
     {snapshot.refreshError && <div className="shared-library-error" role="alert"><AlertCircle aria-hidden="true" /><span>{snapshot.refreshError}</span><button type="button" onClick={() => { void controller.refresh(); }}>Retry refresh</button></div>}
-    <div className="shared-library-content" data-inspector-open={inspector ? "true" : undefined}>
-      <div className="shared-library-scroll" aria-busy={snapshot.loadingMore || undefined}>
+    <div className="shared-library-content m-0 min-h-0 w-full max-w-none flex-1 rounded-panel border-0 bg-surface p-3 shadow-none" data-inspector-open={inspector ? "true" : undefined}>
+      <div className="shared-library-scroll min-h-0 overflow-auto" aria-busy={snapshot.loadingMore || undefined}>
         {value.artifacts.length === 0 ? <div className="shared-library-empty"><strong>{queryDirty ? "No artifacts match these filters" : "Build a reusable source of truth"}</strong><p>{queryDirty ? "Try slug, kind, MIME, referenced role, or provenance." : "Add canonical characters, locations, products, audio hooks, and brand assets for future projects."}</p></div>
-          : snapshot.query.view === "grid" ? <div className="shared-library-grid">{value.artifacts.map((artifact) => <SharedArtifactCard key={artifact.id} artifact={artifact} selected={value.selectedArtifactId === artifact.id} workspaceId={workspaceId} rootEpoch={rootEpoch} resolvePreview={resolvePreview} onSelect={(origin) => inspect(artifact, origin)} onViewer={(origin) => view(artifact, origin)} />)}</div>
+          : snapshot.query.view === "grid" ? <div className="shared-library-grid grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{value.artifacts.map((artifact) => <SharedArtifactCard key={artifact.id} artifact={artifact} selected={value.selectedArtifactId === artifact.id} workspaceId={workspaceId} rootEpoch={rootEpoch} resolvePreview={resolvePreview} onSelect={(origin) => inspect(artifact, origin)} onViewer={(origin) => view(artifact, origin)} />)}</div>
             : <SharedLibraryAuditList artifacts={value.artifacts} selectedId={value.selectedArtifactId} selectedRows={selectedRows} workspaceId={workspaceId} rootEpoch={rootEpoch} resolvePreview={resolvePreview} onToggle={toggle} onSelect={inspect} onViewer={view} />}
         {value.nextCursor && <p className="shared-library-bounded" role="note">Showing loaded artifacts · {value.artifacts.length} loaded; more are available from Core.</p>}
         {snapshot.pageError && <div className="shared-library-error shared-library-page-error" role="alert"><span>{snapshot.pageError}</span><button type="button" onClick={() => { void controller.loadMore(); }}>Retry</button></div>}
@@ -297,7 +297,7 @@ export function SharedLibraryScreen(props: SharedLibraryScreenProps) {
   }, [props.workspaceId, props.rootEpoch, scope]);
   return active?.scope === scope
     ? <ConnectedSharedLibraryScreen {...props} controller={active.controller} />
-    : <InstrumentScreenRoot descriptor={sharedLibraryInstrumentStates} state="loading"><main className="main-region shared-library-screen" aria-busy="true">
+    : <InstrumentScreenRoot descriptor={sharedLibraryInstrumentStates} state="loading"><main className="main-region shared-library-screen flex min-h-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 text-[13px] text-ink" aria-busy="true">
       <ScreenHeader workspaceName={props.workspaceName} actionsUnavailableReason="Workflow previews are unavailable while the Shared Library is initializing." onAdd={() => props.onAdd?.()} onPromote={() => props.onPromote?.()} />
       <div className="shared-library-toolbar shared-library-toolbar-skeleton" aria-hidden="true" />
       <div className="shared-library-skeleton" aria-hidden="true">{Array.from({ length: 5 }, (_, index) => <i key={index} />)}</div>

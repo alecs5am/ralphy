@@ -157,25 +157,27 @@ export function MemoryScreen({ workspaceId, workspaceName }: { workspaceId: stri
 
   return (
     <InstrumentScreenRoot descriptor={memoryInstrumentStates} state={instrumentState}>
-    <main className="main-region memory-region">
-      <div className="memory-topbar">
-        <span>{workspaceName}</span>
-        <div>
+    <main className="main-region memory-region flex min-h-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 text-[13px] text-ink">
+      <div className="overflow-hidden rounded-panel bg-instrument text-on-instrument">
+      <div className="memory-topbar flex min-h-10 items-center justify-between gap-3 border-0 px-5 pt-3 text-[11px] uppercase tracking-[0.12em] text-on-instrument-muted">
+        <span className="truncate">{workspaceName}</span>
+        <div className="flex flex-wrap items-center justify-end gap-1 [&_button]:inline-flex [&_button]:min-h-8 [&_button]:items-center [&_button]:gap-1.5 [&_button]:rounded-control [&_button]:border-0 [&_button]:px-2.5 [&_button]:text-[11px] [&_button]:normal-case [&_button]:tracking-normal">
           <button type="button" onClick={() => void reviewHealth()}><Activity />Review memory health</button>
           <button type="button" onClick={openRecall}><Eye />Preview agent context</button>
           <button type="button" className="memory-primary" onClick={() => setEditor({})}><Plus />Add memory</button>
         </div>
       </div>
 
-      <header className="memory-header">
-        <div><h1>Memory</h1><p>Durable context agents reuse across future work</p></div>
-        <div className="memory-counts"><strong>{reviewing ? `${proposed.length} PROPOSED · NOT IN RECALL` : `${active.length} ACTIVE · ${workspaceCount} WORKSPACE · ${active.length - workspaceCount} INHERITED`}</strong><span>{reviewing ? "PROPOSALS ARE NOT PART OF THE ACTIVE CAP" : `${workspaceCount} / 100 IN THIS TIER`}</span></div>
+      <header className="memory-header m-0 flex min-h-0 w-full max-w-none flex-wrap items-end justify-between gap-4 border-0 bg-transparent px-5 pb-4 pt-2 text-on-instrument shadow-none">
+        <div><h1 className="text-[28px] font-semibold leading-none tracking-[-0.03em] text-on-instrument">Memory</h1><p className="mt-1 text-[13px] text-on-instrument-muted">Durable context agents reuse across future work</p></div>
+        <div className="memory-counts text-right text-[10px] text-on-instrument-muted"><strong className="block text-[11px] text-on-instrument">{reviewing ? `${proposed.length} PROPOSED · NOT IN RECALL` : `${active.length} ACTIVE · ${workspaceCount} WORKSPACE · ${active.length - workspaceCount} INHERITED`}</strong><span>{reviewing ? "PROPOSALS ARE NOT PART OF THE ACTIVE CAP" : `${workspaceCount} / 100 IN THIS TIER`}</span></div>
       </header>
+      </div>
 
-      <div className="memory-filters">
-        <label className="memory-search"><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search rules and bodies" />{query && <button type="button" aria-label="Clear search" onClick={() => setQuery("")}><X /></button>}</label>
-        <div className="memory-segments" aria-label="Memory scope">
-          {(["effective", "workspace", "global"] as Scope[]).map((value) => <button type="button" className={scope === value ? "is-active" : ""} key={value} onClick={() => setScope(value)}>{value[0]!.toUpperCase() + value.slice(1)}</button>)}
+      <div className="memory-filters m-0 flex w-full max-w-none flex-wrap items-center gap-2 rounded-panel border-0 bg-surface p-2 shadow-none">
+        <label className="memory-search flex h-9 min-w-[220px] flex-1 items-center gap-2 rounded-control bg-surface-sunken px-3"><Search className="size-4 text-muted" /><input className="min-w-0 flex-1 border-0 bg-transparent text-[13px] text-ink outline-none placeholder:text-muted" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search rules and bodies" />{query && <button type="button" aria-label="Clear search" onClick={() => setQuery("")}><X /></button>}</label>
+        <div className="memory-segments flex h-9 items-center rounded-control bg-surface-sunken p-1" aria-label="Memory scope">
+          {(["effective", "workspace", "global"] as Scope[]).map((value) => <button type="button" className={`h-7 rounded-[7px] border-0 px-2.5 text-[11px] ${scope === value ? "is-active bg-instrument text-on-instrument" : "bg-transparent text-muted"}`} key={value} onClick={() => setScope(value)}>{value[0]!.toUpperCase() + value.slice(1)}</button>)}
         </div>
         <i />
         <div className="memory-type-chips">
@@ -186,18 +188,18 @@ export function MemoryScreen({ workspaceId, workspaceName }: { workspaceId: stri
         <button type="button" className="memory-sort" onClick={() => setOrder((value) => SORTS[(SORTS.indexOf(value) + 1) % SORTS.length]!)}><ArrowDownUp />{SORT_LABEL[order]}</button>
       </div>
 
-      <div className={`memory-review-strip${reviewing ? " is-reviewing" : ""}`}>
+      <div className={`memory-review-strip m-0 flex min-h-10 items-center gap-2 rounded-control border-0 bg-surface-sunken px-3 py-2 text-[12px] text-muted${reviewing ? " is-reviewing" : ""}`}>
         {reviewing ? <ArrowLeft /> : proposed.length > 0 ? <Inbox /> : <Check />}
         <span>{proposed.length > 0 ? reviewing ? `Reviewing ${proposed.length} proposals · nothing here reaches agents until you approve it` : `${proposed.length} ${proposed.length === 1 ? "proposal is" : "proposals are"} waiting for review — they do not reach agents yet` : "Memory is up to date"}</span>
         <button type="button" onClick={() => { setReviewing((value) => { const next = !value; setExpanded(next ? null : firstActiveDisplayed?.id ?? null); return next; }); }}>{reviewing ? "Back to active memory" : "Review now"}</button>
       </div>
 
-      <section className="memory-rulebook" aria-busy={loading}>
+      <section className="memory-rulebook m-0 flex min-h-0 w-full max-w-none flex-1 flex-col gap-3 overflow-visible rounded-panel border-0 bg-surface p-3 shadow-none" aria-busy={loading}>
         {error && <div className="memory-state"><TriangleAlert />{error}<button type="button" onClick={() => setRefresh((value) => value + 1)}>Retry</button></div>}
         {!error && loading && <div className="memory-state">Loading memory…</div>}
         {!error && !loading && items.length === 0 && <div className="memory-state">{query || type ? "No memory matches these filters." : reviewing ? "No proposals are waiting for review." : "No active memory yet."}</div>}
         {!error && !loading && groups.map(([group, entries]) => (
-          <div className="memory-group" key={group}>
+          <div className="memory-group min-w-0" key={group}>
             <MemoryGroupHeader group={group} reviewing={reviewing} count={entries.length} workspaceName={workspaceName} />
             <div>{entries.map((entry) => <MemoryRule key={`${entry.id}:${entry.revisionId}`} entry={entry} workspaceName={workspaceName} open={expanded === entry.id} reviewing={reviewing} onToggle={() => setExpanded((value) => value === entry.id ? null : entry.id)} onRevise={() => setEditor({ entry })} onHistory={() => openHistory(entry)} onConfirm={(action) => setConfirm({ action, entry })} />)}</div>
           </div>
@@ -232,13 +234,13 @@ function MemoryRule({ entry, workspaceName, open, reviewing, onToggle, onRevise,
 }) {
   const panelId = `memory-rule-${entry.id}`;
   const filed = new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(entry.filed));
-  return <article className={`memory-rule${open ? " is-open" : ""}${reviewing ? " is-proposal" : ""}`}>
-    <button type="button" className="memory-rule-head" aria-expanded={open} aria-controls={panelId} onClick={onToggle}>
+  return <article className={`memory-rule my-1 overflow-hidden rounded-[14px] border-0 bg-surface-sunken shadow-none${open ? " is-open ring-1 ring-divider" : ""}${reviewing ? " is-proposal" : ""}`}>
+    <button type="button" className="memory-rule-head flex min-h-14 w-full items-center gap-2 border-0 bg-transparent px-3 py-2 text-left text-[13px] text-ink" aria-expanded={open} aria-controls={panelId} onClick={onToggle}>
       <ChevronRight />
       <span><strong>{entry.body.rule || entry.name}</strong><small><em className={`is-${entry.tier}`}>{entry.tier === "global" ? <Globe2 /> : <Box />}{entry.tier === "global" ? "Global" : `Workspace · ${workspaceName}`}</em>{entry.overridesGlobal && <em className="memory-tag">OVERRIDES</em>}<i>v{entry.version} · {entry.version > 1 ? "Revised" : "Filed"} {filed}</i>{entry.qualityFlags.length > 0 && <b><TriangleAlert />No negative scope</b>}</small></span>
       <i>{entry.name}</i>
     </button>
-    {open && <div className="memory-rule-body" id={panelId}>
+    {open && <div className="memory-rule-body border-0 bg-surface px-4 pb-4 pt-3 text-[13px] leading-5 text-ink" id={panelId}>
       <section><label>WHY</label><p>{entry.body.why || "Why has not been captured yet."}</p></section>
       <div className="memory-rule-columns">
         <section><label>HOW TO APPLY</label>{entry.body.howToApply.length ? <ul>{entry.body.howToApply.map((item) => <li key={item}>{item}</li>)}</ul> : <p className="is-muted">Application guidance is missing.</p>}</section>

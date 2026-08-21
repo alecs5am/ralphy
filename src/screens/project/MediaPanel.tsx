@@ -112,21 +112,21 @@ export function MediaPanel({ page, controller, snapshot, project, workspaceName,
   const selectedIndex = snapshot.selectedMedia
     ? mediaItems.findIndex(({ ref }) => ref.type === snapshot.selectedMedia?.ref.type && ref.id === snapshot.selectedMedia?.ref.id)
     : -1;
-  return <InstrumentScreenRoot descriptor={mediaInstrumentStates} state={mediaInstrumentState(page, snapshot)}><section className="media-panel" aria-label="Project media">
-    <div className="media-domain-toolbar" aria-label="Media filters">
+  return <InstrumentScreenRoot descriptor={mediaInstrumentStates} state={mediaInstrumentState(page, snapshot)}><section className="media-panel flex min-h-0 w-full flex-1 flex-col gap-2 overflow-hidden bg-transparent p-0 text-[13px] text-ink" aria-label="Project media">
+    <div className="media-domain-toolbar m-0 flex min-h-11 w-full max-w-none flex-wrap items-center gap-2 rounded-[14px] border-0 bg-surface-sunken p-2 shadow-none" aria-label="Media filters">
       <SelectMenu overlayOwner="project.media" value={query.filter} options={lifecycleOptions} ariaLabel="Lifecycle or source" prefix="Source" onValueChange={(filter) => { void controller.setMediaQuery({ filter }); }} />
       <SelectMenu overlayOwner="project.media" value={query.mediaKind ?? "all"} options={kindOptions} ariaLabel="Media type" prefix="Type" onValueChange={(mediaKind) => { void controller.setMediaQuery({ mediaKind: mediaKind === "all" ? undefined : mediaKind }); }} />
       <SelectMenu overlayOwner="project.media" value={query.provenance ?? "all"} options={provenanceOptions} ariaLabel="Generation provenance" prefix="Generation" onValueChange={(provenance) => { void controller.setMediaQuery({ provenance: provenance === "all" ? undefined : provenance }); }} />
-      <span className="media-item-count">{page.items.length.toLocaleString()} items</span>
-      <div className="grid-size-control" title="Grid density"><GalleryHorizontalEnd size={15} aria-hidden="true" /><SnappySlider value={density} min={150} max={310} step={20} values={densityStops} defaultValue={230} ariaLabel="Grid density" onValueChange={setDensity} /></div>
+      <span className="media-item-count ml-auto text-[11px] text-muted">{page.items.length.toLocaleString()} items</span>
+      <div className="grid-size-control flex min-w-32 items-center gap-2 text-muted" title="Grid density"><GalleryHorizontalEnd size={15} aria-hidden="true" /><SnappySlider value={density} min={150} max={310} step={20} values={densityStops} defaultValue={230} ariaLabel="Grid density" onValueChange={setDensity} /></div>
     </div>
     {actionError && <div className="project-local-error media-action-error" role="alert">{actionError}</div>}
     {page.status === "error" && page.items.length > 0 && page.nextCursor === null && <div className="project-local-error media-action-error" role="alert"><span>{page.error ?? "Media could not be updated."}</span><button className="command-button" type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>}
-    <div className="project-media-grid">
+    <div className="project-media-grid min-h-0 flex-1 overflow-hidden rounded-[14px] bg-surface p-0">
       {page.status === "loading" && page.items.length === 0 && <div className="project-skeleton" role="status">Loading media…</div>}
       {page.status === "ready" && page.items.length === 0
         ? <div className="empty-section">No media matches these filters.</div>
-        : <VirtualAssetGrid key={scrollResetToken} items={page.items as MediaCardDto[]} project={snapshot.domain.project} rootEpoch={rootEpoch} selectedRef={snapshot.selectedMedia?.ref ?? null} resolvePreview={bridge.resolveProjectPreview} onSelect={(card) => controller.selectMedia(card)} onOpen={(card) => { void controller.openMediaViewer(card); }} onContextMenu={openContext} density={density} hasMore={page.nextCursor !== null} loadingMore={page.status === "loading" && page.items.length > 0 && page.nextCursor !== null} appendError={page.status === "error" && page.items.length > 0 && page.nextCursor !== null ? page.error : null} onLoadMore={() => { void controller.loadMore("media"); }} onRetryAppend={() => { void controller.retryPage("media"); }} scrollMemory={scrollMemory} scrollKey="media" scrollResetToken={scrollResetToken} />}
+        : <VirtualAssetGrid key={scrollResetToken} items={page.items as MediaCardDto[]} project={snapshot.domain.project} rootEpoch={rootEpoch} selectedRef={snapshot.selectedMedia?.ref ?? null} resolvePreview={bridge.resolveProjectPreview} onSelect={(card) => controller.selectMedia(card)} onOpen={(card) => { void controller.openMediaViewer(card); }} onContextMenu={openContext} density={density} maxColumns={4} gap={10} hasMore={page.nextCursor !== null} loadingMore={page.status === "loading" && page.items.length > 0 && page.nextCursor !== null} appendError={page.status === "error" && page.items.length > 0 && page.nextCursor !== null ? page.error : null} onLoadMore={() => { void controller.loadMore("media"); }} onRetryAppend={() => { void controller.retryPage("media"); }} scrollMemory={scrollMemory} scrollKey="media" scrollResetToken={scrollResetToken} />}
     </div>
     {snapshot.selectedMedia && <InstrumentRightRailPortal owner="media-review" label="Media review">
       <MediaReviewConsole

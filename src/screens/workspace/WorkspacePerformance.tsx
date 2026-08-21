@@ -47,14 +47,14 @@ function availabilityReason(value: Availability<unknown>, fallback: string): str
 }
 
 function SectionHeading({ id, title, meta }: { id: string; title: string; meta?: string }) {
-  return <header className="workspace-section-heading">
+  return <header className="workspace-section-heading mb-3 flex items-center justify-between gap-3">
     <h2 id={id}>{title}</h2>
     {meta && <span>{meta}</span>}
   </header>;
 }
 
 function UnavailablePanel({ title, reason }: { title: string; reason: string }) {
-  return <div className="workspace-unavailable" role="note">
+  return <div className="workspace-unavailable rounded-[14px] border-0 bg-surface-sunken px-3 py-2 text-[12px] leading-5 text-muted" role="note">
     <strong>{title}</strong>
     <p>{reason}</p>
   </div>;
@@ -69,10 +69,10 @@ function MetricStrip({ values }: { values: WorkspaceMomentumPresentation["totals
     ["Comments", metric(values.comments), values.comments === null ? "Comments unavailable" : `${values.comments.toLocaleString()} comment${values.comments === 1 ? "" : "s"}`],
     ["Shares", metric(values.shares), values.shares === null ? "Shares unavailable" : `${values.shares.toLocaleString()} share${values.shares === 1 ? "" : "s"}`],
   ];
-  return <dl className="workspace-metric-strip">
-    {metrics.map(([label, value, accessible]) => <div key={label}>
-      <dt>{label}</dt>
-      <dd aria-label={accessible}>{value}</dd>
+  return <dl className="workspace-metric-strip grid grid-cols-2 gap-px overflow-hidden rounded-[14px] bg-divider sm:grid-cols-3 xl:grid-cols-6">
+    {metrics.map(([label, value, accessible]) => <div className="min-w-0 bg-surface-sunken px-3 py-3" key={label}>
+      <dt className="text-[11px] text-muted">{label}</dt>
+      <dd className="mt-1 text-[20px] font-semibold leading-none text-ink" aria-label={accessible}>{value}</dd>
     </div>)}
   </dl>;
 }
@@ -99,7 +99,7 @@ export function AccessibleTrendChart({ value }: { value: readonly TrendPoint[] }
 }
 
 export function WorkspaceMomentum({ value }: { value: WorkspaceMomentumPresentation }) {
-  return <section className="workspace-overview-section workspace-momentum" aria-labelledby="workspace-momentum-title">
+  return <section className="workspace-overview-section workspace-momentum col-span-12 m-0 min-w-0 max-w-none rounded-panel border-0 bg-surface p-4 shadow-none" aria-labelledby="workspace-momentum-title">
     <SectionHeading id="workspace-momentum-title" title="Workspace momentum" meta={value.periodLabel} />
     <MetricStrip values={value.totals} />
     {(value.trend.status === "ready" || value.trend.status === "partial") && <AccessibleTrendChart value={value.trend.value} />}
@@ -122,14 +122,14 @@ export function AccountPortfolio({
   onSelect(account: AccountPresentation): void;
 }) {
   const accounts = value.status === "ready" || value.status === "partial" ? value.value : [];
-  return <section className="workspace-overview-section workspace-accounts" aria-labelledby="workspace-accounts-title">
+  return <section className="workspace-overview-section workspace-accounts col-span-12 m-0 min-w-0 max-w-none rounded-panel border-0 bg-surface p-4 shadow-none xl:col-span-6" aria-labelledby="workspace-accounts-title">
     <SectionHeading id="workspace-accounts-title" title="Accounts" meta={accounts.length ? `${accounts.length} returned by Core` : undefined} />
     {value.status === "partial" && <UnavailablePanel title="Partial account data" reason={value.reason} />}
     {(value.status === "empty" || value.status === "unavailable") && <UnavailablePanel title="Accounts unavailable" reason={value.reason} />}
     {value.status === "ready" && accounts.length === 0 && <UnavailablePanel title="No connected accounts" reason="No connected accounts were returned by Core." />}
     {accounts.length > 0 && <div className="account-portfolio-wrap">
       <div className="account-portfolio" aria-label="Account portfolio">
-        {accounts.map((account) => <button id={`workspace-account-${account.id}`} className="account-card" type="button" key={account.id} onClick={() => onSelect(account)}>
+        {accounts.map((account) => <button id={`workspace-account-${account.id}`} className="account-card min-h-0 rounded-[14px] border-0 bg-surface-sunken p-3 text-left text-[12px] text-ink shadow-none" type="button" key={account.id} onClick={() => onSelect(account)}>
           <span className="account-card-heading"><strong>{account.platform}</strong><span className={`account-health${account.relinkRequired || !account.credentialConfigured ? " is-warning" : ""}`}>{health(account)}</span></span>
           <b>{handle(account.username)}</b>
           {account.displayName && <small>{account.displayName}</small>}

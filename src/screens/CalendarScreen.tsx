@@ -107,7 +107,7 @@ export function CalendarScreen({
   const title = periodTitle(view, anchor);
   const openEvent = (event: CalendarEventDto) => { setSelectedEventId(event.id); setRightPanel("inspector"); };
   const openSchedule = (unit: CalendarReadyUnitDto | null = null, date: string | null = null) => {
-    setModalUnit(unit ?? data?.readyUnits[0] ?? null); setModalDate(date); setModalStep("content"); setModalOpen(true); setRightPanel(null);
+    setModalUnit(unit ?? data?.readyUnits[0] ?? null); setModalDate(date ?? calendarDayKey(anchor.getTime(), timezone)); setModalStep("content"); setModalOpen(true); setRightPanel(null);
   };
   const openReconnect = (accountId: string | null) => {
     const account = data?.accounts.find((item) => item.id === accountId) ?? null;
@@ -134,18 +134,18 @@ export function CalendarScreen({
               ? "empty"
               : "ready";
 
-  return <CalendarWorkspaceContext.Provider value={workspaceId}><InstrumentScreenRoot descriptor={calendarInstrumentStates} state={instrumentState}><main className="main-region calendar-region">
-    <section className="calendar-shell" aria-busy={loading} aria-label={`${workspaceName} calendar`}>
-      <header className="calendar-toolbar">
-        <h1>Calendar</h1>
+  return <CalendarWorkspaceContext.Provider value={workspaceId}><InstrumentScreenRoot descriptor={calendarInstrumentStates} state={instrumentState}><main className="main-region calendar-region flex min-h-0 flex-1 flex-col overflow-auto bg-transparent p-2 pb-6 text-[13px] text-ink">
+    <section className="calendar-shell m-0 flex min-h-0 w-full max-w-none flex-1 flex-col gap-2 overflow-visible border-0 bg-transparent p-0 shadow-none" aria-busy={loading} aria-label={`${workspaceName} calendar`}>
+      <header className="calendar-toolbar m-0 flex min-h-0 w-full max-w-none flex-wrap items-center gap-2 rounded-panel border-0 bg-instrument px-4 py-3 text-on-instrument shadow-none [&_button]:inline-flex [&_button]:min-h-8 [&_button]:items-center [&_button]:gap-1.5 [&_button]:rounded-control [&_button]:border-0 [&_button]:px-2.5 [&_button]:text-[12px]">
+        <h1 className="mr-1 text-[24px] font-semibold leading-none tracking-[-0.03em] text-on-instrument">Calendar</h1>
         <button type="button" onClick={() => setAnchor(new Date())}>Today</button>
         <span className="calendar-arrows">
           <button type="button" aria-label={`Previous ${view}`} onClick={() => setAnchor(shiftAnchor(anchor, view, -1))}><ChevronLeft /></button>
           <button type="button" aria-label={`Next ${view}`} onClick={() => setAnchor(shiftAnchor(anchor, view, 1))}><ChevronRight /></button>
         </span>
-        <strong>{title}</strong><i />
-        <span className="calendar-view-tabs" aria-label="Calendar view">
-          {(["month", "week", "agenda"] as CalendarView[]).map((item) => <button type="button" key={item} className={view === item ? "is-active" : ""} onClick={() => setView(item)}>{capitalize(item)}</button>)}
+        <strong className="min-w-32 text-[13px] font-medium text-on-instrument">{title}</strong><i className="flex-1" />
+        <span className="calendar-view-tabs flex items-center rounded-control bg-instrument-raised p-1" aria-label="Calendar view">
+          {(["month", "week", "agenda"] as CalendarView[]).map((item) => <button type="button" key={item} className={view === item ? "is-active bg-surface text-ink" : "bg-transparent text-on-instrument-muted"} onClick={() => setView(item)}>{capitalize(item)}</button>)}
         </span>
         <span className="calendar-filter-wrap">
           <button type="button" onClick={() => setFiltersOpen((open) => !open)}><SlidersHorizontal />Filters</button>
@@ -155,7 +155,7 @@ export function CalendarScreen({
         <button type="button" className="calendar-primary" onClick={() => openSchedule()}><Plus />Schedule content</button>
       </header>
 
-      <div className="calendar-subbar">
+      <div className="calendar-subbar m-0 flex min-h-10 w-full flex-wrap items-center gap-2 rounded-panel border-0 bg-surface px-3 py-2 text-[11px] text-muted shadow-none">
         <span className="calendar-timezone"><Globe2 />{timezoneLabel(timezone)} · {timezone}</span>
         {filters.projectIds.map((id) => <FilterChip key={id} label="Project" value={data?.projects.find((project) => project.id === id)?.name ?? id} onRemove={() => setFilters({ ...filters, projectIds: filters.projectIds.filter((value) => value !== id) })} />)}
         {filters.platforms.map((platform) => <FilterChip key={platform} label="Platform" value={capitalize(platform)} onRemove={() => setFilters({ ...filters, platforms: filters.platforms.filter((value) => value !== platform) })} />)}
@@ -165,8 +165,8 @@ export function CalendarScreen({
         <small>{visible.length} publications · {rangeNote(days)}</small>
       </div>
 
-      {!data?.postiz.available && data && <div className="calendar-readonly"><CircleAlert />Postiz is unavailable. Your local calendar and drafts are still available.<button type="button" onClick={() => setRefresh((value) => value + 1)}>Try again</button></div>}
-      <div className="calendar-content">
+      {!data?.postiz.available && data && <div className="calendar-readonly m-0 flex min-h-10 items-center gap-2 rounded-control border-0 bg-surface-sunken px-3 py-2 text-[12px] text-muted"><CircleAlert className="shrink-0" />Postiz is unavailable. Your local calendar and drafts are still available.<button type="button" onClick={() => setRefresh((value) => value + 1)}>Try again</button></div>}
+      <div className="calendar-content m-0 min-h-0 w-full max-w-none flex-1 overflow-visible rounded-panel border-0 bg-surface p-2 shadow-none">
         {error ? <CalendarError error={error} onRetry={() => setRefresh((value) => value + 1)} />
           : loading && !data ? <CalendarLoading />
             : view === "month" ? <MonthView days={days} events={visible} timezone={timezone} selectedEventId={selectedEventId} onOpen={openEvent} onDropUnit={(unitId, date) => openSchedule(data?.readyUnits.find((unit) => unit.unitId === unitId) ?? null, date)} />
@@ -230,11 +230,11 @@ function FilterChip({ label, value, onRemove }: { label: string; value: string; 
 
 function MonthView({ days, events, timezone, selectedEventId, onOpen, onDropUnit }: { days: ReturnType<typeof monthDays>; events: CalendarEventDto[]; timezone: string; selectedEventId: string | null; onOpen(event: CalendarEventDto): void; onDropUnit(unitId: string, date: string): void }) {
   const today = localDateKey(new Date());
-  return <div className="calendar-month">
-    <div className="calendar-weekdays">{DOW.map((day) => <span key={day}>{day}</span>)}</div>
-    <div className="calendar-month-grid">{days.map((day) => {
+  return <div className="calendar-month min-h-0 w-full overflow-hidden rounded-[14px] bg-surface">
+    <div className="calendar-weekdays grid grid-cols-7 gap-px bg-divider text-center text-[10px] uppercase tracking-[0.12em] text-muted">{DOW.map((day) => <span className="bg-surface-sunken py-2" key={day}>{day}</span>)}</div>
+    <div className="calendar-month-grid grid grid-cols-7 gap-px bg-divider">{days.map((day) => {
       const items = events.filter((event) => event.at !== null && calendarDayKey(event.at, timezone) === day.key);
-      return <div className={`calendar-month-cell${day.inMonth ? "" : " is-outside"}${day.key === today ? " is-today" : ""}`} key={day.key} tabIndex={0} onDragOver={(event) => { if (event.dataTransfer.types.includes(CALENDAR_UNIT_DRAG)) event.preventDefault(); }} onDrop={(event) => { const unitId = event.dataTransfer.getData(CALENDAR_UNIT_DRAG); if (unitId) onDropUnit(unitId, day.key); }}>
+      return <div className={`calendar-month-cell min-h-24 min-w-0 overflow-hidden border-0 bg-surface-sunken p-1.5 text-[11px] text-ink${day.inMonth ? "" : " is-outside opacity-45"}${day.key === today ? " is-today ring-1 ring-inset ring-alert" : ""}`} key={day.key} tabIndex={0} onDragOver={(event) => { if (event.dataTransfer.types.includes(CALENDAR_UNIT_DRAG)) event.preventDefault(); }} onDrop={(event) => { const unitId = event.dataTransfer.getData(CALENDAR_UNIT_DRAG); if (unitId) onDropUnit(unitId, day.key); }}>
         <header><span>{day.date.getDate()}</span>{items.length > 3 && <small>+{items.length - 3}</small>}</header>
         {items.slice(0, 3).map((event, index) => <CalendarEventButton key={event.id} event={event} timezone={timezone} lead={index === 0} selected={event.id === selectedEventId} onClick={() => onOpen(event)} />)}
       </div>;
@@ -246,7 +246,7 @@ function WeekView({ days, events, timezone, selectedEventId, onOpen }: { days: R
   const hours = Array.from({ length: 24 }, (_, hour) => hour);
   const noTime = events.filter((event) => event.at === null);
   const today = localDateKey(new Date());
-  return <div className="calendar-week">
+  return <div className="calendar-week min-h-0 w-full overflow-hidden rounded-[14px] bg-surface-sunken text-[12px] text-ink">
     <div className="calendar-week-head"><span />{days.map((day, index) => <span key={day.key}><small>{DOW[index]}</small><b className={day.key === today ? "is-today" : ""}>{day.date.getDate()}</b></span>)}</div>
     <div className="calendar-no-time"><label>NO TIME</label><div>{days.map((day) => <span key={day.key}>{noTime.filter((event) => event.draftAt !== null && calendarDayKey(event.draftAt, timezone) === day.key).map((event) => <button type="button" className="calendar-no-time-event" key={event.id} onClick={() => onOpen(event)}><i className={`calendar-event-dot is-${event.status}`} /><b>{event.title}</b><span>{event.channels.slice(0, 3).map((channel) => { const Icon = platformIcon(channel.platform); return <Icon key={`${channel.id}:${channel.platform}`} />; })}</span></button>)}</span>)}</div></div>
     <div className="calendar-week-scroll"><aside>{hours.map((hour) => <span key={hour}>{String(hour).padStart(2, "0")}:00</span>)}</aside><div className="calendar-week-columns">{days.map((day) => <div key={day.key}>{hours.map((hour, index) => <span className={`calendar-hour-line is-${index % 2 === 0 ? "even" : "odd"}`} key={hour} />)}{events.filter((event) => event.at !== null && calendarDayKey(event.at, timezone) === day.key).map((event) => <button type="button" className={`calendar-week-event is-${event.status}${event.id === selectedEventId ? " is-selected" : ""}`} style={{ top: `${weekEventTop(event, timezone)}px` }} key={event.id} onClick={() => onOpen(event)}><CalendarThumb event={event} /><span className="calendar-week-event-copy"><b>{event.title}</b><span className="calendar-week-event-meta"><i className={`calendar-event-dot is-${event.status}`} /><small>{formatCalendarTime(event.at, timezone)}</small><span className="calendar-week-platforms">{event.channels.slice(0, 3).map((channel) => { const Icon = platformIcon(channel.platform); return <Icon key={`${channel.id}:${channel.platform}`} />; })}</span>{eventStatusSummary(event) === "attention" && <AlertTriangle />}</span></span></button>)}{day.key === today && <span className="calendar-now-line" style={{ top: `${currentWeekTop(timezone)}px` }}><i /></span>}</div>)}</div></div>
@@ -256,14 +256,14 @@ function WeekView({ days, events, timezone, selectedEventId, onOpen }: { days: R
 function AgendaView({ events, timezone, selectedEventId, tab, onTab, onOpen, onRetry, onReconnect }: { events: CalendarEventDto[]; timezone: string; selectedEventId: string | null; tab: "all" | "attention" | "drafts"; onTab(tab: "all" | "attention" | "drafts"): void; onOpen(event: CalendarEventDto): void; onRetry(event: CalendarEventDto): void; onReconnect(accountId: string | null): void }) {
   const filtered = events.filter((event) => tab === "all" || eventStatusSummary(event) === (tab === "drafts" ? "draft" : "attention"));
   const counts = { all: events.length, attention: events.filter((event) => eventStatusSummary(event) === "attention").length, drafts: events.filter((event) => event.status === "draft").length };
-  return <div className="calendar-agenda">
+  return <div className="calendar-agenda min-h-0 w-full rounded-[14px] bg-surface-sunken p-2 text-[13px] text-ink">
     <div className="calendar-agenda-head"><div className="calendar-agenda-tabs">{(["all", "attention", "drafts"] as const).map((item) => <button type="button" key={item} className={tab === item ? "is-active" : ""} onClick={() => onTab(item)}>{item === "attention" ? "Needs attention" : capitalize(item)} <small>{counts[item]}</small></button>)}</div><small>{filtered.length} of {events.length} publications</small></div>
     {filtered.length === 0 ? <div className="calendar-good-empty"><CheckCheck /><strong>Nothing needs attention</strong><span>Your scheduled content is in good shape.</span><button type="button" onClick={() => onTab("all")}>Show all</button></div> : <div className="calendar-agenda-list">{groupAgenda(filtered, timezone).map((group) => { const date = agendaDateParts(group.key); return <section key={group.key}><header><b className={date.today ? "is-today" : ""}>{date.day}</b><span>{date.label}</span><i className="calendar-agenda-day-line" /><small>{group.events.length} {group.events.length === 1 ? "publication" : "publications"}</small></header>{group.events.map((event) => { const bad = event.channels.find((channel) => channel.status === "failed" || channel.status === "disconnected"); return <div className={`calendar-agenda-row${event.id === selectedEventId ? " is-selected" : ""}`} key={event.id}><button type="button" className="calendar-agenda-event" onClick={() => onOpen(event)}><b className="calendar-agenda-time">{event.at === null ? "—" : formatCalendarTime(event.at, timezone)}</b><CalendarThumb event={event} /><span className="calendar-agenda-copy"><strong><i className={`calendar-event-dot is-${event.status}`} />{event.title}</strong><small>{event.project} · R{event.pinnedRevision} · {event.kind}</small></span><span className="calendar-agenda-channels">{event.channels.map((channel) => { const Icon = platformIcon(channel.platform); return <span className={`calendar-agenda-channel is-${channel.status}`} key={`${channel.id}:${channel.platform}`}><b>{channel.account} · {agendaChannelNote(channel, event.at, timezone)}</b><Icon /></span>; })}</span></button>{bad && <button type="button" className="calendar-agenda-action" onClick={() => bad.status === "failed" ? onRetry(event) : onReconnect(bad.accountId)}>{bad.status === "disconnected" ? "Reconnect" : "Retry"}</button>}</div>; })}</section>; })}</div>}
   </div>;
 }
 
 function CalendarEventButton({ event, timezone, lead = false, selected = false, onClick }: { event: CalendarEventDto; timezone: string; lead?: boolean; selected?: boolean; onClick(): void }) {
-  return <button type="button" className={`calendar-event${lead ? " is-lead" : ""}${selected ? " is-selected" : ""} is-${event.status}`} onClick={onClick}>{lead && <CalendarThumb event={event} />}<span><b>{event.title}</b><small><i />{formatCalendarTime(event.at, timezone)} · {event.channels.length} {event.channels.length === 1 ? "publication" : "publications"}</small></span>{eventStatusSummary(event) === "attention" && <AlertTriangle />}</button>;
+  return <button type="button" className={`calendar-event mt-1 flex w-full min-w-0 items-center gap-1 overflow-hidden rounded-[7px] border-0 bg-surface px-1.5 py-1 text-left text-[11px] leading-4 text-ink${lead ? " is-lead" : ""}${selected ? " is-selected ring-1 ring-alert" : ""} is-${event.status}`} onClick={onClick}>{lead && <CalendarThumb event={event} />}<span className="min-w-0"><b className="block truncate font-medium">{event.title}</b><small className="block truncate text-[9px] text-muted"><i />{formatCalendarTime(event.at, timezone)} · {event.channels.length} {event.channels.length === 1 ? "publication" : "publications"}</small></span>{eventStatusSummary(event) === "attention" && <AlertTriangle />}</button>;
 }
 
 function CalendarThumb({ event, className = "" }: { event: { id?: string; unitId?: string; projectId?: string | null; title: string; thumbnail?: { type: "artifact-revision"; id: string } | null }; className?: string }) {

@@ -157,7 +157,7 @@ function ActiveProjects({ value, onOpenProject, onOpenPage, onRetry }: {
 }) {
   const available = value.status === "ready" || value.status === "partial";
   const projects = available ? value.value.slice(0, 4) : [];
-  return <section className="workspace-overview-section workspace-active-projects" aria-labelledby="workspace-active-projects-heading">
+  return <section className="workspace-overview-section workspace-active-projects col-span-12 m-0 min-w-0 max-w-none rounded-panel border-0 bg-surface p-4 shadow-none xl:col-span-6" aria-labelledby="workspace-active-projects-heading">
     <div className="workspace-section-heading">
       <h2 id="workspace-active-projects-heading">Active projects</h2>
       {available && <button id="workspace-view-all-projects" type="button" onClick={() => onOpenPage("projects", "workspace-view-all-projects")}>View all projects</button>}
@@ -173,7 +173,7 @@ function ActiveProjects({ value, onOpenProject, onOpenPage, onRetry }: {
 
 function RecentChanges({ value }: { value: OperationsValue["recentChanges"] }) {
   const available = value.status === "ready" || value.status === "partial";
-  return <section className="workspace-overview-section workspace-recent-changes" aria-labelledby="workspace-recent-changes-heading">
+  return <section className="workspace-overview-section workspace-recent-changes col-span-12 m-0 min-w-0 max-w-none rounded-panel border-0 bg-surface p-4 shadow-none xl:col-span-6" aria-labelledby="workspace-recent-changes-heading">
     <div className="workspace-section-heading"><h2 id="workspace-recent-changes-heading">Recent changes</h2><span>Meaningful activity</span></div>
     <div className="workspace-unavailable">
       <strong>{available && value.value.length === 0 ? "No recent changes" : "Human-readable changes unavailable"}</strong>
@@ -192,7 +192,7 @@ function WorkspaceOnboarding({ onOpenPage }: { onOpenPage(page: WorkspacePage, r
     { title: "Add reusable brand assets", detail: "Keep approved references and reusable media in the Shared library.", label: "Open Shared library", page: "shared" },
     { title: "Plan publishing", detail: "Use Calendar when the first Unit is ready for a publishing date.", label: "Open Calendar", page: "calendar" },
   ];
-  return <section className="workspace-overview-section workspace-onboarding" aria-labelledby="workspace-onboarding-heading">
+  return <section className="workspace-overview-section workspace-onboarding col-span-12 m-0 min-w-0 max-w-none rounded-panel border-0 bg-surface p-4 shadow-none" aria-labelledby="workspace-onboarding-heading">
     <div className="workspace-section-heading"><h2 id="workspace-onboarding-heading">Start producing in this workspace</h2><span>Getting started</span></div>
     <ol>
       {steps.map((step) => <li key={step.page}>
@@ -211,10 +211,10 @@ export function WorkspaceOperations({ value, onOpenProject, onOpenPage, onRetry,
   const attentionCompleteEmpty = value.attention.status === "ready" && value.attention.value.items.length === 0;
   if (onboarding && attentionCompleteEmpty) return <WorkspaceOnboarding onOpenPage={onOpenPage} />;
   return <>
-    {value.onboarding.status !== "ready" && <div className="workspace-overview-section">
+    {value.onboarding.status !== "ready" && <div className="workspace-overview-section col-span-12 m-0 min-w-0 max-w-none rounded-panel border-0 bg-surface p-4 shadow-none">
       <RetryBanner title="Workspace setup state unavailable" reason={value.onboarding.reason} label="Retry workspace state" onRetry={onRetry} />
     </div>}
-    <section className="workspace-overview-section workspace-operations-grid" aria-label="Workspace operations">
+    <section className="workspace-overview-section workspace-operations-grid col-span-12 m-0 grid min-w-0 max-w-none grid-cols-1 gap-2 rounded-panel border-0 bg-surface p-4 shadow-none xl:grid-cols-2" aria-label="Workspace operations">
       <AttentionQueue value={value.attention} onOpenPage={onOpenPage} onRetry={onRetry} expanded={attentionExpanded} onExpandedChange={onAttentionExpandedChange} />
       <ProductionState value={value.pulse} />
     </section>

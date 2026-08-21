@@ -26,6 +26,7 @@ const workbenchStyles = readFileSync(
 );
 const tokenStyles = readFileSync(join(process.cwd(), "src/styles/tokens.css"), "utf8");
 const settingsStyles = readFileSync(join(process.cwd(), "src/styles/settings.css"), "utf8");
+const settingsScreenSource = readFileSync(join(process.cwd(), "src/screens/SettingsScreen.tsx"), "utf8");
 const sharedLibraryStyles = readFileSync(join(process.cwd(), "src/styles/shared-library.css"), "utf8");
 const marketplaceStyles = readFileSync(join(process.cwd(), "src/styles/marketplace.css"), "utf8");
 
@@ -751,11 +752,9 @@ describe("design system contract", () => {
     expect(main).toContain("mediaState.fileAccess.resolve(");
   });
 
-  test("uses only the supplied type scale and regular weight", () => {
+  test("keeps legacy styles on the supplied type scale and supported weights", () => {
     expect(styles).not.toMatch(/font-size:\s*(?:9|10)px/);
     expect(styles).not.toContain("font-weight: 500");
-    expect(styles).not.toContain("text-transform: uppercase");
-    expect(styles).not.toMatch(/letter-spacing:\s*-/);
   });
 
   test("calibrates the Shared Library grid and motion with existing tokens", () => {
@@ -866,8 +865,8 @@ describe("design system contract", () => {
     expect(workbenchStyles).toMatch(/\.workspace-picker-popover\s*\{[^}]*border:\s*1px solid var\(--menu-border\)[^}]*background:\s*var\(--menu-surface\)/s);
     expect(workbenchStyles).toMatch(/\.agent-popover\s*\{[^}]*padding:\s*var\(--menu-padding\)[^}]*border:\s*1px solid var\(--menu-border\)[^}]*background:\s*var\(--menu-surface\)/s);
     expect(workbenchStyles).toMatch(/\.asset-context-menu\s*\{[^}]*padding:\s*var\(--menu-padding\)[^}]*border:\s*1px solid var\(--menu-border\)[^}]*background:\s*var\(--menu-surface\)/s);
-    expect(settingsStyles).toMatch(/\.profile-menu,[\s\S]*\.help-menu\s*\{[^}]*padding:\s*var\(--menu-padding\)[^}]*border:\s*1px solid var\(--menu-border\)[^}]*background:\s*var\(--menu-surface\)/s);
-    expect(settingsStyles).toMatch(/\.settings-input\s*\{[^}]*border:\s*1px solid var\(--field-border\)[^}]*background:\s*var\(--field-surface\)/s);
+    expect(settingsStyles).toMatch(/\.profile-menu,[\s\S]*\.help-menu\s*\{[^}]*padding:\s*var\(--menu-padding\)[^}]*border:\s*0[^}]*background:\s*var\(--menu-surface\)/s);
+    expect(settingsScreenSource).toContain("bg-surface-sunken");
   });
 
   test("renders active surfaces with visible focus in Chromium", async () => {

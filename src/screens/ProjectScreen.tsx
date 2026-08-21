@@ -39,9 +39,9 @@ export function ProjectScreenView({ project, workspaceName = null, rootEpoch = 0
     }
     void controller.selectTab(tab);
   };
-  return <main className="main-region project-region">
+  return <main className="main-region project-region flex min-h-0 flex-1 flex-col gap-2 overflow-hidden bg-transparent p-2 pb-6 text-[13px] text-ink">
     <ProjectControls activeTab={activeTab} onSelect={selectTab} />
-    <div className={`project-domain-body${activeTab === "media" ? " is-media" : activeTab === "documents" ? " is-documents" : activeTab === "units" ? " is-units" : activeTab === "activity" ? " is-activity" : ""}`} role="tabpanel" id={`project-panel-${activeTab}`} aria-labelledby={`project-tab-${activeTab}`}>
+    <div className={`project-domain-body m-0 min-h-0 w-full max-w-none flex-1 overflow-hidden rounded-panel border-0 bg-surface p-2 shadow-none${activeTab === "media" ? " is-media" : activeTab === "documents" ? " is-documents" : activeTab === "units" ? " is-units" : activeTab === "activity" ? " is-activity" : ""}`} role="tabpanel" id={`project-panel-${activeTab}`} aria-labelledby={`project-tab-${activeTab}`}>
       {activeTab === "documents" && page && (page.status === "loading" && page.items.length === 0 ? <InstrumentScreenRoot descriptor={documentsInstrumentStates} state="loading"><div className="project-skeleton" role="status">Loading documents…</div></InstrumentScreenRoot> : page.status === "error" && page.items.length === 0 ? <InstrumentScreenRoot descriptor={documentsInstrumentStates} state="error"><ProjectError error={page.error} onRetry={retry} /></InstrumentScreenRoot> : <DocumentsPanel page={page} controller={controller} snapshot={snapshot} scrollMemory={documentsScrollMemory} resetToken={projectScrollToken} />)}
       {activeTab === "media" && page && <MediaPanel page={page} controller={controller} snapshot={snapshot} project={project} workspaceName={workspaceName} rootEpoch={rootEpoch} scrollMemory={scrollMemory} scrollResetToken={mediaScrollToken} />}
       {activeTab === "units" && page && <PageState descriptor={unitsInstrumentStates} page={page} empty="No units yet." onRetry={retry}><UnitsPanel page={page} controller={controller} snapshot={snapshot} targetUnitId={targetUnitId} scrollMemory={unitsScrollMemory} resetToken={projectScrollToken} /></PageState>}
@@ -114,5 +114,5 @@ export function ProjectScreen({
   }, [controller, targetUnitId]);
   return controller
     ? <ConnectedProjectScreen project={project} workspaceName={workspaceName} rootEpoch={rootEpoch} controller={controller} targetUnitId={targetUnitId} />
-    : <InstrumentScreenRoot descriptor={unitsInstrumentStates} state="loading"><main className="main-region project-region"><div className="project-skeleton" role="status">Loading project overview…</div></main></InstrumentScreenRoot>;
+    : <InstrumentScreenRoot descriptor={unitsInstrumentStates} state="loading"><main className="main-region project-region flex min-h-0 flex-1 flex-col gap-2 overflow-hidden bg-transparent p-2 pb-6 text-[13px] text-ink"><div className="project-skeleton" role="status">Loading project overview…</div></main></InstrumentScreenRoot>;
 }

@@ -74,7 +74,7 @@ function ProjectPreview({ project, rootEpoch }: { project: ProjectSummary; rootE
   }, [project.projectId, project.workspaceId, rootEpoch]);
 
   return (
-    <div className="workspace-project-preview" style={projectGlyphVars(project.name)} aria-hidden="true">
+    <div className="workspace-project-preview relative aspect-[16/9] w-full overflow-hidden rounded-[14px] bg-surface-sunken" style={projectGlyphVars(project.name)} aria-hidden="true">
       {media.length > 0 ? (
         <div className="workspace-project-preview-collage" data-count={media.length}>
           {media.map((card) => (
@@ -116,15 +116,15 @@ function PinButton({ project, active, onToggle }: { project: ProjectSummary; act
 
 function ProjectCard({ project, rootEpoch, pinned, onOpen, onTogglePin }: { project: ProjectSummary; rootEpoch: number; pinned: boolean; onOpen(): void; onTogglePin(): void }) {
   return (
-    <article className="workspace-project-card-shell">
-      <button className="workspace-project-card" type="button" aria-label={`Open project ${project.name}`} onClick={onOpen}>
+    <article className="workspace-project-card-shell group relative min-w-0 overflow-hidden rounded-panel bg-instrument text-on-instrument shadow-none">
+      <button className="workspace-project-card flex w-full min-w-0 flex-col gap-3 border-0 bg-transparent p-2 text-left text-on-instrument" type="button" aria-label={`Open project ${project.name}`} onClick={onOpen}>
         <ProjectPreview project={project} rootEpoch={rootEpoch} />
-        <span className="workspace-project-card-details">
-          <span className="workspace-project-card-copy">
-            <strong>{project.name}</strong>
-            <small>{project.brief || "No brief available"}</small>
+        <span className="workspace-project-card-details flex w-full min-w-0 flex-row items-end justify-between gap-4 px-1 pb-1">
+          <span className="workspace-project-card-copy min-w-0">
+            <strong className="block truncate text-[15px] font-semibold leading-5 text-on-instrument">{project.name}</strong>
+            <small className="mt-0.5 block truncate text-[12px] leading-4 text-on-instrument-muted">{project.brief || "No brief available"}</small>
           </span>
-          <span className="workspace-project-card-status">
+          <span className="workspace-project-card-status shrink-0 text-right text-[11px] leading-4 text-on-instrument-muted">
             <span className="workspace-project-phase" data-status={project.status}><i className="status-dot" />{project.status}</span>
             <span>{project.finalCount} final{project.finalCount === 1 ? "" : "s"} · {relativeActivity(project.recentActivity)}</span>
           </span>
@@ -168,34 +168,34 @@ export function WorkspaceProjectsScreen({
 
   return (
     <InstrumentScreenRoot descriptor={workspaceProjectsInstrumentStates} state={projects.length === 0 ? "empty" : "ready"}>
-    <main className="main-region workspace-projects-region">
-      <div className="screen-header workspace-header">
+    <main className="main-region workspace-projects-region flex min-h-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 text-[13px] text-ink">
+      <div className="screen-header workspace-header m-0 flex min-h-0 w-full max-w-none flex-wrap items-center justify-between gap-4 rounded-panel border-0 bg-instrument px-5 py-4 text-on-instrument shadow-none">
         <div>
-          <div className="screen-kicker">{workspaceName}</div>
-          <h2>Projects</h2>
-          <p>{workspaceDescription || "Projects in this workspace"}</p>
+          <div className="screen-kicker text-[11px] uppercase tracking-[0.14em] text-on-instrument-muted">{workspaceName}</div>
+          <h2 className="mt-1 text-[28px] font-semibold leading-none tracking-[-0.03em] text-on-instrument">Projects</h2>
+          <p className="mt-1 text-[13px] text-on-instrument-muted">{workspaceDescription || "Projects in this workspace"}</p>
         </div>
-        <div className="workspace-header-actions">
-          <label className="workspace-search">
+        <div className="workspace-header-actions min-w-[240px] flex-1 sm:max-w-[340px]">
+          <label className="workspace-search flex h-9 w-full items-center gap-2 rounded-control bg-instrument-raised px-3 text-on-instrument-muted">
             <Search size={14} aria-hidden="true" />
-            <input ref={searchRef} type="search" value={query} placeholder="Filter projects" aria-label="Filter projects" onChange={(event) => setQuery(event.target.value)} />
-            <kbd>⌘F</kbd>
+            <input className="min-w-0 flex-1 border-0 bg-transparent text-[13px] text-on-instrument outline-none placeholder:text-on-instrument-muted" ref={searchRef} type="search" value={query} placeholder="Filter projects" aria-label="Filter projects" onChange={(event) => setQuery(event.target.value)} />
+            <kbd className="text-[10px] text-on-instrument-muted">⌘F</kbd>
           </label>
         </div>
       </div>
 
-      <section className="metrics-band" aria-label="Workspace project summary">
-        <div className="metric"><span className="metric-icon"><FolderOpen size={15} aria-hidden="true" /></span><span className="metric-value">{projects.length}</span><span className="metric-label">Projects</span></div>
-        <div className="metric"><span className="metric-value">{finals}</span><span className="metric-label">Final renders</span></div>
-        <div className="metric"><span className="metric-value">{spendCount === 0 ? "—" : `$${spend.toFixed(2)}`}</span><span className="metric-label">Indexed spend</span></div>
+      <section className="metrics-band m-0 grid w-full max-w-none grid-cols-1 gap-px overflow-hidden rounded-panel border-0 bg-divider p-0 shadow-none sm:grid-cols-3" aria-label="Workspace project summary">
+        <div className="metric flex min-h-16 items-center gap-3 bg-surface px-4 py-3"><span className="metric-icon text-muted"><FolderOpen size={15} aria-hidden="true" /></span><span className="metric-value text-[22px] font-semibold leading-none text-ink">{projects.length}</span><span className="metric-label text-[12px] text-muted">Projects</span></div>
+        <div className="metric flex min-h-16 items-center gap-3 bg-surface px-4 py-3"><span className="metric-value text-[22px] font-semibold leading-none text-ink">{finals}</span><span className="metric-label text-[12px] text-muted">Final renders</span></div>
+        <div className="metric flex min-h-16 items-center gap-3 bg-surface px-4 py-3"><span className="metric-value text-[22px] font-semibold leading-none text-ink">{spendCount === 0 ? "—" : `$${spend.toFixed(2)}`}</span><span className="metric-label text-[12px] text-muted">Indexed spend</span></div>
       </section>
 
-      <section className="content-section workspace-projects" aria-label="Projects">
-        <div className="section-heading"><h3>All projects</h3><span>{ordered.length}{query ? " matching" : " total"}</span></div>
+      <section className="content-section workspace-projects m-0 w-full max-w-none rounded-panel border-0 bg-surface p-4 shadow-none" aria-label="Projects">
+        <div className="section-heading mb-3 flex items-center justify-between"><h3 className="text-[15px] font-semibold text-ink">All projects</h3><span className="text-[12px] text-muted">{ordered.length}{query ? " matching" : " total"}</span></div>
         {ordered.length === 0 ? (
           <div className="empty-section">{query ? "No projects match this filter." : "No projects in this workspace."}</div>
         ) : (
-          <div className="workspace-project-grid">
+          <div className="workspace-project-grid grid grid-cols-1 gap-2 lg:grid-cols-2 2xl:grid-cols-3">
             {ordered.map((project) => <ProjectCard key={project.id} project={project} rootEpoch={rootEpoch} pinned={pinnedProjectIds.includes(project.id)} onOpen={() => onOpenProject(project)} onTogglePin={() => onToggleProjectPin(project.id)} />)}
           </div>
         )}
@@ -209,9 +209,9 @@ export function WorkspacePagePlaceholder({ workspaceName, page }: { workspaceNam
   if (page !== "units") throw new Error(`WorkspacePagePlaceholder cannot render workspace.${page}`);
   return (
     <InstrumentScreenRoot descriptor={workspaceUnitsInstrumentStates} state="unavailable">
-    <main className="main-region">
-      <div className="screen-header"><div><div className="screen-kicker">{workspaceName}</div><h2>{WORKSPACE_PAGE_LABELS[page]}</h2><p>Workspace tools are ready to be connected to the Core contract.</p></div></div>
-      <section className="content-section"><div className="empty-section">{WORKSPACE_PAGE_LABELS[page]} is not wired yet.</div></section>
+    <main className="main-region flex min-h-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 text-[13px] text-ink">
+      <div className="screen-header m-0 w-full max-w-none rounded-panel border-0 bg-instrument px-5 py-4 text-on-instrument shadow-none"><div><div className="screen-kicker text-[11px] uppercase tracking-[0.14em] text-on-instrument-muted">{workspaceName}</div><h2 className="mt-1 text-[28px] font-semibold leading-none tracking-[-0.03em] text-on-instrument">{WORKSPACE_PAGE_LABELS[page]}</h2><p className="mt-1 text-[13px] text-on-instrument-muted">Workspace tools are ready to be connected to the Core contract.</p></div></div>
+      <section className="content-section m-0 grid min-h-48 w-full max-w-none place-items-center rounded-panel border-0 bg-surface p-6 shadow-none"><div className="empty-section max-w-lg text-center text-[14px] text-muted">{WORKSPACE_PAGE_LABELS[page]} is not wired yet.</div></section>
     </main>
     </InstrumentScreenRoot>
   );
