@@ -16,6 +16,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { ProfileAvatar, profileIdentity } from "../components/ProfileAvatar";
 import { RalphyMascot } from "../components/RalphyMascot";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
+import type { ThemePreference } from "../instrument/types";
 
 const categories = [
   { id: "general", label: "General", icon: Settings },
@@ -98,13 +99,15 @@ function Segmented({
   value,
   values,
   onChange,
+  ariaLabel,
 }: {
   value: string;
-  values: string[];
+  values: readonly string[];
   onChange(value: string): void;
+  ariaLabel?: string;
 }) {
   return (
-    <div className="settings-segmented" role="group">
+    <div className="settings-segmented" role="group" aria-label={ariaLabel}>
       {values.map((item) => (
         <button
           className={value === item ? "is-selected" : ""}
@@ -183,15 +186,25 @@ function ProfileSettings({ rootPath }: { rootPath: string | null }) {
   );
 }
 
-function AppearanceSettings() {
-  const [theme, setTheme] = useState("Dark");
+function AppearanceSettings({
+  theme,
+  onThemeChange,
+}: {
+  theme: ThemePreference;
+  onThemeChange(value: ThemePreference): void;
+}) {
   const [density, setDensity] = useState("Comfortable");
   const [motionEnabled, setMotionEnabled] = useState(true);
   return (
     <>
       <SettingGroup title="Interface">
         <SettingRow title="Theme" description="Neutral surfaces optimized for media.">
-          <Segmented value={theme} values={["Dark", "System"]} onChange={setTheme} />
+          <Segmented
+            ariaLabel="Theme"
+            value={`${theme[0].toUpperCase()}${theme.slice(1)}`}
+            values={["System", "Dark", "Light"]}
+            onChange={(value) => onThemeChange(value.toLowerCase() as ThemePreference)}
+          />
         </SettingRow>
         <SettingRow title="Density">
           <Segmented
@@ -324,9 +337,13 @@ function AboutSettings() {
 
 export function SettingsScreen({
   rootPath,
+  theme,
+  onThemeChange,
   onBack,
 }: {
   rootPath: string | null;
+  theme: ThemePreference;
+  onThemeChange(value: ThemePreference): void;
   onBack(): void;
 }) {
   const [active, setActive] = useState<SettingsCategory>("general");
@@ -342,7 +359,7 @@ export function SettingsScreen({
 
   let content = <GeneralSettings rootPath={rootPath} />;
   if (active === "profile") content = <ProfileSettings rootPath={rootPath} />;
-  if (active === "appearance") content = <AppearanceSettings />;
+  if (active === "appearance") content = <AppearanceSettings theme={theme} onThemeChange={onThemeChange} />;
   if (active === "providers") content = <ProviderSettings />;
   if (active === "terminal") content = <TerminalSettings />;
   if (active === "about") content = <AboutSettings />;

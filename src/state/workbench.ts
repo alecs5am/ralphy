@@ -4,6 +4,8 @@ import type {
   ProjectSummary,
   WorkspaceSummary,
 } from "../../electron/media/types";
+import { parseThemePreference } from "../instrument/theme";
+import type { ThemePreference } from "../instrument/types";
 
 export type WorkbenchRoute =
   | { kind: "library" }
@@ -44,6 +46,7 @@ export const WORKSPACE_PAGE_LABELS: Record<WorkspacePage, string> = {
 };
 
 export interface WorkbenchPreferences {
+  theme: ThemePreference;
   rootPath: string | null;
   workspaceId: string | null;
   projectId: string | null;
@@ -311,6 +314,7 @@ function panelSize(
 
 export function readWorkbenchPreferences(storage: StorageLike): WorkbenchPreferences {
   const empty: WorkbenchPreferences = {
+    theme: "system",
     rootPath: null,
     workspaceId: null,
     projectId: null,
@@ -330,6 +334,7 @@ export function readWorkbenchPreferences(storage: StorageLike): WorkbenchPrefere
     if (!value || typeof value !== "object") return empty;
     const record = value as Record<string, unknown>;
     return {
+      theme: parseThemePreference(record.theme),
       rootPath: typeof record.rootPath === "string" ? record.rootPath : null,
       workspaceId: typeof record.workspaceId === "string" ? record.workspaceId : null,
       projectId: typeof record.projectId === "string" ? record.projectId : null,

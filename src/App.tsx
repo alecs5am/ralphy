@@ -32,6 +32,7 @@ import { CalendarScreen } from "./screens/CalendarScreen";
 import { SharedLibraryScreen } from "./screens/SharedLibraryScreen";
 import { MarketplaceScreen } from "./screens/MarketplaceScreen";
 import { InstrumentScreenRoot } from "./instrument/screen-state-registry";
+import { useTheme } from "./instrument/ThemeProvider";
 import { unitsInstrumentStates } from "./screens/project/unit-instrument-state";
 import {
   MARKETPLACE_SIDEBAR_WIDTH,
@@ -136,6 +137,7 @@ export function applyActivityRefresh(
 
 export function App() {
   const initialPreferences = useRef(readWorkbenchPreferences(localStorage));
+  const { preference: theme, setPreference: setTheme } = useTheme();
   const [state, dispatch] = useReducer(
     workbenchReducer,
     initialPreferences.current,
@@ -353,6 +355,7 @@ export function App() {
     const projectId = state.route.kind === "project" ? state.route.projectId : null;
     const timer = window.setTimeout(() => {
       writeWorkbenchPreferences(localStorage, {
+        theme,
         rootPath: rootIdentity?.storeId ?? null,
         workspaceId,
         projectId,
@@ -380,6 +383,7 @@ export function App() {
     state.pinnedProjectIds,
     state.pinnedWorkspaceIds,
     state.route,
+    theme,
     workspacePage,
     workspaceView,
   ]);
@@ -830,6 +834,8 @@ export function App() {
               <Suspense fallback={null}>
                 <SettingsScreen
                   rootPath={rootIdentity?.storeId ?? null}
+                  theme={theme}
+                  onThemeChange={setTheme}
                   onBack={() => setSettingsVisible(false)}
                 />
               </Suspense>

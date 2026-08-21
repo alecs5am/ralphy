@@ -228,6 +228,7 @@ describe("workbench ordering and preferences", () => {
     });
 
     expect(preferences).toMatchObject({
+      theme: "system",
       sidebarVisible: true,
       rightPanelVisible: false,
       bottomPanelVisible: false,
@@ -236,6 +237,16 @@ describe("workbench ordering and preferences", () => {
       rightPanelWidth: 336,
       bottomPanelHeight: 220,
     });
+  });
+
+  test("falls back to the system theme for malformed or unsupported preferences", () => {
+    const read = (value: string) => readWorkbenchPreferences({
+      getItem: () => value,
+      setItem: () => undefined,
+    });
+
+    expect(read(JSON.stringify({ theme: "sepia" })).theme).toBe("system");
+    expect(read("not-json").theme).toBe("system");
   });
 
   test("clamps persisted panel sizes to usable bounds", () => {
@@ -279,6 +290,7 @@ describe("workbench ordering and preferences", () => {
       sidebarWidth: 320,
       rightPanelWidth: 400,
       bottomPanelHeight: 280,
+      theme: "light" as const,
     };
 
     writeWorkbenchPreferences(storage, preferences);

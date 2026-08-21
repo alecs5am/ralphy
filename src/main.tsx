@@ -1,6 +1,8 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { ThemeProvider } from "./instrument/ThemeProvider";
+import { readWorkbenchPreferences } from "./state/workbench";
 import "./styles/reset.css";
 import "./styles/tokens.css";
 import "./styles/instrument.css";
@@ -13,6 +15,8 @@ import "./styles/marketplace.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <ThemeProvider initialPreference={readWorkbenchPreferences(localStorage).theme}>
+      <App />
+    </ThemeProvider>
   </StrictMode>,
 );
