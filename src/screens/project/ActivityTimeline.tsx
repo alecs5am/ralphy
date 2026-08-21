@@ -7,6 +7,7 @@ import type { ActivityDto } from "../../../electron/ralphy/types";
 import { AiBrandIcon } from "../../components/AiBrandIcon";
 import { RalphyMascot } from "../../components/RalphyMascot";
 import { SelectMenu, type SelectMenuOption } from "../../components/ui/SelectMenu";
+import { defineInstrumentScreenStates, InstrumentScreenRoot, type InstrumentScenarioState } from "../../instrument/screen-state-registry";
 import type { DomainPage } from "../../state/project-domain";
 import type { ProjectScreenController } from "../../state/project-screen-controller";
 import { ActivityInspector } from "./ActivityInspector";
@@ -24,6 +25,21 @@ const sourceOptions: Array<SelectMenuOption<"all" | ActivitySource>> = [
   { value: "generation", label: "Generations" },
   { value: "production", label: "Production" },
 ];
+
+export const activityInstrumentStates = defineInstrumentScreenStates({
+  routeKey: "project.activity",
+  states: ["loading", "ready", "empty", "partial", "error", "selected"],
+  rootMarker: "project-activity",
+  landmarks: ["Project activity", "Activity events"],
+} as const);
+
+export function activityInstrumentState(page: DomainPage, selected: boolean): InstrumentScenarioState {
+  if (selected) return "selected";
+  if (page.status === "loading" && page.items.length === 0) return "loading";
+  if (page.status === "error" && page.items.length === 0) return "error";
+  if (page.items.length === 0) return "empty";
+  return page.status === "loading" || page.status === "error" ? "partial" : "ready";
+}
 
 function appearance(value: Pick<ActivityDto, "action" | "entityType">): { tone: ActivityTone; Icon: LucideIcon } {
   const kind = `${value.action} ${value.entityType}`.toLowerCase();
@@ -135,7 +151,7 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
   };
   const selectedEvent = items.find(({ sequence }) => sequence === selected) ?? null;
 
-  return <div className={`activity-log${selectedEvent ? " has-inspector" : ""}`}>
+  return <InstrumentScreenRoot descriptor={activityInstrumentStates} state={activityInstrumentState(page, selectedEvent !== null)}><div className={`activity-log${selectedEvent ? " has-inspector" : ""}`}>
     <div className="activity-log-main">
       <div className="activity-toolbar">
         <label className="activity-search"><Search size={14} /><input aria-label="Search activity" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search events" /></label>
@@ -175,5 +191,5 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
       </div>
     </div>
     {selectedEvent ? <ActivityInspector event={selectedEvent} detail={details[selectedEvent.entityId] ?? null} loading={loadingIds.has(selectedEvent.entityId)} error={errors[selectedEvent.entityId] ?? null} onRetry={() => { void loadDetail(selectedEvent); }} onClose={() => setSelected(null)} /> : null}
-  </div>;
+  </div></InstrumentScreenRoot>;
 }

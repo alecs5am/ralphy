@@ -10,6 +10,7 @@ import type {
   CalendarChannelInput, CalendarEventDto, CalendarEventStatus, CalendarReadyUnitDto, CalendarWorkspaceDto, JsonValue,
 } from "../../electron/ralphy/types";
 import { bridge } from "../lib/ipc";
+import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
 import type { WorkspaceCalendarNavigationContext } from "../state/workbench";
 import {
   calendarDayKey, calendarRange, eventStatusSummary, filterCalendarEvents, formatCalendarTime,
@@ -26,6 +27,13 @@ const EMPTY_FILTERS: CalendarFilters = { projectIds: [], platforms: [], statuses
 const CALENDAR_UNIT_DRAG = "application/x-ralphy-calendar-unit";
 const CalendarWorkspaceContext = createContext("");
 const timestampMs = (value: number) => value < 1_000_000_000_000 ? value * 1000 : value;
+
+export const calendarInstrumentStates = defineInstrumentScreenStates({
+  routeKey: "workspace.calendar",
+  states: ["loading", "ready", "empty", "partial", "error", "selected", "scheduling"],
+  rootMarker: "workspace-calendar",
+  landmarks: ["Calendar", "Calendar view", "Schedule content"],
+} as const);
 
 export function CalendarScreen({
   workspaceId, workspaceName, initialDate = new Date(), navigationContext, onOpenProject = () => undefined,
@@ -110,7 +118,21 @@ export function CalendarScreen({
     } catch (cause) { setNotice(cause instanceof Error ? cause.message : String(cause)); }
   }, [workspaceId]);
 
-  return <CalendarWorkspaceContext.Provider value={workspaceId}><main className="main-region calendar-region">
+  const instrumentState = modalOpen
+    ? "scheduling"
+    : rightPanel === "inspector" && selected
+      ? "selected"
+      : error
+        ? "error"
+        : loading && !data
+          ? "loading"
+          : data && !data.postiz.available
+            ? "partial"
+            : visible.length === 0
+              ? "empty"
+              : "ready";
+
+  return <CalendarWorkspaceContext.Provider value={workspaceId}><InstrumentScreenRoot descriptor={calendarInstrumentStates} state={instrumentState}><main className="main-region calendar-region">
     <section className="calendar-shell" aria-busy={loading} aria-label={`${workspaceName} calendar`}>
       <header className="calendar-toolbar">
         <h1>Calendar</h1>
@@ -181,7 +203,7 @@ export function CalendarScreen({
       } catch (cause) { setNotice(cause instanceof Error ? cause.message : String(cause)); }
       finally { setReconnecting(false); }
     }} />
-  </main></CalendarWorkspaceContext.Provider>;
+  </main></InstrumentScreenRoot></CalendarWorkspaceContext.Provider>;
 }
 
 function FilterPopover({ data, filters, onChange, onClose }: { data: CalendarWorkspaceDto | null; filters: CalendarFilters; onChange(value: CalendarFilters): void; onClose(): void }) {

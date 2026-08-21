@@ -6,6 +6,7 @@ import { VirtualAssetGrid } from "../../components/VirtualAssetGrid";
 import { SelectMenu, type SelectMenuOption } from "../../components/ui/SelectMenu";
 import { SnappySlider } from "../../components/ui/SnappySlider";
 import { bridge } from "../../lib/ipc";
+import { defineInstrumentScreenStates, InstrumentScreenRoot, type InstrumentScenarioState } from "../../instrument/screen-state-registry";
 import type { DomainPage } from "../../state/project-domain";
 import type { ProjectScreenController, ProjectScreenSnapshot } from "../../state/project-screen-controller";
 
@@ -25,6 +26,22 @@ const provenanceOptions: Array<SelectMenuOption<"all" | MediaProvenance>> = [
 const densityStops = [150, 170, 190, 210, 230, 250, 270, 290, 310];
 
 type ContextState = { card: MediaCardDto; x: number; y: number; opener: HTMLElement } | null;
+
+export const mediaInstrumentStates = defineInstrumentScreenStates({
+  routeKey: "project.media",
+  states: ["loading", "ready", "empty", "partial", "error", "selected", "viewer"],
+  rootMarker: "project-media",
+  landmarks: ["Project media", "Media filters"],
+} as const);
+
+export function mediaInstrumentState(page: DomainPage, snapshot: ProjectScreenSnapshot): InstrumentScenarioState {
+  if (snapshot.mediaViewerOpen) return "viewer";
+  if (snapshot.selectedMedia) return "selected";
+  if (page.status === "loading" && page.items.length === 0) return "loading";
+  if (page.status === "error" && page.items.length === 0) return "error";
+  if (page.items.length === 0) return "empty";
+  return page.status === "loading" || page.status === "error" ? "partial" : "ready";
+}
 
 export function MediaPanel({ page, controller, snapshot, rootEpoch, scrollMemory, scrollResetToken }: {
   page: DomainPage;
@@ -84,9 +101,9 @@ export function MediaPanel({ page, controller, snapshot, rootEpoch, scrollMemory
     catch (error) { setActionError(error instanceof Error ? error.message : "Media action could not be completed."); }
   };
 
-  if (page.status === "error" && page.items.length === 0) return <div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{page.error ?? "Media could not be loaded."}</span><button className="command-button" type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>;
+  if (page.status === "error" && page.items.length === 0) return <InstrumentScreenRoot descriptor={mediaInstrumentStates} state="error"><div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{page.error ?? "Media could not be loaded."}</span><button className="command-button" type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div></InstrumentScreenRoot>;
   const query = snapshot.domain.media;
-  return <section className="media-panel" aria-label="Project media">
+  return <InstrumentScreenRoot descriptor={mediaInstrumentStates} state={mediaInstrumentState(page, snapshot)}><section className="media-panel" aria-label="Project media">
     <div className="media-domain-toolbar" aria-label="Media filters">
       <SelectMenu value={query.filter} options={lifecycleOptions} ariaLabel="Lifecycle or source" prefix="Source" onValueChange={(filter) => { void controller.setMediaQuery({ filter }); }} />
       <SelectMenu value={query.mediaKind ?? "all"} options={kindOptions} ariaLabel="Media type" prefix="Type" onValueChange={(mediaKind) => { void controller.setMediaQuery({ mediaKind: mediaKind === "all" ? undefined : mediaKind }); }} />
@@ -108,5 +125,5 @@ export function MediaPanel({ page, controller, snapshot, rootEpoch, scrollMemory
       <button type="button" onClick={() => { void action("finder"); }}><FolderOpen size={15} aria-hidden="true" />Reveal in Finder</button>
       <button type="button" onClick={() => { void action("copy"); }}><Copy size={15} aria-hidden="true" />Copy file</button>
     </div>}
-  </section>;
+  </section></InstrumentScreenRoot>;
 }

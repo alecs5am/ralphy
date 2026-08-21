@@ -1,4 +1,12 @@
 import type { MigrationRecovery } from "../../electron/migration-recovery";
+import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
+
+export const migrationInstrumentStates = defineInstrumentScreenStates({
+  routeKey: "startup.migration",
+  states: ["unavailable"],
+  rootMarker: "startup-migration",
+  landmarks: ["Migration recovery required", "Copy recovery command"],
+} as const);
 
 export function MigrationRecoveryScreen({
   recovery,
@@ -8,6 +16,7 @@ export function MigrationRecoveryScreen({
   onCopyCommand(): void;
 }) {
   return (
+    <InstrumentScreenRoot descriptor={migrationInstrumentStates} state="unavailable">
     <main className="migration-recovery" aria-labelledby="migration-recovery-title">
       <section>
         <p>Library unavailable</p>
@@ -25,5 +34,6 @@ export function MigrationRecoveryScreen({
         </div>
       </section>
     </main>
+    </InstrumentScreenRoot>
   );
 }

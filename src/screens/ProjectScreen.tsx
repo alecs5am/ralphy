@@ -1,21 +1,22 @@
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { ProjectControls } from "../components/ProjectControls";
-import { ActivityTimeline } from "./project/ActivityTimeline";
-import { DocumentsPanel } from "./project/DocumentsPanel";
+import { InstrumentScreenRoot, type InstrumentScreenStateDescriptor } from "../instrument/screen-state-registry";
+import { ActivityTimeline, activityInstrumentStates } from "./project/ActivityTimeline";
+import { DocumentsPanel, documentsInstrumentStates } from "./project/DocumentsPanel";
 import { MediaPanel } from "./project/MediaPanel";
 import { MediaViewer } from "./project/MediaViewer";
-import { UnitsPanel } from "./project/UnitsPanel";
+import { UnitsPanel, unitsInstrumentStates } from "./project/UnitsPanel";
 import { bridge, type ProjectSummary } from "../lib/ipc";
 import type { DomainPage } from "../state/project-domain";
 import { createProjectScreenController, type ProjectScreenApi, type ProjectScreenController, type ProjectScreenSnapshot } from "../state/project-screen-controller";
 
 export { createProjectScreenController } from "../state/project-screen-controller";
 
-function PageState({ page, empty, onRetry, children }: { page: DomainPage; empty: string; onRetry(): void; children: React.ReactNode }) {
-  if (page.status === "loading" && page.items.length === 0) return <div className="project-skeleton" role="status">Loading…</div>;
-  if (page.status === "error" && page.items.length === 0) return <ProjectError error={page.error} onRetry={onRetry} />;
-  if (page.status === "ready" && page.items.length === 0) return <div className="empty-section">{empty}</div>;
+function PageState({ descriptor, page, empty, onRetry, children }: { descriptor: InstrumentScreenStateDescriptor; page: DomainPage; empty: string; onRetry(): void; children: React.ReactNode }) {
+  if (page.status === "loading" && page.items.length === 0) return <InstrumentScreenRoot descriptor={descriptor} state="loading"><div className="project-skeleton" role="status">Loading…</div></InstrumentScreenRoot>;
+  if (page.status === "error" && page.items.length === 0) return <InstrumentScreenRoot descriptor={descriptor} state="error"><ProjectError error={page.error} onRetry={onRetry} /></InstrumentScreenRoot>;
+  if (page.status === "ready" && page.items.length === 0) return <InstrumentScreenRoot descriptor={descriptor} state="empty"><div className="empty-section">{empty}</div></InstrumentScreenRoot>;
   return <>{children}</>;
 }
 
@@ -41,10 +42,10 @@ export function ProjectScreenView({ project: _project, rootEpoch = 0, controller
   return <main className="main-region project-region">
     <ProjectControls activeTab={activeTab} onSelect={selectTab} />
     <div className={`project-domain-body${activeTab === "media" ? " is-media" : activeTab === "documents" ? " is-documents" : activeTab === "units" ? " is-units" : activeTab === "activity" ? " is-activity" : ""}`} role="tabpanel" id={`project-panel-${activeTab}`} aria-labelledby={`project-tab-${activeTab}`}>
-      {activeTab === "documents" && page && (page.status === "loading" && page.items.length === 0 ? <div className="project-skeleton" role="status">Loading documents…</div> : page.status === "error" && page.items.length === 0 ? <ProjectError error={page.error} onRetry={retry} /> : <DocumentsPanel page={page} controller={controller} snapshot={snapshot} scrollMemory={documentsScrollMemory} resetToken={projectScrollToken} />)}
+      {activeTab === "documents" && page && (page.status === "loading" && page.items.length === 0 ? <InstrumentScreenRoot descriptor={documentsInstrumentStates} state="loading"><div className="project-skeleton" role="status">Loading documents…</div></InstrumentScreenRoot> : page.status === "error" && page.items.length === 0 ? <InstrumentScreenRoot descriptor={documentsInstrumentStates} state="error"><ProjectError error={page.error} onRetry={retry} /></InstrumentScreenRoot> : <DocumentsPanel page={page} controller={controller} snapshot={snapshot} scrollMemory={documentsScrollMemory} resetToken={projectScrollToken} />)}
       {activeTab === "media" && page && <MediaPanel page={page} controller={controller} snapshot={snapshot} rootEpoch={rootEpoch} scrollMemory={scrollMemory} scrollResetToken={mediaScrollToken} />}
-      {activeTab === "units" && page && <PageState page={page} empty="No units yet." onRetry={retry}><UnitsPanel page={page} controller={controller} snapshot={snapshot} targetUnitId={targetUnitId} scrollMemory={unitsScrollMemory} resetToken={projectScrollToken} /></PageState>}
-      {activeTab === "activity" && page && <PageState page={page} empty="No activity yet." onRetry={retry}><ActivityTimeline page={page} controller={controller} scrollMemory={activityScrollMemory} resetToken={projectScrollToken} /></PageState>}
+      {activeTab === "units" && page && <PageState descriptor={unitsInstrumentStates} page={page} empty="No units yet." onRetry={retry}><UnitsPanel page={page} controller={controller} snapshot={snapshot} targetUnitId={targetUnitId} scrollMemory={unitsScrollMemory} resetToken={projectScrollToken} /></PageState>}
+      {activeTab === "activity" && page && <PageState descriptor={activityInstrumentStates} page={page} empty="No activity yet." onRetry={retry}><ActivityTimeline page={page} controller={controller} scrollMemory={activityScrollMemory} resetToken={projectScrollToken} /></PageState>}
     </div>
     <MediaViewer controller={controller} snapshot={snapshot} />
   </main>;
@@ -111,5 +112,5 @@ export function ProjectScreen({
   }, [controller, targetUnitId]);
   return controller
     ? <ConnectedProjectScreen project={project} rootEpoch={rootEpoch} controller={controller} targetUnitId={targetUnitId} />
-    : <main className="main-region project-region"><div className="project-skeleton" role="status">Loading project overview…</div></main>;
+    : <InstrumentScreenRoot descriptor={unitsInstrumentStates} state="loading"><main className="main-region project-region"><div className="project-skeleton" role="status">Loading project overview…</div></main></InstrumentScreenRoot>;
 }

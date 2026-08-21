@@ -67,6 +67,21 @@ const SettingsScreen = lazy(loadSettingsScreen);
 const WELCOME_MINIMUM_MS = 1_200;
 const WELCOME_EXIT_MS = 300;
 
+export function isWorkspacePickerVisible({ mode, sidebarVisible, workspaceId }: {
+  mode: AppMode;
+  sidebarVisible: boolean;
+  workspaceId: string | null;
+}): boolean {
+  return mode === "work" && sidebarVisible && workspaceId !== null;
+}
+
+export function isChatRailVisible({ workbenchVisible, rightPanelVisible }: {
+  workbenchVisible: boolean;
+  rightPanelVisible: boolean;
+}): boolean {
+  return workbenchVisible && rightPanelVisible;
+}
+
 function WorkspaceDestinationFrame({ destination, onBack, children }: {
   destination: WorkspaceDestination;
   onBack(): void;
@@ -182,7 +197,12 @@ export function App() {
   const marketplaceSidebarVisible = marketplace.sidebarVisible && viewport.width > 1_280;
   const activeSidebarVisible = marketplace.mode === "work" ? sidebarVisible : marketplaceSidebarVisible;
   const activeSidebarWidth = marketplace.mode === "work" ? sidebarWidth : MARKETPLACE_SIDEBAR_WIDTH;
-  const showRightPanel = rightPanelVisible;
+  const workspacePickerVisible = isWorkspacePickerVisible({
+    mode: marketplace.mode,
+    sidebarVisible: activeSidebarVisible,
+    workspaceId: selectedWorkspace?.id ?? null,
+  });
+  const showRightPanel = isChatRailVisible({ workbenchVisible: true, rightPanelVisible });
   const showBottomPanel = bottomPanelVisible;
   const sidebarMax = Math.max(
     PANEL_SIZE_LIMITS.sidebar.min,
@@ -655,7 +675,7 @@ export function App() {
                 marketplaceRoute={marketplace.location.route}
                 rootPath={catalog?.rootPath ?? null}
                 workspaces={workspaces}
-                workspaceId={selectedWorkspace?.id ?? null}
+                workspaceId={workspacePickerVisible ? selectedWorkspace!.id : null}
                 pinnedWorkspaceIds={state.pinnedWorkspaceIds}
                 canGoBack={canGoBack}
                 canGoForward={canGoForward}

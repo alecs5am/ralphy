@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { CatalogResult } from "../lib/ipc";
 import { bridge } from "../lib/ipc";
+import { defineInstrumentScreenStates, InstrumentScreenRoot, type InstrumentScenarioState } from "../instrument/screen-state-registry";
 import type { WorkbenchRoute } from "../state/workbench";
 import {
   createMarketplaceController,
@@ -10,6 +11,7 @@ import {
   type MarketplaceBrowseRoute,
   type MarketplaceCategory,
   type MarketplaceLocation,
+  type MarketplaceLibrarySection,
   type MarketplaceMemoryPatch,
   type MarketplaceQueryState,
 } from "../state/marketplace-navigation";
@@ -53,6 +55,53 @@ const categoryLabels: Record<MarketplaceCategory, string> = {
   components: "Components & Effects",
   skills: "Skills",
 };
+
+const marketplaceBaseInstrumentStates = [
+  ["discover", "Marketplace"],
+  ["results", "Search results"],
+  ["collection", "Collection"],
+] as const;
+const marketplaceLibrarySections = ["installed", "saved", "added", "downloads", "updates", "attention"] as const satisfies readonly MarketplaceLibrarySection[];
+
+export const marketplaceInstrumentStates = [
+  ...marketplaceBaseInstrumentStates.map(([route, title]) => defineInstrumentScreenStates({
+    routeKey: `marketplace.${route}`,
+    states: ["loading", "ready", "empty", "partial", "error"],
+    rootMarker: `marketplace-${route}`,
+    landmarks: [title, "Marketplace"],
+  } as const)),
+  defineInstrumentScreenStates({
+    routeKey: "marketplace.detail",
+    states: ["loading", "ready", "partial", "unavailable", "error"],
+    rootMarker: "marketplace-detail",
+    landmarks: ["Item details", "Marketplace"],
+  } as const),
+  ...Object.keys(categoryLabels).map((category) => defineInstrumentScreenStates({
+    routeKey: `marketplace.category.${category as MarketplaceCategory}`,
+    states: ["loading", "ready", "empty", "partial", "error"],
+    rootMarker: `marketplace-category-${category}`,
+    landmarks: [categoryLabels[category as MarketplaceCategory], "Marketplace"],
+  } as const)),
+  ...marketplaceLibrarySections.map((section) => defineInstrumentScreenStates({
+    routeKey: `marketplace.library.${section}`,
+    states: section === "installed" ? ["loading", "ready", "empty", "partial", "error"] : ["unavailable"],
+    rootMarker: `marketplace-library-${section}`,
+    landmarks: [section === "attention" ? "Needs attention" : `${section[0].toLocaleUpperCase()}${section.slice(1)}`, "My Library"],
+  } as const)),
+  ...(["prompts", "components", "skills"] as const).map((category) => defineInstrumentScreenStates({
+    routeKey: `marketplace.unavailable-detail.${category}`,
+    states: ["unavailable"],
+    rootMarker: `marketplace-unavailable-detail-${category}`,
+    landmarks: [categoryLabels[category], "Marketplace"],
+  } as const)),
+];
+
+function marketplaceRouteKey(route: MarketplaceLocation["route"]) {
+  if (route.kind === "category") return `marketplace.category.${route.category}` as const;
+  if (route.kind === "library") return `marketplace.library.${route.section}` as const;
+  if (route.kind === "unavailable-detail") return `marketplace.unavailable-detail.${route.category}` as const;
+  return `marketplace.${route.kind}` as const;
+}
 
 function routeTitle(location: MarketplaceLocation): string {
   const route = location.route;
@@ -279,7 +328,21 @@ export function MarketplaceScreenView({
   const unavailableWorkflow = location.route.kind === "unavailable-detail"
     ? location.route.category === "prompts" ? "prompt-use" : location.route.category === "components" ? "component-target" : "skill-install"
     : null;
-  return <main className="marketplace-screen main-region" data-sidebar-visible={sidebarVisible ? "true" : "false"}>
+  const instrumentDescriptor = marketplaceInstrumentStates.find(({ routeKey }) => routeKey === marketplaceRouteKey(location.route))!;
+  const instrumentState: InstrumentScenarioState = location.route.kind === "unavailable-detail"
+    || (location.route.kind === "library" && location.route.section !== "installed")
+    || staleDetail
+    ? "unavailable"
+    : snapshot.status === "loading"
+      ? "loading"
+      : snapshot.status === "error"
+        ? "error"
+        : snapshot.sourceHealth.publicLibrary === "unavailable" || snapshot.sourceHealth.models === "partial" || snapshot.sourceHealth.models === "unavailable"
+          ? "partial"
+          : (location.route.kind === "results" || location.route.kind === "category" || location.route.kind === "collection") && snapshot.items.length === 0
+            ? "empty"
+            : "ready";
+  return <InstrumentScreenRoot descriptor={instrumentDescriptor} state={instrumentState}><main className="marketplace-screen main-region" data-sidebar-visible={sidebarVisible ? "true" : "false"}>
     <MarketplaceHeader
       title={routeTitle(location)}
       query={location.query}
@@ -341,7 +404,7 @@ export function MarketplaceScreenView({
       itemLabel={workflow.itemLabel}
       onCancel={() => setWorkflow(null)}
     />}
-  </main>;
+  </main></InstrumentScreenRoot>;
 }
 
 function ConnectedMarketplaceScreen(props: MarketplaceScreenProps & { controller: MarketplaceController }) {

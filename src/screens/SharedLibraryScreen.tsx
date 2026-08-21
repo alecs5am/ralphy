@@ -2,6 +2,7 @@ import { AlertCircle, Maximize2, Plus, Upload } from "lucide-react";
 import { useEffect, useId, useState, useSyncExternalStore, type MouseEvent } from "react";
 import type { MediaWorkbenchBridge } from "../../electron/media/types";
 import { bridge } from "../lib/ipc";
+import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
 import {
   createSharedLibraryController,
   type SharedLibraryController,
@@ -16,6 +17,13 @@ import type { Availability, SharedArtifactPresentation } from "./shared-library/
 
 type OpenCallback = (artifact: SharedArtifactPresentation) => void;
 const unavailableSuggestions = { status: "unavailable", reason: "Metadata suggestions are unavailable from this Core version because Core exposes no suggestion evidence." } satisfies Availability<SharedLibrarySuggestion[]>;
+
+export const sharedLibraryInstrumentStates = defineInstrumentScreenStates({
+  routeKey: "workspace.shared",
+  states: ["loading", "ready", "empty", "partial", "error"],
+  rootMarker: "workspace-shared-library",
+  landmarks: ["Shared Library", "Reusable workspace artifacts for people and agents"],
+} as const);
 
 export interface SharedLibraryScreenProps {
   workspaceId: string;
@@ -216,13 +224,13 @@ export function SharedLibraryScreenView({ workspaceId, workspaceName, rootEpoch,
     else setViewer({ artifact, origin });
   };
 
-  if (snapshot.status === "loading") return <main className="main-region shared-library-screen" aria-busy="true">
+  if (snapshot.status === "loading") return <InstrumentScreenRoot descriptor={sharedLibraryInstrumentStates} state="loading"><main className="main-region shared-library-screen" aria-busy="true">
     <ScreenHeader workspaceName={workspaceName} onAdd={add} onPromote={promote} />
     <SharedLibraryToolbar query={snapshot.query} controller={controller} />
     <div className="shared-library-skeleton" aria-hidden="true">{Array.from({ length: 5 }, (_, index) => <i key={index} />)}</div>
     <div className="shared-library-loading" role="status">Loading Shared Library…</div>
-  </main>;
-  if (snapshot.status === "error") return <main className="main-region shared-library-screen"><ScreenHeader workspaceName={workspaceName} onAdd={add} onPromote={promote} /><div className="shared-library-error" role="alert"><AlertCircle aria-hidden="true" /><span>{snapshot.error}</span><button type="button" onClick={() => { void controller.refresh(); }}>Retry</button></div></main>;
+  </main></InstrumentScreenRoot>;
+  if (snapshot.status === "error") return <InstrumentScreenRoot descriptor={sharedLibraryInstrumentStates} state="error"><main className="main-region shared-library-screen"><ScreenHeader workspaceName={workspaceName} onAdd={add} onPromote={promote} /><div className="shared-library-error" role="alert"><AlertCircle aria-hidden="true" /><span>{snapshot.error}</span><button type="button" onClick={() => { void controller.refresh(); }}>Retry</button></div></main></InstrumentScreenRoot>;
 
   const { value } = snapshot;
   const queryDirty = snapshot.query.text !== "" || snapshot.query.mediaKind !== "all" || snapshot.query.provenance !== "all";
@@ -231,7 +239,12 @@ export function SharedLibraryScreenView({ workspaceId, workspaceName, rootEpoch,
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
-  return <main className="main-region shared-library-screen" aria-busy={snapshot.refreshing || undefined}>
+  const instrumentState = value.artifacts.length === 0
+    ? "empty"
+    : snapshot.refreshError || snapshot.pageError || value.nextCursor
+      ? "partial"
+      : "ready";
+  return <InstrumentScreenRoot descriptor={sharedLibraryInstrumentStates} state={instrumentState}><main className="main-region shared-library-screen" aria-busy={snapshot.refreshing || undefined}>
     <ScreenHeader workspaceName={workspaceName} totals={{ count: value.totalCount, bytes: value.totalSelectedBytes }} onAdd={add} onPromote={promote} />
     <SharedLibraryToolbar query={snapshot.query} controller={controller} />
     <div className="shared-library-grouping" role="note">Grouping by entity is unavailable from Core. Showing one flat collection.</div>
@@ -261,7 +274,7 @@ export function SharedLibraryScreenView({ workspaceId, workspaceName, rootEpoch,
       onOpenInspector={(artifact) => { setViewer(null); inspect(artifact, viewer.origin); }}
     />}
     {workflow && <SharedLibraryWorkflows kind={workflow.kind} artifact={workflow.artifact} suggestions={unavailableSuggestions} returnFocus={workflow.origin} onClose={() => setWorkflow(null)} />}
-  </main>;
+  </main></InstrumentScreenRoot>;
 }
 
 function ConnectedSharedLibraryScreen(props: SharedLibraryScreenProps & { controller: SharedLibraryController }) {
@@ -280,10 +293,10 @@ export function SharedLibraryScreen(props: SharedLibraryScreenProps) {
   }, [props.workspaceId, props.rootEpoch, scope]);
   return active?.scope === scope
     ? <ConnectedSharedLibraryScreen {...props} controller={active.controller} />
-    : <main className="main-region shared-library-screen" aria-busy="true">
+    : <InstrumentScreenRoot descriptor={sharedLibraryInstrumentStates} state="loading"><main className="main-region shared-library-screen" aria-busy="true">
       <ScreenHeader workspaceName={props.workspaceName} actionsUnavailableReason="Workflow previews are unavailable while the Shared Library is initializing." onAdd={() => props.onAdd?.()} onPromote={() => props.onPromote?.()} />
       <div className="shared-library-toolbar shared-library-toolbar-skeleton" aria-hidden="true" />
       <div className="shared-library-skeleton" aria-hidden="true">{Array.from({ length: 5 }, (_, index) => <i key={index} />)}</div>
       <div className="shared-library-loading" role="status">Loading Shared Library…</div>
-    </main>;
+    </main></InstrumentScreenRoot>;
 }

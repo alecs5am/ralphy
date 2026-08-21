@@ -1,6 +1,14 @@
 import { Check, LoaderCircle } from "lucide-react";
 import { motion } from "motion/react";
 import { RalphyMascot } from "./RalphyMascot";
+import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
+
+export const welcomeInstrumentStates = defineInstrumentScreenStates({
+  routeKey: "startup.welcome",
+  states: ["restoring", "ready"],
+  rootMarker: "startup-welcome",
+  landmarks: ["Howdy, partner!", "Workspace index"],
+} as const);
 
 export function WelcomeScreen({
   exiting,
@@ -11,6 +19,7 @@ export function WelcomeScreen({
 }) {
   const steps = [".ralphy library", "Workspace index", "Media workbench"];
   return (
+    <InstrumentScreenRoot descriptor={welcomeInstrumentStates} state={restoring ? "restoring" : "ready"}>
     <div className={`welcome-screen${exiting ? " is-exiting" : ""}`}>
       <motion.div
         className="welcome-mascot"
@@ -46,5 +55,6 @@ export function WelcomeScreen({
         })}
       </div>
     </div>
+    </InstrumentScreenRoot>
   );
 }

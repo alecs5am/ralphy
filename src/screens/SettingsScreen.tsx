@@ -15,6 +15,7 @@ import { useMemo, useState, type ReactNode } from "react";
 
 import { ProfileAvatar, profileIdentity } from "../components/ProfileAvatar";
 import { RalphyMascot } from "../components/RalphyMascot";
+import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
 
 const categories = [
   { id: "general", label: "General", icon: Settings },
@@ -25,7 +26,14 @@ const categories = [
   { id: "about", label: "About", icon: Info },
 ] as const;
 
-type SettingsCategory = (typeof categories)[number]["id"];
+export type SettingsCategory = (typeof categories)[number]["id"];
+
+export const settingsInstrumentStates = categories.map(({ id, label }) => defineInstrumentScreenStates({
+  routeKey: `settings.${id}`,
+  states: ["ready"],
+  rootMarker: `settings-${id}`,
+  landmarks: [label, "Settings categories"],
+} as const));
 
 function Toggle({
   checked,
@@ -329,6 +337,7 @@ export function SettingsScreen({
       : categories;
   }, [query]);
   const title = categories.find((category) => category.id === active)?.label ?? "Settings";
+  const instrumentDescriptor = settingsInstrumentStates.find(({ routeKey }) => routeKey === `settings.${active}`)!;
 
   let content = <GeneralSettings rootPath={rootPath} />;
   if (active === "profile") content = <ProfileSettings rootPath={rootPath} />;
@@ -338,6 +347,7 @@ export function SettingsScreen({
   if (active === "about") content = <AboutSettings />;
 
   return (
+    <InstrumentScreenRoot descriptor={instrumentDescriptor} state="ready">
     <motion.div
       className="settings-screen"
       initial={{ opacity: 0 }}
@@ -395,5 +405,6 @@ export function SettingsScreen({
         </div>
       </main>
     </motion.div>
+    </InstrumentScreenRoot>
   );
 }

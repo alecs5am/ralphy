@@ -9,6 +9,14 @@ import type { MemoryDetailDto, MemoryTier, MemoryType } from "../../electron/ral
 import type { MemoryMutation } from "../../electron/ralphy/memory-reader";
 import { bridge } from "../lib/ipc";
 import { SelectMenu } from "../components/ui/SelectMenu";
+import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
+
+export const memoryInstrumentStates = defineInstrumentScreenStates({
+  routeKey: "workspace.memory",
+  states: ["loading", "ready", "empty", "unavailable", "selected"],
+  rootMarker: "workspace-memory",
+  landmarks: ["Memory", "Durable context agents reuse across future work"],
+} as const);
 
 const TYPES: MemoryType[] = ["style", "craft", "client", "model", "tooling", "user", "legacy"];
 const FILTER_TYPES = TYPES.filter((type): type is Exclude<MemoryType, "legacy"> => type !== "legacy");
@@ -132,7 +140,18 @@ export function MemoryScreen({ workspaceId, workspaceName }: { workspaceId: stri
     }
   };
 
+  const instrumentState = error
+    ? "unavailable"
+    : loading
+      ? "loading"
+      : items.length === 0
+        ? "empty"
+        : expanded
+          ? "selected"
+          : "ready";
+
   return (
+    <InstrumentScreenRoot descriptor={memoryInstrumentStates} state={instrumentState}>
     <main className="main-region memory-region">
       <div className="memory-topbar">
         <span>{workspaceName}</span>
@@ -186,6 +205,7 @@ export function MemoryScreen({ workspaceId, workspaceName }: { workspaceId: stri
       <HistoryDialog history={history} onOpenChange={(open) => { if (!open) setHistory(null); }} />
       <ConfirmDialog state={confirm} onOpenChange={(open) => { if (!open) setConfirm(null); }} onConfirm={() => void runConfirmed().catch((cause: unknown) => setNotice(cause instanceof Error ? cause.message : String(cause)))} />
     </main>
+    </InstrumentScreenRoot>
   );
 }
 

@@ -2,6 +2,7 @@ import { AlertCircle, RefreshCw } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { ProjectSummary } from "../lib/ipc";
 import { bridge } from "../lib/ipc";
+import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
 import {
   createWorkspaceScreenController,
   type WorkspaceScreenApi,
@@ -26,6 +27,13 @@ import { WorkspacePerformance } from "./workspace/WorkspacePerformance";
 import { WorkspacePlanAndOutcomes } from "./workspace/WorkspacePlanAndOutcomes";
 
 export { createWorkspaceScreenController } from "../state/workspace-screen-controller";
+
+export const workspaceOverviewInstrumentStates = defineInstrumentScreenStates({
+  routeKey: "workspace.overview",
+  states: ["loading", "ready", "partial", "error"],
+  rootMarker: "workspace-overview",
+  landmarks: ["Workspace overview", "Performance", "Operations"],
+} as const);
 
 export function startWorkspaceScreenController(
   api: WorkspaceScreenApi,
@@ -58,7 +66,7 @@ function WorkspaceOverviewShell({ value, onOpenPage, onOpenCalendar, onOpenUnit,
 }
 
 function WorkspaceOverviewLoading({ workspaceName, workspaceDescription }: { workspaceName: string; workspaceDescription: string }) {
-  return <main className="main-region workspace-overview workspace-overview-loading" aria-busy="true">
+  return <InstrumentScreenRoot descriptor={workspaceOverviewInstrumentStates} state="loading"><main className="main-region workspace-overview workspace-overview-loading" aria-busy="true">
     <header className="screen-header workspace-overview-header workspace-overview-loading-header">
       <div className="screen-kicker">Workspace overview</div>
       <h1>{workspaceName || "Loading workspace overview…"}</h1>
@@ -69,11 +77,11 @@ function WorkspaceOverviewLoading({ workspaceName, workspaceDescription }: { wor
         <span>{label}</span><i /><i /><i />
       </section>)}
     </div>
-  </main>;
+  </main></InstrumentScreenRoot>;
 }
 
 function WorkspaceOverviewError({ error, workspaceName, workspaceDescription, onRetry }: { error: string | null; workspaceName: string; workspaceDescription: string; onRetry(): void }) {
-  return <main className="main-region workspace-overview workspace-overview-error">
+  return <InstrumentScreenRoot descriptor={workspaceOverviewInstrumentStates} state="error"><main className="main-region workspace-overview workspace-overview-error">
     <header className="screen-header workspace-overview-header workspace-overview-loading-header">
       <div className="screen-kicker">Workspace overview</div>
       <h1>{workspaceName || "Workspace overview"}</h1>
@@ -85,7 +93,7 @@ function WorkspaceOverviewError({ error, workspaceName, workspaceDescription, on
       <span>{error ?? "Core did not return workspace data."}</span>
       <button type="button" onClick={onRetry}><RefreshCw size={14} aria-hidden="true" />Retry</button>
     </div>
-  </main>;
+  </main></InstrumentScreenRoot>;
 }
 
 interface WorkspaceScreenViewProps {
@@ -147,7 +155,7 @@ export function WorkspaceScreenView(props: WorkspaceScreenViewProps) {
   const navigate = (destination: WorkspaceDestination) => props.onNavigate
     ? props.onNavigate(destination, returnState(destination.returnFocusId))
     : props.onOpenPage(destination.page, destination.returnFocusId);
-  return <main className="main-region workspace-overview" aria-busy={snapshot.refreshing || undefined}>
+  return <InstrumentScreenRoot descriptor={workspaceOverviewInstrumentStates} state={snapshot.error ? "partial" : "ready"}><main className="main-region workspace-overview" aria-busy={snapshot.refreshing || undefined}>
     <WorkspaceOverviewHeader
       value={presentation.header}
       criticalCount={criticalCount}
@@ -169,7 +177,7 @@ export function WorkspaceScreenView(props: WorkspaceScreenViewProps) {
         onAttentionExpandedChange={setAttentionExpanded}
       />
     </div>
-  </main>;
+  </main></InstrumentScreenRoot>;
 }
 
 function ConnectedWorkspaceScreen(props: Omit<WorkspaceScreenViewProps, "snapshot">) {

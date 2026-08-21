@@ -11,6 +11,14 @@ import type {
   WorkspaceSummary,
 } from "../lib/ipc";
 import { sortWorkspaces } from "../state/workbench";
+import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
+
+export const libraryInstrumentStates = defineInstrumentScreenStates({
+  routeKey: "startup.library",
+  states: ["restoring", "ready", "empty", "unavailable", "error"],
+  rootMarker: "startup-library",
+  landmarks: ["Workspace overview", "Production library"],
+} as const);
 
 interface LibraryScreenProps {
   catalog: CatalogResult | null;
@@ -77,7 +85,9 @@ export function LibraryScreen({
   onOpenProject,
 }: LibraryScreenProps) {
   if (!catalog) {
+    const state = restoring ? "restoring" : error ? "error" : "unavailable";
     return (
+      <InstrumentScreenRoot descriptor={libraryInstrumentStates} state={state}>
       <main className="main-region empty-library">
         <div className="empty-library-content">
           <div className="ralphy-wordmark">RALPHY</div>
@@ -88,6 +98,7 @@ export function LibraryScreen({
           </button>
         </div>
       </main>
+      </InstrumentScreenRoot>
     );
   }
 
@@ -104,6 +115,7 @@ export function LibraryScreen({
   );
 
   return (
+    <InstrumentScreenRoot descriptor={libraryInstrumentStates} state={catalog.workspaces.length === 0 ? "empty" : "ready"}>
     <main className="main-region">
       <div className="screen-header">
         <div>
@@ -173,5 +185,6 @@ export function LibraryScreen({
         </section>
       </div>
     </main>
+    </InstrumentScreenRoot>
   );
 }

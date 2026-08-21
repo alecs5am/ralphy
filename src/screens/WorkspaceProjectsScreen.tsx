@@ -5,7 +5,22 @@ import { MediaCardPreview } from "../components/VirtualAssetGrid";
 import type { ProjectSummary } from "../lib/ipc";
 import { bridge } from "../lib/ipc";
 import { projectGlyphSlot, projectGlyphVars } from "../lib/project-glyph";
+import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
 import { sortProjects, WORKSPACE_PAGE_LABELS, type WorkspacePage } from "../state/workbench";
+
+export const workspaceProjectsInstrumentStates = defineInstrumentScreenStates({
+  routeKey: "workspace.projects",
+  states: ["ready", "empty"],
+  rootMarker: "workspace-projects",
+  landmarks: ["Projects", "All projects"],
+} as const);
+
+export const workspaceUnitsInstrumentStates = defineInstrumentScreenStates({
+  routeKey: "workspace.units",
+  states: ["unavailable"],
+  rootMarker: "workspace-units",
+  landmarks: ["Units", "Units is not wired yet."],
+} as const);
 
 interface WorkspaceProjectsScreenProps {
   workspaceName: string;
@@ -152,6 +167,7 @@ export function WorkspaceProjectsScreen({
   const finals = projects.reduce((total, project) => total + project.finalCount, 0);
 
   return (
+    <InstrumentScreenRoot descriptor={workspaceProjectsInstrumentStates} state={projects.length === 0 ? "empty" : "ready"}>
     <main className="main-region workspace-projects-region">
       <div className="screen-header workspace-header">
         <div>
@@ -185,14 +201,18 @@ export function WorkspaceProjectsScreen({
         )}
       </section>
     </main>
+    </InstrumentScreenRoot>
   );
 }
 
 export function WorkspacePagePlaceholder({ workspaceName, page }: { workspaceName: string; page: Exclude<WorkspacePage, "projects"> }) {
+  if (page !== "units") throw new Error(`WorkspacePagePlaceholder cannot render workspace.${page}`);
   return (
+    <InstrumentScreenRoot descriptor={workspaceUnitsInstrumentStates} state="unavailable">
     <main className="main-region">
       <div className="screen-header"><div><div className="screen-kicker">{workspaceName}</div><h2>{WORKSPACE_PAGE_LABELS[page]}</h2><p>Workspace tools are ready to be connected to the Core contract.</p></div></div>
       <section className="content-section"><div className="empty-section">{WORKSPACE_PAGE_LABELS[page]} is not wired yet.</div></section>
     </main>
+    </InstrumentScreenRoot>
   );
 }

@@ -6,6 +6,7 @@ import type { DocumentDetailDto, DocumentDto, DocumentSearchDto } from "../../..
 import { JsonDocumentView } from "../../components/JsonDocumentView";
 import { MarkdownView } from "../../components/MarkdownView";
 import { GooeyTabs } from "../../components/ui/GooeyTabs";
+import { defineInstrumentScreenStates, InstrumentScreenRoot, type InstrumentScenarioState } from "../../instrument/screen-state-registry";
 import type { DomainPage } from "../../state/project-domain";
 import type { ProjectScreenController, ProjectScreenSnapshot } from "../../state/project-screen-controller";
 import { AutoCursorTail } from "./AutoCursorTail";
@@ -22,6 +23,26 @@ const ROW_SIZE = 54;
 const formatLabel = (format: string | null): string => format === "markdown" ? "MD" : format === "json" ? "JSON" : format === "text" ? "TXT" : "—";
 const documentDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
 const documentViewTabs = [{ value: "render", label: "Render" }, { value: "source", label: "Source" }] as const;
+
+export const documentsInstrumentStates = defineInstrumentScreenStates({
+  routeKey: "project.documents",
+  states: ["loading", "ready", "empty", "partial", "error", "selected", "editing", "conflict"],
+  rootMarker: "project-documents",
+  landmarks: ["Documents", "Document detail"],
+} as const);
+
+export function documentsInstrumentState(page: DomainPage, snapshot: ProjectScreenSnapshot): InstrumentScenarioState {
+  if (snapshot.documentConflict) return "conflict";
+  if (snapshot.documentMode === "edit") return "editing";
+  if (snapshot.selectedDocument) return "selected";
+  const search = snapshot.documentSearch;
+  if (search.query && search.status === "loading" && search.items.length === 0) return "loading";
+  if (search.query && search.status === "error" && search.items.length === 0) return "error";
+  if (page.status === "loading" && page.items.length === 0) return "loading";
+  if (page.status === "error" && page.items.length === 0) return "error";
+  if (page.items.length === 0) return "empty";
+  return page.status === "loading" || page.status === "error" ? "partial" : "ready";
+}
 
 function formatDocumentDate(value: unknown): string {
   if (typeof value !== "number" || !Number.isFinite(value)) return "Unknown date";
@@ -116,7 +137,7 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
   const revision = selected?.currentRevision;
   const displayTitle = revision?.title ?? selected?.title ?? "Document";
   const displayFormat = draft?.format ?? snapshot.documentPreview.value?.format ?? revision?.format ?? null;
-  return <div className="documents-workbench">
+  return <InstrumentScreenRoot descriptor={documentsInstrumentStates} state={documentsInstrumentState(page, snapshot)}><div className="documents-workbench">
     <div className="documents-master" role="region" aria-label="Documents" ref={attachMaster} onScroll={masterScroll.onScroll}>
       <div className="document-search">
         <label htmlFor="document-search">Search documents</label>
@@ -182,5 +203,5 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
         {snapshot.documentPreview.value?.truncated && <p id="document-truncated-note">This bounded preview is read-only because the complete document was not loaded.</p>}
       </>}
     </section>
-  </div>;
+  </div></InstrumentScreenRoot>;
 }
