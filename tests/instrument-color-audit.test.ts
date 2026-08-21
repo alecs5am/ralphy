@@ -99,7 +99,7 @@ describe("instrument color audit mutations", () => {
     `;
     const consumerSource = `
       const view = <button role="menu" aria-haspopup="menu" />;
-      const prose = ["Observation window", "Use the canvas for the preview", "Recalled as background context"];
+      const prose = ["Observation window", "Use the canvas for the preview", "Recalled as background context", "CanvasText auto generated"];
       const ids = ["canvas-panel", "background-job", "window.ralphy"];
       const injectedJavaScript = ["if (window.ralphy) return true", "if(window.ralphy) return true", "render(CanvasText)"];
       const transitionCss = ".fixture { transition: background 100ms linear; }";
@@ -110,13 +110,83 @@ describe("instrument color audit mutations", () => {
     expect(auditTypeScript('const fixture = { color: "CanvasText" };', "fixture.ts")).not.toEqual([]);
   });
 
+  test("audits CSS-in-JS values from their paint property context", () => {
+    expect(auditTypeScript(`
+      const style = {
+        background: "CanvasText border-box",
+        boxShadow: "CanvasText 0 0",
+        outline: "CanvasText auto",
+        border: "medium none CanvasText",
+        WebkitTextStroke: "medium CanvasText",
+      };
+    `, "fixture.ts")).toEqual([
+      "fixture.ts:3:CanvasText",
+      "fixture.ts:4:CanvasText",
+      "fixture.ts:5:CanvasText",
+      "fixture.ts:6:CanvasText",
+      "fixture.ts:7:CanvasText",
+    ]);
+    expect(auditTypeScript(`
+      const style = { background: \`CanvasText border-box\` };
+      style.boxShadow = \`CanvasText 0 0\`;
+    `, "fixture.ts")).toEqual([
+      "fixture.ts:2:CanvasText",
+      "fixture.ts:3:CanvasText",
+    ]);
+    expect(auditTypeScript('const style = { background: String("CanvasText round") };', "fixture.ts")).toEqual([
+      "fixture.ts:1:CanvasText",
+    ]);
+    expect(auditPaletteSource(`${paletteSource}
+      const style = { outline: "CanvasText auto" };
+      style.border = \`medium none CanvasText\`;
+    `, ["#111111"], expectedPalette, "palette.ts")).not.toEqual([]);
+  });
+
+  test("does not mistake TypeScript identity and routing strings for paint values", () => {
+    expect(auditTypeScript(`
+      const id = "canvas";
+      const ids = ["canvas"];
+      const data = "canvas";
+      const aria = "window";
+      const route = { id: "window", route: "background", domain: "canvas" };
+      const domains = ["window"];
+      const view = <div id="canvas" data-view="window" aria-label="background" data-copy={String("canvas")} />;
+    `, "fixture.tsx")).toEqual([]);
+  });
+
+  test("still audits embedded CSS inside a non-paint TypeScript field", () => {
+    expect(auditTypeScript('const route = ".fixture { color: CanvasText; }";', "fixture.ts")).not.toEqual([]);
+    expect(auditTypeScript('const view = <div color="CanvasText" style="background: CanvasText" />;', "fixture.tsx")).toEqual([
+      "fixture.tsx:1:CanvasText",
+      "fixture.tsx:1:CanvasText",
+    ]);
+  });
+
   test("does not mistake CSS property identifiers for system-color values", () => {
     expect(auditCss(`
       .fixture {
         transition: background 100ms linear;
         transition-property: background;
         will-change: background;
+        content: "Canvas";
+        content: counter(mark);
+        background-image: url(CanvasText.svg);
+        grid-area: canvas;
+        view-transition-name: canvas;
+        container-name: window;
+        counter-reset: mark;
+        animation-name: background;
       }
+    `, "fixture.css")).toEqual([]);
+    expect(auditTypeScript('const style = { content: ["Canvas", "counter(mark)"] };', "fixture.ts")).toEqual([]);
+  });
+
+  test("does not mistake non-paint at-rule conditions for system colors", () => {
+    expect(auditCss(`
+      @supports (transition: background 100ms) { .fixture { display: block; } }
+      @supports (grid-area: canvas) { .fixture { display: grid; } }
+      @supports (animation-name: background) { .fixture { display: block; } }
+      @property --area { syntax: "<custom-ident>"; inherits: false; initial-value: canvas; }
     `, "fixture.css")).toEqual([]);
   });
 

@@ -71,74 +71,185 @@ function decodeCssEscapes(value: string): string {
   return decoded;
 }
 
-function colorTokens(value: string, includeSemanticPaint = false, systemColors: SystemColorMode = "none"): string[] {
-  const normalized = decodeCssEscapes(value);
+function tokensInNormalizedValue(normalized: string, includeSemanticPaint = false, systemColors: SystemColorMode = "none"): string[] {
   const patterns = [HEX_COLOR, COLOR_FUNCTION, NAMED_COLOR, ...(includeSemanticPaint ? [SEMANTIC_PAINT] : [])];
-  const tokens = patterns.flatMap((pattern) => [...normalized.matchAll(pattern)].map((match) => match[0]));
-  if (systemColors === "all") tokens.push(...[...normalized.matchAll(SYSTEM_COLOR)].map((match) => match[0]));
+  const tokens = patterns.flatMap((pattern) => {
+    pattern.lastIndex = 0;
+    return [...normalized.matchAll(pattern)].map((match) => match[0]);
+  });
+  if (systemColors === "all") {
+    SYSTEM_COLOR.lastIndex = 0;
+    tokens.push(...[...normalized.matchAll(SYSTEM_COLOR)].map((match) => match[0]));
+  }
   return tokens;
+}
+
+function colorTokens(value: string, includeSemanticPaint = false, systemColors: SystemColorMode = "none"): string[] {
+  return tokensInNormalizedValue(decodeCssEscapes(value), includeSemanticPaint, systemColors);
+}
+
+function cssPaintSource(value: string): string {
+  let unquoted = "";
+  for (let index = 0; index < value.length;) {
+    const current = value[index];
+    if (current === "/" && value[index + 1] === "*") {
+      const end = value.indexOf("*/", index + 2);
+      const length = (end < 0 ? value.length : end + 2) - index;
+      unquoted += " ".repeat(length);
+      index += length;
+      continue;
+    }
+    if (current === "\"" || current === "'") {
+      const quote = current;
+      const start = index++;
+      while (index < value.length) {
+        if (value[index] === "\\") {
+          index += Math.min(2, value.length - index);
+          continue;
+        }
+        if (value[index++] === quote) break;
+      }
+      unquoted += " ".repeat(index - start);
+      continue;
+    }
+    unquoted += current;
+    index += 1;
+  }
+
+  const decoded = decodeCssEscapes(unquoted);
+  const masked = [...decoded];
+  const nonPaintFunctions = /(?<![\w-])(?:url|counter|counters)\s*\(/gi;
+  for (const match of decoded.matchAll(nonPaintFunctions)) {
+    const start = match.index;
+    let index = start + match[0].length;
+    let depth = 1;
+    while (index < decoded.length && depth > 0) {
+      if (decoded[index] === "(") depth += 1;
+      if (decoded[index] === ")") depth -= 1;
+      index += 1;
+    }
+    masked.fill(" ", start, index);
+  }
+  return masked.join("");
 }
 
 function issue(path: string, line: number, token: string): string {
   return `${path}:${line}:${token}`;
 }
 
-function isStructuralCssToken(property: string, token: string): boolean {
-  return token.toLowerCase() === "background"
-    && ["transition", "transition-property", "will-change"].includes(property.toLowerCase());
+const PAINT_PROPERTIES = new Set([
+  "accent-color", "backdrop-filter", "background", "background-color", "background-image",
+  "border", "border-block", "border-block-color", "border-block-end", "border-block-end-color",
+  "border-block-start", "border-block-start-color", "border-bottom", "border-bottom-color", "border-color",
+  "border-image", "border-image-source", "border-inline", "border-inline-color", "border-inline-end",
+  "border-inline-end-color", "border-inline-start", "border-inline-start-color", "border-left", "border-left-color",
+  "border-right", "border-right-color", "border-top", "border-top-color", "box-reflect", "box-shadow",
+  "caret-color", "color", "column-rule", "column-rule-color", "content", "fill", "filter", "flood-color",
+  "lighting-color", "list-style-image", "mask", "mask-border", "mask-border-source", "mask-box-image",
+  "mask-box-image-source", "mask-image", "outline", "outline-color", "override-colors", "scrollbar-color",
+  "shape-outside", "solid-color", "stop-color", "stroke", "tap-highlight-color", "text-decoration",
+  "text-decoration-color", "text-emphasis", "text-emphasis-color", "text-fill-color", "text-shadow",
+  "text-stroke", "text-stroke-color",
+]);
+
+function normalizeCssProperty(property: string): string {
+  return decodeCssEscapes(property).trim().replace(/^-?(?:webkit|moz|ms|o)-/i, "").toLowerCase();
 }
 
-function embeddedSystemColorTokens(value: string): string[] {
-  const normalized = decodeCssEscapes(value);
-  const matches = [...normalized.matchAll(SYSTEM_COLOR)].map((match) => match[0]);
-  if (EXACT_SYSTEM_COLOR.test(normalized.trim())) return matches;
+function isPaintProperty(property: string): boolean {
+  const normalized = normalizeCssProperty(property);
+  return normalized.startsWith("--") || PAINT_PROPERTIES.has(normalized);
+}
 
-  const cssSource = /[{}]/.test(normalized)
-    ? normalized
-    : /(?:^|;)\s*[-\w]+\s*:/.test(normalized) && !normalized.includes("://")
-      ? `.audit { ${normalized} }`
-      : undefined;
-  if (cssSource) {
-    try {
-      const root = postcss.parse(cssSource);
-      const tokens: string[] = [];
-      root.walkDecls((declaration) => {
-        tokens.push(...colorTokens(declaration.value, false, "all")
-          .filter((token) => !isStructuralCssToken(declaration.prop, token)));
-      });
-      root.walkAtRules((rule) => {
-        for (const descriptor of rule.params.matchAll(/:\s*([^;)]+)/g)) {
-          tokens.push(...colorTokens(descriptor[1], false, "all"));
-        }
-      });
-      return tokens.filter((token) => EXACT_SYSTEM_COLOR.test(token));
-    } catch {
-      return [];
+function cssPropertyColorTokens(property: string, value: string): string[] {
+  const source = cssPaintSource(value);
+  if (normalizeCssProperty(property) === "content" && !/(?:repeating-)?(?:linear|radial|conic)-gradient\s*\(/i.test(source)) return [];
+  return tokensInNormalizedValue(source, false, "all");
+}
+
+function isPaintDeclaration(declaration: postcss.Declaration): boolean {
+  if (isPaintProperty(declaration.prop)) return true;
+  if (normalizeCssProperty(declaration.prop) !== "initial-value" || declaration.parent?.type !== "atrule") return false;
+  const parent = declaration.parent;
+  if (parent.name.toLowerCase() !== "property") return false;
+  const syntax = parent.nodes?.find((node): node is postcss.Declaration => node.type === "decl" && normalizeCssProperty(node.prop) === "syntax");
+  return /<(?:color|image|shadow)>/i.test(syntax?.value ?? "");
+}
+
+function parenthesizedValues(value: string): Array<{ callee: string; value: string }> {
+  const results: Array<{ callee: string; value: string }> = [];
+  const stack: Array<{ callee: string; start: number }> = [];
+  let quote = "";
+  for (let index = 0; index < value.length; index += 1) {
+    const current = value[index];
+    if (quote) {
+      if (current === "\\") index += 1;
+      else if (current === quote) quote = "";
+      continue;
+    }
+    if (current === "\"" || current === "'") {
+      quote = current;
+      continue;
+    }
+    if (current === "(") {
+      const callee = value.slice(0, index).match(/([\w-]+)\s*$/)?.[1]?.toLowerCase() ?? "";
+      stack.push({ callee, start: index + 1 });
+      continue;
+    }
+    if (current === ")") {
+      const group = stack.pop();
+      if (group) results.push({ callee: group.callee, value: value.slice(group.start, index) });
     }
   }
+  return results;
+}
 
-  const cssFunction = /(?:repeating-)?(?:linear|radial|conic)-gradient\s*\(|(?:color-mix|light-dark|var|drop-shadow)\s*\(/i;
-  const cssMeasure = /(?:^|\s)-?(?:\d*\.)?\d+(?:px|r?em|ch|ex|%|vw|vh|vmin|vmax)(?:\s|$)/i;
-  const borderStyle = /(?:^|\s)(?:solid|dashed|dotted|double|groove|ridge|inset|outset)(?:\s|$)/i;
-  return cssFunction.test(normalized) || cssMeasure.test(normalized) || borderStyle.test(normalized) ? matches : [];
+function declarationFragmentTokens(value: string): string[] {
+  if (!/^\s*(?:--|[-_a-z])[-\w]*\s*:/i.test(value)) return [];
+  try {
+    const root = postcss.parse(`.audit { ${value} }`);
+    const tokens: string[] = [];
+    root.walkDecls((declaration) => {
+      if (isPaintDeclaration(declaration)) tokens.push(...cssPropertyColorTokens(declaration.prop, declaration.value));
+    });
+    return tokens;
+  } catch {
+    return [];
+  }
+}
+
+interface CssColorSite {
+  line: number;
+  token: string;
+}
+
+function cssRootColorSites(root: postcss.Root): CssColorSite[] {
+  const sites: CssColorSite[] = [];
+  root.walkDecls((declaration) => {
+    if (!isPaintDeclaration(declaration)) return;
+    sites.push(...cssPropertyColorTokens(declaration.prop, declaration.value).map((token) => ({
+      line: declaration.source?.start?.line ?? 1,
+      token,
+    })));
+  });
+  root.walkAtRules((rule) => {
+    const name = rule.name.toLowerCase();
+    if (name !== "supports" && name !== "container") return;
+    for (const group of parenthesizedValues(rule.params)) {
+      if (name === "container" && group.callee !== "style") continue;
+      sites.push(...declarationFragmentTokens(group.value).map((token) => ({
+        line: rule.source?.start?.line ?? 1,
+        token,
+      })));
+    }
+  });
+  return sites;
 }
 
 export function auditCss(source: string, path: string): string[] {
   try {
     const root = postcss.parse(source, { from: path });
-    const issues: string[] = [];
-    root.walkDecls((declaration) => {
-      issues.push(...colorTokens(declaration.value, false, "all")
-        .filter((token) => !isStructuralCssToken(declaration.prop, token))
-        .map((token) => issue(path, declaration.source?.start?.line ?? 1, token)));
-    });
-    root.walkAtRules((rule) => {
-      issues.push(...colorTokens(rule.params).map((token) => issue(path, rule.source?.start?.line ?? 1, token)));
-      for (const value of rule.params.matchAll(/:\s*([^;)]+)/g)) {
-        issues.push(...colorTokens(value[1], false, "all").map((token) => issue(path, rule.source?.start?.line ?? 1, token)));
-      }
-    });
-    return issues;
+    return cssRootColorSites(root).map((site) => issue(path, site.line, site.token));
   } catch (error) {
     return [`${path}:parse:${error instanceof Error ? error.message : String(error)}`];
   }
@@ -188,12 +299,144 @@ function isStructuralSystemString(value: string, node: ts.Node, path: string): b
     && ts.isArrayLiteralExpression(node.parent);
 }
 
+function syntaxPropertyName(name: ts.PropertyName): string | undefined {
+  return ts.isIdentifier(name) || ts.isStringLiteral(name) ? name.text : undefined;
+}
+
+function assignmentPropertyName(expression: ts.Expression): string | undefined {
+  if (ts.isPropertyAccessExpression(expression)) return expression.name.text;
+  if (ts.isElementAccessExpression(expression) && expression.argumentExpression && ts.isStringLiteralLike(expression.argumentExpression)) {
+    return expression.argumentExpression.text;
+  }
+  return undefined;
+}
+
+function typeScriptContextName(node: ts.Node): string | undefined {
+  for (let current: ts.Node = node; current.parent && !ts.isSourceFile(current.parent); current = current.parent) {
+    const parent = current.parent;
+    if (ts.isPropertyAssignment(parent)) {
+      if (parent.name === current) return "syntax-name";
+      return syntaxPropertyName(parent.name);
+    }
+    if (ts.isElementAccessExpression(parent) && parent.argumentExpression === current) return "syntax-name";
+    if (ts.isJsxAttribute(parent)) return parent.name.getText();
+    if (ts.isVariableDeclaration(parent) && parent.initializer === current && ts.isIdentifier(parent.name)) return parent.name.text;
+    if (ts.isBinaryExpression(parent) && parent.right === current && parent.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+      return assignmentPropertyName(parent.left);
+    }
+    if (ts.isTaggedTemplateExpression(parent) && parent.template === current) {
+      return /(?:^|\.)(?:css|styled|createGlobalStyle)(?:\.|$)/i.test(parent.tag.getText()) ? "css-text" : undefined;
+    }
+    if (ts.isCallExpression(parent)) {
+      const argument = parent.arguments.indexOf(current as ts.Expression);
+      const method = ts.isPropertyAccessExpression(parent.expression) ? parent.expression.name.text : "";
+      if (argument === 1 && (method === "setProperty" || method === "setAttribute")) {
+        const property = parent.arguments[0];
+        return property && ts.isStringLiteralLike(property) ? property.text : undefined;
+      }
+    }
+    if (ts.isImportDeclaration(parent) || ts.isExportDeclaration(parent) || ts.isExternalModuleReference(parent)) return "module-path";
+    if (ts.isFunctionLike(parent) || ts.isClassLike(parent)) return undefined;
+  }
+  return undefined;
+}
+
+const NON_PAINT_TYPESCRIPT_CONTEXTS = new Set([
+  "alt", "animation", "animation-name", "aria", "class", "class-name", "container-name", "counter-increment",
+  "counter-reset", "counter-set", "data", "domain", "domains", "grid-area", "href", "host", "hostname", "html-for", "ids", "label",
+  "module-path", "name", "path", "pathname", "placeholder", "rel", "role", "route", "routes", "router", "src",
+  "syntax-name", "target", "title", "to", "transition", "transition-property", "type", "uri", "url", "value",
+  "view-transition-name", "will-change",
+]);
+
+function typescriptPropertyName(value: string): string {
+  return value
+    .replace(/^ms([A-Z])/, "ms-$1")
+    .replace(/([a-z\d])([A-Z])/g, "$1-$2")
+    .replaceAll("_", "-")
+    .toLowerCase();
+}
+
+function isNonPaintTypeScriptContext(name: string | undefined): boolean {
+  if (!name) return false;
+  const normalized = typescriptPropertyName(name);
+  if (isPaintProperty(normalized) || normalized === "style" || normalized === "css-text") return false;
+  return NON_PAINT_TYPESCRIPT_CONTEXTS.has(normalized)
+    || normalized === "id"
+    || normalized.endsWith("-id")
+    || normalized.startsWith("aria-")
+    || normalized.startsWith("data-");
+}
+
+function embeddedCssTokens(value: string): string[] | undefined {
+  const stylesheet = /[{}]/.test(value) && /(?:--|[-_a-z])[-\w]*\s*:/i.test(value);
+  const declarations = /(?:^|;)\s*(?:--|[-_a-z])[-\w]*\s*:/i.test(value) && !value.includes("://");
+  if (!stylesheet && !declarations) return undefined;
+  try {
+    const root = postcss.parse(stylesheet ? value : `.audit { ${value} }`);
+    return cssRootColorSites(root).map((site) => site.token);
+  } catch {
+    return undefined;
+  }
+}
+
+const SIMPLE_COLOR_WORDS = new Set<string>([...CSS_NAMED_COLORS, ...CSS_SYSTEM_COLORS]);
+const BORDER_WIDTHS = new Set(["thin", "medium", "thick"]);
+const BORDER_STYLES = new Set(["none", "hidden", "solid", "dashed", "dotted", "double", "groove", "ridge", "inset", "outset"]);
+const BACKGROUND_KEYWORDS = new Set([
+  "border-box", "padding-box", "content-box", "text", "repeat", "no-repeat", "space", "round",
+  "scroll", "fixed", "local", "left", "right", "top", "bottom", "center", "cover", "contain",
+]);
+
+function isSimpleColorWord(value: string): boolean {
+  return SIMPLE_COLOR_WORDS.has(value.toLowerCase()) || /^#[\dA-F]{3,8}$/i.test(value);
+}
+
+function isCssLength(value: string): boolean {
+  return /^(?:0|-?(?:\d*\.)?\d+(?:px|r?em|ch|ex|%|vw|vh|vmin|vmax))$/i.test(value);
+}
+
+function isBorderWidth(value: string): boolean {
+  return isCssLength(value) || BORDER_WIDTHS.has(value.toLowerCase());
+}
+
+function standalonePaintTokens(value: string, includeSemanticPaint: boolean): string[] {
+  const normalized = decodeCssEscapes(value).trim();
+  const tokens = tokensInNormalizedValue(normalized, includeSemanticPaint, "all");
+  if (tokens.length === 0) return [];
+  if (tokens.some((token) => token.toLowerCase() === normalized.toLowerCase())) return tokens;
+  if (/(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch|color)\s*\(/i.test(normalized)) return tokens;
+
+  const paintSource = cssPaintSource(value);
+  if (/(?:repeating-)?(?:linear|radial|conic)-gradient\s*\(|(?:color-mix|light-dark|drop-shadow)\s*\(/i.test(paintSource)) return tokens;
+  const parts = paintSource.trim().split(/\s+/);
+  const colors = parts.filter(isSimpleColorWord).length;
+  const widths = parts.filter(isBorderWidth).length;
+  const styles = parts.filter((part) => BORDER_STYLES.has(part.toLowerCase())).length;
+  if (colors > 0 && widths > 0 && styles > 0
+    && parts.every((part) => isSimpleColorWord(part) || isBorderWidth(part) || BORDER_STYLES.has(part.toLowerCase()))) return tokens;
+  if (colors > 0 && parts.some((part) => part.toLowerCase() === "auto")
+    && parts.every((part) => isSimpleColorWord(part) || isCssLength(part) || part.toLowerCase() === "auto")) return tokens;
+  if (colors > 0 && parts.some((part) => BACKGROUND_KEYWORDS.has(part.toLowerCase()))
+    && parts.every((part) => isSimpleColorWord(part) || BACKGROUND_KEYWORDS.has(part.toLowerCase()))) return tokens;
+  if (colors > 0 && parts.filter(isCssLength).length >= 2
+    && parts.every((part) => isSimpleColorWord(part) || isCssLength(part) || part.toLowerCase() === "inset")) return tokens;
+  return [];
+}
+
 function typeScriptColorSites(source: string, path: string, includeSemanticPaint = false): { file: ts.SourceFile; sites: TypeScriptColorSite[] } {
   const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, path.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const sites: TypeScriptColorSite[] = [];
   const record = (value: string, node: ts.Node) => {
     const line = file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1;
-    const tokens = [...colorTokens(value, includeSemanticPaint), ...embeddedSystemColorTokens(value)]
+    const context = typeScriptContextName(node);
+    const embedded = embeddedCssTokens(value);
+    if (!includeSemanticPaint && embedded === undefined && isNonPaintTypeScriptContext(context)) return;
+    const tokens = (includeSemanticPaint
+      ? colorTokens(value, true, "all")
+      : embedded ?? (context && isPaintProperty(typescriptPropertyName(context))
+        ? cssPropertyColorTokens(typescriptPropertyName(context), value)
+        : standalonePaintTokens(value, false)))
       .filter((token) => !EXACT_SYSTEM_COLOR.test(token) || !isStructuralSystemString(value, node, path));
     sites.push(...tokens.map((token) => ({ line, nodeStart: node.getStart(file), token })));
   };
