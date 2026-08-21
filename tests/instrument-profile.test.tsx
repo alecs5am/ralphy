@@ -18,9 +18,30 @@ function viewport(host: ReturnType<typeof createReactHost>, width: number, heigh
   Object.assign(host.container.ownerDocument.defaultView!, {
     innerWidth: width,
     innerHeight: height,
-    requestAnimationFrame: (callback: FrameRequestCallback) => { callback(0); return 0; },
-    cancelAnimationFrame: () => undefined,
   });
+}
+
+function animationFrameHarness(host: ReturnType<typeof createReactHost>) {
+  let nextHandle = 1;
+  const callbacks = new Map<number, FrameRequestCallback>();
+  Object.assign(host.container.ownerDocument.defaultView!, {
+    requestAnimationFrame: (callback: FrameRequestCallback) => {
+      const handle = nextHandle;
+      nextHandle += 1;
+      callbacks.set(handle, callback);
+      return handle;
+    },
+    cancelAnimationFrame: (handle: number) => callbacks.delete(handle),
+  });
+  return {
+    flush(frames = 1) {
+      for (let index = 0; index < frames; index += 1) {
+        const pending = [...callbacks.values()];
+        callbacks.clear();
+        for (const callback of pending) callback(index);
+      }
+    },
+  };
 }
 
 function bounds(node: HostNode, left: number, top: number, width: number, height: number) {
@@ -85,6 +106,7 @@ describe("instrument profile control", () => {
   test("measures a long profile menu and follows opener reflow without viewport events", async () => {
     const host = createReactHost();
     viewport(host, 1_000, 720);
+    const frames = animationFrameHarness(host);
     const observers = resizeObserverHarness();
     const { createRoot } = await import("react-dom/client");
     const root = createRoot(host.container as unknown as Element);
@@ -100,29 +122,35 @@ describe("instrument profile control", () => {
         await settle();
       });
       const menu = host.container.ownerDocument.body.querySelector(".instrument-profile-menu") as HostNode;
-      menu.scrollWidth = 244;
+      menu.scrollWidth = 192;
+      menu.clientWidth = 192;
       menu.scrollHeight = 80;
       bounds(menu, 0, 0, 192, 80);
       await act(async () => {
         observers.trigger(menu as unknown as Element);
+        frames.flush();
         await settle();
       });
       expect(menu.style.position).toBe("fixed");
-      expect(menu.style.left).toBe("748px");
+      expect(menu.style.left).toBe("800px");
       expect(Number.parseFloat(menu.style.top)).toBeLessThan(660);
       expect(Number.parseFloat(menu.style.left) + menu.scrollWidth).toBeLessThanOrEqual(992);
 
       bounds(trigger, 40, 100, 60, 30);
       await act(async () => {
-        observers.trigger(trigger as unknown as Element);
+        frames.flush(2);
         await settle();
       });
       expect(menu.style.left).toBe("40px");
       expect(menu.style.top).toBe("138px");
+      expect(menu.scrollWidth).toBeLessThanOrEqual(menu.clientWidth);
 
       const styles = readFileSync("src/styles/instrument.css", "utf8");
       expect(styles).toMatch(/\.instrument-profile-menu\s*\{[^}]*width:\s*min\(192px, calc\(100vw - 16px\)\)[^}]*max-width:\s*calc\(100vw - 16px\)/s);
       expect(styles).toMatch(/\.instrument-profile-menu-identity > span\s*\{[^}]*min-width:\s*0[^}]*text-overflow:\s*ellipsis/s);
+      expect(styles).toMatch(/\.instrument-profile-trigger\s*\{[^}]*box-sizing:\s*border-box[^}]*min-width:\s*0[^}]*max-width:\s*100%/s);
+      expect(styles).toMatch(/\.instrument-profile-trigger > span\s*\{[^}]*min-width:\s*0[^}]*text-overflow:\s*ellipsis/s);
+      expect(styles).toMatch(/\.instrument-profile-avatar,\s*\.instrument-profile-initials\s*\{[^}]*flex:\s*none/s);
     } finally {
       await act(async () => root.unmount());
       observers.restore();

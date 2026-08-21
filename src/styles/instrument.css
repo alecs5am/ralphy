@@ -70,14 +70,15 @@ html[data-theme="light"] .instrument-profile-menu button:focus-visible { outline
 .instrument-empty-state p { color: var(--instrument-text-secondary-readable); }
 .instrument-screen-controls { display: flex; align-items: center; gap: var(--space-2); }
 
-.instrument-profile-control { position: relative; }
+.instrument-profile-control { position: relative; min-width: 0; max-width: 100%; }
 .instrument-profile-trigger,
 .instrument-profile-menu button { display: inline-flex; align-items: center; gap: var(--space-2); border: 0; background: transparent; color: var(--instrument-text-primary); }
-.instrument-profile-trigger { min-height: var(--control-md); padding: 0 var(--space-1); border-radius: var(--radius-sm); }
+.instrument-profile-trigger { box-sizing: border-box; min-width: 0; max-width: 100%; min-height: var(--control-md); padding: 0 var(--space-1); border-radius: var(--radius-sm); }
+.instrument-profile-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .instrument-profile-trigger:hover,
 .instrument-profile-menu button:hover { background: var(--instrument-widget-light-hover); }
 .instrument-profile-avatar,
-.instrument-profile-initials { width: var(--control-sm); height: var(--control-sm); border-radius: var(--radius-sm); }
+.instrument-profile-initials { flex: none; width: var(--control-sm); height: var(--control-sm); border-radius: var(--radius-sm); }
 .instrument-profile-avatar { object-fit: cover; }
 .instrument-profile-initials { display: grid; place-items: center; background: var(--instrument-dither-base); color: var(--instrument-text-on-dark-primary); font-size: var(--text-xs); }
 .instrument-profile-menu { position: fixed; z-index: 80; display: grid; box-sizing: border-box; width: min(192px, calc(100vw - 16px)); min-width: min(180px, calc(100vw - 16px)); max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); gap: var(--space-2); padding: var(--space-2); overflow: auto; border-radius: var(--radius-md); background: var(--instrument-widget-light); color: var(--instrument-text-primary); }

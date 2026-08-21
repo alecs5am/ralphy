@@ -33,6 +33,22 @@ function profileMenuPosition(trigger: HTMLElement, menu: HTMLElement): CSSProper
   return { left: `${Math.round(left)}px`, top: `${Math.round(top)}px` };
 }
 
+function isVisible(element: HTMLElement) {
+  const bounds = element.getBoundingClientRect();
+  const style = window.getComputedStyle(element);
+  return bounds.width > 0 && bounds.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+}
+
+function layoutKey(trigger: HTMLElement, menu: HTMLElement) {
+  const opener = trigger.getBoundingClientRect();
+  const surface = menu.getBoundingClientRect();
+  return [
+    opener.left, opener.top, opener.width, opener.height,
+    surface.left, surface.top, surface.width, surface.height,
+    menu.scrollWidth, menu.scrollHeight,
+  ].join(",");
+}
+
 export function InstrumentProfileControl({ identity, onOpenSettings }: {
   identity: InstrumentProfileIdentity;
   onOpenSettings(): void;
@@ -42,6 +58,7 @@ export function InstrumentProfileControl({ identity, onOpenSettings }: {
   const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
+  const positionKey = useRef("");
   const safeAvatarUrl = localAvatarUrl(identity.avatarUrl);
   const avatarUrl = safeAvatarUrl && safeAvatarUrl !== failedAvatarUrl ? safeAvatarUrl : null;
 
@@ -55,17 +72,36 @@ export function InstrumentProfileControl({ identity, onOpenSettings }: {
   useLayoutEffect(() => {
     if (!open) return;
     const place = () => {
-      if (trigger.current && menu.current) setPosition(profileMenuPosition(trigger.current, menu.current));
+      if (!trigger.current || !menu.current) return;
+      const nextPosition = profileMenuPosition(trigger.current, menu.current);
+      const nextKey = `${nextPosition.left},${nextPosition.top}`;
+      if (positionKey.current === nextKey) return;
+      positionKey.current = nextKey;
+      setPosition(nextPosition);
     };
     let frame: number | null = null;
-    const schedulePlace = () => {
-      if (frame !== null) window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(() => {
-        frame = null;
+    let lastLayout = "";
+    const reconcile = () => {
+      frame = null;
+      if (!trigger.current || !menu.current || !isVisible(trigger.current)) return;
+      const nextLayout = layoutKey(trigger.current, menu.current);
+      if (nextLayout !== lastLayout) {
+        lastLayout = nextLayout;
         place();
-      });
+      }
+      frame = window.requestAnimationFrame(reconcile);
     };
-    place();
+    const schedulePlace = () => {
+      if (!trigger.current || !isVisible(trigger.current)) {
+        if (frame !== null) window.cancelAnimationFrame(frame);
+        frame = null;
+        return;
+      }
+      lastLayout = "";
+      place();
+      if (frame === null) frame = window.requestAnimationFrame(reconcile);
+    };
+    positionKey.current = "";
     schedulePlace();
     const observer = new ResizeObserver(schedulePlace);
     if (trigger.current) observer.observe(trigger.current);
