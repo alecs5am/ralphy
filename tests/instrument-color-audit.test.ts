@@ -200,6 +200,28 @@ describe("instrument color audit mutations", () => {
     expect(auditTypeScript('const style = { [key]: "var(--paint, CanvasText)" };', "fixture.ts")).not.toEqual([]);
   });
 
+  test("resolves one-hop paint values from the nearest lexical const binding", () => {
+    expect(auditTypeScript(
+      'const value = "CanvasText"; function unrelated() { const value = "safe"; } node.style.color = value;',
+      "fixture.ts",
+    )).toEqual(["fixture.ts:1:CanvasText"]);
+    expect(auditTypeScript(
+      'const value = "safe"; function unrelated() { const value = "CanvasText"; } node.style.color = value;',
+      "fixture.ts",
+    )).toEqual([]);
+  });
+
+  test("traverses a renamed local style object at JSX and assignment style sinks", () => {
+    expect(auditTypeScript(
+      'const attrs = { [key]: "var(--paint, CanvasText)" }; const view = <div style={attrs} />;',
+      "fixture.tsx",
+    )).toEqual(["fixture.tsx:1:CanvasText"]);
+    expect(auditTypeScript(
+      'const attrs = { [key]: "CanvasText" }; node.style = attrs;',
+      "fixture.ts",
+    )).toEqual(["fixture.ts:1:CanvasText"]);
+  });
+
   test("keeps ambiguous system words structural outside verified paint sinks", () => {
     expect(auditTypeScript(`
       enum Scope { Window = "window", Canvas = "canvas" }
@@ -270,6 +292,28 @@ describe("instrument color audit mutations", () => {
     }
     expect(auditCss('.fixture { background-image: url("/CanvasText.svg"); }', "fixture.css")).toEqual([]);
     expect(auditTypeScript('const url = "https://example.test/CanvasText.svg";', "fixture.ts")).toEqual([]);
+  });
+
+  test("audits default-media-type data URLs and rejects unsafe decoding fail-closed", () => {
+    const defaults = [
+      ["data:,CanvasText", "CanvasText"],
+      ["data:,%43anvasText", "CanvasText"],
+      [`data:;base64,${Buffer.from("<svg fill='purple'/>").toString("base64")}`, "purple"],
+    ] as const;
+    for (const [url, token] of defaults) {
+      const source = `.fixture { cursor: url("${url}") 0 0, auto; }`;
+      expect(auditCss(source, "fixture.css"), url).toEqual([`fixture.css:1:${token}`]);
+      expect(auditTokenCss(`${tokenCss}\n${source}`, ["#111111"], expectedPalette, "tokens.css"), url).not.toEqual([]);
+      expect(auditTypeScript(`const fixture = ${JSON.stringify(source)};`, "fixture.ts"), url).toEqual([
+        `fixture.ts:1:${token}`,
+      ]);
+    }
+
+    for (const url of ["data:;base64,%%%", `data:,${"A".repeat(300_000)}`]) {
+      expect(auditCss(`.fixture { background-image: url("${url}"); }`, "fixture.css"), url.slice(0, 40)).toEqual([
+        "fixture.css:1:data-url",
+      ]);
+    }
   });
 
   test.each([

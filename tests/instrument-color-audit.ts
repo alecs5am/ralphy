@@ -101,32 +101,48 @@ function unmistakableColorTokens(value: string): string[] {
   }));
 }
 
-function decodePercentRuns(value: string): string {
-  return value.replace(/(?:%[\dA-F]{2})+/gi, (run) => {
-    try {
-      return decodeURIComponent(run);
-    } catch {
-      return run;
+const MAX_INLINE_DATA_URL_BYTES = 64 * 1024;
+
+function dataUrlPayload(source: string, dataStart: number, payloadStart: number): string {
+  if (dataStart === 0) return source.slice(payloadStart);
+  const quote = source[dataStart - 1];
+  if (quote === '"' || quote === "'") {
+    const end = source.indexOf(quote, payloadStart);
+    return source.slice(payloadStart, end < 0 ? source.length : end);
+  }
+  const end = source.slice(payloadStart).search(/[\s)'"`]/);
+  return source.slice(payloadStart, end < 0 ? source.length : payloadStart + end);
+}
+
+function decodeDataUrlPayload(payload: string, base64: boolean): string | undefined {
+  try {
+    if (base64) {
+      if (payload.length > Math.ceil(MAX_INLINE_DATA_URL_BYTES * 4 / 3) + 4
+        || !/^[A-Z\d+/]*={0,2}$/i.test(payload) || payload.length % 4 === 1) return undefined;
+      const bytes = Buffer.from(payload, "base64");
+      return bytes.length <= MAX_INLINE_DATA_URL_BYTES ? bytes.toString("utf8") : undefined;
     }
-  });
+    if (payload.length > MAX_INLINE_DATA_URL_BYTES * 3) return undefined;
+    const decoded = decodeURIComponent(payload);
+    return Buffer.byteLength(decoded) <= MAX_INLINE_DATA_URL_BYTES ? decoded : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function dataUrlTokens(value: string): string[] {
   const normalized = decodeCssEscapes(value);
   const tokens: string[] = [];
-  const pattern = /data:([\w.+-]+\/[\w.+-]+)((?:;[^,]*)?),/gi;
+  const pattern = /data:(?:([\w.+-]+\/[\w.+-]+))?((?:;[^,]*)?),/gi;
   for (const match of normalized.matchAll(pattern)) {
-    const mime = match[1].toLowerCase();
+    const mime = (match[1] ?? "text/plain").toLowerCase();
     if (!mime.startsWith("image/") && !mime.startsWith("text/") && !/^application\/(?:svg\+xml|xml|json)$/.test(mime)) continue;
     const payloadStart = (match.index ?? 0) + match[0].length;
-    const encoded = normalized.slice(payloadStart);
-    let decoded: string;
-    try {
-      decoded = /(?:^|;)base64(?:;|$)/i.test(match[2])
-        ? Buffer.from(encoded.match(/^[\w+/=-]*/)?.[0] ?? "", "base64").toString("utf8")
-        : decodePercentRuns(encoded);
-    } catch {
-      decoded = encoded;
+    const encoded = dataUrlPayload(normalized, match.index ?? 0, payloadStart);
+    const decoded = decodeDataUrlPayload(encoded, /(?:^|;)base64(?:;|$)/i.test(match[2]));
+    if (decoded === undefined) {
+      tokens.push("data-url");
+      continue;
     }
     const authored = colorTokens(decoded, false, "all");
     tokens.push(...(authored.length > 0 ? authored : ["data-url"]));
@@ -441,17 +457,39 @@ interface StaticString {
   node: ts.StringLiteralLike;
 }
 
-function variableBindings(file: ts.SourceFile): Map<string, ts.Expression> {
-  const bindings = new Map<string, ts.Expression>();
+type VariableBindings = Map<ts.Node, Map<string, ts.Expression>>;
+
+function variableScope(declaration: ts.VariableDeclaration): ts.Node {
+  const owner = declaration.parent.parent;
+  if (ts.isForStatement(owner) || ts.isForInStatement(owner) || ts.isForOfStatement(owner)) return owner;
+  for (let current: ts.Node | undefined = owner; current; current = current.parent) {
+    if (ts.isSourceFile(current) || ts.isBlock(current) || ts.isModuleBlock(current) || ts.isCaseBlock(current)) return current;
+  }
+  return declaration.getSourceFile();
+}
+
+function variableBindings(file: ts.SourceFile): VariableBindings {
+  const bindings: VariableBindings = new Map();
   const visit = (node: ts.Node): void => {
     if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer
       && ts.isVariableDeclarationList(node.parent) && (node.parent.flags & ts.NodeFlags.Const) !== 0) {
-      bindings.set(node.name.text, node.initializer);
+      const scope = variableScope(node);
+      const scopeBindings = bindings.get(scope) ?? new Map<string, ts.Expression>();
+      scopeBindings.set(node.name.text, node.initializer);
+      bindings.set(scope, scopeBindings);
     }
     ts.forEachChild(node, visit);
   };
   visit(file);
   return bindings;
+}
+
+function boundInitializer(identifier: ts.Identifier, bindings: VariableBindings): ts.Expression | undefined {
+  for (let current: ts.Node | undefined = identifier; current; current = current.parent) {
+    const initializer = bindings.get(current)?.get(identifier.text);
+    if (initializer) return initializer;
+  }
+  return undefined;
 }
 
 function directStaticString(expression: ts.Expression): StaticString | undefined {
@@ -463,12 +501,12 @@ function directStaticString(expression: ts.Expression): StaticString | undefined
   return undefined;
 }
 
-function resolveStaticString(expression: ts.Expression, bindings: Map<string, ts.Expression>): StaticString | undefined {
+function resolveStaticString(expression: ts.Expression, bindings: VariableBindings): StaticString | undefined {
   const direct = directStaticString(expression);
   if (direct) return direct;
   const value = unwrap(expression);
   if (ts.isIdentifier(value)) {
-    const initializer = bindings.get(value.text);
+    const initializer = boundInitializer(value, bindings);
     return initializer ? directStaticString(initializer) : undefined;
   }
   const member = ts.isPropertyAccessExpression(value)
@@ -477,7 +515,7 @@ function resolveStaticString(expression: ts.Expression, bindings: Map<string, ts
       ? { owner: value.expression, name: resolveStaticString(value.argumentExpression, bindings)?.value }
       : undefined;
   if (!member?.name || !ts.isIdentifier(member.owner)) return undefined;
-  const owner = bindings.get(member.owner.text);
+  const owner = boundInitializer(member.owner, bindings);
   const object = owner ? unwrap(owner) : undefined;
   if (!object || !ts.isObjectLiteralExpression(object)) return undefined;
   const property = object.properties.find((candidate): candidate is ts.PropertyAssignment =>
@@ -485,13 +523,22 @@ function resolveStaticString(expression: ts.Expression, bindings: Map<string, ts
   return property ? directStaticString(property.initializer) : undefined;
 }
 
-function resolvedPropertyName(name: ts.PropertyName, bindings: Map<string, ts.Expression>): string | undefined {
+function resolveLocalObject(expression: ts.Expression, bindings: VariableBindings): ts.ObjectLiteralExpression | undefined {
+  const value = unwrap(expression);
+  if (ts.isObjectLiteralExpression(value)) return value;
+  if (!ts.isIdentifier(value)) return undefined;
+  const initializer = boundInitializer(value, bindings);
+  const resolved = initializer ? unwrap(initializer) : undefined;
+  return resolved && ts.isObjectLiteralExpression(resolved) ? resolved : undefined;
+}
+
+function resolvedPropertyName(name: ts.PropertyName, bindings: VariableBindings): string | undefined {
   const direct = syntaxPropertyName(name);
   if (direct) return direct;
   return ts.isComputedPropertyName(name) ? resolveStaticString(name.expression, bindings)?.value : undefined;
 }
 
-function resolvedAssignmentPropertyName(expression: ts.Expression, bindings: Map<string, ts.Expression>): string | undefined {
+function resolvedAssignmentPropertyName(expression: ts.Expression, bindings: VariableBindings): string | undefined {
   const direct = assignmentPropertyName(expression);
   if (direct) return direct;
   return ts.isElementAccessExpression(expression) && expression.argumentExpression
@@ -509,7 +556,7 @@ function isStyleObjectProperty(property: ts.PropertyAssignment): boolean {
   return ts.isVariableDeclaration(container) && /CSSProperties|CSSStyleDeclaration/.test(container.type?.getText() ?? "");
 }
 
-function typeScriptPaintProperty(node: ts.Node, bindings: Map<string, ts.Expression>): string | undefined {
+function typeScriptPaintProperty(node: ts.Node, bindings: VariableBindings): string | undefined {
   for (let current: ts.Node = node; current.parent && !ts.isSourceFile(current.parent); current = current.parent) {
     const parent = current.parent;
     if (ts.isPropertyAssignment(parent)) {
@@ -570,6 +617,21 @@ function typeScriptColorSites(source: string, path: string, includeSemanticPaint
     const resolved = resolveStaticString(expression, bindings);
     if (resolved) record(resolved.value, resolved.node, property);
   };
+  const recordStyleExpression = (expression: ts.Expression) => {
+    const object = resolveLocalObject(expression, bindings);
+    if (!object) {
+      recordExpression(expression, "--style-value");
+      return;
+    }
+    for (const property of object.properties) {
+      if (!ts.isPropertyAssignment(property)) continue;
+      const name = resolvedPropertyName(property.name, bindings);
+      recordExpression(
+        property.initializer,
+        name && isPaintProperty(typescriptPropertyName(name)) ? name : "--style-value",
+      );
+    }
+  };
   const visit = (node: ts.Node): void => {
     if (ts.isStringLiteralLike(node)) record(node.text, node);
     if (ts.isTemplateExpression(node)) {
@@ -583,6 +645,7 @@ function typeScriptColorSites(source: string, path: string, includeSemanticPaint
     if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
       const name = resolvedAssignmentPropertyName(node.left, bindings);
       if (name && isPaintProperty(typescriptPropertyName(name))) recordExpression(node.right, name);
+      else if (name && typescriptPropertyName(name) === "style") recordStyleExpression(node.right);
     }
     if (ts.isCallExpression(node)) {
       const method = ts.isPropertyAccessExpression(node.expression) ? node.expression.name.text : "";
@@ -595,7 +658,8 @@ function typeScriptColorSites(source: string, path: string, includeSemanticPaint
       const name = node.name.getText();
       const value = ts.isJsxExpression(node.initializer) ? node.initializer.expression : node.initializer;
       if (value && (isPaintProperty(typescriptPropertyName(name)) || typescriptPropertyName(name) === "style")) {
-        recordExpression(value, name === "style" ? "--style-value" : name);
+        if (typescriptPropertyName(name) === "style") recordStyleExpression(value);
+        else recordExpression(value, name);
       }
     }
     ts.forEachChild(node, visit);
