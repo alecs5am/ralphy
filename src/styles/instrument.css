@@ -90,3 +90,136 @@ html[data-theme="light"] .instrument-profile-menu button:focus-visible { outline
   .instrument-screen-header { flex-direction: column; }
   .instrument-screen-controls { flex-wrap: wrap; }
 }
+
+.instrument-shell {
+  --instrument-native-inset: 76px;
+  --instrument-right-rail-width: 292px;
+  --instrument-left-width: var(--sidebar-w, 240px);
+
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  grid-template-columns: var(--instrument-left-width) minmax(0, 1fr) auto;
+  background: var(--instrument-desk);
+}
+
+.instrument-shell-frame > .instrument-shell { grid-area: 1 / 1 / 2 / 4; }
+
+.instrument-shell.is-left-collapsed { --instrument-left-width: 0px; }
+
+.instrument-native-inset {
+  position: absolute;
+  z-index: 100;
+  top: 0;
+  left: 0;
+  width: var(--instrument-native-inset);
+  height: var(--titlebar-h);
+  pointer-events: none;
+}
+
+.instrument-left-stack,
+.instrument-desk-column,
+.instrument-right-rail,
+.instrument-right-rail-host {
+  min-width: 0;
+  min-height: 0;
+}
+
+.instrument-left-stack {
+  position: relative;
+  display: flex;
+  overflow: visible;
+  grid-column: 1;
+}
+
+.instrument-left-stack > .context-sidebar { width: 100%; }
+
+.instrument-desk-column {
+  display: flex;
+  overflow: hidden;
+  grid-column: 2;
+  flex-direction: column;
+  background: var(--instrument-desk);
+}
+
+.instrument-top-row {
+  display: flex;
+  height: var(--titlebar-h);
+  min-width: 0;
+  flex: none;
+  align-items: center;
+  -webkit-app-region: drag;
+}
+
+.instrument-top-row button,
+.instrument-profile-slot { -webkit-app-region: no-drag; }
+.instrument-island-slot { min-width: 0; flex: 1; }
+.instrument-island-slot > .main-header { width: 100%; height: var(--titlebar-h); }
+.instrument-profile-slot { flex: none; padding-right: var(--space-2); }
+
+.instrument-desk-scroll {
+  container-name: instrument-desk;
+  container-type: inline-size;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.instrument-desk-scroll > .main-content-stage { min-height: 100%; }
+.instrument-bottom-panel { position: relative; flex: none; }
+
+.instrument-right-rail {
+  display: flex;
+  width: var(--instrument-right-rail-width);
+  overflow: hidden;
+  grid-column: 3;
+  background: var(--instrument-widget-dark);
+  color: var(--instrument-text-on-dark-primary);
+}
+
+.instrument-right-rail-host {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  flex-direction: column;
+}
+
+.instrument-right-rail-host > .utility-right-panel {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+[data-instrument-overlay-backdrop]:has(+ [data-instrument-overlay="right-rail-sheet"]) {
+  position: fixed;
+  z-index: 119;
+  inset: 0;
+  background: color-mix(in srgb, var(--instrument-widget-dark) 52%, transparent);
+}
+
+[data-instrument-overlay="right-rail-sheet"] {
+  position: fixed;
+  z-index: 120;
+  top: var(--space-2);
+  right: var(--space-2);
+  bottom: var(--space-2);
+  width: min(var(--instrument-right-rail-width), calc(100vw - 16px));
+  max-height: calc(100vh - 16px);
+  border-radius: var(--radius-lg);
+  background: var(--instrument-widget-dark);
+  color: var(--instrument-text-on-dark-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .instrument-shell,
+  .instrument-right-rail { transition: none; }
+}

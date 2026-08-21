@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type ComponentProps,
 } from "react";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion } from "motion/react";
 import { ContextSidebar } from "./components/ContextSidebar";
@@ -32,6 +33,7 @@ import { CalendarScreen } from "./screens/CalendarScreen";
 import { SharedLibraryScreen } from "./screens/SharedLibraryScreen";
 import { MarketplaceScreen } from "./screens/MarketplaceScreen";
 import { InstrumentScreenRoot } from "./instrument/screen-state-registry";
+import { InstrumentShell, useInstrumentRightRail } from "./instrument/InstrumentShell";
 import { useTheme } from "./instrument/ThemeProvider";
 import { unitsInstrumentStates } from "./screens/project/unit-instrument-state";
 import {
@@ -97,6 +99,25 @@ export function isChatRailVisible({ workbenchVisible, rightPanelVisible }: {
   return workbenchVisible && rightPanelVisible;
 }
 
+function InstrumentWorkbenchHeader(props: ComponentProps<typeof MainHeader>) {
+  const rail = useInstrumentRightRail();
+  const toggleRightRail = useCallback(() => {
+    const active = document.activeElement as HTMLElement | null;
+    const opener = active?.getAttribute("aria-label") === "Toggle right panel"
+      ? active
+      : document.querySelector<HTMLElement>('button[aria-label="Toggle right panel"]');
+    if (rail.mode === "closed") rail.open(opener);
+    else rail.close();
+  }, [rail]);
+  useEffect(() => bridge.onToggleRightPanel(toggleRightRail), [toggleRightRail]);
+  return <MainHeader {...props} rightPanelVisible={rail.mode !== "closed"} onToggleRightPanel={toggleRightRail} />;
+}
+
+function InstrumentChat(props: Omit<ComponentProps<typeof AgentChatPanel>, "onClose">) {
+  const rail = useInstrumentRightRail();
+  return <AgentChatPanel {...props} onClose={rail.close} />;
+}
+
 function WorkspaceDestinationFrame({ destination, onBack, children }: {
   destination: WorkspaceDestination;
   onBack(): void;
@@ -159,6 +180,7 @@ export function App() {
   const [rightPanelVisible, setRightPanelVisible] = useState(
     initialPreferences.current.rightPanelVisible,
   );
+  const [rightOverlayOpen, setRightOverlayOpen] = useState(false);
   const [bottomPanelVisible, setBottomPanelVisible] = useState(
     initialPreferences.current.bottomPanelVisible,
   );
@@ -171,7 +193,7 @@ export function App() {
   const [sidebarWidth, setSidebarWidth] = useState(
     initialPreferences.current.sidebarWidth,
   );
-  const [rightPanelWidth, setRightPanelWidth] = useState(
+  const [rightPanelWidth] = useState(
     initialPreferences.current.rightPanelWidth,
   );
   const [bottomPanelHeight, setBottomPanelHeight] = useState(
@@ -217,20 +239,12 @@ export function App() {
     sidebarVisible: activeSidebarVisible,
     workspaceId: selectedWorkspace?.id ?? null,
   });
-  const showRightPanel = isChatRailVisible({ workbenchVisible: true, rightPanelVisible });
   const showBottomPanel = bottomPanelVisible;
   const sidebarMax = Math.max(
     PANEL_SIZE_LIMITS.sidebar.min,
     Math.min(
       PANEL_SIZE_LIMITS.sidebar.max,
-      viewport.width - (showRightPanel ? rightPanelWidth : 0) - 440,
-    ),
-  );
-  const rightPanelMax = Math.max(
-    PANEL_SIZE_LIMITS.right.min,
-    Math.min(
-      PANEL_SIZE_LIMITS.right.max,
-      viewport.width - (activeSidebarVisible ? activeSidebarWidth : 0) - 440,
+      viewport.width - 440,
     ),
   );
   const bottomPanelMax = Math.max(
@@ -323,12 +337,6 @@ export function App() {
     };
   }, [restoring, welcomeVisible]);
 
-  useEffect(
-    () => bridge.onToggleRightPanel(() =>
-      setRightPanelVisible((visible) => !visible)),
-    [],
-  );
-
   useEffect(() => {
     if (state.route.kind !== "workspace") return;
     const timer = window.setTimeout(() => void loadProjectScreen(), 700);
@@ -345,9 +353,8 @@ export function App() {
 
   useEffect(() => {
     setSidebarWidth((value) => Math.min(value, sidebarMax));
-    setRightPanelWidth((value) => Math.min(value, rightPanelMax));
     setBottomPanelHeight((value) => Math.min(value, bottomPanelMax));
-  }, [bottomPanelMax, rightPanelMax, sidebarMax]);
+  }, [bottomPanelMax, sidebarMax]);
 
   useEffect(() => {
     if (restoring) return;
@@ -667,28 +674,32 @@ export function App() {
   const canGoForward = marketplace.mode === "marketplace"
     ? marketplace.historyIndex < marketplace.history.length - 1
     : state.historyIndex < state.history.length - 1;
+  const routeScrollKey = marketplace.mode === "marketplace"
+    ? `marketplace:${JSON.stringify(marketplace.location.route)}`
+    : state.route.kind === "library"
+      ? "work:library"
+      : state.route.kind === "workspace"
+        ? `work:workspace:${state.route.workspaceId}:${workspacePage}`
+        : `work:project:${state.route.workspaceId}:${state.route.projectId}`;
 
   return (
     <MotionConfig reducedMotion="user">
       <LayoutGroup id="asset-workbench">
         <motion.div
           className={[
-            "workbench",
-            !activeSidebarVisible ? " sidebar-collapsed" : "",
-            showRightPanel ? " has-right-panel" : "",
+            "workbench instrument-shell-frame",
             showBottomPanel ? " has-bottom-panel" : "",
             isResizing ? " is-resizing" : "",
           ].join("")}
           style={{
             "--sidebar-w": `${activeSidebarWidth}px`,
-            "--inspector-w": `${rightPanelWidth}px`,
           } as CSSProperties}
           initial={false}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.24 }}
         >
-          <AnimatePresence initial={false}>
-            {activeSidebarVisible && (
+          <InstrumentShell
+            sidebar={<>
               <ContextSidebar
                 mode={marketplace.mode}
                 route={state.route}
@@ -721,53 +732,22 @@ export function App() {
                   if (workspaceId) openWorkspace(workspaceId);
                 }}
               />
-            )}
-          </AnimatePresence>
-          {catalog && marketplace.mode === "work" && sidebarVisible && (
-            <ResizeHandle
-              ariaLabel="Resize sidebar"
-              orientation="vertical"
-              value={sidebarWidth}
-              min={PANEL_SIZE_LIMITS.sidebar.min}
-              max={sidebarMax}
-              defaultValue={PANEL_SIZE_LIMITS.sidebar.default}
-              direction={1}
-              className="resize-sidebar"
-              onChange={setSidebarWidth}
-              onActiveChange={setIsResizing}
-            />
-          )}
-          <motion.section className="main-shell">
-            <MainHeader
-              sidebarVisible={activeSidebarVisible}
-              canGoBack={canGoBack}
-              canGoForward={canGoForward}
-              rightPanelVisible={rightPanelVisible}
-              bottomPanelVisible={showBottomPanel}
-              onBack={navigateBack}
-              onForward={navigateForward}
-              onHome={() => {
-                if (marketplace.mode === "marketplace") {
-                  openMarketplaceRoute({ kind: "discover" });
-                  return;
-                }
-                openWorkspacePage("overview");
-                const workspaceId = selectedWorkspace?.id ?? mostRecentWorkspaceId(workspaces);
-                if (workspaceId) openWorkspace(workspaceId);
-                else dispatch({ type: "open-library" });
-              }}
-              onToggleSidebar={() => {
-                if (marketplace.mode === "marketplace") dispatchMarketplace({ type: "toggle-sidebar" });
-                else setSidebarVisible((visible) => !visible);
-              }}
-              onToggleRightPanel={() =>
-                setRightPanelVisible((visible) => !visible)
-              }
-              onToggleBottomPanel={() =>
-                setBottomPanelVisible((visible) => !visible)
-              }
-            />
-            <div className="main-content-stage">
+              {catalog && marketplace.mode === "work" && sidebarVisible && (
+                <ResizeHandle
+                  ariaLabel="Resize sidebar"
+                  orientation="vertical"
+                  value={sidebarWidth}
+                  min={PANEL_SIZE_LIMITS.sidebar.min}
+                  max={sidebarMax}
+                  defaultValue={PANEL_SIZE_LIMITS.sidebar.default}
+                  direction={1}
+                  className="resize-sidebar"
+                  onChange={setSidebarWidth}
+                  onActiveChange={setIsResizing}
+                />
+              )}
+            </>}
+            desk={<div className="main-content-stage">
               <div className="app-mode-surface app-mode-work" hidden={marketplace.mode !== "work"} inert={marketplace.mode !== "work"}>
                 {workContent}
               </div>
@@ -787,8 +767,45 @@ export function App() {
                   onRememberLocation={rememberMarketplace}
                 />
               </div>
-            </div>
-            {showBottomPanel && (
+            </div>}
+            chat={<InstrumentChat
+              chat={agentChat}
+              workspace={selectedWorkspace}
+              project={selectedProject}
+            />}
+            island={<InstrumentWorkbenchHeader
+              sidebarVisible={activeSidebarVisible}
+              canGoBack={canGoBack}
+              canGoForward={canGoForward}
+              rightPanelVisible={false}
+              bottomPanelVisible={showBottomPanel}
+              onBack={navigateBack}
+              onForward={navigateForward}
+              onHome={() => {
+                if (marketplace.mode === "marketplace") {
+                  openMarketplaceRoute({ kind: "discover" });
+                  return;
+                }
+                openWorkspacePage("overview");
+                const workspaceId = selectedWorkspace?.id ?? mostRecentWorkspaceId(workspaces);
+                if (workspaceId) openWorkspace(workspaceId);
+                else dispatch({ type: "open-library" });
+              }}
+              onToggleSidebar={() => {
+                if (marketplace.mode === "marketplace") dispatchMarketplace({ type: "toggle-sidebar" });
+                else setSidebarVisible((visible) => !visible);
+              }}
+              onToggleRightPanel={() => undefined}
+              onToggleBottomPanel={() =>
+                setBottomPanelVisible((visible) => !visible)
+              }
+            />}
+            profile={null}
+            routeScrollKey={routeScrollKey}
+            leftVisible={activeSidebarVisible}
+            rightPreference={rightPanelVisible}
+            rightOverlayOpen={rightOverlayOpen}
+            bottomPanel={<>
               <ResizeHandle
                 ariaLabel="Resize bottom panel"
                 orientation="horizontal"
@@ -801,38 +818,20 @@ export function App() {
                 onChange={setBottomPanelHeight}
                 onActiveChange={setIsResizing}
               />
-            )}
-            <BottomPanel
-              height={bottomPanelHeight}
-              visible={showBottomPanel}
-              rootPath={rootIdentity?.storeId ?? null}
-            />
-          </motion.section>
-          {showRightPanel && (
-            <ResizeHandle
-              ariaLabel="Resize right panel"
-              orientation="vertical"
-              value={rightPanelWidth}
-              min={PANEL_SIZE_LIMITS.right.min}
-              max={rightPanelMax}
-              defaultValue={PANEL_SIZE_LIMITS.right.default}
-              direction={-1}
-              className="resize-right"
-              onChange={setRightPanelWidth}
-              onActiveChange={setIsResizing}
-            />
-          )}
-          <AnimatePresence initial={false}>
-            {showRightPanel ? (
-              <AgentChatPanel
-                key="agent-chat"
-                chat={agentChat}
-                workspace={selectedWorkspace}
-                project={selectedProject}
-                onClose={() => setRightPanelVisible(false)}
+              <BottomPanel
+                height={bottomPanelHeight}
+                visible={showBottomPanel}
+                rootPath={rootIdentity?.storeId ?? null}
               />
-            ) : null}
-          </AnimatePresence>
+            </>}
+            bottomVisible={showBottomPanel}
+            onToggleLeft={() => {
+              if (marketplace.mode === "marketplace") dispatchMarketplace({ type: "toggle-sidebar" });
+              else setSidebarVisible((visible) => !visible);
+            }}
+            onToggleRightPreference={() => setRightPanelVisible((visible) => !visible)}
+            onRightOverlayOpenChange={setRightOverlayOpen}
+          />
           {error && (
             <div className="error-banner" role="alert">
               <span>{error}</span>

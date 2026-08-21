@@ -143,6 +143,7 @@ import {
   type WindowBounds,
 } from "./window-state";
 import { parseBoundedJsonValue as parseJsonValue } from "./json-value";
+import { INSTRUMENT_PALETTE } from "../src/instrument/palette";
 import {
   loadLocalModelDetail,
   loadLocalModelMachine,
@@ -1391,9 +1392,7 @@ function createWindow(): void {
     minHeight: MINIMUM_WINDOW_SIZE.height,
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 16, y: 18 },
-    vibrancy: "sidebar",
-    visualEffectState: "active",
-    backgroundColor: "transparent",
+    backgroundColor: INSTRUMENT_PALETTE.dark.desk,
     show: !SMOKE_TEST,
     webPreferences: secureWebPreferences(join(__dirname, "preload.cjs")),
   });

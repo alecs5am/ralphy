@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 
 async function windowStateModule() {
@@ -24,5 +25,18 @@ describe("window state", () => {
       { width: 1_100, height: 720 },
     )).toEqual({ x: 0, y: 25, width: 1_440, height: 875 });
     expect(windowState.parseWindowBounds({ width: "1200" })).toBeNull();
+  });
+
+  test("uses one solid hidden-inset native title bar without renderer traffic lights", () => {
+    const main = readFileSync("electron/main.ts", "utf8");
+    const shell = readFileSync("src/instrument/InstrumentShell.tsx", "utf8");
+    expect(main).toMatch(/titleBarStyle:\s*"hiddenInset"/);
+    expect(main).toMatch(/trafficLightPosition:\s*\{\s*x:\s*16,\s*y:\s*18\s*\}/);
+    expect(main).not.toMatch(/\bvibrancy\s*:/);
+    expect(main).not.toMatch(/\bvisualEffectState\s*:/);
+    expect(main).not.toMatch(/backgroundColor:\s*"transparent"/);
+    expect(main).toMatch(/backgroundColor:\s*INSTRUMENT_PALETTE\.dark\.desk/);
+    expect(main).not.toMatch(/backgroundColor:\s*"#[\dA-F]+"/i);
+    expect(shell).not.toMatch(/traffic-light/i);
   });
 });

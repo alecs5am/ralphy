@@ -322,7 +322,7 @@ export function readWorkbenchPreferences(storage: StorageLike): WorkbenchPrefere
     pinnedProjectIds: [],
     workspacePage: "overview",
     sidebarVisible: true,
-    rightPanelVisible: false,
+    rightPanelVisible: true,
     bottomPanelVisible: false,
     workspaceView: "grid",
     sidebarWidth: PANEL_SIZE_LIMITS.sidebar.default,
@@ -346,7 +346,7 @@ export function readWorkbenchPreferences(storage: StorageLike): WorkbenchPrefere
       sidebarVisible:
         typeof record.sidebarVisible === "boolean" ? record.sidebarVisible : true,
       rightPanelVisible:
-        typeof record.rightPanelVisible === "boolean" ? record.rightPanelVisible : false,
+        typeof record.rightPanelVisible === "boolean" ? record.rightPanelVisible : true,
       bottomPanelVisible:
         typeof record.bottomPanelVisible === "boolean" ? record.bottomPanelVisible : false,
       workspaceView: record.workspaceView === "list" ? "list" : "grid",

@@ -222,7 +222,7 @@ describe("workbench ordering and preferences", () => {
     expect(mostRecentWorkspaceId([])).toBeNull();
   });
 
-  test("defaults to an open sidebar, closed utility panels, and workspace grid", () => {
+  test("defaults to an open sidebar and preferred right rail while the terminal stays closed", () => {
     const preferences = readWorkbenchPreferences({
       getItem: () => null,
       setItem: () => undefined,
@@ -231,7 +231,7 @@ describe("workbench ordering and preferences", () => {
     expect(preferences).toMatchObject({
       theme: "system",
       sidebarVisible: true,
-      rightPanelVisible: false,
+      rightPanelVisible: true,
       bottomPanelVisible: false,
       workspaceView: "grid",
       sidebarWidth: 288,
@@ -262,8 +262,20 @@ describe("workbench ordering and preferences", () => {
       workspaceId: null,
       projectId: null,
       sidebarVisible: true,
-      rightPanelVisible: false,
+      rightPanelVisible: true,
     });
+  });
+
+  test("preserves an explicit closed right-rail preference and repairs invalid values", () => {
+    const read = (value: unknown) => readWorkbenchPreferences({
+      getItem: () => JSON.stringify({ rightPanelVisible: value }),
+      setItem: () => undefined,
+    });
+
+    expect(read(false).rightPanelVisible).toBe(false);
+    expect(read(true).rightPanelVisible).toBe(true);
+    expect(read("closed").rightPanelVisible).toBe(true);
+    expect(read(null).rightPanelVisible).toBe(true);
   });
 
   test("reports denied preference writes without throwing", () => {
