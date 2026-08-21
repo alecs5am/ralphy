@@ -830,11 +830,21 @@ describe("design system contract", () => {
   });
 
   test("uses the approved neutral surfaces and larger smooth radii", () => {
-    expect(styles).toMatch(/--canvas:\s*#181818/);
-    expect(styles).toMatch(/--raised:\s*#2d2d2d/);
+    expect(styles).toMatch(/--canvas:\s*var\(--instrument-legacy-canvas\)/);
+    expect(styles).toMatch(/--raised:\s*var\(--instrument-legacy-raised\)/);
     expect(styles).toMatch(/--radius-md:\s*10px/);
     expect(styles).toMatch(/\.main-header\s*\{[^}]*border-bottom:\s*0/s);
     expect(styles).toMatch(/\.asset-modal-surface,[\s\S]*corner-shape:\s*squircle/);
+  });
+
+  test("bundles Doto locally at its accessible minimum and removes the legacy purple token", () => {
+    const reset = readFileSync(join(process.cwd(), "src/styles/reset.css"), "utf8");
+    const palette = readFileSync(join(process.cwd(), "src/instrument/palette.ts"), "utf8");
+    expect(tokenStyles).toMatch(/font-family:\s*"Doto"[\s\S]*Doto-Variable\.ttf/);
+    expect(reset).toMatch(/\.instrument-doto\s*\{[^}]*font-size:\s*max\(13px, 1em\)/s);
+    expect(`${tokenStyles}\n${reset}\n${palette}`).not.toMatch(/#(?:7F7BD6|8B7CF6)/i);
+    expect(tokenStyles).toContain("/* instrument-token-definitions:start */");
+    expect(tokenStyles).toContain("/* instrument-token-definitions:end */");
   });
 
   test("shares the compact profile-menu tokens across reusable controls", () => {

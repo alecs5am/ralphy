@@ -30,61 +30,164 @@
   font-display: swap;
 }
 
-:root {
+@font-face {
+  font-family: "Doto";
+  src: url("/assets/fonts/Doto-Variable.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* instrument-token-definitions:start */
+:root,
+html[data-theme="dark"] {
   color-scheme: dark;
+  --instrument-desk: #050505;
+  --instrument-desk-board: #111111;
+  --instrument-desk-hover: #242422;
+  --instrument-widget-light: #141414;
+  --instrument-widget-light-hover: #242424;
+  --instrument-widget-light-sunken: #1E1E1E;
+  --instrument-text-primary: #F2F2F0;
+  --instrument-text-secondary-decorative: #8A8A86;
+  --instrument-text-muted-decorative: #6A6A66;
+  --instrument-text-secondary-readable: #A4A4A0;
+  --instrument-unreviewed: #3A3A38;
+  --instrument-widget-dark: #141414;
+  --instrument-widget-dark-raised: #1E1E1E;
+  --instrument-widget-dark-hover: #1C1C1C;
+  --instrument-media-frame: #060606;
+  --instrument-text-on-dark-primary: #F2F2F0;
+  --instrument-text-on-dark-secondary-readable: #A4A4A0;
+  --instrument-text-on-dark-muted-decorative: #6A6A66;
+  --instrument-alert: #E0362C;
+  --instrument-alert-text: #050505;
+  --instrument-alert-bright: #EB4438;
+  --instrument-traffic-close: #ED6A5E;
+  --instrument-traffic-minimize: #F0B544;
+  --instrument-traffic-maximize: #5CC45C;
+  --instrument-ghost: #262626;
+  --instrument-ghost-hover: #2E2E2E;
+  --instrument-divider: #DFE2E9;
+  --instrument-focus: #DFE2E9;
+  --instrument-terminal-background: #060606;
+  --instrument-terminal-foreground: #E8E8E6;
+  --instrument-terminal-cursor: #DFE2E9;
+  --instrument-terminal-selection: #343434;
+  --instrument-waveform-wave: #4A4A48;
+  --instrument-waveform-progress: #E8E8E6;
+  --instrument-waveform-cursor: #DFE2E9;
+  --instrument-dither-base: #3F3F3D;
+  --instrument-dither-highlight: #8A8A86;
+  --instrument-legacy-canvas: #181818;
+  --instrument-legacy-sunken: #111111;
+  --instrument-legacy-sidebar: #1D1D1D;
+  --instrument-legacy-raised: #2D2D2D;
+  --instrument-legacy-hover: #343434;
+  --instrument-legacy-selected: #3A3A38;
+}
 
-  --canvas: #181818;
-  --sunken: #111111;
-  --panel: rgb(30 30 30 / 0.72);
-  --panel-solid: #202020;
-  --raised: #2d2d2d;
-  --hover: #343434;
-  --selected: #3a3a3a;
-  --pressed: #424242;
+html[data-theme="light"] {
+  color-scheme: light;
+  --instrument-desk: #E2E4EA;
+  --instrument-desk-board: #D8D8D6;
+  --instrument-desk-hover: #D3D6DD;
+  --instrument-widget-light: #F1F2F6;
+  --instrument-widget-light-hover: #FFFFFF;
+  --instrument-widget-light-sunken: #E4E4E2;
+  --instrument-text-primary: #141414;
+  --instrument-text-secondary-decorative: #6E6E6A;
+  --instrument-text-muted-decorative: #9A9A96;
+  --instrument-text-secondary-readable: #4A4A48;
+  --instrument-unreviewed: #CCCED6;
+  --instrument-widget-dark: #141414;
+  --instrument-widget-dark-raised: #1E1E1E;
+  --instrument-widget-dark-hover: #1C1C1C;
+  --instrument-media-frame: #060606;
+  --instrument-text-on-dark-primary: #F2F2F0;
+  --instrument-text-on-dark-secondary-readable: #A4A4A0;
+  --instrument-text-on-dark-muted-decorative: #6A6A66;
+  --instrument-alert: #E0362C;
+  --instrument-alert-text: #050505;
+  --instrument-alert-bright: #EB4438;
+  --instrument-traffic-close: #ED6A5E;
+  --instrument-traffic-minimize: #F0B544;
+  --instrument-traffic-maximize: #5CC45C;
+  --instrument-ghost: #262626;
+  --instrument-ghost-hover: #2E2E2E;
+  --instrument-divider: #DFE2E9;
+  --instrument-focus: #111111;
+  --instrument-terminal-background: #060606;
+  --instrument-terminal-foreground: #E8E8E6;
+  --instrument-terminal-cursor: #DFE2E9;
+  --instrument-terminal-selection: #343434;
+  --instrument-waveform-wave: #4A4A48;
+  --instrument-waveform-progress: #E8E8E6;
+  --instrument-waveform-cursor: #DFE2E9;
+  --instrument-dither-base: #3F3F3D;
+  --instrument-dither-highlight: #8A8A86;
+  --instrument-legacy-canvas: #181818;
+  --instrument-legacy-sunken: #111111;
+  --instrument-legacy-sidebar: #1D1D1D;
+  --instrument-legacy-raised: #2D2D2D;
+  --instrument-legacy-hover: #343434;
+  --instrument-legacy-selected: #3A3A38;
+}
+/* instrument-token-definitions:end */
 
-  --fg: #f4f4f4;
-  --fg-2: #bebebe;
-  --fg-3: #929292;
-  --fg-4: #6c6c6c;
+:root {
+  --canvas: var(--instrument-legacy-canvas);
+  --sunken: var(--instrument-legacy-sunken);
+  --panel: color-mix(in srgb, var(--instrument-widget-dark-raised) 72%, transparent);
+  --panel-solid: var(--instrument-widget-dark-raised);
+  --raised: var(--instrument-legacy-raised);
+  --hover: var(--instrument-legacy-hover);
+  --selected: var(--instrument-legacy-selected);
+  --pressed: var(--instrument-dither-base);
 
-  --accent: #8b7cf6;
-  --accent-soft: color-mix(in srgb, var(--accent) 74%, #ffffff);
+  --fg: var(--instrument-text-on-dark-primary);
+  --fg-2: var(--instrument-text-on-dark-secondary-readable);
+  --fg-3: var(--instrument-text-on-dark-muted-decorative);
+  --fg-4: var(--instrument-text-on-dark-muted-decorative);
+
+  --accent: var(--instrument-text-on-dark-primary);
+  --accent-soft: var(--instrument-text-on-dark-secondary-readable);
   --accent-fill: color-mix(in srgb, var(--accent) 20%, transparent);
   --accent-line: color-mix(in srgb, var(--accent) 38%, transparent);
 
-  --ok: #7cb994;
-  --warn: #cdae80;
-  --danger: #d49692;
-  --idle: #6a6a74;
+  --ok: var(--instrument-text-on-dark-primary);
+  --warn: var(--instrument-text-on-dark-secondary-readable);
+  --danger: var(--instrument-alert);
+  --idle: var(--instrument-unreviewed);
 
-  --line: rgb(255 255 255 / 0.07);
-  --line-strong: rgb(255 255 255 / 0.12);
+  --line: color-mix(in srgb, var(--instrument-text-on-dark-primary) 7%, transparent);
+  --line-strong: color-mix(in srgb, var(--instrument-text-on-dark-primary) 12%, transparent);
 
-  /* Shared control layer, derived from the compact profile menu. */
   --control-hover: var(--hover);
   --control-selected: var(--selected);
   --control-text: var(--fg-2);
   --control-text-hover: var(--fg);
   --control-focus: 2px solid var(--fg);
 
-  --field-surface: #242424;
-  --field-border: rgb(255 255 255 / 0.045);
-  --field-border-focus: rgb(255 255 255 / 0.1);
+  --field-surface: var(--instrument-widget-light-hover);
+  --field-border: color-mix(in srgb, var(--instrument-text-on-dark-primary) 5%, transparent);
+  --field-border-focus: color-mix(in srgb, var(--instrument-text-on-dark-primary) 10%, transparent);
   --field-radius: var(--radius-md);
   --field-height: var(--control-md);
   --field-text: var(--fg);
   --field-placeholder: var(--fg-3);
 
-  --menu-surface: #242424;
-  --menu-border: rgb(255 255 255 / 0.045);
+  --menu-surface: var(--instrument-widget-light-hover);
+  --menu-border: color-mix(in srgb, var(--instrument-text-on-dark-primary) 5%, transparent);
   --menu-radius: 16px;
   --menu-padding: 2px;
   --menu-item-height: 30px;
   --menu-item-radius: var(--radius-md);
-  --menu-shadow: 0 8px 24px -6px rgb(0 0 0 / 0.7);
+  --menu-shadow: none;
 
   --font-sans: "AWS Diatype", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   --font-mono: "AWS Diatype Mono", "Andale Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-doto: "Doto", var(--font-mono);
   --text-xs: 11px;
   --text-sm: 12px;
   --text-base: 13px;
@@ -118,10 +221,10 @@
   --space-7: 32px;
   --space-8: 40px;
 
-  --blur: blur(44px) saturate(180%);
+  --blur: none;
   --ring-select: 0 0 0 2px var(--accent);
-  --shadow-pop: 0 8px 24px -6px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.06);
-  --shadow-window: 0 44px 96px -26px rgb(0 0 0 / 0.78);
+  --shadow-pop: none;
+  --shadow-window: none;
 
   --ease: cubic-bezier(0.2, 0, 0.2, 1);
   --dur-fast: 90ms;
@@ -129,14 +232,14 @@
   --dur-slow: 220ms;
 
   --dither-op: 1;
-  --p1: oklch(0.76 0.1 288);
-  --p2: oklch(0.76 0.1 238);
-  --p3: oklch(0.76 0.1 188);
-  --p4: oklch(0.76 0.1 148);
-  --p5: oklch(0.76 0.1 82);
-  --p6: oklch(0.76 0.1 32);
-  --p7: oklch(0.76 0.1 340);
-  --p8: oklch(0.76 0.1 208);
+  --p1: var(--instrument-dither-base);
+  --p2: var(--instrument-dither-highlight);
+  --p3: var(--instrument-dither-base);
+  --p4: var(--instrument-dither-highlight);
+  --p5: var(--instrument-dither-base);
+  --p6: var(--instrument-dither-highlight);
+  --p7: var(--instrument-dither-base);
+  --p8: var(--instrument-dither-highlight);
 }
 
 @supports (corner-shape: squircle) {
@@ -204,11 +307,11 @@
 ::-webkit-scrollbar-thumb {
   border: 3px solid transparent;
   border-radius: var(--radius-pill);
-  background: rgb(255 255 255 / 0.16);
+  background: color-mix(in srgb, var(--instrument-text-on-dark-primary) 16%, transparent);
   background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgb(255 255 255 / 0.32);
+  background: color-mix(in srgb, var(--instrument-text-on-dark-primary) 32%, transparent);
   background-clip: padding-box;
 }

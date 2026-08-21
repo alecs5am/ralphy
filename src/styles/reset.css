@@ -12,6 +12,18 @@ body,
   margin: 0;
 }
 
+body {
+  background: var(--instrument-desk);
+  color: var(--instrument-text-primary);
+  font-family: var(--font-sans);
+}
+
+.instrument-doto {
+  font-family: var(--font-doto);
+  font-size: max(13px, 1em);
+  font-weight: 800;
+}
+
 button,
 input,
 textarea,
