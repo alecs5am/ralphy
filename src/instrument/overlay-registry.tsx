@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { cloneElement, isValidElement, useEffect, useId, useRef, type ReactElement, type ReactNode, type ReactPortal, type RefObject } from "react";
+import { cloneElement, Fragment, isValidElement, useEffect, useId, useLayoutEffect, useRef, type ReactElement, type ReactNode, type ReactPortal } from "react";
 import { createPortal } from "react-dom";
 
 type InstrumentOverlayKind = "dialog" | "drawer" | "viewer" | "listbox" | "popover" | "menu" | "sheet" | "rail";
@@ -47,11 +47,12 @@ interface InstrumentOverlayBaseProps<Id extends InstrumentOverlayId> {
 }
 
 type PrimitiveHostId = "shared-select-menu" | "workspace-picker" | "agent-chat-recent-menu" | "agent-chat-provider-menu" | "agent-chat-model-menu" | "agent-chat-mode-menu";
+type PrimitiveOverlayBaseProps<Id extends PrimitiveHostId> = Omit<InstrumentOverlayBaseProps<Id>, "children"> & { children: ReactElement };
 export type InstrumentOverlayProps<Id extends InstrumentOverlayId> =
   Id extends "shared-select-menu"
-    ? InstrumentOverlayBaseProps<Id> & { host: "primitive-host"; overlayOwner: InstrumentSharedSelectOwnerId }
+    ? PrimitiveOverlayBaseProps<Id> & { host: "primitive-host"; overlayOwner: InstrumentSharedSelectOwnerId }
     : Id extends PrimitiveHostId
-      ? InstrumentOverlayBaseProps<Id> & { host: "primitive-host"; overlayOwner?: never }
+      ? PrimitiveOverlayBaseProps<Id> & { host: "primitive-host"; overlayOwner?: never }
       : InstrumentOverlayBaseProps<Id> & { host?: "managed-portal"; overlayOwner?: never };
 
 type RuntimeOverlayProps = InstrumentOverlayBaseProps<InstrumentOverlayId> & {
@@ -74,8 +75,52 @@ const primitiveHostIds = new Set<PrimitiveHostId>([
   "shared-select-menu", "workspace-picker", "agent-chat-recent-menu", "agent-chat-provider-menu", "agent-chat-model-menu", "agent-chat-mode-menu",
 ]);
 const modalKinds = new Set<InstrumentOverlayKind>(["dialog", "drawer", "viewer", "sheet"]);
-let modalScrollLocks = 0;
-let previousBodyOverflow = "";
+
+const modalEnvironment = (() => {
+  let locks = 0;
+  let body: HTMLElement | null = null;
+  let overflow = "";
+  const background = new Map<HTMLElement, { ariaHidden: string | null; inert: string | null }>();
+
+  const isOverlayPortal = (node: HTMLElement) => node.getAttribute("data-instrument-overlay") !== null
+    || node.getAttribute("data-instrument-overlay-backdrop") !== null
+    || node.querySelector("[data-instrument-overlay]") !== null;
+
+  const markBackground = () => {
+    if (!body) return;
+    for (const node of Array.from(body.children).filter((child): child is HTMLElement => child instanceof HTMLElement && !isOverlayPortal(child))) {
+      if (!background.has(node)) background.set(node, {
+        ariaHidden: node.getAttribute("aria-hidden"),
+        inert: node.getAttribute("inert"),
+      });
+      node.setAttribute("aria-hidden", "true");
+      node.setAttribute("inert", "");
+    }
+  };
+
+  return {
+    acquire() {
+      if (typeof document === "undefined") return () => undefined;
+      if (locks++ === 0) {
+        body = document.body;
+        overflow = body.style.overflow || "";
+        body.style.overflow = "hidden";
+      }
+      markBackground();
+      return () => {
+        if (locks === 0 || !body) return;
+        if (--locks !== 0) return;
+        for (const [node, snapshot] of background) {
+          if (snapshot.ariaHidden === null) node.removeAttribute("aria-hidden"); else node.setAttribute("aria-hidden", snapshot.ariaHidden);
+          if (snapshot.inert === null) node.removeAttribute("inert"); else node.setAttribute("inert", snapshot.inert);
+        }
+        body.style.overflow = overflow;
+        background.clear();
+        body = null;
+      };
+    },
+  };
+})();
 
 function restoreFocus(opener: HTMLElement | null) {
   if (opener?.isConnected) opener.focus({ preventScroll: true });
@@ -88,8 +133,13 @@ function primitiveMarker(
     "data-instrument-overlay": props.id,
     ...(props.id === "shared-select-menu" ? { "data-instrument-overlay-owner": props.overlayOwner } : {}),
   };
-  if (isValidElement(props.children)) return cloneElement(props.children as ReactElement<Record<string, unknown>>, marker);
-  return <div {...marker}>{props.children}</div>;
+  const child = props.children;
+  const forwardRef = typeof child === "object" && child !== null && isValidElement(child)
+    && typeof child.type === "object" && child.type !== null && (child.type as { $$typeof?: symbol }).$$typeof === Symbol.for("react.forward_ref");
+  if (!isValidElement(child) || child.type === Fragment || (typeof child.type !== "string" && !forwardRef)) {
+    throw new Error("primitive-host requires exactly one concrete DOM-capable React element");
+  }
+  return cloneElement(child as ReactElement<Record<string, unknown>>, marker);
 }
 
 function useOpenerRestoration(open: boolean, opener: HTMLElement | null) {
@@ -101,39 +151,18 @@ function useOpenerRestoration(open: boolean, opener: HTMLElement | null) {
   }, [open]);
 }
 
-function useModalEnvironment(open: boolean, modal: boolean, surface: RefObject<HTMLElement | null>) {
-  useEffect(() => {
-    if (!open || !modal || typeof document === "undefined") return;
-    const body = document.body;
-    if (modalScrollLocks++ === 0) {
-      previousBodyOverflow = body.style.overflow || "";
-      body.style.overflow = "hidden";
-    }
-    const background = Array.from(body.children).filter((node) => !node.contains(surface.current));
-    const snapshots = background.map((node) => ({
-      node,
-      ariaHidden: node.getAttribute("aria-hidden"),
-      inert: node.getAttribute("inert"),
-    }));
-    for (const { node } of snapshots) {
-      node.setAttribute("aria-hidden", "true");
-      node.setAttribute("inert", "");
-    }
-    return () => {
-      for (const { node, ariaHidden, inert } of snapshots) {
-        if (ariaHidden === null) node.removeAttribute("aria-hidden"); else node.setAttribute("aria-hidden", ariaHidden);
-        if (inert === null) node.removeAttribute("inert"); else node.setAttribute("inert", inert);
-      }
-      if (--modalScrollLocks === 0) body.style.overflow = previousBodyOverflow;
-    };
-  }, [modal, open, surface]);
+function useModalEnvironment(open: boolean) {
+  useLayoutEffect(() => {
+    if (!open) return;
+    return modalEnvironment.acquire();
+  }, [open]);
 }
 
 function ModalOverlay(props: RuntimeOverlayProps): ReactElement | null {
   const surface = useRef<HTMLDivElement>(null);
   const { id, open, label, description, children, localScroll, onOpenChange, opener } = props;
   useOpenerRestoration(open, opener);
-  useModalEnvironment(open, true, surface);
+  useModalEnvironment(open);
   if (!open) return null;
 
   const close = () => {

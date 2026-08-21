@@ -1,4 +1,5 @@
 import { act, useState } from "react";
+import { createPortal } from "react-dom";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import {
@@ -81,6 +82,36 @@ function ControlledModal({ localScroll = false }: { localScroll?: boolean }) {
       <button type="button">Last action</button>
     </InstrumentOverlay>}
   </>;
+}
+
+function NestedModals() {
+  const [outerOpen, setOuterOpen] = useState(true);
+  const [innerOpen, setInnerOpen] = useState(false);
+  return <>
+    <button type="button" onClick={() => setInnerOpen(true)}>Open reconnect</button>
+    <button type="button" onClick={() => setOuterOpen(false)}>Close schedule</button>
+    <button type="button" onClick={() => setInnerOpen(false)}>Close reconnect</button>
+    <button type="button" onClick={() => { setOuterOpen(false); setInnerOpen(false); }}>Close calendar</button>
+    {outerOpen && <InstrumentOverlay id="calendar-schedule" open label="Schedule content" description="Schedule a Unit" opener={null} onOpenChange={setOuterOpen}>
+      <button type="button">Schedule action</button>
+    </InstrumentOverlay>}
+    {innerOpen && <InstrumentOverlay id="calendar-reconnect" open label="Reconnect account" description="Replace credentials" opener={null} onOpenChange={setInnerOpen}>
+      <button type="button">Reconnect action</button>
+    </InstrumentOverlay>}
+  </>;
+}
+
+function buttonByText(host: ReturnType<typeof createReactHost>, text: string) {
+  const button = host.container.querySelectorAll("button").find((node) => node.textContent === text);
+  if (!button) throw new Error(`Missing ${text}`);
+  return button;
+}
+
+async function click(node: HostNode) {
+  await act(async () => {
+    node.dispatchEvent(new Event("click", { bubbles: true }));
+    await settle();
+  });
 }
 
 afterEach(() => vi.restoreAllMocks());
@@ -183,6 +214,68 @@ describe("instrument overlay registry", () => {
     }
   });
 
+  test("keeps the application background inert until nested modal releases finish in either order", async () => {
+    const mounted = await mount(<NestedModals />);
+    try {
+      await click(buttonByText(mounted.host, "Open reconnect"));
+      expect(mounted.host.container.getAttribute("inert")).toBe("");
+      await click(buttonByText(mounted.host, "Close schedule"));
+      expect(mounted.host.container.getAttribute("inert")).toBe("");
+      expect(mounted.host.container.ownerDocument.body.style.overflow).toBe("hidden");
+      await click(buttonByText(mounted.host, "Close reconnect"));
+      expect(mounted.host.container.getAttribute("inert")).toBeNull();
+      expect(mounted.host.container.ownerDocument.body.style.overflow).toBe("");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
+  test("keeps the application background inert when the nested modal releases before its parent", async () => {
+    const mounted = await mount(<NestedModals />);
+    try {
+      await click(buttonByText(mounted.host, "Open reconnect"));
+      await click(buttonByText(mounted.host, "Close reconnect"));
+      expect(mounted.host.container.getAttribute("inert")).toBe("");
+      expect(mounted.host.container.ownerDocument.body.style.overflow).toBe("hidden");
+      await click(buttonByText(mounted.host, "Close schedule"));
+      expect(mounted.host.container.getAttribute("inert")).toBeNull();
+      expect(mounted.host.container.ownerDocument.body.style.overflow).toBe("");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
+  test("releases owned modality after simultaneous nested teardown", async () => {
+    const mounted = await mount(<NestedModals />);
+    try {
+      await click(buttonByText(mounted.host, "Open reconnect"));
+      await click(buttonByText(mounted.host, "Close calendar"));
+      expect(mounted.host.container.getAttribute("inert")).toBeNull();
+      expect(mounted.host.container.ownerDocument.body.style.overflow).toBe("");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
+  test("restores pre-existing modal environment after simultaneous nested teardown", async () => {
+    const host = createReactHost();
+    host.container.setAttribute("inert", "");
+    host.container.ownerDocument.body.style.overflow = "scroll";
+    const mounted = await mount(<NestedModals />, host);
+    try {
+      await click(buttonByText(mounted.host, "Open reconnect"));
+      await click(buttonByText(mounted.host, "Close calendar"));
+      expect(mounted.host.container.getAttribute("inert")).toBe("");
+      expect(mounted.host.container.ownerDocument.body.style.overflow).toBe("scroll");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
   test("marks a primitive host without replacing its own Escape and focus behavior", async () => {
     const host = createReactHost();
     const opener = host.container.ownerDocument.createElement("button") as unknown as HTMLElement;
@@ -226,5 +319,13 @@ describe("instrument overlay registry", () => {
     expect(() => InstrumentOverlay({ id: "calendar-date-popover", host: "primitive-host", ...props })).toThrow("does not support primitive-host");
     expect(() => InstrumentOverlay({ id: "shared-select-menu", overlayOwner: "project.media", ...props })).toThrow("only supports primitive-host");
     expect(() => InstrumentOverlay({ id: "workspace-picker", ...props } as never)).toThrow("only supports primitive-host");
+    expect(() => InstrumentOverlay({ id: "workspace-picker", host: "primitive-host", ...props, children: <><div role="listbox" /></> } as never)).toThrow("exactly one concrete DOM-capable");
+    expect(() => InstrumentOverlay({ id: "workspace-picker", host: "primitive-host", ...props, children: "not a listbox" } as never)).toThrow("exactly one concrete DOM-capable");
+    const host = createReactHost();
+    try {
+      expect(() => InstrumentOverlay({ id: "workspace-picker", host: "primitive-host", ...props, children: createPortal(<div role="listbox" />, host.container as unknown as Element) } as never)).toThrow("exactly one concrete DOM-capable");
+    } finally {
+      host.restore();
+    }
   });
 });
