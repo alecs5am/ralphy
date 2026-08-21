@@ -7,8 +7,10 @@ import {
 import {
   CHAT_RAIL_ROUTE_KEYS,
   PRODUCTION_GLOBAL_OVERLAY_ROUTES,
+  PRODUCTION_LOCAL_OVERLAY_TARGETS,
   PRODUCTION_SCREEN_STATES,
   type ProductionGlobalOverlayId,
+  type ProductionLocalOverlayId,
 } from "./production-screen-states";
 import type {
   InstrumentRouteKey,
@@ -58,56 +60,19 @@ export interface InstrumentScenario {
   journeys: readonly ("keyboard" | "reduced-motion" | "live-region")[];
 }
 
-type LocalOverlayId = Exclude<InstrumentOverlayId, "shared-select-menu" | ProductionGlobalOverlayId>;
-type OverlayTarget = { routeKey: InstrumentRouteKey; state: InstrumentScenarioState; railOwner?: InstrumentRightRailOwner };
-
-const LOCAL_OVERLAY_TARGETS = {
-  "root-picker": { routeKey: "startup.welcome", state: "ready" },
-  "migration-recovery": { routeKey: "startup.migration", state: "unavailable" },
-  "app-alert": { routeKey: "startup.library", state: "error" },
-  "profile-menu": { routeKey: "startup.library", state: "ready" },
-  settings: { routeKey: "settings.general", state: "ready" },
-  "dynamic-island": { routeKey: "startup.library", state: "ready" },
-  "right-rail-sheet": { routeKey: "startup.library", state: "ready", railOwner: "chat" },
-  "workspace-account-detail": { routeKey: "workspace.overview", state: "ready" },
-  "workspace-unit-outcome-detail": { routeKey: "workspace.overview", state: "ready" },
-  "workspace-evidence-detail": { routeKey: "workspace.overview", state: "ready" },
-  "shared-inspector": { routeKey: "workspace.shared", state: "ready", railOwner: "shared-inspector" },
-  "shared-viewer": { routeKey: "workspace.shared", state: "ready" },
-  "shared-workflow": { routeKey: "workspace.shared", state: "ready" },
-  "memory-recall": { routeKey: "workspace.memory", state: "selected" },
-  "memory-editor": { routeKey: "workspace.memory", state: "selected" },
-  "memory-history": { routeKey: "workspace.memory", state: "selected" },
-  "memory-confirm": { routeKey: "workspace.memory", state: "selected" },
-  "calendar-filter": { routeKey: "workspace.calendar", state: "ready" },
-  "calendar-drawer": { routeKey: "workspace.calendar", state: "ready" },
-  "calendar-inspector": { routeKey: "workspace.calendar", state: "selected", railOwner: "calendar-inspector" },
-  "calendar-schedule": { routeKey: "workspace.calendar", state: "scheduling" },
-  "calendar-unit-picker": { routeKey: "workspace.calendar", state: "scheduling" },
-  "calendar-date-popover": { routeKey: "workspace.calendar", state: "scheduling" },
-  "calendar-time-popover": { routeKey: "workspace.calendar", state: "scheduling" },
-  "calendar-platform-settings": { routeKey: "workspace.calendar", state: "ready" },
-  "calendar-account-detail": { routeKey: "workspace.calendar", state: "selected" },
-  "calendar-reconnect": { routeKey: "workspace.calendar", state: "selected" },
-  "document-editor": { routeKey: "project.documents", state: "editing" },
-  "document-viewer": { routeKey: "project.documents", state: "selected" },
-  "document-conflict": { routeKey: "project.documents", state: "conflict" },
-  "media-viewer": { routeKey: "project.media", state: "viewer", railOwner: "media-review" },
-  "media-context-menu": { routeKey: "project.media", state: "selected", railOwner: "media-review" },
-  "mock-needs-work": { routeKey: "project.media", state: "selected", railOwner: "media-review" },
-  "unit-viewer": { routeKey: "project.units", state: "viewer" },
-  "run-inspector": { routeKey: "project.activity", state: "selected", railOwner: "activity-inspector" },
-  "marketplace-detail": { routeKey: "marketplace.detail", state: "ready" },
-  "target-chooser": { routeKey: "marketplace.detail", state: "ready" },
-  terminal: { routeKey: "startup.library", state: "ready" },
-} as const satisfies Record<LocalOverlayId, OverlayTarget>;
-
 const descriptorByRoute = new Map(PRODUCTION_SCREEN_STATES.map((descriptor) => [descriptor.routeKey, descriptor]));
 const chatRoutes = new Set<InstrumentRouteKey>(CHAT_RAIL_ROUTE_KEYS);
 const railOverlaysAtNarrow = new Set<InstrumentOverlayId>([
   "right-rail-sheet", "shared-inspector", "calendar-inspector", "run-inspector",
   ...Object.keys(PRODUCTION_GLOBAL_OVERLAY_ROUTES).filter((id) => id.startsWith("agent-chat-")) as ProductionGlobalOverlayId[],
 ]);
+const APPROVED_SCENARIO_COVERAGE_EXCEPTIONS = {
+  "overlay.right-rail-sheet.startup.library": {
+    omitted: ["light@1440x900", "light@1280x800", "dark@1440x900", "dark@1280x800"],
+    reason: "The right-rail sheet exists only below the docking threshold; wide layouts use the docked rail.",
+    review: { reviewer: "Nothing OS plan review", decision: "approved" },
+  },
+} as const satisfies Readonly<Record<string, InstrumentScenarioCoverageException>>;
 
 function descriptorFor(routeKey: InstrumentRouteKey): InstrumentScreenStateDescriptor {
   const descriptor = descriptorByRoute.get(routeKey);
@@ -167,7 +132,14 @@ function scenario(input: {
     id: input.id,
     routeKey: input.routeKey,
     state: input.state,
-    fixtureId: `instrument-test-fixture:${input.id}`,
+    fixtureId: [
+      "instrument-test-fixture",
+      encodeURIComponent(input.routeKey),
+      input.state,
+      encodeURIComponent(input.id),
+      overlay ?? "-",
+      overlayOwner ?? "-",
+    ].join(":"),
     rootMarker: descriptor.rootMarker,
     landmarks: descriptor.landmarks,
     railOwner,
@@ -191,21 +163,17 @@ const routeStateScenarios = PRODUCTION_SCREEN_STATES.flatMap((descriptor) => des
 })));
 
 const localOverlayScenarios = (Object.keys(INSTRUMENT_OVERLAYS) as InstrumentOverlayId[])
-  .filter((id): id is LocalOverlayId => id !== "shared-select-menu" && !(id in PRODUCTION_GLOBAL_OVERLAY_ROUTES))
+  .filter((id): id is ProductionLocalOverlayId => id !== "shared-select-menu" && !(id in PRODUCTION_GLOBAL_OVERLAY_ROUTES))
   .map((overlay) => {
-    const target: OverlayTarget = LOCAL_OVERLAY_TARGETS[overlay];
-    const narrowSheetOnly = overlay === "right-rail-sheet" ? {
-      omitted: ["light@1440x900", "light@1280x800", "dark@1440x900", "dark@1280x800"],
-      reason: "The right-rail sheet exists only below the docking threshold; wide layouts use the docked rail.",
-      review: { reviewer: "Nothing OS plan review", decision: "approved" },
-    } as const satisfies InstrumentScenarioCoverageException : undefined;
+    const target = PRODUCTION_LOCAL_OVERLAY_TARGETS[overlay];
+    const id = `overlay.${overlay}.${target.routeKey}`;
     return scenario({
-      id: `overlay.${overlay}.${target.routeKey}`,
+      id,
       routeKey: target.routeKey,
       state: target.state,
       overlay,
-      railOwner: target.railOwner,
-      coverageException: narrowSheetOnly,
+      railOwner: overlay === "shared-inspector" ? "shared-inspector" : undefined,
+      coverageException: APPROVED_SCENARIO_COVERAGE_EXCEPTIONS[id as keyof typeof APPROVED_SCENARIO_COVERAGE_EXCEPTIONS],
     });
   });
 
@@ -261,18 +229,59 @@ function requireEqualSets(label: string, required: readonly string[], actual: re
   if (missing.length || extra.length) throw new Error(`${label}: missing [${missing.join(", ")}], extra [${extra.join(", ")}]`);
 }
 
-export function assertInstrumentScenarioCompleteness(): void {
+function requireEqualSequence(label: string, expected: readonly string[], actual: readonly string[]) {
+  const mismatch = Math.max(expected.length, actual.length) === 0
+    ? -1
+    : Array.from({ length: Math.max(expected.length, actual.length) }, (_, index) => index)
+      .find((index) => expected[index] !== actual[index]) ?? -1;
+  if (mismatch !== -1) throw new Error(`${label}: mismatch at ${mismatch}; expected ${expected[mismatch] ?? "<end>"}, received ${actual[mismatch] ?? "<end>"}`);
+}
+
+function canonicalScenarioIds(): readonly string[] {
+  return [
+    ...PRODUCTION_SCREEN_STATES.flatMap(({ routeKey, states }) => states.map((state) => (
+      `${routeKey.startsWith("project.") ? routeKey.slice("project.".length) : routeKey}.${state}`
+    ))),
+    ...Object.entries(PRODUCTION_LOCAL_OVERLAY_TARGETS).map(([overlay, target]) => `overlay.${overlay}.${target.routeKey}`),
+    ...(Object.keys(SHARED_SELECT_OVERLAY_OWNERS) as InstrumentSharedSelectOwnerId[])
+      .flatMap((owner) => sharedRoutes(owner).map((routeKey) => `overlay.shared-select-menu.${owner}.${routeKey}`)),
+    ...(Object.entries(PRODUCTION_GLOBAL_OVERLAY_ROUTES) as [ProductionGlobalOverlayId, readonly InstrumentRouteKey[]][])
+      .flatMap(([overlay, routeKeys]) => routeKeys.map((routeKey) => `overlay.${overlay}.${routeKey}`)),
+  ];
+}
+
+function assertCoverageExceptions(scenarios: readonly InstrumentScenario[]) {
+  const validPairs = new Set(REQUIRED_SCENARIO_THEMES.flatMap((theme) => (
+    REQUIRED_SCENARIO_VIEWPORTS.map((viewport) => `${theme}@${viewport}`)
+  )));
+  for (const [id, exception] of Object.entries(APPROVED_SCENARIO_COVERAGE_EXCEPTIONS)) {
+    if (!exception.omitted.length
+      || new Set(exception.omitted).size !== exception.omitted.length
+      || exception.omitted.some((pair) => !validPairs.has(pair))
+      || !exception.reason.trim()
+      || !exception.review.reviewer.trim()
+      || exception.review.decision !== "approved") throw new Error(`coverage exception allowlist is invalid for ${id}`);
+  }
+  const actual = Object.fromEntries(scenarios
+    .filter(({ coverageException }) => coverageException !== null)
+    .map(({ id, coverageException }) => [id, coverageException]));
+  if (JSON.stringify(actual) !== JSON.stringify(APPROVED_SCENARIO_COVERAGE_EXCEPTIONS)) {
+    throw new Error("coverage exception records do not match the immutable reviewed allowlist");
+  }
+}
+
+export function assertInstrumentScenarioCompleteness(scenarios: readonly InstrumentScenario[] = INSTRUMENT_SCENARIOS): void {
   const requiredRouteStates = PRODUCTION_SCREEN_STATES.flatMap(({ routeKey, states }) => states.map((state) => tuple(routeKey, state)));
-  const actualRouteStates = INSTRUMENT_SCENARIOS.map(({ routeKey, state }) => tuple(routeKey, state));
+  const actualRouteStates = scenarios.map(({ routeKey, state }) => tuple(routeKey, state));
   requireEqualSets("route/state coverage", requiredRouteStates, actualRouteStates);
 
   const requiredOverlays = Object.keys(INSTRUMENT_OVERLAYS);
-  const actualOverlays = INSTRUMENT_SCENARIOS.flatMap(({ overlay }) => overlay === null ? [] : [overlay]);
+  const actualOverlays = scenarios.flatMap(({ overlay }) => overlay === null ? [] : [overlay]);
   requireEqualSets("overlay coverage", requiredOverlays, actualOverlays);
 
   const requiredShared = (Object.keys(SHARED_SELECT_OVERLAY_OWNERS) as InstrumentSharedSelectOwnerId[])
     .flatMap((owner) => sharedRoutes(owner).map((routeKey) => tuple(routeKey, "shared-select-menu", owner)));
-  const actualShared = INSTRUMENT_SCENARIOS
+  const actualShared = scenarios
     .filter(({ overlay }) => overlay === "shared-select-menu")
     .map(({ routeKey, overlay, overlayOwner }) => tuple(routeKey, overlay, overlayOwner));
   requireEqualSets("shared overlay owner coverage", requiredShared, actualShared);
@@ -280,20 +289,29 @@ export function assertInstrumentScenarioCompleteness(): void {
   const requiredGlobal = (Object.entries(PRODUCTION_GLOBAL_OVERLAY_ROUTES) as [ProductionGlobalOverlayId, readonly InstrumentRouteKey[]][])
     .flatMap(([overlay, routeKeys]) => routeKeys.map((routeKey) => tuple(routeKey, overlay, null)));
   const globalIds = new Set(Object.keys(PRODUCTION_GLOBAL_OVERLAY_ROUTES));
-  const actualGlobal = INSTRUMENT_SCENARIOS
+  const actualGlobal = scenarios
     .filter(({ overlay }) => overlay !== null && globalIds.has(overlay))
     .map(({ routeKey, overlay, overlayOwner }) => tuple(routeKey, overlay, overlayOwner));
   requireEqualSets("global overlay route coverage", requiredGlobal, actualGlobal);
 
-  const duplicateIds = INSTRUMENT_SCENARIOS.map(({ id }) => id).filter((id, index, ids) => ids.indexOf(id) !== index);
+  const ids = scenarios.map(({ id }) => id);
+  const duplicateIds = ids.filter((id, index) => ids.indexOf(id) !== index);
   if (duplicateIds.length) throw new Error(`duplicate scenario IDs: ${duplicateIds.join(", ")}`);
-  for (const current of INSTRUMENT_SCENARIOS) {
+  requireEqualSequence("canonical scenario IDs", canonicalScenarioIds(), ids);
+  assertCoverageExceptions(scenarios);
+  for (const current of scenarios) {
     if (current.overlay !== "shared-select-menu" && current.overlayOwner !== null) throw new Error(`${current.id} has an unexpected shared overlay owner`);
-    if (current.coverageException === null
-      && (current.themes.join() !== REQUIRED_SCENARIO_THEMES.join() || current.viewports.join() !== REQUIRED_SCENARIO_VIEWPORTS.join())) {
+    if (current.themes.join() !== REQUIRED_SCENARIO_THEMES.join() || current.viewports.join() !== REQUIRED_SCENARIO_VIEWPORTS.join()) {
       throw new Error(`${current.id} does not cover the locked theme/viewport matrix`);
     }
   }
+  const expectedCaseKeys = canonicalScenarioIds().flatMap((id) => REQUIRED_SCENARIO_THEMES.flatMap((theme) => (
+    REQUIRED_SCENARIO_VIEWPORTS.flatMap((viewport) => {
+      const exception = APPROVED_SCENARIO_COVERAGE_EXCEPTIONS[id as keyof typeof APPROVED_SCENARIO_COVERAGE_EXCEPTIONS];
+      return exception?.omitted.includes(`${theme}@${viewport}` as never) ? [] : [`${id}__${theme}__${viewport}`];
+    })
+  )));
+  requireEqualSequence("exact scenario case keys", expectedCaseKeys, expandInstrumentScenarioCases(scenarios).map(({ key }) => key));
 }
 
 export function expandInstrumentScenarioCases(scenarios: readonly InstrumentScenario[]): readonly {

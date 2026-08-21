@@ -7,6 +7,7 @@ import {
   type InstrumentSharedSelectOwnerId,
 } from "../src/instrument/overlay-registry";
 import {
+  PRODUCTION_LOCAL_OVERLAY_TARGETS,
   PRODUCTION_GLOBAL_OVERLAY_ROUTES,
   PRODUCTION_SCREEN_STATES,
 } from "../src/instrument/production-screen-states";
@@ -17,7 +18,6 @@ import {
   assertInstrumentScenarioCompleteness,
   expandInstrumentScenarioCases,
   type InstrumentScenario,
-  type InstrumentViewport,
 } from "../src/instrument/scenarios";
 import type { InstrumentRouteKey } from "../src/instrument/screen-state-registry";
 
@@ -56,12 +56,33 @@ const scenarioGlobalPairs = INSTRUMENT_SCENARIOS
   .filter(({ overlay }) => overlay !== null && globalOverlayIds.has(overlay))
   .map(({ routeKey, overlay, overlayOwner }) => key(routeKey, overlay, overlayOwner));
 
-function independentlyComputedExactCaseKeys(scenarios: readonly InstrumentScenario[]) {
-  return scenarios.flatMap((scenario) => scenario.themes.flatMap((theme) => scenario.viewports.flatMap((viewport) => {
-    const pair = `${theme}@${viewport}`;
-    return scenario.coverageException?.omitted.includes(pair) ? [] : [`${scenario.id}__${theme}__${viewport}`];
-  })));
-}
+const LOCKED_THEMES = ["light", "dark"] as const;
+const LOCKED_VIEWPORTS = ["1440x900", "1280x800", "1100x720"] as const;
+const REVIEWED_EXCEPTIONS = {
+  "overlay.right-rail-sheet.startup.library": {
+    omitted: ["light@1440x900", "light@1280x800", "dark@1440x900", "dark@1280x800"],
+    reason: "The right-rail sheet exists only below the docking threshold; wide layouts use the docked rail.",
+    review: { reviewer: "Nothing OS plan review", decision: "approved" },
+  },
+} as const;
+
+const canonicalRouteScenarioId = (routeKey: InstrumentRouteKey, state: string) => (
+  `${routeKey.startsWith("project.") ? routeKey.slice("project.".length) : routeKey}.${state}`
+);
+
+const canonicalScenarioIds = [
+  ...PRODUCTION_SCREEN_STATES.flatMap(({ routeKey, states }) => states.map((state) => canonicalRouteScenarioId(routeKey, state))),
+  ...Object.entries(PRODUCTION_LOCAL_OVERLAY_TARGETS).map(([overlay, target]) => `overlay.${overlay}.${target.routeKey}`),
+  ...(Object.keys(SHARED_SELECT_OVERLAY_OWNERS) as InstrumentSharedSelectOwnerId[])
+    .flatMap((owner) => routesForSharedOwner(owner).map((routeKey) => `overlay.shared-select-menu.${owner}.${routeKey}`)),
+  ...Object.entries(PRODUCTION_GLOBAL_OVERLAY_ROUTES)
+    .flatMap(([overlay, routeKeys]) => routeKeys.map((routeKey) => `overlay.${overlay}.${routeKey}`)),
+];
+
+const canonicalCaseKeys = canonicalScenarioIds.flatMap((scenarioId) => LOCKED_THEMES.flatMap((theme) => LOCKED_VIEWPORTS.flatMap((viewport) => {
+  const reviewed = REVIEWED_EXCEPTIONS[scenarioId as keyof typeof REVIEWED_EXCEPTIONS];
+  return reviewed?.omitted.includes(`${theme}@${viewport}` as never) ? [] : [`${scenarioId}__${theme}__${viewport}`];
+})));
 
 describe("instrument scenario contract", () => {
   test("covers production route states, overlays, shared owners, and global overlay routes in both directions", () => {
@@ -82,27 +103,51 @@ describe("instrument scenario contract", () => {
     expect(INSTRUMENT_SCENARIOS.find(({ id }) => id === "media.ready")).toMatchObject({
       routeKey: "project.media",
       state: "ready",
-      fixtureId: "instrument-test-fixture:media.ready",
+      fixtureId: "instrument-test-fixture:project.media:ready:media.ready:-:-",
     });
+    expect(ids).toEqual(canonicalScenarioIds);
+    expect(ids).toHaveLength(317);
   });
 
-  test("locks every ordinary scenario to both themes and all three viewports", () => {
-    for (const scenario of INSTRUMENT_SCENARIOS.filter(({ coverageException }) => coverageException === null)) {
-      expect(scenario.themes, scenario.id).toEqual(REQUIRED_SCENARIO_THEMES);
-      expect(scenario.viewports, scenario.id).toEqual(REQUIRED_SCENARIO_VIEWPORTS);
+  test("locks literal themes, viewports, and the immutable reviewed exception allowlist", () => {
+    expect(REQUIRED_SCENARIO_THEMES).toEqual(LOCKED_THEMES);
+    expect(REQUIRED_SCENARIO_VIEWPORTS).toEqual(LOCKED_VIEWPORTS);
+    for (const scenario of INSTRUMENT_SCENARIOS) {
+      expect(scenario.themes, scenario.id).toEqual(LOCKED_THEMES);
+      expect(scenario.viewports, scenario.id).toEqual(LOCKED_VIEWPORTS);
     }
-    for (const scenario of INSTRUMENT_SCENARIOS.filter(({ coverageException }) => coverageException !== null)) {
-      expect(scenario.coverageException).toMatchObject({
-        reason: expect.stringMatching(/\S/),
-        review: { reviewer: expect.stringMatching(/\S/), decision: "approved" },
-      });
-      expect(scenario.coverageException?.omitted.length).toBeGreaterThan(0);
-    }
+    expect(Object.fromEntries(INSTRUMENT_SCENARIOS
+      .filter(({ coverageException }) => coverageException !== null)
+      .map(({ id, coverageException }) => [id, coverageException]))).toEqual(REVIEWED_EXCEPTIONS);
   });
 
-  test("expands the exact ordered scenario/theme/viewport case set", () => {
+  test("expands the exact production-derived scenario/theme/viewport case set", () => {
     expect(expandInstrumentScenarioCases(INSTRUMENT_SCENARIOS).map(({ key: caseKey }) => caseKey))
-      .toEqual(independentlyComputedExactCaseKeys(INSTRUMENT_SCENARIOS));
+      .toEqual(canonicalCaseKeys);
+    expect(canonicalCaseKeys).toHaveLength(1_898);
+  });
+
+  test("rejects widening the approved exception or adding an unreviewed exception", () => {
+    const widened = INSTRUMENT_SCENARIOS.map((scenario) => scenario.id === "overlay.right-rail-sheet.startup.library" ? {
+      ...scenario,
+      coverageException: {
+        ...scenario.coverageException!,
+        omitted: LOCKED_THEMES.flatMap((theme) => LOCKED_VIEWPORTS.map((viewport) => `${theme}@${viewport}` as const)),
+      },
+    } : scenario);
+    const added = INSTRUMENT_SCENARIOS.map((scenario) => scenario.id === "media.ready" ? {
+      ...scenario,
+      coverageException: {
+        omitted: ["light@1440x900" as const],
+        reason: "Unreviewed shrink",
+        review: { reviewer: "mutation", decision: "approved" as const },
+      },
+    } : scenario);
+
+    expect(() => assertInstrumentScenarioCompleteness(widened)).toThrow(/coverage exception/i);
+    expect(() => assertInstrumentScenarioCompleteness(added)).toThrow(/coverage exception/i);
+    expect(expandInstrumentScenarioCases(widened).map(({ key: caseKey }) => caseKey)).not.toEqual(canonicalCaseKeys);
+    expect(expandInstrumentScenarioCases(added).map(({ key: caseKey }) => caseKey)).not.toEqual(canonicalCaseKeys);
   });
 
   test("declares explicit panel setup and reachable rail behavior at every viewport", () => {
@@ -119,7 +164,7 @@ describe("instrument scenario contract", () => {
           bottomVisible: expect.any(Boolean),
         });
         if (mode === "docked") {
-          expect(viewport, scenario.id).not.toBe("1100x720" satisfies InstrumentViewport);
+          expect(viewport, scenario.id).not.toBe("1100x720");
           expect(scenario.railOwner, scenario.id).not.toBeNull();
           expect(setup.rightPreference, scenario.id).toBe(true);
           expect(setup.rightOverlayOpen, scenario.id).toBe(false);

@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
+import { build } from "esbuild";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { INSTRUMENT_SCENARIOS } from "../src/instrument/scenarios";
@@ -7,6 +9,27 @@ import { loadInstrumentTestFixtures } from "../src/instrument/load-test-fixtures
 
 const loaderSource = readFileSync(new URL("../src/instrument/load-test-fixtures.ts", import.meta.url), "utf8");
 const fixtureSource = readFileSync(new URL("../src/instrument/test-fixtures.ts", import.meta.url), "utf8");
+
+async function bundleFixtureLoader(flag: "true" | "false" | undefined) {
+  return build({
+    absWorkingDir: process.cwd(),
+    entryPoints: [resolve("src/instrument/load-test-fixtures.ts")],
+    bundle: true,
+    define: {
+      "import.meta.env.VITE_RALPHY_ENABLE_MOCKS": flag === undefined ? "undefined" : JSON.stringify(flag),
+    },
+    format: "esm",
+    logLevel: "silent",
+    metafile: true,
+    minify: true,
+    outdir: "instrument-fixture-bundle",
+    platform: "browser",
+    splitting: true,
+    target: "chrome130",
+    treeShaking: true,
+    write: false,
+  });
+}
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -30,7 +53,7 @@ describe("instrument production fixture boundary", () => {
     const scenario = INSTRUMENT_SCENARIOS.find(({ id }) => id === "media.ready")!;
 
     expect(provider?.get(scenario.fixtureId)).toEqual({
-      id: "instrument-test-fixture:media.ready",
+      id: "instrument-test-fixture:project.media:ready:media.ready:-:-",
       routeKey: "project.media",
       state: "ready",
       payload: {
@@ -46,7 +69,7 @@ describe("instrument production fixture boundary", () => {
   });
 
   test("keeps the fixture module renderer-only and supplies every registered scenario", async () => {
-    expect(fixtureSource).not.toMatch(/(?:from|import\s*\()["'](?:electron|node:|\.\.\/lib\/ipc|\.\.\/\.\.\/electron)/);
+    expect(fixtureSource).not.toMatch(/^\s*import(?!\s+type\b)/m);
     vi.stubEnv("VITE_RALPHY_ENABLE_MOCKS", "true");
     const provider = await loadInstrumentTestFixtures();
     expect(provider).not.toBeNull();
@@ -57,5 +80,28 @@ describe("instrument production fixture boundary", () => {
         state: scenario.state,
       });
     }
+  });
+
+  test("emits one small leaf fixture chunk with no App, screen, IPC, Electron, or filesystem edge", async () => {
+    const result = await bundleFixtureLoader("true");
+    const inputs = Object.keys(result.metafile.inputs).sort();
+    const bundled = result.outputFiles.map(({ text }) => text).join("\n");
+    const bytes = result.outputFiles.reduce((total, { contents }) => total + contents.byteLength, 0);
+
+    expect(inputs).toEqual([
+      "src/instrument/load-test-fixtures.ts",
+      "src/instrument/test-fixtures.ts",
+    ]);
+    expect(bytes).toBeLessThan(12_000);
+    expect(bundled).toContain("instrument-test-fixture");
+    expect(bundled).toContain("UX Testing Lab");
+    expect(bundled).not.toMatch(/window\.ralphy|createMockBridge|IPC bridge|ProjectScreen|SettingsScreen|\/screens\/|electron|node:(?:fs|path)/i);
+  });
+
+  test.each(["false", undefined] as const)("tree-shakes fixture IDs and paths when the flag is %s", async (flag) => {
+    const result = await bundleFixtureLoader(flag);
+    const bundled = result.outputFiles.map(({ text }) => text).join("\n");
+    expect(bundled).not.toMatch(/instrument-test-fixture|UX Testing Lab|test-fixtures/);
+    expect(result.outputFiles).toHaveLength(1);
   });
 });
