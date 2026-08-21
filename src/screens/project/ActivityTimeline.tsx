@@ -155,8 +155,8 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
     <div className="activity-log-main">
       <div className="activity-toolbar">
         <label className="activity-search"><Search size={14} /><input aria-label="Search activity" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search events" /></label>
-        <SelectMenu<"all" | ActivitySource> value={source} options={sourceOptions} ariaLabel="Filter activity source" onValueChange={setSource} />
-        <SelectMenu value={model} options={modelOptions} ariaLabel="Filter activity model" onValueChange={setModel} />
+        <SelectMenu<"all" | ActivitySource> overlayOwner="project.activity" value={source} options={sourceOptions} ariaLabel="Filter activity source" onValueChange={setSource} />
+        <SelectMenu overlayOwner="project.activity" value={model} options={modelOptions} ariaLabel="Filter activity model" onValueChange={setModel} />
       </div>
       <div className="activity-table" role="table" aria-label="Project activity">
         <div className="activity-table-head" role="row"><span>Time</span><span>Source</span><span>Event</span><span>Entity</span><span>Model</span><span>Cost</span></div>

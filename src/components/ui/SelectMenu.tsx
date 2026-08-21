@@ -1,6 +1,8 @@
 import * as Select from "@radix-ui/react-select";
 import { Check, ChevronDown } from "lucide-react";
-import type { ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
+
+import { InstrumentOverlay, type InstrumentSharedSelectOwnerId } from "../../instrument/overlay-registry";
 
 export interface SelectMenuOption<Value extends string> {
   value: Value;
@@ -10,7 +12,7 @@ export interface SelectMenuOption<Value extends string> {
   meta?: string;
 }
 
-interface SelectMenuProps<Value extends string> {
+export interface SelectMenuProps<Value extends string> {
   value: Value;
   options: Array<SelectMenuOption<Value>>;
   ariaLabel: string;
@@ -18,6 +20,7 @@ interface SelectMenuProps<Value extends string> {
   prefix?: string;
   side?: "top" | "right" | "bottom" | "left";
   align?: "start" | "center" | "end";
+  overlayOwner: InstrumentSharedSelectOwnerId;
   onValueChange(value: Value): void;
 }
 
@@ -29,16 +32,22 @@ export function SelectMenu<Value extends string>({
   prefix,
   side = "bottom",
   align = "start",
+  overlayOwner,
   onValueChange,
 }: SelectMenuProps<Value>) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const selected = options.find((option) => option.value === value);
 
   return (
     <Select.Root
+      open={open}
+      onOpenChange={setOpen}
       value={value}
       onValueChange={(next) => onValueChange(next as Value)}
     >
       <Select.Trigger
+        ref={triggerRef}
         className={`select-menu-trigger ${className}`.trim()}
         aria-label={ariaLabel}
       >
@@ -53,38 +62,40 @@ export function SelectMenu<Value extends string>({
         </Select.Icon>
       </Select.Trigger>
       <Select.Portal>
-        <Select.Content
-          className="select-menu-content"
-          position="popper"
-          side={side}
-          align={align}
-          sideOffset={6}
-          collisionPadding={10}
-        >
-          <Select.Viewport className="select-menu-viewport">
-            {options.map((option) => (
-              <Select.Item
-                className="select-menu-item"
-                value={option.value}
-                key={option.value}
-              >
-                <Select.ItemText>
-                  <span className="select-menu-item-content">
-                    {option.icon}
-                    <span>
-                      <strong>{option.label}</strong>
-                      {option.description && <small>{option.description}</small>}
+        <InstrumentOverlay id="shared-select-menu" host="primitive-host" overlayOwner={overlayOwner} open={open} label={ariaLabel} description={`Choose ${ariaLabel}`} opener={triggerRef.current} onOpenChange={setOpen}>
+          <Select.Content
+            className="select-menu-content"
+            position="popper"
+            side={side}
+            align={align}
+            sideOffset={6}
+            collisionPadding={10}
+          >
+            <Select.Viewport className="select-menu-viewport">
+              {options.map((option) => (
+                <Select.Item
+                  className="select-menu-item"
+                  value={option.value}
+                  key={option.value}
+                >
+                  <Select.ItemText>
+                    <span className="select-menu-item-content">
+                      {option.icon}
+                      <span>
+                        <strong>{option.label}</strong>
+                        {option.description && <small>{option.description}</small>}
+                      </span>
+                      {option.meta && <em>{option.meta}</em>}
                     </span>
-                    {option.meta && <em>{option.meta}</em>}
-                  </span>
-                </Select.ItemText>
-                <Select.ItemIndicator className="select-menu-indicator">
-                  <Check size={13} strokeWidth={2} />
-                </Select.ItemIndicator>
-              </Select.Item>
-            ))}
-          </Select.Viewport>
-        </Select.Content>
+                  </Select.ItemText>
+                  <Select.ItemIndicator className="select-menu-indicator">
+                    <Check size={13} strokeWidth={2} />
+                  </Select.ItemIndicator>
+                </Select.Item>
+              ))}
+            </Select.Viewport>
+          </Select.Content>
+        </InstrumentOverlay>
       </Select.Portal>
     </Select.Root>
   );

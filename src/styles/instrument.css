@@ -279,3 +279,98 @@ html[data-theme="light"] .instrument-profile-menu button:focus-visible { outline
   .instrument-shell,
   .instrument-right-rail { transition: none; }
 }
+
+/* Nothing instrument shell */
+.instrument-left-stack { padding: 8px 0 8px 8px; background: var(--instrument-desk); }
+.instrument-left-stack > .context-sidebar {
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--instrument-widget-light);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.context-sidebar .sidebar-chrome { height: 48px; }
+.context-sidebar .sidebar-mode-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin: 0 10px 10px;
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--instrument-widget-light-sunken);
+}
+.context-sidebar .sidebar-mode-nav .sidebar-nav-row { justify-content: center; padding: 0 8px; border-radius: var(--radius-pill); }
+.context-sidebar .sidebar-mode-nav .sidebar-nav-row small,
+.context-sidebar .sidebar-mode-nav .sidebar-nav-row svg { display: none; }
+.context-sidebar .workspace-hero { height: 112px; margin-bottom: 12px; border-radius: var(--radius-lg); box-shadow: none; }
+.context-sidebar .sidebar-nav-row { min-height: 36px; margin: 1px 8px; border-radius: var(--radius-sm); }
+.context-sidebar .sidebar-footer { padding: 8px 10px; }
+
+.instrument-top-compose { position: relative; display: flex; width: 100%; height: 48px; align-items: center; }
+.instrument-top-compose > .main-header { position: absolute; z-index: 1; inset: 0; background: transparent; }
+.dynamic-island { position: relative; z-index: 6; width: min(360px, calc(100% - 200px)); margin: 0 auto; -webkit-app-region: no-drag; }
+.dynamic-island-trigger {
+  display: grid;
+  width: 100%;
+  min-height: 38px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--instrument-widget-dark);
+  color: var(--instrument-text-on-dark-primary);
+  text-align: left;
+}
+.dynamic-island-trigger > span:nth-child(2) { display: grid; min-width: 0; }
+.dynamic-island-trigger strong,
+.dynamic-island-trigger small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dynamic-island-trigger strong { font-size: var(--text-sm); }
+.dynamic-island-trigger small { color: var(--instrument-text-on-dark-secondary-readable); font-size: var(--text-xs); }
+.dynamic-island-status { display: inline-flex; align-items: center; gap: 5px; }
+.dynamic-island > .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+.dynamic-island-status i { width: 7px; height: 7px; border-radius: 50%; background: var(--instrument-alert-bright); }
+.dynamic-island[data-animate] .dynamic-island-trigger { animation: instrument-island-in 320ms var(--ease); }
+@keyframes instrument-island-in { from { opacity: 0; transform: scale(.94); } }
+[data-instrument-overlay="dynamic-island"] {
+  position: fixed;
+  z-index: 150;
+  top: 52px;
+  left: 50%;
+  width: min(360px, calc(100vw - 16px));
+  transform: translateX(-50%);
+}
+.dynamic-island-panel { display: grid; gap: 8px; padding: 12px; border-radius: var(--radius-lg); background: var(--instrument-widget-dark); color: var(--instrument-text-on-dark-primary); }
+.dynamic-island-panel header { display: grid; gap: 2px; }
+.dynamic-island-panel header span,
+.dynamic-island-panel p,
+.dynamic-island-notifications small { margin: 0; color: var(--instrument-text-on-dark-secondary-readable); font-size: var(--text-xs); }
+.dynamic-island-test-label { color: var(--instrument-alert-bright) !important; letter-spacing: .12em; }
+.dynamic-island-panel button { display: flex; min-height: 38px; align-items: center; gap: 8px; padding: 6px 8px; border: 0; border-radius: var(--radius-sm); background: var(--instrument-widget-dark-raised); color: inherit; text-align: left; }
+.dynamic-island-panel button[aria-disabled="true"] { color: var(--instrument-text-on-dark-secondary-readable); }
+.dynamic-island-notifications { display: grid; gap: 4px; }
+.dynamic-island-notifications button span { display: grid; }
+
+.project-controls { position: fixed; z-index: 40; top: auto; bottom: 12px; left: 50%; width: max-content; height: auto; container-name: none; container-type: normal; transform: translateX(-50%); }
+.project-dock { display: flex; width: max-content; gap: 4px; padding: 5px; border-radius: var(--radius-pill); background: var(--instrument-widget-dark); color: var(--instrument-text-on-dark-primary); }
+.project-dock button { display: inline-flex; min-width: 84px; height: 38px; align-items: center; justify-content: center; gap: 6px; padding: 0 12px; border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--instrument-text-on-dark-secondary-readable); }
+.project-dock button.is-active { background: var(--instrument-composer-surface); color: var(--instrument-alert-text); }
+.project-dock button:focus-visible { outline: 2px solid var(--instrument-focus-on-light); outline-offset: 2px; }
+.project-domain-body { padding-bottom: 64px; }
+
+[data-instrument-overlay="settings"] { position: fixed; z-index: 1400; inset: 8px; overflow: hidden !important; border-radius: var(--radius-lg); }
+[data-instrument-overlay="settings"] > [data-instrument-screen-root] { display: block; width: 100%; height: 100%; }
+[data-instrument-overlay="settings"] .settings-screen { position: relative; width: 100%; height: 100%; background: var(--instrument-desk); }
+.settings-disabled-control { min-height: 30px; padding: 0 10px; border: 0; border-radius: var(--radius-sm); background: var(--instrument-widget-light-sunken); color: var(--instrument-text-secondary-readable); }
+.settings-disabled-control:focus-visible { outline: var(--control-focus); outline-offset: 2px; }
+
+@media (max-width: 1180px) {
+  .dynamic-island { width: min(310px, calc(100% - 180px)); }
+  .project-dock button { min-width: 52px; padding: 0 10px; }
+  .project-dock button span { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dynamic-island[data-animate] .dynamic-island-trigger { animation: none; }
+}

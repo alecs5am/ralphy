@@ -148,7 +148,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
   const dockedDeskWidth = modeRef.current === "docked"
     ? dimensions.deskWidth
     : dimensions.deskWidth - RIGHT_RAIL_WIDTH;
-  const dockEligible = dimensions.frameWidth >= DOCK_WINDOW_MIN && dockedDeskWidth >= DOCK_DESK_MIN;
+  const dockEligible = dimensions.frameWidth >= DOCK_WINDOW_MIN && dockedDeskWidth >= DOCK_DESK_MIN && !props.bottomVisible;
   const mode = resolveRightRailMode({
     dockEligible,
     preferenceOpen: props.rightPreference,

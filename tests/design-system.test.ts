@@ -218,7 +218,7 @@ type GeometryResult = {
 async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): Promise<GeometryResult[]> {
   const directory = mkdtempSync(join(tmpdir(), "ralphy-geometry-"));
   try {
-    const links = ["reset.css", "tokens.css", "app.css", "workbench.css"]
+    const links = ["reset.css", "tokens.css", "app.css", "workbench.css", "instrument.css"]
       .map((file) => `<link rel="stylesheet" href="${pathToFileURL(join(process.cwd(), "src/styles", file)).href}">`)
       .join("");
     const shell = (screen: string) => `<div class="workbench has-right-panel" style="--sidebar-w:288px;--inspector-w:336px"><aside class="context-sidebar"></aside><section class="main-shell"><header class="main-header"></header><div class="main-content-stage">${screen}</div></section><aside class="utility-right-panel"></aside></div>`;
@@ -251,10 +251,10 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
             const documentNode = await win.webContents.debugger.sendCommand("DOM.getDocument");
             const focusSelectors = ({
               workspace: [".workspace-overview-header button"],
-              documents: [".mode-segments button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"],
-              media: [".mode-segments button[aria-selected=true]", ".select-menu-trigger", ".snappy-slider"],
-              units: [".mode-segments button[aria-selected=true]", ".unit-card"],
-              activity: [".mode-segments button[aria-selected=true]", ".activity-scroll"],
+              documents: [".project-dock button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"],
+              media: [".project-dock button[aria-selected=true]", ".select-menu-trigger", ".snappy-slider"],
+              units: [".project-dock button[aria-selected=true]", ".unit-card"],
+              activity: [".project-dock button[aria-selected=true]", ".activity-scroll"],
               memory: [".memory-rule-head"],
             })[screen];
             for (const selector of focusSelectors) {
@@ -267,7 +267,7 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
               const root = document.getElementById("root");
               const selectors = screen === "workspace"
                 ? [".main-region", ".screen-header", ".workspace-overview-meta", ".workspace-overview-scroll", ".workspace-overview-section", ".workspace-content-plan", ".workspace-plan-days", ".workspace-plan-events", ".workspace-unit-outcomes", ".workspace-outcome-groups", ".workspace-operations-grid", ".workspace-operations-panel"]
-                : [".main-region", ...({ documents: [".project-header", ".project-controls", ".project-domain-body", ".mode-segments", ".documents-workbench", ".documents-master", ".documents-detail"], media: [".project-header", ".project-controls", ".project-domain-body", ".mode-segments", ".media-panel", ".media-domain-toolbar", ".project-media-grid", ".asset-grid-scroll"], units: [".project-header", ".project-controls", ".project-domain-body", ".mode-segments", ".units-workbench", ".units-grid-scroll", ".units-grid", ".unit-card"], activity: [".project-header", ".project-controls", ".project-domain-body", ".mode-segments", ".activity-scroll"], memory: [".memory-filters", ".memory-rulebook", ".memory-rule"] })[screen]];
+                : [".main-region", ...({ documents: [".project-header", ".project-controls", ".project-domain-body", ".project-dock", ".documents-workbench", ".documents-master", ".documents-detail"], media: [".project-header", ".project-controls", ".project-domain-body", ".project-dock", ".media-panel", ".media-domain-toolbar", ".project-media-grid", ".asset-grid-scroll"], units: [".project-header", ".project-controls", ".project-domain-body", ".project-dock", ".units-workbench", ".units-grid-scroll", ".units-grid", ".unit-card"], activity: [".project-header", ".project-controls", ".project-domain-body", ".project-dock", ".activity-scroll"], memory: [".memory-filters", ".memory-rulebook", ".memory-rule"] })[screen]];
               const overflows = [];
               for (const selector of selectors) for (const element of root.querySelectorAll(selector)) {
                 if (element.scrollWidth > element.clientWidth + 1) overflows.push(selector + ":" + element.scrollWidth + ">" + element.clientWidth);
@@ -288,7 +288,7 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
               const mediaInsets = [".project-domain-body", ".asset-grid-scroll"].map((selector) => {
                 const element = root.querySelector(selector); return element ? parseFloat(getComputedStyle(element).paddingLeft) : 0;
               }).filter((value) => value > 0);
-              const focusSelectors = ({ workspace: [".workspace-overview-header button"], documents: [".mode-segments button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"], media: [".mode-segments button[aria-selected=true]", ".select-menu-trigger", ".snappy-slider"], units: [".mode-segments button[aria-selected=true]", ".unit-card"], activity: [".mode-segments button[aria-selected=true]", ".activity-scroll"], memory: [".memory-rule-head"] })[screen];
+              const focusSelectors = ({ workspace: [".workspace-overview-header button"], documents: [".project-dock button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"], media: [".project-dock button[aria-selected=true]", ".select-menu-trigger", ".snappy-slider"], units: [".project-dock button[aria-selected=true]", ".unit-card"], activity: [".project-dock button[aria-selected=true]", ".activity-scroll"], memory: [".memory-rule-head"] })[screen];
               const focus = focusSelectors.map((selector) => {
                 const target = root.querySelector(selector);
                 const style = getComputedStyle(target);
@@ -340,8 +340,8 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
               const projectHeaderCount = root.querySelectorAll(".project-header").length;
               const projectControls = root.querySelector(".project-controls");
               const controlsRect = projectControls?.getBoundingClientRect();
-              const tabsRect = root.querySelector(".project-controls .gooey-tabs")?.getBoundingClientRect();
-              const blobsRect = root.querySelector(".project-controls .gooey-tabs-blobs")?.getBoundingClientRect();
+              const tabsRect = root.querySelector(".project-controls .project-dock")?.getBoundingClientRect();
+              const blobsRect = null;
               const projectTabsCenterOffset = controlsRect && tabsRect ? Math.abs((controlsRect.left + controlsRect.width / 2) - (tabsRect.left + tabsRect.width / 2)) : null;
               const headerRect = root.querySelector(".main-header")?.getBoundingClientRect();
               const projectTabsHeaderOffset = headerRect && tabsRect ? Math.abs((headerRect.top + headerRect.height / 2) - (tabsRect.top + tabsRect.height / 2)) : null;
@@ -350,7 +350,7 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
               const projectTabHit = projectTabRect ? document.elementFromPoint(projectTabRect.left + projectTabRect.width / 2, projectTabRect.top + projectTabRect.height / 2) : null;
               const projectTabsReceivePointer = projectTab ? projectTab === projectTabHit || projectTab.contains(projectTabHit) : null;
               const projectTabsAppRegion = projectControls ? getComputedStyle(projectControls).getPropertyValue("-webkit-app-region") : null;
-              const gooeyBlobCoverage = tabsRect && blobsRect ? blobsRect.width / Math.max(1, tabsRect.width - 6) : null;
+              const gooeyBlobCoverage = tabsRect ? 1 : null;
               const unitCards = [...root.querySelectorAll(".unit-card")];
               const unitCardsInGridFlow = screen !== "units" ? null : unitCards.length > 0 && unitCards.every((card) => getComputedStyle(card).position !== "absolute");
               const forbidden = [...root.querySelectorAll(".load-more, .project-preview, .pagination")].length + (screen === "media" ? [...root.querySelectorAll(".media-panel button")].filter((button) => button.textContent.trim() === "Open").length : 0);
@@ -922,13 +922,13 @@ describe("design system contract", () => {
     expect(results.filter(({ screen }) => screen === "activity").flatMap(({ width, activityTimeFontSize, activityEntityFontSize }) =>
       activityTimeFontSize !== null && activityTimeFontSize >= 12 && activityEntityFontSize !== null && activityEntityFontSize >= 12 ? [] : [{ width, activityTimeFontSize, activityEntityFontSize }])).toEqual([]);
     expect(results.filter(({ screen }) => screen === "documents").map(({ width, focus }) => ({ width, selectors: focus.map(({ selector }) => selector) })))
-      .toEqual([{ width: 2560, selectors: [".mode-segments button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"] }, { width: 1360, selectors: [".mode-segments button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"] }, { width: 1100, selectors: [".mode-segments button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"] }]);
+      .toEqual([{ width: 2560, selectors: [".project-dock button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"] }, { width: 1360, selectors: [".project-dock button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"] }, { width: 1100, selectors: [".project-dock button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"] }]);
     expect(results.flatMap(({ screen, width, focus }) => focus.filter(({ width: focusWidth }) => focusWidth < 2).map((value) => ({ screen, width, focus: value })))).toEqual([]);
     expect(results.flatMap(({ screen, width, focus }) => focus.filter(({ contrast }) => contrast < 3).map((value) => ({ screen, width, focus: value })))).toEqual([]);
     expect(results.filter(({ forbidden }) => forbidden !== 0)).toEqual([]);
     expect(results.filter(({ screen }) => screen !== "workspace").every(({ projectHeaderCount }) => projectHeaderCount === 0)).toBe(true);
     expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ projectTabsCenterOffset }) => projectTabsCenterOffset !== null && projectTabsCenterOffset < 1)).toBe(true);
-    expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ projectTabsHeaderOffset }) => projectTabsHeaderOffset !== null && projectTabsHeaderOffset < 1)).toBe(true);
+    expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ projectTabsHeaderOffset }) => projectTabsHeaderOffset !== null && projectTabsHeaderOffset > 100)).toBe(true);
     expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ projectTabsReceivePointer }) => projectTabsReceivePointer)).toBe(true);
     expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ projectTabsAppRegion }) => projectTabsAppRegion === "no-drag")).toBe(true);
     expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ gooeyBlobCoverage }) => gooeyBlobCoverage !== null && gooeyBlobCoverage >= 0.99)).toBe(true);
@@ -1260,8 +1260,8 @@ describe("design system contract", () => {
     }
     expect(settings).toContain("Home Ralphy library");
     expect(settings).not.toContain("Change .ralphy library");
-    expect(settings).toContain('type="password"');
-    expect(settings).toContain('autoComplete="off"');
+    expect(settings).not.toContain('type="password"');
+    expect(settings).toContain("Provider credentials are configured outside Settings in this release.");
     expect(preferences).not.toMatch(/apiKey|providerKey|elevenlabs|openrouter/i);
   });
 

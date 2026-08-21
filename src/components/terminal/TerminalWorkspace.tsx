@@ -29,6 +29,7 @@ import {
   type TerminalPaneSession,
 } from "./TerminalPane";
 import { RalphyMascot } from "../RalphyMascot";
+import { useTheme } from "../../instrument/ThemeProvider";
 
 const MAX_PENDING_OUTPUT = 1024 * 1024;
 
@@ -124,6 +125,7 @@ export function TerminalWorkspace({
   visible: boolean;
   rootPath: string | null;
 }) {
+  const { resolved } = useTheme();
   const [layout, setLayout] = useState<TerminalLayoutNode>(createTerminalLayout);
   const [sessions, setSessions] = useState<Record<string, TerminalPaneSession>>({});
   const [focusedLeafId, setFocusedLeafId] = useState("terminal-root");
@@ -133,6 +135,10 @@ export function TerminalWorkspace({
   const pendingOutput = useRef(new Map<string, string>());
   const closedSessionIds = useRef(new Set<string>());
   const initialSessionCreated = useRef(false);
+
+  useEffect(() => {
+    for (const controller of controllers.current.values()) controller.setTheme(resolved);
+  }, [resolved]);
 
   useEffect(() => bridge.onTerminalEvent((event: TerminalEvent) => {
     if (closedSessionIds.current.has(event.sessionId)) return;
@@ -180,7 +186,7 @@ export function TerminalWorkspace({
             ? { ...current, [session.id]: { ...existing, title: cleanTitle } }
             : current;
         });
-      });
+      }, resolved);
       controllers.current.set(session.id, controller);
       const pending = pendingOutput.current.get(session.id);
       if (pending) {
@@ -210,7 +216,7 @@ export function TerminalWorkspace({
     } finally {
       setCreating(false);
     }
-  }, [creating, rootPath]);
+  }, [creating, resolved, rootPath]);
 
   useEffect(() => {
     if (!visible || !rootPath || initialSessionCreated.current) return;

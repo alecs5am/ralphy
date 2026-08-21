@@ -3,13 +3,16 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal } from "@xterm/xterm";
 
 import { INSTRUMENT_PALETTE } from "../instrument/palette";
+import type { ResolvedTheme } from "../instrument/types";
+import type { ITheme } from "@xterm/xterm";
 import type {
   MediaWorkbenchBridge,
   TerminalSession,
 } from "../lib/ipc";
 
-const palette = INSTRUMENT_PALETTE.dark;
-const TERMINAL_THEME = {
+export function terminalTheme(theme: ResolvedTheme): ITheme {
+  const palette = INSTRUMENT_PALETTE[theme];
+  return {
   background: palette.terminalBackground,
   foreground: palette.terminalForeground,
   cursor: palette.terminalCursor,
@@ -32,7 +35,8 @@ const TERMINAL_THEME = {
   brightMagenta: palette.ditherHighlight,
   brightCyan: palette.divider,
   brightWhite: palette.textOnDarkPrimary,
-} as const;
+  };
+}
 
 export class TerminalController {
   readonly element: HTMLDivElement;
@@ -46,6 +50,7 @@ export class TerminalController {
     readonly session: TerminalSession,
     bridge: MediaWorkbenchBridge,
     onTitleChange: (title: string) => void,
+    theme: ResolvedTheme = "dark",
   ) {
     this.element = document.createElement("div");
     this.element.className = "terminal-controller-host";
@@ -62,7 +67,7 @@ export class TerminalController {
       macOptionIsMeta: true,
       rightClickSelectsWord: true,
       scrollback: 10_000,
-      theme: TERMINAL_THEME,
+      theme: terminalTheme(theme),
     });
     this.terminal.loadAddon(this.#fitAddon);
     this.terminal.loadAddon(
@@ -94,6 +99,10 @@ export class TerminalController {
 
   write(data: string): void {
     this.terminal.write(data);
+  }
+
+  setTheme(theme: ResolvedTheme): void {
+    this.terminal.options.theme = terminalTheme(theme);
   }
 
   fit(): void {

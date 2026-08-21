@@ -29,13 +29,13 @@ describe("Project domain screen", () => {
     const markup = renderToStaticMarkup(
       <projectControls.ProjectControls activeTab="units" onSelect={vi.fn()} />,
     );
-    const labels = [...markup.matchAll(/role="tab"[^>]*>([^<]+)<\/button>/g)]
+    const labels = [...markup.matchAll(/role="tab"[^>]*aria-label="([^"]+)"/g)]
       .map((match) => match[1]);
 
     expect(labels).toEqual([
-      "Units",
       "Documents",
       "Media",
+      "Units",
       "Activity",
     ]);
     expect(markup).toContain('role="tablist"');
@@ -56,7 +56,7 @@ describe("Project domain screen", () => {
 
     expect(tabs).toContain('id="project-tab-media"');
     expect(tabs).toContain('aria-controls="project-panel-media"');
-    expect(tabs).toMatch(/id="project-tab-media"[^>]*aria-selected="true"[^>]*tabindex="0"/);
+    expect(tabs).toMatch(/id="project-tab-media"[^>]*aria-selected="true"[^>]*tabindex="0"|id="project-tab-media"[^>]*tabindex="0"[^>]*aria-selected="true"/);
     expect(tabs).toMatch(/id="project-tab-documents"[^>]*tabindex="-1"/);
     expect(screen).toContain('id="project-panel-units"');
     expect(screen).toContain('aria-labelledby="project-tab-units"');

@@ -216,7 +216,8 @@ describe("workspace projects navigation", () => {
     expect(markup).toContain("Memory");
     expect(markup).toContain("Calendar");
     expect(markup).toContain("Shared library");
-    expect(markup).toContain("THIS COMPUTER");
+    expect(markup).not.toContain("THIS COMPUTER");
+    expect(markup).toContain("Open profile menu");
     expect(markup).toContain("My Work");
     expect(markup).toContain("Marketplace");
     expect(markup).not.toContain("Local Models");

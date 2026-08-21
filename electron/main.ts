@@ -161,6 +161,7 @@ const MINIMUM_WINDOW_SIZE = { width: 1100, height: 720 };
 const CLIPBOARD_LIMIT = 2 * 1024 * 1024;
 const MAX_TRASH_ITEMS = 1000;
 const SMOKE_TEST = process.argv.includes("--smoke-test");
+const INSTRUMENT_SHELL_AUDIT = process.argv.includes("--instrument-shell-audit");
 let cachedFileDragIcon: Electron.NativeImage | null = null;
 let claudeCredentialStore: ClaudeCredentialStore | null = null;
 let openRouterCredentialStore: EncryptedCredentialStore | null = null;
@@ -1393,7 +1394,7 @@ function createWindow(): void {
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 16, y: 18 },
     backgroundColor: INSTRUMENT_PALETTE.dark.desk,
-    show: !SMOKE_TEST,
+    show: !SMOKE_TEST && !INSTRUMENT_SHELL_AUDIT,
     webPreferences: secureWebPreferences(join(__dirname, "preload.cjs")),
   });
   const persistBounds = (): void => {
@@ -1431,6 +1432,7 @@ function createWindow(): void {
   win = createdWindow;
   createdWindow.on("closed", () => {
     if (win === createdWindow) win = null;
+    if (INSTRUMENT_SHELL_AUDIT) app.quit();
   });
   if (devUrl) void createdWindow.loadURL(devUrl);
   else void createdWindow.loadFile(RENDERER);

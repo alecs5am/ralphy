@@ -118,7 +118,7 @@ export function MarketplaceHeader({
     </form>
     {!sidebarVisible && <div className="marketplace-header-category-menu">
       <span>Marketplace category</span>
-      <SelectMenu
+      <SelectMenu overlayOwner="marketplace.header"
         ariaLabel="Marketplace category"
         className="marketplace-category-select"
         value={selectedCategory ?? (query.filters.category === "all" ? "all" : query.filters.category)}
@@ -130,16 +130,16 @@ export function MarketplaceHeader({
       />
     </div>}
     <div className="marketplace-filter-row" aria-label="Marketplace filters">
-      <SelectMenu ariaLabel="Category" prefix="Category" value={query.filters.category} options={categoryOptions} onValueChange={(category) => category === "all" ? onQueryChange(queryWithFilter(query, "category", "all")) : onOpenCategory(category)} />
-      <SelectMenu ariaLabel="Source" prefix="Source" value={query.filters.source} options={sourceOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "source", value))} />
-      <SelectMenu ariaLabel="License" prefix="License" value={query.filters.license} options={licenseOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "license", value))} />
-      <SelectMenu ariaLabel="Compatibility" prefix="Compatibility" value={query.filters.compatibility} options={compatibilityOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "compatibility", value))} />
+      <SelectMenu overlayOwner="marketplace.header" ariaLabel="Category" prefix="Category" value={query.filters.category} options={categoryOptions} onValueChange={(category) => category === "all" ? onQueryChange(queryWithFilter(query, "category", "all")) : onOpenCategory(category)} />
+      <SelectMenu overlayOwner="marketplace.header" ariaLabel="Source" prefix="Source" value={query.filters.source} options={sourceOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "source", value))} />
+      <SelectMenu overlayOwner="marketplace.header" ariaLabel="License" prefix="License" value={query.filters.license} options={licenseOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "license", value))} />
+      <SelectMenu overlayOwner="marketplace.header" ariaLabel="Compatibility" prefix="Compatibility" value={query.filters.compatibility} options={compatibilityOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "compatibility", value))} />
       {(selectedCategory === "models" || query.filters.category === "models") && <>
-        <SelectMenu ariaLabel="Modality" prefix="Modality" value={query.filters.modality} options={modalityOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "modality", value))} />
-        <SelectMenu ariaLabel="Format" prefix="Format" value={query.filters.format} options={formatOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "format", value))} />
+        <SelectMenu overlayOwner="marketplace.header" ariaLabel="Modality" prefix="Modality" value={query.filters.modality} options={modalityOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "modality", value))} />
+        <SelectMenu overlayOwner="marketplace.header" ariaLabel="Format" prefix="Format" value={query.filters.format} options={formatOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "format", value))} />
       </>}
       <span className="marketplace-filter-spacer" />
-      <SelectMenu ariaLabel="Sort Marketplace" prefix="Sort" value={query.sort} options={sortOptions} align="end" onValueChange={(sort) => onQueryChange({ ...query, sort })} />
+      <SelectMenu overlayOwner="marketplace.header" ariaLabel="Sort Marketplace" prefix="Sort" value={query.sort} options={sortOptions} align="end" onValueChange={(sort) => onQueryChange({ ...query, sort })} />
     </div>
     {activeFilters.length > 0 && <div className="marketplace-filter-chips" aria-label="Active filters">
       {activeFilters.map(({ label, clear }) => <button type="button" key={label} onClick={clear}>{label}<X aria-hidden="true" /></button>)}

@@ -1,4 +1,4 @@
-import { Boxes, Brain, CalendarDays, ChartNoAxesCombined, CircleAlert, Compass, Download, FolderOpen, Layers3, PackageCheck, Plus, Save, SlidersHorizontal, Sparkles, Store, UsersRound, WandSparkles, type LucideIcon } from "lucide-react";
+import { Boxes, Brain, CalendarDays, ChartNoAxesCombined, CircleAlert, Compass, Download, FolderOpen, Layers3, PackageCheck, Plus, Save, Sparkles, Store, UsersRound, WandSparkles, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { useMemo } from "react";
 import type { WorkspaceSummary } from "../lib/ipc";
@@ -16,11 +16,12 @@ import type {
   MarketplaceLibrarySection,
   MarketplaceRoute,
 } from "../state/marketplace-navigation";
-import { ProfileMenu } from "./ProfileMenu";
+import { InstrumentProfileControl } from "../instrument/InstrumentProfileControl";
+import { profileIdentity } from "./ProfileAvatar";
 import { SidebarChrome } from "./Titlebar";
 import { WorkspacePicker } from "./WorkspacePicker";
 
-interface ContextSidebarProps {
+export interface ContextSidebarProps {
   mode: AppMode;
   route: WorkbenchRoute;
   page: WorkspacePage;
@@ -215,18 +216,9 @@ export function ContextSidebar({
         </nav>
       </>}
 
-      <div className="sidebar-section-label"><span>THIS COMPUTER</span><i /></div>
-      <nav className="sidebar-nav sidebar-global-nav" aria-label="This computer">
-        <button className="sidebar-nav-row" type="button" onClick={onOpenSettings}>
-          <SlidersHorizontal size={16} strokeWidth={1.5} aria-hidden="true" />
-          <span>Settings</span>
-          <small />
-        </button>
-      </nav>
-
       <div className="sidebar-spacer" />
       {rootPath && <div className="sidebar-footer">
-        <ProfileMenu rootPath={rootPath} onOpenSettings={onOpenSettings} />
+        <InstrumentProfileControl identity={{ displayName: profileIdentity(rootPath), initials: profileIdentity(rootPath).slice(0, 2).toUpperCase(), avatarUrl: null }} onOpenSettings={onOpenSettings} />
       </div>}
     </motion.aside>
   );

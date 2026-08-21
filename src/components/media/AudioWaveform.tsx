@@ -2,6 +2,7 @@ import { Pause, Play, RotateCcw, RotateCw, Volume2, VolumeX } from "lucide-react
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type WaveSurfer from "wavesurfer.js";
 import { INSTRUMENT_PALETTE } from "../../instrument/palette";
+import { useTheme } from "../../instrument/ThemeProvider";
 import { MAX_WAVEFORM_DECODE_BYTES, shouldDecodeWaveform } from "../../lib/audio-preview";
 import { SnappySlider } from "../ui/SnappySlider";
 
@@ -48,8 +49,11 @@ function StreamingAudioPlayer({ src, name, compact, probing, onMetadata, onError
 }
 
 function DecodedAudioWaveform({ src, name, compact, onReady, onFallback }: { src: string; name: string; compact: boolean; onReady?(): void; onFallback(): void }) {
+  const { resolved } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const waveRef = useRef<WaveSurfer | null>(null);
+  const themeRef = useRef(resolved);
+  themeRef.current = resolved;
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -63,7 +67,7 @@ function DecodedAudioWaveform({ src, name, compact, onReady, onFallback }: { src
     void import("wavesurfer.js").then(({ default: WaveSurfer }) => {
       if (disposed || !containerRef.current) return;
       try {
-        const palette = INSTRUMENT_PALETTE.dark;
+        const palette = INSTRUMENT_PALETTE[themeRef.current];
         wave = WaveSurfer.create({ container: containerRef.current, url: src, height: compact ? 56 : 164, waveColor: palette.waveformWave, progressColor: palette.waveformProgress, cursorColor: palette.waveformCursor, cursorWidth: 1, barWidth: compact ? 2 : 3, barGap: compact ? 2 : 3, barRadius: 3, barMinHeight: 2, normalize: true, interact: true, dragToSeek: true, hideScrollbar: true, autoScroll: false });
       } catch {
         onFallback();
@@ -75,6 +79,10 @@ function DecodedAudioWaveform({ src, name, compact, onReady, onFallback }: { src
     }).catch(() => { if (!disposed) onFallback(); });
     return () => { disposed = true; if (waveRef.current === wave) waveRef.current = null; wave?.destroy(); };
   }, [compact, onFallback, src]);
+  useEffect(() => {
+    const palette = INSTRUMENT_PALETTE[resolved];
+    waveRef.current?.setOptions({ waveColor: palette.waveformWave, progressColor: palette.waveformProgress, cursorColor: palette.waveformCursor });
+  }, [resolved]);
   useEffect(() => {
     if (!playing) return;
     let frame = 0;

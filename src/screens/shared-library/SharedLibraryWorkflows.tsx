@@ -17,7 +17,7 @@ const roleOptions = SHARED_ARTIFACT_ROLES.map((value) => ({ value, label: value 
 const formatLocalBytes = (bytes: number) => bytes < 1024 ? `${bytes} B` : bytes < 1024 ** 2 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 ** 2).toFixed(1)} MB`;
 
 function RoleField({ role, otherRole, onRole, onOtherRole }: { role: string; otherRole: string; onRole(value: string): void; onOtherRole(value: string): void }) {
-  return <div className="shared-workflow-field"><span>Role</span><SelectMenu value={role} options={roleOptions} ariaLabel="Role" className="shared-workflow-role" onValueChange={onRole} />
+  return <div className="shared-workflow-field"><span>Role</span><SelectMenu overlayOwner="shared.workflow" value={role} options={roleOptions} ariaLabel="Role" className="shared-workflow-role" onValueChange={onRole} />
     {role === "Other" && <input aria-label="Other role" value={otherRole} onChange={(event) => onOtherRole(event.currentTarget.value)} placeholder="Describe the role" />}
   </div>;
 }

@@ -11,7 +11,7 @@ import {
   type ComponentProps,
 } from "react";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion } from "motion/react";
-import { ContextSidebar } from "./components/ContextSidebar";
+import { InstrumentSidebar } from "./instrument/InstrumentSidebar";
 import { MainHeader } from "./components/Titlebar";
 import { AgentChatPanel, BottomPanel } from "./components/UtilityPanels";
 import { WelcomeScreen } from "./components/WelcomeScreen";
@@ -34,6 +34,9 @@ import { SharedLibraryScreen } from "./screens/SharedLibraryScreen";
 import { MarketplaceScreen } from "./screens/MarketplaceScreen";
 import { InstrumentScreenRoot } from "./instrument/screen-state-registry";
 import { InstrumentShell, useInstrumentRightRail } from "./instrument/InstrumentShell";
+import { DynamicIsland } from "./instrument/DynamicIsland";
+import { projectDynamicIslandFeed, type DynamicIslandFeed } from "./instrument/dynamic-island-feed";
+import { InstrumentOverlay } from "./instrument/overlay-registry";
 import { useTheme } from "./instrument/ThemeProvider";
 import { unitsInstrumentStates } from "./screens/project/unit-instrument-state";
 import {
@@ -232,6 +235,21 @@ export function App() {
     project: selectedProject,
     enabled: rightPanelVisible || rightOverlayOpen,
   });
+  const liveIslandFeed = useMemo(() => projectDynamicIslandFeed({
+    rootEpoch: rootIdentity?.rootEpoch ?? 0,
+    agentState: agentChat.state ?? { chats: [], activeChatId: "", runningChatId: null },
+    appError: error,
+  }), [agentChat.state, error, rootIdentity?.rootEpoch]);
+  const [mockIslandFeed, setMockIslandFeed] = useState<DynamicIslandFeed | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setMockIslandFeed(null);
+    if (import.meta.env.VITE_RALPHY_ENABLE_MOCKS !== "true" || selectedWorkspace?.name !== "UX Testing Lab") return;
+    void import("./instrument/dynamic-island-mock").then(({ projectMockDynamicIslandFeed }) => {
+      if (!cancelled) setMockIslandFeed(projectMockDynamicIslandFeed({ rootEpoch: rootIdentity?.rootEpoch ?? 0, workspace: selectedWorkspace, project: selectedProject }));
+    });
+    return () => { cancelled = true; };
+  }, [rootIdentity?.rootEpoch, selectedProject?.projectId, selectedProject?.workspaceId, selectedWorkspace?.id, selectedWorkspace?.name]);
   const marketplaceSidebarVisible = marketplace.sidebarVisible && viewport.width > 1_280;
   const activeSidebarVisible = marketplace.mode === "work" ? sidebarVisible : marketplaceSidebarVisible;
   const activeSidebarWidth = INSTRUMENT_SIDEBAR_WIDTH;
@@ -693,7 +711,7 @@ export function App() {
         >
           <InstrumentShell
             sidebar={<>
-              <ContextSidebar
+              <InstrumentSidebar
                 mode={marketplace.mode}
                 route={state.route}
                 page={workspacePage}
@@ -752,7 +770,7 @@ export function App() {
               workspace={selectedWorkspace}
               project={selectedProject}
             />}
-            island={<InstrumentWorkbenchHeader
+            island={<div className="instrument-top-compose"><InstrumentWorkbenchHeader
               sidebarVisible={activeSidebarVisible}
               canGoBack={canGoBack}
               canGoForward={canGoForward}
@@ -778,7 +796,22 @@ export function App() {
               onToggleBottomPanel={() =>
                 setBottomPanelVisible((visible) => !visible)
               }
-            />}
+            /><DynamicIsland
+              feed={mockIslandFeed ?? liveIslandFeed}
+              projectName={selectedProject?.name ?? selectedWorkspace?.name ?? null}
+              mock={mockIslandFeed !== null}
+              onNavigate={(destination) => {
+                if ("kind" in destination) {
+                  switchAppMode("work");
+                  if (destination.kind === "library") dispatch({ type: "open-library" });
+                  else if (destination.kind === "workspace") openWorkspace(destination.workspaceId);
+                  else dispatch({ type: "open-project", project: destination });
+                } else {
+                  switchAppMode("marketplace");
+                  navigateMarketplace(destination);
+                }
+              }}
+            /></div>}
             profile={null}
             routeScrollKey={routeScrollKey}
             leftVisible={activeSidebarVisible}
@@ -820,12 +853,14 @@ export function App() {
           <AnimatePresence>
             {settingsVisible && (
               <Suspense fallback={null}>
+                <InstrumentOverlay id="settings" open label="Settings" description="Application settings" opener={null} onOpenChange={(open) => { if (!open) setSettingsVisible(false); }} localScroll>
                 <SettingsScreen
                   rootPath={rootIdentity?.storeId ?? null}
                   theme={theme}
                   onThemeChange={setTheme}
                   onBack={() => setSettingsVisible(false)}
                 />
+                </InstrumentOverlay>
               </Suspense>
             )}
           </AnimatePresence>

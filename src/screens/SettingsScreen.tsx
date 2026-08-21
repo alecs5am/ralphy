@@ -1,6 +1,5 @@
 import {
   ArrowLeft,
-  Check,
   Info,
   KeyRound,
   Monitor,
@@ -15,6 +14,7 @@ import { useMemo, useState, type ReactNode } from "react";
 
 import { ProfileAvatar, profileIdentity } from "../components/ProfileAvatar";
 import { RalphyMascot } from "../components/RalphyMascot";
+import { SelectMenu } from "../components/ui/SelectMenu";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
 import type { ThemePreference } from "../instrument/types";
 
@@ -30,35 +30,46 @@ const categories = [
 export type SettingsCategory = (typeof categories)[number]["id"];
 export const SETTINGS_CATEGORY_IDS = categories.map(({ id }) => id);
 
+export interface SettingsCapability {
+  id: string;
+  backing: string;
+  lifetime: "persistent" | "root-scoped" | "runtime" | "system" | "build" | "none";
+  enabled: boolean;
+  verification: string;
+  disabledReason: string | null;
+}
+
+export const SETTINGS_CAPABILITIES = [
+  { id: "general.root", backing: "WorkbenchPreferences.rootPath", lifetime: "persistent", enabled: true, verification: "read-only value", disabledReason: null },
+  { id: "general.restore", backing: "none", lifetime: "none", enabled: false, verification: "disabled", disabledReason: "No persisted preference exists in this release." },
+  { id: "general.reveal", backing: "none", lifetime: "none", enabled: false, verification: "disabled", disabledReason: "No persisted preference exists in this release." },
+  { id: "profile.identity", backing: "active root identity", lifetime: "root-scoped", enabled: true, verification: "derived render", disabledReason: null },
+  { id: "profile.displayName", backing: "none", lifetime: "none", enabled: false, verification: "disabled", disabledReason: "Profile identity is derived from the active library." },
+  { id: "appearance.theme", backing: "WorkbenchPreferences.theme", lifetime: "persistent", enabled: true, verification: "two-launch", disabledReason: null },
+  { id: "appearance.density", backing: "none", lifetime: "none", enabled: false, verification: "disabled", disabledReason: "Interface density is fixed in this release." },
+  { id: "appearance.motion", backing: "matchMedia(prefers-reduced-motion)", lifetime: "system", enabled: false, verification: "computed media", disabledReason: "Motion follows macOS Reduced Motion in this release." },
+  { id: "providers.keys", backing: "none", lifetime: "none", enabled: false, verification: "disabled", disabledReason: "Provider credentials are configured outside Settings in this release." },
+  { id: "providers.connect", backing: "none", lifetime: "none", enabled: false, verification: "disabled", disabledReason: "Provider connections are configured outside Settings in this release." },
+  { id: "terminal.workingDirectory", backing: "active root", lifetime: "root-scoped", enabled: true, verification: "read-only value", disabledReason: null },
+  { id: "terminal.shell", backing: "none", lifetime: "none", enabled: false, verification: "disabled", disabledReason: "Terminal shell mode is not configurable in this release." },
+  { id: "terminal.links", backing: "none", lifetime: "none", enabled: false, verification: "disabled", disabledReason: "Terminal link handling is not configurable in this release." },
+  { id: "terminal.toggle", backing: "existing Cmd+J action", lifetime: "runtime", enabled: true, verification: "invoke and observe panel", disabledReason: null },
+  { id: "about.version", backing: "package metadata", lifetime: "build", enabled: true, verification: "read-only value", disabledReason: null },
+] as const satisfies readonly SettingsCapability[];
+
+const capability = (id: string) => SETTINGS_CAPABILITIES.find((item) => item.id === id)!;
+
+function UnsupportedControl({ id, label }: { id: string; label: string }) {
+  const item = capability(id);
+  return <button className="settings-disabled-control" type="button" aria-disabled="true" title={item.disabledReason ?? undefined} onClick={(event) => event.preventDefault()}>{label}</button>;
+}
+
 export const settingsInstrumentStates = categories.map(({ id, label }) => defineInstrumentScreenStates({
   routeKey: `settings.${id}`,
   states: ["ready"],
   rootMarker: `settings-${id}`,
   landmarks: [label, "Settings categories"],
 } as const));
-
-function Toggle({
-  checked,
-  label,
-  onChange,
-}: {
-  checked: boolean;
-  label: string;
-  onChange(checked: boolean): void;
-}) {
-  return (
-    <button
-      className={`settings-toggle${checked ? " is-on" : ""}`}
-      type="button"
-      role="switch"
-      aria-label={label}
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-    >
-      <span />
-    </button>
-  );
-}
 
 function SettingGroup({
   title,
@@ -95,37 +106,7 @@ function SettingRow({
   );
 }
 
-function Segmented({
-  value,
-  values,
-  onChange,
-  ariaLabel,
-}: {
-  value: string;
-  values: readonly string[];
-  onChange(value: string): void;
-  ariaLabel?: string;
-}) {
-  return (
-    <div className="settings-segmented" role="group" aria-label={ariaLabel}>
-      {values.map((item) => (
-        <button
-          className={value === item ? "is-selected" : ""}
-          type="button"
-          aria-pressed={value === item}
-          key={item}
-          onClick={() => onChange(item)}
-        >
-          {item}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function GeneralSettings({ rootPath }: { rootPath: string | null }) {
-  const [restoreContext, setRestoreContext] = useState(true);
-  const [revealGenerated, setRevealGenerated] = useState(true);
   return (
     <>
       <SettingGroup title="Library">
@@ -141,21 +122,13 @@ function GeneralSettings({ rootPath }: { rootPath: string | null }) {
           title="Restore project context"
           description="Open the last workspace and project after launch."
         >
-          <Toggle
-            checked={restoreContext}
-            label="Restore project context"
-            onChange={setRestoreContext}
-          />
+          <UnsupportedControl id="general.restore" label="Unavailable" />
         </SettingRow>
         <SettingRow
           title="Reveal generated media"
           description="Bring newly generated files into the active project view."
         >
-          <Toggle
-            checked={revealGenerated}
-            label="Reveal generated media"
-            onChange={setRevealGenerated}
-          />
+          <UnsupportedControl id="general.reveal" label="Unavailable" />
         </SettingRow>
       </SettingGroup>
     </>
@@ -164,7 +137,7 @@ function GeneralSettings({ rootPath }: { rootPath: string | null }) {
 
 function ProfileSettings({ rootPath }: { rootPath: string | null }) {
   const fallback = rootPath ?? "/Users/ralphy/.ralphy";
-  const [displayName, setDisplayName] = useState(profileIdentity(fallback));
+  const displayName = profileIdentity(fallback);
   return (
     <SettingGroup title="Local profile">
       <div className="settings-profile-hero">
@@ -175,12 +148,7 @@ function ProfileSettings({ rootPath }: { rootPath: string | null }) {
         </span>
       </div>
       <SettingRow title="Display name">
-        <input
-          className="settings-input"
-          value={displayName}
-          aria-label="Display name"
-          onChange={(event) => setDisplayName(event.target.value)}
-        />
+        <UnsupportedControl id="profile.displayName" label={displayName || "Ralphy creator"} />
       </SettingRow>
     </SettingGroup>
   );
@@ -193,32 +161,21 @@ function AppearanceSettings({
   theme: ThemePreference;
   onThemeChange(value: ThemePreference): void;
 }) {
-  const [density, setDensity] = useState("Comfortable");
-  const [motionEnabled, setMotionEnabled] = useState(true);
   return (
     <>
       <SettingGroup title="Interface">
         <SettingRow title="Theme" description="Neutral surfaces optimized for media.">
-          <Segmented
-            ariaLabel="Theme"
-            value={`${theme[0].toUpperCase()}${theme.slice(1)}`}
-            values={["System", "Dark", "Light"]}
-            onChange={(value) => onThemeChange(value.toLowerCase() as ThemePreference)}
-          />
+          <SelectMenu overlayOwner="settings.appearance" ariaLabel="Theme" value={theme} options={[
+            { value: "system", label: "System" },
+            { value: "dark", label: "Dark" },
+            { value: "light", label: "Light" },
+          ]} onValueChange={onThemeChange} />
         </SettingRow>
         <SettingRow title="Density">
-          <Segmented
-            value={density}
-            values={["Compact", "Comfortable"]}
-            onChange={setDensity}
-          />
+          <UnsupportedControl id="appearance.density" label="Fixed" />
         </SettingRow>
         <SettingRow title="Interface motion">
-          <Toggle
-            checked={motionEnabled}
-            label="Interface motion"
-            onChange={setMotionEnabled}
-          />
+          <UnsupportedControl id="appearance.motion" label="Follows macOS" />
         </SettingRow>
       </SettingGroup>
     </>
@@ -233,8 +190,6 @@ const providers = [
 ] as const;
 
 function ProviderSettings() {
-  const [keys, setKeys] = useState<Record<string, string>>({});
-  const [connected, setConnected] = useState<string[]>([]);
   return (
     <SettingGroup title="Generation providers">
       {providers.map(([name, description, placeholder]) => (
@@ -244,31 +199,8 @@ function ProviderSettings() {
             <strong>{name}</strong>
             <small>{description}</small>
           </span>
-          <input
-            className="settings-input provider-key"
-            type="password"
-            autoComplete="off"
-            aria-label={`${name} API key`}
-            placeholder={placeholder}
-            value={keys[name] ?? ""}
-            onChange={(event) => setKeys((current) => ({
-              ...current,
-              [name]: event.target.value,
-            }))}
-          />
-          <button
-            className={`provider-connect${connected.includes(name) ? " is-connected" : ""}`}
-            type="button"
-            disabled={!keys[name]}
-            onClick={() => setConnected((current) => (
-              current.includes(name)
-                ? current.filter((provider) => provider !== name)
-                : [...current, name]
-            ))}
-          >
-            {connected.includes(name) && <Check size={13} strokeWidth={1.7} />}
-            {connected.includes(name) ? "Ready" : "Connect"}
-          </button>
+          <UnsupportedControl id="providers.keys" label={placeholder} />
+          <UnsupportedControl id="providers.connect" label="Unavailable" />
         </div>
       ))}
       <p className="settings-security-note">
@@ -279,8 +211,6 @@ function ProviderSettings() {
 }
 
 function TerminalSettings() {
-  const [shellMode, setShellMode] = useState("Login shell");
-  const [links, setLinks] = useState(true);
   return (
     <>
       <SettingGroup title="Shell">
@@ -294,14 +224,10 @@ function TerminalSettings() {
           title="Shell startup"
           description="Uses $SHELL and preserves your prompt configuration."
         >
-          <Segmented
-            value={shellMode}
-            values={["Login shell", "Plain shell"]}
-            onChange={setShellMode}
-          />
+          <UnsupportedControl id="terminal.shell" label="Login shell" />
         </SettingRow>
         <SettingRow title="Clickable links">
-          <Toggle checked={links} label="Clickable links" onChange={setLinks} />
+          <UnsupportedControl id="terminal.links" label="Unavailable" />
         </SettingRow>
       </SettingGroup>
       <SettingGroup title="Shortcuts">

@@ -37,6 +37,7 @@ import type {
 } from "../chat/useAgentChat";
 import { AiBrandIcon } from "./AiBrandIcon";
 import { MarkdownView } from "./MarkdownView";
+import { InstrumentOverlay } from "../instrument/overlay-registry";
 
 const TerminalWorkspace = lazy(() =>
   import("./terminal/TerminalWorkspace").then((module) => ({
@@ -69,22 +70,27 @@ function AgentProviderIcon({
 function useDismissableMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const closeAndRestore = () => {
+    setOpen(false);
+    requestAnimationFrame(() => trigger.current?.focus({ preventScroll: true }));
+  };
   useEffect(() => {
     if (!open) return;
-    const close = (event: PointerEvent): void => {
-      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+    const dismiss = (event: PointerEvent): void => {
+      if (!ref.current?.contains(event.target as Node)) closeAndRestore();
     };
     const escape = (event: globalThis.KeyboardEvent): void => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") closeAndRestore();
     };
-    window.addEventListener("pointerdown", close);
+    window.addEventListener("pointerdown", dismiss);
     window.addEventListener("keydown", escape);
     return () => {
-      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("pointerdown", dismiss);
       window.removeEventListener("keydown", escape);
     };
   }, [open]);
-  return { open, setOpen, ref };
+  return { open, setOpen, ref, trigger, close: closeAndRestore };
 }
 
 function modelLabel(chat: AgentChatController, provider: AgentProvider, model: string): string {
@@ -266,9 +272,11 @@ function AgentChatMenu({ chat }: { chat: AgentChatController }) {
   return (
     <div className="agent-chat-picker" ref={menu.ref}>
       <button
+        ref={menu.trigger}
         className="agent-chat-picker-trigger"
         type="button"
         aria-haspopup="menu"
+        aria-label="Recent chats"
         aria-expanded={menu.open}
         onClick={() => menu.setOpen((open) => !open)}
       >
@@ -280,6 +288,7 @@ function AgentChatMenu({ chat }: { chat: AgentChatController }) {
         <ChevronDown size={12} />
       </button>
       {menu.open && (
+        <InstrumentOverlay id="agent-chat-recent-menu" host="primitive-host" open label="Recent chats" description="Choose a recent chat" opener={menu.trigger.current} onOpenChange={(open) => { if (!open) menu.close(); }}>
         <div className="agent-popover agent-chat-menu" role="menu">
           <button
             className="agent-menu-command"
@@ -318,6 +327,7 @@ function AgentChatMenu({ chat }: { chat: AgentChatController }) {
             ))}
           </div>
         </div>
+        </InstrumentOverlay>
       )}
     </div>
   );
@@ -335,11 +345,13 @@ function AgentProviderMenu({
   return (
     <div className="agent-menu" ref={menu.ref}>
       <button
+        ref={menu.trigger}
         className="agent-menu-trigger"
         type="button"
         aria-haspopup="menu"
         aria-expanded={menu.open}
         title="Provider"
+        aria-label="Provider"
         onClick={() => menu.setOpen((open) => !open)}
       >
         <AgentProviderIcon provider={active.provider} size={12} />
@@ -347,6 +359,7 @@ function AgentProviderMenu({
         <ChevronDown size={10} />
       </button>
       {menu.open && (
+        <InstrumentOverlay id="agent-chat-provider-menu" host="primitive-host" open label="Provider" description="Choose an agent provider" opener={menu.trigger.current} onOpenChange={(open) => { if (!open) menu.close(); }}>
         <div className={`agent-popover agent-provider-menu${opensDown ? " opens-down" : ""}`} role="menu">
           {PROVIDER_ORDER.map((provider) => {
             const status = chat.providers.find(({ id }) => id === provider);
@@ -372,6 +385,7 @@ function AgentProviderMenu({
             );
           })}
         </div>
+        </InstrumentOverlay>
       )}
     </div>
   );
@@ -397,11 +411,13 @@ function AgentModelMenu({
   return (
     <div className="agent-menu" ref={menu.ref}>
       <button
+        ref={menu.trigger}
         className="agent-menu-trigger agent-model-trigger"
         type="button"
         aria-haspopup="menu"
         aria-expanded={menu.open}
         title="Model"
+        aria-label="Model"
         onClick={() => {
           setQuery("");
           menu.setOpen((open) => !open);
@@ -411,6 +427,7 @@ function AgentModelMenu({
         <ChevronDown size={10} />
       </button>
       {menu.open && (
+        <InstrumentOverlay id="agent-chat-model-menu" host="primitive-host" open label="Model" description="Choose an agent model" opener={menu.trigger.current} onOpenChange={(open) => { if (!open) menu.close(); }}>
         <div className={`agent-popover agent-model-menu${opensDown ? " opens-down" : ""}`} role="menu">
           {models.length > 8 && (
             <label className="agent-model-search">
@@ -448,6 +465,7 @@ function AgentModelMenu({
             {visible.length === 0 && <span className="agent-model-empty">No matching models</span>}
           </div>
         </div>
+        </InstrumentOverlay>
       )}
     </div>
   );
@@ -470,11 +488,13 @@ function AgentModeMenu({
   return (
     <div className="agent-menu" ref={menu.ref}>
       <button
+        ref={menu.trigger}
         className="agent-menu-trigger agent-mode-trigger"
         type="button"
         aria-haspopup="menu"
         aria-expanded={menu.open}
         title="Agent permissions"
+        aria-label="Agent permissions"
         onClick={() => menu.setOpen((open) => !open)}
       >
         <ShieldCheck size={12} />
@@ -482,6 +502,7 @@ function AgentModeMenu({
         <ChevronDown size={10} />
       </button>
       {menu.open && (
+        <InstrumentOverlay id="agent-chat-mode-menu" host="primitive-host" open label="Agent permissions" description="Choose agent permissions" opener={menu.trigger.current} onOpenChange={(open) => { if (!open) menu.close(); }}>
         <div className="agent-popover agent-mode-menu" role="menu">
           {(["auto", "plan", "full"] as const).map((mode) => (
             <button
@@ -500,6 +521,7 @@ function AgentModeMenu({
             </button>
           ))}
         </div>
+        </InstrumentOverlay>
       )}
     </div>
   );

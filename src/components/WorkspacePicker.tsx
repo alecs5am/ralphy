@@ -1,5 +1,5 @@
 import { Check, ChevronDown, Search } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence } from "motion/react";
 import {
   useEffect,
   useId,
@@ -12,6 +12,7 @@ import {
 import { createPortal } from "react-dom";
 import type { WorkspaceSummary } from "../lib/ipc";
 import { workspaceDitherVars } from "../lib/project-glyph";
+import { InstrumentOverlay } from "../instrument/overlay-registry";
 
 interface WorkspacePickerProps {
   value: string;
@@ -158,6 +159,7 @@ export function WorkspacePicker({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
+        data-workspace-name={selected?.name}
         onClick={() => setOpen((visible) => !visible)}
       >
         <span className="workspace-hero-field" aria-hidden="true" />
@@ -179,14 +181,11 @@ export function WorkspacePicker({
       {typeof document !== "undefined" && createPortal(
         <AnimatePresence>
           {open && popoverPosition && (
-            <motion.div
+            <InstrumentOverlay id="workspace-picker" host="primitive-host" open label="Workspaces" description="Select the active workspace" opener={triggerRef.current} onOpenChange={(next) => { if (!next) closeAndRestoreFocus(); }}>
+            <div
               ref={popoverRef}
               className="workspace-picker-popover"
               style={popoverPosition}
-              initial={{ opacity: 0, scale: 0.98, y: -3 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.98, y: -3 }}
-              transition={{ duration: 0.14 }}
             >
               <label className="workspace-picker-search">
                 <Search size={14} strokeWidth={1.5} />
@@ -247,7 +246,8 @@ export function WorkspacePicker({
                   <span className="workspace-picker-empty">No workspaces found</span>
                 )}
               </div>
-            </motion.div>
+            </div>
+            </InstrumentOverlay>
           )}
         </AnimatePresence>,
         document.body,
