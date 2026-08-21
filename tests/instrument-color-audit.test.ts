@@ -73,10 +73,16 @@ describe("instrument color audit mutations", () => {
   test.each([
     ["escaped named color", String.raw`\70 urple`],
     ["escaped function name", String.raw`r\67 b(127 123 214)`],
-    ["escaped system color", String.raw`\43 anvasText`],
   ])("rejects a direct %s", (_name, literal) => {
     expect(auditCss(`.fixture { color: ${literal}; }`, "fixture.css")).not.toEqual([]);
     expect(auditTypeScript(`const fixture = ${JSON.stringify(literal)};`, "fixture.ts")).not.toEqual([]);
+    expect(auditPaletteSource(`${paletteSource}\nconst obsolete = ${JSON.stringify(literal)};`, ["#111111"], expectedPalette, "palette.ts")).not.toEqual([]);
+  });
+
+  test("rejects escaped system colors at paint sinks and in the strict palette", () => {
+    const literal = String.raw`\43 anvasText`;
+    expect(auditCss(`.fixture { color: ${literal}; }`, "fixture.css")).not.toEqual([]);
+    expect(auditTypeScript(`const fixture = { color: ${JSON.stringify(literal)} };`, "fixture.ts")).not.toEqual([]);
     expect(auditPaletteSource(`${paletteSource}\nconst obsolete = ${JSON.stringify(literal)};`, ["#111111"], expectedPalette, "palette.ts")).not.toEqual([]);
   });
 
@@ -86,8 +92,8 @@ describe("instrument color audit mutations", () => {
     for (const color of SYSTEM_COLOR_MUTATIONS) {
       const mixedCase = color.replace(/^./, (letter) => letter.toUpperCase());
       expect(auditCss(`.fixture { color: ${mixedCase}; }`, "fixture.css"), color).not.toEqual([]);
-      expect(auditTypeScript(`const fixture = ${JSON.stringify(mixedCase)};`, "fixture.ts"), color).not.toEqual([]);
-      expect(auditTypeScript(`const fixture = \`${mixedCase}\`;`, "fixture.ts"), color).not.toEqual([]);
+      expect(auditTypeScript(`const fixture = { color: ${JSON.stringify(mixedCase)} };`, "fixture.ts"), color).not.toEqual([]);
+      expect(auditTypeScript(`const fixture = { color: \`${mixedCase}\` };`, "fixture.ts"), color).not.toEqual([]);
     }
   });
 
@@ -154,6 +160,60 @@ describe("instrument color audit mutations", () => {
     `, "fixture.tsx")).toEqual([]);
   });
 
+  test("rejects unmistakable color syntax before TypeScript context exemptions", () => {
+    for (const literal of [
+      "#7F7BD6", "rgb(127 123 214)", "hsl(250 50% 50%)", "hwb(250 10% 20%)",
+      "lab(50% 20 30)", "lch(50% 20 30)", "oklab(.5 .1 .1)", "oklch(.5 .1 30)",
+      "color(display-p3 1 0 0)",
+    ]) {
+      expect(auditTypeScript(`const value = ${JSON.stringify(literal)};`, "fixture.ts"), literal).not.toEqual([]);
+      expect(auditTypeScript(`const data = ${JSON.stringify(literal)};`, "fixture.ts"), literal).not.toEqual([]);
+      expect(auditTypeScript(`const route = ${JSON.stringify(literal)};`, "fixture.ts"), literal).not.toEqual([]);
+      expect(auditTypeScript(`const value = \`${literal}\`;`, "fixture.ts"), literal).not.toEqual([]);
+      expect(auditTypeScript(`const view = <div data-value=${JSON.stringify(literal)} />;`, "fixture.tsx"), literal).not.toEqual([]);
+      expect(auditCss(`.fixture { grid-area: ${literal}; }`, "fixture.css"), literal).not.toEqual([]);
+    }
+  });
+
+  test("follows one constant hop into TypeScript paint sinks and computed style keys", () => {
+    expect(auditTypeScript(`
+      const value = "CanvasText";
+      const style = { color: value };
+    `, "fixture.ts")).not.toEqual([]);
+    expect(auditTypeScript(`
+      const data = "CanvasText";
+      node.style.color = data;
+    `, "fixture.ts")).not.toEqual([]);
+    expect(auditTypeScript(`
+      const value = "CanvasText";
+      node.style.setProperty("color", value);
+    `, "fixture.ts")).not.toEqual([]);
+    expect(auditTypeScript(`
+      const route = { value: "CanvasText" };
+      node.style.color = route.value;
+    `, "fixture.ts")).not.toEqual([]);
+    expect(auditTypeScript('const style = { ["background"]: "CanvasText center / cover" };', "fixture.ts")).not.toEqual([]);
+    expect(auditTypeScript(`
+      const key = "background";
+      const style = { [key]: "CanvasText center / cover" };
+    `, "fixture.ts")).not.toEqual([]);
+    expect(auditTypeScript('const style = { [key]: "var(--paint, CanvasText)" };', "fixture.ts")).not.toEqual([]);
+  });
+
+  test("keeps ambiguous system words structural outside verified paint sinks", () => {
+    expect(auditTypeScript(`
+      enum Scope { Window = "window", Canvas = "canvas" }
+      navigate("window");
+      if (route === "background") use(route);
+      switch (scope) { case "canvas": break; }
+      const selected = "canvas";
+      const color = "canvas";
+      const background = "background";
+      const scopes = ["window", "canvas"];
+      const values = { value: "CanvasText", data: "WindowText" };
+    `, "fixture.ts")).toEqual([]);
+  });
+
   test("still audits embedded CSS inside a non-paint TypeScript field", () => {
     expect(auditTypeScript('const route = ".fixture { color: CanvasText; }";', "fixture.ts")).not.toEqual([]);
     expect(auditTypeScript('const view = <div color="CanvasText" style="background: CanvasText" />;', "fixture.tsx")).toEqual([
@@ -186,20 +246,44 @@ describe("instrument color audit mutations", () => {
       @supports (transition: background 100ms) { .fixture { display: block; } }
       @supports (grid-area: canvas) { .fixture { display: grid; } }
       @supports (animation-name: background) { .fixture { display: block; } }
-      @property --area { syntax: "<custom-ident>"; inherits: false; initial-value: canvas; }
     `, "fixture.css")).toEqual([]);
   });
 
+  test("audits wildcard property descriptors and inline textual visual assets", () => {
+    const rawSvg = "data:image/svg+xml,<svg fill='CanvasText'/>";
+    const percentSvg = "data:image/svg+xml,%3Csvg%20fill%3D%27CanvasText%27%2F%3E";
+    const base64Svg = `data:image/svg+xml;base64,${Buffer.from("<svg fill='purple'/>").toString("base64")}`;
+    const percentText = "data:text/plain,CanvasText";
+    const base64Text = `data:text/plain;base64,${Buffer.from("inline visual bytes").toString("base64")}`;
+    for (const source of [
+      '@property --paint { syntax: "*"; inherits: false; initial-value: CanvasText; }',
+      '@property --paint { syntax: "<custom-ident>"; inherits: false; initial-value: CanvasText; }',
+      `.fixture { background-image: url("${rawSvg}"); }`,
+      `.fixture { background-image: url("${percentSvg}"); }`,
+      `.fixture { cursor: url("${base64Svg}") 0 0, auto; }`,
+      `.fixture { cursor: url("${percentText}") 0 0, auto; }`,
+      `.fixture { cursor: url("${base64Text}") 0 0, auto; }`,
+    ]) {
+      expect(auditCss(source, "fixture.css"), source).not.toEqual([]);
+      expect(auditTokenCss(`${tokenCss}\n${source}`, ["#111111"], expectedPalette, "tokens.css"), source).not.toEqual([]);
+      expect(auditTypeScript(`const fixture = ${JSON.stringify(source)};`, "fixture.ts"), source).not.toEqual([]);
+    }
+    expect(auditCss('.fixture { background-image: url("/CanvasText.svg"); }', "fixture.css")).toEqual([]);
+    expect(auditTypeScript('const url = "https://example.test/CanvasText.svg";', "fixture.ts")).toEqual([]);
+  });
+
   test.each([
-    ["embedded declaration", ".fixture { color: CanvasText; }"],
-    ["embedded escaped declaration", String.raw`.fixture { color: \43 anvasText; }`],
-    ["standalone border value", "1px solid CanvasText"],
-    ["standalone escaped shadow value", String.raw`0 0 2px \43 anvasText`],
-    ["nested function value", "linear-gradient(CanvasText, transparent)"],
-    ["embedded mask value", ".fixture { mask-image: linear-gradient(CanvasText, transparent); }"],
-    ["embedded property descriptor", '@property --paint { syntax: "<color>"; inherits: false; initial-value: CanvasText; }'],
-  ])("rejects a %s in every TypeScript string context", (_name, value) => {
-    const source = `const fixture = { nested: [${JSON.stringify(value)}] };`;
+    ["embedded declaration", ".fixture { color: CanvasText; }", undefined],
+    ["embedded escaped declaration", String.raw`.fixture { color: \43 anvasText; }`, undefined],
+    ["border value", "1px solid CanvasText", "border"],
+    ["escaped shadow value", String.raw`0 0 2px \43 anvasText`, "boxShadow"],
+    ["gradient value", "linear-gradient(CanvasText, transparent)", "background"],
+    ["embedded mask value", ".fixture { mask-image: linear-gradient(CanvasText, transparent); }", undefined],
+    ["embedded property descriptor", '@property --paint { syntax: "<color>"; inherits: false; initial-value: CanvasText; }', undefined],
+  ])("rejects a %s from embedded CSS or a TypeScript paint sink", (_name, value, property) => {
+    const source = property
+      ? `const fixture = { ${property}: ${JSON.stringify(value)} };`
+      : `const fixture = { nested: [${JSON.stringify(value)}] };`;
     expect(auditTypeScript(source, "fixture.ts")).not.toEqual([]);
     expect(auditPaletteSource(`${paletteSource}\n${source}`, ["#111111"], expectedPalette, "palette.ts")).not.toEqual([]);
   });
@@ -212,13 +296,20 @@ describe("instrument color audit mutations", () => {
 
   test.each([
     ["tag-suffixed map", 'const COLOR_TAGS = { color: "CanvasText" };'],
+    ["nested tag-suffixed map", 'const COLOR_TAGS = { nested: { color: "CanvasText" } };'],
+  ])("rejects a system color at a paint sink despite a structural %s", (_name, source) => {
+    expect(auditTypeScript(source, "fixture.ts")).not.toEqual([]);
+    expect(auditPaletteSource(`${paletteSource}\n${source}`, ["#111111"], expectedPalette, "palette.ts")).not.toEqual([]);
+  });
+
+  test.each([
     ["same-name map", 'const colors = { canvas: "Canvas" };'],
     ["kind discriminator", 'const paint = { kind: "CanvasText" };'],
     ["nested tag-suffixed map", 'const COLOR_TAGS = { nested: { kind: "CanvasText" } };'],
-    ["overlay registry name spoof", 'type InstrumentOverlayKind = "menu"; const INSTRUMENT_OVERLAYS = { overlay: { kind: "menu" } };'],
-    ["HTML tag set name spoof", 'const SAFE_HTML_TAGS = new Set(["mark"]);'],
-  ])("rejects a system color hidden by a broad structural %s", (_name, source) => {
-    expect(auditTypeScript(source, "fixture.ts")).not.toEqual([]);
+    ["overlay registry-shaped domain data", 'type InstrumentOverlayKind = "menu"; const INSTRUMENT_OVERLAYS = { overlay: { kind: "menu" } };'],
+    ["HTML tag set-shaped domain data", 'const SAFE_HTML_TAGS = new Set(["mark"]);'],
+  ])("keeps a non-paint %s structural regardless of fixture names", (_name, source) => {
+    expect(auditTypeScript(source, "fixture.ts")).toEqual([]);
     expect(auditPaletteSource(`${paletteSource}\n${source}`, ["#111111"], expectedPalette, "palette.ts")).not.toEqual([]);
   });
 
@@ -226,6 +317,7 @@ describe("instrument color audit mutations", () => {
     ".fixture { mask-image: linear-gradient(CanvasText, transparent); }",
     ".fixture { mask: linear-gradient(90deg, CanvasText, transparent); }",
     ".fixture { --nested-paint: linear-gradient(CanvasText, transparent); }",
+    ".fixture { color: var(--paint, CanvasText); }",
     '@property --paint { syntax: "<color>"; inherits: false; initial-value: CanvasText; }',
     "@supports (color: CanvasText) { .fixture { display: block; } }",
   ])("rejects system colors from every CSS declaration or descriptor value: %s", (source) => {

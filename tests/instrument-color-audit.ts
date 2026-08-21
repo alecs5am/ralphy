@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { Buffer } from "node:buffer";
 import postcss, { type Rule } from "postcss";
 import ts from "typescript";
 
@@ -88,6 +89,51 @@ function colorTokens(value: string, includeSemanticPaint = false, systemColors: 
   return tokensInNormalizedValue(decodeCssEscapes(value), includeSemanticPaint, systemColors);
 }
 
+function uniqueTokens(tokens: string[]): string[] {
+  return [...new Set(tokens)];
+}
+
+function unmistakableColorTokens(value: string): string[] {
+  const normalized = decodeCssEscapes(value);
+  return uniqueTokens([HEX_COLOR, COLOR_FUNCTION].flatMap((pattern) => {
+    pattern.lastIndex = 0;
+    return [...normalized.matchAll(pattern)].map((match) => match[0]);
+  }));
+}
+
+function decodePercentRuns(value: string): string {
+  return value.replace(/(?:%[\dA-F]{2})+/gi, (run) => {
+    try {
+      return decodeURIComponent(run);
+    } catch {
+      return run;
+    }
+  });
+}
+
+function dataUrlTokens(value: string): string[] {
+  const normalized = decodeCssEscapes(value);
+  const tokens: string[] = [];
+  const pattern = /data:([\w.+-]+\/[\w.+-]+)((?:;[^,]*)?),/gi;
+  for (const match of normalized.matchAll(pattern)) {
+    const mime = match[1].toLowerCase();
+    if (!mime.startsWith("image/") && !mime.startsWith("text/") && !/^application\/(?:svg\+xml|xml|json)$/.test(mime)) continue;
+    const payloadStart = (match.index ?? 0) + match[0].length;
+    const encoded = normalized.slice(payloadStart);
+    let decoded: string;
+    try {
+      decoded = /(?:^|;)base64(?:;|$)/i.test(match[2])
+        ? Buffer.from(encoded.match(/^[\w+/=-]*/)?.[0] ?? "", "base64").toString("utf8")
+        : decodePercentRuns(encoded);
+    } catch {
+      decoded = encoded;
+    }
+    const authored = colorTokens(decoded, false, "all");
+    tokens.push(...(authored.length > 0 ? authored : ["data-url"]));
+  }
+  return uniqueTokens(tokens);
+}
+
 function cssPaintSource(value: string): string {
   let unquoted = "";
   for (let index = 0; index < value.length;) {
@@ -109,7 +155,8 @@ function cssPaintSource(value: string): string {
         }
         if (value[index++] === quote) break;
       }
-      unquoted += " ".repeat(index - start);
+      const quoted = value.slice(start, index);
+      unquoted += /^['"]\s*data:/i.test(decodeCssEscapes(quoted)) ? quoted : " ".repeat(index - start);
       continue;
     }
     unquoted += current;
@@ -128,6 +175,7 @@ function cssPaintSource(value: string): string {
       if (decoded[index] === ")") depth -= 1;
       index += 1;
     }
+    if (/^url/i.test(match[0]) && /data:/i.test(decoded.slice(start, index))) continue;
     masked.fill(" ", start, index);
   }
   return masked.join("");
@@ -163,17 +211,23 @@ function isPaintProperty(property: string): boolean {
 
 function cssPropertyColorTokens(property: string, value: string): string[] {
   const source = cssPaintSource(value);
-  if (normalizeCssProperty(property) === "content" && !/(?:repeating-)?(?:linear|radial|conic)-gradient\s*\(/i.test(source)) return [];
-  return tokensInNormalizedValue(source, false, "all");
+  const data = dataUrlTokens(value);
+  if (normalizeCssProperty(property) === "content" && !/(?:repeating-)?(?:linear|radial|conic)-gradient\s*\(/i.test(source)) return data;
+  return uniqueTokens([...data, ...tokensInNormalizedValue(source, false, "all")]);
 }
 
 function isPaintDeclaration(declaration: postcss.Declaration): boolean {
   if (isPaintProperty(declaration.prop)) return true;
   if (normalizeCssProperty(declaration.prop) !== "initial-value" || declaration.parent?.type !== "atrule") return false;
-  const parent = declaration.parent;
-  if (parent.name.toLowerCase() !== "property") return false;
-  const syntax = parent.nodes?.find((node): node is postcss.Declaration => node.type === "decl" && normalizeCssProperty(node.prop) === "syntax");
-  return /<(?:color|image|shadow)>/i.test(syntax?.value ?? "");
+  return declaration.parent.name.toLowerCase() === "property";
+}
+
+function cssDeclarationColorTokens(declaration: postcss.Declaration): string[] {
+  return uniqueTokens([
+    ...unmistakableColorTokens(declaration.value),
+    ...dataUrlTokens(declaration.value),
+    ...(isPaintDeclaration(declaration) ? cssPropertyColorTokens(declaration.prop, declaration.value) : []),
+  ]);
 }
 
 function parenthesizedValues(value: string): Array<{ callee: string; value: string }> {
@@ -210,9 +264,9 @@ function declarationFragmentTokens(value: string): string[] {
     const root = postcss.parse(`.audit { ${value} }`);
     const tokens: string[] = [];
     root.walkDecls((declaration) => {
-      if (isPaintDeclaration(declaration)) tokens.push(...cssPropertyColorTokens(declaration.prop, declaration.value));
+      tokens.push(...cssDeclarationColorTokens(declaration));
     });
-    return tokens;
+    return uniqueTokens(tokens);
   } catch {
     return [];
   }
@@ -226,13 +280,19 @@ interface CssColorSite {
 function cssRootColorSites(root: postcss.Root): CssColorSite[] {
   const sites: CssColorSite[] = [];
   root.walkDecls((declaration) => {
-    if (!isPaintDeclaration(declaration)) return;
-    sites.push(...cssPropertyColorTokens(declaration.prop, declaration.value).map((token) => ({
+    sites.push(...cssDeclarationColorTokens(declaration).map((token) => ({
       line: declaration.source?.start?.line ?? 1,
       token,
     })));
   });
   root.walkAtRules((rule) => {
+    sites.push(...uniqueTokens([
+      ...unmistakableColorTokens(rule.params),
+      ...dataUrlTokens(rule.params),
+    ]).map((token) => ({
+      line: rule.source?.start?.line ?? 1,
+      token,
+    })));
     const name = rule.name.toLowerCase();
     if (name !== "supports" && name !== "container") return;
     for (const group of parenthesizedValues(rule.params)) {
@@ -300,7 +360,8 @@ function isStructuralSystemString(value: string, node: ts.Node, path: string): b
 }
 
 function syntaxPropertyName(name: ts.PropertyName): string | undefined {
-  return ts.isIdentifier(name) || ts.isStringLiteral(name) ? name.text : undefined;
+  if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) return name.text;
+  return ts.isComputedPropertyName(name) && ts.isStringLiteralLike(name.expression) ? name.expression.text : undefined;
 }
 
 function assignmentPropertyName(expression: ts.Expression): string | undefined {
@@ -311,61 +372,12 @@ function assignmentPropertyName(expression: ts.Expression): string | undefined {
   return undefined;
 }
 
-function typeScriptContextName(node: ts.Node): string | undefined {
-  for (let current: ts.Node = node; current.parent && !ts.isSourceFile(current.parent); current = current.parent) {
-    const parent = current.parent;
-    if (ts.isPropertyAssignment(parent)) {
-      if (parent.name === current) return "syntax-name";
-      return syntaxPropertyName(parent.name);
-    }
-    if (ts.isElementAccessExpression(parent) && parent.argumentExpression === current) return "syntax-name";
-    if (ts.isJsxAttribute(parent)) return parent.name.getText();
-    if (ts.isVariableDeclaration(parent) && parent.initializer === current && ts.isIdentifier(parent.name)) return parent.name.text;
-    if (ts.isBinaryExpression(parent) && parent.right === current && parent.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
-      return assignmentPropertyName(parent.left);
-    }
-    if (ts.isTaggedTemplateExpression(parent) && parent.template === current) {
-      return /(?:^|\.)(?:css|styled|createGlobalStyle)(?:\.|$)/i.test(parent.tag.getText()) ? "css-text" : undefined;
-    }
-    if (ts.isCallExpression(parent)) {
-      const argument = parent.arguments.indexOf(current as ts.Expression);
-      const method = ts.isPropertyAccessExpression(parent.expression) ? parent.expression.name.text : "";
-      if (argument === 1 && (method === "setProperty" || method === "setAttribute")) {
-        const property = parent.arguments[0];
-        return property && ts.isStringLiteralLike(property) ? property.text : undefined;
-      }
-    }
-    if (ts.isImportDeclaration(parent) || ts.isExportDeclaration(parent) || ts.isExternalModuleReference(parent)) return "module-path";
-    if (ts.isFunctionLike(parent) || ts.isClassLike(parent)) return undefined;
-  }
-  return undefined;
-}
-
-const NON_PAINT_TYPESCRIPT_CONTEXTS = new Set([
-  "alt", "animation", "animation-name", "aria", "class", "class-name", "container-name", "counter-increment",
-  "counter-reset", "counter-set", "data", "domain", "domains", "grid-area", "href", "host", "hostname", "html-for", "ids", "label",
-  "module-path", "name", "path", "pathname", "placeholder", "rel", "role", "route", "routes", "router", "src",
-  "syntax-name", "target", "title", "to", "transition", "transition-property", "type", "uri", "url", "value",
-  "view-transition-name", "will-change",
-]);
-
 function typescriptPropertyName(value: string): string {
   return value
     .replace(/^ms([A-Z])/, "ms-$1")
     .replace(/([a-z\d])([A-Z])/g, "$1-$2")
     .replaceAll("_", "-")
     .toLowerCase();
-}
-
-function isNonPaintTypeScriptContext(name: string | undefined): boolean {
-  if (!name) return false;
-  const normalized = typescriptPropertyName(name);
-  if (isPaintProperty(normalized) || normalized === "style" || normalized === "css-text") return false;
-  return NON_PAINT_TYPESCRIPT_CONTEXTS.has(normalized)
-    || normalized === "id"
-    || normalized.endsWith("-id")
-    || normalized.startsWith("aria-")
-    || normalized.startsWith("data-");
 }
 
 function embeddedCssTokens(value: string): string[] | undefined {
@@ -380,7 +392,7 @@ function embeddedCssTokens(value: string): string[] | undefined {
   }
 }
 
-const SIMPLE_COLOR_WORDS = new Set<string>([...CSS_NAMED_COLORS, ...CSS_SYSTEM_COLORS]);
+const SIMPLE_COLOR_WORDS = new Set<string>(CSS_NAMED_COLORS);
 const BORDER_WIDTHS = new Set(["thin", "medium", "thick"]);
 const BORDER_STYLES = new Set(["none", "hidden", "solid", "dashed", "dotted", "double", "groove", "ridge", "inset", "outset"]);
 const BACKGROUND_KEYWORDS = new Set([
@@ -402,7 +414,7 @@ function isBorderWidth(value: string): boolean {
 
 function standalonePaintTokens(value: string, includeSemanticPaint: boolean): string[] {
   const normalized = decodeCssEscapes(value).trim();
-  const tokens = tokensInNormalizedValue(normalized, includeSemanticPaint, "all");
+  const tokens = tokensInNormalizedValue(normalized, includeSemanticPaint, "none");
   if (tokens.length === 0) return [];
   if (tokens.some((token) => token.toLowerCase() === normalized.toLowerCase())) return tokens;
   if (/(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch|color)\s*\(/i.test(normalized)) return tokens;
@@ -424,26 +436,167 @@ function standalonePaintTokens(value: string, includeSemanticPaint: boolean): st
   return [];
 }
 
+interface StaticString {
+  value: string;
+  node: ts.StringLiteralLike;
+}
+
+function variableBindings(file: ts.SourceFile): Map<string, ts.Expression> {
+  const bindings = new Map<string, ts.Expression>();
+  const visit = (node: ts.Node): void => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer
+      && ts.isVariableDeclarationList(node.parent) && (node.parent.flags & ts.NodeFlags.Const) !== 0) {
+      bindings.set(node.name.text, node.initializer);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return bindings;
+}
+
+function directStaticString(expression: ts.Expression): StaticString | undefined {
+  const value = unwrap(expression);
+  if (ts.isStringLiteralLike(value)) return { value: value.text, node: value };
+  if (ts.isCallExpression(value) && value.arguments.length === 1 && ts.isIdentifier(value.expression) && value.expression.text === "String") {
+    return directStaticString(value.arguments[0]);
+  }
+  return undefined;
+}
+
+function resolveStaticString(expression: ts.Expression, bindings: Map<string, ts.Expression>): StaticString | undefined {
+  const direct = directStaticString(expression);
+  if (direct) return direct;
+  const value = unwrap(expression);
+  if (ts.isIdentifier(value)) {
+    const initializer = bindings.get(value.text);
+    return initializer ? directStaticString(initializer) : undefined;
+  }
+  const member = ts.isPropertyAccessExpression(value)
+    ? { owner: value.expression, name: value.name.text }
+    : ts.isElementAccessExpression(value) && value.argumentExpression
+      ? { owner: value.expression, name: resolveStaticString(value.argumentExpression, bindings)?.value }
+      : undefined;
+  if (!member?.name || !ts.isIdentifier(member.owner)) return undefined;
+  const owner = bindings.get(member.owner.text);
+  const object = owner ? unwrap(owner) : undefined;
+  if (!object || !ts.isObjectLiteralExpression(object)) return undefined;
+  const property = object.properties.find((candidate): candidate is ts.PropertyAssignment =>
+    ts.isPropertyAssignment(candidate) && syntaxPropertyName(candidate.name) === member.name);
+  return property ? directStaticString(property.initializer) : undefined;
+}
+
+function resolvedPropertyName(name: ts.PropertyName, bindings: Map<string, ts.Expression>): string | undefined {
+  const direct = syntaxPropertyName(name);
+  if (direct) return direct;
+  return ts.isComputedPropertyName(name) ? resolveStaticString(name.expression, bindings)?.value : undefined;
+}
+
+function resolvedAssignmentPropertyName(expression: ts.Expression, bindings: Map<string, ts.Expression>): string | undefined {
+  const direct = assignmentPropertyName(expression);
+  if (direct) return direct;
+  return ts.isElementAccessExpression(expression) && expression.argumentExpression
+    ? resolveStaticString(expression.argumentExpression, bindings)?.value
+    : undefined;
+}
+
+function isStyleObjectProperty(property: ts.PropertyAssignment): boolean {
+  const owner = enclosingVariable(property);
+  if (owner && /styles?$/i.test(owner)) return true;
+  const object = property.parent;
+  const container = object.parent;
+  if (ts.isPropertyAssignment(container)) return typescriptPropertyName(syntaxPropertyName(container.name) ?? "") === "style";
+  if (ts.isJsxExpression(container) && ts.isJsxAttribute(container.parent)) return container.parent.name.getText().toLowerCase() === "style";
+  return ts.isVariableDeclaration(container) && /CSSProperties|CSSStyleDeclaration/.test(container.type?.getText() ?? "");
+}
+
+function typeScriptPaintProperty(node: ts.Node, bindings: Map<string, ts.Expression>): string | undefined {
+  for (let current: ts.Node = node; current.parent && !ts.isSourceFile(current.parent); current = current.parent) {
+    const parent = current.parent;
+    if (ts.isPropertyAssignment(parent)) {
+      if (parent.name === current) return undefined;
+      const name = resolvedPropertyName(parent.name, bindings);
+      if (name && isPaintProperty(typescriptPropertyName(name))) return name;
+      return isStyleObjectProperty(parent) ? "--style-value" : undefined;
+    }
+    if (ts.isJsxAttribute(parent)) {
+      const name = parent.name.getText();
+      return isPaintProperty(typescriptPropertyName(name)) ? name : name.toLowerCase() === "style" ? "--style-value" : undefined;
+    }
+    if (ts.isBinaryExpression(parent) && parent.right === current) {
+      if (parent.operatorToken.kind !== ts.SyntaxKind.EqualsToken) return undefined;
+      const name = resolvedAssignmentPropertyName(parent.left, bindings);
+      return name && isPaintProperty(typescriptPropertyName(name)) ? name : undefined;
+    }
+    if (ts.isCallExpression(parent)) {
+      const argument = parent.arguments.indexOf(current as ts.Expression);
+      const method = ts.isPropertyAccessExpression(parent.expression) ? parent.expression.name.text : "";
+      if (argument === 1 && (method === "setProperty" || method === "setAttribute")) {
+        const name = resolveStaticString(parent.arguments[0], bindings)?.value;
+        return name && isPaintProperty(typescriptPropertyName(name)) ? name : undefined;
+      }
+      if (!(ts.isIdentifier(parent.expression) && parent.expression.text === "String")) return undefined;
+    }
+    if (ts.isVariableDeclaration(parent) || ts.isParameter(parent) || ts.isImportDeclaration(parent)
+      || ts.isExportDeclaration(parent) || ts.isFunctionLike(parent) || ts.isClassLike(parent)) return undefined;
+  }
+  return undefined;
+}
+
 function typeScriptColorSites(source: string, path: string, includeSemanticPaint = false): { file: ts.SourceFile; sites: TypeScriptColorSite[] } {
   const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, path.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  const bindings = variableBindings(file);
   const sites: TypeScriptColorSite[] = [];
-  const record = (value: string, node: ts.Node) => {
+  const seen = new Set<string>();
+  const record = (value: string, node: ts.Node, paintProperty?: string) => {
     const line = file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1;
-    const context = typeScriptContextName(node);
+    const context = paintProperty ?? typeScriptPaintProperty(node, bindings);
     const embedded = embeddedCssTokens(value);
-    if (!includeSemanticPaint && embedded === undefined && isNonPaintTypeScriptContext(context)) return;
-    const tokens = (includeSemanticPaint
+    const global = [...unmistakableColorTokens(value), ...dataUrlTokens(value)];
+    const contextual = includeSemanticPaint
       ? colorTokens(value, true, "all")
       : embedded ?? (context && isPaintProperty(typescriptPropertyName(context))
         ? cssPropertyColorTokens(typescriptPropertyName(context), value)
-        : standalonePaintTokens(value, false)))
+        : standalonePaintTokens(value, false));
+    const tokens = uniqueTokens([...global, ...contextual])
       .filter((token) => !EXACT_SYSTEM_COLOR.test(token) || !isStructuralSystemString(value, node, path));
-    sites.push(...tokens.map((token) => ({ line, nodeStart: node.getStart(file), token })));
+    for (const token of tokens) {
+      const key = `${node.getStart(file)}:${token.toLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      sites.push({ line, nodeStart: node.getStart(file), token });
+    }
+  };
+  const recordExpression = (expression: ts.Expression, property: string) => {
+    const resolved = resolveStaticString(expression, bindings);
+    if (resolved) record(resolved.value, resolved.node, property);
   };
   const visit = (node: ts.Node): void => {
     if (ts.isStringLiteralLike(node)) record(node.text, node);
     if (ts.isTemplateExpression(node)) {
       record(node.head.text + node.templateSpans.map((span) => `0${span.literal.text}`).join(""), node);
+    }
+    if (ts.isPropertyAssignment(node)) {
+      const name = resolvedPropertyName(node.name, bindings);
+      if (name && isPaintProperty(typescriptPropertyName(name))) recordExpression(node.initializer, name);
+      else if (isStyleObjectProperty(node)) recordExpression(node.initializer, "--style-value");
+    }
+    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+      const name = resolvedAssignmentPropertyName(node.left, bindings);
+      if (name && isPaintProperty(typescriptPropertyName(name))) recordExpression(node.right, name);
+    }
+    if (ts.isCallExpression(node)) {
+      const method = ts.isPropertyAccessExpression(node.expression) ? node.expression.name.text : "";
+      if ((method === "setProperty" || method === "setAttribute") && node.arguments.length >= 2) {
+        const name = resolveStaticString(node.arguments[0], bindings)?.value;
+        if (name && isPaintProperty(typescriptPropertyName(name))) recordExpression(node.arguments[1], name);
+      }
+    }
+    if (ts.isJsxAttribute(node) && node.initializer) {
+      const name = node.name.getText();
+      const value = ts.isJsxExpression(node.initializer) ? node.initializer.expression : node.initializer;
+      if (value && (isPaintProperty(typescriptPropertyName(name)) || typescriptPropertyName(name) === "style")) {
+        recordExpression(value, name === "style" ? "--style-value" : name);
+      }
     }
     ts.forEachChild(node, visit);
   };
