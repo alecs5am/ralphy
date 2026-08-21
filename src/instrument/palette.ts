@@ -104,3 +104,27 @@ export const DITHER_ASSET_SHA256 = {
   "ribbon-card.png": "3d0850222336365e709e03be1ad7c604f22addb0a40f32cec0e67bfe1870a6af",
   "row-field.png": "4c79cea9da6447e45df8b154decd8b459d37c2264ddb03b50ae8c19aa4220240",
 } as const;
+
+export const COLOR_ASSET_SHA256 = {
+  "public/assets/ai/anthropic.svg": "338740eeea583260b20b60b6a1c1a38fc2eaac8265d5dfd889a342fd0b3253fc",
+  "public/assets/ai/claude.svg": "8081174d54f2521fe928d5233762712e18dff7a378d275533bb4533e5e254795",
+  "public/assets/ai/codex.svg": "088c41cec358d5c77b3504982e297a57f1420ae3f91cc3bfdbedc3416b904bf1",
+  "public/assets/ai/cohere.svg": "84d0ee3cbe66f030e5a18cb2c86da9166ab2137c7a98781693bb1fbf31e392b9",
+  "public/assets/ai/deepseek.svg": "deba5f98a5c1796e20fcac3149bcd7eb8a32f0bdd04d048819400b1f28bd1439",
+  "public/assets/ai/gemini.svg": "8ab0a9bafec11f7e69bcb9fc4ffd8f1bc927d1ddcbbb6ff36dee5ae8b5a9d602",
+  "public/assets/ai/grok.svg": "50fc23b4b127b28dd8fe8a09be69127e3d0d2ff65b30fd9f04cb7a5df1c58e51",
+  "public/assets/ai/kimi.svg": "74a7292aeb0220445d14c5d397d75760e2e8c6ed6a9e5fe4f3023471bf62a9ff",
+  "public/assets/ai/meta.svg": "adf9f2c1a646ccd3a37ca8c2e7e5985d64630cd633f4b95fba393d1d44e0578c",
+  "public/assets/ai/minimax.svg": "7f7187fa6d9b341ac5f22f6c5a970523afb439dc45566d64eb4f4b9b604d6b01",
+  "public/assets/ai/mistral.svg": "722f74b289d95486b43662fe24fa883b333701296f618406cd0ed502299170b6",
+  "public/assets/ai/openai.svg": "9ac23fbd7f63f849b5df905cc12b9e8fd7b6db97e018c8216ea0494562e342ba",
+  "public/assets/ai/openrouter.svg": "5a00b9d7c683333ed5167abfed07b7afa50e556cc8c6e125d31e83ccc2ec2001",
+  "public/assets/ai/qwen.svg": "77f5768c66d08ce1d3d14e73373975c1bc0454be88c81523ddd0ffd7e2974029",
+  "public/assets/claude.svg": "3e70e6cd34fecba26f33a464a42046bd06fa11d04178e716e7136bd3348dd24a",
+  "public/assets/models/minimax-color.svg": "9da3dd87beff95b2e874b13160fee5843f3a5c02fcf08d0d953c3aa899333a63",
+  "public/assets/models/qwen-color.svg": "10cbcfb6c744a7ee21b033d09485409af5b0377b9d0b905c09bcda632c3665c1",
+  "public/assets/providers/civitai.svg": "0955bc9e009faa0e33452bf2cb6cc0dbb5481108673c1e6f027e07c952a29bca",
+  "public/assets/providers/huggingface.svg": "6c8ea8a7d700adb4f7d681a0d99e2b791be18282017ebc795995a51a59db9b09",
+  "public/assets/providers/modelscope.svg": "1f47a63664ab44b41a5082dcd810a833558f70a29817911d1bd42fabc9a817d2",
+  "public/assets/ralphy-mascot.svg": "06bfed89087ee3ea4aff062c4ee67e824eb20774292b39b34a1f83b467b68cb8",
+} as const;

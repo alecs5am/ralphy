@@ -6,26 +6,28 @@ import {
   INSTRUMENT_PALETTE,
   contrastRatio,
 } from "../src/instrument/palette";
-
-const TOKEN_DEFINITION_BLOCK = /\/\* instrument-token-definitions:start \*\/[\s\S]*?\/\* instrument-token-definitions:end \*\//;
-const COLOR_LITERAL = /#(?:[\dA-F]{8}|[\dA-F]{6}|[\dA-F]{3})(?![\w-])|\b(?:rgb|rgba|hsl|hsla|oklch)\(/gi;
+import {
+  auditCss,
+  auditPaletteSource,
+  auditTokenCss,
+  auditTypeScript,
+} from "./instrument-color-audit";
 
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const path = join(directory, entry.name);
-    if (entry.isDirectory()) return ["vendor", "generated"].includes(entry.name) ? [] : sourceFiles(path);
+    if (entry.isDirectory()) return sourceFiles(path);
     return /\.(?:css|ts|tsx)$/.test(entry.name) ? [path] : [];
   });
 }
 
-function authoredColorLiteralSites(): string[] {
+function authoredColorIssues(): string[] {
   return ["src", "electron"].flatMap((directory) => sourceFiles(join(process.cwd(), directory))).flatMap((path) => {
     const projectPath = relative(process.cwd(), path);
-    if (projectPath === "src/instrument/palette.ts") return [];
-    const source = projectPath === "src/styles/tokens.css"
-      ? readFileSync(path, "utf8").replace(TOKEN_DEFINITION_BLOCK, "")
-      : readFileSync(path, "utf8");
-    return source.split("\n").flatMap((line, index) => [...line.matchAll(COLOR_LITERAL)].map((match) => `${projectPath}:${index + 1}:${match[0]}`));
+    const source = readFileSync(path, "utf8");
+    if (projectPath === "src/instrument/palette.ts") return auditPaletteSource(source, INSTRUMENT_COLOR_ALLOWLIST, INSTRUMENT_PALETTE, projectPath);
+    if (projectPath === "src/styles/tokens.css") return auditTokenCss(source, INSTRUMENT_COLOR_ALLOWLIST, INSTRUMENT_PALETTE, projectPath);
+    return projectPath.endsWith(".css") ? auditCss(source, projectPath) : auditTypeScript(source, projectPath);
   }).sort();
 }
 
@@ -128,6 +130,6 @@ describe("instrument color contract", () => {
   });
 
   test("keeps authored app color literals only in the palette and verified token block", () => {
-    expect(authoredColorLiteralSites()).toEqual([]);
+    expect(authoredColorIssues()).toEqual([]);
   });
 });

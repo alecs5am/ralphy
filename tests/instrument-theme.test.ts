@@ -1,14 +1,15 @@
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { describe, expect, test } from "vitest";
-import { DITHER_ASSET_SHA256, INSTRUMENT_PALETTE } from "../src/instrument/palette";
+import { COLOR_ASSET_SHA256, DITHER_ASSET_SHA256, INSTRUMENT_PALETTE } from "../src/instrument/palette";
 import {
   THEME_PREFERENCES,
   applyResolvedTheme,
   parseThemePreference,
   resolveTheme,
 } from "../src/instrument/theme";
+import { auditAssetManifest } from "./instrument-color-audit";
 
 function sha256(path: string): string {
   return createHash("sha256").update(readFileSync(join(process.cwd(), path))).digest("hex");
@@ -22,6 +23,14 @@ function cssThemeTokens(theme: "light" | "dark"): Record<string, string> {
 
 function kebabCase(value: string): string {
   return value.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+}
+
+function visualAssets(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) return visualAssets(path);
+    return /\.(?:apng|avif|bmp|gif|ico|jpe?g|png|svg|tiff?|webp)$/i.test(entry.name) ? [path] : [];
+  });
 }
 
 describe("instrument theme contract", () => {
@@ -60,6 +69,15 @@ describe("instrument theme contract", () => {
     const directory = "public/assets/dither";
     expect(Object.fromEntries(readdirSync(join(process.cwd(), directory)).sort().map((file) => [file, sha256(`${directory}/${file}`)])))
       .toEqual(DITHER_ASSET_SHA256);
+  });
+
+  test("pins every shipped visual asset by exact path and bytes", () => {
+    const assets = Object.fromEntries(visualAssets(join(process.cwd(), "public")).map((path) => [relative(process.cwd(), path), readFileSync(path)]));
+    const manifest = {
+      ...COLOR_ASSET_SHA256,
+      ...Object.fromEntries(Object.entries(DITHER_ASSET_SHA256).map(([file, digest]) => [`public/assets/dither/${file}`, digest])),
+    };
+    expect(auditAssetManifest(assets, manifest)).toEqual([]);
   });
 
   test("keeps CSS theme definitions equal to the named palette", () => {
