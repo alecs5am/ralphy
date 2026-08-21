@@ -88,6 +88,7 @@ describe("instrument primitives", () => {
     expect(styles).toMatch(/\.instrument-counter output\s*\{[^}]*font-family:\s*var\(--font-doto\)[^}]*font-size:\s*max\(13px, 1em\)[^}]*font-weight:\s*800/s);
     expect(styles).toContain('html[data-theme="light"] .instrument-icon-button:focus-visible');
     expect(styles).toContain('html[data-theme="dark"] .instrument-icon-button:focus-visible');
+    expect(styles.match(/\.instrument-icon-button:focus-visible,[^}]+\}/)?.[0]).toContain("outline: var(--control-focus)");
     expect(contrastRatio(INSTRUMENT_PALETTE.light.focusOnLight, INSTRUMENT_PALETTE.light.widgetLight)).toBeGreaterThanOrEqual(3);
     expect(contrastRatio(INSTRUMENT_PALETTE.dark.focusOnDark, INSTRUMENT_PALETTE.dark.widgetLight)).toBeGreaterThanOrEqual(3);
   });

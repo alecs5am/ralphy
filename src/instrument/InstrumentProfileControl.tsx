@@ -4,9 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from
 import { InstrumentOverlay } from "./overlay-registry";
 import type { InstrumentProfileIdentity } from "./types";
 
-const PROFILE_MENU_WIDTH = 192;
-const PROFILE_MENU_HEIGHT = 96;
-const PROFILE_MENU_MARGIN = 8;
+const PROFILE_MENU_GUTTER = 8;
 
 function localAvatarUrl(avatarUrl: string | null): string | null {
   if (!avatarUrl) return null;
@@ -20,15 +18,18 @@ function localAvatarUrl(avatarUrl: string | null): string | null {
   }
 }
 
-function profileMenuPosition(trigger: HTMLElement): CSSProperties {
+function profileMenuPosition(trigger: HTMLElement, menu: HTMLElement): CSSProperties {
   const bounds = trigger.getBoundingClientRect();
-  const width = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
-  const height = Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0);
-  const left = Math.max(PROFILE_MENU_MARGIN, Math.min(bounds.left, width - PROFILE_MENU_WIDTH - PROFILE_MENU_MARGIN));
-  const below = bounds.bottom + PROFILE_MENU_MARGIN;
-  const top = below + PROFILE_MENU_HEIGHT <= height - PROFILE_MENU_MARGIN
+  const viewportWidth = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
+  const viewportHeight = Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0);
+  const menuBounds = menu.getBoundingClientRect();
+  const width = Math.min(Math.max(menu.scrollWidth, menuBounds.width), Math.max(1, viewportWidth - PROFILE_MENU_GUTTER * 2));
+  const height = Math.min(Math.max(menu.scrollHeight, menuBounds.height), Math.max(1, viewportHeight - PROFILE_MENU_GUTTER * 2));
+  const left = Math.max(PROFILE_MENU_GUTTER, Math.min(bounds.left, viewportWidth - width - PROFILE_MENU_GUTTER));
+  const below = bounds.bottom + PROFILE_MENU_GUTTER;
+  const top = below + height <= viewportHeight - PROFILE_MENU_GUTTER
     ? below
-    : Math.max(PROFILE_MENU_MARGIN, bounds.top - PROFILE_MENU_HEIGHT - PROFILE_MENU_MARGIN);
+    : Math.max(PROFILE_MENU_GUTTER, Math.min(bounds.top - height - PROFILE_MENU_GUTTER, viewportHeight - height - PROFILE_MENU_GUTTER));
   return { left: `${Math.round(left)}px`, top: `${Math.round(top)}px` };
 }
 
@@ -37,7 +38,7 @@ export function InstrumentProfileControl({ identity, onOpenSettings }: {
   onOpenSettings(): void;
 }) {
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState<CSSProperties>();
+  const [position, setPosition] = useState<CSSProperties>({ visibility: "hidden" });
   const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -54,16 +55,30 @@ export function InstrumentProfileControl({ identity, onOpenSettings }: {
   useLayoutEffect(() => {
     if (!open) return;
     const place = () => {
-      if (trigger.current) setPosition(profileMenuPosition(trigger.current));
+      if (trigger.current && menu.current) setPosition(profileMenuPosition(trigger.current, menu.current));
+    };
+    let frame: number | null = null;
+    const schedulePlace = () => {
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        place();
+      });
     };
     place();
-    window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, true);
+    schedulePlace();
+    const observer = new ResizeObserver(schedulePlace);
+    if (trigger.current) observer.observe(trigger.current);
+    if (menu.current) observer.observe(menu.current);
+    window.addEventListener("resize", schedulePlace);
+    window.addEventListener("scroll", schedulePlace, true);
     return () => {
-      window.removeEventListener("resize", place);
-      window.removeEventListener("scroll", place, true);
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener("resize", schedulePlace);
+      window.removeEventListener("scroll", schedulePlace, true);
     };
-  }, [open]);
+  }, [open, identity.displayName, identity.initials, avatarUrl]);
 
   useEffect(() => {
     if (!open) return;
@@ -90,14 +105,14 @@ export function InstrumentProfileControl({ identity, onOpenSettings }: {
       aria-expanded={open}
       onClick={() => {
         if (open) return setOpen(false);
-        if (trigger.current) setPosition(profileMenuPosition(trigger.current));
+        setPosition({ visibility: "hidden" });
         setOpen(true);
       }}
     >
       {avatarUrl
         ? <img className="instrument-profile-avatar" src={avatarUrl} alt="" onError={() => setFailedAvatarUrl(avatarUrl)} />
         : <span className="instrument-profile-initials" aria-hidden="true">{identity.initials}</span>}
-      <span>{identity.displayName}</span>
+      <span title={identity.displayName}>{identity.displayName}</span>
     </button>
     <InstrumentOverlay
       id="profile-menu"
@@ -112,7 +127,7 @@ export function InstrumentProfileControl({ identity, onOpenSettings }: {
           {avatarUrl
             ? <img className="instrument-profile-avatar" src={avatarUrl} alt="" onError={() => setFailedAvatarUrl(avatarUrl)} />
             : <span className="instrument-profile-initials" aria-hidden="true">{identity.initials}</span>}
-          <span>{identity.displayName}</span>
+          <span title={identity.displayName}>{identity.displayName}</span>
         </div>
         <button type="button" role="menuitem" onClick={() => { setOpen(false); onOpenSettings(); }}>
           <Settings size={16} aria-hidden="true" />

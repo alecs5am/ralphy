@@ -1,4 +1,5 @@
 import { act } from "react";
+import { readFileSync } from "node:fs";
 import { describe, expect, test, vi } from "vitest";
 
 import { InstrumentProfileControl } from "../src/instrument/InstrumentProfileControl";
@@ -14,11 +15,36 @@ function escape() {
 }
 
 function viewport(host: ReturnType<typeof createReactHost>, width: number, height: number) {
-  Object.assign(host.container.ownerDocument.defaultView!, { innerWidth: width, innerHeight: height });
+  Object.assign(host.container.ownerDocument.defaultView!, {
+    innerWidth: width,
+    innerHeight: height,
+    requestAnimationFrame: (callback: FrameRequestCallback) => { callback(0); return 0; },
+    cancelAnimationFrame: () => undefined,
+  });
 }
 
 function bounds(node: HostNode, left: number, top: number, width: number, height: number) {
   node.getBoundingClientRect = () => ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
+}
+
+function resizeObserverHarness() {
+  const previous = globalThis.ResizeObserver;
+  const registrations: Array<{ callback: ResizeObserverCallback; target: Element; observer: ResizeObserver }> = [];
+  class TestResizeObserver {
+    constructor(readonly callback: ResizeObserverCallback) {}
+    observe(target: Element) { registrations.push({ callback: this.callback, target, observer: this as unknown as ResizeObserver }); }
+    disconnect() { registrations.splice(0, registrations.length, ...registrations.filter((entry) => entry.observer !== this)); }
+    unobserve(target: Element) { registrations.splice(0, registrations.length, ...registrations.filter((entry) => entry.observer !== this || entry.target !== target)); }
+  }
+  globalThis.ResizeObserver = TestResizeObserver as unknown as typeof ResizeObserver;
+  return {
+    trigger(target: Element) {
+      for (const entry of registrations.filter((registration) => registration.target === target)) {
+        entry.callback([{ target, contentRect: target.getBoundingClientRect() } as ResizeObserverEntry], entry.observer);
+      }
+    },
+    restore() { globalThis.ResizeObserver = previous; },
+  };
 }
 
 describe("instrument profile control", () => {
@@ -56,45 +82,50 @@ describe("instrument profile control", () => {
     }
   });
 
-  test("anchors the portalled menu inside the viewport and recomputes it on resize and scroll", async () => {
+  test("measures a long profile menu and follows opener reflow without viewport events", async () => {
     const host = createReactHost();
     viewport(host, 1_000, 720);
+    const observers = resizeObserverHarness();
     const { createRoot } = await import("react-dom/client");
     const root = createRoot(host.container as unknown as Element);
     try {
       await act(async () => {
-        root.render(<InstrumentProfileControl identity={{ displayName: "Maxim", initials: "MO", avatarUrl: null }} onOpenSettings={() => undefined} />);
+        root.render(<InstrumentProfileControl identity={{ displayName: "ABCDEFGHIJKLMNOPQRSTUVWXYZ12345678", initials: "MO", avatarUrl: null }} onOpenSettings={() => undefined} />);
         await settle();
       });
       const trigger = host.container.querySelector("button") as HostNode;
-      bounds(trigger, 900, 660, 60, 30);
+      bounds(trigger, 800, 660, 60, 30);
       await act(async () => {
         trigger.dispatchEvent(new Event("click", { bubbles: true }));
         await settle();
       });
       const menu = host.container.ownerDocument.body.querySelector(".instrument-profile-menu") as HostNode;
+      menu.scrollWidth = 244;
+      menu.scrollHeight = 80;
+      bounds(menu, 0, 0, 192, 80);
+      await act(async () => {
+        observers.trigger(menu as unknown as Element);
+        await settle();
+      });
       expect(menu.style.position).toBe("fixed");
-      expect(Number.parseFloat(menu.style.left)).toBeGreaterThanOrEqual(8);
-      expect(Number.parseFloat(menu.style.left)).toBeLessThanOrEqual(800);
+      expect(menu.style.left).toBe("748px");
       expect(Number.parseFloat(menu.style.top)).toBeLessThan(660);
+      expect(Number.parseFloat(menu.style.left) + menu.scrollWidth).toBeLessThanOrEqual(992);
 
       bounds(trigger, 40, 100, 60, 30);
       await act(async () => {
-        host.container.ownerDocument.defaultView!.dispatchEvent(new Event("resize"));
+        observers.trigger(trigger as unknown as Element);
         await settle();
       });
       expect(menu.style.left).toBe("40px");
       expect(menu.style.top).toBe("138px");
 
-      bounds(trigger, 60, 120, 60, 30);
-      await act(async () => {
-        host.container.ownerDocument.defaultView!.dispatchEvent(new Event("scroll"));
-        await settle();
-      });
-      expect(menu.style.left).toBe("60px");
-      expect(menu.style.top).toBe("158px");
+      const styles = readFileSync("src/styles/instrument.css", "utf8");
+      expect(styles).toMatch(/\.instrument-profile-menu\s*\{[^}]*width:\s*min\(192px, calc\(100vw - 16px\)\)[^}]*max-width:\s*calc\(100vw - 16px\)/s);
+      expect(styles).toMatch(/\.instrument-profile-menu-identity > span\s*\{[^}]*min-width:\s*0[^}]*text-overflow:\s*ellipsis/s);
     } finally {
       await act(async () => root.unmount());
+      observers.restore();
       host.restore();
     }
   });
