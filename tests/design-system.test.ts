@@ -698,7 +698,7 @@ describe("design system contract", () => {
       marketplaceStyles.indexOf("@media (prefers-reduced-motion: reduce)"),
     );
     expect(marketplaceStyles).toMatch(/\.marketplace-screen\s*\{[^}]*container-name:\s*main-region[^}]*container-type:\s*inline-size/s);
-    expect(marketplaceStyles).toMatch(/#app-mode-marketplace:focus-visible,[\s\S]*Marketplace categories[\s\S]*outline:\s*2px solid var\(--fg\)/);
+    expect(marketplaceStyles).toMatch(/#app-mode-marketplace:focus-visible,[\s\S]*Marketplace categories[\s\S]*outline:\s*2px solid var\(--instrument-focus-on-dark\)/);
     expect(containerRules).toMatch(/\.marketplace-model-detail-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
     expect(containerRules).toMatch(/\.marketplace-public-detail-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
     expect(containerRules).toMatch(/\.marketplace-model-hero[\s\S]*\.marketplace-model-actions[\s\S]*\.marketplace-model-detail-layout/);

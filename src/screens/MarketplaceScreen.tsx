@@ -300,10 +300,10 @@ export function MarketplaceScreenView({
     });
   };
   const targetMessage = catalog === null
-    ? "Workspace targets are unavailable until the home library reconnects."
-    : catalog.workspaces.length + catalog.projects.length === 0
-      ? "No workspace or project targets are available in the current home library."
-      : "Workspace targets are available for supported reviews.";
+    ? "Project targets are unavailable until the home library reconnects."
+    : catalog.projects.length === 0
+      ? "No named project targets are available in the current home library."
+      : "Named project targets are available for supported review-only flows.";
   const changeQuery = (query: MarketplaceQueryState) => {
     if (location.route.kind === "category" && location.query.filters.category !== "all" && query.filters.category === "all") {
       onNavigate({ ...location, route: { kind: "results" }, query, selectedItemId: null, scrollTop: 0, focusId: "marketplace-heading" });

@@ -191,9 +191,9 @@ describe("marketplace navigation", () => {
 
     expect(nullMarkup).toContain("Recipes");
     expect(nullMarkup).toContain("Marketplace category");
-    expect(nullMarkup).toContain("Workspace targets are unavailable until the home library reconnects.");
+    expect(nullMarkup).toContain("Project targets are unavailable until the home library reconnects.");
     expect(emptyMarkup).toContain("Recipes");
-    expect(emptyMarkup).toContain("No workspace or project targets are available in the current home library.");
+    expect(emptyMarkup).toContain("No named project targets are available in the current home library.");
     expect(emptyMarkup).not.toContain("Workspace targets are available for supported reviews.");
     expect(emptyMarkup).not.toContain("Choose a workspace");
   });

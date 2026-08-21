@@ -1,6 +1,6 @@
-import * as Dialog from "@radix-ui/react-dialog";
 import { CheckCircle2, CircleAlert, Download, LoaderCircle, X } from "lucide-react";
-import { useCallback, useId, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
+import { InstrumentOverlay } from "../../instrument/overlay-registry";
 import type { CatalogResult } from "../../lib/ipc";
 import type { WorkbenchRoute } from "../../state/workbench";
 
@@ -15,6 +15,8 @@ export type MarketplaceWorkflowKind =
 
 export interface MarketplaceProjectTargetOption {
   id: string;
+  workspaceId: string;
+  projectId: string;
   kind: "project";
   label: string;
   contextLabel: string;
@@ -46,7 +48,9 @@ export function marketplaceTargets(
   const namedProjects = (catalog?.projects ?? []).flatMap((project) => {
     const workspaceName = workspaceNames.get(project.workspaceId);
     return workspaceName ? [{
-      id: project.projectId,
+      id: `project:${project.workspaceId}:${project.projectId}`,
+      workspaceId: project.workspaceId,
+      projectId: project.projectId,
       kind: "project" as const,
       label: project.name,
       contextLabel: `${workspaceName} / ${project.name}`,
@@ -56,7 +60,7 @@ export function marketplaceTargets(
     }] : [];
   });
   const currentProject = current.kind === "project"
-    ? namedProjects.find(({ id }) => id === current.projectId)?.contextLabel ?? null
+    ? namedProjects.find(({ workspaceId, projectId }) => workspaceId === current.workspaceId && projectId === current.projectId)?.contextLabel ?? null
     : null;
 
   if (kind === "template-target" || kind === "recipe-target" || kind === "component-target") {
@@ -121,7 +125,7 @@ function TargetList({ targets }: { targets: MarketplaceWorkflowTargets }) {
         type="button"
         aria-pressed={selected === option.id}
         onClick={() => setSelected(option.id)}
-      ><span>{option.contextLabel}</span><small>{option.current ? "Current project · project target" : "Project target"}</small></button>)}
+      ><span>Project · {option.contextLabel}</span><small>{option.current ? "Current project · project target" : "Project target"}</small></button>)}
     </div>}
     {targets.unavailableScopes.map((scope) => <button
       key={scope.kind}
@@ -144,48 +148,24 @@ interface WorkflowFrameProps {
 }
 
 function WorkflowContents({ kind, title, description, onCancel, children, finalLabel, finalReason }: WorkflowFrameProps) {
-  const titleId = useId();
-  const descriptionId = useId();
-  const reasonId = useId();
-  return <div
-    className="marketplace-workflow-window"
-    data-workflow={kind}
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby={titleId}
-    aria-describedby={descriptionId}
-  >
-    <header className="marketplace-workflow-header"><div><h2 id={titleId}>{title}</h2><p id={descriptionId}>{description}</p></div><button type="button" aria-label={`Close ${title}`} onClick={onCancel}><X aria-hidden="true" /></button></header>
+  return <div className="marketplace-workflow-window" data-workflow={kind}>
+    <header className="marketplace-workflow-header"><div><h2>{title}</h2><p>{description}</p></div><button type="button" aria-label={`Close ${title}`} onClick={onCancel}><X aria-hidden="true" /></button></header>
     <div className="marketplace-workflow-body">{children}</div>
-    <footer className="marketplace-workflow-footer"><small id={reasonId}>{finalReason} The final action is disabled.</small><button type="button" aria-disabled="true" aria-describedby={reasonId}>{finalLabel}</button></footer>
+    <footer className="marketplace-workflow-footer"><small id="marketplace-workflow-final-reason">{finalReason} The final action is disabled.</small><button type="button" aria-disabled="true" aria-describedby="marketplace-workflow-final-reason">{finalLabel}</button></footer>
   </div>;
 }
 
 function WorkflowFrame(props: WorkflowFrameProps) {
-  const returnFocus = useRef(typeof document === "undefined" ? null : document.activeElement as HTMLElement | null);
-  const restoreFocus = useCallback(() => {
-    if (returnFocus.current?.isConnected) returnFocus.current.focus({ preventScroll: true });
-  }, []);
-  const close = useCallback(() => {
-    props.onCancel();
-    queueMicrotask(restoreFocus);
-  }, [props.onCancel, restoreFocus]);
-  if (typeof document === "undefined") return <WorkflowContents {...props} onCancel={close} />;
-  return <Dialog.Root open onOpenChange={(open) => { if (!open) close(); }}>
-    <Dialog.Portal container={document.body}>
-      <Dialog.Overlay className="marketplace-workflow-overlay" onClick={close} />
-      <Dialog.Content
-        className="marketplace-workflow-window"
-        data-workflow={props.kind}
-        onClick={(event) => event.stopPropagation()}
-        onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(); }}
-      >
-        <header className="marketplace-workflow-header"><div><Dialog.Title>{props.title}</Dialog.Title><Dialog.Description>{props.description}</Dialog.Description></div><button type="button" aria-label={`Close ${props.title}`} onClick={close}><X aria-hidden="true" /></button></header>
-        <div className="marketplace-workflow-body">{props.children}</div>
-        <footer className="marketplace-workflow-footer"><small id="marketplace-workflow-final-reason">{props.finalReason} The final action is disabled.</small><button type="button" aria-disabled="true" aria-describedby="marketplace-workflow-final-reason">{props.finalLabel}</button></footer>
-      </Dialog.Content>
-    </Dialog.Portal>
-  </Dialog.Root>;
+  const opener = useRef(typeof document === "undefined" ? null : document.activeElement as HTMLElement | null);
+  if (typeof document === "undefined") return <WorkflowContents {...props} />;
+  return <InstrumentOverlay
+    id="target-chooser"
+    open
+    label={props.title}
+    description={props.description}
+    opener={opener.current}
+    onOpenChange={(open) => { if (!open) props.onCancel(); }}
+  ><WorkflowContents {...props} /></InstrumentOverlay>;
 }
 
 export interface MarketplaceTargetChooserProps {

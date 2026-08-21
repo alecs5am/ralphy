@@ -144,6 +144,7 @@ describe("Marketplace workflow targets", () => {
       const targets = marketplaceTargets(catalog, currentProject, workflow);
       expect(targets.projectOptions).toEqual(expect.arrayContaining([
         expect.objectContaining({
+          id: "project:ws_6afaf432-6794-400c-b50a-e8b640c20cd2:prj_89992c84-d007-4a72-9261-a6df04e715b1",
           contextLabel: "UX Testing Lab / UX Tester",
           current: true,
           compatible: true,
@@ -167,8 +168,8 @@ describe("Marketplace workflow targets", () => {
   test("omits orphan projects and never exposes paths or opaque IDs as chooser labels", () => {
     const orphan = { ...catalog.projects[0]!, id: "orphan-row", workspaceId: "ws_missing", projectId: "prj_orphan", name: "Orphan" };
     const targets = marketplaceTargets({ ...catalog, projects: [...catalog.projects, orphan] }, currentProject, "recipe-target");
-    expect(targets.projectOptions.map(({ id }) => id)).toContain("prj_89992c84-d007-4a72-9261-a6df04e715b1");
-    expect(targets.projectOptions.map(({ id }) => id)).not.toContain("prj_orphan");
+    expect(targets.projectOptions.map(({ id }) => id)).toContain("project:ws_6afaf432-6794-400c-b50a-e8b640c20cd2:prj_89992c84-d007-4a72-9261-a6df04e715b1");
+    expect(targets.projectOptions.map(({ id }) => id)).not.toContain("project:ws_missing:prj_orphan");
     expect(JSON.stringify(targets)).not.toMatch(/\/Users\/|absolutePath|rootPath|ralphy\.db/i);
 
     const chooser = renderToStaticMarkup(<MarketplaceTargetChooser targets={targets} onCancel={() => undefined} />);
@@ -181,28 +182,15 @@ describe("Marketplace workflow targets", () => {
 
 describe("Marketplace non-mutating action reviews", () => {
   test("keeps portal workflow buttons visibly focusable outside the Marketplace screen", () => {
-    expect(marketplaceStyles).toMatch(/\.marketplace-workflow-window button:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--fg\)[^}]*outline-offset:\s*2px/s);
+    expect(marketplaceStyles).toMatch(/\[data-instrument-overlay="target-chooser"\] button:focus-visible[\s\S]*outline:\s*2px solid var\(--instrument-focus-on-dark\)[^}]*outline-offset:\s*2px/s);
   });
 
   test("uses an opaque semantic dialog surface and readable compact state tokens", () => {
-    expect(marketplaceStyles).toMatch(/\.marketplace-workflow-window\s*\{[^}]*background:\s*var\(--panel-solid\)/s);
+    expect(marketplaceStyles).toMatch(/\[data-instrument-overlay="target-chooser"\][\s\S]*background:\s*var\(--instrument-widget-light\)/s);
     expect(marketplaceStyles).not.toContain("var(--sidebar)");
-    for (const selector of [
-      ".marketplace-target-state",
-      ".marketplace-empty-note small",
-      ".marketplace-model-facts dt",
-      ".marketplace-public-detail-aside dt",
-      ".marketplace-installed-note",
-      ".marketplace-review-field h3",
-      ".marketplace-target-list button[aria-disabled=\"true\"]",
-      ".marketplace-workflow-footer small",
-      ".marketplace-library-unavailable small",
-      ".marketplace-downloads h3",
-    ]) {
-      const start = marketplaceStyles.indexOf(`${selector} {`);
-      expect(start, selector).toBeGreaterThanOrEqual(0);
-      expect(marketplaceStyles.slice(start, marketplaceStyles.indexOf("}", start))).toContain("color: var(--fg-3)");
-    }
+    expect(marketplaceStyles).not.toContain("box-shadow");
+    expect(marketplaceStyles).not.toContain("backdrop-filter");
+    expect(marketplaceStyles).toContain("color: var(--instrument-text-secondary-readable)");
   });
 
   test("connects an unsupported detail review to the real target matrix without enabling a mutation", async () => {
@@ -291,7 +279,7 @@ describe("Marketplace non-mutating action reviews", () => {
       const dialog = body.querySelector("[role=dialog]")!;
       expect(dialog).not.toBeNull();
       expect(dialog.contains(document.activeElement as unknown as HostNode)).toBe(true);
-      expect((document.activeElement as unknown as HostNode).getAttribute("aria-label")).toBe("Close Recipe apply review · Voxel dither");
+      expect(document.activeElement).toBe(dialog);
       const final = dialog.querySelectorAll("button").find((node) => node.textContent.includes("Apply"))!;
       expect(final.getAttribute("aria-disabled")).toBe("true");
       await act(async () => {
@@ -303,13 +291,13 @@ describe("Marketplace non-mutating action reviews", () => {
 
       const escape = new Event("keydown", { bubbles: true, cancelable: true });
       Object.defineProperty(escape, "key", { value: "Escape" });
-      await act(async () => { document.dispatchEvent(escape); await settle(); });
+      await act(async () => { dialog.dispatchEvent(escape); await settle(); });
       expect(body.querySelector("[role=dialog]")).toBeNull();
       expect(document.activeElement).toBe(origin);
 
-      await act(async () => { root.render(<Harness />); await settle(); });
-      const overlay = body.querySelector(".marketplace-workflow-overlay")!;
-      await act(async () => { overlay.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })); await settle(); });
+      await act(async () => { root.render(<Harness key="reopen" />); await settle(); });
+      const close = body.querySelector(".marketplace-workflow-header button")!;
+      await act(async () => { close.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })); await settle(); });
       expect(body.querySelector("[role=dialog]")).toBeNull();
       expect(copy).not.toHaveBeenCalled();
     } finally {

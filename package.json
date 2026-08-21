@@ -15,6 +15,7 @@
     "build": "bun run build:renderer && bun run build:electron",
     "benchmark": "bun scripts/benchmark-media.ts",
     "audit:instrument:shell": "bun scripts/audit-instrument-shell.mjs",
+    "audit:instrument:marketplace": "bun scripts/audit-marketplace-instrument.mjs",
     "smoke": "bun run build && bun run pty:prepare && node scripts/smoke-electron.mjs",
     "smoke:packaged": "RALPHY_PACKAGED_APP='release/Ralphy Media.app' node scripts/smoke-electron.mjs",
     "smoke:secret-handoff": "RALPHY_PACKAGED_APP='release/Ralphy Media.app' node scripts/smoke-electron.mjs --secret-handoff",

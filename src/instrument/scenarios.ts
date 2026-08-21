@@ -214,6 +214,8 @@ export const INSTRUMENT_SCENARIOS: readonly InstrumentScenario[] = [
   ...sharedOverlayScenarios,
   ...globalOverlayScenarios,
 ];
+export const MARKETPLACE_SCENARIOS = INSTRUMENT_SCENARIOS.filter(({ routeKey }) => routeKey.startsWith("marketplace."));
+export const MARKETPLACE_SCENARIO_IDS = MARKETPLACE_SCENARIOS.map(({ id }) => id);
 
 function valuesMissingFrom(left: readonly string[], right: readonly string[]) {
   const rightSet = new Set(right);
