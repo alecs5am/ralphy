@@ -10,24 +10,24 @@ import {
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { sha256File, validateCoreSource } from "./bundled-core.mjs";
+import {
+  APPROVED_CORE_SHA256,
+  APPROVED_CORE_SOURCE,
+  APPROVED_CORE_VERSION,
+  readApprovedCoreBytes,
+} from "./bundled-core.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const electronApp = join(root, "node_modules/electron/dist/Electron.app");
-const output = join(root, "release/Ralphy Media.app");
+const output = process.env.RALPHY_PACKAGE_OUTPUT
+  ? resolve(root, process.env.RALPHY_PACKAGE_OUTPUT)
+  : join(root, "release/Ralphy Media.app");
 const contents = join(output, "Contents");
 const resources = join(contents, "Resources");
 const application = join(resources, "app");
-const coreSource = process.env.RALPHY_CORE_BIN;
-
-if (!coreSource || !isAbsolute(coreSource)) {
-  throw new Error("RALPHY_CORE_BIN must be an absolute path");
-}
-await validateCoreSource(coreSource);
-const coreVersion = execFileSync(coreSource, ["--version"], {
-  encoding: "utf8",
-}).trim();
-if (!coreVersion) throw new Error("RALPHY_CORE_BIN --version returned no version");
+const coreSource = process.env.RALPHY_CORE_BIN ?? APPROVED_CORE_SOURCE;
+if (!isAbsolute(coreSource)) throw new Error("RALPHY_CORE_BIN must be an absolute path");
+const coreBytes = await readApprovedCoreBytes(coreSource);
 
 await rm(output, { recursive: true, force: true });
 await mkdir(dirname(output), { recursive: true });
@@ -66,13 +66,13 @@ await cp(
 );
 const bundledCore = join(resources, "bin/ralphy");
 await mkdir(dirname(bundledCore), { recursive: true });
-await cp(coreSource, bundledCore);
+await writeFile(bundledCore, coreBytes);
 await chmod(bundledCore, 0o755);
 await writeFile(
   join(resources, "ralphy-core.json"),
   `${JSON.stringify({
-    version: coreVersion,
-    sha256: await sha256File(bundledCore),
+    version: APPROVED_CORE_VERSION,
+    sha256: APPROVED_CORE_SHA256,
   }, null, 2)}\n`,
   { mode: 0o600 },
 );
