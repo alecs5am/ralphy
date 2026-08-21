@@ -10,9 +10,6 @@ import type {
   MediaWorkbenchBridge,
   MarketplacePublicSnapshotDto,
   ProjectSummary,
-  TerminalDimensions,
-  TerminalEvent,
-  TerminalSession,
   WorkspaceSummary,
 } from "../../electron/media/types";
 
@@ -55,9 +52,6 @@ export type {
   SharedLibraryAction,
   SharedLibraryQuery,
   TextReadResult,
-  TerminalDimensions,
-  TerminalEvent,
-  TerminalSession,
   TrashResult,
   WorkspaceSummary,
 } from "../../electron/media/types";
@@ -176,7 +170,6 @@ function mockCatalog(generation = 1): CatalogResult {
 
 function createMockBridge(): RalphyBridge {
   const mediaCallbacks = new Set<(event: MediaEvent) => void>();
-  const terminalCallbacks = new Set<(event: TerminalEvent) => void>();
   const agentCallbacks = new Set<(event: AgentChatEnvelope) => void>();
   let openRouterConfigured = false;
   let claudeAuth: ClaudeAuthState = {
@@ -430,41 +423,6 @@ function createMockBridge(): RalphyBridge {
         };
       }
       return { url: path, sizeBytes: 1024 };
-    },
-    async createTerminal(dimensions: TerminalDimensions): Promise<TerminalSession> {
-      const session: TerminalSession = {
-        id: `mock-terminal-${Date.now()}`,
-        label: "ralphy-project",
-        shell: "/bin/zsh",
-        pid: 4242,
-        status: "running",
-      };
-      queueMicrotask(() => {
-        for (const callback of terminalCallbacks) {
-          callback({
-            type: "data",
-            sessionId: session.id,
-            data: `\u001b[36m${MOCK_ROOT}\u001b[0m\n❯ `,
-          });
-        }
-      });
-      void dimensions;
-      return session;
-    },
-    async writeTerminal(sessionId, data) {
-      for (const callback of terminalCallbacks) {
-        callback({ type: "data", sessionId, data });
-      }
-    },
-    async resizeTerminal() {},
-    async killTerminal(sessionId) {
-      for (const callback of terminalCallbacks) {
-        callback({ type: "exit", sessionId, exitCode: 0, signal: 0 });
-      }
-    },
-    onTerminalEvent(callback) {
-      terminalCallbacks.add(callback);
-      return () => terminalCallbacks.delete(callback);
     },
     async getAgentProviders() {
       return [

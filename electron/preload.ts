@@ -4,7 +4,6 @@ import {
   AGENT_CHANNELS,
   APP_CHANNELS,
   MEDIA_CHANNELS,
-  TERMINAL_CHANNELS,
   type AnnotationInput,
   type AgentChatEnvelope,
   type AgentChatRequest,
@@ -13,7 +12,6 @@ import {
   type ProjectReference,
   type ProjectCompositionPageRequest,
   type ProjectUnitPageRequest,
-  type TerminalEvent,
 } from "./media/types";
 import type { BuildDto, BuildOutputDto, CompositionInputDto, CompositionRevisionDto, CompositionSourceDto, EvaluationDto, Page, UnitItemDto, UnitPresentationDto, UnitRevisionDto } from "./ralphy/types";
 
@@ -188,19 +186,6 @@ const mediaBridge: MediaWorkbenchBridge = {
   copyMigrationRecoveryCommand: () => invoke(MEDIA_CHANNELS.copyMigrationRecoveryCommand),
   readText: (path, maxBytes) => invoke(MEDIA_CHANNELS.readText, path, maxBytes),
   getMediaUrl: (path) => invoke(MEDIA_CHANNELS.getMediaUrl, path),
-  createTerminal: (dimensions) => invoke(TERMINAL_CHANNELS.create, dimensions),
-  writeTerminal: (sessionId, data) => invoke(TERMINAL_CHANNELS.write, sessionId, data),
-  resizeTerminal: (sessionId, dimensions) => (
-    invoke(TERMINAL_CHANNELS.resize, sessionId, dimensions)
-  ),
-  killTerminal: (sessionId) => invoke(TERMINAL_CHANNELS.kill, sessionId),
-  onTerminalEvent(callback: (event: TerminalEvent) => void) {
-    const listener = (_event: Electron.IpcRendererEvent, payload: TerminalEvent): void => {
-      callback(payload);
-    };
-    ipcRenderer.on(TERMINAL_CHANNELS.event, listener);
-    return () => ipcRenderer.removeListener(TERMINAL_CHANNELS.event, listener);
-  },
   getAgentProviders: () => invoke(AGENT_CHANNELS.providers),
   loginAgentProvider: (provider) => invoke(AGENT_CHANNELS.login, provider),
   setAgentApiKey: (provider, apiKey) => (

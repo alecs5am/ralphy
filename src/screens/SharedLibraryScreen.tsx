@@ -120,7 +120,7 @@ function SharedArtifactCard({ artifact, selected, workspaceId, rootEpoch, resolv
   onViewer(origin: HTMLElement): void;
 }) {
   return <article
-    className={`shared-artifact-card min-w-0 overflow-hidden rounded-panel border-0 bg-instrument p-2 text-on-instrument shadow-none${selected ? " is-selected ring-2 ring-alert" : ""}`}
+    className={`shared-artifact-card min-w-0 overflow-hidden rounded-panel border-0 p-2 text-on-instrument shadow-none${selected ? " is-selected bg-instrument-hover" : " bg-instrument"}`}
   >
     <div className="shared-artifact-frame relative aspect-[16/10] min-h-0 w-full overflow-hidden rounded-[14px] bg-instrument-raised">
       <SharedArtifactPreview artifact={artifact} workspaceId={workspaceId} rootEpoch={rootEpoch} resolvePreview={resolvePreview} />
@@ -155,7 +155,7 @@ function SharedLibraryAuditList({ artifacts, selectedId, selectedRows, workspace
   return <div className="shared-library-audit-scroll" role="region" aria-label="Scrollable Shared Library audit columns" tabIndex={0}><div className="shared-library-audit" role="grid" aria-label="Shared Library audit list">
     <div className="shared-library-audit-header" role="row">{columns.map((column, index) => <span role="columnheader" key={`${column}:${index}`}>{column}</span>)}</div>
     {artifacts.map((artifact) => <div
-      className={`shared-library-audit-row${selectedId === artifact.id ? " is-selected" : ""}`}
+      className={`shared-library-audit-row rounded-control border-0 shadow-none ${selectedId === artifact.id ? "is-selected bg-instrument text-on-instrument [&_*]:text-inherit" : "bg-transparent text-ink hover:bg-surface-sunken"}`}
       role="row"
       aria-selected={selectedId === artifact.id}
       key={artifact.id}

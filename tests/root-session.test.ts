@@ -55,7 +55,6 @@ describe("main-owned root session", () => {
       },
       invalidateFileTokens: () => events.push("tokens"),
       stopAgentTurns: () => events.push("agent"),
-      terminateTerminals: () => events.push("terminals"),
       unsubscribeActivity: async (client: unknown) => events.push(client === previousClient ? "activity-unsubscribe" : "wrong-old-client"),
       subscribeActivity: async (client: unknown, binding: unknown) => {
         expect(client).toBe(candidateClient);
@@ -65,7 +64,7 @@ describe("main-owned root session", () => {
       },
     });
 
-    expect(events).toEqual(["candidate", "activity-unsubscribe", "tokens", "agent", "bridge-close", "terminals", "activity-subscribe"]);
+    expect(events).toEqual(["candidate", "activity-unsubscribe", "tokens", "agent", "bridge-close", "activity-subscribe"]);
     expect(result).toEqual({ storeId: "store-next", label: "Next Library", rootEpoch: 4, activitySequence: 44 });
     expect(result).not.toHaveProperty("root");
   });
@@ -90,7 +89,6 @@ describe("main-owned root session", () => {
       label: "Broken",
       invalidateFileTokens: cleanup,
       stopAgentTurns: cleanup,
-      terminateTerminals: cleanup,
       unsubscribeActivity: cleanup,
       subscribeActivity: cleanup,
     })).rejects.toMatchObject({ code: "E_ROOT_INVALID" });
@@ -125,51 +123,12 @@ describe("main-owned root session", () => {
       },
       invalidateFileTokens: cleanup,
       stopAgentTurns: cleanup,
-      terminateTerminals: cleanup,
       unsubscribeActivity: cleanup,
       subscribeActivity: cleanup,
     })).rejects.toThrow("scanner failed");
 
     expect(session.root).toBe("/libraries/old/.ralphy");
     expect(cleanup).not.toHaveBeenCalled();
-  });
-
-  test("cleans the root selected inside the serialized commit", async () => {
-    const { openRootSession } = await import("../electron/root-session") as {
-      openRootSession(options: Record<string, unknown>): Promise<unknown>;
-    };
-    const terminated: string[] = [];
-    const session = {
-      root: "/libraries/stale/.ralphy",
-      hello: { storeId: "store-stale", rootId: "root-stale", activitySequence: 8 },
-      client: {},
-      async open(root: string, hooks: {
-        preparePreviousClose(previousRoot: string | null): Promise<void>;
-        beforePreviousClose(previousRoot: string | null): void;
-        afterPreviousClose(previousRoot: string | null): void;
-      }) {
-        const committedPreviousRoot = "/libraries/current/.ralphy";
-        await hooks.preparePreviousClose(committedPreviousRoot);
-        hooks.beforePreviousClose(committedPreviousRoot);
-        this.root = root;
-        this.hello = hello;
-        hooks.afterPreviousClose(committedPreviousRoot);
-        return hello;
-      },
-    };
-
-    await openRootSession({
-      session,
-      root: "/libraries/next/.ralphy",
-      label: "Next",
-      invalidateFileTokens: vi.fn(),
-      stopAgentTurns: vi.fn(),
-      terminateTerminals: (root: string) => terminated.push(root),
-      unsubscribeActivity: vi.fn(),
-      subscribeActivity: vi.fn(),
-    });
-
-    expect(terminated).toEqual(["/libraries/current/.ralphy"]);
   });
 
   test("same-store replacement carries the incremented root epoch", async () => {
@@ -204,7 +163,6 @@ describe("main-owned root session", () => {
       label: "Same",
       invalidateFileTokens: vi.fn(),
       stopAgentTurns: vi.fn(),
-      terminateTerminals: vi.fn(),
       unsubscribeActivity: vi.fn(),
       subscribeActivity: async () => 6,
     });

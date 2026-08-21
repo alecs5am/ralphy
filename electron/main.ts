@@ -18,7 +18,6 @@ import { homedir } from "node:os";
 import { Worker } from "node:worker_threads";
 import { basename, dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
-import * as nodePty from "node-pty";
 import {
   ClaudeCredentialStore,
   EncryptedCredentialStore,
@@ -59,7 +58,6 @@ import {
   MEDIA_CHANNELS,
   MAX_WAVEFORM_DECODE_BYTES,
   PROJECT_MEDIA_FILTERS,
-  TERMINAL_CHANNELS,
   type CatalogResult,
   type AgentChatEnvelope,
   type AgentProvider,
@@ -73,7 +71,6 @@ import {
   type ProjectMediaKind,
   type ProjectMediaQuery,
   type MediaProvenance,
-  type TerminalDimensions,
   type WorkerRequest,
   type WorkerResponse,
 } from "./media/types";
@@ -95,7 +92,6 @@ import {
   StaleMediaSessionError,
   stopMediaRuntime,
 } from "./media/session";
-import { TerminalManager } from "./terminal/manager";
 import {
   captureStagedRootIdentity,
   dispatchDesktopStartup,
@@ -271,7 +267,6 @@ let worker: MediaWorkerClient | null = null;
 const mediaState = new MediaSessionState();
 let watcher: ActiveRootResource<LibraryWatcher>;
 const restoreLibrary = createSingleFlight<LibraryOpenResult | null>();
-let terminalManager: TerminalManager;
 
 function credentialStore(): ClaudeCredentialStore {
   if (!claudeCredentialStore) {
@@ -540,17 +535,6 @@ function parseCompositionSelection(input: unknown): {
   };
 }
 
-function parseTerminalDimensions(value: unknown): TerminalDimensions {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("Invalid terminal dimensions");
-  }
-  const { cols, rows } = value as Record<string, unknown>;
-  if (typeof cols !== "number" || typeof rows !== "number") {
-    throw new Error("Invalid terminal dimensions");
-  }
-  return { cols, rows };
-}
-
 function captureBridgeRoot(): { rootPath: string; storeId: string; epoch: number } {
   const rootPath = ralphySession.root;
   const hello = ralphySession.hello;
@@ -681,7 +665,6 @@ async function openLibrary(
       },
       invalidateFileTokens: () => mediaState.fileAccess.clear(),
       stopAgentTurns: () => activeAgentSession?.stop(),
-      terminateTerminals: (previousRoot) => terminalManager.terminateRoot(previousRoot),
       unsubscribeActivity: async () => activitySynchronizer.stop(),
       subscribeActivity: async (client, binding) => activitySynchronizer.start({
         client: client as RalphyBridgeClient,
@@ -1336,46 +1319,6 @@ function registerProjectDomainIpc(): void {
   );
 }
 
-function registerTerminalIpc(): void {
-  securedHandle(TERMINAL_CHANNELS.create, async (event, rawDimensions: unknown) => {
-    assertTrustedSender(event);
-    const operation = captureBridgeRoot();
-    const session = await terminalManager.create(
-      operation.rootPath,
-      parseTerminalDimensions(rawDimensions),
-    );
-    try {
-      assertBridgeRoot(operation);
-      return session;
-    } catch (error) {
-      terminalManager.kill(session.id);
-      throw error;
-    }
-  });
-  securedHandle(
-    TERMINAL_CHANNELS.write,
-    (_event, rawSessionId: unknown, rawData: unknown) => {
-      terminalManager.write(
-        parseString(rawSessionId, "terminal session id", 128),
-        parseString(rawData, "terminal input", 64 * 1024),
-      );
-    },
-  );
-  securedHandle(
-    TERMINAL_CHANNELS.resize,
-    (_event, rawSessionId: unknown, rawDimensions: unknown) => {
-      terminalManager.resize(
-        parseString(rawSessionId, "terminal session id", 128),
-        parseTerminalDimensions(rawDimensions),
-      );
-    },
-  );
-  securedHandle(TERMINAL_CHANNELS.kill, (event, rawSessionId: unknown) => {
-    assertTrustedSender(event);
-    terminalManager.kill(parseString(rawSessionId, "terminal session id", 128));
-  });
-}
-
 function createWindow(): void {
   const savedBounds = readWindowBounds();
   const initialBounds = savedBounds
@@ -1445,7 +1388,6 @@ function createWindow(): void {
               if (
                 !document.querySelector(".workbench")
                 || !window.ralphy?.restoreLibrary
-                || !window.ralphy?.createTerminal
                 || !window.ralphy?.getAgentProviders
                 || !window.ralphy?.sendAgentMessage
                 || !window.ralphy?.onToggleRightPanel
@@ -1471,7 +1413,6 @@ function createWindow(): void {
             })()`,
           );
           if (ready) {
-            console.log("RALPHY_TERMINAL_BRIDGE_READY");
             console.log("RALPHY_SMOKE_READY");
             await new Promise((resolveReady) => setTimeout(resolveReady, 100));
             app.exit(0);
@@ -1492,7 +1433,6 @@ function stopBackgroundResources(): Promise<void> {
   if (backgroundShutdown) return backgroundShutdown;
   activeAgentSession?.stop();
   stopMediaRuntime(mediaState, { watcher, worker });
-  terminalManager.dispose();
   worker = null;
   backgroundShutdown = shutdownRoot?.() ?? Promise.resolve();
   return backgroundShutdown;
@@ -1558,10 +1498,6 @@ function startNormalDesktop(): void {
     () => app.quit(),
   );
   watcher = new ActiveRootResource<LibraryWatcher>();
-  terminalManager = new TerminalManager({
-    spawn: (file, args, options) => nodePty.spawn(file, args, options),
-    emit: (event) => sendIfWindowAlive(win, TERMINAL_CHANNELS.event, event),
-  });
   protocol.registerSchemesAsPrivileged([{
     scheme: "ralphy-media",
     privileges: {
@@ -1574,7 +1510,6 @@ function startNormalDesktop(): void {
   }]);
   registerMediaIpc();
   registerProjectDomainIpc();
-  registerTerminalIpc();
   registerAgentIpc();
 
   void app.whenReady().then(() => {

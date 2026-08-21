@@ -77,8 +77,15 @@ function pageCount(page: WorkspacePage, workspace?: WorkspaceSummary): number | 
   return null;
 }
 
-const SIDEBAR_ROW = "sidebar-nav-row grid h-[34px] w-full shrink-0 grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-full px-3 text-left text-[12px] text-on-instrument-muted hover:bg-instrument-hover hover:text-on-instrument focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-instrument";
-const SIDEBAR_ROW_SELECTED = "is-selected bg-on-instrument text-instrument hover:bg-on-instrument hover:text-instrument";
+const MODE_BUTTON = "sidebar-mode-button flex h-9 min-w-0 items-center justify-center rounded-[18px] px-2 text-[12px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-instrument";
+const SIDEBAR_ROW = "sidebar-nav-row grid h-9 w-full shrink-0 grid-cols-[16px_minmax(0,1fr)_24px] items-center gap-2.5 rounded-2xl px-2.5 text-left text-[12px] text-on-instrument-muted hover:bg-instrument-raised hover:text-on-instrument focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-on-instrument";
+const SIDEBAR_ROW_SELECTED = "bg-[var(--instrument-composer-surface)] text-[var(--instrument-alert-text)] hover:bg-[var(--instrument-composer-surface)] hover:text-[var(--instrument-alert-text)]";
+
+function modeButton(active: boolean) {
+  return `${MODE_BUTTON} ${active
+    ? "bg-[var(--instrument-composer-surface)] text-[var(--instrument-alert-text)]"
+    : "bg-transparent text-on-instrument-muted hover:bg-instrument-raised hover:text-on-instrument"}`;
+}
 
 function sidebarRow(active: boolean) {
   return `${SIDEBAR_ROW} ${active ? SIDEBAR_ROW_SELECTED : "bg-transparent"}`;
@@ -112,10 +119,10 @@ export function ContextSidebar({
       exit={{ x: -24, opacity: 0 }}
       transition={{ duration: 0.18, ease: [0.2, 0, 0.2, 1] }}
     >
-      <nav className="sidebar-nav sidebar-mode-nav grid h-11 shrink-0 grid-cols-2 gap-1 rounded-full bg-instrument p-1" aria-label="Application mode">
+      <nav className="sidebar-mode-switch grid h-12 shrink-0 grid-cols-2 gap-0 rounded-[24px] bg-instrument p-1.5" aria-label="Application mode">
         <button
           id="app-mode-work"
-          className={`sidebar-nav-row flex h-9 items-center justify-center rounded-full px-2 text-[12px] ${mode === "work" ? "is-selected bg-on-instrument text-instrument" : "bg-transparent text-on-instrument-muted hover:bg-instrument-hover hover:text-on-instrument"}`}
+          className={modeButton(mode === "work")}
           type="button"
           aria-current={mode === "work" ? "page" : undefined}
           onClick={() => onSwitchMode("work")}
@@ -124,7 +131,7 @@ export function ContextSidebar({
         </button>
         <button
           id="app-mode-marketplace"
-          className={`sidebar-nav-row flex h-9 items-center justify-center rounded-full px-2 text-[12px] ${mode === "marketplace" ? "is-selected bg-on-instrument text-instrument" : "bg-transparent text-on-instrument-muted hover:bg-instrument-hover hover:text-on-instrument"}`}
+          className={modeButton(mode === "marketplace")}
           type="button"
           aria-current={mode === "marketplace" ? "page" : undefined}
           onClick={() => onSwitchMode("marketplace")}
@@ -133,12 +140,12 @@ export function ContextSidebar({
         </button>
       </nav>
 
-      {mode === "work" && workspace && <div className="sidebar-context h-[118px] shrink-0 overflow-hidden rounded-[24px] [&_.workspace-hero]:h-full [&_.workspace-picker]:h-full">
+      {mode === "work" && workspace && <div className="sidebar-context h-[118px] shrink-0 overflow-hidden rounded-[24px] [&_.workspace-hero]:h-full [&_.workspace-hero]:border-0 [&_.workspace-hero]:shadow-none [&_.workspace-picker]:h-full">
         <WorkspacePicker value={workspace.id} workspaces={orderedWorkspaces} onValueChange={onOpenWorkspace} />
       </div>}
 
       <div className="sidebar-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        {mode === "work" && workspace && <nav className="sidebar-nav flex flex-col gap-0.5 rounded-[24px] bg-instrument p-2" aria-label="Workspace pages">
+        {mode === "work" && workspace && <nav className="sidebar-nav flex flex-col gap-0 rounded-[24px] bg-instrument p-2" aria-label="Workspace pages">
           {WORKSPACE_PAGES.map((item) => {
             const Icon = PAGE_ICONS[item];
             const count = pageCount(item, workspace);
@@ -153,7 +160,7 @@ export function ContextSidebar({
               >
                 <Icon size={14} strokeWidth={1.6} aria-hidden="true" />
                 <span className="min-w-0 truncate">{WORKSPACE_PAGE_LABELS[item]}</span>
-                <small className="font-display text-[13px]">{count ?? ""}</small>
+                <small className="w-6 text-right font-display text-[13px] leading-none text-current opacity-70">{count ?? ""}</small>
               </button>
             );
           })}
@@ -161,8 +168,8 @@ export function ContextSidebar({
 
         {mode === "marketplace" && <div className="grid gap-2">
           <section>
-            <div className="sidebar-section-label flex h-7 items-center gap-2 px-3 font-code text-[9px] tracking-[.11em] text-muted"><span>MARKETPLACE</span><i className="h-px flex-1 bg-divider" /></div>
-            <nav className="sidebar-nav flex flex-col gap-0.5 rounded-[24px] bg-instrument p-2" aria-label="Marketplace categories">
+            <div className="sidebar-section-label flex h-7 items-center px-2.5 font-code text-[9px] tracking-[.11em] text-muted"><span>MARKETPLACE</span></div>
+            <nav className="sidebar-nav flex flex-col gap-0 rounded-[24px] bg-instrument p-2" aria-label="Marketplace categories">
               <button
                 className={sidebarRow(marketplaceRoute.kind === "discover")}
                 type="button"
@@ -190,8 +197,8 @@ export function ContextSidebar({
             </nav>
           </section>
           <section>
-            <div className="sidebar-section-label flex h-7 items-center gap-2 px-3 font-code text-[9px] tracking-[.11em] text-muted"><span>MY LIBRARY</span><i className="h-px flex-1 bg-divider" /></div>
-            <nav className="sidebar-nav flex flex-col gap-0.5 rounded-[24px] bg-instrument p-2" aria-label="My Library">
+            <div className="sidebar-section-label flex h-7 items-center px-2.5 font-code text-[9px] tracking-[.11em] text-muted"><span>MY LIBRARY</span></div>
+            <nav className="sidebar-nav flex flex-col gap-0 rounded-[24px] bg-instrument p-2" aria-label="My Library">
               {MARKETPLACE_LIBRARY.map(({ id, label, icon: Icon }) => {
                 const active = marketplaceRoute.kind === "library" && marketplaceRoute.section === id;
                 return <button

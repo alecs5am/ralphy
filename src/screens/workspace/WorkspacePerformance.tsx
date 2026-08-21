@@ -69,8 +69,8 @@ function MetricStrip({ values }: { values: WorkspaceMomentumPresentation["totals
     ["Comments", metric(values.comments), values.comments === null ? "Comments unavailable" : `${values.comments.toLocaleString()} comment${values.comments === 1 ? "" : "s"}`],
     ["Shares", metric(values.shares), values.shares === null ? "Shares unavailable" : `${values.shares.toLocaleString()} share${values.shares === 1 ? "" : "s"}`],
   ];
-  return <dl className="workspace-metric-strip grid grid-cols-2 gap-px overflow-hidden rounded-[14px] bg-divider sm:grid-cols-3 xl:grid-cols-6">
-    {metrics.map(([label, value, accessible]) => <div className="min-w-0 bg-surface-sunken px-3 py-3" key={label}>
+  return <dl className="workspace-metric-strip grid grid-cols-2 gap-2 overflow-hidden rounded-[14px] border-0 bg-transparent sm:grid-cols-3 xl:grid-cols-6 [&>div]:border-0">
+    {metrics.map(([label, value, accessible]) => <div className="min-w-0 rounded-control border-0 bg-surface-sunken px-3 py-3" key={label}>
       <dt className="text-[11px] text-muted">{label}</dt>
       <dd className="mt-1 text-[20px] font-semibold leading-none text-ink" aria-label={accessible}>{value}</dd>
     </div>)}
@@ -163,7 +163,7 @@ export function AccountDetailDialog({
   return <Dialog.Root open={account !== null} onOpenChange={onOpenChange}>
     {account && <Dialog.Portal forceMount container={typeof document === "undefined" ? undefined : document.body}>
       <Dialog.Overlay forceMount className="account-detail-overlay" data-instrument-overlay-backdrop="" />
-      <Dialog.Content forceMount className="account-detail-dialog" data-instrument-overlay="workspace-account-detail">
+      <Dialog.Content forceMount className="account-detail-dialog rounded-panel border-0 bg-surface text-ink shadow-none [&_.account-detail-section]:rounded-[14px] [&_.account-detail-section]:border-0 [&_.account-detail-section]:bg-surface-sunken [&_.account-detail-section]:shadow-none" data-instrument-overlay="workspace-account-detail">
         <header className="account-detail-header">
           <span>
             <Dialog.Title>{account.username ? handle(account.username) : account.displayName ?? `${account.platform} account`}</Dialog.Title>

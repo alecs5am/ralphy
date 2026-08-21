@@ -6712,8 +6712,7 @@ button.memory-primary:hover { background: var(--accent); color: var(--sunken); }
     transition-duration: 0ms;
   }
 
-  .select-menu-content,
-  .terminal-caret {
+  .select-menu-content {
     animation: none;
   }
 }

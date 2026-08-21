@@ -74,10 +74,10 @@ function countLabel(count: Availability<number>): string {
 function CategoryCard({ value, onOpen }: { value: MarketplaceCategoryPresentation; onOpen(category: MarketplaceCategory): void }) {
   const Icon = categoryIcons[value.category];
   return <li className="min-w-0">
-    <button className="marketplace-category-card grid min-h-24 w-full grid-cols-[minmax(0,1fr)_auto] content-between gap-x-3 gap-y-2 rounded-panel bg-instrument p-4 text-left text-on-instrument hover:bg-instrument-hover" type="button" onClick={() => onOpen(value.category)}>
+    <button className="marketplace-category-card grid min-h-24 w-full grid-cols-[minmax(0,1fr)_auto] content-between gap-x-3 gap-y-2 rounded-[14px] bg-surface p-4 text-left text-ink hover:bg-surface-hover" type="button" onClick={() => onOpen(value.category)}>
       <span className="flex min-w-0 items-center gap-2"><Icon className="size-4 shrink-0" aria-hidden="true" /><strong className="truncate text-sm font-normal">{value.label}</strong></span>
-      <small className={`font-mono text-[10px] text-on-instrument-muted ${value.count.status === "unavailable" ? "max-w-36 text-right leading-tight" : ""}`}>{countLabel(value.count)}</small>
-      <p className="col-span-full m-0 line-clamp-2 text-xs leading-snug text-on-instrument-muted">{value.purpose}</p>
+      <small className={`font-mono text-[10px] text-muted ${value.count.status === "unavailable" ? "max-w-36 text-right leading-tight" : ""}`}>{countLabel(value.count)}</small>
+      <p className="col-span-full m-0 line-clamp-2 text-xs leading-snug text-muted">{value.purpose}</p>
     </button>
   </li>;
 }
@@ -109,18 +109,18 @@ export function MarketplaceDiscover({ snapshot, onOpenCategory, onOpenLibrary, o
       <div className="marketplace-section-heading mb-2 grid gap-0.5 px-1"><span className="font-mono text-[9px] uppercase tracking-[.11em] text-muted">Browse</span><h2 className="m-0 text-base font-normal" id="marketplace-categories-heading">Categories</h2></div>
       <ul className="marketplace-category-grid grid list-none grid-cols-3 gap-2 p-0 @max-[900px]:grid-cols-2 @max-[620px]:grid-cols-1" role="list">{snapshot.categories.map((category) => <CategoryCard value={category} onOpen={onOpenCategory} key={category.category} />)}</ul>
     </section>
-    {!hasAnyCount && <div className="marketplace-empty-note flex min-h-20 items-center gap-3 rounded-panel bg-surface p-4" role="status"><Package className="size-5 shrink-0 text-muted" aria-hidden="true" /><span className="flex flex-col gap-0.5"><strong className="text-sm font-normal">No items have been returned by the current sources yet.</strong><small className="text-xs text-muted">Categories remain visible with their current source state.</small></span></div>}
+    {!hasAnyCount && <div className="marketplace-empty-note flex min-h-20 items-center gap-3 rounded-[14px] bg-surface p-4" role="status"><Package className="size-5 shrink-0 text-muted" aria-hidden="true" /><span className="flex flex-col gap-0.5"><strong className="text-sm font-normal">No items have been returned by the current sources yet.</strong><small className="text-xs text-muted">Categories remain visible with their current source state.</small></span></div>}
     <section aria-labelledby="marketplace-community-heading">
       <div className="marketplace-section-heading mb-2 grid gap-0.5 px-1"><span className="font-mono text-[9px] uppercase tracking-[.11em] text-muted">Read-only route</span><h2 className="m-0 text-base font-normal" id="marketplace-community-heading">Community</h2></div>
-      <button className="flex min-h-20 w-full items-center gap-3 rounded-panel bg-surface p-4 text-left text-ink hover:bg-surface-hover" type="button" aria-disabled={onOpenCollection ? undefined : true} aria-describedby="marketplace-community-contract-note" onClick={onOpenCollection}><FolderHeart className="size-4 shrink-0" aria-hidden="true" /><span className="flex min-w-0 flex-1 flex-col gap-0.5"><strong className="truncate text-sm font-normal">Community contributions</strong><small className="text-xs text-muted" id="marketplace-community-contract-note">Read-only unavailable-contract review</small></span><small className="font-mono text-[10px] text-muted">Read-only</small></button>
+      <button className="flex min-h-20 w-full items-center gap-3 rounded-[14px] bg-surface p-4 text-left text-ink hover:bg-surface-hover" type="button" aria-disabled={onOpenCollection ? undefined : true} aria-describedby="marketplace-community-contract-note" onClick={onOpenCollection}><FolderHeart className="size-4 shrink-0" aria-hidden="true" /><span className="flex min-w-0 flex-1 flex-col gap-0.5"><strong className="truncate text-sm font-normal">Community contributions</strong><small className="text-xs text-muted" id="marketplace-community-contract-note">Read-only unavailable-contract review</small></span><small className="font-mono text-[10px] text-muted">Read-only</small></button>
     </section>
     {installed.length > 0 && <section aria-labelledby="marketplace-continue-heading">
       <div className="marketplace-section-heading mb-2 grid gap-0.5 px-1"><span className="font-mono text-[9px] uppercase tracking-[.11em] text-muted">Local state</span><h2 className="m-0 text-base font-normal" id="marketplace-continue-heading">Continue where you left off</h2></div>
-      <ul className="marketplace-installed-list grid list-none grid-cols-3 gap-2 p-0 @max-[900px]:grid-cols-2 @max-[620px]:grid-cols-1" role="list">{installed.map((item) => <li className="min-w-0" key={`${item.runtime}:${item.id}`}><button className="flex min-h-16 w-full items-center gap-3 rounded-panel bg-surface px-4 py-3 text-left hover:bg-surface-hover" type="button" onClick={() => onOpenLibrary("installed")}><Cpu className="size-4 shrink-0" aria-hidden="true" /><span className="flex min-w-0 flex-col gap-0.5"><strong className="truncate text-sm font-normal">{item.name}</strong><small className="truncate font-mono text-[10px] text-muted">Registered in Ollama · {item.format}</small></span></button></li>)}</ul>
+      <ul className="marketplace-installed-list grid list-none grid-cols-3 gap-2 p-0 @max-[900px]:grid-cols-2 @max-[620px]:grid-cols-1" role="list">{installed.map((item) => <li className="min-w-0" key={`${item.runtime}:${item.id}`}><button className="flex min-h-16 w-full items-center gap-3 rounded-[14px] bg-surface px-4 py-3 text-left hover:bg-surface-hover" type="button" onClick={() => onOpenLibrary("installed")}><Cpu className="size-4 shrink-0" aria-hidden="true" /><span className="flex min-w-0 flex-col gap-0.5"><strong className="truncate text-sm font-normal">{item.name}</strong><small className="truncate font-mono text-[10px] text-muted">Registered in Ollama · {item.format}</small></span></button></li>)}</ul>
     </section>}
     {updated.length > 0 && <section aria-labelledby="marketplace-updated-heading">
       <div className="marketplace-section-heading mb-2 grid gap-0.5 px-1"><span className="font-mono text-[9px] uppercase tracking-[.11em] text-muted">Source timestamps</span><h2 className="m-0 text-base font-normal" id="marketplace-updated-heading">Recently updated</h2></div>
-      <ul className="marketplace-updated-list overflow-hidden rounded-panel bg-surface p-0" role="list">{updated.map((item) => <li className="flex min-h-12 items-center gap-4 px-4 py-2 not-first:border-t not-first:border-divider" key={item.key}><span className="flex min-w-0 flex-1 flex-col gap-0.5"><strong className="truncate text-sm font-normal">{item.name}</strong><small className="truncate font-mono text-[10px] text-muted">{categoryLabels[item.category]} · {item.sourceLabel}</small></span><time className="shrink-0 font-mono text-[10px] text-muted" dateTime={item.updatedAt.status === "ready" ? item.updatedAt.value : undefined}>{item.updatedAt.status === "ready" ? formatDate(item.updatedAt.value) : ""}</time></li>)}</ul>
+      <ul className="marketplace-updated-list grid gap-1 p-0" role="list">{updated.map((item) => <li className="flex min-h-12 items-center gap-4 rounded-[14px] bg-surface px-4 py-2" key={item.key}><span className="flex min-w-0 flex-1 flex-col gap-0.5"><strong className="truncate text-sm font-normal">{item.name}</strong><small className="truncate font-mono text-[10px] text-muted">{categoryLabels[item.category]} · {item.sourceLabel}</small></span><time className="shrink-0 font-mono text-[10px] text-muted" dateTime={item.updatedAt.status === "ready" ? item.updatedAt.value : undefined}>{item.updatedAt.status === "ready" ? formatDate(item.updatedAt.value) : ""}</time></li>)}</ul>
     </section>}
   </div>;
 }
@@ -194,7 +194,7 @@ function MarketplaceResult({ item, index, tabStop, onFocus, onMove, onOpenItem }
     onOpenItem(item.key);
   };
   return <button
-    className={`marketplace-result marketplace-result-${item.category} grid min-h-28 w-full min-w-0 grid-cols-[128px_minmax(180px,1fr)_minmax(140px,.45fr)_auto] items-center gap-4 rounded-panel bg-surface p-2.5 text-left text-ink hover:bg-surface-hover @max-[780px]:grid-cols-[96px_minmax(0,1fr)]`}
+    className={`marketplace-result marketplace-result-${item.category} grid min-h-[104px] w-full min-w-0 grid-cols-[104px_minmax(180px,1fr)_minmax(140px,.45fr)_auto] items-center gap-3 rounded-[14px] bg-surface p-2 text-left text-ink hover:bg-surface-hover @max-[780px]:grid-cols-[88px_minmax(0,1fr)]`}
     id={marketplaceItemDomId(item.key)}
     data-marketplace-item-key={item.key}
     type="button"
@@ -203,7 +203,7 @@ function MarketplaceResult({ item, index, tabStop, onFocus, onMove, onOpenItem }
     onFocus={onFocus}
     onKeyDown={openFromKeyboard}
   >
-    <span className="marketplace-result-preview grid h-24 w-32 place-items-center overflow-hidden rounded-control bg-instrument text-on-instrument @max-[780px]:h-20 @max-[780px]:w-24 [&_img]:size-full [&_img]:object-cover [&_video]:size-full [&_video]:object-cover"><MarketplaceItemPreview item={item} /></span>
+    <span className="marketplace-result-preview grid h-[88px] w-[104px] place-items-center overflow-hidden rounded-control bg-instrument text-on-instrument @max-[780px]:h-[72px] @max-[780px]:w-[88px] [&_img]:size-full [&_img]:object-cover [&_video]:size-full [&_video]:object-cover"><MarketplaceItemPreview item={item} /></span>
     <span className="marketplace-result-copy flex min-w-0 flex-col gap-1">
       <span className="marketplace-result-category flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[.08em] text-muted"><Icon className="size-3" aria-hidden="true" />{categoryLabels[item.category]}</span>
       <strong className="truncate text-base font-normal">{item.name}</strong>
@@ -214,7 +214,7 @@ function MarketplaceResult({ item, index, tabStop, onFocus, onMove, onOpenItem }
       <small className="truncate font-mono text-[9px] text-muted">{availabilityLabel(item.license, "License unavailable")}</small>
       <small className="truncate font-mono text-[9px] text-muted">{availabilityLabel(item.compatibility, "Compatibility unavailable")}</small>
     </span>
-    <span className="marketplace-result-action flex h-8 items-center rounded-full bg-instrument px-3 text-xs text-on-instrument @max-[780px]:hidden">View details</span>
+    <span className="marketplace-result-action flex h-8 items-center rounded-control bg-instrument px-3 text-xs text-on-instrument @max-[780px]:hidden">View details</span>
   </button>;
 }
 
@@ -271,7 +271,7 @@ function VirtualMarketplaceResults({ items, query, originKey, onOpenItem }: Mark
     count: items.length,
     getScrollElement: () => root.current?.closest<HTMLDivElement>(".marketplace-scroll") ?? null,
     getItemKey: (index) => items[index]?.key ?? index,
-    estimateSize: () => 126,
+    estimateSize: () => 112,
     overscan: 6,
     initialRect: { width: 900, height: 700 },
     scrollMargin,
@@ -338,10 +338,10 @@ export function MarketplaceResults(props: MarketplaceResultsProps) {
 function SourceState({ snapshot, onRetry }: { snapshot: Extract<MarketplaceSnapshot, { status: "ready" | "error" }>; onRetry(): void }) {
   if (snapshot.sourceErrors.length === 0) return null;
   const partial = snapshot.status === "ready";
-  return <div className={`marketplace-source-state${partial ? " is-partial" : " is-total"} mt-2 flex min-h-14 items-center gap-3 rounded-panel bg-instrument px-4 py-3 text-on-instrument`} role={partial ? "status" : "alert"}>
+  return <div className={`marketplace-source-state${partial ? " is-partial" : " is-total"} mt-2 flex min-h-14 items-center gap-3 rounded-panel bg-instrument px-4 py-3 text-on-instrument @max-[620px]:flex-wrap`} role={partial ? "status" : "alert"}>
     <CircleAlert className="size-4 shrink-0 text-alert" aria-hidden="true" />
     <span className="flex min-w-0 flex-1 flex-col gap-1">{snapshot.sourceErrors.map((issue) => <span className="flex min-w-0 flex-col" key={`${issue.source}:${issue.scope}`}><strong className="text-sm font-normal">{sourceLabels[issue.source]} is unavailable</strong><small className="text-xs text-on-instrument-muted">{issue.message}</small></span>)}{partial && <em className="text-xs not-italic text-on-instrument-muted">Results from healthy sources are still shown.</em>}</span>
-    <button className="flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-surface px-3 text-xs text-ink" type="button" onClick={onRetry}><RefreshCw className="size-3" aria-hidden="true" />Retry sources</button>
+    <button className="flex h-8 shrink-0 items-center gap-1.5 rounded-control bg-surface px-3 text-xs text-ink @max-[620px]:ml-7" type="button" onClick={onRetry}><RefreshCw className="size-3" aria-hidden="true" />Retry sources</button>
   </div>;
 }
 
@@ -384,9 +384,9 @@ export function MarketplaceBrowse({ route, snapshot, originKey, onOpenItem, onOp
     && snapshot.items.length === 0;
   return <>
     {snapshot.refreshing && <div className="marketplace-refreshing mt-2 text-xs text-muted" role="status">Refreshing catalog…</div>}
-    {snapshot.publicSource?.source === "cache" && <div className="marketplace-cache-state mt-2 flex min-h-14 items-center gap-3 rounded-panel bg-instrument px-4 py-3 text-on-instrument" role="status"><CircleAlert className="size-4 shrink-0 text-alert" aria-hidden="true" /><span className="flex min-w-0 flex-1 flex-col"><strong className="text-sm font-normal">Offline · cached catalog</strong><small className="text-xs text-on-instrument-muted">{snapshot.publicSource.warning ? `${snapshot.publicSource.warning} · ` : ""}Last refreshed {formatDate(snapshot.publicSource.refreshedAt)}</small></span><button className="flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-surface px-3 text-xs text-ink" type="button" onClick={onRetry}><RefreshCw className="size-3" aria-hidden="true" />Refresh</button></div>}
+    {snapshot.publicSource?.source === "cache" && <div className="marketplace-cache-state mt-2 flex min-h-14 items-center gap-3 rounded-panel bg-instrument px-4 py-3 text-on-instrument @max-[620px]:flex-wrap" role="status"><CircleAlert className="size-4 shrink-0 text-alert" aria-hidden="true" /><span className="flex min-w-0 flex-1 flex-col"><strong className="text-sm font-normal">Offline · cached catalog</strong><small className="text-xs text-on-instrument-muted">{snapshot.publicSource.warning ? `${snapshot.publicSource.warning} · ` : ""}Last refreshed {formatDate(snapshot.publicSource.refreshedAt)}</small></span><button className="flex h-8 shrink-0 items-center gap-1.5 rounded-control bg-surface px-3 text-xs text-ink @max-[620px]:ml-7" type="button" onClick={onRetry}><RefreshCw className="size-3" aria-hidden="true" />Refresh</button></div>}
     <SourceState snapshot={snapshot} onRetry={onRetry} />
-    {noResults ? <div className="marketplace-no-results mt-5 flex min-h-64 flex-col items-center justify-center gap-2 rounded-panel bg-surface p-6 text-center" role="status"><FileText className="size-5 text-muted" aria-hidden="true" /><h2 className="m-0 text-base font-normal">No results</h2><p className="m-0 max-w-xl text-sm text-muted">The current query and filters returned no source-backed items.</p><span className="mt-2 flex gap-2"><button className="h-8 rounded-full bg-instrument px-3 text-xs text-on-instrument" type="button" onClick={onClearFilters}>Clear filters</button><button className="h-8 rounded-full bg-surface-sunken px-3 text-xs text-ink" type="button" onClick={onClearQuery}>Clear query</button></span></div>
+    {noResults ? <div className="marketplace-no-results mt-5 flex min-h-64 flex-col items-center justify-center gap-2 rounded-panel bg-surface p-6 text-center" role="status"><FileText className="size-5 text-muted" aria-hidden="true" /><h2 className="m-0 text-base font-normal">No results</h2><p className="m-0 max-w-xl text-sm text-muted">The current query and filters returned no source-backed items.</p><span className="mt-2 flex flex-wrap justify-center gap-2"><button className="h-8 rounded-control bg-instrument px-3 text-xs text-on-instrument" type="button" onClick={onClearFilters}>Clear filters</button><button className="h-8 rounded-control bg-surface-sunken px-3 text-xs text-ink" type="button" onClick={onClearQuery}>Clear query</button></span></div>
       : route.kind === "discover" ? <MarketplaceDiscover snapshot={snapshot} onOpenCategory={onOpenCategory} onOpenLibrary={onOpenLibrary} onOpenCollection={onOpenCollection} />
         : route.kind === "results" ? <MarketplaceResults items={snapshot.items} query={snapshot.query} originKey={originKey} onOpenItem={onOpenItem} />
           : route.kind === "category" ? <MarketplaceCategoryView category={route.category} snapshot={snapshot} originKey={originKey} onOpenItem={onOpenItem} onOpenUnavailableDetail={onOpenUnavailableDetail} />

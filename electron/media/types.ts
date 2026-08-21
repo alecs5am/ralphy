@@ -212,25 +212,6 @@ export interface TrashResult {
   failed: Array<{ path: string; error: string }>;
 }
 
-export interface TerminalDimensions {
-  cols: number;
-  rows: number;
-}
-
-export interface TerminalSession {
-  id: string;
-  label: string;
-  shell: string;
-  pid: number;
-  status: "running" | "exited";
-  exitCode?: number;
-  signal?: number;
-}
-
-export type TerminalEvent =
-  | { type: "data"; sessionId: string; data: string }
-  | { type: "exit"; sessionId: string; exitCode: number; signal: number };
-
 export type AgentProvider = "claude" | "codex" | "openrouter";
 export type AgentPermissionMode = "auto" | "plan" | "full";
 export type ClaudeAuthMethod = "subscription" | "api-key";
@@ -559,11 +540,6 @@ export interface MediaWorkbenchBridge extends MarketplaceBridge {
   copyMigrationRecoveryCommand(): Promise<void>;
   readText(path: string, maxBytes?: number): Promise<TextReadResult>;
   getMediaUrl(path: string): Promise<MediaPreviewSource>;
-  createTerminal(dimensions: TerminalDimensions): Promise<TerminalSession>;
-  writeTerminal(sessionId: string, data: string): Promise<void>;
-  resizeTerminal(sessionId: string, dimensions: TerminalDimensions): Promise<void>;
-  killTerminal(sessionId: string): Promise<void>;
-  onTerminalEvent(callback: (event: TerminalEvent) => void): () => void;
   getAgentProviders(): Promise<AgentProviderStatus[]>;
   loginAgentProvider(provider: "claude" | "codex"): Promise<AgentProviderStatus[]>;
   setAgentApiKey(
@@ -642,14 +618,6 @@ export const MEDIA_CHANNELS = {
   copyMigrationRecoveryCommand: "media:migration:recovery-command",
   readText: "media:text:read",
   getMediaUrl: "media:url",
-} as const;
-
-export const TERMINAL_CHANNELS = {
-  create: "terminal:create",
-  write: "terminal:write",
-  resize: "terminal:resize",
-  kill: "terminal:kill",
-  event: "terminal:event",
 } as const;
 
 export const AGENT_CHANNELS = {

@@ -205,8 +205,8 @@ export function MediaViewer({ controller, snapshot }: { controller: ProjectScree
     <Dialog.Portal container={typeof document === "undefined" ? undefined : document.body}>
       <Dialog.Overlay asChild><motion.div className="asset-modal-overlay" data-instrument-overlay-backdrop="" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.16 }} /></Dialog.Overlay>
       <Dialog.Content asChild data-instrument-overlay="media-viewer" onOpenAutoFocus={(event) => { event.preventDefault(); surfaceRef.current?.focus({ preventScroll: true }); }} onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(); }}>
-        <motion.section ref={surfaceRef} tabIndex={-1} className="asset-modal-surface" style={{ borderRadius: 18 }} initial={{ opacity: 0.72 }} animate={{ opacity: 1 }} transition={{ duration: 0.12 }}>
-          <div className="asset-modal-toolbar">
+        <motion.section ref={surfaceRef} tabIndex={-1} className="asset-modal-surface overflow-hidden rounded-panel border-0 bg-surface text-ink shadow-none [&_.generation-attempt]:border-0 [&_.generation-attempt]:bg-surface-sunken [&_.generation-attempt]:shadow-none [&_.property-row]:border-0" initial={{ opacity: 0.72 }} animate={{ opacity: 1 }} transition={{ duration: 0.12 }}>
+          <div className="asset-modal-toolbar border-0 bg-surface-sunken shadow-none">
             <div className="viewer-identity">
               <Dialog.Title asChild><strong>{mediaCardName(card)}</strong></Dialog.Title>
               <Dialog.Description asChild><small>{card.ref.type} · {card.ref.id}</small></Dialog.Description>
@@ -218,8 +218,8 @@ export function MediaViewer({ controller, snapshot }: { controller: ProjectScree
             </div>
           </div>
           <div className="asset-modal-body">
-            <div className="asset-modal-stage"><motion.div className="asset-modal-content" key={`${card.ref.type}:${card.ref.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }}><ViewerPreview card={card} snapshot={snapshot} controller={controller} /></motion.div></div>
-            <aside className="asset-modal-inspector"><div className="inspector">{isRunObjectMedia(card) && <RunObjectEvidence card={card} />}<GenerationInspector key={`${card.ref.type}:${card.ref.id}`} detail={snapshot.mediaGeneration.value} state={snapshot.mediaGeneration.status} error={snapshot.mediaGeneration.error} onRetry={() => { void controller.retryMediaGeneration(); }} /></div></aside>
+            <div className="asset-modal-stage border-0 bg-instrument shadow-none"><motion.div className="asset-modal-content" key={`${card.ref.type}:${card.ref.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }}><ViewerPreview card={card} snapshot={snapshot} controller={controller} /></motion.div></div>
+            <aside className="asset-modal-inspector border-0 bg-surface shadow-none"><div className="inspector">{isRunObjectMedia(card) && <RunObjectEvidence card={card} />}<GenerationInspector key={`${card.ref.type}:${card.ref.id}`} detail={snapshot.mediaGeneration.value} state={snapshot.mediaGeneration.status} error={snapshot.mediaGeneration.error} onRetry={() => { void controller.retryMediaGeneration(); }} /></div></aside>
           </div>
         </motion.section>
       </Dialog.Content>

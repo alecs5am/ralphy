@@ -310,8 +310,8 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
       <Dialog.Content asChild data-instrument-overlay="shared-viewer"
         onOpenAutoFocus={(event) => { event.preventDefault(); surfaceRef.current?.focus({ preventScroll: true }); }}
         onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(); }}>
-        <section ref={surfaceRef} tabIndex={-1} className="shared-artifact-viewer" aria-label={`Preview ${detail.slug}`}>
-          <header className="shared-viewer-head">
+        <section ref={surfaceRef} tabIndex={-1} className="shared-artifact-viewer rounded-panel border-0 bg-surface text-ink shadow-none [&_.shared-viewer-stage]:border-0 [&_.shared-viewer-stage]:shadow-none" aria-label={`Preview ${detail.slug}`}>
+          <header className="shared-viewer-head border-0 bg-surface-sunken shadow-none">
             <span>{topLine}</span>
             <button type="button" aria-label="Open original" aria-describedby={detail.preview === "no-target" ? targetlessActionId : undefined} disabled={detail.preview === "no-target" || openState === "pending"} onClick={() => { void openOriginal(); }}><ExternalLink aria-hidden="true" />{openState === "pending" ? "Opening original…" : "Open original"}</button>
             <button type="button" aria-label="Close viewer" onClick={close}><X aria-hidden="true" /></button>
@@ -333,7 +333,7 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
                   return <button
                     type="button"
                     key={revision.id}
-                    className={selected ? "is-selected" : ""}
+                    className={selected ? "is-selected bg-instrument text-on-instrument [&_small]:text-on-instrument-muted" : "bg-surface-sunken text-ink"}
                     disabled={selected || selection.status === "pending" || selection.status === "reloading"}
                     aria-label={selected ? `Revision ${revision.revisionNo} selected default` : `Select revision ${revision.revisionNo} as default for future use`}
                     onClick={() => { void selectRevision(revision.id); }}

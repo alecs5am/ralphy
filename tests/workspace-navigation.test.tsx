@@ -281,13 +281,11 @@ describe("workspace projects navigation", () => {
           canGoBack={false}
           canGoForward={false}
           rightPanelVisible={false}
-          bottomPanelVisible={false}
           onHome={onHome}
           onBack={() => undefined}
           onForward={() => undefined}
           onToggleSidebar={() => undefined}
           onToggleRightPanel={() => undefined}
-          onToggleBottomPanel={() => undefined}
         />);
       });
 

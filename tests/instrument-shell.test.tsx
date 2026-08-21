@@ -70,8 +70,6 @@ const defaultProps = {
   leftVisible: true,
   rightPreference: true,
   rightOverlayOpen: false,
-  bottomPanel: <section>Terminal</section>,
-  bottomVisible: false,
   onToggleLeft: () => undefined,
   onToggleRightPreference: () => undefined,
   onRightOverlayOpenChange: () => undefined,

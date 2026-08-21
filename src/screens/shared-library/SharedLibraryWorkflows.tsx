@@ -48,18 +48,18 @@ function WorkflowFrame({ kind, title, description, returnFocus, onClose, steps, 
       <Dialog.Content data-instrument-overlay="shared-workflow"
         ref={surface}
         tabIndex={-1}
-        className="shared-workflow-window"
+        className="shared-workflow-window rounded-panel border-0 bg-surface text-ink shadow-none [&_button]:shadow-none [&_input]:border-0 [&_input]:bg-surface-sunken [&_input]:shadow-none [&_textarea]:border-0 [&_textarea]:bg-surface-sunken [&_textarea]:shadow-none"
         data-workflow={kind}
         onOpenAutoFocus={(event) => { event.preventDefault(); surface.current?.focus({ preventScroll: true }); }}
         onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(); }}
       >
-        <header className="shared-workflow-header">
+        <header className="shared-workflow-header border-0 bg-surface-sunken shadow-none">
           <div><Dialog.Title>{title}</Dialog.Title><Dialog.Description>{description}</Dialog.Description></div>
           <button type="button" aria-label={`Close ${title}`} onClick={close}><X aria-hidden="true" /></button>
         </header>
         {steps}
         <form className="shared-workflow-body" onSubmit={(event) => event.preventDefault()}>{children}</form>
-        <footer className="shared-workflow-footer">
+        <footer className="shared-workflow-footer border-0 bg-surface-sunken shadow-none">
           <small>{footerNote ?? coreReason}</small>
           <span>{actions}</span>
         </footer>
@@ -69,7 +69,7 @@ function WorkflowFrame({ kind, title, description, returnFocus, onClose, steps, 
 }
 
 function Block({ label, tag, children, className = "" }: { label: string; tag?: string; children: ReactNode; className?: string }) {
-  return <section className={`shared-workflow-block ${className}`}><header><h3>{label}</h3>{tag && <span>{tag}</span>}</header>{children}</section>;
+  return <section className={`shared-workflow-block rounded-[14px] border-0 bg-surface-sunken shadow-none ${className}`}><header><h3>{label}</h3>{tag && <span>{tag}</span>}</header>{children}</section>;
 }
 
 const addSteps = ["Source", "Duplicates", "Describe for reuse", "Confirm"] as const;
@@ -121,7 +121,7 @@ function AddWorkflow({ returnFocus, onClose }: Pick<SharedLibraryWorkflowsProps,
         <RoleField role={fields.role} otherRole={fields.otherRole} onRole={(value) => setField("role", value)} onOtherRole={(value) => setField("otherRole", value)} />
         <label><span>Purpose</span><textarea value={fields.purpose} onChange={(event) => setField("purpose", event.currentTarget.value)} placeholder="What this is for" /></label>
         <label><span>Use when</span><textarea value={fields.useWhen} onChange={(event) => setField("useWhen", event.currentTarget.value)} placeholder="Trigger conditions for future work" /></label>
-        <fieldset className="shared-workflow-rights"><legend>Rights status</legend><div role="group" aria-label="Proposed rights status">{["Not documented", "Cleared", "Cleared with conditions", "Internal/reference only", "Restricted"].map((status) => <button type="button" aria-pressed={fields.rights === status} onClick={() => setField("rights", status)} key={status}>{status}</button>)}</div></fieldset>
+        <fieldset className="shared-workflow-rights"><legend>Rights status</legend><div role="group" aria-label="Proposed rights status">{["Not documented", "Cleared", "Cleared with conditions", "Internal/reference only", "Restricted"].map((status) => <button type="button" className={fields.rights === status ? "bg-instrument text-on-instrument" : "bg-surface-sunken text-ink"} aria-pressed={fields.rights === status} onClick={() => setField("rights", status)} key={status}>{status}</button>)}</div></fieldset>
       </div>
       <p className="shared-workflow-caption">Incomplete values would be marked Needs context. Proposed rights default to Not documented; neither value has been saved.</p>
     </Block>}
@@ -177,7 +177,7 @@ function DuplicateWorkflow({ returnFocus, onClose }: Pick<SharedLibraryWorkflows
       <p className="shared-workflow-caption">Content hash comparison is unavailable from this Core version. A filename is not content identity.</p>
     </Block>
     <Block label="What should happen" tag="LOCAL CHOICE">
-      <div className="shared-workflow-choices">{choices.map(([value, label, detail]) => <button type="button" aria-pressed={choice === value} onClick={() => setChoice(value)} key={value}><span><strong>{label}</strong><small>{detail}</small></span></button>)}</div>
+      <div className="shared-workflow-choices">{choices.map(([value, label, detail]) => <button type="button" className={choice === value ? "bg-instrument text-on-instrument [&_small]:text-on-instrument-muted [&_strong]:text-on-instrument" : "bg-surface-sunken text-ink"} aria-pressed={choice === value} onClick={() => setChoice(value)} key={value}><span><strong>{label}</strong><small>{detail}</small></span></button>)}</div>
       {choice === "separate" && <label className="shared-workflow-field"><span>Reason required</span><input required value={reason} onChange={(event) => setReason(event.currentTarget.value)} placeholder="Why the same bytes represent a distinct artifact" /></label>}
     </Block>
     <p className="shared-workflow-core-reason" id={reasonId}>{coreReason}</p>
@@ -198,7 +198,7 @@ function SuggestionsWorkflow({ suggestions, returnFocus, onClose }: Pick<SharedL
         const status = review[key] ?? "pending";
         return <article className="shared-workflow-suggestion" key={key}>
           <header><strong>{field}</strong><span>SUGGESTED</span></header><p>{value}</p><small>{source}</small>
-          <div><button type="button" aria-pressed={status === "accepted"} onClick={() => setReview((current) => ({ ...current, [key]: "accepted" }))}>Accept {field} suggestion</button><button type="button" aria-pressed={status === "rejected"} onClick={() => setReview((current) => ({ ...current, [key]: "rejected" }))}>Reject {field} suggestion</button></div>
+          <div><button type="button" className={status === "accepted" ? "bg-instrument text-on-instrument" : "bg-surface-sunken text-ink"} aria-pressed={status === "accepted"} onClick={() => setReview((current) => ({ ...current, [key]: "accepted" }))}>Accept {field} suggestion</button><button type="button" className={status === "rejected" ? "bg-instrument text-on-instrument" : "bg-surface-sunken text-ink"} aria-pressed={status === "rejected"} onClick={() => setReview((current) => ({ ...current, [key]: "rejected" }))}>Reject {field} suggestion</button></div>
           <b>{status === "accepted" ? "Accepted locally for review" : status === "rejected" ? "Rejected locally" : "Awaiting review"}</b>
         </article>;
       }) : suggestionFields.map((field) => <article className="shared-workflow-suggestion" key={field}>

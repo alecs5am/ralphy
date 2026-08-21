@@ -180,9 +180,9 @@ export function MemoryScreen({ workspaceId, workspaceName }: { workspaceId: stri
           {(["effective", "workspace", "global"] as Scope[]).map((value) => <button type="button" className={`h-7 rounded-[7px] border-0 px-2.5 text-[11px] ${scope === value ? "is-active bg-instrument text-on-instrument" : "bg-transparent text-muted"}`} key={value} onClick={() => setScope(value)}>{value[0]!.toUpperCase() + value.slice(1)}</button>)}
         </div>
         <i />
-        <div className="memory-type-chips">
-          <button type="button" className={type === null ? "is-active" : ""} onClick={() => setType(null)}>All <span>{chipSource.length}</span></button>
-          {FILTER_TYPES.map((value) => <button type="button" key={value} className={type === value ? "is-active" : ""} onClick={() => setType(value)}>{TYPE_LABEL[value]} <span>{chipSource.filter((entry) => entry.type === value).length}</span></button>)}
+        <div className="memory-type-chips flex flex-wrap items-center gap-1 [&_button]:min-h-8 [&_button]:rounded-control [&_button]:border-0 [&_button]:px-2.5 [&_button]:text-[11px] [&_button]:shadow-none">
+          <button type="button" className={type === null ? "is-active bg-instrument text-on-instrument [&_span]:text-on-instrument-muted" : "bg-surface-sunken text-muted"} onClick={() => setType(null)}>All <span>{chipSource.length}</span></button>
+          {FILTER_TYPES.map((value) => <button type="button" key={value} className={type === value ? "is-active bg-instrument text-on-instrument [&_span]:text-on-instrument-muted" : "bg-surface-sunken text-muted"} onClick={() => setType(value)}>{TYPE_LABEL[value]} <span>{chipSource.filter((entry) => entry.type === value).length}</span></button>)}
         </div>
         {dirty && <button type="button" className="memory-clear" onClick={() => { setQuery(""); setScope("effective"); setType(null); }}>Clear filters</button>}
         <button type="button" className="memory-sort" onClick={() => setOrder((value) => SORTS[(SORTS.indexOf(value) + 1) % SORTS.length]!)}><ArrowDownUp />{SORT_LABEL[order]}</button>
@@ -225,7 +225,7 @@ function filterMemory(entries: MemoryDetailDto[], query: string, type: MemoryTyp
 function MemoryGroupHeader({ group, reviewing, count, workspaceName }: { group: string; reviewing: boolean; count: number; workspaceName: string }) {
   const Icon = reviewing ? group === "global" ? Globe2 : Box : TYPE_ICON[group as MemoryType];
   const label = reviewing ? group === "global" ? "GLOBAL · EVERY WORKSPACE" : `WORKSPACE · ${workspaceName.toUpperCase()}` : TYPE_LABEL[group as MemoryType].toUpperCase();
-  return <header><Icon /><span>{label}</span><b>{count}</b><i /></header>;
+  return <header className="flex min-h-8 items-center gap-2 px-1 text-[10px] uppercase tracking-[0.1em] text-muted"><Icon /><span>{label}</span><b className="font-medium text-ink">{count}</b><i className="hidden" /></header>;
 }
 
 function MemoryRule({ entry, workspaceName, open, reviewing, onToggle, onRevise, onHistory, onConfirm }: {
@@ -253,7 +253,7 @@ function MemoryRule({ entry, workspaceName, open, reviewing, onToggle, onRevise,
 }
 
 function MemoryModal({ open, onOpenChange, overlay, title, description, className = "", children }: { open: boolean; onOpenChange(open: boolean): void; overlay: "memory-recall" | "memory-editor" | "memory-history" | "memory-confirm"; title: string; description: string; className?: string; children: React.ReactNode }) {
-  return <Dialog.Root open={open} onOpenChange={onOpenChange}>{open && <><Dialog.Overlay forceMount className="memory-modal-overlay" data-instrument-overlay-backdrop="" /><Dialog.Content forceMount className={`memory-modal ${className}`} data-instrument-overlay={overlay}><header><div><Dialog.Title>{title}</Dialog.Title><Dialog.Description>{description}</Dialog.Description></div><Dialog.Close asChild><button type="button" aria-label={`Close ${title}`}><X /></button></Dialog.Close></header>{children}</Dialog.Content></>}</Dialog.Root>;
+  return <Dialog.Root open={open} onOpenChange={onOpenChange}>{open && <><Dialog.Overlay forceMount className="memory-modal-overlay" data-instrument-overlay-backdrop="" /><Dialog.Content forceMount className={`memory-modal overflow-hidden rounded-panel border-0 bg-surface text-ink shadow-none [&_button]:shadow-none ${className}`} data-instrument-overlay={overlay}><header className="border-0 bg-surface-sunken px-4 py-3 shadow-none"><div><Dialog.Title>{title}</Dialog.Title><Dialog.Description className="text-muted">{description}</Dialog.Description></div><Dialog.Close asChild><button type="button" aria-label={`Close ${title}`}><X /></button></Dialog.Close></header>{children}</Dialog.Content></>}</Dialog.Root>;
 }
 
 function RecallDialog({ open, onOpenChange, recall }: { open: boolean; onOpenChange(open: boolean): void; recall: Awaited<ReturnType<typeof bridge.recallMemory>> | null }) {

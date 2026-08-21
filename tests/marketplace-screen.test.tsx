@@ -390,7 +390,7 @@ describe("Marketplace browse surfaces", () => {
     try {
       await act(async () => root.render(<div className="marketplace-scroll"><MarketplaceResults items={items} query={defaultQuery} onOpenItem={() => undefined} /></div>));
       const scroll = host.container.querySelector(".marketplace-scroll")!;
-      scroll.scrollHeight = items.length * 126;
+      scroll.scrollHeight = items.length * 112;
       const first = host.container.querySelector(`[data-marketplace-item-key="${items[0]!.key}"]`)!;
       expect(host.container.querySelectorAll(".marketplace-result").filter((item) => item.tabIndex === 0)).toHaveLength(1);
       first.focus();
@@ -421,8 +421,8 @@ describe("Marketplace browse surfaces", () => {
     try {
       await act(async () => root.render(<div className="marketplace-scroll"><button id="before-results" type="button">Before results</button><MarketplaceResults items={items} query={defaultQuery} onOpenItem={() => undefined} /></div>));
       const scroll = host.container.querySelector(".marketplace-scroll")!;
-      scroll.scrollHeight = items.length * 126;
-      await act(async () => { scroll.scrollTo({ top: 70 * 126 }); await vi.runAllTimersAsync(); });
+      scroll.scrollHeight = items.length * 112;
+      await act(async () => { scroll.scrollTo({ top: 70 * 112 }); await vi.runAllTimersAsync(); });
 
       const firstRendered = host.container.querySelector(".marketplace-result")!;
       const adoptedKey = firstRendered.getAttribute("data-marketplace-item-key")!;
@@ -436,7 +436,7 @@ describe("Marketplace browse surfaces", () => {
       expect(document.activeElement).toBe(firstRendered);
 
       await act(async () => firstRendered.dispatchEvent(new Event("focusin", { bubbles: true })));
-      await act(async () => { scroll.scrollTo({ top: 69 * 126 }); await vi.runAllTimersAsync(); });
+      await act(async () => { scroll.scrollTo({ top: 69 * 112 }); await vi.runAllTimersAsync(); });
       const adopted = host.container.querySelector(`[data-marketplace-item-key="${adoptedKey}"]`)!;
       expect(host.container.querySelector(".marketplace-result")!.getAttribute("data-marketplace-item-key")).not.toBe(adoptedKey);
       expect(adopted.tabIndex).toBe(0);
@@ -583,7 +583,7 @@ describe("Marketplace header and navigation composition", () => {
     const items = Array.from({ length: 140 }, (_, index) => ({ ...modelPresentation, key: `model:huggingface:Acme/restore-${index}`, name: `Restore model ${index}` }));
     const target = items[120]!;
     const detail: MarketplaceLocation = { ...resultsLocation, route: { kind: "detail", itemId: target.key }, selectedItemId: target.key, scrollTop: 0, focusId: "marketplace-heading" };
-    const returned: MarketplaceLocation = { ...resultsLocation, scrollTop: 120 * 126, focusId: marketplaceItemDomId(target.key) };
+    const returned: MarketplaceLocation = { ...resultsLocation, scrollTop: 120 * 112, focusId: marketplaceItemDomId(target.key) };
     try {
       await act(async () => root.render(<MarketplaceScreenView catalog={null} location={detail} sidebarVisible={true} snapshot={readySnapshot({ items })} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
       await act(async () => root.render(<MarketplaceScreenView catalog={null} location={returned} sidebarVisible={true} snapshot={readySnapshot({ items })} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
@@ -647,7 +647,7 @@ describe("Marketplace header and navigation composition", () => {
     try {
       await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={{ status: "loading", query: defaultQuery }} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));
       const scroll = host.container.querySelector(".marketplace-scroll")!;
-      scroll.scrollHeight = items.length * 126;
+      scroll.scrollHeight = items.length * 112;
       await act(async () => vi.advanceTimersByTimeAsync(20));
 
       await act(async () => root.render(<MarketplaceScreenView catalog={null} location={location} sidebarVisible={true} snapshot={readySnapshot({ items })} onBack={() => undefined} onNavigate={() => undefined} onRememberLocation={() => undefined} onRetry={() => undefined} />));

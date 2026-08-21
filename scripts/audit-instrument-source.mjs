@@ -28,7 +28,7 @@ export async function auditInstrumentSource({ productionDist = resolve(root, "di
   }
   const main = await readFile(resolve(root, "src/main.tsx"), "utf8");
   const styleImports = [...main.matchAll(/import "\.\/styles\/[^\"]+";/g)].map((match) => match[0]);
-  if (styleImports.at(-1) !== 'import "./styles/work-surfaces.css";') violations.push("src/main.tsx: Instrument surface overrides must load last");
+  if (styleImports.at(-1) !== 'import "./styles/tailwind.css";') violations.push("src/main.tsx: Tailwind utilities must load last");
   const overlays = await readFile(resolve(root, "src/instrument/overlay-registry.tsx"), "utf8");
   const scenarios = await readFile(resolve(root, "src/instrument/production-screen-states.ts"), "utf8");
   for (const id of [...overlays.matchAll(/^\s*"([\w.-]+)": \{ kind:/gm)].map((match) => match[1])) {

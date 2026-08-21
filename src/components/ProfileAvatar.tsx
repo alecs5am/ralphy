@@ -5,7 +5,7 @@ const avatarColors = [
   INSTRUMENT_PALETTE.dark.ditherHighlight,
   INSTRUMENT_PALETTE.dark.textSecondaryReadable,
   INSTRUMENT_PALETTE.dark.textOnDarkMutedDecorative,
-  INSTRUMENT_PALETTE.dark.terminalForeground,
+  INSTRUMENT_PALETTE.dark.textOnDarkPrimary,
   INSTRUMENT_PALETTE.dark.legacyRaised,
 ];
 

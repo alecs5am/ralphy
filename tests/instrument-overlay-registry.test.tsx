@@ -16,7 +16,7 @@ const overlayIds = [
   "memory-recall", "memory-editor", "memory-history", "memory-confirm", "calendar-filter", "calendar-drawer", "calendar-inspector", "calendar-schedule",
   "calendar-unit-picker", "calendar-date-popover", "calendar-time-popover", "calendar-platform-settings", "calendar-account-detail", "calendar-reconnect",
   "document-editor", "document-viewer", "document-conflict", "media-viewer", "media-context-menu", "mock-needs-work", "unit-viewer", "run-inspector",
-  "marketplace-detail", "target-chooser", "terminal",
+  "marketplace-detail", "target-chooser",
 ] as const;
 
 const sharedSelectOwners = [
@@ -31,7 +31,7 @@ const overlayKinds = {
   "calendar-filter": "popover", "calendar-drawer": "drawer", "calendar-inspector": "rail", "calendar-schedule": "dialog", "calendar-unit-picker": "popover", "calendar-date-popover": "popover",
   "calendar-time-popover": "popover", "calendar-platform-settings": "dialog", "calendar-account-detail": "dialog", "calendar-reconnect": "dialog", "document-editor": "dialog", "document-viewer": "viewer",
   "document-conflict": "dialog", "media-viewer": "viewer", "media-context-menu": "menu", "mock-needs-work": "dialog", "unit-viewer": "viewer", "run-inspector": "rail", "marketplace-detail": "dialog",
-  "target-chooser": "dialog", terminal: "drawer",
+  "target-chooser": "dialog",
 } as const;
 
 const sharedSelectOwnerRecords = {

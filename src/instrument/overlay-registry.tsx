@@ -19,7 +19,7 @@ export const INSTRUMENT_OVERLAYS = {
   "document-editor": { kind: "dialog" }, "document-viewer": { kind: "viewer" }, "document-conflict": { kind: "dialog" },
   "media-viewer": { kind: "viewer" }, "media-context-menu": { kind: "menu" }, "mock-needs-work": { kind: "dialog" },
   "unit-viewer": { kind: "viewer" }, "run-inspector": { kind: "rail" }, "marketplace-detail": { kind: "dialog" },
-  "target-chooser": { kind: "dialog" }, terminal: { kind: "drawer" },
+  "target-chooser": { kind: "dialog" },
 } as const satisfies Record<string, { kind: InstrumentOverlayKind }>;
 
 export const SHARED_SELECT_OVERLAY_OWNERS = {
@@ -182,8 +182,16 @@ function ModalOverlay(props: RuntimeOverlayProps): ReactElement | null {
         data-instrument-overlay-kind={INSTRUMENT_OVERLAYS[id].kind}
         data-instrument-local-scroll={localScroll || undefined}
         style={localScroll ? { overflow: "auto" } : undefined}
-        onOpenAutoFocus={(event) => { event.preventDefault(); surface.current?.focus({ preventScroll: true }); }}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          surface.current?.setAttribute("data-instrument-surface-focus", "");
+          surface.current?.focus({ preventScroll: true });
+        }}
         onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(opener); }}
+        onFocusCapture={(event) => event.currentTarget.toggleAttribute("data-instrument-surface-focus", event.target === event.currentTarget)}
+        onBlurCapture={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) event.currentTarget.removeAttribute("data-instrument-surface-focus");
+        }}
         onKeyDown={(event) => {
           if (event.key !== "Escape") return;
           event.preventDefault();

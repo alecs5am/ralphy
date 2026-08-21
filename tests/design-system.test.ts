@@ -986,10 +986,10 @@ describe("design system contract", () => {
     expect(renderer).toContain('role="slider"');
     expect(renderer).toContain('aria-label="Toggle sidebar"');
     expect(renderer).toContain('aria-label="Toggle right panel"');
-    expect(renderer).toContain('aria-label="Toggle bottom panel"');
+    expect(renderer).not.toContain('aria-label="Toggle bottom panel"');
     expect(app).toContain("if (event.repeat) return");
     expect(app).toContain('command && key === "b"');
-    expect(app).toContain('command && key === "j"');
+    expect(app).not.toContain('command && key === "j"');
     expect(app).not.toContain('commandOption && key === "b"');
   });
 
@@ -999,7 +999,7 @@ describe("design system contract", () => {
     expect(renderer).toContain("closeAndRestoreFocus");
     expect(renderer).not.toContain('ariaLabel="Resize sidebar"');
     expect(renderer).not.toContain('ariaLabel="Resize right panel"');
-    expect(renderer).toContain('ariaLabel="Resize bottom panel"');
+    expect(renderer).not.toContain('ariaLabel="Resize bottom panel"');
     expect(renderer).toContain("onLostPointerCapture");
     expect(renderer).toContain("createPortal");
     expect(styles).toMatch(
@@ -1139,7 +1139,7 @@ describe("design system contract", () => {
     );
   });
 
-  test("exposes bounded terminal IPC and packages the native PTY runtime", () => {
+  test("does not package a terminal runtime", () => {
     const main = readFileSync(join(process.cwd(), "electron/main.ts"), "utf8");
     const preload = readFileSync(join(process.cwd(), "electron/preload.ts"), "utf8");
     const types = readFileSync(
@@ -1154,74 +1154,25 @@ describe("design system contract", () => {
       join(process.cwd(), "scripts/package-mac.mjs"),
       "utf8",
     );
-    const smoke = readFileSync(
-      join(process.cwd(), "scripts/smoke-electron.mjs"),
-      "utf8",
-    );
-
-    expect(types).toContain("createTerminal");
-    expect(types).toContain("writeTerminal");
-    expect(types).toContain("resizeTerminal");
-    expect(types).toContain("killTerminal");
-    expect(types).toContain("onTerminalEvent");
-    expect(preload).toContain("TERMINAL_CHANNELS");
-    expect(main).toContain("new TerminalManager");
-    expect(main).toContain("assertTrustedSender");
-    expect(main).toContain("mediaState.captureActive()");
-    expect(main).toContain("terminalManager.dispose()");
-    expect(buildElectron).toMatch(/external:\s*\[[^\]]*"node-pty"/s);
-    expect(packageMac).toContain('join(root, "node_modules/node-pty")');
-    expect(packageMac).toContain("spawn-helper");
-    expect(packageMac).toContain("chmod");
-    expect(main).toContain("window.ralphy?.createTerminal");
-    expect(smoke).toContain("RALPHY_TERMINAL_BRIDGE_READY");
+    expect(types).not.toContain("createTerminal");
+    expect(preload).not.toContain("TERMINAL_CHANNELS");
+    expect(main).not.toContain("TerminalManager");
+    expect(buildElectron).not.toContain("node-pty");
+    expect(packageMac).not.toContain("node-pty");
   });
 
-  test("keeps a persistent xterm workspace with draggable resizable splits", () => {
+  test("keeps the terminal out of the renderer UI", () => {
     const app = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
-    const controller = readFileSync(
-      join(process.cwd(), "src/terminal/controller.ts"),
-      "utf8",
-    );
-    const workspace = readFileSync(
-      join(process.cwd(), "src/components/terminal/TerminalWorkspace.tsx"),
-      "utf8",
-    );
-    const pane = readFileSync(
-      join(process.cwd(), "src/components/terminal/TerminalPane.tsx"),
-      "utf8",
-    );
     const utilityPanels = readFileSync(
       join(process.cwd(), "src/components/UtilityPanels.tsx"),
       "utf8",
     );
-    const terminalStyles = readFileSync(
-      join(process.cwd(), "src/styles/terminal.css"),
-      "utf8",
-    );
-    const main = readFileSync(join(process.cwd(), "src/main.tsx"), "utf8");
+    const settings = readFileSync(join(process.cwd(), "src/screens/SettingsScreen.tsx"), "utf8");
 
-    expect(controller).toContain("new Terminal");
-    expect(controller).toContain("new FitAddon");
-    expect(controller).toContain("new WebLinksAddon");
-    expect(controller).toContain('cursorStyle: "bar"');
-    expect(controller).toContain(
-      'fontFamily: \'"JetBrainsMono Nerd Font Mono", "JetBrains Mono", Menlo, monospace\'',
-    );
-    expect(controller).not.toContain('fontFamily: \'"AWS Diatype Mono"');
-    expect(utilityPanels).not.toContain('className="bottom-panel-header"');
-    expect(terminalStyles).toMatch(/\.terminal-workspace\s*\{[^}]*height:\s*100%/s);
-    expect(pane).toContain("new ResizeObserver");
-    expect(workspace).toContain("bridge.onTerminalEvent");
-    expect(workspace).toContain("bridge.killTerminal");
-    expect(pane).toContain("event.button !== 1");
-    expect(pane).toContain("application/x-ralphy-terminal-tab");
-    expect(pane).toContain('["top", "right", "bottom", "left"]');
-    expect(workspace).toContain("setPointerCapture");
-    expect(workspace).toContain("onLostPointerCapture");
-    expect(app).toContain("visible={showBottomPanel}");
-    expect(app).toContain("Math.floor(viewport.height * 0.5)");
-    expect(workspace).toContain("@xterm/xterm/css/xterm.css");
+    expect(app).not.toContain("BottomPanel");
+    expect(app).not.toContain("onToggleBottom");
+    expect(utilityPanels).not.toContain("TerminalWorkspace");
+    expect(settings).not.toContain('id: "terminal"');
     expect(app).toContain("loadSettingsScreen");
   });
 
@@ -1252,7 +1203,6 @@ describe("design system contract", () => {
       "Profile",
       "Appearance",
       "Providers",
-      "Terminal",
       "About",
     ]) {
       expect(settings).toContain(`"${category}"`);
@@ -1281,28 +1231,18 @@ describe("design system contract", () => {
       join(process.cwd(), "src/screens/SettingsScreen.tsx"),
       "utf8",
     );
-    const terminal = readFileSync(
-      join(process.cwd(), "src/components/terminal/TerminalWorkspace.tsx"),
-      "utf8",
-    );
-
     expect(mascot).toContain('mask id="eyes"');
     expect(sidebar).not.toContain("<RalphyMascot");
     expect(settings).toContain("<RalphyMascot");
-    expect(terminal).toContain("<RalphyMascot");
     expect(welcome).toContain("<RalphyMascot");
   });
 
-  test("keeps library switching in the profile and panel toggles in requested order", () => {
-    const titlebar = readFileSync(
-      join(process.cwd(), "src/components/Titlebar.tsx"),
+  test("keeps library switching in the profile and the terminal out of the top chrome", () => {
+    const shell = readFileSync(
+      join(process.cwd(), "src/instrument/InstrumentShell.tsx"),
       "utf8",
     );
-    expect(titlebar).not.toContain("MoreHorizontal");
-    expect(titlebar).not.toContain("Change library");
-    expect(titlebar.indexOf('aria-label="Toggle bottom panel"')).toBeLessThan(
-      titlebar.indexOf('aria-label="Toggle right panel"'),
-    );
+    expect(shell).not.toContain('aria-label="Toggle bottom panel"');
     const main = readFileSync(join(process.cwd(), "electron/main.ts"), "utf8");
     expect(main).toContain("trafficLightPosition");
     expect(main).toContain("setWindowOpenHandler");

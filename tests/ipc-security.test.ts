@@ -314,7 +314,6 @@ describe("Electron IPC security", () => {
       "selectProjectUnitRevision",
       "copyMigrationRecoveryCommand",
       "sendAgentMessage",
-      "createTerminal",
       "searchLocalModels",
       "loadLocalModelDetail",
       "refreshLocalModelMachine",
@@ -348,8 +347,6 @@ describe("Electron IPC security", () => {
       loadProjectUnitRevision(project: { workspaceId: string; projectId: string }, unitId: string, revisionId: string): Promise<void>;
       loadProjectUnitPage(project: { workspaceId: string; projectId: string }, request: { kind: "revisions"; unitId: string; cursor?: string }): Promise<void>;
       selectProjectUnitRevision(project: { workspaceId: string; projectId: string }, unitId: string, revisionId: string, expectedSelectedRevisionId: string | null): Promise<void>;
-      writeTerminal(sessionId: string, data: string): Promise<void>;
-      resizeTerminal(sessionId: string, dimensions: { cols: number; rows: number }): Promise<void>;
       searchLocalModels(input: { query: string; provider: "huggingface" }): Promise<void>;
       loadLocalModelDetail(ref: { provider: "huggingface"; id: string }): Promise<void>;
       refreshLocalModelMachine(): Promise<void>;
@@ -381,8 +378,6 @@ describe("Electron IPC security", () => {
     await bridge.loadProjectUnitRevision({ workspaceId: "workspace-1", projectId: "project-1" }, "unit-1", "unit-revision-1");
     await bridge.loadProjectUnitPage({ workspaceId: "workspace-1", projectId: "project-1" }, { kind: "revisions", unitId: "unit-1", cursor: "unit-next" });
     await bridge.selectProjectUnitRevision({ workspaceId: "workspace-1", projectId: "project-1" }, "unit-1", "unit-revision-1", null);
-    await bridge.writeTerminal("terminal-1", "ls\n");
-    await bridge.resizeTerminal("terminal-1", { cols: 80, rows: 24 });
     await bridge.searchLocalModels({ query: "qwen", provider: "huggingface" });
     await bridge.loadLocalModelDetail({ provider: "huggingface", id: "Qwen/model" });
     await bridge.refreshLocalModelMachine();
@@ -418,8 +413,6 @@ describe("Electron IPC security", () => {
       ["models:detail", { provider: "huggingface", id: "Qwen/model" }],
       ["models:machine"],
       ["models:open-provider", "https://huggingface.co/Qwen/model"],
-      ["terminal:write", "terminal-1", "ls\n"],
-      ["terminal:resize", "terminal-1", { cols: 80, rows: 24 }],
     ]));
     expect(send).not.toHaveBeenCalled();
     const preloadSource = await readFile(fileURLToPath(new URL("../electron/preload.ts", import.meta.url)), "utf8");

@@ -1,6 +1,4 @@
 import {
-  Suspense,
-  lazy,
   useEffect,
   useRef,
   useState,
@@ -38,11 +36,6 @@ import type {
 import { AiBrandIcon } from "./AiBrandIcon";
 import { MarkdownView } from "./MarkdownView";
 import { InstrumentOverlay } from "../instrument/overlay-registry";
-
-const TerminalWorkspace = lazy(() =>
-  import("./terminal/TerminalWorkspace").then((module) => ({
-    default: module.TerminalWorkspace,
-  })));
 
 const PROVIDER_ORDER: AgentProvider[] = ["codex", "claude", "openrouter"];
 const PROVIDER_META: Record<AgentProvider, { label: string; detail: string }> = {
@@ -703,37 +696,5 @@ function AgentEntry({
       <AgentProviderIcon provider={provider} size={20} />
       <MarkdownView markdown={entry.text ?? ""} />
     </div>
-  );
-}
-
-export function BottomPanel({
-  height,
-  visible,
-  rootPath,
-}: {
-  height: number;
-  visible: boolean;
-  rootPath: string | null;
-}) {
-  const [terminalActivated, setTerminalActivated] = useState(visible);
-  useEffect(() => {
-    if (visible) setTerminalActivated(true);
-  }, [visible]);
-  return (
-    <motion.section
-      className={`bottom-panel${visible ? " is-visible" : ""}`}
-      initial={false}
-      animate={{ height: visible ? height : 0, opacity: visible ? 1 : 0 }}
-      transition={{ duration: 0.2, ease: [0.2, 0, 0.2, 1] }}
-      aria-hidden={!visible}
-    >
-      {terminalActivated && (
-        <Suspense
-          fallback={<div className="terminal-loading">Starting terminal...</div>}
-        >
-          <TerminalWorkspace visible={visible} rootPath={rootPath} />
-        </Suspense>
-      )}
-    </motion.section>
   );
 }

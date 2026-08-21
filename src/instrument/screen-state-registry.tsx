@@ -11,7 +11,7 @@ export type InstrumentRouteKey =
   | `startup.${"welcome" | "library" | "migration"}`
   | `workspace.${WorkspacePage}`
   | `project.${ProjectView}`
-  | `settings.${"general" | "profile" | "appearance" | "providers" | "terminal" | "about"}`
+  | `settings.${"general" | "profile" | "appearance" | "providers" | "about"}`
   | `marketplace.${"discover" | "results" | "collection" | "detail"}`
   | `marketplace.category.${MarketplaceCategory}`
   | `marketplace.library.${MarketplaceLibrarySection}`

@@ -11,7 +11,7 @@ import {
   type ReactPortal,
 } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, ArrowRight, House, PanelBottom, PanelLeft, PanelRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, House, PanelLeft, PanelRight } from "lucide-react";
 
 import { InstrumentOverlay } from "./overlay-registry";
 import type { InstrumentRightRailMode, InstrumentRightRailOwner } from "./types";
@@ -48,15 +48,12 @@ export interface InstrumentShellProps {
   leftVisible: boolean;
   rightPreference: boolean;
   rightOverlayOpen: boolean;
-  bottomPanel?: ReactNode;
-  bottomVisible: boolean;
   topChrome?: {
     canGoBack: boolean;
     canGoForward: boolean;
     onBack(): void;
     onForward(): void;
     onHome(): void;
-    onToggleBottom(): void;
   };
   onToggleLeft(): void;
   onToggleRightPreference(): void;
@@ -161,7 +158,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
   const dockedDeskWidth = modeRef.current === "docked"
     ? dimensions.deskWidth
     : dimensions.deskWidth - RIGHT_RAIL_WIDTH;
-  const dockEligible = dimensions.frameWidth >= DOCK_WINDOW_MIN && dockedDeskWidth >= DOCK_DESK_MIN && !props.bottomVisible;
+  const dockEligible = dimensions.frameWidth >= DOCK_WINDOW_MIN && dockedDeskWidth >= DOCK_DESK_MIN;
   const mode = resolveRightRailMode({
     dockEligible,
     preferenceOpen: props.rightPreference,
@@ -332,9 +329,6 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
           <div className="instrument-island-slot col-start-2 row-start-1 min-w-0 justify-self-center [-webkit-app-region:no-drag]">{props.island}</div>
           <div className="instrument-top-actions absolute inset-y-0 right-2 z-10 flex items-center gap-1 [-webkit-app-region:no-drag]">
             {props.topChrome && <>
-              <button className={`grid size-7 place-items-center rounded-full hover:bg-board focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${props.bottomVisible ? "bg-board text-ink" : "text-muted"}`} type="button" title="Toggle bottom panel (⌘J)" aria-label="Toggle bottom panel" aria-pressed={props.bottomVisible} onClick={props.topChrome.onToggleBottom}>
-                <PanelBottom size={15} strokeWidth={1.6} aria-hidden="true" />
-              </button>
               <button className={`grid size-7 place-items-center rounded-full hover:bg-board focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${mode === "closed" ? "text-muted" : "bg-board text-ink"}`} type="button" title="Toggle right panel (⌘R)" aria-label="Toggle right panel" aria-pressed={mode !== "closed"} onClick={(event) => { if (mode === "closed") openRail(event.currentTarget); else closeRail(); }}>
                 <PanelRight size={15} strokeWidth={1.6} aria-hidden="true" />
               </button>
@@ -353,7 +347,6 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
           >
             {props.desk}
           </div>
-          {props.bottomVisible && <div className="instrument-bottom-panel relative shrink-0">{props.bottomPanel}</div>}
         </section>
         <aside className={`instrument-right-rail col-start-3 row-start-2 w-[292px] min-h-0 min-w-0 overflow-hidden bg-desk p-2 pl-0 ${mode === "docked" ? "flex" : "hidden"}`} aria-label={activeRail.label} hidden={mode !== "docked"}>
           <div className="min-h-0 min-w-0 flex-1" ref={setDockedRailTarget} />

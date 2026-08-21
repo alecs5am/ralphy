@@ -112,7 +112,7 @@ export function MediaPanel({ page, controller, snapshot, project, workspaceName,
   const selectedIndex = snapshot.selectedMedia
     ? mediaItems.findIndex(({ ref }) => ref.type === snapshot.selectedMedia?.ref.type && ref.id === snapshot.selectedMedia?.ref.id)
     : -1;
-  return <InstrumentScreenRoot descriptor={mediaInstrumentStates} state={mediaInstrumentState(page, snapshot)}><section className="media-panel flex min-h-0 w-full flex-1 flex-col gap-2 overflow-hidden bg-transparent p-0 text-[13px] text-ink" aria-label="Project media">
+  return <InstrumentScreenRoot descriptor={mediaInstrumentStates} state={mediaInstrumentState(page, snapshot)}><section className="media-panel flex min-h-0 w-full flex-1 flex-col gap-2 overflow-hidden bg-transparent p-0 text-[13px] text-ink [&_.media-card-tile.is-selected]:bg-instrument-hover [&_.media-card-tile.is-selected]:ring-0" aria-label="Project media">
     <div className="media-domain-toolbar m-0 flex min-h-11 w-full max-w-none flex-wrap items-center gap-2 rounded-[14px] border-0 bg-surface-sunken p-2 shadow-none" aria-label="Media filters">
       <SelectMenu overlayOwner="project.media" value={query.filter} options={lifecycleOptions} ariaLabel="Lifecycle or source" prefix="Source" onValueChange={(filter) => { void controller.setMediaQuery({ filter }); }} />
       <SelectMenu overlayOwner="project.media" value={query.mediaKind ?? "all"} options={kindOptions} ariaLabel="Media type" prefix="Type" onValueChange={(mediaKind) => { void controller.setMediaQuery({ mediaKind: mediaKind === "all" ? undefined : mediaKind }); }} />

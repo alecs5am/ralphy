@@ -23,7 +23,7 @@ interface Props {
 const attentionStates = new Set(["failed", "reconciliation_required", "unknown"]);
 
 function unavailable(title: string, reason: string) {
-  return <div className="workspace-unavailable" role="note"><strong>{title}</strong><p>{reason.replace(/^./, (letter) => letter.toUpperCase())}</p></div>;
+  return <div className="workspace-unavailable rounded-[14px] border-0 bg-surface-sunken px-3 py-2 text-[12px] text-muted shadow-none" role="note"><strong>{title}</strong><p>{reason.replace(/^./, (letter) => letter.toUpperCase())}</p></div>;
 }
 
 function statusLabel(value: string): string {
@@ -42,7 +42,7 @@ function DayStrip({ days, events }: { days: number[]; events: PublishingEventPre
     const key = new Date(event.scheduledAt).toDateString();
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
-  return <ol className="workspace-plan-days" aria-label="Next 14 days publishing density">
+  return <ol className="workspace-plan-days gap-1 border-0 bg-transparent [&>li]:rounded-control [&>li]:border-0 [&>li]:bg-surface-sunken" aria-label="Next 14 days publishing density">
     {days.map((value) => {
       const date = new Date(value);
       const count = counts.get(date.toDateString()) ?? 0;
@@ -77,7 +77,7 @@ function ContentEvent({ event, onOpenCalendar, onOpenUnit, onOpenUnits }: {
   const openUnit = () => event.unit?.projectId
     ? onOpenUnit(event.unit.projectId, event.unitId, unitLabel, unitFocusId)
     : onOpenUnits(unitFocusId);
-  return <li className="workspace-plan-event" data-content-event>
+  return <li className="workspace-plan-event rounded-[14px] border-0 bg-surface-sunken p-3 shadow-none" data-content-event>
     <span className="workspace-unit-glyph" aria-hidden="true"><Boxes /></span>
     <div className="workspace-plan-event-main">
       <h3>{unitLabel}</h3>
@@ -90,7 +90,7 @@ function ContentEvent({ event, onOpenCalendar, onOpenUnit, onOpenUnits }: {
         </li>)}
       </ul>
       {blocked > 0 && <p className="workspace-plan-warning">{blocked} channel{blocked === 1 ? "" : "s"} needs attention</p>}
-      <div className="workspace-plan-actions">
+      <div className="workspace-plan-actions [&_button]:rounded-control [&_button]:border-0 [&_button]:bg-surface [&_button]:shadow-none">
         <button id={eventFocusId} type="button" aria-label={`Open ${unitLabel} scheduled ${dateLabel} in Calendar`} onClick={() => onOpenCalendar(calendarContext, eventFocusId)}>Open in Calendar</button>
         <button id={unitFocusId} type="button" aria-label={`${event.unit?.projectId ? "Open Unit" : "Open Units for"} ${unitLabel} scheduled ${dateLabel}`} onClick={openUnit}>{event.unit?.projectId ? "Open Unit" : "Open Units"}</button>
         {blocked > 0 && <button id={problemFocusId} type="button" aria-label={`Review problem for ${unitLabel} scheduled ${dateLabel}`} onClick={() => onOpenCalendar(calendarContext, problemFocusId)}>Review problem</button>}
@@ -104,7 +104,7 @@ function PlanCoverage({ value }: { value: Availability<PlanCoveragePresentation[
   return <>
     {value.status === "partial" && unavailable("Partial cadence coverage", value.reason)}
     {value.value.length > 0 ? <ul className="workspace-plan-coverage">
-      {value.value.map((item) => <li key={item.id}><span>{item.label}</span><strong>{item.planned} of {item.target} planned</strong><progress value={item.planned} max={item.target} aria-label={`${item.label}: ${item.planned} of ${item.target} planned`} /></li>)}
+      {value.value.map((item) => <li className="rounded-control border-0 bg-surface-sunken shadow-none" key={item.id}><span>{item.label}</span><strong>{item.planned} of {item.target} planned</strong><progress value={item.planned} max={item.target} aria-label={`${item.label}: ${item.planned} of ${item.target} planned`} /></li>)}
     </ul> : unavailable("Plan coverage empty", "No plan coverage values were returned.")}
   </>;
 }
@@ -117,9 +117,9 @@ function ReadyUnscheduled({ value, onOpenUnit, onOpenUnits }: {
   if (value.status !== "ready" && value.status !== "partial") return unavailable(value.status === "empty" ? "No ready Units" : "Ready Unit count unavailable", value.reason);
   return <>
     {value.status === "partial" && unavailable("Partial ready Unit data", value.reason)}
-    {value.value.length > 0 ? <ul className="workspace-ready-list">{value.value.map((unit) => <li key={unit.unitId}>
+    {value.value.length > 0 ? <ul className="workspace-ready-list">{value.value.map((unit) => <li className="rounded-control border-0 bg-surface-sunken shadow-none" key={unit.unitId}>
       <span><strong>{unit.title}</strong><small>{unit.projectTitle ?? "Project unavailable"}</small></span>
-      <button id={`workspace-ready-unit-${unit.unitId}`} type="button" onClick={() => unit.projectId
+      <button className="rounded-control border-0 bg-surface px-3 py-2 text-[12px] text-ink shadow-none" id={`workspace-ready-unit-${unit.unitId}`} type="button" onClick={() => unit.projectId
         ? onOpenUnit(unit.projectId, unit.unitId, unit.title, `workspace-ready-unit-${unit.unitId}`)
         : onOpenUnits(`workspace-ready-unit-${unit.unitId}`)}>{unit.projectId ? "Open Unit" : "Open Units"}</button>
     </li>)}</ul> : unavailable("No ready Units", "No ready, unscheduled Units were returned.")}
@@ -157,7 +157,7 @@ function ContentPlan({ value, onOpenCalendar, onOpenUnits, onOpenUnit }: {
 function OutcomeGroup({ title, value, onSelect }: { title: string; value: UnitOutcomePresentation[]; onSelect(value: UnitOutcomePresentation): void }) {
   return <section className="workspace-outcome-group"><h3>{title}</h3>
     {value.length === 0 ? <p>No comparable performance data is available yet.</p> : <div className="workspace-outcome-cards">
-      {value.map((outcome) => <button id={`workspace-outcome-${outcome.id}`} type="button" key={outcome.id} className="workspace-outcome-card" onClick={() => onSelect(outcome)}>
+      {value.map((outcome) => <button id={`workspace-outcome-${outcome.id}`} type="button" key={outcome.id} className="workspace-outcome-card rounded-control border-0 bg-surface-sunken p-2 text-ink shadow-none" onClick={() => onSelect(outcome)}>
         <span className="workspace-unit-glyph" aria-hidden="true"><Boxes /></span>
         <span><strong>{outcome.title}</strong><small>{outcome.projectTitle} · {outcome.revisionLabel}</small><small>Comparable metrics unavailable</small></span>
       </button>)}
@@ -177,7 +177,7 @@ function UnitOutcomeDetailDialog({ value, onOpenChange, onOpenUnit }: {
   return <Dialog.Root open={value !== null} onOpenChange={onOpenChange}>
     {value && <Dialog.Portal forceMount container={typeof document === "undefined" ? undefined : document.body}>
       <Dialog.Overlay forceMount className="account-detail-overlay" data-instrument-overlay-backdrop="" />
-      <Dialog.Content forceMount className="account-detail-dialog unit-outcome-dialog" data-instrument-overlay="workspace-unit-outcome-detail">
+      <Dialog.Content forceMount className="account-detail-dialog unit-outcome-dialog rounded-panel border-0 bg-surface text-ink shadow-none [&_.account-detail-section]:rounded-[14px] [&_.account-detail-section]:border-0 [&_.account-detail-section]:bg-surface-sunken [&_.account-detail-section]:shadow-none" data-instrument-overlay="workspace-unit-outcome-detail">
         <header className="account-detail-header"><span><Dialog.Title>{value.title}</Dialog.Title><Dialog.Description>Unit outcome detail · {value.projectTitle} · {value.revisionLabel}</Dialog.Description></span><Dialog.Close asChild><button type="button" aria-label="Close Unit outcome detail"><X aria-hidden="true" /></button></Dialog.Close></header>
         <div className="account-detail-body">
           <DetailSection title="Result" reason="Normalized result is not available from the current Core contract." />

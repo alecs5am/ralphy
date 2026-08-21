@@ -6,7 +6,6 @@ import {
   Palette,
   Search,
   Settings,
-  TerminalSquare,
   UserRound,
 } from "lucide-react";
 import { motion } from "motion/react";
@@ -23,7 +22,6 @@ const categories = [
   { id: "profile", label: "Profile", icon: UserRound },
   { id: "appearance", label: "Appearance", icon: Palette },
   { id: "providers", label: "Providers", icon: KeyRound },
-  { id: "terminal", label: "Terminal", icon: TerminalSquare },
   { id: "about", label: "About", icon: Info },
 ] as const;
 
@@ -50,10 +48,6 @@ export const SETTINGS_CAPABILITIES = [
   { id: "appearance.motion", backing: "matchMedia(prefers-reduced-motion)", lifetime: "system", enabled: false, verification: "computed media", disabledReason: "Motion follows macOS Reduced Motion in this release." },
   { id: "providers.keys", backing: "none", lifetime: "none", enabled: false, verification: "disabled", disabledReason: "Provider credentials are configured outside Settings in this release." },
   { id: "providers.connect", backing: "none", lifetime: "none", enabled: false, verification: "disabled", disabledReason: "Provider connections are configured outside Settings in this release." },
-  { id: "terminal.workingDirectory", backing: "active root", lifetime: "root-scoped", enabled: true, verification: "read-only value", disabledReason: null },
-  { id: "terminal.shell", backing: "none", lifetime: "none", enabled: false, verification: "disabled", disabledReason: "Terminal shell mode is not configurable in this release." },
-  { id: "terminal.links", backing: "none", lifetime: "none", enabled: false, verification: "disabled", disabledReason: "Terminal link handling is not configurable in this release." },
-  { id: "terminal.toggle", backing: "existing Cmd+J action", lifetime: "runtime", enabled: true, verification: "invoke and observe panel", disabledReason: null },
   { id: "about.version", backing: "package metadata", lifetime: "build", enabled: true, verification: "read-only value", disabledReason: null },
 ] as const satisfies readonly SettingsCapability[];
 
@@ -213,38 +207,6 @@ function ProviderSettings() {
   );
 }
 
-function TerminalSettings() {
-  return (
-    <>
-      <SettingGroup title="Shell">
-        <SettingRow
-          title="Working directory"
-          description="New global terminals start in the active .ralphy root."
-        >
-          <span className="settings-mono font-mono text-[10px] text-muted">.ralphy</span>
-        </SettingRow>
-        <SettingRow
-          title="Shell startup"
-          description="Uses $SHELL and preserves your prompt configuration."
-        >
-          <UnsupportedControl id="terminal.shell" label="Login shell" />
-        </SettingRow>
-        <SettingRow title="Clickable links">
-          <UnsupportedControl id="terminal.links" label="Unavailable" />
-        </SettingRow>
-      </SettingGroup>
-      <SettingGroup title="Shortcuts">
-        <SettingRow title="Toggle terminal panel">
-          <kbd className="settings-shortcut rounded-md bg-surface-sunken px-2 py-1 font-mono text-[10px] text-muted">⌘ J</kbd>
-        </SettingRow>
-        <SettingRow title="Close terminal tab">
-          <span className="settings-muted text-xs text-muted">Middle click</span>
-        </SettingRow>
-      </SettingGroup>
-    </>
-  );
-}
-
 function AboutSettings() {
   return (
     <SettingGroup title="Ralphy Media">
@@ -290,7 +252,6 @@ export function SettingsScreen({
   if (active === "profile") content = <ProfileSettings rootPath={rootPath} />;
   if (active === "appearance") content = <AppearanceSettings theme={theme} onThemeChange={onThemeChange} />;
   if (active === "providers") content = <ProviderSettings />;
-  if (active === "terminal") content = <TerminalSettings />;
   if (active === "about") content = <AboutSettings />;
 
   return (

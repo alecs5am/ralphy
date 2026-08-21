@@ -20,6 +20,6 @@
   --color-alert: var(--instrument-alert);
   --color-divider: var(--instrument-divider);
 
-  --radius-panel: 20px;
-  --radius-control: 10px;
+  --radius-panel: 24px;
+  --radius-control: 999px;
 }

@@ -34,7 +34,6 @@ export async function openRootSession(options: {
   ): void | RootPreparationRollback | Promise<void | RootPreparationRollback>;
   invalidateFileTokens(): void;
   stopAgentTurns(): void;
-  terminateTerminals(root: string): void;
   unsubscribeActivity(previousClient: unknown): Promise<void>;
   subscribeActivity(client: unknown, binding: {
     storeId: string;
@@ -53,9 +52,7 @@ export async function openRootSession(options: {
         options.stopAgentTurns();
       }
     },
-    afterPreviousClose(previousRoot) {
-      if (previousRoot) options.terminateTerminals(previousRoot);
-    },
+    afterPreviousClose() {},
   });
   const activitySequence = await options.subscribeActivity(options.session.client, {
     storeId: hello.storeId,

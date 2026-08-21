@@ -116,5 +116,4 @@ export const PRODUCTION_LOCAL_OVERLAY_TARGETS = {
   "run-inspector": { routeKey: "project.activity", state: "selected" },
   "marketplace-detail": { routeKey: "marketplace.detail", state: "ready" },
   "target-chooser": { routeKey: "marketplace.detail", state: "ready" },
-  terminal: { routeKey: "startup.library", state: "ready" },
 } as const satisfies Record<ProductionLocalOverlayId, { routeKey: InstrumentRouteKey; state: InstrumentScenarioState }>;

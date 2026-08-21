@@ -111,7 +111,6 @@ html[data-theme="light"] .instrument-profile-menu button:focus-visible { outline
 }
 
 .instrument-desk-scroll > .main-content-stage { min-height: 100%; }
-.instrument-bottom-panel { position: relative; flex: none; }
 
 .instrument-desk-scroll :is(
   .main-content-stage,
@@ -208,6 +207,72 @@ html[data-theme="light"] .instrument-profile-menu button:focus-visible { outline
   .instrument-right-rail { transition: none; }
 }
 
+.context-sidebar,
+.context-sidebar :is(nav, button, .workspace-hero, .sidebar-footer) {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.context-sidebar {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.context-sidebar .sidebar-nav-row[aria-current="page"] {
+  background: var(--instrument-composer-surface) !important;
+  color: var(--instrument-alert-text) !important;
+}
+
+.context-sidebar .sidebar-nav-row[aria-current="page"] :is(svg, small) {
+  color: currentColor !important;
+}
+
+[data-instrument-overlay-backdrop] {
+  position: fixed;
+  z-index: 110;
+  inset: 0;
+  background: color-mix(in srgb, var(--instrument-widget-dark) 62%, transparent) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+[data-instrument-overlay] {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+[data-instrument-overlay-kind="dialog"]:not([data-instrument-overlay="settings"]),
+[data-instrument-overlay-kind="drawer"] {
+  max-width: calc(100vw - 16px) !important;
+  max-height: calc(100vh - 16px) !important;
+  border: 0 !important;
+  border-radius: 24px !important;
+  outline: 0;
+  background: var(--instrument-widget-light) !important;
+  color: var(--instrument-text-primary) !important;
+  box-shadow: none !important;
+}
+
+[data-instrument-overlay-kind="dialog"]:not([data-instrument-overlay="settings"]) > :last-child,
+[data-instrument-overlay-kind="drawer"] > :last-child {
+  max-width: calc(100vw - 16px) !important;
+  max-height: calc(100vh - 16px) !important;
+  border: 0 !important;
+  border-radius: 24px !important;
+  background-color: var(--instrument-widget-light) !important;
+  color: var(--instrument-text-primary) !important;
+  box-shadow: none !important;
+}
+
+[data-instrument-overlay-kind="dialog"][data-instrument-surface-focus],
+[data-instrument-overlay-kind="drawer"][data-instrument-surface-focus] {
+  outline-width: 2px !important;
+  outline-style: solid !important;
+  outline-color: var(--instrument-text-primary) !important;
+  outline-offset: -3px !important;
+}
+
 .dynamic-island[data-animate] .dynamic-island-trigger { animation: instrument-island-in 320ms var(--ease); }
 @keyframes instrument-island-in { from { opacity: 0; transform: scale(.94); } }
 [data-instrument-overlay="dynamic-island"] {
@@ -216,7 +281,21 @@ html[data-theme="light"] .instrument-profile-menu button:focus-visible { outline
   top: var(--instrument-island-top, 52px);
   left: var(--instrument-island-left, 50%);
   width: min(420px, calc(100vw - 16px));
+  max-height: calc(100vh - var(--instrument-island-top, 52px) - 8px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-radius: 24px;
+  outline: 0;
+  background: var(--instrument-widget-dark-raised);
+  color: var(--instrument-text-on-dark-primary);
   transform: translateX(-50%);
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+[data-instrument-overlay="dynamic-island"]:focus-visible {
+  outline: 2px solid var(--instrument-focus-on-dark) !important;
+  outline-offset: 2px !important;
 }
 
 .project-controls { position: fixed; z-index: 40; top: auto; bottom: 12px; left: 50%; width: max-content; height: auto; container-name: none; container-type: normal; transform: translateX(-50%); }

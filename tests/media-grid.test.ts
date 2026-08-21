@@ -362,7 +362,6 @@ describe("mounted media tiles", () => {
       leftVisible: false,
       rightPreference: false,
       rightOverlayOpen: false,
-      bottomVisible: false,
       onToggleLeft: () => undefined,
       onToggleRightPreference: () => undefined,
       onRightOverlayOpenChange: () => undefined,

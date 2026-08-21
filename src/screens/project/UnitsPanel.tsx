@@ -174,10 +174,10 @@ export function UnitsPanel({ page, controller, snapshot, targetUnitId, scrollMem
     <div className="units-toolbar m-0 flex w-full max-w-none flex-wrap items-center gap-2 rounded-[14px] border-0 bg-surface-sunken p-2 shadow-none">
       <div className="units-toolbar-filters">
         <div className="units-filter" role="group" aria-label="Unit status filter">
-          {(["all", "in-progress", "scheduled", "published"] as Filter[]).map((value) => <button className={filter === value ? "is-active" : ""} type="button" aria-pressed={filter === value} key={value} onClick={() => setFilter(value)}>{value === "all" ? "All" : value === "in-progress" ? "In progress" : value[0].toUpperCase() + value.slice(1)} <span>{counts[value]}</span></button>)}
+          {(["all", "in-progress", "scheduled", "published"] as Filter[]).map((value) => <button className={filter === value ? "is-active bg-instrument text-on-instrument [&_span]:text-on-instrument-muted" : "bg-surface text-muted"} type="button" aria-pressed={filter === value} key={value} onClick={() => setFilter(value)}>{value === "all" ? "All" : value === "in-progress" ? "In progress" : value[0].toUpperCase() + value.slice(1)} <span>{counts[value]}</span></button>)}
         </div>
         <div className="units-type-filter" role="group" aria-label="Unit type filter">
-          {["all", ...typeFilters].map((value) => <button className={typeFilter === value ? "is-active" : ""} type="button" aria-pressed={typeFilter === value} key={value} onClick={() => setTypeFilter(value)}>{value === "all" ? "All" : formatLabel(value)}</button>)}
+          {["all", ...typeFilters].map((value) => <button className={typeFilter === value ? "is-active bg-instrument text-on-instrument" : "bg-surface text-muted"} type="button" aria-pressed={typeFilter === value} key={value} onClick={() => setTypeFilter(value)}>{value === "all" ? "All" : formatLabel(value)}</button>)}
         </div>
       </div>
       <label className="units-search flex h-9 min-w-[200px] items-center gap-2 rounded-control bg-surface px-3"><Search className="size-4 text-muted" aria-hidden="true" /><input className="min-w-0 flex-1 border-0 bg-transparent text-[13px] text-ink outline-none placeholder:text-muted" aria-label="Search units" placeholder="Search units" value={query} onChange={(event) => setQuery(event.target.value)} /></label>

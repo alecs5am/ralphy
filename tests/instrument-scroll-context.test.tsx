@@ -26,7 +26,6 @@ function props(routeScrollKey: string) {
     leftVisible: false,
     rightPreference: false,
     rightOverlayOpen: false,
-    bottomVisible: false,
     onToggleLeft: () => undefined,
     onToggleRightPreference: () => undefined,
     onRightOverlayOpenChange: () => undefined,

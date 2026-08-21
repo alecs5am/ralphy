@@ -165,8 +165,8 @@ export function UnitViewer({
   return <Dialog.Root open={open} onOpenChange={onOpenChange}>
     {open && <Dialog.Portal forceMount container={typeof document === "undefined" ? undefined : document.body}>
       <Dialog.Overlay forceMount className="unit-viewer-overlay" data-instrument-overlay-backdrop="" />
-      <Dialog.Content forceMount className="unit-viewer" data-instrument-overlay="unit-viewer" ref={surface} onOpenAutoFocus={(event) => { event.preventDefault(); surface.current?.focus({ preventScroll: true }); }} onCloseAutoFocus={(event) => { event.preventDefault(); returnFocus?.focus({ preventScroll: true }); }} tabIndex={-1}>
-        <header className="unit-viewer-header">
+      <Dialog.Content forceMount className="unit-viewer rounded-panel border-0 bg-surface text-ink shadow-none [&_.unit-meta-section]:border-0 [&_.unit-meta-section]:bg-surface-sunken [&_.unit-meta-section]:shadow-none" data-instrument-overlay="unit-viewer" ref={surface} onOpenAutoFocus={(event) => { event.preventDefault(); surface.current?.focus({ preventScroll: true }); }} onCloseAutoFocus={(event) => { event.preventDefault(); returnFocus?.focus({ preventScroll: true }); }} tabIndex={-1}>
+        <header className="unit-viewer-header border-0 bg-surface-sunken shadow-none">
           <div className="unit-viewer-heading">
             <Dialog.Title>{unit?.slug ?? "Unit"}</Dialog.Title>
             <Dialog.Description>{unit?.format ?? "Loading Unit"}</Dialog.Description>
@@ -183,7 +183,7 @@ export function UnitViewer({
           <section className="unit-stage-column">
             <div className="unit-stage-toolbar">
               {target ? <GooeyTabs tabs={targets.map((item) => ({ value: item.id, label: <SocialIcon platform={item.platform} />, ariaLabel: item.label, tooltip: item.label }))} value={target.id} onValueChange={setTargetId} size="s" ariaLabel="Social platform" /> : null}
-              <div className="unit-preview-mode" role="group" aria-label="Preview mode"><button className={previewMode === "post" ? "is-active" : ""} type="button" onClick={() => setPreviewMode("post")}>Post</button><button className={previewMode === "clean" ? "is-active" : ""} type="button" onClick={() => setPreviewMode("clean")}>Clean</button></div>
+              <div className="unit-preview-mode" role="group" aria-label="Preview mode"><button className={previewMode === "post" ? "is-active bg-instrument text-on-instrument" : "bg-transparent text-muted"} type="button" onClick={() => setPreviewMode("post")}>Post</button><button className={previewMode === "clean" ? "is-active bg-instrument text-on-instrument" : "bg-transparent text-muted"} type="button" onClick={() => setPreviewMode("clean")}>Clean</button></div>
               {kind === "video" && <button className={`unit-guides-toggle${guides ? " is-active" : ""}`} type="button" aria-label="Safe-area guides" aria-pressed={guides} onClick={() => setGuides((value) => !value)}><Frame /></button>}
             </div>
             <div className={`unit-social-stage is-${kind}`} ref={stage}>
@@ -205,7 +205,7 @@ export function UnitViewer({
 
             {revision && <section className="unit-meta-section unit-current-version"><label>CURRENT VERSION</label><div><strong>R{revision.revisionNo}</strong><span>{revision.sealedAt ? "Preview ready" : "Building preview"}{revision.id === unit?.latestRevisionId ? " · latest" : ""}</span></div><small>{revision.authoredBySessionId ? "Agent" : "Ralphy"} · {formatTime(revision.createdAt)}</small><p>{revision.note ?? "Creative revision preview"}</p>{revision.id === unit?.selectedRevisionId ? <span className="unit-selected-version"><Check /> Selected version</span> : lifecycle?.action === "select" ? <button type="button" disabled={pending || revision.sealedAt === null} onClick={() => { void controller.selectInspectedUnitRevision(); }}><Check /> Choose this version</button> : null}</section>}
 
-            {targets.length > 1 && <section className="unit-meta-section unit-platforms"><label>PLATFORMS</label>{targets.map((item) => <button className={item.id === target?.id ? "is-active" : ""} type="button" key={item.id} onClick={() => setTargetId(item.id)}><span className="unit-platform-label"><SocialIcon platform={item.platform} />{item.label}</span><small>{item.variant === "carousel" ? `${media.length} slides` : kind === "longform" ? "16:9" : "9:16 · 00:24"}</small><em>{snapshot.unitPresentations.items.some(({ platform }) => platform === item.platform) ? <><Check /> READY</> : <><Clock3 /> PREPARING</>}</em></button>)}</section>}
+            {targets.length > 1 && <section className="unit-meta-section unit-platforms"><label>PLATFORMS</label>{targets.map((item) => <button className={item.id === target?.id ? "is-active bg-instrument text-on-instrument [&_small]:text-on-instrument-muted" : "bg-surface-sunken text-ink"} type="button" key={item.id} onClick={() => setTargetId(item.id)}><span className="unit-platform-label"><SocialIcon platform={item.platform} />{item.label}</span><small>{item.variant === "carousel" ? `${media.length} slides` : kind === "longform" ? "16:9" : "9:16 · 00:24"}</small><em>{snapshot.unitPresentations.items.some(({ platform }) => platform === item.platform) ? <><Check /> READY</> : <><Clock3 /> PREPARING</>}</em></button>)}</section>}
 
             <section className="unit-meta-section unit-caption"><label>{kind === "longform" ? "TITLE & DESCRIPTION" : `CAPTION · ${target?.label ?? "PREVIEW"}`}</label><div><p>{caption}</p><span>{caption.length} / 2200<button type="button" aria-label="Copy caption" onClick={() => { void bridge.copyText(caption); }}><Copy /></button></span></div></section>
 

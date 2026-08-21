@@ -60,7 +60,7 @@ function FormatIcon({ format }: { format: string | null }) {
 }
 
 function FormatBadge({ format }: { format: string | null }) {
-  return <span className={`document-format-badge format-${format ?? "unknown"}`}><FormatIcon format={format} />{formatLabel(format)}</span>;
+  return <span className={`document-format-badge format-${format ?? "unknown"} inline-flex min-w-9 items-center justify-center gap-1 rounded-[8px] border-0 bg-surface px-1.5 py-1 text-[10px] text-muted shadow-none`}><FormatIcon format={format} />{formatLabel(format)}</span>;
 }
 
 export function DocumentContent({ format, text }: { format: string; text: string }) {
@@ -137,9 +137,9 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
   const revision = selected?.currentRevision;
   const displayTitle = revision?.title ?? selected?.title ?? "Document";
   const displayFormat = draft?.format ?? snapshot.documentPreview.value?.format ?? revision?.format ?? null;
-  return <InstrumentScreenRoot descriptor={documentsInstrumentStates} state={documentsInstrumentState(page, snapshot)}><div className="documents-workbench">
-    <div className="documents-master" role="region" aria-label="Documents" ref={attachMaster} onScroll={masterScroll.onScroll}>
-      <div className="document-search">
+  return <InstrumentScreenRoot descriptor={documentsInstrumentStates} state={documentsInstrumentState(page, snapshot)}><div className="documents-workbench grid h-full min-h-0 w-full grid-cols-[minmax(240px,.72fr)_minmax(360px,1.28fr)] gap-2 bg-transparent max-[760px]:grid-cols-1">
+    <div className="documents-master min-h-0 overflow-auto rounded-[14px] border-0 bg-surface-sunken p-2 shadow-none" role="region" aria-label="Documents" ref={attachMaster} onScroll={masterScroll.onScroll}>
+      <div className="document-search rounded-control border-0 bg-surface px-3 py-2 shadow-none">
         <label htmlFor="document-search">Search documents</label>
         <input id="document-search" type="search" value={query} onInput={(event) => setQuery(event.currentTarget.value)} placeholder="Title or content" />
       </div>
@@ -156,7 +156,7 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
             ? `${row.value.kind} · Revision ${row.value.revisionNo}`
             : `${formatLabel(format)} · ${row.value.kind} · ${formatDocumentDate(row.value.updatedAt)}`;
           return <button
-            className={`document-row${selected?.id === documentId ? " is-selected" : ""}`}
+            className={`document-row w-full rounded-control border-0 px-2 text-left text-[12px] shadow-none ${selected?.id === documentId ? "is-selected bg-instrument text-on-instrument [&_small]:text-on-instrument-muted [&_strong]:text-on-instrument" : "bg-transparent text-ink hover:bg-surface"}`}
             type="button"
             disabled={snapshot.documentSaving}
             aria-pressed={selected?.id === documentId}
@@ -176,10 +176,10 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
         onRetry={() => { if (searchActive) void controller.retryDocumentSearchAppend(); else void controller.retryPage("documents"); }}
       />
     </div>
-    <section className="documents-detail document-preview" aria-label="Document detail" ref={detailScroll.ref} onScroll={detailScroll.onScroll}>
+    <section className="documents-detail document-preview min-h-0 overflow-auto rounded-[14px] border-0 bg-surface-sunken shadow-none" aria-label="Document detail" ref={detailScroll.ref} onScroll={detailScroll.onScroll}>
       {!selected && <div className="empty-section">Select a document to open it.</div>}
       {selected && <>
-        <header className="document-detail-header">
+        <header className="document-detail-header border-0 bg-surface px-4 py-3 shadow-none">
           <div className="document-detail-identity">
             <FormatBadge format={displayFormat} />
             <div><h2 className="document-detail-heading" tabIndex={-1} ref={detailHeading}>{displayTitle}</h2><p>{selected.kind}{revision ? ` · Revision ${revision.revisionNo}` : " · No revision"}{snapshot.documentDirty ? " · Unsaved" : ""}</p></div>
@@ -195,8 +195,8 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
         {snapshot.documentConflict && <div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.documentConflict}</span>{snapshot.documentConflictReview && snapshot.documentPreview.value && <button className="command-button" type="button" onClick={() => setReviewCurrent(true)}>Review current</button>}</div>}
         {snapshot.documentPreview.status === "loading" && <div className="project-skeleton" role="status">Loading document…</div>}
         {snapshot.documentPreview.status === "error" && <div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.documentPreview.error}</span><button className="command-button" type="button" onClick={() => { void controller.openDocument(selected); }}>Retry</button></div>}
-        {draft && reviewCurrent && snapshot.documentPreview.value && <div className="document-current-review"><button className="command-button" type="button" onClick={() => setReviewCurrent(false)}>Back to edit</button><DocumentContent format={snapshot.documentPreview.value.format} text={snapshot.documentPreview.value.text} /></div>}
-        {draft && !reviewCurrent && documentView === "source" && <textarea className="document-editor" aria-label="Document body" disabled={snapshot.documentSaving} value={draft.body} onChange={(event) => controller.setDocumentDraftBody(event.currentTarget.value)} />}
+        {draft && reviewCurrent && snapshot.documentPreview.value && <div className="document-current-review border-0 bg-transparent shadow-none"><button className="command-button" type="button" onClick={() => setReviewCurrent(false)}>Back to edit</button><DocumentContent format={snapshot.documentPreview.value.format} text={snapshot.documentPreview.value.text} /></div>}
+        {draft && !reviewCurrent && documentView === "source" && <textarea className="document-editor m-3 min-h-80 w-[calc(100%_-_1.5rem)] resize-y rounded-control border-0 bg-surface px-3 py-2 text-[13px] text-ink shadow-none outline-none" aria-label="Document body" disabled={snapshot.documentSaving} value={draft.body} onChange={(event) => controller.setDocumentDraftBody(event.currentTarget.value)} />}
         {draft && !reviewCurrent && documentView === "render" && <DocumentContent format={draft.format} text={draft.body} />}
         {snapshot.documentMode === "read" && snapshot.documentPreview.status === "ready" && snapshot.documentPreview.value && documentView === "render" && <DocumentContent format={snapshot.documentPreview.value.format} text={snapshot.documentPreview.value.text} />}
         {snapshot.documentMode === "read" && snapshot.documentPreview.status === "ready" && snapshot.documentPreview.value && documentView === "source" && <pre className="plain-text-view document-source-view">{snapshot.documentPreview.value.text}</pre>}

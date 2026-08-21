@@ -13,10 +13,9 @@ import {
 } from "react";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion } from "motion/react";
 import { InstrumentSidebar } from "./instrument/InstrumentSidebar";
-import { AgentChatPanel, BottomPanel } from "./components/UtilityPanels";
+import { AgentChatPanel } from "./components/UtilityPanels";
 import { profileIdentity } from "./components/ProfileAvatar";
 import { WelcomeScreen } from "./components/WelcomeScreen";
-import { ResizeHandle } from "./components/ui/ResizeHandle";
 import { useAgentChat } from "./chat/useAgentChat";
 import {
   bridge,
@@ -54,7 +53,6 @@ import {
 import {
   createInitialWorkbenchState,
   mostRecentWorkspaceId,
-  PANEL_SIZE_LIMITS,
   readWorkbenchPreferences,
   updateWorkbenchPreferences,
   workbenchReducer,
@@ -184,9 +182,6 @@ export function App() {
     initialPreferences.current.rightPanelVisible,
   );
   const [rightOverlayOpen, setRightOverlayOpen] = useState(false);
-  const [bottomPanelVisible, setBottomPanelVisible] = useState(
-    initialPreferences.current.bottomPanelVisible,
-  );
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [workspacePage, setWorkspacePage] = useState<WorkspacePage>(
     initialPreferences.current.workspacePage,
@@ -199,14 +194,10 @@ export function App() {
   const [rightPanelWidth] = useState(
     initialPreferences.current.rightPanelWidth,
   );
-  const [bottomPanelHeight, setBottomPanelHeight] = useState(
-    initialPreferences.current.bottomPanelHeight,
-  );
   const [viewport, setViewport] = useState(() => ({
     width: window.innerWidth,
     height: window.innerHeight,
   }));
-  const [isResizing, setIsResizing] = useState(false);
   const [sidebarSearchRequest, setSidebarSearchRequest] = useState(0);
   const [targetUnitId, setTargetUnitId] = useState<string | null>(null);
   const restorationStarted = useRef(false);
@@ -257,12 +248,6 @@ export function App() {
     sidebarVisible: activeSidebarVisible,
     workspaceId: selectedWorkspace?.id ?? null,
   });
-  const showBottomPanel = bottomPanelVisible;
-  const bottomPanelMax = Math.max(
-    PANEL_SIZE_LIMITS.bottom.min,
-    Math.min(PANEL_SIZE_LIMITS.bottom.max, Math.floor(viewport.height * 0.5)),
-  );
-
   const restoreHomeLibrary = useCallback(async () => {
     setRestoring(true);
     setError(null);
@@ -363,10 +348,6 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    setBottomPanelHeight((value) => Math.min(value, bottomPanelMax));
-  }, [bottomPanelMax]);
-
-  useEffect(() => {
     if (restoring) return;
     const timer = window.setTimeout(() => {
       updateWorkbenchPreferences(localStorage, (current) => ({
@@ -392,16 +373,12 @@ export function App() {
         workspacePage,
         sidebarVisible,
         rightPanelVisible,
-        bottomPanelVisible,
         sidebarWidth,
         rightPanelWidth,
-        bottomPanelHeight,
       }));
     }, 120);
     return () => window.clearTimeout(timer);
   }, [
-    bottomPanelHeight,
-    bottomPanelVisible,
     rootIdentity?.storeId,
     rightPanelWidth,
     rightPanelVisible,
@@ -517,9 +494,6 @@ export function App() {
         } else clearOverviewNavigation();
         setWorkspacePage("projects");
         setSidebarSearchRequest((request) => request + 1);
-      } else if (command && key === "j") {
-        event.preventDefault();
-        setBottomPanelVisible((visible) => !visible);
       } else if (command && key === "b") {
         event.preventDefault();
         if (marketplace.mode === "marketplace") dispatchMarketplace({ type: "toggle-sidebar" });
@@ -697,11 +671,7 @@ export function App() {
     <MotionConfig reducedMotion="user">
       <LayoutGroup id="asset-workbench">
         <motion.div
-          className={[
-            "workbench instrument-shell-frame",
-            showBottomPanel ? " has-bottom-panel" : "",
-            isResizing ? " is-resizing" : "",
-          ].join("")}
+          className="workbench instrument-shell-frame"
           style={{
             "--sidebar-w": `${activeSidebarWidth}px`,
           } as CSSProperties}
@@ -798,26 +768,6 @@ export function App() {
             leftVisible={activeSidebarVisible}
             rightPreference={rightPanelVisible}
             rightOverlayOpen={rightOverlayOpen}
-            bottomPanel={<>
-              <ResizeHandle
-                ariaLabel="Resize bottom panel"
-                orientation="horizontal"
-                value={bottomPanelHeight}
-                min={PANEL_SIZE_LIMITS.bottom.min}
-                max={bottomPanelMax}
-                defaultValue={PANEL_SIZE_LIMITS.bottom.default}
-                direction={-1}
-                className="resize-bottom"
-                onChange={setBottomPanelHeight}
-                onActiveChange={setIsResizing}
-              />
-              <BottomPanel
-                height={bottomPanelHeight}
-                visible={showBottomPanel}
-                rootPath={rootIdentity?.storeId ?? null}
-              />
-            </>}
-            bottomVisible={showBottomPanel}
             topChrome={{
               canGoBack,
               canGoForward,
@@ -833,7 +783,6 @@ export function App() {
                 if (workspaceId) openWorkspace(workspaceId);
                 else dispatch({ type: "open-library" });
               },
-              onToggleBottom: () => setBottomPanelVisible((visible) => !visible),
             }}
             onToggleLeft={() => {
               if (marketplace.mode === "marketplace") dispatchMarketplace({ type: "toggle-sidebar" });
