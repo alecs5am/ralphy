@@ -1,4 +1,4 @@
-import { act } from "react";
+import { act, useState } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import {
@@ -21,6 +21,27 @@ const overlayIds = [
 const sharedSelectOwners = [
   "settings.appearance", "shared.toolbar", "shared.workflow", "memory.editor", "project.media", "project.activity", "marketplace.header",
 ] as const;
+
+const overlayKinds = {
+  "root-picker": "dialog", "migration-recovery": "dialog", "app-alert": "dialog", "profile-menu": "menu", settings: "dialog", "shared-select-menu": "listbox",
+  "workspace-picker": "listbox", "agent-chat-recent-menu": "menu", "agent-chat-provider-menu": "menu", "agent-chat-model-menu": "menu", "agent-chat-mode-menu": "menu",
+  "dynamic-island": "popover", "right-rail-sheet": "sheet", "workspace-account-detail": "dialog", "workspace-unit-outcome-detail": "dialog", "workspace-evidence-detail": "dialog",
+  "shared-inspector": "rail", "shared-viewer": "viewer", "shared-workflow": "dialog", "memory-recall": "dialog", "memory-editor": "dialog", "memory-history": "dialog", "memory-confirm": "dialog",
+  "calendar-filter": "popover", "calendar-drawer": "drawer", "calendar-inspector": "rail", "calendar-schedule": "dialog", "calendar-unit-picker": "popover", "calendar-date-popover": "popover",
+  "calendar-time-popover": "popover", "calendar-platform-settings": "dialog", "calendar-account-detail": "dialog", "calendar-reconnect": "dialog", "document-editor": "dialog", "document-viewer": "viewer",
+  "document-conflict": "dialog", "media-viewer": "viewer", "media-context-menu": "menu", "mock-needs-work": "dialog", "unit-viewer": "viewer", "run-inspector": "rail", "marketplace-detail": "dialog",
+  "target-chooser": "dialog", terminal: "drawer",
+} as const;
+
+const sharedSelectOwnerRecords = {
+  "settings.appearance": { module: "src/screens/SettingsScreen.tsx", routeScope: { kind: "exact", routeKeys: ["settings.appearance"] } },
+  "shared.toolbar": { module: "src/screens/shared-library/SharedLibraryToolbar.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.shared"] } },
+  "shared.workflow": { module: "src/screens/shared-library/SharedLibraryWorkflows.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.shared"] } },
+  "memory.editor": { module: "src/screens/MemoryScreen.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.memory"] } },
+  "project.media": { module: "src/screens/project/MediaPanel.tsx", routeScope: { kind: "exact", routeKeys: ["project.media"] } },
+  "project.activity": { module: "src/screens/project/ActivityTimeline.tsx", routeScope: { kind: "exact", routeKeys: ["project.activity"] } },
+  "marketplace.header": { module: "src/screens/marketplace/MarketplaceHeader.tsx", routeScope: { kind: "production-prefix", prefix: "marketplace." } },
+};
 
 async function settle() {
   await Promise.resolve();
@@ -45,14 +66,31 @@ function escape() {
   return Object.assign(new Event("keydown", { bubbles: true, cancelable: true }), { key: "Escape" });
 }
 
+function tab() {
+  return Object.assign(new Event("keydown", { bubbles: true, cancelable: true }), { key: "Tab" });
+}
+
+function ControlledModal({ localScroll = false }: { localScroll?: boolean }) {
+  const [open, setOpen] = useState(true);
+  const [opener, setOpener] = useState<HTMLElement | null>(null);
+  return <>
+    <button ref={setOpener} type="button">Background opener</button>
+    <button type="button" onClick={() => setOpen(false)}>Controlled close</button>
+    {opener && <InstrumentOverlay id="right-rail-sheet" open={open} label="Agent chat" description="Chat with the active agent" opener={opener} onOpenChange={setOpen} localScroll={localScroll}>
+      <button type="button">First action</button>
+      <button type="button">Last action</button>
+    </InstrumentOverlay>}
+  </>;
+}
+
 afterEach(() => vi.restoreAllMocks());
 
 describe("instrument overlay registry", () => {
   test("registers every production overlay and shared Select owner exactly once", () => {
     expect(Object.keys(INSTRUMENT_OVERLAYS)).toEqual(overlayIds);
+    expect(INSTRUMENT_OVERLAYS).toEqual(Object.fromEntries(Object.entries(overlayKinds).map(([id, kind]) => [id, { kind }])));
     expect(Object.keys(SHARED_SELECT_OVERLAY_OWNERS)).toEqual(sharedSelectOwners);
-    expect(SHARED_SELECT_OVERLAY_OWNERS["project.media"].routeScope).toEqual({ kind: "exact", routeKeys: ["project.media"] });
-    expect(SHARED_SELECT_OVERLAY_OWNERS["marketplace.header"].routeScope).toEqual({ kind: "production-prefix", prefix: "marketplace." });
+    expect(SHARED_SELECT_OVERLAY_OWNERS).toEqual(sharedSelectOwnerRecords);
   });
 
   test("renders a managed overlay marker only while open and returns focus on Escape", async () => {
@@ -99,6 +137,52 @@ describe("instrument overlay registry", () => {
     }
   });
 
+  test("uses a modal Radix host to trap Tab, inert the background, and lock body scroll", async () => {
+    const mounted = await mount(<ControlledModal />);
+    try {
+      const surface = overlay(mounted.host);
+      const buttons = surface?.querySelectorAll("button") ?? [];
+      const opener = mounted.host.container.querySelectorAll("button")[0];
+      expect(surface?.getAttribute("role")).toBe("dialog");
+      expect(surface?.getAttribute("aria-modal")).toBe("true");
+      expect(mounted.host.container.getAttribute("inert")).toBe("");
+      expect(mounted.host.container.ownerDocument.body.style.overflow).toBe("hidden");
+
+      buttons.at(-1)?.focus();
+      await act(async () => {
+        buttons.at(-1)?.dispatchEvent(tab());
+        await settle();
+      });
+      expect(mounted.host.container.ownerDocument.activeElement).toBe(buttons[0]);
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
+  test("restores the opener and releases the scroll owner after a controlled close", async () => {
+    const mounted = await mount(<ControlledModal localScroll />);
+    try {
+      const surface = overlay(mounted.host);
+      const opener = mounted.host.container.querySelectorAll("button")[0];
+      const close = mounted.host.container.querySelectorAll("button")[1];
+      expect(surface?.getAttribute("data-instrument-local-scroll")).toBe("true");
+      expect(surface?.style.overflow).toBe("auto");
+
+      await act(async () => {
+        close?.dispatchEvent(new Event("click", { bubbles: true }));
+        await settle();
+      });
+      expect(overlay(mounted.host)).toBeNull();
+      expect(mounted.host.container.ownerDocument.activeElement).toBe(opener);
+      expect(mounted.host.container.getAttribute("inert")).toBeNull();
+      expect(mounted.host.container.ownerDocument.body.style.overflow).toBe("");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
   test("marks a primitive host without replacing its own Escape and focus behavior", async () => {
     const host = createReactHost();
     const opener = host.container.ownerDocument.createElement("button") as unknown as HTMLElement;
@@ -137,6 +221,10 @@ describe("instrument overlay registry", () => {
       children: <div role="listbox" />,
     };
     expect(() => InstrumentOverlay({ id: "shared-select-menu", host: "primitive-host", ...props })).toThrow("requires one registered overlay owner");
+    expect(() => InstrumentOverlay({ id: "shared-select-menu", host: "primitive-host", overlayOwner: "not-registered", ...props } as never)).toThrow("registered overlay owner");
     expect(() => InstrumentOverlay({ id: "calendar-date-popover", overlayOwner: "project.media", ...props })).toThrow("only accepts an overlay owner");
+    expect(() => InstrumentOverlay({ id: "calendar-date-popover", host: "primitive-host", ...props })).toThrow("does not support primitive-host");
+    expect(() => InstrumentOverlay({ id: "shared-select-menu", overlayOwner: "project.media", ...props })).toThrow("only supports primitive-host");
+    expect(() => InstrumentOverlay({ id: "workspace-picker", ...props } as never)).toThrow("only supports primitive-host");
   });
 });

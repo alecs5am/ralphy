@@ -1,4 +1,5 @@
-import { cloneElement, isValidElement, useEffect, useId, useRef, type ReactElement, type ReactNode, type ReactPortal } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
+import { cloneElement, isValidElement, useEffect, useId, useRef, type ReactElement, type ReactNode, type ReactPortal, type RefObject } from "react";
 import { createPortal } from "react-dom";
 
 type InstrumentOverlayKind = "dialog" | "drawer" | "viewer" | "listbox" | "popover" | "menu" | "sheet" | "rail";
@@ -34,7 +35,7 @@ export const SHARED_SELECT_OVERLAY_OWNERS = {
 export type InstrumentOverlayId = keyof typeof INSTRUMENT_OVERLAYS;
 export type InstrumentSharedSelectOwnerId = keyof typeof SHARED_SELECT_OVERLAY_OWNERS;
 
-export interface InstrumentOverlayProps<Id extends InstrumentOverlayId> {
+interface InstrumentOverlayBaseProps<Id extends InstrumentOverlayId> {
   id: Id;
   open: boolean;
   label: string;
@@ -43,9 +44,20 @@ export interface InstrumentOverlayProps<Id extends InstrumentOverlayId> {
   onOpenChange(open: boolean): void;
   children: ReactNode;
   localScroll?: boolean;
-  host?: "managed-portal" | "primitive-host";
-  overlayOwner?: InstrumentSharedSelectOwnerId;
 }
+
+type PrimitiveHostId = "shared-select-menu" | "workspace-picker" | "agent-chat-recent-menu" | "agent-chat-provider-menu" | "agent-chat-model-menu" | "agent-chat-mode-menu";
+export type InstrumentOverlayProps<Id extends InstrumentOverlayId> =
+  Id extends "shared-select-menu"
+    ? InstrumentOverlayBaseProps<Id> & { host: "primitive-host"; overlayOwner: InstrumentSharedSelectOwnerId }
+    : Id extends PrimitiveHostId
+      ? InstrumentOverlayBaseProps<Id> & { host: "primitive-host"; overlayOwner?: never }
+      : InstrumentOverlayBaseProps<Id> & { host?: "managed-portal"; overlayOwner?: never };
+
+type RuntimeOverlayProps = InstrumentOverlayBaseProps<InstrumentOverlayId> & {
+  host?: "managed-portal" | "primitive-host";
+  overlayOwner?: unknown;
+};
 
 const overlayRoles: Record<InstrumentOverlayKind, "dialog" | "listbox" | "menu" | "complementary"> = {
   dialog: "dialog",
@@ -58,12 +70,19 @@ const overlayRoles: Record<InstrumentOverlayKind, "dialog" | "listbox" | "menu" 
   rail: "complementary",
 };
 
+const primitiveHostIds = new Set<PrimitiveHostId>([
+  "shared-select-menu", "workspace-picker", "agent-chat-recent-menu", "agent-chat-provider-menu", "agent-chat-model-menu", "agent-chat-mode-menu",
+]);
+const modalKinds = new Set<InstrumentOverlayKind>(["dialog", "drawer", "viewer", "sheet"]);
+let modalScrollLocks = 0;
+let previousBodyOverflow = "";
+
 function restoreFocus(opener: HTMLElement | null) {
   if (opener?.isConnected) opener.focus({ preventScroll: true });
 }
 
-function primitiveMarker<Id extends InstrumentOverlayId>(
-  props: InstrumentOverlayProps<Id>,
+function primitiveMarker(
+  props: RuntimeOverlayProps,
 ): ReactElement {
   const marker = {
     "data-instrument-overlay": props.id,
@@ -73,17 +92,92 @@ function primitiveMarker<Id extends InstrumentOverlayId>(
   return <div {...marker}>{props.children}</div>;
 }
 
-function ManagedOverlay<Id extends InstrumentOverlayId>(props: InstrumentOverlayProps<Id>): ReactPortal | ReactElement | null {
+function useOpenerRestoration(open: boolean, opener: HTMLElement | null) {
+  const openerRef = useRef(opener);
+  openerRef.current = opener;
+  useEffect(() => {
+    if (!open) return;
+    return () => restoreFocus(openerRef.current);
+  }, [open]);
+}
+
+function useModalEnvironment(open: boolean, modal: boolean, surface: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    if (!open || !modal || typeof document === "undefined") return;
+    const body = document.body;
+    if (modalScrollLocks++ === 0) {
+      previousBodyOverflow = body.style.overflow || "";
+      body.style.overflow = "hidden";
+    }
+    const background = Array.from(body.children).filter((node) => !node.contains(surface.current));
+    const snapshots = background.map((node) => ({
+      node,
+      ariaHidden: node.getAttribute("aria-hidden"),
+      inert: node.getAttribute("inert"),
+    }));
+    for (const { node } of snapshots) {
+      node.setAttribute("aria-hidden", "true");
+      node.setAttribute("inert", "");
+    }
+    return () => {
+      for (const { node, ariaHidden, inert } of snapshots) {
+        if (ariaHidden === null) node.removeAttribute("aria-hidden"); else node.setAttribute("aria-hidden", ariaHidden);
+        if (inert === null) node.removeAttribute("inert"); else node.setAttribute("inert", inert);
+      }
+      if (--modalScrollLocks === 0) body.style.overflow = previousBodyOverflow;
+    };
+  }, [modal, open, surface]);
+}
+
+function ModalOverlay(props: RuntimeOverlayProps): ReactElement | null {
+  const surface = useRef<HTMLDivElement>(null);
+  const { id, open, label, description, children, localScroll, onOpenChange, opener } = props;
+  useOpenerRestoration(open, opener);
+  useModalEnvironment(open, true, surface);
+  if (!open) return null;
+
+  const close = () => {
+    onOpenChange(false);
+    restoreFocus(opener);
+  };
+
+  return <Dialog.Root open onOpenChange={(next) => { if (!next) close(); }}>
+    <Dialog.Portal container={typeof document === "undefined" ? undefined : document.body}>
+      <Dialog.Overlay data-instrument-overlay-backdrop="" />
+      <Dialog.Content
+        ref={surface}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        data-instrument-overlay={id}
+        data-instrument-overlay-kind={INSTRUMENT_OVERLAYS[id].kind}
+        data-instrument-local-scroll={localScroll || undefined}
+        style={localScroll ? { overflow: "auto" } : undefined}
+        onOpenAutoFocus={(event) => { event.preventDefault(); surface.current?.focus({ preventScroll: true }); }}
+        onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(opener); }}
+        onKeyDown={(event) => {
+          if (event.key !== "Escape") return;
+          event.preventDefault();
+          close();
+        }}
+      >
+        <Dialog.Title hidden>{label}</Dialog.Title>
+        <Dialog.Description hidden>{description}</Dialog.Description>
+        {children}
+      </Dialog.Content>
+    </Dialog.Portal>
+  </Dialog.Root>;
+}
+
+function NonModalOverlay(props: RuntimeOverlayProps): ReactPortal | ReactElement | null {
   const surface = useRef<HTMLDivElement>(null);
   const descriptionId = useId();
   const { id, open, label, description, children, localScroll, onOpenChange, opener } = props;
-
+  useOpenerRestoration(open, opener);
   useEffect(() => {
     if (open) surface.current?.focus({ preventScroll: true });
   }, [open]);
-
   if (!open) return null;
-
   const content = <div
     ref={surface}
     role={overlayRoles[INSTRUMENT_OVERLAYS[id].kind]}
@@ -91,7 +185,9 @@ function ManagedOverlay<Id extends InstrumentOverlayId>(props: InstrumentOverlay
     aria-label={label}
     aria-describedby={description ? descriptionId : undefined}
     data-instrument-overlay={id}
+    data-instrument-overlay-kind={INSTRUMENT_OVERLAYS[id].kind}
     data-instrument-local-scroll={localScroll || undefined}
+    style={localScroll ? { overflow: "auto" } : undefined}
     onKeyDown={(event) => {
       if (event.key !== "Escape") return;
       event.preventDefault();
@@ -102,14 +198,23 @@ function ManagedOverlay<Id extends InstrumentOverlayId>(props: InstrumentOverlay
     {description && <span id={descriptionId} hidden>{description}</span>}
     {children}
   </div>;
-
   return typeof document === "undefined" ? content : createPortal(content, document.body);
 }
 
 export function InstrumentOverlay<Id extends InstrumentOverlayId>(props: InstrumentOverlayProps<Id>): ReactPortal | ReactElement | null {
-  const { id, host = "managed-portal", overlayOwner } = props;
-  if (id === "shared-select-menu" && !overlayOwner) throw new Error("shared-select-menu requires one registered overlay owner");
-  if (id !== "shared-select-menu" && overlayOwner) throw new Error(`${id} only accepts an overlay owner for shared-select-menu`);
-  if (host === "primitive-host") return props.open ? primitiveMarker(props) : null;
-  return <ManagedOverlay {...props} />;
+  const runtime = props as RuntimeOverlayProps;
+  const { id, host = "managed-portal", overlayOwner } = runtime;
+  if (host !== "managed-portal" && host !== "primitive-host") throw new Error(`${id} has an invalid overlay host`);
+  if (id === "shared-select-menu") {
+    if (host !== "primitive-host") throw new Error("shared-select-menu only supports primitive-host");
+    if (typeof overlayOwner !== "string" || !(overlayOwner in SHARED_SELECT_OVERLAY_OWNERS)) throw new Error("shared-select-menu requires one registered overlay owner");
+  } else if (overlayOwner !== undefined) {
+    throw new Error(`${id} only accepts an overlay owner for shared-select-menu`);
+  }
+  if (primitiveHostIds.has(id as PrimitiveHostId) && host !== "primitive-host") throw new Error(`${id} only supports primitive-host`);
+  if (host === "primitive-host") {
+    if (!primitiveHostIds.has(id as PrimitiveHostId)) throw new Error(`${id} does not support primitive-host`);
+    return runtime.open ? primitiveMarker(runtime) : null;
+  }
+  return modalKinds.has(INSTRUMENT_OVERLAYS[id].kind) ? <ModalOverlay {...runtime} /> : <NonModalOverlay {...runtime} />;
 }
