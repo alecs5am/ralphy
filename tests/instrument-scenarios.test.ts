@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { describe, expect, test } from "vitest";
 
 import {
@@ -84,6 +86,39 @@ const canonicalCaseKeys = canonicalScenarioIds.flatMap((scenarioId) => LOCKED_TH
   return reviewed?.omitted.includes(`${theme}@${viewport}` as never) ? [] : [`${scenarioId}__${theme}__${viewport}`];
 })));
 
+function semanticRecords(scenarios: readonly InstrumentScenario[]) {
+  return scenarios.map((scenario) => [
+    scenario.id,
+    scenario.routeKey,
+    scenario.state,
+    scenario.fixtureId,
+    scenario.rootMarker,
+    [...scenario.landmarks],
+    scenario.railOwner,
+    scenario.overlay,
+    scenario.overlayOwner,
+    scenario.focusEntry,
+    scenario.focusReturn,
+    scenario.scrollOwner,
+    [...scenario.themes],
+    [...scenario.viewports],
+    LOCKED_VIEWPORTS.map((viewport) => [
+      viewport,
+      scenario.expectedRailMode[viewport],
+      scenario.panelSetup[viewport].leftVisible,
+      scenario.panelSetup[viewport].rightPreference,
+      scenario.panelSetup[viewport].rightOverlayOpen,
+      scenario.panelSetup[viewport].bottomVisible,
+    ]),
+    scenario.coverageException,
+    [...scenario.journeys],
+  ]);
+}
+
+const semanticDigest = (scenarios: readonly InstrumentScenario[]) => createHash("sha256")
+  .update(JSON.stringify(semanticRecords(scenarios)))
+  .digest("hex");
+
 describe("instrument scenario contract", () => {
   test("covers production route states, overlays, shared owners, and global overlay routes in both directions", () => {
     expect(() => assertInstrumentScenarioCompleteness()).not.toThrow();
@@ -125,6 +160,32 @@ describe("instrument scenario contract", () => {
     expect(expandInstrumentScenarioCases(INSTRUMENT_SCENARIOS).map(({ key: caseKey }) => caseKey))
       .toEqual(canonicalCaseKeys);
     expect(canonicalCaseKeys).toHaveLength(1_898);
+  });
+
+  test("binds every stable scenario ID to one frozen semantic record", () => {
+    expect(semanticDigest(INSTRUMENT_SCENARIOS)).toBe("9a392591abbb59f445f6b5d81d95eb533cdc0b4fa12a2e837762d549c70c9ed4");
+  });
+
+  test("rejects set-preserving route, state, overlay, and owner swaps across stable IDs", () => {
+    const swap = <Key extends keyof InstrumentScenario>(firstId: string, secondId: string, field: Key) => {
+      const first = INSTRUMENT_SCENARIOS.find((scenario) => scenario.id === firstId)!;
+      const second = INSTRUMENT_SCENARIOS.find((scenario) => scenario.id === secondId)!;
+      return INSTRUMENT_SCENARIOS.map((scenario) => scenario.id === firstId
+        ? { ...scenario, [field]: second[field] }
+        : scenario.id === secondId ? { ...scenario, [field]: first[field] } : scenario);
+    };
+    const mutations = [
+      swap("startup.library.ready", "workspace.projects.ready", "routeKey"),
+      swap("media.ready", "media.selected", "state"),
+      swap("overlay.media-viewer.project.media", "overlay.media-context-menu.project.media", "overlay"),
+      swap("overlay.shared-select-menu.shared.toolbar.workspace.shared", "overlay.shared-select-menu.shared.workflow.workspace.shared", "overlayOwner"),
+      swap("overlay.agent-chat-recent-menu.startup.library", "overlay.agent-chat-provider-menu.startup.library", "overlay"),
+    ];
+
+    for (const mutated of mutations) {
+      expect(() => assertInstrumentScenarioCompleteness(mutated)).toThrow(/semantic/i);
+      expect(semanticDigest(mutated)).not.toBe("9a392591abbb59f445f6b5d81d95eb533cdc0b4fa12a2e837762d549c70c9ed4");
+    }
   });
 
   test("rejects widening the approved exception or adding an unreviewed exception", () => {

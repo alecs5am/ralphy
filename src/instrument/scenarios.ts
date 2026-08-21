@@ -73,6 +73,7 @@ const APPROVED_SCENARIO_COVERAGE_EXCEPTIONS = {
     review: { reviewer: "Nothing OS plan review", decision: "approved" },
   },
 } as const satisfies Readonly<Record<string, InstrumentScenarioCoverageException>>;
+const CANONICAL_SCENARIO_SEMANTIC_FINGERPRINT = "9affcb345e079cd2";
 
 function descriptorFor(routeKey: InstrumentRouteKey): InstrumentScreenStateDescriptor {
   const descriptor = descriptorByRoute.get(routeKey);
@@ -270,6 +271,42 @@ function assertCoverageExceptions(scenarios: readonly InstrumentScenario[]) {
   }
 }
 
+function semanticFingerprint(scenarios: readonly InstrumentScenario[]) {
+  const records = scenarios.map((current) => [
+    current.id,
+    current.routeKey,
+    current.state,
+    current.fixtureId,
+    current.rootMarker,
+    [...current.landmarks],
+    current.railOwner,
+    current.overlay,
+    current.overlayOwner,
+    current.focusEntry,
+    current.focusReturn,
+    current.scrollOwner,
+    [...current.themes],
+    [...current.viewports],
+    REQUIRED_SCENARIO_VIEWPORTS.map((viewport) => [
+      viewport,
+      current.expectedRailMode[viewport],
+      current.panelSetup[viewport].leftVisible,
+      current.panelSetup[viewport].rightPreference,
+      current.panelSetup[viewport].rightOverlayOpen,
+      current.panelSetup[viewport].bottomVisible,
+    ]),
+    current.coverageException,
+    [...current.journeys],
+  ]);
+  const serialized = JSON.stringify(records);
+  let hash = 0xcbf29ce484222325n;
+  for (let index = 0; index < serialized.length; index += 1) {
+    hash ^= BigInt(serialized.charCodeAt(index));
+    hash = BigInt.asUintN(64, hash * 0x100000001b3n);
+  }
+  return hash.toString(16).padStart(16, "0");
+}
+
 export function assertInstrumentScenarioCompleteness(scenarios: readonly InstrumentScenario[] = INSTRUMENT_SCENARIOS): void {
   const requiredRouteStates = PRODUCTION_SCREEN_STATES.flatMap(({ routeKey, states }) => states.map((state) => tuple(routeKey, state)));
   const actualRouteStates = scenarios.map(({ routeKey, state }) => tuple(routeKey, state));
@@ -312,6 +349,9 @@ export function assertInstrumentScenarioCompleteness(scenarios: readonly Instrum
     })
   )));
   requireEqualSequence("exact scenario case keys", expectedCaseKeys, expandInstrumentScenarioCases(scenarios).map(({ key }) => key));
+  if (semanticFingerprint(scenarios) !== CANONICAL_SCENARIO_SEMANTIC_FINGERPRINT) {
+    throw new Error("scenario semantic records do not match the frozen canonical fingerprint");
+  }
 }
 
 export function expandInstrumentScenarioCases(scenarios: readonly InstrumentScenario[]): readonly {

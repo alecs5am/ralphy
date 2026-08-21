@@ -68,6 +68,19 @@ describe("instrument production fixture boundary", () => {
     expect(provider?.get("instrument-test-fixture:missing")).toBeNull();
   });
 
+  test("fails closed for well-formed but unregistered routes, scenarios, owners, and tuple mismatches", async () => {
+    vi.stubEnv("VITE_RALPHY_ENABLE_MOCKS", "true");
+    const provider = await loadInstrumentTestFixtures();
+    const unknown = [
+      "instrument-test-fixture:project.fake:ready:not.registered:-:-",
+      "instrument-test-fixture:project.media:ready:media.not-registered:-:-",
+      "instrument-test-fixture:workspace.shared:ready:overlay.shared-select-menu.unknown.owner.workspace.shared:shared-select-menu:unknown.owner",
+      "instrument-test-fixture:project.activity:ready:media.ready:-:-",
+      "instrument-test-fixture:project.media:error:media.ready:-:-",
+    ];
+    for (const fixtureId of unknown) expect(provider?.get(fixtureId), fixtureId).toBeNull();
+  });
+
   test("keeps the fixture module renderer-only and supplies every registered scenario", async () => {
     expect(fixtureSource).not.toMatch(/^\s*import(?!\s+type\b)/m);
     vi.stubEnv("VITE_RALPHY_ENABLE_MOCKS", "true");
