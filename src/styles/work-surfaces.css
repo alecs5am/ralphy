@@ -400,6 +400,23 @@
 .app-mode-work .document-edit-fields :is(input, textarea) { border: 0; border-radius: 14px; background: var(--instrument-widget-light-sunken); box-shadow: none; }
 
 /* Media 3a/3b */
+.project-controls {
+  position: fixed;
+  z-index: 60;
+  top: auto;
+  right: auto;
+  bottom: 12px;
+  left: 50%;
+  width: max-content;
+  height: auto;
+  padding: 0;
+  container-name: none;
+  container-type: normal;
+  transform: translateX(-50%);
+}
+.project-controls .project-dock { display: flex; width: max-content; gap: 4px; padding: 5px; border: 0; border-radius: var(--radius-pill); background: var(--instrument-widget-dark); box-shadow: none; }
+.project-controls .project-dock button { min-width: 84px; height: 38px; padding: 0 12px; border: 0; border-radius: var(--radius-pill); color: var(--instrument-text-on-dark-secondary-readable); background: transparent; }
+.project-controls .project-dock button.is-active { color: var(--instrument-alert-text); background: var(--instrument-composer-surface); }
 .app-mode-work .project-domain-body.is-media { padding: 0 2px 76px; }
 .app-mode-work .media-panel { gap: 0; }
 .app-mode-work .media-domain-toolbar { min-height: 38px; gap: 6px; margin: 0; padding: 0 0 8px; }

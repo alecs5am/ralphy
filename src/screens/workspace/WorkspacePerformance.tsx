@@ -162,8 +162,8 @@ export function AccountDetailDialog({
 }) {
   return <Dialog.Root open={account !== null} onOpenChange={onOpenChange}>
     {account && <Dialog.Portal forceMount container={typeof document === "undefined" ? undefined : document.body}>
-      <Dialog.Overlay forceMount className="account-detail-overlay" />
-      <Dialog.Content forceMount className="account-detail-dialog">
+      <Dialog.Overlay forceMount className="account-detail-overlay" data-instrument-overlay-backdrop="" />
+      <Dialog.Content forceMount className="account-detail-dialog" data-instrument-overlay="workspace-account-detail">
         <header className="account-detail-header">
           <span>
             <Dialog.Title>{account.username ? handle(account.username) : account.displayName ?? `${account.platform} account`}</Dialog.Title>

@@ -164,8 +164,8 @@ export function UnitViewer({
 
   return <Dialog.Root open={open} onOpenChange={onOpenChange}>
     {open && <Dialog.Portal forceMount container={typeof document === "undefined" ? undefined : document.body}>
-      <Dialog.Overlay forceMount className="unit-viewer-overlay" />
-      <Dialog.Content forceMount className="unit-viewer" ref={surface} onOpenAutoFocus={(event) => { event.preventDefault(); surface.current?.focus({ preventScroll: true }); }} onCloseAutoFocus={(event) => { event.preventDefault(); returnFocus?.focus({ preventScroll: true }); }} tabIndex={-1}>
+      <Dialog.Overlay forceMount className="unit-viewer-overlay" data-instrument-overlay-backdrop="" />
+      <Dialog.Content forceMount className="unit-viewer" data-instrument-overlay="unit-viewer" ref={surface} onOpenAutoFocus={(event) => { event.preventDefault(); surface.current?.focus({ preventScroll: true }); }} onCloseAutoFocus={(event) => { event.preventDefault(); returnFocus?.focus({ preventScroll: true }); }} tabIndex={-1}>
         <header className="unit-viewer-header">
           <div className="unit-viewer-heading">
             <Dialog.Title>{unit?.slug ?? "Unit"}</Dialog.Title>

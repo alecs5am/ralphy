@@ -176,8 +176,8 @@ function UnitOutcomeDetailDialog({ value, onOpenChange, onOpenUnit }: {
 }) {
   return <Dialog.Root open={value !== null} onOpenChange={onOpenChange}>
     {value && <Dialog.Portal forceMount container={typeof document === "undefined" ? undefined : document.body}>
-      <Dialog.Overlay forceMount className="account-detail-overlay" />
-      <Dialog.Content forceMount className="account-detail-dialog unit-outcome-dialog">
+      <Dialog.Overlay forceMount className="account-detail-overlay" data-instrument-overlay-backdrop="" />
+      <Dialog.Content forceMount className="account-detail-dialog unit-outcome-dialog" data-instrument-overlay="workspace-unit-outcome-detail">
         <header className="account-detail-header"><span><Dialog.Title>{value.title}</Dialog.Title><Dialog.Description>Unit outcome detail · {value.projectTitle} · {value.revisionLabel}</Dialog.Description></span><Dialog.Close asChild><button type="button" aria-label="Close Unit outcome detail"><X aria-hidden="true" /></button></Dialog.Close></header>
         <div className="account-detail-body">
           <DetailSection title="Result" reason="Normalized result is not available from the current Core contract." />

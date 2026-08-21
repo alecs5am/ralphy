@@ -307,7 +307,7 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
 
   return <Dialog.Root open onOpenChange={(open) => { if (!open) close(); }}>
     <Dialog.Portal container={typeof document === "undefined" ? undefined : document.body}>
-      <Dialog.Content asChild
+      <Dialog.Content asChild data-instrument-overlay="shared-viewer"
         onOpenAutoFocus={(event) => { event.preventDefault(); surfaceRef.current?.focus({ preventScroll: true }); }}
         onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(); }}>
         <section ref={surfaceRef} tabIndex={-1} className="shared-artifact-viewer" aria-label={`Preview ${detail.slug}`}>

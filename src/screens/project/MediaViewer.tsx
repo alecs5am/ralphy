@@ -203,8 +203,8 @@ export function MediaViewer({ controller, snapshot }: { controller: ProjectScree
   if (!card) return null;
   return <Dialog.Root open={snapshot.mediaViewerOpen} onOpenChange={(open) => { if (!open) controller.closeMediaViewer(); }}>
     <Dialog.Portal container={typeof document === "undefined" ? undefined : document.body}>
-      <Dialog.Overlay asChild><motion.div className="asset-modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.16 }} /></Dialog.Overlay>
-      <Dialog.Content asChild onOpenAutoFocus={(event) => { event.preventDefault(); surfaceRef.current?.focus({ preventScroll: true }); }} onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(); }}>
+      <Dialog.Overlay asChild><motion.div className="asset-modal-overlay" data-instrument-overlay-backdrop="" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.16 }} /></Dialog.Overlay>
+      <Dialog.Content asChild data-instrument-overlay="media-viewer" onOpenAutoFocus={(event) => { event.preventDefault(); surfaceRef.current?.focus({ preventScroll: true }); }} onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(); }}>
         <motion.section ref={surfaceRef} tabIndex={-1} className="asset-modal-surface" style={{ borderRadius: 18 }} initial={{ opacity: 0.72 }} animate={{ opacity: 1 }} transition={{ duration: 0.12 }}>
           <div className="asset-modal-toolbar">
             <div className="viewer-identity">

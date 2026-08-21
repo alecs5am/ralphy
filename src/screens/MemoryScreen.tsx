@@ -250,12 +250,12 @@ function MemoryRule({ entry, workspaceName, open, reviewing, onToggle, onRevise,
   </article>;
 }
 
-function MemoryModal({ open, onOpenChange, title, description, className = "", children }: { open: boolean; onOpenChange(open: boolean): void; title: string; description: string; className?: string; children: React.ReactNode }) {
-  return <Dialog.Root open={open} onOpenChange={onOpenChange}>{open && <><Dialog.Overlay forceMount className="memory-modal-overlay" /><Dialog.Content forceMount className={`memory-modal ${className}`}><header><div><Dialog.Title>{title}</Dialog.Title><Dialog.Description>{description}</Dialog.Description></div><Dialog.Close asChild><button type="button" aria-label={`Close ${title}`}><X /></button></Dialog.Close></header>{children}</Dialog.Content></>}</Dialog.Root>;
+function MemoryModal({ open, onOpenChange, overlay, title, description, className = "", children }: { open: boolean; onOpenChange(open: boolean): void; overlay: "memory-recall" | "memory-editor" | "memory-history" | "memory-confirm"; title: string; description: string; className?: string; children: React.ReactNode }) {
+  return <Dialog.Root open={open} onOpenChange={onOpenChange}>{open && <><Dialog.Overlay forceMount className="memory-modal-overlay" data-instrument-overlay-backdrop="" /><Dialog.Content forceMount className={`memory-modal ${className}`} data-instrument-overlay={overlay}><header><div><Dialog.Title>{title}</Dialog.Title><Dialog.Description>{description}</Dialog.Description></div><Dialog.Close asChild><button type="button" aria-label={`Close ${title}`}><X /></button></Dialog.Close></header>{children}</Dialog.Content></>}</Dialog.Root>;
 }
 
 function RecallDialog({ open, onOpenChange, recall }: { open: boolean; onOpenChange(open: boolean): void; recall: Awaited<ReturnType<typeof bridge.recallMemory>> | null }) {
-  return <MemoryModal open={open} onOpenChange={onOpenChange} title="Agent context preview" description="The exact effective memory sent as background context" className="memory-recall">
+  return <MemoryModal open={open} onOpenChange={onOpenChange} overlay="memory-recall" title="Agent context preview" description="The exact effective memory sent as background context" className="memory-recall">
     {!recall ? <div className="memory-state">Loading context…</div> : <><div className="memory-recall-counts"><span>{recall.workspaceCount} workspace</span><span>{recall.globalCount} global</span></div><p className="memory-recall-note">{recall.note}</p><div className="memory-recall-list">{recall.entries.map((entry) => <article key={entry.id}><small>{entry.tier} · {entry.slug}</small><strong>{entry.body.rule}</strong><p>{entry.description}</p></article>)}</div></>}
   </MemoryModal>;
 }
@@ -283,7 +283,7 @@ function EditorDialog({ open, entry, onOpenChange, onSave }: { open: boolean; en
     setSaving(true); setFormError("");
     try { await onSave(mutation); } catch (cause) { setFormError(cause instanceof Error ? cause.message : String(cause)); setSaving(false); }
   };
-  return <MemoryModal open={open} onOpenChange={onOpenChange} title={entry ? "Revise memory" : "Add memory"} description={entry ? `Save as immutable version ${entry.version + 1}` : "Create a durable rule for future work"}>
+  return <MemoryModal open={open} onOpenChange={onOpenChange} overlay="memory-editor" title={entry ? "Revise memory" : "Add memory"} description={entry ? `Save as immutable version ${entry.version + 1}` : "Create a durable rule for future work"}>
     <form className="memory-editor" onSubmit={(event) => void submit(event)}>
       <label>Rule<textarea name="rule" required defaultValue={entry?.body.rule} autoFocus /></label>
       <div><label>Scope{entry ? <span className="memory-static-field">{tier === "workspace" ? "Workspace" : "Global"}</span> : <SelectMenu<MemoryTier> overlayOwner="memory.editor" value={tier} options={[{ value: "workspace", label: "Workspace" }, { value: "global", label: "Global" }]} ariaLabel="Memory scope" onValueChange={setTier} />}</label><label>Type<SelectMenu<Exclude<MemoryType, "legacy">> overlayOwner="memory.editor" value={type} options={TYPES.filter((value): value is Exclude<MemoryType, "legacy"> => value !== "legacy").map((value) => ({ value, label: TYPE_LABEL[value] }))} ariaLabel="Memory type" onValueChange={setType} /></label><label>State<SelectMenu<"active" | "proposed"> overlayOwner="memory.editor" value={status} options={[{ value: "active", label: "Active" }, { value: "proposed", label: "Proposal" }]} ariaLabel="Memory state" onValueChange={setStatus} /></label></div>
@@ -297,10 +297,10 @@ function EditorDialog({ open, entry, onOpenChange, onSave }: { open: boolean; en
 }
 
 function HistoryDialog({ history, onOpenChange }: { history: MemoryDetailDto[] | null; onOpenChange(open: boolean): void }) {
-  return <MemoryModal open={history !== null} onOpenChange={onOpenChange} title="Version history" description="Immutable revisions, newest first"><div className="memory-history">{history?.length === 0 && <div className="memory-state">Loading history…</div>}{history?.map((entry) => <article key={entry.revisionId}><FileClock /><span><strong>Version {entry.version}</strong><small>{entry.status} · {entry.filed} · {entry.source}</small><p>{entry.body.rule}</p></span></article>)}</div></MemoryModal>;
+  return <MemoryModal open={history !== null} onOpenChange={onOpenChange} overlay="memory-history" title="Version history" description="Immutable revisions, newest first"><div className="memory-history">{history?.length === 0 && <div className="memory-state">Loading history…</div>}{history?.map((entry) => <article key={entry.revisionId}><FileClock /><span><strong>Version {entry.version}</strong><small>{entry.status} · {entry.filed} · {entry.source}</small><p>{entry.body.rule}</p></span></article>)}</div></MemoryModal>;
 }
 
 function ConfirmDialog({ state, onOpenChange, onConfirm }: { state: ConfirmState; onOpenChange(open: boolean): void; onConfirm(): void }) {
   const verb = state?.action ?? "retire";
-  return <MemoryModal open={state !== null} onOpenChange={onOpenChange} title={`${verb[0]!.toUpperCase()}${verb.slice(1)} memory?`} description={verb === "retire" ? "The rule leaves recall but remains in immutable history." : verb === "approve" ? "The proposal becomes the active revision." : "The proposal is preserved as rejected provenance."}><div className="memory-confirm"><p>{state?.entry.body.rule}</p><footer><Dialog.Close asChild><button type="button">Cancel</button></Dialog.Close><button type="button" className={verb === "approve" ? "memory-primary" : "memory-danger"} onClick={onConfirm}>{verb[0]!.toUpperCase() + verb.slice(1)}</button></footer></div></MemoryModal>;
+  return <MemoryModal open={state !== null} onOpenChange={onOpenChange} overlay="memory-confirm" title={`${verb[0]!.toUpperCase()}${verb.slice(1)} memory?`} description={verb === "retire" ? "The rule leaves recall but remains in immutable history." : verb === "approve" ? "The proposal becomes the active revision." : "The proposal is preserved as rejected provenance."}><div className="memory-confirm"><p>{state?.entry.body.rule}</p><footer><Dialog.Close asChild><button type="button">Cancel</button></Dialog.Close><button type="button" className={verb === "approve" ? "memory-primary" : "memory-danger"} onClick={onConfirm}>{verb[0]!.toUpperCase() + verb.slice(1)}</button></footer></div></MemoryModal>;
 }

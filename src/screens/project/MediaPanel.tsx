@@ -140,7 +140,7 @@ export function MediaPanel({ page, controller, snapshot, project, workspaceName,
         onNavigate={(delta) => { const next = mediaItems[selectedIndex + delta]; if (next) controller.selectMedia(next); }}
       />
     </InstrumentRightRailPortal>}
-    {context && <div ref={menuRef} className="asset-context-menu" aria-label="Media actions" style={{ left: context.x, top: context.y }}>
+    {context && <div ref={menuRef} className="asset-context-menu" data-instrument-overlay="media-context-menu" aria-label="Media actions" style={{ left: context.x, top: context.y }}>
       <button type="button" onClick={() => { void action("preview"); }}><Eye size={15} aria-hidden="true" />Preview</button>
       <button type="button" onClick={() => { void action("open"); }}><ExternalLink size={15} aria-hidden="true" />Open externally</button>
       <button type="button" onClick={() => { void action("finder"); }}><FolderOpen size={15} aria-hidden="true" />Reveal in Finder</button>

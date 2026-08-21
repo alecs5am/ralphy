@@ -117,8 +117,8 @@ function EvidenceDetailDialog({ value, onOpenChange, onOpenMemory }: {
 }) {
   return <Dialog.Root open={value !== null} onOpenChange={onOpenChange}>
     {value && <Dialog.Portal forceMount container={typeof document === "undefined" ? undefined : document.body}>
-      <Dialog.Overlay forceMount className="account-detail-overlay" />
-      <Dialog.Content forceMount className="account-detail-dialog workspace-evidence-dialog">
+      <Dialog.Overlay forceMount className="account-detail-overlay" data-instrument-overlay-backdrop="" />
+      <Dialog.Content forceMount className="account-detail-dialog workspace-evidence-dialog" data-instrument-overlay="workspace-evidence-detail">
         <header className="account-detail-header"><span><Dialog.Title>{value.observation}</Dialog.Title><Dialog.Description>{value.platform} · {value.account} · {strengthLabel(value.evidenceStrength)}</Dialog.Description></span><Dialog.Close asChild><button type="button" aria-label="Close evidence detail"><X aria-hidden="true" /></button></Dialog.Close></header>
         <div className="account-detail-body">
           <section className="account-detail-section"><h3>Method and sample</h3><p>{value.method}</p><dl className="workspace-insight-facts"><div><dt>Scope</dt><dd>{value.platform} · {value.account}</dd></div><div><dt>Reporting window</dt><dd>{value.reportingWindow}</dd></div><div><dt>Sample size</dt><dd>{value.sampleSize} comparable Units</dd></div><div><dt>Baseline</dt><dd>{value.baseline}</dd></div></dl></section>

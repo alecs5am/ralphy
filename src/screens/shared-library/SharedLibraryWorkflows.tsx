@@ -45,7 +45,7 @@ function WorkflowFrame({ kind, title, description, returnFocus, onClose, steps, 
   return <Dialog.Root open onOpenChange={(open) => { if (!open) close(); }}>
     <Dialog.Portal container={typeof document === "undefined" ? undefined : document.body}>
       <Dialog.Overlay className="shared-workflow-overlay" />
-      <Dialog.Content
+      <Dialog.Content data-instrument-overlay="shared-workflow"
         ref={surface}
         tabIndex={-1}
         className="shared-workflow-window"

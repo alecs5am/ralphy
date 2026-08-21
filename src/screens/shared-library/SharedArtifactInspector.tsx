@@ -193,7 +193,7 @@ export function SharedArtifactInspector({ artifact, workspaceId, rootEpoch, retu
 
   return <Dialog.Root open modal={false} onOpenChange={(open) => { if (!open) close(); }}>
     <Dialog.Content asChild onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(); }}>
-      <aside className="shared-artifact-inspector" aria-label="Shared artifact inspector">
+      <aside className="shared-artifact-inspector" aria-label="Shared artifact inspector" data-instrument-overlay="shared-inspector">
         <header className="shared-inspector-head">
           <span>{detail.kind} · {detail.mime ?? "MIME unavailable"}</span>
           <button type="button" aria-label="Close artifact inspector" onClick={close}><X aria-hidden="true" /></button>

@@ -1,5 +1,6 @@
 import type { ProjectTab } from "../lib/ipc";
 import { Activity, FileText, Image, Layers3 } from "lucide-react";
+import { createPortal } from "react-dom";
 import { ProjectDock } from "../instrument/ProjectDock";
 import { moveGooeyTab, type GooeyTab } from "./ui/GooeyTabs";
 
@@ -31,7 +32,8 @@ export function moveProjectTab(tab: ProjectView, key: string): ProjectView {
 }
 
 export function ProjectControls({ activeTab, onSelect }: ProjectControlsProps) {
-  return (
+  const dock = (
     <div className="project-controls"><ProjectDock active={activeTab} items={dockItems} onSelect={onSelect} /></div>
   );
+  return typeof document === "undefined" || !navigator.userAgent.includes("Electron") ? dock : createPortal(dock, document.body);
 }
