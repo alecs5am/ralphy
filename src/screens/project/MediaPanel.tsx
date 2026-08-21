@@ -2,13 +2,16 @@ import { AlertCircle, Copy, ExternalLink, Eye, FolderOpen, GalleryHorizontalEnd,
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ProjectMediaFilter, ProjectMediaKind } from "../../../electron/media/types";
 import type { MediaCardDto, MediaProvenance } from "../../../electron/ralphy/types";
+import type { ProjectSummary } from "../../lib/ipc";
 import { VirtualAssetGrid } from "../../components/VirtualAssetGrid";
 import { SelectMenu, type SelectMenuOption } from "../../components/ui/SelectMenu";
 import { SnappySlider } from "../../components/ui/SnappySlider";
 import { bridge } from "../../lib/ipc";
 import { defineInstrumentScreenStates, InstrumentScreenRoot, type InstrumentScenarioState } from "../../instrument/screen-state-registry";
+import { InstrumentRightRailPortal } from "../../instrument/InstrumentShell";
 import type { DomainPage } from "../../state/project-domain";
 import type { ProjectScreenController, ProjectScreenSnapshot } from "../../state/project-screen-controller";
+import { MediaReviewConsole } from "./MediaReviewConsole";
 
 const lifecycleOptions: Array<SelectMenuOption<ProjectMediaFilter>> = [
   ["all", "All"], ["references", "References"], ["working", "Working"], ["candidate", "Candidate"],
@@ -43,10 +46,12 @@ export function mediaInstrumentState(page: DomainPage, snapshot: ProjectScreenSn
   return page.status === "loading" || page.status === "error" ? "partial" : "ready";
 }
 
-export function MediaPanel({ page, controller, snapshot, rootEpoch, scrollMemory, scrollResetToken }: {
+export function MediaPanel({ page, controller, snapshot, project, workspaceName, rootEpoch, scrollMemory, scrollResetToken }: {
   page: DomainPage;
   controller: ProjectScreenController;
   snapshot: ProjectScreenSnapshot;
+  project: ProjectSummary;
+  workspaceName: string | null;
   rootEpoch: number;
   scrollMemory: Map<string, number>;
   scrollResetToken: string;
@@ -103,6 +108,10 @@ export function MediaPanel({ page, controller, snapshot, rootEpoch, scrollMemory
 
   if (page.status === "error" && page.items.length === 0) return <InstrumentScreenRoot descriptor={mediaInstrumentStates} state="error"><div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{page.error ?? "Media could not be loaded."}</span><button className="command-button" type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div></InstrumentScreenRoot>;
   const query = snapshot.domain.media;
+  const mediaItems = page.items as MediaCardDto[];
+  const selectedIndex = snapshot.selectedMedia
+    ? mediaItems.findIndex(({ ref }) => ref.type === snapshot.selectedMedia?.ref.type && ref.id === snapshot.selectedMedia?.ref.id)
+    : -1;
   return <InstrumentScreenRoot descriptor={mediaInstrumentStates} state={mediaInstrumentState(page, snapshot)}><section className="media-panel" aria-label="Project media">
     <div className="media-domain-toolbar" aria-label="Media filters">
       <SelectMenu overlayOwner="project.media" value={query.filter} options={lifecycleOptions} ariaLabel="Lifecycle or source" prefix="Source" onValueChange={(filter) => { void controller.setMediaQuery({ filter }); }} />
@@ -119,6 +128,18 @@ export function MediaPanel({ page, controller, snapshot, rootEpoch, scrollMemory
         ? <div className="empty-section">No media matches these filters.</div>
         : <VirtualAssetGrid key={scrollResetToken} items={page.items as MediaCardDto[]} project={snapshot.domain.project} rootEpoch={rootEpoch} selectedRef={snapshot.selectedMedia?.ref ?? null} resolvePreview={bridge.resolveProjectPreview} onSelect={(card) => controller.selectMedia(card)} onOpen={(card) => { void controller.openMediaViewer(card); }} onContextMenu={openContext} density={density} hasMore={page.nextCursor !== null} loadingMore={page.status === "loading" && page.items.length > 0 && page.nextCursor !== null} appendError={page.status === "error" && page.items.length > 0 && page.nextCursor !== null ? page.error : null} onLoadMore={() => { void controller.loadMore("media"); }} onRetryAppend={() => { void controller.retryPage("media"); }} scrollMemory={scrollMemory} scrollKey="media" scrollResetToken={scrollResetToken} />}
     </div>
+    {snapshot.selectedMedia && <InstrumentRightRailPortal owner="media-review" label="Media review">
+      <MediaReviewConsole
+        card={snapshot.selectedMedia}
+        project={project}
+        workspaceName={workspaceName}
+        rootEpoch={rootEpoch}
+        controller={controller}
+        position={selectedIndex}
+        total={mediaItems.length}
+        onNavigate={(delta) => { const next = mediaItems[selectedIndex + delta]; if (next) controller.selectMedia(next); }}
+      />
+    </InstrumentRightRailPortal>}
     {context && <div ref={menuRef} className="asset-context-menu" aria-label="Media actions" style={{ left: context.x, top: context.y }}>
       <button type="button" onClick={() => { void action("preview"); }}><Eye size={15} aria-hidden="true" />Preview</button>
       <button type="button" onClick={() => { void action("open"); }}><ExternalLink size={15} aria-hidden="true" />Open externally</button>

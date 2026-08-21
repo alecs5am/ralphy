@@ -24,7 +24,7 @@ function ProjectError({ error, onRetry }: { error: string | null; onRetry(): voi
   return <div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{error ?? "This section could not be loaded."}</span><button className="command-button" type="button" onClick={onRetry}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>;
 }
 
-export function ProjectScreenView({ project: _project, rootEpoch = 0, controller, snapshot, targetUnitId, scrollMemory = new Map<string, number>(), documentsScrollMemory = scrollMemory, unitsScrollMemory = scrollMemory, activityScrollMemory = scrollMemory }: { project: ProjectSummary; rootEpoch?: number; controller: ProjectScreenController; snapshot: ProjectScreenSnapshot; targetUnitId?: string | null; scrollMemory?: Map<string, number>; documentsScrollMemory?: Map<string, number>; unitsScrollMemory?: Map<string, number>; activityScrollMemory?: Map<string, number> }) {
+export function ProjectScreenView({ project, workspaceName = null, rootEpoch = 0, controller, snapshot, targetUnitId, scrollMemory = new Map<string, number>(), documentsScrollMemory = scrollMemory, unitsScrollMemory = scrollMemory, activityScrollMemory = scrollMemory }: { project: ProjectSummary; workspaceName?: string | null; rootEpoch?: number; controller: ProjectScreenController; snapshot: ProjectScreenSnapshot; targetUnitId?: string | null; scrollMemory?: Map<string, number>; documentsScrollMemory?: Map<string, number>; unitsScrollMemory?: Map<string, number>; activityScrollMemory?: Map<string, number> }) {
   const state = snapshot.domain;
   const activeTab = snapshot.activeTab;
   const page = state.pages[activeTab];
@@ -43,7 +43,7 @@ export function ProjectScreenView({ project: _project, rootEpoch = 0, controller
     <ProjectControls activeTab={activeTab} onSelect={selectTab} />
     <div className={`project-domain-body${activeTab === "media" ? " is-media" : activeTab === "documents" ? " is-documents" : activeTab === "units" ? " is-units" : activeTab === "activity" ? " is-activity" : ""}`} role="tabpanel" id={`project-panel-${activeTab}`} aria-labelledby={`project-tab-${activeTab}`}>
       {activeTab === "documents" && page && (page.status === "loading" && page.items.length === 0 ? <InstrumentScreenRoot descriptor={documentsInstrumentStates} state="loading"><div className="project-skeleton" role="status">Loading documents…</div></InstrumentScreenRoot> : page.status === "error" && page.items.length === 0 ? <InstrumentScreenRoot descriptor={documentsInstrumentStates} state="error"><ProjectError error={page.error} onRetry={retry} /></InstrumentScreenRoot> : <DocumentsPanel page={page} controller={controller} snapshot={snapshot} scrollMemory={documentsScrollMemory} resetToken={projectScrollToken} />)}
-      {activeTab === "media" && page && <MediaPanel page={page} controller={controller} snapshot={snapshot} rootEpoch={rootEpoch} scrollMemory={scrollMemory} scrollResetToken={mediaScrollToken} />}
+      {activeTab === "media" && page && <MediaPanel page={page} controller={controller} snapshot={snapshot} project={project} workspaceName={workspaceName} rootEpoch={rootEpoch} scrollMemory={scrollMemory} scrollResetToken={mediaScrollToken} />}
       {activeTab === "units" && page && <PageState descriptor={unitsInstrumentStates} page={page} empty="No units yet." onRetry={retry}><UnitsPanel page={page} controller={controller} snapshot={snapshot} targetUnitId={targetUnitId} scrollMemory={unitsScrollMemory} resetToken={projectScrollToken} /></PageState>}
       {activeTab === "activity" && page && <PageState descriptor={activityInstrumentStates} page={page} empty="No activity yet." onRetry={retry}><ActivityTimeline page={page} controller={controller} scrollMemory={activityScrollMemory} resetToken={projectScrollToken} /></PageState>}
     </div>
@@ -63,7 +63,7 @@ export function startProjectScreenController(
   return () => controller.dispose();
 }
 
-function ConnectedProjectScreen({ project, rootEpoch, controller, targetUnitId }: { project: ProjectSummary; rootEpoch: number; controller: ProjectScreenController; targetUnitId?: string | null }) {
+function ConnectedProjectScreen({ project, workspaceName, rootEpoch, controller, targetUnitId }: { project: ProjectSummary; workspaceName: string | null; rootEpoch: number; controller: ProjectScreenController; targetUnitId?: string | null }) {
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
   const projectScrollToken = JSON.stringify([rootEpoch, snapshot.domain.project.workspaceId, snapshot.domain.project.projectId]);
   const mediaScrollToken = JSON.stringify([projectScrollToken, snapshot.domain.media]);
@@ -87,16 +87,18 @@ function ConnectedProjectScreen({ project, rootEpoch, controller, targetUnitId }
     };
     setOwnedScroll(currentScroll);
   }
-  return <ProjectScreenView project={project} rootEpoch={rootEpoch} controller={controller} snapshot={snapshot} targetUnitId={targetUnitId} scrollMemory={currentScroll.media} documentsScrollMemory={currentScroll.documents} unitsScrollMemory={currentScroll.units} activityScrollMemory={currentScroll.activity} />;
+  return <ProjectScreenView project={project} workspaceName={workspaceName} rootEpoch={rootEpoch} controller={controller} snapshot={snapshot} targetUnitId={targetUnitId} scrollMemory={currentScroll.media} documentsScrollMemory={currentScroll.documents} unitsScrollMemory={currentScroll.units} activityScrollMemory={currentScroll.activity} />;
 }
 
 export function ProjectScreen({
   project,
+  workspaceName = null,
   rootEpoch,
   activitySequence,
   targetUnitId,
 }: {
   project: ProjectSummary;
+  workspaceName?: string | null;
   rootEpoch: number;
   activitySequence: number;
   targetUnitId?: string | null;
@@ -111,6 +113,6 @@ export function ProjectScreen({
     if (controller && targetUnitId) void controller.selectTab("units");
   }, [controller, targetUnitId]);
   return controller
-    ? <ConnectedProjectScreen project={project} rootEpoch={rootEpoch} controller={controller} targetUnitId={targetUnitId} />
+    ? <ConnectedProjectScreen project={project} workspaceName={workspaceName} rootEpoch={rootEpoch} controller={controller} targetUnitId={targetUnitId} />
     : <InstrumentScreenRoot descriptor={unitsInstrumentStates} state="loading"><main className="main-region project-region"><div className="project-skeleton" role="status">Loading project overview…</div></main></InstrumentScreenRoot>;
 }

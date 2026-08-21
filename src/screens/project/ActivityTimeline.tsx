@@ -1,6 +1,6 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Activity, Archive, CheckCircle2, FileText, Film, Layers3, MessageSquare, Play, Search, type LucideIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import type { ActivityRunDetail } from "../../../electron/media/types";
 import type { ActivityDto } from "../../../electron/ralphy/types";
@@ -8,6 +8,7 @@ import { AiBrandIcon } from "../../components/AiBrandIcon";
 import { RalphyMascot } from "../../components/RalphyMascot";
 import { SelectMenu, type SelectMenuOption } from "../../components/ui/SelectMenu";
 import { defineInstrumentScreenStates, InstrumentScreenRoot, type InstrumentScenarioState } from "../../instrument/screen-state-registry";
+import { InstrumentRightRailPortal, useOptionalInstrumentRightRail, useOptionalInstrumentScroll } from "../../instrument/InstrumentShell";
 import type { DomainPage } from "../../state/project-domain";
 import type { ProjectScreenController } from "../../state/project-screen-controller";
 import { ActivityInspector } from "./ActivityInspector";
@@ -59,6 +60,8 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
   scrollMemory: Map<string, number>;
   resetToken: string;
 }) {
+  const instrumentScroll = useOptionalInstrumentScroll();
+  const instrumentRail = useOptionalInstrumentRightRail();
   const ownerRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef(new Map<number, HTMLButtonElement>());
   const detailRef = useRef<Record<string, ActivityRunDetail>>({});
@@ -74,9 +77,11 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
   const remembered = useRememberedScroll(scrollMemory, "activity", resetToken);
   const attachOwner = useCallback((node: HTMLDivElement | null) => {
     ownerRef.current = node;
-    remembered.ref(node);
+    remembered.ref(instrumentScroll ? null : node);
     setOwner((current) => current === node ? current : node);
-  }, [remembered.ref]);
+  }, [instrumentScroll, remembered.ref]);
+  const scrollRoot = instrumentScroll?.element ?? owner;
+  const [scrollMargin, setScrollMargin] = useState(0);
   const items = useMemo(() => [...page.items as ActivityDto[]].sort((left, right) => left.sequence - right.sequence), [page.items]);
   const availableModels = useMemo(() => [...new Set(Object.values(details).flatMap((detail) => summarizeActivityRun(detail).models))].sort(), [details]);
   const modelOptions = useMemo<Array<SelectMenuOption<string>>>(() => [{ value: "all", label: "All models" }, ...availableModels.map((value) => ({ value, label: value }))], [availableModels]);
@@ -105,14 +110,31 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
   }, [filtered]);
   const virtualizer = useVirtualizer({
     count: rows.length,
-    getScrollElement: () => ownerRef.current,
+    getScrollElement: () => scrollRoot,
     getItemKey: (index) => rows[index]?.key ?? index,
     estimateSize: (index) => rows[index]?.type === "day" ? 34 : 48,
-    initialOffset: () => scrollMemory.get("activity") ?? 0,
+    initialOffset: () => instrumentScroll ? 0 : scrollMemory.get("activity") ?? 0,
     initialRect: { width: 800, height: 600 },
     overscan: 8,
+    scrollMargin,
   });
   const virtualRows = virtualizer.getVirtualItems();
+
+  useLayoutEffect(() => {
+    if (!ownerRef.current || !instrumentScroll?.element) {
+      setScrollMargin(0);
+      return;
+    }
+    const measure = () => {
+      const ownerBounds = ownerRef.current!.getBoundingClientRect();
+      const deskBounds = instrumentScroll.element!.getBoundingClientRect();
+      setScrollMargin(ownerBounds.top - deskBounds.top + instrumentScroll.element!.scrollTop);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(ownerRef.current);
+    return () => observer.disconnect();
+  }, [instrumentScroll]);
 
   const loadDetail = useCallback(async (event: ActivityDto) => {
     if (event.entityType.toLocaleLowerCase() !== "run" || detailRef.current[event.entityId] || inflight.current.has(event.entityId)) return;
@@ -160,11 +182,11 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
       </div>
       <div className="activity-table" role="table" aria-label="Project activity">
         <div className="activity-table-head" role="row"><span>Time</span><span>Source</span><span>Event</span><span>Entity</span><span>Model</span><span>Cost</span></div>
-        <div className="activity-scroll" role="region" aria-label="Activity events" tabIndex={0} ref={attachOwner} onScroll={remembered.onScroll}>
+        <div className="activity-scroll" role="region" aria-label="Activity events" tabIndex={0} ref={attachOwner} onScroll={instrumentScroll ? undefined : remembered.onScroll}>
           <div className="activity-virtual-list" role="rowgroup" style={{ height: virtualizer.getTotalSize() }}>
             {virtualRows.map((row) => {
               const item = rows[row.index];
-              if (item.type === "day") return <div className="activity-row activity-day" role="row" key={row.key} style={{ height: row.size, transform: `translateY(${row.start}px)` }}><span>{item.label}</span></div>;
+              if (item.type === "day") return <div className="activity-row activity-day" role="row" key={row.key} style={{ height: row.size, transform: `translateY(${row.start - scrollMargin}px)` }}><span>{item.label}</span></div>;
               const value = item.value;
               const date = dateValue(value.createdAt);
               const milestone = isMilestone(value.action);
@@ -173,7 +195,7 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
               const detail = details[value.entityId];
               const summary = detail ? summarizeActivityRun(detail) : null;
               const eventModel = summary?.models[0] ?? null;
-              return <button type="button" role="row" className={`activity-row activity-event${milestone ? " is-milestone" : ""}`} aria-selected={selected === value.sequence} data-action={value.action} data-tone={tone} key={row.key} ref={(node) => { if (node) rowRefs.current.set(value.sequence, node); else rowRefs.current.delete(value.sequence); }} style={{ height: row.size - 4, transform: `translateY(${row.start + 2}px)` }} onClick={() => open(value)} onKeyDown={(keyboardEvent) => {
+              return <button type="button" role="row" className={`activity-row activity-event${milestone ? " is-milestone" : ""}`} aria-selected={selected === value.sequence} data-action={value.action} data-tone={tone} key={row.key} ref={(node) => { if (node) rowRefs.current.set(value.sequence, node); else rowRefs.current.delete(value.sequence); }} style={{ height: row.size - 4, transform: `translateY(${row.start - scrollMargin + 2}px)` }} onClick={() => open(value)} onKeyDown={(keyboardEvent) => {
                 if (keyboardEvent.key === "ArrowDown" || keyboardEvent.key === "ArrowUp") { keyboardEvent.preventDefault(); moveSelection(value, keyboardEvent.key === "ArrowDown" ? 1 : -1); }
                 if (keyboardEvent.key === "Escape") setSelected(null);
               }}>
@@ -186,10 +208,13 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
               </button>;
             })}
           </div>
-          <AutoCursorTail root={owner} hasMore={page.nextCursor !== null} loading={page.status === "loading" && page.items.length > 0} error={page.status === "error" && page.items.length > 0 ? page.error : null} onLoadMore={() => { void controller.loadMore("activity"); }} onRetry={() => { void controller.retryPage("activity"); }} />
+          <AutoCursorTail root={scrollRoot} hasMore={page.nextCursor !== null} loading={page.status === "loading" && page.items.length > 0} error={page.status === "error" && page.items.length > 0 ? page.error : null} onLoadMore={() => { void controller.loadMore("activity"); }} onRetry={() => { void controller.retryPage("activity"); }} />
         </div>
       </div>
     </div>
-    {selectedEvent ? <ActivityInspector event={selectedEvent} detail={details[selectedEvent.entityId] ?? null} loading={loadingIds.has(selectedEvent.entityId)} error={errors[selectedEvent.entityId] ?? null} onRetry={() => { void loadDetail(selectedEvent); }} onClose={() => setSelected(null)} /> : null}
+    {selectedEvent ? instrumentRail && instrumentRail.mode !== "closed"
+      ? <InstrumentRightRailPortal owner="activity-inspector" label="Run inspector"><ActivityInspector event={selectedEvent} detail={details[selectedEvent.entityId] ?? null} loading={loadingIds.has(selectedEvent.entityId)} error={errors[selectedEvent.entityId] ?? null} onRetry={() => { void loadDetail(selectedEvent); }} onClose={() => setSelected(null)} /></InstrumentRightRailPortal>
+      : <ActivityInspector event={selectedEvent} detail={details[selectedEvent.entityId] ?? null} loading={loadingIds.has(selectedEvent.entityId)} error={errors[selectedEvent.entityId] ?? null} onRetry={() => { void loadDetail(selectedEvent); }} onClose={() => setSelected(null)} />
+      : null}
   </div></InstrumentScreenRoot>;
 }

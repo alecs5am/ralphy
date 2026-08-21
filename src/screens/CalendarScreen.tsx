@@ -11,6 +11,7 @@ import type {
 } from "../../electron/ralphy/types";
 import { bridge } from "../lib/ipc";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
+import { InstrumentRightRailPortal, useOptionalInstrumentRightRail } from "../instrument/InstrumentShell";
 import type { WorkspaceCalendarNavigationContext } from "../state/workbench";
 import {
   calendarDayKey, calendarRange, eventStatusSummary, filterCalendarEvents, formatCalendarTime,
@@ -38,6 +39,7 @@ export const calendarInstrumentStates = defineInstrumentScreenStates({
 export function CalendarScreen({
   workspaceId, workspaceName, initialDate = new Date(), navigationContext, onOpenProject = () => undefined,
 }: { workspaceId: string; workspaceName: string; initialDate?: Date; navigationContext?: WorkspaceCalendarNavigationContext; onOpenProject?: (projectId: string, unitId: string) => void }) {
+  const instrumentRail = useOptionalInstrumentRightRail();
   const [view, setView] = useState<CalendarView>("month");
   const [anchor, setAnchor] = useState(initialDate);
   const [data, setData] = useState<CalendarWorkspaceDto | null>(null);
@@ -171,7 +173,9 @@ export function CalendarScreen({
               : view === "week" ? <WeekView days={days} events={visible} timezone={timezone} selectedEventId={selectedEventId} onOpen={openEvent} />
                 : <AgendaView events={visible} timezone={timezone} selectedEventId={selectedEventId} tab={agendaTab} onTab={setAgendaTab} onOpen={openEvent}
                   onRetry={(event) => mutate({ action: "retry", eventId: event.id, expectedRowVersion: event.rowVersion })} onReconnect={openReconnect} />}
-        {rightPanel === "inspector" && selected && <EventInspector event={selected} postizAvailable={data?.postiz.available ?? false} onClose={() => setRightPanel(null)} onOpenUnit={() => selected.projectId && onOpenProject(selected.projectId, selected.unitId)} onMutate={mutate} />}
+        {rightPanel === "inspector" && selected && (instrumentRail && instrumentRail.mode !== "closed"
+          ? <InstrumentRightRailPortal owner="calendar-inspector" label="Calendar inspector"><EventInspector event={selected} postizAvailable={data?.postiz.available ?? false} onClose={() => setRightPanel(null)} onOpenUnit={() => selected.projectId && onOpenProject(selected.projectId, selected.unitId)} onMutate={mutate} /></InstrumentRightRailPortal>
+          : <EventInspector event={selected} postizAvailable={data?.postiz.available ?? false} onClose={() => setRightPanel(null)} onOpenUnit={() => selected.projectId && onOpenProject(selected.projectId, selected.unitId)} onMutate={mutate} />)}
         {rightPanel === "drawer" && <ReadyDrawer units={data?.readyUnits ?? []} onClose={() => setRightPanel(null)} onSchedule={openSchedule} />}
       </div>
       <span className="calendar-live" aria-live="polite">{notice}</span>

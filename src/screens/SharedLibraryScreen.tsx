@@ -3,6 +3,7 @@ import { useEffect, useId, useState, useSyncExternalStore, type MouseEvent } fro
 import type { MediaWorkbenchBridge } from "../../electron/media/types";
 import { bridge } from "../lib/ipc";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
+import { InstrumentRightRailPortal, useOptionalInstrumentRightRail } from "../instrument/InstrumentShell";
 import {
   createSharedLibraryController,
   type SharedLibraryController,
@@ -205,6 +206,7 @@ export function SharedLibraryScreenView({ workspaceId, workspaceName, rootEpoch,
   snapshot: SharedLibrarySnapshot;
   resolvePreview: MediaWorkbenchBridge["resolveSharedLibraryPreview"];
 }) {
+  const instrumentRail = useOptionalInstrumentRightRail();
   const [selectedRows, setSelectedRows] = useState<Set<string>>(() => new Set());
   const [inspector, setInspector] = useState<{ artifact: SharedArtifactPresentation; origin: HTMLElement | null } | null>(null);
   const [viewer, setViewer] = useState<{ artifact: SharedArtifactPresentation; origin: HTMLElement | null } | null>(null);
@@ -259,7 +261,9 @@ export function SharedLibraryScreenView({ workspaceId, workspaceName, rootEpoch,
         {snapshot.pageError && <div className="shared-library-error shared-library-page-error" role="alert"><span>{snapshot.pageError}</span><button type="button" onClick={() => { void controller.loadMore(); }}>Retry</button></div>}
         {value.nextCursor && !snapshot.pageError && <button className="shared-library-load-more" type="button" disabled={snapshot.loadingMore} onClick={() => { void controller.loadMore(); }}>{snapshot.loadingMore ? "Loading more artifacts…" : "Load more"}</button>}
       </div>
-      {inspector && <SharedArtifactInspector artifact={inspector.artifact} workspaceId={workspaceId} rootEpoch={rootEpoch} returnFocus={inspector.origin} onClose={() => setInspector(null)} onReconcile={controller.reconcileArtifact} onOpenWorkflow={(kind, origin) => setWorkflow({ kind, artifact: inspector.artifact, origin })} />}
+      {inspector && (instrumentRail && instrumentRail.mode !== "closed"
+        ? <InstrumentRightRailPortal owner="shared-inspector" label="Shared item inspector"><SharedArtifactInspector artifact={inspector.artifact} workspaceId={workspaceId} rootEpoch={rootEpoch} returnFocus={inspector.origin} onClose={() => setInspector(null)} onReconcile={controller.reconcileArtifact} onOpenWorkflow={(kind, origin) => setWorkflow({ kind, artifact: inspector.artifact, origin })} /></InstrumentRightRailPortal>
+        : <SharedArtifactInspector artifact={inspector.artifact} workspaceId={workspaceId} rootEpoch={rootEpoch} returnFocus={inspector.origin} onClose={() => setInspector(null)} onReconcile={controller.reconcileArtifact} onOpenWorkflow={(kind, origin) => setWorkflow({ kind, artifact: inspector.artifact, origin })} />)}
     </div>
     {selectedRows.size > 0 && <div className="shared-library-bulk-bar"><strong>{selectedRows.size} SELECTED</strong>{["Assign role", "Tag", "Review metadata", "Archive"].map((label) => <button type="button" aria-disabled="true" aria-describedby={bulkReasonId} key={label}>{label}</button>)}<p id={bulkReasonId}>This Core mutation is unavailable.</p></div>}
     {viewer && <SharedArtifactViewer

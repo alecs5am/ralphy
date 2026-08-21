@@ -99,6 +99,10 @@ export function useInstrumentRightRail(): InstrumentRightRailContextValue {
   return value;
 }
 
+export function useOptionalInstrumentRightRail(): InstrumentRightRailContextValue | null {
+  return useContext(RightRailContext);
+}
+
 export function InstrumentRightRailPortal({ owner, label, children }: {
   owner: InstrumentRightRailOwner;
   label: string;
@@ -336,8 +340,8 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
       {railHost && createPortal(
         <div
           className="instrument-chat-rail-content"
-          hidden={activeRail.owner !== "chat"}
-          inert={activeRail.owner !== "chat" || undefined}
+          hidden={activeRail.owner !== "chat" && activeRail.owner !== "media-review"}
+          inert={activeRail.owner !== "chat" && activeRail.owner !== "media-review" || undefined}
           onFocusCapture={(event) => { focusedRailElement.current = event.target as HTMLElement; }}
         >{props.chat}</div>,
         railHost,

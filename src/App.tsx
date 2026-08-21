@@ -668,6 +668,7 @@ export function App() {
         <ProjectScreen
           key={`project:${rootIdentity?.rootEpoch ?? 0}:${selectedProject.workspaceId}:${selectedProject.projectId}`}
           project={selectedProject}
+          workspaceName={workspaces.find(({ id }) => id === selectedProject.workspaceId)?.name ?? null}
           rootEpoch={rootIdentity?.rootEpoch ?? 0}
           activitySequence={rootIdentity?.activitySequence ?? 0}
           targetUnitId={targetUnitId}
