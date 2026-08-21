@@ -1,0 +1,25 @@
+@import "tailwindcss" important;
+
+@theme inline {
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-doto: var(--font-doto);
+
+  --color-desk: var(--instrument-desk);
+  --color-board: var(--instrument-desk-board);
+  --color-surface: var(--instrument-widget-light);
+  --color-surface-hover: var(--instrument-widget-light-hover);
+  --color-surface-sunken: var(--instrument-widget-light-sunken);
+  --color-ink: var(--instrument-text-primary);
+  --color-muted: var(--instrument-text-secondary-readable);
+  --color-instrument: var(--instrument-widget-dark);
+  --color-instrument-raised: var(--instrument-widget-dark-raised);
+  --color-instrument-hover: var(--instrument-widget-dark-hover);
+  --color-on-instrument: var(--instrument-text-on-dark-primary);
+  --color-on-instrument-muted: var(--instrument-text-on-dark-secondary-readable);
+  --color-alert: var(--instrument-alert);
+  --color-divider: var(--instrument-divider);
+
+  --radius-panel: 20px;
+  --radius-control: 10px;
+}

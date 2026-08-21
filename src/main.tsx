@@ -13,6 +13,7 @@ import "./styles/workspace-overview.css";
 import "./styles/shared-library.css";
 import "./styles/marketplace.css";
 import "./styles/work-surfaces.css";
+import "./styles/tailwind.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
