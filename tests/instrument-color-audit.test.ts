@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   CSS_NAMED_COLORS,
+  CSS_SYSTEM_COLORS,
   auditAssetManifest,
   auditCss,
   auditPaletteSource,
@@ -24,6 +25,16 @@ html[data-theme="light"] { --instrument-text: #111111; }
 /* instrument-token-definitions:end */
 :root { --fg: var(--instrument-text); color: currentColor; background: transparent; fill: none; }
 `;
+
+const SYSTEM_COLOR_MUTATIONS = [
+  "accentcolor", "accentcolortext", "activetext", "buttonborder", "buttonface", "buttontext",
+  "canvas", "canvastext", "field", "fieldtext", "graytext", "highlight", "highlighttext",
+  "linktext", "mark", "marktext", "selecteditem", "selecteditemtext", "visitedtext",
+  "activeborder", "activecaption", "appworkspace", "background", "buttonhighlight", "buttonshadow",
+  "captiontext", "inactiveborder", "inactivecaption", "inactivecaptiontext", "infobackground", "infotext",
+  "menu", "menutext", "scrollbar", "threeddarkshadow", "threedface", "threedhighlight",
+  "threedlightshadow", "threedshadow", "window", "windowframe", "windowtext",
+] as const;
 
 describe("instrument color audit mutations", () => {
   test.each([
@@ -57,6 +68,45 @@ describe("instrument color audit mutations", () => {
     expect(CSS_NAMED_COLORS).toHaveLength(148);
     expect(CSS_NAMED_COLORS).toEqual(expect.arrayContaining(["aliceblue", "purple", "rebeccapurple", "yellowgreen"]));
     expect(CSS_NAMED_COLORS.flatMap((color) => auditCss(`.fixture { color: ${color}; }`, "fixture.css").length ? [] : [color])).toEqual([]);
+  });
+
+  test.each([
+    ["escaped named color", String.raw`\70 urple`],
+    ["escaped function name", String.raw`r\67 b(127 123 214)`],
+    ["escaped system color", String.raw`\43 anvasText`],
+  ])("rejects a direct %s", (_name, literal) => {
+    expect(auditCss(`.fixture { color: ${literal}; }`, "fixture.css")).not.toEqual([]);
+    expect(auditTypeScript(`const fixture = ${JSON.stringify(literal)};`, "fixture.ts")).not.toEqual([]);
+    expect(auditPaletteSource(`${paletteSource}\nconst obsolete = ${JSON.stringify(literal)};`, ["#111111"], expectedPalette, "palette.ts")).not.toEqual([]);
+  });
+
+  test("rejects every standard and deprecated CSS system color, case-insensitively", () => {
+    expect(SYSTEM_COLOR_MUTATIONS).toHaveLength(42);
+    expect(CSS_SYSTEM_COLORS).toEqual(SYSTEM_COLOR_MUTATIONS);
+    for (const color of SYSTEM_COLOR_MUTATIONS) {
+      const mixedCase = color.replace(/^./, (letter) => letter.toUpperCase());
+      expect(auditCss(`.fixture { color: ${mixedCase}; }`, "fixture.css"), color).not.toEqual([]);
+      expect(auditTypeScript(`const fixture = ${JSON.stringify(mixedCase)};`, "fixture.ts"), color).not.toEqual([]);
+      expect(auditTypeScript(`const fixture = \`${mixedCase}\`;`, "fixture.ts"), color).not.toEqual([]);
+    }
+  });
+
+  test("does not mistake structural TypeScript strings for paint values", () => {
+    const source = `
+      type Kind = "menu";
+      const registry = { overlay: { kind: "menu" } };
+      const roles = { menu: "menu" };
+      const SAFE_HTML_TAGS = new Set(["mark"]);
+      const view = <button role="menu" aria-haspopup="menu" />;
+    `;
+    expect(auditTypeScript(source, "fixture.tsx")).toEqual([]);
+    expect(auditTypeScript('const fixture = { color: "CanvasText" };', "fixture.ts")).not.toEqual([]);
+  });
+
+  test("rejects system colors inside palette and token sources", () => {
+    expect(auditPaletteSource(`${paletteSource}\nconst obsolete = "CanvasText";`, ["#111111"], expectedPalette, "palette.ts")).not.toEqual([]);
+    expect(auditPaletteSource(`${paletteSource}\nconst obsolete = "WindowText";`, ["#111111"], expectedPalette, "palette.ts")).not.toEqual([]);
+    expect(auditTokenCss(tokenCss.replace("--instrument-text: #111111", "--instrument-text: CanvasText"), ["#111111"], expectedPalette, "tokens.css")).not.toEqual([]);
   });
 
   test("allows only the semantic paint keywords", () => {

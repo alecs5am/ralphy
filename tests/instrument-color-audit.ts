@@ -24,14 +24,67 @@ export const CSS_NAMED_COLORS = [
   "thistle", "tomato", "turquoise", "violet", "wheat", "white", "whitesmoke", "yellow", "yellowgreen",
 ] as const;
 
+export const CSS_SYSTEM_COLORS = [
+  "accentcolor", "accentcolortext", "activetext", "buttonborder", "buttonface", "buttontext",
+  "canvas", "canvastext", "field", "fieldtext", "graytext", "highlight", "highlighttext",
+  "linktext", "mark", "marktext", "selecteditem", "selecteditemtext", "visitedtext",
+  "activeborder", "activecaption", "appworkspace", "background", "buttonhighlight", "buttonshadow",
+  "captiontext", "inactiveborder", "inactivecaption", "inactivecaptiontext", "infobackground", "infotext",
+  "menu", "menutext", "scrollbar", "threeddarkshadow", "threedface", "threedhighlight",
+  "threedlightshadow", "threedshadow", "window", "windowframe", "windowtext",
+] as const;
+
 const HEX_COLOR = /#(?:[\dA-F]{8}|[\dA-F]{6}|[\dA-F]{4}|[\dA-F]{3})(?![\dA-F])/gi;
 const COLOR_FUNCTION = /\b(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch|color)\s*\(/gi;
 const NAMED_COLOR = new RegExp(`(?<![\\w-])(?:${CSS_NAMED_COLORS.join("|")})(?![\\w-])`, "gi");
+const SYSTEM_COLOR = new RegExp(`(?<![\\w-])(?:${CSS_SYSTEM_COLORS.join("|")})(?![\\w-])`, "gi");
+const EXACT_SYSTEM_COLOR = new RegExp(`^(?:${CSS_SYSTEM_COLORS.join("|")})$`, "i");
 const SEMANTIC_PAINT = /(?<![\w-])(?:currentcolor|none|transparent)(?![\w-])/gi;
 
-function colorTokens(value: string, includeSemanticPaint = false): string[] {
-  return [HEX_COLOR, COLOR_FUNCTION, NAMED_COLOR, ...(includeSemanticPaint ? [SEMANTIC_PAINT] : [])]
-    .flatMap((pattern) => [...value.matchAll(pattern)].map((match) => match[0]));
+type SystemColorMode = "none" | "exact" | "all";
+
+function decodeCssEscapes(value: string): string {
+  let decoded = "";
+  for (let index = 0; index < value.length;) {
+    if (value[index] !== "\\") {
+      decoded += value[index++];
+      continue;
+    }
+    const hex = value.slice(index + 1).match(/^[\dA-F]{1,6}/i)?.[0];
+    if (hex) {
+      const codePoint = Number.parseInt(hex, 16);
+      decoded += codePoint === 0 || codePoint > 0x10FFFF || codePoint >= 0xD800 && codePoint <= 0xDFFF
+        ? "\uFFFD"
+        : String.fromCodePoint(codePoint);
+      index += hex.length + 1;
+      if (/[\t\n\f\r ]/.test(value[index] ?? "")) index += value[index] === "\r" && value[index + 1] === "\n" ? 2 : 1;
+      continue;
+    }
+    const escaped = value[index + 1];
+    if (escaped === "\r" || escaped === "\n" || escaped === "\f") {
+      index += escaped === "\r" && value[index + 2] === "\n" ? 3 : 2;
+      continue;
+    }
+    decoded += escaped ?? "\\";
+    index += escaped === undefined ? 1 : 2;
+  }
+  return decoded;
+}
+
+function colorTokens(value: string, includeSemanticPaint = false, systemColors: SystemColorMode = "none"): string[] {
+  const normalized = decodeCssEscapes(value);
+  const patterns = [HEX_COLOR, COLOR_FUNCTION, NAMED_COLOR, ...(includeSemanticPaint ? [SEMANTIC_PAINT] : [])];
+  const tokens = patterns.flatMap((pattern) => [...normalized.matchAll(pattern)].map((match) => match[0]));
+  if (systemColors === "all") tokens.push(...[...normalized.matchAll(SYSTEM_COLOR)].map((match) => match[0]));
+  if (systemColors === "exact" && EXACT_SYSTEM_COLOR.test(normalized.trim())) tokens.push(normalized.trim());
+  return tokens;
+}
+
+function acceptsCssColor(property: string): boolean {
+  const normalized = property.toLowerCase();
+  return normalized.startsWith("--")
+    || /(?:^|-)color$/.test(normalized)
+    || /^(?:background|border|outline|box-shadow|text-shadow|fill|stroke|filter|backdrop-filter|text-decoration|text-emphasis|column-rule)(?:-|$)/.test(normalized);
 }
 
 function issue(path: string, line: number, token: string): string {
@@ -43,10 +96,14 @@ export function auditCss(source: string, path: string): string[] {
     const root = postcss.parse(source, { from: path });
     const issues: string[] = [];
     root.walkDecls((declaration) => {
-      issues.push(...colorTokens(declaration.value).map((token) => issue(path, declaration.source?.start?.line ?? 1, token)));
+      const systemColors = acceptsCssColor(declaration.prop) ? "all" : "none";
+      issues.push(...colorTokens(declaration.value, false, systemColors).map((token) => issue(path, declaration.source?.start?.line ?? 1, token)));
     });
     root.walkAtRules((rule) => {
       issues.push(...colorTokens(rule.params).map((token) => issue(path, rule.source?.start?.line ?? 1, token)));
+      for (const value of rule.params.matchAll(/:\s*([^;)]+)/g)) {
+        issues.push(...colorTokens(value[1], false, "all").map((token) => issue(path, rule.source?.start?.line ?? 1, token)));
+      }
     });
     return issues;
   } catch (error) {
@@ -60,12 +117,31 @@ interface TypeScriptColorSite {
   token: string;
 }
 
+function isStructuralSystemString(value: string, node: ts.Node): boolean {
+  const normalized = decodeCssEscapes(value).trim().toLowerCase();
+  if (!EXACT_SYSTEM_COLOR.test(normalized)) return false;
+  if (ts.isLiteralTypeNode(node.parent)) return true;
+  if (ts.isJsxAttribute(node.parent)) {
+    const name = node.parent.name.getText().toLowerCase();
+    if (name === "role" || name === "aria-haspopup") return true;
+  }
+  if (ts.isPropertyAssignment(node.parent)) {
+    const name = ts.isIdentifier(node.parent.name) || ts.isStringLiteral(node.parent.name) ? node.parent.name.text.toLowerCase() : "";
+    if (name === "kind" || name === normalized) return true;
+  }
+  for (let current: ts.Node | undefined = node.parent; current && !ts.isSourceFile(current); current = current.parent) {
+    if (ts.isVariableDeclaration(current) && ts.isIdentifier(current.name) && /TAGS$/.test(current.name.text)) return true;
+  }
+  return false;
+}
+
 function typeScriptColorSites(source: string, path: string, includeSemanticPaint = false): { file: ts.SourceFile; sites: TypeScriptColorSite[] } {
   const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, path.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const sites: TypeScriptColorSite[] = [];
   const record = (value: string, node: ts.Node) => {
     const line = file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1;
-    sites.push(...colorTokens(value, includeSemanticPaint).map((token) => ({ line, nodeStart: node.getStart(file), token })));
+    const systemColors = isStructuralSystemString(value, node) ? "none" : "exact";
+    sites.push(...colorTokens(value, includeSemanticPaint, systemColors).map((token) => ({ line, nodeStart: node.getStart(file), token })));
   };
   const visit = (node: ts.Node): void => {
     if (ts.isStringLiteralLike(node)) record(node.text, node);
