@@ -286,7 +286,14 @@ describe("marketplace navigation", () => {
     }
   });
 
-  test("defers preference writes until restoration and preserves the restored route on theme changes", async () => {
+  test.each([
+    ["success", "grid"],
+    ["success", "list"],
+    ["null", "grid"],
+    ["null", "list"],
+    ["reject", "grid"],
+    ["reject", "list"],
+  ] as const)("persists theme after %s restoration while preserving %s workbench preferences", async (outcome, workspaceView) => {
     vi.useFakeTimers();
     const host = createReactHost();
     Object.defineProperties(window, {
@@ -314,7 +321,7 @@ describe("marketplace navigation", () => {
       sidebarVisible: false,
       rightPanelVisible: true,
       bottomPanelVisible: true,
-      workspaceView: "grid",
+      workspaceView,
       sidebarWidth: 372,
       rightPanelWidth: 404,
       bottomPanelHeight: 280,
@@ -322,9 +329,13 @@ describe("marketplace navigation", () => {
     local.setItem("ralphy-media-workbench-v1", JSON.stringify(saved));
     const previousStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
     Object.defineProperty(globalThis, "localStorage", { configurable: true, value: local });
-    let finishRestore!: (value: Awaited<ReturnType<typeof bridge.restoreLibrary>>) => void;
-    const restore = vi.spyOn(bridge, "restoreLibrary").mockReturnValue(new Promise((resolve) => {
-      finishRestore = resolve;
+    let finishRestore!: () => void;
+    const restore = vi.spyOn(bridge, "restoreLibrary").mockReturnValue(new Promise((resolve, reject) => {
+      finishRestore = () => {
+        if (outcome === "success") resolve(restored);
+        else if (outcome === "null") resolve(null);
+        else reject(new Error("Home library unavailable"));
+      };
     }));
     const restored = {
       identity: { storeId: "store-1", label: "Ralphy", rootEpoch: 1, activitySequence: 0 },
@@ -359,7 +370,7 @@ describe("marketplace navigation", () => {
       await act(async () => { vi.advanceTimersByTime(500); await settle(); });
       expect(JSON.parse(local.getItem("ralphy-media-workbench-v1")!)).toEqual(saved);
 
-      await act(async () => { finishRestore(restored); await settle(); });
+      await act(async () => { finishRestore(); await settle(); });
       await act(async () => { vi.advanceTimersByTime(121); await settle(); });
       expect(JSON.parse(local.getItem("ralphy-media-workbench-v1")!)).toEqual(saved);
 

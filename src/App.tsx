@@ -53,7 +53,6 @@ import {
   workbenchReducer,
   type WorkspaceDestination,
   type WorkspaceOverviewReturnState,
-  type WorkspaceView,
   type WorkspacePage,
 } from "./state/workbench";
 
@@ -164,7 +163,6 @@ export function App() {
     initialPreferences.current.bottomPanelVisible,
   );
   const [settingsVisible, setSettingsVisible] = useState(false);
-  const workspaceView: WorkspaceView = "grid";
   const [workspacePage, setWorkspacePage] = useState<WorkspacePage>(
     initialPreferences.current.workspacePage,
   );
@@ -352,13 +350,23 @@ export function App() {
   }, [bottomPanelMax, rightPanelMax, sidebarMax]);
 
   useEffect(() => {
+    if (restoring) return;
+    const timer = window.setTimeout(() => {
+      updateWorkbenchPreferences(localStorage, (current) => ({
+        ...current,
+        theme,
+      }));
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [restoring, theme]);
+
+  useEffect(() => {
     if (restoring || !rootIdentity || !state.catalog) return;
     const workspaceId = state.route.kind === "library" ? null : state.route.workspaceId;
     const projectId = state.route.kind === "project" ? state.route.projectId : null;
     const timer = window.setTimeout(() => {
       updateWorkbenchPreferences(localStorage, (current) => ({
         ...current,
-        theme,
         rootPath: rootIdentity.storeId,
         workspaceId,
         projectId,
@@ -368,7 +376,6 @@ export function App() {
         sidebarVisible,
         rightPanelVisible,
         bottomPanelVisible,
-        workspaceView,
         sidebarWidth,
         rightPanelWidth,
         bottomPanelHeight,
@@ -388,9 +395,7 @@ export function App() {
     state.pinnedWorkspaceIds,
     state.catalog,
     state.route,
-    theme,
     workspacePage,
-    workspaceView,
   ]);
 
   useEffect(() => {
