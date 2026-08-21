@@ -362,6 +362,18 @@ export function readWorkbenchPreferences(storage: StorageLike): WorkbenchPrefere
 export function writeWorkbenchPreferences(
   storage: StorageLike,
   preferences: WorkbenchPreferences,
-): void {
-  storage.setItem(PREFERENCES_KEY, JSON.stringify(preferences));
+): boolean {
+  try {
+    storage.setItem(PREFERENCES_KEY, JSON.stringify(preferences));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function updateWorkbenchPreferences(
+  storage: StorageLike,
+  update: (current: WorkbenchPreferences) => WorkbenchPreferences,
+): boolean {
+  return writeWorkbenchPreferences(storage, update(readWorkbenchPreferences(storage)));
 }

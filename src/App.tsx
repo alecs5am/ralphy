@@ -49,8 +49,8 @@ import {
   mostRecentWorkspaceId,
   PANEL_SIZE_LIMITS,
   readWorkbenchPreferences,
+  updateWorkbenchPreferences,
   workbenchReducer,
-  writeWorkbenchPreferences,
   type WorkspaceDestination,
   type WorkspaceOverviewReturnState,
   type WorkspaceView,
@@ -246,6 +246,7 @@ export function App() {
     try {
       const result = await bridge.restoreLibrary();
       if (!result) return;
+      setRootIdentity(result.identity);
       const saved = initialPreferences.current;
       const savedWorkspace =
         saved.rootPath === result.identity.storeId &&
@@ -351,12 +352,14 @@ export function App() {
   }, [bottomPanelMax, rightPanelMax, sidebarMax]);
 
   useEffect(() => {
+    if (restoring || !rootIdentity || !state.catalog) return;
     const workspaceId = state.route.kind === "library" ? null : state.route.workspaceId;
     const projectId = state.route.kind === "project" ? state.route.projectId : null;
     const timer = window.setTimeout(() => {
-      writeWorkbenchPreferences(localStorage, {
+      updateWorkbenchPreferences(localStorage, (current) => ({
+        ...current,
         theme,
-        rootPath: rootIdentity?.storeId ?? null,
+        rootPath: rootIdentity.storeId,
         workspaceId,
         projectId,
         pinnedWorkspaceIds: state.pinnedWorkspaceIds,
@@ -369,7 +372,7 @@ export function App() {
         sidebarWidth,
         rightPanelWidth,
         bottomPanelHeight,
-      });
+      }));
     }, 120);
     return () => window.clearTimeout(timer);
   }, [
@@ -378,10 +381,12 @@ export function App() {
     rootIdentity?.storeId,
     rightPanelWidth,
     rightPanelVisible,
+    restoring,
     sidebarWidth,
     sidebarVisible,
     state.pinnedProjectIds,
     state.pinnedWorkspaceIds,
+    state.catalog,
     state.route,
     theme,
     workspacePage,

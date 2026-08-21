@@ -462,6 +462,11 @@
   color: var(--control-text);
 }
 
+.settings-segmented button:focus-visible {
+  outline: var(--control-focus);
+  outline-offset: 2px;
+}
+
 .settings-input {
   width: 190px;
   height: 28px;

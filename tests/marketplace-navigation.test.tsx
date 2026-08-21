@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { CatalogResult } from "../electron/media/types";
 import { bridge } from "../src/lib/ipc";
+import { ThemeProvider, useTheme } from "../src/instrument/ThemeProvider";
 import { MarketplaceScreen } from "../src/screens/MarketplaceScreen";
 import {
   MARKETPLACE_SIDEBAR_WIDTH,
@@ -12,6 +13,8 @@ import {
   writeMarketplaceNavigation,
   type MarketplaceLocation,
 } from "../src/state/marketplace-navigation";
+import type { WorkbenchPreferences } from "../src/state/workbench";
+import type { ThemePreference } from "../src/instrument/types";
 import { createReactHost, type HostNode } from "./react-host";
 
 vi.mock("motion/react", () => {
@@ -274,6 +277,95 @@ describe("marketplace navigation", () => {
       await act(async () => workAgain.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
       await act(async () => { vi.advanceTimersByTime(1); await settle(); });
       expect((document.activeElement as unknown as HostNode).getAttribute("id")).toBe("app-mode-work");
+    } finally {
+      await act(async () => root.unmount());
+      restore.mockRestore();
+      if (previousStorage) Object.defineProperty(globalThis, "localStorage", previousStorage);
+      else delete (globalThis as Record<string, unknown>).localStorage;
+      host.restore();
+    }
+  });
+
+  test("defers preference writes until restoration and preserves the restored route on theme changes", async () => {
+    vi.useFakeTimers();
+    const host = createReactHost();
+    Object.defineProperties(window, {
+      innerWidth: { configurable: true, value: 1360 },
+      innerHeight: { configurable: true, value: 900 },
+      matchMedia: {
+        configurable: true,
+        value: () => ({
+          matches: false,
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+        }),
+      },
+    });
+    Object.assign(document.documentElement, { dataset: {} });
+    const local = storage();
+    const saved = {
+      theme: "dark",
+      rootPath: "store-1",
+      workspaceId: "workspace-1",
+      projectId: "project-1",
+      pinnedWorkspaceIds: ["workspace-1"],
+      pinnedProjectIds: ["workspace-1/project-1"],
+      workspacePage: "memory",
+      sidebarVisible: false,
+      rightPanelVisible: true,
+      bottomPanelVisible: true,
+      workspaceView: "grid",
+      sidebarWidth: 372,
+      rightPanelWidth: 404,
+      bottomPanelHeight: 280,
+    } satisfies WorkbenchPreferences;
+    local.setItem("ralphy-media-workbench-v1", JSON.stringify(saved));
+    const previousStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+    Object.defineProperty(globalThis, "localStorage", { configurable: true, value: local });
+    let finishRestore!: (value: Awaited<ReturnType<typeof bridge.restoreLibrary>>) => void;
+    const restore = vi.spyOn(bridge, "restoreLibrary").mockReturnValue(new Promise((resolve) => {
+      finishRestore = resolve;
+    }));
+    const restored = {
+      identity: { storeId: "store-1", label: "Ralphy", rootEpoch: 1, activitySequence: 0 },
+      catalog: {
+        rootPath: "store-1",
+        generation: 1,
+        mediaItemCount: 0,
+        completedAt: "2026-08-20T10:00:00.000Z",
+        workspaces: [{
+          id: "workspace-1", name: "UX Testing Lab", description: "", absolutePath: "/tmp/ux",
+          projectCount: 1, sharedCount: 0, unitCount: 0, finalCount: 0, recentActivity: "2026-08-20T10:00:00.000Z",
+        }],
+        projects: [{
+          id: "workspace-1/project-1", workspaceId: "workspace-1", projectId: "project-1",
+          name: "Theme QA", brief: "", status: "assets", phase: "production", finalState: "review",
+          platform: null, aspectRatio: null, spendUsd: null, finalCount: 0, sharedCount: 0, unitCount: 0,
+          recentActivity: "2026-08-20T10:00:00.000Z",
+        }],
+      },
+    };
+    const { App } = await import("../src/App");
+    const { createRoot } = await import("react-dom/client");
+    const root = createRoot(host.container as unknown as Element);
+    let changeTheme!: (value: ThemePreference) => void;
+    function ThemeControl() {
+      changeTheme = useTheme().setPreference;
+      return null;
+    }
+
+    try {
+      await act(async () => { root.render(<ThemeProvider initialPreference="dark"><App /><ThemeControl /></ThemeProvider>); await settle(); });
+      await act(async () => { vi.advanceTimersByTime(500); await settle(); });
+      expect(JSON.parse(local.getItem("ralphy-media-workbench-v1")!)).toEqual(saved);
+
+      await act(async () => { finishRestore(restored); await settle(); });
+      await act(async () => { vi.advanceTimersByTime(121); await settle(); });
+      expect(JSON.parse(local.getItem("ralphy-media-workbench-v1")!)).toEqual(saved);
+
+      await act(async () => { changeTheme("light"); await settle(); });
+      await act(async () => { vi.advanceTimersByTime(121); await settle(); });
+      expect(JSON.parse(local.getItem("ralphy-media-workbench-v1")!)).toEqual({ ...saved, theme: "light" });
     } finally {
       await act(async () => root.unmount());
       restore.mockRestore();

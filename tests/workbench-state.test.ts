@@ -10,6 +10,7 @@ import {
   readWorkbenchPreferences,
   sortProjects,
   sortWorkspaces,
+  updateWorkbenchPreferences,
   workbenchReducer,
   writeWorkbenchPreferences,
 } from "../src/state/workbench";
@@ -247,6 +248,56 @@ describe("workbench ordering and preferences", () => {
 
     expect(read(JSON.stringify({ theme: "sepia" })).theme).toBe("system");
     expect(read("not-json").theme).toBe("system");
+  });
+
+  test("falls back to complete defaults when preference reads are denied", () => {
+    const preferences = readWorkbenchPreferences({
+      getItem: () => { throw new DOMException("denied", "SecurityError"); },
+      setItem: () => undefined,
+    });
+
+    expect(preferences).toMatchObject({
+      theme: "system",
+      rootPath: null,
+      workspaceId: null,
+      projectId: null,
+      sidebarVisible: true,
+      rightPanelVisible: false,
+    });
+  });
+
+  test("reports denied preference writes without throwing", () => {
+    const preferences = readWorkbenchPreferences({
+      getItem: () => null,
+      setItem: () => undefined,
+    });
+    const denied = {
+      getItem: () => null,
+      setItem: () => { throw new DOMException("quota", "QuotaExceededError"); },
+    };
+
+    expect(writeWorkbenchPreferences(denied, { ...preferences, theme: "dark" })).toBe(false);
+  });
+
+  test("functionally updates one preference without replacing sibling state", () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => { values.set(key, value); },
+    };
+    const saved = {
+      ...readWorkbenchPreferences(storage),
+      rootPath,
+      workspaceId: "newer",
+      projectId: "newer-project",
+      sidebarVisible: false,
+      rightPanelVisible: true,
+      sidebarWidth: 372,
+    };
+    writeWorkbenchPreferences(storage, saved);
+
+    expect(updateWorkbenchPreferences(storage, (current) => ({ ...current, theme: "light" }))).toBe(true);
+    expect(readWorkbenchPreferences(storage)).toEqual({ ...saved, theme: "light" });
   });
 
   test("clamps persisted panel sizes to usable bounds", () => {
