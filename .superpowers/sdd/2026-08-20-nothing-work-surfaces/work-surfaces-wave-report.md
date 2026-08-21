@@ -4,6 +4,7 @@
 
 - Branch: `codex/nothing-work-wave`
 - Base: `32e93891aac05f97637699d35b58c7e3290e652d`
+- Implementation commit: `de37a0d` (`feat: rebuild Nothing work surfaces`)
 - Plan: `docs/superpowers/plans/2026-08-20-nothing-work-surfaces.md`, Tasks 1–20
 - Marketplace was not changed.
 
