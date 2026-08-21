@@ -41,7 +41,7 @@ const SYSTEM_COLOR = new RegExp(`(?<![\\w-])(?:${CSS_SYSTEM_COLORS.join("|")})(?
 const EXACT_SYSTEM_COLOR = new RegExp(`^(?:${CSS_SYSTEM_COLORS.join("|")})$`, "i");
 const SEMANTIC_PAINT = /(?<![\w-])(?:currentcolor|none|transparent)(?![\w-])/gi;
 
-type SystemColorMode = "none" | "exact" | "all";
+type SystemColorMode = "none" | "all";
 
 function decodeCssEscapes(value: string): string {
   let decoded = "";
@@ -76,19 +76,51 @@ function colorTokens(value: string, includeSemanticPaint = false, systemColors: 
   const patterns = [HEX_COLOR, COLOR_FUNCTION, NAMED_COLOR, ...(includeSemanticPaint ? [SEMANTIC_PAINT] : [])];
   const tokens = patterns.flatMap((pattern) => [...normalized.matchAll(pattern)].map((match) => match[0]));
   if (systemColors === "all") tokens.push(...[...normalized.matchAll(SYSTEM_COLOR)].map((match) => match[0]));
-  if (systemColors === "exact" && EXACT_SYSTEM_COLOR.test(normalized.trim())) tokens.push(normalized.trim());
   return tokens;
-}
-
-function acceptsCssColor(property: string): boolean {
-  const normalized = property.toLowerCase();
-  return normalized.startsWith("--")
-    || /(?:^|-)color$/.test(normalized)
-    || /^(?:background|border|outline|box-shadow|text-shadow|fill|stroke|filter|backdrop-filter|text-decoration|text-emphasis|column-rule)(?:-|$)/.test(normalized);
 }
 
 function issue(path: string, line: number, token: string): string {
   return `${path}:${line}:${token}`;
+}
+
+function isStructuralCssToken(property: string, token: string): boolean {
+  return token.toLowerCase() === "background"
+    && ["transition", "transition-property", "will-change"].includes(property.toLowerCase());
+}
+
+function embeddedSystemColorTokens(value: string): string[] {
+  const normalized = decodeCssEscapes(value);
+  const matches = [...normalized.matchAll(SYSTEM_COLOR)].map((match) => match[0]);
+  if (EXACT_SYSTEM_COLOR.test(normalized.trim())) return matches;
+
+  const cssSource = /[{}]/.test(normalized)
+    ? normalized
+    : /(?:^|;)\s*[-\w]+\s*:/.test(normalized) && !normalized.includes("://")
+      ? `.audit { ${normalized} }`
+      : undefined;
+  if (cssSource) {
+    try {
+      const root = postcss.parse(cssSource);
+      const tokens: string[] = [];
+      root.walkDecls((declaration) => {
+        tokens.push(...colorTokens(declaration.value, false, "all")
+          .filter((token) => !isStructuralCssToken(declaration.prop, token)));
+      });
+      root.walkAtRules((rule) => {
+        for (const descriptor of rule.params.matchAll(/:\s*([^;)]+)/g)) {
+          tokens.push(...colorTokens(descriptor[1], false, "all"));
+        }
+      });
+      return tokens.filter((token) => EXACT_SYSTEM_COLOR.test(token));
+    } catch {
+      return [];
+    }
+  }
+
+  const cssFunction = /(?:repeating-)?(?:linear|radial|conic)-gradient\s*\(|(?:color-mix|light-dark|var|drop-shadow)\s*\(/i;
+  const cssMeasure = /(?:^|\s)-?(?:\d*\.)?\d+(?:px|r?em|ch|ex|%|vw|vh|vmin|vmax)(?:\s|$)/i;
+  const borderStyle = /(?:^|\s)(?:solid|dashed|dotted|double|groove|ridge|inset|outset)(?:\s|$)/i;
+  return cssFunction.test(normalized) || cssMeasure.test(normalized) || borderStyle.test(normalized) ? matches : [];
 }
 
 export function auditCss(source: string, path: string): string[] {
@@ -96,8 +128,9 @@ export function auditCss(source: string, path: string): string[] {
     const root = postcss.parse(source, { from: path });
     const issues: string[] = [];
     root.walkDecls((declaration) => {
-      const systemColors = acceptsCssColor(declaration.prop) ? "all" : "none";
-      issues.push(...colorTokens(declaration.value, false, systemColors).map((token) => issue(path, declaration.source?.start?.line ?? 1, token)));
+      issues.push(...colorTokens(declaration.value, false, "all")
+        .filter((token) => !isStructuralCssToken(declaration.prop, token))
+        .map((token) => issue(path, declaration.source?.start?.line ?? 1, token)));
     });
     root.walkAtRules((rule) => {
       issues.push(...colorTokens(rule.params).map((token) => issue(path, rule.source?.start?.line ?? 1, token)));
@@ -117,22 +150,42 @@ interface TypeScriptColorSite {
   token: string;
 }
 
-function isStructuralSystemString(value: string, node: ts.Node): boolean {
+function enclosingVariable(node: ts.Node): string | undefined {
+  for (let current: ts.Node | undefined = node.parent; current && !ts.isSourceFile(current); current = current.parent) {
+    if (ts.isVariableDeclaration(current) && ts.isIdentifier(current.name)) return current.name.text;
+  }
+  return undefined;
+}
+
+function isProjectPath(path: string, expected: string): boolean {
+  const normalized = path.replaceAll("\\", "/");
+  return normalized === expected || normalized.endsWith(`/${expected}`);
+}
+
+function isStructuralSystemString(value: string, node: ts.Node, path: string): boolean {
   const normalized = decodeCssEscapes(value).trim().toLowerCase();
+  const overlayRegistry = isProjectPath(path, "src/instrument/overlay-registry.tsx");
   if (!EXACT_SYSTEM_COLOR.test(normalized)) return false;
-  if (ts.isLiteralTypeNode(node.parent)) return true;
-  if (ts.isJsxAttribute(node.parent)) {
+  if (overlayRegistry && normalized === "menu" && ts.isLiteralTypeNode(node.parent)) {
+    const declaration = node.parent.parent;
+    const alias = ts.isTypeAliasDeclaration(declaration) ? declaration : ts.isUnionTypeNode(declaration) && ts.isTypeAliasDeclaration(declaration.parent) ? declaration.parent : undefined;
+    if (alias?.name.text === "InstrumentOverlayKind") return true;
+    if (enclosingVariable(node) === "overlayRoles") return true;
+  }
+  if (normalized === "menu" && ts.isJsxAttribute(node.parent)) {
     const name = node.parent.name.getText().toLowerCase();
     if (name === "role" || name === "aria-haspopup") return true;
   }
   if (ts.isPropertyAssignment(node.parent)) {
     const name = ts.isIdentifier(node.parent.name) || ts.isStringLiteral(node.parent.name) ? node.parent.name.text.toLowerCase() : "";
-    if (name === "kind" || name === normalized) return true;
+    const owner = enclosingVariable(node);
+    if (overlayRegistry && normalized === "menu" && owner === "INSTRUMENT_OVERLAYS" && name === "kind") return true;
+    if (overlayRegistry && normalized === "menu" && owner === "overlayRoles" && name === "menu") return true;
   }
-  for (let current: ts.Node | undefined = node.parent; current && !ts.isSourceFile(current); current = current.parent) {
-    if (ts.isVariableDeclaration(current) && ts.isIdentifier(current.name) && /TAGS$/.test(current.name.text)) return true;
-  }
-  return false;
+  return normalized === "mark"
+    && isProjectPath(path, "src/components/MarkdownView.tsx")
+    && enclosingVariable(node) === "SAFE_HTML_TAGS"
+    && ts.isArrayLiteralExpression(node.parent);
 }
 
 function typeScriptColorSites(source: string, path: string, includeSemanticPaint = false): { file: ts.SourceFile; sites: TypeScriptColorSite[] } {
@@ -140,14 +193,14 @@ function typeScriptColorSites(source: string, path: string, includeSemanticPaint
   const sites: TypeScriptColorSite[] = [];
   const record = (value: string, node: ts.Node) => {
     const line = file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1;
-    const systemColors = isStructuralSystemString(value, node) ? "none" : "exact";
-    sites.push(...colorTokens(value, includeSemanticPaint, systemColors).map((token) => ({ line, nodeStart: node.getStart(file), token })));
+    const tokens = [...colorTokens(value, includeSemanticPaint), ...embeddedSystemColorTokens(value)]
+      .filter((token) => !EXACT_SYSTEM_COLOR.test(token) || !isStructuralSystemString(value, node, path));
+    sites.push(...tokens.map((token) => ({ line, nodeStart: node.getStart(file), token })));
   };
   const visit = (node: ts.Node): void => {
     if (ts.isStringLiteralLike(node)) record(node.text, node);
     if (ts.isTemplateExpression(node)) {
-      record(node.head.text, node.head);
-      for (const span of node.templateSpans) record(span.literal.text, span.literal);
+      record(node.head.text + node.templateSpans.map((span) => `0${span.literal.text}`).join(""), node);
     }
     ts.forEachChild(node, visit);
   };

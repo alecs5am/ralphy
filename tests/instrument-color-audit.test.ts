@@ -92,15 +92,75 @@ describe("instrument color audit mutations", () => {
   });
 
   test("does not mistake structural TypeScript strings for paint values", () => {
-    const source = `
-      type Kind = "menu";
-      const registry = { overlay: { kind: "menu" } };
-      const roles = { menu: "menu" };
-      const SAFE_HTML_TAGS = new Set(["mark"]);
-      const view = <button role="menu" aria-haspopup="menu" />;
+    const overlaySource = `
+      type InstrumentOverlayKind = "menu";
+      const INSTRUMENT_OVERLAYS = { overlay: { kind: "menu" } };
+      const overlayRoles: Record<InstrumentOverlayKind, "menu"> = { menu: "menu" };
     `;
-    expect(auditTypeScript(source, "fixture.tsx")).toEqual([]);
+    const consumerSource = `
+      const view = <button role="menu" aria-haspopup="menu" />;
+      const prose = ["Observation window", "Use the canvas for the preview", "Recalled as background context"];
+      const ids = ["canvas-panel", "background-job", "window.ralphy"];
+      const injectedJavaScript = ["if (window.ralphy) return true", "if(window.ralphy) return true", "render(CanvasText)"];
+      const transitionCss = ".fixture { transition: background 100ms linear; }";
+    `;
+    expect(auditTypeScript(overlaySource, "src/instrument/overlay-registry.tsx")).toEqual([]);
+    expect(auditTypeScript('const SAFE_HTML_TAGS = new Set(["mark"]);', "src/components/MarkdownView.tsx")).toEqual([]);
+    expect(auditTypeScript(consumerSource, "fixture.tsx")).toEqual([]);
     expect(auditTypeScript('const fixture = { color: "CanvasText" };', "fixture.ts")).not.toEqual([]);
+  });
+
+  test("does not mistake CSS property identifiers for system-color values", () => {
+    expect(auditCss(`
+      .fixture {
+        transition: background 100ms linear;
+        transition-property: background;
+        will-change: background;
+      }
+    `, "fixture.css")).toEqual([]);
+  });
+
+  test.each([
+    ["embedded declaration", ".fixture { color: CanvasText; }"],
+    ["embedded escaped declaration", String.raw`.fixture { color: \43 anvasText; }`],
+    ["standalone border value", "1px solid CanvasText"],
+    ["standalone escaped shadow value", String.raw`0 0 2px \43 anvasText`],
+    ["nested function value", "linear-gradient(CanvasText, transparent)"],
+    ["embedded mask value", ".fixture { mask-image: linear-gradient(CanvasText, transparent); }"],
+    ["embedded property descriptor", '@property --paint { syntax: "<color>"; inherits: false; initial-value: CanvasText; }'],
+  ])("rejects a %s in every TypeScript string context", (_name, value) => {
+    const source = `const fixture = { nested: [${JSON.stringify(value)}] };`;
+    expect(auditTypeScript(source, "fixture.ts")).not.toEqual([]);
+    expect(auditPaletteSource(`${paletteSource}\n${source}`, ["#111111"], expectedPalette, "palette.ts")).not.toEqual([]);
+  });
+
+  test("rejects an escaped system color after an expression in a CSS template", () => {
+    const source = "const css = `.fixture { border: ${width} solid \\\\43 anvasText; }`;";
+    expect(auditTypeScript(source, "fixture.ts")).not.toEqual([]);
+    expect(auditPaletteSource(`${paletteSource}\n${source}`, ["#111111"], expectedPalette, "palette.ts")).not.toEqual([]);
+  });
+
+  test.each([
+    ["tag-suffixed map", 'const COLOR_TAGS = { color: "CanvasText" };'],
+    ["same-name map", 'const colors = { canvas: "Canvas" };'],
+    ["kind discriminator", 'const paint = { kind: "CanvasText" };'],
+    ["nested tag-suffixed map", 'const COLOR_TAGS = { nested: { kind: "CanvasText" } };'],
+    ["overlay registry name spoof", 'type InstrumentOverlayKind = "menu"; const INSTRUMENT_OVERLAYS = { overlay: { kind: "menu" } };'],
+    ["HTML tag set name spoof", 'const SAFE_HTML_TAGS = new Set(["mark"]);'],
+  ])("rejects a system color hidden by a broad structural %s", (_name, source) => {
+    expect(auditTypeScript(source, "fixture.ts")).not.toEqual([]);
+    expect(auditPaletteSource(`${paletteSource}\n${source}`, ["#111111"], expectedPalette, "palette.ts")).not.toEqual([]);
+  });
+
+  test.each([
+    ".fixture { mask-image: linear-gradient(CanvasText, transparent); }",
+    ".fixture { mask: linear-gradient(90deg, CanvasText, transparent); }",
+    ".fixture { --nested-paint: linear-gradient(CanvasText, transparent); }",
+    '@property --paint { syntax: "<color>"; inherits: false; initial-value: CanvasText; }',
+    "@supports (color: CanvasText) { .fixture { display: block; } }",
+  ])("rejects system colors from every CSS declaration or descriptor value: %s", (source) => {
+    expect(auditCss(source, "fixture.css")).not.toEqual([]);
+    expect(auditTokenCss(`${tokenCss}\n${source}`, ["#111111"], expectedPalette, "tokens.css")).not.toEqual([]);
   });
 
   test("rejects system colors inside palette and token sources", () => {
