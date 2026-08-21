@@ -1,0 +1,84 @@
+.instrument-widget,
+.instrument-empty-state {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--instrument-widget-light);
+  color: var(--instrument-text-primary);
+}
+
+.instrument-pill,
+.instrument-status,
+.instrument-screen-counters,
+.instrument-screen-actions,
+.instrument-screen-filters {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.instrument-pill {
+  min-height: var(--control-sm);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--instrument-widget-light-sunken);
+  color: var(--instrument-text-secondary-readable);
+}
+
+.instrument-icon-button {
+  display: inline-grid;
+  width: var(--control-md);
+  height: var(--control-md);
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--instrument-widget-light-sunken);
+  color: var(--instrument-text-primary);
+}
+
+.instrument-icon-button:hover { background: var(--instrument-widget-light-hover); }
+.instrument-icon-button:focus-visible,
+.instrument-profile-trigger:focus-visible,
+.instrument-profile-menu button:focus-visible { outline: var(--control-focus); outline-offset: 2px; }
+
+.instrument-counter { display: grid; gap: 0; color: var(--instrument-text-secondary-readable); }
+.instrument-counter output { font-family: var(--font-doto); color: var(--instrument-text-primary); }
+.instrument-counter span { font-size: var(--text-xs); }
+
+.instrument-status { color: var(--instrument-text-secondary-readable); }
+.instrument-status-dot { width: 8px; height: 8px; border-radius: var(--radius-pill); background: var(--instrument-unreviewed); }
+.instrument-status[data-tone="attention"] .instrument-status-dot { background: var(--instrument-alert-bright); }
+.instrument-status[data-tone="error"] .instrument-status-dot { background: var(--instrument-alert); }
+.instrument-status[data-tone="success"] .instrument-status-dot { background: var(--instrument-text-primary); }
+
+.instrument-dither-identity { width: 32px; height: 32px; object-fit: cover; border-radius: var(--radius-sm); }
+
+.instrument-screen-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
+.instrument-screen-heading { display: grid; gap: var(--space-1); }
+.instrument-screen-heading h1,
+.instrument-empty-state h2,
+.instrument-screen-heading p { margin: 0; }
+.instrument-screen-eyebrow { color: var(--instrument-text-secondary-readable); font-size: var(--text-xs); text-transform: uppercase; }
+.instrument-screen-description,
+.instrument-empty-state p { color: var(--instrument-text-secondary-readable); }
+.instrument-screen-controls { display: flex; align-items: center; gap: var(--space-2); }
+
+.instrument-profile-control { position: relative; }
+.instrument-profile-trigger,
+.instrument-profile-menu button { display: inline-flex; align-items: center; gap: var(--space-2); border: 0; background: transparent; color: var(--instrument-text-primary); }
+.instrument-profile-trigger { min-height: var(--control-md); padding: 0 var(--space-1); border-radius: var(--radius-sm); }
+.instrument-profile-trigger:hover,
+.instrument-profile-menu button:hover { background: var(--instrument-widget-light-hover); }
+.instrument-profile-avatar,
+.instrument-profile-initials { width: var(--control-sm); height: var(--control-sm); border-radius: var(--radius-sm); }
+.instrument-profile-avatar { object-fit: cover; }
+.instrument-profile-initials { display: grid; place-items: center; background: var(--instrument-dither-base); color: var(--instrument-text-on-dark-primary); font-size: var(--text-xs); }
+.instrument-profile-menu { display: grid; gap: var(--space-2); min-width: 180px; padding: var(--space-2); border-radius: var(--radius-md); background: var(--instrument-widget-light); color: var(--instrument-text-primary); }
+.instrument-profile-menu-identity { display: flex; align-items: center; gap: var(--space-2); }
+.instrument-profile-menu button { min-height: var(--control-md); padding: 0 var(--space-2); border-radius: var(--radius-sm); }
+
+@container (max-width: 560px) {
+  .instrument-screen-header { flex-direction: column; }
+  .instrument-screen-controls { flex-wrap: wrap; }
+}

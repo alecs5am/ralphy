@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   projectGlyphSlot,
   projectGlyphVars,
+  projectGlyphAsset,
   workspaceDitherVars,
 } from "../src/lib/project-glyph";
 
@@ -32,5 +33,10 @@ describe("name-salted visual identity", () => {
     expect(projectGlyphSlot(names[0])).toBe(slots[0]);
     expect(slots.every((slot) => slot >= 1 && slot <= 8)).toBe(true);
     expect(new Set(slots).size).toBeGreaterThan(1);
+  });
+
+  test("maps each stable glyph slot to a packaged dither image", () => {
+    expect(projectGlyphAsset("UX Testing Lab")).toBe("/assets/dither/g4.png");
+    expect(projectGlyphAsset("Nightmaker Relaunch 001")).toBe(`/assets/dither/g${projectGlyphSlot("Nightmaker Relaunch 001")}.png`);
   });
 });

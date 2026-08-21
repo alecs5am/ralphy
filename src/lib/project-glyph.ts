@@ -21,6 +21,10 @@ export function projectGlyphSlot(name: string): number {
   return identityHash(name) % 8 + 1;
 }
 
+export function projectGlyphAsset(name: string): string {
+  return `/assets/dither/g${projectGlyphSlot(name)}.png`;
+}
+
 export function workspaceDitherVars(name: string): CSSProperties {
   const hash = identityHash(name);
   const slot = projectGlyphSlot(name);
