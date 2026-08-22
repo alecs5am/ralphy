@@ -47,8 +47,9 @@ const EMPTY = "preview-empty grid place-items-center text-on-instrument-muted";
 export function UnitMediaView({ item }: { item: UnitMedia }) {
   if ("text" in item.preview) return <DocumentContent format={item.preview.format} text={item.preview.text} />;
   if (item.kind === "image") return <img src={item.preview.url} alt={item.role} />;
-  if (item.kind === "video") return <VideoPlayer src={item.preview.url} name={item.role} compact />;
-  if (item.kind === "audio") return <AudioWaveform src={item.preview.url} name={item.role} sizeBytes={item.preview.sizeBytes} compact />;
+  /* The social mockup is a black screen. */
+  if (item.kind === "video") return <VideoPlayer src={item.preview.url} name={item.role} compact tone="instrument" />;
+  if (item.kind === "audio") return <AudioWaveform src={item.preview.url} name={item.role} sizeBytes={item.preview.sizeBytes} compact tone="instrument" />;
   return <a href={item.preview.url}>Open {item.role}</a>;
 }
 

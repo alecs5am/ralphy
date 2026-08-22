@@ -148,11 +148,14 @@ function ViewerStage({ artifact, preview, kind, onPreviewError }: {
   </div>;
   const name = `Slug identity: ${artifact.slug}`;
   if (kind === "image" || kind === "vector") return <div className={`absolute inset-0 grid place-items-center [&>.image-viewport]:size-full ${kind === "vector" ? "shared-viewer-vector-stage bg-ghost" : "shared-viewer-image-stage"}`}>
-    <ImageViewport src={preview.url} name={name} onError={onPreviewError} />
+    <ImageViewport src={preview.url} name={name} tone="instrument" onError={onPreviewError} />
     <span className="pointer-events-none absolute bottom-3 left-3 h-5.5 rounded-chip bg-frame/62 px-2 py-1.25 font-code type-mono-sm tracking-label text-on-instrument-muted">FIT</span>
   </div>;
-  if (kind === "video") return <VideoPlayer src={preview.url} name={name} onError={onPreviewError} />;
-  if (kind === "audio") return <AudioWaveform src={preview.url} name={name} sizeBytes={preview.sizeBytes} onError={onPreviewError} />;
+  /* The stage is a light widget (`bg-surface-sunken`). A picture and a video bring their own
+     black media frame, so their chrome stays on-dark; the waveform paints no plate at all, and
+     with the on-dark default its title read #F2F2F0 on #E4E4E2 -- 1.06:1. */
+  if (kind === "video") return <VideoPlayer src={preview.url} name={name} tone="instrument" onError={onPreviewError} />;
+  if (kind === "audio") return <AudioWaveform src={preview.url} name={name} sizeBytes={preview.sizeBytes} tone="surface" onError={onPreviewError} />;
   return <FontSpecimen src={preview.url} slug={artifact.slug} onError={onPreviewError} />;
 }
 

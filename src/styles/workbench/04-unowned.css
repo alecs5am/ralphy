@@ -1,0 +1,31 @@
+/* What is left of 04-workspace-project.css after the workspace project cards, the project header,
+   the gooey tab vocabulary and the asset modal moved into markup: two rules that style elements no
+   component of this area renders. They are verbatim and at the cascade position the chunk had, so
+   nothing that follows changes meaning.
+
+   - `.project-region`: `screens/ProjectScreen.tsx` states every one of these declarations in its
+     own markup, but `App.tsx`'s ProjectScreenLoadingFallback renders the same class with no
+     utilities at all, so the rule is what lays that fallback out (instrument shell).
+   - the dot: the `.phase-indicator` half moved onto `components/ProjectHeader.tsx` and the
+     workspace card states its own dot, but `screens/LibraryScreen.tsx` (chrome) and
+     `screens/project/OverviewPanel.tsx` (workbench project) both render a bare `.status-dot`,
+     the second of them without a radius or a `flex` guard of its own. The declarations are the
+     ones the shared rule carried. */
+
+.project-region {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  overflow: hidden;
+  padding: var(--space-2) var(--space-2) var(--space-6);
+}
+
+.status-dot {
+  width: 5px;
+  height: 5px;
+  flex: none;
+  border-radius: var(--radius-pill);
+  background: var(--warn);
+}

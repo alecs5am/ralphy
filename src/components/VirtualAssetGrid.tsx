@@ -183,7 +183,7 @@ export function MediaCardPreview({
   let content = glyph;
   if (source && kind === "image") content = <img className="size-full object-cover" src={source.url} alt="" loading="lazy" onLoad={(event) => loadedWithSize(event.currentTarget.naturalWidth, event.currentTarget.naturalHeight)} onError={failed} />;
   else if (source && kind === "video") content = <video className="size-full object-cover" src={source.url} muted preload="metadata" onLoadedMetadata={(event) => loadedWithSize(event.currentTarget.videoWidth, event.currentTarget.videoHeight)} onError={failed} />;
-  else if (source && kind === "audio") content = <AudioWaveform src={source.url} name={mediaCardName(card)} sizeBytes={source.sizeBytes} compact onReady={loaded} onError={failed} />;
+  else if (source && kind === "audio") content = <AudioWaveform src={source.url} name={mediaCardName(card)} sizeBytes={source.sizeBytes} compact tone="instrument" onReady={loaded} onError={failed} />;
   return <div className={`asset-preview relative grid w-full flex-none place-items-center overflow-hidden rounded-cell bg-frame text-on-instrument-muted${className ? ` ${className}` : ""}`} style={fill ? undefined : { aspectRatio: aspectRatio ?? 1, height: "auto" }} aria-hidden={kind === "audio" ? undefined : true}>
     {content}
     {/* The frame stays chrome-free once a preview lands; the badge is only the label for an
@@ -191,9 +191,10 @@ export function MediaCardPreview({
         The kind tints are gone: `--ok`, `--warn`, `--fg-2` and `--fg-3` all resolve to the same
         #A4A4A0 on a dark surface, so image/video/audio/text painted one grey, and only `pdf`
         differed -- alert red on a label that carries no alarm. The scrim keeps the 78% of
-        `--instrument-media-frame` the shared mark rule used. This badge states no `display`,
-        because 04-workspace-project.css hides it on a project card with `display: none` and a
-        utility here would outrank it. */}
+        `--instrument-media-frame` the shared mark rule used. This badge still states no `display`:
+        the workspace project card's collage hides it with `[&_.asset-extension]:hidden`, which is
+        (0,2,0) and beats any per-element display utility, but a `block` here would be a second
+        decision about the same property on the same element. */}
     {!source && <span className={`asset-extension type-${kind ?? "file"} min-h-5 rounded-chip bg-frame/78 px-1.75 type-xs text-on-instrument-muted`}><FileGlyph kind={kind} size={11} />{kind ?? "file"}</span>}
   </div>;
 }

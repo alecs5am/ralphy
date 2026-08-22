@@ -21,6 +21,11 @@ const styles = ["reset.css", "tokens.css", "workbench.css", "shared-library.css"
   .join("\n");
 const workbenchStyles = readStylesheet("workbench.css");
 const virtualAssetGridSource = readFileSync(join(process.cwd(), "src/components/VirtualAssetGrid.tsx"), "utf8");
+const workspaceMediaTheme = readFileSync(join(process.cwd(), "src/styles/theme/workspace-media.css"), "utf8");
+const workspaceMediaSource = ["src/screens/WorkspaceProjectsScreen.tsx", "src/components/ProjectHeader.tsx", "src/components/ui/GooeyTabs.tsx", "src/screens/project/MediaViewer.tsx", "src/screens/project/MediaPanel.tsx", "src/components/media/AudioWaveform.tsx", "src/components/media/VideoPlayer.tsx", "src/components/media/ImageViewport.tsx", "src/components/media/tone.ts"]
+  .map((file) => readFileSync(join(process.cwd(), file), "utf8"))
+  .join("\n");
+const mediaPanelSource = readFileSync(join(process.cwd(), "src/screens/project/MediaPanel.tsx"), "utf8");
 const documentsActivityTheme = readFileSync(join(process.cwd(), "src/styles/theme/documents-activity.css"), "utf8");
 const markdownViewSource = readFileSync(join(process.cwd(), "src/components/MarkdownView.tsx"), "utf8");
 const documentsActivitySource = ["src/screens/project/ActivityTimeline.tsx", "src/screens/project/ActivityInspector.tsx", "src/components/MarkdownView.tsx", "src/components/WelcomeScreen.tsx", "src/components/VirtualAssetGrid.tsx"]
@@ -1014,9 +1019,19 @@ describe("design system contract", () => {
     ]) expect(tokenStyles).toContain(token);
 
     // v2: every menu and popover is one flat #141414 widget — no border, no shadow.
-    for (const selector of ["select-menu-content", "workspace-picker-popover", "asset-context-menu"]) {
+    for (const selector of ["select-menu-content", "workspace-picker-popover"]) {
       expect(workbenchStyles).toMatch(new RegExp(`\\.${selector}\\s*\\{[^}]*border:\\s*0[^}]*background:\\s*var\\(--instrument-widget-dark\\)`, "s"));
     }
+    // The asset context menu states the same decision in its own markup now, and states it as a
+    // pair: the sheet painted the plate #141414 but left the rows on `--control-text`, which
+    // resolves to the light-widget family inside `.app-mode-work` and read 2.08:1.
+    const assetMenu = /const MENU = "([^"]*)"/.exec(mediaPanelSource)?.[1] ?? "";
+    expect(assetMenu.split(" ")).toContain("bg-instrument");
+    expect(assetMenu).not.toMatch(/\b(?:border-\d|shadow-)/);
+    const assetMenuRow = /const MENU_ROW = "([^"]*)"/.exec(mediaPanelSource)?.[1] ?? "";
+    expect(assetMenuRow.split(" ")).toContain("text-on-instrument-muted");
+    expect(assetMenuRow).toContain("hover:bg-instrument-hover");
+    expect(assetMenuRow).toContain("hover:text-on-instrument");
     // The agent rail's popover states the same decision in markup, where the plate also has to
     // carry the ink its rows inherit: the sheet declared none, so a row's rest ink came from
     // whichever ancestor happened to set a colour.
@@ -1121,7 +1136,11 @@ describe("design system contract", () => {
     // never moved a pixel; the button states only the shape the ring follows.
     expect(styles).toMatch(/:focus-visible\s*\{[^}]*outline:\s*var\(--focus-ring\)/s);
     expect(virtualAssetGridSource).toMatch(/media-card-button[^"`]*focus-visible:rounded-control/);
-    expect(workbenchStyles).toMatch(/\.asset-context-menu button:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--fg\)/s);
+    // The asset context menu's ring moved onto the row with the rest of its skin. It takes the
+    // on-instrument ring, not `--fg`: the menu is a black plate in both themes, and the ring the
+    // sheet drew resolved to desk ink whenever the menu opened inside `.app-mode-work`.
+    expect(/const MENU_ROW = "([^"]*)"/.exec(mediaPanelSource)?.[1] ?? "")
+      .toContain("focus-visible:outline-focus-on-instrument");
   }, 20_000);
 
   test("keeps active surfaces borderless and free of the undefined surface token", () => {
@@ -1254,6 +1273,80 @@ describe("design system contract", () => {
     // states two and not seven.
     expect([...new Set((/const ICON_TONE[^}]*}/s.exec(documentsActivitySource)?.[0] ?? "").match(/text-on-instrument(?:-muted)?/g) ?? [])].sort())
       .toEqual(["text-on-instrument", "text-on-instrument-muted"]);
+  });
+
+  test("keeps the workspace cards and the media viewer on named roles, container widths and no depth", () => {
+    // Both chunks are gone: every rule either moved into the markup of the component that renders
+    // the element, or stayed verbatim in 04-unowned.css because it styles an element no component
+    // of this area renders.
+    for (const chunk of ["04-workspace-project.css", "12-asset-modal.css"]) {
+      expect(existsSync(join(process.cwd(), "src/styles/workbench", chunk))).toBe(false);
+    }
+    expect(readFileSync(join(process.cwd(), "src/styles/workbench.css"), "utf8"))
+      .toContain('@import "./workbench/04-unowned.css";');
+    // `.project-region` is App.tsx's loading fallback and `.status-dot` is the library chrome's,
+    // so both are held rather than moved into a component that never renders them.
+    const unowned = readFileSync(join(process.cwd(), "src/styles/workbench/04-unowned.css"), "utf8");
+    for (const selector of [".project-region", ".status-dot"]) expect(unowned).toContain(selector);
+    // Nothing this area owns is left in the sheet, except in the holding files other areas own:
+    // the reduced-motion blanket over the tab blobs (05), the shared focus ring (06), the
+    // unreachable `.is-error` action (10) and the squircle opt-in list (13). All four are reported,
+    // not deleted, because the rule that shadows them belongs to a different area's markup.
+    const heldBy: Record<string, string[]> = {
+      ".workspace-project-card": ["06-unowned.css", "13-unowned.css"],
+      ".workspace-project-preview": ["13-unowned.css"],
+      ".gooey-tabs": ["05-unowned.css"],
+      ".asset-modal": ["13-unowned.css"],
+      ".viewer-actions": ["10-unowned.css"],
+      ".project-facts": [], ".viewer-identity": [], ".property-row": [],
+      ".image-zoom-controls": [], ".video-controls": [], ".audio-waveform-player": [],
+      ".asset-context-menu": [],
+    };
+    // Comments are stripped first: a holding file that names a deleted chunk in prose is a stale
+    // comment for that file's owner to correct, not a rule this area left behind.
+    const chunks = readdirSync(join(process.cwd(), "src/styles/workbench"))
+      .map((name) => [name, readFileSync(join(process.cwd(), "src/styles/workbench", name), "utf8").replace(/\/\*[^]*?\*\//g, "")] as const);
+    for (const [selector, holders] of Object.entries(heldBy)) {
+      expect(chunks.filter(([, text]) => text.includes(selector)).map(([name]) => name)).toEqual(holders);
+    }
+    // design v2 in this area: no border, no shadow, no gradient. `shadow-none` is the removal of
+    // one -- the media panel's selection plate has to cancel the tile's inset mark.
+    expect(workspaceMediaSource).not.toMatch(/\bborder-(?!collapse\b|0\b)/);
+    expect(workspaceMediaSource).not.toMatch(/\b(?:bg-gradient|bg-linear|bg-radial)-/);
+    expect(workspaceMediaSource).not.toMatch(/\bshadow-(?!none\b)/);
+    expect(workspaceMediaSource).not.toMatch(/box-shadow/);
+    // Container queries only, read against the route's own content row -- never the window.
+    expect(workspaceMediaSource).not.toMatch(/@(?:min|max)-\[/);
+    expect(workspaceMediaSource).not.toMatch(/\b(?:sm|md|lg|xl|2xl):/);
+    expect(workspaceMediaTheme).toContain("--container-workspace-projects-header");
+    expect(workspaceMediaSource).toContain("@max-workspace-projects-header/main-region:flex-col");
+    // The three players mount on a black widget and on a light one, so the skin is a prop and no
+    // caller repaints half of a surface/ink pair from CSS.
+    expect(readFileSync(join(process.cwd(), "src/components/media/tone.ts"), "utf8"))
+      .toMatch(/export type PlayerTone = "instrument" \| "surface"/);
+    for (const file of [
+      "src/screens/project/MediaViewer.tsx",
+      "src/screens/shared-library/SharedArtifactViewer.tsx",
+      "src/screens/shared-library/SharedArtifactPreview.tsx",
+      "src/screens/project/UnitSocialPreview.tsx",
+      "src/screens/project/ArtifactPreview.tsx",
+      "src/components/VirtualAssetGrid.tsx",
+    ]) expect(readFileSync(join(process.cwd(), file), "utf8")).toMatch(/tone="(?:instrument|surface)"/);
+    // The asset modal is fixed to the window, so its gutter is the one length in the area with no
+    // container to read: a continuous clamp, which is what replaced the deleted 1040px breakpoint.
+    expect(workspaceMediaTheme).toContain("--spacing-asset-modal-gutter: clamp(20px, 3.75vw, 48px)");
+    // `grid-template-columns` is not a Tailwind namespace, so every template in this area is a
+    // custom property read back with `grid-cols-(--name)`.
+    for (const template of ["--asset-modal-columns", "--viewer-property-columns", "--asset-menu-row-columns"]) {
+      expect(workspaceMediaTheme).toContain(template);
+      expect(workspaceMediaSource).toContain(`grid-cols-(${template})`);
+    }
+    // A collage tile is flush by design, and the extension badge another area draws on a loose
+    // preview is hidden inside one. Both are stated from the collage, at (0,2,0), because a
+    // `rounded-none` on the tile would lose to the badge's own rule.
+    const collage = /const COLLAGE = "([^"]*)"/.exec(readFileSync(join(process.cwd(), "src/screens/WorkspaceProjectsScreen.tsx"), "utf8"))?.[1] ?? "";
+    expect(collage).toContain("[&>.asset-preview]:rounded-none");
+    expect(collage).toContain("[&_.asset-extension]:hidden");
   });
 
   test("leaves the activity log without a rail, in either whole or per-event form", () => {

@@ -44,8 +44,10 @@ export function SharedArtifactPreview({ artifact, workspaceId, rootEpoch, resolv
     if (artifact.mediaKind === "video") return <video src={preview.value.url} aria-label={`${identityName} preview`} muted playsInline preload="metadata" onError={mediaError} />;
     return <FileText aria-hidden="true" />;
   }
-  if (artifact.mediaKind === "image") return <ImageViewport src={preview.value.url} name={identityName} compact onError={mediaError} />;
-  if (artifact.mediaKind === "video") return <VideoPlayer src={preview.value.url} name={identityName} compact onError={mediaError} />;
-  if (artifact.mediaKind === "audio") return <AudioWaveform src={preview.value.url} name={identityName} sizeBytes={preview.value.sizeBytes} compact onError={mediaError} />;
+  /* Every host of this preview is a black plate -- the card frame, the inspector plate and the
+     list cell -- so all three players take the instrument pair. */
+  if (artifact.mediaKind === "image") return <ImageViewport src={preview.value.url} name={identityName} compact tone="instrument" onError={mediaError} />;
+  if (artifact.mediaKind === "video") return <VideoPlayer src={preview.value.url} name={identityName} compact tone="instrument" onError={mediaError} />;
+  if (artifact.mediaKind === "audio") return <AudioWaveform src={preview.value.url} name={identityName} sizeBytes={preview.value.sizeBytes} compact tone="instrument" onError={mediaError} />;
   return <span className="shared-artifact-preview-state"><FileText aria-hidden="true" /><span>{artifact.mime ?? artifact.kind}</span></span>;
 }

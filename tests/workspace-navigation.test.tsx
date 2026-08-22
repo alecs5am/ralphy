@@ -183,7 +183,11 @@ describe("workspace projects navigation", () => {
     expect(markup).toContain("Pin project Launch film");
     expect(markup).toContain("1 final");
     expect(markup.slice(markup.indexOf("workspace-project-grid"))).not.toContain("3.84");
-    expect(styles).toMatch(/\.workspace-project-card-shell \.workspace-project-card\s*\{[^}]*width:\s*100%/s);
+    // The card states its own width in markup; the sheet's `.workspace-project-card-shell
+    // .workspace-project-card { width: 100% }` was already shadowed by that utility, and the rest
+    // of that rule (`min-height: 0`, `background: transparent`, `box-shadow: none`) only cancelled
+    // declarations the same chunk made two rules earlier.
+    expect(markup).toMatch(/class="workspace-project-card [^"]*\bw-full\b/);
   });
 
   test("keeps workspace resources in the sidebar navigation", () => {

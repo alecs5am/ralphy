@@ -19,6 +19,29 @@ interface GooeyTabsProps<Value extends string> {
   ariaLabel: string;
 }
 
+/* The strip is a fixed-column grid: one cell per tab, so the blob can be placed by index rather
+   than measured. `--gooey-cell-width` and `--gooey-cell-height` are declared here, once, from the
+   size's role keys -- `m` is the pair `:root` already carries, so only `s` restates it -- and the
+   blob and the buttons read them back. A caller that wants narrower cells overrides the property on
+   the strip (UnitViewer does), which is why the cell size is a custom property rather than a width
+   utility on each part; project.css reads the same width for the stage strip's column template.
+
+   `isolation: isolate` is load-bearing: the blobs sit at z-index -1 inside the strip, and without
+   a stacking context of its own the strip would paint them behind the surface it stands on.
+   `mode-segments` and `gooey-tabs*` stay as the hooks tokens.css and the geometry harness read. */
+const STRIP = "mode-segments gooey-tabs relative inline-grid flex-none auto-cols-(--gooey-cell-width) grid-flow-col overflow-hidden rounded-control p-0.75 isolate";
+const CELL_M = "gooey-tabs-m";
+const CELL_S = "gooey-tabs-s [--gooey-cell-width:var(--gooey-cell-s-width)] [--gooey-cell-height:var(--gooey-cell-s-height)]";
+/* The strip is a well and the blob is the fill standing in it, so the two surfaces are stated as
+   one pair per size. Only the "s" strip is mounted today; "m" is the same decision one step up. */
+const WELL_M = "bg-surface";
+const WELL_S = "bg-surface-sunken";
+const BLOB = "gooey-tabs-blob absolute block h-full w-(--gooey-cell-width) rounded-control [transform:translateX(calc(var(--gooey-index)*var(--gooey-cell-width)))] transition-transform ease-instrument motion-reduce:transition-none";
+const FILL_M = "bg-surface-sunken";
+const FILL_S = "bg-surface-hover";
+/* A tab states its rest ink; the selected and hovered pair is the line below. */
+const TAB = "inline-flex h-(--gooey-cell-height) items-center justify-center gap-1.5 rounded-control px-2 type-sm whitespace-nowrap text-muted hover:text-ink aria-selected:text-ink";
+
 export function moveGooeyTab<Value extends string>(
   tabs: readonly GooeyTab<Value>[],
   value: Value,
@@ -46,12 +69,12 @@ export function GooeyTabs<Value extends string>({
 
   return (
     <div
-      className={`mode-segments gooey-tabs gooey-tabs-${size}`}
+      className={`${STRIP} ${size === "s" ? `${CELL_S} ${WELL_S}` : `${CELL_M} ${WELL_M}`}`}
       role="tablist"
       aria-label={ariaLabel}
       style={{ "--gooey-index": activeIndex, "--gooey-count": tabs.length } as React.CSSProperties}
     >
-      <svg className="gooey-tabs-filter" aria-hidden="true">
+      <svg className="gooey-tabs-filter pointer-events-none absolute size-0" aria-hidden="true">
         <defs>
           <filter id={filterId} x="-30%" y="-30%" width="160%" height="160%">
             <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="blur" />
@@ -60,12 +83,16 @@ export function GooeyTabs<Value extends string>({
           </filter>
         </defs>
       </svg>
-      <span className="gooey-tabs-blobs" style={{ filter: `url(#${filterId})` }} aria-hidden="true">
-        <span className="gooey-tabs-blob gooey-tabs-blob-leading" />
-        <span className="gooey-tabs-blob gooey-tabs-blob-trailing" />
+      <span className="gooey-tabs-blobs pointer-events-none absolute inset-0.75 -z-1" style={{ filter: `url(#${filterId})` }} aria-hidden="true">
+        <span className={`${BLOB} ${size === "s" ? FILL_S : FILL_M} gooey-tabs-blob-leading duration-gooey-lead`} />
+        {/* Reduced motion keeps one blob, not two overlapping ones. The blanket that used to hide
+            this one lives unlayered in 05-unowned.css, so `block` above -- an !important utility in
+            @layer utilities -- now beats it: the decision has to be stated on the element. */}
+        <span className={`${BLOB} ${size === "s" ? FILL_S : FILL_M} gooey-tabs-blob-trailing duration-gooey-trail motion-reduce:hidden`} />
       </span>
       {tabs.map((tab) => (
         <button
+          className={TAB}
           id={tab.id}
           type="button"
           role="tab"
@@ -88,7 +115,7 @@ export function GooeyTabs<Value extends string>({
           }}
         >
           {tab.label}
-          {tab.count === undefined ? null : <small>{tab.count}</small>}
+          {tab.count === undefined ? null : <small className="type-xs text-current">{tab.count}</small>}
         </button>
       ))}
     </div>

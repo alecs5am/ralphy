@@ -19,8 +19,10 @@ export function ArtifactPreview({ preview, empty, retry }: { preview: Preview; e
     ? <DocumentContent format={preview.value.format} text={preview.value.text} />
     : <div className={EMPTY}>Document source is empty.</div>;
   const name = preview.artifactRevisionId ?? "Artifact preview";
-  if (preview.value.mime?.startsWith("image/")) return <ImageViewport src={preview.value.url} name={name} />;
-  if (preview.value.mime?.startsWith("video/")) return <VideoPlayer src={preview.value.url} name={name} compact />;
-  if (preview.value.mime?.startsWith("audio/")) return <AudioWaveform src={preview.value.url} name={name} sizeBytes={preview.value.sizeBytes} compact />;
+  /* The build-output plate is a light widget, so the waveform -- the one player with no plate of
+     its own -- takes the theme ink; the picture and the video keep their black media frame. */
+  if (preview.value.mime?.startsWith("image/")) return <ImageViewport src={preview.value.url} name={name} tone="instrument" />;
+  if (preview.value.mime?.startsWith("video/")) return <VideoPlayer src={preview.value.url} name={name} compact tone="instrument" />;
+  if (preview.value.mime?.startsWith("audio/")) return <AudioWaveform src={preview.value.url} name={name} sizeBytes={preview.value.sizeBytes} compact tone="surface" />;
   return <a href={preview.value.url} aria-label={`Open ${name}`}>Open preview</a>;
 }

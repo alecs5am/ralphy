@@ -1,0 +1,71 @@
+/* Role keys for the workspace project cards, the project header, the gooey tab vocabulary, the
+   asset modal, the asset context menu and the three shared media players.
+   Imported from tailwind.css and nowhere else. */
+
+@theme inline {
+  /* A black widget keeps the on-dark family in both themes: the light-theme hover surface turns
+     white, and --control-focus resolves to black-on-black there. */
+  --color-focus-on-instrument: var(--instrument-focus-on-dark);
+  /* An alarm standing on a black widget. `--danger` resolves to a near-white ink outside
+     .app-mode-work, which is exactly where this modal and this menu are portalled. */
+  --color-alert-bright: var(--instrument-alert-bright);
+  /* A disabled transport control on the theme's own widget: unreadable by design, which is the
+     point -- the sheet used the readable secondary ink, so disabled looked exactly like rest. */
+  --color-muted-decorative: var(--instrument-text-muted-decorative);
+
+  /* Stacking: the card pin over its preview, the modal, its content, and the context menu. */
+  --z-index-base: var(--z-base);
+  --z-index-modal: var(--z-modal);
+  --z-index-modal-content: var(--z-modal-content);
+  --z-index-popover: var(--z-popover);
+
+  /* The asset modal is fixed to the window, so it is the one surface in the app with no
+     container to read. Its gutter shrinks with the window instead of stepping at a breakpoint,
+     which is what the deleted `@media (max-width: 1040px)` rule was for. */
+  --spacing-asset-modal-gutter: clamp(20px, 3.75vw, 48px);
+  --spacing-asset-modal-width: min(1600px, calc(100vw - 2 * clamp(20px, 3.75vw, 48px)));
+  --spacing-asset-modal-height: min(1040px, calc(100vh - 2 * clamp(20px, 3.75vw, 48px)));
+
+  /* The audio player's own measure inside a stage of any width. */
+  /* The scrim blur under a transport cluster floating over media. */
+  --blur-media: 18px;
+  --spacing-audio-player: min(1080px, calc(100% - 80px));
+  /* The video error banner keeps clear of the frame edge on both sides. */
+  --spacing-video-error-measure: calc(100% - 48px);
+
+  /* The gooey tab cell. One fixed column per tab is what lets the blob be placed by index. */
+  --spacing-gooey-cell-m: 104px;
+  --spacing-gooey-cell-m-height: 28px;
+  --spacing-gooey-cell-s: 92px;
+  --spacing-gooey-cell-s-height: 26px;
+  /* The two blobs chase the active cell at different speeds; the lag is what makes the fill read
+     as one liquid body rather than two rectangles. */
+  --transition-duration-gooey-lead: 300ms;
+  --transition-duration-gooey-trail: 480ms;
+  --transition-duration-fast: var(--dur-fast);
+  --ease-instrument: var(--ease);
+
+  /* The workspace projects header stacks when its own content row runs out of width. */
+  --container-workspace-projects-header: 760px;
+}
+
+/* `grid-template-columns` is not a Tailwind namespace, so a template is a plain custom property
+   read back with `grid-cols-(--name)`. */
+:root {
+  /* The asset modal: the stage, then an inspector that never collapses below a readable measure. */
+  --asset-modal-columns: minmax(0, 1fr) clamp(300px, 22vw, 360px);
+  /* A property row in the modal inspector: a fixed label column and the value. */
+  --viewer-property-columns: 104px minmax(0, 1fr);
+  /* An asset context menu row: the glyph gutter and the label. */
+  --asset-menu-row-columns: 18px minmax(0, 1fr);
+  /* The gooey cell size, per tab size. The strip declares which pair it reads so the blob and
+     the buttons resolve one width and one height; a caller that wants narrower cells overrides
+     `--gooey-cell-width` on the strip. */
+  /* The default pair, so `--project-gooey-columns` in project.css always has a width to read. */
+  --gooey-cell-width: var(--gooey-cell-m-width);
+  --gooey-cell-height: var(--gooey-cell-m-height);
+  --gooey-cell-m-width: var(--spacing-gooey-cell-m);
+  --gooey-cell-m-height: var(--spacing-gooey-cell-m-height);
+  --gooey-cell-s-width: var(--spacing-gooey-cell-s);
+  --gooey-cell-s-height: var(--spacing-gooey-cell-s-height);
+}

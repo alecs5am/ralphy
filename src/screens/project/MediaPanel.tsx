@@ -33,6 +33,15 @@ const densityStops = [150, 170, 190, 210, 230, 250, 270, 290, 310];
 
 type ContextState = { card: MediaCardDto; x: number; y: number; opener: HTMLElement } | null;
 
+/* The asset context menu. It is positioned against the window rather than mounted in a portal, but
+   it stands on the same black plate every menu in the app does, so its rows keep the on-dark pair
+   in both themes: the sheet reached for `--control-hover` / `--control-text-hover`, which resolve
+   to the light-widget family inside `.app-mode-work` and painted a white pill with a #4A4A48 rest
+   ink -- 2.08:1 -- on a #141414 menu. Rows are pills, not the R10 the sheet gave them: R999 is the
+   radius the design assigns a control. `corner-shape` has no utility form. */
+const MENU = "asset-context-menu fixed z-popover grid w-54 rounded-menu bg-instrument p-1.5 [corner-shape:squircle]";
+const MENU_ROW = "grid h-control-md w-full grid-cols-(--asset-menu-row-columns) items-center gap-2 rounded-control px-2 text-left text-on-instrument-muted hover:bg-instrument-hover hover:text-on-instrument focus-visible:bg-instrument-hover focus-visible:text-on-instrument focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-on-instrument";
+
 export const mediaInstrumentStates = defineInstrumentScreenStates({
   routeKey: "project.media",
   states: ["loading", "ready", "empty", "partial", "error", "selected", "viewer"],
@@ -115,7 +124,7 @@ export function MediaPanel({ page, controller, snapshot, project, workspaceName,
   const selectedIndex = snapshot.selectedMedia
     ? mediaItems.findIndex(({ ref }) => ref.type === snapshot.selectedMedia?.ref.type && ref.id === snapshot.selectedMedia?.ref.id)
     : -1;
-  return <InstrumentScreenRoot descriptor={mediaInstrumentStates} state={mediaInstrumentState(page, snapshot)}><section className="media-panel relative flex min-h-0 w-full min-w-0 flex-1 flex-col gap-2 overflow-hidden bg-transparent p-0 type-base text-ink [&_.media-card-tile.is-selected]:bg-instrument-hover [&_.media-card-tile.is-selected]:shadow-none" aria-label="Project media">
+  return <InstrumentScreenRoot descriptor={mediaInstrumentStates} state={mediaInstrumentState(page, snapshot)}><section className="media-panel relative flex min-h-0 w-full min-w-0 flex-1 flex-col gap-2 overflow-hidden bg-transparent p-0 type-base text-ink [&_.media-card-tile.is-selected]:bg-instrument-hover [&_.media-card-tile.is-selected]:shadow-none [&_.media-card-tile.is-selected_strong]:text-on-instrument [&_.media-card-tile.is-selected_small]:text-on-instrument-muted" aria-label="Project media">
     <div className="media-domain-toolbar m-0 flex min-h-11 w-full max-w-none flex-none flex-wrap items-center gap-2 rounded-cell bg-surface-sunken p-2 [&_.select-menu-trigger]:min-w-media-filter" aria-label="Media filters">
       <SelectMenu overlayOwner="project.media" value={query.filter} options={lifecycleOptions} ariaLabel="Lifecycle or source" prefix="Source" onValueChange={(filter) => { void controller.setMediaQuery({ filter }); }} />
       <SelectMenu overlayOwner="project.media" value={query.mediaKind ?? "all"} options={kindOptions} ariaLabel="Media type" prefix="Type" onValueChange={(mediaKind) => { void controller.setMediaQuery({ mediaKind: mediaKind === "all" ? undefined : mediaKind }); }} />
@@ -143,11 +152,11 @@ export function MediaPanel({ page, controller, snapshot, project, workspaceName,
         onNavigate={(delta) => { const next = mediaItems[selectedIndex + delta]; if (next) controller.selectMedia(next); }}
       />
     </InstrumentRightRailPortal>}
-    {context && <div ref={menuRef} className="asset-context-menu" data-instrument-overlay="media-context-menu" aria-label="Media actions" style={{ left: context.x, top: context.y }}>
-      <button type="button" onClick={() => { void action("preview"); }}><Eye size={15} aria-hidden="true" />Preview</button>
-      <button type="button" onClick={() => { void action("open"); }}><ExternalLink size={15} aria-hidden="true" />Open externally</button>
-      <button type="button" onClick={() => { void action("finder"); }}><FolderOpen size={15} aria-hidden="true" />Reveal in Finder</button>
-      <button type="button" onClick={() => { void action("copy"); }}><Copy size={15} aria-hidden="true" />Copy file</button>
+    {context && <div ref={menuRef} className={MENU} data-instrument-overlay="media-context-menu" aria-label="Media actions" style={{ left: context.x, top: context.y }}>
+      <button className={MENU_ROW} type="button" onClick={() => { void action("preview"); }}><Eye size={15} aria-hidden="true" />Preview</button>
+      <button className={MENU_ROW} type="button" onClick={() => { void action("open"); }}><ExternalLink size={15} aria-hidden="true" />Open externally</button>
+      <button className={MENU_ROW} type="button" onClick={() => { void action("finder"); }}><FolderOpen size={15} aria-hidden="true" />Reveal in Finder</button>
+      <button className={MENU_ROW} type="button" onClick={() => { void action("copy"); }}><Copy size={15} aria-hidden="true" />Copy file</button>
     </div>}
   </section></InstrumentScreenRoot>;
 }

@@ -10,6 +10,21 @@ import { VideoPlayer } from "../../components/media/VideoPlayer";
 import { bridge } from "../../lib/ipc";
 import type { ProjectScreenController, ProjectScreenSnapshot } from "../../state/project-screen-controller";
 
+/* The whole modal is portalled to the body, i.e. outside `.app-mode-work`, where every legacy
+   `--fg*` token resolves to the on-dark family. That is why the toolbar's own title used to paint
+   #F2F2F0 on a #E4E4E2 plate at 1.06:1: every mark below states a theme colour instead. */
+const SURFACE = "asset-modal-surface fixed inset-asset-modal-gutter z-modal-content m-auto flex h-asset-modal-height w-asset-modal-width flex-col overflow-hidden rounded-panel bg-surface text-ink outline-none";
+const TOOLBAR = "asset-modal-toolbar flex min-h-13 flex-none items-center justify-between gap-4.5 bg-surface-sunken py-1.5 pr-2.5 pl-4";
+/* The identity is a two-line block, not two inline marks on one line, which is what a `div` with
+   no display of its own gave it. */
+const IDENTITY = "viewer-identity flex min-w-0 flex-col";
+const ACTIONS = "viewer-actions flex flex-none items-center gap-1";
+const ACTION = "h-control-md rounded-field px-2.5 whitespace-nowrap text-muted hover:bg-surface-hover hover:text-ink disabled:text-muted-decorative focus-visible:-outline-offset-2";
+const ICON_ACTION = "h-control-md w-control-md rounded-field p-0 text-muted hover:bg-surface-hover hover:text-ink disabled:text-muted-decorative focus-visible:-outline-offset-2";
+/* A property row is the two-column table the stylesheet declared and never drew: it named the
+   tracks but no `display`, so every label sat on the line above its value. */
+const PROPERTY_ROW = "property-row grid min-h-control-md grid-cols-(--viewer-property-columns) gap-3 type-sm";
+
 function formatTime(value: number | null): string {
   if (value === null) return "Not recorded";
   return new Date(value).toLocaleString();
@@ -40,7 +55,7 @@ function isRunObjectMedia(card: MediaCardDto): card is RunObjectMediaCardDto {
 }
 
 function Facts({ rows }: { rows: Array<[string, React.ReactNode]> }) {
-  return <dl className="inspector-properties">{rows.map(([label, value]) => <div className="property-row" key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>;
+  return <dl className="inspector-properties m-0 grid gap-0.5">{rows.map(([label, value]) => <div className={PROPERTY_ROW} key={label}><dt className="text-muted">{label}</dt><dd className="m-0 min-w-0 text-ink [overflow-wrap:anywhere]">{value}</dd></div>)}</dl>;
 }
 
 function PromptText({ role, value, truncated }: { role: string; value: string; truncated: boolean }) {
@@ -65,9 +80,9 @@ function PromptText({ role, value, truncated }: { role: string; value: string; t
   return <section className="generation-text">
     <h4>{label}{truncated ? " · Truncated" : ""}</h4>
     <pre style={expanded ? undefined : { maxHeight: 96, overflow: "hidden" }}>{value}</pre>
-    <div className="viewer-actions">
-      <button type="button" aria-expanded={expanded} onClick={() => setExpanded((current) => !current)}>{expanded ? "Show less" : "Show full"}</button>
-      <button type="button" aria-label={`Copy ${role}`} onClick={() => { void copy(); }}><Copy size={14} aria-hidden="true" />Copy</button>
+    <div className={ACTIONS}>
+      <button className={ACTION} type="button" aria-expanded={expanded} onClick={() => setExpanded((current) => !current)}>{expanded ? "Show less" : "Show full"}</button>
+      <button className={`${ACTION} inline-flex items-center gap-1.5`} type="button" aria-label={`Copy ${role}`} onClick={() => { void copy(); }}><Copy size={14} aria-hidden="true" />Copy</button>
     </div>
     {copyError && <p className="project-local-error" role="alert">{copyError}</p>}
   </section>;
@@ -110,7 +125,9 @@ function GenerationInspector({ detail, state, error, onRetry }: {
 }
 
 function RunObjectEvidence({ card }: { card: RunObjectMediaCardDto }) {
-  return <section className="run-object-evidence w-full self-start rounded-none bg-transparent p-0 [&_dd]:m-0 [&_dd]:min-w-0 [&_dd]:[overflow-wrap:anywhere] [&_dl]:m-0 [&_dl]:mt-3 [&_dl]:grid [&_dl]:gap-2 [&_dl_div]:grid [&_dl_div]:grid-cols-(--project-evidence-columns) [&_dl_div]:gap-3 [&_dt]:text-muted [&_h3]:m-0" aria-label="RunObject evidence"><h3>RunObject evidence</h3><Facts rows={[
+  /* The rows are `.property-row` now, so the grid, the gap and the label ink come from the row
+     itself rather than from four descendant variants stated here. */
+  return <section className="run-object-evidence w-full self-start rounded-none bg-transparent p-0 [&_dl]:mt-3 [&_h3]:m-0" aria-label="RunObject evidence"><h3>RunObject evidence</h3><Facts rows={[
     ["Run ID", card.runId], ["Attempt", "Unlinked"], ["Purpose", card.purpose], ["State", card.state],
     ["Retention", card.retention], ["Logical path", card.logicalPath], ["Location class", card.locationClass],
     ["Object ID", card.objectId ?? "Not promoted"],
@@ -142,9 +159,10 @@ function ViewerPreview({ card, snapshot, controller }: { card: MediaCardDto; sna
   if (preview.status === "error") return <div className="project-local-error" role="alert"><span>{preview.error ?? "Preview could not be loaded."}</span><button type="button" onClick={() => { void controller.retryMediaPreview(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>;
   if (preview.status !== "ready" || !preview.value) return <p>Preview unavailable.</p>;
   const name = mediaCardName(card);
-  if (card.mime?.startsWith("image/")) return <ImageViewport src={preview.value.url} name={name} />;
-  if (card.mime?.startsWith("video/")) return <VideoPlayer src={preview.value.url} name={name} />;
-  if (card.mime?.startsWith("audio/")) return <AudioWaveform src={preview.value.url} name={name} sizeBytes={preview.value.sizeBytes} />;
+  /* The stage is a black widget, so every player takes the instrument pair. */
+  if (card.mime?.startsWith("image/")) return <ImageViewport src={preview.value.url} name={name} tone="instrument" />;
+  if (card.mime?.startsWith("video/")) return <VideoPlayer src={preview.value.url} name={name} tone="instrument" />;
+  if (card.mime?.startsWith("audio/")) return <AudioWaveform src={preview.value.url} name={name} sizeBytes={preview.value.sizeBytes} tone="instrument" />;
   return <a href={preview.value.url} aria-label={`Open ${name}`}>Open preview</a>;
 }
 
@@ -203,23 +221,25 @@ export function MediaViewer({ controller, snapshot }: { controller: ProjectScree
   if (!card) return null;
   return <Dialog.Root open={snapshot.mediaViewerOpen} onOpenChange={(open) => { if (!open) controller.closeMediaViewer(); }}>
     <Dialog.Portal container={typeof document === "undefined" ? undefined : document.body}>
-      <Dialog.Overlay asChild><motion.div className="asset-modal-overlay" data-instrument-overlay-backdrop="" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.16 }} /></Dialog.Overlay>
+      {/* The scrim's fill and blur come from `[data-instrument-overlay-backdrop]` in
+        work-surfaces.css, which is one shared decision for every overlay in the app. */}
+    <Dialog.Overlay asChild><motion.div className="asset-modal-overlay fixed inset-0 z-modal overscroll-contain" data-instrument-overlay-backdrop="" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.16 }} /></Dialog.Overlay>
       <Dialog.Content asChild data-instrument-overlay="media-viewer" onOpenAutoFocus={(event) => { event.preventDefault(); surfaceRef.current?.focus({ preventScroll: true }); }} onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(); }}>
-        <motion.section ref={surfaceRef} tabIndex={-1} className="asset-modal-surface overflow-hidden rounded-panel bg-surface text-ink [&_.generation-attempt]:bg-surface-sunken" initial={{ opacity: 0.72 }} animate={{ opacity: 1 }} transition={{ duration: 0.12 }}>
-          <div className="asset-modal-toolbar bg-surface-sunken">
-            <div className="viewer-identity">
-              <Dialog.Title asChild><strong>{mediaCardName(card)}</strong></Dialog.Title>
-              <Dialog.Description asChild><small>{card.ref.type} · {card.ref.id}</small></Dialog.Description>
+        <motion.section ref={surfaceRef} tabIndex={-1} className={`${SURFACE} [&_.generation-attempt]:bg-surface-sunken`} initial={{ opacity: 0.72 }} animate={{ opacity: 1 }} transition={{ duration: 0.12 }}>
+          <div className={TOOLBAR}>
+            <div className={IDENTITY}>
+              <Dialog.Title asChild><strong className="truncate type-base font-normal text-ink">{mediaCardName(card)}</strong></Dialog.Title>
+              <Dialog.Description asChild><small className="truncate font-code type-xs text-muted">{card.ref.type} · {card.ref.id}</small></Dialog.Description>
             </div>
-            <div className="viewer-actions">
-              <button type="button" disabled={index <= 0} aria-label="Previous" onClick={() => { void controller.navigateMediaViewer(-1); }}><ChevronLeft size={15} aria-hidden="true" /></button>
-              <button type="button" disabled={index < 0 || index >= items.length - 1} aria-label="Next" onClick={() => { void controller.navigateMediaViewer(1); }}><ChevronRight size={15} aria-hidden="true" /></button>
-              <Dialog.Close asChild><button type="button" aria-label="Close"><X size={15} aria-hidden="true" /></button></Dialog.Close>
+            <div className={ACTIONS}>
+              <button className={ICON_ACTION} type="button" disabled={index <= 0} aria-label="Previous" onClick={() => { void controller.navigateMediaViewer(-1); }}><ChevronLeft size={15} aria-hidden="true" /></button>
+              <button className={ICON_ACTION} type="button" disabled={index < 0 || index >= items.length - 1} aria-label="Next" onClick={() => { void controller.navigateMediaViewer(1); }}><ChevronRight size={15} aria-hidden="true" /></button>
+              <Dialog.Close asChild><button className={ICON_ACTION} type="button" aria-label="Close"><X size={15} aria-hidden="true" /></button></Dialog.Close>
             </div>
           </div>
-          <div className="asset-modal-body">
-            <div className="asset-modal-stage bg-instrument"><motion.div className="asset-modal-content" key={`${card.ref.type}:${card.ref.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }}><ViewerPreview card={card} snapshot={snapshot} controller={controller} /></motion.div></div>
-            <aside className="asset-modal-inspector bg-surface"><div className="inspector">{isRunObjectMedia(card) && <RunObjectEvidence card={card} />}<GenerationInspector key={`${card.ref.type}:${card.ref.id}`} detail={snapshot.mediaGeneration.value} state={snapshot.mediaGeneration.status} error={snapshot.mediaGeneration.error} onRetry={() => { void controller.retryMediaGeneration(); }} /></div></aside>
+          <div className="asset-modal-body grid min-h-0 min-w-0 flex-1 grid-cols-(--asset-modal-columns)">
+            <div className="asset-modal-stage grid min-h-0 min-w-0 flex-1 place-items-center overflow-hidden overscroll-contain bg-instrument"><motion.div className="asset-modal-content grid size-full min-h-0 min-w-0 place-items-center overflow-hidden" key={`${card.ref.type}:${card.ref.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }}><ViewerPreview card={card} snapshot={snapshot} controller={controller} /></motion.div></div>
+            <aside className="asset-modal-inspector min-h-0 min-w-0 overflow-hidden bg-surface"><div className="inspector col-auto row-auto size-full bg-transparent backdrop-filter-none">{isRunObjectMedia(card) && <RunObjectEvidence card={card} />}<GenerationInspector key={`${card.ref.type}:${card.ref.id}`} detail={snapshot.mediaGeneration.value} state={snapshot.mediaGeneration.status} error={snapshot.mediaGeneration.error} onRetry={() => { void controller.retryMediaGeneration(); }} /></div></aside>
           </div>
         </motion.section>
       </Dialog.Content>
