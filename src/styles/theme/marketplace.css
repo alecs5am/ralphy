@@ -2,5 +2,59 @@
    the shared theme layer. Every key names a role and resolves to a token in tokens.css or a
    value the design fixes for that role; a component then reaches for the name, never a
    literal. */
+
+/* Multi-part column templates. These are plain custom properties rather than @theme keys because
+   `grid-template-columns` is not a Tailwind namespace and `@theme inline` never emits the
+   variable, so `grid-cols-(--name)` has to find a real declaration on the element. */
+:root {
+  /* The header is three slots: the route title, the search field, and whatever control the
+     sidebar is not currently showing. It collapses to one slot on a narrow content row. */
+  --marketplace-header-columns: minmax(150px, .55fr) minmax(280px, 1.45fr) auto;
+  /* A category card is a label and its count on one line, with the purpose spanning both. */
+  --marketplace-card-columns: minmax(0, 1fr) auto;
+  /* A detail hero: the title and lead take the space, the action cluster takes what it needs. */
+  --marketplace-hero-columns: minmax(0, 1fr) auto;
+  /* A result row: preview, copy, evidence, action. The narrow form keeps only the first two,
+     and the two it drops are hidden rather than squeezed. */
+  --marketplace-result-columns: 104px minmax(180px, 1fr) minmax(140px, .45fr) auto;
+  --marketplace-result-columns-narrow: 88px minmax(0, 1fr);
+  /* A detail route is a reading column plus a bounded evidence rail. */
+  --marketplace-detail-columns: minmax(0, 1fr) minmax(250px, 320px);
+  /* A download job row: state glyph, label, progress. An installed row ends in a state note
+     instead. Both fall back to the same two-column form on a narrow content row. */
+  --marketplace-download-columns: auto minmax(0, 1fr) minmax(100px, 180px);
+  --marketplace-installed-columns: auto minmax(0, 1fr) auto;
+  --marketplace-row-columns-narrow: auto minmax(0, 1fr);
+  /* Provider previews and public figures follow the space they have: the column count is the
+     grid's own decision, so the chat rail taking width needs no breakpoint. */
+  --marketplace-preview-columns: repeat(auto-fit, minmax(150px, 1fr));
+  --marketplace-figure-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
 @theme inline {
+  /* Ink and surfaces the shared scale does not name. */
+  --color-composer: var(--instrument-composer-surface);   /* the one primary action on a black hero */
+  --color-composer-ink: var(--instrument-alert-text);     /* and the ink that surface pairs with */
+  --color-alert-bright: var(--instrument-alert-bright);   /* an alarm line standing on a black widget */
+  /* The ring for a control on a black widget: the theme ink would be black on black in light. */
+  --color-focus-on-instrument: var(--instrument-focus-on-dark);
+
+  /* A widget that sits inside another widget: the detail hero, the workflow window, the
+     unavailable plate. Narrower than the desk panel radius, wider than a cell. */
+  --radius-widget: var(--radius-xl);
+
+  /* Leading the shared tokens do not name. */
+  --leading-copy: var(--leading-body);   /* a paragraph of source-provided copy */
+  --leading-hero: 1.1;                   /* a wrapping detail title */
+
+  /* Mono caps tracking steps between the named ones. */
+  --tracking-eyebrow: 0.1em;   /* the provider eyebrow over a detail title */
+  --tracking-block: 0.09em;    /* a block label inside a workflow field */
+
+  /* Breakpoints read against a container and never the window: the sidebar and the chat rail
+     change this surface's width without the viewport moving. */
+  --container-marketplace-split: 760px;   /* every two-column split on the route collapses to one */
+  --container-marketplace-grid: 900px;    /* a three-up card grid becomes two-up */
+  --container-marketplace-column: 620px;  /* ...and then one-up, and a black strip wraps */
+  --container-marketplace-result: 780px;  /* a result row drops its evidence and action columns */
 }

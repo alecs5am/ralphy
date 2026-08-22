@@ -208,7 +208,9 @@ describe("Marketplace unavailable surfaces", () => {
     for (const markup of [collection, creator, publish]) {
       expect(markup.match(/<button/g)).toHaveLength(1);
       expect(markup).toContain('aria-disabled="true"');
-      expect(markup).not.toMatch(/Short-form|starter stack|@creator|followers|reviews|\b\d+ items\b/i);
+      // Invented data is a copy question, so the scan reads the rendered copy: a utility class
+      // like `min-h-8 items-center` is not a count of eight items.
+      expect(markup.replace(/<[^>]*>/g, " ")).not.toMatch(/Short-form|starter stack|@creator|followers|reviews|\b\d+ items\b/i);
     }
   });
 

@@ -6,9 +6,13 @@ describe("Marketplace Instrument source guard", () => {
   test("keeps every reachable Marketplace surface flat, tokenized, and registry-owned", async () => {
     const result = await auditMarketplaceInstrument();
     expect(result.violations).toEqual([]);
+    // The shared detail vocabulary now carries the surfaces and inks these routes draw, so the
+    // raw-colour, depth-effect and legacy-token scans have to see it too. The stylesheet is still
+    // audited: it keeps the rules that style elements this area does not own.
     expect(result.files).toEqual(expect.arrayContaining([
       "src/screens/MarketplaceScreen.tsx",
       "src/screens/marketplace/MarketplaceWorkflows.tsx",
+      "src/screens/marketplace/detail-chrome.ts",
       "src/styles/marketplace.css",
     ]));
   });

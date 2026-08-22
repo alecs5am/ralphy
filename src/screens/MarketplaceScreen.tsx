@@ -115,6 +115,14 @@ function routeTitle(location: MarketplaceLocation): string {
   return "Item details";
 }
 
+/* The route surface and its one scroll region. Both names are exported because the geometry
+   harness mounts a supplied-presentation Downloads route of its own and has to measure the
+   real screen, not a hand-written copy of it. The `main-region` class stays as a hook:
+   instrument.css names it, and this screen's own layout is stated here. */
+export const MARKETPLACE_SCREEN = "marketplace-screen main-region @container/main-region flex h-full max-h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-desk px-8 pt-7.5 pb-12 text-ink";
+export const MARKETPLACE_SCROLL = "marketplace-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-2 pb-18";
+const ROUTE_PLACEHOLDER = "marketplace-route-placeholder mt-4 grid min-h-64 place-items-center rounded-panel bg-surface p-6 text-center";
+
 function browseRoute(route: MarketplaceLocation["route"]): MarketplaceBrowseRoute | null {
   return route.kind === "detail" || route.kind === "unavailable-detail" ? null : route;
 }
@@ -356,7 +364,7 @@ export function MarketplaceScreenView({
                 : (location.route.kind === "results" || instrumentCategory !== null) && instrumentItemCount === 0
                   ? "empty"
                   : "ready";
-  const content = <main className="marketplace-screen main-region @container flex h-full max-h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-desk text-ink" data-sidebar-visible={sidebarVisible ? "true" : "false"}>
+  const content = <main className={MARKETPLACE_SCREEN} data-sidebar-visible={sidebarVisible ? "true" : "false"}>
     <MarketplaceHeader
       title={routeTitle(location)}
       query={location.query}
@@ -368,7 +376,7 @@ export function MarketplaceScreenView({
       onOpenCategory={openCategory}
     />
     <div
-      className="marketplace-scroll"
+      className={MARKETPLACE_SCROLL}
       ref={scrollRef}
       onScroll={(event) => onRememberLocation({ scrollTop: event.currentTarget.scrollTop })}
     >
@@ -383,11 +391,11 @@ export function MarketplaceScreenView({
             onReviewRecipeTarget={(item) => setWorkflow({ kind: "recipe-target", itemLabel: item.name })}
           />
         : publicDetailState === "loading"
-          ? <section className="marketplace-route-placeholder mt-4 grid min-h-64 place-items-center rounded-panel bg-surface p-6 text-center" role="status" aria-busy="true"><h2>Loading public item details…</h2></section>
+          ? <section className={ROUTE_PLACEHOLDER} role="status" aria-busy="true"><h2>Loading public item details…</h2></section>
         : publicDetailState === "unavailable"
-          ? <section className="marketplace-route-placeholder mt-4 grid min-h-64 place-items-center rounded-panel bg-surface p-6 text-center" role="status"><div><h2 className="m-0 text-lg">Public item details unavailable</h2><p className="mt-2 text-sm text-muted">Public item details are unavailable because the Ralphy public library is unavailable.</p></div></section>
+          ? <section className={ROUTE_PLACEHOLDER} role="status"><div><h2 className="m-0 text-lg">Public item details unavailable</h2><p className="mt-2 text-sm text-muted">Public item details are unavailable because the Ralphy public library is unavailable.</p></div></section>
         : staleDetail
-          ? <section className="marketplace-route-placeholder mt-4 grid min-h-64 place-items-center rounded-panel bg-surface p-6 text-center" role="status"><div className="grid justify-items-center gap-2"><button className="marketplace-public-back h-8 rounded-control bg-surface-sunken px-3 text-xs" type="button" onClick={onBack}>Back to Marketplace</button><h2 className="m-0 text-lg">Marketplace item unavailable</h2><p className="m-0 text-sm text-muted">This Marketplace item is unavailable because its saved reference is invalid or stale.</p></div></section>
+          ? <section className={ROUTE_PLACEHOLDER} role="status"><div className="grid justify-items-center gap-2"><button className="marketplace-public-back inline-flex h-8 w-fit items-center gap-1.75 rounded-control bg-surface-sunken px-3 type-xs text-ink" type="button" onClick={onBack}>Back to Marketplace</button><h2 className="m-0 text-lg">Marketplace item unavailable</h2><p className="m-0 text-sm text-muted">This Marketplace item is unavailable because its saved reference is invalid or stale.</p></div></section>
         : location.route.kind === "library"
           ? <MarketplaceMyLibrary section={location.route.section} machine={snapshot.status === "ready" ? snapshot.machine : null} />
         : location.route.kind === "unavailable-detail"
@@ -397,7 +405,7 @@ export function MarketplaceScreenView({
             onReview={() => unavailableWorkflow && setWorkflow({ kind: unavailableWorkflow, itemLabel: null })}
           />
         : route === null
-            ? <section className="marketplace-route-placeholder mt-4 grid min-h-64 place-items-center rounded-panel bg-surface p-6 text-center" role="status"><div><h2 className="m-0 text-lg">{routeTitle(location)}</h2><p className="mt-2 text-sm text-muted">Full item details show only fields returned by the current source. This route does not expose a mutation yet.</p></div></section>
+            ? <section className={ROUTE_PLACEHOLDER} role="status"><div><h2 className="m-0 text-lg">{routeTitle(location)}</h2><p className="mt-2 text-sm text-muted">Full item details show only fields returned by the current source. This route does not expose a mutation yet.</p></div></section>
         : <MarketplaceBrowse
           route={route}
           snapshot={snapshot}

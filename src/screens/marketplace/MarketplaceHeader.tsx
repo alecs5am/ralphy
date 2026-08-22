@@ -100,13 +100,13 @@ export function MarketplaceHeader({
     query.filters.format !== "all" ? { label: query.filters.format.toLocaleUpperCase(), clear: () => onQueryChange(queryWithFilter(query, "format", "all")) } : null,
   ].filter((item): item is { label: string; clear(): void } => item !== null);
 
-  return <header className="marketplace-header @container/header mx-2 mt-2 grid shrink-0 grid-cols-[minmax(150px,.55fr)_minmax(280px,1.45fr)_auto] items-center gap-x-4 gap-y-2 rounded-panel bg-surface px-5 py-3.5 text-ink @max-[760px]/header:grid-cols-1">
+  return <header className="marketplace-header mx-2 mt-2 grid shrink-0 grid-cols-(--marketplace-header-columns) items-center gap-x-4 gap-y-2 rounded-panel bg-surface px-5 py-3.5 text-ink @max-marketplace-split/main-region:grid-cols-1">
     <div className="marketplace-header-title grid min-w-0 gap-0.5">
       <span className="font-mono type-mono-xs uppercase tracking-mono text-muted">Marketplace</span>
       <h1 className="m-0 truncate text-xl leading-none outline-none" id="marketplace-heading" tabIndex={-1}>{title}</h1>
       {refreshing && <small className="type-meta text-muted" role="status">Refreshing catalog…</small>}
     </div>
-    <form className="marketplace-search flex h-control-lg w-full max-w-[440px] min-w-0 items-center gap-2 justify-self-center rounded-full bg-surface-sunken py-0 pr-0.5 pl-3 @max-[760px]/header:max-w-none" role="search" onSubmit={submit}>
+    <form className="marketplace-search flex h-control-lg w-full max-w-110 min-w-0 items-center gap-2 justify-self-center rounded-control bg-surface-sunken py-0 pr-0.5 pl-3 @max-marketplace-split/main-region:max-w-none" role="search" onSubmit={submit}>
       <Search className="size-3.5 shrink-0 text-muted" aria-hidden="true" />
       <input className="h-full min-w-0 flex-1 bg-transparent p-0 text-xs text-ink placeholder:text-muted"
         type="search"
@@ -118,7 +118,7 @@ export function MarketplaceHeader({
       />
       <button className="flex h-control-md shrink-0 items-center rounded-control bg-instrument px-3 text-xs text-on-instrument hover:bg-instrument-hover" type="submit">Search</button>
     </form>
-    {!sidebarVisible && <div className="marketplace-header-category-menu flex items-center gap-2 @max-[760px]/header:justify-between">
+    {!sidebarVisible && <div className="marketplace-header-category-menu flex min-w-0 items-center gap-2 @max-marketplace-split/main-region:justify-between">
       <span className="type-meta text-muted">Marketplace category</span>
       <SelectMenu className={`${filterClass} marketplace-category-select`} overlayOwner="marketplace.header"
         ariaLabel="Marketplace category"
@@ -139,11 +139,11 @@ export function MarketplaceHeader({
         <SelectMenu className={filterClass} overlayOwner="marketplace.header" ariaLabel="Modality" prefix="Modality" value={query.filters.modality} options={modalityOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "modality", value))} />
         <SelectMenu className={filterClass} overlayOwner="marketplace.header" ariaLabel="Format" prefix="Format" value={query.filters.format} options={formatOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "format", value))} />
       </>}
-      <span className="marketplace-filter-spacer min-w-3 flex-1 @max-[760px]/header:hidden" />
+      <span className="marketplace-filter-spacer min-w-3 flex-1 @max-marketplace-split/main-region:hidden" />
       <SelectMenu className={filterClass} overlayOwner="marketplace.header" ariaLabel="Sort Marketplace" prefix="Sort" value={query.sort} options={sortOptions} align="end" onValueChange={(sort) => onQueryChange({ ...query, sort })} />
     </div>
-    {activeFilters.length > 0 && <div className="marketplace-filter-chips col-span-full flex flex-wrap gap-1.5" aria-label="Active filters">
-      {activeFilters.map(({ label, clear }) => <button className="flex h-7 items-center gap-1.5 rounded-full bg-instrument px-3 type-meta text-on-instrument" type="button" key={label} onClick={clear}>{label}<X className="size-3" aria-hidden="true" /></button>)}
+    {activeFilters.length > 0 && <div className="marketplace-filter-chips col-span-full flex min-w-0 flex-wrap gap-1.5" aria-label="Active filters">
+      {activeFilters.map(({ label, clear }) => <button className="flex h-7 items-center gap-1.5 rounded-control bg-instrument px-3 type-meta text-on-instrument focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-on-instrument" type="button" key={label} onClick={clear}>{label}<X className="size-3" aria-hidden="true" /></button>)}
     </div>}
   </header>;
 }

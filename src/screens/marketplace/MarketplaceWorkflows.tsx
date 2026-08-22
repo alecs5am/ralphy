@@ -3,6 +3,36 @@ import { useRef, useState, type ReactNode } from "react";
 import { InstrumentOverlay } from "../../instrument/overlay-registry";
 import type { CatalogResult } from "../../lib/ipc";
 import type { WorkbenchRoute } from "../../state/workbench";
+import { LIBRARY_COPY, LIBRARY_MONO, LIBRARY_ROUTE, LIBRARY_TITLE, LIBRARY_UNAVAILABLE } from "./detail-chrome";
+
+/* The workflow window. Its radius is the shared dialog panel radius, which instrument.css
+   states on every managed overlay's own content; the window only says how it stacks.
+   The registry renders the positioned overlay surface itself and takes no class from here,
+   so where that surface sits is the one thing this route cannot say in markup. */
+const WINDOW = "marketplace-workflow-window flex max-h-full min-h-0 w-full flex-col overflow-hidden rounded-panel bg-surface text-ink [corner-shape:squircle]";
+const WINDOW_HEADER = "marketplace-workflow-header flex flex-none items-start gap-4 px-4.5 pt-4.5 pb-3.25";
+const WINDOW_BODY = "marketplace-workflow-body flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto overscroll-contain px-4.5 pt-0.75 pb-4";
+const WINDOW_FOOTER = "marketplace-workflow-footer flex min-h-16.5 flex-none items-center gap-4 px-4.5 pt-3 pb-4";
+const WINDOW_CLOSE = "grid size-8 flex-none place-items-center rounded-control bg-surface-sunken text-muted hover:bg-surface-hover hover:text-ink";
+const WINDOW_ACTION = "min-h-8.5 rounded-control bg-surface-sunken px-3.25 text-muted";
+
+/* A field block inside a workflow: a mono caps label over a source-backed reason. */
+const FIELD_BLOCK = "grid min-w-0 gap-1.75 rounded-cell bg-surface-sunken p-3";
+const FIELD_LABEL = "m-0 font-mono type-meta uppercase tracking-block text-muted";
+const FIELD_REASON = "m-0 type-xs leading-copy text-muted wrap-anywhere";
+/* Two fields side by side on a wide content row. The overlay copy has no content-row
+   container above it, so the variant is inert there and the pair stays side by side --
+   which is what the stylesheet's own @container main-region rule did. */
+const FIELD_GRID = "grid grid-cols-2 gap-1.75 @max-marketplace-split/main-region:grid-cols-1";
+const OPTION = "flex min-h-12 flex-col items-start gap-0.75 rounded-cell px-2.5 py-2 text-left";
+const TARGET_OPTION = `${OPTION} bg-surface text-ink aria-pressed:bg-instrument aria-pressed:text-on-instrument aria-disabled:text-muted`;
+const CHOICE_OPTION = `${OPTION} bg-surface text-muted`;
+const OPTION_NOTE = "type-xs leading-snug text-inherit";
+
+/* A download job row and the state note it ends in. */
+const JOB_ROW = "grid min-h-15 grid-cols-(--marketplace-download-columns) items-center gap-2.75 rounded-cell bg-surface px-3 py-2.5 @max-marketplace-split/main-region:grid-cols-(--marketplace-row-columns-narrow)";
+const JOB_NOTE = "type-xs not-italic text-muted wrap-anywhere";
+const JOB_TRAILING = "@max-marketplace-split/main-region:col-start-2";
 
 export type MarketplaceWorkflowKind =
   | "model-download"
@@ -116,24 +146,26 @@ export function marketplaceTargets(
 
 function TargetList({ targets }: { targets: MarketplaceWorkflowTargets }) {
   const [selected, setSelected] = useState(() => targets.projectOptions.find(({ current }) => current)?.id ?? null);
-  return <section className="marketplace-target-list" aria-labelledby="marketplace-target-list-title">
-    <h3 id="marketplace-target-list-title">Target</h3>
-    {targets.contextProjectLabel && <p>Current project context · {targets.contextProjectLabel}</p>}
-    {targets.projectOptions.length > 0 && <div role="group" aria-label="Named project targets">
+  return <section className={`marketplace-target-list ${FIELD_BLOCK}`} aria-labelledby="marketplace-target-list-title">
+    <h3 className={FIELD_LABEL} id="marketplace-target-list-title">Target</h3>
+    {targets.contextProjectLabel && <p className={FIELD_REASON}>Current project context · {targets.contextProjectLabel}</p>}
+    {targets.projectOptions.length > 0 && <div className="grid gap-1.25" role="group" aria-label="Named project targets">
       {targets.projectOptions.map((option) => <button
+        className={TARGET_OPTION}
         key={option.id}
         type="button"
         aria-pressed={selected === option.id}
         onClick={() => setSelected(option.id)}
-      ><span>Project · {option.contextLabel}</span><small>{option.current ? "Current project · project target" : "Project target"}</small></button>)}
+      ><span>Project · {option.contextLabel}</span><small className={OPTION_NOTE}>{option.current ? "Current project · project target" : "Project target"}</small></button>)}
     </div>}
     {targets.unavailableScopes.map((scope) => <button
+      className={TARGET_OPTION}
       key={scope.kind}
       type="button"
       aria-disabled="true"
       aria-describedby={`marketplace-${targets.workflow}-${scope.kind}-reason`}
-    ><span>{scope.label}</span><small id={`marketplace-${targets.workflow}-${scope.kind}-reason`}>{scope.reason}</small></button>)}
-    {targets.targetUnavailableReason && <p role="status">{targets.targetUnavailableReason}</p>}
+    ><span>{scope.label}</span><small className={OPTION_NOTE} id={`marketplace-${targets.workflow}-${scope.kind}-reason`}>{scope.reason}</small></button>)}
+    {targets.targetUnavailableReason && <p className={FIELD_REASON} role="status">{targets.targetUnavailableReason}</p>}
   </section>;
 }
 
@@ -148,10 +180,10 @@ interface WorkflowFrameProps {
 }
 
 function WorkflowContents({ kind, title, description, onCancel, children, finalLabel, finalReason }: WorkflowFrameProps) {
-  return <div className="marketplace-workflow-window" data-workflow={kind}>
-    <header className="marketplace-workflow-header"><div><h2>{title}</h2><p>{description}</p></div><button type="button" aria-label={`Close ${title}`} onClick={onCancel}><X aria-hidden="true" /></button></header>
-    <div className="marketplace-workflow-body">{children}</div>
-    <footer className="marketplace-workflow-footer"><small id="marketplace-workflow-final-reason">{finalReason} The final action is disabled.</small><button type="button" aria-disabled="true" aria-describedby="marketplace-workflow-final-reason">{finalLabel}</button></footer>
+  return <div className={WINDOW} data-workflow={kind}>
+    <header className={WINDOW_HEADER}><div className="grid min-w-0 flex-1 gap-1.25"><h2 className="m-0 type-xl font-normal">{title}</h2><p className="m-0 type-sm leading-copy text-muted">{description}</p></div><button className={WINDOW_CLOSE} type="button" aria-label={`Close ${title}`} onClick={onCancel}><X className="w-3.25" aria-hidden="true" /></button></header>
+    <div className={WINDOW_BODY}>{children}</div>
+    <footer className={WINDOW_FOOTER}><small className="m-0 flex-1 font-mono type-xs leading-copy text-muted wrap-anywhere" id="marketplace-workflow-final-reason">{finalReason} The final action is disabled.</small><button className={WINDOW_ACTION} type="button" aria-disabled="true" aria-describedby="marketplace-workflow-final-reason">{finalLabel}</button></footer>
   </div>;
 }
 
@@ -185,7 +217,7 @@ export function MarketplaceTargetChooser({ targets, onCancel }: MarketplaceTarge
 }
 
 function ReviewField({ label, children }: { label: string; children: string }) {
-  return <section className="marketplace-review-field"><h3>{label}</h3><p>{children}</p></section>;
+  return <section className={`marketplace-review-field ${FIELD_BLOCK}`}><h3 className={FIELD_LABEL}>{label}</h3><p className={FIELD_REASON}>{children}</p></section>;
 }
 
 function ReviewFields({ kind }: { kind: MarketplaceWorkflowKind }) {
@@ -230,8 +262,8 @@ function ReviewFields({ kind }: { kind: MarketplaceWorkflowKind }) {
     <ReviewField label="Current version">Current installed version is unavailable without persistent installed-version state.</ReviewField>
     <ReviewField label="Proposed version">Proposed version and change history are unavailable without a persistent update contract.</ReviewField>
     <ReviewField label="Local modifications">Local modification evidence is unavailable without persistent hash and modification state.</ReviewField>
-    <div className="marketplace-update-choices" role="group" aria-label="Unavailable conflict choices">
-      {[["Keep current", "Keep the current pinned version"], ["Fork local", "Preserve local changes as a derivative"], ["Replace local", "Replace only after explicit confirmation"]].map(([label, note]) => <button key={label} type="button" aria-disabled="true"><span>{label}</span><small>{note} · unavailable</small></button>)}
+    <div className="marketplace-update-choices col-span-full grid gap-1.25" role="group" aria-label="Unavailable conflict choices">
+      {[["Keep current", "Keep the current pinned version"], ["Fork local", "Preserve local changes as a derivative"], ["Replace local", "Replace only after explicit confirmation"]].map(([label, note]) => <button className={CHOICE_OPTION} key={label} type="button" aria-disabled="true"><span>{label}</span><small className={FIELD_REASON}>{note} · unavailable</small></button>)}
     </div>
   </>;
 }
@@ -257,8 +289,8 @@ export function MarketplaceActionReview({ kind, targets, itemLabel, onCancel }: 
   const [title, description, finalLabel, finalReason] = reviewCopy(kind);
   return <WorkflowFrame kind={kind} title={itemLabel ? `${title} · ${itemLabel}` : title} description={description} onCancel={onCancel} finalLabel={finalLabel} finalReason={finalReason}>
     <TargetList targets={targets} />
-    <div className="marketplace-review-fields"><ReviewFields kind={kind} /></div>
-    <p className="marketplace-review-save-state">Saving is unavailable without a persistent saved-state contract.</p>
+    <div className={`marketplace-review-fields ${FIELD_GRID}`}><ReviewFields kind={kind} /></div>
+    <p className="marketplace-review-save-state m-0 rounded-cell bg-instrument px-3 py-2.5 type-xs leading-copy text-on-instrument-muted wrap-anywhere">Saving is unavailable without a persistent saved-state contract.</p>
   </WorkflowFrame>;
 }
 
@@ -273,16 +305,16 @@ const downloadGroups = [
 ] as const;
 
 export function MarketplaceDownloads({ presentation }: { presentation: MarketplaceDownloadPresentation }) {
-  if (presentation.availability === "unavailable") return <section className="marketplace-library-unavailable" role="status"><Download aria-hidden="true" /><h2>Downloads</h2><p>{presentation.reason}</p><small>No zero count is inferred.</small></section>;
-  return <section className="marketplace-downloads" aria-labelledby="marketplace-downloads-title">
-    <h2 id="marketplace-downloads-title">Downloads</h2>
+  if (presentation.availability === "unavailable") return <section className={`marketplace-library-unavailable ${LIBRARY_UNAVAILABLE}`} role="status"><Download className="w-5 text-alert" aria-hidden="true" /><h2 className={LIBRARY_TITLE}>Downloads</h2><p className="m-0 flex items-center gap-2 type-sm leading-copy text-muted">{presentation.reason}</p><small className={LIBRARY_MONO}>No zero count is inferred.</small></section>;
+  return <section className={`marketplace-downloads ${LIBRARY_ROUTE}`} aria-labelledby="marketplace-downloads-title">
+    <h2 className={LIBRARY_TITLE} id="marketplace-downloads-title">Downloads</h2>
     {downloadGroups.map(([state, label]) => {
       const jobs = presentation.jobs.filter((job) => job.state === state);
-      return <section key={state} aria-labelledby={`marketplace-download-${state}`}><h3 id={`marketplace-download-${state}`}>{label}</h3>
-        {jobs.length === 0 ? <p>No jobs in this supplied presentation.</p> : <ul role="list">{jobs.map((job) => <li key={job.id}>
-          {job.state === "active" ? <LoaderCircle aria-hidden="true" /> : job.state === "failed" ? <CircleAlert aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
-          <span><strong>{job.label}</strong><small>{job.nextAction}</small></span>
-          {job.progress === null ? <em>Progress unavailable</em> : <progress max={100} value={Math.max(0, Math.min(100, job.progress))} aria-label={`${job.label} download progress: ${job.progress}%`}>{job.progress}%</progress>}
+      return <section className="grid gap-1.75" key={state} aria-labelledby={`marketplace-download-${state}`}><h3 className={FIELD_LABEL} id={`marketplace-download-${state}`}>{label}</h3>
+        {jobs.length === 0 ? <p className={LIBRARY_COPY}>No jobs in this supplied presentation.</p> : <ul className="m-0 grid list-none gap-1.5 p-0" role="list">{jobs.map((job) => <li className={JOB_ROW} key={job.id}>
+          {job.state === "active" ? <LoaderCircle className="w-4" aria-hidden="true" /> : job.state === "failed" ? <CircleAlert className="w-4" aria-hidden="true" /> : <CheckCircle2 className="w-4" aria-hidden="true" />}
+          <span className="flex min-w-0 flex-col gap-0.75"><strong>{job.label}</strong><small className={JOB_NOTE}>{job.nextAction}</small></span>
+          {job.progress === null ? <em className={`${JOB_NOTE} ${JOB_TRAILING}`}>Progress unavailable</em> : <progress className={`w-full accent-ink ${JOB_TRAILING}`} max={100} value={Math.max(0, Math.min(100, job.progress))} aria-label={`${job.label} download progress: ${job.progress}%`}>{job.progress}%</progress>}
         </li>)}</ul>}
       </section>;
     })}
@@ -290,10 +322,10 @@ export function MarketplaceDownloads({ presentation }: { presentation: Marketpla
 }
 
 export function MarketplaceUpdateConflictReview() {
-  return <section className="marketplace-update-review" aria-labelledby="marketplace-update-review-title">
-    <h2 id="marketplace-update-review-title">Update and conflict review</h2>
-    <p>Update target is unavailable without persistent installed-version and local-modification state.</p>
-    <div className="marketplace-review-fields"><ReviewFields kind="update-conflict" /></div>
-    <p>Update resolution is unavailable without persistent installed-version and local-modification state. The final action is disabled.</p>
+  return <section className={`marketplace-update-review ${LIBRARY_ROUTE}`} aria-labelledby="marketplace-update-review-title">
+    <h2 className={LIBRARY_TITLE} id="marketplace-update-review-title">Update and conflict review</h2>
+    <p className={LIBRARY_COPY}>Update target is unavailable without persistent installed-version and local-modification state.</p>
+    <div className={`marketplace-review-fields w-full max-w-195 ${FIELD_GRID}`}><ReviewFields kind="update-conflict" /></div>
+    <p className={LIBRARY_COPY}>Update resolution is unavailable without persistent installed-version and local-modification state. The final action is disabled.</p>
   </section>;
 }

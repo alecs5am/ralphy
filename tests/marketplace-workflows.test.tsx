@@ -20,6 +20,11 @@ import type { MarketplaceSnapshot } from "../src/screens/marketplace/presentatio
 import { createReactHost, type HostNode } from "./react-host";
 
 const marketplaceStyles = readFileSync(new URL("../src/styles/marketplace.css", import.meta.url), "utf8");
+const resetStyles = readFileSync(new URL("../src/styles/reset.css", import.meta.url), "utf8");
+// The workflow window styles itself in markup now, so the contract this file used to read out of
+// the stylesheet is read out of the component that declares it.
+const workflowSource = readFileSync(new URL("../src/screens/marketplace/MarketplaceWorkflows.tsx", import.meta.url), "utf8");
+const detailChromeSource = readFileSync(new URL("../src/screens/marketplace/detail-chrome.ts", import.meta.url), "utf8");
 
 const catalog: CatalogResult = {
   rootPath: "/Users/demo/.ralphy",
@@ -182,15 +187,29 @@ describe("Marketplace workflow targets", () => {
 
 describe("Marketplace non-mutating action reviews", () => {
   test("keeps portal workflow buttons visibly focusable outside the Marketplace screen", () => {
-    expect(marketplaceStyles).toMatch(/\[data-instrument-overlay="target-chooser"\] button:focus-visible[\s\S]*outline:\s*2px solid var\(--instrument-focus-on-dark\)[^}]*outline-offset:\s*2px/s);
+    // The window is portalled out of the route, so a ring scoped to the screen or to the chooser
+    // could never be the thing that draws it. reset.css paints the one 2px ring on every
+    // :focus-visible, unscoped, which is what reaches these buttons.
+    expect(resetStyles).toMatch(/:focus-visible\s*\{\s*outline:\s*var\(--focus-ring\)/);
+    expect(marketplaceStyles).not.toContain('[data-instrument-overlay="target-chooser"] button:focus-visible');
+    expect(marketplaceStyles).not.toContain(".marketplace-screen button:focus-visible");
+    // ...and these controls stand on a light window, so they must not take the on-instrument
+    // ring, which is the near-white ring meant for a control on a black widget.
+    expect(workflowSource).not.toContain("outline-focus-on-instrument");
+    // A control on the black hero does take it, in both themes.
+    expect(detailChromeSource).toContain("focus-visible:outline-focus-on-instrument");
   });
 
   test("uses an opaque semantic dialog surface and readable compact state tokens", () => {
-    expect(marketplaceStyles).toMatch(/\[data-instrument-overlay="target-chooser"\][\s\S]*background:\s*var\(--instrument-widget-light\)/s);
+    // The window names its own opaque surface and ink; the stylesheet keeps only the positioned
+    // overlay element the registry renders, which takes no className from here.
+    expect(workflowSource).toMatch(/const WINDOW = "marketplace-workflow-window[^"]*\bbg-surface\b[^"]*\btext-ink\b/);
+    expect(marketplaceStyles).toMatch(/\[data-instrument-overlay="target-chooser"\]\s*\{[^}]*position:\s*fixed/s);
     expect(marketplaceStyles).not.toContain("var(--sidebar)");
     expect(marketplaceStyles).not.toContain("box-shadow");
     expect(marketplaceStyles).not.toContain("backdrop-filter");
-    expect(marketplaceStyles).toContain("color: var(--instrument-text-secondary-readable)");
+    expect(workflowSource).toContain("text-muted");
+    expect(workflowSource).toContain("text-on-instrument-muted");
   });
 
   test("connects an unsupported detail review to the real target matrix without enabling a mutation", async () => {

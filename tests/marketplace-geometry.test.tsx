@@ -75,7 +75,7 @@ async function marketplaceGeometry(): Promise<GeometrySmoke> {
     writeFileSync(join(directory, "harness.tsx"), `
       import { createRoot } from "react-dom/client";
       import { ContextSidebar } from ${JSON.stringify(join(process.cwd(), "src/components/ContextSidebar.tsx"))};
-      import { MarketplaceScreenView } from ${JSON.stringify(join(process.cwd(), "src/screens/MarketplaceScreen.tsx"))};
+      import { MarketplaceScreenView, MARKETPLACE_SCREEN, MARKETPLACE_SCROLL } from ${JSON.stringify(join(process.cwd(), "src/screens/MarketplaceScreen.tsx"))};
       import { MarketplaceHeader } from ${JSON.stringify(join(process.cwd(), "src/screens/marketplace/MarketplaceHeader.tsx"))};
       import { MarketplaceActionReview, MarketplaceDownloads, MarketplaceTargetChooser, marketplaceTargets } from ${JSON.stringify(join(process.cwd(), "src/screens/marketplace/MarketplaceWorkflows.tsx"))};
       import { projectMarketplacePublicItem } from ${JSON.stringify(join(process.cwd(), "src/screens/marketplace/presentation.ts"))};
@@ -121,15 +121,15 @@ async function marketplaceGeometry(): Promise<GeometrySmoke> {
         return <MarketplaceScreenView catalog={catalog} workRoute={{ kind: "project", workspaceId: "workspace-1", projectId: "project-1" }} location={location} sidebarVisible={sidebarVisible} snapshot={screenSnapshot(state)} onBack={noop} onNavigate={noop} onRememberLocation={noop} onRetry={noop} />;
       }
       function Downloads({ sidebarVisible }) {
-        return <main className="marketplace-screen main-region" data-sidebar-visible={sidebarVisible ? "true" : "false"}><MarketplaceHeader title="Downloads" query={query} selectedCategory={null} sidebarVisible={sidebarVisible} refreshing={false} onQueryChange={noop} onSearch={noop} onOpenCategory={noop} /><div className="marketplace-scroll"><p className="marketplace-target-state">Source-backed download presentation</p><MarketplaceDownloads presentation={{ availability: "ready", jobs: [{ id: "active", label: "Alpha model", state: "active", progress: 42, nextAction: "Downloading verified package" }, { id: "failed", label: "Beta model", state: "failed", progress: null, nextAction: "Retry unavailable" }, { id: "done", label: "Gamma model", state: "completed", progress: 100, nextAction: "Load health unavailable" }] }} /></div></main>;
+        return <main className={MARKETPLACE_SCREEN} data-sidebar-visible={sidebarVisible ? "true" : "false"}><MarketplaceHeader title="Downloads" query={query} selectedCategory={null} sidebarVisible={sidebarVisible} refreshing={false} onQueryChange={noop} onSearch={noop} onOpenCategory={noop} /><div className={MARKETPLACE_SCROLL}><p className="marketplace-target-state">Source-backed download presentation</p><MarketplaceDownloads presentation={{ availability: "ready", jobs: [{ id: "active", label: "Alpha model", state: "active", progress: 42, nextAction: "Downloading verified package" }, { id: "failed", label: "Beta model", state: "failed", progress: null, nextAction: "Retry unavailable" }, { id: "done", label: "Gamma model", state: "completed", progress: 100, nextAction: "Load health unavailable" }] }} /></div></main>;
       }
       function Harness({ state, sidebar, chat, mode = "marketplace", sidebarWidth = 248 }) {
         const sidebarVisible = mode === "work" ? sidebar : sidebar && window.innerWidth > 1280;
         const workflow = state === "model-review" ? <MarketplaceActionReview kind="model-download" targets={marketplaceTargets(catalog, { kind: "project", workspaceId: "workspace-1", projectId: "project-1" }, "model-download")} itemLabel="Alpha model" onCancel={noop} /> : state === "target-chooser" ? <MarketplaceTargetChooser targets={marketplaceTargets(catalog, { kind: "project", workspaceId: "workspace-1", projectId: "project-1" }, "recipe-target")} onCancel={noop} /> : null;
         const marketplace = state === "downloads" ? <Downloads sidebarVisible={sidebarVisible} /> : <Screen state={state} sidebarVisible={sidebarVisible} />;
-        return <div className={"workbench" + (sidebarVisible ? "" : " sidebar-collapsed") + (chat ? " has-right-panel" : "")} style={{ "--sidebar-w": sidebarWidth + "px", "--inspector-w": "336px" }}>
+        return <div className={"workbench" + (sidebarVisible ? "" : " sidebar-collapsed") + (chat ? " has-right-panel" : "")} style={{ "--sidebar-w": sidebarWidth + "px", "--inspector-w": "336px", "--sidebar-column": sidebarVisible ? "var(--sidebar-w)" : "0px", "--right-column": chat ? "var(--inspector-w)" : "0px" }}>
           {sidebarVisible && <ContextSidebar mode={mode} route={{ kind: "library" }} page="overview" pageActive={false} marketplaceRoute={(locations[state]?.route ?? locations.discover.route)} rootPath={null} workspaces={[]} workspaceId={null} pinnedWorkspaceIds={[]} canGoBack={false} canGoForward={false} onBack={noop} onForward={noop} onToggleSidebar={noop} onOpenSettings={noop} onSwitchMode={noop} onOpenMarketplaceRoute={noop} onOpenWorkspace={noop} onOpenPage={noop} />}
-          <section className="main-shell"><div className="main-content-stage"><div className="app-mode-surface">{marketplace}</div></div></section>
+          <section className="main-shell" style={{ gridColumn: 2 }}><div className="main-content-stage"><div className="app-mode-surface">{marketplace}</div></div></section>
           {chat && <aside className="utility-right-panel" aria-label="Agent chat"><header className="utility-panel-header">Agent chat</header></aside>}
           {workflow}
         </div>;
@@ -200,10 +200,12 @@ async function marketplaceGeometry(): Promise<GeometrySmoke> {
             const overflows=required.filter(s=>!document.querySelector(s)).map(s=>"missing:"+s);
             for(const selector of [...required,...optional]) for(const element of document.querySelectorAll(selector)) if(element.scrollWidth>element.clientWidth+1) overflows.push(selector+":"+element.scrollWidth+">"+element.clientWidth);
             const sidebar=document.querySelector(".context-sidebar"),screen=document.querySelector(".marketplace-screen"),chat=document.querySelector(".utility-right-panel"),workflow=document.querySelector(".marketplace-workflow-window");
+            /* Each candidate reports its class hook -- the first token of its className -- because
+               these elements now carry utilities after it. A stray owner still names itself. */
             const scrollCandidates=[screen,document.querySelector(".main-content-stage"),document.querySelector(".app-mode-surface"),document.querySelector(".marketplace-scroll")].filter(Boolean);
-            const scrollOwners=scrollCandidates.filter(e=>["auto","scroll"].includes(getComputedStyle(e).overflowY)).map(e=>e.className);
+            const scrollOwners=scrollCandidates.filter(e=>["auto","scroll"].includes(getComputedStyle(e).overflowY)).map(e=>e.className.split(" ")[0]);
             const workflowParts=workflow?[workflow,workflow.querySelector(".marketplace-workflow-header"),workflow.querySelector(".marketplace-workflow-body"),workflow.querySelector(".marketplace-workflow-footer")].filter(Boolean):[];
-            const workflowOwners=workflowParts.filter(e=>["auto","scroll"].includes(getComputedStyle(e).overflowY)).map(e=>e.className);
+            const workflowOwners=workflowParts.filter(e=>["auto","scroll"].includes(getComputedStyle(e).overflowY)).map(e=>e.className.split(" ")[0]);
             const boundary=(workflow||document.querySelector(".marketplace-scroll")).getBoundingClientRect();
             const actions=[...document.querySelectorAll(".marketplace-model-actions button,.marketplace-public-actions button,.marketplace-unavailable-review button,.marketplace-workflow-footer button")];
             const actionFits=actions.every(e=>{const r=e.getBoundingClientRect();return r.left>=boundary.left-1&&r.right<=boundary.right+1&&r.top>=boundary.top-1&&r.bottom<=boundary.bottom+1;});

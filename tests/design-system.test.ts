@@ -38,6 +38,11 @@ const sharedLibrarySurfaceSource = [
   ...readdirSync(join(process.cwd(), "src/screens/shared-library")).map((file) => `src/screens/shared-library/${file}`),
 ].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
 const marketplaceStyles = readStylesheet("marketplace.css");
+const marketplaceTheme = readFileSync(join(process.cwd(), "src/styles/theme/marketplace.css"), "utf8");
+const marketplaceSurfaceSource = [
+  "src/screens/MarketplaceScreen.tsx",
+  ...readdirSync(join(process.cwd(), "src/screens/marketplace")).map((file) => `src/screens/marketplace/${file}`),
+].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
 
 const project: ProjectSummary = {
   id: "workspace-1/project-1", workspaceId: "workspace-1", projectId: "project-1", name: "Launch",
@@ -711,22 +716,42 @@ const renderer = readdirSync(join(process.cwd(), "src"), {
 
 describe("design system contract", () => {
   test("gives Marketplace container-responsive detail, sidebar focus, and complete reduced motion rules", () => {
-    const containerRules = marketplaceStyles.slice(
-      marketplaceStyles.indexOf("@container main-region (max-width: 760px)"),
-      marketplaceStyles.indexOf("@media (max-width: 1160px)"),
-    );
-    const viewportRules = marketplaceStyles.slice(
-      marketplaceStyles.indexOf("@media (max-width: 1160px)"),
-      marketplaceStyles.indexOf("@media (prefers-reduced-motion: reduce)"),
-    );
-    expect(marketplaceStyles).toMatch(/\.marketplace-screen\s*\{[^}]*container-name:\s*main-region[^}]*container-type:\s*inline-size/s);
+    // The route declares its own content-row container in the markup that owns the screen. The
+    // stylesheet no longer names it, and no longer holds a breakpoint of any kind.
+    expect(marketplaceSurfaceSource).toContain("@container/main-region");
+    expect(marketplaceStyles).not.toContain("@container");
+    expect(marketplaceStyles).not.toContain("@media (max-width");
+    expect(marketplaceStyles).not.toContain("@media (max-height");
+    // Every breakpoint on the route is a role key read against that container. An element cannot
+    // query the container it declares, which is why the header's own columns had to stop reading
+    // `@container/header` -- that form never matched and the header never collapsed.
+    expect(marketplaceTheme).toMatch(/--container-marketplace-split:\s*760px/);
+    expect(marketplaceSurfaceSource).not.toMatch(/@(?:min|max)-\[/);
+    expect(marketplaceSurfaceSource).not.toContain("@container/header");
+    expect(marketplaceSurfaceSource).toMatch(/marketplace-header[^"]*grid-cols-\(--marketplace-header-columns\)[^"]*@max-marketplace-split\/main-region:grid-cols-1/);
+    // Both detail layouts collapse to one column against the content row, and the hero and its
+    // action cluster collapse with them. The two-column form is one role key, shared.
+    expect(marketplaceTheme).toMatch(/--marketplace-detail-columns:\s*minmax\(0, 1fr\) minmax\(250px, 320px\)/);
+    expect(marketplaceSurfaceSource).toMatch(/DETAIL_LAYOUT = "[^"]*grid-cols-\(--marketplace-detail-columns\)[^"]*@max-marketplace-split\/main-region:grid-cols-1/);
+    expect(marketplaceSurfaceSource).toMatch(/DETAIL_HERO = "[^"]*@max-marketplace-split\/main-region:grid-cols-1/);
+    expect(marketplaceSurfaceSource).toMatch(/DETAIL_ACTIONS = "[^"]*@max-marketplace-split\/main-region:col-start-1/);
+    expect(marketplaceSurfaceSource.match(/marketplace-(?:model|public)-detail-layout \$\{DETAIL_LAYOUT\}/g)).toHaveLength(3);
+    // The chrome ring stays a stylesheet rule: the mode switch and the navigation rows stand on
+    // the black sidebar widget and belong to ContextSidebar, not to this area.
     expect(marketplaceStyles).toMatch(/#app-mode-marketplace:focus-visible,[\s\S]*Marketplace categories[\s\S]*outline:\s*2px solid var\(--instrument-focus-on-dark\)/);
-    expect(containerRules).toMatch(/\.marketplace-model-detail-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
-    expect(containerRules).toMatch(/\.marketplace-public-detail-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
-    expect(containerRules).toMatch(/\.marketplace-model-hero[\s\S]*\.marketplace-model-actions[\s\S]*\.marketplace-model-detail-layout/);
-    expect(containerRules).toMatch(/\.marketplace-public-hero[\s\S]*\.marketplace-public-actions[\s\S]*\.marketplace-public-detail-layout/);
-    expect(viewportRules).not.toMatch(/\.marketplace-(?:model|public)-(?:hero|actions|detail-layout)/);
+    // The desk-wide ring inside the route is gone: reset.css paints the one 2px ring, and a
+    // control standing on a black widget names the on-instrument ring explicitly.
+    expect(marketplaceStyles).not.toContain(".marketplace-screen button:focus-visible");
+    expect(readStylesheet("reset.css")).toMatch(/:focus-visible\s*\{\s*outline:\s*var\(--focus-ring\)/);
+    expect(marketplaceSurfaceSource).toContain("focus-visible:outline-focus-on-instrument");
+    // The stylesheet keeps the blanket reduced-motion rule for the borrowed children mounted
+    // here, and the one animation declared in the markup carries its own contract.
     expect(marketplaceStyles).toMatch(/@media \(prefers-reduced-motion:\s*reduce\)[\s\S]*animation-duration:\s*0s !important[\s\S]*transition-duration:\s*0s !important/);
+    expect(marketplaceSurfaceSource).toContain("animate-pulse rounded-panel bg-surface motion-reduce:animate-none");
+    // Nothing about type, radius or surface is declared in the stylesheet any more.
+    expect([...marketplaceStyles.matchAll(/(?:font-size:\s*|font:\s*)([\d.]+)px/g)]).toEqual([]);
+    expect(marketplaceStyles).not.toContain("border-radius");
+    expect(marketplaceStyles).not.toContain("font-weight");
   });
 
   test("documents workbench locks the outer panel and gives both responsive panes exact semantic states", () => {

@@ -8,6 +8,26 @@ import {
   UserRound,
 } from "lucide-react";
 import type { ComponentType, ReactNode, SVGProps } from "react";
+import {
+  ASIDE_SECTION,
+  DETAIL_ACTIONS,
+  DETAIL_BACK,
+  DETAIL_COLUMN,
+  DETAIL_COPY,
+  DETAIL_EYEBROW,
+  DETAIL_HEADING,
+  DETAIL_HERO,
+  DETAIL_LAYOUT,
+  DETAIL_LEAD,
+  DETAIL_ROUTE,
+  DETAIL_SECTION,
+  DETAIL_TITLE,
+  HERO_ACTION_GLYPH,
+  HERO_ACTION_PRIMARY,
+  REVIEW_ACTION_PLATE,
+  REVIEW_BLOCK,
+  REVIEW_REASON,
+} from "./detail-chrome";
 
 type UnsupportedCategory = "prompts" | "components" | "skills";
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
@@ -62,25 +82,31 @@ const categoryCopy: Record<UnsupportedCategory, {
   },
 };
 
-function UnavailableReview({ id, label, reason, onReview }: {
+function UnavailableReview({ id, label, reason, tone, className = "", onReview }: {
   id: string;
   label: string;
   reason: string;
+  /* The hero form is the one primary action on a black widget; the plate form stands on a
+     light widget and states its own surface and ink. */
+  tone: "hero" | "plate";
+  className?: string;
   onReview?(): void;
 }) {
-  return <div className="marketplace-unavailable-review">
+  const block = className ? `${REVIEW_BLOCK} ${className}` : REVIEW_BLOCK;
+  return <div className={block}>
     <button
+      className={tone === "hero" ? HERO_ACTION_PRIMARY : REVIEW_ACTION_PLATE}
       type="button"
       aria-disabled={onReview ? undefined : true}
       aria-describedby={onReview ? undefined : id}
       onClick={onReview}
     >{label}</button>
-    <p id={id}>{reason} The final action is disabled.</p>
+    <p className={REVIEW_REASON} id={id}>{reason} The final action is disabled.</p>
   </div>;
 }
 
-function UnavailableSection({ title, children }: { title: string; children: string }) {
-  return <section><h3>{title}</h3><p>{children}</p></section>;
+function UnavailableSection({ title, children, tone = "main" }: { title: string; children: string; tone?: "main" | "aside" }) {
+  return <section className={tone === "aside" ? ASIDE_SECTION : DETAIL_SECTION}><h3 className={DETAIL_HEADING}>{title}</h3><p className={DETAIL_COPY}>{children}</p></section>;
 }
 
 function SharedUnavailableSections({ category }: { category: UnsupportedCategory }) {
@@ -98,10 +124,10 @@ function SharedUnavailableSections({ category }: { category: UnsupportedCategory
 
 function UnavailableAside({ category }: { category: UnsupportedCategory }) {
   const { singular } = categoryCopy[category];
-  return <aside className="marketplace-public-detail-aside">
-    <UnavailableSection title="Version and provenance">{`${singular} source, publisher identity, version, license, signature, audit, and local modification evidence are unavailable without a ${singular} provenance evidence contract.`}</UnavailableSection>
-    <UnavailableSection title="Works with">{`${singular} relationships are unavailable without a Marketplace relationship contract.`}</UnavailableSection>
-    <UnavailableSection title="Used by">Usage backlinks are unavailable without a Marketplace usage-backlink contract.</UnavailableSection>
+  return <aside className={`marketplace-public-detail-aside ${DETAIL_COLUMN}`}>
+    <UnavailableSection tone="aside" title="Version and provenance">{`${singular} source, publisher identity, version, license, signature, audit, and local modification evidence are unavailable without a ${singular} provenance evidence contract.`}</UnavailableSection>
+    <UnavailableSection tone="aside" title="Works with">{`${singular} relationships are unavailable without a Marketplace relationship contract.`}</UnavailableSection>
+    <UnavailableSection tone="aside" title="Used by">Usage backlinks are unavailable without a Marketplace usage-backlink contract.</UnavailableSection>
   </aside>;
 }
 
@@ -130,7 +156,7 @@ function UnavailableComponentDetail({ onReview, onBack }: Pick<MarketplaceUnavai
 
 function UnavailableSkillDetail({ onReview, onBack }: Pick<MarketplaceUnavailableDetailProps, "onReview" | "onBack">) {
   return <UnavailableDetailFrame category="skills" onReview={onReview} onBack={onBack}>
-    <p className="marketplace-unavailable-safety">Previewing a Skill never executes it.</p>
+    <p className="marketplace-unavailable-safety m-0 rounded-cell bg-instrument px-3.5 py-3 text-on-instrument">Previewing a Skill never executes it.</p>
     <SharedUnavailableSections category="skills" />
     <UnavailableSection title="Example runs">Example runs, inputs, outputs, failures, time, and cost are unavailable without a source-backed run-evidence contract.</UnavailableSection>
     <UnavailableSection title="Workflow and triggers">Workflow steps and trigger conditions are unavailable without a Skill instruction contract.</UnavailableSection>
@@ -144,16 +170,16 @@ function UnavailableSkillDetail({ onReview, onBack }: Pick<MarketplaceUnavailabl
 function UnavailableDetailFrame({ category, onReview, onBack, children }: MarketplaceUnavailableDetailProps & { children: ReactNode }) {
   const copy = categoryCopy[category];
   const reviewId = `marketplace-${category}-review-unavailable`;
-  return <article className="marketplace-public-detail marketplace-unavailable-detail marketplace-detail-route" aria-labelledby="marketplace-unavailable-title">
-    {onBack && <button className="marketplace-public-back" type="button" onClick={onBack}><ArrowLeft aria-hidden="true" />Back to {copy.label}</button>}
-    <header className="marketplace-public-hero">
-      <span>{copy.label} · Unavailable capability</span>
-      <h2 id="marketplace-unavailable-title">{copy.unavailable}</h2>
-      <p>No production {copy.singular} record is rendered without a source contract.</p>
-      <div className="marketplace-public-actions"><UnavailableReview id={reviewId} label={copy.reviewLabel} reason={copy.reviewReason} onReview={onReview} /></div>
+  return <article className={`marketplace-public-detail marketplace-unavailable-detail marketplace-detail-route ${DETAIL_ROUTE}`} aria-labelledby="marketplace-unavailable-title">
+    {onBack && <button className={`marketplace-public-back ${DETAIL_BACK}`} type="button" onClick={onBack}><ArrowLeft className={HERO_ACTION_GLYPH} aria-hidden="true" />Back to {copy.label}</button>}
+    <header className={`marketplace-public-hero ${DETAIL_HERO}`}>
+      <span className={DETAIL_EYEBROW}>{copy.label} · Unavailable capability</span>
+      <h2 className={DETAIL_TITLE} id="marketplace-unavailable-title">{copy.unavailable}</h2>
+      <p className={DETAIL_LEAD}>No production {copy.singular} record is rendered without a source contract.</p>
+      <div className={`marketplace-public-actions ${DETAIL_ACTIONS}`}><UnavailableReview tone="hero" id={reviewId} label={copy.reviewLabel} reason={copy.reviewReason} onReview={onReview} /></div>
     </header>
-    <div className="marketplace-public-detail-layout">
-      <div className="marketplace-public-detail-main">{children}</div>
+    <div className={`marketplace-public-detail-layout ${DETAIL_LAYOUT}`}>
+      <div className={`marketplace-public-detail-main ${DETAIL_COLUMN}`}>{children}</div>
       <UnavailableAside category={category} />
     </div>
   </article>;
@@ -182,21 +208,22 @@ export function MarketplaceUnavailableCategory({ category, sourceReason, onOpenD
 }) {
   const copy = categoryCopy[category];
   const Icon = copy.icon;
-  return <section className="marketplace-unavailable-category" role="status" aria-labelledby={`marketplace-${category}-unavailable-title`}>
-    <Icon aria-hidden="true" />
-    <h2 id={`marketplace-${category}-unavailable-title`}>{copy.label} catalog unavailable</h2>
-    <p>{copy.unavailable}</p>
-    <p>{sourceReason}</p>
-    <div className="marketplace-unavailable-requirements">{copy.requirements.map((requirement) => <p key={requirement}>{requirement}</p>)}</div>
-    <small>No sample items are shown as production catalog records.</small>
+  return <section className="marketplace-unavailable-category mt-6 flex min-h-65 flex-col items-center justify-center gap-2.25 rounded-widget bg-surface p-6 text-center" role="status" aria-labelledby={`marketplace-${category}-unavailable-title`}>
+    <Icon className="w-5 text-muted" aria-hidden="true" />
+    <h2 className="m-0 type-heading font-normal" id={`marketplace-${category}-unavailable-title`}>{copy.label} catalog unavailable</h2>
+    <p className="m-0 max-w-140 type-sm leading-copy text-ink">{copy.unavailable}</p>
+    <p className="m-0 max-w-140 type-sm leading-copy text-muted">{sourceReason}</p>
+    <div className="marketplace-unavailable-requirements my-2 grid w-full max-w-190 grid-cols-3 gap-2 text-left @max-marketplace-split/main-region:grid-cols-1">{copy.requirements.map((requirement) => <p className="m-0 rounded-cell bg-surface-sunken p-3.25 type-xs leading-copy text-muted" key={requirement}>{requirement}</p>)}</div>
+    <small className="type-xs text-muted">No sample items are shown as production catalog records.</small>
     <button
+      className={REVIEW_ACTION_PLATE}
       id={marketplaceUnavailableDetailOriginId(category)}
       type="button"
       aria-disabled={onOpenDetail ? undefined : true}
       aria-describedby={onOpenDetail ? undefined : `marketplace-${category}-category-review-unavailable`}
       onClick={onOpenDetail ? () => onOpenDetail(category) : undefined}
     >Review unavailable {copy.singular} details</button>
-    {!onOpenDetail && <small id={`marketplace-${category}-category-review-unavailable`}>Detail review is unavailable without a Marketplace route callback.</small>}
+    {!onOpenDetail && <small className="type-xs text-muted" id={`marketplace-${category}-category-review-unavailable`}>Detail review is unavailable without a Marketplace route callback.</small>}
   </section>;
 }
 
@@ -209,11 +236,11 @@ function ContributionShell({ icon: Icon, title, body, action, reason, onReview }
   onReview?(): void;
 }) {
   const id = `marketplace-${action.toLocaleLowerCase().replace(/[^a-z]+/g, "-")}-unavailable`;
-  return <section className="marketplace-unavailable-contribution" aria-label={title}>
-    <Icon aria-hidden="true" />
-    <h2>{title}</h2>
-    <p>{body}</p>
-    <UnavailableReview id={id} label={action} reason={reason} onReview={onReview} />
+  return <section className="marketplace-unavailable-contribution flex min-h-55 min-w-0 flex-col items-start gap-2.5 rounded-cell bg-surface p-4" aria-label={title}>
+    <Icon className="w-4.5" aria-hidden="true" />
+    <h2 className="m-0 type-heading font-normal leading-snug">{title}</h2>
+    <p className="m-0 type-sm leading-copy text-muted">{body}</p>
+    <UnavailableReview tone="plate" className="mt-auto" id={id} label={action} reason={reason} onReview={onReview} />
   </section>;
 }
 
@@ -251,7 +278,7 @@ export function MarketplaceUnavailablePublish({ onReview }: { onReview?(): void 
 }
 
 export function MarketplaceUnavailableCollectionRoute() {
-  return <div className="marketplace-unavailable-contributions">
+  return <div className="marketplace-unavailable-contributions grid grid-cols-3 gap-2 pt-6 pb-12 @max-marketplace-split/main-region:grid-cols-1">
     <MarketplaceUnavailableCollection />
     <MarketplaceUnavailableCreator />
     <MarketplaceUnavailablePublish />
