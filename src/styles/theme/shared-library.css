@@ -1,0 +1,6 @@
+/* Role keys owned by the shared-library migration. One file per area so the areas never collide in
+   the shared theme layer. Every key names a role and resolves to a token in tokens.css or a
+   value the design fixes for that role; a component then reaches for the name, never a
+   literal. */
+@theme inline {
+}

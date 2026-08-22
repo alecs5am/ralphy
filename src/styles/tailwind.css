@@ -1,5 +1,17 @@
 @import "tailwindcss" important;
 
+/* Per-area role keys. The shared scales live below; each area owns its own file so parallel
+   migrations never contend for one theme block. */
+@import "./theme/settings.css";
+@import "./theme/project.css";
+@import "./theme/chrome.css";
+@import "./theme/calendar-memory.css";
+@import "./theme/documents-activity.css";
+@import "./theme/workspace-overview.css";
+@import "./theme/shared-library.css";
+@import "./theme/marketplace.css";
+@import "./theme/shell.css";
+
 @theme inline {
   --font-app: var(--font-sans);
   --font-code: var(--font-mono);
