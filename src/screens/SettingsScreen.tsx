@@ -42,6 +42,17 @@ import {
   SETTINGS_PAGES,
   type SettingsPageId,
 } from "./settings/registry";
+import {
+  action,
+  CODE,
+  Dot,
+  NUMBER,
+  PLATE,
+  ROW_COPY,
+  ROW_PAD,
+  ROW_SHELL,
+  SECTION_LABEL,
+} from "./settings/rows";
 import { version as appVersion } from "../../package.json";
 
 export type SettingsCategory = SettingsPageId;
@@ -54,6 +65,12 @@ export const settingsInstrumentStates = SETTINGS_PAGE_IDS.map((id) => defineInst
   rootMarker: `settings-${id}`,
   landmarks: [SETTINGS_PAGES[id].title, "Settings categories"],
 } as const));
+
+/* The nav is a black widget standing on the desk, so every control inside it keeps the
+   on-instrument ink and the on-instrument focus ring in both themes: the theme's own ink is
+   black on black in light, and the theme's hover surface turns white under it. */
+const NAV_ROW = "flex h-control-lg items-center gap-3 rounded-control px-3 type-ui text-left focus-visible:outline-focus-on-instrument";
+const MONO_LABEL = "font-code type-mono-xs font-normal tracking-mono";
 
 function readLastPage(): SettingsPageId {
   const stored = settingsStorage.getItem(LAST_PAGE_KEY);
@@ -144,32 +161,32 @@ export function SettingsScreen({
   const content = (() => {
     if (searching) return results.length
       ? <>
-        <p className="settings-results-label">
+        <p className={SECTION_LABEL}>
           RESULTS
-          <span className="settings-number">{results.length}</span>
+          <span className={NUMBER}>{results.length}</span>
           · ↑↓ TO MOVE · ENTER OPENS AND HIGHLIGHTS THE ROW
         </p>
-        <div className="settings-plate">
+        <div className={PLATE}>
           {results.map((entry, index) => <button
-            className={index === selected ? "settings-result is-selected" : "settings-result"}
+            className={`${ROW_SHELL} ${ROW_PAD} ${index === selected ? "bg-surface-hover" : "hover:bg-surface-hover"} focus-visible:outline-ink`}
             type="button"
             key={entry.id}
             onClick={() => openResult(index)}
           >
-            <span>
-              <strong>{entry.title}</strong>
-              <em>{`${SETTINGS_PAGES[entry.page].title} › ${entry.section}`}</em>
+            <span className={ROW_COPY}>
+              <strong className="type-ui font-normal text-ink">{entry.title}</strong>
+              <em className="font-code type-mono-xs not-italic tracking-status text-muted-decorative">{`${SETTINGS_PAGES[entry.page].title} › ${entry.section}`}</em>
             </span>
-            <small>{entry.state(preferences.values)}</small>
+            <small className="max-w-settings-result flex-none overflow-hidden font-code type-mono-sm tracking-label text-ellipsis whitespace-nowrap text-muted">{entry.state(preferences.values)}</small>
             <ArrowRight size={13} strokeWidth={1.9} aria-hidden="true" />
           </button>)}
         </div>
       </>
-      : <div className="settings-empty">
+      : <div className="flex flex-col items-center gap-3 rounded-panel bg-instrument p-7 [corner-shape:squircle]">
         <RalphyMascot size={56} />
-        <strong>{`Nothing matched “${query.trim()}”`}</strong>
-        <p>THE INDEX COVERS ROWS, DESCRIPTIONS AND SYNONYMS.<br />TRY: API KEY · CACHE · MICROPHONE · SHORTCUT · PATH</p>
-        <button className="settings-action is-lg is-primary" type="button" onClick={() => setQuery("")}>Clear search</button>
+        <strong className="type-lg font-normal text-on-instrument">{`Nothing matched “${query.trim()}”`}</strong>
+        <p className="m-0 max-w-settings-empty text-center font-code type-mono-sm tracking-caps leading-empty text-on-instrument-muted-decorative">THE INDEX COVERS ROWS, DESCRIPTIONS AND SYNONYMS.<br />TRY: API KEY · CACHE · MICROPHONE · SHORTCUT · PATH</p>
+        <button className={action({ size: "lg", tone: "primary", surface: "instrument" })} type="button" onClick={() => setQuery("")}>Clear search</button>
       </div>;
     if (harness) return <HarnessDetailPage ctx={ctx} harness={harness} />;
     if (provider) return <ProviderDetailPage provider={provider} />;
@@ -189,37 +206,48 @@ export function SettingsScreen({
 
   return <InstrumentScreenRoot descriptor={descriptor} state="ready">
     <motion.div
-      className="settings-desk"
+      className="flex h-full w-full min-h-0 flex-col gap-2 overflow-hidden bg-desk p-2 font-app type-base text-ink"
       data-density={String(preferences.values["appearance.density"]).toLocaleLowerCase()}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.16, ease: [0.2, 0, 0.2, 1] }}
     >
-      <div className="settings-topbar">
-        <button className="settings-back" type="button" onClick={onBack}>
+      {/* macOS draws the traffic lights itself; the run of space before the back control is
+          their seat, so the shell never paints fake ones. */}
+      <div className="flex h-titlebar flex-none items-center gap-3 pr-2 pl-21 [-webkit-app-region:drag] [&>*]:[-webkit-app-region:no-drag]">
+        <button
+          className="inline-flex h-8 flex-none items-center gap-2.25 rounded-control pr-3.5 pl-2.75 type-ui text-muted hover:bg-desk-hover hover:text-ink focus-visible:outline-ink"
+          type="button"
+          onClick={onBack}
+        >
           <ArrowLeft size={14} strokeWidth={1.9} aria-hidden="true" />
           Back to app
         </button>
-        <div className="settings-island">
-          <b>SETTINGS</b>
-          <span>{`THIS MAC · ${operator.toLocaleUpperCase()}`}</span>
-          {needAction > 0 && <button className="settings-island-attention" type="button" onClick={() => goTo("diagnostics")}>
-            <i className="settings-dot" data-tone="warn" aria-hidden="true" />
+        <div className="mx-auto flex h-9 flex-none items-center gap-3 rounded-control bg-instrument pr-1.5 pl-3.5">
+          <b className="font-code type-mono-sm font-normal tracking-mono text-on-instrument">SETTINGS</b>
+          <span className="font-code type-mono-sm font-normal tracking-mono text-on-instrument-muted-decorative">{`THIS MAC · ${operator.toLocaleUpperCase()}`}</span>
+          {needAction > 0 && <button
+            className="inline-flex h-control-sm items-center gap-2 rounded-control bg-instrument-raised px-2.75 font-code type-mono-xs tracking-caps text-on-instrument-muted hover:bg-ghost hover:text-on-instrument focus-visible:outline-focus-on-instrument"
+            type="button"
+            onClick={() => goTo("diagnostics")}
+          >
+            <Dot tone="warn" surface="instrument" />
             {`${needAction} NEED ATTENTION`}
           </button>}
         </div>
-        <span className="settings-brand">
+        <span className="inline-flex flex-none items-center gap-2 font-code type-mono-xs tracking-caps text-muted-decorative">
           RALPHY
-          <b className="settings-number">{appVersion}</b>
+          <b className={NUMBER}>{appVersion}</b>
         </span>
         <ProfileAvatar rootPath={rootPath ?? ""} size={32} round />
       </div>
 
-      <div className="settings-body">
-        <aside className="settings-nav">
-          <label className="settings-nav-search">
+      <div className="flex min-h-0 flex-1 gap-2">
+        <aside className="flex w-settings-nav flex-none flex-col gap-3 overflow-hidden rounded-panel bg-instrument p-2 [corner-shape:squircle]">
+          <label className="flex h-control-lg flex-none items-center gap-2.25 rounded-control bg-instrument-raised px-3 text-on-instrument-muted-decorative focus-within:outline-focus-on-instrument focus-within:outline-offset-2">
             <Search size={13} strokeWidth={1.9} aria-hidden="true" />
             <input
+              className="min-w-0 flex-1 bg-transparent type-sm text-on-instrument placeholder:text-on-instrument-muted-decorative"
               value={query}
               placeholder="Search settings"
               aria-label="Search settings"
@@ -230,65 +258,98 @@ export function SettingsScreen({
                 if (event.key === "Enter") { event.preventDefault(); openResult(selected); }
               }}
             />
-            {query && <button className="settings-nav-clear" type="button" aria-label="Clear search" onClick={() => setQuery("")}>
+            {query && <button
+              className="grid size-settings-keycap flex-none place-items-center rounded-control text-on-instrument-muted-decorative hover:bg-ghost hover:text-on-instrument focus-visible:outline-focus-on-instrument"
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setQuery("")}
+            >
               <X size={11} strokeWidth={2} aria-hidden="true" />
             </button>}
           </label>
-          <nav className="settings-nav-groups" aria-label="Settings categories">
-            {SETTINGS_NAV_GROUPS.map((group) => <div className="settings-nav-group" key={group.label}>
-              <h2>{group.label}</h2>
+          <nav className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto" aria-label="Settings categories">
+            {SETTINGS_NAV_GROUPS.map((group) => <div className="flex flex-col gap-0.5" key={group.label}>
+              <h2 className={`m-0 px-3 pt-1.25 pb-1 ${MONO_LABEL} text-on-instrument-muted-decorative`}>{group.label}</h2>
               {group.items.map((id) => {
                 const Icon = SETTINGS_PAGE_ICONS[id];
                 const active = page === id && !searching;
                 return <button
-                  className={active ? "settings-nav-row is-selected" : "settings-nav-row"}
+                  className={`${NAV_ROW} ${active
+                    ? "bg-selected text-selected-ink"
+                    : "text-on-instrument-muted hover:bg-instrument-hover hover:text-on-instrument"}`}
                   type="button"
                   key={id}
                   aria-current={active || undefined}
                   onClick={() => goTo(id)}
                 >
                   <Icon size={14} strokeWidth={1.8} aria-hidden="true" />
-                  <span>{SETTINGS_PAGES[id].title}</span>
-                  {attention[id] && <i className="settings-dot" data-tone="warn" aria-hidden="true" />}
+                  <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{SETTINGS_PAGES[id].title}</span>
+                  {attention[id] && <Dot tone="warn" surface="instrument" />}
                 </button>;
               })}
             </div>)}
           </nav>
-          <button className="settings-identity" type="button" onClick={() => goTo("updates")}>
-            <span>
-              <small>RALPHY DESKTOP</small>
-              <strong>{appVersion}</strong>
+          {/* The hover surface is lighter, so the mono label is promoted with it instead of
+              staying at the muted step and reading worse than at rest. */}
+          <button
+            className="group flex h-settings-plate flex-none items-center gap-3 rounded-menu bg-instrument-raised px-3 text-left [corner-shape:squircle] hover:bg-ghost focus-visible:outline-focus-on-instrument"
+            type="button"
+            onClick={() => goTo("updates")}
+          >
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <small className="font-code type-mono-xs tracking-caps text-on-instrument-muted-decorative group-hover:text-on-instrument-muted">RALPHY DESKTOP</small>
+              <strong className="font-display type-base font-extrabold text-on-instrument">{appVersion}</strong>
             </span>
           </button>
         </aside>
 
-        <div className="settings-main">
-          <div className="settings-column">
-            <header className="settings-page-header">
-              {detail && <button className="settings-detail-back" type="button" aria-label="Back to the category" onClick={() => setDetail(null)}>
+        {/* The column is a fixed reading width and the rail is context, so a narrow row drops
+            the rail first and only then lets the column shrink. Measured against the content
+            row, not the window: the sidebar and the chat rail change it without moving the
+            viewport. */}
+        <div className="@container/settings-main flex min-w-0 flex-1 justify-center gap-3">
+          <div className="flex w-settings-column min-h-0 flex-none flex-col gap-3 @max-settings-column/settings-main:mx-4 @max-settings-column/settings-main:w-auto @max-settings-column/settings-main:min-w-0 @max-settings-column/settings-main:flex-1">
+            <header className="flex min-h-settings-plate flex-none items-center gap-3 px-1">
+              {detail && <button
+                className="grid size-control-md flex-none place-items-center rounded-control text-muted hover:bg-desk-hover hover:text-ink focus-visible:outline-ink"
+                type="button"
+                aria-label="Back to the category"
+                onClick={() => setDetail(null)}
+              >
                 <ArrowLeft size={14} strokeWidth={1.9} aria-hidden="true" />
               </button>}
-              <h1 ref={heading} tabIndex={-1}>{title}</h1>
-              {scopes.map((scope) => <span className="settings-scope" key={scope}>{scope}</span>)}
+              <h1
+                className="m-0 type-page font-normal tracking-page text-ink focus-visible:outline-ink focus-visible:outline-offset-4"
+                ref={heading}
+                tabIndex={-1}
+              >{title}</h1>
+              {scopes.map((scope) => <span
+                className="inline-flex h-6 flex-none items-center rounded-control bg-surface px-2.75 font-code type-mono-xs tracking-caps text-muted"
+                key={scope}
+              >{scope}</span>)}
             </header>
-            <div className="settings-scroll" key={`${page}-${detail?.id ?? ""}-${searching}`}>{content}</div>
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-7.5" key={`${page}-${detail?.id ?? ""}-${searching}`}>{content}</div>
           </div>
 
           {/* The rail keeps its slot on pages that have no rail, so the centred column does
               not shift as you move between pages. */}
-          <aside className="settings-rail" aria-label={rail ? "Page context" : undefined} aria-hidden={rail ? undefined : true}>
-            {rail && <><div className="settings-rail-facts">
-              <h2>{rail.label}</h2>
-              {rail.rows.map(([label, value]) => <span className="settings-rail-row" key={label}>
-                <span>{label}</span>
-                <b className={/^\d/.test(value) ? "settings-number" : "settings-code"}>{value}</b>
+          <aside
+            className="flex w-settings-rail flex-none flex-col gap-3 pt-settings-plate @max-settings-rail/settings-main:hidden"
+            aria-label={rail ? "Page context" : undefined}
+            aria-hidden={rail ? undefined : true}
+          >
+            {rail && <><div className="flex flex-col gap-2.75 rounded-panel bg-surface p-3.75 [corner-shape:squircle]">
+              <h2 className={`m-0 ${MONO_LABEL} text-muted-decorative`}>{rail.label}</h2>
+              {rail.rows.map(([label, value]) => <span className="flex items-baseline gap-3" key={label}>
+                <span className="min-w-0 flex-1 type-label leading-row text-muted">{label}</span>
+                <b className={`max-w-settings-rail-label flex-none text-right text-balance ${/^\d/.test(value) ? NUMBER : CODE}`}>{value}</b>
               </span>)}
-              {rail.action && <button className="settings-action" type="button" disabled={rail.action.disabled} onClick={rail.action.run}>{rail.action.label}</button>}
+              {rail.action && <button className={action()} type="button" disabled={rail.action.disabled} onClick={rail.action.run}>{rail.action.label}</button>}
             </div>
-            {rail.note && <div className="settings-rail-note">
-              <h2>{rail.note.label}</h2>
-              <p>{rail.note.text}</p>
-              {rail.note.danger && <button className="settings-action is-danger" type="button" disabled={rail.note.danger.disabled} onClick={rail.note.danger.run}>{rail.note.danger.label}</button>}
+            {rail.note && <div className="flex flex-col gap-2.25 rounded-panel bg-instrument p-3.75 [corner-shape:squircle]">
+              <h2 className={`m-0 ${MONO_LABEL} text-on-instrument-muted-decorative`}>{rail.note.label}</h2>
+              <p className="m-0 type-label leading-copy text-pretty text-on-instrument-muted">{rail.note.text}</p>
+              {rail.note.danger && <button className={action({ tone: "danger", surface: "instrument" })} type="button" disabled={rail.note.danger.disabled} onClick={rail.note.danger.run}>{rail.note.danger.label}</button>}
             </div>}</>}
           </aside>
         </div>

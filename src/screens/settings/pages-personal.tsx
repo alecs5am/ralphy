@@ -14,11 +14,20 @@ import {
   type SettingsCommand,
 } from "./commands";
 import {
+  action,
   DesignTarget,
   Dot,
+  FIELD,
+  keycap,
   Keycaps,
+  META,
+  MONO,
+  NOTE_ALERT,
+  NUMBER,
   Plate,
   Row,
+  ROW_COPY,
+  ROW_TITLE,
   Section,
   Segmented,
   SettingsSelect,
@@ -69,9 +78,13 @@ export function GeneralPage({ ctx }: { ctx: SettingsContext }) {
         >
           <Toggle label="Reveal generated media" on={values["general.reveal"]} onChange={(next) => set("general.reveal", next)} />
         </Row>
-        {failures["general.reveal"] !== undefined && <div className="settings-write-failure">
-          <p className="settings-note is-alert">NOT SAVED · PREFERENCE WRITE FAILED · VALUE UNCHANGED</p>
-          <button className="settings-action" type="button" onClick={() => retry("general.reveal")}>RETRY</button>
+        {failures["general.reveal"] !== undefined && <div className="mt-1.25 flex items-center gap-3">
+          <p className={NOTE_ALERT}>NOT SAVED · PREFERENCE WRITE FAILED · VALUE UNCHANGED</p>
+          <button
+            className="inline-flex h-6 flex-none items-center gap-2 rounded-control bg-surface-sunken px-2.75 font-code type-mono-xs tracking-status text-ink hover:bg-surface-hover focus-visible:outline-ink"
+            type="button"
+            onClick={() => retry("general.reveal")}
+          >RETRY</button>
         </div>}
         <Row
           title="Prevent sleep while working"
@@ -114,7 +127,7 @@ export function GeneralPage({ ctx }: { ctx: SettingsContext }) {
         <Row
           title={<>Home Ralphy library<Status>AUTOMATIC · WRITABLE</Status></>}
           description={<>
-            <span className="settings-mono">{ctx.libraryPath ?? "~/Library/Application Support/Ralphy"}</span>
+            <span className={MONO}>{ctx.libraryPath ?? "~/Library/Application Support/Ralphy"}</span>
             <br />
             The app picks this path. Moving it is a verified migration, not a text field.
           </>}
@@ -122,10 +135,10 @@ export function GeneralPage({ ctx }: { ctx: SettingsContext }) {
           flash={ctx.flashId === "general.library"}
           id="general.library"
         >
-          <button className="settings-action is-round" type="button" aria-label="Reveal the library folder" disabled>
+          <button className={action({ round: true })} type="button" aria-label="Reveal the library folder" disabled>
             <FolderOpen size={14} strokeWidth={1.8} aria-hidden="true" />
           </button>
-          <button className="settings-action is-sm" type="button" onClick={() => ctx.goTo("storage")}>Move library…</button>
+          <button className={action({ size: "sm" })} type="button" onClick={() => ctx.goTo("storage")}>Move library…</button>
         </Row>
       </Plate>
     </Section>
@@ -158,12 +171,12 @@ export function ProfilePage({ ctx }: { ctx: SettingsContext }) {
   return <Section title="LOCAL PROFILE">
     <Plate>
       <Row title="Avatar" description="PNG or JPG, at least 128 px. Stored next to the profile on this Mac." flat>
-        <span className="settings-avatar-choice"><ProfileAvatar rootPath={ctx.libraryPath ?? ""} size={56} round /></span>
-        <button className="settings-action is-sm" type="button" disabled>Choose file…</button>
+        <span className="grid size-settings-avatar flex-none place-items-center overflow-hidden rounded-control bg-surface-sunken font-code type-md text-muted"><ProfileAvatar rootPath={ctx.libraryPath ?? ""} size={56} round /></span>
+        <button className={action({ size: "sm" })} type="button" disabled>Choose file…</button>
       </Row>
       <Row title="Display name" description="Shown in chat, review and version history." id="profile.displayName">
         <input
-          className="settings-field"
+          className={FIELD}
           value={values["profile.displayName"]}
           placeholder="Not set"
           aria-label="Display name"
@@ -172,7 +185,7 @@ export function ProfilePage({ ctx }: { ctx: SettingsContext }) {
       </Row>
       <Row title="Preferred name for agents" description="How an agent addresses you in replies. Optional." id="profile.preferredName">
         <input
-          className="settings-field"
+          className={FIELD}
           value={values["profile.preferredName"]}
           placeholder="Not set"
           aria-label="Preferred name for agents"
@@ -223,11 +236,11 @@ export function AppearancePage({ ctx }: { ctx: SettingsContext }) {
           />
         </Row>
         <Row title="Media grid" description="Columns in the mosaic at 1440. The default for new projects." id="appearance.mediaColumns">
-          <div className="settings-columns-steps">
-            <b className="settings-number">{columns}</b>
-            <span role="group" aria-label="Media grid columns">
+          <div className="flex flex-none items-center gap-2.75">
+            <b className={NUMBER}>{columns}</b>
+            <span className="flex gap-0.75" role="group" aria-label="Media grid columns">
               {MEDIA_COLUMN_STEPS.map((step) => <button
-                className={step <= columns ? "is-filled" : undefined}
+                className={`w-settings-tick h-settings-step rounded-control focus-visible:outline-ink ${step <= columns ? "bg-ink" : "bg-unreviewed"}`}
                 type="button"
                 key={step}
                 aria-label={`${step} columns`}
@@ -265,6 +278,10 @@ export function AppearancePage({ ctx }: { ctx: SettingsContext }) {
     </Section>
   </>;
 }
+
+/* A conflict widget is a black widget, so its rows keep the on-instrument ink. */
+const CONFLICT_ROW = "flex h-control-lg items-center gap-3 rounded-control px-3";
+const CONFLICT_SCOPE = "font-code type-mono-xs tracking-caps text-on-instrument-muted-decorative";
 
 interface RecordingState {
   commandId: string;
@@ -323,24 +340,26 @@ export function KeyboardPage({ ctx }: { ctx: SettingsContext }) {
   const groups = [...new Set(visible.map(({ group }) => group))];
 
   return <>
-    {conflict && <div className="settings-conflict">
-      <h2><Dot tone="warn" />SHORTCUT ALREADY IN USE</h2>
-      <div className="settings-conflict-pair">
-        <div className="settings-conflict-row is-new">
-          <span>{conflict.command.name}</span>
-          <small>{conflict.command.scope.toLocaleUpperCase()}</small>
+    {conflict && <div className="flex flex-col gap-3.25 rounded-panel bg-instrument p-4 [corner-shape:squircle]">
+      <h2 className="m-0 flex items-center gap-2.25 font-code type-mono-sm font-normal tracking-mono text-on-instrument">
+        <Dot tone="warn" surface="instrument" />SHORTCUT ALREADY IN USE
+      </h2>
+      <div className="flex flex-col gap-0.5">
+        <div className={`${CONFLICT_ROW} bg-instrument-raised`}>
+          <span className="flex-1 type-ui text-on-instrument">{conflict.command.name}</span>
+          <small className={CONFLICT_SCOPE}>{conflict.command.scope.toLocaleUpperCase()}</small>
           <Keycaps tokens={chordTokens(conflict.chord)} tone="inverse" />
         </div>
-        <div className="settings-conflict-row">
-          <span>{conflict.other.name}</span>
-          <small>{conflict.other.scope.toLocaleUpperCase()}</small>
+        <div className={CONFLICT_ROW}>
+          <span className="flex-1 type-ui text-on-instrument-muted">{conflict.other.name}</span>
+          <small className={CONFLICT_SCOPE}>{conflict.other.scope.toLocaleUpperCase()}</small>
           <Keycaps tokens={chordTokens(conflict.chord)} tone="sunken" />
         </div>
       </div>
-      <p>{`SCOPES ${conflict.command.scope.toLocaleUpperCase()} AND ${conflict.other.scope.toLocaleUpperCase()} CAN BE LIVE AT ONCE — UNBINDING THE OTHER COMMAND SILENTLY IS NOT AN OPTION`}</p>
-      <div className="settings-conflict-actions">
+      <p className="m-0 font-code type-mono-xs tracking-caps leading-note text-on-instrument-muted-decorative">{`SCOPES ${conflict.command.scope.toLocaleUpperCase()} AND ${conflict.other.scope.toLocaleUpperCase()} CAN BE LIVE AT ONCE — UNBINDING THE OTHER COMMAND SILENTLY IS NOT AN OPTION`}</p>
+      <div className="flex items-center gap-2 @max-settings-column/settings-main:flex-wrap">
         <button
-          className="settings-action is-primary"
+          className={action({ size: "lg", tone: "primary", surface: "instrument" })}
           type="button"
           onClick={() => {
             ctx.setBindings({
@@ -353,22 +372,33 @@ export function KeyboardPage({ ctx }: { ctx: SettingsContext }) {
           }}
         >Replace existing</button>
         <button
-          className="settings-action"
+          className={action({ size: "lg", surface: "instrument" })}
           type="button"
           onClick={() => { setRecording({ commandId: conflict.command.id, captured: null, modifiers: [] }); setConflict(null); }}
         >Choose another</button>
-        <button className="settings-action is-quiet" type="button" onClick={() => { setConflict(null); setRecording(null); }}>Cancel</button>
+        <button className={action({ size: "lg", tone: "quiet", surface: "instrument" })} type="button" onClick={() => { setConflict(null); setRecording(null); }}>Cancel</button>
       </div>
     </div>}
 
-    <div className="settings-toolbar">
-      <label className="settings-search-field">
+    <div className="flex flex-none items-center gap-2 @max-settings-column/settings-main:flex-wrap">
+      <label className="flex h-control-lg min-w-0 flex-1 items-center gap-2.25 rounded-control bg-surface px-3.25 text-muted-decorative focus-within:outline-ink focus-within:outline-offset-2">
         <Search size={13} strokeWidth={1.9} aria-hidden="true" />
-        <input value={query} placeholder="Find a command" aria-label="Find a command" onChange={(event) => setQuery(event.target.value)} />
+        <input
+          className="min-w-0 flex-1 bg-transparent type-sm text-ink placeholder:text-muted"
+          value={query}
+          placeholder="Find a command"
+          aria-label="Find a command"
+          onChange={(event) => setQuery(event.target.value)}
+        />
       </label>
-      <button className="settings-filter" type="button" aria-pressed={changedOnly} onClick={() => setChangedOnly((current) => !current)}>
+      <button
+        className="inline-flex h-control-lg flex-none items-center gap-2.25 rounded-control bg-surface px-3.5 type-sm text-muted aria-pressed:bg-desk-primary aria-pressed:text-desk-primary-ink focus-visible:outline-ink"
+        type="button"
+        aria-pressed={changedOnly}
+        onClick={() => setChangedOnly((current) => !current)}
+      >
         Changed only
-        <b className="settings-number">{changed}</b>
+        <b className={NUMBER}>{changed}</b>
       </button>
     </div>
 
@@ -381,7 +411,7 @@ export function KeyboardPage({ ctx }: { ctx: SettingsContext }) {
           const captured = isRecording ? recording.captured : null;
           return <Row
             title={command.name}
-            description={<span className="settings-meta">
+            description={<span className={META}>
               {command.scope.toLocaleUpperCase()}{isChanged && " · CHANGED"}
               {isChanged && ` · DEFAULT ${chordTokens(command.chord).join(" ")}`}
             </span>}
@@ -391,23 +421,23 @@ export function KeyboardPage({ ctx }: { ctx: SettingsContext }) {
           >
             {isRecording
               ? <>
-                <span className={captured ? "settings-meta" : recording.modifiers.length ? "settings-note is-alert" : "settings-meta"}>
+                <span className={captured || !recording.modifiers.length ? META : NOTE_ALERT}>
                   {captured ? "CAPTURED" : recording.modifiers.length ? "MODIFIERS ONLY" : "PRESS A SHORTCUT"}
                 </span>
                 <Keycaps tokens={captured ? chordTokens(captured) : recording.modifiers} size="lg" tone="inverse" />
-                <button className="settings-action is-sm" type="button" onClick={() => setRecording(null)}>Cancel</button>
-                <button className="settings-action is-sm is-primary" type="button" disabled={!captured} onClick={() => save(command)}>Save</button>
+                <button className={action({ size: "sm" })} type="button" onClick={() => setRecording(null)}>Cancel</button>
+                <button className={action({ size: "sm", tone: "primary" })} type="button" disabled={!captured} onClick={() => save(command)}>Save</button>
               </>
               : <>
                 <button
-                  className="settings-keycaps"
+                  className="inline-flex h-control-md flex-none items-center gap-0.75 rounded-control bg-surface-sunken px-2 hover:bg-surface-hover focus-visible:outline-ink"
                   type="button"
                   aria-label={`Record a shortcut for ${command.name}`}
                   onClick={() => setRecording({ commandId: command.id, captured: null, modifiers: [] })}
                 >
-                  {(bound ? chordTokens(bound) : ["—"]).map((token, index) => <kbd key={`${token}-${index}`}>{token}</kbd>)}
+                  {(bound ? chordTokens(bound) : ["—"]).map((token, index) => <kbd className={keycap()} key={`${token}-${index}`}>{token}</kbd>)}
                 </button>
-                {isChanged && <button className="settings-action is-round is-sm" type="button" aria-label={`Reset ${command.name}`} onClick={() => reset(command)}>
+                {isChanged && <button className={action({ size: "sm", round: true })} type="button" aria-label={`Reset ${command.name}`} onClick={() => reset(command)}>
                   <RotateCcw size={13} strokeWidth={1.8} aria-hidden="true" />
                 </button>}
               </>}
@@ -418,11 +448,11 @@ export function KeyboardPage({ ctx }: { ctx: SettingsContext }) {
 
     <Section title="SCOPE">
       <Plate single>
-        <span className="settings-row-copy">
-          <strong>Terminal shortcuts</strong>
-          <small>Command scopes live in one registry, so there is no second shortcut editor anywhere in the app.</small>
+        <span className={ROW_COPY}>
+          <strong className={ROW_TITLE}>Terminal shortcuts</strong>
+          <small className="type-label leading-row text-muted">Command scopes live in one registry, so there is no second shortcut editor anywhere in the app.</small>
         </span>
-        <button className="settings-action is-sm" type="button" onClick={() => ctx.goTo("terminal")}>
+        <button className={action({ size: "sm" })} type="button" onClick={() => ctx.goTo("terminal")}>
           Terminal & environment
           <ArrowUpRight size={12} strokeWidth={1.8} aria-hidden="true" />
         </button>

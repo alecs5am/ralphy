@@ -16,6 +16,17 @@ import { createPortal } from "react-dom";
 
 import { ProfileAvatar, profileIdentity } from "./ProfileAvatar";
 
+/* Profile and help are one flat black widget in both themes, so every control inside them
+   keeps the on-instrument ink and the theme-invariant ghost surface for hover: the theme's own
+   hover surface turns white in light and makes on-instrument ink disappear. */
+const MENU = "fixed z-popover rounded-menu bg-instrument p-1.5 [corner-shape:squircle]";
+const MENU_ITEM = "grid h-7.5 w-full items-center gap-2 rounded-field px-1.75 type-sm text-left no-underline text-on-instrument-muted [grid-template-columns:var(--spacing-settings-keycap)_minmax(0,1fr)_auto] hover:bg-ghost hover:text-on-instrument focus-visible:bg-ghost focus-visible:text-on-instrument focus-visible:outline-focus-on-instrument";
+const MENU_TRIGGER = "rounded-control text-on-instrument-muted hover:bg-ghost hover:text-on-instrument aria-expanded:bg-ghost aria-expanded:text-on-instrument focus-visible:outline-focus-on-instrument";
+const MENU_QUIET = "type-xs text-on-instrument-muted";
+const MENU_SEPARATOR = "mx-1 my-0.75 h-px bg-menu-divider";
+const UPDATE_ROW = "grid h-6.5 items-center gap-1.5 px-1.5 [grid-template-columns:calc(var(--spacing)*2)_minmax(0,1fr)_auto]";
+const UPDATE_TITLE = "overflow-hidden type-sm font-normal text-ellipsis whitespace-nowrap text-on-instrument-muted";
+
 export function ProfileMenu({
   rootPath,
   onOpenSettings,
@@ -78,9 +89,9 @@ export function ProfileMenu({
 
   return (
     <>
-      <div className="profile-controls">
+      <div className="flex w-full items-center gap-1.5">
         <button
-          className="profile-menu-trigger"
+          className={`flex h-8 min-w-0 flex-1 items-center gap-2 px-2 text-left ${MENU_TRIGGER}`}
           type="button"
           aria-label="Open profile menu"
           aria-haspopup="menu"
@@ -92,7 +103,7 @@ export function ProfileMenu({
           <strong className="sidebar-profile-name">{identity}</strong>
         </button>
         <button
-          className="help-menu-trigger"
+          className={`inline-grid size-8 flex-none place-items-center ${MENU_TRIGGER}`}
           type="button"
           aria-label="Open help menu"
           aria-haspopup="menu"
@@ -107,7 +118,7 @@ export function ProfileMenu({
         <AnimatePresence>
           {open && (
             <motion.div
-              className={open === "help" ? "help-menu" : "profile-menu"}
+              className={MENU}
               role="menu"
               aria-label={open === "help" ? "Help" : "Profile"}
               ref={menuRef}
@@ -119,12 +130,13 @@ export function ProfileMenu({
             >
               {open === "profile" ? (
                 <>
-                  <div className="profile-menu-identity">
+                  <div className="flex h-7.5 min-w-0 items-center gap-2 px-1.75">
                     <ProfileAvatar rootPath={rootPath} size={20} />
-                    <strong>{identity}</strong>
+                    <strong className="min-w-0 overflow-hidden type-sm font-normal text-ellipsis whitespace-nowrap text-on-instrument">{identity}</strong>
                   </div>
-                  <div className="menu-separator" />
+                  <div className={MENU_SEPARATOR} />
                   <button
+                    className={MENU_ITEM}
                     type="button"
                     role="menuitem"
                     onClick={() => {
@@ -134,34 +146,34 @@ export function ProfileMenu({
                   >
                     <Settings size={15} strokeWidth={1.5} />
                     <span>Settings</span>
-                    <kbd>⌘,</kbd>
+                    <kbd className={`font-app ${MENU_QUIET}`}>⌘,</kbd>
                   </button>
                 </>
               ) : (
                 <>
-                  <div className="help-menu-label">What's new</div>
-                  <div className="help-menu-update">
-                    <span />
-                    <strong>Ralphy Desktop preview</strong>
-                    <time>17 Aug</time>
+                  <div className={`px-1.5 pt-1 pb-0.5 ${MENU_QUIET}`}>What's new</div>
+                  <div className={UPDATE_ROW}>
+                    <span className="size-1.5 rounded-control border border-on-instrument-muted" />
+                    <strong className={UPDATE_TITLE}>Ralphy Desktop preview</strong>
+                    <time className={MENU_QUIET}>17 Aug</time>
                   </div>
-                  <div className="help-menu-update">
-                    <span />
-                    <strong>Project media grid</strong>
-                    <time>17 Aug</time>
+                  <div className={UPDATE_ROW}>
+                    <span className="size-1.5 rounded-control border border-on-instrument-muted" />
+                    <strong className={UPDATE_TITLE}>Project media grid</strong>
+                    <time className={MENU_QUIET}>17 Aug</time>
                   </div>
-                  <div className="menu-separator" />
-                  <a href="https://alecs5am.com" target="_blank" rel="noreferrer" role="menuitem" onClick={() => setOpen(null)}>
+                  <div className={MENU_SEPARATOR} />
+                  <a className={MENU_ITEM} href="https://alecs5am.com" target="_blank" rel="noreferrer" role="menuitem" onClick={() => setOpen(null)}>
                     <Globe2 size={15} strokeWidth={1.5} />
                     <span>Ralphy website</span>
                     <ExternalLink size={13} strokeWidth={1.5} />
                   </a>
-                  <button type="button" role="menuitem" disabled>
+                  <button className={`${MENU_ITEM} disabled:type-xs disabled:text-on-instrument-muted`} type="button" role="menuitem" disabled>
                     <Keyboard size={15} strokeWidth={1.5} />
                     <span>Keyboard shortcuts</span>
-                    <small>Soon</small>
+                    <small className={MENU_QUIET}>Soon</small>
                   </button>
-                  <a href="https://alecs5am.com" target="_blank" rel="noreferrer" role="menuitem" onClick={() => setOpen(null)}>
+                  <a className={MENU_ITEM} href="https://alecs5am.com" target="_blank" rel="noreferrer" role="menuitem" onClick={() => setOpen(null)}>
                     <CircleHelp size={15} strokeWidth={1.5} />
                     <span>Help</span>
                     <ExternalLink size={13} strokeWidth={1.5} />

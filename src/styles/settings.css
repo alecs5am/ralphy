@@ -1,6 +1,8 @@
-/* Split into contiguous chunks: source order is the cascade, so chunk order is
-   the original order. Names describe the dominant selector family. */
-@import "./settings/01-profile-menu.css";
-@import "./settings/02-settings-shell.css";
-@import "./settings/03-settings-row.css";
-@import "./settings/04-settings-page.css";
+/* Settings styles itself in markup; this is the one rule a utility cannot express.
+   Settings is the whole window, not a panel: the shared dialog surface-focus ring would trace
+   the viewport and its square corners would cut across the window's own rounding. The page
+   heading carries the landing focus instead, so the indicator stays meaningful. The rule it
+   has to beat is `!important` in instrument.css, so it cannot be a utility — an `!important`
+   utility in @layer utilities and an `!important` declaration outside every layer are decided
+   by source order, and the authored sheet is the one that comes after it. */
+[data-instrument-overlay="settings"][data-instrument-surface-focus] { outline: none !important; }

@@ -5,9 +5,11 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
 import { SettingsScreen } from "../src/screens/SettingsScreen";
+import { Segmented } from "../src/screens/settings/rows";
 import type { ThemePreference } from "../src/instrument/types";
 import { createReactHost, type HostNode } from "./react-host";
 import { builtStylesheetLink } from "./style-sources";
@@ -28,7 +30,12 @@ async function electronFocusResults(): Promise<FocusResult[]> {
   const directory = mkdtempSync(join(tmpdir(), "ralphy-settings-focus-"));
   try {
     const links = builtStylesheetLink();
-    writeFileSync(join(directory, "settings.html"), `<!doctype html><html><head>${links}</head><body><div class="settings-segmented" role="group" aria-label="Theme"><button id="theme-system">System</button><button class="is-selected" id="theme-dark">Dark</button><button id="theme-light">Light</button></div></body></html>`);
+    // The control styles itself in markup, so the probe renders the real component rather than
+    // a hand-written fragment: a stand-in would stop measuring what the app ships.
+    const segmented = renderToStaticMarkup(
+      <Segmented label="Theme" value="Dark" options={["System", "Dark", "Light"] as const} onChange={() => undefined} />,
+    );
+    writeFileSync(join(directory, "settings.html"), `<!doctype html><html><head>${links}</head><body>${segmented}</body></html>`);
     writeFileSync(join(directory, "package.json"), JSON.stringify({ main: "main.cjs" }));
     writeFileSync(join(directory, "main.cjs"), `
       const { app, BrowserWindow } = require("electron");
@@ -43,7 +50,7 @@ async function electronFocusResults(): Promise<FocusResult[]> {
         const results = [];
         for (const theme of ["bare", "light", "dark"]) {
           await win.webContents.executeJavaScript(theme === "bare" ? "delete document.documentElement.dataset.theme" : "document.documentElement.dataset.theme = " + JSON.stringify(theme));
-          for (const [button, selector] of [["System", "#theme-system"], ["Dark", "#theme-dark"], ["Light", "#theme-light"]]) {
+          for (const [button, selector] of [["System", "[aria-label=Theme] > button:nth-of-type(1)"], ["Dark", "[aria-label=Theme] > button:nth-of-type(2)"], ["Light", "[aria-label=Theme] > button:nth-of-type(3)"]]) {
             const focusNode = await win.webContents.debugger.sendCommand("DOM.querySelector", { nodeId: documentNode.root.nodeId, selector });
             await win.webContents.debugger.sendCommand("CSS.forcePseudoState", { nodeId: focusNode.nodeId, forcedPseudoClasses: [] });
             const before = await win.webContents.executeJavaScript("(() => { const r = document.querySelector(" + JSON.stringify(selector) + ").getBoundingClientRect(); return { x:r.x, y:r.y, width:r.width, height:r.height }; })()");

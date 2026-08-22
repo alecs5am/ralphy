@@ -7,17 +7,89 @@ import { SelectMenu } from "../../components/ui/SelectMenu";
  * The settings row vocabulary. Every page is assembled from these; none of them own a
  * page's data, and none of them are page-specific. A new settings page is new data plus
  * these components, never new geometry.
+ *
+ * The ink roles below repeat on every page, so they are named once here: a run of utilities
+ * is still one decision, and a page reaches for the name instead of restating the run.
  */
 
+/** A counted number or a version: Doto, never tracked. */
+export const NUMBER = "font-display font-extrabold tracking-normal text-ink";
+/** A trailing mono label on a row title, decorative by design. */
+export const META = "flex-none font-code type-mono-xs tracking-caps text-muted-decorative";
+/** A code or a state read as a fact: mono, but the theme's own ink. */
+export const CODE = "font-code type-mono-sm tracking-caps text-ink";
+/** A path or an identifier inside a description. */
+export const MONO = "font-code type-meta tracking-code text-muted";
+/** A mono caps note under a plate. */
+export const NOTE = "m-0 font-code type-mono-xs tracking-caps leading-note text-muted-decorative";
+export const NOTE_ALERT = "m-0 font-code type-mono-xs tracking-caps leading-note text-alert";
+/** A section label above a plate, and the search results label that reads as one. */
+export const SECTION_LABEL = "m-0 flex items-center gap-2.25 pl-4 font-code type-mono-sm font-normal tracking-mono text-muted-decorative";
+/** A row title, and the copy column that carries it. */
+export const ROW_TITLE = "flex items-center gap-2.25 type-ui font-normal text-ink";
+export const ROW_COPY = "flex min-w-0 flex-1 flex-col gap-0.75";
+/**
+ * Row padding is the density knob: Compact and Comfortable are the same row at a different
+ * pad, read from the desk's own data-density rather than declared as two row heights.
+ */
+export const ROW_PAD = "px-4 py-settings-row [[data-density=compact]_&]:py-settings-row-compact";
+/** A row or a search result: the same cell, the same air, the same hover surface. */
+export const ROW_SHELL = "flex items-center gap-4 rounded-row text-left [corner-shape:squircle]";
+/** The light plate every list of rows stands on. */
+export const PLATE = "flex flex-col gap-0.5 rounded-panel bg-surface p-2 [corner-shape:squircle]";
+/** A widget block on the desk: same panel radius, its own surface. */
+export const WIDGET_LIGHT = "rounded-panel bg-surface p-4 [corner-shape:squircle]";
+export const WIDGET_DARK = "rounded-panel bg-instrument p-4 [corner-shape:squircle]";
+
+/**
+ * One action, six shapes. The tone decides the surface pair, `surface` says whether the
+ * button stands on the desk or on a black widget — on a black widget "primary" is the light
+ * pill, never the desk's primary, which would be black on black.
+ */
+export function action({ size, tone, round, surface }: {
+  size?: "sm" | "lg";
+  tone?: "primary" | "danger" | "quiet";
+  round?: boolean;
+  surface?: "instrument";
+} = {}): string {
+  const shape = round
+    // A round control is a square grid cell, so it owns the display and drops side padding.
+    ? `grid place-items-center px-0 ${size === "sm" ? "size-7 type-sm" : "size-control-md type-ui"}`
+    : size === "sm" ? "inline-flex h-control-md px-3.25 type-sm"
+    : size === "lg" ? "inline-flex h-control-lg px-4 type-ui"
+    : "inline-flex h-8 px-3.75 type-ui";
+  const paint = surface === "instrument"
+    ? tone === "primary" ? "bg-on-instrument text-instrument"
+      : tone === "danger" ? "bg-danger text-danger-ink hover:bg-danger-hover"
+      : tone === "quiet" ? "bg-transparent text-on-instrument-muted hover:text-on-instrument"
+      : "bg-ghost text-on-instrument hover:bg-ghost-hover"
+    : tone === "primary" ? "bg-desk-primary text-desk-primary-ink hover:opacity-88"
+      : tone === "danger" ? "bg-danger text-danger-ink hover:bg-danger-hover"
+      : round ? "bg-surface-sunken text-muted hover:bg-surface-hover hover:text-ink"
+      : "bg-surface-sunken text-ink hover:bg-surface-hover";
+  // Disabled drops to the quiet pair — except a round control, which is already quiet and
+  // keeps its ink so the glyph does not fade twice.
+  const quiet = surface === "instrument"
+    ? "disabled:bg-ghost disabled:text-on-instrument-muted-decorative focus-visible:outline-focus-on-instrument"
+    : round ? "disabled:bg-surface-sunken focus-visible:outline-ink"
+    : "disabled:bg-surface-sunken disabled:text-muted-decorative focus-visible:outline-ink";
+  return `flex-none items-center gap-2 rounded-control ${shape} ${paint} ${quiet}`;
+}
+
 export function Section({ title, count, children }: { title: string; count?: ReactNode; children: ReactNode }) {
-  return <section className="settings-section">
-    <h2>{title}{count !== undefined && <span className="settings-number">{count}</span>}</h2>
+  return <section className="flex flex-col gap-1.75">
+    <h2 className={SECTION_LABEL}>{title}{count !== undefined && <span className={NUMBER}>{count}</span>}</h2>
     {children}
   </section>;
 }
 
 export function Plate({ single, children }: { single?: boolean; children: ReactNode }) {
-  return <div className={single ? "settings-plate is-single" : "settings-plate"}>{children}</div>;
+  // A plate holding a single statement instead of a list of rows: the padding moves to the
+  // plate so the statement does not sit in a row inside a plate for no reason.
+  return <div className={single
+    ? "flex flex-row items-center gap-4 rounded-panel bg-surface p-4 [corner-shape:squircle]"
+    : PLATE
+  }>{children}</div>;
 }
 
 export function Row({ title, meta, description, tall, flat, flash, target, id, children }: {
@@ -31,15 +103,18 @@ export function Row({ title, meta, description, tall, flat, flash, target, id, c
   id?: string;
   children?: ReactNode;
 }) {
-  const classes = ["settings-row"];
-  if (tall) classes.push("is-tall");
-  if (flat) classes.push("is-flat");
-  if (flash) classes.push("is-flash");
-  if (target) classes.push("is-target");
-  return <div className={classes.join(" ")} id={id}>
-    <span className="settings-row-copy">
-      <strong>{title}{meta && <span className="settings-meta">{meta}</span>}</strong>
-      {description && <small>{description}</small>}
+  // A roadmap row states the missing contract instead of drawing a dead control, so it is
+  // quieter than a live row and does not answer the pointer.
+  const surface = target ? "" : flash ? "bg-surface-hover" : "hover:bg-surface-hover";
+  return <div
+    className={`${ROW_SHELL} ${tall ? "items-start" : "items-center"} ${flat ? "px-4 py-2.75" : ROW_PAD} ${surface} transition-colors duration-slow ease-instrument`}
+    id={id}
+  >
+    <span className={ROW_COPY}>
+      <strong className={target ? `${ROW_TITLE} text-muted` : ROW_TITLE}>
+        {title}{meta && <span className={META}>{meta}</span>}
+      </strong>
+      {description && <small className={`type-label leading-row ${target ? "text-muted-decorative" : "text-muted"}`}>{description}</small>}
     </span>
     {children}
   </div>;
@@ -47,16 +122,46 @@ export function Row({ title, meta, description, tall, flat, flash, target, id, c
 
 export type StatusTone = "ok" | "warn" | "bad" | "off";
 
-export function Dot({ tone = "ok" }: { tone?: StatusTone }) {
-  return <i className="settings-dot" data-tone={tone} aria-hidden="true" />;
+/**
+ * Status is always dot plus text, so the tone is never the only signal. On a black widget
+ * the dot takes the on-instrument ink: the theme's own ink is black on black in light.
+ */
+const DOT_TONE: Record<StatusTone, string> = {
+  ok: "bg-ink",
+  warn: "bg-transparent [box-shadow:inset_0_0_0_1.5px_var(--instrument-text-secondary-readable)]",
+  bad: "bg-alert",
+  off: "bg-muted-decorative opacity-50",
+};
+const DOT_TONE_ON_INSTRUMENT: Record<StatusTone, string> = {
+  ok: "bg-on-instrument",
+  warn: "bg-transparent [box-shadow:inset_0_0_0_1.5px_var(--instrument-text-on-dark-primary)]",
+  bad: "bg-alert",
+  off: "bg-on-instrument-muted-decorative opacity-50",
+};
+
+export function Dot({ tone = "ok", surface }: { tone?: StatusTone; surface?: "instrument" }) {
+  const paint = surface === "instrument" ? DOT_TONE_ON_INSTRUMENT[tone] : DOT_TONE[tone];
+  return <i className={`size-settings-dot flex-none rounded-control ${paint}`} aria-hidden="true" />;
+}
+
+const STATUS_TONE: Record<StatusTone, string> = {
+  ok: "text-muted",
+  warn: "text-muted",
+  bad: "text-alert",
+  off: "text-muted-decorative",
+};
+
+/** A status run without its dot: the diagnostics table already carries one in its own column. */
+export function statusText(tone: StatusTone = "ok"): string {
+  return `inline-flex flex-none items-center gap-2 font-code type-mono-sm tracking-status ${STATUS_TONE[tone]}`;
 }
 
 export function Status({ tone = "ok", children }: { tone?: StatusTone; children: ReactNode }) {
-  return <span className="settings-status" data-tone={tone}><Dot tone={tone} />{children}</span>;
+  return <span className={statusText(tone)}><Dot tone={tone} />{children}</span>;
 }
 
 export function DesignTarget() {
-  return <span className="settings-target"><Dot tone="off" />DESIGN TARGET</span>;
+  return <span className={`inline-flex items-center gap-2 ${META}`}><Dot tone="off" />DESIGN TARGET</span>;
 }
 
 export function Toggle({ label, on, alert, onChange }: {
@@ -65,15 +170,18 @@ export function Toggle({ label, on, alert, onChange }: {
   alert?: boolean;
   onChange(next: boolean): void;
 }) {
+  const track = on
+    ? alert ? "justify-end bg-alert" : "justify-end bg-desk-primary"
+    : "justify-start bg-surface-sunken";
+  const knob = on ? alert ? "bg-on-instrument" : "bg-desk-primary-ink" : "bg-muted-decorative";
   return <button
-    className={alert && on ? "settings-toggle is-alert" : "settings-toggle"}
+    className={`flex w-settings-toggle h-settings-toggle-track flex-none items-center rounded-control px-0.75 transition-colors duration-normal ease-instrument focus-visible:outline-ink ${track}`}
     type="button"
     role="switch"
     aria-label={label}
     aria-checked={on}
-    data-on={on || undefined}
     onClick={() => onChange(!on)}
-  ><i aria-hidden="true" /></button>;
+  ><i className={`size-settings-knob rounded-control ${knob}`} aria-hidden="true" /></button>;
 }
 
 export function Segmented<Value extends string>({ label, value, options, onChange }: {
@@ -82,9 +190,10 @@ export function Segmented<Value extends string>({ label, value, options, onChang
   options: readonly Value[];
   onChange(next: Value): void;
 }) {
-  return <div className="settings-segmented" role="group" aria-label={label}>
+  return <div className="inline-flex flex-none gap-0.5 rounded-control bg-surface-sunken p-0.75" role="group" aria-label={label}>
     {options.map((option) => <button
-      className={option === value ? "is-selected" : undefined}
+      className={`inline-flex h-control-sm items-center rounded-control px-3 type-label focus-visible:outline-ink ${
+        option === value ? "bg-desk-primary text-desk-primary-ink" : "text-muted"}`}
       type="button"
       key={option}
       aria-pressed={option === value}
@@ -93,6 +202,12 @@ export function Segmented<Value extends string>({ label, value, options, onChang
   </div>;
 }
 
+/**
+ * The shared select trigger is a dark two-column grid by default; on the settings desk it is
+ * a sunken light pill whose value, meta and chevron sit on one line. The trigger is used
+ * app-wide, so the settings surface is passed through its className rather than restated on
+ * the shared control.
+ */
 export function SettingsSelect<Value extends string>({ label, value, options, mono, onChange }: {
   label: string;
   value: Value;
@@ -101,7 +216,8 @@ export function SettingsSelect<Value extends string>({ label, value, options, mo
   onChange(next: Value): void;
 }) {
   return <SelectMenu
-    className={mono ? "settings-select is-mono" : "settings-select"}
+    className={`inline-flex h-control-md max-w-settings-select gap-2.25 rounded-control bg-surface-sunken px-3 text-ink hover:bg-surface-hover focus-visible:outline-ink focus-visible:outline-offset-2 ${
+      mono ? "font-code type-mono-md" : "type-sm"}`}
     overlayOwner="settings.rows"
     ariaLabel={label}
     value={value}
@@ -111,11 +227,24 @@ export function SettingsSelect<Value extends string>({ label, value, options, mo
   />;
 }
 
+/* A field is a sunken pill on the light plate; wide is the same field filling its row. */
+export const FIELD = "flex h-control-lg w-settings-field flex-none rounded-control bg-surface-sunken px-3.25 type-ui text-ink placeholder:text-muted focus-visible:outline-ink";
+export const FIELD_WIDE = "flex h-9 flex-1 rounded-control bg-surface-sunken px-3.5 font-code type-label text-ink placeholder:text-muted focus-visible:outline-ink";
+
+const KEYCAP = "grid place-items-center rounded-key font-code font-bold text-ink";
+
+export function keycap({ size, tone }: { size?: "lg"; tone?: "inverse" | "sunken" } = {}): string {
+  return `${KEYCAP} ${size === "lg"
+    ? "min-w-settings-keycap-lg h-settings-keycap-lg px-1.25 type-xs"
+    : "min-w-settings-keycap h-settings-keycap px-1 type-meta"} ${
+    tone === "inverse" ? "bg-desk-primary text-desk-primary-ink" : tone === "sunken" ? "bg-surface-sunken" : "bg-surface"}`;
+}
+
 export function Keycaps({ tokens, size, tone }: { tokens: readonly string[]; size?: "lg"; tone?: "inverse" | "sunken" }) {
-  const classes = ["settings-keycaps"];
-  if (size === "lg") classes.push("is-lg");
-  if (tone) classes.push(`is-${tone}`);
-  return <span className={classes.join(" ")}>{tokens.map((token, index) => <kbd key={`${token}-${index}`}>{token}</kbd>)}</span>;
+  const cap = keycap({ size, tone });
+  return <span className="flex flex-none gap-0.75">
+    {tokens.map((token, index) => <kbd className={cap} key={`${token}-${index}`}>{token}</kbd>)}
+  </span>;
 }
 
 export function Stepper({ label, value, min, max, step, format, onChange }: {
@@ -127,12 +256,15 @@ export function Stepper({ label, value, min, max, step, format, onChange }: {
   format?(value: number): string;
   onChange(next: number): void;
 }) {
-  return <div className="settings-stepper">
-    <button className="settings-action is-round is-sm" type="button" aria-label={`Decrease ${label}`} disabled={value <= min} onClick={() => onChange(Math.max(min, value - step))}>
+  return <div className="flex flex-none items-center gap-1.5">
+    <button className={action({ size: "sm", round: true })} type="button" aria-label={`Decrease ${label}`} disabled={value <= min} onClick={() => onChange(Math.max(min, value - step))}>
       <Minus size={12} strokeWidth={2} aria-hidden="true" />
     </button>
-    <output aria-label={label}>{format ? format(value) : value}</output>
-    <button className="settings-action is-round is-sm" type="button" aria-label={`Increase ${label}`} disabled={value >= max} onClick={() => onChange(Math.min(max, value + step))}>
+    <output
+      className="grid w-settings-stepper h-control-md place-items-center rounded-field bg-surface-sunken font-display type-lg font-extrabold text-ink [corner-shape:squircle] focus-visible:outline-ink"
+      aria-label={label}
+    >{format ? format(value) : value}</output>
+    <button className={action({ size: "sm", round: true })} type="button" aria-label={`Increase ${label}`} disabled={value >= max} onClick={() => onChange(Math.min(max, value + step))}>
       <Plus size={12} strokeWidth={2} aria-hidden="true" />
     </button>
   </div>;
@@ -140,14 +272,20 @@ export function Stepper({ label, value, min, max, step, format, onChange }: {
 
 /** Proportion as counted dots rather than a bar: a share you can read without a legend. */
 export function DotGrid({ filled, total = 20 }: { filled: number; total?: number }) {
-  return <span className="settings-dotgrid" aria-hidden="true">
-    {Array.from({ length: total }, (_, index) => <i className={index < filled ? "is-filled" : undefined} key={index} />)}
+  return <span className="flex min-w-0 flex-1 gap-1" aria-hidden="true">
+    {Array.from({ length: total }, (_, index) => <i
+      className={`size-settings-tick rounded-control ${index < filled ? "bg-ink" : "bg-unreviewed"}`}
+      key={index}
+    />)}
   </span>;
 }
 
 export function LedBar({ percent, segments = 24 }: { percent: number; segments?: number }) {
   const filled = Math.round(percent / 100 * segments);
-  return <span className="settings-led" aria-hidden="true">
-    {Array.from({ length: segments }, (_, index) => <i className={index < filled ? "is-filled" : undefined} key={index} />)}
+  return <span className="flex min-w-0 flex-1 gap-1" aria-hidden="true">
+    {Array.from({ length: segments }, (_, index) => <i
+      className={`h-settings-tick flex-1 rounded-control ${index < filled ? "bg-ink" : "bg-unreviewed"}`}
+      key={index}
+    />)}
   </span>;
 }

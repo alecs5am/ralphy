@@ -25,6 +25,8 @@ const workbenchStyles = readStylesheet("workbench.css");
 const tokenStyles = readFileSync(join(process.cwd(), "src/styles/tokens.css"), "utf8");
 const settingsStyles = readStylesheet("settings.css");
 const settingsScreenSource = readFileSync(join(process.cwd(), "src/screens/SettingsScreen.tsx"), "utf8");
+const settingsRows = readFileSync(join(process.cwd(), "src/screens/settings/rows.tsx"), "utf8");
+const profileMenuSource = readFileSync(join(process.cwd(), "src/components/ProfileMenu.tsx"), "utf8");
 const settingsSurfaceSource = [
   "src/screens/SettingsScreen.tsx",
   ...readdirSync(join(process.cwd(), "src/screens/settings")).map((file) => `src/screens/settings/${file}`),
@@ -878,12 +880,19 @@ describe("design system contract", () => {
       expect(workbenchStyles).toMatch(new RegExp(`\\.${selector}\\s*\\{[^}]*border:\\s*0[^}]*background:\\s*var\\(--instrument-widget-dark\\)`, "s"));
     }
     expect(workbenchStyles).toMatch(/\.select-menu-trigger\s*\{[^}]*border:\s*0[^}]*background:\s*var\(--instrument-widget-dark\)/s);
-    expect(settingsStyles).toMatch(/\.profile-menu,[\s\S]*\.help-menu\s*\{[^}]*border:\s*0[^}]*background:\s*var\(--instrument-widget-dark\)/s);
-    // Settings own their surfaces in the stylesheet rather than in the markup, so the plate
-    // and its sunken controls are asserted where they are actually declared.
-    expect(settingsStyles).toMatch(/\.settings-plate\s*\{[^}]*background:\s*var\(--instrument-widget-light\)/s);
-    expect(settingsStyles).toMatch(/\.settings-toggle\s*\{[^}]*background:\s*var\(--instrument-widget-light-sunken\)/s);
-    expect(settingsScreenSource).not.toMatch(/className="[^"]*\b(?:bg|text|rounded)-/);
+    // Settings own their surfaces in the markup now, so the same three decisions are asserted
+    // where they are actually declared: the plate is the light widget, the toggle track is the
+    // sunken surface, and a menu is one flat dark widget with no border.
+    const plate = /export const PLATE = "([^"]*)"/.exec(settingsRows)?.[1] ?? "";
+    const menu = /const MENU = "([^"]*)"/.exec(profileMenuSource)?.[1] ?? "";
+    expect(plate.split(" ")).toContain("bg-surface");
+    expect(settingsRows).toContain("justify-start bg-surface-sunken");
+    expect(menu.split(" ")).toContain("bg-instrument");
+    expect(menu).not.toMatch(/\bborder\b/);
+    // The one settings rule a utility cannot express stays in the stylesheet: it has to beat
+    // an !important dialog rule, which only source order outside the utility layer can do.
+    expect(settingsStyles).toMatch(/\[data-instrument-overlay="settings"\]\[data-instrument-surface-focus\]\s*\{\s*outline: none !important;\s*\}/);
+    expect(settingsScreenSource).toMatch(/className="[^"]*\b(?:bg|text|rounded)-/);
   });
 
   test("renders active surfaces with visible focus in Chromium", async () => {

@@ -6,19 +6,44 @@ import { bridge } from "../../lib/ipc";
 import type { SettingsContext } from "./context";
 import type { HarnessRow } from "./harnesses";
 import {
+  action,
   DesignTarget,
+  Dot,
+  FIELD_WIDE,
   Keycaps,
   LedBar,
+  META,
+  NOTE,
+  NOTE_ALERT,
+  NUMBER,
   Plate,
   Row,
+  ROW_COPY,
+  ROW_TITLE,
   Section,
   Segmented,
   SettingsSelect,
   Status,
+  statusText,
   Stepper,
   Toggle,
+  WIDGET_LIGHT,
   type StatusTone,
 } from "./rows";
+
+/* A service row lists identity, reported state and one action: the columns are fixed so five
+   providers read as a table rather than five different rows, and they give up their width
+   before they give up their content when the content row is narrow. */
+const SERVICE_ROW = "flex items-center gap-4 rounded-row px-4 py-settings-row [[data-density=compact]_&]:py-settings-row-compact text-left [corner-shape:squircle] transition-colors duration-slow ease-instrument @max-settings-column/settings-main:flex-wrap";
+const SERVICE_NARROW = "@max-settings-column/settings-main:w-auto @max-settings-column/settings-main:min-w-0 @max-settings-column/settings-main:flex-1";
+const SERVICE_NAME = `flex flex-none flex-col gap-0.75 ${SERVICE_NARROW}`;
+const SERVICE_STATE = "flex min-w-0 flex-1 flex-col gap-0.75";
+const SERVICE_META = "font-code type-mono-xs tracking-status text-muted-decorative";
+const SERVICE_MODEL = "max-w-settings-service-model flex-none overflow-hidden font-code type-mono-sm tracking-label text-ellipsis whitespace-nowrap text-muted @max-settings-column/settings-main:hidden";
+/* A flat row: one statement per line, no copy column under it. */
+const FLAT_ROW = "flex items-center gap-4 rounded-row px-4 py-2.75 text-left [corner-shape:squircle] transition-colors duration-slow ease-instrument";
+const FLAT_LABEL = `w-settings-diagnostics flex-none type-ui text-ink ${SERVICE_NARROW}`;
+const FLAT_VALUE = "min-w-0 flex-1 overflow-hidden font-code type-meta text-ellipsis whitespace-nowrap text-muted";
 
 const options = <Value extends string>(values: readonly Value[]) => values.map((value) => ({ value, label: value }));
 
@@ -30,19 +55,19 @@ export function AgentsPage({ ctx }: { ctx: SettingsContext }) {
       <Plate>
         {state === "loading" && <Row title="Reading harnesses" description="Asking the bridge which adapters are installed." target><DesignTarget /></Row>}
         {state === "unavailable" && <Row title="Harness discovery unavailable" description="The bridge did not answer. Nothing is inferred about the adapters on this machine." target><DesignTarget /></Row>}
-        {rows.map((harness) => <div className="settings-row is-service" key={harness.id}>
-          <i className="settings-dot" data-tone={harness.tone} aria-hidden="true" />
-          <span className="settings-service-name">
-            <strong>{harness.name}</strong>
-            <small>{harness.source}</small>
+        {rows.map((harness) => <div className={`${SERVICE_ROW} hover:bg-surface-hover`} key={harness.id}>
+          <Dot tone={harness.tone} />
+          <span className={`w-settings-service ${SERVICE_NAME}`}>
+            <strong className="type-ui font-normal text-ink">{harness.name}</strong>
+            <small className={SERVICE_META}>{harness.source}</small>
           </span>
-          <span className="settings-service-state">
+          <span className={SERVICE_STATE}>
             <Status tone={harness.tone}>{`${harness.status} · ${harness.auth}`}</Status>
-            <small>{harness.capabilities}</small>
+            <small className={SERVICE_META}>{harness.capabilities}</small>
           </span>
-          <span className="settings-service-model">{harness.model}</span>
+          <span className={SERVICE_MODEL}>{harness.model}</span>
           <button
-            className={harness.tone === "ok" ? "settings-action is-sm" : "settings-action is-sm is-primary"}
+            className={action({ size: "sm", tone: harness.tone === "ok" ? undefined : "primary" })}
             type="button"
             onClick={() => ctx.openDetail({ kind: "harness", id: harness.id })}
           >{harness.action}</button>
@@ -63,7 +88,7 @@ export function AgentsPage({ ctx }: { ctx: SettingsContext }) {
           />
         </Row>
         <Row title="Approval posture for new chats" description="The shared rule. Actual rights come from the adapter — read the receipt on the harness page.">
-          <button className="settings-action is-sm" type="button" onClick={() => ctx.goTo("permissions", "permissions.posture")}>
+          <button className={action({ size: "sm" })} type="button" onClick={() => ctx.goTo("permissions", "permissions.posture")}>
             {values["permissions.posture"]}
             <ArrowUpRight size={12} strokeWidth={1.8} aria-hidden="true" />
           </button>
@@ -105,14 +130,14 @@ export function HarnessDetailPage({ ctx, harness }: { ctx: SettingsContext; harn
   return <>
     <Section title="CONNECTION">
       <Plate>
-        <div className="settings-row is-service">
-          <i className="settings-dot" data-tone={harness.tone} aria-hidden="true" />
-          <span className="settings-service-state">
+        <div className={`${SERVICE_ROW} hover:bg-surface-hover`}>
+          <Dot tone={harness.tone} />
+          <span className={SERVICE_STATE}>
             <Status tone={harness.tone}>{`${harness.status} · ${harness.auth}`}</Status>
-            <small>{harness.detail}</small>
+            <small className={SERVICE_META}>{harness.detail}</small>
           </span>
           <button
-            className="settings-action is-lg is-primary"
+            className={action({ size: "lg", tone: "primary" })}
             type="button"
             disabled={busy || harness.credential === "none"}
             onClick={async () => {
@@ -143,12 +168,12 @@ export function HarnessDetailPage({ ctx, harness }: { ctx: SettingsContext; harn
 
     <Section title="CREDENTIAL · SECURE">
       {harness.credential === "api-key"
-        ? <div className="settings-credential">
+        ? <div className={`flex flex-col gap-2.75 ${WIDGET_LIGHT}`}>
           <Status tone={credentialTone}>{credentialLabel}</Status>
-          <div className="settings-credential-row">
+          <div className="flex items-center gap-2 @max-settings-column/settings-main:flex-wrap">
             <input
               ref={keyField}
-              className={state === "failed" || state === "empty" ? "settings-field is-wide is-invalid" : "settings-field is-wide"}
+              className={state === "failed" || state === "empty" ? `${FIELD_WIDE} bg-error-surface` : FIELD_WIDE}
               value={draft}
               placeholder="Paste the provider key"
               aria-label={`${harness.name} API key`}
@@ -156,12 +181,12 @@ export function HarnessDetailPage({ ctx, harness }: { ctx: SettingsContext; harn
               spellCheck={false}
               onChange={(event) => { setDraft(event.target.value); setState("idle"); }}
             />
-            <button className="settings-action is-lg is-primary" type="button" disabled={state === "testing"} onClick={() => void saveKey()}>
+            <button className={action({ size: "lg", tone: "primary" })} type="button" disabled={state === "testing"} onClick={() => void saveKey()}>
               {state === "testing" ? "Testing…" : state === "connected" ? "Saved" : "Save key"}
             </button>
-            <button className="settings-action is-lg" type="button" disabled={state === "testing"} onClick={() => void saveKey()}>Test connection</button>
+            <button className={action({ size: "lg" })} type="button" disabled={state === "testing"} onClick={() => void saveKey()}>Test connection</button>
           </div>
-          <p className={state === "failed" ? "settings-note is-alert" : "settings-note"}>
+          <p className={state === "failed" ? NOTE_ALERT : NOTE}>
             {state === "failed"
               ? "THE KEY WAS NOT ACCEPTED. THE TYPED VALUE IS KEPT — CORRECT IT AND SAVE AGAIN"
               : "THE KEY GOES TO THE OS KEYCHAIN, NEVER INTO PREFERENCES, AND IS NEVER RETURNED TO THE RENDERER IN FULL"}
@@ -183,19 +208,19 @@ export function HarnessDetailPage({ ctx, harness }: { ctx: SettingsContext; harn
           flat
           target
           key={capability}
-        ><span className="settings-status" data-tone="off">NOT REPORTED</span></Row>)}
+        ><span className={statusText("off")}>NOT REPORTED</span></Row>)}
       </Plate>
-      <p className="settings-note">THE SAME FRIENDLY NAME MEANS DIFFERENT THINGS PER PROVIDER, SO NOTHING IS ASSUMED UNTIL THE ADAPTER REPORTS IT</p>
+      <p className={NOTE}>THE SAME FRIENDLY NAME MEANS DIFFERENT THINGS PER PROVIDER, SO NOTHING IS ASSUMED UNTIL THE ADAPTER REPORTS IT</p>
     </Section>
 
     <Section title="MAINTENANCE">
       <Plate single>
-        <span className="settings-row-copy">
-          <strong>Disconnect harness</strong>
-          <small>The stored credential is removed. Settings without secrets stay until you reconnect.</small>
+        <span className={ROW_COPY}>
+          <strong className={ROW_TITLE}>Disconnect harness</strong>
+          <small className="type-label leading-row text-muted">The stored credential is removed. Settings without secrets stay until you reconnect.</small>
         </span>
         <button
-          className="settings-action is-danger"
+          className={action({ tone: "danger" })}
           type="button"
           disabled={harness.credential !== "api-key"}
           onClick={() => void ctx.harnesses.clearKey(harness.id)}
@@ -219,28 +244,28 @@ export function ProvidersPage({ ctx }: { ctx: SettingsContext }) {
   return <>
     <Section title="CONNECTED SERVICES · KEYS ARE ENTERED INSIDE A PROVIDER, NEVER IN THE LIST">
       <Plate>
-        {GENERATION_PROVIDERS.map((provider) => <div className="settings-row is-service is-target" key={provider.id}>
-          <i className="settings-dot" data-tone="off" aria-hidden="true" />
-          <span className="settings-service-name is-narrow">
-            <strong>{provider.name}</strong>
-            <small>{provider.capabilities}</small>
+        {GENERATION_PROVIDERS.map((provider) => <div className={SERVICE_ROW} key={provider.id}>
+          <Dot tone="off" />
+          <span className={`w-settings-service-narrow ${SERVICE_NAME}`}>
+            <strong className="type-ui font-normal text-ink">{provider.name}</strong>
+            <small className={SERVICE_META}>{provider.capabilities}</small>
           </span>
-          <span className="settings-service-state">
+          <span className={SERVICE_STATE}>
             <Status tone="off">NOT CONFIGURED HERE</Status>
-            <small>CONFIGURED THROUGH THE RALPHY CLI</small>
+            <small className={SERVICE_META}>CONFIGURED THROUGH THE RALPHY CLI</small>
           </span>
-          <span className="settings-service-model">—</span>
-          <button className="settings-action is-sm" type="button" onClick={() => ctx.openDetail({ kind: "provider", id: provider.id })}>Manage</button>
+          <span className={SERVICE_MODEL}>—</span>
+          <button className={action({ size: "sm" })} type="button" onClick={() => ctx.openDetail({ kind: "provider", id: provider.id })}>Manage</button>
         </div>)}
       </Plate>
     </Section>
 
     <Plate single>
-      <span className="settings-row-copy">
-        <strong>Add a provider</strong>
-        <small>Community adapters install from the Marketplace; built-in services appear here once discovery lands.</small>
+      <span className={ROW_COPY}>
+        <strong className={ROW_TITLE}>Add a provider</strong>
+        <small className="type-label leading-row text-muted">Community adapters install from the Marketplace; built-in services appear here once discovery lands.</small>
       </span>
-      <button className="settings-action is-lg is-primary" type="button" disabled>
+      <button className={action({ size: "lg", tone: "primary" })} type="button" disabled>
         <Plus size={13} strokeWidth={2} aria-hidden="true" />
         Connect provider
       </button>
@@ -262,9 +287,9 @@ export function ProviderDetailPage({ provider }: { provider: (typeof GENERATION_
 
     <Section title="DEFAULT MODEL PER MEDIA TYPE">
       <Plate>
-        {["TEXT", "IMAGE", "VIDEO", "UPSCALE"].map((kind) => <div className="settings-row is-flat is-target" key={kind}>
-          <span className="settings-kind-label">{kind}</span>
-          <span className="settings-diagnostics-value">Model catalogue arrives with provider discovery</span>
+        {["TEXT", "IMAGE", "VIDEO", "UPSCALE"].map((kind) => <div className={FLAT_ROW} key={kind}>
+          <span className="w-settings-kind flex-none font-code type-mono-sm tracking-caps text-muted-decorative">{kind}</span>
+          <span className={FLAT_VALUE}>Model catalogue arrives with provider discovery</span>
           <DesignTarget />
         </div>)}
       </Plate>
@@ -272,11 +297,11 @@ export function ProviderDetailPage({ provider }: { provider: (typeof GENERATION_
 
     <Section title="MAINTENANCE">
       <Plate single>
-        <span className="settings-row-copy">
-          <strong>Remove credential</strong>
-          <small>Available once the credential is stored by the app rather than by the CLI.</small>
+        <span className={ROW_COPY}>
+          <strong className={ROW_TITLE}>Remove credential</strong>
+          <small className="type-label leading-row text-muted">Available once the credential is stored by the app rather than by the CLI.</small>
         </span>
-        <button className="settings-action is-danger" type="button" disabled>Disconnect…</button>
+        <button className={action({ tone: "danger" })} type="button" disabled>Disconnect…</button>
       </Plate>
     </Section>
   </>;
@@ -313,7 +338,7 @@ export function StoragePage({ ctx }: { ctx: SettingsContext }) {
           id="storage.cache"
         >
           {reclaimed && <Status>CACHE MARKED FOR REBUILD</Status>}
-          <button className="settings-action" type="button" onClick={() => setReclaimed(true)}>Clear cache</button>
+          <button className={action()} type="button" onClick={() => setReclaimed(true)}>Clear cache</button>
         </Row>
         <Row
           title="Move library to another disk"
@@ -367,7 +392,7 @@ export function PermissionsPage({ ctx }: { ctx: SettingsContext }) {
           id="permissions.microphone"
         >
           <Status tone={micTone}>{microphone === "granted" ? "GRANTED" : microphone === "denied" ? "DENIED" : microphone === "prompt" ? "NOT GRANTED" : "NOT REPORTED"}</Status>
-          <button className="settings-action" type="button" disabled>
+          <button className={action()} type="button" disabled>
             Open System Settings
             <ArrowUpRight size={12} strokeWidth={1.8} aria-hidden="true" />
           </button>
@@ -467,7 +492,7 @@ export function TerminalPage({ ctx }: { ctx: SettingsContext }) {
         <Row title="Managed variables" meta="VALUES REDACTED" description="Names and redacted values arrive with the environment probe. Editing them requires a restart." target><DesignTarget /></Row>
         <Row title="Terminal shortcuts" description="They live in the shared command registry — there is no second editor here.">
           <Keycaps tokens={["⌃", "`"]} tone="sunken" />
-          <button className="settings-action is-sm" type="button" onClick={() => ctx.goTo("keys")}>
+          <button className={action({ size: "sm" })} type="button" onClick={() => ctx.goTo("keys")}>
             Keyboard shortcuts
             <ArrowUpRight size={12} strokeWidth={1.8} aria-hidden="true" />
           </button>
@@ -545,27 +570,27 @@ export function DiagnosticsPage({ ctx }: { ctx: SettingsContext }) {
   return <>
     <Section title="SYSTEM CHECKS" count={checks.length}>
       <Plate>
-        {checks.map((check) => <div className="settings-row is-flat" key={check.id}>
-          <i className="settings-dot" data-tone={checking ? "off" : check.tone} aria-hidden="true" />
-          <span className="settings-diagnostics-label">{check.label}</span>
-          <span className="settings-diagnostics-value">{checking ? "…" : check.value}</span>
-          <span className="settings-status" data-tone={checking ? "off" : check.tone}>{checking ? "CHECKING" : check.state}</span>
-          {check.fix && !checking && <button className="settings-action is-sm" type="button" onClick={check.fix.run}>{check.fix.label}</button>}
+        {checks.map((check) => <div className={`${FLAT_ROW} hover:bg-surface-hover`} key={check.id}>
+          <Dot tone={checking ? "off" : check.tone} />
+          <span className={FLAT_LABEL}>{check.label}</span>
+          <span className={FLAT_VALUE}>{checking ? "…" : check.value}</span>
+          <span className={statusText(checking ? "off" : check.tone)}>{checking ? "CHECKING" : check.state}</span>
+          {check.fix && !checking && <button className={action({ size: "sm" })} type="button" onClick={check.fix.run}>{check.fix.label}</button>}
         </div>)}
       </Plate>
     </Section>
 
-    <div className="settings-actions-plate">
-      <button className="settings-action is-lg is-primary" type="button" disabled={checking} onClick={() => void rerun()}>
+    <div className={`flex items-center gap-2 ${WIDGET_LIGHT} @max-settings-column/settings-main:flex-wrap`}>
+      <button className={action({ size: "lg", tone: "primary" })} type="button" disabled={checking} onClick={() => void rerun()}>
         {checking ? "Checking…" : "Rerun all checks"}
       </button>
       <button
-        className="settings-action is-lg"
+        className={action({ size: "lg" })}
         type="button"
         onClick={async () => { await bridge.copyText(summary()); setCopied(true); }}
       >{copied ? "Copied" : "Copy redacted summary"}</button>
-      <button className="settings-action is-lg" type="button" disabled>Reveal logs</button>
-      <p className="settings-note">THE SUMMARY CARRIES NO KEYS, PROMPTS<br />OR MEDIA PATHS</p>
+      <button className={action({ size: "lg" })} type="button" disabled>Reveal logs</button>
+      <p className={`${NOTE} ml-auto text-right @max-settings-column/settings-main:ml-0 @max-settings-column/settings-main:text-left`}>THE SUMMARY CARRIES NO KEYS, PROMPTS<br />OR MEDIA PATHS</p>
     </div>
   </>;
 }
@@ -600,21 +625,21 @@ export function UpdatesPage({ ctx }: { ctx: SettingsContext }) {
 
   return <>
     <Section title="VERSION">
-      <div className="settings-version">
-        <div className="settings-version-head">
-          <span>
-            <span className="settings-meta">{ready ? "READY TO INSTALL" : progress !== null ? "DOWNLOADING" : `CURRENT VERSION · ${values["updates.channel"].toLocaleUpperCase()}`}</span>
-            <strong>{ctx.version}</strong>
+      <div className={`flex flex-col gap-3.25 ${WIDGET_LIGHT}`}>
+        <div className="flex items-center gap-4">
+          <span className="flex min-w-0 flex-1 flex-col gap-1.25">
+            <span className={META}>{ready ? "READY TO INSTALL" : progress !== null ? "DOWNLOADING" : `CURRENT VERSION · ${values["updates.channel"].toLocaleUpperCase()}`}</span>
+            <strong className="font-display type-display font-extrabold leading-none text-ink">{ctx.version}</strong>
           </span>
-          <button className={progress !== null && !ready ? "settings-action is-lg" : "settings-action is-lg is-primary"} type="button" onClick={start}>
+          <button className={action({ size: "lg", tone: progress !== null && !ready ? undefined : "primary" })} type="button" onClick={start}>
             {ready ? "Restart to update" : progress !== null ? "Pause" : "Check for updates"}
           </button>
         </div>
-        {progress !== null && <div className="settings-version-progress">
+        {progress !== null && <div className="flex items-center gap-3">
           <LedBar percent={progress} />
-          <b className="settings-number">{progress}%</b>
+          <b className={NUMBER}>{progress}%</b>
         </div>}
-        <p>{ready
+        <p className="m-0 type-label leading-copy text-muted">{ready
           ? "The update is downloaded. Installing happens on restart — active runs are stopped cleanly first."
           : progress !== null ? "Downloading runs in the background and does not block work."
           : "An update feed is not wired up yet, so this check walks the states the real updater will report."}</p>
@@ -639,6 +664,9 @@ export function UpdatesPage({ ctx }: { ctx: SettingsContext }) {
   </>;
 }
 
+/* An outbound link is a sunken pill like an action, but it is a link, not a control. */
+const LINK = "inline-flex h-8 items-center gap-2 rounded-control bg-surface-sunken px-3.5 type-ui text-ink no-underline hover:bg-surface-hover focus-visible:outline-ink";
+
 const CHROMIUM = /Chrome\/([\d.]+)/.exec(typeof navigator === "undefined" ? "" : navigator.userAgent)?.[1] ?? null;
 
 export function AboutPage({ ctx }: { ctx: SettingsContext }) {
@@ -652,14 +680,14 @@ export function AboutPage({ ctx }: { ctx: SettingsContext }) {
     ["Ralphy CLI", "not reported"],
   ];
   return <>
-    <div className="settings-about-hero">
-      <span className="settings-about-mark"><RalphyMascot size={46} /></span>
-      <span className="settings-about-copy">
-        <strong>Ralphy Desktop</strong>
-        <small>{`${ctx.version} · ${CHROMIUM ? `CHROMIUM ${CHROMIUM}` : "BUILD FACTS PENDING"}`}</small>
+    <div className="flex items-center gap-5 rounded-panel bg-instrument p-5 [corner-shape:squircle]">
+      <span className="grid size-settings-mark flex-none place-items-center rounded-menu bg-frame text-on-instrument [corner-shape:squircle]"><RalphyMascot size={46} /></span>
+      <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <strong className="type-subtitle font-normal text-on-instrument">Ralphy Desktop</strong>
+        <small className="font-display type-lg font-extrabold text-on-instrument-muted">{`${ctx.version} · ${CHROMIUM ? `CHROMIUM ${CHROMIUM}` : "BUILD FACTS PENDING"}`}</small>
       </span>
       <button
-        className="settings-action"
+        className={action({ size: "lg", tone: "primary", surface: "instrument" })}
         type="button"
         onClick={async () => {
           await bridge.copyText(runtime.map(([label, value]) => `${label}: ${value}`).join("\n"));
@@ -670,20 +698,20 @@ export function AboutPage({ ctx }: { ctx: SettingsContext }) {
 
     <Section title="RUNTIME">
       <Plate>
-        {runtime.map(([label, value]) => <div className="settings-row is-flat" key={label}>
-          <span className="settings-diagnostics-label">{label}</span>
-          <span className="settings-diagnostics-value">{value}</span>
+        {runtime.map(([label, value]) => <div className={`${FLAT_ROW} hover:bg-surface-hover`} key={label}>
+          <span className={FLAT_LABEL}>{label}</span>
+          <span className={FLAT_VALUE}>{value}</span>
         </div>)}
       </Plate>
     </Section>
 
     <Section title="OPEN SOURCE">
-      <div className="settings-links">
-        <a href="https://github.com/alecs5am/ralphy-desktop" target="_blank" rel="noreferrer">
+      <div className={`flex flex-wrap gap-2 ${WIDGET_LIGHT}`}>
+        <a className={LINK} href="https://github.com/alecs5am/ralphy-desktop" target="_blank" rel="noreferrer">
           Repository
           <ArrowUpRight size={12} strokeWidth={1.8} aria-hidden="true" />
         </a>
-        <a href="https://github.com/alecs5am/ralphy-docs" target="_blank" rel="noreferrer">
+        <a className={LINK} href="https://github.com/alecs5am/ralphy-docs" target="_blank" rel="noreferrer">
           Documentation
           <ArrowUpRight size={12} strokeWidth={1.8} aria-hidden="true" />
         </a>

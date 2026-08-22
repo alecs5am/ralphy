@@ -3,4 +3,90 @@
    value the design fixes for that role; a component then reaches for the name, never a
    literal. */
 @theme inline {
+  /* Ink and surfaces the shared scale does not name. The ghost pair is theme-invariant by
+     design: it is the hover surface for a control standing on a black widget, where the light
+     theme's own hover surface turns white and makes the on-instrument ink disappear. */
+  --color-muted-decorative: var(--instrument-text-muted-decorative);
+  --color-ghost: var(--instrument-ghost);
+  --color-ghost-hover: var(--instrument-ghost-hover);
+  --color-desk-hover: var(--instrument-desk-hover);
+  --color-unreviewed: var(--instrument-unreviewed);
+  --color-danger: var(--instrument-danger-fill);
+  --color-danger-hover: var(--instrument-alert-bright);
+  --color-danger-ink: var(--instrument-alert-text);
+  --color-error-surface: var(--instrument-error-surface);
+  /* The ring for a control on a black widget: the theme ink would be black on black. */
+  --color-focus-on-instrument: var(--instrument-focus-on-dark);
+  --color-menu-divider: var(--line);
+
+  /* Type steps the shared type scale skips: the page heading and the About title. */
+  --type-page: var(--text-page);
+  --type-subtitle: var(--text-subtitle);
+
+  /* Leading and tracking the tokens do not name. */
+  --leading-copy: var(--leading-body);
+  --leading-row: var(--leading-snug);
+  --leading-note: 1.6;
+  --leading-empty: 1.7;
+  /* A mono status or code run sits between the caps and the mono step. */
+  --tracking-status: 0.09em;
+  --tracking-code: 0.02em;
+  /* The page heading is the only line the design tightens optically. */
+  --tracking-page: -0.01em;
+
+  /* Radius, motion and stacking roles. */
+  --radius-menu: var(--radius-xl);      /* a widget inside a widget: menu, identity plate, About mark */
+  --radius-row: var(--radius-preview);  /* a row or a search result inside a plate */
+  --transition-duration-normal: var(--dur);
+  --transition-duration-slow: var(--dur-slow);
+  --ease-instrument: var(--ease);
+  --z-index-popover: var(--z-popover);
+
+  /* Control geometry, so a square control and a control height stay one decision. */
+  --spacing-control-md: var(--control-md);
+  --spacing-titlebar: var(--titlebar-h);
+
+  /* The settings desk: nav, centred reading column, context rail, and the 44px plate row the
+     page header, the rail's top offset and the nav identity plate all share. */
+  --spacing-settings-nav: 240px;
+  --spacing-settings-column: 810px;
+  --spacing-settings-rail: 280px;
+  --spacing-settings-rail-label: 160px;
+  --spacing-settings-plate: 44px;
+
+  /* The density knob: Compact and Comfortable are the same row at a different pad. */
+  --spacing-settings-row: 13px;
+  --spacing-settings-row-compact: 9px;
+
+  /* Row vocabulary geometry. */
+  --spacing-settings-toggle: 36px;
+  --spacing-settings-toggle-track: 20px;
+  --spacing-settings-knob: 14px;
+  --spacing-settings-dot: 7px;
+  --spacing-settings-tick: 9px;   /* one dot of a dot grid, one segment of an LED bar */
+  --spacing-settings-step: 22px;  /* a column-count step bar */
+  /* An 18px glyph slot: the keycap square, a menu row's icon column, the search clear. */
+  --spacing-settings-keycap: 18px;
+  --spacing-settings-keycap-lg: 22px;
+  --spacing-settings-stepper: 66px;
+  --spacing-settings-field: 250px;
+  --spacing-settings-select: 260px;
+
+  /* Table-like rows: fixed columns so five providers read as a table, not five rows. */
+  --spacing-settings-service: 186px;
+  --spacing-settings-service-narrow: 150px;
+  --spacing-settings-service-model: 190px;
+  --spacing-settings-diagnostics: 210px;
+  --spacing-settings-kind: 96px;
+  --spacing-settings-result: 280px;
+
+  /* Page blocks. */
+  --spacing-settings-avatar: 56px;
+  --spacing-settings-mark: 72px;
+  --spacing-settings-empty: 400px;
+
+  /* Content-row breakpoints, measured against the content row and never the window: the
+     sidebar and the chat rail change it without changing the viewport. */
+  --container-settings-rail: 1140px;
+  --container-settings-column: 880px;
 }

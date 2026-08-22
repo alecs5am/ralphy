@@ -20,7 +20,8 @@ describe("profile menu", () => {
         );
       });
 
-      const trigger = host.container.querySelector(".profile-menu-trigger");
+      const trigger = host.container.querySelectorAll("button")
+        .find((button) => button.getAttribute("aria-label") === "Open profile menu");
       const helpTrigger = host.container.querySelectorAll("button")
         .find((button) => button.getAttribute("aria-label") === "Open help menu");
       expect(trigger?.textContent).toBe("maximovchinnikov");
