@@ -1,0 +1,171 @@
+/* Rules that were sitting in the project chunks (06, 07, 08) but style elements no component
+   of the project workbench renders. They are kept verbatim, at the cascade position they had,
+   for the area that owns them:
+
+   - the inset focus ring: `components/ui/GooeyTabs.tsx`, `SelectMenu.tsx` and the workspace
+     project card (workbench chrome, 02/04)
+   - the JSON document view: `components/JsonDocumentView.tsx` (documents & activity, 15)
+   - the activity log, table and toolbar: `screens/project/ActivityTimeline.tsx`
+     (documents & activity, 09)
+   - the four state plates and the shared grid scroll padding: no single owner — they are the
+     vocabulary of five screens across four areas (project, workspace projects, library,
+     workspace overview) */
+
+.workspace-project-card:focus-visible,
+.mode-segments button:focus-visible,
+.select-menu-trigger:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: -2px;
+}
+
+.json-document-view {
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.json-token-key { color: var(--accent-soft); }
+.json-token-string { color: var(--ok); }
+.json-token-number { color: var(--warn); }
+.json-token-boolean { color: color-mix(in srgb, var(--accent-soft) 70%, var(--warn)); }
+.json-token-null { color: var(--fg-3); }
+
+/* No single owner: the same plate is the loading, error, unavailable and empty state of the
+   project routes, the workspace projects grid, the library and the workspace overview. */
+.project-skeleton,
+.project-local-error,
+.preview-unavailable,
+.empty-section {
+  display: flex;
+  min-height: 96px;
+  padding: 24px 8px;
+  font-size: var(--text-sm);
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--fg-3);
+}
+
+.project-local-error,
+.preview-unavailable {
+  flex-direction: column;
+  text-align: center;
+}
+
+/* The asset grid's own desk padding, which the workspace projects grid still reads. The
+   project media route states padding 0 on the same element. */
+.asset-grid-scroll {
+  padding: 0 24px 28px;
+  scrollbar-gutter: stable;
+}
+
+.activity-log {
+  display: grid;
+  width: 100%;
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
+}
+
+.activity-log.has-inspector {
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
+  gap: 16px;
+}
+
+.activity-log-main,
+.activity-table {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  min-height: 0;
+}
+.activity-toolbar {
+  display: flex;
+  min-width: 0;
+}
+
+.activity-search,
+.activity-toolbar .select-menu-trigger {
+  background: var(--field-surface);
+  color: var(--control-text);
+  border-radius: var(--field-radius);
+  height: 32px;
+}
+
+.activity-search {
+  display: flex;
+  width: min(320px, 40%);
+  align-items: center;
+  padding: 0 10px;
+}
+
+.activity-search:focus-within {
+  outline: var(--control-focus);
+  outline-offset: 1px;
+}
+
+.activity-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+}
+
+.activity-toolbar .select-menu-trigger {
+  max-width: 190px;
+}
+
+.activity-table {
+  flex: 1;
+  overflow: hidden;
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: transparent;
+}
+
+.activity-table-head,
+.activity-event {
+  display: grid;
+  grid-template-columns: 68px 116px minmax(150px, 1fr) minmax(150px, 1fr) minmax(120px, 0.75fr) 88px;
+  align-items: center;
+  column-gap: 12px;
+}
+
+.activity-table-head {
+  height: 36px;
+  flex: none;
+  padding: 0 12px;
+}
+
+.activity-scroll {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.activity-scroll:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: -2px;
+}
+
+.activity-virtual-list {
+  position: relative;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+}

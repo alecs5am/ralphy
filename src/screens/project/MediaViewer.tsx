@@ -110,7 +110,7 @@ function GenerationInspector({ detail, state, error, onRetry }: {
 }
 
 function RunObjectEvidence({ card }: { card: RunObjectMediaCardDto }) {
-  return <section className="run-object-evidence" aria-label="RunObject evidence"><h3>RunObject evidence</h3><Facts rows={[
+  return <section className="run-object-evidence w-full self-start rounded-none bg-transparent p-0 [&_dd]:m-0 [&_dd]:min-w-0 [&_dd]:[overflow-wrap:anywhere] [&_dl]:m-0 [&_dl]:mt-3 [&_dl]:grid [&_dl]:gap-2 [&_dl_div]:grid [&_dl_div]:grid-cols-(--project-evidence-columns) [&_dl_div]:gap-3 [&_dt]:text-muted [&_h3]:m-0" aria-label="RunObject evidence"><h3>RunObject evidence</h3><Facts rows={[
     ["Run ID", card.runId], ["Attempt", "Unlinked"], ["Purpose", card.purpose], ["State", card.state],
     ["Retention", card.retention], ["Logical path", card.logicalPath], ["Location class", card.locationClass],
     ["Object ID", card.objectId ?? "Not promoted"],

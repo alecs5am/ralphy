@@ -274,7 +274,7 @@ export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resol
   useEffect(() => virtualizer.measure(), [geometry.columns, geometry.tileWidth, ratios, virtualizer]);
   if (items.length === 0) return <div className="asset-grid-empty"><strong>No media matches this filter.</strong><span>Change the media filter to see other records.</span></div>;
   return <div className="asset-grid-scroll" ref={attachScroll} onScroll={instrumentScroll ? undefined : rememberedScroll.onScroll}>
-    <div className="virtual-grid-space" style={{ height: virtualizer.getTotalSize() }}>
+    <div className="virtual-grid-space relative w-full" style={{ height: virtualizer.getTotalSize() }}>
       {virtualizer.getVirtualItems().map((virtual) => {
         const card = items[virtual.index]!;
         return <div className="virtual-masonry-item" data-lane={virtual.lane} key={virtual.key} style={{ left: `${virtual.lane * (geometry.tileWidth + geometry.gap)}px`, transform: `translateY(${virtual.start - scrollMargin}px)`, width: `${geometry.tileWidth}px` }}>

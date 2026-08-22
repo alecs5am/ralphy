@@ -77,7 +77,7 @@ export function SnappySlider({
   return (
     <div
       ref={rootRef}
-      className={`snappy-slider ${className}`.trim()}
+      className={`snappy-slider group relative h-4.5 w-full flex-none cursor-ew-resize touch-none focus-visible:rounded-control aria-disabled:opacity-45 ${className}`.trim()}
       role="slider"
       tabIndex={disabled ? -1 : 0}
       aria-label={ariaLabel}
@@ -92,17 +92,17 @@ export function SnappySlider({
         if (!disabled && defaultValue !== undefined) commit(defaultValue);
       }}
     >
-      <span className="snappy-slider-track">
-        <span className="snappy-slider-range" style={{ width: `${percent}%` }} />
+      <span className="snappy-slider-track absolute inset-x-0 top-1/2 h-0.75 -translate-y-1/2 overflow-hidden rounded-control bg-ink/14">
+        <span className="snappy-slider-range absolute inset-y-0 left-0 rounded-control bg-ink" style={{ width: `${percent}%` }} />
         {values.map((mark) => (
           <span
-            className="snappy-slider-mark"
+            className="snappy-slider-mark absolute top-1/2 size-0.5 -translate-x-1/2 -translate-y-1/2 rounded-control bg-ink/48"
             key={mark}
             style={{ left: `${((mark - min) / safeRange) * 100}%` }}
           />
         ))}
       </span>
-      <span className="snappy-slider-thumb" style={{ left: `${percent}%` }} />
+      <span className="snappy-slider-thumb absolute top-1/2 size-2.75 -translate-x-1/2 -translate-y-1/2 rounded-control border-0 bg-ink [transition:width_var(--dur-fast)_var(--ease),height_var(--dur-fast)_var(--ease)] group-hover:size-3.25 group-focus-visible:size-3.25 motion-reduce:[transition:none]" style={{ left: `${percent}%` }} />
     </div>
   );
 }

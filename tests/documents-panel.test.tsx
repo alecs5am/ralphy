@@ -604,7 +604,8 @@ describe("documents workbench", () => {
     api.showProjectDocument.mockResolvedValue({ ...document, currentRevision: { ...document.currentRevision, format: "text" } });
     api.loadDocumentPreview.mockResolvedValue({ revisionId: "revision-3", format: "text", text: "Plain text", truncated: false });
     await controller.openDocument(document);
-    expect(markup(controller)).toContain('<pre class="plain-text-view">Plain text</pre>');
+    // The view carries utilities after its class hook now, so the probe reads the hook and the copy.
+    expect(markup(controller)).toMatch(/<pre class="plain-text-view[^"]*">Plain text<\/pre>/);
   });
 
   test("documents workbench owns independent virtual master/detail scroll and preserves selection position", async () => {

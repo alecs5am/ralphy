@@ -42,6 +42,18 @@ const marketplaceSurfaceSource = [
   ...readdirSync(join(process.cwd(), "src/screens/marketplace")).map((file) => `src/screens/marketplace/${file}`),
 ].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
 const workspaceOverviewTheme = readFileSync(join(process.cwd(), "src/styles/theme/workspace-overview.css"), "utf8");
+const projectTheme = readFileSync(join(process.cwd(), "src/styles/theme/project.css"), "utf8");
+const projectSurfaceSource = [
+  "src/screens/ProjectScreen.tsx",
+  ...readdirSync(join(process.cwd(), "src/screens/project")).map((file) => `src/screens/project/${file}`),
+  "src/components/VirtualAssetGrid.tsx",
+  "src/components/ui/SnappySlider.tsx",
+  "src/components/ui/IPhoneMockup.tsx",
+  ...readdirSync(join(process.cwd(), "src/components/media")).map((file) => `src/components/media/${file}`),
+].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
+const documentsPanelSource = readFileSync(join(process.cwd(), "src/screens/project/DocumentsPanel.tsx"), "utf8");
+const projectScreenSource = readFileSync(join(process.cwd(), "src/screens/ProjectScreen.tsx"), "utf8");
+const compositionsPanelSource = readFileSync(join(process.cwd(), "src/screens/project/CompositionsPanel.tsx"), "utf8");
 const workspaceOverviewSurfaceSource = [
   "src/screens/WorkspaceScreen.tsx",
   ...readdirSync(join(process.cwd(), "src/screens/workspace")).map((file) => `src/screens/workspace/${file}`),
@@ -760,33 +772,42 @@ describe("design system contract", () => {
   });
 
   test("documents workbench locks the outer panel and gives both responsive panes exact semantic states", () => {
-    expect(workbenchStyles).toMatch(/\.project-domain-body\s*\{[^}]*overflow:\s*hidden/s);
-    expect(workbenchStyles).toMatch(/\.documents-workbench\s*\{[^}]*grid-template-columns:\s*minmax\(240px,\s*\.72fr\)\s+minmax\(360px,\s*1\.28fr\)/s);
+    // The panel is the locked outer frame and it declares the container every collapse reads.
+    expect(projectScreenSource).toMatch(/project-domain-body @container\/project-domain[^`]*overflow-hidden/);
+    expect(projectTheme).toMatch(/--project-documents-columns:\s*minmax\(240px, \.72fr\) minmax\(360px, 1\.28fr\)/);
     // The narrow form is one column, measured against the panel rather than the window: the
     // chat rail takes desk width without the window changing size.
-    expect(workbenchStyles).toMatch(/@container project-domain \(max-width: 760px\)\s*\{\s*\.documents-workbench\s*\{[^}]*minmax\(0, 1fr\)/s);
-    expect(workbenchStyles).toMatch(/\.documents-master,\s*\.documents-detail\s*\{[^}]*min-width:\s*0[^}]*overflow-y:\s*auto/s);
-    expect(workbenchStyles).toMatch(/\.document-row:hover:not\(\.is-selected\)\s*\{[^}]*background:\s*var\(--hover\)/s);
-    // Selection is the inverted surface plus its paired ink. Design v2 has no rings, and the
-    // ring is what made the selected row look wider than the rows around it.
-    expect(workbenchStyles).toMatch(/\.document-row\.is-selected\s*\{[^}]*background:\s*var\(--selected\)[^}]*color:\s*var\(--selected-ink\)/s);
-    expect(workbenchStyles).not.toMatch(/\.document-row\.is-selected\s*\{[^}]*box-shadow/s);
-    expect(workbenchStyles).not.toMatch(/\.document-row\.is-selected\s*\{[^}]*inset\s+2px\s+0/s);
+    expect(projectTheme).toMatch(/--container-project-split:\s*760px/);
+    expect(documentsPanelSource).toMatch(/documents-workbench[^"]*grid-cols-\(--project-documents-columns\)[^"]*@max-project-split\/project-domain:grid-cols-1/);
+    // Both panes are scroll owners, and both may shrink below their content.
+    expect(documentsPanelSource).toMatch(/documents-master[^"]*min-w-0 overflow-auto/);
+    expect(documentsPanelSource).toMatch(/documents-detail[^`]*min-w-0 overflow-auto/);
+    // Selection is the inverted surface plus its paired ink, stated together at the one call
+    // site. The stylesheet used to name `--selected`/`--selected-ink`, which the utilities on
+    // the same element already beat -- the row has drawn the black widget pair for a while.
+    expect(documentsPanelSource).toMatch(/is-selected bg-instrument text-on-instrument/);
+    expect(documentsPanelSource).toMatch(/bg-transparent text-ink hover:bg-surface/);
+    expect(documentsPanelSource).not.toMatch(/document-row[^`]*shadow/);
     // The row is flush with the search pill above it; a 6px inset put them on different edges.
-    expect(workbenchStyles).toMatch(/\.document-row\s*\{[^}]*left:\s*0[^}]*width:\s*100%/s);
+    expect(documentsPanelSource).toMatch(/document-row absolute top-0 left-0 grid w-full/);
   });
 
   test("uses one calm responsive master detail language", () => {
-    expect(workbenchStyles).toMatch(/\.documents-workbench\s*\{[^}]*gap:\s*var\(--space-2\)/s);
-    expect(workbenchStyles).toMatch(/\.documents-detail[^}]*\{[^}]*border-radius:\s*var\(--radius-lg\)[^}]*background:\s*var\(--raised\)/s);
-    expect(workbenchStyles).toMatch(/\.composition-detail[^}]*\{[^}]*border-radius:\s*var\(--radius-lg\)[^}]*background:\s*var\(--raised\)/s);
-    expect(workbenchStyles).toMatch(/\.composition-output-preview:has\(\.preview-empty\)\s*\{[^}]*height:\s*160px/s);
-    expect(workbenchStyles).not.toMatch(/\.(?:documents-detail|composition-detail)\s*\{[^}]*border:\s*1px/s);
+    // One gap, one cell radius and one sunken surface across both splits, stated on the panes.
+    expect(documentsPanelSource).toMatch(/documents-workbench[^"]*gap-2/);
+    expect(documentsPanelSource).toMatch(/documents-detail[^`]*rounded-cell bg-surface-sunken/);
+    expect(compositionsPanelSource).toMatch(/composition-detail[^`]*rounded-cell bg-surface-sunken/);
+    expect(compositionsPanelSource).toMatch(/has-\[\.preview-empty\]:h-unit-preview-empty/);
+    expect(projectTheme).toMatch(/--spacing-unit-preview-empty:\s*160px/);
+    expect(documentsPanelSource).not.toMatch(/documents-detail[^"`]*\bborder-/);
   });
 
   test("keeps an unselected detail state compact instead of painting an empty slab", () => {
-    expect(workbenchStyles).toMatch(/\.(?:documents-detail|composition-detail):has\(> \.empty-section\)[\s\S]*background:\s*transparent/s);
-    expect(workbenchStyles).toMatch(/\.(?:documents-detail|composition-detail) > \.empty-section[\s\S]*width:\s*min\(360px,\s*100%\)[\s\S]*background:\s*var\(--raised\)/s);
+    // The detail drops its own surface when all it holds is the empty state, and the state is a
+    // bounded plate rather than a full-width slab.
+    expect(documentsPanelSource).toMatch(/has-\[>\.empty-section\]:grid has-\[>\.empty-section\]:place-items-center has-\[>\.empty-section\]:bg-transparent/);
+    expect(documentsPanelSource).toMatch(/empty-section w-project-plate rounded-cell bg-surface-sunken/);
+    expect(projectTheme).toMatch(/--spacing-project-plate:\s*min\(360px, 100%\)/);
   });
 
   test("allows trusted media URLs for image previews", () => {

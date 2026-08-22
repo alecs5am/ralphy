@@ -5,14 +5,11 @@
 @import "./workbench/03-sidebar-row.css";
 @import "./workbench/04-workspace-project.css";
 @import "./workbench/05-memory-rule.css";
-@import "./workbench/06-project-domain.css";
-@import "./workbench/07-document-row.css";
-@import "./workbench/08-composition-master.css";
+@import "./workbench/06-unowned.css";
 @import "./workbench/09-activity-inspector.css";
 @import "./workbench/10-agent-chat.css";
 @import "./workbench/11-agent-connect.css";
 @import "./workbench/12-asset-modal.css";
-@import "./workbench/13-unit-card.css";
-@import "./workbench/14-unit-social.css";
+@import "./workbench/13-unowned.css";
 @import "./workbench/15-markdown-view.css";
 @import "./workbench/16-welcome-screen.css";

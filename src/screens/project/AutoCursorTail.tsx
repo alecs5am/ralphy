@@ -33,8 +33,8 @@ export function AutoCursorTail(props: {
     return () => observer.disconnect();
   }, [props.root, sentinel]);
 
-  return <div className="auto-cursor-tail" ref={attachSentinel}>
+  return <div className="auto-cursor-tail flex min-h-px items-center justify-center py-3 text-muted empty:py-0" ref={attachSentinel}>
     {props.loading && <span role="status" aria-live="polite">Loading more…</span>}
-    {props.error && <div role="alert"><span>{props.error}</span><button className="command-button" type="button" onClick={props.onRetry}>Retry</button></div>}
+    {props.error && <div className="flex items-center gap-3" role="alert"><span>{props.error}</span><button className="command-button" type="button" onClick={props.onRetry}>Retry</button></div>}
   </div>;
 }

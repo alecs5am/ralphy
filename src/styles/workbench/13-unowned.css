@@ -1,0 +1,210 @@
+/* Rules that were sitting in the project chunks (13, 14) but style elements no component of
+   the project workbench renders. They are kept verbatim, at the cascade position they had —
+   `.utility-right-panel` and the narrow-window `.asset-modal-surface` both have to stay after
+   10 and 12 to keep winning — for the area that owns them:
+
+   - the global `body` type: belongs in `reset.css`, which is a shared file
+   - the calendar poster placeholder: `screens/CalendarScreen.tsx` (calendar & memory, 01)
+   - the select menu surface and its checked row: `components/ui/SelectMenu.tsx` (chrome, 02)
+   - the sidebar footer, profile avatar, workspace hero and picker: `components/ContextSidebar.tsx`
+     and the workspace picker (chrome, 02/03/04)
+   - the section dock's container and drag opt-out: `components/ProjectControls.tsx` (chrome)
+   - the chat rail: `components/UtilityPanels.tsx` (chrome, 10)
+   - the error banner: `App.tsx` (instrument shell)
+   - the squircle opt-in list and the two window breakpoints: several areas at once */
+
+.error-banner {
+  z-index: 10;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--raised)}
+
+@supports (corner-shape: squircle) {
+  .asset-preview,
+  .sidebar-monogram,
+  .workspace-option-avatar,
+  .workspace-project-icon,
+  .workspace-project-card-shell,
+  .workspace-project-preview,
+  .view-segments,
+  .view-segments button,
+  .inspector-file-icon,
+  .utility-identity-icon,
+  .entity-monogram,
+  .mode-segments,
+  .mode-segments button {
+    corner-shape: squircle}
+}
+
+@media (max-width: 1240px) {
+  .workbench {
+    --sidebar-w: 260px;
+    --inspector-w: 300px}
+
+  .project-header {
+    padding-inline: 20px}
+
+  .asset-grid-scroll {
+    padding-inline: 20px}
+}
+
+@media (max-width: 1040px) {
+  .workbench {
+    --sidebar-w: 248px;
+    --inspector-w: 280px}
+
+  .asset-modal-surface {
+    inset: 20px;
+    width: calc(100vw - 40px);
+    height: calc(100vh - 40px)}
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workbench,
+  .select-menu-chevron {
+    transition-duration: 0ms}
+
+  .select-menu-content {
+    animation: none}
+}
+
+body {
+  background: transparent;
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
+}
+
+/* raw-value: placeholder glyph size inside an empty poster slot. */
+.calendar-modal-poster i{font-size:48px}
+
+/* Menus are flat widgets: #141414 plate, R18 squircle, pill rows, no border or shadow. */
+.select-menu-content {
+  z-index: var(--z-popover);
+  min-width: var(--radix-select-trigger-width);
+  max-width: min(420px, calc(100vw - 24px));
+  max-height: min(420px, var(--radix-select-content-available-height));
+  overflow: hidden;
+  padding: 6px;
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: var(--instrument-widget-dark);
+  box-shadow: none;
+  corner-shape: squircle;
+  transform-origin: var(--radix-select-content-transform-origin);
+  animation: select-menu-in var(--dur) var(--ease);
+}
+
+.select-menu-item[data-state="checked"],
+.select-menu-item[data-state="checked"][data-highlighted] {
+  background: var(--instrument-selected-surface);
+  color: var(--instrument-selected-ink);
+}
+
+.select-menu-item[data-state="checked"] :is(strong, small, em, svg) {
+  color: var(--instrument-selected-ink);
+}
+
+/* The footer IS the user pill: the trigger fills it edge to edge, so no padding
+   and no divider of its own. */
+.sidebar-footer {
+  display: flex;
+  height: 48px;
+  flex: none;
+  align-items: stretch;
+  padding: 0;
+  border: 0;
+}
+
+.profile-avatar-round {
+  corner-shape: round;
+}
+
+/* Flat plate, never a gradient: v2 forbids depth ramps. */
+.workspace-hero-scrim {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 58px;
+  background: color-mix(in srgb, var(--instrument-media-frame) 72%, transparent);
+  pointer-events: none;
+}
+
+/* Workspace picker: a widget, not a system menu. Flat #141414 plate, R24 squircle,
+   no border and no shadow. */
+.workspace-picker-popover {
+  position: fixed;
+  z-index: var(--z-popover);
+  overflow: hidden;
+  padding: 8px;
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: var(--instrument-widget-dark);
+  box-shadow: none;
+  corner-shape: squircle;
+  transform-origin: top left;
+}
+
+.workspace-picker-search input:focus-visible {
+  outline: none;
+}
+
+.workspace-hero:focus-visible,
+.workspace-picker-popover button:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset-inset);
+  box-shadow: none;
+}
+
+/* Active workspace is the one inverted pill in the list. */
+.workspace-picker-list > button[aria-selected="true"],
+.workspace-picker-list > button[aria-selected="true"]:hover {
+  background: var(--instrument-selected-surface);
+  color: var(--instrument-selected-ink);
+}
+
+.workspace-picker-list > button[aria-selected="true"] :is(strong, small, em, svg) {
+  color: var(--instrument-selected-ink);
+}
+
+.workspace-picker-list > button[aria-selected="true"] .workspace-option-field { opacity: 0; }
+
+.workspace-picker-list small {
+  color: var(--instrument-text-on-dark-muted-decorative);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono-sm);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.workspace-picker-list em {
+  color: var(--instrument-text-on-dark-muted-decorative);
+  font-family: var(--font-doto);
+  font-size: var(--text-base);
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+/* Section dock geometry lives in instrument.css: it floats over the bottom of the
+   desk. Only the drag-region opt-out and container naming stay here. */
+.project-controls {
+  container-name: project-controls;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  -webkit-app-region: no-drag;
+}
+
+/* Chat is a widget on the desk: flat #141414 plate, R24 squircle, no border. */
+.utility-right-panel {
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: var(--instrument-widget-dark);
+  corner-shape: squircle;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}

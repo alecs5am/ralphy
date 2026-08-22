@@ -138,9 +138,9 @@ describe("media grid geometry and scheduling", () => {
   test("groups compact audio controls for vertical centering without changing the full viewer", async () => {
     const view = await mounted(createElement(AudioWaveform, { src: "ralphy-media://preview/audio", name: "Voiceover", sizeBytes: MAX_WAVEFORM_DECODE_BYTES + 1, compact: true }));
     try {
-      expect(view.host.container.findAll((node) => node.getAttribute("class") === "audio-compact-content")).toHaveLength(1);
+      expect(view.host.container.findAll((node) => (node.getAttribute("class") ?? "").split(" ").includes("audio-compact-content"))).toHaveLength(1);
       await view.rerender(createElement(AudioWaveform, { src: "ralphy-media://preview/audio", name: "Voiceover", sizeBytes: MAX_WAVEFORM_DECODE_BYTES + 1 }));
-      expect(view.host.container.findAll((node) => node.getAttribute("class") === "audio-compact-content")).toHaveLength(0);
+      expect(view.host.container.findAll((node) => (node.getAttribute("class") ?? "").split(" ").includes("audio-compact-content"))).toHaveLength(0);
     } finally { await view.unmount(); }
   });
 

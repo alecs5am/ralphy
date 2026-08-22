@@ -10,7 +10,16 @@ import * as screen from "../src/screens/ProjectScreen";
 import { UnitSocialPreview } from "../src/screens/project/UnitSocialPreview";
 import type { SocialTarget, UnitMedia } from "../src/lib/unit-previews";
 import { createReactHost, type HostNode } from "./react-host";
-import { readStylesheet } from "./style-sources";
+
+// The project workbench has no stylesheet of its own any more, so these contracts are read
+// where they now live: the theme file that names each role key and the component that reads it.
+const source = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
+const projectTheme = source("src/styles/theme/project.css");
+const projectScreen = source("src/screens/ProjectScreen.tsx");
+const unitsPanel = source("src/screens/project/UnitsPanel.tsx");
+const unitViewer = source("src/screens/project/UnitViewer.tsx");
+const unitSocial = source("src/screens/project/UnitSocialPreview.tsx");
+const phoneMockup = source("src/components/ui/IPhoneMockup.tsx");
 
 const project: ProjectSummary = {
   id: "project-1", workspaceId: "workspace-1", projectId: "project-1", name: "Launch", brief: "Brief",
@@ -307,35 +316,46 @@ describe("units workbench", () => {
   });
 
   test("keeps the card grid scrollable and the modal responsive", () => {
-    const css = readStylesheet("workbench.css");
-    expect(css).toMatch(/\.project-domain-body\.is-units\s*\{[^}]*overflow:\s*hidden/s);
-    expect(css).toMatch(/\.units-grid-scroll\s*\{[^}]*overflow:\s*auto/s);
-    expect(css).toMatch(/\.units-grid\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(268px,\s*1fr\)\)/s);
-    expect(css).toMatch(/@media \(max-width:\s*820px\)[\s\S]*\.unit-viewer-meta\s*\{[^}]*display:\s*block/s);
+    // The panel is the locked outer frame and the grid scroll is the one scroll owner; both are
+    // stated on the elements that own them.
+    expect(projectScreen).toMatch(/project-domain-body[^`]*overflow-hidden/);
+    expect(projectScreen).toContain("is-units pb-6");
+    expect(unitsPanel).toMatch(/units-grid-scroll[^"]*overflow-auto/);
+    // The column count is the grid's own decision: only the tile minimum is named.
+    expect(projectTheme).toMatch(/--project-units-columns:\s*repeat\(auto-fill,\s*minmax\(268px,\s*1fr\)\)/);
+    expect(unitsPanel).toContain("grid-cols-(--project-units-columns)");
+    // The viewer's narrow form reads the viewer's own width, not the window: the desk is not the
+    // window, so the 820px breakpoint is a container key now.
+    expect(projectTheme).toMatch(/--container-project-viewer:\s*820px/);
+    expect(unitViewer).toContain("@container/unit-viewer");
+    expect(unitViewer).toContain("@max-project-viewer/unit-viewer:block");
+    expect(unitViewer).not.toMatch(/@(?:min|max)-\[/);
   });
 
   test("keeps Unit controls flat and centers the phone with its playback rail", () => {
     const reset = readFileSync(join(process.cwd(), "src/styles/reset.css"), "utf8");
-    const css = readStylesheet("workbench.css");
     expect(reset).toMatch(/button\s*\{[^}]*background:\s*transparent/s);
-    expect(css).toMatch(/\.unit-viewer-close:hover\s*\{[^}]*background:\s*transparent/s);
-    expect(css).toMatch(/\.unit-social-stage\s*\{[^}]*place-items:\s*center[^}]*background:\s*transparent/s);
+    expect(unitViewer).toMatch(/unit-viewer-close[^"]*hover:bg-transparent/);
+    expect(unitViewer).toMatch(/unit-social-stage[^`]*place-items-center[^`]*bg-transparent/);
     // The preview frame keeps the 16/9 ratio from its utility class; the previous fixed
     // 150px height plus aspect-ratio:auto squashed every unit card to roughly 2.5:1.
-    expect(css).toMatch(/\.unit-card-preview\s*\{[^}]*width:\s*100%/s);
-    expect(css).not.toMatch(/\.unit-card-preview\s*\{[^}]*aspect-ratio:\s*auto/s);
-    expect(css).not.toMatch(/\.unit-card-preview\s*\{[^}]*height:\s*150px/s);
-    expect(css).not.toMatch(/\.unit-card:hover\s*\{[^}]*(?:translateY|scale)/s);
-    expect(css).toMatch(/\.unit-viewer-main\s*\{[^}]*grid-template-columns:\s*minmax\(330px,\s*390px\)\s+minmax\(0,\s*1fr\)/s);
-    expect(css).toMatch(/\.unit-viewer-main:has\(\.unit-social-stage\.is-longform\)\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1\.15fr\)\s+minmax\(420px,\s*\.85fr\)/s);
-    expect(css).toMatch(/\.unit-card-status\s*\{[^}]*justify-content:\s*flex-start/s);
-    expect(css).toMatch(/\.unit-card-shell:has\(\.unit-card-retry\) \.unit-card-status\s*\{[^}]*padding-right:\s*58px/s);
-    expect(css).toMatch(/\.unit-stage-toolbar\s*\{[^}]*display:\s*flex[^}]*justify-content:\s*center/s);
-    expect(css).toMatch(/\.unit-stage-toolbar \.gooey-tabs-blobs\s*\{[^}]*display:\s*none/s);
-    expect(css).toMatch(/\.iphone-mockup\s*\{[^}]*width:\s*min\(100%,\s*316px\)[^}]*height:\s*auto/s);
-    expect(css).toMatch(/\.unit-playback\.is-mobile\s*\{[^}]*width:\s*min\(100%,\s*316px\)/s);
-    expect(css).toMatch(/\.unit-playback-seek\s*\{[^}]*cursor:\s*pointer/s);
-    expect(css).toMatch(/\.unit-social-preview\.is-youtube-player \.unit-social-media\s*\{[^}]*height:\s*auto[^}]*aspect-ratio:\s*16\s*\/\s*9/s);
+    expect(unitsPanel).toMatch(/unit-card-preview[^"]*aspect-video[^"]*w-full/);
+    expect(unitsPanel).not.toContain("aspect-auto");
+    expect(unitsPanel).not.toMatch(/unit-card[^"]*hover:(?:translate|scale)/);
+    // The stage is bounded beside its metadata, and the long-form form gives the stage the space
+    // instead. The component decides which template applies; it no longer reads its own subtree.
+    expect(projectTheme).toMatch(/--project-viewer-columns:\s*minmax\(330px, 390px\) minmax\(0, 1fr\)/);
+    expect(projectTheme).toMatch(/--project-viewer-longform-columns:\s*minmax\(0, 1\.15fr\) minmax\(420px, \.85fr\)/);
+    expect(unitViewer).toContain('grid-cols-(--project-viewer-longform-columns)" : "grid-cols-(--project-viewer-columns)');
+    expect(unitsPanel).toMatch(/unit-card-status[^`]*justify-start/);
+    expect(unitsPanel).toContain('retry ? "pr-14.5"');
+    expect(unitViewer).toMatch(/unit-stage-toolbar flex[^`]*justify-center/);
+    expect(unitViewer).toContain("[&_.gooey-tabs-blobs]:hidden");
+    expect(projectTheme).toMatch(/--spacing-iphone:\s*min\(100%, 316px\)/);
+    expect(phoneMockup).toMatch(/iphone-mockup[^`]*h-auto max-h-full w-iphone/);
+    expect(unitViewer).toContain('is-mobile w-iphone');
+    expect(unitViewer).toMatch(/unit-playback-seek[^"]*cursor-pointer/);
+    expect(unitSocial).toMatch(/unit-social-media relative aspect-video h-auto/);
   });
 
   test("renders platform-specific chrome for TikTok, Reels, and Shorts", async () => {

@@ -115,17 +115,17 @@ export function MediaPanel({ page, controller, snapshot, project, workspaceName,
   const selectedIndex = snapshot.selectedMedia
     ? mediaItems.findIndex(({ ref }) => ref.type === snapshot.selectedMedia?.ref.type && ref.id === snapshot.selectedMedia?.ref.id)
     : -1;
-  return <InstrumentScreenRoot descriptor={mediaInstrumentStates} state={mediaInstrumentState(page, snapshot)}><section className="media-panel flex min-h-0 w-full flex-1 flex-col gap-2 overflow-hidden bg-transparent p-0 type-base text-ink [&_.media-card-tile.is-selected]:bg-instrument-hover [&_.media-card-tile.is-selected]:ring-0" aria-label="Project media">
-    <div className="media-domain-toolbar m-0 flex min-h-11 w-full max-w-none flex-wrap items-center gap-2 rounded-cell bg-surface-sunken p-2" aria-label="Media filters">
+  return <InstrumentScreenRoot descriptor={mediaInstrumentStates} state={mediaInstrumentState(page, snapshot)}><section className="media-panel relative flex min-h-0 w-full min-w-0 flex-1 flex-col gap-2 overflow-hidden bg-transparent p-0 type-base text-ink [&_.media-card-tile.is-selected]:bg-instrument-hover [&_.media-card-tile.is-selected]:shadow-none" aria-label="Project media">
+    <div className="media-domain-toolbar m-0 flex min-h-11 w-full max-w-none flex-none flex-wrap items-center gap-2 rounded-cell bg-surface-sunken p-2 [&_.select-menu-trigger]:min-w-media-filter" aria-label="Media filters">
       <SelectMenu overlayOwner="project.media" value={query.filter} options={lifecycleOptions} ariaLabel="Lifecycle or source" prefix="Source" onValueChange={(filter) => { void controller.setMediaQuery({ filter }); }} />
       <SelectMenu overlayOwner="project.media" value={query.mediaKind ?? "all"} options={kindOptions} ariaLabel="Media type" prefix="Type" onValueChange={(mediaKind) => { void controller.setMediaQuery({ mediaKind: mediaKind === "all" ? undefined : mediaKind }); }} />
       <SelectMenu overlayOwner="project.media" value={query.provenance ?? "all"} options={provenanceOptions} ariaLabel="Generation provenance" prefix="Generation" onValueChange={(provenance) => { void controller.setMediaQuery({ provenance: provenance === "all" ? undefined : provenance }); }} />
-      <span className="media-item-count ml-auto type-xs text-muted">{page.items.length.toLocaleString()} items</span>
-      <div className="grid-size-control flex min-w-32 items-center gap-2 text-muted" title="Grid density"><GalleryHorizontalEnd size={15} aria-hidden="true" /><SnappySlider value={density} min={150} max={310} step={20} values={densityStops} defaultValue={230} ariaLabel="Grid density" onValueChange={setDensity} /></div>
+      <span className="media-item-count ml-auto font-code type-xs whitespace-nowrap text-muted">{page.items.length.toLocaleString()} items</span>
+      <div className="grid-size-control flex min-w-32 items-center gap-2 text-muted [&_.snappy-slider]:w-grid-density" title="Grid density"><GalleryHorizontalEnd size={15} aria-hidden="true" /><SnappySlider value={density} min={150} max={310} step={20} values={densityStops} defaultValue={230} ariaLabel="Grid density" onValueChange={setDensity} /></div>
     </div>
-    {actionError && <div className="project-local-error media-action-error" role="alert">{actionError}</div>}
-    {page.status === "error" && page.items.length > 0 && page.nextCursor === null && <div className="project-local-error media-action-error" role="alert"><span>{page.error ?? "Media could not be updated."}</span><button className="command-button" type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>}
-    <div className="project-media-grid min-h-0 flex-1 overflow-hidden bg-transparent p-0">
+    {actionError && <div className="project-local-error media-action-error mb-2 min-h-9" role="alert">{actionError}</div>}
+    {page.status === "error" && page.items.length > 0 && page.nextCursor === null && <div className="project-local-error media-action-error mb-2 min-h-9" role="alert"><span>{page.error ?? "Media could not be updated."}</span><button className="command-button" type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>}
+    <div className="project-media-grid flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent p-0 [&_.asset-grid-scroll]:min-h-90 [&_.asset-grid-scroll]:flex-1 [&_.asset-grid-scroll]:overflow-x-hidden [&_.asset-grid-scroll]:overflow-y-auto [&_.asset-grid-scroll]:p-0">
       {page.status === "loading" && page.items.length === 0 && <div className="project-skeleton" role="status">Loading media…</div>}
       {page.status === "ready" && page.items.length === 0
         ? <div className="empty-section">No media matches these filters.</div>
