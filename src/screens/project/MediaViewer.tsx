@@ -13,6 +13,9 @@ import type { ProjectScreenController, ProjectScreenSnapshot } from "../../state
 /* The whole modal is portalled to the body, i.e. outside `.app-mode-work`, where every legacy
    `--fg*` token resolves to the on-dark family. That is why the toolbar's own title used to paint
    #F2F2F0 on a #E4E4E2 plate at 1.06:1: every mark below states a theme colour instead. */
+/* Every plain note the stage can show. The stage is `bg-instrument`, so anything mounted in it
+   that states no ink inherits the theme's — which is the stage's own colour in the light theme. */
+const STAGE_NOTE = "m-0 type-sm text-on-instrument-muted";
 const SURFACE = "asset-modal-surface fixed inset-asset-modal-gutter z-modal-content m-auto flex h-asset-modal-height w-asset-modal-width flex-col overflow-hidden rounded-panel bg-surface text-ink outline-none";
 const TOOLBAR = "asset-modal-toolbar flex min-h-13 flex-none items-center justify-between gap-4.5 bg-surface-sunken py-1.5 pr-2.5 pl-4";
 /* The identity is a two-line block, not two inline marks on one line, which is what a `div` with
@@ -140,14 +143,14 @@ function RevisionChooser({ revisions, selectedRevisionId, onSelect, onRetry }: {
   onSelect(id: string): void;
   onRetry(): void;
 }) {
-  if (revisions.status === "loading") return <div role="status">Loading revisions…</div>;
+  if (revisions.status === "loading") return <div className={STAGE_NOTE} role="status">Loading revisions…</div>;
   if (revisions.status === "error") return <div className="project-local-error" role="alert"><span>{revisions.error ?? "Revisions could not be loaded."}</span><button type="button" onClick={onRetry}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>;
-  return <section className="revision-chooser" aria-label="Artifact revisions">
-    <h3>Select a revision</h3>
+  return <section className="revision-chooser flex max-h-full min-w-0 flex-col gap-2 overflow-y-auto p-6 text-on-instrument" aria-label="Artifact revisions">
+    <h3 className="m-0 type-md font-normal text-on-instrument">Select a revision</h3>
     {revisions.error && <p className="project-local-error" role="alert">{revisions.error}</p>}
-    {revisions.items.length === 0 ? <p>No revisions returned.</p> : revisions.items.map((revision: ArtifactRevisionDto) => <article key={revision.id}>
-      <span><strong>Revision {revision.revisionNo}</strong> · {revision.state} · {formatTime(revision.createdAt)}</span>
-      <button type="button" disabled={revision.id === selectedRevisionId} onClick={() => onSelect(revision.id)}>Select</button>
+    {revisions.items.length === 0 ? <p className={STAGE_NOTE}>No revisions returned.</p> : revisions.items.map((revision: ArtifactRevisionDto) => <article className="flex min-w-0 items-center gap-3 rounded-cell bg-instrument-raised px-3.5 py-2.5" key={revision.id}>
+      <span className="min-w-0 flex-1 type-sm text-on-instrument-muted"><strong className="font-normal text-on-instrument">Revision {revision.revisionNo}</strong> · {revision.state} · {formatTime(revision.createdAt)}</span>
+      <button className="inline-flex h-control-sm flex-none items-center rounded-control bg-on-instrument px-3 type-sm text-instrument transition-colors duration-fast ease-instrument hover:bg-selected-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-on-instrument disabled:bg-instrument-hover disabled:text-on-instrument-muted motion-reduce:transition-none motion-reduce:duration-0" type="button" disabled={revision.id === selectedRevisionId} onClick={() => onSelect(revision.id)}>Select</button>
     </article>)}
   </section>;
 }
@@ -155,15 +158,15 @@ function RevisionChooser({ revisions, selectedRevisionId, onSelect, onRetry }: {
 function ViewerPreview({ card, snapshot, controller }: { card: MediaCardDto; snapshot: ProjectScreenSnapshot; controller: ProjectScreenController }) {
   if (isArtifactMedia(card) && !card.selectedRevisionId) return <RevisionChooser revisions={snapshot.mediaRevisions} selectedRevisionId={card.selectedRevisionId} onSelect={(id) => { void controller.selectMediaRevision(id); }} onRetry={() => { void controller.retryMediaRevisions(); }} />;
   const preview = snapshot.domain.preview;
-  if (preview.status === "loading") return <div role="status">Loading preview…</div>;
+  if (preview.status === "loading") return <div className={STAGE_NOTE} role="status">Loading preview…</div>;
   if (preview.status === "error") return <div className="project-local-error" role="alert"><span>{preview.error ?? "Preview could not be loaded."}</span><button type="button" onClick={() => { void controller.retryMediaPreview(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>;
-  if (preview.status !== "ready" || !preview.value) return <p>Preview unavailable.</p>;
+  if (preview.status !== "ready" || !preview.value) return <p className={STAGE_NOTE}>Preview unavailable.</p>;
   const name = mediaCardName(card);
   /* The stage is a black widget, so every player takes the instrument pair. */
   if (card.mime?.startsWith("image/")) return <ImageViewport src={preview.value.url} name={name} tone="instrument" />;
   if (card.mime?.startsWith("video/")) return <VideoPlayer src={preview.value.url} name={name} tone="instrument" />;
   if (card.mime?.startsWith("audio/")) return <AudioWaveform src={preview.value.url} name={name} sizeBytes={preview.value.sizeBytes} tone="instrument" />;
-  return <a href={preview.value.url} aria-label={`Open ${name}`}>Open preview</a>;
+  return <a className={`${STAGE_NOTE} underline underline-offset-2`} href={preview.value.url} aria-label={`Open ${name}`}>Open preview</a>;
 }
 
 function editableTarget(event: KeyboardEvent): boolean {
