@@ -27,15 +27,14 @@
 }
 
 /* The filter menus. SelectMenu owns `.select-menu-content` and takes a class only for its
-   trigger, so this owner's denser menu metrics and its checked row have to be named here. */
+   trigger, so this owner's denser menu metrics have to be named here. The plate is NOT named:
+   a menu is a black widget in both themes and SelectMenu states on-dark ink for its rows, so
+   repainting the plate light here left the rows at 2.24:1 and the checked row at 1.02:1. */
 [data-instrument-overlay="shared-select-menu"][data-instrument-overlay-owner="marketplace.header"] {
   --menu-item-height: 30px;
   --menu-item-radius: 10px;
   --menu-radius: 14px;
-  background: var(--instrument-widget-light);
 }
-[data-instrument-overlay="shared-select-menu"][data-instrument-overlay-owner="marketplace.header"] .select-menu-item[data-state="checked"] { background: var(--instrument-widget-dark); color: var(--instrument-text-on-dark-primary); }
-[data-instrument-overlay="shared-select-menu"][data-instrument-overlay-owner="marketplace.header"] .select-menu-item[data-state="checked"] :is(small, em) { color: var(--instrument-text-on-dark-secondary-readable); }
 
 /* The workflow overlay surface. InstrumentOverlay renders it and passes no className through,
    so where it sits and how wide it is cannot be a utility; the window inside it carries its own
