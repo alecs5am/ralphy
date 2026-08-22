@@ -694,7 +694,10 @@ function AgentEntry({
   return (
     <div className="agent-message is-assistant">
       <AgentProviderIcon provider={provider} size={20} />
-      <MarkdownView markdown={entry.text ?? ""} />
+      {/* The chat rail is a black widget, so the rendered document takes the on-dark pair. This
+          shadows the `.agent-message.is-assistant .markdown-view` block in 10-agent-chat.css,
+          which the chrome area still owns -- see the report. */}
+      <MarkdownView markdown={entry.text ?? ""} tone="instrument" />
     </div>
   );
 }

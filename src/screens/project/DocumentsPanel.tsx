@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { DocumentDetailDto, DocumentDto, DocumentSearchDto } from "../../../electron/ralphy/types";
 import { JsonDocumentView } from "../../components/JsonDocumentView";
-import { MarkdownView } from "../../components/MarkdownView";
+import { MarkdownView, PLAIN_TEXT_VIEW } from "../../components/MarkdownView";
 import { GooeyTabs } from "../../components/ui/GooeyTabs";
 import { defineInstrumentScreenStates, InstrumentScreenRoot, type InstrumentScenarioState } from "../../instrument/screen-state-registry";
 import type { DomainPage } from "../../state/project-domain";
@@ -80,7 +80,7 @@ function FormatBadge({ format, row = false }: { format: string | null; row?: boo
 export function DocumentContent({ format, text }: { format: string; text: string }) {
   if (format === "markdown") return <MarkdownView markdown={text} />;
   if (format === "json") return <JsonDocumentView text={text} />;
-  return <pre className="plain-text-view [overflow-wrap:anywhere]">{text}</pre>;
+  return <pre className={`plain-text-view ${PLAIN_TEXT_VIEW} [overflow-wrap:anywhere]`}>{text}</pre>;
 }
 
 export function DocumentsPanel({ page, controller, snapshot, scrollMemory, resetToken }: {
@@ -214,7 +214,7 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
         {draft && !reviewCurrent && documentView === "source" && <textarea className="document-editor m-3 min-h-80 w-[calc(100%_-_1.5rem)] resize-y rounded-control border-0 bg-surface px-3 py-2 type-base text-ink" aria-label="Document body" disabled={snapshot.documentSaving} value={draft.body} onChange={(event) => controller.setDocumentDraftBody(event.currentTarget.value)} />}
         {draft && !reviewCurrent && documentView === "render" && <DocumentContent format={draft.format} text={draft.body} />}
         {snapshot.documentMode === "read" && snapshot.documentPreview.status === "ready" && snapshot.documentPreview.value && documentView === "render" && <DocumentContent format={snapshot.documentPreview.value.format} text={snapshot.documentPreview.value.text} />}
-        {snapshot.documentMode === "read" && snapshot.documentPreview.status === "ready" && snapshot.documentPreview.value && documentView === "source" && <pre className="plain-text-view document-source-view min-h-[calc(100%_-_74px)] [overflow-wrap:anywhere]">{snapshot.documentPreview.value.text}</pre>}
+        {snapshot.documentMode === "read" && snapshot.documentPreview.status === "ready" && snapshot.documentPreview.value && documentView === "source" && <pre className={`plain-text-view document-source-view ${PLAIN_TEXT_VIEW} min-h-[calc(100%_-_74px)] [overflow-wrap:anywhere]`}>{snapshot.documentPreview.value.text}</pre>}
         {snapshot.documentPreview.value?.truncated && <p id="document-truncated-note">This bounded preview is read-only because the complete document was not loaded.</p>}
       </>}
     </section>

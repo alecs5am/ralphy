@@ -9,6 +9,19 @@ import { activitySource, humanizeActivity, summarizeActivityRun } from "./activi
 const dateValue = (value: number) => new Date(value < 1_000_000_000_000 ? value * 1000 : value);
 const duration = (value: number | null) => value === null ? "—" : value < 1000 ? `${value} ms` : `${(value / 1000).toFixed(1)} s`;
 
+/* This panel is portalled to the right-rail host at body level, outside `.app-mode-work`, where
+   the legacy `--fg*` family resolves to the on-dark set. Every ink here is stated as a theme
+   utility for that reason: the sheet's `--fg-3` labels were painting #A4A4A0 on the light panel
+   at 2.1:1, and the metric tiles' `--raised` plate was the legacy #2D2D2D dark block. */
+const SECTION = "activity-inspector-section pt-4.5";
+const SECTION_HEADING = "m-0 pb-2.25 type-sm font-normal text-muted";
+const TERM_LIST = "m-0 grid gap-2";
+const TERM_ROW = "grid grid-cols-(--activity-term-columns) gap-2.5";
+const TERM = "type-sm text-muted";
+const VALUE = "font-code type-sm text-muted [overflow-wrap:anywhere]";
+const STATE_PLATE = "activity-inspector-state grid min-h-activity-state place-items-center gap-2.5 type-sm text-muted";
+const STATE_ACTION = "inline-flex h-control-sm items-center gap-1.5 rounded-control bg-surface-sunken px-3 type-sm text-ink hover:bg-surface-hover";
+
 export function ActivityInspector({ event, detail, loading, error, onRetry, onClose }: {
   event: ActivityDto;
   detail: ActivityRunDetail | null;
@@ -21,54 +34,58 @@ export function ActivityInspector({ event, detail, loading, error, onRetry, onCl
   const summary = detail ? summarizeActivityRun(detail) : null;
   const model = summary?.models[0] ?? null;
 
-  return <aside className="activity-inspector rounded-panel bg-surface text-ink" data-instrument-overlay="run-inspector" aria-labelledby="activity-inspector-title">
-    <header className="activity-inspector-header bg-transparent">
-      <span className="activity-inspector-brand" aria-hidden="true">
+  /* Inline in the timeline's grid the panel is a column; below `activity-columns` the route
+     stacks and the panel becomes a bounded pinned sheet. Both are container variants, so neither
+     reaches the portalled copy, which has no `project-domain` container above it. */
+  return <aside className="activity-inspector min-w-0 overflow-y-auto rounded-panel bg-surface p-4 text-ink [scrollbar-gutter:stable] @max-activity-columns/project-domain:z-sticky @max-activity-columns/project-domain:w-activity-inspector" data-instrument-overlay="run-inspector" aria-labelledby="activity-inspector-title">
+    <header className="activity-inspector-header grid grid-cols-(--activity-inspector-columns) items-center gap-2.5 bg-transparent pb-3.5">
+      {/* Holds the near-white mascot, so the chip has to be the dark surface. */}
+      <span className="activity-inspector-brand grid size-8 place-items-center rounded-full bg-instrument text-on-instrument-muted" aria-hidden="true">
         {source === "ralphy" ? <RalphyMascot size={22} /> : source === "generation" ? <AiBrandIcon provider="openrouter" model={model ?? undefined} size={20} /> : <Clock3 size={18} />}
       </span>
-      <div>
-        <h2 id="activity-inspector-title">{humanizeActivity(event.action)}</h2>
-        <p>{humanizeActivity(source)} · {humanizeActivity(event.entityType)}</p>
+      <div className="min-w-0">
+        <h2 className="m-0 truncate type-md font-normal" id="activity-inspector-title">{humanizeActivity(event.action)}</h2>
+        <p className="m-0 type-sm text-muted">{humanizeActivity(source)} · {humanizeActivity(event.entityType)}</p>
       </div>
-      <button className="activity-inspector-close" type="button" aria-label="Close activity details" onClick={onClose}><X size={16} /></button>
+      <button className="activity-inspector-close grid size-7 place-items-center rounded-full bg-transparent text-muted hover:bg-surface-hover hover:text-ink" type="button" aria-label="Close activity details" onClick={onClose}><X size={16} /></button>
     </header>
 
-    {loading && !detail ? <p className="activity-inspector-state">Loading details…</p> : null}
-    {error && !detail ? <div className="activity-inspector-state" role="alert"><span>{error}</span><button type="button" onClick={onRetry}><RotateCw size={14} /> Retry</button></div> : null}
+    {loading && !detail ? <p className={STATE_PLATE}>Loading details…</p> : null}
+    {error && !detail ? <div className={STATE_PLATE} role="alert"><span>{error}</span><button className={STATE_ACTION} type="button" onClick={onRetry}><RotateCw size={14} /> Retry</button></div> : null}
 
     {detail ? <>
-      <section className="activity-inspector-metrics" aria-label="Run metrics">
-        <div><span>State</span><strong>{humanizeActivity(detail.run.state)}</strong></div>
-        <div><span><Clock3 size={13} /> Duration</span><strong>{duration(summary?.durationMs ?? null)}</strong></div>
-        <div><span><DollarSign size={13} /> Cost</span><strong>{summary?.costUsd == null ? "—" : `$${summary.costUsd.toFixed(4)}`}</strong></div>
+      <section className="activity-inspector-metrics mt-3.5 grid grid-cols-(--activity-metric-columns) gap-1.5" aria-label="Run metrics">
+        <div className="grid min-w-0 gap-1.25 rounded-cell bg-surface-sunken p-2.25"><span className="flex items-center gap-1 type-sm text-muted">State</span><strong className="overflow-hidden font-code type-sm font-normal text-ellipsis">{humanizeActivity(detail.run.state)}</strong></div>
+        <div className="grid min-w-0 gap-1.25 rounded-cell bg-surface-sunken p-2.25"><span className="flex items-center gap-1 type-sm text-muted"><Clock3 size={13} /> Duration</span><strong className="overflow-hidden font-code type-sm font-normal text-ellipsis">{duration(summary?.durationMs ?? null)}</strong></div>
+        <div className="grid min-w-0 gap-1.25 rounded-cell bg-surface-sunken p-2.25"><span className="flex items-center gap-1 type-sm text-muted"><DollarSign size={13} /> Cost</span><strong className="overflow-hidden font-code type-sm font-normal text-ellipsis">{summary?.costUsd == null ? "—" : `$${summary.costUsd.toFixed(4)}`}</strong></div>
       </section>
-      <section className="activity-inspector-section">
-        <h3>Overview</h3>
-        <dl>
-          <div><dt>Run</dt><dd>{detail.run.id}</dd></div>
-          <div><dt>Kind</dt><dd>{humanizeActivity(detail.run.kind)}</dd></div>
-          <div><dt>Model</dt><dd>{model ?? "—"}</dd></div>
-          <div><dt>Provider</dt><dd>{summary?.providers.join(", ") || "—"}</dd></div>
-          <div><dt>Event time</dt><dd>{dateValue(event.createdAt).toLocaleString()}</dd></div>
-          <div><dt>Sequence</dt><dd>{event.sequence}</dd></div>
+      <section className={SECTION}>
+        <h3 className={SECTION_HEADING}>Overview</h3>
+        <dl className={TERM_LIST}>
+          <div className={TERM_ROW}><dt className={TERM}>Run</dt><dd className={VALUE}>{detail.run.id}</dd></div>
+          <div className={TERM_ROW}><dt className={TERM}>Kind</dt><dd className={VALUE}>{humanizeActivity(detail.run.kind)}</dd></div>
+          <div className={TERM_ROW}><dt className={TERM}>Model</dt><dd className={VALUE}>{model ?? "—"}</dd></div>
+          <div className={TERM_ROW}><dt className={TERM}>Provider</dt><dd className={VALUE}>{summary?.providers.join(", ") || "—"}</dd></div>
+          <div className={TERM_ROW}><dt className={TERM}>Event time</dt><dd className={VALUE}>{dateValue(event.createdAt).toLocaleString()}</dd></div>
+          <div className={TERM_ROW}><dt className={TERM}>Sequence</dt><dd className={VALUE}>{event.sequence}</dd></div>
         </dl>
       </section>
-      <section className="activity-inspector-section">
-        <h3>Attempts</h3>
-        <div className="activity-attempts">
-          {detail.attempts.map((attempt) => <div className="activity-attempt" key={attempt.id}>
+      <section className={SECTION}>
+        <h3 className={SECTION_HEADING}>Attempts</h3>
+        <div className="activity-attempts grid gap-0.5">
+          {detail.attempts.map((attempt) => <div className="activity-attempt grid min-h-8.5 grid-cols-(--activity-attempt-columns) items-center gap-2 rounded-control px-1.75 py-1.25 text-muted hover:bg-surface-hover hover:text-ink" key={attempt.id}>
             <AiBrandIcon provider="openrouter" model={attempt.model ?? undefined} size={16} />
-            <span>{attempt.model ?? attempt.provider ?? `Attempt ${attempt.attemptNo}`}</span>
-            <small>{humanizeActivity(attempt.state)}</small>
-            <strong>{attempt.costUsd === null ? "—" : `$${attempt.costUsd.toFixed(4)}`}</strong>
+            <span className="truncate">{attempt.model ?? attempt.provider ?? `Attempt ${attempt.attemptNo}`}</span>
+            <small className="truncate">{humanizeActivity(attempt.state)}</small>
+            <strong className="truncate font-code type-sm font-normal">{attempt.costUsd === null ? "—" : `$${attempt.costUsd.toFixed(4)}`}</strong>
           </div>)}
         </div>
       </section>
-    </> : !loading && !error ? <section className="activity-inspector-section"><h3>Overview</h3><dl>
-      <div><dt>Entity</dt><dd>{event.entityId}</dd></div>
-      <div><dt>Type</dt><dd>{humanizeActivity(event.entityType)}</dd></div>
-      <div><dt>Event time</dt><dd>{dateValue(event.createdAt).toLocaleString()}</dd></div>
-      <div><dt>Sequence</dt><dd>{event.sequence}</dd></div>
+    </> : !loading && !error ? <section className={SECTION}><h3 className={SECTION_HEADING}>Overview</h3><dl className={TERM_LIST}>
+      <div className={TERM_ROW}><dt className={TERM}>Entity</dt><dd className={VALUE}>{event.entityId}</dd></div>
+      <div className={TERM_ROW}><dt className={TERM}>Type</dt><dd className={VALUE}>{humanizeActivity(event.entityType)}</dd></div>
+      <div className={TERM_ROW}><dt className={TERM}>Event time</dt><dd className={VALUE}>{dateValue(event.createdAt).toLocaleString()}</dd></div>
+      <div className={TERM_ROW}><dt className={TERM}>Sequence</dt><dd className={VALUE}>{event.sequence}</dd></div>
     </dl></section> : null}
   </aside>;
 }

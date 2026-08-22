@@ -2,11 +2,104 @@ import { Fragment, createElement, useEffect, useState, type ReactNode } from "re
 import { parseDocument } from "htmlparser2";
 import { marked, type Token, type Tokens } from "marked";
 
+/* A rendered document carries no classes of its own -- marked emits bare `h2`, `pre`, `td` -- so
+   descendant variants on the root are the only expression available. Two rules govern them:
+   a utility inside `[&_h2]:` is (0,1,1) and beats every per-element utility beneath it, so no
+   element under this root states its own type or surface; and where two variants could name one
+   property, the more specific selector is chosen deliberately (`[&_li>p]:my-*` over `[&_p]:my-*`,
+   `[&_pre_code]:bg-transparent` over `[&_code]:bg-*`, `[&_.markdown-alert]:` over `[&_blockquote]:`).
+   Tone is a prop rather than a caller override because this component renders on a light widget
+   in the documents route and the marketplace, and on a black one in the agent chat: surface and
+   ink have to travel as a pair, and a caller repainting half of one is the documented defect. */
+type MarkdownTone = "document" | "instrument";
+
+/* The other two document views 15-markdown-view.css covered: a plain-text body and the fallback
+   the JSON view drops to when the text will not parse. Both are the same mono block, so the
+   string lives beside the markdown one rather than being restated at each `<pre>`. The reading
+   canvas is not part of it -- that is the mounting surface's decision, see DOCUMENT_CANVAS in
+   screens/project/DocumentsPanel.tsx. */
+export const PLAIN_TEXT_VIEW = "font-code type-sm leading-document whitespace-pre-wrap text-muted";
+
 interface MarkdownViewProps {
   markdown: string;
   baseUrl?: string;
+  tone?: MarkdownTone;
   allowUrl?(url: URL, kind: "link" | "image", raw: string): boolean;
 }
+
+/* Rhythm, shape and behaviour: the same on either surface. No border, no shadow and no hairline
+   anywhere -- the code block, the table, the disclosure, the keycap and the thematic break all
+   separated themselves with a 1px `--line` before, and design v2 separates by surface or by air.
+   The blockquote keeps a 2px inset mark, which is the one exception the contract allows. */
+const DOCUMENT_RHYTHM = [
+  "[&_:is(h1,h2,h3,h4,h5,h6)]:leading-document-heading",
+  "[&_h1]:mt-0 [&_h1]:mb-(--document-heading-space-close)",
+  "[&_:is(h2,h3,h4,h5,h6)]:mt-(--document-heading-space) [&_:is(h2,h3,h4,h5,h6)]:mb-(--document-heading-space-close)",
+  "[&_p]:my-(--document-paragraph-space) [&_li>p]:my-(--document-list-paragraph-space)",
+  /* Tailwind's preflight sets `list-style: none` on every list, so a rendered markdown list has
+     been drawing without its markers. A task item is the one that keeps none: its checkbox is
+     the marker, and it is pulled into the marker column by the negative margin below. */
+  "[&_:is(ul,ol)]:pl-6 [&_ul]:list-disc [&_ol]:list-decimal [&_li:has(>input[type=checkbox])]:list-none",
+  "[&_code]:rounded-chip [&_code]:font-code [&_code]:type-sm",
+  "[&_:not(pre)>code]:px-1 [&_:not(pre)>code]:py-0.5",
+  "[&_pre]:overflow-auto [&_pre]:rounded-field [&_pre]:px-3.5 [&_pre]:py-3 [&_pre_code]:bg-transparent",
+  "[&_blockquote]:my-(--document-block-space) [&_blockquote]:pl-3.5",
+  "[&_.markdown-alert]:rounded-field [&_.markdown-alert]:py-2.25 [&_.markdown-alert]:pr-3",
+  "[&_.markdown-alert-label]:block [&_.markdown-alert-label]:type-xs [&_.markdown-alert-label]:font-normal",
+  "[&_a]:underline [&_a]:underline-offset-2",
+  "[&_.markdown-table-scroll]:my-3.5 [&_.markdown-table-scroll]:overflow-x-auto [&_.markdown-table-scroll]:rounded-field",
+  "[&_table]:w-max [&_table]:min-w-full [&_table]:border-collapse",
+  "[&_:is(th,td)]:min-w-18 [&_:is(th,td)]:px-2.5 [&_:is(th,td)]:py-2 [&_:is(th,td)]:text-left [&_:is(th,td)]:align-top",
+  "[&_:is(th,td):first-child]:min-w-40 [&_:is(th,td):first-child]:whitespace-normal",
+  "[&_details]:my-3 [&_details]:rounded-field [&_details]:px-2.75 [&_details]:py-2.25 [&_summary]:cursor-pointer",
+  "[&_img]:inline-block [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-field [&_img]:align-middle",
+  /* A thematic break is air, not a line: `hr` is the one element whose UA border survives
+     Tailwind's preflight, so it has to be cancelled explicitly. */
+  "[&_hr]:my-5 [&_hr]:border-0",
+  "[&_kbd]:rounded-key [&_kbd]:px-1.25 [&_kbd]:py-px [&_kbd]:font-code [&_kbd]:type-xs",
+  "[&_mark]:rounded-key",
+  /* The renderer wraps a list item's copy in a `p`, so a task item drew its checkbox alone on
+     the line above its label. Only the item's leading paragraph goes inline; a second one still
+     breaks. This was wrong before the migration too. */
+  "[&_input[type=checkbox]]:mr-1.75 [&_input[type=checkbox]]:-ml-5 [&_li>input[type=checkbox]+p]:inline",
+  "[&_.markdown-align-center]:text-center [&_.markdown-align-right]:text-right",
+].join(" ");
+
+/* On a light widget: the documents route's reading pane and the marketplace's detail cards. */
+const DOCUMENT_TONE = [
+  "text-ink leading-document",
+  "[&_h1]:type-xl [&_h2]:type-heading [&_h3]:type-lg",
+  "[&_code]:bg-document-plate [&_code]:text-muted",
+  "[&_pre]:bg-document-plate [&_th]:bg-document-plate [&_th]:text-ink",
+  "[&_details]:bg-document-plate [&_kbd]:bg-document-plate",
+  "[&_blockquote]:text-muted [&_blockquote]:[box-shadow:var(--document-quote-mark)]",
+  "[&_.markdown-alert]:bg-document-plate [&_.markdown-alert-label]:text-ink",
+  "[&_:is(.markdown-alert-warning,.markdown-alert-caution)_.markdown-alert-label]:text-muted",
+  "[&_summary]:text-muted [&_.markdown-image-link]:text-muted [&_.markdown-link]:text-muted",
+  "[&_a]:text-ink [&_a]:decoration-ink/45",
+  "[&_mark]:bg-muted/28 [&_mark]:text-ink",
+  "[&_input[type=checkbox]]:accent-ink",
+].join(" ");
+
+/* On a black widget: the agent chat rail, where the theme ink is invisible. */
+const INSTRUMENT_TONE = [
+  "text-on-instrument-muted leading-copy [overflow-wrap:anywhere]",
+  "[&_h1]:type-heading [&_h2]:type-title [&_h3]:type-md",
+  "[&_code]:bg-instrument-raised [&_code]:text-on-instrument-muted",
+  "[&_pre]:bg-instrument-raised [&_th]:bg-instrument-raised [&_th]:text-on-instrument",
+  "[&_details]:bg-instrument-raised [&_kbd]:bg-instrument-raised",
+  "[&_blockquote]:text-on-instrument-muted [&_blockquote]:[box-shadow:var(--document-quote-mark-on-instrument)]",
+  "[&_.markdown-alert]:bg-instrument-raised [&_.markdown-alert-label]:text-on-instrument",
+  "[&_:is(.markdown-alert-warning,.markdown-alert-caution)_.markdown-alert-label]:text-on-instrument-muted",
+  "[&_summary]:text-on-instrument-muted [&_.markdown-image-link]:text-on-instrument-muted [&_.markdown-link]:text-on-instrument-muted",
+  "[&_a]:text-on-instrument [&_a]:decoration-on-instrument/45",
+  "[&_mark]:bg-on-instrument-muted/28 [&_mark]:text-on-instrument",
+  "[&_input[type=checkbox]]:accent-on-instrument",
+  /* A chat bubble owns its own outer air, so the first and last block give theirs up. The
+     selector names the root's own class so it reads (0,3,0) and outranks the `[&_h1]:mt-0` and
+     `[&_p]:my-*` variants at (0,1,1) rather than racing them in the generated sheet. */
+  "[&.markdown-view>:first-child]:mt-0 [&.markdown-view>:last-child]:mb-0",
+].join(" ");
 
 interface HtmlNode {
   type: string;
@@ -174,6 +267,6 @@ function blocks(tokens: Token[], keyPrefix = "md", baseUrl?: string, allowUrl?: 
   });
 }
 
-export function MarkdownView({ markdown, baseUrl, allowUrl }: MarkdownViewProps) {
-  return <article className="markdown-view">{blocks(marked.lexer(withoutFrontmatter(markdown)), "md", baseUrl, allowUrl)}</article>;
+export function MarkdownView({ markdown, baseUrl, tone = "document", allowUrl }: MarkdownViewProps) {
+  return <article className={`markdown-view ${DOCUMENT_RHYTHM} ${tone === "instrument" ? INSTRUMENT_TONE : DOCUMENT_TONE}`}>{blocks(marked.lexer(withoutFrontmatter(markdown)), "md", baseUrl, allowUrl)}</article>;
 }

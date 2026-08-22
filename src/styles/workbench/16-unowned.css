@@ -1,0 +1,51 @@
+/* Rules that were sitting in the documents & activity chunks (09, 15, 16) but style elements no
+   component of this area renders. They are kept at the cascade position they had, for the area
+   that owns them:
+
+   - the wordmark over an unavailable home library: `screens/LibraryScreen.tsx` (chrome, 03)
+   - the indexing plate and the indeterminate line it holds: `App.tsx`
+     (`ProjectScreenLoadingFallback`), which belongs to the instrument shell
+
+   `.asset-grid-empty` shared the plate rule with `.project-indexing`; that half is now stated in
+   `components/VirtualAssetGrid.tsx`, so only the selector this area does not own is left. The
+   declarations are unchanged. */
+
+.ralphy-wordmark {
+  margin-bottom: 18px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.project-indexing {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--fg-3);
+  font-size: var(--text-xs);
+}
+
+.loading-line {
+  width: 110px;
+  height: 2px;
+  overflow: hidden;
+  background: var(--line);
+}
+
+.loading-line::after {
+  display: block;
+  width: 40%;
+  height: 100%;
+  animation: loading-slide 1s ease-in-out infinite alternate;
+  background: var(--accent);
+  content: "";
+}
+
+@keyframes loading-slide {
+  from { transform: translateX(0); }
+  to { transform: translateX(165%); }
+}

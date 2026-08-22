@@ -20,6 +20,12 @@ const styles = ["reset.css", "tokens.css", "workbench.css", "shared-library.css"
   .map((file) => readStylesheet(file))
   .join("\n");
 const workbenchStyles = readStylesheet("workbench.css");
+const virtualAssetGridSource = readFileSync(join(process.cwd(), "src/components/VirtualAssetGrid.tsx"), "utf8");
+const documentsActivityTheme = readFileSync(join(process.cwd(), "src/styles/theme/documents-activity.css"), "utf8");
+const markdownViewSource = readFileSync(join(process.cwd(), "src/components/MarkdownView.tsx"), "utf8");
+const documentsActivitySource = ["src/screens/project/ActivityTimeline.tsx", "src/screens/project/ActivityInspector.tsx", "src/components/MarkdownView.tsx", "src/components/WelcomeScreen.tsx", "src/components/VirtualAssetGrid.tsx"]
+  .map((file) => readFileSync(join(process.cwd(), file), "utf8"))
+  .join("\n");
 const tokenStyles = readFileSync(join(process.cwd(), "src/styles/tokens.css"), "utf8");
 const settingsStyles = readStylesheet("settings.css");
 const settingsScreenSource = readFileSync(join(process.cwd(), "src/screens/SettingsScreen.tsx"), "utf8");
@@ -1101,7 +1107,11 @@ describe("design system contract", () => {
     expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ projectTabsAppRegion }) => projectTabsAppRegion === "no-drag")).toBe(true);
     expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ gooeyBlobCoverage }) => gooeyBlobCoverage !== null && gooeyBlobCoverage >= 0.99)).toBe(true);
     expect(results.filter(({ screen }) => screen === "units").every(({ unitCardsInGridFlow }) => unitCardsInGridFlow)).toBe(true);
-    expect(workbenchStyles).toMatch(/\.media-card-button:focus-visible\s*\{[^}]*outline:\s*var\(--focus-ring\)/s);
+    // 09-activity-inspector.css restated `outline: var(--focus-ring)` on the media card button.
+    // reset.css already draws that ring on every :focus-visible, which is why the declaration
+    // never moved a pixel; the button states only the shape the ring follows.
+    expect(styles).toMatch(/:focus-visible\s*\{[^}]*outline:\s*var\(--focus-ring\)/s);
+    expect(virtualAssetGridSource).toMatch(/media-card-button[^"`]*focus-visible:rounded-control/);
     expect(workbenchStyles).toMatch(/\.asset-context-menu button:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--fg\)/s);
   }, 20_000);
 
@@ -1178,6 +1188,63 @@ describe("design system contract", () => {
     // behind a `not-data-[state=checked]` guard -- an unguarded utility would win over it.
     expect(/const ITEM = "([^"]*)"/.exec(selectMenuSource)?.[1] ?? "")
       .toMatch(/not-data-\[state=checked\]:text-on-instrument-muted/);
+  });
+
+  test("keeps documents and activity on named roles, container widths and no depth", () => {
+    // All three chunks are gone: every rule either moved into the markup of the component that
+    // renders the element, or stayed verbatim in 16-unowned.css because it styles an element no
+    // component of this area renders.
+    for (const chunk of ["09-activity-inspector.css", "15-markdown-view.css", "16-welcome-screen.css"]) {
+      expect(existsSync(join(process.cwd(), "src/styles/workbench", chunk))).toBe(false);
+    }
+    expect(readFileSync(join(process.cwd(), "src/styles/workbench.css"), "utf8"))
+      .toContain('@import "./workbench/16-unowned.css";');
+    const unowned = readFileSync(join(process.cwd(), "src/styles/workbench/16-unowned.css"), "utf8");
+    for (const selector of [".ralphy-wordmark", ".project-indexing", ".loading-line", "@keyframes loading-slide"]) {
+      expect(unowned).toContain(selector);
+    }
+    // Nothing this area owns is left in the sheet, including two class names no component emits.
+    for (const gone of [".markdown-alert", ".plain-text-view", ".welcome-", ".activity-inspector", ".activity-attempt", ".asset-cost", ".review-mark", ".asset-extension,", ".markdown-html", "@keyframes welcome-"]) {
+      expect(workbenchStyles).not.toContain(gone);
+    }
+    // The only `.markdown-view` rules left in the sheet are the agent chat's, which 10-agent-chat.css
+    // still owns. Every one of them is now shadowed by the component's `tone="instrument"` skin --
+    // reported for the chrome area, not deleted here.
+    for (const line of workbenchStyles.split("\n").filter((line) => line.includes(".markdown-view"))) {
+      expect(line).toContain(".agent-message.is-assistant .markdown-view");
+    }
+    // `.asset-preview` survives only in the squircle opt-in list 13-unowned.css holds for several
+    // areas at once: `rounded-cell` is not one of the radii tokens.css opts in by itself.
+    expect(workbenchStyles.match(/\.asset-preview/g)).toEqual([".asset-preview"]);
+    expect(readFileSync(join(process.cwd(), "src/styles/workbench/13-unowned.css"), "utf8"))
+      .toMatch(/@supports \(corner-shape: squircle\)[^}]*\.asset-preview/s);
+    // design v2 in this area: no border, no shadow and no gradient. `border-collapse` is a table
+    // model and `border-0` is the removal of one, and the only box-shadows are the three named
+    // inset marks -- the selected activity row and a blockquote on either surface.
+    expect(documentsActivitySource).not.toMatch(/\bborder-(?!collapse\b|0\b)/);
+    expect(documentsActivitySource).not.toMatch(/\b(?:shadow|bg-gradient|bg-linear|bg-radial)-/);
+    expect(documentsActivitySource.match(/\bbox-shadow:/g)).toEqual(["box-shadow:", "box-shadow:", "box-shadow:"]);
+    for (const mark of ["--activity-selected-mark", "--document-quote-mark", "--document-quote-mark-on-instrument"]) {
+      expect(documentsActivityTheme).toContain(`${mark}: inset 2px 0 0 var(--instrument-text-`);
+    }
+    // Container queries only, read against the route's own panel -- never the window. The two
+    // ranges the activity table swaps between are written as mutually exclusive, so no cell ever
+    // carries two `grid-cols` utilities and lets the generated sheet decide.
+    expect(documentsActivitySource).not.toMatch(/@(?:min|max)-\[/);
+    expect(documentsActivitySource).not.toMatch(/\b(?:sm|md|lg|xl|2xl):/);
+    expect(documentsActivityTheme).toContain("--container-activity-columns");
+    expect(documentsActivitySource).toContain("@min-activity-filters/project-domain:@max-activity-columns/project-domain:grid-cols-(--activity-row-columns-medium)");
+    expect(documentsActivitySource).toContain("@max-activity-filters/project-domain:grid-cols-(--activity-row-columns-narrow)");
+    // A rendered document renders on a light widget and on a black one, so the skin is a prop and
+    // no caller repaints half of a surface/ink pair from CSS.
+    expect(markdownViewSource).toContain('tone?: MarkdownTone');
+    expect(markdownViewSource).toMatch(/tone === "instrument" \? INSTRUMENT_TONE : DOCUMENT_TONE/);
+    expect(readFileSync(join(process.cwd(), "src/components/UtilityPanels.tsx"), "utf8"))
+      .toContain('<MarkdownView markdown={entry.text ?? ""} tone="instrument" />');
+    // Every legacy tone on the timeline icon collapsed to one of two on-dark inks, so the map
+    // states two and not seven.
+    expect([...new Set((/const ICON_TONE[^}]*}/s.exec(documentsActivitySource)?.[0] ?? "").match(/text-on-instrument(?:-muted)?/g) ?? [])].sort())
+      .toEqual(["text-on-instrument", "text-on-instrument-muted"]);
   });
 
   test("leaves the activity log without a rail, in either whole or per-event form", () => {
@@ -1365,7 +1432,10 @@ describe("design system contract", () => {
     expect(welcome).toContain("Howdy, partner!");
     expect(welcome).toContain("Workspace index");
     expect(welcome).toContain("Media workbench");
-    expect(styles).toContain(".welcome-screen.is-exiting");
+    // The exit state is markup now: 16-welcome-screen.css is gone, and an authored
+    // `transform`/`opacity` there could not have beaten the utilities on the element anyway.
+    expect(welcome).toContain("is-exiting opacity-0");
+    expect(welcome).toMatch(/welcome-screen[^`"]*transition duration-slow ease-instrument/);
   });
 
   test("opens a global multi-provider chat with Cmd+R", () => {

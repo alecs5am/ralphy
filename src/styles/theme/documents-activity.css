@@ -2,5 +2,81 @@
    the shared theme layer. Every key names a role and resolves to a token in tokens.css or a
    value the design fixes for that role; a component then reaches for the name, never a
    literal. */
+
+/* Multi-part grid templates and the prose rhythm. These are plain custom properties rather than
+   `@theme` keys because `grid-template-columns` is not a Tailwind namespace and `@theme inline`
+   never emits the variable, so `grid-cols-(--name)` and `mt-(--name)` have to find a real
+   declaration on the element. */
+:root {
+  /* The activity table at its two narrower widths. The wide template lives beside the base row
+     rule; these two are what the container query swaps in. */
+  --activity-row-columns-medium: 62px 106px minmax(140px, 1fr) minmax(130px, 1fr) 78px;
+  --activity-row-columns-narrow: 54px minmax(120px, 0.8fr) minmax(150px, 1fr);
+  /* The inspector's own shapes: a brand chip, a title and a close control; three metric tiles;
+     a label/value pair; and one attempt row. */
+  --activity-inspector-columns: 32px minmax(0, 1fr) 28px;
+  --activity-metric-columns: repeat(3, minmax(0, 1fr));
+  --activity-term-columns: 88px minmax(0, 1fr);
+  --activity-attempt-columns: 20px minmax(0, 1fr) auto auto;
+  /* A welcome status row: a spinner or a check beside its label. */
+  --welcome-status-columns: 14px minmax(0, 1fr);
+
+  /* The one inset mark in this area, and the design's single exception to "no borders": a 2px
+     rule down the leading edge of the selected activity row and of a blockquote. Both stand on a
+     surface whose ink is the on-dark family, so the mark is theme-invariant. */
+  --activity-selected-mark: inset 2px 0 0 var(--instrument-text-on-dark-secondary-readable);
+  --document-quote-mark: inset 2px 0 0 var(--instrument-text-primary);
+  --document-quote-mark-on-instrument: inset 2px 0 0 var(--instrument-text-on-dark-primary);
+
+  /* Prose rhythm. A rendered document's vertical space is em, not grid: a heading's air has to
+     follow the heading's own size, and a 4px step cannot. */
+  --document-heading-space: 1.6em;
+  --document-heading-space-close: 0.55em;
+  --document-paragraph-space: 0.7em;
+  --document-list-paragraph-space: 0.2em;
+  --document-block-space: 1em;
+}
+
 @theme inline {
+  /* The plate a code block, a table head, a disclosure or a keycap stands on inside a rendered
+     document. It cannot be `--instrument-widget-light-sunken`: the documents reading pane is
+     that surface already (a test pins `.documents-detail` to `bg-surface-sunken`), so a block
+     painting it had no edge at all once the 1px `--line` border went -- and the border was 8%
+     alpha, so it was never the separation either. The desk board is the one neutral that steps
+     away from both the reading pane and the marketplace's `bg-surface` card, in both themes. */
+  --color-document-plate: var(--instrument-desk-board);
+
+  /* Layout the design fixes for this area. */
+  --spacing-activity-inspector: min(420px, 100%); /* the inspector over a narrow content row */
+  --spacing-activity-state: 160px;                /* a loading or error plate holds the inspector open */
+  --spacing-welcome-panel: 232px;                 /* the welcome status list */
+  --spacing-welcome-mascot: 132px;                /* ...and the plate the mascot stands on */
+
+  /* Leading the shared tokens do not name. */
+  --leading-document: 1.65;                       /* a rendered document's body, prose or mono */
+  --leading-document-heading: var(--leading-tight); /* ...and its headings */
+
+  /* Stacking, so a pinned column's order stays a token and not a number in markup. */
+  --z-index-base: var(--z-base);
+
+  /* The activity table drops its model column, then its source and entity columns. Read against
+     the route's own panel (`project-domain` on `.project-domain-body`), never the window: the
+     sidebar, the chat rail and the inspector all change this surface's width without the
+     viewport moving. `activity-filters` (640px) is declared in theme/chrome.css. */
+  --container-activity-columns: 900px;
+
+  /* Entrance and indeterminate motion. @keyframes has no utility form, so each set is declared
+     beside the `--animate-*` name that reaches it, and every element that reads one carries its
+     own motion-reduce:animate-none -- an !important declaration in an unlayered sheet loses to
+     an !important utility inside @layer utilities. */
+  --animate-welcome-rise: welcome-rise 260ms var(--ease) both;
+  --animate-welcome-spin: welcome-spin 900ms linear infinite;
+}
+
+@keyframes welcome-rise {
+  from { opacity: 0; transform: translateY(6px); }
+}
+
+@keyframes welcome-spin {
+  to { transform: rotate(360deg); }
 }

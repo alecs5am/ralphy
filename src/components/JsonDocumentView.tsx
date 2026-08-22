@@ -1,5 +1,7 @@
 import { Fragment, type ReactNode } from "react";
 
+import { PLAIN_TEXT_VIEW } from "./MarkdownView";
+
 const MAX_DEPTH = 32;
 const MAX_NODES = 10_000;
 const MAX_BYTES = 900_000;
@@ -30,6 +32,6 @@ export function JsonDocumentView({ text }: { text: string }) {
     const value: unknown = JSON.parse(text);
     return <pre className="json-document-view">{tokens(value, 0, { value: 0 }, "json")}</pre>;
   } catch {
-    return <pre className="plain-text-view json-document-fallback">{text}</pre>;
+    return <pre className={`plain-text-view json-document-fallback ${PLAIN_TEXT_VIEW}`}>{text}</pre>;
   }
 }

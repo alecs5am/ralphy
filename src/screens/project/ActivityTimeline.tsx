@@ -23,6 +23,31 @@ import { useRememberedScroll } from "./scroll-memory";
    because a `display` utility on the trigger beats an authored `display: none`. */
 const ACTIVITY_SELECT = "px-3 @max-activity-filters/project-domain:hidden";
 
+/* The table's narrow forms. The wide template stays in 06-unowned.css with the base row rule;
+   these two swap it out, and the two ranges are written as mutually exclusive so a cell never
+   carries two `grid-cols` utilities and lets the generated sheet decide which wins. */
+const ROW_COLUMNS = "@min-activity-filters/project-domain:@max-activity-columns/project-domain:grid-cols-(--activity-row-columns-medium) @max-activity-filters/project-domain:grid-cols-(--activity-row-columns-narrow)";
+/* The model column goes first, then source and entity. Both hides are utilities on the cell:
+   an authored `display: none` loses to any display utility on the same element. */
+const HIDE_MEDIUM = "@max-activity-columns/project-domain:hidden";
+const HIDE_NARROW = "@max-activity-filters/project-domain:hidden";
+const CELL = "min-w-0 truncate";
+const CELL_MUTED = `${CELL} type-sm text-muted`;
+/* Every tone the timeline knows collapses to one of two inks on the icon's black chip: the
+   legacy accent/warn/ok families all resolve to the on-dark set there, so `document`, `run`,
+   `composition`, `feedback` and `archive` were painting the same #A4A4A0 as `neutral`. A unit and
+   a milestone read at full ink, and a milestone also gets the one raised plate. */
+const ICON_TONE: Record<ActivityTone, string> = {
+  document: "bg-instrument text-on-instrument-muted",
+  run: "bg-instrument text-on-instrument-muted",
+  composition: "bg-instrument text-on-instrument-muted",
+  feedback: "bg-instrument text-on-instrument-muted",
+  archive: "bg-instrument text-on-instrument-muted",
+  neutral: "bg-instrument text-on-instrument-muted",
+  unit: "bg-instrument text-on-instrument",
+  success: "bg-instrument-raised text-on-instrument",
+};
+
 const dateValue = (value: number) => new Date(value < 1_000_000_000_000 ? value * 1000 : value);
 const isMilestone = (action: string) => /(?:completed|archived|selected|sealed|resolved)$/i.test(action);
 type ActivityTone = "document" | "run" | "composition" | "unit" | "feedback" | "success" | "archive" | "neutral";
@@ -180,7 +205,7 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
   };
   const selectedEvent = items.find(({ sequence }) => sequence === selected) ?? null;
 
-  return <InstrumentScreenRoot descriptor={activityInstrumentStates} state={activityInstrumentState(page, selectedEvent !== null)}><div className={`activity-log min-h-0 w-full bg-transparent${selectedEvent ? " has-inspector" : ""}`}>
+  return <InstrumentScreenRoot descriptor={activityInstrumentStates} state={activityInstrumentState(page, selectedEvent !== null)}><div className={`activity-log min-h-0 w-full bg-transparent${selectedEvent ? " has-inspector @max-activity-columns/project-domain:grid-cols-1" : ""}`}>
     <div className="activity-log-main flex min-h-0 flex-col gap-2">
       <div className="activity-toolbar m-0 flex min-h-11 flex-wrap items-center gap-2 bg-transparent p-0">
         <label className="activity-search flex h-9 min-w-56 flex-1 items-center gap-2 rounded-control bg-surface px-3"><Search size={14} /><input className="min-w-0 flex-1 bg-transparent type-base text-ink outline-none placeholder:text-muted" aria-label="Search activity" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search events" /></label>
@@ -188,30 +213,33 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
         <SelectMenu className={ACTIVITY_SELECT} tone="caller" overlayOwner="project.activity" value={model} options={modelOptions} ariaLabel="Filter activity model" onValueChange={setModel} />
       </div>
       <div className="activity-table min-h-0 flex-1 overflow-hidden bg-transparent" role="table" aria-label="Project activity">
-        <div className="activity-table-head rounded-panel bg-surface px-3 type-meta uppercase tracking-mono text-muted" role="row"><span>Time</span><span>Source</span><span>Event</span><span>Entity</span><span>Model</span><span>Cost</span></div>
+        <div className={`activity-table-head rounded-panel bg-surface px-3 type-meta uppercase tracking-mono text-muted ${ROW_COLUMNS}`} role="row"><span>Time</span><span className={HIDE_NARROW}>Source</span><span>Event</span><span className={HIDE_NARROW}>Entity</span><span className={HIDE_MEDIUM}>Model</span><span>Cost</span></div>
         <div className="activity-scroll min-h-0 overflow-auto" role="region" aria-label="Activity events" tabIndex={0} ref={attachOwner} onScroll={instrumentScroll ? undefined : remembered.onScroll}>
           <div className="activity-virtual-list" role="rowgroup" style={{ height: virtualizer.getTotalSize() }}>
             {virtualRows.map((row) => {
               const item = rows[row.index];
-              if (item.type === "day") return <div className="activity-row activity-day" role="row" key={row.key} style={{ height: row.size, transform: `translateY(${row.start - scrollMargin}px)` }}><span>{item.label}</span></div>;
+              if (item.type === "day") return <div className="activity-row activity-day flex items-center gap-2.5 px-3 type-sm text-muted" role="row" key={row.key} style={{ height: row.size, transform: `translateY(${row.start - scrollMargin}px)` }}><span className="flex-none">{item.label}</span></div>;
               const value = item.value;
               const date = dateValue(value.createdAt);
               const milestone = isMilestone(value.action);
               const { tone, Icon } = appearance(value);
+              // Read out of the map before the class string: the style audit scans class attributes for
+              // arbitrary values, and a `${MAP[key]}` interpolation reads as one.
+              const iconTone = ICON_TONE[tone];
               const eventSource = activitySource(value);
               const detail = details[value.entityId];
               const summary = detail ? summarizeActivityRun(detail) : null;
               const eventModel = summary?.models[0] ?? null;
-              return <button type="button" role="row" className={`activity-row activity-event rounded-control px-2 type-sm ${selected === value.sequence ? "bg-instrument text-on-instrument [&_*]:text-inherit" : "bg-transparent text-ink hover:bg-surface"}${milestone ? " is-milestone" : ""}`} aria-selected={selected === value.sequence} data-action={value.action} data-tone={tone} key={row.key} ref={(node) => { if (node) rowRefs.current.set(value.sequence, node); else rowRefs.current.delete(value.sequence); }} style={{ height: row.size - 4, transform: `translateY(${row.start - scrollMargin + 2}px)` }} onClick={() => open(value)} onKeyDown={(keyboardEvent) => {
+              return <button type="button" role="row" className={`activity-row activity-event rounded-control px-2 text-left type-sm ${ROW_COLUMNS} ${selected === value.sequence ? "bg-instrument text-on-instrument [&_*]:text-inherit [box-shadow:var(--activity-selected-mark)]" : "bg-transparent text-ink hover:bg-surface"}${milestone ? " is-milestone" : ""}`} aria-selected={selected === value.sequence} data-action={value.action} data-tone={tone} key={row.key} ref={(node) => { if (node) rowRefs.current.set(value.sequence, node); else rowRefs.current.delete(value.sequence); }} style={{ height: row.size - 4, transform: `translateY(${row.start - scrollMargin + 2}px)` }} onClick={() => open(value)} onKeyDown={(keyboardEvent) => {
                 if (keyboardEvent.key === "ArrowDown" || keyboardEvent.key === "ArrowUp") { keyboardEvent.preventDefault(); moveSelection(value, keyboardEvent.key === "ArrowDown" ? 1 : -1); }
                 if (keyboardEvent.key === "Escape") setSelected(null);
               }}>
-                <time role="cell" dateTime={date.toISOString()}>{new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(date)}</time>
-                <span className="activity-source" role="cell"><span className="activity-icon" aria-hidden="true">{eventSource === "ralphy" ? <RalphyMascot size={17} /> : eventSource === "generation" && eventModel ? <AiBrandIcon provider="openrouter" model={eventModel} size={16} /> : <Icon size={14} strokeWidth={1.8} />}</span>{humanizeActivity(eventSource)}</span>
-                <strong role="cell">{humanizeActivity(value.action)}</strong>
-                <span role="cell">{humanizeActivity(value.entityType)} · {value.entityId}</span>
-                <span role="cell">{eventModel ?? "—"}</span>
-                <span role="cell">{summary?.costUsd === null || summary === null ? "—" : `$${summary.costUsd.toFixed(4)}`}</span>
+                <time className={`${CELL_MUTED} font-code`} role="cell" dateTime={date.toISOString()}>{new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(date)}</time>
+                <span className={`activity-source relative flex items-center gap-2 ${CELL_MUTED} ${HIDE_NARROW}`} role="cell"><span className={`activity-icon relative z-base grid size-6 flex-none place-items-center rounded-full ${iconTone}`} aria-hidden="true">{eventSource === "ralphy" ? <RalphyMascot size={17} /> : eventSource === "generation" && eventModel ? <AiBrandIcon provider="openrouter" model={eventModel} size={16} /> : <Icon size={14} strokeWidth={1.8} />}</span>{humanizeActivity(eventSource)}</span>
+                <strong className={CELL} role="cell">{humanizeActivity(value.action)}</strong>
+                <span className={`${CELL_MUTED} ${HIDE_NARROW}`} role="cell">{humanizeActivity(value.entityType)} · {value.entityId}</span>
+                <span className={`${CELL_MUTED} ${HIDE_MEDIUM}`} role="cell">{eventModel ?? "—"}</span>
+                <span className={`${CELL_MUTED} font-code`} role="cell">{summary?.costUsd === null || summary === null ? "—" : `$${summary.costUsd.toFixed(4)}`}</span>
               </button>;
             })}
           </div>

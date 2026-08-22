@@ -181,14 +181,20 @@ export function MediaCardPreview({
   const source = preview.key === key ? preview.value : null;
   const glyph = <FileGlyph kind={kind} />;
   let content = glyph;
-  if (source && kind === "image") content = <img src={source.url} alt="" loading="lazy" onLoad={(event) => loadedWithSize(event.currentTarget.naturalWidth, event.currentTarget.naturalHeight)} onError={failed} />;
-  else if (source && kind === "video") content = <video src={source.url} muted preload="metadata" onLoadedMetadata={(event) => loadedWithSize(event.currentTarget.videoWidth, event.currentTarget.videoHeight)} onError={failed} />;
+  if (source && kind === "image") content = <img className="size-full object-cover" src={source.url} alt="" loading="lazy" onLoad={(event) => loadedWithSize(event.currentTarget.naturalWidth, event.currentTarget.naturalHeight)} onError={failed} />;
+  else if (source && kind === "video") content = <video className="size-full object-cover" src={source.url} muted preload="metadata" onLoadedMetadata={(event) => loadedWithSize(event.currentTarget.videoWidth, event.currentTarget.videoHeight)} onError={failed} />;
   else if (source && kind === "audio") content = <AudioWaveform src={source.url} name={mediaCardName(card)} sizeBytes={source.sizeBytes} compact onReady={loaded} onError={failed} />;
-  return <div className={`asset-preview bg-[var(--instrument-media-frame)]${className ? ` ${className}` : ""}`} style={fill ? undefined : { aspectRatio: aspectRatio ?? 1, height: "auto" }} aria-hidden={kind === "audio" ? undefined : true}>
+  return <div className={`asset-preview relative grid w-full flex-none place-items-center overflow-hidden rounded-cell bg-frame text-on-instrument-muted${className ? ` ${className}` : ""}`} style={fill ? undefined : { aspectRatio: aspectRatio ?? 1, height: "auto" }} aria-hidden={kind === "audio" ? undefined : true}>
     {content}
     {/* The frame stays chrome-free once a preview lands; the badge is only the label for an
-        empty frame, and the kind is already spelled out in the caption below it. */}
-    {!source && <span className={`asset-extension type-${kind ?? "file"}`}><FileGlyph kind={kind} size={11} />{kind ?? "file"}</span>}
+        empty frame, and the kind is already spelled out in the caption below it.
+        The kind tints are gone: `--ok`, `--warn`, `--fg-2` and `--fg-3` all resolve to the same
+        #A4A4A0 on a dark surface, so image/video/audio/text painted one grey, and only `pdf`
+        differed -- alert red on a label that carries no alarm. The scrim keeps the 78% of
+        `--instrument-media-frame` the shared mark rule used. This badge states no `display`,
+        because 04-workspace-project.css hides it on a project card with `display: none` and a
+        utility here would outrank it. */}
+    {!source && <span className={`asset-extension type-${kind ?? "file"} min-h-5 rounded-chip bg-frame/78 px-1.75 type-xs text-on-instrument-muted`}><FileGlyph kind={kind} size={11} />{kind ?? "file"}</span>}
   </div>;
 }
 
@@ -208,11 +214,13 @@ export function MediaCardTile({ card, project, rootEpoch, selected, resolvePrevi
     onSelect();
     onContextMenu({ x: event.clientX, y: event.clientY });
   };
-  return <article className={`asset-tile media-card-tile group bg-transparent text-ink ${selected ? "is-selected" : ""}`} data-selected={selected || undefined} style={{ "--asset-aspect": ratio } as CSSProperties}>
+  /* `cursor: grab` never rendered: `.media-card-tile` restated `pointer` after it, so the tile
+     reads as a click target at rest and only says "grabbing" while a drag is live. */
+  return <article className={`asset-tile media-card-tile group flex w-full min-h-0 flex-col gap-2 bg-transparent text-left text-ink cursor-pointer active:cursor-grabbing [contain:layout_style] ${selected ? "is-selected" : ""}`} data-selected={selected || undefined} style={{ "--asset-aspect": ratio } as CSSProperties}>
     <MediaCardPreview card={card} project={project} rootEpoch={rootEpoch} resolvePreview={resolvePreview} aspectRatio={ratio} onAspectRatio={rememberRatio} />
-    <button className="media-card-button flex w-full min-w-0 items-start gap-1.5 bg-transparent p-0 text-left text-ink" type="button" aria-label={`${name}${selected ? ", selected" : ""}`} aria-pressed={selected} onClick={onSelect} onDoubleClick={onOpen} onKeyDown={onKeyDown} onContextMenu={openContext}>
+    <button className="media-card-button flex w-full min-w-0 items-start gap-1.5 bg-transparent p-0 text-left text-ink focus-visible:rounded-control" type="button" aria-label={`${name}${selected ? ", selected" : ""}`} aria-pressed={selected} onClick={onSelect} onDoubleClick={onOpen} onKeyDown={onKeyDown} onContextMenu={openContext}>
       <i className={`mt-1 size-1.5 shrink-0 rounded-full ${selected ? "bg-alert" : "bg-ink"}`} aria-hidden="true" />
-      <span className="asset-copy min-w-0"><strong className="block truncate type-label leading-4 font-normal text-ink">{name}</strong><small className="block truncate font-code type-mono-xs leading-4 tracking-label text-muted uppercase">{mediaCardKind(card)} · {mediaCardFacts(card)}</small></span>
+      <span className="asset-copy grid h-auto w-full min-w-0 px-0.5 pt-2.25"><strong className="block truncate type-label leading-4 font-normal text-ink">{name}</strong><small className="block truncate font-code type-mono-xs leading-4 tracking-label text-muted uppercase">{mediaCardKind(card)} · {mediaCardFacts(card)}</small></span>
     </button>
   </article>;
 }
@@ -272,12 +280,12 @@ export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resol
     return () => observer.disconnect();
   }, [gridElement, instrumentScroll]);
   useEffect(() => virtualizer.measure(), [geometry.columns, geometry.tileWidth, ratios, virtualizer]);
-  if (items.length === 0) return <div className="asset-grid-empty"><strong>No media matches this filter.</strong><span>Change the media filter to see other records.</span></div>;
+  if (items.length === 0) return <div className="asset-grid-empty flex min-h-0 flex-1 flex-col items-center justify-center gap-1 type-xs text-muted"><strong className="type-sm font-normal">No media matches this filter.</strong><span>Change the media filter to see other records.</span></div>;
   return <div className="asset-grid-scroll" ref={attachScroll} onScroll={instrumentScroll ? undefined : rememberedScroll.onScroll}>
     <div className="virtual-grid-space relative w-full" style={{ height: virtualizer.getTotalSize() }}>
       {virtualizer.getVirtualItems().map((virtual) => {
         const card = items[virtual.index]!;
-        return <div className="virtual-masonry-item" data-lane={virtual.lane} key={virtual.key} style={{ left: `${virtual.lane * (geometry.tileWidth + geometry.gap)}px`, transform: `translateY(${virtual.start - scrollMargin}px)`, width: `${geometry.tileWidth}px` }}>
+        return <div className="virtual-masonry-item absolute top-0 [contain:layout_style]" data-lane={virtual.lane} key={virtual.key} style={{ left: `${virtual.lane * (geometry.tileWidth + geometry.gap)}px`, transform: `translateY(${virtual.start - scrollMargin}px)`, width: `${geometry.tileWidth}px` }}>
           <MediaCardTile card={card} project={project} rootEpoch={rootEpoch} selected={selectedRef?.type === card.ref.type && selectedRef.id === card.ref.id} resolvePreview={resolvePreview} aspectRatio={cardRatio(card)} onAspectRatio={rememberAspectRatio} onSelect={() => onSelect(card)} onOpen={() => onOpen(card)} onContextMenu={(point) => onContextMenu(card, point)} />
         </div>;
       })}
