@@ -1,318 +1,298 @@
-import {
-  ArrowLeft,
-  Info,
-  KeyRound,
-  Monitor,
-  Palette,
-  Search,
-  Settings,
-  UserRound,
-} from "lucide-react";
+import { ArrowLeft, ArrowRight, Search, X } from "lucide-react";
 import { motion } from "motion/react";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ProfileAvatar, profileIdentity } from "../components/ProfileAvatar";
 import { RalphyMascot } from "../components/RalphyMascot";
-import { SelectMenu } from "../components/ui/SelectMenu";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
-import type { ThemePreference } from "../instrument/types";
+import type { ResolvedTheme, ThemePreference } from "../instrument/types";
+import {
+  readCommandBindings,
+  writeCommandBindings,
+  type CommandBindings,
+} from "./settings/commands";
+import type { SettingsContext, SettingsDetail } from "./settings/context";
+import { useHarnesses } from "./settings/harnesses";
+import {
+  AppearancePage,
+  GeneralPage,
+  KeyboardPage,
+  ProfilePage,
+} from "./settings/pages-personal";
+import {
+  AboutPage,
+  AgentsPage,
+  DiagnosticsPage,
+  GENERATION_PROVIDERS,
+  HarnessDetailPage,
+  PermissionsPage,
+  ProviderDetailPage,
+  ProvidersPage,
+  StoragePage,
+  TerminalPage,
+  UpdatesPage,
+} from "./settings/pages-system";
+import { settingsStorage, useAppPreferences } from "./settings/preferences";
+import { railFor } from "./settings/rail";
+import {
+  searchSettings,
+  SETTINGS_NAV_GROUPS,
+  SETTINGS_PAGE_ICONS,
+  SETTINGS_PAGE_IDS,
+  SETTINGS_PAGES,
+  type SettingsPageId,
+} from "./settings/registry";
+import { version as appVersion } from "../../package.json";
 
-const categories = [
-  { id: "general", label: "General", icon: Settings },
-  { id: "profile", label: "Profile", icon: UserRound },
-  { id: "appearance", label: "Appearance", icon: Palette },
-  { id: "providers", label: "Providers", icon: KeyRound },
-  { id: "about", label: "About", icon: Info },
-] as const;
+export type SettingsCategory = SettingsPageId;
+export const SETTINGS_CATEGORY_IDS = SETTINGS_PAGE_IDS;
+const LAST_PAGE_KEY = "ralphy.settings.page";
 
-export type SettingsCategory = (typeof categories)[number]["id"];
-export const SETTINGS_CATEGORY_IDS = categories.map(({ id }) => id);
-
-export interface SettingsCapability {
-  id: string;
-  backing: string;
-  lifetime: "persistent" | "root-scoped" | "runtime" | "system" | "build" | "none";
-  enabled: boolean;
-  verification: string;
-  disabledReason: string | null;
-}
-
-export const SETTINGS_CAPABILITIES = [
-  { id: "general.root", backing: "WorkbenchPreferences.rootPath", lifetime: "persistent", enabled: true, verification: "read-only value", disabledReason: null },
-  { id: "general.restore", backing: "none", lifetime: "none", enabled: false, verification: "disabled", disabledReason: "No persisted preference exists in this release." },
-  { id: "general.reveal", backing: "none", lifetime: "none", enabled: false, verification: "disabled", disabledReason: "No persisted preference exists in this release." },
-  { id: "profile.identity", backing: "active root identity", lifetime: "root-scoped", enabled: true, verification: "derived render", disabledReason: null },
-  { id: "profile.displayName", backing: "none", lifetime: "none", enabled: false, verification: "disabled", disabledReason: "Profile identity is derived from the active library." },
-  { id: "appearance.theme", backing: "WorkbenchPreferences.theme", lifetime: "persistent", enabled: true, verification: "two-launch", disabledReason: null },
-  { id: "appearance.density", backing: "none", lifetime: "none", enabled: false, verification: "disabled", disabledReason: "Interface density is fixed in this release." },
-  { id: "appearance.motion", backing: "matchMedia(prefers-reduced-motion)", lifetime: "system", enabled: false, verification: "computed media", disabledReason: "Motion follows macOS Reduced Motion in this release." },
-  { id: "providers.keys", backing: "none", lifetime: "none", enabled: false, verification: "disabled", disabledReason: "Provider credentials are configured outside Settings in this release." },
-  { id: "providers.connect", backing: "none", lifetime: "none", enabled: false, verification: "disabled", disabledReason: "Provider connections are configured outside Settings in this release." },
-  { id: "about.version", backing: "package metadata", lifetime: "build", enabled: true, verification: "read-only value", disabledReason: null },
-] as const satisfies readonly SettingsCapability[];
-
-const capability = (id: string) => SETTINGS_CAPABILITIES.find((item) => item.id === id)!;
-
-function UnsupportedControl({ id, label }: { id: string; label: string }) {
-  const item = capability(id);
-  return <span className="grid justify-items-end gap-1">
-    <button className="settings-disabled-control min-h-8 rounded-full bg-surface-sunken px-3 text-xs text-muted" type="button" aria-disabled="true" aria-describedby={`${id}-reason`} onClick={(event) => event.preventDefault()}>{label}</button>
-    <small className="max-w-64 text-right text-[10px] leading-snug text-muted" id={`${id}-reason`}>{item.disabledReason}</small>
-  </span>;
-}
-
-export const settingsInstrumentStates = categories.map(({ id, label }) => defineInstrumentScreenStates({
+export const settingsInstrumentStates = SETTINGS_PAGE_IDS.map((id) => defineInstrumentScreenStates({
   routeKey: `settings.${id}`,
   states: ["ready"],
   rootMarker: `settings-${id}`,
-  landmarks: [label, "Settings categories"],
+  landmarks: [SETTINGS_PAGES[id].title, "Settings categories"],
 } as const));
 
-function SettingGroup({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="settings-section grid gap-2">
-      <h2 className="m-0 px-2 font-mono text-[10px] uppercase tracking-[.1em] text-muted">{title}</h2>
-      <div className="settings-group grid gap-1 rounded-panel border-0 bg-surface p-2">{children}</div>
-    </section>
-  );
-}
-
-function SettingRow({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="settings-row grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-6 rounded-[14px] border-0 px-4 py-3 hover:bg-surface-hover">
-      <span className="settings-row-copy grid min-w-0 gap-0.5">
-        <strong className="text-sm text-ink">{title}</strong>
-        {description && <small className="max-w-xl text-xs leading-snug text-muted">{description}</small>}
-      </span>
-      <span className="settings-row-control flex items-center justify-end">{children}</span>
-    </div>
-  );
-}
-
-function GeneralSettings({ rootPath }: { rootPath: string | null }) {
-  return (
-    <>
-      <SettingGroup title="Library">
-        <SettingRow
-          title="Home Ralphy library"
-          description={rootPath ?? "~/.ralphy"}
-        >
-          <span className="settings-muted font-mono text-[10px] text-muted">Automatic</span>
-        </SettingRow>
-      </SettingGroup>
-      <SettingGroup title="Startup">
-        <SettingRow
-          title="Restore project context"
-          description="Open the last workspace and project after launch."
-        >
-          <UnsupportedControl id="general.restore" label="Unavailable" />
-        </SettingRow>
-        <SettingRow
-          title="Reveal generated media"
-          description="Bring newly generated files into the active project view."
-        >
-          <UnsupportedControl id="general.reveal" label="Unavailable" />
-        </SettingRow>
-      </SettingGroup>
-    </>
-  );
-}
-
-function ProfileSettings({ rootPath }: { rootPath: string | null }) {
-  const fallback = rootPath ?? "/Users/ralphy/.ralphy";
-  const displayName = profileIdentity(fallback);
-  return (
-    <SettingGroup title="Local profile">
-        <div className="settings-profile-hero flex items-center gap-3 rounded-[14px] border-0 bg-surface-sunken px-4 py-4">
-        <ProfileAvatar rootPath={fallback} size={42} />
-        <span className="grid gap-0.5">
-          <strong className="text-sm text-ink">{displayName || "Ralphy creator"}</strong>
-          <small className="text-xs text-muted">Used only to personalize this Mac.</small>
-        </span>
-      </div>
-      <SettingRow title="Display name">
-        <UnsupportedControl id="profile.displayName" label={displayName || "Ralphy creator"} />
-      </SettingRow>
-    </SettingGroup>
-  );
-}
-
-function AppearanceSettings({
-  theme,
-  onThemeChange,
-}: {
-  theme: ThemePreference;
-  onThemeChange(value: ThemePreference): void;
-}) {
-  return (
-    <>
-      <SettingGroup title="Interface">
-        <SettingRow title="Theme" description="Neutral surfaces optimized for media.">
-          <SelectMenu className="h-8 min-w-36 rounded-full bg-instrument px-3 text-on-instrument" overlayOwner="settings.appearance" ariaLabel="Theme" value={theme} options={[
-            { value: "system", label: "System" },
-            { value: "dark", label: "Dark" },
-            { value: "light", label: "Light" },
-          ]} onValueChange={onThemeChange} />
-        </SettingRow>
-        <SettingRow title="Density">
-          <UnsupportedControl id="appearance.density" label="Fixed" />
-        </SettingRow>
-        <SettingRow title="Interface motion">
-          <UnsupportedControl id="appearance.motion" label="Follows macOS" />
-        </SettingRow>
-      </SettingGroup>
-    </>
-  );
-}
-
-const providers = [
-  ["OpenRouter", "Models and text generation", "sk-or-..."],
-  ["ElevenLabs", "Voice generation", "sk_..."],
-  ["HeyGen", "Avatar video generation", "hg_..."],
-  ["OpenAI", "Images and text generation", "sk-..."],
-] as const;
-
-function ProviderSettings() {
-  return (
-    <SettingGroup title="Generation providers">
-      {providers.map(([name, description, placeholder]) => (
-        <div className="provider-row grid min-h-16 grid-cols-[32px_minmax(120px,1fr)_auto_auto] items-center gap-3 rounded-[14px] border-0 px-3 py-2 hover:bg-surface-hover" key={name}>
-          <span className="provider-mark grid size-8 place-items-center rounded-[10px] bg-surface-sunken font-mono text-[10px] text-muted">{name.slice(0, 2)}</span>
-          <span className="provider-copy grid min-w-0 gap-0.5">
-            <strong className="truncate text-sm text-ink">{name}</strong>
-            <small className="truncate text-xs text-muted">{description}</small>
-          </span>
-          <UnsupportedControl id="providers.keys" label={placeholder} />
-          <UnsupportedControl id="providers.connect" label="Unavailable" />
-        </div>
-      ))}
-      <p className="settings-security-note m-0 rounded-[14px] bg-surface-sunken px-4 py-3 text-xs text-muted">
-        Provider credentials are configured outside Settings in this release.
-      </p>
-    </SettingGroup>
-  );
-}
-
-function AboutSettings() {
-  return (
-    <SettingGroup title="Ralphy Media">
-      <div className="settings-about flex items-center gap-3 rounded-[14px] border-0 bg-surface-sunken px-4 py-4">
-        <span className="settings-about-mark grid size-12 place-items-center rounded-[14px] border-0 bg-instrument-raised">
-          <RalphyMascot size={46} />
-        </span>
-        <span className="grid gap-0.5">
-          <strong className="text-sm text-ink">Ralphy Media 0.1.0</strong>
-          <small className="text-xs text-muted">Native-speed review workbench for generated media.</small>
-        </span>
-      </div>
-      <SettingRow title="Runtime">
-        <span className="settings-muted text-xs text-muted">Electron · macOS</span>
-      </SettingRow>
-    </SettingGroup>
-  );
+function readLastPage(): SettingsPageId {
+  const stored = settingsStorage.getItem(LAST_PAGE_KEY);
+  return SETTINGS_PAGE_IDS.includes(stored as SettingsPageId) ? stored as SettingsPageId : "general";
 }
 
 export function SettingsScreen({
   rootPath,
   theme,
+  resolvedTheme = "light",
   onThemeChange,
   onBack,
 }: {
   rootPath: string | null;
   theme: ThemePreference;
+  resolvedTheme?: ResolvedTheme;
   onThemeChange(value: ThemePreference): void;
   onBack(): void;
 }) {
-  const [active, setActive] = useState<SettingsCategory>("general");
+  const [page, setPage] = useState(readLastPage);
+  const [detail, setDetail] = useState<SettingsDetail | null>(null);
   const [query, setQuery] = useState("");
-  const visibleCategories = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase();
-    return needle
-      ? categories.filter(({ label }) => label.toLocaleLowerCase().includes(needle))
-      : categories;
-  }, [query]);
-  const title = categories.find((category) => category.id === active)?.label ?? "Settings";
-  const instrumentDescriptor = settingsInstrumentStates.find(({ routeKey }) => routeKey === `settings.${active}`)!;
+  const [selected, setSelected] = useState(0);
+  const [flashId, setFlashId] = useState<string | null>(null);
+  const [bindings, setStoredBindings] = useState<CommandBindings>(() => readCommandBindings(settingsStorage));
+  const heading = useRef<HTMLHeadingElement>(null);
+  const preferences = useAppPreferences(settingsStorage);
+  const harnesses = useHarnesses();
 
-  let content = <GeneralSettings rootPath={rootPath} />;
-  if (active === "profile") content = <ProfileSettings rootPath={rootPath} />;
-  if (active === "appearance") content = <AppearanceSettings theme={theme} onThemeChange={onThemeChange} />;
-  if (active === "providers") content = <ProviderSettings />;
-  if (active === "about") content = <AboutSettings />;
+  useEffect(() => { settingsStorage.setItem(LAST_PAGE_KEY, page); }, [page]);
+  // Focus lands on the page heading after a category change, which is both the design's
+  // focus contract and the only place a landing indicator reads as anything.
+  useEffect(() => { heading.current?.focus({ preventScroll: true }); }, [page, detail]);
+  // The highlight after a jump is a hint, not a state: it fades on its own.
+  useEffect(() => {
+    if (!flashId) return;
+    const timer = setTimeout(() => setFlashId(null), 1400);
+    return () => clearTimeout(timer);
+  }, [flashId]);
 
-  return (
-    <InstrumentScreenRoot descriptor={instrumentDescriptor} state="ready">
+  const goTo = (next: SettingsPageId, flash?: string) => {
+    setPage(next);
+    setDetail(null);
+    setQuery("");
+    setFlashId(flash ?? null);
+  };
+
+  const ctx: SettingsContext = {
+    preferences,
+    harnesses,
+    bindings,
+    libraryPath: rootPath,
+    version: appVersion,
+    theme,
+    resolvedTheme,
+    flashId,
+    setBindings: (next) => { writeCommandBindings(settingsStorage, next); setStoredBindings(next); },
+    onThemeChange,
+    goTo,
+    openDetail: (next) => { setDetail(next); setFlashId(null); },
+  };
+
+  const results = useMemo(() => searchSettings(query), [query]);
+  const searching = query.trim().length > 0;
+  const harness = detail?.kind === "harness" ? harnesses.rows.find(({ id }) => id === detail.id) ?? null : null;
+  const provider = detail?.kind === "provider" ? GENERATION_PROVIDERS.find(({ id }) => id === detail.id) ?? null : null;
+  const needAction = harnesses.rows.filter(({ tone }) => tone !== "ok").length;
+  const attention: Partial<Record<SettingsPageId, boolean>> = {
+    agents: needAction > 0,
+    diagnostics: needAction > 0 || harnesses.state === "unavailable",
+  };
+  const operator = String(preferences.values["profile.displayName"]).trim() || profileIdentity(rootPath ?? "") || "LOCAL";
+
+  const title = searching
+    ? "Search settings"
+    : harness?.name ?? (provider ? provider.name : SETTINGS_PAGES[page].title);
+  const scopes = searching
+    ? ["ROW-LEVEL INDEX"]
+    : harness ? ["MANAGED BY PROVIDER"] : provider ? ["SECURE CREDENTIAL"] : SETTINGS_PAGES[page].scopes;
+  const rail = searching || page === "about" || detail ? null : railFor(page, ctx);
+  const descriptor = settingsInstrumentStates.find(({ routeKey }) => routeKey === `settings.${page}`)!;
+
+  const openResult = (index: number) => {
+    const entry = results[index];
+    if (entry) goTo(entry.page, entry.id);
+  };
+
+  const content = (() => {
+    if (searching) return results.length
+      ? <>
+        <p className="settings-results-label">
+          RESULTS
+          <span className="settings-number">{results.length}</span>
+          · ↑↓ TO MOVE · ENTER OPENS AND HIGHLIGHTS THE ROW
+        </p>
+        <div className="settings-plate">
+          {results.map((entry, index) => <button
+            className={index === selected ? "settings-result is-selected" : "settings-result"}
+            type="button"
+            key={entry.id}
+            onClick={() => openResult(index)}
+          >
+            <span>
+              <strong>{entry.title}</strong>
+              <em>{`${SETTINGS_PAGES[entry.page].title} › ${entry.section}`}</em>
+            </span>
+            <small>{entry.state(preferences.values)}</small>
+            <ArrowRight size={13} strokeWidth={1.9} aria-hidden="true" />
+          </button>)}
+        </div>
+      </>
+      : <div className="settings-empty">
+        <RalphyMascot size={56} />
+        <strong>{`Nothing matched “${query.trim()}”`}</strong>
+        <p>THE INDEX COVERS ROWS, DESCRIPTIONS AND SYNONYMS.<br />TRY: API KEY · CACHE · MICROPHONE · SHORTCUT · PATH</p>
+        <button className="settings-action is-lg is-primary" type="button" onClick={() => setQuery("")}>Clear search</button>
+      </div>;
+    if (harness) return <HarnessDetailPage ctx={ctx} harness={harness} />;
+    if (provider) return <ProviderDetailPage provider={provider} />;
+    if (page === "general") return <GeneralPage ctx={ctx} />;
+    if (page === "profile") return <ProfilePage ctx={ctx} />;
+    if (page === "appearance") return <AppearancePage ctx={ctx} />;
+    if (page === "keys") return <KeyboardPage ctx={ctx} />;
+    if (page === "agents") return <AgentsPage ctx={ctx} />;
+    if (page === "providers") return <ProvidersPage ctx={ctx} />;
+    if (page === "storage") return <StoragePage ctx={ctx} />;
+    if (page === "permissions") return <PermissionsPage ctx={ctx} />;
+    if (page === "terminal") return <TerminalPage ctx={ctx} />;
+    if (page === "diagnostics") return <DiagnosticsPage ctx={ctx} />;
+    if (page === "updates") return <UpdatesPage ctx={ctx} />;
+    return <AboutPage ctx={ctx} />;
+  })();
+
+  return <InstrumentScreenRoot descriptor={descriptor} state="ready">
     <motion.div
-      className="settings-screen grid h-full w-full grid-cols-[240px_minmax(0,1fr)] gap-2 overflow-hidden bg-desk p-2 text-ink"
+      className="settings-desk"
+      data-density={String(preferences.values["appearance.density"]).toLocaleLowerCase()}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
       transition={{ duration: 0.16, ease: [0.2, 0, 0.2, 1] }}
     >
-      <aside className="settings-sidebar flex min-h-0 flex-col overflow-hidden rounded-panel border-0 bg-instrument text-on-instrument">
-        <div className="settings-window-bar flex h-12 shrink-0 items-center px-2">
-          <span className="settings-traffic-space" />
-          <button className="flex h-8 items-center gap-1.5 rounded-full px-3 text-xs text-on-instrument-muted hover:bg-instrument-hover hover:text-on-instrument" type="button" onClick={onBack}>
-            <ArrowLeft size={14} strokeWidth={1.5} />
-            Back to app
-          </button>
+      <div className="settings-topbar">
+        <button className="settings-back" type="button" onClick={onBack}>
+          <ArrowLeft size={14} strokeWidth={1.9} aria-hidden="true" />
+          Back to app
+        </button>
+        <div className="settings-island">
+          <b>SETTINGS</b>
+          <span>{`THIS MAC · ${operator.toLocaleUpperCase()}`}</span>
+          {needAction > 0 && <button className="settings-island-attention" type="button" onClick={() => goTo("diagnostics")}>
+            <i className="settings-dot" data-tone="warn" aria-hidden="true" />
+            {`${needAction} NEED ATTENTION`}
+          </button>}
         </div>
-        <label className="settings-search mx-2 mb-3 flex h-9 shrink-0 items-center gap-2 rounded-full border-0 bg-instrument-raised px-3 text-on-instrument-muted focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-on-instrument">
-          <Search size={14} strokeWidth={1.5} />
-          <input className="min-w-0 flex-1 border-0 bg-transparent p-0 text-xs text-on-instrument outline-none placeholder:text-on-instrument-muted"
-            value={query}
-            placeholder="Search settings"
-            aria-label="Search settings"
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </label>
-        <nav className="settings-nav grid min-h-0 gap-1 overflow-y-auto px-2" aria-label="Settings categories">
-          {visibleCategories.map(({ id, label, icon: Icon }) => (
-            <button
-              className={`flex h-9 w-full items-center gap-2 rounded-full px-3 text-left text-xs ${active === id ? "is-active bg-surface text-ink" : "text-on-instrument-muted hover:bg-instrument-hover hover:text-on-instrument"}`}
-              type="button"
-              key={id}
-              onClick={() => setActive(id)}
-            >
-              <Icon size={15} strokeWidth={1.5} />
-              {label}
-            </button>
-          ))}
-        </nav>
-        <div className="settings-sidebar-product mt-auto flex items-center gap-2 px-4 py-3 text-on-instrument-muted">
-          <span><RalphyMascot size={26} /></span>
-          <small>Ralphy Media</small>
-        </div>
-      </aside>
-      <main className="settings-main min-h-0 min-w-0 overflow-y-auto rounded-panel bg-desk">
-        <header className="settings-main-header sticky top-0 z-10 mx-auto flex h-16 w-full max-w-3xl items-end gap-3 bg-desk px-8 pb-3 backdrop-blur-none">
-          <h1 className="m-0 text-xl text-ink">{title}</h1>
-          {active === "general" && (
-            <span className="ml-auto flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[.08em] text-muted">
-              <Monitor size={13} strokeWidth={1.5} />
-              This Mac
+        <span className="settings-brand">
+          RALPHY
+          <b className="settings-number">{appVersion}</b>
+        </span>
+        <ProfileAvatar rootPath={rootPath ?? ""} size={32} round />
+      </div>
+
+      <div className="settings-body">
+        <aside className="settings-nav">
+          <label className="settings-nav-search">
+            <Search size={13} strokeWidth={1.9} aria-hidden="true" />
+            <input
+              value={query}
+              placeholder="Search settings"
+              aria-label="Search settings"
+              onChange={(event) => { setQuery(event.target.value); setSelected(0); }}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowDown") { event.preventDefault(); setSelected((index) => Math.min(results.length - 1, index + 1)); }
+                if (event.key === "ArrowUp") { event.preventDefault(); setSelected((index) => Math.max(0, index - 1)); }
+                if (event.key === "Enter") { event.preventDefault(); openResult(selected); }
+              }}
+            />
+            {query && <button className="settings-nav-clear" type="button" aria-label="Clear search" onClick={() => setQuery("")}>
+              <X size={11} strokeWidth={2} aria-hidden="true" />
+            </button>}
+          </label>
+          <nav className="settings-nav-groups" aria-label="Settings categories">
+            {SETTINGS_NAV_GROUPS.map((group) => <div className="settings-nav-group" key={group.label}>
+              <h2>{group.label}</h2>
+              {group.items.map((id) => {
+                const Icon = SETTINGS_PAGE_ICONS[id];
+                const active = page === id && !searching;
+                return <button
+                  className={active ? "settings-nav-row is-selected" : "settings-nav-row"}
+                  type="button"
+                  key={id}
+                  aria-current={active || undefined}
+                  onClick={() => goTo(id)}
+                >
+                  <Icon size={14} strokeWidth={1.8} aria-hidden="true" />
+                  <span>{SETTINGS_PAGES[id].title}</span>
+                  {attention[id] && <i className="settings-dot" data-tone="warn" aria-hidden="true" />}
+                </button>;
+              })}
+            </div>)}
+          </nav>
+          <button className="settings-identity" type="button" onClick={() => goTo("updates")}>
+            <span>
+              <small>RALPHY DESKTOP</small>
+              <strong>{appVersion}</strong>
             </span>
-          )}
-        </header>
-        <div className="settings-content mx-auto grid w-full max-w-3xl gap-6 px-8 pb-16 pt-4" key={active}>
-          {content}
+          </button>
+        </aside>
+
+        <div className="settings-main">
+          <div className="settings-column">
+            <header className="settings-page-header">
+              {detail && <button className="settings-detail-back" type="button" aria-label="Back to the category" onClick={() => setDetail(null)}>
+                <ArrowLeft size={14} strokeWidth={1.9} aria-hidden="true" />
+              </button>}
+              <h1 ref={heading} tabIndex={-1}>{title}</h1>
+              {scopes.map((scope) => <span className="settings-scope" key={scope}>{scope}</span>)}
+            </header>
+            <div className="settings-scroll" key={`${page}-${detail?.id ?? ""}-${searching}`}>{content}</div>
+          </div>
+
+          {/* The rail keeps its slot on pages that have no rail, so the centred column does
+              not shift as you move between pages. */}
+          <aside className="settings-rail" aria-label={rail ? "Page context" : undefined} aria-hidden={rail ? undefined : true}>
+            {rail && <><div className="settings-rail-facts">
+              <h2>{rail.label}</h2>
+              {rail.rows.map(([label, value]) => <span className="settings-rail-row" key={label}>
+                <span>{label}</span>
+                <b className={/^\d/.test(value) ? "settings-number" : "settings-code"}>{value}</b>
+              </span>)}
+              {rail.action && <button className="settings-action" type="button" disabled={rail.action.disabled} onClick={rail.action.run}>{rail.action.label}</button>}
+            </div>
+            {rail.note && <div className="settings-rail-note">
+              <h2>{rail.note.label}</h2>
+              <p>{rail.note.text}</p>
+              {rail.note.danger && <button className="settings-action is-danger" type="button" disabled={rail.note.danger.disabled} onClick={rail.note.danger.run}>{rail.note.danger.label}</button>}
+            </div>}</>}
+          </aside>
         </div>
-      </main>
+      </div>
     </motion.div>
-    </InstrumentScreenRoot>
-  );
+  </InstrumentScreenRoot>;
 }

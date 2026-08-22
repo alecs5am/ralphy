@@ -21,8 +21,8 @@ export function ActivityInspector({ event, detail, loading, error, onRetry, onCl
   const summary = detail ? summarizeActivityRun(detail) : null;
   const model = summary?.models[0] ?? null;
 
-  return <aside className="activity-inspector rounded-panel border-0 bg-surface text-ink shadow-none" data-instrument-overlay="run-inspector" aria-labelledby="activity-inspector-title">
-    <header className="activity-inspector-header border-0 bg-surface-sunken shadow-none">
+  return <aside className="activity-inspector rounded-panel bg-surface text-ink" data-instrument-overlay="run-inspector" aria-labelledby="activity-inspector-title">
+    <header className="activity-inspector-header bg-transparent">
       <span className="activity-inspector-brand" aria-hidden="true">
         {source === "ralphy" ? <RalphyMascot size={22} /> : source === "generation" ? <AiBrandIcon provider="openrouter" model={model ?? undefined} size={20} /> : <Clock3 size={18} />}
       </span>

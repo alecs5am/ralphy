@@ -1,0 +1,129 @@
+.workspace-onboarding li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  counter-increment: onboarding;
+}
+
+.workspace-onboarding strong::before {
+  content: counter(onboarding) ". ";
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+}
+
+.workspace-overview-loading-header {
+  min-height: 112px;
+}
+
+.workspace-overview-skeleton-section {
+  width: 100%;
+  max-width: 1200px;
+  min-height: 180px;
+  margin: 0 auto;
+  padding: var(--space-6) 0;
+}
+
+.workspace-overview-skeleton-section span {
+  color: var(--fg-3);
+  font-size: var(--text-xs);
+}
+
+.workspace-overview-skeleton-section i {
+  display: block;
+  width: 100%;
+  height: 18px;
+  margin-top: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--sunken);
+}
+
+.workspace-overview-skeleton-section i:nth-of-type(2) {
+  width: 72%;
+}
+
+.workspace-overview-skeleton-section i:nth-of-type(3) {
+  width: 48%;
+}
+
+.workspace-overview-error .project-local-error {
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+}
+
+.workspace-operation-banner button:focus-visible,
+.workspace-attention-list button:focus-visible,
+.workspace-attention-more:focus-visible,
+.workspace-active-projects button:focus-visible,
+.workspace-onboarding button:focus-visible {
+  outline: var(--control-focus);
+  outline-offset: 2px;
+}
+
+@container account-portfolio (max-width: 900px) {
+  .account-portfolio {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container account-portfolio (max-width: 520px) {
+  .account-portfolio {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container main-region (max-width: 760px) {
+  .workspace-learning-list li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace-efficiency-metric {
+    padding: var(--space-3) 0;
+    border-right: 0;
+  }
+
+  .workspace-learning-list li > div {
+    justify-content: flex-start;
+  }
+
+  .workspace-plan-event,
+  .workspace-plan-empty {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace-attention-list > li,
+  .workspace-active-project-list > li,
+  .workspace-onboarding li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .workspace-attention-list button,
+  .workspace-active-project-list button,
+  .workspace-onboarding button {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .workspace-plan-empty {
+    display: grid;
+    justify-items: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-overview *,
+  .account-detail-dialog,
+  .account-detail-overlay {
+    scroll-behavior: auto;
+    transition-duration: 0s;
+    animation-duration: 0s;
+  }
+}/* Responsive and preference overrides for this surface family; last in the cascade. */
+@container main-region (max-width: 1000px) {
+  .workspace-operations-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

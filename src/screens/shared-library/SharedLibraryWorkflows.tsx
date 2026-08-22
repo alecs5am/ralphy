@@ -48,18 +48,18 @@ function WorkflowFrame({ kind, title, description, returnFocus, onClose, steps, 
       <Dialog.Content data-instrument-overlay="shared-workflow"
         ref={surface}
         tabIndex={-1}
-        className="shared-workflow-window rounded-panel border-0 bg-surface text-ink shadow-none [&_button]:shadow-none [&_input]:border-0 [&_input]:bg-surface-sunken [&_input]:shadow-none [&_textarea]:border-0 [&_textarea]:bg-surface-sunken [&_textarea]:shadow-none"
+        className="shared-workflow-window rounded-panel bg-surface text-ink [&_input]:bg-surface-sunken [&_textarea]:bg-surface-sunken"
         data-workflow={kind}
         onOpenAutoFocus={(event) => { event.preventDefault(); surface.current?.focus({ preventScroll: true }); }}
         onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(); }}
       >
-        <header className="shared-workflow-header border-0 bg-surface-sunken shadow-none">
+        <header className="shared-workflow-header bg-surface-sunken">
           <div><Dialog.Title>{title}</Dialog.Title><Dialog.Description>{description}</Dialog.Description></div>
           <button type="button" aria-label={`Close ${title}`} onClick={close}><X aria-hidden="true" /></button>
         </header>
         {steps}
         <form className="shared-workflow-body" onSubmit={(event) => event.preventDefault()}>{children}</form>
-        <footer className="shared-workflow-footer border-0 bg-surface-sunken shadow-none">
+        <footer className="shared-workflow-footer bg-surface-sunken">
           <small>{footerNote ?? coreReason}</small>
           <span>{actions}</span>
         </footer>
@@ -69,7 +69,7 @@ function WorkflowFrame({ kind, title, description, returnFocus, onClose, steps, 
 }
 
 function Block({ label, tag, children, className = "" }: { label: string; tag?: string; children: ReactNode; className?: string }) {
-  return <section className={`shared-workflow-block rounded-[14px] border-0 bg-surface-sunken shadow-none ${className}`}><header><h3>{label}</h3>{tag && <span>{tag}</span>}</header>{children}</section>;
+  return <section className={`shared-workflow-block rounded-cell bg-surface-sunken ${className}`}><header><h3>{label}</h3>{tag && <span>{tag}</span>}</header>{children}</section>;
 }
 
 const addSteps = ["Source", "Duplicates", "Describe for reuse", "Confirm"] as const;

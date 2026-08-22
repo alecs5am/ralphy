@@ -14,6 +14,7 @@ import { LibraryScreen } from "../src/screens/LibraryScreen";
 import { bridge } from "../src/lib/ipc";
 import { readWorkbenchPreferences, WORKSPACE_PAGES } from "../src/state/workbench";
 import { createReactHost } from "./react-host";
+import { readStylesheet } from "./style-sources";
 
 vi.mock("../src/components/ProfileMenu", () => ({ ProfileMenu: () => null }));
 
@@ -49,7 +50,7 @@ const workspace: WorkspaceSummary = {
   recentActivity: "2026-08-01T00:00:00.000Z",
 };
 
-const styles = readFileSync(join(process.cwd(), "src/styles/workbench.css"), "utf8");
+const styles = readStylesheet("workbench.css");
 
 function mediaCard(id: string, mime: string): MediaCardDto {
   return {
@@ -217,7 +218,8 @@ describe("workspace projects navigation", () => {
     expect(markup).toContain("Calendar");
     expect(markup).toContain("Shared library");
     expect(markup).not.toContain("THIS COMPUTER");
-    expect(markup).toContain("Open profile menu");
+    // The sidebar user pill opens Settings directly instead of a one-item menu.
+    expect(markup).toContain("Open settings");
     expect(markup).toContain("My Work");
     expect(markup).toContain("Marketplace");
     expect(markup).not.toContain("Local Models");

@@ -1,0 +1,438 @@
+.grid-size-control .snappy-slider {
+  width: 92px;
+}
+
+.snappy-slider {
+  position: relative;
+  width: 100%;
+  height: 18px;
+  flex: none;
+  touch-action: none;
+  cursor: ew-resize;
+  outline: 0;
+}
+
+.snappy-slider:focus-visible {
+  border-radius: var(--radius-pill);
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+
+.snappy-slider[aria-disabled="true"] {
+  opacity: 0.45;
+}
+
+.snappy-slider-track {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 3px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--fg) 14%, transparent);
+  transform: translateY(-50%);
+}
+
+.snappy-slider-range {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.snappy-slider-mark {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 2px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--fg) 48%, transparent);
+  transform: translate(-50%, -50%);
+}
+
+.snappy-slider-thumb {
+  position: absolute;
+  top: 50%;
+  width: 11px;
+  height: 11px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  box-shadow: none;
+  transform: translate(-50%, -50%);
+  transition: width var(--dur-fast) var(--ease), height var(--dur-fast) var(--ease);
+}
+
+.snappy-slider:hover .snappy-slider-thumb,
+.snappy-slider:focus-visible .snappy-slider-thumb {
+  width: 13px;
+  height: 13px;
+}
+
+.dot-accent {
+  background: var(--accent-soft);
+}
+
+.dot-ok {
+  background: var(--ok);
+}
+
+.dot-warn {
+  background: var(--warn);
+}
+
+.dot-danger {
+  background: var(--danger-fill);
+}
+
+.dot-idle {
+  background: var(--idle);
+}/* Project overview and media grid */
+
+.overview-dashboard {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  margin: 0;
+}
+
+.project-domain-body {
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  container-name: project-domain;
+  container-type: inline-size;
+}
+
+.overview-card,
+.overview-section,
+.overview-metrics {
+  min-width: 0;
+  border-radius: var(--radius-lg);
+  background: var(--raised);
+}
+
+.overview-section {
+  border-radius: 0;
+  background: transparent;
+}
+
+.overview-card-icon,
+.overview-row-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--instrument-text-on-dark-primary) 5.5%, transparent);
+  color: var(--fg-2);
+}
+
+.overview-card-body,
+.overview-row > span:nth-child(2),
+.overview-section-heading {
+  min-width: 0;
+}
+
+.overview-card-title,
+.overview-section-heading,
+.overview-status {
+  display: flex;
+  align-items: center;
+}
+
+.overview-card-title h3,
+.overview-section-heading h3 {
+  margin: 0;
+  color: var(--fg);
+  font-size: var(--text-lg);
+}
+
+.overview-status {
+  flex: none;
+  gap: 6px;
+  color: var(--fg-2);
+  font-size: var(--text-xs);
+}
+
+.overview-status .status-dot {
+  width: 6px;
+  height: 6px;
+}
+
+.overview-inline-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0 0;
+}
+
+.overview-inline-facts div {
+  min-width: 0;
+}
+
+.overview-inline-facts dt,
+.overview-inline-facts dd {
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overview-inline-facts dt {
+  color: var(--fg-3);
+  font-size: var(--text-xs);
+}
+
+.overview-inline-facts dd {
+  margin-top: 3px;
+  color: var(--fg-2);
+}
+
+.overview-link {
+  flex: none;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-3);
+  font-size: var(--text-xs);
+}
+
+.overview-link:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+
+.overview-link:focus-visible,
+.overview-row-button:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+
+.overview-media-counts strong,
+.overview-metrics strong {
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+}
+
+.overview-media-counts span,
+.overview-metrics span {
+  color: var(--fg-3);
+  font-size: var(--text-xs);
+}
+
+.overview-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 8px;
+  order: -1;
+}
+
+.overview-metrics div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  padding: 10px;
+}
+
+.overview-section {
+  padding: 18px;
+}
+
+.overview-section-heading {
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.overview-rows {
+  min-width: 0;
+}
+
+.overview-row {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+}
+
+.overview-row:first-child { }
+
+.overview-row-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.overview-row > span:nth-child(2) {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+}
+
+.overview-row strong,
+.overview-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overview-row strong {
+  font-size: var(--text-base);
+}
+
+.overview-row small {
+  color: var(--fg-3);
+  font-size: var(--text-sm);
+}
+
+.overview-empty {
+  margin: 20px 0 4px;
+  color: var(--fg-3);
+}
+
+.overview-pulse-main {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.overview-pulse-main strong { font-size: var(--text-lg); }
+.overview-pulse-main p { margin: 5px 0 0; color: var(--fg-2); }
+
+.overview-pulse-counts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.overview-pulse-counts > div {
+  display: grid;
+  gap: 2px;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  background: var(--panel-solid);
+}
+
+.overview-pulse-counts strong { font-family: var(--font-mono); font-size: var(--text-lg); }
+.overview-pulse-counts span { color: var(--fg-3); font-size: var(--text-xs); }
+
+.overview-unit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.overview-unit-card {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 7px;
+  border-radius: var(--radius-md);
+  background: var(--panel-solid);
+  color: var(--fg);
+  text-align: left;
+}
+
+.overview-unit-card:hover { background: var(--hover); }
+.overview-unit-card:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+
+.overview-unit-visual {
+  display: grid;
+  height: 48px;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 20%, transparent), color-mix(in srgb, var(--instrument-text-on-dark-primary) 3.5%, transparent));
+  color: var(--fg-2);
+}
+
+.overview-unit-visual em { font-size: var(--text-xs); font-style: normal; }
+.overview-unit-card > span:last-child { display: grid; min-width: 0; gap: 3px; }
+.overview-unit-card strong,
+.overview-unit-card small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.overview-unit-card small { color: var(--fg-3); font-size: var(--text-xs); }
+
+@container project-domain (min-width: 1100px) {
+  .overview-dashboard {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    align-content: start;
+  }
+
+  .overview-metrics { grid-column: 1 / -1; }
+  .overview-pulse { grid-column: span 4; }
+  .overview-ready-units { grid-column: span 5; }
+  .overview-distribution { grid-column: span 3; }
+}
+
+.workspace-project-card:focus-visible,
+.mode-segments button:focus-visible,
+.select-menu-trigger:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: -2px;
+}.document-preview {
+  display: flex;
+  align-items: stretch;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* One filter-pill row: icon, then the input on the container's own surface. Stacking a
+   label above a filled field inside a stadium container is what read as a square input
+   trapped in a round frame. */
+.document-search {
+  display: flex;
+  height: var(--control-md);
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--fg-3);
+}
+
+.document-search > svg {
+  flex: none;
+}
+
+.document-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--field-text);
+  font-size: var(--text-sm);
+}
+
+.document-editor {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-radius: var(--field-radius-multiline);
+  background: var(--field-surface);
+  color: var(--field-text);
+}
+
+.document-editor {
+  min-height: 240px;
+  padding: 12px;
+  resize: vertical;
+}
+
+.project-domain-body.is-documents {
+  padding-bottom: 24px;
+  overflow: hidden;
+}

@@ -165,16 +165,13 @@ export function WorkspacePicker({
         <span className="workspace-hero-field" aria-hidden="true" />
         <span className="workspace-hero-field-hi" aria-hidden="true" />
         <span className="workspace-hero-scrim" aria-hidden="true" />
-        <span className="workspace-hero-top">
-          <span className="workspace-hero-orb" aria-hidden="true" />
-          <span className="workspace-hero-chevron">
-            <ChevronDown size={14} strokeWidth={1.6} />
-          </span>
+        <span className="workspace-hero-chevron">
+          <ChevronDown size={12} strokeWidth={2} />
         </span>
         <span className="workspace-hero-copy">
           <strong>{selected?.name ?? "Workspaces"}</strong>
-          <small>
-            {selected?.projectCount ?? 0} PROJ · {selected?.unitCount ?? 0} UNITS · {selected?.sharedCount ?? 0} SHARED
+          <small title={`${selected?.projectCount ?? 0} projects · ${selected?.unitCount ?? 0} units · ${selected?.sharedCount ?? 0} shared`}>
+            {selected?.projectCount ?? 0} PROJ · {selected?.unitCount ?? 0} UNITS
           </small>
         </span>
       </button>

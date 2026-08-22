@@ -1,7 +1,7 @@
-import * as Dialog from "@radix-ui/react-dialog";
-import { Boxes, CalendarDays, X } from "lucide-react";
+import { Boxes, CalendarDays } from "lucide-react";
 import { useState } from "react";
 import type { WorkspaceCalendarNavigationContext, WorkspacePage } from "../../state/workbench";
+import { DetailDialog } from "./DetailDialog";
 import type {
   Availability,
   PlanCoveragePresentation,
@@ -23,7 +23,7 @@ interface Props {
 const attentionStates = new Set(["failed", "reconciliation_required", "unknown"]);
 
 function unavailable(title: string, reason: string) {
-  return <div className="workspace-unavailable rounded-[14px] border-0 bg-surface-sunken px-3 py-2 text-[12px] text-muted shadow-none" role="note"><strong>{title}</strong><p>{reason.replace(/^./, (letter) => letter.toUpperCase())}</p></div>;
+  return <div className="workspace-unavailable rounded-cell bg-surface-sunken px-3 py-2 type-sm text-muted" role="note"><strong>{title}</strong><p>{reason.replace(/^./, (letter) => letter.toUpperCase())}</p></div>;
 }
 
 function statusLabel(value: string): string {
@@ -42,7 +42,7 @@ function DayStrip({ days, events }: { days: number[]; events: PublishingEventPre
     const key = new Date(event.scheduledAt).toDateString();
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
-  return <ol className="workspace-plan-days gap-1 border-0 bg-transparent [&>li]:rounded-control [&>li]:border-0 [&>li]:bg-surface-sunken" aria-label="Next 14 days publishing density">
+  return <ol className="workspace-plan-days gap-1 bg-transparent [&>li]:rounded-control [&>li]:bg-surface-sunken" aria-label="Next 14 days publishing density">
     {days.map((value) => {
       const date = new Date(value);
       const count = counts.get(date.toDateString()) ?? 0;
@@ -77,7 +77,7 @@ function ContentEvent({ event, onOpenCalendar, onOpenUnit, onOpenUnits }: {
   const openUnit = () => event.unit?.projectId
     ? onOpenUnit(event.unit.projectId, event.unitId, unitLabel, unitFocusId)
     : onOpenUnits(unitFocusId);
-  return <li className="workspace-plan-event rounded-[14px] border-0 bg-surface-sunken p-3 shadow-none" data-content-event>
+  return <li className="workspace-plan-event rounded-cell bg-surface-sunken p-3" data-content-event>
     <span className="workspace-unit-glyph" aria-hidden="true"><Boxes /></span>
     <div className="workspace-plan-event-main">
       <h3>{unitLabel}</h3>
@@ -90,7 +90,7 @@ function ContentEvent({ event, onOpenCalendar, onOpenUnit, onOpenUnits }: {
         </li>)}
       </ul>
       {blocked > 0 && <p className="workspace-plan-warning">{blocked} channel{blocked === 1 ? "" : "s"} needs attention</p>}
-      <div className="workspace-plan-actions [&_button]:rounded-control [&_button]:border-0 [&_button]:bg-surface [&_button]:shadow-none">
+      <div className="workspace-plan-actions [&_button]:rounded-control [&_button]:bg-surface">
         <button id={eventFocusId} type="button" aria-label={`Open ${unitLabel} scheduled ${dateLabel} in Calendar`} onClick={() => onOpenCalendar(calendarContext, eventFocusId)}>Open in Calendar</button>
         <button id={unitFocusId} type="button" aria-label={`${event.unit?.projectId ? "Open Unit" : "Open Units for"} ${unitLabel} scheduled ${dateLabel}`} onClick={openUnit}>{event.unit?.projectId ? "Open Unit" : "Open Units"}</button>
         {blocked > 0 && <button id={problemFocusId} type="button" aria-label={`Review problem for ${unitLabel} scheduled ${dateLabel}`} onClick={() => onOpenCalendar(calendarContext, problemFocusId)}>Review problem</button>}
@@ -104,7 +104,7 @@ function PlanCoverage({ value }: { value: Availability<PlanCoveragePresentation[
   return <>
     {value.status === "partial" && unavailable("Partial cadence coverage", value.reason)}
     {value.value.length > 0 ? <ul className="workspace-plan-coverage">
-      {value.value.map((item) => <li className="rounded-control border-0 bg-surface-sunken shadow-none" key={item.id}><span>{item.label}</span><strong>{item.planned} of {item.target} planned</strong><progress value={item.planned} max={item.target} aria-label={`${item.label}: ${item.planned} of ${item.target} planned`} /></li>)}
+      {value.value.map((item) => <li className="rounded-control bg-surface-sunken" key={item.id}><span>{item.label}</span><strong>{item.planned} of {item.target} planned</strong><progress value={item.planned} max={item.target} aria-label={`${item.label}: ${item.planned} of ${item.target} planned`} /></li>)}
     </ul> : unavailable("Plan coverage empty", "No plan coverage values were returned.")}
   </>;
 }
@@ -117,9 +117,9 @@ function ReadyUnscheduled({ value, onOpenUnit, onOpenUnits }: {
   if (value.status !== "ready" && value.status !== "partial") return unavailable(value.status === "empty" ? "No ready Units" : "Ready Unit count unavailable", value.reason);
   return <>
     {value.status === "partial" && unavailable("Partial ready Unit data", value.reason)}
-    {value.value.length > 0 ? <ul className="workspace-ready-list">{value.value.map((unit) => <li className="rounded-control border-0 bg-surface-sunken shadow-none" key={unit.unitId}>
+    {value.value.length > 0 ? <ul className="workspace-ready-list">{value.value.map((unit) => <li className="rounded-control bg-surface-sunken" key={unit.unitId}>
       <span><strong>{unit.title}</strong><small>{unit.projectTitle ?? "Project unavailable"}</small></span>
-      <button className="rounded-control border-0 bg-surface px-3 py-2 text-[12px] text-ink shadow-none" id={`workspace-ready-unit-${unit.unitId}`} type="button" onClick={() => unit.projectId
+      <button className="rounded-control bg-surface px-3 py-2 type-sm text-ink" id={`workspace-ready-unit-${unit.unitId}`} type="button" onClick={() => unit.projectId
         ? onOpenUnit(unit.projectId, unit.unitId, unit.title, `workspace-ready-unit-${unit.unitId}`)
         : onOpenUnits(`workspace-ready-unit-${unit.unitId}`)}>{unit.projectId ? "Open Unit" : "Open Units"}</button>
     </li>)}</ul> : unavailable("No ready Units", "No ready, unscheduled Units were returned.")}
@@ -133,7 +133,7 @@ function ContentPlan({ value, onOpenCalendar, onOpenUnits, onOpenUnit }: {
   onOpenUnit(projectId: string, unitId: string, unitLabel: string, returnFocusId: string): void;
 }) {
   const events = value.upcoming.status === "ready" || value.upcoming.status === "partial" ? value.upcoming.value : [];
-  return <section className="workspace-overview-section workspace-content-plan col-span-12 m-0 min-w-0 max-w-none rounded-panel border-0 bg-surface p-4 shadow-none xl:col-span-6" aria-labelledby="workspace-content-plan-title">
+  return <section className="workspace-overview-section workspace-content-plan col-span-12 m-0 min-w-0 max-w-none rounded-panel bg-surface p-4 @min-[860px]/instrument-desk:col-span-6" aria-labelledby="workspace-content-plan-title">
     <header className="workspace-section-heading"><h2 id="workspace-content-plan-title">Content plan</h2><span>Next 14 days</span></header>
     <p className="workspace-plan-timezone">Dates and times use this device’s timezone; workspace timezone is not available from the current Core contract.</p>
     <PlanCoverage value={value.coverage} />
@@ -157,7 +157,7 @@ function ContentPlan({ value, onOpenCalendar, onOpenUnits, onOpenUnit }: {
 function OutcomeGroup({ title, value, onSelect }: { title: string; value: UnitOutcomePresentation[]; onSelect(value: UnitOutcomePresentation): void }) {
   return <section className="workspace-outcome-group"><h3>{title}</h3>
     {value.length === 0 ? <p>No comparable performance data is available yet.</p> : <div className="workspace-outcome-cards">
-      {value.map((outcome) => <button id={`workspace-outcome-${outcome.id}`} type="button" key={outcome.id} className="workspace-outcome-card rounded-control border-0 bg-surface-sunken p-2 text-ink shadow-none" onClick={() => onSelect(outcome)}>
+      {value.map((outcome) => <button id={`workspace-outcome-${outcome.id}`} type="button" key={outcome.id} className="workspace-outcome-card rounded-control bg-surface-sunken p-2 text-ink" onClick={() => onSelect(outcome)}>
         <span className="workspace-unit-glyph" aria-hidden="true"><Boxes /></span>
         <span><strong>{outcome.title}</strong><small>{outcome.projectTitle} · {outcome.revisionLabel}</small><small>Comparable metrics unavailable</small></span>
       </button>)}
@@ -174,28 +174,28 @@ function UnitOutcomeDetailDialog({ value, onOpenChange, onOpenUnit }: {
   onOpenChange(open: boolean): void;
   onOpenUnit(projectId: string, unitId: string, unitLabel: string, returnFocusId: string): void;
 }) {
-  return <Dialog.Root open={value !== null} onOpenChange={onOpenChange}>
-    {value && <Dialog.Portal forceMount container={typeof document === "undefined" ? undefined : document.body}>
-      <Dialog.Overlay forceMount className="account-detail-overlay" data-instrument-overlay-backdrop="" />
-      <Dialog.Content forceMount className="account-detail-dialog unit-outcome-dialog rounded-panel border-0 bg-surface text-ink shadow-none [&_.account-detail-section]:rounded-[14px] [&_.account-detail-section]:border-0 [&_.account-detail-section]:bg-surface-sunken [&_.account-detail-section]:shadow-none" data-instrument-overlay="workspace-unit-outcome-detail">
-        <header className="account-detail-header"><span><Dialog.Title>{value.title}</Dialog.Title><Dialog.Description>Unit outcome detail · {value.projectTitle} · {value.revisionLabel}</Dialog.Description></span><Dialog.Close asChild><button type="button" aria-label="Close Unit outcome detail"><X aria-hidden="true" /></button></Dialog.Close></header>
-        <div className="account-detail-body">
-          <DetailSection title="Result" reason="Normalized result is not available from the current Core contract." />
-          <DetailSection title="Benchmark method" reason="Benchmark method is not available from the current Core contract." />
-          <DetailSection title="Child publications" reason="Child publication metrics are not available from the current Core contract." />
-          <DetailSection title="Observation window" reason="Observation windows are not available from the current Core contract." />
-          <DetailSection title="Destination" reason="Destination outcomes are not available from the current Core contract." />
-        </div>
-        <footer className="account-detail-footer"><button type="button" className="command-button" onClick={() => onOpenUnit(value.projectId, value.unitId, value.title, `workspace-outcome-${value.id}`)}>Open Unit</button></footer>
-      </Dialog.Content>
-    </Dialog.Portal>}
-  </Dialog.Root>;
+  return <DetailDialog
+    id="workspace-unit-outcome-detail"
+    open={value !== null}
+    className="unit-outcome-dialog"
+    title={value?.title}
+    description={value && `Unit outcome detail · ${value.projectTitle} · ${value.revisionLabel}`}
+    closeLabel="Close Unit outcome detail"
+    footer={value && <button type="button" className="command-button" onClick={() => onOpenUnit(value.projectId, value.unitId, value.title, `workspace-outcome-${value.id}`)}>Open Unit</button>}
+    onOpenChange={onOpenChange}
+  >
+    <DetailSection title="Result" reason="Normalized result is not available from the current Core contract." />
+    <DetailSection title="Benchmark method" reason="Benchmark method is not available from the current Core contract." />
+    <DetailSection title="Child publications" reason="Child publication metrics are not available from the current Core contract." />
+    <DetailSection title="Observation window" reason="Observation windows are not available from the current Core contract." />
+    <DetailSection title="Destination" reason="Destination outcomes are not available from the current Core contract." />
+  </DetailDialog>;
 }
 
 function UnitOutcomes({ value, onOpenUnit }: { value: Availability<UnitOutcomeGroups>; onOpenUnit(projectId: string, unitId: string, unitLabel: string, returnFocusId: string): void }) {
   const [selected, setSelected] = useState<UnitOutcomePresentation | null>(null);
   const groups = value.status === "ready" || value.status === "partial" ? value.value : { top: [], emerging: [], learningOpportunities: [] };
-  return <section className="workspace-overview-section workspace-unit-outcomes col-span-12 m-0 min-w-0 max-w-none rounded-panel border-0 bg-surface p-4 shadow-none xl:col-span-6" aria-labelledby="workspace-unit-outcomes-title">
+  return <section className="workspace-overview-section workspace-unit-outcomes col-span-12 m-0 min-w-0 max-w-none rounded-panel bg-surface p-4 @min-[860px]/instrument-desk:col-span-6" aria-labelledby="workspace-unit-outcomes-title">
     <header className="workspace-section-heading"><h2 id="workspace-unit-outcomes-title">Top and emerging Units</h2><span>Comparable performance</span></header>
     {value.status === "partial" && unavailable("Partial outcome data", value.reason)}
     {(value.status === "empty" || value.status === "unavailable") && unavailable("Comparable performance data is not available yet", value.reason)}

@@ -175,13 +175,13 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
 
   return <InstrumentScreenRoot descriptor={activityInstrumentStates} state={activityInstrumentState(page, selectedEvent !== null)}><div className={`activity-log min-h-0 w-full bg-transparent${selectedEvent ? " has-inspector" : ""}`}>
     <div className="activity-log-main flex min-h-0 flex-col gap-2">
-      <div className="activity-toolbar m-0 flex min-h-11 flex-wrap items-center gap-2 rounded-[14px] border-0 bg-surface-sunken p-2 shadow-none">
-        <label className="activity-search flex h-9 min-w-56 flex-1 items-center gap-2 rounded-control border-0 bg-surface px-3 shadow-none"><Search size={14} /><input className="min-w-0 flex-1 border-0 bg-transparent text-[13px] text-ink outline-none placeholder:text-muted" aria-label="Search activity" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search events" /></label>
+      <div className="activity-toolbar m-0 flex min-h-11 flex-wrap items-center gap-2 bg-transparent p-0">
+        <label className="activity-search flex h-9 min-w-56 flex-1 items-center gap-2 rounded-control bg-surface px-3"><Search size={14} /><input className="min-w-0 flex-1 bg-transparent type-base text-ink outline-none placeholder:text-muted" aria-label="Search activity" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search events" /></label>
         <SelectMenu<"all" | ActivitySource> overlayOwner="project.activity" value={source} options={sourceOptions} ariaLabel="Filter activity source" onValueChange={setSource} />
         <SelectMenu overlayOwner="project.activity" value={model} options={modelOptions} ariaLabel="Filter activity model" onValueChange={setModel} />
       </div>
-      <div className="activity-table min-h-0 flex-1 overflow-hidden rounded-[14px] border-0 bg-surface-sunken shadow-none" role="table" aria-label="Project activity">
-        <div className="activity-table-head border-0 bg-surface px-3 text-[10px] uppercase tracking-[0.1em] text-muted shadow-none" role="row"><span>Time</span><span>Source</span><span>Event</span><span>Entity</span><span>Model</span><span>Cost</span></div>
+      <div className="activity-table min-h-0 flex-1 overflow-hidden bg-transparent" role="table" aria-label="Project activity">
+        <div className="activity-table-head rounded-panel bg-surface px-3 type-meta uppercase tracking-mono text-muted" role="row"><span>Time</span><span>Source</span><span>Event</span><span>Entity</span><span>Model</span><span>Cost</span></div>
         <div className="activity-scroll min-h-0 overflow-auto" role="region" aria-label="Activity events" tabIndex={0} ref={attachOwner} onScroll={instrumentScroll ? undefined : remembered.onScroll}>
           <div className="activity-virtual-list" role="rowgroup" style={{ height: virtualizer.getTotalSize() }}>
             {virtualRows.map((row) => {
@@ -195,7 +195,7 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
               const detail = details[value.entityId];
               const summary = detail ? summarizeActivityRun(detail) : null;
               const eventModel = summary?.models[0] ?? null;
-              return <button type="button" role="row" className={`activity-row activity-event rounded-control border-0 px-2 text-[12px] shadow-none ${selected === value.sequence ? "bg-instrument text-on-instrument [&_*]:text-inherit" : "bg-transparent text-ink hover:bg-surface"}${milestone ? " is-milestone" : ""}`} aria-selected={selected === value.sequence} data-action={value.action} data-tone={tone} key={row.key} ref={(node) => { if (node) rowRefs.current.set(value.sequence, node); else rowRefs.current.delete(value.sequence); }} style={{ height: row.size - 4, transform: `translateY(${row.start - scrollMargin + 2}px)` }} onClick={() => open(value)} onKeyDown={(keyboardEvent) => {
+              return <button type="button" role="row" className={`activity-row activity-event rounded-control px-2 type-sm ${selected === value.sequence ? "bg-instrument text-on-instrument [&_*]:text-inherit" : "bg-transparent text-ink hover:bg-surface"}${milestone ? " is-milestone" : ""}`} aria-selected={selected === value.sequence} data-action={value.action} data-tone={tone} key={row.key} ref={(node) => { if (node) rowRefs.current.set(value.sequence, node); else rowRefs.current.delete(value.sequence); }} style={{ height: row.size - 4, transform: `translateY(${row.start - scrollMargin + 2}px)` }} onClick={() => open(value)} onKeyDown={(keyboardEvent) => {
                 if (keyboardEvent.key === "ArrowDown" || keyboardEvent.key === "ArrowUp") { keyboardEvent.preventDefault(); moveSelection(value, keyboardEvent.key === "ArrowDown" ? 1 : -1); }
                 if (keyboardEvent.key === "Escape") setSelected(null);
               }}>

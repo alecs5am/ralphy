@@ -477,19 +477,23 @@ describe("marketplace navigation", () => {
     const enabledStates: boolean[] = [];
     (globalThis as typeof globalThis & { __agentChatEnabled?: boolean[] }).__agentChatEnabled = enabledStates;
     const restore = vi.spyOn(bridge, "restoreLibrary").mockResolvedValue(null);
+    // The header no longer carries a rail toggle, so the keyboard shortcut the main process
+    // forwards is the affordance under test.
+    let toggleRightPanel: (() => void) | null = null;
+    vi.spyOn(bridge, "onToggleRightPanel").mockImplementation((callback) => {
+      toggleRightPanel = callback;
+      return () => { toggleRightPanel = null; };
+    });
     const { App } = await import("../src/App");
     const { createRoot } = await import("react-dom/client");
     const root = createRoot(host.container as unknown as Element);
     try {
       await act(async () => { root.render(<App />); await settle(); });
       await act(async () => { vi.advanceTimersByTime(1_500); await settle(); });
-      const rightPanelToggle = [...host.container.querySelectorAll("button")]
-        .find((button) => button.getAttribute("aria-label") === "Toggle right panel")!;
-      expect(rightPanelToggle.getAttribute("aria-pressed")).toBe("false");
+      expect(host.container.querySelector("button[aria-label=\"Toggle right panel\"]")).toBeNull();
       expect(document.body.querySelector("[data-instrument-overlay=\"right-rail-sheet\"]")).toBeNull();
       expect(enabledStates.at(-1)).toBe(false);
-      await act(async () => { rightPanelToggle.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })); await settle(); });
-      expect(rightPanelToggle.getAttribute("aria-pressed")).toBe("true");
+      await act(async () => { toggleRightPanel?.(); await settle(); });
       const sheet = document.body.querySelector("[data-instrument-overlay=\"right-rail-sheet\"]")!;
       const chat = sheet.querySelector("[data-testid=\"agent-chat\"]");
       expect(chat).not.toBeNull();
@@ -499,7 +503,7 @@ describe("marketplace navigation", () => {
       expect(marketplace).not.toBeUndefined();
       await act(async () => marketplace!.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
       expect(host.container.textContent).toContain("Discover");
-      expect(rightPanelToggle.getAttribute("aria-pressed")).toBe("true");
+      expect(document.body.querySelector("[data-instrument-overlay=\"right-rail-sheet\"]")).not.toBeNull();
       expect(document.body.querySelector("[data-testid=\"agent-chat\"]")).toBe(chat);
     } finally {
       await act(async () => root.unmount());

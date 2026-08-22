@@ -12,14 +12,67 @@
   --color-surface-sunken: var(--instrument-widget-light-sunken);
   --color-ink: var(--instrument-text-primary);
   --color-muted: var(--instrument-text-secondary-readable);
+  --color-frame: var(--instrument-media-frame);
   --color-instrument: var(--instrument-widget-dark);
   --color-instrument-raised: var(--instrument-widget-dark-raised);
   --color-instrument-hover: var(--instrument-widget-dark-hover);
   --color-on-instrument: var(--instrument-text-on-dark-primary);
   --color-on-instrument-muted: var(--instrument-text-on-dark-secondary-readable);
+  --color-on-instrument-muted-decorative: var(--instrument-text-on-dark-muted-decorative);
+  --color-selected: var(--instrument-selected-surface);
+  --color-selected-hover: var(--instrument-selected-surface-hover);
+  --color-selected-ink: var(--instrument-selected-ink);
+  --color-desk-primary: var(--instrument-desk-primary-surface);
+  --color-desk-primary-ink: var(--instrument-desk-primary-ink);
+  --color-track-on-instrument: var(--instrument-track-on-dark);
   --color-alert: var(--instrument-alert);
   --color-divider: var(--instrument-divider);
 
-  --radius-panel: 24px;
-  --radius-control: 999px;
+  /* The radius and type scales, named by role. tokens.css owns the values; naming them here is
+     what makes `text-base` and `var(--text-base)` the same decision instead of two. */
+  --radius-panel: var(--radius-panel);
+  --radius-control: var(--radius-pill);
+  --radius-cell: var(--radius-lg);
+  --radius-field: var(--radius-md);
+  --radius-chip: var(--radius-sm);
+  --radius-key: var(--radius-keycap);
+
+
+  --height-control-sm: var(--control-sm);
+  --height-control-md: var(--control-md);
+  --height-control-lg: var(--control-lg);
+
+  --tracking-tight: var(--tracking-tight);
+  --tracking-label: var(--tracking-label);
+  --tracking-caps: var(--tracking-caps);
+  --tracking-wide: var(--tracking-wide);
+  --tracking-mono: var(--tracking-mono);
+}
+
+/* Type scale: one property, named from the same tokens the stylesheets use. Tailwind's own
+   text-* namespace pairs a line-height with every size, and an unpaired size emits an invalid
+   line-height that overrides the stylesheet's; a scale of its own sets only the size. */
+@theme inline {
+  --type-mono-xs: var(--text-mono-xs);
+  --type-mono-sm: var(--text-mono-sm);
+  --type-meta: var(--text-meta);
+  --type-mono-md: var(--text-mono-md);
+  --type-xs: var(--text-xs);
+  --type-label: var(--text-label);
+  --type-sm: var(--text-sm);
+  --type-ui: var(--text-ui);
+  --type-base: var(--text-base);
+  --type-md: var(--text-md);
+  --type-lg: var(--text-lg);
+  --type-title: var(--text-title);
+  --type-heading: var(--text-heading);
+  --type-xl: var(--text-xl);
+  --type-metric: var(--text-metric);
+  --type-section: var(--text-section);
+  --type-display: var(--text-display);
+  --type-hero: var(--text-hero);
+}
+
+@utility type-* {
+  font-size: --value(--type-*);
 }

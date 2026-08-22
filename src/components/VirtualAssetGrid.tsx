@@ -186,7 +186,9 @@ export function MediaCardPreview({
   else if (source && kind === "audio") content = <AudioWaveform src={source.url} name={mediaCardName(card)} sizeBytes={source.sizeBytes} compact onReady={loaded} onError={failed} />;
   return <div className={`asset-preview bg-[var(--instrument-media-frame)]${className ? ` ${className}` : ""}`} style={fill ? undefined : { aspectRatio: aspectRatio ?? 1, height: "auto" }} aria-hidden={kind === "audio" ? undefined : true}>
     {content}
-    <span className={`asset-extension type-${kind ?? "file"}`}><FileGlyph kind={kind} size={11} />{kind ?? "file"}</span>
+    {/* The frame stays chrome-free once a preview lands; the badge is only the label for an
+        empty frame, and the kind is already spelled out in the caption below it. */}
+    {!source && <span className={`asset-extension type-${kind ?? "file"}`}><FileGlyph kind={kind} size={11} />{kind ?? "file"}</span>}
   </div>;
 }
 
@@ -206,14 +208,17 @@ export function MediaCardTile({ card, project, rootEpoch, selected, resolvePrevi
     onSelect();
     onContextMenu({ x: event.clientX, y: event.clientY });
   };
-  return <article className={`asset-tile media-card-tile group overflow-hidden rounded-[14px] border-0 bg-instrument p-1.5 text-on-instrument shadow-none${selected ? " is-selected ring-2 ring-alert" : ""}`} data-selected={selected || undefined} style={{ "--asset-aspect": ratio } as CSSProperties}>
+  return <article className={`asset-tile media-card-tile group bg-transparent text-ink ${selected ? "is-selected" : ""}`} data-selected={selected || undefined} style={{ "--asset-aspect": ratio } as CSSProperties}>
     <MediaCardPreview card={card} project={project} rootEpoch={rootEpoch} resolvePreview={resolvePreview} aspectRatio={ratio} onAspectRatio={rememberRatio} />
-    <button className="media-card-button flex min-h-11 w-full min-w-0 items-center gap-2 border-0 bg-transparent px-1 py-1.5 text-left text-on-instrument" type="button" aria-label={`${name}${selected ? ", selected" : ""}`} aria-pressed={selected} onClick={onSelect} onDoubleClick={onOpen} onKeyDown={onKeyDown} onContextMenu={openContext}>
-      <i className={`size-1.5 shrink-0 rounded-full ${selected ? "bg-alert" : "bg-on-instrument-muted"}`} aria-hidden="true" />
-      <span className="asset-copy min-w-0"><strong className="block truncate text-[13px] font-medium leading-4 text-on-instrument">{name}</strong><small className="block truncate text-[10px] leading-4 text-on-instrument-muted">{mediaCardKind(card)} · {mediaCardFacts(card)}</small></span>
+    <button className="media-card-button flex w-full min-w-0 items-start gap-1.5 bg-transparent p-0 text-left text-ink" type="button" aria-label={`${name}${selected ? ", selected" : ""}`} aria-pressed={selected} onClick={onSelect} onDoubleClick={onOpen} onKeyDown={onKeyDown} onContextMenu={openContext}>
+      <i className={`mt-1 size-1.5 shrink-0 rounded-full ${selected ? "bg-alert" : "bg-ink"}`} aria-hidden="true" />
+      <span className="asset-copy min-w-0"><strong className="block truncate type-label leading-4 font-normal text-ink">{name}</strong><small className="block truncate font-code type-mono-xs leading-4 tracking-label text-muted uppercase">{mediaCardKind(card)} · {mediaCardFacts(card)}</small></span>
     </button>
   </article>;
 }
+
+// Caption sits under the frame now, so the row estimate has to reserve its two lines.
+const CAPTION_HEIGHT = 44;
 
 export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resolvePreview, onSelect, onOpen, onContextMenu, density, maxColumns = 7, gap = 16, hasMore, loadingMore, appendError, onLoadMore, onRetryAppend, scrollMemory, scrollKey, scrollResetToken }: VirtualAssetGridProps) {
   const instrumentScroll = useOptionalInstrumentScroll();
@@ -236,7 +241,7 @@ export function VirtualAssetGrid({ items, project, rootEpoch, selectedRef, resol
     count: items.length,
     getScrollElement: () => scrollRoot,
     getItemKey: (index) => previewKey(project, rootEpoch, items[index]!.ref),
-    estimateSize: (index) => geometry.tileWidth / cardRatio(items[index]!) + 54,
+    estimateSize: (index) => geometry.tileWidth / cardRatio(items[index]!) + CAPTION_HEIGHT,
     initialOffset: () => instrumentScroll ? 0 : scrollMemory.get(scrollKey) ?? 0,
     initialRect: { width: 800, height: 600 },
     lanes: geometry.columns,

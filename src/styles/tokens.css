@@ -53,6 +53,12 @@ html[data-theme="dark"] {
   --instrument-text-muted-decorative: #6A6A66;
   --instrument-text-secondary-readable: #A4A4A0;
   --instrument-unreviewed: #3A3A38;
+  --instrument-desk-primary-surface: #F2F2F0;
+  --instrument-desk-primary-ink: #111111;
+  --instrument-dock-hover: #242422;
+  --instrument-resize-grip: #242422;
+  --instrument-resize-grip-active: #6A6A66;
+  --instrument-error-surface: #2A1615;
   --instrument-widget-dark: #141414;
   --instrument-widget-dark-raised: #1E1E1E;
   --instrument-widget-dark-hover: #1C1C1C;
@@ -68,12 +74,32 @@ html[data-theme="dark"] {
   --instrument-traffic-close: #ED6A5E;
   --instrument-traffic-minimize: #F0B544;
   --instrument-traffic-maximize: #5CC45C;
+  --instrument-identity1: #426F4C;
+  --instrument-identity1-highlight: #8FAE94;
+  --instrument-identity2: #207070;
+  --instrument-identity2-highlight: #80AFAE;
+  --instrument-identity3: #38698A;
+  --instrument-identity3-highlight: #89A9C1;
+  --instrument-identity4: #5F5D8C;
+  --instrument-identity4-highlight: #A1A1C3;
+  --instrument-identity5: #7C5378;
+  --instrument-identity5-highlight: #B79AB4;
+  --instrument-identity6: #895155;
+  --instrument-identity6-highlight: #C2989A;
+  --instrument-identity7: #835935;
+  --instrument-identity7-highlight: #BD9E86;
+  --instrument-identity8: #6A6630;
+  --instrument-identity8-highlight: #A9A783;
+  --instrument-track-on-dark: #3A3A38;
   --instrument-ghost: #262626;
   --instrument-ghost-hover: #2E2E2E;
   --instrument-divider: #DFE2E9;
   --instrument-focus-on-light: #111111;
   --instrument-focus-on-dark: #DFE2E9;
   --instrument-composer-surface: #F2F2F0;
+  --instrument-selected-surface: #F2F2F0;
+  --instrument-selected-surface-hover: #FFFFFF;
+  --instrument-selected-ink: #111111;
   --instrument-waveform-wave: #4A4A48;
   --instrument-waveform-progress: #E8E8E6;
   --instrument-waveform-cursor: #DFE2E9;
@@ -100,6 +126,12 @@ html[data-theme="light"] {
   --instrument-text-muted-decorative: #9A9A96;
   --instrument-text-secondary-readable: #4A4A48;
   --instrument-unreviewed: #CCCED6;
+  --instrument-desk-primary-surface: #141414;
+  --instrument-desk-primary-ink: #F2F2F0;
+  --instrument-dock-hover: #DFE2E9;
+  --instrument-resize-grip: #CCCED6;
+  --instrument-resize-grip-active: #9A9A96;
+  --instrument-error-surface: #F6DEDC;
   --instrument-widget-dark: #141414;
   --instrument-widget-dark-raised: #1E1E1E;
   --instrument-widget-dark-hover: #1C1C1C;
@@ -115,12 +147,32 @@ html[data-theme="light"] {
   --instrument-traffic-close: #ED6A5E;
   --instrument-traffic-minimize: #F0B544;
   --instrument-traffic-maximize: #5CC45C;
+  --instrument-identity1: #426F4C;
+  --instrument-identity1-highlight: #8FAE94;
+  --instrument-identity2: #207070;
+  --instrument-identity2-highlight: #80AFAE;
+  --instrument-identity3: #38698A;
+  --instrument-identity3-highlight: #89A9C1;
+  --instrument-identity4: #5F5D8C;
+  --instrument-identity4-highlight: #A1A1C3;
+  --instrument-identity5: #7C5378;
+  --instrument-identity5-highlight: #B79AB4;
+  --instrument-identity6: #895155;
+  --instrument-identity6-highlight: #C2989A;
+  --instrument-identity7: #835935;
+  --instrument-identity7-highlight: #BD9E86;
+  --instrument-identity8: #6A6630;
+  --instrument-identity8-highlight: #A9A783;
+  --instrument-track-on-dark: #3A3A38;
   --instrument-ghost: #262626;
   --instrument-ghost-hover: #2E2E2E;
   --instrument-divider: #DFE2E9;
   --instrument-focus-on-light: #111111;
   --instrument-focus-on-dark: #DFE2E9;
   --instrument-composer-surface: #F2F2F0;
+  --instrument-selected-surface: #F2F2F0;
+  --instrument-selected-surface-hover: #FFFFFF;
+  --instrument-selected-ink: #111111;
   --instrument-waveform-wave: #4A4A48;
   --instrument-waveform-progress: #E8E8E6;
   --instrument-waveform-cursor: #DFE2E9;
@@ -143,12 +195,16 @@ html[data-theme="light"] {
   --raised: var(--instrument-legacy-raised);
   --hover: var(--instrument-legacy-hover);
   --selected: var(--instrument-legacy-selected);
+  --selected-ink: var(--instrument-text-on-dark-primary);
   --pressed: var(--instrument-dither-base);
 
   --fg: var(--instrument-text-on-dark-primary);
   --fg-2: var(--instrument-text-on-dark-secondary-readable);
   --fg-3: var(--instrument-text-on-dark-secondary-readable);
-  --fg-4: var(--instrument-text-on-dark-muted-decorative);
+  /* The muted inks are decorative by design (status dots, dividers): at 2-3.4:1 they are
+     unreadable as copy, so the legacy 4th ink step stops at secondary. Reach for
+     --instrument-text-*-muted-decorative directly when the mark carries no text. */
+  --fg-4: var(--instrument-text-on-dark-secondary-readable);
 
   --accent: var(--instrument-text-on-dark-primary);
   --accent-soft: var(--instrument-text-on-dark-secondary-readable);
@@ -172,42 +228,78 @@ html[data-theme="light"] {
   --focus-on-light: var(--instrument-focus-on-light);
   --focus-on-dark: var(--instrument-focus-on-dark);
   --control-focus-color: var(--focus-on-dark);
+  /* One focus ring for the whole app. --fg is already context-aware (on-dark ink at the
+     root, desk ink inside .app-mode-work), so the ring follows its surface for free. */
+  --focus-ring-width: 2px;
+  --focus-ring: var(--focus-ring-width) solid var(--fg);
+  --focus-ring-offset: 2px;
+  --focus-ring-offset-inset: -2px;
   --control-focus: 2px solid var(--control-focus-color);
   --control-focus-on-light: 2px solid var(--focus-on-light);
+  /* Settings sit on the theme's own surfaces, so their ring is the theme ink. */
+  --control-focus-on-theme: var(--focus-ring-width) solid var(--instrument-text-primary);
 
   --field-surface: var(--instrument-ghost);
-  --field-border: color-mix(in srgb, var(--instrument-text-on-dark-primary) 14%, transparent);
-  --field-border-focus: var(--focus-on-dark);
-  --field-radius: var(--radius-md);
+  /* design v2: no borders, shadows or volume anywhere — separation is surface or air.
+     Kept as a token so the remaining border declarations resolve to nothing. */
+  /* Controls are pills by default (design: controls/pills/dock R999). Multi-line fields
+     opt out to --radius-xl, the composer radius, because a stadium reads wrong at height. */
+  --field-radius: var(--radius-pill);
+  --field-radius-multiline: var(--radius-xl);
   --field-height: var(--control-md);
   --field-text: var(--fg);
   --field-placeholder: var(--fg-3);
 
   --menu-surface: var(--instrument-ghost);
-  --menu-border: color-mix(in srgb, var(--instrument-text-on-dark-primary) 14%, transparent);
   --menu-radius: 16px;
   --menu-padding: 2px;
   --menu-item-height: 30px;
   --menu-item-radius: var(--radius-md);
-  --menu-shadow: none;
 
   --font-sans: "AWS Diatype", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   --font-mono: "AWS Diatype Mono", "Andale Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --font-doto: "Doto", var(--font-mono);
+  /* Type scale of the instrument language: mono micro-labels 9-10.5px uppercase,
+     UI text 11.5-13px, widget headings 16-17px. Doto is numbers only, >= 13px. */
+  --text-mono-xs: 9px;
+  --text-mono-sm: 9.5px;
+  --text-meta: 10px;
+  --text-mono-md: 10.5px;
   --text-xs: 11px;
+  --text-label: 11.5px;
   --text-sm: 12px;
+  --text-ui: 12.5px;
   --text-base: 13px;
+  --text-md: 14px;
   --text-lg: 15px;
+  --text-title: 16px;
+  --text-subtitle: 17px;
+  --text-heading: 18px;
   --text-xl: 20px;
+  --text-page: 21px;
+  --text-metric: 22px;
+  --text-section: 24px;
+  --text-display: 26px;
+  --text-hero: 28px;
   --leading-tight: 1.3;
   --leading-snug: 1.45;
   --leading-body: 1.55;
 
+  --tracking-tight: -0.03em;
+  --tracking-label: 0.06em;
+  --tracking-caps: 0.08em;
+  --tracking-wide: 0.14em;
+  --tracking-mono: 0.11em;
+
+  --radius-keycap: 5px;
   --radius-sm: 8px;
   --radius-md: 10px;
   --radius-lg: 14px;
+  --radius-preview: 16px;
   --radius-xl: 18px;
+  --radius-panel: 24px;
   --radius-pill: 999px;
+  --radius-circle: 50%;
 
   --control-sm: 26px;
   --control-md: 30px;
@@ -228,9 +320,33 @@ html[data-theme="light"] {
   --space-8: 40px;
 
   --blur: none;
-  --ring-select: 0 0 0 2px var(--accent);
-  --shadow-pop: none;
-  --shadow-window: none;
+
+  /* Stacking scale. Every positioned layer picks one of these; raw z-index values are
+     what made overlay ordering unreviewable. */
+  --z-base: 1;
+  --z-raised: 2;
+  --z-sticky: 8;
+  --z-header: 20;
+  --z-agent-popover: 30;
+  --z-desk-float: 40;
+  --z-chooser-backdrop: 70;
+  --z-chooser: 71;
+  --z-scrim: 80;
+  --z-scrim-content: 81;
+  --z-inspector: 90;
+  --z-overlay-backdrop: 110;
+  --z-sheet-backdrop: 119;
+  --z-sheet: 120;
+  --z-island: 150;
+  --z-mock-review: 180;
+  --z-inspector-float: 91;
+  --z-modal: 200;
+  --z-modal-content: 201;
+  --z-overlay-surface: 1400;
+  --z-popover: 1600;
+  --z-viewer: 2000;
+  --z-viewer-backdrop: 2100;
+  --z-viewer-content: 2101;
 
   --ease: cubic-bezier(0.2, 0, 0.2, 1);
   --dur-fast: 90ms;
@@ -238,14 +354,22 @@ html[data-theme="light"] {
   --dur-slow: 220ms;
 
   --dither-op: 1;
-  --p1: var(--instrument-dither-base);
-  --p2: var(--instrument-dither-highlight);
-  --p3: var(--instrument-dither-base);
-  --p4: var(--instrument-dither-highlight);
-  --p5: var(--instrument-dither-base);
-  --p6: var(--instrument-dither-highlight);
-  --p7: var(--instrument-dither-base);
-  --p8: var(--instrument-dither-highlight);
+  --p1: var(--instrument-identity1);
+  --p1-hi: var(--instrument-identity1-highlight);
+  --p2: var(--instrument-identity2);
+  --p2-hi: var(--instrument-identity2-highlight);
+  --p3: var(--instrument-identity3);
+  --p3-hi: var(--instrument-identity3-highlight);
+  --p4: var(--instrument-identity4);
+  --p4-hi: var(--instrument-identity4-highlight);
+  --p5: var(--instrument-identity5);
+  --p5-hi: var(--instrument-identity5-highlight);
+  --p6: var(--instrument-identity6);
+  --p6-hi: var(--instrument-identity6-highlight);
+  --p7: var(--instrument-identity7);
+  --p7-hi: var(--instrument-identity7-highlight);
+  --p8: var(--instrument-identity8);
+  --p8-hi: var(--instrument-identity8-highlight);
 }
 
 /* Settings is portalled to body, outside the route-level light semantic scope. */
@@ -257,6 +381,7 @@ html[data-theme="light"] {
   --raised: var(--instrument-widget-light-sunken);
   --hover: var(--instrument-widget-light-hover);
   --selected: var(--instrument-desk-hover);
+  --selected-ink: var(--instrument-text-primary);
   --pressed: var(--instrument-unreviewed);
   --fg: var(--instrument-text-primary);
   --fg-2: var(--instrument-text-secondary-readable);
@@ -277,14 +402,9 @@ html[data-theme="light"] {
   --control-text-hover: var(--instrument-text-primary);
   --control-focus-color: var(--instrument-text-primary);
   --field-surface: var(--instrument-widget-light-sunken);
-  --field-border: color-mix(in srgb, var(--instrument-text-primary) 14%, transparent);
-  --field-border-focus: var(--instrument-text-primary);
   --field-text: var(--instrument-text-primary);
   --field-placeholder: var(--instrument-text-secondary-readable);
   --menu-surface: var(--instrument-widget-light);
-  --menu-border: color-mix(in srgb, var(--instrument-text-primary) 14%, transparent);
-  --instrument-ghost: var(--instrument-widget-light);
-  --instrument-ghost-hover: var(--instrument-widget-light-hover);
 }
 
 @supports (corner-shape: squircle) {
@@ -297,6 +417,8 @@ html[data-theme="light"] {
   }
 
   .pill,
+  .rounded-full,
+  .rounded-control,
   .dot,
   .project-facts > span,
   .tag-list button,
@@ -307,6 +429,7 @@ html[data-theme="light"] {
     corner-shape: round;
   }
 
+  .rounded-panel,
   .asset-modal-surface,
   .select-menu-content,
   .select-menu-trigger,
@@ -316,10 +439,8 @@ html[data-theme="light"] {
   .profile-avatar,
   .workspace-picker-popover,
   .workspace-hero,
-  .workspace-hero-orb,
   .project-glyph,
   .sidebar-row,
-  .sidebar-nav-row,
   .video-controls,
   .image-zoom-controls,
   .inspector-preview {
@@ -349,14 +470,15 @@ html[data-theme="light"] {
   background: transparent;
 }
 
+/* Thumb follows the ink of the active theme, not the on-dark ink. */
 ::-webkit-scrollbar-thumb {
   border: 3px solid transparent;
   border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--instrument-text-on-dark-primary) 16%, transparent);
+  background: color-mix(in srgb, var(--instrument-text-primary) 16%, transparent);
   background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--instrument-text-on-dark-primary) 32%, transparent);
+  background: color-mix(in srgb, var(--instrument-text-primary) 32%, transparent);
   background-clip: padding-box;
 }

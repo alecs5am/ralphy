@@ -1,0 +1,333 @@
+
+
+@media (prefers-reduced-motion: reduce) {
+  .gooey-tabs-blobs { filter: none !important}
+  .gooey-tabs-blob-leading { transition-duration: var(--dur)}
+  .gooey-tabs-blob-trailing { display: none}
+}/* Workspace Memory rulebook */
+.memory-region { display: flex; min-height: 0; flex-direction: column; overflow: hidden; padding: 0; background: var(--canvas)}
+.memory-topbar { min-height: 0; display: flex; height: 46px; align-items: center; padding: 0 32px; border: 0}
+.memory-topbar > div { display: flex; align-items: center; margin-left: auto}
+.memory-topbar button,
+.memory-rule-body footer button { display: inline-flex; height: 28px; align-items: center; padding: 0 10px; background: var(--raised); color: var(--fg-2); border-radius: var(--radius-pill); font-size: var(--text-label); gap: 6px}
+.memory-topbar button:hover,
+.memory-rule-body footer button:hover { background: var(--hover); color: var(--fg)}
+.memory-topbar svg,
+.memory-rule-body footer svg { width: 13px; height: 13px}
+button.memory-primary { background: var(--accent); color: var(--sunken)}
+button.memory-primary:hover { background: var(--accent); color: var(--sunken)}
+.memory-header { display: flex; padding: 10px 32px 18px}
+.memory-header h1 { margin: 0 0 5px}
+.memory-header p { margin: 0}
+.memory-counts { display: grid; justify-items: end; gap: 5px; margin-left: auto; font-family: var(--font-mono); font-weight: 400}
+.memory-counts strong { font-weight: 400}
+.memory-counts span { color: var(--fg-4); font-size: var(--text-mono-md)}
+.memory-filters { display: flex; align-items: center; flex-wrap: wrap; border: 0}
+.memory-search { position: relative; display: flex; width: 248px; align-items: center; background: var(--raised)}
+.memory-search > svg { position: absolute; left: 9px}
+.memory-search input { width: 100%; height: 100%; padding: 0 28px; border: 0; outline: 0; background: transparent; font: 12px var(--font-sans)}
+.memory-search > button { position: absolute; right: 5px; display: grid; width: 18px; height: 18px; place-items: center; border-radius: var(--radius-pill); color: var(--fg-3)}
+.memory-search > button svg { width: 10px}
+.memory-segments { display: flex; background: var(--sunken)}
+.memory-segments button { padding: 0 9px; border-radius: var(--radius-pill)}
+.memory-segments button.is-active { background: var(--selected)}
+.memory-filters > i { width: 1px; height: 16px; background: var(--line)}
+.memory-type-chips { display: flex; min-width: 0; overflow: hidden}
+.memory-type-chips button { display: inline-flex; min-height: 32px; align-items: center; gap: 6px; padding: 0 10px; border-radius: var(--radius-pill); background: var(--raised); font-size: var(--text-xs)}
+.memory-type-chips button span { color: var(--fg-4); font: 10.5px var(--font-mono)}
+.memory-type-chips button:hover { background: var(--hover)}
+.memory-type-chips button.is-active { background: color-mix(in srgb, var(--accent) 20%, transparent)}
+.memory-type-chips button.is-active span { color: var(--accent-soft)}
+.memory-clear { flex: none; padding: 0 4px; color: var(--fg-3); font-size: var(--text-label)}
+.memory-clear:hover { color: var(--fg)}
+.memory-sort { display: inline-flex; height: 24px; align-items: center; gap: 6px; margin-left: auto; padding: 0 8px; border-radius: var(--radius-sm); color: var(--fg-3); font: 10.5px var(--font-mono)}
+.memory-sort:hover { background: var(--raised); color: var(--fg)}
+.memory-sort svg { width: 11px}
+.memory-review-strip { display: flex; align-items: center; padding: 10px 11px 10px 13px; background: color-mix(in srgb, var(--warn) 12%, transparent)}
+.memory-review-strip > svg { width: 14px}
+.memory-review-strip span { color: var(--fg-2)}
+.memory-review-strip button { height: 26px; margin-left: auto; padding: 0 11px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--warn); font-size: var(--text-label)}
+.memory-review-strip.is-reviewing { background: var(--panel-solid); color: var(--fg-3)}
+.memory-review-strip.is-reviewing button { background: var(--raised); color: var(--fg-2)}
+.memory-rulebook { min-height: 0; flex: 1; scrollbar-width: none; overflow: auto}
+.memory-rulebook::-webkit-scrollbar { display: none}
+.memory-group + .memory-group { margin-top: 22px}
+.memory-group > header { display: flex; height: 24px; align-items: center; padding: 0 2px; font: 10px var(--font-mono)}
+.memory-group > header svg { width: 12px}
+.memory-group > header b { letter-spacing: 0}
+.memory-group > header i { height: 1px; flex: 1; background: color-mix(in srgb, var(--instrument-text-on-dark-primary) 5%, transparent)}
+.memory-group > div { display: grid; gap: 3px}
+.memory-rule { overflow: hidden; background: transparent}
+.memory-rule.is-open,
+.memory-rule.is-proposal { background: var(--instrument-legacy-sidebar)}
+.memory-rule-head { min-height: 0; width: 100%; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; padding: 11px 15px; text-align: left}
+.memory-rule-head:hover { background: color-mix(in srgb, var(--instrument-text-on-dark-primary) 2.5%, transparent)}
+.memory-rule-head:focus-visible { outline: 2px solid var(--fg); outline-offset: -2px}
+.memory-rule-head > svg { width: 13px; color: var(--fg-4); transition: transform var(--dur-fast) var(--ease)}
+.memory-rule.is-open .memory-rule-head > svg { transform: rotate(90deg)}
+.memory-rule-head > span { display: grid; min-width: 0; gap: 7px}
+.memory-rule-head strong { overflow: hidden; color: var(--fg); font-size: var(--text-base); font-weight: 400; text-overflow: ellipsis; white-space: nowrap}
+.memory-rule-head small { display: flex; align-items: center; gap: 8px; color: var(--fg-4); font: 10px var(--font-mono)}
+.memory-rule-head small em { display: inline-flex; align-items: center; gap: 5px; color: var(--fg-3); font: 11.5px var(--font-sans); font-style: normal}
+.memory-rule-head small em.is-global { color: var(--fg-3)}
+.memory-rule-head small em.is-workspace { color: var(--fg-2)}
+.memory-rule-head small em.memory-tag { height: 17px; padding: 0 6px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent-soft); font: 10px var(--font-mono); letter-spacing: .06em}
+.memory-rule-head small em svg { width: 10px}
+.memory-rule-head small i { font-style: normal}
+.memory-rule-head small b { display: inline-flex; align-items: center; gap: 4px; color: var(--warn); font: 10.5px var(--font-sans)}
+.memory-rule-head small b svg { width: 11px}
+.memory-rule-head > i { max-width: 180px; overflow: hidden; color: var(--fg-4); font: 10px var(--font-mono); font-style: normal; text-overflow: ellipsis; white-space: nowrap}
+.memory-rule-body { display: grid; gap: 19px; padding: 14px 18px 16px 45px; border: 0}
+.memory-rule-body > section { padding-top: 0}
+.memory-rule-body section { display: grid; gap: 6px}
+.memory-rule-body label { color: var(--fg-4); font: 10px var(--font-mono); letter-spacing: .09em}
+.memory-rule-body p { margin: 0; color: var(--fg-2); font-size: var(--text-sm); line-height: 1.5}
+.memory-rule-columns { display: grid; grid-template-columns: repeat(2, minmax(260px, 1fr)); gap: 30px}
+.memory-rule-body ul { display: grid; gap: 6px; margin: 0; padding-left: 18px; color: var(--fg-2); font-size: var(--text-sm); line-height: 1.45}
+.memory-rule-body ul.is-negative { padding: 0; list-style: none}
+.memory-rule-body ul.is-negative li { display: flex; gap: 8px; color: var(--fg-3)}
+.memory-rule-body ul.is-negative svg { width: 12px; flex: none; margin-top: 2px}
+.memory-quality { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 7px; padding: 10px 11px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--warn) 12%, transparent); color: var(--warn); font-size: var(--text-sm); line-height: 1.45}
+.memory-quality > svg { width: 12px; margin-top: 2px}
+.memory-quality button { grid-column: 2; justify-self: start; height: 26px; padding: 0 9px; border-radius: var(--radius-pill); background: var(--raised); color: var(--fg)}
+.memory-override { display: flex; align-items: center; gap: 9px; padding: 10px 11px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--accent) 13%, transparent); color: var(--accent-soft); font-size: var(--text-sm)}
+.memory-override svg { width: 13px; flex: none}
+.memory-rule-body footer { display: flex; align-items: center; gap: 7px; padding-top: 2px}
+.memory-rule-body footer > span { margin-left: 3px; color: var(--fg-4); font: 10px var(--font-mono)}
+.memory-rule-body footer .memory-retire { margin-left: auto}
+.memory-state { display: flex; min-height: 120px; align-items: center; justify-content: center; gap: 8px; color: var(--fg-3); font-size: var(--text-sm)}
+.memory-state svg { width: 14px}
+.memory-state button { color: var(--fg); text-decoration: underline}
+.memory-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%)}
+
+.memory-modal-overlay { position: fixed; z-index: var(--z-scrim); inset: 0; background: color-mix(in srgb, var(--instrument-media-frame) 56%, transparent); backdrop-filter: blur(3px)}
+.memory-modal { position: fixed; z-index: var(--z-scrim-content); top: 50%; left: 50%; width: min(640px, calc(100vw - 32px)); max-height: min(760px, calc(100vh - 32px)); overflow: auto; border-radius: var(--radius-xl); outline: none; background: var(--instrument-widget-dark-raised); color: var(--fg); transform: translate(-50%, -50%)}
+.memory-modal > header { display: flex; align-items: flex-start; gap: 20px; padding: 18px 20px}
+.memory-modal > header > div { display: grid; gap: 4px}
+.memory-modal > header h2 { margin: 0; font-size: var(--text-title); font-weight: 400}
+.memory-modal > header p { margin: 0; color: var(--fg-3); font-size: var(--text-label)}
+.memory-modal > header > button { display: grid; width: 26px; height: 26px; place-items: center; margin-left: auto; border-radius: var(--radius-sm); color: var(--fg-3)}
+.memory-modal > header > button:hover { background: var(--raised); color: var(--fg)}
+.memory-modal > header svg { width: 14px}
+.memory-modal.memory-recall { top: 0; right: 0; left: auto; width: 392px; height: 100vh; max-height: none; border-block: 0; border-right: 0; border-radius: var(--radius-xl) 0 0 var(--radius-xl); transform: none}
+.memory-recall-counts { display: flex; gap: 7px; padding: 16px 18px 0}
+.memory-recall-counts span { padding: 4px 7px; border-radius: var(--radius-sm); background: var(--raised); color: var(--fg-2); font: 10px var(--font-mono)}
+.memory-recall-note { margin: 14px 18px; padding: 10px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--accent-soft); font-size: var(--text-label); line-height: 1.45}
+.memory-recall-list { display: grid; gap: 3px; padding: 0 12px 20px}
+.memory-recall-list article { display: grid; gap: 5px; padding: 12px; border-radius: var(--radius-md); background: var(--raised)}
+.memory-recall-list small { color: var(--fg-4); font: 9.5px var(--font-mono)}
+.memory-recall-list strong { font-size: var(--text-ui); font-weight: 400}
+.memory-recall-list p { margin: 0; color: var(--fg-3); font-size: var(--text-label); line-height: 1.4}
+.memory-editor { display: grid; gap: 14px; padding: 18px 20px 20px}
+.memory-editor > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px}
+.memory-editor > div:has(> label:nth-child(3)) { grid-template-columns: repeat(3, minmax(0, 1fr))}
+.memory-editor label { display: grid; gap: 6px; color: var(--fg-2); font-size: var(--text-label)}
+.memory-editor label small { color: var(--fg-4); font: 9px var(--font-mono)}
+.memory-editor input,
+.memory-editor textarea,
+.memory-editor select { width: 100%; min-height: 30px; padding: 7px 9px; border-radius: var(--radius-sm); outline: none; background: var(--field-surface); color: var(--fg); font: 12px var(--font-sans)}
+.memory-editor textarea { min-height: 68px; resize: vertical; line-height: 1.4}
+.memory-editor input:focus,
+.memory-editor textarea:focus,
+.memory-editor select:focus { outline: var(--control-focus); outline-offset: 1px}
+.memory-editor .select-menu-trigger,
+.memory-static-field { display: flex; width: 100%; min-height: 30px; align-items: center; padding: 0 9px; border-radius: var(--radius-sm); background: var(--field-surface); color: var(--fg); font-size: var(--text-sm)}
+.memory-editor .select-menu-trigger .select-menu-chevron { margin-left: auto}
+.memory-editor details { color: var(--fg-3); font-size: var(--text-label)}
+.memory-editor details > div { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-top: 12px}
+.memory-editor details label:last-child { grid-column: 1 / -1}
+.memory-editor footer,
+.memory-confirm footer { display: flex; justify-content: flex-end; gap: 8px; padding-top: 3px}
+.memory-editor footer button,
+.memory-confirm footer button { height: 30px; padding: 0 12px; border-radius: var(--radius-pill); background: var(--raised); color: var(--fg-2)}
+.memory-form-error { margin: 0; color: var(--danger); font-size: var(--text-label)}
+.memory-history { display: grid; gap: 3px; padding: 14px}
+.memory-history article { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; padding: 11px; border-radius: var(--radius-md); background: var(--raised)}
+.memory-history article > svg { width: 14px; color: var(--fg-4)}
+.memory-history article span { display: grid; gap: 4px}
+.memory-history strong { font: 11px var(--font-mono)}
+.memory-history small { color: var(--fg-4); font: 9.5px var(--font-mono)}
+.memory-history p { margin: 2px 0 0; color: var(--fg-2); font-size: var(--text-sm)}
+.memory-confirm { padding: 18px 20px 20px}
+.memory-confirm > p { margin: 0 0 20px; color: var(--fg-2); line-height: 1.5}
+.memory-confirm button.memory-danger { background: color-mix(in srgb, var(--danger-fill) 18%, transparent); color: var(--danger)}
+
+@media (max-width: 1080px) {
+  .memory-header,
+  .memory-filters,
+  .memory-rulebook { padding-inline: 20px}
+  .memory-review-strip { margin-inline: 20px}
+  .memory-type-chips { display: none}
+  .memory-rule-columns { grid-template-columns: 1fr}
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .memory-rule-head > svg { transition: none}
+}/* Unit grid and social previews */
+
+.unit-card {
+  display: grid;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  border-radius: var(--radius-lg);
+  background: var(--raised);
+  color: var(--fg);
+  text-align: left}
+
+.unit-card:hover { background: var(--hover)}
+.unit-card.is-selected { background: var(--selected);
+  color: var(--selected-ink)}
+.unit-card:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px}
+
+.unit-card-preview {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  place-items: center;
+  align-content: center;
+  gap: 7px;
+  background: radial-gradient(circle at 20% 10%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 54%), var(--panel-solid);
+  color: var(--fg-3)}
+
+.unit-card-preview img,
+.unit-card-preview video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover}
+
+.unit-card-preview p {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  padding: 0 18px;
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  text-align: left;
+  text-transform: none;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5}
+
+.unit-card-copy { display: grid; gap: 5px; padding: 12px}
+.unit-card-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap}
+.unit-card-copy > span { display: flex; align-items: center; justify-content: space-between; gap: 8px}
+.unit-card-copy em { color: var(--fg-2); font-size: var(--text-xs); font-style: normal}
+.unit-card-copy small { color: var(--fg-3); font-size: var(--text-xs)}
+
+.unit-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--fg-2);
+  font-size: var(--text-xs);
+  white-space: nowrap}
+
+.unit-status > span {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: var(--radius-circle);
+  background: var(--fg-3)}
+
+.unit-status.status-ok > span { background: var(--ok)}
+.unit-status.status-warn > span { background: var(--warn)}
+.unit-status.status-danger > span { background: var(--danger-fill)}
+
+.unit-viewer-overlay {
+  position: fixed;
+  z-index: var(--z-scrim);
+  inset: 0;
+  background: color-mix(in srgb, var(--instrument-media-frame) 68%, transparent);
+  backdrop-filter: blur(5px)}
+
+.unit-viewer {
+  position: fixed;
+  z-index: var(--z-scrim-content);
+  top: 50%;
+  left: 50%;
+  display: grid;
+  width: min(1160px, calc(100vw - 64px));
+  height: min(820px, calc(100vh - 64px));
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background: var(--canvas);
+  outline: none;
+  transform: translate(-50%, -50%)}
+
+.unit-viewer-header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px}
+
+.unit-viewer-header h2,
+.unit-viewer-header p { margin: 0}
+.unit-viewer-header h2 { font-size: var(--text-lg)}
+.unit-viewer-header p { margin-top: 3px; color: var(--fg-3); font-size: var(--text-xs)}
+.unit-viewer-actions { display: flex; align-items: center; gap: 8px}
+
+.unit-social-stage {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--sunken)}
+
+.unit-viewer-meta {
+  overflow: auto;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: var(--raised)}
+
+.unit-viewer-meta h3 { margin: 0 0 14px; font-size: var(--text-base)}
+.unit-viewer-meta dl { display: grid; gap: 12px; margin: 0}
+.unit-viewer-meta dl > div { min-width: 0}
+.unit-viewer-meta dt { color: var(--fg-3); font-size: var(--text-xs)}
+.unit-viewer-meta dd { overflow-wrap: anywhere; margin: 3px 0 0; color: var(--fg-2); font-family: var(--font-mono); font-size: var(--text-xs)}
+
+.unit-viewer-production {
+  margin-top: 18px;
+  padding-top: 16px;
+  color: var(--fg-2);
+  font-size: var(--text-xs)}
+
+.unit-viewer-production summary { cursor: pointer}
+.unit-viewer-production dl { margin-top: 14px}
+.unit-viewer-production h4 { margin: 16px 0 6px; color: var(--fg); font-size: var(--text-sm)}
+.unit-viewer-production ul { margin: 0; padding-left: 18px}
+.unit-viewer-production p { color: var(--fg-3)}
+
+.preview-empty {
+  display: grid;
+  place-items: center;
+  color: var(--fg-3)}
+
+@media (max-width: 820px) {
+  .unit-viewer { width: calc(100vw - 24px); height: calc(100vh - 24px)}
+  .unit-social-stage { min-height: 420px}
+  .unit-viewer-meta { display: block; overflow: visible}
+  .unit-viewer-header { align-items: flex-start}
+  .unit-viewer-actions { flex-wrap: wrap; justify-content: flex-end}
+}
+
+.grid-size-control {
+  height: var(--control-md);
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 0 11px;
+  border-radius: var(--field-radius);
+  background: var(--field-surface);
+  font-size: var(--text-sm)}
+
+.grid-size-control {
+  margin: 0}

@@ -68,6 +68,10 @@ const defaultProps = {
   profile: <span>Profile</span>,
   routeScrollKey: "workspace:a",
   leftVisible: true,
+  leftWidth: 240,
+  onLeftWidthChange: () => undefined,
+  rightWidth: 292,
+  onRightWidthChange: () => undefined,
   rightPreference: true,
   rightOverlayOpen: false,
   onToggleLeft: () => undefined,
@@ -196,6 +200,72 @@ describe("instrument shell", () => {
       expect(desk.querySelector("button")).toBe(button);
       expect(button.textContent).toBe("second");
       expect(mounted.host.container.ownerDocument.activeElement).toBe(button);
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
+  test("resizes the docked rail up to 1000px and clamps it against the desk minimum", async () => {
+    const onRightWidthChange = vi.fn();
+    const mounted = await mountShell({ onRightWidthChange });
+    try {
+      const shell = mounted.host.container.querySelector(".instrument-shell")!;
+      const desk = mounted.host.container.querySelector(".instrument-desk-scroll")!;
+      const rail = () => mounted.host.container.querySelector(".instrument-right-rail") as HTMLElement;
+      const handle = () => mounted.host.container.querySelector(".resize-instrument-rail")!;
+      await act(async () => {
+        mounted.observer.resize(shell, 2_560, 900);
+        mounted.observer.resize(desk, 2_020, 800);
+        await settle();
+      });
+      expect(shell.getAttribute("data-right-rail-mode")).toBe("docked");
+      expect(rail().style.width).toBe("292px");
+
+      await mounted.render({ rightWidth: 1_000 });
+      expect(rail().style.width).toBe("1000px");
+      expect(handle().getAttribute("aria-valuemax")).toBe("1000");
+
+      // Past the ceiling the rail holds at 1000 rather than following the request.
+      await mounted.render({ rightWidth: 4_000 });
+      expect(rail().style.width).toBe("1000px");
+
+      // On a narrow frame the desk minimum wins, so a wide rail cannot squeeze it out.
+      await act(async () => {
+        mounted.observer.resize(shell, 1_400, 900);
+        await settle();
+      });
+      expect(rail().style.width).toBe("480px");
+      expect(handle().getAttribute("aria-valuemax")).toBe("480");
+      expect(onRightWidthChange).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
+  test("sizes the sidebar column from its own width and clamps it to the sidebar bounds", async () => {
+    const mounted = await mountShell();
+    try {
+      const shell = mounted.host.container.querySelector(".instrument-shell")!;
+      const handle = () => mounted.host.container.querySelector(".resize-instrument-sidebar")!;
+      const leftColumn = () => (shell.style as unknown as Record<string, string>)["--instrument-left-width"];
+      expect(leftColumn()).toBe("240px");
+      expect(handle().getAttribute("aria-valuenow")).toBe("240");
+
+      await mounted.render({ leftWidth: 360 });
+      expect(leftColumn()).toBe("360px");
+
+      // Past the bounds the column holds at the limit rather than following the request.
+      await mounted.render({ leftWidth: 4_000 });
+      expect(leftColumn()).toBe("420px");
+      await mounted.render({ leftWidth: 10 });
+      expect(leftColumn()).toBe("216px");
+
+      // A hidden sidebar contributes no track, but its remembered width is still the handle's.
+      await mounted.render({ leftWidth: 320, leftVisible: false });
+      expect(leftColumn()).toBe("0px");
+      expect(mounted.host.container.querySelector(".resize-instrument-sidebar")).toBeNull();
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.host.restore();

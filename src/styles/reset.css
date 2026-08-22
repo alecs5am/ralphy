@@ -18,12 +18,6 @@ body {
   font-family: var(--font-sans);
 }
 
-.instrument-doto {
-  font-family: var(--font-doto);
-  font-size: max(13px, 1em);
-  font-weight: 800;
-}
-
 button,
 input,
 textarea,
@@ -40,9 +34,26 @@ button {
   background: transparent;
 }
 
-:focus,
-:focus-visible {
+/* Pointer focus stays quiet; keyboard focus always draws the one ring. Components
+   override only the offset when the default would be clipped by their own overflow. */
+:focus {
   outline: none;
+}
+
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* A field wrapped in a container shows the ring on the container, so the inner control
+   must not draw a second one. */
+:is(label, .field, [data-field]):focus-within :is(input, textarea, select) {
+  outline: none;
+}
+
+:is(label, .field, [data-field]):focus-within {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset-inset);
 }
 
 img,

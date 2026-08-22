@@ -310,8 +310,8 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
       <Dialog.Content asChild data-instrument-overlay="shared-viewer"
         onOpenAutoFocus={(event) => { event.preventDefault(); surfaceRef.current?.focus({ preventScroll: true }); }}
         onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(); }}>
-        <section ref={surfaceRef} tabIndex={-1} className="shared-artifact-viewer rounded-panel border-0 bg-surface text-ink shadow-none [&_.shared-viewer-stage]:border-0 [&_.shared-viewer-stage]:shadow-none" aria-label={`Preview ${detail.slug}`}>
-          <header className="shared-viewer-head border-0 bg-surface-sunken shadow-none">
+        <section ref={surfaceRef} tabIndex={-1} className="shared-artifact-viewer rounded-panel bg-surface text-ink" aria-label={`Preview ${detail.slug}`}>
+          <header className="shared-viewer-head bg-surface-sunken">
             <span>{topLine}</span>
             <button type="button" aria-label="Open original" aria-describedby={detail.preview === "no-target" ? targetlessActionId : undefined} disabled={detail.preview === "no-target" || openState === "pending"} onClick={() => { void openOriginal(); }}><ExternalLink aria-hidden="true" />{openState === "pending" ? "Opening original…" : "Open original"}</button>
             <button type="button" aria-label="Close viewer" onClick={close}><X aria-hidden="true" /></button>

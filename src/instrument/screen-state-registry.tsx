@@ -5,13 +5,14 @@ import type {
   MarketplaceCategory,
   MarketplaceLibrarySection,
 } from "../state/marketplace-navigation";
+import type { SettingsPageId } from "../screens/settings/registry";
 import type { WorkspacePage } from "../state/workbench";
 
 export type InstrumentRouteKey =
   | `startup.${"welcome" | "library" | "migration"}`
   | `workspace.${WorkspacePage}`
   | `project.${ProjectView}`
-  | `settings.${"general" | "profile" | "appearance" | "providers" | "about"}`
+  | `settings.${SettingsPageId}`
   | `marketplace.${"discover" | "results" | "collection" | "detail"}`
   | `marketplace.category.${MarketplaceCategory}`
   | `marketplace.library.${MarketplaceLibrarySection}`

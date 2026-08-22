@@ -27,7 +27,9 @@
     "smoke:secret-handoff": "RALPHY_PACKAGED_APP='release/Ralphy Media.app' node scripts/smoke-electron.mjs --secret-handoff",
     "icon:mac": "zsh scripts/build-mac-icon.sh",
     "package:mac": "bun run build && bun run icon:mac && node scripts/package-mac.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "audit:style": "node scripts/audit-style-hygiene.mjs",
+    "audit:style:strict": "STYLE_AUDIT_STRICT=1 node scripts/audit-style-hygiene.mjs"
   },
   "trustedDependencies": [
     "electron"

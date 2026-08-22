@@ -7,7 +7,7 @@ export function ProjectDock<Id extends string>({ active, items, onSelect }: {
   items: readonly ProjectDockItem<Id>[];
   onSelect(id: Id): void;
 }): ReactElement {
-  return <nav className="project-dock mode-segments" aria-label="Project view" role="tablist">
+  return <nav className="project-dock" aria-label="Project view" role="tablist">
     {items.map(({ id, label, icon: Icon, disabledReason }) => <button
       id={`project-tab-${id}`}
       type="button"

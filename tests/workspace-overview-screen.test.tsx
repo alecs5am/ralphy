@@ -15,6 +15,7 @@ import { WorkspaceInsights } from "../src/screens/workspace/WorkspaceInsights";
 import { WorkspaceOperations } from "../src/screens/workspace/WorkspaceOperations";
 import { WorkspaceOverviewHeader } from "../src/screens/workspace/WorkspaceOverviewHeader";
 import { createReactHost } from "./react-host";
+import { readStylesheet } from "./style-sources";
 
 const populatedOverview = {
   workspace: {
@@ -1279,7 +1280,7 @@ describe("workspace overview shell", () => {
   });
 
   test("locks the narrow operations order and account breakpoints", () => {
-    const css = readFileSync(new URL("../src/styles/workspace-overview.css", import.meta.url), "utf8");
+    const css = readStylesheet("workspace-overview.css");
 
     expect(css).toMatch(/\.workspace-operations-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(0,\s*1fr\)/s);
     expect(css).toMatch(/@container main-region \(max-width:\s*1000px\)[\s\S]*?\.workspace-operations-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);

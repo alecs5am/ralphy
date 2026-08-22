@@ -1,5 +1,5 @@
-import { Settings } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { Settings, SlidersHorizontal } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import { InstrumentOverlay } from "./overlay-registry";
 import type { InstrumentProfileIdentity } from "./types";
@@ -49,9 +49,13 @@ function layoutKey(trigger: HTMLElement, menu: HTMLElement) {
   ].join(",");
 }
 
-export function InstrumentProfileControl({ identity, onOpenSettings }: {
+export function InstrumentProfileControl({ identity, onOpenSettings, avatar, variant = "compact" }: {
   identity: InstrumentProfileIdentity;
   onOpenSettings(): void;
+  /** Rendered instead of the avatar image / initials fallback, e.g. a generated identity avatar. */
+  avatar?: ReactNode;
+  /** "pill" is the sidebar-footer user pill: full-width plate with a settings glyph on the right. */
+  variant?: "compact" | "pill";
 }) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<CSSProperties>({ visibility: "hidden" });
@@ -136,19 +140,24 @@ export function InstrumentProfileControl({ identity, onOpenSettings }: {
       ref={trigger}
       className="instrument-profile-trigger"
       type="button"
-      aria-label="Open profile menu"
-      aria-haspopup="menu"
-      aria-expanded={open}
+      data-variant={variant}
+      aria-label={variant === "pill" ? "Open settings" : "Open profile menu"}
+      aria-haspopup={variant === "pill" ? undefined : "menu"}
+      aria-expanded={variant === "pill" ? undefined : open}
       onClick={() => {
+        // The pill's only action is Settings, so it opens it directly instead of
+        // routing through a one-item menu.
+        if (variant === "pill") return onOpenSettings();
         if (open) return setOpen(false);
         setPosition({ visibility: "hidden" });
         setOpen(true);
       }}
     >
-      {avatarUrl
+      {avatar ?? (avatarUrl
         ? <img className="instrument-profile-avatar" src={avatarUrl} alt="" onError={() => setFailedAvatarUrl(avatarUrl)} />
-        : <span className="instrument-profile-initials" aria-hidden="true">{identity.initials}</span>}
+        : <span className="instrument-profile-initials" aria-hidden="true">{identity.initials}</span>)}
       <span title={identity.displayName}>{identity.displayName}</span>
+      {variant === "pill" && <SlidersHorizontal className="instrument-profile-settings-glyph" aria-hidden="true" size={14} strokeWidth={1.8} />}
     </button>
     <InstrumentOverlay
       id="profile-menu"
@@ -158,11 +167,11 @@ export function InstrumentProfileControl({ identity, onOpenSettings }: {
       opener={trigger.current}
       onOpenChange={setOpen}
     >
-      <div ref={menu} className="instrument-profile-menu" data-instrument-root="instrument-profile-menu" style={{ position: "fixed", ...position }}>
+      <div ref={menu} className="instrument-profile-menu" data-instrument-root="instrument-profile-menu" style={position}>
         <div className="instrument-profile-menu-identity">
-          {avatarUrl
+          {avatar ?? (avatarUrl
             ? <img className="instrument-profile-avatar" src={avatarUrl} alt="" onError={() => setFailedAvatarUrl(avatarUrl)} />
-            : <span className="instrument-profile-initials" aria-hidden="true">{identity.initials}</span>}
+            : <span className="instrument-profile-initials" aria-hidden="true">{identity.initials}</span>)}
           <span title={identity.displayName}>{identity.displayName}</span>
         </div>
         <button type="button" role="menuitem" onClick={() => { setOpen(false); onOpenSettings(); }}>

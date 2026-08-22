@@ -6,22 +6,32 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ReactElement,
   type ReactNode,
   type ReactPortal,
 } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, ArrowRight, House, PanelLeft, PanelRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, PanelLeft } from "lucide-react";
 
+import { ResizeHandle } from "../components/ui/ResizeHandle";
 import { InstrumentOverlay } from "./overlay-registry";
 import type { InstrumentRightRailMode, InstrumentRightRailOwner } from "./types";
 
 const DOCK_WINDOW_MIN = 1_280;
 const DOCK_DESK_MIN = 680;
-const RIGHT_RAIL_WIDTH = 292;
+const RIGHT_RAIL_MIN = 292;
+const RIGHT_RAIL_MAX = 1_000;
+const LEFT_MIN = 216;
+const LEFT_MAX = 420;
+const LEFT_DEFAULT = 240;
 
 export interface InstrumentScrollContextValue {
   element: HTMLElement | null;
+  /* Where a desk-level floating control mounts. It is the column rather than the scroller so
+     the control keeps still while the desk scrolls under it, and it is centred on the project
+     rather than on the window. */
+  floatHost: HTMLElement | null;
   width: number;
   height: number;
   routeScrollKey: string;
@@ -43,9 +53,12 @@ export interface InstrumentShellProps {
   desk: ReactNode;
   chat: ReactNode;
   island: ReactNode;
-  profile: ReactNode;
   routeScrollKey: string;
   leftVisible: boolean;
+  leftWidth: number;
+  onLeftWidthChange(width: number): void;
+  rightWidth: number;
+  onRightWidthChange(width: number): void;
   rightPreference: boolean;
   rightOverlayOpen: boolean;
   topChrome?: {
@@ -53,7 +66,6 @@ export interface InstrumentShellProps {
     canGoForward: boolean;
     onBack(): void;
     onForward(): void;
-    onHome(): void;
   };
   onToggleLeft(): void;
   onToggleRightPreference(): void;
@@ -75,6 +87,13 @@ interface PendingRouteTransition {
 interface InternalRightRailContextValue extends InstrumentRightRailContextValue {
   host: HTMLElement | null;
   register(owner: InstrumentRightRailOwner, label: string): () => void;
+}
+
+// A missing or NaN width must not collapse the layout maths, so an unusable request falls
+// back to the column's own default rather than propagating into the dock calculation.
+function clampWidth(requested: number, min: number, max: number, fallback: number): number {
+  const value = Number.isFinite(requested) ? Math.round(requested) : fallback;
+  return Math.min(Math.max(value, min), Math.max(min, max));
 }
 
 const ScrollContext = createContext<InstrumentScrollContextValue | null>(null);
@@ -124,12 +143,14 @@ export function InstrumentRightRailPortal({ owner, label, children }: {
 export function InstrumentShell(props: InstrumentShellProps): ReactElement {
   const frameRef = useRef<HTMLDivElement>(null);
   const [deskElement, setDeskElement] = useState<HTMLDivElement | null>(null);
+  const [deskColumn, setDeskColumn] = useState<HTMLElement | null>(null);
   const [railHost] = useState<HTMLElement | null>(() => {
     if (typeof document === "undefined") return null;
     const host = document.createElement("div");
     host.setAttribute("class", "instrument-right-rail-host");
     return host;
   });
+  const [columnResizing, setColumnResizing] = useState(false);
   const [railParking, setRailParking] = useState<HTMLDivElement | null>(null);
   const [dockedRailTarget, setDockedRailTarget] = useState<HTMLDivElement | null>(null);
   const [overlayRailTarget, setOverlayRailTarget] = useState<HTMLDivElement | null>(null);
@@ -155,9 +176,18 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
     pendingRouteTransition.current = transition;
   }
 
+  const leftWidth = clampWidth(props.leftWidth, LEFT_MIN, LEFT_MAX, LEFT_DEFAULT);
+  const leftColumn = props.leftVisible ? leftWidth : 0;
+  // The rail may not eat the desk: its ceiling is whatever is left after the sidebar and the
+  // desk minimum, so dragging wide on a narrow window cannot silently flip it to overlay.
+  const railMax = Math.max(
+    RIGHT_RAIL_MIN,
+    Math.min(RIGHT_RAIL_MAX, dimensions.frameWidth - leftColumn - DOCK_DESK_MIN),
+  );
+  const railWidth = clampWidth(props.rightWidth, RIGHT_RAIL_MIN, railMax, RIGHT_RAIL_MIN);
   const dockedDeskWidth = modeRef.current === "docked"
     ? dimensions.deskWidth
-    : dimensions.deskWidth - RIGHT_RAIL_WIDTH;
+    : dimensions.deskWidth - railWidth;
   const dockEligible = dimensions.frameWidth >= DOCK_WINDOW_MIN && dockedDeskWidth >= DOCK_DESK_MIN;
   const mode = resolveRightRailMode({
     dockEligible,
@@ -279,6 +309,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
 
   const scrollContext = useMemo<InstrumentScrollContextValue>(() => ({
     element: deskElement,
+    floatHost: deskColumn,
     width: dimensions.deskWidth,
     height: dimensions.deskHeight,
     routeScrollKey: props.routeScrollKey,
@@ -289,7 +320,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
       offsets.current.set(snapshot.key, snapshot.offset);
       if (snapshot.key === props.routeScrollKey) deskElement?.scrollTo({ top: snapshot.offset });
     },
-  }), [deskElement, dimensions.deskHeight, dimensions.deskWidth, props.routeScrollKey]);
+  }), [deskColumn, deskElement, dimensions.deskHeight, dimensions.deskWidth, props.routeScrollKey]);
 
   const railContext = useMemo<InternalRightRailContextValue>(() => ({
     mode,
@@ -303,14 +334,19 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
   return <ScrollContext.Provider value={scrollContext}>
     <RightRailContext.Provider value={railContext}>
       <div
-        className={`instrument-shell col-span-3 row-start-1 grid h-full min-h-0 w-full min-w-0 overflow-hidden bg-desk grid-rows-[48px_minmax(0,1fr)] ${props.leftVisible ? "grid-cols-[240px_minmax(0,1fr)_auto]" : "grid-cols-[0_minmax(0,1fr)_auto]"}`}
+        className="instrument-shell col-span-3 row-start-1 grid h-full min-h-0 w-full min-w-0 overflow-hidden bg-desk grid-cols-[var(--instrument-left-width)_auto_minmax(0,1fr)] grid-rows-[48px_minmax(0,1fr)]"
         ref={frameRef}
         data-right-rail-mode={mode}
         data-instrument-native-inset="76"
+        data-rail-resizing={columnResizing || undefined}
+        style={{
+          "--instrument-left-width": `${leftColumn}px`,
+          "--instrument-right-rail-width": `${railWidth}px`,
+        } as CSSProperties}
       >
         <header
           className="instrument-top-row relative col-span-3 row-start-1 grid h-12 min-h-0 min-w-0 items-center bg-desk [-webkit-app-region:drag]"
-          style={{ gridTemplateColumns: `${props.leftVisible ? 240 : 0}px minmax(0, 1fr) ${mode === "docked" ? RIGHT_RAIL_WIDTH : 0}px` }}
+          style={{ gridTemplateColumns: `${leftColumn}px ${mode === "docked" ? railWidth : 0}px minmax(0, 1fr)` }}
         >
           {props.topChrome && <div className="absolute inset-y-0 left-0 z-10 flex items-center gap-1 pl-[84px] [-webkit-app-region:no-drag]">
             <button className="grid size-7 place-items-center rounded-full text-ink hover:bg-board focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink" type="button" title={props.leftVisible ? "Hide sidebar" : "Show sidebar"} aria-label="Toggle sidebar" aria-pressed={props.leftVisible} onClick={props.onToggleLeft}>
@@ -322,22 +358,25 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
             <button className="grid size-7 place-items-center rounded-full text-muted hover:bg-board hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-35" type="button" title="Forward" aria-label="Forward" disabled={!props.topChrome.canGoForward} onClick={props.topChrome.onForward}>
               <ArrowRight size={15} strokeWidth={1.6} aria-hidden="true" />
             </button>
-            <button className="main-header-home grid size-7 place-items-center rounded-full text-muted hover:bg-board hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink" type="button" title="Projects" aria-label="Projects" onClick={props.topChrome.onHome}>
-              <House size={15} strokeWidth={1.6} aria-hidden="true" />
-            </button>
           </div>}
-          <div className="instrument-island-slot col-start-2 row-start-1 min-w-0 justify-self-center [-webkit-app-region:no-drag]">{props.island}</div>
-          <div className="instrument-top-actions absolute inset-y-0 right-2 z-10 flex items-center gap-1 [-webkit-app-region:no-drag]">
-            {props.topChrome && <>
-              <button className={`grid size-7 place-items-center rounded-full hover:bg-board focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${mode === "closed" ? "text-muted" : "bg-board text-ink"}`} type="button" title="Toggle right panel (⌘R)" aria-label="Toggle right panel" aria-pressed={mode !== "closed"} onClick={(event) => { if (mode === "closed") openRail(event.currentTarget); else closeRail(); }}>
-                <PanelRight size={15} strokeWidth={1.6} aria-hidden="true" />
-              </button>
-            </>}
-            {props.profile && <div className="instrument-profile-slot ml-1 [&_.instrument-profile-trigger]:size-8 [&_.instrument-profile-trigger]:justify-center [&_.instrument-profile-trigger]:overflow-hidden [&_.instrument-profile-trigger]:rounded-full [&_.instrument-profile-trigger]:p-0 [&_.instrument-profile-trigger]:text-ink [&_.instrument-profile-trigger:hover]:bg-board [&_.instrument-profile-trigger>span:last-child]:hidden">{props.profile}</div>}
-          </div>
+          <div className="instrument-island-slot absolute inset-y-0 left-1/2 z-10 flex -translate-x-1/2 items-start pt-1.5 [-webkit-app-region:no-drag]">{props.island}</div>
         </header>
-        {props.leftVisible && <div className="instrument-left-stack col-start-1 row-start-2 flex h-full min-h-0 w-[240px] overflow-hidden bg-desk p-2 pt-0">{props.sidebar}</div>}
-        <section className="instrument-desk-column col-start-2 row-start-2 flex min-h-0 min-w-0 flex-col overflow-hidden bg-desk">
+        {props.leftVisible && <div className="instrument-left-stack relative col-start-1 row-start-2 flex h-full min-h-0 w-full overflow-hidden bg-desk p-2 pt-0">
+          {props.sidebar}
+          <ResizeHandle
+            ariaLabel="Resize sidebar"
+            orientation="vertical"
+            value={leftWidth}
+            min={LEFT_MIN}
+            max={LEFT_MAX}
+            defaultValue={LEFT_DEFAULT}
+            direction={1}
+            className="resize-instrument-sidebar"
+            onChange={props.onLeftWidthChange}
+            onActiveChange={setColumnResizing}
+          />
+        </div>}
+        <section className="instrument-desk-column relative col-start-3 row-start-2 flex min-h-0 min-w-0 flex-col overflow-hidden bg-desk" ref={setDeskColumn}>
           <div
             className="instrument-desk-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
             ref={setDeskElement}
@@ -348,7 +387,22 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
             {props.desk}
           </div>
         </section>
-        <aside className={`instrument-right-rail col-start-3 row-start-2 w-[292px] min-h-0 min-w-0 overflow-hidden bg-desk p-2 pl-0 ${mode === "docked" ? "flex" : "hidden"}`} aria-label={activeRail.label} hidden={mode !== "docked"}>
+        {/* The rail stands beside the sidebar, so its own left inset comes from the sidebar's
+            right padding; without a sidebar it has to pay for that gap itself. The "right"
+            in the class name and the props is historical — the rail is a dock, not a side. */}
+        <aside className={`instrument-right-rail relative col-start-2 row-start-2 min-h-0 min-w-0 overflow-hidden bg-desk p-2 ${props.leftVisible ? "pl-0" : ""} ${mode === "docked" ? "flex" : "hidden"}`} style={{ width: railWidth }} aria-label={activeRail.label} hidden={mode !== "docked"}>
+          <ResizeHandle
+            ariaLabel="Resize agent panel"
+            orientation="vertical"
+            value={railWidth}
+            min={RIGHT_RAIL_MIN}
+            max={railMax}
+            defaultValue={RIGHT_RAIL_MIN}
+            direction={1}
+            className="resize-instrument-rail"
+            onChange={props.onRightWidthChange}
+            onActiveChange={setColumnResizing}
+          />
           <div className="min-h-0 min-w-0 flex-1" ref={setDockedRailTarget} />
         </aside>
         <div className="instrument-rail-parking" ref={setRailParking} hidden inert>

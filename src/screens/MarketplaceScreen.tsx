@@ -372,7 +372,7 @@ export function MarketplaceScreenView({
       ref={scrollRef}
       onScroll={(event) => onRememberLocation({ scrollTop: event.currentTarget.scrollTop })}
     >
-      <p className="marketplace-target-state mt-2 w-fit rounded-full bg-surface-sunken px-3 py-1.5 font-mono text-[9px] tracking-[.04em] text-muted">{targetMessage}</p>
+      <p className="marketplace-target-state mt-2 w-fit rounded-full bg-surface-sunken px-3 py-1.5 font-mono type-mono-xs tracking-label text-muted">{targetMessage}</p>
       {detailReference
         ? <MarketplaceModelDetail reference={detailReference} onBack={onBack} onReviewDownload={(model) => setWorkflow({ kind: "model-download", itemLabel: model.name })} />
         : publicDetailState === "ready" && (detailItem?.category === "templates" || detailItem?.category === "recipes")

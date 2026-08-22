@@ -8,11 +8,12 @@
   --raised: var(--instrument-widget-light-sunken);
   --hover: var(--instrument-widget-light-hover);
   --selected: var(--instrument-text-primary);
+  --selected-ink: var(--instrument-text-on-dark-primary);
   --pressed: var(--instrument-desk-hover);
   --fg: var(--instrument-text-primary);
   --fg-2: var(--instrument-text-secondary-readable);
   --fg-3: var(--instrument-text-secondary-readable);
-  --fg-4: var(--instrument-text-muted-decorative);
+  --fg-4: var(--instrument-text-secondary-readable);
   --accent: var(--instrument-text-primary);
   --accent-soft: var(--instrument-text-secondary-readable);
   --ok: var(--instrument-text-primary);
@@ -21,21 +22,63 @@
   --line: color-mix(in srgb, var(--instrument-text-primary) 8%, transparent);
   --line-strong: color-mix(in srgb, var(--instrument-text-primary) 16%, transparent);
   --field-surface: var(--instrument-widget-light-sunken);
-  --field-border: transparent;
-  --field-border-focus: var(--instrument-text-primary);
+  --field-text: var(--instrument-text-primary);
+  --field-placeholder: var(--instrument-text-secondary-readable);
   --control-focus-color: var(--instrument-text-primary);
+  /* Without these the control inks fell through to the root on-dark values and painted
+     #A4A4A0 labels on light filter pills. */
+  --control-hover: var(--instrument-widget-light-hover);
+  /* --control-text-hover doubles as the selected ink, so this stays a surface rather than
+     an inversion fill; inverted pills use --selected / --selected-ink instead. */
+  --control-selected: var(--instrument-desk-hover);
+  --control-text: var(--instrument-text-secondary-readable);
+  --control-text-hover: var(--instrument-text-primary);
   color: var(--instrument-text-primary);
   background: var(--instrument-desk);
+}
+
+/* The desk is light but the widgets standing on it stay black in both themes, so ink
+   cannot be scoped to the app mode: every legacy token below resolves to desk ink and
+   turned invisible on a dark widget (unit status pills read #141414 on #141414). Any
+   element that paints a dark surface re-declares the on-dark ink set for its subtree. */
+:is(.bg-instrument, .bg-instrument-raised, .bg-instrument-hover, .activity-icon, .asset-preview, .select-menu-trigger, .select-menu-content) {
+  --canvas: var(--instrument-widget-dark);
+  --sunken: var(--instrument-widget-dark-raised);
+  --field-text: var(--instrument-text-on-dark-primary);
+  --field-placeholder: var(--instrument-text-on-dark-secondary-readable);
+  --panel: var(--instrument-widget-dark);
+  --panel-solid: var(--instrument-widget-dark);
+  --raised: var(--instrument-widget-dark-raised);
+  --hover: var(--instrument-widget-dark-hover);
+  --selected: var(--instrument-text-on-dark-primary);
+  --selected-ink: var(--instrument-selected-ink);
+  --pressed: var(--instrument-widget-dark-hover);
+  --fg: var(--instrument-text-on-dark-primary);
+  --fg-2: var(--instrument-text-on-dark-secondary-readable);
+  --fg-3: var(--instrument-text-on-dark-secondary-readable);
+  --fg-4: var(--instrument-text-on-dark-secondary-readable);
+  --accent: var(--instrument-text-on-dark-primary);
+  --accent-soft: var(--instrument-text-on-dark-secondary-readable);
+  --ok: var(--instrument-text-on-dark-primary);
+  --warn: var(--instrument-text-on-dark-secondary-readable);
+  --danger: var(--instrument-alert);
+  --line: color-mix(in srgb, var(--instrument-text-on-dark-primary) 8%, transparent);
+  --line-strong: color-mix(in srgb, var(--instrument-text-on-dark-primary) 16%, transparent);
+  --field-surface: var(--instrument-widget-dark-raised);
+  --control-focus-color: var(--instrument-text-on-dark-primary);
+  --control-hover: var(--instrument-widget-dark-hover);
+  /* Surface, not an inversion fill — see the note on the light scope. */
+  --control-selected: var(--instrument-widget-dark-hover);
+  --control-text: var(--instrument-text-on-dark-secondary-readable);
+  --control-text-hover: var(--instrument-text-on-dark-primary);
 }
 
 .app-mode-work :is(button, input, textarea, select) {
   font-family: var(--font-sans);
 }
 
-.app-mode-work :is(button, [role="button"], input, textarea, select):focus-visible {
-  outline: 2px solid var(--instrument-text-primary);
-  outline-offset: 2px;
-}
+/* The focus ring lives in reset.css and paints with --fg, which the surface scopes above
+   already flip, so a per-mode override here only re-pinned it to desk ink on dark widgets. */
 
 [data-instrument-overlay-backdrop] {
   background: color-mix(in srgb, var(--instrument-widget-dark) 62%, transparent);

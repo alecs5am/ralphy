@@ -65,13 +65,16 @@ declare global {
 }
 
 const MOCK_ROOT = "/Users/demo/ralphy-project/.ralphy";
-const MOCK_WORKSPACE = `${MOCK_ROOT}/workspaces/launch-studio`;
+const MOCK_WORKSPACE = `${MOCK_ROOT}/workspaces/ux-testing-lab`;
 
 const mockWorkspaces: WorkspaceSummary[] = [
+  // Named "UX Testing Lab" on purpose: that is the workspace the design spec allows to
+  // receive deterministic renderer-only test data, so the island feed and review console
+  // exercise their real states in a browser dev session.
   {
-    id: "launch-studio",
-    name: "Launch Studio",
-    description: "Short-form product launches and creator cuts.",
+    id: "ux-testing-lab",
+    name: "UX Testing Lab",
+    description: "Design-system review surface for the instrument redesign.",
     absolutePath: MOCK_WORKSPACE,
     projectCount: 3,
     sharedCount: 12,
@@ -105,8 +108,8 @@ const mockWorkspaces: WorkspaceSummary[] = [
 
 const mockProjects: ProjectSummary[] = [
   {
-    id: "launch-studio/coffee-grinder-001",
-    workspaceId: "launch-studio",
+    id: "ux-testing-lab/coffee-grinder-001",
+    workspaceId: "ux-testing-lab",
     projectId: "coffee-grinder-001",
     name: "Arc Grinder Launch",
     brief: "A tactile 15-second creator review focused on grind consistency.",
@@ -122,8 +125,8 @@ const mockProjects: ProjectSummary[] = [
     recentActivity: "2026-07-30T09:42:00.000Z",
   },
   {
-    id: "launch-studio/skin-set-004",
-    workspaceId: "launch-studio",
+    id: "ux-testing-lab/skin-set-004",
+    workspaceId: "ux-testing-lab",
     projectId: "skin-set-004",
     name: "Night Set Unboxing",
     brief: "Warm bathroom-counter unboxing with three product details.",
@@ -139,8 +142,8 @@ const mockProjects: ProjectSummary[] = [
     recentActivity: "2026-07-29T16:21:00.000Z",
   },
   {
-    id: "launch-studio/trail-shoe-002",
-    workspaceId: "launch-studio",
+    id: "ux-testing-lab/trail-shoe-002",
+    workspaceId: "ux-testing-lab",
     projectId: "trail-shoe-002",
     name: "Trail Shoe Macro",
     brief: "Mud, tread, and lace detail cuts for a concise paid social spot.",

@@ -193,8 +193,8 @@ export function SharedArtifactInspector({ artifact, workspaceId, rootEpoch, retu
 
   return <Dialog.Root open modal={false} onOpenChange={(open) => { if (!open) close(); }}>
     <Dialog.Content asChild onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(); }}>
-      <aside className="shared-artifact-inspector rounded-panel border-0 bg-surface text-ink shadow-none [&_.shared-inspector-section]:border-0 [&_.shared-inspector-section]:bg-surface-sunken [&_.shared-inspector-section]:shadow-none" aria-label="Shared artifact inspector" data-instrument-overlay="shared-inspector">
-        <header className="shared-inspector-head border-0 bg-surface-sunken shadow-none">
+      <aside className="shared-artifact-inspector rounded-panel bg-surface text-ink [&_.shared-inspector-section]:bg-surface-sunken" aria-label="Shared artifact inspector" data-instrument-overlay="shared-inspector">
+        <header className="shared-inspector-head bg-surface-sunken">
           <span>{detail.kind} · {detail.mime ?? "MIME unavailable"}</span>
           <button type="button" aria-label="Close artifact inspector" onClick={close}><X aria-hidden="true" /></button>
         </header>
@@ -207,7 +207,7 @@ export function SharedArtifactInspector({ artifact, workspaceId, rootEpoch, retu
 
           {detailError && <div className="shared-inspector-alert" role="alert"><span>{detailError}</span><button type="button" onClick={() => { void loadDetail(); }}><RefreshCw aria-hidden="true" />Retry detail</button></div>}
 
-          <div className="shared-inspector-preview overflow-hidden rounded-[14px] border-0 bg-instrument shadow-none">
+          <div className="shared-inspector-preview overflow-hidden rounded-cell bg-instrument">
             <SharedArtifactPreview artifact={detail} workspaceId={workspaceId} rootEpoch={rootEpoch} resolvePreview={bridge.resolveSharedLibraryPreview} />
             {detail.preview === "no-target" && <span className="shared-inspector-targetless">No preview target</span>}
           </div>

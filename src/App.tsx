@@ -11,10 +11,9 @@ import {
   type ComponentProps,
   type ReactNode,
 } from "react";
-import { AnimatePresence, LayoutGroup, MotionConfig, motion } from "motion/react";
+import { LayoutGroup, MotionConfig, motion } from "motion/react";
 import { InstrumentSidebar } from "./instrument/InstrumentSidebar";
 import { AgentChatPanel } from "./components/UtilityPanels";
-import { profileIdentity } from "./components/ProfileAvatar";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { useAgentChat } from "./chat/useAgentChat";
 import {
@@ -32,11 +31,11 @@ import { MemoryScreen } from "./screens/MemoryScreen";
 import { CalendarScreen } from "./screens/CalendarScreen";
 import { SharedLibraryScreen } from "./screens/SharedLibraryScreen";
 import { MarketplaceScreen } from "./screens/MarketplaceScreen";
+import { readCommandBindings, resolveCommand } from "./screens/settings/commands";
 import { InstrumentScreenRoot } from "./instrument/screen-state-registry";
 import { InstrumentShell, useInstrumentRightRail } from "./instrument/InstrumentShell";
-import { InstrumentProfileControl } from "./instrument/InstrumentProfileControl";
 import { DynamicIsland } from "./instrument/DynamicIsland";
-import { projectDynamicIslandFeed, type DynamicIslandFeed } from "./instrument/dynamic-island-feed";
+import { projectDynamicIslandFeed, type DynamicIslandFeed, type IslandContext } from "./instrument/dynamic-island-feed";
 import { InstrumentOverlay } from "./instrument/overlay-registry";
 import { useTheme } from "./instrument/ThemeProvider";
 import { unitsInstrumentStates } from "./screens/project/unit-instrument-state";
@@ -56,6 +55,7 @@ import {
   readWorkbenchPreferences,
   updateWorkbenchPreferences,
   workbenchReducer,
+  WORKSPACE_PAGE_LABELS,
   type WorkspaceDestination,
   type WorkspaceOverviewReturnState,
   type WorkspacePage,
@@ -73,7 +73,6 @@ const loadSettingsScreen = () =>
 const SettingsScreen = lazy(loadSettingsScreen);
 const WELCOME_MINIMUM_MS = 1_200;
 const WELCOME_EXIT_MS = 300;
-const INSTRUMENT_SIDEBAR_WIDTH = 240;
 
 export function ProjectScreenLoadingFallback() {
   return (
@@ -106,12 +105,21 @@ export function isChatRailVisible({ workbenchVisible, rightPanelVisible }: {
 function InstrumentRightRailShortcut({ children }: { children: ReactNode }) {
   const rail = useInstrumentRightRail();
   const toggleRightRail = useCallback(() => {
-    const opener = document.querySelector<HTMLElement>('button[aria-label="Toggle right panel"]');
-    if (rail.mode === "closed") rail.open(opener);
+    if (rail.mode === "closed") rail.open(null);
     else rail.close();
   }, [rail]);
   useEffect(() => bridge.onToggleRightPanel(toggleRightRail), [toggleRightRail]);
   return children;
+}
+
+// Picking a chat in the sidebar is also the request to see it: the header no longer carries a
+// rail toggle, so the list is the way in.
+function InstrumentSidebarRail(props: ComponentProps<typeof InstrumentSidebar>) {
+  const rail = useInstrumentRightRail();
+  return <InstrumentSidebar {...props} onSelectChat={(chatId) => {
+    props.onSelectChat?.(chatId);
+    if (rail.mode === "closed") rail.open(null);
+  }} />;
 }
 
 function InstrumentChat(props: Omit<ComponentProps<typeof AgentChatPanel>, "onClose">) {
@@ -158,7 +166,7 @@ export function applyActivityRefresh(
 
 export function App() {
   const initialPreferences = useRef(readWorkbenchPreferences(localStorage));
-  const { preference: theme, setPreference: setTheme } = useTheme();
+  const { preference: theme, resolved: resolvedTheme, setPreference: setTheme } = useTheme();
   const [state, dispatch] = useReducer(
     workbenchReducer,
     initialPreferences.current,
@@ -188,10 +196,10 @@ export function App() {
   );
   const [workspaceDestination, setWorkspaceDestination] = useState<WorkspaceDestination | null>(null);
   const [overviewReturnState, setOverviewReturnState] = useState<WorkspaceOverviewReturnState | null>(null);
-  const [sidebarWidth] = useState(
+  const [sidebarWidth, setSidebarWidth] = useState(
     initialPreferences.current.sidebarWidth,
   );
-  const [rightPanelWidth] = useState(
+  const [rightPanelWidth, setRightPanelWidth] = useState(
     initialPreferences.current.rightPanelWidth,
   );
   const [viewport, setViewport] = useState(() => ({
@@ -225,11 +233,38 @@ export function App() {
     project: selectedProject,
     enabled: rightPanelVisible || rightOverlayOpen,
   });
+  const sidebarChats = useMemo(
+    () => [...(agentChat.state?.chats ?? [])]
+      .sort((left, right) => right.updatedAt - left.updatedAt)
+      .map(({ id, title, busy, updatedAt }) => ({ id, title, busy, updatedAt })),
+    [agentChat.state?.chats],
+  );
   const liveIslandFeed = useMemo(() => projectDynamicIslandFeed({
     rootEpoch: rootIdentity?.rootEpoch ?? 0,
     agentState: agentChat.state ?? { chats: [], activeChatId: "", runningChatId: null },
     appError: error,
   }), [agentChat.state, error, rootIdentity?.rootEpoch]);
+  // The island is the only chrome left that says where you are, so it always has a
+  // context: workspace plus page, project plus phase, or the marketplace section. The
+  // project's own section is the dock's job, one row below.
+  const islandContext = useMemo<IslandContext>(() => {
+    if (marketplace.mode === "marketplace") {
+      const route = marketplace.location.route;
+      const detail = route.kind === "category" ? route.category
+        : route.kind === "library" ? route.section
+          : route.kind;
+      return { identity: null, label: "Marketplace", detail, count: null };
+    }
+    if (selectedProject) return { identity: selectedProject.name, label: selectedProject.name, detail: selectedProject.phase || selectedProject.status || null, count: null };
+    if (selectedWorkspace) {
+      const count = workspacePage === "projects" ? selectedWorkspace.projectCount
+        : workspacePage === "units" ? selectedWorkspace.unitCount
+          : workspacePage === "shared" ? selectedWorkspace.sharedCount
+            : null;
+      return { identity: selectedWorkspace.name, label: selectedWorkspace.name, detail: WORKSPACE_PAGE_LABELS[workspacePage], count };
+    }
+    return { identity: null, label: "Library", detail: null, count: null };
+  }, [marketplace.location.route, marketplace.mode, selectedProject, selectedWorkspace, workspacePage]);
   const [mockIslandFeed, setMockIslandFeed] = useState<DynamicIslandFeed | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -242,7 +277,7 @@ export function App() {
   }, [rootIdentity?.rootEpoch, selectedProject?.projectId, selectedProject?.workspaceId, selectedWorkspace?.id, selectedWorkspace?.name]);
   const marketplaceSidebarVisible = marketplace.sidebarVisible && viewport.width > 1_280;
   const activeSidebarVisible = marketplace.mode === "work" ? sidebarVisible : marketplaceSidebarVisible;
-  const activeSidebarWidth = INSTRUMENT_SIDEBAR_WIDTH;
+  const activeSidebarWidth = sidebarWidth;
   const workspacePickerVisible = isWorkspacePickerVisible({
     mode: marketplace.mode,
     sidebarVisible: activeSidebarVisible,
@@ -475,17 +510,18 @@ export function App() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.repeat) return;
-      const key = event.key.toLocaleLowerCase();
-      const command =
-        event.metaKey && !event.altKey && !event.ctrlKey && !event.shiftKey;
-      if (command && event.key === "[") {
+      if (settingsVisible && event.key === "Escape") {
         event.preventDefault();
-        navigateBack();
-      } else if (command && event.key === "]") {
-        event.preventDefault();
-        navigateForward();
-      } else if (command && key === "f") {
-        event.preventDefault();
+        setSettingsVisible(false);
+        return;
+      }
+      // Bindings are read per keystroke so a rebinding made in Settings is live at once.
+      const command = resolveCommand(event, readCommandBindings(localStorage));
+      if (!command) return;
+      event.preventDefault();
+      if (command.id === "nav.back") navigateBack();
+      else if (command.id === "nav.forward") navigateForward();
+      else if (command.id === "nav.findProjects") {
         const workspaceId = state.route.kind === "library"
           ? mostRecentWorkspaceId(workspaces)
           : state.route.workspaceId;
@@ -494,17 +530,10 @@ export function App() {
         } else clearOverviewNavigation();
         setWorkspacePage("projects");
         setSidebarSearchRequest((request) => request + 1);
-      } else if (command && key === "b") {
-        event.preventDefault();
+      } else if (command.id === "app.sidebar") {
         if (marketplace.mode === "marketplace") dispatchMarketplace({ type: "toggle-sidebar" });
         else setSidebarVisible((visible) => !visible);
-      } else if (command && event.key === ",") {
-        event.preventDefault();
-        setSettingsVisible(true);
-      } else if (settingsVisible && event.key === "Escape") {
-        event.preventDefault();
-        setSettingsVisible(false);
-      }
+      } else if (command.id === "app.settings") setSettingsVisible(true);
     };
     const onMouseUp = (event: MouseEvent) => {
       if (event.button === 3) navigateBack();
@@ -681,7 +710,7 @@ export function App() {
         >
           <InstrumentShell
             sidebar={<>
-              <InstrumentSidebar
+              <InstrumentSidebarRail
                 mode={marketplace.mode}
                 route={state.route}
                 page={workspacePage}
@@ -712,6 +741,10 @@ export function App() {
                   const workspaceId = selectedWorkspace?.id ?? mostRecentWorkspaceId(workspaces);
                   if (workspaceId) openWorkspace(workspaceId);
                 }}
+                chats={sidebarChats}
+                activeChatId={agentChat.activeChat?.id ?? null}
+                onSelectChat={agentChat.selectChat}
+                onNewChat={agentChat.newChat}
               />
             </>}
             desk={<div className="main-content-stage">
@@ -742,6 +775,7 @@ export function App() {
             />}
             island={<InstrumentRightRailShortcut><DynamicIsland
               feed={mockIslandFeed ?? liveIslandFeed}
+              context={islandContext}
               projectName={selectedProject?.name ?? null}
               mock={mockIslandFeed !== null}
               onNavigate={(destination) => {
@@ -756,16 +790,12 @@ export function App() {
                 }
               }}
             /></InstrumentRightRailShortcut>}
-            profile={catalog?.rootPath ? <InstrumentProfileControl
-              identity={{
-                displayName: profileIdentity(catalog.rootPath),
-                initials: profileIdentity(catalog.rootPath).slice(0, 2).toUpperCase(),
-                avatarUrl: null,
-              }}
-              onOpenSettings={() => setSettingsVisible(true)}
-            /> : null}
             routeScrollKey={routeScrollKey}
             leftVisible={activeSidebarVisible}
+            leftWidth={sidebarWidth}
+            onLeftWidthChange={setSidebarWidth}
+            rightWidth={rightPanelWidth}
+            onRightWidthChange={setRightPanelWidth}
             rightPreference={rightPanelVisible}
             rightOverlayOpen={rightOverlayOpen}
             topChrome={{
@@ -773,16 +803,6 @@ export function App() {
               canGoForward,
               onBack: navigateBack,
               onForward: navigateForward,
-              onHome: () => {
-                if (marketplace.mode === "marketplace") {
-                  openMarketplaceRoute({ kind: "discover" });
-                  return;
-                }
-                openWorkspacePage("overview");
-                const workspaceId = selectedWorkspace?.id ?? mostRecentWorkspaceId(workspaces);
-                if (workspaceId) openWorkspace(workspaceId);
-                else dispatch({ type: "open-library" });
-              },
             }}
             onToggleLeft={() => {
               if (marketplace.mode === "marketplace") dispatchMarketplace({ type: "toggle-sidebar" });
@@ -797,20 +817,21 @@ export function App() {
               <button type="button" onClick={() => setError(null)}>Dismiss</button>
             </div>
           )}
-          <AnimatePresence>
-            {settingsVisible && (
+          {/* No exit animation: the overlay lives in a portal, so AnimatePresence never sees
+              the nested motion element finish and leaves an invisible surface over the app. */}
+          {settingsVisible && (
               <Suspense fallback={null}>
                 <InstrumentOverlay id="settings" open label="Settings" description="Application settings" opener={null} onOpenChange={(open) => { if (!open) setSettingsVisible(false); }} localScroll>
                 <SettingsScreen
                   rootPath={rootIdentity?.storeId ?? null}
                   theme={theme}
+                  resolvedTheme={resolvedTheme}
                   onThemeChange={setTheme}
                   onBack={() => setSettingsVisible(false)}
                 />
                 </InstrumentOverlay>
               </Suspense>
-            )}
-          </AnimatePresence>
+          )}
         </motion.div>
       </LayoutGroup>
     </MotionConfig>

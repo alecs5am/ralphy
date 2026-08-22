@@ -20,7 +20,7 @@ const overlayIds = [
 ] as const;
 
 const sharedSelectOwners = [
-  "settings.appearance", "shared.toolbar", "shared.workflow", "memory.editor", "project.media", "project.activity", "marketplace.header",
+  "settings.rows", "shared.toolbar", "shared.workflow", "memory.editor", "project.media", "project.activity", "marketplace.header",
 ] as const;
 
 const overlayKinds = {
@@ -35,7 +35,7 @@ const overlayKinds = {
 } as const;
 
 const sharedSelectOwnerRecords = {
-  "settings.appearance": { module: "src/screens/SettingsScreen.tsx", routeScope: { kind: "exact", routeKeys: ["settings.appearance"] } },
+  "settings.rows": { module: "src/screens/settings/rows.tsx", routeScope: { kind: "production-prefix", prefix: "settings." } },
   "shared.toolbar": { module: "src/screens/shared-library/SharedLibraryToolbar.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.shared"] } },
   "shared.workflow": { module: "src/screens/shared-library/SharedLibraryWorkflows.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.shared"] } },
   "memory.editor": { module: "src/screens/MemoryScreen.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.memory"] } },

@@ -1,7 +1,6 @@
-import * as Dialog from "@radix-ui/react-dialog";
-import { X } from "lucide-react";
 import { useState } from "react";
 import type { WorkspacePage } from "../../state/workbench";
+import { DetailDialog } from "./DetailDialog";
 import type {
   Availability,
   ProductionEfficiencyMetricId,
@@ -26,7 +25,7 @@ const efficiencySlots: { id: ProductionEfficiencyMetricId; label: string }[] = [
 ];
 
 function UnavailablePanel({ title, reason }: { title: string; reason: string }) {
-  return <div className="workspace-unavailable rounded-[14px] border-0 bg-surface-sunken px-3 py-2 text-[12px] text-muted shadow-none" role="note"><strong>{title}</strong><p>{reason}</p></div>;
+  return <div className="workspace-unavailable rounded-cell bg-surface-sunken px-3 py-2 type-sm text-muted" role="note"><strong>{title}</strong><p>{reason}</p></div>;
 }
 
 function strengthLabel(value: WorkspaceInsightPresentation["evidenceStrength"]): string {
@@ -48,7 +47,7 @@ function CaveatList({ values }: { values: string[] }) {
 }
 
 function InsightCard({ value, onReview }: { value: WorkspaceInsightPresentation; onReview(): void }) {
-  return <li className={`workspace-insight-card is-${value.evidenceStrength} [&_article]:rounded-[14px] [&_article]:border-0 [&_article]:bg-surface-sunken [&_article]:shadow-none`}>
+  return <li className={`workspace-insight-card is-${value.evidenceStrength} [&_article]:rounded-cell [&_article]:bg-surface-sunken`}>
     <article>
       <header><span>{value.dimension}</span><strong>{strengthLabel(value.evidenceStrength)}</strong></header>
       <h3>{value.observation}</h3>
@@ -97,7 +96,7 @@ function LearnedState({ value, onReview, onOpenMemory }: {
   if (supported.length === 0) {
     return <UnavailablePanel title="No proposed learning without evidence" reason="No supported learnings were returned." />;
   }
-  return <ul className="workspace-learning-list [&_li]:rounded-[14px] [&_li]:border-0 [&_li]:bg-surface-sunken [&_li]:shadow-none">{supported.map((insight) => {
+  return <ul className="workspace-learning-list [&_li]:rounded-cell [&_li]:bg-surface-sunken">{supported.map((insight) => {
     const reviewId = `workspace-learning-review-${insight.id}`;
     return <li key={insight.id}>
     <span className="workspace-learning-state">Proposed · {strengthLabel(insight.evidenceStrength)}</span>
@@ -115,26 +114,28 @@ function EvidenceDetailDialog({ value, onOpenChange, onOpenMemory }: {
   onOpenChange(open: boolean): void;
   onOpenMemory(): void;
 }) {
-  return <Dialog.Root open={value !== null} onOpenChange={onOpenChange}>
-    {value && <Dialog.Portal forceMount container={typeof document === "undefined" ? undefined : document.body}>
-      <Dialog.Overlay forceMount className="account-detail-overlay" data-instrument-overlay-backdrop="" />
-      <Dialog.Content forceMount className="account-detail-dialog workspace-evidence-dialog rounded-panel border-0 bg-surface text-ink shadow-none [&_.account-detail-section]:rounded-[14px] [&_.account-detail-section]:border-0 [&_.account-detail-section]:bg-surface-sunken [&_.account-detail-section]:shadow-none" data-instrument-overlay="workspace-evidence-detail">
-        <header className="account-detail-header"><span><Dialog.Title>{value.observation}</Dialog.Title><Dialog.Description>{value.platform} · {value.account} · {strengthLabel(value.evidenceStrength)}</Dialog.Description></span><Dialog.Close asChild><button type="button" aria-label="Close evidence detail"><X aria-hidden="true" /></button></Dialog.Close></header>
-        <div className="account-detail-body">
-          <section className="account-detail-section"><h3>Method and sample</h3><p>{value.method}</p><dl className="workspace-insight-facts"><div><dt>Scope</dt><dd>{value.platform} · {value.account}</dd></div><div><dt>Reporting window</dt><dd>{value.reportingWindow}</dd></div><div><dt>Sample size</dt><dd>{value.sampleSize} comparable Units</dd></div><div><dt>Baseline</dt><dd>{value.baseline}</dd></div></dl></section>
-          <section className="account-detail-section"><h3>Median comparison</h3><p>{value.medianComparison}</p></section>
-          <div className="account-detail-section"><ReferenceList title="Supporting Units" values={value.supportingUnits} /></div>
-          <div className="account-detail-section"><ReferenceList title="Counterexamples" values={value.counterexamples} /></div>
-          <div className="account-detail-section"><CaveatList values={value.caveats} /></div>
-          <section className="account-detail-section"><h3>Memory action</h3>
-            {value.memoryAction.status === "ready"
-              ? <button type="button" className="command-button" onClick={onOpenMemory}>{value.memoryAction.value.label}</button>
-              : <UnavailablePanel title="Memory action unavailable" reason={value.memoryAction.reason} />}
-          </section>
-        </div>
-      </Dialog.Content>
-    </Dialog.Portal>}
-  </Dialog.Root>;
+  return <DetailDialog
+    id="workspace-evidence-detail"
+    open={value !== null}
+    className="workspace-evidence-dialog"
+    title={value?.observation}
+    description={value && `${value.platform} · ${value.account} · ${strengthLabel(value.evidenceStrength)}`}
+    closeLabel="Close evidence detail"
+    onOpenChange={onOpenChange}
+  >
+    {value && <>
+      <section className="account-detail-section"><h3>Method and sample</h3><p>{value.method}</p><dl className="workspace-insight-facts"><div><dt>Scope</dt><dd>{value.platform} · {value.account}</dd></div><div><dt>Reporting window</dt><dd>{value.reportingWindow}</dd></div><div><dt>Sample size</dt><dd>{value.sampleSize} comparable Units</dd></div><div><dt>Baseline</dt><dd>{value.baseline}</dd></div></dl></section>
+      <section className="account-detail-section"><h3>Median comparison</h3><p>{value.medianComparison}</p></section>
+      <div className="account-detail-section"><ReferenceList title="Supporting Units" values={value.supportingUnits} /></div>
+      <div className="account-detail-section"><ReferenceList title="Counterexamples" values={value.counterexamples} /></div>
+      <div className="account-detail-section"><CaveatList values={value.caveats} /></div>
+      <section className="account-detail-section"><h3>Memory action</h3>
+        {value.memoryAction.status === "ready"
+          ? <button type="button" className="command-button" onClick={onOpenMemory}>{value.memoryAction.value.label}</button>
+          : <UnavailablePanel title="Memory action unavailable" reason={value.memoryAction.reason} />}
+      </section>
+    </>}
+  </DetailDialog>;
 }
 
 function metricValue(
@@ -151,12 +152,12 @@ function ProductionEfficiency({ value, onOpenShared }: {
   onOpenShared(): void;
 }) {
   const presentation = value.status === "ready" || value.status === "partial" ? value.value : null;
-  return <section className="workspace-overview-section workspace-production-efficiency col-span-12 m-0 min-w-0 max-w-none rounded-panel border-0 bg-surface p-4 shadow-none xl:col-span-6" aria-labelledby="workspace-production-efficiency-title">
+  return <section className="workspace-overview-section workspace-production-efficiency col-span-12 m-0 min-w-0 max-w-none rounded-panel bg-surface p-4 @min-[860px]/instrument-desk:col-span-6" aria-labelledby="workspace-production-efficiency-title">
     <header className="workspace-section-heading"><h2 id="workspace-production-efficiency-title">Production efficiency</h2><span>Operational evidence</span></header>
     {value.status === "partial" && <UnavailablePanel title="Partial production evidence" reason={value.reason} />}
-    <dl className="workspace-efficiency-strip gap-2 border-0 bg-transparent">{efficiencySlots.map((slot) => {
+    <dl className="workspace-efficiency-strip gap-2 bg-transparent">{efficiencySlots.map((slot) => {
       const metric = metricValue(value, slot.id);
-      return <div className="workspace-efficiency-metric rounded-control border-0 bg-surface-sunken" key={slot.id}>
+      return <div className="workspace-efficiency-metric rounded-panel bg-surface-sunken" key={slot.id}>
         <dt>{slot.label}</dt>
         <dd>{metric.status === "ready" || metric.status === "partial" ? metric.value : "—"}</dd>
         {metric.status !== "ready" && <p>{metric.reason}</p>}
@@ -171,11 +172,11 @@ export function WorkspaceInsights({ value, onOpenPage }: Props) {
   const openMemory = (returnFocusId: string) => onOpenPage("memory", returnFocusId);
   const selectEvidence = (insight: WorkspaceInsightPresentation, returnFocusId: string) => setSelected({ value: insight, returnFocusId });
   return <>
-    <section className="workspace-overview-section workspace-insights col-span-12 m-0 min-w-0 max-w-none rounded-panel border-0 bg-surface p-4 shadow-none xl:col-span-6" aria-labelledby="workspace-insights-title">
+    <section className="workspace-overview-section workspace-insights col-span-12 m-0 min-w-0 max-w-none rounded-panel bg-surface p-4 @min-[860px]/instrument-desk:col-span-6" aria-labelledby="workspace-insights-title">
       <header className="workspace-section-heading"><h2 id="workspace-insights-title">What works</h2><span>Comparable evidence</span></header>
       <EvidenceState value={value.insights} onReview={selectEvidence} />
     </section>
-    <section className="workspace-overview-section workspace-learnings col-span-12 m-0 min-w-0 max-w-none rounded-panel border-0 bg-surface p-4 shadow-none xl:col-span-6" aria-labelledby="workspace-learnings-title">
+    <section className="workspace-overview-section workspace-learnings col-span-12 m-0 min-w-0 max-w-none rounded-panel bg-surface p-4 @min-[860px]/instrument-desk:col-span-6" aria-labelledby="workspace-learnings-title">
       <header className="workspace-section-heading"><h2 id="workspace-learnings-title">What Ralphy learned</h2><span>Review before Memory</span></header>
       <LearnedState value={value.insights} onReview={selectEvidence} onOpenMemory={openMemory} />
     </section>

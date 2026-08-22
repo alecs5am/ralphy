@@ -10,6 +10,7 @@ import * as screen from "../src/screens/ProjectScreen";
 import { UnitSocialPreview } from "../src/screens/project/UnitSocialPreview";
 import type { SocialTarget, UnitMedia } from "../src/lib/unit-previews";
 import { createReactHost, type HostNode } from "./react-host";
+import { readStylesheet } from "./style-sources";
 
 const project: ProjectSummary = {
   id: "project-1", workspaceId: "workspace-1", projectId: "project-1", name: "Launch", brief: "Brief",
@@ -306,20 +307,24 @@ describe("units workbench", () => {
   });
 
   test("keeps the card grid scrollable and the modal responsive", () => {
-    const css = readFileSync(join(process.cwd(), "src/styles/workbench.css"), "utf8");
+    const css = readStylesheet("workbench.css");
     expect(css).toMatch(/\.project-domain-body\.is-units\s*\{[^}]*overflow:\s*hidden/s);
     expect(css).toMatch(/\.units-grid-scroll\s*\{[^}]*overflow:\s*auto/s);
-    expect(css).toMatch(/\.units-grid\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(280px,\s*1fr\)\)/s);
+    expect(css).toMatch(/\.units-grid\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(268px,\s*1fr\)\)/s);
     expect(css).toMatch(/@media \(max-width:\s*820px\)[\s\S]*\.unit-viewer-meta\s*\{[^}]*display:\s*block/s);
   });
 
   test("keeps Unit controls flat and centers the phone with its playback rail", () => {
     const reset = readFileSync(join(process.cwd(), "src/styles/reset.css"), "utf8");
-    const css = readFileSync(join(process.cwd(), "src/styles/workbench.css"), "utf8");
+    const css = readStylesheet("workbench.css");
     expect(reset).toMatch(/button\s*\{[^}]*background:\s*transparent/s);
     expect(css).toMatch(/\.unit-viewer-close:hover\s*\{[^}]*background:\s*transparent/s);
     expect(css).toMatch(/\.unit-social-stage\s*\{[^}]*place-items:\s*center[^}]*background:\s*transparent/s);
-    expect(css).toMatch(/\.unit-card-preview\s*\{[^}]*width:\s*100%[^}]*aspect-ratio:\s*auto/s);
+    // The preview frame keeps the 16/9 ratio from its utility class; the previous fixed
+    // 150px height plus aspect-ratio:auto squashed every unit card to roughly 2.5:1.
+    expect(css).toMatch(/\.unit-card-preview\s*\{[^}]*width:\s*100%/s);
+    expect(css).not.toMatch(/\.unit-card-preview\s*\{[^}]*aspect-ratio:\s*auto/s);
+    expect(css).not.toMatch(/\.unit-card-preview\s*\{[^}]*height:\s*150px/s);
     expect(css).not.toMatch(/\.unit-card:hover\s*\{[^}]*(?:translateY|scale)/s);
     expect(css).toMatch(/\.unit-viewer-main\s*\{[^}]*grid-template-columns:\s*minmax\(330px,\s*390px\)\s+minmax\(0,\s*1fr\)/s);
     expect(css).toMatch(/\.unit-viewer-main:has\(\.unit-social-stage\.is-longform\)\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1\.15fr\)\s+minmax\(420px,\s*\.85fr\)/s);

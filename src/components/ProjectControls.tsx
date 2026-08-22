@@ -1,6 +1,7 @@
 import type { ProjectTab } from "../lib/ipc";
 import { Activity, FileText, Image, Layers3 } from "lucide-react";
 import { createPortal } from "react-dom";
+import { useOptionalInstrumentScroll } from "../instrument/InstrumentShell";
 import { ProjectDock } from "../instrument/ProjectDock";
 import { moveGooeyTab, type GooeyTab } from "./ui/GooeyTabs";
 
@@ -32,8 +33,14 @@ export function moveProjectTab(tab: ProjectView, key: string): ProjectView {
 }
 
 export function ProjectControls({ activeTab, onSelect }: ProjectControlsProps) {
+  // The dock floats above the project, so it has to escape the panel it labels. It used to
+  // escape all the way to the body and centred itself on the window, which put it off-centre
+  // over the project as soon as the sidebar or the chat rail took width. The desk column is
+  // the float host: outside the scroller, so the dock holds still, and the dock's containing
+  // block, so it centres on the project.
+  const host = useOptionalInstrumentScroll()?.floatHost ?? null;
   const dock = (
     <div className="project-controls"><ProjectDock active={activeTab} items={dockItems} onSelect={onSelect} /></div>
   );
-  return typeof document === "undefined" || !navigator.userAgent.includes("Electron") ? dock : createPortal(dock, document.body);
+  return host ? createPortal(dock, host) : dock;
 }

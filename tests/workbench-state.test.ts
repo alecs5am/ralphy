@@ -234,8 +234,8 @@ describe("workbench ordering and preferences", () => {
       rightPanelVisible: true,
       bottomPanelVisible: false,
       workspaceView: "grid",
-      sidebarWidth: 288,
-      rightPanelWidth: 336,
+      sidebarWidth: 240,
+      rightPanelWidth: 292,
       bottomPanelHeight: 220,
     });
   });
@@ -323,14 +323,14 @@ describe("workbench ordering and preferences", () => {
     });
 
     expect(preferences.sidebarWidth).toBe(420);
-    expect(preferences.rightPanelWidth).toBe(280);
+    expect(preferences.rightPanelWidth).toBe(292);
     expect(preferences.bottomPanelHeight).toBe(160);
 
     const compact = readWorkbenchPreferences({
       getItem: () => JSON.stringify({ sidebarWidth: 1 }),
       setItem: () => undefined,
     });
-    expect(compact.sidebarWidth).toBe(288);
+    expect(compact.sidebarWidth).toBe(216);
   });
 
   test("round-trips app-local navigation, panels, view, and pins", () => {

@@ -123,11 +123,18 @@ describe("instrument settings theme", () => {
       await act(async () => render("light"));
       await act(async () => button(host.container, "Appearance").dispatchEvent(new Event("click", { bubbles: true })));
 
-      expect(button(host.container, "Light").getAttribute("aria-label")).toBe("Theme");
+      // The design ships appearance as a segmented control, so the selected value is the
+      // pressed segment inside the group labelled Theme rather than a select trigger.
+      const group = host.container.querySelectorAll("[role=\"group\"]")
+        .find((candidate) => candidate.getAttribute("aria-label") === "Theme");
+      expect(group, "theme segmented group").toBeDefined();
+      expect(button(host.container, "Light").getAttribute("aria-pressed")).toBe("true");
+      expect(button(host.container, "Dark").getAttribute("aria-pressed")).toBe("false");
       expect(changes).toEqual([]);
 
       await act(async () => render("dark"));
-      expect(button(host.container, "Dark").getAttribute("aria-label")).toBe("Theme");
+      expect(button(host.container, "Dark").getAttribute("aria-pressed")).toBe("true");
+      expect(button(host.container, "Light").getAttribute("aria-pressed")).toBe("false");
     } finally {
       await act(async () => root.unmount());
       host.restore();

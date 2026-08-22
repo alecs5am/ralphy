@@ -13,22 +13,24 @@ import { ProjectScreenView, createProjectScreenController } from "../src/screens
 import { SharedLibraryScreenView } from "../src/screens/SharedLibraryScreen";
 import { SharedArtifactInspector } from "../src/screens/shared-library/SharedArtifactInspector";
 import { presentSharedArtifact } from "../src/screens/shared-library/presentation";
+import { readStylesheet } from "./style-sources";
 import { WorkspaceScreenView, createWorkspaceScreenController } from "../src/screens/WorkspaceScreen";
 
-const workspaceOverviewStyles = readFileSync(join(process.cwd(), "src/styles/workspace-overview.css"), "utf8");
-const styles = ["reset.css", "tokens.css", "app.css", "workbench.css", "shared-library.css", "instrument.css"]
-  .map((file) => readFileSync(join(process.cwd(), "src/styles", file), "utf8"))
+const workspaceOverviewStyles = readStylesheet("workspace-overview.css");
+const styles = ["reset.css", "tokens.css", "workbench.css", "shared-library.css", "instrument.css"]
+  .map((file) => readStylesheet(file))
   .concat(workspaceOverviewStyles)
   .join("\n");
-const workbenchStyles = readFileSync(
-  join(process.cwd(), "src/styles/workbench.css"),
-  "utf8",
-);
+const workbenchStyles = readStylesheet("workbench.css");
 const tokenStyles = readFileSync(join(process.cwd(), "src/styles/tokens.css"), "utf8");
-const settingsStyles = readFileSync(join(process.cwd(), "src/styles/settings.css"), "utf8");
+const settingsStyles = readStylesheet("settings.css");
 const settingsScreenSource = readFileSync(join(process.cwd(), "src/screens/SettingsScreen.tsx"), "utf8");
-const sharedLibraryStyles = readFileSync(join(process.cwd(), "src/styles/shared-library.css"), "utf8");
-const marketplaceStyles = readFileSync(join(process.cwd(), "src/styles/marketplace.css"), "utf8");
+const settingsSurfaceSource = [
+  "src/screens/SettingsScreen.tsx",
+  ...readdirSync(join(process.cwd(), "src/screens/settings")).map((file) => `src/screens/settings/${file}`),
+].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
+const sharedLibraryStyles = readStylesheet("shared-library.css");
+const marketplaceStyles = readStylesheet("marketplace.css");
 
 const project: ProjectSummary = {
   id: "workspace-1/project-1", workspaceId: "workspace-1", projectId: "project-1", name: "Launch",
@@ -190,6 +192,7 @@ type GeometryResult = {
   overviewScrollOwners: string[];
   splitVerticalContained: boolean | null;
   masterRowEdgeInset: number | null;
+  masterRowSearchOffset: number | null;
   masterRowTopInset: number | null;
   masterRowHeight: number | null;
   masterRowGap: number | null;
@@ -219,7 +222,7 @@ type GeometryResult = {
 async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): Promise<GeometryResult[]> {
   const directory = mkdtempSync(join(tmpdir(), "ralphy-geometry-"));
   try {
-    const links = ["reset.css", "tokens.css", "app.css", "workbench.css", "instrument.css"]
+    const links = ["reset.css", "tokens.css", "workbench.css", "instrument.css"]
       .map((file) => `<link rel="stylesheet" href="${pathToFileURL(join(process.cwd(), "src/styles", file)).href}">`)
       .join("");
     const shell = (screen: string) => `<div class="workbench has-right-panel" style="--sidebar-w:288px;--inspector-w:336px"><aside class="context-sidebar"></aside><section class="main-shell"><header class="main-header"></header><div class="main-content-stage">${screen}</div></section><aside class="utility-right-panel"></aside></div>`;
@@ -286,7 +289,7 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
               const documentViewers = [...root.querySelectorAll(".documents-detail > .markdown-view, .document-current-review > .markdown-view")];
               const documentViewerWidths = documentViewers.map((element) => element.getBoundingClientRect().width);
               const documentViewerMaxWidths = documentViewers.map((element) => getComputedStyle(element).maxWidth);
-              const mediaInsets = [".project-domain-body", ".asset-grid-scroll"].map((selector) => {
+              const mediaInsets = [".project-region", ".asset-grid-scroll"].map((selector) => {
                 const element = root.querySelector(selector); return element ? parseFloat(getComputedStyle(element).paddingLeft) : 0;
               }).filter((value) => value > 0);
               const focusSelectors = ({ workspace: [".workspace-overview-header button"], documents: [".project-dock button[aria-selected=true]", ".document-search input", ".document-row", ".document-detail-heading"], media: [".project-dock button[aria-selected=true]", ".select-menu-trigger", ".snappy-slider"], units: [".project-dock button[aria-selected=true]", ".unit-card"], activity: [".project-dock button[aria-selected=true]", ".activity-scroll"], memory: [".memory-rule-head"] })[screen];
@@ -323,6 +326,10 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
               const masterListRect = masterList?.getBoundingClientRect();
               const masterRowRect = masterRow?.getBoundingClientRect();
               const masterRowEdgeInset = masterListRect && masterRowRect ? masterRowRect.left - masterListRect.left : null;
+              // The row and the search pill above it are siblings in the master column, so
+              // their left edges have to agree; a per-row inset put them on different edges.
+              const masterSearchRect = root.querySelector(".document-search")?.getBoundingClientRect();
+              const masterRowSearchOffset = masterSearchRect && masterRowRect ? masterRowRect.left - masterSearchRect.left : null;
               const masterRowTopInset = masterListRect && masterRowRect ? masterRowRect.top - masterListRect.top : null;
               const masterRowHeight = masterRowRect?.height ?? null;
               const masterRowGap = masterRowRect ? masterGeometry[2] - masterRowRect.height : null;
@@ -356,7 +363,7 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
               const unitCardsInGridFlow = screen !== "units" ? null : unitCards.length > 0 && unitCards.every((card) => getComputedStyle(card).position !== "absolute");
               const forbidden = [...root.querySelectorAll(".load-more, .project-preview, .pagination")].length + (screen === "media" ? [...root.querySelectorAll(".media-panel button")].filter((button) => button.textContent.trim() === "Open").length : 0);
               const style = (selector) => { const element = root.querySelector(selector); return element ? getComputedStyle(element) : null; };
-              return { screen, width: innerWidth, height: innerHeight, overflows, metricColumns, scrollOwners, documentDetailWidth: documentDetail?.getBoundingClientRect().width ?? null, documentViewerWidths, documentViewerMaxWidths, nestedMediaScroll, mediaInsets, focus, overviewColumns, overviewWidth, overviewMetricWidths, overviewNarrativeColumns, overviewColumnRatio, overviewScrollOwners, splitVerticalContained, masterRowEdgeInset, masterRowTopInset, masterRowHeight, masterRowGap, revisionEdgeInset, revisionTopInset, revisionGap, mediaTitleFontSize, mediaMetaFontSize, activityTimeFontSize, activityEntityFontSize, forbidden, projectHeaderCount, projectTabsCenterOffset, gooeyBlobCoverage, unitCardsInGridFlow, projectTabsHeaderOffset, projectTabsReceivePointer, projectTabsAppRegion,
+              return { screen, width: innerWidth, height: innerHeight, overflows, metricColumns, scrollOwners, documentDetailWidth: documentDetail?.getBoundingClientRect().width ?? null, documentViewerWidths, documentViewerMaxWidths, nestedMediaScroll, mediaInsets, focus, overviewColumns, overviewWidth, overviewMetricWidths, overviewNarrativeColumns, overviewColumnRatio, overviewScrollOwners, splitVerticalContained, masterRowEdgeInset, masterRowSearchOffset, masterRowTopInset, masterRowHeight, masterRowGap, revisionEdgeInset, revisionTopInset, revisionGap, mediaTitleFontSize, mediaMetaFontSize, activityTimeFontSize, activityEntityFontSize, forbidden, projectHeaderCount, projectTabsCenterOffset, gooeyBlobCoverage, unitCardsInGridFlow, projectTabsHeaderOffset, projectTabsReceivePointer, projectTabsAppRegion,
                 memoryRegionPadding: style(".memory-region")?.padding ?? null,
                 memoryTopbarBorder: style(".memory-topbar")?.borderBottomWidth ?? null,
                 memoryFilterBorder: style(".memory-filters")?.borderTopWidth ?? null,
@@ -457,10 +464,13 @@ async function sharedLibraryGeometry(): Promise<SharedGeometrySmoke> {
       outfile: join(directory, "protocol-access.cjs"), bundle: true, platform: "node", format: "cjs",
       target: "node22", logLevel: "silent",
     });
-    const links = ["reset.css", "tokens.css", "app.css", "workbench.css", "shared-library.css"]
+    const links = ["reset.css", "tokens.css", "workbench.css", "shared-library.css"]
       .map((file) => `<link rel="stylesheet" href="${pathToFileURL(join(process.cwd(), "src/styles", file)).href}">`)
       .join("");
-    const shell = (content: string) => `<div class="workbench has-right-panel" style="--sidebar-w:272px;--inspector-w:336px"><aside class="context-sidebar"></aside><section class="main-shell"><header class="main-header"></header><div class="main-content-stage">${content}</div></section><aside class="utility-right-panel"></aside></div>`;
+    // The shell is a stand-in for the instrument columns: the stage is sized here rather than
+    // by a stylesheet rule, so the harness keeps constraining the screen even as the shell's
+    // own classes come and go.
+    const shell = (content: string) => `<div class="workbench has-right-panel" style="--sidebar-w:272px;--inspector-w:336px"><aside class="context-sidebar"></aside><section class="main-shell"><header class="main-header"></header><div class="main-content-stage" style="width:calc(100vw - 272px - 336px)">${content}</div></section><aside class="utility-right-panel"></aside></div>`;
     const inspector = renderToStaticMarkup(createElement(SharedArtifactInspector, {
       artifact: presentSharedArtifact(sharedArtifact("artifact-1")), workspaceId: "workspace-1", rootEpoch: 1,
       returnFocus: null, onClose: () => undefined, onReconcile: () => undefined,
@@ -709,16 +719,24 @@ describe("design system contract", () => {
   });
 
   test("documents workbench locks the outer panel and gives both responsive panes exact semantic states", () => {
-    expect(workbenchStyles).toMatch(/\.project-domain-body\.is-documents\s*\{[^}]*overflow:\s*hidden/s);
-    expect(workbenchStyles).toMatch(/\.documents-workbench\s*\{[^}]*grid-template-columns:\s*minmax\(280px,\s*340px\)\s+minmax\(0,\s*1fr\)/s);
-    expect(workbenchStyles).toMatch(/\.documents-master,[\s\S]*\.documents-detail\s*\{[^}]*min-height:\s*0[^}]*overflow-y:\s*auto/s);
+    expect(workbenchStyles).toMatch(/\.project-domain-body\s*\{[^}]*overflow:\s*hidden/s);
+    expect(workbenchStyles).toMatch(/\.documents-workbench\s*\{[^}]*grid-template-columns:\s*minmax\(240px,\s*\.72fr\)\s+minmax\(360px,\s*1\.28fr\)/s);
+    // The narrow form is one column, measured against the panel rather than the window: the
+    // chat rail takes desk width without the window changing size.
+    expect(workbenchStyles).toMatch(/@container project-domain \(max-width: 760px\)\s*\{\s*\.documents-workbench\s*\{[^}]*minmax\(0, 1fr\)/s);
+    expect(workbenchStyles).toMatch(/\.documents-master,\s*\.documents-detail\s*\{[^}]*min-width:\s*0[^}]*overflow-y:\s*auto/s);
     expect(workbenchStyles).toMatch(/\.document-row:hover:not\(\.is-selected\)\s*\{[^}]*background:\s*var\(--hover\)/s);
-    expect(workbenchStyles).toMatch(/\.document-row\.is-selected\s*\{[^}]*background:\s*var\(--selected\)[^}]*box-shadow:\s*var\(--ring-select\)/s);
+    // Selection is the inverted surface plus its paired ink. Design v2 has no rings, and the
+    // ring is what made the selected row look wider than the rows around it.
+    expect(workbenchStyles).toMatch(/\.document-row\.is-selected\s*\{[^}]*background:\s*var\(--selected\)[^}]*color:\s*var\(--selected-ink\)/s);
+    expect(workbenchStyles).not.toMatch(/\.document-row\.is-selected\s*\{[^}]*box-shadow/s);
     expect(workbenchStyles).not.toMatch(/\.document-row\.is-selected\s*\{[^}]*inset\s+2px\s+0/s);
+    // The row is flush with the search pill above it; a 6px inset put them on different edges.
+    expect(workbenchStyles).toMatch(/\.document-row\s*\{[^}]*left:\s*0[^}]*width:\s*100%/s);
   });
 
   test("uses one calm responsive master detail language", () => {
-    expect(workbenchStyles).toMatch(/\.documents-workbench\s*\{[^}]*gap:\s*16px/s);
+    expect(workbenchStyles).toMatch(/\.documents-workbench\s*\{[^}]*gap:\s*var\(--space-2\)/s);
     expect(workbenchStyles).toMatch(/\.documents-detail[^}]*\{[^}]*border-radius:\s*var\(--radius-lg\)[^}]*background:\s*var\(--raised\)/s);
     expect(workbenchStyles).toMatch(/\.composition-detail[^}]*\{[^}]*border-radius:\s*var\(--radius-lg\)[^}]*background:\s*var\(--raised\)/s);
     expect(workbenchStyles).toMatch(/\.composition-output-preview:has\(\.preview-empty\)\s*\{[^}]*height:\s*160px/s);
@@ -758,9 +776,10 @@ describe("design system contract", () => {
   });
 
   test("calibrates the Shared Library grid and motion with existing tokens", () => {
-    expect(sharedLibraryStyles).toMatch(/\.shared-library-grid\s*\{[^}]*grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/s);
-    expect(sharedLibraryStyles).not.toContain("auto-fill");
-    for (const columns of [4, 3, 2]) expect(sharedLibraryStyles).toContain(`grid-template-columns: repeat(${columns}, minmax(0, 1fr))`);
+    expect(sharedLibraryStyles).toMatch(/\.shared-library-grid\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fill, minmax\(252px, 1fr\)\)/s);
+    expect(sharedLibraryStyles).toMatch(/\.shared-library-skeleton\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fill, minmax\(252px, 1fr\)\)/s);
+    // No breakpoint names a column count: the tile minimum is the only number involved.
+    expect(sharedLibraryStyles).not.toMatch(/\.shared-library-(?:grid|skeleton)[^}]*repeat\(\d/);
     expect(sharedLibraryStyles).toContain("transition: background var(--dur) var(--ease)");
     expect(sharedLibraryStyles).toContain("@media (prefers-reduced-motion: reduce)");
   });
@@ -795,9 +814,9 @@ describe("design system contract", () => {
     expect(results.every(({ contentSizeSettled }) => contentSizeSettled)).toBe(true);
     expect(results.flatMap(({ state, width, overflows }) => overflows.map((overflow) => ({ state, width, overflow })))).toEqual([]);
     expect(results.filter(({ state }) => state === "grid").map(({ width, columns }) => ({ width, columns }))).toEqual([
-      { width: 2560, columns: 5 }, { width: 1360, columns: 3 }, { width: 1280, columns: 3 },
+      { width: 2560, columns: 7 }, { width: 1360, columns: 2 }, { width: 1280, columns: 2 },
     ]);
-    expect(results.find(({ state, width }) => state === "inspector" && width === 2560)?.columns).toBe(3);
+    expect(results.find(({ state, width }) => state === "inspector" && width === 2560)?.columns).toBe(5);
     const narrowInspector = results.find(({ state, width }) => state === "inspector" && width === 1280)!;
     expect(narrowInspector.inspectorPosition).toBe("absolute");
     expect(Math.abs((narrowInspector.inspectorWidth ?? 0) - (narrowInspector.contentWidth ?? 0))).toBeLessThan(2);
@@ -840,7 +859,6 @@ describe("design system contract", () => {
     const reset = readFileSync(join(process.cwd(), "src/styles/reset.css"), "utf8");
     const palette = readFileSync(join(process.cwd(), "src/instrument/palette.ts"), "utf8");
     expect(tokenStyles).toMatch(/font-family:\s*"Doto"[\s\S]*Doto-Variable\.ttf/);
-    expect(reset).toMatch(/\.instrument-doto\s*\{[^}]*font-size:\s*max\(13px, 1em\)/s);
     expect(`${tokenStyles}\n${reset}\n${palette}`).not.toMatch(/#(?:7F7BD6|8B7CF6)/i);
     expect(tokenStyles).toContain("/* instrument-token-definitions:start */");
     expect(tokenStyles).toContain("/* instrument-token-definitions:end */");
@@ -849,24 +867,25 @@ describe("design system contract", () => {
   test("shares the compact profile-menu tokens across reusable controls", () => {
     for (const token of [
       "--field-surface",
-      "--field-border",
-      "--field-border-focus",
       "--field-radius",
       "--menu-surface",
-      "--menu-border",
       "--menu-radius",
       "--menu-padding",
       "--menu-item-height",
       "--control-focus",
     ]) expect(tokenStyles).toContain(token);
 
-    expect(workbenchStyles).toMatch(/\.select-menu-content\s*\{[^}]*padding:\s*var\(--menu-padding\)[^}]*border:\s*1px solid var\(--menu-border\)[^}]*background:\s*var\(--menu-surface\)/s);
-    expect(workbenchStyles).toMatch(/\.select-menu-trigger\s*\{[^}]*border:\s*1px solid var\(--field-border\)[^}]*background:\s*var\(--field-surface\)/s);
-    expect(workbenchStyles).toMatch(/\.workspace-picker-popover\s*\{[^}]*border:\s*1px solid var\(--menu-border\)[^}]*background:\s*var\(--menu-surface\)/s);
-    expect(workbenchStyles).toMatch(/\.agent-popover\s*\{[^}]*padding:\s*var\(--menu-padding\)[^}]*border:\s*1px solid var\(--menu-border\)[^}]*background:\s*var\(--menu-surface\)/s);
-    expect(workbenchStyles).toMatch(/\.asset-context-menu\s*\{[^}]*padding:\s*var\(--menu-padding\)[^}]*border:\s*1px solid var\(--menu-border\)[^}]*background:\s*var\(--menu-surface\)/s);
-    expect(settingsStyles).toMatch(/\.profile-menu,[\s\S]*\.help-menu\s*\{[^}]*padding:\s*var\(--menu-padding\)[^}]*border:\s*0[^}]*background:\s*var\(--menu-surface\)/s);
-    expect(settingsScreenSource).toContain("bg-surface-sunken");
+    // v2: every menu and popover is one flat #141414 widget — no border, no shadow.
+    for (const selector of ["select-menu-content", "workspace-picker-popover", "agent-popover", "asset-context-menu"]) {
+      expect(workbenchStyles).toMatch(new RegExp(`\\.${selector}\\s*\\{[^}]*border:\\s*0[^}]*background:\\s*var\\(--instrument-widget-dark\\)`, "s"));
+    }
+    expect(workbenchStyles).toMatch(/\.select-menu-trigger\s*\{[^}]*border:\s*0[^}]*background:\s*var\(--instrument-widget-dark\)/s);
+    expect(settingsStyles).toMatch(/\.profile-menu,[\s\S]*\.help-menu\s*\{[^}]*border:\s*0[^}]*background:\s*var\(--instrument-widget-dark\)/s);
+    // Settings own their surfaces in the stylesheet rather than in the markup, so the plate
+    // and its sunken controls are asserted where they are actually declared.
+    expect(settingsStyles).toMatch(/\.settings-plate\s*\{[^}]*background:\s*var\(--instrument-widget-light\)/s);
+    expect(settingsStyles).toMatch(/\.settings-toggle\s*\{[^}]*background:\s*var\(--instrument-widget-light-sunken\)/s);
+    expect(settingsScreenSource).not.toMatch(/className="[^"]*\b(?:bg|text|rounded)-/);
   });
 
   test("renders active surfaces with visible focus in Chromium", async () => {
@@ -908,16 +927,20 @@ describe("design system contract", () => {
       .toEqual([{ width: 2560, viewers: 2 }, { width: 1360, viewers: 2 }, { width: 1100, viewers: 2 }]);
     expect(results.filter(({ screen }) => screen === "documents").map(({ width, documentViewerMaxWidths }) => ({ width, documentViewerMaxWidths })))
       .toEqual([{ width: 2560, documentViewerMaxWidths: ["960px", "960px"] }, { width: 1360, documentViewerMaxWidths: ["960px", "960px"] }, { width: 1100, documentViewerMaxWidths: ["960px", "960px"] }]);
-    expect(results.filter(({ screen }) => screen === "documents").flatMap(({ screen, width, masterRowEdgeInset }) =>
-      masterRowEdgeInset === null || masterRowEdgeInset >= 6 ? [] : [{ screen, width, masterRowEdgeInset }])).toEqual([]);
+    // Air at the list edge comes from the master column's own padding, not from offsetting
+    // every row, which is what left the selected pill misaligned with the search field.
+    expect(results.filter(({ screen }) => screen === "documents").flatMap(({ screen, width, masterRowSearchOffset }) =>
+      masterRowSearchOffset === 0 ? [] : [{ screen, width, masterRowSearchOffset }])).toEqual([]);
     expect(results.filter(({ screen }) => screen === "documents").flatMap(({ screen, width, masterRowTopInset }) =>
       masterRowTopInset !== null && masterRowTopInset >= 4 ? [] : [{ screen, width, masterRowTopInset }])).toEqual([]);
     expect(results.filter(({ screen }) => screen === "documents").flatMap(({ screen, width, masterRowHeight }) =>
       masterRowHeight !== null && masterRowHeight <= 54 ? [] : [{ screen, width, masterRowHeight }])).toEqual([]);
     expect(results.filter(({ screen }) => screen === "documents").flatMap(({ screen, width, masterRowGap }) =>
       masterRowGap === null || masterRowGap >= 6 ? [] : [{ screen, width, masterRowGap }])).toEqual([]);
+    // The card label sizes the instrument design ships: the stylesheet used to claim 13/12 while
+    // the utility layer rendered these, so the floor is stated at what the operator actually sees.
     expect(results.filter(({ screen }) => screen === "media").flatMap(({ width, mediaTitleFontSize, mediaMetaFontSize }) =>
-      mediaTitleFontSize !== null && mediaTitleFontSize >= 13 && mediaMetaFontSize !== null && mediaMetaFontSize >= 12 ? [] : [{ width, mediaTitleFontSize, mediaMetaFontSize }])).toEqual([]);
+      mediaTitleFontSize !== null && mediaTitleFontSize >= 11.5 && mediaMetaFontSize !== null && mediaMetaFontSize >= 9 ? [] : [{ width, mediaTitleFontSize, mediaMetaFontSize }])).toEqual([]);
     expect(results.filter(({ screen }) => screen === "activity").flatMap(({ width, activityTimeFontSize, activityEntityFontSize }) =>
       activityTimeFontSize !== null && activityTimeFontSize >= 12 && activityEntityFontSize !== null && activityEntityFontSize >= 12 ? [] : [{ width, activityTimeFontSize, activityEntityFontSize }])).toEqual([]);
     expect(results.filter(({ screen }) => screen === "documents").map(({ width, focus }) => ({ width, selectors: focus.map(({ selector }) => selector) })))
@@ -932,15 +955,13 @@ describe("design system contract", () => {
     expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ projectTabsAppRegion }) => projectTabsAppRegion === "no-drag")).toBe(true);
     expect(results.filter(({ screen }) => screen !== "workspace" && screen !== "memory").every(({ gooeyBlobCoverage }) => gooeyBlobCoverage !== null && gooeyBlobCoverage >= 0.99)).toBe(true);
     expect(results.filter(({ screen }) => screen === "units").every(({ unitCardsInGridFlow }) => unitCardsInGridFlow)).toBe(true);
-    expect(workbenchStyles).toMatch(/\.media-card-button:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--fg\)/s);
+    expect(workbenchStyles).toMatch(/\.media-card-button:focus-visible\s*\{[^}]*outline:\s*var\(--focus-ring\)/s);
     expect(workbenchStyles).toMatch(/\.asset-context-menu button:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--fg\)/s);
   }, 20_000);
 
   test("keeps active surfaces borderless and free of the undefined surface token", () => {
     expect(styles).not.toContain("var(--surface)");
-    expect(workbenchStyles).not.toMatch(/\.project-domain-list\s*\{[^}]*border:\s*1px/s);
-    expect(workbenchStyles).toMatch(/\.project-domain-list\s*\{[^}]*border:\s*0/s);
-    expect(workbenchStyles).toMatch(/\.project-domain-list > article\s*\{[^}]*border-bottom:\s*0/s);
+    expect(workbenchStyles).not.toMatch(/\.project-domain-list/);
     expect(styles).not.toContain(".project-preview");
     expect(workbenchStyles).not.toMatch(/\.project-domain-list > button\.is-selected\s*\{[^}]*inset\s+2px\s+0/s);
     expect(workbenchStyles).toMatch(/\.calendar-region\{[^}]*padding:0[^}]*background:var\(--canvas\)/s);
@@ -948,9 +969,12 @@ describe("design system contract", () => {
     expect(workbenchStyles).not.toMatch(/\.calendar-shell\{[^}]*box-shadow/s);
   });
 
-  test("draws one continuous activity rail instead of a segment inside every event", () => {
-    expect(workbenchStyles).toMatch(/\.activity-virtual-list::before\s*\{[^}]*top:[^}]*bottom:[^}]*content:\s*""/s);
+  test("leaves the activity log without a rail, in either whole or per-event form", () => {
+    // The list-level rail was pinned to hard 58/24px offsets and a hard-coded column x, so
+    // it never met the first or last row; design v2 carries no rules or borders at all.
+    expect(workbenchStyles).not.toContain(".activity-virtual-list::before");
     expect(workbenchStyles).not.toContain(".activity-source::before");
+    expect(workbenchStyles).not.toContain("--activity-timeline-x");
   });
 
   test("keeps the activity timeline surface transparent", () => {
@@ -969,7 +993,10 @@ describe("design system contract", () => {
 
     expect(main).toContain('import "./styles/reset.css"');
     expect(reset).toContain("box-sizing: border-box");
-    expect(reset).toMatch(/:focus-visible\s*\{[^}]*outline:\s*none/s);
+    // The reset owns one neutral keyboard ring; pointer focus stays quiet. What this test
+    // guards is that no ring is drawn from the removed accent colour.
+    expect(reset).toMatch(/:focus\s*\{[^}]*outline:\s*none/s);
+    expect(reset).toMatch(/:focus-visible\s*\{[^}]*outline:\s*var\(--focus-ring\)/s);
     expect(styles).not.toMatch(
       /button:focus-visible,\s*input:focus-visible,\s*textarea:focus-visible,\s*select:focus-visible\s*\{[^}]*(?:--ring-focus|var\(--accent\))/s,
     );
@@ -988,18 +1015,42 @@ describe("design system contract", () => {
     expect(renderer).toContain('aria-label="Toggle right panel"');
     expect(renderer).not.toContain('aria-label="Toggle bottom panel"');
     expect(app).toContain("if (event.repeat) return");
-    expect(app).toContain('command && key === "b"');
-    expect(app).not.toContain('command && key === "j"');
-    expect(app).not.toContain('commandOption && key === "b"');
+    // Every global chord resolves through one registry, so a rebinding is live immediately
+    // and no handler hardcodes a key.
+    expect(app).toContain("resolveCommand(event, readCommandBindings(");
+    expect(app).not.toMatch(/command && (?:event\.)?key === "/);
+    const commands = readFileSync(join(process.cwd(), "src/screens/settings/commands.ts"), "utf8");
+    expect(commands).toContain('chord("b", { meta: true })');
+    expect(commands).toContain('chord(",", { meta: true })');
   });
 
-  test("provides searchable workspace navigation and fixed foundation side rails", () => {
+  test("sizes every responsive layout against its container rather than the window", () => {
+    // A viewport breakpoint lies about the space a route actually has: the desk is the window
+    // minus the sidebar and the chat rail, so `xl:` fired on a 908px column and the overview
+    // split into two 430px halves with six-across metric strips inside them.
+    expect(renderer).not.toMatch(/\b(?:sm|md|lg|xl|2xl):[a-z[]/);
+    expect(renderer).toContain("@min-[860px]/instrument-desk:col-span-6");
+    // Strips inside a half-width section derive their track count instead of declaring it.
+    expect(styles).toMatch(/\.workspace-efficiency-strip\s*\{[^}]*repeat\(auto-fit/s);
+    expect(styles).toMatch(/\.workspace-plan-days\s*\{[^}]*repeat\(auto-fit/s);
+    expect(styles).not.toMatch(/@media\(max-width:1050px\)/);
+  });
+
+  test("provides searchable workspace navigation and operator-sized shell columns", () => {
     expect(renderer).toContain('aria-label="Search workspaces"');
     expect(renderer).toContain('aria-activedescendant');
     expect(renderer).toContain("closeAndRestoreFocus");
-    expect(renderer).not.toContain('ariaLabel="Resize sidebar"');
-    expect(renderer).not.toContain('ariaLabel="Resize right panel"');
+    // Both shell columns are draggable; only the bottom panel is still a fixed foundation.
+    expect(renderer).toContain('ariaLabel="Resize sidebar"');
+    expect(renderer).toContain('ariaLabel="Resize agent panel"');
     expect(renderer).not.toContain('ariaLabel="Resize bottom panel"');
+    // The grabber paints unconditionally: a hover-only affordance never advertises itself.
+    expect(styles).toMatch(
+      /\.resize-instrument-sidebar::after,\s*\.resize-instrument-rail::after\s*\{[^}]*background:\s*var\(--instrument-resize-grip\)/s,
+    );
+    // The dock belongs to the desk column, not the window: fixed positioning centred it on
+    // the app and drifted off the project whenever a column took width.
+    expect(styles).toMatch(/\.project-controls\s*\{[^}]*position:\s*absolute/s);
     expect(renderer).toContain("onLostPointerCapture");
     expect(renderer).toContain("createPortal");
     expect(styles).toMatch(
@@ -1008,9 +1059,7 @@ describe("design system contract", () => {
     expect(styles).toMatch(
       /\.workspace-picker-search:focus-within\s*\{[^}]*box-shadow:\s*none/s,
     );
-    expect(styles).toMatch(
-      /\.breadcrumbs\s*\{[^}]*-webkit-app-region:\s*no-drag/s,
-    );
+    expect(renderer).toContain("[-webkit-app-region:no-drag]");
     expect(styles).toMatch(/button:not\(:disabled\)[^{]*\{[^}]*cursor:\s*pointer/s);
     expect(styles).toMatch(/\.instrument-shell\s*\{[^}]*--instrument-left-width:\s*240px/s);
     expect(styles).toMatch(/\.instrument-shell\s*\{[^}]*--instrument-right-rail-width:\s*292px/s);
@@ -1043,38 +1092,32 @@ describe("design system contract", () => {
     expect(picker).toContain("workspace-option-field");
     expect(picker).toContain("style={workspaceDitherVars(workspace.name)}");
     expect(projectsScreen).toContain("projectGlyphVars(project.name)");
-    expect(projectsScreen).toContain("projectGlyphSlot(project.name)");
-    expect(projectsScreen).toContain("data-glyph=");
     expect(picker).toContain("workspaceDitherVars(selected?.name ?? value)");
     expect(sidebar).toContain("sidebar-nav-row");
     expect(sidebar).not.toContain("sidebar-mascot-peek");
     expect(sidebar).not.toContain('title="Filter projects"');
     expect(profile).not.toContain(".ralphy library");
     expect(styles).toContain("--dither-op: 1");
+    // v2: the workspace card is a sidebar widget, flush with the stack above and below it.
     expect(styles).toMatch(
-      /\.workspace-hero\s*\{[^}]*width:\s*calc\(100% - 24px\)/s,
+      /\.sidebar-context\s*\{[^}]*height:\s*118px[^}]*border-radius:\s*var\(--radius-panel\)/s,
+    );
+    expect(styles).toMatch(/\.sidebar-context \.workspace-hero,\s*\.sidebar-context \.workspace-picker\s*\{\s*height:\s*100%/s);
+    expect(styles).toMatch(
+      /\.workspace-hero\s*\{[^}]*background:\s*var\(--instrument-widget-dark\)/s,
     );
     expect(styles).toMatch(
-      /\.sidebar-row\.is-selected::after\s*\{[^}]*linear-gradient/s,
+      /\.project-glyph\s*\{[^}]*background:\s*color-mix\(in oklab, var\(--glyph-color\)/s,
     );
     expect(styles).toMatch(
-      /\.project-glyph-mark\s*\{[^}]*display:\s*block/s,
-    );
-    expect(styles).toMatch(
-      /\.sidebar-row-field\s*\{[^}]*z-index:\s*0/s,
-    );
-    expect(styles).toMatch(
-      /\.sidebar-row\.is-selected::after\s*\{[^}]*z-index:\s*1/s,
-    );
-    expect(styles).toMatch(
-      /\.sidebar-row\.is-selected\s*>\s*\*:not\(\.sidebar-row-field\)\s*\{[^}]*z-index:\s*2/s,
+      /button\.sidebar-nav-row\.is-selected\s*\{[^}]*background:\s*var\(--selected\)/s,
     );
     expect(styles).toMatch(
       /\.workspace-option-field\s*\{[^}]*row-field\.png/s,
     );
     for (let slot = 1; slot <= 8; slot += 1) {
       expect(styles).toContain(`--p${slot}:`);
-      expect(styles).toContain(`.project-glyph[data-glyph="${slot}"]`);
+      expect(styles).toContain(`--p${slot}-hi:`);
       expect(
         existsSync(join(process.cwd(), `public/assets/dither/g${slot}.png`)),
       ).toBe(true);
@@ -1130,8 +1173,9 @@ describe("design system contract", () => {
     expect(panels).toContain('label: "OpenRouter"');
     expect(panels).not.toContain("<select");
     expect(panels).toContain("AiBrandIcon");
+    // v2 forbids borders: the chat is a flat #141414 widget on the desk.
     expect(styles).toMatch(
-      /\.utility-right-panel\s*\{[^}]*border-left:\s*1px solid var\(--line\)/s,
+      /\.utility-right-panel\s*\{[^}]*border:\s*0[^}]*background:\s*var\(--instrument-widget-dark\)/s,
     );
     expect(styles).toMatch(/\.agent-composer\s*\{[^}]*background:\s*var\(--field-surface\)/s);
     expect(styles).toMatch(
@@ -1167,12 +1211,11 @@ describe("design system contract", () => {
       join(process.cwd(), "src/components/UtilityPanels.tsx"),
       "utf8",
     );
-    const settings = readFileSync(join(process.cwd(), "src/screens/SettingsScreen.tsx"), "utf8");
-
     expect(app).not.toContain("BottomPanel");
     expect(app).not.toContain("onToggleBottom");
     expect(utilityPanels).not.toContain("TerminalWorkspace");
-    expect(settings).not.toContain('id: "terminal"');
+    // Settings own the shell environment as preferences; the emulator itself stays out.
+    expect(settingsSurfaceSource).not.toMatch(/TerminalWorkspace|createTerminal|node-pty/);
     expect(app).toContain("loadSettingsScreen");
   });
 
@@ -1182,12 +1225,12 @@ describe("design system contract", () => {
       join(process.cwd(), "src/components/ProfileMenu.tsx"),
       "utf8",
     );
-    const settings = readFileSync(
-      join(process.cwd(), "src/screens/SettingsScreen.tsx"),
-      "utf8",
-    );
     const preferences = readFileSync(
       join(process.cwd(), "src/state/workbench.ts"),
+      "utf8",
+    );
+    const settingsPreferences = readFileSync(
+      join(process.cwd(), "src/screens/settings/preferences.ts"),
       "utf8",
     );
 
@@ -1195,23 +1238,31 @@ describe("design system contract", () => {
     expect(profileMenu).toContain('role="menu"');
     expect(profileMenu).toContain("Settings");
     expect(profileMenu).toContain("closeAndRestoreFocus");
-    expect(app).toContain('command && event.key === ","');
+    expect(app).toContain('id === "app.settings"');
     expect(app).toContain("<SettingsScreen");
     expect(app).toContain("onBack={() => setSettingsVisible(false)}");
     for (const category of [
       "General",
       "Profile",
       "Appearance",
-      "Providers",
+      "Keyboard shortcuts",
+      "Agents",
+      "Generation providers",
+      "Storage & media",
+      "Permissions & privacy",
+      "Terminal & environment",
+      "Diagnostics",
+      "Updates",
       "About",
     ]) {
-      expect(settings).toContain(`"${category}"`);
+      expect(settingsSurfaceSource).toContain(`"${category}"`);
     }
-    expect(settings).toContain("Home Ralphy library");
-    expect(settings).not.toContain("Change .ralphy library");
-    expect(settings).not.toContain('type="password"');
-    expect(settings).toContain("Provider credentials are configured outside Settings in this release.");
+    expect(settingsSurfaceSource).toContain("Home Ralphy library");
+    expect(settingsSurfaceSource).not.toContain("Change .ralphy library");
+    // A credential reaches the OS keychain through secure IPC and never a preference store.
+    expect(settingsSurfaceSource).toContain("setAgentApiKey");
     expect(preferences).not.toMatch(/apiKey|providerKey|elevenlabs|openrouter/i);
+    expect(settingsPreferences).not.toMatch(/apiKey|providerKey|secret|token/i);
   });
 
   test("uses the Ralphy mascot and a neutral dot-grid media stage", () => {

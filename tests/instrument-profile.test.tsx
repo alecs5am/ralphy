@@ -4,6 +4,7 @@ import { describe, expect, test, vi } from "vitest";
 
 import { InstrumentProfileControl } from "../src/instrument/InstrumentProfileControl";
 import { createReactHost, type HostNode } from "./react-host";
+import { readStylesheet } from "./style-sources";
 
 async function settle() {
   await Promise.resolve();
@@ -131,7 +132,8 @@ describe("instrument profile control", () => {
         frames.flush();
         await settle();
       });
-      expect(menu.style.position).toBe("fixed");
+      // The stylesheet fixes the menu; the inline style carries only the measured position.
+      expect(readStylesheet("instrument.css")).toMatch(/\.instrument-profile-menu \{[^}]*position: fixed/);
       expect(menu.style.left).toBe("800px");
       expect(Number.parseFloat(menu.style.top)).toBeLessThan(660);
       expect(Number.parseFloat(menu.style.left) + menu.scrollWidth).toBeLessThanOrEqual(992);

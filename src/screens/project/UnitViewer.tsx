@@ -165,8 +165,8 @@ export function UnitViewer({
   return <Dialog.Root open={open} onOpenChange={onOpenChange}>
     {open && <Dialog.Portal forceMount container={typeof document === "undefined" ? undefined : document.body}>
       <Dialog.Overlay forceMount className="unit-viewer-overlay" data-instrument-overlay-backdrop="" />
-      <Dialog.Content forceMount className="unit-viewer rounded-panel border-0 bg-surface text-ink shadow-none [&_.unit-meta-section]:border-0 [&_.unit-meta-section]:bg-surface-sunken [&_.unit-meta-section]:shadow-none" data-instrument-overlay="unit-viewer" ref={surface} onOpenAutoFocus={(event) => { event.preventDefault(); surface.current?.focus({ preventScroll: true }); }} onCloseAutoFocus={(event) => { event.preventDefault(); returnFocus?.focus({ preventScroll: true }); }} tabIndex={-1}>
-        <header className="unit-viewer-header border-0 bg-surface-sunken shadow-none">
+      <Dialog.Content forceMount className="unit-viewer rounded-panel bg-surface text-ink [&_.unit-meta-section]:bg-surface-sunken" data-instrument-overlay="unit-viewer" ref={surface} onOpenAutoFocus={(event) => { event.preventDefault(); surface.current?.focus({ preventScroll: true }); }} onCloseAutoFocus={(event) => { event.preventDefault(); returnFocus?.focus({ preventScroll: true }); }} tabIndex={-1}>
+        <header className="unit-viewer-header bg-surface-sunken">
           <div className="unit-viewer-heading">
             <Dialog.Title>{unit?.slug ?? "Unit"}</Dialog.Title>
             <Dialog.Description>{unit?.format ?? "Loading Unit"}</Dialog.Description>
@@ -211,7 +211,7 @@ export function UnitViewer({
 
             {lifecycle?.label === "Scheduled" && publication?.scheduledAt && <section className="unit-meta-section unit-schedule"><label>SCHEDULE</label><div><Clock3 /><span><strong>{formatTime(publication.scheduledAt)}</strong><small>{target?.label} · scheduled</small></span></div></section>}
 
-            {lifecycle?.label === "Published" && <section className="unit-meta-section unit-performance"><label>PERFORMANCE · {target?.label?.toUpperCase()}</label><div className="unit-metrics"><span><strong>{formatMetric(overview?.metrics?.views)}</strong><small>Views</small></span><span><strong>{formatMetric(overview?.metrics?.likes)}</strong><small>Likes</small></span><span><strong>{formatMetric(overview?.metrics?.comments)}</strong><small>Comments</small></span><span><strong>{formatMetric(overview?.metrics?.shares)}</strong><small>Shares</small></span></div><div className="unit-retention"><span>{[35, 31, 29, 27, 25, 24, 22, 20, 18, 17, 15, 14].map((height, index) => <i style={{ height }} key={index} />)}</span><small>Retention</small></div></section>}
+            {lifecycle?.label === "Published" && <section className="unit-meta-section unit-performance"><label>PERFORMANCE · {target?.label?.toUpperCase()}</label><div className="unit-metrics"><span><strong>{formatMetric(overview?.metrics?.views)}</strong><small>Views</small></span><span><strong>{formatMetric(overview?.metrics?.likes)}</strong><small>Likes</small></span><span><strong>{formatMetric(overview?.metrics?.comments)}</strong><small>Comments</small></span><span><strong>{formatMetric(overview?.metrics?.shares)}</strong><small>Shares</small></span></div><p className="unit-retention-unavailable">Retention curve is not available from the current Core contract.</p></section>}
 
             <ProductionDetails snapshot={snapshot} />
           </aside>

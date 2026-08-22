@@ -1,7 +1,7 @@
-import * as Dialog from "@radix-ui/react-dialog";
-import { CalendarDays, Settings, X } from "lucide-react";
+import { CalendarDays, Settings } from "lucide-react";
 import { useState } from "react";
 import type { WorkspaceCalendarNavigationContext } from "../../state/workbench";
+import { DetailDialog } from "./DetailDialog";
 import type {
   AccountPresentation,
   Availability,
@@ -54,7 +54,7 @@ function SectionHeading({ id, title, meta }: { id: string; title: string; meta?:
 }
 
 function UnavailablePanel({ title, reason }: { title: string; reason: string }) {
-  return <div className="workspace-unavailable rounded-[14px] border-0 bg-surface-sunken px-3 py-2 text-[12px] leading-5 text-muted" role="note">
+  return <div className="workspace-unavailable rounded-cell bg-surface-sunken px-3 py-2 type-sm leading-5 text-muted" role="note">
     <strong>{title}</strong>
     <p>{reason}</p>
   </div>;
@@ -69,10 +69,10 @@ function MetricStrip({ values }: { values: WorkspaceMomentumPresentation["totals
     ["Comments", metric(values.comments), values.comments === null ? "Comments unavailable" : `${values.comments.toLocaleString()} comment${values.comments === 1 ? "" : "s"}`],
     ["Shares", metric(values.shares), values.shares === null ? "Shares unavailable" : `${values.shares.toLocaleString()} share${values.shares === 1 ? "" : "s"}`],
   ];
-  return <dl className="workspace-metric-strip grid grid-cols-2 gap-2 overflow-hidden rounded-[14px] border-0 bg-transparent sm:grid-cols-3 xl:grid-cols-6 [&>div]:border-0">
-    {metrics.map(([label, value, accessible]) => <div className="min-w-0 rounded-control border-0 bg-surface-sunken px-3 py-3" key={label}>
-      <dt className="text-[11px] text-muted">{label}</dt>
-      <dd className="mt-1 text-[20px] font-semibold leading-none text-ink" aria-label={accessible}>{value}</dd>
+  return <dl className="workspace-metric-strip grid grid-cols-[repeat(auto-fit,minmax(124px,1fr))] gap-2 overflow-hidden rounded-cell bg-transparent">
+    {metrics.map(([label, value, accessible]) => <div className="min-w-0 rounded-control bg-surface-sunken px-3 py-3" key={label}>
+      <dt className="type-xs text-muted">{label}</dt>
+      <dd className="mt-1 type-xl font-semibold leading-none text-ink" aria-label={accessible}>{value}</dd>
     </div>)}
   </dl>;
 }
@@ -99,7 +99,7 @@ export function AccessibleTrendChart({ value }: { value: readonly TrendPoint[] }
 }
 
 export function WorkspaceMomentum({ value }: { value: WorkspaceMomentumPresentation }) {
-  return <section className="workspace-overview-section workspace-momentum col-span-12 m-0 min-w-0 max-w-none rounded-panel border-0 bg-surface p-4 shadow-none" aria-labelledby="workspace-momentum-title">
+  return <section className="workspace-overview-section workspace-momentum col-span-12 m-0 min-w-0 max-w-none rounded-panel bg-surface p-4" aria-labelledby="workspace-momentum-title">
     <SectionHeading id="workspace-momentum-title" title="Workspace momentum" meta={value.periodLabel} />
     <MetricStrip values={value.totals} />
     {(value.trend.status === "ready" || value.trend.status === "partial") && <AccessibleTrendChart value={value.trend.value} />}
@@ -122,14 +122,14 @@ export function AccountPortfolio({
   onSelect(account: AccountPresentation): void;
 }) {
   const accounts = value.status === "ready" || value.status === "partial" ? value.value : [];
-  return <section className="workspace-overview-section workspace-accounts col-span-12 m-0 min-w-0 max-w-none rounded-panel border-0 bg-surface p-4 shadow-none xl:col-span-6" aria-labelledby="workspace-accounts-title">
+  return <section className="workspace-overview-section workspace-accounts col-span-12 m-0 min-w-0 max-w-none rounded-panel bg-surface p-4 @min-[860px]/instrument-desk:col-span-6" aria-labelledby="workspace-accounts-title">
     <SectionHeading id="workspace-accounts-title" title="Accounts" meta={accounts.length ? `${accounts.length} returned by Core` : undefined} />
     {value.status === "partial" && <UnavailablePanel title="Partial account data" reason={value.reason} />}
     {(value.status === "empty" || value.status === "unavailable") && <UnavailablePanel title="Accounts unavailable" reason={value.reason} />}
     {value.status === "ready" && accounts.length === 0 && <UnavailablePanel title="No connected accounts" reason="No connected accounts were returned by Core." />}
     {accounts.length > 0 && <div className="account-portfolio-wrap">
       <div className="account-portfolio" aria-label="Account portfolio">
-        {accounts.map((account) => <button id={`workspace-account-${account.id}`} className="account-card min-h-0 rounded-[14px] border-0 bg-surface-sunken p-3 text-left text-[12px] text-ink shadow-none" type="button" key={account.id} onClick={() => onSelect(account)}>
+        {accounts.map((account) => <button id={`workspace-account-${account.id}`} className="account-card min-h-0 rounded-cell bg-surface-sunken p-3 text-left type-sm text-ink" type="button" key={account.id} onClick={() => onSelect(account)}>
           <span className="account-card-heading"><strong>{account.platform}</strong><span className={`account-health${account.relinkRequired || !account.credentialConfigured ? " is-warning" : ""}`}>{health(account)}</span></span>
           <b>{handle(account.username)}</b>
           {account.displayName && <small>{account.displayName}</small>}
@@ -160,54 +160,49 @@ export function AccountDetailDialog({
   onOpenChange(open: boolean): void;
   onOpenCalendar(context: WorkspaceCalendarNavigationContext, returnFocusId: string): void;
 }) {
-  return <Dialog.Root open={account !== null} onOpenChange={onOpenChange}>
-    {account && <Dialog.Portal forceMount container={typeof document === "undefined" ? undefined : document.body}>
-      <Dialog.Overlay forceMount className="account-detail-overlay" data-instrument-overlay-backdrop="" />
-      <Dialog.Content forceMount className="account-detail-dialog rounded-panel border-0 bg-surface text-ink shadow-none [&_.account-detail-section]:rounded-[14px] [&_.account-detail-section]:border-0 [&_.account-detail-section]:bg-surface-sunken [&_.account-detail-section]:shadow-none" data-instrument-overlay="workspace-account-detail">
-        <header className="account-detail-header">
-          <span>
-            <Dialog.Title>{account.username ? handle(account.username) : account.displayName ?? `${account.platform} account`}</Dialog.Title>
-            <Dialog.Description>{account.platform} account · {health(account)}</Dialog.Description>
-          </span>
-          <Dialog.Close asChild><button type="button" aria-label="Close account details"><X aria-hidden="true" /></button></Dialog.Close>
-        </header>
-        <div className="account-detail-body">
-          <DetailUnavailable title="Performance" reason={availabilityReason(account.metrics, "No provider metrics were returned by Core.")} />
-          <DetailUnavailable title="Top Units" reason="Top Units are not available from the current Core contract." />
-          <DetailUnavailable title="Upcoming" reason="Upcoming content is not available by account from the current Core contract." />
-          <DetailUnavailable title="Recent publication failures" reason="Publication failures are not available by account from the current Core contract." />
-          <section className="account-detail-section">
-            <h3>Health</h3>
-            <dl className="account-health-list">
-              <div><dt>Handle</dt><dd>{handle(account.username)}</dd></div>
-              <div><dt>Link status</dt><dd>{health(account)}</dd></div>
-              <div><dt>Credentials</dt><dd>{account.credentialConfigured ? "Configured" : "Not configured"}</dd></div>
-              <div><dt>Publications</dt><dd>{publicationCount(account.publicationCount)}</dd></div>
-            </dl>
-          </section>
-          <section className="account-detail-section">
-            <h3>Data freshness</h3>
-            <p>Core account record updated <time dateTime={new Date(timestampMs(account.updatedAt)).toISOString()}>{new Date(timestampMs(account.updatedAt)).toLocaleString()}</time>.</p>
-            <p>Provider analytics freshness is unavailable from the current Core contract.</p>
-          </section>
-        </div>
-        <footer className="account-detail-footer">
-          <span>
-            <button type="button" className="command-button" onClick={() => onOpenCalendar({
-              label: account.displayName ?? handle(account.username),
-              accountId: account.id,
-              accountLabel: account.username ? handle(account.username) : account.displayName ?? "Handle unavailable",
-            }, `workspace-account-${account.id}`)}><CalendarDays aria-hidden="true" />Open Calendar</button>
-            <small>Opens the workspace Calendar; filtering by account is not available yet.</small>
-          </span>
-          <span>
-            <button type="button" className="command-button" disabled><Settings aria-hidden="true" />{account.relinkRequired ? "Relink account" : "Manage account"}</button>
-            <small>Account management is not available from the current desktop contract.</small>
-          </span>
-        </footer>
-      </Dialog.Content>
-    </Dialog.Portal>}
-  </Dialog.Root>;
+  return <DetailDialog
+    id="workspace-account-detail"
+    open={account !== null}
+    title={account && (account.username ? handle(account.username) : account.displayName ?? `${account.platform} account`)}
+    description={account && `${account.platform} account · ${health(account)}`}
+    closeLabel="Close account details"
+    footer={account && <>
+      <span>
+        <button type="button" className="command-button" onClick={() => onOpenCalendar({
+          label: account.displayName ?? handle(account.username),
+          accountId: account.id,
+          accountLabel: account.username ? handle(account.username) : account.displayName ?? "Handle unavailable",
+        }, `workspace-account-${account.id}`)}><CalendarDays aria-hidden="true" />Open Calendar</button>
+        <small>Opens the workspace Calendar; filtering by account is not available yet.</small>
+      </span>
+      <span>
+        <button type="button" className="command-button" disabled><Settings aria-hidden="true" />{account.relinkRequired ? "Relink account" : "Manage account"}</button>
+        <small>Account management is not available from the current desktop contract.</small>
+      </span>
+    </>}
+    onOpenChange={onOpenChange}
+  >
+    {account && <>
+      <DetailUnavailable title="Performance" reason={availabilityReason(account.metrics, "No provider metrics were returned by Core.")} />
+      <DetailUnavailable title="Top Units" reason="Top Units are not available from the current Core contract." />
+      <DetailUnavailable title="Upcoming" reason="Upcoming content is not available by account from the current Core contract." />
+      <DetailUnavailable title="Recent publication failures" reason="Publication failures are not available by account from the current Core contract." />
+      <section className="account-detail-section">
+        <h3>Health</h3>
+        <dl className="account-health-list">
+          <div><dt>Handle</dt><dd>{handle(account.username)}</dd></div>
+          <div><dt>Link status</dt><dd>{health(account)}</dd></div>
+          <div><dt>Credentials</dt><dd>{account.credentialConfigured ? "Configured" : "Not configured"}</dd></div>
+          <div><dt>Publications</dt><dd>{publicationCount(account.publicationCount)}</dd></div>
+        </dl>
+      </section>
+      <section className="account-detail-section">
+        <h3>Data freshness</h3>
+        <p>Core account record updated <time dateTime={new Date(timestampMs(account.updatedAt)).toISOString()}>{new Date(timestampMs(account.updatedAt)).toLocaleString()}</time>.</p>
+        <p>Provider analytics freshness is unavailable from the current Core contract.</p>
+      </section>
+    </>}
+  </DetailDialog>;
 }
 
 export function WorkspacePerformance({

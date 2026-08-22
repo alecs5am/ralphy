@@ -69,7 +69,7 @@ const detailLayouts = [
 async function marketplaceGeometry(): Promise<GeometrySmoke> {
   const directory = mkdtempSync(join(tmpdir(), "ralphy-marketplace-geometry-"));
   try {
-    const styleLinks = ["reset.css", "tokens.css", "app.css", "workbench.css", "marketplace.css"]
+    const styleLinks = ["reset.css", "tokens.css", "workbench.css", "marketplace.css"]
       .map((file) => `<link rel="stylesheet" href="${pathToFileURL(join(process.cwd(), "src/styles", file)).href}">`)
       .join("");
     writeFileSync(join(directory, "harness.tsx"), `

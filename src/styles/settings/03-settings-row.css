@@ -1,0 +1,412 @@
+/* The row vocabulary. Every settings page is built from these and nothing else:
+   a section names a mono label and a light plate, the plate holds rows, a row holds
+   one copy column and one control. Adding a page means adding data, not geometry. */
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.settings-section > h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  padding-left: var(--space-4);
+  color: var(--instrument-text-muted-decorative);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono-sm);
+  font-weight: 400;
+  letter-spacing: var(--tracking-mono);
+}
+
+.settings-plate {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2);
+  border-radius: var(--radius-panel);
+  background: var(--instrument-widget-light);
+  corner-shape: squircle;
+}
+
+/* A plate holding a single statement instead of a list of rows: the padding moves to
+   the plate so the statement does not sit in a row inside a plate for no reason. */
+.settings-plate.is-single {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--settings-row-pad) var(--space-4);
+  border-radius: var(--radius-preview);
+  background: transparent;
+  text-align: left;
+  corner-shape: squircle;
+  transition: background var(--dur-slow) var(--ease);
+}
+
+.settings-row.is-tall { align-items: flex-start; }
+.settings-row.is-flat { padding: 11px var(--space-4); }
+
+.settings-row:hover,
+.settings-row.is-flash { background: var(--instrument-widget-light-hover); }
+
+.settings-row-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.settings-row-copy > strong,
+.settings-row-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--instrument-text-primary);
+  font-size: var(--text-ui);
+  font-weight: 400;
+}
+
+.settings-row-copy > small {
+  color: var(--instrument-text-secondary-readable);
+  font-size: var(--text-label);
+  line-height: var(--leading-snug);
+}
+
+.settings-meta {
+  flex: none;
+  color: var(--instrument-text-muted-decorative);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono-xs);
+  letter-spacing: var(--tracking-caps);
+}
+
+/* A code or a state read as a fact: mono, but the theme's own ink, because the rail values
+   are content rather than decoration. */
+.settings-code {
+  color: var(--instrument-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono-sm);
+  letter-spacing: var(--tracking-caps);
+}
+
+.settings-mono {
+  color: var(--instrument-text-secondary-readable);
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  letter-spacing: 0.02em;
+}
+
+.settings-number {
+  color: var(--instrument-text-primary);
+  font-family: var(--font-doto);
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.settings-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: var(--radius-pill);
+  background: var(--instrument-text-primary);
+  corner-shape: round;
+}
+
+/* Status is always dot plus text, so the tone is never the only signal. */
+.settings-dot[data-tone="warn"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--instrument-text-secondary-readable);
+}
+
+.settings-dot[data-tone="bad"] { background: var(--instrument-alert); }
+.settings-dot[data-tone="off"] { background: var(--instrument-text-muted-decorative); opacity: 0.5; }
+
+.settings-status {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--instrument-text-secondary-readable);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono-sm);
+  letter-spacing: 0.09em;
+}
+
+.settings-status[data-tone="bad"] { color: var(--instrument-alert); }
+.settings-status[data-tone="off"] { color: var(--instrument-text-muted-decorative); }
+
+.settings-toggle {
+  display: flex;
+  width: 36px;
+  height: 20px;
+  flex: none;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 3px;
+  border-radius: var(--radius-pill);
+  background: var(--instrument-widget-light-sunken);
+  corner-shape: round;
+  transition: background var(--dur) var(--ease);
+}
+
+.settings-toggle > i {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-pill);
+  background: var(--instrument-text-muted-decorative);
+  corner-shape: round;
+}
+
+.settings-toggle[data-on] {
+  justify-content: flex-end;
+  background: var(--instrument-desk-primary-surface);
+}
+
+.settings-toggle[data-on] > i { background: var(--instrument-desk-primary-ink); }
+.settings-toggle[data-on].is-alert { background: var(--instrument-alert); }
+.settings-toggle[data-on].is-alert > i { background: var(--instrument-text-on-dark-primary); }
+.settings-toggle:focus-visible { outline: var(--control-focus-on-theme); outline-offset: 2px; }
+
+.settings-segmented {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--instrument-widget-light-sunken);
+  corner-shape: round;
+}
+
+.settings-segmented button {
+  display: inline-flex;
+  height: var(--control-sm);
+  align-items: center;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--instrument-text-secondary-readable);
+  font-size: var(--text-label);
+  corner-shape: round;
+}
+
+.settings-segmented button.is-selected {
+  background: var(--instrument-desk-primary-surface);
+  color: var(--instrument-desk-primary-ink);
+}
+
+.settings-segmented button:focus-visible {
+  outline: var(--control-focus-on-theme);
+  outline-offset: 2px;
+}
+
+.settings-action {
+  display: inline-flex;
+  height: 32px;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 15px;
+  border-radius: var(--radius-pill);
+  background: var(--instrument-widget-light-sunken);
+  color: var(--instrument-text-primary);
+  font-size: var(--text-ui);
+  corner-shape: round;
+}
+
+.settings-action:hover { background: var(--instrument-widget-light-hover); }
+.settings-action.is-sm { height: var(--control-md); padding: 0 13px; font-size: var(--text-sm); }
+.settings-action.is-lg { height: var(--control-lg); padding: 0 var(--space-4); }
+
+.settings-action.is-primary {
+  background: var(--instrument-desk-primary-surface);
+  color: var(--instrument-desk-primary-ink);
+}
+
+.settings-action.is-primary:hover { opacity: 0.88; }
+
+.settings-action.is-danger {
+  background: var(--instrument-danger-fill);
+  color: var(--instrument-alert-text);
+}
+
+.settings-action.is-danger:hover { background: var(--instrument-alert-bright); }
+
+.settings-action:disabled {
+  background: var(--instrument-widget-light-sunken);
+  color: var(--instrument-text-muted-decorative);
+}
+
+.settings-action.is-round {
+  display: grid;
+  width: var(--control-md);
+  height: var(--control-md);
+  place-items: center;
+  padding: 0;
+  color: var(--instrument-text-secondary-readable);
+}
+
+.settings-action.is-round.is-sm { width: 28px; height: 28px; }
+.settings-action.is-round:hover { color: var(--instrument-text-primary); }
+
+/* The shared select trigger is a dark two-column grid by default; on the settings desk it
+   is a sunken light pill whose value, meta and chevron sit on one line. */
+.settings-select.select-menu-trigger {
+  display: inline-flex;
+  height: var(--control-md);
+  max-width: 260px;
+  gap: 9px;
+  padding: 0 var(--space-3);
+  background: var(--instrument-widget-light-sunken);
+  color: var(--instrument-text-primary);
+  font-size: var(--text-sm);
+}
+
+.settings-select.select-menu-trigger:hover { background: var(--instrument-widget-light-hover); }
+.settings-select.is-mono.select-menu-trigger { font-family: var(--font-mono); font-size: var(--text-mono-md); }
+
+.settings-field {
+  display: flex;
+  width: 250px;
+  height: var(--control-lg);
+  flex: none;
+  padding: 0 13px;
+  border-radius: var(--radius-pill);
+  background: var(--instrument-widget-light-sunken);
+  color: var(--instrument-text-primary);
+  font-size: var(--text-ui);
+  corner-shape: round;
+}
+
+.settings-field::placeholder { color: var(--instrument-text-secondary-readable); }
+.settings-field:focus-visible { outline: var(--control-focus-on-theme); outline-offset: 2px; }
+.settings-field.is-wide { width: auto; flex: 1; height: 36px; padding: 0 14px; font-family: var(--font-mono); font-size: var(--text-label); }
+.settings-field.is-invalid { background: var(--instrument-error-surface); }
+
+.settings-keycaps {
+  display: flex;
+  flex: none;
+  gap: 3px;
+}
+
+.settings-keycaps kbd {
+  display: grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-keycap);
+  background: var(--instrument-widget-light);
+  color: var(--instrument-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  font-weight: 700;
+}
+
+.settings-keycaps.is-lg kbd { min-width: 22px; height: 22px; padding: 0 5px; font-size: var(--text-xs); }
+.settings-keycaps.is-inverse kbd { background: var(--instrument-desk-primary-surface); color: var(--instrument-desk-primary-ink); }
+.settings-keycaps.is-sunken kbd { background: var(--instrument-widget-light-sunken); }
+
+button.settings-keycaps {
+  display: inline-flex;
+  height: var(--control-md);
+  align-items: center;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--instrument-widget-light-sunken);
+  corner-shape: round;
+}
+
+button.settings-keycaps:hover { background: var(--instrument-widget-light-hover); }
+
+.settings-stepper {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-stepper output {
+  display: grid;
+  width: 66px;
+  height: var(--control-md);
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: var(--instrument-widget-light-sunken);
+  color: var(--instrument-text-primary);
+  font-family: var(--font-doto);
+  font-size: var(--text-lg);
+  font-weight: 800;
+  corner-shape: squircle;
+}
+
+/* A roadmap row states the missing contract instead of drawing a dead control. */
+.settings-target {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--instrument-text-muted-decorative);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono-xs);
+  letter-spacing: var(--tracking-caps);
+}
+
+.settings-row.is-target .settings-row-copy > strong,
+.settings-row.is-target .settings-row-title { color: var(--instrument-text-secondary-readable); }
+.settings-row.is-target .settings-row-copy > small { color: var(--instrument-text-muted-decorative); }
+.settings-row.is-target:hover { background: transparent; }
+
+.settings-dotgrid {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  gap: var(--space-1);
+}
+
+.settings-dotgrid > i {
+  width: 9px;
+  height: 9px;
+  border-radius: var(--radius-pill);
+  background: var(--instrument-unreviewed);
+  corner-shape: round;
+}
+
+.settings-dotgrid > i.is-filled { background: var(--instrument-text-primary); }
+
+.settings-led {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  gap: var(--space-1);
+}
+
+.settings-led > i {
+  height: 9px;
+  flex: 1;
+  border-radius: var(--radius-pill);
+  background: var(--instrument-unreviewed);
+  corner-shape: round;
+}
+
+.settings-led > i.is-filled { background: var(--instrument-text-primary); }
+
+.settings-note {
+  margin: 0;
+  color: var(--instrument-text-muted-decorative);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono-xs);
+  letter-spacing: var(--tracking-caps);
+  line-height: 1.6;
+}
+
+.settings-note.is-alert { color: var(--instrument-alert); }

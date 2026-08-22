@@ -200,8 +200,9 @@ describe("Shared Library screen", () => {
       expect(text).toContain("6.0 KB");
       expect(text).toContain("Add artifact");
       expect(text).toContain("Promote from project");
+      // The field is a flex child in a crowded toolbar; a long placeholder ran off its own pill.
       expect(byAria(mounted.host.container, "input", "Search Shared Library")?.getAttribute("placeholder"))
-        .toBe("Search slug, kind, referenced role, provenance");
+        .toBe("Search artifacts");
       expect(text).toContain("Grid");
       expect(text).toContain("List");
       expect(text).not.toContain("Shared Library is not wired yet");

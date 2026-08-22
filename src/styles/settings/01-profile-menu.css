@@ -1,0 +1,146 @@
+.profile-controls {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 6px;
+}
+
+.profile-menu-trigger {
+  display: flex;
+  width: auto;
+  height: 32px;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--fg-2);
+  text-align: left;
+}
+
+.profile-menu-trigger:hover,
+.profile-menu-trigger[aria-expanded="true"],
+.help-menu-trigger:hover,
+.help-menu-trigger[aria-expanded="true"] {
+  background: var(--control-hover);
+  color: var(--control-text-hover);
+}
+
+.help-menu-trigger {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--fg-4);
+}
+
+.profile-menu,
+.help-menu {
+  position: fixed;
+  z-index: var(--z-popover);
+  padding: 6px;
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: var(--instrument-widget-dark);
+  corner-shape: squircle;
+}
+
+.profile-menu-identity {
+  display: flex;
+  height: 30px;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 0 7px;
+}
+
+.profile-menu-identity strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-separator {
+  height: 1px;
+  margin: 3px 4px;
+  background: var(--line);
+}
+
+.profile-menu > button,
+.help-menu > a,
+.help-menu > button {
+  display: grid;
+  width: 100%;
+  height: var(--menu-item-height);
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 0 7px;
+  border-radius: var(--menu-item-radius);
+  background: transparent;
+  color: var(--control-text);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  text-align: left;
+}
+
+.profile-menu > button:hover,
+.profile-menu > button:focus-visible,
+.help-menu > a:hover,
+.help-menu > a:focus-visible,
+.help-menu > button:hover,
+.help-menu > button:focus-visible {
+  background: var(--control-hover);
+  color: var(--control-text-hover);
+}
+
+.help-menu > button:disabled,
+.profile-menu kbd,
+.help-menu small,
+.help-menu-label {
+  color: var(--fg-4);
+  font-size: var(--text-xs);
+}
+
+.profile-menu kbd { font-family: var(--font-sans); }
+.help-menu-label { padding: 4px 6px 2px; }
+
+.help-menu-update {
+  display: grid;
+  height: 26px;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+}
+
+.help-menu-update > span {
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--fg-4);
+  border-radius: var(--radius-pill);
+}
+
+.help-menu-update strong {
+  overflow: hidden;
+  color: var(--fg-2);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.help-menu-update time {
+  color: var(--fg-4);
+  font-size: var(--text-xs);
+}

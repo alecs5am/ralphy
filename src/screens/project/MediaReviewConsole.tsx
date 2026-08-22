@@ -43,12 +43,12 @@ export function MediaReviewConsole(props: MediaReviewConsoleProps) {
 
 function ProductionMediaReviewConsole({ card, project, rootEpoch, controller, position, total, onNavigate }: MediaReviewConsoleProps) {
   const status = productionMediaReviewStatus(card);
-  return <section className="review-console rounded-panel border-0 bg-instrument text-on-instrument shadow-none" aria-label="Media review console">
+  return <section className="review-console rounded-panel bg-instrument text-on-instrument" aria-label="Media review console">
     <header className="review-console-header">
       <span>READ-ONLY REVIEW</span>
       <button type="button" aria-label="Open selected media" onClick={() => { void controller.openMediaViewer(card); }}><Maximize2 aria-hidden="true" /></button>
     </header>
-    <button className="review-console-preview-button overflow-hidden rounded-[14px] border-0 bg-instrument-raised shadow-none" type="button" aria-label={`Preview ${mediaCardName(card)}`} onClick={() => { void controller.openMediaViewer(card); }}>
+    <button className="review-console-preview-button overflow-hidden rounded-cell bg-instrument-raised" type="button" aria-label={`Preview ${mediaCardName(card)}`} onClick={() => { void controller.openMediaViewer(card); }}>
       <MediaCardPreview card={card} project={project} rootEpoch={rootEpoch} resolvePreview={bridge.resolveProjectPreview} fill className="review-console-preview" />
     </button>
     <div className="review-console-copy">

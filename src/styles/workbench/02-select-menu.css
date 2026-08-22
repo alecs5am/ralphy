@@ -1,0 +1,449 @@
+.sidebar-chrome-leading,
+.collapsed-window-controls {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  gap: 2px;
+  -webkit-app-region: no-drag;
+}
+
+.sidebar-traffic-space {
+  width: 68px;
+  height: 1px;
+  flex: none;
+}
+
+.main-traffic-space {
+  width: 76px;
+  height: 1px;
+  flex: none;
+}
+
+.history-controls,
+.main-header-actions {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  gap: 2px;
+  -webkit-app-region: no-drag;
+}
+
+.main-header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px 0 18px;
+  border-bottom: 0;
+  background: var(--canvas);
+}
+
+.collapsed-window-controls {
+  align-self: stretch;
+  margin-left: -18px;
+}
+
+.main-header > svg {
+  flex: none;
+  color: var(--fg-3);
+}
+
+.main-header-actions {
+  margin-left: auto;
+}
+
+.main-header-home,
+.main-header-actions {
+  position: relative;
+  z-index: 4;
+  -webkit-app-region: no-drag;
+}/* Context sidebar */
+
+.context-sidebar {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  grid-area: 1 / 1 / 2 / 2;
+  flex-direction: column;
+  background: var(--panel);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+}
+
+/* The workspace card is a fixed-height sidebar widget; the picker and its hero fill it, so
+   the height is stated once here instead of on each of the three elements. */
+.sidebar-context {
+  display: block;
+  height: 118px;
+  flex: none;
+  overflow: hidden;
+  padding: 0;
+  border-radius: var(--radius-panel);
+}
+
+.sidebar-context .workspace-hero,
+.sidebar-context .workspace-picker {
+  height: 100%;
+}
+
+.sidebar-context .workspace-picker {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The trigger is a control in its own right: every call site passes a different class, so its
+   height, radius and ink belong to the control rather than to whoever mounts it. */
+.select-menu-trigger {
+  display: grid;
+  height: var(--control-md);
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--instrument-widget-dark);
+  color: var(--instrument-text-on-dark-secondary-readable);
+  corner-shape: round;
+  text-align: left;
+}
+
+.select-menu-trigger:hover,
+.select-menu-trigger[data-state="open"] {
+  background: var(--instrument-widget-dark-hover);
+  color: var(--instrument-text-on-dark-primary);
+}
+
+.select-menu-value {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.select-menu-value > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.select-menu-prefix,
+.select-menu-trigger > small {
+  color: var(--fg-3);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.select-menu-chevron {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  color: var(--fg-3);
+  transition: transform var(--dur) var(--ease);
+}
+
+.select-menu-trigger[data-state="open"] .select-menu-chevron {
+  transform: rotate(180deg);
+}
+
+.workspace-picker {
+  position: relative;
+}
+
+.workspace-hero {
+  position: relative;
+  display: block;
+  width: 100%;
+  flex: none;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: var(--instrument-widget-dark);
+  box-shadow: none;
+  color: var(--instrument-text-on-dark-primary);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.workspace-hero-field,
+.workspace-hero-field-hi {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 118px;
+  mask-repeat: no-repeat;
+  pointer-events: none;
+}
+
+.workspace-hero-field {
+  background: var(--workspace-color, var(--instrument-dither-base));
+  opacity: var(--dither-op);
+  mask-image: url("/assets/dither/ribbon-card.png");
+  mask-size: 232px 118px;
+}
+
+.workspace-hero-field-hi {
+  background: var(--workspace-highlight, var(--instrument-dither-highlight));
+  opacity: 0.8;
+  mask-image: url("/assets/dither/ribbon-card-hi.png");
+  mask-size: 232px 118px;
+}
+
+.workspace-hero-chevron {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--instrument-selected-surface);
+  box-shadow: none;
+  color: var(--instrument-selected-ink);
+}
+
+.workspace-hero-chevron svg {
+  transition: transform var(--dur) var(--ease);
+}
+
+.workspace-hero[aria-expanded="true"] .workspace-hero-chevron svg {
+  transform: rotate(180deg);
+}
+
+.workspace-hero-copy {
+  position: absolute;
+  right: 16px;
+  bottom: 13px;
+  left: 16px;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.workspace-hero-copy strong,
+.workspace-hero-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-hero-copy strong {
+  color: var(--instrument-text-on-dark-primary);
+  font-size: var(--text-title);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.workspace-hero-copy small {
+  color: var(--instrument-text-on-dark-secondary-readable);
+  font-family: var(--font-doto);
+  font-size: var(--text-sm);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.workspace-picker-search {
+  display: flex;
+  height: 34px;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 6px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--instrument-widget-dark-raised);
+  color: var(--instrument-text-on-dark-muted-decorative);
+  corner-shape: round;
+}
+
+.workspace-picker-search:focus-within {
+  box-shadow: none;
+}
+
+.workspace-picker-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  caret-color: var(--instrument-text-on-dark-primary);
+  color: var(--instrument-text-on-dark-primary);
+  font-size: var(--text-sm);
+}
+
+.workspace-picker-list {
+  max-height: 340px;
+  padding: 0;
+  overflow: auto;
+}
+
+.workspace-picker-list > button {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-height: 44px;
+  grid-template-columns: 28px minmax(0, 1fr) auto 14px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px 0 8px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--instrument-text-on-dark-secondary-readable);
+  corner-shape: round;
+  text-align: left;
+}
+
+.workspace-picker-list > button:hover,
+.workspace-picker-list > button.is-highlighted {
+  background: var(--instrument-widget-dark-hover);
+  color: var(--instrument-text-on-dark-primary);
+}
+
+.workspace-option-field {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  left: 0;
+  width: 150px;
+  height: 44px;
+  background: var(--workspace-color);
+  opacity: 0.3;
+  mask-image: url("/assets/dither/row-field.png");
+  mask-size: 268px 54px;
+  mask-repeat: no-repeat;
+  pointer-events: none;
+}
+
+.workspace-picker-list > button:hover .workspace-option-field,
+.workspace-picker-list > button.is-highlighted .workspace-option-field,
+.workspace-picker-list > button[aria-selected="true"] .workspace-option-field {
+  opacity: 0.46;
+}
+
+.workspace-picker-list > button > *:not(.workspace-option-field) {
+  position: relative;
+  z-index: var(--z-base);
+}
+
+.workspace-option-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.workspace-picker-list strong,
+.workspace-picker-list small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-picker-list strong {
+  color: var(--instrument-text-on-dark-primary);
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+
+.workspace-picker-empty {
+  display: block;
+  padding: 20px 12px;
+  color: var(--fg-3);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.workspace-option-avatar {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--workspace-color);
+  color: var(--instrument-text-on-dark-primary);
+  corner-shape: round;
+  font-family: var(--font-mono);
+  font-size: var(--text-mono-sm);
+  letter-spacing: 0.06em;
+}
+
+.select-menu-viewport {
+  padding: 0;
+}
+
+.select-menu-item {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 32px;
+  align-items: center;
+  padding: 0 30px 0 12px;
+  border-radius: var(--radius-pill);
+  color: var(--instrument-text-on-dark-secondary-readable);
+  corner-shape: round;
+  outline: 0;
+  user-select: none;
+}
+
+.select-menu-item[data-highlighted] {
+  background: var(--instrument-widget-dark-hover);
+  color: var(--instrument-text-on-dark-primary);
+}
+
+.select-menu-item-content {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+}
+
+.select-menu-item-content > span:nth-child(2) {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.select-menu-item-content strong,
+.select-menu-item-content small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select-menu-item-content strong {
+  color: currentColor;
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+
+.select-menu-item-content small,
+.select-menu-item-content em {
+  color: var(--instrument-text-on-dark-muted-decorative);
+  font-size: var(--text-mono-sm);
+  font-style: normal;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.select-menu-item-content em {
+  font-family: var(--font-mono);
+}
+
+.select-menu-indicator {
+  position: absolute;
+  right: 9px;
+  display: inline-grid;
+  place-items: center;
+  color: var(--accent-soft);
+}

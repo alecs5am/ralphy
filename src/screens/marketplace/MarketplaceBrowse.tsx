@@ -74,9 +74,9 @@ function countLabel(count: Availability<number>): string {
 function CategoryCard({ value, onOpen }: { value: MarketplaceCategoryPresentation; onOpen(category: MarketplaceCategory): void }) {
   const Icon = categoryIcons[value.category];
   return <li className="min-w-0">
-    <button className="marketplace-category-card grid min-h-24 w-full grid-cols-[minmax(0,1fr)_auto] content-between gap-x-3 gap-y-2 rounded-[14px] bg-surface p-4 text-left text-ink hover:bg-surface-hover" type="button" onClick={() => onOpen(value.category)}>
+    <button className="marketplace-category-card grid min-h-24 w-full grid-cols-[minmax(0,1fr)_auto] content-between gap-x-3 gap-y-2 rounded-cell bg-surface p-4 text-left text-ink hover:bg-surface-hover" type="button" onClick={() => onOpen(value.category)}>
       <span className="flex min-w-0 items-center gap-2"><Icon className="size-4 shrink-0" aria-hidden="true" /><strong className="truncate text-sm font-normal">{value.label}</strong></span>
-      <small className={`font-mono text-[10px] text-muted ${value.count.status === "unavailable" ? "max-w-36 text-right leading-tight" : ""}`}>{countLabel(value.count)}</small>
+      <small className={`font-mono type-meta text-muted ${value.count.status === "unavailable" ? "max-w-36 text-right leading-tight" : ""}`}>{countLabel(value.count)}</small>
       <p className="col-span-full m-0 line-clamp-2 text-xs leading-snug text-muted">{value.purpose}</p>
     </button>
   </li>;
@@ -106,21 +106,21 @@ export function MarketplaceDiscover({ snapshot, onOpenCategory, onOpenLibrary, o
   const hasAnyCount = snapshot.categories.some(({ count }) => count.status === "ready" && count.value > 0);
   return <div className="marketplace-discover flex flex-col gap-6 pt-5">
     <section aria-labelledby="marketplace-categories-heading">
-      <div className="marketplace-section-heading mb-2 grid gap-0.5 px-1"><span className="font-mono text-[9px] uppercase tracking-[.11em] text-muted">Browse</span><h2 className="m-0 text-base font-normal" id="marketplace-categories-heading">Categories</h2></div>
+      <div className="marketplace-section-heading mb-2 grid gap-0.5 px-1"><span className="font-mono type-mono-xs uppercase tracking-mono text-muted">Browse</span><h2 className="m-0 text-base font-normal" id="marketplace-categories-heading">Categories</h2></div>
       <ul className="marketplace-category-grid grid list-none grid-cols-3 gap-2 p-0 @max-[900px]:grid-cols-2 @max-[620px]:grid-cols-1" role="list">{snapshot.categories.map((category) => <CategoryCard value={category} onOpen={onOpenCategory} key={category.category} />)}</ul>
     </section>
-    {!hasAnyCount && <div className="marketplace-empty-note flex min-h-20 items-center gap-3 rounded-[14px] bg-surface p-4" role="status"><Package className="size-5 shrink-0 text-muted" aria-hidden="true" /><span className="flex flex-col gap-0.5"><strong className="text-sm font-normal">No items have been returned by the current sources yet.</strong><small className="text-xs text-muted">Categories remain visible with their current source state.</small></span></div>}
+    {!hasAnyCount && <div className="marketplace-empty-note flex min-h-20 items-center gap-3 rounded-cell bg-surface p-4" role="status"><Package className="size-5 shrink-0 text-muted" aria-hidden="true" /><span className="flex flex-col gap-0.5"><strong className="text-sm font-normal">No items have been returned by the current sources yet.</strong><small className="text-xs text-muted">Categories remain visible with their current source state.</small></span></div>}
     <section aria-labelledby="marketplace-community-heading">
-      <div className="marketplace-section-heading mb-2 grid gap-0.5 px-1"><span className="font-mono text-[9px] uppercase tracking-[.11em] text-muted">Read-only route</span><h2 className="m-0 text-base font-normal" id="marketplace-community-heading">Community</h2></div>
-      <button className="flex min-h-20 w-full items-center gap-3 rounded-[14px] bg-surface p-4 text-left text-ink hover:bg-surface-hover" type="button" aria-disabled={onOpenCollection ? undefined : true} aria-describedby="marketplace-community-contract-note" onClick={onOpenCollection}><FolderHeart className="size-4 shrink-0" aria-hidden="true" /><span className="flex min-w-0 flex-1 flex-col gap-0.5"><strong className="truncate text-sm font-normal">Community contributions</strong><small className="text-xs text-muted" id="marketplace-community-contract-note">Read-only unavailable-contract review</small></span><small className="font-mono text-[10px] text-muted">Read-only</small></button>
+      <div className="marketplace-section-heading mb-2 grid gap-0.5 px-1"><span className="font-mono type-mono-xs uppercase tracking-mono text-muted">Read-only route</span><h2 className="m-0 text-base font-normal" id="marketplace-community-heading">Community</h2></div>
+      <button className="flex min-h-20 w-full items-center gap-3 rounded-cell bg-surface p-4 text-left text-ink hover:bg-surface-hover" type="button" aria-disabled={onOpenCollection ? undefined : true} aria-describedby="marketplace-community-contract-note" onClick={onOpenCollection}><FolderHeart className="size-4 shrink-0" aria-hidden="true" /><span className="flex min-w-0 flex-1 flex-col gap-0.5"><strong className="truncate text-sm font-normal">Community contributions</strong><small className="text-xs text-muted" id="marketplace-community-contract-note">Read-only unavailable-contract review</small></span><small className="font-mono type-meta text-muted">Read-only</small></button>
     </section>
     {installed.length > 0 && <section aria-labelledby="marketplace-continue-heading">
-      <div className="marketplace-section-heading mb-2 grid gap-0.5 px-1"><span className="font-mono text-[9px] uppercase tracking-[.11em] text-muted">Local state</span><h2 className="m-0 text-base font-normal" id="marketplace-continue-heading">Continue where you left off</h2></div>
-      <ul className="marketplace-installed-list grid list-none grid-cols-3 gap-2 p-0 @max-[900px]:grid-cols-2 @max-[620px]:grid-cols-1" role="list">{installed.map((item) => <li className="min-w-0" key={`${item.runtime}:${item.id}`}><button className="flex min-h-16 w-full items-center gap-3 rounded-[14px] bg-surface px-4 py-3 text-left hover:bg-surface-hover" type="button" onClick={() => onOpenLibrary("installed")}><Cpu className="size-4 shrink-0" aria-hidden="true" /><span className="flex min-w-0 flex-col gap-0.5"><strong className="truncate text-sm font-normal">{item.name}</strong><small className="truncate font-mono text-[10px] text-muted">Registered in Ollama · {item.format}</small></span></button></li>)}</ul>
+      <div className="marketplace-section-heading mb-2 grid gap-0.5 px-1"><span className="font-mono type-mono-xs uppercase tracking-mono text-muted">Local state</span><h2 className="m-0 text-base font-normal" id="marketplace-continue-heading">Continue where you left off</h2></div>
+      <ul className="marketplace-installed-list grid list-none grid-cols-3 gap-2 p-0 @max-[900px]:grid-cols-2 @max-[620px]:grid-cols-1" role="list">{installed.map((item) => <li className="min-w-0" key={`${item.runtime}:${item.id}`}><button className="flex min-h-16 w-full items-center gap-3 rounded-cell bg-surface px-4 py-3 text-left hover:bg-surface-hover" type="button" onClick={() => onOpenLibrary("installed")}><Cpu className="size-4 shrink-0" aria-hidden="true" /><span className="flex min-w-0 flex-col gap-0.5"><strong className="truncate text-sm font-normal">{item.name}</strong><small className="truncate font-mono type-meta text-muted">Registered in Ollama · {item.format}</small></span></button></li>)}</ul>
     </section>}
     {updated.length > 0 && <section aria-labelledby="marketplace-updated-heading">
-      <div className="marketplace-section-heading mb-2 grid gap-0.5 px-1"><span className="font-mono text-[9px] uppercase tracking-[.11em] text-muted">Source timestamps</span><h2 className="m-0 text-base font-normal" id="marketplace-updated-heading">Recently updated</h2></div>
-      <ul className="marketplace-updated-list grid gap-1 p-0" role="list">{updated.map((item) => <li className="flex min-h-12 items-center gap-4 rounded-[14px] bg-surface px-4 py-2" key={item.key}><span className="flex min-w-0 flex-1 flex-col gap-0.5"><strong className="truncate text-sm font-normal">{item.name}</strong><small className="truncate font-mono text-[10px] text-muted">{categoryLabels[item.category]} · {item.sourceLabel}</small></span><time className="shrink-0 font-mono text-[10px] text-muted" dateTime={item.updatedAt.status === "ready" ? item.updatedAt.value : undefined}>{item.updatedAt.status === "ready" ? formatDate(item.updatedAt.value) : ""}</time></li>)}</ul>
+      <div className="marketplace-section-heading mb-2 grid gap-0.5 px-1"><span className="font-mono type-mono-xs uppercase tracking-mono text-muted">Source timestamps</span><h2 className="m-0 text-base font-normal" id="marketplace-updated-heading">Recently updated</h2></div>
+      <ul className="marketplace-updated-list grid gap-1 p-0" role="list">{updated.map((item) => <li className="flex min-h-12 items-center gap-4 rounded-cell bg-surface px-4 py-2" key={item.key}><span className="flex min-w-0 flex-1 flex-col gap-0.5"><strong className="truncate text-sm font-normal">{item.name}</strong><small className="truncate font-mono type-meta text-muted">{categoryLabels[item.category]} · {item.sourceLabel}</small></span><time className="shrink-0 font-mono type-meta text-muted" dateTime={item.updatedAt.status === "ready" ? item.updatedAt.value : undefined}>{item.updatedAt.status === "ready" ? formatDate(item.updatedAt.value) : ""}</time></li>)}</ul>
     </section>}
   </div>;
 }
@@ -148,9 +148,9 @@ function preview(item: MarketplaceItemPresentation): MarketplacePreview | null {
 }
 
 function previewFallback(item: MarketplaceItemPresentation, failedKind?: "image" | "video") {
-  if (item.category === "models") return <span className="marketplace-preview-fallback flex size-full flex-col items-center justify-center gap-1.5 text-on-instrument-muted"><Cpu className="size-4" aria-hidden="true" /><small className="max-w-24 text-center font-mono text-[9px] leading-tight">{item.model.recommendedPackage.format || "Format unavailable"}</small></span>;
-  if (item.category === "recipes") return <span className="marketplace-preview-fallback flex size-full flex-col items-center justify-center gap-1.5 text-on-instrument-muted"><Code2 className="size-4" aria-hidden="true" /><small className="max-w-24 text-center font-mono text-[9px] leading-tight">{failedKind ? `Recipe ${failedKind} preview unavailable` : item.recipe.recipe?.kind ?? "Recipe preview unavailable"}</small></span>;
-  return <span className="marketplace-preview-fallback flex size-full flex-col items-center justify-center gap-1.5 text-on-instrument-muted"><LayoutTemplate className="size-4" aria-hidden="true" /><small className="max-w-24 text-center font-mono text-[9px] leading-tight">{failedKind ? `Template ${failedKind} preview unavailable` : "Preview unavailable from schema 1"}</small></span>;
+  if (item.category === "models") return <span className="marketplace-preview-fallback flex size-full flex-col items-center justify-center gap-1.5 text-on-instrument-muted"><Cpu className="size-4" aria-hidden="true" /><small className="max-w-24 text-center font-mono type-mono-xs leading-tight">{item.model.recommendedPackage.format || "Format unavailable"}</small></span>;
+  if (item.category === "recipes") return <span className="marketplace-preview-fallback flex size-full flex-col items-center justify-center gap-1.5 text-on-instrument-muted"><Code2 className="size-4" aria-hidden="true" /><small className="max-w-24 text-center font-mono type-mono-xs leading-tight">{failedKind ? `Recipe ${failedKind} preview unavailable` : item.recipe.recipe?.kind ?? "Recipe preview unavailable"}</small></span>;
+  return <span className="marketplace-preview-fallback flex size-full flex-col items-center justify-center gap-1.5 text-on-instrument-muted"><LayoutTemplate className="size-4" aria-hidden="true" /><small className="max-w-24 text-center font-mono type-mono-xs leading-tight">{failedKind ? `Template ${failedKind} preview unavailable` : "Preview unavailable from schema 1"}</small></span>;
 }
 
 function MarketplaceItemPreview({ item }: { item: MarketplaceItemPresentation }) {
@@ -194,7 +194,7 @@ function MarketplaceResult({ item, index, tabStop, onFocus, onMove, onOpenItem }
     onOpenItem(item.key);
   };
   return <button
-    className={`marketplace-result marketplace-result-${item.category} grid min-h-[104px] w-full min-w-0 grid-cols-[104px_minmax(180px,1fr)_minmax(140px,.45fr)_auto] items-center gap-3 rounded-[14px] bg-surface p-2 text-left text-ink hover:bg-surface-hover @max-[780px]:grid-cols-[88px_minmax(0,1fr)]`}
+    className={`marketplace-result marketplace-result-${item.category} grid min-h-[104px] w-full min-w-0 grid-cols-[104px_minmax(180px,1fr)_minmax(140px,.45fr)_auto] items-center gap-3 rounded-cell bg-surface p-2 text-left text-ink hover:bg-surface-hover @max-[780px]:grid-cols-[88px_minmax(0,1fr)]`}
     id={marketplaceItemDomId(item.key)}
     data-marketplace-item-key={item.key}
     type="button"
@@ -205,14 +205,14 @@ function MarketplaceResult({ item, index, tabStop, onFocus, onMove, onOpenItem }
   >
     <span className="marketplace-result-preview grid h-[88px] w-[104px] place-items-center overflow-hidden rounded-control bg-instrument text-on-instrument @max-[780px]:h-[72px] @max-[780px]:w-[88px] [&_img]:size-full [&_img]:object-cover [&_video]:size-full [&_video]:object-cover"><MarketplaceItemPreview item={item} /></span>
     <span className="marketplace-result-copy flex min-w-0 flex-col gap-1">
-      <span className="marketplace-result-category flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[.08em] text-muted"><Icon className="size-3" aria-hidden="true" />{categoryLabels[item.category]}</span>
+      <span className="marketplace-result-category flex items-center gap-1.5 font-mono type-mono-xs uppercase tracking-caps text-muted"><Icon className="size-3" aria-hidden="true" />{categoryLabels[item.category]}</span>
       <strong className="truncate text-base font-normal">{item.name}</strong>
       <p className="m-0 line-clamp-2 text-xs leading-snug text-muted">{item.summary || "The current source did not provide a summary."}</p>
-      <small className="truncate font-mono text-[9px] text-muted">{item.sourceLabel} · {availabilityLabel(item.version, "Version unavailable")}</small>
+      <small className="truncate font-mono type-mono-xs text-muted">{item.sourceLabel} · {availabilityLabel(item.version, "Version unavailable")}</small>
     </span>
     <span className="marketplace-result-evidence flex min-w-0 flex-col gap-1.5 @max-[780px]:hidden">
-      <small className="truncate font-mono text-[9px] text-muted">{availabilityLabel(item.license, "License unavailable")}</small>
-      <small className="truncate font-mono text-[9px] text-muted">{availabilityLabel(item.compatibility, "Compatibility unavailable")}</small>
+      <small className="truncate font-mono type-mono-xs text-muted">{availabilityLabel(item.license, "License unavailable")}</small>
+      <small className="truncate font-mono type-mono-xs text-muted">{availabilityLabel(item.compatibility, "Compatibility unavailable")}</small>
     </span>
     <span className="marketplace-result-action flex h-8 items-center rounded-control bg-instrument px-3 text-xs text-on-instrument @max-[780px]:hidden">View details</span>
   </button>;
@@ -296,7 +296,7 @@ function VirtualMarketplaceResults({ items, query, originKey, onOpenItem }: Mark
     ? navigation.activeKey
     : items[rows[0]?.index ?? -1]?.key ?? null;
   return <section className="marketplace-results pt-5" aria-labelledby="marketplace-results-heading">
-    <div className="marketplace-results-meta mb-2 flex items-baseline justify-between gap-4 px-1"><h2 className="m-0 text-base font-normal" id="marketplace-results-heading">{items.length} results</h2><span className="font-mono text-[9px] uppercase tracking-[.08em] text-muted">{resultOrderLabel(query)}</span></div>
+    <div className="marketplace-results-meta mb-2 flex items-baseline justify-between gap-4 px-1"><h2 className="m-0 text-base font-normal" id="marketplace-results-heading">{items.length} results</h2><span className="font-mono type-mono-xs uppercase tracking-caps text-muted">{resultOrderLabel(query)}</span></div>
     <ol
       className="marketplace-results-list is-virtualized relative block list-none p-0"
       role="list"
@@ -322,7 +322,7 @@ function VirtualMarketplaceResults({ items, query, originKey, onOpenItem }: Mark
 
 function StandardMarketplaceResults({ items, query, onOpenItem }: MarketplaceResultsProps) {
   return <section className="marketplace-results pt-5" aria-labelledby="marketplace-results-heading">
-    <div className="marketplace-results-meta mb-2 flex items-baseline justify-between gap-4 px-1"><h2 className="m-0 text-base font-normal" id="marketplace-results-heading">{items.length} {items.length === 1 ? "result" : "results"}</h2><span className="font-mono text-[9px] uppercase tracking-[.08em] text-muted">{resultOrderLabel(query)}</span></div>
+    <div className="marketplace-results-meta mb-2 flex items-baseline justify-between gap-4 px-1"><h2 className="m-0 text-base font-normal" id="marketplace-results-heading">{items.length} {items.length === 1 ? "result" : "results"}</h2><span className="font-mono type-mono-xs uppercase tracking-caps text-muted">{resultOrderLabel(query)}</span></div>
     <ol className="marketplace-results-list flex list-none flex-col gap-2 p-0" role="list">
       {items.map((item, index) => <li key={item.key} aria-setsize={items.length} aria-posinset={index + 1}>
         <MarketplaceResult item={item} onOpenItem={onOpenItem} />

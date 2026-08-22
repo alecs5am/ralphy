@@ -9,12 +9,17 @@ function identityHash(value: string): number {
   return hash >>> 0;
 }
 
-export function projectGlyphVars(name: string): CSSProperties {
-  const hash = identityHash(name);
+// Identity colour: the hue comes from the name's slot, and the name also picks how far
+// the tone sits between the slot's base and its highlight, so same-hue identities stay
+// distinguishable without leaving the ramp.
+function identityTone(name: string): string {
   const slot = projectGlyphSlot(name);
-  return {
-    "--glyph-color": `color-mix(in oklab, var(--p${slot}) ${55 + hash % 41}%, var(--p${slot % 8 + 1}))`,
-  } as CSSProperties;
+  const step = identityHash(name) % 5 * 11;
+  return `color-mix(in oklab, var(--p${slot}) ${100 - step}%, var(--p${slot}-hi))`;
+}
+
+export function projectGlyphVars(name: string): CSSProperties {
+  return { "--glyph-color": identityTone(name) } as CSSProperties;
 }
 
 export function projectGlyphSlot(name: string): number {
@@ -25,11 +30,12 @@ export function projectGlyphAsset(name: string): string {
   return `./assets/dither/g${projectGlyphSlot(name)}.png`;
 }
 
+// Identity colour: the hue comes from the workspace name, the base/highlight pair is the
+// ramp defined in the palette. The highlight stays on the same hue so the grain reads as
+// one material rather than two colours.
 export function workspaceDitherVars(name: string): CSSProperties {
-  const hash = identityHash(name);
-  const slot = projectGlyphSlot(name);
   return {
-    "--workspace-color": `color-mix(in oklab, var(--p${slot}) ${55 + hash % 41}%, var(--p${slot % 8 + 1}))`,
-    "--workspace-highlight": `var(--p${slot % 8 + 1})`,
+    "--workspace-color": identityTone(name),
+    "--workspace-highlight": `var(--p${projectGlyphSlot(name)}-hi)`,
   } as CSSProperties;
 }
