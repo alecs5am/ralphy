@@ -1,0 +1,120 @@
+/* Rules that were sitting in the calendar chunk but style elements no component of the
+   calendar-and-memory area renders. They are kept verbatim, and at the cascade position they
+   had -- this chunk is still the first workbench import, so the global element resets below
+   still lose to every later chunk, and `.sidebar-chrome` / `.main-header` still lose to
+   02-select-menu.css, which restates them.
+
+   Owned by: reset.css (the global element resets -- cursor, and the 400 weight on every
+   heading and `strong`), the instrument shell (`.workbench` and its resize state,
+   `.main-content-stage`, `.app-mode-surface`, `.sidebar-chrome`, `.main-header`) and the
+   workbench chrome (`.icon-button`, used by Titlebar, ContextSidebar and UtilityPanels).
+
+   Nothing here styles a Calendar or a Memory element. */
+
+button:not(:disabled),
+a[href],
+[role="button"]:not([aria-disabled="true"]),
+[role="option"]:not([aria-disabled="true"]),
+[role="tab"]:not([aria-disabled="true"]) {
+  cursor: pointer}
+
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed}
+
+input[type="search"],
+input[type="text"],
+textarea {
+  cursor: text}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+strong {
+  font-weight: 400;
+  letter-spacing: 0}
+
+.workbench {
+  --sidebar-column: var(--sidebar-w);
+  --right-column: 0px;
+
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--sidebar-column) minmax(0, 1fr) var(--right-column);
+  grid-template-rows: minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-width: 900px;
+  min-height: 640px;
+  overflow: hidden;
+  background: var(--canvas);
+  transition: grid-template-columns var(--dur-slow) var(--ease)}
+
+.workbench.is-resizing {
+  user-select: none;
+  transition: none}
+
+.workbench.is-resizing * {
+  cursor: inherit !important}
+
+.main-content-stage {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1}
+
+.main-content-stage > * {
+  min-width: 0;
+  min-height: 0;
+  flex: 1}
+
+.app-mode-surface {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1}
+
+.app-mode-surface[hidden] {
+  display: none}
+
+.icon-button {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  padding: 0;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--fg-2)}
+
+.icon-button:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--fg)}
+
+.icon-button.is-active {
+  background: var(--hover);
+  color: var(--fg)}
+
+.icon-button:disabled {
+  color: var(--fg-4)}
+
+.sidebar-chrome,
+.main-header {
+  height: var(--titlebar-h);
+  flex: none;
+  user-select: none;
+  -webkit-app-region: drag}
+
+.sidebar-chrome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px 0 14px}
+
+.sidebar-chrome > *,
+.main-header > * {
+  transform: translateY(2px)}

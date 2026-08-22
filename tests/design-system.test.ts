@@ -42,6 +42,9 @@ const marketplaceSurfaceSource = [
   ...readdirSync(join(process.cwd(), "src/screens/marketplace")).map((file) => `src/screens/marketplace/${file}`),
 ].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
 const workspaceOverviewTheme = readFileSync(join(process.cwd(), "src/styles/theme/workspace-overview.css"), "utf8");
+const calendarMemoryTheme = readFileSync(join(process.cwd(), "src/styles/theme/calendar-memory.css"), "utf8");
+const calendarMemorySurfaceSource = ["src/screens/CalendarScreen.tsx", "src/screens/MemoryScreen.tsx", "src/screens/calendar-memory-chrome.ts"]
+  .map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
 const projectTheme = readFileSync(join(process.cwd(), "src/styles/theme/project.css"), "utf8");
 const projectSurfaceSource = [
   "src/screens/ProjectScreen.tsx",
@@ -53,6 +56,7 @@ const projectSurfaceSource = [
 ].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
 const documentsPanelSource = readFileSync(join(process.cwd(), "src/screens/project/DocumentsPanel.tsx"), "utf8");
 const projectScreenSource = readFileSync(join(process.cwd(), "src/screens/ProjectScreen.tsx"), "utf8");
+const calendarScreenSource = readFileSync(join(process.cwd(), "src/screens/CalendarScreen.tsx"), "utf8");
 const compositionsPanelSource = readFileSync(join(process.cwd(), "src/screens/project/CompositionsPanel.tsx"), "utf8");
 const workspaceOverviewSurfaceSource = [
   "src/screens/WorkspaceScreen.tsx",
@@ -188,11 +192,14 @@ async function activeScreenMarkup(): Promise<{ workspace: string } & ProjectMark
   const units = renderToStaticMarkup(createElement(ProjectScreenView, { project, controller: projectController, snapshot: projectController.getSnapshot() }));
   await projectController.selectTab("activity");
   const activityMarkup = renderToStaticMarkup(createElement(ProjectScreenView, { project, controller: projectController, snapshot: projectController.getSnapshot() }));
-  const memory = `<main class="main-region memory-region">
-    <div class="memory-topbar"></div><div class="memory-filters"></div>
-    <section class="memory-rulebook"><div class="memory-group"><header><i></i></header><div>
-      <article class="memory-rule"><button class="memory-rule-head">Memory</button></article>
-      <article class="memory-rule is-open"><button class="memory-rule-head">Open memory</button><div class="memory-rule-body">Body</div></article>
+  // Memory has no stylesheet of its own any more, so the fragment carries the class strings the
+  // route really renders. Without them these probes would measure element defaults, not the screen.
+  const memory = `<main class="main-region memory-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 type-base text-ink">
+    <div class="memory-topbar flex h-11.5 items-center justify-between gap-3 px-5 pt-3 type-xs uppercase tracking-mono text-on-instrument-muted"></div>
+    <div class="memory-filters m-0 flex w-full max-w-none flex-wrap items-center gap-2 rounded-panel bg-surface p-2"></div>
+    <section class="memory-rulebook m-0 flex min-h-0 w-full max-w-none flex-1 flex-col gap-8.5 overflow-visible bg-transparent p-0"><div class="memory-group min-w-0"><header><i></i></header><div class="grid gap-0.75">
+      <article class="memory-rule my-1 overflow-hidden rounded-cell bg-surface-sunken"><button class="memory-rule-head flex min-h-14 w-full items-center gap-2 bg-transparent px-3 py-2 text-left type-base text-ink focus-visible:-outline-offset-2">Memory</button></article>
+      <article class="memory-rule my-1 overflow-hidden rounded-cell bg-surface-sunken is-open"><button class="memory-rule-head flex min-h-14 w-full items-center gap-2 bg-transparent px-3 py-2 text-left type-base text-ink focus-visible:-outline-offset-2">Open memory</button><div class="memory-rule-body grid gap-4.75 bg-surface px-4 pb-4 pt-3 type-base leading-5 text-ink">Body</div></article>
     </div></div></section>
   </main>`;
   return { workspace, media, documents, units, activity: activityMarkup, memory };
@@ -241,8 +248,8 @@ type GeometryResult = {
   memoryRegionPadding: string | null;
   memoryTopbarBorder: string | null;
   memoryFilterBorder: string | null;
-  memoryInactiveBackground: string | null;
-  memoryOpenBackground: string | null;
+  memoryRulePlate: string | null;
+  memoryOpenBody: string | null;
   memoryBodyBorder: string | null;
 };
 
@@ -307,7 +314,7 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
               }
               const metrics = root.querySelector(".metrics-band");
               const metricColumns = metrics ? getComputedStyle(metrics).gridTemplateColumns.split(" ").filter(Boolean).length : null;
-              const ownerCandidates = ({ documents: [".project-domain-body", ".documents-master", ".documents-detail"], media: [".project-domain-body", ".asset-grid-scroll"], units: [".project-domain-body", ".units-grid-scroll"], activity: [".project-domain-body", ".activity-scroll"], memory: [".memory-rulebook"], workspace: [".workspace-domain-body"] })[screen];
+              const ownerCandidates = ({ documents: [".project-domain-body", ".documents-master", ".documents-detail"], media: [".project-domain-body", ".asset-grid-scroll"], units: [".project-domain-body", ".units-grid-scroll"], activity: [".project-domain-body", ".activity-scroll"], memory: [".memory-region", ".memory-rulebook"], workspace: [".workspace-domain-body"] })[screen];
               const scrollOwners = ownerCandidates.filter((selector) => {
                 const element = root.querySelector(selector); if (!element) return false;
                 const overflow = getComputedStyle(element).overflowY;
@@ -396,8 +403,8 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
                 memoryRegionPadding: style(".memory-region")?.padding ?? null,
                 memoryTopbarBorder: style(".memory-topbar")?.borderBottomWidth ?? null,
                 memoryFilterBorder: style(".memory-filters")?.borderTopWidth ?? null,
-                memoryInactiveBackground: style(".memory-rule:not(.is-open)")?.backgroundColor ?? null,
-                memoryOpenBackground: style(".memory-rule.is-open")?.backgroundColor ?? null,
+                memoryRulePlate: style(".memory-rule:not(.is-open)")?.backgroundColor ?? null,
+                memoryOpenBody: style(".memory-rule.is-open > .memory-rule-body")?.backgroundColor ?? null,
                 memoryBodyBorder: style(".memory-rule-body")?.borderTopWidth ?? null };
             })()\`));
         }
@@ -1025,7 +1032,10 @@ describe("design system contract", () => {
       media: [".asset-grid-scroll"],
       units: [".units-grid-scroll"],
       activity: [".activity-scroll"],
-      memory: [".memory-rulebook"],
+      // The rulebook is not a scroll owner: the route is. `.memory-rulebook` says
+      // `overflow-visible` in its own markup, which is also what instrument.css asserts for
+      // every named scroll region inside the desk scroll column.
+      memory: [".memory-region"],
     };
     for (const [screen, scrollOwners] of Object.entries(expectedOwners)) {
       expect(results.filter((result) => result.screen === screen).map((result) => result.scrollOwners))
@@ -1034,11 +1044,11 @@ describe("design system contract", () => {
     expect(results.filter(({ screen, width }) => width === 1100 && screen === "documents").map(({ screen, splitVerticalContained }) => ({ screen, splitVerticalContained })))
       .toEqual([{ screen: "documents", splitVerticalContained: true }]);
     expect(results.filter(({ screen, nestedMediaScroll }) => screen === "media" && nestedMediaScroll)).toEqual([]);
-    expect(results.filter(({ screen }) => screen === "memory").map(({ memoryRegionPadding, memoryTopbarBorder, memoryFilterBorder, memoryInactiveBackground, memoryOpenBackground, memoryBodyBorder }) => ({ memoryRegionPadding, memoryTopbarBorder, memoryFilterBorder, memoryInactiveBackground, memoryOpenBackground, memoryBodyBorder }))).toEqual([
-      { memoryRegionPadding: "0px", memoryTopbarBorder: "0px", memoryFilterBorder: "0px", memoryInactiveBackground: "rgba(0, 0, 0, 0)", memoryOpenBackground: "rgb(29, 29, 29)", memoryBodyBorder: "0px" },
-      { memoryRegionPadding: "0px", memoryTopbarBorder: "0px", memoryFilterBorder: "0px", memoryInactiveBackground: "rgba(0, 0, 0, 0)", memoryOpenBackground: "rgb(29, 29, 29)", memoryBodyBorder: "0px" },
-      { memoryRegionPadding: "0px", memoryTopbarBorder: "0px", memoryFilterBorder: "0px", memoryInactiveBackground: "rgba(0, 0, 0, 0)", memoryOpenBackground: "rgb(29, 29, 29)", memoryBodyBorder: "0px" },
-    ]);
+    // The rulebook is borderless, the route states its own desk padding, and the open rule is
+    // told apart from a closed one by the body's lighter surface on the plate -- not by a second
+    // tone on the plate itself, which the utilities on the article have beaten for a while.
+    const memoryPlate = { memoryRegionPadding: "8px 8px 24px", memoryTopbarBorder: "0px", memoryFilterBorder: "0px", memoryRulePlate: "rgb(30, 30, 30)", memoryOpenBody: "rgb(20, 20, 20)", memoryBodyBorder: "0px" };
+    expect(results.filter(({ screen }) => screen === "memory").map(({ memoryRegionPadding, memoryTopbarBorder, memoryFilterBorder, memoryRulePlate, memoryOpenBody, memoryBodyBorder }) => ({ memoryRegionPadding, memoryTopbarBorder, memoryFilterBorder, memoryRulePlate, memoryOpenBody, memoryBodyBorder }))).toEqual([memoryPlate, memoryPlate, memoryPlate]);
     expect(results.filter(({ screen }) => screen === "media").map(({ width, mediaInsets }) => ({ width, mediaInsets: mediaInsets.length })))
       .toEqual([{ width: 2560, mediaInsets: 1 }, { width: 1360, mediaInsets: 1 }, { width: 1100, mediaInsets: 1 }]);
     expect(results.flatMap(({ screen, width, documentDetailWidth, documentViewerWidths }) => screen !== "documents" || documentDetailWidth === null
@@ -1085,9 +1095,23 @@ describe("design system contract", () => {
     expect(workbenchStyles).not.toMatch(/\.project-domain-list/);
     expect(styles).not.toContain(".project-preview");
     expect(workbenchStyles).not.toMatch(/\.project-domain-list > button\.is-selected\s*\{[^}]*inset\s+2px\s+0/s);
-    expect(workbenchStyles).toMatch(/\.calendar-region\{[^}]*padding:0[^}]*background:var\(--canvas\)/s);
-    expect(workbenchStyles).not.toMatch(/\.calendar-shell\{[^}]*border-radius/s);
-    expect(workbenchStyles).not.toMatch(/\.calendar-shell\{[^}]*box-shadow/s);
+    // Calendar and Memory have no stylesheet left, so the same three decisions are asserted where
+    // they are declared: the route lets the desk show through and states its own padding, and the
+    // shell it stands in draws no corner and no depth of its own. The sheet's `padding: 0` and
+    // `background: var(--canvas)` never rendered either -- the route's own utilities said otherwise.
+    expect(workbenchStyles).not.toMatch(/\.calendar-region|\.memory-region/);
+    expect(calendarScreenSource).toMatch(/className="main-region calendar-region [^"]*\bbg-transparent\b[^"]*\bp-2 pb-6\b/);
+    expect(calendarScreenSource).toMatch(/className="calendar-shell [^"]*\bbg-transparent\b[^"]*\bp-0\b/);
+    // design v2 in this area: no border, no shadow and no gradient anywhere. The one exception is
+    // the inset ring on today's cell in the date picker, which is a mark and not a border.
+    expect(calendarMemorySurfaceSource.match(/\bbox-shadow:/g)).toEqual(["box-shadow:"]);
+    expect(calendarMemorySurfaceSource).toMatch(/\[box-shadow:inset_0_0_0_1px_var\(--instrument-text-primary\)\]/);
+    expect(calendarMemorySurfaceSource).not.toMatch(/\b(?:border|shadow|bg-gradient|bg-linear|bg-radial)-/);
+    // Container queries only, read against the route's own content row -- never the window.
+    expect(calendarMemorySurfaceSource).not.toMatch(/@(?:min|max)-\[/);
+    for (const key of ["--container-calendar-toolbar", "--container-memory-row"]) expect(calendarMemoryTheme).toContain(key);
+    expect(calendarMemorySurfaceSource).toContain("@max-calendar-toolbar/main-region:");
+    expect(calendarMemorySurfaceSource).toContain("@max-memory-row/main-region:");
   });
 
   test("leaves the activity log without a rail, in either whole or per-event form", () => {

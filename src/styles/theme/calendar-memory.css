@@ -2,5 +2,108 @@
    the shared theme layer. Every key names a role and resolves to a token in tokens.css or a
    value the design fixes for that role; a component then reaches for the name, never a
    literal. */
+
+/* Multi-part grid templates. These are plain custom properties rather than @theme keys because
+   `grid-template-columns` is not a Tailwind namespace and `@theme inline` never emits the
+   variable, so `grid-cols-(--name)` has to find a real declaration on the element. */
+:root {
+  /* The Week view: one hour gutter beside seven day columns that share what is left. */
+  --calendar-week-columns: 52px repeat(7, minmax(0, 1fr));
+  /* The schedule dialog: a fixed poster column beside the form, which takes the rest. */
+  --calendar-modal-columns: 300px minmax(0, 1fr);
+  /* Date, time and timezone: the date field flexes, the other two are bounded by their copy. */
+  --calendar-date-columns: minmax(220px, 1fr) 150px 210px;
+  /* A rulebook body: two reading columns, each wide enough for a sentence. */
+  --memory-rule-columns: repeat(2, minmax(260px, 1fr));
+  /* A glyph beside copy: the quality plate, and one revision in the history dialog. */
+  --memory-glyph-columns: auto minmax(0, 1fr);
+}
+
 @theme inline {
+  /* The ring for a control standing on a black widget: the theme ink would be black on black
+     in the light theme. */
+  --color-focus-on-instrument: var(--instrument-focus-on-dark);
+  /* Theme-invariant hover surfaces for a control on a black widget. */
+  --color-ghost: var(--instrument-ghost);
+  --color-ghost-hover: var(--instrument-ghost-hover);
+
+  /* The alarm plate needs the ink it was measured against, and the bright tone is its hover. */
+  --color-alert-ink: var(--instrument-alert-text);
+  --color-alert-bright: var(--instrument-alert-bright);
+
+  /* An identity mark is a rounded square: not a pill, not a cell. */
+  --radius-identity: 36%;
+  /* A poster plate inside the schedule dialog, and a widget inside another widget. */
+  --radius-poster: var(--radius-preview);
+  --radius-widget: var(--radius-xl);
+
+  /* Layout the design fixes for the Calendar. */
+  --spacing-calendar-gutter: 52px;         /* the Week view's hour column */
+  --spacing-calendar-hour: 46px;           /* one hour of a Week day column */
+  --spacing-calendar-day: 1104px;          /* ...times the twenty-four it stacks */
+  --spacing-calendar-filter: 246px;        /* the toolbar's filter popover */
+  --spacing-calendar-inspector: 372px;     /* the publication inspector over the desk */
+  --spacing-calendar-drawer: 312px;        /* the ready-to-schedule drawer beside it */
+  --spacing-calendar-modal-width: min(1280px, calc(100vw - 64px));  /* the schedule dialog never
+                                              touches the window edge, at any window size */
+  --spacing-calendar-modal-height: min(714px, calc(100vh - 64px));
+  --spacing-calendar-reconnect: min(460px, calc(100vw - 40px));     /* ...nor the reconnect dialog */
+  --spacing-calendar-platform-tabs: 214px; /* the platform list beside the settings fields */
+  --spacing-calendar-date-popover: 286px;  /* the date picker holds seven day columns */
+  --spacing-calendar-time-popover: 174px;  /* ...the time picker two number columns */
+  --spacing-calendar-note: 540px;          /* the dialog footnote stops before the actions */
+
+  /* Layout the design fixes for the Memory rulebook. */
+  --spacing-memory-search: 220px;          /* the search never shrinks past its placeholder */
+  --spacing-memory-modal-width: min(640px, calc(100vw - 32px));   /* a rulebook dialog */
+  --spacing-memory-modal-height: min(760px, calc(100vh - 32px));
+  --spacing-memory-recall: 392px;          /* ...except the recall preview, which is an edge sheet */
+
+  /* Leading the shared tokens do not name. */
+  --leading-row: var(--leading-snug);      /* a one- or two-line label inside a dense row */
+  --leading-prose: 1.5;                    /* a paragraph of rule or dialog copy */
+  --leading-compact: 1.4;                  /* a wrapped note inside a compact card */
+  --leading-headline: 1.25;                /* a wrapping publication title */
+
+  /* A mono caps step between the named ones. */
+  --tracking-block: 0.09em;                /* a block label over a metadata section */
+
+  /* Motion. The keyframes below have no utility form; the names that reach them do. */
+  --transition-duration-fast: var(--dur-fast);
+  --animate-calendar-panel-in: calendar-panel-in var(--dur) var(--ease);
+  --animate-calendar-fade: calendar-fade var(--dur) linear;
+  --animate-calendar-modal-in: calendar-modal-in var(--dur-slow) var(--ease);
+
+  /* Stacking, so a portal's order stays a token and not a number in markup. */
+  --z-index-raised: var(--z-raised);
+  --z-index-header: var(--z-header);
+  --z-index-agent-popover: var(--z-agent-popover);
+  --z-index-scrim: var(--z-scrim);
+  --z-index-scrim-content: var(--z-scrim-content);
+  --z-index-inspector: var(--z-inspector);
+  --z-index-inspector-float: var(--z-inspector-float);
+
+  /* Breakpoints read against the route's own content row and never the window: the sidebar
+     and the chat rail change these surfaces' width without the viewport moving. */
+  --container-calendar-toolbar: 1000px;    /* the toolbar drops its period title and its icons */
+  --container-memory-row: 800px;           /* the type chips go, and a rule body stacks */
+}
+
+/* @keyframes has no utility form, so the three entrance animations this area names above are
+   declared here beside them. Every element that reads one carries its own
+   `motion-reduce:animate-none`: an !important declaration in an unlayered sheet loses to an
+   !important utility inside @layer utilities, so a reduced-motion blanket in CSS cannot hold
+   back motion declared in markup. */
+@keyframes calendar-panel-in {
+  from { opacity: 0; transform: translateX(12px); }
+}
+
+@keyframes calendar-fade {
+  from { opacity: 0; }
+}
+
+/* The dialog centres with auto margins rather than a transform, so its entrance owns the transform
+   outright: an !important utility would otherwise beat the animation it has to cooperate with. */
+@keyframes calendar-modal-in {
+  from { opacity: 0; transform: translateY(-2%) scale(.985); }
 }

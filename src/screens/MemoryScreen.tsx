@@ -10,6 +10,10 @@ import type { MemoryMutation } from "../../electron/ralphy/memory-reader";
 import { bridge } from "../lib/ipc";
 import { SelectMenu } from "../components/ui/SelectMenu";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
+import {
+  ACTION, INSTRUMENT_ACTION_COMPACT, INSTRUMENT_ACTION_PRIMARY_COMPACT, OVERLAY_FIELD_RING,
+  OVERLAY_RING, OVERLAY_SCRIM, QUIET_TEXT, STATE_LINE,
+} from "./calendar-memory-chrome";
 
 export const memoryInstrumentStates = defineInstrumentScreenStates({
   routeKey: "workspace.memory",
@@ -31,9 +35,29 @@ const TYPE_ICON = {
 const SORTS = ["revised", "filed", "name"] as const;
 const SORT_LABEL = { revised: "RECENTLY REVISED", filed: "RECENTLY FILED", name: "NAME" } as const;
 
-type Scope = "effective" | MemoryTier;
-type EditorState = { entry?: MemoryDetailDto } | null;
-type ConfirmState = { action: "approve" | "reject" | "retire"; entry: MemoryDetailDto } | null;
+/* Icon sizes are stated on the mark itself rather than through a `[&_svg]:` blanket on a region: a
+   descendant variant is (0,1,1) and beats every per-element `size-*` at (0,1,0), so a mark that
+   states its own size would silently lose. */
+const ICON_SM = "size-2.5";    /* 10px -- a tier mark inside a rule's meta line */
+const ICON_MD = "size-2.75";   /* 11px -- a warning mark beside it */
+const ICON_LG = "size-3";      /* 12px -- a type glyph in a group header */
+const ICON = "size-3.25";      /* 13px -- the route's control icon */
+const ICON_XL = "size-3.5";    /* 14px -- the mark that leads a strip, a plate or a dialog row */
+
+/* Vocabulary the rulebook repeats. Each string is complete: a surface never arrives without the
+   ink it pairs with. */
+const TYPE_CHIP = `${ACTION} min-h-8 px-2.5 type-xs`;
+const RULE_ACTION = `${ACTION} h-7 px-2.5 type-label bg-surface-sunken text-ink hover:bg-surface-hover`;
+const RULE_ACTION_PRIMARY = `${ACTION} h-7 px-2.5 type-label bg-desk-primary text-desk-primary-ink`;
+const RULE_LABEL = "font-code type-meta tracking-block text-muted";
+const RULE_PLATE = "rounded-field bg-surface-sunken px-2.75 py-2.5 type-sm text-ink";
+const DIALOG_ACTION = `${ACTION} h-7.5 px-3 type-sm bg-surface-sunken text-ink hover:bg-surface ${OVERLAY_RING}`;
+const DIALOG_ACTION_PRIMARY = `${ACTION} h-7.5 px-3 type-sm bg-desk-primary text-desk-primary-ink ${OVERLAY_RING}`;
+const DIALOG_ACTION_DANGER = `${ACTION} h-7.5 px-3 type-sm bg-alert text-alert-ink hover:bg-alert-bright ${OVERLAY_RING}`;
+const DIALOG_LABEL = `grid gap-1.5 type-label text-ink ${OVERLAY_FIELD_RING}`;
+const DIALOG_FIELD = `w-full min-h-7.5 rounded-control bg-surface-sunken px-2.25 py-1.75 font-app type-sm text-ink outline-none ${OVERLAY_RING}`;
+const DIALOG_AREA = `w-full min-h-17 resize-y rounded-field bg-surface-sunken px-2.25 py-1.75 font-app type-sm leading-compact text-ink outline-none ${OVERLAY_RING}`;
+const DIALOG_HINT = "font-code type-mono-xs text-muted";
 
 export function MemoryScreen({ workspaceId, workspaceName }: { workspaceId: string; workspaceName: string }) {
   const [active, setActive] = useState<MemoryDetailDto[]>([]);
@@ -157,55 +181,55 @@ export function MemoryScreen({ workspaceId, workspaceName }: { workspaceId: stri
 
   return (
     <InstrumentScreenRoot descriptor={memoryInstrumentStates} state={instrumentState}>
-    <main className="main-region memory-region flex min-h-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 type-base text-ink">
+    <main className="main-region memory-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 type-base text-ink">
       <div className="overflow-hidden rounded-panel bg-instrument text-on-instrument">
-      <div className="memory-topbar flex min-h-10 items-center justify-between gap-3 px-5 pt-3 type-xs uppercase tracking-mono text-on-instrument-muted">
+      <div className="memory-topbar flex h-11.5 items-center justify-between gap-3 px-5 pt-3 type-xs uppercase tracking-mono text-on-instrument-muted">
         <span className="truncate">{workspaceName}</span>
-        <div className="flex flex-wrap items-center justify-end gap-1 [&_button]:inline-flex [&_button]:min-h-8 [&_button]:items-center [&_button]:gap-1.5 [&_button]:px-2.5 [&_button]:type-xs [&_button]:normal-case [&_button]:tracking-normal">
-          <button type="button" onClick={() => void reviewHealth()}><Activity />Review memory health</button>
-          <button type="button" onClick={openRecall}><Eye />Preview agent context</button>
-          <button type="button" className="memory-primary" onClick={() => setEditor({})}><Plus />Add memory</button>
+        <div className="flex flex-wrap items-center justify-end gap-1">
+          <button type="button" className={INSTRUMENT_ACTION_COMPACT} onClick={() => void reviewHealth()}><Activity className={ICON} />Review memory health</button>
+          <button type="button" className={INSTRUMENT_ACTION_COMPACT} onClick={openRecall}><Eye className={ICON} />Preview agent context</button>
+          <button type="button" className={`memory-primary ${INSTRUMENT_ACTION_PRIMARY_COMPACT}`} onClick={() => setEditor({})}><Plus className={ICON} />Add memory</button>
         </div>
       </div>
 
       <header className="memory-header m-0 flex min-h-0 w-full max-w-none flex-wrap items-end justify-between gap-4 bg-transparent px-5 pb-4 pt-2 text-on-instrument">
-        <div><h1 className="type-hero font-semibold leading-none tracking-tight text-on-instrument">Memory</h1><p className="mt-1 type-base text-on-instrument-muted">Durable context agents reuse across future work</p></div>
-        <div className="memory-counts text-right type-meta text-on-instrument-muted"><strong className="block type-xs text-on-instrument">{reviewing ? `${proposed.length} PROPOSED · NOT IN RECALL` : `${active.length} ACTIVE · ${workspaceCount} WORKSPACE · ${active.length - workspaceCount} INHERITED`}</strong><span>{reviewing ? "PROPOSALS ARE NOT PART OF THE ACTIVE CAP" : `${workspaceCount} / 100 IN THIS TIER`}</span></div>
+        <div><h1 className="mx-0 mb-1.25 mt-0 type-hero font-semibold leading-none tracking-tight text-on-instrument">Memory</h1><p className="mx-0 mb-0 mt-1 type-base text-on-instrument-muted">Durable context agents reuse across future work</p></div>
+        <div className="memory-counts ml-auto grid justify-items-end gap-1.25 text-right font-code type-meta font-normal text-on-instrument-muted"><strong className="block type-xs text-on-instrument">{reviewing ? `${proposed.length} PROPOSED · NOT IN RECALL` : `${active.length} ACTIVE · ${workspaceCount} WORKSPACE · ${active.length - workspaceCount} INHERITED`}</strong><span className="type-mono-md text-on-instrument-muted">{reviewing ? "PROPOSALS ARE NOT PART OF THE ACTIVE CAP" : `${workspaceCount} / 100 IN THIS TIER`}</span></div>
       </header>
       </div>
 
       <div className="memory-filters m-0 flex w-full max-w-none flex-wrap items-center gap-2 rounded-panel bg-surface p-2">
-        <label className="memory-search flex h-9 min-w-[220px] flex-1 items-center gap-2 rounded-control bg-surface-sunken px-3"><Search className="size-4 text-muted" /><input className="min-w-0 flex-1 bg-transparent type-base text-ink outline-none placeholder:text-muted" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search rules and bodies" />{query && <button type="button" aria-label="Clear search" onClick={() => setQuery("")}><X /></button>}</label>
+        <label className="memory-search flex h-9 min-w-memory-search flex-1 items-center gap-2 rounded-control bg-surface-sunken px-3"><Search className={`${ICON_XL} flex-none text-muted`} /><input className="h-full min-w-0 flex-1 bg-transparent p-0 font-app type-base text-ink outline-none placeholder:text-muted" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search rules and bodies" />{query && <button type="button" className="grid size-4.5 flex-none place-items-center rounded-control text-muted transition-colors duration-fast ease-instrument hover:bg-surface hover:text-ink motion-reduce:transition-none motion-reduce:duration-0" aria-label="Clear search" onClick={() => setQuery("")}><X className={ICON_SM} /></button>}</label>
         <div className="memory-segments flex h-9 items-center rounded-control bg-surface-sunken p-1" aria-label="Memory scope">
-          {(["effective", "workspace", "global"] as Scope[]).map((value) => <button type="button" className={`h-7 rounded-full px-2.5 type-xs ${scope === value ? "is-active bg-instrument text-on-instrument" : "bg-transparent text-muted"}`} key={value} onClick={() => setScope(value)}>{value[0]!.toUpperCase() + value.slice(1)}</button>)}
+          {(["effective", "workspace", "global"] as Scope[]).map((value) => <button type="button" className={`${ACTION} h-7 px-2.5 type-xs ${scope === value ? "is-active bg-instrument text-on-instrument" : "bg-transparent text-muted hover:text-ink"}`} key={value} onClick={() => setScope(value)}>{value[0]!.toUpperCase() + value.slice(1)}</button>)}
         </div>
-        <i />
-        <div className="memory-type-chips flex flex-wrap items-center gap-1">
-          <button type="button" className={type === null ? "is-active bg-instrument text-on-instrument [&_span]:text-on-instrument-muted" : "bg-surface-sunken text-muted"} onClick={() => setType(null)}>All <span>{chipSource.length}</span></button>
-          {FILTER_TYPES.map((value) => <button type="button" key={value} className={type === value ? "is-active bg-instrument text-on-instrument [&_span]:text-on-instrument-muted" : "bg-surface-sunken text-muted"} onClick={() => setType(value)}>{TYPE_LABEL[value]} <span>{chipSource.filter((entry) => entry.type === value).length}</span></button>)}
+        <i className="hidden" />
+        <div className="memory-type-chips flex min-w-0 flex-wrap items-center gap-1 overflow-hidden @max-memory-row/main-region:hidden">
+          <button type="button" className={`${TYPE_CHIP} ${type === null ? "is-active bg-instrument text-on-instrument" : "bg-surface-sunken text-muted hover:bg-surface-hover hover:text-ink"}`} onClick={() => setType(null)}>All <span className={`font-code type-mono-md ${type === null ? "text-on-instrument-muted" : "text-muted"}`}>{chipSource.length}</span></button>
+          {FILTER_TYPES.map((value) => <button type="button" key={value} className={`${TYPE_CHIP} ${type === value ? "is-active bg-instrument text-on-instrument" : "bg-surface-sunken text-muted hover:bg-surface-hover hover:text-ink"}`} onClick={() => setType(value)}>{TYPE_LABEL[value]} <span className={`font-code type-mono-md ${type === value ? "text-on-instrument-muted" : "text-muted"}`}>{chipSource.filter((entry) => entry.type === value).length}</span></button>)}
         </div>
-        {dirty && <button type="button" className="memory-clear" onClick={() => { setQuery(""); setScope("effective"); setType(null); }}>Clear filters</button>}
-        <button type="button" className="memory-sort" onClick={() => setOrder((value) => SORTS[(SORTS.indexOf(value) + 1) % SORTS.length]!)}><ArrowDownUp />{SORT_LABEL[order]}</button>
+        {dirty && <button type="button" className={`memory-clear ${QUIET_TEXT}`} onClick={() => { setQuery(""); setScope("effective"); setType(null); }}>Clear filters</button>}
+        <button type="button" className={`memory-sort ${ACTION} ml-auto h-6 px-2 font-code type-mono-md text-muted hover:bg-surface-sunken hover:text-ink`} onClick={() => setOrder((value) => SORTS[(SORTS.indexOf(value) + 1) % SORTS.length]!)}><ArrowDownUp className={ICON_MD} />{SORT_LABEL[order]}</button>
       </div>
 
       <div className={`memory-review-strip m-0 flex min-h-10 items-center gap-2 rounded-control bg-surface-sunken px-3 py-2 type-sm text-muted${reviewing ? " is-reviewing" : ""}`}>
-        {reviewing ? <ArrowLeft /> : proposed.length > 0 ? <Inbox /> : <Check />}
+        {reviewing ? <ArrowLeft className={`${ICON_XL} flex-none`} /> : proposed.length > 0 ? <Inbox className={`${ICON_XL} flex-none`} /> : <Check className={`${ICON_XL} flex-none`} />}
         <span>{proposed.length > 0 ? reviewing ? `Reviewing ${proposed.length} proposals · nothing here reaches agents until you approve it` : `${proposed.length} ${proposed.length === 1 ? "proposal is" : "proposals are"} waiting for review — they do not reach agents yet` : "Memory is up to date"}</span>
-        <button type="button" onClick={() => { setReviewing((value) => { const next = !value; setExpanded(next ? null : firstActiveDisplayed?.id ?? null); return next; }); }}>{reviewing ? "Back to active memory" : "Review now"}</button>
+        <button type="button" className={`${ACTION} ml-auto h-6.5 px-2.75 type-label bg-surface text-ink hover:bg-surface-hover`} onClick={() => { setReviewing((value) => { const next = !value; setExpanded(next ? null : firstActiveDisplayed?.id ?? null); return next; }); }}>{reviewing ? "Back to active memory" : "Review now"}</button>
       </div>
 
-      <section className="memory-rulebook m-0 flex min-h-0 w-full max-w-none flex-1 flex-col gap-3 overflow-visible bg-transparent p-0" aria-busy={loading}>
-        {error && <div className="memory-state"><TriangleAlert />{error}<button type="button" onClick={() => setRefresh((value) => value + 1)}>Retry</button></div>}
-        {!error && loading && <div className="memory-state">Loading memory…</div>}
-        {!error && !loading && items.length === 0 && <div className="memory-state">{query || type ? "No memory matches these filters." : reviewing ? "No proposals are waiting for review." : "No active memory yet."}</div>}
+      <section className="memory-rulebook m-0 flex min-h-0 w-full max-w-none flex-1 flex-col gap-8.5 overflow-visible bg-transparent p-0" aria-busy={loading}>
+        {error && <div className={`memory-state ${STATE_LINE}`}><TriangleAlert className={`${ICON_XL} flex-none text-alert`} />{error}<button type="button" className="text-ink underline" onClick={() => setRefresh((value) => value + 1)}>Retry</button></div>}
+        {!error && loading && <div className={`memory-state ${STATE_LINE}`}>Loading memory…</div>}
+        {!error && !loading && items.length === 0 && <div className={`memory-state ${STATE_LINE}`}>{query || type ? "No memory matches these filters." : reviewing ? "No proposals are waiting for review." : "No active memory yet."}</div>}
         {!error && !loading && groups.map(([group, entries]) => (
           <div className="memory-group min-w-0" key={group}>
             <MemoryGroupHeader group={group} reviewing={reviewing} count={entries.length} workspaceName={workspaceName} />
-            <div>{entries.map((entry) => <MemoryRule key={`${entry.id}:${entry.revisionId}`} entry={entry} workspaceName={workspaceName} open={expanded === entry.id} reviewing={reviewing} onToggle={() => setExpanded((value) => value === entry.id ? null : entry.id)} onRevise={() => setEditor({ entry })} onHistory={() => openHistory(entry)} onConfirm={(action) => setConfirm({ action, entry })} />)}</div>
+            <div className="grid gap-0.75">{entries.map((entry) => <MemoryRule key={`${entry.id}:${entry.revisionId}`} entry={entry} workspaceName={workspaceName} open={expanded === entry.id} reviewing={reviewing} onToggle={() => setExpanded((value) => value === entry.id ? null : entry.id)} onRevise={() => setEditor({ entry })} onHistory={() => openHistory(entry)} onConfirm={(action) => setConfirm({ action, entry })} />)}</div>
           </div>
         ))}
       </section>
-      <div className="memory-live" aria-live="polite">{notice}</div>
+      <div className="memory-live sr-only" aria-live="polite">{notice}</div>
 
       <RecallDialog open={recallOpen} onOpenChange={setRecallOpen} recall={recall} />
       <EditorDialog key={editor?.entry?.revisionId ?? (editor ? "new" : "closed")} open={editor !== null} entry={editor?.entry} onOpenChange={(open) => { if (!open) setEditor(null); }} onSave={async (mutation) => { await bridge.mutateMemory(workspaceId, mutation); setEditor(null); reload(editor?.entry ? "New memory version saved." : "Memory added."); }} />
@@ -216,6 +240,10 @@ export function MemoryScreen({ workspaceId, workspaceName }: { workspaceId: stri
   );
 }
 
+type Scope = "effective" | MemoryTier;
+type EditorState = { entry?: MemoryDetailDto } | null;
+type ConfirmState = { action: "approve" | "reject" | "retire"; entry: MemoryDetailDto } | null;
+
 function filterMemory(entries: MemoryDetailDto[], query: string, type: MemoryType | null, order: (typeof SORTS)[number]): MemoryDetailDto[] {
   const needle = query.trim().toLocaleLowerCase();
   return entries.filter((entry) => (!type || entry.type === type) && (!needle || [entry.name, entry.slug, entry.body.rule, entry.body.why, ...entry.body.howToApply, ...entry.body.doesNotApplyTo].join(" ").toLocaleLowerCase().includes(needle)))
@@ -225,7 +253,7 @@ function filterMemory(entries: MemoryDetailDto[], query: string, type: MemoryTyp
 function MemoryGroupHeader({ group, reviewing, count, workspaceName }: { group: string; reviewing: boolean; count: number; workspaceName: string }) {
   const Icon = reviewing ? group === "global" ? Globe2 : Box : TYPE_ICON[group as MemoryType];
   const label = reviewing ? group === "global" ? "GLOBAL · EVERY WORKSPACE" : `WORKSPACE · ${workspaceName.toUpperCase()}` : TYPE_LABEL[group as MemoryType].toUpperCase();
-  return <header className="flex min-h-8 items-center gap-2 px-1 type-meta uppercase tracking-mono text-muted"><Icon /><span>{label}</span><b className="font-medium text-ink">{count}</b><i className="hidden" /></header>;
+  return <header className="flex min-h-8 items-center gap-2 px-1 font-code type-meta uppercase tracking-mono text-muted"><Icon className={ICON_LG} /><span>{label}</span><b className="font-medium tracking-normal text-ink">{count}</b><i className="hidden" /></header>;
 }
 
 function MemoryRule({ entry, workspaceName, open, reviewing, onToggle, onRevise, onHistory, onConfirm }: {
@@ -234,31 +262,39 @@ function MemoryRule({ entry, workspaceName, open, reviewing, onToggle, onRevise,
 }) {
   const panelId = `memory-rule-${entry.id}`;
   const filed = new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(entry.filed));
-  return <article className={`memory-rule my-1 overflow-hidden rounded-cell bg-surface-sunken ${open ? "is-open" : ""}${reviewing ? " is-proposal" : ""}`}>
-    <button type="button" className="memory-rule-head flex min-h-14 w-full items-center gap-2 bg-transparent px-3 py-2 text-left type-base text-ink" aria-expanded={open} aria-controls={panelId} onClick={onToggle}>
-      <ChevronRight />
-      <span><strong>{entry.body.rule || entry.name}</strong><small><em className={`is-${entry.tier}`}>{entry.tier === "global" ? <Globe2 /> : <Box />}{entry.tier === "global" ? "Global" : `Workspace · ${workspaceName}`}</em>{entry.overridesGlobal && <em className="memory-tag">OVERRIDES</em>}<i>v{entry.version} · {entry.version > 1 ? "Revised" : "Filed"} {filed}</i>{entry.qualityFlags.length > 0 && <b><TriangleAlert />No negative scope</b>}</small></span>
-      <i>{entry.name}</i>
+  return <article className={`memory-rule my-1 overflow-hidden rounded-cell bg-surface-sunken transition-colors duration-fast ease-instrument hover:bg-surface motion-reduce:transition-none motion-reduce:duration-0 ${open ? "is-open" : ""}${reviewing ? " is-proposal" : ""}`}>
+    <button type="button" className="memory-rule-head flex min-h-14 w-full items-center gap-2 bg-transparent px-3 py-2 text-left type-base text-ink focus-visible:-outline-offset-2" aria-expanded={open} aria-controls={panelId} onClick={onToggle}>
+      <ChevronRight className={`${ICON} flex-none text-muted transition-transform duration-fast ease-instrument motion-reduce:transition-none motion-reduce:duration-0 ${open ? "rotate-90" : ""}`} />
+      <span className="grid min-w-0 flex-1 gap-1.75"><strong className="truncate type-base font-normal text-ink">{entry.body.rule || entry.name}</strong><small className="flex items-center gap-2 font-code type-meta text-muted"><em className={`is-${entry.tier} inline-flex items-center gap-1.25 font-app type-label not-italic text-muted`}>{entry.tier === "global" ? <Globe2 className={ICON_SM} /> : <Box className={ICON_SM} />}{entry.tier === "global" ? "Global" : `Workspace · ${workspaceName}`}</em>{entry.overridesGlobal && <em className="memory-tag inline-flex h-4.25 items-center rounded-control bg-surface px-1.5 font-code type-meta not-italic tracking-label text-ink">OVERRIDES</em>}<i className="not-italic">v{entry.version} · {entry.version > 1 ? "Revised" : "Filed"} {filed}</i>{entry.qualityFlags.length > 0 && <b className="inline-flex items-center gap-1 font-app type-mono-md text-muted"><TriangleAlert className={ICON_MD} />No negative scope</b>}</small></span>
+      <i className="max-w-45 truncate font-code type-meta not-italic text-muted">{entry.name}</i>
     </button>
-    {open && <div className="memory-rule-body bg-surface px-4 pb-4 pt-3 type-base leading-5 text-ink" id={panelId}>
-      <section><label>WHY</label><p>{entry.body.why || "Why has not been captured yet."}</p></section>
-      <div className="memory-rule-columns">
-        <section><label>HOW TO APPLY</label>{entry.body.howToApply.length ? <ul>{entry.body.howToApply.map((item) => <li key={item}>{item}</li>)}</ul> : <p className="is-muted">Application guidance is missing.</p>}</section>
-        <section><label>DOES NOT APPLY TO</label>{entry.body.doesNotApplyTo.length ? <ul className="is-negative">{entry.body.doesNotApplyTo.map((item) => <li key={item}><CircleSlash />{item}</li>)}</ul> : <div className="memory-quality"><TriangleAlert /><span>Negative scope is missing. This memory may be applied too broadly.</span><button type="button" onClick={onRevise}>Revise and complete</button></div>}</section>
+    {open && <div className="memory-rule-body grid gap-4.75 bg-surface px-4 pb-4 pt-3 type-base leading-5 text-ink" id={panelId}>
+      <section className="grid gap-1.5"><label className={RULE_LABEL}>WHY</label><p className="m-0 type-sm leading-prose text-muted">{entry.body.why || "Why has not been captured yet."}</p></section>
+      <div className="memory-rule-columns grid grid-cols-(--memory-rule-columns) gap-7.5 @max-memory-row/main-region:grid-cols-1">
+        <section className="grid gap-1.5"><label className={RULE_LABEL}>HOW TO APPLY</label>{entry.body.howToApply.length ? <ul className="m-0 grid gap-1.5 pl-4.5 type-sm leading-row text-muted">{entry.body.howToApply.map((item) => <li key={item}>{item}</li>)}</ul> : <p className="is-muted m-0 type-sm leading-prose text-muted">Application guidance is missing.</p>}</section>
+        <section className="grid gap-1.5"><label className={RULE_LABEL}>DOES NOT APPLY TO</label>{entry.body.doesNotApplyTo.length ? <ul className="is-negative m-0 grid list-none gap-1.5 pl-0 type-sm leading-row text-muted">{entry.body.doesNotApplyTo.map((item) => <li className="flex gap-2 text-muted" key={item}><CircleSlash className={`${ICON_LG} mt-0.5 flex-none`} />{item}</li>)}</ul> : <div className={`memory-quality grid grid-cols-(--memory-glyph-columns) gap-1.75 leading-row ${RULE_PLATE}`}><TriangleAlert className={`${ICON_LG} mt-0.5`} /><span>Negative scope is missing. This memory may be applied too broadly.</span><button type="button" className={`col-start-2 justify-self-start ${ACTION} h-6.5 px-2.25 type-sm bg-surface text-ink hover:bg-surface-hover`} onClick={onRevise}>Revise and complete</button></div>}</section>
       </div>
-      {entry.overridesGlobal && <div className="memory-override"><Layers3 />This workspace memory overrides a global memory with the same ID — the global text is not sent.</div>}
-      <footer>{reviewing ? <><button type="button" className="memory-primary" onClick={() => onConfirm("approve")}><Check />Approve</button><button type="button" onClick={() => onConfirm("reject")}><X />Reject</button></> : <button type="button" className="memory-primary" onClick={onRevise}><PencilLine />Revise</button>}<button type="button" onClick={onHistory}><History />History ({entry.version})</button><span>{entry.source} · filed {entry.filed}</span>{!reviewing && <button type="button" className="memory-retire" onClick={() => onConfirm("retire")}><Archive />Retire</button>}</footer>
+      {entry.overridesGlobal && <div className={`memory-override flex items-center gap-2.25 ${RULE_PLATE}`}><Layers3 className={`${ICON} flex-none`} />This workspace memory overrides a global memory with the same ID — the global text is not sent.</div>}
+      <footer className="flex items-center gap-1.75 pt-0.5">{reviewing ? <><button type="button" className={`memory-primary ${RULE_ACTION_PRIMARY}`} onClick={() => onConfirm("approve")}><Check className={ICON} />Approve</button><button type="button" className={RULE_ACTION} onClick={() => onConfirm("reject")}><X className={ICON} />Reject</button></> : <button type="button" className={`memory-primary ${RULE_ACTION_PRIMARY}`} onClick={onRevise}><PencilLine className={ICON} />Revise</button>}<button type="button" className={RULE_ACTION} onClick={onHistory}><History className={ICON} />History ({entry.version})</button><span className="ml-0.75 font-code type-meta text-muted">{entry.source} · filed {entry.filed}</span>{!reviewing && <button type="button" className={`memory-retire ml-auto ${RULE_ACTION}`} onClick={() => onConfirm("retire")}><Archive className={ICON} />Retire</button>}</footer>
     </div>}
   </article>;
 }
 
-function MemoryModal({ open, onOpenChange, overlay, title, description, className = "", children }: { open: boolean; onOpenChange(open: boolean): void; overlay: "memory-recall" | "memory-editor" | "memory-history" | "memory-confirm"; title: string; description: string; className?: string; children: React.ReactNode }) {
-  return <Dialog.Root open={open} onOpenChange={onOpenChange}>{open && <><Dialog.Overlay forceMount className="memory-modal-overlay" data-instrument-overlay-backdrop="" /><Dialog.Content forceMount className={`memory-modal overflow-hidden rounded-panel bg-surface text-ink ${className}`} data-instrument-overlay={overlay}><header className="bg-surface-sunken px-4 py-3"><div><Dialog.Title>{title}</Dialog.Title><Dialog.Description className="text-muted">{description}</Dialog.Description></div><Dialog.Close asChild><button type="button" aria-label={`Close ${title}`}><X /></button></Dialog.Close></header>{children}</Dialog.Content></>}</Dialog.Root>;
+/**
+ * A rulebook dialog. Every one of these is portalled to the document body, outside
+ * `.app-mode-work`, where the legacy `--fg*`/`--field-surface` family resolves to the on-dark
+ * set -- so the surfaces and inks are stated here outright rather than inherited.
+ */
+function MemoryModal({ open, onOpenChange, overlay, title, description, sheet = false, children }: { open: boolean; onOpenChange(open: boolean): void; overlay: "memory-recall" | "memory-editor" | "memory-history" | "memory-confirm"; title: string; description: string; sheet?: boolean; children: React.ReactNode }) {
+  const surface = sheet
+    ? "fixed inset-y-0 right-0 z-scrim-content flex h-screen w-memory-recall flex-col overflow-hidden rounded-l-panel bg-surface text-ink outline-none"
+    : "fixed inset-0 z-scrim-content m-auto flex h-fit max-h-memory-modal-height w-memory-modal-width flex-col overflow-hidden rounded-panel bg-surface text-ink outline-none";
+  return <Dialog.Root open={open} onOpenChange={onOpenChange}>{open && <><Dialog.Overlay forceMount className={`memory-modal-overlay ${OVERLAY_SCRIM}`} data-instrument-overlay-backdrop="" /><Dialog.Content forceMount className={`memory-modal ${surface}${sheet ? " memory-recall" : ""}`} data-instrument-overlay={overlay}><header className="flex flex-none items-start gap-5 bg-surface-sunken px-4 py-3"><div className="grid gap-1"><Dialog.Title className="m-0 type-title font-normal text-ink">{title}</Dialog.Title><Dialog.Description className="m-0 type-label text-muted">{description}</Dialog.Description></div><Dialog.Close asChild><button type="button" className={`ml-auto grid size-6.5 flex-none place-items-center rounded-control text-muted transition-colors duration-fast ease-instrument hover:bg-surface hover:text-ink motion-reduce:transition-none motion-reduce:duration-0 ${OVERLAY_RING}`} aria-label={`Close ${title}`}><X className={ICON_XL} /></button></Dialog.Close></header><div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div></Dialog.Content></>}</Dialog.Root>;
 }
 
 function RecallDialog({ open, onOpenChange, recall }: { open: boolean; onOpenChange(open: boolean): void; recall: Awaited<ReturnType<typeof bridge.recallMemory>> | null }) {
-  return <MemoryModal open={open} onOpenChange={onOpenChange} overlay="memory-recall" title="Agent context preview" description="The exact effective memory sent as background context" className="memory-recall">
-    {!recall ? <div className="memory-state">Loading context…</div> : <><div className="memory-recall-counts"><span>{recall.workspaceCount} workspace</span><span>{recall.globalCount} global</span></div><p className="memory-recall-note">{recall.note}</p><div className="memory-recall-list">{recall.entries.map((entry) => <article key={entry.id}><small>{entry.tier} · {entry.slug}</small><strong>{entry.body.rule}</strong><p>{entry.description}</p></article>)}</div></>}
+  return <MemoryModal open={open} onOpenChange={onOpenChange} overlay="memory-recall" title="Agent context preview" description="The exact effective memory sent as background context" sheet>
+    {!recall ? <div className={`memory-state ${STATE_LINE}`}>Loading context…</div> : <><div className="memory-recall-counts flex gap-1.75 px-4.5 pt-4">{[`${recall.workspaceCount} workspace`, `${recall.globalCount} global`].map((label) => <span className="rounded-control bg-surface-sunken px-1.75 py-1 font-code type-meta text-ink" key={label}>{label}</span>)}</div><p className="memory-recall-note mx-4.5 my-3.5 rounded-field bg-surface-sunken p-2.5 type-label leading-row text-ink">{recall.note}</p><div className="memory-recall-list grid gap-0.75 px-3 pb-5">{recall.entries.map((entry) => <article className="grid gap-1.25 rounded-field bg-surface-sunken p-3" key={entry.id}><small className="font-code type-mono-sm text-muted">{entry.tier} · {entry.slug}</small><strong className="type-ui font-normal text-ink">{entry.body.rule}</strong><p className="m-0 type-label leading-compact text-muted">{entry.description}</p></article>)}</div></>}
   </MemoryModal>;
 }
 
@@ -286,23 +322,23 @@ function EditorDialog({ open, entry, onOpenChange, onSave }: { open: boolean; en
     try { await onSave(mutation); } catch (cause) { setFormError(cause instanceof Error ? cause.message : String(cause)); setSaving(false); }
   };
   return <MemoryModal open={open} onOpenChange={onOpenChange} overlay="memory-editor" title={entry ? "Revise memory" : "Add memory"} description={entry ? `Save as immutable version ${entry.version + 1}` : "Create a durable rule for future work"}>
-    <form className="memory-editor" onSubmit={(event) => void submit(event)}>
-      <label>Rule<textarea name="rule" required defaultValue={entry?.body.rule} autoFocus /></label>
-      <div><label>Scope{entry ? <span className="memory-static-field">{tier === "workspace" ? "Workspace" : "Global"}</span> : <SelectMenu<MemoryTier> overlayOwner="memory.editor" value={tier} options={[{ value: "workspace", label: "Workspace" }, { value: "global", label: "Global" }]} ariaLabel="Memory scope" onValueChange={setTier} />}</label><label>Type<SelectMenu<Exclude<MemoryType, "legacy">> overlayOwner="memory.editor" value={type} options={TYPES.filter((value): value is Exclude<MemoryType, "legacy"> => value !== "legacy").map((value) => ({ value, label: TYPE_LABEL[value] }))} ariaLabel="Memory type" onValueChange={setType} /></label><label>State<SelectMenu<"active" | "proposed"> overlayOwner="memory.editor" value={status} options={[{ value: "active", label: "Active" }, { value: "proposed", label: "Proposal" }]} ariaLabel="Memory state" onValueChange={setStatus} /></label></div>
-      <label>Why<textarea name="why" defaultValue={entry?.body.why} /></label>
-      <div><label>How to apply <small>one item per line</small><textarea name="how" defaultValue={entry?.body.howToApply.join("\n")} /></label><label>Does not apply to <small>one item per line</small><textarea name="not" defaultValue={entry?.body.doesNotApplyTo.join("\n")} /></label></div>
-      <details><summary>Advanced fields</summary><div><label>Name<input name="name" required defaultValue={entry?.name ?? "Memory rule"} /></label>{!entry && <label>Slug<input name="slug" required pattern="[a-z0-9][a-z0-9-]*" placeholder="memory-rule" /></label>}<label>Description<input name="description" required defaultValue={entry?.description ?? "Durable workspace guidance."} /></label></div></details>
-      {formError && <p className="memory-form-error">{formError}</p>}
-      <footer><Dialog.Close asChild><button type="button">Cancel</button></Dialog.Close><button className="memory-primary" type="submit" disabled={saving}>{saving ? "Saving…" : entry ? `Save as version ${entry.version + 1}` : "Add memory"}</button></footer>
+    <form className="memory-editor grid gap-3.5 px-5 pb-5 pt-4.5" onSubmit={(event) => void submit(event)}>
+      <label className={DIALOG_LABEL}>Rule<textarea className={DIALOG_AREA} name="rule" required defaultValue={entry?.body.rule} autoFocus /></label>
+      <div className="grid grid-cols-3 gap-2.5"><label className={DIALOG_LABEL}>Scope{entry ? <span className={`memory-static-field flex w-full min-h-7.5 items-center rounded-control bg-surface-sunken px-2.25 type-sm text-ink`}>{tier === "workspace" ? "Workspace" : "Global"}</span> : <SelectMenu<MemoryTier> className="w-full" overlayOwner="memory.editor" value={tier} options={[{ value: "workspace", label: "Workspace" }, { value: "global", label: "Global" }]} ariaLabel="Memory scope" onValueChange={setTier} />}</label><label className={DIALOG_LABEL}>Type<SelectMenu<Exclude<MemoryType, "legacy">> className="w-full" overlayOwner="memory.editor" value={type} options={TYPES.filter((value): value is Exclude<MemoryType, "legacy"> => value !== "legacy").map((value) => ({ value, label: TYPE_LABEL[value] }))} ariaLabel="Memory type" onValueChange={setType} /></label><label className={DIALOG_LABEL}>State<SelectMenu<"active" | "proposed"> className="w-full" overlayOwner="memory.editor" value={status} options={[{ value: "active", label: "Active" }, { value: "proposed", label: "Proposal" }]} ariaLabel="Memory state" onValueChange={setStatus} /></label></div>
+      <label className={DIALOG_LABEL}>Why<textarea className={DIALOG_AREA} name="why" defaultValue={entry?.body.why} /></label>
+      <div className="grid grid-cols-2 gap-2.5"><label className={DIALOG_LABEL}>How to apply <small className={DIALOG_HINT}>one item per line</small><textarea className={DIALOG_AREA} name="how" defaultValue={entry?.body.howToApply.join("\n")} /></label><label className={DIALOG_LABEL}>Does not apply to <small className={DIALOG_HINT}>one item per line</small><textarea className={DIALOG_AREA} name="not" defaultValue={entry?.body.doesNotApplyTo.join("\n")} /></label></div>
+      <details className="type-label text-muted"><summary className="cursor-pointer">Advanced fields</summary><div className="grid grid-cols-2 gap-2.5 pt-3"><label className={DIALOG_LABEL}>Name<input className={DIALOG_FIELD} name="name" required defaultValue={entry?.name ?? "Memory rule"} /></label>{!entry && <label className={DIALOG_LABEL}>Slug<input className={DIALOG_FIELD} name="slug" required pattern="[a-z0-9][a-z0-9-]*" placeholder="memory-rule" /></label>}<label className={`col-span-full ${DIALOG_LABEL}`}>Description<input className={DIALOG_FIELD} name="description" required defaultValue={entry?.description ?? "Durable workspace guidance."} /></label></div></details>
+      {formError && <p className="memory-form-error m-0 rounded-field bg-alert px-2 py-1 type-label text-alert-ink">{formError}</p>}
+      <footer className="flex justify-end gap-2 pt-0.75"><Dialog.Close asChild><button type="button" className={DIALOG_ACTION}>Cancel</button></Dialog.Close><button className={`memory-primary ${DIALOG_ACTION_PRIMARY} disabled:cursor-not-allowed disabled:opacity-35`} type="submit" disabled={saving}>{saving ? "Saving…" : entry ? `Save as version ${entry.version + 1}` : "Add memory"}</button></footer>
     </form>
   </MemoryModal>;
 }
 
 function HistoryDialog({ history, onOpenChange }: { history: MemoryDetailDto[] | null; onOpenChange(open: boolean): void }) {
-  return <MemoryModal open={history !== null} onOpenChange={onOpenChange} overlay="memory-history" title="Version history" description="Immutable revisions, newest first"><div className="memory-history">{history?.length === 0 && <div className="memory-state">Loading history…</div>}{history?.map((entry) => <article key={entry.revisionId}><FileClock /><span><strong>Version {entry.version}</strong><small>{entry.status} · {entry.filed} · {entry.source}</small><p>{entry.body.rule}</p></span></article>)}</div></MemoryModal>;
+  return <MemoryModal open={history !== null} onOpenChange={onOpenChange} overlay="memory-history" title="Version history" description="Immutable revisions, newest first"><div className="memory-history grid gap-0.75 p-3.5">{history?.length === 0 && <div className={`memory-state ${STATE_LINE}`}>Loading history…</div>}{history?.map((entry) => <article className="grid grid-cols-(--memory-glyph-columns) gap-2.5 rounded-field bg-surface-sunken p-2.75" key={entry.revisionId}><FileClock className={`${ICON_XL} text-muted`} /><span className="grid gap-1"><strong className="font-code type-xs text-ink">Version {entry.version}</strong><small className="font-code type-mono-sm text-muted">{entry.status} · {entry.filed} · {entry.source}</small><p className="mx-0 mb-0 mt-0.5 type-sm text-muted">{entry.body.rule}</p></span></article>)}</div></MemoryModal>;
 }
 
 function ConfirmDialog({ state, onOpenChange, onConfirm }: { state: ConfirmState; onOpenChange(open: boolean): void; onConfirm(): void }) {
   const verb = state?.action ?? "retire";
-  return <MemoryModal open={state !== null} onOpenChange={onOpenChange} overlay="memory-confirm" title={`${verb[0]!.toUpperCase()}${verb.slice(1)} memory?`} description={verb === "retire" ? "The rule leaves recall but remains in immutable history." : verb === "approve" ? "The proposal becomes the active revision." : "The proposal is preserved as rejected provenance."}><div className="memory-confirm"><p>{state?.entry.body.rule}</p><footer><Dialog.Close asChild><button type="button">Cancel</button></Dialog.Close><button type="button" className={verb === "approve" ? "memory-primary" : "memory-danger"} onClick={onConfirm}>{verb[0]!.toUpperCase() + verb.slice(1)}</button></footer></div></MemoryModal>;
+  return <MemoryModal open={state !== null} onOpenChange={onOpenChange} overlay="memory-confirm" title={`${verb[0]!.toUpperCase()}${verb.slice(1)} memory?`} description={verb === "retire" ? "The rule leaves recall but remains in immutable history." : verb === "approve" ? "The proposal becomes the active revision." : "The proposal is preserved as rejected provenance."}><div className="memory-confirm px-5 pb-5 pt-4.5"><p className="mx-0 mb-5 mt-0 leading-prose text-muted">{state?.entry.body.rule}</p><footer className="flex justify-end gap-2 pt-0.75"><Dialog.Close asChild><button type="button" className={DIALOG_ACTION}>Cancel</button></Dialog.Close><button type="button" className={verb === "approve" ? `memory-primary ${DIALOG_ACTION_PRIMARY}` : `memory-danger ${DIALOG_ACTION_DANGER}`} onClick={onConfirm}>{verb[0]!.toUpperCase() + verb.slice(1)}</button></footer></div></MemoryModal>;
 }

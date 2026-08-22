@@ -1,10 +1,10 @@
 /* Split into contiguous chunks: source order is the cascade, so chunk order is
    the original order. Names describe the dominant selector family. */
-@import "./workbench/01-calendar-agenda.css";
+@import "./workbench/01-unowned.css";
 @import "./workbench/02-select-menu.css";
 @import "./workbench/03-sidebar-row.css";
 @import "./workbench/04-workspace-project.css";
-@import "./workbench/05-memory-rule.css";
+@import "./workbench/05-unowned.css";
 @import "./workbench/06-unowned.css";
 @import "./workbench/09-activity-inspector.css";
 @import "./workbench/10-agent-chat.css";
