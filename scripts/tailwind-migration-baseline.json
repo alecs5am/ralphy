@@ -1,17 +1,15 @@
 {
   "-outline-offset": 1,
-  "@max": 19,
   "@min": 11,
   "aspect": 1,
-  "grid-cols": 7,
+  "grid-cols": 5,
   "grid-rows": 1,
-  "h": 3,
-  "max-w": 2,
-  "min-h": 1,
+  "h": 1,
+  "max-w": 1,
   "min-w": 3,
   "outline": 1,
   "outline-offset": 2,
   "pl": 1,
   "size": 2,
-  "w": 3
+  "w": 1
 }
