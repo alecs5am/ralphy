@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -69,6 +69,7 @@ const detailLayouts = [
 
 async function marketplaceGeometry(): Promise<GeometrySmoke> {
   const directory = mkdtempSync(join(tmpdir(), "ralphy-marketplace-geometry-"));
+  const resultPath = join(directory, "harness-result.json");
   try {
     const styleLinks = builtStylesheetLink();
     writeFileSync(join(directory, "harness.tsx"), `
@@ -152,6 +153,7 @@ async function marketplaceGeometry(): Promise<GeometrySmoke> {
     writeFileSync(join(directory, "layout.html"), `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' file:; img-src 'self' data: https:; media-src 'self' data: https:; connect-src 'none'; object-src 'none';"><style>html,body,#root{width:100%;height:100%;margin:0;overflow:hidden}</style>${styleLinks}</head><body><div id="root"></div><script>window.ralphy={loadLocalModelDetail:async()=>({provider:"huggingface",id:"Acme/alpha",name:"Alpha model",author:"Acme",task:"text-generation",modality:"text",modelType:"base",baseModel:"Alpha",license:"apache-2.0",gated:false,revision:"abc123",lastModified:"2026-08-19T10:00:00.000Z",downloads:0,likes:0,tags:["assistant","gguf"],iconUrl:null,previewUrl:null,providerUrl:"https://huggingface.co/Acme/alpha",recommendedPackage:{format:"GGUF",bytes:8589934592,files:["alpha.gguf"]},comfort:{level:"comfortable",label:"Comfortable here",score:4,runtime:"ollama",estimatedMemoryBytes:10737418240,evidence:["Fits available memory"]},state:"remote",permissions:[],readme:"# Model card\\n\\nSource-provided text.",previewUrls:[],files:[{name:"alpha.gguf",bytes:8589934592,format:"GGUF",recommended:true,warning:null}]}),openLocalModelProvider:async()=>{},copyText:async()=>{},refreshLocalModelMachine:async()=>{}}</script><script src="./harness.js"></script></body></html>`);
     writeFileSync(join(directory, "package.json"), JSON.stringify({ main: "main.cjs" }));
     writeFileSync(join(directory, "main.cjs"), `
+      const RESULT_PATH = ${JSON.stringify(resultPath)};
       const { app, BrowserWindow } = require("electron");
       app.commandLine.appendSwitch("disable-gpu");
       const states = ${JSON.stringify(states)}, layouts = ${JSON.stringify(layouts)};
@@ -219,7 +221,7 @@ async function marketplaceGeometry(): Promise<GeometrySmoke> {
           await new Promise(resolve=>setTimeout(resolve,30));
           myWorkWidths.push(await win.webContents.executeJavaScript("Math.round(document.querySelector('.context-sidebar').getBoundingClientRect().width)"));
         }
-        process.stdout.write("RALPHY_MARKETPLACE_GEOMETRY="+JSON.stringify({results,myWorkWidths})+"\\n");
+        require("node:fs").writeFileSync(RESULT_PATH, JSON.stringify({results,myWorkWidths}));
         app.quit();
       }).catch(error=>{console.error(error);app.exit(1)});
     `);
@@ -233,9 +235,10 @@ async function marketplaceGeometry(): Promise<GeometrySmoke> {
       child.once("error", reject);
       child.once("close", (code) => code === 0 ? resolve(stdout) : reject(new Error(`Marketplace Electron geometry failed (${code}): ${stderr}`)));
     });
-    const line = output.split("\n").find((candidate) => candidate.startsWith("RALPHY_MARKETPLACE_GEOMETRY="));
-    if (!line) throw new Error(`Marketplace Electron geometry returned no results: ${output}`);
-    return JSON.parse(line.slice("RALPHY_MARKETPLACE_GEOMETRY=".length)) as GeometrySmoke;
+    // Results travel through a file: a large JSON line on a pipe is truncated when several
+    // Electron children run at once, which made this harness flake only in the full suite.
+    if (!existsSync(resultPath)) throw new Error(`Marketplace Electron geometry returned no results: ${output}`);
+    return JSON.parse(readFileSync(resultPath, "utf8")) as GeometrySmoke;
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

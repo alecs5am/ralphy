@@ -1,5 +1,5 @@
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -33,6 +33,7 @@ const EXPECTED_LIGHT = {
 
 async function electronSurfaceResults(): Promise<SurfaceProbe[]> {
   const directory = mkdtempSync(join(tmpdir(), "ralphy-theme-surfaces-"));
+  const resultPath = join(directory, "harness-result.json");
   try {
     const assets = join(process.cwd(), "dist", "assets");
     if (!existsSync(assets)) execFileSync("bun", ["run", "build:renderer"], { cwd: process.cwd(), stdio: "ignore" });
@@ -58,6 +59,7 @@ async function electronSurfaceResults(): Promise<SurfaceProbe[]> {
     </body></html>`);
     writeFileSync(join(directory, "package.json"), JSON.stringify({ main: "main.cjs" }));
     writeFileSync(join(directory, "main.cjs"), `
+      const RESULT_PATH = ${JSON.stringify(resultPath)};
       const { app, BrowserWindow } = require("electron");
       app.commandLine.appendSwitch("disable-gpu");
       app.whenReady().then(async () => {
@@ -83,7 +85,7 @@ async function electronSurfaceResults(): Promise<SurfaceProbe[]> {
           })()\`));
         }
         await new Promise((resolve) => { win.once("closed", resolve); win.close(); });
-        process.stdout.write("THEME_SURFACES=" + JSON.stringify(results.map((result) => ({ ...result, maxActive }))) + "\\n");
+        require("node:fs").writeFileSync(RESULT_PATH, JSON.stringify(results.map((result) => ({ ...result, maxActive }))));
         app.quit();
       }).catch((error) => { console.error(error); app.exit(1); });
     `);
@@ -97,9 +99,10 @@ async function electronSurfaceResults(): Promise<SurfaceProbe[]> {
       child.once("error", reject);
       child.once("close", (code) => code === 0 ? resolve(stdout) : reject(new Error(`Theme surface Electron probe failed (${code}): ${stderr}`)));
     });
-    const line = output.split("\n").find((candidate) => candidate.startsWith("THEME_SURFACES="));
-    if (!line) throw new Error(`Theme surface Electron probe returned no results: ${output}`);
-    return JSON.parse(line.slice("THEME_SURFACES=".length)) as SurfaceProbe[];
+    // Results travel through a file: a large JSON line on a pipe is truncated when several
+    // Electron children run at once, which made this harness flake only in the full suite.
+    if (!existsSync(resultPath)) throw new Error(`Theme surface probe returned no results: ${output}`);
+    return JSON.parse(readFileSync(resultPath, "utf8")) as SurfaceProbe[];
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

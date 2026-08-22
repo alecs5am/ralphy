@@ -228,6 +228,7 @@ type GeometryResult = {
 
 async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): Promise<GeometryResult[]> {
   const directory = mkdtempSync(join(tmpdir(), "ralphy-geometry-"));
+  const resultPath = join(directory, "harness-result.json");
   try {
     const links = builtStylesheetLink();
     const shell = (screen: string) => `<div class="workbench has-right-panel" style="--sidebar-w:288px;--inspector-w:336px"><aside class="context-sidebar"></aside><section class="main-shell"><header class="main-header"></header><div class="main-content-stage">${screen}</div></section><aside class="utility-right-panel"></aside></div>`;
@@ -235,6 +236,7 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
     writeFileSync(join(directory, "layout.html"), `<!doctype html><html><head>${links}<style>${workspaceOverviewStyles}</style></head><body><div id="root"></div>${templates}</body></html>`);
     writeFileSync(join(directory, "package.json"), JSON.stringify({ main: "main.cjs" }));
     writeFileSync(join(directory, "main.cjs"), `
+      const RESULT_PATH = ${JSON.stringify(resultPath)};
       const { app, BrowserWindow } = require("electron");
       app.commandLine.appendSwitch("disable-gpu");
       app.whenReady().then(async () => {
@@ -377,7 +379,7 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
                 memoryBodyBorder: style(".memory-rule-body")?.borderTopWidth ?? null };
             })()\`));
         }
-        process.stdout.write("RALPHY_GEOMETRY=" + JSON.stringify(results) + "\\n");
+        require("node:fs").writeFileSync(RESULT_PATH, JSON.stringify(results));
         app.quit();
       }).catch((error) => { console.error(error); app.exit(1); });
     `);
@@ -390,9 +392,10 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
       child.once("error", reject);
       child.once("close", (code) => code === 0 ? resolve(stdout) : reject(new Error(`Electron geometry smoke failed (${code}): ${stderr}`)));
     });
-    const line = output.split("\n").find((candidate) => candidate.startsWith("RALPHY_GEOMETRY="));
-    if (!line) throw new Error(`Electron geometry smoke returned no results: ${output}`);
-    return JSON.parse(line.slice("RALPHY_GEOMETRY=".length)) as GeometryResult[];
+    // Results travel through a file: a large JSON line on a pipe is truncated when several
+    // Electron children run at once, which made this harness flake only in the full suite.
+    if (!existsSync(resultPath)) throw new Error(`Electron geometry smoke returned no results: ${output}`);
+    return JSON.parse(readFileSync(resultPath, "utf8")) as GeometryResult[];
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -456,6 +459,7 @@ type SharedGeometrySmoke = {
 
 async function sharedLibraryGeometry(): Promise<SharedGeometrySmoke> {
   const directory = mkdtempSync(join(tmpdir(), "ralphy-shared-geometry-"));
+  const resultPath = join(directory, "harness-result.json");
   try {
     const systemFont = "/System/Library/Fonts/Keyboard.ttf";
     if (!existsSync(systemFont)) throw new Error(`Real font fixture is unavailable: ${systemFont}`);
@@ -537,6 +541,7 @@ async function sharedLibraryGeometry(): Promise<SharedGeometrySmoke> {
     </script><script src="./harness.js"></script></body></html>`);
     writeFileSync(join(directory, "package.json"), JSON.stringify({ main: "main.cjs" }));
     writeFileSync(join(directory, "main.cjs"), `
+      const RESULT_PATH = ${JSON.stringify(resultPath)};
       const { app, BrowserWindow, net, protocol } = require("electron");
       const { pathToFileURL } = require("node:url");
       const { MediaProtocolAccess } = require("./protocol-access.cjs");
@@ -674,7 +679,7 @@ async function sharedLibraryGeometry(): Promise<SharedGeometrySmoke> {
             };
           })()\`));
         }
-        process.stdout.write("RALPHY_SHARED_GEOMETRY=" + JSON.stringify({ font, results }) + "\\n");
+        require("node:fs").writeFileSync(RESULT_PATH, JSON.stringify({ font, results }));
         app.quit();
       }).catch((error) => { console.error(error); app.exit(1); });
     `);
@@ -687,9 +692,10 @@ async function sharedLibraryGeometry(): Promise<SharedGeometrySmoke> {
       child.once("error", reject);
       child.once("close", (code) => code === 0 ? resolve(stdout) : reject(new Error(`Shared Library Electron geometry failed (${code}): ${stderr}`)));
     });
-    const line = output.split("\n").find((candidate) => candidate.startsWith("RALPHY_SHARED_GEOMETRY="));
-    if (!line) throw new Error(`Shared Library Electron geometry returned no results: ${output}`);
-    return JSON.parse(line.slice("RALPHY_SHARED_GEOMETRY=".length)) as SharedGeometrySmoke;
+    // Results travel through a file: a large JSON line on a pipe is truncated when several
+    // Electron children run at once, which made this harness flake only in the full suite.
+    if (!existsSync(resultPath)) throw new Error(`Shared Library Electron geometry returned no results: ${output}`);
+    return JSON.parse(readFileSync(resultPath, "utf8")) as SharedGeometrySmoke;
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
