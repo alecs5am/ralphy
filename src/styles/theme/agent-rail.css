@@ -1,0 +1,74 @@
+/* Role keys owned by the agent-rail migration. One file per area so the areas never collide in
+   the shared theme layer. Every key names a role and resolves to a token in tokens.css or a
+   value the design fixes for that role; a component then reaches for the name, never a literal.
+
+   The rail is a black widget in both themes and it sits outside `.app-mode-work`, so its ink is
+   the on-dark family throughout and none of these keys may resolve to a theme-dependent
+   surface: `bg-board` would turn light under the light theme and swallow the on-dark ink. */
+
+/* Multi-part values. These are plain custom properties rather than `@theme` keys because
+   `grid-template-columns` is not a Tailwind namespace and a percentage is not a spacing scale:
+   `@theme inline` never emits the variable, so `grid-cols-(--name)` and `max-w-(--name)` have to
+   find a real declaration reachable from the element. */
+:root {
+  /* An assistant turn: the provider mark's column beside the rendered document. */
+  --agent-message-columns: 22px minmax(0, 1fr);
+  /* The operator's own turn is a bubble that stops short of the rail's far edge. */
+  --agent-bubble-measure: 88%;
+}
+
+/* A menu opened from the rail can never be wider than the rail. Both widths used to be measured
+   against `--inspector-w` -- a fixed 336px left over from the v1 layout -- so at the shell's
+   minimum rail width the recent-chats menu overhung the panel by 24px and the model menu by
+   23px. `--instrument-right-rail-width` is what the shell actually writes, so the two menus now
+   shrink with the column; the subtrahend is the panel's own inset plus its trailing air.
+
+   These cannot live on `:root`: a custom property's `var()` is substituted where the property is
+   *declared*, and `--instrument-right-rail-width` is only in scope inside the shell, so at
+   `:root` the `calc()` is invalid at computed-value time and the whole value inherits as
+   guaranteed-invalid. The rail panel is the highest element that has the variable and contains
+   every one of these menus. */
+.utility-right-panel {
+  --agent-chat-menu-fit: calc(var(--instrument-right-rail-width) - 20px);
+  --agent-model-menu-fit: calc(var(--instrument-right-rail-width) - 40px);
+}
+
+@theme inline {
+  /* The rail's surface vocabulary, all theme-invariant because the widget is. */
+  --color-ghost: var(--instrument-ghost);                     /* a field well: the composer, the model search, the key field */
+  --color-ghost-hover: var(--instrument-ghost-hover);          /* hover, a selected row, and the operator's own turn */
+  --color-instrument-sunken: var(--instrument-legacy-sunken);  /* a band recessed into the rail: the running-chat strip */
+  /* An alarm line standing on a black widget. The rail resolved `--danger` to
+     `--instrument-error-text` outside `.app-mode-work`, so every error rendered as a plain
+     near-white grey indistinguishable from ordinary copy. */
+  --color-alert-bright: var(--instrument-alert-bright);
+  /* The ring for a control on a black widget: the theme ink would be black on black in the
+     light theme. */
+  --color-focus-on-instrument: var(--instrument-focus-on-dark);
+
+  /* Radii the design fixes by role. */
+  --radius-menu: var(--radius-xl);                      /* a menu popover: R18 */
+  --radius-composer: var(--field-radius-multiline);     /* a multi-line field opts out of the stadium */
+
+  /* Geometry the design fixes for this area. */
+  --spacing-agent-header: 58px;            /* the rail's header is taller than the titlebar */
+  --spacing-agent-empty: 240px;            /* an empty chat holds this much of the rail open */
+  --spacing-agent-empty-copy: 250px;       /* ...and its one sentence stops here */
+  --spacing-agent-connect-copy: 240px;     /* the connect flow's paragraph measure */
+  --spacing-agent-connect-column: 260px;   /* every connect control shares one column */
+  --spacing-agent-menu-list: 320px;        /* a menu list scrolls after this much */
+  --spacing-agent-chat-menu: 300px;        /* the recent-chats menu, when the rail has room for it */
+  --spacing-agent-model-menu: 310px;       /* ...and the model menu */
+  --spacing-agent-provider-menu: 236px;    /* the provider menu holds a name and its account line */
+  --spacing-agent-mode-menu: 140px;        /* the permission menu holds one word and a check */
+  --spacing-agent-model-trigger: 104px;    /* the model name truncates rather than pushing the toolbar */
+  --spacing-agent-tool-indent: 31px;       /* a tool line starts under the assistant's copy column */
+
+  /* Leading the shared tokens do not name by role. */
+  --leading-row: var(--leading-snug);      /* a wrapped line of rail copy: a turn, a note, an error */
+
+  /* Stacking, so the header's own layer stays a token and not a number in markup. The rail's
+     header only has to stand above the transcript that scrolls under it. */
+  --z-index-sticky: var(--z-sticky);
+  --z-index-agent-popover: var(--z-agent-popover);
+}

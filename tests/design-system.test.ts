@@ -50,6 +50,8 @@ const marketplaceSurfaceSource = [
 const chromeTheme = readFileSync(join(process.cwd(), "src/styles/theme/chrome.css"), "utf8");
 const titlebarSource = readFileSync(join(process.cwd(), "src/components/Titlebar.tsx"), "utf8");
 const selectMenuSource = readFileSync(join(process.cwd(), "src/components/ui/SelectMenu.tsx"), "utf8");
+const agentRailSource = readFileSync(join(process.cwd(), "src/components/UtilityPanels.tsx"), "utf8");
+const agentRailTheme = readFileSync(join(process.cwd(), "src/styles/theme/agent-rail.css"), "utf8");
 const pickerSource = readFileSync(join(process.cwd(), "src/components/WorkspacePicker.tsx"), "utf8");
 const contextSidebarSource = readFileSync(join(process.cwd(), "src/components/ContextSidebar.tsx"), "utf8");
 const librarySource = readFileSync(join(process.cwd(), "src/screens/LibraryScreen.tsx"), "utf8");
@@ -1012,9 +1014,16 @@ describe("design system contract", () => {
     ]) expect(tokenStyles).toContain(token);
 
     // v2: every menu and popover is one flat #141414 widget — no border, no shadow.
-    for (const selector of ["select-menu-content", "workspace-picker-popover", "agent-popover", "asset-context-menu"]) {
+    for (const selector of ["select-menu-content", "workspace-picker-popover", "asset-context-menu"]) {
       expect(workbenchStyles).toMatch(new RegExp(`\\.${selector}\\s*\\{[^}]*border:\\s*0[^}]*background:\\s*var\\(--instrument-widget-dark\\)`, "s"));
     }
+    // The agent rail's popover states the same decision in markup, where the plate also has to
+    // carry the ink its rows inherit: the sheet declared none, so a row's rest ink came from
+    // whichever ancestor happened to set a colour.
+    const popover = /const POPOVER = "([^"]*)"/.exec(agentRailSource)?.[1] ?? "";
+    expect(popover.split(" ")).toContain("bg-instrument");
+    expect(popover.split(" ")).toContain("text-on-instrument-muted");
+    expect(popover).not.toMatch(/\b(?:border-\d|shadow-)/);
     // The trigger's skin lives in SelectMenu now: one black pill, no border, and a caller that
     // paints its own surface declines it outright rather than half-overriding it.
     const trigger = /const TRIGGER_INSTRUMENT = "([^"]*)"/.exec(selectMenuSource)?.[1] ?? "";
@@ -1466,10 +1475,21 @@ describe("design system contract", () => {
     expect(styles).toMatch(
       /\.utility-right-panel\s*\{[^}]*border:\s*0[^}]*background:\s*var\(--instrument-widget-dark\)/s,
     );
-    expect(styles).toMatch(/\.agent-composer\s*\{[^}]*background:\s*var\(--field-surface\)/s);
-    expect(styles).toMatch(
-      /\.agent-composer textarea\s*\{[^}]*border:\s*0[^}]*background:\s*transparent/s,
-    );
+    // The composer's own skin is in markup now: one ghost plate, a transparent field inside it,
+    // and the ring a black widget needs — `--control-focus` is the theme ink, which is black on
+    // black under the light theme.
+    expect(panels).toContain("rounded-composer bg-ghost");
+    expect(panels).toContain("resize-none bg-transparent");
+    expect(panels).toContain("focus-within:outline-focus-on-instrument");
+    expect(panels).not.toMatch(/\bborder-(?!collapse\b|0\b)/);
+    expect(panels).not.toMatch(/\b(?:shadow|bg-gradient|bg-linear|bg-radial)-/);
+    // Nothing of the rail is left in the sheet: both chunks are gone and what stayed is unowned.
+    for (const chunk of ["10-agent-chat.css", "11-agent-connect.css"]) {
+      expect(existsSync(join(process.cwd(), "src/styles/workbench", chunk))).toBe(false);
+    }
+    for (const gone of [".agent-composer", ".agent-popover", ".agent-message", ".agent-connect", ".agent-send", ".agent-copy-button", ".markdown-view"]) {
+      expect(styles).not.toContain(gone);
+    }
   });
 
   test("does not package a terminal runtime", () => {

@@ -10,6 +10,7 @@
 @import "./theme/workspace-overview.css";
 @import "./theme/shared-library.css";
 @import "./theme/marketplace.css";
+@import "./theme/agent-rail.css";
 @import "./theme/shell.css";
 
 @theme inline {

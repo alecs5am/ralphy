@@ -52,7 +52,9 @@ export function AiBrandIcon({
   const brand = model ? aiBrandForModel(model, provider) : providerBrands[provider];
   return (
     <img
-      className={`ai-brand-icon ${className}`.trim()}
+      /* The mark keeps its own aspect inside whatever box a caller gives it, and never
+         becomes a drag or selection target -- geometry the component owns, not its callers. */
+      className={`ai-brand-icon object-contain select-none ${className}`.trim()}
       src={`./assets/ai/${brand}.svg`}
       width={size}
       height={size}
