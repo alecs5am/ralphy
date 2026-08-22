@@ -32,6 +32,11 @@ const settingsSurfaceSource = [
   ...readdirSync(join(process.cwd(), "src/screens/settings")).map((file) => `src/screens/settings/${file}`),
 ].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
 const sharedLibraryStyles = readStylesheet("shared-library.css");
+const sharedLibraryTheme = readFileSync(join(process.cwd(), "src/styles/theme/shared-library.css"), "utf8");
+const sharedLibrarySurfaceSource = [
+  "src/screens/SharedLibraryScreen.tsx",
+  ...readdirSync(join(process.cwd(), "src/screens/shared-library")).map((file) => `src/screens/shared-library/${file}`),
+].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
 const marketplaceStyles = readStylesheet("marketplace.css");
 
 const project: ProjectSummary = {
@@ -776,27 +781,44 @@ describe("design system contract", () => {
   });
 
   test("calibrates the Shared Library grid and motion with existing tokens", () => {
-    expect(sharedLibraryStyles).toMatch(/\.shared-library-grid\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fill, minmax\(252px, 1fr\)\)/s);
-    expect(sharedLibraryStyles).toMatch(/\.shared-library-skeleton\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fill, minmax\(252px, 1fr\)\)/s);
+    // The tile grid is one role key both the grid and its skeleton reach for by name.
+    expect(sharedLibraryTheme).toMatch(/--shared-library-tiles:\s*repeat\(auto-fill, minmax\(252px, 1fr\)\)/);
+    expect(sharedLibrarySurfaceSource.match(/grid-cols-\(--shared-library-tiles\)/g)).toHaveLength(3);
     // No breakpoint names a column count: the tile minimum is the only number involved.
-    expect(sharedLibraryStyles).not.toMatch(/\.shared-library-(?:grid|skeleton)[^}]*repeat\(\d/);
-    expect(sharedLibraryStyles).toContain("transition: background var(--dur) var(--ease)");
+    expect(sharedLibraryTheme).not.toMatch(/--shared-library-tiles:[^;]*repeat\(\d/);
+    // Motion is declared where it renders, and every declaration carries its reduced-motion
+    // contract with it; the stylesheet keeps the blanket rule for borrowed children.
+    expect(sharedLibrarySurfaceSource).toContain("transition-colors duration-normal ease-instrument motion-reduce:transition-none motion-reduce:duration-0");
     expect(sharedLibraryStyles).toContain("@media (prefers-reduced-motion: reduce)");
   });
 
   test("gates the Shared Library stylesheet to the loaded design system contract", () => {
     const main = readFileSync(join(process.cwd(), "src/main.tsx"), "utf8");
-    const allowedSizes = new Set([9.5, 10.5, 11, 11.5, 12, 12.5, 13, 14, 15, 16, 17, 18, 19, 23, 40, 76]);
     const sizes = [...sharedLibraryStyles.matchAll(/(?:font-size:\s*|font:\s*)([\d.]+)px/g)].map((match) => Number(match[1]));
     const weights = [...sharedLibraryStyles.matchAll(/font-weight:\s*(\d+)/g)].map((match) => Number(match[1]));
     const borders = [...sharedLibraryStyles.matchAll(/border(?::|-(?:top|right|bottom|left):)\s*([^;]+)/g)].map((match) => match[1].trim());
 
     expect(main).toContain('import "./styles/shared-library.css"');
-    expect([...new Set(sizes.filter((size) => !allowedSizes.has(size)))]).toEqual([]);
-    expect([...new Set(weights)]).toEqual([400]);
+    // The stylesheet declares no type at all any more, so these scans guard it against growing
+    // one back; the same contract is asserted below where the type is now declared.
+    expect(sizes).toEqual([]);
+    expect(weights).toEqual([]);
     expect(sharedLibraryStyles).not.toContain("text-transform");
     expect(borders.filter((value) => value !== "0")).toEqual([]);
-    expect(sharedLibraryStyles).toMatch(/\.shared-library-screen button:focus-visible,[\s\S]*outline:\s*2px solid var\(--accent-soft\)/);
+    // Every size in the markup names a step. The two font-specimen steps are role keys of their
+    // own because there the size is the content being previewed, not UI type.
+    expect(sharedLibrarySurfaceSource).not.toMatch(/\btext-\[/);
+    expect(sharedLibraryTheme).toMatch(/--type-specimen: 40px/);
+    expect(sharedLibraryTheme).toMatch(/--type-specimen-display: 76px/);
+    expect([...new Set(sharedLibrarySurfaceSource.match(/\bfont-(?:thin|light|normal|medium|semibold|bold|extrabold|black)\b/g))].sort())
+      .toEqual(["font-normal", "font-semibold"]);
+    // The desk-wide button ring is gone from the stylesheet: reset.css paints the one 2px ring on
+    // every :focus-visible, and a control standing on a black widget names the on-instrument ring
+    // explicitly because the theme ink would be black on black in light. The Electron geometry
+    // harness below measures the rendered ring on every probed control in every state.
+    expect(sharedLibraryStyles).not.toContain(":focus-visible");
+    expect(readStylesheet("reset.css")).toMatch(/:focus-visible\s*\{\s*outline:\s*var\(--focus-ring\)/);
+    expect(sharedLibrarySurfaceSource).toContain("focus-visible:outline-focus-on-instrument");
   });
 
   test("fits actual Shared Library components and every workflow portal in real Electron geometry", async () => {

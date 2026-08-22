@@ -9,6 +9,25 @@ import { VideoPlayer } from "../../components/media/VideoPlayer";
 import { bridge } from "../../lib/ipc";
 import { presentSharedArtifact, type Availability, type SharedArtifactPresentation } from "./presentation";
 
+/* The viewer is a full-surface light widget: its own surface, the stage and the context rail one
+   step down, and a block inside the rail one step up again. Controls that stand on media take the
+   on-instrument ink and ring in both themes, because the frame under them is black either way. */
+const ACTION = "inline-flex min-h-7 items-center justify-center gap-1.5 rounded-control bg-surface-sunken px-2.5 type-label text-muted transition-colors duration-normal ease-instrument motion-reduce:transition-none motion-reduce:duration-0 hover:bg-surface-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-3.25";
+/* The selected revision is the disabled one, so the dimming lives on the other branch: a pill
+   cannot be both the current choice and greyed out. */
+const TRANSPORT_BUTTON = "inline-flex min-h-6 items-center justify-center gap-1.5 rounded-control px-2 font-code type-mono-sm transition-colors duration-normal ease-instrument motion-reduce:transition-none motion-reduce:duration-0 disabled:cursor-not-allowed";
+const STEP = "absolute top-1/2 z-sticky grid size-8.5 -mt-4.25 place-items-center rounded-full bg-frame/56 text-on-instrument disabled:cursor-not-allowed disabled:opacity-28 focus-visible:outline-focus-on-instrument [&_svg]:size-3.75";
+const ALERT = "shared-viewer-alert flex flex-none items-center gap-2 rounded-field bg-surface-sunken px-2.5 py-2 type-mono-md text-ink [&>span]:min-w-0 [&>span]:flex-1";
+const STATE = "flex max-w-shared-notice flex-col items-center justify-center gap-2 p-6 text-center text-muted [&>svg]:size-7 [&>svg]:text-muted";
+const STATE_TITLE = "type-md font-normal text-ink";
+const STATE_LINE = "font-code type-mono-md";
+const SECTION_LABEL = "m-0 font-code type-mono-sm font-normal tracking-caps text-muted";
+const SECTION_COPY = "m-0 type-label leading-normal text-muted";
+const FACT_ROW = "grid grid-cols-(--shared-library-viewer-fact-columns) gap-2";
+const FACT_LABEL = "m-0 type-mono-sm text-muted";
+const FACT_VALUE = "m-0 font-code type-mono-sm text-right text-muted [overflow-wrap:anywhere]";
+const REASON = "-mt-1.75 mb-0 type-mono-md leading-caption text-muted";
+
 type PreviewState =
   | { status: "loading" }
   | { status: "ready"; url: string; sizeBytes: number }
@@ -90,12 +109,14 @@ function FontSpecimen({ src, slug, onError }: { src: string; slug: string; onErr
       if (loaded) document.fonts?.delete(loaded);
     };
   }, [onError, slug, src]);
-  if (!face) return <div className="shared-viewer-preview-state" role="status">Loading font preview…</div>;
-  return <div className="shared-viewer-font" style={{ fontFamily: '"RalphySharedArtifactPreview"' }}>
-    <span>Font specimen · {slug}</span>
-    <strong>Aa Bb Cc 123</strong>
-    <p>Handgloves &amp; rooftop dusk</p>
-    <small>ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789</small>
+  if (!face) return <div className={`shared-viewer-preview-state ${STATE}`} role="status">Loading font preview…</div>;
+  /* A specimen previews the face at the size the face is meant to be read at, so these two steps
+     are content and not UI type. */
+  return <div className="flex max-h-full w-shared-specimen max-w-shared-specimen-inset flex-col gap-4.5 overflow-y-auto p-10.5" style={{ fontFamily: '"RalphySharedArtifactPreview"' }}>
+    <span className="font-code type-mono-sm tracking-caps text-muted">Font specimen · {slug}</span>
+    <strong className="type-specimen-display font-normal leading-specimen-display text-ink">Aa Bb Cc 123</strong>
+    <p className="m-0 type-specimen leading-specimen text-ink">Handgloves &amp; rooftop dusk</p>
+    <small className="type-title leading-specimen-sample text-muted">ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789</small>
   </div>;
 }
 
@@ -112,23 +133,23 @@ function ViewerStage({ artifact, preview, kind, onPreviewError }: {
   kind: ViewerKind;
   onPreviewError(): void;
 }) {
-  if (artifact.preview === "no-target") return <div className="shared-viewer-preview-state">
-    <ImageOff aria-hidden="true" /><strong>Preview unavailable</strong><span>No preview target · Core returned no selected preview target.</span>
+  if (artifact.preview === "no-target") return <div className={`shared-viewer-preview-state ${STATE}`}>
+    <ImageOff aria-hidden="true" /><strong className={STATE_TITLE}>Preview unavailable</strong><span className={STATE_LINE}>No preview target · Core returned no selected preview target.</span>
   </div>;
-  if (kind === "unsupported") return <div className="shared-viewer-fallback">
+  if (kind === "unsupported") return <div className={STATE}>
     <FileText aria-hidden="true" />
-    <strong>In-place preview unavailable</strong>
-    <span>{artifact.mime ?? "MIME unavailable"} · {formatBytes(artifact.bytes)}</span>
-    <p>The current Desktop contract exposes no bounded safe read for this content. Use Open original.</p>
+    <strong className={STATE_TITLE}>In-place preview unavailable</strong>
+    <span className={STATE_LINE}>{artifact.mime ?? "MIME unavailable"} · {formatBytes(artifact.bytes)}</span>
+    <p className="mt-0.75 mb-0 type-label leading-normal text-muted">The current Desktop contract exposes no bounded safe read for this content. Use Open original.</p>
   </div>;
-  if (preview.status === "loading") return <div className="shared-viewer-preview-state" role="status">Loading preview…</div>;
-  if (preview.status === "unavailable") return <div className="shared-viewer-preview-state" title={preview.reason}>
-    <ImageOff aria-hidden="true" /><strong>Preview unavailable</strong><span>{preview.reason}</span>
+  if (preview.status === "loading") return <div className={`shared-viewer-preview-state ${STATE}`} role="status">Loading preview…</div>;
+  if (preview.status === "unavailable") return <div className={`shared-viewer-preview-state ${STATE}`} title={preview.reason}>
+    <ImageOff aria-hidden="true" /><strong className={STATE_TITLE}>Preview unavailable</strong><span className={STATE_LINE}>{preview.reason}</span>
   </div>;
   const name = `Slug identity: ${artifact.slug}`;
-  if (kind === "image" || kind === "vector") return <div className={kind === "vector" ? "shared-viewer-vector-stage" : "shared-viewer-image-stage"}>
+  if (kind === "image" || kind === "vector") return <div className={`absolute inset-0 grid place-items-center [&>.image-viewport]:size-full ${kind === "vector" ? "shared-viewer-vector-stage bg-ghost" : "shared-viewer-image-stage"}`}>
     <ImageViewport src={preview.url} name={name} onError={onPreviewError} />
-    <span className="shared-viewer-fit-label">FIT</span>
+    <span className="pointer-events-none absolute bottom-3 left-3 h-5.5 rounded-chip bg-frame/62 px-2 py-1.25 font-code type-mono-sm tracking-label text-on-instrument-muted">FIT</span>
   </div>;
   if (kind === "video") return <VideoPlayer src={preview.url} name={name} onError={onPreviewError} />;
   if (kind === "audio") return <AudioWaveform src={preview.url} name={name} sizeBytes={preview.sizeBytes} onError={onPreviewError} />;
@@ -310,71 +331,75 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
       <Dialog.Content asChild data-instrument-overlay="shared-viewer"
         onOpenAutoFocus={(event) => { event.preventDefault(); surfaceRef.current?.focus({ preventScroll: true }); }}
         onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(); }}>
-        <section ref={surfaceRef} tabIndex={-1} className="shared-artifact-viewer rounded-panel bg-surface text-ink" aria-label={`Preview ${detail.slug}`}>
-          <header className="shared-viewer-head bg-surface-sunken">
-            <span>{topLine}</span>
-            <button type="button" aria-label="Open original" aria-describedby={detail.preview === "no-target" ? targetlessActionId : undefined} disabled={detail.preview === "no-target" || openState === "pending"} onClick={() => { void openOriginal(); }}><ExternalLink aria-hidden="true" />{openState === "pending" ? "Opening original…" : "Open original"}</button>
-            <button type="button" aria-label="Close viewer" onClick={close}><X aria-hidden="true" /></button>
+        <section ref={surfaceRef} tabIndex={-1} className="shared-artifact-viewer @container/shared-viewer fixed inset-0 z-viewer flex min-h-0 min-w-0 flex-col gap-3.5 rounded-panel bg-surface p-4.5 text-ink" aria-label={`Preview ${detail.slug}`}>
+          <header className="shared-viewer-head flex min-h-7 flex-none items-center gap-2 bg-surface-sunken">
+            <span className="min-w-0 flex-1 truncate font-code type-mono-sm tracking-caps text-muted">{topLine}</span>
+            <button className={ACTION} type="button" aria-label="Open original" aria-describedby={detail.preview === "no-target" ? targetlessActionId : undefined} disabled={detail.preview === "no-target" || openState === "pending"} onClick={() => { void openOriginal(); }}><ExternalLink aria-hidden="true" />{openState === "pending" ? "Opening original…" : "Open original"}</button>
+            <button className={`${ACTION} w-7 px-0`} type="button" aria-label="Close viewer" onClick={close}><X aria-hidden="true" /></button>
           </header>
-          <div className="shared-viewer-body">
-            <div className="shared-viewer-main">
-              <div className="shared-viewer-stage">
+          {/* The viewer is measured against itself: it owns the whole surface, so its own width is
+              the only width that can decide whether the stage and the context rail stack. */}
+          <div className="shared-viewer-body flex min-h-0 min-w-0 flex-1 items-stretch gap-4 @max-shared-viewer/shared-viewer:flex-col @max-shared-viewer/shared-viewer:overflow-y-auto">
+            <div className="shared-viewer-main flex min-h-0 min-w-0 flex-1 flex-col gap-2.5">
+              <div className="shared-viewer-stage relative grid min-h-0 min-w-0 flex-1 place-items-center overflow-hidden rounded-menu bg-surface-sunken [&>:is(.custom-video-player,.audio-waveform-player)]:w-full [&>:is(.custom-video-player,.audio-waveform-player)]:max-w-shared-stage-media [&>.custom-video-player]:h-full [&_.custom-video-player_.viewer-video]:object-contain @max-shared-viewer/shared-viewer:h-shared-stage-basis @max-shared-viewer/shared-viewer:min-h-shared-stage @max-shared-viewer/shared-viewer:flex-none">
                 <ViewerStage artifact={detail} preview={preview} kind={kind} onPreviewError={() => setPreview({ status: "unavailable", reason: "The preview media could not be decoded or loaded." })} />
-                <button className="shared-viewer-previous" type="button" aria-label="Previous artifact" disabled={!canPrevious} onClick={() => navigate(artifacts[index - 1])}><ChevronLeft aria-hidden="true" /></button>
-                <button className="shared-viewer-next" type="button" aria-label="Next artifact" disabled={!canNext} onClick={() => navigate(artifacts[index + 1])}><ChevronRight aria-hidden="true" /></button>
+                <button className={`${STEP} left-3`} type="button" aria-label="Previous artifact" disabled={!canPrevious} onClick={() => navigate(artifacts[index - 1])}><ChevronLeft aria-hidden="true" /></button>
+                <button className={`${STEP} right-3`} type="button" aria-label="Next artifact" disabled={!canNext} onClick={() => navigate(artifacts[index + 1])}><ChevronRight aria-hidden="true" /></button>
               </div>
-              <div className="shared-viewer-transport">
+              <div className="shared-viewer-transport flex min-h-control-md flex-none flex-wrap items-center gap-1.75 font-code type-mono-sm text-muted">
                 <span>{index >= 0 ? index + 1 : 0} / {artifacts.length} loaded</span>
-                <i aria-hidden="true" />
-                <strong>Revision</strong>
+                <i className="h-3.5 w-px bg-ink/8" aria-hidden="true" />
+                <strong className="ml-auto type-mono-sm font-normal tracking-caps text-muted">Revision</strong>
                 {revisions.loading && revisions.items.length === 0 && <span role="status">Loading revisions…</span>}
                 {revisions.items.map((revision) => {
                   const selected = revision.id === detail.selectedRevisionId;
                   return <button
                     type="button"
                     key={revision.id}
-                    className={selected ? "is-selected bg-instrument text-on-instrument [&_small]:text-on-instrument-muted" : "bg-surface-sunken text-ink"}
+                    className={`${TRANSPORT_BUTTON} ${selected ? "is-selected bg-instrument text-on-instrument [&_small]:text-on-instrument-muted focus-visible:outline-focus-on-instrument" : "bg-surface-sunken text-ink hover:bg-surface-hover disabled:opacity-50"}`}
                     disabled={selected || selection.status === "pending" || selection.status === "reloading"}
                     aria-label={selected ? `Revision ${revision.revisionNo} selected default` : `Select revision ${revision.revisionNo} as default for future use`}
                     onClick={() => { void selectRevision(revision.id); }}
-                  >Revision {revision.revisionNo}{selected && <small>Selected default</small>}</button>;
+                  >Revision {revision.revisionNo}{selected && <small className="ml-1.25 type-mono-sm text-current">Selected default</small>}</button>;
                 })}
-                {revisions.nextCursor && <><span>More revisions are available</span><button type="button" disabled={revisions.loading} onClick={() => { void loadRevisions(revisions.nextCursor); }}>Load more revisions</button></>}
+                {revisions.nextCursor && <><span>More revisions are available</span><button className={`${TRANSPORT_BUTTON} bg-surface-sunken text-ink hover:bg-surface-hover disabled:opacity-50`} type="button" disabled={revisions.loading} onClick={() => { void loadRevisions(revisions.nextCursor); }}>Load more revisions</button></>}
               </div>
-              {revisions.error && <div className="shared-viewer-alert" role="alert"><span>Revision history unavailable · {revisions.error}</span><button type="button" onClick={() => { void loadRevisions(revisions.items.length ? revisions.nextCursor : null); }}>Retry revisions</button></div>}
-              {selection.status === "pending" && <p role="status">Selecting default revision…</p>}
-              {selection.status === "reloading" && <p role="status">Reloading current selected default…</p>}
-              {selection.status === "conflict" && <div className="shared-viewer-alert" role="alert"><span>The selected default changed in Core. Reload current state before retrying.</span><button type="button" onClick={() => { void reloadConflict(); }}>Reload current state</button></div>}
-              {selection.status === "reloaded" && <div className="shared-viewer-alert" role="status"><span>Current selected default reloaded. Retry when ready.</span><button type="button" onClick={() => { void selectRevision(selection.revisionId); }}>Retry selection</button></div>}
-              {selection.status === "error" && <div className="shared-viewer-alert" role="alert"><span>Revision selection unavailable · {selection.message}</span><button type="button" onClick={() => { void selectRevision(selection.revisionId); }}>Retry selection</button></div>}
-              {openState === "error" && <div className="shared-viewer-alert" role="alert"><span>Open original unavailable.</span><button type="button" onClick={() => { void openOriginal(); }}>Retry open original</button></div>}
+              {revisions.error && <div className={ALERT} role="alert"><span>Revision history unavailable · {revisions.error}</span><button className={ACTION} type="button" onClick={() => { void loadRevisions(revisions.items.length ? revisions.nextCursor : null); }}>Retry revisions</button></div>}
+              {selection.status === "pending" && <p className={SECTION_COPY} role="status">Selecting default revision…</p>}
+              {selection.status === "reloading" && <p className={SECTION_COPY} role="status">Reloading current selected default…</p>}
+              {selection.status === "conflict" && <div className={ALERT} role="alert"><span>The selected default changed in Core. Reload current state before retrying.</span><button className={ACTION} type="button" onClick={() => { void reloadConflict(); }}>Reload current state</button></div>}
+              {selection.status === "reloaded" && <div className={ALERT} role="status"><span>Current selected default reloaded. Retry when ready.</span><button className={ACTION} type="button" onClick={() => { void selectRevision(selection.revisionId); }}>Retry selection</button></div>}
+              {selection.status === "error" && <div className={ALERT} role="alert"><span>Revision selection unavailable · {selection.message}</span><button className={ACTION} type="button" onClick={() => { void selectRevision(selection.revisionId); }}>Retry selection</button></div>}
+              {openState === "error" && <div className={ALERT} role="alert"><span>Open original unavailable.</span><button className={ACTION} type="button" onClick={() => { void openOriginal(); }}>Retry open original</button></div>}
             </div>
-            <aside className="shared-viewer-context">
-              <div className="shared-viewer-title">
-                <Dialog.Title asChild><h2>{titleText(detail)}</h2></Dialog.Title>
-                <Dialog.Description asChild><p>Slug identity · {detail.slug}</p></Dialog.Description>
+            <aside className="shared-viewer-context flex w-shared-viewer-context min-w-0 flex-none flex-col gap-3.25 overflow-y-auto rounded-menu bg-surface-sunken p-4 @max-shared-viewer/shared-viewer:w-full @max-shared-viewer/shared-viewer:overflow-visible">
+              <div>
+                <Dialog.Title asChild><h2 className="m-0 type-title font-normal leading-title text-ink">{titleText(detail)}</h2></Dialog.Title>
+                <Dialog.Description asChild><p className="mt-1.25 mb-0 font-code type-mono-md text-muted">Slug identity · {detail.slug}</p></Dialog.Description>
               </div>
-              <dl className="shared-viewer-facts">
-                <div><dt>MIME</dt><dd>{detail.mime ?? "Unavailable"}</dd></div>
-                <div><dt>Size</dt><dd>{formatBytes(detail.bytes)}</dd></div>
-                <div><dt>Selected revision state</dt><dd>{detail.selectedState ?? "Unavailable"}</dd></div>
-                <div><dt>Semantic roles</dt><dd>{stringList(detail.semanticRoles)}</dd></div>
-                <div><dt>Tags</dt><dd>{stringList(detail.tags)}</dd></div>
-                <div><dt>Named entities</dt><dd>{stringList(detail.entities)}</dd></div>
-                <div><dt>Canonical status</dt><dd>{availabilityReason(detail.canonicalStatus)}</dd></div>
+              <dl className="m-0 grid gap-1.25">
+                {([
+                  ["MIME", detail.mime ?? "Unavailable"],
+                  ["Size", formatBytes(detail.bytes)],
+                  ["Selected revision state", detail.selectedState ?? "Unavailable"],
+                  ["Semantic roles", stringList(detail.semanticRoles)],
+                  ["Tags", stringList(detail.tags)],
+                  ["Named entities", stringList(detail.entities)],
+                  ["Canonical status", availabilityReason(detail.canonicalStatus)],
+                ] as const).map(([label, value]) => <div className={FACT_ROW} key={label}><dt className={FACT_LABEL}>{label}</dt><dd className={FACT_VALUE}>{value}</dd></div>)}
               </dl>
-              <section className="shared-viewer-agent-use"><h3>Context agents receive</h3><dl className="shared-viewer-facts">
-                {(["Purpose", "Use when", "Avoid when", "Constraints"] as const).map((label) => <div key={label}><dt>{label}</dt><dd>{availabilityReason(detail.agentUse)}</dd></div>)}
-                <div><dt>Agent-use canonical status</dt><dd>{availabilityReason(detail.canonicalStatus)}</dd></div>
+              <section className="flex flex-col gap-1.25 rounded-cell bg-surface-hover p-3.25"><h3 className={SECTION_LABEL}>Context agents receive</h3><dl className="m-0 grid gap-1.25">
+                {(["Purpose", "Use when", "Avoid when", "Constraints"] as const).map((label) => <div className={FACT_ROW} key={label}><dt className={FACT_LABEL}>{label}</dt><dd className={FACT_VALUE}>{availabilityReason(detail.agentUse)}</dd></div>)}
+                <div className={FACT_ROW}><dt className={FACT_LABEL}>Agent-use canonical status</dt><dd className={FACT_VALUE}>{availabilityReason(detail.canonicalStatus)}</dd></div>
               </dl></section>
-              <section><h3>Referenced as</h3><p>{detail.referencedAs.length ? detail.referencedAs.join(" · ") : "No referenced-role evidence returned by Core."}</p></section>
-              <section><h3>Actual usage</h3><p>System-derived backlinks are unavailable from this Core version.</p></section>
-              <span className="shared-viewer-spacer" />
-              <button type="button" aria-disabled="true" aria-describedby={unavailableActionId}>Use in project unavailable</button>
-              <p className="shared-viewer-action-reason" id={unavailableActionId}>Use in project is unavailable until Core exposes a mutation contract.</p>
-              {detail.preview === "no-target" && <p className="shared-viewer-action-reason" id={targetlessActionId}>Open original is unavailable because Core returned no selected media target.</p>}
-              {onOpenInspector && <button type="button" onClick={() => onOpenInspector(detail)}><PanelRight aria-hidden="true" />Open full inspector</button>}
-              <small>← → ARTIFACT · MEDIA CONTROLS ARE LABELLED · ESC CLOSE</small>
+              <section className="flex flex-col gap-1.25"><h3 className={SECTION_LABEL}>Referenced as</h3><p className={SECTION_COPY}>{detail.referencedAs.length ? detail.referencedAs.join(" · ") : "No referenced-role evidence returned by Core."}</p></section>
+              <section className="flex flex-col gap-1.25"><h3 className={SECTION_LABEL}>Actual usage</h3><p className={SECTION_COPY}>System-derived backlinks are unavailable from this Core version.</p></section>
+              <span className="flex-1 @max-shared-viewer/shared-viewer:hidden" />
+              <button className={`${ACTION} w-full flex-none`} type="button" aria-disabled="true" aria-describedby={unavailableActionId}>Use in project unavailable</button>
+              <p className={REASON} id={unavailableActionId}>Use in project is unavailable until Core exposes a mutation contract.</p>
+              {detail.preview === "no-target" && <p className={REASON} id={targetlessActionId}>Open original is unavailable because Core returned no selected media target.</p>}
+              {onOpenInspector && <button className={`${ACTION} w-full flex-none`} type="button" onClick={() => onOpenInspector(detail)}><PanelRight aria-hidden="true" />Open full inspector</button>}
+              <small className="font-code type-mono-sm tracking-meta text-muted">← → ARTIFACT · MEDIA CONTROLS ARE LABELLED · ESC CLOSE</small>
             </aside>
           </div>
         </section>

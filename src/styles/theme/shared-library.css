@@ -2,5 +2,94 @@
    the shared theme layer. Every key names a role and resolves to a token in tokens.css or a
    value the design fixes for that role; a component then reaches for the name, never a
    literal. */
+
+/* Multi-part column templates. These are plain custom properties rather than @theme keys because
+   `grid-template-columns` is not a Tailwind namespace and `@theme inline` never emits the
+   variable, so `grid-cols-(--name)` has to find a real declaration on the element. */
+:root {
+  /* The tile minimum is the only number in the tile grid: the column count follows the space the
+     grid actually has, so the inspector opening or the chat rail taking width needs no
+     breakpoint of its own. */
+  --shared-library-tiles: repeat(auto-fill, minmax(252px, 1fr));
+  /* The audit list is a table: eleven fixed columns, so ten rows line up instead of eleven
+     ragged ones. It scrolls sideways inside its own region rather than reflowing. */
+  --shared-library-audit-columns: 28px minmax(220px, 1fr) 90px 138px 94px 130px 90px 80px 90px 80px 90px;
+  /* A label/value pair: the label column is bounded, the value takes the rest and stays right-set. */
+  --shared-library-fact-columns: minmax(110px, .7fr) minmax(0, 1fr);
+  --shared-library-viewer-fact-columns: 1fr minmax(0, 1.4fr);
+  --shared-library-inventory-columns: minmax(150px, .7fr) minmax(0, 1fr);
+}
+
 @theme inline {
+  /* Layout the design fixes for this surface. */
+  --spacing-shared-search: 240px;         /* the search field never shrinks past its own placeholder */
+  --spacing-shared-reason: 260px;         /* the reason beside the header actions */
+  --spacing-shared-audit: 1260px;         /* the audit table's own width; narrower rows scroll */
+  --spacing-shared-inspector: 460px;      /* the inspector rail inside the content row */
+  --spacing-shared-preview: 182px;        /* the inspector preview keeps its box with no media */
+  --spacing-shared-viewer-context: 330px; /* the viewer's context rail */
+  --spacing-shared-stage-media: 1100px;   /* a player on the viewer stage stops growing here */
+  --spacing-shared-stage: 440px;          /* the stacked stage keeps a usable height */
+  --spacing-shared-stage-basis: min(58vh, 560px); /* ...and takes a fixed slice of the column */
+  --spacing-shared-specimen: 820px;
+  --spacing-shared-specimen-inset: calc(100% - 110px); /* the specimen clears the prev/next controls */
+  --spacing-shared-copy: 460px;           /* a paragraph of empty-state copy */
+  --spacing-shared-notice: 520px;         /* a page-level error, or a preview fallback */
+  --spacing-shared-footnote: 600px;       /* the workflow footer's core reason */
+  --spacing-shared-hint: 220px;           /* the bulk bar's inline reason */
+  --spacing-shared-state: 220px;          /* the empty state holds its height before it fills */
+
+  /* A workflow window is sized per workflow and never touches the desk edge: it stops one 20px
+     gutter short in each axis. */
+  --spacing-shared-window-width: calc(100vw - 40px);
+  --spacing-shared-window-height: calc(100vh - 40px);
+  --spacing-shared-workflow-width: 900px;
+  --spacing-shared-workflow-height: 650px;
+  --spacing-shared-workflow-add-width: 1080px;
+  --spacing-shared-workflow-add-height: 700px;
+  --spacing-shared-workflow-promote-width: 1000px;
+  --spacing-shared-workflow-promote-height: 700px;
+  --spacing-shared-workflow-suggestions-width: 1000px;
+  --spacing-shared-workflow-suggestions-height: 660px;
+  --spacing-shared-workflow-duplicate-width: 940px;
+  --spacing-shared-workflow-duplicate-height: 640px;
+  --spacing-shared-workflow-archive-width: 720px;
+  --spacing-shared-workflow-archive-height: 620px;
+
+  /* Tile proportions: the card frame and the skeleton that stands in for it. */
+  --aspect-shared-tile: 16 / 10;
+  --aspect-shared-skeleton: 4 / 5;
+
+  /* The font specimen: these two sizes are the content being previewed, not UI type. */
+  --type-specimen: 40px;
+  --type-specimen-display: 76px;
+
+  /* Leading the shared tokens do not name. */
+  --leading-caption: 1.4;               /* a one- or two-line reason under a control */
+  --leading-title: 1.3;                 /* a wrapping dialog title */
+  --leading-specimen: 1.15;
+  --leading-specimen-display: 1.05;
+  --leading-specimen-sample: 1.7;
+
+  /* Mono tracking steps between the named ones. */
+  --tracking-caps-tight: 0.07em;        /* a mono caps run inside a dense pill */
+  --tracking-meta: 0.04em;              /* a mono meta line */
+  --tracking-chip: 0.03em;              /* a mono label inside a chip over media */
+
+  /* The viewer stack, so a portal's order stays a token and not a number in markup. */
+  --z-index-viewer: var(--z-viewer);
+  --z-index-viewer-backdrop: var(--z-viewer-backdrop);
+  --z-index-viewer-content: var(--z-viewer-content);
+  --z-index-sticky: var(--z-sticky);
+
+  /* The two workflow entrances. The keyframes live in shared-library.css, which is all that
+     stylesheet still holds beyond the reduced-motion contract. */
+  --animate-shared-workflow-fade: shared-workflow-fade 160ms var(--ease);
+  --animate-shared-workflow-in: shared-workflow-in 220ms var(--ease);
+
+  /* Breakpoints read against a container and never the window: the sidebar and the chat rail
+     change this surface's width without the viewport moving. */
+  --container-shared-header: 1100px;    /* the header's totals and actions stack */
+  --container-shared-inspector: 760px;  /* the inspector covers the column instead of splitting it */
+  --container-shared-viewer: 820px;     /* the viewer stacks its stage over its context rail */
 }

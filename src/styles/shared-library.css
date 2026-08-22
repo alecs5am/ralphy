@@ -1,5 +1,21 @@
-/* Split into contiguous chunks: source order is the cascade, so chunk order is
-   the original order. Names describe the dominant selector family. */
-@import "./shared-library/01-shared-library.css";
-@import "./shared-library/02-shared-viewer.css";
-@import "./shared-library/03-shared-workflow.css";
+/* Everything this surface draws now lives on the elements that draw it, in
+   src/screens/SharedLibraryScreen.tsx and src/screens/shared-library/*. What is left here is
+   what a utility cannot express: the two keyframes the workflow window enters on, reached by
+   name through --animate-shared-workflow-* in theme/shared-library.css, and the reduced-motion
+   contract for the borrowed children mounted inside these overlays — the media players and
+   their controls, whose own motion is declared in another sheet. It cannot reach this area's
+   own motion: an !important declaration in an unlayered sheet loses to an !important utility
+   inside @layer utilities, so every transition and animation declared in the markup carries a
+   motion-reduce variant of its own. */
+@keyframes shared-workflow-fade { from { opacity: 0; } }
+/* The window centres with auto margins rather than a transform, so the entrance owns the
+   transform outright: a !important utility would otherwise beat the animation. */
+@keyframes shared-workflow-in { from { opacity: 0; transform: translateY(-2%) scale(.985); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .shared-library-screen *,
+  .shared-artifact-viewer *,
+  .shared-workflow-overlay,
+  .shared-workflow-window,
+  .shared-workflow-window * { transition: none !important; animation: none !important; }
+}
