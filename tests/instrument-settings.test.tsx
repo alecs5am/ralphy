@@ -10,6 +10,7 @@ import { describe, expect, test } from "vitest";
 import { SettingsScreen } from "../src/screens/SettingsScreen";
 import type { ThemePreference } from "../src/instrument/types";
 import { createReactHost, type HostNode } from "./react-host";
+import { builtStylesheetLink } from "./style-sources";
 
 type FocusResult = {
   theme: "bare" | "light" | "dark";
@@ -26,9 +27,7 @@ type FocusResult = {
 async function electronFocusResults(): Promise<FocusResult[]> {
   const directory = mkdtempSync(join(tmpdir(), "ralphy-settings-focus-"));
   try {
-    const links = ["reset.css", "tokens.css", "settings.css"]
-      .map((file) => `<link rel="stylesheet" href="${pathToFileURL(join(process.cwd(), "src/styles", file)).href}">`)
-      .join("");
+    const links = builtStylesheetLink();
     writeFileSync(join(directory, "settings.html"), `<!doctype html><html><head>${links}</head><body><div class="settings-segmented" role="group" aria-label="Theme"><button id="theme-system">System</button><button class="is-selected" id="theme-dark">Dark</button><button id="theme-light">Light</button></div></body></html>`);
     writeFileSync(join(directory, "package.json"), JSON.stringify({ main: "main.cjs" }));
     writeFileSync(join(directory, "main.cjs"), `

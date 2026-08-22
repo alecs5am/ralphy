@@ -1,6 +1,6 @@
 // Style hygiene audit: reports raw values that duplicate a design token and stylesheets
 // grown past the point where a bug can be located by reading.
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const ROOT = process.cwd();
@@ -143,7 +143,7 @@ else for (const [name, count] of [...dangling].sort((a, b) => b[1] - a[1])) cons
 
 // Components: arbitrary values for a scale the tokens already name, and rules unreachable from
 // any component. Both are how a stylesheet stops describing what renders.
-const SCALED = /(?:^|[\s"'`:])(?:[a-z-]+:)*(text|rounded|tracking)-\[([^\]]+)\]/g;
+const SCALED = /(?:^|[\s"'`:])(?:[a-z@-]+:)*(text|rounded|tracking)-\[([^\]]+)\]/g;
 const arbitrary = new Map();
 for (const path of sources(join(ROOT, "src"))) {
   const source = readFileSync(path, "utf8");
@@ -156,6 +156,52 @@ for (const path of sources(join(ROOT, "src"))) {
 console.log(`\n## Component values that bypass a named scale (${[...arbitrary.values()].reduce((sum, n) => sum + n, 0)})`);
 if (arbitrary.size === 0) console.log("none");
 else for (const [key, count] of [...arbitrary].sort((a, b) => b[1] - a[1])) console.log(`  ${count.toString().padStart(4)}  ${key}`);
+
+// Every other arbitrary value in a component: a literal in markup is the same hardcode as a
+// literal in a stylesheet. The count only goes down — the baseline is a ratchet, so the
+// migration can land area by area without one area re-introducing what another removed.
+const BASELINE = join(ROOT, "scripts/tailwind-migration-baseline.json");
+const literals = new Map();
+for (const path of sources(join(ROOT, "src"))) {
+  const source = readFileSync(path, "utf8");
+  // Class tokens are read from the class strings themselves rather than matched in place: a
+  // variant can carry its own literal (`@max-[780px]:h-[72px]`) and a template can interpolate,
+  // so splitting the attribute on whitespace is the only reading that sees every token.
+  const attributes = [...source.matchAll(/class(?:Name)?=(?:"([^"]*)"|\{`([\s\S]*?)`\}|\{"([^"]*)"\})/g)]
+    .map((match) => match[1] ?? match[2] ?? match[3] ?? "");
+  for (const token of attributes.flatMap((value) => value.split(/\s+/)).filter((value) => value.includes("["))) {
+    const segments = [];
+    let depth = 0, cursor = 0;
+    for (let index = 0; index < token.length; index += 1) {
+      if (token[index] === "[") depth += 1;
+      else if (token[index] === "]") depth -= 1;
+      else if (token[index] === ":" && depth === 0) { segments.push(token.slice(cursor, index)); cursor = index + 1; }
+    }
+    segments.push(token.slice(cursor));
+    for (const segment of segments) {
+      if (!segment.includes("[")) continue;
+      // An arbitrary *property* (`[-webkit-app-region:drag]`) names no scale, so no token owns it.
+      if (segment.startsWith("[")) continue;
+      // A literal that reaches for a token, a computation, or a selector is not a hardcode.
+      if (/\[(?:var|calc|min|max|clamp|url|&|:|\.)/.test(segment)) continue;
+      const family = segment.replace(/^[^\w@-]+/, "").replace(/-?\[.*/, "").replace(/\/.*/, "");
+      if (family === "") continue;
+      literals.set(family, (literals.get(family) ?? 0) + 1);
+    }
+  }
+}
+const baseline = existsSync(BASELINE) ? JSON.parse(readFileSync(BASELINE, "utf8")) : {};
+const regressed = [...literals].filter(([family, count]) => count > (baseline[family] ?? 0));
+const improved = Object.entries(baseline).filter(([family, count]) => (literals.get(family) ?? 0) < count);
+const remaining = [...literals.values()].reduce((sum, n) => sum + n, 0);
+console.log(`\n## Arbitrary values left in components (${remaining}; baseline ${Object.values(baseline).reduce((sum, n) => sum + n, 0)})`);
+if (regressed.length === 0) console.log("no family above its baseline");
+else for (const [family, count] of regressed.sort((a, b) => b[1] - a[1])) console.log(`  ${family}: ${count} > baseline ${baseline[family] ?? 0}`);
+if (improved.length > 0) console.log(`  ratchet: ${improved.map(([family, count]) => `${family} ${count}->${literals.get(family) ?? 0}`).join(", ")} — lower the baseline`);
+if (process.env.STYLE_AUDIT_WRITE_BASELINE === "1") {
+  writeFileSync(BASELINE, `${JSON.stringify(Object.fromEntries([...literals].sort()), null, 2)}\n`);
+  console.log("  baseline rewritten");
+}
 
 // A component builds some class names at runtime, so every interpolated prefix keeps its family
 // alive; a rule whose every compound names a dead class can never match anything.
@@ -187,5 +233,5 @@ if (unreachable.length === 0) console.log("none");
 else for (const row of unreachable.slice(0, 30)) console.log(`  ${row}`);
 
 const failed = oversized.length > 0 || duplicated.length > 0 || dangling.size > 0
-  || arbitrary.size > 0 || unreachable.length > 0;
+  || arbitrary.size > 0 || unreachable.length > 0 || regressed.length > 0;
 if (process.env.STYLE_AUDIT_STRICT === "1" && failed) process.exit(1);

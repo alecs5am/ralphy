@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { build } from "esbuild";
 import { describe, expect, test } from "vitest";
+import { builtStylesheetLink } from "./style-sources";
 
 type GeometryResult = {
   state: string;
@@ -69,9 +70,7 @@ const detailLayouts = [
 async function marketplaceGeometry(): Promise<GeometrySmoke> {
   const directory = mkdtempSync(join(tmpdir(), "ralphy-marketplace-geometry-"));
   try {
-    const styleLinks = ["reset.css", "tokens.css", "workbench.css", "marketplace.css"]
-      .map((file) => `<link rel="stylesheet" href="${pathToFileURL(join(process.cwd(), "src/styles", file)).href}">`)
-      .join("");
+    const styleLinks = builtStylesheetLink();
     writeFileSync(join(directory, "harness.tsx"), `
       import { createRoot } from "react-dom/client";
       import { ContextSidebar } from ${JSON.stringify(join(process.cwd(), "src/components/ContextSidebar.tsx"))};

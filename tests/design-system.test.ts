@@ -13,7 +13,7 @@ import { ProjectScreenView, createProjectScreenController } from "../src/screens
 import { SharedLibraryScreenView } from "../src/screens/SharedLibraryScreen";
 import { SharedArtifactInspector } from "../src/screens/shared-library/SharedArtifactInspector";
 import { presentSharedArtifact } from "../src/screens/shared-library/presentation";
-import { readStylesheet } from "./style-sources";
+import { builtStylesheetLink, readStylesheet } from "./style-sources";
 import { WorkspaceScreenView, createWorkspaceScreenController } from "../src/screens/WorkspaceScreen";
 
 const workspaceOverviewStyles = readStylesheet("workspace-overview.css");
@@ -222,9 +222,7 @@ type GeometryResult = {
 async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): Promise<GeometryResult[]> {
   const directory = mkdtempSync(join(tmpdir(), "ralphy-geometry-"));
   try {
-    const links = ["reset.css", "tokens.css", "workbench.css", "instrument.css"]
-      .map((file) => `<link rel="stylesheet" href="${pathToFileURL(join(process.cwd(), "src/styles", file)).href}">`)
-      .join("");
+    const links = builtStylesheetLink();
     const shell = (screen: string) => `<div class="workbench has-right-panel" style="--sidebar-w:288px;--inspector-w:336px"><aside class="context-sidebar"></aside><section class="main-shell"><header class="main-header"></header><div class="main-content-stage">${screen}</div></section><aside class="utility-right-panel"></aside></div>`;
     const templates = Object.entries(markup).map(([name, value]) => `<template id="${name}">${shell(value)}</template>`).join("");
     writeFileSync(join(directory, "layout.html"), `<!doctype html><html><head>${links}<style>${workspaceOverviewStyles}</style></head><body><div id="root"></div>${templates}</body></html>`);
@@ -464,9 +462,7 @@ async function sharedLibraryGeometry(): Promise<SharedGeometrySmoke> {
       outfile: join(directory, "protocol-access.cjs"), bundle: true, platform: "node", format: "cjs",
       target: "node22", logLevel: "silent",
     });
-    const links = ["reset.css", "tokens.css", "workbench.css", "shared-library.css"]
-      .map((file) => `<link rel="stylesheet" href="${pathToFileURL(join(process.cwd(), "src/styles", file)).href}">`)
-      .join("");
+    const links = builtStylesheetLink();
     // The shell is a stand-in for the instrument columns: the stage is sized here rather than
     // by a stylesheet rule, so the harness keeps constraining the screen even as the shell's
     // own classes come and go.
@@ -606,7 +602,9 @@ async function sharedLibraryGeometry(): Promise<SharedGeometrySmoke> {
           const focusSelectors = state.startsWith("workflow:") ? [
             ".shared-workflow-header > button", ".shared-workflow-footer button",
           ] : ({
-            grid: [".shared-artifact-identity", ".shared-library-search input", ".shared-library-view-toggle button", ".shared-library-select"],
+            // A field wrapped in a container shows the ring on the container (see reset.css), so
+            // the search field is probed where the ring actually lands.
+            grid: [".shared-artifact-identity", ".shared-library-search", ".shared-library-view-toggle button", ".shared-library-select"],
             list: [".shared-library-audit-scroll", ".shared-library-audit-row", ".shared-library-audit-row input"],
             inspector: [".shared-inspector-head button", ".shared-inspector-section > summary"],
             viewer: [".shared-viewer-head button", ".image-zoom-controls button", ".shared-viewer-context > button"],
