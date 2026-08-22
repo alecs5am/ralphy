@@ -2,6 +2,23 @@ import { CalendarDays, Settings } from "lucide-react";
 import { useState } from "react";
 import type { WorkspaceCalendarNavigationContext } from "../../state/workbench";
 import { DetailDialog } from "./DetailDialog";
+import {
+  DRAWER_ACTION,
+  DRAWER_CELL,
+  DRAWER_CELL_COPY,
+  DRAWER_CELL_TITLE,
+  DRAWER_FOOTER_NOTE,
+  DRAWER_FOOTER_ROW,
+  DRAWER_GLYPH,
+  PLATE,
+  PLATE_COPY,
+  PLATE_TITLE,
+  SECTION,
+  SECTION_HALF,
+  SECTION_HEADING,
+  SECTION_META,
+  SECTION_TITLE,
+} from "./overview-chrome";
 import type {
   AccountPresentation,
   Availability,
@@ -47,16 +64,16 @@ function availabilityReason(value: Availability<unknown>, fallback: string): str
 }
 
 function SectionHeading({ id, title, meta }: { id: string; title: string; meta?: string }) {
-  return <header className="workspace-section-heading mb-3 flex items-center justify-between gap-3">
-    <h2 id={id}>{title}</h2>
-    {meta && <span>{meta}</span>}
+  return <header className={SECTION_HEADING}>
+    <h2 className={SECTION_TITLE} id={id}>{title}</h2>
+    {meta && <span className={SECTION_META}>{meta}</span>}
   </header>;
 }
 
 function UnavailablePanel({ title, reason }: { title: string; reason: string }) {
-  return <div className="workspace-unavailable rounded-cell bg-surface-sunken px-3 py-2 type-sm leading-5 text-muted" role="note">
-    <strong>{title}</strong>
-    <p>{reason}</p>
+  return <div className={PLATE} role="note">
+    <strong className={PLATE_TITLE}>{title}</strong>
+    <p className={PLATE_COPY}>{reason}</p>
   </div>;
 }
 
@@ -69,13 +86,15 @@ function MetricStrip({ values }: { values: WorkspaceMomentumPresentation["totals
     ["Comments", metric(values.comments), values.comments === null ? "Comments unavailable" : `${values.comments.toLocaleString()} comment${values.comments === 1 ? "" : "s"}`],
     ["Shares", metric(values.shares), values.shares === null ? "Shares unavailable" : `${values.shares.toLocaleString()} share${values.shares === 1 ? "" : "s"}`],
   ];
-  return <dl className="workspace-metric-strip grid grid-cols-[repeat(auto-fit,minmax(124px,1fr))] gap-2 overflow-hidden rounded-cell bg-transparent">
-    {metrics.map(([label, value, accessible]) => <div className="min-w-0 rounded-control bg-surface-sunken px-3 py-3" key={label}>
+  return <dl className="workspace-metric-strip m-0 mb-4 grid grid-cols-(--workspace-metric-columns) gap-2 overflow-hidden rounded-cell bg-transparent">
+    {metrics.map(([label, value, accessible]) => <div className="min-w-0 rounded-control bg-surface-sunken p-3" key={label}>
       <dt className="type-xs text-muted">{label}</dt>
-      <dd className="mt-1 type-xl font-semibold leading-none text-ink" aria-label={accessible}>{value}</dd>
+      <dd className="m-0 mt-1 font-code type-xl font-semibold tabular-nums leading-none text-ink" aria-label={accessible}>{value}</dd>
     </div>)}
   </dl>;
 }
+
+const TREND_CELL = "p-2 font-normal text-left";
 
 export function AccessibleTrendChart({ value }: { value: readonly TrendPoint[] }) {
   const max = Math.max(...value.map((point) => point.value), 1);
@@ -85,21 +104,21 @@ export function AccessibleTrendChart({ value }: { value: readonly TrendPoint[] }
     return `${x},${y}`;
   }).join(" ");
   return <div className="workspace-trend">
-    <svg viewBox="0 0 100 40" role="img">
+    <svg className="h-45 w-full overflow-visible" viewBox="0 0 100 40" role="img">
       <title>Workspace performance trend</title>
       <desc>Values over the selected reporting period. Exact values follow in a table.</desc>
-      <polyline points={points} vectorEffect="non-scaling-stroke" />
+      <polyline className="fill-none stroke-ink stroke-2" points={points} vectorEffect="non-scaling-stroke" />
     </svg>
-    <table>
-      <caption>Workspace performance trend values</caption>
-      <thead><tr><th scope="col">Period</th><th scope="col">Value</th></tr></thead>
-      <tbody>{value.map((point) => <tr key={point.label}><th scope="row">{point.label}</th><td>{point.value.toLocaleString()}</td></tr>)}</tbody>
+    <table className="w-full border-collapse font-code type-xs text-muted">
+      <caption className="py-2 text-left text-muted">Workspace performance trend values</caption>
+      <thead><tr><th className={TREND_CELL} scope="col">Period</th><th className={TREND_CELL} scope="col">Value</th></tr></thead>
+      <tbody>{value.map((point) => <tr key={point.label}><th className={TREND_CELL} scope="row">{point.label}</th><td className={TREND_CELL}>{point.value.toLocaleString()}</td></tr>)}</tbody>
     </table>
   </div>;
 }
 
 export function WorkspaceMomentum({ value }: { value: WorkspaceMomentumPresentation }) {
-  return <section className="workspace-overview-section workspace-momentum col-span-12 m-0 min-w-0 max-w-none rounded-panel bg-surface p-4" aria-labelledby="workspace-momentum-title">
+  return <section className={`${SECTION} workspace-momentum`} aria-labelledby="workspace-momentum-title">
     <SectionHeading id="workspace-momentum-title" title="Workspace momentum" meta={value.periodLabel} />
     <MetricStrip values={value.totals} />
     {(value.trend.status === "ready" || value.trend.status === "partial") && <AccessibleTrendChart value={value.trend.value} />}
@@ -122,31 +141,39 @@ export function AccountPortfolio({
   onSelect(account: AccountPresentation): void;
 }) {
   const accounts = value.status === "ready" || value.status === "partial" ? value.value : [];
-  return <section className="workspace-overview-section workspace-accounts col-span-12 m-0 min-w-0 max-w-none rounded-panel bg-surface p-4 @min-[860px]/instrument-desk:col-span-6" aria-labelledby="workspace-accounts-title">
+  return <section className={`${SECTION_HALF} workspace-accounts`} aria-labelledby="workspace-accounts-title">
     <SectionHeading id="workspace-accounts-title" title="Accounts" meta={accounts.length ? `${accounts.length} returned by Core` : undefined} />
     {value.status === "partial" && <UnavailablePanel title="Partial account data" reason={value.reason} />}
     {(value.status === "empty" || value.status === "unavailable") && <UnavailablePanel title="Accounts unavailable" reason={value.reason} />}
     {value.status === "ready" && accounts.length === 0 && <UnavailablePanel title="No connected accounts" reason="No connected accounts were returned by Core." />}
-    {accounts.length > 0 && <div className="account-portfolio-wrap">
-      <div className="account-portfolio" aria-label="Account portfolio">
-        {accounts.map((account) => <button id={`workspace-account-${account.id}`} className="account-card min-h-0 rounded-cell bg-surface-sunken p-3 text-left type-sm text-ink" type="button" key={account.id} onClick={() => onSelect(account)}>
-          <span className="account-card-heading"><strong>{account.platform}</strong><span className={`account-health${account.relinkRequired || !account.credentialConfigured ? " is-warning" : ""}`}>{health(account)}</span></span>
-          <b>{handle(account.username)}</b>
-          {account.displayName && <small>{account.displayName}</small>}
-          <span className="account-card-facts">
-            <span>{publicationCount(account.publicationCount)}</span>
-            <span>Last Core update <time dateTime={new Date(timestampMs(account.updatedAt)).toISOString()}>{new Date(timestampMs(account.updatedAt)).toLocaleString()}</time></span>
-          </span>
-          <span className="account-metric-unavailable">{availabilityReason(account.metrics, "No provider metrics were returned by Core.")}</span>
-        </button>)}
+    {accounts.length > 0 && <div className="account-portfolio-wrap @container/account-portfolio">
+      {/* Four accounts across, then two, then one. The count is read against the portfolio's
+          own width, so a detail drawer or the chat rail re-flows it with no viewport rule. */}
+      <div className="account-portfolio grid grid-cols-4 gap-3 @max-workspace-portfolio/account-portfolio:grid-cols-2 @max-workspace-portfolio-narrow/account-portfolio:grid-cols-1" aria-label="Account portfolio">
+        {accounts.map((account) => {
+          const warning = account.relinkRequired || !account.credentialConfigured;
+          return <button id={`workspace-account-${account.id}`} className="account-card flex min-h-0 min-w-0 flex-col items-stretch gap-2 rounded-cell bg-surface-sunken p-3 text-left type-sm text-ink hover:bg-surface-hover" type="button" key={account.id} onClick={() => onSelect(account)}>
+            <span className="account-card-heading flex items-center justify-between gap-2">
+              <strong className="truncate type-xs font-normal capitalize text-muted">{account.platform}</strong>
+              <span className={`account-health${warning ? " is-warning" : ""} rounded-control px-2 py-0.5 type-xs whitespace-nowrap ${warning ? "bg-surface text-muted" : "bg-surface text-ink"}`}>{health(account)}</span>
+            </span>
+            <b className="truncate type-lg font-normal text-ink">{handle(account.username)}</b>
+            {account.displayName && <small className="type-xs text-muted">{account.displayName}</small>}
+            <span className="account-card-facts mt-auto flex flex-col gap-1 font-code type-xs text-muted">
+              <span>{publicationCount(account.publicationCount)}</span>
+              <span>Last Core update <time dateTime={new Date(timestampMs(account.updatedAt)).toISOString()}>{new Date(timestampMs(account.updatedAt)).toLocaleString()}</time></span>
+            </span>
+            <span className="account-metric-unavailable type-xs leading-row text-muted">{availabilityReason(account.metrics, "No provider metrics were returned by Core.")}</span>
+          </button>;
+        })}
       </div>
     </div>}
   </section>;
 }
 
 function DetailUnavailable({ title, reason }: { title: string; reason: string }) {
-  return <section className="account-detail-section">
-    <h3>{title}</h3>
+  return <section className={DRAWER_CELL}>
+    <h3 className={DRAWER_CELL_TITLE}>{title}</h3>
     <UnavailablePanel title="Unavailable" reason={reason} />
   </section>;
 }
@@ -167,17 +194,17 @@ export function AccountDetailDialog({
     description={account && `${account.platform} account · ${health(account)}`}
     closeLabel="Close account details"
     footer={account && <>
-      <span>
-        <button type="button" className="command-button" onClick={() => onOpenCalendar({
+      <span className={DRAWER_FOOTER_ROW}>
+        <button type="button" className={DRAWER_ACTION} onClick={() => onOpenCalendar({
           label: account.displayName ?? handle(account.username),
           accountId: account.id,
           accountLabel: account.username ? handle(account.username) : account.displayName ?? "Handle unavailable",
-        }, `workspace-account-${account.id}`)}><CalendarDays aria-hidden="true" />Open Calendar</button>
-        <small>Opens the workspace Calendar; filtering by account is not available yet.</small>
+        }, `workspace-account-${account.id}`)}><CalendarDays className={DRAWER_GLYPH} aria-hidden="true" />Open Calendar</button>
+        <small className={DRAWER_FOOTER_NOTE}>Opens the workspace Calendar; filtering by account is not available yet.</small>
       </span>
-      <span>
-        <button type="button" className="command-button" disabled><Settings aria-hidden="true" />{account.relinkRequired ? "Relink account" : "Manage account"}</button>
-        <small>Account management is not available from the current desktop contract.</small>
+      <span className={DRAWER_FOOTER_ROW}>
+        <button type="button" className={DRAWER_ACTION} disabled><Settings className={DRAWER_GLYPH} aria-hidden="true" />{account.relinkRequired ? "Relink account" : "Manage account"}</button>
+        <small className={DRAWER_FOOTER_NOTE}>Account management is not available from the current desktop contract.</small>
       </span>
     </>}
     onOpenChange={onOpenChange}
@@ -187,19 +214,23 @@ export function AccountDetailDialog({
       <DetailUnavailable title="Top Units" reason="Top Units are not available from the current Core contract." />
       <DetailUnavailable title="Upcoming" reason="Upcoming content is not available by account from the current Core contract." />
       <DetailUnavailable title="Recent publication failures" reason="Publication failures are not available by account from the current Core contract." />
-      <section className="account-detail-section">
-        <h3>Health</h3>
-        <dl className="account-health-list">
-          <div><dt>Handle</dt><dd>{handle(account.username)}</dd></div>
-          <div><dt>Link status</dt><dd>{health(account)}</dd></div>
-          <div><dt>Credentials</dt><dd>{account.credentialConfigured ? "Configured" : "Not configured"}</dd></div>
-          <div><dt>Publications</dt><dd>{publicationCount(account.publicationCount)}</dd></div>
+      <section className={DRAWER_CELL}>
+        <h3 className={DRAWER_CELL_TITLE}>Health</h3>
+        <dl className="account-health-list m-0">
+          {([
+            ["Handle", handle(account.username)],
+            ["Link status", health(account)],
+            ["Credentials", account.credentialConfigured ? "Configured" : "Not configured"],
+            ["Publications", publicationCount(account.publicationCount)],
+          ] as const).map(([label, fact]) => <div className="flex justify-between gap-4 py-2 type-xs" key={label}>
+            <dt className="text-muted">{label}</dt><dd className="m-0 font-code text-right text-muted">{fact}</dd>
+          </div>)}
         </dl>
       </section>
-      <section className="account-detail-section">
-        <h3>Data freshness</h3>
-        <p>Core account record updated <time dateTime={new Date(timestampMs(account.updatedAt)).toISOString()}>{new Date(timestampMs(account.updatedAt)).toLocaleString()}</time>.</p>
-        <p>Provider analytics freshness is unavailable from the current Core contract.</p>
+      <section className={DRAWER_CELL}>
+        <h3 className={DRAWER_CELL_TITLE}>Data freshness</h3>
+        <p className={DRAWER_CELL_COPY}>Core account record updated <time dateTime={new Date(timestampMs(account.updatedAt)).toISOString()}>{new Date(timestampMs(account.updatedAt)).toLocaleString()}</time>.</p>
+        <p className={DRAWER_CELL_COPY}>Provider analytics freshness is unavailable from the current Core contract.</p>
       </section>
     </>}
   </DetailDialog>;

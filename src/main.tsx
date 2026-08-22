@@ -8,7 +8,6 @@ import "./styles/tokens.css";
 import "./styles/instrument.css";
 import "./styles/workbench.css";
 import "./styles/settings.css";
-import "./styles/workspace-overview.css";
 import "./styles/shared-library.css";
 import "./styles/marketplace.css";
 import "./styles/work-surfaces.css";

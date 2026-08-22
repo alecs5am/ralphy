@@ -16,10 +16,8 @@ import { presentSharedArtifact } from "../src/screens/shared-library/presentatio
 import { builtStylesheetLink, readStylesheet } from "./style-sources";
 import { WorkspaceScreenView, createWorkspaceScreenController } from "../src/screens/WorkspaceScreen";
 
-const workspaceOverviewStyles = readStylesheet("workspace-overview.css");
 const styles = ["reset.css", "tokens.css", "workbench.css", "shared-library.css", "instrument.css"]
   .map((file) => readStylesheet(file))
-  .concat(workspaceOverviewStyles)
   .join("\n");
 const workbenchStyles = readStylesheet("workbench.css");
 const tokenStyles = readFileSync(join(process.cwd(), "src/styles/tokens.css"), "utf8");
@@ -42,6 +40,11 @@ const marketplaceTheme = readFileSync(join(process.cwd(), "src/styles/theme/mark
 const marketplaceSurfaceSource = [
   "src/screens/MarketplaceScreen.tsx",
   ...readdirSync(join(process.cwd(), "src/screens/marketplace")).map((file) => `src/screens/marketplace/${file}`),
+].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
+const workspaceOverviewTheme = readFileSync(join(process.cwd(), "src/styles/theme/workspace-overview.css"), "utf8");
+const workspaceOverviewSurfaceSource = [
+  "src/screens/WorkspaceScreen.tsx",
+  ...readdirSync(join(process.cwd(), "src/screens/workspace")).map((file) => `src/screens/workspace/${file}`),
 ].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
 
 const project: ProjectSummary = {
@@ -238,7 +241,9 @@ async function chromiumGeometry(markup: { workspace: string } & ProjectMarkup): 
     const links = builtStylesheetLink();
     const shell = (screen: string) => `<div class="workbench has-right-panel" style="--sidebar-w:288px;--inspector-w:336px"><aside class="context-sidebar"></aside><section class="main-shell"><header class="main-header"></header><div class="main-content-stage">${screen}</div></section><aside class="utility-right-panel"></aside></div>`;
     const templates = Object.entries(markup).map(([name, value]) => `<template id="${name}">${shell(value)}</template>`).join("");
-    writeFileSync(join(directory, "layout.html"), `<!doctype html><html><head>${links}<style>${workspaceOverviewStyles}</style></head><body><div id="root"></div>${templates}</body></html>`);
+        // The workspace overview has no stylesheet of its own any more, so the harness links only
+    // the shipped bundle: authored CSS and the utility layer in their real cascade.
+    writeFileSync(join(directory, "layout.html"), `<!doctype html><html><head>${links}</head><body><div id="root"></div>${templates}</body></html>`);
     writeFileSync(join(directory, "package.json"), JSON.stringify({ main: "main.cjs" }));
     writeFileSync(join(directory, "main.cjs"), `
       const RESULT_PATH = ${JSON.stringify(resultPath)};
@@ -896,8 +901,43 @@ describe("design system contract", () => {
   test("names the responsive controls container and preserves round status pills", () => {
     expect(styles).toContain("container-name: project-controls");
     expect(styles).toMatch(/\.project-facts > span,[\s\S]*corner-shape:\s*round/);
-    expect(styles).toContain(".workspace-plan-days");
-    expect(styles).toMatch(/@container main-region \(max-width: 760px\)[\s\S]*\.workspace-outcome-groups\s*\{[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\)/);
+    // The workspace overview's bands now live on the elements that draw them: the day strip
+    // reads its role key, and the outcome groups reach one column by deriving the count rather
+    // than by the authored 760px query, which the utility on the grid always beat anyway.
+    expect(workspaceOverviewSurfaceSource).toContain("grid-cols-(--workspace-day-columns)");
+    expect(workspaceOverviewTheme).toMatch(/--workspace-outcome-columns:\s*repeat\(auto-fit/);
+  });
+
+  test("keeps the workspace overview's every rule on the element it styles", () => {
+    // The area has no stylesheet at all: `workspace-overview.css` and its three parts are gone,
+    // so nothing can claim a value the screen does not draw.
+    expect(existsSync(join(process.cwd(), "src/styles/workspace-overview.css"))).toBe(false);
+    expect(existsSync(join(process.cwd(), "src/styles/workspace-overview"))).toBe(false);
+    expect(readFileSync(join(process.cwd(), "src/main.tsx"), "utf8")).not.toContain("workspace-overview.css");
+    // The route declares its own content row, and every collapse reads a container, never the
+    // window. `instrument-desk` belongs to the shell, so the route consumes it without
+    // redeclaring it.
+    expect(workspaceOverviewSurfaceSource).toContain("@container/main-region");
+    expect(workspaceOverviewSurfaceSource).not.toContain("@container/instrument-desk");
+    expect(workspaceOverviewSurfaceSource).not.toMatch(/@(?:min|max)-\[/);
+    for (const key of ["section: 860px", "row: 760px", "portfolio: 900px", "portfolio-narrow: 520px"]) {
+      expect(workspaceOverviewTheme).toContain(`--container-workspace-${key}`);
+    }
+    // One drawer chrome for the three detail drawers, and it states the theme's own surface and
+    // ink: it is portalled outside the work-mode scope, where the legacy ink is the on-dark
+    // family and turns invisible on a light widget. Its controls take the theme-ink ring for
+    // the same reason; only the control on the black header takes the on-instrument ring.
+    const dialog = readFileSync(join(process.cwd(), "src/screens/workspace/DetailDialog.tsx"), "utf8");
+    expect(dialog).toContain("bg-surface text-ink");
+    expect(dialog).toContain("focus-visible:outline-ink");
+    expect(dialog).not.toContain("focus-on-instrument");
+    const header = readFileSync(join(process.cwd(), "src/screens/workspace/WorkspaceOverviewHeader.tsx"), "utf8");
+    expect(header).toContain("bg-instrument");
+    expect(header).toContain("focus-visible:outline-focus-on-instrument");
+    // The deleted reduced-motion blanket had nothing to hold back: this area declares no
+    // transition and no animation of its own, and an !important rule in an unlayered sheet
+    // cannot beat an !important utility inside @layer utilities anyway.
+    expect(workspaceOverviewSurfaceSource).not.toMatch(/\btransition-|\banimate-/);
   });
 
   test("uses the approved neutral surfaces and larger smooth radii", () => {
@@ -1089,10 +1129,11 @@ describe("design system contract", () => {
     // minus the sidebar and the chat rail, so `xl:` fired on a 908px column and the overview
     // split into two 430px halves with six-across metric strips inside them.
     expect(renderer).not.toMatch(/\b(?:sm|md|lg|xl|2xl):[a-z[]/);
-    expect(renderer).toContain("@min-[860px]/instrument-desk:col-span-6");
+    expect(renderer).toContain("@min-workspace-section/instrument-desk:col-span-6");
     // Strips inside a half-width section derive their track count instead of declaring it.
-    expect(styles).toMatch(/\.workspace-efficiency-strip\s*\{[^}]*repeat\(auto-fit/s);
-    expect(styles).toMatch(/\.workspace-plan-days\s*\{[^}]*repeat\(auto-fit/s);
+    expect(workspaceOverviewTheme).toMatch(/--workspace-efficiency-columns:\s*repeat\(auto-fit/);
+    expect(workspaceOverviewTheme).toMatch(/--workspace-day-columns:\s*repeat\(auto-fit/);
+    expect(workspaceOverviewTheme).toMatch(/--workspace-metric-columns:\s*repeat\(auto-fit/);
     expect(styles).not.toMatch(/@media\(max-width:1050px\)/);
   });
 

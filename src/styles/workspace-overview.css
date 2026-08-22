@@ -1,5 +1,0 @@
-/* Split into contiguous chunks: source order is the cascade, so chunk order is
-   the original order. Names describe the dominant selector family. */
-@import "./workspace-overview/01-account-detail.css";
-@import "./workspace-overview/02-workspace-insight.css";
-@import "./workspace-overview/03-workspace-overview.css";

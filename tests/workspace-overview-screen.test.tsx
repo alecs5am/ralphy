@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { act, useEffect, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
@@ -15,7 +16,6 @@ import { WorkspaceInsights } from "../src/screens/workspace/WorkspaceInsights";
 import { WorkspaceOperations } from "../src/screens/workspace/WorkspaceOperations";
 import { WorkspaceOverviewHeader } from "../src/screens/workspace/WorkspaceOverviewHeader";
 import { createReactHost } from "./react-host";
-import { readStylesheet } from "./style-sources";
 
 const populatedOverview = {
   workspace: {
@@ -941,7 +941,7 @@ describe("workspace overview shell", () => {
 
     expect(positions.every((position) => position >= 0)).toBe(true);
     expect(positions).toEqual([...positions].sort((left, right) => left - right));
-    expect(markup).toContain('<ul class="workspace-attention-list"');
+    expect(markup).toContain('<ul class="workspace-attention-list');
     expect(markup).toContain("Affects 2 publications");
     expect(markup).toContain("Review publications");
     expect(markup).toContain("Workspace run and build progress is not available from Core yet");
@@ -1280,11 +1280,18 @@ describe("workspace overview shell", () => {
   });
 
   test("locks the narrow operations order and account breakpoints", () => {
-    const css = readStylesheet("workspace-overview.css");
+    // Both decisions moved onto the elements that make them. The authored 1000px query never
+    // rendered: the utility on the operations grid always beat it, so this now reads the grid
+    // that actually decides, and the theme key that names the width it decides at.
+    const operations = readFileSync(join(process.cwd(), "src/screens/workspace/WorkspaceOperations.tsx"), "utf8");
+    const performance = readFileSync(join(process.cwd(), "src/screens/workspace/WorkspacePerformance.tsx"), "utf8");
+    const theme = readFileSync(join(process.cwd(), "src/styles/theme/workspace-overview.css"), "utf8");
 
-    expect(css).toMatch(/\.workspace-operations-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(0,\s*1fr\)/s);
-    expect(css).toMatch(/@container main-region \(max-width:\s*1000px\)[\s\S]*?\.workspace-operations-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
-    expect(css).toMatch(/@container account-portfolio \(max-width:\s*900px\)[\s\S]*?repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
-    expect(css).toMatch(/@container account-portfolio \(max-width:\s*520px\)[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+    expect(operations).toContain("grid-cols-1 gap-2 bg-transparent p-0 @min-workspace-section/instrument-desk:grid-cols-2");
+    expect(theme).toContain("--container-workspace-section: 860px");
+    expect(performance).toContain("@container/account-portfolio");
+    expect(performance).toContain("grid-cols-4 gap-3 @max-workspace-portfolio/account-portfolio:grid-cols-2 @max-workspace-portfolio-narrow/account-portfolio:grid-cols-1");
+    expect(theme).toContain("--container-workspace-portfolio: 900px");
+    expect(theme).toContain("--container-workspace-portfolio-narrow: 520px");
   });
 });

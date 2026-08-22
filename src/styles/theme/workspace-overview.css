@@ -2,5 +2,61 @@
    the shared theme layer. Every key names a role and resolves to a token in tokens.css or a
    value the design fixes for that role; a component then reaches for the name, never a
    literal. */
+
+/* Multi-part column templates. These are plain custom properties rather than @theme keys because
+   `grid-template-columns` is not a Tailwind namespace and `@theme inline` never emits the
+   variable, so `grid-cols-(--name)` has to find a real declaration on the element.
+   Every band below states a minimum and lets the column count follow the space it has: the
+   sidebar, the chat rail or a detail drawer changing this route's width must not need a
+   breakpoint of its own. */
+:root {
+  /* The momentum band: six totals that re-wrap rather than squeeze. */
+  --workspace-metric-columns: repeat(auto-fit, minmax(124px, 1fr));
+  /* The production-efficiency band: six bounded metrics, each with a reason under it. */
+  --workspace-efficiency-columns: repeat(auto-fit, minmax(148px, 1fr));
+  /* Fourteen days of publishing density. */
+  --workspace-day-columns: repeat(auto-fit, minmax(52px, 1fr));
+  /* Three outcome groups, and the insight cards. */
+  --workspace-outcome-columns: repeat(auto-fit, minmax(190px, 1fr));
+  --workspace-insight-columns: repeat(auto-fit, minmax(232px, 1fr));
+
+  /* The two row shapes this route repeats. A row is copy plus one action, or a glyph plus
+     copy; the three-column rows fall back to the glyph form on a narrow content row. */
+  --workspace-row-columns: minmax(0, 1fr) auto;
+  --workspace-glyph-columns: auto minmax(0, 1fr);
+  --workspace-attention-columns: auto minmax(0, 1fr) auto;
+  /* A label/value pair inside an insight card: the label column is bounded, the value takes
+     the rest. */
+  --workspace-fact-columns: minmax(92px, auto) minmax(0, 1fr);
+
+  /* The loading skeleton's three lines. Proportions of the plate, not lengths. */
+  --workspace-skeleton-mid: 72%;
+  --workspace-skeleton-short: 48%;
+}
+
 @theme inline {
+  /* The ring for a control standing on the black overview header: the theme ink would be
+     black on black in the light theme. */
+  --color-focus-on-instrument: var(--instrument-focus-on-dark);
+
+  /* The detail drawer covers the right edge of the desk and never exceeds the window. */
+  --spacing-workspace-drawer: min(480px, 100vw);
+
+  /* The drawer's stack, so a portal's order stays a token and not a number in markup. */
+  --z-index-scrim: var(--z-scrim);
+  --z-index-scrim-content: var(--z-scrim-content);
+
+  /* Leading the shared tokens do not name. */
+  --leading-copy: var(--leading-body);    /* a paragraph of source-provided copy */
+  --leading-row: var(--leading-snug);     /* a one- or two-line label inside a dense row */
+  --leading-footnote: var(--leading-tight); /* the reason under a drawer action */
+
+  /* Breakpoints read against a container and never the window: the sidebar and the chat rail
+     change this surface's width without the viewport moving. `instrument-desk` is the desk
+     scroll column, declared by the instrument shell; `main-region` is this route's own
+     content row, declared on the route element. */
+  --container-workspace-section: 860px;   /* a section takes half the desk row, and Operations splits */
+  --container-workspace-row: 760px;       /* a row drops to its glyph form and stacks its actions */
+  --container-workspace-portfolio: 900px; /* the account portfolio goes from four columns to two */
+  --container-workspace-portfolio-narrow: 520px; /* ...and then to one */
 }

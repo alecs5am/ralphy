@@ -140,9 +140,11 @@ function WorkspaceDestinationFrame({ destination, onBack, children }: {
     heading.focus({ preventScroll: true });
   }, [destination]);
   const context = destination.context;
-  return <div className="workspace-destination" ref={root}>
-    <div className="workspace-return-bar">
-      <button type="button" onClick={onBack}>Back to Overview</button>
+  /* The destination frame is a column that hands its whole remaining height to the route it
+     wraps, whichever route that is — so the child's own flex guard is stated here. */
+  return <div className="workspace-destination flex min-h-0 flex-1 flex-col [&>.main-region]:min-h-0 [&>.main-region]:flex-1" ref={root}>
+    <div className="workspace-return-bar flex min-h-9.5 flex-none items-center gap-3 bg-surface px-4 py-2 type-xs text-muted">
+      <button className="rounded-control bg-transparent type-xs text-muted" type="button" onClick={onBack}>Back to Overview</button>
       {context && <span>Context from Overview · {context.label}
         {destination.page === "calendar" && destination.context?.accountLabel ? ` · Account ${destination.context.accountLabel} (context preserved; account filtering unavailable)` : ""}
       </span>}

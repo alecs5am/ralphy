@@ -65,28 +65,47 @@ function WorkspaceOverviewShell({ value, onOpenPage, onOpenCalendar, onOpenUnit,
   </>;
 }
 
+/* The route surface. `main-region` and `workspace-overview` stay as the hooks instrument.css
+   names and the geometry harness selects; the route declares its own content row so the row
+   collapses below read a container this component owns. */
+const ROUTE = "main-region workspace-overview @container/main-region flex min-h-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 type-base text-ink";
+/* The desk grid the sections stand on. The desk is the only scroll owner here, so this row
+   keeps its own overflow visible and only guards its flex geometry. */
+const OVERVIEW_GRID = "workspace-overview-scroll grid min-h-0 w-full flex-1 grid-cols-12 items-start gap-2 overflow-visible p-0";
+/* The black header the three states share. `screen-header` and `workspace-overview-header`
+   are hooks; the layout, surface and on-instrument ink are stated here. */
+const STATE_HEADER = "screen-header workspace-overview-header workspace-overview-loading-header m-0 flex min-h-28 w-full max-w-none flex-col justify-center gap-1 rounded-panel bg-instrument px-5 py-4 text-on-instrument";
+const STATE_KICKER = "screen-kicker type-xs uppercase tracking-wide text-on-instrument-muted";
+const STATE_TITLE = "m-0 type-xl font-normal text-on-instrument";
+const STATE_COPY = "m-0 type-base leading-5 text-on-instrument-muted";
+const SKELETON_SECTION = "workspace-overview-skeleton-section col-span-12 min-h-44 rounded-panel bg-surface p-4 @min-workspace-section/instrument-desk:col-span-6";
+const SKELETON_BAR = "mt-3 block h-4.5 rounded-chip bg-surface-sunken";
+
 function WorkspaceOverviewLoading({ workspaceName, workspaceDescription }: { workspaceName: string; workspaceDescription: string }) {
-  return <InstrumentScreenRoot descriptor={workspaceOverviewInstrumentStates} state="loading"><main className="main-region workspace-overview workspace-overview-loading flex min-h-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 type-base text-ink" aria-busy="true">
-    <header className="screen-header workspace-overview-header workspace-overview-loading-header m-0 w-full max-w-none rounded-panel bg-instrument px-5 py-4 text-on-instrument">
-      <div className="screen-kicker">Workspace overview</div>
-      <h1>{workspaceName || "Loading workspace overview…"}</h1>
-      {workspaceDescription && <p>{workspaceDescription}</p>}
+  return <InstrumentScreenRoot descriptor={workspaceOverviewInstrumentStates} state="loading"><main className={`${ROUTE} workspace-overview-loading`} aria-busy="true">
+    <header className={STATE_HEADER}>
+      <div className={STATE_KICKER}>Workspace overview</div>
+      <h1 className={STATE_TITLE}>{workspaceName || "Loading workspace overview…"}</h1>
+      {workspaceDescription && <p className={STATE_COPY}>{workspaceDescription}</p>}
     </header>
-    <div className="workspace-overview-scroll grid w-full max-w-none grid-cols-12 items-start gap-2 overflow-visible p-0" role="status" aria-label="Loading workspace overview">
-      {["Performance", "Planning", "Insights", "Operations"].map((label) => <section key={label} className="workspace-overview-skeleton-section col-span-12 m-0 min-h-44 w-full max-w-none rounded-panel bg-surface p-4 @min-[860px]/instrument-desk:col-span-6" aria-hidden="true">
-        <span>{label}</span><i /><i /><i />
+    <div className={OVERVIEW_GRID} role="status" aria-label="Loading workspace overview">
+      {["Performance", "Planning", "Insights", "Operations"].map((label) => <section key={label} className={SKELETON_SECTION} aria-hidden="true">
+        <span className="type-xs text-muted">{label}</span>
+        <i className={`${SKELETON_BAR} w-full`} />
+        <i className={`${SKELETON_BAR} w-(--workspace-skeleton-mid)`} />
+        <i className={`${SKELETON_BAR} w-(--workspace-skeleton-short)`} />
       </section>)}
     </div>
   </main></InstrumentScreenRoot>;
 }
 
 function WorkspaceOverviewError({ error, workspaceName, workspaceDescription, onRetry }: { error: string | null; workspaceName: string; workspaceDescription: string; onRetry(): void }) {
-  return <InstrumentScreenRoot descriptor={workspaceOverviewInstrumentStates} state="error"><main className="main-region workspace-overview workspace-overview-error flex min-h-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 type-base text-ink">
-    <header className="screen-header workspace-overview-header workspace-overview-loading-header m-0 w-full max-w-none rounded-panel bg-instrument px-5 py-4 text-on-instrument">
-      <div className="screen-kicker">Workspace overview</div>
-      <h1>{workspaceName || "Workspace overview"}</h1>
-      {workspaceDescription && <p>{workspaceDescription}</p>}
-      <strong>Workspace overview could not be loaded</strong>
+  return <InstrumentScreenRoot descriptor={workspaceOverviewInstrumentStates} state="error"><main className={`${ROUTE} workspace-overview-error`}>
+    <header className={STATE_HEADER}>
+      <div className={STATE_KICKER}>Workspace overview</div>
+      <h1 className={STATE_TITLE}>{workspaceName || "Workspace overview"}</h1>
+      {workspaceDescription && <p className={STATE_COPY}>{workspaceDescription}</p>}
+      <strong className="type-sm font-normal text-on-instrument">Workspace overview could not be loaded</strong>
     </header>
     <div className="project-local-error" role="alert">
       <AlertCircle size={17} aria-hidden="true" />
@@ -155,7 +174,7 @@ export function WorkspaceScreenView(props: WorkspaceScreenViewProps) {
   const navigate = (destination: WorkspaceDestination) => props.onNavigate
     ? props.onNavigate(destination, returnState(destination.returnFocusId))
     : props.onOpenPage(destination.page, destination.returnFocusId);
-  return <InstrumentScreenRoot descriptor={workspaceOverviewInstrumentStates} state={snapshot.error ? "partial" : "ready"}><main className="main-region workspace-overview flex min-h-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 type-base text-ink" aria-busy={snapshot.refreshing || undefined}>
+  return <InstrumentScreenRoot descriptor={workspaceOverviewInstrumentStates} state={snapshot.error ? "partial" : "ready"}><main className={ROUTE} aria-busy={snapshot.refreshing || undefined}>
     <WorkspaceOverviewHeader
       value={presentation.header}
       criticalCount={criticalCount}
@@ -165,7 +184,7 @@ export function WorkspaceScreenView(props: WorkspaceScreenViewProps) {
       onRefresh={() => { void controller.retry(); }}
     />
     {snapshot.error && <div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.error}</span><button type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>}
-    <div className="workspace-overview-scroll grid w-full max-w-none grid-cols-12 items-start gap-2 overflow-visible p-0 [&_button]:type-base [&_h2]:type-lg [&_h2]:font-semibold [&_h2]:text-ink [&_h3]:type-base [&_p]:leading-5" ref={scrollRef}>
+    <div className={OVERVIEW_GRID} ref={scrollRef}>
       <WorkspaceOverviewShell
         value={presentation}
         onOpenPage={(page, returnFocusId) => navigate({ page, returnFocusId, context: { label: WORKSPACE_PAGE_LABELS[page] } } as WorkspaceDestination)}
