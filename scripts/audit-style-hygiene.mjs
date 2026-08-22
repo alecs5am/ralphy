@@ -178,10 +178,15 @@ for (const path of sources(join(ROOT, "src"))) {
       else if (token[index] === ":" && depth === 0) { segments.push(token.slice(cursor, index)); cursor = index + 1; }
     }
     segments.push(token.slice(cursor));
-    for (const segment of segments) {
+    for (const [index, segment] of segments.entries()) {
       if (!segment.includes("[")) continue;
       // An arbitrary *property* (`[-webkit-app-region:drag]`) names no scale, so no token owns it.
       if (segment.startsWith("[")) continue;
+      // A state variant is the idiomatic way to express a state and names no scale either:
+      // `data-[state=open]:`, `aria-[current]:`, `has-[input]:`. Breakpoint variants are the
+      // exception - a width is a scale, so it belongs to a `--container-*` key.
+      const isVariant = index < segments.length - 1;
+      if (isVariant && !/^@?(?:min|max)-/.test(segment)) continue;
       // A literal that reaches for a token, a computation, or a selector is not a hardcode.
       if (/\[(?:var|calc|min|max|clamp|url|&|:|\.)/.test(segment)) continue;
       const family = segment.replace(/^[^\w@-]+/, "").replace(/-?\[.*/, "").replace(/\/.*/, "");

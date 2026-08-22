@@ -36,10 +36,13 @@ forbidden.
   `--width-settings-nav: 240px`, not `w-[240px]`.
 - Container-query breakpoints are `--container-*` keys: `@max-panel/header:` , not
   `@max-[760px]/header:`.
-- Two exceptions, both because no scale is involved: arbitrary **properties**
-  (`[-webkit-app-region:drag]`) and arbitrary **selectors** (`[&_img]:size-full`). Prefer a
-  real utility over an arbitrary selector when one exists; a nested selector usually means
-  the child should carry its own classes.
+- Three exceptions, all because no scale is involved: arbitrary **properties**
+  (`[-webkit-app-region:drag]`), arbitrary **selectors** (`[&_img]:size-full`), and **state
+  variants** (`data-[state=open]:`, `aria-[current]:`, `has-[input]:`) — a state variant is
+  the idiomatic way to express a state, so reach for it rather than branching in the
+  component. Breakpoint variants are not exempt: a width is a scale and belongs to a
+  `--container-*` key. Prefer a real utility over an arbitrary selector when one exists; a
+  nested selector usually means the child should carry its own classes.
 
 `scripts/tailwind-migration-baseline.json` is a ratchet: the audit fails if any family rises
 above its baseline. When an area lands, lower the numbers it removed. Never raise one.
