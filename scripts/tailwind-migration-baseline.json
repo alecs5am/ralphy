@@ -1,8 +1,8 @@
 {
   "-outline-offset": 1,
-  "@min": 11,
+  "@min": 1,
   "aspect": 1,
-  "grid-cols": 5,
+  "grid-cols": 4,
   "grid-rows": 1,
   "h": 1,
   "max-w": 1,
