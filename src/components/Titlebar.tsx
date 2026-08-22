@@ -7,6 +7,13 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 
+/* A row of window chrome: full-height, hairline gaps, and never part of the drag region.
+   `sidebar-chrome-leading`, `history-controls`, `collapsed-window-controls` and
+   `main-header-actions` stay as the hooks the geometry harness and 01-unowned.css read. */
+const CHROME_ROW = "flex h-full items-center gap-0.5 [-webkit-app-region:no-drag]";
+/* The reserved native traffic-light inset: a spacer, never a control. */
+const TRAFFIC_SPACE = "h-px flex-none";
+
 interface SidebarChromeProps {
   canGoBack: boolean;
   canGoForward: boolean;
@@ -24,13 +31,13 @@ export function SidebarChrome({
 }: SidebarChromeProps) {
   return (
     <div className="sidebar-chrome">
-      <div className="sidebar-chrome-leading">
-        <div className="sidebar-traffic-space" aria-hidden="true" />
+      <div className={`sidebar-chrome-leading ${CHROME_ROW}`}>
+        <div className={`sidebar-traffic-space w-traffic-sidebar ${TRAFFIC_SPACE}`} aria-hidden="true" />
         <button className="icon-button" type="button" title="Hide sidebar" aria-label="Toggle sidebar" aria-pressed="true" onClick={onToggleSidebar}>
           <PanelLeft size={16} strokeWidth={1.5} />
         </button>
       </div>
-      <nav className="history-controls" aria-label="Navigation history">
+      <nav className={`history-controls ${CHROME_ROW}`} aria-label="Navigation history">
         <button className="icon-button" type="button" title="Back" aria-label="Back" disabled={!canGoBack} onClick={onBack}>
           <ArrowLeft size={16} strokeWidth={1.5} />
         </button>
@@ -66,10 +73,10 @@ export function MainHeader({
   onToggleRightPanel,
 }: MainHeaderProps) {
   return (
-    <motion.header className="main-header" layout>
+    <motion.header className="main-header flex min-w-0 items-center gap-2.5 bg-desk pr-3 pl-4.5 text-ink" layout>
       {!sidebarVisible && (
-        <div className="collapsed-window-controls">
-          <div className="main-traffic-space" aria-hidden="true" />
+        <div className={`collapsed-window-controls ${CHROME_ROW} -ml-4.5 self-stretch`}>
+          <div className={`main-traffic-space w-traffic-main ${TRAFFIC_SPACE}`} aria-hidden="true" />
           <button className="icon-button" type="button" title="Show sidebar" aria-label="Toggle sidebar" aria-pressed="false" onClick={onToggleSidebar}>
             <PanelLeft size={16} strokeWidth={1.5} />
           </button>
@@ -81,10 +88,10 @@ export function MainHeader({
           </button>
         </div>
       )}
-      <button className="icon-button main-header-home" type="button" title="Projects" aria-label="Projects" onClick={onHome}>
+      <button className="icon-button main-header-home relative z-window-controls [-webkit-app-region:no-drag]" type="button" title="Projects" aria-label="Projects" onClick={onHome}>
         <House size={16} strokeWidth={1.5} aria-hidden="true" />
       </button>
-      <div className="main-header-actions">
+      <div className={`main-header-actions ${CHROME_ROW} relative z-window-controls ml-auto`}>
         <button className={`icon-button${rightPanelVisible ? " is-active" : ""}`} type="button" title="Toggle right panel (⌘R)" aria-label="Toggle right panel" aria-pressed={rightPanelVisible} onClick={onToggleRightPanel}>
           <PanelRight size={16} strokeWidth={1.5} />
         </button>

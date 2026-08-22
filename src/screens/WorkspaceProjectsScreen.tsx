@@ -33,6 +33,9 @@ interface WorkspaceProjectsScreenProps {
   onToggleProjectPin(projectId: string): void;
 }
 
+/* One metric tile. `metric` stays as the hook 04-workspace-project.css reads. */
+const METRIC = "metric flex min-h-16 min-w-0 items-center gap-3 rounded-cell bg-surface px-4 py-3";
+
 function relativeActivity(value: string): string {
   const elapsed = Date.now() - Date.parse(value);
   if (!Number.isFinite(elapsed) || elapsed < 0) return "now";
@@ -74,7 +77,7 @@ function ProjectPreview({ project, rootEpoch }: { project: ProjectSummary; rootE
   }, [project.projectId, project.workspaceId, rootEpoch]);
 
   return (
-    <div className="workspace-project-preview relative aspect-[16/9] w-full overflow-hidden rounded-cell bg-frame" style={projectGlyphVars(project.name)} aria-hidden="true">
+    <div className="workspace-project-preview relative aspect-video w-full overflow-hidden rounded-cell bg-frame" style={projectGlyphVars(project.name)} aria-hidden="true">
       {media.length > 0 ? (
         <div className="workspace-project-preview-collage" data-count={media.length}>
           {media.map((card) => (
@@ -102,7 +105,7 @@ function PinButton({ project, active, onToggle }: { project: ProjectSummary; act
   const label = active ? `Unpin project ${project.name}` : `Pin project ${project.name}`;
   return (
     <button
-      className={`row-pin workspace-project-card-pin${active ? " is-pinned" : ""}`}
+      className={`row-pin workspace-project-card-pin grid size-5.5 place-items-center rounded-control${active ? " is-pinned" : ""}`}
       type="button"
       aria-label={label}
       title={label}
@@ -168,10 +171,10 @@ export function WorkspaceProjectsScreen({
       <div className="screen-header workspace-header m-0 flex min-h-0 w-full max-w-none flex-wrap items-center justify-between gap-4 rounded-panel bg-instrument px-5 py-4 text-on-instrument">
         <div>
           <div className="screen-kicker type-xs uppercase tracking-wide text-on-instrument-muted">{workspaceName}</div>
-          <h2 className="mt-1 type-hero font-semibold leading-none tracking-tight text-on-instrument">Projects</h2>
-          <p className="mt-1 type-base text-on-instrument-muted">{workspaceDescription || "Projects in this workspace"}</p>
+          <h2 className="mt-1 mb-1.25 type-hero font-semibold leading-none tracking-tight text-on-instrument">Projects</h2>
+          <p className="mt-1 max-w-screen-copy type-base text-on-instrument-muted">{workspaceDescription || "Projects in this workspace"}</p>
         </div>
-        <div className="workspace-header-actions min-w-[240px] flex-1 @min-[560px]/instrument-desk:max-w-[340px]">
+        <div className="workspace-header-actions min-w-workspace-search flex-1 @min-workspace-header/instrument-desk:max-w-workspace-search-max">
           <label className="workspace-search flex h-9 w-full items-center gap-2 rounded-control bg-instrument-raised px-3 text-on-instrument-muted">
             <Search size={14} aria-hidden="true" />
             <input className="min-w-0 flex-1 bg-transparent type-base text-on-instrument outline-none placeholder:text-on-instrument-muted" ref={searchRef} type="search" value={query} placeholder="Filter projects" aria-label="Filter projects" onChange={(event) => setQuery(event.target.value)} />
@@ -180,10 +183,10 @@ export function WorkspaceProjectsScreen({
         </div>
       </div>
 
-      <section className="metrics-band m-0 grid w-full max-w-none grid-cols-[repeat(auto-fit,minmax(184px,1fr))] gap-px overflow-hidden rounded-panel bg-divider p-0" aria-label="Workspace project summary">
-        <div className="metric flex min-h-16 items-center gap-3 bg-surface px-4 py-3"><span className="metric-icon text-muted"><FolderOpen size={15} aria-hidden="true" /></span><span className="metric-value type-metric font-semibold leading-none text-ink">{projects.length}</span><span className="metric-label type-sm text-muted">Projects</span></div>
-        <div className="metric flex min-h-16 items-center gap-3 bg-surface px-4 py-3"><span className="metric-value type-metric font-semibold leading-none text-ink">{finals}</span><span className="metric-label type-sm text-muted">Final renders</span></div>
-        <div className="metric flex min-h-16 items-center gap-3 bg-surface px-4 py-3"><span className="metric-value type-metric font-semibold leading-none text-ink">{spendCount === 0 ? "—" : `$${spend.toFixed(2)}`}</span><span className="metric-label type-sm text-muted">Indexed spend</span></div>
+      <section className="metrics-band m-0 grid w-full max-w-none grid-cols-(--metrics-band-columns) gap-px overflow-hidden rounded-panel bg-divider p-0" aria-label="Workspace project summary">
+        <div className={METRIC}><span className="metric-icon grid size-6 shrink-0 place-items-center self-center rounded-field bg-surface-sunken text-muted"><FolderOpen size={15} aria-hidden="true" /></span><span className="metric-value truncate font-code type-metric font-semibold leading-none text-ink">{projects.length}</span><span className="metric-label type-sm text-muted">Projects</span></div>
+        <div className={METRIC}><span className="metric-value truncate font-code type-metric font-semibold leading-none text-ink">{finals}</span><span className="metric-label type-sm text-muted">Final renders</span></div>
+        <div className={METRIC}><span className="metric-value truncate font-code type-metric font-semibold leading-none text-ink">{spendCount === 0 ? "—" : `$${spend.toFixed(2)}`}</span><span className="metric-label type-sm text-muted">Indexed spend</span></div>
       </section>
 
       <section className="content-section workspace-projects m-0 w-full max-w-none bg-transparent p-0" aria-label="Projects">
@@ -191,7 +194,7 @@ export function WorkspaceProjectsScreen({
         {ordered.length === 0 ? (
           <div className="empty-section">{query ? "No projects match this filter." : "No projects in this workspace."}</div>
         ) : (
-          <div className="workspace-project-grid grid grid-cols-[repeat(auto-fill,minmax(318px,1fr))] gap-2">
+          <div className="workspace-project-grid grid grid-cols-(--workspace-project-grid-columns) gap-2">
             {ordered.map((project) => <ProjectCard key={project.id} project={project} rootEpoch={rootEpoch} pinned={pinnedProjectIds.includes(project.id)} onOpen={() => onOpenProject(project)} onTogglePin={() => onToggleProjectPin(project.id)} />)}
           </div>
         )}
@@ -206,7 +209,7 @@ export function WorkspacePagePlaceholder({ workspaceName, page }: { workspaceNam
   return (
     <InstrumentScreenRoot descriptor={workspaceUnitsInstrumentStates} state="unavailable">
     <main className="main-region flex min-h-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 type-base text-ink">
-      <div className="screen-header m-0 w-full max-w-none rounded-panel bg-instrument px-5 py-4 text-on-instrument"><div><div className="screen-kicker type-xs uppercase tracking-wide text-on-instrument-muted">{workspaceName}</div><h2 className="mt-1 type-hero font-semibold leading-none tracking-tight text-on-instrument">{WORKSPACE_PAGE_LABELS[page]}</h2><p className="mt-1 type-base text-on-instrument-muted">Workspace tools are ready to be connected to the Core contract.</p></div></div>
+      <div className="screen-header m-0 flex min-h-18 w-full max-w-none items-start justify-between gap-6 rounded-panel bg-instrument px-5 py-4 text-on-instrument"><div><div className="screen-kicker type-xs uppercase tracking-wide text-on-instrument-muted">{workspaceName}</div><h2 className="mt-1 mb-1.25 type-hero font-semibold leading-none tracking-tight text-on-instrument">{WORKSPACE_PAGE_LABELS[page]}</h2><p className="mt-1 max-w-screen-copy type-base text-on-instrument-muted">Workspace tools are ready to be connected to the Core contract.</p></div></div>
       <section className="content-section m-0 grid min-h-48 w-full max-w-none place-items-center rounded-panel bg-surface p-6"><div className="empty-section max-w-lg text-center type-md text-muted">{WORKSPACE_PAGE_LABELS[page]} is not wired yet.</div></section>
     </main>
     </InstrumentScreenRoot>

@@ -41,6 +41,12 @@ const marketplaceSurfaceSource = [
   "src/screens/MarketplaceScreen.tsx",
   ...readdirSync(join(process.cwd(), "src/screens/marketplace")).map((file) => `src/screens/marketplace/${file}`),
 ].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
+const chromeTheme = readFileSync(join(process.cwd(), "src/styles/theme/chrome.css"), "utf8");
+const titlebarSource = readFileSync(join(process.cwd(), "src/components/Titlebar.tsx"), "utf8");
+const selectMenuSource = readFileSync(join(process.cwd(), "src/components/ui/SelectMenu.tsx"), "utf8");
+const pickerSource = readFileSync(join(process.cwd(), "src/components/WorkspacePicker.tsx"), "utf8");
+const contextSidebarSource = readFileSync(join(process.cwd(), "src/components/ContextSidebar.tsx"), "utf8");
+const librarySource = readFileSync(join(process.cwd(), "src/screens/LibraryScreen.tsx"), "utf8");
 const workspaceOverviewTheme = readFileSync(join(process.cwd(), "src/styles/theme/workspace-overview.css"), "utf8");
 const calendarMemoryTheme = readFileSync(join(process.cwd(), "src/styles/theme/calendar-memory.css"), "utf8");
 const calendarMemorySurfaceSource = ["src/screens/CalendarScreen.tsx", "src/screens/MemoryScreen.tsx", "src/screens/calendar-memory-chrome.ts"]
@@ -972,7 +978,10 @@ describe("design system contract", () => {
     expect(styles).toMatch(/--canvas:\s*var\(--instrument-legacy-canvas\)/);
     expect(styles).toMatch(/--raised:\s*var\(--instrument-legacy-raised\)/);
     expect(styles).toMatch(/--radius-md:\s*10px/);
-    expect(styles).toMatch(/\.main-header\s*\{[^}]*border-bottom:\s*0/s);
+    // The header states its surface in its own markup now, and design v2 has no borders to
+    // cancel, so there is no zero-border declaration left to assert.
+    expect(titlebarSource).toMatch(/className="main-header[^"]*\bbg-desk\b[^"]*\btext-ink\b/);
+    expect(titlebarSource).not.toMatch(/\bborder(?:-[a-z]+)?-\d/);
     expect(styles).toMatch(/\.asset-modal-surface,[\s\S]*corner-shape:\s*squircle/);
   });
 
@@ -1000,7 +1009,13 @@ describe("design system contract", () => {
     for (const selector of ["select-menu-content", "workspace-picker-popover", "agent-popover", "asset-context-menu"]) {
       expect(workbenchStyles).toMatch(new RegExp(`\\.${selector}\\s*\\{[^}]*border:\\s*0[^}]*background:\\s*var\\(--instrument-widget-dark\\)`, "s"));
     }
-    expect(workbenchStyles).toMatch(/\.select-menu-trigger\s*\{[^}]*border:\s*0[^}]*background:\s*var\(--instrument-widget-dark\)/s);
+    // The trigger's skin lives in SelectMenu now: one black pill, no border, and a caller that
+    // paints its own surface declines it outright rather than half-overriding it.
+    const trigger = /const TRIGGER_INSTRUMENT = "([^"]*)"/.exec(selectMenuSource)?.[1] ?? "";
+    expect(trigger.split(" ")).toContain("bg-instrument");
+    expect(trigger.split(" ")).toContain("text-on-instrument-muted");
+    expect(selectMenuSource).not.toMatch(/\bborder-\d/);
+    expect(selectMenuSource).toContain('tone === "instrument"');
     // Settings own their surfaces in the markup now, so the same three decisions are asserted
     // where they are actually declared: the plate is the light widget, the toggle track is the
     // sunken surface, and a menu is one flat dark widget with no border.
@@ -1114,6 +1129,57 @@ describe("design system contract", () => {
     expect(calendarMemorySurfaceSource).toContain("@max-memory-row/main-region:");
   });
 
+  test("keeps the workbench chrome on named roles, container widths and no depth", () => {
+    // The chrome area's stylesheet chunks are gone: every rule either moved into the markup of
+    // the component that renders the element, or stayed verbatim in 03-unowned.css because it
+    // styles an element no chrome component renders.
+    expect(existsSync(join(process.cwd(), "src/styles/workbench/02-select-menu.css"))).toBe(false);
+    expect(existsSync(join(process.cwd(), "src/styles/workbench/03-sidebar-row.css"))).toBe(false);
+    expect(readFileSync(join(process.cwd(), "src/styles/workbench.css"), "utf8"))
+      .toContain('@import "./workbench/03-unowned.css";');
+    // Rules with more than one owning area are held, not moved and not deleted.
+    const unowned = readFileSync(join(process.cwd(), "src/styles/workbench/03-unowned.css"), "utf8");
+    for (const selector of [
+      "@keyframes select-menu-in",
+      ".main-region",
+      ".screen-kicker",
+      ".command-button",
+      ".content-section",
+      ".section-heading",
+      ".workspace-header-actions",
+      ".sidebar-profile-name",
+      ".mono-number",
+    ]) expect(unowned).toContain(selector);
+    const chromeSources = [titlebarSource, selectMenuSource, pickerSource, contextSidebarSource, librarySource].join("\n");
+    // design v2 in this area: no border, no shadow and no gradient anywhere in the markup.
+    expect(chromeSources).not.toMatch(/\b(?:border|shadow|bg-gradient|bg-linear|bg-radial)-/);
+    expect(chromeSources).not.toMatch(/box-shadow/);
+    // Container queries only, read against a content row -- never the window. The desk is not
+    // the window, so an arbitrary breakpoint width is a defect even when it happens to look right.
+    expect(chromeSources).not.toMatch(/@(?:min|max)-\[/);
+    expect(chromeSources).not.toMatch(/\b(?:sm|md|lg|xl|2xl):/);
+    for (const key of ["--container-workspace-header", "--container-activity-filters"]) {
+      expect(chromeTheme).toContain(key);
+    }
+    const projectsScreen = readFileSync(join(process.cwd(), "src/screens/WorkspaceProjectsScreen.tsx"), "utf8");
+    expect(projectsScreen).toContain("@min-workspace-header/instrument-desk:");
+    // A `display` utility on the trigger beats an authored `display: none`, so the activity
+    // toolbar's container hide has to be a variant on the element, not a rule in the sheet.
+    expect(readFileSync(join(process.cwd(), "src/screens/project/ActivityTimeline.tsx"), "utf8"))
+      .toContain("@max-activity-filters/project-domain:hidden");
+    // The shared trigger carries exactly one skin: the callers that state their own decline it.
+    for (const file of [
+      "src/screens/marketplace/MarketplaceHeader.tsx",
+      "src/screens/shared-library/SharedLibraryToolbar.tsx",
+      "src/screens/settings/rows.tsx",
+      "src/screens/project/ActivityTimeline.tsx",
+    ]) expect(readFileSync(join(process.cwd(), file), "utf8")).toContain('tone="caller"');
+    // The checked row's inversion is still owned by the sheet, so the item states its rest ink
+    // behind a `not-data-[state=checked]` guard -- an unguarded utility would win over it.
+    expect(/const ITEM = "([^"]*)"/.exec(selectMenuSource)?.[1] ?? "")
+      .toMatch(/not-data-\[state=checked\]:text-on-instrument-muted/);
+  });
+
   test("leaves the activity log without a rail, in either whole or per-event form", () => {
     // The list-level rail was pinned to hard 58/24px offsets and a hard-coded column x, so
     // it never met the first or last row; design v2 carries no rules or borders at all.
@@ -1202,9 +1268,11 @@ describe("design system contract", () => {
     expect(styles).toMatch(
       /\.workspace-picker-popover\s*\{[^}]*position:\s*fixed/s,
     );
-    expect(styles).toMatch(
-      /\.workspace-picker-search:focus-within\s*\{[^}]*box-shadow:\s*none/s,
-    );
+    // The search's `box-shadow: none` reset never rendered -- nothing painted a shadow there.
+    // What it did lack was a visible ring: the popover is portalled outside the work scope, so
+    // the theme ring resolves to black on this black widget.
+    expect(pickerSource).toContain("focus-within:outline-focus-on-instrument");
+    expect(pickerSource).not.toMatch(/\bshadow-/);
     expect(renderer).toContain("[-webkit-app-region:no-drag]");
     expect(styles).toMatch(/button:not\(:disabled\)[^{]*\{[^}]*cursor:\s*pointer/s);
     expect(styles).toMatch(/\.instrument-shell\s*\{[^}]*--instrument-left-width:\s*240px/s);
@@ -1229,7 +1297,7 @@ describe("design system contract", () => {
       "utf8",
     );
 
-    expect(picker).toContain('className="workspace-hero"');
+    expect(/const HERO = "([^"]*)"/.exec(picker)?.[1] ?? "").toContain("workspace-hero");
     expect(picker).toContain("workspace-hero-field-hi");
     expect(picker).toContain("selected?.unitCount");
     expect(picker).toContain("selected?.sharedCount");
@@ -1244,23 +1312,28 @@ describe("design system contract", () => {
     expect(sidebar).not.toContain('title="Filter projects"');
     expect(profile).not.toContain(".ralphy library");
     expect(styles).toContain("--dither-op: 1");
-    // v2: the workspace card is a sidebar widget, flush with the stack above and below it.
-    expect(styles).toMatch(
-      /\.sidebar-context\s*\{[^}]*height:\s*118px[^}]*border-radius:\s*var\(--radius-panel\)/s,
+    // v2: the workspace card is a sidebar widget, flush with the stack above and below it. The
+    // card states its height once and the picker and hero fill it, in markup now.
+    expect(chromeTheme).toMatch(/--spacing-workspace-card:\s*118px/);
+    expect(sidebar).toMatch(/className="sidebar-context[^"]*\bh-workspace-card\b[^"]*\brounded-panel\b/);
+    expect(picker).toMatch(/className="workspace-picker[^"]*\bh-full\b/);
+    expect(/const HERO = "([^"]*)"/.exec(picker)?.[1] ?? "").toMatch(/\bh-full\b/);
+    // The hero is the black widget, and it now carries the class that flips the on-dark token
+    // set for its subtree, which is what makes its focus ring visible at all.
+    expect(/const HERO = "([^"]*)"/.exec(picker)?.[1] ?? "").toMatch(/\bbg-instrument\b/);
+    // `.project-glyph` reached no component at all; the identity plate that does render reads
+    // the same ramp through --glyph-color.
+    expect(workbenchStyles).not.toMatch(/\.project-glyph\s*\{/);
+    expect(readFileSync(join(process.cwd(), "src/screens/workspace/WorkspaceOperations.tsx"), "utf8"))
+      .toMatch(/color-mix\(in_srgb,var\(--glyph-color\)/);
+    // Selection is an inversion, stated once in the sidebar's own vocabulary. The stylesheet's
+    // `.is-selected` hook was never set by any component.
+    expect(/const SELECTED = "([^"]*)"/.exec(sidebar)?.[1] ?? "").toBe(
+      "bg-selected text-selected-ink hover:bg-selected-hover hover:text-selected-ink",
     );
-    expect(styles).toMatch(/\.sidebar-context \.workspace-hero,\s*\.sidebar-context \.workspace-picker\s*\{\s*height:\s*100%/s);
-    expect(styles).toMatch(
-      /\.workspace-hero\s*\{[^}]*background:\s*var\(--instrument-widget-dark\)/s,
-    );
-    expect(styles).toMatch(
-      /\.project-glyph\s*\{[^}]*background:\s*color-mix\(in oklab, var\(--glyph-color\)/s,
-    );
-    expect(styles).toMatch(
-      /button\.sidebar-nav-row\.is-selected\s*\{[^}]*background:\s*var\(--selected\)/s,
-    );
-    expect(styles).toMatch(
-      /\.workspace-option-field\s*\{[^}]*row-field\.png/s,
-    );
+    expect(styles).not.toContain("sidebar-nav-row.is-selected");
+    expect(chromeTheme).toMatch(/--workspace-option-mask:\s*url\("\/assets\/dither\/row-field\.png"\)/);
+    expect(picker).toContain("[mask-image:var(--workspace-option-mask)]");
     for (let slot = 1; slot <= 8; slot += 1) {
       expect(styles).toContain(`--p${slot}:`);
       expect(styles).toContain(`--p${slot}-hi:`);

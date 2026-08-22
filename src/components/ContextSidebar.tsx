@@ -105,7 +105,10 @@ function pageCount(page: WorkspacePage, workspace?: WorkspaceSummary): number | 
 // selection is an inversion (white plate, ink text), never a tint. The mode switch paints
 // its selection with the gooey travelling indicator instead of a per-button background.
 const MODE_BUTTON = "sidebar-mode-button relative z-1 flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-transparent px-2 type-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-instrument";
-const SIDEBAR_ROW = "sidebar-nav-row grid h-control-lg w-full shrink-0 grid-cols-[14px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-full px-3 text-left type-ui focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-on-instrument";
+const SIDEBAR_ROW = "sidebar-nav-row grid h-control-lg w-full shrink-0 grid-cols-(--sidebar-nav-columns) items-center gap-2.5 rounded-full px-3 text-left type-ui focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-on-instrument";
+/* A chat row carries a title and its state, so it is two lines inside one pill rather than the
+   single-line grid the page rows use. Geometry only: the pair comes from SELECTED/UNSELECTED. */
+const CHAT_ROW = "sidebar-chat-row grid min-h-10.5 grid-cols-(--sidebar-chat-columns) items-center gap-x-2 gap-y-0 rounded-full px-3 py-1.25 text-left";
 const SELECTED = "bg-selected text-selected-ink hover:bg-selected-hover hover:text-selected-ink";
 const UNSELECTED = "bg-transparent text-on-instrument-muted hover:bg-instrument-hover hover:text-on-instrument";
 
@@ -149,7 +152,7 @@ export function ContextSidebar({
     [pinnedWorkspaceIds, workspaces],
   );
   return (
-    <aside className="context-sidebar flex h-full min-h-0 w-full flex-col gap-2 overflow-hidden bg-transparent text-ink">
+    <aside className="context-sidebar col-start-1 col-end-2 row-start-1 row-end-2 flex h-full min-h-0 w-full min-w-0 flex-col gap-2 overflow-hidden bg-transparent text-ink">
       <nav
         className="sidebar-mode-switch relative flex h-11 shrink-0 gap-0.5 overflow-hidden rounded-full bg-instrument p-1 isolate"
         style={{ "--mode-index": mode === "work" ? 0 : 1, "--mode-count": 2 } as CSSProperties}
@@ -188,12 +191,12 @@ export function ContextSidebar({
         </button>
       </nav>
 
-      {mode === "work" && workspace && <div className="sidebar-context">
+      {mode === "work" && workspace && <div className="sidebar-context h-workspace-card flex-none overflow-hidden rounded-panel">
         <WorkspacePicker value={workspace.id} workspaces={orderedWorkspaces} onValueChange={onOpenWorkspace} />
       </div>}
 
       <div className="sidebar-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        {mode === "work" && workspace && <nav className="sidebar-nav flex flex-col gap-0.5 rounded-panel bg-instrument p-2" aria-label="Workspace pages">
+        {mode === "work" && workspace && <nav className="sidebar-nav flex shrink-0 flex-col gap-0.5 rounded-panel bg-instrument p-2" aria-label="Workspace pages">
           {WORKSPACE_PAGES.map((item) => {
             const Icon = PAGE_ICONS[item];
             const count = pageCount(item, workspace);
@@ -215,7 +218,7 @@ export function ContextSidebar({
         </nav>}
 
         {mode === "work" && workspace && chats.length > 0 && <section className="sidebar-chats mt-2">
-          <div className="sidebar-section-label flex h-7 items-center gap-1.5 px-2.5 font-code type-mono-xs tracking-mono text-muted">
+          <div className="sidebar-section-label flex h-7 shrink-0 items-center justify-between gap-1.5 px-2.5 font-code type-mono-xs tracking-mono text-muted">
             <span>CHATS</span>
             <small className="font-display type-xs leading-none font-extrabold">{chats.length}</small>
             {onNewChat && <button
@@ -226,17 +229,17 @@ export function ContextSidebar({
               onClick={onNewChat}
             ><Plus size={12} strokeWidth={1.8} aria-hidden="true" /></button>}
           </div>
-          <nav className="sidebar-nav flex flex-col gap-0.5 rounded-panel bg-instrument p-2" aria-label="Chats">
+          <nav className="sidebar-nav flex shrink-0 flex-col gap-0.5 rounded-panel bg-instrument p-2" aria-label="Chats">
             {chats.map((item) => {
               const active = item.id === activeChatId;
               return <button
-                className={`sidebar-chat-row ${active ? SELECTED : UNSELECTED}`}
+                className={`${CHAT_ROW} ${active ? SELECTED : UNSELECTED}`}
                 type="button"
                 key={item.id}
                 aria-current={active ? "true" : undefined}
                 onClick={() => onSelectChat?.(item.id)}
               >
-                <i className={`sidebar-chat-dot ${item.busy ? "is-busy" : ""}`} aria-hidden="true" />
+                <i className={`sidebar-chat-dot size-1.5 rounded-full bg-current ${item.busy ? "is-busy opacity-100 animate-sidebar-chat-pulse motion-reduce:animate-none" : "opacity-45"}`} aria-hidden="true" />
                 <span className="min-w-0 truncate type-ui">{item.title}</span>
                 <small className="col-start-2 min-w-0 truncate font-code type-mono-xs tracking-mono uppercase opacity-70">{chatDetail(item, now)}</small>
               </button>;
@@ -246,8 +249,8 @@ export function ContextSidebar({
 
         {mode === "marketplace" && <div className="grid gap-2">
           <section>
-            <div className="sidebar-section-label flex h-7 items-center px-2.5 font-code type-mono-xs tracking-mono text-muted"><span>MARKETPLACE</span></div>
-            <nav className="sidebar-nav flex flex-col gap-0.5 rounded-panel bg-instrument p-2" aria-label="Marketplace categories">
+            <div className="sidebar-section-label flex h-7 shrink-0 items-center justify-between px-2.5 font-code type-mono-xs tracking-mono text-muted"><span>MARKETPLACE</span></div>
+            <nav className="sidebar-nav flex shrink-0 flex-col gap-0.5 rounded-panel bg-instrument p-2" aria-label="Marketplace categories">
               <button
                 className={sidebarRow(marketplaceRoute.kind === "discover")}
                 type="button"
@@ -275,8 +278,8 @@ export function ContextSidebar({
             </nav>
           </section>
           <section>
-            <div className="sidebar-section-label flex h-7 items-center px-2.5 font-code type-mono-xs tracking-mono text-muted"><span>MY LIBRARY</span></div>
-            <nav className="sidebar-nav flex flex-col gap-0.5 rounded-panel bg-instrument p-2" aria-label="My Library">
+            <div className="sidebar-section-label flex h-7 shrink-0 items-center justify-between px-2.5 font-code type-mono-xs tracking-mono text-muted"><span>MY LIBRARY</span></div>
+            <nav className="sidebar-nav flex shrink-0 flex-col gap-0.5 rounded-panel bg-instrument p-2" aria-label="My Library">
               {MARKETPLACE_LIBRARY.map(({ id, label, icon: Icon }) => {
                 const active = marketplaceRoute.kind === "library" && marketplaceRoute.section === id;
                 return <button

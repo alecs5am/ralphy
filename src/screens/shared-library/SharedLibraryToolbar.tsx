@@ -24,7 +24,9 @@ const unavailableReason = "This filter is unavailable from the current Core medi
 const CONTROL = "inline-flex h-7 items-center gap-1.5 rounded-control bg-surface-sunken px-2.5 type-label text-muted transition-colors duration-normal ease-instrument motion-reduce:transition-none motion-reduce:duration-0 hover:bg-surface-hover hover:text-ink";
 /* The select trigger arrives as a black pill from the shared control sheet; on this widget it is
    a sunken pill, and it keeps its hover feedback in the light-widget idiom. */
-const SELECT = "flex h-7 items-center gap-1.5 rounded-control bg-surface-sunken px-2 type-mono-md text-muted hover:bg-surface-hover hover:text-ink data-[state=open]:bg-surface-hover data-[state=open]:text-ink";
+/* This toolbar states its own select skin, so SelectMenu stands down (`tone="caller"`). The
+   ring is the theme ink: the shared on-dark ring is near-white on this light pill. */
+const SELECT = "flex h-7 items-center gap-1.5 rounded-control bg-surface-sunken px-2 type-mono-md text-muted hover:bg-surface-hover hover:text-ink data-[state=open]:bg-surface-hover data-[state=open]:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink";
 const VIEW_BUTTON = "inline-flex h-7 items-center gap-1 rounded-control px-2 type-xs transition-colors duration-normal ease-instrument motion-reduce:transition-none motion-reduce:duration-0";
 
 export function SharedLibraryToolbar({ query, controller }: {
@@ -51,13 +53,13 @@ export function SharedLibraryToolbar({ query, controller }: {
       <button className={`${VIEW_BUTTON} ${query.view === "grid" ? "is-active bg-instrument text-on-instrument" : "bg-transparent text-muted"}`} type="button" aria-pressed={query.view === "grid"} onClick={() => controller.setQuery({ view: "grid" })}><Grid2X2 size={13} aria-hidden="true" />Grid</button>
       <button className={`${VIEW_BUTTON} ${query.view === "list" ? "is-active bg-instrument text-on-instrument" : "bg-transparent text-muted"}`} type="button" aria-pressed={query.view === "list"} onClick={() => controller.setQuery({ view: "list" })}><List size={13} aria-hidden="true" />List</button>
     </div>
-    <SelectMenu overlayOwner="shared.toolbar" className={`shared-library-select ${SELECT}`} value={query.mediaKind} options={kinds} ariaLabel="Kind" prefix="Kind" onValueChange={(mediaKind) => controller.setQuery({ mediaKind })} />
-    <SelectMenu overlayOwner="shared.toolbar" className={`shared-library-select ${SELECT}`} value={query.provenance} options={provenances} ariaLabel="Provenance" prefix="Provenance" onValueChange={(provenance) => controller.setQuery({ provenance })} />
+    <SelectMenu tone="caller" overlayOwner="shared.toolbar" className={`shared-library-select ${SELECT}`} value={query.mediaKind} options={kinds} ariaLabel="Kind" prefix="Kind" onValueChange={(mediaKind) => controller.setQuery({ mediaKind })} />
+    <SelectMenu tone="caller" overlayOwner="shared.toolbar" className={`shared-library-select ${SELECT}`} value={query.provenance} options={provenances} ariaLabel="Provenance" prefix="Provenance" onValueChange={(provenance) => controller.setQuery({ provenance })} />
     {unavailable.map((label) => <button className={CONTROL} key={label} type="button" aria-disabled="true" aria-describedby={unavailableReasonId} data-unavailable-filter>{label}</button>)}
     <button className={CONTROL} type="button" aria-disabled="true" aria-describedby={unavailableReasonId} data-unavailable-filter>Group by entity</button>
     {/* The sort control is pushed to the far end of the toolbar until the row is narrow enough
         that it reads as its own line. */}
-    <SelectMenu overlayOwner="shared.toolbar" className={`shared-library-select ${SELECT} ml-auto @max-shared-header/main-region:ml-0`} value={query.sort} options={sorts} ariaLabel="Sort" prefix="Sort" onValueChange={(sort) => controller.setQuery({ sort })} />
+    <SelectMenu tone="caller" overlayOwner="shared.toolbar" className={`shared-library-select ${SELECT} ml-auto @max-shared-header/main-region:ml-0`} value={query.sort} options={sorts} ariaLabel="Sort" prefix="Sort" onValueChange={(sort) => controller.setQuery({ sort })} />
     {dirty && <button className={CONTROL} type="button" onClick={() => controller.setQuery({ text: "", mediaKind: "all", provenance: "all" })}><X size={12} aria-hidden="true" />Clear filters</button>}
     <p className="m-0 w-full type-mono-md leading-caption text-muted" id={unavailableReasonId}>{unavailableReason} Grouping by entity is unavailable from Core.</p>
   </form>;

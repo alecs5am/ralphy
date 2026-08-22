@@ -57,7 +57,10 @@ const sortOptions = [
   { value: "name", label: "Name" },
 ] satisfies Array<SelectMenuOption<MarketplaceQueryState["sort"]>>;
 
-const filterClass = "h-control-md shrink-0 rounded-control bg-surface-sunken px-3 text-xs text-muted hover:bg-surface-hover hover:text-ink";
+/* The filter pills state their own skin, so SelectMenu is told to stand down (`tone="caller"`)
+   and exactly one surface, ink, height, radius and ring lands on each trigger. The ring is the
+   theme ink: the shared on-dark ring is near-white and vanished on this light pill. */
+const filterClass = "h-control-md shrink-0 rounded-control bg-surface-sunken px-3 text-xs text-muted hover:bg-surface-hover hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink";
 
 function queryWithFilter<Key extends keyof MarketplaceQueryState["filters"]>(
   query: MarketplaceQueryState,
@@ -120,7 +123,7 @@ export function MarketplaceHeader({
     </form>
     {!sidebarVisible && <div className="marketplace-header-category-menu flex min-w-0 items-center gap-2 @max-marketplace-split/main-region:justify-between">
       <span className="type-meta text-muted">Marketplace category</span>
-      <SelectMenu className={`${filterClass} marketplace-category-select`} overlayOwner="marketplace.header"
+      <SelectMenu className={`${filterClass} marketplace-category-select`} tone="caller" overlayOwner="marketplace.header"
         ariaLabel="Marketplace category"
         value={selectedCategory ?? (query.filters.category === "all" ? "all" : query.filters.category)}
         options={categoryOptions}
@@ -131,16 +134,16 @@ export function MarketplaceHeader({
       />
     </div>}
     <div className="marketplace-filter-row col-span-full flex min-w-0 flex-wrap items-center gap-1.5" aria-label="Marketplace filters">
-      <SelectMenu className={filterClass} overlayOwner="marketplace.header" ariaLabel="Category" prefix="Category" value={query.filters.category} options={categoryOptions} onValueChange={(category) => category === "all" ? onQueryChange(queryWithFilter(query, "category", "all")) : onOpenCategory(category)} />
-      <SelectMenu className={filterClass} overlayOwner="marketplace.header" ariaLabel="Source" prefix="Source" value={query.filters.source} options={sourceOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "source", value))} />
-      <SelectMenu className={filterClass} overlayOwner="marketplace.header" ariaLabel="License" prefix="License" value={query.filters.license} options={licenseOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "license", value))} />
-      <SelectMenu className={filterClass} overlayOwner="marketplace.header" ariaLabel="Compatibility" prefix="Compatibility" value={query.filters.compatibility} options={compatibilityOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "compatibility", value))} />
+      <SelectMenu className={filterClass} tone="caller" overlayOwner="marketplace.header" ariaLabel="Category" prefix="Category" value={query.filters.category} options={categoryOptions} onValueChange={(category) => category === "all" ? onQueryChange(queryWithFilter(query, "category", "all")) : onOpenCategory(category)} />
+      <SelectMenu className={filterClass} tone="caller" overlayOwner="marketplace.header" ariaLabel="Source" prefix="Source" value={query.filters.source} options={sourceOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "source", value))} />
+      <SelectMenu className={filterClass} tone="caller" overlayOwner="marketplace.header" ariaLabel="License" prefix="License" value={query.filters.license} options={licenseOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "license", value))} />
+      <SelectMenu className={filterClass} tone="caller" overlayOwner="marketplace.header" ariaLabel="Compatibility" prefix="Compatibility" value={query.filters.compatibility} options={compatibilityOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "compatibility", value))} />
       {(selectedCategory === "models" || query.filters.category === "models") && <>
-        <SelectMenu className={filterClass} overlayOwner="marketplace.header" ariaLabel="Modality" prefix="Modality" value={query.filters.modality} options={modalityOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "modality", value))} />
-        <SelectMenu className={filterClass} overlayOwner="marketplace.header" ariaLabel="Format" prefix="Format" value={query.filters.format} options={formatOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "format", value))} />
+        <SelectMenu className={filterClass} tone="caller" overlayOwner="marketplace.header" ariaLabel="Modality" prefix="Modality" value={query.filters.modality} options={modalityOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "modality", value))} />
+        <SelectMenu className={filterClass} tone="caller" overlayOwner="marketplace.header" ariaLabel="Format" prefix="Format" value={query.filters.format} options={formatOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "format", value))} />
       </>}
       <span className="marketplace-filter-spacer min-w-3 flex-1 @max-marketplace-split/main-region:hidden" />
-      <SelectMenu className={filterClass} overlayOwner="marketplace.header" ariaLabel="Sort Marketplace" prefix="Sort" value={query.sort} options={sortOptions} align="end" onValueChange={(sort) => onQueryChange({ ...query, sort })} />
+      <SelectMenu className={filterClass} tone="caller" overlayOwner="marketplace.header" ariaLabel="Sort Marketplace" prefix="Sort" value={query.sort} options={sortOptions} align="end" onValueChange={(sort) => onQueryChange({ ...query, sort })} />
     </div>
     {activeFilters.length > 0 && <div className="marketplace-filter-chips col-span-full flex min-w-0 flex-wrap gap-1.5" aria-label="Active filters">
       {activeFilters.map(({ label, clear }) => <button className="flex h-7 items-center gap-1.5 rounded-control bg-instrument px-3 type-meta text-on-instrument focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-on-instrument" type="button" key={label} onClick={clear}>{label}<X className="size-3" aria-hidden="true" /></button>)}

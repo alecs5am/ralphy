@@ -20,6 +20,10 @@ export const libraryInstrumentStates = defineInstrumentScreenStates({
   landmarks: ["Workspace overview", "Production library"],
 } as const);
 
+/* A list row on the desk: no rule, no border -- separation is the hover surface. */
+const ROW = "rounded-cell hover:bg-surface-hover";
+const ROW_META = "type-sm text-muted";
+
 interface LibraryScreenProps {
   catalog: CatalogResult | null;
   error?: string | null;
@@ -40,10 +44,10 @@ function Metric({
   icon: React.ReactNode;
 }) {
   return (
-    <div className="metric">
-      <span className="metric-icon">{icon}</span>
-      <span className="metric-value">{value}</span>
-      <span className="metric-label">{label}</span>
+    <div className="metric grid min-h-19 min-w-0 grid-cols-(--metric-columns) content-center px-4.5 py-3 [grid-template-areas:var(--metric-areas)]">
+      <span className="metric-icon grid size-6 place-items-center self-center rounded-field bg-surface-sunken text-muted [grid-area:icon]">{icon}</span>
+      <span className="metric-value truncate font-code type-lg [grid-area:value]">{value}</span>
+      <span className="metric-label type-sm text-muted [grid-area:label]">{label}</span>
     </div>
   );
 }
@@ -56,17 +60,17 @@ function WorkspaceLine({
   onOpen(): void;
 }) {
   return (
-    <button className="entity-line" type="button" onClick={onOpen}>
-      <span className="entity-monogram">
+    <button className={`entity-line ${ROW}`} type="button" onClick={onOpen}>
+      <span className="entity-monogram bg-desk-primary text-desk-primary-ink">
         {workspace.name.slice(0, 2).toLocaleUpperCase()}
       </span>
       <span className="entity-line-copy">
         <strong>{workspace.name}</strong>
-        <small>
+        <small className={ROW_META}>
           {workspace.description || "Ralphy production workspace"}
         </small>
       </span>
-      <span className="entity-line-stats">
+      <span className="entity-line-stats flex gap-4 font-code type-xs text-muted">
         <span>{workspace.projectCount} projects</span>
         <span>{workspace.finalCount} finals</span>
       </span>
@@ -88,12 +92,12 @@ export function LibraryScreen({
     const state = restoring ? "restoring" : error ? "error" : "unavailable";
     return (
       <InstrumentScreenRoot descriptor={libraryInstrumentStates} state={state}>
-      <main className="main-region empty-library">
+      <main className="main-region empty-library grid min-h-full w-full place-items-center">
         <div className="empty-library-content">
           <div className="ralphy-wordmark">RALPHY</div>
           <h2>Home library unavailable</h2>
           <p>{error ?? "Ralphy could not open ~/.ralphy."}</p>
-          <button className="command-button is-primary" type="button" disabled={restoring} onClick={onRetry}>
+          <button className="command-button is-primary bg-desk-primary text-desk-primary-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-desk-primary-ink" type="button" disabled={restoring} onClick={onRetry}>
             {restoring ? "Opening…" : "Retry"}
           </button>
         </div>
@@ -117,15 +121,15 @@ export function LibraryScreen({
   return (
     <InstrumentScreenRoot descriptor={libraryInstrumentStates} state={catalog.workspaces.length === 0 ? "empty" : "ready"}>
     <main className="main-region">
-      <div className="screen-header">
+      <div className="screen-header mx-auto mb-6 flex min-h-18 max-w-screen-measure items-start justify-between gap-6">
         <div>
           <div className="screen-kicker">Production library</div>
-          <h2>Workspace overview</h2>
-          <p className="screen-path" title={catalog.rootPath}>{catalog.rootPath}</p>
+          <h2 className="mb-1.25 type-xl">Workspace overview</h2>
+          <p className="screen-path max-w-screen-copy truncate font-code type-xs text-muted" title={catalog.rootPath}>{catalog.rootPath}</p>
         </div>
       </div>
 
-      <section className="metrics-band" aria-label="Library summary">
+      <section className="metrics-band mb-5 grid grid-cols-(--metrics-band-columns)" aria-label="Library summary">
         <Metric
           label="Workspaces"
           value={catalog.workspaces.length}
@@ -146,7 +150,7 @@ export function LibraryScreen({
             <h3>Recent workspaces</h3>
             <span>By activity</span>
           </div>
-          <div className="entity-list">
+          <div className="entity-list flex flex-col">
             {ordered.slice(0, 8).map((workspace) => (
               <WorkspaceLine
                 key={workspace.id}
@@ -162,18 +166,18 @@ export function LibraryScreen({
             <h3>Needs attention</h3>
             <span>{attention.length}</span>
           </div>
-          <div className="attention-list">
+          <div className="attention-list flex flex-col">
             {attention.slice(0, 8).map((project) => (
               <button
                 type="button"
-                className="attention-line"
+                className={`attention-line ${ROW}`}
                 key={project.id}
                 onClick={() => onOpenProject(project)}
               >
                 <span className="status-dot" />
                 <span>
                   <strong>{project.name}</strong>
-                  <small>{project.phase ?? project.status} · no final render</small>
+                  <small className={ROW_META}>{project.phase ?? project.status} · no final render</small>
                 </span>
                 <ArrowRight size={14} aria-hidden="true" />
               </button>

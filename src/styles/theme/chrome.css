@@ -2,5 +2,82 @@
    the shared theme layer. Every key names a role and resolves to a token in tokens.css or a
    value the design fixes for that role; a component then reaches for the name, never a
    literal. */
+
+/* Multi-part grid templates and mask geometry. These are plain custom properties rather than
+   @theme keys because neither `grid-template-columns` nor `mask-*` is a Tailwind namespace and
+   `@theme inline` never emits the variable, so a `grid-cols-` or `mask-size` utility that reads
+   one of these keys has to find a real declaration on the element. */
+:root {
+  /* A select trigger: the value takes what is left, the chevron and the meta are intrinsic. */
+  --select-menu-trigger-columns: minmax(0, 1fr) auto;
+  /* A menu row: an optional glyph, the copy, and an optional mono figure. */
+  --select-menu-item-columns: auto minmax(0, 1fr) auto;
+  /* A workspace option: identity plate, copy, project count, check column. */
+  --workspace-option-columns: 28px minmax(0, 1fr) auto 14px;
+  /* A sidebar page row: the glyph column, the label, and its counter. */
+  --sidebar-nav-columns: 14px minmax(0, 1fr) auto;
+  /* A chat row: the state dot's column beside the title, which takes the rest. */
+  --sidebar-chat-columns: 8px minmax(0, 1fr);
+  /* A metric tile: the glyph column beside a value and its label, stacked. */
+  --metric-columns: 32px minmax(0, 1fr);
+  --metric-areas: "icon value" "icon label";
+  /* A metric band fits as many tiles as its own width allows, so no breakpoint names them. */
+  --metrics-band-columns: repeat(auto-fit, minmax(184px, 1fr));
+  /* The project grid fills its row with cards no narrower than one preview plus its copy. */
+  --workspace-project-grid-columns: repeat(auto-fill, minmax(318px, 1fr));
+  /* The dither plates are painted through a mask cut at the size of the artwork. */
+  --workspace-hero-mask: url("/assets/dither/ribbon-card.png");
+  --workspace-hero-mask-hi: url("/assets/dither/ribbon-card-hi.png");
+  --workspace-hero-mask-size: 232px 118px;
+  --workspace-option-mask: url("/assets/dither/row-field.png");
+  --workspace-option-mask-size: 268px 54px;
+}
+
 @theme inline {
+  /* The ring for a control standing on a black widget: the theme ink would be black on black
+     in the light theme. */
+  --color-focus-on-instrument: var(--instrument-focus-on-dark);
+
+  /* The reserved native traffic-light inset, measured in the packaged app: the sidebar row
+     starts after three lights, the collapsed main row after three lights plus its gutter. */
+  --spacing-traffic-sidebar: 68px;
+  --spacing-traffic-main: 76px;
+
+  /* The workspace card is a fixed-height sidebar widget; the picker and its hero fill it. */
+  --spacing-workspace-card: 118px;
+  /* The dither plate behind one workspace option, cut from the left edge of the row. */
+  --spacing-workspace-option-field: 150px;
+  /* The picker list scrolls after this much, so the popover never covers the sidebar. */
+  --spacing-picker-list: 340px;
+
+  /* The reading measures of a screen header: the header itself, and its description. */
+  --spacing-screen-measure: 1200px;
+  --spacing-screen-copy: 720px;
+  /* The projects filter never shrinks past its placeholder, and stops growing once the desk
+     is wide enough to give the header two columns. */
+  --spacing-workspace-search: 240px;
+  --spacing-workspace-search-max: 340px;
+
+  /* A mono figure set in Doto: one step tighter than the label tracking. */
+  --tracking-figure: 0.04em;
+
+  /* Motion. The keyframes have no utility form; the name that reaches them does. */
+  --animate-sidebar-chat-pulse: sidebar-chat-pulse 1.4s var(--ease) infinite;
+
+  /* The window controls and the header actions stand above the header's own content, and
+     below every layer tokens.css names. */
+  --z-index-window-controls: 4;
+
+  /* Breakpoints read against a content row and never the window: the sidebar and the chat rail
+     change these surfaces' width without the viewport moving. */
+  --container-workspace-header: 560px;  /* the projects header gets its second column */
+  --container-activity-filters: 640px;  /* the activity toolbar drops its filter selects */
+}
+
+/* @keyframes has no utility form, so the pulse the busy chat dot names above is declared here
+   beside it. The element that reads it carries its own `motion-reduce:animate-none`: an
+   !important declaration in an unlayered sheet loses to an !important utility inside
+   @layer utilities, so a reduced-motion blanket in CSS cannot hold back markup-declared motion. */
+@keyframes sidebar-chat-pulse {
+  50% { opacity: .25; }
 }

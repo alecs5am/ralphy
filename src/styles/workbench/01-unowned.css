@@ -1,8 +1,9 @@
 /* Rules that were sitting in the calendar chunk but style elements no component of the
    calendar-and-memory area renders. They are kept verbatim, and at the cascade position they
    had -- this chunk is still the first workbench import, so the global element resets below
-   still lose to every later chunk, and `.sidebar-chrome` / `.main-header` still lose to
-   02-select-menu.css, which restates them.
+   still lose to every later chunk. The `.sidebar-chrome` / `.main-header` rules used to be
+   restated by the chrome chunk; that chunk is gone and Titlebar now carries its own utilities,
+   which win from `@layer utilities` regardless of what this file declares.
 
    Owned by: reset.css (the global element resets -- cursor, and the 400 weight on every
    heading and `strong`), the instrument shell (`.workbench` and its resize state,

@@ -16,6 +16,13 @@ import { activitySearchText, activitySource, humanizeActivity, summarizeActivity
 import { AutoCursorTail } from "./AutoCursorTail";
 import { useRememberedScroll } from "./scroll-memory";
 
+/* These two filters keep the surface, ink, height and radius 06-unowned.css still declares for
+   `.activity-toolbar .select-menu-trigger`, so SelectMenu stands down (`tone="caller"`) and only
+   the padding it used to inherit from the shared base is restated here. The narrow-desk hide was
+   an `@container project-domain` rule in 09-activity-inspector.css; it has to be a variant now,
+   because a `display` utility on the trigger beats an authored `display: none`. */
+const ACTIVITY_SELECT = "px-3 @max-activity-filters/project-domain:hidden";
+
 const dateValue = (value: number) => new Date(value < 1_000_000_000_000 ? value * 1000 : value);
 const isMilestone = (action: string) => /(?:completed|archived|selected|sealed|resolved)$/i.test(action);
 type ActivityTone = "document" | "run" | "composition" | "unit" | "feedback" | "success" | "archive" | "neutral";
@@ -177,8 +184,8 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
     <div className="activity-log-main flex min-h-0 flex-col gap-2">
       <div className="activity-toolbar m-0 flex min-h-11 flex-wrap items-center gap-2 bg-transparent p-0">
         <label className="activity-search flex h-9 min-w-56 flex-1 items-center gap-2 rounded-control bg-surface px-3"><Search size={14} /><input className="min-w-0 flex-1 bg-transparent type-base text-ink outline-none placeholder:text-muted" aria-label="Search activity" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search events" /></label>
-        <SelectMenu<"all" | ActivitySource> overlayOwner="project.activity" value={source} options={sourceOptions} ariaLabel="Filter activity source" onValueChange={setSource} />
-        <SelectMenu overlayOwner="project.activity" value={model} options={modelOptions} ariaLabel="Filter activity model" onValueChange={setModel} />
+        <SelectMenu<"all" | ActivitySource> className={ACTIVITY_SELECT} tone="caller" overlayOwner="project.activity" value={source} options={sourceOptions} ariaLabel="Filter activity source" onValueChange={setSource} />
+        <SelectMenu className={ACTIVITY_SELECT} tone="caller" overlayOwner="project.activity" value={model} options={modelOptions} ariaLabel="Filter activity model" onValueChange={setModel} />
       </div>
       <div className="activity-table min-h-0 flex-1 overflow-hidden bg-transparent" role="table" aria-label="Project activity">
         <div className="activity-table-head rounded-panel bg-surface px-3 type-meta uppercase tracking-mono text-muted" role="row"><span>Time</span><span>Source</span><span>Event</span><span>Entity</span><span>Model</span><span>Cost</span></div>

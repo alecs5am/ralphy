@@ -216,6 +216,7 @@ export function SettingsSelect<Value extends string>({ label, value, options, mo
   onChange(next: Value): void;
 }) {
   return <SelectMenu
+    tone="caller"
     className={`inline-flex h-control-md max-w-settings-select gap-2.25 rounded-control bg-surface-sunken px-3 text-ink hover:bg-surface-hover focus-visible:outline-ink focus-visible:outline-offset-2 ${
       mono ? "font-code type-mono-md" : "type-sm"}`}
     overlayOwner="settings.rows"
