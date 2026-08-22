@@ -131,7 +131,7 @@
 
 .select-menu-prefix,
 .select-menu-trigger > small {
-  color: var(--fg-3);
+  color: inherit;
   font-size: var(--text-sm);
   white-space: nowrap;
 }

@@ -47,6 +47,30 @@ forbidden.
 `scripts/tailwind-migration-baseline.json` is a ratchet: the audit fails if any family rises
 above its baseline. When an area lands, lower the numbers it removed. Never raise one.
 
+## One property, one utility
+
+Two utilities of the same property on one element are resolved by the order of the generated
+stylesheet, not by the order of the class string. The author cannot see that order, so the
+outcome is arbitrary.
+
+This already shipped a defect: a shared `HEADER_ACTION` base carried `bg-instrument-raised
+text-on-instrument-muted`, and the primary button appended `bg-surface text-ink`. Different
+halves won — the light surface from the caller, the on-dark ink from the base — and the
+screen's primary action rendered invisible ink on a light pill.
+
+So:
+
+- A shared base class carries **geometry and behaviour only**: layout, size, radius,
+  transition, focus, disabled. Never a surface or an ink a caller might replace.
+- Surface and ink are stated **as a pair**, by the caller, in one place. `bg-*` and `text-*`
+  travel together because a half-override is what breaks.
+- If two classes must both name a property, merge them into one string at the call site
+  rather than layering base plus override.
+
+The live check is the design audit: it forces `:hover`/`:focus-visible` and measures the ink
+of every mark against the surface it actually lands on. Run it against your area in **both**
+themes before you report; token equivalence on paper does not catch this.
+
 ## What must stay true
 
 Run all of these before claiming an area done:

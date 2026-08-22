@@ -33,7 +33,13 @@ export const sharedLibraryInstrumentStates = defineInstrumentScreenStates({
    the desk, where the theme ink and the ring reset.css paints are the right ones. */
 const SCREEN = "main-region shared-library-screen relative flex min-h-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 type-base text-ink";
 const TOOLBAR_SHELL = "shared-library-toolbar m-0 flex min-h-9 w-full max-w-none flex-none flex-wrap items-center gap-2 rounded-panel bg-surface p-2";
-const HEADER_ACTION = "inline-flex min-h-9 items-center gap-2 rounded-control bg-instrument-raised px-3 type-sm text-on-instrument-muted transition-colors duration-normal ease-instrument motion-reduce:transition-none motion-reduce:duration-0 hover:bg-ghost-hover hover:text-on-instrument focus-visible:outline-focus-on-instrument disabled:cursor-not-allowed disabled:opacity-50";
+/* Geometry and behaviour only: a surface or an ink here would compete with the pair a caller
+   states, and two utilities of one property are resolved by the generated stylesheet's order
+   rather than by the class string. */
+const HEADER_ACTION = "inline-flex min-h-9 items-center gap-2 rounded-control px-3 type-sm transition-colors duration-normal ease-instrument motion-reduce:transition-none motion-reduce:duration-0 focus-visible:outline-focus-on-instrument disabled:cursor-not-allowed disabled:opacity-50";
+const HEADER_ACTION_GHOST = "bg-instrument-raised text-on-instrument-muted hover:bg-ghost-hover hover:text-on-instrument";
+/* Primary is the inversion of its context, and the context here is a black widget. */
+const HEADER_ACTION_PRIMARY = "bg-on-instrument text-instrument hover:bg-selected-hover hover:text-instrument";
 const DESK_ACTION = "inline-flex h-7 items-center gap-1.5 rounded-control bg-surface-sunken px-2.5 type-label text-muted transition-colors duration-normal ease-instrument motion-reduce:transition-none motion-reduce:duration-0 hover:bg-surface-hover hover:text-ink";
 const NOTICE = "flex flex-none items-center gap-2.5 bg-surface type-label text-ink [&>span]:min-w-0 [&>span]:flex-1 [&>svg]:w-3.75";
 const CELL = "min-w-0 truncate";
@@ -217,7 +223,7 @@ function ScreenHeader({ workspaceName, totals, actionsUnavailableReason, onAdd, 
         they stack — measured against the row, never the window. */}
     <div className="flex flex-wrap items-center justify-end gap-2 @max-shared-header/main-region:flex-col-reverse @max-shared-header/main-region:items-end">
       {totals && <div className="flex flex-col items-center gap-2 font-code type-xs tracking-caps-tight whitespace-nowrap text-on-instrument-muted"><span>{countLabel(totals.count)}</span><span>{bytesLabel(totals.bytes)}</span></div>}
-      <div className="flex items-center gap-2"><button className={HEADER_ACTION} type="button" disabled={!!actionsUnavailableReason} aria-describedby={actionsUnavailableReason ? "shared-library-initializing-actions" : undefined} onClick={(event) => onPromote(event.currentTarget)}><Upload size={13} aria-hidden="true" />Promote from project</button><button className={`shared-library-primary ${HEADER_ACTION} bg-surface text-ink hover:bg-surface-hover hover:text-ink`} type="button" disabled={!!actionsUnavailableReason} aria-describedby={actionsUnavailableReason ? "shared-library-initializing-actions" : undefined} onClick={(event) => onAdd(event.currentTarget)}><Plus size={13} aria-hidden="true" />Add artifact</button></div>
+      <div className="flex items-center gap-2"><button className={`${HEADER_ACTION} ${HEADER_ACTION_GHOST}`} type="button" disabled={!!actionsUnavailableReason} aria-describedby={actionsUnavailableReason ? "shared-library-initializing-actions" : undefined} onClick={(event) => onPromote(event.currentTarget)}><Upload size={13} aria-hidden="true" />Promote from project</button><button className={`shared-library-primary ${HEADER_ACTION} ${HEADER_ACTION_PRIMARY}`} type="button" disabled={!!actionsUnavailableReason} aria-describedby={actionsUnavailableReason ? "shared-library-initializing-actions" : undefined} onClick={(event) => onAdd(event.currentTarget)}><Plus size={13} aria-hidden="true" />Add artifact</button></div>
       {actionsUnavailableReason && <p className="m-0 max-w-shared-reason type-mono-md leading-caption text-right text-on-instrument-muted" id="shared-library-initializing-actions">{actionsUnavailableReason}</p>}
     </div>
   </header>;
