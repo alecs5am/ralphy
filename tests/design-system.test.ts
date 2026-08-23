@@ -54,6 +54,15 @@ const marketplaceSurfaceSource = [
 ].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
 const chromeTheme = readFileSync(join(process.cwd(), "src/styles/theme/chrome.css"), "utf8");
 const titlebarSource = readFileSync(join(process.cwd(), "src/components/Titlebar.tsx"), "utf8");
+const shellTheme = readFileSync(join(process.cwd(), "src/styles/theme/shell.css"), "utf8");
+const shellStyles = readStylesheet("instrument.css");
+const shellSource = [
+  "src/instrument/InstrumentShell.tsx",
+  "src/instrument/primitives.tsx",
+  "src/instrument/InstrumentProfileControl.tsx",
+  "src/instrument/DynamicIsland.tsx",
+  "src/instrument/overlay-registry.tsx",
+].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
 const selectMenuSource = readFileSync(join(process.cwd(), "src/components/ui/SelectMenu.tsx"), "utf8");
 const agentRailSource = readFileSync(join(process.cwd(), "src/components/UtilityPanels.tsx"), "utf8");
 const agentRailTheme = readFileSync(join(process.cwd(), "src/styles/theme/agent-rail.css"), "utf8");
@@ -993,7 +1002,7 @@ describe("design system contract", () => {
     expect(styles).toMatch(/--radius-md:\s*10px/);
     // The header states its surface in its own markup now, and design v2 has no borders to
     // cancel, so there is no zero-border declaration left to assert.
-    expect(titlebarSource).toMatch(/className="main-header[^"]*\bbg-desk\b[^"]*\btext-ink\b/);
+    expect(titlebarSource).toMatch(/main-header \$\{CHROME_BAND\}[^`]*\bbg-desk\b[^`]*\btext-ink\b/);
     expect(titlebarSource).not.toMatch(/\bborder(?:-[a-z]+)?-\d/);
     expect(styles).toMatch(/\.asset-modal-surface,[\s\S]*corner-shape:\s*squircle/);
   });
@@ -1165,6 +1174,60 @@ describe("design system contract", () => {
     for (const key of ["--container-calendar-toolbar", "--container-memory-row"]) expect(calendarMemoryTheme).toContain(key);
     expect(calendarMemorySurfaceSource).toContain("@max-calendar-toolbar/main-region:");
     expect(calendarMemorySurfaceSource).toContain("@max-memory-row/main-region:");
+  });
+
+  test("keeps the instrument shell frame on named roles and one scrim owner", () => {
+    // The frame's own stylesheets are down to what a utility cannot express. `instrument.css` is
+    // the scrim contract plus the rules this area does not own; `work-surfaces.css` is the legacy
+    // token layer and nothing else.
+    const instrument = readStylesheet("instrument.css");
+    const workSurfaces = readFileSync(join(process.cwd(), "src/styles/work-surfaces.css"), "utf8");
+    const unowned01 = readFileSync(join(process.cwd(), "src/styles/workbench/01-unowned.css"), "utf8");
+    const reset = readFileSync(join(process.cwd(), "src/styles/reset.css"), "utf8");
+
+    // One owner for the scrim. Ten components render `data-instrument-overlay-backdrop` on their
+    // own overlay and state only position and layer, so a utility on any one of them would leave
+    // the others unpainted -- there is no utility form for "every element with this attribute".
+    expect(instrument).toMatch(/\[data-instrument-overlay-backdrop\]\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--instrument-widget-dark\) 62%/s);
+    expect(workSurfaces).not.toMatch(/^\[data-instrument-overlay-backdrop\]/m);
+    // A per-overlay tone is a `scrimClassName` on the overlay, not a second rule in the sheet.
+    expect(shellSource).toContain('scrimClassName="z-sheet-backdrop bg-instrument/52"');
+
+    // The reduced-motion blanket is gone from `work-surfaces.css`: an `!important` declaration in
+    // an unlayered sheet loses to an `!important` utility inside `@layer utilities`, so it held
+    // nothing back over the 586 elements it matched. Motion is stopped where it is declared.
+    expect(workSurfaces).not.toMatch(/prefers-reduced-motion/);
+    for (const source of [shellSource, readFileSync(join(process.cwd(), "src/components/ContextSidebar.tsx"), "utf8")]) {
+      expect(source).toMatch(/motion-reduce:(?:animate-none|duration-0|\[transition-property:none\])/);
+    }
+    // The sidebar's slide-in is the defect this found: `instrument.css` declared the animation
+    // after its own reduced-motion cancel, so the cancel never applied at all.
+    expect(instrument).not.toContain("instrument-sidebar-in");
+    expect(shellTheme).toMatch(/--animate-sidebar-in:\s*instrument-sidebar-in/);
+
+    // Global element rules belong in the global reset, not in one area's chunk.
+    expect(unowned01).not.toMatch(/cursor:\s*pointer/);
+    expect(reset).toMatch(/button:not\(:disabled\)[^{]*\{[^}]*cursor:\s*pointer/s);
+    expect(reset).toMatch(/strong\s*\{[^}]*font-weight:\s*400/s);
+
+    // Container queries only, read against a content row and never the window.
+    expect(shellSource).not.toMatch(/@(?:min|max)-\[/);
+    expect(shellSource).not.toMatch(/\b(?:sm|md|lg|xl|2xl):/);
+    expect(shellTheme).toContain("--container-screen-header: 560px");
+    // No borders, no shadows, no gradients in the frame's markup. `border-radius` is exempt: the
+    // island's trigger inherits the plate's own radius so its focus ring follows the morph
+    // instead of being cut square by the plate's rounded overflow clip.
+    expect(shellSource.replace(/border-radius/g, "")).not.toMatch(/\b(?:border|shadow|bg-gradient|bg-linear|bg-radial)-/);
+    expect(shellSource).not.toMatch(/box-shadow/);
+
+    // The island's plate morphs between two named track pairs rather than two literals, and the
+    // rail sheet's plate is stated by the component that opens it: portalled to `document.body`
+    // it cannot read the shell's own rail width, so the width comes from a child in scope.
+    expect(shellTheme).toMatch(/--island-rows:\s*36px 0fr/);
+    expect(shellTheme).toMatch(/--island-rows-open:\s*44px 1fr/);
+    expect(shellSource).toContain("grid-rows-(--island-rows-open)");
+    expect(shellSource).toMatch(/surfaceClassName="fixed z-sheet inset-y-2 left-2 w-max max-w-overlay-fit/);
+    expect(instrument).not.toContain("right-rail-sheet");
   });
 
   test("keeps the workbench chrome on named roles, container widths and no depth", () => {
@@ -1444,8 +1507,19 @@ describe("design system contract", () => {
     expect(pickerSource).not.toMatch(/\bshadow-/);
     expect(renderer).toContain("[-webkit-app-region:no-drag]");
     expect(styles).toMatch(/button:not\(:disabled\)[^{]*\{[^}]*cursor:\s*pointer/s);
-    expect(styles).toMatch(/\.instrument-shell\s*\{[^}]*--instrument-left-width:\s*240px/s);
-    expect(styles).toMatch(/\.instrument-shell\s*\{[^}]*--instrument-right-rail-width:\s*292px/s);
+    // The two column fallbacks moved to the shell's own theme file with the rest of its role
+    // keys. They cannot live on `:root`: the rail's menus derive their fit from the rail width,
+    // and a custom property's `var()` is substituted where the property is declared.
+    expect(shellTheme).toMatch(/\.instrument-shell\s*\{[^}]*--instrument-left-width:\s*240px/s);
+    expect(shellTheme).toMatch(/\.instrument-shell\s*\{[^}]*--instrument-right-rail-width:\s*292px/s);
+    // The desk column names the container eight other areas' width variants read. Its stable
+    // gutter cannot be a utility: `marketplace.css` gives the gutter back for the one route that
+    // scrolls itself, with an unlayered `!important` that a utility would beat, so the gutter and
+    // the stage's `min-height` stay unlayered in `instrument.css` at the position they had.
+    expect(shellSource).toContain("@container/instrument-desk");
+    expect(shellSource).not.toContain("[scrollbar-gutter:stable]");
+    expect(shellStyles).toMatch(/\.instrument-desk-scroll\s*\{\s*scrollbar-gutter:\s*stable/);
+    expect(shellStyles).toMatch(/\.instrument-desk-scroll\s*>\s*\.main-content-stage\s*\{\s*min-height:\s*100%/);
   });
 
   test("transfers the approved dither workspace hero and project identity system", () => {

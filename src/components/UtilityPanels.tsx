@@ -66,6 +66,10 @@ const CONNECT_COLUMN = "w-full max-w-agent-connect-column";
 const FIELD_RING = "focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-focus-on-instrument";
 const FIELD_INPUT = "min-w-0 flex-1 border-0 bg-transparent text-on-instrument outline-0";
 const SPINNER = "is-spinning motion-reduce:animate-none";
+/* The rail header's two glyph controls. They used to be a bare `.icon-button`, whose surface and
+   ink came from the legacy `--fg-2` / `--hover` pair in 01-unowned.css; the rail is a black
+   widget in both themes, so the on-dark pair is stated here instead. */
+const HEADER_GLYPH = "icon-button inline-grid size-7 flex-none place-items-center rounded-control p-0 text-on-instrument-muted hover:bg-ghost-hover hover:text-on-instrument disabled:text-on-instrument-muted-decorative";
 
 function AgentProviderIcon({
   provider,
@@ -179,7 +183,7 @@ export function AgentChatPanel({
         <AgentChatMenu chat={chat} />
         <span className="agent-header-actions flex items-center gap-0.5">
           <button
-            className="icon-button"
+            className={HEADER_GLYPH}
             type="button"
             title="New chat"
             aria-label="New chat"
@@ -189,7 +193,7 @@ export function AgentChatPanel({
             <Plus size={15} strokeWidth={1.5} />
           </button>
           <button
-            className="icon-button"
+            className={HEADER_GLYPH}
             type="button"
             title="Close right panel"
             aria-label="Close right panel"

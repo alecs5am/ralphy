@@ -147,7 +147,9 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
   const [railHost] = useState<HTMLElement | null>(() => {
     if (typeof document === "undefined") return null;
     const host = document.createElement("div");
-    host.setAttribute("class", "instrument-right-rail-host");
+    // The host is created imperatively so it can be re-parented between the docked column, the
+    // overlay sheet and the parking bay without React remounting the rail inside it.
+    host.setAttribute("class", "instrument-right-rail-host flex size-full flex-col overflow-hidden");
     return host;
   });
   const [columnResizing, setColumnResizing] = useState(false);
@@ -331,10 +333,11 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
     register,
   }), [activeRail.owner, closeRail, mode, openRail, railHost, register]);
 
+  const railContentHidden = activeRail.owner !== "chat" && activeRail.owner !== "media-review";
   return <ScrollContext.Provider value={scrollContext}>
     <RightRailContext.Provider value={railContext}>
       <div
-        className="instrument-shell col-span-3 row-start-1 grid h-full min-h-0 w-full min-w-0 overflow-hidden bg-desk grid-cols-[var(--instrument-left-width)_auto_minmax(0,1fr)] grid-rows-[48px_minmax(0,1fr)]"
+        className="instrument-shell col-span-3 row-start-1 row-end-2 grid h-full min-h-0 w-full min-w-0 overflow-hidden bg-desk grid-cols-[var(--instrument-left-width)_auto_minmax(0,1fr)] grid-rows-[48px_minmax(0,1fr)]"
         ref={frameRef}
         data-right-rail-mode={mode}
         data-instrument-native-inset="76"
@@ -378,7 +381,9 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
         </div>}
         <section className="instrument-desk-column relative col-start-3 row-start-2 flex min-h-0 min-w-0 flex-col overflow-hidden bg-desk" ref={setDeskColumn}>
           <div
-            className="instrument-desk-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
+            /* The desk is the app's one scroll surface and the container eight other areas' width
+               variants read, so both the name and the type are stated here. */
+            className="instrument-desk-scroll @container/instrument-desk min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
             ref={setDeskElement}
             data-instrument-scroll-owner="instrument-desk-scroll"
             inert={mode === "overlay" || undefined}
@@ -408,6 +413,13 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
         <div className="instrument-rail-parking" ref={setRailParking} hidden inert>
         </div>
       </div>
+      {/* The sheet is portalled to `document.body`, so it cannot read the shell's own
+          `--instrument-right-rail-width`: a `var()` in a rule is substituted on the element that
+          reads it, and outside the shell that variable does not exist. The authored
+          `width: min(var(--instrument-right-rail-width), ...)` was therefore invalid at
+          computed-value time and the sheet rendered at whatever width its content asked for.
+          The plate now takes its width from the column it is standing in for, stated on the
+          child that is inside this component's scope, and the fit key clamps it to the window. */}
       <InstrumentOverlay
         id="right-rail-sheet"
         open={mode === "overlay"}
@@ -416,14 +428,18 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
         opener={openerRef.current}
         onOpenChange={props.onRightOverlayOpenChange}
         localScroll
+        scrimClassName="z-sheet-backdrop bg-instrument/52"
+        surfaceClassName="fixed z-sheet inset-y-2 left-2 w-max max-w-overlay-fit max-h-overlay-fit-block rounded-panel bg-instrument text-on-instrument"
       >
-        <div ref={setOverlayRailTarget} />
+        <div className="flex min-h-full" style={{ width: railWidth }} ref={setOverlayRailTarget} />
       </InstrumentOverlay>
       {railHost && createPortal(
         <div
-          className="instrument-chat-rail-content"
-          hidden={activeRail.owner !== "chat" && activeRail.owner !== "media-review"}
-          inert={activeRail.owner !== "chat" && activeRail.owner !== "media-review" || undefined}
+          /* A `hidden` attribute is a user-agent rule, so the `display: flex` this row needs when
+             it is showing would beat it; the two states are one utility instead. */
+          className={`instrument-chat-rail-content size-full min-h-0 flex-col [&>.utility-right-panel]:size-full ${railContentHidden ? "hidden" : "flex"}`}
+          hidden={railContentHidden}
+          inert={railContentHidden || undefined}
           onFocusCapture={(event) => { focusedRailElement.current = event.target as HTMLElement; }}
         >{props.chat}</div>,
         railHost,

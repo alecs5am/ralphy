@@ -62,3 +62,37 @@ video,
 canvas {
   display: block;
 }
+
+/* Moved here from workbench/01-unowned.css: a rule that keys off an element or an ARIA role and
+   applies to the whole document is a global reset, not one area's styling. */
+
+button:not(:disabled),
+a[href],
+[role="button"]:not([aria-disabled="true"]),
+[role="option"]:not([aria-disabled="true"]),
+[role="tab"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+input[type="search"],
+input[type="text"],
+textarea {
+  cursor: text;
+}
+
+/* The instrument language has no bold: a heading is a size and a position, never a weight. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+strong {
+  font-weight: 400;
+  letter-spacing: 0;
+}

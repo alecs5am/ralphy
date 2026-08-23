@@ -6,6 +6,25 @@ import type { InstrumentProfileIdentity } from "./types";
 
 const PROFILE_MENU_GUTTER = 8;
 
+/* The identity mark, in either form. `flex-none` is a structural guard: without it the avatar
+   is the first thing the trigger shrinks when the name is long. */
+const IDENTITY = "size-control-sm flex-none rounded-control";
+const INITIALS = `${IDENTITY} grid place-items-center bg-dither-base type-xs text-on-instrument`;
+/* A truncating label inside a row that may be narrower than its text. `min-w-0` is what lets
+   the span shrink below its content at all. */
+const LABEL = "min-w-0 overflow-hidden text-ellipsis whitespace-nowrap";
+/* Geometry and behaviour only: the compact trigger, the pill and every menu row share this, and
+   each states its own surface and ink as a pair. A shared base that carried an ink is what made
+   a caller's half-override paint invisible text. */
+const ROW = "inline-flex items-center gap-2 rounded-control focus-visible:outline-2 focus-visible:outline-offset-2";
+/* On a theme surface. The menu is portalled to `document.body`, outside `.app-mode-work`, where
+   the legacy inks resolve to the on-dark family -- so both halves are stated, never inherited. */
+const ON_THEME = "text-ink hover:bg-surface-hover focus-visible:outline-ink";
+/* On the sidebar footer's black plate, which stays black in both themes: the on-dark family
+   throughout, and the on-instrument ring because the theme ink is #141414 on #141414 in the
+   light theme. */
+const ON_INSTRUMENT = "text-on-instrument-muted hover:bg-instrument-hover hover:text-on-instrument focus-visible:outline-focus-on-instrument";
+
 function localAvatarUrl(avatarUrl: string | null): string | null {
   if (!avatarUrl) return null;
   if (/^data:image\/[a-z0-9.+-]+(?:;[^,]*)?,/i.test(avatarUrl)) return avatarUrl;
@@ -135,10 +154,17 @@ export function InstrumentProfileControl({ identity, onOpenSettings, avatar, var
     };
   }, [open]);
 
-  return <div className="instrument-profile-control" data-instrument-root="instrument-profile-control">
+  const pill = variant === "pill";
+  return <div className="instrument-profile-control relative min-w-0 max-w-full" data-instrument-root="instrument-profile-control">
     <button
       ref={trigger}
-      className="instrument-profile-trigger"
+      /* The sidebar-footer pill is a black widget in both themes, so it takes the on-dark ink
+         and the dark hover surface; the compact trigger stands on a theme surface and takes the
+         theme pair. `group` is what lets the trailing glyph follow the pill's own hover without
+         a descendant variant outranking the glyph's own utilities. */
+      className={`instrument-profile-trigger group box-border min-h-control-md min-w-0 max-w-full ${ROW} ${pill
+        ? `h-full w-full gap-2.25 pr-3.25 pl-2 type-sm ${ON_INSTRUMENT}`
+        : `px-1 ${ON_THEME}`}`}
       type="button"
       data-variant={variant}
       aria-label={variant === "pill" ? "Open settings" : "Open profile menu"}
@@ -154,10 +180,10 @@ export function InstrumentProfileControl({ identity, onOpenSettings, avatar, var
       }}
     >
       {avatar ?? (avatarUrl
-        ? <img className="instrument-profile-avatar" src={avatarUrl} alt="" onError={() => setFailedAvatarUrl(avatarUrl)} />
-        : <span className="instrument-profile-initials" aria-hidden="true">{identity.initials}</span>)}
-      <span title={identity.displayName}>{identity.displayName}</span>
-      {variant === "pill" && <SlidersHorizontal className="instrument-profile-settings-glyph" aria-hidden="true" size={14} strokeWidth={1.8} />}
+        ? <img className={`instrument-profile-avatar ${IDENTITY} object-cover`} src={avatarUrl} alt="" onError={() => setFailedAvatarUrl(avatarUrl)} />
+        : <span className={`instrument-profile-initials ${INITIALS}`} aria-hidden="true">{identity.initials}</span>)}
+      <span className={`${LABEL} ${pill ? "flex-1" : ""}`} title={identity.displayName}>{identity.displayName}</span>
+      {pill && <SlidersHorizontal className="instrument-profile-settings-glyph flex-none text-on-instrument-muted-decorative group-hover:text-on-instrument" aria-hidden="true" size={14} strokeWidth={1.8} />}
     </button>
     <InstrumentOverlay
       id="profile-menu"
@@ -167,14 +193,22 @@ export function InstrumentProfileControl({ identity, onOpenSettings, avatar, var
       opener={trigger.current}
       onOpenChange={setOpen}
     >
-      <div ref={menu} className="instrument-profile-menu" data-instrument-root="instrument-profile-menu" style={position}>
-        <div className="instrument-profile-menu-identity">
+      {/* The menu is fixed and placed from a measurement, so only its position is inline. Its
+          measure gives way to the window: the fit keys stop it one gutter short of every edge
+          so it can never overdraw the window's own rounded clip. */}
+      <div
+        ref={menu}
+        className="instrument-profile-menu fixed z-popover box-border grid max-h-overlay-fit-block w-profile-menu min-w-profile-menu-min max-w-overlay-fit gap-2 overflow-auto rounded-menu bg-surface p-2 text-ink"
+        data-instrument-root="instrument-profile-menu"
+        style={position}
+      >
+        <div className="instrument-profile-menu-identity flex min-w-0 items-center gap-2">
           {avatar ?? (avatarUrl
-            ? <img className="instrument-profile-avatar" src={avatarUrl} alt="" onError={() => setFailedAvatarUrl(avatarUrl)} />
-            : <span className="instrument-profile-initials" aria-hidden="true">{identity.initials}</span>)}
-          <span title={identity.displayName}>{identity.displayName}</span>
+            ? <img className={`instrument-profile-avatar ${IDENTITY} object-cover`} src={avatarUrl} alt="" onError={() => setFailedAvatarUrl(avatarUrl)} />
+            : <span className={`instrument-profile-initials ${INITIALS}`} aria-hidden="true">{identity.initials}</span>)}
+          <span className={LABEL} title={identity.displayName}>{identity.displayName}</span>
         </div>
-        <button type="button" role="menuitem" onClick={() => { setOpen(false); onOpenSettings(); }}>
+        <button className={`min-h-control-md px-2 ${ROW} ${ON_THEME}`} type="button" role="menuitem" onClick={() => { setOpen(false); onOpenSettings(); }}>
           <Settings size={16} aria-hidden="true" />
           <span>Settings</span>
         </button>

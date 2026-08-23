@@ -152,7 +152,10 @@ export function ContextSidebar({
     [pinnedWorkspaceIds, workspaces],
   );
   return (
-    <aside className="context-sidebar col-start-1 col-end-2 row-start-1 row-end-2 flex h-full min-h-0 w-full min-w-0 flex-col gap-2 overflow-hidden bg-transparent text-ink">
+    /* The slide-in belongs on the element: instrument.css declared the animation *after* its own
+       reduced-motion cancel, so the cancel never applied and the sidebar slid in regardless of
+       the operator's motion preference. */
+    <aside className="context-sidebar col-start-1 col-end-2 row-start-1 row-end-2 flex h-full min-h-0 w-full min-w-0 flex-col gap-2 overflow-hidden bg-transparent text-ink animate-sidebar-in motion-reduce:animate-none">
       <nav
         className="sidebar-mode-switch relative flex h-11 shrink-0 gap-0.5 overflow-hidden rounded-full bg-instrument p-1 isolate"
         style={{ "--mode-index": mode === "work" ? 0 : 1, "--mode-count": 2 } as CSSProperties}

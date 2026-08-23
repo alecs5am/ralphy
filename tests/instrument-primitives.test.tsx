@@ -84,12 +84,28 @@ describe("instrument primitives", () => {
   });
 
   test("uses an accessible Doto counter and surface-correct focus indicators", () => {
-    const styles = readFileSync("src/styles/instrument.css", "utf8");
-    expect(styles).toMatch(/\.instrument-counter output\s*\{[^}]*font-family:\s*var\(--font-doto\)[^}]*font-size:\s*max\(13px, 1em\)[^}]*font-weight:\s*800/s);
-    expect(styles).toContain('html[data-theme="light"] .instrument-icon-button:focus-visible');
-    expect(styles).toContain('html[data-theme="dark"] .instrument-icon-button:focus-visible');
-    expect(styles.match(/\.instrument-icon-button:focus-visible,[^}]+\}/)?.[0]).toContain("outline: var(--control-focus)");
-    expect(contrastRatio(INSTRUMENT_PALETTE.light.focusOnLight, INSTRUMENT_PALETTE.light.widgetLight)).toBeGreaterThanOrEqual(3);
-    expect(contrastRatio(INSTRUMENT_PALETTE.dark.focusOnDark, INSTRUMENT_PALETTE.dark.widgetLight)).toBeGreaterThanOrEqual(3);
+    const source = readFileSync("src/instrument/primitives.tsx", "utf8");
+    const theme = readFileSync("src/styles/theme/shell.css", "utf8");
+    // The counter is a Doto figure that never drops below the base step but follows its context
+    // when that is larger, so the mark stays readable inside small copy. The measure is a role
+    // key, not a literal in markup.
+    expect(source).toMatch(/<output className="font-display type-counter font-extrabold text-ink"/);
+    expect(theme).toMatch(/--type-counter:\s*max\(var\(--text-base\), 1em\)/);
+    // One ring replaces the three theme-scoped outline rules the icon button used to carry:
+    // `--color-ink` is the theme's own ink, which is #141414 on the light theme's sunken widget
+    // and #F2F2F0 on the dark theme's, so a single utility is correct in both.
+    expect(source).toContain("focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink");
+    expect(source).not.toMatch(/data-theme/);
+    expect(contrastRatio(INSTRUMENT_PALETTE.light.textPrimary, INSTRUMENT_PALETTE.light.widgetLightSunken)).toBeGreaterThanOrEqual(3);
+    expect(contrastRatio(INSTRUMENT_PALETTE.dark.textPrimary, INSTRUMENT_PALETTE.dark.widgetLightSunken)).toBeGreaterThanOrEqual(3);
+    // Surface and ink are stated as a pair everywhere in this file: a shared base that carried
+    // only one half is what made a caller's override paint invisible text.
+    const plate = /const PLATE = "([^"]*)"/.exec(source)?.[1] ?? "";
+    expect(plate.split(" ")).toContain("bg-surface");
+    expect(plate.split(" ")).toContain("text-ink");
+    expect(plate.split(" ")).toContain("rounded-cell");
+    expect(source).toMatch(/bg-surface-sunken px-2 text-muted/);
+    // No borders, no shadows, no gradients anywhere in this vocabulary.
+    expect(source).not.toMatch(/\b(?:border|shadow|bg-gradient|bg-linear|bg-radial)-/);
   });
 });

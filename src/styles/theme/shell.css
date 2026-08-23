@@ -1,6 +1,113 @@
 /* Role keys owned by the shell migration. One file per area so the areas never collide in
    the shared theme layer. Every key names a role and resolves to a token in tokens.css or a
    value the design fixes for that role; a component then reaches for the name, never a
-   literal. */
+   literal.
+
+   The frame straddles both ink families: the desk and its columns are theme surfaces, while
+   the island, the rail sheet and the sidebar's user pill are black widgets in both themes and
+   take the on-dark family throughout. Nothing here may resolve to a theme-dependent surface
+   for a widget that stays black. */
+
+/* Multi-part values. Plain custom properties rather than `@theme` keys, because
+   `grid-template-rows` is not a Tailwind namespace: `@theme inline` never emits the variable,
+   so `grid-rows-(--name)` has to find a real declaration reachable from the element. Both
+   tracks are interpolatable against each other, which is what lets the island's plate morph
+   from a pill into a panel in one transition. */
+:root {
+  /* The island closed: one trigger row, and a detail row with no height at all. */
+  --island-rows: 36px 0fr;
+  /* ...and open: a taller trigger row over a detail row that takes the rest. */
+  --island-rows-open: 44px 1fr;
+}
+
+/* The two column widths the shell writes inline from the persisted layout. They are declared
+   here as a fallback only, so a `.instrument-shell` mounted without the component -- a
+   geometry harness, a fixture -- still lays out. The shell overwrites both on every render.
+
+   These cannot move to `:root`: the rail's own menus derive their fit from
+   `--instrument-right-rail-width`, and a custom property's `var()` is substituted where the
+   property is *declared*, so a derived value must be declared inside the scope that holds its
+   input. See the note in theme/agent-rail.css. */
+.instrument-shell {
+  --instrument-right-rail-width: 292px;
+  --instrument-left-width: 240px;
+}
+
 @theme inline {
+  /* Ink and surfaces the shared scale does not name. */
+  --color-unreviewed: var(--instrument-unreviewed);              /* a status dot with nothing to report */
+  --color-alert-bright: var(--instrument-alert-bright);          /* an alarm standing on a black widget */
+  --color-focus-on-instrument: var(--instrument-focus-on-dark);  /* the ring for a control on a black widget */
+  --color-dither-base: var(--instrument-dither-base);            /* the plate behind an identity fallback */
+  --color-dither-highlight: var(--instrument-dither-highlight);  /* the grain an identity mark is cut from */
+
+  /* Control geometry, so a square control and a control height stay one decision. */
+  --spacing-control-sm: var(--control-sm);
+  --spacing-control-md: var(--control-md);
+
+  /* The frame's own minimums: below these the three columns stop being readable at all. */
+  --spacing-workbench-min: 900px;
+  --spacing-workbench-min-block: 640px;
+
+  /* Every overlay stops one gutter short of the window edge, so the window's own rounded clip
+     is never overdrawn. Only viewport units, so these are safe to derive at the root. */
+  --spacing-overlay-fit: calc(100vw - 16px);
+  --spacing-overlay-fit-block: calc(100vh - 16px);
+
+  /* The profile menu: a fixed measure that gives way to the window when the window is smaller. */
+  --spacing-profile-menu: min(192px, calc(100vw - 16px));
+  --spacing-profile-menu-min: min(180px, calc(100vw - 16px));
+
+  /* The island's plate: how wide it may grow closed, and the width it takes open. */
+  --spacing-island-max: min(520px, calc(100vw - 32px));
+  --spacing-island-open: min(420px, calc(100vw - 32px));
+
+  /* A Doto counter never drops below the base step, but follows its context when that is
+     larger -- the figure is the mark, so it may not become unreadable inside small copy. */
+  --type-counter: max(var(--text-base), 1em);
+
+  /* Motion. The keyframes have no utility form; the names that reach them do. Every element
+     that reads one carries its own `motion-reduce:animate-none`: an `!important` declaration in
+     an unlayered sheet loses to an `!important` utility inside `@layer utilities`, so a
+     reduced-motion blanket in CSS cannot hold back motion declared in markup. */
+  --animate-sidebar-in: instrument-sidebar-in var(--dur-slow) var(--ease);
+  --animate-island-in: instrument-island-in 320ms var(--ease);
+  --animate-island-tune: instrument-island-tune var(--dur-slow) var(--ease);
+  --transition-duration-slow: var(--dur-slow);
+  --transition-duration-fast: var(--dur-fast);
+  --ease-instrument: var(--ease);
+
+  /* Stacking, so a layer in markup stays a token and not a number. */
+  --z-index-desk-float: var(--z-desk-float);
+  --z-index-island: var(--z-island);
+  --z-index-sheet: var(--z-sheet);
+  --z-index-sheet-backdrop: var(--z-sheet-backdrop);
+  --z-index-overlay-surface: var(--z-overlay-surface);
+  --z-index-popover: var(--z-popover);
+
+  /* A menu is R18 and an identity plate is R18: the shared radius scale names the roles, and
+     this is the one the shell's own menus take. */
+  --radius-menu: var(--radius-xl);
+
+  /* The one width a screen header reads, against the route's content row rather than the
+     window: the desk is not the window, and a rail or a sidebar changes a route's width
+     without the viewport moving. */
+  --container-screen-header: 560px;
+}
+
+/* No fill mode on purpose: if this animation is throttled away (background window, busy main
+   thread) the sidebar is simply already in place, instead of stranded at opacity 0 the way a
+   JS-driven `initial` style leaves it. */
+@keyframes instrument-sidebar-in {
+  from { opacity: 0; transform: translateX(-20px); }
+}
+
+/* The island's first appearance, and the tune-in its context label replays on every change
+   (the label re-mounts on a React key). */
+@keyframes instrument-island-in {
+  from { opacity: 0; transform: translateX(-50%) scale(.94); }
+}
+
+@keyframes instrument-island-tune {
+  from { opacity: 0; transform: translateY(-4px); }
 }

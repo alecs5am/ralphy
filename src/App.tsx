@@ -749,12 +749,12 @@ export function App() {
                 onNewChat={agentChat.newChat}
               />
             </>}
-            desk={<div className="main-content-stage">
-              <div className="app-mode-surface app-mode-work" hidden={marketplace.mode !== "work"} inert={marketplace.mode !== "work"}>
+            desk={<div className="main-content-stage flex min-w-0 flex-1">
+              <div className={`app-mode-surface app-mode-work min-h-0 min-w-0 flex-1 bg-desk text-ink ${marketplace.mode === "work" ? "flex" : "hidden"}`} hidden={marketplace.mode !== "work"} inert={marketplace.mode !== "work"}>
                 {workContent}
               </div>
               <div
-                className="app-mode-surface app-mode-marketplace"
+                className={`app-mode-surface app-mode-marketplace min-h-0 min-w-0 flex-1 ${marketplace.mode === "marketplace" ? "flex" : "hidden"}`}
                 hidden={marketplace.mode !== "marketplace"}
                 inert={marketplace.mode !== "marketplace"}
                 style={{ "--sidebar-w": `${MARKETPLACE_SIDEBAR_WIDTH}px` } as CSSProperties}
@@ -823,7 +823,9 @@ export function App() {
               the nested motion element finish and leaves an invisible surface over the app. */}
           {settingsVisible && (
               <Suspense fallback={null}>
-                <InstrumentOverlay id="settings" open label="Settings" description="Application settings" opener={null} onOpenChange={(open) => { if (!open) setSettingsVisible(false); }} localScroll>
+                {/* Settings is a mode, not a floating card: it owns the whole window so the app
+                    never peeks around its edges, and its own desk padding lives on the screen. */}
+                <InstrumentOverlay id="settings" open label="Settings" description="Application settings" opener={null} onOpenChange={(open) => { if (!open) setSettingsVisible(false); }} localScroll surfaceClassName="fixed inset-0 z-overlay-surface overflow-hidden">
                 <SettingsScreen
                   rootPath={rootIdentity?.storeId ?? null}
                   theme={theme}

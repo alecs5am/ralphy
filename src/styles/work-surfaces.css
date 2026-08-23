@@ -1,5 +1,12 @@
-/* Work routes own their presentation through Tailwind utilities in route components.
-   Keep only legacy token compatibility and cross-route accessibility behavior here. */
+/* Work routes own their presentation through Tailwind utilities in route components, and the mode
+   surface states its own desk and ink in `App.tsx`. What is left here is the legacy token layer
+   and nothing else: two scopes of custom properties, which are values rather than styling and have
+   no utility form -- an `@theme` key names one role, and these name thirty each.
+
+   The light scope follows the DOM, so an overlay portalled to `document.body` stands outside it and
+   its legacy inks fall back to the on-dark family at the root. Every overlay in the app now states
+   its own surface and ink as a pair instead of inheriting them, which is the fix that scales: a
+   scope keyed on the overlay attribute would have to re-flip ten already-corrected overlays. */
 .app-mode-work {
   --canvas: var(--instrument-desk);
   --sunken: var(--instrument-widget-light-sunken);
@@ -33,8 +40,6 @@
   --control-selected: var(--instrument-desk-hover);
   --control-text: var(--instrument-text-secondary-readable);
   --control-text-hover: var(--instrument-text-primary);
-  color: var(--instrument-text-primary);
-  background: var(--instrument-desk);
 }
 
 /* The desk is light but the widgets standing on it stay black in both themes, so ink
@@ -73,24 +78,20 @@
   --control-text-hover: var(--instrument-text-on-dark-primary);
 }
 
-.app-mode-work :is(button, input, textarea, select) {
-  font-family: var(--font-sans);
-}
+/* Deleted, each measured dead in the running renderer across 169 state-runs:
 
-/* The focus ring lives in reset.css and paints with --fg, which the surface scopes above
-   already flip, so a per-mode override here only re-pinned it to desk ink on dark widgets. */
-
-[data-instrument-overlay-backdrop] {
-  background: color-mix(in srgb, var(--instrument-widget-dark) 62%, transparent);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .app-mode-work *,
-  [data-instrument-overlay] * {
-    scroll-behavior: auto !important;
-    transition-duration: 0ms !important;
-    animation: none !important;
-  }
-}
+   - `.app-mode-work :is(button, input, textarea, select) { font-family: var(--font-sans) }`
+     changed nothing on any of the 47 controls it matched. reset.css already gives those four
+     elements `font: inherit`, and `body` is the sans face, so the declaration only restated what
+     inheritance had already delivered.
+   - a second `[data-instrument-overlay-backdrop]` fill, identical to the one instrument.css
+     declares, plus a `backdrop-filter: none` that cancelled a blur nothing sets. Two copies of one
+     value is how a scrim ends up with two owners; instrument.css keeps the single copy.
+   - the reduced-motion blanket over `.app-mode-work *` and `[data-instrument-overlay] *`. It
+     matched 586 elements and changed none of them: an `!important` declaration in an *unlayered*
+     stylesheet loses to an `!important` utility inside `@layer utilities`, and every animation and
+     transition in the renderer is now declared as a utility. Motion is held back where it is
+     declared instead -- each animated element carries its own `motion-reduce:animate-none` or
+     `motion-reduce:transition-none`.
+   - the per-mode focus-ring override, already removed: the ring lives in reset.css and paints with
+     `--fg`, which the surface scopes above flip for free. */

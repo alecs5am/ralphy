@@ -44,6 +44,11 @@ interface InstrumentOverlayBaseProps<Id extends InstrumentOverlayId> {
   onOpenChange(open: boolean): void;
   children: ReactNode;
   localScroll?: boolean;
+  /* This component renders the surface and the scrim, so a caller can only skin them from here.
+     Both default to nothing: `[data-instrument-overlay-backdrop]` in instrument.css owns the
+     scrim's tone for every overlay in the app, and each surface states its own plate. */
+  surfaceClassName?: string;
+  scrimClassName?: string;
 }
 
 type PrimitiveHostId = "shared-select-menu" | "workspace-picker" | "agent-chat-recent-menu" | "agent-chat-provider-menu" | "agent-chat-model-menu" | "agent-chat-mode-menu";
@@ -59,6 +64,29 @@ type RuntimeOverlayProps = InstrumentOverlayBaseProps<InstrumentOverlayId> & {
   host?: "managed-portal" | "primitive-host";
   overlayOwner?: unknown;
 };
+
+/* A managed dialog or drawer is one flat light widget clipped one gutter short of the window, so
+   its square corners can never cross the window's own rounded clip. The surface states both
+   halves of the pair: it is portalled to `document.body`, outside `.app-mode-work`, where the
+   legacy inks resolve to the on-dark family and a light plate would carry near-white text.
+
+   The authored sheet mirrored all of this onto `> :last-child` as well. That half is gone: it
+   matched nothing in 169 measured state-runs, and a descendant variant is (0,1,1) -- it would
+   outrank the caller's own per-element utilities and repaint a child that states its own plate.
+
+   The focus trace is the ring the surface itself takes when the landing focus is on the surface
+   rather than on a control inside it. `settings` declines both: it is a mode that owns the whole
+   window, not a panel, and a ring traced around the viewport cuts across the window's rounding. */
+const MANAGED_SURFACE = "max-w-overlay-fit max-h-overlay-fit-block rounded-panel bg-surface text-ink outline-0";
+const MANAGED_SURFACE_FOCUS = "data-[instrument-surface-focus]:outline-2 data-[instrument-surface-focus]:outline-ink data-[instrument-surface-focus]:[outline-offset:-3px]";
+
+function managedSurfaceClasses(id: InstrumentOverlayId, caller: string | undefined): string {
+  const kind = INSTRUMENT_OVERLAYS[id].kind;
+  const plate = (kind === "dialog" || kind === "drawer") && id !== "settings"
+    ? `${MANAGED_SURFACE} ${MANAGED_SURFACE_FOCUS}`
+    : "";
+  return [plate, caller].filter(Boolean).join(" ");
+}
 
 const overlayRoles: Record<InstrumentOverlayKind, "dialog" | "listbox" | "menu" | "complementary"> = {
   dialog: "dialog",
@@ -160,7 +188,7 @@ function useModalEnvironment(open: boolean) {
 
 function ModalOverlay(props: RuntimeOverlayProps): ReactElement | null {
   const surface = useRef<HTMLDivElement>(null);
-  const { id, open, label, description, children, localScroll, onOpenChange, opener } = props;
+  const { id, open, label, description, children, localScroll, onOpenChange, opener, surfaceClassName, scrimClassName } = props;
   useOpenerRestoration(open, opener);
   useModalEnvironment(open);
   if (!open) return null;
@@ -172,9 +200,10 @@ function ModalOverlay(props: RuntimeOverlayProps): ReactElement | null {
 
   return <Dialog.Root open onOpenChange={(next) => { if (!next) close(); }}>
     <Dialog.Portal container={typeof document === "undefined" ? undefined : document.body}>
-      <Dialog.Overlay data-instrument-overlay-backdrop="" />
+      <Dialog.Overlay data-instrument-overlay-backdrop="" className={scrimClassName} />
       <Dialog.Content
         ref={surface}
+        className={managedSurfaceClasses(id, surfaceClassName)}
         role="dialog"
         aria-modal="true"
         tabIndex={-1}
@@ -209,7 +238,7 @@ function ModalOverlay(props: RuntimeOverlayProps): ReactElement | null {
 function NonModalOverlay(props: RuntimeOverlayProps): ReactPortal | ReactElement | null {
   const surface = useRef<HTMLDivElement>(null);
   const descriptionId = useId();
-  const { id, open, label, description, children, localScroll, onOpenChange, opener } = props;
+  const { id, open, label, description, children, localScroll, onOpenChange, opener, surfaceClassName } = props;
   useOpenerRestoration(open, opener);
   useEffect(() => {
     if (open) surface.current?.focus({ preventScroll: true });
@@ -217,6 +246,7 @@ function NonModalOverlay(props: RuntimeOverlayProps): ReactPortal | ReactElement
   if (!open) return null;
   const content = <div
     ref={surface}
+    className={surfaceClassName}
     role={overlayRoles[INSTRUMENT_OVERLAYS[id].kind]}
     tabIndex={-1}
     aria-label={label}

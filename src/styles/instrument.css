@@ -1,128 +1,60 @@
-.instrument-widget,
-.instrument-empty-state {
-  display: grid;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border-radius: var(--radius-lg);
-  background: var(--instrument-widget-light);
-  color: var(--instrument-text-primary);
+/* What is left of the instrument shell's stylesheet after the frame moved into markup. Two kinds
+   of rule remain, and nothing else:
+
+   1. THE SCRIM CONTRACT. `[data-instrument-overlay-backdrop]` is the one rule that owns the tone
+      of every scrim in the app. Ten components render that attribute on their own Radix overlay
+      and deliberately state only position and layer, because this rule owns the fill; there is no
+      utility form for "every element carrying this attribute", so a utility on any one overlay
+      would leave the other nine unpainted. It stays here, first, where every later sheet and every
+      per-overlay utility can still override it.
+
+   2. RULES THIS AREA DOES NOT OWN. Each styles an element no shell component renders, and each was
+      measured live in the running renderer before being kept. They are verbatim and in the order
+      they had, so the cascade against every later sheet is unchanged.
+
+   Everything else this file used to carry is now stated on the element that renders it:
+   `instrument/primitives.tsx`, `instrument/InstrumentProfileControl.tsx`,
+   `instrument/InstrumentShell.tsx`, `instrument/DynamicIsland.tsx`,
+   `instrument/overlay-registry.tsx`, `components/Titlebar.tsx` and `App.tsx`. The role keys those
+   components read live in `styles/theme/shell.css`. */
+
+/* The scrim, for every overlay in the app. Per-overlay tone is a `scrimClassName` on the overlay
+   (the rail sheet takes a lighter one); this is the default every other scrim inherits. */
+[data-instrument-overlay-backdrop] {
+  position: fixed;
+  z-index: var(--z-overlay-backdrop);
+  inset: 0;
+  background: color-mix(in srgb, var(--instrument-widget-dark) 62%, transparent);
 }
 
-.instrument-pill,
-.instrument-status,
-.instrument-screen-counters,
-.instrument-screen-actions,
-.instrument-screen-filters {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-}
+/* Two declarations that cannot move onto the desk scroller, because another area is designed to
+   beat them. `styles/marketplace.css` claims the desk for the one route that scrolls itself:
 
-.instrument-pill {
-  min-height: var(--control-sm);
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-pill);
-  background: var(--instrument-widget-light-sunken);
-  color: var(--instrument-text-secondary-readable);
-}
+     .instrument-desk-scroll:has(> .main-content-stage > .app-mode-marketplace:not([hidden]))
+       { scrollbar-gutter: auto !important }
+     .instrument-desk-scroll > .main-content-stage:has(...) { min-height: 0 !important; ... }
 
-.instrument-icon-button {
-  display: inline-grid;
-  width: var(--control-md);
-  height: var(--control-md);
-  place-items: center;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: var(--instrument-widget-light-sunken);
-  color: var(--instrument-text-primary);
-}
+   Both are unlayered `!important`, and an unlayered `!important` loses to an `!important` utility
+   in `@layer utilities`. Measured: stating these two as utilities on the elements defeated the
+   claim -- the marketplace desk kept an 11px scrollbar gutter it had given up, and every
+   marketplace surface came out 11px narrower. The condition is a `:has()` on a descendant of
+   another area, so it has no utility form and the claim cannot be restated in markup. They stay
+   unlayered here, at the cascade position they had, so marketplace still wins.
 
-.instrument-icon-button:hover { background: var(--instrument-widget-light-hover); }
-.instrument-icon-button:focus-visible,
-.instrument-profile-trigger:focus-visible,
-.instrument-profile-menu button:focus-visible { outline: var(--control-focus); outline-offset: 2px; }
-html[data-theme="dark"] .instrument-icon-button:focus-visible,
-html[data-theme="dark"] .instrument-profile-trigger:focus-visible,
-html[data-theme="dark"] .instrument-profile-menu button:focus-visible { outline: var(--control-focus); }
-html[data-theme="light"] .instrument-icon-button:focus-visible,
-html[data-theme="light"] .instrument-profile-trigger:focus-visible,
-html[data-theme="light"] .instrument-profile-menu button:focus-visible { outline: var(--control-focus-on-light); }
-
-.instrument-counter { display: grid; gap: 0; color: var(--instrument-text-secondary-readable); }
-.instrument-counter output { font-family: var(--font-doto); font-size: max(13px, 1em); font-weight: 800; color: var(--instrument-text-primary); }
-.instrument-counter span { font-size: var(--text-xs); }
-
-.instrument-status { color: var(--instrument-text-secondary-readable); }
-.instrument-status-dot { width: 8px; height: 8px; border-radius: var(--radius-pill); background: var(--instrument-unreviewed); }
-.instrument-status[data-tone="attention"] .instrument-status-dot { background: var(--instrument-alert-bright); }
-.instrument-status[data-tone="error"] .instrument-status-dot { background: var(--instrument-alert); }
-.instrument-status[data-tone="success"] .instrument-status-dot { background: var(--instrument-text-primary); }
-
-.instrument-dither-identity { width: 32px; height: 32px; object-fit: cover; border-radius: var(--radius-sm); }
-
-.instrument-screen-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
-.instrument-screen-heading { display: grid; gap: var(--space-1); }
-.instrument-screen-heading h1,
-.instrument-empty-state h2,
-.instrument-screen-heading p { margin: 0; }
-.instrument-screen-eyebrow { color: var(--instrument-text-secondary-readable); font-size: var(--text-xs); text-transform: uppercase; }
-.instrument-screen-description,
-.instrument-empty-state p { color: var(--instrument-text-secondary-readable); }
-.instrument-screen-controls { display: flex; align-items: center; gap: var(--space-2); }
-
-.instrument-profile-control { position: relative; min-width: 0; max-width: 100%; }
-.instrument-profile-trigger,
-.instrument-profile-menu button { display: inline-flex; align-items: center; gap: var(--space-2); border: 0; background: transparent; color: var(--instrument-text-primary); }
-.instrument-profile-trigger { box-sizing: border-box; min-width: 0; max-width: 100%; min-height: var(--control-md); padding: 0 var(--space-1); border-radius: var(--radius-pill); }
-.instrument-profile-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.instrument-profile-trigger:hover,
-.instrument-profile-menu button:hover { background: var(--instrument-widget-light-hover); }
-.instrument-profile-avatar,
-.instrument-profile-initials { flex: none; width: var(--control-sm); height: var(--control-sm); border-radius: var(--radius-pill); corner-shape: round; }
-
-/* Sidebar-footer user pill: h48 plate, 32px round identity avatar, settings glyph trailing. */
-.instrument-profile-trigger[data-variant="pill"] { width: 100%; height: 100%; gap: 9px; padding: 0 13px 0 8px; border-radius: var(--radius-pill); corner-shape: round; color: var(--instrument-text-on-dark-secondary-readable); font-size: var(--text-sm); }
-.instrument-profile-trigger[data-variant="pill"]:hover { background: var(--instrument-widget-dark-hover); }
-.instrument-profile-trigger[data-variant="pill"] > span:not([class]) { flex: 1; }
-.instrument-profile-trigger[data-variant="pill"] .instrument-profile-avatar,
-.instrument-profile-trigger[data-variant="pill"] .instrument-profile-initials,
-.instrument-profile-trigger[data-variant="pill"] .profile-avatar { width: 32px; height: 32px; }
-.instrument-profile-settings-glyph { flex: none; color: var(--instrument-text-on-dark-muted-decorative); }
-.instrument-profile-trigger[data-variant="pill"]:hover .instrument-profile-settings-glyph { color: var(--instrument-text-on-dark-primary); }
-.instrument-profile-avatar { object-fit: cover; }
-.instrument-profile-initials { display: grid; place-items: center; background: var(--instrument-dither-base); color: var(--instrument-text-on-dark-primary); font-size: var(--text-xs); }
-.instrument-profile-menu { position: fixed; z-index: var(--z-popover); display: grid; box-sizing: border-box; width: min(192px, calc(100vw - 16px)); min-width: min(180px, calc(100vw - 16px)); max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); gap: var(--space-2); padding: var(--space-2); overflow: auto; border-radius: var(--radius-md); background: var(--instrument-widget-light); color: var(--instrument-text-primary); }
-.instrument-profile-menu-identity { display: flex; min-width: 0; align-items: center; gap: var(--space-2); }
-.instrument-profile-menu-identity > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.instrument-profile-menu button { min-height: var(--control-md); padding: 0 var(--space-2); border-radius: var(--radius-pill); }
-
-@container (max-width: 560px) {
-  .instrument-screen-header { flex-direction: column; }
-  .instrument-screen-controls { flex-wrap: wrap; }
-}
-
-.instrument-shell {
-  /* Fallback only: the shell sets this inline from the persisted rail width. */
-  --instrument-right-rail-width: 292px;
-  --instrument-left-width: 240px;
-}
-
-.instrument-shell-frame > .instrument-shell { grid-area: 1 / 1 / 2 / 4; }
-
-.instrument-desk-scroll {
-  container-name: instrument-desk;
-  container-type: inline-size;
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-}
+   Owned by: the shell, but readable only from here. */
+.instrument-desk-scroll { scrollbar-gutter: stable; }
 
 .instrument-desk-scroll > .main-content-stage { min-height: 100%; }
 
+/* The desk is the app's only scroll surface, so every named scroll region inside it has to give
+   up its own scrolling or the reader gets two nested scrollbars for one page. The list names 24
+   classes across eight areas, none of them this one's, and it is declared from this area only
+   because `.instrument-desk-scroll` is the element that makes the rule true. There is no utility
+   form for a blanket over other areas' elements. Measured: the `height`, `max-height` and
+   `overflow` halves are shadowed today by the utilities each of those elements carries, and the
+   `overscroll-behavior` and `scrollbar-gutter` halves still render.
+
+   Owned by: no single area. */
 .instrument-desk-scroll :is(
   .main-content-stage,
   .app-mode-surface,
@@ -163,9 +95,11 @@ html[data-theme="light"] .instrument-profile-menu button:focus-visible { outline
   .activity-log
 ) { height: auto !important; }
 
-/* The desk is the only scroll surface here, so a right-hand inspector that is just a grid
-   column grows with the table and rides away with it. Pin it instead and let it scroll on
-   its own once it outgrows the viewport. */
+/* Owner: documents & activity (`screens/project/ActivityInspector.tsx`). The desk is the only
+   scroll surface here, so a right-hand inspector that is just a grid column grows with the table
+   and rides away with it. Pin it instead and let it scroll on its own once it outgrows the
+   viewport. It only reaches this scope when the rail is closed -- docked, the inspector is
+   portalled into the rail and stands outside the desk entirely. */
 .instrument-desk-scroll .activity-inspector {
   position: sticky;
   top: 0;
@@ -174,311 +108,10 @@ html[data-theme="light"] .instrument-profile-menu button:focus-visible { outline
   overflow-y: auto;
 }
 
-.instrument-right-rail[hidden],
-.instrument-chat-rail-content[hidden] { display: none; }
-
-.instrument-right-rail-host {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  flex-direction: column;
-}
-
-.instrument-chat-rail-content {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  flex-direction: column;
-}
-
-.instrument-chat-rail-content > .utility-right-panel {
-  width: 100%;
-  height: 100%;
-  border: 0;
-}
-
-[data-instrument-overlay-backdrop]:has(+ [data-instrument-overlay="right-rail-sheet"]) {
-  position: fixed;
-  z-index: var(--z-sheet-backdrop);
-  inset: 0;
-  background: color-mix(in srgb, var(--instrument-widget-dark) 52%, transparent);
-}
-
-[data-instrument-overlay="right-rail-sheet"] {
-  position: fixed;
-  z-index: var(--z-sheet);
-  top: var(--space-2);
-  left: var(--space-2);
-  bottom: var(--space-2);
-  width: min(var(--instrument-right-rail-width), calc(100vw - 16px));
-  max-height: calc(100vh - 16px);
-  border-radius: var(--radius-lg);
-  background: var(--instrument-widget-dark);
-  color: var(--instrument-text-on-dark-primary);
-}
-
-[data-instrument-overlay="right-rail-sheet"] > div:last-child {
-  display: flex;
-  min-height: 100%;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .instrument-shell,
-  .instrument-right-rail { transition: none; }
-
-  .context-sidebar { animation: none; }
-}
-
-/* No fill mode on purpose: if this animation is throttled away (background window, busy
-   main thread) the sidebar is simply already in place, instead of stranded at opacity 0
-   the way a JS-driven `initial` style leaves it. */
-@keyframes instrument-sidebar-in {
-  from { opacity: 0; transform: translateX(-20px); }
-}
-
-.context-sidebar {
-  min-height: 0;
-  animation: instrument-sidebar-in var(--dur-slow) var(--ease);
-  background: transparent;
-  -webkit-backdrop-filter: var(--blur);
-  backdrop-filter: var(--blur);
-}
-
-[data-instrument-overlay-backdrop] {
-  position: fixed;
-  z-index: var(--z-overlay-backdrop);
-  inset: 0;
-  background: color-mix(in srgb, var(--instrument-widget-dark) 62%, transparent);
-}
-
-[data-instrument-overlay-kind="dialog"]:not([data-instrument-overlay="settings"]),
-[data-instrument-overlay-kind="drawer"] {
-  max-width: calc(100vw - 16px);
-  max-height: calc(100vh - 16px);
-  border-radius: var(--radius-panel);
-  outline: 0;
-  background: var(--instrument-widget-light);
-  color: var(--instrument-text-primary);
-}
-
-[data-instrument-overlay-kind="dialog"]:not([data-instrument-overlay="settings"]) > :last-child,
-[data-instrument-overlay-kind="drawer"] > :last-child {
-  max-width: calc(100vw - 16px);
-  max-height: calc(100vh - 16px);
-  border-radius: var(--radius-panel);
-  background-color: var(--instrument-widget-light);
-  color: var(--instrument-text-primary);
-}
-
-[data-instrument-overlay-kind="dialog"][data-instrument-surface-focus],
-[data-instrument-overlay-kind="drawer"][data-instrument-surface-focus] {
-  outline-width: 2px !important;
-  outline-style: solid !important;
-  outline-color: var(--instrument-text-primary) !important;
-  outline-offset: -3px !important;
-}
-
-/* Live-task identity orb: dither grain, coloured through the mask like every other
-   identity mark in the system. */
-.dynamic-island-orb {
-  display: block;
-  background: var(--instrument-dither-highlight);
-  mask-image: url("/assets/dither/g5.png");
-  mask-size: 16px 16px;
-  mask-repeat: no-repeat;
-}
-
-/* The island expands in place, like the iPhone one: the same plate morphs from a pill
-   into a panel. The root is a zero-width anchor at the centre of the top row so the
-   growing shell never pushes the layout around. */
-/* The island used to be a zero-width anchor with the plate absolutely positioned on top of
-   it. That left every no-drag box in this subtree empty, so the plate itself sat inside the
-   header's drag region and macOS turned each click into a window drag. The slot that holds
-   this is now the centred absolute box (see InstrumentShell), so the plate can simply be in
-   flow: it grows symmetrically around the centre and its no-drag box always matches what
-   the pointer actually hits. */
-.dynamic-island {
-  display: flex;
-  position: relative;
-  z-index: var(--z-island);
-  -webkit-app-region: no-drag;
-}
-
-.dynamic-island-shell {
-  -webkit-app-region: no-drag;
-  display: grid;
-  width: max-content;
-  max-width: min(520px, calc(100vw - 32px));
-  grid-template-rows: 36px 0fr;
-  overflow: hidden;
-  border-radius: var(--radius-pill);
-  background: var(--instrument-widget-dark);
-  color: var(--instrument-text-on-dark-primary);
-  corner-shape: round;
-  transition:
-    width var(--dur-slow) var(--ease),
-    border-radius var(--dur-slow) var(--ease),
-    grid-template-rows var(--dur-slow) var(--ease);
-}
-
-/* corner-shape cannot be interpolated: switching it mid-transition snapped the pill to a
-   different curve while the radius was still animating. The morphing plate stays round
-   for its whole travel. */
-.dynamic-island[data-open] .dynamic-island-shell {
-  width: min(420px, calc(100vw - 32px));
-  border-radius: var(--radius-panel);
-  grid-template-rows: 44px 1fr;
-}
-
-.dynamic-island-trigger {
-  display: flex;
-  width: 100%;
-  min-width: 0;
-  height: 100%;
-  align-items: center;
-  gap: 12px;
-  padding: 0 8px 0 16px;
-  border: 0;
-  border-radius: inherit;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-}
-
-/* Context segment: identity grain, the place, its section, and a Doto counter. This is
-   what the island shows when there is nothing else to report, so it is never a lone
-   circle. The label re-mounts on change (React key), which replays the tune-in keyframes. */
-.dynamic-island-context {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 8px;
-  animation: instrument-island-tune var(--dur-slow) var(--ease);
-}
-
-.dynamic-island-identity {
-  width: 16px;
-  height: 16px;
-  flex: none;
-  background: var(--glyph-color, var(--instrument-dither-highlight));
-  mask-size: 16px 16px;
-  mask-repeat: no-repeat;
-}
-
-.dynamic-island-identity.is-blank {
-  background: var(--instrument-text-on-dark-muted-decorative);
-  border-radius: var(--radius-pill);
-  mask-image: none;
-}
-
-.dynamic-island-context-label {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--instrument-text-on-dark-primary);
-  font-family: var(--font-mono);
-  font-size: var(--text-mono-md);
-  letter-spacing: 0.08em;
-  text-overflow: ellipsis;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.dynamic-island-context-count {
-  flex: none;
-  color: var(--instrument-text-on-dark-primary);
-  font-family: var(--font-doto);
-  font-size: var(--text-base);
-  font-weight: 800;
-  letter-spacing: 0.04em;
-}
-
-@keyframes instrument-island-tune {
-  from { opacity: 0; transform: translateY(-4px); }
-}
-
-.dynamic-island-trigger:focus-visible {
-  outline: 2px solid var(--instrument-focus-on-dark);
-  outline-offset: -3px;
-}
-
-.dynamic-island-expand {
-  display: grid;
-  width: 24px;
-  height: 24px;
-  flex: none;
-  margin-left: auto;
-  place-items: center;
-  border-radius: var(--radius-pill);
-  background: var(--instrument-widget-dark-raised);
-  color: var(--instrument-text-on-dark-secondary-readable);
-  transition: transform var(--dur) var(--ease), color var(--dur-fast) var(--ease);
-}
-
-.dynamic-island-trigger:hover .dynamic-island-expand { color: var(--instrument-text-on-dark-primary); }
-.dynamic-island[data-open] .dynamic-island-expand { transform: rotate(180deg); }
-
-/* Closed, the panel must not contribute to the plate's max-content width, or the collapsed
-   pill is sized by the widest line of a panel nobody can see yet. */
-.dynamic-island-detail {
-  width: 0;
-  min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  outline: 0;
-  overscroll-behavior: contain;
-}
-
-.dynamic-island-detail[aria-hidden] { overflow: hidden; }
-
-.dynamic-island-detail-inner {
-  display: grid;
-  gap: var(--space-2);
-  padding: 0 var(--space-2) var(--space-2);
-  opacity: 0;
-  transition: opacity var(--dur) var(--ease);
-}
-
-.dynamic-island[data-open] .dynamic-island-detail { width: 100%; }
-.dynamic-island[data-open] .dynamic-island-detail-inner { opacity: 1; transition-delay: 90ms; }
-
-.dynamic-island[data-animate] .dynamic-island-shell { animation: instrument-island-in 320ms var(--ease); }
-@keyframes instrument-island-in { from { opacity: 0; transform: translateX(-50%) scale(.94); } }
-
-@media (prefers-reduced-motion: reduce) {
-  .dynamic-island-shell,
-  .dynamic-island-detail-inner,
-  .dynamic-island-expand { transition: none; }
-  .dynamic-island[data-animate] .dynamic-island-shell { animation: none; }
-}
-
-.project-controls { position: absolute; z-index: var(--z-desk-float); top: auto; bottom: 10px; left: 50%; width: max-content; height: auto; container-type: normal; transform: translateX(-50%); }
-.project-dock { display: flex; width: max-content; align-items: center; gap: 2px; padding: 5px; border-radius: var(--radius-pill); background: var(--instrument-widget-light); color: var(--instrument-text-primary); }
-.project-dock button { position: relative; display: grid; width: 40px; height: 40px; place-items: center; padding: 0; border: 0; border-radius: var(--radius-pill); corner-shape: round; background: transparent; color: var(--instrument-text-secondary-readable); }
-.project-dock button:hover { background: var(--instrument-dock-hover); }
-.project-dock button.is-active,
-.project-dock button.is-active:hover { background: var(--instrument-desk-primary-surface); color: var(--instrument-desk-primary-ink); }
-.project-dock button > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.project-dock button:focus-visible { outline: 2px solid var(--instrument-text-primary); outline-offset: 2px; }
-/* The active button is an inverted plate, so its ring has to be drawn in its own ink. */
-.project-dock button[aria-selected="true"]:focus-visible { outline-color: var(--instrument-desk-primary-ink); outline-offset: -3px; }
-.project-domain-body { min-height: 0; padding-bottom: 64px; }
-
-/* Settings is a mode, not a floating card: it owns the whole window so the app never
-   peeks around its edges. Its own desk padding lives on .settings-screen. */
-[data-instrument-overlay="settings"] { position: fixed; z-index: var(--z-overlay-surface); inset: 0; overflow: hidden !important; border-radius: 0; }
-[data-instrument-overlay="settings"] > [data-instrument-screen-root] { display: block; width: 100%; height: 100%; }
-[data-instrument-overlay="settings"] .settings-screen { position: relative; width: 100%; height: 100%; background: var(--instrument-desk); }
-.settings-disabled-control { min-height: 30px; padding: 0 10px; border: 0; border-radius: var(--radius-sm); background: var(--instrument-widget-light-sunken); color: var(--instrument-text-secondary-readable); }
-.settings-disabled-control:focus-visible { outline: var(--control-focus); outline-offset: 2px; }
-
-@media (prefers-reduced-motion: reduce) {
-  .dynamic-island[data-animate] .dynamic-island-trigger { animation: none; }
-}
-
-/* Mode switch: the same gooey travelling indicator the project tabs use, in pill geometry.
-   Two blobs on different durations stretch through each other while the filter fuses them. */
+/* Owner: workbench chrome (`components/ContextSidebar.tsx`). The mode switch's gooey travelling
+   indicator, in pill geometry: two blobs on different durations stretch through each other while
+   the filter fuses them. Measured live, including its reduced-motion path -- unlike the sidebar's
+   own slide-in, every declaration below does apply, so nothing here needs moving to win. */
 .mode-goo-filter { position: absolute; width: 0; height: 0; pointer-events: none; }
 .mode-goo { position: absolute; z-index: 0; inset: 4px; pointer-events: none; }
 .mode-goo-blob {
@@ -499,3 +132,20 @@ html[data-theme="light"] .instrument-profile-menu button:focus-visible { outline
   .mode-goo-blob-leading { transition-duration: 0ms; }
   .mode-goo-blob-trailing { display: none; }
 }
+
+/* Owner: workbench project (`components/ProjectControls.tsx`, `instrument/ProjectDock.tsx`,
+   `screens/ProjectScreen.tsx`). The section dock floats over the bottom of the desk column --
+   not the window, which is why it is absolute and not fixed: fixed positioning centred it on the
+   app and drifted off the project whenever a column took width. Its container naming and its
+   drag opt-out are in workbench/13-unowned.css and have to stay after this rule. */
+.project-controls { position: absolute; z-index: var(--z-desk-float); top: auto; bottom: 10px; left: 50%; width: max-content; height: auto; container-type: normal; transform: translateX(-50%); }
+.project-dock { display: flex; width: max-content; align-items: center; gap: 2px; padding: 5px; border-radius: var(--radius-pill); background: var(--instrument-widget-light); color: var(--instrument-text-primary); }
+.project-dock button { position: relative; display: grid; width: 40px; height: 40px; place-items: center; padding: 0; border: 0; border-radius: var(--radius-pill); corner-shape: round; background: transparent; color: var(--instrument-text-secondary-readable); }
+.project-dock button:hover { background: var(--instrument-dock-hover); }
+.project-dock button.is-active,
+.project-dock button.is-active:hover { background: var(--instrument-desk-primary-surface); color: var(--instrument-desk-primary-ink); }
+.project-dock button > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.project-dock button:focus-visible { outline: 2px solid var(--instrument-text-primary); outline-offset: 2px; }
+/* The active button is an inverted plate, so its ring has to be drawn in its own ink. */
+.project-dock button[aria-selected="true"]:focus-visible { outline-color: var(--instrument-desk-primary-ink); outline-offset: -3px; }
+.project-domain-body { min-height: 0; padding-bottom: 64px; }

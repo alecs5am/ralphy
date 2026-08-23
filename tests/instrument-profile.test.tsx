@@ -4,7 +4,7 @@ import { describe, expect, test, vi } from "vitest";
 
 import { InstrumentProfileControl } from "../src/instrument/InstrumentProfileControl";
 import { createReactHost, type HostNode } from "./react-host";
-import { readStylesheet } from "./style-sources";
+
 
 async function settle() {
   await Promise.resolve();
@@ -132,8 +132,9 @@ describe("instrument profile control", () => {
         frames.flush();
         await settle();
       });
-      // The stylesheet fixes the menu; the inline style carries only the measured position.
-      expect(readStylesheet("instrument.css")).toMatch(/\.instrument-profile-menu \{[^}]*position: fixed/);
+      // The markup fixes the menu; the inline style carries only the measured position.
+      expect(readFileSync("src/instrument/InstrumentProfileControl.tsx", "utf8"))
+        .toMatch(/instrument-profile-menu fixed z-popover/);
       expect(menu.style.left).toBe("800px");
       expect(Number.parseFloat(menu.style.top)).toBeLessThan(660);
       expect(Number.parseFloat(menu.style.left) + menu.scrollWidth).toBeLessThanOrEqual(992);
@@ -147,12 +148,31 @@ describe("instrument profile control", () => {
       expect(menu.style.top).toBe("138px");
       expect(menu.scrollWidth).toBeLessThanOrEqual(menu.clientWidth);
 
-      const styles = readFileSync("src/styles/instrument.css", "utf8");
-      expect(styles).toMatch(/\.instrument-profile-menu\s*\{[^}]*width:\s*min\(192px, calc\(100vw - 16px\)\)[^}]*max-width:\s*calc\(100vw - 16px\)/s);
-      expect(styles).toMatch(/\.instrument-profile-menu-identity > span\s*\{[^}]*min-width:\s*0[^}]*text-overflow:\s*ellipsis/s);
-      expect(styles).toMatch(/\.instrument-profile-trigger\s*\{[^}]*box-sizing:\s*border-box[^}]*min-width:\s*0[^}]*max-width:\s*100%/s);
-      expect(styles).toMatch(/\.instrument-profile-trigger > span\s*\{[^}]*min-width:\s*0[^}]*text-overflow:\s*ellipsis/s);
-      expect(styles).toMatch(/\.instrument-profile-avatar,\s*\.instrument-profile-initials\s*\{[^}]*flex:\s*none/s);
+      // Every one of these decisions now stands on the element that renders it. The measure and
+      // the two viewport fits are role keys: the menu gives way to the window rather than
+      // overdrawing the window's own rounded clip.
+      const source = readFileSync("src/instrument/InstrumentProfileControl.tsx", "utf8");
+      const theme = readFileSync("src/styles/theme/shell.css", "utf8");
+      expect(source).toMatch(/w-profile-menu min-w-profile-menu-min max-w-overlay-fit/);
+      expect(source).toMatch(/max-h-overlay-fit-block/);
+      expect(theme).toMatch(/--spacing-profile-menu:\s*min\(192px, calc\(100vw - 16px\)\)/);
+      expect(theme).toMatch(/--spacing-profile-menu-min:\s*min\(180px, calc\(100vw - 16px\)\)/);
+      expect(theme).toMatch(/--spacing-overlay-fit:\s*calc\(100vw - 16px\)/);
+      expect(theme).toMatch(/--spacing-overlay-fit-block:\s*calc\(100vh - 16px\)/);
+      // The truncating label and the identity's `flex-none` are structural guards, not decoration:
+      // without them the name pushes the row wide and the avatar is the first thing to shrink.
+      expect(source).toMatch(/const LABEL = "min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"/);
+      expect(source).toMatch(/const IDENTITY = "size-control-sm flex-none/);
+      expect(source).toMatch(/box-border min-h-control-md min-w-0 max-w-full/);
+      // The plate and its rows state their surface and ink as a pair. The menu is portalled to
+      // `document.body`, outside `.app-mode-work`, where the legacy inks resolve to the on-dark
+      // family -- a plate that inherited its ink there would paint near-white text on a light
+      // widget in the light theme.
+      expect(source).toMatch(/rounded-menu bg-surface p-2 text-ink/);
+      expect(source).toMatch(/const ON_THEME = "text-ink hover:bg-surface-hover focus-visible:outline-ink"/);
+      // The sidebar footer's pill stays a black widget in both themes, so it takes the on-dark
+      // family and the on-instrument ring: the theme ink is #141414 on #141414 in the light theme.
+      expect(source).toMatch(/const ON_INSTRUMENT = "text-on-instrument-muted [^"]*focus-visible:outline-focus-on-instrument"/);
     } finally {
       await act(async () => root.unmount());
       observers.restore();
