@@ -1,11 +1,14 @@
-# Migrating the renderer onto Tailwind
+# Styling the renderer
 
-The renderer styles itself two ways at once: 2447 utility uses in markup and 11 432 lines of
-authored CSS across 37 stylesheets defining 1051 classes. Tailwind is imported in
-`important` mode, so a utility always beats authored CSS on the same element. That is why
-347 declarations were found that never rendered at all, and why a stylesheet could claim a
-13px label while the screen drew 11.5px. The dual system is the defect; this document is the
-target every migration step aims at.
+The renderer once styled itself two ways at once: utilities in markup and 13 445 lines of
+authored CSS over 37 stylesheets. Tailwind is imported in `important` mode, so a utility
+always beats authored CSS on the same element — which is why 347 declarations were found that
+never rendered, and why a stylesheet could claim a 13px label while the screen drew 11.5px.
+
+That dual system is gone. `src/styles` is 2173 lines, and every line of it is a token, a
+reset, or something a utility provably cannot express. This document is now the standing
+contract: the rules below are what keeps it that way, and the facts in **What eleven
+migrations established** are the ones that cost measurement to learn.
 
 ## The target
 
@@ -94,21 +97,67 @@ bun run typecheck && bun run build && bun run audit:style:strict && bun run test
   white and makes on-dark ink invisible. The ghost pair (`--instrument-ghost*`) is
   theme-invariant by design; do not remap it.
 
-## Order of work
+## What eleven migrations established
 
-Areas are independent. One agent per area, one commit per area.
+Every item here was measured in the running renderer, and most of them contradicted what the
+stylesheet said. They are listed because each one cost a wrong answer first.
 
-| Area | Stylesheets | Components |
-|---|---|---|
-| settings | `settings.css` + `settings/*` (1553) | `screens/SettingsScreen.tsx`, `screens/settings/*` |
-| workbench: project | `workbench/06,07,08,13,14` | `screens/ProjectScreen.tsx`, `screens/project/*` |
-| workbench: chrome | `workbench/02,03,04,10,11,12` | `instrument/*`, `components/ContextSidebar.tsx`, `components/UtilityPanels.tsx` |
-| workbench: calendar & memory | `workbench/01,05` | `screens/CalendarScreen.tsx`, `screens/MemoryScreen.tsx` |
-| workbench: documents & activity | `workbench/09,15,16` | `screens/project/ActivityTimeline.tsx`, `components/MarkdownView.tsx`, `components/WelcomeScreen.tsx` |
-| workspace overview | `workspace-overview.css` + parts | `screens/WorkspaceScreen.tsx`, `screens/workspace/*` |
-| shared library | `shared-library.css` + parts | `screens/SharedLibraryScreen.tsx`, `screens/shared-library/*` |
-| marketplace | `marketplace.css` | `screens/MarketplaceScreen.tsx`, `screens/marketplace/*` |
-| instrument shell | `instrument.css`, `work-surfaces.css` | `instrument/InstrumentShell.tsx`, `instrument/overlay-registry.tsx` |
+**The cascade.** An `!important` declaration in an *unlayered* stylesheet **loses** to an
+`!important` utility inside `@layer utilities` — important layer order is reversed. So a
+`display: none`, a reduced-motion blanket, or a `border: 0` cancel written in a sheet cannot
+override a utility on the element. Several such blankets had not applied for a long time.
+Reduced motion belongs on the element: `motion-reduce:animate-none`.
+
+**Two utilities, one property.** Which one wins is decided by the generated stylesheet's
+order, not by your class string, and you cannot see that order. A shared base class must
+carry geometry and behaviour only — never a surface or an ink a caller means to replace.
+Surface and ink travel as a pair; a caller repainting half a pair is how a menu came to read
+2.24:1, and its checked row 1.02:1. When a component genuinely needs two skins, give it a
+`tone` prop: `ui/SelectMenu.tsx`, `MarkdownView.tsx` and `media/tone.ts` do.
+
+**Descendant variants outrank elements.** A utility inside `[&_h3]:` is (0,1,1) and beats
+every per-element `type-*` (0,1,0) beneath it. A blanket on a container silently overrides
+each child's own choice. Four migrations lost real elements to this. Rendered Markdown is the
+one place the blanket is unavoidable, because `marked` emits bare tags.
+
+**`var()` substitutes where it is declared.** Not where it is read. A `calc()` or `min()` on
+`:root` referring to a variable scoped to `.instrument-shell` is guaranteed-invalid and falls
+back silently. Two menus overflowed their rail this way, and a drawer rendered 328.59px wide
+against a declared 292px. Declare a derived value on the element whose scope holds its inputs.
+
+**Portals leave the token scope.** An overlay portalled to `document.body` sits outside
+`.app-mode-work`, where the legacy `--fg*` / `--selected*` / `--danger` tokens resolve to the
+on-dark family. A light widget in a portal then paints on-dark ink at 1:1–3.5:1, and an alarm
+turns near-white. Eleven overlays were fixed for this.
+
+**Token pairs that collapse.** `--selected` and `--selected-ink` are the same value in the
+dark theme — white on white. `bg-surface text-ink` is invisible in the dark theme; both are
+#141414. `--control-focus` resolves to `--instrument-text-primary`, so a theme focus ring on a
+black widget is black on black in the light theme — use `outline-focus-on-instrument`.
+`--instrument-text-muted-decorative` is #6A6A66 on dark and #9A9A96 on light and clears 4.5:1
+against nothing it was used on: it is for disabled ink and marks that carry no information,
+never for copy. Fourteen settings labels were reading through it.
+
+**Proving a rule dead.** Disable it by rewriting its `selectorText`, then diff every reachable
+element's full computed style. Do **not** remove individual declarations: Chrome stores a
+`var()` shorthand as a pending-substitution value and removal destroys it. Write state hooks
+onto the subject *and its whole ancestor chain*. Three blind spots produced false verdicts: a
+transitioned property returns its start value at t=0; a container or media condition never
+fires at a single sweep width; and every row may render the negative value of the attribute
+the rule selects, so `aria-selected="true"` looks unreachable when it is not.
+
+**Verify by rendering, not by token equivalence.** Equivalence on paper missed every defect
+listed above. The audit that catches them measures each mark against the surface it actually
+lands on, with `:hover` and `:focus-visible` forced, in both themes, at three desk widths.
+Two things it must know: Chrome returns `oklab()`/`oklch()` verbatim for anything authored in
+those spaces or produced by `color-mix()`, so a parser reading only `rgb()` skips them
+silently; and marks inside `[aria-hidden="true"]` are decorative by design — the project
+identity glyph is the hue of its own plate on purpose.
+
+**Fixtures are not coverage.** No document fixture contains a code block, a table, a rule or
+an alert, so the whole block vocabulary of rendered Markdown renders in no route. The revision
+chooser appears only for a multi-revision asset. The review consoles mount only in the right
+rail. A route sweep that reports clean has not seen any of them.
 
 ## Method for one area
 
