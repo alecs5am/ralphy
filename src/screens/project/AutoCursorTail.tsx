@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { COMMAND_BUTTON } from "../route-chrome";
 
 export function AutoCursorTail(props: {
   root: HTMLElement | null;
@@ -35,6 +36,6 @@ export function AutoCursorTail(props: {
 
   return <div className="auto-cursor-tail flex min-h-px items-center justify-center py-3 text-muted empty:py-0" ref={attachSentinel}>
     {props.loading && <span role="status" aria-live="polite">Loading more…</span>}
-    {props.error && <div className="flex items-center gap-3" role="alert"><span>{props.error}</span><button className="command-button" type="button" onClick={props.onRetry}>Retry</button></div>}
+    {props.error && <div className="flex items-center gap-3" role="alert"><span>{props.error}</span><button className={COMMAND_BUTTON} type="button" onClick={props.onRetry}>Retry</button></div>}
   </div>;
 }

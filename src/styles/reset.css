@@ -12,10 +12,17 @@ body,
   margin: 0;
 }
 
+/* The document's own type and ground. Merged here from workbench/13-unowned.css, which is where
+   the transparent ground, the base step and the snug leading were declared -- a rule that styles
+   `body` is a global reset, not one area's styling. The ground is transparent, not the desk: the
+   frame paints its own, and a second opaque ground under it is what made a rounded window corner
+   draw a square. Measured before the merge: the sheet's `transparent` was winning here. */
 body {
-  background: var(--instrument-desk);
+  background: transparent;
   color: var(--instrument-text-primary);
   font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
 }
 
 button,

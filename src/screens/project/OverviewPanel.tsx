@@ -38,7 +38,7 @@ function Status({ value }: { value: string }) {
   const tone = /active|approved|published|ready|succeeded|resolved/.test(normalized)
     ? "ok"
     : /failed|cancelled|rejected/.test(normalized) ? "danger" : /running|working|open|pending|scheduled/.test(normalized) ? "warn" : "idle";
-  return <span className="overview-status flex flex-none items-center gap-1.5 type-xs text-muted"><span className={`status-dot dot-${tone} size-1.5 ${dotTone(tone)}`} aria-hidden="true" />{label(value)}</span>;
+  return <span className="overview-status flex flex-none items-center gap-1.5 type-xs text-muted"><span className={`status-dot dot-${tone} size-1.5 flex-none rounded-control ${dotTone(tone)}`} aria-hidden="true" />{label(value)}</span>;
 }
 
 function SectionHeading({ title, action, onAction }: { title: string; action?: string; onAction?(): void }) {
@@ -76,7 +76,7 @@ export function OverviewPanel({ value, onViewTab, onOpenUnit }: OverviewPanelPro
     <section className={`${SECTION} overview-pulse @min-project-dashboard/project-domain:col-span-4`}>
       <SectionHeading title="Project pulse" />
       <div className="overview-pulse-main flex min-w-0 items-start justify-between gap-3 [&_p]:mt-1.25 [&_p]:mb-0 [&_p]:text-muted [&_strong]:type-lg"><div><strong>{value.project.name}</strong><p>{value.project.purpose ?? "No project purpose has been added yet."}</p></div><Status value={value.project.state} /></div>
-      <dl className="overview-inline-facts mt-4 mb-0 grid grid-cols-2 gap-3 [&>div]:min-w-0 [&_dd]:m-0 [&_dd]:mt-0.75 [&_dd]:truncate [&_dd]:text-muted [&_dt]:m-0 [&_dt]:truncate [&_dt]:type-xs [&_dt]:text-muted"><div><dt>Current iteration</dt><dd>{activeIteration?.title ?? "None active"}</dd></div><div><dt>Updated</dt><dd>{formatTime(value.project.updatedAt)}</dd></div><div><dt>Spent</dt><dd className="mono-number">{spendUsd === null ? "—" : `$${spendUsd.toFixed(2)}`}</dd></div></dl>
+      <dl className="overview-inline-facts mt-4 mb-0 grid grid-cols-2 gap-3 [&>div]:min-w-0 [&_dd]:m-0 [&_dd]:mt-0.75 [&_dd]:truncate [&_dd]:text-muted [&_dt]:m-0 [&_dt]:truncate [&_dt]:type-xs [&_dt]:text-muted"><div><dt>Current iteration</dt><dd>{activeIteration?.title ?? "None active"}</dd></div><div><dt>Updated</dt><dd>{formatTime(value.project.updatedAt)}</dd></div><div><dt>Spent</dt><dd className="mono-number font-code">{spendUsd === null ? "—" : `$${spendUsd.toFixed(2)}`}</dd></div></dl>
       <div className="overview-pulse-counts mt-3.5 grid grid-cols-3 gap-2 [&>div]:grid [&>div]:gap-0.5 [&>div]:rounded-field [&>div]:bg-surface [&>div]:p-2.5 [&_span]:type-xs [&_span]:text-muted [&_strong]:font-code [&_strong]:type-lg"><div><strong>{openFeedback}</strong><span>Open feedback</span></div><div><strong>{activeWork}</strong><span>Active work</span></div><div><strong>{failedWork}</strong><span>Failed / cancelled</span></div></div>
     </section>
 

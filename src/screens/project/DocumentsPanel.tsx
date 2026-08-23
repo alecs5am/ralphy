@@ -11,6 +11,7 @@ import type { DomainPage } from "../../state/project-domain";
 import type { ProjectScreenController, ProjectScreenSnapshot } from "../../state/project-screen-controller";
 import { AutoCursorTail } from "./AutoCursorTail";
 import { useRememberedScroll } from "./scroll-memory";
+import { COMMAND_BUTTON, EMPTY_SECTION, PROJECT_LOCAL_ERROR, PROJECT_SKELETON, STATE_BOX, STATE_INK } from "../route-chrome";
 
 type DocumentRow =
   | { type: "document"; value: DocumentDto }
@@ -158,9 +159,9 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
         <label className="sr-only" htmlFor="document-search">Search documents</label>
         <input className="w-full min-w-0 border-0 bg-transparent type-sm text-ink" id="document-search" type="search" value={query} onInput={(event) => setQuery(event.currentTarget.value)} placeholder="Search documents" />
       </div>
-      {searchActive && search.status === "loading" && search.items.length === 0 && <div className="project-skeleton" role="status">Searching…</div>}
-      {searchActive && search.status === "error" && search.items.length === 0 && <div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{search.appendError}</span><button className="command-button" type="button" onClick={() => { void controller.retryDocumentSearchAppend(); }}>Retry</button></div>}
-      {rows.length === 0 && !(searchActive && search.status === "loading") && <div className="empty-section">{searchActive ? "No documents match this search." : "No documents yet."}</div>}
+      {searchActive && search.status === "loading" && search.items.length === 0 && <div className={PROJECT_SKELETON} role="status">Searching…</div>}
+      {searchActive && search.status === "error" && search.items.length === 0 && <div className={PROJECT_LOCAL_ERROR} role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{search.appendError}</span><button className={COMMAND_BUTTON} type="button" onClick={() => { void controller.retryDocumentSearchAppend(); }}>Retry</button></div>}
+      {rows.length === 0 && !(searchActive && search.status === "loading") && <div className={EMPTY_SECTION}>{searchActive ? "No documents match this search." : "No documents yet."}</div>}
       <div className="documents-virtual-list relative w-full" style={{ height: virtualizer.getTotalSize() + LIST_EDGE * 2 }}>
         {virtualizer.getVirtualItems().map((item) => {
           const row = rows[item.index];
@@ -192,7 +193,7 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
       />
     </div>
     <section className={`documents-detail document-preview min-h-0 min-w-0 overflow-auto overscroll-contain rounded-cell bg-surface-sunken [scrollbar-gutter:stable] has-[>.empty-section]:grid has-[>.empty-section]:place-items-center has-[>.empty-section]:bg-transparent ${DOCUMENT_CANVAS}`} aria-label="Document detail" ref={detailScroll.ref} onScroll={detailScroll.onScroll}>
-      {!selected && <div className="empty-section w-project-plate rounded-cell bg-surface-sunken p-6 text-center">Select a document to open it.</div>}
+      {!selected && <div className={`empty-section ${STATE_BOX} min-h-24 ${STATE_INK} w-project-plate rounded-cell bg-surface-sunken p-6 text-center`}>Select a document to open it.</div>}
       {selected && <>
         <header className="document-detail-header sticky top-0 z-raised flex min-h-document-header flex-wrap items-center justify-between gap-3 bg-surface px-4 py-3">
           <div className="document-detail-identity flex min-w-0 items-center gap-2">
@@ -202,15 +203,15 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
           <div className="document-header-actions ml-auto flex min-w-0 items-center gap-2">
             <GooeyTabs<"render" | "source"> tabs={documentViewTabs} value={documentView} onValueChange={setDocumentView} size="s" ariaLabel="Document view" />
             {snapshot.documentMode === "read"
-              ? <button className="command-button" type="button" disabled={snapshot.documentSaving || Boolean(selected.currentRevisionId && (snapshot.documentPreview.status !== "ready" || !snapshot.documentPreview.value || snapshot.documentPreview.value.truncated))} aria-describedby={snapshot.documentPreview.value?.truncated ? "document-truncated-note" : undefined} onClick={() => controller.beginDocumentEdit()}>Edit</button>
-              : <div className="document-actions flex min-w-0 items-center gap-2"><button className="command-button" type="button" disabled={snapshot.documentSaving} onClick={() => controller.cancelDocumentEdit()}>Cancel</button><button className="command-button" type="button" disabled={snapshot.documentSaving || !snapshot.documentDirty} onClick={() => { void controller.saveDocument(); }}>{snapshot.documentSaving ? "Saving…" : "Save"}</button></div>}
+              ? <button className={COMMAND_BUTTON} type="button" disabled={snapshot.documentSaving || Boolean(selected.currentRevisionId && (snapshot.documentPreview.status !== "ready" || !snapshot.documentPreview.value || snapshot.documentPreview.value.truncated))} aria-describedby={snapshot.documentPreview.value?.truncated ? "document-truncated-note" : undefined} onClick={() => controller.beginDocumentEdit()}>Edit</button>
+              : <div className="document-actions flex min-w-0 items-center gap-2"><button className={COMMAND_BUTTON} type="button" disabled={snapshot.documentSaving} onClick={() => controller.cancelDocumentEdit()}>Cancel</button><button className={COMMAND_BUTTON} type="button" disabled={snapshot.documentSaving || !snapshot.documentDirty} onClick={() => { void controller.saveDocument(); }}>{snapshot.documentSaving ? "Saving…" : "Save"}</button></div>}
           </div>
           {draft && <div className="document-edit-fields flex w-full min-w-0 items-center gap-2"><label className="grid min-w-0 flex-1 gap-1 type-xs text-muted">Title<input className="h-control-md w-full min-w-0 rounded-control bg-surface-sunken px-2.5 text-ink focus-visible:-outline-offset-2" disabled={snapshot.documentSaving} value={draft.title ?? ""} onChange={(event) => controller.setDocumentDraftTitle(event.currentTarget.value)} /></label><fieldset className="document-format-options flex min-w-0 items-end gap-1 border-0 p-0" disabled={snapshot.documentSaving}><legend className="sr-only">Format</legend>{(["markdown", "json", "text"] as const).map((format) => <button className={`command-button h-control-md w-full min-w-0 rounded-control focus-visible:-outline-offset-2 ${draft.format === format ? "bg-desk-primary text-desk-primary-ink" : "bg-surface-sunken text-ink"}`} type="button" disabled={snapshot.documentSaving} aria-pressed={draft.format === format} key={format} onClick={() => controller.setDocumentDraftFormat(format)}>{formatLabel(format)}</button>)}</fieldset></div>}
         </header>
-        {snapshot.documentConflict && <div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.documentConflict}</span>{snapshot.documentConflictReview && snapshot.documentPreview.value && <button className="command-button" type="button" onClick={() => setReviewCurrent(true)}>Review current</button>}</div>}
-        {snapshot.documentPreview.status === "loading" && <div className="project-skeleton" role="status">Loading document…</div>}
-        {snapshot.documentPreview.status === "error" && <div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.documentPreview.error}</span><button className="command-button" type="button" onClick={() => { void controller.openDocument(selected); }}>Retry</button></div>}
-        {draft && reviewCurrent && snapshot.documentPreview.value && <div className="document-current-review bg-transparent"><button className="command-button" type="button" onClick={() => setReviewCurrent(false)}>Back to edit</button><DocumentContent format={snapshot.documentPreview.value.format} text={snapshot.documentPreview.value.text} /></div>}
+        {snapshot.documentConflict && <div className={PROJECT_LOCAL_ERROR} role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.documentConflict}</span>{snapshot.documentConflictReview && snapshot.documentPreview.value && <button className={COMMAND_BUTTON} type="button" onClick={() => setReviewCurrent(true)}>Review current</button>}</div>}
+        {snapshot.documentPreview.status === "loading" && <div className={PROJECT_SKELETON} role="status">Loading document…</div>}
+        {snapshot.documentPreview.status === "error" && <div className={PROJECT_LOCAL_ERROR} role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.documentPreview.error}</span><button className={COMMAND_BUTTON} type="button" onClick={() => { void controller.openDocument(selected); }}>Retry</button></div>}
+        {draft && reviewCurrent && snapshot.documentPreview.value && <div className="document-current-review bg-transparent"><button className={COMMAND_BUTTON} type="button" onClick={() => setReviewCurrent(false)}>Back to edit</button><DocumentContent format={snapshot.documentPreview.value.format} text={snapshot.documentPreview.value.text} /></div>}
         {draft && !reviewCurrent && documentView === "source" && <textarea className="document-editor m-3 min-h-80 w-[calc(100%_-_1.5rem)] resize-y rounded-control border-0 bg-surface px-3 py-2 type-base text-ink" aria-label="Document body" disabled={snapshot.documentSaving} value={draft.body} onChange={(event) => controller.setDocumentDraftBody(event.currentTarget.value)} />}
         {draft && !reviewCurrent && documentView === "render" && <DocumentContent format={draft.format} text={draft.body} />}
         {snapshot.documentMode === "read" && snapshot.documentPreview.status === "ready" && snapshot.documentPreview.value && documentView === "render" && <DocumentContent format={snapshot.documentPreview.value.format} text={snapshot.documentPreview.value.text} />}

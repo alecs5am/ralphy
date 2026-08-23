@@ -35,6 +35,10 @@
   --radius-identity: 36%;
   /* A poster plate inside the schedule dialog, and a widget inside another widget. */
   --radius-poster: var(--radius-preview);
+  /* The placeholder letter inside a poster slot whose thumbnail has not resolved. It is a mark
+     scaled to the plate, not copy, so it has no step on the type scale: the sheet that used to
+     carry it named 48px and a `type-sm` utility on the same element had been beating it. */
+  --type-poster-glyph: 48px;
   --radius-widget: var(--radius-xl);
 
   /* Layout the design fixes for the Calendar. */

@@ -61,8 +61,12 @@
   /* A mono figure set in Doto: one step tighter than the label tracking. */
   --tracking-figure: 0.04em;
 
+  /* The select menu's own measure: as wide as it wants, but never past the window gutter. */
+  --spacing-select-menu: min(420px, calc(100vw - 24px));
+
   /* Motion. The keyframes have no utility form; the name that reaches them does. */
   --animate-sidebar-chat-pulse: sidebar-chat-pulse 1.4s var(--ease) infinite;
+  --animate-select-menu-in: select-menu-in var(--dur) var(--ease);
 
   /* The window controls and the header actions stand above the header's own content, and
      below every layer tokens.css names. */
@@ -80,4 +84,21 @@
    @layer utilities, so a reduced-motion blanket in CSS cannot hold back markup-declared motion. */
 @keyframes sidebar-chat-pulse {
   50% { opacity: .25; }
+}
+
+/* The menu's block fit has to be *declared on the element*: `--radix-select-content-available-
+   height` is written by Radix on the content node, and a `var()` inside a custom property is
+   substituted where the property is declared, not where it is read. At `:root` the calc would be
+   invalid at computed-value time and the whole value would inherit as guaranteed-invalid. This is
+   a value rather than styling -- see the same case in theme/agent-rail.css. */
+.select-menu-content {
+  --select-menu-fit-block: min(420px, var(--radix-select-content-available-height));
+}
+
+/* @keyframes has no utility form, so the entrance the menu plate names above is declared here
+   beside it. The element that reads it carries its own `motion-reduce:animate-none`: an
+   !important declaration in an unlayered sheet loses to an !important utility inside
+   @layer utilities, so a reduced-motion blanket in CSS cannot hold back markup-declared motion. */
+@keyframes select-menu-in {
+  from { opacity: 0; transform: scale(0.98) translateY(-3px); }
 }

@@ -39,8 +39,12 @@ export function ProjectControls({ activeTab, onSelect }: ProjectControlsProps) {
   // the float host: outside the scroller, so the dock holds still, and the dock's containing
   // block, so it centres on the project.
   const host = useOptionalInstrumentScroll()?.floatHost ?? null;
+  // The dock floats over the desk, so it opts out of the window drag region: a pointer on the
+  // dock has to reach the control, not move the window. Its geometry is in instrument.css, which
+  // also gives it `container-type: normal` -- so the `container-name` the sheet carried could
+  // never establish a container, and nothing queried it.
   const dock = (
-    <div className="project-controls"><ProjectDock active={activeTab} items={dockItems} onSelect={onSelect} /></div>
+    <div className="project-controls [-webkit-app-region:no-drag]"><ProjectDock active={activeTab} items={dockItems} onSelect={onSelect} /></div>
   );
   return host ? createPortal(dock, host) : dock;
 }

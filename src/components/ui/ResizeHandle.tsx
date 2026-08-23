@@ -66,7 +66,11 @@ export function ResizeHandle({
 
   return (
     <div
-      className={`panel-resize-handle ${className}`}
+      /* The grabber is this element's `::after`, so the ring the reader sees is the grabber
+         filling in, not an outline: `outline-0` is the ring `reset.css` would otherwise draw
+         around a 8px-wide separator. The grabber's own geometry has no utility form -- there is
+         no element to put a class on -- and stays in `styles/resize-grabber.css`. */
+      className={`panel-resize-handle z-inspector outline-0 ${className}`}
       role="separator"
       tabIndex={0}
       aria-label={ariaLabel}

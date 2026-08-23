@@ -76,6 +76,7 @@
   --spacing-units-search: 200px;            /* the unit search never shrinks past its placeholder */
   --spacing-media-filter: 148px;            /* a media filter trigger keeps its longest label */
   --spacing-grid-density: 92px;             /* the grid-density slider */
+  --spacing-mock-review: min(460px, calc(100vw - 32px)); /* the UX-lab review dialog */
   --spacing-units-empty: 320px;             /* the filtered empty state holds the grid's height */
   --spacing-revision-rail: 92px;            /* the revision rail keeps its height while it loads */
   --spacing-revision-card: 330px;           /* a revision card in the unit viewer */
@@ -130,6 +131,7 @@
   --z-index-sticky: var(--z-sticky);
   --z-index-header: var(--z-header);
   --z-index-scrim: var(--z-scrim);
+  --z-index-mock-review: var(--z-mock-review);
   --z-index-scrim-content: var(--z-scrim-content);
 
   /* Breakpoints read against a container and never the window: the sidebar, the chat rail and

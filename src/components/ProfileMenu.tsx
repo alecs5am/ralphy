@@ -100,7 +100,9 @@ export function ProfileMenu({
           onClick={() => setOpen((value) => value === "profile" ? null : "profile")}
         >
           <ProfileAvatar rootPath={rootPath} size={20} />
-          <strong className="sidebar-profile-name">{identity}</strong>
+          {/* The name takes what the avatar leaves and truncates. No ink of its own: the
+              trigger states the on-dark pair, and reset.css already gives `strong` weight 400. */}
+          <strong className="sidebar-profile-name min-w-0 flex-1 truncate type-sm">{identity}</strong>
         </button>
         <button
           className={`inline-grid size-8 flex-none place-items-center ${MENU_TRIGGER}`}

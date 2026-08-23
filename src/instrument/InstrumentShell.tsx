@@ -337,7 +337,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
   return <ScrollContext.Provider value={scrollContext}>
     <RightRailContext.Provider value={railContext}>
       <div
-        className="instrument-shell col-span-3 row-start-1 row-end-2 grid h-full min-h-0 w-full min-w-0 overflow-hidden bg-desk grid-cols-[var(--instrument-left-width)_auto_minmax(0,1fr)] grid-rows-[48px_minmax(0,1fr)]"
+        className="instrument-shell col-span-3 row-start-1 row-end-2 grid h-full min-h-0 w-full min-w-0 overflow-hidden bg-desk grid-cols-[var(--instrument-left-width)_auto_minmax(0,1fr)] grid-rows-[48px_minmax(0,1fr)] data-[rail-resizing]:cursor-col-resize data-[rail-resizing]:select-none"
         ref={frameRef}
         data-right-rail-mode={mode}
         data-instrument-native-inset="76"
@@ -374,7 +374,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
             max={LEFT_MAX}
             defaultValue={LEFT_DEFAULT}
             direction={1}
-            className="resize-instrument-sidebar"
+            className="resize-instrument-sidebar absolute top-0 right-0 bottom-0 w-2 cursor-col-resize"
             onChange={props.onLeftWidthChange}
             onActiveChange={setColumnResizing}
           />
@@ -404,7 +404,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
             max={railMax}
             defaultValue={RIGHT_RAIL_MIN}
             direction={1}
-            className="resize-instrument-rail"
+            className="resize-instrument-rail absolute top-0 right-0 bottom-0 w-2 cursor-col-resize"
             onChange={props.onRightWidthChange}
             onActiveChange={setColumnResizing}
           />

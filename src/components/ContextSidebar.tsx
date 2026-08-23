@@ -302,7 +302,7 @@ export function ContextSidebar({
         </div>}
       </div>
 
-      {rootPath && <div className="sidebar-footer h-12 shrink-0 rounded-full bg-instrument text-on-instrument [&_.instrument-profile-control]:h-full [&_.instrument-profile-control]:w-full">
+      {rootPath && <div className="sidebar-footer flex h-12 shrink-0 items-stretch rounded-full bg-instrument text-on-instrument [&_.instrument-profile-control]:h-full [&_.instrument-profile-control]:w-full">
         <InstrumentProfileControl
           identity={{ displayName: profileIdentity(rootPath), initials: profileIdentity(rootPath).slice(0, 2).toUpperCase(), avatarUrl: null }}
           avatar={<ProfileAvatar rootPath={rootPath} size={32} round />}

@@ -1,0 +1,53 @@
+/* The grabber inside a resize handle. It is drawn by the handle's own `::after`, so there is no
+   element a utility could land on, and `content: ""` has no named-scale utility form -- only
+   `content-none`, which is the opposite decision. The handle itself states its layer, its
+   suppressed ring, its position and its cursor in markup (`components/ui/ResizeHandle.tsx` and
+   `instrument/InstrumentShell.tsx`); everything below is the pseudo-element and nothing else.
+
+   Measured: the hover and focus fills both paint. The transition on the base rule is what makes
+   the handle's own fill fade in, and it is why a computed-style diff with `:hover` forced reads
+   the *start* value unless it settles first. */
+
+.panel-resize-handle::after {
+  position: absolute;
+  content: "";
+  border-radius: var(--radius-pill);
+  background: transparent;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.panel-resize-handle:hover::after,
+.panel-resize-handle:focus-visible::after {
+  background: var(--line-strong);
+}
+
+/* The instrument columns are grid tracks, so their handles position against the column box rather
+   than the v1 layout variables the legacy handles use. Each grips its own trailing padding, which
+   is the gutter the reader sees between two panels.
+
+   The grabber stays visible instead of appearing on hover: a column that only reveals it under
+   the cursor never tells the operator it can move at all. */
+.resize-instrument-sidebar::after,
+.resize-instrument-rail::after {
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 36px;
+  translate: -50% -50%;
+  background: var(--instrument-resize-grip);
+}
+
+/* The rail's neighbour pays for its own inset, so the gutter the reader sees is wider than the
+   handle: the grip belongs on the column boundary, not in the middle of the handle. */
+.resize-instrument-rail::after {
+  left: 100%;
+}
+
+.resize-instrument-sidebar:hover::after,
+.resize-instrument-sidebar:focus-visible::after,
+.resize-instrument-sidebar:active::after,
+.resize-instrument-rail:hover::after,
+.resize-instrument-rail:focus-visible::after,
+.resize-instrument-rail:active::after {
+  background: var(--instrument-resize-grip-active);
+}

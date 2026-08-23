@@ -12,6 +12,7 @@ import { InstrumentRightRailPortal } from "../../instrument/InstrumentShell";
 import type { DomainPage } from "../../state/project-domain";
 import type { ProjectScreenController, ProjectScreenSnapshot } from "../../state/project-screen-controller";
 import { MediaReviewConsole } from "./MediaReviewConsole";
+import { COMMAND_BUTTON, EMPTY_SECTION, PROJECT_LOCAL_ERROR, PROJECT_LOCAL_ERROR_ROW, PROJECT_SKELETON } from "../route-chrome";
 
 const lifecycleOptions: Array<SelectMenuOption<ProjectMediaFilter>> = [
   ["all", "All"], ["references", "References"], ["working", "Working"], ["candidate", "Candidate"],
@@ -118,7 +119,7 @@ export function MediaPanel({ page, controller, snapshot, project, workspaceName,
     catch (error) { setActionError(error instanceof Error ? error.message : "Media action could not be completed."); }
   };
 
-  if (page.status === "error" && page.items.length === 0) return <InstrumentScreenRoot descriptor={mediaInstrumentStates} state="error"><div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{page.error ?? "Media could not be loaded."}</span><button className="command-button" type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div></InstrumentScreenRoot>;
+  if (page.status === "error" && page.items.length === 0) return <InstrumentScreenRoot descriptor={mediaInstrumentStates} state="error"><div className={PROJECT_LOCAL_ERROR} role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{page.error ?? "Media could not be loaded."}</span><button className={COMMAND_BUTTON} type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div></InstrumentScreenRoot>;
   const query = snapshot.domain.media;
   const mediaItems = page.items as MediaCardDto[];
   const selectedIndex = snapshot.selectedMedia
@@ -130,14 +131,14 @@ export function MediaPanel({ page, controller, snapshot, project, workspaceName,
       <SelectMenu overlayOwner="project.media" value={query.mediaKind ?? "all"} options={kindOptions} ariaLabel="Media type" prefix="Type" onValueChange={(mediaKind) => { void controller.setMediaQuery({ mediaKind: mediaKind === "all" ? undefined : mediaKind }); }} />
       <SelectMenu overlayOwner="project.media" value={query.provenance ?? "all"} options={provenanceOptions} ariaLabel="Generation provenance" prefix="Generation" onValueChange={(provenance) => { void controller.setMediaQuery({ provenance: provenance === "all" ? undefined : provenance }); }} />
       <span className="media-item-count ml-auto font-code type-xs whitespace-nowrap text-muted">{page.items.length.toLocaleString()} items</span>
-      <div className="grid-size-control flex min-w-32 items-center gap-2 text-muted [&_.snappy-slider]:w-grid-density" title="Grid density"><GalleryHorizontalEnd size={15} aria-hidden="true" /><SnappySlider value={density} min={150} max={310} step={20} values={densityStops} defaultValue={230} ariaLabel="Grid density" onValueChange={setDensity} /></div>
+      <div className="grid-size-control flex h-control-md min-w-32 flex-none items-center gap-2 rounded-control bg-surface-sunken px-2.75 type-sm text-muted [&_.snappy-slider]:w-grid-density" title="Grid density"><GalleryHorizontalEnd size={15} aria-hidden="true" /><SnappySlider value={density} min={150} max={310} step={20} values={densityStops} defaultValue={230} ariaLabel="Grid density" onValueChange={setDensity} /></div>
     </div>
-    {actionError && <div className="project-local-error media-action-error mb-2 min-h-9" role="alert">{actionError}</div>}
-    {page.status === "error" && page.items.length > 0 && page.nextCursor === null && <div className="project-local-error media-action-error mb-2 min-h-9" role="alert"><span>{page.error ?? "Media could not be updated."}</span><button className="command-button" type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>}
+    {actionError && <div className={`${PROJECT_LOCAL_ERROR_ROW} media-action-error mb-2 min-h-9`} role="alert">{actionError}</div>}
+    {page.status === "error" && page.items.length > 0 && page.nextCursor === null && <div className={`${PROJECT_LOCAL_ERROR_ROW} media-action-error mb-2 min-h-9`} role="alert"><span>{page.error ?? "Media could not be updated."}</span><button className={COMMAND_BUTTON} type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>}
     <div className="project-media-grid flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent p-0 [&_.asset-grid-scroll]:min-h-90 [&_.asset-grid-scroll]:flex-1 [&_.asset-grid-scroll]:overflow-x-hidden [&_.asset-grid-scroll]:overflow-y-auto [&_.asset-grid-scroll]:p-0">
-      {page.status === "loading" && page.items.length === 0 && <div className="project-skeleton" role="status">Loading media…</div>}
+      {page.status === "loading" && page.items.length === 0 && <div className={PROJECT_SKELETON} role="status">Loading media…</div>}
       {page.status === "ready" && page.items.length === 0
-        ? <div className="empty-section">No media matches these filters.</div>
+        ? <div className={EMPTY_SECTION}>No media matches these filters.</div>
         : <VirtualAssetGrid key={scrollResetToken} items={page.items as MediaCardDto[]} project={snapshot.domain.project} rootEpoch={rootEpoch} selectedRef={snapshot.selectedMedia?.ref ?? null} resolvePreview={bridge.resolveProjectPreview} onSelect={(card) => controller.selectMedia(card)} onOpen={(card) => { void controller.openMediaViewer(card); }} onContextMenu={openContext} density={density} gap={10} hasMore={page.nextCursor !== null} loadingMore={page.status === "loading" && page.items.length > 0 && page.nextCursor !== null} appendError={page.status === "error" && page.items.length > 0 && page.nextCursor !== null ? page.error : null} onLoadMore={() => { void controller.loadMore("media"); }} onRetryAppend={() => { void controller.retryPage("media"); }} scrollMemory={scrollMemory} scrollKey="media" scrollResetToken={scrollResetToken} />}
     </div>
     {snapshot.selectedMedia && <InstrumentRightRailPortal owner="media-review" label="Media review">

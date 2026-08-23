@@ -16,17 +16,20 @@ import { activitySearchText, activitySource, humanizeActivity, summarizeActivity
 import { AutoCursorTail } from "./AutoCursorTail";
 import { useRememberedScroll } from "./scroll-memory";
 
-/* These two filters keep the surface, ink, height and radius 06-unowned.css still declares for
-   `.activity-toolbar .select-menu-trigger`, so SelectMenu stands down (`tone="caller"`) and only
-   the padding it used to inherit from the shared base is restated here. The narrow-desk hide was
-   an `@container project-domain` rule in 09-activity-inspector.css; it has to be a variant now,
-   because a `display` utility on the trigger beats an authored `display: none`. */
-const ACTIVITY_SELECT = "px-3 @max-activity-filters/project-domain:hidden";
+/* These two filters state the whole skin the sheet used to carry for
+   `.activity-toolbar .select-menu-trigger`, so SelectMenu stands down (`tone="caller"`) and
+   surface and ink land here as one pair. The plate is `--instrument-widget-dark-raised` in both
+   themes (work-surfaces.css flips the legacy set for `.select-menu-trigger`), so the ring is the
+   on-instrument one: `outline-ink` would be #141414 on #1E1E1E in the light theme. The
+   narrow-desk hide is a variant, not an authored `display: none`, which any display utility on
+   the trigger would beat. */
+const ACTIVITY_SELECT = "h-8 max-w-47.5 rounded-control bg-instrument-raised px-3 text-on-instrument-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-on-instrument @max-activity-filters/project-domain:hidden";
 
-/* The table's narrow forms. The wide template stays in 06-unowned.css with the base row rule;
-   these two swap it out, and the two ranges are written as mutually exclusive so a cell never
-   carries two `grid-cols` utilities and lets the generated sheet decide which wins. */
-const ROW_COLUMNS = "@min-activity-filters/project-domain:@max-activity-columns/project-domain:grid-cols-(--activity-row-columns-medium) @max-activity-filters/project-domain:grid-cols-(--activity-row-columns-narrow)";
+/* The table's three forms. All three ranges are mutually exclusive, so a cell never carries two
+   `grid-cols` utilities and lets the generated sheet decide which wins. The wide template used to
+   sit on the base row rule in the sheet; it is the `@min-activity-columns` band here. */
+const ROW = "grid items-center gap-x-3";
+const ROW_COLUMNS = "@min-activity-columns/project-domain:grid-cols-(--activity-row-columns) @min-activity-filters/project-domain:@max-activity-columns/project-domain:grid-cols-(--activity-row-columns-medium) @max-activity-filters/project-domain:grid-cols-(--activity-row-columns-narrow)";
 /* The model column goes first, then source and entity. Both hides are utilities on the cell:
    an authored `display: none` loses to any display utility on the same element. */
 const HIDE_MEDIUM = "@max-activity-columns/project-domain:hidden";
@@ -205,20 +208,20 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
   };
   const selectedEvent = items.find(({ sequence }) => sequence === selected) ?? null;
 
-  return <InstrumentScreenRoot descriptor={activityInstrumentStates} state={activityInstrumentState(page, selectedEvent !== null)}><div className={`activity-log min-h-0 w-full bg-transparent${selectedEvent ? " has-inspector @max-activity-columns/project-domain:grid-cols-1" : ""}`}>
-    <div className="activity-log-main flex min-h-0 flex-col gap-2">
-      <div className="activity-toolbar m-0 flex min-h-11 flex-wrap items-center gap-2 bg-transparent p-0">
-        <label className="activity-search flex h-9 min-w-56 flex-1 items-center gap-2 rounded-control bg-surface px-3"><Search size={14} /><input className="min-w-0 flex-1 bg-transparent type-base text-ink outline-none placeholder:text-muted" aria-label="Search activity" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search events" /></label>
+  return <InstrumentScreenRoot descriptor={activityInstrumentStates} state={activityInstrumentState(page, selectedEvent !== null)}><div className={`activity-log grid h-full min-h-0 w-full min-w-0 bg-transparent${selectedEvent ? " has-inspector gap-4 @min-activity-columns/project-domain:grid-cols-(--activity-log-columns) @max-activity-columns/project-domain:grid-cols-1" : ""}`}>
+    <div className="activity-log-main flex min-h-0 min-w-0 flex-col gap-2">
+      <div className="activity-toolbar m-0 flex min-h-11 min-w-0 flex-wrap items-center gap-2 bg-transparent p-0">
+        <label className="activity-search flex h-9 min-w-56 flex-1 items-center gap-2 rounded-control bg-surface px-3 text-muted focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-ink"><Search size={14} /><input className="min-w-0 flex-1 bg-transparent type-base text-ink outline-none placeholder:text-muted" aria-label="Search activity" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search events" /></label>
         <SelectMenu<"all" | ActivitySource> className={ACTIVITY_SELECT} tone="caller" overlayOwner="project.activity" value={source} options={sourceOptions} ariaLabel="Filter activity source" onValueChange={setSource} />
         <SelectMenu className={ACTIVITY_SELECT} tone="caller" overlayOwner="project.activity" value={model} options={modelOptions} ariaLabel="Filter activity model" onValueChange={setModel} />
       </div>
-      <div className="activity-table min-h-0 flex-1 overflow-hidden bg-transparent" role="table" aria-label="Project activity">
-        <div className={`activity-table-head rounded-panel bg-surface px-3 type-meta uppercase tracking-mono text-muted ${ROW_COLUMNS}`} role="row"><span>Time</span><span className={HIDE_NARROW}>Source</span><span>Event</span><span className={HIDE_NARROW}>Entity</span><span className={HIDE_MEDIUM}>Model</span><span>Cost</span></div>
-        <div className="activity-scroll min-h-0 overflow-auto" role="region" aria-label="Activity events" tabIndex={0} ref={attachOwner} onScroll={instrumentScroll ? undefined : remembered.onScroll}>
-          <div className="activity-virtual-list" role="rowgroup" style={{ height: virtualizer.getTotalSize() }}>
+      <div className="activity-table flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-table bg-transparent" role="table" aria-label="Project activity">
+        <div className={`activity-table-head h-9 flex-none rounded-panel bg-surface px-3 type-meta uppercase tracking-mono text-muted ${ROW} ${ROW_COLUMNS}`} role="row"><span>Time</span><span className={HIDE_NARROW}>Source</span><span>Event</span><span className={HIDE_NARROW}>Entity</span><span className={HIDE_MEDIUM}>Model</span><span>Cost</span></div>
+        <div className="activity-scroll min-h-0 min-w-0 flex-1 overflow-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink" role="region" aria-label="Activity events" tabIndex={0} ref={attachOwner} onScroll={instrumentScroll ? undefined : remembered.onScroll}>
+          <div className="activity-virtual-list relative w-full" role="rowgroup" style={{ height: virtualizer.getTotalSize() }}>
             {virtualRows.map((row) => {
               const item = rows[row.index];
-              if (item.type === "day") return <div className="activity-row activity-day flex items-center gap-2.5 px-3 type-sm text-muted" role="row" key={row.key} style={{ height: row.size, transform: `translateY(${row.start - scrollMargin}px)` }}><span className="flex-none">{item.label}</span></div>;
+              if (item.type === "day") return <div className="activity-row activity-day absolute top-0 left-0 flex w-full items-center gap-2.5 px-3 type-sm text-muted" role="row" key={row.key} style={{ height: row.size, transform: `translateY(${row.start - scrollMargin}px)` }}><span className="flex-none">{item.label}</span></div>;
               const value = item.value;
               const date = dateValue(value.createdAt);
               const milestone = isMilestone(value.action);
@@ -230,7 +233,7 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
               const detail = details[value.entityId];
               const summary = detail ? summarizeActivityRun(detail) : null;
               const eventModel = summary?.models[0] ?? null;
-              return <button type="button" role="row" className={`activity-row activity-event rounded-control px-2 text-left type-sm ${ROW_COLUMNS} ${selected === value.sequence ? "bg-instrument text-on-instrument [&_*]:text-inherit [box-shadow:var(--activity-selected-mark)]" : "bg-transparent text-ink hover:bg-surface"}${milestone ? " is-milestone" : ""}`} aria-selected={selected === value.sequence} data-action={value.action} data-tone={tone} key={row.key} ref={(node) => { if (node) rowRefs.current.set(value.sequence, node); else rowRefs.current.delete(value.sequence); }} style={{ height: row.size - 4, transform: `translateY(${row.start - scrollMargin + 2}px)` }} onClick={() => open(value)} onKeyDown={(keyboardEvent) => {
+              return <button type="button" role="row" className={`activity-row activity-event absolute top-0 left-0 w-full rounded-control px-2 text-left type-sm ${ROW} ${ROW_COLUMNS} ${selected === value.sequence ? "bg-instrument text-on-instrument [&_*]:text-inherit [box-shadow:var(--activity-selected-mark)]" : "bg-transparent text-ink hover:bg-surface"}${milestone ? " is-milestone" : ""}`} aria-selected={selected === value.sequence} data-action={value.action} data-tone={tone} key={row.key} ref={(node) => { if (node) rowRefs.current.set(value.sequence, node); else rowRefs.current.delete(value.sequence); }} style={{ height: row.size - 4, transform: `translateY(${row.start - scrollMargin + 2}px)` }} onClick={() => open(value)} onKeyDown={(keyboardEvent) => {
                 if (keyboardEvent.key === "ArrowDown" || keyboardEvent.key === "ArrowUp") { keyboardEvent.preventDefault(); moveSelection(value, keyboardEvent.key === "ArrowDown" ? 1 : -1); }
                 if (keyboardEvent.key === "Escape") setSelected(null);
               }}>

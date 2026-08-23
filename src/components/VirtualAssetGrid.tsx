@@ -184,7 +184,7 @@ export function MediaCardPreview({
   if (source && kind === "image") content = <img className="size-full object-cover" src={source.url} alt="" loading="lazy" onLoad={(event) => loadedWithSize(event.currentTarget.naturalWidth, event.currentTarget.naturalHeight)} onError={failed} />;
   else if (source && kind === "video") content = <video className="size-full object-cover" src={source.url} muted preload="metadata" onLoadedMetadata={(event) => loadedWithSize(event.currentTarget.videoWidth, event.currentTarget.videoHeight)} onError={failed} />;
   else if (source && kind === "audio") content = <AudioWaveform src={source.url} name={mediaCardName(card)} sizeBytes={source.sizeBytes} compact tone="instrument" onReady={loaded} onError={failed} />;
-  return <div className={`asset-preview relative grid w-full flex-none place-items-center overflow-hidden rounded-cell bg-frame text-on-instrument-muted${className ? ` ${className}` : ""}`} style={fill ? undefined : { aspectRatio: aspectRatio ?? 1, height: "auto" }} aria-hidden={kind === "audio" ? undefined : true}>
+  return <div className={`asset-preview relative grid w-full flex-none place-items-center overflow-hidden rounded-cell [corner-shape:squircle] bg-frame text-on-instrument-muted${className ? ` ${className}` : ""}`} style={fill ? undefined : { aspectRatio: aspectRatio ?? 1, height: "auto" }} aria-hidden={kind === "audio" ? undefined : true}>
     {content}
     {/* The frame stays chrome-free once a preview lands; the badge is only the label for an
         empty frame, and the kind is already spelled out in the caption below it.
@@ -221,7 +221,7 @@ export function MediaCardTile({ card, project, rootEpoch, selected, resolvePrevi
     <MediaCardPreview card={card} project={project} rootEpoch={rootEpoch} resolvePreview={resolvePreview} aspectRatio={ratio} onAspectRatio={rememberRatio} />
     <button className="media-card-button flex w-full min-w-0 items-start gap-1.5 bg-transparent p-0 text-left text-ink focus-visible:rounded-control" type="button" aria-label={`${name}${selected ? ", selected" : ""}`} aria-pressed={selected} onClick={onSelect} onDoubleClick={onOpen} onKeyDown={onKeyDown} onContextMenu={openContext}>
       <i className={`mt-1 size-1.5 shrink-0 rounded-full ${selected ? "bg-alert" : "bg-ink"}`} aria-hidden="true" />
-      <span className="asset-copy grid h-auto w-full min-w-0 px-0.5 pt-2.25"><strong className="block truncate type-label leading-4 font-normal text-ink">{name}</strong><small className="block truncate font-code type-mono-xs leading-4 tracking-label text-muted uppercase">{mediaCardKind(card)} · {mediaCardFacts(card)}</small></span>
+      <span className="asset-copy grid h-auto w-full min-w-0 flex-none gap-0.75 px-0.5 pt-2.25"><strong className="block truncate type-label leading-4 font-normal text-ink">{name}</strong><small className="block truncate font-code type-mono-xs leading-4 tracking-label text-muted uppercase">{mediaCardKind(card)} · {mediaCardFacts(card)}</small></span>
     </button>
   </article>;
 }

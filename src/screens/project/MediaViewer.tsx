@@ -9,6 +9,7 @@ import { ImageViewport } from "../../components/media/ImageViewport";
 import { VideoPlayer } from "../../components/media/VideoPlayer";
 import { bridge } from "../../lib/ipc";
 import type { ProjectScreenController, ProjectScreenSnapshot } from "../../state/project-screen-controller";
+import { COMMAND_BUTTON, COMMAND_BUTTON_ON_INSTRUMENT, PROJECT_LOCAL_ERROR, PROJECT_LOCAL_ERROR_ON_INSTRUMENT } from "../route-chrome";
 
 /* The whole modal is portalled to the body, i.e. outside `.app-mode-work`, where every legacy
    `--fg*` token resolves to the on-dark family. That is why the toolbar's own title used to paint
@@ -87,7 +88,7 @@ function PromptText({ role, value, truncated }: { role: string; value: string; t
       <button className={ACTION} type="button" aria-expanded={expanded} onClick={() => setExpanded((current) => !current)}>{expanded ? "Show less" : "Show full"}</button>
       <button className={`${ACTION} inline-flex items-center gap-1.5`} type="button" aria-label={`Copy ${role}`} onClick={() => { void copy(); }}><Copy size={14} aria-hidden="true" />Copy</button>
     </div>
-    {copyError && <p className="project-local-error" role="alert">{copyError}</p>}
+    {copyError && <p className={PROJECT_LOCAL_ERROR} role="alert">{copyError}</p>}
   </section>;
 }
 
@@ -116,7 +117,7 @@ function GenerationInspector({ detail, state, error, onRetry }: {
   onRetry(): void;
 }) {
   if (state === "loading") return <div role="status">Loading generation details…</div>;
-  if (state === "error") return <div className="project-local-error" role="alert"><span>{error ?? "Generation details could not be loaded."}</span><button type="button" onClick={onRetry}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>;
+  if (state === "error") return <div className={PROJECT_LOCAL_ERROR} role="alert"><span>{error ?? "Generation details could not be loaded."}</span><button className={COMMAND_BUTTON} type="button" onClick={onRetry}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>;
   if (!detail) return <><h3>Provenance unavailable</h3><p>Not recorded</p></>;
   if (detail.status === "unknown") return <><h3>Provenance unavailable</h3><p>{detail.reason === "not-recorded" ? "Not recorded" : "Ambiguous producer"}</p></>;
   if (detail.status === "not-generation") return <><h3>Not a generation</h3><Facts rows={[["State", detail.producer.state], ["Created", formatTime(detail.producer.createdAt)], ["Started", formatTime(detail.producer.startedAt)], ["Ended", formatTime(detail.producer.endedAt)]]} /></>;
@@ -144,10 +145,10 @@ function RevisionChooser({ revisions, selectedRevisionId, onSelect, onRetry }: {
   onRetry(): void;
 }) {
   if (revisions.status === "loading") return <div className={STAGE_NOTE} role="status">Loading revisions…</div>;
-  if (revisions.status === "error") return <div className="project-local-error" role="alert"><span>{revisions.error ?? "Revisions could not be loaded."}</span><button type="button" onClick={onRetry}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>;
+  if (revisions.status === "error") return <div className={PROJECT_LOCAL_ERROR_ON_INSTRUMENT} role="alert"><span>{revisions.error ?? "Revisions could not be loaded."}</span><button className={COMMAND_BUTTON_ON_INSTRUMENT} type="button" onClick={onRetry}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>;
   return <section className="revision-chooser flex max-h-full min-w-0 flex-col gap-2 overflow-y-auto p-6 text-on-instrument" aria-label="Artifact revisions">
     <h3 className="m-0 type-md font-normal text-on-instrument">Select a revision</h3>
-    {revisions.error && <p className="project-local-error" role="alert">{revisions.error}</p>}
+    {revisions.error && <p className={PROJECT_LOCAL_ERROR_ON_INSTRUMENT} role="alert">{revisions.error}</p>}
     {revisions.items.length === 0 ? <p className={STAGE_NOTE}>No revisions returned.</p> : revisions.items.map((revision: ArtifactRevisionDto) => <article className="flex min-w-0 items-center gap-3 rounded-cell bg-instrument-raised px-3.5 py-2.5" key={revision.id}>
       <span className="min-w-0 flex-1 type-sm text-on-instrument-muted"><strong className="font-normal text-on-instrument">Revision {revision.revisionNo}</strong> · {revision.state} · {formatTime(revision.createdAt)}</span>
       <button className="inline-flex h-control-sm flex-none items-center rounded-control bg-on-instrument px-3 type-sm text-instrument transition-colors duration-fast ease-instrument hover:bg-selected-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-on-instrument disabled:bg-instrument-hover disabled:text-on-instrument-muted motion-reduce:transition-none motion-reduce:duration-0" type="button" disabled={revision.id === selectedRevisionId} onClick={() => onSelect(revision.id)}>Select</button>
@@ -159,7 +160,7 @@ function ViewerPreview({ card, snapshot, controller }: { card: MediaCardDto; sna
   if (isArtifactMedia(card) && !card.selectedRevisionId) return <RevisionChooser revisions={snapshot.mediaRevisions} selectedRevisionId={card.selectedRevisionId} onSelect={(id) => { void controller.selectMediaRevision(id); }} onRetry={() => { void controller.retryMediaRevisions(); }} />;
   const preview = snapshot.domain.preview;
   if (preview.status === "loading") return <div className={STAGE_NOTE} role="status">Loading preview…</div>;
-  if (preview.status === "error") return <div className="project-local-error" role="alert"><span>{preview.error ?? "Preview could not be loaded."}</span><button type="button" onClick={() => { void controller.retryMediaPreview(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>;
+  if (preview.status === "error") return <div className={PROJECT_LOCAL_ERROR_ON_INSTRUMENT} role="alert"><span>{preview.error ?? "Preview could not be loaded."}</span><button className={COMMAND_BUTTON_ON_INSTRUMENT} type="button" onClick={() => { void controller.retryMediaPreview(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>;
   if (preview.status !== "ready" || !preview.value) return <p className={STAGE_NOTE}>Preview unavailable.</p>;
   const name = mediaCardName(card);
   /* The stage is a black widget, so every player takes the instrument pair. */
@@ -242,7 +243,7 @@ export function MediaViewer({ controller, snapshot }: { controller: ProjectScree
           </div>
           <div className="asset-modal-body grid min-h-0 min-w-0 flex-1 grid-cols-(--asset-modal-columns)">
             <div className="asset-modal-stage grid min-h-0 min-w-0 flex-1 place-items-center overflow-hidden overscroll-contain bg-instrument"><motion.div className="asset-modal-content grid size-full min-h-0 min-w-0 place-items-center overflow-hidden" key={`${card.ref.type}:${card.ref.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }}><ViewerPreview card={card} snapshot={snapshot} controller={controller} /></motion.div></div>
-            <aside className="asset-modal-inspector min-h-0 min-w-0 overflow-hidden bg-surface"><div className="inspector col-auto row-auto size-full bg-transparent backdrop-filter-none">{isRunObjectMedia(card) && <RunObjectEvidence card={card} />}<GenerationInspector key={`${card.ref.type}:${card.ref.id}`} detail={snapshot.mediaGeneration.value} state={snapshot.mediaGeneration.status} error={snapshot.mediaGeneration.error} onRetry={() => { void controller.retryMediaGeneration(); }} /></div></aside>
+            <aside className="asset-modal-inspector min-h-0 min-w-0 overflow-hidden bg-surface"><div className="inspector flex size-full min-h-0 min-w-0 flex-col gap-4 overflow-y-auto bg-transparent px-3.5 pt-3 pb-5 backdrop-filter-none">{isRunObjectMedia(card) && <RunObjectEvidence card={card} />}<GenerationInspector key={`${card.ref.type}:${card.ref.id}`} detail={snapshot.mediaGeneration.value} state={snapshot.mediaGeneration.status} error={snapshot.mediaGeneration.error} onRetry={() => { void controller.retryMediaGeneration(); }} /></div></aside>
           </div>
         </motion.section>
       </Dialog.Content>

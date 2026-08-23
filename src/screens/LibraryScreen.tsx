@@ -12,6 +12,7 @@ import type {
 } from "../lib/ipc";
 import { sortWorkspaces } from "../state/workbench";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
+import { COMMAND_SHAPE, EMPTY_SECTION } from "./route-chrome";
 
 export const libraryInstrumentStates = defineInstrumentScreenStates({
   routeKey: "startup.library",
@@ -92,12 +93,12 @@ export function LibraryScreen({
     const state = restoring ? "restoring" : error ? "error" : "unavailable";
     return (
       <InstrumentScreenRoot descriptor={libraryInstrumentStates} state={state}>
-      <main className="main-region empty-library grid min-h-full w-full place-items-center">
+      <main className="main-region empty-library @container/main-region grid min-w-0 flex-1 place-items-center overflow-x-hidden overflow-y-auto bg-desk px-8 pt-7.5 pb-12 min-h-full w-full">
         <div className="empty-library-content">
-          <div className="ralphy-wordmark">RALPHY</div>
+          <div className="ralphy-wordmark mb-4.5 font-code type-sm text-ink">RALPHY</div>
           <h2>Home library unavailable</h2>
           <p>{error ?? "Ralphy could not open ~/.ralphy."}</p>
-          <button className="command-button is-primary bg-desk-primary text-desk-primary-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-desk-primary-ink" type="button" disabled={restoring} onClick={onRetry}>
+          <button className={`command-button is-primary ${COMMAND_SHAPE} bg-desk-primary text-desk-primary-ink focus-visible:outline-desk-primary-ink`} type="button" disabled={restoring} onClick={onRetry}>
             {restoring ? "Opening…" : "Retry"}
           </button>
         </div>
@@ -120,10 +121,10 @@ export function LibraryScreen({
 
   return (
     <InstrumentScreenRoot descriptor={libraryInstrumentStates} state={catalog.workspaces.length === 0 ? "empty" : "ready"}>
-    <main className="main-region">
+    <main className="main-region @container/main-region min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-desk px-8 pt-7.5 pb-12">
       <div className="screen-header mx-auto mb-6 flex min-h-18 max-w-screen-measure items-start justify-between gap-6">
         <div>
-          <div className="screen-kicker">Production library</div>
+          <div className="screen-kicker mb-1">Production library</div>
           <h2 className="mb-1.25 type-xl">Workspace overview</h2>
           <p className="screen-path max-w-screen-copy truncate font-code type-xs text-muted" title={catalog.rootPath}>{catalog.rootPath}</p>
         </div>
@@ -145,9 +146,9 @@ export function LibraryScreen({
       </section>
 
       <div className="overview-columns">
-        <section className="content-section">
-          <div className="section-heading">
-            <h3>Recent workspaces</h3>
+        <section className="content-section min-w-0">
+          <div className="section-heading flex h-8 items-start justify-between">
+            <h3 className="type-base">Recent workspaces</h3>
             <span>By activity</span>
           </div>
           <div className="entity-list flex flex-col">
@@ -161,9 +162,9 @@ export function LibraryScreen({
           </div>
         </section>
 
-        <section className="content-section attention-section">
-          <div className="section-heading">
-            <h3>Needs attention</h3>
+        <section className="content-section attention-section min-w-0">
+          <div className="section-heading flex h-8 items-start justify-between">
+            <h3 className="type-base">Needs attention</h3>
             <span>{attention.length}</span>
           </div>
           <div className="attention-list flex flex-col">
@@ -174,7 +175,7 @@ export function LibraryScreen({
                 key={project.id}
                 onClick={() => onOpenProject(project)}
               >
-                <span className="status-dot" />
+                <span className="status-dot size-1.25 flex-none rounded-control bg-muted" />
                 <span>
                   <strong>{project.name}</strong>
                   <small className={ROW_META}>{project.phase ?? project.status} · no final render</small>
@@ -183,7 +184,7 @@ export function LibraryScreen({
               </button>
             ))}
             {attention.length === 0 && (
-              <div className="empty-section">No projects need attention.</div>
+              <div className={EMPTY_SECTION}>No projects need attention.</div>
             )}
           </div>
         </section>

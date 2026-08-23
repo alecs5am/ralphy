@@ -28,7 +28,7 @@ export function ProfileAvatar({
 }) {
   const identity = profileIdentity(rootPath);
   return (
-    <span className={`profile-avatar inline-grid flex-none place-items-center overflow-hidden rounded-control bg-instrument-raised${round ? " profile-avatar-round" : ""}`} aria-hidden="true" style={{ width: size, height: size }}>
+    <span className={`profile-avatar inline-grid flex-none place-items-center overflow-hidden rounded-control bg-instrument-raised${round ? " profile-avatar-round [corner-shape:round]" : ""}`} aria-hidden="true" style={{ width: size, height: size }}>
       <Avatar
         size={size}
         name={identity}

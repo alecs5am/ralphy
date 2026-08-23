@@ -60,6 +60,7 @@ import {
   type WorkspaceOverviewReturnState,
   type WorkspacePage,
 } from "./state/workbench";
+import { COMMAND_BUTTON } from "./screens/route-chrome";
 
 const loadProjectScreen = () =>
   import("./screens/ProjectScreen").then(({ ProjectScreen }) => ({
@@ -77,9 +78,13 @@ const WELCOME_EXIT_MS = 300;
 export function ProjectScreenLoadingFallback() {
   return (
     <InstrumentScreenRoot descriptor={unitsInstrumentStates} state="loading">
-      <main className="main-region project-region">
-        <div className="project-indexing">
-          <span className="loading-line" />
+      <main className="main-region project-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden bg-desk p-2 pb-6">
+        <div className="project-indexing flex min-h-0 flex-1 flex-col items-center justify-center gap-1 type-xs text-muted">
+          {/* The indeterminate run is a real child, not a `::after`: a pseudo-element needs a
+              `content: ""` that no named utility states, and the plate has room for the span. */}
+          <span className="loading-line h-0.5 w-27.5 overflow-hidden bg-ink/8">
+            <span className="block h-full w-2/5 animate-indexing bg-ink motion-reduce:animate-none" />
+          </span>
           <span>Opening project…</span>
         </div>
       </main>
@@ -814,9 +819,12 @@ export function App() {
             onRightOverlayOpenChange={setRightOverlayOpen}
           />
           {error && (
-            <div className="error-banner" role="alert">
-              <span>{error}</span>
-              <button type="button" onClick={() => setError(null)}>Dismiss</button>
+            /* The sheet gave this plate a surface, a radius and a layer and no ink and no
+               air at all, so the copy sat flush against a rounded corner. Surface and ink
+               travel as a pair, and the plate keeps one gutter. */
+            <div className="error-banner z-banner flex items-center justify-between gap-3 rounded-field bg-surface-sunken px-3 py-2 type-sm text-ink" role="alert">
+              <span className="min-w-0">{error}</span>
+              <button className={COMMAND_BUTTON} type="button" onClick={() => setError(null)}>Dismiss</button>
             </div>
           )}
           {/* No exit animation: the overlay lives in a portal, so AnimatePresence never sees
@@ -824,8 +832,13 @@ export function App() {
           {settingsVisible && (
               <Suspense fallback={null}>
                 {/* Settings is a mode, not a floating card: it owns the whole window so the app
-                    never peeks around its edges, and its own desk padding lives on the screen. */}
-                <InstrumentOverlay id="settings" open label="Settings" description="Application settings" opener={null} onOpenChange={(open) => { if (!open) setSettingsVisible(false); }} localScroll surfaceClassName="fixed inset-0 z-overlay-surface overflow-hidden">
+                    never peeks around its edges, and its own desk padding lives on the screen.
+                    `focus-visible:outline-none` is the landing ring declined: the overlay focuses
+                    its own surface on open, which matches `:focus-visible`, and `reset.css` would
+                    then trace a 2px ring around the whole viewport, cutting across the window's
+                    rounding. The page heading carries the landing focus instead. Measured: with
+                    this utility off the surface paints outline 2px solid #F2F2F0. */}
+                <InstrumentOverlay id="settings" open label="Settings" description="Application settings" opener={null} onOpenChange={(open) => { if (!open) setSettingsVisible(false); }} localScroll surfaceClassName="fixed inset-0 z-overlay-surface overflow-hidden focus-visible:outline-none">
                 <SettingsScreen
                   rootPath={rootIdentity?.storeId ?? null}
                   theme={theme}

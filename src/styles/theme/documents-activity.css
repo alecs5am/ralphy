@@ -8,10 +8,15 @@
    never emits the variable, so `grid-cols-(--name)` and `mt-(--name)` have to find a real
    declaration on the element. */
 :root {
-  /* The activity table at its two narrower widths. The wide template lives beside the base row
-     rule; these two are what the container query swaps in. */
+  /* The activity table at its three widths. All three are variants on the row now: the wide
+     template used to be the base row rule in a holding chunk, and a container query swapped in
+     the other two. */
+  --activity-row-columns: 68px 116px minmax(150px, 1fr) minmax(150px, 1fr) minmax(120px, 0.75fr) 88px;
   --activity-row-columns-medium: 62px 106px minmax(140px, 1fr) minmax(130px, 1fr) 78px;
   --activity-row-columns-narrow: 54px minmax(120px, 0.8fr) minmax(150px, 1fr);
+  /* The log's own split once an event is inspected: the table keeps the room it has and the
+     inspector takes a bounded column beside it. */
+  --activity-log-columns: minmax(0, 1fr) minmax(360px, 420px);
   /* The inspector's own shapes: a brand chip, a title and a close control; three metric tiles;
      a label/value pair; and one attempt row. */
   --activity-inspector-columns: 32px minmax(0, 1fr) 28px;
@@ -55,6 +60,11 @@
   /* Leading the shared tokens do not name. */
   --leading-document: 1.65;                       /* a rendered document's body, prose or mono */
   --leading-document-heading: var(--leading-tight); /* ...and its headings */
+
+  /* The clip the activity table takes, so a row scrolled to the edge never bleeds past the
+     corner of the plate above it. Not one of the contract's four surface radii: the table is a
+     transparent clipper, not a plate. */
+  --radius-table: var(--radius-preview);
 
   /* Stacking, so a pinned column's order stays a token and not a number in markup. */
   --z-index-base: var(--z-base);

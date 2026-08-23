@@ -20,7 +20,10 @@ const HERO = "workspace-hero group relative block h-full w-full flex-none overfl
 const HERO_PLATE = "pointer-events-none absolute top-0 left-0 h-workspace-card w-full [mask-repeat:no-repeat] [mask-size:var(--workspace-hero-mask-size)]";
 /* One option in the list. Geometry and behaviour only: the ink pair is stated per row below,
    because the active workspace is the one inverted pill and that pair is declared elsewhere. */
-const OPTION = "relative grid min-h-11 w-full grid-cols-(--workspace-option-columns) items-center gap-2.5 overflow-hidden rounded-control pr-3 pl-2 text-left [corner-shape:round]";
+const OPTION = "relative grid min-h-11 w-full grid-cols-(--workspace-option-columns) items-center gap-2.5 overflow-hidden rounded-control pr-3 pl-2 text-left [corner-shape:round] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-on-instrument";
+/* The active workspace is the one inverted pill in the list, and the inversion holds under the
+   cursor. Its children state no ink, so they take this one. */
+const OPTION_ACTIVE = "bg-selected text-selected-ink hover:bg-selected";
 /* Everything except the dither plate stands above it. */
 const OPTION_LAYER = "relative z-1";
 /* The active workspace keeps the inverted pair declared for `[aria-selected="true"]`, so a row
@@ -178,7 +181,8 @@ export function WorkspacePicker({
       >
         <span className={`workspace-hero-field ${HERO_PLATE} [background:var(--workspace-color,var(--instrument-dither-base))] [mask-image:var(--workspace-hero-mask)] [opacity:var(--dither-op)]`} aria-hidden="true" />
         <span className={`workspace-hero-field-hi ${HERO_PLATE} opacity-80 [background:var(--workspace-highlight,var(--instrument-dither-highlight))] [mask-image:var(--workspace-hero-mask-hi)]`} aria-hidden="true" />
-        <span className="workspace-hero-scrim" aria-hidden="true" />
+        {/* A flat plate over the foot of the card, never a gradient: v2 forbids depth ramps. */}
+        <span className="workspace-hero-scrim pointer-events-none absolute inset-x-0 bottom-0 h-14.5 bg-frame/72" aria-hidden="true" />
         <span className="workspace-hero-chevron absolute top-3 right-3 grid size-6 place-items-center rounded-control bg-on-instrument text-instrument">
           <ChevronDown className="transition-transform duration-normal ease-instrument group-aria-expanded:rotate-180 motion-reduce:transition-none motion-reduce:duration-0" size={12} strokeWidth={2} />
         </span>
@@ -195,7 +199,9 @@ export function WorkspacePicker({
             <InstrumentOverlay id="workspace-picker" host="primitive-host" open label="Workspaces" description="Select the active workspace" opener={triggerRef.current} onOpenChange={(next) => { if (!next) closeAndRestoreFocus(); }}>
             <div
               ref={popoverRef}
-              className="workspace-picker-popover"
+              /* A widget, not a system menu: flat #141414 plate, R24, no border and no shadow.
+                 tokens.css already keys the squircle on this class. */
+              className="workspace-picker-popover fixed z-popover origin-top-left overflow-hidden rounded-panel bg-instrument p-2 text-on-instrument"
               style={popoverPosition}
             >
               <label className="workspace-picker-search mb-1.5 flex h-control-lg items-center gap-2.25 rounded-control bg-instrument-raised px-3 text-on-instrument-muted [corner-shape:round] focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-focus-on-instrument">
@@ -239,21 +245,21 @@ export function WorkspacePicker({
                     role="option"
                     tabIndex={-1}
                     aria-selected={active}
-                    className={`${OPTION} ${active ? "" : highlighted ? OPTION_HIGHLIGHTED : OPTION_REST}`}
+                    className={`${OPTION} ${active ? OPTION_ACTIVE : highlighted ? OPTION_HIGHLIGHTED : OPTION_REST}`}
                     style={workspaceDitherVars(workspace.name)}
                     key={workspace.id}
                     onMouseEnter={() => setActiveIndex(index)}
                     onClick={() => select(workspace)}
                   >
                     <span className={`workspace-option-field pointer-events-none absolute top-0 left-0 z-0 h-11 w-workspace-option-field [background:var(--workspace-color)] [mask-image:var(--workspace-option-mask)] [mask-repeat:no-repeat] [mask-size:var(--workspace-option-mask-size)] ${active ? "opacity-0" : highlighted ? "opacity-46" : "opacity-30"}`} aria-hidden="true" />
-                    <span className={`workspace-option-avatar ${OPTION_LAYER} inline-grid size-7 flex-none place-items-center rounded-control [background:var(--workspace-color)] font-code type-mono-sm tracking-label text-on-instrument`} aria-hidden="true">
+                    <span className={`workspace-option-avatar ${OPTION_LAYER} inline-grid size-7 flex-none place-items-center rounded-control [corner-shape:round] [background:var(--workspace-color)] font-code type-mono-sm tracking-label text-on-instrument`} aria-hidden="true">
                       {initials(workspace.name)}
                     </span>
                     <span className={`workspace-option-copy ${OPTION_LAYER} flex min-w-0 flex-col`}>
                       <strong className={`truncate type-sm font-normal${active ? "" : " text-on-instrument"}`}>{workspace.name}</strong>
-                      <small className={`truncate${active ? "" : " text-on-instrument-muted"}`}>{workspace.description || "Ralphy production workspace"}</small>
+                      <small className={`truncate font-code type-mono-sm tracking-label uppercase${active ? "" : " text-on-instrument-muted"}`}>{workspace.description || "Ralphy production workspace"}</small>
                     </span>
-                    <em className={`${OPTION_LAYER}${active ? "" : " text-on-instrument-muted"}`}>{workspace.projectCount}</em>
+                    <em className={`${OPTION_LAYER} font-display type-base font-extrabold not-italic tracking-figure${active ? "" : " text-on-instrument-muted"}`}>{workspace.projectCount}</em>
                     {active && <Check className={OPTION_LAYER} size={13} strokeWidth={2} />}
                   </button>
                   );

@@ -23,6 +23,7 @@ import type {
   WorkspaceInsightUnitReference,
   WorkspaceOverviewPresentation,
 } from "./overview-presentation";
+import { COMMAND_BUTTON } from "../route-chrome";
 
 interface Props {
   value: Pick<WorkspaceOverviewPresentation, "insights" | "efficiency">;
@@ -191,7 +192,7 @@ function ProductionEfficiency({ value, onOpenShared }: {
         {metric.status !== "ready" && <p className="m-0 type-xs leading-5 text-muted">{metric.reason}</p>}
       </div>;
     })}</dl>
-    {presentation?.sharedAction.status === "ready" && <button id="workspace-open-shared" type="button" className="command-button" onClick={onOpenShared}>{presentation.sharedAction.value.label}</button>}
+    {presentation?.sharedAction.status === "ready" && <button id="workspace-open-shared" type="button" className={COMMAND_BUTTON} onClick={onOpenShared}>{presentation.sharedAction.value.label}</button>}
   </section>;
 }
 

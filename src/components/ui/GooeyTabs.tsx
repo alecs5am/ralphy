@@ -40,7 +40,10 @@ const BLOB = "gooey-tabs-blob absolute block h-full w-(--gooey-cell-width) round
 const FILL_M = "bg-surface-sunken";
 const FILL_S = "bg-surface-hover";
 /* A tab states its rest ink; the selected and hovered pair is the line below. */
-const TAB = "inline-flex h-(--gooey-cell-height) items-center justify-center gap-1.5 rounded-control px-2 type-sm whitespace-nowrap text-muted hover:text-ink aria-selected:text-ink";
+/* The ring is drawn inside the cell, not around it: the strip clips its own overflow, so an
+   outward ring would be cut. `outline-ink` is the theme ink and the strip is a theme surface in
+   both themes, so one utility replaces the shared rule that used to carry this. */
+const TAB = "inline-flex h-(--gooey-cell-height) items-center justify-center gap-1.5 rounded-control px-2 type-sm whitespace-nowrap text-muted hover:text-ink aria-selected:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink";
 
 export function moveGooeyTab<Value extends string>(
   tabs: readonly GooeyTab<Value>[],
@@ -83,7 +86,7 @@ export function GooeyTabs<Value extends string>({
           </filter>
         </defs>
       </svg>
-      <span className="gooey-tabs-blobs pointer-events-none absolute inset-0.75 -z-1" style={{ filter: `url(#${filterId})` }} aria-hidden="true">
+      <span className="gooey-tabs-blobs pointer-events-none absolute inset-0.75 -z-1 motion-reduce:filter-none" style={{ filter: `url(#${filterId})` }} aria-hidden="true">
         <span className={`${BLOB} ${size === "s" ? FILL_S : FILL_M} gooey-tabs-blob-leading duration-gooey-lead`} />
         {/* Reduced motion keeps one blob, not two overlapping ones. The blanket that used to hide
             this one lives unlayered in 05-unowned.css, so `block` above -- an !important utility in

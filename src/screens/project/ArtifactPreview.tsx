@@ -5,6 +5,7 @@ import { ImageViewport } from "../../components/media/ImageViewport";
 import { VideoPlayer } from "../../components/media/VideoPlayer";
 import type { ProjectScreenSnapshot } from "../../state/project-screen-controller";
 import { DocumentContent } from "./DocumentsPanel";
+import { COMMAND_BUTTON, PREVIEW_UNAVAILABLE, PROJECT_SKELETON } from "../route-chrome";
 
 type Preview = ProjectScreenSnapshot["compositionPreview"] | ProjectScreenSnapshot["unitPreview"];
 
@@ -12,8 +13,8 @@ const EMPTY = "preview-empty grid h-full place-items-center text-muted";
 
 export function ArtifactPreview({ preview, empty, retry }: { preview: Preview; empty: string; retry(): void }) {
   if (preview.status === "idle") return <div className={EMPTY}>{empty}</div>;
-  if (preview.status === "loading") return <div className="project-skeleton" role="status">Loading preview…</div>;
-  if (preview.status === "error") return <div className="preview-unavailable" role="alert"><ImageOff size={20} aria-hidden="true" /><strong>Preview unavailable</strong><span>{preview.error}</span><button className="command-button" type="button" onClick={retry}>Retry</button></div>;
+  if (preview.status === "loading") return <div className={PROJECT_SKELETON} role="status">Loading preview…</div>;
+  if (preview.status === "error") return <div className={PREVIEW_UNAVAILABLE} role="alert"><ImageOff size={20} aria-hidden="true" /><strong>Preview unavailable</strong><span>{preview.error}</span><button className={COMMAND_BUTTON} type="button" onClick={retry}>Retry</button></div>;
   if (!preview.value) return <div className={EMPTY}>{empty}</div>;
   if ("text" in preview.value) return preview.value.text.trim()
     ? <DocumentContent format={preview.value.format} text={preview.value.text} />

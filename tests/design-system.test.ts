@@ -16,10 +16,14 @@ import { presentSharedArtifact } from "../src/screens/shared-library/presentatio
 import { builtStylesheetLink, readStylesheet } from "./style-sources";
 import { WorkspaceScreenView, createWorkspaceScreenController } from "../src/screens/WorkspaceScreen";
 
-const styles = ["reset.css", "tokens.css", "workbench.css", "shared-library.css", "instrument.css"]
+// `workbench.css` and its eight `workbench/*-unowned.css` chunks are gone: the holding files were
+// resolved rule by rule into the markup of the components that render each element, and what a
+// utility cannot express is now two named sheets -- `frame.css` (the `.workbench` grid) and
+// `resize-grabber.css` (the handle's pseudo-element).
+const styles = ["reset.css", "tokens.css", "frame.css", "resize-grabber.css", "shared-library.css", "instrument.css"]
   .map((file) => readStylesheet(file))
   .join("\n");
-const workbenchStyles = readStylesheet("workbench.css");
+const workbenchStyles = ["frame.css", "resize-grabber.css"].map((file) => readStylesheet(file)).join("\n");
 const virtualAssetGridSource = readFileSync(join(process.cwd(), "src/components/VirtualAssetGrid.tsx"), "utf8");
 const workspaceMediaTheme = readFileSync(join(process.cwd(), "src/styles/theme/workspace-media.css"), "utf8");
 const workspaceMediaSource = ["src/screens/WorkspaceProjectsScreen.tsx", "src/components/ProjectHeader.tsx", "src/components/ui/GooeyTabs.tsx", "src/screens/project/MediaViewer.tsx", "src/screens/project/MediaPanel.tsx", "src/components/media/AudioWaveform.tsx", "src/components/media/VideoPlayer.tsx", "src/components/media/ImageViewport.tsx", "src/components/media/tone.ts"]
@@ -32,7 +36,6 @@ const documentsActivitySource = ["src/screens/project/ActivityTimeline.tsx", "sr
   .map((file) => readFileSync(join(process.cwd(), file), "utf8"))
   .join("\n");
 const tokenStyles = readFileSync(join(process.cwd(), "src/styles/tokens.css"), "utf8");
-const settingsStyles = readStylesheet("settings.css");
 const settingsScreenSource = readFileSync(join(process.cwd(), "src/screens/SettingsScreen.tsx"), "utf8");
 const settingsRows = readFileSync(join(process.cwd(), "src/screens/settings/rows.tsx"), "utf8");
 const profileMenuSource = readFileSync(join(process.cwd(), "src/components/ProfileMenu.tsx"), "utf8");
@@ -841,7 +844,11 @@ describe("design system contract", () => {
     // The detail drops its own surface when all it holds is the empty state, and the state is a
     // bounded plate rather than a full-width slab.
     expect(documentsPanelSource).toMatch(/has-\[>\.empty-section\]:grid has-\[>\.empty-section\]:place-items-center has-\[>\.empty-section\]:bg-transparent/);
-    expect(documentsPanelSource).toMatch(/empty-section w-project-plate rounded-cell bg-surface-sunken/);
+    // The plate's own three decisions now sit on the element next to the shared empty-state
+    // vocabulary (`route-chrome.ts`), so they are asserted as members of one class list rather
+    // than as one contiguous string.
+    const emptyPlate = /className=\{`empty-section ([^`]*)`\}/.exec(documentsPanelSource)?.[1] ?? "";
+    for (const utility of ["w-project-plate", "rounded-cell", "bg-surface-sunken"]) expect(emptyPlate.split(" ")).toContain(utility);
     expect(projectTheme).toMatch(/--spacing-project-plate:\s*min\(360px, 100%\)/);
   });
 
@@ -955,7 +962,12 @@ describe("design system contract", () => {
   }, 20_000);
 
   test("names the responsive controls container and preserves round status pills", () => {
-    expect(styles).toContain("container-name: project-controls");
+    // The dock's float host is `instrument.css`'s `.project-controls`, and that rule states
+    // `container-type: normal` -- so the `container-name` the holding sheet carried could never
+    // establish a container and no query ever named it. The name is gone; what the test guards
+    // now is that the host still states `container-type` deliberately.
+    expect(styles).not.toContain("container-name: project-controls");
+    expect(styles).toMatch(/\.project-controls\s*\{[^}]*container-type:\s*normal/s);
     expect(styles).toMatch(/\.project-facts > span,[\s\S]*corner-shape:\s*round/);
     // The workspace overview's bands now live on the elements that draw them: the day strip
     // reads its role key, and the outcome groups reach one column by deriving the count rather
@@ -1027,9 +1039,14 @@ describe("design system contract", () => {
       "--control-focus",
     ]) expect(tokenStyles).toContain(token);
 
-    // v2: every menu and popover is one flat #141414 widget — no border, no shadow.
-    for (const selector of ["select-menu-content", "workspace-picker-popover"]) {
-      expect(workbenchStyles).toMatch(new RegExp(`\\.${selector}\\s*\\{[^}]*border:\\s*0[^}]*background:\\s*var\\(--instrument-widget-dark\\)`, "s"));
+    // v2: every menu and popover is one flat #141414 widget — no border, no shadow. Both plates
+    // state it in their own markup now: the sheet's `border: 0` was a restatement of the reset's
+    // and the surface is the named role, so the pair travels with the element that draws it.
+    for (const [source, marker] of [[selectMenuSource, "select-menu-content"], [pickerSource, "workspace-picker-popover"]] as const) {
+      const plate = new RegExp(`"${marker}([^"]*)"`).exec(source)?.[1] ?? "";
+      expect(plate.split(" ")).toContain("bg-instrument");
+      expect(plate.split(" ")).toContain("text-on-instrument");
+      expect(plate).not.toMatch(/\b(?:border-\d|shadow-)/);
     }
     // The asset context menu states the same decision in its own markup now, and states it as a
     // pair: the sheet painted the plate #141414 but left the rows on `--control-text`, which
@@ -1064,9 +1081,15 @@ describe("design system contract", () => {
     expect(settingsRows).toContain("justify-start bg-surface-sunken");
     expect(menu.split(" ")).toContain("bg-instrument");
     expect(menu).not.toMatch(/\bborder\b/);
-    // The one settings rule a utility cannot express stays in the stylesheet: it has to beat
-    // an !important dialog rule, which only source order outside the utility layer can do.
-    expect(settingsStyles).toMatch(/\[data-instrument-overlay="settings"\]\[data-instrument-surface-focus\]\s*\{\s*outline: none !important;\s*\}/);
+    // `settings.css` is gone. Its one rule suppressed the landing ring on the settings surface,
+    // and the `!important` dialog rule it was written to beat no longer exists -- measured in the
+    // running renderer, what draws that ring today is `reset.css`'s `:focus-visible` (the overlay
+    // focuses its own surface on open, and that matches `:focus-visible`). A utility on the
+    // surface beats an unlayered author rule outright, so the suppression is stated where the
+    // surface is stated. With it off, the surface measures `outline: 2px solid #F2F2F0`.
+    expect(existsSync(join(process.cwd(), "src/styles/settings.css"))).toBe(false);
+    expect(readFileSync(join(process.cwd(), "src/App.tsx"), "utf8"))
+      .toMatch(/id="settings"[\s\S]*?surfaceClassName="[^"]*focus-visible:outline-none/);
     expect(settingsScreenSource).toMatch(/className="[^"]*\b(?:bg|text|rounded)-/);
   });
 
@@ -1182,7 +1205,6 @@ describe("design system contract", () => {
     // token layer and nothing else.
     const instrument = readStylesheet("instrument.css");
     const workSurfaces = readFileSync(join(process.cwd(), "src/styles/work-surfaces.css"), "utf8");
-    const unowned01 = readFileSync(join(process.cwd(), "src/styles/workbench/01-unowned.css"), "utf8");
     const reset = readFileSync(join(process.cwd(), "src/styles/reset.css"), "utf8");
 
     // One owner for the scrim. Ten components render `data-instrument-overlay-backdrop` on their
@@ -1205,8 +1227,10 @@ describe("design system contract", () => {
     expect(instrument).not.toContain("instrument-sidebar-in");
     expect(shellTheme).toMatch(/--animate-sidebar-in:\s*instrument-sidebar-in/);
 
-    // Global element rules belong in the global reset, not in one area's chunk.
-    expect(unowned01).not.toMatch(/cursor:\s*pointer/);
+    // Global element rules belong in the global reset, not in one area's chunk. The chunk that
+    // held them is gone entirely -- `src/styles/workbench/` no longer exists.
+    expect(existsSync(join(process.cwd(), "src/styles/workbench"))).toBe(false);
+    expect(existsSync(join(process.cwd(), "src/styles/workbench.css"))).toBe(false);
     expect(reset).toMatch(/button:not\(:disabled\)[^{]*\{[^}]*cursor:\s*pointer/s);
     expect(reset).toMatch(/strong\s*\{[^}]*font-weight:\s*400/s);
 
@@ -1231,26 +1255,50 @@ describe("design system contract", () => {
   });
 
   test("keeps the workbench chrome on named roles, container widths and no depth", () => {
-    // The chrome area's stylesheet chunks are gone: every rule either moved into the markup of
-    // the component that renders the element, or stayed verbatim in 03-unowned.css because it
-    // styles an element no chrome component renders.
-    expect(existsSync(join(process.cwd(), "src/styles/workbench/02-select-menu.css"))).toBe(false);
-    expect(existsSync(join(process.cwd(), "src/styles/workbench/03-sidebar-row.css"))).toBe(false);
-    expect(readFileSync(join(process.cwd(), "src/styles/workbench.css"), "utf8"))
-      .toContain('@import "./workbench/03-unowned.css";');
-    // Rules with more than one owning area are held, not moved and not deleted.
-    const unowned = readFileSync(join(process.cwd(), "src/styles/workbench/03-unowned.css"), "utf8");
-    for (const selector of [
-      "@keyframes select-menu-in",
-      ".main-region",
-      ".screen-kicker",
-      ".command-button",
-      ".content-section",
-      ".section-heading",
-      ".workspace-header-actions",
-      ".sidebar-profile-name",
-      ".mono-number",
-    ]) expect(unowned).toContain(selector);
+    // The chrome area's stylesheet chunks are gone, and so is the holding file that stood in for
+    // them: `src/styles/workbench/` and `workbench.css` no longer exist at all.
+    expect(existsSync(join(process.cwd(), "src/styles/workbench"))).toBe(false);
+    expect(existsSync(join(process.cwd(), "src/styles/workbench.css"))).toBe(false);
+    expect(readFileSync(join(process.cwd(), "src/main.tsx"), "utf8")).not.toContain("styles/workbench");
+    // The nine selectors this test used to pin as deliberately multi-owner are resolved rather
+    // than held: a rule with several renderers is a shared class constant or a per-renderer set
+    // of utilities, and the one keyframe is a named `--animate-*` role in the area theme file.
+    // Every one is asserted where it now lives, so nothing was weakened by deleting the file.
+    expect(chromeTheme).toMatch(/--animate-select-menu-in:\s*select-menu-in/);
+    expect(chromeTheme).toContain("@keyframes select-menu-in");
+    // Every renderer of a shared element states that element's whole set, so the file's deletion
+    // leaves none of them unpainted -- that is the failure mode moving a multi-owner rule invites.
+    // The witness per element is one utility the deleted rule's own declarations became.
+    const renderers: Array<[string, string, string[]]> = [
+      ["main-region", "@container/main-region", ["src/App.tsx", "src/screens/ProjectScreen.tsx", "src/screens/WorkspaceScreen.tsx", "src/screens/CalendarScreen.tsx", "src/screens/MarketplaceScreen.tsx", "src/screens/WorkspaceProjectsScreen.tsx", "src/screens/LibraryScreen.tsx", "src/screens/MemoryScreen.tsx", "src/screens/SharedLibraryScreen.tsx"]],
+      ["screen-kicker", "mb-1", ["src/screens/WorkspaceScreen.tsx", "src/screens/LibraryScreen.tsx", "src/screens/SharedLibraryScreen.tsx", "src/screens/WorkspaceProjectsScreen.tsx", "src/screens/workspace/WorkspaceOverviewHeader.tsx"]],
+      ["content-section", "min-w-0", ["src/screens/LibraryScreen.tsx", "src/screens/WorkspaceProjectsScreen.tsx"]],
+      // Two renderers, not the five the deleted file's prose claimed: the overview, the
+      // marketplace and the project panel each draw their own `*-section-heading`, which the
+      // `.section-heading` rule never selected.
+      ["section-heading", "h-8", ["src/screens/LibraryScreen.tsx", "src/screens/WorkspaceProjectsScreen.tsx"]],
+      // The row's `gap: 14px` and `flex: none` were already dead on both renderers: each states
+      // its own `gap-*` and its own flex behaviour, and a layered important utility beats an
+      // unlayered declaration. `display: flex` is the one declaration that had to move.
+      ["workspace-header-actions", "flex", ["src/screens/WorkspaceProjectsScreen.tsx", "src/screens/workspace/WorkspaceOverviewHeader.tsx"]],
+      ["sidebar-profile-name", "truncate", ["src/components/ProfileMenu.tsx"]],
+      ["mono-number", "font-code", ["src/screens/project/OverviewPanel.tsx"]],
+    ];
+    for (const [element, witness, files] of renderers) {
+      for (const file of files) {
+        const source = readFileSync(join(process.cwd(), file), "utf8");
+        const classLists = [...source.matchAll(new RegExp(element + "([^\"`]*)", "g"))].map(([, rest]) => rest.split(/\s+/));
+        expect(classLists.some((list) => list.includes(witness)), `${file} renders ${element}`).toBe(true);
+      }
+    }
+    // `.command-button` is the one that could not be a per-renderer set: five screens across four
+    // areas render it, and it stands on two different plates. It is one shared constant with two
+    // skins, so a caller can never repaint half of a surface/ink pair.
+    const routeChrome = readFileSync(join(process.cwd(), "src/screens/route-chrome.ts"), "utf8");
+    expect(routeChrome).toMatch(/export const COMMAND_BUTTON =/);
+    expect(routeChrome).toMatch(/export const COMMAND_BUTTON_ON_INSTRUMENT =/);
+    expect(/const COMMAND_SKIN = "([^"]*)"/.exec(routeChrome)?.[1] ?? "").toMatch(/bg-surface-hover text-ink/);
+    expect(/const COMMAND_SKIN_ON_INSTRUMENT = "([^"]*)"/.exec(routeChrome)?.[1] ?? "").toMatch(/bg-instrument-raised text-on-instrument/);
     const chromeSources = [titlebarSource, selectMenuSource, pickerSource, contextSidebarSource, librarySource].join("\n");
     // design v2 in this area: no border, no shadow and no gradient anywhere in the markup.
     expect(chromeSources).not.toMatch(/\b(?:border|shadow|bg-gradient|bg-linear|bg-radial)-/);
@@ -1282,18 +1330,21 @@ describe("design system contract", () => {
   });
 
   test("keeps documents and activity on named roles, container widths and no depth", () => {
-    // All three chunks are gone: every rule either moved into the markup of the component that
-    // renders the element, or stayed verbatim in 16-unowned.css because it styles an element no
-    // component of this area renders.
-    for (const chunk of ["09-activity-inspector.css", "15-markdown-view.css", "16-welcome-screen.css"]) {
-      expect(existsSync(join(process.cwd(), "src/styles/workbench", chunk))).toBe(false);
-    }
-    expect(readFileSync(join(process.cwd(), "src/styles/workbench.css"), "utf8"))
-      .toContain('@import "./workbench/16-unowned.css";');
-    const unowned = readFileSync(join(process.cwd(), "src/styles/workbench/16-unowned.css"), "utf8");
-    for (const selector of [".ralphy-wordmark", ".project-indexing", ".loading-line", "@keyframes loading-slide"]) {
-      expect(unowned).toContain(selector);
-    }
+    // All three chunks are gone, and so is the holding file that stood in for them. The four
+    // things it held are resolved rather than held: three had a single renderer after all, and
+    // the keyframe is a named `--animate-*` role in the shell theme.
+    expect(existsSync(join(process.cwd(), "src/styles/workbench"))).toBe(false);
+    expect(existsSync(join(process.cwd(), "src/styles/workbench.css"))).toBe(false);
+    expect(readFileSync(join(process.cwd(), "src/screens/LibraryScreen.tsx"), "utf8"))
+      .toMatch(/ralphy-wordmark[^"`]*\btype-/);
+    const appSource = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
+    expect(appSource).toMatch(/project-indexing[^"`]*\bflex\b[^"`]*\btext-muted\b/);
+    // The indexing bar was a `content: ""` pseudo-element with no element to carry a utility, so
+    // it became a real parent/child pair -- the only way one property gets one utility here.
+    expect(appSource).toMatch(/loading-line[^"`]*\boverflow-hidden\b/);
+    expect(appSource).toMatch(/animate-indexing[^"`]*motion-reduce:animate-none/);
+    expect(shellTheme).toMatch(/--animate-indexing:\s*instrument-indexing/);
+    expect(shellTheme).toContain("@keyframes instrument-indexing");
     // Nothing this area owns is left in the sheet, including two class names no component emits.
     for (const gone of [".markdown-alert", ".plain-text-view", ".welcome-", ".activity-inspector", ".activity-attempt", ".asset-cost", ".review-mark", ".asset-extension,", ".markdown-html", "@keyframes welcome-"]) {
       expect(workbenchStyles).not.toContain(gone);
@@ -1304,11 +1355,11 @@ describe("design system contract", () => {
     for (const line of workbenchStyles.split("\n").filter((line) => line.includes(".markdown-view"))) {
       expect(line).toContain(".agent-message.is-assistant .markdown-view");
     }
-    // `.asset-preview` survives only in the squircle opt-in list 13-unowned.css holds for several
-    // areas at once: `rounded-cell` is not one of the radii tokens.css opts in by itself.
-    expect(workbenchStyles.match(/\.asset-preview/g)).toEqual([".asset-preview"]);
-    expect(readFileSync(join(process.cwd(), "src/styles/workbench/13-unowned.css"), "utf8"))
-      .toMatch(/@supports \(corner-shape: squircle\)[^}]*\.asset-preview/s);
+    // The squircle opt-in list is gone with its holding file. `rounded-cell` is not one of the
+    // radii tokens.css opts in by itself, so the one preview that wanted a squircle states it on
+    // the element -- six of the list's other selectors measured identical with the rule disabled.
+    expect(workbenchStyles).not.toContain(".asset-preview");
+    expect(virtualAssetGridSource).toMatch(/asset-preview[^"`]*\[corner-shape:squircle\]/);
     // design v2 in this area: no border, no shadow and no gradient. `border-collapse` is a table
     // model and `border-0` is the removal of one, and the only box-shadows are the three named
     // inset marks -- the selected activity row and a blockquote on either surface.
@@ -1339,39 +1390,26 @@ describe("design system contract", () => {
   });
 
   test("keeps the workspace cards and the media viewer on named roles, container widths and no depth", () => {
-    // Both chunks are gone: every rule either moved into the markup of the component that renders
-    // the element, or stayed verbatim in 04-unowned.css because it styles an element no component
-    // of this area renders.
-    for (const chunk of ["04-workspace-project.css", "12-asset-modal.css"]) {
-      expect(existsSync(join(process.cwd(), "src/styles/workbench", chunk))).toBe(false);
+    // Both chunks are gone, and so is every holding file: `src/styles/workbench/` no longer
+    // exists. The two selectors this test used to pin as held each turned out to have exactly the
+    // renderers a grep found -- `.project-region` is App.tsx's loading fallback plus the screen it
+    // stands in for, `.status-dot` is drawn by four -- so both moved onto every one of them.
+    expect(existsSync(join(process.cwd(), "src/styles/workbench"))).toBe(false);
+    expect(existsSync(join(process.cwd(), "src/styles/workbench.css"))).toBe(false);
+    for (const file of ["src/App.tsx", "src/screens/ProjectScreen.tsx"]) {
+      expect(readFileSync(join(process.cwd(), file), "utf8")).toMatch(/project-region[^"`]*\bbg-desk\b/);
     }
-    expect(readFileSync(join(process.cwd(), "src/styles/workbench.css"), "utf8"))
-      .toContain('@import "./workbench/04-unowned.css";');
-    // `.project-region` is App.tsx's loading fallback and `.status-dot` is the library chrome's,
-    // so both are held rather than moved into a component that never renders them.
-    const unowned = readFileSync(join(process.cwd(), "src/styles/workbench/04-unowned.css"), "utf8");
-    for (const selector of [".project-region", ".status-dot"]) expect(unowned).toContain(selector);
-    // Nothing this area owns is left in the sheet, except in the holding files other areas own:
-    // the reduced-motion blanket over the tab blobs (05), the shared focus ring (06), the
-    // unreachable `.is-error` action (10) and the squircle opt-in list (13). All four are reported,
-    // not deleted, because the rule that shadows them belongs to a different area's markup.
-    const heldBy: Record<string, string[]> = {
-      ".workspace-project-card": ["06-unowned.css", "13-unowned.css"],
-      ".workspace-project-preview": ["13-unowned.css"],
-      ".gooey-tabs": ["05-unowned.css"],
-      ".asset-modal": ["13-unowned.css"],
-      ".viewer-actions": ["10-unowned.css"],
-      ".project-facts": [], ".viewer-identity": [], ".property-row": [],
-      ".image-zoom-controls": [], ".video-controls": [], ".audio-waveform-player": [],
-      ".asset-context-menu": [],
-    };
-    // Comments are stripped first: a holding file that names a deleted chunk in prose is a stale
-    // comment for that file's owner to correct, not a rule this area left behind.
-    const chunks = readdirSync(join(process.cwd(), "src/styles/workbench"))
-      .map((name) => [name, readFileSync(join(process.cwd(), "src/styles/workbench", name), "utf8").replace(/\/\*[^]*?\*\//g, "")] as const);
-    for (const [selector, holders] of Object.entries(heldBy)) {
-      expect(chunks.filter(([, text]) => text.includes(selector)).map(([name]) => name)).toEqual(holders);
+    for (const file of ["src/screens/LibraryScreen.tsx", "src/screens/WorkspaceProjectsScreen.tsx", "src/screens/project/OverviewPanel.tsx", "src/instrument/primitives.tsx"]) {
+      expect(readFileSync(join(process.cwd(), file), "utf8")).toMatch(/status-dot[^"`]*\bsize-/);
     }
+    // The four rules the holding files still shadowed for this area are resolved too: the tab
+    // blobs' reduced-motion cancel and the shared focus ring moved onto their components, and the
+    // unreachable `.is-error` action was deleted -- no `.viewer-actions button` can carry it.
+    for (const selector of [".workspace-project-card", ".workspace-project-preview", ".gooey-tabs", ".asset-modal", ".viewer-actions", ".project-facts", ".viewer-identity", ".property-row", ".image-zoom-controls", ".video-controls", ".audio-waveform-player", ".asset-context-menu"]) {
+      expect(workbenchStyles).not.toContain(selector);
+    }
+    expect(readFileSync(join(process.cwd(), "src/components/ui/GooeyTabs.tsx"), "utf8"))
+      .toMatch(/gooey-tabs-blobs[^"`]*motion-reduce:filter-none/);
     // design v2 in this area: no border, no shadow, no gradient. `shadow-none` is the removal of
     // one -- the media panel's selection plate has to cancel the tile's inset mark.
     expect(workspaceMediaSource).not.toMatch(/\bborder-(?!collapse\b|0\b)/);
@@ -1421,7 +1459,10 @@ describe("design system contract", () => {
   });
 
   test("keeps the activity timeline surface transparent", () => {
-    expect(workbenchStyles).toMatch(/\.activity-table\s*\{[^}]*background:\s*transparent/s);
+    // Stated by the one component that renders the table, not by a sheet: the sunken plate is the
+    // scroller's, and a second ground under it drew a square corner inside the rounded clip.
+    expect(readFileSync(join(process.cwd(), "src/screens/project/ActivityTimeline.tsx"), "utf8"))
+      .toMatch(/activity-table[^"`]*\bbg-transparent\b/);
   });
 
   test("uses one squircle command style without a stale pill override", () => {
@@ -1497,9 +1538,9 @@ describe("design system contract", () => {
     expect(styles).toMatch(/\.project-controls\s*\{[^}]*position:\s*absolute/s);
     expect(renderer).toContain("onLostPointerCapture");
     expect(renderer).toContain("createPortal");
-    expect(styles).toMatch(
-      /\.workspace-picker-popover\s*\{[^}]*position:\s*fixed/s,
-    );
+    // The popover is portalled and positioned from a measured rect, so its own markup states the
+    // out-of-flow decision -- the sheet that used to state it is gone.
+    expect(pickerSource).toMatch(/workspace-picker-popover fixed\b/);
     // The search's `box-shadow: none` reset never rendered -- nothing painted a shadow there.
     // What it did lack was a visible ring: the popover is portalled outside the work scope, so
     // the theme ring resolves to black on this black widget.
@@ -1639,9 +1680,10 @@ describe("design system contract", () => {
     expect(panels).not.toContain("<select");
     expect(panels).toContain("AiBrandIcon");
     // v2 forbids borders: the chat is a flat #141414 widget on the desk.
-    expect(styles).toMatch(
-      /\.utility-right-panel\s*\{[^}]*border:\s*0[^}]*background:\s*var\(--instrument-widget-dark\)/s,
-    );
+    const railPlate = /"utility-right-panel ([^"]*)"/.exec(agentRailSource)?.[1] ?? "";
+    expect(railPlate.split(" ")).toContain("bg-instrument");
+    expect(railPlate.split(" ")).toContain("text-on-instrument");
+    expect(railPlate).not.toMatch(/\b(?:border-\d|shadow-)/);
     // The composer's own skin is in markup now: one ghost plate, a transparent field inside it,
     // and the ring a black widget needs — `--control-focus` is the theme ink, which is black on
     // black under the light theme.

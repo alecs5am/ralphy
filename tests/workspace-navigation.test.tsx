@@ -14,7 +14,6 @@ import { LibraryScreen } from "../src/screens/LibraryScreen";
 import { bridge } from "../src/lib/ipc";
 import { readWorkbenchPreferences, WORKSPACE_PAGES } from "../src/state/workbench";
 import { createReactHost } from "./react-host";
-import { readStylesheet } from "./style-sources";
 
 vi.mock("../src/components/ProfileMenu", () => ({ ProfileMenu: () => null }));
 
@@ -50,7 +49,6 @@ const workspace: WorkspaceSummary = {
   recentActivity: "2026-08-01T00:00:00.000Z",
 };
 
-const styles = readStylesheet("workbench.css");
 
 function mediaCard(id: string, mime: string): MediaCardDto {
   return {

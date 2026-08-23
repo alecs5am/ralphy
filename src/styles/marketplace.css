@@ -26,16 +26,6 @@
   overflow: hidden !important;
 }
 
-/* The filter menus. SelectMenu owns `.select-menu-content` and takes a class only for its
-   trigger, so this owner's denser menu metrics have to be named here. The plate is NOT named:
-   a menu is a black widget in both themes and SelectMenu states on-dark ink for its rows, so
-   repainting the plate light here left the rows at 2.24:1 and the checked row at 1.02:1. */
-[data-instrument-overlay="shared-select-menu"][data-instrument-overlay-owner="marketplace.header"] {
-  --menu-item-height: 30px;
-  --menu-item-radius: 10px;
-  --menu-radius: 14px;
-}
-
 /* The workflow overlay surface. InstrumentOverlay renders it and passes no className through,
    so where it sits and how wide it is cannot be a utility; the window inside it carries its own
    surface, radius, stacking and scrolling. The backdrop is the same element story: its tone and
@@ -75,7 +65,10 @@ html[data-theme="light"] .sidebar-nav[aria-label="My Library"] .sidebar-nav-row:
    chevron, the markdown view and the media elements, whose own motion is declared in another
    sheet. It cannot reach this area's own motion -- an !important declaration here loses to an
    !important utility in @layer utilities -- so every animation declared in the markup carries
-   its own motion-reduce variant. */
+   its own motion-reduce variant. Measured the same way as the shared library's: with reduce
+   emulated, disabling this rule changed no computed transition or animation longhand on any of
+   the 62 elements under `.marketplace-screen` or the 444 reachable in total. It stays as the
+   guard over borrowed children, which is the one set a utility cannot name. */
 @media (prefers-reduced-motion: reduce) {
   .marketplace-screen *,
   .marketplace-screen *::before,

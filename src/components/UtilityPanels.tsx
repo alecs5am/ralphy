@@ -65,7 +65,7 @@ const CONNECT_COLUMN = "w-full max-w-agent-connect-column";
    theme ink, which is black on black in the light theme. */
 const FIELD_RING = "focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-focus-on-instrument";
 const FIELD_INPUT = "min-w-0 flex-1 border-0 bg-transparent text-on-instrument outline-0";
-const SPINNER = "is-spinning motion-reduce:animate-none";
+const SPINNER = "is-spinning animate-spinner motion-reduce:animate-none";
 /* The rail header's two glyph controls. They used to be a bare `.icon-button`, whose surface and
    ink came from the legacy `--fg-2` / `--hover` pair in 01-unowned.css; the rail is a black
    widget in both themes, so the on-dark pair is stated here instead. */
@@ -173,7 +173,9 @@ export function AgentChatPanel({
 
   return (
     <motion.aside
-      className="utility-right-panel panel-blur min-h-0 min-w-0"
+      /* Chat is a widget on the desk: one flat #141414 plate, R24, no border. tokens.css keys
+         the squircle on this class, and `--blur` is `none`, so `.panel-blur` adds nothing. */
+      className="utility-right-panel panel-blur flex min-h-0 min-w-0 flex-col overflow-hidden rounded-panel bg-instrument text-on-instrument"
       initial={{ x: 24, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 24, opacity: 0 }}

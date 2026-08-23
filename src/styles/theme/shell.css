@@ -41,6 +41,11 @@
   --color-dither-base: var(--instrument-dither-base);            /* the plate behind an identity fallback */
   --color-dither-highlight: var(--instrument-dither-highlight);  /* the grain an identity mark is cut from */
 
+  /* The desk's own hover step. The shared scale names the desk but not the surface a control
+     standing on it takes under the cursor, and the command control five routes share needs the
+     pair: #D3D6DD under #141414 ink in the light theme, #242422 under #F2F2F0 in the dark one. */
+  --color-desk-hover: var(--instrument-desk-hover);
+
   /* Control geometry, so a square control and a control height stay one decision. */
   --spacing-control-sm: var(--control-sm);
   --spacing-control-md: var(--control-md);
@@ -71,6 +76,11 @@
      an unlayered sheet loses to an `!important` utility inside `@layer utilities`, so a
      reduced-motion blanket in CSS cannot hold back motion declared in markup. */
   --animate-sidebar-in: instrument-sidebar-in var(--dur-slow) var(--ease);
+  /* The one indeterminate spinner in the frame: the island's task glyph and the rail's own
+     busy marks read the same name. */
+  --animate-spinner: instrument-spin 0.8s linear infinite;
+  /* ...and the indeterminate line under `App.tsx`'s project-indexing plate. */
+  --animate-indexing: instrument-indexing 1s ease-in-out infinite alternate;
   --animate-island-in: instrument-island-in 320ms var(--ease);
   --animate-island-tune: instrument-island-tune var(--dur-slow) var(--ease);
   --transition-duration-slow: var(--dur-slow);
@@ -78,6 +88,9 @@
   --ease-instrument: var(--ease);
 
   /* Stacking, so a layer in markup stays a token and not a number. */
+  /* The error banner floats over the frame's own header row and under every named layer. */
+  --z-index-banner: 10;
+  --z-index-inspector: var(--z-inspector);
   --z-index-desk-float: var(--z-desk-float);
   --z-index-island: var(--z-island);
   --z-index-sheet: var(--z-sheet);
@@ -110,4 +123,15 @@
 
 @keyframes instrument-island-tune {
   from { opacity: 0; transform: translateY(-4px); }
+}
+
+@keyframes instrument-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* The indeterminate line: a fixed-width run sliding inside its own track, so the plate says
+   "working" without claiming a percentage it does not know. */
+@keyframes instrument-indexing {
+  from { transform: translateX(0); }
+  to { transform: translateX(165%); }
 }

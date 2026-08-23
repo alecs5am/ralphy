@@ -31,7 +31,7 @@ export const sharedLibraryInstrumentStates = defineInstrumentScreenStates({
    focus ring in both themes: the theme's own ink is black on black in light, and the theme's
    hover surface turns white underneath it. Everything else is a light widget or sits directly on
    the desk, where the theme ink and the ring reset.css paints are the right ones. */
-const SCREEN = "main-region shared-library-screen relative flex min-h-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 type-base text-ink";
+const SCREEN = "main-region shared-library-screen @container/main-region relative flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 type-base text-ink";
 const TOOLBAR_SHELL = "shared-library-toolbar m-0 flex min-h-9 w-full max-w-none flex-none flex-wrap items-center gap-2 rounded-panel bg-surface p-2";
 /* Geometry and behaviour only: a surface or an ink here would compete with the pair a caller
    states, and two utilities of one property are resolved by the generated stylesheet's order
@@ -218,7 +218,7 @@ function ScreenHeader({ workspaceName, totals, actionsUnavailableReason, onAdd, 
   onPromote(origin: HTMLButtonElement): void;
 }) {
   return <header className="shared-library-header m-0 flex min-h-0 w-full max-w-none flex-none flex-wrap items-center justify-between gap-4 rounded-panel bg-instrument px-5 py-4 text-on-instrument">
-    <div className="flex flex-col gap-1"><div className="screen-kicker type-xs uppercase tracking-wide text-on-instrument-muted">{workspaceName}</div><h1 className="m-0 type-hero font-semibold leading-none tracking-tight text-on-instrument">Shared Library</h1><p className="m-0 type-base text-on-instrument-muted">Reusable workspace artifacts for people and agents</p></div>
+    <div className="flex flex-col gap-1"><div className="screen-kicker mb-1 type-xs uppercase tracking-wide text-on-instrument-muted">{workspaceName}</div><h1 className="m-0 type-hero font-semibold leading-none tracking-tight text-on-instrument">Shared Library</h1><p className="m-0 type-base text-on-instrument-muted">Reusable workspace artifacts for people and agents</p></div>
     {/* The totals and the actions read as one line until the content row is narrow enough that
         they stack — measured against the row, never the window. */}
     <div className="flex flex-wrap items-center justify-end gap-2 @max-shared-header/main-region:flex-col-reverse @max-shared-header/main-region:items-end">

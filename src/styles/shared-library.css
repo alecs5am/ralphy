@@ -6,7 +6,14 @@
    their controls, whose own motion is declared in another sheet. It cannot reach this area's
    own motion: an !important declaration in an unlayered sheet loses to an !important utility
    inside @layer utilities, so every transition and animation declared in the markup carries a
-   motion-reduce variant of its own. */
+   motion-reduce variant of its own.
+
+   Measured under Emulation.setEmulatedMedia(prefers-reduced-motion: reduce), with the workflow
+   overlay and window mounted: disabling this rule changed no computed transition-property,
+   transition-duration, animation-name or animation-duration on any of 439 elements. It is a
+   guard, not a live rule -- kept because the set it guards is the one set no utility can name,
+   the children another area mounts inside these overlays, and neither this sheet nor this area
+   declares any motion of its own for it to be shadowing. */
 @keyframes shared-workflow-fade { from { opacity: 0; } }
 /* The window centres with auto margins rather than a transform, so the entrance owns the
    transform outright: a !important utility would otherwise beat the animation. */

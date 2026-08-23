@@ -10,18 +10,19 @@ import { UnitsPanel, unitsInstrumentStates } from "./project/UnitsPanel";
 import { bridge, type ProjectSummary } from "../lib/ipc";
 import type { DomainPage } from "../state/project-domain";
 import { createProjectScreenController, type ProjectScreenApi, type ProjectScreenController, type ProjectScreenSnapshot } from "../state/project-screen-controller";
+import { COMMAND_BUTTON, EMPTY_SECTION, PROJECT_LOCAL_ERROR, PROJECT_SKELETON } from "./route-chrome";
 
 export { createProjectScreenController } from "../state/project-screen-controller";
 
 function PageState({ descriptor, page, empty, onRetry, children }: { descriptor: InstrumentScreenStateDescriptor; page: DomainPage; empty: string; onRetry(): void; children: React.ReactNode }) {
-  if (page.status === "loading" && page.items.length === 0) return <InstrumentScreenRoot descriptor={descriptor} state="loading"><div className="project-skeleton" role="status">Loading…</div></InstrumentScreenRoot>;
+  if (page.status === "loading" && page.items.length === 0) return <InstrumentScreenRoot descriptor={descriptor} state="loading"><div className={PROJECT_SKELETON} role="status">Loading…</div></InstrumentScreenRoot>;
   if (page.status === "error" && page.items.length === 0) return <InstrumentScreenRoot descriptor={descriptor} state="error"><ProjectError error={page.error} onRetry={onRetry} /></InstrumentScreenRoot>;
-  if (page.status === "ready" && page.items.length === 0) return <InstrumentScreenRoot descriptor={descriptor} state="empty"><div className="empty-section">{empty}</div></InstrumentScreenRoot>;
+  if (page.status === "ready" && page.items.length === 0) return <InstrumentScreenRoot descriptor={descriptor} state="empty"><div className={EMPTY_SECTION}>{empty}</div></InstrumentScreenRoot>;
   return <>{children}</>;
 }
 
 function ProjectError({ error, onRetry }: { error: string | null; onRetry(): void }) {
-  return <div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{error ?? "This section could not be loaded."}</span><button className="command-button" type="button" onClick={onRetry}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>;
+  return <div className={PROJECT_LOCAL_ERROR} role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{error ?? "This section could not be loaded."}</span><button className={COMMAND_BUTTON} type="button" onClick={onRetry}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>;
 }
 
 export function ProjectScreenView({ project, workspaceName = null, rootEpoch = 0, controller, snapshot, targetUnitId, scrollMemory = new Map<string, number>(), documentsScrollMemory = scrollMemory, unitsScrollMemory = scrollMemory, activityScrollMemory = scrollMemory }: { project: ProjectSummary; workspaceName?: string | null; rootEpoch?: number; controller: ProjectScreenController; snapshot: ProjectScreenSnapshot; targetUnitId?: string | null; scrollMemory?: Map<string, number>; documentsScrollMemory?: Map<string, number>; unitsScrollMemory?: Map<string, number>; activityScrollMemory?: Map<string, number> }) {
@@ -39,10 +40,10 @@ export function ProjectScreenView({ project, workspaceName = null, rootEpoch = 0
     }
     void controller.selectTab(tab);
   };
-  return <main className="main-region project-region flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-2 pb-6 type-base text-ink">
+  return <main className="main-region project-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden bg-desk p-2 pb-6 type-base text-ink">
     <ProjectControls activeTab={activeTab} onSelect={selectTab} />
     <div className={`project-domain-body @container/project-domain w-full min-h-0 flex-1 overflow-hidden${activeTab === "media" ? " is-media flex flex-col" : activeTab === "documents" ? " is-documents pb-6" : activeTab === "units" ? " is-units pb-6" : activeTab === "activity" ? " is-activity pb-6" : ""}`} role="tabpanel" id={`project-panel-${activeTab}`} aria-labelledby={`project-tab-${activeTab}`}>
-      {activeTab === "documents" && page && (page.status === "loading" && page.items.length === 0 ? <InstrumentScreenRoot descriptor={documentsInstrumentStates} state="loading"><div className="project-skeleton" role="status">Loading documents…</div></InstrumentScreenRoot> : page.status === "error" && page.items.length === 0 ? <InstrumentScreenRoot descriptor={documentsInstrumentStates} state="error"><ProjectError error={page.error} onRetry={retry} /></InstrumentScreenRoot> : <DocumentsPanel page={page} controller={controller} snapshot={snapshot} scrollMemory={documentsScrollMemory} resetToken={projectScrollToken} />)}
+      {activeTab === "documents" && page && (page.status === "loading" && page.items.length === 0 ? <InstrumentScreenRoot descriptor={documentsInstrumentStates} state="loading"><div className={PROJECT_SKELETON} role="status">Loading documents…</div></InstrumentScreenRoot> : page.status === "error" && page.items.length === 0 ? <InstrumentScreenRoot descriptor={documentsInstrumentStates} state="error"><ProjectError error={page.error} onRetry={retry} /></InstrumentScreenRoot> : <DocumentsPanel page={page} controller={controller} snapshot={snapshot} scrollMemory={documentsScrollMemory} resetToken={projectScrollToken} />)}
       {activeTab === "media" && page && <MediaPanel page={page} controller={controller} snapshot={snapshot} project={project} workspaceName={workspaceName} rootEpoch={rootEpoch} scrollMemory={scrollMemory} scrollResetToken={mediaScrollToken} />}
       {activeTab === "units" && page && <PageState descriptor={unitsInstrumentStates} page={page} empty="No units yet." onRetry={retry}><UnitsPanel page={page} controller={controller} snapshot={snapshot} targetUnitId={targetUnitId} scrollMemory={unitsScrollMemory} resetToken={projectScrollToken} /></PageState>}
       {activeTab === "activity" && page && <PageState descriptor={activityInstrumentStates} page={page} empty="No activity yet." onRetry={retry}><ActivityTimeline page={page} controller={controller} scrollMemory={activityScrollMemory} resetToken={projectScrollToken} /></PageState>}
@@ -114,5 +115,5 @@ export function ProjectScreen({
   }, [controller, targetUnitId]);
   return controller
     ? <ConnectedProjectScreen project={project} workspaceName={workspaceName} rootEpoch={rootEpoch} controller={controller} targetUnitId={targetUnitId} />
-    : <InstrumentScreenRoot descriptor={unitsInstrumentStates} state="loading"><main className="main-region project-region flex min-h-0 flex-1 flex-col gap-2 overflow-hidden bg-transparent p-2 pb-6 type-base text-ink"><div className="project-skeleton" role="status">Loading project overview…</div></main></InstrumentScreenRoot>;
+    : <InstrumentScreenRoot descriptor={unitsInstrumentStates} state="loading"><main className="main-region project-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden bg-transparent p-2 pb-6 type-base text-ink"><div className={PROJECT_SKELETON} role="status">Loading project overview…</div></main></InstrumentScreenRoot>;
 }

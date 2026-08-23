@@ -25,6 +25,7 @@ import { WorkspaceInsights } from "./workspace/WorkspaceInsights";
 import { WorkspaceOperations } from "./workspace/WorkspaceOperations";
 import { WorkspacePerformance } from "./workspace/WorkspacePerformance";
 import { WorkspacePlanAndOutcomes } from "./workspace/WorkspacePlanAndOutcomes";
+import { COMMAND_BUTTON, PROJECT_LOCAL_ERROR } from "./route-chrome";
 
 export { createWorkspaceScreenController } from "../state/workspace-screen-controller";
 
@@ -68,14 +69,14 @@ function WorkspaceOverviewShell({ value, onOpenPage, onOpenCalendar, onOpenUnit,
 /* The route surface. `main-region` and `workspace-overview` stay as the hooks instrument.css
    names and the geometry harness selects; the route declares its own content row so the row
    collapses below read a container this component owns. */
-const ROUTE = "main-region workspace-overview @container/main-region flex min-h-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 type-base text-ink";
+const ROUTE = "main-region workspace-overview @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 type-base text-ink";
 /* The desk grid the sections stand on. The desk is the only scroll owner here, so this row
    keeps its own overflow visible and only guards its flex geometry. */
 const OVERVIEW_GRID = "workspace-overview-scroll grid min-h-0 w-full flex-1 grid-cols-12 items-start gap-2 overflow-visible p-0";
 /* The black header the three states share. `screen-header` and `workspace-overview-header`
    are hooks; the layout, surface and on-instrument ink are stated here. */
 const STATE_HEADER = "screen-header workspace-overview-header workspace-overview-loading-header m-0 flex min-h-28 w-full max-w-none flex-col justify-center gap-1 rounded-panel bg-instrument px-5 py-4 text-on-instrument";
-const STATE_KICKER = "screen-kicker type-xs uppercase tracking-wide text-on-instrument-muted";
+const STATE_KICKER = "screen-kicker mb-1 type-xs uppercase tracking-wide text-on-instrument-muted";
 const STATE_TITLE = "m-0 type-xl font-normal text-on-instrument";
 const STATE_COPY = "m-0 type-base leading-5 text-on-instrument-muted";
 const SKELETON_SECTION = "workspace-overview-skeleton-section col-span-12 min-h-44 rounded-panel bg-surface p-4 @min-workspace-section/instrument-desk:col-span-6";
@@ -107,10 +108,10 @@ function WorkspaceOverviewError({ error, workspaceName, workspaceDescription, on
       {workspaceDescription && <p className={STATE_COPY}>{workspaceDescription}</p>}
       <strong className="type-sm font-normal text-on-instrument">Workspace overview could not be loaded</strong>
     </header>
-    <div className="project-local-error" role="alert">
+    <div className={PROJECT_LOCAL_ERROR} role="alert">
       <AlertCircle size={17} aria-hidden="true" />
       <span>{error ?? "Core did not return workspace data."}</span>
-      <button type="button" onClick={onRetry}><RefreshCw size={14} aria-hidden="true" />Retry</button>
+      <button className={COMMAND_BUTTON} type="button" onClick={onRetry}><RefreshCw size={14} aria-hidden="true" />Retry</button>
     </div>
   </main></InstrumentScreenRoot>;
 }
@@ -183,7 +184,7 @@ export function WorkspaceScreenView(props: WorkspaceScreenViewProps) {
       error={snapshot.error}
       onRefresh={() => { void controller.retry(); }}
     />
-    {snapshot.error && <div className="project-local-error" role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.error}</span><button type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>}
+    {snapshot.error && <div className={PROJECT_LOCAL_ERROR} role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.error}</span><button className={COMMAND_BUTTON} type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div>}
     <div className={OVERVIEW_GRID} ref={scrollRef}>
       <WorkspaceOverviewShell
         value={presentation}

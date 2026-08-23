@@ -30,6 +30,7 @@ import type {
   WorkspaceOverviewPresentation,
   WorkspacePlanPresentation,
 } from "./overview-presentation";
+import { COMMAND_BUTTON } from "../route-chrome";
 
 interface Props {
   value: Pick<WorkspaceOverviewPresentation, "plan" | "outcomes">;
@@ -170,7 +171,7 @@ function ContentPlan({ value, onOpenCalendar, onOpenUnits, onOpenUnit }: {
     {value.upcoming.status === "unavailable" && unavailable("Publishing schedule unavailable", value.upcoming.reason)}
     {value.upcoming.status === "empty" && <div className="workspace-plan-empty flex items-center justify-between gap-4 p-4 @max-workspace-row/main-region:grid @max-workspace-row/main-region:grid-cols-1 @max-workspace-row/main-region:justify-items-start">
       <p className="m-0 type-base leading-5 text-muted">{value.upcoming.reason}</p>
-      <button id="workspace-empty-calendar" type="button" className="command-button" onClick={() => onOpenCalendar(undefined, "workspace-empty-calendar")}><CalendarDays aria-hidden="true" />Open Calendar</button>
+      <button id="workspace-empty-calendar" type="button" className={COMMAND_BUTTON} onClick={() => onOpenCalendar(undefined, "workspace-empty-calendar")}><CalendarDays aria-hidden="true" />Open Calendar</button>
     </div>}
     {events.length > 0 && <ol className={`workspace-plan-events gap-3 ${PLAIN_LIST}`}>
       {events.map((event) => <ContentEvent key={`${event.unitId}:${event.scheduledAt}`} event={event} onOpenCalendar={onOpenCalendar} onOpenUnit={onOpenUnit} onOpenUnits={onOpenUnits} />)}
