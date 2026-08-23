@@ -14,17 +14,18 @@ import { SelectMenu } from "../../components/ui/SelectMenu";
 
 /** A counted number or a version: Doto, never tracked. */
 export const NUMBER = "font-display font-extrabold tracking-normal text-ink";
-/** A trailing mono label on a row title, decorative by design. */
-export const META = "flex-none font-code type-mono-xs tracking-caps text-muted-decorative";
+/** A trailing mono label on a row title. It is 9px text a reader has to read, so it takes the
+ *  readable muted ink; `-decorative` is for marks that carry no information. */
+export const META = "flex-none font-code type-mono-xs tracking-caps text-muted";
 /** A code or a state read as a fact: mono, but the theme's own ink. */
 export const CODE = "font-code type-mono-sm tracking-caps text-ink";
 /** A path or an identifier inside a description. */
 export const MONO = "font-code type-meta tracking-code text-muted";
 /** A mono caps note under a plate. */
-export const NOTE = "m-0 font-code type-mono-xs tracking-caps leading-note text-muted-decorative";
+export const NOTE = "m-0 font-code type-mono-xs tracking-caps leading-note text-muted";
 export const NOTE_ALERT = "m-0 font-code type-mono-xs tracking-caps leading-note text-alert";
 /** A section label above a plate, and the search results label that reads as one. */
-export const SECTION_LABEL = "m-0 flex items-center gap-2.25 pl-4 font-code type-mono-sm font-normal tracking-mono text-muted-decorative";
+export const SECTION_LABEL = "m-0 flex items-center gap-2.25 pl-4 font-code type-mono-sm font-normal tracking-mono text-muted";
 /** A row title, and the copy column that carries it. */
 export const ROW_TITLE = "flex items-center gap-2.25 type-ui font-normal text-ink";
 export const ROW_COPY = "flex min-w-0 flex-1 flex-col gap-0.75";
@@ -114,7 +115,7 @@ export function Row({ title, meta, description, tall, flat, flash, target, id, c
       <strong className={target ? `${ROW_TITLE} text-muted` : ROW_TITLE}>
         {title}{meta && <span className={META}>{meta}</span>}
       </strong>
-      {description && <small className={`type-label leading-row ${target ? "text-muted-decorative" : "text-muted"}`}>{description}</small>}
+      {description && <small className="type-label leading-row text-muted">{description}</small>}
     </span>
     {children}
   </div>;

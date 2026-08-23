@@ -281,7 +281,7 @@ export function AppearancePage({ ctx }: { ctx: SettingsContext }) {
 
 /* A conflict widget is a black widget, so its rows keep the on-instrument ink. */
 const CONFLICT_ROW = "flex h-control-lg items-center gap-3 rounded-control px-3";
-const CONFLICT_SCOPE = "font-code type-mono-xs tracking-caps text-on-instrument-muted-decorative";
+const CONFLICT_SCOPE = "font-code type-mono-xs tracking-caps text-on-instrument-muted";
 
 interface RecordingState {
   commandId: string;
@@ -356,7 +356,7 @@ export function KeyboardPage({ ctx }: { ctx: SettingsContext }) {
           <Keycaps tokens={chordTokens(conflict.chord)} tone="sunken" />
         </div>
       </div>
-      <p className="m-0 font-code type-mono-xs tracking-caps leading-note text-on-instrument-muted-decorative">{`SCOPES ${conflict.command.scope.toLocaleUpperCase()} AND ${conflict.other.scope.toLocaleUpperCase()} CAN BE LIVE AT ONCE — UNBINDING THE OTHER COMMAND SILENTLY IS NOT AN OPTION`}</p>
+      <p className="m-0 font-code type-mono-xs tracking-caps leading-note text-on-instrument-muted">{`SCOPES ${conflict.command.scope.toLocaleUpperCase()} AND ${conflict.other.scope.toLocaleUpperCase()} CAN BE LIVE AT ONCE — UNBINDING THE OTHER COMMAND SILENTLY IS NOT AN OPTION`}</p>
       <div className="flex items-center gap-2 @max-settings-column/settings-main:flex-wrap">
         <button
           className={action({ size: "lg", tone: "primary", surface: "instrument" })}

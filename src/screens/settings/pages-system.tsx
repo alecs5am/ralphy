@@ -38,7 +38,7 @@ const SERVICE_ROW = "flex items-center gap-4 rounded-row px-4 py-settings-row [[
 const SERVICE_NARROW = "@max-settings-column/settings-main:w-auto @max-settings-column/settings-main:min-w-0 @max-settings-column/settings-main:flex-1";
 const SERVICE_NAME = `flex flex-none flex-col gap-0.75 ${SERVICE_NARROW}`;
 const SERVICE_STATE = "flex min-w-0 flex-1 flex-col gap-0.75";
-const SERVICE_META = "font-code type-mono-xs tracking-status text-muted-decorative";
+const SERVICE_META = "font-code type-mono-xs tracking-status text-muted";
 const SERVICE_MODEL = "max-w-settings-service-model flex-none overflow-hidden font-code type-mono-sm tracking-label text-ellipsis whitespace-nowrap text-muted @max-settings-column/settings-main:hidden";
 /* A flat row: one statement per line, no copy column under it. */
 const FLAT_ROW = "flex items-center gap-4 rounded-row px-4 py-2.75 text-left [corner-shape:squircle] transition-colors duration-slow ease-instrument";
@@ -288,7 +288,7 @@ export function ProviderDetailPage({ provider }: { provider: (typeof GENERATION_
     <Section title="DEFAULT MODEL PER MEDIA TYPE">
       <Plate>
         {["TEXT", "IMAGE", "VIDEO", "UPSCALE"].map((kind) => <div className={FLAT_ROW} key={kind}>
-          <span className="w-settings-kind flex-none font-code type-mono-sm tracking-caps text-muted-decorative">{kind}</span>
+          <span className="w-settings-kind flex-none font-code type-mono-sm tracking-caps text-muted">{kind}</span>
           <span className={FLAT_VALUE}>Model catalogue arrives with provider discovery</span>
           <DesignTarget />
         </div>)}

@@ -175,7 +175,7 @@ export function SettingsScreen({
           >
             <span className={ROW_COPY}>
               <strong className="type-ui font-normal text-ink">{entry.title}</strong>
-              <em className="font-code type-mono-xs not-italic tracking-status text-muted-decorative">{`${SETTINGS_PAGES[entry.page].title} › ${entry.section}`}</em>
+              <em className="font-code type-mono-xs not-italic tracking-status text-muted">{`${SETTINGS_PAGES[entry.page].title} › ${entry.section}`}</em>
             </span>
             <small className="max-w-settings-result flex-none overflow-hidden font-code type-mono-sm tracking-label text-ellipsis whitespace-nowrap text-muted">{entry.state(preferences.values)}</small>
             <ArrowRight size={13} strokeWidth={1.9} aria-hidden="true" />
@@ -185,7 +185,7 @@ export function SettingsScreen({
       : <div className="flex flex-col items-center gap-3 rounded-panel bg-instrument p-7 [corner-shape:squircle]">
         <RalphyMascot size={56} />
         <strong className="type-lg font-normal text-on-instrument">{`Nothing matched “${query.trim()}”`}</strong>
-        <p className="m-0 max-w-settings-empty text-center font-code type-mono-sm tracking-caps leading-empty text-on-instrument-muted-decorative">THE INDEX COVERS ROWS, DESCRIPTIONS AND SYNONYMS.<br />TRY: API KEY · CACHE · MICROPHONE · SHORTCUT · PATH</p>
+        <p className="m-0 max-w-settings-empty text-center font-code type-mono-sm tracking-caps leading-empty text-on-instrument-muted">THE INDEX COVERS ROWS, DESCRIPTIONS AND SYNONYMS.<br />TRY: API KEY · CACHE · MICROPHONE · SHORTCUT · PATH</p>
         <button className={action({ size: "lg", tone: "primary", surface: "instrument" })} type="button" onClick={() => setQuery("")}>Clear search</button>
       </div>;
     if (harness) return <HarnessDetailPage ctx={ctx} harness={harness} />;
@@ -225,7 +225,7 @@ export function SettingsScreen({
         </button>
         <div className="mx-auto flex h-9 flex-none items-center gap-3 rounded-control bg-instrument pr-1.5 pl-3.5">
           <b className="font-code type-mono-sm font-normal tracking-mono text-on-instrument">SETTINGS</b>
-          <span className="font-code type-mono-sm font-normal tracking-mono text-on-instrument-muted-decorative">{`THIS MAC · ${operator.toLocaleUpperCase()}`}</span>
+          <span className="font-code type-mono-sm font-normal tracking-mono text-on-instrument-muted">{`THIS MAC · ${operator.toLocaleUpperCase()}`}</span>
           {needAction > 0 && <button
             className="inline-flex h-control-sm items-center gap-2 rounded-control bg-instrument-raised px-2.75 font-code type-mono-xs tracking-caps text-on-instrument-muted hover:bg-ghost hover:text-on-instrument focus-visible:outline-focus-on-instrument"
             type="button"
@@ -235,7 +235,7 @@ export function SettingsScreen({
             {`${needAction} NEED ATTENTION`}
           </button>}
         </div>
-        <span className="inline-flex flex-none items-center gap-2 font-code type-mono-xs tracking-caps text-muted-decorative">
+        <span className="inline-flex flex-none items-center gap-2 font-code type-mono-xs tracking-caps text-muted">
           RALPHY
           <b className={NUMBER}>{appVersion}</b>
         </span>
@@ -269,7 +269,7 @@ export function SettingsScreen({
           </label>
           <nav className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto" aria-label="Settings categories">
             {SETTINGS_NAV_GROUPS.map((group) => <div className="flex flex-col gap-0.5" key={group.label}>
-              <h2 className={`m-0 px-3 pt-1.25 pb-1 ${MONO_LABEL} text-on-instrument-muted-decorative`}>{group.label}</h2>
+              <h2 className={`m-0 px-3 pt-1.25 pb-1 ${MONO_LABEL} text-on-instrument-muted`}>{group.label}</h2>
               {group.items.map((id) => {
                 const Icon = SETTINGS_PAGE_ICONS[id];
                 const active = page === id && !searching;
@@ -297,7 +297,7 @@ export function SettingsScreen({
             onClick={() => goTo("updates")}
           >
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <small className="font-code type-mono-xs tracking-caps text-on-instrument-muted-decorative group-hover:text-on-instrument-muted">RALPHY DESKTOP</small>
+              <small className="font-code type-mono-xs tracking-caps text-on-instrument-muted">RALPHY DESKTOP</small>
               <strong className="font-display type-base font-extrabold text-on-instrument">{appVersion}</strong>
             </span>
           </button>
@@ -339,7 +339,7 @@ export function SettingsScreen({
             aria-hidden={rail ? undefined : true}
           >
             {rail && <><div className="flex flex-col gap-2.75 rounded-panel bg-surface p-3.75 [corner-shape:squircle]">
-              <h2 className={`m-0 ${MONO_LABEL} text-muted-decorative`}>{rail.label}</h2>
+              <h2 className={`m-0 ${MONO_LABEL} text-muted`}>{rail.label}</h2>
               {rail.rows.map(([label, value]) => <span className="flex items-baseline gap-3" key={label}>
                 <span className="min-w-0 flex-1 type-label leading-row text-muted">{label}</span>
                 <b className={`max-w-settings-rail-label flex-none text-right text-balance ${/^\d/.test(value) ? NUMBER : CODE}`}>{value}</b>
@@ -347,7 +347,7 @@ export function SettingsScreen({
               {rail.action && <button className={action()} type="button" disabled={rail.action.disabled} onClick={rail.action.run}>{rail.action.label}</button>}
             </div>
             {rail.note && <div className="flex flex-col gap-2.25 rounded-panel bg-instrument p-3.75 [corner-shape:squircle]">
-              <h2 className={`m-0 ${MONO_LABEL} text-on-instrument-muted-decorative`}>{rail.note.label}</h2>
+              <h2 className={`m-0 ${MONO_LABEL} text-on-instrument-muted`}>{rail.note.label}</h2>
               <p className="m-0 type-label leading-copy text-pretty text-on-instrument-muted">{rail.note.text}</p>
               {rail.note.danger && <button className={action({ tone: "danger", surface: "instrument" })} type="button" disabled={rail.note.danger.disabled} onClick={rail.note.danger.run}>{rail.note.danger.label}</button>}
             </div>}</>}
