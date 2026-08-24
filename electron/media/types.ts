@@ -460,6 +460,11 @@ export interface MediaWorkbenchBridge extends MarketplaceBridge {
   loadLocalModelDetail(ref: LocalModelReference): Promise<LocalModelDetail>;
   refreshLocalModelMachine(): Promise<LocalModelMachine>;
   openLocalModelProvider(url: string): Promise<void>;
+  /* The window's native appearance follows the app's own theme. macOS draws the traffic lights,
+     native menus and scrollbars from the window's appearance, not from what the renderer paints,
+     so without this the inactive traffic lights are greyed for the wrong surface and read as
+     missing. The three values are `nativeTheme.themeSource`'s own, "system" included. */
+  applyNativeAppearance(theme: "system" | "light" | "dark"): Promise<void>;
   loadProjectOverview(project: ProjectReference): Promise<import("../ralphy/types").ProjectOverviewDto>;
   loadProjectPage(input: {
     tab: ProjectTab;
@@ -581,6 +586,7 @@ export const MEDIA_CHANNELS = {
   loadLocalModelDetail: "models:detail",
   refreshLocalModelMachine: "models:machine",
   openLocalModelProvider: "models:open-provider",
+  applyNativeAppearance: "app:native-appearance",
   loadProjectOverview: "project:overview",
   loadProjectPage: "project:page",
   loadProjectActivityRun: "project:activity:run",

@@ -425,7 +425,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
           {/* No horizontal padding: every zone in the window stands 8 from its edge, and the
               handoff's 2px optical inset put the island 10 from the right while the sidebar
               stood at 8. */}
-          <header className="instrument-top-row relative flex h-9 min-w-0 flex-none items-center gap-3 [-webkit-app-region:drag]">
+          <header className="instrument-top-row relative flex h-8 min-w-0 flex-none items-center gap-3 [-webkit-app-region:drag]">
             {/* The sidebar owns its own collapse control now; the topbar carries it only while the
                 sidebar is gone, which is the one state where the sidebar's own button is not on
                 screen. History stays here in both states -- it is about the content column. */}

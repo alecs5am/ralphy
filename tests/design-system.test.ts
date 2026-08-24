@@ -1407,8 +1407,12 @@ describe("design system contract", () => {
     // stands in for, `.status-dot` is drawn by three -- so both moved onto every one of them.
     expect(existsSync(join(process.cwd(), "src/styles/workbench"))).toBe(false);
     expect(existsSync(join(process.cwd(), "src/styles/workbench.css"))).toBe(false);
+    // `.project-region` no longer carries a wash on either renderer. The mode surface above it
+    // paints the desk when the route is the elastic column and deliberately does not inside the
+    // view panel, where the page card paints -- so the region's own `bg-desk` was repainting the
+    // same colour in the desk lens and painting over a white card in the chat lens.
     for (const file of ["src/App.tsx", "src/screens/ProjectScreen.tsx"]) {
-      expect(readFileSync(join(process.cwd(), file), "utf8")).toMatch(/project-region[^"`]*\bbg-desk\b/);
+      expect(readFileSync(join(process.cwd(), file), "utf8")).not.toMatch(/project-region[^"`]*\bbg-desk\b/);
     }
     for (const file of ["src/screens/LibraryScreen.tsx", "src/screens/WorkspaceProjectsScreen.tsx", "src/instrument/primitives.tsx"]) {
       expect(readFileSync(join(process.cwd(), file), "utf8")).toMatch(/status-dot[^"`]*\bsize-/);

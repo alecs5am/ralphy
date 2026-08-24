@@ -5,6 +5,7 @@ import {
   ipcMain,
   net,
   nativeImage,
+  nativeTheme,
   protocol,
   safeStorage,
   screen,
@@ -874,6 +875,11 @@ function registerMediaIpc(): void {
   securedHandle(MEDIA_CHANNELS.openLocalModelProvider, (_event, rawUrl: unknown) => (
     shell.openExternal(parseLocalModelProviderUrl(rawUrl))
   ));
+  securedHandle(MEDIA_CHANNELS.applyNativeAppearance, (_event, rawTheme: unknown) => {
+    /* An unknown value falls back to "system" rather than throwing: a bad appearance is a cosmetic
+       fault and the renderer should not lose a frame over it. */
+    nativeTheme.themeSource = rawTheme === "dark" || rawTheme === "light" ? rawTheme : "system";
+  });
   securedHandle(MEDIA_CHANNELS.restoreLibrary, () => {
     return restoreLibrary(async () => {
       try {
@@ -1335,13 +1341,16 @@ function createWindow(): void {
     minWidth: MINIMUM_WINDOW_SIZE.width,
     minHeight: MINIMUM_WINDOW_SIZE.height,
     titleBarStyle: "hiddenInset",
-    /* The app has one chrome line and the lights stand on it. The window pads itself by 8 and the
-       sidebar card by 14, so x is 22; every chrome row is 36 tall on that 8 line, so its centre is
-       8 + 18 = 26 and a 12px light's top edge is 20. Both rows share the line deliberately -- the
-       lights are drawn by macOS at a fixed window offset, so a second line would be a row the
-       lights can never sit on, and repositioning them per sidebar toggle would put an IPC round
-       trip in the middle of an animation. */
-    trafficLightPosition: { x: 22, y: 20 },
+    /* The app has one chrome line and the lights stand on it. y is the light's own frame origin and
+       that frame is 16 tall, so the line is y + 8 = 24 -- the same line macOS itself uses, read off
+       a native window through the accessibility API rather than guessed: ChatGPT's lights report a
+       frame origin 16 below its window top. Every chrome row is 32 tall on the window's 8 line, so
+       its centre is 8 + 16 = 24 too. x stays at 22 rather than the system's 15, because our window
+       pads itself by 8 and the sidebar card by 14: the lights belong inside the card, not on its
+       edge. Both rows share the one line deliberately -- the lights are drawn at a fixed window
+       offset, so a second line would be a row they can never sit on, and repositioning them per
+       sidebar toggle would put an IPC round trip in the middle of an animation. */
+    trafficLightPosition: { x: 22, y: 16 },
     backgroundColor: INSTRUMENT_PALETTE.dark.desk,
     show: !SMOKE_TEST && !INSTRUMENT_SHELL_AUDIT,
     webPreferences: secureWebPreferences(join(__dirname, "preload.cjs")),

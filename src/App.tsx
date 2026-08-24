@@ -98,7 +98,9 @@ const WELCOME_EXIT_MS = 300;
 export function ProjectScreenLoadingFallback() {
   return (
     <InstrumentScreenRoot descriptor={unitsInstrumentStates} state="loading">
-      <main className="main-region project-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden bg-desk p-2 pb-6">
+      {/* Same as the loaded screen: the mode surface owns the desk wash, so this fallback
+          neither repaints it nor paints over the view panel's page card. */}
+      <main className="main-region project-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden p-2 pb-6">
         <div className="project-indexing flex min-h-0 flex-1 flex-col items-center justify-center gap-1 type-xs text-muted">
           {/* The indeterminate run is a real child, not a `::after`: a pseudo-element needs a
               `content: ""` that no named utility states, and the plate has room for the span. */}
@@ -408,6 +410,15 @@ export function App() {
     }, 120);
     return () => window.clearTimeout(timer);
   }, [restoring, theme]);
+
+  /* The window's native chrome takes the same preference, unresolved: `themeSource` reads "system"
+     the way we do. macOS draws the traffic lights, native menus and scrollbars from the window's
+     appearance rather than from what the renderer paints, so a dark app in a light-appearance
+     window gets its inactive traffic lights greyed for a surface that is not there -- which is why
+     they read as missing rather than as the grey dots every other app shows. */
+  useEffect(() => {
+    void bridge.applyNativeAppearance(theme).catch(() => undefined);
+  }, [theme]);
 
   useEffect(() => {
     if (restoring || !rootIdentity || !state.catalog) return;

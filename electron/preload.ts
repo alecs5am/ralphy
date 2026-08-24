@@ -89,6 +89,7 @@ const mediaBridge: MediaWorkbenchBridge = {
   loadLocalModelDetail: (ref) => invoke(MEDIA_CHANNELS.loadLocalModelDetail, ref),
   refreshLocalModelMachine: () => invoke(MEDIA_CHANNELS.refreshLocalModelMachine),
   openLocalModelProvider: (url) => invoke(MEDIA_CHANNELS.openLocalModelProvider, url),
+  applyNativeAppearance: (theme) => invoke(MEDIA_CHANNELS.applyNativeAppearance, theme),
   loadProjectOverview: (project) => invoke(MEDIA_CHANNELS.loadProjectOverview, project),
   loadProjectPage: (input) => invoke(MEDIA_CHANNELS.loadProjectPage, input),
   loadProjectActivityRun: (project, runId) => invoke(MEDIA_CHANNELS.loadProjectActivityRun, project, runId),

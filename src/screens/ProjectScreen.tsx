@@ -40,7 +40,11 @@ export function ProjectScreenView({ project, workspaceName = null, rootEpoch = 0
     }
     void controller.selectTab(tab);
   };
-  return <main className="main-region project-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden bg-desk p-2 pb-6 type-base text-ink">
+  /* No wash of its own. The mode surface above already paints the desk when the route is the
+     elastic column, and inside the view panel it deliberately does not -- the page card paints
+     there. A second `bg-desk` here repainted the same colour in the desk lens and painted over
+     the panel's white card in the chat lens. */
+  return <main className="main-region project-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden p-2 pb-6 type-base text-ink">
     <ProjectControls activeTab={activeTab} onSelect={selectTab} />
     <div className={`project-domain-body @container/project-domain w-full min-h-0 flex-1 overflow-hidden${activeTab === "media" ? " is-media flex flex-col" : activeTab === "documents" ? " is-documents pb-6" : activeTab === "units" ? " is-units pb-6" : activeTab === "activity" ? " is-activity pb-6" : ""}`} role="tabpanel" id={`project-panel-${activeTab}`} aria-labelledby={`project-tab-${activeTab}`}>
       {activeTab === "documents" && page && (page.status === "loading" && page.items.length === 0 ? <InstrumentScreenRoot descriptor={documentsInstrumentStates} state="loading"><div className={PROJECT_SKELETON} role="status">Loading documents…</div></InstrumentScreenRoot> : page.status === "error" && page.items.length === 0 ? <InstrumentScreenRoot descriptor={documentsInstrumentStates} state="error"><ProjectError error={page.error} onRetry={retry} /></InstrumentScreenRoot> : <DocumentsPanel page={page} controller={controller} snapshot={snapshot} scrollMemory={documentsScrollMemory} resetToken={projectScrollToken} />)}

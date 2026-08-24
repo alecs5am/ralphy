@@ -220,7 +220,7 @@ export function SettingsScreen({
         {/* macOS draws the traffic lights itself and the sidebar now runs to the top of the
             window, so they land on this header -- the same seat, at the same height, as the app's
             own sidebar header, which is why `trafficLightPosition` needs no second value. */}
-        <header className="settings-sidebar-header flex h-9 flex-none items-center gap-2.5 px-3.5 [-webkit-app-region:drag]">
+        <header className="settings-sidebar-header flex h-8 flex-none items-center gap-2.5 px-3.5 [-webkit-app-region:drag]">
           <div className="w-traffic-sidebar h-px flex-none" aria-hidden="true" />
           <button
             className="inline-flex h-8 min-w-0 flex-1 items-center gap-2.25 rounded-control px-2.5 type-ui text-muted [-webkit-app-region:no-drag] hover:bg-field hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
@@ -292,7 +292,7 @@ export function SettingsScreen({
         {/* The app's topbar, to the pixel: exactly the dynamic island's height, and no horizontal
             padding, so the badge stands 8 from this column's left edge and the avatar 8 from the
             window's right -- the line every other zone in the window starts on. */}
-        <header className="settings-top-row flex h-9 min-w-0 flex-none items-center gap-3 [-webkit-app-region:drag] [&>*]:[-webkit-app-region:no-drag]">
+        <header className="settings-top-row flex h-8 min-w-0 flex-none items-center gap-3 [-webkit-app-region:drag] [&>*]:[-webkit-app-region:no-drag]">
           <div className="flex h-full flex-none items-center gap-3 rounded-control bg-instrument pr-1.5 pl-3.5">
             <b className="font-code type-mono-sm font-normal tracking-mono text-on-instrument">SETTINGS</b>
             <span className="font-code type-mono-sm font-normal tracking-mono text-on-instrument-muted">{`THIS MAC · ${operator.toLocaleUpperCase()}`}</span>

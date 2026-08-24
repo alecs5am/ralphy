@@ -188,10 +188,11 @@ export function ContextSidebar({
        reduced-motion cancel, so the cancel never applied and the sidebar slid in regardless of
        the operator's motion preference. */
     <aside className="context-sidebar flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-sidebar bg-card text-ink animate-sidebar-in motion-reduce:animate-none">
-      {/* Header 36, the one chrome line the whole window shares: the topbar beside it is 36 on the
-          same 8 line, so the traffic lights macOS draws into this row from the main process stand
-          on that line too. The run before the wordmark is reserved space, never a control. */}
-      <header className="sidebar-header flex h-9 flex-none items-center gap-2.5 px-3.5 [-webkit-app-region:drag]">
+      {/* Header 32, the one chrome line the whole window shares: the topbar beside it is 32 on the
+          same 8 line, so its centre is 24 -- the line macOS itself puts the traffic lights on, and
+          they are drawn into this row from the main process. The run before the wordmark is
+          reserved space, never a control. */}
+      <header className="sidebar-header flex h-8 flex-none items-center gap-2.5 px-3.5 [-webkit-app-region:drag]">
         <div className="w-traffic-sidebar h-px flex-none" aria-hidden="true" />
         <strong className="min-w-0 flex-1 truncate type-lg font-normal">Ralphy</strong>
         <button

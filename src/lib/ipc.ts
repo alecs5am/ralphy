@@ -300,11 +300,31 @@ function createMockBridge(): RalphyBridge {
       };
     },
     async openLocalModelProvider() {},
-    async loadProjectOverview() {
-      throw new Error("Project domain reader is unavailable in mock mode");
+    /* No native window to dress in mock mode; the renderer's own theme still applies. */
+    async applyNativeAppearance() {},
+    /* The project route is the one place the mock bridge has to answer rather than refuse: the view
+       panel opens a project tab whenever the route lands on one, so a refusal here is not a missing
+       fixture in a corner of the app, it is a whole tab that cannot draw. The overview is built from
+       the catalog's own project so the header states the same name and spend the rest of the mock
+       does, and every page comes back empty -- the screen's empty states are real states, and an
+       invented iteration history would be a worse answer than none. */
+    async loadProjectOverview(project) {
+      const summary = mockProjects.find((candidate) =>
+        candidate.workspaceId === project.workspaceId && candidate.projectId === project.projectId);
+      if (!summary) throw new Error(`No mock project for ${project.workspaceId}/${project.projectId}`);
+      const updatedAt = Date.parse(summary.recentActivity);
+      return {
+        project: {
+          id: summary.projectId, workspaceId: summary.workspaceId, slug: summary.projectId,
+          name: summary.name, purpose: summary.brief, state: "active", rowVersion: 1,
+          createdAt: updatedAt, updatedAt,
+        },
+        spendUsd: summary.spendUsd ?? 0,
+        mediaCounts: { artifacts: summary.finalCount, objects: summary.sharedCount, runObjects: 0 },
+      };
     },
     async loadProjectPage() {
-      throw new Error("Project domain reader is unavailable in mock mode");
+      return { items: [], nextCursor: null };
     },
     async loadProjectActivityRun() {
       throw new Error("Project domain reader is unavailable in mock mode");
@@ -316,7 +336,7 @@ function createMockBridge(): RalphyBridge {
       throw new Error("Project domain reader is unavailable in mock mode");
     },
     async loadProjectMediaRevisions() {
-      throw new Error("Project domain reader is unavailable in mock mode");
+      return { items: [], nextCursor: null };
     },
     async selectProjectMediaRevision() {
       throw new Error("Project domain reader is unavailable in mock mode");
@@ -328,7 +348,7 @@ function createMockBridge(): RalphyBridge {
       throw new Error("Project domain reader is unavailable in mock mode");
     },
     async searchProjectDocuments() {
-      throw new Error("Project domain reader is unavailable in mock mode");
+      return { items: [], nextCursor: null };
     },
     async showProjectDocument() {
       throw new Error("Project domain reader is unavailable in mock mode");
@@ -337,7 +357,7 @@ function createMockBridge(): RalphyBridge {
       throw new Error("Project domain reader is unavailable in mock mode");
     },
     async resolveProjectPreview() {
-      throw new Error("Project domain reader is unavailable in mock mode");
+      return null;
     },
     async loadProjectComposition() {
       throw new Error("Composition reader is unavailable in mock mode");
