@@ -187,16 +187,14 @@ export function ContextSidebar({
     /* The slide-in belongs on the element: instrument.css declared the animation *after* its own
        reduced-motion cancel, so the cancel never applied and the sidebar slid in regardless of
        the operator's motion preference. */
-    <aside className="context-sidebar flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-window bg-panel p-0.5 text-ink animate-sidebar-in motion-reduce:animate-none">
-      {/* Chrome around a card, the same two layers the view panel stands on: a 2px run of panel
-          around a card one radius step in. It is what makes a shell read as a frame rather than as
-          one flat surface, and it is why the header's padding is 12 rather than 14 -- the shell
-          already spends 2 of the 14 the traffic lights need. */}
-      <div className="sidebar-card flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-inner bg-card">
-      {/* Header 32, the one chrome line the whole window shares: the topbar beside it is 32 on the
-          same 8 line, so its centre is 24 -- the line macOS itself puts the traffic lights on, and
-          they are drawn into this row from the main process. The run before the wordmark is
-          reserved space, never a control. */}
+    <aside className="context-sidebar flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-window bg-panel px-0.5 pb-0.5 text-ink animate-sidebar-in motion-reduce:animate-none">
+      {/* Handoff 16's frame: the zone is a panel with a 2px frame holding a card, and the chrome is
+          the zone's own row in that frame above the card -- not a header inside it. This is the one
+          zone whose chrome is also the window's chrome line, so the frame opens at the top to meet
+          it: 32 on the window's 8 line puts its centre at 24, the line macOS itself puts the
+          traffic lights on, and they are drawn into this row from the main process. The run at the
+          left is the space macOS needs, never a control, and the app's name is not repeated inside
+          its own window. */}
       <header className="sidebar-header flex h-8 flex-none items-center gap-2.5 px-3 [-webkit-app-region:drag]">
         <div className="w-traffic-sidebar h-px flex-none" aria-hidden="true" />
         <div className="min-w-0 flex-1" aria-hidden="true" />
@@ -209,6 +207,8 @@ export function ContextSidebar({
           onClick={onToggleSidebar}
         ><PanelLeft size={15} strokeWidth={1.8} aria-hidden="true" /></button>
       </header>
+
+      <div className="sidebar-card flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-frame bg-card">
 
       <nav
         className="sidebar-mode-switch relative mx-3 mt-2 mb-2.5 flex h-10.5 shrink-0 gap-0.5 overflow-hidden rounded-full bg-instrument p-1 isolate"

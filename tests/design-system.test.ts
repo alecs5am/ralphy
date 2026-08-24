@@ -1718,7 +1718,11 @@ describe("design system contract", () => {
     expect(railPlate).not.toMatch(/\b(?:border-\d|shadow-)/);
     const railCard = /"utility-right-panel-card ([^"]*)"/.exec(agentRailSource)?.[1] ?? "";
     expect(railCard.split(" ")).toContain("bg-instrument");
-    expect(railCard.split(" ")).toContain("rounded-inner");
+    // `rounded-frame`, not `rounded-inner`: handoff 16 makes the card's corner concentric with the
+    // shell's, 16 less the 2 of frame, so the frame reads as a hairline rather than as a margin.
+    expect(railCard.split(" ")).toContain("rounded-frame");
+    // And the chrome is the zone's row in that frame, above the card rather than inside it.
+    expect(agentRailSource.indexOf("utility-panel-header")).toBeLessThan(agentRailSource.indexOf("utility-right-panel-card"));
     // The composer's own skin is in markup now: one ghost plate, a transparent field inside it,
     // and the ring a black widget needs — `--control-focus` is the theme ink, which is black on
     // black under the light theme.

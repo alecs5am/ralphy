@@ -60,6 +60,7 @@
      what makes `text-base` and `var(--text-base)` the same decision instead of two. */
   --radius-panel: var(--radius-panel);
   --radius-inner: var(--radius-preview);
+  --radius-frame: var(--radius-frame);
   --radius-window: var(--radius-window);
   --radius-hero: var(--radius-hero);
   --radius-tab: var(--radius-tab);

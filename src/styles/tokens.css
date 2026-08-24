@@ -384,6 +384,10 @@ html[data-theme="light"] {
   --radius-row: 12px;
   --radius-lg: 14px;
   --radius-preview: 12px;
+  /* Handoff 16's frame language: a zone is a panel with a 2px frame holding a card, and the two
+     radii are deliberately near-identical so the frame reads as a hairline rather than a margin.
+     14 is 16 less the 2 of frame, which makes the card's corner concentric with the shell's. */
+  --radius-frame: 14px;
   --radius-xl: 18px;
   --radius-panel: 14px;
   /* The outer end of the scale is read against the window's own corner, which macOS draws at about

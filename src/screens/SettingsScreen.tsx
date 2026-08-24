@@ -216,13 +216,11 @@ export function SettingsScreen({
           card the app's own sidebar is, so the two screens read as one window rather than two.
           It is a theme surface too, not the black widget it used to be: a black card on a #050505
           desk has no edge to see, which is exactly why the app's sidebar stopped being one. */}
-      <aside className="settings-sidebar flex h-full w-settings-nav min-h-0 flex-none flex-col overflow-hidden rounded-window bg-panel p-0.5 text-ink">
-        {/* The same two layers the app sidebar, the chat and the view panel stand on: a 2px run of
-            panel around a card one radius step in. */}
-        <div className="settings-sidebar-card flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-inner bg-card">
-        {/* macOS draws the traffic lights itself and the sidebar now runs to the top of the
-            window, so they land on this header -- the same seat, at the same height, as the app's
-            own sidebar header, which is why `trafficLightPosition` needs no second value. */}
+      <aside className="settings-sidebar flex h-full w-settings-nav min-h-0 flex-none flex-col overflow-hidden rounded-window bg-panel px-0.5 pb-0.5 text-ink">
+        {/* Handoff 16's frame: the chrome is the zone's row in the 2px frame above the card, not a
+            header inside it. Like the app sidebar this zone's chrome is also the window's chrome
+            line, so the frame opens at the top to meet it -- 32 on the 8 line, centre 24, where
+            macOS draws the traffic lights it puts in this row. */}
         <header className="settings-sidebar-header flex h-8 flex-none items-center gap-2.5 px-3 [-webkit-app-region:drag]">
           <div className="w-traffic-sidebar h-px flex-none" aria-hidden="true" />
           <button
@@ -236,6 +234,8 @@ export function SettingsScreen({
             <span className="truncate">Back to app</span>
           </button>
         </header>
+
+        <div className="settings-sidebar-card flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-frame bg-card">
         <div className="flex min-h-0 flex-1 flex-col gap-2 px-2 pb-2">
           <label className="flex h-control-lg flex-none items-center gap-2.25 rounded-control bg-field px-3 text-muted focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ink">
             <Search size={13} strokeWidth={1.9} aria-hidden="true" />

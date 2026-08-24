@@ -185,7 +185,7 @@ export function ViewPanel({ set, width, chords, onSelect, onClose, onOpen, child
         <Plus size={14} strokeWidth={2} aria-hidden="true" />
       </button>
     </div>
-    <div className="view-panel-page relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-inner bg-card">
+    <div className="view-panel-page relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-frame bg-card">
       {children}
       {/* The design's scrim covers the page, not the window: the type menu is a non-modal overlay,
           so the app's own backdrop rule -- which only fires for the modal kinds -- paints nothing

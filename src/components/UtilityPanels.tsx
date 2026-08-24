@@ -69,7 +69,10 @@ const SPINNER = "is-spinning animate-spinner motion-reduce:animate-none";
 /* The rail header's two glyph controls. They used to be a bare `.icon-button`, whose surface and
    ink came from the legacy `--fg-2` / `--hover` pair in 01-unowned.css; the rail is a black
    widget in both themes, so the on-dark pair is stated here instead. */
-const HEADER_GLYPH = "icon-button inline-grid size-7 flex-none place-items-center rounded-control p-0 text-on-instrument-muted hover:bg-ghost-hover hover:text-on-instrument disabled:text-on-instrument-muted-decorative";
+/* The chrome's instruments stand on the zone's panel, not on the widget inside it, so their ink and
+   their hover step off the panel: 24 circles, muted until hovered. A hover always steps off its own
+   surface -- the same glyph inside the card would take the card's hover instead. */
+const HEADER_GLYPH = "icon-button inline-grid size-6 flex-none place-items-center rounded-control p-0 text-muted hover:bg-chip hover:text-ink disabled:text-muted-decorative";
 
 function AgentProviderIcon({
   provider,
@@ -182,8 +185,11 @@ export function AgentChatPanel({
       exit={{ x: 24, opacity: 0 }}
       transition={{ duration: 0.18, ease: [0.2, 0, 0.2, 1] }}
     >
-      <div className="utility-right-panel-card flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-inner bg-instrument">
-      <header className="utility-panel-header agent-chat-header relative z-sticky flex h-agent-header flex-none items-center justify-between pr-2.5 pl-2 text-on-instrument-muted">
+      {/* Handoff 16: the chat's header is the zone's chrome, standing in the frame above the card
+          rather than buried inside it -- the same row the view panel's tab strip occupies, at the
+          same 34. It reads provenance and holds instruments; it never switches content, which is
+          why the chat has no tabs. Its ink follows the panel it stands on, not the card below. */}
+      <header className="utility-panel-header agent-chat-header relative z-sticky flex h-8.5 flex-none items-center justify-between pr-2 pl-2.5 text-ink [-webkit-app-region:drag] [&_button]:[-webkit-app-region:no-drag]">
         <AgentChatMenu chat={chat} />
         <span className="agent-header-actions flex items-center gap-0.5">
           <button
@@ -207,6 +213,8 @@ export function AgentChatPanel({
           </button>
         </span>
       </header>
+
+      <div className="utility-right-panel-card flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-frame bg-instrument">
       {!chat.connected ? (
         <AgentConnection chat={chat} />
       ) : (
@@ -311,19 +319,22 @@ function AgentChatMenu({ chat }: { chat: AgentChatController }) {
     <div className="agent-chat-picker relative min-w-0 flex-1" ref={menu.ref}>
       <button
         ref={menu.trigger}
-        className="agent-chat-picker-trigger flex h-10 w-full min-w-0 items-center gap-2.25 rounded-control bg-transparent px-2 text-left hover:bg-ghost-hover aria-expanded:bg-ghost-hover"
+        className="agent-chat-picker-trigger flex h-6.5 w-full min-w-0 items-center gap-2 rounded-control bg-transparent px-1.5 text-left hover:bg-chip aria-expanded:bg-chip"
         type="button"
         aria-haspopup="menu"
         aria-label="Recent chats"
         aria-expanded={menu.open}
         onClick={() => menu.setOpen((open) => !open)}
       >
-        <AgentProviderIcon provider={active.provider} size={19} />
-        <span className={ROW_COPY}>
-          <strong className="truncate type-base text-on-instrument">{active.title}</strong>
-          <small className="truncate type-xs text-on-instrument-muted">{PROVIDER_META[active.provider].label} · {modelLabel(chat, active.provider, active.model)}</small>
-        </span>
-        <ChevronDown size={12} />
+        <AgentProviderIcon provider={active.provider} size={17} />
+        {/* One line, not a stack: the chrome is 34 and the provenance reads across it -- the chat's
+            name, then the provider and model as mono meta, which is what a 34 row can carry. */}
+        <strong className="max-w-40 truncate type-ui font-normal text-ink">{active.title}</strong>
+        <small className="min-w-0 truncate font-code type-mono-xs tracking-mono text-muted">
+          {PROVIDER_META[active.provider].label} · {modelLabel(chat, active.provider, active.model)}
+        </small>
+        <span className="min-w-0 flex-1" aria-hidden="true" />
+        <ChevronDown size={11} className="flex-none text-muted" />
       </button>
       {menu.open && (
         <InstrumentOverlay id="agent-chat-recent-menu" host="primitive-host" open label="Recent chats" description="Choose a recent chat" opener={menu.trigger.current} onOpenChange={(open) => { if (!open) menu.close(); }}>
