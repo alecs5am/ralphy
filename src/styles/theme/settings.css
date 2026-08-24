@@ -36,7 +36,6 @@
 
   /* Radius, motion and stacking roles. */
   --radius-menu: var(--radius-xl);      /* a widget inside a widget: menu, identity plate, About mark */
-  --radius-row: var(--radius-preview);  /* a row or a search result inside a plate */
   --transition-duration-normal: var(--dur);
   --transition-duration-slow: var(--dur-slow);
   --ease-instrument: var(--ease);
@@ -46,17 +45,21 @@
   --spacing-control-md: var(--control-md);
   --spacing-titlebar: var(--titlebar-h);
 
-  /* The settings desk: nav, centred reading column, context rail, and the 44px plate row the
-     page header, the rail's top offset and the nav identity plate all share. */
-  --spacing-settings-nav: 240px;
+  /* The settings desk: nav, centred reading column, context rail, and the plate row the page
+     header, the rail's top offset and the nav identity plate all share. That row is the topbar's
+     own height now -- the settings header stands on the same line as the app's topbar, so a
+     taller plate here would push the reading column below the line every other zone starts on. */
+  --spacing-settings-nav: 260px;  /* the app sidebar's default, so the card does not jump on entry */
   --spacing-settings-column: 810px;
   --spacing-settings-rail: 280px;
   --spacing-settings-rail-label: 160px;
-  --spacing-settings-plate: 44px;
+  --spacing-settings-plate: 36px;
 
-  /* The density knob: Compact and Comfortable are the same row at a different pad. */
-  --spacing-settings-row: 13px;
-  --spacing-settings-row-compact: 9px;
+  /* The density knob: Compact and Comfortable are the same row at a different pad. Both steps
+     came down with the rest of the app's spacing: a row is a card on panel chrome now, and the
+     card's own edge is doing work the padding used to do on its own. */
+  --spacing-settings-row: 11px;
+  --spacing-settings-row-compact: 8px;
 
   /* Row vocabulary geometry. */
   --spacing-settings-toggle: 36px;

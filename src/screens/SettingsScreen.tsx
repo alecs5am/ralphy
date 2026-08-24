@@ -66,10 +66,10 @@ export const settingsInstrumentStates = SETTINGS_PAGE_IDS.map((id) => defineInst
   landmarks: [SETTINGS_PAGES[id].title, "Settings categories"],
 } as const));
 
-/* The nav is a black widget standing on the desk, so every control inside it keeps the
-   on-instrument ink and the on-instrument focus ring in both themes: the theme's own ink is
-   black on black in light, and the theme's hover surface turns white under it. */
-const NAV_ROW = "flex h-control-lg items-center gap-3 rounded-control px-3 type-ui text-left focus-visible:outline-focus-on-instrument";
+/* The nav stands on the sidebar card, which is a theme surface, so its rows take the theme's own
+   ink and the theme's focus ring -- and the same row radius the app's own sidebar rows take. The
+   on-instrument family it used to carry belonged to the black widget this card replaced. */
+const NAV_ROW = "flex h-control-lg items-center gap-3 rounded-row px-3 type-ui text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink";
 const MONO_LABEL = "font-code type-mono-xs font-normal tracking-mono";
 
 function readLastPage(): SettingsPageId {
@@ -168,7 +168,7 @@ export function SettingsScreen({
         </p>
         <div className={PLATE}>
           {results.map((entry, index) => <button
-            className={`${ROW_SHELL} ${ROW_PAD} ${index === selected ? "bg-surface-hover" : "hover:bg-surface-hover"} focus-visible:outline-ink`}
+            className={`${ROW_SHELL} ${ROW_PAD} ${index === selected ? "bg-row-hover" : "hover:bg-row-hover"} focus-visible:outline-ink`}
             type="button"
             key={entry.id}
             onClick={() => openResult(index)}
@@ -182,7 +182,7 @@ export function SettingsScreen({
           </button>)}
         </div>
       </>
-      : <div className="flex flex-col items-center gap-3 rounded-panel bg-instrument p-7 [corner-shape:squircle]">
+      : <div className="flex flex-col items-center gap-3 rounded-panel bg-instrument p-6">
         <RalphyMascot size={56} />
         <strong className="type-lg font-normal text-on-instrument">{`Nothing matched “${query.trim()}”`}</strong>
         <p className="m-0 max-w-settings-empty text-center font-code type-mono-sm tracking-caps leading-empty text-on-instrument-muted">THE INDEX COVERS ROWS, DESCRIPTIONS AND SYNONYMS.<br />TRY: API KEY · CACHE · MICROPHONE · SHORTCUT · PATH</p>
@@ -206,48 +206,36 @@ export function SettingsScreen({
 
   return <InstrumentScreenRoot descriptor={descriptor} state="ready">
     <motion.div
-      className="flex h-full w-full min-h-0 flex-col gap-2 overflow-hidden bg-desk p-2 font-app type-base text-ink"
+      className="settings-screen flex h-full w-full min-h-0 gap-2 overflow-hidden bg-desk p-2 font-app type-base text-ink"
       data-density={String(preferences.values["appearance.density"]).toLocaleLowerCase()}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.16, ease: [0.2, 0, 0.2, 1] }}
     >
-      {/* macOS draws the traffic lights itself; the run of space before the back control is
-          their seat, so the shell never paints fake ones. */}
-      <div className="flex h-titlebar flex-none items-center gap-3 pr-2 pl-21 [-webkit-app-region:drag] [&>*]:[-webkit-app-region:no-drag]">
-        <button
-          className="inline-flex h-8 flex-none items-center gap-2.25 rounded-control pr-3.5 pl-2.75 type-ui text-muted hover:bg-desk-hover hover:text-ink focus-visible:outline-ink"
-          type="button"
-          onClick={onBack}
-        >
-          <ArrowLeft size={14} strokeWidth={1.9} aria-hidden="true" />
-          Back to app
-        </button>
-        <div className="mx-auto flex h-9 flex-none items-center gap-3 rounded-control bg-instrument pr-1.5 pl-3.5">
-          <b className="font-code type-mono-sm font-normal tracking-mono text-on-instrument">SETTINGS</b>
-          <span className="font-code type-mono-sm font-normal tracking-mono text-on-instrument-muted">{`THIS MAC · ${operator.toLocaleUpperCase()}`}</span>
-          {needAction > 0 && <button
-            className="inline-flex h-control-sm items-center gap-2 rounded-control bg-instrument-raised px-2.75 font-code type-mono-xs tracking-caps text-on-instrument-muted hover:bg-ghost hover:text-on-instrument focus-visible:outline-focus-on-instrument"
+      {/* One card, the window's full height, standing 8 inside every edge it faces -- the same
+          card the app's own sidebar is, so the two screens read as one window rather than two.
+          It is a theme surface too, not the black widget it used to be: a black card on a #050505
+          desk has no edge to see, which is exactly why the app's sidebar stopped being one. */}
+      <aside className="settings-sidebar flex h-full w-settings-nav min-h-0 flex-none flex-col overflow-hidden rounded-sidebar bg-card text-ink">
+        {/* macOS draws the traffic lights itself and the sidebar now runs to the top of the
+            window, so they land on this header -- the same seat, at the same height, as the app's
+            own sidebar header, which is why `trafficLightPosition` needs no second value. */}
+        <header className="settings-sidebar-header flex h-13 flex-none items-center gap-2.5 px-3.5 [-webkit-app-region:drag]">
+          <div className="w-traffic-sidebar h-px flex-none" aria-hidden="true" />
+          <button
+            className="inline-flex h-8 min-w-0 flex-1 items-center gap-2.25 rounded-control px-2.5 type-ui text-muted [-webkit-app-region:no-drag] hover:bg-field hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
             type="button"
-            onClick={() => goTo("diagnostics")}
+            onClick={onBack}
           >
-            <Dot tone="warn" surface="instrument" />
-            {`${needAction} NEED ATTENTION`}
-          </button>}
-        </div>
-        <span className="inline-flex flex-none items-center gap-2 font-code type-mono-xs tracking-caps text-muted">
-          RALPHY
-          <b className={NUMBER}>{appVersion}</b>
-        </span>
-        <ProfileAvatar rootPath={rootPath ?? ""} size={32} round />
-      </div>
-
-      <div className="flex min-h-0 flex-1 gap-2">
-        <aside className="flex w-settings-nav flex-none flex-col gap-3 overflow-hidden rounded-panel bg-instrument p-2 [corner-shape:squircle]">
-          <label className="flex h-control-lg flex-none items-center gap-2.25 rounded-control bg-instrument-raised px-3 text-on-instrument-muted-decorative focus-within:outline-focus-on-instrument focus-within:outline-offset-2">
+            <ArrowLeft size={14} strokeWidth={1.9} aria-hidden="true" />
+            <span className="truncate">Back to app</span>
+          </button>
+        </header>
+        <div className="flex min-h-0 flex-1 flex-col gap-2 px-2 pb-2">
+          <label className="flex h-control-lg flex-none items-center gap-2.25 rounded-control bg-field px-3 text-muted focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ink">
             <Search size={13} strokeWidth={1.9} aria-hidden="true" />
             <input
-              className="min-w-0 flex-1 bg-transparent type-sm text-on-instrument placeholder:text-on-instrument-muted-decorative"
+              className="min-w-0 flex-1 bg-transparent type-sm text-ink placeholder:text-muted"
               value={query}
               placeholder="Search settings"
               aria-label="Search settings"
@@ -259,7 +247,7 @@ export function SettingsScreen({
               }}
             />
             {query && <button
-              className="grid size-settings-keycap flex-none place-items-center rounded-control text-on-instrument-muted-decorative hover:bg-ghost hover:text-on-instrument focus-visible:outline-focus-on-instrument"
+              className="grid size-settings-keycap flex-none place-items-center rounded-control text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
               type="button"
               aria-label="Clear search"
               onClick={() => setQuery("")}
@@ -267,16 +255,14 @@ export function SettingsScreen({
               <X size={11} strokeWidth={2} aria-hidden="true" />
             </button>}
           </label>
-          <nav className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto" aria-label="Settings categories">
+          <nav className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto" aria-label="Settings categories">
             {SETTINGS_NAV_GROUPS.map((group) => <div className="flex flex-col gap-0.5" key={group.label}>
-              <h2 className={`m-0 px-3 pt-1.25 pb-1 ${MONO_LABEL} text-on-instrument-muted`}>{group.label}</h2>
+              <h2 className={`m-0 flex h-6.5 items-center px-3 ${MONO_LABEL} text-muted`}>{group.label}</h2>
               {group.items.map((id) => {
                 const Icon = SETTINGS_PAGE_ICONS[id];
                 const active = page === id && !searching;
                 return <button
-                  className={`${NAV_ROW} ${active
-                    ? "bg-selected text-selected-ink"
-                    : "text-on-instrument-muted hover:bg-instrument-hover hover:text-on-instrument"}`}
+                  className={`${NAV_ROW} ${active ? "bg-field text-ink" : "text-muted hover:bg-field hover:text-ink"}`}
                   type="button"
                   key={id}
                   aria-current={active || undefined}
@@ -284,32 +270,55 @@ export function SettingsScreen({
                 >
                   <Icon size={14} strokeWidth={1.8} aria-hidden="true" />
                   <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{SETTINGS_PAGES[id].title}</span>
-                  {attention[id] && <Dot tone="warn" surface="instrument" />}
+                  {attention[id] && <Dot tone="warn" />}
                 </button>;
               })}
             </div>)}
           </nav>
-          {/* The hover surface is lighter, so the mono label is promoted with it instead of
-              staying at the muted step and reading worse than at rest. */}
           <button
-            className="group flex h-settings-plate flex-none items-center gap-3 rounded-menu bg-instrument-raised px-3 text-left [corner-shape:squircle] hover:bg-ghost focus-visible:outline-focus-on-instrument"
+            className="group flex h-settings-plate flex-none items-center gap-3 rounded-control bg-field px-3 text-left hover:bg-row-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
             type="button"
             onClick={() => goTo("updates")}
           >
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <small className="font-code type-mono-xs tracking-caps text-on-instrument-muted">RALPHY DESKTOP</small>
-              <strong className="font-display type-base font-extrabold text-on-instrument">{appVersion}</strong>
+              <small className={`${MONO_LABEL} text-muted`}>RALPHY DESKTOP</small>
+              <strong className="font-display type-base font-extrabold text-ink">{appVersion}</strong>
             </span>
           </button>
-        </aside>
+        </div>
+      </aside>
+
+      <div className="settings-content-column flex min-h-0 min-w-0 flex-1 flex-col gap-2">
+        {/* The app's topbar, to the pixel: exactly the dynamic island's height, and no horizontal
+            padding, so the badge stands 8 from this column's left edge and the avatar 8 from the
+            window's right -- the line every other zone in the window starts on. */}
+        <header className="settings-top-row flex h-9 min-w-0 flex-none items-center gap-3 [-webkit-app-region:drag] [&>*]:[-webkit-app-region:no-drag]">
+          <div className="flex h-full flex-none items-center gap-3 rounded-control bg-instrument pr-1.5 pl-3.5">
+            <b className="font-code type-mono-sm font-normal tracking-mono text-on-instrument">SETTINGS</b>
+            <span className="font-code type-mono-sm font-normal tracking-mono text-on-instrument-muted">{`THIS MAC · ${operator.toLocaleUpperCase()}`}</span>
+            {needAction > 0 && <button
+              className="inline-flex h-control-sm items-center gap-2 rounded-control bg-instrument-raised px-2.75 font-code type-mono-xs tracking-caps text-on-instrument-muted hover:bg-ghost hover:text-on-instrument focus-visible:outline-focus-on-instrument"
+              type="button"
+              onClick={() => goTo("diagnostics")}
+            >
+              <Dot tone="warn" surface="instrument" />
+              {`${needAction} NEED ATTENTION`}
+            </button>}
+          </div>
+          <span className="ml-auto inline-flex flex-none items-center gap-2 font-code type-mono-xs tracking-caps text-muted">
+            RALPHY
+            <b className={NUMBER}>{appVersion}</b>
+          </span>
+          <ProfileAvatar rootPath={rootPath ?? ""} size={32} round />
+        </header>
 
         {/* The column is a fixed reading width and the rail is context, so a narrow row drops
             the rail first and only then lets the column shrink. Measured against the content
             row, not the window: the sidebar and the chat rail change it without moving the
             viewport. */}
-        <div className="@container/settings-main flex min-w-0 flex-1 justify-center gap-3">
-          <div className="flex w-settings-column min-h-0 flex-none flex-col gap-3 @max-settings-column/settings-main:mx-4 @max-settings-column/settings-main:w-auto @max-settings-column/settings-main:min-w-0 @max-settings-column/settings-main:flex-1">
-            <header className="flex min-h-settings-plate flex-none items-center gap-3 px-1">
+        <div className="@container/settings-main flex min-h-0 min-w-0 flex-1 justify-center gap-2">
+          <div className="flex w-settings-column min-h-0 flex-none flex-col gap-2 @max-settings-column/settings-main:mx-2 @max-settings-column/settings-main:w-auto @max-settings-column/settings-main:min-w-0 @max-settings-column/settings-main:flex-1">
+            <header className="flex min-h-settings-plate flex-none items-center gap-3 px-2">
               {detail && <button
                 className="grid size-control-md flex-none place-items-center rounded-control text-muted hover:bg-desk-hover hover:text-ink focus-visible:outline-ink"
                 type="button"
@@ -324,31 +333,34 @@ export function SettingsScreen({
                 tabIndex={-1}
               >{title}</h1>
               {scopes.map((scope) => <span
-                className="inline-flex h-6 flex-none items-center rounded-control bg-surface px-2.75 font-code type-mono-xs tracking-caps text-muted"
+                className="inline-flex h-6 flex-none items-center rounded-control bg-card px-2.75 font-code type-mono-xs tracking-caps text-muted"
                 key={scope}
               >{scope}</span>)}
             </header>
-            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-7.5" key={`${page}-${detail?.id ?? ""}-${searching}`}>{content}</div>
+            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pb-6" key={`${page}-${detail?.id ?? ""}-${searching}`}>{content}</div>
           </div>
 
           {/* The rail keeps its slot on pages that have no rail, so the centred column does
-              not shift as you move between pages. */}
+              not shift as you move between pages. Its blocks are the overview's panels: chrome
+              carrying the label, one card carrying the readings. */}
           <aside
-            className="flex w-settings-rail flex-none flex-col gap-3 pt-settings-plate @max-settings-rail/settings-main:hidden"
+            className="flex w-settings-rail flex-none flex-col gap-2 pt-settings-plate @max-settings-rail/settings-main:hidden"
             aria-label={rail ? "Page context" : undefined}
             aria-hidden={rail ? undefined : true}
           >
-            {rail && <><div className="flex flex-col gap-2.75 rounded-panel bg-surface p-3.75 [corner-shape:squircle]">
-              <h2 className={`m-0 ${MONO_LABEL} text-muted`}>{rail.label}</h2>
-              {rail.rows.map(([label, value]) => <span className="flex items-baseline gap-3" key={label}>
-                <span className="min-w-0 flex-1 type-label leading-row text-muted">{label}</span>
-                <b className={`max-w-settings-rail-label flex-none text-right text-balance ${/^\d/.test(value) ? NUMBER : CODE}`}>{value}</b>
-              </span>)}
-              {rail.action && <button className={action()} type="button" disabled={rail.action.disabled} onClick={rail.action.run}>{rail.action.label}</button>}
+            {rail && <><div className="flex flex-col gap-1.5 rounded-panel bg-panel p-1.5">
+              <h2 className={`m-0 flex min-h-8 items-center px-2 ${MONO_LABEL} text-muted`}>{rail.label}</h2>
+              <div className="flex flex-col gap-2.25 rounded-inner bg-card p-3">
+                {rail.rows.map(([label, value]) => <span className="flex items-baseline gap-3" key={label}>
+                  <span className="min-w-0 flex-1 type-label leading-row text-muted">{label}</span>
+                  <b className={`max-w-settings-rail-label flex-none text-right text-balance ${/^\d/.test(value) ? NUMBER : CODE}`}>{value}</b>
+                </span>)}
+              </div>
+              {rail.action && <button className={action({ surface: "panel" })} type="button" disabled={rail.action.disabled} onClick={rail.action.run}>{rail.action.label}</button>}
             </div>
-            {rail.note && <div className="flex flex-col gap-2.25 rounded-panel bg-instrument p-3.75 [corner-shape:squircle]">
-              <h2 className={`m-0 ${MONO_LABEL} text-on-instrument-muted`}>{rail.note.label}</h2>
-              <p className="m-0 type-label leading-copy text-pretty text-on-instrument-muted">{rail.note.text}</p>
+            {rail.note && <div className="flex flex-col gap-1.5 rounded-panel bg-instrument p-1.5">
+              <h2 className={`m-0 flex min-h-8 items-center px-2 ${MONO_LABEL} text-on-instrument-muted`}>{rail.note.label}</h2>
+              <p className="m-0 rounded-inner bg-instrument-raised p-3 type-label leading-copy text-pretty text-on-instrument-muted">{rail.note.text}</p>
               {rail.note.danger && <button className={action({ tone: "danger", surface: "instrument" })} type="button" disabled={rail.note.danger.disabled} onClick={rail.note.danger.run}>{rail.note.danger.label}</button>}
             </div>}</>}
           </aside>

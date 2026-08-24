@@ -81,7 +81,7 @@ export function GeneralPage({ ctx }: { ctx: SettingsContext }) {
         {failures["general.reveal"] !== undefined && <div className="mt-1.25 flex items-center gap-3">
           <p className={NOTE_ALERT}>NOT SAVED · PREFERENCE WRITE FAILED · VALUE UNCHANGED</p>
           <button
-            className="inline-flex h-6 flex-none items-center gap-2 rounded-control bg-surface-sunken px-2.75 font-code type-mono-xs tracking-status text-ink hover:bg-surface-hover focus-visible:outline-ink"
+            className="inline-flex h-6 flex-none items-center gap-2 rounded-control bg-field px-2.75 font-code type-mono-xs tracking-status text-ink hover:bg-row-hover focus-visible:outline-ink"
             type="button"
             onClick={() => retry("general.reveal")}
           >RETRY</button>
@@ -171,7 +171,7 @@ export function ProfilePage({ ctx }: { ctx: SettingsContext }) {
   return <Section title="LOCAL PROFILE">
     <Plate>
       <Row title="Avatar" description="PNG or JPG, at least 128 px. Stored next to the profile on this Mac." flat>
-        <span className="grid size-settings-avatar flex-none place-items-center overflow-hidden rounded-control bg-surface-sunken font-code type-md text-muted"><ProfileAvatar rootPath={ctx.libraryPath ?? ""} size={56} round /></span>
+        <span className="grid size-settings-avatar flex-none place-items-center overflow-hidden rounded-control bg-field font-code type-md text-muted"><ProfileAvatar rootPath={ctx.libraryPath ?? ""} size={56} round /></span>
         <button className={action({ size: "sm" })} type="button" disabled>Choose file…</button>
       </Row>
       <Row title="Display name" description="Shown in chat, review and version history." id="profile.displayName">
@@ -340,7 +340,7 @@ export function KeyboardPage({ ctx }: { ctx: SettingsContext }) {
   const groups = [...new Set(visible.map(({ group }) => group))];
 
   return <>
-    {conflict && <div className="flex flex-col gap-3.25 rounded-panel bg-instrument p-4 [corner-shape:squircle]">
+    {conflict && <div className="flex flex-col gap-3.25 rounded-panel bg-instrument p-3">
       <h2 className="m-0 flex items-center gap-2.25 font-code type-mono-sm font-normal tracking-mono text-on-instrument">
         <Dot tone="warn" surface="instrument" />SHORTCUT ALREADY IN USE
       </h2>
@@ -381,7 +381,7 @@ export function KeyboardPage({ ctx }: { ctx: SettingsContext }) {
     </div>}
 
     <div className="flex flex-none items-center gap-2 @max-settings-column/settings-main:flex-wrap">
-      <label className="flex h-control-lg min-w-0 flex-1 items-center gap-2.25 rounded-control bg-surface px-3.25 text-muted-decorative focus-within:outline-ink focus-within:outline-offset-2">
+      <label className="flex h-control-lg min-w-0 flex-1 items-center gap-2.25 rounded-control bg-field px-3.25 text-muted-decorative focus-within:outline-ink focus-within:outline-offset-2">
         <Search size={13} strokeWidth={1.9} aria-hidden="true" />
         <input
           className="min-w-0 flex-1 bg-transparent type-sm text-ink placeholder:text-muted"
@@ -392,7 +392,7 @@ export function KeyboardPage({ ctx }: { ctx: SettingsContext }) {
         />
       </label>
       <button
-        className="inline-flex h-control-lg flex-none items-center gap-2.25 rounded-control bg-surface px-3.5 type-sm text-muted aria-pressed:bg-desk-primary aria-pressed:text-desk-primary-ink focus-visible:outline-ink"
+        className="inline-flex h-control-lg flex-none items-center gap-2.25 rounded-control bg-field px-3.5 type-sm text-muted aria-pressed:bg-desk-primary aria-pressed:text-desk-primary-ink focus-visible:outline-ink"
         type="button"
         aria-pressed={changedOnly}
         onClick={() => setChangedOnly((current) => !current)}
@@ -430,7 +430,7 @@ export function KeyboardPage({ ctx }: { ctx: SettingsContext }) {
               </>
               : <>
                 <button
-                  className="inline-flex h-control-md flex-none items-center gap-0.75 rounded-control bg-surface-sunken px-2 hover:bg-surface-hover focus-visible:outline-ink"
+                  className="inline-flex h-control-md flex-none items-center gap-0.75 rounded-control bg-field px-2 hover:bg-row-hover focus-visible:outline-ink"
                   type="button"
                   aria-label={`Record a shortcut for ${command.name}`}
                   onClick={() => setRecording({ commandId: command.id, captured: null, modifiers: [] })}

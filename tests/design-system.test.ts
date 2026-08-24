@@ -1079,9 +1079,15 @@ describe("design system contract", () => {
     // trigger. The profile menu is deliberately not one of them: it portals to `document.body`,
     // outside `.app-mode-work`, and stands on the theme surface instead, which is why its own
     // surface pair is pinned in `instrument-profile.test.tsx` rather than here.
+    // Handoff 13 moved settings onto the same four-level stack as the rest of the app, so the
+    // plate is panel chrome and a row is a card standing on it -- `bg-surface` was the flat
+    // #141414 widget the plate used to be, which sat almost on the panel step and gave the rows
+    // under it nothing to stand against. A control inside a card takes the field, which is what
+    // the toggle's off track now names.
     const plate = /export const PLATE = "([^"]*)"/.exec(settingsRows)?.[1] ?? "";
-    expect(plate.split(" ")).toContain("bg-surface");
-    expect(settingsRows).toContain("justify-start bg-surface-sunken");
+    expect(plate.split(" ")).toContain("bg-panel");
+    expect(/export const ROW_SHELL = "([^"]*)"/.exec(settingsRows)?.[1]?.split(" ")).toContain("bg-card");
+    expect(settingsRows).toContain("justify-start bg-field");
     // `settings.css` is gone. Its one rule suppressed the landing ring on the settings surface,
     // and the `!important` dialog rule it was written to beat no longer exists -- measured in the
     // running renderer, what draws that ring today is `reset.css`'s `:focus-visible` (the overlay

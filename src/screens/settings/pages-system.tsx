@@ -34,14 +34,14 @@ import {
 /* A service row lists identity, reported state and one action: the columns are fixed so five
    providers read as a table rather than five different rows, and they give up their width
    before they give up their content when the content row is narrow. */
-const SERVICE_ROW = "flex items-center gap-4 rounded-row px-4 py-settings-row [[data-density=compact]_&]:py-settings-row-compact text-left [corner-shape:squircle] transition-colors duration-slow ease-instrument @max-settings-column/settings-main:flex-wrap";
+const SERVICE_ROW = "flex items-center gap-4 rounded-inner bg-card px-3 py-settings-row [[data-density=compact]_&]:py-settings-row-compact text-left transition-colors duration-slow ease-instrument @max-settings-column/settings-main:flex-wrap";
 const SERVICE_NARROW = "@max-settings-column/settings-main:w-auto @max-settings-column/settings-main:min-w-0 @max-settings-column/settings-main:flex-1";
 const SERVICE_NAME = `flex flex-none flex-col gap-0.75 ${SERVICE_NARROW}`;
 const SERVICE_STATE = "flex min-w-0 flex-1 flex-col gap-0.75";
 const SERVICE_META = "font-code type-mono-xs tracking-status text-muted";
 const SERVICE_MODEL = "max-w-settings-service-model flex-none overflow-hidden font-code type-mono-sm tracking-label text-ellipsis whitespace-nowrap text-muted @max-settings-column/settings-main:hidden";
 /* A flat row: one statement per line, no copy column under it. */
-const FLAT_ROW = "flex items-center gap-4 rounded-row px-4 py-2.75 text-left [corner-shape:squircle] transition-colors duration-slow ease-instrument";
+const FLAT_ROW = "flex items-center gap-4 rounded-inner bg-card px-3 py-2.25 text-left transition-colors duration-slow ease-instrument";
 const FLAT_LABEL = `w-settings-diagnostics flex-none type-ui text-ink ${SERVICE_NARROW}`;
 const FLAT_VALUE = "min-w-0 flex-1 overflow-hidden font-code type-meta text-ellipsis whitespace-nowrap text-muted";
 
@@ -55,7 +55,7 @@ export function AgentsPage({ ctx }: { ctx: SettingsContext }) {
       <Plate>
         {state === "loading" && <Row title="Reading harnesses" description="Asking the bridge which adapters are installed." target><DesignTarget /></Row>}
         {state === "unavailable" && <Row title="Harness discovery unavailable" description="The bridge did not answer. Nothing is inferred about the adapters on this machine." target><DesignTarget /></Row>}
-        {rows.map((harness) => <div className={`${SERVICE_ROW} hover:bg-surface-hover`} key={harness.id}>
+        {rows.map((harness) => <div className={`${SERVICE_ROW} hover:bg-row-hover`} key={harness.id}>
           <Dot tone={harness.tone} />
           <span className={`w-settings-service ${SERVICE_NAME}`}>
             <strong className="type-ui font-normal text-ink">{harness.name}</strong>
@@ -130,7 +130,7 @@ export function HarnessDetailPage({ ctx, harness }: { ctx: SettingsContext; harn
   return <>
     <Section title="CONNECTION">
       <Plate>
-        <div className={`${SERVICE_ROW} hover:bg-surface-hover`}>
+        <div className={`${SERVICE_ROW} hover:bg-row-hover`}>
           <Dot tone={harness.tone} />
           <span className={SERVICE_STATE}>
             <Status tone={harness.tone}>{`${harness.status} · ${harness.auth}`}</Status>
@@ -570,7 +570,7 @@ export function DiagnosticsPage({ ctx }: { ctx: SettingsContext }) {
   return <>
     <Section title="SYSTEM CHECKS" count={checks.length}>
       <Plate>
-        {checks.map((check) => <div className={`${FLAT_ROW} hover:bg-surface-hover`} key={check.id}>
+        {checks.map((check) => <div className={`${FLAT_ROW} hover:bg-row-hover`} key={check.id}>
           <Dot tone={checking ? "off" : check.tone} />
           <span className={FLAT_LABEL}>{check.label}</span>
           <span className={FLAT_VALUE}>{checking ? "…" : check.value}</span>
@@ -665,7 +665,7 @@ export function UpdatesPage({ ctx }: { ctx: SettingsContext }) {
 }
 
 /* An outbound link is a sunken pill like an action, but it is a link, not a control. */
-const LINK = "inline-flex h-8 items-center gap-2 rounded-control bg-surface-sunken px-3.5 type-ui text-ink no-underline hover:bg-surface-hover focus-visible:outline-ink";
+const LINK = "inline-flex h-8 items-center gap-2 rounded-control bg-field px-3.5 type-ui text-ink no-underline hover:bg-row-hover focus-visible:outline-ink";
 
 const CHROMIUM = /Chrome\/([\d.]+)/.exec(typeof navigator === "undefined" ? "" : navigator.userAgent)?.[1] ?? null;
 
@@ -680,8 +680,8 @@ export function AboutPage({ ctx }: { ctx: SettingsContext }) {
     ["Ralphy CLI", "not reported"],
   ];
   return <>
-    <div className="flex items-center gap-5 rounded-panel bg-instrument p-5 [corner-shape:squircle]">
-      <span className="grid size-settings-mark flex-none place-items-center rounded-menu bg-frame text-on-instrument [corner-shape:squircle]"><RalphyMascot size={46} /></span>
+    <div className="flex items-center gap-5 rounded-panel bg-instrument p-4">
+      <span className="grid size-settings-mark flex-none place-items-center rounded-menu bg-frame text-on-instrument"><RalphyMascot size={46} /></span>
       <span className="flex min-w-0 flex-1 flex-col gap-1.5">
         <strong className="type-subtitle font-normal text-on-instrument">Ralphy Desktop</strong>
         <small className="font-display type-lg font-extrabold text-on-instrument-muted">{`${ctx.version} · ${CHROMIUM ? `CHROMIUM ${CHROMIUM}` : "BUILD FACTS PENDING"}`}</small>
@@ -698,7 +698,7 @@ export function AboutPage({ ctx }: { ctx: SettingsContext }) {
 
     <Section title="RUNTIME">
       <Plate>
-        {runtime.map(([label, value]) => <div className={`${FLAT_ROW} hover:bg-surface-hover`} key={label}>
+        {runtime.map(([label, value]) => <div className={`${FLAT_ROW} hover:bg-row-hover`} key={label}>
           <span className={FLAT_LABEL}>{label}</span>
           <span className={FLAT_VALUE}>{value}</span>
         </div>)}

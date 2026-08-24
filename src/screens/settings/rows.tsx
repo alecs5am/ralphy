@@ -24,8 +24,10 @@ export const MONO = "font-code type-meta tracking-code text-muted";
 /** A mono caps note under a plate. */
 export const NOTE = "m-0 font-code type-mono-xs tracking-caps leading-note text-muted";
 export const NOTE_ALERT = "m-0 font-code type-mono-xs tracking-caps leading-note text-alert";
-/** A section label above a plate, and the search results label that reads as one. */
-export const SECTION_LABEL = "m-0 flex items-center gap-2.25 pl-4 font-code type-mono-sm font-normal tracking-mono text-muted";
+/** A section label above a plate, and the search results label that reads as one. Its indent is
+ *  the plate's own chrome plus a row's padding, so the label starts on the same vertical as the
+ *  row titles under it rather than a few pixels off them. */
+export const SECTION_LABEL = "m-0 flex items-center gap-2.25 pl-4.5 font-code type-mono-sm font-normal tracking-mono text-muted";
 /** A row title, and the copy column that carries it. */
 export const ROW_TITLE = "flex items-center gap-2.25 type-ui font-normal text-ink";
 export const ROW_COPY = "flex min-w-0 flex-1 flex-col gap-0.75";
@@ -33,25 +35,32 @@ export const ROW_COPY = "flex min-w-0 flex-1 flex-col gap-0.75";
  * Row padding is the density knob: Compact and Comfortable are the same row at a different
  * pad, read from the desk's own data-density rather than declared as two row heights.
  */
-export const ROW_PAD = "px-4 py-settings-row [[data-density=compact]_&]:py-settings-row-compact";
-/** A row or a search result: the same cell, the same air, the same hover surface. */
-export const ROW_SHELL = "flex items-center gap-4 rounded-row text-left [corner-shape:squircle]";
-/** The light plate every list of rows stands on. */
-export const PLATE = "flex flex-col gap-0.5 rounded-panel bg-surface p-2 [corner-shape:squircle]";
+export const ROW_PAD = "px-3 py-settings-row [[data-density=compact]_&]:py-settings-row-compact";
+/**
+ * A row or a search result. Handoff 13's block-in-block reaches settings here: the plate below
+ * is panel *chrome* and a row is a card standing on it, so a row draws its own surface instead
+ * of being an invisible strip that only appears under the pointer. Same reason its radius is the
+ * inner-card one rather than the row radius a surfaceless strip took.
+ */
+export const ROW_SHELL = "flex items-center gap-4 rounded-inner bg-card text-left";
+/** The chrome every list of rows stands on: one step below the cards it holds. */
+export const PLATE = "flex flex-col gap-0.5 rounded-panel bg-panel p-1.5";
 /** A widget block on the desk: same panel radius, its own surface. */
-export const WIDGET_LIGHT = "rounded-panel bg-surface p-4 [corner-shape:squircle]";
-export const WIDGET_DARK = "rounded-panel bg-instrument p-4 [corner-shape:squircle]";
+export const WIDGET_LIGHT = "rounded-panel bg-card p-3";
+export const WIDGET_DARK = "rounded-panel bg-instrument p-3";
 
 /**
- * One action, six shapes. The tone decides the surface pair, `surface` says whether the
- * button stands on the desk or on a black widget — on a black widget "primary" is the light
- * pill, never the desk's primary, which would be black on black.
+ * One action, six shapes. The tone decides the surface pair, `surface` says what the button
+ * stands on — on a black widget "primary" is the light pill, never the desk's primary, which
+ * would be black on black. "panel" is the third case: a control sitting directly on panel
+ * chrome takes the card surface, because the field it takes inside a card is a step *away*
+ * from the chrome and in the light family the two are a shade apart.
  */
 export function action({ size, tone, round, surface }: {
   size?: "sm" | "lg";
   tone?: "primary" | "danger" | "quiet";
   round?: boolean;
-  surface?: "instrument";
+  surface?: "instrument" | "panel";
 } = {}): string {
   const shape = round
     // A round control is a square grid cell, so it owns the display and drops side padding.
@@ -66,19 +75,21 @@ export function action({ size, tone, round, surface }: {
       : "bg-ghost text-on-instrument hover:bg-ghost-hover"
     : tone === "primary" ? "bg-desk-primary text-desk-primary-ink hover:opacity-88"
       : tone === "danger" ? "bg-danger text-danger-ink hover:bg-danger-hover"
-      : round ? "bg-surface-sunken text-muted hover:bg-surface-hover hover:text-ink"
-      : "bg-surface-sunken text-ink hover:bg-surface-hover";
+      : round ? "bg-field text-muted hover:bg-row-hover hover:text-ink"
+      : surface === "panel" ? "bg-card text-ink hover:bg-row-hover"
+      : "bg-field text-ink hover:bg-row-hover";
   // Disabled drops to the quiet pair — except a round control, which is already quiet and
   // keeps its ink so the glyph does not fade twice.
   const quiet = surface === "instrument"
     ? "disabled:bg-ghost disabled:text-on-instrument-muted-decorative focus-visible:outline-focus-on-instrument"
-    : round ? "disabled:bg-surface-sunken focus-visible:outline-ink"
-    : "disabled:bg-surface-sunken disabled:text-muted-decorative focus-visible:outline-ink";
+    : round ? "disabled:bg-field focus-visible:outline-ink"
+    : surface === "panel" ? "disabled:bg-card disabled:text-muted-decorative focus-visible:outline-ink"
+    : "disabled:bg-field disabled:text-muted-decorative focus-visible:outline-ink";
   return `flex-none items-center gap-2 rounded-control ${shape} ${paint} ${quiet}`;
 }
 
 export function Section({ title, count, children }: { title: string; count?: ReactNode; children: ReactNode }) {
-  return <section className="flex flex-col gap-1.75">
+  return <section className="flex flex-col gap-1.5">
     <h2 className={SECTION_LABEL}>{title}{count !== undefined && <span className={NUMBER}>{count}</span>}</h2>
     {children}
   </section>;
@@ -88,7 +99,7 @@ export function Plate({ single, children }: { single?: boolean; children: ReactN
   // A plate holding a single statement instead of a list of rows: the padding moves to the
   // plate so the statement does not sit in a row inside a plate for no reason.
   return <div className={single
-    ? "flex flex-row items-center gap-4 rounded-panel bg-surface p-4 [corner-shape:squircle]"
+    ? "flex flex-row items-center gap-4 rounded-panel bg-card p-3"
     : PLATE
   }>{children}</div>;
 }
@@ -106,9 +117,9 @@ export function Row({ title, meta, description, tall, flat, flash, target, id, c
 }) {
   // A roadmap row states the missing contract instead of drawing a dead control, so it is
   // quieter than a live row and does not answer the pointer.
-  const surface = target ? "" : flash ? "bg-surface-hover" : "hover:bg-surface-hover";
+  const surface = target ? "" : flash ? "bg-row-hover" : "hover:bg-row-hover";
   return <div
-    className={`${ROW_SHELL} ${tall ? "items-start" : "items-center"} ${flat ? "px-4 py-2.75" : ROW_PAD} ${surface} transition-colors duration-slow ease-instrument`}
+    className={`${ROW_SHELL} ${tall ? "items-start" : "items-center"} ${flat ? "px-3 py-2.25" : ROW_PAD} ${surface} transition-colors duration-slow ease-instrument`}
     id={id}
   >
     <span className={ROW_COPY}>
@@ -149,7 +160,11 @@ const STATUS_TONE: Record<StatusTone, string> = {
   ok: "text-muted",
   warn: "text-muted",
   bad: "text-alert",
-  off: "text-muted-decorative",
+  /* "NOT REPORTED" is a reading, not a decoration: it is the only thing in its column and it is
+     9.5px mono. On the decorative ink it measured 3.07:1 against the row card, and 3.51:1 against
+     the flatter plate it stood on before -- under the bar either way. The paired dot stays quiet;
+     the dot is the mark, the text is the information. */
+  off: "text-muted",
 };
 
 /** A status run without its dot: the diagnostics table already carries one in its own column. */
@@ -173,7 +188,7 @@ export function Toggle({ label, on, alert, onChange }: {
 }) {
   const track = on
     ? alert ? "justify-end bg-alert" : "justify-end bg-desk-primary"
-    : "justify-start bg-surface-sunken";
+    : "justify-start bg-field";
   const knob = on ? alert ? "bg-on-instrument" : "bg-desk-primary-ink" : "bg-muted-decorative";
   return <button
     className={`flex w-settings-toggle h-settings-toggle-track flex-none items-center rounded-control px-0.75 transition-colors duration-normal ease-instrument focus-visible:outline-ink ${track}`}
@@ -191,7 +206,7 @@ export function Segmented<Value extends string>({ label, value, options, onChang
   options: readonly Value[];
   onChange(next: Value): void;
 }) {
-  return <div className="inline-flex flex-none gap-0.5 rounded-control bg-surface-sunken p-0.75" role="group" aria-label={label}>
+  return <div className="inline-flex flex-none gap-0.5 rounded-control bg-field p-0.75" role="group" aria-label={label}>
     {options.map((option) => <button
       className={`inline-flex h-control-sm items-center rounded-control px-3 type-label focus-visible:outline-ink ${
         option === value ? "bg-desk-primary text-desk-primary-ink" : "text-muted"}`}
@@ -218,7 +233,7 @@ export function SettingsSelect<Value extends string>({ label, value, options, mo
 }) {
   return <SelectMenu
     tone="caller"
-    className={`inline-flex h-control-md max-w-settings-select gap-2.25 rounded-control bg-surface-sunken px-3 text-ink hover:bg-surface-hover focus-visible:outline-ink focus-visible:outline-offset-2 ${
+    className={`inline-flex h-control-md max-w-settings-select gap-2.25 rounded-control bg-field px-3 text-ink hover:bg-row-hover focus-visible:outline-ink focus-visible:outline-offset-2 ${
       mono ? "font-code type-mono-md" : "type-sm"}`}
     overlayOwner="settings.rows"
     ariaLabel={label}
@@ -230,8 +245,8 @@ export function SettingsSelect<Value extends string>({ label, value, options, mo
 }
 
 /* A field is a sunken pill on the light plate; wide is the same field filling its row. */
-export const FIELD = "flex h-control-lg w-settings-field flex-none rounded-control bg-surface-sunken px-3.25 type-ui text-ink placeholder:text-muted focus-visible:outline-ink";
-export const FIELD_WIDE = "flex h-9 flex-1 rounded-control bg-surface-sunken px-3.5 font-code type-label text-ink placeholder:text-muted focus-visible:outline-ink";
+export const FIELD = "flex h-control-lg w-settings-field flex-none rounded-control bg-field px-3.25 type-ui text-ink placeholder:text-muted focus-visible:outline-ink";
+export const FIELD_WIDE = "flex h-9 flex-1 rounded-control bg-field px-3.5 font-code type-label text-ink placeholder:text-muted focus-visible:outline-ink";
 
 const KEYCAP = "grid place-items-center rounded-key font-code font-bold text-ink";
 
@@ -239,7 +254,7 @@ export function keycap({ size, tone }: { size?: "lg"; tone?: "inverse" | "sunken
   return `${KEYCAP} ${size === "lg"
     ? "min-w-settings-keycap-lg h-settings-keycap-lg px-1.25 type-xs"
     : "min-w-settings-keycap h-settings-keycap px-1 type-meta"} ${
-    tone === "inverse" ? "bg-desk-primary text-desk-primary-ink" : tone === "sunken" ? "bg-surface-sunken" : "bg-surface"}`;
+    tone === "inverse" ? "bg-desk-primary text-desk-primary-ink" : tone === "sunken" ? "bg-field" : "bg-card"}`;
 }
 
 export function Keycaps({ tokens, size, tone }: { tokens: readonly string[]; size?: "lg"; tone?: "inverse" | "sunken" }) {
@@ -263,7 +278,7 @@ export function Stepper({ label, value, min, max, step, format, onChange }: {
       <Minus size={12} strokeWidth={2} aria-hidden="true" />
     </button>
     <output
-      className="grid w-settings-stepper h-control-md place-items-center rounded-field bg-surface-sunken font-display type-lg font-extrabold text-ink [corner-shape:squircle] focus-visible:outline-ink"
+      className="grid w-settings-stepper h-control-md place-items-center rounded-field bg-field font-display type-lg font-extrabold text-ink focus-visible:outline-ink"
       aria-label={label}
     >{format ? format(value) : value}</output>
     <button className={action({ size: "sm", round: true })} type="button" aria-label={`Increase ${label}`} disabled={value >= max} onClick={() => onChange(Math.min(max, value + step))}>

@@ -13,11 +13,15 @@ type SurfaceProbe = {
   colors: Record<string, string>;
 };
 
+/* The two settings probes moved with handoff 13: the sidebar is a theme card now rather than the
+   black widget it used to be -- a black card on a #050505 desk has no edge to see -- and a section
+   is panel chrome holding cards rather than one flat light widget. Both probes name the role the
+   screen actually paints, so a role rename cannot pass here while the screen changes underneath. */
 const EXPECTED_LIGHT = {
   settingsDesk: "rgb(233, 235, 239)",
-  settingsSidebar: "rgb(20, 20, 20)",
+  settingsSidebar: "rgb(255, 255, 255)",
   settingsMain: "rgb(233, 235, 239)",
-  settingsWidget: "rgb(241, 242, 246)",
+  settingsWidget: "rgb(244, 245, 248)",
   settingsText: "rgb(20, 20, 20)",
   memoryDesk: "rgb(233, 235, 239)",
   memoryWidget: "rgb(241, 242, 246)",
@@ -46,8 +50,8 @@ async function electronSurfaceResults(): Promise<SurfaceProbe[]> {
     const links = `<link rel="stylesheet" href="${pathToFileURL(join(assets, stylesheet)).href}">`;
     writeFileSync(join(directory, "surfaces.html"), `<!doctype html><html><head>${links}</head><body>
       <div data-instrument-overlay="settings"><div data-instrument-screen-root><div class="settings-screen bg-desk text-ink" data-probe="settingsDesk">
-        <aside class="settings-sidebar bg-instrument" data-probe="settingsSidebar"></aside>
-        <main class="settings-main bg-desk" data-probe="settingsMain"><header class="settings-main-header"><h1 class="text-ink" data-probe="settingsText">Settings</h1></header><section class="settings-group bg-surface" data-probe="settingsWidget"></section></main>
+        <aside class="settings-sidebar bg-card" data-probe="settingsSidebar"></aside>
+        <main class="settings-main bg-desk" data-probe="settingsMain"><header class="settings-main-header"><h1 class="text-ink" data-probe="settingsText">Settings</h1></header><section class="settings-group bg-panel" data-probe="settingsWidget"></section></main>
       </div></div></div>
       <div class="instrument-shell bg-desk"><div class="instrument-desk-column bg-desk" data-probe="marketplaceDesk"><div class="instrument-desk-scroll"><div class="main-content-stage">
         <div class="app-mode-surface app-mode-work bg-desk text-ink">
