@@ -343,6 +343,7 @@ describe("marketplace navigation", () => {
       pinnedProjectIds: ["workspace-1/project-1"],
       workspacePage: "memory",
       sidebarVisible: false,
+      lens: "desk",
       rightPanelVisible: true,
       bottomPanelVisible: true,
       workspaceView,

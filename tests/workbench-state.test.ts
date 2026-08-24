@@ -347,6 +347,7 @@ describe("workbench ordering and preferences", () => {
       pinnedProjectIds: ["newer/newer-project"],
       workspacePage: "projects",
       sidebarVisible: false,
+      lens: "desk" as const,
       rightPanelVisible: true,
       bottomPanelVisible: true,
       workspaceView: "list" as const,

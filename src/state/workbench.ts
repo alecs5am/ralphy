@@ -54,6 +54,10 @@ export interface WorkbenchPreferences {
   pinnedProjectIds: string[];
   workspacePage: WorkspacePage;
   sidebarVisible: boolean;
+  /* Handoff 13's lens: how you are working inside My Work, as against `AppMode`, which is where
+     you are. The desk lens gives the route the wide column; the chat lens swaps them, so the
+     agent takes the centre and the route stands beside it as a view panel. */
+  lens: WorkbenchLens;
   rightPanelVisible: boolean;
   bottomPanelVisible: boolean;
   workspaceView: WorkspaceView;
@@ -61,6 +65,8 @@ export interface WorkbenchPreferences {
   rightPanelWidth: number;
   bottomPanelHeight: number;
 }
+
+export type WorkbenchLens = "desk" | "chat";
 
 export interface WorkbenchState {
   route: WorkbenchRoute;
@@ -322,6 +328,7 @@ export function readWorkbenchPreferences(storage: StorageLike): WorkbenchPrefere
     pinnedProjectIds: [],
     workspacePage: "overview",
     sidebarVisible: true,
+    lens: "desk",
     rightPanelVisible: true,
     bottomPanelVisible: false,
     workspaceView: "grid",
@@ -345,6 +352,7 @@ export function readWorkbenchPreferences(storage: StorageLike): WorkbenchPrefere
         : "overview",
       sidebarVisible:
         typeof record.sidebarVisible === "boolean" ? record.sidebarVisible : true,
+      lens: record.lens === "chat" ? "chat" : "desk",
       rightPanelVisible:
         typeof record.rightPanelVisible === "boolean" ? record.rightPanelVisible : true,
       bottomPanelVisible:

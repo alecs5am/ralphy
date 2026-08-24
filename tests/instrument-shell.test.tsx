@@ -74,6 +74,8 @@ const defaultProps = {
   onRightWidthChange: () => undefined,
   rightPreference: true,
   rightOverlayOpen: false,
+  lens: "desk" as const,
+  onLensChange: () => undefined,
   onToggleLeft: () => undefined,
   onToggleRightPreference: () => undefined,
   onRightOverlayOpenChange: () => undefined,
@@ -142,6 +144,50 @@ describe("instrument shell", () => {
     }
   });
 
+  test("swaps which column is elastic under the chat lens and drops the view panel when narrow", async () => {
+    const mounted = await mountShell();
+    try {
+      const shell = mounted.host.container.querySelector(".instrument-shell")!;
+      const deskScroll = mounted.host.container.querySelector(".instrument-desk-scroll")!;
+      const deskColumn = () => mounted.host.container.querySelector(".instrument-desk-column") as HostNode;
+      await act(async () => {
+        mounted.observer.resize(shell, 1_440, 900);
+        mounted.observer.resize(deskScroll, 1_148, 830);
+        await settle();
+      });
+      // Desk lens: the route is the elastic column and states no width of its own.
+      expect(deskColumn().getAttribute("data-instrument-view-panel")).toBeNull();
+      expect(deskColumn().style.width).toBeFalsy();
+
+      await mounted.render({ lens: "chat" });
+      // Chat lens: the route becomes the fixed view panel and the rail is docked whatever the
+      // desk minimum says, because the desk is deliberately the narrow column now.
+      expect(deskColumn().getAttribute("data-instrument-view-panel")).toBe("true");
+      expect(deskColumn().style.width).toBe("440px");
+      expect(shell.getAttribute("data-right-rail-mode")).toBe("docked");
+      expect(deskColumn().getAttribute("hidden")).toBeNull();
+
+      // 380 once the window is under the docking width, and gone entirely under 1120: the chat
+      // takes the whole content area rather than the two columns squeezing each other.
+      await act(async () => {
+        mounted.observer.resize(shell, 1_200, 800);
+        await settle();
+      });
+      expect(deskColumn().style.width).toBe("380px");
+      expect(deskColumn().getAttribute("hidden")).toBeNull();
+
+      await act(async () => {
+        mounted.observer.resize(shell, 1_119, 800);
+        await settle();
+      });
+      expect(deskColumn().getAttribute("hidden")).toBe("");
+      expect(shell.getAttribute("data-right-rail-mode")).toBe("docked");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.host.restore();
+    }
+  });
+
   test("opens the narrow rail as its registered modal sheet and restores the exact opener on Escape", async () => {
     let overlayOpen = false;
     const mounted = await mountShell({
@@ -156,7 +202,7 @@ describe("instrument shell", () => {
         mounted.observer.resize(desk, 860, 672);
         await settle();
       });
-      const opener = mounted.host.container.querySelector("button")!;
+      const opener = mounted.host.container.querySelector("[data-rail-mode]") as HTMLButtonElement;
       opener.focus();
       await act(async () => {
         opener.dispatchEvent(new Event("click", { bubbles: true }));

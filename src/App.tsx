@@ -196,6 +196,7 @@ export function App() {
   const [rightPanelVisible, setRightPanelVisible] = useState(
     initialPreferences.current.rightPanelVisible,
   );
+  const [lens, setLens] = useState(initialPreferences.current.lens);
   const [rightOverlayOpen, setRightOverlayOpen] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [workspacePage, setWorkspacePage] = useState<WorkspacePage>(
@@ -414,6 +415,7 @@ export function App() {
         pinnedProjectIds: state.pinnedProjectIds,
         workspacePage,
         sidebarVisible,
+        lens,
         rightPanelVisible,
         sidebarWidth,
         rightPanelWidth,
@@ -422,6 +424,7 @@ export function App() {
     return () => window.clearTimeout(timer);
   }, [
     rootIdentity?.storeId,
+    lens,
     rightPanelWidth,
     rightPanelVisible,
     restoring,
@@ -540,7 +543,10 @@ export function App() {
       } else if (command.id === "app.sidebar") {
         if (marketplace.mode === "marketplace") dispatchMarketplace({ type: "toggle-sidebar" });
         else setSidebarVisible((visible) => !visible);
-      } else if (command.id === "app.settings") setSettingsVisible(true);
+      } else if (command.id === "view.desk") setLens("desk");
+      else if (command.id === "view.chat") setLens("chat");
+      else if (command.id === "app.marketplace") switchAppMode("marketplace");
+      else if (command.id === "app.settings") setSettingsVisible(true);
     };
     const onMouseUp = (event: MouseEvent) => {
       if (event.button === 3) navigateBack();
@@ -552,7 +558,7 @@ export function App() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [clearOverviewNavigation, marketplace.mode, navigateBack, navigateForward, openWorkspace, settingsVisible, state.route, workspaces]);
+  }, [clearOverviewNavigation, marketplace.mode, navigateBack, navigateForward, openWorkspace, settingsVisible, state.route, switchAppMode, workspaces]);
 
   const openProject = (project: ProjectSummary, unitId: string | null = null) => {
     setTargetUnitId(unitId);
@@ -750,8 +756,8 @@ export function App() {
                 }}
                 chats={sidebarChats}
                 activeChatId={agentChat.activeChat?.id ?? null}
-                onSelectChat={agentChat.selectChat}
-                onNewChat={agentChat.newChat}
+                onSelectChat={(chatId) => { setLens("chat"); agentChat.selectChat(chatId); }}
+                onNewChat={() => { setLens("chat"); agentChat.newChat(); }}
               />
             </>}
             desk={<div className="main-content-stage flex min-w-0 flex-1">
@@ -803,6 +809,10 @@ export function App() {
             onLeftWidthChange={setSidebarWidth}
             rightWidth={rightPanelWidth}
             onRightWidthChange={setRightPanelWidth}
+            /* The lens is a My Work question: Marketplace has no chat of its own, so it keeps
+               the desk lens and shows no pair. */
+            lens={marketplace.mode === "work" ? lens : "desk"}
+            onLensChange={marketplace.mode === "work" ? setLens : undefined}
             rightPreference={rightPanelVisible}
             rightOverlayOpen={rightOverlayOpen}
             topChrome={{

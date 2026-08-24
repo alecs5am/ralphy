@@ -29,6 +29,11 @@ const chord = (key: string, modifiers: Partial<Omit<Chord, "key">> = {}): Chord 
 export const SETTINGS_COMMANDS: readonly SettingsCommand[] = [
   { id: "app.settings", group: "Application", name: "Open settings", scope: "Global", chord: chord(",", { meta: true }) },
   { id: "app.sidebar", group: "Application", name: "Toggle sidebar", scope: "Global", chord: chord("b", { meta: true }) },
+  /* The lens pair, and the place switch beside it. Handoff 13 names all three chords: the lens
+     changes how you are working inside My Work, the place switch changes where you are. */
+  { id: "view.desk", group: "Application", name: "Desk lens", scope: "Global", chord: chord("1", { meta: true }) },
+  { id: "view.chat", group: "Application", name: "Chat lens", scope: "Global", chord: chord("2", { meta: true }) },
+  { id: "app.marketplace", group: "Application", name: "Marketplace", scope: "Global", chord: chord("3", { meta: true }) },
   { id: "nav.back", group: "Navigation", name: "Back", scope: "Global", chord: chord("[", { meta: true }) },
   { id: "nav.forward", group: "Navigation", name: "Forward", scope: "Global", chord: chord("]", { meta: true }) },
   { id: "nav.findProjects", group: "Navigation", name: "Find a project", scope: "Global", chord: chord("f", { meta: true }) },

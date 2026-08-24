@@ -12,15 +12,21 @@ import {
   type ReactPortal,
 } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, ArrowRight, PanelLeft } from "lucide-react";
+import { ArrowLeft, ArrowRight, LayoutGrid, MessageSquare, PanelLeft } from "lucide-react";
 
 import { ResizeHandle } from "../components/ui/ResizeHandle";
 import { InstrumentOverlay } from "./overlay-registry";
 import type { InstrumentRightRailMode, InstrumentRightRailOwner } from "./types";
+import type { WorkbenchLens } from "../state/workbench";
 
 const DOCK_WINDOW_MIN = 1_280;
 const DOCK_DESK_MIN = 680;
 const RIGHT_RAIL_MIN = 292;
+/* The chat lens' view panel: the handoff's 440 at 1440, 380 once the window is narrower, and
+   nothing at all below the point where the chat itself stops being readable beside it. */
+const VIEW_PANEL_WIDE = 440;
+const VIEW_PANEL_NARROW = 380;
+const VIEW_PANEL_DROP = 1_120;
 const RIGHT_RAIL_MAX = 1_000;
 const LEFT_MIN = 216;
 const LEFT_MAX = 420;
@@ -61,6 +67,9 @@ export interface InstrumentShellProps {
   onRightWidthChange(width: number): void;
   rightPreference: boolean;
   rightOverlayOpen: boolean;
+  lens: WorkbenchLens;
+  /** Absent where the lens does not apply: the place switch's other place has no chat of its own. */
+  onLensChange?(lens: WorkbenchLens): void;
   topChrome?: {
     canGoBack: boolean;
     canGoForward: boolean;
@@ -191,7 +200,15 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
     ? dimensions.deskWidth
     : dimensions.deskWidth - railWidth;
   const dockEligible = dimensions.frameWidth >= DOCK_WINDOW_MIN && dockedDeskWidth >= DOCK_DESK_MIN;
-  const mode = resolveRightRailMode({
+  /* Under the chat lens the rail *is* the main column, so it is docked whatever the desk
+     minimum says -- the desk is deliberately the narrow one. The view panel is what gives way
+     on a narrow window: below VIEW_PANEL_DROP the chat takes the whole content area rather than
+     the two columns squeezing each other. Inverting the overlay machinery so the *desk* could
+     portal over the chat is the handoff's own next iteration, not this one. */
+  const chatLens = props.lens === "chat";
+  const viewPanelWidth = dimensions.frameWidth >= DOCK_WINDOW_MIN ? VIEW_PANEL_WIDE : VIEW_PANEL_NARROW;
+  const viewPanelVisible = chatLens && dimensions.frameWidth >= VIEW_PANEL_DROP;
+  const mode = chatLens ? "docked" : resolveRightRailMode({
     dockEligible,
     preferenceOpen: props.rightPreference,
     overlayOpen: props.rightOverlayOpen,
@@ -387,10 +404,37 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
                 <ArrowRight size={15} strokeWidth={1.6} aria-hidden="true" />
               </button>
             </div>}
+            {/* The lens pair: how you are working, as against the sidebar's place switch, which is
+                where you are. Two circles in one pill; the active one is the desk's inversion. */}
+            {props.onLensChange && <div className="instrument-lens flex flex-none items-center gap-0.5 rounded-full bg-card p-0.75 [-webkit-app-region:no-drag]" role="group" aria-label="Working lens">
+              {([["desk", LayoutGrid, "Desk lens"], ["chat", MessageSquare, "Chat lens"]] as const).map(([lens, Icon, label]) => {
+                const active = props.lens === lens;
+                return <button
+                  className={`instrument-lens-button grid size-7 place-items-center rounded-full ${active
+                    ? "bg-desk-primary text-desk-primary-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-desk-primary-ink"
+                    : "bg-transparent text-muted hover:bg-field hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"}`}
+                  type="button"
+                  key={lens}
+                  title={label}
+                  aria-label={label}
+                  aria-pressed={active}
+                  onClick={() => props.onLensChange?.(lens)}
+                ><Icon size={15} strokeWidth={1.8} aria-hidden="true" /></button>;
+              })}
+            </div>}
             <div className="instrument-island-slot ml-auto flex flex-none items-center [-webkit-app-region:no-drag]">{props.island}</div>
           </header>
           <div className="instrument-content-body flex min-h-0 min-w-0 flex-1 gap-2">
-            <section className="instrument-desk-column relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-desk" ref={setDeskColumn}>
+            <section
+              /* Desk lens: the route takes the elastic column. Chat lens: it becomes the fixed
+                 view panel beside the chat, and disappears entirely once the window is too
+                 narrow to hold both. */
+              className={`instrument-desk-column relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-desk ${chatLens ? "order-last flex-none" : "flex-1"} ${chatLens && !viewPanelVisible ? "hidden" : ""}`}
+              style={chatLens ? { width: viewPanelWidth } : undefined}
+              data-instrument-view-panel={chatLens || undefined}
+              hidden={chatLens && !viewPanelVisible}
+              ref={setDeskColumn}
+            >
               <div
                 /* The desk is the app's one scroll surface and the container eight other areas' width
                    variants read, so both the name and the type are stated here. */
@@ -406,8 +450,10 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
             {/* The rail stands beside the desk, inside the content column, so the window's own zone
                 gap is the only inset it needs. The "right" in the class name and the props is
                 historical -- the rail is a dock, not a side. */}
-            <aside className={`instrument-right-rail relative min-h-0 min-w-0 overflow-hidden bg-desk ${mode === "docked" ? "flex" : "hidden"}`} style={{ width: railWidth }} aria-label={activeRail.label} hidden={mode !== "docked"}>
-              <ResizeHandle
+            <aside className={`instrument-right-rail relative min-h-0 min-w-0 overflow-hidden bg-desk ${mode === "docked" ? "flex" : "hidden"} ${chatLens ? "flex-1" : ""}`} style={chatLens ? undefined : { width: railWidth }} aria-label={activeRail.label} hidden={mode !== "docked"}>
+              {/* The grabber sizes the rail only while the rail is the narrow column. Under the
+                  chat lens the rail is elastic and the view panel is what has a width. */}
+              {!chatLens && <ResizeHandle
                 ariaLabel="Resize agent panel"
                 orientation="vertical"
                 value={railWidth}
@@ -418,7 +464,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
                 className="resize-instrument-rail absolute top-0 -left-2 bottom-0 w-2 cursor-col-resize"
                 onChange={props.onRightWidthChange}
                 onActiveChange={setColumnResizing}
-              />
+              />}
               <div className="min-h-0 min-w-0 flex-1" ref={setDockedRailTarget} />
             </aside>
           </div>
