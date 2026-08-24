@@ -40,8 +40,9 @@ interface Props {
 }
 
 /* One of the two Operations panels: a widget standing inside the Operations widget. */
-const PANEL = "workspace-operations-panel min-w-0 rounded-cell bg-surface-sunken p-3";
-const BANNER = "workspace-operation-banner mb-3 flex items-center justify-between gap-3 rounded-control bg-surface-sunken p-3 text-muted";
+/* Handoff 13: these two are sections too, so they take the same block-in-block chrome. */
+const PANEL = "workspace-operations-panel grid min-w-0 content-start gap-1.5 rounded-panel bg-panel p-1.5";
+const BANNER = "workspace-operation-banner flex items-center justify-between gap-3 rounded-inner bg-card p-3 text-muted";
 const BANNER_TITLE = "type-xs font-normal";
 const BANNER_NOTE = "type-xs font-normal text-muted";
 const NOTE = "m-0 type-sm leading-5 text-muted";
@@ -106,7 +107,7 @@ function AttentionQueue({ value, onOpenPage, onRetry, expanded: controlledExpand
       {items.map((item) => {
         const focusId = `workspace-attention-${item.kind}-${item.accountId ?? "unassigned"}`;
         const critical = item.severity === "critical";
-        return <li className={`${ROW_THREE} rounded-control bg-surface px-0 py-3`} key={focusId}>
+        return <li className={`${ROW_THREE} rounded-inner bg-card px-3 py-3`} key={focusId}>
           {/* The alarm tone stays on the glyph: the alert red is under 4.5:1 as 11px text on
               both widget surfaces, and the label already says which severity this is. */}
           <span className={`workspace-attention-severity is-${item.severity} inline-flex items-center gap-1 type-xs ${critical ? "text-ink" : "text-muted"}`}>
@@ -127,8 +128,8 @@ function ProductionState({ value }: { value: OperationsValue["pulse"] }) {
   const available = value.status === "ready" || value.status === "partial";
   return <section className={`${PANEL} workspace-production-state`} aria-labelledby="workspace-pulse-heading">
     <div className={SECTION_HEADING}><h2 className={SECTION_TITLE} id="workspace-pulse-heading">Production pulse</h2><span className={SECTION_META}>Lifecycle</span></div>
-    <ul className="workspace-pulse-list m-0 mb-3 grid list-none grid-cols-3 gap-2 bg-transparent p-0" aria-label="Production lifecycle summary">
-      {pulseStages.map((stage) => <li className="grid gap-1 rounded-control bg-surface p-3" key={stage}><span className="font-code type-lg text-muted" aria-hidden="true">—</span><small className="type-xs text-muted">{stage}</small></li>)}
+    <ul className="workspace-pulse-list m-0 grid list-none grid-cols-3 gap-2 bg-transparent p-0" aria-label="Production lifecycle summary">
+      {pulseStages.map((stage) => <li className="grid gap-1 rounded-cell bg-card p-3" key={stage}><span className="font-code type-lg text-muted" aria-hidden="true">—</span><small className="type-xs text-muted">{stage}</small></li>)}
     </ul>
     {value.status !== "ready" && <div className={PLATE_ON_SUNKEN}>
       <strong className={PLATE_TITLE}>{value.status === "partial" ? "Partial production data" : "Production pulse unavailable"}</strong>
@@ -165,7 +166,7 @@ function ActiveProjectRow({ value, onOpenProject, onOpenPage }: {
   const focusId = `workspace-find-project-${value.id}`;
   const action = value.catalog ? () => onOpenProject(value.catalog!) : () => onOpenPage("projects", focusId);
   const label = value.catalog ? "Open project" : "Find in Projects";
-  return <li className={`${ROW_THREE} rounded-control bg-surface-sunken p-3`}>
+  return <li className={`${ROW_THREE} rounded-inner bg-card p-3`}>
     {/* The identity tone is per-project and arrives as an inline custom property, so the tint
         it is mixed into is an arbitrary property: no scale names a mix of a runtime colour. */}
     <span className="workspace-active-project-glyph grid size-12 place-items-center rounded-field font-code type-sm text-(--glyph-color) [background:color-mix(in_srgb,var(--glyph-color)_18%,var(--instrument-widget-light-sunken))]" style={projectGlyphVars(value.name)} aria-hidden="true">
@@ -227,7 +228,7 @@ function WorkspaceOnboarding({ onOpenPage }: { onOpenPage(page: WorkspacePage, r
     <div className={SECTION_HEADING}><h2 className={SECTION_TITLE} id="workspace-onboarding-heading">Start producing in this workspace</h2><span className={SECTION_META}>Getting started</span></div>
     <ol className="m-0 grid list-none gap-2 p-0">
       {/* The step number is content, so it is rendered rather than drawn by a CSS counter. */}
-      {steps.map((step, index) => <li className="grid items-center gap-4 grid-cols-(--workspace-row-columns) rounded-control bg-surface-sunken p-4 @max-workspace-row/main-region:grid-cols-(--workspace-glyph-columns)" key={step.page}>
+      {steps.map((step, index) => <li className="grid items-center gap-4 grid-cols-(--workspace-row-columns) rounded-inner bg-card p-4 @max-workspace-row/main-region:grid-cols-(--workspace-glyph-columns)" key={step.page}>
         <span className={ROW_COPY}><strong className={ROW_TITLE}><span className="font-code text-muted">{index + 1}. </span>{step.title}</strong><small className={ROW_NOTE}>{step.detail}</small></span>
         <button className={`${ACTION_ON_SURFACE} ${ROW_ACTION_STACKED}`} id={`workspace-onboarding-${step.page}`} type="button" onClick={() => onOpenPage(step.page, `workspace-onboarding-${step.page}`)}>{step.label}</button>
       </li>)}

@@ -86,8 +86,8 @@ function MetricStrip({ values }: { values: WorkspaceMomentumPresentation["totals
     ["Comments", metric(values.comments), values.comments === null ? "Comments unavailable" : `${values.comments.toLocaleString()} comment${values.comments === 1 ? "" : "s"}`],
     ["Shares", metric(values.shares), values.shares === null ? "Shares unavailable" : `${values.shares.toLocaleString()} share${values.shares === 1 ? "" : "s"}`],
   ];
-  return <dl className="workspace-metric-strip m-0 mb-4 grid grid-cols-(--workspace-metric-columns) gap-2 overflow-hidden rounded-cell bg-transparent">
-    {metrics.map(([label, value, accessible]) => <div className="min-w-0 rounded-control bg-surface-sunken p-3" key={label}>
+  return <dl className="workspace-metric-strip m-0 grid grid-cols-(--workspace-metric-columns) gap-2 overflow-hidden rounded-cell bg-transparent">
+    {metrics.map(([label, value, accessible]) => <div className="min-w-0 rounded-cell bg-card p-3" key={label}>
       <dt className="type-xs text-muted">{label}</dt>
       <dd className="m-0 mt-1 font-code type-xl font-semibold tabular-nums leading-none text-ink" aria-label={accessible}>{value}</dd>
     </div>)}
@@ -152,10 +152,10 @@ export function AccountPortfolio({
       <div className="account-portfolio grid grid-cols-4 gap-3 @max-workspace-portfolio/account-portfolio:grid-cols-2 @max-workspace-portfolio-narrow/account-portfolio:grid-cols-1" aria-label="Account portfolio">
         {accounts.map((account) => {
           const warning = account.relinkRequired || !account.credentialConfigured;
-          return <button id={`workspace-account-${account.id}`} className="account-card flex min-h-0 min-w-0 flex-col items-stretch gap-2 rounded-cell bg-surface-sunken p-3 text-left type-sm text-ink hover:bg-surface-hover" type="button" key={account.id} onClick={() => onSelect(account)}>
+          return <button id={`workspace-account-${account.id}`} className="account-card flex min-h-0 min-w-0 flex-col items-stretch gap-2 rounded-inner bg-card p-3 text-left type-sm text-ink hover:bg-row-hover" type="button" key={account.id} onClick={() => onSelect(account)}>
             <span className="account-card-heading flex items-center justify-between gap-2">
               <strong className="truncate type-xs font-normal capitalize text-muted">{account.platform}</strong>
-              <span className={`account-health${warning ? " is-warning" : ""} rounded-control px-2 py-0.5 type-xs whitespace-nowrap ${warning ? "bg-surface text-muted" : "bg-surface text-ink"}`}>{health(account)}</span>
+              <span className={`account-health${warning ? " is-warning" : ""} rounded-control px-2 py-0.5 type-xs whitespace-nowrap ${warning ? "bg-field text-muted" : "bg-field text-ink"}`}>{health(account)}</span>
             </span>
             <b className="truncate type-lg font-normal text-ink">{handle(account.username)}</b>
             {account.displayName && <small className="type-xs text-muted">{account.displayName}</small>}

@@ -994,9 +994,14 @@ describe("design system contract", () => {
     expect(dialog).toContain("bg-surface text-ink");
     expect(dialog).toContain("focus-visible:outline-ink");
     expect(dialog).not.toContain("focus-on-instrument");
+    // Handoff 13 gives the greeting row no surface at all: the black plate it used to stand on
+    // read as a fifth surface between the desk and the panels below it. With no widget under it
+    // the row takes the theme pair throughout, and its primary control is the desk's inversion.
     const header = readFileSync(join(process.cwd(), "src/screens/workspace/WorkspaceOverviewHeader.tsx"), "utf8");
-    expect(header).toContain("bg-instrument");
-    expect(header).toContain("focus-visible:outline-focus-on-instrument");
+    expect(header).not.toContain("bg-instrument");
+    expect(header).not.toContain("focus-on-instrument");
+    expect(header).toContain("bg-desk-primary");
+    expect(header).toContain("text-desk-primary-ink");
     // The deleted reduced-motion blanket had nothing to hold back: this area declares no
     // transition and no animation of its own, and an !important rule in an unlayered sheet
     // cannot beat an !important utility inside @layer utilities anyway.
@@ -1267,7 +1272,7 @@ describe("design system contract", () => {
     // The witness per element is one utility the deleted rule's own declarations became.
     const renderers: Array<[string, string, string[]]> = [
       ["main-region", "@container/main-region", ["src/App.tsx", "src/screens/ProjectScreen.tsx", "src/screens/WorkspaceScreen.tsx", "src/screens/CalendarScreen.tsx", "src/screens/MarketplaceScreen.tsx", "src/screens/WorkspaceProjectsScreen.tsx", "src/screens/LibraryScreen.tsx", "src/screens/MemoryScreen.tsx", "src/screens/SharedLibraryScreen.tsx"]],
-      ["screen-kicker", "mb-1", ["src/screens/WorkspaceScreen.tsx", "src/screens/LibraryScreen.tsx", "src/screens/SharedLibraryScreen.tsx", "src/screens/WorkspaceProjectsScreen.tsx", "src/screens/workspace/WorkspaceOverviewHeader.tsx"]],
+      ["screen-kicker", "mb-1", ["src/screens/WorkspaceScreen.tsx", "src/screens/LibraryScreen.tsx", "src/screens/SharedLibraryScreen.tsx", "src/screens/WorkspaceProjectsScreen.tsx"]],
       ["content-section", "min-w-0", ["src/screens/LibraryScreen.tsx", "src/screens/WorkspaceProjectsScreen.tsx"]],
       // Two renderers, not the five the deleted file's prose claimed: the overview, the
       // marketplace and the project panel each draw their own `*-section-heading`, which the

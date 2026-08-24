@@ -5,6 +5,7 @@ import { DetailDialog } from "./DetailDialog";
 import {
   ACTION_QUIET,
   BLOCK_TITLE,
+  SUBSECTION_TITLE,
   DRAWER_ACTION,
   DRAWER_CELL,
   DRAWER_CELL_TITLE,
@@ -48,7 +49,7 @@ const ROW_LABEL = "type-xs font-normal text-muted";
 /* The coverage bar. A native <progress> paints the platform's own accent — a raw green on a
    monochrome desk — so the element drops its appearance and states both of its parts as
    surfaces. The two pseudo-elements have no utility of their own, hence the two selectors. */
-const COVERAGE_BAR = "col-span-full h-1.5 w-full appearance-none overflow-hidden rounded-control bg-surface [&::-webkit-progress-bar]:bg-surface [&::-webkit-progress-value]:bg-ink";
+const COVERAGE_BAR = "col-span-full h-1.5 w-full appearance-none overflow-hidden rounded-control bg-field [&::-webkit-progress-bar]:bg-field [&::-webkit-progress-value]:bg-ink";
 const EVENT_NOTE = "m-0 mt-1 block type-xs leading-5 text-muted";
 
 function unavailable(title: string, reason: string) {
@@ -75,7 +76,7 @@ function DayStrip({ days, events }: { days: number[]; events: PublishingEventPre
     {days.map((value) => {
       const date = new Date(value);
       const count = counts.get(date.toDateString()) ?? 0;
-      return <li className="grid gap-1 rounded-control bg-surface-sunken p-2 text-center font-code type-xs text-muted" key={date.toISOString()} aria-label={`${date.toLocaleDateString(undefined, { dateStyle: "full" })}: ${count} scheduled content event${count === 1 ? "" : "s"}`}>
+      return <li className="grid gap-1 rounded-field bg-card p-2 text-center font-code type-xs text-muted" key={date.toISOString()} aria-label={`${date.toLocaleDateString(undefined, { dateStyle: "full" })}: ${count} scheduled content event${count === 1 ? "" : "s"}`}>
         <time dateTime={date.toISOString()}>{date.toLocaleDateString(undefined, { weekday: "short", day: "numeric" })}</time>
         <span className="text-muted">{count}</span>
       </li>;
@@ -106,7 +107,7 @@ function ContentEvent({ event, onOpenCalendar, onOpenUnit, onOpenUnits }: {
   const openUnit = () => event.unit?.projectId
     ? onOpenUnit(event.unit.projectId, event.unitId, unitLabel, unitFocusId)
     : onOpenUnits(unitFocusId);
-  return <li className="workspace-plan-event grid grid-cols-(--workspace-glyph-columns) gap-4 rounded-cell bg-surface-sunken p-3 @max-workspace-row/main-region:grid-cols-1" data-content-event>
+  return <li className="workspace-plan-event grid grid-cols-(--workspace-glyph-columns) gap-4 rounded-inner bg-card p-3 @max-workspace-row/main-region:grid-cols-1" data-content-event>
     <span className={GLYPH} aria-hidden="true"><Boxes className={GLYPH_MARK} /></span>
     <div className="workspace-plan-event-main min-w-0">
       <h3 className={BLOCK_TITLE}>{unitLabel}</h3>
@@ -148,7 +149,7 @@ function ReadyUnscheduled({ value, onOpenUnit, onOpenUnits }: {
     {value.status === "partial" && unavailable("Partial ready Unit data", value.reason)}
     {value.value.length > 0 ? <ul className={`workspace-ready-list my-3 gap-2 ${PLAIN_LIST}`}>{value.value.map((unit) => <li className={`${ROW} ${ROW_SPLIT}`} key={unit.unitId}>
       <span className="grid gap-1"><strong className={ROW_LABEL}>{unit.title}</strong><small className="text-muted">{unit.projectTitle ?? "Project unavailable"}</small></span>
-      <button className="inline-flex flex-none items-center justify-center rounded-control bg-surface px-3 py-2 type-sm text-muted" id={`workspace-ready-unit-${unit.unitId}`} type="button" onClick={() => unit.projectId
+      <button className="inline-flex flex-none items-center justify-center rounded-control bg-field px-3 py-2 type-sm text-muted" id={`workspace-ready-unit-${unit.unitId}`} type="button" onClick={() => unit.projectId
         ? onOpenUnit(unit.projectId, unit.unitId, unit.title, `workspace-ready-unit-${unit.unitId}`)
         : onOpenUnits(`workspace-ready-unit-${unit.unitId}`)}>{unit.projectId ? "Open Unit" : "Open Units"}</button>
     </li>)}</ul> : unavailable("No ready Units", "No ready, unscheduled Units were returned.")}
@@ -164,7 +165,7 @@ function ContentPlan({ value, onOpenCalendar, onOpenUnits, onOpenUnit }: {
   const events = value.upcoming.status === "ready" || value.upcoming.status === "partial" ? value.upcoming.value : [];
   return <section className={`${SECTION_HALF} workspace-content-plan`} aria-labelledby="workspace-content-plan-title">
     <header className={SECTION_HEADING}><h2 className={SECTION_TITLE} id="workspace-content-plan-title">Content plan</h2><span className={SECTION_META}>Next 14 days</span></header>
-    <p className="workspace-plan-timezone m-0 mb-3 type-xs leading-5 text-muted">Dates and times use this device’s timezone; workspace timezone is not available from the current Core contract.</p>
+    <p className="workspace-plan-timezone m-0 px-2 type-xs leading-5 text-muted">Dates and times use this device’s timezone; workspace timezone is not available from the current Core contract.</p>
     <PlanCoverage value={value.coverage} />
     {value.upcoming.status !== "unavailable" && <DayStrip days={value.days} events={events} />}
     {value.upcoming.status === "partial" && unavailable("Partial publishing data", value.upcoming.reason)}
@@ -176,17 +177,17 @@ function ContentPlan({ value, onOpenCalendar, onOpenUnits, onOpenUnit }: {
     {events.length > 0 && <ol className={`workspace-plan-events gap-3 ${PLAIN_LIST}`}>
       {events.map((event) => <ContentEvent key={`${event.unitId}:${event.scheduledAt}`} event={event} onOpenCalendar={onOpenCalendar} onOpenUnit={onOpenUnit} onOpenUnits={onOpenUnits} />)}
     </ol>}
-    <div className="workspace-ready-unscheduled mt-4 grid gap-2">
-      <h3 className={BLOCK_TITLE}>Ready, not scheduled</h3>
+    <div className="workspace-ready-unscheduled grid gap-1.5">
+      <h3 className={SUBSECTION_TITLE}>Ready, not scheduled</h3>
       <ReadyUnscheduled value={value.readyUnscheduled} onOpenUnit={onOpenUnit} onOpenUnits={onOpenUnits} />
     </div>
   </section>;
 }
 
 function OutcomeGroup({ title, value, onSelect }: { title: string; value: UnitOutcomePresentation[]; onSelect(value: UnitOutcomePresentation): void }) {
-  return <section className="workspace-outcome-group min-w-0"><h3 className={BLOCK_TITLE}>{title}</h3>
+  return <section className="workspace-outcome-group min-w-0"><h3 className={SUBSECTION_TITLE}>{title}</h3>
     {value.length === 0 ? <p className="m-0 mt-1 block type-xs leading-5 text-muted">No comparable performance data is available yet.</p> : <div className="workspace-outcome-cards mt-2 grid gap-2">
-      {value.map((outcome) => <button id={`workspace-outcome-${outcome.id}`} type="button" key={outcome.id} className="workspace-outcome-card flex w-full items-center gap-3 rounded-control bg-surface-sunken p-2 text-left type-base text-ink hover:bg-surface-hover" onClick={() => onSelect(outcome)}>
+      {value.map((outcome) => <button id={`workspace-outcome-${outcome.id}`} type="button" key={outcome.id} className="workspace-outcome-card flex w-full items-center gap-3 rounded-inner bg-card p-2 text-left type-base text-ink hover:bg-row-hover" onClick={() => onSelect(outcome)}>
         <span className={GLYPH} aria-hidden="true"><Boxes className={GLYPH_MARK} /></span>
         <span className="grid min-w-0 gap-1"><strong className="truncate font-normal text-ink">{outcome.title}</strong><small className="text-muted">{outcome.projectTitle} · {outcome.revisionLabel}</small><small className="text-muted">Comparable metrics unavailable</small></span>
       </button>)}

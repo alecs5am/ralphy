@@ -73,7 +73,7 @@ function CaveatList({ values }: { values: string[] }) {
 
 function InsightCard({ value, onReview }: { value: WorkspaceInsightPresentation; onReview(): void }) {
   return <li className={`workspace-insight-card is-${value.evidenceStrength}`}>
-    <article className="grid h-full gap-3 rounded-cell bg-surface-sunken p-4">
+    <article className="grid h-full gap-3 rounded-inner bg-card p-4">
       <header className="grid grid-cols-(--workspace-row-columns) items-start gap-2 type-xs text-muted">
         <span>{value.dimension}</span><strong className="type-xs font-normal text-muted">{strengthLabel(value.evidenceStrength)}</strong>
       </header>
@@ -126,7 +126,7 @@ function LearnedState({ value, onReview, onOpenMemory }: {
   }
   return <ul className="workspace-learning-list m-0 grid list-none gap-2 p-0">{supported.map((insight) => {
     const reviewId = `workspace-learning-review-${insight.id}`;
-    return <li className="grid h-auto grid-cols-(--workspace-row-columns) items-center gap-3 rounded-cell bg-surface-sunken p-4 @max-workspace-row/main-region:grid-cols-1" key={insight.id}>
+    return <li className="grid h-auto grid-cols-(--workspace-row-columns) items-center gap-3 rounded-inner bg-card p-4 @max-workspace-row/main-region:grid-cols-1" key={insight.id}>
     <span className="workspace-learning-state col-span-full type-xs font-normal text-muted">Proposed · {strengthLabel(insight.evidenceStrength)}</span>
     <p className="m-0 type-base leading-5 text-muted">{insight.observation}</p>
     <div className="flex flex-wrap justify-end gap-2 @max-workspace-row/main-region:justify-start">
@@ -184,9 +184,9 @@ function ProductionEfficiency({ value, onOpenShared }: {
     <header className={SECTION_HEADING}><h2 className={SECTION_TITLE} id="workspace-production-efficiency-title">Production efficiency</h2><span className={SECTION_META}>Operational evidence</span></header>
     {value.status === "partial" && <UnavailablePanel title="Partial production evidence" reason={value.reason} />}
     {/* Six bounded metrics; the band re-wraps rather than fixing a column count. */}
-    <dl className="workspace-efficiency-strip m-0 mb-4 grid grid-cols-(--workspace-efficiency-columns) gap-2 bg-transparent">{efficiencySlots.map((slot) => {
+    <dl className="workspace-efficiency-strip m-0 grid grid-cols-(--workspace-efficiency-columns) gap-2 bg-transparent">{efficiencySlots.map((slot) => {
       const metric = metricValue(value, slot.id);
-      return <div className="workspace-efficiency-metric min-w-0 rounded-panel bg-surface-sunken p-3 @max-workspace-row/main-region:px-0" key={slot.id}>
+      return <div className="workspace-efficiency-metric min-w-0 rounded-cell bg-card p-3 @max-workspace-row/main-region:px-0" key={slot.id}>
         <dt className="type-xs leading-row text-muted">{slot.label}</dt>
         <dd className="mx-0 my-2 font-code type-lg tabular-nums text-ink">{metric.status === "ready" || metric.status === "partial" ? metric.value : "—"}</dd>
         {metric.status !== "ready" && <p className="m-0 type-xs leading-5 text-muted">{metric.reason}</p>}

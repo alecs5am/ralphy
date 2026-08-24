@@ -44,22 +44,26 @@ export function WorkspaceOverviewHeader({
   const degraded = [value.accountCount, criticalCount]
     .filter((item) => item.status !== "ready")
     .map((item) => item.reason);
-  return <header className="screen-header workspace-overview-header relative m-0 flex min-h-0 w-full max-w-none flex-none flex-wrap items-center justify-between gap-4 rounded-panel bg-instrument px-5 py-4 text-on-instrument">
+  /* Handoff 13's greeting row: the identity stands on the desk, not on a widget of its own. The
+     black plate this replaced read as a fifth surface between the desk and the panels below it,
+     and the design gives the row no surface at all -- 29px name, a quiet sub-line, and the two
+     controls on the right. */
+  return <header className="screen-header workspace-overview-header relative m-0 flex min-h-0 w-full max-w-none flex-none flex-wrap items-end justify-between gap-4 px-2 pt-1 pb-1 text-ink">
     <div className="min-w-0">
-      <div className="screen-kicker mb-1 type-xs uppercase tracking-wide text-on-instrument-muted">Workspace overview</div>
-      <h1 className="mx-0 my-1 truncate type-hero font-semibold leading-none tracking-tight text-on-instrument">{value.name}</h1>
-      {value.description && <p className="m-0 mt-1 type-base leading-5 text-on-instrument-muted">{value.description}</p>}
-      <div className="workspace-overview-meta mt-2 flex flex-wrap gap-x-3 gap-y-1 font-code type-xs text-on-instrument-muted">
+      <div className="screen-kicker mb-1.5 font-code type-meta tracking-mono uppercase text-muted">Workspace overview</div>
+      <h1 className="m-0 truncate type-greeting leading-none tracking-tight text-ink">{value.name}</h1>
+      {value.description && <p className="m-0 mt-2 type-md leading-5 text-muted">{value.description}</p>}
+      <div className="workspace-overview-meta mt-2 flex flex-wrap gap-x-3 gap-y-1 font-code type-xs text-muted">
         {lastSuccessfulRefreshAt !== null && <span>Refreshed <time dateTime={new Date(lastSuccessfulRefreshAt).toISOString()}>{new Date(lastSuccessfulRefreshAt).toLocaleString()}</time></span>}
         <span>Current Core totals · {countLabel(value.accountCount, "connected account")}</span>
       </div>
-      {degraded.length > 0 && <p className="workspace-overview-partial m-0 mt-2 type-sm text-on-instrument-muted"><strong className="font-normal text-on-instrument">Partial data</strong> · {degraded.join(" ")}</p>}
+      {degraded.length > 0 && <p className="workspace-overview-partial m-0 mt-2 type-sm text-muted"><strong className="font-normal text-ink">Partial data</strong> · {degraded.join(" ")}</p>}
     </div>
-    <div className="workspace-header-actions flex flex-none items-center gap-2">
-      <span className="rounded-full bg-instrument-raised px-3 py-2 font-code type-sm text-on-instrument-muted">{countLabel(criticalCount, "critical issue")}</span>
-      {/* The one control standing on the black header: its ring is the on-instrument ring,
-          because the theme ink is black on black in the light theme. */}
-      <button className="command-button inline-flex min-h-9 flex-none items-center justify-center gap-2 rounded-control bg-surface px-3 type-base font-medium text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-on-instrument" type="button" disabled={refreshing} onClick={onRefresh}>
+    <div className="workspace-header-actions ml-auto flex flex-none items-center gap-2">
+      <span className="inline-flex h-9 items-center rounded-full bg-card px-3.5 font-code type-sm text-muted">{countLabel(criticalCount, "critical issue")}</span>
+      {/* The primary control on the desk is the inversion of the desk, which is the one place the
+          design allows a filled button outside a black widget. */}
+      <button className="command-button inline-flex h-9 flex-none items-center justify-center gap-2 rounded-full bg-desk-primary px-3.5 type-base text-desk-primary-ink disabled:opacity-60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-desk-primary-ink" type="button" disabled={refreshing} onClick={onRefresh}>
         <RefreshCw size={14} aria-hidden="true" />{refreshing ? "Refreshing…" : "Refresh"}
       </button>
     </div>
