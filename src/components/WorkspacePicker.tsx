@@ -182,7 +182,7 @@ export function WorkspacePicker({
         <span className={`workspace-hero-field ${HERO_PLATE} [background:var(--workspace-color,var(--instrument-dither-base))] [mask-image:var(--workspace-hero-mask)] [opacity:var(--dither-op)]`} aria-hidden="true" />
         <span className={`workspace-hero-field-hi ${HERO_PLATE} opacity-80 [background:var(--workspace-highlight,var(--instrument-dither-highlight))] [mask-image:var(--workspace-hero-mask-hi)]`} aria-hidden="true" />
         {/* A flat plate over the foot of the card, never a gradient: v2 forbids depth ramps. */}
-        <span className="workspace-hero-scrim pointer-events-none absolute inset-x-0 bottom-0 h-14.5 bg-frame/72" aria-hidden="true" />
+        <span className="workspace-hero-scrim pointer-events-none absolute inset-x-0 bottom-0 h-14.5 bg-media-plate" aria-hidden="true" />
         <span className="workspace-hero-chevron absolute top-3 right-3 grid size-6 place-items-center rounded-control bg-on-instrument text-instrument">
           <ChevronDown className="transition-transform duration-normal ease-instrument group-aria-expanded:rotate-180 motion-reduce:transition-none motion-reduce:duration-0" size={12} strokeWidth={2} />
         </span>

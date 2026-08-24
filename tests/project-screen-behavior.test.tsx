@@ -4,7 +4,6 @@ import { describe, expect, test, vi } from "vitest";
 import type { ArtifactRevisionDto, DocumentSearchDto, MediaCardDto, MediaGenerationDetailDto, ProjectOverviewDto, UnitDto, UnitRevisionDto } from "../electron/ralphy/types";
 import type { ProjectSummary } from "../src/lib/ipc";
 import * as screen from "../src/screens/ProjectScreen";
-import { OverviewPanel } from "../src/screens/project/OverviewPanel";
 import { bridge } from "../src/lib/ipc";
 import { createReactHost, type HostNode } from "./react-host";
 
@@ -61,12 +60,6 @@ async function clickButton(root: HostNode, text: string): Promise<void> {
     await Promise.resolve();
     await Promise.resolve();
   });
-}
-
-async function clickButtonContaining(root: HostNode, text: string): Promise<void> {
-  const button = root.findAll((node) => node.tagName === "BUTTON" && node.textContent.includes(text))[0];
-  if (!button) throw new Error(`Missing ${text} button`);
-  await act(async () => button.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
 }
 
 function deferred<Value>() {
@@ -263,57 +256,6 @@ describe("ProjectScreen behavior", () => {
       documentPreview: { value: { revisionId: "revision-2", text: "# Current head" } },
       documentConflict: expect.stringContaining("local draft was kept"),
     });
-  });
-
-  test("overview dashboard keeps facts readable and navigation exact", async () => {
-    const value: ProjectOverviewDto = {
-      ...overview,
-      project: { ...overview.project, purpose: "Give reviewers one trusted campaign workbench." },
-      iterations: { items: [{ id: "iteration-1", projectId: "project-1", number: 3, title: "Launch polish", state: "active", priorIterationChanges: "Shortened the cold open and replaced the end card.", createdAt: 1, closedAt: null }], nextCursor: "more" },
-      feedback: { items: [{ id: "feedback-1", projectId: "project-1", iterationId: "iteration-1", status: "open", targetType: "artifact_revision", targetId: "revision-1", createdAt: 2, resolvedAt: null }], nextCursor: null },
-      stages: { items: [{ id: "stage-1", projectId: "project-1", stage: "edit", state: "working", entityType: "composition", entityId: "composition-1", rowVersion: 1, updatedAt: 3 }], nextCursor: null },
-      documents: { items: [{ id: "document-1", workspaceId: "workspace-1", projectId: "project-1", kind: "brief", slug: "brief", title: "Creative brief", currentRevisionId: "revision-2", rowVersion: 1, createdAt: 1, updatedAt: 3, binding: { ownerType: "project", ownerId: "project-1", role: "brief", documentId: "document-1", boundRevisionId: "revision-1", currentHeadRevisionId: "revision-2", hasNewerHead: true } }], nextCursor: null },
-      compositions: { items: [{ id: "composition-1", projectId: "project-1", slug: "hero-cut", kind: "video", latestRevisionId: "composition-revision-2", selectedRevisionId: "composition-revision-1", createdAt: 1, updatedAt: 2 }], nextCursor: null },
-      units: { items: [{ id: "unit-1", workspaceId: "workspace-1", projectId: "project-1", slug: "reel", format: "9:16", latestRevisionId: "unit-revision-2", selectedRevisionId: "unit-revision-1", createdAt: 1, updatedAt: 2 }], nextCursor: null },
-      runs: { items: [{ id: "run-1", workspaceId: "workspace-1", projectId: "project-1", kind: "render", label: "Final render", state: "running", createdAt: 1, startedAt: 2, endedAt: null }], nextCursor: null },
-      activity: { items: [{ sequence: 9, workspaceId: "workspace-1", projectId: "project-1", entityType: "run", entityId: "run-1", action: "started", createdAt: 3 }], nextCursor: 9 },
-      publications: { items: [{ id: "publication-1", unitId: "unit-1", presentationId: "presentation-1", platform: "tiktok", socialAccountId: "account-1", rail: "postiz", state: "published", url: "https://example.test/post/1", scheduledAt: 2, submittedAt: 3, publishedAt: 4, createdAt: 1, updatedAt: 4 }], nextCursor: "more-publications" },
-      metrics: { publicationCount: 4, views: 1200, likes: 80, comments: 12, shares: 7, watchTimeMs: 345_000 },
-    };
-    const onViewTab = vi.fn();
-    const onOpenDocument = vi.fn();
-    const onOpenComposition = vi.fn();
-    const onOpenUnit = vi.fn();
-    const host = createReactHost();
-    const { createRoot } = await import("react-dom/client");
-    const root = createRoot(host.container as unknown as Element);
-
-    try {
-      await act(async () => root.render(<OverviewPanel value={value} onViewTab={onViewTab} onOpenDocument={onOpenDocument} onOpenComposition={onOpenComposition} onOpenUnit={onOpenUnit} />));
-      expect(host.container.textContent).toContain("Give reviewers one trusted campaign workbench.");
-      expect(host.container.textContent).toContain("Spent$0.00");
-      expect(host.container.textContent).toContain("Project pulse");
-      expect(host.container.textContent).toContain("Ready units");
-      expect(host.container.textContent).toContain("Distribution");
-      expect(host.container.textContent).not.toContain("Recent records (bounded)");
-      expect(host.container.textContent).not.toContain("project-1");
-      expect(host.container.querySelector(".overview-dashboard")).not.toBeNull();
-
-      await clickButton(host.container, "View all units");
-      await clickButtonContaining(host.container, "reel");
-      expect(onViewTab).toHaveBeenCalledWith("units");
-      expect(onOpenDocument).not.toHaveBeenCalled();
-      expect(onOpenComposition).not.toHaveBeenCalled();
-      expect(onOpenUnit).toHaveBeenCalledWith("unit-1");
-      expect(host.container.findAll((node) => node.tagName === "BUTTON" && node.textContent.includes("Final render"))).toEqual([]);
-
-      const sparse = renderToStaticMarkup(<OverviewPanel value={overview} onViewTab={() => undefined} onOpenDocument={() => undefined} onOpenComposition={() => undefined} onOpenUnit={() => undefined} />);
-      expect(sparse).not.toContain("Distribution");
-      expect(sparse).not.toContain("Recent activity");
-    } finally {
-      await act(async () => root.unmount());
-      host.restore();
-    }
   });
 
   test("media viewer ignores late A preview/provenance and navigates only loaded rows", async () => {

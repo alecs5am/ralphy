@@ -12,7 +12,6 @@ vi.mock("motion/react", () => {
   const Pass = ({ children }: { children: ReactNode }) => <>{children}</>;
   return { AnimatePresence: Pass, LayoutGroup: Pass, MotionConfig: Pass, motion: { div: Div, section: Section, aside: Aside, header: Header } };
 });
-vi.mock("../src/components/ProfileMenu", () => ({ ProfileMenu: () => null }));
 vi.mock("../src/components/UtilityPanels", () => ({ AgentChatPanel: () => null, BottomPanel: () => null }));
 vi.mock("../src/components/WelcomeScreen", () => ({ WelcomeScreen: () => <div>Loading Ralphy</div> }));
 vi.mock("../src/chat/useAgentChat", () => ({ useAgentChat: () => ({}) }));

@@ -27,6 +27,10 @@
   --color-ink: var(--instrument-text-primary);
   --color-muted: var(--instrument-text-secondary-readable);
   --color-frame: var(--instrument-media-frame);
+  /* The plate a label stands on over media, and the dimmer behind a viewer. tokens.css says
+     what each one guarantees; the short version is that only the plate backs ink. */
+  --color-media-plate: var(--instrument-media-plate);
+  --color-media-veil: var(--instrument-media-veil);
   --color-instrument: var(--instrument-widget-dark);
   --color-instrument-raised: var(--instrument-widget-dark-raised);
   --color-instrument-hover: var(--instrument-widget-dark-hover);

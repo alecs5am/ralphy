@@ -190,12 +190,14 @@ export function MediaCardPreview({
         empty frame, and the kind is already spelled out in the caption below it.
         The kind tints are gone: `--ok`, `--warn`, `--fg-2` and `--fg-3` all resolve to the same
         #A4A4A0 on a dark surface, so image/video/audio/text painted one grey, and only `pdf`
-        differed -- alert red on a label that carries no alarm. The scrim keeps the 78% of
-        `--instrument-media-frame` the shared mark rule used. This badge still states no `display`:
+        differed -- alert red on a label that carries no alarm. The plate is the shared
+        `bg-media-plate` role, replacing the 78% the old shared mark rule hand-picked; this badge
+        only ever shows over the empty frame, so its secondary ink is read against #060606 and
+        not against media. This badge still states no `display`:
         the workspace project card's collage hides it with `[&_.asset-extension]:hidden`, which is
         (0,2,0) and beats any per-element display utility, but a `block` here would be a second
         decision about the same property on the same element. */}
-    {!source && <span className={`asset-extension type-${kind ?? "file"} min-h-5 rounded-chip bg-frame/78 px-1.75 type-xs text-on-instrument-muted`}><FileGlyph kind={kind} size={11} />{kind ?? "file"}</span>}
+    {!source && <span className={`asset-extension type-${kind ?? "file"} min-h-5 rounded-chip bg-media-plate px-1.75 type-xs text-on-instrument-muted`}><FileGlyph kind={kind} size={11} />{kind ?? "file"}</span>}
   </div>;
 }
 

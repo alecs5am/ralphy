@@ -187,7 +187,27 @@ html[data-theme="light"] {
 }
 /* instrument-token-definitions:end */
 
+/* Two roles for a dark plate laid over media, both theme-invariant because the media under
+   them is. They are derived from --instrument-media-frame rather than authored, so they stay
+   in step with the frame and do not belong in the palette block above.
+
+   A mark laid over media has no idea what is behind it: a poster, a photograph, a blown-out
+   sky. --instrument-media-plate is the plate a mark stands on, and it is opaque enough that
+   --instrument-text-on-dark-primary clears 4.5:1 over *anything* -- 7.7:1 against pure white,
+   which is the worst any sRGB media can be. Measured, not derived: scripts/audit-media-scrim.mjs
+   renders every site over a photograph, a real thumbnail and white, in both themes, and reads
+   each mark against the pixels it actually lands on. The hand-picked opacities this replaced
+   ran 50%-82%, and at 55% the calendar poster's format badge measured 4.05:1 over white.
+
+   --instrument-media-veil is the other role: a full-frame dimmer behind a modal. It carries no
+   ink of its own, so it guarantees nothing and stays lighter -- its job is to let the media
+   still read through. Keep the two apart: making the veil darker to satisfy a label would dim
+   every viewer, and lightening the plate to suit a backdrop would break the guarantee. The
+   app-chrome scrim is a third thing again and stays where it is, in instrument.css. */
 :root {
+  --instrument-media-plate: color-mix(in srgb, var(--instrument-media-frame) 72%, transparent);
+  --instrument-media-veil: color-mix(in srgb, var(--instrument-media-frame) 68%, transparent);
+
   --canvas: var(--instrument-legacy-canvas);
   --sunken: var(--instrument-legacy-sunken);
   --panel: color-mix(in srgb, var(--instrument-widget-dark-raised) 72%, transparent);

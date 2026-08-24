@@ -155,8 +155,8 @@ function SharedArtifactCard({ artifact, selected, workspaceId, rootEpoch, resolv
         <span title={referencedAs(artifact)}>{artifact.referencedAs.length > 0 ? artifact.referencedAs[0] : "REFERENCED AS —"}</span>
         <span title={availabilityReason(artifact.canonicalStatus)}>STATUS UNAVAILABLE</span>
       </div>
-      <span className="pointer-events-none absolute bottom-2 left-2 z-3 h-5 rounded-chip bg-frame/62 px-1.75 py-1 font-code type-mono-sm text-on-instrument-muted">{artifact.mime?.split("/").at(-1)?.toLocaleUpperCase() ?? artifact.kind.toLocaleUpperCase()}</span>
-      <button className="absolute right-2 bottom-2 z-4 inline-flex h-6 items-center gap-1.25 rounded-control bg-frame/68 px-2 type-mono-md text-on-instrument-muted transition-colors duration-normal ease-instrument motion-reduce:transition-none motion-reduce:duration-0 hover:bg-frame/82 hover:text-on-instrument focus-visible:outline-focus-on-instrument [&_svg]:size-2.75" type="button" aria-label={`Preview ${artifact.slug}`} onClick={(event) => onViewer(event.currentTarget)}><Maximize2 aria-hidden="true" />Preview</button>
+      <span className="pointer-events-none absolute bottom-2 left-2 z-3 h-5 rounded-chip bg-media-plate px-1.75 py-1 font-code type-mono-sm text-on-instrument">{artifact.mime?.split("/").at(-1)?.toLocaleUpperCase() ?? artifact.kind.toLocaleUpperCase()}</span>
+      <button className="absolute right-2 bottom-2 z-4 inline-flex h-6 items-center gap-1.25 rounded-control bg-media-plate px-2 type-mono-md text-on-instrument transition-colors duration-normal ease-instrument motion-reduce:transition-none motion-reduce:duration-0 hover:bg-frame focus-visible:outline-focus-on-instrument [&_svg]:size-2.75" type="button" aria-label={`Preview ${artifact.slug}`} onClick={(event) => onViewer(event.currentTarget)}><Maximize2 aria-hidden="true" />Preview</button>
     </div>
     <ArtifactIdentity artifact={artifact} selected={selected} onSelect={onSelect} onViewer={onViewer} />
     <small className="mt-0.75 ml-3.5 block truncate px-1 pb-1 font-code type-meta leading-4 text-on-instrument-muted">{artifactFacts(artifact)}</small>

@@ -10,3 +10,6 @@ native/RalphyMedia/.build/
 .superpowers/brainstorm/.last-*
 .superpowers/brainstorm/*/state/
 .superpowers/sdd/nothing-instrument/
+
+# Captures from `bun run audit:media:scrim` when SCRIM_AUDIT_SHOTS=1.
+.scrim-audit/

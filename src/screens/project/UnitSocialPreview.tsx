@@ -68,9 +68,9 @@ function Carousel({ media }: Pick<SocialPreviewProps, "media">) {
       {media.length === 0 && <div className={EMPTY}>No media in this revision.</div>}
     </div>
     {media.length > 1 && <>
-      <button className="absolute left-2 top-1/2 z-3 grid size-6.5 -translate-y-1/2 place-items-center rounded-full bg-frame/50 text-on-instrument [&_svg]:size-3.75" type="button" aria-label="Previous slide" onClick={() => move(-1)}><ChevronLeft /></button>
-      <button className="absolute right-2 top-1/2 z-3 grid size-6.5 -translate-y-1/2 place-items-center rounded-full bg-frame/50 text-on-instrument [&_svg]:size-3.75" type="button" aria-label="Next slide" onClick={() => move(1)}><ChevronRight /></button>
-      <span className="unit-stage-slide-count absolute right-2 top-2 z-3 h-5 rounded-control bg-frame/60 px-2 font-code type-meta leading-5 text-on-instrument">{index + 1} / {media.length}</span>
+      <button className="absolute left-2 top-1/2 z-3 grid size-6.5 -translate-y-1/2 place-items-center rounded-full bg-media-plate text-on-instrument [&_svg]:size-3.75" type="button" aria-label="Previous slide" onClick={() => move(-1)}><ChevronLeft /></button>
+      <button className="absolute right-2 top-1/2 z-3 grid size-6.5 -translate-y-1/2 place-items-center rounded-full bg-media-plate text-on-instrument [&_svg]:size-3.75" type="button" aria-label="Next slide" onClick={() => move(1)}><ChevronRight /></button>
+      <span className="unit-stage-slide-count absolute right-2 top-2 z-3 h-5 rounded-control bg-media-plate px-2 font-code type-meta leading-5 text-on-instrument">{index + 1} / {media.length}</span>
       <span className="unit-stage-dots absolute bottom-2 left-1/2 z-3 flex -translate-x-1/2 gap-1" aria-hidden="true">{media.map((item, itemIndex) => <i className={`size-1.5 rounded-full ${itemIndex === index ? "is-active bg-on-instrument" : "bg-on-instrument/32"}`} key={item.id} />)}</span>
     </>}
   </div>;
@@ -119,7 +119,7 @@ function VerticalShell({ platform, slug, caption, media, guides }: SocialPreview
       {tiktok || reels ? <span className="unit-social-audio flex items-center gap-1 type-xs [&_svg]:size-2.75"><Music2 /> Original audio · Ralphy</span> : null}
     </footer>
     {!reels && <span className="unit-social-progress absolute inset-x-0 bottom-0 z-5 h-0.5 bg-on-instrument/22" aria-hidden="true"><i className="block h-full w-social-progress bg-on-instrument/85" /></span>}
-    {guides && <span className="unit-safe-area pointer-events-none absolute bottom-safe-bottom left-safe-x right-safe-x top-safe-top z-6 rounded-cell outline-1 outline-dashed outline-on-instrument/32" aria-hidden="true"><em className="absolute -top-2 left-2.5 bg-frame/50 px-1 py-0.5 font-code type-mono-xs not-italic tracking-caps text-on-instrument/72">SAFE AREA</em></span>}
+    {guides && <span className="unit-safe-area pointer-events-none absolute bottom-safe-bottom left-safe-x right-safe-x top-safe-top z-6 rounded-cell outline-1 outline-dashed outline-on-instrument/32" aria-hidden="true"><em className="absolute -top-2 left-2.5 bg-media-plate px-1 py-0.5 font-code type-mono-xs not-italic tracking-caps text-on-instrument/72">SAFE AREA</em></span>}
   </article>;
 }
 
@@ -143,13 +143,13 @@ function XPost({ slug, caption, media }: SocialPreviewProps) {
 
 function YouTubePlayer({ slug, media }: SocialPreviewProps) {
   return <article className={`unit-social-preview is-youtube-player ${FRAME} grid h-auto w-social-player grid-rows-(--project-player-rows) rounded-widget`} aria-label="youtube preview">
-    <div className="unit-social-media relative aspect-video h-auto min-h-0 overflow-hidden [&>*]:size-full [&>*]:min-h-0"><FirstMedia media={media} /><Play className="unit-youtube-play absolute left-1/2 top-1/2 size-14.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-frame/50 p-4.5" /></div>
+    <div className="unit-social-media relative aspect-video h-auto min-h-0 overflow-hidden [&>*]:size-full [&>*]:min-h-0"><FirstMedia media={media} /><Play className="unit-youtube-play absolute left-1/2 top-1/2 size-14.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-media-plate p-4.5" /></div>
     <footer className="grid grid-cols-(--project-row-columns) gap-1.25 p-2.5 [&_svg]:size-3"><strong className="col-span-full type-md">{slug}</strong><span className="flex items-center gap-1 font-code type-meta text-on-instrument-muted">Ralphy · 128K subscribers</span><span className="flex items-center gap-1 font-code type-meta text-on-instrument-muted"><ThumbsUp /> 12K　<Share2 /> Share</span></footer>
   </article>;
 }
 
 function CleanPreview({ media }: Pick<SocialPreviewProps, "media">) {
-  return <article className={`unit-clean-preview ${FRAME}`} aria-label="Clean media preview"><FirstMedia media={media} /><span className="absolute bottom-2.5 right-2.5 rounded-control bg-frame/50 px-1.75 py-1 font-code type-mono-md text-on-instrument">00:24</span></article>;
+  return <article className={`unit-clean-preview ${FRAME}`} aria-label="Clean media preview"><FirstMedia media={media} /><span className="absolute bottom-2.5 right-2.5 rounded-control bg-media-plate px-1.75 py-1 font-code type-mono-md text-on-instrument">00:24</span></article>;
 }
 
 function GenericPreview({ media, slug }: SocialPreviewProps) {

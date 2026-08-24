@@ -169,6 +169,14 @@ describe("instrument profile control", () => {
       // family -- a plate that inherited its ink there would paint near-white text on a light
       // widget in the light theme.
       expect(source).toMatch(/rounded-menu bg-surface p-2 text-ink/);
+      // The other half of the flat-widget rule, which `design-system.test.ts` used to assert here
+      // by proxy through the retired `ProfileMenu`: a menu is one flat surface, so it carries no
+      // border and no shadow. That test keeps the `bg-instrument` half for the three menus that
+      // are black widgets; this menu takes the theme surface instead, so its flatness is pinned
+      // on the element that actually renders it.
+      const menuClasses = /className="instrument-profile-menu ([^"]*)"/.exec(source)?.[1] ?? "";
+      expect(menuClasses).toContain("bg-surface");
+      expect(menuClasses).not.toMatch(/\b(?:border-|shadow-)/);
       expect(source).toMatch(/const ON_THEME = "text-ink hover:bg-surface-hover focus-visible:outline-ink"/);
       // The sidebar footer's pill stays a black widget in both themes, so it takes the on-dark
       // family and the on-instrument ring: the theme ink is #141414 on #141414 in the light theme.

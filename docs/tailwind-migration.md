@@ -154,6 +154,22 @@ those spaces or produced by `color-mix()`, so a parser reading only `rgb()` skip
 silently; and marks inside `[aria-hidden="true"]` are decorative by design — the project
 identity glyph is the hue of its own plate on purpose.
 
+**A translucent plate guarantees nothing.** A label over media used to sit on
+`--instrument-media-frame` at a hand-picked opacity — eleven sites between 50% and 82% — so what
+the ink actually had to beat was whatever image happened to be behind it. At 55% the calendar
+poster's format badge measured 4.05:1 against white. There are now two role keys and the
+difference between them is the whole point: `bg-media-plate` backs a mark and is opaque enough
+that `--instrument-text-on-dark-primary` clears 4.5:1 over *anything* (7.7:1 against white, the
+brightest sRGB can be), while `bg-media-veil` only dims a frame behind a viewer, carries no ink,
+and stays lighter. Do not darken the veil to rescue a label, and do not lighten the plate to suit
+one backdrop. The secondary on-dark ink cannot be rescued by either: at #A4A4A0 it needs the
+backdrop under 59/255, which is no longer a scrim, so a label over media takes the primary ink —
+the same finding as the fourteen settings labels reading through the decorative ink.
+`bun run audit:media:scrim` re-checks every site, in both themes, over a photograph with a
+blown-out sun, a real thumbnail, a tint and pure white. It reads the ink against the pixels the
+mark lands on rather than against the token it names, which is the only way the image cases mean
+anything.
+
 **Fixtures are not coverage.** No document fixture contains a code block, a table, a rule or
 an alert, so the whole block vocabulary of rendered Markdown renders in no route. The revision
 chooser appears only for a multi-revision asset. The review consoles mount only in the right

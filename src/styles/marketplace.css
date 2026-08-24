@@ -32,7 +32,7 @@
    its place in the chooser stack are the only things overridden here. */
 [data-instrument-overlay-backdrop]:has(+ [data-instrument-overlay="target-chooser"]) {
   z-index: var(--z-chooser-backdrop);
-  background: color-mix(in srgb, var(--instrument-media-frame) 64%, transparent);
+  background: var(--instrument-media-veil);
 }
 [data-instrument-overlay="target-chooser"] {
   position: fixed;

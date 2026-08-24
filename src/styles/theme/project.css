@@ -11,9 +11,7 @@
 :root {
   /* The documents split: a bounded master list beside a wider reading pane. */
   --project-documents-columns: minmax(240px, .72fr) minmax(360px, 1.28fr);
-  /* The compositions split: the master column is bounded on both sides. */
-  --project-composition-columns: minmax(280px, 340px) minmax(0, 1fr);
-  /* Either split stacked: the master keeps a bounded first row and the detail takes the rest. */
+  /* That split stacked: the master keeps a bounded first row and the detail takes the rest. */
   --project-split-rows: minmax(140px, .4fr) minmax(0, 1fr);
   /* The unit grid: the tile minimum is the only number, so the column count is the grid's own
      decision and the chat rail taking width needs no breakpoint. */
@@ -36,13 +34,7 @@
 
   /* Label/value pairs: the label column is bounded, the value takes the rest. */
   --project-production-columns: 130px minmax(0, 1fr);
-  --project-technical-columns: minmax(110px, .3fr) minmax(0, 1fr);
   --project-evidence-columns: minmax(100px, .35fr) 1fr;
-
-  /* The project overview: a 12-column desk band on a wide content row, and the ready-unit
-     card inside it. */
-  --project-dashboard-columns: repeat(12, minmax(0, 1fr));
-  --project-overview-unit-columns: 58px minmax(0, 1fr);
 
   /* Social preview chrome: each platform frame is a fixed stack of rows. */
   --project-instagram-rows: 46px minmax(0, 1fr) 36px auto;
@@ -78,11 +70,8 @@
   --spacing-grid-density: 92px;             /* the grid-density slider */
   --spacing-mock-review: min(460px, calc(100vw - 32px)); /* the UX-lab review dialog */
   --spacing-units-empty: 320px;             /* the filtered empty state holds the grid's height */
-  --spacing-revision-rail: 92px;            /* the revision rail keeps its height while it loads */
   --spacing-revision-card: 330px;           /* a revision card in the unit viewer */
   --spacing-revision-card-min: 250px;
-  --spacing-unit-preview: clamp(260px, 46vh, 540px); /* the output preview follows the window */
-  --spacing-unit-preview-empty: 160px;      /* ...and collapses when there is nothing to show */
   --spacing-unit-viewer-width: min(1280px, 90vw);  /* the viewer never touches the window edge */
   --spacing-unit-viewer-height: min(880px, 90vh);
   --spacing-iphone: min(100%, 316px);       /* the phone mockup and the transport under it */
@@ -140,7 +129,5 @@
      `unit-viewer` is the portalled viewer, declared on its own surface. */
   --container-project-split: 760px;      /* the documents split becomes one column */
   --container-project-stack: 719px;      /* ...and the master becomes a bounded first row */
-  --container-project-metrics: 720px;    /* the overview metric band goes to six columns */
-  --container-project-dashboard: 1100px; /* ...and the overview becomes a 12-column desk band */
   --container-project-viewer: 820px;     /* the unit viewer stacks its stage over its metadata */
 }

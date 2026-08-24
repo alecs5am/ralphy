@@ -55,11 +55,17 @@ export async function readEvidenceBundle(path = EVIDENCE_MANIFEST) {
   return validateManifest(JSON.parse(await readFile(path, "utf8")));
 }
 
+// Every record carries its own identity, so re-recording one replaces it rather than duplicating it: audits stay re-runnable.
+function upsert(items, key, value) {
+  const index = items.findIndex((item) => item[key] === value[key]);
+  return index < 0 ? [...items, value] : items.with(index, value);
+}
+
 function applyUpdate(manifest, update) {
   if (update.type === "set-package") return { ...manifest, packages: { ...manifest.packages, [update.mode]: update.value } };
-  if (update.type === "append-launch") return { ...manifest, launches: [...manifest.launches, update.value] };
-  if (update.type === "append-capture") return { ...manifest, captures: [...manifest.captures, update.value] };
-  if (update.type === "append-journey") return { ...manifest, journeys: [...manifest.journeys, update.value] };
+  if (update.type === "record-launch") return { ...manifest, launches: upsert(manifest.launches, "id", update.value) };
+  if (update.type === "record-capture") return { ...manifest, captures: upsert(manifest.captures, "path", update.value) };
+  if (update.type === "record-journey") return { ...manifest, journeys: upsert(manifest.journeys, "id", update.value) };
   if (update.type === "set-reviewers") return { ...manifest, reviewers: { ...manifest.reviewers, ...update.value } };
   if (update.type === "advance-phase") {
     if (manifest.phase !== update.from) throw new Error(`Evidence phase is ${manifest.phase}, not ${update.from}`);

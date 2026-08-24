@@ -148,12 +148,12 @@ if (import.meta.main) {
   manifest = await updateEvidenceBundle(EVIDENCE_MANIFEST, manifest.revision, { type: "set-package", mode, value: { path: appPath, verified: true, core } });
   const { outcome, record, path: dbRecord } = await withDatabaseFingerprint(`${mode}-instrument-final`, runOneHiddenInstance);
   manifest = await readEvidenceBundle();
-  manifest = await updateEvidenceBundle(EVIDENCE_MANIFEST, manifest.revision, { type: "append-launch", value: { id: `${mode}-instrument-final`, mode, dbRecord, shmChanged: record.comparison.shmChanged, maxActiveInstances: 1, activeInstancesAfterRun: 0, result: outcome.semantics } });
+  manifest = await updateEvidenceBundle(EVIDENCE_MANIFEST, manifest.revision, { type: "record-launch", value: { id: `${mode}-instrument-final`, mode, dbRecord, shmChanged: record.comparison.shmChanged, maxActiveInstances: 1, activeInstancesAfterRun: 0, result: outcome.semantics } });
   for (const capture of outcome.captures) {
-    manifest = await updateEvidenceBundle(EVIDENCE_MANIFEST, manifest.revision, { type: "append-capture", value: capture });
+    manifest = await updateEvidenceBundle(EVIDENCE_MANIFEST, manifest.revision, { type: "record-capture", value: capture });
   }
   for (const [id, value] of Object.entries({ keyboard: outcome.keyboard, "live-region": { count: outcome.semantics.liveRegions }, "reduced-motion": { query: outcome.semantics.reducedMotion }, "system-theme": { palettes: ["system", "dark", "light"] } })) {
-    manifest = await updateEvidenceBundle(EVIDENCE_MANIFEST, manifest.revision, { type: "append-journey", value: { id: `${mode}-${id}`, mode, value } });
+    manifest = await updateEvidenceBundle(EVIDENCE_MANIFEST, manifest.revision, { type: "record-journey", value: { id: `${mode}-${id}`, mode, value } });
   }
   console.log(`INSTRUMENT_ELECTRON_AUDIT_OK ${mode} 1`);
 }

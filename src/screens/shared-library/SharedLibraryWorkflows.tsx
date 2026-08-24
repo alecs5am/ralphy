@@ -78,7 +78,7 @@ function WorkflowFrame({ kind, title, description, returnFocus, onClose, steps, 
 
   return <Dialog.Root open onOpenChange={(open) => { if (!open) close(); }}>
     <Dialog.Portal container={typeof document === "undefined" ? undefined : document.body}>
-      <Dialog.Overlay className="shared-workflow-overlay fixed inset-0 z-viewer-backdrop bg-frame/78 animate-shared-workflow-fade motion-reduce:animate-none" />
+      <Dialog.Overlay className="shared-workflow-overlay fixed inset-0 z-viewer-backdrop bg-media-veil animate-shared-workflow-fade motion-reduce:animate-none" />
       <Dialog.Content data-instrument-overlay="shared-workflow"
         ref={surface}
         tabIndex={-1}

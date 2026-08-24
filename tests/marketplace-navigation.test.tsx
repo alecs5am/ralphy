@@ -25,7 +25,6 @@ vi.mock("motion/react", () => {
   const Pass = ({ children }: { children: ReactNode }) => <>{children}</>;
   return { AnimatePresence: Pass, LayoutGroup: Pass, MotionConfig: Pass, motion: { div: Div, section: Section, aside: Aside, header: Header } };
 });
-vi.mock("../src/components/ProfileMenu", () => ({ ProfileMenu: () => null }));
 vi.mock("../src/components/UtilityPanels", () => ({
   AgentChatPanel: () => <aside data-testid="agent-chat">Agent chat</aside>,
   BottomPanel: () => null,

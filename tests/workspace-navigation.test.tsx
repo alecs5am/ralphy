@@ -15,7 +15,6 @@ import { bridge } from "../src/lib/ipc";
 import { readWorkbenchPreferences, WORKSPACE_PAGES } from "../src/state/workbench";
 import { createReactHost } from "./react-host";
 
-vi.mock("../src/components/ProfileMenu", () => ({ ProfileMenu: () => null }));
 
 const projects: ProjectSummary[] = [
   {

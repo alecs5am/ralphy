@@ -38,7 +38,6 @@ const documentsActivitySource = ["src/screens/project/ActivityTimeline.tsx", "sr
 const tokenStyles = readFileSync(join(process.cwd(), "src/styles/tokens.css"), "utf8");
 const settingsScreenSource = readFileSync(join(process.cwd(), "src/screens/SettingsScreen.tsx"), "utf8");
 const settingsRows = readFileSync(join(process.cwd(), "src/screens/settings/rows.tsx"), "utf8");
-const profileMenuSource = readFileSync(join(process.cwd(), "src/components/ProfileMenu.tsx"), "utf8");
 const settingsSurfaceSource = [
   "src/screens/SettingsScreen.tsx",
   ...readdirSync(join(process.cwd(), "src/screens/settings")).map((file) => `src/screens/settings/${file}`),
@@ -88,7 +87,6 @@ const projectSurfaceSource = [
 const documentsPanelSource = readFileSync(join(process.cwd(), "src/screens/project/DocumentsPanel.tsx"), "utf8");
 const projectScreenSource = readFileSync(join(process.cwd(), "src/screens/ProjectScreen.tsx"), "utf8");
 const calendarScreenSource = readFileSync(join(process.cwd(), "src/screens/CalendarScreen.tsx"), "utf8");
-const compositionsPanelSource = readFileSync(join(process.cwd(), "src/screens/project/CompositionsPanel.tsx"), "utf8");
 const workspaceOverviewSurfaceSource = [
   "src/screens/WorkspaceScreen.tsx",
   ...readdirSync(join(process.cwd(), "src/screens/workspace")).map((file) => `src/screens/workspace/${file}`),
@@ -831,12 +829,9 @@ describe("design system contract", () => {
   });
 
   test("uses one calm responsive master detail language", () => {
-    // One gap, one cell radius and one sunken surface across both splits, stated on the panes.
+    // One gap, one cell radius and one sunken surface on the split's panes.
     expect(documentsPanelSource).toMatch(/documents-workbench[^"]*gap-2/);
     expect(documentsPanelSource).toMatch(/documents-detail[^`]*rounded-cell bg-surface-sunken/);
-    expect(compositionsPanelSource).toMatch(/composition-detail[^`]*rounded-cell bg-surface-sunken/);
-    expect(compositionsPanelSource).toMatch(/has-\[\.preview-empty\]:h-unit-preview-empty/);
-    expect(projectTheme).toMatch(/--spacing-unit-preview-empty:\s*160px/);
     expect(documentsPanelSource).not.toMatch(/documents-detail[^"`]*\bborder-/);
   });
 
@@ -1072,15 +1067,16 @@ describe("design system contract", () => {
     expect(trigger.split(" ")).toContain("text-on-instrument-muted");
     expect(selectMenuSource).not.toMatch(/\bborder-\d/);
     expect(selectMenuSource).toContain('tone === "instrument"');
-    // Settings own their surfaces in the markup now, so the same three decisions are asserted
-    // where they are actually declared: the plate is the light widget, the toggle track is the
-    // sunken surface, and a menu is one flat dark widget with no border.
+    // Settings own their surfaces in the markup now, so both decisions are asserted where they
+    // are actually declared: the plate is the light widget and the toggle track is the sunken
+    // surface. The flat-dark-widget menu decision is asserted above, once per menu that actually
+    // takes it -- the asset context menu, the agent rail's popover and the instrument select
+    // trigger. The profile menu is deliberately not one of them: it portals to `document.body`,
+    // outside `.app-mode-work`, and stands on the theme surface instead, which is why its own
+    // surface pair is pinned in `instrument-profile.test.tsx` rather than here.
     const plate = /export const PLATE = "([^"]*)"/.exec(settingsRows)?.[1] ?? "";
-    const menu = /const MENU = "([^"]*)"/.exec(profileMenuSource)?.[1] ?? "";
     expect(plate.split(" ")).toContain("bg-surface");
     expect(settingsRows).toContain("justify-start bg-surface-sunken");
-    expect(menu.split(" ")).toContain("bg-instrument");
-    expect(menu).not.toMatch(/\bborder\b/);
     // `settings.css` is gone. Its one rule suppressed the landing ring on the settings surface,
     // and the `!important` dialog rule it was written to beat no longer exists -- measured in the
     // running renderer, what draws that ring today is `reset.css`'s `:focus-visible` (the overlay
@@ -1281,9 +1277,13 @@ describe("design system contract", () => {
       // its own `gap-*` and its own flex behaviour, and a layered important utility beats an
       // unlayered declaration. `display: flex` is the one declaration that had to move.
       ["workspace-header-actions", "flex", ["src/screens/WorkspaceProjectsScreen.tsx", "src/screens/workspace/WorkspaceOverviewHeader.tsx"]],
-      ["sidebar-profile-name", "truncate", ["src/components/ProfileMenu.tsx"]],
-      ["mono-number", "font-code", ["src/screens/project/OverviewPanel.tsx"]],
     ];
+    // `sidebar-profile-name` is absent from that list on purpose: its one renderer was
+    // `ProfileMenu`, and the sidebar footer mounts `InstrumentProfileControl` instead, whose
+    // label states its own truncation set. The class has no live renderer left to pin, so it is
+    // pinned as gone rather than held as a name no markup answers to.
+    expect(existsSync(join(process.cwd(), "src/components/ProfileMenu.tsx"))).toBe(false);
+    expect(styles).not.toContain("sidebar-profile-name");
     for (const [element, witness, files] of renderers) {
       for (const file of files) {
         const source = readFileSync(join(process.cwd(), file), "utf8");
@@ -1393,13 +1393,13 @@ describe("design system contract", () => {
     // Both chunks are gone, and so is every holding file: `src/styles/workbench/` no longer
     // exists. The two selectors this test used to pin as held each turned out to have exactly the
     // renderers a grep found -- `.project-region` is App.tsx's loading fallback plus the screen it
-    // stands in for, `.status-dot` is drawn by four -- so both moved onto every one of them.
+    // stands in for, `.status-dot` is drawn by three -- so both moved onto every one of them.
     expect(existsSync(join(process.cwd(), "src/styles/workbench"))).toBe(false);
     expect(existsSync(join(process.cwd(), "src/styles/workbench.css"))).toBe(false);
     for (const file of ["src/App.tsx", "src/screens/ProjectScreen.tsx"]) {
       expect(readFileSync(join(process.cwd(), file), "utf8")).toMatch(/project-region[^"`]*\bbg-desk\b/);
     }
-    for (const file of ["src/screens/LibraryScreen.tsx", "src/screens/WorkspaceProjectsScreen.tsx", "src/screens/project/OverviewPanel.tsx", "src/instrument/primitives.tsx"]) {
+    for (const file of ["src/screens/LibraryScreen.tsx", "src/screens/WorkspaceProjectsScreen.tsx", "src/instrument/primitives.tsx"]) {
       expect(readFileSync(join(process.cwd(), file), "utf8")).toMatch(/status-dot[^"`]*\bsize-/);
     }
     // The four rules the holding files still shadowed for this area are resolved too: the tab
@@ -1430,7 +1430,6 @@ describe("design system contract", () => {
       "src/screens/shared-library/SharedArtifactViewer.tsx",
       "src/screens/shared-library/SharedArtifactPreview.tsx",
       "src/screens/project/UnitSocialPreview.tsx",
-      "src/screens/project/ArtifactPreview.tsx",
       "src/components/VirtualAssetGrid.tsx",
     ]) expect(readFileSync(join(process.cwd(), file), "utf8")).toMatch(/tone="(?:instrument|surface)"/);
     // The asset modal is fixed to the window, so its gutter is the one length in the area with no
@@ -1576,10 +1575,13 @@ describe("design system contract", () => {
       join(process.cwd(), "src/screens/WorkspaceProjectsScreen.tsx"),
       "utf8",
     );
-    const profile = readFileSync(
-      join(process.cwd(), "src/components/ProfileMenu.tsx"),
-      "utf8",
-    );
+    // The footer's identity is the sidebar's own markup plus the control it mounts, since
+    // `ProfileMenu` is gone: both halves have to decline the raw library label, not just one.
+    const profile = [
+      "src/components/ContextSidebar.tsx",
+      "src/instrument/InstrumentProfileControl.tsx",
+      "src/components/ProfileAvatar.tsx",
+    ].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
 
     expect(/const HERO = "([^"]*)"/.exec(picker)?.[1] ?? "").toContain("workspace-hero");
     expect(picker).toContain("workspace-hero-field-hi");
@@ -1740,7 +1742,11 @@ describe("design system contract", () => {
   test("opens app-level settings from a custom profile popover", () => {
     const app = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
     const profileMenu = readFileSync(
-      join(process.cwd(), "src/components/ProfileMenu.tsx"),
+      join(process.cwd(), "src/instrument/InstrumentProfileControl.tsx"),
+      "utf8",
+    );
+    const overlayRegistry = readFileSync(
+      join(process.cwd(), "src/instrument/overlay-registry.tsx"),
       "utf8",
     );
     const preferences = readFileSync(
@@ -1752,10 +1758,18 @@ describe("design system contract", () => {
       "utf8",
     );
 
-    expect(profileMenu).toContain("createPortal");
-    expect(profileMenu).toContain('role="menu"');
+    // The popover is still custom, but the portal and the menu role are the overlay registry's
+    // now rather than the control's own: `ProfileMenu` called `createPortal` and wrote
+    // `role="menu"` inline, and the control that replaced it registers `profile-menu` as a menu
+    // kind and lets the registry portal it and stamp the role. Both halves are asserted so a
+    // registry that stopped portalling, or a kind that drifted off "menu", still fails here.
+    expect(profileMenu).toContain('id="profile-menu"');
+    expect(profileMenu).toContain("<InstrumentOverlay");
     expect(profileMenu).toContain("Settings");
     expect(profileMenu).toContain("closeAndRestoreFocus");
+    expect(overlayRegistry).toContain("createPortal(content, document.body)");
+    expect(overlayRegistry).toMatch(/"profile-menu":\s*\{\s*kind:\s*"menu"\s*\}/);
+    expect(overlayRegistry).toContain("role={overlayRoles[INSTRUMENT_OVERLAYS[id].kind]}");
     expect(app).toContain('id === "app.settings"');
     expect(app).toContain("<SettingsScreen");
     expect(app).toContain("onBack={() => setSettingsVisible(false)}");

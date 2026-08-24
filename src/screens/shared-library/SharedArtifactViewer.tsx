@@ -16,7 +16,7 @@ const ACTION = "inline-flex min-h-7 items-center justify-center gap-1.5 rounded-
 /* The selected revision is the disabled one, so the dimming lives on the other branch: a pill
    cannot be both the current choice and greyed out. */
 const TRANSPORT_BUTTON = "inline-flex min-h-6 items-center justify-center gap-1.5 rounded-control px-2 font-code type-mono-sm transition-colors duration-normal ease-instrument motion-reduce:transition-none motion-reduce:duration-0 disabled:cursor-not-allowed";
-const STEP = "absolute top-1/2 z-sticky grid size-8.5 -mt-4.25 place-items-center rounded-full bg-frame/56 text-on-instrument disabled:cursor-not-allowed disabled:opacity-28 focus-visible:outline-focus-on-instrument [&_svg]:size-3.75";
+const STEP = "absolute top-1/2 z-sticky grid size-8.5 -mt-4.25 place-items-center rounded-full bg-media-plate text-on-instrument disabled:cursor-not-allowed disabled:opacity-28 focus-visible:outline-focus-on-instrument [&_svg]:size-3.75";
 const ALERT = "shared-viewer-alert flex flex-none items-center gap-2 rounded-field bg-surface-sunken px-2.5 py-2 type-mono-md text-ink [&>span]:min-w-0 [&>span]:flex-1";
 const STATE = "flex max-w-shared-notice flex-col items-center justify-center gap-2 p-6 text-center text-muted [&>svg]:size-7 [&>svg]:text-muted";
 const STATE_TITLE = "type-md font-normal text-ink";
@@ -149,7 +149,7 @@ function ViewerStage({ artifact, preview, kind, onPreviewError }: {
   const name = `Slug identity: ${artifact.slug}`;
   if (kind === "image" || kind === "vector") return <div className={`absolute inset-0 grid place-items-center [&>.image-viewport]:size-full ${kind === "vector" ? "shared-viewer-vector-stage bg-ghost" : "shared-viewer-image-stage"}`}>
     <ImageViewport src={preview.url} name={name} tone="instrument" onError={onPreviewError} />
-    <span className="pointer-events-none absolute bottom-3 left-3 h-5.5 rounded-chip bg-frame/62 px-2 py-1.25 font-code type-mono-sm tracking-label text-on-instrument-muted">FIT</span>
+    <span className="pointer-events-none absolute bottom-3 left-3 h-5.5 rounded-chip bg-media-plate px-2 py-1.25 font-code type-mono-sm tracking-label text-on-instrument">FIT</span>
   </div>;
   /* The stage is a light widget (`bg-surface-sunken`). A picture and a video bring their own
      black media frame, so their chrome stays on-dark; the waveform paints no plate at all, and

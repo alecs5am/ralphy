@@ -73,8 +73,6 @@
   .marketplace-scroll,
   .documents-master,
   .documents-detail,
-  .composition-master,
-  .composition-detail,
   .units-grid-scroll,
   .activity-scroll,
   .memory-rulebook,
@@ -90,7 +88,6 @@
 
 .instrument-desk-scroll :is(
   .documents-workbench,
-  .composition-workbench,
   .units-workbench,
   .activity-log
 ) { height: auto !important; }

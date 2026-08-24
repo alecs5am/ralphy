@@ -46,4 +46,3 @@ export const PROJECT_LOCAL_ERROR_ON_INSTRUMENT = `project-local-error ${STATE_BO
 /* The media route's inline error band: the same plate without the 96px floor, which those two
    rows already decline with a `min-h-9` of their own. */
 export const PROJECT_LOCAL_ERROR_ROW = `project-local-error ${STATE_BOX} px-2 py-6 ${STATE_COLUMN} ${STATE_INK}`;
-export const PREVIEW_UNAVAILABLE = `preview-unavailable ${STATE_BOX} ${STATE_PAD} ${STATE_COLUMN} ${STATE_INK}`;
