@@ -20,6 +20,10 @@
   --workspace-outcome-columns: repeat(auto-fit, minmax(190px, 1fr));
   --workspace-insight-columns: repeat(auto-fit, minmax(232px, 1fr));
 
+  /* A Unit's row on the workspace's Units page: the glyph, the slug, its format, its lifecycle,
+     the project that owns it, and when it last moved. */
+  --workspace-unit-columns: 15px minmax(0, 1fr) auto auto minmax(0, 0.6fr) auto;
+
   /* The two row shapes this route repeats. A row is copy plus one action, or a glyph plus
      copy; the three-column rows fall back to the glyph form on a narrow content row. */
   --workspace-row-columns: minmax(0, 1fr) auto;

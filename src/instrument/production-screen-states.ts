@@ -10,8 +10,8 @@ import { sharedLibraryInstrumentStates } from "../screens/SharedLibraryScreen";
 import { workspaceOverviewInstrumentStates } from "../screens/WorkspaceScreen";
 import {
   workspaceProjectsInstrumentStates,
-  workspaceUnitsInstrumentStates,
 } from "../screens/WorkspaceProjectsScreen";
+import { workspaceUnitsInstrumentStates } from "../screens/WorkspaceUnitsScreen";
 import { activityInstrumentStates } from "../screens/project/ActivityTimeline";
 import { documentsInstrumentStates } from "../screens/project/DocumentsPanel";
 import { mediaInstrumentStates } from "../screens/project/MediaPanel";

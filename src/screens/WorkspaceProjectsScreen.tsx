@@ -8,21 +8,14 @@ import type { ProjectSummary } from "../lib/ipc";
 import { bridge } from "../lib/ipc";
 import { projectGlyphVars } from "../lib/project-glyph";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
-import { sortProjects, WORKSPACE_PAGE_LABELS, type WorkspacePage } from "../state/workbench";
-import { EMPTY_SECTION, STATE_BOX, STATE_PAD } from "./route-chrome";
+import { sortProjects } from "../state/workbench";
+import { EMPTY_SECTION } from "./route-chrome";
 
 export const workspaceProjectsInstrumentStates = defineInstrumentScreenStates({
   routeKey: "workspace.projects",
   states: ["ready", "empty"],
   rootMarker: "workspace-projects",
   landmarks: ["Projects", "All projects"],
-} as const);
-
-export const workspaceUnitsInstrumentStates = defineInstrumentScreenStates({
-  routeKey: "workspace.units",
-  states: ["unavailable"],
-  rootMarker: "workspace-units",
-  landmarks: ["Units", "Units is not wired yet."],
 } as const);
 
 interface WorkspaceProjectsScreenProps {
@@ -228,14 +221,3 @@ export function WorkspaceProjectsScreen({
   );
 }
 
-export function WorkspacePagePlaceholder({ workspaceName, page }: { workspaceName: string; page: Exclude<WorkspacePage, "projects"> }) {
-  if (page !== "units") throw new Error(`WorkspacePagePlaceholder cannot render workspace.${page}`);
-  return (
-    <InstrumentScreenRoot descriptor={workspaceUnitsInstrumentStates} state="unavailable">
-    <main className="main-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-auto bg-transparent p-2 pb-6 type-base text-ink">
-      <div className="screen-header m-0 flex min-h-18 w-full max-w-none items-start justify-between gap-6 rounded-panel bg-instrument px-5 py-4 text-on-instrument"><div><div className="screen-kicker mb-1 type-xs uppercase tracking-wide text-on-instrument-muted">{workspaceName}</div><h2 className="mt-1 mb-1.25 type-hero font-semibold leading-none tracking-tight text-on-instrument">{WORKSPACE_PAGE_LABELS[page]}</h2><p className="mt-1 max-w-screen-copy type-base text-on-instrument-muted">Workspace tools are ready to be connected to the Core contract.</p></div></div>
-      <section className="content-section m-0 grid min-h-48 w-full min-w-0 max-w-none place-items-center rounded-panel bg-surface p-6"><div className={`empty-section ${STATE_BOX} ${STATE_PAD} max-w-lg text-center type-md text-muted`}>{WORKSPACE_PAGE_LABELS[page]} is not wired yet.</div></section>
-    </main>
-    </InstrumentScreenRoot>
-  );
-}

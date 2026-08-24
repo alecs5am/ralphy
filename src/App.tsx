@@ -24,7 +24,8 @@ import {
 } from "./lib/ipc";
 import { LibraryScreen } from "./screens/LibraryScreen";
 import { WorkspaceScreen } from "./screens/WorkspaceScreen";
-import { WorkspacePagePlaceholder, WorkspaceProjectsScreen } from "./screens/WorkspaceProjectsScreen";
+import { WorkspaceProjectsScreen } from "./screens/WorkspaceProjectsScreen";
+import { WorkspaceUnitsScreen } from "./screens/WorkspaceUnitsScreen";
 import { MigrationRecoveryScreen } from "./screens/MigrationRecoveryScreen";
 import { MemoryScreen } from "./screens/MemoryScreen";
 import { CalendarScreen } from "./screens/CalendarScreen";
@@ -825,8 +826,14 @@ export function App() {
       const project = projects.find((item) => item.projectId === projectId);
       if (project) openProject(project, unitId);
     }} />;
-  } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage !== "projects") {
-    workContent = <WorkspacePagePlaceholder workspaceName={selectedWorkspace.name} page={workspacePage} />;
+  } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "units") {
+    workContent = <WorkspaceUnitsScreen
+      key={`workspace-units:${rootIdentity?.rootEpoch ?? 0}:${selectedWorkspace.id}`}
+      workspaceName={selectedWorkspace.name}
+      projects={projects.filter((project) => project.workspaceId === selectedWorkspace.id)}
+      rootEpoch={rootIdentity?.rootEpoch ?? 0}
+      onOpenUnit={(project, unitId) => openProject(project, unitId)}
+    />;
   } else if (state.route.kind === "project" && selectedProject) {
     workContent = (
       <Suspense

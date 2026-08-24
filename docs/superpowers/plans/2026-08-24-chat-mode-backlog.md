@@ -68,8 +68,10 @@ verification is partial (says which part).
   a project open.
 - [x] **F2 — Dynamic island does not collapse on outside click.** An open island should close when
   the operator clicks away.
-- [ ] **F3 — Workspace `Units` page says "Units not wired yet"** while the workspace has units and
-  they are reachable elsewhere.
+- [x] **F3 — Workspace `Units` page says "Units not wired yet"** while the workspace has units and
+  they are reachable elsewhere. Superseded plan 2026-08-20 Task 3, which specified the
+  unavailable plate as the deliverable: the sidebar counts those Units from the catalogue, so the
+  plate had become a contradiction rather than an honesty.
 
 ## G. Test data
 

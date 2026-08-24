@@ -290,7 +290,9 @@ describe("workspace overview navigation lifecycle", () => {
       expect(focusId).toBe(`workspace-open-unit-unit-1-${scheduledAt}`);
       await act(async () => { openUnit.dispatchEvent(new Event("click", { bubbles: true })); await settle(); });
 
-      expect(mounted.host.container.textContent).toContain("Units is not wired yet");
+      /* The Units page is a real screen now: it fans the workspace's projects out into one list,
+         so what stands here is its own heading rather than the old "not wired yet" plate. */
+      expect(mounted.host.container.textContent).toContain("Every Unit in this workspace");
       expect(mounted.host.container.textContent).toContain("Back to Overview");
       expect(mounted.host.container.textContent).toContain("Product reveal is not present in the current project catalog");
       expect(mounted.host.container.textContent).not.toContain("Unit unit-1");
