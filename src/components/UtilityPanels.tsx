@@ -150,7 +150,7 @@ export function AgentChatPanel({
   workspace: WorkspaceSummary | null;
   project: ProjectSummary | null;
   onClose(): void;
-  onOpenSettings(): void;
+  onOpenSettings(page?: "agents"): void;
 }) {
   const [draft, setDraft] = useState("");
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -462,7 +462,7 @@ function AgentChatMenu({ chat }: { chat: AgentChatController }) {
    mark is the provider's, and a menu that lists every connected provider's models with that mark
    on each row. Picking a model from another provider is a provider switch, which is why the row
    sends both -- and why the reducer starts a new chat when the current one has already run. */
-function AgentModelMenu({ chat, onOpenSettings }: { chat: AgentChatController; onOpenSettings(): void }) {
+function AgentModelMenu({ chat, onOpenSettings }: { chat: AgentChatController; onOpenSettings(page?: "agents"): void }) {
   const menu = useDismissableMenu();
   const [query, setQuery] = useState("");
   const active = chat.activeChat;
@@ -545,9 +545,11 @@ function AgentModelMenu({ chat, onOpenSettings }: { chat: AgentChatController; o
             className={`${MENU_ROW} h-8 gap-2.5 px-2 type-ui`}
             type="button"
             role="menuitem"
+            /* Named, not bare: the row is about harnesses, so it lands on the harness page rather
+               than wherever Settings was last left. */
             onClick={() => {
               menu.setOpen(false);
-              onOpenSettings();
+              onOpenSettings("agents");
             }}
           >
             <SlidersHorizontal size={15} strokeWidth={1.8} className="flex-none" />

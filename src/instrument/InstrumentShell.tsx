@@ -145,6 +145,17 @@ export function useOptionalInstrumentScroll(): InstrumentScrollContextValue | nu
   return useContext(ScrollContext);
 }
 
+/* Whether the floats in this subtree may escape to the shared column. They have to escape while
+   their surface is on screen -- a dock has to hold still while the page under it scrolls, and the
+   column is the box with that geometry -- but the column is shared by both app modes, so a float
+   that escaped unconditionally outlived the surface it belongs to and stood over the other mode.
+   Denied the escape it renders where it was written instead, under its own surface's `hidden`. */
+export function InstrumentFloatHost({ escape, children }: { escape: boolean; children: ReactNode }) {
+  const outer = useContext(ScrollContext);
+  const value = useMemo(() => outer && (escape ? outer : { ...outer, floatHost: null }), [outer, escape]);
+  return value ? <ScrollContext.Provider value={value}>{children}</ScrollContext.Provider> : children;
+}
+
 export function useInstrumentRightRail(): InstrumentRightRailContextValue {
   const value = useContext(RightRailContext);
   if (!value) throw new Error("useInstrumentRightRail must be used inside InstrumentShell");

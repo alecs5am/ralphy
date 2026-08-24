@@ -1699,7 +1699,12 @@ describe("design system contract", () => {
     // unavailable under the desk lens on purpose, so opening a dock the lens closes again would
     // have made the OS-level affordance dead.
     expect(app).toContain("bridge.onToggleRightPanel(onToggle)");
-    expect(app).toContain("onToggle={toggleLens}");
+    /* The chord toggles the panel beside the chat, and only under the chat lens: the chat is the
+       lens, so there is nothing there for a "show me the chat" chord to show, and under the desk
+       lens the chord is silent because the lens pair (⌘1/⌘2) is what changes lens. */
+    expect(app).toContain("onToggle={toggleViewPanel}");
+    expect(app).toContain('setViewPanel((record) => lens === "chat" ? { ...record, open: !record.open } : record)');
+    expect(app).not.toContain("toggleLens");
     expect(app).toContain("useAgentChat");
     expect(app).toContain("<AgentChatPanel");
     expect(app).not.toContain("<RightPanelSummary");

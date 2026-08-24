@@ -14,16 +14,16 @@ verification is partial (says which part).
 
 ## A. Lens and shortcut semantics
 
-- [ ] **A1 — `⌘R` toggles the right panel inside the chat lens.** The chat itself is permanent
+- [x] **A1 — `⌘R` toggles the right panel inside the chat lens.** The chat itself is permanent
   there; the chord must open and close the view panel, not the lens.
-- [ ] **A2 — `⌘R` does nothing under the desk lens.** The chord belongs to the chat lens only.
+- [x] **A2 — `⌘R` does nothing under the desk lens.** The chord belongs to the chat lens only.
 
 ## B. Composer
 
-- [ ] **B1 — `@` picker highlight resets to the first row.** `sync()` runs on `keyup` and sets the
+- [x] **B1 — `@` picker highlight resets to the first row.** `sync()` runs on `keyup` and sets the
   highlight back to 0, so `↑`/`↓` can never land anywhere but the first row.
-- [ ] **B2 — Composer has no maximum height.** Cap it at roughly 12–15 lines and scroll inside.
-- [ ] **B3 — Chat measure is far too narrow.** The thread should read at ~740 units, not ~60, and
+- [x] **B2 — Composer has no maximum height.** Cap it at roughly 12–15 lines and scroll inside.
+- [x] **B3 — Chat measure is far too narrow.** The thread should read at ~740 units, not ~60, and
   the type should step up slightly.
 - [ ] **B4 — Drag and drop drops a raw image into the transcript.** A dropped image currently
   renders full-bleed with nothing to act on. Handle drops as *attachments*, entity-aware:
@@ -40,7 +40,7 @@ verification is partial (says which part).
 - [ ] **C3 — Streaming looks dead on Codex.** Deltas do not appear to reach the transcript.
 - [ ] **C4 — Generated chat titles.** A chat is currently named after its first prompt. Both Codex
   and Claude Code name sessions themselves; integrate whatever they already produce.
-- [ ] **C5 — "Provider Settings" opens Settings at its last page.** It must land on the provider
+- [x] **C5 — "Provider Settings" opens Settings at its last page.** It must land on the provider
   page.
 
 ## D. Chat scope and panel state
@@ -59,9 +59,9 @@ verification is partial (says which part).
 
 ## F. Surfaces outside the chat
 
-- [ ] **F1 — The project dock shows up in Marketplace.** It is exclusive to My Work, and only with
+- [x] **F1 — The project dock shows up in Marketplace.** It is exclusive to My Work, and only with
   a project open.
-- [ ] **F2 — Dynamic island does not collapse on outside click.** An open island should close when
+- [x] **F2 — Dynamic island does not collapse on outside click.** An open island should close when
   the operator clicks away.
 - [ ] **F3 — Workspace `Units` page says "Units not wired yet"** while the workspace has units and
   they are reachable elsewhere.

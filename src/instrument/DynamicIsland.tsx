@@ -37,19 +37,12 @@ export function DynamicIsland({ feed, context, projectName, mock, onNavigate }: 
 
   useEffect(() => {
     if (!open) return;
-    const onPointerDown = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
-    };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") { event.preventDefault(); close(); }
     };
-    document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
     detail.current?.focus({ preventScroll: true });
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, [open]);
 
   const taskProgress = feed.activeTask?.progress === null || feed.activeTask?.progress === undefined
@@ -78,7 +71,21 @@ export function DynamicIsland({ feed, context, projectName, mock, onNavigate }: 
      different curve while the radius was still animating, so the morphing plate stays round for
      its whole travel and never states a shape at all. */
   return <div className="dynamic-island relative z-island flex [-webkit-app-region:no-drag]" ref={root} data-open={open || undefined} data-mock={mock || undefined} data-animate={animate || undefined}>
-    <div className={`dynamic-island-shell grid max-h-overlay-fit-block max-w-island-max overflow-hidden [corner-shape:round] bg-instrument text-on-instrument [transition-property:width,border-radius,grid-template-rows] duration-slow ease-instrument motion-reduce:duration-0 motion-reduce:[transition-property:none] [-webkit-app-region:no-drag] ${open ? "w-island-open rounded-panel grid-rows-(--island-rows-open)" : "w-max rounded-control grid-rows-(--island-rows)"} ${animate ? "animate-island-in motion-reduce:animate-none" : ""}`}>
+    {/* The dismiss surface, and it exists only while the island is open. A `document` listener for
+        an outside pointerdown cannot see the one click the operator is most likely to make: the
+        island stands in the titlebar, and Electron hands a mousedown on a drag region to the OS
+        window-drag instead of to the page, so the whole bar around the island was deaf. A real
+        surface hears it -- and opts out of the drag region for as long as it is there, which is
+        what a popover should do to the window behind it anyway.
+
+        No z-index: both this and the shell are positioned, so document order puts the shell on
+        top, and the scrim covers everything else. */}
+    {open && <div
+      className="dynamic-island-scrim fixed inset-0 [-webkit-app-region:no-drag]"
+      onPointerDown={() => setOpen(false)}
+      aria-hidden="true"
+    />}
+    <div className={`dynamic-island-shell relative grid max-h-overlay-fit-block max-w-island-max overflow-hidden [corner-shape:round] bg-instrument text-on-instrument [transition-property:width,border-radius,grid-template-rows] duration-slow ease-instrument motion-reduce:duration-0 motion-reduce:[transition-property:none] [-webkit-app-region:no-drag] ${open ? "w-island-open rounded-panel grid-rows-(--island-rows-open)" : "w-max rounded-control grid-rows-(--island-rows)"} ${animate ? "animate-island-in motion-reduce:animate-none" : ""}`}>
       <button
         ref={trigger}
         className="dynamic-island-trigger group/island flex h-full w-full min-w-0 items-center gap-3 pr-2 pl-4 [border-radius:inherit] focus-visible:outline-2 focus-visible:outline-focus-on-instrument focus-visible:[outline-offset:-3px]"

@@ -514,18 +514,18 @@ describe("marketplace navigation", () => {
       expect(host.container.querySelector("button[aria-label=\"Toggle right panel\"]")).toBeNull();
       expect(document.body.querySelector("[data-instrument-overlay=\"right-rail-sheet\"]")).toBeNull();
       expect(enabledStates.at(-1)).toBe(false);
-      /* The shortcut the main process forwards now means what the lens pair means. Under the chat
-         lens the rail is the main column and is always docked, so the chat arrives in the dock
-         rather than in a modal sheet -- and the persisted lens, not `rightPanelVisible`, is what
-         records the decision. */
+      /* The shortcut the main process forwards is a chat-lens affordance: there the chat is the
+         lens and cannot be shown or hidden, so the chord toggles the panel beside it. Under the
+         desk lens the chat is unreachable by design, so the chord is silent -- it used to pull the
+         lens over, which made the lens pair (⌘1/⌘2) a decoration. */
+      const chat = host.container.querySelector("[data-testid=\"agent-chat\"]");
       await act(async () => { toggleRightPanel?.(); await settle(); });
       expect(document.body.querySelector("[data-instrument-overlay=\"right-rail-sheet\"]")).toBeNull();
-      const rail = host.container.querySelector(".instrument-right-rail")!;
-      const chat = host.container.querySelector("[data-testid=\"agent-chat\"]");
-      expect(chat).not.toBeNull();
-      expect(rail.getAttribute("hidden")).toBeNull();
-      expect(host.container.querySelector(".instrument-shell")?.getAttribute("data-right-rail-mode")).toBe("docked");
-      expect(enabledStates.at(-1)).toBe(true);
+      /* The chat's markup stays parked in the shell while the rail is closed, so what says it is
+         not on screen is the rail's mode and the chat controller being disabled -- not the
+         absence of the element. */
+      expect(host.container.querySelector(".instrument-shell")?.getAttribute("data-right-rail-mode")).toBe("closed");
+      expect(enabledStates.at(-1)).toBe(false);
       // Nothing about the lens reaches storage here on purpose: this is the null-catalog recovery
       // state, and the preference write is gated on a catalog. `workbench-state` covers the
       // round trip.

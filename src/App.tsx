@@ -37,6 +37,7 @@ import {
   resolveCommand,
   SETTINGS_COMMANDS,
 } from "./screens/settings/commands";
+import type { SettingsPageId as SettingsCategory } from "./screens/settings/registry";
 import {
   activeViewTab,
   closeViewTab,
@@ -52,7 +53,7 @@ import {
 import { ViewPanel } from "./instrument/ViewPanel";
 import { ViewPanelHub } from "./instrument/ViewPanelHub";
 import { InstrumentScreenRoot } from "./instrument/screen-state-registry";
-import { InstrumentShell } from "./instrument/InstrumentShell";
+import { InstrumentFloatHost, InstrumentShell } from "./instrument/InstrumentShell";
 import { DynamicIsland } from "./instrument/DynamicIsland";
 import { projectDynamicIslandFeed, type DynamicIslandFeed, type IslandContext } from "./instrument/dynamic-island-feed";
 import { InstrumentOverlay } from "./instrument/overlay-registry";
@@ -129,10 +130,10 @@ export function isChatRailVisible({ workbenchVisible, rightPanelVisible }: {
   return workbenchVisible && rightPanelVisible;
 }
 
-/* The main process forwards a "show me the chat" shortcut. That used to mean "open the rail",
-   but the chat rail is unavailable under the desk lens on purpose, so the shortcut now means the
-   same thing the lens pair means: it toggles the lens. Opening a dock the lens immediately closes
-   again would have made the OS-level affordance dead. */
+/* The main process forwards a "show me the chat" shortcut. Under the chat lens the chat is
+   permanent -- it is the lens -- so there is nothing for the chord to show; what it toggles there
+   is the panel beside it. Under the desk lens it does nothing at all: the lens pair is what
+   changes lens, and a chord that silently changed lens made the pair a decoration. */
 function InstrumentRightRailShortcut({ onToggle, children }: { onToggle(): void; children: ReactNode }) {
   useEffect(() => bridge.onToggleRightPanel(onToggle), [onToggle]);
   return children;
@@ -203,9 +204,13 @@ export function App() {
     initialPreferences.current.rightPanelVisible,
   );
   const [lens, setLens] = useState(initialPreferences.current.lens);
-  const toggleLens = useCallback(() => setLens((current) => current === "chat" ? "desk" : "chat"), []);
   const [rightOverlayOpen, setRightOverlayOpen] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
+  const [settingsEntry, setSettingsEntry] = useState<SettingsCategory | undefined>(undefined);
+  const openSettings = useCallback((page?: SettingsCategory) => {
+    setSettingsEntry(page);
+    setSettingsVisible(true);
+  }, []);
   const [workspacePage, setWorkspacePage] = useState<WorkspacePage>(
     initialPreferences.current.workspacePage,
   );
@@ -218,6 +223,12 @@ export function App() {
     initialPreferences.current.rightPanelWidth,
   );
   const [viewPanel, setViewPanel] = useState<ViewPanelPreferences>(initialPreferences.current.viewPanel);
+  /* One definition of "open or close the panel beside the chat", for the chord and the command
+     alike. It is a chat-lens decision: under the desk lens there is no panel to toggle, and a
+     preference that flipped invisibly would surprise the operator on their way back. */
+  const toggleViewPanel = useCallback(() => {
+    setViewPanel((record) => lens === "chat" ? { ...record, open: !record.open } : record);
+  }, [lens]);
   const [viewport, setViewport] = useState(() => ({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -713,7 +724,7 @@ export function App() {
       if (!command?.id.startsWith("view.")) return;
       if (command.id === "view.desk" || command.id === "view.chat") return;
       event.preventDefault();
-      if (command.id === "view.panel") { setViewPanel((record) => ({ ...record, open: !record.open })); return; }
+      if (command.id === "view.panel") { toggleViewPanel(); return; }
       if (command.id === "view.home") { setLens("chat"); selectView(HOME_TAB_ID); return; }
       if (command.id === "view.close") { closeView(tabSet.activeTabId); return; }
       if (command.id === "view.prev" || command.id === "view.next") {
@@ -897,7 +908,7 @@ export function App() {
                   if (marketplace.mode === "marketplace") dispatchMarketplace({ type: "toggle-sidebar" });
                   else setSidebarVisible(false);
                 }}
-                onOpenSettings={() => setSettingsVisible(true)}
+                onOpenSettings={openSettings}
                 onSwitchMode={switchAppMode}
                 onOpenMarketplaceRoute={openMarketplaceRoute}
                 onOpenWorkspace={(workspaceId) => {
@@ -919,7 +930,7 @@ export function App() {
                   is the surface the route stands on, and a desk wash over it turned a white card
                   grey -- visible in the light theme, and the same error in the dark one. */}
               <div className={`app-mode-surface app-mode-work min-h-0 min-w-0 flex-1 text-ink ${viewFrameActive ? "bg-transparent" : "bg-desk"} ${marketplace.mode === "work" ? "flex" : "hidden"}`} hidden={marketplace.mode !== "work"} inert={marketplace.mode !== "work"}>
-                {workContent}
+                <InstrumentFloatHost escape={marketplace.mode === "work"}>{workContent}</InstrumentFloatHost>
               </div>
               <div
                 className={`app-mode-surface app-mode-marketplace min-h-0 min-w-0 flex-1 ${marketplace.mode === "marketplace" ? "flex" : "hidden"}`}
@@ -942,12 +953,12 @@ export function App() {
                puts the desk lens back rather than leaving a chat lens with an empty main column. */
             chat={<AgentChatPanel
               onClose={() => setLens("desk")}
-              onOpenSettings={() => setSettingsVisible(true)}
+              onOpenSettings={openSettings}
               chat={agentChat}
               workspace={selectedWorkspace}
               project={selectedProject}
             />}
-            island={<InstrumentRightRailShortcut onToggle={toggleLens}><DynamicIsland
+            island={<InstrumentRightRailShortcut onToggle={toggleViewPanel}><DynamicIsland
               feed={mockIslandFeed ?? liveIslandFeed}
               context={islandContext}
               projectName={selectedProject?.name ?? null}
@@ -1030,6 +1041,7 @@ export function App() {
                   rootPath={rootIdentity?.storeId ?? null}
                   theme={theme}
                   resolvedTheme={resolvedTheme}
+                  entryPage={settingsEntry}
                   onThemeChange={setTheme}
                   onBack={() => setSettingsVisible(false)}
                 />

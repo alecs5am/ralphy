@@ -81,16 +81,21 @@ export function SettingsScreen({
   rootPath,
   theme,
   resolvedTheme = "light",
+  entryPage,
   onThemeChange,
   onBack,
 }: {
   rootPath: string | null;
   theme: ThemePreference;
   resolvedTheme?: ResolvedTheme;
+  /* Where this opening lands. A caller that knows what the operator was reaching for -- the chat's
+     own "Provider settings" row means the harnesses -- says so; everyone else resumes the last
+     page they left. The screen mounts per opening, so this is read once and then owned by the nav. */
+  entryPage?: SettingsCategory;
   onThemeChange(value: ThemePreference): void;
   onBack(): void;
 }) {
-  const [page, setPage] = useState(readLastPage);
+  const [page, setPage] = useState(() => entryPage ?? readLastPage());
   const [detail, setDetail] = useState<SettingsDetail | null>(null);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
