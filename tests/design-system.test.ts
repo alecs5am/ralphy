@@ -1733,11 +1733,20 @@ describe("design system contract", () => {
     // And the chrome is the zone's row in that frame, above the card rather than inside it.
     expect(agentRailSource.indexOf("utility-panel-header")).toBeLessThan(agentRailSource.indexOf("utility-right-panel-card"));
     // The composer's own skin is in markup: a field one step off the card, at the card's own
-    // radius, with a transparent field inside it and the theme's focus ring -- the chat is not a
-    // black widget any more, so `outline-ink` is a real ring rather than black on black.
-    expect(panels).toContain("rounded-composer bg-chat-field");
-    expect(panels).toContain("resize-none bg-transparent");
-    expect(panels).toContain("focus-within:outline-ink");
+    // radius, with a transparent editable inside it. It carries no ring of its own -- a text field
+    // already states its focus with a caret, and a lit border around every keystroke is noise.
+    const composer = readFileSync(
+      join(process.cwd(), "src/components/agent/AgentComposer.tsx"),
+      "utf8",
+    );
+    expect(composer).toContain("rounded-composer bg-chat-field");
+    expect(composer).toContain("agent-composer-field");
+    expect(composer).not.toContain("focus-within:outline");
+    // A tag is the platform's own atom: `contenteditable="false"` is what makes backspace take the
+    // whole chip and an arrow step over it, so none of that is re-implemented in a key handler.
+    expect(composer).toContain('tag.contentEditable = "false"');
+    expect(composer).toContain("tag.dataset.tag =");
+    expect(composer).toMatch(/\bmx-3 mb-3\b/);
     expect(panels).not.toMatch(/\bborder-(?!collapse\b|0\b)/);
     expect(panels).not.toMatch(/\b(?:shadow|bg-gradient|bg-linear|bg-radial)-/);
     // Nothing of the rail is left in the sheet: both chunks are gone and what stayed is unowned.

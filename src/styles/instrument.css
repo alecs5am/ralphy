@@ -157,3 +157,10 @@
   background-color: currentColor;
   mask: var(--brand-mask) center / contain no-repeat;
 }
+
+/* An entity tag's glyph. `vertical-align` is not a Tailwind namespace and a tag's icon has to sit
+   1.5px below the baseline to centre against the label beside it, so the one property the utility
+   layer cannot state lives here. */
+.agent-tag-glyph {
+  vertical-align: -1.5px;
+}

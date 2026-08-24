@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { bridge } from "../../lib/ipc";
+import { AgentTaggedText } from "./AgentComposer";
 import { AgentMark } from "../ui/AgentMark";
 import { MarkdownView } from "../MarkdownView";
 import type { AgentChatEntry } from "../../chat/useAgentChat";
@@ -228,8 +229,10 @@ function UserTurn({
 }) {
   const text = entry.text ?? "";
   return <div className="agent-message is-user group flex min-w-0 flex-col items-end gap-0.75">
+    {/* The tags the operator attached come back as tags, not as `@unit:hero-cut`: the bubble is the
+        same contract the composer wrote, read the other way. */}
     <p className="m-0 max-w-(--agent-bubble-measure) rounded-window bg-desk-primary px-3.5 py-2.5 type-body leading-copy whitespace-pre-wrap text-desk-primary-ink [overflow-wrap:anywhere]">
-      {text}
+      <AgentTaggedText text={text} />
     </p>
     {/* Always in the same place, and always the same three: a row that appeared on hover in a
         different position each time would be three different rows. */}

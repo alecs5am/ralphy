@@ -16,6 +16,8 @@
   --agent-detail-columns: 13px minmax(0, 1fr) auto;
   /* A provider row in the connect dialog: the mark, the name and its account line, the action. */
   --agent-provider-row-columns: 18px minmax(0, 1fr) auto;
+  /* An attach row in the `@` picker: the kind's glyph, the entity, the kind label. */
+  --agent-tag-columns: 15px minmax(0, 1fr) auto;
   /* The operator's own turn is a bubble that stops short of the card's far edge. */
   --agent-bubble-measure: 80%;
 }
@@ -48,6 +50,11 @@
      standing on that field. Each is a step away from the card in the direction its theme's depth
      runs, which `panel` and `field` cannot both be: `panel` is the zone's own frame and in the
      dark family it sits below the card, so a composer painted with it reads as a hole. */
+  /* An entity tag's kind. One ink per kind: the tag's tint is that ink at 12%, so the pair travels
+     as a single decision and neither theme needs its own tint value. */
+  --color-tag-unit: var(--instrument-tag-unit);
+  --color-tag-file: var(--instrument-tag-file);
+  --color-tag-project: var(--instrument-tag-project);
   --color-chat-field: var(--instrument-chat-field);
   --color-chat-control: var(--instrument-chat-control);
   --color-chat-control-hover: var(--instrument-chat-control-hover);
@@ -66,6 +73,7 @@
   --spacing-agent-empty: 240px;            /* an empty chat holds this much of the rail open */
   --spacing-agent-empty-block: 560px;      /* ...and its mark, question and openers keep this measure */
   --spacing-agent-thread: 600px;           /* the transcript's reading measure */
+  --spacing-agent-tag-menu: 330px;         /* the `@` picker, when the zone has room for it */
   --spacing-agent-connect-dialog: 400px;   /* the connect dialog is a card, not a band */
   --spacing-agent-menu-list: 320px;        /* a menu list scrolls after this much */
   --spacing-agent-chat-menu: 300px;        /* the recent-chats menu, when the rail has room for it */
@@ -77,6 +85,9 @@
 
   /* Leading the shared tokens do not name by role. */
   --leading-row: var(--leading-snug);      /* a wrapped line of rail copy: a turn, a note, an error */
+  /* An entity tag states a line height rather than a height: a fixed box would stop its text
+     sharing the baseline of the sentence it stands in, which is the handoff's alignment rule. */
+  --leading-tag: 14px;
 
   /* Stacking, so the header's own layer stays a token and not a number in markup. The rail's
      header only has to stand above the transcript that scrolls under it. */

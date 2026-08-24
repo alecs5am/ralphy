@@ -529,26 +529,15 @@ function createMockBridge(): RalphyBridge {
       const sessionId = "0199a213-81c0-7800-8aa1-bbab2a035a53";
       emitAgent({ type: "session", sessionId, tools: ["Read", "Bash"] });
       emitAgent({ type: "text-delta", text: "I’ll inspect the active Ralphy project." });
-      /* A run of calls rather than one: the transcript's whole job is to fold a run of them into a
-         single group, and a fixture with one call never exercises the fold. */
-      const calls: { name: string; summary: string; ok: boolean }[] = [
-        { name: "Read", summary: "BRIEF.md", ok: true },
-        { name: "Read", summary: "units/031/unit.json", ok: true },
-        { name: "Grep", summary: "heartbeat|inactivity|watchdog", ok: true },
-        { name: "Bash", summary: "git diff origin/main…HEAD -- src/chat", ok: true },
-        { name: "Bash", summary: "bun test tests/chat-state.test.ts", ok: false },
-      ];
-      for (const [index, call] of calls.entries()) {
-        emitAgent({ type: "tool-start", id: `mock-tool-${index}`, name: call.name, summary: call.summary });
-        emitAgent({ type: "tool-result", id: `mock-tool-${index}`, ok: call.ok });
-      }
+      emitAgent({ type: "tool-start", id: "mock-tool", name: "Read", summary: "BRIEF.md" });
+      emitAgent({ type: "tool-result", id: "mock-tool", ok: true });
       emitAgent({ type: "text-delta", text: " The latest assets are ready for review." });
       emitAgent({
         type: "result",
         ok: true,
         cancelled: false,
-        costUsd: 0.08,
-        durationMs: 73_000,
+        costUsd: 0,
+        durationMs: 250,
         sessionId,
       });
     },

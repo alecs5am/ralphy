@@ -49,7 +49,10 @@ html[data-theme="dark"] {
   --instrument-widget-light-hover: #242424;
   --instrument-widget-light-sunken: #1E1E1E;
   --instrument-text-primary: #F2F2F0;
-  --instrument-text-secondary-decorative: #8A8A86;
+  /* Raised from #8A8A86 by handoff 17's chat field: the field is the lightest surface a secondary
+     line stands on in this family (#262626), and the old step measured 4.37:1 there. Every other
+     backdrop in the dark theme is darker, so the raise only ever adds contrast. */
+  --instrument-text-secondary-decorative: #8F8F8B;
   --instrument-text-muted-decorative: #6A6A66;
   --instrument-text-secondary-readable: #A4A4A0;
   --instrument-unreviewed: #3A3A38;
@@ -92,6 +95,13 @@ html[data-theme="dark"] {
      card in whichever direction the theme's depth runs: the light family recesses toward the desk
      and the dark family rises off it, so a single `panel`/`field` pair cannot serve both. The
      values are the design's own greys; the direction is this app's. */
+  /* Handoff 17's entity tags. Colour is the kind, and one ink per kind is the whole of it: the tint
+     is that ink at 12%, which lands on the design's own #ECEBF8 / #E7EDF7 / #E2EFF1 over white and
+     goes dark of its own accord under the dark theme. The dark family takes the handoff's
+     lightened ink -- #625CC6 measures 3.1:1 on a #1E1E1E card, and 8.5:1 is what a label needs. */
+  --instrument-tag-unit: #B9B4EF;
+  --instrument-tag-file: #A6C2E8;
+  --instrument-tag-project: #98CCD6;
   --instrument-chat-field: #262626;
   --instrument-chat-control: #2F2F2F;
   --instrument-chat-control-hover: #3A3A3A;
@@ -205,6 +215,13 @@ html[data-theme="light"] {
      card in whichever direction the theme's depth runs: the light family recesses toward the desk
      and the dark family rises off it, so a single `panel`/`field` pair cannot serve both. The
      values are the design's own greys; the direction is this app's. */
+  /* Handoff 17's entity tags. Colour is the kind, and one ink per kind is the whole of it: the tint
+     is that ink at 12%, which lands on the design's own #ECEBF8 / #E7EDF7 / #E2EFF1 over white and
+     goes dark of its own accord under the dark theme. The dark family takes the handoff's
+     lightened ink -- #625CC6 measures 3.1:1 on a #1E1E1E card, and 8.5:1 is what a label needs. */
+  --instrument-tag-unit: #625CC6;
+  --instrument-tag-file: #4A72AD;
+  --instrument-tag-project: #37808E;
   --instrument-chat-field: #F4F5F8;
   --instrument-chat-control: #F1F2F4;
   --instrument-chat-control-hover: #E7E9ED;

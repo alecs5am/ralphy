@@ -3,7 +3,6 @@ import {
   useRef,
   useState,
   type FormEvent,
-  type KeyboardEvent,
 } from "react";
 import {
   ArrowUp,
@@ -31,6 +30,7 @@ import type {
   WorkspaceSummary,
 } from "../lib/ipc";
 import type { AgentChatController } from "../chat/useAgentChat";
+import { AgentComposer, type AgentComposerHandle } from "./agent/AgentComposer";
 import { AgentFailure, AgentThread } from "./agent/AgentThread";
 import { AgentMark } from "./ui/AgentMark";
 import { AiBrandIcon } from "./AiBrandIcon";
@@ -154,7 +154,9 @@ export function AgentChatPanel({
 }) {
   const [draft, setDraft] = useState("");
   const messagesRef = useRef<HTMLDivElement>(null);
-  const composerRef = useRef<HTMLTextAreaElement>(null);
+  /* The composer holds text and atomic tags, so the field is `contenteditable` and the panel keeps
+     only what it needs: the serialised prompt, and a handle to fill or clear the field. */
+  const composer = useRef<AgentComposerHandle>(null);
   const followOutput = useRef(true);
   const active = chat.activeChat;
   const running = chat.state.chats.find(({ id }) => id === chat.state.runningChatId) ?? null;
@@ -172,33 +174,14 @@ export function AgentChatPanel({
     const prompt = draft.trim();
     if (!prompt || chat.state.runningChatId !== null || !chat.connected) return;
     chat.send(prompt);
-    setDraft("");
+    composer.current?.clear();
     followOutput.current = true;
   };
 
   /* Fill the composer and put the caret at the end: what "edit & resend" and an opener card both
      do, and the one place this panel moves focus on the operator's behalf. */
   const fillComposer = (text: string): void => {
-    setDraft(text);
-    requestAnimationFrame(() => {
-      const node = composerRef.current;
-      if (!node) return;
-      node.focus();
-      node.setSelectionRange(text.length, text.length);
-    });
-  };
-
-  const onComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
-    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-      event.preventDefault();
-      submit();
-    }
-    /* ESC while the field has focus stops the run. It is the only escape this composer owns --
-       there is no `@` menu above it to close first. */
-    if (event.key === "Escape" && active.busy) {
-      event.preventDefault();
-      chat.stop();
-    }
+    composer.current?.fill(text);
   };
 
   /* The line the agent is on: the newest tool call while one is running, otherwise the plain fact
@@ -291,17 +274,15 @@ export function AgentChatPanel({
           </div>
           {/* The composer is a field on the card: one step off it, at the card's own radius, with
               the field above and the instruments below. */}
-          <div className={`agent-composer relative mx-3 mb-3 flex flex-none flex-col gap-2.25 rounded-composer bg-chat-field p-2.75 ${FIELD_RING}`}>
-            <textarea
-              ref={composerRef}
-              className="block min-h-11 w-full resize-none bg-transparent px-0.5 type-body leading-loose text-ink outline-0 placeholder:text-muted-decorative"
-              rows={2}
-              value={draft}
-              aria-label="Message agent"
-              placeholder={project ? `Ask about ${project.name}` : "Ask anything"}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={onComposerKeyDown}
-            />
+          <AgentComposer
+            handle={composer}
+            workspace={workspace}
+            project={project}
+            placeholder={project ? `Ask about ${project.name} · type @ to attach` : "Ask anything · type @ to attach"}
+            onChange={setDraft}
+            onSubmit={submit}
+            onEscape={() => { if (active.busy) chat.stop(); }}
+          >
             <div className="agent-composer-toolbar flex items-center gap-1.5">
               <AgentModeMenu value={active.permissionMode} onChange={chat.setPermissionMode} />
               <span className="min-w-0 flex-1" aria-hidden="true" />
@@ -334,7 +315,7 @@ export function AgentChatPanel({
                   <ArrowUp size={13} strokeWidth={2} />
                 </button>}
             </div>
-          </div>
+          </AgentComposer>
         </>
       )}
       </div>
@@ -360,9 +341,9 @@ function AgentEmptyChat({
   /* The block keeps its own measure however wide the zone is: with the view panel closed the chat
      takes the window, and four opener cards stretched across it stop being cards. */
   return <div className="agent-empty-chat mx-auto flex min-h-agent-empty w-full max-w-agent-empty-block flex-1 flex-col items-center justify-center gap-4 text-center">
-    <span className="grid size-13 flex-none place-items-center rounded-full bg-chat-field">
-      <AgentMark mode="idle" size={32} className="text-ink" />
-    </span>
+    {/* The mark is the block. It used to sit at 32 inside a 52 plate, and the plate read as a frame
+        around the animation rather than as a mount for it. */}
+    <AgentMark mode="idle" size={52} className="text-ink" />
     <strong className="type-heading font-normal text-ink">
       {place
         ? <>What should we work on in <span className="underline decoration-unreviewed decoration-1 underline-offset-4">{place}</span>?</>
