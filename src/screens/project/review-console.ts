@@ -57,9 +57,9 @@ export const VERDICT_ACTIVE = `${VERDICT} bg-on-instrument text-instrument`;
 /* Production has no contract to review against, so the row is a disabled control: the decorative
    ink is exactly what that tone is for, and the row carries `aria-disabled` so it reads as one. */
 export const VERDICT_UNSUPPORTED = `${VERDICT} bg-instrument-raised text-on-instrument-muted-decorative`;
-/* A keycap is R5, and it takes its own pair on every row state -- on the inverted row the plate is
-   light, so a ghost keycap with muted ink would be light on light. */
-export const KEYCAP = "inline-grid min-w-4.5 flex-none place-items-center rounded-key bg-ghost px-1 font-code type-mono-xs text-on-instrument-muted group-aria-pressed:bg-instrument group-aria-pressed:text-on-instrument group-aria-disabled:text-on-instrument-muted-decorative";
+/* The verdict's keycap is `components/ui/Keycap.tsx` now. Its tone follows the row rather than a
+   run of `group-aria-*` variants: the active row is inverted to a light plate, so a cap that kept
+   the dark family there would be light on light. */
 
 export const HELP = "review-console-help m-0 flex-none type-xs leading-copy text-on-instrument-muted";
 /* Returned feedback is quoted copy, so it reads on its own plate rather than as another label. */

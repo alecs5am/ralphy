@@ -17,18 +17,20 @@ import { ArrowLeft, ArrowRight, LayoutGrid, MessageSquare, PanelLeft } from "luc
 import { ResizeHandle } from "../components/ui/ResizeHandle";
 import { InstrumentOverlay } from "./overlay-registry";
 import type { InstrumentRightRailMode, InstrumentRightRailOwner } from "./types";
-import { VIEW_PANEL_DEFAULT, VIEW_PANEL_MAX, VIEW_PANEL_MIN } from "../state/view-panel";
+import { VIEW_PANEL_DEFAULT, VIEW_PANEL_MIN } from "../state/view-panel";
 import type { WorkbenchLens } from "../state/workbench";
 
 const DOCK_WINDOW_MIN = 1_280;
 const DOCK_DESK_MIN = 680;
 const RIGHT_RAIL_MIN = 292;
-/* The chat lens' view panel. Handoff 14 makes it a resizable 380-560 -- "beyond that it gives the
-   width back to the chat" -- so the width is the user's now rather than a step function of the
-   window. Two things the window still decides: the panel cannot take so much that the chat stops
-   being readable beside it, and below VIEW_PANEL_DROP there is no room for both at all. */
+/* The chat lens' view panel. The width is the user's, and it has no design maximum: the panel may
+   take nearly the whole window, the way a Codex-style layout lets the conversation shrink to a
+   tenth of it. What stops it is the chat's own floor -- a share of the frame, with an absolute
+   floor because a conversation below it is not readable at any window size. Below
+   VIEW_PANEL_DROP there is no room for both columns at all. */
 const VIEW_PANEL_DROP = 1_120;
-const VIEW_CHAT_MIN = 520;
+const VIEW_CHAT_MIN_RATIO = 0.12;
+const VIEW_CHAT_MIN = 240;
 /* The window's own chrome between the frame edge and the two content columns: 8 of desk on each
    side, plus the zone gap after the sidebar and the one between the chat and the panel. */
 const VIEW_CHROME = 32;
@@ -222,11 +224,12 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
      the two columns squeezing each other. Inverting the overlay machinery so the *desk* could
      portal over the chat is the handoff's own next iteration, not this one. */
   const chatLens = props.lens === "chat";
-  /* The ceiling is the smaller of the design's 560 and whatever leaves the chat readable, so
-     dragging wide on a narrow window runs out of travel instead of squeezing the conversation. */
+  /* The ceiling is whatever leaves the chat its floor, so dragging wide runs out of travel at the
+     point the conversation would stop being usable rather than at an arbitrary width. */
   const viewPanelMax = Math.max(
     VIEW_PANEL_MIN,
-    Math.min(VIEW_PANEL_MAX, dimensions.frameWidth - leftColumn - VIEW_CHAT_MIN - VIEW_CHROME),
+    dimensions.frameWidth - leftColumn - VIEW_CHROME
+      - Math.max(VIEW_CHAT_MIN, Math.round(dimensions.frameWidth * VIEW_CHAT_MIN_RATIO)),
   );
   const viewPanelWidth = clampWidth(props.viewWidth, VIEW_PANEL_MIN, viewPanelMax, VIEW_PANEL_DEFAULT);
   const viewPanelVisible = chatLens && props.viewOpen && dimensions.frameWidth >= VIEW_PANEL_DROP;

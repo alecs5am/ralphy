@@ -10,7 +10,7 @@ import {
   tabSetFor,
   VIEW_TYPES,
   VIEW_PANEL_DEFAULT,
-  VIEW_PANEL_MAX,
+  VIEW_PANEL_STORED_MAX,
   VIEW_PANEL_MIN,
   workspacePageForTab,
 } from "../src/state/view-panel";
@@ -118,7 +118,7 @@ describe("view panel tabs", () => {
 
   test("a stored panel is read defensively and remembers tabs per workspace", () => {
     expect(readViewPanel(null)).toEqual(EMPTY_VIEW_PANEL);
-    expect(readViewPanel({ width: 9_000 }).width).toBe(VIEW_PANEL_MAX);
+    expect(readViewPanel({ width: 9_000 }).width).toBe(VIEW_PANEL_STORED_MAX);
     expect(readViewPanel({ width: 10 }).width).toBe(VIEW_PANEL_MIN);
     expect(readViewPanel({ width: "wide" }).width).toBe(VIEW_PANEL_DEFAULT);
     expect(readViewPanel({ open: false }).open).toBe(false);

@@ -1,4 +1,6 @@
 import { ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
+
+import { Keycap } from "../../components/ui/Keycap";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { MediaCardPreview, mediaCardName } from "../../components/VirtualAssetGrid";
 import { InstrumentOverlay } from "../../instrument/overlay-registry";
@@ -6,7 +8,7 @@ import { bridge } from "../../lib/ipc";
 import type { MediaReviewConsoleProps } from "./MediaReviewConsole";
 import { createMockReviewSession, isReviewShortcutEligible, reduceMockReviewSession, type MockReviewAction } from "./mock-review";
 import type { MediaReviewVerdict } from "./media-review-presentation";
-import { ACTIONS, CONSOLE, COPY, FEEDBACK, GLYPH_ACTION, HEADER, HEADER_LABEL, KEYCAP, META, NAME, NAVIGATION, NAV_ACTION, POSITION, PREVIEW, PREVIEW_BUTTON, STATUS, STATUS_DOT, VERDICT_ACTIVE, VERDICT_REST, statusDotTone } from "./review-console";
+import { ACTIONS, CONSOLE, COPY, FEEDBACK, GLYPH_ACTION, HEADER, HEADER_LABEL, META, NAME, NAVIGATION, NAV_ACTION, POSITION, PREVIEW, PREVIEW_BUTTON, STATUS, STATUS_DOT, VERDICT_ACTIVE, VERDICT_REST, statusDotTone } from "./review-console";
 
 const verdictLabels: Record<MediaReviewVerdict, string> = {
   approved: "Approved",
@@ -82,7 +84,10 @@ export function MockMediaReviewConsole({ card, project, rootEpoch, controller, p
         aria-disabled={!canReview || undefined}
         key={option}
         onClick={(event) => { if (!canReview) event.preventDefault(); else reviewWith(option); }}
-      >{verdictLabels[option]}<kbd className={KEYCAP}>{option === "approved" ? "A" : option === "needs-work" ? "N" : "R"}</kbd></button>)}
+      >{verdictLabels[option]}<Keycap
+        tokens={[option === "approved" ? "A" : option === "needs-work" ? "N" : "R"]}
+        tone={review?.verdict === option ? "on-light" : "on-dark"}
+      /></button>)}
     </div>
     {review?.feedback && <p className={FEEDBACK}>“{review.feedback}”</p>}
     <footer className={NAVIGATION}>

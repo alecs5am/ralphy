@@ -28,7 +28,8 @@
    The grabber stays visible instead of appearing on hover: a column that only reveals it under
    the cursor never tells the operator it can move at all. */
 .resize-instrument-sidebar::after,
-.resize-instrument-rail::after {
+.resize-instrument-rail::after,
+.resize-instrument-view::after {
   top: 50%;
   left: 50%;
   width: 4px;
@@ -38,7 +39,8 @@
 }
 
 /* The rail's neighbour pays for its own inset, so the gutter the reader sees is wider than the
-   handle: the grip belongs on the column boundary, not in the middle of the handle. */
+   handle: the grip belongs on the column boundary, not in the middle of the handle. The view
+   panel's handle sits in the zone gap itself, so its grip stays centred in the gap. */
 .resize-instrument-rail::after {
   left: 100%;
 }
@@ -48,6 +50,9 @@
 .resize-instrument-sidebar:active::after,
 .resize-instrument-rail:hover::after,
 .resize-instrument-rail:focus-visible::after,
-.resize-instrument-rail:active::after {
+.resize-instrument-rail:active::after,
+.resize-instrument-view:hover::after,
+.resize-instrument-view:focus-visible::after,
+.resize-instrument-view:active::after {
   background: var(--instrument-resize-grip-active);
 }

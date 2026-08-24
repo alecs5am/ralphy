@@ -50,8 +50,11 @@ export const VIEW_TAB_TYPES = ["home", ...WORKSPACE_PAGES, "project"] as const;
 export type ViewTabType = (typeof VIEW_TAB_TYPES)[number];
 export const HOME_TAB_ID = "home";
 export const VIEW_PANEL_MIN = 380;
-export const VIEW_PANEL_MAX = 560;
 export const VIEW_PANEL_DEFAULT = 440;
+/* There is no design maximum any more: the panel may take the window, and what stops it is the
+   chat's own floor, which the shell computes from the live frame. This is only a sanity bound on a
+   stored number -- a width wider than any display is a corrupt record, not a preference. */
+export const VIEW_PANEL_STORED_MAX = 4_000;
 
 export interface ViewTab {
   id: string;
@@ -105,7 +108,7 @@ export function readViewPanel(value: unknown): ViewPanelPreferences {
   return {
     open: record.open !== false,
     width: Number.isFinite(record.width)
-      ? Math.min(VIEW_PANEL_MAX, Math.max(VIEW_PANEL_MIN, Math.round(record.width as number)))
+      ? Math.min(VIEW_PANEL_STORED_MAX, Math.max(VIEW_PANEL_MIN, Math.round(record.width as number)))
       : VIEW_PANEL_DEFAULT,
     tabsByWorkspace: Object.fromEntries(Object.entries(stored).flatMap(([workspaceId, entry]) => {
       const candidate = entry as Partial<ViewTabSet> | null;

@@ -18,6 +18,7 @@
   --font-app: var(--font-sans);
   --font-code: var(--font-mono);
   --font-display: var(--font-doto);
+  --font-glyph: var(--font-glyph);
 
   --color-desk: var(--instrument-desk);
   --color-board: var(--instrument-desk-board);
@@ -69,6 +70,7 @@
   --radius-field: var(--radius-md);
   --radius-chip: var(--radius-sm);
   --radius-key: var(--radius-keycap);
+  --radius-key-face: var(--radius-keycap-face);
 
 
   --height-control-sm: var(--control-sm);

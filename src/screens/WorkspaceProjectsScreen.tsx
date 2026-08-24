@@ -1,4 +1,6 @@
 import { FolderOpen, Pin, Search } from "lucide-react";
+
+import { Keycap } from "../components/ui/Keycap";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MediaCardDto } from "../../electron/ralphy/types";
 import { MediaCardPreview } from "../components/VirtualAssetGrid";
@@ -200,7 +202,7 @@ export function WorkspaceProjectsScreen({
           <label className="workspace-search flex h-9 w-full items-center gap-2 rounded-control bg-instrument-raised px-3 text-on-instrument-muted focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-focus-on-instrument">
             <Search size={14} aria-hidden="true" />
             <input className="min-w-0 flex-1 bg-transparent type-base text-on-instrument outline-none placeholder:text-on-instrument-muted" ref={searchRef} type="search" value={query} placeholder="Filter projects" aria-label="Filter projects" onChange={(event) => setQuery(event.target.value)} />
-            <kbd className="font-app type-meta text-on-instrument-muted">⌘F</kbd>
+            <Keycap tokens={["⌘", "F"]} tone="on-dark" />
           </label>
         </div>
       </div>

@@ -1539,9 +1539,11 @@ describe("design system contract", () => {
     expect(renderer).toContain('ariaLabel="Resize sidebar"');
     expect(renderer).toContain('ariaLabel="Resize agent panel"');
     expect(renderer).not.toContain('ariaLabel="Resize bottom panel"');
-    // The grabber paints unconditionally: a hover-only affordance never advertises itself.
+    // The grabber paints unconditionally: a hover-only affordance never advertises itself. Every
+    // draggable edge shares the one rule, the view panel's included, so no column gets a
+    // quieter grip than its neighbour.
     expect(styles).toMatch(
-      /\.resize-instrument-sidebar::after,\s*\.resize-instrument-rail::after\s*\{[^}]*background:\s*var\(--instrument-resize-grip\)/s,
+      /\.resize-instrument-sidebar::after,\s*\.resize-instrument-rail::after,\s*\.resize-instrument-view::after\s*\{[^}]*background:\s*var\(--instrument-resize-grip\)/s,
     );
     // The dock belongs to the desk column, not the window: fixed positioning centred it on
     // the app and drifted off the project whenever a column took width.

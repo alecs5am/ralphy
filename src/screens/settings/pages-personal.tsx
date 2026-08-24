@@ -18,8 +18,6 @@ import {
   DesignTarget,
   Dot,
   FIELD,
-  keycap,
-  Keycaps,
   META,
   MONO,
   NOTE_ALERT,
@@ -35,6 +33,7 @@ import {
   Stepper,
   Toggle,
 } from "./rows";
+import { Keycap } from "../../components/ui/Keycap";
 
 /** System values the app inherits rather than owns; shown next to the override. Hosts
  *  without media queries (geometry harnesses) report false rather than throwing. */
@@ -348,12 +347,12 @@ export function KeyboardPage({ ctx }: { ctx: SettingsContext }) {
         <div className={`${CONFLICT_ROW} bg-instrument-raised`}>
           <span className="flex-1 type-ui text-on-instrument">{conflict.command.name}</span>
           <small className={CONFLICT_SCOPE}>{conflict.command.scope.toLocaleUpperCase()}</small>
-          <Keycaps tokens={chordTokens(conflict.chord)} tone="inverse" />
+          <Keycap tokens={chordTokens(conflict.chord)} conflict />
         </div>
         <div className={CONFLICT_ROW}>
           <span className="flex-1 type-ui text-on-instrument-muted">{conflict.other.name}</span>
           <small className={CONFLICT_SCOPE}>{conflict.other.scope.toLocaleUpperCase()}</small>
-          <Keycaps tokens={chordTokens(conflict.chord)} tone="sunken" />
+          <Keycap tokens={chordTokens(conflict.chord)} />
         </div>
       </div>
       <p className="m-0 font-code type-mono-xs tracking-caps leading-note text-on-instrument-muted">{`SCOPES ${conflict.command.scope.toLocaleUpperCase()} AND ${conflict.other.scope.toLocaleUpperCase()} CAN BE LIVE AT ONCE — UNBINDING THE OTHER COMMAND SILENTLY IS NOT AN OPTION`}</p>
@@ -424,18 +423,21 @@ export function KeyboardPage({ ctx }: { ctx: SettingsContext }) {
                 <span className={captured || !recording.modifiers.length ? META : NOTE_ALERT}>
                   {captured ? "CAPTURED" : recording.modifiers.length ? "MODIFIERS ONLY" : "PRESS A SHORTCUT"}
                 </span>
-                <Keycaps tokens={captured ? chordTokens(captured) : recording.modifiers} size="lg" tone="inverse" />
+                <Keycap tokens={captured ? chordTokens(captured) : recording.modifiers} size="recorder" loud split />
                 <button className={action({ size: "sm" })} type="button" onClick={() => setRecording(null)}>Cancel</button>
                 <button className={action({ size: "sm", tone: "primary" })} type="button" disabled={!captured} onClick={() => save(command)}>Save</button>
               </>
               : <>
                 <button
-                  className="inline-flex h-control-md flex-none items-center gap-0.75 rounded-control bg-field px-2 hover:bg-row-hover focus-visible:outline-ink"
+                  /* The cap is the control here, so the button carries no plate of its own: a
+                     socket inside a pill inside a row was three surfaces for one chord. An unbound
+                     command shows the empty socket rather than an em dash. */
+                  className="inline-flex flex-none items-center rounded-chip focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
                   type="button"
                   aria-label={`Record a shortcut for ${command.name}`}
                   onClick={() => setRecording({ commandId: command.id, captured: null, modifiers: [] })}
                 >
-                  {(bound ? chordTokens(bound) : ["—"]).map((token, index) => <kbd className={keycap()} key={`${token}-${index}`}>{token}</kbd>)}
+                  <Keycap tokens={bound ? chordTokens(bound) : []} />
                 </button>
                 {isChanged && <button className={action({ size: "sm", round: true })} type="button" aria-label={`Reset ${command.name}`} onClick={() => reset(command)}>
                   <RotateCcw size={13} strokeWidth={1.8} aria-hidden="true" />

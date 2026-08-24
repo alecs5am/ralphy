@@ -28,9 +28,10 @@
   --leading-row: var(--leading-snug);
   --leading-note: 1.6;
   --leading-empty: 1.7;
-  /* A mono status or code run sits between the caps and the mono step. */
+  /* A mono status or code run sits between the caps and the mono step. `--tracking-code` moved to
+     theme/chrome.css when the keycap started reading it: a key label is a code run too, and a
+     shared control may not depend on a key this area owns. */
   --tracking-status: 0.09em;
-  --tracking-code: 0.02em;
   /* The page heading is the only line the design tightens optically. */
   --tracking-page: -0.01em;
 

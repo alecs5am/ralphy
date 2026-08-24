@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { Keycap } from "../components/ui/Keycap";
 import type { ProjectSummary, WorkspaceSummary } from "../../electron/media/types";
 import { VIEW_TYPES, type OpenViewRequest, type ViewTabType } from "../state/view-panel";
 
@@ -27,7 +28,6 @@ import { VIEW_TYPES, type OpenViewRequest, type ViewTabType } from "../state/vie
 const SECTION = "m-0 px-1 pt-2.75 pb-1.25 font-code type-mono-xs tracking-mono text-muted";
 const ROW = "grid w-full items-center gap-2.5 rounded-field px-2.5 text-left hover:bg-panel focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink";
 const TILE = "flex flex-col gap-2.25 rounded-cell bg-panel p-2.75 text-left hover:bg-chip focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink";
-const CAP = "grid h-4.25 min-w-4.25 place-items-center rounded-key bg-card px-1 font-code type-mono-xs text-muted";
 
 const TILE_ICONS: Partial<Record<ViewTabType, LucideIcon>> = {
   overview: LayoutDashboard,
@@ -135,7 +135,7 @@ export function ViewPanelHub({ workspace, projects, workspaces, chords, onOpen, 
             <span className="flex min-w-0 items-center gap-2.25">
               <Icon size={15} strokeWidth={1.8} className="flex-none text-muted" aria-hidden="true" />
               <span className="min-w-0 flex-1 truncate type-ui text-ink">{descriptor.label}</span>
-              {cap && <kbd className={CAP}>{cap.join("")}</kbd>}
+              {cap && <Keycap tokens={cap} />}
             </span>
             {/* A tile with no count states nothing rather than a zero: the page is real, the
                 reading is what Core does not report for it. */}

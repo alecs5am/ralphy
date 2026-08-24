@@ -176,19 +176,33 @@ describe("instrument shell", () => {
       expect(shell.getAttribute("data-right-rail-mode")).toBe("docked");
       expect(deskColumn().getAttribute("hidden")).toBeNull();
 
-      // Handoff 14 makes the width the user's, so it is no longer a step function of the window:
-      // the panel keeps its 440 until the chat would fall under 520, and then gives width back.
-      // At 1200 with a 240 sidebar the content row is 936, so the ceiling is 936 - 8 - 520 = 408.
+      // The width is the user's, so it is no longer a step function of the window. There is no
+      // design maximum either: what stops the panel is the chat's own floor, the larger of 240 and
+      // 12% of the frame, so the panel may take almost the whole window. At 1200 with a 240 sidebar
+      // and 32 of chrome the ceiling is 1200 - 240 - 32 - 240 = 688 -- well clear of the 440 the
+      // panel is holding, which is the point: at every width where the panel shows at all, its
+      // stored width survives.
       await act(async () => {
         mounted.observer.resize(shell, 1_200, 800);
         await settle();
       });
-      expect(deskColumn().style.width).toBe("408px");
+      expect(deskColumn().style.width).toBe("440px");
       expect(deskColumn().getAttribute("hidden")).toBeNull();
-      // The grabber's range follows the same ceiling, so a drag cannot pass it either.
+      // The grabber's range is that same ceiling, so a drag cannot cross the chat's floor either.
       const handle = mounted.host.container.querySelector(".resize-instrument-view") as HostNode;
       expect(handle.getAttribute("aria-valuemin")).toBe("380");
-      expect(handle.getAttribute("aria-valuemax")).toBe("408");
+      expect(handle.getAttribute("aria-valuemax")).toBe("688");
+      // ...and it grows with the frame: at 2560 the ratio floor is 307, leaving 1981 of panel.
+      await act(async () => {
+        mounted.observer.resize(shell, 2_560, 1_400);
+        await settle();
+      });
+      expect(handle.getAttribute("aria-valuemax")).toBe("1981");
+
+      await act(async () => {
+        mounted.observer.resize(shell, 1_200, 800);
+        await settle();
+      });
 
       await act(async () => {
         mounted.observer.resize(shell, 1_119, 800);

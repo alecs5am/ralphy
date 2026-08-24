@@ -34,6 +34,40 @@
 }
 
 @theme inline {
+  /* Handoff 15's socket keycap. Three families, because a cap's tones come from the surface it
+     stands on and not from the theme: `keycap-*` follows the theme surface, `keycap-dark-*` is
+     fixed for a cap on a black widget (black in both themes) and `keycap-light-*` is fixed for a
+     cap on a white primary pill (white in both). Hover and press exist only on the theme family:
+     a cap in a menu row or a pill is decorative, and it is the row that answers the pointer. */
+  --color-keycap-socket: var(--instrument-keycap-socket);
+  --color-keycap-face: var(--instrument-keycap-face);
+  --color-keycap-face-hover: var(--instrument-keycap-face-hover);
+  --color-keycap-face-pressed: var(--instrument-keycap-face-pressed);
+  --color-keycap-ink: var(--instrument-keycap-ink);
+  --color-keycap-ink-pressed: var(--instrument-keycap-ink-pressed);
+  --color-keycap-dark-socket: var(--instrument-keycap-on-dark-socket);
+  --color-keycap-dark-face: var(--instrument-keycap-on-dark-face);
+  --color-keycap-dark-ink: var(--instrument-keycap-on-dark-ink);
+  /* Rule 4: a cap is a step quieter than its row, and in a selected, hovered or recording row its
+     ink catches up to primary. Only the fixed dark family needs its own key -- the light family is
+     already at primary, and the theme-following one reuses its pressed ink. */
+  --color-keycap-dark-ink-loud: var(--instrument-keycap-on-dark-ink-loud);
+  --color-keycap-light-socket: var(--instrument-keycap-on-light-socket);
+  --color-keycap-light-face: var(--instrument-keycap-on-light-face);
+  --color-keycap-light-ink: var(--instrument-keycap-on-light-ink);
+
+  /* A code run's tracking: an identifier, a path, and a key label on a cap. Shared, because the
+     keycap is shared -- it used to sit in theme/settings.css, which owns settings keys only. */
+  --tracking-code: 0.02em;
+  --transition-duration-fast: var(--dur-fast);
+  --ease-instrument: var(--ease);
+
+  /* The recess itself: more padding above the face than below it, so the face sits high in the
+     socket, and pressing swaps the two so it travels 2px down inside an unchanged box. Neither
+     step lands on the 4px spacing scale, and both are the geometry rather than a layout choice. */
+  --spacing-keycap-lift: 1.5px;
+  --spacing-keycap-drop: 3.5px;
+
   /* The ring for a control standing on a black widget: the theme ink would be black on black
      in the light theme. */
   --color-focus-on-instrument: var(--instrument-focus-on-dark);

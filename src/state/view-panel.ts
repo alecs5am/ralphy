@@ -1,8 +1,8 @@
 import {
   HOME_TAB_ID,
   VIEW_PANEL_DEFAULT,
-  VIEW_PANEL_MAX,
   VIEW_PANEL_MIN,
+  VIEW_PANEL_STORED_MAX,
   WORKSPACE_PAGE_LABELS,
   normalizeTabSet,
   type ViewPanelPreferences,
@@ -14,7 +14,7 @@ import {
 
 /* Re-exported so a component reaches for one module: the shapes are persisted state and live
    beside the other preferences, but the panel is one idea and this is where it is named. */
-export { HOME_TAB_ID, VIEW_PANEL_DEFAULT, VIEW_PANEL_MAX, VIEW_PANEL_MIN };
+export { HOME_TAB_ID, VIEW_PANEL_DEFAULT, VIEW_PANEL_MIN, VIEW_PANEL_STORED_MAX };
 export type { ViewPanelPreferences, ViewTab, ViewTabSet, ViewTabType };
 
 /**

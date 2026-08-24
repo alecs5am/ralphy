@@ -74,6 +74,13 @@ html[data-theme="dark"] {
   --instrument-field: #262626;
   --instrument-row-hover: #232323;
   --instrument-chip-on-panel: #1A1A1A;
+  /* The keycap's own surface step: a socket below its panel, a face above the socket. */
+  --instrument-keycap-socket: #1D1D1D;
+  --instrument-keycap-face: #2F2F2F;
+  --instrument-keycap-face-hover: #3A3A3A;
+  --instrument-keycap-face-pressed: #242424;
+  --instrument-keycap-ink: #C8C8C4;
+  --instrument-keycap-ink-pressed: #F2F2F0;
   --instrument-widget-dark: #141414;
   --instrument-widget-dark-raised: #1E1E1E;
   --instrument-widget-dark-hover: #1C1C1C;
@@ -105,6 +112,20 @@ html[data-theme="dark"] {
   --instrument-identity7-highlight: #BD9E86;
   --instrument-identity8: #6A6630;
   --instrument-identity8-highlight: #A9A783;
+  /* Handoff 15's socket keycap: the key sits recessed in its surface, and the depth is two flat
+     tone steps -- a socket one step below the surface, a face one step above the socket. No
+     shadow, no gradient, and never pure black for the socket, which reads as a hole punched in
+     the widget rather than a recess.
+     Three families, because a cap's tones come from what it stands on rather than from the
+     theme: `keycap-*` follows the theme surface, and the two `-on-` families are fixed because a
+     black widget is black in both themes and a white primary pill is white in both. */
+  --instrument-keycap-on-dark-socket: #1D1D1D;
+  --instrument-keycap-on-dark-face: #2F2F2F;
+  --instrument-keycap-on-dark-ink: #C8C8C4;
+  --instrument-keycap-on-dark-ink-loud: #F2F2F0;
+  --instrument-keycap-on-light-socket: #D6D6D3;
+  --instrument-keycap-on-light-face: #EEEEEC;
+  --instrument-keycap-on-light-ink: #111111;
   --instrument-track-on-dark: #3A3A38;
   --instrument-ghost: #262626;
   --instrument-ghost-hover: #2E2E2E;
@@ -152,6 +173,13 @@ html[data-theme="light"] {
   --instrument-field: #F1F2F4;
   --instrument-row-hover: #F6F7F9;
   --instrument-chip-on-panel: #E7E9ED;
+  /* The keycap's own surface step: a socket below its panel, a face above the socket. */
+  --instrument-keycap-socket: #D6D6D3;
+  --instrument-keycap-face: #EEEEEC;
+  --instrument-keycap-face-hover: #FFFFFF;
+  --instrument-keycap-face-pressed: #E2E2E0;
+  --instrument-keycap-ink: #5C5C58;
+  --instrument-keycap-ink-pressed: #141414;
   --instrument-widget-dark: #141414;
   --instrument-widget-dark-raised: #1E1E1E;
   --instrument-widget-dark-hover: #1C1C1C;
@@ -183,6 +211,14 @@ html[data-theme="light"] {
   --instrument-identity7-highlight: #BD9E86;
   --instrument-identity8: #6A6630;
   --instrument-identity8-highlight: #A9A783;
+  /* See the note in the dark block: the two `-on-` families carry the same values there. */
+  --instrument-keycap-on-dark-socket: #1D1D1D;
+  --instrument-keycap-on-dark-face: #2F2F2F;
+  --instrument-keycap-on-dark-ink: #C8C8C4;
+  --instrument-keycap-on-dark-ink-loud: #F2F2F0;
+  --instrument-keycap-on-light-socket: #D6D6D3;
+  --instrument-keycap-on-light-face: #EEEEEC;
+  --instrument-keycap-on-light-ink: #111111;
   --instrument-track-on-dark: #3A3A38;
   --instrument-ghost: #262626;
   --instrument-ghost-hover: #2E2E2E;
@@ -299,6 +335,10 @@ html[data-theme="light"] {
   --font-sans: "AWS Diatype", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   --font-mono: "AWS Diatype Mono", "Andale Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --font-doto: "Doto", var(--font-mono);
+  /* Handoff 15's critical fix: the modifier symbols do not exist in AWS Diatype Mono, so the
+     browser silently substituted a system font mid-string and size, weight and baseline all
+     shifted. The symbols take the system stack outright, and the letters stay mono. */
+  --font-glyph: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
   /* Type scale of the instrument language: mono micro-labels 9-10.5px uppercase,
      UI text 11.5-13px, widget headings 16-17px. Doto is numbers only, >= 13px. */
   --text-mono-2xs: 8.5px;
@@ -335,6 +375,9 @@ html[data-theme="light"] {
   --tracking-mono: 0.11em;
 
   --radius-keycap: 5px;
+  /* Handoff 15's socket keycap: socket = round(h * .3) + 2, face = round(h * .3). At the two sizes
+     the component ships -- 20 and 26 -- that is 8/6 and 10/8, so only the 6 is new. */
+  --radius-keycap-face: 6px;
   --radius-sm: 8px;
   --radius-tab: 9px;
   --radius-md: 10px;

@@ -1,4 +1,6 @@
 import { Boxes, Brain, CalendarDays, ChartNoAxesCombined, CircleAlert, Compass, Download, FolderOpen, Layers3, PackageCheck, PanelLeft, Plus, Save, Search, Sparkles, Store, UsersRound, WandSparkles, type LucideIcon } from "lucide-react";
+
+import { Keycap } from "./ui/Keycap";
 import { useId, useMemo, useState, type CSSProperties } from "react";
 import type { WorkspaceSummary } from "../lib/ipc";
 import {
@@ -258,7 +260,7 @@ export function ContextSidebar({
           ? <button className={`${GHOST} size-5 flex-none`} type="button" title="Clear search" aria-label="Clear search" onClick={() => setQuery("")}>
             <Plus className="rotate-45" size={12} strokeWidth={2} aria-hidden="true" />
           </button>
-          : <kbd className="grid h-5 flex-none place-items-center rounded-key bg-card px-1.5 font-code type-meta text-muted" aria-hidden="true">⌘K</kbd>}
+          : <Keycap tokens={["⌘", "K"]} />}
       </div>}
 
       {chatLens && workspace && onNewChat && <button
@@ -269,7 +271,7 @@ export function ContextSidebar({
       >
         <Plus size={13} strokeWidth={1.8} aria-hidden="true" />
         <span>New chat</span>
-        <kbd className="ml-1 grid h-5 min-w-7.5 flex-none place-items-center rounded-key bg-instrument-hover font-code type-mono-sm font-bold text-on-instrument" aria-hidden="true">⌘N</kbd>
+        <Keycap tokens={["⌘", "N"]} tone="on-dark" className="ml-1" />
       </button>}
 
       <div className="sidebar-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain">

@@ -248,22 +248,6 @@ export function SettingsSelect<Value extends string>({ label, value, options, mo
 export const FIELD = "flex h-control-lg w-settings-field flex-none rounded-control bg-field px-3.25 type-ui text-ink placeholder:text-muted focus-visible:outline-ink";
 export const FIELD_WIDE = "flex h-9 flex-1 rounded-control bg-field px-3.5 font-code type-label text-ink placeholder:text-muted focus-visible:outline-ink";
 
-const KEYCAP = "grid place-items-center rounded-key font-code font-bold text-ink";
-
-export function keycap({ size, tone }: { size?: "lg"; tone?: "inverse" | "sunken" } = {}): string {
-  return `${KEYCAP} ${size === "lg"
-    ? "min-w-settings-keycap-lg h-settings-keycap-lg px-1.25 type-xs"
-    : "min-w-settings-keycap h-settings-keycap px-1 type-meta"} ${
-    tone === "inverse" ? "bg-desk-primary text-desk-primary-ink" : tone === "sunken" ? "bg-field" : "bg-card"}`;
-}
-
-export function Keycaps({ tokens, size, tone }: { tokens: readonly string[]; size?: "lg"; tone?: "inverse" | "sunken" }) {
-  const cap = keycap({ size, tone });
-  return <span className="flex flex-none gap-0.75">
-    {tokens.map((token, index) => <kbd className={cap} key={`${token}-${index}`}>{token}</kbd>)}
-  </span>;
-}
-
 export function Stepper({ label, value, min, max, step, format, onChange }: {
   label: string;
   value: number;

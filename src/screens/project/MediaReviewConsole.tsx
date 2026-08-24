@@ -1,4 +1,6 @@
 import { ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
+
+import { Keycap } from "../../components/ui/Keycap";
 import { useEffect, useState, type ComponentType } from "react";
 import type { MediaCardDto } from "../../../electron/ralphy/types";
 import type { ProjectSummary } from "../../lib/ipc";
@@ -6,7 +8,7 @@ import { bridge } from "../../lib/ipc";
 import { MediaCardPreview, mediaCardName } from "../../components/VirtualAssetGrid";
 import type { ProjectScreenController } from "../../state/project-screen-controller";
 import { MEDIA_REVIEW_UNSUPPORTED_REASON, productionMediaReviewStatus, type MediaReviewVerdict } from "./media-review-presentation";
-import { ACTIONS, CONSOLE, COPY, GLYPH_ACTION, HEADER, HEADER_LABEL, HELP, KEYCAP, META, NAME, NAVIGATION, NAV_ACTION, POSITION, PREVIEW, PREVIEW_BUTTON, STATUS, STATUS_DOT, VERDICT_UNSUPPORTED, statusDotTone } from "./review-console";
+import { ACTIONS, CONSOLE, COPY, GLYPH_ACTION, HEADER, HEADER_LABEL, HELP, META, NAME, NAVIGATION, NAV_ACTION, POSITION, PREVIEW, PREVIEW_BUTTON, STATUS, STATUS_DOT, VERDICT_UNSUPPORTED, statusDotTone } from "./review-console";
 
 export interface MediaReviewConsoleProps {
   card: MediaCardDto;
@@ -62,7 +64,7 @@ function ProductionMediaReviewConsole({ card, project, rootEpoch, controller, po
       {(["approved", "needs-work", "rejected"] as const).map((verdict) => {
         const unsupportedId = `media-review-${verdict}-unsupported`;
         return <button className={VERDICT_UNSUPPORTED} type="button" aria-disabled="true" aria-describedby={unsupportedId} key={verdict} onClick={(event) => event.preventDefault()}>
-          {verdictLabels[verdict]}<kbd className={KEYCAP}>{verdict === "approved" ? "A" : verdict === "needs-work" ? "N" : "R"}</kbd>
+          {verdictLabels[verdict]}<Keycap tokens={[verdict === "approved" ? "A" : verdict === "needs-work" ? "N" : "R"]} tone="on-dark" />
           <span id={unsupportedId} hidden>{MEDIA_REVIEW_UNSUPPORTED_REASON}</span>
         </button>;
       })}

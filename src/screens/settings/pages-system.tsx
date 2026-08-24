@@ -10,7 +10,6 @@ import {
   DesignTarget,
   Dot,
   FIELD_WIDE,
-  Keycaps,
   LedBar,
   META,
   NOTE,
@@ -30,6 +29,7 @@ import {
   WIDGET_LIGHT,
   type StatusTone,
 } from "./rows";
+import { Keycap } from "../../components/ui/Keycap";
 
 /* A service row lists identity, reported state and one action: the columns are fixed so five
    providers read as a table rather than five different rows, and they give up their width
@@ -491,7 +491,7 @@ export function TerminalPage({ ctx }: { ctx: SettingsContext }) {
         <Row title="PATH" description="Reading the resolved PATH and the tool versions on it needs the same main-process probe." target><DesignTarget /></Row>
         <Row title="Managed variables" meta="VALUES REDACTED" description="Names and redacted values arrive with the environment probe. Editing them requires a restart." target><DesignTarget /></Row>
         <Row title="Terminal shortcuts" description="They live in the shared command registry — there is no second editor here.">
-          <Keycaps tokens={["⌃", "`"]} tone="sunken" />
+          <Keycap tokens={["⌃", "`"]} />
           <button className={action({ size: "sm" })} type="button" onClick={() => ctx.goTo("keys")}>
             Keyboard shortcuts
             <ArrowUpRight size={12} strokeWidth={1.8} aria-hidden="true" />

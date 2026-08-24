@@ -23,6 +23,7 @@ import {
   type ViewTabSet,
   type ViewTabType,
 } from "../state/view-panel";
+import { Keycap } from "../components/ui/Keycap";
 import { InstrumentOverlay } from "./overlay-registry";
 
 /**
@@ -67,7 +68,6 @@ const TAB_IDLE = "bg-transparent text-muted hover:bg-chip hover:text-ink";
 const CIRCLE = "grid place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
 const MENU_ROW = "grid h-8.5 w-full grid-cols-(--view-menu-columns) items-center gap-2.5 rounded-field px-2.25 text-left type-base text-ink hover:bg-panel focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink";
 const MENU_LABEL = "m-0 px-2.25 pt-2 pb-0.75 font-code type-mono-xs tracking-mono text-muted";
-const CAP = "grid h-4.5 min-w-4.5 place-items-center rounded-key bg-panel px-1 font-code type-mono-sm font-bold text-muted";
 
 export interface ViewPanelProps {
   set: ViewTabSet;
@@ -100,7 +100,12 @@ function TabButton({ tab, active, onSelect, onClose }: {
   onClose(): void;
 }) {
   const Icon = TAB_ICONS[tab.type];
-  return <span className={`${TAB_BASE} min-w-24 max-w-37.5 flex-1 ${active ? `${TAB_ACTIVE} pr-1.25 pl-2.5` : `${TAB_IDLE} pr-2.75 pl-2.5`}`}>
+  return <span
+    className={`${TAB_BASE} min-w-24 max-w-37.5 flex-1 ${active ? `${TAB_ACTIVE} pr-1.25 pl-2.5` : `${TAB_IDLE} pr-2.75 pl-2.5`}`}
+    /* Middle-click closes, the same habit a browser tab has. It is on the wrapper rather than the
+       label button so the whole tab answers it, including the close control itself. */
+    onAuxClick={(event) => { if (event.button === 1) { event.preventDefault(); onClose(); } }}
+  >
     <button className="flex min-w-0 flex-1 items-center gap-1.75 bg-transparent text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink" type="button" aria-current={active || undefined} onClick={onSelect}>
       <Icon className="flex-none" size={13} strokeWidth={1.8} aria-hidden="true" />
       <span className="min-w-0 flex-1 truncate">{tab.label}</span>
@@ -212,7 +217,7 @@ export function ViewPanel({ set, width, chords, onSelect, onClose, onOpen, child
           >
             <Icon size={15} strokeWidth={1.8} className="text-muted" aria-hidden="true" />
             <span className="min-w-0 truncate">{descriptor.label}</span>
-            {cap ? <kbd className={CAP}>{cap.join("")}</kbd> : <span aria-hidden="true" />}
+            {cap ? <Keycap tokens={cap} /> : <span aria-hidden="true" />}
           </button>;
         })}
         {/* Named rather than drawn. A menu row that cannot open anything is worse than a line
