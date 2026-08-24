@@ -1335,7 +1335,12 @@ function createWindow(): void {
     minWidth: MINIMUM_WINDOW_SIZE.width,
     minHeight: MINIMUM_WINDOW_SIZE.height,
     titleBarStyle: "hiddenInset",
-    trafficLightPosition: { x: 16, y: 18 },
+    /* The lights sit inside the sidebar card's own 52px header: the window pads itself by 8 and
+       the card pads itself by 14, so x is 22, and the header's centre line is 8 + 26 = 34, which
+       puts a 12px light's top edge at 28. Collapsing the sidebar leaves them over the content
+       column's 44px topbar instead, 4px below its centre; moving them per toggle would cost an
+       IPC round trip on every collapse for those 4px. */
+    trafficLightPosition: { x: 22, y: 28 },
     backgroundColor: INSTRUMENT_PALETTE.dark.desk,
     show: !SMOKE_TEST && !INSTRUMENT_SHELL_AUDIT,
     webPreferences: secureWebPreferences(join(__dirname, "preload.cjs")),

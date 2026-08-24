@@ -15,9 +15,9 @@
   /* A workspace option: identity plate, copy, project count, check column. */
   --workspace-option-columns: 28px minmax(0, 1fr) auto 14px;
   /* A sidebar page row: the glyph column, the label, and its counter. */
-  --sidebar-nav-columns: 14px minmax(0, 1fr) auto;
+  --sidebar-nav-columns: 16px minmax(0, 1fr) auto;
   /* A chat row: the state dot's column beside the title, which takes the rest. */
-  --sidebar-chat-columns: 8px minmax(0, 1fr);
+  --sidebar-chat-columns: 7px minmax(0, 1fr);
   /* A metric tile: the glyph column beside a value and its label, stacked. */
   --metric-columns: 32px minmax(0, 1fr);
   --metric-areas: "icon value" "icon label";
@@ -38,9 +38,10 @@
      in the light theme. */
   --color-focus-on-instrument: var(--instrument-focus-on-dark);
 
-  /* The reserved native traffic-light inset, measured in the packaged app: the sidebar row
-     starts after three lights, the collapsed main row after three lights plus its gutter. */
-  --spacing-traffic-sidebar: 68px;
+  /* The reserved native traffic-light inset: three 12px lights on a 20px pitch is a 52px run,
+     and the sidebar header's own 14px padding places the first one. The collapsed main row pays
+     for that padding itself, so it reserves the run plus its gutter. */
+  --spacing-traffic-sidebar: 52px;
   --spacing-traffic-main: 76px;
 
   /* The workspace card is a fixed-height sidebar widget; the picker and its hero fill it. */

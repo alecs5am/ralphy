@@ -21,6 +21,15 @@
 
   --color-desk: var(--instrument-desk);
   --color-board: var(--instrument-desk-board);
+  /* The depth stack. `panel` is the chrome frame, `card` the surface it holds, `field` a recess
+     inside a card, `row-hover` what a row in a card takes under the cursor and `chip` what a
+     control standing on panel chrome takes. All four carry the theme ink pair (`text-ink` /
+     `text-muted`); the black widgets that stay black in both themes keep `bg-instrument`. */
+  --color-panel: var(--instrument-panel);
+  --color-card: var(--instrument-card);
+  --color-field: var(--instrument-field);
+  --color-row-hover: var(--instrument-row-hover);
+  --color-chip: var(--instrument-chip-on-panel);
   --color-surface: var(--instrument-widget-light);
   --color-surface-hover: var(--instrument-widget-light-hover);
   --color-surface-sunken: var(--instrument-widget-light-sunken);
@@ -49,6 +58,12 @@
   /* The radius and type scales, named by role. tokens.css owns the values; naming them here is
      what makes `text-base` and `var(--text-base)` the same decision instead of two. */
   --radius-panel: var(--radius-panel);
+  --radius-inner: var(--radius-preview);
+  --radius-window: var(--radius-window);
+  --radius-hero: var(--radius-hero);
+  --radius-sidebar: var(--radius-sidebar);
+  --radius-tab: var(--radius-tab);
+  --radius-row: var(--radius-row);
   --radius-control: var(--radius-pill);
   --radius-cell: var(--radius-lg);
   --radius-field: var(--radius-md);
@@ -71,6 +86,7 @@
    text-* namespace pairs a line-height with every size, and an unpaired size emits an invalid
    line-height that overrides the stylesheet's; a scale of its own sets only the size. */
 @theme inline {
+  --type-mono-2xs: var(--text-mono-2xs);
   --type-mono-xs: var(--text-mono-xs);
   --type-mono-sm: var(--text-mono-sm);
   --type-meta: var(--text-meta);
@@ -80,6 +96,7 @@
   --type-sm: var(--text-sm);
   --type-ui: var(--text-ui);
   --type-base: var(--text-base);
+  --type-body: var(--text-body);
   --type-md: var(--text-md);
   --type-lg: var(--text-lg);
   --type-title: var(--text-title);
@@ -89,6 +106,7 @@
   --type-section: var(--text-section);
   --type-display: var(--text-display);
   --type-hero: var(--text-hero);
+  --type-greeting: var(--text-greeting);
 }
 
 @utility type-* {

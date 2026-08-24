@@ -16,7 +16,7 @@ import { InstrumentOverlay } from "../instrument/overlay-registry";
 
 /* The workspace card. `sidebar-context` states the 118px height once; the picker and its hero
    fill it, and the dither plates are cut to the same card. */
-const HERO = "workspace-hero group relative block h-full w-full flex-none overflow-hidden rounded-panel bg-instrument text-left text-on-instrument focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-on-instrument";
+const HERO = "workspace-hero group relative block h-full w-full flex-none overflow-hidden rounded-hero bg-instrument text-left text-on-instrument focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus-on-instrument";
 const HERO_PLATE = "pointer-events-none absolute top-0 left-0 h-workspace-card w-full [mask-repeat:no-repeat] [mask-size:var(--workspace-hero-mask-size)]";
 /* One option in the list. Geometry and behaviour only: the ink pair is stated per row below,
    because the active workspace is the one inverted pill and that pair is declared elsewhere. */

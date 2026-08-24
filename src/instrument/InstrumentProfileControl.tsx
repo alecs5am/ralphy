@@ -20,10 +20,10 @@ const ROW = "inline-flex items-center gap-2 rounded-control focus-visible:outlin
 /* On a theme surface. The menu is portalled to `document.body`, outside `.app-mode-work`, where
    the legacy inks resolve to the on-dark family -- so both halves are stated, never inherited. */
 const ON_THEME = "text-ink hover:bg-surface-hover focus-visible:outline-ink";
-/* On the sidebar footer's black plate, which stays black in both themes: the on-dark family
-   throughout, and the on-instrument ring because the theme ink is #141414 on #141414 in the
-   light theme. */
-const ON_INSTRUMENT = "text-on-instrument-muted hover:bg-instrument-hover hover:text-on-instrument focus-visible:outline-focus-on-instrument";
+/* On the sidebar card. Handoff 13 dissolved the footer's black pill into the one sidebar card,
+   so this row now stands on a theme surface like the compact trigger and takes the theme pair;
+   the on-dark family it used to carry would be #F2F2F0 ink on a white card in the light theme. */
+const ON_CARD = "text-muted hover:bg-field hover:text-ink focus-visible:outline-ink";
 
 function localAvatarUrl(avatarUrl: string | null): string | null {
   if (!avatarUrl) return null;
@@ -163,7 +163,7 @@ export function InstrumentProfileControl({ identity, onOpenSettings, avatar, var
          theme pair. `group` is what lets the trailing glyph follow the pill's own hover without
          a descendant variant outranking the glyph's own utilities. */
       className={`instrument-profile-trigger group box-border min-h-control-md min-w-0 max-w-full ${ROW} ${pill
-        ? `h-full w-full gap-2.25 pr-3.25 pl-2 type-sm ${ON_INSTRUMENT}`
+        ? `h-full w-full gap-2.5 rounded-row pr-3.5 pl-2 type-base ${ON_CARD}`
         : `px-1 ${ON_THEME}`}`}
       type="button"
       data-variant={variant}
@@ -183,7 +183,7 @@ export function InstrumentProfileControl({ identity, onOpenSettings, avatar, var
         ? <img className={`instrument-profile-avatar ${IDENTITY} object-cover`} src={avatarUrl} alt="" onError={() => setFailedAvatarUrl(avatarUrl)} />
         : <span className={`instrument-profile-initials ${INITIALS}`} aria-hidden="true">{identity.initials}</span>)}
       <span className={`${LABEL} ${pill ? "flex-1" : ""}`} title={identity.displayName}>{identity.displayName}</span>
-      {pill && <SlidersHorizontal className="instrument-profile-settings-glyph flex-none text-on-instrument-muted-decorative group-hover:text-on-instrument" aria-hidden="true" size={14} strokeWidth={1.8} />}
+      {pill && <SlidersHorizontal className="instrument-profile-settings-glyph flex-none text-muted group-hover:text-ink" aria-hidden="true" size={15} strokeWidth={1.8} />}
     </button>
     <InstrumentOverlay
       id="profile-menu"

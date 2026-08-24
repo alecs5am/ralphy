@@ -244,7 +244,7 @@ describe("marketplace navigation", () => {
       expect(chat).not.toBeNull();
       expect(host.container.querySelector(".instrument-shell")?.getAttribute("data-right-rail-mode")).toBe("docked");
       expect(host.container.querySelectorAll(".context-sidebar")).toHaveLength(1);
-      expect(((host.container.querySelector(".workbench") as unknown as HostNode).style as unknown as Record<string, string>)["--sidebar-w"]).toBe("240px");
+      expect(((host.container.querySelector(".workbench") as unknown as HostNode).style as unknown as Record<string, string>)["--sidebar-w"]).toBe("260px");
       expect(host.container.querySelector(".resize-sidebar")).toBeNull();
       expect(host.container.querySelector("[data-testid=\"agent-chat\"]")).toBe(chat);
       expect(document.activeElement).toBe(marketplaceHeading);

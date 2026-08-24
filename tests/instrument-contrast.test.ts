@@ -118,13 +118,15 @@ describe("instrument color contract", () => {
 
   test("keeps every palette value in the complete authored-color allowlist", () => {
     expect(INSTRUMENT_COLOR_ALLOWLIST).toEqual([
-      "#050505", "#060606", "#111111", "#141414", "#181818", "#1C1C1C", "#1D1D1D", "#1E1E1E",
-      "#207070", "#242422", "#242424", "#262626", "#2A1615", "#2D2D2D", "#2E2E2E", "#343434",
-      "#38698A", "#3A3A38", "#3F3F3D", "#426F4C", "#4A4A48", "#5CC45C", "#5F5D8C", "#6A6630",
-      "#6A6A66", "#6E6E6A", "#7C5378", "#80AFAE", "#835935", "#895155", "#89A9C1", "#8A8A86",
-      "#8FAE94", "#9A9A96", "#A1A1C3", "#A4A4A0", "#A9A783", "#B79AB4", "#BD9E86", "#C2989A",
-      "#CCCED6", "#D3D6DD", "#D8D8D6", "#DFE2E9", "#E0362C", "#E2E4EA", "#E4E4E2", "#E8E8E6",
-      "#EB4438", "#ED6A5E", "#F0B544", "#F1F2F6", "#F2F2F0", "#F6DEDC", "#FFFFFF",
+  "#050505", "#060606", "#111111", "#141414", "#181818", "#1A1A1A", "#1C1C1C", "#1D1D1D",
+  "#1E1E1E",
+  "#207070", "#242422", "#242424", "#262626", "#2A1615", "#2D2D2D", "#2E2E2E", "#343434",
+  "#38698A", "#3A3A38", "#3F3F3D", "#426F4C", "#4A4A48", "#5CC45C", "#5F5D8C", "#6A6630",
+  "#6A6A66", "#6E6E6A", "#7C5378", "#80AFAE", "#835935", "#895155", "#89A9C1", "#8A8A86",
+  "#8FAE94", "#9A9A96", "#A1A1C3", "#A4A4A0", "#A9A783", "#B79AB4", "#BD9E86", "#C2989A",
+  "#232323", "#CCCED6", "#D3D6DD", "#D8D8D6", "#DFE2E9", "#E0362C", "#E4E4E2", "#E7E9ED",
+  "#E8E8E6", "#E9EBEF", "#EB4438", "#ED6A5E", "#F0B544", "#F1F2F4", "#F1F2F6", "#F2F2F0",
+  "#F4F5F8", "#F6DEDC", "#F6F7F9", "#FFFFFF",
     ]);
     const named = new Set(Object.values(INSTRUMENT_PALETTE).flatMap((palette) => Object.values(palette)));
     expect(INSTRUMENT_COLOR_ALLOWLIST.filter((color) => !named.has(color))).toEqual([]);

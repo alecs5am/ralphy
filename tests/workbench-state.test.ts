@@ -234,7 +234,7 @@ describe("workbench ordering and preferences", () => {
       rightPanelVisible: true,
       bottomPanelVisible: false,
       workspaceView: "grid",
-      sidebarWidth: 240,
+      sidebarWidth: 260,
       rightPanelWidth: 292,
       bottomPanelHeight: 220,
     });

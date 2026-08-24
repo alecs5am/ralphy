@@ -178,9 +178,11 @@ describe("instrument profile control", () => {
       expect(menuClasses).toContain("bg-surface");
       expect(menuClasses).not.toMatch(/\b(?:border-|shadow-)/);
       expect(source).toMatch(/const ON_THEME = "text-ink hover:bg-surface-hover focus-visible:outline-ink"/);
-      // The sidebar footer's pill stays a black widget in both themes, so it takes the on-dark
-      // family and the on-instrument ring: the theme ink is #141414 on #141414 in the light theme.
-      expect(source).toMatch(/const ON_INSTRUMENT = "text-on-instrument-muted [^"]*focus-visible:outline-focus-on-instrument"/);
+      // Handoff 13 dissolved the sidebar footer's black pill into the one sidebar card, so this
+      // row now stands on a theme surface and takes the theme pair. The on-dark family it used to
+      // carry would paint #F2F2F0 ink on a white card in the light theme.
+      expect(source).toMatch(/const ON_CARD = "text-muted hover:bg-field hover:text-ink focus-visible:outline-ink"/);
+      expect(source).not.toContain("text-on-instrument-muted");
     } finally {
       await act(async () => root.unmount());
       observers.restore();

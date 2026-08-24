@@ -24,7 +24,7 @@ const RIGHT_RAIL_MIN = 292;
 const RIGHT_RAIL_MAX = 1_000;
 const LEFT_MIN = 216;
 const LEFT_MAX = 420;
-const LEFT_DEFAULT = 240;
+const LEFT_DEFAULT = 260;
 
 export interface InstrumentScrollContextValue {
   element: HTMLElement | null;
@@ -337,7 +337,11 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
   return <ScrollContext.Provider value={scrollContext}>
     <RightRailContext.Provider value={railContext}>
       <div
-        className="instrument-shell col-span-3 row-start-1 row-end-2 grid h-full min-h-0 w-full min-w-0 overflow-hidden bg-desk grid-cols-[var(--instrument-left-width)_auto_minmax(0,1fr)] grid-rows-[48px_minmax(0,1fr)] data-[rail-resizing]:cursor-col-resize data-[rail-resizing]:select-none"
+        /* Handoff 13's window: 8px of desk on all four sides, an 8px zone gap, and nothing
+           touching the window edge. The sidebar is full height and the topbar belongs to the
+           content column rather than spanning the window, which is what lets the sidebar hold
+           the traffic lights and the wordmark in its own header. */
+        className="instrument-shell col-span-3 row-start-1 row-end-2 flex h-full min-h-0 w-full min-w-0 gap-2 overflow-hidden bg-desk p-2 data-[rail-resizing]:cursor-col-resize data-[rail-resizing]:select-none"
         ref={frameRef}
         data-right-rail-mode={mode}
         data-instrument-native-inset="76"
@@ -347,25 +351,10 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
           "--instrument-right-rail-width": `${railWidth}px`,
         } as CSSProperties}
       >
-        <header
-          className="instrument-top-row relative col-span-3 row-start-1 grid h-12 min-h-0 min-w-0 items-center bg-desk [-webkit-app-region:drag]"
-          style={{ gridTemplateColumns: `${leftColumn}px ${mode === "docked" ? railWidth : 0}px minmax(0, 1fr)` }}
-        >
-          {props.topChrome && <div className="absolute inset-y-0 left-0 z-10 flex items-center gap-1 pl-[84px] [-webkit-app-region:no-drag]">
-            <button className="grid size-7 place-items-center rounded-full text-ink hover:bg-board focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink" type="button" title={props.leftVisible ? "Hide sidebar" : "Show sidebar"} aria-label="Toggle sidebar" aria-pressed={props.leftVisible} onClick={props.onToggleLeft}>
-              <PanelLeft size={15} strokeWidth={1.6} aria-hidden="true" />
-            </button>
-            <button className="grid size-7 place-items-center rounded-full text-muted hover:bg-board hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-35" type="button" title="Back" aria-label="Back" disabled={!props.topChrome.canGoBack} onClick={props.topChrome.onBack}>
-              <ArrowLeft size={15} strokeWidth={1.6} aria-hidden="true" />
-            </button>
-            <button className="grid size-7 place-items-center rounded-full text-muted hover:bg-board hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-35" type="button" title="Forward" aria-label="Forward" disabled={!props.topChrome.canGoForward} onClick={props.topChrome.onForward}>
-              <ArrowRight size={15} strokeWidth={1.6} aria-hidden="true" />
-            </button>
-          </div>}
-          <div className="instrument-island-slot absolute inset-y-0 left-1/2 z-10 flex -translate-x-1/2 items-start pt-1.5 [-webkit-app-region:no-drag]">{props.island}</div>
-        </header>
-        {props.leftVisible && <div className="instrument-left-stack relative col-start-1 row-start-2 flex h-full min-h-0 w-full overflow-hidden bg-desk p-2 pt-0">
+        {props.leftVisible && <div className="instrument-left-stack relative flex h-full min-h-0 flex-none" style={{ width: leftColumn }}>
           {props.sidebar}
+          {/* The grabber straddles the window's own 8px zone gap rather than eating into the
+              sidebar card, so the card keeps its full 260 and the drag target stays 8 wide. */}
           <ResizeHandle
             ariaLabel="Resize sidebar"
             orientation="vertical"
@@ -374,42 +363,66 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
             max={LEFT_MAX}
             defaultValue={LEFT_DEFAULT}
             direction={1}
-            className="resize-instrument-sidebar absolute top-0 right-0 bottom-0 w-2 cursor-col-resize"
+            className="resize-instrument-sidebar absolute top-0 -right-2 bottom-0 w-2 cursor-col-resize"
             onChange={props.onLeftWidthChange}
             onActiveChange={setColumnResizing}
           />
         </div>}
-        <section className="instrument-desk-column relative col-start-3 row-start-2 flex min-h-0 min-w-0 flex-col overflow-hidden bg-desk" ref={setDeskColumn}>
-          <div
-            /* The desk is the app's one scroll surface and the container eight other areas' width
-               variants read, so both the name and the type are stated here. */
-            className="instrument-desk-scroll @container/instrument-desk min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
-            ref={setDeskElement}
-            data-instrument-scroll-owner="instrument-desk-scroll"
-            inert={mode === "overlay" || undefined}
-            aria-hidden={mode === "overlay" || undefined}
-          >
-            {props.desk}
+        <div className="instrument-content-column flex min-h-0 min-w-0 flex-1 flex-col gap-2.5">
+          <header className="instrument-top-row relative flex h-11 min-w-0 flex-none items-center gap-3 px-0.5 [-webkit-app-region:drag]">
+            {/* The sidebar owns its own collapse control now; the topbar carries it only while the
+                sidebar is gone, which is the one state where the sidebar's own button is not on
+                screen. History stays here in both states -- it is about the content column. */}
+            {props.topChrome && <div className="flex flex-none items-center gap-1 [-webkit-app-region:no-drag]">
+              {!props.leftVisible && <>
+                <div className="w-traffic-main h-px flex-none" aria-hidden="true" />
+                <button className="grid size-7 place-items-center rounded-full text-ink hover:bg-desk-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink" type="button" title="Show sidebar" aria-label="Toggle sidebar" aria-pressed="false" onClick={props.onToggleLeft}>
+                  <PanelLeft size={15} strokeWidth={1.6} aria-hidden="true" />
+                </button>
+              </>}
+              <button className="grid size-7 place-items-center rounded-full text-muted hover:bg-desk-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-35" type="button" title="Back" aria-label="Back" disabled={!props.topChrome.canGoBack} onClick={props.topChrome.onBack}>
+                <ArrowLeft size={15} strokeWidth={1.6} aria-hidden="true" />
+              </button>
+              <button className="grid size-7 place-items-center rounded-full text-muted hover:bg-desk-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-35" type="button" title="Forward" aria-label="Forward" disabled={!props.topChrome.canGoForward} onClick={props.topChrome.onForward}>
+                <ArrowRight size={15} strokeWidth={1.6} aria-hidden="true" />
+              </button>
+            </div>}
+            <div className="instrument-island-slot ml-auto flex flex-none items-center [-webkit-app-region:no-drag]">{props.island}</div>
+          </header>
+          <div className="instrument-content-body flex min-h-0 min-w-0 flex-1 gap-2">
+            <section className="instrument-desk-column relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-desk" ref={setDeskColumn}>
+              <div
+                /* The desk is the app's one scroll surface and the container eight other areas' width
+                   variants read, so both the name and the type are stated here. */
+                className="instrument-desk-scroll @container/instrument-desk min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
+                ref={setDeskElement}
+                data-instrument-scroll-owner="instrument-desk-scroll"
+                inert={mode === "overlay" || undefined}
+                aria-hidden={mode === "overlay" || undefined}
+              >
+                {props.desk}
+              </div>
+            </section>
+            {/* The rail stands beside the desk, inside the content column, so the window's own zone
+                gap is the only inset it needs. The "right" in the class name and the props is
+                historical -- the rail is a dock, not a side. */}
+            <aside className={`instrument-right-rail relative min-h-0 min-w-0 overflow-hidden bg-desk ${mode === "docked" ? "flex" : "hidden"}`} style={{ width: railWidth }} aria-label={activeRail.label} hidden={mode !== "docked"}>
+              <ResizeHandle
+                ariaLabel="Resize agent panel"
+                orientation="vertical"
+                value={railWidth}
+                min={RIGHT_RAIL_MIN}
+                max={railMax}
+                defaultValue={RIGHT_RAIL_MIN}
+                direction={-1}
+                className="resize-instrument-rail absolute top-0 -left-2 bottom-0 w-2 cursor-col-resize"
+                onChange={props.onRightWidthChange}
+                onActiveChange={setColumnResizing}
+              />
+              <div className="min-h-0 min-w-0 flex-1" ref={setDockedRailTarget} />
+            </aside>
           </div>
-        </section>
-        {/* The rail stands beside the sidebar, so its own left inset comes from the sidebar's
-            right padding; without a sidebar it has to pay for that gap itself. The "right"
-            in the class name and the props is historical — the rail is a dock, not a side. */}
-        <aside className={`instrument-right-rail relative col-start-2 row-start-2 min-h-0 min-w-0 overflow-hidden bg-desk p-2 ${props.leftVisible ? "pl-0" : ""} ${mode === "docked" ? "flex" : "hidden"}`} style={{ width: railWidth }} aria-label={activeRail.label} hidden={mode !== "docked"}>
-          <ResizeHandle
-            ariaLabel="Resize agent panel"
-            orientation="vertical"
-            value={railWidth}
-            min={RIGHT_RAIL_MIN}
-            max={railMax}
-            defaultValue={RIGHT_RAIL_MIN}
-            direction={1}
-            className="resize-instrument-rail absolute top-0 right-0 bottom-0 w-2 cursor-col-resize"
-            onChange={props.onRightWidthChange}
-            onActiveChange={setColumnResizing}
-          />
-          <div className="min-h-0 min-w-0 flex-1" ref={setDockedRailTarget} />
-        </aside>
+        </div>
         <div className="instrument-rail-parking" ref={setRailParking} hidden inert>
         </div>
       </div>

@@ -1550,7 +1550,7 @@ describe("design system contract", () => {
     // The two column fallbacks moved to the shell's own theme file with the rest of its role
     // keys. They cannot live on `:root`: the rail's menus derive their fit from the rail width,
     // and a custom property's `var()` is substituted where the property is declared.
-    expect(shellTheme).toMatch(/\.instrument-shell\s*\{[^}]*--instrument-left-width:\s*240px/s);
+    expect(shellTheme).toMatch(/\.instrument-shell\s*\{[^}]*--instrument-left-width:\s*260px/s);
     expect(shellTheme).toMatch(/\.instrument-shell\s*\{[^}]*--instrument-right-rail-width:\s*292px/s);
     // The desk column names the container eight other areas' width variants read. Its stable
     // gutter cannot be a utility: `marketplace.css` gives the gutter back for the one route that
@@ -1598,10 +1598,11 @@ describe("design system contract", () => {
     expect(sidebar).not.toContain('title="Filter projects"');
     expect(profile).not.toContain(".ralphy library");
     expect(styles).toContain("--dither-op: 1");
-    // v2: the workspace card is a sidebar widget, flush with the stack above and below it. The
-    // card states its height once and the picker and hero fill it, in markup now.
+    // Handoff 13: the workspace card is a widget standing on the one sidebar card, and its radius
+    // is the hero role (22) rather than the panel role (18). It states its height once and the
+    // picker and hero fill it, in markup.
     expect(chromeTheme).toMatch(/--spacing-workspace-card:\s*118px/);
-    expect(sidebar).toMatch(/className="sidebar-context[^"]*\bh-workspace-card\b[^"]*\brounded-panel\b/);
+    expect(sidebar).toMatch(/className="sidebar-context[^"]*\bh-workspace-card\b[^"]*\brounded-hero\b/);
     expect(picker).toMatch(/className="workspace-picker[^"]*\bh-full\b/);
     expect(/const HERO = "([^"]*)"/.exec(picker)?.[1] ?? "").toMatch(/\bh-full\b/);
     // The hero is the black widget, and it now carries the class that flips the on-dark token
@@ -1612,10 +1613,12 @@ describe("design system contract", () => {
     expect(workbenchStyles).not.toMatch(/\.project-glyph\s*\{/);
     expect(readFileSync(join(process.cwd(), "src/screens/workspace/WorkspaceOperations.tsx"), "utf8"))
       .toMatch(/color-mix\(in_srgb,var\(--glyph-color\)/);
-    // Selection is an inversion, stated once in the sidebar's own vocabulary. The stylesheet's
+    // Handoff 13 moved the nav onto the one sidebar card, so selection is no longer an inversion
+    // against a black widget: a selected row is the field recess with the theme ink, and hover
+    // takes the same surface. Stated once in the sidebar's own vocabulary; the stylesheet's
     // `.is-selected` hook was never set by any component.
     expect(/const SELECTED = "([^"]*)"/.exec(sidebar)?.[1] ?? "").toBe(
-      "bg-selected text-selected-ink hover:bg-selected-hover hover:text-selected-ink",
+      "bg-field text-ink hover:bg-field hover:text-ink",
     );
     expect(styles).not.toContain("sidebar-nav-row.is-selected");
     expect(chromeTheme).toMatch(/--workspace-option-mask:\s*url\("\/assets\/dither\/row-field\.png"\)/);

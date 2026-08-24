@@ -541,4 +541,14 @@ const mockBridgeEnabled = mockBridgeAllowed(rendererEnvironment);
 if (!injectedBridge && !mockBridgeEnabled) {
   throw new Error("Ralphy Desktop IPC bridge is unavailable");
 }
-export const bridge: RalphyBridge = injectedBridge ?? createMockBridge();
+/* The injected bridge normally wins: VITE_RALPHY_ENABLE_MOCKS only says mocks are *permitted*,
+   and the geometry harnesses build with it while still installing their own `window.ralphy`.
+   VITE_RALPHY_MOCK_BRIDGE_ONLY is the separate, stronger statement -- "this renderer is a design
+   harness, ignore whatever Electron injected" -- which is what makes the fixtures visible when
+   the dev build runs inside the real window instead of a browser tab. It is never set for a
+   shipped build, and it means nothing unless mocks are permitted in the first place. */
+const mockBridgeOnly = mockBridgeEnabled
+  && rendererEnvironment.VITE_RALPHY_MOCK_BRIDGE_ONLY === "true";
+export const bridge: RalphyBridge = mockBridgeOnly || !injectedBridge
+  ? createMockBridge()
+  : injectedBridge;

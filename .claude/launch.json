@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "renderer-mocks",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "VITE_RALPHY_ENABLE_MOCKS=true bun run dev --port 5241 --strictPort"],
+      "port": 5241
+    }
+  ]
+}

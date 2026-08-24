@@ -250,6 +250,7 @@ describe("instrument shell", () => {
       const shell = mounted.host.container.querySelector(".instrument-shell")!;
       const handle = () => mounted.host.container.querySelector(".resize-instrument-sidebar")!;
       const leftColumn = () => (shell.style as unknown as Record<string, string>)["--instrument-left-width"];
+      // The column follows the width it is given, not the default: the fixture asks for 240.
       expect(leftColumn()).toBe("240px");
       expect(handle().getAttribute("aria-valuenow")).toBe("240");
 

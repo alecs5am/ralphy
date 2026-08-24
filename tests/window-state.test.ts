@@ -31,7 +31,7 @@ describe("window state", () => {
     const main = readFileSync("electron/main.ts", "utf8");
     const shell = readFileSync("src/instrument/InstrumentShell.tsx", "utf8");
     expect(main).toMatch(/titleBarStyle:\s*"hiddenInset"/);
-    expect(main).toMatch(/trafficLightPosition:\s*\{\s*x:\s*16,\s*y:\s*18\s*\}/);
+    expect(main).toMatch(/trafficLightPosition:\s*\{\s*x:\s*22,\s*y:\s*28\s*\}/);
     expect(main).not.toMatch(/\bvibrancy\s*:/);
     expect(main).not.toMatch(/\bvisualEffectState\s*:/);
     expect(main).not.toMatch(/backgroundColor:\s*"transparent"/);

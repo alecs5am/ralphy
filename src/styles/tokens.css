@@ -59,6 +59,21 @@ html[data-theme="dark"] {
   --instrument-resize-grip: #242422;
   --instrument-resize-grip-active: #6A6A66;
   --instrument-error-surface: #2A1615;
+  /* Handoff 13's depth stack: desk -> panel -> card -> field, one step per level, and a field
+     is always a recess back toward the desk rather than a fifth level up. A panel is the 2px
+     chrome frame around a card, so the two differ by one step and read as a hairline, not as a
+     margin.
+
+     The step sizes are the design's; the values are this app's. One inversion: in the light
+     family a field and a row hover are steps *down* from the card toward the desk, and in the
+     dark one they are steps up -- a recess below #1E1E1E heads back toward the #050505 desk and
+     reads as a hole rather than as an input. The ordering is what carries over: a row hover is
+     always the smaller step of the two, a field the larger. */
+  --instrument-panel: #111111;
+  --instrument-card: #1E1E1E;
+  --instrument-field: #262626;
+  --instrument-row-hover: #232323;
+  --instrument-chip-on-panel: #1A1A1A;
   --instrument-widget-dark: #141414;
   --instrument-widget-dark-raised: #1E1E1E;
   --instrument-widget-dark-hover: #1C1C1C;
@@ -115,7 +130,7 @@ html[data-theme="dark"] {
 
 html[data-theme="light"] {
   color-scheme: light;
-  --instrument-desk: #E2E4EA;
+  --instrument-desk: #E9EBEF;
   --instrument-desk-board: #D8D8D6;
   --instrument-desk-hover: #D3D6DD;
   --instrument-widget-light: #F1F2F6;
@@ -132,6 +147,11 @@ html[data-theme="light"] {
   --instrument-resize-grip: #CCCED6;
   --instrument-resize-grip-active: #9A9A96;
   --instrument-error-surface: #F6DEDC;
+  --instrument-panel: #F4F5F8;
+  --instrument-card: #FFFFFF;
+  --instrument-field: #F1F2F4;
+  --instrument-row-hover: #F6F7F9;
+  --instrument-chip-on-panel: #E7E9ED;
   --instrument-widget-dark: #141414;
   --instrument-widget-dark-raised: #1E1E1E;
   --instrument-widget-dark-hover: #1C1C1C;
@@ -281,6 +301,7 @@ html[data-theme="light"] {
   --font-doto: "Doto", var(--font-mono);
   /* Type scale of the instrument language: mono micro-labels 9-10.5px uppercase,
      UI text 11.5-13px, widget headings 16-17px. Doto is numbers only, >= 13px. */
+  --text-mono-2xs: 8.5px;
   --text-mono-xs: 9px;
   --text-mono-sm: 9.5px;
   --text-meta: 10px;
@@ -290,6 +311,7 @@ html[data-theme="light"] {
   --text-sm: 12px;
   --text-ui: 12.5px;
   --text-base: 13px;
+  --text-body: 13.5px;
   --text-md: 14px;
   --text-lg: 15px;
   --text-title: 16px;
@@ -301,6 +323,7 @@ html[data-theme="light"] {
   --text-section: 24px;
   --text-display: 26px;
   --text-hero: 28px;
+  --text-greeting: 29px;
   --leading-tight: 1.3;
   --leading-snug: 1.45;
   --leading-body: 1.55;
@@ -313,11 +336,16 @@ html[data-theme="light"] {
 
   --radius-keycap: 5px;
   --radius-sm: 8px;
+  --radius-tab: 9px;
   --radius-md: 10px;
+  --radius-row: 12px;
   --radius-lg: 14px;
   --radius-preview: 16px;
   --radius-xl: 18px;
-  --radius-panel: 24px;
+  --radius-panel: 18px;
+  --radius-window: 20px;
+  --radius-hero: 22px;
+  --radius-sidebar: 26px;
   --radius-pill: 999px;
   --radius-circle: 50%;
 

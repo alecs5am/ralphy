@@ -3,10 +3,10 @@
    value the design fixes for that role; a component then reaches for the name, never a
    literal.
 
-   The frame straddles both ink families: the desk and its columns are theme surfaces, while
-   the island, the rail sheet and the sidebar's user pill are black widgets in both themes and
-   take the on-dark family throughout. Nothing here may resolve to a theme-dependent surface
-   for a widget that stays black. */
+   The frame straddles both ink families: the desk, its columns and the sidebar card are theme
+   surfaces, while the island, the rail sheet and the sidebar's place switch and workspace hero
+   are black widgets in both themes and take the on-dark family throughout. Nothing here may
+   resolve to a theme-dependent surface for a widget that stays black. */
 
 /* Multi-part values. Plain custom properties rather than `@theme` keys, because
    `grid-template-rows` is not a Tailwind namespace: `@theme inline` never emits the variable,
@@ -30,7 +30,7 @@
    input. See the note in theme/agent-rail.css. */
 .instrument-shell {
   --instrument-right-rail-width: 292px;
-  --instrument-left-width: 240px;
+  --instrument-left-width: 260px;
 }
 
 @theme inline {

@@ -14,18 +14,18 @@ type SurfaceProbe = {
 };
 
 const EXPECTED_LIGHT = {
-  settingsDesk: "rgb(226, 228, 234)",
+  settingsDesk: "rgb(233, 235, 239)",
   settingsSidebar: "rgb(20, 20, 20)",
-  settingsMain: "rgb(226, 228, 234)",
+  settingsMain: "rgb(233, 235, 239)",
   settingsWidget: "rgb(241, 242, 246)",
   settingsText: "rgb(20, 20, 20)",
-  memoryDesk: "rgb(226, 228, 234)",
+  memoryDesk: "rgb(233, 235, 239)",
   memoryWidget: "rgb(241, 242, 246)",
   memoryText: "rgb(20, 20, 20)",
-  marketplaceDesk: "rgb(226, 228, 234)",
+  marketplaceDesk: "rgb(233, 235, 239)",
   marketplaceWidget: "rgb(241, 242, 246)",
   marketplaceText: "rgb(20, 20, 20)",
-  mediaDesk: "rgb(226, 228, 234)",
+  mediaDesk: "rgb(233, 235, 239)",
   mediaControl: "rgb(241, 242, 246)",
   mediaText: "rgb(20, 20, 20)",
   mediaFrame: "rgb(6, 6, 6)",

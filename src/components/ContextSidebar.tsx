@@ -1,5 +1,5 @@
-import { Boxes, Brain, CalendarDays, ChartNoAxesCombined, CircleAlert, Compass, Download, FolderOpen, Layers3, PackageCheck, Plus, Save, Sparkles, Store, UsersRound, WandSparkles, type LucideIcon } from "lucide-react";
-import { useId, useMemo, type CSSProperties } from "react";
+import { Boxes, Brain, CalendarDays, ChartNoAxesCombined, CircleAlert, Compass, Download, FolderOpen, Layers3, PackageCheck, PanelLeft, Plus, Save, Search, Sparkles, Store, UsersRound, WandSparkles, type LucideIcon } from "lucide-react";
+import { useId, useMemo, useState, type CSSProperties } from "react";
 import type { WorkspaceSummary } from "../lib/ipc";
 import {
   sortWorkspaces,
@@ -101,16 +101,26 @@ function pageCount(page: WorkspacePage, workspace?: WorkspaceSummary): number | 
   return null;
 }
 
-// Segments and rows are pills, matching the round geometry of the widget they sit in;
-// selection is an inversion (white plate, ink text), never a tint. The mode switch paints
-// its selection with the gooey travelling indicator instead of a per-button background.
-const MODE_BUTTON = "sidebar-mode-button relative z-1 flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-transparent px-2 type-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-instrument";
-const SIDEBAR_ROW = "sidebar-nav-row grid h-control-lg w-full shrink-0 grid-cols-(--sidebar-nav-columns) items-center gap-2.5 rounded-full px-3 text-left type-ui focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-on-instrument";
-/* A chat row carries a title and its state, so it is two lines inside one pill rather than the
+/* Handoff 13 makes the sidebar one card instead of a stack of separate widgets: the density it
+   asks for comes from removing edges, not from shrinking gaps. Two dark widgets still stand on
+   that card -- the place switch and the workspace hero -- and they keep the on-dark ink family,
+   because they are black in both themes. Everything else on the card takes the theme pair. */
+const SECTION_LABEL = "sidebar-section-label flex h-6.5 shrink-0 items-center gap-1.5 px-4 pb-1.5 font-code type-meta tracking-mono text-muted";
+/* Segments and rows are pills, matching the round geometry of the widget they sit in;
+   selection is an inversion (white plate, ink text), never a tint. The mode switch paints
+   its selection with the gooey travelling indicator instead of a per-button background. */
+const MODE_BUTTON = "sidebar-mode-button relative z-1 flex h-8.5 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-transparent px-2 type-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-instrument";
+const SIDEBAR_ROW = "sidebar-nav-row grid h-10 w-full shrink-0 grid-cols-(--sidebar-nav-columns) items-center gap-2.75 rounded-row px-3 text-left type-ui focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink";
+/* A chat row carries a title and its state, so it is two lines inside one row rather than the
    single-line grid the page rows use. Geometry only: the pair comes from SELECTED/UNSELECTED. */
-const CHAT_ROW = "sidebar-chat-row grid min-h-10.5 grid-cols-(--sidebar-chat-columns) items-center gap-x-2 gap-y-0 rounded-full px-3 py-1.25 text-left";
-const SELECTED = "bg-selected text-selected-ink hover:bg-selected-hover hover:text-selected-ink";
-const UNSELECTED = "bg-transparent text-on-instrument-muted hover:bg-instrument-hover hover:text-on-instrument";
+const CHAT_ROW = "sidebar-chat-row grid grid-cols-(--sidebar-chat-columns) items-center gap-x-2.25 gap-y-0 rounded-row px-2.75 py-1.75 text-left";
+/* On the card, a selected row is the field recess and a resting row is nothing at all. The
+   handoff gives hover and selection the same surface for nav rows and a lighter one for lists. */
+const SELECTED = "bg-field text-ink hover:bg-field hover:text-ink";
+const UNSELECTED = "bg-transparent text-muted hover:bg-field hover:text-ink";
+const CHAT_UNSELECTED = "bg-transparent text-muted hover:bg-row-hover hover:text-ink";
+/* A ghost circle on the card: no surface until the cursor is on it, and the field is what it takes. */
+const GHOST = "grid place-items-center rounded-full text-muted hover:bg-field hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
 
 function modeButton(active: boolean) {
   return `${MODE_BUTTON} ${active ? "text-selected-ink" : "text-on-instrument-muted hover:text-on-instrument"}`;
@@ -121,8 +131,15 @@ function sidebarRow(active: boolean) {
 }
 
 function sidebarCount(active: boolean) {
-  // Counters are copy, not decoration: the decorative muted ink reads at 3.4:1 on the widget.
-  return `font-display type-sm leading-none font-extrabold ${active ? "text-selected-ink" : "text-on-instrument-muted"}`;
+  // Counters are copy, not decoration: the decorative muted ink reads at 3.4:1 on the card.
+  return `font-display type-sm leading-none font-extrabold ${active ? "text-ink" : "text-muted"}`;
+}
+
+// The search field filters what the sidebar itself holds -- its pages and its chats. It is not a
+// catalogue search: nothing else in the sidebar is searchable, so a needle that matches neither
+// list simply empties both and says so.
+function matches(needle: string, haystack: string): boolean {
+  return !needle || haystack.toLocaleLowerCase().includes(needle);
 }
 
 export function ContextSidebar({
@@ -134,6 +151,7 @@ export function ContextSidebar({
   workspaces,
   workspaceId,
   pinnedWorkspaceIds,
+  onToggleSidebar,
   onOpenSettings,
   onSwitchMode,
   onOpenMarketplaceRoute,
@@ -145,19 +163,39 @@ export function ContextSidebar({
   onNewChat,
 }: ContextSidebarProps) {
   const gooId = `mode-goo-${useId().replace(/:/g, "")}`;
+  const searchId = useId();
+  const [query, setQuery] = useState("");
+  const needle = query.trim().toLocaleLowerCase();
   const workspace = workspaces.find((item) => item.id === workspaceId);
   const now = Date.now();
   const orderedWorkspaces = useMemo(
     () => sortWorkspaces(workspaces, pinnedWorkspaceIds),
     [pinnedWorkspaceIds, workspaces],
   );
+  const pages = WORKSPACE_PAGES.filter((item) => matches(needle, WORKSPACE_PAGE_LABELS[item]));
+  const visibleChats = chats.filter((item) => matches(needle, item.title));
   return (
     /* The slide-in belongs on the element: instrument.css declared the animation *after* its own
        reduced-motion cancel, so the cancel never applied and the sidebar slid in regardless of
        the operator's motion preference. */
-    <aside className="context-sidebar col-start-1 col-end-2 row-start-1 row-end-2 flex h-full min-h-0 w-full min-w-0 flex-col gap-2 overflow-hidden bg-transparent text-ink animate-sidebar-in motion-reduce:animate-none">
+    <aside className="context-sidebar flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-sidebar bg-card text-ink animate-sidebar-in motion-reduce:animate-none">
+      {/* Header 52. macOS draws the traffic lights itself and they are positioned into this row
+          from the main process, so the run before the wordmark is reserved space, never a control. */}
+      <header className="sidebar-header flex h-13 flex-none items-center gap-2.5 px-3.5 [-webkit-app-region:drag]">
+        <div className="w-traffic-sidebar h-px flex-none" aria-hidden="true" />
+        <strong className="min-w-0 flex-1 truncate type-lg font-normal">Ralphy</strong>
+        <button
+          className={`sidebar-collapse ${GHOST} size-6.5 flex-none [-webkit-app-region:no-drag]`}
+          type="button"
+          title="Hide sidebar"
+          aria-label="Toggle sidebar"
+          aria-pressed="true"
+          onClick={onToggleSidebar}
+        ><PanelLeft size={15} strokeWidth={1.8} aria-hidden="true" /></button>
+      </header>
+
       <nav
-        className="sidebar-mode-switch relative flex h-11 shrink-0 gap-0.5 overflow-hidden rounded-full bg-instrument p-1 isolate"
+        className="sidebar-mode-switch relative mx-3 mb-2.5 flex h-10.5 shrink-0 gap-0.5 overflow-hidden rounded-full bg-instrument p-1 isolate"
         style={{ "--mode-index": mode === "work" ? 0 : 1, "--mode-count": 2 } as CSSProperties}
         aria-label="Application mode"
       >
@@ -194,55 +232,76 @@ export function ContextSidebar({
         </button>
       </nav>
 
-      {mode === "work" && workspace && <div className="sidebar-context h-workspace-card flex-none overflow-hidden rounded-panel">
+      {mode === "work" && workspace && <div className="sidebar-context h-workspace-card mx-3 mb-2.5 flex-none overflow-hidden rounded-hero">
         <WorkspacePicker value={workspace.id} workspaces={orderedWorkspaces} onValueChange={onOpenWorkspace} />
       </div>}
 
-      <div className="sidebar-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        {mode === "work" && workspace && <nav className="sidebar-nav flex shrink-0 flex-col gap-0.5 rounded-panel bg-instrument p-2" aria-label="Workspace pages">
-          {WORKSPACE_PAGES.map((item) => {
-            const Icon = PAGE_ICONS[item];
-            const count = pageCount(item, workspace);
-            const active = pageActive && page === item;
-            return (
-              <button
-                className={sidebarRow(active)}
-                type="button"
-                key={item}
-                aria-current={active ? "page" : undefined}
-                onClick={() => onOpenPage(item)}
-              >
-                <Icon size={14} strokeWidth={1.6} aria-hidden="true" />
-                <span className="min-w-0 truncate">{WORKSPACE_PAGE_LABELS[item]}</span>
-                <small className={sidebarCount(active)}>{count ?? ""}</small>
-              </button>
-            );
-          })}
-        </nav>}
+      <div className="sidebar-search mx-3 mb-3 flex h-10 flex-none items-center gap-2.5 rounded-full bg-field px-3.25">
+        <Search className="flex-none text-muted" size={15} strokeWidth={1.8} aria-hidden="true" />
+        <input
+          id={searchId}
+          className="min-w-0 flex-1 bg-transparent type-base text-ink outline-none placeholder:text-muted"
+          type="search"
+          value={query}
+          placeholder="Search…"
+          aria-label="Search the sidebar"
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        {query
+          ? <button className={`${GHOST} size-5 flex-none`} type="button" title="Clear search" aria-label="Clear search" onClick={() => setQuery("")}>
+            <Plus className="rotate-45" size={12} strokeWidth={2} aria-hidden="true" />
+          </button>
+          : <kbd className="grid h-5 flex-none place-items-center rounded-key bg-card px-1.5 font-code type-meta text-muted" aria-hidden="true">⌘K</kbd>}
+      </div>
 
-        {mode === "work" && workspace && chats.length > 0 && <section className="sidebar-chats mt-2">
-          <div className="sidebar-section-label flex h-7 shrink-0 items-center justify-between gap-1.5 px-2.5 font-code type-mono-xs tracking-mono text-muted">
+      <div className="sidebar-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        {mode === "work" && workspace && <>
+          <div className={SECTION_LABEL}><span>MAIN MENU</span></div>
+          <nav className="sidebar-nav flex shrink-0 flex-col gap-0.5 px-2.5" aria-label="Workspace pages">
+            {pages.map((item) => {
+              const Icon = PAGE_ICONS[item];
+              const count = pageCount(item, workspace);
+              const active = pageActive && page === item;
+              return (
+                <button
+                  className={sidebarRow(active)}
+                  type="button"
+                  key={item}
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => onOpenPage(item)}
+                >
+                  <Icon size={16} strokeWidth={1.8} aria-hidden="true" />
+                  <span className="min-w-0 truncate">{WORKSPACE_PAGE_LABELS[item]}</span>
+                  <small className={sidebarCount(active)}>{count ?? ""}</small>
+                </button>
+              );
+            })}
+          </nav>
+        </>}
+
+        {mode === "work" && workspace && visibleChats.length > 0 && <section className="sidebar-chats mt-3">
+          <div className={SECTION_LABEL}>
             <span>CHATS</span>
-            <small className="font-display type-xs leading-none font-extrabold">{chats.length}</small>
+            <small className="font-display type-sm leading-none font-extrabold">{visibleChats.length}</small>
             {onNewChat && <button
-              className="ml-auto grid size-5 place-items-center rounded-full text-muted hover:bg-instrument-hover hover:text-on-instrument focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-instrument"
+              className={`ml-auto ${GHOST} size-5.5`}
               type="button"
               title="New chat"
               aria-label="New chat"
               onClick={onNewChat}
             ><Plus size={12} strokeWidth={1.8} aria-hidden="true" /></button>}
           </div>
-          <nav className="sidebar-nav flex shrink-0 flex-col gap-0.5 rounded-panel bg-instrument p-2" aria-label="Chats">
-            {chats.map((item) => {
+          <nav className="sidebar-nav flex shrink-0 flex-col gap-0.25 px-2.5" aria-label="Chats">
+            {visibleChats.map((item) => {
               const active = item.id === activeChatId;
               return <button
-                className={`${CHAT_ROW} ${active ? SELECTED : UNSELECTED}`}
+                className={`${CHAT_ROW} ${active ? SELECTED : CHAT_UNSELECTED}`}
                 type="button"
                 key={item.id}
                 aria-current={active ? "true" : undefined}
                 onClick={() => onSelectChat?.(item.id)}
               >
-                <i className={`sidebar-chat-dot size-1.5 rounded-full bg-current ${item.busy ? "is-busy opacity-100 animate-sidebar-chat-pulse motion-reduce:animate-none" : "opacity-45"}`} aria-hidden="true" />
+                <i className={`sidebar-chat-dot size-1.75 rounded-full bg-current ${item.busy ? "is-busy opacity-100 animate-sidebar-chat-pulse motion-reduce:animate-none" : "opacity-45"}`} aria-hidden="true" />
                 <span className="min-w-0 truncate type-ui">{item.title}</span>
                 <small className="col-start-2 min-w-0 truncate font-code type-mono-xs tracking-mono uppercase opacity-70">{chatDetail(item, now)}</small>
               </button>;
@@ -250,62 +309,63 @@ export function ContextSidebar({
           </nav>
         </section>}
 
-        {mode === "marketplace" && <div className="grid gap-2">
-          <section>
-            <div className="sidebar-section-label flex h-7 shrink-0 items-center justify-between px-2.5 font-code type-mono-xs tracking-mono text-muted"><span>MARKETPLACE</span></div>
-            <nav className="sidebar-nav flex shrink-0 flex-col gap-0.5 rounded-panel bg-instrument p-2" aria-label="Marketplace categories">
-              <button
-                className={sidebarRow(marketplaceRoute.kind === "discover")}
+        {mode === "work" && workspace && needle && pages.length === 0 && visibleChats.length === 0
+          && <p className="m-0 px-4 py-2 type-sm text-muted">Nothing in the sidebar matches “{query}”.</p>}
+
+        {mode === "marketplace" && <>
+          <div className={SECTION_LABEL}><span>MARKETPLACE</span></div>
+          <nav className="sidebar-nav flex shrink-0 flex-col gap-0.5 px-2.5" aria-label="Marketplace categories">
+            <button
+              className={sidebarRow(marketplaceRoute.kind === "discover")}
+              type="button"
+              aria-current={marketplaceRoute.kind === "discover" ? "page" : undefined}
+              onClick={() => onOpenMarketplaceRoute({ kind: "discover" })}
+            >
+              <Compass size={16} strokeWidth={1.8} aria-hidden="true" />
+              <span className="min-w-0 truncate">Discover</span>
+              <small />
+            </button>
+            {MARKETPLACE_CATEGORIES.map(({ id, label, icon: Icon }) => {
+              const active = marketplaceRoute.kind === "category" && marketplaceRoute.category === id;
+              return <button
+                className={sidebarRow(active)}
                 type="button"
-                aria-current={marketplaceRoute.kind === "discover" ? "page" : undefined}
-                onClick={() => onOpenMarketplaceRoute({ kind: "discover" })}
+                key={id}
+                aria-current={active ? "page" : undefined}
+                onClick={() => onOpenMarketplaceRoute({ kind: "category", category: id })}
               >
-                <Compass size={14} strokeWidth={1.6} aria-hidden="true" />
-                <span className="min-w-0 truncate">Discover</span>
+                <Icon size={16} strokeWidth={1.8} aria-hidden="true" />
+                <span className="min-w-0 truncate">{label}</span>
                 <small />
-              </button>
-              {MARKETPLACE_CATEGORIES.map(({ id, label, icon: Icon }) => {
-                const active = marketplaceRoute.kind === "category" && marketplaceRoute.category === id;
-                return <button
-                  className={sidebarRow(active)}
-                  type="button"
-                  key={id}
-                  aria-current={active ? "page" : undefined}
-                  onClick={() => onOpenMarketplaceRoute({ kind: "category", category: id })}
-                >
-                  <Icon size={14} strokeWidth={1.6} aria-hidden="true" />
-                  <span className="min-w-0 truncate">{label}</span>
-                  <small />
-                </button>;
-              })}
-            </nav>
-          </section>
-          <section>
-            <div className="sidebar-section-label flex h-7 shrink-0 items-center justify-between px-2.5 font-code type-mono-xs tracking-mono text-muted"><span>MY LIBRARY</span></div>
-            <nav className="sidebar-nav flex shrink-0 flex-col gap-0.5 rounded-panel bg-instrument p-2" aria-label="My Library">
-              {MARKETPLACE_LIBRARY.map(({ id, label, icon: Icon }) => {
-                const active = marketplaceRoute.kind === "library" && marketplaceRoute.section === id;
-                return <button
-                  className={sidebarRow(active)}
-                  type="button"
-                  key={id}
-                  aria-current={active ? "page" : undefined}
-                  onClick={() => onOpenMarketplaceRoute({ kind: "library", section: id })}
-                >
-                  <Icon size={14} strokeWidth={1.6} aria-hidden="true" />
-                  <span className="min-w-0 truncate">{label}</span>
-                  <small />
-                </button>;
-              })}
-            </nav>
-          </section>
-        </div>}
+              </button>;
+            })}
+          </nav>
+          <div className={`${SECTION_LABEL} mt-3`}><span>MY LIBRARY</span></div>
+          <nav className="sidebar-nav flex shrink-0 flex-col gap-0.5 px-2.5" aria-label="My Library">
+            {MARKETPLACE_LIBRARY.map(({ id, label, icon: Icon }) => {
+              const active = marketplaceRoute.kind === "library" && marketplaceRoute.section === id;
+              return <button
+                className={sidebarRow(active)}
+                type="button"
+                key={id}
+                aria-current={active ? "page" : undefined}
+                onClick={() => onOpenMarketplaceRoute({ kind: "library", section: id })}
+              >
+                <Icon size={16} strokeWidth={1.8} aria-hidden="true" />
+                <span className="min-w-0 truncate">{label}</span>
+                <small />
+              </button>;
+            })}
+          </nav>
+        </>}
       </div>
 
-      {rootPath && <div className="sidebar-footer flex h-12 shrink-0 items-stretch rounded-full bg-instrument text-on-instrument [&_.instrument-profile-control]:h-full [&_.instrument-profile-control]:w-full">
+      {/* User row 56. The profile control is a plain row on the card now rather than a pill
+          widget of its own -- one card, and the settings glyph is the only control on it. */}
+      {rootPath && <div className="sidebar-footer flex h-14 flex-none items-stretch px-1.5 [&_.instrument-profile-control]:h-full [&_.instrument-profile-control]:w-full">
         <InstrumentProfileControl
           identity={{ displayName: profileIdentity(rootPath), initials: profileIdentity(rootPath).slice(0, 2).toUpperCase(), avatarUrl: null }}
-          avatar={<ProfileAvatar rootPath={rootPath} size={32} round />}
+          avatar={<ProfileAvatar rootPath={rootPath} size={30} round />}
           variant="pill"
           onOpenSettings={onOpenSettings}
         />
