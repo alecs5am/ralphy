@@ -30,12 +30,14 @@ import {
   CodexSession,
   loginCodex,
   readCodexAuthStatus,
+  readCodexBundledCatalog,
+  readCodexConfiguredModel,
   resolveCodexBinary,
 } from "./agent/codex-session";
 import {
   CLAUDE_MODELS,
   fetchOpenRouterModels,
-  readCodexModels,
+  codexCatalog,
 } from "./agent/models";
 import {
   ClaudeSession,
@@ -371,9 +373,15 @@ async function agentProviderStatuses(): Promise<AgentProviderStatus[]> {
   const codexStatus = codexBinary
     ? await readCodexAuthStatus(codexBinary).catch(() => null)
     : null;
-  const codexModels = codexBinary
-    ? await readCodexModels(join(app.getPath("home"), ".codex", "models_cache.json"))
-    : [];
+  /* The binary's own bundled catalogue, and the model the operator's config asks for: together
+     they decide what this Codex can be told to run. See `codexCatalog`. */
+  const [codexBundled, codexConfigured] = codexBinary
+    ? await Promise.all([
+      readCodexBundledCatalog(codexBinary),
+      readCodexConfiguredModel(app.getPath("home")),
+    ])
+    : [null, null];
+  const codex = codexCatalog(codexBundled, codexConfigured);
   const inheritedOpenRouterKey = inheritedOpenRouterApiKey();
   const storedOpenRouterKey = await openRouterStore().read();
   const openRouterKey = storedOpenRouterKey ?? inheritedOpenRouterKey ?? undefined;
@@ -405,9 +413,11 @@ async function agentProviderStatuses(): Promise<AgentProviderStatus[]> {
       apiKeyConfigured: false,
       inheritedApiKey: false,
       connected: codexConnected,
-      detail: codexStatus?.detail ?? (codexBinary ? "Codex login required" : "Codex CLI not found"),
-      models: codexModels,
-      defaultModel: "default",
+      detail: codex.unsupportedDefault
+        ? `${codex.unsupportedDefault} needs a newer Codex — update it or pick a listed model`
+        : codexStatus?.detail ?? (codexBinary ? "Codex login required" : "Codex CLI not found"),
+      models: codexBinary ? codex.models : [],
+      defaultModel: codex.defaultModel,
     },
     {
       id: "openrouter",

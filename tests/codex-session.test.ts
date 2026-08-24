@@ -43,6 +43,10 @@ const events = [
   { type: "turn.started" },
   { type: "item.started", item: { id: "item-1", type: "command_execution", command: "bash -lc pwd", status: "in_progress" } },
   { type: "item.completed", item: { id: "item-1", type: "command_execution", command: "bash -lc pwd", status: "completed", exit_code: Number(process.env.RALPHY_TEST_EXIT_CODE ?? 0) } },
+  ...(process.env.RALPHY_TEST_STREAM ? [
+    { type: "item.updated", item: { id: "item-2", type: "agent_message", text: "The project" } },
+    { type: "item.updated", item: { id: "item-2", type: "agent_message", text: "The project is" } },
+  ] : []),
   { type: "item.completed", item: { id: "item-2", type: "agent_message", text: "The project is ready." } },
   { type: "turn.completed", usage: { input_tokens: 10, output_tokens: 5 } },
 ];
@@ -154,6 +158,40 @@ describe("CodexSession", () => {
     expect(capture.args).toContain('model_providers.openrouter.wire_api="responses"');
     expect(capture.args).toContain("openai/gpt-5.5");
     expect(capture.args).toContain("read-only");
+  });
+
+  test("sends only what is new when a message streams", async () => {
+    /* `codex exec --json` reports a growing assistant message: every update carries the whole
+       text so far, and the transcript's reducer appends what it is handed -- so a parser that
+       forwarded the accumulated text would write "The project" three times over. The turn's own
+       text has to be the concatenation of what went on the wire, and nothing more. */
+    const fixture = await makeLibraryFixture();
+    cleanupPaths.push(fixture.parentPath);
+    const fake = await fakeCodex();
+    const events: AgentChatEvent[] = [];
+    const session = new CodexSession({
+      binary: fake.binary,
+      env: {
+        PATH: process.env.PATH ?? "/usr/bin:/bin",
+        RALPHY_TEST_CAPTURE: fake.capture,
+        RALPHY_TEST_STREAM: "1",
+      },
+      emit: (event) => events.push(event),
+    });
+
+    await session.run({
+      rootPath: fixture.rootPath,
+      projectPath: null,
+      prompt: "Review it",
+      provider: "codex",
+      model: "gpt-5.5",
+      permissionMode: "full",
+      resumeSessionId: null,
+    });
+
+    const deltas = events.filter((event) => event.type === "text-delta") as { text: string }[];
+    expect(deltas.map(({ text }) => text)).toEqual(["The project", " is", " ready."]);
+    expect(deltas.map(({ text }) => text).join("")).toBe("The project is ready.");
   });
 
   test("marks every nonzero command exit as failed", async () => {

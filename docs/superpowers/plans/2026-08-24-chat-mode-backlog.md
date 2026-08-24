@@ -34,10 +34,15 @@ verification is partial (says which part).
 
 ## C. Provider integration
 
-- [ ] **C1 — Refresh the Codex integration.** New models are rejected and the harness reports that
+- [x] **C1 — Refresh the Codex integration.** New models are rejected and the harness reports that
   Codex must be updated. Confirm what the installed Codex CLI actually accepts and follow it.
 - [ ] **C2 — Refresh the Claude Code integration.** Same currency check for the Claude harness.
-- [ ] **C3 — Streaming looks dead on Codex.** Deltas do not appear to reach the transcript.
+- [~] **C3 — Streaming looks dead on Codex.** The parser now forwards a growing message as
+  suffixes, so the transcript streams as soon as the CLI reports one -- but the installed
+  `codex-cli 0.142.4` never does: `codex exec --json` emits `item.completed` for an assistant
+  message and nothing before it (verified against a live turn), and `codex exec` has no
+  partial-output flag. Claude's harness streams properly through `--include-partial-messages`.
+  The cure for Codex is `codex update`; ours is done.
 - [ ] **C4 — Generated chat titles.** A chat is currently named after its first prompt. Both Codex
   and Claude Code name sessions themselves; integrate whatever they already produce.
 - [x] **C5 — "Provider Settings" opens Settings at its last page.** It must land on the provider

@@ -4,7 +4,7 @@ import {
   type ChildProcess,
 } from "node:child_process";
 import { constants } from "node:fs";
-import { access, realpath } from "node:fs/promises";
+import { access, readFile, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, sep } from "node:path";
 import { createInterface } from "node:readline";
@@ -95,7 +95,22 @@ function toolSummary(item: Record<string, unknown>): string {
   );
 }
 
-function normalizedEvents(line: string): AgentChatEvent[] {
+/* How much of each streaming message has already been sent, by item id. `codex exec --json`
+   reports an assistant message as it grows: every `item.updated` carries the whole text so far,
+   and the transcript's reducer appends what it receives -- so what goes on the wire is the part
+   that is new. Without this the only text event was `item.completed`, and the answer landed in one
+   piece after the whole turn: streaming looked dead because nothing streamed. */
+type SentLengths = Map<string, number>;
+
+function suffix(sent: SentLengths, id: string, text: string, done: boolean): AgentChatEvent[] {
+  const already = sent.get(id) ?? 0;
+  if (done) sent.delete(id);
+  else sent.set(id, Math.max(already, text.length));
+  const tail = text.slice(already);
+  return tail ? [{ type: "text-delta", text: tail }] : [];
+}
+
+function normalizedEvents(line: string, sent: SentLengths): AgentChatEvent[] {
   const message = parseLine(line);
   if (!message) return [];
   if (message.type === "thread.started") {
@@ -118,12 +133,23 @@ function normalizedEvents(line: string): AgentChatEvent[] {
     }] : [];
   }
 
+  if (message.type === "item.updated") {
+    const item = itemFrom(message);
+    if (!item || item.type !== "agent_message") return [];
+    const id = boundedString(item.id, 128);
+    const text = boundedString(item.text, MAX_LINE_BYTES);
+    return id && text ? suffix(sent, id, text, false) : [];
+  }
+
   if (message.type === "item.completed") {
     const item = itemFrom(message);
     if (!item) return [];
     if (item.type === "agent_message") {
       const text = boundedString(item.text, MAX_LINE_BYTES);
-      return text ? [{ type: "text-delta", text }] : [];
+      const id = boundedString(item.id, 128);
+      if (!text) return [];
+      /* Without an id there is nothing to have streamed against, so the whole message is new. */
+      return id ? suffix(sent, id, text, true) : [{ type: "text-delta", text }];
     }
     if (item.type === "reasoning") return [];
     const id = boundedString(item.id, 128);
@@ -229,6 +255,39 @@ export async function readCodexAuthStatus(
   return { loggedIn: /^Logged in\b/i.test(detail), detail };
 }
 
+/* The catalogue this binary ships. `--bundled` skips the refresh, so it neither reaches the
+   network nor rewrites the shared cache file -- and what it prints is exactly the set of models
+   the CLI itself knows how to send. */
+export async function readCodexBundledCatalog(
+  binary: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<unknown | null> {
+  try {
+    const { stdout } = await execFileAsync(binary, ["debug", "models", "--bundled"], {
+      env: codexEnvironment(env),
+      timeout: 15_000,
+      maxBuffer: 8 * 1024 * 1024,
+    });
+    return JSON.parse(stdout) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+/* The model a bare `codex` would use. Read, never written: it is the operator's file. A top-level
+   `model = "..."` is the whole contract here, so it is a line match rather than a TOML dependency;
+   a profile override or a nested key is not what "Codex default" means in this menu. */
+export async function readCodexConfiguredModel(home = homedir()): Promise<string | null> {
+  const source = await readFile(join(home, ".codex", "config.toml"), "utf8").catch(() => null);
+  if (source === null) return null;
+  for (const line of source.split("\n")) {
+    if (/^\s*\[/.test(line)) break;
+    const match = /^\s*model\s*=\s*["']([^"']{1,256})["']\s*(?:#.*)?$/.exec(line);
+    if (match) return match[1]!;
+  }
+  return null;
+}
+
 export async function loginCodex(
   binary: string,
   env: NodeJS.ProcessEnv = process.env,
@@ -324,6 +383,7 @@ export class CodexSession {
 
     const output = (async () => {
       if (!child.stdout) return;
+      const sent: SentLengths = new Map();
       const lines = createInterface({ input: child.stdout, crlfDelay: Infinity });
       for await (const line of lines) {
         const message = parseLine(line);
@@ -339,7 +399,7 @@ export class CodexSession {
           });
           continue;
         }
-        for (const event of normalizedEvents(line)) {
+        for (const event of normalizedEvents(line, sent)) {
           if (event.type === "session") this.#sessionId = event.sessionId;
           if (event.type === "error") sawResult = true;
           this.#emit(event);

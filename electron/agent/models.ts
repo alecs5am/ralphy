@@ -50,6 +50,35 @@ export function parseCodexModelCache(value: unknown): AgentModelOption[] {
   return [CODEX_DEFAULT, ...models];
 }
 
+/* What the installed Codex can actually run, and whether the operator's own default is one of
+   them. The catalogue used to be read from `~/.codex/models_cache.json`, which is a shared file:
+   the Codex *app* writes it, stamped with its own version, and the server gates the catalogue on
+   the client version -- so a newer app left model ids in that file which the installed CLI rejects
+   with a 400 that reads "requires a newer version of Codex". The binary's own bundled catalogue is
+   the honest answer to "what can this CLI use", and it costs no network call and writes nothing.
+
+   A configured default outside that list is not silently replaced -- it is the operator's config --
+   but it does stop being what a new chat sends, because a new chat that fails by default is worse
+   than a new chat on a listed model. */
+export function codexCatalog(catalog: unknown, configured: string | null): {
+  models: AgentModelOption[];
+  defaultModel: string;
+  unsupportedDefault: string | null;
+} {
+  const models = parseCodexModelCache(catalog);
+  const listed = models.filter(({ id }) => id !== CODEX_DEFAULT.id);
+  const supported = configured === null || listed.some(({ id }) => id === configured);
+  if (supported) return { models, defaultModel: CODEX_DEFAULT.id, unsupportedDefault: null };
+  const reason = `Your Codex config asks for ${configured}, which this CLI cannot run`;
+  return {
+    models: models.map((model) => model.id === CODEX_DEFAULT.id
+      ? { ...model, description: reason }
+      : model),
+    defaultModel: listed[0]?.id ?? CODEX_DEFAULT.id,
+    unsupportedDefault: configured,
+  };
+}
+
 function contextLabel(value: unknown): string | null {
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return null;
   if (value >= 1_000_000) return `${Number((value / 1_000_000).toFixed(1))}M context`;
