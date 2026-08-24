@@ -134,6 +134,31 @@ verification is partial (says which part).
 
 ## G. Test data
 
-- [ ] **G1 — Fill the gaps in the test workspace.** `UX Testing Lab`'s overview is mostly
+- [x] **G1 — Fill the gaps in the test workspace.** `UX Testing Lab`'s overview is mostly
   "unavailable from the current Core contract"; establish which panels are missing *data* and
   which are missing *contract*, then write the data the workspace needs to render a full overview.
+
+  **The data was never missing.** Core's `workspace.overview` scopes its `units`, `publications`
+  and `metrics` sections to `project_id IS NULL` — "owned by the workspace itself" — and its own
+  integration tests state that on purpose ("Workspace-scoped sections never leak Project-owned
+  rows"). For a workspace whose work lives in projects that is always none, so the overview
+  reported zero Units, zero publications and no metrics for a workspace holding eighteen Units and
+  publications with real reach. Widening Core's clause was tried and reverted: it breaks three of
+  Core's tests and contradicts a decision Core states in words.
+
+  So Desktop composes the reading instead, from the same per-project overviews the project screen
+  already reads: workspace-owned rows first, then its projects'. `UX Testing Lab` now shows
+  1 publication, 11.8k views, 36.7h watch time, 972 likes, 68 comments, 143 shares, and the right
+  account carries its publication.
+
+  Still genuinely **contract**, not data — nothing in the library can fill these today:
+  - trend points and comparable reporting windows (Momentum's trend, Top/emerging, What works,
+    What Ralphy learned — all need a metrics history Core does not keep);
+  - per-account metrics;
+  - the workspace timezone and cadence targets (Content plan's coverage line);
+  - Ready-Unit lifecycle state.
+
+  One honest disagreement is left: the Content plan reads publication rows, whose only future
+  `scheduledAt` in this workspace is in the past, while the Calendar shows eight publications
+  between Aug 25 and Aug 28 from its own reader. The two panels answer "what is scheduled" from
+  different sources. Worth settling before either is trusted.
