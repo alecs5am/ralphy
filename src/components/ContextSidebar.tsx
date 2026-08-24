@@ -194,7 +194,7 @@ export function ContextSidebar({
           reserved space, never a control. */}
       <header className="sidebar-header flex h-8 flex-none items-center gap-2.5 px-3.5 [-webkit-app-region:drag]">
         <div className="w-traffic-sidebar h-px flex-none" aria-hidden="true" />
-        <strong className="min-w-0 flex-1 truncate type-lg font-normal">Ralphy</strong>
+        <div className="min-w-0 flex-1" aria-hidden="true" />
         <button
           className={`sidebar-collapse ${GHOST} size-6.5 flex-none [-webkit-app-region:no-drag]`}
           type="button"
@@ -206,7 +206,7 @@ export function ContextSidebar({
       </header>
 
       <nav
-        className="sidebar-mode-switch relative mx-3 mb-2.5 flex h-10.5 shrink-0 gap-0.5 overflow-hidden rounded-full bg-instrument p-1 isolate"
+        className="sidebar-mode-switch relative mx-3 mt-2 mb-2.5 flex h-10.5 shrink-0 gap-0.5 overflow-hidden rounded-full bg-instrument p-1 isolate"
         style={{ "--mode-index": mode === "work" ? 0 : 1, "--mode-count": 2 } as CSSProperties}
         aria-label="Application mode"
       >

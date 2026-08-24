@@ -35,7 +35,12 @@ describe("window state", () => {
     expect(main).not.toMatch(/\bvibrancy\s*:/);
     expect(main).not.toMatch(/\bvisualEffectState\s*:/);
     expect(main).not.toMatch(/backgroundColor:\s*"transparent"/);
-    expect(main).toMatch(/backgroundColor:\s*INSTRUMENT_PALETTE\.dark\.desk/);
+    // The window's base fill follows the resolved theme rather than being pinned to dark: it is
+    // what shows at the rounded corners and along the edge while the window composites over
+    // another, so a fixed dark fill drew a black hairline around a light-themed window.
+    expect(main).toMatch(/backgroundColor:\s*nativeTheme\.shouldUseDarkColors\s*\?\s*INSTRUMENT_PALETTE\.dark\.desk/);
+    expect(main).toMatch(/INSTRUMENT_PALETTE\.light\.desk/);
+    expect(main).toMatch(/nativeTheme\.on\("updated"/);
     expect(main).not.toMatch(/backgroundColor:\s*"#[\dA-F]+"/i);
     expect(shell).not.toMatch(/traffic-light/i);
   });

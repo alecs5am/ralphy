@@ -20,8 +20,10 @@
   /* ...and the hub's project row: a 7px status dot, the name, its status, then the chevron. */
   --view-hub-project-columns: 7px minmax(0, 1fr) auto 11px;
 
-  /* The island closed: one trigger row, and a detail row with no height at all. */
-  --island-rows: 36px 0fr;
+  /* The island closed: one trigger row, and a detail row with no height at all. 32 because that is
+     the chrome row's height -- the island is on that row, so its centre has to be the row's 24 and
+     its bottom edge the row's, or the 8 gap under the chrome closes to 4 beneath it. */
+  --island-rows: 32px 0fr;
   /* ...and open: a taller trigger row over a detail row that takes the rest. */
   --island-rows-open: 44px 1fr;
 }

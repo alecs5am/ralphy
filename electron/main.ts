@@ -264,6 +264,22 @@ class MediaWorkerClient {
 }
 
 let win: BrowserWindow | null = null;
+
+/* The window's base fill is what shows through wherever the renderer has not painted yet -- the
+   rounded corners, and the outer edge while the window is being composited over another one. A
+   fixed dark fill therefore drew a black hairline around a light-themed window, so the fill follows
+   the resolved theme. `shouldUseDarkColors` is the resolution: it already accounts for a
+   `themeSource` of "system", which is why the renderer sends its preference rather than its
+   resolved theme. */
+function applyWindowBackground(): void {
+  const desk = nativeTheme.shouldUseDarkColors
+    ? INSTRUMENT_PALETTE.dark.desk
+    : INSTRUMENT_PALETTE.light.desk;
+  for (const target of BrowserWindow.getAllWindows()) target.setBackgroundColor(desk);
+}
+
+/* The OS can change the answer under a "system" preference without the renderer saying anything. */
+nativeTheme.on("updated", applyWindowBackground);
 let worker: MediaWorkerClient | null = null;
 const mediaState = new MediaSessionState();
 let watcher: ActiveRootResource<LibraryWatcher>;
@@ -879,6 +895,7 @@ function registerMediaIpc(): void {
     /* An unknown value falls back to "system" rather than throwing: a bad appearance is a cosmetic
        fault and the renderer should not lose a frame over it. */
     nativeTheme.themeSource = rawTheme === "dark" || rawTheme === "light" ? rawTheme : "system";
+    applyWindowBackground();
   });
   securedHandle(MEDIA_CHANNELS.restoreLibrary, () => {
     return restoreLibrary(async () => {
@@ -1351,7 +1368,7 @@ function createWindow(): void {
        offset, so a second line would be a row they can never sit on, and repositioning them per
        sidebar toggle would put an IPC round trip in the middle of an animation. */
     trafficLightPosition: { x: 22, y: 16 },
-    backgroundColor: INSTRUMENT_PALETTE.dark.desk,
+    backgroundColor: nativeTheme.shouldUseDarkColors ? INSTRUMENT_PALETTE.dark.desk : INSTRUMENT_PALETTE.light.desk,
     show: !SMOKE_TEST && !INSTRUMENT_SHELL_AUDIT,
     webPreferences: secureWebPreferences(join(__dirname, "preload.cjs")),
   });

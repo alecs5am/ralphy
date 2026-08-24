@@ -300,8 +300,13 @@ function createMockBridge(): RalphyBridge {
       };
     },
     async openLocalModelProvider() {},
-    /* No native window to dress in mock mode; the renderer's own theme still applies. */
-    async applyNativeAppearance() {},
+    /* Chrome, not data: the mock bridge stands in for the library, not for the window. Whenever
+       mocks run inside the real app there is a preload bridge next to them and a real window to
+       dress, so this one call goes through rather than being swallowed -- otherwise the design
+       harness is the one place the window's own appearance is never set. */
+    async applyNativeAppearance(theme) {
+      await injectedBridge?.applyNativeAppearance(theme);
+    },
     /* The project route is the one place the mock bridge has to answer rather than refuse: the view
        panel opens a project tab whenever the route lands on one, so a refusal here is not a missing
        fixture in a corner of the app, it is a whole tab that cannot draw. The overview is built from

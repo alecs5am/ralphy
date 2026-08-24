@@ -1254,7 +1254,9 @@ describe("design system contract", () => {
     // The island's plate morphs between two named track pairs rather than two literals, and the
     // rail sheet's plate is stated by the component that opens it: portalled to `document.body`
     // it cannot read the shell's own rail width, so the width comes from a child in scope.
-    expect(shellTheme).toMatch(/--island-rows:\s*36px 0fr/);
+    // 32, not 36: the island stands on the chrome row, so its height is the row's or the 8 gap
+    // under the chrome closes to 4 beneath it alone.
+    expect(shellTheme).toMatch(/--island-rows:\s*32px 0fr/);
     expect(shellTheme).toMatch(/--island-rows-open:\s*44px 1fr/);
     expect(shellSource).toContain("grid-rows-(--island-rows-open)");
     expect(shellSource).toMatch(/surfaceClassName="fixed z-sheet inset-y-2 left-2 w-max max-w-overlay-fit/);
