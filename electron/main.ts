@@ -26,6 +26,7 @@ import {
   validateOpenRouterApiKey,
 } from "./claude/credentials";
 import { parseAgentChatRequest } from "./agent/request";
+import { readTitle } from "./agent/title";
 import {
   CodexSession,
   loginCodex,
@@ -169,6 +170,8 @@ let cachedFileDragIcon: Electron.NativeImage | null = null;
 let claudeCredentialStore: ClaudeCredentialStore | null = null;
 let openRouterCredentialStore: EncryptedCredentialStore | null = null;
 let activeAgentSession: { stop(): void } | null = null;
+/* The title turn's own slot, so `stop` still means "stop the turn the operator is watching". */
+let activeTitleSession: { stop(): void } | null = null;
 let agentTurnBusy = false;
 let cachedOpenRouterModels: { at: number; models: AgentProviderStatus["models"] } | null = null;
 const ralphyBin = resolveRalphyExecutable({
@@ -784,6 +787,10 @@ function registerAgentIpc(): void {
   securedHandle(AGENT_CHANNELS.send, async (event, rawRequest: unknown) => {
     assertTrustedSender(event);
     if (agentTurnBusy) throw new Error("An agent is already working");
+    /* A title turn is not work the operator asked for, so it gets out of the way rather than
+       making them wait or fail. */
+    activeTitleSession?.stop();
+    activeTitleSession = null;
     agentTurnBusy = true;
     try {
       const operation = captureBridgeRoot();
@@ -872,6 +879,64 @@ function registerAgentIpc(): void {
     } finally {
       agentTurnBusy = false;
     }
+  });
+  /* Naming a chat is a turn of its own: read-only, no project, no resume, and never in the way of
+     a real one -- a send stops it rather than queueing behind it, because the operator's message
+     matters and a title does not. */
+  securedHandle(AGENT_CHANNELS.title, async (event, rawRequest: unknown) => {
+    assertTrustedSender(event);
+    if (agentTurnBusy) return null;
+    const operation = captureBridgeRoot();
+    const request = parseAgentChatRequest(rawRequest);
+    let text = "";
+    const emit = (chatEvent: AgentChatEnvelope["event"]): void => {
+      if (chatEvent.type === "text-delta") text += chatEvent.text;
+    };
+    activeTitleSession?.stop();
+    try {
+      if (request.provider === "claude") {
+        const binary = await resolveClaudeBinary();
+        if (!binary) return null;
+        const apiKey = request.claudeAuthMethod === "api-key"
+          ? await credentialStore().read() ?? inheritedAnthropicApiKey() ?? undefined
+          : undefined;
+        if (request.claudeAuthMethod === "api-key" && !apiKey) return null;
+        assertBridgeRoot(operation);
+        const session = new ClaudeSession({ binary, emit });
+        activeTitleSession = session;
+        await session.run({
+          rootPath: operation.rootPath,
+          prompt: request.prompt,
+          model: request.model,
+          authMethod: request.claudeAuthMethod,
+          apiKey,
+          permissionMode: "plan",
+        });
+      } else {
+        const binary = await resolveCodexBinary();
+        if (!binary) return null;
+        const openRouterApiKey = request.provider === "openrouter"
+          ? await openRouterStore().read() ?? inheritedOpenRouterApiKey() ?? undefined
+          : undefined;
+        if (request.provider === "openrouter" && !openRouterApiKey) return null;
+        assertBridgeRoot(operation);
+        const session = new CodexSession({ binary, emit });
+        activeTitleSession = session;
+        await session.run({
+          rootPath: operation.rootPath,
+          prompt: request.prompt,
+          provider: request.provider,
+          model: request.model,
+          openRouterApiKey,
+          permissionMode: "plan",
+        });
+      }
+    } catch {
+      return null;
+    } finally {
+      activeTitleSession = null;
+    }
+    return readTitle(text);
   });
   securedHandle(AGENT_CHANNELS.stop, (event) => {
     assertTrustedSender(event);

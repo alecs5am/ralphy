@@ -96,6 +96,9 @@ describe("CodexSession", () => {
     expect(capture.openaiKey).toBeNull();
     expect(capture.codexKey).toBeNull();
     expect(capture.args).toContain("--dangerously-bypass-approvals-and-sandbox");
+    /* The library's parent is the operator's home, which is not a git repository: without this
+       `codex exec` refuses to start at all under any sandbox but the bypassed one. */
+    expect(capture.args).toContain("--skip-git-repo-check");
     expect(capture.args).toContain("gpt-5.5");
     expect(capture.args).toContain("resume");
     expect(capture.args).toContain("0199a213-81c0-7800-8aa1-bbab2a035a54");

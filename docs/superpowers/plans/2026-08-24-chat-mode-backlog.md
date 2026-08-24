@@ -56,8 +56,18 @@ verification is partial (says which part).
   message and nothing before it (verified against a live turn), and `codex exec` has no
   partial-output flag. Claude's harness streams properly through `--include-partial-messages`.
   The cure for Codex is `codex update`; ours is done.
-- [ ] **C4 — Generated chat titles.** A chat is currently named after its first prompt. Both Codex
-  and Claude Code name sessions themselves; integrate whatever they already produce.
+- [x] **C4 — Generated chat titles.** A chat is currently named after its first prompt. Both Codex
+  and Claude Code name sessions themselves; integrate whatever they already produce. Neither hands
+  that name to a one-shot caller -- `codex exec` writes no thread name, and Claude's
+  `generate_session_title` is a control request on the bidirectional stream the `-p` path cannot
+  reach -- so the name is asked for the same way they ask for it: one short read-only turn after
+  the first reply, once per chat, which a real send stops rather than queues behind.
+
+  Found on the way: `codex exec` refuses to start outside a git repository, and the harness runs in
+  the library's parent, which is the operator's home. A `full` turn never hit it because bypassing
+  the sandbox bypasses the trust check -- so **Plan and Auto were broken for every turn** and
+  looked fine. `--skip-git-repo-check` is now passed; what a turn may touch is still the sandbox's
+  decision alone.
 - [x] **C5 — "Provider Settings" opens Settings at its last page.** It must land on the provider
   page.
 

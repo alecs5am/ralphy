@@ -555,6 +555,8 @@ export interface MediaWorkbenchBridge extends MarketplaceBridge {
   ): Promise<AgentProviderStatus[]>;
   clearAgentApiKey(provider: "claude" | "openrouter"): Promise<AgentProviderStatus[]>;
   sendAgentMessage(request: AgentChatRequest): Promise<void>;
+  /** One short read-only turn that names a chat, or null when the provider cannot answer now. */
+  summariseAgentTitle(request: AgentChatRequest): Promise<string | null>;
   stopAgent(): Promise<void>;
   onAgentEvent(callback: (event: AgentChatEnvelope) => void): () => void;
   onToggleRightPanel(callback: () => void): () => void;
@@ -634,6 +636,7 @@ export const AGENT_CHANNELS = {
   setApiKey: "agent:api-key:set",
   clearApiKey: "agent:api-key:clear",
   send: "agent:send",
+  title: "agent:title",
   stop: "agent:stop",
   event: "agent:event",
 } as const;

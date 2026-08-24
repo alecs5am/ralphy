@@ -217,6 +217,11 @@ async function canonicalContext(request: CodexRunRequest): Promise<{
   return { rootPath, cwd, prompt };
 }
 
+/* `--skip-git-repo-check` is not a permission: the harness runs in the library's parent, which is
+   the operator's home and not a git repository, and without it `codex exec` refuses to start with
+   "Not inside a trusted directory". A `full` turn never hit it because bypassing the sandbox also
+   bypasses the trust check -- which is why Plan and Auto looked like they worked and did not. What
+   a turn may touch is still decided entirely by the sandbox flags below. */
 function permissionArgs(mode: AgentPermissionMode): string[] {
   if (mode === "full") return ["--dangerously-bypass-approvals-and-sandbox"];
   if (mode === "plan") return ["--sandbox", "read-only"];
@@ -359,8 +364,8 @@ export class CodexSession {
       ...permissionArgs(request.permissionMode),
       "exec",
       ...(request.resumeSessionId
-        ? ["resume", "--json", request.resumeSessionId, context.prompt]
-        : ["--json", context.prompt]),
+        ? ["resume", "--skip-git-repo-check", "--json", request.resumeSessionId, context.prompt]
+        : ["--skip-git-repo-check", "--json", context.prompt]),
     ];
     const child = spawn(this.#binary, args, {
       cwd: context.cwd,

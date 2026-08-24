@@ -48,6 +48,7 @@ function loadProjectCompositionPage(
 }
 
 const mediaBridge: MediaWorkbenchBridge = {
+  summariseAgentTitle: (request) => invoke(AGENT_CHANNELS.title, request),
   /* The only synchronous member: a dropped file's path is a preload capability rather than an IPC
      call, and it is what makes a Finder drop worth anything to a harness that runs on the
      operator's own filesystem. */

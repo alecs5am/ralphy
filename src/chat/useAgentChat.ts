@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { titlePrompt } from "../../electron/agent/title";
 import { bridge } from "../lib/ipc";
 import type {
   AgentChatEvent,
@@ -51,6 +52,9 @@ export interface AgentChatEntry {
 export interface AgentConversation {
   id: string;
   title: string;
+  /* Whether the title is the chat's own name or still the first prompt wearing one. A generated
+     name is asked for once, and the flag is what stops a reload from asking again. */
+  titled: boolean;
   provider: AgentProvider;
   model: string;
   entries: AgentChatEntry[];
@@ -84,6 +88,7 @@ export type AgentChatAction =
   | ({ type: "set-provider" } & CreateAgentChatOptions)
   | { type: "select-chat"; chatId: string }
   | { type: "set-model"; model: string; now: number }
+  | { type: "set-title"; chatId: string; title: string; now: number }
   | { type: "set-auth"; method: ClaudeAuthMethod; now: number }
   | { type: "set-permission"; mode: AgentPermissionMode; now: number }
   | { type: "restore"; state: AgentChatState };
@@ -98,6 +103,7 @@ function createConversation(options: CreateAgentChatOptions): AgentConversation 
   return {
     id: options.chatId,
     title: "New chat",
+    titled: false,
     provider: options.provider,
     model: options.model,
     entries: [],
@@ -243,12 +249,19 @@ export function reduceAgentChat(
     return updateChat(state, active.id, (chat) => ({
       ...chat,
       title: "New chat",
+    titled: false,
       provider: action.provider,
       model: action.model,
       sessionId: null,
       lastCostUsd: null,
       updatedAt: action.now,
     }));
+  }
+  if (action.type === "set-title") {
+    const title = action.title.trim().slice(0, 80);
+    return title
+      ? updateChat(state, action.chatId, (chat) => ({ ...chat, title, titled: true, updatedAt: chat.updatedAt }))
+      : state;
   }
   if (action.type === "set-model") {
     if (!MODEL_ID.test(action.model)) return state;
@@ -280,7 +293,7 @@ export function reduceAgentChat(
     return {
       ...updateChat(state, target.id, (chat) => ({
         ...appendEntry(chat, { kind: "user", at: action.now, text }),
-        title: chat.entries.length === 0 ? text.slice(0, 52) : chat.title,
+        title: chat.entries.length === 0 && !chat.titled ? text.slice(0, 52) : chat.title,
         busy: true,
         streamingAssistantId: null,
         lastCostUsd: null,
@@ -398,6 +411,7 @@ function parseConversation(value: unknown): AgentConversation | null {
   return {
     id: row.id,
     title: entries.length === 0 ? "New chat" : boundedText(row.title)?.slice(0, 80) ?? "New chat",
+    titled: row.titled === true && entries.length > 0,
     provider: parsedProvider,
     model: row.model,
     entries,
@@ -430,6 +444,7 @@ function migrateLegacy(value: unknown, fallback: CreateAgentChatOptions): AgentC
   const chat: AgentConversation = {
     ...createConversation({ ...fallback, provider: "claude", model: "sonnet" }),
     title: "Claude chat",
+    titled: false,
     entries,
     nextId: Math.max(highestId + 1, Number.isSafeInteger(row.nextId) ? Number(row.nextId) : 1),
     sessionId: typeof row.sessionId === "string" && SESSION_ID.test(row.sessionId)
@@ -657,6 +672,30 @@ export function useAgentChat({
     if (status.models.some(({ id }) => id === activeChat.model)) return;
     dispatch({ type: "set-model", model: status.defaultModel, now: Date.now() });
   }, [activeChat.model, activeChat.provider, providers]);
+
+  /* The chat names itself once its first answer is in: the first prompt truncated to 52 characters
+     is not a name, it is the same line the transcript already shows. The turn is read-only and it
+     is asked for once per chat -- `titled` is what a reload reads instead of asking again -- and a
+     provider that cannot answer right now simply leaves the chat as it is. */
+  const naming = useRef<string | null>(null);
+  useEffect(() => {
+    if (!enabled || state.runningChatId !== null) return;
+    const chat = state.chats.find(({ id }) => id === state.activeChatId);
+    const first = chat?.entries.find(({ kind }) => kind === "user");
+    if (!chat || chat.titled || !first || naming.current === chat.id) return;
+    if (!chat.entries.some(({ kind }) => kind === "assistant")) return;
+    naming.current = chat.id;
+    void bridge.summariseAgentTitle({
+      chatId: chat.id,
+      provider: chat.provider,
+      model: chat.model,
+      prompt: titlePrompt(first.text ?? ""),
+      claudeAuthMethod: chat.claudeAuthMethod,
+      permissionMode: "plan",
+    }).then((title) => {
+      if (title) dispatch({ type: "set-title", chatId: chat.id, title, now: Date.now() });
+    }).catch(() => undefined);
+  }, [enabled, state.activeChatId, state.chats, state.runningChatId]);
 
   const send = useCallback((text: string): void => {
     const prompt = text.trim();

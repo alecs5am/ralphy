@@ -208,6 +208,8 @@ function createMockBridge(): RalphyBridge {
     /* No host, no path: a dropped file falls back to its own name, which is still a reference the
        operator can see. */
     pathForFile: () => null,
+    /* No provider, no title: the mock leaves a chat with the name it has. */
+    async summariseAgentTitle() { return null; },
     async restoreLibrary() {
       emitMedia({ type: "root-ready", identity: openResult().identity });
       return openResult();
