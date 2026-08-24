@@ -186,7 +186,11 @@ export function AgentComposer({
 }) {
   const field = useRef<HTMLDivElement>(null);
   const [empty, setEmpty] = useState(true);
-  const [menu, setMenu] = useState<{ query: string } | null>(null);
+  /* The open query *is* the menu: holding it as a string rather than an object means the state
+     changes when the query changes and not on every caret move, which is what lets the highlight
+     survive an arrow key. `sync` runs on keyup too, and an object literal there reset the
+     highlight to the first row on the very keystroke that moved it. */
+  const [query, setQuery] = useState<string | null>(null);
   const [entities, setEntities] = useState<TagEntity[]>([]);
   const [highlight, setHighlight] = useState(0);
 
@@ -197,9 +201,11 @@ export function AgentComposer({
     setEmpty(prompt.trim().length === 0);
     onChange(prompt);
     const active = activeQuery(root);
-    setMenu(active ? { query: active.query } : null);
-    if (active) setHighlight(0);
+    setQuery(active ? active.query : null);
   }, [onChange]);
+
+  /* A new query is a new row set, so the highlight starts over -- and only then. */
+  useEffect(() => { setHighlight(0); }, [query]);
 
   useImperativeHandle(handle, () => ({
     fill(text: string) {
@@ -219,7 +225,7 @@ export function AgentComposer({
       const root = field.current;
       if (!root) return;
       root.replaceChildren();
-      setMenu(null);
+      setQuery(null);
       setEmpty(true);
       onChange("");
     },
@@ -231,10 +237,10 @@ export function AgentComposer({
   /* The catalog is fetched per query rather than held: units are cheap and a document search is a
      query, so a stale list would be a list of the wrong project's documents. */
   useEffect(() => {
-    if (!menu) return;
+    if (query === null) return;
     let live = true;
     const timer = setTimeout(() => {
-      void catalogFor(project, menu.query).then((rows) => {
+      void catalogFor(project, query).then((rows) => {
         if (live) setEntities(rows);
       });
     }, 120);
@@ -242,12 +248,15 @@ export function AgentComposer({
       live = false;
       clearTimeout(timer);
     };
-  }, [menu, project]);
+  }, [query, project]);
 
-  const needle = menu?.query.toLocaleLowerCase() ?? "";
+  const needle = query?.toLocaleLowerCase() ?? "";
   const rows = [...projectEntities(workspace, project), ...entities]
     .filter(({ label, ref }) => !needle || `${label} ${ref}`.toLocaleLowerCase().includes(needle))
     .slice(0, 8);
+  /* The catalog can arrive shorter than where the operator has already walked, so the cursor is
+     clamped rather than stored clamped: the key handler stays one line. */
+  const cursor = rows.length ? Math.min(highlight, rows.length - 1) : 0;
 
   /* Eats the typed `@query` and puts the tag plus one non-breaking space in its place, so the caret
      lands after the tag and a following word never fuses onto it. */
@@ -273,26 +282,26 @@ export function AgentComposer({
     const selection = window.getSelection();
     selection?.removeAllRanges();
     selection?.addRange(after);
-    setMenu(null);
+    setQuery(null);
     sync();
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    if (menu && rows.length > 0) {
+    if (query !== null && rows.length > 0) {
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         event.preventDefault();
-        setHighlight((index) => (index + (event.key === "ArrowDown" ? 1 : rows.length - 1)) % rows.length);
+        setHighlight((cursor + (event.key === "ArrowDown" ? 1 : rows.length - 1)) % rows.length);
         return;
       }
       if (event.key === "Enter" && !event.nativeEvent.isComposing) {
         event.preventDefault();
-        insert(rows[highlight]!);
+        insert(rows[cursor]!);
         return;
       }
     }
     if (event.key === "Escape") {
       event.preventDefault();
-      if (menu) setMenu(null);
+      if (query !== null) setQuery(null);
       else onEscape();
       return;
     }
@@ -306,7 +315,7 @@ export function AgentComposer({
     <div className="relative min-h-11">
       <div
         ref={field}
-        className="agent-composer-field min-h-11 w-full px-0.5 type-body leading-loose whitespace-pre-wrap text-ink outline-0 [overflow-wrap:anywhere]"
+        className="agent-composer-field max-h-agent-composer min-h-11 w-full overflow-y-auto px-0.5 type-md leading-loose whitespace-pre-wrap text-ink outline-0 [overflow-wrap:anywhere]"
         contentEditable
         suppressContentEditableWarning
         role="textbox"
@@ -327,8 +336,8 @@ export function AgentComposer({
       {/* `secondary`, not `muted-decorative`: the placeholder is a real element now rather than a
           pseudo, and the decorative step measures 2.6:1 on the chat field. A line the operator is
           meant to read is not a counter. */}
-      {empty && <span className="pointer-events-none absolute top-0 left-0.5 type-body leading-loose text-secondary" aria-hidden="true">{placeholder}</span>}
-      {menu && <AgentTagMenu query={menu.query} rows={rows} highlight={highlight} onPick={insert} />}
+      {empty && <span className="pointer-events-none absolute top-0 left-0.5 type-md leading-loose text-secondary" aria-hidden="true">{placeholder}</span>}
+      {query !== null && <AgentTagMenu query={query} rows={rows} highlight={cursor} onPick={insert} />}
     </div>
     {children}
   </div>;

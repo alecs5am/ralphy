@@ -72,7 +72,11 @@
   /* Geometry the design fixes for this area. */
   --spacing-agent-empty: 240px;            /* an empty chat holds this much of the rail open */
   --spacing-agent-empty-block: 560px;      /* ...and its mark, question and openers keep this measure */
-  --spacing-agent-thread: 600px;           /* the transcript's reading measure */
+  /* The transcript's reading measure, matched to the reference chat at the same 2560-wide frame:
+     600 read narrow beside it. */
+  --spacing-agent-thread: 740px;
+  /* The composer stops growing at fourteen lines of its own leading and scrolls inside. */
+  --spacing-agent-composer: 392px;
   --spacing-agent-tag-menu: 330px;         /* the `@` picker, when the zone has room for it */
   --spacing-agent-connect-dialog: 400px;   /* the connect dialog is a card, not a band */
   --spacing-agent-menu-list: 320px;        /* a menu list scrolls after this much */

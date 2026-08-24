@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
@@ -33,5 +35,33 @@ describe("a serialised prompt read back", () => {
   test("leaves an unknown kind alone", () => {
     expect(renderToStaticMarkup(AgentTaggedText({ text: "ask @render:foo" })))
       .toBe("ask @render:foo");
+  });
+});
+
+describe("the picker's cursor", () => {
+  const source = readFileSync(join(process.cwd(), "src/components/agent/AgentComposer.tsx"), "utf8");
+
+  test("survives a keystroke that did not change the query", () => {
+    /* `sync` runs on `input`, `keyup` and `mouseup`. It must not touch the highlight: it used to
+       set it to 0, so the keyup of the very arrow that moved the cursor put it back on the first
+       row and no other row could ever be picked. The reset belongs to a change of query -- a new
+       query is a new row set -- which is why it lives in an effect keyed on it. */
+    const sync = /const sync = useCallback\(\(\): void => \{([\s\S]*?)\n  \}, \[onChange\]\);/.exec(source)?.[1] ?? "";
+    expect(sync).toContain("setQuery(");
+    expect(sync).not.toContain("setHighlight");
+    expect(source).toContain("useEffect(() => { setHighlight(0); }, [query]);");
+  });
+
+  test("is clamped to the rows it can land on, and Enter picks where it stands", () => {
+    expect(source).toContain("const cursor = rows.length ? Math.min(highlight, rows.length - 1) : 0;");
+    expect(source).toContain("insert(rows[cursor]!)");
+    expect(source).toContain('setHighlight((cursor + (event.key === "ArrowDown" ? 1 : rows.length - 1)) % rows.length)');
+  });
+
+  test("caps the field's growth and reads at the chat's type step", () => {
+    expect(source).toContain("max-h-agent-composer");
+    expect(source).toContain("overflow-y-auto");
+    expect(source).toContain("type-md");
+    expect(source).not.toContain("type-body");
   });
 });
