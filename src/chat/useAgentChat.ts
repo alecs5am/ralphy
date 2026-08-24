@@ -37,9 +37,15 @@ export interface AgentChatTool {
 
 export interface AgentChatEntry {
   id: number;
-  kind: "user" | "assistant" | "tool" | "error";
+  kind: "user" | "assistant" | "tool" | "error" | "result";
+  /* When the entry was appended. The operator's own turn prints it; nothing else does, but a
+     transcript with a clock on one line and none on the others is a transcript with two shapes. */
+  at: number;
   text?: string;
   tool?: AgentChatTool;
+  /* A `result` entry: the turn's end, as the provider reported it. It is what the transcript's
+     "worked for" row reads, and the only place a duration or a cost is a fact rather than a guess. */
+  run?: { durationMs: number; costUsd: number };
 }
 
 export interface AgentConversation {
@@ -122,7 +128,11 @@ function appendEntry(
   };
 }
 
-function reduceEvent(chat: AgentConversation, event: AgentChatEvent): AgentConversation {
+function reduceEvent(
+  chat: AgentConversation,
+  event: AgentChatEvent,
+  now: number,
+): AgentConversation {
   if (event.type === "session") return { ...chat, sessionId: event.sessionId };
   if (event.type === "text-delta") {
     if (chat.streamingAssistantId !== null) {
@@ -137,7 +147,7 @@ function reduceEvent(chat: AgentConversation, event: AgentChatEvent): AgentConve
     }
     const id = chat.nextId;
     return {
-      ...appendEntry(chat, { kind: "assistant", text: event.text }),
+      ...appendEntry(chat, { kind: "assistant", at: now, text: event.text }),
       streamingAssistantId: id,
     };
   }
@@ -145,6 +155,7 @@ function reduceEvent(chat: AgentConversation, event: AgentChatEvent): AgentConve
     return {
       ...appendEntry(chat, {
         kind: "tool",
+        at: now,
         tool: {
           id: event.id,
           name: event.name,
@@ -174,7 +185,13 @@ function reduceEvent(chat: AgentConversation, event: AgentChatEvent): AgentConve
   }
   if (event.type === "result") {
     return {
-      ...chat,
+      /* The turn's own record, not the chat's: a transcript keeps every turn's reading, and
+         `lastCostUsd` only ever answers for the newest one. */
+      ...appendEntry(chat, {
+        kind: "result",
+        at: now,
+        run: { durationMs: event.durationMs, costUsd: event.costUsd },
+      }),
       busy: false,
       streamingAssistantId: null,
       sessionId: event.sessionId ?? chat.sessionId,
@@ -182,7 +199,7 @@ function reduceEvent(chat: AgentConversation, event: AgentChatEvent): AgentConve
     };
   }
   return {
-    ...appendEntry(chat, { kind: "error", text: event.message }),
+    ...appendEntry(chat, { kind: "error", at: now, text: event.message }),
     busy: false,
     streamingAssistantId: null,
   };
@@ -262,7 +279,7 @@ export function reduceAgentChat(
     if (!target || target.busy) return state;
     return {
       ...updateChat(state, target.id, (chat) => ({
-        ...appendEntry(chat, { kind: "user", text }),
+        ...appendEntry(chat, { kind: "user", at: action.now, text }),
         title: chat.entries.length === 0 ? text.slice(0, 52) : chat.title,
         busy: true,
         streamingAssistantId: null,
@@ -273,7 +290,7 @@ export function reduceAgentChat(
     };
   }
   const next = updateChat(state, action.chatId, (chat) => ({
-    ...reduceEvent(chat, action.event),
+    ...reduceEvent(chat, action.event, action.now),
     updatedAt: action.now,
   }));
   const finished = action.event.type === "result" || action.event.type === "error";
@@ -301,9 +318,22 @@ function parseEntry(value: unknown): AgentChatEntry | null {
   if (
     typeof row.id !== "number"
     || !Number.isSafeInteger(row.id)
-    || !["user", "assistant", "tool", "error"].includes(String(row.kind))
+    || !["user", "assistant", "tool", "error", "result"].includes(String(row.kind))
   ) return null;
   const kind = row.kind as AgentChatEntry["kind"];
+  /* A stored entry from before the clock existed reads as epoch rather than as today: a turn's
+     time is a fact about that turn, and inventing one on load would print a lie. */
+  const at = typeof row.at === "number" && Number.isFinite(row.at) ? row.at : 0;
+  if (kind === "result") {
+    const run = row.run;
+    if (!run || typeof run !== "object" || Array.isArray(run)) return null;
+    const item = run as Record<string, unknown>;
+    if (
+      typeof item.durationMs !== "number" || !Number.isFinite(item.durationMs)
+      || typeof item.costUsd !== "number" || !Number.isFinite(item.costUsd)
+    ) return null;
+    return { id: row.id, kind, at, run: { durationMs: item.durationMs, costUsd: item.costUsd } };
+  }
   if (kind === "tool") {
     const tool = row.tool;
     if (!tool || typeof tool !== "object" || Array.isArray(tool)) return null;
@@ -316,6 +346,7 @@ function parseEntry(value: unknown): AgentChatEntry | null {
     return {
       id: row.id,
       kind,
+      at,
       tool: {
         id: item.id.slice(0, 128),
         name: item.name.slice(0, 128),
@@ -327,7 +358,7 @@ function parseEntry(value: unknown): AgentChatEntry | null {
     };
   }
   const text = boundedText(row.text);
-  return text ? { id: row.id, kind, text } : null;
+  return text ? { id: row.id, kind, at, text } : null;
 }
 
 function provider(value: unknown): AgentProvider | null {
@@ -471,7 +502,10 @@ export interface AgentChatController {
   stop(): void;
   newChat(): void;
   selectChat(chatId: string): void;
-  setProvider(provider: AgentProvider): void;
+  /* A model can be named with the provider: handoff 17 has one model control listing every
+     connected provider's catalog, so choosing a row is a provider switch and a model choice at
+     once. Without one the provider's default model is taken. */
+  setProvider(provider: AgentProvider, model?: string): void;
   setModel(model: string): void;
   setClaudeAuthMethod(method: ClaudeAuthMethod): void;
   setPermissionMode(mode: AgentPermissionMode): void;
@@ -681,13 +715,13 @@ export function useAgentChat({
       now: Date.now(),
     }),
     selectChat: (chatId) => dispatch({ type: "select-chat", chatId }),
-    setProvider: (provider) => {
+    setProvider: (provider, model) => {
       const status = providers.find(({ id }) => id === provider);
       dispatch({
         type: "set-provider",
         chatId: newChatId(),
         provider,
-        model: status?.defaultModel ?? (provider === "claude" ? "sonnet" : "default"),
+        model: model ?? status?.defaultModel ?? (provider === "claude" ? "sonnet" : "default"),
         now: Date.now(),
       });
     },

@@ -81,6 +81,20 @@ html[data-theme="dark"] {
   --instrument-keycap-face-pressed: #242424;
   --instrument-keycap-ink: #C8C8C4;
   --instrument-keycap-ink-pressed: #F2F2F0;
+  /* The status-red pair handoff 17 fixes for a failed tool call, a rejected key and any other
+     line the provider itself reported as an error. It is its own pair rather than `--instrument-alert`
+     on `--instrument-error-surface`: that combination measures 3.45:1, and this one is the tint and
+     ink the design draws the failure window with, at 4.9:1 light and 5.0:1 dark. */
+  --instrument-failure-surface: #2A1615;
+  --instrument-failure-ink: #F0574B;
+  /* Handoff 17's chat surfaces. The chat card carries a field (the composer, a tool container, an
+     opener) and controls standing on that field (the pills), and both have to step *away* from the
+     card in whichever direction the theme's depth runs: the light family recesses toward the desk
+     and the dark family rises off it, so a single `panel`/`field` pair cannot serve both. The
+     values are the design's own greys; the direction is this app's. */
+  --instrument-chat-field: #262626;
+  --instrument-chat-control: #2F2F2F;
+  --instrument-chat-control-hover: #3A3A3A;
   --instrument-widget-dark: #141414;
   --instrument-widget-dark-raised: #1E1E1E;
   --instrument-widget-dark-hover: #1C1C1C;
@@ -180,6 +194,20 @@ html[data-theme="light"] {
   --instrument-keycap-face-pressed: #E2E2E0;
   --instrument-keycap-ink: #5C5C58;
   --instrument-keycap-ink-pressed: #141414;
+  /* The status-red pair handoff 17 fixes for a failed tool call, a rejected key and any other
+     line the provider itself reported as an error. It is its own pair rather than `--instrument-alert`
+     on `--instrument-error-surface`: that combination measures 3.45:1, and this one is the tint and
+     ink the design draws the failure window with, at 4.9:1 light and 5.0:1 dark. */
+  --instrument-failure-surface: #FBEAE9;
+  --instrument-failure-ink: #C22B22;
+  /* Handoff 17's chat surfaces. The chat card carries a field (the composer, a tool container, an
+     opener) and controls standing on that field (the pills), and both have to step *away* from the
+     card in whichever direction the theme's depth runs: the light family recesses toward the desk
+     and the dark family rises off it, so a single `panel`/`field` pair cannot serve both. The
+     values are the design's own greys; the direction is this app's. */
+  --instrument-chat-field: #F4F5F8;
+  --instrument-chat-control: #F1F2F4;
+  --instrument-chat-control-hover: #E7E9ED;
   --instrument-widget-dark: #141414;
   --instrument-widget-dark-raised: #1E1E1E;
   --instrument-widget-dark-hover: #1C1C1C;
@@ -374,6 +402,9 @@ html[data-theme="light"] {
   --tracking-wide: 0.14em;
   --tracking-mono: 0.11em;
 
+  /* A square small enough that any of the radii below would round it away: the 7px mark inside a
+     stop button, the dot in a slot. The design draws these at 2. */
+  --radius-dot: 2px;
   --radius-keycap: 5px;
   /* Handoff 15's socket keycap: socket = round(h * .3) + 2, face = round(h * .3). At the two sizes
      the component ships -- 20 and 26 -- that is 8/6 and 10/8, so only the 6 is new. */

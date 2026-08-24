@@ -146,3 +146,14 @@
 /* The active button is an inverted plate, so its ring has to be drawn in its own ink. */
 .project-dock button[aria-selected="true"]:focus-visible { outline-color: var(--instrument-desk-primary-ink); outline-offset: -3px; }
 .project-domain-body { min-height: 0; padding-bottom: 64px; }
+
+/* A monochrome brand mark. Five of the lobe-icons exports are a single path with `fill="#FFFFFF"`
+   -- the brands whose logo has no colour -- so on the chat's card they painted white on white.
+   The mark is drawn as a mask over `currentColor` instead: one asset per brand, and the ink comes
+   from the surface the mark stands on, in either theme. `--brand-mask` is set per element. */
+.ai-brand-icon.is-mono {
+  display: inline-block;
+  flex: none;
+  background-color: currentColor;
+  mask: var(--brand-mask) center / contain no-repeat;
+}

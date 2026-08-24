@@ -31,7 +31,6 @@
      surface whose ink is the on-dark family, so the mark is theme-invariant. */
   --activity-selected-mark: inset 2px 0 0 var(--instrument-text-on-dark-secondary-readable);
   --document-quote-mark: inset 2px 0 0 var(--instrument-text-primary);
-  --document-quote-mark-on-instrument: inset 2px 0 0 var(--instrument-text-on-dark-primary);
 
   /* Prose rhythm. A rendered document's vertical space is em, not grid: a heading's air has to
      follow the heading's own size, and a 4px step cannot. */

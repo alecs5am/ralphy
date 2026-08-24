@@ -1058,12 +1058,13 @@ describe("design system contract", () => {
     expect(assetMenuRow.split(" ")).toContain("text-on-instrument-muted");
     expect(assetMenuRow).toContain("hover:bg-instrument-hover");
     expect(assetMenuRow).toContain("hover:text-on-instrument");
-    // The agent rail's popover states the same decision in markup, where the plate also has to
-    // carry the ink its rows inherit: the sheet declared none, so a row's rest ink came from
-    // whichever ancestor happened to set a colour.
+    // The chat's popover states the same decision in markup, where the plate also has to carry
+    // the ink its rows inherit: the sheet declared none, so a row's rest ink came from whichever
+    // ancestor happened to set a colour. Handoff 17 moved the chat onto a card, so this one is the
+    // theme pair rather than the on-dark one.
     const popover = /const POPOVER = "([^"]*)"/.exec(agentRailSource)?.[1] ?? "";
-    expect(popover.split(" ")).toContain("bg-instrument");
-    expect(popover.split(" ")).toContain("text-on-instrument-muted");
+    expect(popover.split(" ")).toContain("bg-card");
+    expect(popover.split(" ")).toContain("text-secondary");
     expect(popover).not.toMatch(/\b(?:border-\d|shadow-)/);
     // The trigger's skin lives in SelectMenu now: one black pill, no border, and a caller that
     // paints its own surface declines it outright rather than half-overriding it.
@@ -1374,12 +1375,13 @@ describe("design system contract", () => {
     expect(workbenchStyles).not.toContain(".asset-preview");
     expect(virtualAssetGridSource).toMatch(/asset-preview[^"`]*\[corner-shape:squircle\]/);
     // design v2 in this area: no border, no shadow and no gradient. `border-collapse` is a table
-    // model and `border-0` is the removal of one, and the only box-shadows are the three named
-    // inset marks -- the selected activity row and a blockquote on either surface.
+    // model and `border-0` is the removal of one, and the only box-shadows are the two named
+    // inset marks -- the selected activity row and a blockquote.
     expect(documentsActivitySource).not.toMatch(/\bborder-(?!collapse\b|0\b)/);
     expect(documentsActivitySource).not.toMatch(/\b(?:shadow|bg-gradient|bg-linear|bg-radial)-/);
-    expect(documentsActivitySource.match(/\bbox-shadow:/g)).toEqual(["box-shadow:", "box-shadow:", "box-shadow:"]);
-    for (const mark of ["--activity-selected-mark", "--document-quote-mark", "--document-quote-mark-on-instrument"]) {
+    // Two, not three: the on-dark blockquote mark went with the chat's black widget in handoff 17.
+    expect(documentsActivitySource.match(/\bbox-shadow:/g)).toEqual(["box-shadow:", "box-shadow:"]);
+    for (const mark of ["--activity-selected-mark", "--document-quote-mark"]) {
       expect(documentsActivityTheme).toContain(`${mark}: inset 2px 0 0 var(--instrument-text-`);
     }
     // Container queries only, read against the route's own panel -- never the window. The two
@@ -1390,12 +1392,14 @@ describe("design system contract", () => {
     expect(documentsActivityTheme).toContain("--container-activity-columns");
     expect(documentsActivitySource).toContain("@min-activity-filters/project-domain:@max-activity-columns/project-domain:grid-cols-(--activity-row-columns-medium)");
     expect(documentsActivitySource).toContain("@max-activity-filters/project-domain:grid-cols-(--activity-row-columns-narrow)");
-    // A rendered document renders on a light widget and on a black one, so the skin is a prop and
-    // no caller repaints half of a surface/ink pair from CSS.
+    // A rendered document renders as a document and as one turn of a transcript, so the skin is a
+    // prop and no caller repaints half of a surface/ink pair from CSS. Both tones are the theme
+    // family since handoff 17 -- the chat is a card, and the on-dark skin has nothing left to paint.
     expect(markdownViewSource).toContain('tone?: MarkdownTone');
-    expect(markdownViewSource).toMatch(/tone === "instrument" \? INSTRUMENT_TONE : DOCUMENT_TONE/);
-    expect(readFileSync(join(process.cwd(), "src/components/UtilityPanels.tsx"), "utf8"))
-      .toContain('<MarkdownView markdown={entry.text ?? ""} tone="instrument" />');
+    expect(markdownViewSource).toMatch(/tone === "chat" \? CHAT_TONE : DOCUMENT_TONE/);
+    expect(markdownViewSource).not.toContain("INSTRUMENT_TONE");
+    expect(readFileSync(join(process.cwd(), "src/components/agent/AgentThread.tsx"), "utf8"))
+      .toContain('<MarkdownView markdown={block.entry.text ?? ""} tone="chat"');
     // Every legacy tone on the timeline icon collapsed to one of two on-dark inks, so the map
     // states two and not seven.
     expect([...new Set((/const ICON_TONE[^}]*}/s.exec(documentsActivitySource)?.[0] ?? "").match(/text-on-instrument(?:-muted)?/g) ?? [])].sort())
@@ -1701,34 +1705,39 @@ describe("design system contract", () => {
     expect(app).not.toContain("<RightPanelSummary");
     expect(panels).toContain("AgentChatPanel");
     expect(panels).toContain("AgentChatMenu");
-    expect(panels).toContain("AgentProviderMenu");
+    // One model control, not a provider pill beside a model pill: handoff 17's single pill lists
+    // every connected provider's catalog, so a row carries both halves of the choice.
+    expect(panels).not.toContain("AgentProviderMenu");
     expect(panels).toContain("AgentModelMenu");
+    expect(panels).toContain("chat.setProvider(model.provider, model.id)");
     expect(panels).toContain('label: "Codex"');
     expect(panels).toContain('label: "OpenRouter"');
     expect(panels).not.toContain("<select");
     expect(panels).toContain("AiBrandIcon");
     // v2 forbids borders, and the chat is two layers rather than one flat plate: a 2px run of
-    // panel around a #141414 widget one radius step in, the same shell the sidebar and the view
-    // panel stand on. The outer element owns the frame, the inner card owns the widget.
+    // panel around a card one radius step in, the same shell the sidebar and the view panel stand
+    // on. The outer element owns the frame, the inner card owns the widget. Handoff 17 makes that
+    // widget a card rather than a black plate -- the chat is a light surface by design -- so the
+    // zone's ink is the theme's.
     const railPlate = /"utility-right-panel ([^"]*)"/.exec(agentRailSource)?.[1] ?? "";
     expect(railPlate.split(" ")).toContain("bg-panel");
     expect(railPlate.split(" ")).toContain("p-0.5");
     expect(railPlate.split(" ")).toContain("rounded-window");
-    expect(railPlate.split(" ")).toContain("text-on-instrument");
+    expect(railPlate.split(" ")).toContain("text-ink");
     expect(railPlate).not.toMatch(/\b(?:border-\d|shadow-)/);
     const railCard = /"utility-right-panel-card ([^"]*)"/.exec(agentRailSource)?.[1] ?? "";
-    expect(railCard.split(" ")).toContain("bg-instrument");
+    expect(railCard.split(" ")).toContain("bg-card");
     // `rounded-frame`, not `rounded-inner`: handoff 16 makes the card's corner concentric with the
     // shell's, 16 less the 2 of frame, so the frame reads as a hairline rather than as a margin.
     expect(railCard.split(" ")).toContain("rounded-frame");
     // And the chrome is the zone's row in that frame, above the card rather than inside it.
     expect(agentRailSource.indexOf("utility-panel-header")).toBeLessThan(agentRailSource.indexOf("utility-right-panel-card"));
-    // The composer's own skin is in markup now: one ghost plate, a transparent field inside it,
-    // and the ring a black widget needs — `--control-focus` is the theme ink, which is black on
-    // black under the light theme.
-    expect(panels).toContain("rounded-composer bg-ghost");
+    // The composer's own skin is in markup: a field one step off the card, at the card's own
+    // radius, with a transparent field inside it and the theme's focus ring -- the chat is not a
+    // black widget any more, so `outline-ink` is a real ring rather than black on black.
+    expect(panels).toContain("rounded-composer bg-chat-field");
     expect(panels).toContain("resize-none bg-transparent");
-    expect(panels).toContain("focus-within:outline-focus-on-instrument");
+    expect(panels).toContain("focus-within:outline-ink");
     expect(panels).not.toMatch(/\bborder-(?!collapse\b|0\b)/);
     expect(panels).not.toMatch(/\b(?:shadow|bg-gradient|bg-linear|bg-radial)-/);
     // Nothing of the rail is left in the sheet: both chunks are gone and what stayed is unowned.

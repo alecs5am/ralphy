@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import type { AgentProvider } from "../lib/ipc";
 
 export type AiBrand =
@@ -38,6 +39,10 @@ export function aiBrandForModel(model: string, fallback: AgentProvider): AiBrand
   return providerBrands[fallback];
 }
 
+/* The brands whose lobe-icons export is a white monochrome path. Everything else ships in its own
+   brand colour and is painted as an image. */
+const MONO: ReadonlySet<AiBrand> = new Set(["anthropic", "codex", "grok", "openai", "openrouter"]);
+
 export function AiBrandIcon({
   provider,
   model,
@@ -50,6 +55,17 @@ export function AiBrandIcon({
   className?: string;
 }) {
   const brand = model ? aiBrandForModel(model, provider) : providerBrands[provider];
+  if (MONO.has(brand)) {
+    return (
+      <span
+        /* A mask over `currentColor`, so the mark reads on the chat's card and on a black widget
+           alike. instrument.css owns the rule; the element owns which artwork it cuts. */
+        className={`ai-brand-icon is-mono is-${brand} select-none ${className}`.trim()}
+        style={{ "--brand-mask": `url("./assets/ai/${brand}.svg")`, width: size, height: size } as CSSProperties}
+        aria-hidden="true"
+      />
+    );
+  }
   return (
     <img
       /* The mark keeps its own aspect inside whatever box a caller gives it, and never

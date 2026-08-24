@@ -8,10 +8,12 @@ import { marked, type Token, type Tokens } from "marked";
    element under this root states its own type or surface; and where two variants could name one
    property, the more specific selector is chosen deliberately (`[&_li>p]:my-*` over `[&_p]:my-*`,
    `[&_pre_code]:bg-transparent` over `[&_code]:bg-*`, `[&_.markdown-alert]:` over `[&_blockquote]:`).
-   Tone is a prop rather than a caller override because this component renders on a light widget
-   in the documents route and the marketplace, and on a black one in the agent chat: surface and
-   ink have to travel as a pair, and a caller repainting half of one is the documented defect. */
-type MarkdownTone = "document" | "instrument";
+   Tone is a prop rather than a caller override because this component renders as a document in
+   the documents route and the marketplace, and as one turn of a transcript in the agent chat:
+   surface and ink have to travel as a pair, and a caller repainting half of one is the documented
+   defect. Both tones are the theme family now -- handoff 17 moved the chat onto a white card, so
+   the on-dark skin that existed for the black rail has nothing left to paint. */
+type MarkdownTone = "document" | "chat";
 
 /* The other two document views 15-markdown-view.css covered: a plain-text body and the fallback
    the JSON view drops to when the text will not parse. Both are the same mono block, so the
@@ -81,23 +83,12 @@ const DOCUMENT_TONE = [
   "[&_input[type=checkbox]]:accent-ink",
 ].join(" ");
 
-/* On a black widget: the agent chat rail, where the theme ink is invisible. */
-const INSTRUMENT_TONE = [
-  "text-on-instrument-muted leading-copy [overflow-wrap:anywhere]",
-  "[&_h1]:type-heading [&_h2]:type-title [&_h3]:type-md",
-  "[&_code]:bg-instrument-raised [&_code]:text-on-instrument-muted",
-  "[&_pre]:bg-instrument-raised [&_th]:bg-instrument-raised [&_th]:text-on-instrument",
-  "[&_details]:bg-instrument-raised [&_kbd]:bg-instrument-raised",
-  "[&_blockquote]:text-on-instrument-muted [&_blockquote]:[box-shadow:var(--document-quote-mark-on-instrument)]",
-  "[&_.markdown-alert]:bg-instrument-raised [&_.markdown-alert-label]:text-on-instrument",
-  "[&_:is(.markdown-alert-warning,.markdown-alert-caution)_.markdown-alert-label]:text-on-instrument-muted",
-  "[&_summary]:text-on-instrument-muted [&_.markdown-image-link]:text-on-instrument-muted [&_.markdown-link]:text-on-instrument-muted",
-  "[&_a]:text-on-instrument [&_a]:decoration-on-instrument/45",
-  "[&_mark]:bg-on-instrument-muted/28 [&_mark]:text-on-instrument",
-  "[&_input[type=checkbox]]:accent-on-instrument",
-  /* A chat bubble owns its own outer air, so the first and last block give theirs up. The
-     selector names the root's own class so it reads (0,3,0) and outranks the `[&_h1]:mt-0` and
-     `[&_p]:my-*` variants at (0,1,1) rather than racing them in the generated sheet. */
+/* One turn of a transcript. The same ink and the same plates as a document -- the chat card is a
+   card -- and one thing a document does not do: a turn owns its outer air, so its first and last
+   block give theirs up. The selector names the root's own class so it reads (0,3,0) and outranks
+   the `[&_h1]:mt-0` and `[&_p]:my-*` variants at (0,1,1) rather than racing them in the sheet. */
+const CHAT_TONE = [
+  DOCUMENT_TONE,
   "[&.markdown-view>:first-child]:mt-0 [&.markdown-view>:last-child]:mb-0",
 ].join(" ");
 
@@ -268,5 +259,5 @@ function blocks(tokens: Token[], keyPrefix = "md", baseUrl?: string, allowUrl?: 
 }
 
 export function MarkdownView({ markdown, baseUrl, tone = "document", allowUrl }: MarkdownViewProps) {
-  return <article className={`markdown-view ${DOCUMENT_RHYTHM} ${tone === "instrument" ? INSTRUMENT_TONE : DOCUMENT_TONE}`}>{blocks(marked.lexer(withoutFrontmatter(markdown)), "md", baseUrl, allowUrl)}</article>;
+  return <article className={`markdown-view ${DOCUMENT_RHYTHM} ${tone === "chat" ? CHAT_TONE : DOCUMENT_TONE}`}>{blocks(marked.lexer(withoutFrontmatter(markdown)), "md", baseUrl, allowUrl)}</article>;
 }

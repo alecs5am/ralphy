@@ -2,19 +2,22 @@
    the shared theme layer. Every key names a role and resolves to a token in tokens.css or a
    value the design fixes for that role; a component then reaches for the name, never a literal.
 
-   The rail is a black widget in both themes and it sits outside `.app-mode-work`, so its ink is
-   the on-dark family throughout and none of these keys may resolve to a theme-dependent
-   surface: `bg-board` would turn light under the light theme and swallow the on-dark ink. */
+   Handoff 17 moved the chat off the black widget: the transcript, the composer and the connect
+   flow now stand on a card inside the zone's frame, so the ink here is the theme family and every
+   surface is one step off the card. The on-dark keys that are left serve the two things that are
+   still inverted by design -- the operator's own bubble and the primary pill. */
 
 /* Multi-part values. These are plain custom properties rather than `@theme` keys because
    `grid-template-columns` is not a Tailwind namespace and a percentage is not a spacing scale:
    `@theme inline` never emits the variable, so `grid-cols-(--name)` and `max-w-(--name)` have to
    find a real declaration reachable from the element. */
 :root {
-  /* An assistant turn: the provider mark's column beside the rendered document. */
-  --agent-message-columns: 22px minmax(0, 1fr);
-  /* The operator's own turn is a bubble that stops short of the rail's far edge. */
-  --agent-bubble-measure: 88%;
+  /* A tool call's detail row inside an opened group: the family glyph, the argument, the reading. */
+  --agent-detail-columns: 13px minmax(0, 1fr) auto;
+  /* A provider row in the connect dialog: the mark, the name and its account line, the action. */
+  --agent-provider-row-columns: 18px minmax(0, 1fr) auto;
+  /* The operator's own turn is a bubble that stops short of the card's far edge. */
+  --agent-bubble-measure: 80%;
 }
 
 /* A menu opened from the rail can never be wider than the rail. Both widths used to be measured
@@ -34,28 +37,36 @@
 }
 
 @theme inline {
-  /* The rail's surface vocabulary, all theme-invariant because the widget is. */
-  --color-ghost: var(--instrument-ghost);                     /* a field well: the composer, the model search, the key field */
-  --color-ghost-hover: var(--instrument-ghost-hover);          /* hover, a selected row, and the operator's own turn */
-  --color-instrument-sunken: var(--instrument-legacy-sunken);  /* a band recessed into the rail: the running-chat strip */
-  /* An alarm line standing on a black widget. The rail resolved `--danger` to
-     `--instrument-error-text` outside `.app-mode-work`, so every error rendered as a plain
-     near-white grey indistinguishable from ordinary copy. */
+  /* The chat's third ink step. `muted` is the body ink and `muted-decorative` the meta one; this
+     is the step between them, which the design gives to a secondary label, a tool glyph and a
+     ghost pill -- every place a line is quieter than copy but louder than a counter. */
+  --color-secondary: var(--instrument-text-secondary-decorative);
+  /* The failure window's pair: a tint and the ink the provider's own words take on it. */
+  --color-failure: var(--instrument-failure-surface);
+  --color-failure-ink: var(--instrument-failure-ink);
+  /* A field on the chat card -- the composer, a tool container, an opener -- and a control
+     standing on that field. Each is a step away from the card in the direction its theme's depth
+     runs, which `panel` and `field` cannot both be: `panel` is the zone's own frame and in the
+     dark family it sits below the card, so a composer painted with it reads as a hole. */
+  --color-chat-field: var(--instrument-chat-field);
+  --color-chat-control: var(--instrument-chat-control);
+  --color-chat-control-hover: var(--instrument-chat-control-hover);
+  --color-instrument-sunken: var(--instrument-legacy-sunken);  /* a band recessed into a dark widget */
+  /* An alarm line standing on a black widget: the connect flow's primary pill is still inverted. */
   --color-alert-bright: var(--instrument-alert-bright);
   /* The ring for a control on a black widget: the theme ink would be black on black in the
      light theme. */
   --color-focus-on-instrument: var(--instrument-focus-on-dark);
 
   /* Radii the design fixes by role. */
-  --radius-menu: var(--radius-xl);                      /* a menu popover: R18 */
-  --radius-composer: var(--field-radius-multiline);     /* a multi-line field opts out of the stadium */
+  --radius-menu: var(--radius-lg);                      /* a popover over the chat: R14 */
+  --radius-composer: var(--radius-window);              /* the composer is a card, not a stadium */
 
   /* Geometry the design fixes for this area. */
-  --spacing-agent-header: 58px;            /* the rail's header is taller than the titlebar */
   --spacing-agent-empty: 240px;            /* an empty chat holds this much of the rail open */
-  --spacing-agent-empty-copy: 250px;       /* ...and its one sentence stops here */
-  --spacing-agent-connect-copy: 240px;     /* the connect flow's paragraph measure */
-  --spacing-agent-connect-column: 260px;   /* every connect control shares one column */
+  --spacing-agent-empty-block: 560px;      /* ...and its mark, question and openers keep this measure */
+  --spacing-agent-thread: 600px;           /* the transcript's reading measure */
+  --spacing-agent-connect-dialog: 400px;   /* the connect dialog is a card, not a band */
   --spacing-agent-menu-list: 320px;        /* a menu list scrolls after this much */
   --spacing-agent-chat-menu: 300px;        /* the recent-chats menu, when the rail has room for it */
   --spacing-agent-model-menu: 310px;       /* ...and the model menu */

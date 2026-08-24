@@ -938,6 +938,7 @@ export function App() {
                puts the desk lens back rather than leaving a chat lens with an empty main column. */
             chat={<AgentChatPanel
               onClose={() => setLens("desk")}
+              onOpenSettings={() => setSettingsVisible(true)}
               chat={agentChat}
               workspace={selectedWorkspace}
               project={selectedProject}

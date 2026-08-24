@@ -4,10 +4,10 @@ export const INSTRUMENT_COLOR_ALLOWLIST = [
   "#2E2E2E", "#2F2F2F", "#343434", "#38698A", "#3A3A38", "#3A3A3A", "#3F3F3D", "#426F4C",
   "#4A4A48", "#5C5C58", "#5CC45C", "#5F5D8C", "#6A6630", "#6A6A66", "#6E6E6A", "#7C5378",
   "#80AFAE", "#835935", "#895155", "#89A9C1", "#8A8A86", "#8FAE94", "#9A9A96", "#A1A1C3",
-  "#A4A4A0", "#A9A783", "#B79AB4", "#BD9E86", "#C2989A", "#C8C8C4", "#CCCED6", "#D3D6DD",
-  "#D6D6D3", "#D8D8D6", "#DFE2E9", "#E0362C", "#E2E2E0", "#E4E4E2", "#E7E9ED", "#E8E8E6",
-  "#E9EBEF", "#EB4438", "#ED6A5E", "#EEEEEC", "#F0B544", "#F1F2F4", "#F1F2F6", "#F2F2F0",
-  "#F4F5F8", "#F6DEDC", "#F6F7F9", "#FFFFFF",
+  "#A4A4A0", "#A9A783", "#B79AB4", "#BD9E86", "#C22B22", "#C2989A", "#C8C8C4", "#CCCED6",
+  "#D3D6DD", "#D6D6D3", "#D8D8D6", "#DFE2E9", "#E0362C", "#E2E2E0", "#E4E4E2", "#E7E9ED",
+  "#E8E8E6", "#E9EBEF", "#EB4438", "#ED6A5E", "#EEEEEC", "#F0574B", "#F0B544", "#F1F2F4",
+  "#F1F2F6", "#F2F2F0", "#F4F5F8", "#F6DEDC", "#F6F7F9", "#FBEAE9", "#FFFFFF",
 ] as const;
 
 const shared = {
@@ -102,6 +102,11 @@ export const INSTRUMENT_PALETTE = {
     keycapFacePressed: "#E2E2E0",
     keycapInk: "#5C5C58",
     keycapInkPressed: "#141414",
+    failureSurface: "#FBEAE9",
+    failureInk: "#C22B22",
+    chatField: "#F4F5F8",
+    chatControl: "#F1F2F4",
+    chatControlHover: "#E7E9ED",
     ...shared,
   },
   dark: {
@@ -133,6 +138,11 @@ export const INSTRUMENT_PALETTE = {
     keycapFacePressed: "#242424",
     keycapInk: "#C8C8C4",
     keycapInkPressed: "#F2F2F0",
+    failureSurface: "#2A1615",
+    failureInk: "#F0574B",
+    chatField: "#262626",
+    chatControl: "#2F2F2F",
+    chatControlHover: "#3A3A3A",
     ...shared,
   },
 } as const;

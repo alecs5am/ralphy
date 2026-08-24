@@ -94,6 +94,9 @@ describe("agent chat state", () => {
       entries: [
         { kind: "user", text: "Review the current render" },
         { kind: "assistant", text: "The render is ready." },
+        /* A finished turn leaves its own reading behind: the transcript's "worked for" row is
+           per turn, and `lastCostUsd` only ever answers for the newest one. */
+        { kind: "result", run: { durationMs: 500, costUsd: 0 } },
       ],
     });
     expect(state.chats.find(({ id }) => id === "chat-openrouter")?.entries).toEqual([]);

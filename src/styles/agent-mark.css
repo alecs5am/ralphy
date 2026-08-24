@@ -1,0 +1,39 @@
+/* Handoff 17's agent mark and the one line of motion that stands beside it. Both live in a real
+   stylesheet rather than in utilities: a keyframe set is not a utility, and the mark's cells take
+   their animation from an inline style, which `@keyframes` has to be reachable from. */
+
+/* The two arms: the body cells hold their light longer than the corners, so the corners read as
+   the spiral's tail rather than as a second ring. */
+@keyframes agent-mark-swirl-core {
+  0%, 25% { opacity: 1; }
+  60%, 100% { opacity: 0.48; }
+}
+@keyframes agent-mark-swirl-corner {
+  0%, 20% { opacity: 0.85; }
+  55%, 100% { opacity: 0.16; }
+}
+/* Waiting on a decision: the core pulses and everything outside it stays down. */
+@keyframes agent-mark-pulse {
+  0%, 100% { opacity: 0.16; }
+  50% { opacity: 1; }
+}
+
+/* A line the agent is writing right now. Opacity only -- a shimmer that moved a gradient across
+   the text would be the gradient design v2 forbids. */
+@keyframes agent-line-shimmer {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+
+.agent-streaming-line {
+  animation: agent-line-shimmer 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The run stops and the grid stays: every animated cell's declared opacity is its static-mode
+     value, so switching the animation off leaves the frozen spiral. */
+  .agent-mark-cell,
+  .agent-streaming-line {
+    animation: none;
+  }
+}

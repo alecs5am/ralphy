@@ -6,20 +6,21 @@ import {
   type KeyboardEvent,
 } from "react";
 import {
+  ArrowUp,
+  Calendar,
   Check,
   ChevronDown,
-  CircleAlert,
+  Image,
   KeyRound,
+  ListChecks,
   LoaderCircle,
   LogIn,
   PanelRightClose,
+  Plug,
   Plus,
   Search,
-  SendHorizontal,
   ShieldCheck,
-  Square,
-  Wrench,
-  X,
+  SlidersHorizontal,
 } from "lucide-react";
 import { motion } from "motion/react";
 import type {
@@ -29,50 +30,63 @@ import type {
   ProjectSummary,
   WorkspaceSummary,
 } from "../lib/ipc";
-import type {
-  AgentChatController,
-  AgentChatEntry,
-} from "../chat/useAgentChat";
+import type { AgentChatController } from "../chat/useAgentChat";
+import { AgentFailure, AgentThread } from "./agent/AgentThread";
+import { AgentMark } from "./ui/AgentMark";
 import { AiBrandIcon } from "./AiBrandIcon";
-import { MarkdownView } from "./MarkdownView";
 import { InstrumentOverlay } from "../instrument/overlay-registry";
 
+/**
+ * Handoff 17's chat panel. The chat is a light surface by design -- a card inside the zone's
+ * frame -- so nothing here paints the on-dark pair except the two things that stay inverted: the
+ * operator's own bubble and a primary pill.
+ *
+ * The composer carries what the app can actually promise: permission mode, the model across every
+ * connected provider, and send or stop. Three of the handoff's controls are not here because
+ * nothing behind them exists yet -- the `@` entity picker (a tag serialises to `@kind:id`, and no
+ * harness resolves one), the live context meter (no provider reports context used), and dictate.
+ */
+
 const PROVIDER_ORDER: AgentProvider[] = ["codex", "claude", "openrouter"];
-const PROVIDER_META: Record<AgentProvider, { label: string; detail: string }> = {
-  codex: { label: "Codex", detail: "ChatGPT account" },
-  claude: { label: "Claude", detail: "Claude account or API key" },
-  openrouter: { label: "OpenRouter", detail: "OpenRouter API key" },
+const PROVIDER_META: Record<AgentProvider, { label: string; detail: string; account: string }> = {
+  codex: { label: "Codex", detail: "ChatGPT account", account: "LOCAL HARNESS" },
+  claude: { label: "Claude", detail: "Claude account or API key", account: "LOCAL HARNESS" },
+  openrouter: { label: "OpenRouter", detail: "OpenRouter API key", account: "API KEY" },
 };
 
-/* The rail is a black widget in both themes and it renders outside `.app-mode-work`, so every
-   ink below is the on-dark family and every surface is theme-invariant. Two shapes recur often
-   enough to be named once; both carry geometry, behaviour and -- where a state changes the
-   plate -- the ink that plate needs, because a surface change without its ink is the defect
-   this migration keeps finding. Position is never in a shared base: each menu states its own
-   box, so no element ever ends up with two utilities for `left`. */
-const POPOVER = "agent-popover absolute z-agent-popover rounded-menu bg-instrument p-1.5 text-on-instrument-muted [corner-shape:squircle]";
-const MENU_ROW = "flex w-full min-w-0 items-center rounded-control bg-transparent text-left hover:bg-ghost-hover hover:text-on-instrument aria-checked:bg-ghost-hover aria-checked:text-on-instrument";
-/* A pill in the composer toolbar, and the same shape reused as the connect flow's auth toggle. */
-const MENU_TRIGGER = "inline-flex h-control-sm min-w-0 items-center gap-1.25 rounded-control px-1.75 type-xs";
-const MENU_TRIGGER_GHOST = `${MENU_TRIGGER} bg-transparent text-on-instrument-muted hover:bg-ghost-hover hover:text-on-instrument aria-expanded:bg-ghost-hover aria-expanded:text-on-instrument`;
-/* The copy column of a two-line menu row, and its two lines. */
+/* The four cards an empty chat offers. They fill the composer rather than sending: a card is a
+   starting point, and an operator gets to read a prompt before it leaves. */
+const OPENERS = [
+  { icon: Image, label: "Generate covers for a unit", prompt: "Generate cover options for a unit in this workspace." },
+  { icon: ListChecks, label: "Work through the review queue", prompt: "Walk me through the review queue and what needs a decision." },
+  { icon: Calendar, label: "Plan what ships this week", prompt: "Plan what should ship this week." },
+  { icon: Search, label: "Find an asset in the library", prompt: "Find an asset in the library: " },
+] as const;
+
+/* A popover over the chat: a card one radius step tighter than the zone, with 6 of air. */
+const POPOVER = "agent-popover absolute z-agent-popover rounded-menu bg-card p-1.5 text-secondary [corner-shape:squircle]";
+const MENU_ROW = "flex w-full min-w-0 items-center rounded-tab bg-transparent text-left hover:bg-row-hover hover:text-ink aria-checked:bg-row-hover aria-checked:text-ink";
+/* The composer's pills, and every other control the design draws as one: h26, a stadium on the
+   chip step, one surface louder on hover. */
+const PILL = "inline-flex h-6.5 min-w-0 flex-none items-center gap-1.75 rounded-full px-2.5 type-label";
+const PILL_QUIET = `${PILL} bg-chat-control text-ink hover:bg-chat-control-hover aria-expanded:bg-chat-control-hover`;
+/* A primary action anywhere in the chat is the inversion of the card. */
+const PRIMARY = "bg-desk-primary text-desk-primary-ink hover:bg-instrument-hover";
+/* The copy column of a two-line menu row. */
 const ROW_COPY = "flex min-w-0 flex-1 flex-col gap-0.5";
-/* A primary action on the rail is the inversion of the rail. Disabled drops to a ghost pair. */
-const PRIMARY = "bg-on-instrument text-instrument disabled:bg-ghost-hover disabled:text-on-instrument-muted";
-/* Every connect control shares one column measure. */
-const CONNECT_COLUMN = "w-full max-w-agent-connect-column";
-/* A field well on the rail, with the ring a black widget needs: `--control-focus` would be the
-   theme ink, which is black on black in the light theme. */
-const FIELD_RING = "focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-focus-on-instrument";
-const FIELD_INPUT = "min-w-0 flex-1 border-0 bg-transparent text-on-instrument outline-0";
+/* A field well on the card, with the theme's own focus ring. */
+const FIELD_RING = "focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-ink";
+const FIELD_INPUT = "min-w-0 flex-1 border-0 bg-transparent text-ink outline-0";
 const SPINNER = "is-spinning animate-spinner motion-reduce:animate-none";
-/* The rail header's two glyph controls. They used to be a bare `.icon-button`, whose surface and
-   ink came from the legacy `--fg-2` / `--hover` pair in 01-unowned.css; the rail is a black
-   widget in both themes, so the on-dark pair is stated here instead. */
 /* The chrome's instruments stand on the zone's panel, not on the widget inside it, so their ink and
    their hover step off the panel: 24 circles, muted until hovered. A hover always steps off its own
    surface -- the same glyph inside the card would take the card's hover instead. */
 const HEADER_GLYPH = "icon-button inline-grid size-6 flex-none place-items-center rounded-control p-0 text-muted hover:bg-chip hover:text-ink disabled:text-muted-decorative";
+/* A mono meta run: a counter, a scope, an account line. */
+/* A mono meta run: a counter, a scope, an account line. The design's muted grey is #9A9A96, which
+   measures 2.6:1 on the card -- fine for a dot, not for a 9px run of text. Informational meta takes
+   the secondary step, the same place in the hierarchy, and passes at 5:1 in both themes. */
+const META = "font-code type-mono-xs tracking-mono text-secondary";
 
 function AgentProviderIcon({
   provider,
@@ -125,25 +139,22 @@ function modelLabel(chat: AgentChatController, provider: AgentProvider, model: s
     ?.label ?? model;
 }
 
-/* Where a provider or model menu is mounted. In the composer toolbar it opens upward from a
-   ghost pill; in the connect flow it opens downward from a filled pill that fills half of a
-   two-up well. The two skins differ in surface *and* ink, so they travel as one switch rather
-   than as a caller override on a shared base. */
-type MenuLayout = "toolbar" | "pickers";
-
 export function AgentChatPanel({
   chat,
   workspace,
   project,
   onClose,
+  onOpenSettings,
 }: {
   chat: AgentChatController;
   workspace: WorkspaceSummary | null;
   project: ProjectSummary | null;
   onClose(): void;
+  onOpenSettings(): void;
 }) {
   const [draft, setDraft] = useState("");
   const messagesRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const followOutput = useRef(true);
   const active = chat.activeChat;
   const running = chat.state.chats.find(({ id }) => id === chat.state.runningChatId) ?? null;
@@ -165,21 +176,43 @@ export function AgentChatPanel({
     followOutput.current = true;
   };
 
+  /* Fill the composer and put the caret at the end: what "edit & resend" and an opener card both
+     do, and the one place this panel moves focus on the operator's behalf. */
+  const fillComposer = (text: string): void => {
+    setDraft(text);
+    requestAnimationFrame(() => {
+      const node = composerRef.current;
+      if (!node) return;
+      node.focus();
+      node.setSelectionRange(text.length, text.length);
+    });
+  };
+
   const onComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
       submit();
     }
+    /* ESC while the field has focus stops the run. It is the only escape this composer owns --
+       there is no `@` menu above it to close first. */
+    if (event.key === "Escape" && active.busy) {
+      event.preventDefault();
+      chat.stop();
+    }
   };
 
-  const stopping = active.busy;
+  /* The line the agent is on: the newest tool call while one is running, otherwise the plain fact
+     that it is working. Nothing here is invented -- a harness that reports no tool reports none. */
+  const streamingTool = active.busy
+    ? [...active.entries].reverse().find(({ kind }) => kind === "tool") ?? null
+    : null;
 
   return (
     <motion.aside
       /* Chrome around a card, the same two layers the view panel and the sidebar stand on: a 2px
          run of panel around a widget one radius step in. tokens.css keys the squircle on this
          class, and `--blur` is `none`, so `.panel-blur` adds nothing. */
-      className="utility-right-panel panel-blur flex min-h-0 min-w-0 flex-col overflow-hidden rounded-window bg-panel p-0.5 text-on-instrument"
+      className="utility-right-panel panel-blur flex min-h-0 min-w-0 flex-col overflow-hidden rounded-window bg-panel p-0.5 text-ink"
       initial={{ x: 24, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 24, opacity: 0 }}
@@ -214,94 +247,92 @@ export function AgentChatPanel({
         </span>
       </header>
 
-      <div className="utility-right-panel-card flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-frame bg-instrument">
+      <div className="utility-right-panel-card flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-frame bg-card">
       {!chat.connected ? (
         <AgentConnection chat={chat} />
       ) : (
         <>
           {running && running.id !== active.id && (
             <button
-              className="agent-running-chat mx-3 flex h-control-md flex-none items-center gap-1.75 rounded-control bg-instrument-sunken px-3.5 type-xs text-on-instrument-muted hover:text-on-instrument"
+              className="agent-running-chat mx-3 mt-2 flex h-control-md flex-none items-center gap-1.75 rounded-full bg-chat-field px-3.5 type-xs text-secondary hover:text-ink"
               type="button"
               onClick={() => chat.selectChat(running.id)}
             >
-              <LoaderCircle size={12} className={SPINNER} />
+              <AgentMark mode="working" size={13} className="text-ink" />
               <span className="min-w-0 flex-1 truncate text-left">{running.title}</span>
-              <small className="text-on-instrument">Running</small>
+              <small className="text-ink">Running</small>
             </button>
           )}
           <div
-            className="agent-chat-messages flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3.5 pt-4 pb-5.5"
+            className="agent-chat-messages flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-4 pb-4"
             ref={messagesRef}
             onScroll={(event) => {
               const node = event.currentTarget;
               followOutput.current = node.scrollHeight - node.scrollTop - node.clientHeight < 72;
             }}
           >
-            {active.entries.length === 0 && (
-              <div className="agent-empty-chat flex min-h-agent-empty flex-1 flex-col items-center justify-center gap-1.75 p-6 text-center text-on-instrument-muted">
-                <AgentProviderIcon provider={active.provider} size={34} className="mb-1.75 opacity-70" />
-                <strong className="type-lg text-on-instrument">What should we work on?</strong>
-                <span className="max-w-agent-empty-copy type-sm leading-row">{project?.name ?? workspace?.name ?? "Ralphy library"}</span>
-              </div>
-            )}
-            {active.entries.map((entry) => (
-              <AgentEntry entry={entry} provider={active.provider} key={entry.id} />
-            ))}
-            {active.busy && active.entries.at(-1)?.kind !== "assistant" && (
-              <div className="agent-working flex min-w-0 items-center gap-1.75 pl-agent-tool-indent type-sm text-on-instrument-muted" aria-label={`${PROVIDER_META[active.provider].label} is working`}>
-                <LoaderCircle size={13} className={`${SPINNER} flex-none`} />
-                Working
-              </div>
-            )}
+            {active.entries.length === 0
+              ? <AgentEmptyChat
+                chat={chat}
+                workspace={workspace}
+                project={project}
+                onOpener={fillComposer}
+              />
+              : <AgentThread
+                entries={active.entries}
+                busy={active.busy}
+                streamingTool={streamingTool}
+                onEdit={fillComposer}
+                onRerun={(text) => {
+                  chat.send(text);
+                  followOutput.current = true;
+                }}
+              />}
           </div>
-          <div className={`agent-composer relative mx-3 mb-3 flex-none rounded-composer bg-ghost p-2 ${FIELD_RING}`}>
+          {/* The composer is a field on the card: one step off it, at the card's own radius, with
+              the field above and the instruments below. */}
+          <div className={`agent-composer relative mx-3 mb-3 flex flex-none flex-col gap-2.25 rounded-composer bg-chat-field p-2.75 ${FIELD_RING}`}>
             <textarea
-              className="block min-h-14.5 w-full resize-none bg-transparent p-1 text-on-instrument outline-0 placeholder:text-on-instrument-muted"
+              ref={composerRef}
+              className="block min-h-11 w-full resize-none bg-transparent px-0.5 type-body leading-loose text-ink outline-0 placeholder:text-muted-decorative"
               rows={2}
               value={draft}
               aria-label="Message agent"
-              placeholder={project ? `Ask about ${project.name}` : "Ask Ralphy Agent"}
+              placeholder={project ? `Ask about ${project.name}` : "Ask anything"}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={onComposerKeyDown}
             />
-            <div className="agent-composer-toolbar flex items-center justify-between gap-2 pt-1">
-              <span className="agent-composer-options flex min-w-0 items-center gap-0.75">
-                <AgentProviderMenu chat={chat} />
-                <AgentModelMenu chat={chat} />
-                <AgentModeMenu value={active.permissionMode} onChange={chat.setPermissionMode} />
-                {active.provider === "claude" && (
-                  <button
-                    className={`agent-auth-source ${MENU_TRIGGER_GHOST}`}
-                    type="button"
-                    title={active.claudeAuthMethod === "subscription" ? "Claude subscription" : "Anthropic API key"}
-                    onClick={() => {
-                      const next = active.claudeAuthMethod === "subscription" ? "api-key" : "subscription";
-                      const status = chat.providers.find(({ id }) => id === "claude");
-                      const available = next === "subscription"
-                        ? status?.accountConnected
-                        : status?.apiKeyConfigured;
-                      if (available) chat.setClaudeAuthMethod(next);
-                    }}
-                  >
-                    {active.claudeAuthMethod === "subscription" ? <LogIn size={12} /> : <KeyRound size={12} />}
-                  </button>
-                )}
-              </span>
-              {/* Send is the inversion of the rail; Stop is a ghost that keeps primary ink, because
-                  the one control that halts a run has to stay legible. */}
-              <button
-                className={`agent-send grid size-7 flex-none place-items-center rounded-full ${stopping ? "is-stop bg-ghost-hover text-on-instrument" : PRIMARY}`}
-                type="button"
-                disabled={!active.busy && (!draft.trim() || chat.state.runningChatId !== null)}
-                title={active.busy ? "Stop" : running ? `Waiting for ${running.title}` : "Send"}
-                aria-label={active.busy ? "Stop agent" : "Send message"}
-                onClick={active.busy ? chat.stop : submit}
-              >
-                {active.busy
-                  ? <Square size={12} fill="currentColor" />
-                  : <SendHorizontal size={14} />}
-              </button>
+            <div className="agent-composer-toolbar flex items-center gap-1.5">
+              <AgentModeMenu value={active.permissionMode} onChange={chat.setPermissionMode} />
+              <span className="min-w-0 flex-1" aria-hidden="true" />
+              {active.provider === "claude" && <AgentAuthSource chat={chat} />}
+              <AgentModelMenu chat={chat} onOpenSettings={onOpenSettings} />
+              {active.busy
+                ? <button
+                  /* Stop is the one control that halts a run, so it is a pill with a word on it
+                     rather than a glyph: the mark at work, the verb, and the square. */
+                  className={`agent-stop inline-flex h-7 flex-none items-center gap-1.75 rounded-full pr-1 pl-2.5 type-sm ${PRIMARY}`}
+                  type="button"
+                  title="Stop (ESC)"
+                  aria-label="Stop agent"
+                  onClick={chat.stop}
+                >
+                  <AgentMark mode="working" size={14} />
+                  Stop
+                  <span className="grid size-5 flex-none place-items-center rounded-full bg-desk-primary-ink/16">
+                    <i className="size-1.75 rounded-dot bg-desk-primary-ink" />
+                  </span>
+                </button>
+                : <button
+                  className={`agent-send grid size-7 flex-none place-items-center rounded-full ${draft.trim() && chat.state.runningChatId === null ? PRIMARY : "bg-chat-control text-muted-decorative"}`}
+                  type="button"
+                  disabled={!draft.trim() || chat.state.runningChatId !== null}
+                  title={running ? `Waiting for ${running.title}` : "Send (↩)"}
+                  aria-label="Send message"
+                  onClick={submit}
+                >
+                  <ArrowUp size={13} strokeWidth={2} />
+                </button>}
             </div>
           </div>
         </>
@@ -309,6 +340,70 @@ export function AgentChatPanel({
       </div>
     </motion.aside>
   );
+}
+
+/* An empty chat: the mark at rest, the question with the workspace in it, and four openers. The
+   footer states the provenance a run would use, which is the one thing an empty chat knows. */
+function AgentEmptyChat({
+  chat,
+  workspace,
+  project,
+  onOpener,
+}: {
+  chat: AgentChatController;
+  workspace: WorkspaceSummary | null;
+  project: ProjectSummary | null;
+  onOpener(prompt: string): void;
+}) {
+  const active = chat.activeChat;
+  const place = project?.name ?? workspace?.name ?? null;
+  /* The block keeps its own measure however wide the zone is: with the view panel closed the chat
+     takes the window, and four opener cards stretched across it stop being cards. */
+  return <div className="agent-empty-chat mx-auto flex min-h-agent-empty w-full max-w-agent-empty-block flex-1 flex-col items-center justify-center gap-4 text-center">
+    <span className="grid size-13 flex-none place-items-center rounded-full bg-chat-field">
+      <AgentMark mode="idle" size={32} className="text-ink" />
+    </span>
+    <strong className="type-heading font-normal text-ink">
+      {place
+        ? <>What should we work on in <span className="underline decoration-unreviewed decoration-1 underline-offset-4">{place}</span>?</>
+        : "What should we work on?"}
+    </strong>
+    <div className="agent-openers grid w-full grid-cols-2 gap-2">
+      {OPENERS.map(({ icon: Icon, label, prompt }) => <button
+        className="flex flex-col gap-3 rounded-lg bg-chat-field p-3 text-left hover:bg-chat-control"
+        type="button"
+        key={label}
+        onClick={() => onOpener(prompt)}
+      >
+        <Icon size={16} strokeWidth={1.8} className="text-ink" aria-hidden="true" />
+        <span className="type-ui leading-row text-ink">{label}</span>
+      </button>)}
+    </div>
+    <small className={META}>
+      {PROVIDER_META[active.provider].label.toLocaleUpperCase()} · {modelLabel(chat, active.provider, active.model).toLocaleUpperCase()}
+    </small>
+  </div>;
+}
+
+/* Claude is the one provider with two ways in, and once it is connected both ways the choice has
+   nowhere else to live: the connect dialog only shows while nothing is connected. */
+function AgentAuthSource({ chat }: { chat: AgentChatController }) {
+  const active = chat.activeChat;
+  const status = chat.providers.find(({ id }) => id === "claude");
+  const subscription = active.claudeAuthMethod === "subscription";
+  return <button
+    className="agent-auth-source grid size-6.5 flex-none place-items-center rounded-full bg-chat-control text-secondary hover:bg-chat-control-hover hover:text-ink"
+    type="button"
+    title={subscription ? "Claude subscription" : "Anthropic API key"}
+    aria-label={subscription ? "Claude subscription" : "Anthropic API key"}
+    onClick={() => {
+      const next = subscription ? "api-key" : "subscription";
+      const available = next === "subscription" ? status?.accountConnected : status?.apiKeyConfigured;
+      if (available) chat.setClaudeAuthMethod(next);
+    }}
+  >
+    {subscription ? <LogIn size={12} /> : <KeyRound size={12} />}
+  </button>;
 }
 
 function AgentChatMenu({ chat }: { chat: AgentChatController }) {
@@ -330,11 +425,11 @@ function AgentChatMenu({ chat }: { chat: AgentChatController }) {
         {/* One line, not a stack: the chrome is 34 and the provenance reads across it -- the chat's
             name, then the provider and model as mono meta, which is what a 34 row can carry. */}
         <strong className="max-w-40 truncate type-ui font-normal text-ink">{active.title}</strong>
-        <small className="min-w-0 truncate font-code type-mono-xs tracking-mono text-muted">
+        <small className={`min-w-0 truncate ${META}`}>
           {PROVIDER_META[active.provider].label} · {modelLabel(chat, active.provider, active.model)}
         </small>
         <span className="min-w-0 flex-1" aria-hidden="true" />
-        <ChevronDown size={11} className="flex-none text-muted" />
+        <ChevronDown size={11} className="flex-none text-muted-decorative" />
       </button>
       {menu.open && (
         <InstrumentOverlay id="agent-chat-recent-menu" host="primitive-host" open label="Recent chats" description="Choose a recent chat" opener={menu.trigger.current} onOpenChange={(open) => { if (!open) menu.close(); }}>
@@ -366,11 +461,11 @@ function AgentChatMenu({ chat }: { chat: AgentChatController }) {
               >
                 <AgentProviderIcon provider={conversation.provider} size={16} />
                 <span className={ROW_COPY}>
-                  <strong className="truncate type-sm">{conversation.title}</strong>
-                  <small className="truncate type-xs">{PROVIDER_META[conversation.provider].label} · {modelLabel(chat, conversation.provider, conversation.model)}</small>
+                  <strong className="truncate type-sm font-normal">{conversation.title}</strong>
+                  <small className={`truncate ${META}`}>{PROVIDER_META[conversation.provider].label} · {modelLabel(chat, conversation.provider, conversation.model)}</small>
                 </span>
                 {conversation.busy
-                  ? <LoaderCircle size={12} className={SPINNER} />
+                  ? <AgentMark mode="working" size={13} className="text-ink" />
                   : conversation.id === active.id ? <Check size={12} /> : null}
               </button>
             ))}
@@ -382,94 +477,31 @@ function AgentChatMenu({ chat }: { chat: AgentChatController }) {
   );
 }
 
-function AgentProviderMenu({
-  chat,
-  layout = "toolbar",
-}: {
-  chat: AgentChatController;
-  layout?: MenuLayout;
-}) {
-  const menu = useDismissableMenu();
-  const active = chat.activeChat;
-  const pickers = layout === "pickers";
-  return (
-    <div className={`agent-menu relative min-w-0 ${pickers ? "flex-1" : ""}`} ref={menu.ref}>
-      <button
-        ref={menu.trigger}
-        className={pickers
-          ? `agent-menu-trigger ${MENU_TRIGGER} w-full justify-center bg-track-on-instrument text-on-instrument`
-          : `agent-menu-trigger ${MENU_TRIGGER_GHOST}`}
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={menu.open}
-        title="Provider"
-        aria-label="Provider"
-        onClick={() => menu.setOpen((open) => !open)}
-      >
-        <AgentProviderIcon provider={active.provider} size={12} />
-        <span className="truncate">{PROVIDER_META[active.provider].label}</span>
-        <ChevronDown size={10} />
-      </button>
-      {menu.open && (
-        <InstrumentOverlay id="agent-chat-provider-menu" host="primitive-host" open label="Provider" description="Choose an agent provider" opener={menu.trigger.current} onOpenChange={(open) => { if (!open) menu.close(); }}>
-        <div className={`${POPOVER} agent-provider-menu left-0 w-agent-provider-menu ${pickers ? "top-8" : "bottom-8"}`} role="menu">
-          {PROVIDER_ORDER.map((provider) => {
-            const status = chat.providers.find(({ id }) => id === provider);
-            return (
-              <button
-                type="button"
-                role="menuitemradio"
-                aria-checked={active.provider === provider}
-                className={`${MENU_ROW} min-h-10.5 gap-2 px-2 py-1.25 ${active.provider === provider ? "is-selected" : ""}`}
-                key={provider}
-                onClick={() => {
-                  chat.setProvider(provider);
-                  menu.setOpen(false);
-                }}
-              >
-                <AgentProviderIcon provider={provider} size={15} />
-                <span className={ROW_COPY}>
-                  <strong className="truncate type-sm">{PROVIDER_META[provider].label}</strong>
-                  <small className="truncate type-xs">{status?.detail ?? PROVIDER_META[provider].detail}</small>
-                </span>
-                {/* A connection dot carries no text, so it takes the decorative ink step: at the
-                    readable step the two states were #A4A4A0 against #F2F2F0 and indistinguishable. */}
-                <i className={`size-1.25 flex-none rounded-full ${status?.connected ? "bg-on-instrument is-connected" : "bg-on-instrument-muted-decorative"}`} />
-              </button>
-            );
-          })}
-        </div>
-        </InstrumentOverlay>
-      )}
-    </div>
-  );
-}
-
-function AgentModelMenu({
-  chat,
-  layout = "toolbar",
-}: {
-  chat: AgentChatController;
-  layout?: MenuLayout;
-}) {
+/* One model control, not a provider pill beside a model pill: handoff 17 draws a single pill whose
+   mark is the provider's, and a menu that lists every connected provider's models with that mark
+   on each row. Picking a model from another provider is a provider switch, which is why the row
+   sends both -- and why the reducer starts a new chat when the current one has already run. */
+function AgentModelMenu({ chat, onOpenSettings }: { chat: AgentChatController; onOpenSettings(): void }) {
   const menu = useDismissableMenu();
   const [query, setQuery] = useState("");
   const active = chat.activeChat;
-  const pickers = layout === "pickers";
-  const provider = chat.providers.find(({ id }) => id === active.provider);
-  const models = provider?.models.some(({ id }) => id === active.model)
-    ? provider.models
-    : [{ id: active.model, label: active.model, description: "Current model" }, ...(provider?.models ?? [])];
+  const rows = PROVIDER_ORDER.flatMap((provider) => {
+    const status = chat.providers.find(({ id }) => id === provider);
+    if (!status?.connected) return [];
+    return status.models.map((model) => ({ provider, ...model }));
+  });
+  /* The model in use always has a row, even when its provider reports no catalog. */
+  const models = rows.some(({ provider, id }) => provider === active.provider && id === active.model)
+    ? rows
+    : [{ provider: active.provider, id: active.model, label: active.model, description: "Current model" }, ...rows];
   const needle = query.trim().toLocaleLowerCase();
   const visible = models.filter((model) => !needle || `${model.label} ${model.id} ${model.description}`
     .toLocaleLowerCase().includes(needle)).slice(0, 80);
   return (
-    <div className={`agent-menu relative min-w-0 ${pickers ? "flex-1" : ""}`} ref={menu.ref}>
+    <div className="agent-menu relative min-w-0" ref={menu.ref}>
       <button
         ref={menu.trigger}
-        className={pickers
-          ? `agent-menu-trigger agent-model-trigger ${MENU_TRIGGER} w-full justify-center bg-track-on-instrument text-on-instrument`
-          : `agent-menu-trigger agent-model-trigger ${MENU_TRIGGER_GHOST} max-w-agent-model-trigger`}
+        className={`agent-menu-trigger agent-model-trigger ${PILL_QUIET} max-w-agent-model-trigger`}
         type="button"
         aria-haspopup="menu"
         aria-expanded={menu.open}
@@ -480,14 +512,15 @@ function AgentModelMenu({
           menu.setOpen((open) => !open);
         }}
       >
+        <AgentProviderIcon provider={active.provider} size={14} />
         <span className="truncate">{modelLabel(chat, active.provider, active.model)}</span>
-        <ChevronDown size={10} />
+        <ChevronDown size={11} className="flex-none text-muted-decorative" />
       </button>
       {menu.open && (
         <InstrumentOverlay id="agent-chat-model-menu" host="primitive-host" open label="Model" description="Choose an agent model" opener={menu.trigger.current} onOpenChange={(open) => { if (!open) menu.close(); }}>
-        <div className={`${POPOVER} agent-model-menu w-agent-model-menu max-w-(--agent-model-menu-fit) ${pickers ? "top-8 right-0" : "bottom-8 -left-19"}`} role="menu">
+        <div className={`${POPOVER} agent-model-menu bottom-8 right-0 w-agent-model-menu max-w-(--agent-model-menu-fit)`} role="menu">
           {models.length > 8 && (
-            <label className={`agent-model-search flex h-control-md items-center gap-1.75 mb-0.75 rounded-control bg-ghost px-2 text-on-instrument-muted ${FIELD_RING}`}>
+            <label className={`agent-model-search flex h-control-md items-center gap-1.75 mb-0.75 rounded-control bg-chat-field px-2 text-secondary ${FIELD_RING}`}>
               <Search size={12} />
               <input
                 className={`${FIELD_INPUT} type-sm`}
@@ -500,28 +533,45 @@ function AgentModelMenu({
             </label>
           )}
           <div className="agent-model-list max-h-agent-menu-list overflow-y-auto">
-            {visible.map((model) => (
-              <button
+            {visible.map((model) => {
+              const current = model.provider === active.provider && model.id === active.model;
+              return <button
                 type="button"
                 role="menuitemradio"
-                aria-checked={active.model === model.id}
-                className={`${MENU_ROW} min-h-10 gap-2 px-2 py-1.25 ${active.model === model.id ? "is-selected" : ""}`}
-                key={model.id}
+                aria-checked={current}
+                className={`${MENU_ROW} min-h-10 gap-2 px-2 py-1.25 ${current ? "is-selected" : ""}`}
+                key={`${model.provider}:${model.id}`}
                 onClick={() => {
-                  chat.setModel(model.id);
+                  if (model.provider === active.provider) chat.setModel(model.id);
+                  else chat.setProvider(model.provider, model.id);
                   menu.setOpen(false);
                 }}
               >
-                <AiBrandIcon className="shrink-0 opacity-85" provider={active.provider} model={model.id} size={15} />
+                <AiBrandIcon className="shrink-0" provider={model.provider} model={model.id} size={15} />
                 <span className={ROW_COPY}>
-                  <strong className="truncate type-sm">{model.label}</strong>
-                  <small className="truncate type-xs">{model.description}</small>
+                  <strong className="truncate type-sm font-normal">{model.label}</strong>
+                  <small className={`truncate ${META}`}>{PROVIDER_META[model.provider].label} · {model.description}</small>
                 </span>
-                {active.model === model.id && <Check size={12} />}
-              </button>
-            ))}
+                {current && <Check size={12} />}
+              </button>;
+            })}
             {visible.length === 0 && <span className="agent-model-empty block px-2 py-3 type-sm text-center">No matching models</span>}
           </div>
+          {/* The handoff's last row, and it opens the real screen rather than naming it. Its `⌘,`
+              hint is not printed: the chord is user-rebindable and this panel does not read the
+              binding table, so a printed one would go stale silently. */}
+          <button
+            className={`${MENU_ROW} h-8 gap-2.5 px-2 type-ui`}
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              menu.setOpen(false);
+              onOpenSettings();
+            }}
+          >
+            <SlidersHorizontal size={15} strokeWidth={1.8} className="flex-none" />
+            <span className="min-w-0 flex-1 truncate text-left">Provider settings</span>
+          </button>
         </div>
         </InstrumentOverlay>
       )}
@@ -529,9 +579,11 @@ function AgentModelMenu({
   );
 }
 
+/* The app promises three modes, so the pill cycles three. The handoff's fourth, "Bypass
+   permissions", is not one of them: no harness call in this app runs unsandboxed. */
 const permissionLabels: Record<AgentPermissionMode, string> = {
-  auto: "Auto",
-  plan: "Plan",
+  auto: "Ask before changes",
+  plan: "Plan only",
   full: "Full access",
 };
 
@@ -547,7 +599,7 @@ function AgentModeMenu({
     <div className="agent-menu relative min-w-0" ref={menu.ref}>
       <button
         ref={menu.trigger}
-        className={`agent-menu-trigger agent-mode-trigger ${MENU_TRIGGER_GHOST}`}
+        className={`agent-menu-trigger agent-mode-trigger ${PILL_QUIET}`}
         type="button"
         aria-haspopup="menu"
         aria-expanded={menu.open}
@@ -555,13 +607,13 @@ function AgentModeMenu({
         aria-label="Agent permissions"
         onClick={() => menu.setOpen((open) => !open)}
       >
-        <ShieldCheck size={12} />
+        <ShieldCheck size={12} strokeWidth={1.9} className="flex-none text-secondary" />
         <span className="truncate">{permissionLabels[value]}</span>
-        <ChevronDown size={10} />
+        <ChevronDown size={11} className="flex-none text-muted-decorative" />
       </button>
       {menu.open && (
         <InstrumentOverlay id="agent-chat-mode-menu" host="primitive-host" open label="Agent permissions" description="Choose agent permissions" opener={menu.trigger.current} onOpenChange={(open) => { if (!open) menu.close(); }}>
-        <div className={`${POPOVER} agent-mode-menu bottom-8 right-0 w-agent-mode-menu`} role="menu">
+        <div className={`${POPOVER} agent-mode-menu bottom-8 left-0 w-agent-mode-menu`} role="menu">
           {(["auto", "plan", "full"] as const).map((mode) => (
             <button
               type="button"
@@ -585,46 +637,84 @@ function AgentModeMenu({
   );
 }
 
+/* Handoff 17's "no provider connected" dialog. Ralphy runs the chat through the operator's own
+   harness or key -- nothing is proxied -- so the dialog is a list of the ways in rather than a
+   sign-up: one row per provider, its account line in mono, and the controls that row needs below
+   it. Two of the handoff's footer pills are not here: this panel has no route into Settings and no
+   local-model provider to offer. */
 function AgentConnection({ chat }: { chat: AgentChatController }) {
   const active = chat.activeChat;
   const status = chat.providers.find(({ id }) => id === active.provider);
-  const meta = PROVIDER_META[active.provider];
 
   return (
-    <div className="agent-connect flex min-h-0 flex-1 flex-col items-center justify-center px-5.5 py-7 text-center">
-      <AgentProviderIcon provider={active.provider} size={46} className="mb-4" />
-      <h2 className="type-xl text-on-instrument">Connect {meta.label}</h2>
-      <p className="mt-1.75 max-w-agent-connect-copy type-sm leading-row text-on-instrument-muted">{status?.detail ?? meta.detail}</p>
-      <div className={`agent-connect-pickers ${CONNECT_COLUMN} mt-5 mb-2.5 flex items-center justify-center gap-0.75 rounded-control bg-ghost p-0.75`}>
-        <AgentProviderMenu chat={chat} layout="pickers" />
-        <AgentModelMenu chat={chat} layout="pickers" />
+    <div className="agent-connect flex min-h-0 flex-1 flex-col justify-center overflow-y-auto p-3.5">
+      {/* The dialog keeps its own measure: it is a card the operator reads, not a band across the
+          zone, and the chat is as wide as the window when the view panel is closed. */}
+      <div className="agent-connect-dialog mx-auto flex w-full max-w-agent-connect-dialog flex-col gap-3 rounded-window bg-card">
+        <span className="flex items-center gap-2.5">
+          <span className="grid size-8 flex-none place-items-center rounded-md bg-chat-field text-ink">
+            <Plug size={15} strokeWidth={1.8} aria-hidden="true" />
+          </span>
+          {/* The dialog opens because the *chosen* provider is not connected, which is not the
+              same as none being: saying "no provider connected" while another row reads CONNECTED
+              is the panel contradicting itself. */}
+          <h2 className="type-md font-normal text-ink">
+            {chat.providers.some(({ connected }) => connected)
+              ? `Connect ${PROVIDER_META[active.provider].label}`
+              : "No provider connected"}
+          </h2>
+        </span>
+        <p className="m-0 type-ui leading-copy text-secondary">
+          Ralphy runs the chat through your own harness or key — nothing is proxied. Connect one
+          provider and this chat picks it up immediately.
+        </p>
+        <div className="agent-connect-providers flex flex-col gap-0.75" role="radiogroup" aria-label="Agent provider">
+          {PROVIDER_ORDER.map((provider) => {
+            const row = chat.providers.find(({ id }) => id === provider);
+            const chosen = provider === active.provider;
+            return <button
+              type="button"
+              role="radio"
+              aria-checked={chosen}
+              className={`grid h-8.5 min-w-0 grid-cols-(--agent-provider-row-columns) items-center gap-2.5 rounded-tab px-2 text-left hover:bg-chat-field ${chosen ? "is-selected bg-chat-field" : "bg-transparent"}`}
+              key={provider}
+              onClick={() => chat.setProvider(provider)}
+            >
+              <AgentProviderIcon provider={provider} size={18} />
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate type-ui text-ink">{PROVIDER_META[provider].label}</span>
+                <small className={`truncate ${META}`}>{PROVIDER_META[provider].account}</small>
+              </span>
+              {row?.connected
+                ? <small className={META}>CONNECTED</small>
+                : <span className={`${PILL} h-5.5 bg-chat-control px-2.25 type-xs text-ink`}>Connect</span>}
+            </button>;
+          })}
+        </div>
+        {chat.providersLoading && !status ? (
+          <div className="agent-connect-loading flex min-h-8.5 items-center gap-2.25 type-sm text-secondary">
+            <LoaderCircle size={16} className={SPINNER} />
+            Checking provider
+          </div>
+        ) : active.provider === "claude" ? (
+          <ClaudeConnectionControls chat={chat} status={status} />
+        ) : active.provider === "codex" ? (
+          <button
+            className={`agent-connect-primary flex h-7.5 w-full items-center justify-center gap-1.75 rounded-full type-ui ${PRIMARY}`}
+            type="button"
+            disabled={!status?.binaryReady || chat.authAction !== null}
+            onClick={() => void chat.login("codex")}
+          >
+            {chat.authAction === "codex" ? <LoaderCircle size={14} className={SPINNER} /> : <LogIn size={14} />}
+            {status?.binaryReady ? "Sign in to Codex" : "Codex CLI not found"}
+          </button>
+        ) : (
+          <AgentApiKeyControls chat={chat} provider="openrouter" status={status} />
+        )}
+        {/* The provider's own words, in the window the design gives a failure: a rejected key is
+            reported, not diagnosed. */}
+        {chat.connectionError && <AgentFailure title={`${PROVIDER_META[active.provider].label} could not be reached`} text={chat.connectionError} />}
       </div>
-      {chat.providersLoading && !status ? (
-        <div className="agent-connect-loading flex min-h-8.5 items-center gap-2.25 type-sm text-on-instrument-muted">
-          <LoaderCircle size={16} className={SPINNER} />
-          Checking provider
-        </div>
-      ) : active.provider === "claude" ? (
-        <ClaudeConnectionControls chat={chat} status={status} />
-      ) : active.provider === "codex" ? (
-        <button
-          className={`agent-connect-primary ${CONNECT_COLUMN} flex h-control-lg items-center justify-center gap-1.75 rounded-control type-sm ${PRIMARY}`}
-          type="button"
-          disabled={!status?.binaryReady || chat.authAction !== null}
-          onClick={() => void chat.login("codex")}
-        >
-          {chat.authAction === "codex" ? <LoaderCircle size={14} className={SPINNER} /> : <LogIn size={14} />}
-          {status?.binaryReady ? "Sign in to Codex" : "Codex CLI not found"}
-        </button>
-      ) : (
-        <AgentApiKeyControls chat={chat} provider="openrouter" status={status} />
-      )}
-      {chat.connectionError && (
-        <div className={`agent-connect-error ${CONNECT_COLUMN} mt-3 flex items-start gap-1.75 type-xs leading-row text-left text-alert-bright`} role="alert">
-          <CircleAlert size={13} className="mt-px flex-none" />
-          <span>{chat.connectionError}</span>
-        </div>
-      )}
     </div>
   );
 }
@@ -639,10 +729,10 @@ function ClaudeConnectionControls({
   const method = chat.activeChat.claudeAuthMethod;
   return (
     <>
-      <div className={`agent-auth-tabs ${CONNECT_COLUMN} mb-2.5 grid grid-cols-2 gap-0.75 rounded-control bg-ghost p-0.75`} role="group" aria-label="Claude authentication">
+      <div className="agent-auth-tabs grid grid-cols-2 gap-0.75 rounded-full bg-chat-field p-0.75" role="group" aria-label="Claude authentication">
         <button
           type="button"
-          className={`h-control-md rounded-control bg-transparent type-sm text-on-instrument-muted hover:text-on-instrument aria-pressed:bg-track-on-instrument aria-pressed:text-on-instrument ${method === "subscription" ? "is-active" : ""}`}
+          className={`h-6.5 rounded-full bg-transparent type-sm text-secondary hover:text-ink aria-pressed:bg-card aria-pressed:text-ink ${method === "subscription" ? "is-active" : ""}`}
           aria-pressed={method === "subscription"}
           onClick={() => chat.setClaudeAuthMethod("subscription")}
         >
@@ -650,7 +740,7 @@ function ClaudeConnectionControls({
         </button>
         <button
           type="button"
-          className={`h-control-md rounded-control bg-transparent type-sm text-on-instrument-muted hover:text-on-instrument aria-pressed:bg-track-on-instrument aria-pressed:text-on-instrument ${method === "api-key" ? "is-active" : ""}`}
+          className={`h-6.5 rounded-full bg-transparent type-sm text-secondary hover:text-ink aria-pressed:bg-card aria-pressed:text-ink ${method === "api-key" ? "is-active" : ""}`}
           aria-pressed={method === "api-key"}
           onClick={() => chat.setClaudeAuthMethod("api-key")}
         >
@@ -659,7 +749,7 @@ function ClaudeConnectionControls({
       </div>
       {method === "subscription" ? (
         <button
-          className={`agent-connect-primary ${CONNECT_COLUMN} flex h-control-lg items-center justify-center gap-1.75 rounded-control type-sm ${PRIMARY}`}
+          className={`agent-connect-primary flex h-7.5 w-full items-center justify-center gap-1.75 rounded-full type-ui ${PRIMARY}`}
           type="button"
           disabled={!status?.binaryReady || chat.authAction !== null}
           onClick={() => void chat.login("claude")}
@@ -693,18 +783,18 @@ function AgentApiKeyControls({
   };
   if (status?.apiKeyConfigured) {
     return (
-      <div className={`agent-key-ready ${CONNECT_COLUMN} flex min-h-8.5 items-center gap-1.75 type-sm text-left text-on-instrument`}>
+      <div className="agent-key-ready flex min-h-8.5 items-center gap-1.75 type-sm text-left text-ink">
         <Check size={14} />
-        <span className="min-w-0 flex-1 text-on-instrument-muted">{PROVIDER_META[provider].label} API key is ready</span>
+        <span className="min-w-0 flex-1 text-secondary">{PROVIDER_META[provider].label} API key is ready</span>
         {!status.inheritedApiKey && (
-          <button className="bg-transparent type-xs text-on-instrument-muted hover:text-on-instrument" type="button" onClick={() => void chat.clearApiKey(provider)}>Forget</button>
+          <button className="bg-transparent type-xs text-secondary hover:text-ink" type="button" onClick={() => void chat.clearApiKey(provider)}>Forget</button>
         )}
       </div>
     );
   }
   return (
-    <form className={`agent-key-form ${CONNECT_COLUMN} flex items-center gap-1`} onSubmit={submit}>
-      <label className={`flex h-control-lg min-w-0 flex-1 items-center gap-1.75 rounded-control bg-ghost px-2.25 text-on-instrument-muted ${FIELD_RING}`}>
+    <form className="agent-key-form flex items-center gap-1" onSubmit={submit}>
+      <label className={`flex h-7.5 min-w-0 flex-1 items-center gap-1.75 rounded-full bg-chat-field px-2.75 text-secondary ${FIELD_RING}`}>
         <KeyRound size={13} />
         <input
           className={`${FIELD_INPUT} font-code type-xs`}
@@ -717,61 +807,11 @@ function AgentApiKeyControls({
           onChange={(event) => setApiKey(event.target.value)}
         />
       </label>
-      <button className={`grid size-8.5 flex-none place-items-center rounded-full ${PRIMARY}`} type="submit" disabled={!apiKey.trim() || chat.authAction !== null}>
+      <button className={`grid size-7.5 flex-none place-items-center rounded-full ${PRIMARY}`} type="submit" disabled={!apiKey.trim() || chat.authAction !== null}>
         {chat.authAction === provider
           ? <LoaderCircle size={14} className={SPINNER} />
-          : <SendHorizontal size={14} />}
+          : <ArrowUp size={14} strokeWidth={2} />}
       </button>
     </form>
-  );
-}
-
-/* A tool line's status glyph: complete is primary ink, running drops to the muted step, failed
-   is the one place the rail uses the alarm hue. */
-const TOOL_STATUS: Record<string, string> = {
-  complete: "text-on-instrument",
-  running: "text-on-instrument-muted",
-  failed: "text-alert-bright",
-};
-
-function AgentEntry({
-  entry,
-  provider,
-}: {
-  entry: AgentChatEntry;
-  provider: AgentProvider;
-}) {
-  if (entry.kind === "tool" && entry.tool) {
-    const Icon = entry.tool.status === "running"
-      ? LoaderCircle
-      : entry.tool.status === "complete" ? Check : X;
-    const statusInk = TOOL_STATUS[entry.tool.status] ?? "text-on-instrument";
-    const statusSpin = entry.tool.status === "running" ? SPINNER : "";
-    return (
-      <div className={`agent-tool-row is-${entry.tool.status} flex min-w-0 items-center gap-1.75 pl-agent-tool-indent type-sm text-on-instrument-muted`}>
-        <Icon size={13} className={`flex-none ${statusInk} ${statusSpin}`} />
-        <Wrench size={12} className="flex-none" />
-        <strong>{entry.tool.name}</strong>
-        {entry.tool.summary && <code className="min-w-0 truncate font-code type-xs" title={entry.tool.summary}>{entry.tool.summary}</code>}
-      </div>
-    );
-  }
-  if (entry.kind === "user") {
-    return <div className="agent-message is-user block max-w-(--agent-bubble-measure) self-end rounded-cell bg-ghost-hover px-2.75 py-2.25 text-on-instrument"><p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{entry.text}</p></div>;
-  }
-  if (entry.kind === "error") {
-    return (
-      <div className="agent-message is-error flex items-start gap-2 text-alert-bright" role="alert">
-        <CircleAlert size={14} className="mt-0.5 flex-none" />
-        <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{entry.text}</p>
-      </div>
-    );
-  }
-  return (
-    <div className="agent-message is-assistant grid grid-cols-(--agent-message-columns) items-start gap-2.25">
-      <AgentProviderIcon provider={provider} size={20} />
-      {/* The chat rail is a black widget, so the rendered document takes the on-dark pair. */}
-      <MarkdownView markdown={entry.text ?? ""} tone="instrument" />
-    </div>
   );
 }

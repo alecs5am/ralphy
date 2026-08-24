@@ -561,11 +561,13 @@ describe("marketplace navigation", () => {
     const root = createRoot(host.container as unknown as Element);
     function NoRootChat() {
       const chat = actualChat.useAgentChat({ rootPath: null, project: null, enabled: false });
-      return <actualPanels.AgentChatPanel chat={chat} workspace={null} project={null} onClose={() => undefined} />;
+      return <actualPanels.AgentChatPanel chat={chat} workspace={null} project={null} onClose={() => undefined} onOpenSettings={() => undefined} />;
     }
     try {
       await act(async () => { root.render(<NoRootChat />); await settle(); });
-      expect(host.container.textContent).toContain("Connect Codex");
+      /* Handoff 17's dialog: the ways in are listed as rows and the selected one carries its own
+         control, so the copy is the dialog's title plus that control's state. */
+      expect(host.container.textContent).toContain("No provider connected");
       expect(host.container.textContent).toContain("Codex CLI not found");
       expect(host.container.querySelector("textarea")).toBeNull();
     } finally {

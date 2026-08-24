@@ -8,6 +8,7 @@ import "./styles/tokens.css";
 import "./styles/instrument.css";
 import "./styles/frame.css";
 import "./styles/keycap.css";
+import "./styles/agent-mark.css";
 import "./styles/resize-grabber.css";
 import "./styles/shared-library.css";
 import "./styles/marketplace.css";
