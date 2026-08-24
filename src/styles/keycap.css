@@ -12,3 +12,18 @@
     corner-shape: squircle;
   }
 }
+
+/* A chord mixes two fonts by design -- the modifier symbols do not exist in the mono face -- and
+   `line-height: 1` makes each glyph's box hug its own font's em box. The two ems place their ink
+   differently, so centring the boxes left the letter sitting about a pixel above the symbol beside
+   it. Measured in the renderer, not guessed: the mono N's ink centre came out 1.14 above the
+   system font's.
+
+   `text-box` trims each box to cap height over the alphabetic baseline, which is a metric both
+   fonts share, so centring the boxes now centres the ink. Without the property the boxes stay as
+   they were -- the misalignment is a pixel, not a broken cap. */
+@supports (text-box: trim-both cap alphabetic) {
+  .keycap-glyph {
+    text-box: trim-both cap alphabetic;
+  }
+}

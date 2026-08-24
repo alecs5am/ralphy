@@ -399,6 +399,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
         style={{
           "--instrument-left-width": `${leftColumn}px`,
           "--instrument-right-rail-width": `${railWidth}px`,
+          "--instrument-view-width": `${viewPanelWidth}px`,
         } as CSSProperties}
       >
         {props.leftVisible && <div className="instrument-left-stack relative flex h-full min-h-0 flex-none" style={{ width: leftColumn }}>
@@ -466,7 +467,25 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
                 Anchored to the top of the row it grows downward only, over the content. */}
             <div className="instrument-island-slot absolute top-0 right-0 z-island flex items-start [-webkit-app-region:no-drag]">{props.island}</div>
           </header>
-          <div className="instrument-content-body flex min-h-0 min-w-0 flex-1 gap-2">
+          <div className="instrument-content-body relative flex min-h-0 min-w-0 flex-1 gap-2">
+            {/* The grabber straddles the zone gap between the chat and the panel, on the panel's
+                own left edge, so the panel keeps its full width and the drag target stays 8 wide.
+                It is a sibling of the column rather than a child: the column clips its own
+                overflow, so a handle at -left-2 inside it was laid out in the gap and then clipped
+                away -- present in the DOM, measurable, and never painted. Under the desk lens the
+                route is the elastic column and has no width to set. */}
+            {chatLens && viewPanelVisible && <ResizeHandle
+              ariaLabel="Resize view panel"
+              orientation="vertical"
+              value={viewPanelWidth}
+              min={VIEW_PANEL_MIN}
+              max={viewPanelMax}
+              defaultValue={VIEW_PANEL_DEFAULT}
+              direction={-1}
+              className="resize-instrument-view absolute top-0 right-(--instrument-view-width) bottom-0 w-2 cursor-col-resize"
+              onChange={props.onViewWidthChange}
+              onActiveChange={setColumnResizing}
+            />}
             <section
               /* Desk lens: the route takes the elastic column. Chat lens: it becomes the fixed
                  view panel beside the chat, and disappears entirely once the window is too
@@ -477,21 +496,6 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
               hidden={chatLens && !viewPanelVisible}
               ref={setDeskColumn}
             >
-              {/* The grabber straddles the zone gap between the chat and the panel, on the panel's
-                  own left edge, so the panel keeps its full width and the drag target stays 8 wide.
-                  Under the desk lens the route is the elastic column and has no width to set. */}
-              {chatLens && viewPanelVisible && <ResizeHandle
-                ariaLabel="Resize view panel"
-                orientation="vertical"
-                value={viewPanelWidth}
-                min={VIEW_PANEL_MIN}
-                max={viewPanelMax}
-                defaultValue={VIEW_PANEL_DEFAULT}
-                direction={-1}
-                className="resize-instrument-view absolute top-0 -left-2 bottom-0 w-2 cursor-col-resize"
-                onChange={props.onViewWidthChange}
-                onActiveChange={setColumnResizing}
-              />}
               {(props.viewPanelFrame ?? ((page: ReactNode) => page))(<div
                 /* The desk is the app's one scroll surface and the container eight other areas' width
                    variants read, so both the name and the type are stated here. */

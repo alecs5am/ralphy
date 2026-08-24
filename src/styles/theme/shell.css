@@ -39,6 +39,9 @@
 .instrument-shell {
   --instrument-right-rail-width: 292px;
   --instrument-left-width: 260px;
+  /* The view panel's live width. The grabber that sits in the gap beside it is positioned from
+     this rather than from an inline style, the same way the other two columns are read. */
+  --instrument-view-width: 440px;
 }
 
 @theme inline {

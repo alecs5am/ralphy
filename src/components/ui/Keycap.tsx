@@ -64,7 +64,9 @@ function Glyphs({ tokens, size }: { tokens: readonly string[]; size: KeycapSize 
   const step = SIZES[size];
   return <>
     {tokens.map((token, index) => <span
-      className={MODIFIERS.has(token) ? `font-glyph ${step.symbol} leading-none` : `font-code ${step.glyph} tracking-code leading-none`}
+      className={`keycap-glyph ${MODIFIERS.has(token)
+        ? `font-glyph ${step.symbol} leading-none`
+        : `font-code ${step.glyph} tracking-code leading-none`}`}
       key={`${token}-${index}`}
     >{token}</span>)}
   </>;
