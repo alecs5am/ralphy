@@ -37,6 +37,8 @@ export const SETTINGS_COMMANDS: readonly SettingsCommand[] = [
   { id: "nav.back", group: "Navigation", name: "Back", scope: "Global", chord: chord("[", { meta: true }) },
   { id: "nav.forward", group: "Navigation", name: "Forward", scope: "Global", chord: chord("]", { meta: true }) },
   { id: "nav.findProjects", group: "Navigation", name: "Find a project", scope: "Global", chord: chord("f", { meta: true }) },
+  /* The chat lens' New chat control prints this cap, so the chord has to exist. */
+  { id: "chat.new", group: "Chat", name: "New chat", scope: "Global", chord: chord("n", { meta: true }) },
   { id: "chat.send", group: "Chat", name: "Send message", scope: "Chat", chord: chord("Enter") },
 ];
 

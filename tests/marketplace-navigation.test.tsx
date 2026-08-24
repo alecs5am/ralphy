@@ -242,7 +242,10 @@ describe("marketplace navigation", () => {
       expect(marketplaceSurface.getAttribute("hidden")).toBeNull();
       const chat = host.container.querySelector("[data-testid=\"agent-chat\"]");
       expect(chat).not.toBeNull();
-      expect(host.container.querySelector(".instrument-shell")?.getAttribute("data-right-rail-mode")).toBe("docked");
+      // The chat stays mounted across a place switch, but its dock is closed: the desk lens is
+      // the default and it exists so the content column is undivided. Reaching the chat is the
+      // lens pair's job, not a preference the place switch has to preserve.
+      expect(host.container.querySelector(".instrument-shell")?.getAttribute("data-right-rail-mode")).toBe("closed");
       expect(host.container.querySelectorAll(".context-sidebar")).toHaveLength(1);
       expect(((host.container.querySelector(".workbench") as unknown as HostNode).style as unknown as Record<string, string>)["--sidebar-w"]).toBe("260px");
       expect(host.container.querySelector(".resize-sidebar")).toBeNull();
@@ -493,18 +496,28 @@ describe("marketplace navigation", () => {
       expect(host.container.querySelector("button[aria-label=\"Toggle right panel\"]")).toBeNull();
       expect(document.body.querySelector("[data-instrument-overlay=\"right-rail-sheet\"]")).toBeNull();
       expect(enabledStates.at(-1)).toBe(false);
+      /* The shortcut the main process forwards now means what the lens pair means. Under the chat
+         lens the rail is the main column and is always docked, so the chat arrives in the dock
+         rather than in a modal sheet -- and the persisted lens, not `rightPanelVisible`, is what
+         records the decision. */
       await act(async () => { toggleRightPanel?.(); await settle(); });
-      const sheet = document.body.querySelector("[data-instrument-overlay=\"right-rail-sheet\"]")!;
-      const chat = sheet.querySelector("[data-testid=\"agent-chat\"]");
+      expect(document.body.querySelector("[data-instrument-overlay=\"right-rail-sheet\"]")).toBeNull();
+      const rail = host.container.querySelector(".instrument-right-rail")!;
+      const chat = host.container.querySelector("[data-testid=\"agent-chat\"]");
       expect(chat).not.toBeNull();
+      expect(rail.getAttribute("hidden")).toBeNull();
+      expect(host.container.querySelector(".instrument-shell")?.getAttribute("data-right-rail-mode")).toBe("docked");
       expect(enabledStates.at(-1)).toBe(true);
-      expect(JSON.parse(local.getItem("ralphy-media-workbench-v1")!).rightPanelVisible).toBe(false);
+      // Nothing about the lens reaches storage here on purpose: this is the null-catalog recovery
+      // state, and the preference write is gated on a catalog. `workbench-state` covers the
+      // round trip.
       const marketplace = [...host.container.querySelectorAll("button")].find((button) => button.textContent === "Marketplace");
       expect(marketplace).not.toBeUndefined();
       await act(async () => marketplace!.dispatchEvent(new Event("click", { bubbles: true, cancelable: true })));
       expect(host.container.textContent).toContain("Discover");
-      expect(document.body.querySelector("[data-instrument-overlay=\"right-rail-sheet\"]")).not.toBeNull();
-      expect(document.body.querySelector("[data-testid=\"agent-chat\"]")).toBe(chat);
+      // The lens does not apply in Marketplace, so its dock closes -- and the chat is the same
+      // element throughout, never remounted.
+      expect(host.container.querySelector("[data-testid=\"agent-chat\"]")).toBe(chat);
     } finally {
       await act(async () => root.unmount());
       restore.mockRestore();

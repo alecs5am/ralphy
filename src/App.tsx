@@ -8,7 +8,6 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type ComponentProps,
   type ReactNode,
 } from "react";
 import { LayoutGroup, MotionConfig, motion } from "motion/react";
@@ -33,7 +32,7 @@ import { SharedLibraryScreen } from "./screens/SharedLibraryScreen";
 import { MarketplaceScreen } from "./screens/MarketplaceScreen";
 import { readCommandBindings, resolveCommand } from "./screens/settings/commands";
 import { InstrumentScreenRoot } from "./instrument/screen-state-registry";
-import { InstrumentShell, useInstrumentRightRail } from "./instrument/InstrumentShell";
+import { InstrumentShell } from "./instrument/InstrumentShell";
 import { DynamicIsland } from "./instrument/DynamicIsland";
 import { projectDynamicIslandFeed, type DynamicIslandFeed, type IslandContext } from "./instrument/dynamic-island-feed";
 import { InstrumentOverlay } from "./instrument/overlay-registry";
@@ -107,29 +106,13 @@ export function isChatRailVisible({ workbenchVisible, rightPanelVisible }: {
   return workbenchVisible && rightPanelVisible;
 }
 
-function InstrumentRightRailShortcut({ children }: { children: ReactNode }) {
-  const rail = useInstrumentRightRail();
-  const toggleRightRail = useCallback(() => {
-    if (rail.mode === "closed") rail.open(null);
-    else rail.close();
-  }, [rail]);
-  useEffect(() => bridge.onToggleRightPanel(toggleRightRail), [toggleRightRail]);
+/* The main process forwards a "show me the chat" shortcut. That used to mean "open the rail",
+   but the chat rail is unavailable under the desk lens on purpose, so the shortcut now means the
+   same thing the lens pair means: it toggles the lens. Opening a dock the lens immediately closes
+   again would have made the OS-level affordance dead. */
+function InstrumentRightRailShortcut({ onToggle, children }: { onToggle(): void; children: ReactNode }) {
+  useEffect(() => bridge.onToggleRightPanel(onToggle), [onToggle]);
   return children;
-}
-
-// Picking a chat in the sidebar is also the request to see it: the header no longer carries a
-// rail toggle, so the list is the way in.
-function InstrumentSidebarRail(props: ComponentProps<typeof InstrumentSidebar>) {
-  const rail = useInstrumentRightRail();
-  return <InstrumentSidebar {...props} onSelectChat={(chatId) => {
-    props.onSelectChat?.(chatId);
-    if (rail.mode === "closed") rail.open(null);
-  }} />;
-}
-
-function InstrumentChat(props: Omit<ComponentProps<typeof AgentChatPanel>, "onClose">) {
-  const rail = useInstrumentRightRail();
-  return <AgentChatPanel {...props} onClose={rail.close} />;
 }
 
 function WorkspaceDestinationFrame({ destination, onBack, children }: {
@@ -197,6 +180,7 @@ export function App() {
     initialPreferences.current.rightPanelVisible,
   );
   const [lens, setLens] = useState(initialPreferences.current.lens);
+  const toggleLens = useCallback(() => setLens((current) => current === "chat" ? "desk" : "chat"), []);
   const [rightOverlayOpen, setRightOverlayOpen] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [workspacePage, setWorkspacePage] = useState<WorkspacePage>(
@@ -239,7 +223,9 @@ export function App() {
   const agentChat = useAgentChat({
     rootPath: rootIdentity?.storeId ?? null,
     project: selectedProject,
-    enabled: rightPanelVisible || rightOverlayOpen,
+    /* The chat lens is what makes the agent live now: `rightPanelVisible` still resolves the dock
+       for the review console and the shared inspector, but it no longer opens the chat. */
+    enabled: lens === "chat",
   });
   const sidebarChats = useMemo(
     () => [...(agentChat.state?.chats ?? [])]
@@ -543,7 +529,8 @@ export function App() {
       } else if (command.id === "app.sidebar") {
         if (marketplace.mode === "marketplace") dispatchMarketplace({ type: "toggle-sidebar" });
         else setSidebarVisible((visible) => !visible);
-      } else if (command.id === "view.desk") setLens("desk");
+      } else if (command.id === "chat.new") { setLens("chat"); agentChat.newChat(); }
+      else if (command.id === "view.desk") setLens("desk");
       else if (command.id === "view.chat") setLens("chat");
       else if (command.id === "app.marketplace") switchAppMode("marketplace");
       else if (command.id === "app.settings") setSettingsVisible(true);
@@ -558,7 +545,7 @@ export function App() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [clearOverviewNavigation, marketplace.mode, navigateBack, navigateForward, openWorkspace, settingsVisible, state.route, switchAppMode, workspaces]);
+  }, [agentChat, clearOverviewNavigation, marketplace.mode, navigateBack, navigateForward, openWorkspace, settingsVisible, state.route, switchAppMode, workspaces]);
 
   const openProject = (project: ProjectSummary, unitId: string | null = null) => {
     setTargetUnitId(unitId);
@@ -723,8 +710,9 @@ export function App() {
         >
           <InstrumentShell
             sidebar={<>
-              <InstrumentSidebarRail
+              <InstrumentSidebar
                 mode={marketplace.mode}
+                lens={marketplace.mode === "work" ? lens : "desk"}
                 route={state.route}
                 page={workspacePage}
                 pageActive={marketplace.mode === "work" && state.route.kind !== "project"}
@@ -781,12 +769,15 @@ export function App() {
                 />
               </div>
             </div>}
-            chat={<InstrumentChat
+            /* Closing the chat is a lens decision now, not a dock one: the panel's close control
+               puts the desk lens back rather than leaving a chat lens with an empty main column. */
+            chat={<AgentChatPanel
+              onClose={() => setLens("desk")}
               chat={agentChat}
               workspace={selectedWorkspace}
               project={selectedProject}
             />}
-            island={<InstrumentRightRailShortcut><DynamicIsland
+            island={<InstrumentRightRailShortcut onToggle={toggleLens}><DynamicIsland
               feed={mockIslandFeed ?? liveIslandFeed}
               context={islandContext}
               projectName={selectedProject?.name ?? null}

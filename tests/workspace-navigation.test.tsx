@@ -191,6 +191,7 @@ describe("workspace projects navigation", () => {
     const markup = renderToStaticMarkup(
       <ContextSidebar
         mode="work"
+        lens="desk"
         route={{ kind: "workspace", workspaceId: workspace.id }}
         page="overview"
         pageActive

@@ -8,6 +8,7 @@ import {
   type WorkbenchRoute,
   type WorkspacePage,
 } from "../state/workbench";
+import type { WorkbenchLens } from "../state/workbench";
 import type {
   AppMode,
   MarketplaceBrowseRoute,
@@ -28,6 +29,10 @@ export interface SidebarChat {
 
 export interface ContextSidebarProps {
   mode: AppMode;
+  /* The lens decides what the sidebar is *for*. Under the desk lens it is navigation and the
+     chats are not here at all; under the chat lens it is the conversation list, and the
+     navigation moves to the auxiliary sidebar the handoff has yet to specify. */
+  lens: WorkbenchLens;
   route: WorkbenchRoute;
   page: WorkspacePage;
   pageActive: boolean;
@@ -144,6 +149,7 @@ function matches(needle: string, haystack: string): boolean {
 
 export function ContextSidebar({
   mode,
+  lens,
   page,
   pageActive,
   marketplaceRoute = { kind: "discover" },
@@ -172,8 +178,9 @@ export function ContextSidebar({
     () => sortWorkspaces(workspaces, pinnedWorkspaceIds),
     [pinnedWorkspaceIds, workspaces],
   );
+  const deskLens = lens === "desk";
+  const chatLens = lens === "chat";
   const pages = WORKSPACE_PAGES.filter((item) => matches(needle, WORKSPACE_PAGE_LABELS[item]));
-  const visibleChats = chats.filter((item) => matches(needle, item.title));
   return (
     /* The slide-in belongs on the element: instrument.css declared the animation *after* its own
        reduced-motion cancel, so the cancel never applied and the sidebar slid in regardless of
@@ -236,7 +243,7 @@ export function ContextSidebar({
         <WorkspacePicker value={workspace.id} workspaces={orderedWorkspaces} onValueChange={onOpenWorkspace} />
       </div>}
 
-      <div className="sidebar-search mx-3 mb-3 flex h-10 flex-none items-center gap-2.5 rounded-full bg-field px-3.25">
+      {deskLens && <div className="sidebar-search mx-3 mb-3 flex h-10 flex-none items-center gap-2.5 rounded-full bg-field px-3.25">
         <Search className="flex-none text-muted" size={15} strokeWidth={1.8} aria-hidden="true" />
         <input
           id={searchId}
@@ -252,10 +259,21 @@ export function ContextSidebar({
             <Plus className="rotate-45" size={12} strokeWidth={2} aria-hidden="true" />
           </button>
           : <kbd className="grid h-5 flex-none place-items-center rounded-key bg-card px-1.5 font-code type-meta text-muted" aria-hidden="true">⌘K</kbd>}
-      </div>
+      </div>}
+
+      {chatLens && workspace && onNewChat && <button
+        /* The one filled control on the card: starting a conversation is what this lens is for. */
+        className="sidebar-new-chat mx-3 mb-2 flex h-9.5 flex-none items-center justify-center gap-2 rounded-full bg-instrument px-3 type-ui text-on-instrument hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+        type="button"
+        onClick={onNewChat}
+      >
+        <Plus size={13} strokeWidth={1.8} aria-hidden="true" />
+        <span>New chat</span>
+        <kbd className="ml-1 grid h-5 min-w-7.5 flex-none place-items-center rounded-key bg-instrument-hover font-code type-mono-sm font-bold text-on-instrument" aria-hidden="true">⌘N</kbd>
+      </button>}
 
       <div className="sidebar-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        {mode === "work" && workspace && <>
+        {mode === "work" && workspace && deskLens && <>
           <div className={SECTION_LABEL}><span>MAIN MENU</span></div>
           <nav className="sidebar-nav flex shrink-0 flex-col gap-0.5 px-2.5" aria-label="Workspace pages">
             {pages.map((item) => {
@@ -279,20 +297,14 @@ export function ContextSidebar({
           </nav>
         </>}
 
-        {mode === "work" && workspace && visibleChats.length > 0 && <section className="sidebar-chats mt-3">
+        {mode === "work" && workspace && chatLens && <section className="sidebar-chats">
+          {/* No `+` here: the filled New chat control stands directly above this label. */}
           <div className={SECTION_LABEL}>
             <span>CHATS</span>
-            <small className="font-display type-sm leading-none font-extrabold">{visibleChats.length}</small>
-            {onNewChat && <button
-              className={`ml-auto ${GHOST} size-5.5`}
-              type="button"
-              title="New chat"
-              aria-label="New chat"
-              onClick={onNewChat}
-            ><Plus size={12} strokeWidth={1.8} aria-hidden="true" /></button>}
+            <small className="font-display type-sm leading-none font-extrabold">{chats.length}</small>
           </div>
           <nav className="sidebar-nav flex shrink-0 flex-col gap-0.25 px-2.5" aria-label="Chats">
-            {visibleChats.map((item) => {
+            {chats.map((item) => {
               const active = item.id === activeChatId;
               return <button
                 className={`${CHAT_ROW} ${active ? SELECTED : CHAT_UNSELECTED}`}
@@ -307,9 +319,10 @@ export function ContextSidebar({
               </button>;
             })}
           </nav>
+          {chats.length === 0 && <p className="m-0 px-4 py-2 type-sm text-muted">No conversations in this workspace yet.</p>}
         </section>}
 
-        {mode === "work" && workspace && needle && pages.length === 0 && visibleChats.length === 0
+        {mode === "work" && workspace && deskLens && needle && pages.length === 0
           && <p className="m-0 px-4 py-2 type-sm text-muted">Nothing in the sidebar matches “{query}”.</p>}
 
         {mode === "marketplace" && <>

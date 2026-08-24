@@ -1677,7 +1677,11 @@ describe("design system contract", () => {
     expect(main).toContain('input.key.toLocaleLowerCase() === "r"');
     expect(main).toContain("event.preventDefault()");
     expect(preload).toContain("onToggleRightPanel");
-    expect(app).toContain("bridge.onToggleRightPanel(toggleRightRail)");
+    // The shortcut the main process forwards now means what the lens pair means: the chat rail is
+    // unavailable under the desk lens on purpose, so opening a dock the lens closes again would
+    // have made the OS-level affordance dead.
+    expect(app).toContain("bridge.onToggleRightPanel(onToggle)");
+    expect(app).toContain("onToggle={toggleLens}");
     expect(app).toContain("useAgentChat");
     expect(app).toContain("<AgentChatPanel");
     expect(app).not.toContain("<RightPanelSummary");

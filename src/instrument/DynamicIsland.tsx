@@ -78,7 +78,7 @@ export function DynamicIsland({ feed, context, projectName, mock, onNavigate }: 
      different curve while the radius was still animating, so the morphing plate stays round for
      its whole travel and never states a shape at all. */
   return <div className="dynamic-island relative z-island flex [-webkit-app-region:no-drag]" ref={root} data-open={open || undefined} data-mock={mock || undefined} data-animate={animate || undefined}>
-    <div className={`dynamic-island-shell grid max-w-island-max overflow-hidden [corner-shape:round] bg-instrument text-on-instrument [transition-property:width,border-radius,grid-template-rows] duration-slow ease-instrument motion-reduce:duration-0 motion-reduce:[transition-property:none] [-webkit-app-region:no-drag] ${open ? "w-island-open rounded-panel grid-rows-(--island-rows-open)" : "w-max rounded-control grid-rows-(--island-rows)"} ${animate ? "animate-island-in motion-reduce:animate-none" : ""}`}>
+    <div className={`dynamic-island-shell grid max-h-overlay-fit-block max-w-island-max overflow-hidden [corner-shape:round] bg-instrument text-on-instrument [transition-property:width,border-radius,grid-template-rows] duration-slow ease-instrument motion-reduce:duration-0 motion-reduce:[transition-property:none] [-webkit-app-region:no-drag] ${open ? "w-island-open rounded-panel grid-rows-(--island-rows-open)" : "w-max rounded-control grid-rows-(--island-rows)"} ${animate ? "animate-island-in motion-reduce:animate-none" : ""}`}>
       <button
         ref={trigger}
         className="dynamic-island-trigger group/island flex h-full w-full min-w-0 items-center gap-3 pr-2 pl-4 [border-radius:inherit] focus-visible:outline-2 focus-visible:outline-focus-on-instrument focus-visible:[outline-offset:-3px]"
@@ -141,7 +141,9 @@ export function DynamicIsland({ feed, context, projectName, mock, onNavigate }: 
         <div className={`dynamic-island-detail-inner grid gap-2 px-2 pb-2 transition-opacity duration-normal ease-instrument motion-reduce:transition-none ${open ? "opacity-100 delay-90" : "opacity-0"}`}>
           {(mock || projectStatus) && <header className="flex min-w-0 items-center justify-between gap-3 px-2 pt-1 pb-1.5">
             {projectStatus && <span className="type-meta text-on-instrument-muted">{projectStatus.approved} approved · {projectStatus.needsWork} needs work · {projectStatus.rejected} rejected</span>}
-            {mock && <small className="ml-auto shrink-0 font-code type-mono-xs tracking-mono text-alert">UX TEST FEED</small>}
+            {/* The alarm red is 4.15:1 as 9px copy on the island's own plate; the bright variant
+                exists for exactly this -- an alarm standing on a black widget. */}
+            {mock && <small className="ml-auto shrink-0 font-code type-mono-xs tracking-mono text-alert-bright">UX TEST FEED</small>}
           </header>}
           {projectName && feed.projectStatus.status === "unavailable" && <p className="m-0 rounded-inner bg-instrument-raised px-3 py-2 type-xs text-on-instrument-muted">{feed.projectStatus.reason}</p>}
           {feed.activeTask && <section className="grid gap-1" aria-label="Active task">

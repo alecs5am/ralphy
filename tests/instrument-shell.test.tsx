@@ -60,6 +60,12 @@ function StatefulChat() {
   return <textarea aria-label="Chat draft" value={draft} onChange={(event) => setDraft(event.currentTarget.value)} />;
 }
 
+/* The dock's own resolution -- docked above 1280/680, the modal sheet below it, closed otherwise --
+   is now only reachable for an owner that is not the chat: under the desk lens the chat rail is
+   deliberately unavailable, so a chat-owned rail is closed whatever the widths say. The four tests
+   that exercise those boundaries stand a media-review owner in the dock instead. */
+const REVIEW_DESK = <main><InstrumentRightRailPortal owner="media-review" label="Media review"><button type="button">Review selected media</button></InstrumentRightRailPortal></main>;
+
 const defaultProps = {
   sidebar: <aside>Sidebar</aside>,
   desk: <main>Desk</main>,
@@ -106,7 +112,7 @@ describe("instrument shell", () => {
 
   test("uses one observer and requires both the 1280 frame and 680 docked desk boundaries", async () => {
     const onToggleRightPreference = vi.fn();
-    const mounted = await mountShell({ onToggleRightPreference });
+    const mounted = await mountShell({ desk: REVIEW_DESK, onToggleRightPreference });
     try {
       const shell = mounted.host.container.querySelector(".instrument-shell")!;
       const desk = mounted.host.container.querySelector(".instrument-desk-scroll")!;
@@ -191,6 +197,7 @@ describe("instrument shell", () => {
   test("opens the narrow rail as its registered modal sheet and restores the exact opener on Escape", async () => {
     let overlayOpen = false;
     const mounted = await mountShell({
+      desk: REVIEW_DESK,
       rightOverlayOpen: overlayOpen,
       onRightOverlayOpenChange: (open) => { overlayOpen = open; void mounted.render({ rightOverlayOpen: open }); },
     });
@@ -254,7 +261,7 @@ describe("instrument shell", () => {
 
   test("resizes the docked rail up to 1000px and clamps it against the desk minimum", async () => {
     const onRightWidthChange = vi.fn();
-    const mounted = await mountShell({ onRightWidthChange });
+    const mounted = await mountShell({ desk: REVIEW_DESK, onRightWidthChange });
     try {
       const shell = mounted.host.container.querySelector(".instrument-shell")!;
       const desk = mounted.host.container.querySelector(".instrument-desk-scroll")!;
@@ -386,7 +393,7 @@ describe("instrument shell", () => {
 
   test("clears transient overlay state when the same rail becomes dock-eligible", async () => {
     const onRightOverlayOpenChange = vi.fn();
-    const mounted = await mountShell({ rightOverlayOpen: true, onRightOverlayOpenChange });
+    const mounted = await mountShell({ desk: REVIEW_DESK, rightOverlayOpen: true, onRightOverlayOpenChange });
     try {
       const shell = mounted.host.container.querySelector(".instrument-shell")!;
       const desk = mounted.host.container.querySelector(".instrument-desk-scroll")!;

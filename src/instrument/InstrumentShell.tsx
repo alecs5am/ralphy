@@ -208,11 +208,19 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
   const chatLens = props.lens === "chat";
   const viewPanelWidth = dimensions.frameWidth >= DOCK_WINDOW_MIN ? VIEW_PANEL_WIDE : VIEW_PANEL_NARROW;
   const viewPanelVisible = chatLens && dimensions.frameWidth >= VIEW_PANEL_DROP;
-  const mode = chatLens ? "docked" : resolveRightRailMode({
-    dockEligible,
-    preferenceOpen: props.rightPreference,
-    overlayOpen: props.rightOverlayOpen,
-  });
+  /* Under the desk lens the chat is not reachable at all -- the lens exists so the desk can have
+     the whole content area, and a chat column standing beside it would be the state the lens was
+     introduced to replace. The media-review console shares this dock and is not chat, so it keeps
+     its own path: closing the rail on owner alone would have removed a working feature. */
+  const mode = chatLens
+    ? "docked"
+    : activeRail.owner === "chat"
+      ? "closed"
+      : resolveRightRailMode({
+        dockEligible,
+        preferenceOpen: props.rightPreference,
+        overlayOpen: props.rightOverlayOpen,
+      });
   if (mode !== modeRef.current && railHost) {
     const active = document.activeElement;
     if (active instanceof HTMLElement && railHost.contains(active)) focusedRailElement.current = active;
@@ -385,8 +393,14 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
             onActiveChange={setColumnResizing}
           />
         </div>}
-        <div className="instrument-content-column flex min-h-0 min-w-0 flex-1 flex-col gap-2.5">
-          <header className="instrument-top-row relative flex h-11 min-w-0 flex-none items-center gap-3 px-0.5 [-webkit-app-region:drag]">
+        <div className="instrument-content-column flex min-h-0 min-w-0 flex-1 flex-col gap-2">
+          {/* The topbar is exactly as tall as the island, so the island's top edge is the window's
+              own 8px inset -- the same line the sidebar card starts on. A taller band would leave
+              air above the tallest thing in it, which reads as a wrong margin. */}
+          {/* No horizontal padding: every zone in the window stands 8 from its edge, and the
+              handoff's 2px optical inset put the island 10 from the right while the sidebar
+              stood at 8. */}
+          <header className="instrument-top-row relative flex h-9 min-w-0 flex-none items-center gap-3 [-webkit-app-region:drag]">
             {/* The sidebar owns its own collapse control now; the topbar carries it only while the
                 sidebar is gone, which is the one state where the sidebar's own button is not on
                 screen. History stays here in both states -- it is about the content column. */}
@@ -422,7 +436,10 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
                 ><Icon size={15} strokeWidth={1.8} aria-hidden="true" /></button>;
               })}
             </div>}
-            <div className="instrument-island-slot ml-auto flex flex-none items-center [-webkit-app-region:no-drag]">{props.island}</div>
+            {/* The island is taken out of flow: open, its plate is far taller than the topbar, and
+                in flow inside a centred row it grew upward past the window edge as well as down.
+                Anchored to the top of the row it grows downward only, over the content. */}
+            <div className="instrument-island-slot absolute top-0 right-0 z-island flex items-start [-webkit-app-region:no-drag]">{props.island}</div>
           </header>
           <div className="instrument-content-body flex min-h-0 min-w-0 flex-1 gap-2">
             <section
