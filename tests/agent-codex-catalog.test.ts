@@ -25,10 +25,9 @@ describe("the Codex catalogue", () => {
     const result = codexCatalog(catalog, "gpt-5.6-luna");
     expect(result.unsupportedDefault).toBe("gpt-5.6-luna");
     expect(result.defaultModel).toBe("gpt-5.5");
-    expect(result.models[0]).toMatchObject({
-      id: "default",
-      description: "Your Codex config asks for gpt-5.6-luna, which this CLI cannot run",
-    });
+    /* "Codex default" is gone, not annotated: it means "whatever your config says", and what it
+       says fails every turn. Its absence is also what moves a chat already pinned to it. */
+    expect(result.models.map(({ id }) => id)).toEqual(["gpt-5.5", "gpt-5.4"]);
   });
 
   test("falls back to the bare default when there is no catalogue at all", () => {

@@ -7,6 +7,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { MemoryDetailDto, MemoryTier, MemoryType } from "../../electron/ralphy/types";
 import type { MemoryMutation } from "../../electron/ralphy/memory-reader";
+import { entityDragProps } from "../chat/attachments";
 import { bridge } from "../lib/ipc";
 import { SelectMenu } from "../components/ui/SelectMenu";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
@@ -262,7 +263,10 @@ function MemoryRule({ entry, workspaceName, open, reviewing, onToggle, onRevise,
 }) {
   const panelId = `memory-rule-${entry.id}`;
   const filed = new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(entry.filed));
-  return <article className={`memory-rule my-1 overflow-hidden rounded-cell bg-surface-sunken transition-colors duration-fast ease-instrument hover:bg-surface motion-reduce:transition-none motion-reduce:duration-0 ${open ? "is-open" : ""}${reviewing ? " is-proposal" : ""}`}>
+  return <article
+    {...entityDragProps({ kind: "memory", ref: entry.slug, label: entry.body.rule || entry.name })}
+    className={`memory-rule my-1 overflow-hidden rounded-cell bg-surface-sunken transition-colors duration-fast ease-instrument hover:bg-surface motion-reduce:transition-none motion-reduce:duration-0 ${open ? "is-open" : ""}${reviewing ? " is-proposal" : ""}`}
+  >
     <button type="button" className="memory-rule-head flex min-h-14 w-full items-center gap-2 bg-transparent px-3 py-2 text-left type-base text-ink focus-visible:-outline-offset-2" aria-expanded={open} aria-controls={panelId} onClick={onToggle}>
       <ChevronRight className={`${ICON} flex-none text-muted transition-transform duration-fast ease-instrument motion-reduce:transition-none motion-reduce:duration-0 ${open ? "rotate-90" : ""}`} />
       <span className="grid min-w-0 flex-1 gap-1.75"><strong className="truncate type-base font-normal text-ink">{entry.body.rule || entry.name}</strong><small className="flex items-center gap-2 font-code type-meta text-muted"><em className={`is-${entry.tier} inline-flex items-center gap-1.25 font-app type-label not-italic text-muted`}>{entry.tier === "global" ? <Globe2 className={ICON_SM} /> : <Box className={ICON_SM} />}{entry.tier === "global" ? "Global" : `Workspace · ${workspaceName}`}</em>{entry.overridesGlobal && <em className="memory-tag inline-flex h-4.25 items-center rounded-control bg-surface px-1.5 font-code type-meta not-italic tracking-label text-ink">OVERRIDES</em>}<i className="not-italic">v{entry.version} · {entry.version > 1 ? "Revised" : "Filed"} {filed}</i>{entry.qualityFlags.length > 0 && <b className="inline-flex items-center gap-1 font-app type-mono-md text-muted"><TriangleAlert className={ICON_MD} />No negative scope</b>}</small></span>

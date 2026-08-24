@@ -4,11 +4,19 @@ import {
   useImperativeHandle,
   useRef,
   useState,
+  type DragEvent as ReactDragEvent,
   type KeyboardEvent,
   type ReactNode,
   type RefObject,
 } from "react";
-import { FileText, Folder, Layers } from "lucide-react";
+import { FileText, Folder, Layers, X } from "lucide-react";
+import {
+  ATTACHMENT_KINDS,
+  RALPHY_ENTITY_DRAG,
+  readEntityDrop,
+  readFileDrop,
+  type Attachment,
+} from "../../chat/attachments";
 import { bridge } from "../../lib/ipc";
 import type { ProjectSummary, WorkspaceSummary } from "../../lib/ipc";
 import type { UnitDto } from "../../../electron/ralphy/types";
@@ -67,11 +75,13 @@ const TAG_ON_INVERSE = `${TAG} bg-desk-primary-ink/14 text-desk-primary-ink`;
 export function AgentTaggedText({ text }: { text: string }) {
   const parts: ReactNode[] = [];
   let index = 0;
-  for (const match of text.matchAll(/@(unit|file|project):([^\s]+)/g)) {
+  for (const match of text.matchAll(/@(unit|file|project|media|memory|scheduled):([^\s]+)/g)) {
     const at = match.index;
     if (at > index) parts.push(text.slice(index, at));
     const kind = match[1] as TagKind;
-    const Icon = KINDS[kind].icon;
+    /* The bubble's chip is one style for every kind -- the operator's own bubble inverts, and a
+       per-kind ink cannot survive that -- so the attachment kinds render here too, by glyph. */
+    const Icon = ATTACHMENT_KINDS[kind].icon;
     parts.push(<span className={`${TAG_ON_INVERSE} is-${kind}`} key={`${at}-${match[2]}`}>
       <Icon size={11} strokeWidth={1.9} className="agent-tag-glyph mr-1.25 inline" aria-hidden="true" />
       {match[2]}
@@ -170,6 +180,9 @@ export function AgentComposer({
   onChange,
   onSubmit,
   onEscape,
+  attachments,
+  onAttach,
+  onDetach,
   children,
 }: {
   handle: RefObject<AgentComposerHandle | null>;
@@ -181,11 +194,16 @@ export function AgentComposer({
   /* ESC with the picker closed. The picker's own ESC closes it first, which is the handoff's
      priority order: stop streaming, then close the menu. */
   onEscape(): void;
+  /* Dragged in rather than typed: the strip above the field, and what a drop adds to it. */
+  attachments: readonly Attachment[];
+  onAttach(added: Attachment[]): void;
+  onDetach(index: number): void;
   /* The controls row, which the composer draws under its own field. */
   children: ReactNode;
 }) {
   const field = useRef<HTMLDivElement>(null);
   const [empty, setEmpty] = useState(true);
+  const [dropping, setDropping] = useState(false);
   /* The open query *is* the menu: holding it as a string rather than an object means the state
      changes when the query changes and not on every caret move, which is what lets the highlight
      survive an arrow key. `sync` runs on keyup too, and an object literal there reset the
@@ -311,7 +329,51 @@ export function AgentComposer({
     }
   };
 
-  return <div className="agent-composer relative mx-3 mb-3 flex flex-none flex-col gap-2.25 rounded-composer bg-chat-field p-2.75">
+  /* The whole composer is the target, not the field: a drop is about the message, and aiming at a
+     one-line field is a worse ask than aiming at the box. */
+  const onDrop = (event: ReactDragEvent<HTMLDivElement>): void => {
+    event.preventDefault();
+    setDropping(false);
+    const entities = readEntityDrop(event.dataTransfer);
+    const files = entities.length === 0 ? [...event.dataTransfer.files] : [];
+    const added = [...entities, ...readFileDrop(files, (file) => bridge.pathForFile(file))];
+    if (added.length) onAttach(added);
+  };
+
+  return <div
+    className={`agent-composer relative mx-3 mb-3 flex flex-none flex-col gap-2.25 rounded-composer bg-chat-field p-2.75 ${dropping ? "is-dropping outline-2 -outline-offset-2 outline-dashed outline-ink" : ""}`}
+    onDragOver={(event) => {
+      /* Only what this composer can actually take: a Ralphy entity or a file. Saying so on
+         `dragover` is what turns the cursor into a copy cursor rather than a refusal. */
+      if (!event.dataTransfer.types.some((type) => type === RALPHY_ENTITY_DRAG || type === "Files")) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+      setDropping(true);
+    }}
+    onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropping(false); }}
+    onDrop={onDrop}
+  >
+    {attachments.length > 0 && <div className="agent-attachments flex flex-wrap gap-1.5" aria-label="Attachments">
+      {attachments.map((attachment, index) => {
+        const Icon = ATTACHMENT_KINDS[attachment.kind].icon;
+        return <span
+          className="agent-attachment inline-flex h-7 max-w-full items-center gap-1.75 rounded-full bg-chat-control pr-1 pl-2.5 type-sm text-ink"
+          key={`${attachment.kind}:${attachment.ref}`}
+        >
+          <Icon size={12} strokeWidth={1.9} className="flex-none text-secondary" aria-hidden="true" />
+          <span className="min-w-0 truncate">{attachment.label}</span>
+          <span className="flex-none font-code type-mono-xs tracking-mono text-secondary">{ATTACHMENT_KINDS[attachment.kind].label}</span>
+          <button
+            className="grid size-5 flex-none place-items-center rounded-full text-secondary hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            type="button"
+            aria-label={`Remove ${attachment.label}`}
+            onClick={() => onDetach(index)}
+          >
+            <X size={11} strokeWidth={2} aria-hidden="true" />
+          </button>
+        </span>;
+      })}
+    </div>}
     <div className="relative min-h-11">
       <div
         ref={field}

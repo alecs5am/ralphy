@@ -5,6 +5,7 @@ import type { MediaCardDto, MediaRef } from "../../electron/ralphy/types";
 import type { ProjectPreview, ProjectReference } from "../lib/ipc";
 import { assetGridGeometry, mediaFallbackAspectRatio, previewScheduler } from "../lib/media";
 import { useOptionalInstrumentScroll } from "../instrument/InstrumentShell";
+import { entityDragProps, type Attachment } from "../chat/attachments";
 import { AutoCursorTail } from "../screens/project/AutoCursorTail";
 import { useRememberedScroll } from "../screens/project/scroll-memory";
 import { AudioWaveform } from "./media/AudioWaveform";
@@ -75,6 +76,17 @@ function cachedPreview(key: string, project: ProjectReference, ref: MediaRef, re
   previewCache.set(key, entry);
   if (previewCache.size > 128) previewCache.delete(previewCache.keys().next().value!);
   return entry;
+}
+
+/* What a media tile is when it lands in the chat: an artifact by its slug, anything else by the
+   ref the library itself uses. Neither is a path -- a media record is a record, and the agent
+   resolves it against the library the same way the panel did. */
+export function mediaAttachment(card: MediaCardDto): Attachment {
+  return {
+    kind: "media",
+    ref: "slug" in card ? card.slug : `${card.ref.type}/${card.ref.id}`,
+    label: mediaCardName(card),
+  };
 }
 
 export function mediaCardName(card: MediaCardDto): string {
@@ -219,7 +231,7 @@ export function MediaCardTile({ card, project, rootEpoch, selected, resolvePrevi
   };
   /* `cursor: grab` never rendered: `.media-card-tile` restated `pointer` after it, so the tile
      reads as a click target at rest and only says "grabbing" while a drag is live. */
-  return <article className={`asset-tile media-card-tile group flex w-full min-h-0 flex-col gap-2 bg-transparent text-left text-ink cursor-pointer active:cursor-grabbing [contain:layout_style] ${selected ? "is-selected" : ""}`} data-selected={selected || undefined} style={{ "--asset-aspect": ratio } as CSSProperties}>
+  return <article {...entityDragProps(mediaAttachment(card))} className={`asset-tile media-card-tile group flex w-full min-h-0 flex-col gap-2 bg-transparent text-left text-ink cursor-pointer active:cursor-grabbing [contain:layout_style] ${selected ? "is-selected" : ""}`} data-selected={selected || undefined} style={{ "--asset-aspect": ratio } as CSSProperties}>
     <MediaCardPreview card={card} project={project} rootEpoch={rootEpoch} resolvePreview={resolvePreview} aspectRatio={ratio} onAspectRatio={rememberRatio} />
     <button className="media-card-button flex w-full min-w-0 items-start gap-1.5 bg-transparent p-0 text-left text-ink focus-visible:rounded-control" type="button" aria-label={`${name}${selected ? ", selected" : ""}`} aria-pressed={selected} onClick={onSelect} onDoubleClick={onOpen} onKeyDown={onKeyDown} onContextMenu={openContext}>
       <i className={`mt-1 size-1.5 shrink-0 rounded-full ${selected ? "bg-alert" : "bg-ink"}`} aria-hidden="true" />

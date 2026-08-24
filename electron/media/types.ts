@@ -438,6 +438,8 @@ export interface LocalModelReference {
 }
 
 export interface MediaWorkbenchBridge extends MarketplaceBridge {
+  /** A dropped file's absolute path, or null when the host cannot name one. */
+  pathForFile(file: unknown): string | null;
   restoreLibrary(): Promise<LibraryOpenResult | null>;
   loadWorkspaceOverview(workspaceId: string): Promise<import("../ralphy/types").WorkspaceOverviewDto>;
   loadSharedLibraryPage(workspaceId: string, query?: SharedLibraryQuery): Promise<import("../ralphy/types").Page<import("../ralphy/types").ArtifactMediaCardDto>>;

@@ -3,6 +3,7 @@ import { AlertCircle, Braces, FileText, Pilcrow, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { DocumentDetailDto, DocumentDto, DocumentSearchDto } from "../../../electron/ralphy/types";
+import { entityDragProps } from "../../chat/attachments";
 import { JsonDocumentView } from "../../components/JsonDocumentView";
 import { MarkdownView, PLAIN_TEXT_VIEW } from "../../components/MarkdownView";
 import { GooeyTabs } from "../../components/ui/GooeyTabs";
@@ -171,7 +172,9 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
           const meta = row.type === "search"
             ? `${row.value.kind} · Revision ${row.value.revisionNo}`
             : `${formatLabel(format)} · ${row.value.kind} · ${formatDocumentDate(row.value.updatedAt)}`;
+          const slug = "slug" in row.value && typeof row.value.slug === "string" ? row.value.slug : documentId;
           return <button
+            {...entityDragProps({ kind: "file", ref: slug, label: title })}
             className={`document-row absolute top-0 left-0 grid w-full grid-cols-(--project-document-row-columns) items-center gap-3 rounded-control px-2 py-1.5 text-left type-sm focus-visible:-outline-offset-2 ${selected?.id === documentId ? "is-selected bg-instrument text-on-instrument [&_small]:text-on-instrument-muted [&_strong]:text-on-instrument" : "bg-transparent text-ink hover:bg-surface"}`}
             type="button"
             disabled={snapshot.documentSaving}

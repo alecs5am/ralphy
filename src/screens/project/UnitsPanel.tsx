@@ -2,6 +2,7 @@ import { FileText, Film, Images, Layers3, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { BuildDto, ProjectOverviewDto, UnitDto } from "../../../electron/ralphy/types";
+import { entityDragProps } from "../../chat/attachments";
 import { RalphyMascot } from "../../components/RalphyMascot";
 import { SocialIcon } from "../../components/ui/SocialIcon";
 import { bridge } from "../../lib/ipc";
@@ -116,7 +117,11 @@ function UnitCard({ unit, baseLifecycle, publications, controller, disabled, onO
 
   const lifecycle = summary?.lifecycle ?? baseLifecycle;
   const retry = lifecycle.action === "retry";
-  return <article className="unit-card-shell group relative min-w-0 overflow-hidden rounded-cell bg-instrument text-on-instrument">
+  /* Draggable into the chat: a card states what it is once, and the composer's drop reads it. */
+  return <article
+    className="unit-card-shell group relative min-w-0 overflow-hidden rounded-cell bg-instrument text-on-instrument"
+    {...entityDragProps({ kind: "unit", ref: unit.slug, label: unit.slug })}
+  >
     <button className="unit-card flex w-full min-w-0 flex-col overflow-hidden rounded-field bg-transparent p-1.5 text-left text-on-instrument [transition:background_var(--dur-fast)_var(--ease)] hover:bg-ghost focus-visible:outline-focus-on-instrument motion-reduce:[transition:none]" type="button" disabled={disabled} aria-label={`Open ${unit.slug}`} onClick={(event) => onOpen(event.currentTarget)}>
       <span className="unit-card-preview relative grid aspect-video min-h-0 w-full content-center place-items-center gap-1.75 overflow-hidden rounded-cell bg-instrument-raised text-on-instrument-muted [&>em]:absolute [&>em]:left-2 [&>em]:top-2 [&>em]:h-4.5 [&>em]:rounded-control [&>em]:bg-media-plate [&>em]:px-1.75 [&>em]:font-code [&>em]:type-mono-sm [&>em]:leading-4.5 [&>em]:not-italic [&>em]:text-on-instrument [&>span]:font-code [&>span]:type-meta [&_img]:size-full [&_img]:object-cover [&_p]:m-0 [&_p]:line-clamp-5 [&_p]:px-4.5 [&_p]:font-code [&_p]:type-meta [&_p]:leading-row [&_p]:text-left [&_p]:text-on-instrument-muted [&_video]:size-full [&_video]:object-cover"><CardMedia media={summary?.media ?? null} format={unit.format} /><em>{typeLabel(unit.format)}</em>{lifecycle.label === "Rendering" && <i className="unit-card-progress absolute inset-x-0 bottom-0 h-0.75 bg-on-instrument/18"><span className="block h-full w-progress-render bg-on-instrument" /></i>}</span>
       <span className="unit-card-copy grid w-full min-w-0 gap-2 px-1 pb-1 pt-2 [&_small]:truncate [&_small]:font-code [&_small]:type-meta [&_small]:text-on-instrument-muted">

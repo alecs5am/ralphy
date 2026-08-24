@@ -69,11 +69,13 @@ export function codexCatalog(catalog: unknown, configured: string | null): {
   const listed = models.filter(({ id }) => id !== CODEX_DEFAULT.id);
   const supported = configured === null || listed.some(({ id }) => id === configured);
   if (supported) return { models, defaultModel: CODEX_DEFAULT.id, unsupportedDefault: null };
-  const reason = `Your Codex config asks for ${configured}, which this CLI cannot run`;
+  /* "Codex default" is dropped rather than annotated: it stands for "whatever your config says",
+     and what it says is a model this CLI refuses -- a chat asking for the default inherits the
+     failure on every turn. A row that cannot run is worse than no row, and its absence is also
+     what moves an already-pinned chat onto a model that works: the renderer reconciles a chat
+     whose model the provider no longer lists. */
   return {
-    models: models.map((model) => model.id === CODEX_DEFAULT.id
-      ? { ...model, description: reason }
-      : model),
+    models: listed,
     defaultModel: listed[0]?.id ?? CODEX_DEFAULT.id,
     unsupportedDefault: configured,
   };

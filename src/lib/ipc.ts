@@ -205,6 +205,9 @@ function createMockBridge(): RalphyBridge {
   });
 
   return {
+    /* No host, no path: a dropped file falls back to its own name, which is still a reference the
+       operator can see. */
+    pathForFile: () => null,
     async restoreLibrary() {
       emitMedia({ type: "root-ready", identity: openResult().identity });
       return openResult();

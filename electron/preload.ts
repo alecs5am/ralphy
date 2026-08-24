@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import { type IpcResult, unwrapIpcResult } from "./ipc-security";
 import {
   AGENT_CHANNELS,
@@ -48,6 +48,16 @@ function loadProjectCompositionPage(
 }
 
 const mediaBridge: MediaWorkbenchBridge = {
+  /* The only synchronous member: a dropped file's path is a preload capability rather than an IPC
+     call, and it is what makes a Finder drop worth anything to a harness that runs on the
+     operator's own filesystem. */
+  pathForFile: (file) => {
+    try {
+      return webUtils.getPathForFile(file as File) || null;
+    } catch {
+      return null;
+    }
+  },
   restoreLibrary: () => invoke(MEDIA_CHANNELS.restoreLibrary),
   loadMarketplacePublicLibrary: () => invoke(MEDIA_CHANNELS.loadMarketplacePublicLibrary),
   loadWorkspaceOverview: (workspaceId) => invoke(MEDIA_CHANNELS.loadWorkspaceOverview, workspaceId),

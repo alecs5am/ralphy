@@ -31,6 +31,7 @@ import type {
 } from "../lib/ipc";
 import type { AgentChatController } from "../chat/useAgentChat";
 import { AgentComposer, type AgentComposerHandle } from "./agent/AgentComposer";
+import { addAttachments, withAttachments, type Attachment } from "../chat/attachments";
 import { AgentFailure, AgentThread } from "./agent/AgentThread";
 import { AgentMark } from "./ui/AgentMark";
 import { AiBrandIcon } from "./AiBrandIcon";
@@ -153,6 +154,9 @@ export function AgentChatPanel({
   onOpenSettings(page?: "agents"): void;
 }) {
   const [draft, setDraft] = useState("");
+  /* Attachments are the drag channel, so they live beside the draft rather than in the field: they
+     are cleared with it, and they are what a message carries rather than what it says. */
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const messagesRef = useRef<HTMLDivElement>(null);
   /* The composer holds text and atomic tags, so the field is `contenteditable` and the panel keeps
      only what it needs: the serialised prompt, and a handle to fill or clear the field. */
@@ -171,10 +175,11 @@ export function AgentChatPanel({
   }, [active.entries]);
 
   const submit = (): void => {
-    const prompt = draft.trim();
+    const prompt = withAttachments(draft.trim(), attachments);
     if (!prompt || chat.state.runningChatId !== null || !chat.connected) return;
     chat.send(prompt);
     composer.current?.clear();
+    setAttachments([]);
     followOutput.current = true;
   };
 
@@ -186,6 +191,10 @@ export function AgentChatPanel({
 
   /* The line the agent is on: the newest tool call while one is running, otherwise the plain fact
      that it is working. Nothing here is invented -- a harness that reports no tool reports none. */
+  /* A message can be nothing but attachments: dragging three files in and pressing send is a
+     sentence. */
+  const sendable = (draft.trim().length > 0 || attachments.length > 0) && chat.state.runningChatId === null;
+
   const streamingTool = active.busy
     ? [...active.entries].reverse().find(({ kind }) => kind === "tool") ?? null
     : null;
@@ -282,6 +291,9 @@ export function AgentChatPanel({
             onChange={setDraft}
             onSubmit={submit}
             onEscape={() => { if (active.busy) chat.stop(); }}
+            attachments={attachments}
+            onAttach={(added) => setAttachments((current) => addAttachments(current, added))}
+            onDetach={(index) => setAttachments((current) => current.filter((_, at) => at !== index))}
           >
             <div className="agent-composer-toolbar flex items-center gap-1.5">
               <AgentModeMenu value={active.permissionMode} onChange={chat.setPermissionMode} />
@@ -305,9 +317,9 @@ export function AgentChatPanel({
                   </span>
                 </button>
                 : <button
-                  className={`agent-send grid size-7 flex-none place-items-center rounded-full ${draft.trim() && chat.state.runningChatId === null ? PRIMARY : "bg-chat-control text-muted-decorative"}`}
+                  className={`agent-send grid size-7 flex-none place-items-center rounded-full ${sendable ? PRIMARY : "bg-chat-control text-muted-decorative"}`}
                   type="button"
-                  disabled={!draft.trim() || chat.state.runningChatId !== null}
+                  disabled={!sendable}
                   title={running ? `Waiting for ${running.title}` : "Send (↩)"}
                   aria-label="Send message"
                   onClick={submit}

@@ -25,17 +25,30 @@ verification is partial (says which part).
 - [x] **B2 — Composer has no maximum height.** Cap it at roughly 12–15 lines and scroll inside.
 - [x] **B3 — Chat measure is far too narrow.** The thread should read at ~740 units, not ~60, and
   the type should step up slightly.
-- [ ] **B4 — Drag and drop drops a raw image into the transcript.** A dropped image currently
+- [x] **B4 — Drag and drop drops a raw image into the transcript.** A dropped image currently
   renders full-bleed with nothing to act on. Handle drops as *attachments*, entity-aware:
   - a drop from Finder is a `file`;
   - a drop from the app's own panels is a Ralphy entity — media, unit, scheduled content, memory,
     document, whatever the source says it is.
   Attachments are a separate channel from inline tags: inline tags are what the operator types.
 
+  Landed as `src/chat/attachments.ts`: a drag type of our own (`application/x-ralphy-entity`) that
+  the app's own rows carry — Unit cards, the workspace Units rows, media tiles, document rows,
+  memory rules, calendar publications and the ready drawer — and a strip of removable chips above
+  the composer. A Finder drop becomes a `file` with the real path (`webUtils.getPathForFile` in
+  the preload). The window now refuses a stray drop outright, which is what the reported bug was:
+  the default action for a dropped image is to *navigate* to it, so the window became the image.
+  Attachments ride under the message as an `Attached:` block in the same `@kind:ref` vocabulary,
+  so the operator's own bubble renders them as chips.
+
 ## C. Provider integration
 
 - [x] **C1 — Refresh the Codex integration.** New models are rejected and the harness reports that
   Codex must be updated. Confirm what the installed Codex CLI actually accepts and follow it.
+  Second pass: offering the right models was not enough. "Codex default" means "whatever
+  `~/.codex/config.toml` says", and this operator's config says `gpt-5.6-luna` — so every existing
+  chat kept failing. The row is now dropped when the configured default is unrunnable, and a chat
+  pinned to a model the provider no longer lists moves to the provider's default by itself.
 - [ ] **C2 — Refresh the Claude Code integration.** Same currency check for the Claude harness.
 - [~] **C3 — Streaming looks dead on Codex.** The parser now forwards a growing message as
   suffixes, so the transcript streams as soon as the CLI reports one -- but the installed

@@ -646,6 +646,18 @@ export function useAgentChat({
     if (enabled && !providersLoaded.current) void refreshProviders();
   }, [enabled, refreshProviders]);
 
+  /* A chat remembers the model it was started with, and a model can stop existing under it: the
+     provider's CLI is updated, or its configured default turns out to be one this CLI cannot run.
+     The chat is moved to the provider's own default rather than left pinned to a name that fails
+     every turn with "requires a newer version". Only a provider that actually lists models can
+     say a model is gone -- an empty catalog means "not connected", not "no such model". */
+  useEffect(() => {
+    const status = providers.find(({ id }) => id === activeChat.provider);
+    if (!status || status.models.length === 0) return;
+    if (status.models.some(({ id }) => id === activeChat.model)) return;
+    dispatch({ type: "set-model", model: status.defaultModel, now: Date.now() });
+  }, [activeChat.model, activeChat.provider, providers]);
+
   const send = useCallback((text: string): void => {
     const prompt = text.trim();
     if (!rootPath || !connected || !prompt || state.runningChatId !== null) return;

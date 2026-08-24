@@ -2,6 +2,7 @@ import { Layers3 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { OverviewPublicationDto, ProjectOverviewDto, UnitDto } from "../../electron/ralphy/types";
+import { entityDragProps } from "../chat/attachments";
 import { bridge, type ProjectSummary } from "../lib/ipc";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
 import { WORKSPACE_PAGE_LABELS } from "../state/workbench";
@@ -132,7 +133,13 @@ export function WorkspaceUnitsScreen({ workspaceName, projects, rootEpoch, onOpe
             /* Hoisted, not inlined: a member access inside a className template reads to the style
                ratchet as a hardcoded arbitrary value. */
             const chip = published && CHIP[published];
-            return <button className={ROW} type="button" key={unit.id} onClick={() => onOpenUnit(project, unit.id)}>
+            return <button
+              {...entityDragProps({ kind: "unit", ref: unit.slug, label: unit.slug })}
+              className={ROW}
+              type="button"
+              key={unit.id}
+              onClick={() => onOpenUnit(project, unit.id)}
+            >
               <Layers3 className="flex-none text-muted" size={15} strokeWidth={1.8} aria-hidden="true" />
               <span className="min-w-0 truncate type-md text-ink">{unit.slug}</span>
               <span className={`${META} uppercase`}>{unit.format}</span>
