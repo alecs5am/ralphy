@@ -253,7 +253,43 @@ describe("Electron IPC security", () => {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      /* The view panel's browser tab is a guest; what a guest may attach with is decided by
+         `hardenWebviewAttach`, which is what the next test states. */
+      webviewTag: true,
     });
+  });
+
+  test("a webview guest attaches with what main allows, not with what the markup asked for", async () => {
+    const { BROWSER_PARTITION, hardenWebviewAttach, isBrowsableUrl } = await import("../electron/ipc-security");
+    const attach = (params: Record<string, unknown>) => {
+      let prevented = false;
+      hardenWebviewAttach({ preventDefault: () => { prevented = true; } }, params);
+      return prevented;
+    };
+
+    // A guest that asked for node and a preload gets neither.
+    const hostile = {
+      preload: "/tmp/evil.js",
+      nodeIntegration: true,
+      partition: BROWSER_PARTITION,
+      src: "https://example.com/",
+      webPreferences: { nodeIntegration: true, sandbox: false },
+    };
+    expect(attach(hostile)).toBe(false);
+    expect(hostile).not.toHaveProperty("preload");
+    expect(hostile.nodeIntegration).toBe(false);
+    expect(hostile.webPreferences).toMatchObject({ nodeIntegration: false, sandbox: true, contextIsolation: true });
+
+    // Another partition, a local file, a custom scheme and a missing source are all refused.
+    expect(attach({ partition: "persist:app", src: "https://example.com/" })).toBe(true);
+    expect(attach({ partition: BROWSER_PARTITION, src: "file:///etc/passwd" })).toBe(true);
+    expect(attach({ partition: BROWSER_PARTITION, src: "ralphy-media://asset/1" })).toBe(true);
+    expect(attach({ partition: BROWSER_PARTITION })).toBe(true);
+
+    expect(isBrowsableUrl("http://localhost:3000/x")).toBe(true);
+    expect(isBrowsableUrl("javascript:alert(1)")).toBe(false);
+    expect(isBrowsableUrl("not a url")).toBe(false);
+    expect(isBrowsableUrl(null)).toBe(false);
   });
 
   test("preload exposes an explicit method allowlist", async () => {

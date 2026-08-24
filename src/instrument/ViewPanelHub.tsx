@@ -13,7 +13,7 @@ import { useState } from "react";
 
 import { Keycap } from "../components/ui/Keycap";
 import type { ProjectSummary, WorkspaceSummary } from "../../electron/media/types";
-import { VIEW_TYPES, type OpenViewRequest, type ViewTabType } from "../state/view-panel";
+import { WORKSPACE_VIEW_TYPES, type OpenViewRequest, type ViewTabType } from "../state/view-panel";
 
 /**
  * The home tab's page: the workspace hub. It is the panel's point of return, so it answers the two
@@ -122,7 +122,7 @@ export function ViewPanelHub({ workspace, projects, workspaces, chords, onOpen, 
 
       <h2 className={SECTION}>WORKSPACE PAGES</h2>
       <div className="grid grid-cols-2 gap-1.5">
-        {VIEW_TYPES.filter(({ singleton }) => singleton).map((descriptor) => {
+        {WORKSPACE_VIEW_TYPES.map((descriptor) => {
           const Icon = TILE_ICONS[descriptor.type]!;
           const cap = descriptor.command ? chords[descriptor.command] : undefined;
           const count = counts[descriptor.type];

@@ -3,6 +3,7 @@ import {
   Calendar,
   ChevronRight,
   Folder,
+  Globe,
   House,
   Layers,
   LayoutDashboard,
@@ -47,6 +48,7 @@ const TAB_ICONS: Record<ViewTabType, LucideIcon> = {
   memory: Brain,
   /* A project tab is the media grid the handoff names: the grid is what a project opens on. */
   project: LayoutGrid,
+  browser: Globe,
 };
 
 /* The strip's fixed costs, so how many tabs fit is arithmetic on the panel's own width rather
@@ -78,6 +80,9 @@ export interface ViewPanelProps {
   onSelect(id: string): void;
   onClose(id: string): void;
   onOpen(request: OpenViewRequest): void;
+  /* The browser tab's page, rendered over the card rather than in place of it: a guest that
+     unmounted on every tab switch would lose the page the operator opened it for. */
+  browser?: ReactNode;
   children: ReactNode;
 }
 
@@ -124,7 +129,7 @@ function TabButton({ tab, active, onSelect, onClose }: {
   </span>;
 }
 
-export function ViewPanel({ set, width, chords, onSelect, onClose, onOpen, children }: ViewPanelProps) {
+export function ViewPanel({ set, width, chords, onSelect, onClose, onOpen, browser, children }: ViewPanelProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const plus = useRef<HTMLButtonElement>(null);
@@ -187,6 +192,11 @@ export function ViewPanel({ set, width, chords, onSelect, onClose, onOpen, child
     </div>
     <div className="view-panel-page relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-frame bg-card">
       {children}
+      {/* `visibility` rather than `hidden`: a guest under `display: none` is detached, which is the
+          reload this layer exists to avoid. */}
+      {browser && <div
+        className={`view-panel-browser absolute inset-0 flex flex-col ${set.tabs.find(({ id }) => id === set.activeTabId)?.type === "browser" ? "" : "invisible"}`}
+      >{browser}</div>}
       {/* The design's scrim covers the page, not the window: the type menu is a non-modal overlay,
           so the app's own backdrop rule -- which only fires for the modal kinds -- paints nothing
           here, and a window-wide dim would be heavier than the menu is. The wash is the desk

@@ -50,10 +50,16 @@ verification is partial (says which part).
 
 ## D. Chat scope and panel state
 
-- [ ] **D1 — Chats belong to a workspace.** Switching workspace switches the chat list.
-- [ ] **D2 — Panel state per chat.** Selecting a chat restores that chat's view tabs and the
-  panel's width.
-- [ ] **D3 — Add a web browser view tab.**
+- [x] **D1 — Chats belong to a workspace.** Switching workspace switches the chat list. The
+  stored key gained the workspace (`agent-chats:3:<root>:<workspace>`); the pre-scope record is
+  consumed by the migration rather than copied into every workspace.
+- [x] **D2 — Panel state per chat.** `ViewPanelPreferences.tabsByWorkspace` became `byChat`, and
+  the width moved inside it -- selecting a chat restores its tabs *and* the width it stood at. The
+  record is capped at 40 chats, oldest first, so a closed chat cannot grow the blob forever.
+- [x] **D3 — Add a web browser view tab.** An Electron `<webview>` in its own session partition,
+  with `hardenWebviewAttach` in main deciding what a guest may attach with (no preload, no node,
+  `http(s)` only). The guest stays mounted behind the page card, so switching tabs does not reload
+  the page.
 
 ## E. Context transparency
 

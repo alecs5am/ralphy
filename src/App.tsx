@@ -46,13 +46,18 @@ import {
   openViewTab,
   selectViewTab,
   stepViewTab,
+  capChatPanels,
+  panelWidthFor,
+  retargetViewTab,
   tabSetFor,
   type OpenViewRequest,
+  type ViewChatPanel,
   type ViewPanelPreferences,
   type ViewTabSet,
 } from "./state/view-panel";
 import { ViewPanel } from "./instrument/ViewPanel";
 import { ViewPanelHub } from "./instrument/ViewPanelHub";
+import { ViewBrowser, browserLabel } from "./instrument/ViewBrowser";
 import { InstrumentScreenRoot } from "./instrument/screen-state-registry";
 import { InstrumentFloatHost, InstrumentShell } from "./instrument/InstrumentShell";
 import { DynamicIsland } from "./instrument/DynamicIsland";
@@ -258,6 +263,7 @@ export function App() {
   }, [projects, state.route]);
   const agentChat = useAgentChat({
     rootPath: rootIdentity?.storeId ?? null,
+    workspaceId: selectedWorkspace?.id ?? null,
     project: selectedProject,
     /* The chat lens is what makes the agent live now: `rightPanelVisible` still resolves the dock
        for the review console and the shared inspector, but it no longer opens the chat. */
@@ -629,19 +635,23 @@ export function App() {
 
   /* ---- Handoff 14's view panel ----------------------------------------------------------- */
 
-  /* The tab set belongs to the workspace, so it swaps when the workspace does. `open` and the
-     width do not: those are one window-level decision. */
+  /* The tab set and the width belong to the chat, so both swap when the chat does -- and because a
+     chat belongs to one workspace, switching workspace swaps them too. `open` does not: that is one
+     window-level decision. */
   const viewFrameActive = lens === "chat" && marketplace.mode === "work";
-  const viewWorkspaceId = selectedWorkspace?.id ?? null;
-  const tabSet = tabSetFor(viewPanel, viewWorkspaceId);
+  const viewChatId = agentChat.activeChat?.id ?? null;
+  const tabSet = tabSetFor(viewPanel, viewChatId);
   const viewTab = activeViewTab(tabSet);
-  const updateTabs = (update: (set: ViewTabSet) => ViewTabSet) => setViewPanel((record) => {
-    if (!viewWorkspaceId) return record;
-    const current = tabSetFor(record, viewWorkspaceId);
+  const viewWidth = panelWidthFor(viewPanel, viewChatId);
+  const updateChatPanel = (update: (panel: ViewChatPanel) => ViewChatPanel) => setViewPanel((record) => {
+    if (!viewChatId) return record;
+    const current: ViewChatPanel = { ...tabSetFor(record, viewChatId), width: panelWidthFor(record, viewChatId) };
     const next = update(current);
-    return next === current
-      ? record
-      : { ...record, tabsByWorkspace: { ...record.tabsByWorkspace, [viewWorkspaceId]: next } };
+    return { ...record, byChat: capChatPanels({ ...record.byChat, [viewChatId]: next }) };
+  });
+  const updateTabs = (update: (set: ViewTabSet) => ViewTabSet) => updateChatPanel((panel) => {
+    const next = update(panel);
+    return next === panel ? panel : { ...next, width: panel.width };
   });
 
   /* The tab set follows the route instead of every caller announcing itself: a place you have
@@ -650,7 +660,7 @@ export function App() {
      any re-render that re-ran this effect would raise the route's tab and steal home's turn. */
   const routePlace = useRef<string | null>(null);
   useEffect(() => {
-    if (marketplace.mode !== "work" || !viewWorkspaceId) return;
+    if (marketplace.mode !== "work" || !viewChatId) return;
     const route = state.route;
     const project = route.kind === "project"
       ? projects.find((candidate) => candidate.projectId === route.projectId) ?? null
@@ -661,14 +671,17 @@ export function App() {
         ? { type: workspacePage, label: WORKSPACE_PAGE_LABELS[workspacePage] }
         : null;
     if (!request) return;
-    const key = `${viewWorkspaceId}:${request.type}:${request.targetId ?? ""}`;
+    const key = `${viewChatId}:${request.type}:${request.targetId ?? ""}`;
     if (key === routePlace.current) return;
     routePlace.current = key;
     updateTabs((set) => openViewTab(set, request));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- updateTabs is a render-local closure
-  }, [marketplace.mode, projects, state.route, viewWorkspaceId, workspacePage]);
+  }, [marketplace.mode, projects, state.route, viewChatId, workspacePage]);
 
   const routeToView = (request: OpenViewRequest) => {
+    /* The browser is not a route, so opening or raising its tab leaves the work route where it is
+       -- the same rule home has, and the reason neither steals your place. */
+    if (request.type === "browser") return;
     if (request.type !== "project") { openWorkspacePage(request.type); return; }
     const project = projects.find((candidate) => candidate.projectId === request.targetId);
     if (project) openProject(project);
@@ -870,6 +883,15 @@ export function App() {
     />;
   }
 
+  /* The guest is mounted while the tab exists rather than while it is active: the panel hides it
+     behind the card, so switching to Units and back keeps the page the operator opened. */
+  const browserTab = viewFrameActive ? tabSet.tabs.find(({ type }) => type === "browser") ?? null : null;
+  const viewBrowser = browserTab && <ViewBrowser
+    key={`${viewChatId}:${browserTab.id}`}
+    url={browserTab.targetId}
+    onNavigate={(url, title) => updateTabs((set) => retargetViewTab(set, browserTab.id, url, browserLabel(url, title)))}
+  />;
+
   const canGoBack = marketplace.mode === "marketplace" ? true : state.historyIndex > 0;
   const canGoForward = marketplace.mode === "marketplace"
     ? marketplace.historyIndex < marketplace.history.length - 1
@@ -983,19 +1005,20 @@ export function App() {
               }}
             /></InstrumentRightRailShortcut>}
             viewOpen={viewPanel.open}
-            viewWidth={viewPanel.width}
-            onViewWidthChange={(width) => setViewPanel((record) => ({ ...record, width }))}
+            viewWidth={viewWidth}
+            onViewWidthChange={(width) => updateChatPanel((panel) => ({ ...panel, width }))}
             /* The frame is a wrapper, not a sibling: the tab strip and the page card belong to the
                panel, and the desk's own scroller has to stay inside the card so scroll restoration
                and the desk container query keep working there. */
             viewPanelFrame={viewFrameActive
               ? (page) => <ViewPanel
                 set={tabSet}
-                width={viewPanel.width}
+                width={viewWidth}
                 chords={viewChords}
                 onSelect={selectView}
                 onClose={closeView}
                 onOpen={openView}
+                browser={viewBrowser}
               >{page}</ViewPanel>
               : undefined}
             routeScrollKey={routeScrollKey}

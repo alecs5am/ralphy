@@ -31,9 +31,10 @@ vi.mock("../src/components/UtilityPanels", () => ({
 }));
 vi.mock("../src/components/WelcomeScreen", () => ({ WelcomeScreen: () => <div>Loading Ralphy</div> }));
 vi.mock("../src/chat/useAgentChat", () => ({
+  /* The id is what the view panel keys its tabs and its width by, so the stub carries one. */
   useAgentChat: ({ enabled }: { enabled: boolean }) => {
     (globalThis as typeof globalThis & { __agentChatEnabled?: boolean[] }).__agentChatEnabled?.push(enabled);
-    return {};
+    return { activeChat: { id: "chat-under-test" } };
   },
 }));
 
@@ -353,25 +354,18 @@ describe("marketplace navigation", () => {
       sidebarWidth: 372,
       rightPanelWidth: 404,
       bottomPanelHeight: 280,
-      /* The panel is preserved across a restore like every other preference -- and it carries a tab
+      /* The panel is preserved across a restore like every other preference -- and it gains a tab
          for the restored place, because the tab set follows the route: a restore that lands on
-         project-1 is a navigation to project-1. Seeded here so the assertion stays about *theme*
-         being the only thing the restore changes; with an empty set the panel would legitimately
-         append a tab and this fixture would be asserting a stale blob. */
-      viewPanel: {
-        open: true,
-        width: 440,
-        tabsByWorkspace: {
-          "workspace-1": {
-            tabs: [
-              { id: "home", type: "home", targetId: null, label: "Workspace" },
-              { id: "project:project-1", type: "project", targetId: "project-1", label: "Theme QA" },
-            ],
-            activeTabId: "project:project-1",
-          },
-        },
-      },
+         project-1 is a navigation to project-1. That tab is stored under the live chat's id, which
+         this test cannot know, so the assertion drops the panel's keys and states what it holds. */
+      viewPanel: { open: true, width: 440, byChat: {} },
     } satisfies WorkbenchPreferences;
+    /* Everything but the panel's per-chat record, which is asserted separately. */
+    const persisted = () => {
+      const record = JSON.parse(local.getItem("ralphy-media-workbench-v1")!) as WorkbenchPreferences;
+      const tabs = record.viewPanel.byChat["chat-under-test"]?.tabs.map(({ label }) => label) ?? [];
+      return { record: { ...record, viewPanel: { ...record.viewPanel, byChat: {} } }, tabs };
+    };
     local.setItem("ralphy-media-workbench-v1", JSON.stringify(saved));
     const previousStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
     Object.defineProperty(globalThis, "localStorage", { configurable: true, value: local });
@@ -414,15 +408,19 @@ describe("marketplace navigation", () => {
     try {
       await act(async () => { root.render(<ThemeProvider initialPreference="dark"><App /><ThemeControl /></ThemeProvider>); await settle(); });
       await act(async () => { vi.advanceTimersByTime(500); await settle(); });
-      expect(JSON.parse(local.getItem("ralphy-media-workbench-v1")!)).toEqual(saved);
+      expect(persisted().record).toEqual(saved);
+      expect(persisted().tabs).toEqual([]);
 
       await act(async () => { finishRestore(); await settle(); });
       await act(async () => { vi.advanceTimersByTime(121); await settle(); });
-      expect(JSON.parse(local.getItem("ralphy-media-workbench-v1")!)).toEqual(saved);
+      expect(persisted().record).toEqual(saved);
+      /* The chat holds the place the restore landed on -- when there was one: a restore that
+         returns nothing, or fails, leaves the panel with no place to name. */
+      expect(persisted().tabs).toEqual(outcome === "success" ? ["Workspace", "Theme QA"] : []);
 
       await act(async () => { changeTheme("light"); await settle(); });
       await act(async () => { vi.advanceTimersByTime(121); await settle(); });
-      expect(JSON.parse(local.getItem("ralphy-media-workbench-v1")!)).toEqual({ ...saved, theme: "light" });
+      expect(persisted().record).toEqual({ ...saved, theme: "light" });
     } finally {
       await act(async () => root.unmount());
       restore.mockRestore();
@@ -560,7 +558,7 @@ describe("marketplace navigation", () => {
     const { createRoot } = await import("react-dom/client");
     const root = createRoot(host.container as unknown as Element);
     function NoRootChat() {
-      const chat = actualChat.useAgentChat({ rootPath: null, project: null, enabled: false });
+      const chat = actualChat.useAgentChat({ rootPath: null, workspaceId: null, project: null, enabled: false });
       return <actualPanels.AgentChatPanel chat={chat} workspace={null} project={null} onClose={() => undefined} onOpenSettings={() => undefined} />;
     }
     try {

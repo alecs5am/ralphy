@@ -99,7 +99,62 @@ export function secureWebPreferences(preload: string) {
     contextIsolation: true,
     nodeIntegration: false,
     sandbox: true,
+    /* The view panel's browser tab is a `<webview>`: a guest with its own process, its own
+       session partition and no preload, which is the only way this window can show a page it does
+       not own without giving that page the renderer's origin. The tag alone grants nothing --
+       `hardenWebviewAttach` below is what decides what a guest may attach with. */
+    webviewTag: true,
   } as const;
+}
+
+/** The partition every browser tab shares: one cookie jar, kept away from the app's own session. */
+export const BROWSER_PARTITION = "persist:view-browser";
+
+interface WebviewAttachEvent {
+  preventDefault(): void;
+}
+
+export interface WebviewParams {
+  preload?: string;
+  src?: string;
+  partition?: string;
+  nodeIntegration?: boolean;
+  nodeIntegrationInSubFrames?: boolean;
+  webPreferences?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+/**
+ * What a guest is allowed to be, decided in main rather than trusted from the tag's attributes: a
+ * renderer that can set `nodeintegration` or a `preload` on a webview can run code in this app's
+ * process, and the attributes are markup the page controls. Anything but an `http(s)` page in the
+ * browser partition is refused outright.
+ */
+export function hardenWebviewAttach(event: WebviewAttachEvent, params: WebviewParams): void {
+  delete params.preload;
+  params.nodeIntegration = false;
+  params.nodeIntegrationInSubFrames = false;
+  params.webPreferences = {
+    ...params.webPreferences,
+    contextIsolation: true,
+    nodeIntegration: false,
+    nodeIntegrationInSubFrames: false,
+    sandbox: true,
+    webviewTag: false,
+  };
+  if (params.partition !== BROWSER_PARTITION) { event.preventDefault(); return; }
+  if (!isBrowsableUrl(params.src)) event.preventDefault();
+}
+
+/** A page a browser tab may load: `http(s)` only, so no `file:` and no custom scheme. */
+export function isBrowsableUrl(value: unknown): boolean {
+  if (typeof value !== "string" || !value) return false;
+  try {
+    const { protocol } = new URL(value);
+    return protocol === "http:" || protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 interface TrustedWindow {

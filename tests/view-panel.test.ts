@@ -2,9 +2,12 @@ import { describe, expect, test } from "vitest";
 
 import {
   activeViewTab,
+  capChatPanels,
   closeViewTab,
   HOME_TAB_ID,
   openViewTab,
+  panelWidthFor,
+  retargetViewTab,
   selectViewTab,
   stepViewTab,
   tabSetFor,
@@ -13,6 +16,7 @@ import {
   VIEW_PANEL_STORED_MAX,
   VIEW_PANEL_MIN,
   workspacePageForTab,
+  WORKSPACE_VIEW_TYPES,
 } from "../src/state/view-panel";
 import {
   EMPTY_VIEW_PANEL,
@@ -107,16 +111,48 @@ describe("view panel tabs", () => {
     expect(selectViewTab(wrapping, "not-here")).toBe(wrapping);
   });
 
-  test("every openable type routes somewhere, and the home tab does not", () => {
+  test("every openable type routes somewhere, and the tabs that are not routes do not", () => {
+    // A workspace page routes; the project routes by id; home and the browser are their own pages.
+    const pageless = ["project", "browser"];
     for (const descriptor of VIEW_TYPES) {
       const tab = { id: "x", type: descriptor.type, targetId: null, label: descriptor.label };
-      // A singleton is a workspace page; the one document type is the project, which routes by id.
-      expect(workspacePageForTab(tab) === null).toBe(descriptor.type === "project");
+      expect(workspacePageForTab(tab) === null).toBe(pageless.includes(descriptor.type));
     }
     expect(workspacePageForTab({ id: HOME_TAB_ID, type: "home", targetId: null, label: "Workspace" })).toBeNull();
+    // The hub's tiles are the workspace's own pages, so neither pageless type is among them.
+    expect(WORKSPACE_VIEW_TYPES.map(({ type }) => type)).toEqual(
+      VIEW_TYPES.map(({ type }) => type).filter((type) => !pageless.includes(type)),
+    );
   });
 
-  test("a stored panel is read defensively and remembers tabs per workspace", () => {
+  test("a browser tab is re-targeted where every other tab is re-opened", () => {
+    const opened = openViewTab(set(), { type: "browser", label: "Browser" });
+    const id = opened.activeTabId;
+    const moved = retargetViewTab(opened, id, "https://example.com/one", "example.com");
+    expect(activeViewTab(moved).targetId).toBe("https://example.com/one");
+    expect(activeViewTab(moved).label).toBe("example.com");
+    // The same place twice is the same object, and an id the set does not have changes nothing.
+    expect(retargetViewTab(moved, id, "https://example.com/one", "example.com")).toBe(moved);
+    expect(retargetViewTab(moved, "not-here", "https://example.com/two", "x")).toBe(moved);
+    // One browser per chat: opening it again raises the tab the chat already has.
+    expect(openViewTab(moved, { type: "browser", label: "Browser" }).tabs).toHaveLength(2);
+  });
+
+  test("the per-chat record is capped, oldest first", () => {
+    const panels = Object.fromEntries(Array.from({ length: 45 }, (_, index) => [
+      `chat-${index}`,
+      { tabs: [{ id: "a", type: "memory", targetId: null, label: "Memory" }], activeTabId: "a", width: 500 },
+    ]));
+    const kept = Object.keys(readViewPanel({ byChat: panels }).byChat);
+    expect(kept).toHaveLength(40);
+    expect(kept[0]).toBe("chat-5");
+    expect(kept.at(-1)).toBe("chat-44");
+    // Under the cap nothing is copied.
+    const small = { "chat-1": { tabs: [], activeTabId: "a", width: 500 } };
+    expect(capChatPanels(small)).toBe(small);
+  });
+
+  test("a stored panel is read defensively and remembers tabs and width per chat", () => {
     expect(readViewPanel(null)).toEqual(EMPTY_VIEW_PANEL);
     expect(readViewPanel({ width: 9_000 }).width).toBe(VIEW_PANEL_STORED_MAX);
     expect(readViewPanel({ width: 10 }).width).toBe(VIEW_PANEL_MIN);
@@ -125,23 +161,32 @@ describe("view panel tabs", () => {
 
     // A tab with an unknown type, or no type at all, is dropped rather than trusted.
     const record = readViewPanel({
-      tabsByWorkspace: {
+      width: 520,
+      byChat: {
         alpha: {
           tabs: [
             { id: "a", type: "calendar", targetId: null, label: "Calendar" },
-            { id: "b", type: "browser", targetId: null, label: "Browser" },
+            { id: "b", type: "telepathy", targetId: null, label: "Telepathy" },
             { id: "c", label: "No type" },
           ],
           activeTabId: "a",
+          width: 700,
         },
         beta: { tabs: [] },
+        gamma: { tabs: [{ id: "d", type: "memory", targetId: null, label: "Memory" }], width: "wide" },
       },
     });
     expect(labels(tabSetFor(record, "alpha"))).toEqual(["Workspace", "Calendar"]);
     expect(tabSetFor(record, "alpha").activeTabId).toBe("a");
-    // A workspace with nothing worth storing is not stored, and an unknown one still reads as home.
-    expect(record.tabsByWorkspace.beta).toBeUndefined();
-    expect(tabSetFor(record, "gamma").tabs).toHaveLength(1);
+    // A chat with nothing worth storing is not stored, and an unknown one still reads as home.
+    expect(record.byChat.beta).toBeUndefined();
+    expect(tabSetFor(record, "delta").tabs).toHaveLength(1);
     expect(tabSetFor(record, null).activeTabId).toBe(HOME_TAB_ID);
+
+    // The width follows the chat; a chat that has never been sized inherits the panel's own width.
+    expect(panelWidthFor(record, "alpha")).toBe(700);
+    expect(panelWidthFor(record, "gamma")).toBe(520);
+    expect(panelWidthFor(record, "delta")).toBe(520);
+    expect(panelWidthFor(record, null)).toBe(520);
   });
 });

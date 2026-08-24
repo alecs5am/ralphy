@@ -170,9 +170,10 @@ describe("agent chat state", () => {
       now: 200,
     });
     state.chats[1] = { ...state.chats[1], title: "Claude chat" };
-    saveAgentChats(storage, "/tmp/demo/.ralphy", state);
+    const scope = { rootPath: "/tmp/demo/.ralphy", workspaceId: "ws-1" };
+    saveAgentChats(storage, scope, state);
 
-    const restored = loadAgentChats(storage, "/tmp/demo/.ralphy", {
+    const restored = loadAgentChats(storage, scope, {
       chatId: "fallback",
       provider: "codex",
       model: "default",
@@ -184,6 +185,16 @@ describe("agent chat state", () => {
       { provider: "claude", model: "opus" },
     ]);
     expect(restored.chats[1].title).toBe("New chat");
+
+    /* A chat belongs to a workspace: the same root under another workspace is another list, and
+       the chat the operator was in does not follow them there. */
+    const elsewhere = loadAgentChats(storage, { ...scope, workspaceId: "ws-2" }, {
+      chatId: "other-workspace",
+      provider: "codex",
+      model: "default",
+      now: 350,
+    });
+    expect(elsewhere.chats.map(({ id }) => id)).toEqual(["other-workspace"]);
 
     storage.setItem(
       "ralphy-media:claude-chat:%2Ftmp%2Flegacy%2F.ralphy",
@@ -197,7 +208,8 @@ describe("agent chat state", () => {
         lastCostUsd: 0.4,
       }),
     );
-    const migrated = loadAgentChats(storage, "/tmp/legacy/.ralphy", {
+    const legacyScope = { rootPath: "/tmp/legacy/.ralphy", workspaceId: "ws-1" };
+    const migrated = loadAgentChats(storage, legacyScope, {
       chatId: "migrated-chat",
       provider: "codex",
       model: "default",
@@ -213,5 +225,13 @@ describe("agent chat state", () => {
       permissionMode: "plan",
       entries: [{ id: 8, kind: "assistant", text: "Legacy answer" }],
     });
+    /* The pre-scope record is consumed by the migration, so the next workspace on the same root
+       starts empty rather than inheriting a copy of the same conversation. */
+    expect(loadAgentChats(storage, { ...legacyScope, workspaceId: "ws-2" }, {
+      chatId: "after-migration",
+      provider: "codex",
+      model: "default",
+      now: 500,
+    }).chats.map(({ id }) => id)).toEqual(["after-migration"]);
   });
 });

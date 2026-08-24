@@ -299,8 +299,22 @@ export function reduceAgentChat(
     : next;
 }
 
-function storageKey(rootPath: string): string {
-  return `ralphy-media:agent-chats:2:${encodeURIComponent(rootPath)}`;
+/* A chat belongs to one workspace: the operator's chats are the work they are doing there, and a
+   list that carried every workspace's chats at once made the workspace switch a no-op for the one
+   surface that should have followed it. The root stays in the key because a library is a different
+   set of workspaces entirely. */
+export interface AgentChatScope {
+  rootPath: string;
+  workspaceId: string | null;
+}
+
+function storageKey({ rootPath, workspaceId }: AgentChatScope): string {
+  return `ralphy-media:agent-chats:3:${encodeURIComponent(rootPath)}:${encodeURIComponent(workspaceId ?? "-")}`;
+}
+
+/** The identity of a stored chat list, for deciding when to reload it. */
+export function chatScopeKey(scope: AgentChatScope | null): string | null {
+  return scope && scope.rootPath ? storageKey(scope) : null;
 }
 
 function legacyStorageKey(rootPath: string): string {
@@ -434,10 +448,10 @@ function migrateLegacy(value: unknown, fallback: CreateAgentChatOptions): AgentC
 
 export function saveAgentChats(
   storage: StorageLike,
-  rootPath: string,
+  scope: AgentChatScope,
   state: AgentChatState,
 ): void {
-  if (!rootPath) return;
+  if (!scope.rootPath) return;
   const chats = state.chats.slice(-MAX_PERSISTED_CHATS).map((chat) => ({
     ...chat,
     entries: chat.entries.slice(-MAX_PERSISTED_ENTRIES),
@@ -445,8 +459,8 @@ export function saveAgentChats(
     streamingAssistantId: undefined,
   }));
   try {
-    storage.setItem(storageKey(rootPath), JSON.stringify({
-      version: 2,
+    storage.setItem(storageKey(scope), JSON.stringify({
+      version: 3,
       chats,
       activeChatId: state.activeChatId,
     }));
@@ -457,12 +471,12 @@ export function saveAgentChats(
 
 export function loadAgentChats(
   storage: StorageLike,
-  rootPath: string,
+  scope: AgentChatScope,
   fallback: CreateAgentChatOptions,
 ): AgentChatState {
-  if (!rootPath) return createAgentChatState(fallback);
+  if (!scope.rootPath) return createAgentChatState(fallback);
   try {
-    const raw = storage.getItem(storageKey(rootPath));
+    const raw = storage.getItem(storageKey(scope));
     if (raw) {
       const value = JSON.parse(raw) as unknown;
       if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -481,9 +495,13 @@ export function loadAgentChats(
         }
       }
     }
-    const legacy = storage.getItem(legacyStorageKey(rootPath));
-    if (legacy) return migrateLegacy(JSON.parse(legacy) as unknown, fallback)
-      ?? createAgentChatState(fallback);
+    /* The pre-scope record is consumed, not just read: it is keyed by root alone, so leaving it in
+       place would hand the same chat to every workspace the operator opens. */
+    const legacy = storage.getItem(legacyStorageKey(scope.rootPath));
+    if (legacy) {
+      storage.removeItem(legacyStorageKey(scope.rootPath));
+      return migrateLegacy(JSON.parse(legacy) as unknown, fallback) ?? createAgentChatState(fallback);
+    }
   } catch {
     return createAgentChatState(fallback);
   }
@@ -541,26 +559,30 @@ function message(error: unknown): string {
 
 export function useAgentChat({
   rootPath,
+  workspaceId,
   project,
   enabled = true,
 }: {
   rootPath: string | null;
+  workspaceId: string | null;
   project: ProjectSummary | null;
   enabled?: boolean;
 }): AgentChatController {
   const storage = useMemo(localStorageOrNull, []);
+  const scope = rootPath ? { rootPath, workspaceId } : null;
+  const scopeKey = chatScopeKey(scope);
   const [state, dispatch] = useReducer(
     reduceAgentChat,
-    rootPath,
-    (root) => root && storage
-      ? loadAgentChats(storage, root, fallbackChat())
+    scope,
+    (initial) => initial && storage
+      ? loadAgentChats(storage, initial, fallbackChat())
       : createAgentChatState(fallbackChat()),
   );
   const [providers, setProviders] = useState<AgentProviderStatus[]>([]);
   const [providersLoading, setProvidersLoading] = useState(false);
   const [authAction, setAuthAction] = useState<AgentProvider | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const loadedRoot = useRef(rootPath);
+  const loadedScope = useRef(scopeKey);
   const pendingState = useRef<AgentChatState | null>(null);
   const providersLoaded = useRef(false);
 
@@ -574,24 +596,24 @@ export function useAgentChat({
     : activeProvider?.connected === true;
 
   useEffect(() => {
-    if (loadedRoot.current === rootPath) return;
+    if (loadedScope.current === scopeKey) return;
     const restored = rootPath && storage
-      ? loadAgentChats(storage, rootPath, fallbackChat())
+      ? loadAgentChats(storage, { rootPath, workspaceId }, fallbackChat())
       : createAgentChatState(fallbackChat());
     pendingState.current = restored;
     dispatch({ type: "restore", state: restored });
-  }, [rootPath, storage]);
+  }, [rootPath, scopeKey, storage, workspaceId]);
 
   useEffect(() => {
     if (pendingState.current === state) {
       pendingState.current = null;
-      loadedRoot.current = rootPath;
+      loadedScope.current = scopeKey;
       return;
     }
-    if (rootPath && storage && loadedRoot.current === rootPath) {
-      saveAgentChats(storage, rootPath, state);
+    if (rootPath && storage && loadedScope.current === scopeKey) {
+      saveAgentChats(storage, { rootPath, workspaceId }, state);
     }
-  }, [rootPath, state, storage]);
+  }, [rootPath, scopeKey, state, storage, workspaceId]);
 
   useEffect(() => bridge.onAgentEvent((envelope) => {
     if (envelope.storeId === rootPath) {

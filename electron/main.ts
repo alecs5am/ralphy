@@ -131,7 +131,11 @@ import {
 } from "./migration-recovery";
 import {
   assertTrustedSender as assertIpcSender,
+  BROWSER_PARTITION,
   denyPermissionRequest,
+  hardenWebviewAttach,
+  isBrowsableUrl,
+  type WebviewParams,
   installNavigationGuards,
   secureWebPreferences,
   toIpcResult,
@@ -1554,8 +1558,28 @@ function startNormalDesktop(): void {
   registerProjectDomainIpc();
   registerAgentIpc();
 
+  /* A guest attaches with what main allows, not with what the markup asked for, and a page it
+     opens is a page in the operator's own browser rather than a second window of this app. */
+  app.on("web-contents-created", (_event, contents) => {
+    contents.on("will-attach-webview", (event, prefs, params) => {
+      hardenWebviewAttach(event, params as WebviewParams);
+      prefs.preload = undefined;
+      prefs.nodeIntegration = false;
+      prefs.contextIsolation = true;
+    });
+    if (contents.getType() === "webview") {
+      contents.setWindowOpenHandler(({ url }) => {
+        if (isBrowsableUrl(url)) void shell.openExternal(url);
+        return { action: "deny" };
+      });
+    }
+  });
+
   void app.whenReady().then(() => {
     electronSession.defaultSession.setPermissionRequestHandler(denyPermissionRequest);
+    /* The browser partition is a separate session, so the default session's refusal does not
+       reach it: a page in a view tab asks nobody for the camera either. */
+    electronSession.fromPartition(BROWSER_PARTITION).setPermissionRequestHandler(denyPermissionRequest);
     protocol.handle("ralphy-media", async (request) => {
       try {
         const operation = mediaState.captureActive();

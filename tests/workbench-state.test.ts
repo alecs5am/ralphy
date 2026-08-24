@@ -359,13 +359,14 @@ describe("workbench ordering and preferences", () => {
       viewPanel: {
         open: false,
         width: 520,
-        tabsByWorkspace: {
-          newer: {
+        byChat: {
+          "chat-1": {
             tabs: [
               { id: "home", type: "home" as const, targetId: null, label: "Workspace" },
               { id: "calendar:self:1", type: "calendar" as const, targetId: null, label: "Calendar" },
             ],
             activeTabId: "calendar:self:1",
+            width: 700,
           },
         },
       },
