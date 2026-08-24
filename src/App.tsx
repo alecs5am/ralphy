@@ -593,9 +593,15 @@ export function App() {
     });
   };
 
+  /* A workspace page is a route *and* a page: every workspace screen renders under a workspace
+     route, so setting the page alone left a project route rendering the project -- which is what
+     made each view tab open the same view. `open-workspace` dedupes an identical route, so this
+     costs nothing when the route is already where it belongs. */
   const openWorkspacePage = (page: WorkspacePage) => {
-    clearOverviewNavigation();
     setWorkspacePage(page);
+    const workspaceId = selectedWorkspace?.id ?? mostRecentWorkspaceId(workspaces);
+    if (workspaceId) openWorkspace(workspaceId);
+    else clearOverviewNavigation();
   };
 
   const navigateFromOverview = (destination: WorkspaceDestination, returnState: WorkspaceOverviewReturnState) => {
@@ -901,8 +907,6 @@ export function App() {
                 onOpenPage={(page) => {
                   switchAppMode("work");
                   openWorkspacePage(page);
-                  const workspaceId = selectedWorkspace?.id ?? mostRecentWorkspaceId(workspaces);
-                  if (workspaceId) openWorkspace(workspaceId);
                 }}
                 chats={sidebarChats}
                 activeChatId={agentChat.activeChat?.id ?? null}

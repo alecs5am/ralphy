@@ -229,6 +229,23 @@ describe("workspace projects navigation", () => {
     expect(markup).not.toContain("Launch film");
   });
 
+  test("lands a route on every workspace page, so a view tab is not the tab it was opened from", () => {
+    const app = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
+    /* Every workspace screen renders under `route.kind === "workspace"`, and a project route
+       renders the project instead. So setting the page without landing the route left each view
+       tab -- Overview, Projects, Memory, Calendar, Shared -- showing whatever project was open.
+       One definition of the pair, used by the strip and by the sidebar alike. */
+    const navigation = /const openWorkspacePage = \(page: WorkspacePage\) => \{([^}]*)\}/.exec(app)?.[1] ?? "";
+    expect(navigation).toContain("setWorkspacePage(page)");
+    expect(navigation).toContain("openWorkspace(workspaceId)");
+    for (const page of WORKSPACE_PAGES) {
+      const guarded = new RegExp(`route\\.kind === "workspace"[^;]*workspacePage === "${page}"`);
+      if (page !== "units") expect(app).toMatch(guarded);
+    }
+    /* And the strip routes every tab but home: home is the panel's own page. */
+    expect(app).toContain('if (tab.type !== "home") routeToView(');
+  });
+
   test("adapts the same sidebar to all Marketplace destinations without workspace chrome", () => {
     const markup = renderToStaticMarkup(
       <ContextSidebar
