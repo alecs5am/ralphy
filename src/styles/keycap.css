@@ -1,0 +1,14 @@
+/* Handoff 15 draws the keycap's socket and face as squircles, and the shape is not a detail: at the
+   same radius a squircle reads distinctly tighter than a circular arc, so a cap built with plain
+   corners looks round where the design looks machined. The radii themselves already follow the
+   handoff's formulas -- round(h * .3) + 2 on the socket, round(h * .3) on the face.
+
+   It lives here rather than in a utility class because `corner-shape` has no Tailwind namespace and
+   the arbitrary-value count in this repo is a ratchet that only goes down. The @supports guard is
+   the handoff's own fallback: without the property the plain radius still stands. */
+@supports (corner-shape: squircle) {
+  .keycap-socket,
+  .keycap-face {
+    corner-shape: squircle;
+  }
+}

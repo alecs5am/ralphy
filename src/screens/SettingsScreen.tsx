@@ -220,7 +220,7 @@ export function SettingsScreen({
         {/* macOS draws the traffic lights itself and the sidebar now runs to the top of the
             window, so they land on this header -- the same seat, at the same height, as the app's
             own sidebar header, which is why `trafficLightPosition` needs no second value. */}
-        <header className="settings-sidebar-header flex h-13 flex-none items-center gap-2.5 px-3.5 [-webkit-app-region:drag]">
+        <header className="settings-sidebar-header flex h-9 flex-none items-center gap-2.5 px-3.5 [-webkit-app-region:drag]">
           <div className="w-traffic-sidebar h-px flex-none" aria-hidden="true" />
           <button
             className="inline-flex h-8 min-w-0 flex-1 items-center gap-2.25 rounded-control px-2.5 type-ui text-muted [-webkit-app-region:no-drag] hover:bg-field hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"

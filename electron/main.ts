@@ -1335,12 +1335,13 @@ function createWindow(): void {
     minWidth: MINIMUM_WINDOW_SIZE.width,
     minHeight: MINIMUM_WINDOW_SIZE.height,
     titleBarStyle: "hiddenInset",
-    /* The lights sit inside the sidebar card's own 52px header: the window pads itself by 8 and
-       the card pads itself by 14, so x is 22, and the header's centre line is 8 + 26 = 34, which
-       puts a 12px light's top edge at 28. Collapsing the sidebar leaves them over the content
-       column's 44px topbar instead, 4px below its centre; moving them per toggle would cost an
-       IPC round trip on every collapse for those 4px. */
-    trafficLightPosition: { x: 22, y: 28 },
+    /* The app has one chrome line and the lights stand on it. The window pads itself by 8 and the
+       sidebar card by 14, so x is 22; every chrome row is 36 tall on that 8 line, so its centre is
+       8 + 18 = 26 and a 12px light's top edge is 20. Both rows share the line deliberately -- the
+       lights are drawn by macOS at a fixed window offset, so a second line would be a row the
+       lights can never sit on, and repositioning them per sidebar toggle would put an IPC round
+       trip in the middle of an animation. */
+    trafficLightPosition: { x: 22, y: 20 },
     backgroundColor: INSTRUMENT_PALETTE.dark.desk,
     show: !SMOKE_TEST && !INSTRUMENT_SHELL_AUDIT,
     webPreferences: secureWebPreferences(join(__dirname, "preload.cjs")),
