@@ -114,8 +114,12 @@ describe("ClaudeSession", () => {
     expect(capture.args).toContain("--include-partial-messages");
     expect(capture.args).toContain("auto");
     expect(capture.args).toContain("123e4567-e89b-12d3-a456-426614174001");
-    expect(capture.args.at(-1)).toContain("Review the current render");
-    expect(capture.args.at(-1)).toContain(projectPath);
+    /* The message is the operator's sentence and nothing else; the harness's own context is a
+       system instruction beside it, which is where the active project is named. */
+    expect(capture.args.at(-1)).toBe("Review the current render");
+    const system = capture.args[capture.args.indexOf("--append-system-prompt") + 1]!;
+    expect(system).toContain(projectPath);
+    expect(system).toContain("[Ralphy Media context]");
     expect(events).toEqual([
       {
         type: "session",

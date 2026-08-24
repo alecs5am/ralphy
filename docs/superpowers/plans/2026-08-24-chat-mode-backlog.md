@@ -49,7 +49,21 @@ verification is partial (says which part).
   `~/.codex/config.toml` says", and this operator's config says `gpt-5.6-luna` — so every existing
   chat kept failing. The row is now dropped when the configured default is unrunnable, and a chat
   pinned to a model the provider no longer lists moves to the provider's default by itself.
-- [ ] **C2 — Refresh the Claude Code integration.** Same currency check for the Claude harness.
+- [~] **C2 — Refresh the Claude Code integration.** Same currency check for the Claude harness.
+  Checked against the installed `claude 2.1.228`: every flag the session spawns still exists
+  (`-p`, `--output-format stream-json`, `--verbose`, `--include-partial-messages`,
+  `--setting-sources`, `--permission-mode`, `--no-chrome`, `--model`, `--resume`), the three model
+  aliases are the three the CLI documents (`opus`, `sonnet`, `fable`), every permission mode we
+  send is in its `choices` list, and `auth status --json` answers in the shape we parse.
+
+  Changed: the Ralphy context now goes through `--append-system-prompt` rather than being glued to
+  the front of the operator's sentence — that is where a harness's own context belongs, and it
+  leaves the message the operator wrote as the message the model answers. Codex `exec` has no
+  equivalent, so there it stays a prefix.
+
+  **Not verified live:** this machine has no Claude account or key (`auth status` reports
+  `loggedIn: false`), so the streaming parser has not been run against a real Claude turn. Sign in
+  and send one message to close this out.
 - [~] **C3 — Streaming looks dead on Codex.** The parser now forwards a growing message as
   suffixes, so the transcript streams as soon as the CLI reports one -- but the installed
   `codex-cli 0.142.4` never does: `codex exec --json` emits `item.completed` for an assistant

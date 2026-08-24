@@ -181,6 +181,7 @@ async function canonicalContext(request: ClaudeRunRequest): Promise<{
   rootPath: string;
   cwd: string;
   prompt: string;
+  system: string;
 }> {
   const rootPath = await realpath(request.rootPath);
   if (!rootPath.endsWith(`${sep}.ralphy`) && rootPath !== `${sep}.ralphy`) {
@@ -196,9 +197,14 @@ async function canonicalContext(request: ClaudeRunRequest): Promise<{
   }
   /* The preamble is the same list the Context panel shows, built from the files that are really
      there: the working directory is the operator's home, so nothing relative reaches Ralphy's own
-     guides and naming them would be a wish rather than an instruction. */
+     guides and naming them would be a wish rather than an instruction.
+
+     Claude takes it as a *system* instruction rather than as a prefix on the operator's sentence:
+     `--append-system-prompt` is where a harness's own context belongs, and it keeps the message
+     the operator wrote the message the model is answering. Codex has no equivalent on `exec`, so
+     there the preamble is still a prefix. */
   const { preamble } = await readAgentContext({ provider: "claude", rootPath, projectPath, cwd });
-  return { rootPath, cwd, prompt: [preamble, "", validatePrompt(request.prompt)].join("\n") };
+  return { rootPath, cwd, prompt: validatePrompt(request.prompt), system: preamble };
 }
 
 export async function readClaudeAuthStatus(
@@ -304,6 +310,7 @@ export class ClaudeSession {
       "--verbose",
       "--include-partial-messages",
       "--setting-sources", "user,project,local",
+      "--append-system-prompt", context.system,
       "--permission-mode", permissionMode(request.permissionMode),
       "--no-chrome",
       ...(request.model ? ["--model", request.model] : []),
