@@ -30,7 +30,27 @@ import { MemoryScreen } from "./screens/MemoryScreen";
 import { CalendarScreen } from "./screens/CalendarScreen";
 import { SharedLibraryScreen } from "./screens/SharedLibraryScreen";
 import { MarketplaceScreen } from "./screens/MarketplaceScreen";
-import { readCommandBindings, resolveCommand } from "./screens/settings/commands";
+import {
+  effectiveChord,
+  chordTokens,
+  readCommandBindings,
+  resolveCommand,
+  SETTINGS_COMMANDS,
+} from "./screens/settings/commands";
+import {
+  activeViewTab,
+  closeViewTab,
+  HOME_TAB_ID,
+  openViewTab,
+  selectViewTab,
+  stepViewTab,
+  tabSetFor,
+  type OpenViewRequest,
+  type ViewPanelPreferences,
+  type ViewTabSet,
+} from "./state/view-panel";
+import { ViewPanel } from "./instrument/ViewPanel";
+import { ViewPanelHub } from "./instrument/ViewPanelHub";
 import { InstrumentScreenRoot } from "./instrument/screen-state-registry";
 import { InstrumentShell } from "./instrument/InstrumentShell";
 import { DynamicIsland } from "./instrument/DynamicIsland";
@@ -57,6 +77,7 @@ import {
   WORKSPACE_PAGE_LABELS,
   type WorkspaceDestination,
   type WorkspaceOverviewReturnState,
+  WORKSPACE_PAGES,
   type WorkspacePage,
 } from "./state/workbench";
 import { COMMAND_BUTTON } from "./screens/route-chrome";
@@ -194,6 +215,7 @@ export function App() {
   const [rightPanelWidth, setRightPanelWidth] = useState(
     initialPreferences.current.rightPanelWidth,
   );
+  const [viewPanel, setViewPanel] = useState<ViewPanelPreferences>(initialPreferences.current.viewPanel);
   const [viewport, setViewport] = useState(() => ({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -405,6 +427,7 @@ export function App() {
         rightPanelVisible,
         sidebarWidth,
         rightPanelWidth,
+        viewPanel,
       }));
     }, 120);
     return () => window.clearTimeout(timer);
@@ -420,6 +443,7 @@ export function App() {
     state.pinnedWorkspaceIds,
     state.catalog,
     state.route,
+    viewPanel,
     workspacePage,
   ]);
 
@@ -574,6 +598,119 @@ export function App() {
     setWorkspacePage("overview");
   };
 
+  /* ---- Handoff 14's view panel ----------------------------------------------------------- */
+
+  /* The tab set belongs to the workspace, so it swaps when the workspace does. `open` and the
+     width do not: those are one window-level decision. */
+  const viewFrameActive = lens === "chat" && marketplace.mode === "work";
+  const viewWorkspaceId = selectedWorkspace?.id ?? null;
+  const tabSet = tabSetFor(viewPanel, viewWorkspaceId);
+  const viewTab = activeViewTab(tabSet);
+  const updateTabs = (update: (set: ViewTabSet) => ViewTabSet) => setViewPanel((record) => {
+    if (!viewWorkspaceId) return record;
+    const current = tabSetFor(record, viewWorkspaceId);
+    const next = update(current);
+    return next === current
+      ? record
+      : { ...record, tabsByWorkspace: { ...record.tabsByWorkspace, [viewWorkspaceId]: next } };
+  });
+
+  /* The tab set follows the route instead of every caller announcing itself: a place you have
+     navigated to is a place you have open, whichever control took you there -- the sidebar, an
+     overview link, the island, the hub. The ref is what keeps the home tab selectable: without it
+     any re-render that re-ran this effect would raise the route's tab and steal home's turn. */
+  const routePlace = useRef<string | null>(null);
+  useEffect(() => {
+    if (marketplace.mode !== "work" || !viewWorkspaceId) return;
+    const route = state.route;
+    const project = route.kind === "project"
+      ? projects.find((candidate) => candidate.projectId === route.projectId) ?? null
+      : null;
+    const request: OpenViewRequest | null = route.kind === "project"
+      ? project && { type: "project", targetId: project.projectId, label: project.name }
+      : route.kind === "workspace"
+        ? { type: workspacePage, label: WORKSPACE_PAGE_LABELS[workspacePage] }
+        : null;
+    if (!request) return;
+    const key = `${viewWorkspaceId}:${request.type}:${request.targetId ?? ""}`;
+    if (key === routePlace.current) return;
+    routePlace.current = key;
+    updateTabs((set) => openViewTab(set, request));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- updateTabs is a render-local closure
+  }, [marketplace.mode, projects, state.route, viewWorkspaceId, workspacePage]);
+
+  const routeToView = (request: OpenViewRequest) => {
+    if (request.type !== "project") { openWorkspacePage(request.type); return; }
+    const project = projects.find((candidate) => candidate.projectId === request.targetId);
+    if (project) openProject(project);
+  };
+
+  const openView = (request: OpenViewRequest) => {
+    setLens("chat");
+    updateTabs((set) => openViewTab(set, request));
+    routeToView(request);
+  };
+
+  const selectView = (id: string) => {
+    const tab = tabSet.tabs.find((candidate) => candidate.id === id);
+    if (!tab) return;
+    updateTabs((set) => selectViewTab(set, id));
+    /* Home is the panel's own page, not a route: selecting it leaves the work route where it is,
+       which is what makes it a point of return rather than a seventh place. */
+    if (tab.type !== "home") routeToView({ type: tab.type, targetId: tab.targetId, label: tab.label });
+  };
+
+  const closeView = (id: string) => {
+    const next = closeViewTab(tabSet, id);
+    if (next === tabSet) return;
+    updateTabs(() => next);
+    if (tabSet.activeTabId !== id) return;
+    const landed = next.tabs.find((tab) => tab.id === next.activeTabId)!;
+    if (landed.type !== "home") routeToView({ type: landed.type, targetId: landed.targetId, label: landed.label });
+  };
+
+  /* A cap this panel prints is a chord the registry resolves, so the caps are read from the
+     registry with the user's own rebindings applied rather than typed into the markup. */
+  const viewChords = useMemo(() => {
+    const bindings = readCommandBindings(localStorage);
+    return Object.fromEntries(SETTINGS_COMMANDS.flatMap((command) => {
+      const bound = effectiveChord(command, bindings);
+      return bound ? [[command.id, chordTokens(bound)]] : [];
+    }));
+  }, [settingsVisible]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (settingsVisible || marketplace.mode !== "work") return;
+      /* `⌥1..9` is one behaviour over nine keys, so it is not nine registry entries. It is stated
+         here, ahead of the registry lookup, and prints no cap anywhere -- nothing claims a chord
+         the registry does not own. */
+      if (event.altKey && !event.metaKey && !event.ctrlKey && /^[1-9]$/.test(event.key)) {
+        const tab = tabSet.tabs[Number(event.key) - 1];
+        if (!tab) return;
+        event.preventDefault();
+        selectView(tab.id);
+        return;
+      }
+      const command = resolveCommand(event, readCommandBindings(localStorage));
+      if (!command?.id.startsWith("view.")) return;
+      if (command.id === "view.desk" || command.id === "view.chat") return;
+      event.preventDefault();
+      if (command.id === "view.panel") { setViewPanel((record) => ({ ...record, open: !record.open })); return; }
+      if (command.id === "view.home") { setLens("chat"); selectView(HOME_TAB_ID); return; }
+      if (command.id === "view.close") { closeView(tabSet.activeTabId); return; }
+      if (command.id === "view.prev" || command.id === "view.next") {
+        selectView(stepViewTab(tabSet, command.id === "view.next" ? 1 : -1).activeTabId);
+        return;
+      }
+      const page = command.id.slice("view.".length) as WorkspacePage;
+      if (WORKSPACE_PAGES.includes(page)) openView({ type: page, label: WORKSPACE_PAGE_LABELS[page] });
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the handlers are render-local closures
+  }, [marketplace.mode, settingsVisible, tabSet, viewPanel.open, projects, workspacePage]);
+
   if (migrationRecovery) {
     return (
       <MigrationRecoveryScreen
@@ -684,6 +821,20 @@ export function App() {
     workContent = <WorkspaceDestinationFrame destination={workspaceDestination} onBack={backToOverview}>{workContent}</WorkspaceDestinationFrame>;
   }
 
+  /* The home tab is the one tab that is not a route, so it is the one place the panel puts its own
+     page in front of the work content. Under the desk lens there is no panel and no home tab. */
+  if (viewFrameActive && viewTab.type === "home") {
+    workContent = <ViewPanelHub
+      workspace={selectedWorkspace}
+      projects={projects.filter((project) => project.workspaceId === selectedWorkspace?.id)}
+      workspaces={workspaces}
+      chords={viewChords}
+      onOpen={openView}
+      onOpenProject={openProject}
+      onOpenWorkspace={(workspaceId) => { switchAppMode("work"); openWorkspace(workspaceId); }}
+    />;
+  }
+
   const canGoBack = marketplace.mode === "marketplace" ? true : state.historyIndex > 0;
   const canGoForward = marketplace.mode === "marketplace"
     ? marketplace.historyIndex < marketplace.history.length - 1
@@ -749,7 +900,10 @@ export function App() {
               />
             </>}
             desk={<div className="main-content-stage flex min-w-0 flex-1">
-              <div className={`app-mode-surface app-mode-work min-h-0 min-w-0 flex-1 bg-desk text-ink ${marketplace.mode === "work" ? "flex" : "hidden"}`} hidden={marketplace.mode !== "work"} inert={marketplace.mode !== "work"}>
+              {/* The work surface paints the desk, except inside the view panel: there the page card
+                  is the surface the route stands on, and a desk wash over it turned a white card
+                  grey -- visible in the light theme, and the same error in the dark one. */}
+              <div className={`app-mode-surface app-mode-work min-h-0 min-w-0 flex-1 text-ink ${viewFrameActive ? "bg-transparent" : "bg-desk"} ${marketplace.mode === "work" ? "flex" : "hidden"}`} hidden={marketplace.mode !== "work"} inert={marketplace.mode !== "work"}>
                 {workContent}
               </div>
               <div
@@ -794,6 +948,22 @@ export function App() {
                 }
               }}
             /></InstrumentRightRailShortcut>}
+            viewOpen={viewPanel.open}
+            viewWidth={viewPanel.width}
+            onViewWidthChange={(width) => setViewPanel((record) => ({ ...record, width }))}
+            /* The frame is a wrapper, not a sibling: the tab strip and the page card belong to the
+               panel, and the desk's own scroller has to stay inside the card so scroll restoration
+               and the desk container query keep working there. */
+            viewPanelFrame={viewFrameActive
+              ? (page) => <ViewPanel
+                set={tabSet}
+                width={viewPanel.width}
+                chords={viewChords}
+                onSelect={selectView}
+                onClose={closeView}
+                onOpen={openView}
+              >{page}</ViewPanel>
+              : undefined}
             routeScrollKey={routeScrollKey}
             leftVisible={activeSidebarVisible}
             leftWidth={sidebarWidth}

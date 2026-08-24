@@ -78,6 +78,9 @@ const defaultProps = {
   onLeftWidthChange: () => undefined,
   rightWidth: 292,
   onRightWidthChange: () => undefined,
+  viewOpen: true,
+  viewWidth: 440,
+  onViewWidthChange: () => undefined,
   rightPreference: true,
   rightOverlayOpen: false,
   lens: "desk" as const,
@@ -173,14 +176,19 @@ describe("instrument shell", () => {
       expect(shell.getAttribute("data-right-rail-mode")).toBe("docked");
       expect(deskColumn().getAttribute("hidden")).toBeNull();
 
-      // 380 once the window is under the docking width, and gone entirely under 1120: the chat
-      // takes the whole content area rather than the two columns squeezing each other.
+      // Handoff 14 makes the width the user's, so it is no longer a step function of the window:
+      // the panel keeps its 440 until the chat would fall under 520, and then gives width back.
+      // At 1200 with a 240 sidebar the content row is 936, so the ceiling is 936 - 8 - 520 = 408.
       await act(async () => {
         mounted.observer.resize(shell, 1_200, 800);
         await settle();
       });
-      expect(deskColumn().style.width).toBe("380px");
+      expect(deskColumn().style.width).toBe("408px");
       expect(deskColumn().getAttribute("hidden")).toBeNull();
+      // The grabber's range follows the same ceiling, so a drag cannot pass it either.
+      const handle = mounted.host.container.querySelector(".resize-instrument-view") as HostNode;
+      expect(handle.getAttribute("aria-valuemin")).toBe("380");
+      expect(handle.getAttribute("aria-valuemax")).toBe("408");
 
       await act(async () => {
         mounted.observer.resize(shell, 1_119, 800);

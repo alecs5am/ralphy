@@ -353,6 +353,24 @@ describe("marketplace navigation", () => {
       sidebarWidth: 372,
       rightPanelWidth: 404,
       bottomPanelHeight: 280,
+      /* The panel is preserved across a restore like every other preference -- and it carries a tab
+         for the restored place, because the tab set follows the route: a restore that lands on
+         project-1 is a navigation to project-1. Seeded here so the assertion stays about *theme*
+         being the only thing the restore changes; with an empty set the panel would legitimately
+         append a tab and this fixture would be asserting a stale blob. */
+      viewPanel: {
+        open: true,
+        width: 440,
+        tabsByWorkspace: {
+          "workspace-1": {
+            tabs: [
+              { id: "home", type: "home", targetId: null, label: "Workspace" },
+              { id: "project:project-1", type: "project", targetId: "project-1", label: "Theme QA" },
+            ],
+            activeTabId: "project:project-1",
+          },
+        },
+      },
     } satisfies WorkbenchPreferences;
     local.setItem("ralphy-media-workbench-v1", JSON.stringify(saved));
     const previousStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");

@@ -355,6 +355,20 @@ describe("workbench ordering and preferences", () => {
       rightPanelWidth: 400,
       bottomPanelHeight: 280,
       theme: "light" as const,
+      /* Handoff 14's panel is stored state too, so the round trip has to carry it. */
+      viewPanel: {
+        open: false,
+        width: 520,
+        tabsByWorkspace: {
+          newer: {
+            tabs: [
+              { id: "home", type: "home" as const, targetId: null, label: "Workspace" },
+              { id: "calendar:self:1", type: "calendar" as const, targetId: null, label: "Calendar" },
+            ],
+            activeTabId: "calendar:self:1",
+          },
+        },
+      },
     };
 
     writeWorkbenchPreferences(storage, preferences);

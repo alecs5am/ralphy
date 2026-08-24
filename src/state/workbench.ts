@@ -36,6 +36,85 @@ export interface WorkspaceOverviewReturnState {
   returnFocusId: string;
 }
 
+/**
+ * Handoff 14's view panel, as stored state. The shapes live here beside the other persisted
+ * preferences; `state/view-panel.ts` owns what you can *do* to them.
+ *
+ * `open` and `width` are one window-level decision -- you size the panel once and it stays that
+ * width wherever you are -- so they sit beside the tab sets rather than inside each of them. The
+ * handoff's own shape nests width per workspace; a panel that resized itself when you switched
+ * workspace would read as a bug, and its "memory per workspace" rule names the tab set, the
+ * active tab and the scroll, not the chrome.
+ */
+export const VIEW_TAB_TYPES = ["home", ...WORKSPACE_PAGES, "project"] as const;
+export type ViewTabType = (typeof VIEW_TAB_TYPES)[number];
+export const HOME_TAB_ID = "home";
+export const VIEW_PANEL_MIN = 380;
+export const VIEW_PANEL_MAX = 560;
+export const VIEW_PANEL_DEFAULT = 440;
+
+export interface ViewTab {
+  id: string;
+  type: ViewTabType;
+  /** A document tab's target. Null for the home tab and for the workspace singletons. */
+  targetId: string | null;
+  label: string;
+}
+
+export interface ViewTabSet {
+  tabs: ViewTab[];
+  activeTabId: string;
+}
+
+export interface ViewPanelPreferences {
+  open: boolean;
+  width: number;
+  tabsByWorkspace: Record<string, ViewTabSet>;
+}
+
+export function homeTab(): ViewTab {
+  return { id: HOME_TAB_ID, type: "home", targetId: null, label: "Workspace" };
+}
+
+/** Home is always first and always present, however the stored record got there. */
+export function normalizeTabSet(value: Partial<ViewTabSet> | undefined): ViewTabSet {
+  const rest = (value?.tabs ?? []).filter((tab) => tab.type !== "home" && tab.id !== HOME_TAB_ID);
+  const tabs = [homeTab(), ...rest];
+  const activeTabId = tabs.some(({ id }) => id === value?.activeTabId) ? value!.activeTabId! : HOME_TAB_ID;
+  return { tabs, activeTabId };
+}
+
+export const EMPTY_VIEW_PANEL: ViewPanelPreferences = {
+  open: true,
+  width: VIEW_PANEL_DEFAULT,
+  tabsByWorkspace: {},
+};
+
+const isViewTab = (value: unknown): value is ViewTab => {
+  const candidate = value as Partial<ViewTab> | null;
+  return !!candidate
+    && typeof candidate.id === "string"
+    && typeof candidate.label === "string"
+    && VIEW_TAB_TYPES.includes(candidate.type as ViewTabType);
+};
+
+/** A stored panel is user state, not a contract, so every field is read defensively. */
+export function readViewPanel(value: unknown): ViewPanelPreferences {
+  const record = (value ?? {}) as Partial<ViewPanelPreferences>;
+  const stored = (record.tabsByWorkspace ?? {}) as Record<string, unknown>;
+  return {
+    open: record.open !== false,
+    width: Number.isFinite(record.width)
+      ? Math.min(VIEW_PANEL_MAX, Math.max(VIEW_PANEL_MIN, Math.round(record.width as number)))
+      : VIEW_PANEL_DEFAULT,
+    tabsByWorkspace: Object.fromEntries(Object.entries(stored).flatMap(([workspaceId, entry]) => {
+      const candidate = entry as Partial<ViewTabSet> | null;
+      const tabs = Array.isArray(candidate?.tabs) ? candidate!.tabs.filter(isViewTab) : [];
+      return tabs.length ? [[workspaceId, normalizeTabSet({ tabs, activeTabId: candidate?.activeTabId })]] : [];
+    })),
+  };
+}
+
 export const WORKSPACE_PAGE_LABELS: Record<WorkspacePage, string> = {
   overview: "Overview",
   projects: "Projects",
@@ -64,6 +143,7 @@ export interface WorkbenchPreferences {
   sidebarWidth: number;
   rightPanelWidth: number;
   bottomPanelHeight: number;
+  viewPanel: ViewPanelPreferences;
 }
 
 export type WorkbenchLens = "desk" | "chat";
@@ -335,6 +415,7 @@ export function readWorkbenchPreferences(storage: StorageLike): WorkbenchPrefere
     sidebarWidth: PANEL_SIZE_LIMITS.sidebar.default,
     rightPanelWidth: PANEL_SIZE_LIMITS.right.default,
     bottomPanelHeight: PANEL_SIZE_LIMITS.bottom.default,
+    viewPanel: EMPTY_VIEW_PANEL,
   };
   try {
     const value = JSON.parse(storage.getItem(PREFERENCES_KEY) ?? "null") as unknown;
@@ -361,6 +442,7 @@ export function readWorkbenchPreferences(storage: StorageLike): WorkbenchPrefere
       sidebarWidth: panelSize(record.sidebarWidth, PANEL_SIZE_LIMITS.sidebar),
       rightPanelWidth: panelSize(record.rightPanelWidth, PANEL_SIZE_LIMITS.right),
       bottomPanelHeight: panelSize(record.bottomPanelHeight, PANEL_SIZE_LIMITS.bottom),
+      viewPanel: readViewPanel(record.viewPanel),
     };
   } catch {
     return empty;

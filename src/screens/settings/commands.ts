@@ -39,6 +39,19 @@ export const SETTINGS_COMMANDS: readonly SettingsCommand[] = [
   { id: "nav.findProjects", group: "Navigation", name: "Find a project", scope: "Global", chord: chord("f", { meta: true }) },
   /* The chat lens' New chat control prints this cap, so the chord has to exist. */
   { id: "chat.new", group: "Chat", name: "New chat", scope: "Global", chord: chord("n", { meta: true }) },
+  /* Handoff 14's view panel. The four type chords are the types the app can open; the panel's own
+     `+` menu and the hub's tiles print these caps, so each one has to resolve to a real command.
+     `⌥1..9` is deliberately absent: it is one behaviour spread over nine keys, and this registry
+     maps one chord to one command, so nine entries would misdescribe it as nine commands. */
+  { id: "view.home", group: "View panel", name: "Panel home", scope: "Global", chord: chord("0", { meta: true }) },
+  { id: "view.panel", group: "View panel", name: "Toggle view panel", scope: "Global", chord: chord("\\", { meta: true }) },
+  { id: "view.close", group: "View panel", name: "Close view", scope: "Global", chord: chord("w", { meta: true }) },
+  { id: "view.prev", group: "View panel", name: "Previous view", scope: "Global", chord: chord("ArrowLeft", { meta: true, alt: true }) },
+  { id: "view.next", group: "View panel", name: "Next view", scope: "Global", chord: chord("ArrowRight", { meta: true, alt: true }) },
+  { id: "view.units", group: "View panel", name: "Units view", scope: "Global", chord: chord("u", { meta: true }) },
+  { id: "view.calendar", group: "View panel", name: "Calendar view", scope: "Global", chord: chord("y", { meta: true }) },
+  { id: "view.shared", group: "View panel", name: "Shared library view", scope: "Global", chord: chord("l", { meta: true }) },
+  { id: "view.memory", group: "View panel", name: "Memory view", scope: "Global", chord: chord("m", { meta: true }) },
   { id: "chat.send", group: "Chat", name: "Send message", scope: "Chat", chord: chord("Enter") },
 ];
 

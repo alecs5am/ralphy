@@ -141,7 +141,7 @@ describe("instrument scenario contract", () => {
       fixtureId: "instrument-test-fixture:project.media:ready:media.ready:-:-",
     });
     expect(ids).toEqual(canonicalScenarioIds);
-    expect(ids).toHaveLength(333);
+    expect(ids).toHaveLength(335);
   });
 
   test("locks literal themes, viewports, and the immutable reviewed exception allowlist", () => {
@@ -159,11 +159,11 @@ describe("instrument scenario contract", () => {
   test("expands the exact production-derived scenario/theme/viewport case set", () => {
     expect(expandInstrumentScenarioCases(INSTRUMENT_SCENARIOS).map(({ key: caseKey }) => caseKey))
       .toEqual(canonicalCaseKeys);
-    expect(canonicalCaseKeys).toHaveLength(1_994);
+    expect(canonicalCaseKeys).toHaveLength(2_006);
   });
 
   test("binds every stable scenario ID to one frozen semantic record", () => {
-    expect(semanticDigest(INSTRUMENT_SCENARIOS)).toBe("06463e58d36ef9229646d4be0fac8cd2e128f8ae6f0c28261d406049c17d5c6b");
+    expect(semanticDigest(INSTRUMENT_SCENARIOS)).toBe("5316d2a3bb41665ea9a2e44af270dc2cf37c476d59c71025a14711a3ade9e56a");
   });
 
   test("rejects set-preserving route, state, overlay, and owner swaps across stable IDs", () => {

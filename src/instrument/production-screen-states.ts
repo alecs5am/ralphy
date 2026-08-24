@@ -116,4 +116,8 @@ export const PRODUCTION_LOCAL_OVERLAY_TARGETS = {
   "run-inspector": { routeKey: "project.activity", state: "selected" },
   "marketplace-detail": { routeKey: "marketplace.detail", state: "ready" },
   "target-chooser": { routeKey: "marketplace.detail", state: "ready" },
+  /* The view panel's own menus. They are reachable from every workspace route under the chat lens,
+     so the overview -- the route the home tab returns to -- is where they are exercised. */
+  "view-panel-types": { routeKey: "workspace.overview", state: "ready" },
+  "view-panel-overflow": { routeKey: "workspace.overview", state: "ready" },
 } as const satisfies Record<ProductionLocalOverlayId, { routeKey: InstrumentRouteKey; state: InstrumentScenarioState }>;

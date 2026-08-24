@@ -20,6 +20,10 @@ export const INSTRUMENT_OVERLAYS = {
   "media-viewer": { kind: "viewer" }, "media-context-menu": { kind: "menu" }, "mock-needs-work": { kind: "dialog" },
   "unit-viewer": { kind: "viewer" }, "run-inspector": { kind: "rail" }, "marketplace-detail": { kind: "dialog" },
   "target-chooser": { kind: "dialog" },
+  /* Handoff 14's view panel. Both are menus, so both are non-modal: the type menu draws the
+     design's page-local scrim itself, because the app's backdrop rule only fires for the modal
+     kinds and a window-wide dim would be heavier than either menu is. */
+  "view-panel-types": { kind: "menu" }, "view-panel-overflow": { kind: "menu" },
 } as const satisfies Record<string, { kind: InstrumentOverlayKind }>;
 
 export const SHARED_SELECT_OVERLAY_OWNERS = {

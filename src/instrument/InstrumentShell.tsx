@@ -17,16 +17,21 @@ import { ArrowLeft, ArrowRight, LayoutGrid, MessageSquare, PanelLeft } from "luc
 import { ResizeHandle } from "../components/ui/ResizeHandle";
 import { InstrumentOverlay } from "./overlay-registry";
 import type { InstrumentRightRailMode, InstrumentRightRailOwner } from "./types";
+import { VIEW_PANEL_DEFAULT, VIEW_PANEL_MAX, VIEW_PANEL_MIN } from "../state/view-panel";
 import type { WorkbenchLens } from "../state/workbench";
 
 const DOCK_WINDOW_MIN = 1_280;
 const DOCK_DESK_MIN = 680;
 const RIGHT_RAIL_MIN = 292;
-/* The chat lens' view panel: the handoff's 440 at 1440, 380 once the window is narrower, and
-   nothing at all below the point where the chat itself stops being readable beside it. */
-const VIEW_PANEL_WIDE = 440;
-const VIEW_PANEL_NARROW = 380;
+/* The chat lens' view panel. Handoff 14 makes it a resizable 380-560 -- "beyond that it gives the
+   width back to the chat" -- so the width is the user's now rather than a step function of the
+   window. Two things the window still decides: the panel cannot take so much that the chat stops
+   being readable beside it, and below VIEW_PANEL_DROP there is no room for both at all. */
 const VIEW_PANEL_DROP = 1_120;
+const VIEW_CHAT_MIN = 520;
+/* The window's own chrome between the frame edge and the two content columns: 8 of desk on each
+   side, plus the zone gap after the sidebar and the one between the chat and the panel. */
+const VIEW_CHROME = 32;
 const RIGHT_RAIL_MAX = 1_000;
 const LEFT_MIN = 216;
 const LEFT_MAX = 420;
@@ -57,6 +62,17 @@ export interface InstrumentRightRailContextValue {
 export interface InstrumentShellProps {
   sidebar: ReactNode;
   desk: ReactNode;
+  /**
+   * The chat lens' panel chrome, as a wrapper around the desk's own scroller: the tab strip and
+   * the page card belong to the panel, and the scroller has to stay the shell's so scroll
+   * restoration and the desk container query keep working inside the card. Absent under the desk
+   * lens, where the route has no chrome of its own.
+   */
+  viewPanelFrame?(page: ReactNode): ReactNode;
+  /** Whether the panel is showing at all. `⌘\` collapses it and the chat takes the width. */
+  viewOpen: boolean;
+  viewWidth: number;
+  onViewWidthChange(width: number): void;
   chat: ReactNode;
   island: ReactNode;
   routeScrollKey: string;
@@ -206,8 +222,14 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
      the two columns squeezing each other. Inverting the overlay machinery so the *desk* could
      portal over the chat is the handoff's own next iteration, not this one. */
   const chatLens = props.lens === "chat";
-  const viewPanelWidth = dimensions.frameWidth >= DOCK_WINDOW_MIN ? VIEW_PANEL_WIDE : VIEW_PANEL_NARROW;
-  const viewPanelVisible = chatLens && dimensions.frameWidth >= VIEW_PANEL_DROP;
+  /* The ceiling is the smaller of the design's 560 and whatever leaves the chat readable, so
+     dragging wide on a narrow window runs out of travel instead of squeezing the conversation. */
+  const viewPanelMax = Math.max(
+    VIEW_PANEL_MIN,
+    Math.min(VIEW_PANEL_MAX, dimensions.frameWidth - leftColumn - VIEW_CHAT_MIN - VIEW_CHROME),
+  );
+  const viewPanelWidth = clampWidth(props.viewWidth, VIEW_PANEL_MIN, viewPanelMax, VIEW_PANEL_DEFAULT);
+  const viewPanelVisible = chatLens && props.viewOpen && dimensions.frameWidth >= VIEW_PANEL_DROP;
   /* Under the desk lens the chat is not reachable at all -- the lens exists so the desk can have
      the whole content area, and a chat column standing beside it would be the state the lens was
      introduced to replace. The media-review console shares this dock and is not chat, so it keeps
@@ -446,13 +468,28 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
               /* Desk lens: the route takes the elastic column. Chat lens: it becomes the fixed
                  view panel beside the chat, and disappears entirely once the window is too
                  narrow to hold both. */
-              className={`instrument-desk-column relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-desk ${chatLens ? "order-last flex-none" : "flex-1"} ${chatLens && !viewPanelVisible ? "hidden" : ""}`}
+              className={`instrument-desk-column relative flex min-h-0 min-w-0 flex-col overflow-hidden ${chatLens ? "order-last flex-none" : "flex-1 bg-desk"} ${chatLens && !viewPanelVisible ? "hidden" : ""}`}
               style={chatLens ? { width: viewPanelWidth } : undefined}
               data-instrument-view-panel={chatLens || undefined}
               hidden={chatLens && !viewPanelVisible}
               ref={setDeskColumn}
             >
-              <div
+              {/* The grabber straddles the zone gap between the chat and the panel, on the panel's
+                  own left edge, so the panel keeps its full width and the drag target stays 8 wide.
+                  Under the desk lens the route is the elastic column and has no width to set. */}
+              {chatLens && viewPanelVisible && <ResizeHandle
+                ariaLabel="Resize view panel"
+                orientation="vertical"
+                value={viewPanelWidth}
+                min={VIEW_PANEL_MIN}
+                max={viewPanelMax}
+                defaultValue={VIEW_PANEL_DEFAULT}
+                direction={-1}
+                className="resize-instrument-view absolute top-0 -left-2 bottom-0 w-2 cursor-col-resize"
+                onChange={props.onViewWidthChange}
+                onActiveChange={setColumnResizing}
+              />}
+              {(props.viewPanelFrame ?? ((page: ReactNode) => page))(<div
                 /* The desk is the app's one scroll surface and the container eight other areas' width
                    variants read, so both the name and the type are stated here. */
                 className="instrument-desk-scroll @container/instrument-desk min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
@@ -462,7 +499,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
                 aria-hidden={mode === "overlay" || undefined}
               >
                 {props.desk}
-              </div>
+              </div>)}
             </section>
             {/* The rail stands beside the desk, inside the content column, so the window's own zone
                 gap is the only inset it needs. The "right" in the class name and the props is
