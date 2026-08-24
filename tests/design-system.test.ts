@@ -1707,11 +1707,18 @@ describe("design system contract", () => {
     expect(panels).toContain('label: "OpenRouter"');
     expect(panels).not.toContain("<select");
     expect(panels).toContain("AiBrandIcon");
-    // v2 forbids borders: the chat is a flat #141414 widget on the desk.
+    // v2 forbids borders, and the chat is two layers rather than one flat plate: a 2px run of
+    // panel around a #141414 widget one radius step in, the same shell the sidebar and the view
+    // panel stand on. The outer element owns the frame, the inner card owns the widget.
     const railPlate = /"utility-right-panel ([^"]*)"/.exec(agentRailSource)?.[1] ?? "";
-    expect(railPlate.split(" ")).toContain("bg-instrument");
+    expect(railPlate.split(" ")).toContain("bg-panel");
+    expect(railPlate.split(" ")).toContain("p-0.5");
+    expect(railPlate.split(" ")).toContain("rounded-window");
     expect(railPlate.split(" ")).toContain("text-on-instrument");
     expect(railPlate).not.toMatch(/\b(?:border-\d|shadow-)/);
+    const railCard = /"utility-right-panel-card ([^"]*)"/.exec(agentRailSource)?.[1] ?? "";
+    expect(railCard.split(" ")).toContain("bg-instrument");
+    expect(railCard.split(" ")).toContain("rounded-inner");
     // The composer's own skin is in markup now: one ghost plate, a transparent field inside it,
     // and the ring a black widget needs — `--control-focus` is the theme ink, which is black on
     // black under the light theme.

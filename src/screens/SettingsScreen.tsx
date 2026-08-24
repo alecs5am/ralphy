@@ -216,14 +216,19 @@ export function SettingsScreen({
           card the app's own sidebar is, so the two screens read as one window rather than two.
           It is a theme surface too, not the black widget it used to be: a black card on a #050505
           desk has no edge to see, which is exactly why the app's sidebar stopped being one. */}
-      <aside className="settings-sidebar flex h-full w-settings-nav min-h-0 flex-none flex-col overflow-hidden rounded-sidebar bg-card text-ink">
+      <aside className="settings-sidebar flex h-full w-settings-nav min-h-0 flex-none flex-col overflow-hidden rounded-window bg-panel p-0.5 text-ink">
+        {/* The same two layers the app sidebar, the chat and the view panel stand on: a 2px run of
+            panel around a card one radius step in. */}
+        <div className="settings-sidebar-card flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-inner bg-card">
         {/* macOS draws the traffic lights itself and the sidebar now runs to the top of the
             window, so they land on this header -- the same seat, at the same height, as the app's
             own sidebar header, which is why `trafficLightPosition` needs no second value. */}
-        <header className="settings-sidebar-header flex h-8 flex-none items-center gap-2.5 px-3.5 [-webkit-app-region:drag]">
+        <header className="settings-sidebar-header flex h-8 flex-none items-center gap-2.5 px-3 [-webkit-app-region:drag]">
           <div className="w-traffic-sidebar h-px flex-none" aria-hidden="true" />
           <button
-            className="inline-flex h-8 min-w-0 flex-1 items-center gap-2.25 rounded-control px-2.5 type-ui text-muted [-webkit-app-region:no-drag] hover:bg-field hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            /* 26 in a 32 header, the same clearance the app sidebar's collapse control takes: a hover
+               surface flush with the card's top edge is clipped by the card's own corner. */
+            className="inline-flex h-6.5 min-w-0 flex-1 items-center gap-2.25 rounded-control px-2.5 type-ui text-muted [-webkit-app-region:no-drag] hover:bg-field hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
             type="button"
             onClick={onBack}
           >
@@ -285,6 +290,7 @@ export function SettingsScreen({
               <strong className="font-display type-base font-extrabold text-ink">{appVersion}</strong>
             </span>
           </button>
+        </div>
         </div>
       </aside>
 

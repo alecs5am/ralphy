@@ -187,12 +187,17 @@ export function ContextSidebar({
     /* The slide-in belongs on the element: instrument.css declared the animation *after* its own
        reduced-motion cancel, so the cancel never applied and the sidebar slid in regardless of
        the operator's motion preference. */
-    <aside className="context-sidebar flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-sidebar bg-card text-ink animate-sidebar-in motion-reduce:animate-none">
+    <aside className="context-sidebar flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-window bg-panel p-0.5 text-ink animate-sidebar-in motion-reduce:animate-none">
+      {/* Chrome around a card, the same two layers the view panel stands on: a 2px run of panel
+          around a card one radius step in. It is what makes a shell read as a frame rather than as
+          one flat surface, and it is why the header's padding is 12 rather than 14 -- the shell
+          already spends 2 of the 14 the traffic lights need. */}
+      <div className="sidebar-card flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-inner bg-card">
       {/* Header 32, the one chrome line the whole window shares: the topbar beside it is 32 on the
           same 8 line, so its centre is 24 -- the line macOS itself puts the traffic lights on, and
           they are drawn into this row from the main process. The run before the wordmark is
           reserved space, never a control. */}
-      <header className="sidebar-header flex h-8 flex-none items-center gap-2.5 px-3.5 [-webkit-app-region:drag]">
+      <header className="sidebar-header flex h-8 flex-none items-center gap-2.5 px-3 [-webkit-app-region:drag]">
         <div className="w-traffic-sidebar h-px flex-none" aria-hidden="true" />
         <div className="min-w-0 flex-1" aria-hidden="true" />
         <button
@@ -307,7 +312,7 @@ export function ContextSidebar({
             <span>CHATS</span>
             <small className="font-display type-sm leading-none font-extrabold">{chats.length}</small>
           </div>
-          <nav className="sidebar-nav flex shrink-0 flex-col gap-0.25 px-2.5" aria-label="Chats">
+          <nav className="sidebar-nav flex shrink-0 flex-col gap-0.25 px-3" aria-label="Chats">
             {chats.map((item) => {
               const active = item.id === activeChatId;
               return <button
@@ -377,9 +382,11 @@ export function ContextSidebar({
         </>}
       </div>
 
-      {/* User row 56. The profile control is a plain row on the card now rather than a pill
-          widget of its own -- one card, and the settings glyph is the only control on it. */}
-      {rootPath && <div className="sidebar-footer flex h-14 flex-none items-stretch px-1.5 [&_.instrument-profile-control]:h-full [&_.instrument-profile-control]:w-full">
+      {/* The user row, inset by the card's own 12 on three sides. It used to sit flush against the
+          card's bottom edge, where the card's corner radius clipped the hover surface -- a hover
+          plate has to clear the curve it stands in, not race it. The profile control is a plain
+          row on the card rather than a pill widget of its own. */}
+      {rootPath && <div className="sidebar-footer flex h-15.5 flex-none items-stretch px-3 pb-3 [&_.instrument-profile-control]:h-full [&_.instrument-profile-control]:w-full">
         <InstrumentProfileControl
           identity={{ displayName: profileIdentity(rootPath), initials: profileIdentity(rootPath).slice(0, 2).toUpperCase(), avatarUrl: null }}
           avatar={<ProfileAvatar rootPath={rootPath} size={30} round />}
@@ -387,6 +394,7 @@ export function ContextSidebar({
           onOpenSettings={onOpenSettings}
         />
       </div>}
+      </div>
     </aside>
   );
 }

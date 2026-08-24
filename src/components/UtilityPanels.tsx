@@ -173,14 +173,16 @@ export function AgentChatPanel({
 
   return (
     <motion.aside
-      /* Chat is a widget on the desk: one flat #141414 plate, R24, no border. tokens.css keys
-         the squircle on this class, and `--blur` is `none`, so `.panel-blur` adds nothing. */
-      className="utility-right-panel panel-blur flex min-h-0 min-w-0 flex-col overflow-hidden rounded-panel bg-instrument text-on-instrument"
+      /* Chrome around a card, the same two layers the view panel and the sidebar stand on: a 2px
+         run of panel around a widget one radius step in. tokens.css keys the squircle on this
+         class, and `--blur` is `none`, so `.panel-blur` adds nothing. */
+      className="utility-right-panel panel-blur flex min-h-0 min-w-0 flex-col overflow-hidden rounded-window bg-panel p-0.5 text-on-instrument"
       initial={{ x: 24, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 24, opacity: 0 }}
       transition={{ duration: 0.18, ease: [0.2, 0, 0.2, 1] }}
     >
+      <div className="utility-right-panel-card flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-inner bg-instrument">
       <header className="utility-panel-header agent-chat-header relative z-sticky flex h-agent-header flex-none items-center justify-between pr-2.5 pl-2 text-on-instrument-muted">
         <AgentChatMenu chat={chat} />
         <span className="agent-header-actions flex items-center gap-0.5">
@@ -296,6 +298,7 @@ export function AgentChatPanel({
           </div>
         </>
       )}
+      </div>
     </motion.aside>
   );
 }

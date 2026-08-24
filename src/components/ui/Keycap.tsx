@@ -87,7 +87,11 @@ function Socket({ tone, size, pressed, loud, conflict, className, children }: {
        handoff's `padding, background`: a two-property list has no named utility, and the arbitrary
        count in this repo is a ratchet that only goes down. Nothing else on this element changes
        except the width when the chord itself does, and at 90ms that reads as the cap growing. */
-    className={`keycap-socket inline-flex flex-none items-start px-keycap-lift ${step.socket} ${
+    /* Nudged down by one. The recess is asymmetric -- 1.5 above the face, 3.5 below -- so the face
+       sits a pixel above the socket's own box centre, and centring the socket in a row put the key
+       a pixel above the label beside it. A transform rather than a margin: the socket's box is what
+       the row lays out, and the face is what the eye reads. */
+    className={`keycap-socket inline-flex translate-y-px flex-none items-start px-keycap-lift ${step.socket} ${
       pressed ? "pt-keycap-drop pb-keycap-lift" : "pt-keycap-lift pb-keycap-drop"} ${
       conflict ? CONFLICT_SOCKET : paint.socket} transition-all duration-fast ease-instrument ${className ?? ""}`}
   >

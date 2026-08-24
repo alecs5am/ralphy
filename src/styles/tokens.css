@@ -396,10 +396,6 @@ html[data-theme="light"] {
      holding it -- 22 inside 20 before, which the tighter shell only made plainer. It takes the
      panel's step now, one inside the sidebar, like every other card in the app. */
   --radius-hero: var(--radius-panel);
-  /* The sidebar card sits 8px inside the window and its corner is read against the window's own
-     corner, so the two are one radius rather than the handoff's 26 against 20 -- at that inset a
-     larger inner radius reads as a mistake, not as a nested curve. */
-  --radius-sidebar: var(--radius-window);
   --radius-pill: 999px;
   --radius-circle: 50%;
 

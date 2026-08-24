@@ -145,7 +145,7 @@ export function ViewPanel({ set, width, chords, onSelect, onClose, onOpen, child
     return box ? { top: box.bottom + 4, right: Math.max(8, window.innerWidth - box.right) } : { top: 48, right: 8 };
   };
 
-  return <div className="view-panel flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-panel bg-panel p-0.5">
+  return <div className="view-panel flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-window bg-panel p-0.5">
     <div className={STRIP_ROW} role="tablist" aria-label="Workspace views">
       <button
         /* Home is first, permanent, icon-only, and the panel's point of return. It carries no
