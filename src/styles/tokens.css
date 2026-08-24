@@ -383,11 +383,19 @@ html[data-theme="light"] {
   --radius-md: 10px;
   --radius-row: 12px;
   --radius-lg: 14px;
-  --radius-preview: 16px;
+  --radius-preview: 12px;
   --radius-xl: 18px;
-  --radius-panel: 18px;
-  --radius-window: 20px;
-  --radius-hero: 22px;
+  --radius-panel: 14px;
+  /* The outer end of the scale is read against the window's own corner, which macOS draws at about
+     10 and which no app can change. At 20/18/16 our shells curved roughly twice as hard as the
+     window they sit in, which is what made the sidebar's corner read as the mistake next to it.
+     Four off each of the three steps closes most of that gap and keeps every nesting step whole:
+     a shell at 16 holds a panel at 14 holds a card at 12. */
+  --radius-window: 16px;
+  /* The workspace card is the sidebar's largest, and it was the one card rounder than the shell
+     holding it -- 22 inside 20 before, which the tighter shell only made plainer. It takes the
+     panel's step now, one inside the sidebar, like every other card in the app. */
+  --radius-hero: var(--radius-panel);
   /* The sidebar card sits 8px inside the window and its corner is read against the window's own
      corner, so the two are one radius rather than the handoff's 26 against 20 -- at that inset a
      larger inner radius reads as a mistake, not as a nested curve. */
