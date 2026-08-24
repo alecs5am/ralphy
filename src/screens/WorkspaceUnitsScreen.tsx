@@ -44,9 +44,12 @@ type Load =
   | { state: "error"; message: string }
   | { state: "ready"; units: WorkspaceUnit[]; missing: number };
 
+/* The app has no green: a publication state is told the way the calendar tells it, in ink for what
+   has happened and a quiet plate for what is only planned. `bg-ok`/`bg-warn` named colours that do
+   not exist in any theme, so those chips rendered with no plate at all. */
 const CHIP: Record<"published" | "scheduled", { label: string; skin: string }> = {
-  published: { label: "Published", skin: "bg-ok/14 text-ok" },
-  scheduled: { label: "Scheduled", skin: "bg-warn/14 text-warn" },
+  published: { label: "Published", skin: "bg-instrument text-on-instrument" },
+  scheduled: { label: "Scheduled", skin: "bg-surface-sunken text-muted" },
 };
 
 const ROW = "workspace-unit-row grid min-h-14 w-full grid-cols-(--workspace-unit-columns) items-center gap-4 rounded-cell bg-surface px-4 text-left hover:bg-surface-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink";

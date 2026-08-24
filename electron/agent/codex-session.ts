@@ -10,6 +10,7 @@ import { dirname, join, sep } from "node:path";
 import { createInterface } from "node:readline";
 import { promisify } from "node:util";
 
+import { readAgentContext } from "./context";
 import type {
   AgentChatEvent,
   AgentPermissionMode,
@@ -205,15 +206,11 @@ async function canonicalContext(request: CodexRunRequest): Promise<{
       throw new Error("Codex project must be inside the active .ralphy library");
     }
   }
-  const prompt = [
-    "[Ralphy Media context]",
-    `Library: ${rootPath}`,
-    projectPath ? `Active project: ${projectPath}` : "Active project: none selected",
-    "Follow this repository's AGENTS.md and CLAUDE.md. Use the installed Ralphy CLI for every UGC generation step.",
-    "[/Ralphy Media context]",
-    "",
-    validatePrompt(request.prompt),
-  ].join("\n");
+  /* The preamble is the same list the Context panel shows, built from the files that are really
+     there: the working directory is the operator's home, so nothing relative reaches Ralphy's own
+     guides and naming them would be a wish rather than an instruction. */
+  const { preamble } = await readAgentContext({ provider: request.provider, rootPath, projectPath, cwd });
+  const prompt = [preamble, "", validatePrompt(request.prompt)].join("\n");
   return { rootPath, cwd, prompt };
 }
 

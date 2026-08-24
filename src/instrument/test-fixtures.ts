@@ -77,6 +77,7 @@ for (const [overlay, routes] of [
   ["agent-chat-provider-menu", chatRoutes],
   ["agent-chat-model-menu", chatRoutes],
   ["agent-chat-mode-menu", chatRoutes],
+  ["agent-chat-context", chatRoutes],
 ] as const) {
   for (const routeKey of routes) registrations.push({
     routeKey,
@@ -109,7 +110,7 @@ const fixtures = new Map(registrations.map((registration): [string, InstrumentTe
     },
   }];
 }));
-if (fixtures.size !== 339 || fixtures.size !== registrations.length) throw new Error("Invalid instrument test fixture inventory");
+if (fixtures.size !== 369 || fixtures.size !== registrations.length) throw new Error("Invalid instrument test fixture inventory");
 
 export const instrumentTestFixtureProvider: InstrumentTestFixtureProvider = {
   get: (id) => fixtures.get(id) ?? null,

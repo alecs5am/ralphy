@@ -26,6 +26,7 @@ import {
   validateOpenRouterApiKey,
 } from "./claude/credentials";
 import { parseAgentChatRequest } from "./agent/request";
+import { readAgentContext } from "./agent/context";
 import { readTitle } from "./agent/title";
 import {
   CodexSession,
@@ -937,6 +938,37 @@ function registerAgentIpc(): void {
       activeTitleSession = null;
     }
     return readTitle(text);
+  });
+  /* What the chat can reach, read where it is true: the harness's own working directory and the
+     provider's own files, not a guess made in the renderer. */
+  securedHandle(AGENT_CHANNELS.context, async (event, rawInput: unknown) => {
+    assertTrustedSender(event);
+    const operation = captureBridgeRoot();
+    const row = (rawInput ?? {}) as { provider?: unknown; project?: unknown };
+    const provider = row.provider === "claude" || row.provider === "openrouter" ? row.provider : "codex";
+    const request = parseAgentChatRequest({
+      chatId: "context",
+      provider,
+      model: "default",
+      prompt: "context",
+      permissionMode: "plan",
+      project: row.project ?? null,
+    });
+    const projectPath = request.project
+      ? await resolveProjectPath(
+        operation.rootPath,
+        request.project.workspaceId,
+        request.project.projectId,
+      )
+      : null;
+    assertBridgeRoot(operation);
+    const rootPath = await realpath(operation.rootPath);
+    return readAgentContext({
+      provider,
+      rootPath,
+      projectPath,
+      cwd: await realpath(dirname(rootPath)),
+    });
   });
   securedHandle(AGENT_CHANNELS.stop, (event) => {
     assertTrustedSender(event);

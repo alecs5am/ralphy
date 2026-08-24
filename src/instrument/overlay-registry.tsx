@@ -9,6 +9,7 @@ export const INSTRUMENT_OVERLAYS = {
   "profile-menu": { kind: "menu" }, settings: { kind: "dialog" }, "shared-select-menu": { kind: "listbox" },
   "workspace-picker": { kind: "listbox" }, "agent-chat-recent-menu": { kind: "menu" }, "agent-chat-provider-menu": { kind: "menu" },
   "agent-chat-model-menu": { kind: "menu" }, "agent-chat-mode-menu": { kind: "menu" },
+  "agent-chat-context": { kind: "menu" },
   "dynamic-island": { kind: "popover" }, "right-rail-sheet": { kind: "sheet" },
   "workspace-account-detail": { kind: "dialog" }, "workspace-unit-outcome-detail": { kind: "dialog" }, "workspace-evidence-detail": { kind: "dialog" },
   "shared-inspector": { kind: "rail" }, "shared-viewer": { kind: "viewer" }, "shared-workflow": { kind: "dialog" },
@@ -55,7 +56,7 @@ interface InstrumentOverlayBaseProps<Id extends InstrumentOverlayId> {
   scrimClassName?: string;
 }
 
-type PrimitiveHostId = "shared-select-menu" | "workspace-picker" | "agent-chat-recent-menu" | "agent-chat-provider-menu" | "agent-chat-model-menu" | "agent-chat-mode-menu";
+type PrimitiveHostId = "shared-select-menu" | "workspace-picker" | "agent-chat-recent-menu" | "agent-chat-provider-menu" | "agent-chat-model-menu" | "agent-chat-mode-menu" | "agent-chat-context";
 type PrimitiveOverlayBaseProps<Id extends PrimitiveHostId> = Omit<InstrumentOverlayBaseProps<Id>, "children"> & { children: ReactElement };
 export type InstrumentOverlayProps<Id extends InstrumentOverlayId> =
   Id extends "shared-select-menu"
@@ -105,6 +106,7 @@ const overlayRoles: Record<InstrumentOverlayKind, "dialog" | "listbox" | "menu" 
 
 const primitiveHostIds = new Set<PrimitiveHostId>([
   "shared-select-menu", "workspace-picker", "agent-chat-recent-menu", "agent-chat-provider-menu", "agent-chat-model-menu", "agent-chat-mode-menu",
+  "agent-chat-context",
 ]);
 const modalKinds = new Set<InstrumentOverlayKind>(["dialog", "drawer", "viewer", "sheet"]);
 

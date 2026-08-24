@@ -557,6 +557,11 @@ export interface MediaWorkbenchBridge extends MarketplaceBridge {
   sendAgentMessage(request: AgentChatRequest): Promise<void>;
   /** One short read-only turn that names a chat, or null when the provider cannot answer now. */
   summariseAgentTitle(request: AgentChatRequest): Promise<string | null>;
+  /** What a chat of this provider can actually reach, and the preamble every prompt carries. */
+  loadAgentContext(input: {
+    provider: AgentProvider;
+    project?: ProjectReference | null;
+  }): Promise<import("../agent/context").AgentContextDto>;
   stopAgent(): Promise<void>;
   onAgentEvent(callback: (event: AgentChatEnvelope) => void): () => void;
   onToggleRightPanel(callback: () => void): () => void;
@@ -637,6 +642,7 @@ export const AGENT_CHANNELS = {
   clearApiKey: "agent:api-key:clear",
   send: "agent:send",
   title: "agent:title",
+  context: "agent:context",
   stop: "agent:stop",
   event: "agent:event",
 } as const;

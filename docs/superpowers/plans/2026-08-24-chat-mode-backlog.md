@@ -86,10 +86,23 @@ verification is partial (says which part).
 
 ## E. Context transparency
 
-- [ ] **E1 — Show what the chat can reach.** Core ships `AGENTS.md` and a tree of instruction
+- [x] **E1 — Show what the chat can reach.** Core ships `AGENTS.md` and a tree of instruction
   files (art director and friends) plus installed skills the harness can call. The app should show
   the operator the system-prompt entry point, the files already in context, and what the harness
   may pull in as it works.
+
+  A **Context** control in the composer toolbar, reading the truth in main: the working directory,
+  the library and the active project, the provider's own instruction files with whether each
+  exists, its configuration, its installed skills with a count, and the injected preamble verbatim
+  — which is the system prompt's entry point.
+
+  The finding it rests on: the harness runs the CLI in the library's *parent*, the operator's home.
+  Core's own `AGENTS.md`, its 16 playbooks and its skills live in the core checkout, which is not
+  the working directory and is not reachable by a relative path — so the preamble's old line,
+  "Follow this repository's AGENTS.md and CLAUDE.md", named a file that is not there. The preamble
+  is now built from the same inventory the panel shows and states absolute paths. Putting Core's
+  guides *into* that context is a Core-side question (its installer's `ROUTING_BLOCK` still leaves
+  `<repo>` unexpanded) and is not this repository's to answer.
 
 ## F. Surfaces outside the chat
 
@@ -100,7 +113,10 @@ verification is partial (says which part).
 - [x] **F3 — Workspace `Units` page says "Units not wired yet"** while the workspace has units and
   they are reachable elsewhere. Superseded plan 2026-08-20 Task 3, which specified the
   unavailable plate as the deliverable: the sidebar counts those Units from the catalogue, so the
-  plate had become a contradiction rather than an honesty.
+  plate had become a contradiction rather than an honesty. Second pass: the publication chips were
+  written with `bg-ok`/`bg-warn`, which name colours no theme defines — the app's palette is
+  monochrome with one alert accent — so they rendered with no plate at all. They now speak the
+  calendar's vocabulary: ink for what has happened, a quiet plate for what is only planned.
 
 ## G. Test data
 

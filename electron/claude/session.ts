@@ -14,6 +14,7 @@ import type {
   ClaudeChatEvent,
   ClaudePermissionMode,
 } from "../media/types";
+import { readAgentContext } from "../agent/context";
 import { validateAnthropicApiKey } from "./credentials";
 
 export type {
@@ -193,17 +194,11 @@ async function canonicalContext(request: ClaudeRunRequest): Promise<{
       throw new Error("Claude project must be inside the active .ralphy library");
     }
   }
-  const userPrompt = validatePrompt(request.prompt);
-  const context = [
-    "[Ralphy Media context]",
-    `Library: ${rootPath}`,
-    projectPath ? `Active project: ${projectPath}` : "Active project: none selected",
-    "Follow this repository's AGENTS.md and CLAUDE.md. Use the installed Ralphy CLI for every UGC generation step.",
-    "[/Ralphy Media context]",
-    "",
-    userPrompt,
-  ].join("\n");
-  return { rootPath, cwd, prompt: context };
+  /* The preamble is the same list the Context panel shows, built from the files that are really
+     there: the working directory is the operator's home, so nothing relative reaches Ralphy's own
+     guides and naming them would be a wish rather than an instruction. */
+  const { preamble } = await readAgentContext({ provider: "claude", rootPath, projectPath, cwd });
+  return { rootPath, cwd, prompt: [preamble, "", validatePrompt(request.prompt)].join("\n") };
 }
 
 export async function readClaudeAuthStatus(

@@ -72,6 +72,7 @@ export const PRODUCTION_GLOBAL_OVERLAY_ROUTES = {
   "agent-chat-provider-menu": CHAT_RAIL_ROUTE_KEYS,
   "agent-chat-model-menu": CHAT_RAIL_ROUTE_KEYS,
   "agent-chat-mode-menu": CHAT_RAIL_ROUTE_KEYS,
+  "agent-chat-context": CHAT_RAIL_ROUTE_KEYS,
 } as const satisfies Readonly<Partial<Record<InstrumentOverlayId, readonly InstrumentRouteKey[]>>>;
 
 export type ProductionGlobalOverlayId = keyof typeof PRODUCTION_GLOBAL_OVERLAY_ROUTES;

@@ -11,7 +11,7 @@ import { createReactHost, type HostNode } from "./react-host";
 
 const overlayIds = [
   "root-picker", "migration-recovery", "app-alert", "profile-menu", "settings", "shared-select-menu", "workspace-picker",
-  "agent-chat-recent-menu", "agent-chat-provider-menu", "agent-chat-model-menu", "agent-chat-mode-menu", "dynamic-island", "right-rail-sheet",
+  "agent-chat-recent-menu", "agent-chat-provider-menu", "agent-chat-model-menu", "agent-chat-mode-menu", "agent-chat-context", "dynamic-island", "right-rail-sheet",
   "workspace-account-detail", "workspace-unit-outcome-detail", "workspace-evidence-detail", "shared-inspector", "shared-viewer", "shared-workflow",
   "memory-recall", "memory-editor", "memory-history", "memory-confirm", "calendar-filter", "calendar-drawer", "calendar-inspector", "calendar-schedule",
   "calendar-unit-picker", "calendar-date-popover", "calendar-time-popover", "calendar-platform-settings", "calendar-account-detail", "calendar-reconnect",
@@ -26,7 +26,7 @@ const sharedSelectOwners = [
 
 const overlayKinds = {
   "root-picker": "dialog", "migration-recovery": "dialog", "app-alert": "dialog", "profile-menu": "menu", settings: "dialog", "shared-select-menu": "listbox",
-  "workspace-picker": "listbox", "agent-chat-recent-menu": "menu", "agent-chat-provider-menu": "menu", "agent-chat-model-menu": "menu", "agent-chat-mode-menu": "menu",
+  "workspace-picker": "listbox", "agent-chat-recent-menu": "menu", "agent-chat-provider-menu": "menu", "agent-chat-model-menu": "menu", "agent-chat-mode-menu": "menu", "agent-chat-context": "menu",
   "dynamic-island": "popover", "right-rail-sheet": "sheet", "workspace-account-detail": "dialog", "workspace-unit-outcome-detail": "dialog", "workspace-evidence-detail": "dialog",
   "shared-inspector": "rail", "shared-viewer": "viewer", "shared-workflow": "dialog", "memory-recall": "dialog", "memory-editor": "dialog", "memory-history": "dialog", "memory-confirm": "dialog",
   "calendar-filter": "popover", "calendar-drawer": "drawer", "calendar-inspector": "rail", "calendar-schedule": "dialog", "calendar-unit-picker": "popover", "calendar-date-popover": "popover",

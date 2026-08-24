@@ -399,6 +399,7 @@ describe("production instrument screen states", () => {
       "agent-chat-provider-menu",
       "agent-chat-model-menu",
       "agent-chat-mode-menu",
+      "agent-chat-context",
     ]);
     expect(PRODUCTION_GLOBAL_OVERLAY_ROUTES).toEqual({
       "workspace-picker": WORKSPACE_PICKER_ROUTE_KEYS,
@@ -406,6 +407,7 @@ describe("production instrument screen states", () => {
       "agent-chat-provider-menu": CHAT_RAIL_ROUTE_KEYS,
       "agent-chat-model-menu": CHAT_RAIL_ROUTE_KEYS,
       "agent-chat-mode-menu": CHAT_RAIL_ROUTE_KEYS,
+      "agent-chat-context": CHAT_RAIL_ROUTE_KEYS,
     });
   });
 

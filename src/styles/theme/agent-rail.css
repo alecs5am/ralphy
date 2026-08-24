@@ -84,6 +84,8 @@
   --spacing-agent-model-menu: 310px;       /* ...and the model menu */
   --spacing-agent-provider-menu: 236px;    /* the provider menu holds a name and its account line */
   --spacing-agent-mode-menu: 140px;        /* the permission menu holds one word and a check */
+  --spacing-agent-context-menu: 360px;     /* the context panel prints absolute paths */
+  --spacing-agent-context-scroll: 380px;   /* ...and scrolls rather than growing past the chat */
   --spacing-agent-model-trigger: 104px;    /* the model name truncates rather than pushing the toolbar */
   --spacing-agent-tool-indent: 31px;       /* a tool line starts under the assistant's copy column */
 

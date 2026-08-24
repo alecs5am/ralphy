@@ -9,6 +9,7 @@ import {
   Calendar,
   Check,
   ChevronDown,
+  FileSearch,
   Image,
   KeyRound,
   ListChecks,
@@ -29,9 +30,11 @@ import type {
   ProjectSummary,
   WorkspaceSummary,
 } from "../lib/ipc";
+import { bridge } from "../lib/ipc";
 import type { AgentChatController } from "../chat/useAgentChat";
 import { AgentComposer, type AgentComposerHandle } from "./agent/AgentComposer";
 import { addAttachments, withAttachments, type Attachment } from "../chat/attachments";
+import type { AgentContextDto } from "../../electron/agent/context";
 import { AgentFailure, AgentThread } from "./agent/AgentThread";
 import { AgentMark } from "./ui/AgentMark";
 import { AiBrandIcon } from "./AiBrandIcon";
@@ -297,6 +300,7 @@ export function AgentChatPanel({
           >
             <div className="agent-composer-toolbar flex items-center gap-1.5">
               <AgentModeMenu value={active.permissionMode} onChange={chat.setPermissionMode} />
+              <AgentContextMenu chat={chat} project={project} />
               <span className="min-w-0 flex-1" aria-hidden="true" />
               {active.provider === "claude" && <AgentAuthSource chat={chat} />}
               <AgentModelMenu chat={chat} onOpenSettings={onOpenSettings} />
@@ -581,6 +585,79 @@ const permissionLabels: Record<AgentPermissionMode, string> = {
   plan: "Plan only",
   full: "Full access",
 };
+
+/**
+ * What this chat can reach. The operator asked the honest version of the question -- which files
+ * are in context, where the system prompt starts, and what the harness may pull in as it works --
+ * and the answer is read where it is true, in main, rather than described here.
+ */
+function AgentContextMenu({ chat, project }: {
+  chat: AgentChatController;
+  project: ProjectSummary | null;
+}) {
+  const menu = useDismissableMenu();
+  const [context, setContext] = useState<AgentContextDto | null>(null);
+  const provider = chat.activeChat.provider;
+  const projectId = project?.projectId ?? null;
+
+  useEffect(() => {
+    if (!menu.open) return;
+    let live = true;
+    /* Read on opening rather than held: a file appears the moment the operator writes it, and a
+       stale inventory is worse than a short wait. */
+    void bridge.loadAgentContext({
+      provider,
+      project: project ? { workspaceId: project.workspaceId, projectId: project.projectId } : null,
+    }).then((value) => { if (live) setContext(value); }).catch(() => { if (live) setContext(null); });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the project's identity is its id
+  }, [menu.open, provider, projectId]);
+
+  return (
+    <div className="agent-menu relative min-w-0" ref={menu.ref}>
+      <button
+        ref={menu.trigger}
+        className={`agent-menu-trigger agent-context-trigger ${PILL_QUIET}`}
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={menu.open}
+        title="What this chat can reach"
+        aria-label="Chat context"
+        onClick={() => menu.setOpen((open) => !open)}
+      >
+        <FileSearch size={12} strokeWidth={1.9} className="flex-none text-secondary" />
+        <span className="truncate">Context</span>
+      </button>
+      {menu.open && (
+        <InstrumentOverlay id="agent-chat-context" host="primitive-host" open label="Chat context" description="What this chat can reach" opener={menu.trigger.current} onOpenChange={(open) => { if (!open) menu.close(); }}>
+          <div className={`${POPOVER} agent-context-menu bottom-8 left-0 flex w-agent-context-menu max-w-(--agent-chat-menu-fit) flex-col gap-1.5 overflow-y-auto max-h-agent-context-scroll`}>
+            {!context && <span className="px-2 py-1.5 type-sm text-secondary">Reading what this chat can reach…</span>}
+            {context && <>
+              {/* Three lines rather than a row: the panel is as narrow as the rail lets it be, and a
+                  label competing with its own note for one line truncated both to nothing. */}
+              {context.entries.map((entry) => <span className="agent-context-row flex min-w-0 flex-col gap-0.5 rounded-tab px-2 py-1.5" key={`${entry.kind}:${entry.path}`}>
+                <span className="flex min-w-0 items-center gap-1.75">
+                  <i className={`size-1.5 flex-none rounded-full ${entry.present ? "bg-ink" : "bg-muted-decorative"}`} aria-hidden="true" />
+                  <span className="min-w-0 flex-1 truncate type-sm text-ink">{entry.label}</span>
+                </span>
+                <span className="truncate pl-3.25 font-code type-mono-xs text-secondary" title={entry.path}>{entry.path}</span>
+                {entry.detail && <span className="pl-3.25 type-sm text-secondary">{entry.detail}</span>}
+              </span>)}
+              <span className="mt-0.5 px-2 font-code type-mono-xs tracking-mono text-secondary">SYSTEM PROMPT ENTRY POINT</span>
+              {/* The preamble verbatim: the operator asked where the system prompt starts, and the
+                  honest answer is the text itself rather than a description of it. */}
+              <pre className="agent-context-preamble m-0 overflow-x-auto rounded-tab bg-chat-field px-2.5 py-2 font-code type-mono-xs leading-note whitespace-pre text-ink">{context.preamble}</pre>
+              <p className="m-0 px-2 pb-1 type-sm leading-note text-secondary">
+                Everything else is pulled in as it works: files it opens under the library, and any
+                skill it decides to call.
+              </p>
+            </>}
+          </div>
+        </InstrumentOverlay>
+      )}
+    </div>
+  );
+}
 
 function AgentModeMenu({
   value,
