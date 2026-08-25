@@ -53,26 +53,27 @@ describe("readContextDocument", () => {
     ));
     const theirs = await read(await fixture("Also read docs/playbooks/."));
 
-    /* Ralphy promised routing that does not exist, so the page says so in the
-       alert tone -- on the block itself and on the place it cannot reach. The
-       placeholder is not among them: it never claimed to be a path. */
-    const flagged = ours.filter((block) => block.defect !== null).map((block) => block.title);
-    expect(flagged).toContain("docs/playbooks/");
-    expect(flagged).toContain("Ralphy's own block, inside the file above");
-    expect(flagged).not.toContain("<repo>/AGENTS.md");
+    /* Ralphy promised routing that does not exist, so the page says so in the alert tone, on the
+       block that made the promise -- and it names the place, because a place that is not there is
+       not a block of its own. The placeholder is not named: it never claimed to be a path. */
+    const flagged = ours.filter((block) => block.defect !== null);
+    expect(flagged.map((block) => block.title)).toEqual(["Ralphy's own block, inside the file above"]);
+    expect(flagged[0]?.defect).toContain("docs/playbooks/");
+    expect(flagged[0]?.defect).not.toContain("<repo>");
     /* The operator naming a file they have not written yet is normal, and never red. */
     expect(theirs.every((block) => block.defect === null)).toBe(true);
-    expect(theirs.find((block) => block.title === "docs/playbooks/")?.rail.label).toBe("Not written");
   });
 
-  it("lists what a named directory holds, each openable by path", async () => {
-    const fixture = await fixture_with_pack();
-    const blocks = await read(fixture);
-    const dir = blocks.find((block) => block.title === "prompts/docs/playbooks/");
-    /* A directory used to answer with a count. These are the files the router
-       sends the agent to, so each one is named and each one can be opened. */
-    expect(dir?.links.map((link) => link.text)).toEqual(["core.md", "editor.md"]);
-    expect(dir?.links.every((link) => link.path !== null)).toBe(true);
+  it("keeps only what can be read, and every link it does keep carries a path", async () => {
+    const blocks = await read(await fixture_with_pack());
+    /* A directory and a missing file cannot be opened, so neither is a block: each was a header
+       over a sentence saying there was nothing under it. What a directory holds stays reachable
+       where the prose names it. */
+    expect(blocks.every((block) => block.body !== null)).toBe(true);
+    expect(blocks.some((block) => block.title.endsWith("playbooks/"))).toBe(false);
+    const named = blocks.flatMap((block) => block.links);
+    expect(named.length).toBeGreaterThan(0);
+    expect(named.every((link) => link.path !== null || link.note === "not there")).toBe(true);
   });
 
   it("opens on the instruction chain, never on the provider's sealed prompt", async () => {

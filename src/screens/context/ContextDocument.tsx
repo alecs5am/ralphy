@@ -1,5 +1,5 @@
 import { ChevronDown } from "lucide-react";
-import { Fragment, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
 import type { ContextBlockDto, ContextRail } from "../../../electron/agent/context-document";
 import { MarkdownView } from "../../components/MarkdownView";
@@ -100,8 +100,7 @@ function Block({ block, open, dim, flash, rendered, onToggle, onPath, onRead }: 
   const [whole, setWhole] = useState(false);
   const body = useRef<HTMLDivElement>(null);
   const child = block.linkedFrom !== null && block.onDemand;
-  const readable = block.body !== null;
-  const lines = readable ? block.body!.split("\n") : [];
+  const lines = block.body!.split("\n");
   const hidden = whole ? 0 : Math.max(0, lines.length - PEEK_LINES);
   const shown = hidden > 0 ? lines.slice(0, PEEK_LINES).join("\n") : block.body!;
 
@@ -119,9 +118,14 @@ function Block({ block, open, dim, flash, rendered, onToggle, onPath, onRead }: 
     for (const code of host.querySelectorAll("code")) {
       const link = named.get(code.textContent?.trim() ?? "");
       if (!link) continue;
+      const missing = link.note === "not there";
       code.setAttribute("data-context-path", link.path!);
-      code.setAttribute("data-context-missing", link.note === "not there" ? "" : "false");
-      code.setAttribute("title", link.note === "not there" ? `${link.path} is not there` : `Read ${link.path}`);
+      code.setAttribute("data-context-missing", missing ? "" : "false");
+      code.setAttribute("title", missing ? `${link.path} is not there` : `Read ${link.path}`);
+      /* Inline, and important. The shared renderer paints every code run with a utility, this app
+         compiles Tailwind in important mode, and an important declaration inside a cascade layer
+         outranks an important one outside every layer -- so no authored rule can win here. */
+      code.style.setProperty("color", `var(${missing ? "--instrument-failure-ink" : "--instrument-tag-file"})`, "important");
     }
   }, [block.links, shown, open, rendered]);
 
@@ -136,7 +140,7 @@ function Block({ block, open, dim, flash, rendered, onToggle, onPath, onRead }: 
     /* No radius. A rounded plate under a straight rule drew its own corners
        curling away from a block that has no visible edge -- the rule belongs to
        the gap between blocks, not to the block, so it is a row of its own below. */
-    className={`context-block grid grid-cols-(--context-block-columns) gap-4.5 px-3 py-3 transition-colors duration-slow ease-instrument ${flash ? "bg-field" : "bg-transparent"} ${dim ? "opacity-26" : ""}`}
+    className={`context-block grid grid-cols-(--context-block-columns) gap-4.5 pr-3 pl-6 py-3 transition-colors duration-slow ease-instrument ${flash ? "bg-field" : "bg-transparent"} ${dim ? "opacity-26" : ""}`}
     data-block={block.id}
   >
     {/* No indent for a child. Depth was drawn twice -- a dashed left border and a
@@ -145,20 +149,20 @@ function Block({ block, open, dim, flash, rendered, onToggle, onPath, onRead }: 
         this one, which is the only thing the indent was carrying. */}
     <div className="flex min-w-0 flex-col">
       <button
-        className="flex min-h-7 items-center gap-2.25 text-left"
+        className="relative flex min-h-7 items-center gap-2.25 text-left"
         type="button"
-        aria-expanded={readable ? open : undefined}
-        disabled={!readable}
+        aria-expanded={open}
         onClick={onToggle}
       >
-        {readable
-          ? <ChevronDown
-            size={12}
-            strokeWidth={2}
-            className={`flex-none text-muted transition-transform duration-state ease-instrument ${open ? "" : "-rotate-90"}`}
-            aria-hidden="true"
-          />
-          : <span className="size-3 flex-none" aria-hidden="true" />}
+        {/* In the gutter, not in the line. A chevron in the flow pushed the title one
+            glyph right of the body it belongs to, so a title never sat over its own
+            first line. */}
+        <ChevronDown
+          size={12}
+          strokeWidth={2}
+          className={`absolute top-2 -left-4 text-muted transition-transform duration-state ease-instrument ${open ? "" : "-rotate-90"}`}
+          aria-hidden="true"
+        />
         <span className={`min-w-0 truncate ${child ? `${MONO} type-mono-sm text-secondary` : TITLE}`}>{block.title}</span>
         <span className={`${META} min-w-0 truncate`}>{block.tag}</span>
         <span className="min-w-0 flex-1" aria-hidden="true" />
@@ -170,8 +174,8 @@ function Block({ block, open, dim, flash, rendered, onToggle, onPath, onRead }: 
           the page's card inside the page's panel -- three surfaces deep, for text
           that is the whole reason the page exists. It reads on the page now, with
           one hairline saying where the app stops describing and the prompt starts. */}
-      {open && readable && <span className="mt-2 h-px w-full flex-none bg-divider" aria-hidden="true" />}
-      {open && readable && <div className="flex flex-col gap-1.5 pt-2.5">
+      {open && <span className="mt-2 h-px w-full flex-none bg-divider" aria-hidden="true" />}
+      {open && <div className="flex flex-col gap-1.5 pt-2.5">
         {rendered && block.format === "markdown"
           ? <div className="context-body" ref={body} onClick={follow}><MarkdownView markdown={literalPlaceholders(shown)} /></div>
           : <pre className="m-0 overflow-x-auto font-code type-mono-sm leading-document whitespace-pre-wrap text-ink select-text">
@@ -191,8 +195,7 @@ function Block({ block, open, dim, flash, rendered, onToggle, onPath, onRead }: 
           >{whole ? "SHOW LESS" : "SHOW ALL"}</button>}
         </span>
       </div>}
-      {!readable && block.note && <p className="m-0 py-1 type-sm text-muted">{block.note}</p>}
-      {readable && open && block.note && <p className="m-0 type-sm text-muted">{block.note}</p>}
+      {open && block.note && <p className="m-0 type-sm text-muted">{block.note}</p>}
       {block.defect && <p className="m-0 mt-1 rounded-row bg-failure px-3.5 py-2.5 type-sm text-failure-ink">{block.defect}</p>}
     </div>
     <div className="flex gap-2.5">
@@ -220,8 +223,7 @@ export function ContextDocument({ blocks, provider, total, window: modelWindow, 
      what is in it, in what order, at what size -- is the thing the page has to answer first. Titles
      and sizes are always visible, so nothing is hidden by being closed. */
   const [opened, setOpened] = useState<Record<string, boolean>>({});
-  const readable = useMemo(() => blocks.filter((block) => block.body !== null), [blocks]);
-  const allOpen = readable.length > 0 && readable.every((block) => opened[block.id]);
+  const allOpen = blocks.length > 0 && blocks.every((block) => opened[block.id]);
 
   const jump = (path: string) => {
     const target = blocks.find((block) => block.title === path || block.id.endsWith(`>${path}`));
@@ -256,7 +258,7 @@ export function ContextDocument({ blocks, provider, total, window: modelWindow, 
       <button
         className={CONTROL}
         type="button"
-        onClick={() => setOpened(allOpen ? {} : Object.fromEntries(readable.map((block) => [block.id, true])))}
+        onClick={() => setOpened(allOpen ? {} : Object.fromEntries(blocks.map((block) => [block.id, true])))}
       >{allOpen ? "Collapse all" : "Expand all"}</button>
       <button className={CONTROL} type="button" onClick={onOpenInventory}>Inventory</button>
       <span className={`${NUMBER} type-lg flex-none`}>{total === null ? "—" : total < 1000 ? total : `${(total / 1000).toFixed(1)}K`}</span>
@@ -270,7 +272,7 @@ export function ContextDocument({ blocks, provider, total, window: modelWindow, 
         {`BEFORE ALL OF THIS · ${provider.toLocaleUpperCase()}'S OWN SYSTEM PROMPT, NOT EXPOSED · THEN, IN ORDER: A DIMMED OR COLLAPSED BLOCK STILL RIDES`}
       </span>
       {blocks.map((block, index) => <Fragment key={block.id}>
-        {index > 0 && <span className="mx-3 h-px flex-none bg-divider" aria-hidden="true" />}
+        {index > 0 && <span className="mr-3 ml-6 h-px flex-none bg-divider" aria-hidden="true" />}
         <Block
           block={block}
           open={opened[block.id] === true}

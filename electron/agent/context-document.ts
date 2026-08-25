@@ -274,6 +274,16 @@ export interface ContextDocumentInput {
   documents?: readonly { id: string; title: string; slug: string; scope: "workspace" | "project" }[];
 }
 
+/**
+ * A block earns its place in the document by having something to read. A place that is named but
+ * cannot be opened -- a directory, a file that is not there -- is an inventory fact: it says nothing
+ * about what the turn carries, and as a block it was a header with a sentence explaining that there
+ * was no body under it. What such a place holds is reachable where it is named, in the prose.
+ */
+function readable(block: ContextBlockDto): boolean {
+  return block.body !== null;
+}
+
 export async function readContextDocument(input: ContextDocumentInput): Promise<ContextBlockDto[]> {
   const places = providerHome(input.provider, input.home);
   /* The provider's own system prompt is not here. It rides every turn, the provider never exposes
@@ -358,8 +368,10 @@ export async function readContextDocument(input: ContextDocumentInput): Promise<
           path: resolveReference(token, file.path, input.home),
           note: byToken.get(token)?.defect ? "not there" : byToken.get(token)?.bytes === null ? "elsewhere" : "may load",
         })),
+        /* The places themselves are no longer blocks -- nothing can be read at a place that is
+           not there -- so this sentence has to name them, or the failure loses its subject. */
         defect: injectedTokens.some((token) => byToken.get(token)?.defect)
-          ? "This block sends the agent to places that do not resolve from its working directory. Run `ralphy prompts install`, or reinstall the block, so the routing it describes exists."
+          ? `This block sends the agent to ${injectedTokens.filter((token) => byToken.get(token)?.defect).join(", ")}, which do not resolve from its working directory. Run \`ralphy prompts install\`, or reinstall the block, so the routing it describes exists.`
           : null,
       });
     }
@@ -455,5 +467,5 @@ export async function readContextDocument(input: ContextDocumentInput): Promise<
     });
   }
 
-  return blocks;
+  return blocks.filter(readable);
 }
