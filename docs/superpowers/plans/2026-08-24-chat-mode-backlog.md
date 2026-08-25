@@ -45,10 +45,19 @@ verification is partial (says which part).
 
 - [x] **C1 — Refresh the Codex integration.** New models are rejected and the harness reports that
   Codex must be updated. Confirm what the installed Codex CLI actually accepts and follow it.
-  Second pass: offering the right models was not enough. "Codex default" means "whatever
-  `~/.codex/config.toml` says", and this operator's config says `gpt-5.6-luna` — so every existing
-  chat kept failing. The row is now dropped when the configured default is unrunnable, and a chat
-  pinned to a model the provider no longer lists moves to the provider's default by itself.
+  Second pass got this wrong. It read the refusal as "this build cannot run that model" and dropped
+  the row from the menu, which is the one thing that could not help: the operator does have 5.6
+  models.
+
+  Third pass, the real cause. The 400 is a **server-side gate on the client version**, and the app
+  was resolving `~/.local/bin/codex`, which stays pinned to the release it was installed with —
+  0.142.4 here, while Codex's own updater had moved
+  `~/.codex/packages/standalone/current` to 0.149.1 that same morning. Both builds *list*
+  `gpt-5.6-luna` in their bundled catalogue, so no catalogue check could ever have caught it. The
+  binary resolver now prefers the symlink Codex itself calls the installed version, every listed
+  model stays in the menu, and the provider row prints the resolved CLI version so a stale install
+  is visible before a turn fails rather than after. Verified live: the row reads `CLI 0.149.1` and a
+  real `gpt-5.6-luna` turn from inside the app returns.
 - [~] **C2 — Refresh the Claude Code integration.** Same currency check for the Claude harness.
   Checked against the installed `claude 2.1.228`: every flag the session spawns still exists
   (`-p`, `--output-format stream-json`, `--verbose`, `--include-partial-messages`,
@@ -85,6 +94,14 @@ verification is partial (says which part).
 - [x] **C5 — "Provider Settings" opens Settings at its last page.** It must land on the provider
   page.
 
+  Cost, asked and answered. It is one extra short turn per chat, once, when the first answer lands.
+  It now goes to the cheapest model each CLI documents — `gpt-5.4-mini` for Codex, `fable` for
+  Claude (`claude 2.1.228` documents no `haiku` alias) — falling back to the chat's own model if the
+  cheap alias is refused. What it does *not* shrink is the input: a Codex turn measured 21.5k input
+  tokens on both models, because Codex loads its own instructions, `AGENTS.md`, skills and plugins
+  before the prompt, and `codex exec` exposes no flag to trim that. So the saving is the per-token
+  rate, not the token count.
+
 ## D. Chat scope and panel state
 
 - [x] **D1 — Chats belong to a workspace.** Switching workspace switches the chat list. The
@@ -100,15 +117,25 @@ verification is partial (says which part).
 
 ## E. Context transparency
 
-- [x] **E1 — Show what the chat can reach.** Core ships `AGENTS.md` and a tree of instruction
+- [ ] **E1 — Show what the chat can reach.** Core ships `AGENTS.md` and a tree of instruction
   files (art director and friends) plus installed skills the harness can call. The app should show
   the operator the system-prompt entry point, the files already in context, and what the harness
   may pull in as it works.
 
-  A **Context** control in the composer toolbar, reading the truth in main: the working directory,
-  the library and the active project, the provider's own instruction files with whether each
-  exists, its configuration, its installed skills with a count, and the injected preamble verbatim
-  — which is the system prompt's entry point.
+  First pass shipped a **Context** popover in the composer toolbar, reading the truth in main: the
+  working directory, the library and the active project, the provider's own instruction files with
+  whether each exists, its configuration, its installed skills with a count, and the injected
+  preamble verbatim.
+
+  **Rejected: wrong shape.** "юзер не будет искать какие то файлы" — a list of paths in a rail-width
+  popover is a developer's debug view, not a place an operator reads or edits their context. Context
+  is not one list either: there is what the developer bakes into `.ralphy`, what the operator adds
+  per workspace and globally, Ralphy's own memory, and the skills the marketplace installs. Every
+  one of those mutates what the agent knows, and the popover shows one of them.
+
+  The deliverable is now a design document covering the whole system and the view it deserves, for
+  Claude Design to draw: `docs/design/context-system.md`. The popover stays only until that view
+  exists.
 
   The finding it rests on: the harness runs the CLI in the library's *parent*, the operator's home.
   Core's own `AGENTS.md`, its 16 playbooks and its skills live in the core checkout, which is not
@@ -146,8 +173,18 @@ verification is partial (says which part).
   publications with real reach. Widening Core's clause was tried and reverted: it breaks three of
   Core's tests and contradicts a decision Core states in words.
 
-  So Desktop composes the reading instead, from the same per-project overviews the project screen
-  already reads: workspace-owned rows first, then its projects'. `UX Testing Lab` now shows
+  The first fix composed the reading on the Desktop side — one `project.overview` request per
+  Project, pages concatenated, metric totals added up in the reader. **Rejected, and rightly.** It
+  produced a total no single query had computed, a page that could not paginate because it was
+  stitched from other pages, and a null-versus-zero problem that existed only because the addition
+  happened outside the database.
+
+  Second fix, in the right place: Core's `workspace.overview` now takes `include: "owned" | "tree"`.
+  `owned` is the default and unchanged, so the test that states the narrow rule keeps passing;
+  `tree` is the other honest question — everything under this workspace, Projects included — and it
+  is one `WHERE` clause where the rows are. Widening reaches down, never sideways: another
+  workspace's Project stays out, which the new Core test asserts. Desktop asks once and filters the
+  legacy catalog ghost, which is all it ever should have done. `UX Testing Lab` shows
   1 publication, 11.8k views, 36.7h watch time, 972 likes, 68 comments, 143 shares, and the right
   account carries its publication.
 
@@ -162,3 +199,32 @@ verification is partial (says which part).
   `scheduledAt` in this workspace is in the past, while the Calendar shows eight publications
   between Aug 25 and Aug 28 from its own reader. The two panels answer "what is scheduled" from
   different sources. Worth settling before either is trusted.
+
+## H. Raised 2026-08-25
+
+- [x] **H1 — Type scale readability.** Settings' main content was hard to read. The cause was not
+  the settings screen but the bottom of the shared type scale: row descriptions sat at 11.5px, one
+  step above a caps micro-label, and the caps labels themselves ran 8.5–10.5px. Contrast was never
+  the problem — measured 6:1 and better everywhere, against a 4.5:1 bar.
+
+  The scale's floor is raised, keeping the 0.5px spacing between rungs so every distinction the
+  screens draw with survives; sizes from 20px up are untouched, which widens the gap between body
+  copy and a heading rather than narrowing it. Measured clipping before and after across the twelve
+  settings pages and the workspace pages: no new truncation, no horizontal overflow.
+
+- [x] **H2 — Streaming.** An answer arrived in one piece after the whole turn. `codex exec --json`
+  is why: it reports an assistant message only as a finished item — measured on 0.149.1, a
+  2504-character answer arrives as exactly one `item.completed` and nothing before it. There is no
+  flag for it and `codex features list` has no streaming feature for exec, so the `item.updated`
+  branch in the parser was correct and unreachable.
+
+  The transport is now `codex app-server`, the protocol Codex's own desktop client speaks, which
+  emits `item/agentMessage/delta` as the model writes. Same total time as exec on the same prompt
+  and model (11.1s vs 11.4s), with the first token at 10.5s instead of at the end; 15–33 delta
+  events per short answer. The wait before the first token is Codex loading its own instructions and
+  the model thinking — unchanged.
+
+- [ ] **H3 — Content plan versus Calendar.** Settle what each panel is for. The operator's reading:
+  the Calendar shows finished content that is actually booked into a slot, while the Content plan is
+  mostly *ideas not yet made* — some of which may later be realised and link to a Unit. That is a
+  different axis from "scheduled versus published", and neither panel currently draws it.
