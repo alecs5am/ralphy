@@ -377,7 +377,11 @@ export function AgentComposer({
     <div className="relative min-h-11">
       <div
         ref={field}
-        className="agent-composer-field max-h-agent-composer min-h-11 w-full overflow-y-auto px-0.5 type-md leading-loose whitespace-pre-wrap text-ink outline-0 [overflow-wrap:anywhere]"
+        /* `leading-composer`, not `leading-loose`: that name generated `line-height:
+           var(--leading-loose)` against a token no file declares, so the declaration was dead and
+           the field silently inherited the body's snug step. The role key states the field's own
+           leading and resolves to a token that exists. */
+        className="agent-composer-field max-h-agent-composer min-h-11 w-full overflow-y-auto px-0.5 type-md leading-composer whitespace-pre-wrap text-ink outline-0 [overflow-wrap:anywhere]"
         contentEditable
         suppressContentEditableWarning
         role="textbox"
@@ -398,7 +402,7 @@ export function AgentComposer({
       {/* `secondary`, not `muted-decorative`: the placeholder is a real element now rather than a
           pseudo, and the decorative step measures 2.6:1 on the chat field. A line the operator is
           meant to read is not a counter. */}
-      {empty && <span className="pointer-events-none absolute top-0 left-0.5 type-md leading-loose text-secondary" aria-hidden="true">{placeholder}</span>}
+      {empty && <span className="pointer-events-none absolute top-0 left-0.5 type-md leading-composer text-secondary" aria-hidden="true">{placeholder}</span>}
       {query !== null && <AgentTagMenu query={query} rows={rows} highlight={cursor} onPick={insert} />}
     </div>
     {children}

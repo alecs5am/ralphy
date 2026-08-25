@@ -86,7 +86,11 @@
   --spacing-agent-mode-menu: 140px;        /* the permission menu holds one word and a check */
   --spacing-agent-context-menu: 360px;     /* the context panel prints absolute paths */
   --spacing-agent-context-scroll: 380px;   /* ...and scrolls rather than growing past the chat */
-  --spacing-agent-model-trigger: 104px;    /* the model name truncates rather than pushing the toolbar */
+  /* Wide enough for the longest name either built-in catalogue ships -- `GPT-5.6-Terra`,
+     `Claude Sonnet` -- because the model is what will answer and a name cut to "GPT-5..." tells the
+     operator nothing. Still a cap: an OpenRouter id is arbitrarily long and would eat the toolbar.
+     Below this the trigger sits in a `min-w-0` flex child, so a narrow rail still truncates it. */
+  --spacing-agent-model-trigger: 148px;
   --spacing-agent-tool-indent: 31px;       /* a tool line starts under the assistant's copy column */
 
   /* Leading the shared tokens do not name by role. */
@@ -94,6 +98,11 @@
   /* An entity tag states a line height rather than a height: a fixed box would stop its text
      sharing the baseline of the sentence it stands in, which is the handoff's alignment rule. */
   --leading-tag: 14px;
+  /* What the operator types, tighter than rail copy they read. A typed message is one thought
+     across a few lines, not a paragraph, and at the snug step a 15px field drew 22px lines that
+     read as a stanza. Tight is 19.5px -- still enough that the 20px tag pill only grows the line
+     it stands in by half a pixel instead of forcing the field open. */
+  --leading-composer: var(--leading-tight);
 
   /* Stacking, so the header's own layer stays a token and not a number in markup. The rail's
      header only has to stand above the transcript that scrolls under it. */

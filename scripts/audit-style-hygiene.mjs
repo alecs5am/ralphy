@@ -237,6 +237,32 @@ console.log(`\n## Rules no component can reach (${unreachable.length})`);
 if (unreachable.length === 0) console.log("none");
 else for (const row of unreachable.slice(0, 30)) console.log(`  ${row}`);
 
+// The built sheet, where a utility class first becomes a declaration. `leading-loose` compiled to
+// `line-height: var(--leading-loose)` against a variable nothing emits, so the field silently
+// inherited the body's leading and no check above could see it: the reference exists only after
+// Tailwind has generated it. Reading the output catches both halves of that class of defect --
+// a role key naming a token that was never declared, and a Tailwind default the theme replaced.
+const DIST = join(ROOT, "dist", "assets");
+const built = existsSync(DIST) ? stylesheets(DIST) : [];
+const deadInBuild = new Map();
+for (const path of built) {
+  const source = readFileSync(path, "utf8");
+  const declared = new Set([...source.matchAll(/(--[\w-]+)\s*:/g)].map(([, name]) => name));
+  for (const [, name] of source.matchAll(/var\((--[\w-]+)/g)) {
+    // `assigned` already holds every name a component sets as an inline style, and Tailwind's own
+    // `--default-*` keys are its documented fallbacks rather than app tokens.
+    if (declared.has(name) || assigned.has(name)) continue;
+    if (/^--(?:radix|tw|default)-/.test(name)) continue;
+    // Tailwind scans the stylesheets too, so `grid-cols-(--name)` written inside a theme file's
+    // comment generates a real class. The prose is worth keeping; the class it spawns is not a bug.
+    if (name === "--name") continue;
+    deadInBuild.set(name, (deadInBuild.get(name) ?? 0) + 1);
+  }
+}
+console.log(`\n## Declarations the build cannot resolve (${deadInBuild.size}${built.length === 0 ? "; no build to read" : ""})`);
+if (deadInBuild.size === 0) console.log(built.length === 0 ? "run `bun run build:renderer` first" : "none");
+else for (const [name, count] of [...deadInBuild].sort((a, b) => b[1] - a[1])) console.log(`  ${count.toString().padStart(4)}  var(${name})`);
+
 const failed = oversized.length > 0 || duplicated.length > 0 || dangling.size > 0
-  || arbitrary.size > 0 || unreachable.length > 0 || regressed.length > 0;
+  || arbitrary.size > 0 || deadInBuild.size > 0 || unreachable.length > 0 || regressed.length > 0;
 if (process.env.STYLE_AUDIT_STRICT === "1" && failed) process.exit(1);
