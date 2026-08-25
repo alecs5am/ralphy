@@ -88,7 +88,7 @@ If — and only if — the user wants a marketing card alongside the cut, genera
 
 ## Workflow
 
-1. **Intake.** Collect: subject/premise, the two characters (or let the agent design them), action vocabulary (flip / chase / fight / trick), location + time-of-day, target length + aspect (default 16:9 for cinematic action; 9:16 if the user wants vertical — this is a niche-skill aspect override, see [intake.md](../../../.agents/skills/intake/SKILL.md) step 3), poster wanted? (default no), target language. Announce: "This is a stylized toon-action animation — using the toon-action skill."
+1. **Intake.** Collect: subject/premise, the two characters (or let the agent design them), action vocabulary (flip / chase / fight / trick), location + time-of-day, target length + aspect (default 16:9 for cinematic action; 9:16 if the user wants vertical — this is a niche-skill aspect override, see [`intake`](../../../.agents/skills/intake/SKILL.md) step 3), poster wanted? (default no), target language. Announce: "This is a stylized toon-action animation — using the toon-action skill."
 2. **Reference gate.** Named real IP as the SUBJECT → ref or logged `--no-ref-consent`. Original characters → proceed.
 3. **Character design (pillar 2).** Draft the SUBJECTS blocks with named-style-reference silhouette locks; get the user's "go".
 4. **Optional VS poster** (only if requested) — gemini ref-anchored.

@@ -57,9 +57,11 @@ const EXCERPT_LINES = 400;
    arrives as a child of Ralphy's block, and it is a 52 KB routing table -- read
    at 60 lines it looked like a stub, and its routing table was invisible. */
 /* Enough for a routing table. The machine files name a handful of places; the
-   pack's router names every playbook, and truncating that list would make the
-   page imply the router routes to less than it does. */
-const MAX_REFERENCES = 24;
+   pack's router names every base route plus the whole skill index -- 77 distinct
+   paths as of the skills migration -- and truncating that list would make the
+   page imply the router routes to less than it does. These become in-prose link
+   marks, not rows, so the ceiling costs marks and not page length. */
+const MAX_REFERENCES = 128;
 /** Ralphy's own installer writes this block into the agent's instruction file. */
 const RALPHY_START = "<!-- ralphy:start";
 const RALPHY_END = "<!-- ralphy:end -->";

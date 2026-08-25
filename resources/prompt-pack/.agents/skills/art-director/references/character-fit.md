@@ -1,6 +1,6 @@
 # Character fit per visual register
 
-**Read this when:** a project pairs a clean / cute brand mascot (ghost, blob, friendly character) with a gritty visual register (punk, acid, halftone, xerox-zine, grunge, horror, distressed analog), OR any time the cover-first checkpoint surfaces a "clean asset pasted on a dirty world" tension. Also read this when running [`art-director.md`](../SKILL.md)'s aesthetic-lock checkpoint and the picked register sits far from the mascot's native medium.
+**Read this when:** a project pairs a clean / cute brand mascot (ghost, blob, friendly character) with a gritty visual register (punk, acid, halftone, xerox-zine, grunge, horror, distressed analog), OR any time the cover-first checkpoint surfaces a "clean asset pasted on a dirty world" tension. Also read this when running [`..`](../SKILL.md)'s aesthetic-lock checkpoint and the picked register sits far from the mascot's native medium.
 
 ## The rule (one line)
 

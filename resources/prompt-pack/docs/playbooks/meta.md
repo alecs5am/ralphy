@@ -36,7 +36,7 @@ Hard AGENTS.md invariant #10. Read [`docs/skills-vs-templates.md`](../skills-vs-
 
 ## Rule 4 — Intake protocol before any paid generation
 
-For new-project briefs, the [intake.md](../../.agents/skills/intake/SKILL.md) protocol fires BEFORE any other playbook. Don't skip it even when "the brief seems clear" — three of the ten postmortems' largest cost overruns trace to "the brief seemed clear so I just generated."
+For new-project briefs, the [`intake`](../../.agents/skills/intake/SKILL.md) protocol fires BEFORE any other playbook. Don't skip it even when "the brief seems clear" — three of the ten postmortems' largest cost overruns trace to "the brief seemed clear so I just generated."
 
 The protocol:
 1. Capture intent via 3-5 clarifying questions (target language, aspect, brand, duration, hard "no"s).

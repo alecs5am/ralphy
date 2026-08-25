@@ -105,7 +105,7 @@ When the user message contains multiple stages (e.g. "approve scene 1 BUT rework
 - Status pings ("ok", "thanks", "yes") with no scenario impact.
 - Automatic `--no-ref-consent` overrides (the CLI logs those itself with `stage: "no-ref-consent"`).
 
-Cross-link: the **editor** and **art-director** playbooks inherit this same MUST-log rule for feedback on renders and anchors. See [`editor.md`](../editor/SKILL.md) and [`art-director.md`](../art-director/SKILL.md).
+Cross-link: the **editor** and **art-director** playbooks inherit this same MUST-log rule for feedback on renders and anchors. See [`editor`](../editor/SKILL.md) and [`art-director`](../art-director/SKILL.md).
 
 If the scenario references a creator / TikTok / IG handle and there's no `.ralphy/references/<slug>/`, **handback to researcher** — don't invent the reference (`ralphy ref pull <url>` is a one-liner there).
 

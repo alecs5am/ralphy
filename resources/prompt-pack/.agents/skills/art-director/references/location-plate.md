@@ -97,9 +97,9 @@ The plate also feeds the **pre-render self-review** (see [pre-render-checklist.m
 
 ## Cross-references
 
-- **Anchor-order discipline** at the top of [art-director.md](../SKILL.md) — the plate is rule #1 in that discipline.
+- **Anchor-order discipline** at the top of [`..`](../SKILL.md) — the plate is rule #1 in that discipline.
 - [pre-render-checklist.md](./pre-render-checklist.md) — location-continuity eyeball happens against the plate.
 - [regeneration.md](./regeneration.md) — if a scene anchor drifts off the plate, regen that single scene against the plate; don't regen the plate.
-- [intake.md](../../intake/SKILL.md) — step 3 of intake names the plate as anchor #1 in the step-by-step generation loop; this sub-doc is what that step links to.
+- [`intake`](../../intake/SKILL.md) — step 3 of intake names the plate as anchor #1 in the step-by-step generation loop; this sub-doc is what that step links to.
 - `.ralphy/workspaces/<ws>/projects/noski-people-001/postmortem/02-lessons.md` (Rule 1) and `05-workflow-fixes.md` (#2, P0) — origin postmortem.
 - MEMORY: `feedback_super_original_refs` — the broader "lock refs to prevent identity drift" pattern. Location plates are the room-shaped instance of it.

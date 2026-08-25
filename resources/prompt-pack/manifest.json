@@ -1,10 +1,10 @@
 {
   "packVersion": 1,
   "cliVersion": "0.3.0",
-  "installedAt": 1787682992348,
+  "installedAt": 1787683508091,
   "source": "/Users/maximovchinnikov/github/ralphy/ralphy/.worktrees/sqlite-domain-store",
   "root": "/Users/maximovchinnikov/github/ralphy/ralphy-desktop/.worktrees/nothing-os-redesign/resources/prompt-pack",
-  "totalBytes": 2119691,
+  "totalBytes": 2119625,
   "files": [
     {
       "path": ".agents/skills/analog-horror-psa/SKILL.md",
@@ -23,13 +23,13 @@
     },
     {
       "path": ".agents/skills/art-director/references/character-fit.md",
-      "bytes": 5756,
-      "sha256": "664e849ba65bec654b53106935462ff5079b128666a3499ed416f3d9f0f84928"
+      "bytes": 5743,
+      "sha256": "770e4ab8d9f7feeb1d7fa901e1f307abeabadd2975baa56eced0173af2c766f4"
     },
     {
       "path": ".agents/skills/art-director/references/location-plate.md",
-      "bytes": 8217,
-      "sha256": "5b88043e338e7487cdb320b6b0f8501afbc775d0f665478455fe2ddab3eb1876"
+      "bytes": 8205,
+      "sha256": "43644f5d9b3789c9388253c498f460d45ee94c3d023c5a0949a0e9cd74c2e863"
     },
     {
       "path": ".agents/skills/art-director/references/model-choice.md",
@@ -133,8 +133,8 @@
     },
     {
       "path": ".agents/skills/editor/SKILL.md",
-      "bytes": 14331,
-      "sha256": "08d5fd51345d5ff137381e3bbf6e7d2f68488f3debb8e499f67bb55b32475bec"
+      "bytes": 14321,
+      "sha256": "88533bdc266a6e5f9358c17b89e7cd9116af00438552c57d0e18f1d542851d8e"
     },
     {
       "path": ".agents/skills/editor/references/audio-mixing.md",
@@ -158,13 +158,13 @@
     },
     {
       "path": ".agents/skills/editor/references/render-pipeline.md",
-      "bytes": 12094,
-      "sha256": "dc8ddf544e1c848f292e85b08468268887eff7828ee107b918ad66ecd4e9b7a2"
+      "bytes": 12088,
+      "sha256": "12ce8f0c08d4c12af5635071fa1c247a27976decbd715dcb03f43f171ac3e7f3"
     },
     {
       "path": ".agents/skills/editor/references/transitions.md",
-      "bytes": 4153,
-      "sha256": "12e35d5739f82a0043aeccc13408b986de861feac940b85a29bb84723986fc18"
+      "bytes": 4141,
+      "sha256": "0b49698d29d4daba24164d003da53391c9de9874cdd2dfd805e20d271c5bf3ef"
     },
     {
       "path": ".agents/skills/editor/references/vo-sync.md",
@@ -738,8 +738,8 @@
     },
     {
       "path": ".agents/skills/scenarist/SKILL.md",
-      "bytes": 12743,
-      "sha256": "db6c37be7173f3dfeb639fa21d868d4c111d3dfde55fbb2361f0d1904c3e7b20"
+      "bytes": 12737,
+      "sha256": "ea1d3fc392ef44b8f8ebfd4c57994ec98d8ef1d7466e013a10d02779ea24ff86"
     },
     {
       "path": ".agents/skills/scenarist/references/feedback-iteration.md",
@@ -898,8 +898,8 @@
     },
     {
       "path": ".agents/skills/ugc-toon-action/SKILL.md",
-      "bytes": 12544,
-      "sha256": "b18f9515107d0a912292d5cdd7d1ee954199b6e1b9d24f88a7da9c8323e44555"
+      "bytes": 12543,
+      "sha256": "a09a837ef7380f089de69dee2006f183aa2f015ea1043040283198c22b5d921d"
     },
     {
       "path": ".agents/skills/ugc-unboxing/SKILL.md",
@@ -978,8 +978,8 @@
     },
     {
       "path": "AGENTS.md",
-      "bytes": 38026,
-      "sha256": "5f6c3488d86bef4dd23e47a79c0a16685bfbea5b99334104903679d880e728a4"
+      "bytes": 38036,
+      "sha256": "a97dd362ce9394da8c41bc10c47d0ef2996e0eb678e87c6847fa7b14a19f14aa"
     },
     {
       "path": "MODELS.md",
@@ -1068,8 +1068,8 @@
     },
     {
       "path": "docs/playbooks/meta.md",
-      "bytes": 5657,
-      "sha256": "e2e33604da13bce131165df9afefde8990b9904663c022c1614a7b6d82d27f97"
+      "bytes": 5656,
+      "sha256": "4a1557a1d73c12a18a793187fe833e9e07ed2f6f538adcba5be3e799481b2eb5"
     },
     {
       "path": "docs/playbooks/modes/README.md",
@@ -1193,8 +1193,8 @@
     },
     {
       "path": "docs/playbooks/unit-lifecycle.md",
-      "bytes": 9878,
-      "sha256": "0bf16b61694764ccb978b211e7c1df33fbc3d90399957b39c313526e2b5db150"
+      "bytes": 9863,
+      "sha256": "651bc446584dfe0305b5ae54a22f31c69c9499953779b61fe52f29ebb7d0ab91"
     },
     {
       "path": "docs/render-test-2026-05-11.md",

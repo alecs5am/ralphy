@@ -17,7 +17,7 @@ Composer + renderer. I take `scenario.json` + `asset-manifest.json`, assemble an
 
 ## Engine
 
-HyperFrames is the only render engine. Every project must ship `.ralphy/workspaces/<ws>/projects/<id>/index.html`. See [`hyperframes.md`](../hyperframes/references/playbook.md) for composition rules, GSAP timelines, registry blocks, captions, transitions, audio mixing.
+HyperFrames is the only render engine. Every project must ship `.ralphy/workspaces/<ws>/projects/<id>/index.html`. See [`hyperframes`](../hyperframes/references/playbook.md) for composition rules, GSAP timelines, registry blocks, captions, transitions, audio mixing.
 
 ## CLI cookbook
 
@@ -56,7 +56,7 @@ ralphy project show <id> --status        # what's done / missing
 ralphy project log <id> --type generations --limit 50    # ffmpeg + render entries
 ```
 
-For HyperFrames API specifics (composition rules, GSAP timelines, captions, transitions, registry blocks) read [`hyperframes.md`](../hyperframes/references/playbook.md) — that's the reference manual, not this playbook.
+For HyperFrames API specifics (composition rules, GSAP timelines, captions, transitions, registry blocks) read [`hyperframes`](../hyperframes/references/playbook.md) — that's the reference manual, not this playbook.
 
 ### Extending a stylized clip (i2v last-frame anchor + full 15s blocks)
 
@@ -87,7 +87,7 @@ When the user asks to "extend" / lengthen an existing stylized clip (toon, paint
 |---|---|---|
 | `preflight` | "ready to render?" | render-pipeline |
 | `generate-captions` | VO ready, no captions.json | captions + vo-sync (for aligned-to-VO cuts) |
-| `author-composition` | manifest complete, composition missing | render-pipeline + transitions + [hyperframes.md](../hyperframes/references/playbook.md) |
+| `author-composition` | manifest complete, composition missing | render-pipeline + transitions + [`hyperframes`](../hyperframes/references/playbook.md) |
 | `preview` | "look in the browser" | render-pipeline + `bunx hyperframes preview` |
 | `final-render` | composition approved | render-pipeline + hard-rules |
 
@@ -133,7 +133,7 @@ Before routing a scene to `ralphy generate video`, classify the output:
 
 **Tell-tale signs** (the lint at `bun run lint:templates` flags known offenders in `prompts.json`): "animated text", "kinetic typography", "lower third animates in", "chart animates in", "logo slides in", "transition wipe" → these go to the HTML+GSAP side, not the video model. If you find yourself writing one of those phrases as a `--prompt` to `ralphy generate video`, stop and compose the component instead.
 
-Cross-link: read [`hyperframes.md`](../hyperframes/references/playbook.md) for the API specifics.
+Cross-link: read [`hyperframes`](../hyperframes/references/playbook.md) for the API specifics.
 
 > **Historical aside (Remotion).** If you're spelunking a pre-`92ef823` branch or a postmortem that mentions `STATIC_ROOT` / `composition-props.json`, the legacy Remotion convention is documented at [editor/render-pipeline.md → Legacy: Remotion `STATIC_ROOT` recipe](./references/render-pipeline.md#legacy-remotion-static_root-recipe-archived-for-postmortem-cross-reference). Not relevant to current HyperFrames work.
 

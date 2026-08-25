@@ -9,7 +9,7 @@ Install a transition via `bunx hyperframes add <transition-slug> .ralphy/workspa
 - `wipe` for retro/VHS vibe (only if the template demands it)
 - `glitch` / `light-leak` / `thermal-distortion` — for high-energy beats
 
-See `bunx hyperframes catalog` for the live registry and [`../hyperframes.md`](../../hyperframes/references/playbook.md) for the wiring patterns.
+See `bunx hyperframes catalog` for the live registry and [`hyperframes`](../../hyperframes/references/playbook.md) for the wiring patterns.
 
 ## Duration
 
@@ -71,4 +71,4 @@ If the first 3-4s contain a hook screenshot (Reddit post, news headline) over th
 
 ## Source
 
-All API details — see [`../hyperframes.md`](../../hyperframes/references/playbook.md) (the index) and the matching `.agents/skills/hyperframes*/SKILL.md` bodies. Don't invent transition patterns from memory.
+All API details — see [`hyperframes`](../../hyperframes/references/playbook.md) (the index) and the matching `.agents/skills/hyperframes*/SKILL.md` bodies. Don't invent transition patterns from memory.

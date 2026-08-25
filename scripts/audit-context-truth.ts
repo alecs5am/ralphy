@@ -85,13 +85,11 @@ if (router !== null) {
     if (await bytes(resolve(pack.root, token)) === null) absent.push(token);
   }
   say(named.length > 0, `the installed router names ${named.length} documents`);
-  /* Skills are delivered by `skill install`, not by the pack, so the router naming them is not a
-     pack defect -- but it is worth printing, because the page draws those names in the alert tone. */
-  const shippable = absent.filter((token) => !token.startsWith(".agents/"));
-  say(shippable.length === 0, `every non-skill document the router names is in the pack${shippable.length ? `: missing ${shippable.join(", ")}` : ""}`);
-  if (absent.length > shippable.length) {
-    console.log(`     the router also names ${absent.length - shippable.length} skill file(s) the pack does not ship`);
-  }
+  /* No exemption any more: skills used to arrive through `skill install`, so a
+     router naming one the pack lacked was a delivery gap rather than a pack
+     defect. The pack carries `.agents/skills/` now, so a name that does not
+     resolve is a name that resolves nowhere for the agent reading it. */
+  say(absent.length === 0, `every document the router names is in the pack${absent.length ? `: missing ${absent.join(", ")}` : ""}`);
 }
 
 console.log(failed === 0 ? "\ncontext truth: agrees with this machine" : `\ncontext truth: ${failed} disagreement(s)`);

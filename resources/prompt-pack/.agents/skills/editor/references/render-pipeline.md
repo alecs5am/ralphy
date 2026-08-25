@@ -6,7 +6,7 @@
 
 ### Decide composition target
 
-Every project ships `.ralphy/workspaces/<ws>/projects/<id>/index.html` — a HyperFrames composition with `data-*` timing attributes and a paused GSAP timeline. See [`hyperframes.md`](../../hyperframes/references/playbook.md) for the authoring rules.
+Every project ships `.ralphy/workspaces/<ws>/projects/<id>/index.html` — a HyperFrames composition with `data-*` timing attributes and a paused GSAP timeline. See [`hyperframes`](../../hyperframes/references/playbook.md) for the authoring rules.
 
 ### Wire assets
 
@@ -78,7 +78,7 @@ Across the full tokyo-y2k-001 cut, planned 75s of clips landed as 90.7s of raw m
 
 ## Legacy: Remotion `STATIC_ROOT` recipe (archived, for postmortem cross-reference)
 
-> **Status — not the current engine.** The active render path is HyperFrames (commit `92ef823` removed the Remotion path). This section documents the `STATIC_ROOT` / `composition-props.json` convention that the *removed* Remotion code expected, so that postmortems referencing the failure mode (tokyo-y2k-001, analog-horror-fridge-001, glitter-cream-001) remain readable and so that anyone resurrecting a Remotion branch doesn't repeat the first-render 404 that burned ~30 min × 3 projects. **For new work, ignore this section — author `index.html` per [`hyperframes.md`](../../hyperframes/references/playbook.md) instead.**
+> **Status — not the current engine.** The active render path is HyperFrames (commit `92ef823` removed the Remotion path). This section documents the `STATIC_ROOT` / `composition-props.json` convention that the *removed* Remotion code expected, so that postmortems referencing the failure mode (tokyo-y2k-001, analog-horror-fridge-001, glitter-cream-001) remain readable and so that anyone resurrecting a Remotion branch doesn't repeat the first-render 404 that burned ~30 min × 3 projects. **For new work, ignore this section — author `index.html` per [`hyperframes`](../../hyperframes/references/playbook.md) instead.**
 >
 > If you only care about HyperFrames, skip to [Per-clip captions variant](#per-clip-captions-variant).
 
