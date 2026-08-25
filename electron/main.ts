@@ -29,6 +29,11 @@ import { parseAgentChatRequest } from "./agent/request";
 import { type AgentMemoryDigest } from "./agent/context";
 import { readContextPage, type ContextDocument } from "./agent/context-page";
 import { readContextFile } from "./agent/context-document";
+import {
+  bundledPack,
+  installPack as installPromptPack,
+  readPackState,
+} from "./agent/prompt-pack";
 import { readTitle, titleModels } from "./agent/title";
 import {
   CodexSession,
@@ -722,6 +727,13 @@ async function openLibrary(
     throw error;
   }
   if (!catalog) throw new Error("Library startup did not produce a catalog");
+  /* The routing pack, into the library that just opened. Ralphy's block in the
+     agent's instruction file names `~/.ralphy/prompts/AGENTS.md`, and a user who
+     downloaded only this app has no checkout to get it from -- so the app ships
+     it and installs it here, before any turn can read that block. Idempotent by
+     digest, and a failure is never fatal: a library without the pack is a
+     library whose routing is missing, not a library that cannot open. */
+  void installPromptPack(root, bundledPromptPack()).catch(() => {});
   migrationRecovery = null;
   emitMedia({ type: "root-ready", identity });
   activitySynchronizer.publish();
@@ -1011,6 +1023,9 @@ function registerAgentIpc(): void {
        page draws that difference, so the failure is carried as a reason rather than as an empty
        list -- "no documents" and "we could not ask" are not the same sentence. */
     const documents = await contextDocuments(workspaceId, request.project?.projectId ?? null);
+    /* The pack as the library actually holds it. The page must never describe a pack from the
+       bundle's manifest -- what matters is what an agent can open right now. */
+    const pack = await readPackState(rootPath, bundledPromptPack());
     const page = await readContextPage({
       provider,
       rootPath,
@@ -1022,6 +1037,7 @@ function registerAgentIpc(): void {
       workspaceDocuments: documents.workspace,
       projectDocuments: documents.project,
       coreUnavailable: documents.unavailable,
+      pack: pack.installed ? { root: pack.root, files: pack.files, bytes: pack.bytes } : null,
     });
     /* The reader accepts only what this read reported. The rows point outside the library -- the
        provider's own home, the skills tree -- so the media file guard cannot vet them, and the
@@ -1728,6 +1744,11 @@ function startSecretHandoff(): void {
       app.exit(1);
     }
   });
+}
+
+/** Where this build keeps its copy of the routing pack. */
+function bundledPromptPack(): string {
+  return bundledPack(process.resourcesPath, app.getAppPath(), app.isPackaged);
 }
 
 function startNormalDesktop(): void {

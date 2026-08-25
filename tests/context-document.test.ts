@@ -12,6 +12,9 @@ describe("references", () => {
     /* A bare slash, a one-segment folder and a URL are noise: reporting them as places would make
        the page claim broken links the operator never wrote. */
     expect(references("Use / and .codegraph/ and https://example.com/a/b.md")).toEqual([]);
+    /* A placeholder is a shape, not a place. `<repo>/AGENTS.md` resolved against
+       whatever directory named it produced a broken link nobody wrote. */
+    expect(references("Read `<repo>/AGENTS.md` and templates/<slug>/TEMPLATE.md")).toEqual([]);
   });
 });
 
@@ -40,9 +43,13 @@ describe("readContextDocument", () => {
     ));
     const theirs = await read(await fixture("Also read docs/playbooks/."));
 
-    /* Ralphy promised routing that does not exist, so the page says so in the alert tone. */
-    expect(ours.filter((block) => block.defect !== null).map((block) => block.title))
-      .toEqual(expect.arrayContaining(["<repo>/AGENTS.md", "docs/playbooks/"]));
+    /* Ralphy promised routing that does not exist, so the page says so in the
+       alert tone -- on the block itself and on the place it cannot reach. The
+       placeholder is not among them: it never claimed to be a path. */
+    const flagged = ours.filter((block) => block.defect !== null).map((block) => block.title);
+    expect(flagged).toContain("docs/playbooks/");
+    expect(flagged).toContain("Ralphy's own block, inside the file above");
+    expect(flagged).not.toContain("<repo>/AGENTS.md");
     /* The operator naming a file they have not written yet is normal, and never red. */
     expect(theirs.every((block) => block.defect === null)).toBe(true);
     expect(theirs.find((block) => block.title === "docs/playbooks/")?.rail.label).toBe("Not written");

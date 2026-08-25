@@ -1,0 +1,470 @@
+{
+  "packVersion": 1,
+  "cliVersion": "0.3.0",
+  "installedAt": 1787666169770,
+  "source": "/Users/maximovchinnikov/github/ralphy/ralphy/.worktrees/sqlite-domain-store",
+  "root": "/Users/maximovchinnikov/github/ralphy/ralphy-desktop/.worktrees/nothing-os-redesign/resources/prompt-pack",
+  "totalBytes": 850893,
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "bytes": 52490,
+      "sha256": "f1396c2f0d5df9043293d2ac421e87f0d2bc9a77a8b7362a134dd75d57fccf91"
+    },
+    {
+      "path": "docs/agent-guide.md",
+      "bytes": 21135,
+      "sha256": "832a66685b676bff081377648b08814efa838ed461220326c8318ff20ab7fe4d"
+    },
+    {
+      "path": "docs/assets-catalog.md",
+      "bytes": 19452,
+      "sha256": "1cb242b8abf9a5d2a94f1bbf93001f1309e82c1c8830bf5526a350ab0b049abf"
+    },
+    {
+      "path": "docs/cli-spec.md",
+      "bytes": 22739,
+      "sha256": "07a434fcb07e8bed8db455260e255b8aeeb98082484a87f062e973cde7aed6d5"
+    },
+    {
+      "path": "docs/cli-surface.generated.md",
+      "bytes": 107086,
+      "sha256": "5f45736613cc899ff664da31c9d681559e7affeac589d623638eed67e740c7b5"
+    },
+    {
+      "path": "docs/content-mode-coverage.md",
+      "bytes": 18334,
+      "sha256": "7c611b39bbde195bba320ce4db13b4f59d37c5424c6a891986682af9e5cc3c21"
+    },
+    {
+      "path": "docs/content-modes.md",
+      "bytes": 11986,
+      "sha256": "bea93cc64a8689515a237d97d8c6473e876e27a94c931c269c0e960e42cf573a"
+    },
+    {
+      "path": "docs/creative-library/hooks/HOOK_LIBRARY.md",
+      "bytes": 6427,
+      "sha256": "5bb3e56c643fd4616f66d48989156cd144b9291e6efbd737b771e37944204d9e"
+    },
+    {
+      "path": "docs/creative-library/personas/ARCHETYPES.md",
+      "bytes": 7216,
+      "sha256": "564cfa9aaa88f72d5e681e6b17e158c20c953c394576f5ea72801a225c791638"
+    },
+    {
+      "path": "docs/creative-library/personas/SCHEMA.md",
+      "bytes": 3208,
+      "sha256": "3b5485f3d16f8119fecd0b3900015e36397c85a40412b871bd6c3b627bd6cedc"
+    },
+    {
+      "path": "docs/creative-library/scenes/SETTINGS.md",
+      "bytes": 6140,
+      "sha256": "90c3f2598855e929f554bad6c225c99bcf5b7d6a037c40124927cb1195cfd7f7"
+    },
+    {
+      "path": "docs/developing-ralphy.md",
+      "bytes": 12709,
+      "sha256": "50a454786d6d6fad79a4c482951bc2d1d722d57120129e5ab3334c567eef25ed"
+    },
+    {
+      "path": "docs/ffmpeg-recipes.md",
+      "bytes": 5013,
+      "sha256": "3ba64616b97820c5fe1c0020617ae6e1b9ca76e0af98425f19407b14bab60276"
+    },
+    {
+      "path": "docs/green-zone.md",
+      "bytes": 4503,
+      "sha256": "506bb71c3104b6c9ca0673fed3284aaeebef7ce40f609c5ffe92dd669a7c9c95"
+    },
+    {
+      "path": "docs/perf-targets.md",
+      "bytes": 2786,
+      "sha256": "15f07d938b0fb0dbc14b2ab9aa62c7e2d625d7cae3739f049bb074c76efb4bae"
+    },
+    {
+      "path": "docs/playbooks/README.md",
+      "bytes": 3789,
+      "sha256": "1f224419ce8902d6587a8abd82822036571ddaafada475b09e19afb91afb53d9"
+    },
+    {
+      "path": "docs/playbooks/agent-production-contract.md",
+      "bytes": 24072,
+      "sha256": "274e338547a9c699e0e0708ef696c67ee6a151ea9eb743e5145a0f935c4a7aa6"
+    },
+    {
+      "path": "docs/playbooks/art-director.md",
+      "bytes": 22619,
+      "sha256": "f2541d4fd57ba9101033582f2746e4d73a56a75016fe8f1414324c7e0e90f208"
+    },
+    {
+      "path": "docs/playbooks/art-director/character-fit.md",
+      "bytes": 5761,
+      "sha256": "63ddb6f7a1f16ba48a96d69868bf96824f0142acd4fa7f9c87457ec574ceb643"
+    },
+    {
+      "path": "docs/playbooks/art-director/location-plate.md",
+      "bytes": 8209,
+      "sha256": "fb52adc13e0c9d7269a721eda8632fd0ec6e3813bc4a95185c02aafd85b746a2"
+    },
+    {
+      "path": "docs/playbooks/art-director/model-choice.md",
+      "bytes": 1989,
+      "sha256": "55c0fc3722835abea8f6b751e4dbd45750270e15c86546cc6c9389cdaae08baa"
+    },
+    {
+      "path": "docs/playbooks/art-director/photoreal-humans.md",
+      "bytes": 9058,
+      "sha256": "7d1cf03f0d76f770385aaa11c266444464aca55d4dacd169a3150d1755048bdd"
+    },
+    {
+      "path": "docs/playbooks/art-director/pre-render-checklist.md",
+      "bytes": 4235,
+      "sha256": "4b98d03208a5c9fec594047142cea49262af340f7e492797f40409a5814b6067"
+    },
+    {
+      "path": "docs/playbooks/art-director/prompt-style.md",
+      "bytes": 4865,
+      "sha256": "d162993c5d93b2af072b14ae307512b1f7be9eca8fef26fb7f1863709ea6abf5"
+    },
+    {
+      "path": "docs/playbooks/art-director/quality-gate.md",
+      "bytes": 2730,
+      "sha256": "904e47181906b7d27c6fdffd29596a6d22e5595f3d75fb5edcfbe8d71d8aa5d0"
+    },
+    {
+      "path": "docs/playbooks/art-director/ref-photo-policy.md",
+      "bytes": 2908,
+      "sha256": "2a63c4287f16ca000496b8b81dfbddd88bddf43d2ac358e47495dae4cad17ceb"
+    },
+    {
+      "path": "docs/playbooks/art-director/regeneration.md",
+      "bytes": 5261,
+      "sha256": "786d62bed13a5fb9072e7487901484a9e24e1ecda727f15c749f2a72fd512285"
+    },
+    {
+      "path": "docs/playbooks/core.md",
+      "bytes": 4954,
+      "sha256": "37cbf8be4090b46ae59a8ad8d134c56862e2d3c72919b7c87f78e0430010c3d2"
+    },
+    {
+      "path": "docs/playbooks/core/cli-cookbook.md",
+      "bytes": 4463,
+      "sha256": "537cf97b45dc241ca9b509375ae24a06b4e7cb50fd804f35f558070a0c6e34ed"
+    },
+    {
+      "path": "docs/playbooks/core/doctor.md",
+      "bytes": 3787,
+      "sha256": "c5bf954a30491cd25d411d329bba914fc5c44e2146f2f1e6129578fe77398ad6"
+    },
+    {
+      "path": "docs/playbooks/core/troubleshooting.md",
+      "bytes": 4056,
+      "sha256": "2339597c0c782225a9642c13a2c67bda47fc91426648b198d57121d4357331ec"
+    },
+    {
+      "path": "docs/playbooks/editor.md",
+      "bytes": 13435,
+      "sha256": "59646a7bea697211a3ddad3b782cc0bd48580fdbcca5eb46d4d16e2f1bea8db2"
+    },
+    {
+      "path": "docs/playbooks/editor/audio-mixing.md",
+      "bytes": 1631,
+      "sha256": "a84e661315a4d26829a3ace4b06113c7aa56f07bf98a33580f0c8b47cad3f87d"
+    },
+    {
+      "path": "docs/playbooks/editor/captions.md",
+      "bytes": 3118,
+      "sha256": "e05e28098c1f8a9137ae9c5b51ecaafafb00fb1b16ffe612668970a9f5bf1b2a"
+    },
+    {
+      "path": "docs/playbooks/editor/green-zone.md",
+      "bytes": 2005,
+      "sha256": "d15ad65625b3b2549f71e742ec67566b7c5b8061d46063b78fbaeeefcf2a6664"
+    },
+    {
+      "path": "docs/playbooks/editor/hard-rules.md",
+      "bytes": 4019,
+      "sha256": "19c1e2f0a0a899b341dd3e0eb5b253f46d16fc94b7ed080d12e115e62f3f5f08"
+    },
+    {
+      "path": "docs/playbooks/editor/render-pipeline.md",
+      "bytes": 12043,
+      "sha256": "15b120cff4e0c04a3ed29f6e32b019198012fa3afa4543d9fd527343ea92a4cd"
+    },
+    {
+      "path": "docs/playbooks/editor/transitions.md",
+      "bytes": 4107,
+      "sha256": "004b32425f0606663f9560372d79befcdaa042e52e8b8e98d6fbcff2b097b91d"
+    },
+    {
+      "path": "docs/playbooks/editor/vo-sync.md",
+      "bytes": 4776,
+      "sha256": "b5ebae3f395035db46fbe7aab0eff39fc94467bceaee77d700e357bdd38c4f7a"
+    },
+    {
+      "path": "docs/playbooks/hyperframes.md",
+      "bytes": 26585,
+      "sha256": "7e95cbcb66f7bcce39e2b3fc7d9c53094b249b543beabef95bbcfbd205e10fa4"
+    },
+    {
+      "path": "docs/playbooks/intake.md",
+      "bytes": 30899,
+      "sha256": "4f07eb0220017c400138cfb93de3b1686b8533784f03d106abf2c5b21cad2981"
+    },
+    {
+      "path": "docs/playbooks/meta.md",
+      "bytes": 5630,
+      "sha256": "adb1092aece999c42d5209db33f81eaa1ddcb268b5d7b74618bf2e36e072ef07"
+    },
+    {
+      "path": "docs/playbooks/modes/README.md",
+      "bytes": 5873,
+      "sha256": "ae93bff5a2433923ce3345b1c96cbd2206299a84dae34532a920b1d5141f6e0e"
+    },
+    {
+      "path": "docs/playbooks/modes/ad-creative-pack.md",
+      "bytes": 4501,
+      "sha256": "e5eed28f13f273dcd868452a0f500bd1b238ea48ac8358e97e0a6e6d310a95ca"
+    },
+    {
+      "path": "docs/playbooks/modes/amazon-listing.md",
+      "bytes": 10275,
+      "sha256": "f874a1c3957c73a3d6a84235161fbed6adfeba888ae8a135d7a82e296ddda86e"
+    },
+    {
+      "path": "docs/playbooks/modes/cartoon-animation.md",
+      "bytes": 4644,
+      "sha256": "2c7ab23b4557278ce2ca8556ee75e1b5d849abe8aa5ee3831605e70595631926"
+    },
+    {
+      "path": "docs/playbooks/modes/closeup-product-with-person.md",
+      "bytes": 7901,
+      "sha256": "550eb0616d96fa196213421349e9747b5ea3589b14c8420afe535ad231691ffa"
+    },
+    {
+      "path": "docs/playbooks/modes/conceptual-product.md",
+      "bytes": 3786,
+      "sha256": "ab3ef88d500e87dcad2cfe15e3c2263557682c1f8b5fea465044fb587409218c"
+    },
+    {
+      "path": "docs/playbooks/modes/hero-banner.md",
+      "bytes": 3730,
+      "sha256": "2e3ab57b13178a37021a66a5fbeb5cce0c8c36d7ba92f0dacccc472db54bdbfe"
+    },
+    {
+      "path": "docs/playbooks/modes/image-pack.md",
+      "bytes": 5398,
+      "sha256": "9c70153b286274321a838dec1b60353af8229f9d34450a33bfeaa40e7b6a1665"
+    },
+    {
+      "path": "docs/playbooks/modes/infographic-animation.md",
+      "bytes": 7676,
+      "sha256": "cc4ca509e79b32c91142b539ceabe954bab95e45908a4565e03b3e2653002db4"
+    },
+    {
+      "path": "docs/playbooks/modes/lifestyle-scene.md",
+      "bytes": 7807,
+      "sha256": "1408212c2aa2c35360db687b135dd46d51d241defddf06c3fc9e60b1269d7433"
+    },
+    {
+      "path": "docs/playbooks/modes/motion-design.md",
+      "bytes": 4193,
+      "sha256": "dd3e13837c36bc7901fd5049e7ea396d374128b22f3eba062cb86efdfafd0548"
+    },
+    {
+      "path": "docs/playbooks/modes/personal-clipper.md",
+      "bytes": 4209,
+      "sha256": "5011457c524808ff6602553283abd82266b4c15833a2ebb2b510630293848b86"
+    },
+    {
+      "path": "docs/playbooks/modes/pinterest-pin.md",
+      "bytes": 3711,
+      "sha256": "71e7b0adb62120a40d9d21d9ff102cf02aa97676aa19195471dc72f9d79b9afd"
+    },
+    {
+      "path": "docs/playbooks/modes/podcast-video.md",
+      "bytes": 4234,
+      "sha256": "1516cb43cffe1b0bcb6be389d7cb6898bf4613b18006f5b39887079c7245d86d"
+    },
+    {
+      "path": "docs/playbooks/modes/product-shot.md",
+      "bytes": 7140,
+      "sha256": "d28b645c51ee82e31e57e1c884ee33a6339510b0179db8cce0a7f48a7642559a"
+    },
+    {
+      "path": "docs/playbooks/modes/restyle.md",
+      "bytes": 3690,
+      "sha256": "864a8add2fb831a855b373d8de426df95dc8bfd6c76bfb0a9a1ce882fb03ed45"
+    },
+    {
+      "path": "docs/playbooks/modes/seo-article.md",
+      "bytes": 7985,
+      "sha256": "a7aab83a4cdb59315969a22bac2a4bd1ffb30e7d2f9c05eec92962c57e245606"
+    },
+    {
+      "path": "docs/playbooks/modes/social-carousel.md",
+      "bytes": 4187,
+      "sha256": "762c06480351938f43638312d09868e29982cd8a12edbe86808230a32244e76c"
+    },
+    {
+      "path": "docs/playbooks/modes/tutorial-ugc.md",
+      "bytes": 4097,
+      "sha256": "7e824ba4831b9f9a4401185325b1654644c0b8a889f878e82a494a9c2fe3dca2"
+    },
+    {
+      "path": "docs/playbooks/modes/tv-ad.md",
+      "bytes": 8160,
+      "sha256": "2e2145197b79bea87da7e79b3a0aed93bec095a358a62e63b9ce1fe1fd621005"
+    },
+    {
+      "path": "docs/playbooks/modes/typography-animation.md",
+      "bytes": 3991,
+      "sha256": "cde572297cfd42422e173c4c0b220acffa5697d014bd4c02eb618de6da1615e8"
+    },
+    {
+      "path": "docs/playbooks/modes/ugc-review.md",
+      "bytes": 7306,
+      "sha256": "cec19edb93cab6e6eee28c92fcefc79599197d3f6fb2ff75f966440c041c1127"
+    },
+    {
+      "path": "docs/playbooks/modes/unboxing-ugc.md",
+      "bytes": 3873,
+      "sha256": "75c4746b7a9e6eea36b9c6f34157c7fc94f4dc92f19548f368b63620e4922be8"
+    },
+    {
+      "path": "docs/playbooks/modes/virtual-model-tryout.md",
+      "bytes": 10178,
+      "sha256": "2bd454b1b2ef0a1444bfad8f25df80a4522faf9a2acd249f27a6bcf3892a5b2c"
+    },
+    {
+      "path": "docs/playbooks/personal-clipper.md",
+      "bytes": 7148,
+      "sha256": "6ddc3ac03bbfc1fd1dc79c73fb0e87d73922ef50977b61a17b1224ca65e158bf"
+    },
+    {
+      "path": "docs/playbooks/producer.md",
+      "bytes": 18268,
+      "sha256": "3c783d24c2e3c53afc38f47e7cbb0f2cfb05d5281ea6aefe7cf4c28f828fd6a0"
+    },
+    {
+      "path": "docs/playbooks/producer/batch.md",
+      "bytes": 4838,
+      "sha256": "4122a76ad0376f0dd6fbcfd9f2de1803dd5f49954adaa789eceaad72145c4beb"
+    },
+    {
+      "path": "docs/playbooks/producer/orchestration.md",
+      "bytes": 3796,
+      "sha256": "6a231b45f2ce91179e346c7e9459edd06d2f9cb95f47638fd6dcb52a5ff902d7"
+    },
+    {
+      "path": "docs/playbooks/producer/template-extract.md",
+      "bytes": 3810,
+      "sha256": "2189f851538299fcba8ef447d189e7327c4d9549043f00e0aa44c204e5252e96"
+    },
+    {
+      "path": "docs/playbooks/ralphy-install.md",
+      "bytes": 4086,
+      "sha256": "95b2325e301be632f68b893b92c795f36ab4531148f0f10530b717766b537409"
+    },
+    {
+      "path": "docs/playbooks/research-bootstrap.md",
+      "bytes": 7744,
+      "sha256": "00975ab5d287ecf7a0a72f47cc03c0b302257160ce7c6fbc36e2e8dfb7f8a282"
+    },
+    {
+      "path": "docs/playbooks/researcher.md",
+      "bytes": 6944,
+      "sha256": "4ff5503bd2c03befc30a2dc9575b40016c8e3f99ef5601dc68f1a44e5133f9d8"
+    },
+    {
+      "path": "docs/playbooks/researcher/site-extract.md",
+      "bytes": 4037,
+      "sha256": "deaad438a24a87e835fb0c090fdc454761aadb186cbd9a386ae5e145cda3335b"
+    },
+    {
+      "path": "docs/playbooks/researcher/social-extract.md",
+      "bytes": 5144,
+      "sha256": "df5c692a6672cbdc5f0d8fbdc13e935640ca6989040de82acb643e85c1f7e082"
+    },
+    {
+      "path": "docs/playbooks/researcher/transcript.md",
+      "bytes": 2553,
+      "sha256": "80d9e459fbfaa38e0ac7c36e279eb4b187a0060d44fc2252148584c4dde48d68"
+    },
+    {
+      "path": "docs/playbooks/researcher/viral-moments.md",
+      "bytes": 2404,
+      "sha256": "b1d413117666fc7acccaaf627bec2cd15fa9c93b26c59dd54fa76dc080a0caf4"
+    },
+    {
+      "path": "docs/playbooks/researcher/yt-dlp.md",
+      "bytes": 5204,
+      "sha256": "86b10c7896ffadf4b4dfe25d13bd969dd1fd3ded93f9841158aa59f1c12ec9e6"
+    },
+    {
+      "path": "docs/playbooks/scenarist.md",
+      "bytes": 11996,
+      "sha256": "63bba1ece768a5999bb71be4ee2eeff72eb69604b44b1dcfe4b2fe6df923c0d0"
+    },
+    {
+      "path": "docs/playbooks/scenarist/feedback-iteration.md",
+      "bytes": 2735,
+      "sha256": "5ccd18914d6212fe24344eb00916ddd5da841e213771e291ea3e0a5eb02ad08a"
+    },
+    {
+      "path": "docs/playbooks/scenarist/hook-formulas.md",
+      "bytes": 2846,
+      "sha256": "be29a8bf86e89dfaec4a7e8700d38acc92c5d066db1831df72301fbca46d9909"
+    },
+    {
+      "path": "docs/playbooks/scenarist/pacing.md",
+      "bytes": 2626,
+      "sha256": "358c0658d681e743dba2be0b33a5e8017db640383caf7ac4bfd98a2cfcadfcea"
+    },
+    {
+      "path": "docs/playbooks/scenarist/quality-gate.md",
+      "bytes": 2804,
+      "sha256": "9b926971ca658452123ac122b156e97763c3476107095aed4274a842cc2b7153"
+    },
+    {
+      "path": "docs/playbooks/site-grounding.md",
+      "bytes": 8667,
+      "sha256": "8416c3b09f42bc9556325e81e351723514015678e8911ac32cead6819f5ad986"
+    },
+    {
+      "path": "docs/playbooks/unit-lifecycle.md",
+      "bytes": 9700,
+      "sha256": "12bb046bb84b00650b39724a5c365e1350ed8ebefd08536e686c97e755bdc7a5"
+    },
+    {
+      "path": "docs/skills-format.md",
+      "bytes": 10025,
+      "sha256": "e4380eaf54a062ad441d13424f834eee76020d2f27d3e683c4474cc893afc789"
+    },
+    {
+      "path": "docs/skills-vs-templates.md",
+      "bytes": 15037,
+      "sha256": "f4046328819633f17bd2327e90889ed0dd89d07f9f2926650f66b7ad6e020453"
+    },
+    {
+      "path": "docs/templates-index.md",
+      "bytes": 10423,
+      "sha256": "dee3d848277b5f78154c2cb1f0889fd908152c95ac3f281a6fbcc2cb1235d482"
+    },
+    {
+      "path": "docs/use-cases.md",
+      "bytes": 10342,
+      "sha256": "779e59c969c068c5aa74d44299f879fa090f7a43a168c745a4994cd6595bb383"
+    },
+    {
+      "path": "docs/virality-rubric.md",
+      "bytes": 6314,
+      "sha256": "40dcaaa514d9763571ac28b7a75611000fec5687309bfb9568cc68b23e90653c"
+    },
+    {
+      "path": "docs/workspace-evaluators.md",
+      "bytes": 20629,
+      "sha256": "f36ae758e686c1e46c7884ee99984c4b1a34d1d8036e6837ac8c9696d8d2bf65"
+    }
+  ]
+}

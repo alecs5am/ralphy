@@ -5,7 +5,7 @@
  * measures the same files itself -- a second instrument, so a wrong number cannot agree with
  * itself -- and resolves every place the instruction chain names against the core checkout.
  *
- * `bun scripts/audit-context-truth.ts [--provider codex|claude] [--core <path>]`
+ * `bun scripts/audit-context-truth.ts [--provider codex|claude]`
  * Exits non-zero when a reported size disagrees with the file, so CI can run it on a real machine.
  */
 import { readFile, stat } from "node:fs/promises";
@@ -14,13 +14,13 @@ import { isAbsolute, join, resolve } from "node:path";
 
 import { readContextDocument, references } from "../electron/agent/context-document";
 import { providerHome } from "../electron/agent/context";
+import { bundledPack, readPackState } from "../electron/agent/prompt-pack";
 
 const flag = (name: string, fallback: string) => {
   const at = process.argv.indexOf(`--${name}`);
   return at > 0 ? process.argv[at + 1] ?? fallback : fallback;
 };
 const provider = flag("provider", "codex") === "claude" ? "claude" as const : "codex" as const;
-const core = resolve(flag("core", join(homedir(), "github", "ralphy", "ralphy")));
 const home = homedir();
 const places = providerHome(provider, home);
 
@@ -57,18 +57,41 @@ if (ralphy && injected) {
   say(injected === undefined, `no Ralphy block installed in ${places.instructions}`);
 }
 
-/* 3. Every place the chain names, resolved twice: from the agent's working directory, where the
-      page judges it, and from the core checkout, where the block's author meant it. */
+/* 3. Every place the chain names, resolved from the agent's working directory -- where the page
+      judges it, and the only place that matters, because that is where the agent runs. A token
+      that is a placeholder rather than a path is reported as such instead of being resolved
+      against a directory it was never meant to name. */
 for (const token of references(ralphy?.[1] ?? "")) {
+  const placeholder = /[<>{}*]/.test(token);
   const fromCwd = token.startsWith("~/") ? join(home, token.slice(2)) : resolve(home, token);
-  const fromCore = token.startsWith("~/") ? join(home, token.slice(2)) : resolve(core, token);
-  const here = await bytes(fromCwd);
-  const there = await bytes(fromCore);
+  const here = placeholder ? null : await bytes(fromCwd);
   const child = blocks.find((block) => block.title === token);
   const claimed = child?.defect !== null && child?.defect !== undefined;
   /* The page calls a place a defect exactly when the agent cannot reach it from where it runs. */
-  say(claimed === (here === null), `${token} · from cwd ${here === null ? "missing" : "found"} · page ${claimed ? "defect" : "fine"}`);
-  console.log(`     in core: ${there === null ? "MISSING from " + core : "exists"}`);
+  say(claimed === (here === null), `${token} · ${placeholder ? "placeholder, not a path" : here === null ? "missing from cwd" : `found, ${here} B`} · page ${claimed ? "defect" : "fine"}`);
+}
+
+/* 4. The routing pack: installed, and every document its router names present inside it. Without
+      this the block above names a router that is not there, which is the whole defect the pack
+      exists to close. */
+const pack = await readPackState(join(home, ".ralphy"), bundledPack("", process.cwd(), false));
+say(pack.unavailable === null, `this build ships a pack${pack.unavailable ? ` · ${pack.unavailable}` : ""}`);
+say(pack.installed, `pack installed at ${pack.root} · ${pack.files} files · ${pack.bytes} B`);
+const router = await readFile(join(pack.root, "AGENTS.md"), "utf8").catch(() => null);
+if (router !== null) {
+  const named = references(router).filter((token) => token.endsWith(".md"));
+  const absent = [];
+  for (const token of named) {
+    if (await bytes(resolve(pack.root, token)) === null) absent.push(token);
+  }
+  say(named.length > 0, `the installed router names ${named.length} documents`);
+  /* Skills are delivered by `skill install`, not by the pack, so the router naming them is not a
+     pack defect -- but it is worth printing, because the page draws those names in the alert tone. */
+  const shippable = absent.filter((token) => !token.startsWith(".agents/"));
+  say(shippable.length === 0, `every non-skill document the router names is in the pack${shippable.length ? `: missing ${shippable.join(", ")}` : ""}`);
+  if (absent.length > shippable.length) {
+    console.log(`     the router also names ${absent.length - shippable.length} skill file(s) the pack does not ship`);
+  }
 }
 
 console.log(failed === 0 ? "\ncontext truth: agrees with this machine" : `\ncontext truth: ${failed} disagreement(s)`);

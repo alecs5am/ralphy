@@ -1,0 +1,6 @@
+# The vendored routing pack is Ralphy's own documentation, copied out of the CLI
+# by scripts/vendor-prompt-pack.mjs. This match is the literal placeholder
+# `YOUR_API_KEY` inside a documented curl example -- a docs sample of the shape
+# of a request, not a credential. Fingerprints carry a line number, so re-check
+# this entry when the pack is re-vendored and the line moves.
+resources/prompt-pack/docs/playbooks/site-grounding.md:curl-auth-header:115

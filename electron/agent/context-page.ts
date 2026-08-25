@@ -206,15 +206,17 @@ function machineLayer(input: {
 }
 
 /**
- * What the app itself puts in. The preamble is real and quoted; the prompt pack is the defect the
- * handoff filed as D3 -- Ralphy creates `~/.ralphy` and ships no prompts into it, so the row says
- * so in the alert tone rather than describing a pack that is not there.
+ * What the app itself puts in. The preamble is real and quoted; the prompt pack is the router and
+ * playbooks the app ships and installs into the library on open. It was the handoff's D3 defect for
+ * as long as the app created `~/.ralphy` and shipped nothing into it -- the row still says so in the
+ * alert tone if a build ever ships without the pack, because then the routing Ralphy writes into the
+ * agent's instruction file names paths that do not exist.
  */
 function ralphyLayer(input: {
   rootPath: string;
   cli: string | null;
   preamble: string;
-  pack: { path: string; bytes: number | null };
+  pack: { path: string; bytes: number | null; files: number };
   overrides: { path: string; present: boolean };
 }): ContextLayerDto {
   return {
@@ -242,10 +244,10 @@ function ralphyLayer(input: {
         label: "Bundled prompt pack",
         path: input.pack.path,
         note: input.pack.bytes === null
-          ? "The app should ship its prompts here on install and replace them on update. It does not yet."
-          : "Brought by the app · replaced wholesale on update",
+          ? "The app ships its prompts here on install and replaces them on update. This build shipped none."
+          : `The router Ralphy's own block sends the agent to, and every playbook it names · ${input.pack.files} files · replaced on update`,
         presence: input.pack.bytes === null ? "defect" : "on-demand",
-        tag: input.pack.bytes === null ? "NOT SHIPPED" : "ON DEMAND",
+        tag: input.pack.bytes === null ? "NOT SHIPPED" : `ON DEMAND · ${input.pack.files} FILES`,
         bytes: input.pack.bytes,
         action: input.pack.bytes === null ? null : { label: "Read", kind: "read", target: input.pack.path },
       },
@@ -319,19 +321,21 @@ export interface ContextPageInput {
   projectDocuments?: readonly ContextDocument[] | null;
   /** Why Core could not be read, when it could not. */
   coreUnavailable?: string | null;
+  /** The routing pack as the app installed it, so the row states files rather than guessing. */
+  pack?: { root: string; files: number; bytes: number } | null;
 }
 
 export async function readContextPage(input: ContextPageInput): Promise<ContextPageDto> {
   const home = input.home ?? homedir();
   const places = providerHome(input.provider, home);
   const projectFile = join(input.cwd, places.projectInstructions);
-  const packPath = join(input.rootPath, "prompts");
+  const packPath = input.pack?.root ?? join(input.rootPath, "prompts");
   const overridePath = join(input.rootPath, "prompts.local");
   const [instructions, project, config, pack, overrides, skills] = await Promise.all([
     bytesOf(places.instructions),
     bytesOf(projectFile),
     bytesOf(places.config),
-    stat(packPath).then((row) => (row.isDirectory() ? 0 : null)).catch(() => null),
+    input.pack ? Promise.resolve(input.pack.bytes) : stat(packPath).then((row) => (row.isDirectory() ? 0 : null)).catch(() => null),
     stat(overridePath).then(() => true).catch(() => false),
     readSkills(places.skills),
   ]);
@@ -392,7 +396,7 @@ export async function readContextPage(input: ContextPageInput): Promise<ContextP
         rootPath: input.rootPath,
         cli: input.cli ?? null,
         preamble,
-        pack: { path: packPath, bytes: pack },
+        pack: { path: packPath, bytes: pack, files: input.pack?.files ?? 0 },
         overrides: { path: overridePath, present: overrides },
       }),
       {

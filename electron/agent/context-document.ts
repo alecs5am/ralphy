@@ -51,9 +51,13 @@ export interface ContextBlockDto {
 
 const EXCERPT_BYTES = 24_576;
 const EXCERPT_LINES = 400;
-const CHILD_BYTES = 8192;
-const CHILD_LINES = 60;
-const MAX_REFERENCES = 12;
+/* A child gets the same budget as its parent. The routing pack's own AGENTS.md
+   arrives as a child of Ralphy's block, and it is a 52 KB routing table -- read
+   at 60 lines it looked like a stub, and its routing table was invisible. */
+/* Enough for a routing table. The machine files name a handful of places; the
+   pack's router names every playbook, and truncating that list would make the
+   page imply the router routes to less than it does. */
+const MAX_REFERENCES = 24;
 /** Ralphy's own installer writes this block into the agent's instruction file. */
 const RALPHY_START = "<!-- ralphy:start";
 const RALPHY_END = "<!-- ralphy:end -->";
@@ -98,6 +102,11 @@ export function references(text: string): string[] {
     if (!token || token.length > 200) continue;
     if (/^[a-z][\w+.-]*:\/\//i.test(token)) continue;
     if (!/\.(?:md|markdown|toml|json|ya?ml|txt)$/i.test(token) && !token.endsWith("/")) continue;
+    /* A placeholder is not a place. `templates/<slug>/` and
+       `workspaces/<ws>/{workspace.json` are how a document describes a shape,
+       and reporting them as links produced a page full of names that were never
+       meant to resolve. */
+    if (/[<>{}*]/.test(token)) continue;
     /* Two real segments, so `.codegraph/` and a bare `/` are not paths the text is pointing at --
        they are the prose an instruction file is full of. */
     if (token.split("/").filter(Boolean).length < 2) continue;
@@ -143,7 +152,7 @@ async function childBlock(input: {
 }): Promise<ContextBlockDto> {
   const id = `${input.parentId}>${input.token}`;
   const target = resolveReference(input.token, input.parentPath, input.home);
-  const head = target ? await readHead(target, CHILD_BYTES, CHILD_LINES) : null;
+  const head = target ? await readHead(target, EXCERPT_BYTES, EXCERPT_LINES) : null;
   const folder = target && !head ? await directoryNote(target) : null;
   const known = head !== null || folder !== null;
   return {
@@ -164,7 +173,23 @@ async function childBlock(input: {
         : null,
     onDemand: true,
     linkedFrom: input.parentId,
-    links: [],
+    /* What this file routes onward to. No grandchild blocks: one more level of
+       blocks would be the pack's whole tree on one page. The names are still
+       stated, and whether each one is there, because a router whose targets are
+       missing is exactly what this page exists to show. */
+    /* Only documents. A routing table routes to files; the directories it also
+       names are data layout under the user's library, and calling those missing
+       relative to the pack would be a sentence this page cannot support. */
+    links: head && target
+      ? await Promise.all(references(head.text).filter((token) => token.endsWith(".md")).map(async (token) => {
+        const to = resolveReference(token, target, input.home);
+        return {
+          text: token,
+          blockId: null,
+          note: to && await stat(to).then(() => true, () => false) ? "may load" : "not there",
+        };
+      }))
+      : [],
     defect: known || input.owner === "machine"
       ? null
       : target === null

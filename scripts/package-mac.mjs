@@ -7,6 +7,7 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -56,6 +57,18 @@ await cp(
   join(root, "build/RalphyMedia.iconset/icon_128x128.png"),
   join(resources, "RalphyMedia-drag.png"),
 );
+/* The routing pack travels with the app. A user who downloads only this app has
+   no ugc-cli checkout, and the block Ralphy writes into their agent's
+   instruction file names the installed copy -- so a build without the pack ships
+   a router that points at nothing. Refuse rather than ship that. */
+const packSource = join(root, "resources/prompt-pack");
+if (!existsSync(join(packSource, "manifest.json"))) {
+  throw new Error(
+    "resources/prompt-pack is missing or has no manifest. Run `bun scripts/vendor-prompt-pack.mjs` first.",
+  );
+}
+await cp(packSource, join(resources, "prompt-pack"), { recursive: true });
+
 const bundledCore = join(resources, "bin/ralphy");
 await mkdir(dirname(bundledCore), { recursive: true });
 await writeFile(bundledCore, coreBytes);

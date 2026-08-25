@@ -84,7 +84,8 @@ function literalPlaceholders(text: string): string {
    about how much of it is on screen, never about what was sent. */
 const PEEK_LINES = 16;
 
-function Block({ block, open, dim, flash, rendered, onToggle, onPath }: {
+function Block({ block, open, dim, flash, rendered, first, onToggle, onPath }: {
+  first: boolean;
   block: ContextBlockDto;
   open: boolean;
   dim: boolean;
@@ -100,10 +101,17 @@ function Block({ block, open, dim, flash, rendered, onToggle, onPath }: {
   const hidden = whole ? 0 : Math.max(0, lines.length - PEEK_LINES);
   const shown = hidden > 0 ? lines.slice(0, PEEK_LINES).join("\n") : block.body!;
   return <div
-    className={`context-block grid grid-cols-(--context-block-columns) gap-4.5 rounded-row px-3 py-2.25 transition-colors duration-slow ease-instrument ${flash ? "bg-field" : "bg-transparent"} ${dim ? "opacity-26" : ""}`}
+    /* A hairline between blocks, now that a body is no longer a card of its own.
+       Flat text needs one mark to say where a block ends; nesting was doing that
+       job and charging three surfaces for it. */
+    className={`context-block grid grid-cols-(--context-block-columns) gap-4.5 rounded-row px-3 py-3 transition-colors duration-slow ease-instrument ${first ? "" : "border-t border-divider"} ${flash ? "bg-field" : "bg-transparent"} ${dim ? "opacity-26" : ""}`}
     data-block={block.id}
   >
-    <div className={`flex min-w-0 flex-col ${child ? "ml-1.25 border-l border-dashed border-divider pl-4" : ""}`}>
+    {/* No indent for a child. Depth was drawn twice -- a dashed left border and a
+        left margin -- and a routed file three levels down sat a hand's width in
+        from the prompt it belongs to. The tag already says which block named
+        this one, which is the only thing the indent was carrying. */}
+    <div className="flex min-w-0 flex-col">
       <button
         className="flex min-h-7 items-center gap-2.25 text-left"
         type="button"
@@ -128,19 +136,30 @@ function Block({ block, open, dim, flash, rendered, onToggle, onPath }: {
       </button>
       {/* The chain, where it can be read: an instruction names a place in prose, not as a markdown
           link, so the names are gathered on their own line rather than hunted inside 400 lines. */}
-      {block.links.length > 0 && <span className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-0.5 pl-5.25">
+      {block.links.length > 0 && <span className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-0.5">
         <span className={META}>NAMES</span>
-        {block.links.map((link) => <button
-          className={`context-path rounded-chip px-1 py-0.25 ${MONO} type-mono-2xs ${link.note === "not there" ? "text-failure-ink" : "text-secondary"} hover:bg-field hover:text-ink`}
-          type="button"
-          key={link.text}
-          onClick={() => onPath(link.text)}
-        >{link.text}</button>)}
+        {/* A name with a block of its own is a button that jumps to it. A name
+            without one -- what a routed file routes onward to -- is stated and
+            marked, but there is nothing on this page to jump to. */}
+        {block.links.map((link) => (link.blockId
+          ? <button
+            className={`context-path rounded-chip px-1 py-0.25 ${MONO} type-mono-2xs ${link.note === "not there" ? "text-failure-ink" : "text-secondary"} hover:bg-field hover:text-ink`}
+            type="button"
+            key={link.text}
+            onClick={() => onPath(link.text)}
+          >{link.text}</button>
+          : <span
+            className={`rounded-chip px-1 py-0.25 ${MONO} type-mono-2xs ${link.note === "not there" ? "text-failure-ink" : "text-muted"}`}
+            key={link.text}
+          >{link.text}</span>))}
       </span>}
-      {open && readable && <div className="flex flex-col gap-1.5 py-1.5 pl-5.25">
+      {/* Title, then the prompt. The body used to sit in a card of its own inside
+          the page's card inside the page's panel -- three surfaces deep, for text
+          that is the whole reason the page exists. It reads on the page now. */}
+      {open && readable && <div className="flex flex-col gap-1.5 py-1.5">
         {rendered && block.format === "markdown"
-          ? <div className="context-body rounded-row bg-panel px-3.5 py-3"><MarkdownView markdown={literalPlaceholders(shown)} /></div>
-          : <pre className="m-0 overflow-x-auto rounded-row bg-panel px-3.5 py-3 font-code type-mono-sm leading-document whitespace-pre-wrap text-ink select-text">
+          ? <div className="context-body"><MarkdownView markdown={literalPlaceholders(shown)} /></div>
+          : <pre className="m-0 overflow-x-auto font-code type-mono-sm leading-document whitespace-pre-wrap text-ink select-text">
             {decorated(shown, block.links.map((link) => link.text), onPath)}
           </pre>}
         <span className="flex flex-wrap items-center gap-2.5">
@@ -157,8 +176,8 @@ function Block({ block, open, dim, flash, rendered, onToggle, onPath }: {
           >{whole ? "SHOW LESS" : "SHOW ALL"}</button>}
         </span>
       </div>}
-      {!readable && block.note && <p className="m-0 rounded-row bg-panel px-3.5 py-2.75 pl-3.5 type-sm text-muted">{block.note}</p>}
-      {readable && open && block.note && <p className="m-0 pl-5.25 type-sm text-muted">{block.note}</p>}
+      {!readable && block.note && <p className="m-0 py-1 type-sm text-muted">{block.note}</p>}
+      {readable && open && block.note && <p className="m-0 type-sm text-muted">{block.note}</p>}
       {block.defect && <p className="m-0 mt-1 rounded-row bg-failure px-3.5 py-2.5 type-sm text-failure-ink">{block.defect}</p>}
     </div>
     <div className="flex gap-2.5">
@@ -225,13 +244,14 @@ export function ContextDocument({ blocks, provider, total, window: modelWindow, 
       {modelWindow !== null && <span className={`${MONO} type-mono-sm flex-none text-muted`}>{`/ ${Math.round(modelWindow / 1000)}K`}</span>}
     </div>
     <div className="flex flex-col rounded-inner bg-card px-2.5 pt-3 pb-4">
-      <span className={`${META} px-3 pb-2`}>ORDER AS RECEIVED · A DIMMED OR COLLAPSED BLOCK STILL RIDES — NOTHING HERE IS HIDDEN</span>
-      {/* The provider's own prompt, in the one line it is worth. It is above everything below, it
-          rides every turn, and nobody outside the provider can read or change it. */}
-      <span className={`${META} px-3 pb-2`}>
-        {`BEFORE ALL OF THIS · ${provider.toLocaleUpperCase()}'S OWN SYSTEM PROMPT, WHICH THE PROVIDER DOES NOT EXPOSE`}
+      {/* One line, not two. The provider's own prompt is named here -- it rides
+          above everything below and nobody outside the provider can read it --
+          and the reading rule follows it in the same breath. */}
+      <span className={`${META} px-3 pb-2.5`}>
+        {`BEFORE ALL OF THIS · ${provider.toLocaleUpperCase()}'S OWN SYSTEM PROMPT, NOT EXPOSED · THEN, IN ORDER: A DIMMED OR COLLAPSED BLOCK STILL RIDES`}
       </span>
-      {blocks.map((block) => <Block
+      {blocks.map((block, index) => <Block
+        first={index === 0}
         block={block}
         open={!closed[block.id]}
         dim={filter !== "all" && (filter === "demand" ? !block.onDemand : block.onDemand)}
