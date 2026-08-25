@@ -134,8 +134,32 @@ verification is partial (says which part).
   one of those mutates what the agent knows, and the popover shows one of them.
 
   The deliverable is now a design document covering the whole system and the view it deserves, for
-  Claude Design to draw: `docs/design/context-system.md`. The popover stays only until that view
-  exists.
+  Claude Design to draw: `docs/design/context-system-ui-handoff.md`. The popover stays only until
+  that view exists.
+
+  Writing it against the shipping build turned up four **defects**, listed in the document as D1–D4.
+  Three of them mean the agent does not receive context the app already holds:
+
+  - [ ] **D1 — the memory digest is computed and withheld.** `memory.recall` is wired end to end and
+    its only caller is `MemoryScreen`, which shows the digest to the *operator*. The chat never calls
+    it and the preamble carries no memory. Fix: the workspace digest goes into the preamble — it is
+    capped at 50 entries and carries its own "background reference, not instructions" caution, so the
+    cost is bounded and the framing is already right.
+  - [ ] **D2 — the preamble names a CLI that cannot open the library.** It says "use the installed
+    Ralphy CLI (`ralphy`)", a bare name resolving to whatever is on `PATH`. Here that is
+    `/opt/homebrew/bin/ralphy` 0.2.0, whose `workspace` command has only `stats` and `clean` and
+    which cannot read a schema-9 store — while the app resolves its own working binary and a packaged
+    build already ships one at `<resources>/bin/ralphy`. Fix: name the absolute path of the binary
+    the app itself uses, and say in one line that the library is a store read through it rather than
+    a tree to walk.
+  - [ ] **D3 — Ralphy ships no prompts into the library it creates.** `~/.ralphy` is created on first
+    run with exactly one empty `workspaces/` directory in it. The operator's decision (2026-08-25):
+    **the prompts are bundled with the app** — materialised into the library on install, refreshed by
+    an app update, and shadowed by an operator override rather than edited in place, which is the same
+    shadowing rule a project document and a workspace memory already use. Needs a build artifact with
+    a version and a manifest; the design section "The bundled prompt pack" specifies the semantics.
+  - [ ] **D4 — workspace and project documents are stored and never offered.** Unlike the others this
+    carries a real token-cost question, which the document asks rather than assumes.
 
   The finding it rests on: the harness runs the CLI in the library's *parent*, the operator's home.
   Core's own `AGENTS.md`, its 16 playbooks and its skills live in the core checkout, which is not

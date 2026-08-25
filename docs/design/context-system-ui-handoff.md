@@ -21,6 +21,13 @@ The primary user promise is:
 > See everything the agent knows, know where each part came from and what it costs, and change the
 > parts that are yours — without opening a text editor or guessing which file wins.
 
+Building the surface honestly turned up four defects in what the app does today, and they are listed
+before the design rather than folded into it. Three of them mean the agent is not receiving context
+the app already has: the memory digest is computed and shown to the operator instead of being sent,
+the only command the preamble names resolves to a CLI that cannot open the library, and the library
+the app creates on first run ships none of Ralphy's own prompts. A design that draws those rows as
+working would hide exactly what it was built to reveal.
+
 ## Why this is not one list
 
 Context has **five sources with different owners, different lifetimes and different blast radius**.
@@ -34,10 +41,12 @@ flowchart TB
         MC["Provider configuration<br/>settings.json · config.toml"]
         MS["Skills on disk<br/>~/.claude/skills · ~/.codex/skills · ~/.agents/skills"]
     end
-    subgraph R["2 · Ralphy — authored by the developer"]
-        RP["Injected preamble<br/>library · project · working directory"]
-        RG["Playbooks, guidelines, CLI surface<br/>reached through the ralphy CLI"]
+    subgraph R["2 · Ralphy — shipped by the app"]
+        RP["Injected preamble<br/>library · project · working directory · CLI path"]
+        RG["Bundled prompt pack<br/>~/.ralphy — replaced on app update"]
+        RO["Operator overrides<br/>shadow the pack by name"]
     end
+    RO -.->|shadows| RG
     subgraph W["3 · Workspace — authored by the operator"]
         WD["Workspace documents<br/>style guide · brief · notes"]
         WM["Workspace memory"]
@@ -61,6 +70,75 @@ Read the layers outward-in: **machine → Ralphy → workspace → project → t
 layer wins, and the design must make that ordering visible, because it is the operator's only tool
 for predicting behaviour when two sources disagree.
 
+## Defects, before any design
+
+Four of the things below are **bugs**, not unbuilt features. They are listed first and separately
+because a design that treats a defect as a product question inherits the defect. Each was verified
+against the shipping build on 2026-08-25.
+
+### D1 · Memory is computed for the operator and withheld from the agent
+
+`memory.recall` is wired end to end — bridge method, preload, renderer. Its only caller is
+`MemoryScreen`, which shows the digest to the operator in a preview dialog. The chat never calls it,
+and the injected preamble contains no memory at all.
+
+So the app already produces exactly the text the agent needs, merged across tiers, capped, with its
+own caution attached — and hands it to the one reader who does not need it. A memory reaches the
+agent only if the agent decides on its own to shell out to `ralphy memory recall`, which brings us to
+the next defect.
+
+**Fix:** the workspace digest goes into the preamble. It is capped at 50 entries and carries its own
+"background reference, not instructions" note, so the cost is bounded and the framing is already
+correct.
+
+### D2 · The preamble names a CLI that cannot open the library
+
+The preamble's one instruction is: *"Use the installed Ralphy CLI (`ralphy`) for every UGC generation
+step."* A bare name. It resolves to whatever is on the operator's `PATH`.
+
+On this machine that is `/opt/homebrew/bin/ralphy`, version **0.2.0**, whose `workspace` command has
+exactly two subcommands — `stats` and `clean`. No `list`, no `show`, no `use`. `ralphy memory recall`
+rejects its own documented arguments. It cannot read a schema-9 domain store at all.
+
+Meanwhile the app resolves its *own* working CLI and a packaged build **already ships one** at
+`<resources>/bin/ralphy`. So the app holds the absolute path of a binary that works, and gives the
+agent a word that resolves to one that does not. The two are different programs.
+
+Compounding it: the preamble states `Library: /Users/…/.ralphy` and says nothing about what that is.
+An agent that takes the hint and looks finds `ralphy.db` and `buckets/` — a SQLite store it must not
+touch directly. It has a path it cannot read and a command that cannot read it for it.
+
+**Fix:** the preamble names the absolute path of the binary the app itself is using, and says in one
+line that the library is a store to be read through that binary rather than a tree to be walked.
+
+### D3 · Ralphy ships no prompts into the library it creates
+
+The app creates `~/.ralphy` on first run — and writes exactly one thing into it, an empty
+`workspaces/` directory. Ralphy's own craft (the routing table, the role playbooks, the prompt
+guidelines, the model notes) lives in the core checkout, which is not the working directory, is not
+inside the library, and is not reachable by any relative path. An earlier preamble that said "follow
+this repository's AGENTS.md" was naming a file that was not there.
+
+**Fix:** the app bundles the prompt pack and materialises it into the library. See "The bundled
+prompt pack", which is a layer of this design rather than an aside.
+
+### D4 · Two panels of operator-authored context are stored and never offered
+
+Workspace and project documents — style guides, briefs, notes — sit in the domain store and reach
+the agent through no path at all. Unlike D1 there is a real product decision here about token cost,
+but "the operator wrote a style guide for this workspace and the agent has never seen it" is not a
+decision anybody made.
+
+**Fix:** at minimum the Context surface names them and offers them per turn. Whether a workspace
+style guide should load unasked is question 3 at the end of this document.
+
+### Not defects
+
+For completeness, so the list above is not read as covering everything: marketplace skill install is
+**unbuilt**, not broken (no catalog contract, no bundle manifest, no install target); per-layer token
+attribution is **unbuilt**; and the provider's own hidden system prompt is a **limitation of both
+CLIs**, not something Ralphy can fix.
+
 ## The five sources, as they actually are
 
 Every row below is measured against the shipping build, not intended behaviour. `Loaded` says
@@ -73,30 +151,59 @@ that draws a source as live when it is not is worse than one that omits it.
 | Working-directory instructions | Machine | `CLAUDE.md` / `AGENTS.md` in the operator's home | Every turn | **Live**, and usually absent. |
 | Provider configuration | Machine | `~/.claude/settings.json`, `~/.codex/config.toml` | Every turn | **Live.** Also carries Codex plugins and marketplaces. |
 | Skills on disk | Machine | `~/.claude/skills`, `~/.codex/skills`, mostly symlinks into `~/.agents/skills` | Named every turn, body on demand | **Live**, and not installed by Ralphy. |
-| Ralphy preamble | Developer | Composed in the app, prepended to every prompt | Every turn | **Live.** Library path, active project, working directory, which instruction files exist, one sentence pointing at the `ralphy` CLI. |
-| Ralphy playbooks and guidelines | Developer | The core checkout — **not** in `.ralphy`, **not** the working directory | Never | **Not reachable.** See "The playbook gap". |
+| Ralphy preamble | Developer | Composed in the app, prepended to every prompt | Every turn | **Live**, and wrong in two ways — see D1 and D2. |
+| Ralphy prompt pack | Developer, shipped by the app | To be materialised into `~/.ralphy` on install and update | Never | **Not shipped.** D3. See "The bundled prompt pack". |
+| Operator prompt overrides | Operator | Alongside the pack, shadowing it by name | Never | **Does not exist yet.** Same section. |
 | Workspace documents | Operator | Domain store, `project_id IS NULL` | Never | **Stored, not injected.** The agent must ask Core for them. |
 | Project documents | Operator | Domain store, scoped to a project | Never | **Stored, not injected.** A project document shadows a workspace document of the same slug. |
-| Global memory | Ralphy + operator | Domain store, global tier | Never | **Stored, not injected.** See "The memory gap". |
+| Global memory | Ralphy + operator | Domain store, global tier | Never | **Computed and withheld.** D1. |
 | Workspace memory | Ralphy + operator | Domain store, workspace tier | Never | Same. |
 | Marketplace skills | Operator | — | — | **No contract.** See "The marketplace gap". |
 | Turn attachments | Operator | The message | This turn | **Live.** Ride under the message as `@kind:ref` lines. |
 
-### The playbook gap
+### The bundled prompt pack
 
-Ralphy's own craft — the routing table in `AGENTS.md`, the playbooks, the prompt guidelines, the
-model notes — lives in the core checkout. The harness runs the provider's CLI with its working
-directory set to the **library's parent**, which is the operator's home. Nothing relative resolves
-to those files, and an earlier preamble that said "follow this repository's AGENTS.md" was naming a
-file that was not there.
+This is the architecture D3 asks for, and it is a layer of the design rather than a fix note.
 
-So the agent knows Ralphy exists and has a CLI. It does not start a turn holding Ralphy's craft.
-The Context surface must not imply otherwise, and it is the natural place to offer the fix — see
-"Decisions this document asks for".
+**The app owns the prompts.** The core repository stops being the place they live for an operator;
+the app ships them. On install the app creates `~/.ralphy` — which it already does — and materialises
+a **versioned prompt pack** into it. A new app version brings a new pack and refreshes what it owns.
 
-### The memory gap
+```mermaid
+flowchart LR
+    B["Prompt pack<br/>bundled in the app"] -->|install and update| L["~/.ralphy/prompts/<br/>app-owned, replaced on update"]
+    O["Operator override<br/>~/.ralphy/prompts.local/"] -->|shadows by name| E["What the agent reads"]
+    L --> E
+    U["App update"] -->|new pack version| L
+    U -.->|never touches| O
+```
 
-Memory is a complete system with nothing wired to the chat.
+Three rules make this safe, and each maps onto a rule the system already has:
+
+1. **The bundled tree is app-owned and replaceable.** An update overwrites it wholesale. Nothing of
+   the operator's lives there, so nothing of theirs is lost. The Context surface shows the pack
+   version and which app version brought it.
+2. **An operator override shadows by name, it does not edit in place.** This is the same shadowing
+   rule the system uses twice already — a project document shadows a workspace document of the same
+   slug, a workspace memory beats a global one of the same slug. An operator who wants a different
+   art-director playbook writes theirs alongside; the update refreshes the bundled one underneath and
+   their override keeps winning. A row that is being shadowed says so, and offers the bundled version
+   for comparison.
+3. **Nothing bundled is ever written into the operator's own data.** The pack goes into its own tree,
+   never into documents, never into memory. Otherwise an update silently rewrites the operator's
+   library, and there is no way to tell what came from whom.
+
+What the design needs to show per row: the pack version, whether a file is bundled / overridden /
+operator-only, and — because these files are large — whether it is loaded every turn or read on
+demand. Recommended (question 2 at the end): the pack is **read on demand**, and the preamble names
+its absolute path so the agent can reach it. The routing table is large enough that loading it every
+turn is a real cost, and pointing at an absolute path inside the library is an instruction rather
+than the wish it used to be.
+
+### How memory actually works
+
+The system is complete. Only its delivery to the chat is broken (D1); everything below is real and
+the design should lean on it.
 
 ```mermaid
 flowchart LR
@@ -124,10 +231,10 @@ What is real:
   a body that follows: **the rule → Why → How to apply → Does NOT apply to.** The last line is
   load-bearing: without explicit negative scope a narrow lesson gets over-applied.
 
-What is missing: the desktop harness never calls `memory.recall`, and the injected preamble
-contains no memory at all. A memory reaches the agent only if the agent itself decides to run
-`ralphy memory recall`. **The Context surface is where an operator would discover this, so it must
-either state it plainly or be shipped together with the fix.**
+Because the digest is bounded, self-cautioning and already computed, the Context surface can show the
+operator exactly what the agent will receive once D1 is fixed — the same text, the same order, the
+same count. Until then the page must state that the chat does not read it, rather than implying a
+merged digest that never arrives.
 
 ### The marketplace gap
 
@@ -174,7 +281,10 @@ only part of the rejected popover worth keeping, and it becomes a number plus a 
 │  machine 18.9k · Ralphy 0.2k · workspace — · project — · turn 0.1k  │
 ├─────────────────────────────────────────────────────────────────────┤
 │  ▸ MACHINE            shared with every tool on this Mac        4   │
-│  ▸ RALPHY             authored by the developer                  2   │
+│  ▾ RALPHY             shipped by the app · pack v12             3   │
+│      Preamble             every turn · 0.2k           [view]        │
+│      Prompt pack          on demand · 41 files        [browse]      │
+│      Art director         overridden by you           [compare]     │
 │  ▾ WORKSPACE          yours · UX Testing Lab                    3   │
 │      Style guide          document · 2 revisions      [open]        │
 │      Cast and locations   document                    [open]        │
@@ -269,9 +379,15 @@ The workspace switcher in the header re-scopes bands 3 and 4. Two things must su
 
 1. **The working directory is the operator's home**, not the library and not the core checkout.
    Every path shown is absolute for that reason.
-2. **Ralphy's playbooks are not in context.** Only the preamble and the `ralphy` CLI are.
-3. **Memory is not in context.** It exists, it is complete, and the chat does not read it.
-4. **Workspace and project documents are not in context** either. They are stored and queryable.
+2. **A bare command name is not an instruction.** `ralphy` on the operator's `PATH` is not the CLI
+   the app runs (D2). Every command and every file the page or the preamble names is an absolute
+   path.
+3. **Ralphy's prompts belong to the app, not to a checkout.** They are bundled, materialised into
+   the library, refreshed by an update, and shadowed rather than edited. Never drawn as something
+   the operator has to clone or fetch.
+4. **Memory, documents and the prompt pack are all shown before they are wired.** Their rows say
+   what the agent receives *today*, which for now is nothing. A row that promises delivery the
+   harness does not perform is the defect this page exists to expose, reproduced.
 5. **Skills are named, not loaded.** Fifteen installed skills cost roughly nothing until one fires.
 6. **Marketplace skill install does not exist.** Design the band; do not draw a working install.
 7. **A workspace memory beats a global one of the same slug**, and the reverse never happens.
@@ -297,20 +413,31 @@ matching element can be more than a placeholder.
   with other tools. A `Disable` action needs a Ralphy-owned skill directory first.
 - **Document injection.** Deciding that a workspace style guide *should* reach every turn is a
   product decision with a token cost attached; it is not implemented in either direction.
+- **Prompt pack packaging.** The pack does not exist as a build artifact yet. It needs a version, a
+  manifest, a materialise-on-first-run step, an update step that replaces only what it owns, and a
+  shadowing lookup. A packaged app already ships a `ralphy` binary under its resources, so the
+  bundling machinery it needs is the machinery that is already there.
 
 ## Decisions this document asks for
 
-1. **Should memory reach the chat automatically?** The digest is capped at 50 entries and carries
-   its own caution, so injecting it is cheap and safe. Recommended: yes, workspace-scoped, in the
-   preamble, with the entry count visible on the Context page and in the composer.
-2. **Should Ralphy's playbooks reach the chat?** The routing table is large. Recommended: not the
-   playbooks, but the preamble should name the core checkout by absolute path so the agent can read
-   what it needs — an instruction rather than a wish.
-3. **Which layers may the operator edit from here?** Recommended: workspace and project only.
-   Machine rows Reveal; Ralphy rows are read-only.
-4. **Where does an installed skill go?** Recommended: a Ralphy-owned directory the provider is
-   pointed at, so install, disable and uninstall are all possible without touching a shared tree.
-5. **Does the composer keep an affordance?** Recommended: a token count and a link into "What the
+D1, D2 and D3 are defects and are not on this list — they get fixed. What is left is genuinely open.
+
+1. **Is the prompt pack read on demand, or loaded every turn?** Recommended: on demand, with the
+   preamble naming its absolute path. The routing table is large, most of it is irrelevant to any
+   given turn, and the machine layer already costs about 19k tokens before Ralphy adds anything.
+2. **Where does the pack live inside the library, and where do overrides live?** Recommended: two
+   sibling trees, one app-owned and one operator-owned, so "what an update may replace" is a
+   directory rather than a rule someone has to remember.
+3. **Should a workspace style guide load unasked?** The one genuine token-cost question in D4.
+   Recommended: no by default, with a per-document "always include" the operator sets — and the cost
+   of that choice shown on the row, in tokens, before they make it.
+4. **Which layers may the operator edit from here?** Recommended: workspace, project, and their own
+   prompt overrides. Machine rows Reveal; the bundled pack is read-only and offers "override" rather
+   than "edit".
+5. **Where does an installed skill go?** Recommended: a Ralphy-owned directory the provider is
+   pointed at — the same shape as the prompt pack, and for the same reason: install, disable and
+   uninstall are all impossible inside a tree three other tools share.
+6. **Does the composer keep an affordance?** Recommended: a token count and a link into "What the
    agent sees". No list, no paths.
 
 ## Out of scope
