@@ -29,11 +29,31 @@ describe("agent chat IPC request", () => {
       provider: "openrouter",
       model: "~openai/gpt-latest",
       prompt: "Review this",
+      workspaceId: null,
       project: { workspaceId: "studio", projectId: "alpha-001" },
       claudeAuthMethod: "subscription",
       permissionMode: "full",
       resumeSessionId: "0199a213-81c0-7800-8aa1-bbab2a035a53",
     });
+
+    /* The workspace travels on its own: memory is workspace-scoped, and a chat can have a
+       workspace with no project selected. */
+    expect(parseAgentChatRequest({
+      chatId: "chat-123",
+      provider: "codex",
+      model: "default",
+      prompt: "Review this",
+      permissionMode: "plan",
+      workspaceId: "studio",
+    }).workspaceId).toBe("studio");
+    expect(() => parseAgentChatRequest({
+      chatId: "chat-123",
+      provider: "codex",
+      model: "default",
+      prompt: "Review this",
+      permissionMode: "plan",
+      workspaceId: 7,
+    })).toThrow("workspace");
 
     expect(() => parseAgentChatRequest(null)).toThrow("request");
     expect(() => parseAgentChatRequest({

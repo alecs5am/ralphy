@@ -26,7 +26,7 @@ import {
   validateOpenRouterApiKey,
 } from "./claude/credentials";
 import { parseAgentChatRequest } from "./agent/request";
-import { readAgentContext } from "./agent/context";
+import { readAgentContext, type AgentMemoryDigest } from "./agent/context";
 import { readTitle, titleModels } from "./agent/title";
 import {
   CodexSession,
@@ -848,6 +848,8 @@ function registerAgentIpc(): void {
             apiKey,
             permissionMode: request.permissionMode,
             resumeSessionId: request.resumeSessionId,
+            ralphyCli: ralphyBin ?? null,
+            memory: await memoryDigest(request.workspaceId ?? request.project?.workspaceId ?? null),
           });
         } finally {
           if (activeAgentSession === session) activeAgentSession = null;
@@ -880,6 +882,8 @@ function registerAgentIpc(): void {
           openRouterApiKey,
           permissionMode: request.permissionMode,
           resumeSessionId: request.resumeSessionId,
+          ralphyCli: ralphyBin ?? null,
+          memory: await memoryDigest(request.workspaceId ?? request.project?.workspaceId ?? null),
         });
       } finally {
         if (activeAgentSession === session) activeAgentSession = null;
@@ -952,12 +956,31 @@ function registerAgentIpc(): void {
     }
     return null;
   });
+  /* The workspace's memory digest, as Core merged it. It goes into the preamble because the app was
+     already computing it and showing it only to the operator: `memory.recall`'s one other caller is
+     the Memory screen's preview dialog, so the agent -- the reader who needs it -- never saw a word.
+     A failure here is not a failed turn: a chat without memory is worse than a chat, not broken. */
+  const memoryDigest = async (workspaceId: string | null): Promise<AgentMemoryDigest | null> => {
+    if (!workspaceId) return null;
+    try {
+      const recall = await memoryReaderForCurrentRoot().recall(workspaceId);
+      return {
+        count: recall.count,
+        truncated: recall.truncated,
+        note: recall.note,
+        entries: recall.entries.map(({ name, description }) => ({ name, description })),
+      };
+    } catch {
+      return null;
+    }
+  };
+
   /* What the chat can reach, read where it is true: the harness's own working directory and the
      provider's own files, not a guess made in the renderer. */
   securedHandle(AGENT_CHANNELS.context, async (event, rawInput: unknown) => {
     assertTrustedSender(event);
     const operation = captureBridgeRoot();
-    const row = (rawInput ?? {}) as { provider?: unknown; project?: unknown };
+    const row = (rawInput ?? {}) as { provider?: unknown; project?: unknown; workspaceId?: unknown };
     const provider = row.provider === "claude" || row.provider === "openrouter" ? row.provider : "codex";
     const request = parseAgentChatRequest({
       chatId: "context",
@@ -966,6 +989,7 @@ function registerAgentIpc(): void {
       prompt: "context",
       permissionMode: "plan",
       project: row.project ?? null,
+      workspaceId: row.workspaceId ?? null,
     });
     const projectPath = request.project
       ? await resolveProjectPath(
@@ -981,6 +1005,8 @@ function registerAgentIpc(): void {
       rootPath,
       projectPath,
       cwd: await realpath(dirname(rootPath)),
+      cli: ralphyBin ?? null,
+      memory: await memoryDigest(request.workspaceId ?? request.project?.workspaceId ?? null),
     });
   });
   securedHandle(AGENT_CHANNELS.stop, (event) => {

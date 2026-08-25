@@ -247,6 +247,9 @@ export interface AgentChatRequest {
   provider: AgentProvider;
   model: string;
   prompt: string;
+  /* The chat's workspace. A project implies one, but a chat can have a workspace and no project,
+     and the workspace is what scopes the memory digest. */
+  workspaceId?: string | null;
   project?: ProjectReference | null;
   claudeAuthMethod: ClaudeAuthMethod;
   permissionMode: AgentPermissionMode;
@@ -560,6 +563,7 @@ export interface MediaWorkbenchBridge extends MarketplaceBridge {
   /** What a chat of this provider can actually reach, and the preamble every prompt carries. */
   loadAgentContext(input: {
     provider: AgentProvider;
+    workspaceId?: string | null;
     project?: ProjectReference | null;
   }): Promise<import("../agent/context").AgentContextDto>;
   stopAgent(): Promise<void>;

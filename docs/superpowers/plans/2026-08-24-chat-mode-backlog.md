@@ -140,18 +140,24 @@ verification is partial (says which part).
   Writing it against the shipping build turned up four **defects**, listed in the document as D1–D4.
   Three of them mean the agent does not receive context the app already holds:
 
-  - [ ] **D1 — the memory digest is computed and withheld.** `memory.recall` is wired end to end and
+  - [x] **D1 — the memory digest is computed and withheld.** `memory.recall` is wired end to end and
     its only caller is `MemoryScreen`, which shows the digest to the *operator*. The chat never calls
     it and the preamble carries no memory. Fix: the workspace digest goes into the preamble — it is
     capped at 50 entries and carries its own "background reference, not instructions" caution, so the
     cost is bounded and the framing is already right.
-  - [ ] **D2 — the preamble names a CLI that cannot open the library.** It says "use the installed
+  - [x] **D2 — the preamble names a CLI that cannot open the library.** It says "use the installed
     Ralphy CLI (`ralphy`)", a bare name resolving to whatever is on `PATH`. Here that is
     `/opt/homebrew/bin/ralphy` 0.2.0, whose `workspace` command has only `stats` and `clean` and
     which cannot read a schema-9 store — while the app resolves its own working binary and a packaged
     build already ships one at `<resources>/bin/ralphy`. Fix: name the absolute path of the binary
     the app itself uses, and say in one line that the library is a store read through it rather than
     a tree to walk.
+
+    Both fixed and verified from inside a real turn: asked without running any commands, the agent
+    answered "8 entries" and the exact absolute path of the binary the app is running. The digest is
+    workspace-scoped, so the chat request now carries a `workspaceId` of its own — a chat can have a
+    workspace with no project selected, and the workspace is what scopes memory. A recall failure
+    leaves the preamble without memory rather than failing the turn.
   - [ ] **D3 — Ralphy ships no prompts into the library it creates.** `~/.ralphy` is created on first
     run with exactly one empty `workspaces/` directory in it. The operator's decision (2026-08-25):
     **the prompts are bundled with the app** — materialised into the library on install, refreshed by

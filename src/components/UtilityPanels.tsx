@@ -300,7 +300,7 @@ export function AgentChatPanel({
           >
             <div className="agent-composer-toolbar flex items-center gap-1.5">
               <AgentModeMenu value={active.permissionMode} onChange={chat.setPermissionMode} />
-              <AgentContextMenu chat={chat} project={project} />
+              <AgentContextMenu chat={chat} project={project} workspace={workspace} />
               <span className="min-w-0 flex-1" aria-hidden="true" />
               {active.provider === "claude" && <AgentAuthSource chat={chat} />}
               <AgentModelMenu chat={chat} onOpenSettings={onOpenSettings} />
@@ -591,9 +591,10 @@ const permissionLabels: Record<AgentPermissionMode, string> = {
  * are in context, where the system prompt starts, and what the harness may pull in as it works --
  * and the answer is read where it is true, in main, rather than described here.
  */
-function AgentContextMenu({ chat, project }: {
+function AgentContextMenu({ chat, project, workspace }: {
   chat: AgentChatController;
   project: ProjectSummary | null;
+  workspace: WorkspaceSummary | null;
 }) {
   const menu = useDismissableMenu();
   const [context, setContext] = useState<AgentContextDto | null>(null);
@@ -607,11 +608,12 @@ function AgentContextMenu({ chat, project }: {
        stale inventory is worse than a short wait. */
     void bridge.loadAgentContext({
       provider,
+      workspaceId: workspace?.id ?? project?.workspaceId ?? null,
       project: project ? { workspaceId: project.workspaceId, projectId: project.projectId } : null,
     }).then((value) => { if (live) setContext(value); }).catch(() => { if (live) setContext(null); });
     return () => { live = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- the project's identity is its id
-  }, [menu.open, provider, projectId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a project and a workspace are their ids
+  }, [menu.open, provider, projectId, workspace?.id]);
 
   return (
     <div className="agent-menu relative min-w-0" ref={menu.ref}>

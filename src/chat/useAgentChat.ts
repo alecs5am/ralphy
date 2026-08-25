@@ -709,6 +709,7 @@ export function useAgentChat({
       provider: chat.provider,
       model: chat.model,
       prompt,
+      workspaceId: scope?.workspaceId ?? project?.workspaceId ?? null,
       project: project
         ? { workspaceId: project.workspaceId, projectId: project.projectId }
         : null,

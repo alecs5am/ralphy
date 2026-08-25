@@ -14,7 +14,7 @@ import type {
   ClaudeChatEvent,
   ClaudePermissionMode,
 } from "../media/types";
-import { readAgentContext } from "../agent/context";
+import { readAgentContext, type AgentMemoryDigest } from "../agent/context";
 import { validateAnthropicApiKey } from "./credentials";
 
 export type {
@@ -38,6 +38,9 @@ export interface ClaudeRunRequest {
   apiKey?: string;
   permissionMode: ClaudePermissionMode;
   resumeSessionId?: string | null;
+  /** The absolute path of the CLI this app runs; the bare name resolves elsewhere. */
+  ralphyCli?: string | null;
+  memory?: AgentMemoryDigest | null;
 }
 
 export interface ClaudeAuthStatus {
@@ -203,7 +206,14 @@ async function canonicalContext(request: ClaudeRunRequest): Promise<{
      `--append-system-prompt` is where a harness's own context belongs, and it keeps the message
      the operator wrote the message the model is answering. Codex has no equivalent on `exec`, so
      there the preamble is still a prefix. */
-  const { preamble } = await readAgentContext({ provider: "claude", rootPath, projectPath, cwd });
+  const { preamble } = await readAgentContext({
+    provider: "claude",
+    rootPath,
+    projectPath,
+    cwd,
+    cli: request.ralphyCli,
+    memory: request.memory,
+  });
   return { rootPath, cwd, prompt: validatePrompt(request.prompt), system: preamble };
 }
 

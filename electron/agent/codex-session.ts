@@ -10,7 +10,7 @@ import { dirname, join, sep } from "node:path";
 import { createInterface } from "node:readline";
 import { promisify } from "node:util";
 
-import { readAgentContext } from "./context";
+import { readAgentContext, type AgentMemoryDigest } from "./context";
 import type {
   AgentChatEvent,
   AgentPermissionMode,
@@ -46,6 +46,9 @@ export interface CodexRunRequest {
   openRouterApiKey?: string;
   permissionMode: AgentPermissionMode;
   resumeSessionId?: string | null;
+  /** The absolute path of the CLI this app runs; the bare name resolves elsewhere. */
+  ralphyCli?: string | null;
+  memory?: AgentMemoryDigest | null;
 }
 
 export interface CodexAuthStatus {
@@ -209,7 +212,14 @@ async function canonicalContext(request: CodexRunRequest): Promise<{
   /* The preamble is the same list the Context panel shows, built from the files that are really
      there: the working directory is the operator's home, so nothing relative reaches Ralphy's own
      guides and naming them would be a wish rather than an instruction. */
-  const { preamble } = await readAgentContext({ provider: request.provider, rootPath, projectPath, cwd });
+  const { preamble } = await readAgentContext({
+    provider: request.provider,
+    rootPath,
+    projectPath,
+    cwd,
+    cli: request.ralphyCli,
+    memory: request.memory,
+  });
   const prompt = [preamble, "", validatePrompt(request.prompt)].join("\n");
   return { rootPath, cwd, prompt };
 }

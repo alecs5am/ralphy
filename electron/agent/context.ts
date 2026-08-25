@@ -16,9 +16,39 @@ import type { AgentProvider } from "../media/types";
  * This module is the single answer to "what is in context", and both halves read it: the preamble
  * the harness injects is built from it, and the panel shows the same list. A file is listed with
  * whether it exists, so an absent one reads as absent rather than as a promise.
+ *
+ * Two things reach the agent because they were measured to be missing: the absolute path of the CLI
+ * this app runs, and the workspace's memory digest. Both were held by the app and given to nobody --
+ * the preamble said the bare word `ralphy`, which on a real machine resolved to an older release
+ * that cannot open a schema-9 library, and the digest was computed only to be shown to the operator
+ * in a dialog.
  */
 
-export type AgentContextKind = "instructions" | "config" | "skills" | "library" | "project" | "cwd";
+export type AgentContextKind =
+  | "instructions"
+  | "config"
+  | "skills"
+  | "library"
+  | "project"
+  | "cwd"
+  | "cli"
+  | "memory";
+
+/**
+ * The workspace's memory digest, as Core merged it: global entries with the workspace's own
+ * overriding them on slug collision, capped, and carrying Core's own caution about what a recalled
+ * entry is. Only the index lines go into the prompt -- a name and its one-line description is what
+ * `MEMORY.md` is for, and fifty full bodies is not a preamble.
+ */
+export interface AgentMemoryDigest {
+  count: number;
+  truncated: boolean;
+  note: string;
+  entries: readonly { name: string; description: string }[];
+}
+
+const MAX_MEMORY_LINES = 50;
+const MAX_MEMORY_LINE = 200;
 
 export interface AgentContextEntry {
   kind: AgentContextKind;
@@ -81,7 +111,12 @@ export function ralphyPreamble(input: {
   projectPath?: string | null;
   cwd: string;
   instructions: readonly string[];
+  cli?: string | null;
+  memory?: AgentMemoryDigest | null;
 }): string {
+  const lines = (input.memory?.entries ?? [])
+    .slice(0, MAX_MEMORY_LINES)
+    .map(({ name, description }) => `- ${`${name}: ${description}`.slice(0, MAX_MEMORY_LINE)}`);
   return [
     "[Ralphy Media context]",
     `Library: ${input.rootPath}`,
@@ -90,7 +125,23 @@ export function ralphyPreamble(input: {
     ...(input.instructions.length > 0
       ? [`Instructions already in your context: ${input.instructions.join(", ")}`]
       : []),
-    "Use the installed Ralphy CLI (`ralphy`) for every UGC generation step; `ralphy --help` lists it.",
+    /* The absolute path, never the bare word. `ralphy` on the operator's PATH is a different
+       program from the one this app runs -- an older release there cannot open this library at all,
+       and a turn that shells out to it fails in a way that looks like the library is broken. The
+       library itself is a store, not a tree: an agent that walks it finds a SQLite file. */
+    ...(input.cli
+      ? [
+        `Ralphy CLI: ${input.cli}`,
+        `Drive every Ralphy step through that exact path; \`${input.cli} --help\` lists it. The library is its store -- read and change it through the CLI rather than by reading files under it.`,
+      ]
+      : ["No Ralphy CLI is available to this chat; do not invent one."]),
+    ...(lines.length > 0
+      ? [
+        "",
+        `Workspace memory (${input.memory?.count ?? lines.length}${input.memory?.truncated ? ", truncated" : ""}). ${input.memory?.note ?? ""}`.trim(),
+        ...lines,
+      ]
+      : []),
     "[/Ralphy Media context]",
   ].join("\n");
 }
@@ -101,6 +152,9 @@ export async function readAgentContext(input: {
   projectPath?: string | null;
   cwd: string;
   home?: string;
+  /** The absolute path of the CLI this app runs, not whatever `ralphy` resolves to. */
+  cli?: string | null;
+  memory?: AgentMemoryDigest | null;
 }): Promise<AgentContextDto> {
   const home = input.home ?? homedir();
   const places = providerHome(input.provider, home);
@@ -157,6 +211,24 @@ export async function readAgentContext(input: {
       path: places.config,
       present: configThere,
       detail: configThere ? null : "Not on this machine",
+    },
+    {
+      kind: "cli",
+      label: "Ralphy CLI",
+      path: input.cli ?? "not available",
+      present: Boolean(input.cli),
+      detail: input.cli
+        ? "Named by absolute path in every prompt"
+        : "No CLI is available to this chat",
+    },
+    {
+      kind: "memory",
+      label: "Workspace memory",
+      path: input.rootPath,
+      present: (input.memory?.entries.length ?? 0) > 0,
+      detail: input.memory
+        ? `${input.memory.count} recalled${input.memory.truncated ? " · truncated" : ""} · in every prompt`
+        : "Not recalled for this chat",
     },
     {
       kind: "skills",

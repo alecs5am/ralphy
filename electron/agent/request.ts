@@ -62,6 +62,11 @@ export function parseAgentChatRequest(value: unknown): AgentChatRequest {
     && row.claudeAuthMethod !== "subscription"
     && row.claudeAuthMethod !== "api-key"
   ) throw new Error("Invalid Claude authentication method");
+  if (
+    row.workspaceId !== undefined
+    && row.workspaceId !== null
+    && (typeof row.workspaceId !== "string" || row.workspaceId.length === 0 || row.workspaceId.length > 256)
+  ) throw new Error("Invalid workspace identifier");
   const resumeSessionId = row.resumeSessionId;
   if (
     resumeSessionId !== undefined
@@ -73,6 +78,7 @@ export function parseAgentChatRequest(value: unknown): AgentChatRequest {
     provider: provider(row.provider),
     model: row.model,
     prompt,
+    workspaceId: typeof row.workspaceId === "string" ? row.workspaceId : null,
     project: projectReference(row.project),
     claudeAuthMethod: row.claudeAuthMethod === "api-key" ? "api-key" : "subscription",
     permissionMode: row.permissionMode,
