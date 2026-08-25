@@ -224,7 +224,22 @@ verification is partial (says which part).
   events per short answer. The wait before the first token is Codex loading its own instructions and
   the model thinking — unchanged.
 
-- [ ] **H3 — Content plan versus Calendar.** Settle what each panel is for. The operator's reading:
+- [~] **H3 — Content plan versus Calendar.** Settle what each panel is for. The operator's reading:
   the Calendar shows finished content that is actually booked into a slot, while the Content plan is
   mostly *ideas not yet made* — some of which may later be realised and link to a Unit. That is a
   different axis from "scheduled versus published", and neither panel currently draws it.
+
+  Designed in `docs/design/content-plan-versus-calendar.md`. **No new entity is needed.** Core's
+  `calendar_entries` has carried the whole lifecycle since schema 9 —
+  `state IN ('idea','queued','produced','gated','scheduled','published')`, a nullable `scheduled_at`
+  and a nullable `unit_revision_id` as independent columns — and the `idea | queued | produced |
+  gated` half is never written and never read. The word `idea` appears in Core's calendar code once,
+  as the state of a cadence *slot*. `calendar.create` requires a `unitRevisionId`, so an idea cannot
+  be created from the app at all; every calendar row necessarily already has a Unit behind it, which
+  is exactly why the plan has nothing to show that the Calendar does not.
+
+  The dividing line proposed is one checkable property: **does the row have a `scheduled_at`.** The
+  plan is the pipeline and the cadence it is measured against; the Calendar is the timetable,
+  including the row nothing else in the app can state — a committed date with no content behind it.
+  Identity survives the whole way, so a card moves between the two views instead of being recreated.
+  Seven contract gaps are named, five decisions are put to the operator.
