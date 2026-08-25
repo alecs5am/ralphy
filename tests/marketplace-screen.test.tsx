@@ -36,6 +36,7 @@ const defaultQuery: MarketplaceQueryState = {
 };
 
 const modelPresentation: MarketplaceItemPresentation = {
+  origin: "models",
   key: "model:huggingface:Acme/alpha",
   category: "models",
   name: "Alpha model",
@@ -79,6 +80,7 @@ const modelPresentation: MarketplaceItemPresentation = {
 };
 
 const templatePresentation: MarketplaceItemPresentation = {
+  origin: "public",
   key: "template:clean-cut",
   category: "templates",
   name: "Clean cut",
@@ -144,6 +146,7 @@ function readySnapshot(patch: Partial<Extract<MarketplaceSnapshot, { status: "re
   return {
     status: "ready",
     items: [modelPresentation, templatePresentation, recipePresentation],
+    packSource: null,
     categories: categories.map(([category, label, purpose, count]) => ({ category, label, purpose, count, catalog: count.status === "ready" ? "ready" : "unavailable" })),
     machine: {
       platform: "macOS",

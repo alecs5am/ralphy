@@ -4,6 +4,8 @@ import type {
   LocalModelMachine,
   LocalModelProvider,
   LocalModelSummary,
+  MarketplacePackCatalogDto,
+  MarketplacePackEntryDto,
   MarketplacePublicItemDto,
   MarketplacePublicSnapshotDto,
 } from "../../../electron/media/types";
@@ -19,6 +21,9 @@ export type Availability<T> =
   | { status: "unavailable"; reason: string };
 
 interface MarketplaceCommonItem {
+  /* Which source produced this row. `category` alone stopped identifying the
+     shape once the bundled pack started supplying Templates and Recipes too. */
+  origin: "models" | "public" | "pack";
   key: string;
   name: string;
   summary: string;
@@ -68,9 +73,16 @@ export interface MarketplaceModelDetailDto extends MarketplaceModelDto {
 }
 
 export type MarketplaceItemPresentation =
-  | (MarketplaceCommonItem & { category: "models"; model: MarketplaceModelDto })
-  | (MarketplaceCommonItem & { category: "templates"; template: MarketplacePublicItemDto })
-  | (MarketplaceCommonItem & { category: "recipes"; recipe: MarketplacePublicItemDto });
+  | (MarketplaceCommonItem & { origin: "models"; category: "models"; model: MarketplaceModelDto })
+  | (MarketplaceCommonItem & { origin: "public"; category: "templates"; template: MarketplacePublicItemDto })
+  | (MarketplaceCommonItem & { origin: "public"; category: "recipes"; recipe: MarketplacePublicItemDto })
+  /* The pack ships documents, never model weights, so `models` is not one of
+     its categories -- saying so keeps every `category === "models"` narrowing
+     in the renderer exact. */
+  | (MarketplaceCommonItem & { origin: "pack"; category: Exclude<MarketplaceCategory, "models">; pack: MarketplacePackEntryDto });
+
+export type MarketplacePublicItemPresentation = Extract<MarketplaceItemPresentation, { origin: "public" }>;
+export type MarketplacePackItemPresentation = Extract<MarketplaceItemPresentation, { origin: "pack" }>;
 
 export interface MarketplaceCategoryPresentation {
   category: MarketplaceCategory;
@@ -81,8 +93,8 @@ export interface MarketplaceCategoryPresentation {
 }
 
 export interface MarketplaceSourceIssue {
-  source: "ralphy-public" | "huggingface" | "civitai" | "modelscope" | "models";
-  scope: "public-library" | "model-provider" | "model-catalog";
+  source: "ralphy-public" | "ralphy-bundled" | "huggingface" | "civitai" | "modelscope" | "models";
+  scope: "public-library" | "bundled-catalog" | "model-provider" | "model-catalog";
   message: string;
 }
 
@@ -93,7 +105,7 @@ export interface MarketplaceSourceHealth {
 
 export type MarketplaceSnapshot =
   | { status: "loading"; query: MarketplaceQueryState }
-  | { status: "ready"; items: MarketplaceItemPresentation[]; categories: MarketplaceCategoryPresentation[]; machine: LocalModelMachine | null; publicSource: MarketplacePublicSnapshotDto | null; sourceErrors: MarketplaceSourceIssue[]; sourceHealth: MarketplaceSourceHealth; refreshing: boolean; query: MarketplaceQueryState }
+  | { status: "ready"; items: MarketplaceItemPresentation[]; categories: MarketplaceCategoryPresentation[]; machine: LocalModelMachine | null; publicSource: MarketplacePublicSnapshotDto | null; packSource: MarketplacePackCatalogDto | null; sourceErrors: MarketplaceSourceIssue[]; sourceHealth: MarketplaceSourceHealth; refreshing: boolean; query: MarketplaceQueryState }
   | { status: "error"; error: string; sourceErrors: MarketplaceSourceIssue[]; sourceHealth: MarketplaceSourceHealth; query: MarketplaceQueryState };
 
 const PROVIDER_LABELS: Record<LocalModelProvider, string> = {
@@ -196,6 +208,7 @@ export function marketplaceModelProviders(source: MarketplaceFilterState["source
 function modelPresentation(summary: LocalModelSummary): MarketplaceItemPresentation {
   const model = projectMarketplaceModel(summary);
   return {
+    origin: "models",
     key: `model:${model.provider}:${model.id}`,
     category: "models",
     name: model.name,
@@ -213,6 +226,7 @@ function modelPresentation(summary: LocalModelSummary): MarketplaceItemPresentat
 
 export function projectMarketplacePublicItem(item: MarketplacePublicItemDto, source: MarketplacePublicSnapshotDto["source"]): MarketplaceItemPresentation {
   const common = {
+    origin: "public" as const,
     key: `${item.category}:${item.id}`,
     name: item.name,
     summary: item.summary,
@@ -229,10 +243,45 @@ export function projectMarketplacePublicItem(item: MarketplacePublicItemDto, sou
     : { ...common, category: "recipes", recipe: item };
 }
 
+/* Pack category -> Marketplace category. The pack names one item; the shelf
+   names a shelf, and the two vocabularies were never going to be the same word. */
+const PACK_CATEGORY: Record<MarketplacePackEntryDto["category"], Exclude<MarketplaceCategory, "models">> = {
+  skill: "skills",
+  prompt: "prompts",
+  template: "templates",
+  recipe: "recipes",
+  component: "components",
+};
+
+export function projectMarketplacePackItem(
+  entry: MarketplacePackEntryDto,
+  cliVersion: string | null,
+): MarketplacePackItemPresentation {
+  return {
+    origin: "pack",
+    key: `pack:${entry.id}`,
+    category: PACK_CATEGORY[entry.category],
+    name: entry.title,
+    summary: entry.summary,
+    sourceLabel: cliVersion === null ? "Bundled with this build" : `Bundled with this build · Ralphy CLI ${cliVersion}`,
+    /* The pack is versioned as a whole, not per document: one export, one
+       version stamp, and no per-entry history to report. */
+    version: cliVersion === null ? unavailable<string>("The bundled catalog did not declare a CLI version.") : ready(cliVersion),
+    updatedAt: unavailable<string>("A bundled document carries no update date of its own."),
+    license: unavailable<string>("License is unavailable from the bundled catalog."),
+    publisherIdentity: ready("Ralphy — shipped inside this build"),
+    contentAudit: unavailable<string>("Content audit status is unavailable from the bundled catalog."),
+    compatibility: cliVersion === null
+      ? unavailable<string>("Compatibility is unavailable from the bundled catalog.")
+      : ready(`Ralphy CLI ${cliVersion}`),
+    pack: entry,
+  };
+}
+
 function sourceMatches(item: MarketplaceItemPresentation, source: MarketplaceFilterState["source"]): boolean {
   if (source === "all") return true;
-  if (source === "ralphy") return item.category !== "models";
-  return item.category === "models" && item.model.provider === source;
+  if (source === "ralphy") return item.origin !== "models";
+  return item.origin === "models" && item.model.provider === source;
 }
 
 function compatibilityMatches(model: MarketplaceModelDto, filter: MarketplaceFilterState["compatibility"]): boolean {
@@ -245,10 +294,10 @@ function compatibilityMatches(model: MarketplaceModelDto, filter: MarketplaceFil
 function filtersMatch(item: MarketplaceItemPresentation, filters: MarketplaceFilterState): boolean {
   if (filters.category !== "all" && item.category !== filters.category) return false;
   if (!sourceMatches(item, filters.source)) return false;
-  if (filters.license !== "all" && (item.category !== "models" || item.model.license === null)) return false;
-  if (filters.compatibility !== "all" && (item.category !== "models" || !compatibilityMatches(item.model, filters.compatibility))) return false;
-  if (filters.modality !== "all" && (item.category !== "models" || item.model.modality !== filters.modality)) return false;
-  if (filters.format !== "all" && (item.category !== "models" || !item.model.recommendedPackage.format.toLocaleLowerCase().includes(filters.format))) return false;
+  if (filters.license !== "all" && (item.origin !== "models" || item.model.license === null)) return false;
+  if (filters.compatibility !== "all" && (item.origin !== "models" || !compatibilityMatches(item.model, filters.compatibility))) return false;
+  if (filters.modality !== "all" && (item.origin !== "models" || item.model.modality !== filters.modality)) return false;
+  if (filters.format !== "all" && (item.origin !== "models" || !item.model.recommendedPackage.format.toLocaleLowerCase().includes(filters.format))) return false;
   return true;
 }
 
@@ -256,7 +305,7 @@ function keywordScore(item: MarketplaceItemPresentation, tokens: string[]): numb
   if (tokens.length === 0) return 0;
   const name = item.name.toLocaleLowerCase();
   const summary = item.summary.toLocaleLowerCase();
-  const categoryMetadata = item.category === "models"
+  const categoryMetadata = item.origin === "models"
     ? [
       item.model.id,
       item.model.task,
@@ -272,14 +321,15 @@ function keywordScore(item: MarketplaceItemPresentation, tokens: string[]): numb
     ]
     : [
       item.category,
-      ...(item.category === "recipes" ? [
+      ...(item.origin === "public" && item.category === "recipes" ? [
         item.recipe.recipe?.kind ?? "",
         item.recipe.recipe?.body ?? "",
         item.recipe.recipe?.artifact ?? "",
       ] : []),
+      ...(item.origin === "pack" ? [item.pack.slug, ...item.pack.tags] : []),
     ];
   const metadata = [item.sourceLabel, ...categoryMetadata].join(" ").toLocaleLowerCase();
-  const author = item.category === "models" ? item.model.author.toLocaleLowerCase() : "";
+  const author = item.origin === "models" ? item.model.author.toLocaleLowerCase() : "";
   let score = 0;
   for (const token of tokens) {
     if (name.startsWith(token)) score += 8;
@@ -296,29 +346,46 @@ function compareName(left: MarketplaceItemPresentation, right: MarketplaceItemPr
 }
 
 function updatedTimestamp(item: MarketplaceItemPresentation): number {
-  if (item.category !== "models" || item.model.lastModified === null) return Number.NEGATIVE_INFINITY;
+  if (item.origin !== "models" || item.model.lastModified === null) return Number.NEGATIVE_INFINITY;
   const timestamp = Date.parse(item.model.lastModified);
   return Number.isFinite(timestamp) ? timestamp : Number.NEGATIVE_INFINITY;
 }
 
 function categoryPresentations(
+  items: MarketplaceItemPresentation[],
   publicSnapshot: MarketplacePublicSnapshotDto | null,
+  packCatalog: MarketplacePackCatalogDto | null,
   modelCatalog: LocalModelCatalog | null,
   sourceHealth: MarketplaceSourceHealth,
 ): MarketplaceCategoryPresentation[] {
-  const supportedCounts: Partial<Record<MarketplaceCategory, Availability<number>>> = {
+  /* The bundled shelf is counted from the rows that actually projected, not from
+     the raw catalog: a row this build could not read is not on the shelf. */
+  const bundled = new Map<MarketplaceCategory, number>();
+  for (const item of items) {
+    if (item.origin !== "pack") continue;
+    bundled.set(item.category, (bundled.get(item.category) ?? 0) + 1);
+  }
+  const sourced: Partial<Record<MarketplaceCategory, Availability<number>>> = {
     models: sourceHealth.models !== "unavailable" && modelCatalog !== null
       ? ready(Math.min(modelCatalog.items.length, 24))
       : unavailable("Model count is unavailable because the selected model source is unavailable."),
     templates: sourceHealth.publicLibrary === "ready" && publicSnapshot !== null
       ? ready(publicSnapshot.items.slice(0, 512).filter(({ category }) => category === "template").length)
-      : unavailable("Template count is unavailable because the Ralphy public library is unavailable."),
+      : undefined,
     recipes: sourceHealth.publicLibrary === "ready" && publicSnapshot !== null
       ? ready(publicSnapshot.items.slice(0, 512).filter(({ category }) => category === "recipe").length)
-      : unavailable("Recipe count is unavailable because the Ralphy public library is unavailable."),
+      : undefined,
   };
   return CATEGORIES.map((category) => {
-    const count = supportedCounts[category] ?? unavailable<number>(`${CATEGORY_COPY[category].label} catalog is unavailable in the current Desktop contract.`);
+    const shelf = bundled.get(category) ?? 0;
+    const remote = sourced[category];
+    const count: Availability<number> = remote !== undefined && remote.status === "ready"
+      ? ready(remote.value + (category === "models" ? 0 : shelf))
+      : shelf > 0
+        ? ready(shelf)
+        : packCatalog?.unavailable !== null && packCatalog !== null && category !== "models"
+          ? unavailable(packCatalog.unavailable)
+          : remote ?? unavailable<number>(`${CATEGORY_COPY[category].label} are unavailable from every source this build can reach.`);
     return { category, ...CATEGORY_COPY[category], count, catalog: count.status === "unavailable" ? "unavailable" : "ready" };
   });
 }
@@ -329,11 +396,14 @@ export function presentMarketplaceSources(
   query: MarketplaceQueryState,
   sourceErrors: MarketplaceSourceIssue[],
   sourceHealth: MarketplaceSourceHealth,
+  packCatalog: MarketplacePackCatalogDto | null = null,
 ): Extract<MarketplaceSnapshot, { status: "ready" }> {
   const publicItems = publicSnapshot?.items.slice(0, 512).map((item) => projectMarketplacePublicItem(item, publicSnapshot.source)) ?? [];
+  const packItems = packCatalog?.entries.slice(0, 1_024)
+    .map((entry) => projectMarketplacePackItem(entry, packCatalog.cliVersion)) ?? [];
   const modelItems = modelCatalog?.items.slice(0, 24).map(modelPresentation) ?? [];
   const tokens = query.text.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
-  const scored = [...modelItems, ...publicItems]
+  const scored = [...modelItems, ...packItems, ...publicItems]
     .filter((item) => filtersMatch(item, query.filters))
     .map((item) => ({ item, score: keywordScore(item, tokens) }))
     .filter(({ score }) => tokens.length === 0 || score > 0);
@@ -342,12 +412,22 @@ export function presentMarketplaceSources(
     if (query.sort === "relevance" && tokens.length > 0) return right.score - left.score || compareName(left.item, right.item);
     return compareName(left.item, right.item);
   });
+  const items = scored.map(({ item }) => item);
   return {
     status: "ready",
-    items: scored.map(({ item }) => item),
-    categories: categoryPresentations(publicSnapshot, modelCatalog, sourceHealth),
+    items,
+    /* Counted from every projected row, not from the filtered result: a category
+       tile answers "what is on this shelf", not "what survived the search". */
+    categories: categoryPresentations(
+      [...modelItems, ...packItems, ...publicItems],
+      publicSnapshot,
+      packCatalog,
+      modelCatalog,
+      sourceHealth,
+    ),
     machine: modelCatalog?.machine ?? null,
     publicSource: publicSnapshot,
+    packSource: packCatalog,
     sourceErrors,
     sourceHealth,
     refreshing: false,

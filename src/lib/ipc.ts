@@ -238,6 +238,12 @@ function createMockBridge(): RalphyBridge {
     async loadMarketplacePublicLibrary(): Promise<MarketplacePublicSnapshotDto> {
       throw new Error("Marketplace public catalog is unavailable in mock mode");
     },
+    async loadMarketplacePackCatalog() {
+      return { schemaVersion: 1 as const, cliVersion: null, entries: [], unavailable: "The bundled catalog is unavailable in mock mode" };
+    },
+    async loadMarketplacePackDocument() {
+      throw new Error("The bundled catalog is unavailable in mock mode");
+    },
     async loadWorkspaceOverview(workspaceId) {
       return {
         workspace: {

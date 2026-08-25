@@ -124,6 +124,7 @@ import { createMemoryReader } from "./ralphy/memory-reader";
 import { createCalendarReader } from "./ralphy/calendar-reader";
 import { registerWorkspaceOverviewIpc } from "./ralphy/workspace-reader";
 import { registerMarketplaceLibraryIpc } from "./marketplace-library";
+import { registerMarketplacePackIpc } from "./marketplace-pack";
 import type { BridgeMethod, JsonValue, ParamsFor, ResultFor } from "./ralphy/types";
 import { resolveRalphyExecutable } from "./ralphy/executable";
 import { RalphySession } from "./ralphy/session";
@@ -1375,6 +1376,15 @@ function parseProjectMediaRef(value: unknown): { type: "artifact" | "run-object"
 }
 
 function registerProjectDomainIpc(): void {
+  /* The bundled shelf needs no library root and no network: it is this build's
+     own resources, so it registers beside the CDN catalog rather than inside it. */
+  registerMarketplacePackIpc({
+    handle: (channel, listener) => {
+      ipcMain.handle(channel, (event, ...args) => listener(event, ...args));
+    },
+    getWindow: () => win,
+    bundledPack: bundledPromptPack,
+  });
   registerMarketplaceLibraryIpc({
     handle: (channel, listener) => {
       ipcMain.handle(channel, (event, ...args) => listener(event, ...args));

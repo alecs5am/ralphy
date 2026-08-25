@@ -23,6 +23,7 @@ import {
 import { MarketplaceHeader } from "./marketplace/MarketplaceHeader";
 import { MarketplaceModelDetail, marketplaceDetailInstrumentStates, marketplaceInstalledInstrumentStates } from "./marketplace/MarketplaceModelViews";
 import { MarketplaceMyLibrary } from "./marketplace/MarketplaceMyLibrary";
+import { MarketplacePackItemDetail } from "./marketplace/MarketplacePackItemDetail";
 import { MarketplacePublicItemDetail } from "./marketplace/MarketplacePublicItemDetail";
 import {
   MarketplaceActionReview,
@@ -34,6 +35,7 @@ import {
   MarketplaceUnavailableDetail,
 } from "./marketplace/MarketplaceUnavailableViews";
 import {
+  projectMarketplacePackItem,
   projectMarketplacePublicItem,
   type MarketplaceSnapshot,
 } from "./marketplace/presentation";
@@ -77,8 +79,10 @@ export const marketplaceInstrumentStates = [
   marketplaceDetailInstrumentStates,
   ...MARKETPLACE_CATEGORY_ROUTE_VALUES.map((category) => defineInstrumentScreenStates({
     routeKey: `marketplace.category.${category}`,
+    /* These three are stocked by the bundled catalog, so they reach "ready" like
+       any other shelf -- and keep "unavailable" for a build that ships no pack. */
     states: category === "prompts" || category === "components" || category === "skills"
-      ? ["loading", "error", "partial", "empty", "unavailable"]
+      ? ["loading", "error", "partial", "empty", "unavailable", "ready"]
       : ["loading", "error", "partial", "empty", "ready"],
     rootMarker: `marketplace-category-${category}`,
     landmarks: [categoryLabels[category], "Marketplace"],
@@ -97,6 +101,16 @@ export const marketplaceInstrumentStates = [
     landmarks: [categoryLabels[category], "Marketplace"],
   } as const)),
 ];
+
+/* A bundled row reviews through the workflow its category already had -- the
+   shelf changed where the item comes from, not what installing one would mean. */
+const PACK_WORKFLOW: Record<Exclude<MarketplaceCategory, "models">, MarketplaceWorkflowKind> = {
+  skills: "skill-install",
+  prompts: "prompt-use",
+  templates: "template-target",
+  recipes: "recipe-target",
+  components: "component-target",
+};
 
 function marketplaceRouteKey(route: MarketplaceLocation["route"]) {
   if (route.kind === "category") return `marketplace.category.${route.category}` as const;
@@ -142,6 +156,29 @@ function publicItemReference(itemId: string) {
   return match ? { category: match[1] as "template" | "recipe", id: match[2]! } : null;
 }
 
+/* Item keys are the detail route's id, so a bundled row is addressed by the
+   catalog id it already has, behind a `pack:` prefix that cannot collide with a
+   model or public-library key. */
+function packItemReference(itemId: string) {
+  /* Slugs are whatever the source called the thing -- a skill folder is kebab,
+     an ffmpeg recipe is the camelCase function name -- so the guard bounds the
+     charset and the length without assuming a casing convention. */
+  const match = /^pack:((?:skill|prompt|template|recipe|component):[A-Za-z0-9][A-Za-z0-9._-]{0,127})$/.exec(itemId);
+  return match ? { id: match[1]! } : null;
+}
+
+/* The sidebar highlights the shelf a detail came from, and the catalog id says
+   which shelf that is without waiting for the catalog to load. */
+function packEntryCategory(packId: string | null): MarketplaceCategory | null {
+  const prefix = packId?.split(":")[0];
+  if (prefix === "skill") return "skills";
+  if (prefix === "prompt") return "prompts";
+  if (prefix === "template") return "templates";
+  if (prefix === "recipe") return "recipes";
+  if (prefix === "component") return "components";
+  return null;
+}
+
 function clearedFilters(query: MarketplaceQueryState, category: MarketplaceCategory | "all"): MarketplaceQueryState {
   return {
     ...query,
@@ -180,6 +217,7 @@ export function MarketplaceScreenView({
   const detailItemId = location.route.kind === "detail" ? location.route.itemId : null;
   const detailReference = detailItemId === null ? null : modelReference(detailItemId);
   const publicReference = detailItemId === null ? null : publicItemReference(detailItemId);
+  const packReference = detailItemId === null ? null : packItemReference(detailItemId);
   const selectedCategory: MarketplaceCategory | "all" | null = location.route.kind === "collection"
     ? "all"
     : location.route.kind === "category" || location.route.kind === "unavailable-detail"
@@ -190,7 +228,7 @@ export function MarketplaceScreenView({
           ? "templates"
           : publicReference?.category === "recipe"
             ? "recipes"
-            : null;
+            : packEntryCategory(packReference?.id ?? null);
   const itemOrigin = focusId.startsWith("marketplace-item-");
   const originItems = snapshot.status === "ready" && route?.kind === "results"
     ? snapshot.items
@@ -322,10 +360,17 @@ export function MarketplaceScreenView({
   const publicDto = publicReference !== null && snapshot.status === "ready"
     ? snapshot.publicSource?.items.find(({ category, id }) => category === publicReference.category && id === publicReference.id)
     : undefined;
-  const detailItem = publicDto && snapshot.status === "ready" && snapshot.publicSource
-    ? projectMarketplacePublicItem(publicDto, snapshot.publicSource.source)
+  const packEntry = packReference !== null && snapshot.status === "ready"
+    ? snapshot.packSource?.entries.find(({ id }) => id === packReference.id)
     : undefined;
-  const publicDetailState = publicReference === null
+  const detailItem = packEntry && snapshot.status === "ready" && snapshot.packSource
+    ? projectMarketplacePackItem(packEntry, snapshot.packSource.cliVersion)
+    : publicDto && snapshot.status === "ready" && snapshot.publicSource
+      ? projectMarketplacePublicItem(publicDto, snapshot.publicSource.source)
+      : undefined;
+  const publicDetailState = packReference !== null
+    ? snapshot.status === "loading" ? "loading" : packEntry ? "ready" : "missing"
+    : publicReference === null
     ? null
     : snapshot.status === "loading"
       ? "loading"
@@ -334,7 +379,8 @@ export function MarketplaceScreenView({
         : detailItem
           ? "ready"
           : "missing";
-  const staleDetail = detailItemId !== null && ((detailReference === null && publicReference === null) || publicDetailState === "missing");
+  const staleDetail = detailItemId !== null
+    && ((detailReference === null && publicReference === null && packReference === null) || publicDetailState === "missing");
   const unavailableWorkflow = location.route.kind === "unavailable-detail"
     ? location.route.category === "prompts" ? "prompt-use" : location.route.category === "components" ? "component-target" : "skill-install"
     : null;
@@ -383,7 +429,9 @@ export function MarketplaceScreenView({
       <p className="marketplace-target-state mt-2 w-fit rounded-full bg-surface-sunken px-3 py-1.5 font-mono type-mono-xs tracking-label text-muted">{targetMessage}</p>
       {detailReference
         ? <MarketplaceModelDetail reference={detailReference} onBack={onBack} onReviewDownload={(model) => setWorkflow({ kind: "model-download", itemLabel: model.name })} />
-        : publicDetailState === "ready" && (detailItem?.category === "templates" || detailItem?.category === "recipes")
+        : detailItem?.origin === "pack"
+          ? <MarketplacePackItemDetail item={detailItem} onBack={onBack} onReviewTarget={(item) => setWorkflow({ kind: PACK_WORKFLOW[item.category], itemLabel: item.name })} />
+        : publicDetailState === "ready" && detailItem?.origin === "public"
           ? <MarketplacePublicItemDetail
             item={detailItem}
             onBack={onBack}

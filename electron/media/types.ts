@@ -428,8 +428,43 @@ export interface MarketplacePublicSnapshotDto {
   items: MarketplacePublicItemDto[];
 }
 
+/* The shelf that ships inside the app. `ralphy prompts export` indexes the pack
+   it writes; the desktop vendors both and serves the index from the bundle, so
+   Skills, Prompts, Components, Templates, and Recipes exist with no network and
+   no CLI checkout. Entries name a document by pack-relative path; the renderer
+   asks for it by entry id and never by path. */
+export type MarketplacePackCategory = "skill" | "prompt" | "template" | "recipe" | "component";
+
+export interface MarketplacePackEntryDto {
+  id: string;
+  category: MarketplacePackCategory;
+  slug: string;
+  title: string;
+  summary: string;
+  /** Pack-relative document, or null when the entry is an index row with no body here. */
+  path: string | null;
+  tags: string[];
+}
+
+export interface MarketplacePackCatalogDto {
+  schemaVersion: 1;
+  cliVersion: string | null;
+  entries: MarketplacePackEntryDto[];
+  /** Set when this build carries no usable catalog -- a build fault, not a user state. */
+  unavailable: string | null;
+}
+
+export interface MarketplacePackDocumentDto {
+  id: string;
+  path: string;
+  markdown: string;
+  truncated: boolean;
+}
+
 export interface MarketplaceBridge {
   loadMarketplacePublicLibrary(): Promise<MarketplacePublicSnapshotDto>;
+  loadMarketplacePackCatalog(): Promise<MarketplacePackCatalogDto>;
+  loadMarketplacePackDocument(id: string): Promise<MarketplacePackDocumentDto>;
 }
 
 export interface LocalModelSearchInput {
@@ -586,6 +621,8 @@ export const APP_CHANNELS = {
 export const MEDIA_CHANNELS = {
   restoreLibrary: "media:library:restore",
   loadMarketplacePublicLibrary: "marketplace:public-library:load",
+  loadMarketplacePackCatalog: "marketplace:pack-catalog:load",
+  loadMarketplacePackDocument: "marketplace:pack-document:load",
   loadWorkspaceOverview: "workspace:overview",
   loadSharedLibraryPage: "workspace:shared-library:page",
   loadSharedLibraryArtifact: "workspace:shared-library:show",

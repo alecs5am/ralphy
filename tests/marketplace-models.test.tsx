@@ -140,6 +140,7 @@ const defaultQuery: MarketplaceQueryState = {
 };
 
 const modelPresentation: MarketplaceItemPresentation = {
+  origin: "models",
   key: `model:${modelA.provider}:${modelA.id}`,
   category: "models",
   name: modelA.name,

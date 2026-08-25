@@ -102,12 +102,27 @@ const modelDetailLocation: MarketplaceLocation = {
   scrollTop: 0,
   focusId: "marketplace-heading",
 };
+/* One bundled row per shelf: enough to prove the shelf renders items. */
+function packPresentation(category: "prompts" | "components" | "skills"): MarketplaceItemPresentation {
+  const kind = category === "prompts" ? "prompt" : category === "components" ? "component" : "skill";
+  return {
+    ...templatePresentation,
+    origin: "pack",
+    key: `pack:${kind}:sample`,
+    category,
+    name: `Bundled ${kind}`,
+    sourceLabel: "Bundled with this build",
+    pack: { id: `${kind}:sample`, category: kind, slug: "sample", title: `Bundled ${kind}`, summary: "A bundled document", path: null, tags: [] },
+  } as MarketplaceItemPresentation;
+}
+
 const marketplaceReady: Extract<MarketplaceSnapshot, { status: "ready" }> = {
   status: "ready",
   items: [],
   categories: [],
   machine: null,
   publicSource: { schemaVersion: 1, source: "live", refreshedAt: "2026-08-21T00:00:00.000Z", sourceUpdatedAt: null, warning: null, items: [] },
+  packSource: null,
   sourceErrors: [],
   sourceHealth: { publicLibrary: "ready", models: "ready" },
   refreshing: false,
@@ -151,6 +166,7 @@ const commonPresentation = {
   compatibility: { status: "ready" as const, value: "Comfortable here" },
 };
 const modelPresentation: MarketplaceItemPresentation = {
+  origin: "models",
   ...commonPresentation,
   key: "model:huggingface:Acme/alpha",
   category: "models",
@@ -302,10 +318,13 @@ describe("production instrument screen states", () => {
       ]);
     }
 
+    /* These three are stocked by the bundled catalog, so each also has a live
+       "ready" -- a shelf with a row on it, not only a shelf that could exist. */
     for (const category of ["prompts", "components", "skills"] as const) {
-      const categoryState = (status: "ready" | "unavailable") => ({
+      const categoryState = (status: "ready" | "unavailable", items: MarketplaceItemPresentation[] = []) => ({
         ...marketplaceReady,
-        categories: [{ category, label: category, purpose: "Contract state", count: status === "ready" ? { status, value: 0 } : { status, reason: "Unavailable" }, catalog: status }],
+        items,
+        categories: [{ category, label: category, purpose: "Contract state", count: status === "ready" ? { status, value: items.length } : { status, reason: "Unavailable" }, catalog: status }],
       } as MarketplaceSnapshot);
       expected(`marketplace.category.${category}`, [
         renderMarketplaceState({ kind: "category", category }, { status: "loading", query: marketplaceQuery }),
@@ -313,6 +332,7 @@ describe("production instrument screen states", () => {
         renderMarketplaceState({ kind: "category", category }, { ...categoryState("ready"), sourceHealth: partial.sourceHealth } as MarketplaceSnapshot),
         renderMarketplaceState({ kind: "category", category }, categoryState("ready")),
         renderMarketplaceState({ kind: "category", category }, categoryState("unavailable")),
+        renderMarketplaceState({ kind: "category", category }, categoryState("ready", [packPresentation(category)])),
       ]);
     }
 

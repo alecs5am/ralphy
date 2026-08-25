@@ -17,7 +17,10 @@ export interface MarketplaceController {
   dispose(): void;
 }
 
-export type MarketplaceApi = Pick<MediaWorkbenchBridge, "loadMarketplacePublicLibrary" | "searchLocalModels">;
+export type MarketplaceApi = Pick<
+  MediaWorkbenchBridge,
+  "loadMarketplacePublicLibrary" | "loadMarketplacePackCatalog" | "searchLocalModels"
+>;
 
 type ModelProviderRequest = Exclude<MarketplaceQueryState["filters"]["source"], "ralphy">;
 const SEARCH_DEBOUNCE_MS = 250;
@@ -39,6 +42,7 @@ export function createMarketplaceController(
   let activeRequest = 0;
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
   let lastPublic: Awaited<ReturnType<MarketplaceApi["loadMarketplacePublicLibrary"]>> | null = null;
+  let lastPack: Awaited<ReturnType<MarketplaceApi["loadMarketplacePackCatalog"]>> | null = null;
   let lastModels: {
     provider: ModelProviderRequest;
     value: Awaited<ReturnType<MarketplaceApi["searchLocalModels"]>>;
@@ -67,8 +71,9 @@ export function createMarketplaceController(
     if (snapshot.status === "ready") emit({ ...snapshot, query: requestQuery, refreshing: true });
     else emit({ status: "loading", query: requestQuery });
     const modelQuery = requestQuery.text.trim();
-    const [library, models] = await Promise.allSettled([
+    const [library, pack, models] = await Promise.allSettled([
       api.loadMarketplacePublicLibrary(),
+      api.loadMarketplacePackCatalog(),
       api.searchLocalModels({
         ...(modelQuery ? { query: modelQuery } : {}),
         provider: requestProvider,
@@ -83,9 +88,21 @@ export function createMarketplaceController(
     const providerIssues: MarketplaceSourceIssue[] = models.status === "fulfilled"
       ? models.value.errors.map(({ provider, message }) => ({ source: provider, scope: "model-provider", message }))
       : [];
+    /* The bundled shelf lives in this build's own resources, so it failing is a
+       build fault worth naming rather than a network condition to retry. */
+    const packCatalog = pack.status === "fulfilled" && pack.value.unavailable === null ? pack.value : null;
     const sourceErrors: MarketplaceSourceIssue[] = [
       ...(library.status === "rejected"
         ? [{ source: "ralphy-public", scope: "public-library", message: "Ralphy public library is unavailable" } satisfies MarketplaceSourceIssue]
+        : []),
+      ...(packCatalog === null
+        ? [{
+          source: "ralphy-bundled",
+          scope: "bundled-catalog",
+          message: pack.status === "fulfilled"
+            ? pack.value.unavailable ?? "The bundled catalog is unavailable"
+            : "The bundled catalog is unavailable",
+        } satisfies MarketplaceSourceIssue]
         : []),
       ...(models.status === "rejected"
         ? [{ source: "models", scope: "model-catalog", message: "Model catalog is unavailable" } satisfies MarketplaceSourceIssue]
@@ -103,13 +120,16 @@ export function createMarketplaceController(
       publicLibrary: library.status === "fulfilled" ? "ready" : "unavailable",
       models: modelHealth,
     };
-    if (library.status === "rejected" && modelHealth === "unavailable") {
+    /* One live source is enough to render a Marketplace. Only when nothing this
+       build can reach answers is the screen actually in error. */
+    if (library.status === "rejected" && modelHealth === "unavailable" && packCatalog === null) {
       emit({ status: "error", error: "Marketplace sources are unavailable", sourceErrors, sourceHealth, query: resultQuery });
       return;
     }
     lastPublic = library.status === "fulfilled" ? library.value : null;
+    lastPack = packCatalog;
     lastModels = models.status === "fulfilled" ? { provider: requestProvider, value: models.value } : null;
-    emit(presentMarketplaceSources(lastPublic, retainedModels(resultQuery), resultQuery, sourceErrors, sourceHealth));
+    emit(presentMarketplaceSources(lastPublic, retainedModels(resultQuery), resultQuery, sourceErrors, sourceHealth, lastPack));
   };
 
   return {
@@ -142,7 +162,7 @@ export function createMarketplaceController(
       }
       if (snapshot.status === "ready") {
         emit({
-          ...presentMarketplaceSources(lastPublic, retainedModels(query), query, snapshot.sourceErrors, snapshot.sourceHealth),
+          ...presentMarketplaceSources(lastPublic, retainedModels(query), query, snapshot.sourceErrors, snapshot.sourceHealth, lastPack),
           refreshing: textChanged ? false : snapshot.refreshing,
         });
       } else if (snapshot.status === "loading") {

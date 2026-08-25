@@ -2,6 +2,8 @@ import { describe, expect, test, vi } from "vitest";
 import type {
   LocalModelCatalog,
   LocalModelSummary,
+  MarketplacePackCatalogDto,
+  MarketplacePackEntryDto,
   MarketplacePublicSnapshotDto,
   MediaWorkbenchBridge,
 } from "../electron/media/types";
@@ -66,11 +68,23 @@ function query(source: MarketplaceQueryState["filters"]["source"] = "all", text 
   };
 }
 
+/* The bundled shelf defaults to an empty build: these cases are about the two
+   remote sources, and a stocked shelf would change every count they assert. */
+function packCatalog(entries: MarketplacePackEntryDto[] = []): MarketplacePackCatalogDto {
+  return {
+    schemaVersion: 1,
+    cliVersion: entries.length > 0 ? "9.9.9" : null,
+    entries,
+    unavailable: entries.length > 0 ? null : "This build carries no bundled catalog",
+  };
+}
+
 function api(
   loadMarketplacePublicLibrary: MarketplaceApi["loadMarketplacePublicLibrary"] = vi.fn(async () => publicSnapshot()),
   searchLocalModels: MarketplaceApi["searchLocalModels"] = vi.fn(async () => catalog()),
+  loadMarketplacePackCatalog: MarketplaceApi["loadMarketplacePackCatalog"] = vi.fn(async () => packCatalog()),
 ): MarketplaceApi {
-  return { loadMarketplacePublicLibrary, searchLocalModels };
+  return { loadMarketplacePublicLibrary, loadMarketplacePackCatalog, searchLocalModels };
 }
 
 function deferred<T>() {
@@ -125,6 +139,7 @@ describe("Marketplace controller", () => {
       status: "ready",
       sourceHealth: { models: "partial" },
       sourceErrors: [
+        { source: "ralphy-bundled", scope: "bundled-catalog", message: "This build carries no bundled catalog" },
         { source: "huggingface", scope: "model-provider", message: "rate limited" },
         { source: "modelscope", scope: "model-provider", message: "not configured" },
       ],
@@ -162,7 +177,10 @@ describe("Marketplace controller", () => {
       status: "ready",
       items: [{ category: "models" }],
       sourceHealth: { publicLibrary: "unavailable", models: "ready" },
-      sourceErrors: [{ source: "ralphy-public", scope: "public-library", message: "Ralphy public library is unavailable" }],
+      sourceErrors: [
+        { source: "ralphy-public", scope: "public-library", message: "Ralphy public library is unavailable" },
+        { source: "ralphy-bundled", scope: "bundled-catalog", message: "This build carries no bundled catalog" },
+      ],
     });
 
     const modelsFailed = createMarketplaceController(api(
@@ -174,7 +192,10 @@ describe("Marketplace controller", () => {
       status: "ready",
       items: [{ category: "templates" }],
       sourceHealth: { publicLibrary: "ready", models: "unavailable" },
-      sourceErrors: [{ source: "models", scope: "model-catalog", message: "Model catalog is unavailable" }],
+      sourceErrors: [
+        { source: "ralphy-bundled", scope: "bundled-catalog", message: "This build carries no bundled catalog" },
+        { source: "models", scope: "model-catalog", message: "Model catalog is unavailable" },
+      ],
     });
 
     const healthyEmpty = createMarketplaceController(api(

@@ -51,6 +51,7 @@ const categoryLabels: Record<MarketplaceCategory, string> = {
 };
 const sourceLabels: Record<MarketplaceSourceIssue["source"], string> = {
   "ralphy-public": "Ralphy public library",
+  "ralphy-bundled": "Bundled catalog",
   huggingface: "Hugging Face",
   civitai: "Civitai",
   modelscope: "ModelScope",
@@ -132,11 +133,11 @@ function preview(item: MarketplaceItemPresentation): MarketplacePreview | null {
     const url = item.model.previewUrl ?? item.model.iconUrl;
     return url ? { url, kind: "image" } : null;
   }
-  if (item.category === "templates") {
+  if (item.origin === "public" && item.category === "templates") {
     const url = item.template.referenceUrls.find((candidate) => marketplacePublicMediaKind(candidate) !== null);
     return url ? { url, kind: marketplacePublicMediaKind(url)! } : null;
   }
-  if (item.category === "recipes") {
+  if (item.origin === "public" && item.category === "recipes") {
     const demo = item.recipe.recipe?.demo;
     const url = [demo?.storageUrl, demo?.afterUrl, demo?.beforeUrl, demo?.posterUrl]
       .find((candidate): candidate is string => Boolean(candidate && marketplacePublicMediaKind(candidate)));
@@ -149,7 +150,10 @@ function preview(item: MarketplaceItemPresentation): MarketplacePreview | null {
 
 function previewFallback(item: MarketplaceItemPresentation, failedKind?: "image" | "video") {
   if (item.category === "models") return <span className="marketplace-preview-fallback flex size-full flex-col items-center justify-center gap-1.5 text-on-instrument-muted"><Cpu className="size-4" aria-hidden="true" /><small className="max-w-24 text-center font-mono type-mono-xs leading-tight">{item.model.recommendedPackage.format || "Format unavailable"}</small></span>;
-  if (item.category === "recipes") return <span className="marketplace-preview-fallback flex size-full flex-col items-center justify-center gap-1.5 text-on-instrument-muted"><Code2 className="size-4" aria-hidden="true" /><small className="max-w-24 text-center font-mono type-mono-xs leading-tight">{failedKind ? `Recipe ${failedKind} preview unavailable` : item.recipe.recipe?.kind ?? "Recipe preview unavailable"}</small></span>;
+  if (item.origin === "public" && item.category === "recipes") return <span className="marketplace-preview-fallback flex size-full flex-col items-center justify-center gap-1.5 text-on-instrument-muted"><Code2 className="size-4" aria-hidden="true" /><small className="max-w-24 text-center font-mono type-mono-xs leading-tight">{failedKind ? `Recipe ${failedKind} preview unavailable` : item.recipe.recipe?.kind ?? "Recipe preview unavailable"}</small></span>;
+  /* A bundled row is a document, not a picture of one. Naming its slug beats
+     apologising for a preview the source was never going to carry. */
+  if (item.origin === "pack") return <span className="marketplace-preview-fallback flex size-full flex-col items-center justify-center gap-1.5 text-on-instrument-muted"><FileText className="size-4" aria-hidden="true" /><small className="max-w-24 text-center font-mono type-mono-xs leading-tight">{item.pack.slug}</small></span>;
   return <span className="marketplace-preview-fallback flex size-full flex-col items-center justify-center gap-1.5 text-on-instrument-muted"><LayoutTemplate className="size-4" aria-hidden="true" /><small className="max-w-24 text-center font-mono type-mono-xs leading-tight">{failedKind ? `Template ${failedKind} preview unavailable` : "Preview unavailable from schema 1"}</small></span>;
 }
 
