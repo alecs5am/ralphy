@@ -70,7 +70,7 @@ const FIXTURES: Fixture[] = [
   {
     intent: "new video / new project request",
     utterances: ["make a video about X", "launch project Y", "I want one like this + <url>"],
-    target: "docs/playbooks/intake.md",
+    target: ".agents/skills/intake/SKILL.md",
     fragments: ["new project request", "make a video about x", "intake"],
   },
   {
@@ -88,7 +88,7 @@ const FIXTURES: Fixture[] = [
   {
     intent: "repair request — scenario rework",
     utterances: ["rework scene 3", "rewrite the hook", "tighten the VO"],
-    target: "docs/playbooks/scenarist.md",
+    target: ".agents/skills/scenarist/SKILL.md",
     fragments: ["rework scene", "rewrite hook", "tighten vo", "shorten / lengthen"],
   },
   {
@@ -100,7 +100,7 @@ const FIXTURES: Fixture[] = [
   {
     intent: "batch / content-farm request",
     utterances: ["make 10 videos", "make video end-to-end", "review batch", "cost rollup"],
-    target: "docs/playbooks/producer.md",
+    target: ".agents/skills/producer/SKILL.md",
     fragments: ["batch", "make video end-to-end", "review batch", "cost rollup"],
   },
   {

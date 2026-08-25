@@ -19,13 +19,13 @@ import {
 describe("parseRoutingTable", () => {
   test("extracts rows pointing at docs/playbooks/", () => {
     const src = `
-| Intent A | [\`docs/playbooks/researcher.md\`](docs/playbooks/researcher.md) |
-| Intent B | [\`docs/playbooks/editor.md\`](docs/playbooks/editor.md) |
+| Intent A | [\`docs/playbooks/agent-production-contract.md\`](docs/playbooks/agent-production-contract.md) |
+| Intent B | [\`.agents/skills/editor/SKILL.md\`](.agents/skills/editor/SKILL.md) |
 `;
     const rows = parseRoutingTable(src);
     const targets = rows.map((r: RoutingRow) => r.target);
-    expect(targets).toContain("docs/playbooks/researcher.md");
-    expect(targets).toContain("docs/playbooks/editor.md");
+    expect(targets).toContain("docs/playbooks/agent-production-contract.md");
+    expect(targets).toContain(".agents/skills/editor/SKILL.md");
   });
 
   test("extracts rows pointing at .agents/skills/", () => {
@@ -57,7 +57,7 @@ describe("scanForClaudeIsms", () => {
 
   test("passes a clean AGENTS.md", () => {
     const findings = scanForClaudeIsms(
-      "Read `docs/playbooks/core.md` for setup. Run `ralphy setup`.",
+      "Read `.agents/skills/troubleshooting/SKILL.md` for setup. Run `ralphy setup`.",
     );
     expect(findings).toEqual([]);
   });

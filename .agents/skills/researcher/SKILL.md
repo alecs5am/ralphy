@@ -68,9 +68,9 @@ The report cites every claim. If the model produces an uncited bullet, the synth
 
 ## When to keep the playbook in mind
 
-`docs/playbooks/researcher.md` is the tool-deep-dive companion. Read it when:
+`.agents/skills/researcher/references/playbook.md` is the tool-deep-dive companion. Read it when:
 
-- The source URL needs a non-standard pull (Playwright for JS-heavy landing pages, manual yt-dlp flags for region-locked content) — see `docs/playbooks/researcher/yt-dlp.md` and `site-extract.md`.
+- The source URL needs a non-standard pull (Playwright for JS-heavy landing pages, manual yt-dlp flags for region-locked content) — see `.agents/skills/researcher/references/yt-dlp.md` and `site-extract.md`.
 - The user asks for trend discovery, not a fixed source list — `discover-trends` sub-task uses `ralphy ref scrape-trends` to find hashtag candidates, then loops them through `add-source`.
 - The user wants viral-moment extraction from a long-form video — that is a different sub-task with its own sub-doc (`viral-moments.md`); the topic-level synthesis here is not the right fit.
 
@@ -103,6 +103,6 @@ Do not paraphrase the findings in chat — the report exists so chat doesn't hav
 ## References
 
 - `references/report-schema.md` — full schema of `sources.json` + section spec for `report.md`
-- `docs/playbooks/researcher.md` — tool-deep-dive: yt-dlp flags, Playwright for JS-rendered sites, scrape-trends, viral-moments sub-task
+- `.agents/skills/researcher/references/playbook.md` — tool-deep-dive: yt-dlp flags, Playwright for JS-rendered sites, scrape-trends, viral-moments sub-task
 - `cli/lib/research-topic.ts` — source-of-truth for the topic state machine
 - `MODELS.md` — synthesis model defaults (`google/gemini-2.5-flash` via OpenRouter)

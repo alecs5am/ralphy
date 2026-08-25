@@ -238,9 +238,9 @@ ralphy video optimize --project <id> --crf 30 --tune grain --preset veryslow
 ## See also
 
 - [`docs/skills-vs-templates.md`](../../../docs/skills-vs-templates.md) — why this is a skill and not a template.
-- [`docs/playbooks/scenarist.md`](../../../docs/playbooks/scenarist.md) — angle / virality-rubric notes (use `"storytime"`, not `"analog-horror-psa"`).
-- [`docs/playbooks/art-director.md`](../../../docs/playbooks/art-director.md) — model picks + ref-anchor flow.
-- [`docs/playbooks/editor.md`](../../../docs/playbooks/editor.md) — HyperFrames composition for noise stacks.
+- [`.agents/skills/scenarist/SKILL.md`](../../../.agents/skills/scenarist/SKILL.md) — angle / virality-rubric notes (use `"storytime"`, not `"analog-horror-psa"`).
+- [`.agents/skills/art-director/SKILL.md`](../../../.agents/skills/art-director/SKILL.md) — model picks + ref-anchor flow.
+- [`.agents/skills/editor/SKILL.md`](../../../.agents/skills/editor/SKILL.md) — HyperFrames composition for noise stacks.
 - `MEMORY.md` — append-only-on-generations, Kling no-music post-mix, 11labs geoblock fallback.
 - Reference postmortem: `.ralphy/workspaces/<ws>/projects/analog-horror-fridge-001/POSTMORTEM.md` — the 12 rules and full $ accounting this skill codifies.
 - Follow-up: scaffold `templates/entertainment-viral/analog-horror-psa/` via `ralphy template extract` once the format is run end-to-end again. Move the noise-overlay components to `src/lib/components/overlays/AnalogTV.tsx`.

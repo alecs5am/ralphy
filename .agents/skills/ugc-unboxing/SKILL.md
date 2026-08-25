@@ -81,5 +81,5 @@ Scale beats up/down with the user's duration. Keep the hook ≤3s regardless.
 ## See also
 
 - [`docs/skills-vs-templates.md`](../../../docs/skills-vs-templates.md) — why this is a skill and not a template.
-- [`docs/playbooks/intake.md`](../../../docs/playbooks/intake.md) — the gates this skill runs through.
+- [`.agents/skills/intake/SKILL.md`](../../../.agents/skills/intake/SKILL.md) — the gates this skill runs through.
 - `MEMORY.md` — anti-ai-slop, start↔end frame motion delta, Kling no-music post-mix.

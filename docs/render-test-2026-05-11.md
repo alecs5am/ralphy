@@ -30,7 +30,7 @@ Companion to the static audit (`docs/template-audit-2026-05-11.md`). Where the a
 
 Every cost ballpark in every template doc inherits this drift. ai-avatar's "$20 for 10 markets" multilingual pitch is actually ~$80-100. grwm's "$4.60 minimum" is actually ~$5-6. Tutorial's "$2 60s tutorial" is structurally infeasible.
 
-**1.2 No composition scaffolder.** All 5 templates required manual authoring of `src/videos/<id>/index.tsx` + registration in `src/Root.tsx` + `composition-props.json`. The producer playbook (`docs/playbooks/producer.md`) explicitly forbids writing Remotion code. This makes every template a dead-end after the asset-generation phase. The `vibe-reference` / `vibe-style` distinction is **leaky**: vibe-reference templates have `composition.md` but that's a doc, not runnable code; vibe-style templates have no composition guidance at all. Both classes require equal-effort manual Remotion authoring per project.
+**1.2 No composition scaffolder.** All 5 templates required manual authoring of `src/videos/<id>/index.tsx` + registration in `src/Root.tsx` + `composition-props.json`. The producer playbook (`.agents/skills/producer/SKILL.md`) explicitly forbids writing Remotion code. This makes every template a dead-end after the asset-generation phase. The `vibe-reference` / `vibe-style` distinction is **leaky**: vibe-reference templates have `composition.md` but that's a doc, not runnable code; vibe-style templates have no composition guidance at all. Both classes require equal-effort manual Remotion authoring per project.
 
 **1.3 Score gate hardcoded to 15s ad schema.** `ralphy project score` enforces:
 - `hook.primary` (single string, mandatory)

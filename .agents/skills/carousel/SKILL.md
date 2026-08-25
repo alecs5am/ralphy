@@ -169,7 +169,7 @@ At ~$0.20 / slide on gpt-image, a **6-style × 5-slide carousel = ~$6.00 minimum
 ## See also
 
 - [`docs/skills-vs-templates.md`](../../../docs/skills-vs-templates.md) — why this is a skill and not a template.
-- [`docs/playbooks/art-director.md`](../../../docs/playbooks/art-director.md) — ref-anchor flow and model picks.
-- [`docs/playbooks/intake.md`](../../../docs/playbooks/intake.md) — the multi-slide branch.
+- [`.agents/skills/art-director/SKILL.md`](../../../.agents/skills/art-director/SKILL.md) — ref-anchor flow and model picks.
+- [`.agents/skills/intake/SKILL.md`](../../../.agents/skills/intake/SKILL.md) — the multi-slide branch.
 - `MEMORY.md` — append-only-on-generations, anti-ai-slop image prompts.
 - Reference postmortem: `.ralphy/workspaces/<ws>/projects/ralphy-carousel-001/postmortem/` — the cover-first / dual-ref / mascot-fit rules this skill codifies.

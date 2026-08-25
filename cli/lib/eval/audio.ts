@@ -4,7 +4,7 @@
 //   I  = -16 LUFS  (integrated)
 //   TP = -1.5 dBFS (true peak)
 //   LRA ≤ 11 LU
-// See docs/playbooks/editor.md → "Loudness target".
+// See .agents/skills/editor/SKILL.md → "Loudness target".
 //
 // Dead-air threshold: 0.5s of audio below -35 dBFS. For short-form UGC,
 // silence longer than 0.5s reads as a glitch; longer than 1.0s actively

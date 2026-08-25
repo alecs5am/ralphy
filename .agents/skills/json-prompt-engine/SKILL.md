@@ -14,7 +14,7 @@ description: >-
 **DO NOT FIRE** when:
 - The user asks a conversational visual question — "what is in this image", "is this photoshopped" — that is plain vision, not a prompt request.
 - The user wants to *edit* an existing image (inpaint, swap, restyle) -> that is an `iteration-edit` generation, route to the art-director playbook.
-- The user already has a written brief and just wants assets generated -> [`docs/playbooks/art-director.md`](../../../docs/playbooks/art-director.md) drives that; this skill is only for the image -> prompt direction.
+- The user already has a written brief and just wants assets generated -> [`.agents/skills/art-director/SKILL.md`](../../../.agents/skills/art-director/SKILL.md) drives that; this skill is only for the image -> prompt direction.
 - The user points at a video URL for *style analysis* across the whole clip -> use `ralphy ref analyze-video` (memory: `feedback_ralphy_ref_analyze_video`) or the `/researcher` skill, then optionally come back here to emit the JSON for one extracted frame.
 
 ## What this skill is
@@ -181,4 +181,4 @@ ralphy guideline show <slug>       # merge its avoid-cluster into quality.avoid
 
 See [`references/example.md`](references/example.md) for a worked reference -> JSON -> tweaks pass.
 
-Related: [`docs/playbooks/art-director.md`](../../../docs/playbooks/art-director.md) (the generation step this feeds), `docs/prompts/image/` (the forward cookbook this inverts), [`/poster`](../poster/SKILL.md), [`/carousel`](../carousel/SKILL.md), [`/fb-creatives`](../fb-creatives/SKILL.md), and the guideline library (`ralphy guideline list`, `/library` on the landing).
+Related: [`.agents/skills/art-director/SKILL.md`](../../../.agents/skills/art-director/SKILL.md) (the generation step this feeds), `docs/prompts/image/` (the forward cookbook this inverts), [`/poster`](../poster/SKILL.md), [`/carousel`](../carousel/SKILL.md), [`/fb-creatives`](../fb-creatives/SKILL.md), and the guideline library (`ralphy guideline list`, `/library` on the landing).

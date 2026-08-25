@@ -1,6 +1,6 @@
 # Mode quality playbook — `personal-clipper`
 
-> Cut one long-form video / stream / podcast into a handful of short vertical clips — highlight / clip extraction (#436). Full flow: [`docs/playbooks/personal-clipper.md`](../personal-clipper.md). Route: `intake → editor → ralphy render`. Clip-cut primitive: `ralphy clip`.
+> Cut one long-form video / stream / podcast into a handful of short vertical clips — highlight / clip extraction (#436). Full flow: [`.agents/skills/personal-clipper/SKILL.md`](../../../.agents/skills/personal-clipper/SKILL.md). Route: `intake → editor → ralphy render`. Clip-cut primitive: `ralphy clip`.
 
 ## Creative objective
 

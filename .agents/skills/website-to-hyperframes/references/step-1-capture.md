@@ -18,7 +18,7 @@ Writes into `.ralphy/workspaces/<ws>/projects/<id>/refs/`:
 - `<slug>-tokens.json` — merged CSS colours, fonts, `--*` custom properties
 - `<slug>-apis.md` — every detected code surface (curl / Python / TS / npm / pip / etc), the document every code creative must cite
 
-This is the single source of truth for brand-DNA. **No memory-sourced palette guesses.** Full discipline at [`docs/playbooks/site-grounding.md`](../../../../docs/playbooks/site-grounding.md). Skip only when the brief is a generic UGC / video with no specific brand site named.
+This is the single source of truth for brand-DNA. **No memory-sourced palette guesses.** Full discipline at [`.agents/skills/researcher/references/site-grounding.md`](../../../../.agents/skills/researcher/references/site-grounding.md). Skip only when the brief is a generic UGC / video with no specific brand site named.
 
 ## Run the HyperFrames capture
 
