@@ -105,7 +105,9 @@ export function HarnessDetailPage({ ctx, harness }: { ctx: SettingsContext; harn
   const [state, setState] = useState<CredentialState>("idle");
   const [busy, setBusy] = useState(false);
   const keyField = useRef<HTMLInputElement>(null);
-  const needsKey = !harness.connected && harness.credential === "api-key";
+  // Two ways in, and the row may offer both: the provider's own login, or a key we store.
+  const signIn = !harness.connected && harness.login;
+  const needsKey = !harness.connected && !harness.login && harness.apiKey;
 
   const saveKey = async () => {
     if (!draft.trim()) { setState("empty"); return; }
@@ -139,18 +141,18 @@ export function HarnessDetailPage({ ctx, harness }: { ctx: SettingsContext; harn
           <button
             className={action({ size: "lg", tone: "primary" })}
             type="button"
-            disabled={busy || harness.credential === "none"}
+            disabled={busy || !(harness.login || harness.apiKey)}
             onClick={async () => {
               if (needsKey) { keyField.current?.focus(); return; }
               setBusy(true);
               try {
-                if (harness.credential === "provider-login") await ctx.harnesses.signIn(harness.id);
+                if (signIn) await ctx.harnesses.signIn(harness.id);
                 else await ctx.harnesses.refresh();
               } finally {
                 setBusy(false);
               }
             }}
-          >{needsKey ? "Add key" : harness.credential === "provider-login" ? "Sign in" : "Test connection"}</button>
+          >{signIn ? "Sign in" : needsKey ? "Add key" : "Test connection"}</button>
         </div>
         <Row title="Default model" description="The list comes from the adapter, not from our catalogue." id="harness.model">
           {harness.models.length
@@ -167,7 +169,7 @@ export function HarnessDetailPage({ ctx, harness }: { ctx: SettingsContext; harn
     </Section>
 
     <Section title="CREDENTIAL · SECURE">
-      {harness.credential === "api-key"
+      {harness.apiKey
         ? <div className={`flex flex-col gap-2.75 ${WIDGET_LIGHT}`}>
           <Status tone={credentialTone}>{credentialLabel}</Status>
           <div className="flex items-center gap-2 @max-settings-column/settings-main:flex-wrap">
@@ -191,6 +193,9 @@ export function HarnessDetailPage({ ctx, harness }: { ctx: SettingsContext; harn
               ? "THE KEY WAS NOT ACCEPTED. THE TYPED VALUE IS KEPT — CORRECT IT AND SAVE AGAIN"
               : "THE KEY GOES TO THE OS KEYCHAIN, NEVER INTO PREFERENCES, AND IS NEVER RETURNED TO THE RENDERER IN FULL"}
           </p>
+          {/* A key is billed per token; the login uses the plan the operator already pays for.
+              Saying so here is what tells them the field above is optional. */}
+          {harness.login && <p className={NOTE}>{`A KEY IS THE ALTERNATIVE, NOT THE REQUIREMENT — SIGN IN ABOVE TO USE THE ${harness.name.toLocaleUpperCase()} SUBSCRIPTION INSTEAD`}</p>}
         </div>
         : <Plate>
           <Row
@@ -222,7 +227,7 @@ export function HarnessDetailPage({ ctx, harness }: { ctx: SettingsContext; harn
         <button
           className={action({ tone: "danger" })}
           type="button"
-          disabled={harness.credential !== "api-key"}
+          disabled={!harness.apiKey}
           onClick={() => void ctx.harnesses.clearKey(harness.id)}
         >Disconnect…</button>
       </Plate>

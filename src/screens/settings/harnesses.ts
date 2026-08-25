@@ -23,14 +23,17 @@ export interface HarnessRow {
   installed: boolean;
   connected: boolean;
   models: readonly { value: string; label: string; meta?: string }[];
-  /** The bridge only accepts a stored key for the providers it can authenticate. */
-  credential: "api-key" | "provider-login" | "none";
+  /** Whether the bridge stores a key for this provider. */
+  apiKey: boolean;
+  /** Whether the provider runs its own login flow. Claude has both and offering only the key
+      hid Claude Code behind an Anthropic billing account the operator may not have. */
+  login: boolean;
 }
 
-const CREDENTIAL: Record<AgentProvider, HarnessRow["credential"]> = {
-  claude: "api-key",
-  openrouter: "api-key",
-  codex: "provider-login",
+const CREDENTIAL: Record<AgentProvider, { apiKey: boolean; login: boolean }> = {
+  claude: { apiKey: true, login: true },
+  openrouter: { apiKey: true, login: false },
+  codex: { apiKey: false, login: true },
 };
 
 export function harnessRow(status: AgentProviderStatus): HarnessRow {
@@ -51,14 +54,15 @@ export function harnessRow(status: AgentProviderStatus): HarnessRow {
     model: status.defaultModel || "—",
     detail: status.detail,
     tone,
-    // The action names what is actually missing: a binary, a login, or a stored key.
+    // The action names what is actually missing: a binary, a login, or a stored key. A provider
+    // with both offers the login, because a subscription is the account most operators hold.
     action: !status.binaryReady
       ? "Install"
-      : status.connected ? "Manage" : CREDENTIAL[status.id] === "api-key" ? "Add key" : "Sign in",
+      : status.connected ? "Manage" : CREDENTIAL[status.id].login ? "Sign in" : "Add key",
     installed: status.binaryReady,
     connected: status.connected,
     models: status.models.map(({ id, label: name, description }) => ({ value: id, label: name, meta: description })),
-    credential: CREDENTIAL[status.id],
+    ...CREDENTIAL[status.id],
   };
 }
 
@@ -96,8 +100,9 @@ export function useHarnesses(): HarnessController {
     state,
     rows,
     refresh,
+    // The literal comparisons are the bridge's own narrowing: each channel accepts only the
+    // providers it can serve, so the guard has to name them rather than read the table above.
     signIn: async (id) => {
-      // Only the two providers with their own login flow are offered a sign-in control.
       if (id === "openrouter") return;
       apply(await bridge.loginAgentProvider(id));
     },
