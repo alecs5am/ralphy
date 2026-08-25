@@ -12,6 +12,9 @@
 // E_WIZARD_NEEDS_TTY.
 
 import { Command } from "commander";
+
+import { installPack } from "../lib/prompt-pack.js";
+import { VERSION } from "../lib/version.js";
 import path from "node:path";
 import { existsSync } from "node:fs";
 import * as p from "@clack/prompts";
@@ -102,6 +105,12 @@ export function skillCmd(): Command {
       const explicitAgent = (opts.agent as string | undefined) ?? null;
       const mode = opts.symlink ? "symlink" : "copy";
       const repo = (opts.repo as string | undefined) ?? undefined;
+
+      /* The block every adapter writes points at the installed routing pack, so
+         install the pack first: otherwise `skill install` writes a promise that
+         is false until the user runs a second verb they were never told about.
+         Idempotent, so a reinstall costs a digest check per file. */
+      await installPack({ cliVersion: VERSION });
 
       // Branch 1 — explicit --agent flag: skip the wizard entirely (CI/power user).
       if (explicitAgent) {

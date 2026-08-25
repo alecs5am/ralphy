@@ -2368,12 +2368,18 @@ Usage: ralphy prompts [options] [command]
 Prompt cookbook + library lookup (02.03 / 02.0L)
 
 Options:
-  -h, --help       display help for command
+  -h, --help        display help for command
 
 Commands:
-  library          Library by goal/situation
-  modes [options]  List cookbook mode files for video / voice / music
-  help [command]   display help for command
+  library           Library by goal/situation
+  modes [options]   List cookbook mode files for video / voice / music
+  install           Copy the AGENTS.md router and its playbooks into
+                    <root>/.ralphy/prompts
+  export [options]  Write the routing pack into a directory of your choosing
+                    (for bundling)
+  status            Report whether the routing pack is installed, and whether it
+                    matches this CLI
+  help [command]    display help for command
 ```
 
 ### `ralphy bridge`
