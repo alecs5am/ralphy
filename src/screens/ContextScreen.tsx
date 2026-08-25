@@ -206,7 +206,7 @@ function Reader({ file, onClose }: {
     <Dialog.Portal container={typeof document === "undefined" ? undefined : document.body}>
       <Dialog.Overlay className="fixed inset-0 z-scrim" data-instrument-overlay-backdrop="" />
       <Dialog.Content
-        className="context-reader fixed inset-6 z-scrim-content m-auto flex h-fit max-h-context-reader w-full max-w-context-column flex-col overflow-hidden rounded-panel bg-panel p-0.5 text-ink outline-none"
+        className="context-reader fixed inset-6 z-scrim-content m-auto flex h-fit max-h-context-reader w-full max-w-context-column flex-col overflow-hidden rounded-window bg-panel p-0.5 text-ink outline-none"
         data-instrument-overlay="context-reader"
       >
         <div className="flex h-10 flex-none items-center gap-2.5 px-3">
@@ -222,7 +222,7 @@ function Reader({ file, onClose }: {
           {"bytes" in file && file.bytes !== null && <span className={META}>{bytes(file.bytes)}</span>}
           <Dialog.Close asChild><button className={PILL} type="button">Close</button></Dialog.Close>
         </div>
-        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded-inner bg-card px-5 py-4">
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded-frame bg-card px-5 py-4">
           {failure && <p className="m-0 type-sm text-failure-ink">{failure}</p>}
           {"format" in file && file.format === "markdown"
             && <div className="context-body"><MarkdownView markdown={file.text} /></div>}
@@ -317,7 +317,7 @@ export function ContextScreen({ provider, project, workspaceId, usage, onOpenMem
         onRead={read}
       />}
       {page && inventory
-        && <div className="mx-auto flex w-full max-w-context-column flex-col rounded-panel bg-panel p-0.5">
+        && <div className="mx-auto flex w-full max-w-context-column flex-col overflow-hidden rounded-window bg-panel p-0.5">
           <div className="flex h-9 flex-none items-center gap-2.5 px-3">
             <span className={`${MONO} type-mono-sm text-muted`}>CONTEXT</span>
             <span className="truncate type-sm text-ink">{project ? project.name : "this workspace"}</span>
@@ -327,7 +327,7 @@ export function ContextScreen({ provider, project, workspaceId, usage, onOpenMem
             </span>
             <button className={PILL} type="button" onClick={() => setInventory(false)}>The prompt</button>
           </div>
-          <div className="flex w-full flex-col rounded-inner bg-card">
+          <div className="flex w-full flex-col rounded-frame bg-card">
             {page && <>
               <Budget usage={usage} provider={provider} />
               <div className="flex flex-col gap-0.5 px-2 pb-2">

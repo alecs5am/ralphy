@@ -1,5 +1,5 @@
 import { ChevronDown } from "lucide-react";
-import { Fragment, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
 import type { ContextBlockDto, ContextRail } from "../../../electron/agent/context-document";
 import { MarkdownView } from "../../components/MarkdownView";
@@ -25,9 +25,12 @@ const NUMBER = "font-display font-extrabold tracking-normal text-ink";
 const SEGMENT = "inline-flex h-6 items-center rounded-control px-2.5 type-label";
 const CONTROL = "inline-flex h-6.5 flex-none items-center gap-1.5 rounded-control bg-card px-2.75 type-label text-ink hover:bg-chip";
 
-/* Solid: guaranteed. Dashed: may load. */
+/* Solid: in the prompt, every turn. Ordered: not in the prompt, but the prompt tells the agent to
+   read it before acting -- solid because it happens, thinner because it costs a tool call.
+   Dashed: may load. */
 const RAIL: Record<ContextRail, string> = {
   solid: "w-0.75 bg-ink",
+  ordered: "w-0.75 bg-secondary",
   dashed: "w-0.75 bg-[repeating-linear-gradient(180deg,var(--color-muted-decorative)_0_5px,transparent_5px_9px)]",
 };
 
@@ -95,11 +98,40 @@ function Block({ block, open, dim, flash, rendered, onToggle, onPath, onRead }: 
   onPath(path: string): void;
 }) {
   const [whole, setWhole] = useState(false);
+  const body = useRef<HTMLDivElement>(null);
   const child = block.linkedFrom !== null && block.onDemand;
   const readable = block.body !== null;
   const lines = readable ? block.body!.split("\n") : [];
   const hidden = whole ? 0 : Math.max(0, lines.length - PEEK_LINES);
   const shown = hidden > 0 ? lines.slice(0, PEEK_LINES).join("\n") : block.body!;
+
+  /* A path named in the prose is the link. There used to be a NAMES strip above
+     the body repeating every path the text mentions, which on a 19-target routing
+     table was a wall of names with no sentence around them -- the router already
+     says what each one is for, in the line that names it.
+     The marks are applied to the rendered output rather than threaded through the
+     markdown renderer: this page is the only surface that wants them, and the
+     renderer is shared with the chat. */
+  useEffect(() => {
+    const host = body.current;
+    if (!host) return;
+    const named = new Map(block.links.filter((link) => link.path).map((link) => [link.text, link]));
+    for (const code of host.querySelectorAll("code")) {
+      const link = named.get(code.textContent?.trim() ?? "");
+      if (!link) continue;
+      code.setAttribute("data-context-path", link.path!);
+      code.setAttribute("data-context-missing", link.note === "not there" ? "" : "false");
+      code.setAttribute("title", link.note === "not there" ? `${link.path} is not there` : `Read ${link.path}`);
+    }
+  }, [block.links, shown, open, rendered]);
+
+  /* One handler on the body rather than one per mark: the marks are attributes on
+     nodes the markdown renderer owns, so the click has to be caught above them. */
+  const follow = (event: MouseEvent<HTMLDivElement>) => {
+    const mark = (event.target as HTMLElement).closest?.("[data-context-path]");
+    const path = mark?.getAttribute("data-context-path");
+    if (path && mark?.getAttribute("data-context-missing") === "false") onRead(path);
+  };
   return <div
     /* No radius. A rounded plate under a straight rule drew its own corners
        curling away from a block that has no visible edge -- the rule belongs to
@@ -134,25 +166,6 @@ function Block({ block, open, dim, flash, rendered, onToggle, onPath, onRead }: 
           {block.onDemand && block.bytes !== null ? `≈${bytes(block.bytes)} IF PULLED` : bytes(block.bytes)}
         </span>
       </button>
-      {/* The chain, where it can be read: an instruction names a place in prose, not as a markdown
-          link, so the names are gathered on their own line rather than hunted inside 400 lines. */}
-      {block.links.length > 0 && <span className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-0.5">
-        <span className={META}>NAMES</span>
-        {block.links.map((link) => (link.blockId || (link.path && link.note !== "not there")
-          ? <button
-            className={`context-path rounded-chip px-1 py-0.25 ${MONO} type-mono-2xs ${link.note === "not there" ? "text-failure-ink" : "text-secondary"} hover:bg-field hover:text-ink`}
-            type="button"
-            key={link.text}
-            /* A name with a block of its own jumps to it. A name without one --
-               a playbook the router routes onward to -- opens where it is, so
-               reading the routing never means leaving the page. */
-            onClick={() => (link.blockId ? onPath(link.text) : onRead(link.path!))}
-          >{link.text}</button>
-          : <span
-            className={`rounded-chip px-1 py-0.25 ${MONO} type-mono-2xs ${link.note === "not there" ? "text-failure-ink" : "text-muted"}`}
-            key={link.text}
-          >{link.text}</span>))}
-      </span>}
       {/* Title, then the prompt. The body used to sit in a card of its own inside
           the page's card inside the page's panel -- three surfaces deep, for text
           that is the whole reason the page exists. It reads on the page now, with
@@ -160,7 +173,7 @@ function Block({ block, open, dim, flash, rendered, onToggle, onPath, onRead }: 
       {open && readable && <span className="mt-2 h-px w-full flex-none bg-divider" aria-hidden="true" />}
       {open && readable && <div className="flex flex-col gap-1.5 pt-2.5">
         {rendered && block.format === "markdown"
-          ? <div className="context-body"><MarkdownView markdown={literalPlaceholders(shown)} /></div>
+          ? <div className="context-body" ref={body} onClick={follow}><MarkdownView markdown={literalPlaceholders(shown)} /></div>
           : <pre className="m-0 overflow-x-auto font-code type-mono-sm leading-document whitespace-pre-wrap text-ink select-text">
             {decorated(shown, block.links.map((link) => link.text), onPath)}
           </pre>}
@@ -219,7 +232,9 @@ export function ContextDocument({ blocks, provider, total, window: modelWindow, 
     globalThis.setTimeout(() => setFlash((current) => (current === target.id ? null : current)), 900);
   };
 
-  return <div className="context-document mx-auto flex w-full max-w-context-column flex-col rounded-panel bg-panel p-0.5">
+  /* The same frame as the sidebar, the chat and the chat's utility panel: a panel plate at the
+     window radius, one 2px gutter, and the content on a card at the frame radius. */
+  return <div className="context-document mx-auto flex w-full max-w-context-column flex-col overflow-hidden rounded-window bg-panel p-0.5">
     <div className="flex min-h-10 flex-wrap items-center gap-2.5 px-3 py-1.5">
       <span className={`${MONO} type-mono-sm text-muted`}>WHAT THE AGENT SEES</span>
       <span className={META}>{`${provider.toLocaleUpperCase()} · NEXT TURN`}</span>
@@ -247,7 +262,7 @@ export function ContextDocument({ blocks, provider, total, window: modelWindow, 
       <span className={`${NUMBER} type-lg flex-none`}>{total === null ? "—" : total < 1000 ? total : `${(total / 1000).toFixed(1)}K`}</span>
       {modelWindow !== null && <span className={`${MONO} type-mono-sm flex-none text-muted`}>{`/ ${Math.round(modelWindow / 1000)}K`}</span>}
     </div>
-    <div className="flex flex-col rounded-inner bg-card px-2.5 pt-3 pb-4">
+    <div className="flex flex-col rounded-frame bg-card px-2.5 pt-3 pb-4">
       {/* One line, not two. The provider's own prompt is named here -- it rides
           above everything below and nobody outside the provider can read it --
           and the reading rule follows it in the same breath. */}

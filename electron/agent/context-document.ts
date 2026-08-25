@@ -20,8 +20,9 @@ import type { AgentProvider } from "../media/types";
  * rather than left reading as something the operator wrote.
  */
 
-/** The rail's grammar. Solid rides every turn, dashed may be pulled in. */
-export type ContextRail = "solid" | "dashed";
+/** The rail's grammar. Solid rides every turn, ordered is read on every turn that acts, dashed
+    may be pulled in. */
+export type ContextRail = "solid" | "ordered" | "dashed";
 
 export interface ContextBlockDto {
   id: string;
@@ -160,9 +161,15 @@ async function childBlock(input: {
     id,
     title: input.token,
     tag: `↖ NAMED BY ${input.parentPath}`,
-    rail: known
-      ? railFor("dashed", "Playbook", "ON DEMAND · MAY LOAD")
-      : railFor("dashed", input.owner === "ralphy" ? "Missing" : "Not written", "NAMED · NOT ON THIS MACHINE"),
+    /* A place Ralphy's own block names is not a maybe: that block tells the agent to read the
+       router before acting, so it reads it on every turn that does anything. "May load" was the
+       grammar for a playbook the router itself might route to, and applying it here understated
+       a file the app orders into every turn. */
+    rail: !known
+      ? railFor("dashed", input.owner === "ralphy" ? "Missing" : "Not written", "NAMED · NOT ON THIS MACHINE")
+      : input.owner === "ralphy"
+        ? railFor("ordered", folder ? "Playbooks" : "Router", folder ? "NAMED AS SOURCE OF TRUTH" : "ORDERED · READ BEFORE ACTING")
+        : railFor("dashed", "Playbook", "ON DEMAND · MAY LOAD"),
     bytes: head?.bytes ?? null,
     body: head?.text ?? null,
     format: head ? (/\.(?:md|markdown)$/i.test(input.token) ? "markdown" : "text") : "none",
@@ -284,21 +291,9 @@ export async function readContextDocument(input: ContextDocumentInput): Promise<
   for (const file of chain) {
     const head = await readHead(file.path, EXCERPT_BYTES, EXCERPT_LINES);
     if (!head) {
-      blocks.push({
-        id: file.path,
-        title: file.path,
-        tag: "ABSENT · NORMAL",
-        rail: railFor("dashed", "Machine", "NOT ON THIS MACHINE"),
-        bytes: null,
-        body: null,
-        format: "none",
-        more: 0,
-        note: "Nothing here to read, which is a normal state. If you write this file, every agent on this Mac reads it.",
-        onDemand: false,
-        linkedFrom: null,
-        links: [],
-        defect: null,
-      });
+      /* A file that is not there carries nothing into the turn, so it is not part of the
+         document. The inventory is where "this place exists and is empty" belongs -- here it
+         was a block whose whole content was the sentence that it had no content. */
       continue;
     }
 

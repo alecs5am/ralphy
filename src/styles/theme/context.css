@@ -19,6 +19,25 @@
   --context-block-columns: minmax(0, 1fr) 176px;
 }
 
+/* A path the prose names, marked where it is named. A code run already reads as a
+   path; the underline says this one opens, and the alert ink says it does not.
+   Authored rather than a utility because the nodes belong to the shared markdown
+   renderer -- the page marks them after the fact, and cannot put classes on them. */
+.context-body code[data-context-path][data-context-missing="false"] {
+  cursor: pointer;
+  text-decoration: underline dotted from-font;
+  text-underline-offset: 3px;
+}
+
+.context-body code[data-context-path][data-context-missing="false"]:hover {
+  color: var(--instrument-text-primary);
+  background: var(--instrument-widget-field);
+}
+
+.context-body code[data-context-path][data-context-missing=""] {
+  color: var(--instrument-failure-ink);
+}
+
 @theme inline {
   /* The band body's indent: a row starts under the band name, not under its chevron. */
   --spacing-context-indent: 27px;
