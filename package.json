@@ -21,6 +21,7 @@
     "audit:instrument:accessibility": "bun scripts/audit-instrument-electron.mjs",
     "audit:media:fidelity": "bun scripts/audit-media-fidelity.mjs",
     "audit:media:scrim": "node scripts/audit-media-scrim.mjs",
+    "audit:context:truth": "bun scripts/audit-context-truth.ts",
     "audit:instrument:final": "bun scripts/audit-instrument-final.mjs",
     "report:instrument": "bun scripts/render-instrument-report.mjs",
     "smoke": "bun run build && node scripts/smoke-electron.mjs",

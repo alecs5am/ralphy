@@ -37,6 +37,14 @@ export interface AgentMemoryDigest {
   entries: readonly { name: string; description: string }[];
 }
 
+/**
+ * Where the memory section begins inside the preamble. The Context page splits the preamble on it
+ * so the app's own lines and the workspace's recalled rules are two blocks with two real sizes
+ * instead of one block counted twice.
+ */
+export const MEMORY_HEADING = "Workspace memory (";
+export const PREAMBLE_END = "[/Ralphy Media context]";
+
 const MAX_MEMORY_LINES = 50;
 const MAX_MEMORY_LINE = 200;
 
@@ -103,11 +111,11 @@ export function ralphyPreamble(input: {
     ...(lines.length > 0
       ? [
         "",
-        `Workspace memory (${input.memory?.count ?? lines.length}${input.memory?.truncated ? ", truncated" : ""}). ${input.memory?.note ?? ""}`.trim(),
+        `${MEMORY_HEADING}${input.memory?.count ?? lines.length}${input.memory?.truncated ? ", truncated" : ""}). ${input.memory?.note ?? ""}`.trim(),
         ...lines,
       ]
       : []),
-    "[/Ralphy Media context]",
+    PREAMBLE_END,
   ].join("\n");
 }
 

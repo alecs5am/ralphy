@@ -14,15 +14,19 @@
   --context-row-columns: 15px minmax(0, 1fr) auto auto auto;
   /* The assembled document: a quiet layer mark in the gutter, the region beside it. */
   --context-region-columns: 86px minmax(0, 1fr);
+  /* A block of the prompt document: the text, and the rail that says how it gets into the turn.
+     The rail is on the right because the text is what is read and the rail is what is glanced at. */
+  --context-block-columns: minmax(0, 1fr) 176px;
 }
 
 @theme inline {
   /* The band body's indent: a row starts under the band name, not under its chevron. */
   --spacing-context-indent: 27px;
-  /* The page is a document about one turn, so it reads at a column width rather than at whatever
-     the window happens to be: at 1400px the tag and the size drifted a hand's width from the name
-     they describe. */
-  --spacing-context-column: 1040px;
+  /* The page is a document about one turn, so it reads at a column rather than at whatever the
+     window happens to be -- but the column carries the 176px anatomy rail as well as the prompt,
+     and at 1040 that left the prompt itself a strip inside a 2560-wide frame. 1440 gives the text
+     the measure the reference frame draws and still keeps a block's size beside its name. */
+  --spacing-context-column: 1440px;
   --spacing-context-swatch: 7px;
   /* The true-scale bar states the model's whole window, so it is the one element on the page whose
      emptiness is the message. The composition bar below it is the same segments at 100%. */

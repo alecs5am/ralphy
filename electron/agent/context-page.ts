@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import type { AgentProvider } from "../media/types";
 import { providerHome, ralphyPreamble, type AgentMemoryDigest } from "./context";
+import { readContextDocument, type ContextBlockDto } from "./context-document";
 
 /**
  * The Context page's data: what the agent already knows before it reads the operator's message,
@@ -30,7 +31,7 @@ export type ContextLayerId = "machine" | "ralphy" | "workspace" | "project" | "s
 export type ContextPresence = "every-turn" | "on-demand" | "absent" | "shadowed" | "sealed" | "defect";
 
 /** Where the one action on a row leads. The renderer owns what each one does. */
-export type ContextActionKind = "reveal" | "view-assembled" | "memory-page" | "document";
+export type ContextActionKind = "read" | "view-assembled" | "memory-page" | "document";
 
 export interface ContextRowDto {
   id: string;
@@ -72,6 +73,8 @@ export interface ContextPageDto {
   layers: ContextLayerDto[];
   /** The exact text this chat prepends, so the assembled view quotes rather than reconstructs. */
   preamble: string;
+  /** The same context read as one document, in the order the turn carries it. */
+  blocks: ContextBlockDto[];
 }
 
 /** A document as the page needs it: enough to name it, place it and see who wins its slug. */
@@ -160,7 +163,7 @@ function machineLayer(input: {
     presence: bytes === null ? "absent" : "every-turn",
     tag: bytes === null ? "ABSENT · NORMAL" : "EVERY TURN",
     bytes,
-    action: bytes === null ? null : { label: "Reveal", kind: "reveal", target: path },
+    action: bytes === null ? null : { label: "Read", kind: "read", target: path },
     excerpt: head,
   });
   return {
@@ -244,7 +247,7 @@ function ralphyLayer(input: {
         presence: input.pack.bytes === null ? "defect" : "on-demand",
         tag: input.pack.bytes === null ? "NOT SHIPPED" : "ON DEMAND",
         bytes: input.pack.bytes,
-        action: input.pack.bytes === null ? null : { label: "Browse", kind: "reveal", target: input.pack.path },
+        action: input.pack.bytes === null ? null : { label: "Read", kind: "read", target: input.pack.path },
       },
       {
         id: "overrides",
@@ -257,7 +260,7 @@ function ralphyLayer(input: {
         tag: input.overrides.present ? "OVERRIDDEN BY YOU" : "ABSENT · NORMAL",
         bytes: null,
         action: input.overrides.present
-          ? { label: "Browse", kind: "reveal", target: input.overrides.path }
+          ? { label: "Read", kind: "read", target: input.overrides.path }
           : null,
       },
     ],
@@ -359,10 +362,24 @@ export async function readContextPage(input: ContextPageInput): Promise<ContextP
       projectSlugs.has(document.slug) ? document.slug : null,
     ));
 
+  const blocks = await readContextDocument({
+    provider: input.provider,
+    home,
+    cwd: input.cwd,
+    rootPath: input.rootPath,
+    preamble,
+    memory: input.memory,
+    documents: [
+      ...(input.workspaceDocuments ?? []).map((row) => ({ ...row, scope: "workspace" as const })),
+      ...(input.projectDocuments ?? []).map((row) => ({ ...row, scope: "project" as const })),
+    ],
+  });
+
   return {
     provider: input.provider,
     cwd: input.cwd,
     preamble,
+    blocks,
     layers: [
       machineLayer({
         provider: input.provider,
@@ -422,7 +439,7 @@ export async function readContextPage(input: ContextPageInput): Promise<ContextP
           presence: "on-demand",
           tag: link ? "SYMLINK · SHARED" : "ON DEMAND",
           bytes: null,
-          action: { label: "Reveal", kind: "reveal", target: join(places.skills, slug) },
+          action: { label: "Read", kind: "read", target: join(places.skills, slug) },
         })),
       },
     ],

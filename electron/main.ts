@@ -28,6 +28,7 @@ import {
 import { parseAgentChatRequest } from "./agent/request";
 import { type AgentMemoryDigest } from "./agent/context";
 import { readContextPage, type ContextDocument } from "./agent/context-page";
+import { readContextFile } from "./agent/context-document";
 import { readTitle, titleModels } from "./agent/title";
 import {
   CodexSession,
@@ -978,7 +979,7 @@ function registerAgentIpc(): void {
 
   /* The places the last Context read named. Reveal is checked against it rather than against a
      path prefix, so the capability is exactly "open something this page listed". */
-  let revealable = new Set<string>();
+  let readable = new Set<string>();
 
   /* What the chat can reach, read where it is true: the harness's own working directory and the
      provider's own files, not a guess made in the renderer. */
@@ -1022,18 +1023,18 @@ function registerAgentIpc(): void {
       projectDocuments: documents.project,
       coreUnavailable: documents.unavailable,
     });
-    /* Reveal accepts only what this read reported. The rows point outside the library -- the
+    /* The reader accepts only what this read reported. The rows point outside the library -- the
        provider's own home, the skills tree -- so the media file guard cannot vet them, and the
-       honest boundary is that the renderer can open a place the main process just named and
+       honest boundary is that the renderer can read a place the main process just named and
        nothing else. */
-    revealable = new Set(page.layers.flatMap((layer) => layer.rows.map((row) => row.path).filter(Boolean)));
+    readable = new Set(page.layers.flatMap((layer) => layer.rows.map((row) => row.path).filter(Boolean)));
     return page;
   });
-  securedHandle(AGENT_CHANNELS.contextReveal, (event, rawPath: unknown) => {
+  securedHandle(AGENT_CHANNELS.contextRead, async (event, rawPath: unknown) => {
     assertTrustedSender(event);
     const path = parseString(rawPath, "context path", 4096);
-    if (!revealable.has(path)) throw new Error("That place is not one the Context page reported");
-    shell.showItemInFolder(path);
+    if (!readable.has(path)) throw new Error("That place is not one the Context page reported");
+    return await readContextFile(path);
   });
   securedHandle(AGENT_CHANNELS.stop, (event) => {
     assertTrustedSender(event);

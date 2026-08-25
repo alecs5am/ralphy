@@ -1,7 +1,7 @@
 import {
-  ChevronDown, FileText, Layers, Package, ScrollText, Settings2, Sparkles, X,
+  ChevronDown, FileText, Layers, Package, ScrollText, Settings2, Sparkles,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type {
   ContextLayerDto,
@@ -10,10 +10,13 @@ import type {
   ContextPresence,
   ContextRowDto,
 } from "../../electron/agent/context-page";
+import type { ContextFileDto } from "../../electron/agent/context-document";
 import type { AgentChatUsage } from "../chat/useAgentChat";
 import { bridge, type AgentProvider, type ProjectSummary } from "../lib/ipc";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
 import { EMPTY_SECTION, PROJECT_LOCAL_ERROR, PROJECT_SKELETON } from "./route-chrome";
+import { ContextDocument } from "./context/ContextDocument";
+import { MarkdownView } from "../components/MarkdownView";
 
 export const contextInstrumentStates = defineInstrumentScreenStates({
   routeKey: "workspace.context",
@@ -35,14 +38,6 @@ export const contextInstrumentStates = defineInstrumentScreenStates({
  * The second rule is that absent is normal. Only two things draw the alert tone -- an edit that
  * would leave this app, and something Ralphy promised and did not deliver.
  */
-
-const LAYER_SWATCH: Record<ContextLayerId, string> = {
-  machine: "bg-layer-machine",
-  ralphy: "bg-layer-ralphy",
-  workspace: "bg-layer-workspace",
-  project: "bg-layer-workspace",
-  skills: "bg-layer-absent",
-};
 
 const LAYER_ICON: Record<ContextLayerId, typeof Layers> = {
   machine: Settings2,
@@ -89,24 +84,6 @@ function bytes(value: number | null): string {
 function tokens(value: number | null): string {
   if (value === null) return "—";
   return value < 1000 ? `${value}` : `${(value / 1000).toFixed(1)}K`;
-}
-
-const DOCUMENT = "m-0 overflow-x-auto rounded-row bg-panel px-3.5 py-3 font-code type-mono-sm leading-document whitespace-pre-wrap text-ink select-text";
-
-/** One region of the assembled document: a quiet layer mark in the gutter, the text beside it. */
-function Region({ layer, label, children }: { layer: ContextLayerId; label: string; children: ReactNode }) {
-  return <section className="grid grid-cols-(--context-region-columns) gap-4">
-    <span className="flex flex-col gap-1.5">
-      <Swatch layer={layer} ring={layer === "machine"} />
-      <span className={META}>{label}</span>
-    </span>
-    <div className="flex min-w-0 flex-col gap-1.5">{children}</div>
-  </section>;
-}
-
-function Swatch({ layer, ring }: { layer: ContextLayerId; ring?: boolean }) {
-  const paint = ring ? RING : LAYER_SWATCH[layer];
-  return <i className={`size-context-swatch flex-none rounded-dot ${paint}`} aria-hidden="true" />;
 }
 
 /**
@@ -212,61 +189,35 @@ function Band({ layer, open, onToggle, onAction }: {
 }
 
 /**
- * What the agent sees: the same text, in the order it is received, as one document. The sealed
- * region is a stated size and never invented prose -- the provider does not expose that text, and a
- * plausible reconstruction of it would defeat the point of the page.
+ * One place, read in the app. A skill, a playbook, an override file: text the agent will read, so
+ * text the operator can read here rather than in whatever editor the Finder hands the file to.
  */
-function Assembled({ page, usage, onClose }: {
-  page: ContextPageDto;
-  usage: AgentChatUsage | null;
+function Reader({ file, onClose }: {
+  file: ContextFileDto | { path: string; failure: string };
   onClose(): void;
 }) {
-  const name = page.provider === "claude" ? "Claude" : "Codex";
-  return <div className="context-assembled mx-auto flex w-full max-w-context-column flex-col gap-2 rounded-panel bg-panel p-0.5">
+  const failure = "failure" in file ? file.failure : null;
+  return <section className="mb-0.5 flex w-full flex-col rounded-inner bg-card">
     <div className="flex h-9 flex-none items-center gap-2.5 px-3">
-      <span className={`${MONO} type-mono-sm text-muted`}>WHAT THE AGENT SEES</span>
-      <span className={`${MONO} type-mono-2xs text-muted`}>ASSEMBLED FOR THE NEXT TURN · ORDER AS RECEIVED</span>
-      <span className="min-w-0 flex-1" aria-hidden="true" />
-      <span className={`${NUMBER} type-lg`}>{tokens(usage?.inputTokens ?? null)}</span>
-      <button className="grid size-6 flex-none place-items-center rounded-control bg-field text-muted hover:bg-row-hover hover:text-ink" type="button" aria-label="Close" onClick={onClose}>
-        <X size={12} strokeWidth={2} aria-hidden="true" />
-      </button>
+      <span className={`${MONO} type-mono-2xs text-muted`}>READING</span>
+      <span className={`${MONO} min-w-0 flex-1 truncate type-mono-xs text-secondary`}>
+        {"title" in file ? file.title : file.path}
+      </span>
+      {"bytes" in file && file.bytes !== null && <span className={META}>{bytes(file.bytes)}</span>}
+      <button className={PILL} type="button" onClick={onClose}>Close</button>
     </div>
-    <div className="flex flex-col gap-4 rounded-inner bg-card p-5">
-      <Region layer="machine" label="SEALED">
-        <div className="rounded-row bg-panel px-3.5 py-3">
-          <p className="m-0 type-sm text-ink">{`${name}'s own system prompt`}</p>
-          <p className="m-0 type-sm text-muted">
-            The provider never exposes this text, and does not report its size either, so this page
-            states that it is there and invents nothing about it.
-          </p>
-        </div>
-      </Region>
-      {/* The machine's own files, quoted from disk in the order the provider reads them. These are
-          the largest thing in a real turn, so a document that skipped them would answer the
-          question the page exists for with the smallest half of the truth. */}
-      {page.layers.flatMap((band) => band.rows
-        .filter((row) => row.excerpt)
-        .map((row) => <Region layer={band.id} label={band.label.toLocaleUpperCase()} key={row.id}>
-          <span className={`${MONO} type-mono-2xs text-muted`}>
-            {`${row.path} · ${bytes(row.bytes)} · ${row.tag}`}
-          </span>
-          <pre className={DOCUMENT}>{row.excerpt!.text}</pre>
-          <span className={`${MONO} type-mono-2xs text-muted`}>
-            {row.excerpt!.more < 0
-              ? "… THE REST OF THE FILE IS NOT SHOWN HERE · REVEAL IT TO READ ALL OF IT"
-              : row.excerpt!.more > 0 ? `… ${row.excerpt!.more} MORE LINES` : "END OF FILE"}
-          </span>
-        </Region>))}
-      <Region layer="ralphy" label="RALPHY">
-        <span className={`${MONO} type-mono-2xs text-muted`}>INJECTED PREAMBLE · EVERY TURN · SENT VERBATIM</span>
-        <pre className={DOCUMENT}>{page.preamble}</pre>
-      </Region>
-      <p className={`m-0 pt-2 text-center ${META}`}>
-        END OF CONTEXT · WHAT IS NOT HERE, THE AGENT DOES NOT KNOW
-      </p>
+    <div className="flex flex-col gap-2 px-5 pb-4">
+      {failure && <p className="type-sm text-failure-ink">{failure}</p>}
+      {"format" in file && file.format === "markdown"
+        && <div className="context-body rounded-row bg-panel px-3.5 py-3"><MarkdownView markdown={file.text} /></div>}
+      {"format" in file && file.format === "text" && <pre
+        className={`${MONO} overflow-x-auto whitespace-pre-wrap type-mono-xs leading-document text-secondary`}
+      >{file.text}</pre>}
+      {"more" in file && file.more > 0 && <p className={META}>
+        {`FIRST PART SHOWN · ${bytes(file.more)} MORE IN THE FILE`}
+      </p>}
     </div>
-  </div>;
+  </section>;
 }
 
 export function ContextScreen({ provider, project, workspaceId, usage, onOpenMemory }: {
@@ -278,7 +229,12 @@ export function ContextScreen({ provider, project, workspaceId, usage, onOpenMem
 }) {
   const [page, setPage] = useState<ContextPageDto | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
-  const [assembled, setAssembled] = useState(false);
+  /* The document is what the page opens on. The inventory answers a different question -- which
+     files, what can I do about them -- and the operator asks that one second. */
+  const [inventory, setInventory] = useState(false);
+  /* A place the operator asked to read, read here. The page used to answer "what is in this" with a
+     Finder window, which is an answer that has to leave the app to be useful. */
+  const [file, setFile] = useState<ContextFileDto | { path: string; failure: string } | null>(null);
   /* Machine, Ralphy and Workspace open; Project and Skills closed. The two closed ones are lists
      whose length the header already states, and the operator opens them to answer a question. */
   const [open, setOpen] = useState<Record<ContextLayerId, boolean>>({
@@ -308,11 +264,19 @@ export function ContextScreen({ provider, project, workspaceId, usage, onOpenMem
   const act = useCallback((row: ContextRowDto) => {
     if (!row.action) return;
     if (row.action.kind === "memory-page") onOpenMemory();
-    else if (row.action.kind === "view-assembled") setAssembled(true);
-    else if (row.action.kind === "reveal" && row.action.target) void bridge.revealContextPath(row.action.target);
+    else if (row.action.kind === "view-assembled") setInventory(false);
+    else if (row.action.kind === "read" && row.action.target) {
+      const path = row.action.target;
+      void bridge.readContextPath(path)
+        .then((value) => setFile(value ?? { path, failure: "Nothing there to read any more" }))
+        .catch((error: unknown) => setFile({
+          path,
+          failure: error instanceof Error ? error.message : "The bridge did not answer",
+        }));
+    }
   }, [onOpenMemory]);
 
-  const state = failure ? "unavailable" : !page ? "loading" : assembled ? "selected" : "ready";
+  const state = failure ? "unavailable" : !page ? "loading" : inventory ? "selected" : "ready";
   const total = useMemo(() => (page?.layers ?? []).reduce(
     (sum, band) => sum + band.rows.filter((row) => row.presence === "every-turn").length,
     0,
@@ -320,9 +284,17 @@ export function ContextScreen({ provider, project, workspaceId, usage, onOpenMem
 
   return <InstrumentScreenRoot descriptor={contextInstrumentStates} state={state}>
     <main className="main-region context-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-y-auto bg-transparent p-2 type-base text-ink">
-      {assembled && page
-        ? <Assembled page={page} usage={usage} onClose={() => setAssembled(false)} />
-        : <div className="mx-auto flex w-full max-w-context-column flex-col rounded-panel bg-panel p-0.5">
+      {failure && <p className={PROJECT_LOCAL_ERROR}>{failure}</p>}
+      {!page && !failure && <p className={PROJECT_SKELETON}>Reading what this chat carries…</p>}
+      {page && !inventory && <ContextDocument
+        blocks={page.blocks ?? []}
+        provider={provider}
+        total={usage?.inputTokens ?? null}
+        window={usage?.contextWindow ?? null}
+        onOpenInventory={() => setInventory(true)}
+      />}
+      {page && inventory
+        && <div className="mx-auto flex w-full max-w-context-column flex-col rounded-panel bg-panel p-0.5">
           <div className="flex h-9 flex-none items-center gap-2.5 px-3">
             <span className={`${MONO} type-mono-sm text-muted`}>CONTEXT</span>
             <span className="truncate type-sm text-ink">{project ? project.name : "this workspace"}</span>
@@ -330,10 +302,10 @@ export function ContextScreen({ provider, project, workspaceId, usage, onOpenMem
             <span className={`${MONO} type-mono-2xs text-muted`}>
               {`${provider.toLocaleUpperCase()} · ${total} ROWS IN EVERY TURN`}
             </span>
+            <button className={PILL} type="button" onClick={() => setInventory(false)}>The prompt</button>
           </div>
+          {file && <Reader file={file} onClose={() => setFile(null)} />}
           <div className="flex w-full flex-col rounded-inner bg-card">
-            {failure && <p className={PROJECT_LOCAL_ERROR}>{failure}</p>}
-            {!page && !failure && <p className={PROJECT_SKELETON}>Reading what this chat carries…</p>}
             {page && <>
               <Budget usage={usage} provider={provider} />
               <div className="flex flex-col gap-0.5 px-2 pb-2">
@@ -349,7 +321,7 @@ export function ContextScreen({ provider, project, workspaceId, usage, onOpenMem
                 <span className={META}>ABSENT IS NORMAL, NEVER AN ERROR · ONLY A DEFECT AND A MACHINE-WIDE EDIT DRAW RED</span>
                 <span className="min-w-0 flex-1" aria-hidden="true" />
                 <button className={PILL_GHOST} type="button" onClick={onOpenMemory}>Open Memory page</button>
-                <button className={PILL_PRIMARY} type="button" onClick={() => setAssembled(true)}>
+                <button className={PILL_PRIMARY} type="button" onClick={() => setInventory(false)}>
                   What the agent sees
                   <span className={`${MONO} type-mono-2xs opacity-70`}>↩</span>
                 </button>

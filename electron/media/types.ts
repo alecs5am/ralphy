@@ -570,8 +570,10 @@ export interface MediaWorkbenchBridge extends MarketplaceBridge {
     workspaceId?: string | null;
     project?: ProjectReference | null;
   }): Promise<import("../agent/context-page").ContextPageDto>;
-  /** Show one of the places the Context page listed in Finder. Only those paths are accepted. */
-  revealContextPath(path: string): Promise<void>;
+  /** Read one of the places the Context page listed, in the app. Only those paths are accepted. */
+  readContextPath(path: string): Promise<
+    import("../agent/context-document").ContextFileDto | null
+  >;
   stopAgent(): Promise<void>;
   onAgentEvent(callback: (event: AgentChatEnvelope) => void): () => void;
   onToggleRightPanel(callback: () => void): () => void;
@@ -653,7 +655,7 @@ export const AGENT_CHANNELS = {
   send: "agent:send",
   title: "agent:title",
   context: "agent:context",
-  contextReveal: "agent:context:reveal",
+  contextRead: "agent:context:read",
   stop: "agent:stop",
   event: "agent:event",
 } as const;
