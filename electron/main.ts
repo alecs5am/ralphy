@@ -992,6 +992,10 @@ function registerAgentIpc(): void {
   /* The places the last Context read named. Reveal is checked against it rather than against a
      path prefix, so the capability is exactly "open something this page listed". */
   let readable = new Set<string>();
+  /* Anything inside the installed pack is readable too. The pack is 92 files the
+     app itself put there, the document links to them by name, and enumerating
+     every one into the set above would make the allow-list the pack's index. */
+  let readableTree: string | null = null;
 
   /* What the chat can reach, read where it is true: the harness's own working directory and the
      provider's own files, not a guess made in the renderer. */
@@ -1044,12 +1048,18 @@ function registerAgentIpc(): void {
        honest boundary is that the renderer can read a place the main process just named and
        nothing else. */
     readable = new Set(page.layers.flatMap((layer) => layer.rows.map((row) => row.path).filter(Boolean)));
+    readableTree = pack.installed ? pack.root : null;
     return page;
   });
   securedHandle(AGENT_CHANNELS.contextRead, async (event, rawPath: unknown) => {
     assertTrustedSender(event);
     const path = parseString(rawPath, "context path", 4096);
-    if (!readable.has(path)) throw new Error("That place is not one the Context page reported");
+    const inPack = readableTree !== null
+      && (path === readableTree || path.startsWith(`${readableTree}/`))
+      && !path.includes("..");
+    if (!readable.has(path) && !inPack) {
+      throw new Error("That place is not one the Context page reported");
+    }
     return await readContextFile(path);
   });
   securedHandle(AGENT_CHANNELS.stop, (event) => {

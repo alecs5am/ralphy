@@ -1,3 +1,4 @@
+import * as Dialog from "@radix-ui/react-dialog";
 import {
   ChevronDown, FileText, Layers, Package, ScrollText, Settings2, Sparkles,
 } from "lucide-react";
@@ -191,33 +192,50 @@ function Band({ layer, open, onToggle, onAction }: {
 /**
  * One place, read in the app. A skill, a playbook, an override file: text the agent will read, so
  * text the operator can read here rather than in whatever editor the Finder hands the file to.
+ *
+ * A viewer over the page rather than a panel inside it: a playbook is opened from a name buried in
+ * a routing table, and pushing the document down to make room for it loses the name that was
+ * clicked. It closes on Escape, on the backdrop, and from its own header.
  */
 function Reader({ file, onClose }: {
   file: ContextFileDto | { path: string; failure: string };
   onClose(): void;
 }) {
   const failure = "failure" in file ? file.failure : null;
-  return <section className="mb-0.5 flex w-full flex-col rounded-inner bg-card">
-    <div className="flex h-9 flex-none items-center gap-2.5 px-3">
-      <span className={`${MONO} type-mono-2xs text-muted`}>READING</span>
-      <span className={`${MONO} min-w-0 flex-1 truncate type-mono-xs text-secondary`}>
-        {"title" in file ? file.title : file.path}
-      </span>
-      {"bytes" in file && file.bytes !== null && <span className={META}>{bytes(file.bytes)}</span>}
-      <button className={PILL} type="button" onClick={onClose}>Close</button>
-    </div>
-    <div className="flex flex-col gap-2 px-5 pb-4">
-      {failure && <p className="type-sm text-failure-ink">{failure}</p>}
-      {"format" in file && file.format === "markdown"
-        && <div className="context-body rounded-row bg-panel px-3.5 py-3"><MarkdownView markdown={file.text} /></div>}
-      {"format" in file && file.format === "text" && <pre
-        className={`${MONO} overflow-x-auto whitespace-pre-wrap type-mono-xs leading-document text-secondary`}
-      >{file.text}</pre>}
-      {"more" in file && file.more > 0 && <p className={META}>
-        {`FIRST PART SHOWN · ${bytes(file.more)} MORE IN THE FILE`}
-      </p>}
-    </div>
-  </section>;
+  return <Dialog.Root open onOpenChange={(next) => { if (!next) onClose(); }}>
+    <Dialog.Portal container={typeof document === "undefined" ? undefined : document.body}>
+      <Dialog.Overlay className="fixed inset-0 z-scrim" data-instrument-overlay-backdrop="" />
+      <Dialog.Content
+        className="context-reader fixed inset-6 z-scrim-content m-auto flex h-fit max-h-context-reader w-full max-w-context-column flex-col overflow-hidden rounded-panel bg-panel p-0.5 text-ink outline-none"
+        data-instrument-overlay="context-reader"
+      >
+        <div className="flex h-10 flex-none items-center gap-2.5 px-3">
+          <span className={`${MONO} type-mono-2xs text-muted`}>READING</span>
+          <Dialog.Title asChild>
+            <span className={`${MONO} min-w-0 flex-1 truncate type-mono-xs text-secondary`}>
+              {"title" in file ? file.title : file.path}
+            </span>
+          </Dialog.Title>
+          <Dialog.Description className="sr-only">
+            {"path" in file ? `The contents of ${file.path}` : "This place could not be read"}
+          </Dialog.Description>
+          {"bytes" in file && file.bytes !== null && <span className={META}>{bytes(file.bytes)}</span>}
+          <Dialog.Close asChild><button className={PILL} type="button">Close</button></Dialog.Close>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded-inner bg-card px-5 py-4">
+          {failure && <p className="m-0 type-sm text-failure-ink">{failure}</p>}
+          {"format" in file && file.format === "markdown"
+            && <div className="context-body"><MarkdownView markdown={file.text} /></div>}
+          {"format" in file && file.format === "text" && <pre
+            className={`${MONO} m-0 overflow-x-auto whitespace-pre-wrap type-mono-xs leading-document text-secondary`}
+          >{file.text}</pre>}
+          {"more" in file && file.more > 0 && <p className={`${META} m-0`}>
+            {`FIRST PART SHOWN · ${bytes(file.more)} MORE IN THE FILE`}
+          </p>}
+        </div>
+      </Dialog.Content>
+    </Dialog.Portal>
+  </Dialog.Root>;
 }
 
 export function ContextScreen({ provider, project, workspaceId, usage, onOpenMemory }: {
@@ -261,20 +279,23 @@ export function ContextScreen({ provider, project, workspaceId, usage, onOpenMem
     // eslint-disable-next-line react-hooks/exhaustive-deps -- a project is its two ids
   }, [provider, workspaceId, projectId]);
 
+  /* One loader for both surfaces: a row's action and a name inside the prompt open the same
+     reader, so a place that cannot be read says so in one voice. */
+  const read = useCallback((path: string) => {
+    void bridge.readContextPath(path)
+      .then((value) => setFile(value ?? { path, failure: "Nothing there to read any more" }))
+      .catch((error: unknown) => setFile({
+        path,
+        failure: error instanceof Error ? error.message : "The bridge did not answer",
+      }));
+  }, []);
+
   const act = useCallback((row: ContextRowDto) => {
     if (!row.action) return;
     if (row.action.kind === "memory-page") onOpenMemory();
     else if (row.action.kind === "view-assembled") setInventory(false);
-    else if (row.action.kind === "read" && row.action.target) {
-      const path = row.action.target;
-      void bridge.readContextPath(path)
-        .then((value) => setFile(value ?? { path, failure: "Nothing there to read any more" }))
-        .catch((error: unknown) => setFile({
-          path,
-          failure: error instanceof Error ? error.message : "The bridge did not answer",
-        }));
-    }
-  }, [onOpenMemory]);
+    else if (row.action.kind === "read" && row.action.target) read(row.action.target);
+  }, [onOpenMemory, read]);
 
   const state = failure ? "unavailable" : !page ? "loading" : inventory ? "selected" : "ready";
   const total = useMemo(() => (page?.layers ?? []).reduce(
@@ -284,6 +305,7 @@ export function ContextScreen({ provider, project, workspaceId, usage, onOpenMem
 
   return <InstrumentScreenRoot descriptor={contextInstrumentStates} state={state}>
     <main className="main-region context-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-y-auto bg-transparent p-2 type-base text-ink">
+      {file && <Reader file={file} onClose={() => setFile(null)} />}
       {failure && <p className={PROJECT_LOCAL_ERROR}>{failure}</p>}
       {!page && !failure && <p className={PROJECT_SKELETON}>Reading what this chat carries…</p>}
       {page && !inventory && <ContextDocument
@@ -292,6 +314,7 @@ export function ContextScreen({ provider, project, workspaceId, usage, onOpenMem
         total={usage?.inputTokens ?? null}
         window={usage?.contextWindow ?? null}
         onOpenInventory={() => setInventory(true)}
+        onRead={read}
       />}
       {page && inventory
         && <div className="mx-auto flex w-full max-w-context-column flex-col rounded-panel bg-panel p-0.5">
@@ -304,7 +327,6 @@ export function ContextScreen({ provider, project, workspaceId, usage, onOpenMem
             </span>
             <button className={PILL} type="button" onClick={() => setInventory(false)}>The prompt</button>
           </div>
-          {file && <Reader file={file} onClose={() => setFile(null)} />}
           <div className="flex w-full flex-col rounded-inner bg-card">
             {page && <>
               <Budget usage={usage} provider={provider} />

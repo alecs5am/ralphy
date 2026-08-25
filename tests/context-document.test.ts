@@ -28,6 +28,16 @@ async function fixture(block: string): Promise<{ home: string; cwd: string }> {
   return { home, cwd };
 }
 
+/** A home whose instruction file names a directory that exists, with two files in it. */
+async function fixture_with_pack(): Promise<{ home: string; cwd: string }> {
+  const made = await fixture("Playbooks live under prompts/docs/playbooks/.");
+  const dir = join(made.home, ".codex", "prompts", "docs", "playbooks");
+  await mkdir(dir, { recursive: true });
+  await writeFile(join(dir, "core.md"), "# core\n");
+  await writeFile(join(dir, "editor.md"), "# editor\n");
+  return made;
+}
+
 const read = (input: { home: string; cwd: string }) => readContextDocument({
   provider: "codex",
   home: input.home,
@@ -53,6 +63,16 @@ describe("readContextDocument", () => {
     /* The operator naming a file they have not written yet is normal, and never red. */
     expect(theirs.every((block) => block.defect === null)).toBe(true);
     expect(theirs.find((block) => block.title === "docs/playbooks/")?.rail.label).toBe("Not written");
+  });
+
+  it("lists what a named directory holds, each openable by path", async () => {
+    const fixture = await fixture_with_pack();
+    const blocks = await read(fixture);
+    const dir = blocks.find((block) => block.title === "prompts/docs/playbooks/");
+    /* A directory used to answer with a count. These are the files the router
+       sends the agent to, so each one is named and each one can be opened. */
+    expect(dir?.links.map((link) => link.text)).toEqual(["core.md", "editor.md"]);
+    expect(dir?.links.every((link) => link.path !== null)).toBe(true);
   });
 
   it("opens on the instruction chain, never on the provider's sealed prompt", async () => {

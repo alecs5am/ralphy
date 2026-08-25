@@ -43,8 +43,9 @@ export interface ContextBlockDto {
   onDemand: boolean;
   /** The block whose text named this one. */
   linkedFrom: string | null;
-  /** The paths this block's text names, so the reader can mark them live inside the body. */
-  links: readonly { text: string; blockId: string | null; note: string }[];
+  /** The paths this block's text names, so the reader can mark them live inside the body.
+      `path` is set when the place resolves, so the page can open it without a block of its own. */
+  links: readonly { text: string; blockId: string | null; path: string | null; note: string }[];
   /** A real problem, in the page's one alert tone. */
   defect: string | null;
 }
@@ -180,15 +181,26 @@ async function childBlock(input: {
     /* Only documents. A routing table routes to files; the directories it also
        names are data layout under the user's library, and calling those missing
        relative to the pack would be a sentence this page cannot support. */
-    links: head && target
-      ? await Promise.all(references(head.text).filter((token) => token.endsWith(".md")).map(async (token) => {
-        const to = resolveReference(token, target, input.home);
-        return {
-          text: token,
-          blockId: null,
-          note: to && await stat(to).then(() => true, () => false) ? "may load" : "not there",
-        };
-      }))
+    links: target
+      ? head
+        ? await Promise.all(references(head.text).filter((token) => token.endsWith(".md")).map(async (token) => {
+          const to = resolveReference(token, target, input.home);
+          return {
+            text: token,
+            blockId: null,
+            path: to,
+            note: to && await stat(to).then(() => true, () => false) ? "may load" : "not there",
+          };
+        }))
+        /* A directory answers with what it holds. Saying "23 files here" and
+           stopping made the playbook tree a number: these are the files the
+           router sends the agent to, and each one is openable. */
+        : folder
+          ? (await readdir(target).catch(() => []))
+            .filter((name) => !name.startsWith("."))
+            .sort()
+            .map((name) => ({ text: name, blockId: null, path: join(target, name), note: "may load" }))
+          : []
       : [],
     defect: known || input.owner === "machine"
       ? null
@@ -325,6 +337,7 @@ export async function readContextDocument(input: ContextDocumentInput): Promise<
       links: tokens.map((token) => ({
         text: token,
         blockId: byToken.get(token)?.id ?? null,
+        path: resolveReference(token, file.path, input.home),
         note: byToken.get(token)?.defect ? "not there" : byToken.get(token)?.bytes === null ? "elsewhere" : "may load",
       })),
       defect: null,
@@ -347,10 +360,11 @@ export async function readContextDocument(input: ContextDocumentInput): Promise<
         links: injectedTokens.map((token) => ({
           text: token,
           blockId: byToken.get(token)?.id ?? null,
+          path: resolveReference(token, file.path, input.home),
           note: byToken.get(token)?.defect ? "not there" : byToken.get(token)?.bytes === null ? "elsewhere" : "may load",
         })),
         defect: injectedTokens.some((token) => byToken.get(token)?.defect)
-          ? "This block sends the agent to places that do not resolve from its working directory. Until the app ships its prompts into the library, the routing it describes does not exist."
+          ? "This block sends the agent to places that do not resolve from its working directory. Run `ralphy prompts install`, or reinstall the block, so the routing it describes exists."
           : null,
       });
     }

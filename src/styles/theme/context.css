@@ -28,6 +28,9 @@
      the measure the reference frame draws and still keeps a block's size beside its name. */
   --spacing-context-column: 1440px;
   --spacing-context-swatch: 7px;
+  /* The reader stops short of the window so the page it opened over stays visible
+     behind it: a playbook is read against the prompt that named it. */
+  --height-context-reader: 82vh;
   /* The true-scale bar states the model's whole window, so it is the one element on the page whose
      emptiness is the message. The composition bar below it is the same segments at 100%. */
   --height-context-scale-bar: 10px;

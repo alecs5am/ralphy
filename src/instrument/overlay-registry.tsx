@@ -25,6 +25,9 @@ export const INSTRUMENT_OVERLAYS = {
      design's page-local scrim itself, because the app's backdrop rule only fires for the modal
      kinds and a window-wide dim would be heavier than either menu is. */
   "view-panel-types": { kind: "menu" }, "view-panel-overflow": { kind: "menu" },
+  /* A place the Context page listed, read on the page. A viewer rather than a
+     dialog: it holds a file's text and closes without deciding anything. */
+  "context-reader": { kind: "viewer" },
 } as const satisfies Record<string, { kind: InstrumentOverlayKind }>;
 
 export const SHARED_SELECT_OVERLAY_OWNERS = {

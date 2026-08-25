@@ -123,4 +123,7 @@ export const PRODUCTION_LOCAL_OVERLAY_TARGETS = {
      so the overview -- the route the home tab returns to -- is where they are exercised. */
   "view-panel-types": { routeKey: "workspace.overview", state: "ready" },
   "view-panel-overflow": { routeKey: "workspace.overview", state: "ready" },
+  /* The Context page's reader. It opens from a name inside the prompt document, which is the page's
+     ready state -- the inventory reaches it too, but through the same loader. */
+  "context-reader": { routeKey: "workspace.context", state: "ready" },
 } as const satisfies Record<ProductionLocalOverlayId, { routeKey: InstrumentRouteKey; state: InstrumentScenarioState }>;

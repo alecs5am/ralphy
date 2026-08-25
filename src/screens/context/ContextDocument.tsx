@@ -84,8 +84,8 @@ function literalPlaceholders(text: string): string {
    about how much of it is on screen, never about what was sent. */
 const PEEK_LINES = 16;
 
-function Block({ block, open, dim, flash, rendered, first, onToggle, onPath }: {
-  first: boolean;
+function Block({ block, open, dim, flash, rendered, onToggle, onPath, onRead }: {
+  onRead(path: string): void;
   block: ContextBlockDto;
   open: boolean;
   dim: boolean;
@@ -101,10 +101,10 @@ function Block({ block, open, dim, flash, rendered, first, onToggle, onPath }: {
   const hidden = whole ? 0 : Math.max(0, lines.length - PEEK_LINES);
   const shown = hidden > 0 ? lines.slice(0, PEEK_LINES).join("\n") : block.body!;
   return <div
-    /* A hairline between blocks, now that a body is no longer a card of its own.
-       Flat text needs one mark to say where a block ends; nesting was doing that
-       job and charging three surfaces for it. */
-    className={`context-block grid grid-cols-(--context-block-columns) gap-4.5 rounded-row px-3 py-3 transition-colors duration-slow ease-instrument ${first ? "" : "border-t border-divider"} ${flash ? "bg-field" : "bg-transparent"} ${dim ? "opacity-26" : ""}`}
+    /* No radius. A rounded plate under a straight rule drew its own corners
+       curling away from a block that has no visible edge -- the rule belongs to
+       the gap between blocks, not to the block, so it is a row of its own below. */
+    className={`context-block grid grid-cols-(--context-block-columns) gap-4.5 px-3 py-3 transition-colors duration-slow ease-instrument ${flash ? "bg-field" : "bg-transparent"} ${dim ? "opacity-26" : ""}`}
     data-block={block.id}
   >
     {/* No indent for a child. Depth was drawn twice -- a dashed left border and a
@@ -138,15 +138,15 @@ function Block({ block, open, dim, flash, rendered, first, onToggle, onPath }: {
           link, so the names are gathered on their own line rather than hunted inside 400 lines. */}
       {block.links.length > 0 && <span className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-0.5">
         <span className={META}>NAMES</span>
-        {/* A name with a block of its own is a button that jumps to it. A name
-            without one -- what a routed file routes onward to -- is stated and
-            marked, but there is nothing on this page to jump to. */}
-        {block.links.map((link) => (link.blockId
+        {block.links.map((link) => (link.blockId || (link.path && link.note !== "not there")
           ? <button
             className={`context-path rounded-chip px-1 py-0.25 ${MONO} type-mono-2xs ${link.note === "not there" ? "text-failure-ink" : "text-secondary"} hover:bg-field hover:text-ink`}
             type="button"
             key={link.text}
-            onClick={() => onPath(link.text)}
+            /* A name with a block of its own jumps to it. A name without one --
+               a playbook the router routes onward to -- opens where it is, so
+               reading the routing never means leaving the page. */
+            onClick={() => (link.blockId ? onPath(link.text) : onRead(link.path!))}
           >{link.text}</button>
           : <span
             className={`rounded-chip px-1 py-0.25 ${MONO} type-mono-2xs ${link.note === "not there" ? "text-failure-ink" : "text-muted"}`}
@@ -155,8 +155,10 @@ function Block({ block, open, dim, flash, rendered, first, onToggle, onPath }: {
       </span>}
       {/* Title, then the prompt. The body used to sit in a card of its own inside
           the page's card inside the page's panel -- three surfaces deep, for text
-          that is the whole reason the page exists. It reads on the page now. */}
-      {open && readable && <div className="flex flex-col gap-1.5 py-1.5">
+          that is the whole reason the page exists. It reads on the page now, with
+          one hairline saying where the app stops describing and the prompt starts. */}
+      {open && readable && <span className="mt-2 h-px w-full flex-none bg-divider" aria-hidden="true" />}
+      {open && readable && <div className="flex flex-col gap-1.5 pt-2.5">
         {rendered && block.format === "markdown"
           ? <div className="context-body"><MarkdownView markdown={literalPlaceholders(shown)} /></div>
           : <pre className="m-0 overflow-x-auto font-code type-mono-sm leading-document whitespace-pre-wrap text-ink select-text">
@@ -190,7 +192,8 @@ function Block({ block, open, dim, flash, rendered, first, onToggle, onPath }: {
   </div>;
 }
 
-export function ContextDocument({ blocks, provider, total, window: modelWindow, onOpenInventory }: {
+export function ContextDocument({ blocks, provider, total, window: modelWindow, onOpenInventory, onRead }: {
+  onRead(path: string): void;
   blocks: readonly ContextBlockDto[];
   provider: string;
   total: number | null;
@@ -200,16 +203,17 @@ export function ContextDocument({ blocks, provider, total, window: modelWindow, 
   const [filter, setFilter] = useState<ContextFilter>("all");
   const [rendered, setRendered] = useState(true);
   const [flash, setFlash] = useState<string | null>(null);
-  /* Every block with a body starts open: the point of this page is to read the prompt, not to open
-     nine disclosures before it becomes one. */
-  const [closed, setClosed] = useState<Record<string, boolean>>({});
+  /* Everything starts closed. Nine open bodies is 10,000 px of prose, and the shape of the turn --
+     what is in it, in what order, at what size -- is the thing the page has to answer first. Titles
+     and sizes are always visible, so nothing is hidden by being closed. */
+  const [opened, setOpened] = useState<Record<string, boolean>>({});
   const readable = useMemo(() => blocks.filter((block) => block.body !== null), [blocks]);
-  const allClosed = readable.length > 0 && readable.every((block) => closed[block.id]);
+  const allOpen = readable.length > 0 && readable.every((block) => opened[block.id]);
 
   const jump = (path: string) => {
     const target = blocks.find((block) => block.title === path || block.id.endsWith(`>${path}`));
     if (!target) return;
-    setClosed((current) => ({ ...current, [target.id]: false }));
+    setOpened((current) => ({ ...current, [target.id]: true }));
     setFlash(target.id);
     document.querySelector(`[data-block="${CSS.escape(target.id)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
     globalThis.setTimeout(() => setFlash((current) => (current === target.id ? null : current)), 900);
@@ -237,8 +241,8 @@ export function ContextDocument({ blocks, provider, total, window: modelWindow, 
       <button
         className={CONTROL}
         type="button"
-        onClick={() => setClosed(allClosed ? {} : Object.fromEntries(readable.map((block) => [block.id, true])))}
-      >{allClosed ? "Expand all" : "Collapse all"}</button>
+        onClick={() => setOpened(allOpen ? {} : Object.fromEntries(readable.map((block) => [block.id, true])))}
+      >{allOpen ? "Collapse all" : "Expand all"}</button>
       <button className={CONTROL} type="button" onClick={onOpenInventory}>Inventory</button>
       <span className={`${NUMBER} type-lg flex-none`}>{total === null ? "—" : total < 1000 ? total : `${(total / 1000).toFixed(1)}K`}</span>
       {modelWindow !== null && <span className={`${MONO} type-mono-sm flex-none text-muted`}>{`/ ${Math.round(modelWindow / 1000)}K`}</span>}
@@ -250,17 +254,19 @@ export function ContextDocument({ blocks, provider, total, window: modelWindow, 
       <span className={`${META} px-3 pb-2.5`}>
         {`BEFORE ALL OF THIS · ${provider.toLocaleUpperCase()}'S OWN SYSTEM PROMPT, NOT EXPOSED · THEN, IN ORDER: A DIMMED OR COLLAPSED BLOCK STILL RIDES`}
       </span>
-      {blocks.map((block, index) => <Block
-        first={index === 0}
-        block={block}
-        open={!closed[block.id]}
-        dim={filter !== "all" && (filter === "demand" ? !block.onDemand : block.onDemand)}
-        flash={flash === block.id}
-        rendered={rendered}
-        onToggle={() => setClosed((current) => ({ ...current, [block.id]: !current[block.id] }))}
-        onPath={jump}
-        key={block.id}
-      />)}
+      {blocks.map((block, index) => <Fragment key={block.id}>
+        {index > 0 && <span className="mx-3 h-px flex-none bg-divider" aria-hidden="true" />}
+        <Block
+          block={block}
+          open={opened[block.id] === true}
+          dim={filter !== "all" && (filter === "demand" ? !block.onDemand : block.onDemand)}
+          flash={flash === block.id}
+          rendered={rendered}
+          onToggle={() => setOpened((current) => ({ ...current, [block.id]: !current[block.id] }))}
+          onPath={jump}
+          onRead={onRead}
+        />
+      </Fragment>)}
       <span className={`${META} pt-3 text-center`}>END OF CONTEXT · WHAT IS NOT HERE, THE AGENT DOES NOT KNOW</span>
     </div>
   </div>;
