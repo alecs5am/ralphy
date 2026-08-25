@@ -17,6 +17,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import url from "node:url";
 import { out } from "../lib/output.js";
+import { installPack, packFiles, packRoot, packSource, readManifest } from "../lib/prompt-pack.js";
+import { VERSION } from "../lib/version.js";
 
 // Library + cookbook docs live in the repo, not the user's workspace. Resolve
 // the repo root from this module's location (cli/commands/prompts.ts → ../..).
@@ -157,6 +159,76 @@ Examples:
   $ ralphy prompts modes --kind voice
   $ ralphy prompts modes --kind music
 `);
+
+  /* `prompts install` / `prompts status` — the routing pack, in the library.
+     The router and its playbooks live in this package; an agent runs in the
+     user's home. Without this copy the block `skill install` writes points at
+     repo-relative paths that resolve nowhere, which is the whole reason the
+     pack existed only for people with a checkout. */
+  cmd
+    .command("install")
+    .description("Copy the AGENTS.md router and its playbooks into <root>/.ralphy/prompts")
+    .action(async () => {
+      const result = await installPack({ cliVersion: VERSION });
+      out({
+        root: result.root,
+        router: path.join(result.root, "AGENTS.md"),
+        files: result.files.length,
+        bytes: result.totalBytes,
+        written: result.written,
+        removed: result.removed,
+        cli_version: result.cliVersion,
+      });
+    })
+    .addHelpText("after", `
+Examples:
+  $ ralphy prompts install
+  $ ralphy prompts install --json
+`);
+
+  /* `prompts export` — the same copy, into a directory the caller names. The
+     desktop app has no checkout to read and must not reach into one, so it
+     vendors the pack through this verb at build time and ships the result
+     inside its own bundle. */
+  cmd
+    .command("export")
+    .description("Write the routing pack into a directory of your choosing (for bundling)")
+    .requiredOption("--out <dir>", "Destination directory")
+    .action(async (opts) => {
+      const result = await installPack({ cliVersion: VERSION, root: path.resolve(opts.out) });
+      out({
+        root: result.root,
+        router: path.join(result.root, "AGENTS.md"),
+        files: result.files.length,
+        bytes: result.totalBytes,
+        written: result.written,
+        removed: result.removed,
+        cli_version: result.cliVersion,
+      });
+    });
+
+  cmd
+    .command("status")
+    .description("Report whether the routing pack is installed, and whether it matches this CLI")
+    .action(async () => {
+      const root = packRoot();
+      const manifest = await readManifest(root);
+      const available = await packFiles(packSource());
+      out({
+        root,
+        router: path.join(root, "AGENTS.md"),
+        installed: manifest !== null,
+        cli_version: VERSION,
+        installed_version: manifest?.cliVersion ?? null,
+        /* Stale means "this CLI ships something else", which is the only kind
+           of staleness the user can act on -- `prompts install` fixes it. */
+        stale: manifest !== null
+          && (manifest.cliVersion !== VERSION || manifest.files.length !== available.length),
+        files: manifest?.files.length ?? 0,
+        bytes: manifest?.totalBytes ?? 0,
+        available: available.length,
+      });
+    });
 
   return cmd;
 }

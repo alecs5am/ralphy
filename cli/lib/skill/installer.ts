@@ -98,16 +98,25 @@ function removeRecursive(p: string): void {
 
 // ─── Routing pointer (the body of the sentinel block) ─────────────────────
 
+/* Every path here is absolute and installed, not repo-relative. The old block
+   said "<repo>/AGENTS.md" and "docs/playbooks/", which resolved only for the
+   handful of people running an agent from inside a ugc-cli checkout: an agent
+   starts in the user's home or their project, so on every other machine the
+   routing this block promised did not exist. `ralphy prompts install` puts the
+   router and its playbooks under the library, and this block names that copy. */
+const PACK_DIR = "~/.ralphy/prompts";
+
 const ROUTING_BLOCK = `# Ralphy
 
-Use Ralphy CLI for every UGC generation step. Read <repo>/AGENTS.md before acting — it routes by user intent to the right playbook.
+Use Ralphy CLI for every UGC generation step. Read ${PACK_DIR}/AGENTS.md before acting — it routes by user intent to the right playbook.
 
 - ralphy doctor — verify env health
 - ralphy new "<brief>" — start a project
 - ralphy template suggest "<utterance>" — match a template
 - ralphy render <id> — produce the mp4
 
-Source-of-truth playbooks live under docs/playbooks/. The full CLI surface is in docs/cli-surface.md.`;
+Source-of-truth playbooks live under ${PACK_DIR}/docs/playbooks/. The full CLI surface is in ${PACK_DIR}/docs/cli-surface.generated.md.
+If that directory is missing, run \`ralphy prompts install\` once — the pack ships with the CLI and with the desktop app.`;
 
 // ─── Adapter implementations ──────────────────────────────────────────────
 

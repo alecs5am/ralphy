@@ -69,3 +69,56 @@ describe("`ralphy prompts modes` (02.03.04 stretch)", () => {
     expect(modes.length).toBeGreaterThanOrEqual(5);
   });
 });
+
+// The routing pack: the router and its playbooks, out of the package and into a
+// place an agent can actually reach. The old block pointed at repo-relative
+// paths, so on a machine with no checkout the routing existed only on paper.
+describe("`ralphy prompts install` / `status` / `export`", () => {
+  test("installs the router and its playbooks under the library, idempotently", () => {
+    const first = ralphy(["prompts", "install", "--json"]);
+    expect(first.exitCode).toBe(0);
+    expect(first.json.files).toBeGreaterThan(50);
+    expect(first.json.written).toBe(first.json.files);
+    expect(fs.existsSync(path.join(tmpRoot, ".ralphy", "prompts", "AGENTS.md"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpRoot, ".ralphy", "prompts", "docs", "playbooks", "core.md"))).toBe(true);
+
+    // A reinstall writes nothing: the digests already match.
+    const again = ralphy(["prompts", "install", "--json"]);
+    expect(again.json.written).toBe(0);
+    expect(again.json.removed).toBe(0);
+  });
+
+  test("every docs/ link inside the installed router resolves inside the pack", () => {
+    ralphy(["prompts", "install", "--json"]);
+    const root = path.join(tmpRoot, ".ralphy", "prompts");
+    const router = fs.readFileSync(path.join(root, "AGENTS.md"), "utf8");
+    const named = new Set(
+      router
+        .split(/[\s`'"()[\],;]+/u)
+        .map((t) => t.replace(/[.,;:]+$/u, ""))
+        .filter((t) => t.startsWith("docs/") && t.endsWith(".md") && !/[<>*{}]/.test(t)),
+    );
+    expect(named.size).toBeGreaterThan(10);
+    const missing = [...named].filter((rel) => !fs.existsSync(path.join(root, rel)));
+    expect(missing).toEqual([]);
+  });
+
+  test("status reports the pack before and after the install", () => {
+    const before = ralphy(["prompts", "status", "--json"]);
+    expect(before.json.installed).toBe(false);
+    expect(before.json.available).toBeGreaterThan(50);
+    ralphy(["prompts", "install", "--json"]);
+    const after = ralphy(["prompts", "status", "--json"]);
+    expect(after.json.installed).toBe(true);
+    expect(after.json.stale).toBe(false);
+    expect(after.json.files).toBe(after.json.available);
+  });
+
+  test("export writes the same pack anywhere, for bundling into another app", () => {
+    const out = path.join(tmpRoot, "vendored");
+    const r = ralphy(["prompts", "export", "--out", out, "--json"]);
+    expect(r.exitCode).toBe(0);
+    expect(fs.existsSync(path.join(out, "AGENTS.md"))).toBe(true);
+    expect(JSON.parse(fs.readFileSync(path.join(out, "manifest.json"), "utf8")).files.length).toBe(r.json.files);
+  });
+});
