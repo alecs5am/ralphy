@@ -80,7 +80,13 @@ describe("`ralphy prompts install` / `status` / `export`", () => {
     expect(first.json.files).toBeGreaterThan(50);
     expect(first.json.written).toBe(first.json.files);
     expect(fs.existsSync(path.join(tmpRoot, ".ralphy", "prompts", "AGENTS.md"))).toBe(true);
-    expect(fs.existsSync(path.join(tmpRoot, ".ralphy", "prompts", "docs", "playbooks", "core.md"))).toBe(true);
+    /* A skill is what the router routes to now, and a skill is a directory:
+       its body, its references, and its scripts all have to have travelled. */
+    const skill = path.join(tmpRoot, ".ralphy", "prompts", ".agents", "skills");
+    expect(fs.existsSync(path.join(skill, "troubleshooting", "SKILL.md"))).toBe(true);
+    expect(fs.existsSync(path.join(skill, "editor", "references", "captions.md"))).toBe(true);
+    expect(fs.existsSync(path.join(skill, "researcher", "scripts", "analyze-video.ts"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpRoot, ".ralphy", "prompts", "docs", "playbooks", "agent-production-contract.md"))).toBe(true);
 
     // A reinstall writes nothing: the digests already match.
     const again = ralphy(["prompts", "install", "--json"]);
@@ -88,7 +94,7 @@ describe("`ralphy prompts install` / `status` / `export`", () => {
     expect(again.json.removed).toBe(0);
   });
 
-  test("every docs/ link inside the installed router resolves inside the pack", () => {
+  test("every path the installed router names resolves inside the pack", () => {
     ralphy(["prompts", "install", "--json"]);
     const root = path.join(tmpRoot, ".ralphy", "prompts");
     const router = fs.readFileSync(path.join(root, "AGENTS.md"), "utf8");
@@ -96,11 +102,37 @@ describe("`ralphy prompts install` / `status` / `export`", () => {
       router
         .split(/[\s`'"()[\],;]+/u)
         .map((t) => t.replace(/[.,;:]+$/u, ""))
-        .filter((t) => t.startsWith("docs/") && t.endsWith(".md") && !/[<>*{}]/.test(t)),
+        .filter((t) => (t.startsWith("docs/") || t.startsWith(".agents/skills/"))
+          && t.endsWith(".md") && !/[<>*{}]/.test(t)),
     );
-    expect(named.size).toBeGreaterThan(10);
+    expect(named.size).toBeGreaterThan(30);
     const missing = [...named].filter((rel) => !fs.existsSync(path.join(root, rel)));
     expect(missing).toEqual([]);
+  });
+
+  test("the catalog indexes the pack by category and every entry opens", () => {
+    ralphy(["prompts", "install", "--json"]);
+    const root = path.join(tmpRoot, ".ralphy", "prompts");
+    const catalog = JSON.parse(fs.readFileSync(path.join(root, "catalog.json"), "utf8"));
+    const byCategory = new Map<string, number>();
+    for (const entry of catalog.entries) {
+      byCategory.set(entry.category, (byCategory.get(entry.category) ?? 0) + 1);
+    }
+    /* Every category the desktop marketplace renders has to be populated, or
+       the app shows an empty shelf it cannot explain. */
+    for (const category of ["skill", "prompt", "template", "recipe", "component"]) {
+      expect(byCategory.get(category) ?? 0).toBeGreaterThan(0);
+    }
+    expect(byCategory.get("skill")).toBeGreaterThan(40);
+    /* An entry naming a document that did not travel is a dead marketplace row. */
+    const dead = catalog.entries
+      .filter((entry: any) => entry.path !== null && !fs.existsSync(path.join(root, entry.path)))
+      .map((entry: any) => entry.id);
+    expect(dead).toEqual([]);
+    const thin = catalog.entries
+      .filter((entry: any) => entry.summary.length < 5 || entry.title.length === 0)
+      .map((entry: any) => entry.id);
+    expect(thin).toEqual([]);
   });
 
   test("status reports the pack before and after the install", () => {
