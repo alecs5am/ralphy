@@ -69,13 +69,15 @@ export function codexCatalog(catalog: unknown, configured: string | null): {
   const listed = models.filter(({ id }) => id !== CODEX_DEFAULT.id);
   const supported = configured === null || listed.some(({ id }) => id === configured);
   if (supported) return { models, defaultModel: CODEX_DEFAULT.id, unsupportedDefault: null };
-  /* "Codex default" is dropped rather than annotated: it stands for "whatever your config says",
-     and what it says is a model this CLI refuses -- a chat asking for the default inherits the
-     failure on every turn. A row that cannot run is worse than no row, and its absence is also
-     what moves an already-pinned chat onto a model that works: the renderer reconciles a chat
-     whose model the provider no longer lists. */
+  /* Annotated, never removed. A row is removed only if the operator could not run it, and this
+     function cannot know that: the catalogue is what the *build* ships, while the refusal that
+     reads "requires a newer version of Codex" comes from the server and depends on the client
+     version -- a model can be listed here and still be refused by an outdated CLI, and the cure
+     for that is a newer CLI, not a shorter menu. What is stated here is the narrower fact this
+     function does know: the configured default is a name this build has never heard of. */
+  const reason = `Your Codex config asks for ${configured}, which this build does not list`;
   return {
-    models: listed,
+    models: models.map((model) => model.id === CODEX_DEFAULT.id ? { ...model, description: reason } : model),
     defaultModel: listed[0]?.id ?? CODEX_DEFAULT.id,
     unsupportedDefault: configured,
   };

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { readTitle, titlePrompt } from "../electron/agent/title";
+import { readTitle, titleModels, titlePrompt } from "../electron/agent/title";
 
 describe("naming a chat", () => {
   test("asks for a title and nothing else", () => {
@@ -22,5 +22,15 @@ describe("naming a chat", () => {
     expect(readTitle("")).toBeNull();
     expect(readTitle("   \n  ")).toBeNull();
     expect(readTitle("Sure, I can help you with that and here is what I would suggest first")).toBeNull();
+  });
+
+  test("names a chat on the cheapest model, falling back to the chat's own", () => {
+    // A title is housekeeping: the small model first, whatever the chat itself runs on.
+    expect(titleModels("claude", "opus")).toEqual(["fable", "opus"]);
+    expect(titleModels("codex", "gpt-5.6-luna")).toEqual(["gpt-5.4-mini", "gpt-5.6-luna"]);
+    // Already the cheap one -- one attempt, not two identical ones.
+    expect(titleModels("claude", "fable")).toEqual(["fable"]);
+    // No cheap equivalent to guess at for an id the operator chose themselves.
+    expect(titleModels("openrouter", "x-ai/grok-4")).toEqual(["x-ai/grok-4"]);
   });
 });

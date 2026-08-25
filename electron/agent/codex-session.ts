@@ -290,6 +290,23 @@ export async function readCodexConfiguredModel(home = homedir()): Promise<string
   return null;
 }
 
+/** The CLI's own version, so a stale install is visible rather than a mystery 400 mid-turn. */
+export async function readCodexVersion(
+  binary: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync(binary, ["--version"], {
+      env: codexEnvironment(env),
+      timeout: 10_000,
+      maxBuffer: 64 * 1024,
+    });
+    return /(\d+\.\d+\.\d+)/.exec(stdout)?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function loginCodex(
   binary: string,
   env: NodeJS.ProcessEnv = process.env,
@@ -307,6 +324,12 @@ export async function resolveCodexBinary(
 ): Promise<string | null> {
   const candidates = [
     env.RALPHY_CODEX_PATH,
+    /* What Codex itself calls the installed version. Its own updater repoints this symlink, while
+       `~/.local/bin/codex` can stay pinned to the release it was installed with -- on this machine
+       that left the app on 0.142.4 while 0.149.1 was installed, and the server refuses a 5.6 model
+       to an old client with "requires a newer version of Codex". The app must run the Codex the
+       operator has, not the one their shell PATH happens to point at. */
+    join(home, ".codex", "packages", "standalone", "current", "bin", "codex"),
     join(home, ".local", "bin", "codex"),
     "/opt/homebrew/bin/codex",
     "/usr/local/bin/codex",

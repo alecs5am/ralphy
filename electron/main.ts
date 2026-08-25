@@ -27,13 +27,14 @@ import {
 } from "./claude/credentials";
 import { parseAgentChatRequest } from "./agent/request";
 import { readAgentContext } from "./agent/context";
-import { readTitle } from "./agent/title";
+import { readTitle, titleModels } from "./agent/title";
 import {
   CodexSession,
   loginCodex,
   readCodexAuthStatus,
   readCodexBundledCatalog,
   readCodexConfiguredModel,
+  readCodexVersion,
   resolveCodexBinary,
 } from "./agent/codex-session";
 import {
@@ -383,12 +384,13 @@ async function agentProviderStatuses(): Promise<AgentProviderStatus[]> {
     : null;
   /* The binary's own bundled catalogue, and the model the operator's config asks for: together
      they decide what this Codex can be told to run. See `codexCatalog`. */
-  const [codexBundled, codexConfigured] = codexBinary
+  const [codexBundled, codexConfigured, codexVersion] = codexBinary
     ? await Promise.all([
       readCodexBundledCatalog(codexBinary),
       readCodexConfiguredModel(app.getPath("home")),
+      readCodexVersion(codexBinary),
     ])
-    : [null, null];
+    : [null, null, null];
   const codex = codexCatalog(codexBundled, codexConfigured);
   const inheritedOpenRouterKey = inheritedOpenRouterApiKey();
   const storedOpenRouterKey = await openRouterStore().read();
@@ -421,9 +423,14 @@ async function agentProviderStatuses(): Promise<AgentProviderStatus[]> {
       apiKeyConfigured: false,
       inheritedApiKey: false,
       connected: codexConnected,
+      /* The version is on the row on purpose: when the server refuses a model to an outdated
+         client, the only way to tell from the app is to see which CLI it is running. */
       detail: codex.unsupportedDefault
-        ? `${codex.unsupportedDefault} needs a newer Codex — update it or pick a listed model`
-        : codexStatus?.detail ?? (codexBinary ? "Codex login required" : "Codex CLI not found"),
+        ? `${codex.unsupportedDefault} is not in this build's catalogue — pick a listed model`
+        : codexBinary === null
+          ? "Codex CLI not found"
+          : [codexStatus?.detail ?? "Codex login required", codexVersion && `CLI ${codexVersion}`]
+            .filter(Boolean).join(" · "),
       models: codexBinary ? codex.models : [],
       defaultModel: codex.defaultModel,
     },
@@ -889,55 +896,61 @@ function registerAgentIpc(): void {
     if (agentTurnBusy) return null;
     const operation = captureBridgeRoot();
     const request = parseAgentChatRequest(rawRequest);
-    let text = "";
-    const emit = (chatEvent: AgentChatEnvelope["event"]): void => {
-      if (chatEvent.type === "text-delta") text += chatEvent.text;
-    };
     activeTitleSession?.stop();
-    try {
-      if (request.provider === "claude") {
-        const binary = await resolveClaudeBinary();
-        if (!binary) return null;
-        const apiKey = request.claudeAuthMethod === "api-key"
-          ? await credentialStore().read() ?? inheritedAnthropicApiKey() ?? undefined
-          : undefined;
-        if (request.claudeAuthMethod === "api-key" && !apiKey) return null;
-        assertBridgeRoot(operation);
-        const session = new ClaudeSession({ binary, emit });
-        activeTitleSession = session;
-        await session.run({
-          rootPath: operation.rootPath,
-          prompt: request.prompt,
-          model: request.model,
-          authMethod: request.claudeAuthMethod,
-          apiKey,
-          permissionMode: "plan",
-        });
-      } else {
-        const binary = await resolveCodexBinary();
-        if (!binary) return null;
-        const openRouterApiKey = request.provider === "openrouter"
-          ? await openRouterStore().read() ?? inheritedOpenRouterApiKey() ?? undefined
-          : undefined;
-        if (request.provider === "openrouter" && !openRouterApiKey) return null;
-        assertBridgeRoot(operation);
-        const session = new CodexSession({ binary, emit });
-        activeTitleSession = session;
-        await session.run({
-          rootPath: operation.rootPath,
-          prompt: request.prompt,
-          provider: request.provider,
-          model: request.model,
-          openRouterApiKey,
-          permissionMode: "plan",
-        });
+    /* Cheapest model first, the chat's own only if that one produced nothing: a title is worth one
+       small turn, and a cheap alias this CLI does not accept must not cost the operator a name. */
+    for (const model of titleModels(request.provider, request.model)) {
+      let text = "";
+      const emit = (chatEvent: AgentChatEnvelope["event"]): void => {
+        if (chatEvent.type === "text-delta") text += chatEvent.text;
+      };
+      try {
+        if (request.provider === "claude") {
+          const binary = await resolveClaudeBinary();
+          if (!binary) return null;
+          const apiKey = request.claudeAuthMethod === "api-key"
+            ? await credentialStore().read() ?? inheritedAnthropicApiKey() ?? undefined
+            : undefined;
+          if (request.claudeAuthMethod === "api-key" && !apiKey) return null;
+          assertBridgeRoot(operation);
+          const session = new ClaudeSession({ binary, emit });
+          activeTitleSession = session;
+          await session.run({
+            rootPath: operation.rootPath,
+            prompt: request.prompt,
+            model,
+            authMethod: request.claudeAuthMethod,
+            apiKey,
+            permissionMode: "plan",
+          });
+        } else {
+          const binary = await resolveCodexBinary();
+          if (!binary) return null;
+          const openRouterApiKey = request.provider === "openrouter"
+            ? await openRouterStore().read() ?? inheritedOpenRouterApiKey() ?? undefined
+            : undefined;
+          if (request.provider === "openrouter" && !openRouterApiKey) return null;
+          assertBridgeRoot(operation);
+          const session = new CodexSession({ binary, emit });
+          activeTitleSession = session;
+          await session.run({
+            rootPath: operation.rootPath,
+            prompt: request.prompt,
+            provider: request.provider,
+            model,
+            openRouterApiKey,
+            permissionMode: "plan",
+          });
+        }
+      } catch {
+        return null;
+      } finally {
+        activeTitleSession = null;
       }
-    } catch {
-      return null;
-    } finally {
-      activeTitleSession = null;
+      const title = readTitle(text);
+      if (title) return title;
     }
-    return readTitle(text);
+    return null;
   });
   /* What the chat can reach, read where it is true: the harness's own working directory and the
      provider's own files, not a guess made in the renderer. */

@@ -18,16 +18,21 @@ describe("the Codex catalogue", () => {
     expect(result.unsupportedDefault).toBeNull();
   });
 
-  test("stops sending a configured model the CLI cannot run, and says why", () => {
-    /* The live failure: the Codex app writes ~/.codex/models_cache.json stamped with its own
-       version, the server gates the catalogue on the client version, and the installed CLI answers
-       a 5.6 model with a 400 that reads "requires a newer version of Codex". */
+  test("says so when the configured default is not a model this build knows", () => {
+    /* Not the same failure as "requires a newer version of Codex": that one comes from the server,
+       for a model the build *does* list, and is cured by running the Codex the operator actually
+       installed -- see `resolveCodexBinary`, which now follows Codex's own `current` symlink. */
     const result = codexCatalog(catalog, "gpt-5.6-luna");
     expect(result.unsupportedDefault).toBe("gpt-5.6-luna");
     expect(result.defaultModel).toBe("gpt-5.5");
-    /* "Codex default" is gone, not annotated: it means "whatever your config says", and what it
-       says fails every turn. Its absence is also what moves a chat already pinned to it. */
-    expect(result.models.map(({ id }) => id)).toEqual(["gpt-5.5", "gpt-5.4"]);
+    /* Annotated, never removed: a model can be listed by the build and still be refused by an
+       outdated CLI, and this function cannot tell the two apart -- so it states only what it
+       knows, that the configured name is not in this build's catalogue. */
+    expect(result.models.map(({ id }) => id)).toEqual(["default", "gpt-5.5", "gpt-5.4"]);
+    expect(result.models[0]).toMatchObject({
+      id: "default",
+      description: "Your Codex config asks for gpt-5.6-luna, which this build does not list",
+    });
   });
 
   test("falls back to the bare default when there is no catalogue at all", () => {

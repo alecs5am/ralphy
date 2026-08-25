@@ -9,6 +9,25 @@
  * once per chat.
  */
 
+/**
+ * The model a housekeeping turn is worth. Naming a chat is the cheapest question the provider will
+ * ever be asked, so it goes to the cheapest model each CLI documents rather than to the model the
+ * operator picked for the work: `gpt-5.4-mini` is Codex's own "small, fast, and cost-efficient"
+ * entry, and `fable` is the fast alias `claude --help` documents for the current family. A null
+ * means "no cheaper option is known" -- an OpenRouter id is the operator's own choice and there is
+ * no cheap equivalent to guess at.
+ */
+export function cheapTitleModel(provider: "claude" | "codex" | "openrouter"): string | null {
+  if (provider === "claude") return "fable";
+  return provider === "codex" ? "gpt-5.4-mini" : null;
+}
+
+/** The models to try for a title, cheapest first, ending with the chat's own. */
+export function titleModels(provider: "claude" | "codex" | "openrouter", chatModel: string): string[] {
+  const cheap = cheapTitleModel(provider);
+  return [...new Set([...(cheap ? [cheap] : []), chatModel])];
+}
+
 const MAX_TITLE = 48;
 const MAX_SOURCE = 1200;
 
