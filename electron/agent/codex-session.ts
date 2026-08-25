@@ -23,6 +23,9 @@ const MAX_PROMPT_BYTES = 128 * 1024;
 const MAX_LINE_BYTES = 1024 * 1024;
 const MAX_STDERR_BYTES = 64 * 1024;
 const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/* A handshake that never answers must fail rather than leave the chat on "Working". The bound is
+   generous because the daemon starts MCP servers and loads plugins before it replies. */
+const HANDSHAKE_TIMEOUT_MS = 60_000;
 
 function codexEnvironment(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const env = { ...source };
@@ -74,109 +77,106 @@ function parseLine(line: string): Record<string, unknown> | null {
   }
 }
 
-function itemFrom(message: Record<string, unknown>): Record<string, unknown> | null {
-  const value = message.item;
+function objectFrom(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
     : null;
 }
 
 function toolName(type: string): string {
-  if (type === "command_execution") return "Bash";
-  if (type === "file_change") return "Edit";
-  if (type === "mcp_tool_call") return "MCP";
-  if (type === "web_search") return "Web search";
+  if (type === "commandExecution") return "Bash";
+  if (type === "fileChange") return "Edit";
+  if (type === "mcpToolCall" || type === "dynamicToolCall") return "MCP";
+  if (type === "webSearch") return "Web search";
+  if (type === "imageGeneration") return "Image";
   return "Tool";
 }
 
 function toolSummary(item: Record<string, unknown>): string {
   return boundedString(
-    item.command ?? item.path ?? item.name ?? item.query ?? "",
+    item.command ?? item.path ?? item.name ?? item.query ?? item.text ?? "",
     1024,
   );
 }
 
-/* How much of each streaming message has already been sent, by item id. `codex exec --json`
-   reports an assistant message as it grows: every `item.updated` carries the whole text so far,
-   and the transcript's reducer appends what it receives -- so what goes on the wire is the part
-   that is new. Without this the only text event was `item.completed`, and the answer landed in one
-   piece after the whole turn: streaming looked dead because nothing streamed. */
+/* An item the transcript draws as neither prose nor a tool: the model thinking out loud, the
+   operator's own message echoed back, a plan. Ignored rather than rendered twice. */
+const SILENT_ITEMS = new Set([
+  "agentMessage",
+  "reasoning",
+  "userMessage",
+  "plan",
+  "hookPrompt",
+  "contextCompaction",
+  "enteredReviewMode",
+  "exitedReviewMode",
+]);
+
+/**
+ * How many characters of each assistant message have already been sent, by item id.
+ *
+ * `item/agentMessage/delta` carries only what is new, and the transcript's reducer appends what it
+ * receives, so a delta goes straight out. The count exists for the end of the message: the
+ * completed item carries the whole text, and without knowing what the deltas already covered the
+ * answer would be appended a second time in full.
+ */
 type SentLengths = Map<string, number>;
 
-function suffix(sent: SentLengths, id: string, text: string, done: boolean): AgentChatEvent[] {
-  const already = sent.get(id) ?? 0;
-  if (done) sent.delete(id);
-  else sent.set(id, Math.max(already, text.length));
-  const tail = text.slice(already);
-  return tail ? [{ type: "text-delta", text: tail }] : [];
-}
-
-function normalizedEvents(line: string, sent: SentLengths): AgentChatEvent[] {
-  const message = parseLine(line);
-  if (!message) return [];
-  if (message.type === "thread.started") {
-    const sessionId = boundedString(message.thread_id, 128);
-    return SESSION_ID.test(sessionId)
-      ? [{ type: "session", sessionId, tools: [] }]
-      : [];
+function normalizedEvents(
+  method: string,
+  params: Record<string, unknown>,
+  sent: SentLengths,
+): AgentChatEvent[] {
+  if (method === "thread/started") {
+    const sessionId = boundedString(params.threadId, 128);
+    return SESSION_ID.test(sessionId) ? [{ type: "session", sessionId, tools: [] }] : [];
   }
 
-  if (message.type === "item.started") {
-    const item = itemFrom(message);
-    if (!item || item.type === "agent_message" || item.type === "reasoning") return [];
-    const id = boundedString(item.id, 128);
-    const type = boundedString(item.type, 128);
-    return id ? [{
-      type: "tool-start",
-      id,
-      name: toolName(type),
-      summary: toolSummary(item),
-    }] : [];
+  if (method === "item/agentMessage/delta") {
+    const id = boundedString(params.itemId, 128);
+    const text = boundedString(params.delta, MAX_LINE_BYTES);
+    if (!id || !text) return [];
+    sent.set(id, (sent.get(id) ?? 0) + text.length);
+    return [{ type: "text-delta", text }];
   }
 
-  if (message.type === "item.updated") {
-    const item = itemFrom(message);
-    if (!item || item.type !== "agent_message") return [];
-    const id = boundedString(item.id, 128);
-    const text = boundedString(item.text, MAX_LINE_BYTES);
-    return id && text ? suffix(sent, id, text, false) : [];
-  }
-
-  if (message.type === "item.completed") {
-    const item = itemFrom(message);
+  if (method === "item/started") {
+    const item = objectFrom(params.item);
     if (!item) return [];
-    if (item.type === "agent_message") {
-      const text = boundedString(item.text, MAX_LINE_BYTES);
+    const type = boundedString(item.type, 128);
+    if (SILENT_ITEMS.has(type)) return [];
+    const id = boundedString(item.id, 128);
+    return id ? [{ type: "tool-start", id, name: toolName(type), summary: toolSummary(item) }] : [];
+  }
+
+  if (method === "item/completed") {
+    const item = objectFrom(params.item);
+    if (!item) return [];
+    const type = boundedString(item.type, 128);
+    if (type === "agentMessage") {
       const id = boundedString(item.id, 128);
+      const text = boundedString(item.text, MAX_LINE_BYTES);
       if (!text) return [];
-      /* Without an id there is nothing to have streamed against, so the whole message is new. */
-      return id ? suffix(sent, id, text, true) : [{ type: "text-delta", text }];
+      /* Whatever the deltas did not cover. With no id there is nothing to have streamed against,
+         so the whole message is new. */
+      const already = id ? sent.get(id) ?? 0 : 0;
+      if (id) sent.delete(id);
+      const tail = text.slice(already);
+      return tail ? [{ type: "text-delta", text: tail }] : [];
     }
-    if (item.type === "reasoning") return [];
+    if (SILENT_ITEMS.has(type)) return [];
     const id = boundedString(item.id, 128);
     if (!id) return [];
-    return [{
-      type: "tool-result",
-      id,
-      ok: item.status !== "failed"
-        && item.exit_code !== false
-        && (typeof item.exit_code !== "number" || item.exit_code === 0),
-    }];
+    return [{ type: "tool-result", id, ok: item.status !== "failed" && item.status !== "declined" }];
   }
 
-  if (message.type === "turn.failed") {
-    const error = message.error;
-    const detail = error && typeof error === "object" && !Array.isArray(error)
-      ? boundedString((error as Record<string, unknown>).message, MAX_STDERR_BYTES)
-      : "";
-    return [{ type: "error", code: "codex-turn", message: detail || "Codex turn failed" }];
-  }
-  if (message.type === "error") {
-    return [{
-      type: "error",
-      code: "codex-error",
-      message: boundedString(message.message, MAX_STDERR_BYTES) || "Codex failed",
-    }];
+  if (method === "error") {
+    const error = objectFrom(params.error);
+    const message = boundedString(error?.message, MAX_STDERR_BYTES);
+    /* A retry is Codex's own business and not a failed turn. */
+    return params.willRetry === true
+      ? []
+      : [{ type: "error", code: "codex-error", message: message || "Codex failed" }];
   }
   return [];
 }
@@ -214,15 +214,14 @@ async function canonicalContext(request: CodexRunRequest): Promise<{
   return { rootPath, cwd, prompt };
 }
 
-/* `--skip-git-repo-check` is not a permission: the harness runs in the library's parent, which is
-   the operator's home and not a git repository, and without it `codex exec` refuses to start with
-   "Not inside a trusted directory". A `full` turn never hit it because bypassing the sandbox also
-   bypasses the trust check -- which is why Plan and Auto looked like they worked and did not. What
-   a turn may touch is still decided entirely by the sandbox flags below. */
-function permissionArgs(mode: AgentPermissionMode): string[] {
-  if (mode === "full") return ["--dangerously-bypass-approvals-and-sandbox"];
-  if (mode === "plan") return ["--sandbox", "read-only"];
-  if (mode === "auto") return ["--sandbox", "workspace-write"];
+/* What a turn may touch. The app server takes the sandbox as a thread setting rather than a
+   command-line flag, and the three modes map onto its three sandbox values exactly. Approvals are
+   never routed to this client: there is no approval surface in the chat, and a turn that stops to
+   ask a question nobody can see is a turn that hangs. */
+function sandboxMode(mode: AgentPermissionMode): "read-only" | "workspace-write" | "danger-full-access" {
+  if (mode === "full") return "danger-full-access";
+  if (mode === "plan") return "read-only";
+  if (mode === "auto") return "workspace-write";
   throw new Error("Invalid Codex permission mode");
 }
 
@@ -353,6 +352,7 @@ export class CodexSession {
   #process: ChildProcess | null = null;
   #stopping = false;
   #sessionId: string | null = null;
+  #turnId: string | null = null;
 
   constructor(options: CodexSessionOptions) {
     this.#binary = options.binary;
@@ -377,27 +377,21 @@ export class CodexSession {
       throw new Error("Invalid Codex provider");
     }
 
-    const args = [
+    /* `app-server` rather than `exec`: `codex exec --json` reports an assistant message only once,
+       as a finished item, so an answer of any length landed in the transcript in one piece after
+       the whole turn -- there was nothing to stream. The app server is the transport Codex's own
+       desktop client uses, and it emits `item/agentMessage/delta` as the model writes. */
+    const child = spawn(this.#binary, [
       ...(request.provider === "openrouter" ? openRouterArgs() : []),
-      ...(request.model === "default" ? [] : ["--model", request.model]),
-      "--cd", context.cwd,
-      ...permissionArgs(request.permissionMode),
-      "exec",
-      ...(request.resumeSessionId
-        ? ["resume", "--skip-git-repo-check", "--json", request.resumeSessionId, context.prompt]
-        : ["--skip-git-repo-check", "--json", context.prompt]),
-    ];
-    const child = spawn(this.#binary, args, {
-      cwd: context.cwd,
-      env,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+      "app-server",
+    ], { cwd: context.cwd, env, stdio: ["pipe", "pipe", "pipe"] });
     this.#process = child;
     this.#stopping = false;
     this.#sessionId = request.resumeSessionId ?? null;
+    this.#turnId = null;
     const startedAt = Date.now();
     let stderr = "";
-    let sawResult = false;
+    let settled = false;
 
     child.stderr?.setEncoding("utf8");
     child.stderr?.on("data", (chunk: string) => {
@@ -406,65 +400,161 @@ export class CodexSession {
       }
     });
 
+    let nextId = 0;
+    const pending = new Map<number, { resolve(value: Record<string, unknown>): void; reject(error: Error): void }>();
+    const call = (method: string, params: Record<string, unknown>): Promise<Record<string, unknown>> => {
+      const id = (nextId += 1);
+      child.stdin?.write(`${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`);
+      return new Promise((resolve, reject) => {
+        pending.set(id, { resolve, reject });
+        setTimeout(() => {
+          if (!pending.delete(id)) return;
+          reject(new Error(`Codex did not answer ${method}`));
+        }, HANDSHAKE_TIMEOUT_MS);
+      });
+    };
+
+    const finish = (event: AgentChatEvent): void => {
+      if (settled) return;
+      settled = true;
+      this.#emit(event);
+    };
+
     const output = (async () => {
       if (!child.stdout) return;
       const sent: SentLengths = new Map();
       const lines = createInterface({ input: child.stdout, crlfDelay: Infinity });
       for await (const line of lines) {
         const message = parseLine(line);
-        if (message?.type === "turn.completed") {
-          sawResult = true;
-          this.#emit({
-            type: "result",
-            ok: true,
-            cancelled: false,
-            costUsd: 0,
-            durationMs: Date.now() - startedAt,
-            sessionId: this.#sessionId,
-          });
+        if (!message) continue;
+        if (typeof message.id === "number" && message.method === undefined) {
+          const slot = pending.get(message.id);
+          if (!slot) continue;
+          pending.delete(message.id);
+          const error = objectFrom(message.error);
+          if (error) slot.reject(new Error(boundedString(error.message, 512) || "Codex refused"));
+          else slot.resolve(objectFrom(message.result) ?? {});
           continue;
         }
-        for (const event of normalizedEvents(line, sent)) {
+        const method = boundedString(message.method, 128);
+        if (!method) continue;
+        /* A request from the server, not a notification: something wants an answer this chat has
+           no surface for. Refusing keeps the turn moving -- an unanswered request never returns. */
+        if (message.id !== undefined) {
+          child.stdin?.write(`${JSON.stringify({
+            jsonrpc: "2.0",
+            id: message.id,
+            error: { code: -32601, message: "Ralphy cannot answer this request" },
+          })}\n`);
+          continue;
+        }
+        const params = objectFrom(message.params) ?? {};
+        if (method === "turn/started") {
+          this.#turnId = boundedString(params.turnId, 128) || this.#turnId;
+          continue;
+        }
+        if (method === "turn/completed") {
+          const turn = objectFrom(params.turn);
+          const status = boundedString(turn?.status, 64);
+          const failure = objectFrom(turn?.error);
+          if (status === "failed") {
+            finish({
+              type: "error",
+              code: "codex-turn",
+              message: boundedString(failure?.message, MAX_STDERR_BYTES) || "Codex turn failed",
+            });
+          } else {
+            finish({
+              type: "result",
+              ok: status === "completed",
+              cancelled: status === "interrupted",
+              costUsd: 0,
+              durationMs: Date.now() - startedAt,
+              sessionId: this.#sessionId,
+            });
+          }
+          break;
+        }
+        for (const event of normalizedEvents(method, params, sent)) {
           if (event.type === "session") this.#sessionId = event.sessionId;
-          if (event.type === "error") sawResult = true;
-          this.#emit(event);
+          if (event.type === "error") finish(event);
+          else this.#emit(event);
         }
       }
     })();
 
     try {
-      const exitCode = await new Promise<number | null>((resolve, reject) => {
-        child.once("error", reject);
-        child.once("close", resolve);
+      await call("initialize", { clientInfo: { name: "ralphy-desktop", title: "Ralphy", version: "1" } });
+      child.stdin?.write(`${JSON.stringify({ jsonrpc: "2.0", method: "initialized", params: {} })}\n`);
+      const settings = {
+        cwd: context.cwd,
+        sandbox: sandboxMode(request.permissionMode),
+        approvalPolicy: "never",
+        ...(request.model === "default" ? {} : { model: request.model }),
+      };
+      const thread = request.resumeSessionId
+        ? await call("thread/resume", { threadId: request.resumeSessionId, ...settings })
+        : await call("thread/start", settings);
+      const threadId = boundedString(objectFrom(thread.thread)?.id, 128);
+      if (!SESSION_ID.test(threadId)) throw new Error("Codex did not open a thread");
+      /* The id is known here, but the `thread/started` notification is what tells the renderer --
+         emitting it twice would put two session events on one turn. On a resume there is nothing
+         to tell: the renderer is the side that supplied the id. */
+      this.#sessionId = threadId;
+      await call("turn/start", {
+        threadId,
+        input: [{ type: "text", text: context.prompt, text_elements: [] }],
       });
       await output;
-      if (!sawResult) {
-        if (this.#stopping) {
-          this.#emit({
+      if (!settled) {
+        finish(this.#stopping
+          ? {
             type: "result",
             ok: false,
             cancelled: true,
             costUsd: 0,
             durationMs: Date.now() - startedAt,
             sessionId: this.#sessionId,
-          });
-        } else {
-          this.#emit({
+          }
+          : {
             type: "error",
             code: "codex-exit",
-            message: stderr.trim() || `Codex exited with code ${exitCode ?? "unknown"}`,
+            message: stderr.trim() || "Codex stopped without finishing the turn",
           });
-        }
       }
+    } catch (error) {
+      finish({
+        type: "error",
+        code: "codex-exit",
+        message: boundedString(error instanceof Error ? error.message : "", MAX_STDERR_BYTES)
+          || stderr.trim()
+          || "Codex failed to start",
+      });
     } finally {
+      for (const slot of pending.values()) slot.reject(new Error("Codex stopped"));
+      pending.clear();
+      child.kill("SIGTERM");
       if (this.#process === child) this.#process = null;
       this.#stopping = false;
+      this.#turnId = null;
     }
   }
 
   stop(): void {
-    if (!this.#process) return;
+    const child = this.#process;
+    if (!child) return;
     this.#stopping = true;
-    this.#process.kill("SIGTERM");
+    /* Ask the turn to stop before killing the daemon: an interrupted turn reports itself, so the
+       transcript ends on a cancelled result rather than on a process that vanished. */
+    if (this.#sessionId && this.#turnId) {
+      child.stdin?.write(`${JSON.stringify({
+        jsonrpc: "2.0",
+        id: 0,
+        method: "turn/interrupt",
+        params: { threadId: this.#sessionId, turnId: this.#turnId },
+      })}\n`);
+      return;
+    }
+    child.kill("SIGTERM");
   }
 }
