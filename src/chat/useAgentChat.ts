@@ -65,7 +65,17 @@ export interface AgentConversation {
   claudeAuthMethod: ClaudeAuthMethod;
   permissionMode: AgentPermissionMode;
   lastCostUsd: number | null;
+  /* What the provider said the last turn carried. Not persisted: a figure from a previous session
+     is not a measurement of this one, and the Context page would read it as current. */
+  usage: AgentChatUsage | null;
   updatedAt: number;
+}
+
+/** The provider's own reading of one turn. `contextWindow` is null when it does not name one. */
+export interface AgentChatUsage {
+  inputTokens: number;
+  totalTokens: number;
+  contextWindow: number | null;
 }
 
 export interface AgentChatState {
@@ -114,6 +124,7 @@ function createConversation(options: CreateAgentChatOptions): AgentConversation 
     claudeAuthMethod: "subscription",
     permissionMode: "full",
     lastCostUsd: null,
+    usage: null,
     updatedAt: options.now,
   };
 }
@@ -204,6 +215,16 @@ function reduceEvent(
       lastCostUsd: event.costUsd,
     };
   }
+  if (event.type === "usage") {
+    return {
+      ...chat,
+      usage: {
+        inputTokens: event.inputTokens,
+        totalTokens: event.totalTokens,
+        contextWindow: event.contextWindow,
+      },
+    };
+  }
   return {
     ...appendEntry(chat, { kind: "error", at: now, text: event.message }),
     busy: false,
@@ -254,6 +275,9 @@ export function reduceAgentChat(
       model: action.model,
       sessionId: null,
       lastCostUsd: null,
+      /* A new provider is a different window and a different preamble, so the previous reading
+         stops describing this chat. */
+      usage: null,
       updatedAt: action.now,
     }));
   }
@@ -268,6 +292,7 @@ export function reduceAgentChat(
     return updateChat(state, state.activeChatId, (chat) => ({
       ...chat,
       model: action.model,
+      usage: null,
       updatedAt: action.now,
     }));
   }
@@ -427,6 +452,7 @@ function parseConversation(value: unknown): AgentConversation | null {
     lastCostUsd: typeof row.lastCostUsd === "number" && Number.isFinite(row.lastCostUsd)
       ? row.lastCostUsd
       : null,
+    usage: null,
     updatedAt: typeof row.updatedAt === "number" && Number.isFinite(row.updatedAt)
       ? row.updatedAt
       : 0,

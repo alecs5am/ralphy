@@ -27,6 +27,7 @@ import { WorkspaceScreen } from "./screens/WorkspaceScreen";
 import { WorkspaceProjectsScreen } from "./screens/WorkspaceProjectsScreen";
 import { WorkspaceUnitsScreen } from "./screens/WorkspaceUnitsScreen";
 import { MigrationRecoveryScreen } from "./screens/MigrationRecoveryScreen";
+import { ContextScreen } from "./screens/ContextScreen";
 import { MemoryScreen } from "./screens/MemoryScreen";
 import { CalendarScreen } from "./screens/CalendarScreen";
 import { SharedLibraryScreen } from "./screens/SharedLibraryScreen";
@@ -821,6 +822,17 @@ export function App() {
     );
   } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "memory") {
     workContent = <MemoryScreen workspaceId={selectedWorkspace.id} workspaceName={selectedWorkspace.name} />;
+  } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "context") {
+    /* The page reads the active chat's provider and its measured usage: context is a property of a
+       chat, not of a workspace, and a figure from another chat would be the wrong number. */
+    workContent = <ContextScreen
+      key={`context:${selectedWorkspace.id}:${agentChat.activeChat.provider}`}
+      provider={agentChat.activeChat.provider}
+      project={selectedProject}
+      workspaceId={selectedWorkspace.id}
+      usage={agentChat.activeChat.usage}
+      onOpenMemory={() => openWorkspacePage("memory")}
+    />;
   } else if (state.route.kind === "workspace" && selectedWorkspace && workspacePage === "shared") {
     workContent = <SharedLibraryScreen
       key={`shared:${rootIdentity?.rootEpoch ?? 0}:${selectedWorkspace.id}`}
@@ -983,6 +995,9 @@ export function App() {
             chat={<AgentChatPanel
               onClose={() => setLens("desk")}
               onOpenSettings={openSettings}
+              /* The chat lens' Context is a view beside the chat, not a route change: the operator
+                 is mid-message, and the point is to read what the turn carries without leaving it. */
+              onOpenContext={() => openView({ type: "context", label: WORKSPACE_PAGE_LABELS.context })}
               chat={agentChat}
               workspace={selectedWorkspace}
               project={selectedProject}

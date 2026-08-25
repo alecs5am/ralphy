@@ -50,6 +50,7 @@ export const VIEW_TYPES: readonly ViewTypeDescriptor[] = [
   { type: "calendar", label: WORKSPACE_PAGE_LABELS.calendar, singleton: true, command: "view.calendar" },
   { type: "shared", label: WORKSPACE_PAGE_LABELS.shared, singleton: true, command: "view.shared" },
   { type: "memory", label: WORKSPACE_PAGE_LABELS.memory, singleton: true, command: "view.memory" },
+  { type: "context", label: WORKSPACE_PAGE_LABELS.context, singleton: true, command: "view.context" },
   { type: "project", label: "Project", singleton: false, command: null },
   /* One browser per chat, not one per page: a second blank tab is a tab you have to name before
      it is worth anything, and the strip already has the chat's places on it. */
@@ -70,6 +71,7 @@ const WORKSPACE_PAGE_BY_TYPE: Partial<Record<ViewTabType, WorkspacePage>> = {
   units: "units",
   shared: "shared",
   memory: "memory",
+  context: "context",
   calendar: "calendar",
 };
 

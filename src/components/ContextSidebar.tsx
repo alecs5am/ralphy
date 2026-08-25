@@ -1,4 +1,4 @@
-import { Boxes, Brain, CalendarDays, ChartNoAxesCombined, CircleAlert, Compass, Download, FolderOpen, Layers3, PackageCheck, PanelLeft, Plus, Save, Search, Sparkles, Store, UsersRound, WandSparkles, type LucideIcon } from "lucide-react";
+import { Boxes, Brain, CalendarDays, Layers, ChartNoAxesCombined, CircleAlert, Compass, Download, FolderOpen, Layers3, PackageCheck, PanelLeft, Plus, Save, Search, Sparkles, Store, UsersRound, WandSparkles, type LucideIcon } from "lucide-react";
 
 import { Keycap } from "./ui/Keycap";
 import { useId, useMemo, useState, type CSSProperties } from "react";
@@ -65,6 +65,7 @@ const PAGE_ICONS: Record<WorkspacePage, LucideIcon> = {
   units: UsersRound,
   shared: Boxes,
   memory: Brain,
+  context: Layers,
   calendar: CalendarDays,
 };
 

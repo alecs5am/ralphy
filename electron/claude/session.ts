@@ -14,7 +14,7 @@ import type {
   ClaudeChatEvent,
   ClaudePermissionMode,
 } from "../media/types";
-import { readAgentContext, type AgentMemoryDigest } from "../agent/context";
+import { agentPreamble, type AgentMemoryDigest } from "../agent/context";
 import { validateAnthropicApiKey } from "./credentials";
 
 export type {
@@ -153,14 +153,27 @@ function normalizedEvents(line: string): ClaudeChatEvent[] {
 
   if (message.type === "result") {
     const sessionId = boundedString(message.session_id, 128) || null;
-    return [{
-      type: "result",
-      ok: message.subtype === "success",
-      cancelled: false,
-      costUsd: Number.isFinite(message.total_cost_usd) ? Number(message.total_cost_usd) : 0,
-      durationMs: Number.isFinite(message.duration_ms) ? Number(message.duration_ms) : 0,
-      sessionId,
-    }];
+    /* Claude reports the turn's usage on the result and never names the model's window, so the
+       page gets a real total with no denominator rather than a denominator we made up. */
+    const usage = message.usage as Record<string, unknown> | undefined;
+    const input = Number(usage?.input_tokens) + Number(usage?.cache_read_input_tokens ?? 0);
+    const output = Number(usage?.output_tokens);
+    return [
+      ...(Number.isFinite(input) ? [{
+        type: "usage" as const,
+        inputTokens: Math.max(0, Math.trunc(input)),
+        totalTokens: Math.max(0, Math.trunc(input + (Number.isFinite(output) ? output : 0))),
+        contextWindow: null,
+      }] : []),
+      {
+        type: "result",
+        ok: message.subtype === "success",
+        cancelled: false,
+        costUsd: Number.isFinite(message.total_cost_usd) ? Number(message.total_cost_usd) : 0,
+        durationMs: Number.isFinite(message.duration_ms) ? Number(message.duration_ms) : 0,
+        sessionId,
+      },
+    ];
   }
 
   return [];
@@ -206,7 +219,7 @@ async function canonicalContext(request: ClaudeRunRequest): Promise<{
      `--append-system-prompt` is where a harness's own context belongs, and it keeps the message
      the operator wrote the message the model is answering. Codex has no equivalent on `exec`, so
      there the preamble is still a prefix. */
-  const { preamble } = await readAgentContext({
+  const preamble = await agentPreamble({
     provider: "claude",
     rootPath,
     projectPath,

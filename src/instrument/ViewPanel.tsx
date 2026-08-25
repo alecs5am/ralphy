@@ -10,6 +10,7 @@ import {
   LayoutGrid,
   Library,
   Plus,
+  UsersRound,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -42,10 +43,13 @@ const TAB_ICONS: Record<ViewTabType, LucideIcon> = {
   home: House,
   overview: LayoutDashboard,
   projects: Folder,
-  units: Layers,
+  /* `UsersRound`, not `Layers`: the sidebar draws Units with it, and `Layers` is the mark the
+     Context handoff names -- two tabs cannot share one glyph in a strip this narrow. */
+  units: UsersRound,
   calendar: Calendar,
   shared: Library,
   memory: Brain,
+  context: Layers,
   /* A project tab is the media grid the handoff names: the grid is what a project opens on. */
   project: LayoutGrid,
   browser: Globe,

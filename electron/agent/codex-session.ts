@@ -10,7 +10,7 @@ import { dirname, join, sep } from "node:path";
 import { createInterface } from "node:readline";
 import { promisify } from "node:util";
 
-import { readAgentContext, type AgentMemoryDigest } from "./context";
+import { agentPreamble, type AgentMemoryDigest } from "./context";
 import type {
   AgentChatEvent,
   AgentPermissionMode,
@@ -143,6 +143,25 @@ function normalizedEvents(
     return [{ type: "text-delta", text }];
   }
 
+  /* The app-server reports usage per turn, with the model's own window beside it. This is the
+     only number the Context page is allowed to show, so it is carried verbatim: `last` is what the
+     turn just sent, which is what "the next turn carries" is measured from. */
+  if (method === "thread/tokenUsage/updated") {
+    const usage = objectFrom(params.tokenUsage);
+    const last = objectFrom(usage?.last);
+    if (!last) return [];
+    const input = Number(last.inputTokens);
+    const total = Number(last.totalTokens);
+    if (!Number.isFinite(input) || !Number.isFinite(total)) return [];
+    const window = Number(usage?.modelContextWindow);
+    return [{
+      type: "usage",
+      inputTokens: Math.max(0, Math.trunc(input)),
+      totalTokens: Math.max(0, Math.trunc(total)),
+      contextWindow: Number.isFinite(window) && window > 0 ? Math.trunc(window) : null,
+    }];
+  }
+
   if (method === "item/started") {
     const item = objectFrom(params.item);
     if (!item) return [];
@@ -212,7 +231,7 @@ async function canonicalContext(request: CodexRunRequest): Promise<{
   /* The preamble is the same list the Context panel shows, built from the files that are really
      there: the working directory is the operator's home, so nothing relative reaches Ralphy's own
      guides and naming them would be a wish rather than an instruction. */
-  const { preamble } = await readAgentContext({
+  const preamble = await agentPreamble({
     provider: request.provider,
     rootPath,
     projectPath,

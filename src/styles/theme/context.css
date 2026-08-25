@@ -1,0 +1,40 @@
+/* Role keys owned by the Context page. One file per area, so the areas never collide in the shared
+   theme layer. Every key names a role and resolves to a token in tokens.css or a value the design
+   fixes for this page; the markup reaches for the name, never a literal.
+
+   The page has no colours of its own. Its five layer marks are the app's own ink ramp read as a
+   ladder -- ink, secondary, muted-decorative, unreviewed -- which is why they stay ordered by
+   contrast when the theme flips instead of becoming four near-identical greys. */
+
+:root {
+  /* A layer row: the kind's glyph, the name over its path, the reading, the one action. Percentages
+     and multi-part values are plain custom properties because `grid-template-columns` is not a
+     Tailwind namespace -- `@theme inline` never emits the variable, so `grid-cols-(--name)` has to
+     find a real declaration reachable from the element. */
+  --context-row-columns: 15px minmax(0, 1fr) auto auto auto;
+  /* The assembled document: a quiet layer mark in the gutter, the region beside it. */
+  --context-region-columns: 86px minmax(0, 1fr);
+}
+
+@theme inline {
+  /* The band body's indent: a row starts under the band name, not under its chevron. */
+  --spacing-context-indent: 27px;
+  /* The page is a document about one turn, so it reads at a column width rather than at whatever
+     the window happens to be: at 1400px the tag and the size drifted a hand's width from the name
+     they describe. */
+  --spacing-context-column: 1040px;
+  --spacing-context-swatch: 7px;
+  /* The true-scale bar states the model's whole window, so it is the one element on the page whose
+     emptiness is the message. The composition bar below it is the same segments at 100%. */
+  --height-context-scale-bar: 10px;
+  --height-context-composition-bar: 20px;
+  --height-context-band: 40px;
+  --height-context-row: 44px;
+
+  /* The layer ladder. Machine is the darkest because it is the layer furthest from the operator's
+     control; absent is the faintest because absent is normal. */
+  --color-layer-machine: var(--instrument-text-primary);
+  --color-layer-ralphy: var(--instrument-text-secondary-decorative);
+  --color-layer-workspace: var(--instrument-text-muted-decorative);
+  --color-layer-absent: var(--instrument-unreviewed);
+}

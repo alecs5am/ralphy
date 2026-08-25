@@ -212,11 +212,14 @@ describe("workspace projects navigation", () => {
       />,
     );
 
-    expect(WORKSPACE_PAGES).toEqual(["overview", "projects", "units", "shared", "memory", "calendar"]);
+    /* Context sits beside Memory, which is the handoff's own placement: both answer "what does the
+       agent already know", and one of them is the durable half of the other. */
+    expect(WORKSPACE_PAGES).toEqual(["overview", "projects", "units", "shared", "memory", "context", "calendar"]);
     expect(readWorkbenchPreferences({ getItem: () => null, setItem: () => undefined }).workspacePage).toBe("overview");
     expect(markup).toContain("Overview");
     expect(markup.indexOf("Overview")).toBeLessThan(markup.indexOf("Projects"));
     expect(markup).toContain("Memory");
+    expect(markup).toContain("Context");
     expect(markup).toContain("Calendar");
     expect(markup).toContain("Shared library");
     expect(markup).not.toContain("THIS COMPUTER");

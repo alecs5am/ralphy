@@ -26,7 +26,8 @@ import {
   validateOpenRouterApiKey,
 } from "./claude/credentials";
 import { parseAgentChatRequest } from "./agent/request";
-import { readAgentContext, type AgentMemoryDigest } from "./agent/context";
+import { type AgentMemoryDigest } from "./agent/context";
+import { readContextPage, type ContextDocument } from "./agent/context-page";
 import { readTitle, titleModels } from "./agent/title";
 import {
   CodexSession,
@@ -975,6 +976,10 @@ function registerAgentIpc(): void {
     }
   };
 
+  /* The places the last Context read named. Reveal is checked against it rather than against a
+     path prefix, so the capability is exactly "open something this page listed". */
+  let revealable = new Set<string>();
+
   /* What the chat can reach, read where it is true: the harness's own working directory and the
      provider's own files, not a guess made in the renderer. */
   securedHandle(AGENT_CHANNELS.context, async (event, rawInput: unknown) => {
@@ -1000,14 +1005,35 @@ function registerAgentIpc(): void {
       : null;
     assertBridgeRoot(operation);
     const rootPath = await realpath(operation.rootPath);
-    return readAgentContext({
+    const workspaceId = request.workspaceId ?? request.project?.workspaceId ?? null;
+    /* Documents come from Core, which can be down while every file-backed layer still reads. The
+       page draws that difference, so the failure is carried as a reason rather than as an empty
+       list -- "no documents" and "we could not ask" are not the same sentence. */
+    const documents = await contextDocuments(workspaceId, request.project?.projectId ?? null);
+    const page = await readContextPage({
       provider,
       rootPath,
       projectPath,
+      projectName: request.project?.projectId ?? null,
       cwd: await realpath(dirname(rootPath)),
       cli: ralphyBin ?? null,
-      memory: await memoryDigest(request.workspaceId ?? request.project?.workspaceId ?? null),
+      memory: await memoryDigest(workspaceId),
+      workspaceDocuments: documents.workspace,
+      projectDocuments: documents.project,
+      coreUnavailable: documents.unavailable,
     });
+    /* Reveal accepts only what this read reported. The rows point outside the library -- the
+       provider's own home, the skills tree -- so the media file guard cannot vet them, and the
+       honest boundary is that the renderer can open a place the main process just named and
+       nothing else. */
+    revealable = new Set(page.layers.flatMap((layer) => layer.rows.map((row) => row.path).filter(Boolean)));
+    return page;
+  });
+  securedHandle(AGENT_CHANNELS.contextReveal, (event, rawPath: unknown) => {
+    assertTrustedSender(event);
+    const path = parseString(rawPath, "context path", 4096);
+    if (!revealable.has(path)) throw new Error("That place is not one the Context page reported");
+    shell.showItemInFolder(path);
   });
   securedHandle(AGENT_CHANNELS.stop, (event) => {
     assertTrustedSender(event);
@@ -1183,6 +1209,50 @@ function projectReaderForCurrentRoot() {
       return { url: `ralphy-media://asset/${minted.token}`, sizeBytes: minted.sizeBytes };
     },
   });
+}
+
+/**
+ * The documents the Context page places in its Workspace and Project bands. One list per scope,
+ * because a project document shadows the workspace document of the same slug and the page has to
+ * name the winner; a failure returns a reason so the bands can say so instead of reading empty.
+ */
+async function contextDocuments(workspaceId: string | null, projectId: string | null): Promise<{
+  workspace: ContextDocument[] | null;
+  project: ContextDocument[] | null;
+  unavailable: string | null;
+}> {
+  if (!workspaceId) return { workspace: null, project: null, unavailable: null };
+  const operation = captureBridgeRoot();
+  const list = async (context: { workspaceId: string; projectId?: string }): Promise<ContextDocument[]> => {
+    assertBridgeRoot(operation);
+    const page = await ralphySession.client.request("document.list", { context, limit: 100 });
+    assertBridgeRoot(operation);
+    /* Memory is a document kind in the store, and the Workspace band already carries it as one
+       row with Core's own digest on it. Listing the same eight entries again as documents would
+       double-count the layer and bury the two documents the band exists to show. */
+    return page.items
+      .filter((row) => row.kind !== "memory")
+      .map((row) => ({
+        id: row.id,
+        slug: row.slug,
+        title: row.title,
+        kind: row.kind,
+        revisions: null,
+      }));
+  };
+  try {
+    const [workspace, project] = await Promise.all([
+      list({ workspaceId }),
+      projectId ? list({ workspaceId, projectId }) : Promise.resolve([]),
+    ]);
+    return { workspace, project, unavailable: null };
+  } catch (error) {
+    return {
+      workspace: null,
+      project: null,
+      unavailable: error instanceof Error ? error.message : "Core did not answer",
+    };
+  }
 }
 
 function memoryReaderForCurrentRoot() {

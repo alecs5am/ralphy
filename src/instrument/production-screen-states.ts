@@ -1,6 +1,7 @@
 import { isChatRailVisible, isWorkspacePickerVisible } from "../App";
 import { welcomeInstrumentStates } from "../components/WelcomeScreen";
 import { calendarInstrumentStates } from "../screens/CalendarScreen";
+import { contextInstrumentStates } from "../screens/ContextScreen";
 import { libraryInstrumentStates } from "../screens/LibraryScreen";
 import { marketplaceInstrumentStates } from "../screens/MarketplaceScreen";
 import { memoryInstrumentStates } from "../screens/MemoryScreen";
@@ -32,6 +33,7 @@ export const PRODUCTION_SCREEN_STATES: readonly InstrumentScreenStateDescriptor[
   workspaceUnitsInstrumentStates,
   sharedLibraryInstrumentStates,
   memoryInstrumentStates,
+  contextInstrumentStates,
   calendarInstrumentStates,
   unitsInstrumentStates,
   documentsInstrumentStates,

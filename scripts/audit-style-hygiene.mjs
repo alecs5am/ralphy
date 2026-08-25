@@ -170,6 +170,9 @@ for (const path of sources(join(ROOT, "src"))) {
   const attributes = [...source.matchAll(/class(?:Name)?=(?:"([^"]*)"|\{`([\s\S]*?)`\}|\{"([^"]*)"\})/g)]
     .map((match) => match[1] ?? match[2] ?? match[3] ?? "");
   for (const token of attributes.flatMap((value) => value.split(/\s+/)).filter((value) => value.includes("["))) {
+    // An interpolation is a runtime expression, not a literal: `${MAP[key]}` carries a bracket the
+    // scanner cannot read, and naming its variable as a utility family invents a family.
+    if (token.includes("${")) continue;
     const segments = [];
     let depth = 0, cursor = 0;
     for (let index = 0; index < token.length; index += 1) {

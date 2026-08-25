@@ -210,19 +210,24 @@ function createMockBridge(): RalphyBridge {
     pathForFile: () => null,
     /* No provider, no title: the mock leaves a chat with the name it has. */
     async summariseAgentTitle() { return null; },
+    /* Nothing to reveal in a mock library: the page's places are real files or they are absent. */
+    async revealContextPath() {},
     async loadAgentContext({ provider }) {
-      /* The mock states the same shape with nothing in it: a demo library reaches no files. */
+      /* The mock states the same shape with nothing in it: a demo library reaches no files, and
+         every band says so rather than the page rendering as though it failed to load. */
       return {
         provider,
         cwd: "/mock",
-        entries: [{
-          kind: "cwd" as const,
-          label: "Working directory",
-          path: "/mock",
-          present: true,
-          detail: "Mock bridge — no provider runs here",
-        }],
         preamble: "[Ralphy Media context]\nLibrary: /mock\n[/Ralphy Media context]",
+        layers: (["machine", "ralphy", "workspace", "project", "skills"] as const).map((id) => ({
+          id,
+          label: id[0]!.toLocaleUpperCase() + id.slice(1),
+          note: "mock bridge — no provider runs here",
+          rows: [],
+          count: null,
+          unavailable: "No provider runs in the mock bridge",
+          warning: null,
+        })),
       };
     },
     async restoreLibrary() {

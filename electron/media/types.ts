@@ -230,6 +230,10 @@ export type AgentChatEvent =
   | { type: "text-delta"; text: string }
   | { type: "tool-start"; id: string; name: string; summary: string }
   | { type: "tool-result"; id: string; ok: boolean }
+  /* What the last turn actually carried, as the provider reported it. The Context page's whole
+     premise is that no figure on it is estimated, so this is the only source it draws from --
+     and `contextWindow` is null whenever the provider does not name one. */
+  | { type: "usage"; inputTokens: number; totalTokens: number; contextWindow: number | null }
   | {
     type: "result";
     ok: boolean;
@@ -560,12 +564,14 @@ export interface MediaWorkbenchBridge extends MarketplaceBridge {
   sendAgentMessage(request: AgentChatRequest): Promise<void>;
   /** One short read-only turn that names a chat, or null when the provider cannot answer now. */
   summariseAgentTitle(request: AgentChatRequest): Promise<string | null>;
-  /** What a chat of this provider can actually reach, and the preamble every prompt carries. */
+  /** Everything a chat of this provider carries before it reads a message, in five layers. */
   loadAgentContext(input: {
     provider: AgentProvider;
     workspaceId?: string | null;
     project?: ProjectReference | null;
-  }): Promise<import("../agent/context").AgentContextDto>;
+  }): Promise<import("../agent/context-page").ContextPageDto>;
+  /** Show one of the places the Context page listed in Finder. Only those paths are accepted. */
+  revealContextPath(path: string): Promise<void>;
   stopAgent(): Promise<void>;
   onAgentEvent(callback: (event: AgentChatEnvelope) => void): () => void;
   onToggleRightPanel(callback: () => void): () => void;
@@ -647,6 +653,7 @@ export const AGENT_CHANNELS = {
   send: "agent:send",
   title: "agent:title",
   context: "agent:context",
+  contextReveal: "agent:context:reveal",
   stop: "agent:stop",
   event: "agent:event",
 } as const;

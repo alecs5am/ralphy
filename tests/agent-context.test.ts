@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
-import { providerHome, ralphyPreamble, readAgentContext } from "../electron/agent/context";
+import { agentPreamble, providerHome, ralphyPreamble } from "../electron/agent/context";
 
 async function home(): Promise<string> {
   return await mkdtemp(join(tmpdir(), "ralphy-context-"));
@@ -21,31 +21,24 @@ describe("what a chat can reach", () => {
     expect(providerHome("openrouter", "/h").config).toBe("/h/.codex/config.toml");
   });
 
-  test("reports a file as absent rather than as a promise", async () => {
+  test("names in the preamble only the instruction files that are really there", async () => {
     const root = await home();
     const cwd = await home();
-    await mkdir(join(root, ".codex", "skills", "one"), { recursive: true });
-    await mkdir(join(root, ".codex", "skills", "two"), { recursive: true });
+    await mkdir(join(root, ".codex"), { recursive: true });
     await writeFile(join(root, ".codex", "AGENTS.md"), "# tools\n");
 
-    const context = await readAgentContext({
+    const preamble = await agentPreamble({
       provider: "codex",
       rootPath: "/library/.ralphy",
       projectPath: "/library/.ralphy/buckets/w/projects/p",
       cwd,
       home: root,
     });
-    const by = (label: string) => context.entries.find((entry) => entry.label.startsWith(label))!;
-    expect(by("Your instructions").present).toBe(true);
-    expect(by("Skills").detail).toBe("2 installed · loaded when one is needed");
-    // Nothing was written in the working directory, and no config file exists.
-    expect(by("AGENTS.md in").present).toBe(false);
-    expect(by("Provider configuration").present).toBe(false);
-
-    // The preamble names what is really there, absolutely -- and never what is not.
-    expect(context.preamble).toContain(`Instructions already in your context: ${join(root, ".codex", "AGENTS.md")}`);
-    expect(context.preamble).toContain(`Working directory: ${cwd}`);
-    expect(context.preamble).not.toContain("this repository");
+    expect(preamble).toContain(`Instructions already in your context: ${join(root, ".codex", "AGENTS.md")}`);
+    expect(preamble).toContain(`Working directory: ${cwd}`);
+    // Nothing was written in the working directory, so its file is not claimed.
+    expect(preamble).not.toContain(join(cwd, "AGENTS.md"));
+    expect(preamble).not.toContain("this repository");
   });
 
   test("names the CLI by absolute path, never by the bare word", () => {

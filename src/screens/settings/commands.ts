@@ -52,6 +52,7 @@ export const SETTINGS_COMMANDS: readonly SettingsCommand[] = [
   { id: "view.calendar", group: "View panel", name: "Calendar view", scope: "Global", chord: chord("y", { meta: true }) },
   { id: "view.shared", group: "View panel", name: "Shared library view", scope: "Global", chord: chord("l", { meta: true }) },
   { id: "view.memory", group: "View panel", name: "Memory view", scope: "Global", chord: chord("m", { meta: true }) },
+  { id: "view.context", group: "View panel", name: "Context view", scope: "Global", chord: chord("e", { meta: true }) },
   { id: "chat.send", group: "Chat", name: "Send message", scope: "Chat", chord: chord("Enter") },
 ];
 

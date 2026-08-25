@@ -13,7 +13,7 @@ export type WorkbenchRoute =
   | { kind: "project"; workspaceId: string; projectId: string };
 
 export type WorkspaceView = "grid" | "list";
-export const WORKSPACE_PAGES = ["overview", "projects", "units", "shared", "memory", "calendar"] as const;
+export const WORKSPACE_PAGES = ["overview", "projects", "units", "shared", "memory", "context", "calendar"] as const;
 export type WorkspacePage = (typeof WORKSPACE_PAGES)[number];
 
 export interface WorkspaceCalendarNavigationContext {
@@ -153,6 +153,7 @@ export const WORKSPACE_PAGE_LABELS: Record<WorkspacePage, string> = {
   units: "Units",
   shared: "Shared library",
   memory: "Memory",
+  context: "Context",
   calendar: "Calendar",
 };
 
