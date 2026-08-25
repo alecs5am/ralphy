@@ -27,7 +27,7 @@ description: >-
 2. **Append-only on the project dir.** Per AGENTS invariant #14, every regeneration writes `.v2` / `.v3` files. Never overwrite `overlay-plan.json`, `captions.json`, or any asset in `artifacts/`. The skill writes a new version; the user picks which to promote.
 3. **English-only on disk.** Every file the skill writes lands in English. If the source audio is Russian / Spanish / etc., the on-disk `overlay-plan.json` keeps `vo_text` in the source language (it's transcript content) but every comment, log line, file name, and skill-generated annotation is English. Chat with the user matches their language.
 4. **No raw API code.** Browser screenshots run through a Playwright helper script the skill calls via `bunx playwright`, not via raw `puppeteer.launch()` in inline code. Image generation goes through `ralphy generate image`. Music + SFX through `ralphy generate music` + `ralphy generate sfx`. No direct ElevenLabs HTTP calls.
-5. **Composition must be deterministic.** The HyperFrames `index.html` the skill emits has no `Date.now()` / unseeded `Math.random()` / `fetch()` at render time. Per `docs/playbooks/hyperframes.md` hard invariants.
+5. **Composition must be deterministic.** The HyperFrames `index.html` the skill emits has no `Date.now()` / unseeded `Math.random()` / `fetch()` at render time. Per `.agents/skills/hyperframes/references/playbook.md` hard invariants.
 
 ---
 
@@ -250,8 +250,8 @@ If the user wants to evaluate the final mp4, route to `/evaluator`.
 - `references/segmenter-prompt.md` — the claim-segmentation LLM prompt.
 - `references/overlay-assigner-prompt.md` — the overlay-type-assignment LLM prompt.
 - `scripts/capture-screenshot.ts` — Playwright helper for `browser-frame` overlays.
-- `docs/playbooks/hyperframes.md` — composition rules, GSAP timelines, registry blocks.
-- `docs/playbooks/editor.md` — render / preflight / iteration handback.
+- `.agents/skills/hyperframes/references/playbook.md` — composition rules, GSAP timelines, registry blocks.
+- `.agents/skills/editor/SKILL.md` — render / preflight / iteration handback.
 - `MODELS.md` — segmentation + planner model defaults.
 - `notes/ideas/006-hyperframes-overlay-blocks.md` — upstream HyperFrames block contributions.
 - `notes/ideas/007-ralphy-audio-remove-silence.md` — the missing CLI verb the skill works around for now.

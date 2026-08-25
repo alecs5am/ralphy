@@ -22,7 +22,7 @@ The evaluator stops at the report (correct separation of concerns). You are the 
 ## DO NOT FIRE
 
 - For an UNRENDERED project, or one with no `eval.json` yet — that is the editor (`ralphy render`) then `/evaluator` first. You cannot repair what hasn't been evaluated.
-- For "rework scene 3 / rewrite the hook / shorten the VO" as *scenario feedback* on a draft — that is the scenarist playbook (`docs/playbooks/scenarist.md`). The fixer is the eval-DRIVEN loop, not free-form script editing.
+- For "rework scene 3 / rewrite the hook / shorten the VO" as *scenario feedback* on a draft — that is the scenarist playbook (`.agents/skills/scenarist/SKILL.md`). The fixer is the eval-DRIVEN loop, not free-form script editing.
 - For false-positive triage only ("ignore the hook-static finding, it's expected for this template") — note the skip and move on; don't spin up a full repair pass.
 
 ## HARD INVARIANTS
@@ -74,9 +74,9 @@ If the user previously said "batch repair, just fix it" earlier in the session, 
 ### 4. Apply the approved fixes — through existing verbs only
 
 For each `approved` item, route by owner:
-- **art-director** → regenerate the affected keyframe / re-anchor the i2v / swap the model via `ralphy generate image|video ...` (read `docs/playbooks/art-director.md`; check `MODELS.md` before any model pick). Pass the locked product/model master via `--ref` to prevent identity drift (MEMORY.md: super-original refs).
-- **scenarist** → re-time `scenario.json` or rewrite the opening line (`docs/playbooks/scenarist.md`), then regenerate the affected VO / scene.
-- **editor** → loudnorm / recut / re-render / regen captions through `ralphy` editor verbs (`docs/playbooks/editor.md`). For aligned-to-VO captions, follow the scribe-first rule (AGENTS.md #16).
+- **art-director** → regenerate the affected keyframe / re-anchor the i2v / swap the model via `ralphy generate image|video ...` (read `.agents/skills/art-director/SKILL.md`; check `MODELS.md` before any model pick). Pass the locked product/model master via `--ref` to prevent identity drift (MEMORY.md: super-original refs).
+- **scenarist** → re-time `scenario.json` or rewrite the opening line (`.agents/skills/scenarist/SKILL.md`), then regenerate the affected VO / scene.
+- **editor** → loudnorm / recut / re-render / regen captions through `ralphy` editor verbs (`.agents/skills/editor/SKILL.md`). For aligned-to-VO captions, follow the scribe-first rule (AGENTS.md #16).
 
 The item's `proposedCommandOrEdit` is the starting point — a `ralphy` / `ffmpeg`-recipe command or a concrete edit instruction.
 

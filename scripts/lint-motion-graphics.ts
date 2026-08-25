@@ -152,7 +152,7 @@ async function main(): Promise<void> {
     );
   }
   process.stderr.write(
-    `\n${report.hits.length} motion-graphics signal(s). Re-route to a HyperFrames overlay (docs/playbooks/editor.md#pixels-vs-code) or suppress with <!-- motion-graphics-allow -->.\n`,
+    `\n${report.hits.length} motion-graphics signal(s). Re-route to a HyperFrames overlay (.agents/skills/editor/SKILL.md#pixels-vs-code) or suppress with <!-- motion-graphics-allow -->.\n`,
   );
   process.exit(strict ? 1 : 0);
 }

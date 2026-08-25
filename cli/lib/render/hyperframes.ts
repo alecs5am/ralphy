@@ -8,7 +8,7 @@
 // See:
 // - https://hyperframes.heygen.com/
 // - https://github.com/heygen-com/hyperframes
-// - docs/playbooks/hyperframes.md (project playbook)
+// - .agents/skills/hyperframes/references/playbook.md (project playbook)
 // - .agents/skills/hyperframes/ (skill body — install via `bunx hyperframes skills`)
 
 import { spawn } from "node:child_process";

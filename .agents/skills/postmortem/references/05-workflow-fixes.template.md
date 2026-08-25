@@ -33,7 +33,7 @@ For each fix, fill this structure:
 
 ### #1 — <one-line headline>
 
-- **Target file:** `<exact path>` (e.g. `docs/playbooks/art-director/regeneration.md`)
+- **Target file:** `<exact path>` (e.g. `.agents/skills/art-director/references/regeneration.md`)
 - **Target line / section:** L<N> or `## Single-slot regen`
 - **Triggered at:** [01-chat-history.md#turn-N]
 - **What the playbook says today (verbatim):** > <quote>

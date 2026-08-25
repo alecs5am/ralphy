@@ -24,7 +24,7 @@ A generalized matrix overlay, not a finished ad pack. It does not name a brand, 
 ## Hard invariants
 
 - All generation routes through `ralphy generate image` (no raw API). Read `MODELS.md` before naming any model id — the stack below is a default, not a hardcode.
-- **Real-brand pre-flight: site-grounding before ANY prompt.** When the brief names a real brand URL, **dispatch a Playwright sub-agent** to crawl home + `/docs` + `/pricing` + `/features` + `/examples` BEFORE drafting brand-DNA. Read `artifacts/refs/research.md` (the sub-agent's digest), not a single `WebFetch` of the home page. Every palette hex in a prompt must trace to `artifacts/refs/tokens.json`; every named API symbol in code-creative slots must trace to "Documented API surfaces" in `research.md`. Skipping this cost `sotaocr-fb-001` $1.20 (wrong-palette v1 burn) + 5/32 hallucinated-Python-SDK creatives. Full discipline: [`docs/playbooks/site-grounding.md`](../../../docs/playbooks/site-grounding.md).
+- **Real-brand pre-flight: site-grounding before ANY prompt.** When the brief names a real brand URL, **dispatch a Playwright sub-agent** to crawl home + `/docs` + `/pricing` + `/features` + `/examples` BEFORE drafting brand-DNA. Read `artifacts/refs/research.md` (the sub-agent's digest), not a single `WebFetch` of the home page. Every palette hex in a prompt must trace to `artifacts/refs/tokens.json`; every named API symbol in code-creative slots must trace to "Documented API surfaces" in `research.md`. Skipping this cost `sotaocr-fb-001` $1.20 (wrong-palette v1 burn) + 5/32 hallucinated-Python-SDK creatives. Full discipline: [`.agents/skills/researcher/references/site-grounding.md`](../../../.agents/skills/researcher/references/site-grounding.md).
 - **`--ref artifacts/refs/hero.png` on EVERY gen.** Once captured, pass the live-site hero screenshot as `--ref` on all N creatives. Brand-palette + type drift across the pack drops to near zero. Without it, each prompt re-interprets "blue CTA" slightly differently — at 32 concepts the drift compounds.
 - **Verify SDK / API surface before any code-creative.** If the C / E sets render code on screen, the named API symbol (`import foo`, `foo.parse()`) must exist on the brand's docs. If the landing only documents curl, the ad shows curl — not an invented Python wrapper. Curl is the strictly-safe fallback for HTTP APIs.
 - **Append-only on regen.** Re-rolling a slot writes `.v2.png`, never overwrites. Failed / dark-bg v1 generations stay on disk as A/B reference.
@@ -200,8 +200,8 @@ At ~$0.20/creative on gpt-image, a 32-pack ≈ **$6.40 / ~25 min** (with site-gr
 ## See also
 
 - [`docs/skills-vs-templates.md`](../../../docs/skills-vs-templates.md) — why this is a skill and not a template.
-- [`docs/playbooks/site-grounding.md`](../../../docs/playbooks/site-grounding.md) — the Playwright sub-agent prompt template (mandatory T1 step).
-- [`docs/playbooks/intake.md`](../../../docs/playbooks/intake.md) — the creative-pack branch of intake.
-- [`docs/playbooks/art-director.md`](../../../docs/playbooks/art-director.md) — model picks + ref-anchor flow.
+- [`.agents/skills/researcher/references/site-grounding.md`](../../../.agents/skills/researcher/references/site-grounding.md) — the Playwright sub-agent prompt template (mandatory T1 step).
+- [`.agents/skills/intake/SKILL.md`](../../../.agents/skills/intake/SKILL.md) — the creative-pack branch of intake.
+- [`.agents/skills/art-director/SKILL.md`](../../../.agents/skills/art-director/SKILL.md) — model picks + ref-anchor flow.
 - `MEMORY.md` — anti-ai-slop image prompts, OR parallel gpt-image OK, verify SDK before code-creative, site-grounding before brand-DNA.
 - Reference postmortem: `.ralphy/workspaces/<ws>/projects/sotaocr-fb-001/postmortem/` — the lessons + matrix this skill codifies.

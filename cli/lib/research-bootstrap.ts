@@ -8,7 +8,7 @@
 //
 // This module ONLY decides the depth — it builds no new crawler. The agent
 // routes the decision to the EXISTING research surfaces:
-//   • quick → site-grounding sub-agent (AGENTS.md #15, docs/playbooks/site-grounding.md)
+//   • quick → site-grounding sub-agent (AGENTS.md #15, .agents/skills/researcher/references/site-grounding.md)
 //             → artifacts/refs/research.md, OR `ralphy ref pull` for a few
 //             benchmark refs. No `report.md` is regenerated here.
 //   • deep  → `ralphy research run "<niche/question>"` (the deep engine,

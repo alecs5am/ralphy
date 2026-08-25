@@ -155,7 +155,7 @@ duplicate blocks, and the final check-question list — lives in
 [`references/antipatterns.md`](references/antipatterns.md). Read it before the
 final pass on any text.
 
-Pair with [`/humanizer`](../../../.claude/skills/humanizer/SKILL.md) (Wikipedia
+Pair with [`/humanizer`](../humanizer/SKILL.md) (Wikipedia
 "Signs of AI writing" catalog) — humanizer catches English-specific AI tells;
 this skill owns structure, coherence, and tone.
 

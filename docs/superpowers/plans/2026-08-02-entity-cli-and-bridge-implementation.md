@@ -1223,7 +1223,7 @@ git commit -m "feat(cli): add versioned desktop bridge"
 - Delete: `cli/lib/registry.ts`
 - Modify: `AGENTS.md`
 - Modify: `CLAUDE.md`
-- Modify: `docs/playbooks/intake.md`
+- Modify: `.agents/skills/intake/SKILL.md`
 - Test: `tests/unit/no-legacy-state-writers.test.ts`
 
 **Interfaces:**

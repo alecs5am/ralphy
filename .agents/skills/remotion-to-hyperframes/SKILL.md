@@ -25,7 +25,7 @@ old Remotion files, or migration from Remotion to HyperFrames.
 
 1. Inventory the legacy request and map it to scenes, media tracks, captions,
    and transitions.
-2. Read `docs/playbooks/editor.md` and `docs/playbooks/hyperframes.md`.
+2. Read `.agents/skills/editor/SKILL.md` and `.agents/skills/hyperframes/references/playbook.md`.
 3. Implement or describe the migration in HyperFrames terms.
 4. Render through `ralphy render <project>` when a final mp4 is requested.
 

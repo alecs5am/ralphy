@@ -46,7 +46,7 @@ Each phase below names: **required artifact(s)**, **allowed skips** (and what co
 ### 1 — Intake → `BRIEF.md`
 
 - **Produces:** `BRIEF.md` — the captured brief: audience language, aspect/platform, brand/named entity, duration budget, hard constraints. Mirror the originating user utterance into `user-prompts.jsonl` with `ralphy project log-prompt --stage brief`.
-- **Craft:** [`docs/playbooks/intake.md`](intake.md) (per-band verbosity, 3-5 clarifying questions, default-pick table).
+- **Craft:** [`.agents/skills/intake/SKILL.md`](../../.agents/skills/intake/SKILL.md) (per-band verbosity, 3-5 clarifying questions, default-pick table).
 - **Allowed skip:** the user explicitly says "just generate / don't ask / let's go", OR a `ralphy template use <slug>` remix already encodes the decisions. A skip here must be a real user instruction; log it to `user-prompts.jsonl` with `--stage skip:intake` and the user's words in `--note`.
 - **Checkpoint:** the answers themselves (a chat turn).
 - **Stop condition:** a brief naming a real entity with no ref attached → the reference gate (phase 5) will refuse; surface that now rather than after generation.
@@ -81,7 +81,7 @@ Each phase below names: **required artifact(s)**, **allowed skips** (and what co
 ### 6 — Research bootstrap → `artifacts/refs/research-facts.json` (#416)
 
 - **Produces:** `artifacts/refs/research-facts.json` (the `ProductBrandFacts` distillate, `cli/lib/schemas/research-facts.ts`) for `quick` / `deep` depth; the deep engine also writes `research/report.md` + `sources.json`. The `none` depth writes nothing (skip-clean).
-- **How:** `chooseResearchDepth({ brief, contentMode, unitCount })` (`cli/lib/research-bootstrap.ts`, deterministic) decides `none` / `quick` / `deep` by composing the content-mode `defaultResearchDepth` baseline with trigger detection (product/brand/creator URL, low-detail niche, multi-Unit farm, performance goal) — MAX of the two. Then route the depth to the EXISTING surface (no new crawler): `quick` → site-grounding sub-agent (AGENTS.md #15) / a few `ralphy ref pull`; `deep` → `ralphy research run "<niche>"` + `ralphy research scrape-profile <handle>`. Set the plan's `benchmarkSource` to cite the distillate. Full discipline: [`research-bootstrap.md`](research-bootstrap.md).
+- **How:** `chooseResearchDepth({ brief, contentMode, unitCount })` (`cli/lib/research-bootstrap.ts`, deterministic) decides `none` / `quick` / `deep` by composing the content-mode `defaultResearchDepth` baseline with trigger detection (product/brand/creator URL, low-detail niche, multi-Unit farm, performance goal) — MAX of the two. Then route the depth to the EXISTING surface (no new crawler): `quick` → site-grounding sub-agent (AGENTS.md #15) / a few `ralphy ref pull`; `deep` → `ralphy research run "<niche>"` + `ralphy research scrape-profile <handle>`. Set the plan's `benchmarkSource` to cite the distillate. Full discipline: [`research-bootstrap.md`](../../.agents/skills/researcher/references/research-bootstrap.md).
 - **Order:** BEFORE the style lock (phase 7) so the register and the plan ground in findings, not memory.
 - **Allowed skip:** the bootstrap returned `none` (mode default none + nothing triggered) — nothing to research; plan directly from the brief.
 - **Stop condition:** a `deep` decision with no resolvable niche / source → ask the user to narrow the niche before the deep scan burns calls.
@@ -216,8 +216,8 @@ Use this to self-check before claiming a project is done, to resume a project mi
 
 - [`docs/playbooks/unit-lifecycle.md`](unit-lifecycle.md) — the canonical end-to-end Unit production lifecycle (#414). This contract is its phase backbone.
 - [`AGENTS.md`](../../AGENTS.md) — routing table + hard invariants (#2 ralphy-only, #3 reference gate, #4 gates refuse, #14 append-only, #15 site-grounding, #18 auto-memory). The contract executes those invariants in order.
-- [`docs/playbooks/intake.md`](intake.md) — phases 1-8 craft (clarifying questions, plan, wait-for-go).
-- [`docs/playbooks/producer.md`](producer.md) — the end-to-end wrapper that sequences the role phases + batch.
-- [`docs/playbooks/research-bootstrap.md`](research-bootstrap.md) — phase 6 (the research-depth decision).
+- [`.agents/skills/intake/SKILL.md`](../../.agents/skills/intake/SKILL.md) — phases 1-8 craft (clarifying questions, plan, wait-for-go).
+- [`.agents/skills/producer/SKILL.md`](../../.agents/skills/producer/SKILL.md) — the end-to-end wrapper that sequences the role phases + batch.
+- [`.agents/skills/researcher/references/research-bootstrap.md`](../../.agents/skills/researcher/references/research-bootstrap.md) — phase 6 (the research-depth decision).
 - [`docs/content-modes.md`](../content-modes.md) — phase 2 (the mode that drives the route).
 - `cli/lib/contract.ts` — `CONTRACT_PHASES` + `evaluateContract()` / `lifecycleStatus()` (the machine-readable half).

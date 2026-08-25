@@ -15,7 +15,7 @@ or old Remotion-based project instructions.
 ## Hard invariants
 
 - Do not create new Remotion compositions for Ralphy projects.
-- Use `docs/playbooks/editor.md` and `docs/playbooks/hyperframes.md` for current
+- Use `.agents/skills/editor/SKILL.md` and `.agents/skills/hyperframes/references/playbook.md` for current
   composition and render work.
 - For engine-specific implementation details, load `.agents/skills/hyperframes`
   and `.agents/skills/hyperframes-cli`.

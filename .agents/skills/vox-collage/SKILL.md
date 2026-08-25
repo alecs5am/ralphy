@@ -185,8 +185,8 @@ The creative engine — the 5-part collage image-prompt structure, the flat-safe
 - [`references/prompt-guide.md`](references/prompt-guide.md) — the LOOK layer (image + motion prompt structures, vocab banks, theme presets).
 - [`references/beat-layer.md`](references/beat-layer.md) — the STORY layer (arcs, hooks, beat counts, flat-safe camera vocab).
 - [`docs/skills-vs-templates.md`](../../../docs/skills-vs-templates.md) — why this is a craft-overlay skill, not a template.
-- [`docs/playbooks/art-director.md`](../../../docs/playbooks/art-director.md) — model picks, ref-anchor flow, prompt cookbook.
-- [`docs/playbooks/editor.md`](../../../docs/playbooks/editor.md) + [`/hyperframes`](../hyperframes/SKILL.md) — opacity-gated multi-scene assembly, hard cuts, captions.
+- [`.agents/skills/art-director/SKILL.md`](../../../.agents/skills/art-director/SKILL.md) — model picks, ref-anchor flow, prompt cookbook.
+- [`.agents/skills/editor/SKILL.md`](../../../.agents/skills/editor/SKILL.md) + [`/hyperframes`](../hyperframes/SKILL.md) — opacity-gated multi-scene assembly, hard cuts, captions.
 - [`/seedance-prompts`](../seedance-prompts/SKILL.md) — seedance i2v prompt craft for the motion step.
 - `MODELS.md` — read before naming any model id. `MEMORY.md` — seedance filters, kling routes, ElevenLabs-no-artist-names, music-as-separate-pass.
 - Reference project: `.ralphy/workspaces/bitacora/projects/bitacora-firstbug-001/` — where the density + flat-safe-motion recipe was validated.

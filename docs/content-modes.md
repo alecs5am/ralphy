@@ -116,5 +116,5 @@ The mode is the contract; the playbooks execute it.
 - [`AGENTS.md`](../AGENTS.md) — the routing table; the "Content modes" note points here.
 - [`docs/skills-vs-templates.md`](skills-vs-templates.md) — template / skill / Unit model the mode composes with.
 - [`cli/lib/schemas/template.ts`](../cli/lib/schemas/template.ts) — the format taxonomy modes route into.
-- [`docs/playbooks/intake.md`](playbooks/intake.md) — the clarifying-question branch the agent runs when classification is ambiguous.
+- [`.agents/skills/intake/SKILL.md`](../.agents/skills/intake/SKILL.md) — the clarifying-question branch the agent runs when classification is ambiguous.
 - [`guidelines/`](../guidelines/) — the prompt-library rules a mode's style-lock references.

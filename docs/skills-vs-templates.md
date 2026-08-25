@@ -106,7 +106,7 @@ Remix is a usage pattern, not a feature with its own command:
 - [Library](https://www.alecs5am.com/library) / `ralphy template suggest --help` — the media-format map (primary template axis).
 - [`docs/skills-format.md`](skills-format.md) — how to author a SKILL.md.
 - [`AGENTS.md`](../AGENTS.md) — invariant #10 + the routing table.
-- [`docs/playbooks/intake.md`](playbooks/intake.md) — the cold-start template match.
+- [`.agents/skills/intake/SKILL.md`](../.agents/skills/intake/SKILL.md) — the cold-start template match.
 - [`notes/issues/deprecated/058-backfill-templates-from-recent-projects.md`](../notes/issues/deprecated/058-backfill-templates-from-recent-projects.md) — content-niche skill → template conversion (deprecated).
 - [`ralphy-web`](https://github.com/alecs5am/ralphy-web) — canonical public-library types, data, publisher, and UI.
 - [`cli/lib/schemas/unit.ts`](../cli/lib/schemas/unit.ts) + `ralphy unit` — how a project or workspace forms Units (#069). templater extracts/classifies these entities; the web publisher pushes them.

@@ -31,7 +31,7 @@ beforeEach(() => {
 
 | User intent | Playbook |
 |---|---|
-| Existing row | [\`docs/playbooks/core.md\`](docs/playbooks/core.md) |
+| Existing row | [\`.agents/skills/troubleshooting/SKILL.md\`](.agents/skills/troubleshooting/SKILL.md) |
 
 ## Hard invariants
 `,
