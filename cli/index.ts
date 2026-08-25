@@ -224,6 +224,16 @@ program
         setDataRoot(identity.dataRoot);
         return true;
       }
+      /* `prompts` needs the data root -- that is where the routing pack goes --
+         and nothing below it. Resolving a workspace for it refuses outright on a
+         library that holds more than one, which would make `prompts install`
+         unrunnable on exactly the libraries that have been used. */
+      /* Same for `skill`: it writes the agent's instruction files and installs
+         the pack, both of which are per-machine, not per-workspace. */
+      if (sub === "prompts" || sub === "skill") {
+        setDataRoot(identity.dataRoot);
+        return true;
+      }
       let context: ReturnType<typeof resolveCommandContext>;
       try {
         context = resolveCommandContext({

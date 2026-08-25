@@ -73,6 +73,38 @@ describe("ralphy skill install", () => {
     }
   });
 
+  test("--agent codex --scope user writes ~/.codex/AGENTS.md, not the cwd", () => {
+    const projTmp = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-skill-proj-"));
+    try {
+      const r = ralphy(["skill", "install", "--agent", "codex", "--scope", "user"], projTmp);
+      expect(r.exitCode).toBe(0);
+      /* The adapter used to write the project file for either scope, so a
+         user-scope install landed in whatever directory the operator stood in. */
+      expect(fs.existsSync(path.join(projTmp, "AGENTS.md"))).toBe(false);
+      const userFile = path.join(tmpHome, ".codex", "AGENTS.md");
+      expect(fs.existsSync(userFile)).toBe(true);
+      expect(fs.readFileSync(userFile, "utf8")).toContain("ralphy:start");
+    } finally {
+      fs.rmSync(projTmp, { recursive: true, force: true });
+    }
+  });
+
+  test("the block it writes names paths that exist after the install", () => {
+    const projTmp = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-skill-proj-"));
+    try {
+      expect(ralphy(["skill", "install", "--agent", "codex"], projTmp).exitCode).toBe(0);
+      const block = fs.readFileSync(path.join(projTmp, "AGENTS.md"), "utf8");
+      /* The whole point of the pack: every place the block names is on disk by
+         the time the agent reads the block. */
+      for (const named of block.matchAll(/~\/\.ralphy\/prompts\/[\w./-]+/g)) {
+        const abs = path.join(tmpHome, named[0].slice(2));
+        expect({ named: named[0], exists: fs.existsSync(abs) }).toEqual({ named: named[0], exists: true });
+      }
+    } finally {
+      fs.rmSync(projTmp, { recursive: true, force: true });
+    }
+  });
+
   test("--json on first-run (no agent flag) → E_WIZARD_NEEDS_TTY", () => {
     const projTmp = fs.mkdtempSync(path.join(os.tmpdir(), "ralphy-skill-proj-"));
     try {
