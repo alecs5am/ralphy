@@ -83,7 +83,7 @@ describe("composition revision/build CLI", () => {
     expect(fs.existsSync(path.join(fixtureRoot, "compositions", "v1.html"))).toBe(false);
   });
 
-  test("seals source bytes before a manual engine failure and requires revise for another build", async () => {
+  test("seals source bytes before a manual engine failure and permits an exact retry", async () => {
     const composition = createComposition({ projectId, slug: "failure", kind: "video" });
     const draft = reviseComposition({
       compositionId: composition.id,
@@ -101,6 +101,7 @@ describe("composition revision/build CLI", () => {
     expect(fs.readFileSync(path.join(checkoutPath, "source.txt"), "utf8")).toBe("sealed even on failure");
     const retry = await runCli(["composition", "build", composition.id, "--revision", draft.id]);
     expect(retry.exitCode).not.toBe(0);
+    expect(openDomainDb().query<{ count: number }, []>("SELECT COUNT(*) AS count FROM builds").get()!.count).toBe(2);
   });
 
   test("uses only exact ordered Artifact revision inputs and never scans legacy artifact directories", async () => {

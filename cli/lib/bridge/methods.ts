@@ -3,6 +3,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { reviseCompositionCheckout, runCompositionBuild } from "../composition-build.js";
 import {
+  createCalendarEvent,
+  getCalendarWorkspace,
+  removeCalendarEvent,
+  rescheduleCalendarEvent,
+  retryCalendarEvent,
+  submitCalendarEvent,
+} from "../calendar/workbench.js";
+import {
   authenticateConsumer,
   type ConsumerAuthority,
 } from "../store/consumer-auth.js";
@@ -23,7 +31,26 @@ import {
 } from "../store/documents.js";
 import { latestActivitySequence, listActivity, listGlobalActivity } from "../store/activity.js";
 import { openDomainDb, openDomainDbAt } from "../store/db.js";
-import { SCHEMA_VERSION } from "../store/schema.js";
+import { GLOBAL_MEMORY_WORKSPACE_ID, SCHEMA_VERSION } from "../store/schema.js";
+import {
+  MEMORY_TYPES,
+  approveEntry,
+  getEntry,
+  listEntries,
+  listEntryHistory,
+  memoryQualityFlags,
+  parseMemoryBody,
+  recall,
+  rejectEntry,
+  renderMemoryBody,
+  retireEntry,
+  writeEntry,
+  type MemoryBodySections,
+  type MemoryEntry,
+  type MemoryStatus,
+  type MemoryTier,
+  type TierRef,
+} from "../memory/store.js";
 import { getMediaCard, listMedia, reviewMedia } from "../store/media.js";
 import { getArtifactRevision, listArtifactRevisions, selectArtifactRevision } from "../store/artifacts.js";
 import { createEvaluation, getEvaluation, listEvaluations } from "../store/evaluations.js";
@@ -40,6 +67,7 @@ import {
   selectCompositionRevision,
 } from "../store/compositions.js";
 import {
+  createUnit,
   getUnit,
   listUnits,
   listUnitRevisions,
@@ -137,7 +165,7 @@ import {
   startTranscriptionOperation,
   type ReplayableOperationInput,
 } from "../controllers/operations.js";
-import type { JsonValue } from "../store/types.js";
+import { StoreConflictError, type JsonValue } from "../store/types.js";
 import { assertStartupJournalReady } from "../migration/cutover-journal.js";
 import {
   BridgeProtocolError,
@@ -282,6 +310,7 @@ export function createBridgeMethods(input: {
     return getWorkspaceOverview({
       context,
       workspaceId: string(value.workspaceId ?? scope.workspaceId, "workspaceId"),
+      include: overviewInclude(value.include),
       sections: objectOrEmpty(value.sections, "sections") as never,
     });
   });
@@ -326,6 +355,119 @@ export function createBridgeMethods(input: {
       relinkAfter: optionalString(value.relinkAfter),
       limit: value.limit === undefined ? undefined : limit(value.limit),
     });
+  });
+
+  add("memory.list", "read", async (params) => {
+    const value = object(params, "memory.list");
+    const scope = resolveScope(scopedContext(value));
+    const listScope = memoryListScope(value.scope);
+    const status = memoryStatus(value.status ?? "active");
+    const refs: TierRef[] = listScope === "global"
+      ? [{ tier: "global" }]
+      : listScope === "workspace"
+        ? [{ tier: "workspace", ws: scope.workspaceId }]
+        : [{ tier: "global" }, { tier: "workspace", ws: scope.workspaceId }];
+    const entries = (await Promise.all(refs.map((ref) => listEntries(ref, status)))).flat();
+    const effective = listScope === "effective" && status === "active"
+      ? [...new Map(entries.map((entry) => [entry.slug, entry])).values()]
+      : entries;
+    const query = optionalString(value.query)?.toLowerCase();
+    const types = value.types === undefined ? null : arrayOfStrings(value.types, "types");
+    const filtered = effective.filter((entry) =>
+      (query === undefined || `${entry.name}\n${entry.description}\n${entry.body}`.toLowerCase().includes(query))
+      && (types === null || types.includes(entry.type))
+    );
+    filtered.sort((a, b) => (value.order === "name" ? a.name.localeCompare(b.name) : a.slug.localeCompare(b.slug)));
+    return { items: await Promise.all(filtered.map((entry) => memoryDto(entry, scope.workspaceId))) };
+  });
+  add("memory.show", "read", async (params) => {
+    const value = object(params, "memory.show");
+    const scope = resolveScope(scopedContext(value));
+    const entry = await visibleMemoryEntry(string(value.memoryEntryId, "memoryEntryId"), scope.workspaceId);
+    return memoryDto(entry, scope.workspaceId);
+  });
+  add("memory.create", "mutation", async (params) => {
+    const value = object(params, "memory.create");
+    const scope = resolveScope(scopedContext(value));
+    const tier = memoryTier(value.tier);
+    const slug = string(value.slug, "slug");
+    const storageWorkspaceId = tier === "global" ? GLOBAL_MEMORY_WORKSPACE_ID : scope.workspaceId;
+    if (openDomainDb().query<{ id: string }, [string, string]>(
+      "SELECT id FROM memory_entries WHERE workspace_id = ? AND slug = ?",
+    ).get(storageWorkspaceId, slug)) {
+      throw new StoreConflictError("Memory slug already exists; revise the existing entry");
+    }
+    const entry = (await writeEntry({
+      ref: memoryRef(tier, scope.workspaceId),
+      status: writableMemoryStatus(value.status),
+      slug,
+      name: string(value.name, "name"),
+      description: string(value.description, "description"),
+      type: memoryType(value.type),
+      text: renderMemoryBody(memoryBody(value.body)),
+      source: string(value.source, "source"),
+    })).entry;
+    return memoryDto(entry, scope.workspaceId);
+  });
+  add("memory.revise", "mutation", async (params) => {
+    const value = object(params, "memory.revise");
+    const scope = resolveScope(scopedContext(value));
+    const current = await visibleMemoryEntry(string(value.memoryEntryId, "memoryEntryId"), scope.workspaceId);
+    const entry = (await writeEntry({
+      ref: memoryRef(current.tier, scope.workspaceId),
+      status: writableMemoryStatus(value.status),
+      slug: current.slug,
+      name: string(value.name, "name"),
+      description: string(value.description, "description"),
+      type: memoryType(value.type),
+      text: renderMemoryBody(memoryBody(value.body)),
+      source: string(value.source, "source"),
+      expectedRevisionId: string(value.expectedRevisionId, "expectedRevisionId"),
+    })).entry;
+    return memoryDto(entry, scope.workspaceId);
+  });
+  add("memory.approve", "mutation", async (params) => {
+    return memoryMove(params, "approve", approveEntry);
+  });
+  add("memory.reject", "mutation", async (params) => {
+    return memoryMove(params, "reject", rejectEntry);
+  });
+  add("memory.retire", "mutation", async (params) => {
+    const value = object(params, "memory.retire");
+    const scope = resolveScope(scopedContext(value));
+    const entry = await visibleMemoryEntry(string(value.memoryEntryId, "memoryEntryId"), scope.workspaceId);
+    return retireEntry(
+      entry.slug,
+      memoryRef(entry.tier, scope.workspaceId),
+      string(value.expectedRevisionId, "expectedRevisionId"),
+    );
+  });
+  add("memory.history", "read", async (params) => {
+    const value = object(params, "memory.history");
+    const scope = resolveScope(scopedContext(value));
+    const entryId = string(value.memoryEntryId, "memoryEntryId");
+    await visibleMemoryEntry(entryId, scope.workspaceId);
+    return { items: await Promise.all((await listEntryHistory(entryId)).map((entry) => memoryDto(entry, scope.workspaceId))) };
+  });
+  add("memory.recall", "read", async (params) => {
+    const value = object(params, "memory.recall");
+    const scope = resolveScope(scopedContext(value));
+    const result = await recall({ ws: scope.workspaceId, full: value.full === true });
+    return {
+      ...result,
+      workspaceId: scope.workspaceId,
+      entries: await Promise.all(result.entries.map((entry) => memoryDto(entry, scope.workspaceId))),
+    };
+  });
+  add("memory.health", "read", async (params) => {
+    const value = object(params, "memory.health");
+    const scope = resolveScope(scopedContext(value));
+    const result = await recall({ ws: scope.workspaceId, full: true });
+    const findings = result.entries.flatMap((entry) => {
+      const flags = memoryQualityFlags(entry.body);
+      return flags.length === 0 ? [] : [{ memoryEntryId: entry.id, slug: entry.slug, flags }];
+    });
+    return { scanned: result.entries.length, findings };
   });
 
   add("project.list", "read", (params) => {
@@ -758,6 +900,18 @@ export function createBridgeMethods(input: {
     return listBuildOutputs({ context: scopedContext(value), buildId: string(value.buildId, "buildId"), after: optionalString(value.after), limit: limit(value.limit) });
   });
 
+  add("unit.create", "mutation", (params) => {
+    const value = object(params, "unit.create");
+    const scope = resolveScope(scopedContext(value));
+    return createUnit({
+      ...(scope.projectId === null
+        ? { workspaceId: scope.workspaceId }
+        : { projectId: scope.projectId }),
+      slug: string(value.slug, "slug"),
+      format: string(value.format, "format"),
+      compositionId: optionalString(value.compositionId),
+    });
+  });
   add("unit.list", "read", (params) => {
     const value = object(params, "unit.list");
     return listUnits({ context: scopedContext(value), after: optionalString(value.after), limit: limit(value.limit) });
@@ -801,6 +955,7 @@ export function createBridgeMethods(input: {
     return reviseUnit({
       unitId: string(value.unitId, "unitId"),
       expectedLatestRevisionId: value.expectedLatestRevisionId === null ? null : string(value.expectedLatestRevisionId, "expectedLatestRevisionId"),
+      compositionRevisionId: optionalString(value.compositionRevisionId),
       parentRevisionId: optionalString(value.parentRevisionId),
       iterationId: optionalString(value.iterationId),
       note: optionalString(value.note),
@@ -924,6 +1079,66 @@ export function createBridgeMethods(input: {
   add("calendar.list", "read", (params) => {
     const value = object(params, "calendar.list");
     return listCalendarEntries({ context: scopedContext(value), from: optionalString(value.from), to: optionalString(value.to), after: optionalString(value.after), limit: limit(value.limit) });
+  });
+  add("calendar.overview", "read", (params) => {
+    const value = object(params, "calendar.overview");
+    exactKeys(value, ["context", "from", "to", "timezone"], "calendar.overview");
+    return getCalendarWorkspace({
+      context: scopedContext(value),
+      from: string(value.from, "from"),
+      to: string(value.to, "to"),
+      timezone: string(value.timezone, "timezone"),
+    });
+  });
+  add("calendar.create", "mutation", (params) => {
+    const value = object(params, "calendar.create");
+    exactKeys(value, ["context", "unitRevisionId", "at", "timezone", "channels", "draftAt"], "calendar.create");
+    return createCalendarEvent({
+      context: scopedContext(value),
+      unitRevisionId: string(value.unitRevisionId, "unitRevisionId"),
+      at: value.at === null ? null : integer(value.at, "at"),
+      draftAt: value.draftAt === undefined ? undefined : integer(value.draftAt, "draftAt"),
+      timezone: string(value.timezone, "timezone"),
+      channels: jsonValue(value.channels) as never,
+    });
+  });
+  add("calendar.submit", "mutation", (params) => {
+    const value = object(params, "calendar.submit");
+    exactKeys(value, ["context", "eventId", "expectedRowVersion", "at"], "calendar.submit");
+    return submitCalendarEvent({
+      context: scopedContext(value),
+      eventId: string(value.eventId, "eventId"),
+      expectedRowVersion: positiveInteger(value.expectedRowVersion, "expectedRowVersion"),
+      at: integer(value.at, "at"),
+    });
+  });
+  add("calendar.reschedule", "mutation", (params) => {
+    const value = object(params, "calendar.reschedule");
+    exactKeys(value, ["context", "eventId", "expectedRowVersion", "at"], "calendar.reschedule");
+    return rescheduleCalendarEvent({
+      context: scopedContext(value),
+      eventId: string(value.eventId, "eventId"),
+      expectedRowVersion: positiveInteger(value.expectedRowVersion, "expectedRowVersion"),
+      at: integer(value.at, "at"),
+    });
+  });
+  add("calendar.remove", "mutation", (params) => {
+    const value = object(params, "calendar.remove");
+    exactKeys(value, ["context", "eventId", "expectedRowVersion"], "calendar.remove");
+    return removeCalendarEvent({
+      context: scopedContext(value),
+      eventId: string(value.eventId, "eventId"),
+      expectedRowVersion: positiveInteger(value.expectedRowVersion, "expectedRowVersion"),
+    });
+  });
+  add("calendar.retry", "mutation", (params) => {
+    const value = object(params, "calendar.retry");
+    exactKeys(value, ["context", "eventId", "expectedRowVersion"], "calendar.retry");
+    return retryCalendarEvent({
+      context: scopedContext(value),
+      eventId: string(value.eventId, "eventId"),
+      expectedRowVersion: positiveInteger(value.expectedRowVersion, "expectedRowVersion"),
+    });
   });
   add("calendar.update", "mutation", (params) => {
     const value = object(params, "calendar.update");
@@ -1181,7 +1396,7 @@ export function createBridgeMethods(input: {
     ["run.objects", "read"], ["run.cancel", "mutation"],
     ["composition.list", "read"], ["composition.show", "read"], ["composition.revise", "mutation"],
     ["composition.build", "operation-start"], ["composition.select", "mutation"],
-    ["unit.list", "read"], ["unit.show", "read"], ["unit.revise", "mutation"],
+    ["unit.create", "mutation"], ["unit.list", "read"], ["unit.show", "read"], ["unit.revise", "mutation"],
     ["unit.select", "mutation"], ["unit.preview", "read"],
     ["publication.list", "read"], ["publication.publish", "operation-start"],
     ["publication.lookup", "operation-start"], ["publication.cancel", "operation-start"],
@@ -1261,7 +1476,7 @@ function systemHello(dataRoot: string, capabilities: string[]): Record<string, u
   const rootId = createHash("sha256").update(`${path.resolve(dataRoot)}\0${stat.dev}\0${stat.ino}`).digest("hex");
   return {
     protocolVersion: BRIDGE_PROTOCOL_VERSION,
-    coreVersion: "2",
+    coreVersion: "3",
     schemaVersion: SCHEMA_VERSION,
     storeId: getStoreIdentity(),
     rootId,
@@ -1292,6 +1507,89 @@ function scopedContext(value: Record<string, unknown>): QueryContext {
   const workspaceId = string(context.workspaceId, "context.workspaceId");
   const projectId = context.projectId === undefined ? undefined : string(context.projectId, "context.projectId");
   return projectId === undefined ? { workspaceId } : { workspaceId, projectId };
+}
+
+function memoryTier(value: unknown): MemoryTier {
+  if (value !== "global" && value !== "workspace") throw new Error("tier must be global or workspace");
+  return value;
+}
+
+function memoryStatus(value: unknown): MemoryStatus {
+  if (!["active", "proposed", "rejected", "archived"].includes(String(value))) {
+    throw new Error("status is invalid");
+  }
+  return value as MemoryStatus;
+}
+
+function writableMemoryStatus(value: unknown): "active" | "proposed" {
+  if (value !== "active" && value !== "proposed") throw new Error("status must be active or proposed");
+  return value;
+}
+
+function memoryListScope(value: unknown): "effective" | MemoryTier {
+  if (value === undefined || value === "effective") return "effective";
+  return memoryTier(value);
+}
+
+function memoryType(value: unknown): string {
+  const type = string(value, "type");
+  if (!(MEMORY_TYPES as readonly string[]).includes(type)) throw new Error("type is invalid");
+  return type;
+}
+
+function memoryBody(value: unknown): MemoryBodySections {
+  const body = object(value, "body");
+  exactKeys(body, ["rule", "why", "howToApply", "doesNotApplyTo"], "body");
+  return {
+    rule: string(body.rule, "body.rule"),
+    why: text(body.why, "body.why"),
+    howToApply: arrayOfStrings(body.howToApply, "body.howToApply"),
+    doesNotApplyTo: arrayOfStrings(body.doesNotApplyTo, "body.doesNotApplyTo"),
+  };
+}
+
+function memoryRef(tier: MemoryTier, workspaceId: string): TierRef {
+  return tier === "global" ? { tier } : { tier, ws: workspaceId };
+}
+
+async function visibleMemoryEntry(entryId: string, workspaceId: string): Promise<MemoryEntry> {
+  const row = openDomainDb().query<{ workspaceId: string }, [string]>(
+    "SELECT workspace_id AS workspaceId FROM memory_entries WHERE id = ?",
+  ).get(entryId);
+  if (!row || (row.workspaceId !== GLOBAL_MEMORY_WORKSPACE_ID && row.workspaceId !== workspaceId)) {
+    throw new Error(`Memory entry not found: ${entryId}`);
+  }
+  const entry = (await listEntryHistory(entryId))[0];
+  if (!entry) throw new Error(`Memory entry not found: ${entryId}`);
+  return entry;
+}
+
+async function memoryDto(entry: MemoryEntry, _workspaceId: string): Promise<Record<string, unknown>> {
+  const overridesGlobal = entry.tier === "workspace"
+    && await getEntry(entry.slug, { tier: "global" }, "active") !== null;
+  return {
+    ...entry,
+    revisionNo: entry.version,
+    rawBody: entry.body,
+    body: parseMemoryBody(entry.body),
+    qualityFlags: memoryQualityFlags(entry.body),
+    overridesGlobal,
+  };
+}
+
+async function memoryMove(
+  params: unknown,
+  label: "approve" | "reject",
+  move: (slug: string, ref: TierRef, expectedRevisionId?: string) => Promise<unknown>,
+): Promise<unknown> {
+  const value = object(params, `memory.${label}`);
+  const scope = resolveScope(scopedContext(value));
+  const entry = await visibleMemoryEntry(string(value.memoryEntryId, "memoryEntryId"), scope.workspaceId);
+  return move(
+    entry.slug,
+    memoryRef(entry.tier, scope.workspaceId),
+    string(value.expectedRevisionId, "expectedRevisionId"),
+  );
 }
 
 function consumerQueryContext(
@@ -1379,6 +1677,15 @@ function objectOrEmpty(value: unknown, label: string): Record<string, unknown> {
   return value === undefined ? {} : object(value, label);
 }
 
+/* Which rows a workspace overview section counts as the workspace's. Absent means the original
+   meaning -- rows the workspace itself owns -- so an older caller reads exactly what it read
+   before, and a typo is a refusal rather than a silently narrower answer. */
+function overviewInclude(value: unknown): "owned" | "tree" | undefined {
+  if (value === undefined) return undefined;
+  if (value !== "owned" && value !== "tree") throw new Error("include must be \"owned\" or \"tree\"");
+  return value;
+}
+
 function authorizationString(value: unknown): string {
   if (typeof value !== "string" || value.length === 0) {
     throw new Error("Desktop migration authorization envelope is invalid");
@@ -1388,6 +1695,11 @@ function authorizationString(value: unknown): string {
 
 function string(value: unknown, label: string): string {
   if (typeof value !== "string" || value.length === 0) throw new Error(`${label} must be a non-empty string`);
+  return value;
+}
+
+function text(value: unknown, label: string): string {
+  if (typeof value !== "string") throw new Error(`${label} must be a string`);
   return value;
 }
 

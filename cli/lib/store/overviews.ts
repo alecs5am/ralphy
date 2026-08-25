@@ -3,6 +3,7 @@ import { listActivity } from "./activity.js";
 import { openDomainDb } from "./db.js";
 import { listMediaInDatabase } from "./media.js";
 import { assertLimit, buildPage, decodeCursor } from "./pagination.js";
+import { projectRunAttemptSpendUsd } from "./runs.js";
 import { resolveQueryContext, type QueryContext } from "./scope-context.js";
 import type {
   ActivityDto,
@@ -60,17 +61,18 @@ export function getWorkspaceOverview(
 
     const sections = request.sections;
     const overview: WorkspaceOverview = { workspace };
+    /* One predicate, chosen once: `owned` keeps a workspace section from speaking for a Project's
+       rows, `tree` is the caller asking about the whole workspace including its Projects. */
+    const tree = request.include === "tree";
+    const owned = {
+      sql: tree ? "workspace_id = ?" : "workspace_id = ? AND project_id IS NULL",
+      values: [request.workspaceId],
+    };
     if (sections.documents) {
-      overview.documents = pageDocuments(db, sections.documents, {
-        sql: "workspace_id = ? AND project_id IS NULL",
-        values: [request.workspaceId],
-      });
+      overview.documents = pageDocuments(db, sections.documents, owned);
     }
     if (sections.units) {
-      overview.units = pageUnits(db, sections.units, {
-        sql: "workspace_id = ? AND project_id IS NULL",
-        values: [request.workspaceId],
-      });
+      overview.units = pageUnits(db, sections.units, owned);
     }
     if (sections.accounts) {
       overview.accounts = pageAccounts(db, sections.accounts, request.workspaceId);
@@ -91,7 +93,7 @@ export function getWorkspaceOverview(
       );
     }
     const workspaceUnits = {
-      sql: "unit.workspace_id = ? AND unit.project_id IS NULL",
+      sql: tree ? "unit.workspace_id = ?" : "unit.workspace_id = ? AND unit.project_id IS NULL",
       values: [request.workspaceId],
     };
     if (sections.publications) {
@@ -131,7 +133,10 @@ export function getProjectOverview(
     }
 
     const sections = request.sections;
-    const overview: ProjectOverview = { project };
+    const overview: ProjectOverview = {
+      project,
+      spendUsd: projectRunAttemptSpendUsd(request.projectId),
+    };
     if (sections.documents) {
       const page = pageDocuments(db, sections.documents, {
         sql: `(project_id = ? OR (
@@ -260,7 +265,8 @@ function pageUnits(
   return creationPage<OverviewUnitDto>(
     db,
     request,
-    `id, workspace_id AS workspaceId, project_id AS projectId, slug, format,
+    `id, workspace_id AS workspaceId, project_id AS projectId,
+     composition_id AS compositionId, slug, format,
      latest_revision_id AS latestRevisionId,
      selected_revision_id AS selectedRevisionId,
      created_at AS createdAt, updated_at AS updatedAt`,

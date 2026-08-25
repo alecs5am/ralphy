@@ -807,6 +807,7 @@ function forbiddenOrdinaryFields(value: unknown): string[] {
 const EXPECTED_ACTIVITY_WRITERS = [
   "cli/lib/agent/store.ts",
   "cli/lib/calendar/store.ts",
+  "cli/lib/calendar/workbench.ts",
   "cli/lib/campaign/store.ts",
   "cli/lib/config.ts",
   "cli/lib/jobs/db.ts",
@@ -835,6 +836,7 @@ const UNEXERCISED_LITERAL_ACTIVITY_ACTIONS = [
   "build.cancelled",
   "build.failed",
   "calendar.entry.created",
+  "calendar.entry.scheduled",
   "calendar.entry.transitioned",
   "calendar.entry.updated",
   "calendar.slot.created",
@@ -1408,6 +1410,67 @@ describe("ordinary public DTO safety", () => {
     expect(trapped.touched).toEqual([]);
     expect(trapped.result).toEqual(fixture.readQueryBaseline);
     expect(forbiddenOrdinaryFields(trapped.result)).toEqual([]);
+  });
+});
+
+describe("Unit production links", () => {
+  test("round-trips explicit Composition links and lets selection precede the final render", () => {
+    makeRoot();
+    const workspace = createWorkspace({ slug: "production-links", name: "Production Links" });
+    const project = createProject({ workspaceId: workspace.id, slug: "launch", name: "Launch" });
+    const otherProject = createProject({ workspaceId: workspace.id, slug: "other", name: "Other" });
+    const composition = createComposition({ projectId: project.id, slug: "launch-cut", kind: "video" });
+    const otherComposition = createComposition({ projectId: otherProject.id, slug: "other-cut", kind: "video" });
+    const compositionRevision = reviseComposition({
+      compositionId: composition.id,
+      expectedLatestRevisionId: null,
+      engine: "hyperframes",
+    });
+    const otherRevision = reviseComposition({
+      compositionId: otherComposition.id,
+      expectedLatestRevisionId: null,
+      engine: "hyperframes",
+    });
+
+    const unit = createUnit({
+      projectId: project.id,
+      slug: "launch-cut",
+      format: "video",
+      compositionId: composition.id,
+    });
+    expect(unit).toMatchObject({ compositionId: composition.id, latestRevisionId: null });
+
+    const revision = reviseUnit({
+      unitId: unit.id,
+      expectedLatestRevisionId: null,
+      compositionRevisionId: compositionRevision.id,
+      items: [],
+    });
+    expect(getUnitRevision({
+      context: { workspaceId: workspace.id, projectId: project.id },
+      revisionId: revision.id,
+    })).toMatchObject({ compositionRevisionId: compositionRevision.id });
+    expect(selectUnitRevision({
+      unitId: unit.id,
+      revisionId: revision.id,
+      expectedSelectedRevisionId: null,
+    }).selectedRevisionId).toBe(revision.id);
+
+    expect(() => createUnit({
+      projectId: project.id,
+      slug: "wrong-composition",
+      format: "video",
+      compositionId: otherComposition.id,
+    })).toThrow("Unit Composition must belong to its Project");
+    expect(() => reviseUnit({
+      unitId: unit.id,
+      expectedLatestRevisionId: revision.id,
+      compositionRevisionId: otherRevision.id,
+      items: [],
+    })).toThrow("Unit Composition revision must belong to its Composition");
+
+    const direct = createUnit({ projectId: project.id, slug: "direct", format: "article" });
+    expect(direct.compositionId).toBeNull();
   });
 });
 

@@ -667,6 +667,55 @@ export function snapshotAndStartCompositionBuild(input: {
   });
 }
 
+export function startSealedCompositionBuild(input: {
+  context?: QueryContext;
+  revisionId: string;
+  profile: JsonValue;
+  authoredBySessionId?: string | null;
+  testHooks?: { beforeCommit?: () => void };
+}) {
+  return withImmediateTransaction((db) => {
+    const scope = getRevisionScope(db, input.revisionId);
+    if (!scope || scope.revision.state !== "sealed") {
+      throw new Error("Composition retry requires a sealed revision");
+    }
+    if (input.context !== undefined) {
+      assertVisibleProject(db, resolveQueryContext(db, input.context), scope.composition.projectId);
+    }
+    if (db.query<{ id: string }, [string]>(
+      "SELECT id FROM builds WHERE composition_revision_id = ? AND state IN ('pending', 'running') LIMIT 1",
+    ).get(scope.revision.id)) {
+      throw new StoreConflictError("Composition build is already running");
+    }
+    const run = startRunInTransaction(db, {
+      workspaceId: scope.workspaceId,
+      projectId: scope.composition.projectId,
+      agentSessionId: input.authoredBySessionId,
+      kind: "composition.build",
+      label: scope.composition.slug,
+    });
+    const attempt = startRunAttemptInTransaction(db, {
+      runId: run.id,
+      provider: scope.revision.engine,
+      model: scope.revision.engine,
+    });
+    const buildId = newDomainId("build");
+    const now = Date.now();
+    const profile = canonicalJsonInput(input.profile, "Build profile");
+    db.prepare(
+      `INSERT INTO builds
+       (id, composition_revision_id, run_id, state, profile_json, created_at, started_at)
+       VALUES (?, ?, ?, 'running', ?, ?, ?)`,
+    ).run(buildId, scope.revision.id, run.id, JSON.stringify(profile), now, now);
+    appendBuildActivity(db, scope, buildId, "build.started", {
+      compositionRevisionId: scope.revision.id,
+      runId: run.id,
+    }, now);
+    input.testHooks?.beforeCommit?.();
+    return { revision: toRevisionDto(scope.revision), run, attempt, build: toBuildDto(getBuildRow(db, buildId)!) };
+  });
+}
+
 export function validateBuildProfile(profile: JsonValue): JsonValue {
   const value = canonicalJsonInput(profile, "Build profile");
   const format = value && typeof value === "object" && !Array.isArray(value) ? value.format : undefined;

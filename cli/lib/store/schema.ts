@@ -2,7 +2,8 @@ import { Database } from "bun:sqlite";
 import fs from "node:fs";
 import path from "node:path";
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 9;
+export const GLOBAL_MEMORY_WORKSPACE_ID = "ws_00000000-0000-0000-0000-000000000000";
 
 export type Migration = {
   version: number;
@@ -4314,6 +4315,247 @@ export const MIGRATIONS: readonly Migration[] = [
           AND target_ref = NEW.target_ref
       )
       BEGIN SELECT RAISE(ABORT, 'supplemental migration ref already exists'); END;
+    `,
+  },
+  {
+    version: 7,
+    sql: `
+      ALTER TABLE units
+        ADD COLUMN composition_id TEXT REFERENCES compositions(id) ON DELETE RESTRICT;
+      ALTER TABLE unit_revisions
+        ADD COLUMN composition_revision_id TEXT REFERENCES composition_revisions(id) ON DELETE RESTRICT;
+
+      CREATE UNIQUE INDEX idx_units_composition
+        ON units(composition_id) WHERE composition_id IS NOT NULL;
+      CREATE INDEX idx_unit_revisions_composition
+        ON unit_revisions(composition_revision_id) WHERE composition_revision_id IS NOT NULL;
+
+      DROP TRIGGER units_identity_update_guard;
+      CREATE TRIGGER units_identity_update_guard
+      BEFORE UPDATE ON units
+      WHEN NEW.id IS NOT OLD.id
+        OR NEW.workspace_id IS NOT OLD.workspace_id
+        OR NEW.project_id IS NOT OLD.project_id
+        OR NEW.composition_id IS NOT OLD.composition_id
+        OR NEW.slug IS NOT OLD.slug
+        OR NEW.format IS NOT OLD.format
+        OR NEW.created_at IS NOT OLD.created_at
+      BEGIN
+        SELECT RAISE(ABORT, 'Unit identity is immutable');
+      END;
+
+      CREATE TRIGGER units_composition_scope_insert
+      BEFORE INSERT ON units
+      WHEN NEW.composition_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM compositions composition
+          WHERE composition.id = NEW.composition_id
+            AND composition.project_id = NEW.project_id
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'Unit Composition must belong to its Project');
+      END;
+
+      DROP TRIGGER unit_revisions_update_guard;
+      CREATE TRIGGER unit_revisions_update_guard
+      BEFORE UPDATE ON unit_revisions
+      WHEN NOT (
+        OLD.sealed_at IS NULL
+        AND NEW.sealed_at IS NOT NULL
+        AND NEW.id IS OLD.id
+        AND NEW.unit_id IS OLD.unit_id
+        AND NEW.composition_revision_id IS OLD.composition_revision_id
+        AND NEW.revision_no IS OLD.revision_no
+        AND NEW.parent_revision_id IS OLD.parent_revision_id
+        AND NEW.iteration_id IS OLD.iteration_id
+        AND NEW.note IS OLD.note
+        AND NEW.metadata_json IS OLD.metadata_json
+        AND NEW.authored_by_session_id IS OLD.authored_by_session_id
+        AND NEW.created_at IS OLD.created_at
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Unit revisions are immutable except for the final seal transition');
+      END;
+
+      CREATE TRIGGER unit_revision_composition_scope_insert
+      BEFORE INSERT ON unit_revisions
+      WHEN NEW.composition_revision_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM units unit
+          JOIN composition_revisions revision
+            ON revision.id = NEW.composition_revision_id
+          WHERE unit.id = NEW.unit_id
+            AND revision.composition_id = unit.composition_id
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'Unit Composition revision must belong to its Composition');
+      END;
+
+      DROP TRIGGER unit_revision_seal_graph_guard;
+      CREATE TRIGGER unit_revision_seal_graph_guard
+      BEFORE UPDATE OF sealed_at ON unit_revisions
+      WHEN NEW.sealed_at IS NOT NULL
+        AND (
+          (
+            NEW.composition_revision_id IS NULL
+            AND NOT EXISTS (
+              SELECT 1 FROM unit_items item WHERE item.unit_revision_id = NEW.id
+            )
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM (
+              SELECT COUNT(*) AS count, MIN(position) AS minimum, MAX(position) AS maximum
+              FROM unit_items WHERE unit_revision_id = NEW.id
+            ) positions
+            WHERE positions.minimum <> 0 OR positions.maximum <> positions.count - 1
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM (
+              SELECT COUNT(*) AS count, MIN(position) AS minimum, MAX(position) AS maximum
+              FROM unit_presentations WHERE unit_revision_id = NEW.id
+            ) positions
+            WHERE positions.count > 0
+              AND (positions.minimum <> 0 OR positions.maximum <> positions.count - 1)
+          )
+          OR EXISTS (
+            SELECT 1 FROM unit_presentations presentation
+            WHERE presentation.unit_revision_id = NEW.id
+              AND presentation.cover_artifact_revision_id IS NOT NULL
+              AND NOT EXISTS (
+                SELECT 1 FROM unit_items item
+                WHERE item.unit_revision_id = NEW.id
+                  AND item.artifact_revision_id = presentation.cover_artifact_revision_id
+              )
+          )
+          OR EXISTS (
+            SELECT 1 FROM unit_presentations presentation
+            WHERE presentation.unit_revision_id = NEW.id
+              AND presentation.effective_caption_revision_id IS NOT NULL
+              AND NOT EXISTS (
+                SELECT 1 FROM presentation_caption_revisions caption
+                WHERE caption.id = presentation.effective_caption_revision_id
+                  AND caption.presentation_id = presentation.id
+              )
+          )
+          OR EXISTS (
+            SELECT 1 FROM unit_presentations presentation
+            WHERE presentation.unit_revision_id = NEW.id
+              AND EXISTS (
+                SELECT 1
+                FROM (
+                  SELECT COUNT(*) AS count, MIN(position) AS minimum, MAX(position) AS maximum
+                  FROM presentation_items item
+                  WHERE item.presentation_id = presentation.id
+                ) positions
+                WHERE positions.count > 0
+                  AND (positions.minimum <> 0 OR positions.maximum <> positions.count - 1)
+              )
+          )
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'Unit revision graph is incomplete or non-contiguous');
+      END;
+    `,
+  },
+  {
+    version: 8,
+    sql: `
+      INSERT OR IGNORE INTO workspaces
+        (id, slug, name, metadata_json, row_version, created_at, updated_at)
+      VALUES
+        ('${GLOBAL_MEMORY_WORKSPACE_ID}', '__global-memory__', 'Global Memory',
+         '{"system":"global-memory"}', 1, 0, 0);
+    `,
+  },
+  {
+    version: 9,
+    sql: `
+      DROP TRIGGER publications_scope_insert;
+      CREATE TRIGGER publications_scope_insert
+      BEFORE INSERT ON publications
+      WHEN NOT EXISTS (
+        SELECT 1
+        FROM unit_presentations presentation
+        JOIN unit_revisions revision ON revision.id = presentation.unit_revision_id
+        JOIN units unit ON unit.id = revision.unit_id
+        JOIN runs run ON run.id = NEW.submission_run_id
+        WHERE presentation.id = NEW.presentation_id
+          AND revision.sealed_at IS NOT NULL
+          AND NEW.effective_caption_revision_id IS presentation.effective_caption_revision_id
+          AND json_valid(NEW.effective_options_json)
+          AND run.workspace_id IS unit.workspace_id
+          AND run.project_id IS unit.project_id
+          AND run.state = 'pending'
+          AND NOT EXISTS (SELECT 1 FROM run_attempts attempt WHERE attempt.run_id = run.id)
+          AND NOT EXISTS (SELECT 1 FROM run_results result WHERE result.run_id = run.id)
+          AND NEW.active_claim_run_id IS NULL
+          AND NEW.claim_kind IS NULL
+          AND NEW.claim_epoch = 0
+          AND NEW.claim_token IS NULL
+          AND NEW.claim_expires_at IS NULL
+          AND NEW.provider_publication_id IS NULL
+          AND NEW.url IS NULL
+          AND NEW.submitted_at IS NULL
+          AND NEW.published_at IS NULL
+          AND (
+            (
+              NEW.rail IN ('github-pages', 'manual')
+              AND NEW.social_account_id IS NULL
+            )
+            OR (
+              NEW.rail IN ('postiz', 'devto', 'hashnode')
+              AND EXISTS (
+                SELECT 1 FROM social_accounts account
+                WHERE account.id = NEW.social_account_id
+                  AND account.workspace_id = unit.workspace_id
+                  AND account.platform = presentation.platform
+              )
+            )
+            OR (
+              NEW.state = 'failed'
+              AND NEW.social_account_id IS NULL
+              AND NEW.failure_stage IN ('account-resolution', 'preflight')
+              AND NEW.error IS NOT NULL
+              AND NEW.provider_publication_id IS NULL
+              AND NEW.claim_token IS NULL
+            )
+          )
+          AND (
+            NEW.revised_from_publication_id IS NULL
+            OR EXISTS (
+              SELECT 1
+              FROM publications previous
+              JOIN unit_presentations previous_presentation
+                ON previous_presentation.id = previous.presentation_id
+              JOIN unit_revisions previous_revision
+                ON previous_revision.id = previous_presentation.unit_revision_id
+              JOIN units previous_unit ON previous_unit.id = previous_revision.unit_id
+              WHERE previous.id = NEW.revised_from_publication_id
+                AND previous_unit.workspace_id = unit.workspace_id
+                AND previous.created_at <= NEW.created_at
+            )
+          )
+          AND (
+            (
+              NEW.state = 'draft'
+              AND NEW.error IS NULL
+              AND NEW.failure_stage IS NULL
+              AND NEW.claim_token IS NULL
+            )
+            OR (
+              NEW.state = 'failed'
+              AND NEW.failure_stage IN ('account-resolution', 'preflight')
+              AND NEW.error IS NOT NULL
+              AND NEW.claim_token IS NULL
+            )
+          )
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Publication requires a sealed Presentation, exact fresh Run, and valid rail scope');
+      END;
     `,
   },
 ];

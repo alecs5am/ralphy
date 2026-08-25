@@ -263,6 +263,7 @@ type PublishPresentationInput = {
   rail: PublicationRail;
   scheduledAt?: number | null;
   revisedFromPublicationId?: string | null;
+  options?: JsonValue;
   leaseMs?: number;
 };
 
@@ -287,6 +288,7 @@ export async function publishPresentation(
     rail: PublicationRail;
     scheduledAt?: number | null;
     revisedFromPublicationId?: string | null;
+    options?: JsonValue;
     leaseMs?: number;
   },
   adapter?: PublicationProviderAdapter,
@@ -313,6 +315,7 @@ export async function publishPresentation(
       idempotencyKey: input.idempotencyKey,
       scheduledAt: input.scheduledAt,
       revisedFromPublicationId: input.revisedFromPublicationId,
+      effectiveOptions: input.options,
       agentSessionId: input.context.sessionId,
       leaseMs: input.leaseMs ?? DEFAULT_LEASE_MS,
     });
@@ -348,7 +351,7 @@ export async function publishPresentation(
     preparedRequest = {
       platform: binding.presentation.platform,
       caption: binding.caption,
-      options: binding.presentation.options,
+      options: input.options ?? binding.presentation.options,
       items: binding.items,
       mediaPaths: binding.items.flatMap((item) =>
         item.artifactRevisionId === null
@@ -383,6 +386,7 @@ export async function publishPresentation(
     idempotencyKey: input.idempotencyKey,
     scheduledAt: input.scheduledAt,
     revisedFromPublicationId: input.revisedFromPublicationId,
+    effectiveOptions: input.options,
     agentSessionId: input.context.sessionId,
     leaseMs: input.leaseMs ?? DEFAULT_LEASE_MS,
     ...(failedPreflight ? { failedPreflight } : {}),

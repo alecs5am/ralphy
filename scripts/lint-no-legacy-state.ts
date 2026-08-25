@@ -37,6 +37,7 @@ export function findLegacyStateViolations(root: string): string[] {
     const allowedExport = relative === "cli/lib/store/portable.ts";
     const allowedMigrationGenerationEvidence = new Set([
       "cli/lib/migration/import.ts",
+      "cli/lib/migration/live-repair.ts",
       "cli/lib/migration/production-accounting.ts",
       "cli/lib/migration/staging.ts",
     ]).has(relative);

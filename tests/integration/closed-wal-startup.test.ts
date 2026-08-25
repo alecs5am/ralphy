@@ -10,6 +10,7 @@ import {
 import { setRoot } from "../../cli/lib/paths.js";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
 import { createWorkspace } from "../../cli/lib/store/scopes.js";
+import { SCHEMA_VERSION } from "../../cli/lib/store/schema.js";
 import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 
 const REPO = path.resolve(import.meta.dir, "..", "..");
@@ -23,7 +24,7 @@ afterEach(() => {
 });
 
 describe("closed WAL startup", () => {
-  test("resolves a schema-v6 WAL store after both sidecars are gone", () => {
+  test("resolves a current-schema WAL store after both sidecars are gone", () => {
     const fixture = createSchemaFixture("ralphy-closed-wal-context");
     const image = closeAsStandaloneWal(fixture);
 
@@ -210,7 +211,7 @@ describe("closed WAL startup", () => {
     const fixture = createSchemaFixture("ralphy-schema-five-context");
     fixture.db.exec(`
       DROP TABLE migration_entry_supplemental_refs;
-      DELETE FROM schema_migrations WHERE version = 6;
+      DELETE FROM schema_migrations WHERE version >= 6;
       PRAGMA user_version = 5;
     `);
     expect(
@@ -232,7 +233,7 @@ describe("closed WAL startup", () => {
       fixture.db.query<{ version: number }, []>(
         "SELECT MAX(version) AS version FROM schema_migrations",
       ).get()!.version,
-    ).toBe(6);
+    ).toBe(SCHEMA_VERSION);
     closeAsStandaloneWal(fixture);
 
     expectMigrationIncomplete(() =>
@@ -247,7 +248,7 @@ describe("closed WAL startup", () => {
       fixture.db.query<{ version: number }, []>(
         "SELECT version FROM schema_migrations ORDER BY version",
       ).all().map((row) => row.version),
-    ).toEqual([1, 2, 3, 4, 6]);
+    ).toEqual([1, 2, 3, 4, 6, 7, 8, 9]);
     closeAsStandaloneWal(fixture);
 
     expectMigrationIncomplete(() =>
@@ -293,7 +294,7 @@ function createSchemaFixture(prefix: string): SchemaFixture {
     db.query<{ version: number }, []>(
       "SELECT MAX(version) AS version FROM schema_migrations",
     ).get()!.version,
-  ).toBe(6);
+  ).toBe(SCHEMA_VERSION);
   return {
     dataRoot,
     databasePath: path.join(dataRoot, "ralphy.db"),

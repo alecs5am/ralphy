@@ -117,7 +117,7 @@ afterEach(() => {
 });
 
 describe("domain database bootstrap", () => {
-  test("opens the authoritative database with enforced pragmas and schema v3", () => {
+  test("opens the authoritative database with enforced pragmas and current schema", () => {
     const tmp = makeRoot();
     const db = openDomainDb();
 
@@ -127,7 +127,7 @@ describe("domain database bootstrap", () => {
       journal_mode: "wal",
     });
     expect(db.query("PRAGMA busy_timeout").get()).toEqual({ timeout: 5000 });
-    expect(db.query("PRAGMA user_version").get()).toEqual({ user_version: 6 });
+    expect(db.query("PRAGMA user_version").get()).toEqual({ user_version: SCHEMA_VERSION });
     expect(
       db
         .query<{ name: string }, []>(
@@ -136,16 +136,11 @@ describe("domain database bootstrap", () => {
         .all()
         .map((row) => row.name),
     ).toEqual(expect.arrayContaining([...REQUIRED_TABLES]));
-    expect(db.query("SELECT version FROM schema_migrations").all()).toEqual([
-      { version: 1 },
-      { version: 2 },
-      { version: 3 },
-      { version: 4 },
-      { version: 5 },
-      { version: 6 },
-    ]);
-    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(SCHEMA_VERSION).toBe(6);
+    expect(db.query("SELECT version FROM schema_migrations").all()).toEqual(
+      MIGRATIONS.map(({ version }) => ({ version })),
+    );
+    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(SCHEMA_VERSION).toBe(9);
 
     const socialAccountColumns = db
       .query<{ name: string }, []>("PRAGMA table_info('social_accounts')")
@@ -190,7 +185,7 @@ describe("domain database bootstrap", () => {
     expect(
       reopened.query("SELECT COUNT(*) AS count FROM schema_migrations").get(),
     ).toEqual({
-      count: 6,
+      count: MIGRATIONS.length,
     });
   });
 
@@ -323,10 +318,10 @@ describe("schema migration safety", () => {
     createV1Database(databasePath);
 
     const live = openDomainDb();
-    expect(live.query("PRAGMA user_version").get()).toEqual({ user_version: 6 });
+    expect(live.query("PRAGMA user_version").get()).toEqual({ user_version: SCHEMA_VERSION });
     expect(
       live.query("SELECT version FROM schema_migrations ORDER BY version").all(),
-    ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }]);
+    ).toEqual(MIGRATIONS.map(({ version }) => ({ version })));
     expect(
       live
         .query(
@@ -471,7 +466,7 @@ describe("schema migration safety", () => {
     }
 
     const live = new Database(databasePath, { readonly: true });
-    expect(live.query("PRAGMA user_version").get()).toEqual({ user_version: 6 });
+    expect(live.query("PRAGMA user_version").get()).toEqual({ user_version: SCHEMA_VERSION });
     expect(
       live
         .query(

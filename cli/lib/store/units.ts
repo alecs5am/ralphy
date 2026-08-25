@@ -59,6 +59,7 @@ type UnitScope =
 export type CreateUnitInput = UnitScope & {
   slug: string;
   format: string;
+  compositionId?: string | null;
 };
 
 export type UnitItemInput = {
@@ -92,6 +93,7 @@ export type UnitPresentationInput = {
 export type ReviseUnitInput = {
   unitId: string;
   expectedLatestRevisionId: string | null;
+  compositionRevisionId?: string | null;
   parentRevisionId?: string | null;
   iterationId?: string | null;
   note?: string | null;
@@ -135,6 +137,7 @@ type UnitDbRow = {
   id: string;
   workspace_id: string;
   project_id: string | null;
+  composition_id: string | null;
   slug: string;
   format: string;
   latest_revision_id: string | null;
@@ -147,6 +150,7 @@ type UnitDbRow = {
 type UnitRevisionDbRow = {
   id: string;
   unit_id: string;
+  composition_revision_id: string | null;
   revision_no: number;
   parent_revision_id: string | null;
   iteration_id: string | null;
@@ -226,19 +230,21 @@ type MetricSnapshotDtoDbRow = Omit<MetricSnapshotDto, "retentionCurve"> & {
 };
 
 const UNIT_COLUMNS =
-  "id, workspace_id, project_id, slug, format, latest_revision_id, selected_revision_id, row_version, created_at, updated_at";
+  "id, workspace_id, project_id, composition_id, slug, format, latest_revision_id, selected_revision_id, row_version, created_at, updated_at";
 const REVISION_COLUMNS =
-  "id, unit_id, revision_no, parent_revision_id, iteration_id, note, metadata_json, authored_by_session_id, created_at, sealed_at";
+  "id, unit_id, composition_revision_id, revision_no, parent_revision_id, iteration_id, note, metadata_json, authored_by_session_id, created_at, sealed_at";
 const PUBLICATION_COLUMNS =
   "id, presentation_id, effective_caption_revision_id, effective_options_json, social_account_id, submission_run_id, active_claim_run_id, revised_from_publication_id, rail, provider_publication_id, state, url, scheduled_at, submitted_at, published_at, error, failure_stage, idempotency_key, claim_kind, claim_epoch, claim_token, claim_expires_at, created_at, updated_at";
 const METRIC_SNAPSHOT_COLUMNS =
   "id, publication_id, source, as_of, window_start, window_end, views, likes, comments, shares, watch_time_ms, ctr, retention_curve_json, avg_view_duration_sec, note, raw_json, created_at";
 const UNIT_DTO_COLUMNS = `unit.id AS id, unit.workspace_id AS workspaceId,
-  unit.project_id AS projectId, unit.slug AS slug, unit.format AS format,
+  unit.project_id AS projectId, unit.composition_id AS compositionId,
+  unit.slug AS slug, unit.format AS format,
   unit.latest_revision_id AS latestRevisionId,
   unit.selected_revision_id AS selectedRevisionId,
   unit.created_at AS createdAt, unit.updated_at AS updatedAt`;
 const REVISION_DTO_COLUMNS = `revision.id AS id, revision.unit_id AS unitId,
+  revision.composition_revision_id AS compositionRevisionId,
   revision.revision_no AS revisionNo,
   revision.parent_revision_id AS parentRevisionId,
   revision.iteration_id AS iterationId, revision.note AS note,
@@ -363,6 +369,22 @@ function reviseUnitInTransaction(
     if (input.authoredBySessionId != null) {
       assertActiveSessionScope(db, input.authoredBySessionId, unit);
     }
+    const compositionRevisionId = input.compositionRevisionId ?? null;
+    if (compositionRevisionId !== null) {
+      const linked = db.query<{ compositionId: string; projectId: string; state: string }, [string]>(
+        `SELECT revision.composition_id AS compositionId,
+                composition.project_id AS projectId, revision.state AS state
+         FROM composition_revisions revision
+         JOIN compositions composition ON composition.id = revision.composition_id
+         WHERE revision.id = ?`,
+      ).get(compositionRevisionId);
+      if (!linked || linked.compositionId !== unit.compositionId || linked.projectId !== unit.projectId) {
+        throw new Error("Unit Composition revision must belong to its Composition");
+      }
+    }
+    if (items.length === 0 && compositionRevisionId === null) {
+      throw new Error("Unit revision requires items or a Composition revision");
+    }
     for (const item of items) assertItemScope(db, unit, item);
 
     const id = newDomainId("urev");
@@ -370,12 +392,13 @@ function reviseUnitInTransaction(
     const now = Date.now();
     db.prepare(
       `INSERT INTO unit_revisions
-       (id, unit_id, revision_no, parent_revision_id, iteration_id, note,
-        metadata_json, authored_by_session_id, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, unit_id, composition_revision_id, revision_no, parent_revision_id,
+        iteration_id, note, metadata_json, authored_by_session_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       id,
       unit.id,
+      compositionRevisionId,
       revisionNo,
       parentId,
       input.iterationId ?? null,
@@ -497,9 +520,9 @@ function checkedUnitIdentity(input: CreateUnitInput): {
 
 function prepareUnitRevision(input: Pick<
   ReviseUnitInput,
-  "items" | "presentations" | "note" | "metadata"
+  "compositionRevisionId" | "items" | "presentations" | "note" | "metadata"
 >) {
-  const items = checkedItems(input.items);
+  const items = checkedItems(input.items, input.compositionRevisionId != null);
   return {
     items,
     presentations: checkedPresentations(input.presentations ?? [], items),
@@ -515,13 +538,22 @@ function createUnitInTransaction(
   format: string,
 ): UnitDto {
   const scope = resolveScope(db, input);
+  const compositionId = input.compositionId ?? null;
+  if (compositionId !== null) {
+    const composition = db.query<{ projectId: string }, [string]>(
+      "SELECT project_id AS projectId FROM compositions WHERE id = ?",
+    ).get(compositionId);
+    if (!composition || scope.projectId === null || composition.projectId !== scope.projectId) {
+      throw new Error("Unit Composition must belong to its Project");
+    }
+  }
   const id = newDomainId("unit");
   const now = Date.now();
   db.prepare(
     `INSERT INTO units
-     (id, workspace_id, project_id, slug, format, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-  ).run(id, scope.workspaceId, scope.projectId, slug, format, now, now);
+     (id, workspace_id, project_id, composition_id, slug, format, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(id, scope.workspaceId, scope.projectId, compositionId, slug, format, now, now);
   appendActivity(db, {
     workspaceId: scope.workspaceId,
     projectId: scope.projectId,
@@ -587,6 +619,7 @@ export type RecordPublicationInput = {
   idempotencyKey: string;
   scheduledAt?: number | null;
   revisedFromPublicationId?: string | null;
+  effectiveOptions?: JsonValue;
   state?: "draft" | "failed";
   error?: string | null;
   failureStage?: "account-resolution" | "preflight" | null;
@@ -615,7 +648,10 @@ function preparePublicationRecord(input: RecordPublicationInput) {
   if (state !== "draft" && state !== "failed") {
     throw new Error("Publication may be recorded only as draft or failed preflight");
   }
-  return { idempotencyKey, scheduledAt, state };
+  const effectiveOptions = input.effectiveOptions === undefined
+    ? undefined
+    : canonicalPublicJson(input.effectiveOptions, "Publication effective options");
+  return { idempotencyKey, scheduledAt, state, effectiveOptions };
 }
 
 function recordPublicationInTransaction(
@@ -696,7 +732,7 @@ function recordPublicationInTransaction(
       id,
       scope.presentationId,
       scope.effectiveCaptionRevisionId,
-      JSON.stringify(scope.options),
+      JSON.stringify(prepared.effectiveOptions ?? scope.options),
       input.socialAccountId ?? null,
       input.submissionRunId,
       revisedFrom?.id ?? null,
@@ -809,6 +845,7 @@ export function startPublicationSubmission(input: {
   idempotencyKey: string;
   scheduledAt?: number | null;
   revisedFromPublicationId?: string | null;
+  effectiveOptions?: JsonValue;
   agentSessionId?: string | null;
   leaseMs: number;
   failedPreflight?: { error: string; failureStage: "account-resolution" | "preflight" };
@@ -830,7 +867,9 @@ export function startPublicationSubmission(input: {
         existing.socialAccountId !== (input.socialAccountId ?? null) ||
         existing.rail !== input.rail ||
         existing.scheduledAt !== prepared.scheduledAt ||
-        existing.revisedFromPublicationId !== (input.revisedFromPublicationId ?? null)
+        existing.revisedFromPublicationId !== (input.revisedFromPublicationId ?? null) ||
+        (prepared.effectiveOptions !== undefined
+          && JSON.stringify(existing.effectiveOptions) !== JSON.stringify(prepared.effectiveOptions))
       ) {
         throw new StoreConflictError(
           "Publication idempotency key belongs to another attempt",
@@ -2763,8 +2802,8 @@ type CheckedUnitItem = {
   config: JsonValue | null;
 };
 
-function checkedItems(items: UnitItemInput[]): CheckedUnitItem[] {
-  if (!Array.isArray(items) || items.length === 0) {
+function checkedItems(items: UnitItemInput[], allowEmpty = false): CheckedUnitItem[] {
+  if (!Array.isArray(items) || (!allowEmpty && items.length === 0)) {
     throw new Error("Unit revision requires at least one item");
   }
   const checked = items
@@ -2940,6 +2979,7 @@ function toUnitRow(row: UnitDbRow): UnitRow {
     id: row.id,
     workspaceId: row.workspace_id,
     projectId: row.project_id,
+    compositionId: row.composition_id,
     slug: row.slug,
     format: row.format,
     latestRevisionId: row.latest_revision_id,
@@ -2955,6 +2995,7 @@ function toUnitDto(row: UnitRow): UnitDto {
     id: row.id,
     workspaceId: row.workspaceId,
     projectId: row.projectId,
+    compositionId: row.compositionId,
     slug: row.slug,
     format: row.format,
     latestRevisionId: row.latestRevisionId,
@@ -2968,6 +3009,7 @@ function toRevisionRow(row: UnitRevisionDbRow): UnitRevisionRow {
   return {
     id: row.id,
     unitId: row.unit_id,
+    compositionRevisionId: row.composition_revision_id,
     revisionNo: row.revision_no,
     parentRevisionId: row.parent_revision_id,
     iterationId: row.iteration_id,
@@ -2983,6 +3025,7 @@ function toRevisionDto(row: UnitRevisionRow): UnitRevisionDto {
   return {
     id: row.id,
     unitId: row.unitId,
+    compositionRevisionId: row.compositionRevisionId,
     revisionNo: row.revisionNo,
     parentRevisionId: row.parentRevisionId,
     iterationId: row.iterationId,
