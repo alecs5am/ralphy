@@ -384,24 +384,31 @@ html[data-theme="light"] {
      browser silently substituted a system font mid-string and size, weight and baseline all
      shifted. The symbols take the system stack outright, and the letters stay mono. */
   --font-glyph: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
-  /* Type scale of the instrument language: mono micro-labels 9-10.5px uppercase,
-     UI text 11.5-13px, widget headings 16-17px. Doto is numbers only, >= 13px. */
-  --text-mono-2xs: 8.5px;
-  --text-mono-xs: 9px;
-  --text-mono-sm: 9.5px;
-  --text-meta: 10px;
-  --text-mono-md: 10.5px;
-  --text-xs: 11px;
-  --text-label: 11.5px;
-  --text-sm: 12px;
-  --text-ui: 12.5px;
-  --text-base: 13px;
-  --text-body: 13.5px;
-  --text-md: 14px;
-  --text-lg: 15px;
-  --text-title: 16px;
-  --text-subtitle: 17px;
-  --text-heading: 18px;
+  /* Type scale of the instrument language: mono micro-labels 10-12px uppercase,
+     UI text 12.5-14.5px, widget headings 17-18px. Doto is numbers only, >= 13px.
+
+     The 2026-08-25 readability review raised the bottom of this scale. The rungs below 10px were
+     legible on the design canvas and not on a real screen at a real viewing distance: a settings
+     row's description is prose, and it was set at 11.5px, one step above a caps micro-label. The
+     0.5px spacing between rungs is kept, so every distinction the screens draw with survives --
+     what changed is where the scale starts. Sizes at 20px and up were already legible and are
+     untouched, which widens the gap between body copy and a heading rather than narrowing it. */
+  --text-mono-2xs: 10px;
+  --text-mono-xs: 10.5px;
+  --text-mono-sm: 11px;
+  --text-meta: 11.5px;
+  --text-mono-md: 12px;
+  --text-xs: 12px;
+  --text-label: 12.5px;
+  --text-sm: 13px;
+  --text-ui: 13.5px;
+  --text-base: 14px;
+  --text-body: 14.5px;
+  --text-md: 15px;
+  --text-lg: 16px;
+  --text-title: 17px;
+  --text-subtitle: 18px;
+  --text-heading: 19px;
   --text-xl: 20px;
   --text-page: 21px;
   --text-metric: 22px;
