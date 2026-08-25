@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DomainError } from "./errors/domain.js";
 import { assertStartupJournalReady } from "./migration/cutover-journal.js";
-import { MIGRATIONS, SCHEMA_VERSION } from "./store/schema.js";
+import { GLOBAL_MEMORY_WORKSPACE_ID, MIGRATIONS, SCHEMA_VERSION } from "./store/schema.js";
 
 export type DataRootIdentity = {
   dataRoot: string;
@@ -410,8 +410,8 @@ function projectFromCwd(
 
 function inferOnlyWorkspace(db: Database): string {
   const rows = db
-    .query<{ id: string }, []>("SELECT id FROM workspaces ORDER BY id LIMIT 2")
-    .all();
+    .query<{ id: string }, [string]>("SELECT id FROM workspaces WHERE id <> ? ORDER BY id LIMIT 2")
+    .all(GLOBAL_MEMORY_WORKSPACE_ID);
   if (rows.length !== 1) {
     throw inputError(
       "--workspace",

@@ -4,6 +4,7 @@ import { canonicalSocialAccountConfig } from "./canonical-json.js";
 import { openDomainDb, withImmediateTransaction } from "./db.js";
 import { newDomainId } from "./ids.js";
 import { assertLimit, buildPage, decodeCursor } from "./pagination.js";
+import { GLOBAL_MEMORY_WORKSPACE_ID } from "./schema.js";
 import {
   resolveQueryContext,
   type QueryContext,
@@ -272,11 +273,11 @@ export function listWorkspaces(input: {
 } = {}): Page<WorkspaceSummaryDto> {
   const limit = input.limit ?? 50;
   assertLimit(limit);
-  const values: (string | number)[] = [];
+  const values: (string | number)[] = [GLOBAL_MEMORY_WORKSPACE_ID];
   let after = "";
   if (input.cursor != null) {
     const cursor = decodeCursor("c1", input.cursor);
-    after = "WHERE (created_at > ? OR (created_at = ? AND id > ?))";
+    after = "AND (created_at > ? OR (created_at = ? AND id > ?))";
     values.push(cursor.ordinal, cursor.ordinal, cursor.id);
   }
   values.push(limit + 1);
@@ -284,7 +285,8 @@ export function listWorkspaces(input: {
     .query<WorkspaceSummaryDto, (string | number)[]>(
       `SELECT id, slug, name, row_version AS rowVersion,
               created_at AS createdAt, updated_at AS updatedAt
-       FROM workspaces ${after} ORDER BY created_at ASC, id ASC LIMIT ?`,
+       FROM workspaces WHERE id <> ? ${after}
+       ORDER BY created_at ASC, id ASC LIMIT ?`,
     )
     .all(...values);
   return buildPage(rows, limit, "c1", (row) => ({

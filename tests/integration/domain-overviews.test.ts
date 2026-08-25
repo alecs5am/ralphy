@@ -86,6 +86,7 @@ const PUBLICATION_KEYS = [
   "url",
 ] as const;
 const UNIT_KEYS = [
+  "compositionId",
   "createdAt",
   "format",
   "id",
@@ -200,7 +201,12 @@ async function fixture(root: TmpRoot) {
     expectedLatestRevisionId: null,
     engine: "remotion",
   });
-  createUnit({ projectId: project.id, slug: "post", format: "video" });
+  createUnit({
+    projectId: project.id,
+    compositionId: composition.id,
+    slug: "post",
+    format: "video",
+  });
   createUnit({ workspaceId: workspace.id, slug: "shared", format: "post" });
   startRun({ projectId: project.id, kind: "generation" });
 
@@ -542,9 +548,11 @@ describe("project overview", () => {
       "mediaCounts",
       "project",
       "runs",
+      "spendUsd",
       "stages",
       "units",
     ]);
+    expect(overview.spendUsd).toBe(0);
 
     expect(overview.documents!.items.map((item) => item.id).sort()).toEqual(
       [workspaceDocument.id, document.id].sort(),
@@ -626,6 +634,7 @@ describe("project overview", () => {
     ]);
     expect(overview.units!.items.map((unit) => unit.slug)).toEqual(["post"]);
     expectKeys(overview.units!.items[0]!, UNIT_KEYS);
+    expect(overview.units!.items[0]!.compositionId).toBe(composition.id);
     expect(overview.mediaCounts).toEqual({
       artifacts: 1,
       objects: 1,
@@ -709,7 +718,7 @@ describe("project overview", () => {
         projectId: project.id,
         sections,
       }) as unknown as Record<string, unknown>;
-      expect(Object.keys(one).sort()).toEqual(["project", name].sort());
+      expect(Object.keys(one).sort()).toEqual(["project", "spendUsd", name].sort());
       const page = one[name] as { items: unknown[] };
       expect(Object.keys(page).sort()).toEqual(["items", "nextCursor"]);
       expect(page.items.length).toBeGreaterThan(0);
@@ -719,7 +728,7 @@ describe("project overview", () => {
       projectId: project.id,
       sections: { mediaCounts: true },
     });
-    expect(Object.keys(counts).sort()).toEqual(["mediaCounts", "project"]);
+    expect(Object.keys(counts).sort()).toEqual(["mediaCounts", "project", "spendUsd"]);
 
     for (let index = 0; index < 4; index += 1) {
       createIteration({ projectId: project.id, title: `extra-${index}` });
@@ -947,7 +956,7 @@ describe("project overview", () => {
       30,
     );
     clock.mockRestore();
-    publish({ projectId: f.sibling.id }, sharedRevision.id, "sibling-publication", 40);
+    const siblingPublication = publish({ projectId: f.sibling.id }, sharedRevision.id, "sibling-publication", 40);
     publish({ projectId: outsideProject.id }, outsideRevision.id, "outside-publication", 50);
     const workspaceOverview = getWorkspaceOverview({
       context: { workspaceId: f.workspace.id },
@@ -987,6 +996,36 @@ describe("project overview", () => {
       shares: null,
       watchTimeMs: null,
     });
+
+    /* The other honest question about the same rows: everything under this Workspace, Projects
+       included. It is one query with one page and one total -- not a caller asking for every
+       Project overview and adding the pages up outside the database, which produced a number no
+       query had computed, could not paginate, and could not tell "no rows" from "not reported". */
+    const tree = getWorkspaceOverview({
+      context: { workspaceId: f.workspace.id },
+      workspaceId: f.workspace.id,
+      include: "tree",
+      sections: { units: { limit: 20 }, publications: { limit: 10 }, metrics: true },
+    });
+    expect(tree.publications!.items.map((item) => item.id).sort()).toEqual([
+      workspacePublication.id,
+      firstProjectPublication.id,
+      secondProjectPublication.id,
+      siblingPublication.id,
+    ].sort());
+    expect(tree.metrics).toEqual({
+      publicationCount: 4,
+      views: 100,
+      likes: null,
+      comments: null,
+      shares: null,
+      watchTimeMs: null,
+    });
+    const treeUnits = tree.units!.items.map((unit) => unit.slug);
+    expect(treeUnits).toContain("shared");
+    expect(treeUnits).toContain("project-publication-one");
+    // Widening reaches down, never sideways: another Workspace's Project stays out.
+    expect(treeUnits).not.toContain("outside-publication");
 
     const firstPage = getProjectOverview({
       context: { workspaceId: f.workspace.id, projectId: f.project.id },

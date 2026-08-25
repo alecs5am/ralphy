@@ -23,6 +23,7 @@ import {
   listCompositions,
   prepareCompositionRevisionMaterialization,
   snapshotAndStartCompositionBuild,
+  startSealedCompositionBuild,
   reviseComposition,
   validateBuildProfile,
 } from "./store/compositions.js";
@@ -154,18 +155,23 @@ export async function runCompositionBuild(input: {
   }
   const profile = validateBuildProfile(input.profile ?? {});
   let revision = buildRevision(input.compositionId, input.revisionId);
-  if (revision.latestRevisionId !== revision.id) {
+  if (revision.state === "draft" && revision.latestRevisionId !== revision.id) {
     throw new StoreConflictError("Composition latest revision conflict");
-  }
-  if (revision.state !== "draft") {
-    throw new StoreConflictError("Composition build requires the latest draft revision");
   }
   if (!["hyperframes", "html", "ffmpeg", "manual"].includes(revision.engine)) {
     throw new DomainError("E_INPUT_INVALID", undefined, { field: "engine", detail: `unsupported engine: ${revision.engine}` });
   }
   validateEngineRequest(revision, input.testHooks);
 
-  const started = await snapshotCheckout(revision, profile, input.context, input.authoredBySessionId, input.testHooks);
+  const started = revision.state === "draft"
+    ? await snapshotCheckout(revision, profile, input.context, input.authoredBySessionId, input.testHooks)
+    : startSealedCompositionBuild({
+        context: input.context,
+        revisionId: revision.id,
+        profile,
+        authoredBySessionId: input.authoredBySessionId,
+        testHooks: { beforeCommit: input.testHooks?.beforeBuildStartTransactionCommit },
+      });
   const { run, attempt, build } = started;
   try {
     input.testHooks?.beforeBuildRevisionReload?.();

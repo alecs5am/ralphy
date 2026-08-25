@@ -53,6 +53,7 @@ type UnitKeys = Assert<
     | "id"
     | "workspaceId"
     | "projectId"
+    | "compositionId"
     | "slug"
     | "format"
     | "latestRevisionId"
@@ -66,6 +67,7 @@ type RevisionKeys = Assert<
     keyof UnitRevisionDto,
     | "id"
     | "unitId"
+    | "compositionRevisionId"
     | "revisionNo"
     | "parentRevisionId"
     | "iterationId"

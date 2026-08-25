@@ -46,6 +46,7 @@ import { makeTmpRoot, type TmpRoot } from "../helpers/tmp-root.js";
 import { withPoisonFarmReadTrap } from "../helpers/poison-farm.js";
 
 const UNIT_KEYS = [
+  "compositionId",
   "createdAt",
   "format",
   "id",
@@ -58,6 +59,7 @@ const UNIT_KEYS = [
 ] as const;
 const REVISION_KEYS = [
   "authoredBySessionId",
+  "compositionRevisionId",
   "createdAt",
   "id",
   "iterationId",

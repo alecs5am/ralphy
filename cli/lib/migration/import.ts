@@ -5,6 +5,8 @@ import path from "node:path";
 import { credentialSecretRef } from "../providers/credentials.js";
 import { appendActivity } from "../store/activity.js";
 import type { DomainIdPrefix } from "../store/ids.js";
+import { migrationStableId } from "./stable-id.js";
+export { migrationStableId } from "./stable-id.js";
 import { createSecretStore, type KeyProvider } from "../store/secrets.js";
 import {
   classifyLegacyPath,
@@ -6366,11 +6368,7 @@ function workspaceForProject(db: Database, projectId: string): string {
 }
 
 function stableId(prefix: DomainIdPrefix, ctx: MigrationContext, key: string): string {
-  const hex = createHash("sha256").update(`${ctx.runId}\0${key}`).digest("hex").slice(0, 32).split("");
-  hex[12] = "4";
-  hex[16] = "8";
-  const value = hex.join("");
-  return `${prefix}_${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`;
+  return migrationStableId(prefix, ctx.runId, key);
 }
 
 function stableKey(value: string): string {

@@ -7,6 +7,7 @@ import { createBridgeMethods } from "../../cli/lib/bridge/methods.js";
 import { runBridge } from "../../cli/lib/bridge/server.js";
 import { latestActivitySequence } from "../../cli/lib/store/activity.js";
 import { closeDomainDb, openDomainDb } from "../../cli/lib/store/db.js";
+import { createComposition, reviseComposition } from "../../cli/lib/store/compositions.js";
 import { createWorkspace } from "../../cli/lib/store/scopes.js";
 import { createProject } from "../../cli/lib/store/scopes.js";
 import { installConsumer, prepareConsumer } from "../helpers/consumer-auth.js";
@@ -49,6 +50,7 @@ describe("stdio bridge", () => {
       id: string;
       ok: boolean;
       result: {
+        coreVersion: string;
         limits: { maxFrameBytes: number };
         capabilities: string[];
         consumerNamespaces?: unknown;
@@ -57,11 +59,43 @@ describe("stdio bridge", () => {
     };
     expect(response.id).toBe("hello");
     expect(response.ok).toBe(true);
+    expect(response.result.coreVersion).toBe("3");
     expect(response.result.limits.maxFrameBytes).toBe(1_048_576);
     expect(response.result.consumerNamespaces).toBeUndefined();
     expect(response.result.consumers).toBeUndefined();
     expect(response.result.capabilities).not.toContain("migration.consumer.map");
     expect(output.trim().split("\n")).toHaveLength(1);
+  });
+
+  test("creates an in-progress Unit with an explicit Composition identity link", async () => {
+    root = makeTmpRoot("ralphy-bridge-unit-create");
+    const workspace = createWorkspace({ slug: "primary", name: "Primary" });
+    const project = createProject({ workspaceId: workspace.id, slug: "launch", name: "Launch" });
+    const composition = createComposition({ projectId: project.id, slug: "launch-cut", kind: "video" });
+    const compositionRevision = reviseComposition({ compositionId: composition.id, expectedLatestRevisionId: null, engine: "hyperframes" });
+    const methods = createBridgeMethods({ dataRoot: `${root.dir}/.ralphy` });
+    const context = {
+      consumerSessions: new Set<string>(),
+      activitySubscriptions: new Map<string, { sequence: number; ready: boolean }>(),
+      helloComplete: true,
+      markHello() {},
+      setAuthority() {},
+    };
+    const created = await methods.get("unit.create")!.handle({
+      context: { workspaceId: workspace.id, projectId: project.id },
+      slug: "launch-cut",
+      format: "video",
+      compositionId: composition.id,
+    }, context) as { id: string; slug: string; compositionId: string | null; latestRevisionId: string | null };
+    expect(created).toMatchObject({ slug: "launch-cut", compositionId: composition.id, latestRevisionId: null });
+    const revised = await methods.get("unit.revise")!.handle({
+      context: { workspaceId: workspace.id, projectId: project.id },
+      unitId: created.id,
+      expectedLatestRevisionId: null,
+      compositionRevisionId: compositionRevision.id,
+      items: [],
+    }, context) as { compositionRevisionId: string | null };
+    expect(revised.compositionRevisionId).toBe(compositionRevision.id);
   });
 
   test("CLI bridge opens a root with multiple Workspaces without inferring scope", () => {

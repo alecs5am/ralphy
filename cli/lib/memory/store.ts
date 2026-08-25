@@ -32,6 +32,7 @@ import { appendActivity } from "../store/activity.js";
 import { openDomainDb, withImmediateTransaction } from "../store/db.js";
 import { createDocument, reviseDocument } from "../store/documents.js";
 import { newDomainId } from "../store/ids.js";
+import { GLOBAL_MEMORY_WORKSPACE_ID } from "../store/schema.js";
 import { StoreConflictError } from "../store/types.js";
 
 export const MEMORY_TYPES = ["model", "craft", "tooling", "client", "style", "user"] as const;
@@ -69,7 +70,7 @@ export interface MemoryEntry extends MemoryFrontmatter {
 }
 
 export type MemoryEntryReference =
-  | { slug: string; tier: "global"; file: string; path: string }
+  | { slug: string; tier: "global"; id: string; revisionId: string }
   | { slug: string; tier: "workspace"; workspace: string; id: string; revisionId: string };
 
 export function memoryEntryReference(entry: MemoryEntry): MemoryEntryReference {
@@ -85,8 +86,8 @@ export function memoryEntryReference(entry: MemoryEntry): MemoryEntryReference {
   return {
     slug: entry.slug,
     tier: "global",
-    file: entry.file!,
-    path: entry.path!,
+    id: entry.id!,
+    revisionId: entry.revisionId!,
   };
 }
 
@@ -104,12 +105,6 @@ export function memoryDir(ref: TierRef): string {
     return path.join(workspaceDir(ref.ws ?? currentWorkspace()), "memory");
   }
   return path.join(dataRoot(), "memory");
-}
-
-function statusDir(ref: TierRef, status: MemoryStatus): string {
-  const base = memoryDir(ref);
-  if (status === "active") return base;
-  return path.join(base, status);
 }
 
 export function indexPath(ref: TierRef): string {
@@ -161,11 +156,97 @@ export function parseEntry(raw: string): { fm: Partial<MemoryFrontmatter>; body:
 
 // ─── Body scaffold ───────────────────────────────────────────────────────────
 
-const SCAFFOLD_LINES: Array<{ marker: string; placeholder: string }> = [
-  { marker: "**Why:**", placeholder: "**Why:** (not captured at note time — fill in on next review)" },
-  { marker: "**How to apply:**", placeholder: "**How to apply:** (not captured at note time — fill in on next review)" },
-  { marker: "**Does NOT apply to:**", placeholder: "**Does NOT apply to:** (not captured — REQUIRED before this rule is trusted; see the negative-scope discipline)" },
+const SCAFFOLD_LINES: Array<{ marker: string; heading: string; placeholder: string }> = [
+  { marker: "**Why:**", heading: "Why", placeholder: "**Why:** (not captured at note time — fill in on next review)" },
+  { marker: "**How to apply:**", heading: "How to apply", placeholder: "**How to apply:** (not captured at note time — fill in on next review)" },
+  { marker: "**Does NOT apply to:**", heading: "Does NOT apply to", placeholder: "**Does NOT apply to:** (not captured — REQUIRED before this rule is trusted; see the negative-scope discipline)" },
 ];
+
+export interface MemoryBodySections {
+  rule: string;
+  why: string;
+  howToApply: string[];
+  doesNotApplyTo: string[];
+}
+
+export type MemoryQualityFlag =
+  | "missing-rule"
+  | "missing-why"
+  | "missing-how-to-apply"
+  | "missing-negative-scope";
+
+const BODY_HEADINGS: Record<string, keyof MemoryBodySections> = {
+  rule: "rule",
+  why: "why",
+  "how to apply": "howToApply",
+  "does not apply to": "doesNotApplyTo",
+};
+
+/** Parse both the canonical heading form and the original Hermes inline form. */
+export function parseMemoryBody(body: string): MemoryBodySections {
+  const result: MemoryBodySections = {
+    rule: "",
+    why: "",
+    howToApply: [],
+    doesNotApplyTo: [],
+  };
+  const headingPattern = /^##\s+(Rule|Why|How to apply|Does NOT apply to)\s*$/gim;
+  const headings = [...body.matchAll(headingPattern)];
+  if (headings.length > 0) {
+    for (let index = 0; index < headings.length; index += 1) {
+      const match = headings[index]!;
+      const key = BODY_HEADINGS[match[1]!.toLowerCase()]!;
+      const value = body.slice(match.index! + match[0].length, headings[index + 1]?.index).trim();
+      assignBodySection(result, key, value);
+    }
+    return result;
+  }
+
+  const inline = /\*\*(Why|How to apply|Does NOT apply to):\*\*/gi;
+  const markers = [...body.matchAll(inline)];
+  result.rule = body.slice(0, markers[0]?.index).trim();
+  for (let index = 0; index < markers.length; index += 1) {
+    const match = markers[index]!;
+    const key = BODY_HEADINGS[match[1]!.toLowerCase()]!;
+    const value = body.slice(match.index! + match[0].length, markers[index + 1]?.index).trim();
+    assignBodySection(result, key, value);
+  }
+  return result;
+}
+
+export function renderMemoryBody(body: MemoryBodySections): string {
+  const list = (items: string[]) => items.map((item) => `- ${item}`).join("\n");
+  return [
+    "## Rule", body.rule.trim(),
+    "", "## Why", body.why.trim(),
+    "", "## How to apply", list(body.howToApply),
+    "", "## Does NOT apply to", list(body.doesNotApplyTo),
+  ].join("\n").trim();
+}
+
+function bodyList(value: string): string[] {
+  if (!value || value.startsWith("(not captured")) return [];
+  return value.split(/\r?\n/).map((line) => line.replace(/^[-*]\s+/, "").trim()).filter(Boolean);
+}
+
+function assignBodySection(
+  result: MemoryBodySections,
+  key: keyof MemoryBodySections,
+  value: string,
+): void {
+  if (key === "rule" || key === "why") result[key] = value;
+  else result[key].push(...bodyList(value));
+}
+
+export function memoryQualityFlags(body: string): MemoryQualityFlag[] {
+  const parsed = parseMemoryBody(body);
+  return [
+    !parsed.rule && "missing-rule",
+    !parsed.why && "missing-why",
+    parsed.howToApply.length === 0 && "missing-how-to-apply",
+    parsed.doesNotApplyTo.length === 0 && "missing-negative-scope",
+  ].filter((flag): flag is MemoryQualityFlag => Boolean(flag));
+}
 
 /**
  * Ensure the body carries the Why / How-to-apply / Does-NOT-apply-to structure.
@@ -174,7 +255,10 @@ const SCAFFOLD_LINES: Array<{ marker: string; placeholder: string }> = [
  */
 export function scaffoldBody(text: string): string {
   const trimmed = text.trim();
-  const missing = SCAFFOLD_LINES.filter((s) => !trimmed.includes(s.marker));
+  const missing = SCAFFOLD_LINES.filter((section) =>
+    !trimmed.includes(section.marker)
+    && !new RegExp(`^##\\s+${section.heading}\\s*$`, "im").test(trimmed)
+  );
   if (missing.length === 0) return trimmed;
   return [trimmed, "", ...missing.map((s) => s.placeholder)].join("\n");
 }
@@ -244,78 +328,6 @@ export class MemoryCapError extends Error {
   }
 }
 
-/** Throw when adding a NEW slug would exceed the tier's active cap. */
-async function guardActiveCap(ref: TierRef, slug: string): Promise<void> {
-  const active = await newestPerSlug(statusDir(ref, "active"));
-  if (!active.has(slug) && active.size >= ACTIVE_ENTRY_CAP) {
-    throw new MemoryCapError(active.size);
-  }
-}
-
-// ─── Version scanning ────────────────────────────────────────────────────────
-
-const ENTRY_FILE_RE = /^(.+?)(?:\.v(\d+))?\.md$/;
-
-interface VersionedFile {
-  slug: string;
-  version: number;
-  file: string;
-}
-
-async function scanDir(dir: string): Promise<VersionedFile[]> {
-  let names: string[];
-  try {
-    const ents = await fs.readdir(dir, { withFileTypes: true });
-    names = ents.filter((e) => e.isFile()).map((e) => e.name);
-  } catch {
-    return [];
-  }
-  const out: VersionedFile[] = [];
-  for (const name of names) {
-    if (name === "MEMORY.md") continue;
-    const m = name.match(ENTRY_FILE_RE);
-    if (!m) continue;
-    out.push({ slug: m[1]!, version: m[2] ? parseInt(m[2], 10) : 1, file: name });
-  }
-  return out;
-}
-
-/** Newest version per slug in a status dir (active = the tier root). */
-async function newestPerSlug(dir: string): Promise<Map<string, VersionedFile>> {
-  const map = new Map<string, VersionedFile>();
-  for (const vf of await scanDir(dir)) {
-    const prev = map.get(vf.slug);
-    if (!prev || vf.version > prev.version) map.set(vf.slug, vf);
-  }
-  return map;
-}
-
-async function readEntryFile(
-  dir: string,
-  vf: VersionedFile,
-  ref: TierRef,
-  status: MemoryStatus,
-): Promise<MemoryEntry> {
-  const abs = path.join(dir, vf.file);
-  const raw = await fs.readFile(abs, "utf-8");
-  const { fm, body } = parseEntry(raw);
-  return {
-    slug: vf.slug,
-    version: vf.version,
-    file: vf.file,
-    path: abs,
-    tier: ref.tier,
-    workspace: ref.tier === "workspace" ? (ref.ws ?? currentWorkspace()) : undefined,
-    status,
-    name: fm.name ?? vf.slug,
-    description: fm.description ?? "",
-    type: fm.type ?? "user",
-    filed: fm.filed ?? "",
-    source: fm.source ?? "",
-    body,
-  };
-}
-
 // ─── Index (MEMORY.md) ───────────────────────────────────────────────────────
 
 export function renderIndex(entries: MemoryEntry[]): string {
@@ -348,10 +360,12 @@ export interface WriteOptions {
   text: string;
   ref: TierRef;
   status: "active" | "proposed";
+  name?: string;
   type?: string;
   slug?: string;
   description?: string;
   source?: string;
+  expectedRevisionId?: string;
   forceOverwrite?: boolean;
 }
 
@@ -371,59 +385,7 @@ export interface WriteResult {
  * the newest version file in place instead (explicit destructive opt-in).
  */
 export async function writeEntry(opts: WriteOptions): Promise<WriteResult> {
-  if (opts.ref.tier === "workspace") return writeWorkspaceEntry(opts);
-  const slug = opts.slug ?? autoSlug(opts.text);
-  if (!SLUG_RE.test(slug)) {
-    throw new Error(`invalid memory slug: '${slug}' (lowercase kebab-case required)`);
-  }
-  const dir = statusDir(opts.ref, opts.status);
-  await fs.mkdir(dir, { recursive: true });
-  if (opts.status === "active") await guardActiveCap(opts.ref, slug);
-
-  const existing = (await newestPerSlug(dir)).get(slug);
-  let file: string;
-  let version: number;
-  let versioned = false;
-  let overwritten = false;
-  if (!existing) {
-    version = 1;
-    file = `${slug}.md`;
-  } else if (opts.forceOverwrite) {
-    version = existing.version;
-    file = existing.file;
-    overwritten = true;
-  } else {
-    version = existing.version + 1;
-    file = `${slug}.v${version}.md`;
-    versioned = true;
-  }
-
-  const fm: MemoryFrontmatter = {
-    name: autoName(opts.text),
-    description: opts.description ?? firstSentence(opts.text),
-    type: opts.type ?? "user",
-    filed: new Date().toISOString().slice(0, 10),
-    source: opts.source ?? "ralphy memory",
-  };
-  const abs = path.join(dir, file);
-  await atomicWrite(abs, serializeEntry(fm, scaffoldBody(opts.text)));
-
-  if (opts.status === "active") await rebuildIndex(opts.ref);
-
-  return {
-    entry: {
-      slug,
-      version,
-      file,
-      path: abs,
-      tier: "global",
-      status: opts.status,
-      ...fm,
-      body: scaffoldBody(opts.text),
-    },
-    versioned,
-    overwritten,
-  };
+  return writeWorkspaceEntry(opts);
 }
 
 type WorkspaceMemoryRow = {
@@ -437,7 +399,9 @@ type WorkspaceMemoryRow = {
 };
 
 async function writeWorkspaceEntry(opts: WriteOptions): Promise<WriteResult> {
-  const workspaceValue = opts.ref.ws ?? currentWorkspace();
+  const workspaceValue = opts.ref.tier === "global"
+    ? GLOBAL_MEMORY_WORKSPACE_ID
+    : opts.ref.ws ?? currentWorkspace();
   const workspaceId = resolveWorkspaceId(workspaceValue)!;
   const workspaceSlug = openDomainDb()
     .query<{ slug: string }, [string]>("SELECT slug FROM workspaces WHERE id = ?")
@@ -468,6 +432,9 @@ async function writeWorkspaceEntry(opts: WriteOptions): Promise<WriteResult> {
        WHERE entry.workspace_id = ? AND entry.slug = ?`,
     )
     .get(workspaceId, slug);
+  if (opts.expectedRevisionId !== undefined && existing?.latestRevisionId !== opts.expectedRevisionId) {
+    throw new StoreConflictError("Memory entry changed since it was loaded");
+  }
   if (!existing && opts.status === "active") {
     const count = db
       .query<{ count: number }, [string]>(
@@ -479,7 +446,7 @@ async function writeWorkspaceEntry(opts: WriteOptions): Promise<WriteResult> {
 
   const body = scaffoldBody(opts.text);
   const fm: MemoryFrontmatter = {
-    name: autoName(opts.text),
+    name: opts.name ?? autoName(opts.text),
     description: opts.description ?? firstSentence(opts.text),
     type: opts.type ?? "user",
     filed: new Date().toISOString().slice(0, 10),
@@ -581,25 +548,20 @@ async function writeWorkspaceEntry(opts: WriteOptions): Promise<WriteResult> {
       version,
       id: entryId,
       revisionId: memoryRevisionId,
-      tier: "workspace",
-      workspace: workspaceSlug,
+      tier: opts.ref.tier,
+      workspace: opts.ref.tier === "workspace" ? workspaceSlug : undefined,
       status: opts.status,
       ...fm,
       body,
     },
-    versioned: existing !== null,
+    versioned: Boolean(existing),
     overwritten: Boolean(existing && opts.forceOverwrite),
   };
 }
 
 /** Active / proposed / rejected entries of one tier — newest version per slug, sorted. */
 export async function listEntries(ref: TierRef, status: MemoryStatus = "active"): Promise<MemoryEntry[]> {
-  if (ref.tier === "workspace") return listWorkspaceEntries(ref, status);
-  const dir = statusDir(ref, status);
-  const newest = await newestPerSlug(dir);
-  const out: MemoryEntry[] = [];
-  for (const vf of newest.values()) out.push(await readEntryFile(dir, vf, ref, status));
-  return out.sort((a, b) => a.slug.localeCompare(b.slug));
+  return listWorkspaceEntries(ref, status);
 }
 
 /** A single entry by slug (newest version), or null. */
@@ -608,13 +570,7 @@ export async function getEntry(
   ref: TierRef,
   status: MemoryStatus = "active",
 ): Promise<MemoryEntry | null> {
-  if (ref.tier === "workspace") {
-    return getWorkspaceEntry(slug, ref.ws ?? currentWorkspace(), status);
-  }
-  const dir = statusDir(ref, status);
-  const vf = (await newestPerSlug(dir)).get(slug);
-  if (!vf) return null;
-  return readEntryFile(dir, vf, ref, status);
+  return getWorkspaceEntry(slug, ref, status);
 }
 
 /**
@@ -681,32 +637,17 @@ export interface MoveResult {
   versioned: boolean;
 }
 
-/** Next free destination path for a slug in a status dir (append-only landing). */
-async function nextVersionPath(dir: string, slug: string): Promise<{ file: string; versioned: boolean }> {
-  const existing = (await newestPerSlug(dir)).get(slug);
-  if (!existing) return { file: `${slug}.md`, versioned: false };
-  return { file: `${slug}.v${existing.version + 1}.md`, versioned: true };
-}
-
 /**
  * approve: MOVE proposed/<slug>.md → the active tier root (+ index line).
  * If the active slug already exists, the approved content lands as the next
  * version — the prior active file is untouched.
  */
-export async function approveEntry(slug: string, ref: TierRef): Promise<MoveResult | null> {
-  if (ref.tier === "workspace") return moveWorkspaceEntry(slug, ref, "proposed", "active");
-  const proposedDir = statusDir(ref, "proposed");
-  const vf = (await newestPerSlug(proposedDir)).get(slug);
-  if (!vf) return null;
-  await guardActiveCap(ref, slug);
-  const activeDir = statusDir(ref, "active");
-  await fs.mkdir(activeDir, { recursive: true });
-  const dest = await nextVersionPath(activeDir, slug);
-  const from = path.join(proposedDir, vf.file);
-  const to = path.join(activeDir, dest.file);
-  await fs.rename(from, to);
-  await rebuildIndex(ref);
-  return { slug, from, to, versioned: dest.versioned };
+export async function approveEntry(
+  slug: string,
+  ref: TierRef,
+  expectedRevisionId?: string,
+): Promise<MoveResult | null> {
+  return moveWorkspaceEntry(slug, ref, "proposed", "active", expectedRevisionId);
 }
 
 /** approve --all: move every proposed entry (newest versions first, per slug). */
@@ -724,18 +665,12 @@ export async function approveAll(ref: TierRef): Promise<MoveResult[]> {
  * reject: MOVE proposed/<slug>.md → rejected/ — never unlink. A slug already
  * present in rejected/ versions up (append-only there too).
  */
-export async function rejectEntry(slug: string, ref: TierRef): Promise<MoveResult | null> {
-  if (ref.tier === "workspace") return moveWorkspaceEntry(slug, ref, "proposed", "rejected");
-  const proposedDir = statusDir(ref, "proposed");
-  const vf = (await newestPerSlug(proposedDir)).get(slug);
-  if (!vf) return null;
-  const rejectedDir = statusDir(ref, "rejected");
-  await fs.mkdir(rejectedDir, { recursive: true });
-  const dest = await nextVersionPath(rejectedDir, slug);
-  const from = path.join(proposedDir, vf.file);
-  const to = path.join(rejectedDir, dest.file);
-  await fs.rename(from, to);
-  return { slug, from, to, versioned: dest.versioned };
+export async function rejectEntry(
+  slug: string,
+  ref: TierRef,
+  expectedRevisionId?: string,
+): Promise<MoveResult | null> {
+  return moveWorkspaceEntry(slug, ref, "proposed", "rejected", expectedRevisionId);
 }
 
 /**
@@ -745,31 +680,13 @@ export async function rejectEntry(slug: string, ref: TierRef): Promise<MoveResul
  * active files. Fires only on explicit user intent; `curate` only SUGGESTS
  * retires.
  */
-export async function retireEntry(slug: string, ref: TierRef): Promise<MoveResult[] | null> {
-  if (ref.tier === "workspace") {
-    const moved = await moveWorkspaceEntry(slug, ref, "active", "archived");
-    return moved ? [moved] : null;
-  }
-  const activeDir = statusDir(ref, "active");
-  const versions = (await scanDir(activeDir)).filter((vf) => vf.slug === slug);
-  if (versions.length === 0) return null;
-  const archivedDir = statusDir(ref, "archived");
-  await fs.mkdir(archivedDir, { recursive: true });
-  const moves: MoveResult[] = [];
-  // Oldest first so version order is preserved on name collisions in archived/.
-  versions.sort((a, b) => a.version - b.version);
-  for (const vf of versions) {
-    const from = path.join(activeDir, vf.file);
-    let to = path.join(archivedDir, vf.file);
-    if (existsSync(to)) {
-      const dest = await nextVersionPath(archivedDir, vf.slug);
-      to = path.join(archivedDir, dest.file);
-    }
-    await fs.rename(from, to);
-    moves.push({ slug, from, to, versioned: path.basename(to) !== vf.file });
-  }
-  await rebuildIndex(ref);
-  return moves;
+export async function retireEntry(
+  slug: string,
+  ref: TierRef,
+  expectedRevisionId?: string,
+): Promise<MoveResult[] | null> {
+  const moved = await moveWorkspaceEntry(slug, ref, "active", "archived", expectedRevisionId);
+  return moved ? [moved] : null;
 }
 
 // ─── Recall (merged digest) ──────────────────────────────────────────────────
@@ -788,6 +705,9 @@ export const RECALL_NOTE =
 export interface RecallResult {
   workspace: string;
   count: number;
+  workspaceCount: number;
+  globalCount: number;
+  overriddenGlobalSlugs: string[];
   truncated: boolean;
   note: string;
   entries: MemoryEntry[];
@@ -803,13 +723,27 @@ export async function recall(opts: { ws?: string; full?: boolean }): Promise<Rec
   const ws = opts.ws ?? currentWorkspace();
   const globals = await listEntries({ tier: "global" }, "active");
   const workspaceEntries = await listEntries({ tier: "workspace", ws }, "active");
+  const workspaceSlugs = new Set(workspaceEntries.map((entry) => entry.slug));
+  const overriddenGlobalSlugs = globals
+    .filter((entry) => workspaceSlugs.has(entry.slug))
+    .map((entry) => entry.slug)
+    .sort();
   const merged = new Map<string, MemoryEntry>();
   for (const e of globals) merged.set(e.slug, e);
   for (const e of workspaceEntries) merged.set(e.slug, e); // workspace overrides global
   const all = [...merged.values()].sort((a, b) => a.slug.localeCompare(b.slug));
   const truncated = !opts.full && all.length > RECALL_CAP;
   const entries = truncated ? all.slice(0, RECALL_CAP) : all;
-  return { workspace: ws, count: entries.length, truncated, note: RECALL_NOTE, entries };
+  return {
+    workspace: ws,
+    count: entries.length,
+    workspaceCount: workspaceEntries.length,
+    globalCount: globals.length - overriddenGlobalSlugs.length,
+    overriddenGlobalSlugs,
+    truncated,
+    note: RECALL_NOTE,
+    entries,
+  };
 }
 
 // ─── Validation helpers for the command layer ────────────────────────────────
@@ -882,7 +816,10 @@ function listWorkspaceEntries(
   ref: TierRef,
   status: MemoryStatus,
 ): MemoryEntry[] {
-  const workspaceId = resolveWorkspaceId(ref.ws ?? currentWorkspace(), false);
+  const workspaceId = resolveWorkspaceId(
+    ref.tier === "global" ? GLOBAL_MEMORY_WORKSPACE_ID : ref.ws ?? currentWorkspace(),
+    false,
+  );
   if (workspaceId === null) return [];
   return openDomainDb()
     .query<WorkspaceMemoryEntryRow, [MemoryStatus, string]>(
@@ -891,15 +828,18 @@ function listWorkspaceEntries(
        ORDER BY entry.slug`,
     )
     .all(status, workspaceId)
-    .map(workspaceMemoryEntry);
+    .map((row) => workspaceMemoryEntry(row, ref.tier));
 }
 
 function getWorkspaceEntry(
   slug: string,
-  workspaceId: string,
+  ref: TierRef,
   status: MemoryStatus,
 ): MemoryEntry | null {
-  const resolvedWorkspaceId = resolveWorkspaceId(workspaceId, false);
+  const resolvedWorkspaceId = resolveWorkspaceId(
+    ref.tier === "global" ? GLOBAL_MEMORY_WORKSPACE_ID : ref.ws ?? currentWorkspace(),
+    false,
+  );
   if (resolvedWorkspaceId === null) return null;
   const row = openDomainDb()
     .query<WorkspaceMemoryEntryRow, [MemoryStatus, string, string]>(
@@ -907,17 +847,17 @@ function getWorkspaceEntry(
        WHERE entry.workspace_id = ? AND entry.slug = ?`,
     )
     .get(status, resolvedWorkspaceId, slug);
-  return row ? workspaceMemoryEntry(row) : null;
+  return row ? workspaceMemoryEntry(row, ref.tier) : null;
 }
 
-function workspaceMemoryEntry(row: WorkspaceMemoryEntryRow): MemoryEntry {
+function workspaceMemoryEntry(row: WorkspaceMemoryEntryRow, tier: MemoryTier): MemoryEntry {
   return {
     slug: row.slug,
     version: row.revision_no,
     id: row.id,
     revisionId: row.revision_id,
-    tier: "workspace",
-    workspace: row.workspace_slug,
+    tier,
+    workspace: tier === "workspace" ? row.workspace_slug : undefined,
     status: row.status,
     name: row.name,
     description: row.description,
@@ -928,13 +868,41 @@ function workspaceMemoryEntry(row: WorkspaceMemoryEntryRow): MemoryEntry {
   };
 }
 
+/** Immutable revisions newest-first, including rejected and archived history. */
+export async function listEntryHistory(entryId: string): Promise<MemoryEntry[]> {
+  return openDomainDb()
+    .query<WorkspaceMemoryEntryRow, [string]>(
+      `SELECT entry.id, entry.workspace_id, workspace.slug AS workspace_slug, entry.slug,
+              revision.name, revision.description, revision.type, revision.status,
+              revision.id AS revision_id, revision.revision_no,
+              revision.document_revision_id, revision.filed_at, revision.source,
+              document_revision.body
+       FROM memory_entries entry
+       JOIN memory_revisions revision ON revision.memory_entry_id = entry.id
+       JOIN document_revisions document_revision
+         ON document_revision.id = revision.document_revision_id
+       JOIN workspaces workspace ON workspace.id = entry.workspace_id
+       WHERE entry.id = ?
+       ORDER BY revision.revision_no DESC, revision.id DESC`,
+    )
+    .all(entryId)
+    .map((row) => workspaceMemoryEntry(
+      row,
+      row.workspace_id === GLOBAL_MEMORY_WORKSPACE_ID ? "global" : "workspace",
+    ));
+}
+
 async function moveWorkspaceEntry(
   slug: string,
   ref: TierRef,
   from: MemoryStatus,
   to: MemoryStatus,
+  expectedRevisionId?: string,
 ): Promise<MoveResult | null> {
-  const workspaceId = resolveWorkspaceId(ref.ws ?? currentWorkspace(), false);
+  const workspaceId = resolveWorkspaceId(
+    ref.tier === "global" ? GLOBAL_MEMORY_WORKSPACE_ID : ref.ws ?? currentWorkspace(),
+    false,
+  );
   if (workspaceId === null) return null;
   return withImmediateTransaction((db) => {
     const row = db
@@ -961,6 +929,9 @@ async function moveWorkspaceEntry(
       )
       .get(from, workspaceId, slug);
     if (!row) return null;
+    if (expectedRevisionId !== undefined && row.revisionId !== expectedRevisionId) {
+      throw new StoreConflictError("Memory entry changed since it was loaded");
+    }
     if (to === "active") {
       const latest = db
         .query<{ id: string }, [string]>(

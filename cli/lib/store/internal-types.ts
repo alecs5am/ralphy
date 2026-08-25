@@ -309,6 +309,7 @@ export type UnitRow = {
   id: string;
   workspaceId: string;
   projectId: string | null;
+  compositionId: string | null;
   slug: string;
   format: string;
   latestRevisionId: string | null;
@@ -321,6 +322,7 @@ export type UnitRow = {
 export type UnitRevisionRow = {
   id: string;
   unitId: string;
+  compositionRevisionId: string | null;
   revisionNo: number;
   parentRevisionId: string | null;
   iterationId: string | null;

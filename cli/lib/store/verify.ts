@@ -105,6 +105,7 @@ export type UnitChainReason =
   | "parent-mismatch"
   | "revision-number-mismatch"
   | "scope-mismatch"
+  | "composition-mismatch"
   | "unsealed-graph"
   | "position-gap"
   | "presentation-mismatch"
@@ -243,8 +244,8 @@ const TEXT_COLUMNS = {
   store_metadata: "store_id",
   unit_items: "id,unit_revision_id,artifact_revision_id,document_revision_id,role,config_json",
   unit_presentations: "id,unit_revision_id,platform,effective_caption_revision_id,cover_artifact_revision_id,crop_json,safe_area_json,options_json",
-  unit_revisions: "id,unit_id,parent_revision_id,iteration_id,note,metadata_json,authored_by_session_id",
-  units: "id,workspace_id,project_id,slug,format,latest_revision_id,selected_revision_id",
+  unit_revisions: "id,unit_id,parent_revision_id,iteration_id,note,metadata_json,authored_by_session_id,composition_revision_id",
+  units: "id,workspace_id,project_id,slug,format,latest_revision_id,selected_revision_id,composition_id",
   personas: "id,workspace_id,slug,name,language,archetype,tone,metadata_json",
   workspace_templates: "id,workspace_id,slug,name,description,kind,format,category,document_revision_id,artifact_revision_id,metadata_json",
   workspaces: "id,slug,name,metadata_json",
@@ -1322,6 +1323,14 @@ function inspectUnitChains(db: Database, report: DomainVerificationReport): void
     FROM units unit LEFT JOIN projects project ON project.id = unit.project_id
     WHERE unit.project_id IS NOT NULL
       AND (project.id IS NULL OR project.workspace_id <> unit.workspace_id)`));
+  appendUnitChain(target, "unit", "composition-mismatch", chainRows(db, `
+    SELECT unit.id AS entityId, unit.composition_id AS relatedId
+    FROM units unit
+    LEFT JOIN compositions composition ON composition.id = unit.composition_id
+    LEFT JOIN projects project ON project.id = composition.project_id
+    WHERE unit.composition_id IS NOT NULL AND (
+      composition.id IS NULL OR project.workspace_id <> unit.workspace_id
+      OR composition.project_id IS NOT unit.project_id)`));
   appendUnitChain(target, "unit", "missing-pointer", chainRows(db, `
     SELECT unit.id AS entityId, NULL AS relatedId FROM units unit
     WHERE unit.latest_revision_id IS NULL
@@ -1369,10 +1378,20 @@ function inspectUnitChains(db: Database, report: DomainVerificationReport): void
     WHERE revision.iteration_id IS NOT NULL AND (
       iteration.id IS NULL OR project.workspace_id <> unit.workspace_id OR
       (unit.project_id IS NOT NULL AND iteration.project_id <> unit.project_id))`));
+  appendUnitChain(target, "unit-revision", "composition-mismatch", chainRows(db, `
+    SELECT revision.id AS entityId, revision.composition_revision_id AS relatedId
+    FROM unit_revisions revision
+    JOIN units unit ON unit.id = revision.unit_id
+    LEFT JOIN composition_revisions composition_revision
+      ON composition_revision.id = revision.composition_revision_id
+    WHERE revision.composition_revision_id IS NOT NULL AND (
+      composition_revision.id IS NULL
+      OR composition_revision.composition_id IS NOT unit.composition_id)`));
   appendUnitChain(target, "unit-revision", "unsealed-graph", chainRows(db, `
     SELECT revision.id AS entityId, NULL AS relatedId FROM unit_revisions revision
-    WHERE revision.sealed_at IS NULL OR NOT EXISTS (
-      SELECT 1 FROM unit_items item WHERE item.unit_revision_id = revision.id)`));
+    WHERE revision.sealed_at IS NULL OR (
+      revision.composition_revision_id IS NULL AND NOT EXISTS (
+        SELECT 1 FROM unit_items item WHERE item.unit_revision_id = revision.id))`));
   appendUnitChain(target, "unit-item", "position-gap", chainRows(db, `
     SELECT item.unit_revision_id AS entityId, NULL AS relatedId
     FROM unit_items item GROUP BY item.unit_revision_id
@@ -1453,8 +1472,7 @@ function inspectPublications(
     LEFT JOIN unit_presentations presentation ON presentation.id = publication.presentation_id
     LEFT JOIN unit_revisions revision ON revision.id = presentation.unit_revision_id
     WHERE presentation.id IS NULL OR revision.sealed_at IS NULL
-       OR publication.effective_caption_revision_id IS NOT presentation.effective_caption_revision_id
-       OR publication.effective_options_json IS NOT presentation.options_json`));
+       OR publication.effective_caption_revision_id IS NOT presentation.effective_caption_revision_id`));
   appendUnitChain(target, "publication", "scope-mismatch", chainRows(db, `
     SELECT publication.id AS entityId,
            COALESCE(publication.social_account_id, publication.submission_run_id) AS relatedId

@@ -193,6 +193,117 @@ async function assertReviseGuardBeforeMaterialization(
 }
 
 describe("Desktop bridge domain contract", () => {
+  test("exposes one scoped Calendar workbench projection", async () => {
+    root = makeTmpRoot("ralphy-bridge-calendar-workbench");
+    const workspace = createWorkspace({ slug: "calendar", name: "Calendar" });
+    const methods = createBridgeMethods({ dataRoot: path.join(root.dir, ".ralphy") });
+    expect([
+      "calendar.overview",
+      "calendar.create",
+      "calendar.submit",
+      "calendar.reschedule",
+      "calendar.remove",
+      "calendar.retry",
+    ].every((method) => methods.has(method))).toBe(true);
+
+    expect(await call("calendar.overview", {
+      context: { workspaceId: workspace.id },
+      from: "2026-08-01T00:00:00.000Z",
+      to: "2026-09-01T00:00:00.000Z",
+      timezone: "Europe/Berlin",
+    })).toMatchObject({
+      timezone: "Europe/Berlin",
+      events: [],
+      readyUnits: [],
+      projects: [],
+      accounts: [],
+    });
+  });
+
+  test("exposes scoped Memory CRUD, history, health, and recall", async () => {
+    root = makeTmpRoot("ralphy-bridge-memory");
+    const workspace = createWorkspace({ slug: "memory", name: "Memory" });
+    const context = { workspaceId: workspace.id };
+    const body = {
+      rule: "Use plain language.",
+      why: "Readers should understand it once.",
+      howToApply: ["Prefer concrete verbs."],
+      doesNotApplyTo: ["Verbatim customer quotes."],
+    };
+
+    const created = await call("memory.create", {
+      context,
+      tier: "workspace",
+      status: "active",
+      slug: "voice",
+      type: "style",
+      name: "Voice",
+      description: "Use plain language.",
+      body,
+      source: "Desktop",
+    }) as { id: string; revisionId: string };
+    expect(created).toMatchObject({
+      slug: "voice",
+      tier: "workspace",
+      status: "active",
+      version: 1,
+      qualityFlags: [],
+    });
+    await expect(call("memory.create", {
+      context,
+      tier: "workspace",
+      status: "active",
+      slug: "voice",
+      type: "style",
+      name: "Duplicate",
+      description: "Duplicate",
+      body,
+      source: "Desktop",
+    })).rejects.toBeInstanceOf(StoreConflictError);
+
+    const proposed = await call("memory.revise", {
+      context,
+      memoryEntryId: created.id,
+      expectedRevisionId: created.revisionId,
+      status: "proposed",
+      name: "Voice",
+      description: "Use even plainer language.",
+      type: "style",
+      body: { ...body, rule: "Use even plainer language." },
+      source: "Desktop",
+    }) as { revisionId: string };
+    await expect(call("memory.revise", {
+      context,
+      memoryEntryId: created.id,
+      expectedRevisionId: created.revisionId,
+      status: "proposed",
+      name: "Voice",
+      description: "Stale",
+      type: "style",
+      body,
+      source: "Desktop",
+    })).rejects.toBeInstanceOf(StoreConflictError);
+
+    expect(await call("memory.list", { context, scope: "effective", status: "active" }))
+      .toMatchObject({ items: [{ id: created.id, slug: "voice" }] });
+    expect(await call("memory.history", { context, memoryEntryId: created.id }))
+      .toMatchObject({ items: [{ revisionId: proposed.revisionId }, { revisionId: created.revisionId }] });
+    expect(await call("memory.health", { context })).toMatchObject({ scanned: 1, findings: [] });
+    expect(await call("memory.recall", { context, full: true })).toMatchObject({
+      count: 1,
+      workspaceCount: 1,
+      globalCount: 0,
+      overriddenGlobalSlugs: [],
+    });
+
+    const hello = await call("system.hello", {}) as { capabilities: string[] };
+    for (const method of [
+      "memory.list", "memory.show", "memory.create", "memory.revise",
+      "memory.approve", "memory.reject", "memory.retire", "memory.history",
+      "memory.recall", "memory.health",
+    ]) expect(hello.capabilities).toContain(method);
+  });
+
   test("projects literal document search validation instead of an internal error", async () => {
     root = makeTmpRoot("ralphy-bridge-literal-document-search");
     const workspace = createWorkspace({ slug: "literal-search", name: "Literal Search" });
@@ -1174,7 +1285,7 @@ describe("Desktop bridge domain contract", () => {
     }
   });
 
-  test("creates no lifecycle rows for a stale draft or an already sealed revision", async () => {
+  test("rejects a stale draft without rows and rerenders an already sealed revision", async () => {
     root = makeTmpRoot("ralphy-bridge-build-conflicts");
     const workspace = createWorkspace({ slug: "build-conflicts", name: "Build conflicts" });
     const project = createProject({ workspaceId: workspace.id, slug: "project", name: "Project" });
@@ -1221,12 +1332,20 @@ describe("Desktop bridge domain contract", () => {
       compositionRevisionId: stale.id,
       profile: {},
     })).rejects.toThrow(StoreConflictError);
+    expect(counts()).toEqual(before);
+
     await expect(call("composition.build", {
       context,
       compositionRevisionId: first.id,
       profile: {},
-    })).rejects.toThrow(StoreConflictError);
-    expect(counts()).toEqual(before);
+    })).resolves.toMatchObject({ compositionRevisionId: first.id, state: "succeeded" });
+    expect(counts()).toEqual({
+      runs: before.runs + 1,
+      attempts: before.attempts + 1,
+      builds: before.builds + 1,
+      outputs: before.outputs + 1,
+      objects: before.objects + 1,
+    });
   });
 
   test("terminalizes a failed manual Build without fabricating outputs", async () => {
@@ -1490,12 +1609,13 @@ describe("Desktop bridge domain contract", () => {
       sections: { publications: { limit: 1 }, metrics: true },
     }) as Record<string, unknown>;
     expect(Object.keys(projectOverview).sort()).toEqual([
-      "metrics", "project", "publications",
+      "metrics", "project", "publications", "spendUsd",
     ]);
     expect(projectOverview).toMatchObject({
       project: { id: project.id, purpose: "Review media" },
       publications: { items: [], nextCursor: null },
       metrics: { publicationCount: 0, views: null },
+      spendUsd: 0,
     });
     expect(JSON.stringify(page.items)).not.toMatch(/"(absolutePath|bucket|key|sha256|path|originalName|metadata|locator)"/);
   });

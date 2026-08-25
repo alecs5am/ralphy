@@ -292,6 +292,7 @@ export type UnitDto = {
   id: string;
   workspaceId: string;
   projectId: string | null;
+  compositionId: string | null;
   slug: string;
   format: string;
   latestRevisionId: string | null;
@@ -303,6 +304,7 @@ export type UnitDto = {
 export type UnitRevisionDto = {
   id: string;
   unitId: string;
+  compositionRevisionId: string | null;
   revisionNo: number;
   parentRevisionId: string | null;
   iterationId: string | null;
@@ -776,6 +778,21 @@ export type OverviewActivityRequest = { afterSequence: number; limit: number };
 export type WorkspaceOverviewRequest = {
   context: QueryContext;
   workspaceId: string;
+  /**
+   * Which rows a section counts as the workspace's.
+   *
+   * `owned` (the default) is the original meaning: rows the workspace itself
+   * holds, with `project_id IS NULL`. A Project's units are the Project's, and
+   * a workspace section never speaks for them.
+   *
+   * `tree` is the other honest question -- "everything under this workspace,
+   * Projects included" -- which a caller previously had to answer by asking for
+   * every Project overview and adding the pages up outside the database. That
+   * gave a total no single query had produced, could not paginate, and summed
+   * "no rows" and "not reported" into the same number. It belongs here, where
+   * the predicate is one `WHERE` clause away.
+   */
+  include?: "owned" | "tree";
   sections: {
     documents?: OverviewPageRequest;
     units?: OverviewPageRequest;
@@ -821,6 +838,7 @@ export type ProjectOverviewRequest = {
 
 export type ProjectOverview = {
   project: OverviewProjectDto;
+  spendUsd: number;
   documents?: Page<OverviewProjectDocumentDto>;
   iterations?: Page<OverviewIterationDto>;
   feedback?: Page<OverviewFeedbackDto>;
