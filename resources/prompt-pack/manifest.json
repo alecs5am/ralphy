@@ -1,15 +1,990 @@
 {
   "packVersion": 1,
   "cliVersion": "0.3.0",
-  "installedAt": 1787666169770,
+  "installedAt": 1787682992348,
   "source": "/Users/maximovchinnikov/github/ralphy/ralphy/.worktrees/sqlite-domain-store",
   "root": "/Users/maximovchinnikov/github/ralphy/ralphy-desktop/.worktrees/nothing-os-redesign/resources/prompt-pack",
-  "totalBytes": 850893,
+  "totalBytes": 2119691,
   "files": [
     {
+      "path": ".agents/skills/analog-horror-psa/SKILL.md",
+      "bytes": 19518,
+      "sha256": "f6a3bead36bcd0665cf8c07a32e28de583591b453827e9fb2313505a4b19801f"
+    },
+    {
+      "path": ".agents/skills/animejs/SKILL.md",
+      "bytes": 3309,
+      "sha256": "1ca46135880d2475c7149d5e54fc41ce3d85d63809fddfdb4f4ded649120f8de"
+    },
+    {
+      "path": ".agents/skills/art-director/SKILL.md",
+      "bytes": 23370,
+      "sha256": "b1d3162ccaac925296b0117eaf736a87e587bd92cbd35d7c05525c1efc6df236"
+    },
+    {
+      "path": ".agents/skills/art-director/references/character-fit.md",
+      "bytes": 5756,
+      "sha256": "664e849ba65bec654b53106935462ff5079b128666a3499ed416f3d9f0f84928"
+    },
+    {
+      "path": ".agents/skills/art-director/references/location-plate.md",
+      "bytes": 8217,
+      "sha256": "5b88043e338e7487cdb320b6b0f8501afbc775d0f665478455fe2ddab3eb1876"
+    },
+    {
+      "path": ".agents/skills/art-director/references/model-choice.md",
+      "bytes": 1989,
+      "sha256": "55c0fc3722835abea8f6b751e4dbd45750270e15c86546cc6c9389cdaae08baa"
+    },
+    {
+      "path": ".agents/skills/art-director/references/photoreal-humans.md",
+      "bytes": 9062,
+      "sha256": "b821b495c9ba771beb1c21167a37cd163be7604c935debca7023ebabdcc3941e"
+    },
+    {
+      "path": ".agents/skills/art-director/references/pre-render-checklist.md",
+      "bytes": 4238,
+      "sha256": "513997a0d303e31f16dd2ba24dde3b9ce6b7dda987c1ac3e07e393573f06902b"
+    },
+    {
+      "path": ".agents/skills/art-director/references/prompt-style.md",
+      "bytes": 4871,
+      "sha256": "88d8d95a5b47c6b93a30d1f593df420737edeb94aa7787d08388a83115b3fcd4"
+    },
+    {
+      "path": ".agents/skills/art-director/references/quality-gate.md",
+      "bytes": 2730,
+      "sha256": "904e47181906b7d27c6fdffd29596a6d22e5595f3d75fb5edcfbe8d71d8aa5d0"
+    },
+    {
+      "path": ".agents/skills/art-director/references/ref-photo-policy.md",
+      "bytes": 2908,
+      "sha256": "2a63c4287f16ca000496b8b81dfbddd88bddf43d2ac358e47495dae4cad17ceb"
+    },
+    {
+      "path": ".agents/skills/art-director/references/regeneration.md",
+      "bytes": 5261,
+      "sha256": "786d62bed13a5fb9072e7487901484a9e24e1ecda727f15c749f2a72fd512285"
+    },
+    {
+      "path": ".agents/skills/audio-explainer/SKILL.md",
+      "bytes": 14467,
+      "sha256": "8a7a70894669687a9cdbb06f84d9359683bf33bea93b6d0d1cef60c5361ce48d"
+    },
+    {
+      "path": ".agents/skills/audio-explainer/references/overlay-assigner-prompt.md",
+      "bytes": 4075,
+      "sha256": "451674383d265a6bb1256ac0571a6c0108b6fe5e4a8e097143c948fad8bdbf08"
+    },
+    {
+      "path": ".agents/skills/audio-explainer/references/segmenter-prompt.md",
+      "bytes": 2984,
+      "sha256": "81ec34449889b260e04eae7975601f0e1c113f79fd01c608d46ab12284cb185c"
+    },
+    {
+      "path": ".agents/skills/audio-explainer/scripts/capture-screenshot.ts",
+      "bytes": 3166,
+      "sha256": "be4741c9cd49e5c0bcea44d0ad2f382396b10eb15b36aba2f305ea48a6fd7c25"
+    },
+    {
+      "path": ".agents/skills/carousel/SKILL.md",
+      "bytes": 12746,
+      "sha256": "53bf90374a6b21416a906e09b29ed710e4863df0737009bd3f4fde7e6351b727"
+    },
+    {
+      "path": ".agents/skills/contribute-catalog/SKILL.md",
+      "bytes": 7243,
+      "sha256": "bfae812b3e4b6c0dff55d82cdea4464df2aebea9d8e2ee9b0b63b00cd3e969db"
+    },
+    {
+      "path": ".agents/skills/contribute-catalog/templates.md",
+      "bytes": 11450,
+      "sha256": "c1cd5f9328dd2fb02ab8103a814255f8d3fed4ce62d5da17cacf06fe2cec6696"
+    },
+    {
+      "path": ".agents/skills/css-animations/SKILL.md",
+      "bytes": 3889,
+      "sha256": "a8239c96ac9400e40b806ad0b14a059cf643c58fcef4bfdc630723fa130f93ef"
+    },
+    {
+      "path": ".agents/skills/dev-issues/SKILL.md",
+      "bytes": 6439,
+      "sha256": "9a8c53d15c3de409889df1554dfd0668a35eafa29d282ba56cd7fff93eea66fa"
+    },
+    {
+      "path": ".agents/skills/dev-loop/SKILL.md",
+      "bytes": 7556,
+      "sha256": "936c98d0a215cbb19956cea7417629e3c97c46dab050a63b67a9902100a0a91a"
+    },
+    {
+      "path": ".agents/skills/dev-publish-template/SKILL.md",
+      "bytes": 2960,
+      "sha256": "0f8fbd6f7e666e53b4feed42a51dbd1f1a210f0b6c870527a78736b476530895"
+    },
+    {
+      "path": ".agents/skills/dev-release/SKILL.md",
+      "bytes": 3027,
+      "sha256": "46c54ee90d0791d1596232285c196c8dce912c178ab8450cfa045ed740bf3d63"
+    },
+    {
+      "path": ".agents/skills/dev-tasks/SKILL.md",
+      "bytes": 8466,
+      "sha256": "76c85476cc0070eb201310d7ade2b2a38683bab08949ccfc24d15a5298e2bda9"
+    },
+    {
+      "path": ".agents/skills/editor/SKILL.md",
+      "bytes": 14331,
+      "sha256": "08d5fd51345d5ff137381e3bbf6e7d2f68488f3debb8e499f67bb55b32475bec"
+    },
+    {
+      "path": ".agents/skills/editor/references/audio-mixing.md",
+      "bytes": 1633,
+      "sha256": "783f16cbe990d0c05a2d1ba6be69f2b68381cf1e3b28cfca245ca5a2041c1a3b"
+    },
+    {
+      "path": ".agents/skills/editor/references/captions.md",
+      "bytes": 3120,
+      "sha256": "7706a17ab6a7e41c47e0def67ad7a64cd5e5f33483a32d6acb06aea2ad0c2b09"
+    },
+    {
+      "path": ".agents/skills/editor/references/green-zone.md",
+      "bytes": 2005,
+      "sha256": "d15ad65625b3b2549f71e742ec67566b7c5b8061d46063b78fbaeeefcf2a6664"
+    },
+    {
+      "path": ".agents/skills/editor/references/hard-rules.md",
+      "bytes": 4019,
+      "sha256": "19c1e2f0a0a899b341dd3e0eb5b253f46d16fc94b7ed080d12e115e62f3f5f08"
+    },
+    {
+      "path": ".agents/skills/editor/references/render-pipeline.md",
+      "bytes": 12094,
+      "sha256": "dc8ddf544e1c848f292e85b08468268887eff7828ee107b918ad66ecd4e9b7a2"
+    },
+    {
+      "path": ".agents/skills/editor/references/transitions.md",
+      "bytes": 4153,
+      "sha256": "12e35d5739f82a0043aeccc13408b986de861feac940b85a29bb84723986fc18"
+    },
+    {
+      "path": ".agents/skills/editor/references/vo-sync.md",
+      "bytes": 4776,
+      "sha256": "b5ebae3f395035db46fbe7aab0eff39fc94467bceaee77d700e357bdd38c4f7a"
+    },
+    {
+      "path": ".agents/skills/evaluator/SKILL.md",
+      "bytes": 14447,
+      "sha256": "5b6eadead27e42bfeea4d9fa94b12c2a5690219337473d3ba323025eaf517a34"
+    },
+    {
+      "path": ".agents/skills/evaluator/references/report-schema.md",
+      "bytes": 6187,
+      "sha256": "3078f153d2c4bd56198755902cafa124cfb7e6246bb4d1729c65dd44d42bf86c"
+    },
+    {
+      "path": ".agents/skills/fb-creatives/SKILL.md",
+      "bytes": 16833,
+      "sha256": "c00ab4d4355928051960aa74336380e3767812bb33ff28d75ab305c79913fac5"
+    },
+    {
+      "path": ".agents/skills/fixer/SKILL.md",
+      "bytes": 8903,
+      "sha256": "4fa53f0a3e53ffa12f7fc178a784de58a78ee61e38c36a050b77f3bb0f8ef46d"
+    },
+    {
+      "path": ".agents/skills/good-writing/SKILL.md",
+      "bytes": 8629,
+      "sha256": "4801356f5736ae9ffdc1caa7e97aafd6bff54da7ccd8d6402d8f425b2ea328f7"
+    },
+    {
+      "path": ".agents/skills/good-writing/references/antipatterns.md",
+      "bytes": 9818,
+      "sha256": "f23a74cf9ff82562993f9b44c4998cd7dc7555dc29f266537eb0e73a854cef87"
+    },
+    {
+      "path": ".agents/skills/gsap/SKILL.md",
+      "bytes": 9477,
+      "sha256": "edb45ae324e0b10996aa92b73f31ad678c136a67bb5f3d31f9a91895a60ff50b"
+    },
+    {
+      "path": ".agents/skills/gsap/references/effects.md",
+      "bytes": 8761,
+      "sha256": "e4a3e157c746963d341d7fb9a5a721ff5952b51a52a1d79843a749a8de8b6693"
+    },
+    {
+      "path": ".agents/skills/gsap/references/plugins.md",
+      "bytes": 14651,
+      "sha256": "885643ad400f25dbe58a4ca3502e5fda9dcf151e8bbe669e6be9ac2b26c9a02c"
+    },
+    {
+      "path": ".agents/skills/gsap/references/utils.md",
+      "bytes": 8602,
+      "sha256": "7b9e1e677b2149445d7f84c7a3d7e69d15bd5e9359eec5a8f025bc2c78d52b44"
+    },
+    {
+      "path": ".agents/skills/gsap/scripts/extract-audio-data.py",
+      "bytes": 6463,
+      "sha256": "7709b60d42730fc93a348c205ab565158d240b70051d109fcc844b215d56fa4f"
+    },
+    {
+      "path": ".agents/skills/humanizer/LICENSE",
+      "bytes": 1066,
+      "sha256": "4ac4810254ab36d45419141aeb8e69bf50652cfafe5b2dab947d06d44e5cbf96"
+    },
+    {
+      "path": ".agents/skills/humanizer/README.md",
+      "bytes": 9884,
+      "sha256": "65d02050fa1f0dc0cd6f74e1d39f68d9a6c1aeefd7a73a852d26b30e3e41d2b1"
+    },
+    {
+      "path": ".agents/skills/humanizer/SKILL.md",
+      "bytes": 28023,
+      "sha256": "8d5aa29b74f6b9b0f2fc8a9e9a32a0f8103726d91d798bde669da653b5300ce7"
+    },
+    {
+      "path": ".agents/skills/humanizer/WARP.md",
+      "bytes": 2123,
+      "sha256": "bade18a87e69ee83386d618b8e896823ca1e4f44c58fa38c0646c93472c362ba"
+    },
+    {
+      "path": ".agents/skills/hyperframes-cli/SKILL.md",
+      "bytes": 8949,
+      "sha256": "a7b870543b0b86f71cd2a0c57de80ba5bd3d40616f92a3f9d6b230180780f4d9"
+    },
+    {
+      "path": ".agents/skills/hyperframes-media/SKILL.md",
+      "bytes": 16615,
+      "sha256": "ceb320be2458bb915ec756259b709b06714844a378d4fd56718163c35851d9d5"
+    },
+    {
+      "path": ".agents/skills/hyperframes-registry/SKILL.md",
+      "bytes": 4278,
+      "sha256": "0248bfb9968d53ea8f9e4b5f7f5a8eb9e72f21108022580f7eba2fba7e26b234"
+    },
+    {
+      "path": ".agents/skills/hyperframes-registry/examples/add-block.md",
+      "bytes": 1232,
+      "sha256": "0e3353755c4ef55e53570d1266a4a43b2c5aef9bbe41276430e38cfa6580b83a"
+    },
+    {
+      "path": ".agents/skills/hyperframes-registry/examples/add-component.md",
+      "bytes": 1473,
+      "sha256": "d06992d31eec617a91f5c34630c9274c52dd07898bd24f10a869d0d1cab5af29"
+    },
+    {
+      "path": ".agents/skills/hyperframes-registry/references/demo-html-pattern.md",
+      "bytes": 1884,
+      "sha256": "dfc50cd33eff2c2be75437786fc3e851ab0085f7d453fb35b3380ecf9a6e9f04"
+    },
+    {
+      "path": ".agents/skills/hyperframes-registry/references/discovery.md",
+      "bytes": 2704,
+      "sha256": "fdc924e4b9103d66880317e75bdc54e842713460ed64a7fd74d891b4b64097d5"
+    },
+    {
+      "path": ".agents/skills/hyperframes-registry/references/install-locations.md",
+      "bytes": 1519,
+      "sha256": "83793e7d6aeea9a751755e4bd23ea48182ff9af082287b98a1192343d2571dd1"
+    },
+    {
+      "path": ".agents/skills/hyperframes-registry/references/wiring-blocks.md",
+      "bytes": 3127,
+      "sha256": "c2045d3f31772d211bb92668264402a5c21d208870fa64398481212a645c9eb9"
+    },
+    {
+      "path": ".agents/skills/hyperframes-registry/references/wiring-components.md",
+      "bytes": 2402,
+      "sha256": "fbde46726debef9d61286ae54b3b2491e0df51e87416c1b059106bb076a346ce"
+    },
+    {
+      "path": ".agents/skills/hyperframes/SKILL.md",
+      "bytes": 32938,
+      "sha256": "60e178a8d8ef990d635d931df4a7c7be2a15bab9b513d0b62c33884611dae7b9"
+    },
+    {
+      "path": ".agents/skills/hyperframes/data-in-motion.md",
+      "bytes": 1296,
+      "sha256": "22084b4460a8f815d923b972a908f937c1e573bbbc7a865f6f2979ec2ae7ff15"
+    },
+    {
+      "path": ".agents/skills/hyperframes/house-style.md",
+      "bytes": 5055,
+      "sha256": "4f8bcf7572391c3468bf1115719f7e4399e736b963cc993d6117ccd1dda419b0"
+    },
+    {
+      "path": ".agents/skills/hyperframes/palettes/bold-energetic.md",
+      "bytes": 417,
+      "sha256": "17bc6b7889302151b4e5c84c0c6a33df676647078011d9decb2b68810e3baa7f"
+    },
+    {
+      "path": ".agents/skills/hyperframes/palettes/clean-corporate.md",
+      "bytes": 410,
+      "sha256": "d0c8c86838abb77985609629afe600d0ca365eccd835820f309959e8a85cba9d"
+    },
+    {
+      "path": ".agents/skills/hyperframes/palettes/dark-premium.md",
+      "bytes": 389,
+      "sha256": "abfecbf7e8dca3b674376590a0467aac3e13b2135022ae4ec519c4b27c2303b1"
+    },
+    {
+      "path": ".agents/skills/hyperframes/palettes/jewel-rich.md",
+      "bytes": 394,
+      "sha256": "17c8f7506469f66bca4e27ef78c19f0bcbf250f88fe840e3043816b7041c4fc5"
+    },
+    {
+      "path": ".agents/skills/hyperframes/palettes/monochrome.md",
+      "bytes": 454,
+      "sha256": "fe8586f6d70707098859063bdef34d68084f02cf7d5aaa436d4c9915a7ae3748"
+    },
+    {
+      "path": ".agents/skills/hyperframes/palettes/nature-earth.md",
+      "bytes": 399,
+      "sha256": "9710549b17487787fef3c7cb459cfd6e4ac28c1593bf471fcf55a3b4e546beed"
+    },
+    {
+      "path": ".agents/skills/hyperframes/palettes/neon-electric.md",
+      "bytes": 380,
+      "sha256": "35225bf8d2cd37223e88e0bc59b0a96bc8adeda7225389b3df97b675cfd33dfb"
+    },
+    {
+      "path": ".agents/skills/hyperframes/palettes/pastel-soft.md",
+      "bytes": 392,
+      "sha256": "ed4e25bb5f4953c002e55a53320249621437e03b5a11d43e3c1bd32c869b6d95"
+    },
+    {
+      "path": ".agents/skills/hyperframes/palettes/warm-editorial.md",
+      "bytes": 411,
+      "sha256": "c467ee3cc0bbf4b2bedccc8106e18293b8a06dbac8f092b10300492da0e0559a"
+    },
+    {
+      "path": ".agents/skills/hyperframes/patterns.md",
+      "bytes": 5539,
+      "sha256": "6872af2ed72083340fc25f23f08b7fabfcd9fd99c1e1b5aa84027779210fcba5"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/audio-reactive.md",
+      "bytes": 3064,
+      "sha256": "f0d83c24fa40d42a74f972ccf3b5254d7706cb063d16b8b41f87dc668a418f49"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/beat-direction.md",
+      "bytes": 6139,
+      "sha256": "37f97aa78048870efc7657332245ec6d356c2952d63dbdfde31fd5ab4bbb7d4b"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/captions.md",
+      "bytes": 7880,
+      "sha256": "c3a120bd1000fb8dd43da72da9a16b36d5381f4d2fe605ed9d63b1513116e4bd"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/css-patterns.md",
+      "bytes": 8312,
+      "sha256": "39c4af128cdd3ed9d1be652a88c3e4d01cb0daf744dfde3db7197014cd1a38d8"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/design-picker.md",
+      "bytes": 12209,
+      "sha256": "e529493473443dc729d9b79b8d8ba31d38482f3b5e300df7f577b997d65375a2"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/dynamic-techniques.md",
+      "bytes": 6886,
+      "sha256": "f48f666acb270daf2ac57fede5efc96ff3f168fa4f41db611de0310452e6d7e3"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/motion-principles.md",
+      "bytes": 8790,
+      "sha256": "77acbf89feff48a43cf6b1b2baf0224a81308ac1ae0785112b9bad0b1d7dd874"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/narration.md",
+      "bytes": 3482,
+      "sha256": "6002bb2a2270149a8955068d5952fc57cd22594649f576b3e8c38057846610b6"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/playbook.md",
+      "bytes": 26129,
+      "sha256": "1ddd1d6e436bdf469c3fec4f39622debf69974a0e2c6f98a1ed928f43be09e5f"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/prompt-expansion.md",
+      "bytes": 5554,
+      "sha256": "5245c3240fa2eea8c333a385951d7399988397457ff5bdd9e9c0ca2bb755defe"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/techniques.md",
+      "bytes": 11127,
+      "sha256": "8485b1d29efda243ac197feb5f60f77b38cc75e4a19dbd56b7b4bf172587e261"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/transcript-guide.md",
+      "bytes": 5864,
+      "sha256": "7f0176536bc5620962efd48d5643ab556b50590b9730ffe0fd6234bfb24ea566"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/transitions.md",
+      "bytes": 11709,
+      "sha256": "302fab350697e210a763ba7e3b2acbde9aadac37bd49cb9814a12e60983294ce"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/transitions/catalog.md",
+      "bytes": 6290,
+      "sha256": "557b5b30be7b68f95d8481209b1a2f0a0e1df23f65de9b08f86697d0e6159a54"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/transitions/css-3d.md",
+      "bytes": 421,
+      "sha256": "e1c3888dd0a2d4b36d25200c1e5ef9038649ae63953865e4b2c4c40fb028d7dd"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/transitions/css-blur.md",
+      "bytes": 1787,
+      "sha256": "fd3eef889a517e1dd985ca816f36f1abfb43420a4b664d4fcc453554cdf561f9"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/transitions/css-cover.md",
+      "bytes": 1448,
+      "sha256": "ba4e5926791c9e6a0a069e20afc91324acb018903f43b4b3f2866d9654f5b7eb"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/transitions/css-destruction.md",
+      "bytes": 4484,
+      "sha256": "7cce7bbd9ebc64176c9ff4fe40ec97273c9c171524d89f853c0651e713949361"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/transitions/css-dissolve.md",
+      "bytes": 2462,
+      "sha256": "47c11ca0a715675c2788aa4a162a652b5dc5f1773b058ea93e9907af56a4eb7c"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/transitions/css-distortion.md",
+      "bytes": 1803,
+      "sha256": "7140650692926959bd5459ca5c478a9b4f137cc76fb92b9138e3b0d353677c06"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/transitions/css-grid.md",
+      "bytes": 370,
+      "sha256": "c62b17058aa7ba42d34df29436b6b4233e47ff2b72f2c7ce0963c75bdec45144"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/transitions/css-light.md",
+      "bytes": 2376,
+      "sha256": "53f0422d3f6dd2584a30501f84e4f09c9b515f605d51ed264a2061567dda15db"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/transitions/css-mechanical.md",
+      "bytes": 1613,
+      "sha256": "4fed48fa659a4b215a996beeea619d244e6c893700178b1f969c17f2ee0a8612"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/transitions/css-other.md",
+      "bytes": 838,
+      "sha256": "2156e4fcc3b42cba9e0d9e268944269057fb48ff15fc1983e3ff9386fa2a8cf8"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/transitions/css-push.md",
+      "bytes": 1195,
+      "sha256": "d526a9612483472de4d865ae27061c98842a5155973dd0cec37fac4998dc1b97"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/transitions/css-radial.md",
+      "bytes": 1060,
+      "sha256": "5d8f20de439e3f2c8d45df11c8acbe31dc1b9342e2d54bbe66b451cf81ca0a1b"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/transitions/css-scale.md",
+      "bytes": 715,
+      "sha256": "3c0cb33d6c844a7265379225f3241d8964afcc908ee757a1ebfb1700a5320ea7"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/typography.md",
+      "bytes": 9326,
+      "sha256": "d0ef1c5666a5b7a5f2af0c5701d17e63017eafc07499830c6616ccdcb21befc8"
+    },
+    {
+      "path": ".agents/skills/hyperframes/references/video-composition.md",
+      "bytes": 3663,
+      "sha256": "656b681a9fcf7905159d5462a4e04a9e66522857ecd8d7ef6c9fb4b769e627c6"
+    },
+    {
+      "path": ".agents/skills/hyperframes/scripts/animation-map.mjs",
+      "bytes": 19405,
+      "sha256": "eacb3cc40fbabadd66b673d145f2423996abdfc398c62275cbadf677065bb215"
+    },
+    {
+      "path": ".agents/skills/hyperframes/scripts/contrast-report.mjs",
+      "bytes": 12574,
+      "sha256": "81c656a9acd23b239eb0b9c8a1da654a37282a06e28d2ed4987b436bf3d4ee20"
+    },
+    {
+      "path": ".agents/skills/hyperframes/scripts/package-loader.mjs",
+      "bytes": 8328,
+      "sha256": "278067c09711a20c014f5e8d2e5a358c42a5d49b054503516a693a37b9829ad6"
+    },
+    {
+      "path": ".agents/skills/hyperframes/templates/design-picker.html",
+      "bytes": 44098,
+      "sha256": "c417139fef8e21b34d56a85cedda8b9597c9574e0727ce603a4743c4ee592c1a"
+    },
+    {
+      "path": ".agents/skills/hyperframes/visual-styles.md",
+      "bytes": 11765,
+      "sha256": "2f2e185a6e3480ab9187071c5cda22295088f6f2a727ec373c13823c23b14859"
+    },
+    {
+      "path": ".agents/skills/install/SKILL.md",
+      "bytes": 1732,
+      "sha256": "fe78c4401a0a4de7b8ec85247b23c2724e0f0ea17c402d039110f71a31ef43c1"
+    },
+    {
+      "path": ".agents/skills/install/references/ralphy-install.md",
+      "bytes": 4132,
+      "sha256": "e6240a25683f582195c89f9c3c916dbb2503bebde2eb15578db8384d3ba05cc0"
+    },
+    {
+      "path": ".agents/skills/intake/SKILL.md",
+      "bytes": 31824,
+      "sha256": "a8d47e2b9fa5e145dc5e6cf90e865424694d46d126d053fb6b2c16f969fac030"
+    },
+    {
+      "path": ".agents/skills/json-prompt-engine/SKILL.md",
+      "bytes": 16079,
+      "sha256": "540d0b7a495ad8c3ad305154a99978aeb005a82f13b3e106272697baceb66943"
+    },
+    {
+      "path": ".agents/skills/json-prompt-engine/references/example.md",
+      "bytes": 4208,
+      "sha256": "7413546171e624cc76b9e461c359c773655b49fc8f04221f93c1e8c9053a25e1"
+    },
+    {
+      "path": ".agents/skills/lottie/SKILL.md",
+      "bytes": 3426,
+      "sha256": "a2ebc5083f66477a589d615d3f9ef2d5ea1638f8eef6096356a1050f99ae92eb"
+    },
+    {
+      "path": ".agents/skills/memory-review/SKILL.md",
+      "bytes": 5473,
+      "sha256": "36b9cdcb37df10cd9a98a2385e44870410decfef887b3b3297297f67e04299d4"
+    },
+    {
+      "path": ".agents/skills/personal-clipper/SKILL.md",
+      "bytes": 8078,
+      "sha256": "e34d63ab1e09db19a5aceb4b3acf1a760dd3ddede06645047ac2576c88f13ce3"
+    },
+    {
+      "path": ".agents/skills/poster/SKILL.md",
+      "bytes": 10111,
+      "sha256": "d8c556fe875ec184ed817b388e11fa43f6097627a8c5f8441b79c078552703dd"
+    },
+    {
+      "path": ".agents/skills/postmortem/SKILL.md",
+      "bytes": 17940,
+      "sha256": "be56ccc48fc04993cf90ca221c27adfe5b1cdd27906587253a083b38e5b3047f"
+    },
+    {
+      "path": ".agents/skills/postmortem/references/00-INDEX.template.md",
+      "bytes": 3076,
+      "sha256": "73c9f30e57d467a6f28230fc3a6de8a2b8ec5b2eeb80a900f0abe7266a5f5059"
+    },
+    {
+      "path": ".agents/skills/postmortem/references/01-chat-history.template.md",
+      "bytes": 4435,
+      "sha256": "c2a21ed8f5339d59724183bf5deb656dcefedc72f10b480df73b52aac2fcb71b"
+    },
+    {
+      "path": ".agents/skills/postmortem/references/02-lessons.template.md",
+      "bytes": 5148,
+      "sha256": "b4d50d3f057bfabbbda37a21cd1264ebf0c24abcb92575a5c72a3e33e3f889fc"
+    },
+    {
+      "path": ".agents/skills/postmortem/references/03-cli-issues.template.md",
+      "bytes": 5365,
+      "sha256": "b993ab0d2f8a358c3373c7544e7c2c0275fb7e8a6ccf93af402c69944872a3bb"
+    },
+    {
+      "path": ".agents/skills/postmortem/references/04-models-and-cost.template.md",
+      "bytes": 6073,
+      "sha256": "332113e45046f4687ae1108a2194ce4740cc3cbf8baeb5c9d8d0b33ff9808e38"
+    },
+    {
+      "path": ".agents/skills/postmortem/references/05-workflow-fixes.template.md",
+      "bytes": 5307,
+      "sha256": "ed9834e764df768efec033e5f057e14899641266ae7ef40d9a61743087a94814"
+    },
+    {
+      "path": ".agents/skills/postmortem/references/06-units.template.md",
+      "bytes": 6897,
+      "sha256": "eab143e0143d1b07296a7b50483f8c839854c9ee03e2eaf501201115e65e1ee8"
+    },
+    {
+      "path": ".agents/skills/postmortem/references/template.md",
+      "bytes": 7011,
+      "sha256": "d4c5091891e055b469694ec9298192ef5e2ac2440f9eaf91f326a34e865cf851"
+    },
+    {
+      "path": ".agents/skills/producer/SKILL.md",
+      "bytes": 19142,
+      "sha256": "9d05f209eceba954615e0db24a5ed27127e48a2414bd2f5782f9ae04e78fbcb4"
+    },
+    {
+      "path": ".agents/skills/producer/references/batch.md",
+      "bytes": 4838,
+      "sha256": "4122a76ad0376f0dd6fbcfd9f2de1803dd5f49954adaa789eceaad72145c4beb"
+    },
+    {
+      "path": ".agents/skills/producer/references/orchestration.md",
+      "bytes": 3821,
+      "sha256": "09b34fb5bd7db28ec003856811c9dceae56238a5a6b9e58d5fa0888485d54b1a"
+    },
+    {
+      "path": ".agents/skills/producer/references/template-extract.md",
+      "bytes": 3810,
+      "sha256": "2189f851538299fcba8ef447d189e7327c4d9549043f00e0aa44c204e5252e96"
+    },
+    {
+      "path": ".agents/skills/ralphy-remotion/SKILL.md",
+      "bytes": 1186,
+      "sha256": "249aa4e5ebf331710bf62ff41b555ff5b5d75632db2f1b21d9e9bd9c0555170c"
+    },
+    {
+      "path": ".agents/skills/remotion-to-hyperframes/SKILL.md",
+      "bytes": 1315,
+      "sha256": "af67556305ab2ec8dd056723be4c6aaed61894df15b9b9870620dc0039c4ec9d"
+    },
+    {
+      "path": ".agents/skills/researcher/SKILL.md",
+      "bytes": 7836,
+      "sha256": "162b616138c252e5cf7617817d33459e31c83941c634d1f9bd30120254767295"
+    },
+    {
+      "path": ".agents/skills/researcher/references/playbook.md",
+      "bytes": 6890,
+      "sha256": "10c85b9e0b379ea8488fda006359be0490486fac7e67d49e3977c232207456b4"
+    },
+    {
+      "path": ".agents/skills/researcher/references/report-schema.md",
+      "bytes": 4687,
+      "sha256": "7c71acf77a9c46c49cbf92d57f26b6f674636c907a7936df494373608db0d899"
+    },
+    {
+      "path": ".agents/skills/researcher/references/research-bootstrap.md",
+      "bytes": 7800,
+      "sha256": "24463fca493facaf51c85e0ec2baea7d74a9341141cb74f253e051ddc40f9c7a"
+    },
+    {
+      "path": ".agents/skills/researcher/references/site-extract.md",
+      "bytes": 4037,
+      "sha256": "deaad438a24a87e835fb0c090fdc454761aadb186cbd9a386ae5e145cda3335b"
+    },
+    {
+      "path": ".agents/skills/researcher/references/site-grounding.md",
+      "bytes": 8673,
+      "sha256": "03196eafe5938c2054fde9941e2a9f820b518ed72f66f60a8e2996b207295050"
+    },
+    {
+      "path": ".agents/skills/researcher/references/social-extract.md",
+      "bytes": 5144,
+      "sha256": "df5c692a6672cbdc5f0d8fbdc13e935640ca6989040de82acb643e85c1f7e082"
+    },
+    {
+      "path": ".agents/skills/researcher/references/transcript.md",
+      "bytes": 2553,
+      "sha256": "80d9e459fbfaa38e0ac7c36e279eb4b187a0060d44fc2252148584c4dde48d68"
+    },
+    {
+      "path": ".agents/skills/researcher/references/viral-moments.md",
+      "bytes": 2418,
+      "sha256": "246b4a872e1e3c74caba42572be919705b0802d9bc16bfcefeb2b5b2ec93e3ce"
+    },
+    {
+      "path": ".agents/skills/researcher/references/yt-dlp.md",
+      "bytes": 5223,
+      "sha256": "b7b51914ab2afe04ee4c8e0bb9b535aef43f65b3767ae7eecef7c2c7acf63a27"
+    },
+    {
+      "path": ".agents/skills/researcher/scripts/analyze-video.ts",
+      "bytes": 16354,
+      "sha256": "1cd75c0456e75068ee4147058fea94643a640349ad10b238d0d67c702f9cd6b7"
+    },
+    {
+      "path": ".agents/skills/researcher/scripts/cross-analyze.ts",
+      "bytes": 5734,
+      "sha256": "261cf8bed09a28efd5e5e5b655dafeab75044537abf88aef1e8d55dc405d9f30"
+    },
+    {
+      "path": ".agents/skills/researcher/scripts/extract-design.ts",
+      "bytes": 15569,
+      "sha256": "64755fb3e864bef2ba277fb7f02f311506736ce6a413b77d76d957997a1de513"
+    },
+    {
+      "path": ".agents/skills/researcher/scripts/extract-playdate-gamelist.ts",
+      "bytes": 6072,
+      "sha256": "7bbc4895967ddad7e04de85039c269147d2bc00ecb9b32c3630b0f4f1b70f7a9"
+    },
+    {
+      "path": ".agents/skills/researcher/scripts/extract-playdate-sections.ts",
+      "bytes": 4347,
+      "sha256": "256a36e720ccd63e4462b67e444e1236cc630ef32dbf85e47cad646db26adf1d"
+    },
+    {
+      "path": ".agents/skills/researcher/scripts/find-viral-moments.ts",
+      "bytes": 10331,
+      "sha256": "852659772c4783c05bb2f72a166b88dd09d5fc40d572fa6d977075eff8998016"
+    },
+    {
+      "path": ".agents/skills/researcher/scripts/scrape-tiktok-trends.ts",
+      "bytes": 6736,
+      "sha256": "676505178b03e3d66e257602c2f07b1986edaeec22be448d7297e6d4ff031cd5"
+    },
+    {
+      "path": ".agents/skills/scenarist/SKILL.md",
+      "bytes": 12743,
+      "sha256": "db6c37be7173f3dfeb639fa21d868d4c111d3dfde55fbb2361f0d1904c3e7b20"
+    },
+    {
+      "path": ".agents/skills/scenarist/references/feedback-iteration.md",
+      "bytes": 2735,
+      "sha256": "5ccd18914d6212fe24344eb00916ddd5da841e213771e291ea3e0a5eb02ad08a"
+    },
+    {
+      "path": ".agents/skills/scenarist/references/hook-formulas.md",
+      "bytes": 2848,
+      "sha256": "3b0cc4fe376ffd303fbcc8a9af9db4e9f060e04ba42dfd3c297f5246893860c0"
+    },
+    {
+      "path": ".agents/skills/scenarist/references/pacing.md",
+      "bytes": 2626,
+      "sha256": "358c0658d681e743dba2be0b33a5e8017db640383caf7ac4bfd98a2cfcadfcea"
+    },
+    {
+      "path": ".agents/skills/scenarist/references/quality-gate.md",
+      "bytes": 2818,
+      "sha256": "472ce212b2226bdef7e18638d8de365a18bde578b26d21537daa872d4a877770"
+    },
+    {
+      "path": ".agents/skills/seedance-prompts/SKILL.md",
+      "bytes": 28410,
+      "sha256": "e0369c359931757fb6e8227f9a9b8d45681091ff6742803ededb1300f0a17af9"
+    },
+    {
+      "path": ".agents/skills/social-copy/SKILL.md",
+      "bytes": 7700,
+      "sha256": "0bbfb35a7604eac6ca891b7ac180542063736ef68fa2f4d028818aafd685ca96"
+    },
+    {
+      "path": ".agents/skills/social-publish/SKILL.md",
+      "bytes": 4189,
+      "sha256": "af0a9a1e5cbec90d255be67462623d022cab14137b12e3630419046b7fba6fde"
+    },
+    {
+      "path": ".agents/skills/tailwind/SKILL.md",
+      "bytes": 6270,
+      "sha256": "a19824a7bedeeafe1639144cc986fdc9ddc9e26c3626bbfb34de67d61a53bc38"
+    },
+    {
+      "path": ".agents/skills/templater/SKILL.md",
+      "bytes": 25281,
+      "sha256": "b48352df9c4b6ce463defbc72c56638498a7a3ceaa90ec5793452d902e5f585f"
+    },
+    {
+      "path": ".agents/skills/templater/references/category-classifier.md",
+      "bytes": 4318,
+      "sha256": "aa16a291972c641ee2e22d9f45560e7aa07ed3838fd7441379f4965e4300a24b"
+    },
+    {
+      "path": ".agents/skills/templater/references/extraction-rules.md",
+      "bytes": 11803,
+      "sha256": "a5b6dca41cbf409961bed561ab6b6e845c9f913a21a2d1f3fa67e76ab90fd33f"
+    },
+    {
+      "path": ".agents/skills/templater/references/kind-decision.md",
+      "bytes": 4070,
+      "sha256": "ac0c671c1d89fdd879dae7c7ce4e162cb9fad94cba7fe5095e597be9e85e0d5e"
+    },
+    {
+      "path": ".agents/skills/templater/references/pool-migration.md",
+      "bytes": 6750,
+      "sha256": "3617e40d776f1d211eb84f924d137bb1034115a12e4f56a2ccc14d9d4413e27a"
+    },
+    {
+      "path": ".agents/skills/templater/references/recipe-vs-tag.md",
+      "bytes": 5578,
+      "sha256": "91ad9ea321f6e9cfd4271cbc159a2692eacd3b78d2d281597255a0ab6fa85f21"
+    },
+    {
+      "path": ".agents/skills/templater/references/slot-detection.md",
+      "bytes": 5125,
+      "sha256": "25c86b32ff7f471060c40ce2210279ec5c84979181717dbcf4d658c012bf2097"
+    },
+    {
+      "path": ".agents/skills/three/SKILL.md",
+      "bytes": 3537,
+      "sha256": "12dd949a36e878fae99aedee3b22de2fe11be32598970166c7c171a223a8fde1"
+    },
+    {
+      "path": ".agents/skills/troubleshooting/SKILL.md",
+      "bytes": 5662,
+      "sha256": "d3b59acb04528f466e1d178d12dcc0dea3296989323300c22966e78dafb080c2"
+    },
+    {
+      "path": ".agents/skills/troubleshooting/references/cli-cookbook.md",
+      "bytes": 4463,
+      "sha256": "537cf97b45dc241ca9b509375ae24a06b4e7cb50fd804f35f558070a0c6e34ed"
+    },
+    {
+      "path": ".agents/skills/troubleshooting/references/doctor.md",
+      "bytes": 3787,
+      "sha256": "c5bf954a30491cd25d411d329bba914fc5c44e2146f2f1e6129578fe77398ad6"
+    },
+    {
+      "path": ".agents/skills/troubleshooting/references/troubleshooting.md",
+      "bytes": 4056,
+      "sha256": "2339597c0c782225a9642c13a2c67bda47fc91426648b198d57121d4357331ec"
+    },
+    {
+      "path": ".agents/skills/typegpu/SKILL.md",
+      "bytes": 6688,
+      "sha256": "6a5036e107a051921066df2f12d1ddfb483902187aead82aed0b1a7650977f09"
+    },
+    {
+      "path": ".agents/skills/ugc-ad/SKILL.md",
+      "bytes": 7150,
+      "sha256": "152e39729a66fa86d4d9434b2f55abbb2dfa5c65d047b1ff0183b4b81bd7d8e8"
+    },
+    {
+      "path": ".agents/skills/ugc-model-swap/SKILL.md",
+      "bytes": 6961,
+      "sha256": "b16f5c14f018b840111f09038184d9d9d195ab574e50986454e6e18e2aded998"
+    },
+    {
+      "path": ".agents/skills/ugc-rockstar/SKILL.md",
+      "bytes": 7388,
+      "sha256": "31acf918835b1c8bfe5e93802823fdfcef65fced62aade152a78b5394bb9552e"
+    },
+    {
+      "path": ".agents/skills/ugc-rockstar/references/characters.md",
+      "bytes": 7054,
+      "sha256": "8198555e130b2da707ec4d405f2c7d1490c34abd1fd5b0d588ad7c363f88e5a7"
+    },
+    {
+      "path": ".agents/skills/ugc-rockstar/references/cinematography.md",
+      "bytes": 8519,
+      "sha256": "a274e632d62529e0c1fb9504b08012997a6c6133ba9e301e78acfe80b84d392e"
+    },
+    {
+      "path": ".agents/skills/ugc-rockstar/references/examples.md",
+      "bytes": 8738,
+      "sha256": "dcf5f8600372b2e0902fd1b268f824767d5a77d200268d9129240b1230c52c91"
+    },
+    {
+      "path": ".agents/skills/ugc-rockstar/references/satire.md",
+      "bytes": 8352,
+      "sha256": "1f7dabb9f0d8a6d15b4b81fe68513936e75fd7fc281d6ebdb9b2183696755296"
+    },
+    {
+      "path": ".agents/skills/ugc-rockstar/references/techniques.md",
+      "bytes": 6765,
+      "sha256": "ceec3d522e382de1b29aecb30a4f64071759c485904c613e51bfc7b05f95c3de"
+    },
+    {
+      "path": ".agents/skills/ugc-rockstar/references/troubleshooting.md",
+      "bytes": 5264,
+      "sha256": "b033afa88df995db00f85f50365cc7fd2b0e3b12ec6414981feb3992fda3f9b5"
+    },
+    {
+      "path": ".agents/skills/ugc-rockstar/references/video-prompts.md",
+      "bytes": 7361,
+      "sha256": "c01095f3854404a41afbb8b50959e5ae11bf0bcb2f6c0764d3eedd2fb04c068f"
+    },
+    {
+      "path": ".agents/skills/ugc-toon-action/SKILL.md",
+      "bytes": 12544,
+      "sha256": "b18f9515107d0a912292d5cdd7d1ee954199b6e1b9d24f88a7da9c8323e44555"
+    },
+    {
+      "path": ".agents/skills/ugc-unboxing/SKILL.md",
+      "bytes": 7134,
+      "sha256": "7842dfefc3719419bf896837e8c3fcb15da9982bbab64b4acccb6593a6e76b78"
+    },
+    {
+      "path": ".agents/skills/universe-studio/SKILL.md",
+      "bytes": 10696,
+      "sha256": "6f765b7a176ddd8b4f95d47db161855c409892b6c9c3b7fc319d809797bd8664"
+    },
+    {
+      "path": ".agents/skills/vox-collage/SKILL.md",
+      "bytes": 20392,
+      "sha256": "3fc4f45e5dd8b4a08e8cf1634c068f212850a76641bd2c194a0ef525cd38bafb"
+    },
+    {
+      "path": ".agents/skills/vox-collage/references/beat-layer.md",
+      "bytes": 11155,
+      "sha256": "5e1ac39527f647900a44ca8c8e0ebcc43b3b330342a89a2dac5dd6edf73ad052"
+    },
+    {
+      "path": ".agents/skills/vox-collage/references/prompt-guide.md",
+      "bytes": 18656,
+      "sha256": "c5ec46dee16fd5326d8167432daa7c29799532a0986d299320be43441fc1fb82"
+    },
+    {
+      "path": ".agents/skills/waapi/SKILL.md",
+      "bytes": 3217,
+      "sha256": "e465beaf82a4f2de0fc40c705bdddddf59d851fc96ebb339c931ed9458d30cfb"
+    },
+    {
+      "path": ".agents/skills/website-to-hyperframes/SKILL.md",
+      "bytes": 6548,
+      "sha256": "10e8656eaea164207afba99bdb504b6a28e6ab710688659c6cf66a3bd0a57c0a"
+    },
+    {
+      "path": ".agents/skills/website-to-hyperframes/references/step-1-capture.md",
+      "bytes": 6212,
+      "sha256": "bcfafabdc9784a4233155b0bd830427975d764af69205380740259b99f062280"
+    },
+    {
+      "path": ".agents/skills/website-to-hyperframes/references/step-2-design.md",
+      "bytes": 8888,
+      "sha256": "24e39091967de105429460c4f1579ede13f41e6999b59c942434eff401ae6c8a"
+    },
+    {
+      "path": ".agents/skills/website-to-hyperframes/references/step-3-script.md",
+      "bytes": 638,
+      "sha256": "cbef9503df93982d0c17b2c135f029f78ea3d9a84bc1d483a1d902badf27f9fa"
+    },
+    {
+      "path": ".agents/skills/website-to-hyperframes/references/step-4-storyboard.md",
+      "bytes": 9742,
+      "sha256": "631c129366a6807bf92852fcb53f01d767967fb630ead0eebca7693188ced95b"
+    },
+    {
+      "path": ".agents/skills/website-to-hyperframes/references/step-5-vo.md",
+      "bytes": 2498,
+      "sha256": "e9c1f4c05da36f2b9e0bc86b3f8f6460c036f140aab9a6e5c9ca42a21f15dc0f"
+    },
+    {
+      "path": ".agents/skills/website-to-hyperframes/references/step-6-build.md",
+      "bytes": 15610,
+      "sha256": "94d218dd6aed10e2d38ff2cfc0a9e75b445fbd47b87465f56e1392488e81c96a"
+    },
+    {
+      "path": ".agents/skills/website-to-hyperframes/references/step-7-validate.md",
+      "bytes": 5543,
+      "sha256": "d4ab8d3693454336a714a61fe9e1d864e5974eb4870e37668580bc59c15eabb1"
+    },
+    {
+      "path": ".agents/skills/workspace-eval/SKILL.md",
+      "bytes": 6107,
+      "sha256": "6f6947a62e4cc2360bb24bbf862d2e44e42b15ec4d5f6c9d213dba324f062bc0"
+    },
+    {
       "path": "AGENTS.md",
-      "bytes": 52490,
-      "sha256": "f1396c2f0d5df9043293d2ac421e87f0d2bc9a77a8b7362a134dd75d57fccf91"
+      "bytes": 38026,
+      "sha256": "5f6c3488d86bef4dd23e47a79c0a16685bfbea5b99334104903679d880e728a4"
+    },
+    {
+      "path": "MODELS.md",
+      "bytes": 41271,
+      "sha256": "8e9a0146ea30d6d386b944963a9c48a07ff42eb9d0b4e2fb1220431742a1ca5f"
     },
     {
       "path": "docs/agent-guide.md",
@@ -38,8 +1013,8 @@
     },
     {
       "path": "docs/content-modes.md",
-      "bytes": 11986,
-      "sha256": "bea93cc64a8689515a237d97d8c6473e876e27a94c931c269c0e960e42cf573a"
+      "bytes": 12006,
+      "sha256": "8b637d1ca2e57fe94eeb69d791eeba1793b2161b5e4a59cf92cc35ad93d32e0f"
     },
     {
       "path": "docs/creative-library/hooks/HOOK_LIBRARY.md",
@@ -83,138 +1058,18 @@
     },
     {
       "path": "docs/playbooks/README.md",
-      "bytes": 3789,
-      "sha256": "1f224419ce8902d6587a8abd82822036571ddaafada475b09e19afb91afb53d9"
+      "bytes": 2304,
+      "sha256": "02d6d5cacc8f0b62409e0a5ab842ce7e5dc21812a6686f9afbdb699e2918ed99"
     },
     {
       "path": "docs/playbooks/agent-production-contract.md",
-      "bytes": 24072,
-      "sha256": "274e338547a9c699e0e0708ef696c67ee6a151ea9eb743e5145a0f935c4a7aa6"
-    },
-    {
-      "path": "docs/playbooks/art-director.md",
-      "bytes": 22619,
-      "sha256": "f2541d4fd57ba9101033582f2746e4d73a56a75016fe8f1414324c7e0e90f208"
-    },
-    {
-      "path": "docs/playbooks/art-director/character-fit.md",
-      "bytes": 5761,
-      "sha256": "63ddb6f7a1f16ba48a96d69868bf96824f0142acd4fa7f9c87457ec574ceb643"
-    },
-    {
-      "path": "docs/playbooks/art-director/location-plate.md",
-      "bytes": 8209,
-      "sha256": "fb52adc13e0c9d7269a721eda8632fd0ec6e3813bc4a95185c02aafd85b746a2"
-    },
-    {
-      "path": "docs/playbooks/art-director/model-choice.md",
-      "bytes": 1989,
-      "sha256": "55c0fc3722835abea8f6b751e4dbd45750270e15c86546cc6c9389cdaae08baa"
-    },
-    {
-      "path": "docs/playbooks/art-director/photoreal-humans.md",
-      "bytes": 9058,
-      "sha256": "7d1cf03f0d76f770385aaa11c266444464aca55d4dacd169a3150d1755048bdd"
-    },
-    {
-      "path": "docs/playbooks/art-director/pre-render-checklist.md",
-      "bytes": 4235,
-      "sha256": "4b98d03208a5c9fec594047142cea49262af340f7e492797f40409a5814b6067"
-    },
-    {
-      "path": "docs/playbooks/art-director/prompt-style.md",
-      "bytes": 4865,
-      "sha256": "d162993c5d93b2af072b14ae307512b1f7be9eca8fef26fb7f1863709ea6abf5"
-    },
-    {
-      "path": "docs/playbooks/art-director/quality-gate.md",
-      "bytes": 2730,
-      "sha256": "904e47181906b7d27c6fdffd29596a6d22e5595f3d75fb5edcfbe8d71d8aa5d0"
-    },
-    {
-      "path": "docs/playbooks/art-director/ref-photo-policy.md",
-      "bytes": 2908,
-      "sha256": "2a63c4287f16ca000496b8b81dfbddd88bddf43d2ac358e47495dae4cad17ceb"
-    },
-    {
-      "path": "docs/playbooks/art-director/regeneration.md",
-      "bytes": 5261,
-      "sha256": "786d62bed13a5fb9072e7487901484a9e24e1ecda727f15c749f2a72fd512285"
-    },
-    {
-      "path": "docs/playbooks/core.md",
-      "bytes": 4954,
-      "sha256": "37cbf8be4090b46ae59a8ad8d134c56862e2d3c72919b7c87f78e0430010c3d2"
-    },
-    {
-      "path": "docs/playbooks/core/cli-cookbook.md",
-      "bytes": 4463,
-      "sha256": "537cf97b45dc241ca9b509375ae24a06b4e7cb50fd804f35f558070a0c6e34ed"
-    },
-    {
-      "path": "docs/playbooks/core/doctor.md",
-      "bytes": 3787,
-      "sha256": "c5bf954a30491cd25d411d329bba914fc5c44e2146f2f1e6129578fe77398ad6"
-    },
-    {
-      "path": "docs/playbooks/core/troubleshooting.md",
-      "bytes": 4056,
-      "sha256": "2339597c0c782225a9642c13a2c67bda47fc91426648b198d57121d4357331ec"
-    },
-    {
-      "path": "docs/playbooks/editor.md",
-      "bytes": 13435,
-      "sha256": "59646a7bea697211a3ddad3b782cc0bd48580fdbcca5eb46d4d16e2f1bea8db2"
-    },
-    {
-      "path": "docs/playbooks/editor/audio-mixing.md",
-      "bytes": 1631,
-      "sha256": "a84e661315a4d26829a3ace4b06113c7aa56f07bf98a33580f0c8b47cad3f87d"
-    },
-    {
-      "path": "docs/playbooks/editor/captions.md",
-      "bytes": 3118,
-      "sha256": "e05e28098c1f8a9137ae9c5b51ecaafafb00fb1b16ffe612668970a9f5bf1b2a"
-    },
-    {
-      "path": "docs/playbooks/editor/green-zone.md",
-      "bytes": 2005,
-      "sha256": "d15ad65625b3b2549f71e742ec67566b7c5b8061d46063b78fbaeeefcf2a6664"
-    },
-    {
-      "path": "docs/playbooks/editor/hard-rules.md",
-      "bytes": 4019,
-      "sha256": "19c1e2f0a0a899b341dd3e0eb5b253f46d16fc94b7ed080d12e115e62f3f5f08"
-    },
-    {
-      "path": "docs/playbooks/editor/render-pipeline.md",
-      "bytes": 12043,
-      "sha256": "15b120cff4e0c04a3ed29f6e32b019198012fa3afa4543d9fd527343ea92a4cd"
-    },
-    {
-      "path": "docs/playbooks/editor/transitions.md",
-      "bytes": 4107,
-      "sha256": "004b32425f0606663f9560372d79befcdaa042e52e8b8e98d6fbcff2b097b91d"
-    },
-    {
-      "path": "docs/playbooks/editor/vo-sync.md",
-      "bytes": 4776,
-      "sha256": "b5ebae3f395035db46fbe7aab0eff39fc94467bceaee77d700e357bdd38c4f7a"
-    },
-    {
-      "path": "docs/playbooks/hyperframes.md",
-      "bytes": 26585,
-      "sha256": "7e95cbcb66f7bcce39e2b3fc7d9c53094b249b543beabef95bbcfbd205e10fa4"
-    },
-    {
-      "path": "docs/playbooks/intake.md",
-      "bytes": 30899,
-      "sha256": "4f07eb0220017c400138cfb93de3b1686b8533784f03d106abf2c5b21cad2981"
+      "bytes": 24279,
+      "sha256": "468f65c05c1d2990b8257335b21be8341d9b07d3346f545c4ead68cdab90f6f3"
     },
     {
       "path": "docs/playbooks/meta.md",
-      "bytes": 5630,
-      "sha256": "adb1092aece999c42d5209db33f81eaa1ddcb268b5d7b74618bf2e36e072ef07"
+      "bytes": 5657,
+      "sha256": "e2e33604da13bce131165df9afefde8990b9904663c022c1614a7b6d82d27f97"
     },
     {
       "path": "docs/playbooks/modes/README.md",
@@ -248,8 +1103,8 @@
     },
     {
       "path": "docs/playbooks/modes/hero-banner.md",
-      "bytes": 3730,
-      "sha256": "2e3ab57b13178a37021a66a5fbeb5cce0c8c36d7ba92f0dacccc472db54bdbfe"
+      "bytes": 3795,
+      "sha256": "57d53bb245fef8b7b86b0834c5ba7c373efbc3051d0ea92652e57ce34ce51528"
     },
     {
       "path": "docs/playbooks/modes/image-pack.md",
@@ -273,8 +1128,8 @@
     },
     {
       "path": "docs/playbooks/modes/personal-clipper.md",
-      "bytes": 4209,
-      "sha256": "5011457c524808ff6602553283abd82266b4c15833a2ebb2b510630293848b86"
+      "bytes": 4242,
+      "sha256": "74e5ef9efeb28672ce4909f06c165e16d9d113d340952ac8d3ff09539dc05edf"
     },
     {
       "path": "docs/playbooks/modes/pinterest-pin.md",
@@ -337,104 +1192,14 @@
       "sha256": "2bd454b1b2ef0a1444bfad8f25df80a4522faf9a2acd249f27a6bcf3892a5b2c"
     },
     {
-      "path": "docs/playbooks/personal-clipper.md",
-      "bytes": 7148,
-      "sha256": "6ddc3ac03bbfc1fd1dc79c73fb0e87d73922ef50977b61a17b1224ca65e158bf"
-    },
-    {
-      "path": "docs/playbooks/producer.md",
-      "bytes": 18268,
-      "sha256": "3c783d24c2e3c53afc38f47e7cbb0f2cfb05d5281ea6aefe7cf4c28f828fd6a0"
-    },
-    {
-      "path": "docs/playbooks/producer/batch.md",
-      "bytes": 4838,
-      "sha256": "4122a76ad0376f0dd6fbcfd9f2de1803dd5f49954adaa789eceaad72145c4beb"
-    },
-    {
-      "path": "docs/playbooks/producer/orchestration.md",
-      "bytes": 3796,
-      "sha256": "6a231b45f2ce91179e346c7e9459edd06d2f9cb95f47638fd6dcb52a5ff902d7"
-    },
-    {
-      "path": "docs/playbooks/producer/template-extract.md",
-      "bytes": 3810,
-      "sha256": "2189f851538299fcba8ef447d189e7327c4d9549043f00e0aa44c204e5252e96"
-    },
-    {
-      "path": "docs/playbooks/ralphy-install.md",
-      "bytes": 4086,
-      "sha256": "95b2325e301be632f68b893b92c795f36ab4531148f0f10530b717766b537409"
-    },
-    {
-      "path": "docs/playbooks/research-bootstrap.md",
-      "bytes": 7744,
-      "sha256": "00975ab5d287ecf7a0a72f47cc03c0b302257160ce7c6fbc36e2e8dfb7f8a282"
-    },
-    {
-      "path": "docs/playbooks/researcher.md",
-      "bytes": 6944,
-      "sha256": "4ff5503bd2c03befc30a2dc9575b40016c8e3f99ef5601dc68f1a44e5133f9d8"
-    },
-    {
-      "path": "docs/playbooks/researcher/site-extract.md",
-      "bytes": 4037,
-      "sha256": "deaad438a24a87e835fb0c090fdc454761aadb186cbd9a386ae5e145cda3335b"
-    },
-    {
-      "path": "docs/playbooks/researcher/social-extract.md",
-      "bytes": 5144,
-      "sha256": "df5c692a6672cbdc5f0d8fbdc13e935640ca6989040de82acb643e85c1f7e082"
-    },
-    {
-      "path": "docs/playbooks/researcher/transcript.md",
-      "bytes": 2553,
-      "sha256": "80d9e459fbfaa38e0ac7c36e279eb4b187a0060d44fc2252148584c4dde48d68"
-    },
-    {
-      "path": "docs/playbooks/researcher/viral-moments.md",
-      "bytes": 2404,
-      "sha256": "b1d413117666fc7acccaaf627bec2cd15fa9c93b26c59dd54fa76dc080a0caf4"
-    },
-    {
-      "path": "docs/playbooks/researcher/yt-dlp.md",
-      "bytes": 5204,
-      "sha256": "86b10c7896ffadf4b4dfe25d13bd969dd1fd3ded93f9841158aa59f1c12ec9e6"
-    },
-    {
-      "path": "docs/playbooks/scenarist.md",
-      "bytes": 11996,
-      "sha256": "63bba1ece768a5999bb71be4ee2eeff72eb69604b44b1dcfe4b2fe6df923c0d0"
-    },
-    {
-      "path": "docs/playbooks/scenarist/feedback-iteration.md",
-      "bytes": 2735,
-      "sha256": "5ccd18914d6212fe24344eb00916ddd5da841e213771e291ea3e0a5eb02ad08a"
-    },
-    {
-      "path": "docs/playbooks/scenarist/hook-formulas.md",
-      "bytes": 2846,
-      "sha256": "be29a8bf86e89dfaec4a7e8700d38acc92c5d066db1831df72301fbca46d9909"
-    },
-    {
-      "path": "docs/playbooks/scenarist/pacing.md",
-      "bytes": 2626,
-      "sha256": "358c0658d681e743dba2be0b33a5e8017db640383caf7ac4bfd98a2cfcadfcea"
-    },
-    {
-      "path": "docs/playbooks/scenarist/quality-gate.md",
-      "bytes": 2804,
-      "sha256": "9b926971ca658452123ac122b156e97763c3476107095aed4274a842cc2b7153"
-    },
-    {
-      "path": "docs/playbooks/site-grounding.md",
-      "bytes": 8667,
-      "sha256": "8416c3b09f42bc9556325e81e351723514015678e8911ac32cead6819f5ad986"
-    },
-    {
       "path": "docs/playbooks/unit-lifecycle.md",
-      "bytes": 9700,
-      "sha256": "12bb046bb84b00650b39724a5c365e1350ed8ebefd08536e686c97e755bdc7a5"
+      "bytes": 9878,
+      "sha256": "0bf16b61694764ccb978b211e7c1df33fbc3d90399957b39c313526e2b5db150"
+    },
+    {
+      "path": "docs/render-test-2026-05-11.md",
+      "bytes": 13068,
+      "sha256": "0cc67876fcb42edde38b273895551cf2b8d563669fd4f1e8cbe9c6e31f39bcd7"
     },
     {
       "path": "docs/skills-format.md",
@@ -443,8 +1208,13 @@
     },
     {
       "path": "docs/skills-vs-templates.md",
-      "bytes": 15037,
-      "sha256": "f4046328819633f17bd2327e90889ed0dd89d07f9f2926650f66b7ad6e020453"
+      "bytes": 15057,
+      "sha256": "47ae5b07049dc8ef15fb32ee42205daaa208595c1675dc35bb05b33b655acf65"
+    },
+    {
+      "path": "docs/template-audit-2026-05-11.md",
+      "bytes": 33016,
+      "sha256": "ee14c2988dc0d9b85c947369375f80aa461e74c25a30d29eae5ef9929b975116"
     },
     {
       "path": "docs/templates-index.md",
@@ -465,6 +1235,111 @@
       "path": "docs/workspace-evaluators.md",
       "bytes": 20629,
       "sha256": "f36ae758e686c1e46c7884ee99984c4b1a34d1d8036e6837ac8c9696d8d2bf65"
+    },
+    {
+      "path": "guidelines/README.md",
+      "bytes": 1727,
+      "sha256": "d8ead362916cd82dd36e0bf9c4fc5482bc7c9a9178fa72650ac1aff0c6b12e3a"
+    },
+    {
+      "path": "guidelines/broadcast-realism-aspect/guideline.json",
+      "bytes": 1294,
+      "sha256": "b679a7e3b8cec552b7dd4747c55f7c736e7e3f565b96b7179b389628e08d8006"
+    },
+    {
+      "path": "guidelines/broadcast-realism-aspect/guideline.md",
+      "bytes": 3078,
+      "sha256": "48e30a24102645d6c7d4fe110364998224a9f6149a0a1e9926d61626fa7918bf"
+    },
+    {
+      "path": "guidelines/cgi-product-renders/examples.json",
+      "bytes": 1710,
+      "sha256": "b90c5b1d0fc916814431f89b6bb23f475b56b8d89c6556dab6437b32938174e7"
+    },
+    {
+      "path": "guidelines/cgi-product-renders/guideline.json",
+      "bytes": 1190,
+      "sha256": "6d94e5600b0249453170e08c0652358b051d30762f4002b25b4ae4f81c4fa024"
+    },
+    {
+      "path": "guidelines/cgi-product-renders/guideline.md",
+      "bytes": 12944,
+      "sha256": "6b12e1f6e34aa1a15610ade6432bb105054ee959edf6339609b66d1d103e0aeb"
+    },
+    {
+      "path": "guidelines/cinematic-90s-film/examples.json",
+      "bytes": 1713,
+      "sha256": "047b1035af535dd44ab32d25c2197a8807509b686527521797a421640ab5edc7"
+    },
+    {
+      "path": "guidelines/cinematic-90s-film/guideline.json",
+      "bytes": 1151,
+      "sha256": "815cd1e2b03d97eb427db5eb423b99d871b887c5124a5666001dbfcbe0f559d8"
+    },
+    {
+      "path": "guidelines/cinematic-90s-film/guideline.md",
+      "bytes": 14502,
+      "sha256": "136bd3307635e5efcacacfa3af74c50bd9bbfc68f7b622aaad2432a60cce98e6"
+    },
+    {
+      "path": "guidelines/geo-article/guideline.json",
+      "bytes": 1437,
+      "sha256": "b5715bd5aeddbaabb730a0211b531cec36940bc7e0964c7ad2881518573ae373"
+    },
+    {
+      "path": "guidelines/geo-article/guideline.md",
+      "bytes": 4800,
+      "sha256": "a871f1f14d98ee178a73ed4a0bd644ad49d932db0ec794991595197cf6208bd8"
+    },
+    {
+      "path": "guidelines/indie-ps1-ps2-horror/guideline.json",
+      "bytes": 1343,
+      "sha256": "45484dc099a35106ac9c58c07d41147f9241f57e665adcc9bad74b1d656ec842"
+    },
+    {
+      "path": "guidelines/indie-ps1-ps2-horror/guideline.md",
+      "bytes": 8015,
+      "sha256": "b82874e1696e63e580f492b34a8f61ff957ff0f19758144e15e997c828396f35"
+    },
+    {
+      "path": "guidelines/oldspice-absurd-spokesman/guideline.json",
+      "bytes": 1302,
+      "sha256": "204c927b476c94732290c59716b08fe6b8831c7c6a6fd5d953ac0750affab2e6"
+    },
+    {
+      "path": "guidelines/oldspice-absurd-spokesman/guideline.md",
+      "bytes": 7703,
+      "sha256": "0a4852310ae70b99c822454577a236cdeac28757eb877504d848f0e3680fde8c"
+    },
+    {
+      "path": "guidelines/photoreal-studio-portraits/examples.json",
+      "bytes": 1514,
+      "sha256": "2712f82eb2b152e503c0a9052970b7ca371c8e9e871c2f76ef9de233b0e6eee7"
+    },
+    {
+      "path": "guidelines/photoreal-studio-portraits/guideline.json",
+      "bytes": 986,
+      "sha256": "2b3db56877d40bf6038b98b0c02f6ec37cf2e4ea80eed000a6333024c3e407fd"
+    },
+    {
+      "path": "guidelines/photoreal-studio-portraits/guideline.md",
+      "bytes": 10548,
+      "sha256": "04b814734b8013c65320aef3f7da0c7d5f89222a2df1a0dd71ba13a3ad342f5e"
+    },
+    {
+      "path": "guidelines/y2k-streetwear-poster/examples.json",
+      "bytes": 1584,
+      "sha256": "cd61af584fd1fb383bb7a86abb351ef11ba5895d03bb1997056cd3d036dea1ae"
+    },
+    {
+      "path": "guidelines/y2k-streetwear-poster/guideline.json",
+      "bytes": 1440,
+      "sha256": "00475108855f58c38ef0dbe05e9bd1620c59031a21c7d28dad0c76e66308048b"
+    },
+    {
+      "path": "guidelines/y2k-streetwear-poster/guideline.md",
+      "bytes": 5086,
+      "sha256": "4eb68825545f19b6143fb684e393aa87d787ccfc376d956ebd15a0ca702dec8b"
     }
   ]
 }

@@ -1,0 +1,41 @@
+{
+  "slug": "cinematic-90s-film",
+  "items": [
+    {
+      "id": "scene-14-platform",
+      "media": "scene-14-platform.jpg",
+      "kind": "image",
+      "aspect": "16:9",
+      "caption": "Empty Tokyo elevated platform at night. Multi-source isolated lighting: cyan vending machine + warm tungsten fluorescents + soft pink ad-panel glow + distant neon haze. Vanishing-point wide composition.",
+      "pattern": "night-platform-vanishing-point",
+      "model": "openai/gpt-5.4-image-2"
+    },
+    {
+      "id": "scene-00-pastoral",
+      "media": "scene-00-pastoral.jpg",
+      "kind": "image",
+      "aspect": "16:9",
+      "caption": "Honeybee-pastoral opener — summer cumulonimbus over a wide field of grass, small figure in the right third. Mandatory film-stock cluster (Vision3 250D + halation + lifted blacks + magenta cast) carries the entire image.",
+      "pattern": "pastoral-wide-anchor",
+      "model": "google/gemini-3-pro-image-preview"
+    },
+    {
+      "id": "scene-02-image-anchor",
+      "media": "scene-02-image-anchor.jpg",
+      "kind": "image",
+      "aspect": "16:9",
+      "caption": "Same Tokyo platform, different beat. Same register applied at a different time of day demonstrates the grade survives transitions.",
+      "pattern": "night-platform-vanishing-point",
+      "model": "openai/gpt-5.4-image-2"
+    },
+    {
+      "id": "scene-04-image-anchor",
+      "media": "scene-04-image-anchor.jpg",
+      "kind": "image",
+      "aspect": "16:9",
+      "caption": "Letterboxed 1.85:1 cinematic composition inside a 9:16 deliverable. The bars are diegetic — they sell the film-print fiction.",
+      "pattern": "letterbox-1.85",
+      "model": "openai/gpt-5.4-image-2"
+    }
+  ]
+}

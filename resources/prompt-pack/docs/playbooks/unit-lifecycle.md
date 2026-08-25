@@ -76,10 +76,10 @@ This is what lets an agent resume after a context reset without re-reading the w
 
 Each role / skill executes a slice of this lifecycle; none defines a divergent sequence:
 
-- [`intake.md`](intake.md) — phases 1-8 craft (clarifying questions, the plan, wait-for-go).
-- [`research-bootstrap.md`](research-bootstrap.md) — phase 6 (the depth decision + routing).
-- [`producer.md`](producer.md) — the end-to-end wrapper that sequences the role phases + batch + cost rollup.
-- [`scenarist.md`](scenarist.md) — phase 10. [`art-director.md`](art-director.md) — phases 11-12. [`editor.md`](editor.md) — phase 13.
+- [`intake.md`](../../.agents/skills/intake/SKILL.md) — phases 1-8 craft (clarifying questions, the plan, wait-for-go).
+- [`research-bootstrap.md`](../../.agents/skills/researcher/references/research-bootstrap.md) — phase 6 (the depth decision + routing).
+- [`producer.md`](../../.agents/skills/producer/SKILL.md) — the end-to-end wrapper that sequences the role phases + batch + cost rollup.
+- [`scenarist.md`](../../.agents/skills/scenarist/SKILL.md) — phase 10. [`art-director.md`](../../.agents/skills/art-director/SKILL.md) — phases 11-12. [`editor.md`](../../.agents/skills/editor/SKILL.md) — phase 13.
 - [`.agents/skills/evaluator/SKILL.md`](../../.agents/skills/evaluator/SKILL.md) — phase 14 (and the native-gate rule).
 - [`.agents/skills/fixer/SKILL.md`](../../.agents/skills/fixer/SKILL.md) — phase 15.
 - [`.agents/skills/templater/SKILL.md`](../../.agents/skills/templater/SKILL.md) — reads `units/*/unit.json` (phase 17) to extract + publish.

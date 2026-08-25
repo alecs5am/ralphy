@@ -1,0 +1,17 @@
+{
+  "slug": "y2k-streetwear-poster",
+  "name": "Y2K streetwear drop poster",
+  "tag": "@guideline:y2k-streetwear-poster",
+  "version": "1.0",
+  "kind": "image-prompt",
+  "tagline": "Poster-as-landing-page for a streetwear label — massive beveled slab-serif wordmark, chest-up character hero, DIY vinyl-sticker collage, vivid gradient. Y2K skate-surf energy on a fixed, reusable layout.",
+  "description": "How to prompt an image model for a vivid, character-driven brand poster that reads like a 90s arcade / cereal-box drop announcement. Covers the fixed top-to-bottom architecture (top banner -> massive 3D-bevel wordmark -> ~60% chest-up hero with an original chest glyph and a prop at mouth level -> 3 scattered vinyl stickers -> condensed headline + italic-serif body + CTA pill -> thin footer strip) and the swap slots (brand, exclamation word, hero, product, palette, original blob glyph, aesthetic). Pairs with the /poster skill — the skill is the workflow, this guideline is the prompt-register reference.",
+  "cover": "boom-royal-blue",
+  "scope": ["image", "poster", "typography", "streetwear", "collage"],
+  "models": [
+    "openai/gpt-5.4-image-2",
+    "google/gemini-3-pro-image-preview"
+  ],
+  "tags": ["poster", "streetwear", "y2k", "typography", "collage", "branding", "key-art"],
+  "patterns": ["beveled-slab-wordmark", "chest-up-hero-with-prop", "vinyl-sticker-collage", "poster-as-landing", "original-blob-glyph"]
+}

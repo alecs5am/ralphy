@@ -12,7 +12,7 @@ Carry the value proposition above the fold. A hero banner wins on **one headline
 
 ## Reference requirements
 
-No reference required when the brand is the user's own / fictional and the subject is generic. The reference-required gate fires for a **named real entity** (a real person, a recognizable branded product, an IP). **Real-brand pre-flight:** when the banner targets a real brand URL, dispatch a Playwright site-grounding sub-agent (AGENTS #15) to crawl home + `/docs` + `/pricing` + `/features` + `/examples` BEFORE drafting brand-DNA — read `artifacts/refs/research.md`, and every `{{palette}}` hex must trace to `artifacts/refs/tokens.json`. Pass `artifacts/refs/hero.png` as `--ref` to hold palette + type. Full discipline: [`docs/playbooks/site-grounding.md`](../site-grounding.md).
+No reference required when the brand is the user's own / fictional and the subject is generic. The reference-required gate fires for a **named real entity** (a real person, a recognizable branded product, an IP). **Real-brand pre-flight:** when the banner targets a real brand URL, dispatch a Playwright site-grounding sub-agent (AGENTS #15) to crawl home + `/docs` + `/pricing` + `/features` + `/examples` BEFORE drafting brand-DNA — read `artifacts/refs/research.md`, and every `{{palette}}` hex must trace to `artifacts/refs/tokens.json`. Pass `artifacts/refs/hero.png` as `--ref` to hold palette + type. Full discipline: [`.agents/skills/researcher/references/site-grounding.md`](../../../.agents/skills/researcher/references/site-grounding.md).
 
 ## Prompt spine
 

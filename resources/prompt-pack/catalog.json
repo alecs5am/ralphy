@@ -1,0 +1,1427 @@
+{
+  "catalogVersion": 1,
+  "cliVersion": "0.3.0",
+  "entries": [
+    {
+      "id": "component:css-3d",
+      "category": "component",
+      "slug": "css-3d",
+      "title": "3D",
+      "summary": "180° Y-axis rotation. Requires CSS: backface-visibility: hidden; transform-style: preserve-3d; on both scene-inners. Parent needs perspective: 1200px.",
+      "path": ".agents/skills/hyperframes/references/transitions/css-3d.md",
+      "tags": [
+        "hyperframes",
+        "transition"
+      ]
+    },
+    {
+      "id": "component:css-blur",
+      "category": "component",
+      "slug": "css-blur",
+      "title": "Blur",
+      "summary": "All blur transitions scale with energy. See SKILL.md \"Blur Intensity by Energy\" for the full table.",
+      "path": ".agents/skills/hyperframes/references/transitions/css-blur.md",
+      "tags": [
+        "hyperframes",
+        "transition"
+      ]
+    },
+    {
+      "id": "component:css-cover",
+      "category": "component",
+      "slug": "css-cover",
+      "title": "Cover",
+      "summary": "Full-screen (1920x1080) colored divs slide across staggered. Scene swaps while covered.",
+      "path": ".agents/skills/hyperframes/references/transitions/css-cover.md",
+      "tags": [
+        "hyperframes",
+        "transition"
+      ]
+    },
+    {
+      "id": "component:css-destruction",
+      "category": "component",
+      "slug": "css-destruction",
+      "title": "Destruction",
+      "summary": "The outgoing scene literally burns away from a corner. A fire front expands with noise-based irregular edges, a canvas draws the scorched char line at the burn boundary, and individual text characters/elements chip off and fall with gravity as the fire reaches them. The incoming scene reveals behind the burn.",
+      "path": ".agents/skills/hyperframes/references/transitions/css-destruction.md",
+      "tags": [
+        "hyperframes",
+        "transition"
+      ]
+    },
+    {
+      "id": "component:css-dissolve",
+      "category": "component",
+      "slug": "css-dissolve",
+      "title": "Dissolve",
+      "summary": "Simple opacity swap. The baseline.",
+      "path": ".agents/skills/hyperframes/references/transitions/css-dissolve.md",
+      "tags": [
+        "hyperframes",
+        "transition"
+      ]
+    },
+    {
+      "id": "component:css-distortion",
+      "category": "component",
+      "slug": "css-distortion",
+      "title": "Distortion",
+      "summary": "RGB-tinted overlays (NOT multiply blend — use normal blending at 35% opacity) jitter with large offsets. Scene itself also jitters.",
+      "path": ".agents/skills/hyperframes/references/transitions/css-distortion.md",
+      "tags": [
+        "hyperframes",
+        "transition"
+      ]
+    },
+    {
+      "id": "component:css-grid",
+      "category": "component",
+      "slug": "css-grid",
+      "title": "Grid",
+      "summary": "Grid of colored cells covers the frame in a ripple from center. Scene swaps at 50% coverage. Cells fade out in ripple.",
+      "path": ".agents/skills/hyperframes/references/transitions/css-grid.md",
+      "tags": [
+        "hyperframes",
+        "transition"
+      ]
+    },
+    {
+      "id": "component:css-light",
+      "category": "component",
+      "slug": "css-light",
+      "title": "Light",
+      "summary": "Multiple warm-colored overlays wash across frame. Needs: a flat warm tint layer + 2-3 bright radial gradient divs, all larger than the frame so edges are never visible.",
+      "path": ".agents/skills/hyperframes/references/transitions/css-light.md",
+      "tags": [
+        "hyperframes",
+        "transition"
+      ]
+    },
+    {
+      "id": "component:css-mechanical",
+      "category": "component",
+      "slug": "css-mechanical",
+      "title": "Mechanical",
+      "summary": "Two full-screen halves close from top and bottom, meet in the middle. Swap while closed. Open again.",
+      "path": ".agents/skills/hyperframes/references/transitions/css-mechanical.md",
+      "tags": [
+        "hyperframes",
+        "transition"
+      ]
+    },
+    {
+      "id": "component:css-other",
+      "category": "component",
+      "slug": "css-other",
+      "title": "Other",
+      "summary": "Old scene falls down with slight rotation. New scene was behind it. Needs z-index.",
+      "path": ".agents/skills/hyperframes/references/transitions/css-other.md",
+      "tags": [
+        "hyperframes",
+        "transition"
+      ]
+    },
+    {
+      "id": "component:css-push",
+      "category": "component",
+      "slug": "css-push",
+      "title": "Linear / Push",
+      "summary": "Both scenes move together — new pushes old out.",
+      "path": ".agents/skills/hyperframes/references/transitions/css-push.md",
+      "tags": [
+        "hyperframes",
+        "transition"
+      ]
+    },
+    {
+      "id": "component:css-radial",
+      "category": "component",
+      "slug": "css-radial",
+      "title": "Radial / Shape",
+      "summary": "Expanding circle from center reveals new scene.",
+      "path": ".agents/skills/hyperframes/references/transitions/css-radial.md",
+      "tags": [
+        "hyperframes",
+        "transition"
+      ]
+    },
+    {
+      "id": "component:css-scale",
+      "category": "component",
+      "slug": "css-scale",
+      "title": "Scale / Zoom",
+      "summary": "Old zooms past camera + blurs, new zooms in from behind.",
+      "path": ".agents/skills/hyperframes/references/transitions/css-scale.md",
+      "tags": [
+        "hyperframes",
+        "transition"
+      ]
+    },
+    {
+      "id": "prompt:broadcast-realism-aspect",
+      "category": "prompt",
+      "slug": "broadcast-realism-aspect",
+      "title": "Broadcast-realism aspect + palette",
+      "summary": "For \"caught on TV\" trend recreations, 1:1 square reads more real than strict 9:16 — real broadcast cameras shoot 16:9, so a tall portrait crop triggers the AI-detector eye. Plus a cross-cutting default toward natural / muted color over neon.",
+      "path": "guidelines/broadcast-realism-aspect/guideline.md",
+      "tags": [
+        "image-prompt",
+        "broadcast",
+        "trend",
+        "aspect-ratio",
+        "square",
+        "palette",
+        "no-neon",
+        "realism"
+      ]
+    },
+    {
+      "id": "prompt:cgi-product-renders",
+      "category": "prompt",
+      "slug": "cgi-product-renders",
+      "title": "CGI product renders",
+      "summary": "Hyper-real product hero shots — coloured rim-light pair + 25° low-angle / 90° top-down / extreme macro vocabulary. Same composition language across two brand palettes (dark-tech and kawaii-yellow-pink).",
+      "path": "guidelines/cgi-product-renders/guideline.md",
+      "tags": [
+        "image-prompt",
+        "product",
+        "cgi",
+        "render",
+        "hypermotion",
+        "hero",
+        "macro",
+        "tech-porn"
+      ]
+    },
+    {
+      "id": "prompt:cinematic-90s-film",
+      "category": "prompt",
+      "slug": "cinematic-90s-film",
+      "title": "Cinematic 35mm film register",
+      "summary": "Late-1990s Japanese art-cinema look — Kodak Vision3 250D grain, halation, lifted milky blacks, magenta-cyan telecine bias. Beats digital-HD instincts.",
+      "path": "guidelines/cinematic-90s-film/guideline.md",
+      "tags": [
+        "image-prompt",
+        "cinematic",
+        "film",
+        "35mm",
+        "1990s",
+        "iwai",
+        "letterbox",
+        "narrative"
+      ]
+    },
+    {
+      "id": "prompt:geo-article",
+      "category": "prompt",
+      "slug": "geo-article",
+      "title": "GEO-aware SEO article",
+      "summary": "Draft a long-form article that ranks in classic search AND gets cited by LLM answer engines — clear standalone claims, quotable definitions, explicit FAQ blocks, one idea per heading.",
+      "path": "guidelines/geo-article/guideline.md",
+      "tags": [
+        "text-prompt",
+        "seo",
+        "geo",
+        "article",
+        "blog",
+        "long-form",
+        "faq",
+        "citation"
+      ]
+    },
+    {
+      "id": "prompt:indie-ps1-ps2-horror",
+      "category": "prompt",
+      "slug": "indie-ps1-ps2-horror",
+      "title": "Indie PS1 / PS2 horror registers",
+      "summary": "Two distinct retro-game horror looks: crude PS1 indie-horror (Chilla's Art / Fears to Fathom) for found-footage dread, and smooth PS2 cutscene (Silent Hill 2) for sad / doomer melancholy. Each needs named game references + style refs, and they are NOT interchangeable.",
+      "path": "guidelines/indie-ps1-ps2-horror/guideline.md",
+      "tags": [
+        "image-prompt",
+        "ps1",
+        "ps2",
+        "horror",
+        "found-footage",
+        "doomer",
+        "retro-game",
+        "silent-hill"
+      ]
+    },
+    {
+      "id": "prompt:oldspice-absurd-spokesman",
+      "category": "prompt",
+      "slug": "oldspice-absurd-spokesman",
+      "title": "Old-Spice absurd spokesman",
+      "summary": "The high-key, oiled-chest, mouth-open, impossible-match-cut spokesman register — bright pastel commercial light, deliberate-prop fake creatures, and a distinct physical beat between every start and end frame.",
+      "path": "guidelines/oldspice-absurd-spokesman/guideline.md",
+      "tags": [
+        "image-prompt",
+        "oldspice",
+        "spokesman",
+        "comedy",
+        "ad",
+        "high-key",
+        "absurd",
+        "i2v",
+        "motion-delta"
+      ]
+    },
+    {
+      "id": "prompt:photoreal-studio-portraits",
+      "category": "prompt",
+      "slug": "photoreal-studio-portraits",
+      "title": "Photoreal studio portraits",
+      "summary": "Anti-AI-slop portrait prompts for Gemini and GPT image models — real camera + real lens + film grain + asymmetry beat any glossy commercial default.",
+      "path": "guidelines/photoreal-studio-portraits/guideline.md",
+      "tags": [
+        "image-prompt",
+        "photoreal",
+        "portrait",
+        "anti-ai-slop",
+        "image",
+        "humans"
+      ]
+    },
+    {
+      "id": "prompt:y2k-streetwear-poster",
+      "category": "prompt",
+      "slug": "y2k-streetwear-poster",
+      "title": "Y2K streetwear drop poster",
+      "summary": "Poster-as-landing-page for a streetwear label — massive beveled slab-serif wordmark, chest-up character hero, DIY vinyl-sticker collage, vivid gradient. Y2K skate-surf energy on a fixed, reusable layout.",
+      "path": "guidelines/y2k-streetwear-poster/guideline.md",
+      "tags": [
+        "image-prompt",
+        "poster",
+        "streetwear",
+        "y2k",
+        "typography",
+        "collage",
+        "branding",
+        "key-art"
+      ]
+    },
+    {
+      "id": "recipe:burnSubtitles",
+      "category": "recipe",
+      "slug": "burnSubtitles",
+      "title": "burnSubtitles",
+      "summary": "Burn-in .srt over the video — final step after the HyperFrames render (if subtitles aren't part of the composition).",
+      "path": "docs/ffmpeg-recipes.md",
+      "tags": [
+        "ffmpeg"
+      ]
+    },
+    {
+      "id": "recipe:concatLossless",
+      "category": "recipe",
+      "slug": "concatLossless",
+      "title": "concatLossless",
+      "summary": "Concatenate already identically encoded clips without re-encode.",
+      "path": "docs/ffmpeg-recipes.md",
+      "tags": [
+        "ffmpeg"
+      ]
+    },
+    {
+      "id": "recipe:extractSegment",
+      "category": "recipe",
+      "slug": "extractSegment",
+      "title": "extractSegment",
+      "summary": "Lossless or re-encoded cut by timecode.",
+      "path": "docs/ffmpeg-recipes.md",
+      "tags": [
+        "ffmpeg"
+      ]
+    },
+    {
+      "id": "recipe:loudnorm",
+      "category": "recipe",
+      "slug": "loudnorm",
+      "title": "loudnorm",
+      "summary": "Loudness normalization for TikTok / Reels / Shorts (target -16 LUFS).",
+      "path": "docs/ffmpeg-recipes.md",
+      "tags": [
+        "ffmpeg"
+      ]
+    },
+    {
+      "id": "recipe:sidechainCompress",
+      "category": "recipe",
+      "slug": "sidechainCompress",
+      "title": "sidechainCompress",
+      "summary": "Music auto-quiets when VO speaks.",
+      "path": "docs/ffmpeg-recipes.md",
+      "tags": [
+        "ffmpeg"
+      ]
+    },
+    {
+      "id": "recipe:tonemapHDR",
+      "category": "recipe",
+      "slug": "tonemapHDR",
+      "title": "tonemapHDR",
+      "summary": "iPhone shoots HDR (HLG / Dolby Vision). TikTok / Reels often mishandle HDR — colors flat or overblown. Forced SDR conversion fixes it:",
+      "path": "docs/ffmpeg-recipes.md",
+      "tags": [
+        "ffmpeg"
+      ]
+    },
+    {
+      "id": "skill:analog-horror-psa",
+      "category": "skill",
+      "slug": "analog-horror-psa",
+      "title": "Analog Horror Psa",
+      "summary": "How to make an analog-horror PSA short — the stenciled-pictogram / robo-broadcast / VHS-overlay format (faceless, 10 scenes × ~3s, 9:16, ~30s total).",
+      "path": ".agents/skills/analog-horror-psa/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:animejs",
+      "category": "skill",
+      "slug": "animejs",
+      "title": "Animejs",
+      "summary": "Anime.js adapter patterns for HyperFrames.",
+      "path": ".agents/skills/animejs/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:art-director",
+      "category": "skill",
+      "slug": "art-director",
+      "title": "Art Director",
+      "summary": "Prompt and asset generation craft — turns an approved scenario into prompts.json and generated media through `ralphy generate`.",
+      "path": ".agents/skills/art-director/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:audio-explainer",
+      "category": "skill",
+      "slug": "audio-explainer",
+      "title": "Audio Explainer",
+      "summary": "Audio-first long-form explainer pipeline — takes one audio file (or a YouTube/podcast URL → audio) and produces a faceless overlay-driven video in the dev-essay / tech-podcast style (5-30 minutes, 16:9, no talking head).",
+      "path": ".agents/skills/audio-explainer/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:carousel",
+      "category": "skill",
+      "slug": "carousel",
+      "title": "Carousel",
+      "summary": "How to make a multi-style multi-slide social carousel (5-10 slides × N styles) where the deliverable is the baked-text image itself — no HyperFrames compose.",
+      "path": ".agents/skills/carousel/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:contribute-catalog",
+      "category": "skill",
+      "slug": "contribute-catalog",
+      "title": "Contribute Catalog",
+      "summary": "Author a new HyperFrames registry block (caption style, VFX block, transition, lower third) or component (text effect, overlay, snippet) and ship it as an upstream PR to the hyperframes repo.",
+      "path": ".agents/skills/contribute-catalog/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:css-animations",
+      "category": "skill",
+      "slug": "css-animations",
+      "title": "Css Animations",
+      "summary": "CSS animation adapter patterns for HyperFrames.",
+      "path": ".agents/skills/css-animations/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:dev-issues",
+      "category": "skill",
+      "slug": "dev-issues",
+      "title": "Dev Issues",
+      "summary": "Turn a free-form brain-dump into a clean, ordered set of `notes/issues/*.md` work items.",
+      "path": ".agents/skills/dev-issues/SKILL.md",
+      "tags": [
+        "maintainer"
+      ]
+    },
+    {
+      "id": "skill:dev-loop",
+      "category": "skill",
+      "slug": "dev-loop",
+      "title": "Dev Loop",
+      "summary": "Run an autonomous, issue-driven development loop over Ralphy itself — the same cadence as a focused maintainer session: pick the open `notes/issues/`, order them by dependency, then for each issue dispatch a scoped sub-agent, review its diff, run the real gates, and commit + push to main before moving to the next.",
+      "path": ".agents/skills/dev-loop/SKILL.md",
+      "tags": [
+        "maintainer"
+      ]
+    },
+    {
+      "id": "skill:dev-publish-template",
+      "category": "skill",
+      "slug": "dev-publish-template",
+      "title": "Dev Publish Template",
+      "summary": "Publish a finished Ralphy unit and its reusable blocks to the public library.",
+      "path": ".agents/skills/dev-publish-template/SKILL.md",
+      "tags": [
+        "maintainer"
+      ]
+    },
+    {
+      "id": "skill:dev-release",
+      "category": "skill",
+      "slug": "dev-release",
+      "title": "Dev Release",
+      "summary": "Cut a Ralphy CLI release across GitHub Releases, Homebrew, and npm.",
+      "path": ".agents/skills/dev-release/SKILL.md",
+      "tags": [
+        "maintainer"
+      ]
+    },
+    {
+      "id": "skill:dev-tasks",
+      "category": "skill",
+      "slug": "dev-tasks",
+      "title": "Dev Tasks",
+      "summary": "Manage Ralphy's `notes/` capture inbox (`ideas/`, `issues/`, `decisions/`) — the only dev tracker for Ralphy itself; there is no separate roadmap board.",
+      "path": ".agents/skills/dev-tasks/SKILL.md",
+      "tags": [
+        "maintainer"
+      ]
+    },
+    {
+      "id": "skill:editor",
+      "category": "skill",
+      "slug": "editor",
+      "title": "Editor",
+      "summary": "Composition and render craft — assembles scenario.json plus asset-manifest.json into a HyperFrames HTML composition and renders the mp4.",
+      "path": ".agents/skills/editor/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:evaluator",
+      "category": "skill",
+      "slug": "evaluator",
+      "title": "Evaluator",
+      "summary": "Quality evaluation of rendered UGC mp4s — scene segmentation, audio loudness / dead-air, caption density, and per-scene visual analysis.",
+      "path": ".agents/skills/evaluator/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:fb-creatives",
+      "category": "skill",
+      "slug": "fb-creatives",
+      "title": "Fb Creatives",
+      "summary": "How to make an N-creative FB / Meta / IG static ad pack for a real brand — generalized niche know-how, not one specific ad.",
+      "path": ".agents/skills/fb-creatives/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:fixer",
+      "category": "skill",
+      "slug": "fixer",
+      "title": "Fixer",
+      "summary": "The eval-to-repair loop — the consumer of the evaluator's report (#409).",
+      "path": ".agents/skills/fixer/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:good-writing",
+      "category": "skill",
+      "slug": "good-writing",
+      "title": "Good Writing",
+      "summary": "Rules of good writing: coherence, clarity, structure, and a large anti-pattern",
+      "path": ".agents/skills/good-writing/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:gsap",
+      "category": "skill",
+      "slug": "gsap",
+      "title": "Gsap",
+      "summary": "GSAP animation reference for HyperFrames.",
+      "path": ".agents/skills/gsap/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:humanizer",
+      "category": "skill",
+      "slug": "humanizer",
+      "title": "Humanizer",
+      "summary": "Remove signs of AI-generated writing from text.",
+      "path": ".agents/skills/humanizer/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:hyperframes",
+      "category": "skill",
+      "slug": "hyperframes",
+      "title": "Hyperframes",
+      "summary": "Create video compositions, animations, title cards, overlays, captions, voiceovers, audio-reactive visuals, and scene transitions in HyperFrames HTML.",
+      "path": ".agents/skills/hyperframes/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:hyperframes-cli",
+      "category": "skill",
+      "slug": "hyperframes-cli",
+      "title": "Hyperframes Cli",
+      "summary": "HyperFrames CLI dev loop — `npx hyperframes` for scaffolding (init), validation (lint, inspect), preview, render, and environment troubleshooting (doctor, browser, info, upgrade).",
+      "path": ".agents/skills/hyperframes-cli/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:hyperframes-media",
+      "category": "skill",
+      "slug": "hyperframes-media",
+      "title": "Hyperframes Media",
+      "summary": "Asset preprocessing for HyperFrames compositions — text-to-speech narration (Kokoro), audio/video transcription (Whisper), and background removal for transparent overlays (u2net).",
+      "path": ".agents/skills/hyperframes-media/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:hyperframes-registry",
+      "category": "skill",
+      "slug": "hyperframes-registry",
+      "title": "Hyperframes Registry",
+      "summary": "Install and wire registry blocks and components into HyperFrames compositions.",
+      "path": ".agents/skills/hyperframes-registry/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:install",
+      "category": "skill",
+      "slug": "install",
+      "title": "Install",
+      "summary": "Fresh-machine bootstrap of the ralphy CLI binary.",
+      "path": ".agents/skills/install/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:intake",
+      "category": "skill",
+      "slug": "intake",
+      "title": "Intake",
+      "summary": "Intake protocol — the craft of turning a vague brief into an approved production plan.",
+      "path": ".agents/skills/intake/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:json-prompt-engine",
+      "category": "skill",
+      "slug": "json-prompt-engine",
+      "title": "Json Prompt Engine",
+      "summary": "Analyze a reference image (or video frame) and emit a ready-to-paste structured JSON prompt that captures every visual quality needed to reproduce it through `ralphy generate image --prompt-file`.",
+      "path": ".agents/skills/json-prompt-engine/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:lottie",
+      "category": "skill",
+      "slug": "lottie",
+      "title": "Lottie",
+      "summary": "Lottie and dotLottie adapter patterns for HyperFrames.",
+      "path": ".agents/skills/lottie/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:memory-review",
+      "category": "skill",
+      "slug": "memory-review",
+      "title": "Memory Review",
+      "summary": "Lightweight end-of-session memory review — scan the conversation just had for durable lessons and save them into Ralphy's tiered memory (`ralphy memory note`, write-and-tell: every save surfaced in chat, \"forget <slug>\" honored instantly), so the next session starts already knowing.",
+      "path": ".agents/skills/memory-review/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:personal-clipper",
+      "category": "skill",
+      "slug": "personal-clipper",
+      "title": "Personal Clipper",
+      "summary": "Clip extraction from one long-form source — reads a word-level transcript of a stream, VOD, talk, or video podcast, picks self-contained highlight windows, and cuts each into a short vertical clip through `ralphy clip`, then captions, renders, evaluates, and packages the survivors.",
+      "path": ".agents/skills/personal-clipper/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:poster",
+      "category": "skill",
+      "slug": "poster",
+      "title": "Poster",
+      "summary": "How to make a vivid, character-driven brand POSTER — a single still image, not a video.",
+      "path": ".agents/skills/poster/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:postmortem",
+      "category": "skill",
+      "slug": "postmortem",
+      "title": "Postmortem",
+      "summary": "Distil the conversation we just had into a structured 7-file postmortem set under `.ralphy/workspaces/<ws>/projects/<id>/postmortem/` for the active ralphy project.",
+      "path": ".agents/skills/postmortem/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:producer",
+      "category": "skill",
+      "slug": "producer",
+      "title": "Producer",
+      "summary": "End-to-end orchestration — the wrapper that drives the whole production contract across roles, plus batch production.",
+      "path": ".agents/skills/producer/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:ralphy-remotion",
+      "category": "skill",
+      "slug": "ralphy-remotion",
+      "title": "Ralphy Remotion",
+      "summary": "Compatibility shim for the legacy `/ralphy-remotion` skill name.",
+      "path": ".agents/skills/ralphy-remotion/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:remotion-to-hyperframes",
+      "category": "skill",
+      "slug": "remotion-to-hyperframes",
+      "title": "Remotion To Hyperframes",
+      "summary": "Compatibility shim for the legacy `/remotion-to-hyperframes` skill name.",
+      "path": ".agents/skills/remotion-to-hyperframes/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:researcher",
+      "category": "skill",
+      "slug": "researcher",
+      "title": "Researcher",
+      "summary": "Deep-research workflow for UGC reference material — turns one or more URLs / handles / trend queries into a single cited research report (report.md + sources.json) that a scenarist or art-director can act on.",
+      "path": ".agents/skills/researcher/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:scenarist",
+      "category": "skill",
+      "slug": "scenarist",
+      "title": "Scenarist",
+      "summary": "Scenario and script craft — writes and reworks the scene-by-scene scenario.json: hook, beat structure, per-scene VO, on-screen text, pacing, and the language/aspect pre-flight.",
+      "path": ".agents/skills/scenarist/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:seedance-prompts",
+      "category": "skill",
+      "slug": "seedance-prompts",
+      "title": "Seedance Prompts",
+      "summary": "Write effective prompts for Seedance 2.0 (bytedance/seedance-2.0) multimodal video generation — the official basic",
+      "path": ".agents/skills/seedance-prompts/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:social-copy",
+      "category": "skill",
+      "slug": "social-copy",
+      "title": "Social Copy",
+      "summary": "Fast, bulk social post COPY — a ready-to-paste description + a trending-hashtag set for a finished reel / image / carousel, shaped per platform (TikTok hook + 3-5 tags · Reels caption + 10-15 tags · Shorts ≤40-char title) in ONE pass.",
+      "path": ".agents/skills/social-copy/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:social-publish",
+      "category": "skill",
+      "slug": "social-publish",
+      "title": "Social Publish",
+      "summary": "Publish or schedule a finished Ralphy Unit through the active workspace's saved Postiz connection.",
+      "path": ".agents/skills/social-publish/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:tailwind",
+      "category": "skill",
+      "slug": "tailwind",
+      "title": "Tailwind",
+      "summary": "Tailwind CSS v4.2 browser-runtime patterns for HyperFrames compositions.",
+      "path": ".agents/skills/tailwind/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:templater",
+      "category": "skill",
+      "slug": "templater",
+      "title": "Templater",
+      "summary": "The full extract → classify → blueprint → de-dup → publish pipeline for a finished `.ralphy/workspaces/<ws>/projects/<id>/`.",
+      "path": ".agents/skills/templater/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:three",
+      "category": "skill",
+      "slug": "three",
+      "title": "Three",
+      "summary": "Three.js and WebGL adapter patterns for HyperFrames.",
+      "path": ".agents/skills/three/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:troubleshooting",
+      "category": "skill",
+      "slug": "troubleshooting",
+      "title": "Troubleshooting",
+      "summary": "Ralphy CLI operations and repair — environment setup, API keys and connectors, `ralphy doctor`, reading logs, diagnosing a failed generation or render, and the CLI cookbook for verbs other roles call.",
+      "path": ".agents/skills/troubleshooting/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:typegpu",
+      "category": "skill",
+      "slug": "typegpu",
+      "title": "Typegpu",
+      "summary": "TypeGPU and raw WebGPU adapter patterns for HyperFrames.",
+      "path": ".agents/skills/typegpu/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:ugc-ad",
+      "category": "skill",
+      "slug": "ugc-ad",
+      "title": "Ugc Ad",
+      "summary": "How to make a realistic AI UGC ad for a product — generalized niche know-how that looks real and doesn't feel AI.",
+      "path": ".agents/skills/ugc-ad/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:ugc-model-swap",
+      "category": "skill",
+      "slug": "ugc-model-swap",
+      "title": "Ugc Model Swap",
+      "summary": "How to recreate a short UGC-style video with a DIFFERENT person/character while keeping everything else identical — setting, action, props, audio, camera feel.",
+      "path": ".agents/skills/ugc-model-swap/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:ugc-rockstar",
+      "category": "skill",
+      "slug": "ugc-rockstar",
+      "title": "Ugc Rockstar",
+      "summary": "How to make a GTA-V-style video in the Rockstar-crime-cinema aesthetic — generalized niche-style know-how, concept to camera-ready.",
+      "path": ".agents/skills/ugc-rockstar/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:ugc-toon-action",
+      "category": "skill",
+      "slug": "ugc-toon-action",
+      "title": "Ugc Toon Action",
+      "summary": "How to make a stylized cartoon / painterly action animation of ANY subject — generalized niche know-how, not one specific video.",
+      "path": ".agents/skills/ugc-toon-action/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:ugc-unboxing",
+      "category": "skill",
+      "slug": "ugc-unboxing",
+      "title": "Ugc Unboxing",
+      "summary": "How to make a generic UGC unboxing video for socials — generalized niche know-how, not a single video.",
+      "path": ".agents/skills/ugc-unboxing/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:universe-studio",
+      "category": "skill",
+      "slug": "universe-studio",
+      "title": "Universe Studio",
+      "summary": "Studio mode for a tagged workspace — the one-tag, four-approvals orchestrator (#474).",
+      "path": ".agents/skills/universe-studio/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:vox-collage",
+      "category": "skill",
+      "slug": "vox-collage",
+      "title": "Vox Collage",
+      "summary": "How to turn ONE topic into a Vox-style paper-collage explainer / ad video — a punchy narrated short where each beat is a torn-paper collage POSTER that comes alive, with VO, music and captions.",
+      "path": ".agents/skills/vox-collage/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:waapi",
+      "category": "skill",
+      "slug": "waapi",
+      "title": "Waapi",
+      "summary": "Web Animations API adapter patterns for HyperFrames.",
+      "path": ".agents/skills/waapi/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:website-to-hyperframes",
+      "category": "skill",
+      "slug": "website-to-hyperframes",
+      "title": "Website To Hyperframes",
+      "summary": "Capture a website and create a HyperFrames video from it.",
+      "path": ".agents/skills/website-to-hyperframes/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "skill:workspace-eval",
+      "category": "skill",
+      "slug": "workspace-eval",
+      "title": "Workspace Eval",
+      "summary": "Thin agent-facing wrapper over `ralphy workspace eval <project>` (#469): score one project against its WORKSPACE's CUSTOM rubric (#468 config), surface the per-criterion scorecard, and hand failing criteria to the repair loop.",
+      "path": ".agents/skills/workspace-eval/SKILL.md",
+      "tags": [
+        "user"
+      ]
+    },
+    {
+      "id": "template:3d-cgi",
+      "category": "template",
+      "slug": "3d-cgi",
+      "title": "3d Cgi",
+      "summary": "Generic 3D / CGI catch-all (Pixar through photoreal). For specific verticals see cgi-hardware and cgi-architecture.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:active-lifestyle",
+      "category": "template",
+      "slug": "active-lifestyle",
+      "title": "Active Lifestyle",
+      "summary": "Person doing sport (cycling / padel / gym / yoga / running) with subtle product placement. Aspirational.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:ai-avatar",
+      "category": "template",
+      "slug": "ai-avatar",
+      "title": "Ai Avatar",
+      "summary": "Full synthetic talking-head (wan-25 / sync-lipsync). Multilingual scaling, 175+ languages. AI-disclosure overlay.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:ai-vegetables",
+      "category": "template",
+      "slug": "ai-vegetables",
+      "title": "AI Vegetables POV",
+      "summary": "Surrealist POV — anthropomorphic vegetable does a mundane human action. 12-18s.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:anime-action",
+      "category": "template",
+      "slug": "anime-action",
+      "title": "Anime Action",
+      "summary": "Cel-shaded 2D anime. Speed lines, impact frames, eye close-ups. 11-subgenre cheat sheet.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:asmr-sensory",
+      "category": "template",
+      "slug": "asmr-sensory",
+      "title": "Asmr Sensory",
+      "summary": "Sound-forward content. Tapping / whispering / cooking / unboxing-sounds. Music OFF default. 30-90s.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:before-after-product",
+      "category": "template",
+      "slug": "before-after-product",
+      "title": "Before / After Product",
+      "summary": "5s pain → 1s reveal → 9s demo. Most reliably converting UGC pattern.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:brainrot-ai-meme",
+      "category": "template",
+      "slug": "brainrot-ai-meme",
+      "title": "Brainrot Ai Meme",
+      "summary": "Split-screen AI VO + Subway Surfers / Minecraft Parkour gameplay loop + screaming captions. C2PA disclosure mandatory.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:brand-story",
+      "category": "template",
+      "slug": "brand-story",
+      "title": "Brand Story",
+      "summary": "30-60s cinematic brand narrative. Founder voice or transformation arc.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:cartoon",
+      "category": "template",
+      "slug": "cartoon",
+      "title": "Cartoon",
+      "summary": "2D, cel-shaded, hand-drawn, watercolor, pixel, claymation. 9 animation principles cited by name.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:cgi-architecture",
+      "category": "template",
+      "slug": "cgi-architecture",
+      "title": "Cgi Architecture",
+      "summary": "Archviz — rendered houses / interiors / conceptual builds. Distinct from real-estate (existing properties).",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:cgi-hardware",
+      "category": "template",
+      "slug": "cgi-hardware",
+      "title": "Cgi Hardware",
+      "summary": "Premium gadget renders — Flipper / Teenage Engineering / Nothing Phone / Apple-keynote vibe.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:cinematic",
+      "category": "template",
+      "slug": "cinematic",
+      "title": "Cinematic",
+      "summary": "Blockbuster film-look. 12 hooks, 16-move camera vocabulary, 10 lighting setups, 8 color grades.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:comic-to-video",
+      "category": "template",
+      "slug": "comic-to-video",
+      "title": "Comic To Video",
+      "summary": "Animate user-supplied comic panels / manga / webtoons. Reading-order-aware (LTR / RTL / vertical).",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:doctor-authority",
+      "category": "template",
+      "slug": "doctor-authority",
+      "title": "Doctor Authority",
+      "summary": "White-coat authority figure explains mechanism. The dominant nutra / supplement / skincare ad pattern. AI-disclosure overlay enforced.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:ecommerce-ad",
+      "category": "template",
+      "slug": "ecommerce-ad",
+      "title": "Ecommerce Ad",
+      "summary": "Conversion-first product ad. Generic 10-category playbook.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:faceless-voiceover",
+      "category": "template",
+      "slug": "faceless-voiceover",
+      "title": "Faceless Voiceover",
+      "summary": "AI / live VO over b-roll. Faceless YouTube channel base. 45-90s.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:fashion-lookbook",
+      "category": "template",
+      "slug": "fashion-lookbook",
+      "title": "Fashion Lookbook",
+      "summary": "15-30s editorial garment storytelling. Movement sells clothes.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:fight-scenes",
+      "category": "template",
+      "slug": "fight-scenes",
+      "title": "Fight Scenes",
+      "summary": "Cinematic fight choreography. Hook → exchanges → escalation → climax → resolution.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:fit-check",
+      "category": "template",
+      "slug": "fit-check",
+      "title": "Fit Check",
+      "summary": "Faster OOTD format 7-20s. Beat-snap transitions, 1-3 looks per Reel.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:food-beverage",
+      "category": "template",
+      "slug": "food-beverage",
+      "title": "Food Beverage",
+      "summary": "Appetite-trigger cinematography. ASMR sizzle, latte art, cocktail builds.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:green-screen-explainer",
+      "category": "template",
+      "slug": "green-screen-explainer",
+      "title": "Green Screen Explainer",
+      "summary": "Creator + backdrop (Reddit / news / chart / meme) with circle-annotations. 15-45s.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:grwm",
+      "category": "template",
+      "slug": "grwm",
+      "title": "Grwm",
+      "summary": "Get Ready With Me — dual-layer (visual + storytime). Native product placement. 30-90s.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:interview-dialog",
+      "category": "template",
+      "slug": "interview-dialog",
+      "title": "Interview Dialog",
+      "summary": "Two-person dialog (expert+interviewer / split-screen / podcast-style). Two ElevenLabs voice IDs.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:life-changing-testimonial",
+      "category": "template",
+      "slug": "life-changing-testimonial",
+      "title": "Life Changing Testimonial",
+      "summary": "Person-led peer testimony. \"This changed my life\" with specific outcome numbers.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:listicle",
+      "category": "template",
+      "slug": "listicle",
+      "title": "Listicle",
+      "summary": "\"Top N X\" with big counter and #1 cliffhanger. Search-friendly evergreen. 30-60s.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:motion-design-ad",
+      "category": "template",
+      "slug": "motion-design-ad",
+      "title": "Motion Design Ad",
+      "summary": "Kinetic-typography / motion-graphics SaaS ad. UI capture / logo required.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:music-video",
+      "category": "template",
+      "slug": "music-video",
+      "title": "Music Video",
+      "summary": "Beat-synced clips. Performance / Narrative / Visualizer modes. 10-genre matrix.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:photo-dump",
+      "category": "template",
+      "slug": "photo-dump",
+      "title": "Photo Dump",
+      "summary": "Carousel-as-video. 5-16 photos snap-cut to beat. Reels-dominant. 10-25s.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:podcast-clip",
+      "category": "template",
+      "slug": "podcast-clip",
+      "title": "Podcast Clip",
+      "summary": "Long-form podcast → 15-60s viral cuts. Title-banner + karaoke captions + smart-crop reframe.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:pov-first-person",
+      "category": "template",
+      "slug": "pov-first-person",
+      "title": "Pov First Person",
+      "summary": "\"POV: you just…\" relatable scenarios. Highest share-rate format. 8-25s.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:product-360",
+      "category": "template",
+      "slug": "product-360",
+      "title": "Product 360",
+      "summary": "8-15s photoreal product turntable. No VO by default — music + foley carry.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:real-estate",
+      "category": "template",
+      "slug": "real-estate",
+      "title": "Real Estate",
+      "summary": "20-60s property showcase. Photoreal property tours of existing homes.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:social-hook",
+      "category": "template",
+      "slug": "social-hook",
+      "title": "Social Hook",
+      "summary": "Generic TikTok scroll-stopper. 13 hooks across 5 categories.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:soviet-nostalgic",
+      "category": "template",
+      "slug": "soviet-nostalgic",
+      "title": "Soviet Nostalgic TikTok Ad",
+      "summary": "Off-screen Russian narrator, two-era heritage story with mid-video music drop.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:storytime",
+      "category": "template",
+      "slug": "storytime",
+      "title": "Storytime",
+      "summary": "Selfie talking-head narrative with rising tension + pattern-interrupts. 60-180s.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:talking-head-rant",
+      "category": "template",
+      "slug": "talking-head-rant",
+      "title": "Talking Head Rant",
+      "summary": "Single-character monolog 15-22s, deadpan, optional hook-screenshot overlay.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:tier-list",
+      "category": "template",
+      "slug": "tier-list",
+      "title": "Tier List",
+      "summary": "S/A/B/C/D ranking grid. Debate-bait with controversial final pick. 40-75s.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:trending-sound-remix",
+      "category": "template",
+      "slug": "trending-sound-remix",
+      "title": "Trending Sound Remix",
+      "summary": "Audio-first remix of a hyped sound. User supplies trending audio. 7-25s, 24-48h post-window.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:try-on",
+      "category": "template",
+      "slug": "try-on",
+      "title": "Try On",
+      "summary": "Virtual try-on (clothing / glasses / makeup / shoes / jewelry). Mirror-flash multi-variant 8-25s.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:tutorial-how-to",
+      "category": "template",
+      "slug": "tutorial-how-to",
+      "title": "Tutorial How To",
+      "summary": "Hoyos-method 3-step search-first tutorial with power-word hook. 30-90s, YouTube Shorts king.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    },
+    {
+      "id": "template:yap-talking-head",
+      "category": "template",
+      "slug": "yap-talking-head",
+      "title": "Yap Talking Head",
+      "summary": "Hormozi/Codie raw-energy single-idea education. 30-60s, no jump cuts.",
+      "path": null,
+      "tags": [
+        "library-index"
+      ]
+    }
+  ]
+}
