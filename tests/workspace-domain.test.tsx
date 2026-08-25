@@ -56,6 +56,10 @@ describe("Workspace domain reader", () => {
     expect(request).toHaveBeenCalledWith("workspace.overview", {
       context: { workspaceId: "workspace-1" },
       workspaceId: "workspace-1",
+      /* The whole workspace, Projects included. Core's default scope is the narrower "rows the
+         workspace itself owns", which answers nothing for a workspace whose work lives in
+         Projects. */
+      include: "tree",
       sections: {
         units: { limit: 20 },
         accounts: { limit: 20 },

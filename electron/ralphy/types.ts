@@ -1005,7 +1005,10 @@ export interface BridgeMethodContract {
   "workspace.list": Contract<CursorParams, Page<WorkspaceDto>>;
   "workspace.show": Contract<IdParams<"workspaceId">, WorkspaceDto>;
   "workspace.update": Contract<IdParams<"workspaceId"> & { expectedRowVersion: number; patch: JsonObject }, WorkspaceDto>;
-  "workspace.overview": Contract<IdParams<"workspaceId"> & { sections: WorkspaceOverviewSections }, WorkspaceOverviewDto>;
+  /* `include` widens what a section counts as the workspace's: "owned" (the default, and what an
+     older Core answers when the field is absent) is `project_id IS NULL`, "tree" is the whole
+     workspace with its Projects. */
+  "workspace.overview": Contract<IdParams<"workspaceId"> & { include?: "owned" | "tree"; sections: WorkspaceOverviewSections }, WorkspaceOverviewDto>;
   "workspace.account.list": Contract<IdParams<"workspaceId"> & CursorParams, Page<SocialAccountDto>>;
   "workspace.account.upsert": Contract<IdParams<"workspaceId"> & { account: JsonObject }, SocialAccountDto>;
   "workspace.export": Contract<IdParams<"workspaceId"> & { idempotencyKey: string }, {

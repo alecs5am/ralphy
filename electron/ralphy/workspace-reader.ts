@@ -3,7 +3,7 @@ import { isLegacyCatalogGhost } from "../media/catalog";
 import { MEDIA_CHANNELS } from "../media/types";
 import type { RalphyBridgeClient } from "./client";
 import type { RalphySession } from "./session";
-import type { BridgeMethod, MetricTotals, ParamsFor, ResultFor, WorkspaceOverviewDto } from "./types";
+import type { BridgeMethod, ParamsFor, ResultFor, WorkspaceOverviewDto } from "./types";
 
 type Request = Pick<RalphyBridgeClient, "request">["request"];
 
@@ -35,39 +35,20 @@ export function createRootGuardedWorkspaceRequest(
 const OVERVIEW_UNITS = 20;
 const OVERVIEW_PUBLICATIONS = 30;
 
-const EMPTY_TOTALS: MetricTotals = {
-  publicationCount: 0,
-  views: null,
-  likes: null,
-  comments: null,
-  shares: null,
-  watchTimeMs: null,
-};
-
-/* Adding two totals where a null means "Core reported nothing": two nothings stay nothing, and a
-   number plus nothing is that number rather than a zero the library never said. */
-function addTotal(left: number | null, right: number | null): number | null {
-  if (left === null) return right;
-  return right === null ? left : left + right;
-}
-
-export function mergeMetricTotals(rows: readonly MetricTotals[]): MetricTotals {
-  return rows.reduce((sum, row) => ({
-    publicationCount: sum.publicationCount + row.publicationCount,
-    views: addTotal(sum.views, row.views),
-    likes: addTotal(sum.likes, row.likes),
-    comments: addTotal(sum.comments, row.comments),
-    shares: addTotal(sum.shares, row.shares),
-    watchTimeMs: addTotal(sum.watchTimeMs, row.watchTimeMs),
-  }), EMPTY_TOTALS);
-}
-
 export function createWorkspaceReader({ request }: { request: Request }) {
   return {
     async loadOverview(workspaceId: string): Promise<WorkspaceOverviewDto> {
       const overview = await request("workspace.overview", {
         context: { workspaceId },
         workspaceId,
+        /* "Everything under this workspace, Projects included."
+
+           Core's default scope is the narrower "rows the workspace itself owns" -- `project_id IS
+           NULL` -- which for a workspace whose work lives in its Projects answers zero Units, zero
+           publications and no metrics. The widening belongs to the query: composing it out here
+           meant one request per Project, a page assembled from pages that could not be paginated,
+           and a total no single query had ever produced. */
+        include: "tree",
         sections: {
           units: { limit: OVERVIEW_UNITS },
           accounts: { limit: 20 },
@@ -79,41 +60,9 @@ export function createWorkspaceReader({ request }: { request: Request }) {
       });
       if (!overview.projects) return overview;
       const projects = overview.projects.items.filter((project) => !isLegacyCatalogGhost("project", project));
-
-      /* Core's workspace sections mean "owned by the workspace itself" -- `project_id IS NULL` --
-         and its tests state that on purpose: a workspace-scoped section never leaks a Project's
-         rows. For a workspace whose work lives in projects that is always none, so an overview
-         asking "how is this workspace doing" answered zero Units, zero publications and no metrics
-         for a workspace holding eighteen Units and publications with real reach.
-         So the reading is composed here, from the same per-project overviews the project screen
-         reads, rather than by widening Core's own scope: the workspace's own rows first, then its
-         projects'. Accounts, projects and activity are already workspace-wide and are untouched. */
-      const fromProjects = await Promise.all(projects.map((project) => request("project.overview", {
-        context: { workspaceId, projectId: project.id },
-        projectId: project.id,
-        sections: {
-          units: { limit: OVERVIEW_UNITS },
-          publications: { limit: OVERVIEW_PUBLICATIONS },
-          metrics: true,
-        },
-      }).catch(() => null)));
-
-      const answered = fromProjects.filter((row): row is NonNullable<typeof row> => row !== null);
-      const units = [...overview.units?.items ?? [], ...answered.flatMap((row) => row.units?.items ?? [])];
-      const publications = [
-        ...overview.publications?.items ?? [],
-        ...answered.flatMap((row) => row.publications?.items ?? []),
-      ];
-      return {
-        ...overview,
-        projects: { ...overview.projects, items: projects },
-        units: { items: units.slice(0, OVERVIEW_UNITS), nextCursor: null },
-        publications: { items: publications.slice(0, OVERVIEW_PUBLICATIONS), nextCursor: null },
-        metrics: mergeMetricTotals([
-          overview.metrics ?? EMPTY_TOTALS,
-          ...answered.map((row) => row.metrics ?? EMPTY_TOTALS),
-        ]),
-      };
+      return projects.length === overview.projects.items.length
+        ? overview
+        : { ...overview, projects: { ...overview.projects, items: projects } };
     },
   };
 }
