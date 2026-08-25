@@ -17,6 +17,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { packRoot } from "../prompt-pack.js";
+
 export const SENTINEL_START = "<!-- ralphy:start v=1 -->";
 export const SENTINEL_END = "<!-- ralphy:end -->";
 
@@ -104,18 +106,31 @@ function removeRecursive(p: string): void {
    starts in the user's home or their project, so on every other machine the
    routing this block promised did not exist. `ralphy prompts install` puts the
    router and its playbooks under the library, and this block names that copy. */
-const PACK_DIR = "~/.ralphy/prompts";
+/* The pack root as the block should name it: `~/...` when it sits under the
+   user's home, absolute otherwise. A block that hardcoded `~/.ralphy` was wrong
+   for anyone running with `--root`, and wrong is worse here than verbose --
+   the agent follows this path without checking. */
+/** Where this install put the pack, named the way the block should say it. */
+function packDir(opts: InstallOptions): string {
+  return packDisplayPath(packRoot(), opts.homeDir ?? process.env.HOME ?? "");
+}
 
-const ROUTING_BLOCK = `# Ralphy
+function packDisplayPath(packRoot: string, homeDir: string): string {
+  return homeDir && packRoot.startsWith(`${homeDir}/`)
+    ? `~/${packRoot.slice(homeDir.length + 1)}`
+    : packRoot;
+}
 
-Use Ralphy CLI for every UGC generation step. Read ${PACK_DIR}/AGENTS.md before acting — it routes by user intent to the right playbook.
+const routingBlock = (packDir: string) => `# Ralphy
+
+Use Ralphy CLI for every UGC generation step. Read ${packDir}/AGENTS.md before acting — it routes by user intent to the right playbook.
 
 - ralphy doctor — verify env health
 - ralphy new "<brief>" — start a project
 - ralphy template suggest "<utterance>" — match a template
 - ralphy render <id> — produce the mp4
 
-Source-of-truth playbooks live under ${PACK_DIR}/docs/playbooks/. The full CLI surface is in ${PACK_DIR}/docs/cli-surface.generated.md.
+Source-of-truth playbooks live under ${packDir}/docs/playbooks/. The full CLI surface is in ${packDir}/docs/cli-surface.generated.md.
 If that directory is missing, run \`ralphy prompts install\` once — the pack ships with the CLI and with the desktop app.`;
 
 // ─── Adapter implementations ──────────────────────────────────────────────
@@ -144,7 +159,7 @@ function installClaude(opts: InstallOptions): InstallResult {
     opts.scope === "user"
       ? path.join(homeDir, ".claude", "CLAUDE.md")
       : path.join(opts.projectRoot ?? process.cwd(), "CLAUDE.md");
-  const merged = sentinelMerge(readOrEmpty(claudeMd), ROUTING_BLOCK);
+  const merged = sentinelMerge(readOrEmpty(claudeMd), routingBlock(packDir(opts)));
   writeFile(claudeMd, merged);
   installed.push(claudeMd);
 
@@ -180,7 +195,7 @@ description: Ralphy CLI routing — read <repo>/AGENTS.md before acting
 alwaysApply: true
 ---
 
-${ROUTING_BLOCK}
+${routingBlock(packDir(opts))}
 `;
   writeFile(router, routerBody);
   installed.push(router);
@@ -206,9 +221,19 @@ ${pb.slug} playbook context when the description matches the user's request.
 }
 
 function installCodex(opts: InstallOptions): InstallResult {
+  /* Codex reads `~/.codex/AGENTS.md` in every session and `<cwd>/AGENTS.md` for
+     the project it was started in. A user-scope install belongs in the first --
+     this adapter used to write the project file for either scope, so
+     `--scope user` installed the router into whatever directory the operator
+     happened to be standing in, which is how a checkout ends up carrying a
+     block nobody asked it to carry. */
   const projectRoot = opts.projectRoot ?? process.cwd();
-  const agentsMd = path.join(projectRoot, "AGENTS.md");
-  const merged = sentinelMerge(readOrEmpty(agentsMd), ROUTING_BLOCK);
+  const homeDir = opts.homeDir ?? process.env.HOME ?? "";
+  if (opts.scope === "user" && !homeDir) throw new Error("codex adapter: HOME is not set");
+  const agentsMd = opts.scope === "user"
+    ? path.join(homeDir, ".codex", "AGENTS.md")
+    : path.join(projectRoot, "AGENTS.md");
+  const merged = sentinelMerge(readOrEmpty(agentsMd), routingBlock(packDir(opts)));
   writeFile(agentsMd, merged);
   return { ok: true, agent: "codex", scope: opts.scope, installed: [agentsMd] };
 }
@@ -221,7 +246,7 @@ function installCopilot(opts: InstallOptions): InstallResult {
   const installed: string[] = [];
 
   const main = path.join(projectRoot, ".github", "copilot-instructions.md");
-  const merged = sentinelMerge(readOrEmpty(main), ROUTING_BLOCK);
+  const merged = sentinelMerge(readOrEmpty(main), routingBlock(packDir(opts)));
   writeFile(main, merged);
   installed.push(main);
 
