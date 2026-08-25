@@ -6,6 +6,7 @@ import {
   Layers,
   LayoutDashboard,
   Library,
+  ScrollText,
   Search,
   type LucideIcon,
 } from "lucide-react";
@@ -13,7 +14,12 @@ import { useState } from "react";
 
 import { Keycap } from "../components/ui/Keycap";
 import type { ProjectSummary, WorkspaceSummary } from "../../electron/media/types";
-import { WORKSPACE_VIEW_TYPES, type OpenViewRequest, type ViewTabType } from "../state/view-panel";
+import {
+  WORKSPACE_VIEW_TYPES,
+  type OpenViewRequest,
+  type ViewTabType,
+  type WorkspaceViewType,
+} from "../state/view-panel";
 
 /**
  * The home tab's page: the workspace hub. It is the panel's point of return, so it answers the two
@@ -29,10 +35,16 @@ const SECTION = "m-0 px-1 pt-2.75 pb-1.25 font-code type-mono-xs tracking-mono t
 const ROW = "grid w-full items-center gap-2.5 rounded-field px-2.5 text-left hover:bg-panel focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink";
 const TILE = "flex flex-col gap-2.25 rounded-cell bg-panel p-2.75 text-left hover:bg-chip focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink";
 
-const TILE_ICONS: Partial<Record<ViewTabType, LucideIcon>> = {
+/* One tile per workspace page, and the type says so: `WorkspaceViewType` is the key set of the
+   table in view-panel.ts that decides which types are pages, so a page added there without an icon
+   here fails the typecheck. It used to be a Partial read through a `!`, and the Context page shipped
+   without a tile -- `TILE_ICONS.context` was undefined, React threw on an undefined element type,
+   and the whole tree unmounted, leaving the window grey the moment anyone opened the hub. */
+const TILE_ICONS: Record<WorkspaceViewType, LucideIcon> = {
   overview: LayoutDashboard,
   projects: Folder,
   units: Layers,
+  context: ScrollText,
   calendar: Calendar,
   shared: Library,
   memory: Brain,
@@ -123,7 +135,7 @@ export function ViewPanelHub({ workspace, projects, workspaces, chords, onOpen, 
       <h2 className={SECTION}>WORKSPACE PAGES</h2>
       <div className="grid grid-cols-2 gap-1.5">
         {WORKSPACE_VIEW_TYPES.map((descriptor) => {
-          const Icon = TILE_ICONS[descriptor.type]!;
+          const Icon = TILE_ICONS[descriptor.type as WorkspaceViewType];
           const cap = descriptor.command ? chords[descriptor.command] : undefined;
           const count = counts[descriptor.type];
           return <button

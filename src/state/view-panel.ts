@@ -65,7 +65,10 @@ export const VIEW_TYPES: readonly ViewTypeDescriptor[] = [
  */
 export const VIEW_TYPES_UNAVAILABLE = ["Renders", "Compare", "Side chat"] as const;
 
-const WORKSPACE_PAGE_BY_TYPE: Partial<Record<ViewTabType, WorkspacePage>> = {
+/* `satisfies` rather than an annotation, so `WorkspaceViewType` below is exactly these keys. That
+   type is what makes the hub's icon table exhaustive: adding a page here without an icon there is
+   now a compile error rather than an undefined component that unmounts the whole app at runtime. */
+const WORKSPACE_PAGE_BY_TYPE = {
   overview: "overview",
   projects: "projects",
   units: "units",
@@ -73,18 +76,27 @@ const WORKSPACE_PAGE_BY_TYPE: Partial<Record<ViewTabType, WorkspacePage>> = {
   memory: "memory",
   context: "context",
   calendar: "calendar",
-};
+} satisfies Partial<Record<ViewTabType, WorkspacePage>>;
+
+/** A view type that is a workspace page. Every one of these needs a tile in the hub. */
+export type WorkspaceViewType = keyof typeof WORKSPACE_PAGE_BY_TYPE;
 
 /**
  * The types that are workspace pages. The `+` menu opens everything a panel can hold, including
  * the browser, which is not a page of the workspace at all; the hub's tiles are about the
  * workspace, so they read this list instead of "every singleton".
  */
-export const WORKSPACE_VIEW_TYPES = VIEW_TYPES.filter(({ type }) => WORKSPACE_PAGE_BY_TYPE[type]);
+export const WORKSPACE_VIEW_TYPES = VIEW_TYPES
+  .filter(({ type }) => isWorkspaceViewType(type));
+
+/** Whether a tab type is one of the workspace pages, narrowing to the key set as it answers. */
+export function isWorkspaceViewType(type: ViewTabType): type is WorkspaceViewType {
+  return type in WORKSPACE_PAGE_BY_TYPE;
+}
 
 /** The work page a tab lands on, or null when the tab is the hub, a project or the browser. */
 export function workspacePageForTab(tab: ViewTab): WorkspacePage | null {
-  return WORKSPACE_PAGE_BY_TYPE[tab.type] ?? null;
+  return isWorkspaceViewType(tab.type) ? WORKSPACE_PAGE_BY_TYPE[tab.type] : null;
 }
 
 export function tabSetFor(record: ViewPanelPreferences, chatId: string | null): ViewTabSet {
