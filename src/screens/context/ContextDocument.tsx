@@ -25,16 +25,73 @@ const NUMBER = "font-display font-extrabold tracking-normal text-ink";
 const SEGMENT = "inline-flex h-6 items-center rounded-control px-2.5 type-label";
 const CONTROL = "inline-flex h-6.5 flex-none items-center gap-1.5 rounded-control bg-card px-2.75 type-label text-ink hover:bg-chip";
 
-/* Solid: in the prompt, every turn. Ordered: not in the prompt, but the prompt tells the agent to
-   read it before acting -- solid because it happens, thinner because it costs a tool call.
-   Dashed: may load. */
+/* Solid: in the prompt, every turn. Dashed: may load. */
 const RAIL: Record<ContextRail, string> = {
   solid: "w-0.75 bg-ink",
-  ordered: "w-0.75 bg-secondary",
   dashed: "w-0.75 bg-[repeating-linear-gradient(180deg,var(--color-muted-decorative)_0_5px,transparent_5px_9px)]",
 };
 
 export type ContextFilter = "all" | "always" | "demand";
+
+/**
+ * Wrap every path the text names in a code run, unless it is in one already.
+ *
+ * An instruction file names places in plain prose as often as in backticks -- Ralphy's own block
+ * writes ~/.ralphy/prompts/AGENTS.md bare, mid-sentence. Marking those after rendering would mean
+ * splitting text nodes the markdown renderer owns; turning them into code runs first means the
+ * renderer produces the element, and the marks land on it like any other path.
+ *
+ * The first alternative swallows anything already inside backticks, so an existing code run is
+ * never wrapped twice.
+ */
+export function linkPaths(text: string, links: ContextBlockDto["links"]): string {
+  const names = links.map((link) => link.text).filter(Boolean)
+    .sort((left, right) => right.length - left.length)
+    .map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  if (names.length === 0) return text;
+  return text.replace(
+    new RegExp("(`{1,3}[^`]*`{1,3})|(" + names.join("|") + ")", "g"),
+    (whole, code: string | undefined, name: string | undefined) => (code ? whole : "`" + name + "`"),
+  );
+}
+
+/**
+ * Mark every path the prose names, in place. These surfaces are dense with code runs -- a router
+ * draws thirty in a paragraph -- so a path that opens has to be a different object, not the same
+ * grey chip with different letters: it takes the app's file tint as its plate and its ink.
+ *
+ * Both are set inline, and important. The shared markdown renderer paints every code run with a
+ * utility, this app compiles Tailwind in important mode, and an important declaration inside a
+ * cascade layer outranks an important one outside every layer -- so no authored rule can win, and
+ * the page cannot put a class on nodes it did not create.
+ */
+export function markPaths(host: HTMLElement | null, links: ContextBlockDto["links"]): void {
+  if (!host) return;
+  const named = new Map(links.map((link) => [link.text, link]));
+  for (const code of host.querySelectorAll("code")) {
+    const link = named.get(code.textContent?.trim() ?? "");
+    if (!link) continue;
+    const opens = link.path !== null;
+    code.setAttribute("data-context-path", link.path ?? "");
+    code.setAttribute("data-context-opens", opens ? "" : "false");
+    code.setAttribute("title", opens ? `Read ${link.path}` : `${link.text} is not on this machine`);
+    const ink = opens ? "--instrument-tag-file" : "--instrument-failure-ink";
+    const plate = opens
+      ? "color-mix(in srgb, var(--instrument-tag-file) 15%, transparent)"
+      : "color-mix(in srgb, var(--instrument-failure-ink) 12%, transparent)";
+    code.style.setProperty("color", `var(${ink})`, "important");
+    code.style.setProperty("background-color", plate, "important");
+  }
+}
+
+/** One handler above the marks: they are attributes on nodes the markdown renderer owns. */
+export function followPath(onRead: (path: string) => void) {
+  return (event: MouseEvent<HTMLElement>) => {
+    const mark = (event.target as HTMLElement).closest?.("[data-context-path][data-context-opens='']");
+    const path = mark?.getAttribute("data-context-path");
+    if (path) onRead(path);
+  };
+}
 
 function bytes(value: number | null): string {
   if (value === null) return "—";
@@ -111,31 +168,9 @@ function Block({ block, open, dim, flash, rendered, onToggle, onPath, onRead }: 
      The marks are applied to the rendered output rather than threaded through the
      markdown renderer: this page is the only surface that wants them, and the
      renderer is shared with the chat. */
-  useEffect(() => {
-    const host = body.current;
-    if (!host) return;
-    const named = new Map(block.links.filter((link) => link.path).map((link) => [link.text, link]));
-    for (const code of host.querySelectorAll("code")) {
-      const link = named.get(code.textContent?.trim() ?? "");
-      if (!link) continue;
-      const missing = link.note === "not there";
-      code.setAttribute("data-context-path", link.path!);
-      code.setAttribute("data-context-missing", missing ? "" : "false");
-      code.setAttribute("title", missing ? `${link.path} is not there` : `Read ${link.path}`);
-      /* Inline, and important. The shared renderer paints every code run with a utility, this app
-         compiles Tailwind in important mode, and an important declaration inside a cascade layer
-         outranks an important one outside every layer -- so no authored rule can win here. */
-      code.style.setProperty("color", `var(${missing ? "--instrument-failure-ink" : "--instrument-tag-file"})`, "important");
-    }
-  }, [block.links, shown, open, rendered]);
+  useEffect(() => markPaths(body.current, block.links), [block.links, shown, open, rendered]);
 
-  /* One handler on the body rather than one per mark: the marks are attributes on
-     nodes the markdown renderer owns, so the click has to be caught above them. */
-  const follow = (event: MouseEvent<HTMLDivElement>) => {
-    const mark = (event.target as HTMLElement).closest?.("[data-context-path]");
-    const path = mark?.getAttribute("data-context-path");
-    if (path && mark?.getAttribute("data-context-missing") === "false") onRead(path);
-  };
+  const follow = followPath(onRead);
   return <div
     /* No radius. A rounded plate under a straight rule drew its own corners
        curling away from a block that has no visible edge -- the rule belongs to
@@ -177,7 +212,9 @@ function Block({ block, open, dim, flash, rendered, onToggle, onPath, onRead }: 
       {open && <span className="mt-2 h-px w-full flex-none bg-divider" aria-hidden="true" />}
       {open && <div className="flex flex-col gap-1.5 pt-2.5">
         {rendered && block.format === "markdown"
-          ? <div className="context-body" ref={body} onClick={follow}><MarkdownView markdown={literalPlaceholders(shown)} /></div>
+          ? <div className="context-body" ref={body} onClick={follow}>
+            <MarkdownView markdown={linkPaths(literalPlaceholders(shown), block.links)} />
+          </div>
           : <pre className="m-0 overflow-x-auto font-code type-mono-sm leading-document whitespace-pre-wrap text-ink select-text">
             {decorated(shown, block.links.map((link) => link.text), onPath)}
           </pre>}

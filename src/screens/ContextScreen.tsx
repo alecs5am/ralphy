@@ -2,7 +2,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import {
   ChevronDown, FileText, Layers, Package, ScrollText, Settings2, Sparkles,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
   ContextLayerDto,
@@ -16,7 +16,7 @@ import type { AgentChatUsage } from "../chat/useAgentChat";
 import { bridge, type AgentProvider, type ProjectSummary } from "../lib/ipc";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
 import { EMPTY_SECTION, PROJECT_LOCAL_ERROR, PROJECT_SKELETON } from "./route-chrome";
-import { ContextDocument } from "./context/ContextDocument";
+import { ContextDocument, followPath, linkPaths, markPaths } from "./context/ContextDocument";
 import { MarkdownView } from "../components/MarkdownView";
 
 export const contextInstrumentStates = defineInstrumentScreenStates({
@@ -197,11 +197,16 @@ function Band({ layer, open, onToggle, onAction }: {
  * a routing table, and pushing the document down to make room for it loses the name that was
  * clicked. It closes on Escape, on the backdrop, and from its own header.
  */
-function Reader({ file, onClose }: {
+function Reader({ file, onRead, onClose }: {
   file: ContextFileDto | { path: string; failure: string };
+  onRead(path: string): void;
   onClose(): void;
 }) {
   const failure = "failure" in file ? file.failure : null;
+  const body = useRef<HTMLDivElement>(null);
+  /* A router opened here routes onward, so the reader marks its paths the same way the document
+     does -- following a routing table never runs out of links. */
+  useEffect(() => markPaths(body.current, "links" in file ? file.links : []), [file]);
   return <Dialog.Root open onOpenChange={(next) => { if (!next) onClose(); }}>
     <Dialog.Portal container={typeof document === "undefined" ? undefined : document.body}>
       <Dialog.Overlay className="fixed inset-0 z-scrim" data-instrument-overlay-backdrop="" />
@@ -225,7 +230,9 @@ function Reader({ file, onClose }: {
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded-frame bg-card px-5 py-4">
           {failure && <p className="m-0 type-sm text-failure-ink">{failure}</p>}
           {"format" in file && file.format === "markdown"
-            && <div className="context-body"><MarkdownView markdown={file.text} /></div>}
+            && <div className="context-body" ref={body} onClick={followPath(onRead)}>
+              <MarkdownView markdown={linkPaths(file.text, "links" in file ? file.links : [])} />
+            </div>}
           {"format" in file && file.format === "text" && <pre
             className={`${MONO} m-0 overflow-x-auto whitespace-pre-wrap type-mono-xs leading-document text-secondary`}
           >{file.text}</pre>}
@@ -305,7 +312,7 @@ export function ContextScreen({ provider, project, workspaceId, usage, onOpenMem
 
   return <InstrumentScreenRoot descriptor={contextInstrumentStates} state={state}>
     <main className="main-region context-region @container/main-region flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-y-auto bg-transparent p-2 type-base text-ink">
-      {file && <Reader file={file} onClose={() => setFile(null)} />}
+      {file && <Reader file={file} onRead={read} onClose={() => setFile(null)} />}
       {failure && <p className={PROJECT_LOCAL_ERROR}>{failure}</p>}
       {!page && !failure && <p className={PROJECT_SKELETON}>Reading what this chat carries…</p>}
       {page && !inventory && <ContextDocument

@@ -24,23 +24,22 @@
    verb and a filename by colour, not by weight: the app's own file ink, plus the glyph that says a
    viewer opens. Authored rather than a utility because the nodes belong to the shared markdown
    renderer, which the page marks after the fact and cannot put classes on. */
-/* Colour is set inline by the page, not here: see the note beside the mark. What is left is what
-   no utility contends for -- the pointer, the glyph, and the hover underline. */
-.context-body code[data-context-path][data-context-missing="false"] {
+/* Ink and plate are set inline by the page -- see the note beside `markPaths`. What is left here is
+   what no utility contends for: the pointer, the glyph, and the hover underline. A path that does
+   not resolve gets no glyph, because there is nothing to open. */
+.context-body code[data-context-path][data-context-opens=""] {
   cursor: pointer;
 }
 
-.context-body code[data-context-path][data-context-missing="false"]::after {
+.context-body code[data-context-path][data-context-opens=""]::after {
   content: " ↗";
   font-family: var(--font-glyph);
 }
 
-.context-body code[data-context-path][data-context-missing="false"]:hover {
+.context-body code[data-context-path][data-context-opens=""]:hover {
   text-decoration: underline from-font;
   text-underline-offset: 3px;
 }
-
-/* A path the router names and the pack does not carry has no glyph: there is nothing to open. */
 
 @theme inline {
   /* The band body's indent: a row starts under the band name, not under its chevron. */

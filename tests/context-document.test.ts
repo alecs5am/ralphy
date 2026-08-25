@@ -71,9 +71,12 @@ describe("readContextDocument", () => {
        where the prose names it. */
     expect(blocks.every((block) => block.body !== null)).toBe(true);
     expect(blocks.some((block) => block.title.endsWith("playbooks/"))).toBe(false);
+    /* A place that resolves carries the path the reader opens; one that does not carries no path,
+       and says which kind of miss it is. */
     const named = blocks.flatMap((block) => block.links);
     expect(named.length).toBeGreaterThan(0);
-    expect(named.every((link) => link.path !== null || link.note === "not there")).toBe(true);
+    expect(named.every((link) => (link.path === null) === (link.note !== "opens"))).toBe(true);
+    expect(named.some((link) => link.note === "opens")).toBe(true);
   });
 
   it("opens on the instruction chain, never on the provider's sealed prompt", async () => {

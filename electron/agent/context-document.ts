@@ -1,4 +1,5 @@
 import { open, readdir, stat } from "node:fs/promises";
+import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 
 import { MEMORY_HEADING, PREAMBLE_END, providerHome, type AgentMemoryDigest } from "./context";
@@ -20,9 +21,8 @@ import type { AgentProvider } from "../media/types";
  * rather than left reading as something the operator wrote.
  */
 
-/** The rail's grammar. Solid rides every turn, ordered is read on every turn that acts, dashed
-    may be pulled in. */
-export type ContextRail = "solid" | "ordered" | "dashed";
+/** The rail's grammar. Solid rides every turn, dashed may be pulled in. */
+export type ContextRail = "solid" | "dashed";
 
 export interface ContextBlockDto {
   id: string;
@@ -130,91 +130,32 @@ function resolveReference(token: string, from: string, home: string): string | n
   return resolve(dirname(from), token);
 }
 
-async function directoryNote(path: string): Promise<string | null> {
-  const names = await readdir(path).catch(() => null);
-  if (!names) return null;
-  const visible = names.filter((name) => !name.startsWith("."));
-  return `${visible.length} ${visible.length === 1 ? "file" : "files"} here`;
-}
-
 function railFor(kind: ContextRail, label: string, note: string) {
   return { kind, label, note };
 }
 
-/** A child of an instruction file: the place its text told the agent to read. */
-async function childBlock(input: {
-  token: string;
-  parentId: string;
-  parentPath: string;
+/**
+ * The places a text names, resolved. This is what replaced child blocks: a routed file is not a
+ * block of its own, it is a link inside the block that routes to it, and the reader opens it.
+ * `owner` is who wrote the sentence -- a place the operator's own file names and has not written is
+ * normal; one Ralphy names and did not install is a broken promise, and the only kind that is red.
+ */
+async function namedPlaces(input: {
+  text: string;
+  from: string;
   home: string;
-  /* Who wrote the sentence naming this place. A reference the operator's own file makes and does
-     not resolve is normal -- they may not have written that file yet. One Ralphy wrote is a broken
-     promise, and the only kind that earns the alert tone. */
-  owner: "machine" | "ralphy";
-}): Promise<ContextBlockDto> {
-  const id = `${input.parentId}>${input.token}`;
-  const target = resolveReference(input.token, input.parentPath, input.home);
-  const head = target ? await readHead(target, EXCERPT_BYTES, EXCERPT_LINES) : null;
-  const folder = target && !head ? await directoryNote(target) : null;
-  const known = head !== null || folder !== null;
-  return {
-    id,
-    title: input.token,
-    tag: `↖ NAMED BY ${input.parentPath}`,
-    /* A place Ralphy's own block names is not a maybe: that block tells the agent to read the
-       router before acting, so it reads it on every turn that does anything. "May load" was the
-       grammar for a playbook the router itself might route to, and applying it here understated
-       a file the app orders into every turn. */
-    rail: !known
-      ? railFor("dashed", input.owner === "ralphy" ? "Missing" : "Not written", "NAMED · NOT ON THIS MACHINE")
-      : input.owner === "ralphy"
-        ? railFor("ordered", folder ? "Playbooks" : "Router", folder ? "NAMED AS SOURCE OF TRUTH" : "ORDERED · READ BEFORE ACTING")
-        : railFor("dashed", "Playbook", "ON DEMAND · MAY LOAD"),
-    bytes: head?.bytes ?? null,
-    body: head?.text ?? null,
-    format: head ? (/\.(?:md|markdown)$/i.test(input.token) ? "markdown" : "text") : "none",
-    more: head?.more ?? 0,
-    note: head
-      ? "Loads into the turn that asks for it · its cost lands on that turn, never before"
-      : folder
-        ? `A directory · ${folder} · the agent reads one when the instruction sends it there`
-        : null,
-    onDemand: true,
-    linkedFrom: input.parentId,
-    /* What this file routes onward to. No grandchild blocks: one more level of
-       blocks would be the pack's whole tree on one page. The names are still
-       stated, and whether each one is there, because a router whose targets are
-       missing is exactly what this page exists to show. */
-    /* Only documents. A routing table routes to files; the directories it also
-       names are data layout under the user's library, and calling those missing
-       relative to the pack would be a sentence this page cannot support. */
-    links: target
-      ? head
-        ? await Promise.all(references(head.text).filter((token) => token.endsWith(".md")).map(async (token) => {
-          const to = resolveReference(token, target, input.home);
-          return {
-            text: token,
-            blockId: null,
-            path: to,
-            note: to && await stat(to).then(() => true, () => false) ? "may load" : "not there",
-          };
-        }))
-        /* A directory answers with what it holds. Saying "23 files here" and
-           stopping made the playbook tree a number: these are the files the
-           router sends the agent to, and each one is openable. */
-        : folder
-          ? (await readdir(target).catch(() => []))
-            .filter((name) => !name.startsWith("."))
-            .sort()
-            .map((name) => ({ text: name, blockId: null, path: join(target, name), note: "may load" }))
-          : []
-      : [],
-    defect: known || input.owner === "machine"
-      ? null
-      : target === null
-        ? "Ralphy's own block names a placeholder, not a path. Nothing resolves it, so the agent cannot read what the app told it to read."
-        : `Ralphy's own block sends the agent to ${target}, which is not on this machine.`,
-  };
+  owned?: ReadonlySet<string>;
+}): Promise<ContextBlockDto["links"]> {
+  return await Promise.all(references(input.text).map(async (token) => {
+    const path = resolveReference(token, input.from, input.home);
+    const there = path !== null && await stat(path).then(() => true, () => false);
+    return {
+      text: token,
+      blockId: null,
+      path: there ? path : null,
+      note: there ? "opens" : input.owned?.has(token) ? "not there" : "not written",
+    };
+  }));
 }
 
 /**
@@ -231,6 +172,8 @@ export interface ContextFileDto {
   bytes: number | null;
   more: number;
   format: "markdown" | "text";
+  /** The places this text names. A router opened in the reader still routes onward. */
+  links: ContextBlockDto["links"];
 }
 
 export async function readContextFile(path: string): Promise<ContextFileDto | null> {
@@ -250,6 +193,12 @@ export async function readContextFile(path: string): Promise<ContextFileDto | nu
       bytes: null,
       more: 0,
       format: "text",
+      links: names.sort().map((name) => ({
+        text: name,
+        blockId: null,
+        path: join(path, name),
+        note: "opens",
+      })),
     };
   }
   const head = await readHead(path, EXCERPT_BYTES, EXCERPT_LINES);
@@ -260,6 +209,7 @@ export async function readContextFile(path: string): Promise<ContextFileDto | nu
     bytes: head.bytes,
     more: head.more,
     format: /\.(?:md|markdown)$/i.test(path) ? "markdown" : "text",
+    links: await namedPlaces({ text: head.text, from: path, home: homedir() }),
   };
 }
 
@@ -316,16 +266,8 @@ export async function readContextDocument(input: ContextDocumentInput): Promise<
       ? head.text.slice(head.text.indexOf("\n", start) + 1, end).trim()
       : null;
 
-    const tokens = references(head.text);
     const owned = new Set(injected ? references(injected) : []);
-    const children = await Promise.all(tokens.map((token) => childBlock({
-      token,
-      parentId: file.path,
-      parentPath: file.path,
-      home: input.home,
-      owner: owned.has(token) ? "ralphy" : "machine",
-    })));
-    const byToken = new Map(children.map((child) => [child.title, child]));
+    const links = await namedPlaces({ text: head.text, from: file.path, home: input.home, owned });
 
     blocks.push({
       id: file.path,
@@ -339,17 +281,18 @@ export async function readContextDocument(input: ContextDocumentInput): Promise<
       note: null,
       onDemand: false,
       linkedFrom: null,
-      links: tokens.map((token) => ({
-        text: token,
-        blockId: byToken.get(token)?.id ?? null,
-        path: resolveReference(token, file.path, input.home),
-        note: byToken.get(token)?.defect ? "not there" : byToken.get(token)?.bytes === null ? "elsewhere" : "may load",
-      })),
+      links,
       defect: null,
     });
 
     if (injected) {
-      const injectedTokens = references(injected);
+      const injectedLinks = await namedPlaces({
+        text: injected,
+        from: file.path,
+        home: input.home,
+        owned,
+      });
+      const broken = injectedLinks.filter((link) => link.path === null).map((link) => link.text);
       blocks.push({
         id: `${file.path}#ralphy`,
         title: "Ralphy's own block, inside the file above",
@@ -362,21 +305,15 @@ export async function readContextDocument(input: ContextDocumentInput): Promise<
         note: "Ralphy's CLI installed this into the machine file. Its size is already counted in the block above; it is separated here because the app wrote it, not you.",
         onDemand: false,
         linkedFrom: file.path,
-        links: injectedTokens.map((token) => ({
-          text: token,
-          blockId: byToken.get(token)?.id ?? null,
-          path: resolveReference(token, file.path, input.home),
-          note: byToken.get(token)?.defect ? "not there" : byToken.get(token)?.bytes === null ? "elsewhere" : "may load",
-        })),
-        /* The places themselves are no longer blocks -- nothing can be read at a place that is
-           not there -- so this sentence has to name them, or the failure loses its subject. */
-        defect: injectedTokens.some((token) => byToken.get(token)?.defect)
-          ? `This block sends the agent to ${injectedTokens.filter((token) => byToken.get(token)?.defect).join(", ")}, which do not resolve from its working directory. Run \`ralphy prompts install\`, or reinstall the block, so the routing it describes exists.`
+        links: injectedLinks,
+        /* The places are links, not blocks, so this sentence has to name them or the failure loses
+           its subject. */
+        defect: broken.length > 0
+          ? `This block sends the agent to ${broken.join(", ")}, which do not resolve from its working directory. Run \`ralphy prompts install\`, or reinstall the block, so the routing it describes exists.`
           : null,
       });
     }
 
-    blocks.push(...children);
   }
 
   const config = await readHead(places.config, EXCERPT_BYTES, EXCERPT_LINES);
