@@ -823,7 +823,12 @@ describe("design system contract", () => {
     // Selection is the inverted surface plus its paired ink, stated together at the one call
     // site. The stylesheet used to name `--selected`/`--selected-ink`, which the utilities on
     // the same element already beat -- the row has drawn the black widget pair for a while.
-    expect(documentsPanelSource).toMatch(/is-selected bg-instrument text-on-instrument/);
+    // The open row is the desk's inversion, not the fixed black widget: `bg-instrument` is black
+    // in both themes, so under the dark theme the selected row was a faint plate carrying the
+    // same near-white ink as every resting row. `desk-primary` flips, and is #141414 in the light
+    // theme -- the tone the row already drew there.
+    expect(documentsPanelSource).toMatch(/is-selected bg-desk-primary text-desk-primary-ink/);
+    expect(documentsPanelSource).not.toMatch(/document-row[^`"]*bg-instrument/);
     expect(documentsPanelSource).toMatch(/bg-transparent text-ink hover:bg-surface/);
     expect(documentsPanelSource).not.toMatch(/document-row[^`]*shadow/);
     // The row is flush with the search pill above it; a 6px inset put them on different edges.
@@ -831,21 +836,28 @@ describe("design system contract", () => {
   });
 
   test("uses one calm responsive master detail language", () => {
-    // One gap, one cell radius and one sunken surface on the split's panes.
+    // One gap on the split, and the detail is the app's window: the identity line stands on the
+    // panel and the document reads on the card. It used to be a sunken slab with a light band
+    // stuck to its top edge, which put the prose on the surface the app keeps for recesses.
     expect(documentsPanelSource).toMatch(/documents-workbench[^"]*gap-2/);
-    expect(documentsPanelSource).toMatch(/documents-detail[^`]*rounded-cell bg-surface-sunken/);
+    expect(documentsPanelSource).toMatch(/documents-detail-window \$\{WINDOW\}/);
+    expect(documentsPanelSource).toMatch(/document-detail-header \$\{WINDOW_TITLEBAR\}/);
+    expect(documentsPanelSource).toMatch(/documents-detail[^`]*rounded-frame bg-card/);
     expect(documentsPanelSource).not.toMatch(/documents-detail[^"`]*\bborder-/);
+    // A titlebar is one line, so the edit fields moved into the card with the work they belong to.
+    expect(documentsPanelSource).not.toMatch(/document-detail-header[^`]*flex-wrap/);
   });
 
   test("keeps an unselected detail state compact instead of painting an empty slab", () => {
-    // The detail drops its own surface when all it holds is the empty state, and the state is a
-    // bounded plate rather than a full-width slab.
-    expect(documentsPanelSource).toMatch(/has-\[>\.empty-section\]:grid has-\[>\.empty-section\]:place-items-center has-\[>\.empty-section\]:bg-transparent/);
+    // The state is a bounded plate rather than a full-width slab, centred in the card. The card
+    // keeps its own ground: the window is the surface now, so there is nothing to drop.
+    expect(documentsPanelSource).toMatch(/has-\[>\.empty-section\]:grid has-\[>\.empty-section\]:place-items-center/);
     // The plate's own three decisions now sit on the element next to the shared empty-state
     // vocabulary (`route-chrome.ts`), so they are asserted as members of one class list rather
     // than as one contiguous string.
     const emptyPlate = /className=\{`empty-section ([^`]*)`\}/.exec(documentsPanelSource)?.[1] ?? "";
-    for (const utility of ["w-project-plate", "rounded-cell", "bg-surface-sunken"]) expect(emptyPlate.split(" ")).toContain(utility);
+    // A region standing on a card takes `bg-surface`; the sunken tone is for a plate on a region.
+    for (const utility of ["w-project-plate", "rounded-cell", "bg-surface"]) expect(emptyPlate.split(" ")).toContain(utility);
     expect(projectTheme).toMatch(/--spacing-project-plate:\s*min\(360px, 100%\)/);
   });
 

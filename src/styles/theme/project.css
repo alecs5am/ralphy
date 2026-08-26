@@ -18,7 +18,7 @@
   --project-units-columns: repeat(auto-fill, minmax(268px, 1fr));
 
   /* The row shapes this area repeats: a format badge plus copy, or a glyph plus copy. */
-  --project-document-row-columns: 62px minmax(0, 1fr);
+  --project-document-row-columns: 34px minmax(0, 1fr);
   --project-glyph-row-columns: auto minmax(0, 1fr);
   /* A glyph, copy, and one trailing state note. */
   --project-agent-row-columns: auto minmax(0, 1fr) auto;
@@ -59,7 +59,6 @@
 
   /* Layout the design fixes for this area. */
   --spacing-document-canvas: 960px;         /* a rendered document stops growing here */
-  --spacing-document-header: 74px;          /* the sticky detail header the source view clears */
   --spacing-project-plate: min(360px, 100%); /* an unselected detail state stays a plate, not a slab */
   --spacing-project-state: 96px;            /* ...and holds a readable height while it is empty */
   --spacing-units-search: 200px;            /* the unit search never shrinks past its placeholder */

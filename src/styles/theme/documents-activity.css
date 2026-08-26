@@ -43,11 +43,11 @@
 
 @theme inline {
   /* The plate a code block, a table head, a disclosure or a keycap stands on inside a rendered
-     document. It cannot be `--instrument-widget-light-sunken`: the documents reading pane is
-     that surface already (a test pins `.documents-detail` to `bg-surface-sunken`), so a block
-     painting it had no edge at all once the 1px `--line` border went -- and the border was 8%
-     alpha, so it was never the separation either. The desk board is the one neutral that steps
-     away from both the reading pane and the marketplace's `bg-surface` card, in both themes. */
+     document. The desk board is the one neutral that steps away from every ground a rendered
+     document lands on -- the documents pane's card, the marketplace's `bg-surface` card -- in
+     both themes. It cannot be `--instrument-widget-light-sunken`, which the reading pane itself
+     used to paint, so a block taking it had no edge at all once the 1px `--line` border went;
+     the border was 8% alpha, so it was never the separation either. */
   --color-document-plate: var(--instrument-desk-board);
 
   /* Layout the design fixes for this area. */

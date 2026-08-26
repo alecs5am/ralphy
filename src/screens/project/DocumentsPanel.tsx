@@ -7,6 +7,7 @@ import { entityDragProps } from "../../chat/attachments";
 import { JsonDocumentView } from "../../components/JsonDocumentView";
 import { MarkdownView, PLAIN_TEXT_VIEW } from "../../components/MarkdownView";
 import { GooeyTabs } from "../../components/ui/GooeyTabs";
+import { WINDOW, WINDOW_TITLEBAR } from "../../components/ui/Window";
 import { defineInstrumentScreenStates, InstrumentScreenRoot, type InstrumentScenarioState } from "../../instrument/screen-state-registry";
 import type { DomainPage } from "../../state/project-domain";
 import type { ProjectScreenController, ProjectScreenSnapshot } from "../../state/project-screen-controller";
@@ -19,8 +20,25 @@ type DocumentRow =
   | { type: "search"; value: DocumentSearchDto };
 
 const LIST_EDGE = 4;
-const ROW_GAP = 6;
-const ROW_SIZE = 54;
+const ROW_GAP = 4;
+const ROW_SIZE = 48;
+
+/**
+ * A row in the list, and the pair that says which one is open.
+ *
+ * The selected row is the desk's own inversion rather than the fixed black widget it used to
+ * paint: `bg-instrument` is black in both themes, so in the dark theme the open document was a
+ * plate two steps off the ground it stood on and the ink was the same near-white as every
+ * resting row. `desk-primary` flips -- black plate under the light theme, white under the dark
+ * one -- and it is #141414 in the light theme, which is what the row already drew there. Every
+ * ink inside the row has to travel with the plate, or a half-override paints invisible text --
+ * the focus ring included. Each branch names its own, and only one of the two ever lands on the
+ * element: reset.css paints the legacy near-white ring, which is invisible on a light ground and
+ * invisible again on the pale plate the inversion becomes under the dark theme.
+ */
+const ROW = "document-row absolute top-0 left-0 grid w-full grid-cols-(--project-document-row-columns) items-center gap-2.5 rounded-row px-2.5 py-1.5 text-left type-sm focus-visible:-outline-offset-2";
+const ROW_SELECTED = "is-selected bg-desk-primary text-desk-primary-ink focus-visible:outline-desk-primary-ink [&_.document-format-badge]:text-desk-primary-ink [&_small]:text-desk-primary-ink [&_strong]:text-desk-primary-ink";
+const ROW_RESTING = "bg-transparent text-ink hover:bg-surface focus-visible:outline-ink";
 
 const formatLabel = (format: string | null): string => format === "markdown" ? "MD" : format === "json" ? "JSON" : format === "text" ? "TXT" : "—";
 const documentDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
@@ -75,8 +93,18 @@ function FormatIcon({ format }: { format: string | null }) {
   return <FileText size={17} aria-hidden="true" />;
 }
 
+/**
+ * The format, twice over in two shapes.
+ *
+ * In a row it is a bare mono word: the plated pill it used to be put a second object in every
+ * row, 62px wide, saying what the row's own meta line said again three words later. In the
+ * titlebar it keeps the pill and the glyph -- there is one of them, it stands for the document,
+ * and it is the only thing on that line that is not text.
+ */
 function FormatBadge({ format, row = false }: { format: string | null; row?: boolean }) {
-  return <span className={`document-format-badge format-${format ?? "unknown"} inline-flex items-center justify-center gap-1 rounded-full bg-surface px-1.5 font-code type-meta text-muted ${row ? "h-7 w-full min-w-0" : "h-6 min-w-9"}`}><FormatIcon format={format} />{formatLabel(format)}</span>;
+  const name = `document-format-badge format-${format ?? "unknown"}`;
+  if (row) return <span className={`${name} truncate text-right font-code type-mono-sm text-muted`}>{formatLabel(format)}</span>;
+  return <span className={`${name} inline-flex h-6 min-w-9 flex-none items-center justify-center gap-1 rounded-full bg-surface px-1.5 font-code type-meta text-muted`}><FormatIcon format={format} />{formatLabel(format)}</span>;
 }
 
 export function DocumentContent({ format, text }: { format: string; text: string }) {
@@ -171,11 +199,11 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
           const format = row.type === "search" ? row.value.format : currentFormat(row.value);
           const meta = row.type === "search"
             ? `${row.value.kind} · Revision ${row.value.revisionNo}`
-            : `${formatLabel(format)} · ${row.value.kind} · ${formatDocumentDate(row.value.updatedAt)}`;
+            : `${row.value.kind} · ${formatDocumentDate(row.value.updatedAt)}`;
           const slug = "slug" in row.value && typeof row.value.slug === "string" ? row.value.slug : documentId;
           return <button
             {...entityDragProps({ kind: "file", ref: slug, label: title })}
-            className={`document-row absolute top-0 left-0 grid w-full grid-cols-(--project-document-row-columns) items-center gap-3 rounded-control px-2 py-1.5 text-left type-sm focus-visible:-outline-offset-2 ${selected?.id === documentId ? "is-selected bg-instrument text-on-instrument [&_small]:text-on-instrument-muted [&_strong]:text-on-instrument" : "bg-transparent text-ink hover:bg-surface"}`}
+            className={`${ROW} ${selected?.id === documentId ? ROW_SELECTED : ROW_RESTING}`}
             type="button"
             disabled={snapshot.documentSaving}
             aria-pressed={selected?.id === documentId}
@@ -183,7 +211,7 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
             key={item.key}
             onClick={() => { void open(row); }}
             style={{ transform: `translateY(${item.start + LIST_EDGE}px)`, height: item.size - ROW_GAP }}
-          ><FormatBadge format={format} row /><span className="min-w-0"><strong className="block truncate">{title}</strong><small className="mt-0.5 block truncate type-sm text-muted">{meta}</small></span></button>;
+          ><FormatBadge format={format} row /><span className="min-w-0"><strong className="block truncate font-normal">{title}</strong><small className="block truncate type-xs text-muted">{meta}</small></span></button>;
         })}
       </div>
       <AutoCursorTail
@@ -195,32 +223,44 @@ export function DocumentsPanel({ page, controller, snapshot, scrollMemory, reset
         onRetry={() => { if (searchActive) void controller.retryDocumentSearchAppend(); else void controller.retryPage("documents"); }}
       />
     </div>
-    <section className={`documents-detail document-preview min-h-0 min-w-0 overflow-auto overscroll-contain rounded-cell bg-surface-sunken [scrollbar-gutter:stable] has-[>.empty-section]:grid has-[>.empty-section]:place-items-center has-[>.empty-section]:bg-transparent ${DOCUMENT_CANVAS}`} aria-label="Document detail" ref={detailScroll.ref} onScroll={detailScroll.onScroll}>
-      {!selected && <div className={`empty-section ${STATE_BOX} min-h-24 ${STATE_INK} w-project-plate rounded-cell bg-surface-sunken p-6 text-center`}>Select a document to open it.</div>}
+    {/* The detail is a window like every other reading surface in the app: the identity and the
+        two view controls stand on the panel in one titlebar line, and the document itself is the
+        card inside it. It used to be a sunken slab with a light band stuck to the top, which put
+        the prose on the one surface the app uses for recesses. The edit fields moved off the
+        titlebar and into the card with the work they belong to -- a titlebar is one line.
+        `.documents-detail` stays the scroller, so it states `rounded-frame bg-card` rather than
+        reading `WINDOW_PLATE`: the plate clips with `overflow-hidden`, and two `overflow`
+        utilities on one element resolve by stylesheet order rather than markup order. */}
+    <div className={`documents-detail-window ${WINDOW}`}>
+      {selected && <header className={`document-detail-header ${WINDOW_TITLEBAR}`}>
+        <FormatBadge format={displayFormat} />
+        {/* Focus lands here when a row opens, so a reader is told which document it is -- and the
+            focus contract wants that visible. It states the theme ink: this line stands on the
+            panel now, where reset.css\'s legacy ring resolves to the near-white on-dark colour. */}
+        <h2 className="document-detail-heading m-0 min-w-0 flex-none truncate type-lg font-normal focus-visible:outline-ink focus-visible:-outline-offset-2" tabIndex={-1} ref={detailHeading}>{displayTitle}</h2>
+        <p className="m-0 min-w-0 flex-1 truncate type-xs text-muted">{selected.kind}{revision ? ` · Revision ${revision.revisionNo}` : " · No revision"}{snapshot.documentDirty ? " · Unsaved" : ""}</p>
+        <div className="document-header-actions flex min-w-0 flex-none items-center gap-2">
+          <GooeyTabs<"render" | "source"> tabs={documentViewTabs} value={documentView} onValueChange={setDocumentView} size="s" ariaLabel="Document view" />
+          {snapshot.documentMode === "read"
+            ? <button className={COMMAND_BUTTON} type="button" disabled={snapshot.documentSaving || Boolean(selected.currentRevisionId && (snapshot.documentPreview.status !== "ready" || !snapshot.documentPreview.value || snapshot.documentPreview.value.truncated))} aria-describedby={snapshot.documentPreview.value?.truncated ? "document-truncated-note" : undefined} onClick={() => controller.beginDocumentEdit()}>Edit</button>
+            : <div className="document-actions flex min-w-0 items-center gap-2"><button className={COMMAND_BUTTON} type="button" disabled={snapshot.documentSaving} onClick={() => controller.cancelDocumentEdit()}>Cancel</button><button className={COMMAND_BUTTON} type="button" disabled={snapshot.documentSaving || !snapshot.documentDirty} onClick={() => { void controller.saveDocument(); }}>{snapshot.documentSaving ? "Saving…" : "Save"}</button></div>}
+        </div>
+      </header>}
+      <section className={`documents-detail document-preview min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain rounded-frame bg-card [scrollbar-gutter:stable] has-[>.empty-section]:grid has-[>.empty-section]:place-items-center ${DOCUMENT_CANVAS}`} aria-label="Document detail" ref={detailScroll.ref} onScroll={detailScroll.onScroll}>
+      {!selected && <div className={`empty-section ${STATE_BOX} min-h-24 ${STATE_INK} w-project-plate rounded-cell bg-surface p-6 text-center`}>Select a document to open it.</div>}
       {selected && <>
-        <header className="document-detail-header sticky top-0 z-raised flex min-h-document-header flex-wrap items-center justify-between gap-3 bg-surface px-4 py-3">
-          <div className="document-detail-identity flex min-w-0 items-center gap-2">
-            <FormatBadge format={displayFormat} />
-            <div className="min-w-0"><h2 className="document-detail-heading m-0 truncate type-lg font-normal focus-visible:-outline-offset-2" tabIndex={-1} ref={detailHeading}>{displayTitle}</h2><p className="m-0 mt-0.75 type-xs text-muted">{selected.kind}{revision ? ` · Revision ${revision.revisionNo}` : " · No revision"}{snapshot.documentDirty ? " · Unsaved" : ""}</p></div>
-          </div>
-          <div className="document-header-actions ml-auto flex min-w-0 items-center gap-2">
-            <GooeyTabs<"render" | "source"> tabs={documentViewTabs} value={documentView} onValueChange={setDocumentView} size="s" ariaLabel="Document view" />
-            {snapshot.documentMode === "read"
-              ? <button className={COMMAND_BUTTON} type="button" disabled={snapshot.documentSaving || Boolean(selected.currentRevisionId && (snapshot.documentPreview.status !== "ready" || !snapshot.documentPreview.value || snapshot.documentPreview.value.truncated))} aria-describedby={snapshot.documentPreview.value?.truncated ? "document-truncated-note" : undefined} onClick={() => controller.beginDocumentEdit()}>Edit</button>
-              : <div className="document-actions flex min-w-0 items-center gap-2"><button className={COMMAND_BUTTON} type="button" disabled={snapshot.documentSaving} onClick={() => controller.cancelDocumentEdit()}>Cancel</button><button className={COMMAND_BUTTON} type="button" disabled={snapshot.documentSaving || !snapshot.documentDirty} onClick={() => { void controller.saveDocument(); }}>{snapshot.documentSaving ? "Saving…" : "Save"}</button></div>}
-          </div>
-          {draft && <div className="document-edit-fields flex w-full min-w-0 items-center gap-2"><label className="grid min-w-0 flex-1 gap-1 type-xs text-muted">Title<input className="h-control-md w-full min-w-0 rounded-control bg-surface-sunken px-2.5 text-ink focus-visible:-outline-offset-2" disabled={snapshot.documentSaving} value={draft.title ?? ""} onChange={(event) => controller.setDocumentDraftTitle(event.currentTarget.value)} /></label><fieldset className="document-format-options flex min-w-0 items-end gap-1 border-0 p-0" disabled={snapshot.documentSaving}><legend className="sr-only">Format</legend>{(["markdown", "json", "text"] as const).map((format) => <button className={`command-button h-control-md w-full min-w-0 rounded-control focus-visible:-outline-offset-2 ${draft.format === format ? "bg-desk-primary text-desk-primary-ink" : "bg-surface-sunken text-ink"}`} type="button" disabled={snapshot.documentSaving} aria-pressed={draft.format === format} key={format} onClick={() => controller.setDocumentDraftFormat(format)}>{formatLabel(format)}</button>)}</fieldset></div>}
-        </header>
+        {draft && <div className="document-edit-fields flex w-full min-w-0 items-center gap-2 px-3 pt-3"><label className="grid min-w-0 flex-1 gap-1 type-xs text-muted">Title<input className="h-control-md w-full min-w-0 rounded-control bg-surface-sunken px-2.5 text-ink focus-visible:-outline-offset-2" disabled={snapshot.documentSaving} value={draft.title ?? ""} onChange={(event) => controller.setDocumentDraftTitle(event.currentTarget.value)} /></label><fieldset className="document-format-options flex min-w-0 items-end gap-1 border-0 p-0" disabled={snapshot.documentSaving}><legend className="sr-only">Format</legend>{(["markdown", "json", "text"] as const).map((format) => <button className={`command-button h-control-md w-full min-w-0 rounded-control focus-visible:-outline-offset-2 ${draft.format === format ? "bg-desk-primary text-desk-primary-ink" : "bg-surface-sunken text-ink"}`} type="button" disabled={snapshot.documentSaving} aria-pressed={draft.format === format} key={format} onClick={() => controller.setDocumentDraftFormat(format)}>{formatLabel(format)}</button>)}</fieldset></div>}
         {snapshot.documentConflict && <div className={PROJECT_LOCAL_ERROR} role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.documentConflict}</span>{snapshot.documentConflictReview && snapshot.documentPreview.value && <button className={COMMAND_BUTTON} type="button" onClick={() => setReviewCurrent(true)}>Review current</button>}</div>}
         {snapshot.documentPreview.status === "loading" && <div className={PROJECT_SKELETON} role="status">Loading document…</div>}
         {snapshot.documentPreview.status === "error" && <div className={PROJECT_LOCAL_ERROR} role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{snapshot.documentPreview.error}</span><button className={COMMAND_BUTTON} type="button" onClick={() => { void controller.openDocument(selected); }}>Retry</button></div>}
         {draft && reviewCurrent && snapshot.documentPreview.value && <div className="document-current-review bg-transparent"><button className={COMMAND_BUTTON} type="button" onClick={() => setReviewCurrent(false)}>Back to edit</button><DocumentContent format={snapshot.documentPreview.value.format} text={snapshot.documentPreview.value.text} /></div>}
-        {draft && !reviewCurrent && documentView === "source" && <textarea className="document-editor m-3 min-h-80 w-[calc(100%_-_1.5rem)] resize-y rounded-control border-0 bg-surface px-3 py-2 type-base text-ink" aria-label="Document body" disabled={snapshot.documentSaving} value={draft.body} onChange={(event) => controller.setDocumentDraftBody(event.currentTarget.value)} />}
+        {draft && !reviewCurrent && documentView === "source" && <textarea className="document-editor m-3 min-h-80 w-[calc(100%_-_1.5rem)] resize-y rounded-field border-0 bg-surface-sunken px-3 py-2 type-base text-ink" aria-label="Document body" disabled={snapshot.documentSaving} value={draft.body} onChange={(event) => controller.setDocumentDraftBody(event.currentTarget.value)} />}
         {draft && !reviewCurrent && documentView === "render" && <DocumentContent format={draft.format} text={draft.body} />}
         {snapshot.documentMode === "read" && snapshot.documentPreview.status === "ready" && snapshot.documentPreview.value && documentView === "render" && <DocumentContent format={snapshot.documentPreview.value.format} text={snapshot.documentPreview.value.text} />}
-        {snapshot.documentMode === "read" && snapshot.documentPreview.status === "ready" && snapshot.documentPreview.value && documentView === "source" && <pre className={`plain-text-view document-source-view ${PLAIN_TEXT_VIEW} min-h-[calc(100%_-_74px)] [overflow-wrap:anywhere]`}>{snapshot.documentPreview.value.text}</pre>}
+        {snapshot.documentMode === "read" && snapshot.documentPreview.status === "ready" && snapshot.documentPreview.value && documentView === "source" && <pre className={`plain-text-view document-source-view ${PLAIN_TEXT_VIEW} min-h-full [overflow-wrap:anywhere]`}>{snapshot.documentPreview.value.text}</pre>}
         {snapshot.documentPreview.value?.truncated && <p id="document-truncated-note">This bounded preview is read-only because the complete document was not loaded.</p>}
       </>}
-    </section>
+      </section>
+    </div>
   </div></InstrumentScreenRoot>;
 }
