@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { MediaCardDto } from "../../../electron/ralphy/types";
 import type { ProjectSummary } from "../../lib/ipc";
 import { InstrumentOverlay } from "../../instrument/overlay-registry";
+import { MODAL_ACTION_GHOST, MODAL_ACTION_PRIMARY } from "../../components/ui/Modal";
 import { WINDOW_BODY } from "../../components/ui/Window";
 import { MEDIA_REVIEW_UNSUPPORTED_REASON, productionMediaReviewStatus, type MediaReviewVerdict } from "./media-review-presentation";
 import { createMockReviewSession, reduceMockReviewSession, type MockReviewAction } from "./mock-review";
@@ -51,9 +52,6 @@ const DIALOG = "fixed top-1/2 left-1/2 z-mock-review w-mock-review -translate-x-
 const FORM = `mock-needs-work gap-4.5 p-5 ${WINDOW_BODY}`;
 const FORM_EYEBROW = "font-code type-mono-sm tracking-mono text-muted uppercase";
 const FIELD = "min-h-27.5 resize-y rounded-field bg-surface-sunken p-3 type-sm text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink";
-const DIALOG_ACTION = "inline-flex min-h-8.5 flex-none items-center justify-center rounded-control px-3.5 type-sm focus-visible:outline-2 focus-visible:-outline-offset-2";
-const DIALOG_GHOST = `${DIALOG_ACTION} bg-surface-sunken text-ink hover:bg-surface-hover focus-visible:outline-ink`;
-const DIALOG_PRIMARY = `${DIALOG_ACTION} bg-brand text-brand-ink hover:opacity-88 focus-visible:outline-ink disabled:opacity-45`;
 
 export function useMediaReview({ workspaceName, project, rootEpoch }: {
   workspaceName: string | null;
@@ -109,8 +107,8 @@ export function useMediaReview({ workspaceName, project, rootEpoch }: {
         <header className="grid gap-1.25"><span className={FORM_EYEBROW}>TEST REVIEW SESSION</span><h2 className="m-0 type-md font-normal text-ink">What needs work?</h2><p className="m-0 type-sm leading-copy text-muted">This feedback stays in renderer memory and is not saved.</p></header>
         <label className="grid gap-1.75 type-sm text-muted">Feedback<textarea className={FIELD} autoFocus value={session.needsWorkDraft?.feedback ?? ""} onChange={(event) => dispatch({ type: "change-feedback", value: event.target.value })} /></label>
         <footer className="flex justify-end gap-2">
-          <button className={DIALOG_GHOST} type="button" onClick={() => dispatch({ type: "cancel-needs-work" })}>Cancel</button>
-          <button className={DIALOG_PRIMARY} type="submit" disabled={!session.needsWorkDraft?.feedback.trim()}>Mark Needs Work</button>
+          <button className={MODAL_ACTION_GHOST} type="button" onClick={() => dispatch({ type: "cancel-needs-work" })}>Cancel</button>
+          <button className={MODAL_ACTION_PRIMARY} type="submit" disabled={!session.needsWorkDraft?.feedback.trim()}>Mark Needs Work</button>
         </footer>
       </form>
     </InstrumentOverlay>,

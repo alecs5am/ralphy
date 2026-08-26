@@ -27,6 +27,12 @@
   background: color-mix(in srgb, var(--instrument-widget-dark) 62%, transparent);
 }
 
+/* ...and one entrance for it. Two areas had a private `from { opacity: 0 }` of their own with a
+   name of their own; a scrim fades in the same way wherever it is, so `Modal` states this once. */
+@keyframes overlay-fade {
+  from { opacity: 0; }
+}
+
 /* Two declarations that cannot move onto the desk scroller, because another area is designed to
    beat them. `styles/marketplace.css` claims the desk for the one route that scrolls itself:
 

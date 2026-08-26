@@ -124,7 +124,7 @@ export function MediaPanel({ page, controller, snapshot, project, workspaceName,
 
   if (page.status === "error" && page.items.length === 0) return <InstrumentScreenRoot descriptor={mediaInstrumentStates} state="error"><div className={PROJECT_LOCAL_ERROR} role="alert"><AlertCircle size={17} aria-hidden="true" /><span>{page.error ?? "Media could not be loaded."}</span><button className={COMMAND_BUTTON} type="button" onClick={() => { void controller.retry(); }}><RefreshCw size={14} aria-hidden="true" />Retry</button></div></InstrumentScreenRoot>;
   const query = snapshot.domain.media;
-  return <InstrumentScreenRoot descriptor={mediaInstrumentStates} state={mediaInstrumentState(page, snapshot)}><section className="media-panel relative flex min-h-0 w-full min-w-0 flex-1 flex-col gap-2 overflow-hidden bg-transparent p-0 type-base text-ink [&_.media-card-tile.is-selected]:bg-instrument-hover [&_.media-card-tile.is-selected]:shadow-none [&_.media-card-tile.is-selected_strong]:text-on-instrument [&_.media-card-tile.is-selected_small]:text-on-instrument-muted" aria-label="Project media">
+  return <InstrumentScreenRoot descriptor={mediaInstrumentStates} state={mediaInstrumentState(page, snapshot)}><section className="media-panel relative flex min-h-0 w-full min-w-0 flex-1 flex-col gap-2 overflow-hidden bg-transparent p-0 type-base text-ink [&_.media-card-tile.is-selected]:bg-chip [&_.media-card-tile.is-selected]:shadow-none" aria-label="Project media">
     <div className="media-domain-toolbar m-0 flex min-h-11 w-full max-w-none flex-none flex-wrap items-center gap-2 rounded-cell bg-surface-sunken p-2 [&_.select-menu-trigger]:min-w-media-filter" aria-label="Media filters">
       <SelectMenu overlayOwner="project.media" value={query.filter} options={lifecycleOptions} ariaLabel="Lifecycle or source" prefix="Source" onValueChange={(filter) => { void controller.setMediaQuery({ filter }); }} />
       <SelectMenu overlayOwner="project.media" value={query.mediaKind ?? "all"} options={kindOptions} ariaLabel="Media type" prefix="Type" onValueChange={(mediaKind) => { void controller.setMediaQuery({ mediaKind: mediaKind === "all" ? undefined : mediaKind }); }} />
@@ -158,9 +158,8 @@ export function MediaPanel({ page, controller, snapshot, project, workspaceName,
           aria-describedby={row.disabled ? reasonId : undefined}
           onClick={(event) => { if (row.disabled) { event.preventDefault(); return; } setContext(null); review.choose(context.card, row.verdict); }}
         >
-          {row.active ? <Check size={15} aria-hidden="true" /> : <i aria-hidden="true" />}
-          {row.label}
-          <Keycap tokens={[row.hotkey]} tone="on-dark" />
+          <span className="truncate">{row.label}</span>
+          <span className="flex items-center gap-1.5">{row.active && <Check size={15} aria-hidden="true" />}<Keycap tokens={[row.hotkey]} tone="on-dark" /></span>
           {row.disabled && <span id={reasonId} hidden>{review.note}</span>}
         </button>;
       })}

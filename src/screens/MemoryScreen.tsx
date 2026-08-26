@@ -11,10 +11,10 @@ import { entityDragProps } from "../chat/attachments";
 import { bridge } from "../lib/ipc";
 import { SelectMenu } from "../components/ui/SelectMenu";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
-import { WINDOW, WINDOW_BODY, WINDOW_TITLEBAR, WindowClose } from "../components/ui/Window";
+import { Modal, MODAL_ACTION_DANGER, MODAL_ACTION_GHOST, MODAL_ACTION_PRIMARY } from "../components/ui/Modal";
 import {
   ACTION, INSTRUMENT_ACTION_COMPACT, INSTRUMENT_ACTION_PRIMARY_COMPACT, OVERLAY_FIELD_RING,
-  OVERLAY_RING, OVERLAY_SCRIM, QUIET_TEXT, STATE_LINE,
+  OVERLAY_RING, QUIET_TEXT, STATE_LINE,
 } from "./calendar-memory-chrome";
 
 export const memoryInstrumentStates = defineInstrumentScreenStates({
@@ -53,9 +53,7 @@ const RULE_ACTION = `${ACTION} h-7 px-2.5 type-label bg-surface-sunken text-ink 
 const RULE_ACTION_PRIMARY = `${ACTION} h-7 px-2.5 type-label bg-brand text-brand-ink hover:opacity-88`;
 const RULE_LABEL = "font-code type-meta tracking-block text-muted";
 const RULE_PLATE = "rounded-field bg-surface-sunken px-2.75 py-2.5 type-sm text-ink";
-const DIALOG_ACTION = `${ACTION} h-7.5 px-3 type-sm bg-surface-sunken text-ink hover:bg-surface ${OVERLAY_RING}`;
-const DIALOG_ACTION_PRIMARY = `${ACTION} h-7.5 px-3 type-sm bg-brand text-brand-ink hover:opacity-88 ${OVERLAY_RING}`;
-const DIALOG_ACTION_DANGER = `${ACTION} h-7.5 px-3 type-sm bg-alert text-alert-ink hover:bg-alert-bright ${OVERLAY_RING}`;
+
 const DIALOG_LABEL = `grid gap-1.5 type-label text-ink ${OVERLAY_FIELD_RING}`;
 const DIALOG_FIELD = `w-full min-h-7.5 rounded-control bg-surface-sunken px-2.25 py-1.75 font-app type-sm text-ink outline-none ${OVERLAY_RING}`;
 const DIALOG_AREA = `w-full min-h-17 resize-y rounded-field bg-surface-sunken px-2.25 py-1.75 font-app type-sm leading-compact text-ink outline-none ${OVERLAY_RING}`;
@@ -291,10 +289,22 @@ function MemoryRule({ entry, workspaceName, open, reviewing, onToggle, onRevise,
  * set -- so the surfaces and inks are stated here outright rather than inherited.
  */
 function MemoryModal({ open, onOpenChange, overlay, title, description, sheet = false, children }: { open: boolean; onOpenChange(open: boolean): void; overlay: "memory-recall" | "memory-editor" | "memory-history" | "memory-confirm"; title: string; description: string; sheet?: boolean; children: React.ReactNode }) {
-  const surface = sheet
-    ? `fixed inset-y-0 right-0 z-scrim-content h-screen w-memory-recall text-ink outline-none ${WINDOW}`
-    : `fixed inset-0 z-scrim-content m-auto h-fit max-h-memory-modal-height w-memory-modal-width text-ink outline-none ${WINDOW}`;
-  return <Dialog.Root open={open} onOpenChange={onOpenChange}>{open && <><Dialog.Overlay forceMount className={`memory-modal-overlay ${OVERLAY_SCRIM}`} data-instrument-overlay-backdrop="" /><Dialog.Content forceMount className={`memory-modal ${surface}${sheet ? " memory-recall" : ""}`} data-instrument-overlay={overlay}><header className={WINDOW_TITLEBAR}><Dialog.Title className="m-0 min-w-0 flex-none truncate type-title font-normal text-ink">{title}</Dialog.Title><Dialog.Description className="m-0 min-w-0 flex-1 truncate type-label text-muted">{description}</Dialog.Description><Dialog.Close asChild><WindowClose className="ml-auto" label={`Close ${title}`} /></Dialog.Close></header><div className={`memory-modal-card overflow-y-auto ${WINDOW_BODY}`}>{children}</div></Dialog.Content></>}</Dialog.Root>;
+  /* Recall is the wide one -- it lists what an agent would receive -- and used to be a sheet
+     pinned to the right edge. Nothing in the app slides in from an edge any more, so it is the
+     same centred window at a wider measure. */
+  return <Modal
+    id={overlay}
+    open={open}
+    onOpenChange={onOpenChange}
+    title={title}
+    description={description}
+    closeLabel={`Close ${title}`}
+    size={sheet ? "h-fit max-h-memory-modal-height w-memory-recall" : "h-fit max-h-memory-modal-height w-memory-modal-width"}
+    className={`memory-modal${sheet ? " memory-recall" : ""}`}
+    titleClassName="m-0 min-w-0 flex-none truncate type-title font-normal text-ink"
+    descriptionClassName="m-0 min-w-0 flex-1 truncate type-label text-muted"
+    bodyClassName="memory-modal-card overflow-y-auto"
+  >{children}</Modal>;
 }
 
 function RecallDialog({ open, onOpenChange, recall }: { open: boolean; onOpenChange(open: boolean): void; recall: Awaited<ReturnType<typeof bridge.recallMemory>> | null }) {
@@ -334,7 +344,7 @@ function EditorDialog({ open, entry, onOpenChange, onSave }: { open: boolean; en
       <div className="grid grid-cols-2 gap-2.5"><label className={DIALOG_LABEL}>How to apply <small className={DIALOG_HINT}>one item per line</small><textarea className={DIALOG_AREA} name="how" defaultValue={entry?.body.howToApply.join("\n")} /></label><label className={DIALOG_LABEL}>Does not apply to <small className={DIALOG_HINT}>one item per line</small><textarea className={DIALOG_AREA} name="not" defaultValue={entry?.body.doesNotApplyTo.join("\n")} /></label></div>
       <details className="type-label text-muted"><summary className="cursor-pointer">Advanced fields</summary><div className="grid grid-cols-2 gap-2.5 pt-3"><label className={DIALOG_LABEL}>Name<input className={DIALOG_FIELD} name="name" required defaultValue={entry?.name ?? "Memory rule"} /></label>{!entry && <label className={DIALOG_LABEL}>Slug<input className={DIALOG_FIELD} name="slug" required pattern="[a-z0-9][a-z0-9-]*" placeholder="memory-rule" /></label>}<label className={`col-span-full ${DIALOG_LABEL}`}>Description<input className={DIALOG_FIELD} name="description" required defaultValue={entry?.description ?? "Durable workspace guidance."} /></label></div></details>
       {formError && <p className="memory-form-error m-0 rounded-field bg-alert px-2 py-1 type-label text-alert-ink">{formError}</p>}
-      <footer className="flex justify-end gap-2 pt-0.75"><Dialog.Close asChild><button type="button" className={DIALOG_ACTION}>Cancel</button></Dialog.Close><button className={`memory-primary ${DIALOG_ACTION_PRIMARY} disabled:cursor-not-allowed disabled:opacity-35`} type="submit" disabled={saving}>{saving ? "Saving…" : entry ? `Save as version ${entry.version + 1}` : "Add memory"}</button></footer>
+      <footer className="flex justify-end gap-2 pt-0.75"><Dialog.Close asChild><button type="button" className={MODAL_ACTION_GHOST}>Cancel</button></Dialog.Close><button className={`memory-primary ${MODAL_ACTION_PRIMARY} disabled:cursor-not-allowed disabled:opacity-35`} type="submit" disabled={saving}>{saving ? "Saving…" : entry ? `Save as version ${entry.version + 1}` : "Add memory"}</button></footer>
     </form>
   </MemoryModal>;
 }
@@ -345,5 +355,5 @@ function HistoryDialog({ history, onOpenChange }: { history: MemoryDetailDto[] |
 
 function ConfirmDialog({ state, onOpenChange, onConfirm }: { state: ConfirmState; onOpenChange(open: boolean): void; onConfirm(): void }) {
   const verb = state?.action ?? "retire";
-  return <MemoryModal open={state !== null} onOpenChange={onOpenChange} overlay="memory-confirm" title={`${verb[0]!.toUpperCase()}${verb.slice(1)} memory?`} description={verb === "retire" ? "The rule leaves recall but remains in immutable history." : verb === "approve" ? "The proposal becomes the active revision." : "The proposal is preserved as rejected provenance."}><div className="memory-confirm px-5 pb-5 pt-4.5"><p className="mx-0 mb-5 mt-0 leading-prose text-muted">{state?.entry.body.rule}</p><footer className="flex justify-end gap-2 pt-0.75"><Dialog.Close asChild><button type="button" className={DIALOG_ACTION}>Cancel</button></Dialog.Close><button type="button" className={verb === "approve" ? `memory-primary ${DIALOG_ACTION_PRIMARY}` : `memory-danger ${DIALOG_ACTION_DANGER}`} onClick={onConfirm}>{verb[0]!.toUpperCase() + verb.slice(1)}</button></footer></div></MemoryModal>;
+  return <MemoryModal open={state !== null} onOpenChange={onOpenChange} overlay="memory-confirm" title={`${verb[0]!.toUpperCase()}${verb.slice(1)} memory?`} description={verb === "retire" ? "The rule leaves recall but remains in immutable history." : verb === "approve" ? "The proposal becomes the active revision." : "The proposal is preserved as rejected provenance."}><div className="memory-confirm px-5 pb-5 pt-4.5"><p className="mx-0 mb-5 mt-0 leading-prose text-muted">{state?.entry.body.rule}</p><footer className="flex justify-end gap-2 pt-0.75"><Dialog.Close asChild><button type="button" className={MODAL_ACTION_GHOST}>Cancel</button></Dialog.Close><button type="button" className={verb === "approve" ? `memory-primary ${MODAL_ACTION_PRIMARY}` : `memory-danger ${MODAL_ACTION_DANGER}`} onClick={onConfirm}>{verb[0]!.toUpperCase() + verb.slice(1)}</button></footer></div></MemoryModal>;
 }

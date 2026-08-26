@@ -15,6 +15,7 @@ import { SharedArtifactViewer } from "./shared-library/SharedArtifactViewer";
 import { SharedLibraryToolbar } from "./shared-library/SharedLibraryToolbar";
 import { SharedLibraryWorkflows, type SharedLibrarySuggestion, type SharedLibraryWorkflowKind } from "./shared-library/SharedLibraryWorkflows";
 import type { Availability, SharedArtifactPresentation } from "./shared-library/presentation";
+import { WINDOW, WINDOW_PLATE } from "../components/ui/Window";
 
 type OpenCallback = (artifact: SharedArtifactPresentation) => void;
 const unavailableSuggestions = { status: "unavailable", reason: "Metadata suggestions are unavailable from this Core version because Core exposes no suggestion evidence." } satisfies Availability<SharedLibrarySuggestion[]>;
@@ -107,7 +108,7 @@ function ArtifactIdentity({ artifact, selected = false, audit = false, onSelect,
       className={audit
         // In the audit list the row stands on the desk, so the identity takes the theme ink.
         ? `${IDENTITY} is-audit flex-1 gap-2 text-ink`
-        : `${IDENTITY} mt-2 gap-1.75 text-on-instrument focus-visible:outline-focus-on-instrument focus-visible:-outline-offset-2`}
+        : `${IDENTITY} mt-1.5 gap-1.75 px-1 text-ink focus-visible:outline-ink focus-visible:-outline-offset-2`}
       type="button"
       aria-label={`Select ${artifact.slug} identity and open inspector`}
       aria-describedby={instructionsId}
@@ -146,11 +147,11 @@ function SharedArtifactCard({ artifact, selected, workspaceId, rootEpoch, resolv
   onViewer(origin: HTMLElement): void;
 }) {
   return <article
-    className={`shared-artifact-card flex min-w-0 flex-col overflow-hidden rounded-panel p-2 text-on-instrument ${selected ? "is-selected bg-instrument-hover" : "bg-instrument"}`}
+    className={`shared-artifact-card min-w-0 text-ink ${WINDOW}${selected ? " is-selected bg-chip" : ""}`}
   >
-    <div className={`shared-artifact-frame relative grid aspect-shared-tile min-h-0 w-full place-items-center overflow-hidden rounded-cell bg-instrument-raised transition-shadow duration-normal ease-instrument motion-reduce:transition-none motion-reduce:duration-0 ${CARD_MEDIA} ${selected ? "inset-ring-2 inset-ring-on-instrument" : ""}`}>
+    <div className={`shared-artifact-frame relative grid aspect-shared-tile min-h-0 w-full place-items-center ${WINDOW_PLATE} transition-shadow duration-normal ease-instrument motion-reduce:transition-none motion-reduce:duration-0 ${CARD_MEDIA} ${selected ? "inset-ring-2 inset-ring-on-instrument" : ""}`}>
       <SharedArtifactPreview artifact={artifact} workspaceId={workspaceId} rootEpoch={rootEpoch} resolvePreview={resolvePreview} />
-      {artifact.preview === "no-target" && <span className="pointer-events-none absolute top-1/2 z-2 mt-6 type-mono-md text-on-instrument-muted">No preview target</span>}
+      {artifact.preview === "no-target" && <span className="pointer-events-none absolute top-1/2 z-2 mt-6 type-mono-md text-muted">No preview target</span>}
       <div className="shared-artifact-chrome hidden">
         <span title={referencedAs(artifact)}>{artifact.referencedAs.length > 0 ? artifact.referencedAs[0] : "REFERENCED AS —"}</span>
         <span title={availabilityReason(artifact.canonicalStatus)}>STATUS UNAVAILABLE</span>
@@ -159,7 +160,7 @@ function SharedArtifactCard({ artifact, selected, workspaceId, rootEpoch, resolv
       <button className="absolute right-2 bottom-2 z-4 inline-flex h-6 items-center gap-1.25 rounded-control bg-media-plate px-2 type-mono-md text-on-instrument transition-colors duration-normal ease-instrument motion-reduce:transition-none motion-reduce:duration-0 hover:bg-frame focus-visible:outline-focus-on-instrument [&_svg]:size-2.75" type="button" aria-label={`Preview ${artifact.slug}`} onClick={(event) => onViewer(event.currentTarget)}><Maximize2 aria-hidden="true" />Preview</button>
     </div>
     <ArtifactIdentity artifact={artifact} selected={selected} onSelect={onSelect} onViewer={onViewer} />
-    <small className="mt-0.75 ml-3.5 block truncate px-1 pb-1 font-code type-meta leading-4 text-on-instrument-muted">{artifactFacts(artifact)}</small>
+    <small className="ml-3.5 block truncate px-1 pb-1.5 font-code type-meta leading-4 text-muted">{artifactFacts(artifact)}</small>
     <span className="shared-artifact-referenced hidden"><b>Referenced as</b> {referencedAs(artifact)}</span>
   </article>;
 }

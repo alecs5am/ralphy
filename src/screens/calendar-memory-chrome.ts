@@ -1,3 +1,5 @@
+import { MODAL_ACTION_GHOST, MODAL_ACTION_PRIMARY } from "../components/ui/Modal";
+
 /**
  * Chrome the Calendar and the Memory rulebook share.
  *
@@ -48,9 +50,13 @@ export const QUIET_TEXT = "shrink-0 px-1 type-label text-muted transition-colors
 export const OVERLAY_RING = "focus-visible:outline-ink";
 export const OVERLAY_FIELD_RING = "focus-within:outline-ink";
 
-/** A dialog footer action, and the primary one, which takes the inverted desk plate and its ink. */
-export const OVERLAY_ACTION = `${ACTION} h-8 px-3.75 type-sm bg-surface-sunken text-ink hover:bg-surface ${OVERLAY_RING}`;
-export const OVERLAY_ACTION_PRIMARY = `${ACTION} h-8 px-3.75 type-sm bg-brand text-brand-ink hover:opacity-88 ${OVERLAY_RING}`;
+/**
+ * A dialog footer action, and the primary one. Both are the window kit's -- a modal action is the
+ * same control wherever the modal is, and these two names are what the Calendar and Memory call
+ * sites already read.
+ */
+export const OVERLAY_ACTION = MODAL_ACTION_GHOST;
+export const OVERLAY_ACTION_PRIMARY = MODAL_ACTION_PRIMARY;
 
 /**
  * The scrim under a portalled dialog. It states no fill: `[data-instrument-overlay-backdrop]` in

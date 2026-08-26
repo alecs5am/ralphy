@@ -78,7 +78,6 @@
   /* Motion. The keyframes below have no utility form; the names that reach them do. */
   --transition-duration-fast: var(--dur-fast);
   --animate-calendar-panel-in: calendar-panel-in var(--dur) var(--ease);
-  --animate-calendar-fade: calendar-fade var(--dur) linear;
   --animate-calendar-modal-in: calendar-modal-in var(--dur-slow) var(--ease);
 
   /* Stacking, so a portal's order stays a token and not a number in markup. */
@@ -105,9 +104,6 @@
   from { opacity: 0; transform: translateX(12px); }
 }
 
-@keyframes calendar-fade {
-  from { opacity: 0; }
-}
 
 /* The dialog centres with auto margins rather than a transform, so its entrance owns the transform
    outright: an !important utility would otherwise beat the animation it has to cooperate with. */

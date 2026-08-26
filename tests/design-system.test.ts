@@ -991,12 +991,14 @@ describe("design system contract", () => {
     // turns invisible on a light widget. Its controls take the theme-ink ring for the same reason;
     // only a control on the black header takes the on-instrument ring.
     const dialog = readFileSync(join(process.cwd(), "src/screens/workspace/DetailDialog.tsx"), "utf8");
-    // The ground is the kit's window now, which states `bg-panel`; what this file still has to
-    // state itself is the theme ink, for the reason above. The close control is the kit's, and the
-    // theme ring travels with it.
-    expect(dialog).toContain('from "../../components/ui/Window"');
-    expect(dialog).toMatch(/const surface = `account-detail-dialog[^`]*\btext-ink\b[^`]*\$\{WINDOW\}`/);
-    expect(dialog).toContain("<WindowClose");
+    // The whole shape is the kit's `Modal` now: scrim, window, titlebar, close. What this file
+    // still says for itself is which detail it is and how wide -- and the theme ink and the close
+    // control's own ring live in the kit, once, for the reason above.
+    expect(dialog).toContain('from "../../components/ui/Modal"');
+    expect(dialog).toMatch(/<Modal\b/);
+    const modalKit = readFileSync(join(process.cwd(), "src/components/ui/Modal.tsx"), "utf8");
+    expect(modalKit).toMatch(/MODAL_SURFACE = `[^`]*\btext-ink\b[^`]*\$\{WINDOW\}`/);
+    expect(modalKit).toContain("<WindowClose");
     expect(readFileSync(join(process.cwd(), "src/components/ui/Window.tsx"), "utf8")).toMatch(/WINDOW_CLOSE = "[^"]*focus-visible:outline-ink/);
     expect(dialog).not.toContain("focus-on-instrument");
     // Handoff 13 gives the greeting row no surface at all: the black plate it used to stand on

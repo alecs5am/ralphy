@@ -152,7 +152,8 @@ describe("Memory screen", () => {
       await act(async () => click(button(host.container, "Approve")));
       expect(mutate).not.toHaveBeenCalled();
 
-      const modal = host.container.querySelector<HTMLElement>(".memory-modal");
+      // The modal is portalled to the document body now, the same as every other one in the app.
+      const modal = document.body.querySelector<HTMLElement>(".memory-modal");
       expect(modal?.textContent).toContain("Approve memory?");
       await act(async () => click(button(modal!, "Approve")));
       expect(mutate).toHaveBeenCalledWith("ws_ux", {

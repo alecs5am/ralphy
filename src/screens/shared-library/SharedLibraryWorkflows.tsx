@@ -3,7 +3,8 @@ import { AlertTriangle } from "lucide-react";
 import { useCallback, useId, useRef, useState, type ReactNode } from "react";
 import { SelectMenu } from "../../components/ui/SelectMenu";
 import type { Availability, SharedArtifactPresentation } from "./presentation";
-import { WINDOW, WINDOW_BODY, WINDOW_TITLEBAR, WindowClose } from "../../components/ui/Window";
+import { Modal, MODAL_ACTION_GHOST } from "../../components/ui/Modal";
+import { WINDOW } from "../../components/ui/Window";
 
 export type SharedLibraryWorkflowKind = "add" | "promote" | "duplicate" | "suggestions" | "archive" | "update-review";
 
@@ -29,7 +30,6 @@ const SHELL_SIZE: Record<SharedLibraryWorkflowKind, string> = {
   archive: "h-shared-workflow-archive-height w-shared-workflow-archive-width",
   "update-review": "h-shared-workflow-height w-shared-workflow-width",
 };
-const FOOTER_BUTTON = "inline-flex min-h-8 items-center justify-center rounded-control bg-surface-hover px-3.5 type-label text-muted disabled:cursor-not-allowed disabled:opacity-55";
 const STEP_BUTTON = "flex h-8.5 w-full items-center gap-2 rounded-control px-2.25 type-label text-left";
 const BLOCK_LABEL = "m-0 flex-1 font-code type-mono-sm tracking-mono text-muted";
 const BLOCK_TAG = "h-4.5 rounded-key bg-surface-hover px-1.5 py-0.75 font-code type-mono-sm tracking-label text-muted";
@@ -75,36 +75,37 @@ function WorkflowFrame({ kind, title, description, returnFocus, onClose, steps, 
     queueMicrotask(restoreFocus);
   }, [onClose, restoreFocus]);
 
-  return <Dialog.Root open onOpenChange={(open) => { if (!open) close(); }}>
-    <Dialog.Portal container={typeof document === "undefined" ? undefined : document.body}>
-      <Dialog.Overlay className="shared-workflow-overlay fixed inset-0 z-viewer-backdrop bg-media-veil animate-shared-workflow-fade motion-reduce:animate-none" />
-      <Dialog.Content data-instrument-overlay="shared-workflow"
-        ref={surface}
-        tabIndex={-1}
-        className={`${SHELL} ${size}`}
-        data-workflow={kind}
-        onOpenAutoFocus={(event) => { event.preventDefault(); surface.current?.focus({ preventScroll: true }); }}
-        onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(); }}
-      >
-        {/* The titlebar names the workflow and closes it. The sentence that explains the
-            workflow is instruction, so it reads at the top of the card with the steps. */}
-        <header className={`shared-workflow-header ${WINDOW_TITLEBAR}`}>
-          <Dialog.Title className="m-0 min-w-0 flex-1 truncate type-heading font-normal text-ink">{title}</Dialog.Title>
-          <WindowClose label={`Close ${title}`} onClick={close} />
-        </header>
-        <div className={`shared-workflow-card ${WINDOW_BODY}`}>
-          <Dialog.Description className="m-0 flex-none px-5 pt-3.5 type-ui leading-row text-muted">{description}</Dialog.Description>
+  return <Modal
+    id="shared-workflow"
+    open
+    onOpenChange={(open) => { if (!open) close(); }}
+    size={size}
+    layer="viewer"
+    className={`${SHELL} shared-workflow-window`}
+    scrimClassName="shared-workflow-overlay bg-media-veil"
+    title={title}
+    titleClassName="m-0 min-w-0 flex-1 truncate type-heading font-normal text-ink"
+    /* The sentence that explains the workflow is instruction, so it reads at the top of the card
+       with the steps rather than on the titlebar line. */
+    description={description}
+    descriptionPlacement="body"
+    descriptionClassName="m-0 flex-none px-5 pt-3.5 type-ui leading-row text-muted"
+    closeLabel={`Close ${title}`}
+    titlebarClassName="shared-workflow-header"
+    bodyClassName="shared-workflow-card"
+    data={{ "data-workflow": kind }}
+    surfaceRef={surface}
+    onOpenAutoFocus={(event) => { event.preventDefault(); surface.current?.focus({ preventScroll: true }); }}
+    onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(); }}
+  >
           {steps}
           <form className="shared-workflow-body flex min-h-0 flex-1 flex-col gap-4.5 overflow-y-auto px-5 py-4" onSubmit={(event) => event.preventDefault()}>{children}</form>
           <i className="mx-5 h-px flex-none bg-divider" aria-hidden="true" />
           <footer className="shared-workflow-footer flex min-h-15.5 flex-none items-center gap-4.5 px-5 pt-3.25 pb-4.25">
             <small className="max-w-shared-footnote flex-1 font-code type-mono-sm tracking-meta leading-row text-muted">{footerNote ?? coreReason}</small>
             <span className="flex gap-2">{actions}</span>
-          </footer>
-        </div>
-      </Dialog.Content>
-    </Dialog.Portal>
-  </Dialog.Root>;
+    </footer>
+  </Modal>;
 }
 
 function Block({ label, tag, children, className = "" }: { label: string; tag?: string; children: ReactNode; className?: string }) {
@@ -136,9 +137,9 @@ function AddWorkflow({ returnFocus, onClose }: Pick<SharedLibraryWorkflowsProps,
     steps={steps}
     footerNote={step === 3 ? coreReason : `STEP ${step + 1} OF 4 · LOCAL PREVIEW ONLY`}
     actions={<>
-      {step > 0 && <button className={FOOTER_BUTTON} type="button" onClick={() => setStep((current) => current - 1)}>Back</button>}
-      {step < 3 && <button type="button" className={`shared-workflow-primary ${FOOTER_BUTTON} ${SELECTED_PILL}`} onClick={() => setStep((current) => current + 1)}>{step === 0 ? "Continue to duplicates" : step === 1 ? "Continue to describe" : "Continue to confirm"}</button>}
-      {step === 3 && <button type="button" className={`shared-workflow-primary ${FOOTER_BUTTON} ${SELECTED_PILL}`} disabled aria-describedby={reasonId}>Add to Shared Library unavailable</button>}
+      {step > 0 && <button className={MODAL_ACTION_GHOST} type="button" onClick={() => setStep((current) => current - 1)}>Back</button>}
+      {step < 3 && <button type="button" className={`shared-workflow-primary ${MODAL_ACTION_GHOST} ${SELECTED_PILL}`} onClick={() => setStep((current) => current + 1)}>{step === 0 ? "Continue to duplicates" : step === 1 ? "Continue to describe" : "Continue to confirm"}</button>}
+      {step === 3 && <button type="button" className={`shared-workflow-primary ${MODAL_ACTION_GHOST} ${SELECTED_PILL}`} disabled aria-describedby={reasonId}>Add to Shared Library unavailable</button>}
     </>}
   >
     {step === 0 && <Block label="Source" tag="LOCAL ONLY">
@@ -186,7 +187,7 @@ function PromoteWorkflow({ returnFocus, onClose }: Pick<SharedLibraryWorkflowsPr
   const reasonId = useId();
   const [meaning, setMeaning] = useState({ title: "", role: SHARED_ARTIFACT_ROLES[0] as string, otherRole: "", purpose: "" });
   const setField = (field: keyof typeof meaning, value: string) => setMeaning((current) => ({ ...current, [field]: value }));
-  return <WorkflowFrame kind="promote" title="Promote from project" description="Make a project artifact reusable without moving or changing its project source." returnFocus={returnFocus} onClose={onClose} actions={<><Dialog.Close asChild><button className={FOOTER_BUTTON} type="button">Cancel</button></Dialog.Close><button type="button" className={`shared-workflow-primary ${FOOTER_BUTTON} ${SELECTED_PILL}`} disabled aria-describedby={reasonId}>Promote to Shared Library unavailable</button></>}>
+  return <WorkflowFrame kind="promote" title="Promote from project" description="Make a project artifact reusable without moving or changing its project source." returnFocus={returnFocus} onClose={onClose} actions={<><Dialog.Close asChild><button className={MODAL_ACTION_GHOST} type="button">Cancel</button></Dialog.Close><button type="button" className={`shared-workflow-primary ${MODAL_ACTION_GHOST} ${SELECTED_PILL}`} disabled aria-describedby={reasonId}>Promote to Shared Library unavailable</button></>}>
     <Block label="Source project artifact" tag="INVENTORY UNAVAILABLE">
       <div className={FIELD_LABEL}><span className={FIELD_NAME}>Project source</span><button type="button" className={`${FIELD} w-full text-left text-muted`} aria-disabled="true" aria-describedby={reasonId}>Project artifact inventory unavailable from this Core version</button></div>
       <p className={CAPTION}>A future source picker preserves the source project, Unit, selected revision, provenance, existing reference, and content identity.</p>
@@ -212,7 +213,7 @@ function DuplicateWorkflow({ returnFocus, onClose }: Pick<SharedLibraryWorkflows
     ["revision", "Add as a new revision", "A future revision would be append-only; existing usages stay pinned."],
     ["separate", "Create a separate artifact", "The same bytes need a recorded semantic reason."],
   ] as const;
-  return <WorkflowFrame kind="duplicate" title="Duplicate review" description="Review the same-content boundary without claiming a hash result." returnFocus={returnFocus} onClose={onClose} actions={<><Dialog.Close asChild><button className={FOOTER_BUTTON} type="button">Cancel</button></Dialog.Close><button type="button" className={`shared-workflow-primary ${FOOTER_BUTTON} ${SELECTED_PILL}`} disabled aria-describedby={reasonId}>{choice === "reuse" ? "Reuse existing artifact unavailable" : choice === "revision" ? "Add revision unavailable" : "Create separate artifact unavailable"}</button></>}>
+  return <WorkflowFrame kind="duplicate" title="Duplicate review" description="Review the same-content boundary without claiming a hash result." returnFocus={returnFocus} onClose={onClose} actions={<><Dialog.Close asChild><button className={MODAL_ACTION_GHOST} type="button">Cancel</button></Dialog.Close><button type="button" className={`shared-workflow-primary ${MODAL_ACTION_GHOST} ${SELECTED_PILL}`} disabled aria-describedby={reasonId}>{choice === "reuse" ? "Reuse existing artifact unavailable" : choice === "revision" ? "Add revision unavailable" : "Create separate artifact unavailable"}</button></>}>
     <Block label="Same content identity" tag="HASH UNAVAILABLE">
       <div className="grid grid-cols-2 gap-2.25"><article className="grid min-h-27.5 content-center gap-1.75 rounded-cell bg-surface-hover p-3.25"><strong className="type-ui font-normal text-ink">Existing artifact</strong><span className="font-code type-mono-md text-muted">{unavailable}</span></article><article className="grid min-h-27.5 content-center gap-1.75 rounded-cell bg-surface-hover p-3.25"><strong className="type-ui font-normal text-ink">Incoming file</strong><span className="font-code type-mono-md text-muted">{unavailable}</span></article></div>
       <p className={CAPTION}>Content hash comparison is unavailable from this Core version. A filename is not content identity.</p>
@@ -232,7 +233,7 @@ function SuggestionsWorkflow({ suggestions, returnFocus, onClose }: Pick<SharedL
   const reasonId = useId();
   const items = suggestions.status === "ready" || suggestions.status === "partial" ? suggestions.value : [];
   const suggestionReason = suggestions.status === "ready" ? "No suggestion evidence was supplied." : suggestions.reason;
-  return <WorkflowFrame kind="suggestions" title="Suggested from file content" description="Review each local suggestion before it could become context agents receive." returnFocus={returnFocus} onClose={onClose} footerNote="SUGGESTIONS ARE NOT CANONICAL UNTIL ACCEPTED" actions={<><Dialog.Close asChild><button className={FOOTER_BUTTON} type="button">Cancel</button></Dialog.Close><button type="button" className={`shared-workflow-primary ${FOOTER_BUTTON} ${SELECTED_PILL}`} disabled aria-describedby={reasonId}>Apply reviewed fields unavailable</button></>}>
+  return <WorkflowFrame kind="suggestions" title="Suggested from file content" description="Review each local suggestion before it could become context agents receive." returnFocus={returnFocus} onClose={onClose} footerNote="SUGGESTIONS ARE NOT CANONICAL UNTIL ACCEPTED" actions={<><Dialog.Close asChild><button className={MODAL_ACTION_GHOST} type="button">Cancel</button></Dialog.Close><button type="button" className={`shared-workflow-primary ${MODAL_ACTION_GHOST} ${SELECTED_PILL}`} disabled aria-describedby={reasonId}>Apply reviewed fields unavailable</button></>}>
     <Block label="Suggestions" tag={items.length ? `REVIEW ${items.length}` : "UNAVAILABLE"}>
       <div className="shared-workflow-suggestions grid grid-cols-2 gap-1.75">{items.length ? items.map(({ field, value, source }, index) => {
         const key = `${field}:${index}`;
@@ -262,7 +263,7 @@ function SuggestionsWorkflow({ suggestions, returnFocus, onClose }: Pick<SharedL
 
 function ArchiveWorkflow({ artifact, returnFocus, onClose }: SharedLibraryWorkflowsProps) {
   const reasonId = useId();
-  return <WorkflowFrame kind="archive" title="Archive impact" description={`Archiving ${artifact?.slug ?? "this artifact"} would stop future selection while preserving references and provenance.`} returnFocus={returnFocus} onClose={onClose} actions={<><Dialog.Close asChild><button className={FOOTER_BUTTON} type="button">Cancel</button></Dialog.Close><button type="button" className={`shared-workflow-warning ${FOOTER_BUTTON} bg-muted text-surface-sunken`} disabled aria-describedby={reasonId}>Archive artifact unavailable</button></>}>
+  return <WorkflowFrame kind="archive" title="Archive impact" description={`Archiving ${artifact?.slug ?? "this artifact"} would stop future selection while preserving references and provenance.`} returnFocus={returnFocus} onClose={onClose} actions={<><Dialog.Close asChild><button className={MODAL_ACTION_GHOST} type="button">Cancel</button></Dialog.Close><button type="button" className={`shared-workflow-warning ${MODAL_ACTION_GHOST} bg-muted text-surface-sunken`} disabled aria-describedby={reasonId}>Archive artifact unavailable</button></>}>
     <Block label="What this touches" tag="IMPACT UNAVAILABLE"><dl className="m-0 grid gap-px overflow-hidden rounded-field">{["Active references", "Historical references", "Projects affected", "Units affected", "Currently canonical", "File state"].map((label) => <div className={INVENTORY_ROW} key={label}><dt className={INVENTORY_LABEL}>{label}</dt><dd className={INVENTORY_VALUE}>{unavailable}</dd></div>)}</dl></Block>
     <Block label="Replacement for future work" tag="PICKER UNAVAILABLE"><div className={FIELD_LABEL}><span className={FIELD_NAME}>Replacement artifact</span><button type="button" className={`${FIELD} w-full text-left text-muted disabled:cursor-not-allowed`} disabled>Replacement candidates unavailable from this Core version</button></div></Block>
     <div className={`${NOTE} is-warning`}><AlertTriangle aria-hidden="true" /><span><strong>Nothing is deleted.</strong> Archive is reversible. Existing references and provenance would remain; permanent byte removal is a separate technical action.</span></div>
@@ -272,7 +273,7 @@ function ArchiveWorkflow({ artifact, returnFocus, onClose }: SharedLibraryWorkfl
 
 function UpdateReviewWorkflow({ artifact, returnFocus, onClose }: SharedLibraryWorkflowsProps) {
   const reasonId = useId();
-  return <WorkflowFrame kind="update-review" title="Revision update review" description={`Review future update choices for ${artifact?.slug ?? "this artifact"} without changing pinned usages.`} returnFocus={returnFocus} onClose={onClose} actions={<><Dialog.Close asChild><button className={FOOTER_BUTTON} type="button">Cancel</button></Dialog.Close><button type="button" className={`shared-workflow-primary ${FOOTER_BUTTON} ${SELECTED_PILL}`} disabled aria-describedby={reasonId}>Apply usage decisions unavailable</button></>}>
+  return <WorkflowFrame kind="update-review" title="Revision update review" description={`Review future update choices for ${artifact?.slug ?? "this artifact"} without changing pinned usages.`} returnFocus={returnFocus} onClose={onClose} actions={<><Dialog.Close asChild><button className={MODAL_ACTION_GHOST} type="button">Cancel</button></Dialog.Close><button type="button" className={`shared-workflow-primary ${MODAL_ACTION_GHOST} ${SELECTED_PILL}`} disabled aria-describedby={reasonId}>Apply usage decisions unavailable</button></>}>
     <Block label="Affected usages" tag="INVENTORY UNAVAILABLE"><p className={CAPTION}>System-derived backlinks and compatibility evidence are unavailable from this Core version, so no usage can be enumerated or classified.</p></Block>
     <Block label="Choices" tag="ALL UNAVAILABLE"><div className="shared-workflow-choices grid gap-1.25">{[
       ["Update compatible usages", "Requires backlinks plus format, dimensions, duration, and rights compatibility."],

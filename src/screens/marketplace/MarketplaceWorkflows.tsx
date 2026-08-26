@@ -1,20 +1,21 @@
-import { CheckCircle2, CircleAlert, Download, LoaderCircle, X } from "lucide-react";
+import { CheckCircle2, CircleAlert, Download, LoaderCircle } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
 import { InstrumentOverlay } from "../../instrument/overlay-registry";
 import type { CatalogResult } from "../../lib/ipc";
 import type { WorkbenchRoute } from "../../state/workbench";
 import { LIBRARY_COPY, LIBRARY_MONO, LIBRARY_ROUTE, LIBRARY_TITLE, LIBRARY_UNAVAILABLE } from "./detail-chrome";
+import { MODAL_ACTION_GHOST } from "../../components/ui/Modal";
+import { WINDOW_BODY, WINDOW_TITLEBAR, WindowClose } from "../../components/ui/Window";
 
-/* The workflow window. Its radius is the shared dialog panel radius, which instrument.css
-   states on every managed overlay's own content; the window only says how it stacks.
-   The registry renders the positioned overlay surface itself and takes no class from here,
-   so where that surface sits is the one thing this route cannot say in markup. */
-const WINDOW = "marketplace-workflow-window flex max-h-full min-h-0 w-full flex-col overflow-hidden rounded-panel bg-surface text-ink [corner-shape:squircle]";
-const WINDOW_HEADER = "marketplace-workflow-header flex flex-none items-start gap-4 px-4.5 pt-4.5 pb-3.25";
-const WINDOW_BODY = "marketplace-workflow-body flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto overscroll-contain px-4.5 pt-0.75 pb-4";
-const WINDOW_FOOTER = "marketplace-workflow-footer flex min-h-16.5 flex-none items-center gap-4 px-4.5 pt-3 pb-4";
-const WINDOW_CLOSE = "grid size-8 flex-none place-items-center rounded-control bg-surface-sunken text-muted hover:bg-surface-hover hover:text-ink";
-const WINDOW_ACTION = "min-h-8.5 rounded-control bg-surface-sunken px-3.25 text-muted";
+/* The workflow's contents. The registry's managed surface is the window -- one panel rim, one
+   card -- so this route states neither: it fills that surface and hands it a titlebar and a card.
+   Where the surface sits is the one thing this route cannot say in markup, because the registry
+   renders that element and takes no class from here. */
+const SHELL = "marketplace-workflow-window flex min-h-0 flex-1 flex-col text-ink";
+const SHELL_HEADER = `marketplace-workflow-header ${WINDOW_TITLEBAR}`;
+const SHELL_CARD = `marketplace-workflow-card ${WINDOW_BODY}`;
+const SHELL_BODY = "marketplace-workflow-body flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto overscroll-contain px-4.5 pt-3 pb-4";
+const SHELL_FOOTER = "marketplace-workflow-footer flex min-h-16.5 flex-none items-center gap-4 px-4.5 pt-3 pb-4";
 
 /* A field block inside a workflow: a mono caps label over a source-backed reason. */
 const FIELD_BLOCK = "grid min-w-0 gap-1.75 rounded-cell bg-surface-sunken p-3";
@@ -180,10 +181,13 @@ interface WorkflowFrameProps {
 }
 
 function WorkflowContents({ kind, title, description, onCancel, children, finalLabel, finalReason }: WorkflowFrameProps) {
-  return <div className={WINDOW} data-workflow={kind}>
-    <header className={WINDOW_HEADER}><div className="grid min-w-0 flex-1 gap-1.25"><h2 className="m-0 type-xl font-normal">{title}</h2><p className="m-0 type-sm leading-copy text-muted">{description}</p></div><button className={WINDOW_CLOSE} type="button" aria-label={`Close ${title}`} onClick={onCancel}><X className="w-3.25" aria-hidden="true" /></button></header>
-    <div className={WINDOW_BODY}>{children}</div>
-    <footer className={WINDOW_FOOTER}><small className="m-0 flex-1 font-mono type-xs leading-copy text-muted wrap-anywhere" id="marketplace-workflow-final-reason">{finalReason} The final action is disabled.</small><button className={WINDOW_ACTION} type="button" aria-disabled="true" aria-describedby="marketplace-workflow-final-reason">{finalLabel}</button></footer>
+  return <div className={SHELL} data-workflow={kind}>
+    <header className={SHELL_HEADER}><h2 className="m-0 min-w-0 flex-1 truncate type-xl font-normal">{title}</h2><WindowClose label={`Close ${title}`} onClick={onCancel} /></header>
+    <div className={SHELL_CARD}>
+    <div className={SHELL_BODY}><p className="m-0 flex-none type-sm leading-copy text-muted">{description}</p>{children}</div>
+    <i className="mx-4.5 h-px flex-none bg-divider" aria-hidden="true" />
+    <footer className={SHELL_FOOTER}><small className="m-0 flex-1 font-mono type-xs leading-copy text-muted wrap-anywhere" id="marketplace-workflow-final-reason">{finalReason} The final action is disabled.</small><button className={MODAL_ACTION_GHOST} type="button" aria-disabled="true" aria-describedby="marketplace-workflow-final-reason">{finalLabel}</button></footer>
+    </div>
   </div>;
 }
 

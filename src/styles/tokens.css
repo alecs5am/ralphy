@@ -117,7 +117,7 @@ html[data-theme="dark"] {
   --instrument-alert-text: #050505;
   --instrument-alert-bright: #EB4438;
   --instrument-danger-fill: #E0362C;
-  --instrument-brand: #625CC6;
+  --instrument-brand: #0071E3;
   --instrument-brand-ink: #FFFFFF;
   --instrument-error-text: #E8E8E6;
   --instrument-traffic-close: #ED6A5E;
@@ -239,7 +239,7 @@ html[data-theme="light"] {
   --instrument-alert-text: #050505;
   --instrument-alert-bright: #EB4438;
   --instrument-danger-fill: #E0362C;
-  --instrument-brand: #625CC6;
+  --instrument-brand: #0071E3;
   --instrument-brand-ink: #FFFFFF;
   --instrument-error-text: #E8E8E6;
   --instrument-traffic-close: #ED6A5E;

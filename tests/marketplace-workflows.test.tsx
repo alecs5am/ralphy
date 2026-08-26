@@ -203,7 +203,13 @@ describe("Marketplace non-mutating action reviews", () => {
   test("uses an opaque semantic dialog surface and readable compact state tokens", () => {
     // The window names its own opaque surface and ink; the stylesheet keeps only the positioned
     // overlay element the registry renders, which takes no className from here.
-    expect(workflowSource).toMatch(/const WINDOW = "marketplace-workflow-window[^"]*\bbg-surface\b[^"]*\btext-ink\b/);
+    // The registry's managed surface is the window rim now, so this route brings the titlebar and
+    // the card and no second rim. It still states the theme ink itself -- the workflow is
+    // portalled outside the work-mode scope.
+    expect(workflowSource).toMatch(/const SHELL = "marketplace-workflow-window[^"]*\btext-ink\b[^"]*"/);
+    expect(workflowSource).not.toMatch(/const SHELL = [^\n]*\$\{WINDOW\}/);
+    expect(workflowSource).toMatch(/const SHELL_CARD = `marketplace-workflow-card \$\{WINDOW_BODY\}`/);
+    expect(workflowSource).toContain('from "../../components/ui/Window"');
     expect(marketplaceStyles).toMatch(/\[data-instrument-overlay="target-chooser"\]\s*\{[^}]*position:\s*fixed/s);
     expect(marketplaceStyles).not.toContain("var(--sidebar)");
     expect(marketplaceStyles).not.toContain("box-shadow");

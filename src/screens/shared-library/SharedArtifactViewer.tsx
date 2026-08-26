@@ -8,7 +8,7 @@ import { ImageViewport } from "../../components/media/ImageViewport";
 import { VideoPlayer } from "../../components/media/VideoPlayer";
 import { bridge } from "../../lib/ipc";
 import { presentSharedArtifact, type Availability, type SharedArtifactPresentation } from "./presentation";
-import { WINDOW, WINDOW_CARD, WINDOW_TITLEBAR, WindowClose } from "../../components/ui/Window";
+import { Modal } from "../../components/ui/Modal";
 
 /* The viewer is a full-surface light widget: its own surface, the stage and the context rail one
    step down, and a block inside the rail one step up again. Controls that stand on media take the
@@ -176,7 +176,7 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
   const [revisions, setRevisions] = useState<RevisionState>({ items: [], nextCursor: null, loading: true, error: null });
   const [selection, setSelection] = useState<SelectionState>({ status: "idle" });
   const [openState, setOpenState] = useState<"idle" | "pending" | "error">("idle");
-  const surfaceRef = useRef<HTMLElement>(null);
+  const surfaceRef = useRef<HTMLDivElement>(null);
   const detailRequest = useRef(0);
   const previewRequest = useRef(0);
   const revisionRequest = useRef(0);
@@ -330,20 +330,28 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
   const topLine = [detail.kind, detail.mime ?? "MIME unavailable", `Slug · ${detail.slug}`]
     .map((value) => value.toLocaleUpperCase()).join(" · ");
 
-  return <Dialog.Root open onOpenChange={(open) => { if (!open) close(); }}>
-    <Dialog.Portal container={typeof document === "undefined" ? undefined : document.body}>
-      <Dialog.Content asChild data-instrument-overlay="shared-viewer"
-        onOpenAutoFocus={(event) => { event.preventDefault(); surfaceRef.current?.focus({ preventScroll: true }); }}
-        onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(); }}>
-        <section ref={surfaceRef} tabIndex={-1} className={`shared-artifact-viewer @container/shared-viewer fixed inset-0 z-viewer m-auto h-shared-viewer-height w-shared-viewer-width text-ink ${WINDOW}`} aria-label={`Preview ${detail.slug}`}>
-          <header className={`shared-viewer-head ${WINDOW_TITLEBAR}`}>
-            <span className="min-w-0 flex-1 truncate font-code type-mono-sm tracking-caps text-muted">{topLine}</span>
-            <button className={ACTION} type="button" aria-label="Open original" aria-describedby={detail.preview === "no-target" ? targetlessActionId : undefined} disabled={detail.preview === "no-target" || openState === "pending"} onClick={() => { void openOriginal(); }}><ExternalLink aria-hidden="true" />{openState === "pending" ? "Opening original…" : "Open original"}</button>
-            <WindowClose label="Close viewer" onClick={close} />
-          </header>
-          {/* The viewer is measured against itself: it owns the whole surface, so its own width is
-              the only width that can decide whether the stage and the context rail stack. */}
-          <div className={`shared-viewer-body flex items-stretch gap-4 p-3.5 @max-shared-viewer/shared-viewer:flex-col @max-shared-viewer/shared-viewer:overflow-y-auto ${WINDOW_CARD}`}>
+  return <Modal
+    id="shared-viewer"
+    open
+    onOpenChange={(open) => { if (!open) close(); }}
+    size="h-shared-viewer-height w-shared-viewer-width"
+    layer="viewer"
+    className="shared-artifact-viewer @container/shared-viewer"
+    /* The head is one line of facts about the artifact, which is also its name here: there is no
+       separate heading, because the slug and the kind are the identity. */
+    title={topLine}
+    titleClassName="m-0 min-w-0 flex-1 truncate font-code type-mono-sm tracking-caps text-muted"
+    description={`Preview ${detail.slug}`}
+    descriptionClassName="sr-only"
+    closeLabel="Close viewer"
+    actions={<button className={ACTION} type="button" aria-label="Open original" aria-describedby={detail.preview === "no-target" ? targetlessActionId : undefined} disabled={detail.preview === "no-target" || openState === "pending"} onClick={() => { void openOriginal(); }}><ExternalLink aria-hidden="true" />{openState === "pending" ? "Opening original…" : "Open original"}</button>}
+    card="raw"
+    titlebarClassName="shared-viewer-head"
+    bodyClassName="shared-viewer-body flex items-stretch gap-4 p-3.5 @max-shared-viewer/shared-viewer:flex-col @max-shared-viewer/shared-viewer:overflow-y-auto"
+    surfaceRef={surfaceRef}
+    onOpenAutoFocus={(event) => { event.preventDefault(); surfaceRef.current?.focus({ preventScroll: true }); }}
+    onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(); }}
+  >
             <div className="shared-viewer-main flex min-h-0 min-w-0 flex-1 flex-col gap-2.5">
               <div className="shared-viewer-stage relative grid min-h-0 min-w-0 flex-1 place-items-center overflow-hidden rounded-menu bg-surface [&>:is(.custom-video-player,.audio-waveform-player)]:w-full [&>:is(.custom-video-player,.audio-waveform-player)]:max-w-shared-stage-media [&>.custom-video-player]:h-full [&_.custom-video-player_.viewer-video]:object-contain @max-shared-viewer/shared-viewer:h-shared-stage-basis @max-shared-viewer/shared-viewer:min-h-shared-stage @max-shared-viewer/shared-viewer:flex-none">
                 <ViewerStage artifact={detail} preview={preview} kind={kind} onPreviewError={() => setPreview({ status: "unavailable", reason: "The preview media could not be decoded or loaded." })} />
@@ -405,9 +413,5 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
               {onOpenInspector && <button className={`${ACTION} w-full flex-none`} type="button" onClick={() => onOpenInspector(detail)}><PanelRight aria-hidden="true" />Open full inspector</button>}
               <small className="font-code type-mono-sm tracking-meta text-muted">← → ARTIFACT · MEDIA CONTROLS ARE LABELLED · ESC CLOSE</small>
             </aside>
-          </div>
-        </section>
-      </Dialog.Content>
-    </Dialog.Portal>
-  </Dialog.Root>;
+  </Modal>;
 }

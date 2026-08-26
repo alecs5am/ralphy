@@ -118,7 +118,7 @@ describe("instrument color contract", () => {
 
   test("keeps every palette value in the complete authored-color allowlist", () => {
     expect(INSTRUMENT_COLOR_ALLOWLIST).toEqual([
-    "#050505", "#060606", "#111111", "#141414", "#181818", "#1A1A1A", "#1C1C1C", "#1D1D1D",
+    "#0071E3", "#050505", "#060606", "#111111", "#141414", "#181818", "#1A1A1A", "#1C1C1C", "#1D1D1D",
     "#1E1E1E", "#207070", "#232323", "#242422", "#242424", "#262626", "#2A1615", "#2D2D2D",
     "#2E2E2E", "#2F2F2F", "#343434", "#37808E", "#38698A", "#3A3A38", "#3A3A3A", "#3F3F3D",
     "#426F4C", "#4A4A48", "#4A72AD", "#5C5C58", "#5CC45C", "#5F5D8C", "#625CC6", "#6A6630",

@@ -27,9 +27,10 @@
 }
 
 /* The workflow overlay surface. InstrumentOverlay renders it and passes no className through,
-   so where it sits and how wide it is cannot be a utility; the window inside it carries its own
-   surface, radius, stacking and scrolling. The backdrop is the same element story: its tone and
-   its place in the chooser stack are the only things overridden here. */
+   so where it sits and how wide it is cannot be a utility; the registry's own managed surface
+   gives it the window chrome, and the route inside it brings the titlebar and the card. The
+   backdrop is the same element story: its tone and its place in the chooser stack are the only
+   things overridden here. */
 [data-instrument-overlay-backdrop]:has(+ [data-instrument-overlay="target-chooser"]) {
   z-index: var(--z-chooser-backdrop);
   background: var(--instrument-media-veil);

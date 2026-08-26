@@ -7,6 +7,8 @@
    on-instrument family. The action bases below carry geometry and behaviour only — each caller
    states its own surface and the ink that goes with it. */
 
+import { MODAL_ACTION } from "../../components/ui/Modal";
+
 /* A section spans the whole desk row; the half-width form splits once the desk is wide enough
    for two readable columns. The grid is the desk's own, so the sidebar or the chat rail taking
    width re-flows it with no viewport breakpoint.
@@ -77,5 +79,9 @@ export const DRAWER_CELL_TITLE = "m-0 mb-3 type-base font-normal text-ink";
 export const DRAWER_CELL_COPY = "m-0 mt-2 type-xs leading-copy text-muted";
 export const DRAWER_FOOTER_ROW = "flex items-center gap-3";
 export const DRAWER_FOOTER_NOTE = "type-xs leading-footnote text-muted";
-export const DRAWER_ACTION = "command-button inline-flex min-h-7.5 min-w-35 flex-none items-center justify-center gap-2 rounded-control bg-surface px-3 type-sm text-ink disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
+/* The geometry and behaviour come from the modal kit -- these sit in a modal footer beside its
+   other actions, and a private copy is how this one ended up 2px shorter than them. The tone
+   stays here: `bg-surface` reads both on the detail's white card and inside a sunken cell, which
+   the kit's own sunken ghost would disappear into. */
+export const DRAWER_ACTION = `command-button min-w-35 bg-surface text-ink hover:bg-surface-hover ${MODAL_ACTION}`;
 export const DRAWER_GLYPH = "size-4";

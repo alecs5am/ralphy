@@ -14,11 +14,12 @@ import { bridge } from "../lib/ipc";
 import { projectGlyphVars } from "../lib/project-glyph";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
 import type { WorkspaceCalendarNavigationContext } from "../state/workbench";
+import { Modal } from "../components/ui/Modal";
 import { WINDOW, WINDOW_BODY, WINDOW_TITLEBAR, WindowClose } from "../components/ui/Window";
 import {
   ACTION, BLOCK_LABEL, CHECK_BOX, CHECK_MARK_ON_INSTRUMENT, CHECK_MARK_ON_SURFACE, DOT, dotTone,
   INSTRUMENT_ACTION, INSTRUMENT_ACTION_PRIMARY, INSTRUMENT_ICON, INSTRUMENT_TAB, OVERLAY_ACTION,
-  OVERLAY_ACTION_PRIMARY, OVERLAY_FIELD_RING, OVERLAY_RING, OVERLAY_SCRIM, QUIET_TEXT, STATE_LINE,
+  OVERLAY_ACTION_PRIMARY, OVERLAY_FIELD_RING, OVERLAY_RING, QUIET_TEXT, STATE_LINE,
   STATE_PLATE,
 } from "./calendar-memory-chrome";
 import {
@@ -412,9 +413,21 @@ function ScheduleDialog({ open, unit, units, accounts, step, initialDate, timezo
   const latestRevision = revisions.at(-1)?.revision ?? unit?.revision ?? null;
   const poster = unit ? { ...unit, thumbnail: activeRevision?.thumbnail ?? unit.thumbnail } : null;
 
-  return <Dialog.Root open={open} onOpenChange={onOpenChange}>{open && <><Dialog.Overlay forceMount className={`calendar-modal-overlay ${OVERLAY_SCRIM} animate-calendar-fade motion-reduce:animate-none`} data-instrument-overlay-backdrop="" /><Dialog.Content forceMount className={`calendar-modal fixed inset-0 z-scrim-content m-auto h-calendar-modal-height w-calendar-modal-width text-ink animate-calendar-modal-in motion-reduce:animate-none ${WINDOW}`} data-instrument-overlay="calendar-schedule">
-    <header className={WINDOW_TITLEBAR}><small className={MODAL_FIELD_LABEL}>{step === "content" ? "SCHEDULE CONTENT" : "PLATFORM SETTINGS"}</small><Dialog.Title className="m-0 min-w-0 flex-1 truncate type-heading font-normal tracking-normal text-ink">{unit?.title ?? "Schedule content"}</Dialog.Title><Dialog.Description className="calendar-modal-description sr-only">Choose a Unit, publishing accounts, time, and publication-specific platform settings.</Dialog.Description><button type="button" className={`calendar-open-unit ${ACTION} h-7 px-2.75 type-sm bg-surface text-ink hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-35 ${OVERLAY_RING}`} disabled={!unit?.projectId} onClick={onOpenUnit}><ArrowUpRight className={ICON} />Open Unit</button><Dialog.Close asChild><button type="button" className={`grid size-7 flex-none place-items-center rounded-control text-muted transition-colors duration-fast ease-instrument hover:bg-surface hover:text-ink motion-reduce:transition-none motion-reduce:duration-0 ${OVERLAY_RING}`} aria-label="Close schedule content"><X className={ICON} /></button></Dialog.Close></header>
-    <div className={WINDOW_BODY}>
+  return <Modal
+    id="calendar-schedule"
+    open={open}
+    onOpenChange={onOpenChange}
+    size="h-calendar-modal-height w-calendar-modal-width"
+    className="calendar-modal animate-calendar-modal-in motion-reduce:animate-none"
+    scrimClassName="calendar-modal-overlay"
+    eyebrow={<small className={MODAL_FIELD_LABEL}>{step === "content" ? "SCHEDULE CONTENT" : "PLATFORM SETTINGS"}</small>}
+    title={unit?.title ?? "Schedule content"}
+    titleClassName="m-0 min-w-0 flex-1 truncate type-heading font-normal tracking-normal text-ink"
+    description="Choose a Unit, publishing accounts, time, and publication-specific platform settings."
+    descriptionClassName="calendar-modal-description sr-only"
+    closeLabel="Close schedule content"
+    actions={<button type="button" className={`calendar-open-unit ${ACTION} h-7 px-2.75 type-sm bg-surface text-ink hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-35 ${OVERLAY_RING}`} disabled={!unit?.projectId} onClick={onOpenUnit}><ArrowUpRight className={ICON} />Open Unit</button>}
+  >
     <div className="calendar-modal-layout grid min-h-0 flex-1 grid-cols-(--calendar-modal-columns) gap-5.5 overflow-y-auto px-6 pb-5 pt-4">
       <aside className="calendar-modal-unit relative flex w-75 flex-col gap-3">
         <div className="calendar-modal-poster-wrap relative h-100 w-75 flex-none">{poster ? <CalendarThumb event={poster} className="calendar-modal-poster h-100 w-75 rounded-poster [&_i]:type-poster-glyph" /> : <span className="calendar-modal-poster is-empty block h-100 w-75 rounded-poster bg-surface-sunken" />}<span className="absolute left-2.5 top-2.5 flex h-5 items-center rounded-chip bg-media-plate px-2 font-code type-mono-md text-on-instrument">{unit?.kind ?? "No unit"}</span></div>
@@ -430,8 +443,7 @@ function ScheduleDialog({ open, unit, units, accounts, step, initialDate, timezo
     </div>
     <i className="mx-6 h-px flex-none bg-divider" aria-hidden="true" />
     <footer className="flex flex-none items-center gap-4.5 px-6 pb-4.25 pt-3.25"><small className="max-w-calendar-note font-code type-mono-sm leading-row text-muted">{step === "content" ? "Published through Postiz — selected accounts leave as one publication. Channel staggering lives in Platform settings." : "Settings belong to this publication, not the account. The next publication starts from platform defaults."}</small><span className="ml-auto flex gap-2">{step === "content" ? <><button type="button" className={`${OVERLAY_ACTION} disabled:cursor-not-allowed disabled:opacity-35`} disabled={!unit || saving || selectedChannels.length === 0} onClick={() => onSave(false, at(), payload(), revisionId)}>Save as draft</button><button type="button" className={`calendar-primary ${OVERLAY_ACTION_PRIMARY} disabled:cursor-not-allowed disabled:opacity-35`} disabled={!unit || !postizAvailable || saving || selectedChannels.length === 0} onClick={() => onSave(true, at(), payload(), revisionId)}>{saving ? "Saving…" : `Schedule ${selectedChannels.length} ${selectedChannels.length === 1 ? "publication" : "publications"}`}</button></> : <><button type="button" className={OVERLAY_ACTION} onClick={() => { setSettings(settingsForChannels(channels)); setEditedIds(new Set()); }}>Reset to defaults</button><button type="button" className={`calendar-primary ${OVERLAY_ACTION_PRIMARY}`} onClick={() => onStep("content")}><ArrowLeft className={ICON_LG} />Back to schedule</button></>}</span></footer>
-    </div>
-  </Dialog.Content></>}</Dialog.Root>;
+  </Modal>;
 }
 
 function CalendarDatePicker({ value, onChange, onClose }: { value: string; onChange(value: string): void; onClose(): void }) {
@@ -475,15 +487,24 @@ function usePickerDismiss(onClose: () => void) {
 }
 
 function ReconnectDialog({ account, credential, saving, onCredential, onOpenChange, onSave }: { account: CalendarWorkspaceDto["accounts"][number] | null; credential: string; saving: boolean; onCredential(value: string): void; onOpenChange(open: boolean): void; onSave(): void }) {
-  return <Dialog.Root open={account !== null} onOpenChange={onOpenChange}>{account && <><Dialog.Overlay forceMount className="calendar-reconnect-overlay fixed inset-0 z-inspector" data-instrument-overlay-backdrop="" /><Dialog.Content forceMount className={`calendar-reconnect-dialog fixed inset-0 z-inspector-float m-auto h-fit w-calendar-reconnect text-ink ${WINDOW}`} data-instrument-overlay="calendar-reconnect">
-    <header className={WINDOW_TITLEBAR}><Dialog.Title className="m-0 min-w-0 flex-none truncate type-heading font-normal text-ink">Reconnect {account.handle}</Dialog.Title><Dialog.Close asChild><button type="button" className={`grid size-7 flex-none place-items-center rounded-control text-muted transition-colors duration-fast ease-instrument hover:bg-chip hover:text-ink motion-reduce:transition-none motion-reduce:duration-0 ${OVERLAY_RING}`} aria-label="Close reconnect"><X className={ICON} /></button></Dialog.Close></header>
-    <div className={`calendar-reconnect-card gap-4 p-5 ${WINDOW_BODY}`}>
-    <Dialog.Description className="m-0 type-sm leading-row text-muted">Replace the expired Postiz credential for this {capitalize(account.platform)} account.</Dialog.Description>
+  return <Modal
+    id="calendar-reconnect"
+    open={account !== null}
+    onOpenChange={onOpenChange}
+    size="h-fit w-calendar-reconnect"
+    className="calendar-reconnect-dialog"
+    title={account ? `Reconnect ${account.handle}` : "Reconnect"}
+    titleClassName="m-0 min-w-0 flex-1 truncate type-heading font-normal text-ink"
+    description={account ? `Replace the expired Postiz credential for this ${capitalize(account.platform)} account.` : ""}
+    descriptionClassName="sr-only"
+    closeLabel="Close reconnect"
+    bodyClassName="calendar-reconnect-card gap-4 p-5"
+  >{account && <>
+    <p className="m-0 type-sm leading-row text-muted">Replace the expired Postiz credential for this {capitalize(account.platform)} account.</p>
     <label className={`flex flex-col gap-1.75 ${OVERLAY_FIELD_RING}`}><span className={MODAL_FIELD_LABEL}>POSTIZ API KEY</span><input className={`${MODAL_INPUT} h-9`} type="password" autoComplete="off" value={credential} placeholder="Paste the scoped Postiz key" onChange={(event) => onCredential(event.target.value)} /></label>
     <small className="font-code type-mono-sm leading-prose text-muted">The key is sent only to Ralphy Core and stored in its encrypted credential store. It is never written to the calendar database.</small>
     <footer className="flex justify-end gap-2"><Dialog.Close asChild><button type="button" className={OVERLAY_ACTION}>Cancel</button></Dialog.Close><button type="button" className={`calendar-primary ${OVERLAY_ACTION_PRIMARY} disabled:cursor-not-allowed disabled:opacity-35`} disabled={saving || credential.trim().length < 8} onClick={onSave}>{saving ? "Reconnecting…" : "Save and reconnect"}</button></footer>
-    </div>
-  </Dialog.Content></>}</Dialog.Root>;
+  </>}</Modal>;
 }
 
 function PlatformSettings({ unit, channels, accounts, activeId, editedIds, settings, onActive, onChange, onReconnect }: { unit: CalendarReadyUnitDto | null; channels: CalendarReadyUnitDto["channels"]; accounts: CalendarWorkspaceDto["accounts"]; activeId: string | null; editedIds: Set<string>; settings: CalendarPublicationSettings; onActive(id: string): void; onChange(presentationId: string, key: string, value: JsonValue): void; onReconnect(accountId: string | null): void }) {

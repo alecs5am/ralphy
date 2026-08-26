@@ -90,7 +90,6 @@
 
   /* The two workflow entrances. The keyframes live in shared-library.css, which is all that
      stylesheet still holds beyond the reduced-motion contract. */
-  --animate-shared-workflow-fade: shared-workflow-fade 160ms var(--ease);
   --animate-shared-workflow-in: shared-workflow-in 220ms var(--ease);
 
   /* Breakpoints read against a container and never the window: the sidebar and the chat rail

@@ -71,6 +71,10 @@
   --color-brand-ink: var(--instrument-brand-ink);
   --color-divider: var(--instrument-divider);
 
+  /* The one entrance every modal's scrim takes. instrument.css owns the keyframe, beside the
+     scrim's own tone. */
+  --animate-overlay-fade: overlay-fade var(--dur) linear;
+
   /* The radius and type scales, named by role. tokens.css owns the values; naming them here is
      what makes `text-base` and `var(--text-base)` the same decision instead of two. */
   --radius-panel: var(--radius-panel);

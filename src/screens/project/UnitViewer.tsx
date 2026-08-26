@@ -14,6 +14,7 @@ import { preferredUnitPoster, resolveUnitMedia, socialTargets, unitPreviewKind, 
 import type { ProjectScreenController, ProjectScreenSnapshot } from "../../state/project-screen-controller";
 import { UnitSocialPreview } from "./UnitSocialPreview";
 import { WINDOW, WINDOW_BODY, WINDOW_TITLEBAR, WindowClose } from "../../components/ui/Window";
+import { UnitStatus } from "./unit-status";
 
 const formatTime = (value: number) => new Date(value < 1_000_000_000_000 ? value * 1000 : value).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 const formatDuration = (value: number) => `${Math.floor((Number.isFinite(value) ? value : 0) / 60)}:${Math.floor((Number.isFinite(value) ? value : 0) % 60).toString().padStart(2, "0")}`;
@@ -26,8 +27,6 @@ const META_LABEL = "block mb-2 font-code type-meta tracking-block text-muted";
 const META_SECTION = "unit-meta-section min-w-0 [&>div]:[corner-shape:squircle]";
 // A status pill states its tone with the dot; the label stays readable ink, and the label text
 // already names the state, so nothing here is colour-only.
-const STATUS_PILL = "inline-flex h-5 items-center gap-1.5 rounded-control bg-ink/13 px-2 type-mono-md whitespace-nowrap text-ink";
-const statusDot = (tone: string) => ({ ok: "bg-ink", warn: "bg-muted", danger: "bg-alert" } as Record<string, string>)[tone] ?? "bg-muted";
 // The stepper mark is a ring, not a plate: an inset shadow leaves the design free of borders.
 const MARK_PENDING = "[box-shadow:inset_0_0_0_1.5px_var(--color-track-on-instrument)]";
 const MARK_CURRENT = "[box-shadow:inset_0_0_0_1.5px_var(--color-ink)] after:size-1.5 after:rounded-full after:bg-ink after:[content:'']";
@@ -36,10 +35,6 @@ const MARK_DONE = "bg-ink/15 text-ink";
 // surface and the tooltip that is the only visible label these icon tabs have.
 const STAGE_TABS = "[&_.gooey-tabs]:grid [&_.gooey-tabs]:w-auto [&_.gooey-tabs]:min-w-0 [&_.gooey-tabs]:[grid-template-columns:repeat(var(--gooey-count),var(--gooey-cell-width))] [&_.gooey-tabs]:gap-0.5 [&_.gooey-tabs]:overflow-visible [&_.gooey-tabs]:rounded-control [&_.gooey-tabs]:bg-surface [&_.gooey-tabs]:p-0.5 [&_.gooey-tabs]:[--gooey-cell-width:32px] [&_.gooey-tabs]:[grid-auto-columns:unset] [&_.gooey-tabs]:[grid-auto-flow:unset] [&_.gooey-tabs-blobs]:hidden [&_.gooey-tabs_button]:relative [&_.gooey-tabs_button]:w-(--gooey-cell-width) [&_.gooey-tabs_button]:min-w-0 [&_.gooey-tabs_button]:rounded-control [&_.gooey-tabs_button]:p-0 [&_.gooey-tabs_button[aria-selected=true]]:bg-surface [&_.gooey-tabs_button>svg]:size-3.25";
 const STAGE_TAB_TOOLTIP = "[&_button[data-tooltip]]:after:pointer-events-none [&_button[data-tooltip]]:after:absolute [&_button[data-tooltip]]:after:bottom-[calc(100%_+_7px)] [&_button[data-tooltip]]:after:left-1/2 [&_button[data-tooltip]]:after:z-header [&_button[data-tooltip]]:after:-translate-x-1/2 [&_button[data-tooltip]]:after:translate-y-0.5 [&_button[data-tooltip]]:after:rounded-chip [&_button[data-tooltip]]:after:bg-ghost [&_button[data-tooltip]]:after:px-1.75 [&_button[data-tooltip]]:after:py-1 [&_button[data-tooltip]]:after:type-xs [&_button[data-tooltip]]:after:leading-pill [&_button[data-tooltip]]:after:text-on-instrument [&_button[data-tooltip]]:after:opacity-0 [&_button[data-tooltip]]:after:[content:attr(data-tooltip)] [&_button[data-tooltip]]:after:[transition:opacity_var(--dur)_var(--ease),transform_var(--dur)_var(--ease)] [&_button[data-tooltip]]:after:motion-reduce:[transition:none] [&_button[data-tooltip]:hover]:after:translate-y-0 [&_button[data-tooltip]:hover]:after:opacity-100 [&_button[data-tooltip]:focus-visible]:after:translate-y-0 [&_button[data-tooltip]:focus-visible]:after:opacity-100";
-
-function Status({ lifecycle }: { lifecycle: UnitLifecycle }) {
-  return <span className={`unit-status status-${lifecycle.tone} ${STATUS_PILL}`}><span className={`size-1.25 flex-none rounded-full ${statusDot(lifecycle.tone)}`} aria-hidden="true" />{lifecycle.label}</span>;
-}
 
 function LifecycleStepper({ lifecycle }: { lifecycle: UnitLifecycle }) {
   const current = lifecycle.label === "Published" ? 2 : lifecycle.label === "Scheduled" ? 1 : 0;
@@ -193,7 +188,7 @@ export function UnitViewer({
         <header className={`unit-viewer-header ${WINDOW_TITLEBAR}`}>
           <Dialog.Title className="m-0 min-w-0 flex-none truncate type-heading font-normal text-ink">{unit?.slug ?? "Unit"}</Dialog.Title>
           <Dialog.Description className="m-0 flex-none rounded-control bg-chip px-2.25 type-xs leading-5.5 text-muted">{unit?.format ?? "Loading Unit"}</Dialog.Description>
-          {lifecycle && <Status lifecycle={lifecycle} />}
+          {lifecycle && <UnitStatus lifecycle={lifecycle} />}
           <small className="unit-viewer-state min-w-0 flex-1 truncate font-code type-meta text-muted">{revision ? `R${revision.revisionNo} \u00b7 ${formatTime(revision.createdAt)}` : "Loading revision"}</small>
           <div className="unit-viewer-actions flex flex-none items-center gap-2">
             {revision && lifecycle && primaryLabel ? <button className="unit-primary-action inline-flex h-8 items-center gap-1.75 rounded-control bg-brand px-3.5 type-ui text-brand-ink hover:opacity-88 disabled:opacity-45 [&_svg]:size-3.25" type="button" disabled={pending || revision.sealedAt === null || (lifecycle.action !== "select" && lifecycle.action !== "none" && !productionRevision)} onClick={runPrimaryAction}>{lifecycle.action === "select" ? <Check /> : lifecycle.action === "retry" ? <Clock3 /> : lifecycle.label === "Published" ? <ExternalLink /> : <Play />}{snapshot.unitMutation === "select" ? "Choosing\u2026" : snapshot.compositionMutation === "build" ? "Rendering\u2026" : primaryLabel}</button> : null}
