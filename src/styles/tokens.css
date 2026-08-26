@@ -105,6 +105,7 @@ html[data-theme="dark"] {
   --instrument-chat-field: #262626;
   --instrument-chat-control: #2F2F2F;
   --instrument-chat-control-hover: #3A3A3A;
+  --instrument-divider: #2E2E2E;
   --instrument-widget-dark: #141414;
   --instrument-widget-dark-raised: #1E1E1E;
   --instrument-widget-dark-hover: #1C1C1C;
@@ -153,7 +154,6 @@ html[data-theme="dark"] {
   --instrument-track-on-dark: #3A3A38;
   --instrument-ghost: #262626;
   --instrument-ghost-hover: #2E2E2E;
-  --instrument-divider: #DFE2E9;
   --instrument-focus-on-light: #111111;
   --instrument-focus-on-dark: #DFE2E9;
   --instrument-composer-surface: #F2F2F0;
@@ -225,6 +225,7 @@ html[data-theme="light"] {
   --instrument-chat-field: #F4F5F8;
   --instrument-chat-control: #F1F2F4;
   --instrument-chat-control-hover: #E7E9ED;
+  --instrument-divider: #DFE2E9;
   --instrument-widget-dark: #141414;
   --instrument-widget-dark-raised: #1E1E1E;
   --instrument-widget-dark-hover: #1C1C1C;
@@ -267,7 +268,6 @@ html[data-theme="light"] {
   --instrument-track-on-dark: #3A3A38;
   --instrument-ghost: #262626;
   --instrument-ghost-hover: #2E2E2E;
-  --instrument-divider: #DFE2E9;
   --instrument-focus-on-light: #111111;
   --instrument-focus-on-dark: #DFE2E9;
   --instrument-composer-surface: #F2F2F0;

@@ -37,6 +37,7 @@ import { AgentFailure, AgentThread } from "./agent/AgentThread";
 import { AgentMark } from "./ui/AgentMark";
 import { AiBrandIcon } from "./AiBrandIcon";
 import { InstrumentOverlay } from "../instrument/overlay-registry";
+import { WINDOW, WINDOW_BODY } from "./ui/Window";
 
 /**
  * Handoff 17's chat panel. The chat is a light surface by design -- a card inside the zone's
@@ -207,7 +208,7 @@ export function AgentChatPanel({
       /* Chrome around a card, the same two layers the view panel and the sidebar stand on: a 2px
          run of panel around a widget one radius step in. tokens.css keys the squircle on this
          class, and `--blur` is `none`, so `.panel-blur` adds nothing. */
-      className="utility-right-panel panel-blur flex min-h-0 min-w-0 flex-col overflow-hidden rounded-window bg-panel p-0.5 text-ink"
+      className={`utility-right-panel panel-blur ${WINDOW} text-ink`}
       initial={{ x: 24, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 24, opacity: 0 }}
@@ -242,7 +243,7 @@ export function AgentChatPanel({
         </span>
       </header>
 
-      <div className="utility-right-panel-card flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-frame bg-card">
+      <div className={`utility-right-panel-card ${WINDOW_BODY}`}>
       {!chat.connected ? (
         <AgentConnection chat={chat} />
       ) : (

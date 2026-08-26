@@ -3,6 +3,7 @@ import { Fragment, useEffect, useRef, useState, type MouseEvent, type ReactNode 
 
 import type { ContextBlockDto, ContextRail } from "../../../electron/agent/context-document";
 import { MarkdownView } from "../../components/MarkdownView";
+import { Window } from "../../components/ui/Window";
 
 /**
  * The prompt, as a document: one scroll of blocks in the order the turn carries them, each with a
@@ -273,7 +274,7 @@ export function ContextDocument({ blocks, provider, total, window: modelWindow, 
 
   /* The same frame as the sidebar, the chat and the chat's utility panel: a panel plate at the
      window radius, one 2px gutter, and the content on a card at the frame radius. */
-  return <div className="context-document mx-auto flex w-full max-w-context-column flex-col overflow-hidden rounded-window bg-panel p-0.5">
+  return <Window className="context-document mx-auto w-full max-w-context-column">
     <div className="flex min-h-10 flex-wrap items-center gap-2.5 px-3 py-1.5">
       <span className={`${MONO} type-mono-sm text-muted`}>WHAT THE AGENT SEES</span>
       <span className={META}>{`${provider.toLocaleUpperCase()} · NEXT TURN`}</span>
@@ -323,5 +324,5 @@ export function ContextDocument({ blocks, provider, total, window: modelWindow, 
       </Fragment>)}
       <span className={`${META} pt-3 text-center`}>END OF CONTEXT · WHAT IS NOT HERE, THE AGENT DOES NOT KNOW</span>
     </div>
-  </div>;
+  </Window>;
 }

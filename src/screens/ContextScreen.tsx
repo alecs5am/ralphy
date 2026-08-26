@@ -18,6 +18,7 @@ import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrumen
 import { EMPTY_SECTION, PROJECT_LOCAL_ERROR, PROJECT_SKELETON } from "./route-chrome";
 import { ContextDocument, followPath, linkPaths, markPaths } from "./context/ContextDocument";
 import { MarkdownView } from "../components/MarkdownView";
+import { Window, WINDOW } from "../components/ui/Window";
 
 export const contextInstrumentStates = defineInstrumentScreenStates({
   routeKey: "workspace.context",
@@ -211,7 +212,7 @@ function Reader({ file, onRead, onClose }: {
     <Dialog.Portal container={typeof document === "undefined" ? undefined : document.body}>
       <Dialog.Overlay className="fixed inset-0 z-scrim" data-instrument-overlay-backdrop="" />
       <Dialog.Content
-        className="context-reader fixed inset-6 z-scrim-content m-auto flex h-fit max-h-context-reader w-full max-w-context-column flex-col overflow-hidden rounded-window bg-panel p-0.5 text-ink outline-none"
+        className={`context-reader fixed inset-6 z-scrim-content m-auto h-fit max-h-context-reader w-full max-w-context-column text-ink outline-none ${WINDOW}`}
         data-instrument-overlay="context-reader"
       >
         <div className="flex h-10 flex-none items-center gap-2.5 px-3">
@@ -324,7 +325,7 @@ export function ContextScreen({ provider, project, workspaceId, usage, onOpenMem
         onRead={read}
       />}
       {page && inventory
-        && <div className="mx-auto flex w-full max-w-context-column flex-col overflow-hidden rounded-window bg-panel p-0.5">
+        && <Window className="mx-auto w-full max-w-context-column">
           <div className="flex h-9 flex-none items-center gap-2.5 px-3">
             <span className={`${MONO} type-mono-sm text-muted`}>CONTEXT</span>
             <span className="truncate type-sm text-ink">{project ? project.name : "this workspace"}</span>
@@ -360,7 +361,7 @@ export function ContextScreen({ provider, project, workspaceId, usage, onOpenMem
               Nothing on this machine to read yet.
             </p>}
           </div>
-        </div>}
+        </Window>}
     </main>
   </InstrumentScreenRoot>;
 }

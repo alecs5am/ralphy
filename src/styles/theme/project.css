@@ -45,9 +45,6 @@
   /* A row that is copy plus one trailing mark, and the viewer's own header/body/footer stack. */
   --project-row-columns: minmax(0, 1fr) auto;
   --project-viewer-rows: auto minmax(0, 1fr) auto;
-
-  /* The stage's tab strip: one fixed cell per platform, counted by GooeyTabs itself. */
-  --project-gooey-columns: repeat(var(--gooey-count), var(--gooey-cell-width));
 }
 
 @theme inline {
@@ -75,9 +72,11 @@
   --spacing-unit-viewer-width: min(1280px, 90vw);  /* the viewer never touches the window edge */
   --spacing-unit-viewer-height: min(880px, 90vh);
   --spacing-iphone: min(100%, 316px);       /* the phone mockup and the transport under it */
+  /* The same phone stated as a height: 316px at --aspect-iphone. A stage taller than this
+     must not stretch the device, and one shorter than it makes the device shrink to fit. */
+  --spacing-iphone-height: 548px;
   --spacing-social-post: min(620px, 100%);  /* a generic post frame */
   --spacing-social-player: min(640px, 100%); /* a 16:9 player frame */
-  --spacing-social-stage: 420px;            /* the stacked stage keeps a usable height */
   --spacing-social-post-height: min(100%, 620px); /* a generic post frame stops growing */
   /* The feed chrome's own proportions, and the safe-area guide's inset. */
   --spacing-social-progress: 31%;

@@ -1,5 +1,11 @@
 @import "tailwindcss" important;
 
+/* The bundled routing pack is agent documentation, not app source. Its skill files show Tailwind
+   examples, and the scanner was compiling those into this stylesheet -- `translate-y-[calc(var(--i)
+   *6px)]` shipped as a real rule whose variable nothing on the page defines. A doc example must
+   not be able to add CSS to the app. */
+@source not "../../resources";
+
 /* Per-area role keys. The shared scales live below; each area owns its own file so parallel
    migrations never contend for one theme block. */
 @import "./theme/settings.css";

@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 // own geometry and its own two tones. The 1px bezel line is gone -- it resolved to the same
 // value as the shell it stood on, so it never drew anything.
 export function IPhoneMockup({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`iphone-mockup relative aspect-iphone h-auto max-h-full w-iphone rounded-iphone bg-device-body p-2${className ? ` ${className}` : ""}`} aria-label="iPhone preview">
+  return <div className={`iphone-mockup relative aspect-iphone h-full max-h-iphone-height w-auto max-w-iphone rounded-iphone bg-device-body p-2${className ? ` ${className}` : ""}`} aria-label="iPhone preview">
     <span className="iphone-mockup-side is-left absolute -left-0.75 top-28 h-14.5 w-0.75 rounded-device-edge bg-device-edge" aria-hidden="true" />
     <span className="iphone-mockup-side is-right absolute -right-0.75 top-35 h-20.5 w-0.75 rounded-device-edge bg-device-edge" aria-hidden="true" />
     <div className="iphone-mockup-screen relative size-full overflow-hidden rounded-iphone-screen bg-frame">

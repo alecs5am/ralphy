@@ -1724,13 +1724,20 @@ describe("design system contract", () => {
     // on. The outer element owns the frame, the inner card owns the widget. Handoff 17 makes that
     // widget a card rather than a black plate -- the chat is a light surface by design -- so the
     // zone's ink is the theme's.
-    const railPlate = /"utility-right-panel ([^"]*)"/.exec(agentRailSource)?.[1] ?? "";
-    expect(railPlate.split(" ")).toContain("bg-panel");
-    expect(railPlate.split(" ")).toContain("p-0.5");
-    expect(railPlate.split(" ")).toContain("rounded-window");
+    // The shell itself is now the `Window` kit component: the rail names it rather than respelling
+    // the two layers, so the contract is checked once, where the chrome is defined.
+    const chrome = readFileSync(join(process.cwd(), "src/components/ui/Window.tsx"), "utf8");
+    const WINDOW = /export const WINDOW = "([^"]*)"/.exec(chrome)?.[1] ?? "";
+    const WINDOW_BODY = /export const WINDOW_BODY = "([^"]*)"/.exec(chrome)?.[1] ?? "";
+    expect(WINDOW.split(" ")).toContain("bg-panel");
+    expect(WINDOW.split(" ")).toContain("p-0.5");
+    expect(WINDOW.split(" ")).toContain("rounded-window");
+    expect(WINDOW).not.toMatch(/\b(?:border-\d|shadow-)/);
+    const railPlate = /`utility-right-panel panel-blur \$\{WINDOW\} ([^`]*)`/.exec(agentRailSource)?.[1] ?? "";
     expect(railPlate.split(" ")).toContain("text-ink");
-    expect(railPlate).not.toMatch(/\b(?:border-\d|shadow-)/);
-    const railCard = /"utility-right-panel-card ([^"]*)"/.exec(agentRailSource)?.[1] ?? "";
+    expect(agentRailSource).toContain('from "./ui/Window"');
+    expect(agentRailSource).toContain("utility-right-panel-card ${WINDOW_BODY}");
+    const railCard = WINDOW_BODY;
     expect(railCard.split(" ")).toContain("bg-card");
     // `rounded-frame`, not `rounded-inner`: handoff 16 makes the card's corner concentric with the
     // shell's, 16 less the 2 of frame, so the frame reads as a hairline rather than as a margin.

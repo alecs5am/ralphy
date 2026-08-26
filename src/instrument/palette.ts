@@ -53,7 +53,6 @@ const shared = {
   trackOnDark: "#3A3A38",
   ghost: "#262626",
   ghostHover: "#2E2E2E",
-  divider: "#DFE2E9",
   focusOnLight: "#111111",
   focusOnDark: "#DFE2E9",
   composerSurface: "#F2F2F0",
@@ -111,6 +110,7 @@ export const INSTRUMENT_PALETTE = {
     chatField: "#F4F5F8",
     chatControl: "#F1F2F4",
     chatControlHover: "#E7E9ED",
+    divider: "#DFE2E9",
     ...shared,
   },
   dark: {
@@ -150,6 +150,7 @@ export const INSTRUMENT_PALETTE = {
     chatField: "#262626",
     chatControl: "#2F2F2F",
     chatControlHover: "#3A3A3A",
+    divider: "#2E2E2E",
     ...shared,
   },
 } as const;

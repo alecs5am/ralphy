@@ -335,8 +335,13 @@ describe("units workbench", () => {
   test("keeps Unit controls flat and centers the phone with its playback rail", () => {
     const reset = readFileSync(join(process.cwd(), "src/styles/reset.css"), "utf8");
     expect(reset).toMatch(/button\s*\{[^}]*background:\s*transparent/s);
-    expect(unitViewer).toMatch(/unit-viewer-close[^"]*hover:bg-transparent/);
-    expect(unitViewer).toMatch(/unit-social-stage[^`]*place-items-center[^`]*bg-transparent/);
+    // Flat at rest: no plate under a control until it is hovered. The close button hovers to
+    // the chip tone the rest of the app uses -- on the panel ground `transparent` was a no-op.
+    expect(unitViewer).toMatch(/unit-viewer-close[^"]*rounded-field text-muted hover:bg-chip/);
+    // The stage centres the device on a ground of its own. It is a flex line rather than a
+    // grid: a percentage max-height needs a definite track, and an auto grid row is not one,
+    // so the phone grew past the column and the modal clipped it.
+    expect(unitViewer).toMatch(/unit-social-stage[^`]*items-center justify-center[^`]*bg-transparent/);
     // The preview frame keeps the 16/9 ratio from its utility class; the previous fixed
     // 150px height plus aspect-ratio:auto squashed every unit card to roughly 2.5:1.
     expect(unitsPanel).toMatch(/unit-card-preview[^"]*aspect-video[^"]*w-full/);
@@ -352,8 +357,13 @@ describe("units workbench", () => {
     expect(unitViewer).toMatch(/unit-stage-toolbar flex[^`]*justify-center/);
     expect(unitViewer).toContain("[&_.gooey-tabs-blobs]:hidden");
     expect(projectTheme).toMatch(/--spacing-iphone:\s*min\(100%, 316px\)/);
-    expect(phoneMockup).toMatch(/iphone-mockup[^`]*h-auto max-h-full w-iphone/);
-    expect(unitViewer).toContain('is-mobile w-iphone');
+    // The device is sized by the height it is given and capped at its own natural size, so it
+    // shrinks to fit a short stage and never stretches in a tall one. `max-h-full` cannot do
+    // this: against an indeterminate track it resolves to none.
+    expect(projectTheme).toMatch(/--spacing-iphone-height:\s*548px/);
+    expect(phoneMockup).toMatch(/iphone-mockup[^`]*h-full max-h-iphone-height w-auto max-w-iphone/);
+    // The transport stops at the same width, so it lines up under the device.
+    expect(unitViewer).toMatch(/unit-playback grid w-full max-w-iphone/);
     expect(unitViewer).toMatch(/unit-playback-seek[^"]*cursor-pointer/);
     expect(unitSocial).toMatch(/unit-social-media relative aspect-video h-auto/);
   });

@@ -61,7 +61,7 @@
   /* The gooey cell size, per tab size. The strip declares which pair it reads so the blob and
      the buttons resolve one width and one height; a caller that wants narrower cells overrides
      `--gooey-cell-width` on the strip. */
-  /* The default pair, so `--project-gooey-columns` in project.css always has a width to read. */
+  /* The default pair a strip reads when its caller names no size. */
   --gooey-cell-width: var(--gooey-cell-m-width);
   --gooey-cell-height: var(--gooey-cell-m-height);
   --gooey-cell-m-width: var(--spacing-gooey-cell-m);

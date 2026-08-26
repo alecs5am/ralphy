@@ -26,6 +26,7 @@ import {
   type ViewTabType,
 } from "../state/view-panel";
 import { Keycap } from "../components/ui/Keycap";
+import { Window, WINDOW_BODY } from "../components/ui/Window";
 import { InstrumentOverlay } from "./overlay-registry";
 
 /**
@@ -154,7 +155,7 @@ export function ViewPanel({ set, width, chords, onSelect, onClose, onOpen, brows
     return box ? { top: box.bottom + 4, right: Math.max(8, window.innerWidth - box.right) } : { top: 48, right: 8 };
   };
 
-  return <div className="view-panel flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-window bg-panel p-0.5">
+  return <Window className="view-panel h-full w-full">
     <div className={STRIP_ROW} role="tablist" aria-label="Workspace views">
       <button
         /* Home is first, permanent, icon-only, and the panel's point of return. It carries no
@@ -194,7 +195,7 @@ export function ViewPanel({ set, width, chords, onSelect, onClose, onOpen, brows
         <Plus size={14} strokeWidth={2} aria-hidden="true" />
       </button>
     </div>
-    <div className="view-panel-page relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-frame bg-card">
+    <div className={`view-panel-page relative ${WINDOW_BODY}`}>
       {children}
       {/* `visibility` rather than `hidden`: a guest under `display: none` is detached, which is the
           reload this layer exists to avoid. */}
@@ -267,7 +268,7 @@ export function ViewPanel({ set, width, chords, onSelect, onClose, onOpen, brows
         })}
       </Anchored>
     </InstrumentOverlay>
-  </div>;
+  </Window>;
 }
 
 /**
