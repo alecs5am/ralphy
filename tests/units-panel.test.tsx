@@ -10,6 +10,7 @@ import * as screen from "../src/screens/ProjectScreen";
 import { UnitSocialPreview } from "../src/screens/project/UnitSocialPreview";
 import type { SocialTarget, UnitMedia } from "../src/lib/unit-previews";
 import { createReactHost, type HostNode } from "./react-host";
+import { WINDOW_CLOSE } from "../src/components/ui/Window";
 
 // The project workbench has no stylesheet of its own any more, so these contracts are read
 // where they now live: the theme file that names each role key and the component that reads it.
@@ -339,8 +340,7 @@ describe("units workbench", () => {
     // now -- a round chip that goes to the alarm under the cursor -- so the tone decision moved
     // with it, and this file only has to keep naming the element.
     expect(unitViewer).toContain('<WindowClose className="unit-viewer-close"');
-    expect(readFileSync(join(process.cwd(), "src/components/ui/Window.tsx"), "utf8"))
-      .toMatch(/WINDOW_CLOSE = "[^"]*rounded-full bg-chip text-muted[^"]*hover:bg-alert/);
+    expect(WINDOW_CLOSE).toMatch(/rounded-full bg-chip text-muted .*hover:bg-alert/);
     // The stage centres the device on a ground of its own. It is a flex line rather than a
     // grid: a percentage max-height needs a definite track, and an auto grid row is not one,
     // so the phone grew past the column and the modal clipped it.

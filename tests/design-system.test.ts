@@ -13,6 +13,8 @@ import { ProjectScreenView, createProjectScreenController } from "../src/screens
 import { SharedLibraryScreenView } from "../src/screens/SharedLibraryScreen";
 import { SharedArtifactInspector } from "../src/screens/shared-library/SharedArtifactInspector";
 import { presentSharedArtifact } from "../src/screens/shared-library/presentation";
+import { ICON_BUTTON, ICON_BUTTON_QUIET } from "../src/components/ui/IconButton";
+import { WINDOW_CLOSE } from "../src/components/ui/Window";
 import { builtStylesheetLink, readStylesheet } from "./style-sources";
 import { WorkspaceScreenView, createWorkspaceScreenController } from "../src/screens/WorkspaceScreen";
 
@@ -971,6 +973,33 @@ describe("design system contract", () => {
     expect(workspaceOverviewTheme).toMatch(/--workspace-outcome-columns:\s*repeat\(auto-fit/);
   });
 
+  test("keeps the glyph button's ring, transition and disabled state in one place", () => {
+    // The base is behaviour only. Size, radius and colour belong to the call site, and a base that
+    // named any of them would be overridden by a caller writing the same property -- which
+    // resolves by stylesheet order, not markup order, so the loser is not the one you can see.
+    for (const property of ["size-", "rounded-", "bg-", "text-muted", "text-ink"]) {
+      expect(ICON_BUTTON).not.toContain(property);
+    }
+    expect(ICON_BUTTON).toContain("focus-visible:outline-ink");
+    expect(ICON_BUTTON).toContain("motion-reduce:transition-none");
+    expect(ICON_BUTTON_QUIET).toContain(ICON_BUTTON);
+    // Four of the converted controls had no focus ring at all: play, mute, copy caption and the
+    // safe-area toggle were unreachable by keyboard in any visible sense. So no glyph button in
+    // these files may write the ring by hand again -- the exception is the lens pair, whose ring
+    // is the inverted one its filled pill needs, and which says so on the element.
+    for (const file of [
+      "src/screens/CalendarScreen.tsx",
+      "src/screens/MemoryScreen.tsx",
+      "src/screens/project/UnitViewer.tsx",
+      "src/instrument/InstrumentShell.tsx",
+    ]) {
+      const source = readFileSync(join(process.cwd(), file), "utf8");
+      expect(source).toContain("IconButton");
+      const rings = source.match(/focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink/g) ?? [];
+      expect(rings.length).toBeLessThanOrEqual(file.endsWith("InstrumentShell.tsx") ? 1 : 0);
+    }
+  });
+
   test("keeps the workspace overview's every rule on the element it styles", () => {
     // The area has no stylesheet at all: `workspace-overview.css` and its three parts are gone,
     // so nothing can claim a value the screen does not draw.
@@ -999,7 +1028,9 @@ describe("design system contract", () => {
     const modalKit = readFileSync(join(process.cwd(), "src/components/ui/Modal.tsx"), "utf8");
     expect(modalKit).toMatch(/MODAL_SURFACE = `[^`]*\btext-ink\b[^`]*\$\{WINDOW\}`/);
     expect(modalKit).toContain("<WindowClose");
-    expect(readFileSync(join(process.cwd(), "src/components/ui/Window.tsx"), "utf8")).toMatch(/WINDOW_CLOSE = "[^"]*focus-visible:outline-ink/);
+    // The close control's ring is asserted on the composed value rather than on the source text:
+    // the geometry now comes from the glyph-button base, so the string is built rather than typed.
+    expect(WINDOW_CLOSE).toContain("focus-visible:outline-ink");
     expect(dialog).not.toContain("focus-on-instrument");
     // Handoff 13 gives the greeting row no surface at all: the black plate it used to stand on
     // read as a fifth surface between the desk and the panels below it. With no widget under it

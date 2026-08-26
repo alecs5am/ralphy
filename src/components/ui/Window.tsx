@@ -1,6 +1,8 @@
 import { X } from "lucide-react";
 import type { ComponentPropsWithRef } from "react";
 
+import { ICON_BUTTON } from "./IconButton";
+
 /**
  * The app's window chrome: a 2px run of panel around a card one radius step in, with the
  * titlebar standing on the panel itself rather than inside the card.
@@ -41,7 +43,7 @@ export const WINDOW_BODY = `flex flex-col ${WINDOW_CARD}`;
  * under the cursor. Closing is the one titlebar action that throws work away, so it is the one
  * that takes the alarm tone -- the same reason the traffic light on this platform is red there.
  */
-export const WINDOW_CLOSE = "grid size-7.5 flex-none place-items-center rounded-full bg-chip text-muted transition-colors duration-fast ease-instrument hover:bg-alert hover:text-alert-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink motion-reduce:transition-none motion-reduce:duration-0";
+export const WINDOW_CLOSE = `size-7.5 rounded-full bg-chip text-muted hover:bg-alert hover:text-alert-ink ${ICON_BUTTON}`;
 
 const join = (base: string, extra?: string) => extra ? `${base} ${extra}` : base;
 

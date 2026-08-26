@@ -16,6 +16,7 @@ import {
   ACTION, INSTRUMENT_ACTION_COMPACT, INSTRUMENT_ACTION_PRIMARY_COMPACT, OVERLAY_FIELD_RING,
   OVERLAY_RING, QUIET_TEXT, STATE_LINE,
 } from "./calendar-memory-chrome";
+import { IconButton } from "../components/ui/IconButton";
 
 export const memoryInstrumentStates = defineInstrumentScreenStates({
   routeKey: "workspace.memory",
@@ -199,7 +200,7 @@ export function MemoryScreen({ workspaceId, workspaceName }: { workspaceId: stri
       </div>
 
       <div className="memory-filters m-0 flex w-full max-w-none flex-wrap items-center gap-2 rounded-panel bg-surface p-2">
-        <label className="memory-search flex h-9 min-w-memory-search flex-1 items-center gap-2 rounded-control bg-surface-sunken px-3"><Search className={`${ICON_XL} flex-none text-muted`} /><input className="h-full min-w-0 flex-1 bg-transparent p-0 font-app type-base text-ink outline-none placeholder:text-muted" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search rules and bodies" />{query && <button type="button" className="grid size-4.5 flex-none place-items-center rounded-control text-muted transition-colors duration-fast ease-instrument hover:bg-surface hover:text-ink motion-reduce:transition-none motion-reduce:duration-0" aria-label="Clear search" onClick={() => setQuery("")}><X className={ICON_SM} /></button>}</label>
+        <label className="memory-search flex h-9 min-w-memory-search flex-1 items-center gap-2 rounded-control bg-surface-sunken px-3"><Search className={`${ICON_XL} flex-none text-muted`} /><input className="h-full min-w-0 flex-1 bg-transparent p-0 font-app type-base text-ink outline-none placeholder:text-muted" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search rules and bodies" />{query && <IconButton className="size-4.5 rounded-control hover:bg-surface" label="Clear search" onClick={() => setQuery("")}><X className={ICON_SM} /></IconButton>}</label>
         <div className="memory-segments flex h-9 items-center rounded-control bg-surface-sunken p-1" aria-label="Memory scope">
           {(["effective", "workspace", "global"] as Scope[]).map((value) => <button type="button" className={`${ACTION} h-7 px-2.5 type-xs ${scope === value ? "is-active bg-instrument text-on-instrument" : "bg-transparent text-muted hover:text-ink"}`} key={value} onClick={() => setScope(value)}>{value[0]!.toUpperCase() + value.slice(1)}</button>)}
         </div>

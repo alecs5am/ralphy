@@ -19,6 +19,7 @@ import { InstrumentOverlay } from "./overlay-registry";
 import type { InstrumentRightRailMode, InstrumentRightRailOwner } from "./types";
 import { VIEW_PANEL_DEFAULT, VIEW_PANEL_MIN } from "../state/view-panel";
 import type { WorkbenchLens } from "../state/workbench";
+import { ICON_BUTTON, IconButton } from "../components/ui/IconButton";
 
 const DOCK_WINDOW_MIN = 1_280;
 const DOCK_DESK_MIN = 680;
@@ -447,16 +448,16 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
             {props.topChrome && <div className="flex flex-none items-center gap-1 [-webkit-app-region:no-drag]">
               {!props.leftVisible && <>
                 <div className="w-traffic-main h-px flex-none" aria-hidden="true" />
-                <button className="grid size-7 place-items-center rounded-full text-ink hover:bg-desk-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink" type="button" title="Show sidebar" aria-label="Toggle sidebar" aria-pressed="false" onClick={props.onToggleLeft}>
+                <button className={`size-7 rounded-full text-ink hover:bg-desk-hover ${ICON_BUTTON}`} type="button" title="Show sidebar" aria-label="Toggle sidebar" aria-pressed="false" onClick={props.onToggleLeft}>
                   <PanelLeft size={15} strokeWidth={1.6} aria-hidden="true" />
                 </button>
               </>}
-              <button className="grid size-7 place-items-center rounded-full text-muted hover:bg-desk-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-35" type="button" title="Back" aria-label="Back" disabled={!props.topChrome.canGoBack} onClick={props.topChrome.onBack}>
+              <IconButton className="size-7 rounded-full hover:bg-desk-hover" title="Back" label="Back" disabled={!props.topChrome.canGoBack} onClick={props.topChrome.onBack}>
                 <ArrowLeft size={15} strokeWidth={1.6} aria-hidden="true" />
-              </button>
-              <button className="grid size-7 place-items-center rounded-full text-muted hover:bg-desk-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-35" type="button" title="Forward" aria-label="Forward" disabled={!props.topChrome.canGoForward} onClick={props.topChrome.onForward}>
+              </IconButton>
+              <IconButton className="size-7 rounded-full hover:bg-desk-hover" title="Forward" label="Forward" disabled={!props.topChrome.canGoForward} onClick={props.topChrome.onForward}>
                 <ArrowRight size={15} strokeWidth={1.6} aria-hidden="true" />
-              </button>
+              </IconButton>
             </div>}
             {/* The lens pair: how you are working, as against the sidebar's place switch, which is
                 where you are. Two circles in one pill; the active one is the desk's inversion. */}
