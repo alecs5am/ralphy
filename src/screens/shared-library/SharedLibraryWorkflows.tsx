@@ -3,6 +3,7 @@ import { AlertTriangle, X } from "lucide-react";
 import { useCallback, useId, useRef, useState, type ReactNode } from "react";
 import { SelectMenu } from "../../components/ui/SelectMenu";
 import type { Availability, SharedArtifactPresentation } from "./presentation";
+import { WINDOW, WINDOW_BODY, WINDOW_TITLEBAR } from "../../components/ui/Window";
 
 export type SharedLibraryWorkflowKind = "add" | "promote" | "duplicate" | "suggestions" | "archive" | "update-review";
 
@@ -19,8 +20,8 @@ const formatLocalBytes = (bytes: number) => bytes < 1024 ? `${bytes} B` : bytes 
 /* A workflow window is a light widget: sunken strips top and bottom, sunken blocks in the body,
    and one step up again for anything standing on a block. Each workflow has its own size, and
    none of them ever touch the desk edge. */
-const WINDOW = "shared-workflow-window fixed inset-0 z-viewer-content m-auto flex max-h-shared-window-height max-w-shared-window-width flex-col overflow-hidden rounded-panel bg-surface text-ink [corner-shape:squircle] animate-shared-workflow-in motion-reduce:animate-none";
-const WINDOW_SIZE: Record<SharedLibraryWorkflowKind, string> = {
+const SHELL = `shared-workflow-window fixed inset-0 z-viewer-content m-auto max-h-shared-window-height max-w-shared-window-width text-ink [corner-shape:squircle] ${WINDOW}`;
+const SHELL_SIZE: Record<SharedLibraryWorkflowKind, string> = {
   add: "h-shared-workflow-add-height w-shared-workflow-add-width",
   promote: "h-shared-workflow-promote-height w-shared-workflow-promote-width",
   duplicate: "h-shared-workflow-duplicate-height w-shared-workflow-duplicate-width",
@@ -28,7 +29,6 @@ const WINDOW_SIZE: Record<SharedLibraryWorkflowKind, string> = {
   archive: "h-shared-workflow-archive-height w-shared-workflow-archive-width",
   "update-review": "h-shared-workflow-height w-shared-workflow-width",
 };
-const STRIP = "flex flex-none bg-surface-sunken";
 const CLOSE = "grid size-7 flex-none place-items-center rounded-control text-muted hover:bg-surface-hover hover:text-ink [&_svg]:size-3.5";
 const FOOTER_BUTTON = "inline-flex min-h-8 items-center justify-center rounded-control bg-surface-hover px-3.5 type-label text-muted disabled:cursor-not-allowed disabled:opacity-55";
 const STEP_BUTTON = "flex h-8.5 w-full items-center gap-2 rounded-control px-2.25 type-label text-left";
@@ -67,7 +67,7 @@ function WorkflowFrame({ kind, title, description, returnFocus, onClose, steps, 
   actions: ReactNode;
 }) {
   const surface = useRef<HTMLDivElement>(null);
-  const size = WINDOW_SIZE[kind];
+  const size = SHELL_SIZE[kind];
   const restoreFocus = useCallback(() => {
     if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true });
   }, [returnFocus]);
@@ -82,21 +82,27 @@ function WorkflowFrame({ kind, title, description, returnFocus, onClose, steps, 
       <Dialog.Content data-instrument-overlay="shared-workflow"
         ref={surface}
         tabIndex={-1}
-        className={`${WINDOW} ${size}`}
+        className={`${SHELL} ${size}`}
         data-workflow={kind}
         onOpenAutoFocus={(event) => { event.preventDefault(); surface.current?.focus({ preventScroll: true }); }}
         onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(); }}
       >
-        <header className={`shared-workflow-header ${STRIP} items-start gap-4.5 px-5 pt-4.5 pb-3.5`}>
-          <div className="grid min-w-0 flex-1 gap-1.25"><Dialog.Title className="m-0 type-heading font-normal text-ink">{title}</Dialog.Title><Dialog.Description className="m-0 type-ui leading-row text-muted">{description}</Dialog.Description></div>
+        {/* The titlebar names the workflow and closes it. The sentence that explains the
+            workflow is instruction, so it reads at the top of the card with the steps. */}
+        <header className={`shared-workflow-header ${WINDOW_TITLEBAR}`}>
+          <Dialog.Title className="m-0 min-w-0 flex-1 truncate type-heading font-normal text-ink">{title}</Dialog.Title>
           <button className={CLOSE} type="button" aria-label={`Close ${title}`} onClick={close}><X aria-hidden="true" /></button>
         </header>
-        {steps}
-        <form className="shared-workflow-body flex min-h-0 flex-1 flex-col gap-4.5 overflow-y-auto px-5 py-4" onSubmit={(event) => event.preventDefault()}>{children}</form>
-        <footer className={`shared-workflow-footer ${STRIP} min-h-15.5 items-center gap-4.5 px-5 pt-3.25 pb-4.25`}>
-          <small className="max-w-shared-footnote flex-1 font-code type-mono-sm tracking-meta leading-row text-muted">{footerNote ?? coreReason}</small>
-          <span className="flex gap-2">{actions}</span>
-        </footer>
+        <div className={`shared-workflow-card ${WINDOW_BODY}`}>
+          <Dialog.Description className="m-0 flex-none px-5 pt-3.5 type-ui leading-row text-muted">{description}</Dialog.Description>
+          {steps}
+          <form className="shared-workflow-body flex min-h-0 flex-1 flex-col gap-4.5 overflow-y-auto px-5 py-4" onSubmit={(event) => event.preventDefault()}>{children}</form>
+          <i className="mx-5 h-px flex-none bg-divider" aria-hidden="true" />
+          <footer className="shared-workflow-footer flex min-h-15.5 flex-none items-center gap-4.5 px-5 pt-3.25 pb-4.25">
+            <small className="max-w-shared-footnote flex-1 font-code type-mono-sm tracking-meta leading-row text-muted">{footerNote ?? coreReason}</small>
+            <span className="flex gap-2">{actions}</span>
+          </footer>
+        </div>
       </Dialog.Content>
     </Dialog.Portal>
   </Dialog.Root>;

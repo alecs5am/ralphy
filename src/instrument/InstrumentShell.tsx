@@ -476,7 +476,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
             {/* The island is taken out of flow: open, its plate is far taller than the topbar, and
                 in flow inside a centred row it grew upward past the window edge as well as down.
                 Anchored to the top of the row it grows downward only, over the content. */}
-            <div className="instrument-island-slot absolute top-0 right-0 z-island flex items-start [-webkit-app-region:no-drag]">{props.island}</div>
+            <div className="instrument-island-slot absolute top-0 right-0 flex items-start [-webkit-app-region:no-drag]">{props.island}</div>
           </header>
           <div className="instrument-content-body relative flex min-h-0 min-w-0 flex-1 gap-2">
             {/* The grabber straddles the zone gap between the chat and the panel, on the panel's

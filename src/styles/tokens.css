@@ -73,7 +73,7 @@ html[data-theme="dark"] {
      reads as a hole rather than as an input. The ordering is what carries over: a row hover is
      always the smaller step of the two, a field the larger. */
   --instrument-panel: #111111;
-  --instrument-card: #1E1E1E;
+  --instrument-card: #181818;
   --instrument-field: #262626;
   --instrument-row-hover: #232323;
   --instrument-chip-on-panel: #1A1A1A;

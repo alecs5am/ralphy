@@ -11,6 +11,7 @@ import { entityDragProps } from "../chat/attachments";
 import { bridge } from "../lib/ipc";
 import { SelectMenu } from "../components/ui/SelectMenu";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
+import { WINDOW, WINDOW_BODY, WINDOW_TITLEBAR } from "../components/ui/Window";
 import {
   ACTION, INSTRUMENT_ACTION_COMPACT, INSTRUMENT_ACTION_PRIMARY_COMPACT, OVERLAY_FIELD_RING,
   OVERLAY_RING, OVERLAY_SCRIM, QUIET_TEXT, STATE_LINE,
@@ -291,9 +292,9 @@ function MemoryRule({ entry, workspaceName, open, reviewing, onToggle, onRevise,
  */
 function MemoryModal({ open, onOpenChange, overlay, title, description, sheet = false, children }: { open: boolean; onOpenChange(open: boolean): void; overlay: "memory-recall" | "memory-editor" | "memory-history" | "memory-confirm"; title: string; description: string; sheet?: boolean; children: React.ReactNode }) {
   const surface = sheet
-    ? "fixed inset-y-0 right-0 z-scrim-content flex h-screen w-memory-recall flex-col overflow-hidden rounded-l-panel bg-surface text-ink outline-none"
-    : "fixed inset-0 z-scrim-content m-auto flex h-fit max-h-memory-modal-height w-memory-modal-width flex-col overflow-hidden rounded-panel bg-surface text-ink outline-none";
-  return <Dialog.Root open={open} onOpenChange={onOpenChange}>{open && <><Dialog.Overlay forceMount className={`memory-modal-overlay ${OVERLAY_SCRIM}`} data-instrument-overlay-backdrop="" /><Dialog.Content forceMount className={`memory-modal ${surface}${sheet ? " memory-recall" : ""}`} data-instrument-overlay={overlay}><header className="flex flex-none items-start gap-5 bg-surface-sunken px-4 py-3"><div className="grid gap-1"><Dialog.Title className="m-0 type-title font-normal text-ink">{title}</Dialog.Title><Dialog.Description className="m-0 type-label text-muted">{description}</Dialog.Description></div><Dialog.Close asChild><button type="button" className={`ml-auto grid size-6.5 flex-none place-items-center rounded-control text-muted transition-colors duration-fast ease-instrument hover:bg-surface hover:text-ink motion-reduce:transition-none motion-reduce:duration-0 ${OVERLAY_RING}`} aria-label={`Close ${title}`}><X className={ICON_XL} /></button></Dialog.Close></header><div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div></Dialog.Content></>}</Dialog.Root>;
+    ? `fixed inset-y-0 right-0 z-scrim-content h-screen w-memory-recall text-ink outline-none ${WINDOW}`
+    : `fixed inset-0 z-scrim-content m-auto h-fit max-h-memory-modal-height w-memory-modal-width text-ink outline-none ${WINDOW}`;
+  return <Dialog.Root open={open} onOpenChange={onOpenChange}>{open && <><Dialog.Overlay forceMount className={`memory-modal-overlay ${OVERLAY_SCRIM}`} data-instrument-overlay-backdrop="" /><Dialog.Content forceMount className={`memory-modal ${surface}${sheet ? " memory-recall" : ""}`} data-instrument-overlay={overlay}><header className={WINDOW_TITLEBAR}><Dialog.Title className="m-0 min-w-0 flex-none truncate type-title font-normal text-ink">{title}</Dialog.Title><Dialog.Description className="m-0 min-w-0 flex-1 truncate type-label text-muted">{description}</Dialog.Description><Dialog.Close asChild><button type="button" className={`ml-auto grid size-6.5 flex-none place-items-center rounded-control text-muted transition-colors duration-fast ease-instrument hover:bg-chip hover:text-ink motion-reduce:transition-none motion-reduce:duration-0 ${OVERLAY_RING}`} aria-label={`Close ${title}`}><X className={ICON_XL} /></button></Dialog.Close></header><div className={`memory-modal-card overflow-y-auto ${WINDOW_BODY}`}>{children}</div></Dialog.Content></>}</Dialog.Root>;
 }
 
 function RecallDialog({ open, onOpenChange, recall }: { open: boolean; onOpenChange(open: boolean): void; recall: Awaited<ReturnType<typeof bridge.recallMemory>> | null }) {

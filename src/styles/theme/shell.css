@@ -114,6 +114,17 @@
   --z-index-overlay-surface: var(--z-overlay-surface);
   --z-index-popover: var(--z-popover);
 
+}
+
+/* The island's stacking is authored here rather than taken as a utility, because it has two
+   states and Tailwind compiles utilities as important inside a cascade layer -- no authored rule
+   can override one. Above every named layer normally; under a modal while one is open, since it
+   is decoration and it was painting over the titlebar of any window anchored to the top of the
+   viewport. Keyed on the backdrop every instrument modal portals, so no overlay has to opt in. */
+.instrument-island-slot { z-index: var(--z-island); }
+body:has([data-instrument-overlay-backdrop]) .instrument-island-slot { z-index: var(--z-base); }
+
+:root {
   /* A menu is R18 and an identity plate is R18: the shared radius scale names the roles, and
      this is the one the shell's own menus take. */
   --radius-menu: var(--radius-xl);

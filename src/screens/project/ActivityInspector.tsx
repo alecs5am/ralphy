@@ -5,6 +5,7 @@ import type { ActivityDto } from "../../../electron/ralphy/types";
 import { AiBrandIcon } from "../../components/AiBrandIcon";
 import { RalphyMascot } from "../../components/RalphyMascot";
 import { activitySource, humanizeActivity, summarizeActivityRun } from "./activity-presentation";
+import { WINDOW, WINDOW_BODY, WINDOW_TITLEBAR } from "../../components/ui/Window";
 
 const dateValue = (value: number) => new Date(value < 1_000_000_000_000 ? value * 1000 : value);
 const duration = (value: number | null) => value === null ? "—" : value < 1000 ? `${value} ms` : `${(value / 1000).toFixed(1)} s`;
@@ -37,18 +38,18 @@ export function ActivityInspector({ event, detail, loading, error, onRetry, onCl
   /* Inline in the timeline's grid the panel is a column; below `activity-columns` the route
      stacks and the panel becomes a bounded pinned sheet. Both are container variants, so neither
      reaches the portalled copy, which has no `project-domain` container above it. */
-  return <aside className="activity-inspector min-w-0 overflow-y-auto rounded-panel bg-surface p-4 text-ink [scrollbar-gutter:stable] @max-activity-columns/project-domain:z-sticky @max-activity-columns/project-domain:w-activity-inspector" data-instrument-overlay="run-inspector" aria-labelledby="activity-inspector-title">
-    <header className="activity-inspector-header grid grid-cols-(--activity-inspector-columns) items-center gap-2.5 bg-transparent pb-3.5">
+  return <aside className={`activity-inspector text-ink @max-activity-columns/project-domain:z-sticky @max-activity-columns/project-domain:w-activity-inspector ${WINDOW}`} data-instrument-overlay="run-inspector" aria-labelledby="activity-inspector-title">
+    {/* One line on the panel: the source's mark, what happened, and the close. */}
+    <header className={`activity-inspector-header ${WINDOW_TITLEBAR}`}>
       {/* Holds the near-white mascot, so the chip has to be the dark surface. */}
-      <span className="activity-inspector-brand grid size-8 place-items-center rounded-full bg-instrument text-on-instrument-muted" aria-hidden="true">
+      <span className="activity-inspector-brand grid size-8 flex-none place-items-center rounded-full bg-instrument text-on-instrument-muted" aria-hidden="true">
         {source === "ralphy" ? <RalphyMascot size={22} /> : source === "generation" ? <AiBrandIcon provider="openrouter" model={model ?? undefined} size={20} /> : <Clock3 size={18} />}
       </span>
-      <div className="min-w-0">
-        <h2 className="m-0 truncate type-md font-normal" id="activity-inspector-title">{humanizeActivity(event.action)}</h2>
-        <p className="m-0 type-sm text-muted">{humanizeActivity(source)} · {humanizeActivity(event.entityType)}</p>
-      </div>
-      <button className="activity-inspector-close grid size-7 place-items-center rounded-full bg-transparent text-muted hover:bg-surface-hover hover:text-ink" type="button" aria-label="Close activity details" onClick={onClose}><X size={16} /></button>
+      <h2 className="m-0 min-w-0 flex-none truncate type-md font-normal" id="activity-inspector-title">{humanizeActivity(event.action)}</h2>
+      <p className="m-0 min-w-0 flex-1 truncate type-sm text-muted">{humanizeActivity(source)} · {humanizeActivity(event.entityType)}</p>
+      <button className="activity-inspector-close grid size-7 flex-none place-items-center rounded-full bg-transparent text-muted hover:bg-chip hover:text-ink" type="button" aria-label="Close activity details" onClick={onClose}><X size={16} /></button>
     </header>
+    <div className={`activity-inspector-card overflow-y-auto p-4 [scrollbar-gutter:stable] ${WINDOW_BODY}`}>
 
     {loading && !detail ? <p className={STATE_PLATE}>Loading details…</p> : null}
     {error && !detail ? <div className={STATE_PLATE} role="alert"><span>{error}</span><button className={STATE_ACTION} type="button" onClick={onRetry}><RotateCw size={14} /> Retry</button></div> : null}
@@ -87,5 +88,6 @@ export function ActivityInspector({ event, detail, loading, error, onRetry, onCl
       <div className={TERM_ROW}><dt className={TERM}>Event time</dt><dd className={VALUE}>{dateValue(event.createdAt).toLocaleString()}</dd></div>
       <div className={TERM_ROW}><dt className={TERM}>Sequence</dt><dd className={VALUE}>{event.sequence}</dd></div>
     </dl></section> : null}
+    </div>
   </aside>;
 }

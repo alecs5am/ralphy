@@ -10,6 +10,7 @@ import { VideoPlayer } from "../../components/media/VideoPlayer";
 import { bridge } from "../../lib/ipc";
 import type { ProjectScreenController, ProjectScreenSnapshot } from "../../state/project-screen-controller";
 import { COMMAND_BUTTON, COMMAND_BUTTON_ON_INSTRUMENT, PROJECT_LOCAL_ERROR, PROJECT_LOCAL_ERROR_ON_INSTRUMENT } from "../route-chrome";
+import { WINDOW, WINDOW_CARD, WINDOW_TITLEBAR } from "../../components/ui/Window";
 
 /* The whole modal is portalled to the body, i.e. outside `.app-mode-work`, where every legacy
    `--fg*` token resolves to the on-dark family. That is why the toolbar's own title used to paint
@@ -17,11 +18,11 @@ import { COMMAND_BUTTON, COMMAND_BUTTON_ON_INSTRUMENT, PROJECT_LOCAL_ERROR, PROJ
 /* Every plain note the stage can show. The stage is `bg-instrument`, so anything mounted in it
    that states no ink inherits the theme's — which is the stage's own colour in the light theme. */
 const STAGE_NOTE = "m-0 type-sm text-on-instrument-muted";
-const SURFACE = "asset-modal-surface fixed inset-asset-modal-gutter z-modal-content m-auto flex h-asset-modal-height w-asset-modal-width flex-col overflow-hidden rounded-panel bg-surface text-ink outline-none";
-const TOOLBAR = "asset-modal-toolbar flex min-h-13 flex-none items-center justify-between gap-4.5 bg-surface-sunken py-1.5 pr-2.5 pl-4";
-/* The identity is a two-line block, not two inline marks on one line, which is what a `div` with
-   no display of its own gave it. */
-const IDENTITY = "viewer-identity flex min-w-0 flex-col";
+const SURFACE = `asset-modal-surface fixed inset-asset-modal-gutter z-modal-content m-auto h-asset-modal-height w-asset-modal-width text-ink outline-none ${WINDOW}`;
+/* The toolbar is the window's titlebar: it stands on the panel, one line, and the card below it
+   holds the stage and the inspector. */
+const TOOLBAR = `asset-modal-toolbar justify-between gap-4.5 ${WINDOW_TITLEBAR}`;
+const IDENTITY = "viewer-identity flex min-w-0 flex-1 items-baseline gap-2";
 const ACTIONS = "viewer-actions flex flex-none items-center gap-1";
 const ACTION = "h-control-md rounded-field px-2.5 whitespace-nowrap text-muted hover:bg-surface-hover hover:text-ink disabled:text-muted-decorative focus-visible:-outline-offset-2";
 const ICON_ACTION = "h-control-md w-control-md rounded-field p-0 text-muted hover:bg-surface-hover hover:text-ink disabled:text-muted-decorative focus-visible:-outline-offset-2";
@@ -241,7 +242,7 @@ export function MediaViewer({ controller, snapshot }: { controller: ProjectScree
               <Dialog.Close asChild><button className={ICON_ACTION} type="button" aria-label="Close"><X size={15} aria-hidden="true" /></button></Dialog.Close>
             </div>
           </div>
-          <div className="asset-modal-body grid min-h-0 min-w-0 flex-1 grid-cols-(--asset-modal-columns)">
+          <div className={`asset-modal-body grid min-h-0 min-w-0 flex-1 grid-cols-(--asset-modal-columns) ${WINDOW_CARD}`}>
             <div className="asset-modal-stage grid min-h-0 min-w-0 flex-1 place-items-center overflow-hidden overscroll-contain bg-instrument"><motion.div className="asset-modal-content grid size-full min-h-0 min-w-0 place-items-center overflow-hidden" key={`${card.ref.type}:${card.ref.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }}><ViewerPreview card={card} snapshot={snapshot} controller={controller} /></motion.div></div>
             <aside className="asset-modal-inspector min-h-0 min-w-0 overflow-hidden bg-surface"><div className="inspector flex size-full min-h-0 min-w-0 flex-col gap-4 overflow-y-auto bg-transparent px-3.5 pt-3 pb-5 backdrop-filter-none">{isRunObjectMedia(card) && <RunObjectEvidence card={card} />}<GenerationInspector key={`${card.ref.type}:${card.ref.id}`} detail={snapshot.mediaGeneration.value} state={snapshot.mediaGeneration.status} error={snapshot.mediaGeneration.error} onRetry={() => { void controller.retryMediaGeneration(); }} /></div></aside>
           </div>

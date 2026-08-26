@@ -16,8 +16,15 @@ import type { ComponentPropsWithRef } from "react";
 export const WINDOW = "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-window bg-panel p-0.5";
 /** The titlebar is one line: what this is, what state it is in, and its actions. */
 export const WINDOW_TITLEBAR = "flex h-11 min-w-0 flex-none items-center gap-2.5 px-3";
-/** The card the content stands on. Everything that is not identity or an action belongs here. */
-export const WINDOW_BODY = "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-frame bg-card";
+/**
+ * The card the content stands on. Everything that is not identity or an action belongs here.
+ *
+ * `WINDOW_CARD` is the surface alone, for a body that lays itself out -- the media viewer's stage
+ * and inspector are a grid, and a flex column imposed on them would be a lie the layout has to
+ * undo. `WINDOW_BODY` is the same card as a flex column, which is what most bodies want.
+ */
+export const WINDOW_CARD = "min-h-0 min-w-0 flex-1 overflow-hidden rounded-frame bg-card";
+export const WINDOW_BODY = `flex flex-col ${WINDOW_CARD}`;
 
 const join = (base: string, extra?: string) => extra ? `${base} ${extra}` : base;
 

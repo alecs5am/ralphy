@@ -991,7 +991,10 @@ describe("design system contract", () => {
     // family and turns invisible on a light widget. Its controls take the theme-ink ring for
     // the same reason; only the control on the black header takes the on-instrument ring.
     const dialog = readFileSync(join(process.cwd(), "src/screens/workspace/DetailDialog.tsx"), "utf8");
-    expect(dialog).toContain("bg-surface text-ink");
+    // The ground is the kit's window now, which states `bg-panel`; what this file still has to
+    // state itself is the theme ink, for the reason above.
+    expect(dialog).toContain('from "../../components/ui/Window"');
+    expect(dialog).toMatch(/const surface = `account-detail-dialog[^`]*\btext-ink\b[^`]*\$\{WINDOW\}`/);
     expect(dialog).toContain("focus-visible:outline-ink");
     expect(dialog).not.toContain("focus-on-instrument");
     // Handoff 13 gives the greeting row no surface at all: the black plate it used to stand on
@@ -1728,7 +1731,7 @@ describe("design system contract", () => {
     // the two layers, so the contract is checked once, where the chrome is defined.
     const chrome = readFileSync(join(process.cwd(), "src/components/ui/Window.tsx"), "utf8");
     const WINDOW = /export const WINDOW = "([^"]*)"/.exec(chrome)?.[1] ?? "";
-    const WINDOW_BODY = /export const WINDOW_BODY = "([^"]*)"/.exec(chrome)?.[1] ?? "";
+    const WINDOW_BODY = /export const WINDOW_CARD = "([^"]*)"/.exec(chrome)?.[1] ?? "";
     expect(WINDOW.split(" ")).toContain("bg-panel");
     expect(WINDOW.split(" ")).toContain("p-0.5");
     expect(WINDOW.split(" ")).toContain("rounded-window");

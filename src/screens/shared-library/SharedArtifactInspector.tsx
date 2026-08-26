@@ -6,6 +6,7 @@ import { bridge } from "../../lib/ipc";
 import { SharedArtifactPreview } from "./SharedArtifactPreview";
 import type { SharedLibraryWorkflowKind } from "./SharedLibraryWorkflows";
 import { presentSharedArtifact, type Availability, type SharedArtifactPresentation } from "./presentation";
+import { WINDOW, WINDOW_BODY, WINDOW_TITLEBAR } from "../../components/ui/Window";
 
 type RevisionState = {
   status: "loading" | "ready";
@@ -218,15 +219,15 @@ export function SharedArtifactInspector({ artifact, workspaceId, rootEpoch, retu
       {/* The inspector splits the content row until the row is too narrow to split, and then
           covers it — measured against the row, never the window. */}
       <aside
-        className="shared-artifact-inspector flex w-shared-inspector min-w-0 flex-none flex-col overflow-hidden rounded-panel bg-surface text-ink @max-shared-inspector/shared-content:absolute @max-shared-inspector/shared-content:inset-0 @max-shared-inspector/shared-content:z-10 @max-shared-inspector/shared-content:size-full"
+        className={`shared-artifact-inspector flex-none text-ink w-shared-inspector @max-shared-inspector/shared-content:absolute @max-shared-inspector/shared-content:inset-0 @max-shared-inspector/shared-content:z-10 @max-shared-inspector/shared-content:size-full ${WINDOW}`}
         aria-label="Shared artifact inspector"
         data-instrument-overlay="shared-inspector"
       >
-        <header className="shared-inspector-head flex min-h-11 flex-none items-center gap-2.5 bg-surface-sunken pt-2.5 pr-3 pb-1.5 pl-4">
+        <header className={`shared-inspector-head ${WINDOW_TITLEBAR}`}>
           <span className="min-w-0 flex-1 truncate font-code type-mono-sm tracking-caps text-muted">{detail.kind} · {detail.mime ?? "MIME unavailable"}</span>
           <button className="grid size-7 place-items-center rounded-control text-muted hover:bg-surface-hover hover:text-ink [&_svg]:size-3.5" type="button" aria-label="Close artifact inspector" onClick={close}><X aria-hidden="true" /></button>
         </header>
-        <div className="shared-inspector-scroll flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-4 pt-1.5 pb-4.5">
+        <div className={`shared-inspector-scroll gap-3.5 overflow-y-auto px-4 pt-3 pb-4.5 ${WINDOW_BODY}`}>
           <div>
             <Dialog.Title asChild><h2 className="m-0 type-heading font-normal text-ink">{titleText(detail)}</h2></Dialog.Title>
             <Dialog.Description asChild><p className="mx-0 mt-0.75 mb-2.25 font-code type-mono-md text-muted">Slug identity · {detail.slug}</p></Dialog.Description>

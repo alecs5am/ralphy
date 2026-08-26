@@ -1,6 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { cloneElement, Fragment, isValidElement, useEffect, useId, useLayoutEffect, useRef, type ReactElement, type ReactNode, type ReactPortal } from "react";
 import { createPortal } from "react-dom";
+import { WINDOW } from "../components/ui/Window";
 
 type InstrumentOverlayKind = "dialog" | "drawer" | "viewer" | "listbox" | "popover" | "menu" | "sheet" | "rail";
 
@@ -85,7 +86,10 @@ type RuntimeOverlayProps = InstrumentOverlayBaseProps<InstrumentOverlayId> & {
    The focus trace is the ring the surface itself takes when the landing focus is on the surface
    rather than on a control inside it. `settings` declines both: it is a mode that owns the whole
    window, not a panel, and a ring traced around the viewport cuts across the window's rounding. */
-const MANAGED_SURFACE = "max-w-overlay-fit max-h-overlay-fit-block rounded-panel bg-surface text-ink outline-0";
+/* The plate a managed dialog stands on is the app's window chrome, the same two layers the
+   sidebar, the view panel and every hand-built modal now wear: one named shape for a window,
+   so a new overlay cannot invent a third. The caller supplies the titlebar and the card. */
+const MANAGED_SURFACE = `max-w-overlay-fit max-h-overlay-fit-block text-ink outline-0 ${WINDOW}`;
 const MANAGED_SURFACE_FOCUS = "data-[instrument-surface-focus]:outline-2 data-[instrument-surface-focus]:outline-ink data-[instrument-surface-focus]:[outline-offset:-3px]";
 
 function managedSurfaceClasses(id: InstrumentOverlayId, caller: string | undefined): string {

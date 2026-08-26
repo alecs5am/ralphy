@@ -9,6 +9,7 @@ import type { MediaReviewConsoleProps } from "./MediaReviewConsole";
 import { createMockReviewSession, isReviewShortcutEligible, reduceMockReviewSession, type MockReviewAction } from "./mock-review";
 import type { MediaReviewVerdict } from "./media-review-presentation";
 import { ACTIONS, CONSOLE, COPY, FEEDBACK, GLYPH_ACTION, HEADER, HEADER_LABEL, META, NAME, NAVIGATION, NAV_ACTION, POSITION, PREVIEW, PREVIEW_BUTTON, STATUS, STATUS_DOT, VERDICT_ACTIVE, VERDICT_REST, statusDotTone } from "./review-console";
+import { WINDOW_BODY } from "../../components/ui/Window";
 
 const verdictLabels: Record<MediaReviewVerdict, string> = {
   approved: "Approved",
@@ -24,7 +25,7 @@ const verdictLabels: Record<MediaReviewVerdict, string> = {
    is not a text surface: a primary action here is the inversion of its own plate, and the alarm
    tone stays on the verdict dot, which carries no copy. */
 const DIALOG = "fixed top-1/2 left-1/2 z-mock-review w-mock-review -translate-x-1/2 -translate-y-1/2";
-const FORM = "mock-needs-work grid gap-4.5 p-5";
+const FORM = `mock-needs-work gap-4.5 p-5 ${WINDOW_BODY}`;
 const FORM_EYEBROW = "font-code type-mono-sm tracking-mono text-muted uppercase";
 const FIELD = "min-h-27.5 resize-y rounded-field bg-surface-sunken p-3 type-sm text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink";
 const DIALOG_ACTION = "inline-flex min-h-8.5 flex-none items-center justify-center rounded-control px-3.5 type-sm focus-visible:outline-2 focus-visible:-outline-offset-2";

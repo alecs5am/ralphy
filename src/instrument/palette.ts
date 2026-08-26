@@ -132,7 +132,7 @@ export const INSTRUMENT_PALETTE = {
     resizeGripActive: "#6A6A66",
     errorSurface: "#2A1615",
     panel: "#111111",
-    card: "#1E1E1E",
+    card: "#181818",
     field: "#262626",
     rowHover: "#232323",
     chipOnPanel: "#1A1A1A",

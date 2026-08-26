@@ -8,6 +8,7 @@ import { ImageViewport } from "../../components/media/ImageViewport";
 import { VideoPlayer } from "../../components/media/VideoPlayer";
 import { bridge } from "../../lib/ipc";
 import { presentSharedArtifact, type Availability, type SharedArtifactPresentation } from "./presentation";
+import { WINDOW, WINDOW_CARD, WINDOW_TITLEBAR } from "../../components/ui/Window";
 
 /* The viewer is a full-surface light widget: its own surface, the stage and the context rail one
    step down, and a block inside the rail one step up again. Controls that stand on media take the
@@ -334,17 +335,17 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
       <Dialog.Content asChild data-instrument-overlay="shared-viewer"
         onOpenAutoFocus={(event) => { event.preventDefault(); surfaceRef.current?.focus({ preventScroll: true }); }}
         onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(); }}>
-        <section ref={surfaceRef} tabIndex={-1} className="shared-artifact-viewer @container/shared-viewer fixed inset-0 z-viewer flex min-h-0 min-w-0 flex-col gap-3.5 rounded-panel bg-surface p-4.5 text-ink" aria-label={`Preview ${detail.slug}`}>
-          <header className="shared-viewer-head flex min-h-7 flex-none items-center gap-2 bg-surface-sunken">
+        <section ref={surfaceRef} tabIndex={-1} className={`shared-artifact-viewer @container/shared-viewer fixed inset-0 z-viewer text-ink ${WINDOW}`} aria-label={`Preview ${detail.slug}`}>
+          <header className={`shared-viewer-head ${WINDOW_TITLEBAR}`}>
             <span className="min-w-0 flex-1 truncate font-code type-mono-sm tracking-caps text-muted">{topLine}</span>
             <button className={ACTION} type="button" aria-label="Open original" aria-describedby={detail.preview === "no-target" ? targetlessActionId : undefined} disabled={detail.preview === "no-target" || openState === "pending"} onClick={() => { void openOriginal(); }}><ExternalLink aria-hidden="true" />{openState === "pending" ? "Opening original…" : "Open original"}</button>
             <button className={`${ACTION} w-7 px-0`} type="button" aria-label="Close viewer" onClick={close}><X aria-hidden="true" /></button>
           </header>
           {/* The viewer is measured against itself: it owns the whole surface, so its own width is
               the only width that can decide whether the stage and the context rail stack. */}
-          <div className="shared-viewer-body flex min-h-0 min-w-0 flex-1 items-stretch gap-4 @max-shared-viewer/shared-viewer:flex-col @max-shared-viewer/shared-viewer:overflow-y-auto">
+          <div className={`shared-viewer-body flex items-stretch gap-4 p-3.5 @max-shared-viewer/shared-viewer:flex-col @max-shared-viewer/shared-viewer:overflow-y-auto ${WINDOW_CARD}`}>
             <div className="shared-viewer-main flex min-h-0 min-w-0 flex-1 flex-col gap-2.5">
-              <div className="shared-viewer-stage relative grid min-h-0 min-w-0 flex-1 place-items-center overflow-hidden rounded-menu bg-surface-sunken [&>:is(.custom-video-player,.audio-waveform-player)]:w-full [&>:is(.custom-video-player,.audio-waveform-player)]:max-w-shared-stage-media [&>.custom-video-player]:h-full [&_.custom-video-player_.viewer-video]:object-contain @max-shared-viewer/shared-viewer:h-shared-stage-basis @max-shared-viewer/shared-viewer:min-h-shared-stage @max-shared-viewer/shared-viewer:flex-none">
+              <div className="shared-viewer-stage relative grid min-h-0 min-w-0 flex-1 place-items-center overflow-hidden rounded-menu bg-surface [&>:is(.custom-video-player,.audio-waveform-player)]:w-full [&>:is(.custom-video-player,.audio-waveform-player)]:max-w-shared-stage-media [&>.custom-video-player]:h-full [&_.custom-video-player_.viewer-video]:object-contain @max-shared-viewer/shared-viewer:h-shared-stage-basis @max-shared-viewer/shared-viewer:min-h-shared-stage @max-shared-viewer/shared-viewer:flex-none">
                 <ViewerStage artifact={detail} preview={preview} kind={kind} onPreviewError={() => setPreview({ status: "unavailable", reason: "The preview media could not be decoded or loaded." })} />
                 <button className={`${STEP} left-3`} type="button" aria-label="Previous artifact" disabled={!canPrevious} onClick={() => navigate(artifacts[index - 1])}><ChevronLeft aria-hidden="true" /></button>
                 <button className={`${STEP} right-3`} type="button" aria-label="Next artifact" disabled={!canNext} onClick={() => navigate(artifacts[index + 1])}><ChevronRight aria-hidden="true" /></button>
@@ -375,7 +376,7 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
               {selection.status === "error" && <div className={ALERT} role="alert"><span>Revision selection unavailable · {selection.message}</span><button className={ACTION} type="button" onClick={() => { void selectRevision(selection.revisionId); }}>Retry selection</button></div>}
               {openState === "error" && <div className={ALERT} role="alert"><span>Open original unavailable.</span><button className={ACTION} type="button" onClick={() => { void openOriginal(); }}>Retry open original</button></div>}
             </div>
-            <aside className="shared-viewer-context flex w-shared-viewer-context min-w-0 flex-none flex-col gap-3.25 overflow-y-auto rounded-menu bg-surface-sunken p-4 @max-shared-viewer/shared-viewer:w-full @max-shared-viewer/shared-viewer:overflow-visible">
+            <aside className="shared-viewer-context flex w-shared-viewer-context min-w-0 flex-none flex-col gap-3.25 overflow-y-auto rounded-menu bg-surface p-4 @max-shared-viewer/shared-viewer:w-full @max-shared-viewer/shared-viewer:overflow-visible">
               <div>
                 <Dialog.Title asChild><h2 className="m-0 type-title font-normal leading-title text-ink">{titleText(detail)}</h2></Dialog.Title>
                 <Dialog.Description asChild><p className="mt-1.25 mb-0 font-code type-mono-md text-muted">Slug identity · {detail.slug}</p></Dialog.Description>

@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { InstrumentOverlayId } from "../../instrument/overlay-registry";
+import { WINDOW, WINDOW_BODY, WINDOW_TITLEBAR } from "../../components/ui/Window";
 import { DRAWER_GLYPH } from "./overview-chrome";
 
 type DetailOverlayId = Extract<InstrumentOverlayId,
@@ -24,7 +25,7 @@ export function DetailDialog({ id, open, title, description, closeLabel, classNa
   children: ReactNode;
   onOpenChange(open: boolean): void;
 }) {
-  const surface = "account-detail-dialog fixed inset-y-0 right-0 z-scrim-content flex w-workspace-drawer flex-col rounded-panel bg-surface text-ink outline-none";
+  const surface = `account-detail-dialog fixed inset-y-0 right-0 z-scrim-content w-workspace-drawer text-ink outline-none ${WINDOW}`;
   return <Dialog.Root open={open} onOpenChange={onOpenChange}>
     {open && <Dialog.Portal forceMount container={typeof document === "undefined" ? undefined : document.body}>
       {/* The scrim's own fill is stated once, by the shell, for every instrument overlay. */}
@@ -34,17 +35,18 @@ export function DetailDialog({ id, open, title, description, closeLabel, classNa
         className={className ? `${surface} ${className}` : surface}
         data-instrument-overlay={id}
       >
-        <header className="account-detail-header flex flex-none items-start justify-between gap-4 bg-surface-sunken p-4">
-          <span className="flex min-w-0 flex-col gap-1">
-            <Dialog.Title className="m-0 truncate type-lg font-normal text-ink">{title}</Dialog.Title>
-            <Dialog.Description className="m-0 type-xs capitalize text-muted">{description}</Dialog.Description>
-          </span>
+        {/* One line on the panel: what this is, then what kind of thing it is, then the close. */}
+        <header className={`account-detail-header ${WINDOW_TITLEBAR}`}>
+          <Dialog.Title className="m-0 min-w-0 flex-none truncate type-lg font-normal text-ink">{title}</Dialog.Title>
+          <Dialog.Description className="m-0 min-w-0 flex-1 truncate type-xs capitalize text-muted">{description}</Dialog.Description>
           <Dialog.Close asChild>
-            <button className="grid size-7.5 flex-none place-items-center rounded-control bg-transparent text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink" type="button" aria-label={closeLabel}><X className={DRAWER_GLYPH} aria-hidden="true" /></button>
+            <button className="grid size-7.5 flex-none place-items-center rounded-control bg-transparent text-muted hover:bg-chip hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink" type="button" aria-label={closeLabel}><X className={DRAWER_GLYPH} aria-hidden="true" /></button>
           </Dialog.Close>
         </header>
-        <div className="account-detail-body min-h-0 flex-1 overflow-y-auto px-4 pt-0 pb-6">{children}</div>
-        {footer && <footer className="account-detail-footer grid flex-none gap-3 bg-surface-sunken p-4">{footer}</footer>}
+        <div className={`account-detail-body ${WINDOW_BODY}`}>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-6">{children}</div>
+          {footer && <><i className="mx-4 h-px flex-none bg-divider" aria-hidden="true" /><footer className="account-detail-footer grid flex-none gap-3 p-4">{footer}</footer></>}
+        </div>
       </Dialog.Content>
     </Dialog.Portal>}
   </Dialog.Root>;
