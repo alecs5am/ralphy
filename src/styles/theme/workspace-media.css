@@ -8,7 +8,6 @@
   --color-focus-on-instrument: var(--instrument-focus-on-dark);
   /* An alarm standing on a black widget. `--danger` resolves to a near-white ink outside
      .app-mode-work, which is exactly where this modal and this menu are portalled. */
-  --color-alert-bright: var(--instrument-alert-bright);
   /* A disabled transport control on the theme's own widget: unreadable by design, which is the
      point -- the sheet used the readable secondary ink, so disabled looked exactly like rest. */
   --color-muted-decorative: var(--instrument-text-muted-decorative);
@@ -58,6 +57,9 @@
   --viewer-property-columns: 104px minmax(0, 1fr);
   /* An asset context menu row: the glyph gutter and the label. */
   --asset-menu-row-columns: 18px minmax(0, 1fr);
+  /* A verdict row ends in its keycap, so the same menu carries a third column for the rows that
+     have one. The glyph column stays the width of the rest, or the two groups would not align. */
+  --asset-menu-verdict-columns: 18px minmax(0, 1fr) auto;
   /* The gooey cell size, per tab size. The strip declares which pair it reads so the blob and
      the buttons resolve one width and one height; a caller that wants narrower cells overrides
      `--gooey-cell-width` on the strip. */

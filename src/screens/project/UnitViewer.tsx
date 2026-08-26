@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { Check, ChevronRight, Clock3, Copy, ExternalLink, Frame, Pause, Play, Volume2, VolumeX, X } from "lucide-react";
+import { Check, ChevronRight, Clock3, Copy, ExternalLink, Frame, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ProjectOverviewDto, UnitPreviewDto } from "../../../electron/ralphy/types";
@@ -13,7 +13,7 @@ import { unitLifecycle, type UnitLifecycle } from "../../lib/unit-lifecycle";
 import { preferredUnitPoster, resolveUnitMedia, socialTargets, unitPreviewKind, type UnitMedia } from "../../lib/unit-previews";
 import type { ProjectScreenController, ProjectScreenSnapshot } from "../../state/project-screen-controller";
 import { UnitSocialPreview } from "./UnitSocialPreview";
-import { WINDOW, WINDOW_BODY, WINDOW_TITLEBAR } from "../../components/ui/Window";
+import { WINDOW, WINDOW_BODY, WINDOW_TITLEBAR, WindowClose } from "../../components/ui/Window";
 
 const formatTime = (value: number) => new Date(value < 1_000_000_000_000 ? value * 1000 : value).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 const formatDuration = (value: number) => `${Math.floor((Number.isFinite(value) ? value : 0) / 60)}:${Math.floor((Number.isFinite(value) ? value : 0) % 60).toString().padStart(2, "0")}`;
@@ -196,8 +196,8 @@ export function UnitViewer({
           {lifecycle && <Status lifecycle={lifecycle} />}
           <small className="unit-viewer-state min-w-0 flex-1 truncate font-code type-meta text-muted">{revision ? `R${revision.revisionNo} \u00b7 ${formatTime(revision.createdAt)}` : "Loading revision"}</small>
           <div className="unit-viewer-actions flex flex-none items-center gap-2">
-            {revision && lifecycle && primaryLabel ? <button className="unit-primary-action inline-flex h-8 items-center gap-1.75 rounded-control bg-desk-primary px-3.5 type-ui text-desk-primary-ink disabled:opacity-45 [&_svg]:size-3.25" type="button" disabled={pending || revision.sealedAt === null || (lifecycle.action !== "select" && lifecycle.action !== "none" && !productionRevision)} onClick={runPrimaryAction}>{lifecycle.action === "select" ? <Check /> : lifecycle.action === "retry" ? <Clock3 /> : lifecycle.label === "Published" ? <ExternalLink /> : <Play />}{snapshot.unitMutation === "select" ? "Choosing\u2026" : snapshot.compositionMutation === "build" ? "Rendering\u2026" : primaryLabel}</button> : null}
-            <Dialog.Close asChild><button className="unit-viewer-close grid size-7.5 place-items-center rounded-field text-muted hover:bg-chip hover:text-ink [&_svg]:size-3.75" type="button" aria-label="Close Unit preview"><X /></button></Dialog.Close>
+            {revision && lifecycle && primaryLabel ? <button className="unit-primary-action inline-flex h-8 items-center gap-1.75 rounded-control bg-brand px-3.5 type-ui text-brand-ink hover:opacity-88 disabled:opacity-45 [&_svg]:size-3.25" type="button" disabled={pending || revision.sealedAt === null || (lifecycle.action !== "select" && lifecycle.action !== "none" && !productionRevision)} onClick={runPrimaryAction}>{lifecycle.action === "select" ? <Check /> : lifecycle.action === "retry" ? <Clock3 /> : lifecycle.label === "Published" ? <ExternalLink /> : <Play />}{snapshot.unitMutation === "select" ? "Choosing\u2026" : snapshot.compositionMutation === "build" ? "Rendering\u2026" : primaryLabel}</button> : null}
+            <Dialog.Close asChild><WindowClose className="unit-viewer-close" label="Close Unit preview" /></Dialog.Close>
           </div>
         </header>
 

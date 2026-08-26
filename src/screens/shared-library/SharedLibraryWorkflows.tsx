@@ -1,9 +1,9 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { AlertTriangle, X } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { useCallback, useId, useRef, useState, type ReactNode } from "react";
 import { SelectMenu } from "../../components/ui/SelectMenu";
 import type { Availability, SharedArtifactPresentation } from "./presentation";
-import { WINDOW, WINDOW_BODY, WINDOW_TITLEBAR } from "../../components/ui/Window";
+import { WINDOW, WINDOW_BODY, WINDOW_TITLEBAR, WindowClose } from "../../components/ui/Window";
 
 export type SharedLibraryWorkflowKind = "add" | "promote" | "duplicate" | "suggestions" | "archive" | "update-review";
 
@@ -29,7 +29,6 @@ const SHELL_SIZE: Record<SharedLibraryWorkflowKind, string> = {
   archive: "h-shared-workflow-archive-height w-shared-workflow-archive-width",
   "update-review": "h-shared-workflow-height w-shared-workflow-width",
 };
-const CLOSE = "grid size-7 flex-none place-items-center rounded-control text-muted hover:bg-surface-hover hover:text-ink [&_svg]:size-3.5";
 const FOOTER_BUTTON = "inline-flex min-h-8 items-center justify-center rounded-control bg-surface-hover px-3.5 type-label text-muted disabled:cursor-not-allowed disabled:opacity-55";
 const STEP_BUTTON = "flex h-8.5 w-full items-center gap-2 rounded-control px-2.25 type-label text-left";
 const BLOCK_LABEL = "m-0 flex-1 font-code type-mono-sm tracking-mono text-muted";
@@ -91,7 +90,7 @@ function WorkflowFrame({ kind, title, description, returnFocus, onClose, steps, 
             workflow is instruction, so it reads at the top of the card with the steps. */}
         <header className={`shared-workflow-header ${WINDOW_TITLEBAR}`}>
           <Dialog.Title className="m-0 min-w-0 flex-1 truncate type-heading font-normal text-ink">{title}</Dialog.Title>
-          <button className={CLOSE} type="button" aria-label={`Close ${title}`} onClick={close}><X aria-hidden="true" /></button>
+          <WindowClose label={`Close ${title}`} onClick={close} />
         </header>
         <div className={`shared-workflow-card ${WINDOW_BODY}`}>
           <Dialog.Description className="m-0 flex-none px-5 pt-3.5 type-ui leading-row text-muted">{description}</Dialog.Description>

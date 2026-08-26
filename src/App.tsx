@@ -603,6 +603,10 @@ export function App() {
 
   const openProject = (project: ProjectSummary, unitId: string | null = null) => {
     setTargetUnitId(unitId);
+    /* A project opens on the desk, never beside the chat: the screen is a workbench with its own
+       tabs, filters and inspectors, and a chat column standing next to it leaves neither enough
+       width. The chat lens is still one control away for an operator who asks for it. */
+    setLens("desk");
     dispatch({
       type: "open-project",
       project: {

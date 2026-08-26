@@ -7,6 +7,7 @@ import { RalphyMascot } from "../../components/RalphyMascot";
 import { SocialIcon } from "../../components/ui/SocialIcon";
 import { bridge } from "../../lib/ipc";
 import { InstrumentScreenRoot, type InstrumentScenarioState } from "../../instrument/screen-state-registry";
+import { WINDOW, WINDOW_PLATE } from "../../components/ui/Window";
 import { unitLifecycle, type UnitLifecycle } from "../../lib/unit-lifecycle";
 import { preferredUnitPoster, resolveUnitMedia, unitPreviewKind, type UnitMedia } from "../../lib/unit-previews";
 import type { DomainPage } from "../../state/project-domain";
@@ -39,15 +40,18 @@ export function unitsInstrumentState(page: DomainPage, snapshot: ProjectScreenSn
   return page.status === "loading" || page.status === "error" ? "partial" : "ready";
 }
 
-// A card is a black widget in both themes, so its ink is the on-instrument family throughout.
+/* A card is a window: the same panel rim and card the modals and the sidebar wear, with the
+   titlebar below the picture instead of above it, because the picture is the subject and the
+   identity reads as its caption. Ink is the theme family throughout -- the card is chrome now, not
+   a black widget -- and only a plate standing *over* media keeps the on-dark pair. */
 // The pill carries its tone on the dot; the label stays readable and already names the state.
-const statusDot = (tone: string) => ({ ok: "bg-on-instrument", warn: "bg-on-instrument-muted", danger: "bg-alert", idle: "bg-unreviewed" } as Record<string, string>)[tone] ?? "bg-on-instrument-muted";
+const statusDot = (tone: string) => ({ ok: "bg-ink", warn: "bg-muted", danger: "bg-alert", idle: "bg-unreviewed" } as Record<string, string>)[tone] ?? "bg-muted";
 const FILTER_BUTTON = "inline-flex h-control-sm items-center gap-1.5 rounded-control px-2.5 type-sm whitespace-nowrap";
 // The mascot art is near-white, so on the light desk it needs its own dark plate.
 const UNITS_EMPTY = "units-empty grid min-h-full place-content-center justify-items-center p-12 text-center [&_.ralphy-mascot]:mb-3.5 [&_.ralphy-mascot]:block [&_.ralphy-mascot]:rounded-full [&_.ralphy-mascot]:bg-instrument [&_.ralphy-mascot]:p-2.25 [&_.ralphy-mascot]:[box-sizing:content-box]";
 
 function Status({ lifecycle }: { lifecycle: UnitLifecycle }) {
-  return <span className={`unit-status status-${lifecycle.tone} inline-flex h-5 items-center gap-1.5 rounded-control bg-on-instrument/13 px-2 type-mono-md whitespace-nowrap text-on-instrument`}><span className={`size-1.25 flex-none rounded-full ${statusDot(lifecycle.tone)}`} aria-hidden="true" />{lifecycle.label}</span>;
+  return <span className={`unit-status status-${lifecycle.tone} inline-flex h-5 items-center gap-1.5 rounded-control bg-chip px-2 type-mono-md whitespace-nowrap text-ink`}><span className={`size-1.25 flex-none rounded-full ${statusDot(lifecycle.tone)}`} aria-hidden="true" />{lifecycle.label}</span>;
 }
 
 function FormatIcon({ format }: { format: string }) {
@@ -57,7 +61,7 @@ function FormatIcon({ format }: { format: string }) {
 }
 
 function PlatformIcons({ platforms }: { platforms: string[] }) {
-  return <span className="unit-card-platforms inline-flex min-w-6 items-center gap-1.25 text-on-instrument-muted [&_svg]:size-3" aria-label={platforms.length ? `Platforms: ${platforms.join(", ")}` : "No platforms yet"}>
+  return <span className="unit-card-platforms inline-flex min-w-6 items-center gap-1.25 text-muted [&_svg]:size-3" aria-label={platforms.length ? `Platforms: ${platforms.join(", ")}` : "No platforms yet"}>
     {[...new Set(platforms)].map((platform) => <SocialIcon platform={platform} key={platform} />)}
   </span>;
 }
@@ -119,13 +123,13 @@ function UnitCard({ unit, baseLifecycle, publications, controller, disabled, onO
   const retry = lifecycle.action === "retry";
   /* Draggable into the chat: a card states what it is once, and the composer's drop reads it. */
   return <article
-    className="unit-card-shell group relative min-w-0 overflow-hidden rounded-cell bg-instrument text-on-instrument"
+    className={`unit-card-shell group relative min-w-0 text-ink ${WINDOW}`}
     {...entityDragProps({ kind: "unit", ref: unit.slug, label: unit.slug })}
   >
-    <button className="unit-card flex w-full min-w-0 flex-col overflow-hidden rounded-field bg-transparent p-1.5 text-left text-on-instrument [transition:background_var(--dur-fast)_var(--ease)] hover:bg-ghost focus-visible:outline-focus-on-instrument motion-reduce:[transition:none]" type="button" disabled={disabled} aria-label={`Open ${unit.slug}`} onClick={(event) => onOpen(event.currentTarget)}>
-      <span className="unit-card-preview relative grid aspect-video min-h-0 w-full content-center place-items-center gap-1.75 overflow-hidden rounded-cell bg-instrument-raised text-on-instrument-muted [&>em]:absolute [&>em]:left-2 [&>em]:top-2 [&>em]:h-4.5 [&>em]:rounded-control [&>em]:bg-media-plate [&>em]:px-1.75 [&>em]:font-code [&>em]:type-mono-sm [&>em]:leading-4.5 [&>em]:not-italic [&>em]:text-on-instrument [&>span]:font-code [&>span]:type-meta [&_img]:size-full [&_img]:object-cover [&_p]:m-0 [&_p]:line-clamp-5 [&_p]:px-4.5 [&_p]:font-code [&_p]:type-meta [&_p]:leading-row [&_p]:text-left [&_p]:text-on-instrument-muted [&_video]:size-full [&_video]:object-cover"><CardMedia media={summary?.media ?? null} format={unit.format} /><em>{typeLabel(unit.format)}</em>{lifecycle.label === "Rendering" && <i className="unit-card-progress absolute inset-x-0 bottom-0 h-0.75 bg-on-instrument/18"><span className="block h-full w-progress-render bg-on-instrument" /></i>}</span>
-      <span className="unit-card-copy grid w-full min-w-0 gap-2 px-1 pb-1 pt-2 [&_small]:truncate [&_small]:font-code [&_small]:type-meta [&_small]:text-on-instrument-muted">
-        <strong className="block truncate type-base font-semibold leading-4 text-on-instrument">{unit.slug}</strong>
+    <button className="unit-card flex w-full min-w-0 flex-col gap-0.5 overflow-hidden rounded-frame bg-transparent p-0 text-left text-ink [transition:background_var(--dur-fast)_var(--ease)] hover:bg-chip focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink motion-reduce:[transition:none]" type="button" disabled={disabled} aria-label={`Open ${unit.slug}`} onClick={(event) => onOpen(event.currentTarget)}>
+      <span className={`unit-card-preview relative grid aspect-video w-full content-center place-items-center gap-1.75 text-muted ${WINDOW_PLATE} [&>em]:absolute [&>em]:left-2 [&>em]:top-2 [&>em]:h-4.5 [&>em]:rounded-control [&>em]:bg-media-plate [&>em]:px-1.75 [&>em]:font-code [&>em]:type-mono-sm [&>em]:leading-4.5 [&>em]:not-italic [&>em]:text-on-instrument [&>span]:font-code [&>span]:type-meta [&_img]:size-full [&_img]:object-cover [&_p]:m-0 [&_p]:line-clamp-5 [&_p]:px-4.5 [&_p]:font-code [&_p]:type-meta [&_p]:leading-row [&_p]:text-left [&_p]:text-on-instrument-muted [&_video]:size-full [&_video]:object-cover`}><CardMedia media={summary?.media ?? null} format={unit.format} /><em>{typeLabel(unit.format)}</em>{lifecycle.label === "Rendering" && <i className="unit-card-progress absolute inset-x-0 bottom-0 h-0.75 bg-ink/18"><span className="block h-full w-progress-render bg-ink" /></i>}</span>
+      <span className="unit-card-copy grid w-full min-w-0 gap-2 px-2.5 pb-1.5 pt-2 [&_small]:truncate [&_small]:font-code [&_small]:type-meta [&_small]:text-muted">
+        <strong className="block truncate type-base font-semibold leading-4 text-ink">{unit.slug}</strong>
         <span className={`unit-card-status flex min-h-5 min-w-0 items-center justify-start gap-2 [&_small]:min-w-0 ${retry ? "pr-14.5" : ""}`}><Status lifecycle={lifecycle} /><small>{detailFor(lifecycle, unit, publications)}</small></span>
         <span className="unit-card-footer flex min-w-0 items-center justify-between gap-2"><PlatformIcons platforms={summary?.platforms ?? []} /><small>{summary ? `R${summary.revisionNo}` : unit.latestRevisionId ? "Latest" : "Starting"} · {formatTime(unit.updatedAt)}</small></span>
       </span>

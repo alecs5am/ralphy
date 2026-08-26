@@ -3,7 +3,7 @@ import { cloneElement, Fragment, isValidElement, useEffect, useId, useLayoutEffe
 import { createPortal } from "react-dom";
 import { WINDOW } from "../components/ui/Window";
 
-type InstrumentOverlayKind = "dialog" | "drawer" | "viewer" | "listbox" | "popover" | "menu" | "sheet" | "rail";
+type InstrumentOverlayKind = "dialog" | "viewer" | "listbox" | "popover" | "menu" | "sheet" | "rail";
 
 export const INSTRUMENT_OVERLAYS = {
   "root-picker": { kind: "dialog" }, "migration-recovery": { kind: "dialog" }, "app-alert": { kind: "dialog" },
@@ -15,7 +15,7 @@ export const INSTRUMENT_OVERLAYS = {
   "workspace-account-detail": { kind: "dialog" }, "workspace-unit-outcome-detail": { kind: "dialog" }, "workspace-evidence-detail": { kind: "dialog" },
   "shared-inspector": { kind: "rail" }, "shared-viewer": { kind: "viewer" }, "shared-workflow": { kind: "dialog" },
   "memory-recall": { kind: "dialog" }, "memory-editor": { kind: "dialog" }, "memory-history": { kind: "dialog" }, "memory-confirm": { kind: "dialog" },
-  "calendar-filter": { kind: "popover" }, "calendar-drawer": { kind: "drawer" }, "calendar-inspector": { kind: "rail" }, "calendar-schedule": { kind: "dialog" },
+  "calendar-filter": { kind: "popover" }, "calendar-drawer": { kind: "dialog" }, "calendar-inspector": { kind: "dialog" }, "calendar-schedule": { kind: "dialog" },
   "calendar-unit-picker": { kind: "popover" }, "calendar-date-popover": { kind: "popover" }, "calendar-time-popover": { kind: "popover" },
   "calendar-platform-settings": { kind: "dialog" }, "calendar-account-detail": { kind: "dialog" }, "calendar-reconnect": { kind: "dialog" },
   "document-editor": { kind: "dialog" }, "document-viewer": { kind: "viewer" }, "document-conflict": { kind: "dialog" },
@@ -74,7 +74,7 @@ type RuntimeOverlayProps = InstrumentOverlayBaseProps<InstrumentOverlayId> & {
   overlayOwner?: unknown;
 };
 
-/* A managed dialog or drawer is one flat light widget clipped one gutter short of the window, so
+/* A managed dialog is one flat light widget clipped one gutter short of the window, so
    its square corners can never cross the window's own rounded clip. The surface states both
    halves of the pair: it is portalled to `document.body`, outside `.app-mode-work`, where the
    legacy inks resolve to the on-dark family and a light plate would carry near-white text.
@@ -94,7 +94,7 @@ const MANAGED_SURFACE_FOCUS = "data-[instrument-surface-focus]:outline-2 data-[i
 
 function managedSurfaceClasses(id: InstrumentOverlayId, caller: string | undefined): string {
   const kind = INSTRUMENT_OVERLAYS[id].kind;
-  const plate = (kind === "dialog" || kind === "drawer") && id !== "settings"
+  const plate = kind === "dialog" && id !== "settings"
     ? `${MANAGED_SURFACE} ${MANAGED_SURFACE_FOCUS}`
     : "";
   return [plate, caller].filter(Boolean).join(" ");
@@ -102,7 +102,6 @@ function managedSurfaceClasses(id: InstrumentOverlayId, caller: string | undefin
 
 const overlayRoles: Record<InstrumentOverlayKind, "dialog" | "listbox" | "menu" | "complementary"> = {
   dialog: "dialog",
-  drawer: "dialog",
   viewer: "dialog",
   listbox: "listbox",
   popover: "dialog",
@@ -115,7 +114,7 @@ const primitiveHostIds = new Set<PrimitiveHostId>([
   "shared-select-menu", "workspace-picker", "agent-chat-recent-menu", "agent-chat-provider-menu", "agent-chat-model-menu", "agent-chat-mode-menu",
   "agent-chat-context",
 ]);
-const modalKinds = new Set<InstrumentOverlayKind>(["dialog", "drawer", "viewer", "sheet"]);
+const modalKinds = new Set<InstrumentOverlayKind>(["dialog", "viewer", "sheet"]);
 
 const modalEnvironment = (() => {
   let locks = 0;

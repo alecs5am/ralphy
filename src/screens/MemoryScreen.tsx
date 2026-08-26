@@ -11,7 +11,7 @@ import { entityDragProps } from "../chat/attachments";
 import { bridge } from "../lib/ipc";
 import { SelectMenu } from "../components/ui/SelectMenu";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "../instrument/screen-state-registry";
-import { WINDOW, WINDOW_BODY, WINDOW_TITLEBAR } from "../components/ui/Window";
+import { WINDOW, WINDOW_BODY, WINDOW_TITLEBAR, WindowClose } from "../components/ui/Window";
 import {
   ACTION, INSTRUMENT_ACTION_COMPACT, INSTRUMENT_ACTION_PRIMARY_COMPACT, OVERLAY_FIELD_RING,
   OVERLAY_RING, OVERLAY_SCRIM, QUIET_TEXT, STATE_LINE,
@@ -50,11 +50,11 @@ const ICON_XL = "size-3.5";    /* 14px -- the mark that leads a strip, a plate o
    ink it pairs with. */
 const TYPE_CHIP = `${ACTION} min-h-8 px-2.5 type-xs`;
 const RULE_ACTION = `${ACTION} h-7 px-2.5 type-label bg-surface-sunken text-ink hover:bg-surface-hover`;
-const RULE_ACTION_PRIMARY = `${ACTION} h-7 px-2.5 type-label bg-desk-primary text-desk-primary-ink`;
+const RULE_ACTION_PRIMARY = `${ACTION} h-7 px-2.5 type-label bg-brand text-brand-ink hover:opacity-88`;
 const RULE_LABEL = "font-code type-meta tracking-block text-muted";
 const RULE_PLATE = "rounded-field bg-surface-sunken px-2.75 py-2.5 type-sm text-ink";
 const DIALOG_ACTION = `${ACTION} h-7.5 px-3 type-sm bg-surface-sunken text-ink hover:bg-surface ${OVERLAY_RING}`;
-const DIALOG_ACTION_PRIMARY = `${ACTION} h-7.5 px-3 type-sm bg-desk-primary text-desk-primary-ink ${OVERLAY_RING}`;
+const DIALOG_ACTION_PRIMARY = `${ACTION} h-7.5 px-3 type-sm bg-brand text-brand-ink hover:opacity-88 ${OVERLAY_RING}`;
 const DIALOG_ACTION_DANGER = `${ACTION} h-7.5 px-3 type-sm bg-alert text-alert-ink hover:bg-alert-bright ${OVERLAY_RING}`;
 const DIALOG_LABEL = `grid gap-1.5 type-label text-ink ${OVERLAY_FIELD_RING}`;
 const DIALOG_FIELD = `w-full min-h-7.5 rounded-control bg-surface-sunken px-2.25 py-1.75 font-app type-sm text-ink outline-none ${OVERLAY_RING}`;
@@ -294,7 +294,7 @@ function MemoryModal({ open, onOpenChange, overlay, title, description, sheet = 
   const surface = sheet
     ? `fixed inset-y-0 right-0 z-scrim-content h-screen w-memory-recall text-ink outline-none ${WINDOW}`
     : `fixed inset-0 z-scrim-content m-auto h-fit max-h-memory-modal-height w-memory-modal-width text-ink outline-none ${WINDOW}`;
-  return <Dialog.Root open={open} onOpenChange={onOpenChange}>{open && <><Dialog.Overlay forceMount className={`memory-modal-overlay ${OVERLAY_SCRIM}`} data-instrument-overlay-backdrop="" /><Dialog.Content forceMount className={`memory-modal ${surface}${sheet ? " memory-recall" : ""}`} data-instrument-overlay={overlay}><header className={WINDOW_TITLEBAR}><Dialog.Title className="m-0 min-w-0 flex-none truncate type-title font-normal text-ink">{title}</Dialog.Title><Dialog.Description className="m-0 min-w-0 flex-1 truncate type-label text-muted">{description}</Dialog.Description><Dialog.Close asChild><button type="button" className={`ml-auto grid size-6.5 flex-none place-items-center rounded-control text-muted transition-colors duration-fast ease-instrument hover:bg-chip hover:text-ink motion-reduce:transition-none motion-reduce:duration-0 ${OVERLAY_RING}`} aria-label={`Close ${title}`}><X className={ICON_XL} /></button></Dialog.Close></header><div className={`memory-modal-card overflow-y-auto ${WINDOW_BODY}`}>{children}</div></Dialog.Content></>}</Dialog.Root>;
+  return <Dialog.Root open={open} onOpenChange={onOpenChange}>{open && <><Dialog.Overlay forceMount className={`memory-modal-overlay ${OVERLAY_SCRIM}`} data-instrument-overlay-backdrop="" /><Dialog.Content forceMount className={`memory-modal ${surface}${sheet ? " memory-recall" : ""}`} data-instrument-overlay={overlay}><header className={WINDOW_TITLEBAR}><Dialog.Title className="m-0 min-w-0 flex-none truncate type-title font-normal text-ink">{title}</Dialog.Title><Dialog.Description className="m-0 min-w-0 flex-1 truncate type-label text-muted">{description}</Dialog.Description><Dialog.Close asChild><WindowClose className="ml-auto" label={`Close ${title}`} /></Dialog.Close></header><div className={`memory-modal-card overflow-y-auto ${WINDOW_BODY}`}>{children}</div></Dialog.Content></>}</Dialog.Root>;
 }
 
 function RecallDialog({ open, onOpenChange, recall }: { open: boolean; onOpenChange(open: boolean): void; recall: Awaited<ReturnType<typeof bridge.recallMemory>> | null }) {

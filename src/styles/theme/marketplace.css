@@ -35,7 +35,6 @@
   /* Ink and surfaces the shared scale does not name. */
   --color-composer: var(--instrument-composer-surface);   /* the one primary action on a black hero */
   --color-composer-ink: var(--instrument-alert-text);     /* and the ink that surface pairs with */
-  --color-alert-bright: var(--instrument-alert-bright);   /* an alarm line standing on a black widget */
   /* The ring for a control on a black widget: the theme ink would be black on black in light. */
   --color-focus-on-instrument: var(--instrument-focus-on-dark);
 

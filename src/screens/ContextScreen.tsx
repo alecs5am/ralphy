@@ -72,7 +72,7 @@ const BAND_NAME = "type-ui text-ink";
 const NUMBER = "font-display font-extrabold tracking-normal text-ink";
 const PILL = "inline-flex h-6 flex-none items-center rounded-control bg-field px-2.5 type-label text-ink hover:bg-row-hover";
 const PILL_GHOST = "inline-flex h-7.5 flex-none items-center gap-1.75 rounded-control bg-transparent px-3 type-sm text-muted hover:text-ink";
-const PILL_PRIMARY = "inline-flex h-control-md flex-none items-center gap-2 rounded-control bg-desk-primary px-3.5 type-sm text-desk-primary-ink hover:opacity-88";
+const PILL_PRIMARY = "inline-flex h-control-md flex-none items-center gap-2 rounded-control bg-brand px-3.5 type-sm text-brand-ink hover:opacity-88";
 
 /** A count the operator reads as a size, in the unit we actually measured. */
 function bytes(value: number | null): string {

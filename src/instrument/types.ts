@@ -11,7 +11,7 @@ export type Availability<T> =
 export type ThemePreference = "system" | "dark" | "light";
 export type ResolvedTheme = "dark" | "light";
 export type InstrumentRightRailMode = "docked" | "overlay" | "closed";
-export type InstrumentRightRailOwner = "chat" | "media-review" | "shared-inspector" | "calendar-inspector" | "activity-inspector";
+export type InstrumentRightRailOwner = "chat" | "shared-inspector";
 
 export interface InstrumentProfileIdentity {
   displayName: string;

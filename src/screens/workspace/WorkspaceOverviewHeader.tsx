@@ -63,7 +63,7 @@ export function WorkspaceOverviewHeader({
       <span className="inline-flex h-9 items-center rounded-full bg-card px-3.5 font-code type-sm text-muted">{countLabel(criticalCount, "critical issue")}</span>
       {/* The primary control on the desk is the inversion of the desk, which is the one place the
           design allows a filled button outside a black widget. */}
-      <button className="command-button inline-flex h-9 flex-none items-center justify-center gap-2 rounded-full bg-desk-primary px-3.5 type-base text-desk-primary-ink disabled:opacity-60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-desk-primary-ink" type="button" disabled={refreshing} onClick={onRefresh}>
+      <button className="command-button inline-flex h-9 flex-none items-center justify-center gap-2 rounded-full bg-brand px-3.5 type-base text-brand-ink hover:opacity-88 disabled:opacity-60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-ink" type="button" disabled={refreshing} onClick={onRefresh}>
         <RefreshCw size={14} aria-hidden="true" />{refreshing ? "Refreshing…" : "Refresh"}
       </button>
     </div>

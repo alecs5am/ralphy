@@ -163,7 +163,10 @@ describe("instrument scenario contract", () => {
   });
 
   test("binds every stable scenario ID to one frozen semantic record", () => {
-    expect(semanticDigest(INSTRUMENT_SCENARIOS)).toBe("9843fec77abe67ab75a46d91393de57ae52892c4c24dd37347883a96cc5d09f2");
+    /* Re-frozen when the right-edge panels became modals: media review moved to the asset's context
+       menu, and the calendar and run inspectors stopped docking into the rail, so three routes lost
+       a rail owner and the calendar inspector became an overlay that owns its own scroll. */
+    expect(semanticDigest(INSTRUMENT_SCENARIOS)).toBe("b3a845a916056b2bfe0f98728ca7399f6091d6eb4d631b8a189a3827a59d3f79");
   });
 
   test("rejects set-preserving route, state, overlay, and owner swaps across stable IDs", () => {

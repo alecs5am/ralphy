@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { ChevronLeft, ChevronRight, ExternalLink, FileText, ImageOff, PanelRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, FileText, ImageOff, PanelRight } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { ArtifactMediaCardDto, ArtifactRevisionDto } from "../../../electron/ralphy/types";
 import { isSupportedFontPreviewMime } from "../../../shared/font-preview";
@@ -8,7 +8,7 @@ import { ImageViewport } from "../../components/media/ImageViewport";
 import { VideoPlayer } from "../../components/media/VideoPlayer";
 import { bridge } from "../../lib/ipc";
 import { presentSharedArtifact, type Availability, type SharedArtifactPresentation } from "./presentation";
-import { WINDOW, WINDOW_CARD, WINDOW_TITLEBAR } from "../../components/ui/Window";
+import { WINDOW, WINDOW_CARD, WINDOW_TITLEBAR, WindowClose } from "../../components/ui/Window";
 
 /* The viewer is a full-surface light widget: its own surface, the stage and the context rail one
    step down, and a block inside the rail one step up again. Controls that stand on media take the
@@ -335,11 +335,11 @@ export function SharedArtifactViewer({ artifact, artifacts, workspaceId, rootEpo
       <Dialog.Content asChild data-instrument-overlay="shared-viewer"
         onOpenAutoFocus={(event) => { event.preventDefault(); surfaceRef.current?.focus({ preventScroll: true }); }}
         onCloseAutoFocus={(event) => { event.preventDefault(); restoreFocus(); }}>
-        <section ref={surfaceRef} tabIndex={-1} className={`shared-artifact-viewer @container/shared-viewer fixed inset-0 z-viewer text-ink ${WINDOW}`} aria-label={`Preview ${detail.slug}`}>
+        <section ref={surfaceRef} tabIndex={-1} className={`shared-artifact-viewer @container/shared-viewer fixed inset-0 z-viewer m-auto h-shared-viewer-height w-shared-viewer-width text-ink ${WINDOW}`} aria-label={`Preview ${detail.slug}`}>
           <header className={`shared-viewer-head ${WINDOW_TITLEBAR}`}>
             <span className="min-w-0 flex-1 truncate font-code type-mono-sm tracking-caps text-muted">{topLine}</span>
             <button className={ACTION} type="button" aria-label="Open original" aria-describedby={detail.preview === "no-target" ? targetlessActionId : undefined} disabled={detail.preview === "no-target" || openState === "pending"} onClick={() => { void openOriginal(); }}><ExternalLink aria-hidden="true" />{openState === "pending" ? "Opening original…" : "Open original"}</button>
-            <button className={`${ACTION} w-7 px-0`} type="button" aria-label="Close viewer" onClick={close}><X aria-hidden="true" /></button>
+            <WindowClose label="Close viewer" onClick={close} />
           </header>
           {/* The viewer is measured against itself: it owns the whole surface, so its own width is
               the only width that can decide whether the stage and the context rail stack. */}

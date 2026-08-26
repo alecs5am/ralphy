@@ -335,9 +335,12 @@ describe("units workbench", () => {
   test("keeps Unit controls flat and centers the phone with its playback rail", () => {
     const reset = readFileSync(join(process.cwd(), "src/styles/reset.css"), "utf8");
     expect(reset).toMatch(/button\s*\{[^}]*background:\s*transparent/s);
-    // Flat at rest: no plate under a control until it is hovered. The close button hovers to
-    // the chip tone the rest of the app uses -- on the panel ground `transparent` was a no-op.
-    expect(unitViewer).toMatch(/unit-viewer-close[^"]*rounded-field text-muted hover:bg-chip/);
+    // Flat at rest: no plate under a control until it is hovered. The close is the kit's control
+    // now -- a round chip that goes to the alarm under the cursor -- so the tone decision moved
+    // with it, and this file only has to keep naming the element.
+    expect(unitViewer).toContain('<WindowClose className="unit-viewer-close"');
+    expect(readFileSync(join(process.cwd(), "src/components/ui/Window.tsx"), "utf8"))
+      .toMatch(/WINDOW_CLOSE = "[^"]*rounded-full bg-chip text-muted[^"]*hover:bg-alert/);
     // The stage centres the device on a ground of its own. It is a flex line rather than a
     // grid: a percentage max-height needs a definite track, and an auto grid row is not one,
     // so the phone grew past the column and the modal clipped it.

@@ -63,8 +63,9 @@ function StatefulChat() {
 /* The dock's own resolution -- docked above 1280/680, the modal sheet below it, closed otherwise --
    is now only reachable for an owner that is not the chat: under the desk lens the chat rail is
    deliberately unavailable, so a chat-owned rail is closed whatever the widths say. The four tests
-   that exercise those boundaries stand a media-review owner in the dock instead. */
-const REVIEW_DESK = <main><InstrumentRightRailPortal owner="media-review" label="Media review"><button type="button">Review selected media</button></InstrumentRightRailPortal></main>;
+   that exercise those boundaries stand the shared library's inspector in the dock instead, which is
+   the one non-chat owner left -- media review is a context menu on the asset now. */
+const REVIEW_DESK = <main><InstrumentRightRailPortal owner="shared-inspector" label="Shared item"><button type="button">Review selected media</button></InstrumentRightRailPortal></main>;
 
 const defaultProps = {
   sidebar: <aside>Sidebar</aside>,

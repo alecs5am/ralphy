@@ -21,7 +21,7 @@ export const ACTION = "inline-flex shrink-0 items-center justify-center gap-1.5 
  */
 const ON_INSTRUMENT = "bg-instrument-raised text-on-instrument-muted hover:bg-ghost hover:text-on-instrument focus-visible:outline-focus-on-instrument";
 /** ...and the one primary action on that widget, which inverts to the light plate. */
-const ON_INSTRUMENT_PRIMARY = "bg-surface text-ink hover:bg-surface-hover focus-visible:outline-focus-on-instrument";
+const ON_INSTRUMENT_PRIMARY = "bg-brand text-brand-ink hover:opacity-88 focus-visible:outline-focus-on-instrument";
 
 export const INSTRUMENT_ACTION = `${ACTION} h-8 px-2.5 type-sm ${ON_INSTRUMENT}`;
 export const INSTRUMENT_ACTION_PRIMARY = `${ACTION} h-8 px-2.5 type-sm ${ON_INSTRUMENT_PRIMARY}`;
@@ -50,7 +50,7 @@ export const OVERLAY_FIELD_RING = "focus-within:outline-ink";
 
 /** A dialog footer action, and the primary one, which takes the inverted desk plate and its ink. */
 export const OVERLAY_ACTION = `${ACTION} h-8 px-3.75 type-sm bg-surface-sunken text-ink hover:bg-surface ${OVERLAY_RING}`;
-export const OVERLAY_ACTION_PRIMARY = `${ACTION} h-8 px-3.75 type-sm bg-desk-primary text-desk-primary-ink ${OVERLAY_RING}`;
+export const OVERLAY_ACTION_PRIMARY = `${ACTION} h-8 px-3.75 type-sm bg-brand text-brand-ink hover:opacity-88 ${OVERLAY_RING}`;
 
 /**
  * The scrim under a portalled dialog. It states no fill: `[data-instrument-overlay-backdrop]` in

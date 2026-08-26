@@ -1,11 +1,11 @@
-import { Clock3, DollarSign, RotateCw, X } from "lucide-react";
+import { Clock3, DollarSign, RotateCw } from "lucide-react";
 
 import type { ActivityRunDetail } from "../../../electron/media/types";
 import type { ActivityDto } from "../../../electron/ralphy/types";
 import { AiBrandIcon } from "../../components/AiBrandIcon";
 import { RalphyMascot } from "../../components/RalphyMascot";
 import { activitySource, humanizeActivity, summarizeActivityRun } from "./activity-presentation";
-import { WINDOW, WINDOW_BODY, WINDOW_TITLEBAR } from "../../components/ui/Window";
+import { WINDOW, WINDOW_BODY, WINDOW_TITLEBAR, WindowClose } from "../../components/ui/Window";
 
 const dateValue = (value: number) => new Date(value < 1_000_000_000_000 ? value * 1000 : value);
 const duration = (value: number | null) => value === null ? "—" : value < 1000 ? `${value} ms` : `${(value / 1000).toFixed(1)} s`;
@@ -47,7 +47,7 @@ export function ActivityInspector({ event, detail, loading, error, onRetry, onCl
       </span>
       <h2 className="m-0 min-w-0 flex-none truncate type-md font-normal" id="activity-inspector-title">{humanizeActivity(event.action)}</h2>
       <p className="m-0 min-w-0 flex-1 truncate type-sm text-muted">{humanizeActivity(source)} · {humanizeActivity(event.entityType)}</p>
-      <button className="activity-inspector-close grid size-7 flex-none place-items-center rounded-full bg-transparent text-muted hover:bg-chip hover:text-ink" type="button" aria-label="Close activity details" onClick={onClose}><X size={16} /></button>
+      <WindowClose className="activity-inspector-close" label="Close activity details" onClick={onClose} />
     </header>
     <div className={`activity-inspector-card overflow-y-auto p-4 [scrollbar-gutter:stable] ${WINDOW_BODY}`}>
 

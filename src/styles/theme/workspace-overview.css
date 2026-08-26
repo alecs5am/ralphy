@@ -44,7 +44,10 @@
   --color-focus-on-instrument: var(--instrument-focus-on-dark);
 
   /* The detail drawer covers the right edge of the desk and never exceeds the window. */
-  --spacing-workspace-drawer: min(480px, 100vw);
+  --spacing-workspace-drawer: min(480px, calc(100vw - 48px));
+  /* The detail is centred rather than pinned to the right edge, so it needs a height of its own:
+     tall enough for the evidence lists, short enough to stay off the window edge. */
+  --spacing-workspace-detail-height: min(760px, calc(100vh - 64px));
 
   /* The drawer's stack, so a portal's order stays a token and not a number in markup. */
   --z-index-scrim: var(--z-scrim);

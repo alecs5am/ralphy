@@ -98,7 +98,7 @@ export function LibraryScreen({
           <div className="ralphy-wordmark mb-4.5 font-code type-sm text-ink">RALPHY</div>
           <h2>Home library unavailable</h2>
           <p>{error ?? "Ralphy could not open ~/.ralphy."}</p>
-          <button className={`command-button is-primary ${COMMAND_SHAPE} bg-desk-primary text-desk-primary-ink focus-visible:outline-desk-primary-ink`} type="button" disabled={restoring} onClick={onRetry}>
+          <button className={`command-button is-primary ${COMMAND_SHAPE} bg-brand text-brand-ink hover:opacity-88 focus-visible:outline-ink`} type="button" disabled={restoring} onClick={onRetry}>
             {restoring ? "Opening…" : "Retry"}
           </button>
         </div>

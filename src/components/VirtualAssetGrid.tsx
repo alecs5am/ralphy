@@ -223,17 +223,21 @@ export function MediaCardTile({ card, project, rootEpoch, selected, resolvePrevi
     if (event.key === " ") { event.preventDefault(); onSelect(); }
     if (event.key === "Enter") { event.preventDefault(); onOpen(); }
   };
-  const openContext = (event: MouseEvent<HTMLButtonElement>) => {
+  const focusTile = (event: MouseEvent<HTMLElement>) => {
+    const target = event.currentTarget.querySelector<HTMLElement>(".media-card-button");
+    target?.focus({ preventScroll: true });
+  };
+  const openContext = (event: MouseEvent<HTMLElement>) => {
     event.preventDefault();
-    event.currentTarget.focus({ preventScroll: true });
+    focusTile(event);
     onSelect();
     onContextMenu({ x: event.clientX, y: event.clientY });
   };
   /* `cursor: grab` never rendered: `.media-card-tile` restated `pointer` after it, so the tile
      reads as a click target at rest and only says "grabbing" while a drag is live. */
-  return <article {...entityDragProps(mediaAttachment(card))} className={`asset-tile media-card-tile group flex w-full min-h-0 flex-col gap-2 bg-transparent text-left text-ink cursor-pointer active:cursor-grabbing [contain:layout_style] ${selected ? "is-selected" : ""}`} data-selected={selected || undefined} style={{ "--asset-aspect": ratio } as CSSProperties}>
+  return <article {...entityDragProps(mediaAttachment(card))} className={`asset-tile media-card-tile group flex w-full min-h-0 flex-col gap-2 bg-transparent text-left text-ink cursor-pointer active:cursor-grabbing [contain:layout_style] ${selected ? "is-selected" : ""}`} data-selected={selected || undefined} style={{ "--asset-aspect": ratio } as CSSProperties} onClick={(event) => { focusTile(event); onSelect(); }} onDoubleClick={onOpen} onContextMenu={openContext}>
     <MediaCardPreview card={card} project={project} rootEpoch={rootEpoch} resolvePreview={resolvePreview} aspectRatio={ratio} onAspectRatio={rememberRatio} />
-    <button className="media-card-button flex w-full min-w-0 items-start gap-1.5 bg-transparent p-0 text-left text-ink focus-visible:rounded-control" type="button" aria-label={`${name}${selected ? ", selected" : ""}`} aria-pressed={selected} onClick={onSelect} onDoubleClick={onOpen} onKeyDown={onKeyDown} onContextMenu={openContext}>
+    <button className="media-card-button flex w-full min-w-0 items-start gap-1.5 bg-transparent p-0 text-left text-ink focus-visible:rounded-control" type="button" aria-label={`${name}${selected ? ", selected" : ""}`} aria-pressed={selected} onKeyDown={onKeyDown}>
       <i className={`mt-1 size-1.5 shrink-0 rounded-full ${selected ? "bg-alert" : "bg-ink"}`} aria-hidden="true" />
       <span className="asset-copy grid h-auto w-full min-w-0 flex-none gap-0.75 px-0.5 pt-2.25"><strong className="block truncate type-label leading-4 font-normal text-ink">{name}</strong><small className="block truncate font-code type-mono-xs leading-4 tracking-label text-muted uppercase">{mediaCardKind(card)} · {mediaCardFacts(card)}</small></span>
     </button>

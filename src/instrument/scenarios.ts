@@ -21,7 +21,7 @@ import type {
 export type InstrumentScenarioTheme = "light" | "dark";
 export type InstrumentViewport = "1440x900" | "1280x800" | "1100x720";
 export type InstrumentRightRailMode = "docked" | "overlay" | "closed";
-export type InstrumentRightRailOwner = "chat" | "media-review" | "shared-inspector" | "calendar-inspector" | "activity-inspector";
+export type InstrumentRightRailOwner = "chat" | "shared-inspector";
 
 export const REQUIRED_SCENARIO_THEMES = ["light", "dark"] as const;
 export const REQUIRED_SCENARIO_VIEWPORTS = ["1440x900", "1280x800", "1100x720"] as const;
@@ -85,10 +85,12 @@ function routeScenarioId(routeKey: InstrumentRouteKey, state: InstrumentScenario
   return `${route}.${state}`;
 }
 
+/* Only the chat and the shared library's inspector dock into the rail now. Media review, the
+   calendar inspector and the run inspector each used to claim it, which is what made a right-edge
+   sidebar the app's second answer to "show me this one thing"; they are a context menu, a modal and
+   a floating panel now, and no route opens the rail on the operator's behalf. */
 function routeRailOwner(routeKey: InstrumentRouteKey, state: InstrumentScenarioState): InstrumentRightRailOwner | null {
-  if (routeKey === "project.media" && ["ready", "partial", "selected", "viewer"].includes(state)) return "media-review";
-  if (routeKey === "workspace.calendar" && state === "selected") return "calendar-inspector";
-  if (routeKey === "project.activity" && state === "selected") return "activity-inspector";
+  if (routeKey === "workspace.shared" && state === "selected") return "shared-inspector";
   return chatRoutes.has(routeKey) ? "chat" : null;
 }
 

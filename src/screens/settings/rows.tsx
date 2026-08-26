@@ -73,7 +73,7 @@ export function action({ size, tone, round, surface }: {
       : tone === "danger" ? "bg-danger text-danger-ink hover:bg-danger-hover"
       : tone === "quiet" ? "bg-transparent text-on-instrument-muted hover:text-on-instrument"
       : "bg-ghost text-on-instrument hover:bg-ghost-hover"
-    : tone === "primary" ? "bg-desk-primary text-desk-primary-ink hover:opacity-88"
+    : tone === "primary" ? "bg-brand text-brand-ink hover:opacity-88"
       : tone === "danger" ? "bg-danger text-danger-ink hover:bg-danger-hover"
       : round ? "bg-field text-muted hover:bg-row-hover hover:text-ink"
       : surface === "panel" ? "bg-card text-ink hover:bg-row-hover"

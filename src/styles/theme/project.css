@@ -100,8 +100,6 @@
 
   /* The alarm pair: a solid alert plate needs the ink that plate was measured against, and the
      bright tone is the hover of that plate. */
-  --color-alert-ink: var(--instrument-alert-text);
-  --color-alert-bright: var(--instrument-alert-bright);
 
   /* Leading the shared tokens do not name. */
   --leading-copy: var(--leading-body);      /* a paragraph of source-provided copy */

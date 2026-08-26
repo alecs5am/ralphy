@@ -23,6 +23,8 @@ const shared = {
   alertText: "#050505",
   alertBright: "#EB4438",
   dangerFill: "#E0362C",
+  brand: "#625CC6",
+  brandInk: "#FFFFFF",
   errorText: "#E8E8E6",
   trafficClose: "#ED6A5E",
   trafficMinimize: "#F0B544",

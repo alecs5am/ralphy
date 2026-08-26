@@ -8,7 +8,7 @@ import { AiBrandIcon } from "../../components/AiBrandIcon";
 import { RalphyMascot } from "../../components/RalphyMascot";
 import { SelectMenu, type SelectMenuOption } from "../../components/ui/SelectMenu";
 import { defineInstrumentScreenStates, InstrumentScreenRoot, type InstrumentScenarioState } from "../../instrument/screen-state-registry";
-import { InstrumentRightRailPortal, useOptionalInstrumentRightRail, useOptionalInstrumentScroll } from "../../instrument/InstrumentShell";
+import { useOptionalInstrumentScroll } from "../../instrument/InstrumentShell";
 import type { DomainPage } from "../../state/project-domain";
 import type { ProjectScreenController } from "../../state/project-screen-controller";
 import { ActivityInspector } from "./ActivityInspector";
@@ -96,7 +96,6 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
   resetToken: string;
 }) {
   const instrumentScroll = useOptionalInstrumentScroll();
-  const instrumentRail = useOptionalInstrumentRightRail();
   const ownerRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef(new Map<number, HTMLButtonElement>());
   const detailRef = useRef<Record<string, ActivityRunDetail>>({});
@@ -250,9 +249,6 @@ export function ActivityTimeline({ page, controller, scrollMemory, resetToken }:
         </div>
       </div>
     </div>
-    {selectedEvent ? instrumentRail && instrumentRail.mode !== "closed"
-      ? <InstrumentRightRailPortal owner="activity-inspector" label="Run inspector"><ActivityInspector event={selectedEvent} detail={details[selectedEvent.entityId] ?? null} loading={loadingIds.has(selectedEvent.entityId)} error={errors[selectedEvent.entityId] ?? null} onRetry={() => { void loadDetail(selectedEvent); }} onClose={() => setSelected(null)} /></InstrumentRightRailPortal>
-      : <ActivityInspector event={selectedEvent} detail={details[selectedEvent.entityId] ?? null} loading={loadingIds.has(selectedEvent.entityId)} error={errors[selectedEvent.entityId] ?? null} onRetry={() => { void loadDetail(selectedEvent); }} onClose={() => setSelected(null)} />
-      : null}
+    {selectedEvent && <ActivityInspector event={selectedEvent} detail={details[selectedEvent.entityId] ?? null} loading={loadingIds.has(selectedEvent.entityId)} error={errors[selectedEvent.entityId] ?? null} onRetry={() => { void loadDetail(selectedEvent); }} onClose={() => setSelected(null)} />}
   </div></InstrumentScreenRoot>;
 }

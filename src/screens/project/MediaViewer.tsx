@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { ChevronLeft, ChevronRight, Copy, RefreshCw, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Copy, RefreshCw } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import type { ArtifactMediaCardDto, ArtifactRevisionDto, GenerationAttemptDetailDto, MediaCardDto, MediaGenerationDetailDto, RunObjectMediaCardDto } from "../../../electron/ralphy/types";
@@ -10,7 +10,7 @@ import { VideoPlayer } from "../../components/media/VideoPlayer";
 import { bridge } from "../../lib/ipc";
 import type { ProjectScreenController, ProjectScreenSnapshot } from "../../state/project-screen-controller";
 import { COMMAND_BUTTON, COMMAND_BUTTON_ON_INSTRUMENT, PROJECT_LOCAL_ERROR, PROJECT_LOCAL_ERROR_ON_INSTRUMENT } from "../route-chrome";
-import { WINDOW, WINDOW_CARD, WINDOW_TITLEBAR } from "../../components/ui/Window";
+import { WINDOW, WINDOW_CARD, WINDOW_TITLEBAR, WindowClose } from "../../components/ui/Window";
 
 /* The whole modal is portalled to the body, i.e. outside `.app-mode-work`, where every legacy
    `--fg*` token resolves to the on-dark family. That is why the toolbar's own title used to paint
@@ -239,7 +239,7 @@ export function MediaViewer({ controller, snapshot }: { controller: ProjectScree
             <div className={ACTIONS}>
               <button className={ICON_ACTION} type="button" disabled={index <= 0} aria-label="Previous" onClick={() => { void controller.navigateMediaViewer(-1); }}><ChevronLeft size={15} aria-hidden="true" /></button>
               <button className={ICON_ACTION} type="button" disabled={index < 0 || index >= items.length - 1} aria-label="Next" onClick={() => { void controller.navigateMediaViewer(1); }}><ChevronRight size={15} aria-hidden="true" /></button>
-              <Dialog.Close asChild><button className={ICON_ACTION} type="button" aria-label="Close"><X size={15} aria-hidden="true" /></button></Dialog.Close>
+              <Dialog.Close asChild><WindowClose label="Close" /></Dialog.Close>
             </div>
           </div>
           <div className={`asset-modal-body grid min-h-0 min-w-0 flex-1 grid-cols-(--asset-modal-columns) ${WINDOW_CARD}`}>

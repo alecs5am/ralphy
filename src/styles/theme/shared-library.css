@@ -39,6 +39,12 @@
   --spacing-shared-hint: 220px;           /* the bulk bar's inline reason */
   --spacing-shared-state: 220px;          /* the empty state holds its height before it fills */
 
+  /* The artifact viewer's own measure. It used to be `inset-0`, which is the one window in the app
+     that took the whole desk; a preview is a modal like any other, so it stops well short of the
+     edge and stays above the 820px container step that stacks its stage over the context rail. */
+  --spacing-shared-viewer-width: min(1240px, calc(100vw - 64px));
+  --spacing-shared-viewer-height: min(820px, calc(100vh - 64px));
+
   /* A workflow window is sized per workflow and never touches the desk edge: it stops one 20px
      gutter short in each axis. */
   --spacing-shared-window-width: calc(100vw - 40px);

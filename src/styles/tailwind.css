@@ -61,6 +61,14 @@
   --color-desk-primary-ink: var(--instrument-desk-primary-ink);
   --color-track-on-instrument: var(--instrument-track-on-dark);
   --color-alert: var(--instrument-alert);
+  /* The alarm's own ink and its brighter step. Both were declared once per area, which is four
+     copies of one decision; they are shared because the close control in the window kit is. */
+  --color-alert-ink: var(--instrument-alert-text);
+  --color-alert-bright: var(--instrument-alert-bright);
+  /* The accent a primary action takes. Red is spoken for -- alerts, rejection, destruction -- so
+     the one action a surface wants you to take is the brand indigo instead, in both themes. */
+  --color-brand: var(--instrument-brand);
+  --color-brand-ink: var(--instrument-brand-ink);
   --color-divider: var(--instrument-divider);
 
   /* The radius and type scales, named by role. tokens.css owns the values; naming them here is

@@ -74,7 +74,7 @@ const MENU_ROW = "flex w-full min-w-0 items-center rounded-tab bg-transparent te
 const PILL = "inline-flex h-6.5 min-w-0 flex-none items-center gap-1.75 rounded-full px-2.5 type-label";
 const PILL_QUIET = `${PILL} bg-chat-control text-ink hover:bg-chat-control-hover aria-expanded:bg-chat-control-hover`;
 /* A primary action anywhere in the chat is the inversion of the card. */
-const PRIMARY = "bg-desk-primary text-desk-primary-ink hover:bg-instrument-hover";
+const PRIMARY = "bg-brand text-brand-ink hover:opacity-88";
 /* The copy column of a two-line menu row. */
 const ROW_COPY = "flex min-w-0 flex-1 flex-col gap-0.5";
 /* A field well on the card, with the theme's own focus ring. */

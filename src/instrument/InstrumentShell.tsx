@@ -394,7 +394,10 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
     register,
   }), [activeRail.owner, closeRail, mode, openRail, railHost, register]);
 
-  const railContentHidden = activeRail.owner !== "chat" && activeRail.owner !== "media-review";
+  /* Media review used to share this dock with the chat, which is why both could be visible at
+     once; it is a context menu on the asset now, so the rail shows the chat or it shows the one
+     panel that took it. */
+  const railContentHidden = activeRail.owner !== "chat";
   return <ScrollContext.Provider value={scrollContext}>
     <RightRailContext.Provider value={railContext}>
       <div

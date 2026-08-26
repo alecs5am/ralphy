@@ -29,7 +29,7 @@ const overlayKinds = {
   "workspace-picker": "listbox", "agent-chat-recent-menu": "menu", "agent-chat-provider-menu": "menu", "agent-chat-model-menu": "menu", "agent-chat-mode-menu": "menu", "agent-chat-context": "menu",
   "dynamic-island": "popover", "right-rail-sheet": "sheet", "workspace-account-detail": "dialog", "workspace-unit-outcome-detail": "dialog", "workspace-evidence-detail": "dialog",
   "shared-inspector": "rail", "shared-viewer": "viewer", "shared-workflow": "dialog", "memory-recall": "dialog", "memory-editor": "dialog", "memory-history": "dialog", "memory-confirm": "dialog",
-  "calendar-filter": "popover", "calendar-drawer": "drawer", "calendar-inspector": "rail", "calendar-schedule": "dialog", "calendar-unit-picker": "popover", "calendar-date-popover": "popover",
+  "calendar-filter": "popover", "calendar-drawer": "dialog", "calendar-inspector": "dialog", "calendar-schedule": "dialog", "calendar-unit-picker": "popover", "calendar-date-popover": "popover",
   "calendar-time-popover": "popover", "calendar-platform-settings": "dialog", "calendar-account-detail": "dialog", "calendar-reconnect": "dialog", "document-editor": "dialog", "document-viewer": "viewer",
   "document-conflict": "dialog", "media-viewer": "viewer", "media-context-menu": "menu", "mock-needs-work": "dialog", "unit-viewer": "viewer", "run-inspector": "rail", "marketplace-detail": "dialog",
   "target-chooser": "dialog", "view-panel-types": "menu", "view-panel-overflow": "menu",

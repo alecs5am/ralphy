@@ -28,8 +28,6 @@
   --color-ghost-hover: var(--instrument-ghost-hover);
 
   /* The alarm plate needs the ink it was measured against, and the bright tone is its hover. */
-  --color-alert-ink: var(--instrument-alert-text);
-  --color-alert-bright: var(--instrument-alert-bright);
 
   /* An identity mark is a rounded square: not a pill, not a cell. */
   --radius-identity: 36%;
@@ -48,6 +46,11 @@
   --spacing-calendar-filter: 246px;        /* the toolbar's filter popover */
   --spacing-calendar-inspector: 372px;     /* the publication inspector over the desk */
   --spacing-calendar-drawer: 312px;        /* the ready-to-schedule drawer beside it */
+  /* The inspector and the ready queue are modals rather than right-edge panels, so both take one
+     measure: a column wide enough for a thumb plus its copy, and a height that stops short of the
+     window in both axes. */
+  --spacing-calendar-panel-width: min(460px, calc(100vw - 48px));
+  --spacing-calendar-panel-height: min(720px, calc(100vh - 64px));
   --spacing-calendar-modal-width: min(1280px, calc(100vw - 64px));  /* the schedule dialog never
                                               touches the window edge, at any window size */
   --spacing-calendar-modal-height: min(714px, calc(100vh - 64px));

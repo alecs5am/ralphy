@@ -47,7 +47,6 @@
 @theme inline {
   /* Ink and surfaces the shared scale does not name. */
   --color-unreviewed: var(--instrument-unreviewed);              /* a status dot with nothing to report */
-  --color-alert-bright: var(--instrument-alert-bright);          /* an alarm standing on a black widget */
   --color-focus-on-instrument: var(--instrument-focus-on-dark);  /* the ring for a control on a black widget */
   --color-dither-base: var(--instrument-dither-base);            /* the plate behind an identity fallback */
   --color-dither-highlight: var(--instrument-dither-highlight);  /* the grain an identity mark is cut from */

@@ -60,7 +60,6 @@
   --color-chat-control-hover: var(--instrument-chat-control-hover);
   --color-instrument-sunken: var(--instrument-legacy-sunken);  /* a band recessed into a dark widget */
   /* An alarm line standing on a black widget: the connect flow's primary pill is still inverted. */
-  --color-alert-bright: var(--instrument-alert-bright);
   /* The ring for a control on a black widget: the theme ink would be black on black in the
      light theme. */
   --color-focus-on-instrument: var(--instrument-focus-on-dark);

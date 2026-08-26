@@ -10,6 +10,7 @@ import { compactVideoStartTime, VideoPlayer } from "../src/components/media/Vide
 import { ProjectScreenView, createProjectScreenController } from "../src/screens/ProjectScreen";
 import { bridge, type ProjectSummary } from "../src/lib/ipc";
 import { createReactHost, type HostNode } from "./react-host";
+import { MEDIA_REVIEW_UNSUPPORTED_REASON as REVIEW_REASON } from "../src/screens/project/media-review-presentation";
 
 const card: MediaCardDto = {
   ref: { type: "artifact", id: "artifact-1" },
@@ -190,7 +191,14 @@ describe("Project media presentation", () => {
       expect(controller.getSnapshot().selectedMedia).toEqual(second);
       let menu = host.container.querySelector(".asset-context-menu")!;
       expect(menu).toBeDefined();
-      expect(menu.querySelectorAll("button").map((item) => item.textContent)).toEqual(["Preview", "Open externally", "Reveal in Finder", "Copy file"]);
+      // The file actions, then the review section: the verdicts moved off the docked console and
+      // onto the asset itself. Production exposes no review mutation, so all three rows are
+      // disabled and each one carries the reason rather than implying a state change.
+      expect(menu.querySelectorAll("button").map((item) => item.textContent?.replace(REVIEW_REASON, ""))).toEqual([
+        "Preview", "Open externally", "Reveal in Finder", "Copy file", "ApprovedA", "Needs WorkN", "RejectedR",
+      ]);
+      expect([...menu.querySelectorAll("button")].slice(4).every((item) => item.getAttribute("aria-disabled") === "true")).toBe(true);
+      expect(menu.textContent).toContain(REVIEW_REASON);
       expect(menu.textContent).not.toContain("Trash");
       expect(menu.style.left).toBe("120px");
       expect(menu.style.top).toBe("140px");

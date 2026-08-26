@@ -986,16 +986,18 @@ describe("design system contract", () => {
     for (const key of ["section: 860px", "row: 760px", "portfolio: 900px", "portfolio-narrow: 520px"]) {
       expect(workspaceOverviewTheme).toContain(`--container-workspace-${key}`);
     }
-    // One drawer chrome for the three detail drawers, and it states the theme's own surface and
-    // ink: it is portalled outside the work-mode scope, where the legacy ink is the on-dark
-    // family and turns invisible on a light widget. Its controls take the theme-ink ring for
-    // the same reason; only the control on the black header takes the on-instrument ring.
+    // One chrome for the three overview details, and it states the theme's own surface and ink: it
+    // is portalled outside the work-mode scope, where the legacy ink is the on-dark family and
+    // turns invisible on a light widget. Its controls take the theme-ink ring for the same reason;
+    // only a control on the black header takes the on-instrument ring.
     const dialog = readFileSync(join(process.cwd(), "src/screens/workspace/DetailDialog.tsx"), "utf8");
     // The ground is the kit's window now, which states `bg-panel`; what this file still has to
-    // state itself is the theme ink, for the reason above.
+    // state itself is the theme ink, for the reason above. The close control is the kit's, and the
+    // theme ring travels with it.
     expect(dialog).toContain('from "../../components/ui/Window"');
     expect(dialog).toMatch(/const surface = `account-detail-dialog[^`]*\btext-ink\b[^`]*\$\{WINDOW\}`/);
-    expect(dialog).toContain("focus-visible:outline-ink");
+    expect(dialog).toContain("<WindowClose");
+    expect(readFileSync(join(process.cwd(), "src/components/ui/Window.tsx"), "utf8")).toMatch(/WINDOW_CLOSE = "[^"]*focus-visible:outline-ink/);
     expect(dialog).not.toContain("focus-on-instrument");
     // Handoff 13 gives the greeting row no surface at all: the black plate it used to stand on
     // read as a fifth surface between the desk and the panels below it. With no widget under it
@@ -1003,8 +1005,11 @@ describe("design system contract", () => {
     const header = readFileSync(join(process.cwd(), "src/screens/workspace/WorkspaceOverviewHeader.tsx"), "utf8");
     expect(header).not.toContain("bg-instrument");
     expect(header).not.toContain("focus-on-instrument");
-    expect(header).toContain("bg-desk-primary");
-    expect(header).toContain("text-desk-primary-ink");
+    // The one action in this header is the route's primary, so it takes the brand accent and the
+    // ink that reads on it -- including the focus ring, which is drawn inside the fill.
+    expect(header).toContain("bg-brand");
+    expect(header).toContain("text-brand-ink");
+    expect(header).toContain("focus-visible:outline-brand-ink");
     // The deleted reduced-motion blanket had nothing to hold back: this area declares no
     // transition and no animation of its own, and an !important rule in an unlayered sheet
     // cannot beat an !important utility inside @layer utilities anyway.
@@ -1731,7 +1736,7 @@ describe("design system contract", () => {
     // the two layers, so the contract is checked once, where the chrome is defined.
     const chrome = readFileSync(join(process.cwd(), "src/components/ui/Window.tsx"), "utf8");
     const WINDOW = /export const WINDOW = "([^"]*)"/.exec(chrome)?.[1] ?? "";
-    const WINDOW_BODY = /export const WINDOW_CARD = "([^"]*)"/.exec(chrome)?.[1] ?? "";
+    const WINDOW_BODY = /export const WINDOW_PLATE = "([^"]*)"/.exec(chrome)?.[1] ?? "";
     expect(WINDOW.split(" ")).toContain("bg-panel");
     expect(WINDOW.split(" ")).toContain("p-0.5");
     expect(WINDOW.split(" ")).toContain("rounded-window");
