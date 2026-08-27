@@ -1521,7 +1521,7 @@ describe("design system contract", () => {
       .toMatch(/export type PlayerTone = "instrument" \| "surface"/);
     for (const file of [
       "src/pages/project/ui/MediaViewer.tsx",
-      "src/pages/shared-library/ui/SharedArtifactViewer.tsx",
+      "src/pages/shared-library/ui/shared-artifact-stage.tsx",
       "src/pages/shared-library/ui/SharedArtifactPreview.tsx",
       "src/pages/project/ui/UnitSocialPreview.tsx",
       "src/entities/media/ui/MediaCardPreview.tsx",

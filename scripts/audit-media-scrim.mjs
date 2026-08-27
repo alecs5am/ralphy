@@ -31,7 +31,7 @@ const cssFile = readdirSync(join(DIST, "assets")).find((name) => name.endsWith("
 // is the file it was copied from; the guard below fails if the two drift apart, because a probe
 // that no longer matches the app measures nothing.
 const MARKS = [
-  { id: "calendar-format", role: "label", source: "src/pages/calendar/ui/CalendarScreen.tsx",
+  { id: "calendar-format", role: "label", source: "src/pages/calendar/ui/calendar-schedule.tsx",
     cls: "absolute left-2.5 top-2.5 flex h-5 items-center rounded-chip bg-media-plate px-2 font-code type-mono-md text-on-instrument",
     html: (c) => `<span class="${c}" data-mark>image</span>` },
   { id: "shared-format", role: "label", source: "src/pages/shared-library/ui/SharedLibraryScreen.tsx",
@@ -40,10 +40,10 @@ const MARKS = [
   { id: "shared-preview", role: "label", source: "src/pages/shared-library/ui/SharedLibraryScreen.tsx",
     cls: "absolute right-2 bottom-2 z-4 inline-flex h-6 items-center gap-1.25 rounded-control bg-media-plate px-2 type-mono-md text-on-instrument [&_svg]:size-2.75",
     html: (c) => `<button class="${c}" data-mark type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6"/></svg>Preview</button>` },
-  { id: "artifact-step", role: "glyph", source: "src/pages/shared-library/ui/SharedArtifactViewer.tsx",
+  { id: "artifact-step", role: "glyph", source: "src/pages/shared-library/ui/shared-artifact-stage.tsx",
     cls: "absolute top-1/2 z-sticky grid size-8.5 -mt-4.25 place-items-center rounded-full bg-media-plate text-on-instrument [&_svg]:size-3.75",
     html: (c) => `<button class="${c}" data-mark style="left:24px" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg></button>` },
-  { id: "artifact-fit", role: "label", source: "src/pages/shared-library/ui/SharedArtifactViewer.tsx",
+  { id: "artifact-fit", role: "label", source: "src/pages/shared-library/ui/shared-artifact-stage.tsx",
     cls: "pointer-events-none absolute bottom-3 left-3 h-5.5 rounded-chip bg-media-plate px-2 py-1.25 font-code type-mono-sm tracking-label text-on-instrument",
     html: (c) => `<span class="${c}" data-mark>FIT</span>` },
   { id: "units-kind", role: "label", source: "src/pages/project/ui/UnitsPanel.tsx",
