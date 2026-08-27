@@ -85,7 +85,10 @@ const selectMenuSource = readFileSync(join(process.cwd(), "src/shared/ui/SelectM
 const agentRailSource = layerSource("src/widgets/utility-panels");
 const agentRailTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/agent-rail.css"), "utf8");
 const pickerSource = readFileSync(join(process.cwd(), "src/widgets/sidebar/ui/WorkspacePicker.tsx"), "utf8");
-const contextSidebarSource = readFileSync(join(process.cwd(), "src/widgets/sidebar/ui/ContextSidebar.tsx"), "utf8");
+// The sidebar card is three files now -- the card, its chrome vocabulary and its lists -- and
+// every claim below is about the card, not about which of them holds a given row.
+const contextSidebarSource = ["ContextSidebar.tsx", "sidebar-chrome.ts", "sidebar-sections.tsx"]
+  .map((file) => readFileSync(join(process.cwd(), "src/widgets/sidebar/ui", file), "utf8")).join("\n");
 const librarySource = readFileSync(join(process.cwd(), "src/pages/library/ui/LibraryScreen.tsx"), "utf8");
 const workspaceOverviewTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/workspace-overview.css"), "utf8");
 const calendarMemoryTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/calendar-memory.css"), "utf8");
@@ -1297,7 +1300,7 @@ describe("design system contract", () => {
     // an unlayered sheet loses to an `!important` utility inside `@layer utilities`, so it held
     // nothing back over the 586 elements it matched. Motion is stopped where it is declared.
     expect(workSurfaces).not.toMatch(/prefers-reduced-motion/);
-    for (const source of [shellSource, readFileSync(join(process.cwd(), "src/widgets/sidebar/ui/ContextSidebar.tsx"), "utf8")]) {
+    for (const source of [shellSource, contextSidebarSource]) {
       expect(source).toMatch(/motion-reduce:(?:animate-none|duration-0|\[transition-property:none\])/);
     }
     // The sidebar's slide-in is the defect this found: `instrument.css` declared the animation
@@ -1660,10 +1663,7 @@ describe("design system contract", () => {
       join(process.cwd(), "src/widgets/sidebar/ui/WorkspacePicker.tsx"),
       "utf8",
     );
-    const sidebar = readFileSync(
-      join(process.cwd(), "src/widgets/sidebar/ui/ContextSidebar.tsx"),
-      "utf8",
-    );
+    const sidebar = contextSidebarSource;
     const projectsScreen = readFileSync(
       join(process.cwd(), "src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx"),
       "utf8",
@@ -1671,10 +1671,10 @@ describe("design system contract", () => {
     // The footer's identity is the sidebar's own markup plus the control it mounts, since
     // `ProfileMenu` is gone: both halves have to decline the raw library label, not just one.
     const profile = [
-      "src/widgets/sidebar/ui/ContextSidebar.tsx",
-      "src/widgets/sidebar/ui/InstrumentProfileControl.tsx",
-      "src/shared/ui/ProfileAvatar.tsx",
-    ].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
+      contextSidebarSource,
+      readFileSync(join(process.cwd(), "src/widgets/sidebar/ui/InstrumentProfileControl.tsx"), "utf8"),
+      readFileSync(join(process.cwd(), "src/shared/ui/ProfileAvatar.tsx"), "utf8"),
+    ].join("\n");
 
     expect(/const HERO = "([^"]*)"/.exec(picker)?.[1] ?? "").toContain("workspace-hero");
     expect(picker).toContain("workspace-hero-field-hi");
@@ -1937,10 +1937,7 @@ describe("design system contract", () => {
       join(process.cwd(), "src/widgets/welcome/ui/WelcomeScreen.tsx"),
       "utf8",
     );
-    const sidebar = readFileSync(
-      join(process.cwd(), "src/widgets/sidebar/ui/ContextSidebar.tsx"),
-      "utf8",
-    );
+    const sidebar = contextSidebarSource;
     const settings = readFileSync(
       join(process.cwd(), "src/pages/settings/ui/SettingsScreen.tsx"),
       "utf8",
