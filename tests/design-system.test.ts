@@ -3,6 +3,8 @@ import { build } from "esbuild";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+import { layerSource } from "./source-layers";
 import { pathToFileURL } from "node:url";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -1159,7 +1161,7 @@ describe("design system contract", () => {
     // surface beats an unlayered author rule outright, so the suppression is stated where the
     // surface is stated. With it off, the surface measures `outline: 2px solid #F2F2F0`.
     expect(existsSync(join(process.cwd(), "src/app/styles/settings.css"))).toBe(false);
-    expect(readFileSync(join(process.cwd(), "src/app/App.tsx"), "utf8"))
+    expect(layerSource("src/app"))
       .toMatch(/id="settings"[\s\S]*?surfaceClassName="[^"]*focus-visible:outline-none/);
     expect(settingsScreenSource).toMatch(/className="[^"]*\b(?:bg|text|rounded)-/);
   });
@@ -1343,7 +1345,7 @@ describe("design system contract", () => {
     // leaves none of them unpainted -- that is the failure mode moving a multi-owner rule invites.
     // The witness per element is one utility the deleted rule's own declarations became.
     const renderers: Array<[string, string, string[]]> = [
-      ["main-region", "@container/main-region", ["src/app/App.tsx", "src/pages/project/ui/ProjectScreen.tsx", "src/pages/workspace/ui/WorkspaceScreen.tsx", "src/pages/calendar/ui/CalendarScreen.tsx", "src/pages/marketplace/ui/MarketplaceScreen.tsx", "src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx", "src/pages/library/ui/LibraryScreen.tsx", "src/pages/memory/ui/MemoryScreen.tsx", "src/pages/shared-library/ui/SharedLibraryScreen.tsx"]],
+      ["main-region", "@container/main-region", ["src/app/ui/app-frames.tsx", "src/pages/project/ui/ProjectScreen.tsx", "src/pages/workspace/ui/WorkspaceScreen.tsx", "src/pages/calendar/ui/CalendarScreen.tsx", "src/pages/marketplace/ui/MarketplaceScreen.tsx", "src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx", "src/pages/library/ui/LibraryScreen.tsx", "src/pages/memory/ui/MemoryScreen.tsx", "src/pages/shared-library/ui/SharedLibraryScreen.tsx"]],
       ["screen-kicker", "mb-1", ["src/pages/workspace/ui/WorkspaceScreen.tsx", "src/pages/library/ui/LibraryScreen.tsx", "src/pages/shared-library/ui/SharedLibraryScreen.tsx", "src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx"]],
       ["content-section", "min-w-0", ["src/pages/library/ui/LibraryScreen.tsx", "src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx"]],
       // Two renderers, not the five the deleted file's prose claimed: the overview, the
@@ -1414,7 +1416,7 @@ describe("design system contract", () => {
     expect(existsSync(join(process.cwd(), "src/app/styles/workbench.css"))).toBe(false);
     expect(readFileSync(join(process.cwd(), "src/pages/library/ui/LibraryScreen.tsx"), "utf8"))
       .toMatch(/ralphy-wordmark[^"`]*\btype-/);
-    const appSource = readFileSync(join(process.cwd(), "src/app/App.tsx"), "utf8");
+    const appSource = layerSource("src/app");
     expect(appSource).toMatch(/project-indexing[^"`]*\bflex\b[^"`]*\btext-muted\b/);
     // The indexing bar was a `content: ""` pseudo-element with no element to carry a utility, so
     // it became a real parent/child pair -- the only way one property gets one utility here.
@@ -1472,7 +1474,7 @@ describe("design system contract", () => {
   test("keeps the workspace cards and the media viewer on named roles, container widths and no depth", () => {
     // Both chunks are gone, and so is every holding file: `src/styles/workbench/` no longer
     // exists. The two selectors this test used to pin as held each turned out to have exactly the
-    // renderers a grep found -- `.project-region` is App.tsx's loading fallback plus the screen it
+    // renderers a grep found -- `.project-region` is the app's loading fallback plus the screen it
     // stands in for, `.status-dot` is drawn by three -- so both moved onto every one of them.
     expect(existsSync(join(process.cwd(), "src/app/styles/workbench"))).toBe(false);
     expect(existsSync(join(process.cwd(), "src/app/styles/workbench.css"))).toBe(false);
@@ -1480,7 +1482,7 @@ describe("design system contract", () => {
     // paints the desk when the route is the elastic column and deliberately does not inside the
     // view panel, where the page card paints -- so the region's own `bg-desk` was repainting the
     // same colour in the desk lens and painting over a white card in the chat lens.
-    for (const file of ["src/app/App.tsx", "src/pages/project/ui/ProjectScreen.tsx"]) {
+    for (const file of ["src/app/ui/app-frames.tsx", "src/pages/project/ui/ProjectScreen.tsx"]) {
       expect(readFileSync(join(process.cwd(), file), "utf8")).not.toMatch(/project-region[^"`]*\bbg-desk\b/);
     }
     for (const file of ["src/pages/library/ui/LibraryScreen.tsx", "src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx", "src/shared/instrument/primitives.tsx"]) {
@@ -1573,7 +1575,7 @@ describe("design system contract", () => {
   });
 
   test("uses headless selectors and panel shortcuts", () => {
-    const app = readFileSync(join(process.cwd(), "src/app/App.tsx"), "utf8");
+    const app = layerSource("src/app");
     expect(renderer).not.toMatch(/<select(?:\s|>)/);
     expect(renderer).toContain("@radix-ui/react-select");
     expect(renderer).toContain('role="listbox"');
@@ -1729,7 +1731,7 @@ describe("design system contract", () => {
   });
 
   test("shows a paced Ralphy welcome before revealing the workbench", () => {
-    const app = readFileSync(join(process.cwd(), "src/app/App.tsx"), "utf8");
+    const app = layerSource("src/app");
     const welcomePath = join(process.cwd(), "src/widgets/welcome/ui/WelcomeScreen.tsx");
     expect(existsSync(welcomePath)).toBe(true);
     const welcome = existsSync(welcomePath) ? readFileSync(welcomePath, "utf8") : "";
@@ -1747,7 +1749,7 @@ describe("design system contract", () => {
   });
 
   test("opens a global multi-provider chat with Cmd+R", () => {
-    const app = readFileSync(join(process.cwd(), "src/app/App.tsx"), "utf8");
+    const app = layerSource("src/app");
     const main = readFileSync(join(process.cwd(), "electron/main.ts"), "utf8");
     const preload = readFileSync(join(process.cwd(), "electron/preload.ts"), "utf8");
     const panels = readFileSync(
@@ -1765,7 +1767,7 @@ describe("design system contract", () => {
     /* The chord toggles the panel beside the chat, and only under the chat lens: the chat is the
        lens, so there is nothing there for a "show me the chat" chord to show, and under the desk
        lens the chord is silent because the lens pair (⌘1/⌘2) is what changes lens. */
-    expect(app).toContain("onToggle={toggleViewPanel}");
+    expect(app).toContain("onToggleViewPanel={toggleViewPanel}");
     expect(app).toContain('setViewPanel((record) => lens === "chat" ? { ...record, open: !record.open } : record)');
     expect(app).not.toContain("toggleLens");
     expect(app).toContain("useAgentChat");
@@ -1856,7 +1858,7 @@ describe("design system contract", () => {
   });
 
   test("keeps the terminal out of the renderer UI", () => {
-    const app = readFileSync(join(process.cwd(), "src/app/App.tsx"), "utf8");
+    const app = layerSource("src/app");
     const utilityPanels = readFileSync(
       join(process.cwd(), "src/widgets/utility-panels/ui/UtilityPanels.tsx"),
       "utf8",
@@ -1870,7 +1872,7 @@ describe("design system contract", () => {
   });
 
   test("opens app-level settings from a custom profile popover", () => {
-    const app = readFileSync(join(process.cwd(), "src/app/App.tsx"), "utf8");
+    const app = layerSource("src/app");
     const profileMenu = readFileSync(
       join(process.cwd(), "src/widgets/sidebar/ui/InstrumentProfileControl.tsx"),
       "utf8",
@@ -1902,7 +1904,7 @@ describe("design system contract", () => {
     expect(overlayRegistry).toContain("role={overlayRoles[INSTRUMENT_OVERLAYS[id].kind]}");
     expect(app).toContain('id === "app.settings"');
     expect(app).toContain("<SettingsScreen");
-    expect(app).toContain("onBack={() => setSettingsVisible(false)}");
+    expect(app).toContain("onClose={() => setSettingsVisible(false)}");
     for (const category of [
       "General",
       "Profile",

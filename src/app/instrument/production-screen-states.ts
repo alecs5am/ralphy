@@ -1,4 +1,4 @@
-import { isChatRailVisible, isWorkspacePickerVisible } from "../App";
+import { isChatRailVisible, isWorkspacePickerVisible } from "../model/app-visibility";
 import { welcomeInstrumentStates } from "@/widgets/welcome";
 import { calendarInstrumentStates } from "@/pages/calendar";
 import { contextInstrumentStates } from "@/pages/context";

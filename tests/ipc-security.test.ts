@@ -105,7 +105,7 @@ describe("Electron IPC security", () => {
   });
 
   test("keeps root identity and activity refresh payloads numeric and private", async () => {
-    const { applyActivityRefresh } = await import("@/app/App") as {
+    const { applyActivityRefresh } = await import("@/app/model/app-visibility") as {
       applyActivityRefresh(identity: unknown, event: unknown): unknown;
     };
     const identity = {
@@ -128,7 +128,7 @@ describe("Electron IPC security", () => {
   });
 
   test("accepts only a strictly newer refresh from the active root binding", async () => {
-    const { applyActivityRefresh } = await import("@/app/App") as {
+    const { applyActivityRefresh } = await import("@/app/model/app-visibility") as {
       applyActivityRefresh(identity: unknown, event: unknown): unknown;
     };
     const identity = {

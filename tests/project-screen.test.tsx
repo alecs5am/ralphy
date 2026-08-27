@@ -69,6 +69,7 @@ describe("Project domain screen", () => {
   test("keeps the active Project route on stable domain IPC only", () => {
     const renderer = [
       "src/app/App.tsx",
+      "src/app/ui/WorkRoute.tsx",
       "src/pages/project/ui/ProjectScreen.tsx",
       "src/widgets/project-header/ui/ProjectControls.tsx",
       "src/widgets/project-header/ui/ProjectHeader.tsx",

@@ -1,5 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+
+import { layerSource } from "./source-layers";
 import { act } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
@@ -77,7 +79,7 @@ describe("workspace projects navigation", () => {
   });
 
   test("never mounts the workbench hidden while motion is reduced", () => {
-    const source = readFileSync(join(process.cwd(), "src/app/App.tsx"), "utf8");
+    const source = layerSource("src/app");
     expect(source).toContain("initial={false}");
     expect(source).not.toContain("initial={{ opacity: 0 }}");
   });
@@ -233,7 +235,7 @@ describe("workspace projects navigation", () => {
   });
 
   test("lands a route on every workspace page, so a view tab is not the tab it was opened from", () => {
-    const app = readFileSync(join(process.cwd(), "src/app/App.tsx"), "utf8");
+    const app = layerSource("src/app");
     /* Every workspace screen renders under `route.kind === "workspace"`, and a project route
        renders the project instead. So setting the page without landing the route left each view
        tab -- Overview, Projects, Memory, Calendar, Shared -- showing whatever project was open.
@@ -283,7 +285,7 @@ describe("workspace projects navigation", () => {
   });
 
   test("has no standalone Local Models screen, style entry, or application route", () => {
-    const app = readFileSync(join(process.cwd(), "src/app/App.tsx"), "utf8");
+    const app = layerSource("src/app");
     const entry = readFileSync(join(process.cwd(), "src/app/main.tsx"), "utf8");
 
     expect(existsSync(join(process.cwd(), "src/pages/local-models/ui/LocalModelsScreen.tsx"))).toBe(false);

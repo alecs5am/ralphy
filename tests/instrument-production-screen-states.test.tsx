@@ -2,11 +2,8 @@ import { act } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import {
-  isChatRailVisible,
-  isWorkspacePickerVisible,
-  ProjectScreenLoadingFallback,
-} from "@/app/App";
+import { isChatRailVisible, isWorkspacePickerVisible } from "@/app/model/app-visibility";
+import { ProjectScreenLoadingFallback } from "@/app/ui/app-frames";
 import { PROJECT_VIEWS, type ProjectView } from "@/widgets/project-header";
 import {
   InstrumentScreenRoot,
