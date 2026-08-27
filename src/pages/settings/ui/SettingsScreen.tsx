@@ -13,25 +13,12 @@ import {
 } from "../lib/commands";
 import type { SettingsContext, SettingsDetail } from "../model/context";
 import { useHarnesses } from "../lib/harnesses";
-import {
-  AppearancePage,
-  GeneralPage,
-  KeyboardPage,
-  ProfilePage,
-} from "./pages-personal";
-import {
-  AboutPage,
-  AgentsPage,
-  DiagnosticsPage,
-  GENERATION_PROVIDERS,
-  HarnessDetailPage,
-  PermissionsPage,
-  ProviderDetailPage,
-  ProvidersPage,
-  StoragePage,
-  TerminalPage,
-  UpdatesPage,
-} from "./pages-system";
+import { KeyboardPage } from "./pages-keyboard";
+import { AppearancePage, GeneralPage, ProfilePage } from "./pages-personal";
+import { AgentsPage, HarnessDetailPage } from "./pages-agents";
+import { AboutPage, DiagnosticsPage, UpdatesPage } from "./pages-diagnostics";
+import { PermissionsPage, TerminalPage } from "./pages-permissions";
+import { GENERATION_PROVIDERS, ProviderDetailPage, ProvidersPage, StoragePage } from "./pages-providers";
 import { settingsStorage, useAppPreferences } from "../lib/preferences";
 import { railFor } from "../lib/rail";
 import {
