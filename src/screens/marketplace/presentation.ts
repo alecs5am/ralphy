@@ -4,6 +4,8 @@ import type {
   LocalModelMachine,
   LocalModelProvider,
   LocalModelSummary,
+  MarketplaceInstallDto,
+  MarketplaceInstallsDto,
   MarketplacePackCatalogDto,
   MarketplacePackEntryDto,
   MarketplacePublicItemDto,
@@ -79,7 +81,20 @@ export type MarketplaceItemPresentation =
   /* The pack ships documents, never model weights, so `models` is not one of
      its categories -- saying so keeps every `category === "models"` narrowing
      in the renderer exact. */
-  | (MarketplaceCommonItem & { origin: "pack"; category: Exclude<MarketplaceCategory, "models">; pack: MarketplacePackEntryDto });
+  | (MarketplaceCommonItem & {
+    origin: "pack";
+    category: Exclude<MarketplaceCategory, "models">;
+    pack: MarketplacePackEntryDto;
+    /* For the workspace the Marketplace is installing into: "off the shelf",
+       "taken and on", "taken and off". No workspace selected is not the same
+       sentence as not installed, so it is its own state. */
+    install: MarketplaceInstallState;
+  });
+
+export type MarketplaceInstallState =
+  | { status: "no-workspace" }
+  | { status: "available" }
+  | { status: "installed"; enabled: boolean; installedAt: number };
 
 export type MarketplacePublicItemPresentation = Extract<MarketplaceItemPresentation, { origin: "public" }>;
 export type MarketplacePackItemPresentation = Extract<MarketplaceItemPresentation, { origin: "pack" }>;
@@ -105,7 +120,7 @@ export interface MarketplaceSourceHealth {
 
 export type MarketplaceSnapshot =
   | { status: "loading"; query: MarketplaceQueryState }
-  | { status: "ready"; items: MarketplaceItemPresentation[]; categories: MarketplaceCategoryPresentation[]; machine: LocalModelMachine | null; publicSource: MarketplacePublicSnapshotDto | null; packSource: MarketplacePackCatalogDto | null; sourceErrors: MarketplaceSourceIssue[]; sourceHealth: MarketplaceSourceHealth; refreshing: boolean; query: MarketplaceQueryState }
+  | { status: "ready"; items: MarketplaceItemPresentation[]; categories: MarketplaceCategoryPresentation[]; machine: LocalModelMachine | null; publicSource: MarketplacePublicSnapshotDto | null; packSource: MarketplacePackCatalogDto | null; installs: MarketplaceInstallsDto | null; sourceErrors: MarketplaceSourceIssue[]; sourceHealth: MarketplaceSourceHealth; refreshing: boolean; query: MarketplaceQueryState }
   | { status: "error"; error: string; sourceErrors: MarketplaceSourceIssue[]; sourceHealth: MarketplaceSourceHealth; query: MarketplaceQueryState };
 
 const PROVIDER_LABELS: Record<LocalModelProvider, string> = {
@@ -256,6 +271,7 @@ const PACK_CATEGORY: Record<MarketplacePackEntryDto["category"], Exclude<Marketp
 export function projectMarketplacePackItem(
   entry: MarketplacePackEntryDto,
   cliVersion: string | null,
+  install: MarketplaceInstallState = { status: "no-workspace" },
 ): MarketplacePackItemPresentation {
   return {
     origin: "pack",
@@ -275,7 +291,21 @@ export function projectMarketplacePackItem(
       ? unavailable<string>("Compatibility is unavailable from the bundled catalog.")
       : ready(`Ralphy CLI ${cliVersion}`),
     pack: entry,
+    install,
   };
+}
+
+/** The install state of one entry, for the workspace currently selected. */
+export function marketplaceInstallState(
+  entryId: string,
+  workspaceId: string | null,
+  installs: readonly MarketplaceInstallDto[],
+): MarketplaceInstallState {
+  if (workspaceId === null) return { status: "no-workspace" };
+  const install = installs.find((row) => row.workspaceId === workspaceId && row.entryId === entryId);
+  return install === undefined
+    ? { status: "available" }
+    : { status: "installed", enabled: install.enabled, installedAt: install.installedAt };
 }
 
 function sourceMatches(item: MarketplaceItemPresentation, source: MarketplaceFilterState["source"]): boolean {
@@ -397,10 +427,16 @@ export function presentMarketplaceSources(
   sourceErrors: MarketplaceSourceIssue[],
   sourceHealth: MarketplaceSourceHealth,
   packCatalog: MarketplacePackCatalogDto | null = null,
+  installs: MarketplaceInstallsDto | null = null,
 ): Extract<MarketplaceSnapshot, { status: "ready" }> {
   const publicItems = publicSnapshot?.items.slice(0, 512).map((item) => projectMarketplacePublicItem(item, publicSnapshot.source)) ?? [];
+  const workspaceId = installs?.selectedWorkspaceId ?? null;
   const packItems = packCatalog?.entries.slice(0, 1_024)
-    .map((entry) => projectMarketplacePackItem(entry, packCatalog.cliVersion)) ?? [];
+    .map((entry) => projectMarketplacePackItem(
+      entry,
+      packCatalog.cliVersion,
+      marketplaceInstallState(entry.id, workspaceId, installs?.installs ?? []),
+    )) ?? [];
   const modelItems = modelCatalog?.items.slice(0, 24).map(modelPresentation) ?? [];
   const tokens = query.text.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   const scored = [...modelItems, ...packItems, ...publicItems]
@@ -428,6 +464,7 @@ export function presentMarketplaceSources(
     machine: modelCatalog?.machine ?? null,
     publicSource: publicSnapshot,
     packSource: packCatalog,
+    installs,
     sourceErrors,
     sourceHealth,
     refreshing: false,

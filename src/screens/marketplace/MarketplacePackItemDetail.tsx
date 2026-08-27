@@ -18,6 +18,7 @@ import {
   DETAIL_TITLE,
   HERO_ACTION_GLYPH,
   HERO_ACTION_PRIMARY,
+  HERO_ACTION_SECONDARY,
   HERO_STATE,
 } from "./detail-chrome";
 import type { Availability, MarketplacePackItemPresentation } from "./presentation";
@@ -45,10 +46,28 @@ type Body =
   | { state: "ready"; markdown: string; truncated: boolean }
   | { state: "absent"; reason: string };
 
+export type MarketplacePackInstallAction = "install" | "uninstall" | "enable" | "disable";
+
 export interface MarketplacePackItemDetailProps {
   item: MarketplacePackItemPresentation;
+  /** The workspace the install would land in, or null when there is none. */
+  workspaceName: string | null;
   onBack(): void;
   onReviewTarget(item: MarketplacePackItemPresentation): void;
+  onInstallAction(action: MarketplacePackInstallAction, entryId: string): void;
+}
+
+/* The state line says what installing means here: the pack's documents are
+   already on disk under the library's prompts tree, so an install records that
+   this workspace reaches for this one -- and disabled means it does not. */
+function installLine(item: MarketplacePackItemPresentation, workspaceName: string | null): string {
+  const where = workspaceName === null ? "the selected workspace" : `“${workspaceName}”`;
+  if (item.install.status === "no-workspace") return "Installing needs a workspace in the current home library; there is none to install into.";
+  if (item.install.status === "available") return `Not installed in ${where}. Installing records this workspace's choice on this machine; the document itself already ships with the app.`;
+  const when = new Date(item.install.installedAt).toISOString().slice(0, 10);
+  return item.install.enabled
+    ? `Installed in ${where} on ${when} and enabled.`
+    : `Installed in ${where} on ${when} but disabled, so its agent does not reach for it.`;
 }
 
 function available(value: Availability<string>): string {
@@ -63,7 +82,7 @@ const ACTION_LABEL: Record<MarketplacePackItemPresentation["category"], string> 
   components: "Review project target",
 };
 
-export function MarketplacePackItemDetail({ item, onBack, onReviewTarget }: MarketplacePackItemDetailProps) {
+export function MarketplacePackItemDetail({ item, workspaceName, onBack, onReviewTarget, onInstallAction }: MarketplacePackItemDetailProps) {
   const entry = item.pack;
   const [body, setBody] = useState<Body>({ state: "loading" });
 
@@ -97,8 +116,21 @@ export function MarketplacePackItemDetail({ item, onBack, onReviewTarget }: Mark
       <h2 className={DETAIL_TITLE} id="marketplace-pack-title">{item.name}</h2>
       <p className={DETAIL_LEAD}>{item.summary}</p>
       <div className={`marketplace-pack-actions ${DETAIL_ACTIONS}`}>
-        <button className={HERO_ACTION_PRIMARY} type="button" onClick={() => onReviewTarget(item)}>{ACTION_LABEL[item.category]}</button>
+        {item.install.status === "no-workspace"
+          ? <button className={HERO_ACTION_PRIMARY} type="button" aria-disabled="true">Install</button>
+          : item.install.status === "available"
+            ? <button className={HERO_ACTION_PRIMARY} type="button" onClick={() => onInstallAction("install", item.pack.id)}>Install</button>
+            : <>
+              <button
+                className={HERO_ACTION_PRIMARY}
+                type="button"
+                onClick={() => onInstallAction(item.install.status === "installed" && item.install.enabled ? "disable" : "enable", item.pack.id)}
+              >{item.install.status === "installed" && item.install.enabled ? "Disable" : "Enable"}</button>
+              <button className={HERO_ACTION_SECONDARY} type="button" onClick={() => onInstallAction("uninstall", item.pack.id)}>Uninstall</button>
+            </>}
+        <button className={HERO_ACTION_SECONDARY} type="button" onClick={() => onReviewTarget(item)}>{ACTION_LABEL[item.category]}</button>
       </div>
+      <p className={`marketplace-pack-install-state ${HERO_STATE}`}>{installLine(item, workspaceName)}</p>
       {body.state === "ready" && body.truncated && <p className={`marketplace-pack-truncated ${HERO_STATE}`}>This document is longer than the reader shows; the full text ships in the pack.</p>}
     </header>
 

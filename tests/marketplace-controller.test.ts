@@ -84,7 +84,16 @@ function api(
   searchLocalModels: MarketplaceApi["searchLocalModels"] = vi.fn(async () => catalog()),
   loadMarketplacePackCatalog: MarketplaceApi["loadMarketplacePackCatalog"] = vi.fn(async () => packCatalog()),
 ): MarketplaceApi {
-  return { loadMarketplacePublicLibrary, loadMarketplacePackCatalog, searchLocalModels };
+  const installs: MarketplaceApi["loadMarketplaceInstalls"] = vi.fn(async () => ({
+    schemaVersion: 1, selectedWorkspaceId: null, installs: [], warning: null,
+  }));
+  return {
+    loadMarketplacePublicLibrary,
+    loadMarketplacePackCatalog,
+    loadMarketplaceInstalls: installs,
+    mutateMarketplaceInstalls: vi.fn(async () => await installs()),
+    searchLocalModels,
+  };
 }
 
 function deferred<T>() {

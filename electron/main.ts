@@ -124,7 +124,8 @@ import { createMemoryReader } from "./ralphy/memory-reader";
 import { createCalendarReader } from "./ralphy/calendar-reader";
 import { registerWorkspaceOverviewIpc } from "./ralphy/workspace-reader";
 import { registerMarketplaceLibraryIpc } from "./marketplace-library";
-import { registerMarketplacePackIpc } from "./marketplace-pack";
+import { registerMarketplaceInstallIpc } from "./marketplace-installs";
+import { readMarketplacePackCatalog, registerMarketplacePackIpc } from "./marketplace-pack";
 import type { BridgeMethod, JsonValue, ParamsFor, ResultFor } from "./ralphy/types";
 import { resolveRalphyExecutable } from "./ralphy/executable";
 import { RalphySession } from "./ralphy/session";
@@ -1384,6 +1385,20 @@ function registerProjectDomainIpc(): void {
     },
     getWindow: () => win,
     bundledPack: bundledPromptPack,
+  });
+  /* Which bundled items a workspace took, kept beside the app's own state: it
+     describes this machine's choices, not the library's contents, so it does not
+     belong in the library root that `--root` and an import can move. */
+  registerMarketplaceInstallIpc({
+    handle: (channel, listener) => {
+      ipcMain.handle(channel, (event, ...args) => listener(event, ...args));
+    },
+    getWindow: () => win,
+    storePath: () => join(app.getPath("userData"), "marketplace-installs.json"),
+    catalogEntryIds: async () => new Set(
+      (await readMarketplacePackCatalog(bundledPromptPack())).entries.map(({ id }) => id),
+    ),
+    now: () => Date.now(),
   });
   registerMarketplaceLibraryIpc({
     handle: (channel, listener) => {

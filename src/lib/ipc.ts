@@ -33,6 +33,9 @@ export type {
   MediaEvent,
   MediaWorkbenchBridge,
   MarketplaceBridge,
+  MarketplaceInstallDto,
+  MarketplaceInstallMutation,
+  MarketplaceInstallsDto,
   MarketplaceJsonValue,
   MarketplacePublicCategory,
   MarketplacePublicItemDto,
@@ -243,6 +246,12 @@ function createMockBridge(): RalphyBridge {
     },
     async loadMarketplacePackDocument() {
       throw new Error("The bundled catalog is unavailable in mock mode");
+    },
+    async loadMarketplaceInstalls() {
+      return { schemaVersion: 1 as const, selectedWorkspaceId: null, installs: [], warning: null };
+    },
+    async mutateMarketplaceInstalls() {
+      return { schemaVersion: 1 as const, selectedWorkspaceId: null, installs: [], warning: "Installs are unavailable in mock mode" };
     },
     async loadWorkspaceOverview(workspaceId) {
       return {

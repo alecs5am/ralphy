@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import type { CatalogResult } from "../lib/ipc";
+import type { CatalogResult, MarketplaceInstallMutation } from "../lib/ipc";
 import { bridge } from "../lib/ipc";
 import { defineInstrumentScreenStates, InstrumentScreenRoot, type InstrumentScenarioState } from "../instrument/screen-state-registry";
 import type { WorkbenchRoute } from "../state/workbench";
@@ -35,6 +35,7 @@ import {
   MarketplaceUnavailableDetail,
 } from "./marketplace/MarketplaceUnavailableViews";
 import {
+  marketplaceInstallState,
   projectMarketplacePackItem,
   projectMarketplacePublicItem,
   type MarketplaceSnapshot,
@@ -196,6 +197,7 @@ function clearedFilters(query: MarketplaceQueryState, category: MarketplaceCateg
 export interface MarketplaceScreenViewProps extends MarketplaceScreenProps {
   snapshot: MarketplaceSnapshot;
   onRetry(): void;
+  onInstallAction(mutation: MarketplaceInstallMutation): void;
 }
 
 export function MarketplaceScreenView({
@@ -208,6 +210,7 @@ export function MarketplaceScreenView({
   onNavigate,
   onRememberLocation,
   onRetry,
+  onInstallAction,
 }: MarketplaceScreenViewProps) {
   const [workflow, setWorkflow] = useState<{ kind: MarketplaceWorkflowKind; itemLabel: string | null } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -345,6 +348,26 @@ export function MarketplaceScreenView({
       focusId: "marketplace-heading",
     });
   };
+  /* The install target comes from the home library's own workspaces; the record
+     remembers the last pick, and the first named workspace stands in until one
+     is made, so the picker never shows a target that is not on this machine. */
+  const workspaces = (catalog?.workspaces ?? []).map(({ id, name }) => ({ id, name }));
+  const storedWorkspaceId = snapshot.status === "ready" ? snapshot.installs?.selectedWorkspaceId ?? null : null;
+  const installWorkspaceId = workspaces.some(({ id }) => id === storedWorkspaceId)
+    ? storedWorkspaceId
+    : workspaces[0]?.id ?? null;
+  /* My Library reports what this workspace installed, so it reads the catalog
+     and the record directly -- the shelf's items are narrowed by the current
+     search and category, and would hide installs from the other shelves. */
+  const installedPackItems = snapshot.status === "ready" && snapshot.packSource
+    ? snapshot.packSource.entries
+      .map((entry) => projectMarketplacePackItem(
+        entry,
+        snapshot.packSource!.cliVersion,
+        marketplaceInstallState(entry.id, installWorkspaceId, snapshot.installs?.installs ?? []),
+      ))
+      .filter((item) => item.install.status === "installed")
+    : [];
   const targetMessage = catalog === null
     ? "Project targets are unavailable until the home library reconnects."
     : catalog.projects.length === 0
@@ -364,7 +387,14 @@ export function MarketplaceScreenView({
     ? snapshot.packSource?.entries.find(({ id }) => id === packReference.id)
     : undefined;
   const detailItem = packEntry && snapshot.status === "ready" && snapshot.packSource
-    ? projectMarketplacePackItem(packEntry, snapshot.packSource.cliVersion)
+    ? projectMarketplacePackItem(
+      packEntry,
+      snapshot.packSource.cliVersion,
+      /* The detail is re-projected from the entry, so it needs the same install
+         state the shelf row carried -- otherwise it would offer to install
+         something the shelf already shows as installed. */
+      marketplaceInstallState(packEntry.id, installWorkspaceId, snapshot.installs?.installs ?? []),
+    )
     : publicDto && snapshot.status === "ready" && snapshot.publicSource
       ? projectMarketplacePublicItem(publicDto, snapshot.publicSource.source)
       : undefined;
@@ -417,9 +447,12 @@ export function MarketplaceScreenView({
       selectedCategory={selectedCategory}
       sidebarVisible={sidebarVisible}
       refreshing={snapshot.status === "ready" && snapshot.refreshing}
+      workspaces={workspaces}
+      selectedWorkspaceId={installWorkspaceId}
       onQueryChange={changeQuery}
       onSearch={openResults}
       onOpenCategory={openCategory}
+      onSelectWorkspace={(workspaceId) => onInstallAction({ action: "select-workspace", workspaceId, entryId: null })}
     />
     <div
       className={MARKETPLACE_SCROLL}
@@ -430,7 +463,16 @@ export function MarketplaceScreenView({
       {detailReference
         ? <MarketplaceModelDetail reference={detailReference} onBack={onBack} onReviewDownload={(model) => setWorkflow({ kind: "model-download", itemLabel: model.name })} />
         : detailItem?.origin === "pack"
-          ? <MarketplacePackItemDetail item={detailItem} onBack={onBack} onReviewTarget={(item) => setWorkflow({ kind: PACK_WORKFLOW[item.category], itemLabel: item.name })} />
+          ? <MarketplacePackItemDetail
+            item={detailItem}
+            workspaceName={workspaces.find(({ id }) => id === installWorkspaceId)?.name ?? null}
+            onBack={onBack}
+            onReviewTarget={(item) => setWorkflow({ kind: PACK_WORKFLOW[item.category], itemLabel: item.name })}
+            onInstallAction={(action, entryId) => {
+              if (installWorkspaceId === null) return;
+              onInstallAction({ action, workspaceId: installWorkspaceId, entryId });
+            }}
+          />
         : publicDetailState === "ready" && detailItem?.origin === "public"
           ? <MarketplacePublicItemDetail
             item={detailItem}
@@ -445,7 +487,13 @@ export function MarketplaceScreenView({
         : staleDetail
           ? <section className={ROUTE_PLACEHOLDER} role="status"><div className="grid justify-items-center gap-2"><button className="marketplace-public-back inline-flex h-8 w-fit items-center gap-1.75 rounded-control bg-surface-sunken px-3 type-xs text-ink" type="button" onClick={onBack}>Back to Marketplace</button><h2 className="m-0 text-lg">Marketplace item unavailable</h2><p className="m-0 text-sm text-muted">This Marketplace item is unavailable because its saved reference is invalid or stale.</p></div></section>
         : location.route.kind === "library"
-          ? <MarketplaceMyLibrary section={location.route.section} machine={snapshot.status === "ready" ? snapshot.machine : null} />
+          ? <MarketplaceMyLibrary
+            section={location.route.section}
+            machine={snapshot.status === "ready" ? snapshot.machine : null}
+            installedItems={installedPackItems}
+            workspaceName={workspaces.find(({ id }) => id === installWorkspaceId)?.name ?? null}
+            onOpenItem={openItem}
+          />
         : location.route.kind === "unavailable-detail"
           ? <MarketplaceUnavailableDetail
             category={location.route.category}
@@ -484,7 +532,12 @@ export function MarketplaceScreenView({
 function ConnectedMarketplaceScreen(props: MarketplaceScreenProps & { controller: MarketplaceController }) {
   const snapshot = useSyncExternalStore(props.controller.subscribe, props.controller.getSnapshot, props.controller.getSnapshot);
   useEffect(() => props.controller.setQuery(props.location.query), [props.controller, props.location.query]);
-  return <MarketplaceScreenView {...props} snapshot={snapshot} onRetry={() => void props.controller.refresh()} />;
+  return <MarketplaceScreenView
+    {...props}
+    snapshot={snapshot}
+    onRetry={() => void props.controller.refresh()}
+    onInstallAction={(mutation) => void props.controller.mutateInstall(mutation)}
+  />;
 }
 
 export function MarketplaceScreen(props: MarketplaceScreenProps) {
@@ -497,5 +550,10 @@ export function MarketplaceScreen(props: MarketplaceScreenProps) {
   }, []);
   return controller
     ? <ConnectedMarketplaceScreen {...props} controller={controller} />
-    : <MarketplaceScreenView {...props} snapshot={{ status: "loading", query: props.location.query }} onRetry={() => undefined} />;
+    : <MarketplaceScreenView
+      {...props}
+      snapshot={{ status: "loading", query: props.location.query }}
+      onRetry={() => undefined}
+      onInstallAction={() => undefined}
+    />;
 }

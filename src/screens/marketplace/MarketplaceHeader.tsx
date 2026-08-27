@@ -76,9 +76,13 @@ export interface MarketplaceHeaderProps {
   selectedCategory: MarketplaceCategory | "all" | null;
   sidebarVisible: boolean;
   refreshing: boolean;
+  /** Named workspaces from the current home library, for the install target. */
+  workspaces: Array<{ id: string; name: string }>;
+  selectedWorkspaceId: string | null;
   onQueryChange(query: MarketplaceQueryState): void;
   onSearch(): void;
   onOpenCategory(category: MarketplaceCategory): void;
+  onSelectWorkspace(workspaceId: string): void;
 }
 
 export function MarketplaceHeader({
@@ -87,9 +91,12 @@ export function MarketplaceHeader({
   selectedCategory,
   sidebarVisible,
   refreshing,
+  workspaces,
+  selectedWorkspaceId,
   onQueryChange,
   onSearch,
   onOpenCategory,
+  onSelectWorkspace,
 }: MarketplaceHeaderProps) {
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -143,6 +150,18 @@ export function MarketplaceHeader({
         <SelectMenu className={filterClass} tone="caller" overlayOwner="marketplace.header" ariaLabel="Format" prefix="Format" value={query.filters.format} options={formatOptions} onValueChange={(value) => onQueryChange(queryWithFilter(query, "format", value))} />
       </>}
       <span className="marketplace-filter-spacer min-w-3 flex-1 @max-marketplace-split/main-region:hidden" />
+      {/* Installing needs somewhere to install INTO. With no named workspace in
+          the home library there is no such place, and the control says that
+          rather than offering a target that does not exist. */}
+      {workspaces.length > 0
+        ? <SelectMenu className={filterClass} tone="caller" overlayOwner="marketplace.header"
+          ariaLabel="Workspace to install into" prefix="Install into"
+          value={selectedWorkspaceId ?? workspaces[0]!.id}
+          options={workspaces.map(({ id, name }) => ({ value: id, label: name }))}
+          align="end"
+          onValueChange={onSelectWorkspace}
+        />
+        : <span className="marketplace-install-target-unavailable inline-flex h-control-md items-center rounded-control bg-surface-sunken px-3 text-xs text-muted" role="status">No workspace to install into</span>}
       <SelectMenu className={filterClass} tone="caller" overlayOwner="marketplace.header" ariaLabel="Sort Marketplace" prefix="Sort" value={query.sort} options={sortOptions} align="end" onValueChange={(sort) => onQueryChange({ ...query, sort })} />
     </div>
     {activeFilters.length > 0 && <div className="marketplace-filter-chips col-span-full flex min-w-0 flex-wrap gap-1.5" aria-label="Active filters">

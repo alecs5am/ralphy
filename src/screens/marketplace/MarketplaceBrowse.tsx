@@ -209,7 +209,7 @@ function MarketplaceResult({ item, index, tabStop, onFocus, onMove, onOpenItem }
   >
     <span className="marketplace-result-preview grid h-22 w-26 place-items-center overflow-hidden rounded-control bg-instrument text-on-instrument @max-marketplace-result/main-region:h-18 @max-marketplace-result/main-region:w-22 [&_img]:size-full [&_img]:object-cover [&_video]:size-full [&_video]:object-cover"><MarketplaceItemPreview item={item} /></span>
     <span className="marketplace-result-copy flex min-w-0 flex-col gap-1">
-      <span className="marketplace-result-category flex items-center gap-1.5 font-mono type-mono-xs uppercase tracking-caps text-muted"><Icon className="size-3" aria-hidden="true" />{categoryLabels[item.category]}</span>
+      <span className="marketplace-result-category flex items-center gap-1.5 font-mono type-mono-xs uppercase tracking-caps text-muted"><Icon className="size-3" aria-hidden="true" />{categoryLabels[item.category]}<MarketplaceInstallBadge item={item} /></span>
       <strong className="truncate text-base font-normal">{item.name}</strong>
       <p className="m-0 line-clamp-2 text-xs leading-snug text-muted">{item.summary || "The current source did not provide a summary."}</p>
       <small className="truncate font-mono type-mono-xs text-muted">{item.sourceLabel} · {availabilityLabel(item.version, "Version unavailable")}</small>
@@ -220,6 +220,15 @@ function MarketplaceResult({ item, index, tabStop, onFocus, onMove, onOpenItem }
     </span>
     <span className="marketplace-result-action flex h-8 items-center rounded-control bg-instrument px-3 text-xs text-on-instrument @max-marketplace-result/main-region:hidden">View details</span>
   </button>;
+}
+
+/* An installed row says so on the shelf, and an installed-but-off row says that
+   too -- otherwise "installed" and "in use" look identical from here. */
+function MarketplaceInstallBadge({ item }: { item: MarketplaceItemPresentation }) {
+  if (item.origin !== "pack" || item.install.status !== "installed") return null;
+  return item.install.enabled
+    ? <span className="marketplace-result-installed rounded-control bg-instrument px-1.5 py-0.5 text-on-instrument">Installed</span>
+    : <span className="marketplace-result-installed rounded-control bg-surface-sunken px-1.5 py-0.5 text-muted">Installed · off</span>;
 }
 
 function resultOrderLabel(query: MarketplaceQueryState): string {

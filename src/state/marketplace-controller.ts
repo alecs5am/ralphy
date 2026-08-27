@@ -1,4 +1,4 @@
-import type { MediaWorkbenchBridge } from "../../electron/media/types";
+import type { MarketplaceInstallMutation, MediaWorkbenchBridge } from "../../electron/media/types";
 import {
   marketplaceModelProviders,
   presentMarketplaceSources,
@@ -14,12 +14,18 @@ export interface MarketplaceController {
   start(): Promise<void>;
   refresh(): Promise<void>;
   setQuery(query: MarketplaceQueryState): void;
+  /** Install, uninstall, enable, disable, or change the workspace being installed into. */
+  mutateInstall(mutation: MarketplaceInstallMutation): Promise<void>;
   dispose(): void;
 }
 
 export type MarketplaceApi = Pick<
   MediaWorkbenchBridge,
-  "loadMarketplacePublicLibrary" | "loadMarketplacePackCatalog" | "searchLocalModels"
+  "loadMarketplacePublicLibrary"
+  | "loadMarketplacePackCatalog"
+  | "loadMarketplaceInstalls"
+  | "mutateMarketplaceInstalls"
+  | "searchLocalModels"
 >;
 
 type ModelProviderRequest = Exclude<MarketplaceQueryState["filters"]["source"], "ralphy">;
@@ -43,6 +49,7 @@ export function createMarketplaceController(
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
   let lastPublic: Awaited<ReturnType<MarketplaceApi["loadMarketplacePublicLibrary"]>> | null = null;
   let lastPack: Awaited<ReturnType<MarketplaceApi["loadMarketplacePackCatalog"]>> | null = null;
+  let lastInstalls: Awaited<ReturnType<MarketplaceApi["loadMarketplaceInstalls"]>> | null = null;
   let lastModels: {
     provider: ModelProviderRequest;
     value: Awaited<ReturnType<MarketplaceApi["searchLocalModels"]>>;
@@ -71,9 +78,10 @@ export function createMarketplaceController(
     if (snapshot.status === "ready") emit({ ...snapshot, query: requestQuery, refreshing: true });
     else emit({ status: "loading", query: requestQuery });
     const modelQuery = requestQuery.text.trim();
-    const [library, pack, models] = await Promise.allSettled([
+    const [library, pack, installs, models] = await Promise.allSettled([
       api.loadMarketplacePublicLibrary(),
       api.loadMarketplacePackCatalog(),
+      api.loadMarketplaceInstalls(),
       api.searchLocalModels({
         ...(modelQuery ? { query: modelQuery } : {}),
         provider: requestProvider,
@@ -128,8 +136,11 @@ export function createMarketplaceController(
     }
     lastPublic = library.status === "fulfilled" ? library.value : null;
     lastPack = packCatalog;
+    /* A record this machine could not read is an empty shelf, not a failed
+       screen: the catalog is still true, only the choices are missing. */
+    lastInstalls = installs.status === "fulfilled" ? installs.value : null;
     lastModels = models.status === "fulfilled" ? { provider: requestProvider, value: models.value } : null;
-    emit(presentMarketplaceSources(lastPublic, retainedModels(resultQuery), resultQuery, sourceErrors, sourceHealth, lastPack));
+    emit(presentMarketplaceSources(lastPublic, retainedModels(resultQuery), resultQuery, sourceErrors, sourceHealth, lastPack, lastInstalls));
   };
 
   return {
@@ -162,7 +173,7 @@ export function createMarketplaceController(
       }
       if (snapshot.status === "ready") {
         emit({
-          ...presentMarketplaceSources(lastPublic, retainedModels(query), query, snapshot.sourceErrors, snapshot.sourceHealth, lastPack),
+          ...presentMarketplaceSources(lastPublic, retainedModels(query), query, snapshot.sourceErrors, snapshot.sourceHealth, lastPack, lastInstalls),
           refreshing: textChanged ? false : snapshot.refreshing,
         });
       } else if (snapshot.status === "loading") {
@@ -176,6 +187,19 @@ export function createMarketplaceController(
           void load();
         }, SEARCH_DEBOUNCE_MS);
       }
+    },
+    /* The record is authoritative and main returns the whole of it, so the
+       screen re-projects from what came back rather than guessing the new
+       state locally and hoping the two agree. */
+    async mutateInstall(mutation) {
+      if (disposed) return;
+      const next = await api.mutateMarketplaceInstalls(mutation).catch(() => null);
+      if (disposed || next === null) return;
+      lastInstalls = next;
+      if (snapshot.status !== "ready") return;
+      emit(presentMarketplaceSources(
+        lastPublic, retainedModels(query), query, snapshot.sourceErrors, snapshot.sourceHealth, lastPack, lastInstalls,
+      ));
     },
     dispose() {
       disposed = true;

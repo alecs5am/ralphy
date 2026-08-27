@@ -1,7 +1,8 @@
 import { Bookmark, FolderInput, TriangleAlert } from "lucide-react";
 import type { LocalModelMachine } from "../../../electron/media/types";
 import type { MarketplaceLibrarySection } from "../../state/marketplace-navigation";
-import { LIBRARY_MONO, LIBRARY_TITLE, LIBRARY_UNAVAILABLE } from "./detail-chrome";
+import { LIBRARY_COPY, LIBRARY_MONO, LIBRARY_PLATE, LIBRARY_ROUTE, LIBRARY_TITLE, LIBRARY_UNAVAILABLE } from "./detail-chrome";
+import type { MarketplacePackItemPresentation } from "./presentation";
 import { MarketplaceInstalledModels } from "./MarketplaceModelViews";
 import { MarketplaceDownloads, MarketplaceUpdateConflictReview } from "./MarketplaceWorkflows";
 
@@ -15,8 +16,55 @@ function UnavailableLibrarySection({ title, reason, children }: { title: string;
   </section>;
 }
 
-export function MarketplaceMyLibrary({ section, machine }: { section: MarketplaceLibrarySection; machine: LocalModelMachine | null }) {
-  if (section === "installed") return <MarketplaceInstalledModels machine={machine} />;
+const CATEGORY_LABEL: Record<MarketplacePackItemPresentation["category"], string> = {
+  skills: "Skill",
+  prompts: "Prompt",
+  templates: "Template",
+  recipes: "Recipe",
+  components: "Component",
+};
+
+/* What this workspace took off the bundled shelf. Enabled and disabled are both
+   installed, so both are listed here and the row says which. */
+function MarketplaceInstalledPackItems({ items, workspaceName, onOpenItem }: {
+  items: MarketplacePackItemPresentation[];
+  workspaceName: string | null;
+  onOpenItem(key: string): void;
+}) {
+  return <section className={`marketplace-installed-pack ${LIBRARY_ROUTE}`} aria-labelledby="marketplace-installed-pack-title">
+    <span><small>My Library · Bundled</small><h2 className={LIBRARY_TITLE} id="marketplace-installed-pack-title">Installed in this workspace</h2></span>
+    <p className={LIBRARY_COPY}>{workspaceName === null
+      ? "No workspace is selected, so no installs are claimed."
+      : `Recorded by this app for “${workspaceName}”. The documents themselves ship with the app.`}</p>
+    {items.length === 0
+      ? <div className={LIBRARY_PLATE} role="status">Nothing from the bundled catalog is installed here.</div>
+      : <ul className="m-0 flex list-none flex-col gap-2 p-0" role="list">{items.map((item) => <li key={item.key}>
+        <button
+          className="flex min-h-16 w-full min-w-0 items-center justify-between gap-4 rounded-cell bg-surface px-3.5 py-3 text-left text-ink hover:bg-surface-hover"
+          type="button"
+          onClick={() => onOpenItem(item.key)}
+        >
+          <span className="flex min-w-0 flex-col gap-0.75">
+            <strong className="truncate font-normal">{item.name}</strong>
+            <small className={LIBRARY_MONO}>{CATEGORY_LABEL[item.category]} · {item.pack.slug}</small>
+          </span>
+          <em className={`${LIBRARY_MONO} shrink-0`}>{item.install.status === "installed" && item.install.enabled ? "Enabled" : "Disabled"}</em>
+        </button>
+      </li>)}</ul>}
+  </section>;
+}
+
+export function MarketplaceMyLibrary({ section, machine, installedItems, workspaceName, onOpenItem }: {
+  section: MarketplaceLibrarySection;
+  machine: LocalModelMachine | null;
+  installedItems: MarketplacePackItemPresentation[];
+  workspaceName: string | null;
+  onOpenItem(key: string): void;
+}) {
+  if (section === "installed") return <>
+    <MarketplaceInstalledModels machine={machine} />
+    <MarketplaceInstalledPackItems items={installedItems} workspaceName={workspaceName} onOpenItem={onOpenItem} />
+  </>;
   if (section === "downloads") return <MarketplaceDownloads presentation={{ availability: "unavailable", reason: "Downloads are unavailable because there is no persistent background-download contract" }} />;
   if (section === "updates") return <MarketplaceUpdateConflictReview />;
   if (section === "saved") return <UnavailableLibrarySection title="Saved" reason="Saved items are unavailable because there is no persistent saved-state contract">

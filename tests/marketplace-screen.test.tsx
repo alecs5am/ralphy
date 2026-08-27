@@ -490,7 +490,7 @@ describe("Marketplace header and navigation composition", () => {
       filters: { ...defaultQuery.filters, source: "huggingface" as const, license: "declared" as const },
       sort: "name" as const,
     };
-    const markup = renderToStaticMarkup(<MarketplaceHeader title="Search results" query={query} selectedCategory={null} sidebarVisible={true} refreshing={false} onQueryChange={() => undefined} onSearch={() => undefined} onOpenCategory={() => undefined} />);
+    const markup = renderToStaticMarkup(<MarketplaceHeader title="Search results" query={query} selectedCategory={null} sidebarVisible={true} refreshing={false} workspaces={[{ id: "ws_a", name: "UX Testing Lab" }]} selectedWorkspaceId="ws_a" onSelectWorkspace={() => undefined} onQueryChange={() => undefined} onSearch={() => undefined} onOpenCategory={() => undefined} />);
 
     expect(markup).toContain("Search Marketplace");
     expect(markup).toContain("Category");
@@ -504,7 +504,7 @@ describe("Marketplace header and navigation composition", () => {
 
   test("exposes model-only modality and package format filters on the Models category", () => {
     const query = { ...defaultQuery, filters: { ...defaultQuery.filters, category: "models" as const } };
-    const markup = renderToStaticMarkup(<MarketplaceHeader title="Models" query={query} selectedCategory="models" sidebarVisible={true} refreshing={false} onQueryChange={() => undefined} onSearch={() => undefined} onOpenCategory={() => undefined} />);
+    const markup = renderToStaticMarkup(<MarketplaceHeader title="Models" query={query} selectedCategory="models" sidebarVisible={true} refreshing={false} workspaces={[{ id: "ws_a", name: "UX Testing Lab" }]} selectedWorkspaceId="ws_a" onSelectWorkspace={() => undefined} onQueryChange={() => undefined} onSearch={() => undefined} onOpenCategory={() => undefined} />);
 
     expect(markup).toContain("Modality");
     expect(markup).toContain("Format");

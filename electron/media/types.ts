@@ -461,10 +461,38 @@ export interface MarketplacePackDocumentDto {
   truncated: boolean;
 }
 
+/* Desktop's own record of what a workspace took off the shelf. Not a Core
+   contract: Core has no per-item, per-workspace install: the app owns this file
+   and the UI names it as this machine's record rather than the library's. */
+export interface MarketplaceInstallDto {
+  entryId: string;
+  workspaceId: string;
+  installedAt: number;
+  enabled: boolean;
+}
+
+export interface MarketplaceInstallsDto {
+  schemaVersion: 1;
+  /** The workspace the Marketplace is currently installing into. */
+  selectedWorkspaceId: string | null;
+  installs: MarketplaceInstallDto[];
+  /** Set when the change was applied on screen but could not be recorded. */
+  warning: string | null;
+}
+
+export interface MarketplaceInstallMutation {
+  action: "install" | "uninstall" | "enable" | "disable" | "select-workspace";
+  workspaceId: string;
+  /** Null only for "select-workspace", which names no item. */
+  entryId: string | null;
+}
+
 export interface MarketplaceBridge {
   loadMarketplacePublicLibrary(): Promise<MarketplacePublicSnapshotDto>;
   loadMarketplacePackCatalog(): Promise<MarketplacePackCatalogDto>;
   loadMarketplacePackDocument(id: string): Promise<MarketplacePackDocumentDto>;
+  loadMarketplaceInstalls(): Promise<MarketplaceInstallsDto>;
+  mutateMarketplaceInstalls(mutation: MarketplaceInstallMutation): Promise<MarketplaceInstallsDto>;
 }
 
 export interface LocalModelSearchInput {
@@ -623,6 +651,8 @@ export const MEDIA_CHANNELS = {
   loadMarketplacePublicLibrary: "marketplace:public-library:load",
   loadMarketplacePackCatalog: "marketplace:pack-catalog:load",
   loadMarketplacePackDocument: "marketplace:pack-document:load",
+  loadMarketplaceInstalls: "marketplace:installs:load",
+  mutateMarketplaceInstalls: "marketplace:installs:mutate",
   loadWorkspaceOverview: "workspace:overview",
   loadSharedLibraryPage: "workspace:shared-library:page",
   loadSharedLibraryArtifact: "workspace:shared-library:show",

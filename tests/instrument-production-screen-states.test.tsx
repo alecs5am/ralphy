@@ -113,6 +113,7 @@ function packPresentation(category: "prompts" | "components" | "skills"): Market
     name: `Bundled ${kind}`,
     sourceLabel: "Bundled with this build",
     pack: { id: `${kind}:sample`, category: kind, slug: "sample", title: `Bundled ${kind}`, summary: "A bundled document", path: null, tags: [] },
+    install: { status: "no-workspace" },
   } as MarketplaceItemPresentation;
 }
 

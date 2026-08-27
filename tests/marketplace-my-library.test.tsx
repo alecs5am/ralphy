@@ -23,7 +23,7 @@ const machine: LocalModelMachine = {
 
 describe("Marketplace My Library", () => {
   test("uses the real Ollama inventory for installed models", () => {
-    const markup = renderToStaticMarkup(<MarketplaceMyLibrary section="installed" machine={machine} />);
+    const markup = renderToStaticMarkup(<MarketplaceMyLibrary section="installed" machine={machine} installedItems={[]} workspaceName="UX Testing Lab" onOpenItem={() => undefined} />);
     expect(markup).toContain("Installed on this Mac");
     expect(markup).toContain("Registered in Ollama");
     expect(markup).toContain("Qwen2.5 Coder 14B");
@@ -31,11 +31,11 @@ describe("Marketplace My Library", () => {
   });
 
   test("distinguishes unavailable saved, added, forked, download, update, and attention state", () => {
-    const saved = renderToStaticMarkup(<MarketplaceMyLibrary section="saved" machine={machine} />);
-    const added = renderToStaticMarkup(<MarketplaceMyLibrary section="added" machine={machine} />);
-    const downloads = renderToStaticMarkup(<MarketplaceMyLibrary section="downloads" machine={machine} />);
-    const updates = renderToStaticMarkup(<MarketplaceMyLibrary section="updates" machine={machine} />);
-    const attention = renderToStaticMarkup(<MarketplaceMyLibrary section="attention" machine={machine} />);
+    const saved = renderToStaticMarkup(<MarketplaceMyLibrary section="saved" machine={machine} installedItems={[]} workspaceName="UX Testing Lab" onOpenItem={() => undefined} />);
+    const added = renderToStaticMarkup(<MarketplaceMyLibrary section="added" machine={machine} installedItems={[]} workspaceName="UX Testing Lab" onOpenItem={() => undefined} />);
+    const downloads = renderToStaticMarkup(<MarketplaceMyLibrary section="downloads" machine={machine} installedItems={[]} workspaceName="UX Testing Lab" onOpenItem={() => undefined} />);
+    const updates = renderToStaticMarkup(<MarketplaceMyLibrary section="updates" machine={machine} installedItems={[]} workspaceName="UX Testing Lab" onOpenItem={() => undefined} />);
+    const attention = renderToStaticMarkup(<MarketplaceMyLibrary section="attention" machine={machine} installedItems={[]} workspaceName="UX Testing Lab" onOpenItem={() => undefined} />);
     expect(saved).toContain("Saved items are unavailable because there is no persistent saved-state contract");
     expect(saved).toContain("Local forks are unavailable because there is no persistent fork-state contract");
     expect(added).toContain("Added items are unavailable because there is no persistent workspace/project addition-state contract");
