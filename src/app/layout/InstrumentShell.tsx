@@ -9,7 +9,6 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, ArrowRight, LayoutGrid, MessageSquare, PanelLeft } from "lucide-react";
 
 import { ResizeHandle } from "@/shared/ui/ResizeHandle";
 import { InstrumentOverlay } from "@/shared/instrument/overlay-registry";
@@ -24,28 +23,12 @@ import {
   resolveRightRailMode,
   type InstrumentRightRailProviderValue,
 } from "@/shared/lib/instrument-rail";
-import { VIEW_PANEL_DEFAULT, VIEW_PANEL_MIN } from "@/widgets/view-panel";
 import type { WorkbenchLens } from "@/shared/model/workbench";
-import { ICON_BUTTON, IconButton } from "@/shared/ui/IconButton";
 
-const DOCK_WINDOW_MIN = 1_280;
-const DOCK_DESK_MIN = 680;
-const RIGHT_RAIL_MIN = 292;
-/* The chat lens' view panel. The width is the user's, and it has no design maximum: the panel may
-   take nearly the whole window, the way a Codex-style layout lets the conversation shrink to a
-   tenth of it. What stops it is the chat's own floor -- a share of the frame, with an absolute
-   floor because a conversation below it is not readable at any window size. Below
-   VIEW_PANEL_DROP there is no room for both columns at all. */
-const VIEW_PANEL_DROP = 1_120;
-const VIEW_CHAT_MIN_RATIO = 0.12;
-const VIEW_CHAT_MIN = 240;
-/* The window's own chrome between the frame edge and the two content columns: 8 of desk on each
-   side, plus the zone gap after the sidebar and the one between the chat and the panel. */
-const VIEW_CHROME = 32;
-const RIGHT_RAIL_MAX = 1_000;
-const LEFT_MIN = 216;
-const LEFT_MAX = 420;
-const LEFT_DEFAULT = 260;
+import { shellColumns } from "./shell-geometry";
+import { useDeskScrollMemory } from "./use-desk-scroll-memory";
+import { useRailHost } from "./use-rail-host";
+import { ShellTopRow } from "./ShellTopRow";
 
 export interface InstrumentShellProps {
   sidebar: ReactNode;
@@ -91,19 +74,8 @@ interface RailRegistration {
   label: string;
 }
 
-interface PendingRouteTransition {
-  from: string;
-  to: string;
-  offset: number;
-}
-
 // A missing or NaN width must not collapse the layout maths, so an unusable request falls
 // back to the column's own default rather than propagating into the dock calculation.
-function clampWidth(requested: number, min: number, max: number, fallback: number): number {
-  const value = Number.isFinite(requested) ? Math.round(requested) : fallback;
-  return Math.min(Math.max(value, min), Math.max(min, max));
-}
-
 /* Whether the floats in this subtree may escape to the shared column. They have to escape while
    their surface is on screen -- a dock has to hold still while the page under it scrolls, and the
    column is the box with that geometry -- but the column is shared by both app modes, so a float
@@ -135,52 +107,33 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
   const [activeRail, setActiveRail] = useState<{ owner: InstrumentRightRailOwner; label: string }>({ owner: "chat", label: "Agent chat" });
   const registrations = useRef<RailRegistration[]>([]);
   const openerRef = useRef<HTMLElement | null>(null);
-  const offsets = useRef(new Map<string, number>());
-  const committedRouteKey = useRef(props.routeScrollKey);
-  const pendingRouteTransition = useRef<PendingRouteTransition | null>(null);
   const focusedRailElement = useRef<HTMLElement | null>(null);
+  const rememberOffset = useDeskScrollMemory(deskElement, props.routeScrollKey);
   const modeRef = useRef<InstrumentRightRailMode>("closed");
 
-  if (props.routeScrollKey === committedRouteKey.current) {
-    pendingRouteTransition.current = null;
-  } else if (pendingRouteTransition.current?.to !== props.routeScrollKey) {
-    const transition = {
-      from: committedRouteKey.current,
-      to: props.routeScrollKey,
-      offset: deskElement?.scrollTop ?? 0,
-    };
-    offsets.current.set(transition.from, transition.offset);
-    pendingRouteTransition.current = transition;
-  }
-
-  const leftWidth = clampWidth(props.leftWidth, LEFT_MIN, LEFT_MAX, LEFT_DEFAULT);
-  const leftColumn = props.leftVisible ? leftWidth : 0;
-  // The rail may not eat the desk: its ceiling is whatever is left after the sidebar and the
-  // desk minimum, so dragging wide on a narrow window cannot silently flip it to overlay.
-  const railMax = Math.max(
-    RIGHT_RAIL_MIN,
-    Math.min(RIGHT_RAIL_MAX, dimensions.frameWidth - leftColumn - DOCK_DESK_MIN),
-  );
-  const railWidth = clampWidth(props.rightWidth, RIGHT_RAIL_MIN, railMax, RIGHT_RAIL_MIN);
-  const dockedDeskWidth = modeRef.current === "docked"
-    ? dimensions.deskWidth
-    : dimensions.deskWidth - railWidth;
-  const dockEligible = dimensions.frameWidth >= DOCK_WINDOW_MIN && dockedDeskWidth >= DOCK_DESK_MIN;
+  const {
+    leftWidth,
+    leftColumn,
+    railWidth,
+    dockEligible,
+    viewPanelWidth,
+    viewPanelFits,
+    bounds,
+  } = shellColumns({
+    dimensions,
+    leftVisible: props.leftVisible,
+    leftWidth: props.leftWidth,
+    rightWidth: props.rightWidth,
+    viewWidth: props.viewWidth,
+    railDocked: modeRef.current === "docked",
+  });
   /* Under the chat lens the rail *is* the main column, so it is docked whatever the desk
      minimum says -- the desk is deliberately the narrow one. The view panel is what gives way
-     on a narrow window: below VIEW_PANEL_DROP the chat takes the whole content area rather than
+     on a narrow window: below the drop width the chat takes the whole content area rather than
      the two columns squeezing each other. Inverting the overlay machinery so the *desk* could
      portal over the chat is the handoff's own next iteration, not this one. */
   const chatLens = props.lens === "chat";
-  /* The ceiling is whatever leaves the chat its floor, so dragging wide runs out of travel at the
-     point the conversation would stop being usable rather than at an arbitrary width. */
-  const viewPanelMax = Math.max(
-    VIEW_PANEL_MIN,
-    dimensions.frameWidth - leftColumn - VIEW_CHROME
-      - Math.max(VIEW_CHAT_MIN, Math.round(dimensions.frameWidth * VIEW_CHAT_MIN_RATIO)),
-  );
-  const viewPanelWidth = clampWidth(props.viewWidth, VIEW_PANEL_MIN, viewPanelMax, VIEW_PANEL_DEFAULT);
-  const viewPanelVisible = chatLens && props.viewOpen && dimensions.frameWidth >= VIEW_PANEL_DROP;
+  const viewPanelVisible = chatLens && props.viewOpen && viewPanelFits;
   /* Under the desk lens the chat is not reachable at all -- the lens exists so the desk can have
      the whole content area, and a chat column standing beside it would be the state the lens was
      introduced to replace. The media-review console shares this dock and is not chat, so it keeps
@@ -220,56 +173,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
     return () => observer.disconnect();
   }, [deskElement]);
 
-  useLayoutEffect(() => {
-    if (!deskElement) return;
-    const transition = pendingRouteTransition.current;
-    if (transition?.to === props.routeScrollKey) {
-      offsets.current.set(transition.from, transition.offset);
-      pendingRouteTransition.current = null;
-    }
-    committedRouteKey.current = props.routeScrollKey;
-    const targetOffset = offsets.current.get(props.routeScrollKey) ?? 0;
-    let frame = 0;
-    const observer = new MutationObserver(() => restoreWhenReady());
-    const restoreWhenReady = () => {
-      const available = Math.max(0, deskElement.scrollHeight - deskElement.clientHeight);
-      deskElement.scrollTo({ top: Math.min(targetOffset, available) });
-      if (targetOffset === 0 || available >= targetOffset) observer.disconnect();
-    };
-    observer.observe(deskElement, { attributes: true, childList: true, subtree: true });
-    restoreWhenReady();
-    frame = window.requestAnimationFrame(restoreWhenReady);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      observer.disconnect();
-    };
-  }, [deskElement, props.routeScrollKey]);
-
-  useLayoutEffect(() => {
-    if (!railHost || !railParking) return;
-    const target = mode === "docked"
-      ? dockedRailTarget
-      : mode === "overlay"
-        ? overlayRailTarget
-        : railParking;
-    if (!target) return;
-    target.appendChild(railHost);
-    const focused = focusedRailElement.current;
-    let focusTimer = 0;
-    if (focused && railHost.contains(focused) && document.activeElement !== focused) {
-      focused.focus({ preventScroll: true });
-    }
-    if (mode !== "closed" && focused && railHost.contains(focused)) {
-      focusTimer = window.setTimeout(() => focused.focus({ preventScroll: true }), 0);
-    }
-    focusedRailElement.current = null;
-    return () => {
-      window.clearTimeout(focusTimer);
-      const active = document.activeElement;
-      if (active instanceof HTMLElement && railHost.contains(active)) focusedRailElement.current = active;
-      railParking.appendChild(railHost);
-    };
-  }, [dockedRailTarget, mode, overlayRailTarget, railHost, railParking]);
+  useRailHost({ railHost, railParking, dockedRailTarget, overlayRailTarget, mode, focusedRailElement });
 
   useLayoutEffect(() => {
     if (!deskElement || mode !== "overlay") return;
@@ -317,7 +221,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
     scrollToOffset: (offset, behavior) => deskElement?.scrollTo({ top: offset, behavior }),
     capture: () => ({ key: props.routeScrollKey, offset: deskElement?.scrollTop ?? 0 }),
     restore: (snapshot) => {
-      offsets.current.set(snapshot.key, snapshot.offset);
+      rememberOffset(snapshot.key, snapshot.offset);
       if (snapshot.key === props.routeScrollKey) deskElement?.scrollTo({ top: snapshot.offset });
     },
   }), [deskColumn, deskElement, dimensions.deskHeight, dimensions.deskWidth, props.routeScrollKey]);
@@ -361,9 +265,9 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
             ariaLabel="Resize sidebar"
             orientation="vertical"
             value={leftWidth}
-            min={LEFT_MIN}
-            max={LEFT_MAX}
-            defaultValue={LEFT_DEFAULT}
+            min={bounds.left.min}
+            max={bounds.left.max}
+            defaultValue={bounds.left.fallback}
             direction={1}
             className="resize-instrument-sidebar absolute top-0 -right-2 bottom-0 w-2 cursor-col-resize"
             onChange={props.onLeftWidthChange}
@@ -377,47 +281,14 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
           {/* No horizontal padding: every zone in the window stands 8 from its edge, and the
               handoff's 2px optical inset put the island 10 from the right while the sidebar
               stood at 8. */}
-          <header className="instrument-top-row relative flex h-8 min-w-0 flex-none items-center gap-3 [-webkit-app-region:drag]">
-            {/* The sidebar owns its own collapse control now; the topbar carries it only while the
-                sidebar is gone, which is the one state where the sidebar's own button is not on
-                screen. History stays here in both states -- it is about the content column. */}
-            {props.topChrome && <div className="flex flex-none items-center gap-1 [-webkit-app-region:no-drag]">
-              {!props.leftVisible && <>
-                <div className="w-traffic-main h-px flex-none" aria-hidden="true" />
-                <button className={`size-7 rounded-full text-ink hover:bg-desk-hover ${ICON_BUTTON}`} type="button" title="Show sidebar" aria-label="Toggle sidebar" aria-pressed="false" onClick={props.onToggleLeft}>
-                  <PanelLeft size={15} strokeWidth={1.6} aria-hidden="true" />
-                </button>
-              </>}
-              <IconButton className="size-7 rounded-full hover:bg-desk-hover" title="Back" label="Back" disabled={!props.topChrome.canGoBack} onClick={props.topChrome.onBack}>
-                <ArrowLeft size={15} strokeWidth={1.6} aria-hidden="true" />
-              </IconButton>
-              <IconButton className="size-7 rounded-full hover:bg-desk-hover" title="Forward" label="Forward" disabled={!props.topChrome.canGoForward} onClick={props.topChrome.onForward}>
-                <ArrowRight size={15} strokeWidth={1.6} aria-hidden="true" />
-              </IconButton>
-            </div>}
-            {/* The lens pair: how you are working, as against the sidebar's place switch, which is
-                where you are. Two circles in one pill; the active one is the desk's inversion. */}
-            {props.onLensChange && <div className="instrument-lens flex flex-none items-center gap-0.5 rounded-full bg-card p-0.75 [-webkit-app-region:no-drag]" role="group" aria-label="Working lens">
-              {([["desk", LayoutGrid, "Desk lens"], ["chat", MessageSquare, "Chat lens"]] as const).map(([lens, Icon, label]) => {
-                const active = props.lens === lens;
-                return <button
-                  className={`instrument-lens-button grid size-7 place-items-center rounded-full ${active
-                    ? "bg-desk-primary text-desk-primary-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-desk-primary-ink"
-                    : "bg-transparent text-muted hover:bg-field hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"}`}
-                  type="button"
-                  key={lens}
-                  title={label}
-                  aria-label={label}
-                  aria-pressed={active}
-                  onClick={() => props.onLensChange?.(lens)}
-                ><Icon size={15} strokeWidth={1.8} aria-hidden="true" /></button>;
-              })}
-            </div>}
-            {/* The island is taken out of flow: open, its plate is far taller than the topbar, and
-                in flow inside a centred row it grew upward past the window edge as well as down.
-                Anchored to the top of the row it grows downward only, over the content. */}
-            <div className="instrument-island-slot absolute top-0 right-0 flex items-start [-webkit-app-region:no-drag]">{props.island}</div>
-          </header>
+          <ShellTopRow
+            leftVisible={props.leftVisible}
+            lens={props.lens}
+            topChrome={props.topChrome}
+            island={props.island}
+            onToggleLeft={props.onToggleLeft}
+            onLensChange={props.onLensChange}
+          />
           <div className="instrument-content-body relative flex min-h-0 min-w-0 flex-1 gap-2">
             {/* The grabber straddles the zone gap between the chat and the panel, on the panel's
                 own left edge, so the panel keeps its full width and the drag target stays 8 wide.
@@ -429,9 +300,9 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
               ariaLabel="Resize view panel"
               orientation="vertical"
               value={viewPanelWidth}
-              min={VIEW_PANEL_MIN}
-              max={viewPanelMax}
-              defaultValue={VIEW_PANEL_DEFAULT}
+              min={bounds.view.min}
+              max={bounds.view.max}
+              defaultValue={bounds.view.fallback}
               direction={-1}
               className="resize-instrument-view absolute top-0 right-(--instrument-view-width) bottom-0 w-2 cursor-col-resize"
               onChange={props.onViewWidthChange}
@@ -469,9 +340,9 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
                 ariaLabel="Resize agent panel"
                 orientation="vertical"
                 value={railWidth}
-                min={RIGHT_RAIL_MIN}
-                max={railMax}
-                defaultValue={RIGHT_RAIL_MIN}
+                min={bounds.rail.min}
+                max={bounds.rail.max}
+                defaultValue={bounds.rail.fallback}
                 direction={-1}
                 className="resize-instrument-rail absolute top-0 -left-2 bottom-0 w-2 cursor-col-resize"
                 onChange={props.onRightWidthChange}

@@ -82,7 +82,7 @@ const shellSource = [
   "src/shared/instrument/overlay-registry.tsx",
 ].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
 const selectMenuSource = readFileSync(join(process.cwd(), "src/shared/ui/SelectMenu.tsx"), "utf8");
-const agentRailSource = readFileSync(join(process.cwd(), "src/widgets/utility-panels/ui/UtilityPanels.tsx"), "utf8");
+const agentRailSource = layerSource("src/widgets/utility-panels");
 const agentRailTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/agent-rail.css"), "utf8");
 const pickerSource = readFileSync(join(process.cwd(), "src/widgets/sidebar/ui/WorkspacePicker.tsx"), "utf8");
 const contextSidebarSource = readFileSync(join(process.cwd(), "src/widgets/sidebar/ui/ContextSidebar.tsx"), "utf8");
@@ -1015,12 +1015,12 @@ describe("design system contract", () => {
       "src/pages/calendar/ui/CalendarScreen.tsx",
       "src/pages/memory/ui/MemoryScreen.tsx",
       "src/pages/project/ui/UnitViewer.tsx",
-      "src/app/layout/InstrumentShell.tsx",
+      "src/app/layout/ShellTopRow.tsx",
     ]) {
       const source = readFileSync(join(process.cwd(), file), "utf8");
       expect(source).toContain("IconButton");
       const rings = source.match(/focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink/g) ?? [];
-      expect(rings.length).toBeLessThanOrEqual(file.endsWith("InstrumentShell.tsx") ? 1 : 0);
+      expect(rings.length).toBeLessThanOrEqual(file.endsWith("ShellTopRow.tsx") ? 1 : 0);
     }
   });
 
@@ -1752,10 +1752,7 @@ describe("design system contract", () => {
     const app = layerSource("src/app");
     const main = readFileSync(join(process.cwd(), "electron/main.ts"), "utf8");
     const preload = readFileSync(join(process.cwd(), "electron/preload.ts"), "utf8");
-    const panels = readFileSync(
-      join(process.cwd(), "src/widgets/utility-panels/ui/UtilityPanels.tsx"),
-      "utf8",
-    );
+    const panels = layerSource("src/widgets/utility-panels");
 
     expect(main).toContain('input.key.toLocaleLowerCase() === "r"');
     expect(main).toContain("event.preventDefault()");
@@ -1859,10 +1856,7 @@ describe("design system contract", () => {
 
   test("keeps the terminal out of the renderer UI", () => {
     const app = layerSource("src/app");
-    const utilityPanels = readFileSync(
-      join(process.cwd(), "src/widgets/utility-panels/ui/UtilityPanels.tsx"),
-      "utf8",
-    );
+    const utilityPanels = layerSource("src/widgets/utility-panels");
     expect(app).not.toContain("BottomPanel");
     expect(app).not.toContain("onToggleBottom");
     expect(utilityPanels).not.toContain("TerminalWorkspace");
