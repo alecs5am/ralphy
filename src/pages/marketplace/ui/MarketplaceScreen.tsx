@@ -1,27 +1,36 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { CatalogResult, MarketplaceInstallMutation } from "@/shared/api/ipc";
 import { bridge } from "@/shared/api/ipc";
-import { defineInstrumentScreenStates, InstrumentScreenRoot, type InstrumentScenarioState } from "@/shared/instrument/screen-state-registry";
+import { InstrumentScreenRoot, type InstrumentScenarioState } from "@/shared/instrument/screen-state-registry";
 import type { WorkbenchRoute } from "@/shared/model/workbench";
 import {
   createMarketplaceController,
   type MarketplaceController,
 } from "../model/controller";
 import {
-  type MarketplaceBrowseRoute,
   type MarketplaceCategory,
   type MarketplaceLocation,
   type MarketplaceMemoryPatch,
   type MarketplaceQueryState,
-  MARKETPLACE_LIBRARY_SECTIONS,
-  MARKETPLACE_UNAVAILABLE_DETAIL_CATEGORIES,
 } from "../model/navigation";
 import {
   MarketplaceBrowse,
   marketplaceItemDomId,
 } from "./MarketplaceBrowse";
 import { MarketplaceHeader } from "./MarketplaceHeader";
-import { MarketplaceModelDetail, marketplaceDetailInstrumentStates, marketplaceInstalledInstrumentStates } from "./MarketplaceModelViews";
+import {
+  browseRoute,
+  clearedFilters,
+  modelReference,
+  packEntryCategory,
+  packItemReference,
+  publicItemReference,
+} from "./screen-references";
+import { categoryLabels } from "./browse-discover";
+import { marketplaceInstrumentStates } from "./screen-routes";
+import { marketplaceIntents } from "./screen-intents";
+import { useMarketplaceRestore } from "./use-marketplace-restore";
+import { MarketplaceModelDetail } from "./MarketplaceModelViews";
 import { MarketplaceMyLibrary } from "./MarketplaceMyLibrary";
 import { MarketplacePackItemDetail } from "./MarketplacePackItemDetail";
 import { MarketplacePublicItemDetail } from "./MarketplacePublicItemDetail";
@@ -31,7 +40,6 @@ import {
   type MarketplaceWorkflowKind,
 } from "./MarketplaceWorkflows";
 import {
-  marketplaceUnavailableDetailOriginId,
   MarketplaceUnavailableDetail,
 } from "./MarketplaceUnavailableViews";
 import {
@@ -51,60 +59,6 @@ export interface MarketplaceScreenProps {
   onRememberLocation(patch: MarketplaceMemoryPatch): void;
 }
 
-const categoryLabels: Record<MarketplaceCategory, string> = {
-  models: "Models",
-  templates: "Templates",
-  recipes: "Recipes",
-  prompts: "Prompts",
-  components: "Components & Effects",
-  skills: "Skills",
-};
-
-const marketplaceBaseInstrumentStates = [
-  ["discover", "Marketplace", ["loading", "error", "partial", "ready"]],
-  ["results", "Search results", ["loading", "error", "partial", "empty", "ready"]],
-  ["collection", "Collection", ["loading", "error", "unavailable"]],
-] as const;
-export const MARKETPLACE_BASE_ROUTE_KINDS = [...marketplaceBaseInstrumentStates.map(([route]) => route), "detail"] as const;
-export const MARKETPLACE_CATEGORY_ROUTE_VALUES = Object.keys(categoryLabels) as MarketplaceCategory[];
-export const MARKETPLACE_LIBRARY_ROUTE_VALUES = MARKETPLACE_LIBRARY_SECTIONS;
-export const MARKETPLACE_UNAVAILABLE_DETAIL_ROUTE_VALUES = MARKETPLACE_UNAVAILABLE_DETAIL_CATEGORIES;
-
-export const marketplaceInstrumentStates = [
-  ...marketplaceBaseInstrumentStates.map(([route, title, states]) => defineInstrumentScreenStates({
-    routeKey: `marketplace.${route}`,
-    states,
-    rootMarker: `marketplace-${route}`,
-    landmarks: [title, "Marketplace"],
-  } as const)),
-  marketplaceDetailInstrumentStates,
-  ...MARKETPLACE_CATEGORY_ROUTE_VALUES.map((category) => defineInstrumentScreenStates({
-    routeKey: `marketplace.category.${category}`,
-    /* These three are stocked by the bundled catalog, so they reach "ready" like
-       any other shelf -- and keep "unavailable" for a build that ships no pack. */
-    states: category === "prompts" || category === "components" || category === "skills"
-      ? ["loading", "error", "partial", "empty", "unavailable", "ready"]
-      : ["loading", "error", "partial", "empty", "ready"],
-    rootMarker: `marketplace-category-${category}`,
-    landmarks: [categoryLabels[category], "Marketplace"],
-  } as const)),
-  marketplaceInstalledInstrumentStates,
-  ...MARKETPLACE_LIBRARY_ROUTE_VALUES.filter((section) => section !== "installed").map((section) => defineInstrumentScreenStates({
-    routeKey: `marketplace.library.${section}`,
-    states: ["unavailable"],
-    rootMarker: `marketplace-library-${section}`,
-    landmarks: [section === "attention" ? "Needs attention" : `${section[0].toLocaleUpperCase()}${section.slice(1)}`, "My Library"],
-  } as const)),
-  ...MARKETPLACE_UNAVAILABLE_DETAIL_ROUTE_VALUES.map((category) => defineInstrumentScreenStates({
-    routeKey: `marketplace.unavailable-detail.${category}`,
-    states: ["unavailable"],
-    rootMarker: `marketplace-unavailable-detail-${category}`,
-    landmarks: [categoryLabels[category], "Marketplace"],
-  } as const)),
-];
-
-/* A bundled row reviews through the workflow its category already had -- the
-   shelf changed where the item comes from, not what installing one would mean. */
 const PACK_WORKFLOW: Record<Exclude<MarketplaceCategory, "models">, MarketplaceWorkflowKind> = {
   skills: "skill-install",
   prompts: "prompt-use",
@@ -137,62 +91,6 @@ function routeTitle(location: MarketplaceLocation): string {
 export const MARKETPLACE_SCREEN = "marketplace-screen main-region @container/main-region flex h-full max-h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-desk px-8 pt-7.5 pb-12 text-ink";
 export const MARKETPLACE_SCROLL = "marketplace-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-2 pb-18";
 const ROUTE_PLACEHOLDER = "marketplace-route-placeholder mt-4 grid min-h-64 place-items-center rounded-panel bg-surface p-6 text-center";
-
-function browseRoute(route: MarketplaceLocation["route"]): MarketplaceBrowseRoute | null {
-  return route.kind === "detail" || route.kind === "unavailable-detail" ? null : route;
-}
-
-function modelReference(itemId: string) {
-  const match = /^model:(huggingface|civitai|modelscope):(.{1,256})$/.exec(itemId);
-  if (!match) return null;
-  const provider = match[1] as "huggingface" | "civitai" | "modelscope";
-  const id = match[2]!;
-  const repositoryId = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
-  if (provider === "civitai" ? !/^\d{1,12}$/.test(id) : !repositoryId.test(id)) return null;
-  return { provider, id };
-}
-
-function publicItemReference(itemId: string) {
-  const match = /^(template|recipe):([A-Za-z0-9][A-Za-z0-9._-]{0,127})$/.exec(itemId);
-  return match ? { category: match[1] as "template" | "recipe", id: match[2]! } : null;
-}
-
-/* Item keys are the detail route's id, so a bundled row is addressed by the
-   catalog id it already has, behind a `pack:` prefix that cannot collide with a
-   model or public-library key. */
-function packItemReference(itemId: string) {
-  /* Slugs are whatever the source called the thing -- a skill folder is kebab,
-     an ffmpeg recipe is the camelCase function name -- so the guard bounds the
-     charset and the length without assuming a casing convention. */
-  const match = /^pack:((?:skill|prompt|template|recipe|component):[A-Za-z0-9][A-Za-z0-9._-]{0,127})$/.exec(itemId);
-  return match ? { id: match[1]! } : null;
-}
-
-/* The sidebar highlights the shelf a detail came from, and the catalog id says
-   which shelf that is without waiting for the catalog to load. */
-function packEntryCategory(packId: string | null): MarketplaceCategory | null {
-  const prefix = packId?.split(":")[0];
-  if (prefix === "skill") return "skills";
-  if (prefix === "prompt") return "prompts";
-  if (prefix === "template") return "templates";
-  if (prefix === "recipe") return "recipes";
-  if (prefix === "component") return "components";
-  return null;
-}
-
-function clearedFilters(query: MarketplaceQueryState, category: MarketplaceCategory | "all"): MarketplaceQueryState {
-  return {
-    ...query,
-    filters: {
-      category,
-      source: "all",
-      license: "all",
-      compatibility: "all",
-      modality: "all",
-      format: "all",
-    },
-  };
-}
 
 export interface MarketplaceScreenViewProps extends MarketplaceScreenProps {
   snapshot: MarketplaceSnapshot;
@@ -248,106 +146,24 @@ export function MarketplaceScreenView({
       : snapshot.status === "ready" && originItem
         ? "available"
         : "missing";
-  const restoredOrigin = useRef<string | null>(null);
-  const originRequestKey = `${focusRouteKey}:${focusId}`;
+  useMarketplaceRestore({
+    scrollRef,
+    scrollTop: location.scrollTop,
+    focusId,
+    focusRouteKey,
+    itemOrigin,
+    originAvailability,
+  });
 
-  useEffect(() => {
-    if (!itemOrigin) {
-      scrollRef.current?.scrollTo({ top: location.scrollTop });
-      return;
-    }
-    const frame = window.requestAnimationFrame(() => scrollRef.current?.scrollTo({ top: location.scrollTop }));
-    return () => window.cancelAnimationFrame(frame);
-  }, [focusId, focusRouteKey, itemOrigin, location.scrollTop, originAvailability]);
+  const {
+    openCategory,
+    openResults,
+    openUnavailableDetail,
+    openCollection,
+    openLibrary,
+    openItem,
+  } = marketplaceIntents(location, onNavigate, onRememberLocation);
 
-  useEffect(() => {
-    if (!itemOrigin) {
-      restoredOrigin.current = null;
-      const target = document.getElementById(focusId) ?? document.getElementById("marketplace-heading");
-      if (!target?.closest("[hidden]")) target?.focus({ preventScroll: true });
-      return;
-    }
-    if (restoredOrigin.current === originRequestKey) return;
-    if (originAvailability === "pending") return;
-    const heading = document.getElementById("marketplace-heading");
-    if (heading?.closest("[hidden]")) return;
-    if (originAvailability === "missing") {
-      heading?.focus({ preventScroll: true });
-      restoredOrigin.current = originRequestKey;
-      return;
-    }
-    let frame = 0;
-    let attempts = 0;
-    const restoreFocus = () => {
-      if (heading?.closest("[hidden]")) return;
-      const target = document.getElementById(focusId);
-      if (target) {
-        target.focus({ preventScroll: true });
-        restoredOrigin.current = originRequestKey;
-        return;
-      }
-      if (attempts < 12) {
-        attempts += 1;
-        frame = window.requestAnimationFrame(restoreFocus);
-        return;
-      }
-      heading?.focus({ preventScroll: true });
-      restoredOrigin.current = originRequestKey;
-    };
-    frame = window.requestAnimationFrame(restoreFocus);
-    return () => window.cancelAnimationFrame(frame);
-  }, [focusId, focusRouteKey, itemOrigin, originAvailability, originRequestKey]);
-
-  const openCategory = (category: MarketplaceCategory) => {
-    const filters = {
-      ...location.query.filters,
-      category,
-      ...(category === "models" ? {} : { modality: "all" as const, format: "all" as const }),
-    };
-    onNavigate({
-      ...location,
-      route: { kind: "category", category },
-      query: { ...location.query, filters },
-      selectedItemId: null,
-      scrollTop: 0,
-      focusId: "marketplace-heading",
-    });
-  };
-  const openResults = () => {
-    onNavigate({
-      ...location,
-      route: { kind: "results" },
-      selectedItemId: null,
-      scrollTop: 0,
-      focusId: "marketplace-heading",
-    });
-  };
-  const openUnavailableDetail = (category: "prompts" | "components" | "skills") => {
-    onRememberLocation({ focusId: marketplaceUnavailableDetailOriginId(category) });
-    onNavigate({
-      ...location,
-      route: { kind: "unavailable-detail", category },
-      selectedItemId: null,
-      scrollTop: 0,
-      focusId: "marketplace-heading",
-    });
-  };
-  const openCollection = () => {
-    onNavigate({ ...location, route: { kind: "collection" }, selectedItemId: null, scrollTop: 0, focusId: "marketplace-heading" });
-  };
-  const openLibrary = (section: "installed" | "saved" | "added" | "downloads" | "updates" | "attention") => {
-    onNavigate({ ...location, route: { kind: "library", section }, selectedItemId: null, scrollTop: 0, focusId: "marketplace-heading" });
-  };
-  const openItem = (itemId: string) => {
-    onRememberLocation({ focusId: marketplaceItemDomId(itemId) });
-    onNavigate({
-      ...location,
-      route: { kind: "detail", itemId },
-      selectedItemId: itemId,
-      scrollTop: 0,
-      focusId: "marketplace-heading",
-    });
-  };
   /* The install target comes from the home library's own workspaces; the record
      remembers the last pick, and the first named workspace stands in until one
      is made, so the picker never shows a target that is not on this machine. */
