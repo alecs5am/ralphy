@@ -6,7 +6,7 @@ import {
   InstrumentRightRailPortal,
   resolveRightRailMode,
   useInstrumentRightRail,
-} from "../src/instrument/InstrumentShell";
+} from "@/widgets/instrument-shell/ui/InstrumentShell";
 import { createReactHost, type HostNode } from "./react-host";
 
 async function settle() {

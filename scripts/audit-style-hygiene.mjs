@@ -4,7 +4,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const ROOT = process.cwd();
-const STYLE_DIR = join(ROOT, "src/styles");
+const STYLE_DIR = join(ROOT, "src/app/styles");
 const MAX_LINES = Number(process.env.STYLE_MAX_LINES ?? 700);
 
 // Properties whose values the token layer already owns, and the token family that owns

@@ -6,23 +6,23 @@ import type {
   LocalModelMachine,
   LocalModelReference,
 } from "../electron/media/types";
-import { bridge } from "../src/lib/ipc";
-import { MarketplaceScreenView } from "../src/screens/MarketplaceScreen";
+import { bridge } from "@/shared/api/ipc";
+import { MarketplaceScreenView } from "@/pages/marketplace/ui/MarketplaceScreen";
 import {
   MarketplaceInstalledModels,
   MarketplaceModelDetail,
-} from "../src/screens/marketplace/MarketplaceModelViews";
-import { marketplaceItemDomId } from "../src/screens/marketplace/MarketplaceBrowse";
+} from "@/pages/marketplace/ui/MarketplaceModelViews";
+import { marketplaceItemDomId } from "@/pages/marketplace/ui/MarketplaceBrowse";
 import type {
   MarketplaceItemPresentation,
   MarketplaceSnapshot,
-} from "../src/screens/marketplace/presentation";
+} from "@/pages/marketplace/lib/presentation";
 import type {
   MarketplaceLocation,
   MarketplaceNavigationState,
   MarketplaceQueryState,
-} from "../src/state/marketplace-navigation";
-import { marketplaceReducer } from "../src/state/marketplace-navigation";
+} from "@/pages/marketplace/model/navigation";
+import { marketplaceReducer } from "@/pages/marketplace/model/navigation";
 import { createReactHost, type HostNode } from "./react-host";
 
 const machine: LocalModelMachine = {

@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   createProjectDomainState,
   projectDomainReducer,
-} from "../src/state/project-domain";
+} from "@/entities/project/model/domain";
 
 describe("Project domain state", () => {
   test("rejects a preview response from the previous project generation", () => {

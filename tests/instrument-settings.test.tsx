@@ -8,9 +8,9 @@ import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import { SettingsScreen } from "../src/screens/SettingsScreen";
-import { Segmented } from "../src/screens/settings/rows";
-import type { ThemePreference } from "../src/instrument/types";
+import { SettingsScreen } from "@/pages/settings/ui/SettingsScreen";
+import { Segmented } from "@/pages/settings/ui/rows";
+import type { ThemePreference } from "@/shared/instrument/types";
 import { createReactHost, type HostNode } from "./react-host";
 import { builtStylesheetLink } from "./style-sources";
 

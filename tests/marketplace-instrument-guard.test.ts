@@ -10,10 +10,10 @@ describe("Marketplace Instrument source guard", () => {
     // raw-colour, depth-effect and legacy-token scans have to see it too. The stylesheet is still
     // audited: it keeps the rules that style elements this area does not own.
     expect(result.files).toEqual(expect.arrayContaining([
-      "src/screens/MarketplaceScreen.tsx",
-      "src/screens/marketplace/MarketplaceWorkflows.tsx",
-      "src/screens/marketplace/detail-chrome.ts",
-      "src/styles/marketplace.css",
+      "src/pages/marketplace/ui/MarketplaceScreen.tsx",
+      "src/pages/marketplace/ui/MarketplaceWorkflows.tsx",
+      "src/pages/marketplace/lib/detail-chrome.ts",
+      "src/app/styles/marketplace.css",
     ]));
   });
 });

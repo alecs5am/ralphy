@@ -8,14 +8,14 @@ import {
 } from "../electron/ralphy/workspace-reader";
 import type { RalphyBridgeClient } from "../electron/ralphy/client";
 import type { WorkspaceOverviewDto } from "../electron/ralphy/types";
-import { bridge } from "../src/lib/ipc";
+import { bridge } from "@/shared/api/ipc";
 import {
   createWorkspaceScreenController,
-} from "../src/state/workspace-screen-controller";
+} from "@/pages/workspace/model/screen-controller";
 import {
   WorkspaceScreen,
   WorkspaceScreenView,
-} from "../src/screens/WorkspaceScreen";
+} from "@/pages/workspace/ui/WorkspaceScreen";
 import { createReactHost, reactHostGlobalKeys } from "./react-host";
 
 const overview: WorkspaceOverviewDto = {

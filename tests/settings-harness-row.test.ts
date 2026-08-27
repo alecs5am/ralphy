@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { harnessRow } from "../src/screens/settings/harnesses";
+import { harnessRow } from "@/pages/settings/lib/harnesses";
 
 const status = (over: Partial<Parameters<typeof harnessRow>[0]>) => harnessRow({
   id: "claude",

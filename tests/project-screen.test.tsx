@@ -2,9 +2,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
-import * as projectControls from "../src/components/ProjectControls";
-import { ProjectScreenView } from "../src/screens/ProjectScreen";
-import { createProjectScreenController } from "../src/state/project-screen-controller";
+import * as projectControls from "@/widgets/project-header/ui/ProjectControls";
+import { ProjectScreenView } from "@/pages/project/ui/ProjectScreen";
+import { createProjectScreenController } from "@/pages/project/model/screen-controller";
 
 const project = {
   id: "project-1",
@@ -68,12 +68,12 @@ describe("Project domain screen", () => {
 
   test("keeps the active Project route on stable domain IPC only", () => {
     const renderer = [
-      "src/App.tsx",
-      "src/screens/ProjectScreen.tsx",
-      "src/components/ProjectControls.tsx",
-      "src/components/ProjectHeader.tsx",
-      "src/state/project-screen-controller.ts",
-      "src/state/workbench.ts",
+      "src/app/App.tsx",
+      "src/pages/project/ui/ProjectScreen.tsx",
+      "src/widgets/project-header/ui/ProjectControls.tsx",
+      "src/widgets/project-header/ui/ProjectHeader.tsx",
+      "src/pages/project/model/screen-controller.ts",
+      "src/shared/model/workbench.ts",
     ].map((file) => readFileSync(join(process.cwd(), file), "utf8")).join("\n");
     const boundary = [
       "electron/preload.ts",

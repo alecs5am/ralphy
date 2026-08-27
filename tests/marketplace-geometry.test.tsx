@@ -74,11 +74,11 @@ async function marketplaceGeometry(): Promise<GeometrySmoke> {
     const styleLinks = builtStylesheetLink();
     writeFileSync(join(directory, "harness.tsx"), `
       import { createRoot } from "react-dom/client";
-      import { ContextSidebar } from ${JSON.stringify(join(process.cwd(), "src/components/ContextSidebar.tsx"))};
-      import { MarketplaceScreenView, MARKETPLACE_SCREEN, MARKETPLACE_SCROLL } from ${JSON.stringify(join(process.cwd(), "src/screens/MarketplaceScreen.tsx"))};
-      import { MarketplaceHeader } from ${JSON.stringify(join(process.cwd(), "src/screens/marketplace/MarketplaceHeader.tsx"))};
-      import { MarketplaceActionReview, MarketplaceDownloads, MarketplaceTargetChooser, marketplaceTargets } from ${JSON.stringify(join(process.cwd(), "src/screens/marketplace/MarketplaceWorkflows.tsx"))};
-      import { projectMarketplacePublicItem } from ${JSON.stringify(join(process.cwd(), "src/screens/marketplace/presentation.ts"))};
+      import { ContextSidebar } from ${JSON.stringify(join(process.cwd(), "src/widgets/context-sidebar/ui/ContextSidebar.tsx"))};
+      import { MarketplaceScreenView, MARKETPLACE_SCREEN, MARKETPLACE_SCROLL } from ${JSON.stringify(join(process.cwd(), "src/pages/marketplace/ui/MarketplaceScreen.tsx"))};
+      import { MarketplaceHeader } from ${JSON.stringify(join(process.cwd(), "src/pages/marketplace/ui/MarketplaceHeader.tsx"))};
+      import { MarketplaceActionReview, MarketplaceDownloads, MarketplaceTargetChooser, marketplaceTargets } from ${JSON.stringify(join(process.cwd(), "src/pages/marketplace/ui/MarketplaceWorkflows.tsx"))};
+      import { projectMarketplacePublicItem } from ${JSON.stringify(join(process.cwd(), "src/pages/marketplace/lib/presentation.ts"))};
 
       const noop = () => {};
       const query = { text: "", filters: { category: "all", source: "all", license: "all", compatibility: "all", modality: "all", format: "all" }, sort: "relevance" };
@@ -141,6 +141,7 @@ async function marketplaceGeometry(): Promise<GeometrySmoke> {
     await build({
       entryPoints: [join(directory, "harness.tsx")],
       outfile: join(directory, "harness.js"),
+      alias: { "@": join(process.cwd(), "src") },
       bundle: true,
       platform: "browser",
       format: "iife",

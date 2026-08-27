@@ -17,13 +17,13 @@ import {
   VIEW_PANEL_MIN,
   workspacePageForTab,
   WORKSPACE_VIEW_TYPES,
-} from "../src/state/view-panel";
+} from "@/widgets/view-panel/model/view-panel";
 import {
   EMPTY_VIEW_PANEL,
   normalizeTabSet,
   readViewPanel,
   type ViewTabSet,
-} from "../src/state/workbench";
+} from "@/shared/model/workbench";
 
 /* Handoff 14's navigation rules are the design, not decoration, so each one is pinned here as a
    fact about the algebra rather than as a claim in a comment. */

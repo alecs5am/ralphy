@@ -2,13 +2,13 @@ import { act, createElement, type ReactElement } from "react";
 import { flushSync } from "react-dom";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { MediaCardDto } from "../electron/ralphy/types";
-import { MediaCardTile, VirtualAssetGrid } from "../src/components/VirtualAssetGrid";
-import { AudioWaveform } from "../src/components/media/AudioWaveform";
-import { MAX_WAVEFORM_DECODE_BYTES } from "../src/lib/audio-preview";
-import type { ProjectPreview, ProjectReference } from "../src/lib/ipc";
-import { assetGridGeometry, createPreviewScheduler, mediaFallbackAspectRatio, previewScheduler } from "../src/lib/media";
-import { InstrumentShell } from "../src/instrument/InstrumentShell";
-import { useRememberedScroll } from "../src/screens/project/scroll-memory";
+import { MediaCardTile, VirtualAssetGrid } from "@/entities/media/ui/VirtualAssetGrid";
+import { AudioWaveform } from "@/entities/media/ui/AudioWaveform";
+import { MAX_WAVEFORM_DECODE_BYTES } from "@/entities/media/lib/audio-preview";
+import type { ProjectPreview, ProjectReference } from "@/shared/api/ipc";
+import { assetGridGeometry, createPreviewScheduler, mediaFallbackAspectRatio, previewScheduler } from "@/entities/media/lib/media";
+import { InstrumentShell } from "@/widgets/instrument-shell/ui/InstrumentShell";
+import { useRememberedScroll } from "@/pages/project/lib/scroll-memory";
 import { createReactHost, type HostNode } from "./react-host";
 
 const waveSurfer = vi.hoisted(() => ({

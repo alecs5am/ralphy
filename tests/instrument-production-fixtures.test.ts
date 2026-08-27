@@ -4,16 +4,17 @@ import { resolve } from "node:path";
 import { build } from "esbuild";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { INSTRUMENT_SCENARIOS } from "../src/instrument/scenarios";
-import { loadInstrumentTestFixtures } from "../src/instrument/load-test-fixtures";
+import { INSTRUMENT_SCENARIOS } from "@/shared/instrument/scenarios";
+import { loadInstrumentTestFixtures } from "@/shared/instrument/load-test-fixtures";
 
-const loaderSource = readFileSync(new URL("../src/instrument/load-test-fixtures.ts", import.meta.url), "utf8");
-const fixtureSource = readFileSync(new URL("../src/instrument/test-fixtures.ts", import.meta.url), "utf8");
+const loaderSource = readFileSync(new URL("../src/shared/instrument/load-test-fixtures.ts", import.meta.url), "utf8");
+const fixtureSource = readFileSync(new URL("../src/shared/instrument/test-fixtures.ts", import.meta.url), "utf8");
 
 async function bundleFixtureLoader(flag: "true" | "false" | undefined) {
   return build({
     absWorkingDir: process.cwd(),
-    entryPoints: [resolve("src/instrument/load-test-fixtures.ts")],
+    alias: { "@": resolve("src") },
+    entryPoints: [resolve("src/shared/instrument/load-test-fixtures.ts")],
     bundle: true,
     define: {
       "import.meta.env.VITE_RALPHY_ENABLE_MOCKS": flag === undefined ? "undefined" : JSON.stringify(flag),
@@ -102,8 +103,8 @@ describe("instrument production fixture boundary", () => {
     const bytes = result.outputFiles.reduce((total, { contents }) => total + contents.byteLength, 0);
 
     expect(inputs).toEqual([
-      "src/instrument/load-test-fixtures.ts",
-      "src/instrument/test-fixtures.ts",
+      "src/shared/instrument/load-test-fixtures.ts",
+      "src/shared/instrument/test-fixtures.ts",
     ]);
     expect(bytes).toBeLessThan(12_000);
     expect(bundled).toContain("instrument-test-fixture");

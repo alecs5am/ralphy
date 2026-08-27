@@ -2,7 +2,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
-import { MarkdownView } from "../src/components/MarkdownView";
+import { MarkdownView } from "@/shared/ui/MarkdownView";
 import { createReactHost } from "./react-host";
 
 describe("MarkdownView", () => {

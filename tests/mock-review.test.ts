@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { createMockReviewSession, isReviewShortcutEligible, reduceMockReviewSession } from "../src/screens/project/mock-review";
+import { createMockReviewSession, isReviewShortcutEligible, reduceMockReviewSession } from "@/features/media-review/model/mock-review";
 
 const context = { rootEpoch: 7, workspaceId: "ux", projectId: "project-a" };
 

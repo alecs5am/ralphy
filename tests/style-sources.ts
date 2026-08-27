@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const STYLE_DIR = resolve(process.cwd(), "src/styles");
+const STYLE_DIR = resolve(process.cwd(), "src/app/styles");
 
 /**
  * Reads a stylesheet with its `@import` graph inlined, in cascade order. Style entry

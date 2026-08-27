@@ -12,8 +12,8 @@ import {
   InstrumentScreenHeader,
   InstrumentWidget,
   StatusDot,
-} from "../src/instrument/primitives";
-import { INSTRUMENT_PALETTE, contrastRatio } from "../src/instrument/palette";
+} from "@/shared/instrument/primitives";
+import { INSTRUMENT_PALETTE, contrastRatio } from "@/shared/instrument/palette";
 import { createReactHost } from "./react-host";
 
 async function mount(children: React.ReactNode) {
@@ -84,8 +84,8 @@ describe("instrument primitives", () => {
   });
 
   test("uses an accessible Doto counter and surface-correct focus indicators", () => {
-    const source = readFileSync("src/instrument/primitives.tsx", "utf8");
-    const theme = readFileSync("src/styles/theme/shell.css", "utf8");
+    const source = readFileSync("src/shared/instrument/primitives.tsx", "utf8");
+    const theme = readFileSync("src/app/styles/theme/shell.css", "utf8");
     // The counter is a Doto figure that never drops below the base step but follows its context
     // when that is larger, so the mark stays readable inside small copy. The measure is a role
     // key, not a literal in markup.

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import { AgentTaggedText, tagQueryAt } from "../src/components/agent/AgentComposer";
+import { AgentTaggedText, tagQueryAt } from "@/features/agent-chat/ui/AgentComposer";
 
 describe("the composer's `@` rule", () => {
   test("opens on a fresh `@` and on one after a space", () => {
@@ -39,7 +39,7 @@ describe("a serialised prompt read back", () => {
 });
 
 describe("the picker's cursor", () => {
-  const source = readFileSync(join(process.cwd(), "src/components/agent/AgentComposer.tsx"), "utf8");
+  const source = readFileSync(join(process.cwd(), "src/features/agent-chat/ui/AgentComposer.tsx"), "utf8");
 
   test("survives a keystroke that did not change the query", () => {
     /* `sync` runs on `input`, `keyup` and `mouseup`. It must not touch the highlight: it used to

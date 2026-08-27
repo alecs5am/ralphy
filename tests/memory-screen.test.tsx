@@ -1,8 +1,8 @@
 import { act } from "react";
 import { describe, expect, test, vi } from "vitest";
 import type { MemoryDetailDto } from "../electron/ralphy/types";
-import { bridge } from "../src/lib/ipc";
-import { MemoryScreen } from "../src/screens/MemoryScreen";
+import { bridge } from "@/shared/api/ipc";
+import { MemoryScreen } from "@/pages/memory/ui/MemoryScreen";
 import { createReactHost } from "./react-host";
 
 const entry: MemoryDetailDto = {

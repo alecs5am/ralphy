@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 import type { LocalModelMachine } from "../electron/media/types";
-import { MarketplaceMyLibrary } from "../src/screens/marketplace/MarketplaceMyLibrary";
+import { MarketplaceMyLibrary } from "@/pages/marketplace/ui/MarketplaceMyLibrary";
 
 const machine: LocalModelMachine = {
   platform: "macOS",

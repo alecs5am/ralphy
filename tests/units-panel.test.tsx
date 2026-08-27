@@ -4,23 +4,23 @@ import { join } from "node:path";
 import { describe, expect, test, vi } from "vitest";
 
 import type { UnitDto, UnitRevisionDto } from "../electron/ralphy/types";
-import type { ProjectSummary } from "../src/lib/ipc";
-import { bridge } from "../src/lib/ipc";
-import * as screen from "../src/screens/ProjectScreen";
-import { UnitSocialPreview } from "../src/screens/project/UnitSocialPreview";
-import type { SocialTarget, UnitMedia } from "../src/lib/unit-previews";
+import type { ProjectSummary } from "@/shared/api/ipc";
+import { bridge } from "@/shared/api/ipc";
+import * as screen from "@/pages/project/ui/ProjectScreen";
+import { UnitSocialPreview } from "@/entities/unit/ui/UnitSocialPreview";
+import type { SocialTarget, UnitMedia } from "@/entities/unit/lib/unit-previews";
 import { createReactHost, type HostNode } from "./react-host";
-import { WINDOW_CLOSE } from "../src/components/ui/Window";
+import { WINDOW_CLOSE } from "@/shared/ui/Window";
 
 // The project workbench has no stylesheet of its own any more, so these contracts are read
 // where they now live: the theme file that names each role key and the component that reads it.
 const source = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
-const projectTheme = source("src/styles/theme/project.css");
-const projectScreen = source("src/screens/ProjectScreen.tsx");
-const unitsPanel = source("src/screens/project/UnitsPanel.tsx");
-const unitViewer = source("src/screens/project/UnitViewer.tsx");
-const unitSocial = source("src/screens/project/UnitSocialPreview.tsx");
-const phoneMockup = source("src/components/ui/IPhoneMockup.tsx");
+const projectTheme = source("src/app/styles/theme/project.css");
+const projectScreen = source("src/pages/project/ui/ProjectScreen.tsx");
+const unitsPanel = source("src/pages/project/ui/UnitsPanel.tsx");
+const unitViewer = source("src/pages/project/ui/UnitViewer.tsx");
+const unitSocial = source("src/entities/unit/ui/UnitSocialPreview.tsx");
+const phoneMockup = source("src/shared/ui/IPhoneMockup.tsx");
 
 const project: ProjectSummary = {
   id: "project-1", workspaceId: "workspace-1", projectId: "project-1", name: "Launch", brief: "Brief",
@@ -334,7 +334,7 @@ describe("units workbench", () => {
   });
 
   test("keeps Unit controls flat and centers the phone with its playback rail", () => {
-    const reset = readFileSync(join(process.cwd(), "src/styles/reset.css"), "utf8");
+    const reset = readFileSync(join(process.cwd(), "src/app/styles/reset.css"), "utf8");
     expect(reset).toMatch(/button\s*\{[^}]*background:\s*transparent/s);
     // Flat at rest: no plate under a control until it is hovered. The close is the kit's control
     // now -- a round chip that goes to the alarm under the cursor -- so the tone decision moved

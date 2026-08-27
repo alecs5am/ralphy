@@ -133,7 +133,7 @@ describe("migration recovery", () => {
   });
 
   test("renders only safe recovery identity and blocking actions", async () => {
-    const screen = await import("../src/screens/MigrationRecoveryScreen").catch(() => ({}));
+    const screen = await import("@/pages/migration-recovery/ui/MigrationRecoveryScreen").catch(() => ({}));
     expect(screen).toHaveProperty("MigrationRecoveryScreen");
     const { MigrationRecoveryScreen } = screen as {
       MigrationRecoveryScreen(props: Record<string, unknown>): React.ReactNode;

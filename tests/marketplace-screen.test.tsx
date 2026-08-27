@@ -7,19 +7,19 @@ import {
   MarketplaceDiscover,
   MarketplaceResults,
   marketplaceItemDomId,
-} from "../src/screens/marketplace/MarketplaceBrowse";
-import { MarketplaceHeader } from "../src/screens/marketplace/MarketplaceHeader";
+} from "@/pages/marketplace/ui/MarketplaceBrowse";
+import { MarketplaceHeader } from "@/pages/marketplace/ui/MarketplaceHeader";
 import {
   MarketplaceScreenView,
-} from "../src/screens/MarketplaceScreen";
+} from "@/pages/marketplace/ui/MarketplaceScreen";
 import type {
   MarketplaceItemPresentation,
   MarketplaceSnapshot,
-} from "../src/screens/marketplace/presentation";
+} from "@/pages/marketplace/lib/presentation";
 import type {
   MarketplaceLocation,
   MarketplaceQueryState,
-} from "../src/state/marketplace-navigation";
+} from "@/pages/marketplace/model/navigation";
 import { createReactHost } from "./react-host";
 
 const defaultQuery: MarketplaceQueryState = {

@@ -1,8 +1,8 @@
 import { act } from "react";
 import { describe, expect, test, vi } from "vitest";
 import type { CalendarWorkspaceDto } from "../electron/ralphy/types";
-import { bridge } from "../src/lib/ipc";
-import { CalendarScreen } from "../src/screens/CalendarScreen";
+import { bridge } from "@/shared/api/ipc";
+import { CalendarScreen } from "@/pages/calendar/ui/CalendarScreen";
 import { createReactHost } from "./react-host";
 
 const workspace: CalendarWorkspaceDto = {

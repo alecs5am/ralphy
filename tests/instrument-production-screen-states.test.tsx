@@ -6,40 +6,40 @@ import {
   isChatRailVisible,
   isWorkspacePickerVisible,
   ProjectScreenLoadingFallback,
-} from "../src/App";
-import { PROJECT_VIEWS, type ProjectView } from "../src/components/ProjectControls";
+} from "@/app/App";
+import { PROJECT_VIEWS, type ProjectView } from "@/widgets/project-header/ui/ProjectControls";
 import {
   InstrumentScreenRoot,
   type InstrumentRouteKey,
   type InstrumentScenarioState,
-} from "../src/instrument/screen-state-registry";
+} from "@/shared/instrument/screen-state-registry";
 import {
   CHAT_RAIL_ROUTE_KEYS,
   PRODUCTION_GLOBAL_OVERLAY_ROUTES,
   PRODUCTION_SCREEN_STATES,
   WORKSPACE_PICKER_ROUTE_KEYS,
-} from "../src/instrument/production-screen-states";
-import { bridge } from "../src/lib/ipc";
+} from "@/shared/instrument/production-screen-states";
+import { bridge } from "@/shared/api/ipc";
 import {
   MARKETPLACE_BASE_ROUTE_KINDS,
   MARKETPLACE_CATEGORY_ROUTE_VALUES,
   MARKETPLACE_LIBRARY_ROUTE_VALUES,
   MARKETPLACE_UNAVAILABLE_DETAIL_ROUTE_VALUES,
   MarketplaceScreenView,
-} from "../src/screens/MarketplaceScreen";
+} from "@/pages/marketplace/ui/MarketplaceScreen";
 import {
   MemoryScreen,
   memoryInstrumentStates,
-} from "../src/screens/MemoryScreen";
-import { SETTINGS_CATEGORY_IDS } from "../src/screens/SettingsScreen";
+} from "@/pages/memory/ui/MemoryScreen";
+import { SETTINGS_CATEGORY_IDS } from "@/pages/settings/ui/SettingsScreen";
 import {
   projectMarketplacePublicItem,
   type MarketplaceItemPresentation,
   type MarketplaceSnapshot,
-} from "../src/screens/marketplace/presentation";
-import { MarketplaceInstalledModels } from "../src/screens/marketplace/MarketplaceModelViews";
-import type { MarketplaceLocation, MarketplaceQueryState, MarketplaceRoute } from "../src/state/marketplace-navigation";
-import { WORKSPACE_PAGES } from "../src/state/workbench";
+} from "@/pages/marketplace/lib/presentation";
+import { MarketplaceInstalledModels } from "@/pages/marketplace/ui/MarketplaceModelViews";
+import type { MarketplaceLocation, MarketplaceQueryState, MarketplaceRoute } from "@/pages/marketplace/model/navigation";
+import { WORKSPACE_PAGES } from "@/shared/model/workbench";
 import { createReactHost } from "./react-host";
 
 const actualRouteKeys: readonly InstrumentRouteKey[] = [

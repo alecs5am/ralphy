@@ -4,7 +4,7 @@ import {
   DEFAULT_SHARED_LIBRARY_QUERY,
   presentSharedArtifact,
   presentSharedLibrary,
-} from "../src/screens/shared-library/presentation";
+} from "@/pages/shared-library/lib/presentation";
 
 function artifact(overrides: Partial<ArtifactMediaCardDto> = {}): ArtifactMediaCardDto {
   return {

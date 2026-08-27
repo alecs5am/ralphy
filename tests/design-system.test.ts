@@ -8,15 +8,15 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 import type { ActivityDto, ArtifactMediaCardDto, CompositionDto, CompositionRevisionDto, MediaCardDto, UnitDto, UnitRevisionDto, WorkspaceOverviewDto } from "../electron/ralphy/types";
-import type { ProjectSummary } from "../src/lib/ipc";
-import { ProjectScreenView, createProjectScreenController } from "../src/screens/ProjectScreen";
-import { SharedLibraryScreenView } from "../src/screens/SharedLibraryScreen";
-import { SharedArtifactInspector } from "../src/screens/shared-library/SharedArtifactInspector";
-import { presentSharedArtifact } from "../src/screens/shared-library/presentation";
-import { ICON_BUTTON, ICON_BUTTON_QUIET } from "../src/components/ui/IconButton";
-import { WINDOW_CLOSE } from "../src/components/ui/Window";
+import type { ProjectSummary } from "@/shared/api/ipc";
+import { ProjectScreenView, createProjectScreenController } from "@/pages/project/ui/ProjectScreen";
+import { SharedLibraryScreenView } from "@/pages/shared-library/ui/SharedLibraryScreen";
+import { SharedArtifactInspector } from "@/pages/shared-library/ui/SharedArtifactInspector";
+import { presentSharedArtifact } from "@/pages/shared-library/lib/presentation";
+import { ICON_BUTTON, ICON_BUTTON_QUIET } from "@/shared/ui/IconButton";
+import { WINDOW_CLOSE } from "@/shared/ui/Window";
 import { builtStylesheetLink, readStylesheet } from "./style-sources";
-import { WorkspaceScreenView, createWorkspaceScreenController } from "../src/screens/WorkspaceScreen";
+import { WorkspaceScreenView, createWorkspaceScreenController } from "@/pages/workspace/ui/WorkspaceScreen";
 
 // `workbench.css` and its eight `workbench/*-unowned.css` chunks are gone: the holding files were
 // resolved rule by rule into the markup of the components that render each element, and what a
@@ -26,73 +26,80 @@ const styles = ["reset.css", "tokens.css", "frame.css", "resize-grabber.css", "s
   .map((file) => readStylesheet(file))
   .join("\n");
 const workbenchStyles = ["frame.css", "resize-grabber.css"].map((file) => readStylesheet(file)).join("\n");
-const virtualAssetGridSource = readFileSync(join(process.cwd(), "src/components/VirtualAssetGrid.tsx"), "utf8");
-const workspaceMediaTheme = readFileSync(join(process.cwd(), "src/styles/theme/workspace-media.css"), "utf8");
-const workspaceMediaSource = ["src/screens/WorkspaceProjectsScreen.tsx", "src/components/ProjectHeader.tsx", "src/components/ui/GooeyTabs.tsx", "src/screens/project/MediaViewer.tsx", "src/screens/project/MediaPanel.tsx", "src/components/media/AudioWaveform.tsx", "src/components/media/VideoPlayer.tsx", "src/components/media/ImageViewport.tsx", "src/components/media/tone.ts"]
+const virtualAssetGridSource = readFileSync(join(process.cwd(), "src/entities/media/ui/VirtualAssetGrid.tsx"), "utf8");
+const workspaceMediaTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/workspace-media.css"), "utf8");
+const workspaceMediaSource = ["src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx", "src/widgets/project-header/ui/ProjectHeader.tsx", "src/shared/ui/GooeyTabs.tsx", "src/pages/project/ui/MediaViewer.tsx", "src/pages/project/ui/MediaPanel.tsx", "src/entities/media/ui/AudioWaveform.tsx", "src/entities/media/ui/VideoPlayer.tsx", "src/entities/media/ui/ImageViewport.tsx", "src/entities/media/lib/tone.ts"]
   .map((file) => readFileSync(join(process.cwd(), file), "utf8"))
   .join("\n");
-const mediaPanelSource = readFileSync(join(process.cwd(), "src/screens/project/MediaPanel.tsx"), "utf8");
-const documentsActivityTheme = readFileSync(join(process.cwd(), "src/styles/theme/documents-activity.css"), "utf8");
-const markdownViewSource = readFileSync(join(process.cwd(), "src/components/MarkdownView.tsx"), "utf8");
-const documentsActivitySource = ["src/screens/project/ActivityTimeline.tsx", "src/screens/project/ActivityInspector.tsx", "src/components/MarkdownView.tsx", "src/components/WelcomeScreen.tsx", "src/components/VirtualAssetGrid.tsx"]
+const mediaPanelSource = readFileSync(join(process.cwd(), "src/pages/project/ui/MediaPanel.tsx"), "utf8");
+const documentsActivityTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/documents-activity.css"), "utf8");
+const markdownViewSource = readFileSync(join(process.cwd(), "src/shared/ui/MarkdownView.tsx"), "utf8");
+const documentsActivitySource = ["src/pages/project/ui/ActivityTimeline.tsx", "src/pages/project/ui/ActivityInspector.tsx", "src/shared/ui/MarkdownView.tsx", "src/widgets/welcome/ui/WelcomeScreen.tsx", "src/entities/media/ui/VirtualAssetGrid.tsx"]
   .map((file) => readFileSync(join(process.cwd(), file), "utf8"))
   .join("\n");
-const tokenStyles = readFileSync(join(process.cwd(), "src/styles/tokens.css"), "utf8");
-const settingsScreenSource = readFileSync(join(process.cwd(), "src/screens/SettingsScreen.tsx"), "utf8");
-const settingsRows = readFileSync(join(process.cwd(), "src/screens/settings/rows.tsx"), "utf8");
-const settingsSurfaceSource = [
-  "src/screens/SettingsScreen.tsx",
-  ...readdirSync(join(process.cwd(), "src/screens/settings")).map((file) => `src/screens/settings/${file}`),
-].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
+/**
+ * Every source file in a slice, at any depth. An area's decisions are asserted against the whole
+ * slice rather than against a hand-listed set of segments, so a new file in it is covered the
+ * moment it lands.
+ */
+function sliceFiles(...slices: string[]): string[] {
+  const out: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(join(process.cwd(), dir), { withFileTypes: true })) {
+      const path = `${dir}/${entry.name}`;
+      if (entry.isDirectory()) walk(path);
+      else if (/\.tsx?$/.test(entry.name)) out.push(path);
+    }
+  };
+  for (const slice of slices) walk(slice);
+  return out;
+}
+const sliceSource = (...slices: string[]) =>
+  sliceFiles(...slices).map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
+
+const tokenStyles = readFileSync(join(process.cwd(), "src/app/styles/tokens.css"), "utf8");
+const settingsScreenSource = readFileSync(join(process.cwd(), "src/pages/settings/ui/SettingsScreen.tsx"), "utf8");
+const settingsRows = readFileSync(join(process.cwd(), "src/pages/settings/ui/rows.tsx"), "utf8");
+const settingsSurfaceSource = sliceSource("src/pages/settings");
 const sharedLibraryStyles = readStylesheet("shared-library.css");
-const sharedLibraryTheme = readFileSync(join(process.cwd(), "src/styles/theme/shared-library.css"), "utf8");
-const sharedLibrarySurfaceSource = [
-  "src/screens/SharedLibraryScreen.tsx",
-  ...readdirSync(join(process.cwd(), "src/screens/shared-library")).map((file) => `src/screens/shared-library/${file}`),
-].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
+const sharedLibraryTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/shared-library.css"), "utf8");
+const sharedLibrarySurfaceSource = sliceSource("src/pages/shared-library");
 const marketplaceStyles = readStylesheet("marketplace.css");
-const marketplaceTheme = readFileSync(join(process.cwd(), "src/styles/theme/marketplace.css"), "utf8");
-const marketplaceSurfaceSource = [
-  "src/screens/MarketplaceScreen.tsx",
-  ...readdirSync(join(process.cwd(), "src/screens/marketplace")).map((file) => `src/screens/marketplace/${file}`),
-].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
-const chromeTheme = readFileSync(join(process.cwd(), "src/styles/theme/chrome.css"), "utf8");
-const titlebarSource = readFileSync(join(process.cwd(), "src/components/Titlebar.tsx"), "utf8");
-const shellTheme = readFileSync(join(process.cwd(), "src/styles/theme/shell.css"), "utf8");
+const marketplaceTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/marketplace.css"), "utf8");
+const marketplaceSurfaceSource = sliceSource("src/pages/marketplace");
+const chromeTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/chrome.css"), "utf8");
+const titlebarSource = readFileSync(join(process.cwd(), "src/widgets/titlebar/ui/Titlebar.tsx"), "utf8");
+const shellTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/shell.css"), "utf8");
 const shellStyles = readStylesheet("instrument.css");
 const shellSource = [
-  "src/instrument/InstrumentShell.tsx",
-  "src/instrument/primitives.tsx",
-  "src/instrument/InstrumentProfileControl.tsx",
-  "src/instrument/DynamicIsland.tsx",
-  "src/instrument/overlay-registry.tsx",
+  "src/widgets/instrument-shell/ui/InstrumentShell.tsx",
+  "src/shared/instrument/primitives.tsx",
+  "src/widgets/instrument-sidebar/ui/InstrumentProfileControl.tsx",
+  "src/widgets/dynamic-island/ui/DynamicIsland.tsx",
+  "src/shared/instrument/overlay-registry.tsx",
 ].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
-const selectMenuSource = readFileSync(join(process.cwd(), "src/components/ui/SelectMenu.tsx"), "utf8");
-const agentRailSource = readFileSync(join(process.cwd(), "src/components/UtilityPanels.tsx"), "utf8");
-const agentRailTheme = readFileSync(join(process.cwd(), "src/styles/theme/agent-rail.css"), "utf8");
-const pickerSource = readFileSync(join(process.cwd(), "src/components/WorkspacePicker.tsx"), "utf8");
-const contextSidebarSource = readFileSync(join(process.cwd(), "src/components/ContextSidebar.tsx"), "utf8");
-const librarySource = readFileSync(join(process.cwd(), "src/screens/LibraryScreen.tsx"), "utf8");
-const workspaceOverviewTheme = readFileSync(join(process.cwd(), "src/styles/theme/workspace-overview.css"), "utf8");
-const calendarMemoryTheme = readFileSync(join(process.cwd(), "src/styles/theme/calendar-memory.css"), "utf8");
-const calendarMemorySurfaceSource = ["src/screens/CalendarScreen.tsx", "src/screens/MemoryScreen.tsx", "src/screens/calendar-memory-chrome.ts"]
+const selectMenuSource = readFileSync(join(process.cwd(), "src/shared/ui/SelectMenu.tsx"), "utf8");
+const agentRailSource = readFileSync(join(process.cwd(), "src/widgets/utility-panels/ui/UtilityPanels.tsx"), "utf8");
+const agentRailTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/agent-rail.css"), "utf8");
+const pickerSource = readFileSync(join(process.cwd(), "src/widgets/instrument-sidebar/ui/WorkspacePicker.tsx"), "utf8");
+const contextSidebarSource = readFileSync(join(process.cwd(), "src/widgets/context-sidebar/ui/ContextSidebar.tsx"), "utf8");
+const librarySource = readFileSync(join(process.cwd(), "src/pages/library/ui/LibraryScreen.tsx"), "utf8");
+const workspaceOverviewTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/workspace-overview.css"), "utf8");
+const calendarMemoryTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/calendar-memory.css"), "utf8");
+const calendarMemorySurfaceSource = ["src/pages/calendar/ui/CalendarScreen.tsx", "src/pages/memory/ui/MemoryScreen.tsx", "src/shared/ui/overlay-chrome.ts"]
   .map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
-const projectTheme = readFileSync(join(process.cwd(), "src/styles/theme/project.css"), "utf8");
+const projectTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/project.css"), "utf8");
+// The project route reads across four slices: its own page, the review feature the media grid
+// opens, and the media and unit entities its panels render.
 const projectSurfaceSource = [
-  "src/screens/ProjectScreen.tsx",
-  ...readdirSync(join(process.cwd(), "src/screens/project")).map((file) => `src/screens/project/${file}`),
-  "src/components/VirtualAssetGrid.tsx",
-  "src/components/ui/SnappySlider.tsx",
-  "src/components/ui/IPhoneMockup.tsx",
-  ...readdirSync(join(process.cwd(), "src/components/media")).map((file) => `src/components/media/${file}`),
-].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
-const documentsPanelSource = readFileSync(join(process.cwd(), "src/screens/project/DocumentsPanel.tsx"), "utf8");
-const projectScreenSource = readFileSync(join(process.cwd(), "src/screens/ProjectScreen.tsx"), "utf8");
-const calendarScreenSource = readFileSync(join(process.cwd(), "src/screens/CalendarScreen.tsx"), "utf8");
-const workspaceOverviewSurfaceSource = [
-  "src/screens/WorkspaceScreen.tsx",
-  ...readdirSync(join(process.cwd(), "src/screens/workspace")).map((file) => `src/screens/workspace/${file}`),
-].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
+  sliceSource("src/pages/project", "src/features/media-review", "src/entities/media", "src/entities/unit"),
+  readFileSync(join(process.cwd(), "src/shared/ui/SnappySlider.tsx"), "utf8"),
+  readFileSync(join(process.cwd(), "src/shared/ui/IPhoneMockup.tsx"), "utf8"),
+].join("\n");
+const documentsPanelSource = readFileSync(join(process.cwd(), "src/pages/project/ui/DocumentsPanel.tsx"), "utf8");
+const projectScreenSource = readFileSync(join(process.cwd(), "src/pages/project/ui/ProjectScreen.tsx"), "utf8");
+const calendarScreenSource = readFileSync(join(process.cwd(), "src/pages/calendar/ui/CalendarScreen.tsx"), "utf8");
+const workspaceOverviewSurfaceSource = sliceSource("src/pages/workspace");
 
 const project: ProjectSummary = {
   id: "workspace-1/project-1", workspaceId: "workspace-1", projectId: "project-1", name: "Launch",
@@ -548,9 +555,9 @@ async function sharedLibraryGeometry(): Promise<SharedGeometrySmoke> {
     ].map(([name, value]) => `<template id="${name}">${value}</template>`).join("");
     writeFileSync(join(directory, "harness.tsx"), `
       import { createRoot } from "react-dom/client";
-      import { SharedArtifactViewer } from ${JSON.stringify(join(process.cwd(), "src/screens/shared-library/SharedArtifactViewer.tsx"))};
-      import { SharedLibraryWorkflows } from ${JSON.stringify(join(process.cwd(), "src/screens/shared-library/SharedLibraryWorkflows.tsx"))};
-      import { presentSharedArtifact } from ${JSON.stringify(join(process.cwd(), "src/screens/shared-library/presentation.ts"))};
+      import { SharedArtifactViewer } from ${JSON.stringify(join(process.cwd(), "src/pages/shared-library/ui/SharedArtifactViewer.tsx"))};
+      import { SharedLibraryWorkflows } from ${JSON.stringify(join(process.cwd(), "src/pages/shared-library/ui/SharedLibraryWorkflows.tsx"))};
+      import { presentSharedArtifact } from ${JSON.stringify(join(process.cwd(), "src/pages/shared-library/lib/presentation.ts"))};
 
       const card = {
         ref: { type: "artifact", id: "geometry-artifact" }, workspaceId: "workspace-1", projectId: null,
@@ -587,6 +594,8 @@ async function sharedLibraryGeometry(): Promise<SharedGeometrySmoke> {
       entryPoints: [join(directory, "harness.tsx")], outfile: join(directory, "harness.js"),
       bundle: true, platform: "browser", format: "iife", target: "chrome130", jsx: "automatic",
       nodePaths: [join(process.cwd(), "node_modules")],
+      // Source imports use the `@/` alias; esbuild has no tsconfig-paths resolver of its own.
+      alias: { "@": join(process.cwd(), "src") },
       define: { "process.env.NODE_ENV": '"production"', "import.meta.env": '{"MODE":"test","VITE_RALPHY_ENABLE_MOCKS":"true"}' },
       logLevel: "silent",
     });
@@ -901,7 +910,7 @@ describe("design system contract", () => {
   });
 
   test("gates the Shared Library stylesheet to the loaded design system contract", () => {
-    const main = readFileSync(join(process.cwd(), "src/main.tsx"), "utf8");
+    const main = readFileSync(join(process.cwd(), "src/app/main.tsx"), "utf8");
     const sizes = [...sharedLibraryStyles.matchAll(/(?:font-size:\s*|font:\s*)([\d.]+)px/g)].map((match) => Number(match[1]));
     const weights = [...sharedLibraryStyles.matchAll(/font-weight:\s*(\d+)/g)].map((match) => Number(match[1]));
     const borders = [...sharedLibraryStyles.matchAll(/border(?::|-(?:top|right|bottom|left):)\s*([^;]+)/g)].map((match) => match[1].trim());
@@ -1000,10 +1009,10 @@ describe("design system contract", () => {
     // these files may write the ring by hand again -- the exception is the lens pair, whose ring
     // is the inverted one its filled pill needs, and which says so on the element.
     for (const file of [
-      "src/screens/CalendarScreen.tsx",
-      "src/screens/MemoryScreen.tsx",
-      "src/screens/project/UnitViewer.tsx",
-      "src/instrument/InstrumentShell.tsx",
+      "src/pages/calendar/ui/CalendarScreen.tsx",
+      "src/pages/memory/ui/MemoryScreen.tsx",
+      "src/pages/project/ui/UnitViewer.tsx",
+      "src/widgets/instrument-shell/ui/InstrumentShell.tsx",
     ]) {
       const source = readFileSync(join(process.cwd(), file), "utf8");
       expect(source).toContain("IconButton");
@@ -1015,9 +1024,9 @@ describe("design system contract", () => {
   test("keeps the workspace overview's every rule on the element it styles", () => {
     // The area has no stylesheet at all: `workspace-overview.css` and its three parts are gone,
     // so nothing can claim a value the screen does not draw.
-    expect(existsSync(join(process.cwd(), "src/styles/workspace-overview.css"))).toBe(false);
-    expect(existsSync(join(process.cwd(), "src/styles/workspace-overview"))).toBe(false);
-    expect(readFileSync(join(process.cwd(), "src/main.tsx"), "utf8")).not.toContain("workspace-overview.css");
+    expect(existsSync(join(process.cwd(), "src/app/styles/workspace-overview.css"))).toBe(false);
+    expect(existsSync(join(process.cwd(), "src/app/styles/workspace-overview"))).toBe(false);
+    expect(readFileSync(join(process.cwd(), "src/app/main.tsx"), "utf8")).not.toContain("workspace-overview.css");
     // The route declares its own content row, and every collapse reads a container, never the
     // window. `instrument-desk` belongs to the shell, so the route consumes it without
     // redeclaring it.
@@ -1031,13 +1040,13 @@ describe("design system contract", () => {
     // is portalled outside the work-mode scope, where the legacy ink is the on-dark family and
     // turns invisible on a light widget. Its controls take the theme-ink ring for the same reason;
     // only a control on the black header takes the on-instrument ring.
-    const dialog = readFileSync(join(process.cwd(), "src/screens/workspace/DetailDialog.tsx"), "utf8");
+    const dialog = readFileSync(join(process.cwd(), "src/pages/workspace/ui/DetailDialog.tsx"), "utf8");
     // The whole shape is the kit's `Modal` now: scrim, window, titlebar, close. What this file
     // still says for itself is which detail it is and how wide -- and the theme ink and the close
     // control's own ring live in the kit, once, for the reason above.
-    expect(dialog).toContain('from "../../components/ui/Modal"');
+    expect(dialog).toContain('from "@/shared/ui/Modal"');
     expect(dialog).toMatch(/<Modal\b/);
-    const modalKit = readFileSync(join(process.cwd(), "src/components/ui/Modal.tsx"), "utf8");
+    const modalKit = readFileSync(join(process.cwd(), "src/shared/ui/Modal.tsx"), "utf8");
     expect(modalKit).toMatch(/MODAL_SURFACE = `[^`]*\btext-ink\b[^`]*\$\{WINDOW\}`/);
     expect(modalKit).toContain("<WindowClose");
     // The close control's ring is asserted on the composed value rather than on the source text:
@@ -1047,7 +1056,7 @@ describe("design system contract", () => {
     // Handoff 13 gives the greeting row no surface at all: the black plate it used to stand on
     // read as a fifth surface between the desk and the panels below it. With no widget under it
     // the row takes the theme pair throughout, and its primary control is the desk's inversion.
-    const header = readFileSync(join(process.cwd(), "src/screens/workspace/WorkspaceOverviewHeader.tsx"), "utf8");
+    const header = readFileSync(join(process.cwd(), "src/pages/workspace/ui/WorkspaceOverviewHeader.tsx"), "utf8");
     expect(header).not.toContain("bg-instrument");
     expect(header).not.toContain("focus-on-instrument");
     // The one action in this header is the route's primary, so it takes the brand accent and the
@@ -1073,8 +1082,8 @@ describe("design system contract", () => {
   });
 
   test("bundles Doto locally at its accessible minimum and removes the legacy purple token", () => {
-    const reset = readFileSync(join(process.cwd(), "src/styles/reset.css"), "utf8");
-    const palette = readFileSync(join(process.cwd(), "src/instrument/palette.ts"), "utf8");
+    const reset = readFileSync(join(process.cwd(), "src/app/styles/reset.css"), "utf8");
+    const palette = readFileSync(join(process.cwd(), "src/shared/instrument/palette.ts"), "utf8");
     expect(tokenStyles).toMatch(/font-family:\s*"Doto"[\s\S]*Doto-Variable\.ttf/);
     expect(`${tokenStyles}\n${reset}\n${palette}`).not.toMatch(/#(?:7F7BD6|8B7CF6)/i);
     expect(tokenStyles).toContain("/* instrument-token-definitions:start */");
@@ -1148,8 +1157,8 @@ describe("design system contract", () => {
     // focuses its own surface on open, and that matches `:focus-visible`). A utility on the
     // surface beats an unlayered author rule outright, so the suppression is stated where the
     // surface is stated. With it off, the surface measures `outline: 2px solid #F2F2F0`.
-    expect(existsSync(join(process.cwd(), "src/styles/settings.css"))).toBe(false);
-    expect(readFileSync(join(process.cwd(), "src/App.tsx"), "utf8"))
+    expect(existsSync(join(process.cwd(), "src/app/styles/settings.css"))).toBe(false);
+    expect(readFileSync(join(process.cwd(), "src/app/App.tsx"), "utf8"))
       .toMatch(/id="settings"[\s\S]*?surfaceClassName="[^"]*focus-visible:outline-none/);
     expect(settingsScreenSource).toMatch(/className="[^"]*\b(?:bg|text|rounded)-/);
   });
@@ -1265,8 +1274,8 @@ describe("design system contract", () => {
     // the scrim contract plus the rules this area does not own; `work-surfaces.css` is the legacy
     // token layer and nothing else.
     const instrument = readStylesheet("instrument.css");
-    const workSurfaces = readFileSync(join(process.cwd(), "src/styles/work-surfaces.css"), "utf8");
-    const reset = readFileSync(join(process.cwd(), "src/styles/reset.css"), "utf8");
+    const workSurfaces = readFileSync(join(process.cwd(), "src/app/styles/work-surfaces.css"), "utf8");
+    const reset = readFileSync(join(process.cwd(), "src/app/styles/reset.css"), "utf8");
 
     // One owner for the scrim. Ten components render `data-instrument-overlay-backdrop` on their
     // own overlay and state only position and layer, so a utility on any one of them would leave
@@ -1280,7 +1289,7 @@ describe("design system contract", () => {
     // an unlayered sheet loses to an `!important` utility inside `@layer utilities`, so it held
     // nothing back over the 586 elements it matched. Motion is stopped where it is declared.
     expect(workSurfaces).not.toMatch(/prefers-reduced-motion/);
-    for (const source of [shellSource, readFileSync(join(process.cwd(), "src/components/ContextSidebar.tsx"), "utf8")]) {
+    for (const source of [shellSource, readFileSync(join(process.cwd(), "src/widgets/context-sidebar/ui/ContextSidebar.tsx"), "utf8")]) {
       expect(source).toMatch(/motion-reduce:(?:animate-none|duration-0|\[transition-property:none\])/);
     }
     // The sidebar's slide-in is the defect this found: `instrument.css` declared the animation
@@ -1290,8 +1299,8 @@ describe("design system contract", () => {
 
     // Global element rules belong in the global reset, not in one area's chunk. The chunk that
     // held them is gone entirely -- `src/styles/workbench/` no longer exists.
-    expect(existsSync(join(process.cwd(), "src/styles/workbench"))).toBe(false);
-    expect(existsSync(join(process.cwd(), "src/styles/workbench.css"))).toBe(false);
+    expect(existsSync(join(process.cwd(), "src/app/styles/workbench"))).toBe(false);
+    expect(existsSync(join(process.cwd(), "src/app/styles/workbench.css"))).toBe(false);
     expect(reset).toMatch(/button:not\(:disabled\)[^{]*\{[^}]*cursor:\s*pointer/s);
     expect(reset).toMatch(/strong\s*\{[^}]*font-weight:\s*400/s);
 
@@ -1320,9 +1329,9 @@ describe("design system contract", () => {
   test("keeps the workbench chrome on named roles, container widths and no depth", () => {
     // The chrome area's stylesheet chunks are gone, and so is the holding file that stood in for
     // them: `src/styles/workbench/` and `workbench.css` no longer exist at all.
-    expect(existsSync(join(process.cwd(), "src/styles/workbench"))).toBe(false);
-    expect(existsSync(join(process.cwd(), "src/styles/workbench.css"))).toBe(false);
-    expect(readFileSync(join(process.cwd(), "src/main.tsx"), "utf8")).not.toContain("styles/workbench");
+    expect(existsSync(join(process.cwd(), "src/app/styles/workbench"))).toBe(false);
+    expect(existsSync(join(process.cwd(), "src/app/styles/workbench.css"))).toBe(false);
+    expect(readFileSync(join(process.cwd(), "src/app/main.tsx"), "utf8")).not.toContain("styles/workbench");
     // The nine selectors this test used to pin as deliberately multi-owner are resolved rather
     // than held: a rule with several renderers is a shared class constant or a per-renderer set
     // of utilities, and the one keyframe is a named `--animate-*` role in the area theme file.
@@ -1333,17 +1342,17 @@ describe("design system contract", () => {
     // leaves none of them unpainted -- that is the failure mode moving a multi-owner rule invites.
     // The witness per element is one utility the deleted rule's own declarations became.
     const renderers: Array<[string, string, string[]]> = [
-      ["main-region", "@container/main-region", ["src/App.tsx", "src/screens/ProjectScreen.tsx", "src/screens/WorkspaceScreen.tsx", "src/screens/CalendarScreen.tsx", "src/screens/MarketplaceScreen.tsx", "src/screens/WorkspaceProjectsScreen.tsx", "src/screens/LibraryScreen.tsx", "src/screens/MemoryScreen.tsx", "src/screens/SharedLibraryScreen.tsx"]],
-      ["screen-kicker", "mb-1", ["src/screens/WorkspaceScreen.tsx", "src/screens/LibraryScreen.tsx", "src/screens/SharedLibraryScreen.tsx", "src/screens/WorkspaceProjectsScreen.tsx"]],
-      ["content-section", "min-w-0", ["src/screens/LibraryScreen.tsx", "src/screens/WorkspaceProjectsScreen.tsx"]],
+      ["main-region", "@container/main-region", ["src/app/App.tsx", "src/pages/project/ui/ProjectScreen.tsx", "src/pages/workspace/ui/WorkspaceScreen.tsx", "src/pages/calendar/ui/CalendarScreen.tsx", "src/pages/marketplace/ui/MarketplaceScreen.tsx", "src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx", "src/pages/library/ui/LibraryScreen.tsx", "src/pages/memory/ui/MemoryScreen.tsx", "src/pages/shared-library/ui/SharedLibraryScreen.tsx"]],
+      ["screen-kicker", "mb-1", ["src/pages/workspace/ui/WorkspaceScreen.tsx", "src/pages/library/ui/LibraryScreen.tsx", "src/pages/shared-library/ui/SharedLibraryScreen.tsx", "src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx"]],
+      ["content-section", "min-w-0", ["src/pages/library/ui/LibraryScreen.tsx", "src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx"]],
       // Two renderers, not the five the deleted file's prose claimed: the overview, the
       // marketplace and the project panel each draw their own `*-section-heading`, which the
       // `.section-heading` rule never selected.
-      ["section-heading", "h-8", ["src/screens/LibraryScreen.tsx", "src/screens/WorkspaceProjectsScreen.tsx"]],
+      ["section-heading", "h-8", ["src/pages/library/ui/LibraryScreen.tsx", "src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx"]],
       // The row's `gap: 14px` and `flex: none` were already dead on both renderers: each states
       // its own `gap-*` and its own flex behaviour, and a layered important utility beats an
       // unlayered declaration. `display: flex` is the one declaration that had to move.
-      ["workspace-header-actions", "flex", ["src/screens/WorkspaceProjectsScreen.tsx", "src/screens/workspace/WorkspaceOverviewHeader.tsx"]],
+      ["workspace-header-actions", "flex", ["src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx", "src/pages/workspace/ui/WorkspaceOverviewHeader.tsx"]],
     ];
     // `sidebar-profile-name` is absent from that list on purpose: its one renderer was
     // `ProfileMenu`, and the sidebar footer mounts `InstrumentProfileControl` instead, whose
@@ -1361,7 +1370,7 @@ describe("design system contract", () => {
     // `.command-button` is the one that could not be a per-renderer set: five screens across four
     // areas render it, and it stands on two different plates. It is one shared constant with two
     // skins, so a caller can never repaint half of a surface/ink pair.
-    const routeChrome = readFileSync(join(process.cwd(), "src/screens/route-chrome.ts"), "utf8");
+    const routeChrome = readFileSync(join(process.cwd(), "src/shared/ui/route-chrome.ts"), "utf8");
     expect(routeChrome).toMatch(/export const COMMAND_BUTTON =/);
     expect(routeChrome).toMatch(/export const COMMAND_BUTTON_ON_INSTRUMENT =/);
     expect(/const COMMAND_SKIN = "([^"]*)"/.exec(routeChrome)?.[1] ?? "").toMatch(/bg-surface-hover text-ink/);
@@ -1377,18 +1386,18 @@ describe("design system contract", () => {
     for (const key of ["--container-workspace-header", "--container-activity-filters"]) {
       expect(chromeTheme).toContain(key);
     }
-    const projectsScreen = readFileSync(join(process.cwd(), "src/screens/WorkspaceProjectsScreen.tsx"), "utf8");
+    const projectsScreen = readFileSync(join(process.cwd(), "src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx"), "utf8");
     expect(projectsScreen).toContain("@min-workspace-header/instrument-desk:");
     // A `display` utility on the trigger beats an authored `display: none`, so the activity
     // toolbar's container hide has to be a variant on the element, not a rule in the sheet.
-    expect(readFileSync(join(process.cwd(), "src/screens/project/ActivityTimeline.tsx"), "utf8"))
+    expect(readFileSync(join(process.cwd(), "src/pages/project/ui/ActivityTimeline.tsx"), "utf8"))
       .toContain("@max-activity-filters/project-domain:hidden");
     // The shared trigger carries exactly one skin: the callers that state their own decline it.
     for (const file of [
-      "src/screens/marketplace/MarketplaceHeader.tsx",
-      "src/screens/shared-library/SharedLibraryToolbar.tsx",
-      "src/screens/settings/rows.tsx",
-      "src/screens/project/ActivityTimeline.tsx",
+      "src/pages/marketplace/ui/MarketplaceHeader.tsx",
+      "src/pages/shared-library/ui/SharedLibraryToolbar.tsx",
+      "src/pages/settings/ui/rows.tsx",
+      "src/pages/project/ui/ActivityTimeline.tsx",
     ]) expect(readFileSync(join(process.cwd(), file), "utf8")).toContain('tone="caller"');
     // The checked row's inversion is still owned by the sheet, so the item states its rest ink
     // behind a `not-data-[state=checked]` guard -- an unguarded utility would win over it.
@@ -1400,11 +1409,11 @@ describe("design system contract", () => {
     // All three chunks are gone, and so is the holding file that stood in for them. The four
     // things it held are resolved rather than held: three had a single renderer after all, and
     // the keyframe is a named `--animate-*` role in the shell theme.
-    expect(existsSync(join(process.cwd(), "src/styles/workbench"))).toBe(false);
-    expect(existsSync(join(process.cwd(), "src/styles/workbench.css"))).toBe(false);
-    expect(readFileSync(join(process.cwd(), "src/screens/LibraryScreen.tsx"), "utf8"))
+    expect(existsSync(join(process.cwd(), "src/app/styles/workbench"))).toBe(false);
+    expect(existsSync(join(process.cwd(), "src/app/styles/workbench.css"))).toBe(false);
+    expect(readFileSync(join(process.cwd(), "src/pages/library/ui/LibraryScreen.tsx"), "utf8"))
       .toMatch(/ralphy-wordmark[^"`]*\btype-/);
-    const appSource = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
+    const appSource = readFileSync(join(process.cwd(), "src/app/App.tsx"), "utf8");
     expect(appSource).toMatch(/project-indexing[^"`]*\bflex\b[^"`]*\btext-muted\b/);
     // The indexing bar was a `content: ""` pseudo-element with no element to carry a utility, so
     // it became a real parent/child pair -- the only way one property gets one utility here.
@@ -1451,7 +1460,7 @@ describe("design system contract", () => {
     expect(markdownViewSource).toContain('tone?: MarkdownTone');
     expect(markdownViewSource).toMatch(/tone === "chat" \? CHAT_TONE : DOCUMENT_TONE/);
     expect(markdownViewSource).not.toContain("INSTRUMENT_TONE");
-    expect(readFileSync(join(process.cwd(), "src/components/agent/AgentThread.tsx"), "utf8"))
+    expect(readFileSync(join(process.cwd(), "src/features/agent-chat/ui/AgentThread.tsx"), "utf8"))
       .toContain('<MarkdownView markdown={block.entry.text ?? ""} tone="chat"');
     // Every legacy tone on the timeline icon collapsed to one of two on-dark inks, so the map
     // states two and not seven.
@@ -1464,16 +1473,16 @@ describe("design system contract", () => {
     // exists. The two selectors this test used to pin as held each turned out to have exactly the
     // renderers a grep found -- `.project-region` is App.tsx's loading fallback plus the screen it
     // stands in for, `.status-dot` is drawn by three -- so both moved onto every one of them.
-    expect(existsSync(join(process.cwd(), "src/styles/workbench"))).toBe(false);
-    expect(existsSync(join(process.cwd(), "src/styles/workbench.css"))).toBe(false);
+    expect(existsSync(join(process.cwd(), "src/app/styles/workbench"))).toBe(false);
+    expect(existsSync(join(process.cwd(), "src/app/styles/workbench.css"))).toBe(false);
     // `.project-region` no longer carries a wash on either renderer. The mode surface above it
     // paints the desk when the route is the elastic column and deliberately does not inside the
     // view panel, where the page card paints -- so the region's own `bg-desk` was repainting the
     // same colour in the desk lens and painting over a white card in the chat lens.
-    for (const file of ["src/App.tsx", "src/screens/ProjectScreen.tsx"]) {
+    for (const file of ["src/app/App.tsx", "src/pages/project/ui/ProjectScreen.tsx"]) {
       expect(readFileSync(join(process.cwd(), file), "utf8")).not.toMatch(/project-region[^"`]*\bbg-desk\b/);
     }
-    for (const file of ["src/screens/LibraryScreen.tsx", "src/screens/WorkspaceProjectsScreen.tsx", "src/instrument/primitives.tsx"]) {
+    for (const file of ["src/pages/library/ui/LibraryScreen.tsx", "src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx", "src/shared/instrument/primitives.tsx"]) {
       expect(readFileSync(join(process.cwd(), file), "utf8")).toMatch(/status-dot[^"`]*\bsize-/);
     }
     // The four rules the holding files still shadowed for this area are resolved too: the tab
@@ -1482,7 +1491,7 @@ describe("design system contract", () => {
     for (const selector of [".workspace-project-card", ".workspace-project-preview", ".gooey-tabs", ".asset-modal", ".viewer-actions", ".project-facts", ".viewer-identity", ".property-row", ".image-zoom-controls", ".video-controls", ".audio-waveform-player", ".asset-context-menu"]) {
       expect(workbenchStyles).not.toContain(selector);
     }
-    expect(readFileSync(join(process.cwd(), "src/components/ui/GooeyTabs.tsx"), "utf8"))
+    expect(readFileSync(join(process.cwd(), "src/shared/ui/GooeyTabs.tsx"), "utf8"))
       .toMatch(/gooey-tabs-blobs[^"`]*motion-reduce:filter-none/);
     // design v2 in this area: no border, no shadow, no gradient. `shadow-none` is the removal of
     // one -- the media panel's selection plate has to cancel the tile's inset mark.
@@ -1497,14 +1506,14 @@ describe("design system contract", () => {
     expect(workspaceMediaSource).toContain("@max-workspace-projects-header/main-region:flex-col");
     // The three players mount on a black widget and on a light one, so the skin is a prop and no
     // caller repaints half of a surface/ink pair from CSS.
-    expect(readFileSync(join(process.cwd(), "src/components/media/tone.ts"), "utf8"))
+    expect(readFileSync(join(process.cwd(), "src/entities/media/lib/tone.ts"), "utf8"))
       .toMatch(/export type PlayerTone = "instrument" \| "surface"/);
     for (const file of [
-      "src/screens/project/MediaViewer.tsx",
-      "src/screens/shared-library/SharedArtifactViewer.tsx",
-      "src/screens/shared-library/SharedArtifactPreview.tsx",
-      "src/screens/project/UnitSocialPreview.tsx",
-      "src/components/VirtualAssetGrid.tsx",
+      "src/pages/project/ui/MediaViewer.tsx",
+      "src/pages/shared-library/ui/SharedArtifactViewer.tsx",
+      "src/pages/shared-library/ui/SharedArtifactPreview.tsx",
+      "src/entities/unit/ui/UnitSocialPreview.tsx",
+      "src/entities/media/ui/VirtualAssetGrid.tsx",
     ]) expect(readFileSync(join(process.cwd(), file), "utf8")).toMatch(/tone="(?:instrument|surface)"/);
     // The asset modal is fixed to the window, so its gutter is the one length in the area with no
     // container to read: a continuous clamp, which is what replaced the deleted 1040px breakpoint.
@@ -1518,7 +1527,7 @@ describe("design system contract", () => {
     // A collage tile is flush by design, and the extension badge another area draws on a loose
     // preview is hidden inside one. Both are stated from the collage, at (0,2,0), because a
     // `rounded-none` on the tile would lose to the badge's own rule.
-    const collage = /const COLLAGE = "([^"]*)"/.exec(readFileSync(join(process.cwd(), "src/screens/WorkspaceProjectsScreen.tsx"), "utf8"))?.[1] ?? "";
+    const collage = /const COLLAGE = "([^"]*)"/.exec(readFileSync(join(process.cwd(), "src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx"), "utf8"))?.[1] ?? "";
     expect(collage).toContain("[&>.asset-preview]:rounded-none");
     expect(collage).toContain("[&_.asset-extension]:hidden");
   });
@@ -1534,7 +1543,7 @@ describe("design system contract", () => {
   test("keeps the activity timeline surface transparent", () => {
     // Stated by the one component that renders the table, not by a sheet: the sunken plate is the
     // scroller's, and a second ground under it drew a square corner inside the rounded clip.
-    expect(readFileSync(join(process.cwd(), "src/screens/project/ActivityTimeline.tsx"), "utf8"))
+    expect(readFileSync(join(process.cwd(), "src/pages/project/ui/ActivityTimeline.tsx"), "utf8"))
       .toMatch(/activity-table[^"`]*\bbg-transparent\b/);
   });
 
@@ -1543,8 +1552,8 @@ describe("design system contract", () => {
   });
 
   test("resets browser chrome without applying a global accent focus ring", () => {
-    const main = readFileSync(join(process.cwd(), "src/main.tsx"), "utf8");
-    const resetPath = join(process.cwd(), "src/styles/reset.css");
+    const main = readFileSync(join(process.cwd(), "src/app/main.tsx"), "utf8");
+    const resetPath = join(process.cwd(), "src/app/styles/reset.css");
     expect(existsSync(resetPath)).toBe(true);
     const reset = existsSync(resetPath) ? readFileSync(resetPath, "utf8") : "";
 
@@ -1563,7 +1572,7 @@ describe("design system contract", () => {
   });
 
   test("uses headless selectors and panel shortcuts", () => {
-    const app = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
+    const app = readFileSync(join(process.cwd(), "src/app/App.tsx"), "utf8");
     expect(renderer).not.toMatch(/<select(?:\s|>)/);
     expect(renderer).toContain("@radix-ui/react-select");
     expect(renderer).toContain('role="listbox"');
@@ -1576,7 +1585,7 @@ describe("design system contract", () => {
     // and no handler hardcodes a key.
     expect(app).toContain("resolveCommand(event, readCommandBindings(");
     expect(app).not.toMatch(/command && (?:event\.)?key === "/);
-    const commands = readFileSync(join(process.cwd(), "src/screens/settings/commands.ts"), "utf8");
+    const commands = readFileSync(join(process.cwd(), "src/pages/settings/lib/commands.ts"), "utf8");
     expect(commands).toContain('chord("b", { meta: true })');
     expect(commands).toContain('chord(",", { meta: true })');
   });
@@ -1640,23 +1649,23 @@ describe("design system contract", () => {
 
   test("transfers the approved dither workspace hero and project identity system", () => {
     const picker = readFileSync(
-      join(process.cwd(), "src/components/WorkspacePicker.tsx"),
+      join(process.cwd(), "src/widgets/instrument-sidebar/ui/WorkspacePicker.tsx"),
       "utf8",
     );
     const sidebar = readFileSync(
-      join(process.cwd(), "src/components/ContextSidebar.tsx"),
+      join(process.cwd(), "src/widgets/context-sidebar/ui/ContextSidebar.tsx"),
       "utf8",
     );
     const projectsScreen = readFileSync(
-      join(process.cwd(), "src/screens/WorkspaceProjectsScreen.tsx"),
+      join(process.cwd(), "src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx"),
       "utf8",
     );
     // The footer's identity is the sidebar's own markup plus the control it mounts, since
     // `ProfileMenu` is gone: both halves have to decline the raw library label, not just one.
     const profile = [
-      "src/components/ContextSidebar.tsx",
-      "src/instrument/InstrumentProfileControl.tsx",
-      "src/components/ProfileAvatar.tsx",
+      "src/widgets/context-sidebar/ui/ContextSidebar.tsx",
+      "src/widgets/instrument-sidebar/ui/InstrumentProfileControl.tsx",
+      "src/shared/ui/ProfileAvatar.tsx",
     ].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
 
     expect(/const HERO = "([^"]*)"/.exec(picker)?.[1] ?? "").toContain("workspace-hero");
@@ -1687,7 +1696,7 @@ describe("design system contract", () => {
     // `.project-glyph` reached no component at all; the identity plate that does render reads
     // the same ramp through --glyph-color.
     expect(workbenchStyles).not.toMatch(/\.project-glyph\s*\{/);
-    expect(readFileSync(join(process.cwd(), "src/screens/workspace/WorkspaceOperations.tsx"), "utf8"))
+    expect(readFileSync(join(process.cwd(), "src/pages/workspace/ui/WorkspaceOperations.tsx"), "utf8"))
       .toMatch(/color-mix\(in_srgb,var\(--glyph-color\)/);
     // Handoff 13 moved the nav onto the one sidebar card, so selection is no longer an inversion
     // against a black widget: a selected row is the field recess with the theme ink, and hover
@@ -1719,8 +1728,8 @@ describe("design system contract", () => {
   });
 
   test("shows a paced Ralphy welcome before revealing the workbench", () => {
-    const app = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
-    const welcomePath = join(process.cwd(), "src/components/WelcomeScreen.tsx");
+    const app = readFileSync(join(process.cwd(), "src/app/App.tsx"), "utf8");
+    const welcomePath = join(process.cwd(), "src/widgets/welcome/ui/WelcomeScreen.tsx");
     expect(existsSync(welcomePath)).toBe(true);
     const welcome = existsSync(welcomePath) ? readFileSync(welcomePath, "utf8") : "";
 
@@ -1737,11 +1746,11 @@ describe("design system contract", () => {
   });
 
   test("opens a global multi-provider chat with Cmd+R", () => {
-    const app = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
+    const app = readFileSync(join(process.cwd(), "src/app/App.tsx"), "utf8");
     const main = readFileSync(join(process.cwd(), "electron/main.ts"), "utf8");
     const preload = readFileSync(join(process.cwd(), "electron/preload.ts"), "utf8");
     const panels = readFileSync(
-      join(process.cwd(), "src/components/UtilityPanels.tsx"),
+      join(process.cwd(), "src/widgets/utility-panels/ui/UtilityPanels.tsx"),
       "utf8",
     );
 
@@ -1779,7 +1788,7 @@ describe("design system contract", () => {
     // zone's ink is the theme's.
     // The shell itself is now the `Window` kit component: the rail names it rather than respelling
     // the two layers, so the contract is checked once, where the chrome is defined.
-    const chrome = readFileSync(join(process.cwd(), "src/components/ui/Window.tsx"), "utf8");
+    const chrome = readFileSync(join(process.cwd(), "src/shared/ui/Window.tsx"), "utf8");
     const WINDOW = /export const WINDOW = "([^"]*)"/.exec(chrome)?.[1] ?? "";
     const WINDOW_BODY = /export const WINDOW_PLATE = "([^"]*)"/.exec(chrome)?.[1] ?? "";
     expect(WINDOW.split(" ")).toContain("bg-panel");
@@ -1788,7 +1797,7 @@ describe("design system contract", () => {
     expect(WINDOW).not.toMatch(/\b(?:border-\d|shadow-)/);
     const railPlate = /`utility-right-panel panel-blur \$\{WINDOW\} ([^`]*)`/.exec(agentRailSource)?.[1] ?? "";
     expect(railPlate.split(" ")).toContain("text-ink");
-    expect(agentRailSource).toContain('from "./ui/Window"');
+    expect(agentRailSource).toContain('from "@/shared/ui/Window"');
     expect(agentRailSource).toContain("utility-right-panel-card ${WINDOW_BODY}");
     const railCard = WINDOW_BODY;
     expect(railCard.split(" ")).toContain("bg-card");
@@ -1801,7 +1810,7 @@ describe("design system contract", () => {
     // radius, with a transparent editable inside it. It carries no ring of its own -- a text field
     // already states its focus with a caret, and a lit border around every keystroke is noise.
     const composer = readFileSync(
-      join(process.cwd(), "src/components/agent/AgentComposer.tsx"),
+      join(process.cwd(), "src/features/agent-chat/ui/AgentComposer.tsx"),
       "utf8",
     );
     expect(composer).toContain("rounded-composer bg-chat-field");
@@ -1816,7 +1825,7 @@ describe("design system contract", () => {
     expect(panels).not.toMatch(/\b(?:shadow|bg-gradient|bg-linear|bg-radial)-/);
     // Nothing of the rail is left in the sheet: both chunks are gone and what stayed is unowned.
     for (const chunk of ["10-agent-chat.css", "11-agent-connect.css"]) {
-      expect(existsSync(join(process.cwd(), "src/styles/workbench", chunk))).toBe(false);
+      expect(existsSync(join(process.cwd(), "src/app/styles/workbench", chunk))).toBe(false);
     }
     for (const gone of [".agent-composer", ".agent-popover", ".agent-message", ".agent-connect", ".agent-send", ".agent-copy-button", ".markdown-view"]) {
       expect(styles).not.toContain(gone);
@@ -1846,9 +1855,9 @@ describe("design system contract", () => {
   });
 
   test("keeps the terminal out of the renderer UI", () => {
-    const app = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
+    const app = readFileSync(join(process.cwd(), "src/app/App.tsx"), "utf8");
     const utilityPanels = readFileSync(
-      join(process.cwd(), "src/components/UtilityPanels.tsx"),
+      join(process.cwd(), "src/widgets/utility-panels/ui/UtilityPanels.tsx"),
       "utf8",
     );
     expect(app).not.toContain("BottomPanel");
@@ -1860,21 +1869,21 @@ describe("design system contract", () => {
   });
 
   test("opens app-level settings from a custom profile popover", () => {
-    const app = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
+    const app = readFileSync(join(process.cwd(), "src/app/App.tsx"), "utf8");
     const profileMenu = readFileSync(
-      join(process.cwd(), "src/instrument/InstrumentProfileControl.tsx"),
+      join(process.cwd(), "src/widgets/instrument-sidebar/ui/InstrumentProfileControl.tsx"),
       "utf8",
     );
     const overlayRegistry = readFileSync(
-      join(process.cwd(), "src/instrument/overlay-registry.tsx"),
+      join(process.cwd(), "src/shared/instrument/overlay-registry.tsx"),
       "utf8",
     );
     const preferences = readFileSync(
-      join(process.cwd(), "src/state/workbench.ts"),
+      join(process.cwd(), "src/shared/model/workbench.ts"),
       "utf8",
     );
     const settingsPreferences = readFileSync(
-      join(process.cwd(), "src/screens/settings/preferences.ts"),
+      join(process.cwd(), "src/pages/settings/lib/preferences.ts"),
       "utf8",
     );
 
@@ -1923,15 +1932,15 @@ describe("design system contract", () => {
       "utf8",
     );
     const welcome = readFileSync(
-      join(process.cwd(), "src/components/WelcomeScreen.tsx"),
+      join(process.cwd(), "src/widgets/welcome/ui/WelcomeScreen.tsx"),
       "utf8",
     );
     const sidebar = readFileSync(
-      join(process.cwd(), "src/components/ContextSidebar.tsx"),
+      join(process.cwd(), "src/widgets/context-sidebar/ui/ContextSidebar.tsx"),
       "utf8",
     );
     const settings = readFileSync(
-      join(process.cwd(), "src/screens/SettingsScreen.tsx"),
+      join(process.cwd(), "src/pages/settings/ui/SettingsScreen.tsx"),
       "utf8",
     );
     expect(mascot).toContain('mask id="eyes"');
@@ -1942,7 +1951,7 @@ describe("design system contract", () => {
 
   test("keeps library switching in the profile and the terminal out of the top chrome", () => {
     const shell = readFileSync(
-      join(process.cwd(), "src/instrument/InstrumentShell.tsx"),
+      join(process.cwd(), "src/widgets/instrument-shell/ui/InstrumentShell.tsx"),
       "utf8",
     );
     expect(shell).not.toContain('aria-label="Toggle bottom panel"');

@@ -4,7 +4,7 @@ import {
   projectGlyphVars,
   projectGlyphAsset,
   workspaceDitherVars,
-} from "../src/lib/project-glyph";
+} from "@/entities/project/lib/project-glyph";
 
 describe("name-salted visual identity", () => {
   test("is stable and produces varied project and workspace colors", () => {

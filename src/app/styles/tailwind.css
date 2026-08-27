@@ -1,0 +1,136 @@
+@import "tailwindcss" important;
+
+/* The bundled routing pack is agent documentation, not app source. Its skill files show Tailwind
+   examples, and the scanner was compiling those into this stylesheet -- `translate-y-[calc(var(--i)
+   *6px)]` shipped as a real rule whose variable nothing on the page defines. A doc example must
+   not be able to add CSS to the app. */
+@source not "../../../resources";
+
+/* Per-area role keys. The shared scales live below; each area owns its own file so parallel
+   migrations never contend for one theme block. */
+@import "./theme/settings.css";
+@import "./theme/project.css";
+@import "./theme/chrome.css";
+@import "./theme/calendar-memory.css";
+@import "./theme/documents-activity.css";
+@import "./theme/workspace-overview.css";
+@import "./theme/shared-library.css";
+@import "./theme/marketplace.css";
+@import "./theme/agent-rail.css";
+@import "./theme/context.css";
+@import "./theme/workspace-media.css";
+@import "./theme/shell.css";
+
+@theme inline {
+  --font-app: var(--font-sans);
+  --font-code: var(--font-mono);
+  --font-display: var(--font-doto);
+  --font-glyph: var(--font-glyph);
+
+  --color-desk: var(--instrument-desk);
+  --color-board: var(--instrument-desk-board);
+  /* The depth stack. `panel` is the chrome frame, `card` the surface it holds, `field` a recess
+     inside a card, `row-hover` what a row in a card takes under the cursor and `chip` what a
+     control standing on panel chrome takes. All four carry the theme ink pair (`text-ink` /
+     `text-muted`); the black widgets that stay black in both themes keep `bg-instrument`. */
+  --color-panel: var(--instrument-panel);
+  --color-card: var(--instrument-card);
+  --color-field: var(--instrument-field);
+  --color-row-hover: var(--instrument-row-hover);
+  --color-chip: var(--instrument-chip-on-panel);
+  --color-surface: var(--instrument-widget-light);
+  --color-surface-hover: var(--instrument-widget-light-hover);
+  --color-surface-sunken: var(--instrument-widget-light-sunken);
+  --color-ink: var(--instrument-text-primary);
+  --color-muted: var(--instrument-text-secondary-readable);
+  --color-frame: var(--instrument-media-frame);
+  /* The plate a label stands on over media, and the dimmer behind a viewer. tokens.css says
+     what each one guarantees; the short version is that only the plate backs ink. */
+  --color-media-plate: var(--instrument-media-plate);
+  --color-media-veil: var(--instrument-media-veil);
+  --color-instrument: var(--instrument-widget-dark);
+  --color-instrument-raised: var(--instrument-widget-dark-raised);
+  --color-instrument-hover: var(--instrument-widget-dark-hover);
+  --color-on-instrument: var(--instrument-text-on-dark-primary);
+  --color-on-instrument-muted: var(--instrument-text-on-dark-secondary-readable);
+  --color-on-instrument-muted-decorative: var(--instrument-text-on-dark-muted-decorative);
+  --color-selected: var(--instrument-selected-surface);
+  --color-selected-hover: var(--instrument-selected-surface-hover);
+  --color-selected-ink: var(--instrument-selected-ink);
+  --color-desk-primary: var(--instrument-desk-primary-surface);
+  --color-desk-primary-ink: var(--instrument-desk-primary-ink);
+  --color-track-on-instrument: var(--instrument-track-on-dark);
+  --color-alert: var(--instrument-alert);
+  /* The alarm's own ink and its brighter step. Both were declared once per area, which is four
+     copies of one decision; they are shared because the close control in the window kit is. */
+  --color-alert-ink: var(--instrument-alert-text);
+  --color-alert-bright: var(--instrument-alert-bright);
+  /* The accent a primary action takes. Red is spoken for -- alerts, rejection, destruction -- so
+     the one action a surface wants you to take is the brand indigo instead, in both themes. */
+  --color-brand: var(--instrument-brand);
+  --color-brand-ink: var(--instrument-brand-ink);
+  --color-divider: var(--instrument-divider);
+
+  /* The one entrance every modal's scrim takes. instrument.css owns the keyframe, beside the
+     scrim's own tone. */
+  --animate-overlay-fade: overlay-fade var(--dur) linear;
+
+  /* The radius and type scales, named by role. tokens.css owns the values; naming them here is
+     what makes `text-base` and `var(--text-base)` the same decision instead of two. */
+  --radius-panel: var(--radius-panel);
+  --radius-inner: var(--radius-preview);
+  --radius-dot: var(--radius-dot);
+  --radius-frame: var(--radius-frame);
+  --radius-window: var(--radius-window);
+  --radius-hero: var(--radius-hero);
+  --radius-tab: var(--radius-tab);
+  --radius-row: var(--radius-row);
+  --radius-control: var(--radius-pill);
+  --radius-cell: var(--radius-lg);
+  --radius-field: var(--radius-md);
+  --radius-chip: var(--radius-sm);
+  --radius-key: var(--radius-keycap);
+  --radius-key-face: var(--radius-keycap-face);
+
+
+  --height-control-sm: var(--control-sm);
+  --height-control-md: var(--control-md);
+  --height-control-lg: var(--control-lg);
+
+  --tracking-tight: var(--tracking-tight);
+  --tracking-label: var(--tracking-label);
+  --tracking-caps: var(--tracking-caps);
+  --tracking-wide: var(--tracking-wide);
+  --tracking-mono: var(--tracking-mono);
+}
+
+/* Type scale: one property, named from the same tokens the stylesheets use. Tailwind's own
+   text-* namespace pairs a line-height with every size, and an unpaired size emits an invalid
+   line-height that overrides the stylesheet's; a scale of its own sets only the size. */
+@theme inline {
+  --type-mono-2xs: var(--text-mono-2xs);
+  --type-mono-xs: var(--text-mono-xs);
+  --type-mono-sm: var(--text-mono-sm);
+  --type-meta: var(--text-meta);
+  --type-mono-md: var(--text-mono-md);
+  --type-xs: var(--text-xs);
+  --type-label: var(--text-label);
+  --type-sm: var(--text-sm);
+  --type-ui: var(--text-ui);
+  --type-base: var(--text-base);
+  --type-body: var(--text-body);
+  --type-md: var(--text-md);
+  --type-lg: var(--text-lg);
+  --type-title: var(--text-title);
+  --type-heading: var(--text-heading);
+  --type-xl: var(--text-xl);
+  --type-metric: var(--text-metric);
+  --type-section: var(--text-section);
+  --type-display: var(--text-display);
+  --type-hero: var(--text-hero);
+  --type-greeting: var(--text-greeting);
+}
+
+@utility type-* {
+  font-size: --value(--type-*);
+}

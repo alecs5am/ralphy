@@ -20,7 +20,7 @@ function matches(source, pattern, rule, file) {
 }
 
 export async function auditMarketplaceInstrument(base = root) {
-  const files = [...await sourceFiles(join(base, "src/screens/marketplace")), join(base, "src/screens/MarketplaceScreen.tsx"), join(base, "src/styles/marketplace.css")];
+  const files = [...await sourceFiles(join(base, "src/pages/marketplace")), join(base, "src/app/styles/marketplace.css")];
   const violations = [];
   for (const absolute of files) {
     const file = relative(base, absolute);
@@ -32,15 +32,15 @@ export async function auditMarketplaceInstrument(base = root) {
   }
 
   const [screen, workflows, header, css] = await Promise.all([
-    readFile(join(base, "src/screens/MarketplaceScreen.tsx"), "utf8"),
-    readFile(join(base, "src/screens/marketplace/MarketplaceWorkflows.tsx"), "utf8"),
-    readFile(join(base, "src/screens/marketplace/MarketplaceHeader.tsx"), "utf8"),
-    readFile(join(base, "src/styles/marketplace.css"), "utf8"),
+    readFile(join(base, "src/pages/marketplace/ui/MarketplaceScreen.tsx"), "utf8"),
+    readFile(join(base, "src/pages/marketplace/ui/MarketplaceWorkflows.tsx"), "utf8"),
+    readFile(join(base, "src/pages/marketplace/ui/MarketplaceHeader.tsx"), "utf8"),
+    readFile(join(base, "src/app/styles/marketplace.css"), "utf8"),
   ]);
-  if (!screen.includes("<InstrumentScreenRoot")) violations.push({ file: "src/screens/MarketplaceScreen.tsx", rule: "missing-root", value: "InstrumentScreenRoot" });
-  if (!workflows.includes('id="target-chooser"')) violations.push({ file: "src/screens/marketplace/MarketplaceWorkflows.tsx", rule: "missing-overlay", value: "target-chooser" });
-  if (!header.includes('overlayOwner="marketplace.header"')) violations.push({ file: "src/screens/marketplace/MarketplaceHeader.tsx", rule: "missing-overlay-owner", value: "marketplace.header" });
-  if (!css.includes("@media (prefers-reduced-motion: reduce)")) violations.push({ file: "src/styles/marketplace.css", rule: "missing-reduced-motion", value: "prefers-reduced-motion" });
+  if (!screen.includes("<InstrumentScreenRoot")) violations.push({ file: "src/pages/marketplace/ui/MarketplaceScreen.tsx", rule: "missing-root", value: "InstrumentScreenRoot" });
+  if (!workflows.includes('id="target-chooser"')) violations.push({ file: "src/pages/marketplace/ui/MarketplaceWorkflows.tsx", rule: "missing-overlay", value: "target-chooser" });
+  if (!header.includes('overlayOwner="marketplace.header"')) violations.push({ file: "src/pages/marketplace/ui/MarketplaceHeader.tsx", rule: "missing-overlay-owner", value: "marketplace.header" });
+  if (!css.includes("@media (prefers-reduced-motion: reduce)")) violations.push({ file: "src/app/styles/marketplace.css", rule: "missing-reduced-motion", value: "prefers-reduced-motion" });
   return { files: files.map((file) => relative(base, file)).sort(), violations };
 }
 

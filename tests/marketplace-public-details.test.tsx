@@ -2,12 +2,12 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { bridge } from "../src/lib/ipc";
-import { MarketplaceScreenView } from "../src/screens/MarketplaceScreen";
-import { MarketplacePublicItemDetail } from "../src/screens/marketplace/MarketplacePublicItemDetail";
+import { bridge } from "@/shared/api/ipc";
+import { MarketplaceScreenView } from "@/pages/marketplace/ui/MarketplaceScreen";
+import { MarketplacePublicItemDetail } from "@/pages/marketplace/ui/MarketplacePublicItemDetail";
 import type { MarketplacePublicItemDto } from "../electron/media/types";
-import type { MarketplaceItemPresentation, MarketplaceSnapshot } from "../src/screens/marketplace/presentation";
-import type { MarketplaceLocation, MarketplaceQueryState } from "../src/state/marketplace-navigation";
+import type { MarketplaceItemPresentation, MarketplaceSnapshot } from "@/pages/marketplace/lib/presentation";
+import type { MarketplaceLocation, MarketplaceQueryState } from "@/pages/marketplace/model/navigation";
 import { createReactHost, type HostNode } from "./react-host";
 
 const query: MarketplaceQueryState = {

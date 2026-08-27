@@ -4,17 +4,17 @@ import { act, useEffect, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import type { WorkspaceOverviewDto } from "../electron/ralphy/types";
-import type { ProjectSummary } from "../src/lib/ipc";
+import type { ProjectSummary } from "@/shared/api/ipc";
 import {
   WorkspaceScreenView,
   createWorkspaceScreenController,
-} from "../src/screens/WorkspaceScreen";
-import type { WorkspaceMomentumPresentation, WorkspaceOverviewPresentation } from "../src/screens/workspace/overview-presentation";
-import { AccessibleTrendChart, WorkspaceMomentum } from "../src/screens/workspace/WorkspacePerformance";
-import { WorkspacePlanAndOutcomes } from "../src/screens/workspace/WorkspacePlanAndOutcomes";
-import { WorkspaceInsights } from "../src/screens/workspace/WorkspaceInsights";
-import { WorkspaceOperations } from "../src/screens/workspace/WorkspaceOperations";
-import { WorkspaceOverviewHeader } from "../src/screens/workspace/WorkspaceOverviewHeader";
+} from "@/pages/workspace/ui/WorkspaceScreen";
+import type { WorkspaceMomentumPresentation, WorkspaceOverviewPresentation } from "@/pages/workspace/lib/overview-presentation";
+import { AccessibleTrendChart, WorkspaceMomentum } from "@/pages/workspace/ui/WorkspacePerformance";
+import { WorkspacePlanAndOutcomes } from "@/pages/workspace/ui/WorkspacePlanAndOutcomes";
+import { WorkspaceInsights } from "@/pages/workspace/ui/WorkspaceInsights";
+import { WorkspaceOperations } from "@/pages/workspace/ui/WorkspaceOperations";
+import { WorkspaceOverviewHeader } from "@/pages/workspace/ui/WorkspaceOverviewHeader";
 import { createReactHost } from "./react-host";
 
 const populatedOverview = {
@@ -1283,9 +1283,9 @@ describe("workspace overview shell", () => {
     // Both decisions moved onto the elements that make them. The authored 1000px query never
     // rendered: the utility on the operations grid always beat it, so this now reads the grid
     // that actually decides, and the theme key that names the width it decides at.
-    const operations = readFileSync(join(process.cwd(), "src/screens/workspace/WorkspaceOperations.tsx"), "utf8");
-    const performance = readFileSync(join(process.cwd(), "src/screens/workspace/WorkspacePerformance.tsx"), "utf8");
-    const theme = readFileSync(join(process.cwd(), "src/styles/theme/workspace-overview.css"), "utf8");
+    const operations = readFileSync(join(process.cwd(), "src/pages/workspace/ui/WorkspaceOperations.tsx"), "utf8");
+    const performance = readFileSync(join(process.cwd(), "src/pages/workspace/ui/WorkspacePerformance.tsx"), "utf8");
+    const theme = readFileSync(join(process.cwd(), "src/app/styles/theme/workspace-overview.css"), "utf8");
 
     expect(operations).toContain("grid-cols-1 gap-2 bg-transparent p-0 @min-workspace-section/instrument-desk:grid-cols-2");
     expect(theme).toContain("--container-workspace-section: 860px");

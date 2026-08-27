@@ -2,8 +2,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { act, useSyncExternalStore } from "react";
 import { describe, expect, test, vi } from "vitest";
 import type { DocumentSearchDto } from "../electron/ralphy/types";
-import type { ProjectSummary } from "../src/lib/ipc";
-import * as screen from "../src/screens/ProjectScreen";
+import type { ProjectSummary } from "@/shared/api/ipc";
+import * as screen from "@/pages/project/ui/ProjectScreen";
 import { createReactHost, type HostNode } from "./react-host";
 
 const project: ProjectSummary = {

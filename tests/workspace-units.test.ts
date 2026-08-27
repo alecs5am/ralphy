@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { OverviewPublicationDto, UnitDto } from "../electron/ralphy/types";
-import { publicationOf } from "../src/screens/WorkspaceUnitsScreen";
+import { publicationOf } from "@/pages/workspace-units/ui/WorkspaceUnitsScreen";
 
 const unit = { id: "unit-1" } as UnitDto;
 const publication = (unitId: string, state: string): OverviewPublicationDto => (

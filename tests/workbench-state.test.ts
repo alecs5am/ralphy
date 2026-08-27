@@ -13,12 +13,12 @@ import {
   updateWorkbenchPreferences,
   workbenchReducer,
   writeWorkbenchPreferences,
-} from "../src/state/workbench";
+} from "@/shared/model/workbench";
 import {
   marketplaceReducer,
   readMarketplaceNavigation,
   writeMarketplaceNavigation,
-} from "../src/state/marketplace-navigation";
+} from "@/pages/marketplace/model/navigation";
 
 const rootPath = "/tmp/demo/.ralphy";
 

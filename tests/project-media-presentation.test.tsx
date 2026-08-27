@@ -3,14 +3,14 @@ import { act, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, test, vi } from "vitest";
 import type { MediaCardDto, MediaGenerationDetailDto, RunObjectMediaCardDto } from "../electron/ralphy/types";
-import { VirtualAssetGrid, MediaCardTile } from "../src/components/VirtualAssetGrid";
-import { AudioWaveform } from "../src/components/media/AudioWaveform";
-import { ImageViewport } from "../src/components/media/ImageViewport";
-import { compactVideoStartTime, VideoPlayer } from "../src/components/media/VideoPlayer";
-import { ProjectScreenView, createProjectScreenController } from "../src/screens/ProjectScreen";
-import { bridge, type ProjectSummary } from "../src/lib/ipc";
+import { VirtualAssetGrid, MediaCardTile } from "@/entities/media/ui/VirtualAssetGrid";
+import { AudioWaveform } from "@/entities/media/ui/AudioWaveform";
+import { ImageViewport } from "@/entities/media/ui/ImageViewport";
+import { compactVideoStartTime, VideoPlayer } from "@/entities/media/ui/VideoPlayer";
+import { ProjectScreenView, createProjectScreenController } from "@/pages/project/ui/ProjectScreen";
+import { bridge, type ProjectSummary } from "@/shared/api/ipc";
 import { createReactHost, type HostNode } from "./react-host";
-import { MEDIA_REVIEW_UNSUPPORTED_REASON as REVIEW_REASON } from "../src/screens/project/media-review-presentation";
+import { MEDIA_REVIEW_UNSUPPORTED_REASON as REVIEW_REASON } from "@/features/media-review/lib/presentation";
 
 const card: MediaCardDto = {
   ref: { type: "artifact", id: "artifact-1" },

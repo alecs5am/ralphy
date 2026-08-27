@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { bridge, type AgentChatEnvelope } from "../src/lib/ipc";
+import { bridge, type AgentChatEnvelope } from "@/shared/api/ipc";
 
 describe("browser agent bridge", () => {
   test("exposes providers and routes a streamed turn to its chat", async () => {

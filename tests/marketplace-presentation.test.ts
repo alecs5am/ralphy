@@ -12,8 +12,8 @@ import {
   projectMarketplaceModel,
   projectMarketplaceModelDetail,
   type MarketplaceSourceHealth,
-} from "../src/screens/marketplace/presentation";
-import type { MarketplaceQueryState } from "../src/state/marketplace-navigation";
+} from "@/pages/marketplace/lib/presentation";
+import type { MarketplaceQueryState } from "@/pages/marketplace/model/navigation";
 
 const machine = {
   platform: "macOS",

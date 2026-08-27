@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import type { ArtifactMediaCardDto, Page } from "../electron/ralphy/types";
-import { createSharedLibraryController } from "../src/state/shared-library-controller";
+import { createSharedLibraryController } from "@/pages/shared-library/model/controller";
 
 function artifact(id: string, overrides: Partial<ArtifactMediaCardDto> = {}): ArtifactMediaCardDto {
   return {

@@ -5,7 +5,7 @@ import {
   INSTRUMENT_COLOR_ALLOWLIST,
   INSTRUMENT_PALETTE,
   contrastRatio,
-} from "../src/instrument/palette";
+} from "@/shared/instrument/palette";
 import {
   auditCss,
   auditPaletteSource,
@@ -25,14 +25,14 @@ function authoredColorIssues(): string[] {
   return ["src", "electron"].flatMap((directory) => sourceFiles(join(process.cwd(), directory))).flatMap((path) => {
     const projectPath = relative(process.cwd(), path);
     const source = readFileSync(path, "utf8");
-    if (projectPath === "src/instrument/palette.ts") return auditPaletteSource(source, INSTRUMENT_COLOR_ALLOWLIST, INSTRUMENT_PALETTE, projectPath);
-    if (projectPath === "src/styles/tokens.css") return auditTokenCss(source, INSTRUMENT_COLOR_ALLOWLIST, INSTRUMENT_PALETTE, projectPath);
+    if (projectPath === "src/shared/instrument/palette.ts") return auditPaletteSource(source, INSTRUMENT_COLOR_ALLOWLIST, INSTRUMENT_PALETTE, projectPath);
+    if (projectPath === "src/app/styles/tokens.css") return auditTokenCss(source, INSTRUMENT_COLOR_ALLOWLIST, INSTRUMENT_PALETTE, projectPath);
     return projectPath.endsWith(".css") ? auditCss(source, projectPath) : auditTypeScript(source, projectPath);
   }).sort();
 }
 
 function cssThemeVariables(theme: "light" | "dark"): Record<string, string> {
-  const css = readFileSync(join(process.cwd(), "src/styles/tokens.css"), "utf8");
+  const css = readFileSync(join(process.cwd(), "src/app/styles/tokens.css"), "utf8");
   const themeBlock = css.match(new RegExp(`html\\[data-theme="${theme}"\\]\\s*\\{([\\s\\S]*?)\\}`))?.[1] ?? "";
   const componentBlock = css.slice(css.indexOf("/* instrument-token-definitions:end */")).match(/:root\s*\{([\s\S]*?)\}/)?.[1] ?? "";
   return Object.fromEntries([...`${themeBlock}\n${componentBlock}`.matchAll(/(--[\w-]+):\s*([^;]+);/g)].map((match) => [match[1], match[2].trim()]));

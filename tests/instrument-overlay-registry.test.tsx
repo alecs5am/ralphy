@@ -6,7 +6,7 @@ import {
   INSTRUMENT_OVERLAYS,
   InstrumentOverlay,
   SHARED_SELECT_OVERLAY_OWNERS,
-} from "../src/instrument/overlay-registry";
+} from "@/shared/instrument/overlay-registry";
 import { createReactHost, type HostNode } from "./react-host";
 
 const overlayIds = [
@@ -37,13 +37,13 @@ const overlayKinds = {
 } as const;
 
 const sharedSelectOwnerRecords = {
-  "settings.rows": { module: "src/screens/settings/rows.tsx", routeScope: { kind: "production-prefix", prefix: "settings." } },
-  "shared.toolbar": { module: "src/screens/shared-library/SharedLibraryToolbar.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.shared"] } },
-  "shared.workflow": { module: "src/screens/shared-library/SharedLibraryWorkflows.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.shared"] } },
-  "memory.editor": { module: "src/screens/MemoryScreen.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.memory"] } },
-  "project.media": { module: "src/screens/project/MediaPanel.tsx", routeScope: { kind: "exact", routeKeys: ["project.media"] } },
-  "project.activity": { module: "src/screens/project/ActivityTimeline.tsx", routeScope: { kind: "exact", routeKeys: ["project.activity"] } },
-  "marketplace.header": { module: "src/screens/marketplace/MarketplaceHeader.tsx", routeScope: { kind: "production-prefix", prefix: "marketplace." } },
+  "settings.rows": { module: "src/pages/settings/ui/rows.tsx", routeScope: { kind: "production-prefix", prefix: "settings." } },
+  "shared.toolbar": { module: "src/pages/shared-library/ui/SharedLibraryToolbar.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.shared"] } },
+  "shared.workflow": { module: "src/pages/shared-library/ui/SharedLibraryWorkflows.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.shared"] } },
+  "memory.editor": { module: "src/pages/memory/ui/MemoryScreen.tsx", routeScope: { kind: "exact", routeKeys: ["workspace.memory"] } },
+  "project.media": { module: "src/pages/project/ui/MediaPanel.tsx", routeScope: { kind: "exact", routeKeys: ["project.media"] } },
+  "project.activity": { module: "src/pages/project/ui/ActivityTimeline.tsx", routeScope: { kind: "exact", routeKeys: ["project.activity"] } },
+  "marketplace.header": { module: "src/pages/marketplace/ui/MarketplaceHeader.tsx", routeScope: { kind: "production-prefix", prefix: "marketplace." } },
 };
 
 async function settle() {

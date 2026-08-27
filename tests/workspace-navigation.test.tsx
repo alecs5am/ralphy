@@ -4,15 +4,15 @@ import { act } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import type { MediaCardDto } from "../electron/ralphy/types";
-import type { ProjectSummary } from "../src/lib/ipc";
-import type { WorkspaceSummary } from "../src/lib/ipc";
-import { ContextSidebar } from "../src/components/ContextSidebar";
-import { MainHeader } from "../src/components/Titlebar";
-import { WorkspaceProjectsScreen } from "../src/screens/WorkspaceProjectsScreen";
-import { SharedLibraryScreen } from "../src/screens/SharedLibraryScreen";
-import { LibraryScreen } from "../src/screens/LibraryScreen";
-import { bridge } from "../src/lib/ipc";
-import { readWorkbenchPreferences, WORKSPACE_PAGES } from "../src/state/workbench";
+import type { ProjectSummary } from "@/shared/api/ipc";
+import type { WorkspaceSummary } from "@/shared/api/ipc";
+import { ContextSidebar } from "@/widgets/context-sidebar/ui/ContextSidebar";
+import { MainHeader } from "@/widgets/titlebar/ui/Titlebar";
+import { WorkspaceProjectsScreen } from "@/pages/workspace-projects/ui/WorkspaceProjectsScreen";
+import { SharedLibraryScreen } from "@/pages/shared-library/ui/SharedLibraryScreen";
+import { LibraryScreen } from "@/pages/library/ui/LibraryScreen";
+import { bridge } from "@/shared/api/ipc";
+import { readWorkbenchPreferences, WORKSPACE_PAGES } from "@/shared/model/workbench";
 import { createReactHost } from "./react-host";
 
 
@@ -77,7 +77,7 @@ describe("workspace projects navigation", () => {
   });
 
   test("never mounts the workbench hidden while motion is reduced", () => {
-    const source = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
+    const source = readFileSync(join(process.cwd(), "src/app/App.tsx"), "utf8");
     expect(source).toContain("initial={false}");
     expect(source).not.toContain("initial={{ opacity: 0 }}");
   });
@@ -233,7 +233,7 @@ describe("workspace projects navigation", () => {
   });
 
   test("lands a route on every workspace page, so a view tab is not the tab it was opened from", () => {
-    const app = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
+    const app = readFileSync(join(process.cwd(), "src/app/App.tsx"), "utf8");
     /* Every workspace screen renders under `route.kind === "workspace"`, and a project route
        renders the project instead. So setting the page without landing the route left each view
        tab -- Overview, Projects, Memory, Calendar, Shared -- showing whatever project was open.
@@ -283,11 +283,11 @@ describe("workspace projects navigation", () => {
   });
 
   test("has no standalone Local Models screen, style entry, or application route", () => {
-    const app = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
-    const entry = readFileSync(join(process.cwd(), "src/main.tsx"), "utf8");
+    const app = readFileSync(join(process.cwd(), "src/app/App.tsx"), "utf8");
+    const entry = readFileSync(join(process.cwd(), "src/app/main.tsx"), "utf8");
 
-    expect(existsSync(join(process.cwd(), "src/screens/LocalModelsScreen.tsx"))).toBe(false);
-    expect(existsSync(join(process.cwd(), "src/styles/local-models.css"))).toBe(false);
+    expect(existsSync(join(process.cwd(), "src/pages/local-models/ui/LocalModelsScreen.tsx"))).toBe(false);
+    expect(existsSync(join(process.cwd(), "src/app/styles/local-models.css"))).toBe(false);
     expect(app).not.toMatch(/LocalModelsScreen|localModelsVisible|local-models/i);
     expect(entry).not.toContain("./styles/local-models.css");
   });

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { aiBrandForModel } from "../src/components/AiBrandIcon";
+import { aiBrandForModel } from "@/shared/ui/AiBrandIcon";
 
 describe("AI brand icons", () => {
   test("maps provider model ids to stable LobeHub brands", () => {

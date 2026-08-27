@@ -5,14 +5,14 @@ import { runInNewContext } from "node:vm";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, test } from "vitest";
-import { COLOR_ASSET_SHA256, DITHER_ASSET_SHA256, INSTRUMENT_PALETTE } from "../src/instrument/palette";
+import { COLOR_ASSET_SHA256, DITHER_ASSET_SHA256, INSTRUMENT_PALETTE } from "@/shared/instrument/palette";
 import {
   THEME_PREFERENCES,
   applyResolvedTheme,
   parseThemePreference,
   resolveTheme,
-} from "../src/instrument/theme";
-import { ThemeProvider, useTheme } from "../src/instrument/ThemeProvider";
+} from "@/app/providers/theme";
+import { ThemeProvider, useTheme } from "@/app/providers/ThemeProvider";
 import { auditAssetManifest } from "./instrument-color-audit";
 import { createReactHost } from "./react-host";
 
@@ -21,7 +21,7 @@ function sha256(path: string): string {
 }
 
 function cssThemeTokens(theme: "light" | "dark"): Record<string, string> {
-  const css = readFileSync(join(process.cwd(), "src/styles/tokens.css"), "utf8");
+  const css = readFileSync(join(process.cwd(), "src/app/styles/tokens.css"), "utf8");
   const block = css.match(new RegExp(`html\\[data-theme="${theme}"\\]\\s*\\{([\\s\\S]*?)\\}`))?.[1] ?? "";
   return Object.fromEntries([...block.matchAll(/--instrument-([\w-]+):\s*(#[\dA-F]{6});/g)].map((match) => [match[1], match[2]]));
 }

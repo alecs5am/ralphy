@@ -2,9 +2,9 @@ import { act, type HTMLAttributes, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { CatalogResult } from "../electron/media/types";
-import { bridge } from "../src/lib/ipc";
-import { ThemeProvider, useTheme } from "../src/instrument/ThemeProvider";
-import { MarketplaceScreen } from "../src/screens/MarketplaceScreen";
+import { bridge } from "@/shared/api/ipc";
+import { ThemeProvider, useTheme } from "@/app/providers/ThemeProvider";
+import { MarketplaceScreen } from "@/pages/marketplace/ui/MarketplaceScreen";
 import {
   MARKETPLACE_SIDEBAR_WIDTH,
   isMarketplaceLocation,
@@ -12,9 +12,9 @@ import {
   readMarketplaceNavigation,
   writeMarketplaceNavigation,
   type MarketplaceLocation,
-} from "../src/state/marketplace-navigation";
-import type { WorkbenchPreferences } from "../src/state/workbench";
-import type { ThemePreference } from "../src/instrument/types";
+} from "@/pages/marketplace/model/navigation";
+import type { WorkbenchPreferences } from "@/shared/model/workbench";
+import type { ThemePreference } from "@/shared/instrument/types";
 import { createReactHost, type HostNode } from "./react-host";
 
 vi.mock("motion/react", () => {
@@ -25,12 +25,12 @@ vi.mock("motion/react", () => {
   const Pass = ({ children }: { children: ReactNode }) => <>{children}</>;
   return { AnimatePresence: Pass, LayoutGroup: Pass, MotionConfig: Pass, motion: { div: Div, section: Section, aside: Aside, header: Header } };
 });
-vi.mock("../src/components/UtilityPanels", () => ({
+vi.mock("../src/widgets/utility-panels/ui/UtilityPanels", () => ({
   AgentChatPanel: () => <aside data-testid="agent-chat">Agent chat</aside>,
   BottomPanel: () => null,
 }));
-vi.mock("../src/components/WelcomeScreen", () => ({ WelcomeScreen: () => <div>Loading Ralphy</div> }));
-vi.mock("../src/chat/useAgentChat", () => ({
+vi.mock("../src/widgets/welcome/ui/WelcomeScreen", () => ({ WelcomeScreen: () => <div>Loading Ralphy</div> }));
+vi.mock("../src/features/agent-chat/model/useAgentChat", () => ({
   /* The id is what the view panel keys its tabs and its width by, so the stub carries one. */
   useAgentChat: ({ enabled }: { enabled: boolean }) => {
     (globalThis as typeof globalThis & { __agentChatEnabled?: boolean[] }).__agentChatEnabled?.push(enabled);
@@ -220,7 +220,7 @@ describe("marketplace navigation", () => {
       identity: { storeId: "store-1", label: "Ralphy", rootEpoch: 1, activitySequence: 0 },
       catalog: emptyCatalog(),
     });
-    const { App } = await import("../src/App");
+    const { App } = await import("@/app/App");
     const { createRoot } = await import("react-dom/client");
     const root = createRoot(host.container as unknown as Element);
     try {
@@ -396,7 +396,7 @@ describe("marketplace navigation", () => {
         }],
       },
     };
-    const { App } = await import("../src/App");
+    const { App } = await import("@/app/App");
     const { createRoot } = await import("react-dom/client");
     const root = createRoot(host.container as unknown as Element);
     let changeTheme!: (value: ThemePreference) => void;
@@ -452,7 +452,7 @@ describe("marketplace navigation", () => {
     const previousStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
     Object.defineProperty(globalThis, "localStorage", { configurable: true, value: local });
     const restore = vi.spyOn(bridge, "restoreLibrary").mockResolvedValue(null);
-    const { App } = await import("../src/App");
+    const { App } = await import("@/app/App");
     const { createRoot } = await import("react-dom/client");
     const root = createRoot(host.container as unknown as Element);
     try {
@@ -503,7 +503,7 @@ describe("marketplace navigation", () => {
       toggleRightPanel = callback;
       return () => { toggleRightPanel = null; };
     });
-    const { App } = await import("../src/App");
+    const { App } = await import("@/app/App");
     const { createRoot } = await import("react-dom/client");
     const root = createRoot(host.container as unknown as Element);
     try {
@@ -553,8 +553,8 @@ describe("marketplace navigation", () => {
       requestAnimationFrame: { configurable: true, value: window.requestAnimationFrame },
       cancelAnimationFrame: { configurable: true, value: window.cancelAnimationFrame },
     });
-    const actualChat = await vi.importActual<typeof import("../src/chat/useAgentChat")>("../src/chat/useAgentChat");
-    const actualPanels = await vi.importActual<typeof import("../src/components/UtilityPanels")>("../src/components/UtilityPanels");
+    const actualChat = await vi.importActual<typeof import("@/features/agent-chat/model/useAgentChat")>("../src/features/agent-chat/model/useAgentChat");
+    const actualPanels = await vi.importActual<typeof import("@/widgets/utility-panels/ui/UtilityPanels")>("../src/widgets/utility-panels/ui/UtilityPanels");
     const { createRoot } = await import("react-dom/client");
     const root = createRoot(host.container as unknown as Element);
     function NoRootChat() {

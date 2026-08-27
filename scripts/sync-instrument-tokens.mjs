@@ -1,8 +1,9 @@
-// Regenerates the guarded token block in src/styles/tokens.css from src/instrument/palette.ts,
+// Regenerates the guarded token block in src/app/styles/tokens.css from the palette in
+// src/shared/instrument/palette.ts,
 // the single source of truth for instrument color literals.
 import { readFileSync, writeFileSync } from "node:fs";
 
-const { INSTRUMENT_PALETTE } = await import("../src/instrument/palette.ts");
+const { INSTRUMENT_PALETTE } = await import("../src/shared/instrument/palette");
 const START = "/* instrument-token-definitions:start */";
 const END = "/* instrument-token-definitions:end */";
 const kebab = (name) => name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
@@ -13,7 +14,7 @@ const block = (selector, theme) => [
   "}",
 ].join("\n");
 
-const path = new URL("../src/styles/tokens.css", import.meta.url);
+const path = new URL("../src/app/styles/tokens.css", import.meta.url);
 const source = readFileSync(path, "utf8");
 const start = source.indexOf(START);
 const end = source.indexOf(END);

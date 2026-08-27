@@ -105,7 +105,7 @@ describe("Electron IPC security", () => {
   });
 
   test("keeps root identity and activity refresh payloads numeric and private", async () => {
-    const { applyActivityRefresh } = await import("../src/App") as {
+    const { applyActivityRefresh } = await import("@/app/App") as {
       applyActivityRefresh(identity: unknown, event: unknown): unknown;
     };
     const identity = {
@@ -128,7 +128,7 @@ describe("Electron IPC security", () => {
   });
 
   test("accepts only a strictly newer refresh from the active root binding", async () => {
-    const { applyActivityRefresh } = await import("../src/App") as {
+    const { applyActivityRefresh } = await import("@/app/App") as {
       applyActivityRefresh(identity: unknown, event: unknown): unknown;
     };
     const identity = {
@@ -511,7 +511,7 @@ describe("Electron IPC security", () => {
   });
 
   test("mock Marketplace bridge reports the catalog unavailable instead of inventing source evidence", async () => {
-    const { bridge } = await import("../src/lib/ipc");
+    const { bridge } = await import("@/shared/api/ipc");
     await expect(bridge.loadMarketplacePublicLibrary()).rejects.toThrow(
       "Marketplace public catalog is unavailable in mock mode",
     );
@@ -1140,7 +1140,7 @@ describe("Electron IPC security", () => {
   });
 
   test("mock Shared Library bridge stays truthful and does not invent mutations", async () => {
-    const { bridge } = await import("../src/lib/ipc");
+    const { bridge } = await import("@/shared/api/ipc");
 
     await expect(bridge.loadSharedLibraryPage("workspace-1")).resolves.toEqual({
       items: [], nextCursor: null,
@@ -1159,7 +1159,7 @@ describe("Electron IPC security", () => {
   });
 
   test("never enables renderer mocks in production without an explicit flag", async () => {
-    const ipc = await import("../src/lib/ipc");
+    const ipc = await import("@/shared/api/ipc");
     expect(ipc).toHaveProperty("mockBridgeAllowed");
     const { mockBridgeAllowed } = ipc as typeof ipc & {
       mockBridgeAllowed(environment: Record<string, string | boolean | undefined>): boolean;

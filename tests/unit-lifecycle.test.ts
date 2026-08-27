@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { BuildDto, CompositionRevisionDto, UnitDto, UnitRevisionDto } from "../electron/ralphy/types";
-import { unitLifecycle } from "../src/lib/unit-lifecycle";
+import { unitLifecycle } from "@/entities/unit/lib/unit-lifecycle";
 
 const unit: UnitDto = { id: "unit-1", workspaceId: "ws-1", projectId: "project-1", compositionId: "composition-1", slug: "launch", format: "video", latestRevisionId: "revision-1", selectedRevisionId: null, createdAt: 1, updatedAt: 1 };
 const revision: UnitRevisionDto = { id: "revision-1", unitId: unit.id, compositionRevisionId: "composition-revision-1", revisionNo: 1, parentRevisionId: null, iterationId: null, note: null, authoredBySessionId: null, createdAt: 1, sealedAt: 1 };

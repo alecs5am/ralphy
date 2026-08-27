@@ -1,10 +1,10 @@
 import { act, useState } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { ArtifactMediaCardDto, ArtifactRevisionDto } from "../electron/ralphy/types";
-import { bridge } from "../src/lib/ipc";
-import { SharedLibraryScreen } from "../src/screens/SharedLibraryScreen";
-import { SharedArtifactViewer } from "../src/screens/shared-library/SharedArtifactViewer";
-import { presentSharedArtifact } from "../src/screens/shared-library/presentation";
+import { bridge } from "@/shared/api/ipc";
+import { SharedLibraryScreen } from "@/pages/shared-library/ui/SharedLibraryScreen";
+import { SharedArtifactViewer } from "@/pages/shared-library/ui/SharedArtifactViewer";
+import { presentSharedArtifact } from "@/pages/shared-library/lib/presentation";
 import { createReactHost, type HostNode } from "./react-host";
 
 function artifact(id: string, overrides: Partial<ArtifactMediaCardDto> = {}): ArtifactMediaCardDto {

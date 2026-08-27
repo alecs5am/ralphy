@@ -8,7 +8,7 @@ import {
   readFileDrop,
   withAttachments,
   type Attachment,
-} from "../src/chat/attachments";
+} from "@/features/agent-chat/lib/attachments";
 
 function transfer(entries: Record<string, string>) {
   return { types: Object.keys(entries), getData: (format: string) => entries[format] ?? "" };

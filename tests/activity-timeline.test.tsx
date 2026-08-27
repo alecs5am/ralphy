@@ -2,9 +2,9 @@ import { act, useSyncExternalStore } from "react";
 import { describe, expect, test, vi } from "vitest";
 
 import type { ActivityDto } from "../electron/ralphy/types";
-import type { ProjectSummary } from "../src/lib/ipc";
-import * as screen from "../src/screens/ProjectScreen";
-import { activitySearchText, activitySource, summarizeActivityRun } from "../src/screens/project/activity-presentation";
+import type { ProjectSummary } from "@/shared/api/ipc";
+import * as screen from "@/pages/project/ui/ProjectScreen";
+import { activitySearchText, activitySource, summarizeActivityRun } from "@/pages/project/lib/activity-presentation";
 import { createReactHost, type HostNode } from "./react-host";
 
 const project: ProjectSummary = {

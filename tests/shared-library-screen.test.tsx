@@ -2,9 +2,9 @@ import { act } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { ArtifactMediaCardDto, Page } from "../electron/ralphy/types";
-import { bridge } from "../src/lib/ipc";
-import { SharedLibraryScreen, SharedLibraryScreenView } from "../src/screens/SharedLibraryScreen";
-import { createSharedLibraryController } from "../src/state/shared-library-controller";
+import { bridge } from "@/shared/api/ipc";
+import { SharedLibraryScreen, SharedLibraryScreenView } from "@/pages/shared-library/ui/SharedLibraryScreen";
+import { createSharedLibraryController } from "@/pages/shared-library/model/controller";
 import { createReactHost, type HostNode } from "./react-host";
 
 function artifact(id: string, overrides: Partial<ArtifactMediaCardDto> = {}): ArtifactMediaCardDto {

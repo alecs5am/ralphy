@@ -351,7 +351,7 @@ function isProjectPath(path: string, expected: string): boolean {
 
 function isStructuralSystemString(value: string, node: ts.Node, path: string): boolean {
   const normalized = decodeCssEscapes(value).trim().toLowerCase();
-  const overlayRegistry = isProjectPath(path, "src/instrument/overlay-registry.tsx");
+  const overlayRegistry = isProjectPath(path, "src/shared/instrument/overlay-registry.tsx");
   if (!EXACT_SYSTEM_COLOR.test(normalized)) return false;
   if (overlayRegistry && normalized === "menu" && ts.isLiteralTypeNode(node.parent)) {
     const declaration = node.parent.parent;
@@ -370,7 +370,7 @@ function isStructuralSystemString(value: string, node: ts.Node, path: string): b
     if (overlayRegistry && normalized === "menu" && owner === "overlayRoles" && name === "menu") return true;
   }
   return normalized === "mark"
-    && isProjectPath(path, "src/components/MarkdownView.tsx")
+    && isProjectPath(path, "src/shared/ui/MarkdownView.tsx")
     && enclosingVariable(node) === "SAFE_HTML_TAGS"
     && ts.isArrayLiteralExpression(node.parent);
 }

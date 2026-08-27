@@ -4,8 +4,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { CatalogResult } from "../electron/media/types";
-import { bridge } from "../src/lib/ipc";
-import { MarketplaceScreenView } from "../src/screens/MarketplaceScreen";
+import { bridge } from "@/shared/api/ipc";
+import { MarketplaceScreenView } from "@/pages/marketplace/ui/MarketplaceScreen";
 import {
   MarketplaceActionReview,
   MarketplaceDownloads,
@@ -13,18 +13,18 @@ import {
   marketplaceTargets,
   type MarketplaceDownloadPresentation,
   type MarketplaceWorkflowKind,
-} from "../src/screens/marketplace/MarketplaceWorkflows";
-import type { WorkbenchRoute } from "../src/state/workbench";
-import type { MarketplaceLocation, MarketplaceQueryState } from "../src/state/marketplace-navigation";
-import type { MarketplaceSnapshot } from "../src/screens/marketplace/presentation";
+} from "@/pages/marketplace/ui/MarketplaceWorkflows";
+import type { WorkbenchRoute } from "@/shared/model/workbench";
+import type { MarketplaceLocation, MarketplaceQueryState } from "@/pages/marketplace/model/navigation";
+import type { MarketplaceSnapshot } from "@/pages/marketplace/lib/presentation";
 import { createReactHost, type HostNode } from "./react-host";
 
-const marketplaceStyles = readFileSync(new URL("../src/styles/marketplace.css", import.meta.url), "utf8");
-const resetStyles = readFileSync(new URL("../src/styles/reset.css", import.meta.url), "utf8");
+const marketplaceStyles = readFileSync(new URL("../src/app/styles/marketplace.css", import.meta.url), "utf8");
+const resetStyles = readFileSync(new URL("../src/app/styles/reset.css", import.meta.url), "utf8");
 // The workflow window styles itself in markup now, so the contract this file used to read out of
 // the stylesheet is read out of the component that declares it.
-const workflowSource = readFileSync(new URL("../src/screens/marketplace/MarketplaceWorkflows.tsx", import.meta.url), "utf8");
-const detailChromeSource = readFileSync(new URL("../src/screens/marketplace/detail-chrome.ts", import.meta.url), "utf8");
+const workflowSource = readFileSync(new URL("../src/pages/marketplace/ui/MarketplaceWorkflows.tsx", import.meta.url), "utf8");
+const detailChromeSource = readFileSync(new URL("../src/pages/marketplace/lib/detail-chrome.ts", import.meta.url), "utf8");
 
 const catalog: CatalogResult = {
   rootPath: "/Users/demo/.ralphy",
@@ -209,7 +209,7 @@ describe("Marketplace non-mutating action reviews", () => {
     expect(workflowSource).toMatch(/const SHELL = "marketplace-workflow-window[^"]*\btext-ink\b[^"]*"/);
     expect(workflowSource).not.toMatch(/const SHELL = [^\n]*\$\{WINDOW\}/);
     expect(workflowSource).toMatch(/const SHELL_CARD = `marketplace-workflow-card \$\{WINDOW_BODY\}`/);
-    expect(workflowSource).toContain('from "../../components/ui/Window"');
+    expect(workflowSource).toContain('from "@/shared/ui/Window"');
     expect(marketplaceStyles).toMatch(/\[data-instrument-overlay="target-chooser"\]\s*\{[^}]*position:\s*fixed/s);
     expect(marketplaceStyles).not.toContain("var(--sidebar)");
     expect(marketplaceStyles).not.toContain("box-shadow");

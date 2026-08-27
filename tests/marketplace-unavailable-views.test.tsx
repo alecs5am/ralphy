@@ -2,20 +2,20 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
-import { MarketplaceScreenView } from "../src/screens/MarketplaceScreen";
-import { MarketplaceBrowse } from "../src/screens/marketplace/MarketplaceBrowse";
+import { MarketplaceScreenView } from "@/pages/marketplace/ui/MarketplaceScreen";
+import { MarketplaceBrowse } from "@/pages/marketplace/ui/MarketplaceBrowse";
 import {
   MarketplaceUnavailableCollection,
   MarketplaceUnavailableCreator,
   MarketplaceUnavailableDetail,
   MarketplaceUnavailablePublish,
-} from "../src/screens/marketplace/MarketplaceUnavailableViews";
-import type { MarketplaceSnapshot } from "../src/screens/marketplace/presentation";
+} from "@/pages/marketplace/ui/MarketplaceUnavailableViews";
+import type { MarketplaceSnapshot } from "@/pages/marketplace/lib/presentation";
 import type {
   MarketplaceCategory,
   MarketplaceLocation,
   MarketplaceQueryState,
-} from "../src/state/marketplace-navigation";
+} from "@/pages/marketplace/model/navigation";
 import { createReactHost } from "./react-host";
 
 const query: MarketplaceQueryState = {

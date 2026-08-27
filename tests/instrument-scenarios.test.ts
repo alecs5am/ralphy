@@ -7,12 +7,12 @@ import {
   SHARED_SELECT_OVERLAY_OWNERS,
   type InstrumentOverlayId,
   type InstrumentSharedSelectOwnerId,
-} from "../src/instrument/overlay-registry";
+} from "@/shared/instrument/overlay-registry";
 import {
   PRODUCTION_LOCAL_OVERLAY_TARGETS,
   PRODUCTION_GLOBAL_OVERLAY_ROUTES,
   PRODUCTION_SCREEN_STATES,
-} from "../src/instrument/production-screen-states";
+} from "@/shared/instrument/production-screen-states";
 import {
   INSTRUMENT_SCENARIOS,
   REQUIRED_SCENARIO_THEMES,
@@ -20,8 +20,8 @@ import {
   assertInstrumentScenarioCompleteness,
   expandInstrumentScenarioCases,
   type InstrumentScenario,
-} from "../src/instrument/scenarios";
-import type { InstrumentRouteKey } from "../src/instrument/screen-state-registry";
+} from "@/shared/instrument/scenarios";
+import type { InstrumentRouteKey } from "@/shared/instrument/screen-state-registry";
 
 const key = (...parts: readonly (string | null)[]) => parts.map((part) => part ?? "-").join("::");
 const uniqueSorted = (values: readonly string[]) => [...new Set(values)].sort();

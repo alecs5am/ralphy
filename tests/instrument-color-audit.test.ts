@@ -110,8 +110,8 @@ describe("instrument color audit mutations", () => {
       const injectedJavaScript = ["if (window.ralphy) return true", "if(window.ralphy) return true", "render(CanvasText)"];
       const transitionCss = ".fixture { transition: background 100ms linear; }";
     `;
-    expect(auditTypeScript(overlaySource, "src/instrument/overlay-registry.tsx")).toEqual([]);
-    expect(auditTypeScript('const SAFE_HTML_TAGS = new Set(["mark"]);', "src/components/MarkdownView.tsx")).toEqual([]);
+    expect(auditTypeScript(overlaySource, "src/shared/instrument/overlay-registry.tsx")).toEqual([]);
+    expect(auditTypeScript('const SAFE_HTML_TAGS = new Set(["mark"]);', "src/shared/ui/MarkdownView.tsx")).toEqual([]);
     expect(auditTypeScript(consumerSource, "fixture.tsx")).toEqual([]);
     expect(auditTypeScript('const fixture = { color: "CanvasText" };', "fixture.ts")).not.toEqual([]);
   });

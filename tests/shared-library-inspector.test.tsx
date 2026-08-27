@@ -1,9 +1,9 @@
 import { act } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { ArtifactMediaCardDto, ArtifactRevisionDto, Page } from "../electron/ralphy/types";
-import { bridge } from "../src/lib/ipc";
-import { SharedArtifactInspector } from "../src/screens/shared-library/SharedArtifactInspector";
-import { presentSharedArtifact } from "../src/screens/shared-library/presentation";
+import { bridge } from "@/shared/api/ipc";
+import { SharedArtifactInspector } from "@/pages/shared-library/ui/SharedArtifactInspector";
+import { presentSharedArtifact } from "@/pages/shared-library/lib/presentation";
 import { createReactHost, type HostNode } from "./react-host";
 
 function artifact(overrides: Partial<ArtifactMediaCardDto> = {}): ArtifactMediaCardDto {

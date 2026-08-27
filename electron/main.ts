@@ -158,7 +158,7 @@ import {
   type WindowBounds,
 } from "./window-state";
 import { parseBoundedJsonValue as parseJsonValue } from "./json-value";
-import { INSTRUMENT_PALETTE } from "../src/instrument/palette";
+import { INSTRUMENT_PALETTE } from "../src/shared/instrument/palette";
 import {
   loadLocalModelDetail,
   loadLocalModelMachine,

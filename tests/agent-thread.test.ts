@@ -5,8 +5,8 @@ import {
   elapsedLabel,
   groupLabel,
   groupMeta,
-} from "../src/components/agent/AgentThread";
-import type { AgentChatEntry } from "../src/chat/useAgentChat";
+} from "@/features/agent-chat/ui/AgentThread";
+import type { AgentChatEntry } from "@/features/agent-chat/model/useAgentChat";
 
 /* The transcript's derivation, which is the whole of handoff 17's rule that fifty bash commands
    must never render as fifty blocks. The rendering is markup; this is the part that can be wrong. */
