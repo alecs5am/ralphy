@@ -89,8 +89,13 @@ const contextSidebarSource = readFileSync(join(process.cwd(), "src/widgets/sideb
 const librarySource = readFileSync(join(process.cwd(), "src/pages/library/ui/LibraryScreen.tsx"), "utf8");
 const workspaceOverviewTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/workspace-overview.css"), "utf8");
 const calendarMemoryTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/calendar-memory.css"), "utf8");
-const calendarMemorySurfaceSource = ["src/pages/calendar/ui/CalendarScreen.tsx", "src/pages/memory/ui/MemoryScreen.tsx", "src/shared/ui/overlay-chrome.ts"]
-  .map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
+// The Calendar route reads across its whole ui segment: the route, its views, its panels and its
+// schedule dialog all draw on the same vocabulary.
+const calendarMemorySurfaceSource = [
+  layerSource("src/pages/calendar/ui"),
+  readFileSync(join(process.cwd(), "src/pages/memory/ui/MemoryScreen.tsx"), "utf8"),
+  readFileSync(join(process.cwd(), "src/shared/ui/overlay-chrome.ts"), "utf8"),
+].join("\n");
 const projectTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/project.css"), "utf8");
 // The project route reads across four slices: its own page, the review feature the media grid
 // opens, and the media and unit entities its panels render.
@@ -1012,12 +1017,12 @@ describe("design system contract", () => {
     // these files may write the ring by hand again -- the exception is the lens pair, whose ring
     // is the inverted one its filled pill needs, and which says so on the element.
     for (const file of [
-      "src/pages/calendar/ui/CalendarScreen.tsx",
+      "src/pages/calendar/ui",
       "src/pages/memory/ui/MemoryScreen.tsx",
       "src/pages/project/ui/UnitViewer.tsx",
       "src/app/layout/ShellTopRow.tsx",
     ]) {
-      const source = readFileSync(join(process.cwd(), file), "utf8");
+      const source = file.endsWith(".tsx") ? readFileSync(join(process.cwd(), file), "utf8") : layerSource(file);
       expect(source).toContain("IconButton");
       const rings = source.match(/focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink/g) ?? [];
       expect(rings.length).toBeLessThanOrEqual(file.endsWith("ShellTopRow.tsx") ? 1 : 0);
