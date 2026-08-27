@@ -21,9 +21,8 @@ const SEGMENTS = new Set(["ui", "model", "lib", "api"]);
 /** How long a file may get before it stops being readable in one sitting. */
 const MAX_LINES = Number(process.env.ARCH_MAX_LINES ?? 400);
 /**
- * The two files the limit is measured against but not enforced on yet, with the reason. Each
- * one is a split still to do, not a file that has earned an exemption -- delete the entry when
- * the split lands. Nothing may be added here.
+ * Per-file budgets above `MAX_LINES`. This is empty, and it is meant to stay empty: an entry is
+ * a split still to do, never a file that has earned an exemption. Split the file instead.
  */
 const OVERSIZE_DEBT = {};
 /**
