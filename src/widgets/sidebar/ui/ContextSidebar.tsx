@@ -117,7 +117,7 @@ const SECTION_LABEL = "sidebar-section-label flex h-6.5 shrink-0 items-center ga
 /* Segments and rows are pills, matching the round geometry of the widget they sit in;
    selection is an inversion (white plate, ink text), never a tint. The mode switch paints
    its selection with the gooey travelling indicator instead of a per-button background. */
-const MODE_BUTTON = "sidebar-mode-button relative z-1 flex h-8.5 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-transparent px-2 type-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-instrument";
+const MODE_BUTTON = "sidebar-mode-button relative z-surface-content flex h-8.5 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-transparent px-2 type-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-instrument";
 const SIDEBAR_ROW = "sidebar-nav-row grid h-10 w-full shrink-0 grid-cols-(--sidebar-nav-columns) items-center gap-2.75 rounded-row px-3 text-left type-ui focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink";
 /* A chat row carries a title and its state, so it is two lines inside one row rather than the
    single-line grid the page rows use. Geometry only: the pair comes from SELECTED/UNSELECTED. */

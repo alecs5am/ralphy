@@ -142,7 +142,7 @@ for (const file of files(SRC)) {
     if (/^\s*(\/\/|\*|\/\*)/.test(text)) return;
     for (const [, utility] of text.matchAll(/(?:^|[\s"'`{])(z-\d+)(?=[\s"'`}]|$)/g))
       report("magic-value", file, `${utility}: stacking is a --z-* token, never a bare number`, index + 1);
-    for (const [, utility] of text.matchAll(/(?:^|[\s"'`{])([a-z][a-z-]*-\[(?:-?[\d.]+(?:px|rem|em|s|ms|deg)|calc\()[^\]]*\])/g))
+    for (const [, utility] of text.matchAll(/(?:^|[\s"'`{])((?:-?[a-z@][\w-]*:)*-?[a-z][a-z-]*-\[(?:-?[\d.]+(?:px|rem|em|s|ms|deg)|calc\()[^\]]*\])/g))
       report("magic-value", file, `${utility}: a literal length or duration belongs in a token`, index + 1);
   });
 }

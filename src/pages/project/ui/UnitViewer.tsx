@@ -40,7 +40,7 @@ const STAGE_TAB_TOOLTIP = "[&_button[data-tooltip]]:after:pointer-events-none [&
 function LifecycleStepper({ lifecycle }: { lifecycle: UnitLifecycle }) {
   const current = lifecycle.label === "Published" ? 2 : lifecycle.label === "Scheduled" ? 1 : 0;
   const row = "relative grid justify-items-start gap-1.5 pt-0 after:absolute after:left-7 after:right-2.5 after:top-2 after:h-0.375 after:[content:''] last:after:hidden [&_svg]:size-2.5";
-  const mark = "relative z-1 grid size-4.5 place-items-center rounded-full";
+  const mark = "relative z-surface-content grid size-4.5 place-items-center rounded-full";
   return <ol className="unit-lifecycle m-0 grid list-none grid-cols-3 p-0 pt-1" aria-label="Unit lifecycle">
     {["In progress", "Scheduled", "Published"].map((label, index) => <li className={`${row} ${index < current ? "is-done text-muted after:bg-desk-primary" : index === current ? "is-current text-ink after:bg-surface" : "text-muted after:bg-surface"}`} key={label}>
       <span className={`${mark} ${index < current ? MARK_DONE : index === current ? MARK_CURRENT : MARK_PENDING}`}>{index < current ? <Check aria-hidden="true" /> : null}</span><small className="type-label">{label}</small>

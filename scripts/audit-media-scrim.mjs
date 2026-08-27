@@ -64,7 +64,7 @@ const MARKS = [
   { id: "social-duration", role: "label", source: "src/pages/project/ui/UnitSocialPreview.tsx",
     cls: "absolute bottom-2.5 right-2.5 rounded-control bg-media-plate px-1.75 py-1 font-code type-mono-md text-on-instrument",
     html: (c) => `<span class="${c}" data-mark>00:24</span>` },
-  { id: "asset-extension", role: "label", source: "src/pages/project/ui/VirtualAssetGrid.tsx",
+  { id: "asset-extension", role: "label", source: "src/entities/media/ui/MediaCardPreview.tsx",
     cls: "asset-extension type-image min-h-5 rounded-chip bg-media-plate px-1.75 type-xs text-on-instrument-muted",
     html: (c) => `<span class="${c}" data-mark>image</span>` },
   { id: "hero-copy", role: "label", source: "src/widgets/sidebar/ui/WorkspacePicker.tsx",

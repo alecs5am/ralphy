@@ -25,7 +25,7 @@ const OPTION = "relative grid min-h-11 w-full grid-cols-(--workspace-option-colu
    cursor. Its children state no ink, so they take this one. */
 const OPTION_ACTIVE = "bg-selected text-selected-ink hover:bg-selected";
 /* Everything except the dither plate stands above it. */
-const OPTION_LAYER = "relative z-1";
+const OPTION_LAYER = "relative z-surface-content";
 /* The active workspace keeps the inverted pair declared for `[aria-selected="true"]`, so a row
    states an ink only while it is not the active one: one surface and one ink per row, never two. */
 const OPTION_HIGHLIGHTED = "bg-instrument-hover text-on-instrument";
@@ -251,7 +251,7 @@ export function WorkspacePicker({
                     onMouseEnter={() => setActiveIndex(index)}
                     onClick={() => select(workspace)}
                   >
-                    <span className={`workspace-option-field pointer-events-none absolute top-0 left-0 z-0 h-11 w-workspace-option-field [background:var(--workspace-color)] [mask-image:var(--workspace-option-mask)] [mask-repeat:no-repeat] [mask-size:var(--workspace-option-mask-size)] ${active ? "opacity-0" : highlighted ? "opacity-46" : "opacity-30"}`} aria-hidden="true" />
+                    <span className={`workspace-option-field pointer-events-none absolute top-0 left-0 z-surface-under h-11 w-workspace-option-field [background:var(--workspace-color)] [mask-image:var(--workspace-option-mask)] [mask-repeat:no-repeat] [mask-size:var(--workspace-option-mask-size)] ${active ? "opacity-0" : highlighted ? "opacity-46" : "opacity-30"}`} aria-hidden="true" />
                     <span className={`workspace-option-avatar ${OPTION_LAYER} inline-grid size-7 flex-none place-items-center rounded-control [corner-shape:round] [background:var(--workspace-color)] font-code type-mono-sm tracking-label text-on-instrument`} aria-hidden="true">
                       {initials(workspace.name)}
                     </span>

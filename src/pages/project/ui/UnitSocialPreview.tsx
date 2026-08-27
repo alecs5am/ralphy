@@ -39,7 +39,7 @@ const FRAME = "relative size-full min-h-0 overflow-hidden bg-device-body text-on
 const MEDIA = "unit-social-media size-full min-h-0 [&>*]:size-full [&>*]:min-h-0";
 // The feed chrome stands over the media, so its glyphs and labels carry their own shadow.
 const OVER_MEDIA = "[&_svg]:size-4.5 [&_svg]:[filter:drop-shadow(0_1px_2px_color-mix(in_srgb,var(--instrument-media-frame)_50%,transparent))]";
-const TOP_ROW = `unit-social-top absolute inset-x-4 top-10.5 z-4 flex min-h-5.25 items-center gap-3.5 type-label [text-shadow:0_1px_3px_color-mix(in_srgb,var(--instrument-media-frame)_55%,transparent)] ${OVER_MEDIA}`;
+const TOP_ROW = `unit-social-top absolute inset-x-4 top-10.5 z-surface-overlay flex min-h-5.25 items-center gap-3.5 type-label [text-shadow:0_1px_3px_color-mix(in_srgb,var(--instrument-media-frame)_55%,transparent)] ${OVER_MEDIA}`;
 const RAIL_ACTION = "unit-social-action grid justify-items-center gap-0.5";
 const AVATAR = "unit-social-avatar grid place-items-center rounded-full bg-device-edge type-sm text-on-instrument";
 const EMPTY = "preview-empty grid place-items-center text-on-instrument-muted";
@@ -68,10 +68,10 @@ function Carousel({ media }: Pick<SocialPreviewProps, "media">) {
       {media.length === 0 && <div className={EMPTY}>No media in this revision.</div>}
     </div>
     {media.length > 1 && <>
-      <button className="absolute left-2 top-1/2 z-3 grid size-6.5 -translate-y-1/2 place-items-center rounded-full bg-media-plate text-on-instrument [&_svg]:size-3.75" type="button" aria-label="Previous slide" onClick={() => move(-1)}><ChevronLeft /></button>
-      <button className="absolute right-2 top-1/2 z-3 grid size-6.5 -translate-y-1/2 place-items-center rounded-full bg-media-plate text-on-instrument [&_svg]:size-3.75" type="button" aria-label="Next slide" onClick={() => move(1)}><ChevronRight /></button>
-      <span className="unit-stage-slide-count absolute right-2 top-2 z-3 h-5 rounded-control bg-media-plate px-2 font-code type-meta leading-5 text-on-instrument">{index + 1} / {media.length}</span>
-      <span className="unit-stage-dots absolute bottom-2 left-1/2 z-3 flex -translate-x-1/2 gap-1" aria-hidden="true">{media.map((item, itemIndex) => <i className={`size-1.5 rounded-full ${itemIndex === index ? "is-active bg-on-instrument" : "bg-on-instrument/32"}`} key={item.id} />)}</span>
+      <button className="absolute left-2 top-1/2 z-surface-chip grid size-6.5 -translate-y-1/2 place-items-center rounded-full bg-media-plate text-on-instrument [&_svg]:size-3.75" type="button" aria-label="Previous slide" onClick={() => move(-1)}><ChevronLeft /></button>
+      <button className="absolute right-2 top-1/2 z-surface-chip grid size-6.5 -translate-y-1/2 place-items-center rounded-full bg-media-plate text-on-instrument [&_svg]:size-3.75" type="button" aria-label="Next slide" onClick={() => move(1)}><ChevronRight /></button>
+      <span className="unit-stage-slide-count absolute right-2 top-2 z-surface-chip h-5 rounded-control bg-media-plate px-2 font-code type-meta leading-5 text-on-instrument">{index + 1} / {media.length}</span>
+      <span className="unit-stage-dots absolute bottom-2 left-1/2 z-surface-chip flex -translate-x-1/2 gap-1" aria-hidden="true">{media.map((item, itemIndex) => <i className={`size-1.5 rounded-full ${itemIndex === index ? "is-active bg-on-instrument" : "bg-on-instrument/32"}`} key={item.id} />)}</span>
     </>}
   </div>;
 }
@@ -93,7 +93,7 @@ function VerticalShell({ platform, slug, caption, media, guides }: SocialPreview
         : reels ? <><strong>Reels</strong><Camera /></>
           : <span className="unit-social-top-actions flex items-center gap-3.5"><Search /><MoreVertical /></span>}
     </header>
-    <aside className={`unit-social-rail absolute right-3 z-4 grid justify-items-center ${youtube ? "bottom-13.5 gap-2.5" : "bottom-18.75 gap-2.25"} [&_small]:type-xs [&_small]:text-on-instrument [&_small]:[text-shadow:0_1px_2px_var(--instrument-media-frame)] [&_svg]:size-6.25 [&_svg]:[filter:drop-shadow(0_1px_3px_var(--instrument-media-frame))]`} aria-hidden="true">
+    <aside className={`unit-social-rail absolute right-3 z-surface-overlay grid justify-items-center ${youtube ? "bottom-13.5 gap-2.5" : "bottom-18.75 gap-2.25"} [&_small]:type-xs [&_small]:text-on-instrument [&_small]:[text-shadow:0_1px_2px_var(--instrument-media-frame)] [&_svg]:size-6.25 [&_svg]:[filter:drop-shadow(0_1px_3px_var(--instrument-media-frame))]`} aria-hidden="true">
       {tiktok || reels ? <span className={`${AVATAR} size-8.5`}>R</span> : null}
       {tiktok ? <>
         <span className={RAIL_ACTION}><Heart /><small>12.4K</small></span>
@@ -113,13 +113,13 @@ function VerticalShell({ platform, slug, caption, media, guides }: SocialPreview
         <span className={RAIL_ACTION}><Shuffle /><small>Remix</small></span>
       </>}
     </aside>
-    <footer className={`absolute left-3 right-14.5 z-4 ${youtube ? "bottom-4.5" : "bottom-7"}`}>
+    <footer className={`absolute left-3 right-14.5 z-surface-overlay ${youtube ? "bottom-4.5" : "bottom-7"}`}>
       <span className="unit-social-profile flex items-center gap-1.75"><span className="unit-social-handle type-ui">@ralphy</span>{reels && <b className="rounded-control bg-on-instrument/20 px-2 py-0.75 font-code type-mono-md">Follow</b>}{!tiktok && !reels && <b className="rounded-control bg-on-instrument px-2 py-0.75 font-code type-mono-md text-device-body">Subscribe</b>}</span>
       <p className="my-1 line-clamp-2 type-label leading-caption">{caption ?? slug}</p>
       {tiktok || reels ? <span className="unit-social-audio flex items-center gap-1 type-xs [&_svg]:size-2.75"><Music2 /> Original audio · Ralphy</span> : null}
     </footer>
-    {!reels && <span className="unit-social-progress absolute inset-x-0 bottom-0 z-5 h-0.5 bg-on-instrument/22" aria-hidden="true"><i className="block h-full w-social-progress bg-on-instrument/85" /></span>}
-    {guides && <span className="unit-safe-area pointer-events-none absolute bottom-safe-bottom left-safe-x right-safe-x top-safe-top z-6 rounded-cell outline-1 outline-dashed outline-on-instrument/32" aria-hidden="true"><em className="absolute -top-2 left-2.5 bg-media-plate px-1 py-0.5 font-code type-mono-xs not-italic tracking-caps text-on-instrument/72">SAFE AREA</em></span>}
+    {!reels && <span className="unit-social-progress absolute inset-x-0 bottom-0 z-surface-progress h-0.5 bg-on-instrument/22" aria-hidden="true"><i className="block h-full w-social-progress bg-on-instrument/85" /></span>}
+    {guides && <span className="unit-safe-area pointer-events-none absolute bottom-safe-bottom left-safe-x right-safe-x top-safe-top z-surface-guide rounded-cell outline-1 outline-dashed outline-on-instrument/32" aria-hidden="true"><em className="absolute -top-2 left-2.5 bg-media-plate px-1 py-0.5 font-code type-mono-xs not-italic tracking-caps text-on-instrument/72">SAFE AREA</em></span>}
   </article>;
 }
 

@@ -483,7 +483,23 @@ html[data-theme="light"] {
   --blur: none;
 
   /* Stacking scale. Every positioned layer picks one of these; raw z-index values are
-     what made overlay ordering unreviewable. */
+     what made overlay ordering unreviewable.
+
+     Two bands, and the line between them is `--z-sticky`. Below it is the order of things
+     inside one surface -- a card, a media frame, a device mockup -- where a value only means
+     "over the one under it" and nothing outside that surface can see it. From `--z-sticky` up
+     is the app's own stack, where two layers really do have to agree on an order. Thirty-two
+     class strings used to write the small band as a bare number, which is how a badge and an
+     overlay ended up on 3 and 4 with nothing saying which was meant to win. */
+  --z-surface-under: 0;      /* a fill behind the surface's own content */
+  --z-surface-content: 1;    /* the content itself */
+  --z-surface-note: 2;       /* a note or a badge on the content */
+  --z-surface-chip: 3;       /* a chip or a small control standing on media */
+  --z-surface-overlay: 4;    /* a row, rail, footer or popover over that */
+  --z-surface-progress: 5;   /* a progress hairline across the whole surface */
+  --z-surface-guide: 6;      /* a measuring overlay, and a bar floating over a grid */
+  --z-surface-device: 7;     /* device chrome: a notch, a status bar */
+
   --z-base: 1;
   --z-raised: 2;
   --z-sticky: 8;

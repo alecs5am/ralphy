@@ -104,6 +104,20 @@
   --tracking-mono: var(--tracking-mono);
 }
 
+/* Stacking inside one surface. This band is app-wide because the surfaces are: a media frame in
+   the project page, an artifact card in the shared library, a device mockup in the UI kit. The
+   app's own stack stays where the area that owns each layer declares it. */
+@theme inline {
+  --z-index-surface-under: var(--z-surface-under);
+  --z-index-surface-content: var(--z-surface-content);
+  --z-index-surface-note: var(--z-surface-note);
+  --z-index-surface-chip: var(--z-surface-chip);
+  --z-index-surface-overlay: var(--z-surface-overlay);
+  --z-index-surface-progress: var(--z-surface-progress);
+  --z-index-surface-guide: var(--z-surface-guide);
+  --z-index-surface-device: var(--z-surface-device);
+}
+
 /* Type scale: one property, named from the same tokens the stylesheets use. Tailwind's own
    text-* namespace pairs a line-height with every size, and an unpaired size emits an invalid
    line-height that overrides the stylesheet's; a scale of its own sets only the size. */

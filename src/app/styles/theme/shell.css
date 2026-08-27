@@ -20,6 +20,10 @@
   /* ...and the hub's project row: a 7px status dot, the name, its status, then the chevron. */
   --view-hub-project-columns: 7px minmax(0, 1fr) auto 11px;
 
+  /* The island's row when it is open: a 28px status disc, the label, then its figure. The active
+     task and a notification are the same row, so the template is named once rather than twice. */
+  --dynamic-island-row-columns: 28px minmax(0, 1fr) auto;
+
   /* The island closed: one trigger row, and a detail row with no height at all. 32 because that is
      the chrome row's height -- the island is on that row, so its centre has to be the row's 24 and
      its bottom edge the row's, or the 8 gap under the chrome closes to 4 beneath it. */
@@ -72,6 +76,11 @@
   /* The profile menu: a fixed measure that gives way to the window when the window is smaller. */
   --spacing-profile-menu: min(192px, calc(100vw - 16px));
   --spacing-profile-menu-min: min(180px, calc(100vw - 16px));
+
+  /* The hollow status dot's ring. It is a hairline the utility scale cannot state: `outline-1`
+     draws too heavy against the 7px disc and `outline-2` closes it, and the ring is inset so the
+     dot keeps the same outer measure as its two filled siblings. */
+  --spacing-island-ring: 1.5px;
 
   /* The island's plate: how wide it may grow closed, and the width it takes open. */
   --spacing-island-max: min(520px, calc(100vw - 32px));
