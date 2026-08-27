@@ -2,7 +2,7 @@ import { Pause, Play, RotateCcw, RotateCw, Volume2, VolumeX } from "lucide-react
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type WaveSurfer from "wavesurfer.js";
 import { INSTRUMENT_PALETTE } from "@/shared/instrument/palette";
-import { useTheme } from "@/app/providers/ThemeProvider";
+import { useTheme } from "@/shared/lib/ThemeProvider";
 import { MAX_WAVEFORM_DECODE_BYTES, shouldDecodeWaveform } from "../lib/audio-preview";
 import { SnappySlider } from "@/shared/ui/SnappySlider";
 import { PLAYER_CHROME, PLAYER_CONTROL, PLAYER_INK, playerTone, type PlayerTone } from "../lib/tone";

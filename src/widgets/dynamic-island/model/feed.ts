@@ -1,5 +1,5 @@
-import type { AgentChatState } from "@/features/agent-chat/model/useAgentChat";
-import type { MarketplaceLocation } from "@/pages/marketplace/model/navigation";
+import type { AgentChatState } from "@/features/agent-chat";
+import type { MarketplaceLocation } from "@/shared/model/routes";
 import type { WorkbenchRoute } from "@/shared/model/workbench";
 import type { Availability } from "@/shared/instrument/types";
 

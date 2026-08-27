@@ -4,14 +4,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { ArtifactMediaCardDto } from "../electron/ralphy/types";
 import { bridge } from "@/shared/api/ipc";
-import { SharedLibraryScreen } from "@/pages/shared-library/ui/SharedLibraryScreen";
+import { SharedLibraryScreen } from "@/pages/shared-library";
 import {
   SharedLibraryWorkflows,
   SHARED_ARTIFACT_ROLES,
   type SharedLibrarySuggestion,
   type SharedLibraryWorkflowKind,
-} from "@/pages/shared-library/ui/SharedLibraryWorkflows";
-import { presentSharedArtifact, type Availability } from "@/pages/shared-library/lib/presentation";
+} from "@/pages/shared-library";
+import { presentSharedArtifact, type Availability } from "@/pages/shared-library";
 import { createReactHost, type HostNode } from "./react-host";
 
 function artifact(): ArtifactMediaCardDto {

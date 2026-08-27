@@ -6,14 +6,8 @@ import type {
   MarketplacePublicItemDto,
   MarketplacePublicSnapshotDto,
 } from "../electron/media/types";
-import {
-  marketplaceModelProviders,
-  presentMarketplaceSources,
-  projectMarketplaceModel,
-  projectMarketplaceModelDetail,
-  type MarketplaceSourceHealth,
-} from "@/pages/marketplace/lib/presentation";
-import type { MarketplaceQueryState } from "@/pages/marketplace/model/navigation";
+import { marketplaceModelProviders, presentMarketplaceSources, projectMarketplaceModel, projectMarketplaceModelDetail, type MarketplaceSourceHealth } from "@/pages/marketplace";
+import type { MarketplaceQueryState } from "@/pages/marketplace";
 
 const machine = {
   platform: "macOS",

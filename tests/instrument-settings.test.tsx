@@ -8,8 +8,8 @@ import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import { SettingsScreen } from "@/pages/settings/ui/SettingsScreen";
-import { Segmented } from "@/pages/settings/ui/rows";
+import { SettingsScreen } from "@/pages/settings";
+import { Segmented } from "@/pages/settings";
 import type { ThemePreference } from "@/shared/instrument/types";
 import { createReactHost, type HostNode } from "./react-host";
 import { builtStylesheetLink } from "./style-sources";

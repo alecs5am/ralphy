@@ -2,24 +2,17 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
-import {
-  MarketplaceBrowse,
-  MarketplaceDiscover,
-  MarketplaceResults,
-  marketplaceItemDomId,
-} from "@/pages/marketplace/ui/MarketplaceBrowse";
-import { MarketplaceHeader } from "@/pages/marketplace/ui/MarketplaceHeader";
-import {
-  MarketplaceScreenView,
-} from "@/pages/marketplace/ui/MarketplaceScreen";
+import { MarketplaceBrowse, MarketplaceDiscover, MarketplaceResults, marketplaceItemDomId } from "@/pages/marketplace";
+import { MarketplaceHeader } from "@/pages/marketplace";
+import { MarketplaceScreenView } from "@/pages/marketplace";
 import type {
   MarketplaceItemPresentation,
   MarketplaceSnapshot,
-} from "@/pages/marketplace/lib/presentation";
+} from "@/pages/marketplace";
 import type {
   MarketplaceLocation,
   MarketplaceQueryState,
-} from "@/pages/marketplace/model/navigation";
+} from "@/pages/marketplace";
 import { createReactHost } from "./react-host";
 
 const defaultQuery: MarketplaceQueryState = {

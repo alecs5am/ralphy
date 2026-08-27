@@ -2,13 +2,13 @@ import { act, createElement, type ReactElement } from "react";
 import { flushSync } from "react-dom";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { MediaCardDto } from "../electron/ralphy/types";
-import { MediaCardTile, VirtualAssetGrid } from "@/entities/media/ui/VirtualAssetGrid";
-import { AudioWaveform } from "@/entities/media/ui/AudioWaveform";
-import { MAX_WAVEFORM_DECODE_BYTES } from "@/entities/media/lib/audio-preview";
+import { MediaCardTile, VirtualAssetGrid } from "@/pages/project";
+import { AudioWaveform } from "@/entities/media";
+import { MAX_WAVEFORM_DECODE_BYTES } from "@/entities/media";
 import type { ProjectPreview, ProjectReference } from "@/shared/api/ipc";
-import { assetGridGeometry, createPreviewScheduler, mediaFallbackAspectRatio, previewScheduler } from "@/entities/media/lib/media";
-import { InstrumentShell } from "@/widgets/instrument-shell/ui/InstrumentShell";
-import { useRememberedScroll } from "@/pages/project/lib/scroll-memory";
+import { assetGridGeometry, createPreviewScheduler, mediaFallbackAspectRatio, previewScheduler } from "@/entities/media";
+import { InstrumentShell } from "@/app/layout/InstrumentShell";
+import { useRememberedScroll } from "@/pages/project";
 import { createReactHost, type HostNode } from "./react-host";
 
 const waveSurfer = vi.hoisted(() => ({

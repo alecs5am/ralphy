@@ -3,7 +3,7 @@ import {
   SHARED_SELECT_OVERLAY_OWNERS,
   type InstrumentOverlayId,
   type InstrumentSharedSelectOwnerId,
-} from "./overlay-registry";
+} from "@/shared/instrument/overlay-registry";
 import {
   CHAT_RAIL_ROUTE_KEYS,
   PRODUCTION_GLOBAL_OVERLAY_ROUTES,
@@ -13,10 +13,10 @@ import {
   type ProductionLocalOverlayId,
 } from "./production-screen-states";
 import type {
-  InstrumentRouteKey,
   InstrumentScenarioState,
   InstrumentScreenStateDescriptor,
-} from "./screen-state-registry";
+} from "@/shared/instrument/screen-state-registry";
+import type { InstrumentRouteKey } from "./routes";
 
 export type InstrumentScenarioTheme = "light" | "dark";
 export type InstrumentViewport = "1440x900" | "1280x800" | "1100x720";

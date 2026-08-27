@@ -11,8 +11,8 @@ import {
   applyResolvedTheme,
   parseThemePreference,
   resolveTheme,
-} from "@/app/providers/theme";
-import { ThemeProvider, useTheme } from "@/app/providers/ThemeProvider";
+} from "@/shared/lib/theme";
+import { ThemeProvider, useTheme } from "@/shared/lib/ThemeProvider";
 import { auditAssetManifest } from "./instrument-color-audit";
 import { createReactHost } from "./react-host";
 

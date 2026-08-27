@@ -12,7 +12,7 @@ import {
   PRODUCTION_LOCAL_OVERLAY_TARGETS,
   PRODUCTION_GLOBAL_OVERLAY_ROUTES,
   PRODUCTION_SCREEN_STATES,
-} from "@/shared/instrument/production-screen-states";
+} from "@/app/instrument/production-screen-states";
 import {
   INSTRUMENT_SCENARIOS,
   REQUIRED_SCENARIO_THEMES,
@@ -20,7 +20,7 @@ import {
   assertInstrumentScenarioCompleteness,
   expandInstrumentScenarioCases,
   type InstrumentScenario,
-} from "@/shared/instrument/scenarios";
+} from "@/app/instrument/scenarios";
 import type { InstrumentRouteKey } from "@/shared/instrument/screen-state-registry";
 
 const key = (...parts: readonly (string | null)[]) => parts.map((part) => part ?? "-").join("::");

@@ -7,7 +7,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { MemoryDetailDto, MemoryTier, MemoryType } from "../../../../electron/ralphy/types";
 import type { MemoryMutation } from "../../../../electron/ralphy/memory-reader";
-import { entityDragProps } from "@/features/agent-chat/lib/attachments";
+import { entityDragProps } from "@/features/agent-chat";
 import { bridge } from "@/shared/api/ipc";
 import { SelectMenu } from "@/shared/ui/SelectMenu";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "@/shared/instrument/screen-state-registry";

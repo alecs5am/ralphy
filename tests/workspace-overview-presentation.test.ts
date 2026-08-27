@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { WorkspaceOverviewDto } from "../electron/ralphy/types";
-import { presentWorkspaceOverview } from "@/pages/workspace/lib/overview-presentation";
+import { presentWorkspaceOverview } from "@/pages/workspace";
 
 const populatedOverview = {
   workspace: { id: "workspace-1", slug: "launch", name: "Launch Studio", rowVersion: 1, createdAt: 1, updatedAt: 2 },

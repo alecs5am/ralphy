@@ -1,6 +1,6 @@
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { ProjectControls } from "@/widgets/project-header/ui/ProjectControls";
+import { ProjectControls } from "@/widgets/project-header";
 import { InstrumentScreenRoot, type InstrumentScreenStateDescriptor } from "@/shared/instrument/screen-state-registry";
 import { ActivityTimeline, activityInstrumentStates } from "./ActivityTimeline";
 import { DocumentsPanel, documentsInstrumentStates } from "./DocumentsPanel";
@@ -8,7 +8,7 @@ import { MediaPanel } from "./MediaPanel";
 import { MediaViewer } from "./MediaViewer";
 import { UnitsPanel, unitsInstrumentStates } from "./UnitsPanel";
 import { bridge, type ProjectSummary } from "@/shared/api/ipc";
-import type { DomainPage } from "@/entities/project/model/domain";
+import type { DomainPage } from "@/entities/project";
 import { createProjectScreenController, type ProjectScreenApi, type ProjectScreenController, type ProjectScreenSnapshot } from "../model/screen-controller";
 import { COMMAND_BUTTON, EMPTY_SECTION, PROJECT_LOCAL_ERROR, PROJECT_SKELETON } from "@/shared/ui/route-chrome";
 

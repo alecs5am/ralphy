@@ -3,8 +3,8 @@ import { describe, expect, test, vi } from "vitest";
 
 import type { ProjectSummary } from "../electron/media/types";
 import type { BuildDto, CompositionDto, CompositionRevisionDto } from "../electron/ralphy/types";
-import { ProjectScreenView } from "@/pages/project/ui/ProjectScreen";
-import { createProjectScreenController, type ProjectScreenController } from "@/pages/project/model/screen-controller";
+import { ProjectScreenView } from "@/pages/project";
+import { createProjectScreenController, type ProjectScreenController } from "@/pages/project";
 import { createReactHost } from "./react-host";
 
 const project: ProjectSummary = {

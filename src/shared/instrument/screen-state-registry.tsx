@@ -1,28 +1,21 @@
 import { cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
 
-import type { ProjectView } from "@/widgets/project-header/ui/ProjectControls";
-import type {
-  MarketplaceCategory,
-  MarketplaceLibrarySection,
-} from "@/pages/marketplace/model/navigation";
-import type { SettingsPageId } from "@/pages/settings/lib/registry";
-import type { WorkspacePage } from "../model/workbench";
-
-export type InstrumentRouteKey =
-  | `startup.${"welcome" | "library" | "migration"}`
-  | `workspace.${WorkspacePage}`
-  | `project.${ProjectView}`
-  | `settings.${SettingsPageId}`
-  | `marketplace.${"discover" | "results" | "collection" | "detail"}`
-  | `marketplace.category.${MarketplaceCategory}`
-  | `marketplace.library.${MarketplaceLibrarySection}`
-  | `marketplace.unavailable-detail.${"prompts" | "components" | "skills"}`;
-
+/**
+ * What a screen declares about itself: which route it is, which states it can be in, and which
+ * landmarks a reader can find in it.
+ *
+ * The route *key* is a plain string here on purpose. The union of every key the app has is
+ * `InstrumentRouteKey` in `app/instrument/routes.ts`, because only the composition root is
+ * allowed to know every route; this registry sits under every page that calls it and so cannot
+ * name them. A key that does not belong to the union is caught where the union lives -- the
+ * scenario catalogue maps route to descriptor, and its coverage is asserted exhaustively.
+ */
 export type InstrumentScenarioState =
   | "restoring" | "loading" | "ready" | "empty" | "offline" | "partial" | "unavailable" | "error"
   | "selected" | "disabled" | "editing" | "conflict" | "history" | "viewer" | "playing" | "scheduling" | "mock-review";
 
-export interface InstrumentScreenStateDescriptor<Route extends InstrumentRouteKey = InstrumentRouteKey> {
+export interface InstrumentScreenStateDescriptor<Route extends string = string> {
+  /** One key per screen. The union of every key the app has is `InstrumentRouteKey` in `app`. */
   routeKey: Route;
   states: readonly InstrumentScenarioState[];
   rootMarker: string;

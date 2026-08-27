@@ -2,7 +2,7 @@ import { Layers3 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { OverviewPublicationDto, ProjectOverviewDto, UnitDto } from "../../../../electron/ralphy/types";
-import { entityDragProps } from "@/features/agent-chat/lib/attachments";
+import { entityDragProps } from "@/features/agent-chat";
 import { bridge, type ProjectSummary } from "@/shared/api/ipc";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "@/shared/instrument/screen-state-registry";
 import { WORKSPACE_PAGE_LABELS } from "@/shared/model/workbench";

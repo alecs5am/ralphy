@@ -17,7 +17,7 @@ import {
   VIEW_PANEL_MIN,
   workspacePageForTab,
   WORKSPACE_VIEW_TYPES,
-} from "@/widgets/view-panel/model/view-panel";
+} from "@/widgets/view-panel";
 import {
   EMPTY_VIEW_PANEL,
   normalizeTabSet,

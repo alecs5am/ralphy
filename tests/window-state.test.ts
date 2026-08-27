@@ -29,7 +29,7 @@ describe("window state", () => {
 
   test("uses one solid hidden-inset native title bar without renderer traffic lights", () => {
     const main = readFileSync("electron/main.ts", "utf8");
-    const shell = readFileSync("src/widgets/instrument-shell/ui/InstrumentShell.tsx", "utf8");
+    const shell = readFileSync("src/app/layout/InstrumentShell.tsx", "utf8");
     expect(main).toMatch(/titleBarStyle:\s*"hiddenInset"/);
     expect(main).toMatch(/trafficLightPosition:\s*\{\s*x:\s*22,\s*y:\s*16\s*\}/);
     expect(main).not.toMatch(/\bvibrancy\s*:/);

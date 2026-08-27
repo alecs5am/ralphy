@@ -6,9 +6,9 @@ import { describe, expect, test, vi } from "vitest";
 import type { UnitDto, UnitRevisionDto } from "../electron/ralphy/types";
 import type { ProjectSummary } from "@/shared/api/ipc";
 import { bridge } from "@/shared/api/ipc";
-import * as screen from "@/pages/project/ui/ProjectScreen";
-import { UnitSocialPreview } from "@/entities/unit/ui/UnitSocialPreview";
-import type { SocialTarget, UnitMedia } from "@/entities/unit/lib/unit-previews";
+import * as screen from "@/pages/project";
+import { UnitSocialPreview } from "@/pages/project";
+import type { SocialTarget, UnitMedia } from "@/entities/unit";
 import { createReactHost, type HostNode } from "./react-host";
 import { WINDOW_CLOSE } from "@/shared/ui/Window";
 
@@ -19,7 +19,7 @@ const projectTheme = source("src/app/styles/theme/project.css");
 const projectScreen = source("src/pages/project/ui/ProjectScreen.tsx");
 const unitsPanel = source("src/pages/project/ui/UnitsPanel.tsx");
 const unitViewer = source("src/pages/project/ui/UnitViewer.tsx");
-const unitSocial = source("src/entities/unit/ui/UnitSocialPreview.tsx");
+const unitSocial = source("src/pages/project/ui/UnitSocialPreview.tsx");
 const phoneMockup = source("src/shared/ui/IPhoneMockup.tsx");
 
 const project: ProjectSummary = {

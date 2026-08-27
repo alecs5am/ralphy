@@ -7,7 +7,7 @@ import {
   saveAgentChats,
   type AgentChatState,
   type StorageLike,
-} from "@/features/agent-chat/model/useAgentChat";
+} from "@/features/agent-chat";
 
 class MemoryStorage implements StorageLike {
   readonly values = new Map<string, string>();

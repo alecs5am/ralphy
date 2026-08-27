@@ -11,11 +11,11 @@ import type { WorkspaceOverviewDto } from "../electron/ralphy/types";
 import { bridge } from "@/shared/api/ipc";
 import {
   createWorkspaceScreenController,
-} from "@/pages/workspace/model/screen-controller";
+} from "@/pages/workspace";
 import {
   WorkspaceScreen,
   WorkspaceScreenView,
-} from "@/pages/workspace/ui/WorkspaceScreen";
+} from "@/pages/workspace";
 import { createReactHost, reactHostGlobalKeys } from "./react-host";
 
 const overview: WorkspaceOverviewDto = {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { browserLabel, browserUrlFor } from "@/widgets/view-panel/ui/ViewBrowser";
+import { browserLabel, browserUrlFor } from "@/widgets/view-panel";
 
 describe("view panel browser", () => {
   test("reads what the operator typed as an address or as a search", () => {

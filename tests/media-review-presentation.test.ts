@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { MediaCardDto } from "../electron/ralphy/types";
-import { productionMediaReviewStatus } from "@/features/media-review/lib/presentation";
+import { productionMediaReviewStatus } from "@/features/media-review";
 
 const artifact = {
   ref: { type: "artifact", id: "artifact-1" }, workspaceId: "workspace-1", projectId: "project-1",

@@ -8,13 +8,13 @@ import type { ProjectSummary } from "@/shared/api/ipc";
 import {
   WorkspaceScreenView,
   createWorkspaceScreenController,
-} from "@/pages/workspace/ui/WorkspaceScreen";
-import type { WorkspaceMomentumPresentation, WorkspaceOverviewPresentation } from "@/pages/workspace/lib/overview-presentation";
-import { AccessibleTrendChart, WorkspaceMomentum } from "@/pages/workspace/ui/WorkspacePerformance";
-import { WorkspacePlanAndOutcomes } from "@/pages/workspace/ui/WorkspacePlanAndOutcomes";
-import { WorkspaceInsights } from "@/pages/workspace/ui/WorkspaceInsights";
-import { WorkspaceOperations } from "@/pages/workspace/ui/WorkspaceOperations";
-import { WorkspaceOverviewHeader } from "@/pages/workspace/ui/WorkspaceOverviewHeader";
+} from "@/pages/workspace";
+import type { WorkspaceMomentumPresentation, WorkspaceOverviewPresentation } from "@/pages/workspace";
+import { AccessibleTrendChart, WorkspaceMomentum } from "@/pages/workspace";
+import { WorkspacePlanAndOutcomes } from "@/pages/workspace";
+import { WorkspaceInsights } from "@/pages/workspace";
+import { WorkspaceOperations } from "@/pages/workspace";
+import { WorkspaceOverviewHeader } from "@/pages/workspace";
 import { createReactHost } from "./react-host";
 
 const populatedOverview = {

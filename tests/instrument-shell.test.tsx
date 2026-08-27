@@ -1,12 +1,8 @@
 import { act, useState } from "react";
 import { describe, expect, test, vi } from "vitest";
 
-import {
-  InstrumentShell,
-  InstrumentRightRailPortal,
-  resolveRightRailMode,
-  useInstrumentRightRail,
-} from "@/widgets/instrument-shell/ui/InstrumentShell";
+import { InstrumentShell } from "@/app/layout/InstrumentShell";
+import { InstrumentRightRailPortal, resolveRightRailMode, useInstrumentRightRail } from "@/shared/lib/instrument-rail";
 import { createReactHost, type HostNode } from "./react-host";
 
 async function settle() {

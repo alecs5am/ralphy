@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import { AgentTaggedText, tagQueryAt } from "@/features/agent-chat/ui/AgentComposer";
+import { AgentTaggedText, tagQueryAt } from "@/features/agent-chat";
 
 describe("the composer's `@` rule", () => {
   test("opens on a fresh `@` and on one after a space", () => {

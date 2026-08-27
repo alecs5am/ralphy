@@ -3,16 +3,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { CatalogResult } from "../electron/media/types";
 import { bridge } from "@/shared/api/ipc";
-import { ThemeProvider, useTheme } from "@/app/providers/ThemeProvider";
-import { MarketplaceScreen } from "@/pages/marketplace/ui/MarketplaceScreen";
-import {
-  MARKETPLACE_SIDEBAR_WIDTH,
-  isMarketplaceLocation,
-  marketplaceReducer,
-  readMarketplaceNavigation,
-  writeMarketplaceNavigation,
-  type MarketplaceLocation,
-} from "@/pages/marketplace/model/navigation";
+import { ThemeProvider, useTheme } from "@/shared/lib/ThemeProvider";
+import { MarketplaceScreen } from "@/pages/marketplace";
+import { MARKETPLACE_SIDEBAR_WIDTH, isMarketplaceLocation, marketplaceReducer, readMarketplaceNavigation, writeMarketplaceNavigation } from "@/pages/marketplace";
+import { type MarketplaceLocation } from "@/shared/model/routes";
 import type { WorkbenchPreferences } from "@/shared/model/workbench";
 import type { ThemePreference } from "@/shared/instrument/types";
 import { createReactHost, type HostNode } from "./react-host";
@@ -553,8 +547,8 @@ describe("marketplace navigation", () => {
       requestAnimationFrame: { configurable: true, value: window.requestAnimationFrame },
       cancelAnimationFrame: { configurable: true, value: window.cancelAnimationFrame },
     });
-    const actualChat = await vi.importActual<typeof import("@/features/agent-chat/model/useAgentChat")>("../src/features/agent-chat/model/useAgentChat");
-    const actualPanels = await vi.importActual<typeof import("@/widgets/utility-panels/ui/UtilityPanels")>("../src/widgets/utility-panels/ui/UtilityPanels");
+    const actualChat = await vi.importActual<typeof import("@/features/agent-chat")>("../src/features/agent-chat/model/useAgentChat");
+    const actualPanels = await vi.importActual<typeof import("@/widgets/utility-panels")>("../src/widgets/utility-panels/ui/UtilityPanels");
     const { createRoot } = await import("react-dom/client");
     const root = createRoot(host.container as unknown as Element);
     function NoRootChat() {

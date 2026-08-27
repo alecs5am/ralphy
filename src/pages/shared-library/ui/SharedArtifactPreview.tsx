@@ -1,9 +1,9 @@
 import { FileText, ImageOff } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { ProjectPreview } from "@/shared/api/ipc";
-import { AudioWaveform } from "@/entities/media/ui/AudioWaveform";
-import { ImageViewport } from "@/entities/media/ui/ImageViewport";
-import { VideoPlayer } from "@/entities/media/ui/VideoPlayer";
+import { AudioWaveform } from "@/entities/media";
+import { ImageViewport } from "@/entities/media";
+import { VideoPlayer } from "@/entities/media";
 import type { SharedArtifactPresentation } from "../lib/presentation";
 
 type PreviewState = { status: "loading" } | { status: "ready"; value: ProjectPreview } | { status: "unavailable"; reason: string };

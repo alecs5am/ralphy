@@ -3,14 +3,14 @@ import { act, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, test, vi } from "vitest";
 import type { MediaCardDto, MediaGenerationDetailDto, RunObjectMediaCardDto } from "../electron/ralphy/types";
-import { VirtualAssetGrid, MediaCardTile } from "@/entities/media/ui/VirtualAssetGrid";
-import { AudioWaveform } from "@/entities/media/ui/AudioWaveform";
-import { ImageViewport } from "@/entities/media/ui/ImageViewport";
-import { compactVideoStartTime, VideoPlayer } from "@/entities/media/ui/VideoPlayer";
-import { ProjectScreenView, createProjectScreenController } from "@/pages/project/ui/ProjectScreen";
+import { VirtualAssetGrid, MediaCardTile } from "@/pages/project";
+import { AudioWaveform } from "@/entities/media";
+import { ImageViewport } from "@/entities/media";
+import { compactVideoStartTime, VideoPlayer } from "@/entities/media";
+import { ProjectScreenView, createProjectScreenController } from "@/pages/project";
 import { bridge, type ProjectSummary } from "@/shared/api/ipc";
 import { createReactHost, type HostNode } from "./react-host";
-import { MEDIA_REVIEW_UNSUPPORTED_REASON as REVIEW_REASON } from "@/features/media-review/lib/presentation";
+import { MEDIA_REVIEW_UNSUPPORTED_REASON as REVIEW_REASON } from "@/features/media-review";
 
 const card: MediaCardDto = {
   ref: { type: "artifact", id: "artifact-1" },

@@ -1,7 +1,7 @@
 import { Bell, ChevronDown, CircleAlert, CircleCheck, LoaderCircle } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
-import { projectGlyphAsset, projectGlyphVars } from "@/entities/project/lib/project-glyph";
+import { projectGlyphAsset, projectGlyphVars } from "@/shared/lib/project-glyph";
 import type { DynamicIslandFeed, IslandContext, IslandNotification } from "../model/feed";
 
 let hasAnimatedMockNotification = false;

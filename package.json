@@ -30,6 +30,7 @@
     "icon:mac": "zsh scripts/build-mac-icon.sh",
     "package:mac": "bun run build && bun run icon:mac && node scripts/package-mac.mjs",
     "preview": "vite preview",
+    "audit:arch": "node scripts/audit-architecture.mjs",
     "audit:style": "node scripts/audit-style-hygiene.mjs",
     "audit:style:strict": "STYLE_AUDIT_STRICT=1 node scripts/audit-style-hygiene.mjs"
   },

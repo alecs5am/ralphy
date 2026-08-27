@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { projectMockDynamicIslandFeed } from "@/widgets/dynamic-island/model/mock";
+import { projectMockDynamicIslandFeed } from "@/widgets/dynamic-island";
 
 const workspace = { id: "ux", name: "UX Testing Lab" } as never;
 

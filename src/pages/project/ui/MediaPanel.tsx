@@ -3,15 +3,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ProjectMediaFilter, ProjectMediaKind } from "../../../../electron/media/types";
 import type { MediaCardDto, MediaProvenance } from "../../../../electron/ralphy/types";
 import type { ProjectSummary } from "@/shared/api/ipc";
-import { VirtualAssetGrid } from "@/entities/media/ui/VirtualAssetGrid";
+import { VirtualAssetGrid } from "..";
 import { SelectMenu, type SelectMenuOption } from "@/shared/ui/SelectMenu";
 import { SnappySlider } from "@/shared/ui/SnappySlider";
 import { bridge } from "@/shared/api/ipc";
 import { defineInstrumentScreenStates, InstrumentScreenRoot, type InstrumentScenarioState } from "@/shared/instrument/screen-state-registry";
-import type { DomainPage } from "@/entities/project/model/domain";
+import type { DomainPage } from "@/entities/project";
 import type { ProjectScreenController, ProjectScreenSnapshot } from "../model/screen-controller";
 import { Keycap } from "@/shared/ui/Keycap";
-import { useMediaReview } from "@/features/media-review/ui/MediaReviewMenu";
+import { useMediaReview } from "@/features/media-review";
 import { COMMAND_BUTTON, EMPTY_SECTION, PROJECT_LOCAL_ERROR, PROJECT_LOCAL_ERROR_ROW, PROJECT_SKELETON } from "@/shared/ui/route-chrome";
 
 const lifecycleOptions: Array<SelectMenuOption<ProjectMediaFilter>> = [

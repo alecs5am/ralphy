@@ -1,9 +1,11 @@
 import type { ActivityDto, ArtifactMediaCardDto, ArtifactRevisionDto, BuildDto, BuildOutputDto, CompositionDto, CompositionInputDto, CompositionRevisionDto, CompositionSourceDto, DocumentDetailDto, DocumentDto, DocumentSearchDto, EvaluationDto, JsonValue, MediaCardDto, MediaGenerationDetailDto, MediaGenerationTarget, UnitDto, UnitItemDto, UnitPresentationDto, UnitRevisionDto } from "../../../../electron/ralphy/types";
 import type { CompositionOutputPreview } from "../../../../electron/ralphy/project-reader";
 import type { ActivityRunDetail, MediaWorkbenchBridge, ProjectMediaQuery, ProjectSummary, ProjectTab } from "../../../../electron/media/types";
-import { createProjectDomainState, projectDomainReducer, type DomainRow, type ProjectDomainState } from "@/entities/project/model/domain";
+import { createProjectDomainState, projectDomainReducer, type DomainRow, type ProjectDomainState } from "@/entities/project";
 
-export type ProjectView = Exclude<ProjectTab, "compositions">;
+import type { ProjectView } from "@/shared/model/routes";
+
+export type { ProjectView };
 export interface DocumentPreview {
   status: "idle" | "loading" | "ready" | "error";
   value: { revisionId: string; format: string; text: string; truncated: boolean } | null;

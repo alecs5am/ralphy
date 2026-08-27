@@ -3,13 +3,13 @@ import { AlertCircle, Braces, FileText, Pilcrow, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { DocumentDetailDto, DocumentDto, DocumentSearchDto } from "../../../../electron/ralphy/types";
-import { entityDragProps } from "@/features/agent-chat/lib/attachments";
+import { entityDragProps } from "@/features/agent-chat";
 import { JsonDocumentView } from "@/shared/ui/JsonDocumentView";
 import { MarkdownView, PLAIN_TEXT_VIEW } from "@/shared/ui/MarkdownView";
 import { GooeyTabs } from "@/shared/ui/GooeyTabs";
 import { WINDOW, WINDOW_TITLEBAR } from "@/shared/ui/Window";
 import { defineInstrumentScreenStates, InstrumentScreenRoot, type InstrumentScenarioState } from "@/shared/instrument/screen-state-registry";
-import type { DomainPage } from "@/entities/project/model/domain";
+import type { DomainPage } from "@/entities/project";
 import type { ProjectScreenController, ProjectScreenSnapshot } from "../model/screen-controller";
 import { AutoCursorTail } from "./AutoCursorTail";
 import { useRememberedScroll } from "../lib/scroll-memory";

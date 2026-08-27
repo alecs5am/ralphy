@@ -3,9 +3,9 @@ import { ChevronLeft, ChevronRight, ExternalLink, FileText, ImageOff, PanelRight
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { ArtifactMediaCardDto, ArtifactRevisionDto } from "../../../../electron/ralphy/types";
 import { isSupportedFontPreviewMime } from "../../../../shared/font-preview";
-import { AudioWaveform } from "@/entities/media/ui/AudioWaveform";
-import { ImageViewport } from "@/entities/media/ui/ImageViewport";
-import { VideoPlayer } from "@/entities/media/ui/VideoPlayer";
+import { AudioWaveform } from "@/entities/media";
+import { ImageViewport } from "@/entities/media";
+import { VideoPlayer } from "@/entities/media";
 import { bridge } from "@/shared/api/ipc";
 import { presentSharedArtifact, type Availability, type SharedArtifactPresentation } from "../lib/presentation";
 import { Modal } from "@/shared/ui/Modal";

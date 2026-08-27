@@ -8,7 +8,7 @@ import {
   monthDays,
   weekDays,
   zonedDateTimeToEpoch,
-} from "@/pages/calendar/lib/presentation";
+} from "@/pages/calendar";
 
 const base: CalendarEventDto = {
   id: "event_1", rowVersion: 1, unitId: "unit_1", unitRevisionId: "revision_1",

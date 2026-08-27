@@ -3,7 +3,7 @@ import { act } from "react";
 import { describe, expect, test, vi } from "vitest";
 import type { ArtifactRevisionDto, DocumentSearchDto, MediaCardDto, MediaGenerationDetailDto, ProjectOverviewDto, UnitDto, UnitRevisionDto } from "../electron/ralphy/types";
 import type { ProjectSummary } from "@/shared/api/ipc";
-import * as screen from "@/pages/project/ui/ProjectScreen";
+import * as screen from "@/pages/project";
 import { bridge } from "@/shared/api/ipc";
 import { createReactHost, type HostNode } from "./react-host";
 

@@ -1,4 +1,4 @@
-import type { ResolvedTheme, ThemePreference } from "@/shared/instrument/types";
+import type { ResolvedTheme, ThemePreference } from "../instrument/types";
 
 export const THEME_PREFERENCES = ["system", "dark", "light"] as const satisfies readonly ThemePreference[];
 

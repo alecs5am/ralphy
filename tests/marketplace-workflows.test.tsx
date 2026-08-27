@@ -5,18 +5,11 @@ import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { CatalogResult } from "../electron/media/types";
 import { bridge } from "@/shared/api/ipc";
-import { MarketplaceScreenView } from "@/pages/marketplace/ui/MarketplaceScreen";
-import {
-  MarketplaceActionReview,
-  MarketplaceDownloads,
-  MarketplaceTargetChooser,
-  marketplaceTargets,
-  type MarketplaceDownloadPresentation,
-  type MarketplaceWorkflowKind,
-} from "@/pages/marketplace/ui/MarketplaceWorkflows";
+import { MarketplaceScreenView } from "@/pages/marketplace";
+import { MarketplaceActionReview, MarketplaceDownloads, MarketplaceTargetChooser, marketplaceTargets, type MarketplaceDownloadPresentation, type MarketplaceWorkflowKind } from "@/pages/marketplace";
 import type { WorkbenchRoute } from "@/shared/model/workbench";
-import type { MarketplaceLocation, MarketplaceQueryState } from "@/pages/marketplace/model/navigation";
-import type { MarketplaceSnapshot } from "@/pages/marketplace/lib/presentation";
+import type { MarketplaceLocation, MarketplaceQueryState } from "@/pages/marketplace";
+import type { MarketplaceSnapshot } from "@/pages/marketplace";
 import { createReactHost, type HostNode } from "./react-host";
 
 const marketplaceStyles = readFileSync(new URL("../src/app/styles/marketplace.css", import.meta.url), "utf8");

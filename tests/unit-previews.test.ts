@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import type { UnitItemDto, UnitPresentationDto } from "../electron/ralphy/types";
-import { preferredUnitPoster, resolveUnitMedia, socialTargets, type UnitMedia } from "@/entities/unit/lib/unit-previews";
+import { preferredUnitPoster, resolveUnitMedia, socialTargets, type UnitMedia } from "@/entities/unit";
 
 const project = { workspaceId: "workspace-1", projectId: "project-1" };
 

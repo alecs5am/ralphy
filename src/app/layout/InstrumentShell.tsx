@@ -1,7 +1,5 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -9,7 +7,6 @@ import {
   type CSSProperties,
   type ReactElement,
   type ReactNode,
-  type ReactPortal,
 } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, ArrowRight, LayoutGrid, MessageSquare, PanelLeft } from "lucide-react";
@@ -17,7 +14,17 @@ import { ArrowLeft, ArrowRight, LayoutGrid, MessageSquare, PanelLeft } from "luc
 import { ResizeHandle } from "@/shared/ui/ResizeHandle";
 import { InstrumentOverlay } from "@/shared/instrument/overlay-registry";
 import type { InstrumentRightRailMode, InstrumentRightRailOwner } from "@/shared/instrument/types";
-import { VIEW_PANEL_DEFAULT, VIEW_PANEL_MIN } from "@/widgets/view-panel/model/view-panel";
+import {
+  InstrumentScrollProvider,
+  useOptionalInstrumentScroll,
+  type InstrumentScrollContextValue,
+} from "@/shared/lib/instrument-scroll";
+import {
+  InstrumentRightRailProvider,
+  resolveRightRailMode,
+  type InstrumentRightRailProviderValue,
+} from "@/shared/lib/instrument-rail";
+import { VIEW_PANEL_DEFAULT, VIEW_PANEL_MIN } from "@/widgets/view-panel";
 import type { WorkbenchLens } from "@/shared/model/workbench";
 import { ICON_BUTTON, IconButton } from "@/shared/ui/IconButton";
 
@@ -39,28 +46,6 @@ const RIGHT_RAIL_MAX = 1_000;
 const LEFT_MIN = 216;
 const LEFT_MAX = 420;
 const LEFT_DEFAULT = 260;
-
-export interface InstrumentScrollContextValue {
-  element: HTMLElement | null;
-  /* Where a desk-level floating control mounts. It is the column rather than the scroller so
-     the control keeps still while the desk scrolls under it, and it is centred on the project
-     rather than on the window. */
-  floatHost: HTMLElement | null;
-  width: number;
-  height: number;
-  routeScrollKey: string;
-  getOffset(): number;
-  scrollToOffset(offset: number, behavior?: ScrollBehavior): void;
-  capture(): { key: string; offset: number };
-  restore(snapshot: { key: string; offset: number }): void;
-}
-
-export interface InstrumentRightRailContextValue {
-  mode: InstrumentRightRailMode;
-  owner: InstrumentRightRailOwner;
-  open(opener: HTMLElement | null): void;
-  close(): void;
-}
 
 export interface InstrumentShellProps {
   sidebar: ReactNode;
@@ -112,38 +97,11 @@ interface PendingRouteTransition {
   offset: number;
 }
 
-interface InternalRightRailContextValue extends InstrumentRightRailContextValue {
-  host: HTMLElement | null;
-  register(owner: InstrumentRightRailOwner, label: string): () => void;
-}
-
 // A missing or NaN width must not collapse the layout maths, so an unusable request falls
 // back to the column's own default rather than propagating into the dock calculation.
 function clampWidth(requested: number, min: number, max: number, fallback: number): number {
   const value = Number.isFinite(requested) ? Math.round(requested) : fallback;
   return Math.min(Math.max(value, min), Math.max(min, max));
-}
-
-const ScrollContext = createContext<InstrumentScrollContextValue | null>(null);
-const RightRailContext = createContext<InternalRightRailContextValue | null>(null);
-
-export function resolveRightRailMode(input: {
-  dockEligible: boolean;
-  preferenceOpen: boolean;
-  overlayOpen: boolean;
-}): InstrumentRightRailMode {
-  if (input.dockEligible) return input.preferenceOpen ? "docked" : "closed";
-  return input.overlayOpen ? "overlay" : "closed";
-}
-
-export function useInstrumentScroll(): InstrumentScrollContextValue {
-  const value = useContext(ScrollContext);
-  if (!value) throw new Error("useInstrumentScroll must be used inside InstrumentShell");
-  return value;
-}
-
-export function useOptionalInstrumentScroll(): InstrumentScrollContextValue | null {
-  return useContext(ScrollContext);
 }
 
 /* Whether the floats in this subtree may escape to the shared column. They have to escape while
@@ -152,31 +110,9 @@ export function useOptionalInstrumentScroll(): InstrumentScrollContextValue | nu
    that escaped unconditionally outlived the surface it belongs to and stood over the other mode.
    Denied the escape it renders where it was written instead, under its own surface's `hidden`. */
 export function InstrumentFloatHost({ escape, children }: { escape: boolean; children: ReactNode }) {
-  const outer = useContext(ScrollContext);
+  const outer = useOptionalInstrumentScroll();
   const value = useMemo(() => outer && (escape ? outer : { ...outer, floatHost: null }), [outer, escape]);
-  return value ? <ScrollContext.Provider value={value}>{children}</ScrollContext.Provider> : children;
-}
-
-export function useInstrumentRightRail(): InstrumentRightRailContextValue {
-  const value = useContext(RightRailContext);
-  if (!value) throw new Error("useInstrumentRightRail must be used inside InstrumentShell");
-  return value;
-}
-
-export function useOptionalInstrumentRightRail(): InstrumentRightRailContextValue | null {
-  return useContext(RightRailContext);
-}
-
-export function InstrumentRightRailPortal({ owner, label, children }: {
-  owner: InstrumentRightRailOwner;
-  label: string;
-  children: ReactNode;
-}): ReactPortal | null {
-  const rail = useContext(RightRailContext);
-  const register = rail?.register;
-  useLayoutEffect(() => register?.(owner, label), [label, owner, register]);
-  if (!rail?.host || rail.mode === "closed" || rail.owner !== owner) return null;
-  return createPortal(children, rail.host);
+  return value ? <InstrumentScrollProvider value={value}>{children}</InstrumentScrollProvider> : children;
 }
 
 export function InstrumentShell(props: InstrumentShellProps): ReactElement {
@@ -386,7 +322,7 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
     },
   }), [deskColumn, deskElement, dimensions.deskHeight, dimensions.deskWidth, props.routeScrollKey]);
 
-  const railContext = useMemo<InternalRightRailContextValue>(() => ({
+  const railContext = useMemo<InstrumentRightRailProviderValue>(() => ({
     mode,
     owner: activeRail.owner,
     host: railHost,
@@ -399,8 +335,8 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
      once; it is a context menu on the asset now, so the rail shows the chat or it shows the one
      panel that took it. */
   const railContentHidden = activeRail.owner !== "chat";
-  return <ScrollContext.Provider value={scrollContext}>
-    <RightRailContext.Provider value={railContext}>
+  return <InstrumentScrollProvider value={scrollContext}>
+    <InstrumentRightRailProvider value={railContext}>
       <div
         /* Handoff 13's window: 8px of desk on all four sides, an 8px zone gap, and nothing
            touching the window edge. The sidebar is full height and the topbar belongs to the
@@ -580,6 +516,6 @@ export function InstrumentShell(props: InstrumentShellProps): ReactElement {
         railHost,
         "instrument-persistent-right-rail",
       )}
-    </RightRailContext.Provider>
-  </ScrollContext.Provider>;
+    </InstrumentRightRailProvider>
+  </InstrumentScrollProvider>;
 }

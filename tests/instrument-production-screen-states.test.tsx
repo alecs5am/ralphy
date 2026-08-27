@@ -7,7 +7,7 @@ import {
   isWorkspacePickerVisible,
   ProjectScreenLoadingFallback,
 } from "@/app/App";
-import { PROJECT_VIEWS, type ProjectView } from "@/widgets/project-header/ui/ProjectControls";
+import { PROJECT_VIEWS, type ProjectView } from "@/widgets/project-header";
 import {
   InstrumentScreenRoot,
   type InstrumentRouteKey,
@@ -18,27 +18,17 @@ import {
   PRODUCTION_GLOBAL_OVERLAY_ROUTES,
   PRODUCTION_SCREEN_STATES,
   WORKSPACE_PICKER_ROUTE_KEYS,
-} from "@/shared/instrument/production-screen-states";
+} from "@/app/instrument/production-screen-states";
 import { bridge } from "@/shared/api/ipc";
-import {
-  MARKETPLACE_BASE_ROUTE_KINDS,
-  MARKETPLACE_CATEGORY_ROUTE_VALUES,
-  MARKETPLACE_LIBRARY_ROUTE_VALUES,
-  MARKETPLACE_UNAVAILABLE_DETAIL_ROUTE_VALUES,
-  MarketplaceScreenView,
-} from "@/pages/marketplace/ui/MarketplaceScreen";
+import { MARKETPLACE_BASE_ROUTE_KINDS, MARKETPLACE_CATEGORY_ROUTE_VALUES, MARKETPLACE_LIBRARY_ROUTE_VALUES, MARKETPLACE_UNAVAILABLE_DETAIL_ROUTE_VALUES, MarketplaceScreenView } from "@/pages/marketplace";
 import {
   MemoryScreen,
   memoryInstrumentStates,
-} from "@/pages/memory/ui/MemoryScreen";
-import { SETTINGS_CATEGORY_IDS } from "@/pages/settings/ui/SettingsScreen";
-import {
-  projectMarketplacePublicItem,
-  type MarketplaceItemPresentation,
-  type MarketplaceSnapshot,
-} from "@/pages/marketplace/lib/presentation";
-import { MarketplaceInstalledModels } from "@/pages/marketplace/ui/MarketplaceModelViews";
-import type { MarketplaceLocation, MarketplaceQueryState, MarketplaceRoute } from "@/pages/marketplace/model/navigation";
+} from "@/pages/memory";
+import { SETTINGS_CATEGORY_IDS } from "@/pages/settings";
+import { projectMarketplacePublicItem, type MarketplaceItemPresentation, type MarketplaceSnapshot } from "@/pages/marketplace";
+import { MarketplaceInstalledModels } from "@/pages/marketplace";
+import type { MarketplaceLocation, MarketplaceQueryState, MarketplaceRoute } from "@/pages/marketplace";
 import { WORKSPACE_PAGES } from "@/shared/model/workbench";
 import { createReactHost } from "./react-host";
 

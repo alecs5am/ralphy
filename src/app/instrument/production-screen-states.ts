@@ -1,30 +1,33 @@
-import { isChatRailVisible, isWorkspacePickerVisible } from "@/app/App";
-import { welcomeInstrumentStates } from "@/widgets/welcome/ui/WelcomeScreen";
-import { calendarInstrumentStates } from "@/pages/calendar/ui/CalendarScreen";
-import { contextInstrumentStates } from "@/pages/context/ui/ContextScreen";
-import { libraryInstrumentStates } from "@/pages/library/ui/LibraryScreen";
-import { marketplaceInstrumentStates } from "@/pages/marketplace/ui/MarketplaceScreen";
-import { memoryInstrumentStates } from "@/pages/memory/ui/MemoryScreen";
-import { migrationInstrumentStates } from "@/pages/migration-recovery/ui/MigrationRecoveryScreen";
-import { settingsInstrumentStates } from "@/pages/settings/ui/SettingsScreen";
-import { sharedLibraryInstrumentStates } from "@/pages/shared-library/ui/SharedLibraryScreen";
-import { workspaceOverviewInstrumentStates } from "@/pages/workspace/ui/WorkspaceScreen";
+import { isChatRailVisible, isWorkspacePickerVisible } from "../App";
+import { welcomeInstrumentStates } from "@/widgets/welcome";
+import { calendarInstrumentStates } from "@/pages/calendar";
+import { contextInstrumentStates } from "@/pages/context";
+import { libraryInstrumentStates } from "@/pages/library";
+import { marketplaceInstrumentStates } from "@/pages/marketplace";
+import { memoryInstrumentStates } from "@/pages/memory";
+import { migrationInstrumentStates } from "@/pages/migration-recovery";
+import { settingsInstrumentStates } from "@/pages/settings";
+import { sharedLibraryInstrumentStates } from "@/pages/shared-library";
+import { workspaceOverviewInstrumentStates } from "@/pages/workspace";
 import {
   workspaceProjectsInstrumentStates,
-} from "@/pages/workspace-projects/ui/WorkspaceProjectsScreen";
-import { workspaceUnitsInstrumentStates } from "@/pages/workspace-units/ui/WorkspaceUnitsScreen";
-import { activityInstrumentStates } from "@/pages/project/ui/ActivityTimeline";
-import { documentsInstrumentStates } from "@/pages/project/ui/DocumentsPanel";
-import { mediaInstrumentStates } from "@/pages/project/ui/MediaPanel";
-import { unitsInstrumentStates } from "@/pages/project/ui/UnitsPanel";
+} from "@/pages/workspace-projects";
+import { workspaceUnitsInstrumentStates } from "@/pages/workspace-units";
+import { activityInstrumentStates } from "@/pages/project";
+import { documentsInstrumentStates } from "@/pages/project";
+import { mediaInstrumentStates } from "@/pages/project";
+import { unitsInstrumentStates } from "@/pages/project";
 import type {
-  InstrumentRouteKey,
   InstrumentScenarioState,
   InstrumentScreenStateDescriptor,
-} from "./screen-state-registry";
-import type { InstrumentOverlayId } from "./overlay-registry";
+} from "@/shared/instrument/screen-state-registry";
+import type { InstrumentRouteKey } from "./routes";
+import type { InstrumentOverlayId } from "@/shared/instrument/overlay-registry";
 
-export const PRODUCTION_SCREEN_STATES: readonly InstrumentScreenStateDescriptor[] = [
+/* The catalogue is where a page's route key is checked against the union: every descriptor the
+   app collects has to be one of the routes the app declares. A page states a literal and the
+   registry keeps it, so a typo fails here rather than going unnoticed. */
+export const PRODUCTION_SCREEN_STATES: readonly InstrumentScreenStateDescriptor<InstrumentRouteKey>[] = [
   welcomeInstrumentStates,
   libraryInstrumentStates,
   migrationInstrumentStates,

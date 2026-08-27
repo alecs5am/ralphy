@@ -2,7 +2,7 @@ import { act } from "react";
 import { readFileSync } from "node:fs";
 import { describe, expect, test, vi } from "vitest";
 
-import { InstrumentProfileControl } from "@/widgets/instrument-sidebar/ui/InstrumentProfileControl";
+import { InstrumentProfileControl } from "@/widgets/sidebar";
 import { createReactHost, type HostNode } from "./react-host";
 
 
@@ -133,7 +133,7 @@ describe("instrument profile control", () => {
         await settle();
       });
       // The markup fixes the menu; the inline style carries only the measured position.
-      expect(readFileSync("src/widgets/instrument-sidebar/ui/InstrumentProfileControl.tsx", "utf8"))
+      expect(readFileSync("src/widgets/sidebar/ui/InstrumentProfileControl.tsx", "utf8"))
         .toMatch(/instrument-profile-menu fixed z-popover/);
       expect(menu.style.left).toBe("800px");
       expect(Number.parseFloat(menu.style.top)).toBeLessThan(660);
@@ -151,7 +151,7 @@ describe("instrument profile control", () => {
       // Every one of these decisions now stands on the element that renders it. The measure and
       // the two viewport fits are role keys: the menu gives way to the window rather than
       // overdrawing the window's own rounded clip.
-      const source = readFileSync("src/widgets/instrument-sidebar/ui/InstrumentProfileControl.tsx", "utf8");
+      const source = readFileSync("src/widgets/sidebar/ui/InstrumentProfileControl.tsx", "utf8");
       const theme = readFileSync("src/app/styles/theme/shell.css", "utf8");
       expect(source).toMatch(/w-profile-menu min-w-profile-menu-min max-w-overlay-fit/);
       expect(source).toMatch(/max-h-overlay-fit-block/);

@@ -3,7 +3,7 @@ import { act, useSyncExternalStore } from "react";
 import { describe, expect, test, vi } from "vitest";
 import type { DocumentSearchDto } from "../electron/ralphy/types";
 import type { ProjectSummary } from "@/shared/api/ipc";
-import * as screen from "@/pages/project/ui/ProjectScreen";
+import * as screen from "@/pages/project";
 import { createReactHost, type HostNode } from "./react-host";
 
 const project: ProjectSummary = {

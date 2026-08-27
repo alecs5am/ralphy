@@ -30,10 +30,10 @@ import type {
   ProjectSummary,
   WorkspaceSummary,
 } from "@/shared/api/ipc";
-import type { AgentChatController } from "@/features/agent-chat/model/useAgentChat";
-import { AgentComposer, type AgentComposerHandle } from "@/features/agent-chat/ui/AgentComposer";
-import { addAttachments, withAttachments, type Attachment } from "@/features/agent-chat/lib/attachments";
-import { AgentFailure, AgentThread } from "@/features/agent-chat/ui/AgentThread";
+import type { AgentChatController } from "@/features/agent-chat";
+import { AgentComposer, type AgentComposerHandle } from "@/features/agent-chat";
+import { addAttachments, withAttachments, type Attachment } from "@/features/agent-chat";
+import { AgentFailure, AgentThread } from "@/features/agent-chat";
 import { AgentMark } from "@/shared/ui/AgentMark";
 import { AiBrandIcon } from "@/shared/ui/AiBrandIcon";
 import { InstrumentOverlay } from "@/shared/instrument/overlay-registry";

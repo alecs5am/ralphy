@@ -1,8 +1,8 @@
-import type { InstrumentRouteKey, InstrumentScenarioState } from "./screen-state-registry";
+import type { InstrumentScenarioState } from "./screen-state-registry";
 
 export interface InstrumentTestFixture {
   id: string;
-  routeKey: InstrumentRouteKey;
+  routeKey: string;
   state: InstrumentScenarioState;
   payload: unknown;
 }
@@ -12,7 +12,7 @@ export interface InstrumentTestFixtureProvider {
 }
 
 interface FixtureRegistration {
-  routeKey: InstrumentRouteKey;
+  routeKey: string;
   state: InstrumentScenarioState;
   scenarioId: string;
   overlay: string | null;
@@ -22,16 +22,16 @@ interface FixtureRegistration {
 const routeStateSource = "startup.welcome=restoring,ready;startup.library=restoring,ready,empty,unavailable,error;startup.migration=unavailable;workspace.overview=loading,ready,partial,error;workspace.projects=ready,empty;workspace.units=loading,ready,empty,partial,error;workspace.shared=loading,ready,empty,partial,error;workspace.memory=loading,ready,empty,unavailable,selected;workspace.context=loading,ready,partial,unavailable,selected;workspace.calendar=loading,ready,empty,partial,error,selected,scheduling;project.units=loading,ready,empty,partial,error,selected,viewer,conflict;project.documents=loading,ready,empty,partial,error,selected,editing,conflict;project.media=loading,ready,empty,partial,error,selected,viewer;project.activity=loading,ready,empty,partial,error,selected;settings.general=ready;settings.profile=ready;settings.appearance=ready;settings.keys=ready;settings.agents=ready;settings.providers=ready;settings.storage=ready;settings.permissions=ready;settings.terminal=ready;settings.diagnostics=ready;settings.updates=ready;settings.about=ready;marketplace.discover=loading,error,partial,ready;marketplace.results=loading,error,partial,empty,ready;marketplace.collection=loading,error,unavailable;marketplace.detail=loading,ready,unavailable,error;marketplace.category.models=loading,error,partial,empty,ready;marketplace.category.templates=loading,error,partial,empty,ready;marketplace.category.recipes=loading,error,partial,empty,ready;marketplace.category.prompts=loading,error,partial,empty,unavailable,ready;marketplace.category.components=loading,error,partial,empty,unavailable,ready;marketplace.category.skills=loading,error,partial,empty,unavailable,ready;marketplace.library.installed=unavailable,empty,ready;marketplace.library.saved=unavailable;marketplace.library.added=unavailable;marketplace.library.downloads=unavailable;marketplace.library.updates=unavailable;marketplace.library.attention=unavailable;marketplace.unavailable-detail.prompts=unavailable;marketplace.unavailable-detail.components=unavailable;marketplace.unavailable-detail.skills=unavailable";
 const localOverlaySource = "root-picker=startup.welcome,ready;migration-recovery=startup.migration,unavailable;app-alert=startup.library,error;profile-menu=startup.library,ready;settings=settings.general,ready;dynamic-island=startup.library,ready;right-rail-sheet=startup.library,ready;workspace-account-detail=workspace.overview,ready;workspace-unit-outcome-detail=workspace.overview,ready;workspace-evidence-detail=workspace.overview,ready;shared-inspector=workspace.shared,ready;shared-viewer=workspace.shared,ready;shared-workflow=workspace.shared,ready;memory-recall=workspace.memory,selected;memory-editor=workspace.memory,selected;memory-history=workspace.memory,selected;memory-confirm=workspace.memory,selected;calendar-filter=workspace.calendar,ready;calendar-drawer=workspace.calendar,ready;calendar-inspector=workspace.calendar,selected;calendar-schedule=workspace.calendar,scheduling;calendar-unit-picker=workspace.calendar,scheduling;calendar-date-popover=workspace.calendar,scheduling;calendar-time-popover=workspace.calendar,scheduling;calendar-platform-settings=workspace.calendar,ready;calendar-account-detail=workspace.calendar,selected;calendar-reconnect=workspace.calendar,selected;document-editor=project.documents,editing;document-viewer=project.documents,selected;document-conflict=project.documents,conflict;media-viewer=project.media,viewer;media-context-menu=project.media,selected;mock-needs-work=project.media,selected;unit-viewer=project.units,viewer;run-inspector=project.activity,selected;marketplace-detail=marketplace.detail,ready;target-chooser=marketplace.detail,ready;view-panel-types=workspace.overview,ready;view-panel-overflow=workspace.overview,ready;context-reader=workspace.context,ready";
 
-const routeStates = new Map<InstrumentRouteKey, readonly InstrumentScenarioState[]>(routeStateSource.split(";").map((entry) => {
+const routeStates = new Map<string, readonly InstrumentScenarioState[]>(routeStateSource.split(";").map((entry) => {
   const [routeKey, states] = entry.split("=");
-  return [routeKey as InstrumentRouteKey, states.split(",") as InstrumentScenarioState[]];
+  return [routeKey as string, states.split(",") as InstrumentScenarioState[]];
 }));
 const routeKeys = [...routeStates.keys()];
-const preferredState = (routeKey: InstrumentRouteKey) => {
+const preferredState = (routeKey: string) => {
   const states = routeStates.get(routeKey)!;
   return states.includes("ready") ? "ready" : states[0]!;
 };
-const routeScenarioId = (routeKey: InstrumentRouteKey, state: InstrumentScenarioState) => (
+const routeScenarioId = (routeKey: string, state: InstrumentScenarioState) => (
   `${routeKey.startsWith("project.") ? routeKey.slice("project.".length) : routeKey}.${state}`
 );
 
@@ -45,11 +45,11 @@ const registrations: FixtureRegistration[] = routeKeys.flatMap((routeKey) => rou
 
 for (const entry of localOverlaySource.split(";")) {
   const [overlay, target] = entry.split("=");
-  const [routeKey, state] = target.split(",") as [InstrumentRouteKey, InstrumentScenarioState];
+  const [routeKey, state] = target.split(",") as [string, InstrumentScenarioState];
   registrations.push({ routeKey, state, scenarioId: `overlay.${overlay}.${routeKey}`, overlay, overlayOwner: null });
 }
 
-const sharedOwners: readonly [string, readonly InstrumentRouteKey[]][] = [
+const sharedOwners: readonly [string, readonly string[]][] = [
   ["settings.rows", routeKeys.filter((routeKey) => routeKey.startsWith("settings."))],
   ["shared.toolbar", ["workspace.shared"]],
   ["shared.workflow", ["workspace.shared"]],

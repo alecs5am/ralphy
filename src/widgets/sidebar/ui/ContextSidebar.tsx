@@ -17,10 +17,10 @@ import type {
   MarketplaceCategory,
   MarketplaceLibrarySection,
   MarketplaceRoute,
-} from "@/pages/marketplace/model/navigation";
-import { InstrumentProfileControl } from "@/widgets/instrument-sidebar/ui/InstrumentProfileControl";
+} from "@/shared/model/routes";
+import { InstrumentProfileControl } from "./InstrumentProfileControl";
 import { ProfileAvatar, profileIdentity } from "@/shared/ui/ProfileAvatar";
-import { WorkspacePicker } from "@/widgets/instrument-sidebar/ui/WorkspacePicker";
+import { WorkspacePicker } from "./WorkspacePicker";
 
 export interface SidebarChat {
   id: string;

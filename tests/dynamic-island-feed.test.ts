@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { projectDynamicIslandFeed } from "@/widgets/dynamic-island/model/feed";
+import { projectDynamicIslandFeed } from "@/widgets/dynamic-island";
 
 describe("dynamic island live projection", () => {
   test("does not invent review totals, progress, or navigation", () => {

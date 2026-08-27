@@ -1,6 +1,6 @@
 import type { ComponentProps, ReactNode } from "react";
 
-import { projectGlyphAsset } from "@/entities/project/lib/project-glyph";
+import { projectGlyphAsset } from "../lib/project-glyph";
 import type { InstrumentScreenHeaderProps } from "./types";
 
 function classNames(...values: Array<string | undefined>) {

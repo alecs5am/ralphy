@@ -2,9 +2,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
-import * as projectControls from "@/widgets/project-header/ui/ProjectControls";
-import { ProjectScreenView } from "@/pages/project/ui/ProjectScreen";
-import { createProjectScreenController } from "@/pages/project/model/screen-controller";
+import * as projectControls from "@/widgets/project-header";
+import { ProjectScreenView } from "@/pages/project";
+import { createProjectScreenController } from "@/pages/project";
 
 const project = {
   id: "project-1",

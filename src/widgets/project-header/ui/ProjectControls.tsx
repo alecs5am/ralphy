@@ -1,11 +1,11 @@
-import type { ProjectTab } from "@/shared/api/ipc";
 import { Activity, FileText, Image, Layers3 } from "lucide-react";
 import { createPortal } from "react-dom";
-import { useOptionalInstrumentScroll } from "@/widgets/instrument-shell/ui/InstrumentShell";
+import { useOptionalInstrumentScroll } from "@/shared/lib/instrument-scroll";
 import { ProjectDock } from "./ProjectDock";
 import { moveGooeyTab, type GooeyTab } from "@/shared/ui/GooeyTabs";
+import type { ProjectView } from "@/shared/model/routes";
 
-export type ProjectView = Exclude<ProjectTab, "compositions">;
+export type { ProjectView };
 
 interface ProjectControlsProps {
   activeTab: ProjectView;

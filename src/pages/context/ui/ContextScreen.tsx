@@ -12,7 +12,7 @@ import type {
   ContextRowDto,
 } from "../../../../electron/agent/context-page";
 import type { ContextFileDto } from "../../../../electron/agent/context-document";
-import type { AgentChatUsage } from "@/features/agent-chat/model/useAgentChat";
+import type { AgentChatUsage } from "@/features/agent-chat";
 import { bridge, type AgentProvider, type ProjectSummary } from "@/shared/api/ipc";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "@/shared/instrument/screen-state-registry";
 import { EMPTY_SECTION, PROJECT_LOCAL_ERROR, PROJECT_SKELETON } from "@/shared/ui/route-chrome";

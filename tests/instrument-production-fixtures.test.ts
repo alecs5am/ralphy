@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { build } from "esbuild";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { INSTRUMENT_SCENARIOS } from "@/shared/instrument/scenarios";
+import { INSTRUMENT_SCENARIOS } from "@/app/instrument/scenarios";
 import { loadInstrumentTestFixtures } from "@/shared/instrument/load-test-fixtures";
 
 const loaderSource = readFileSync(new URL("../src/shared/instrument/load-test-fixtures.ts", import.meta.url), "utf8");

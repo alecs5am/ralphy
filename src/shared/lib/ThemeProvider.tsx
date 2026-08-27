@@ -9,7 +9,7 @@ import {
 } from "react";
 
 import { applyResolvedTheme, resolveTheme } from "./theme";
-import type { ResolvedTheme, ThemePreference } from "@/shared/instrument/types";
+import type { ResolvedTheme, ThemePreference } from "../instrument/types";
 
 export interface ThemeContextValue {
   preference: ThemePreference;

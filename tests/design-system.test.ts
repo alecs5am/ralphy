@@ -9,14 +9,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 import type { ActivityDto, ArtifactMediaCardDto, CompositionDto, CompositionRevisionDto, MediaCardDto, UnitDto, UnitRevisionDto, WorkspaceOverviewDto } from "../electron/ralphy/types";
 import type { ProjectSummary } from "@/shared/api/ipc";
-import { ProjectScreenView, createProjectScreenController } from "@/pages/project/ui/ProjectScreen";
-import { SharedLibraryScreenView } from "@/pages/shared-library/ui/SharedLibraryScreen";
-import { SharedArtifactInspector } from "@/pages/shared-library/ui/SharedArtifactInspector";
-import { presentSharedArtifact } from "@/pages/shared-library/lib/presentation";
+import { ProjectScreenView, createProjectScreenController } from "@/pages/project";
+import { SharedLibraryScreenView } from "@/pages/shared-library";
+import { SharedArtifactInspector } from "@/pages/shared-library";
+import { presentSharedArtifact } from "@/pages/shared-library";
 import { ICON_BUTTON, ICON_BUTTON_QUIET } from "@/shared/ui/IconButton";
 import { WINDOW_CLOSE } from "@/shared/ui/Window";
 import { builtStylesheetLink, readStylesheet } from "./style-sources";
-import { WorkspaceScreenView, createWorkspaceScreenController } from "@/pages/workspace/ui/WorkspaceScreen";
+import { WorkspaceScreenView, createWorkspaceScreenController } from "@/pages/workspace";
 
 // `workbench.css` and its eight `workbench/*-unowned.css` chunks are gone: the holding files were
 // resolved rule by rule into the markup of the components that render each element, and what a
@@ -26,7 +26,8 @@ const styles = ["reset.css", "tokens.css", "frame.css", "resize-grabber.css", "s
   .map((file) => readStylesheet(file))
   .join("\n");
 const workbenchStyles = ["frame.css", "resize-grabber.css"].map((file) => readStylesheet(file)).join("\n");
-const virtualAssetGridSource = readFileSync(join(process.cwd(), "src/entities/media/ui/VirtualAssetGrid.tsx"), "utf8");
+const virtualAssetGridSource = readFileSync(join(process.cwd(), "src/pages/project/ui/VirtualAssetGrid.tsx"), "utf8");
+const mediaCardPreviewSource = readFileSync(join(process.cwd(), "src/entities/media/ui/MediaCardPreview.tsx"), "utf8");
 const workspaceMediaTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/workspace-media.css"), "utf8");
 const workspaceMediaSource = ["src/pages/workspace-projects/ui/WorkspaceProjectsScreen.tsx", "src/widgets/project-header/ui/ProjectHeader.tsx", "src/shared/ui/GooeyTabs.tsx", "src/pages/project/ui/MediaViewer.tsx", "src/pages/project/ui/MediaPanel.tsx", "src/entities/media/ui/AudioWaveform.tsx", "src/entities/media/ui/VideoPlayer.tsx", "src/entities/media/ui/ImageViewport.tsx", "src/entities/media/lib/tone.ts"]
   .map((file) => readFileSync(join(process.cwd(), file), "utf8"))
@@ -34,7 +35,7 @@ const workspaceMediaSource = ["src/pages/workspace-projects/ui/WorkspaceProjects
 const mediaPanelSource = readFileSync(join(process.cwd(), "src/pages/project/ui/MediaPanel.tsx"), "utf8");
 const documentsActivityTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/documents-activity.css"), "utf8");
 const markdownViewSource = readFileSync(join(process.cwd(), "src/shared/ui/MarkdownView.tsx"), "utf8");
-const documentsActivitySource = ["src/pages/project/ui/ActivityTimeline.tsx", "src/pages/project/ui/ActivityInspector.tsx", "src/shared/ui/MarkdownView.tsx", "src/widgets/welcome/ui/WelcomeScreen.tsx", "src/entities/media/ui/VirtualAssetGrid.tsx"]
+const documentsActivitySource = ["src/pages/project/ui/ActivityTimeline.tsx", "src/pages/project/ui/ActivityInspector.tsx", "src/shared/ui/MarkdownView.tsx", "src/widgets/welcome/ui/WelcomeScreen.tsx", "src/pages/project/ui/VirtualAssetGrid.tsx"]
   .map((file) => readFileSync(join(process.cwd(), file), "utf8"))
   .join("\n");
 /**
@@ -72,17 +73,17 @@ const titlebarSource = readFileSync(join(process.cwd(), "src/widgets/titlebar/ui
 const shellTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/shell.css"), "utf8");
 const shellStyles = readStylesheet("instrument.css");
 const shellSource = [
-  "src/widgets/instrument-shell/ui/InstrumentShell.tsx",
+  "src/app/layout/InstrumentShell.tsx",
   "src/shared/instrument/primitives.tsx",
-  "src/widgets/instrument-sidebar/ui/InstrumentProfileControl.tsx",
+  "src/widgets/sidebar/ui/InstrumentProfileControl.tsx",
   "src/widgets/dynamic-island/ui/DynamicIsland.tsx",
   "src/shared/instrument/overlay-registry.tsx",
 ].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
 const selectMenuSource = readFileSync(join(process.cwd(), "src/shared/ui/SelectMenu.tsx"), "utf8");
 const agentRailSource = readFileSync(join(process.cwd(), "src/widgets/utility-panels/ui/UtilityPanels.tsx"), "utf8");
 const agentRailTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/agent-rail.css"), "utf8");
-const pickerSource = readFileSync(join(process.cwd(), "src/widgets/instrument-sidebar/ui/WorkspacePicker.tsx"), "utf8");
-const contextSidebarSource = readFileSync(join(process.cwd(), "src/widgets/context-sidebar/ui/ContextSidebar.tsx"), "utf8");
+const pickerSource = readFileSync(join(process.cwd(), "src/widgets/sidebar/ui/WorkspacePicker.tsx"), "utf8");
+const contextSidebarSource = readFileSync(join(process.cwd(), "src/widgets/sidebar/ui/ContextSidebar.tsx"), "utf8");
 const librarySource = readFileSync(join(process.cwd(), "src/pages/library/ui/LibraryScreen.tsx"), "utf8");
 const workspaceOverviewTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/workspace-overview.css"), "utf8");
 const calendarMemoryTheme = readFileSync(join(process.cwd(), "src/app/styles/theme/calendar-memory.css"), "utf8");
@@ -1012,7 +1013,7 @@ describe("design system contract", () => {
       "src/pages/calendar/ui/CalendarScreen.tsx",
       "src/pages/memory/ui/MemoryScreen.tsx",
       "src/pages/project/ui/UnitViewer.tsx",
-      "src/widgets/instrument-shell/ui/InstrumentShell.tsx",
+      "src/app/layout/InstrumentShell.tsx",
     ]) {
       const source = readFileSync(join(process.cwd(), file), "utf8");
       expect(source).toContain("IconButton");
@@ -1289,7 +1290,7 @@ describe("design system contract", () => {
     // an unlayered sheet loses to an `!important` utility inside `@layer utilities`, so it held
     // nothing back over the 586 elements it matched. Motion is stopped where it is declared.
     expect(workSurfaces).not.toMatch(/prefers-reduced-motion/);
-    for (const source of [shellSource, readFileSync(join(process.cwd(), "src/widgets/context-sidebar/ui/ContextSidebar.tsx"), "utf8")]) {
+    for (const source of [shellSource, readFileSync(join(process.cwd(), "src/widgets/sidebar/ui/ContextSidebar.tsx"), "utf8")]) {
       expect(source).toMatch(/motion-reduce:(?:animate-none|duration-0|\[transition-property:none\])/);
     }
     // The sidebar's slide-in is the defect this found: `instrument.css` declared the animation
@@ -1435,7 +1436,7 @@ describe("design system contract", () => {
     // radii tokens.css opts in by itself, so the one preview that wanted a squircle states it on
     // the element -- six of the list's other selectors measured identical with the rule disabled.
     expect(workbenchStyles).not.toContain(".asset-preview");
-    expect(virtualAssetGridSource).toMatch(/asset-preview[^"`]*\[corner-shape:squircle\]/);
+    expect(mediaCardPreviewSource).toMatch(/asset-preview[^"`]*\[corner-shape:squircle\]/);
     // design v2 in this area: no border, no shadow and no gradient. `border-collapse` is a table
     // model and `border-0` is the removal of one, and the only box-shadows are the two named
     // inset marks -- the selected activity row and a blockquote.
@@ -1512,8 +1513,8 @@ describe("design system contract", () => {
       "src/pages/project/ui/MediaViewer.tsx",
       "src/pages/shared-library/ui/SharedArtifactViewer.tsx",
       "src/pages/shared-library/ui/SharedArtifactPreview.tsx",
-      "src/entities/unit/ui/UnitSocialPreview.tsx",
-      "src/entities/media/ui/VirtualAssetGrid.tsx",
+      "src/pages/project/ui/UnitSocialPreview.tsx",
+      "src/entities/media/ui/MediaCardPreview.tsx",
     ]) expect(readFileSync(join(process.cwd(), file), "utf8")).toMatch(/tone="(?:instrument|surface)"/);
     // The asset modal is fixed to the window, so its gutter is the one length in the area with no
     // container to read: a continuous clamp, which is what replaced the deleted 1040px breakpoint.
@@ -1649,11 +1650,11 @@ describe("design system contract", () => {
 
   test("transfers the approved dither workspace hero and project identity system", () => {
     const picker = readFileSync(
-      join(process.cwd(), "src/widgets/instrument-sidebar/ui/WorkspacePicker.tsx"),
+      join(process.cwd(), "src/widgets/sidebar/ui/WorkspacePicker.tsx"),
       "utf8",
     );
     const sidebar = readFileSync(
-      join(process.cwd(), "src/widgets/context-sidebar/ui/ContextSidebar.tsx"),
+      join(process.cwd(), "src/widgets/sidebar/ui/ContextSidebar.tsx"),
       "utf8",
     );
     const projectsScreen = readFileSync(
@@ -1663,8 +1664,8 @@ describe("design system contract", () => {
     // The footer's identity is the sidebar's own markup plus the control it mounts, since
     // `ProfileMenu` is gone: both halves have to decline the raw library label, not just one.
     const profile = [
-      "src/widgets/context-sidebar/ui/ContextSidebar.tsx",
-      "src/widgets/instrument-sidebar/ui/InstrumentProfileControl.tsx",
+      "src/widgets/sidebar/ui/ContextSidebar.tsx",
+      "src/widgets/sidebar/ui/InstrumentProfileControl.tsx",
       "src/shared/ui/ProfileAvatar.tsx",
     ].map((path) => readFileSync(join(process.cwd(), path), "utf8")).join("\n");
 
@@ -1871,7 +1872,7 @@ describe("design system contract", () => {
   test("opens app-level settings from a custom profile popover", () => {
     const app = readFileSync(join(process.cwd(), "src/app/App.tsx"), "utf8");
     const profileMenu = readFileSync(
-      join(process.cwd(), "src/widgets/instrument-sidebar/ui/InstrumentProfileControl.tsx"),
+      join(process.cwd(), "src/widgets/sidebar/ui/InstrumentProfileControl.tsx"),
       "utf8",
     );
     const overlayRegistry = readFileSync(
@@ -1936,7 +1937,7 @@ describe("design system contract", () => {
       "utf8",
     );
     const sidebar = readFileSync(
-      join(process.cwd(), "src/widgets/context-sidebar/ui/ContextSidebar.tsx"),
+      join(process.cwd(), "src/widgets/sidebar/ui/ContextSidebar.tsx"),
       "utf8",
     );
     const settings = readFileSync(
@@ -1951,7 +1952,7 @@ describe("design system contract", () => {
 
   test("keeps library switching in the profile and the terminal out of the top chrome", () => {
     const shell = readFileSync(
-      join(process.cwd(), "src/widgets/instrument-shell/ui/InstrumentShell.tsx"),
+      join(process.cwd(), "src/app/layout/InstrumentShell.tsx"),
       "utf8",
     );
     expect(shell).not.toContain('aria-label="Toggle bottom panel"');

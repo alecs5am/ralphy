@@ -1,10 +1,5 @@
 import { describe, expect, test } from "vitest";
-import {
-  projectGlyphSlot,
-  projectGlyphVars,
-  projectGlyphAsset,
-  workspaceDitherVars,
-} from "@/entities/project/lib/project-glyph";
+import { projectGlyphSlot, projectGlyphVars, projectGlyphAsset, workspaceDitherVars } from "@/shared/lib/project-glyph";
 
 describe("name-salted visual identity", () => {
   test("is stable and produces varied project and workspace colors", () => {

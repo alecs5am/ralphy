@@ -74,7 +74,7 @@ async function marketplaceGeometry(): Promise<GeometrySmoke> {
     const styleLinks = builtStylesheetLink();
     writeFileSync(join(directory, "harness.tsx"), `
       import { createRoot } from "react-dom/client";
-      import { ContextSidebar } from ${JSON.stringify(join(process.cwd(), "src/widgets/context-sidebar/ui/ContextSidebar.tsx"))};
+      import { ContextSidebar } from ${JSON.stringify(join(process.cwd(), "src/widgets/sidebar/ui/ContextSidebar.tsx"))};
       import { MarketplaceScreenView, MARKETPLACE_SCREEN, MARKETPLACE_SCROLL } from ${JSON.stringify(join(process.cwd(), "src/pages/marketplace/ui/MarketplaceScreen.tsx"))};
       import { MarketplaceHeader } from ${JSON.stringify(join(process.cwd(), "src/pages/marketplace/ui/MarketplaceHeader.tsx"))};
       import { MarketplaceActionReview, MarketplaceDownloads, MarketplaceTargetChooser, marketplaceTargets } from ${JSON.stringify(join(process.cwd(), "src/pages/marketplace/ui/MarketplaceWorkflows.tsx"))};

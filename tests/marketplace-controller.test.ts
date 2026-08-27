@@ -7,8 +7,8 @@ import type {
   MarketplacePublicSnapshotDto,
   MediaWorkbenchBridge,
 } from "../electron/media/types";
-import { createMarketplaceController, type MarketplaceApi } from "@/pages/marketplace/model/controller";
-import type { MarketplaceQueryState } from "@/pages/marketplace/model/navigation";
+import { createMarketplaceController, type MarketplaceApi } from "@/pages/marketplace";
+import type { MarketplaceQueryState } from "@/pages/marketplace";
 
 const machine = {
   platform: "macOS",

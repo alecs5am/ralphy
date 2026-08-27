@@ -1,45 +1,25 @@
-export type AppMode = "work" | "marketplace";
-export const MARKETPLACE_CATEGORIES = ["models", "templates", "recipes", "prompts", "components", "skills"] as const;
-export const MARKETPLACE_LIBRARY_SECTIONS = ["installed", "saved", "added", "downloads", "updates", "attention"] as const;
-export const MARKETPLACE_UNAVAILABLE_DETAIL_CATEGORIES = ["prompts", "components", "skills"] as const;
-export type MarketplaceCategory = (typeof MARKETPLACE_CATEGORIES)[number];
-export type MarketplaceLibrarySection = (typeof MARKETPLACE_LIBRARY_SECTIONS)[number];
-export type MarketplaceBrowseRoute =
-  | { kind: "discover" }
-  | { kind: "results" }
-  | { kind: "category"; category: MarketplaceCategory }
-  | { kind: "library"; section: MarketplaceLibrarySection }
-  | { kind: "collection" };
-export type MarketplaceRoute = MarketplaceBrowseRoute
-  | { kind: "detail"; itemId: string }
-  | { kind: "unavailable-detail"; category: (typeof MARKETPLACE_UNAVAILABLE_DETAIL_CATEGORIES)[number] };
+import {
+  MARKETPLACE_CATEGORIES,
+  MARKETPLACE_LIBRARY_SECTIONS,
+  MARKETPLACE_UNAVAILABLE_DETAIL_CATEGORIES,
+  type AppMode,
+  type MarketplaceBrowseRoute,
+  type MarketplaceFilterState,
+  type MarketplaceLocation,
+  type MarketplaceQueryState,
+  type MarketplaceRoute,
+} from "@/shared/model/routes";
 
-export interface MarketplaceFilterState {
-  category: MarketplaceCategory | "all";
-  source: "all" | "ralphy" | "huggingface" | "civitai" | "modelscope";
-  license: "all" | "declared";
-  compatibility: "all" | "compatible" | "unknown" | "incompatible";
-  modality: "all" | "text" | "image" | "video" | "audio" | "multimodal";
-  format: "all" | "gguf" | "safetensors" | "onnx" | "mlx";
-}
-
-export interface MarketplaceQueryState {
-  text: string;
-  filters: MarketplaceFilterState;
-  sort: "relevance" | "updated" | "name";
-}
+/* The route vocabulary itself is shared -- the sidebar and the island address these routes too.
+   What stays here is the behaviour: the location stack, what it remembers, and how it is read
+   back off disk. */
+export * from "@/shared/model/routes";
 
 interface MarketplaceLocationMemory {
   query: MarketplaceQueryState;
   scrollTop: number;
   focusId: string | null;
 }
-
-export type MarketplaceLocation = MarketplaceLocationMemory & (
-  | { route: MarketplaceBrowseRoute; selectedItemId: string | null }
-  | { route: { kind: "detail"; itemId: string }; selectedItemId: string }
-  | { route: { kind: "unavailable-detail"; category: (typeof MARKETPLACE_UNAVAILABLE_DETAIL_CATEGORIES)[number] }; selectedItemId: null }
-);
 
 export const MARKETPLACE_SIDEBAR_WIDTH = 248;
 
@@ -271,3 +251,4 @@ export function marketplaceReducer(
       return { ...state, sidebarVisible: !state.sidebarVisible };
   }
 }
+

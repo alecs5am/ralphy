@@ -8,7 +8,7 @@ import {
   safeProviderMediaUrl,
   searchLocalModels,
 } from "../electron/local-models";
-import { projectMarketplaceModelDetail } from "@/pages/marketplace/lib/presentation";
+import { projectMarketplaceModelDetail } from "@/pages/marketplace";
 
 const GB = 1024 ** 3;
 const machine = {

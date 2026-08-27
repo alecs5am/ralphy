@@ -11,7 +11,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import type { WorkspaceSummary } from "@/shared/api/ipc";
-import { workspaceDitherVars } from "@/entities/project/lib/project-glyph";
+import { workspaceDitherVars } from "@/shared/lib/project-glyph";
 import { InstrumentOverlay } from "@/shared/instrument/overlay-registry";
 
 /* The workspace card. `sidebar-context` states the 118px height once; the picker and its hero

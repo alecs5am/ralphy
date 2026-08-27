@@ -7,22 +7,19 @@ import type {
   LocalModelReference,
 } from "../electron/media/types";
 import { bridge } from "@/shared/api/ipc";
-import { MarketplaceScreenView } from "@/pages/marketplace/ui/MarketplaceScreen";
-import {
-  MarketplaceInstalledModels,
-  MarketplaceModelDetail,
-} from "@/pages/marketplace/ui/MarketplaceModelViews";
-import { marketplaceItemDomId } from "@/pages/marketplace/ui/MarketplaceBrowse";
+import { MarketplaceScreenView } from "@/pages/marketplace";
+import { MarketplaceInstalledModels, MarketplaceModelDetail } from "@/pages/marketplace";
+import { marketplaceItemDomId } from "@/pages/marketplace";
 import type {
   MarketplaceItemPresentation,
   MarketplaceSnapshot,
-} from "@/pages/marketplace/lib/presentation";
+} from "@/pages/marketplace";
 import type {
   MarketplaceLocation,
   MarketplaceNavigationState,
   MarketplaceQueryState,
-} from "@/pages/marketplace/model/navigation";
-import { marketplaceReducer } from "@/pages/marketplace/model/navigation";
+} from "@/pages/marketplace";
+import { marketplaceReducer } from "@/pages/marketplace";
 import { createReactHost, type HostNode } from "./react-host";
 
 const machine: LocalModelMachine = {

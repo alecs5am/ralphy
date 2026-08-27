@@ -9,9 +9,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type {
   CalendarChannelInput, CalendarEventDto, CalendarEventStatus, CalendarReadyUnitDto, CalendarWorkspaceDto, JsonValue,
 } from "../../../../electron/ralphy/types";
-import { entityDragProps, RALPHY_ENTITY_DRAG, type Attachment } from "@/features/agent-chat/lib/attachments";
+import { entityDragProps, RALPHY_ENTITY_DRAG, type Attachment } from "@/features/agent-chat";
 import { bridge } from "@/shared/api/ipc";
-import { projectGlyphVars } from "@/entities/project/lib/project-glyph";
+import { projectGlyphVars } from "@/shared/lib/project-glyph";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "@/shared/instrument/screen-state-registry";
 import type { WorkspaceCalendarNavigationContext } from "@/shared/model/workbench";
 import { Modal } from "@/shared/ui/Modal";

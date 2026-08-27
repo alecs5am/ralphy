@@ -3,8 +3,8 @@ import { describe, expect, test, vi } from "vitest";
 
 import type { ActivityDto } from "../electron/ralphy/types";
 import type { ProjectSummary } from "@/shared/api/ipc";
-import * as screen from "@/pages/project/ui/ProjectScreen";
-import { activitySearchText, activitySource, summarizeActivityRun } from "@/pages/project/lib/activity-presentation";
+import * as screen from "@/pages/project";
+import { activitySearchText, activitySource, summarizeActivityRun } from "@/pages/project";
 import { createReactHost, type HostNode } from "./react-host";
 
 const project: ProjectSummary = {

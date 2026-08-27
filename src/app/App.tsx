@@ -11,10 +11,10 @@ import {
   type ReactNode,
 } from "react";
 import { LayoutGroup, MotionConfig, motion } from "motion/react";
-import { InstrumentSidebar } from "@/widgets/instrument-sidebar/ui/InstrumentSidebar";
-import { AgentChatPanel } from "@/widgets/utility-panels/ui/UtilityPanels";
-import { WelcomeScreen } from "@/widgets/welcome/ui/WelcomeScreen";
-import { useAgentChat } from "@/features/agent-chat/model/useAgentChat";
+import { InstrumentSidebar } from "@/widgets/sidebar";
+import { AgentChatPanel } from "@/widgets/utility-panels";
+import { WelcomeScreen } from "@/widgets/welcome";
+import { useAgentChat } from "@/features/agent-chat";
 import {
   bridge,
   type ActivityRefreshEvent,
@@ -22,24 +22,24 @@ import {
   type ProjectSummary,
   type RootIdentity,
 } from "@/shared/api/ipc";
-import { LibraryScreen } from "@/pages/library/ui/LibraryScreen";
-import { WorkspaceScreen } from "@/pages/workspace/ui/WorkspaceScreen";
-import { WorkspaceProjectsScreen } from "@/pages/workspace-projects/ui/WorkspaceProjectsScreen";
-import { WorkspaceUnitsScreen } from "@/pages/workspace-units/ui/WorkspaceUnitsScreen";
-import { MigrationRecoveryScreen } from "@/pages/migration-recovery/ui/MigrationRecoveryScreen";
-import { ContextScreen } from "@/pages/context/ui/ContextScreen";
-import { MemoryScreen } from "@/pages/memory/ui/MemoryScreen";
-import { CalendarScreen } from "@/pages/calendar/ui/CalendarScreen";
-import { SharedLibraryScreen } from "@/pages/shared-library/ui/SharedLibraryScreen";
-import { MarketplaceScreen } from "@/pages/marketplace/ui/MarketplaceScreen";
+import { LibraryScreen } from "@/pages/library";
+import { WorkspaceScreen } from "@/pages/workspace";
+import { WorkspaceProjectsScreen } from "@/pages/workspace-projects";
+import { WorkspaceUnitsScreen } from "@/pages/workspace-units";
+import { MigrationRecoveryScreen } from "@/pages/migration-recovery";
+import { ContextScreen } from "@/pages/context";
+import { MemoryScreen } from "@/pages/memory";
+import { CalendarScreen } from "@/pages/calendar";
+import { SharedLibraryScreen } from "@/pages/shared-library";
+import { MarketplaceScreen } from "@/pages/marketplace";
 import {
   effectiveChord,
   chordTokens,
   readCommandBindings,
   resolveCommand,
   SETTINGS_COMMANDS,
-} from "@/pages/settings/lib/commands";
-import type { SettingsPageId as SettingsCategory } from "@/pages/settings/lib/registry";
+} from "@/pages/settings";
+import type { SettingsPageId as SettingsCategory } from "@/pages/settings";
 import {
   activeViewTab,
   closeViewTab,
@@ -55,27 +55,19 @@ import {
   type ViewChatPanel,
   type ViewPanelPreferences,
   type ViewTabSet,
-} from "@/widgets/view-panel/model/view-panel";
-import { ViewPanel } from "@/widgets/view-panel/ui/ViewPanel";
-import { ViewPanelHub } from "@/widgets/view-panel/ui/ViewPanelHub";
-import { ViewBrowser, browserLabel } from "@/widgets/view-panel/ui/ViewBrowser";
+} from "@/widgets/view-panel";
+import { ViewPanel } from "@/widgets/view-panel";
+import { ViewPanelHub } from "@/widgets/view-panel";
+import { ViewBrowser, browserLabel } from "@/widgets/view-panel";
 import { InstrumentScreenRoot } from "@/shared/instrument/screen-state-registry";
-import { InstrumentFloatHost, InstrumentShell } from "@/widgets/instrument-shell/ui/InstrumentShell";
-import { DynamicIsland } from "@/widgets/dynamic-island/ui/DynamicIsland";
-import { projectDynamicIslandFeed, type DynamicIslandFeed, type IslandContext } from "@/widgets/dynamic-island/model/feed";
+import { InstrumentFloatHost, InstrumentShell } from "./layout/InstrumentShell";
+import { DynamicIsland } from "@/widgets/dynamic-island";
+import { projectDynamicIslandFeed, type DynamicIslandFeed, type IslandContext } from "@/widgets/dynamic-island";
 import { InstrumentOverlay } from "@/shared/instrument/overlay-registry";
-import { useTheme } from "./providers/ThemeProvider";
-import { unitsInstrumentStates } from "@/pages/project/lib/unit-instrument-state";
-import {
-  MARKETPLACE_SIDEBAR_WIDTH,
-  marketplaceReducer,
-  readMarketplaceNavigation,
-  writeMarketplaceNavigation,
-  type AppMode,
-  type MarketplaceBrowseRoute,
-  type MarketplaceLocation,
-  type MarketplaceMemoryPatch,
-} from "@/pages/marketplace/model/navigation";
+import { useTheme } from "@/shared/lib/ThemeProvider";
+import { unitsInstrumentStates } from "@/pages/project";
+import { MARKETPLACE_SIDEBAR_WIDTH, marketplaceReducer, readMarketplaceNavigation, writeMarketplaceNavigation, type MarketplaceMemoryPatch } from "@/pages/marketplace";
+import { type AppMode, type MarketplaceBrowseRoute, type MarketplaceLocation } from "@/shared/model/routes";
 import {
   createInitialWorkbenchState,
   mostRecentWorkspaceId,
@@ -91,12 +83,12 @@ import {
 import { COMMAND_BUTTON } from "@/shared/ui/route-chrome";
 
 const loadProjectScreen = () =>
-  import("@/pages/project/ui/ProjectScreen").then(({ ProjectScreen }) => ({
+  import("@/pages/project").then(({ ProjectScreen }) => ({
     default: ProjectScreen,
   }));
 const ProjectScreen = lazy(loadProjectScreen);
 const loadSettingsScreen = () =>
-  import("@/pages/settings/ui/SettingsScreen").then(({ SettingsScreen }) => ({
+  import("@/pages/settings").then(({ SettingsScreen }) => ({
     default: SettingsScreen,
   }));
 const SettingsScreen = lazy(loadSettingsScreen);
@@ -307,7 +299,7 @@ export function App() {
     let cancelled = false;
     setMockIslandFeed(null);
     if (import.meta.env.VITE_RALPHY_ENABLE_MOCKS !== "true" || selectedWorkspace?.name !== "UX Testing Lab") return;
-    void import("@/widgets/dynamic-island/model/mock").then(({ projectMockDynamicIslandFeed }) => {
+    void import("@/widgets/dynamic-island").then(({ projectMockDynamicIslandFeed }) => {
       if (!cancelled) setMockIslandFeed(projectMockDynamicIslandFeed({ rootEpoch: rootIdentity?.rootEpoch ?? 0, workspace: selectedWorkspace, project: selectedProject }));
     });
     return () => { cancelled = true; };

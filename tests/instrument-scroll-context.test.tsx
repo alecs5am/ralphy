@@ -1,7 +1,8 @@
 import { act, useLayoutEffect } from "react";
 import { describe, expect, test } from "vitest";
 
-import { InstrumentShell, useInstrumentScroll } from "@/widgets/instrument-shell/ui/InstrumentShell";
+import { InstrumentShell } from "@/app/layout/InstrumentShell";
+import { useInstrumentScroll } from "@/shared/lib/instrument-scroll";
 import { createReactHost } from "./react-host";
 
 let currentScroll: ReturnType<typeof useInstrumentScroll> | null = null;

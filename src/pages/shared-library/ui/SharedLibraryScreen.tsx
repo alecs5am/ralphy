@@ -3,7 +3,7 @@ import { useEffect, useId, useState, useSyncExternalStore, type MouseEvent } fro
 import type { MediaWorkbenchBridge } from "../../../../electron/media/types";
 import { bridge } from "@/shared/api/ipc";
 import { defineInstrumentScreenStates, InstrumentScreenRoot } from "@/shared/instrument/screen-state-registry";
-import { InstrumentRightRailPortal, useOptionalInstrumentRightRail } from "@/widgets/instrument-shell/ui/InstrumentShell";
+import { InstrumentRightRailPortal, useOptionalInstrumentRightRail } from "@/shared/lib/instrument-rail";
 import {
   createSharedLibraryController,
   type SharedLibraryController,

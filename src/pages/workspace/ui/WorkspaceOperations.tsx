@@ -1,7 +1,7 @@
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import type { ProjectSummary } from "@/shared/api/ipc";
-import { projectGlyphVars } from "@/entities/project/lib/project-glyph";
+import { projectGlyphVars } from "@/shared/lib/project-glyph";
 import type { WorkspacePage } from "@/shared/model/workbench";
 import {
   ACTION_ON_SUNKEN,

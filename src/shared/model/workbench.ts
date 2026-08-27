@@ -4,7 +4,7 @@ import type {
   ProjectSummary,
   WorkspaceSummary,
 } from "../../../electron/media/types";
-import { parseThemePreference } from "@/app/providers/theme";
+import { parseThemePreference } from "../lib/theme";
 import type { ThemePreference } from "../instrument/types";
 
 export type WorkbenchRoute =

@@ -14,11 +14,7 @@ import {
   workbenchReducer,
   writeWorkbenchPreferences,
 } from "@/shared/model/workbench";
-import {
-  marketplaceReducer,
-  readMarketplaceNavigation,
-  writeMarketplaceNavigation,
-} from "@/pages/marketplace/model/navigation";
+import { marketplaceReducer, readMarketplaceNavigation, writeMarketplaceNavigation } from "@/pages/marketplace";
 
 const rootPath = "/tmp/demo/.ralphy";
 

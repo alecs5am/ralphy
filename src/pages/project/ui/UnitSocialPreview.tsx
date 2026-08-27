@@ -19,10 +19,10 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { AudioWaveform } from "@/entities/media/ui/AudioWaveform";
-import { VideoPlayer } from "@/entities/media/ui/VideoPlayer";
-import { type SocialTarget, type UnitMedia } from "../lib/unit-previews";
-import { DocumentContent } from "@/pages/project/ui/DocumentsPanel";
+import { AudioWaveform } from "@/entities/media";
+import { VideoPlayer } from "@/entities/media";
+import { type SocialTarget, type UnitMedia } from "@/entities/unit";
+import { DocumentContent } from "..";
 
 export type SocialPreviewProps = {
   media: UnitMedia[];

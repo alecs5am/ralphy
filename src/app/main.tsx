@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
-import { ThemeProvider } from "./providers/ThemeProvider";
+import { ThemeProvider } from "@/shared/lib/ThemeProvider";
 import { readWorkbenchPreferences } from "@/shared/model/workbench";
 import "./styles/reset.css";
 import "./styles/tokens.css";
